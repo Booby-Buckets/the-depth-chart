@@ -44,6 +44,21 @@
     #nilContent .nv-pos i{position:relative;}
     #nilContent .nv-pos i span{position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:800;color:#fff;letter-spacing:.04em;}
     #nilContent .nil-cmp tr.me td{font-weight:800;}
+
+    /* side column (Sept 2026): flat like the rest of the site — a small label over a sheet table,
+       no card fill, border or coloured rail */
+    .side-col .side-card{background:none!important;border:none!important;box-shadow:none!important;margin-bottom:26px!important;overflow:visible!important;}
+    .side-col .side-card-head{background:none!important;border:none!important;border-bottom:1px solid var(--border)!important;border-left:none!important;
+      padding:0 0 8px!important;margin-bottom:10px;font-size:10px!important;font-weight:800!important;letter-spacing:.1em;color:var(--text3)!important;box-shadow:none!important;}
+    .side-col .side-card-head.has-pc{padding-left:18px!important;padding-right:24px!important;}
+    .side-col .side-card-head::before,.side-col .side-card-head::after{display:none!important;}
+    .side-col .side-card-body{padding:0!important;}
+    .sheet.side-sheet{width:100%!important;min-width:100%!important;}
+    .sheet.side-add{table-layout:fixed;}
+    .sheet.side-add td{overflow:hidden;text-overflow:ellipsis;}
+    .sheet.side-sheet td.portal-from{font-style:normal!important;font-size:inherit!important;color:var(--text3)!important;max-width:110px;overflow:hidden;text-overflow:ellipsis;}
+    .side-sheet td.nm a{color:var(--text);text-decoration:none;} .side-sheet td.nm a:hover{color:var(--accent);text-decoration:underline;}
+    .side-sheet .sat-out{color:var(--text3);font-style:normal;}
 </style>
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=5"></script>
@@ -2671,7 +2686,7 @@ async function _markSatOut(adds){
     const last={}; rows.forEach(r=>{ const e=String(r.espn_id); if(!(e in last)||r.season_year>last[e]) last[e]=r.season_year; });
     document.querySelectorAll('#additionsBody .portal-from[data-espn]').forEach(el=>{
       const e=el.getAttribute('data-espn'); if(!e||last[e]!==2025||el.querySelector('.sat-out')) return;
-      el.insertAdjacentHTML('beforeend',' · <span class="sat-out" title="No 2025-26 season on file: sat out, redshirted or did not play">sat out 25-26</span>');
+      el.insertAdjacentHTML('beforeend',' <span class="sat-out" title="No 2025-26 season on file: sat out, redshirted or did not play">(sat out 25-26)</span>');
     });
   }catch(e){}
 }
@@ -2684,15 +2699,11 @@ function renderSidebar(t, players, losses, color){
 
   // Additions — players marked is_addition in DB
   const adds = players.filter(p => p.is_addition);
+  const _fromTxt=h=>{ h=String(h||'').trim(); if(!h) return ''; if(/international/i.test(h)) return 'International'; return h.replace(/\s*\(\d{2}-\d{2}\)\s*$/,''); };
   document.getElementById('additionsBody').innerHTML = adds.length
-    ? adds.map(a=>`
-      <div class="portal-item">
-        <span class="portal-pos">${a.position||''}</span>
-        <div style="flex:1;">
-          <div class="portal-name">${a.name}</div>
-          <div class="portal-from" data-espn="${a.espn_id!=null?a.espn_id:''}">${a.class_year||a.yr||''}${a.hometown ? ' · via '+a.hometown : ''}</div>
-        </div>
-      </div>`).join('')
+    ? `<div class="sheet-wrap"><table class="sheet dense side-sheet side-add"><colgroup><col style="width:32px"><col><col style="width:40%"></colgroup><thead><tr><th class="l">Pos</th><th class="l">Player</th><th class="l">From</th></tr></thead><tbody>${
+      adds.map(a=>`<tr><td class="l dim">${a.position||''}</td><td class="l nm" title="${a.name}${(a.class_year||a.yr)?' · '+(a.class_year||a.yr):''}"><a href="player.html?${a.espn_id?('espn='+a.espn_id+'&'):''}name=${encodeURIComponent(a.name)}">${a.name}</a></td><td class="l dim portal-from" data-espn="${a.espn_id!=null?a.espn_id:''}" title="${(_fromTxt(a.hometown)||'').replace(/"/g,'&quot;')}">${_fromTxt(a.hometown)||(/fr/i.test(a.class_year||a.yr||'')?'Freshman':'—')}</td></tr>`).join('')
+    }</tbody></table></div>`
     : '<div class="empty-note">None listed</div>';
   _markSatOut(adds);
 
@@ -7487,8 +7498,11 @@ async function renderProjectedStats(){
   const n1=v=>(v==null||v==='')?'—':(Math.round(parseFloat(v)*10)/10).toFixed(1);
   const rankVsNat=(val,key,inv)=>{ val=parseFloat(val); if(isNaN(val)||!nat||!nat.length) return '';
     let better=0,n=0; nat.forEach(r=>{ const x=parseFloat(r[key]); if(isNaN(x)) return; n++; if(inv?x<val:x>val) better++; }); return n?`${ord(better+1)} of ${n}`:''; };
+  // one sheet row per stat: value + national rank, shaded by that rank (c4 = top fifth of D-I)
+  const _rkN=rk=>{ const m=/^(\d+)\D+of (\d+)/.exec(rk||''); return m?[+m[1],+m[2]]:null; };
   const cell=(label,val,rk,col,tipId)=>{ const tip=(tipId&&window.statTip)?statTip(tipId):'';
-    return `<div class="tstat${tip?' has-tip':''}"${tip?` title="${tip.replace(/"/g,'&quot;')}"`:''}><b style="color:${col||'var(--text)'}">${val}</b><span>${label}</span>${rk?`<i class="tstat-rk">${rk}</i>`:''}</div>`; };
+    const r=_rkN(rk), b=r&&r[1]>1?Math.min(4,Math.floor((1-(r[0]-1)/(r[1]-1))*5)):null;
+    return `<tr><td class="l nm"${tip?` title="${tip.replace(/"/g,'&quot;')}"`:''}>${label}</td><td class="big${b!=null?' c'+b:''}">${val}</td><td class="dim">${r?('#'+r[0]):'—'}</td></tr>`; };
   const rating=pr?Math.round(parseFloat(pr.rating)*10)/10:null;
   const ratingStr=rating!=null?((rating>0?'+':'')+rating):'—';
   const ratingCol=rating!=null?(rating>=0?'#3fa66a':'#c75d5d'):'var(--text)';
@@ -7505,8 +7519,7 @@ async function renderProjectedStats(){
     cell('SPG',n1(tp.stl),rankVsNat(tp.stl,'spg'),null,'spg'),
     cell('BPG',n1(tp.blk),rankVsNat(tp.blk,'bpg'),null,'bpg')
   );
-  body.innerHTML=`<div class="tstat-grid">${cells.join('')}</div>
-    <div class="empty-note" style="padding:8px 2px 0;text-align:center;">Projected 2026–27 · ranks vs 2025–26 D1</div>`;
+  body.innerHTML=`<div class="sheet-wrap"><table class="sheet dense side-sheet"><thead><tr><th class="l">Stat</th><th>2026-27</th><th title="Rank against 2025-26 Division I teams">D-I rank</th></tr></thead><tbody>${cells.join('')}</tbody></table></div>`;
 }
 async function renderSeasonStats(yr){
   const card=document.getElementById('seasonStatsCard'), body=document.getElementById('seasonStatsBody'), head=document.getElementById('seasonStatsHead');
@@ -8001,14 +8014,16 @@ function _fillTurnoverCard(prior, losses, roster){
   const isFr=p=>((p.yr||p.class_year||'')+'').toLowerCase().includes('fr');
   const adds=roster.filter(p=>p.is_addition);
   const frosh=adds.filter(isFr).length, transfers=adds.length-frosh;
-  const retCol=v=>v==null?'var(--text3)':v>=60?'var(--green)':v>=35?'var(--text)':'var(--red)';
-  const row=(label,val,col)=>`<div class="grade-row"><span class="grade-row-label">${label}</span><span class="grade-row-val" style="color:${col||'var(--text)'};">${val}</span></div>`;
-  el.innerHTML=
-    row('Returning Production', retPpg==null?'—':retPpg+'%', retCol(retPpg))
-   +row('Returning Minutes',    retMpg==null?'—':retMpg+'%', retCol(retMpg))
-   +row('Departures',           losses.length, losses.length>=8?'var(--red)':'var(--text)')
-   +row('Transfers In',         transfers)
-   +row('Freshmen',             frosh);
+  // same five facts as a sheet; returning shares shaded on the old thresholds (60%+ good, under 35% thin)
+  const retC=v=>v==null?'':v>=60?' c4':v>=45?' c3':v>=35?' c2':v>=25?' c1':' c0';
+  const row=(label,val,cls)=>`<tr><td class="l nm">${label}</td><td class="big${cls||''}">${val}</td></tr>`;
+  el.innerHTML=`<div class="sheet-wrap"><table class="sheet dense side-sheet"><tbody>`
+    +row('Returning production', retPpg==null?'—':retPpg+'%', retC(retPpg))
+    +row('Returning minutes',    retMpg==null?'—':retMpg+'%', retC(retMpg))
+    +row('Departures',           losses.length)
+    +row('Transfers in',         transfers)
+    +row('Freshmen',             frosh)
+    +`</tbody></table></div>`;
 }
 // Append the departures section under the projected (2026-27) depth chart too.
 function _appendDepthLosses(yr){
