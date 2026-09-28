@@ -1,17 +1,7 @@
--- ============================================================================
---  Merge a player's duplicate ESPN ids into one (2026-09-28).
--- ----------------------------------------------------------------------------
---  ESPN sometimes gives a transfer a NEW athlete id at his new school. Our pages load a career by
---  espn_id, so the seasons under the old id disappear from his page, grade history and development.
---
---    Justin Abson   old 5107252 (App State 2022-23, 2023-24)  ->  5238204 (Georgia 2024-25, 2025-26; Wake Forest now)
---
---  The 2014-15 Campbell "Justin Abson" (3129897) is a different, older player and is NOT touched.
---
---  Each merge only runs when the two ids never share a season (so two different people can never be
---  folded together), and it moves every row keyed by the old id: season stats, advanced stats, box
---  scores and (if present) shots. Run the whole file once in the Supabase SQL editor. Safe to re-run.
--- ============================================================================
+-- Follow-up to merge_espn_ids_2026.sql (2026-09-28): the merge missed bbref_seasons, so the
+-- development build still found Justin Abson's App State seasons under his old id 5107252 and listed
+-- him twice. This adds bbref_seasons to merge_espn_id() for future merges and moves his two rows.
+-- Run the whole file in the Supabase SQL editor. Safe to re-run.
 
 create or replace function public.merge_espn_id(p_old bigint, p_new bigint)
 returns text
@@ -37,7 +27,7 @@ end;
 $$;
 revoke all on function public.merge_espn_id(bigint, bigint) from public, anon, authenticated;
 
-select public.merge_espn_id(5107252, 5238204);   -- Justin Abson: App State -> Georgia / Wake Forest
+select public.merge_espn_id(5107252, 5238204);   -- Justin Abson: now also moves bbref_seasons
 
--- verify: all four seasons under one id (Campbell 2015 stays separate)
-select season_year, team, espn_id, gp, mpg, ppg from player_history where name = 'Justin Abson' order by season_year;
+-- verify: both App State seasons under 5238204
+select season_year, school, espn_id, tdc_grade from bbref_seasons where espn_id in (5107252, 5238204) order by season_year;
