@@ -224,8 +224,8 @@
       { sel:'#out', t:'Bracketology', html:'A projected NCAA tournament field built from the Power Ratings:' + bl('<b>Seeds</b> 1-16 by projected strength, with automatic bids for projected conference champions.', '<b>Regions</b> follow the real bracketing rules — top seeds spread across regions, conference rivals kept apart where possible.', 'Once the real bracket is announced, the page shows it with the model\'s pick for every game.') }
     ],
     'games.html': [
-      { sel:'.page-h1', t:'Games',  d:'Eight quick games built on the site\'s own data — a fun way to learn what the numbers mean.' },
-      { sel:'#grid',    t:'Pick one', html:bl('<b>Guess the Player / College</b> — from a stat line or a career path.', '<b>Grade Guess</b> — guess a player\'s OVR from his line; teaches the grade scale fast.', '<b>Higher or Lower</b> and <b>Rank \'Em</b> — order players by a stat.', '<b>Hoop Grid</b> — the tic-tac-toe of teams and accolades.') }
+      { sel:'.gm-title', t:'Games',  d:'Eight quick games built on the site\'s own data. Each has a daily puzzle, the same for everyone, that resets at midnight Eastern.' },
+      { sel:'#ghList',   t:'Pick one', html:bl('<b>Guess the Player / College</b> — from a stat line or a career path.', '<b>Grade Guess</b> — guess a player\'s OVR from his line; teaches the grade scale fast.', '<b>Higher or Lower</b> and <b>Rank \'Em</b> — order players by a stat.', '<b>Hoop Grid</b> — the tic-tac-toe of teams and accolades.') }
     ],
     'game.html': [
       { sel:'#content', t:'Box score', html:'One game in full.' + bl('The header has the final, the four factors for each side and the player of the game.', 'Each player\'s line, with his <b>game impact</b> — how much he swung the result, from his stats in that game.', 'Below: the flow of the game and the runs that decided it.') }
