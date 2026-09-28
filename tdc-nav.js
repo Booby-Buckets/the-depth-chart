@@ -28,7 +28,6 @@
     ['Players', [
       ['player-rankings.html', 'Player Rankings'],
       ['roster.html',          'Player Projected Stats'],
-      ['projection-accuracy.html', 'Projection Accuracy'],
       ['transfer-fit.html',    'Transfer Fit'],
       ['compare-players.html', 'Compare Players'],
       ['draft.html',           'Big Board'],
