@@ -120,6 +120,47 @@ def main():
                 mean_x = float(np.average(x, weights=w)); mean_z = float(np.average(z, weights=w))
                 out[grp].setdefault(st, {})[k] = {"a": round(a_, 4), "b": round(b_, 4), "n": int(len(x)),
                                                    "mean_this": round(mean_x, 3), "mean_next": round(mean_z, 3)}
+    # MINUTES (Sept 2026 backtest): the live rule gave a non-locked returner ~90% of last year's minutes,
+    # which under-projected young risers badly (2025-26 blind: sophomores/juniors 6.7 mpg low). Fit
+    #   next_mpg = a + b*this_mpg                     per class step (the young-riser curve)
+    #   extra    = c + d*team_departed_mpg            on top, from who left (12+ mpg players), known in the offseason
+    # Blind 2025-26: minutes MAE 6.89 -> 4.90 (curve) -> 4.61 (+ departures); so/jr bias -6.65 -> -0.40.
+    roster = {}
+    for e, S in by.items():
+        for y, r in S.items():
+            roster.setdefault((y, (r["team"] or "").strip().lower()), {})[e] = f(r["mpg"]) or 0
+    mrec = []
+    for e, S in by.items():
+        played = seasons_of.get(e, set())
+        if min(played, default=0) <= 2007:
+            continue
+        for y, a in S.items():
+            b = S.get(y + 1)
+            if not b:
+                continue
+            tm = (a["team"] or "").strip().lower()
+            if tm != (b["team"] or "").strip().lower():
+                continue
+            st = step_of(len([s_ for s_ in played if s_ <= y + 1]))
+            if not st:
+                continue
+            prev = roster.get((y, tm), {}); cur = roster.get((y + 1, tm), {})
+            gone = sum(m for pid, m in prev.items() if pid not in cur)
+            mrec.append((st, f(a["mpg"]), f(b["mpg"]), gone))
+    curves = {}
+    for st in ("so", "jr", "sr", "gr"):
+        v = [r for r in mrec if r[0] == st]
+        if len(v) < 200:
+            continue
+        x = np.array([r[1] for r in v]); z = np.array([r[2] for r in v])
+        c, *_ = np.linalg.lstsq(np.vstack([np.ones_like(x), x]).T, z, rcond=None)
+        curves[st] = [round(float(c[0]), 3), round(float(c[1]), 4)]
+    X = np.array([[1.0, r[3]] for r in mrec if r[0] in curves])
+    Y = np.array([r[2] - (curves[r[0]][0] + curves[r[0]][1] * r[1]) for r in mrec if r[0] in curves])
+    dc, *_ = np.linalg.lstsq(X, Y, rcond=None)
+    out["minutes"] = {"curve": curves, "departed": [round(float(dc[0]), 3), round(float(dc[1]), 4)],
+                      "note": "next mpg = a + b*this per class step; extra = c + d*team departed mpg (12+ mpg players who left)"}
+    print("minutes", out["minutes"], file=sys.stderr)
     json.dump(out, open(os.path.join(D, "stat_dev.json"), "w"), indent=1)
     for grp in ("rate", "pct"):
         for st in ("so", "jr", "sr", "gr"):

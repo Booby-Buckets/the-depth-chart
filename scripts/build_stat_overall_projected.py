@@ -540,6 +540,8 @@ for short, roster in roster_by_team.items():
     returner_ids={int(p.espn_id) for p in roster if pd.notna(p.espn_id) and int(p.espn_id) in BOX_IDS}
     # departures = last-year rotation (real minutes) not returning
     departures=[r for r in last_roster if int(r.espn_id) not in returner_ids and _n(r.min)>=150]
+    # rotation minutes that left (12+ mpg players), for the departures boost below
+    _gone=sum(_n(r.min)/max(_n(r.g),1.0) for r in departures if _n(r.min)/max(_n(r.g),1.0)>=12.0)
     vac_load=sum(_n(r.usg_pct,USG_REF)*_n(r.min) for r in departures)   # departed usage load (%·season-min)
     # returners with a real last-year line
     R=[]
@@ -571,6 +573,18 @@ for short, roster in roster_by_team.items():
         _do=int(p.depth_order) if pd.notna(p.depth_order) else None
         _trust=bool(_ret) and last_mpg>=TRUST_MIN and _do is not None and _do<=TRUST_SLOT
         pm=proj_mpg(p.depth_order,last_mpg,starter,_trust)
+        # RETURNER MINUTES from the 2025-26 backtest (stat_dev.json "minutes"): young risers earn more
+        # than "90% of last year", and minutes that left the roster flow to the returners. Rotation
+        # returners only (top 9 on the depth chart); the depth chart still orders them (curve capped at
+        # slot + 6); the 200-minute team fit takes any excess from the bench.
+        if not _xfer and _do is not None and _do<=9 and last_mpg>0:
+            _mc=STAT_DEV.get("minutes",{}); _st_m=dev_step(p.yr or p.class_year)
+            _slot=SLOT_CUR[_do] if 1<=_do<len(SLOT_CUR) else 5
+            _cv=(_mc.get("curve") or {}).get(_st_m)
+            if _cv and _st_m in ("so","jr"):
+                pm=max(pm, min(_slot+6.0, _cv[0]+_cv[1]*last_mpg))
+            _dp=_mc.get("departed")
+            if _dp: pm=min(TRUST_CAP, pm+min(4.0, max(0.0, _dp[0]+_dp[1]*_gone)))
         # true-shooting % (efficiency): distinguishes an efficient scorer from an "empty shots"
         # high-volume, low-percentage one. ppg / (2·(FGA+0.44·FTA)); None when he barely shot.
         _shots=_n(b["fga"])+0.44*_n(b["fta"])
