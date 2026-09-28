@@ -49,6 +49,26 @@ def clean_title(t, source):
     if source and t.endswith(" - "+source): t=t[:-(len(source)+3)].strip()
     return re.sub(r"\s*-\s*[^-]+$","",t) if t.endswith(" - "+ (source or "")) else t
 
+def _fold(x):
+    import unicodedata
+    x=unicodedata.normalize("NFKD",x or "").encode("ascii","ignore").decode().lower()
+    return re.sub(r"[^a-z0-9 ]+"," ",x.replace("\u2019","'").replace("'",""))
+
+SUFFIX={"jr","sr","ii","iii","iv","v"}
+def relevant(title, name, team):
+    """Keep a headline only if it is ABOUT the player: his full name is in it, or his last name plus
+    his school. Google News matches the whole article (captions, sidebars, "related" links), so a
+    Georgia football story that mentions Smurf Millender once came back tagged to him."""
+    t=" "+re.sub(r"\s+"," ",_fold(title))+" "
+    words=[w for w in _fold(name).split() if w not in SUFFIX]
+    if not words: return False
+    full=" ".join(words)
+    if " "+full+" " in t: return True
+    last=words[-1]
+    if len(last)<3 or " "+last+" " not in t: return False
+    sch=_fold(school(team)).split()
+    return bool(sch) and (" "+" ".join(sch)+" ") in t
+
 def fetch_news(name, team, tries=2):
     q='"%s" %s basketball'%(name, school(team))
     url="https://news.google.com/rss/search?"+urllib.parse.urlencode(
@@ -63,7 +83,7 @@ def fetch_news(name, team, tries=2):
             last=e; time.sleep(1.5)
     else:
         raise last   # all attempts failed -> caller keeps last-known headlines
-    items=re.findall(r"<item>(.*?)</item>",xml,re.S)[:PER_PLAYER]
+    items=re.findall(r"<item>(.*?)</item>",xml,re.S)[:PER_PLAYER*4]
     out=[]
     for it in items:
         tm=re.search(r"<title>(.*?)</title>",it,re.S)
@@ -75,10 +95,11 @@ def fetch_news(name, team, tries=2):
         # strip the " - Source" suffix Google appends
         title=html.unescape(title).strip()
         if src and title.endswith(" - "+src): title=title[:-(len(src)+3)].strip()
-        if not title: continue
+        if not title or not relevant(title, name, team): continue
         out.append({"title":title,"source":src,
                     "url":(lm.group(1).strip() if lm else ""),
                     "date":(dm.group(1).strip() if dm else "")})
+        if len(out)>=PER_PLAYER: break
     return out
 
 def main():
