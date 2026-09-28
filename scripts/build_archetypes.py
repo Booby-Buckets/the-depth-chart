@@ -72,9 +72,10 @@ def f(v):
 def ht_in(s):
     m=re.match(r'(\d+)-(\d+)',s or ''); return int(m.group(1))*12+int(m.group(2)) if m else None
 
-def main():
-    adv={str(r['espn_id']):r for r in pull('/player_advanced?season_year=eq.%d&select=espn_id,team,usg_pct,ast_pct,orb_pct,drb_pct,blk_pct,stl_pct'%SEASON) if r.get('espn_id') is not None}
-    ph=pull('/player_history?season_year=eq.%d&select=espn_id,name,position,height,fga,tpa,fta,mpg,gp,tdc_grade'%SEASON)
+def season_rows(season):
+    """qualifying player-seasons (10+ games, 12+ mpg, 2+ FGA) with the style features"""
+    adv={str(r['espn_id']):r for r in pull('/player_advanced?season_year=eq.%d&select=espn_id,team,usg_pct,ast_pct,orb_pct,drb_pct,blk_pct,stl_pct'%season) if r.get('espn_id') is not None}
+    ph=pull('/player_history?season_year=eq.%d&select=espn_id,name,position,height,fga,tpa,fta,mpg,gp,tdc_grade'%season)
     rows=[]
     for r in ph:
         eid=str(r.get('espn_id')); a=adv.get(eid)
@@ -88,6 +89,10 @@ def main():
         if any(v is None for v in ff.values()): continue
         rows.append({'espn_id':r['espn_id'],'name':r['name'],'f':ff,
                      'team':(a.get('team') or ''),'grade':f(r.get('tdc_grade')) or 0})
+    return rows
+
+def main():
+    rows=season_rows(SEASON)
     X=np.array([[r['f'][k] for k in FEAT] for r in rows])
     scaler=StandardScaler().fit(X); Xs=scaler.transform(X)
     km=KMeans(n_clusters=K,n_init=10,random_state=42).fit(Xs)
@@ -105,6 +110,22 @@ def main():
         by_name[norm(r['name'])]={'a':nm}
         roster.setdefault(nm,[]).append({'n':r['name'],'t':r['team'],'g':round(r['grade']),'e':r['espn_id']})
     for nm in roster: roster[nm]=sorted(roster[nm],key=lambda x:-x['g'])   # best first
+    # CURRENT-ROSTER FALLBACK: a player who missed most of this season (Rodney Rice: 6 games at USC
+    # after a full year at Maryland) has no qualifying season, so he had no style at all. Classify
+    # him from his most recent qualifying season (up to 3 back) with THIS season's fitted scaler and
+    # clusters, so the labels mean the same thing. Keyed by espn_id only (no name matches).
+    back=0
+    if SEASON==2026:
+        on_roster={str(r['espn_id']) for r in pull('/players?select=espn_id&espn_id=not.is.null')}
+        need=on_roster-set(players)
+        for y in range(SEASON-1,SEASON-4,-1):
+            if not need: break
+            prior=[r for r in season_rows(y) if str(r['espn_id']) in need]
+            if not prior: continue
+            lab=km.predict(scaler.transform(np.array([[r['f'][k] for k in FEAT] for r in prior])))
+            for r,l in zip(prior,lab):
+                players[str(r['espn_id'])]={'a':cluster_name[int(l)],'y':y}; need.discard(str(r['espn_id'])); back+=1
+        print('styles from an earlier season for %d current-roster players'%back)
     counts={}
     for v in players.values(): counts[v['a']]=counts.get(v['a'],0)+1
     out={'meta':{'season':SEASON,'k':K,'n':len(players),'features':FEAT},
