@@ -410,6 +410,13 @@
     .dc-empty{padding:16px 14px;font-size:12px;color:var(--text3);font-style:italic;}
     @media(max-width:1000px){.dc-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
     @media(max-width:640px){.dc-grid{grid-template-columns:1fr;gap:10px;}}
+    /* Depth chart fit (Sept 2026): columns reflow by the room they really get (a narrow main column
+       next to the side panels squeezed five cards to ~100px and names broke letter by letter), and a
+       name only wraps between words. Beats tdc-team-dense.css's overflow-wrap:anywhere. */
+    .dc-grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))!important;}
+    #depthContent .dc-name{white-space:normal!important;overflow-wrap:normal!important;word-break:normal!important;
+      display:-webkit-box!important;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden!important;hyphens:none;}
+    #depthContent .dc-row{grid-template-columns:14px minmax(0,1fr) auto;gap:8px;padding:8px 10px;}
 
     /* ── FIFA-style squad view (court + bench + player info) ── */
     .sq-wrap{display:grid;grid-template-columns:224px 1fr 300px;gap:18px;margin-bottom:26px;align-items:start;}
@@ -2701,7 +2708,7 @@ function renderSidebar(t, players, losses, color){
   const adds = players.filter(p => p.is_addition);
   const _fromTxt=h=>{ h=String(h||'').trim(); if(!h) return ''; if(/international/i.test(h)) return 'International'; return h.replace(/\s*\(\d{2}-\d{2}\)\s*$/,''); };
   document.getElementById('additionsBody').innerHTML = adds.length
-    ? `<div class="sheet-wrap"><table class="sheet dense side-sheet side-add"><colgroup><col style="width:32px"><col><col style="width:40%"></colgroup><thead><tr><th class="l">Pos</th><th class="l">Player</th><th class="l">From</th></tr></thead><tbody>${
+    ? `<div class="sheet-wrap"><table class="sheet dense side-sheet side-add"><colgroup><col style="width:38px"><col><col style="width:38%"></colgroup><thead><tr><th class="l">Pos</th><th class="l">Player</th><th class="l">From</th></tr></thead><tbody>${
       adds.map(a=>`<tr><td class="l dim">${a.position||''}</td><td class="l nm" title="${a.name}${(a.class_year||a.yr)?' · '+(a.class_year||a.yr):''}"><a href="player.html?${a.espn_id?('espn='+a.espn_id+'&'):''}name=${encodeURIComponent(a.name)}">${a.name}</a></td><td class="l dim portal-from" data-espn="${a.espn_id!=null?a.espn_id:''}" title="${(_fromTxt(a.hometown)||'').replace(/"/g,'&quot;')}">${_fromTxt(a.hometown)||(/fr/i.test(a.class_year||a.yr||'')?'Freshman':'—')}</td></tr>`).join('')
     }</tbody></table></div>`
     : '<div class="empty-note">None listed</div>';
