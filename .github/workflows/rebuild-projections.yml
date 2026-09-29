@@ -5,6 +5,7 @@ name: Rebuild projected DNA
 # homepage projected rankings — then re-slims team_eff.json and commits, which triggers a
 # Vercel deploy. Runs the same two builders you'd run locally:
 #   build_projected_dna.py  (roster -> fingerprint -> team DNA, reconciled so o-d == net)
+#   calibrate_projected_dna.py (history + program-prior calibration of ORtg/DRtg)
 #   build_team_eff.py       (slim ORtg/DRtg/net file the homepage reads)
 #
 # Also rebuilds stat_overall_projected.json (every player's projected minutes/line/grade), so a
@@ -50,8 +51,17 @@ jobs:
       - name: Rebuild projected DNA from live rosters
         run: python3 scripts/build_projected_dna.py
 
+      # calibrate ORtg/DRtg against 2009-2026 history + the program's last two actual seasons
+      # (idempotent: reads the roster values it keeps as ORtg_roster/DRtg_roster)
+      - name: Calibrate projected ORtg / DRtg
+        run: python3 scripts/calibrate_projected_dna.py
+
       - name: Re-slim team_eff.json
         run: python3 scripts/build_team_eff.py
+
+      # the points budget every player projection draws from (ORtg x tempo per team)
+      - name: Rebuild team pace/efficiency budget (team_pace_eff.json)
+        run: python3 scripts/build_team_pace_eff.py
 
       # stdlib-only; pulls graded seasons from bbref_seasons + player_history via the anon key
       - name: Rebuild player development paths (development.json)
@@ -71,7 +81,7 @@ jobs:
         run: |
           git config user.name "tdc-proj-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add scripts/data/team_dna.json scripts/data/team_eff.json scripts/data/development.json scripts/data/team_needs.json scripts/data/stat_overall_projected.json scripts/data/fresh_fit.json
+          git add scripts/data/team_dna.json scripts/data/team_eff.json scripts/data/team_pace_eff.json scripts/data/development.json scripts/data/team_needs.json scripts/data/stat_overall_projected.json scripts/data/fresh_fit.json
           if git diff --cached --quiet; then
             echo "No projection changes."
           else
