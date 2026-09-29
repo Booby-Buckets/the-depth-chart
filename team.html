@@ -386,6 +386,10 @@
     .dc-col{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;}
     .dc-head{padding:9px 14px;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text);border-bottom:2px solid var(--tc,var(--accent));background:rgba(var(--tc-rgb,168,132,60),.07);}
     .dc-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
+    .dc-posbar{display:flex;justify-content:flex-end;margin:0 0 8px;}
+    .dc-posbtn{background:none;border:1px solid var(--border2);border-radius:999px;padding:4px 12px;font:700 11px 'Inter',system-ui,sans-serif;color:var(--text2);cursor:pointer;}
+    .dc-posbtn.on,.dc-posbtn:hover{border-color:var(--text);color:var(--text);}
+    .dc-posov{display:block;margin-top:4px;font:600 11px 'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);border:1px solid var(--border2);border-radius:6px;padding:2px 4px;}
     .dc-head-min{font-size:10.5px;font-weight:700;letter-spacing:.02em;text-transform:none;color:var(--text3);font-variant-numeric:tabular-nums;}
     .dc-of{color:var(--text3);font-weight:500;}
     .dc-row.dc-also .dc-name{color:var(--text2);font-weight:600;}
@@ -8079,6 +8083,16 @@ function histGroup(pos, height){
   if(!h) return 'F';
   return h<=75 ? 'G' : h>=82 ? 'C' : 'F';
 }
+// Owner-set positions for a PAST season's depth chart (box scores can't always tell a 4 from a 5).
+// Saved in the owner blob (TDCFresh keys, public-read like the injury report): histpos:<team>:<season>.
+function _histPosKey(yr){ return 'histpos:'+((teamT&&teamT.name)||'')+':'+yr; }
+function _histPosOverrides(yr){ try{ return (window.TDCFresh&&TDCFresh.getKey&&TDCFresh.getKey(_histPosKey(yr)))||{}; }catch(e){ return {}; } }
+function _setHistPos(sel){
+  const yr=+sel.dataset.yr, k=sel.dataset.k, m=Object.assign({},_histPosOverrides(yr));
+  if(sel.value) m[k]=sel.value; else delete m[k];
+  Promise.resolve(window.TDCFresh&&TDCFresh.setKey?TDCFresh.setKey(_histPosKey(yr),Object.keys(m).length?m:null):null)
+    .catch(()=>{}).then(()=>{ if(window._lastHistRender) renderHistoricRoster.apply(null,window._lastHistRender); });
+}
 function renderHistoricRoster(rows, yr, projected){
   const host=document.getElementById('depthContent');
   // Historical rosters drop players who logged no games; the projected roster keeps
@@ -8225,16 +8239,32 @@ function renderHistoricRoster(rows, yr, projected){
   // slot by PROJECTED minutes (rotation model) not last year's — that's the depth-chart bias we're removing
   const mpg=p=>(p._projMin!=null?p._projMin:S(p,'mpg'));
   const gate=(h,lo,hi)=> h<lo ? (lo-h) : h>hi ? (h-hi) : 0;
-  const fit={
-    PG:p=> 3.0*S(p,'apg') + 1.4*S(p,'stl') + 0.14*S(p,'ppg') - 2.4*gate(H(p),72,76),
-    SG:p=> 0.42*S(p,'ppg') + 0.05*S(p,'tp_pct') + 0.9*S(p,'apg') - 2.2*gate(H(p),74,78),
-    SF:p=> 0.38*S(p,'ppg') + 0.30*S(p,'rpg') + 0.03*S(p,'tp_pct') - 1.8*gate(H(p),77,81),
-    PF:p=> 0.55*S(p,'rpg') + 1.6*S(p,'blk') + 0.05*S(p,'tp_pct') - 1.6*gate(H(p),79,83),
-    C :p=> 0.55*S(p,'rpg') + 2.6*S(p,'blk') + 0.06*S(p,'fg_pct') - 0.12*S(p,'tp_pct') - 1.6*gate(H(p),81,90),
-  };
   const POS=['PG','SG','SF','PF','C'];
   const IDEAL={PG:73, SG:76, SF:79, PF:82, C:84.5};      // typical height (in) per spot
-  const value=(p,pos)=> fit[pos](p) - Math.abs(H(p)-IDEAL[pos])*0.8;   // stat fit + height order
+  // TRAINED position classifier (softmax on height + per-40 rates + shooting profile), fit on the
+  // owner's listed 2026-27 positions vs those players' 2025-26 box lines. Team-held-out: starters
+  // placed right 57% (PF/C 68%) vs 53% (60%) for the hand-tuned `fit` above, which it replaces.
+  // Box scores can't split every 4 from 5 (Clemson: Godfrey vs Davidson) — the owner's saved
+  // positions for a season (Edit positions) override it.
+  const _PM={"mu":[78.22456,6.75307,2.00522,4.74984,2.71361,1.28105,0.81707,2.13615,11.82148,4.54691,4.24966,0.37584,0.36807,46.70321,70.81482,1.32097],"sd":[3.38781,2.89315,1.41718,1.72957,1.63389,0.59229,0.91578,0.84128,3.19132,2.92843,2.09905,0.22698,0.17531,8.53402,13.88702,0.70944],"W":[[-1.4223,-0.9363,0.0826,0.5922,1.6838],[-0.3716,-0.2368,0.0844,0.2456,0.2785],[-0.2694,-0.353,-0.1007,0.3006,0.4225],[-0.3824,-0.0829,0.1326,0.2107,0.122],[0.7414,-0.1086,-0.3888,-0.0816,-0.1624],[0.2029,0.2189,0.0716,-0.1867,-0.3067],[-0.3181,-0.2701,-0.175,0.329,0.4342],[0.2548,0.0873,-0.1883,-0.1604,0.0065],[-0.0094,0.095,-0.0216,0.0359,-0.0999],[-0.1051,0.3019,-0.0275,0.059,-0.2283],[-0.0685,0.0498,0.0694,-0.0703,0.0196],[-0.0725,0.177,0.1971,0.0338,-0.3353],[-0.034,-0.0392,-0.0164,0.1022,-0.0126],[-0.1839,-0.2498,0.0407,0.1292,0.2637],[0.1442,-0.0681,0.0164,-0.0645,-0.028],[0.2631,0.0683,0.0326,-0.1544,-0.2096]],"b":[-0.9297,0.4034,0.8734,0.9403,-1.2874]};
+  const _posLp=p=>{ if(p.__lp) return p.__lp; const m=Math.max(S(p,'mpg'),1), f=k=>S(p,k)*40/m, fga=Math.max(S(p,'fga'),0.1);
+    const o=S(p,'oreb'), d=S(p,'dreb'), rp=S(p,'rpg');
+    const x=[H(p), f('rpg'), (o+d>0?o:rp*0.3)*40/m, (o+d>0?d:rp*0.7)*40/m, f('apg'), f('stl'), f('blk'), f('tovs'), f('fga'), f('tpa'), f('fta'),
+             S(p,'tpa')/fga, S(p,'fta')/fga, S(p,'fg_pct'), S(p,'ft_pct'), S(p,'apg')/Math.max(S(p,'tovs')||0.1,0.3)];
+    const L=[0,1,2,3,4].map(j=>x.reduce((a,v,i)=>a+((v-_PM.mu[i])/_PM.sd[i])*_PM.W[i][j],_PM.b[j]));
+    const mx=Math.max(...L), ls=Math.log(L.reduce((a,v)=>a+Math.exp(v-mx),0));
+    return (p.__lp=L.map(v=>v-mx-ls)); };
+  const _ov=_histPosOverrides(yr);
+  const _okey=p=>p.espn_id?('e'+p.espn_id):('n'+(p.name||'').toLowerCase());
+  // a player still on the current roster: the owner's listed position(s) now are a strong hint for
+  // his past seasons too (roles rarely flip between the 4 and the 5 in a year)
+  const _curPos={}; (typeof teamPlayers!=='undefined'&&Array.isArray(teamPlayers)?teamPlayers:[]).forEach(q=>{
+    const L=[q.position,q.position2].map(x=>(''+(x||'')).toUpperCase().trim()).filter(x=>POS.includes(x));
+    if(L.length){ if(q.espn_id) _curPos['e'+q.espn_id]=L; _curPos['n'+(q.name||'').toLowerCase()]=L; } });
+  const value=(p,pos)=>{ const o=_ov[_okey(p)]; if(o) return o===pos?40:-40;
+    const L=_curPos[_okey(p)]||_curPos['n'+(p.name||'').toLowerCase()];
+    const hint=L?(L[0]===pos?1.6:L.indexOf(pos)>0?0.9:0):0;
+    return _posLp(p)[POS.indexOf(pos)] - Math.abs(H(p)-IDEAL[pos])*0.1 + hint; };
   const byMin=a=>[...a].sort((x,y)=>mpg(y)-mpg(x));
   // Optimal 5-position assignment of a pool → maximize total value, each spot distinct.
   // (A greedy pass strands a player in a bad spot; the joint search puts the true big at C
@@ -8253,7 +8283,7 @@ function renderHistoricRoster(rows, yr, projected){
   // them so bigs back up bigs instead of stacking one column).
   const colByPos={}; cols=POS.map(pos=>{ const c={pos, list:st[pos]?[st[pos]]:[]}; colByPos[pos]=c; return c; });
   byMin(rows.filter(p=>!Object.values(st).includes(p))).forEach(p=>{
-    let bp=POS[0],bf=-1e9; POS.forEach(pos=>{ const f=value(p,pos)-colByPos[pos].list.length*3; if(f>bf){bf=f;bp=pos;} }); colByPos[bp].list.push(p);
+    let bp=POS[0],bf=-1e9; POS.forEach(pos=>{ const f=value(p,pos)-colByPos[pos].list.length*0.8; if(f>bf){bf=f;bp=pos;} }); colByPos[bp].list.push(p);
   });
   }
   const color=teamColor_g, rgb=teamRgb_g;
@@ -8316,9 +8346,11 @@ function renderHistoricRoster(rows, yr, projected){
       const wav=p.is_waiver ? `<span title="On the roster, but has not yet been granted an eligibility waiver — his availability for the season is still pending." style="display:inline-block;font-size:8px;font-weight:800;letter-spacing:.03em;padding:0 4px;border-radius:3px;border:1px solid var(--accent);color:var(--accent);margin-left:6px;cursor:help;line-height:1.6;vertical-align:middle;">WAIVER?</span>` : '';
       // Owner-only injury chip (2026-27 projected view only) — from the on-page injury report.
       const injBadge=(projected && window.TDCInjury) ? TDCInjury.badgeHTML(p) : '';
+      const posEd=(!projected && window._histPosEdit && typeof _isOwner==='function' && _isOwner())
+        ? `<select class="dc-posov" data-k="${p.espn_id?('e'+p.espn_id):('n'+(p.name||'').toLowerCase().replace(/"/g,''))}" data-yr="${yr}" onchange="_setHistPos(this)"><option value="">Auto</option>${['PG','SG','SF','PF','C'].map(x=>`<option${(_histPosOverrides(yr)[p.espn_id?('e'+p.espn_id):('n'+(p.name||'').toLowerCase())]===x)?' selected':''}>${x}</option>`).join('')}</select>` : '';
       return `<div class="dc-row${i===0&&e.star?' dc-starter':''}${e.also?' dc-also':''}">
         <span class="dc-rk">${(i===0&&e.star)?'★':(i+1)}</span>
-        <span class="dc-info"><a class="dc-name" href="${link(p)}">${p.name}</a>${wav}${injBadge}<span class="dc-bio">${bio||'&nbsp;'}</span>${inj}</span>
+        <span class="dc-info"><a class="dc-name" href="${link(p)}">${p.name}</a>${wav}${injBadge}<span class="dc-bio">${bio||'&nbsp;'}</span>${inj}${posEd}</span>
         <span class="dc-grade">${g}</span>
       </div>`;
     }).join('');
@@ -8329,7 +8361,10 @@ function renderHistoricRoster(rows, yr, projected){
     ? `<div class="sec-head" style="margin-top:28px;color:#ef4444;">Injured — Out for ${rosterLbl(yr)} <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· stats from last season played · minutes redistributed in projections</span></div>`
       + histTable(injured, yr-1)
     : '';
-  host.innerHTML = `<div class="dc-grid">${colHtml}</div>${histTable(rows, yr, projected)}${injHtml}<div id="shotDistCard"></div><div id="seasonLossesWrap"></div>`;
+  window._lastHistRender=[rows.concat(injured), yr, projected];
+  const _posBar=(!projected && typeof _isOwner==='function' && _isOwner())
+    ? `<div class="dc-posbar"><button type="button" class="dc-posbtn${window._histPosEdit?' on':''}" onclick="window._histPosEdit=!window._histPosEdit;renderHistoricRoster.apply(null,window._lastHistRender)">${window._histPosEdit?'Done editing positions':'Edit positions'}</button></div>` : '';
+  host.innerHTML = `${_posBar}<div class="dc-grid">${colHtml}</div>${histTable(rows, yr, projected)}${injHtml}<div id="shotDistCard"></div><div id="seasonLossesWrap"></div>`;
   if(projected && yr>=2026){ try{ _renderShotDist(rows); }catch(e){} }
   else if(!projected && yr>=2012){ try{ _renderHistShot(rows, yr); }catch(e){} }
 }
