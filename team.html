@@ -602,7 +602,8 @@
     .dc-player-row:hover{background:color-mix(in srgb,var(--bg2) 55%,transparent);}
     /* make the player editor discoverable: row = pointer, name reads as a link, an Edit pill on every row */
     #customizeContent .dc-player-row{cursor:pointer;}
-    #customizeContent .dc-row-drag{cursor:grab;}
+    #customizeContent .dc-row-drag{cursor:grab;padding:4px 4px;margin:-4px -2px -4px -4px;user-select:none;-webkit-user-select:none;}
+    #customizeContent .dc-row-drag:hover{color:var(--text);}
     #customizeContent .dc-row-name{text-decoration:underline dotted;text-decoration-color:var(--border2);text-underline-offset:3px;}
     #customizeContent .dc-player-row:hover .dc-row-name{text-decoration-color:currentColor;}
     .dc-edit{font:700 10.5px 'Inter',system-ui,sans-serif;letter-spacing:.02em;background:var(--bg);color:var(--text2);border:1px solid var(--border2);border-radius:999px;padding:2px 10px;cursor:pointer;flex-shrink:0;}
@@ -4702,14 +4703,13 @@ function rebuildCustomizeUI(){
       const fitTooltip  = fit.reason ? ` title="${_sqAttr(fit.reason)}"` : '';
       const nAttr=_sqAttr(p.name);
       return `<div class="dc-player-row${isStarter?' is-starter':''}${_curMpgOf(p)<ROT_MIN?' dnp':''}"
-          draggable="true" data-n="${nAttr}" title="Edit ${nAttr}" onclick="_dcRowClick(event,this)"
+          data-n="${nAttr}" title="Edit ${nAttr}" onclick="_dcRowClick(event,this)"
           data-pos="${pos}" data-row="${rowIdx}"
-          ondragstart="onDcDragStart(event,'${pos}',${rowIdx})"
           ondragover="onDcDragOver(event,'${pos}',${rowIdx})"
           ondrop="onDcDrop(event,'${pos}',${rowIdx})"
           ondragleave="onDcDragLeave(event,'${pos}',${rowIdx})">
         <div class="dc-row-top">
-          <span class="dc-row-drag" aria-hidden="true">⠿</span>
+          <span class="dc-row-drag" draggable="true" title="Drag to reorder" ondragstart="onDcDragStart(event,'${pos}',${rowIdx})">⠿</span>
           <span class="dc-row-num">${rowIdx+1}</span>
           <button type="button" class="dc-row-name" data-n="${nAttr}" onclick="openPlayerEditor(this.dataset.n)">${p.name}</button>
           <span class="dc-row-grade" style="color:${eGradeColor};">${p.tdc_grade ? effGrade : '—'}</span>
@@ -5011,9 +5011,13 @@ function renderCustomProjectionsTable(){
 // ── DRAG & DROP (within position column) ─────────────────
 let dcDragFrom = null; // {pos, rowIdx}
 
+// Only the ⠿ handle is draggable: a draggable ROW swallowed clicks on its − / + buttons
+// whenever the mouse moved a hair during the click (Safari starts a drag almost at once).
 function onDcDragStart(e, pos, rowIdx){
   dcDragFrom={pos,rowIdx};
-  setTimeout(()=>{ e.currentTarget.classList.add('dragging-row'); },0);
+  const row=e.target&&e.target.closest?e.target.closest('.dc-player-row'):null;
+  try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',''); if(row) e.dataTransfer.setDragImage(row,24,18); }catch(err){}
+  setTimeout(()=>{ if(row) row.classList.add('dragging-row'); },0);
 }
 function onDcDragOver(e, pos, rowIdx){
   e.preventDefault();
