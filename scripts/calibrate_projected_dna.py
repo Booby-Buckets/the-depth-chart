@@ -104,7 +104,72 @@ def hist(s_target, key, coach):
         out += [adjdev(s, k, 0), adjdev(s, k, 1)] if k else [None, None]
     return out
 
-# training rows: [season, projO, projD, h1O, h1D, h2O, h2D, yO, yD] (None where missing)
+# ── returning minutes (continuity) ─────────────────────────────────────────────────────────
+# Owner (Sept 29 2026): history was lifting Purdue +4 net although only ~41% of its minutes came
+# back — the offense that earned it (Smith/Loyer/Kaufman-Renn) was gone. Over 3,276 team-seasons
+# a strong history carries LESS when the roster turns over and MORE when the core returns, and
+# continuity helps on its own: net LOSO r .893 -> .899, MAE 3.43 -> 3.35, and the bias on
+# great-offence/low-continuity teams -1.25 -> -0.02 (kept-core teams +1.92 -> +0.68).
+# continuity(team, y) = share of the team's season-(y-1) minutes played by players who are on the
+# same team in season y (history: they played there in y; 2027: they are on the current roster).
+import urllib.request
+_SB = "https://izlqhnxowdhtdofkwrho.supabase.co"; _KEY = "sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye"   # anon, read-only
+def _sb(path):
+    out, off = [], 0
+    while True:
+        url = f"{_SB}/rest/v1/{path}&order=id.asc&limit=1000&offset={off}"   # stable order: offset paging skips rows without it
+        for a in range(5):
+            try:
+                ch = json.load(urllib.request.urlopen(urllib.request.Request(url, headers={"apikey": _KEY, "Authorization": "Bearer " + _KEY}), timeout=60)); break
+            except Exception:
+                if a == 4: raise
+        out += ch
+        if len(ch) < 1000: return out
+        off += 1000
+_MINS = {}                                   # (key, season) -> {player: minutes}
+for r in _sb("player_history?select=id,espn_id,name,team,season_year,mpg,gp"):
+    k = school_key(r.get('team') or '')
+    if not k: continue
+    pid = r.get('espn_id') or r.get('name'); d = _MINS.setdefault((k, int(r['season_year'])), {})
+    d[pid] = d.get(pid, 0.0) + (r.get('mpg') or 0) * (r.get('gp') or 0)
+def cont_hist(k, y):
+    prev, cur = _MINS.get((k, y - 1)), _MINS.get((k, y))
+    if not prev or not cur: return None
+    tot = sum(prev.values())
+    return sum(v for p_, v in prev.items() if p_ in cur) / tot if tot > 0 else None
+_ROSTER = {}                                 # current roster: key -> set of players
+_by_short = {}
+for r in _sb("players?select=id,espn_id,name,team&name=neq.%E2%80%94"):
+    _by_short.setdefault(r.get('team') or '', []).append(r.get('espn_id') or r.get('name'))
+_last_key = {}                               # player -> team key he played for last season
+for (k_, y_), d_ in _MINS.items():
+    if y_ == int(LAST):
+        for p_ in d_: _last_key[p_] = k_
+for short, ps in _by_short.items():
+    k = school_key(short)
+    if not k or k not in TD[PROJ]['teams']:
+        # sheet short names the school map can't place (FAU, NC-State, St. John's…): the school
+        # most of his returners played for last season
+        votes = {}
+        for p_ in ps:
+            kk = _last_key.get(p_)
+            if kk in TD[PROJ]['teams']: votes[kk] = votes.get(kk, 0) + 1
+        k = max(votes, key=votes.get) if votes and max(votes.values()) >= 2 else k
+    if k: _ROSTER.setdefault(k, set()).update(ps)
+def cont_now(k):
+    prev = _MINS.get((k, int(LAST)))
+    if not prev or k not in _ROSTER: return None
+    tot = sum(prev.values())
+    return sum(v for p_, v in prev.items() if p_ in _ROSTER[k]) / tot if tot > 0 else None
+CM = 0.5                                     # centre: continuity enters as (continuity - 0.5)
+# OWNER CALL (Sept 29 2026): "I want our projections to lean mostly on the rosters". History (the coach's
+# last two seasons) is kept at HIST_W of the strength the 2009-26 fit gives it; the roster projection
+# and continuity are refit around it. Accuracy cost, net LOSO: 1.0 -> r .893 / MAE 3.43, 0.25 -> r .873 /
+# MAE 3.72 (roster only: .858 / 3.90). Raise it toward 1.0 to trust program history more.
+HIST_W = float(os.environ.get('HIST_W', '0.25'))
+def good(side, h): return None if h is None else (max(h, 0.0) if side == 0 else min(h, 0.0))   # only a GOOD history scales
+
+# training rows: [season, projO, projD, h1O, h1D, h2O, h2D, yO, yD, cont-0.5] (None where missing)
 import sys
 COACH_HIST = '--program-history' not in sys.argv   # A/B switch for the report
 rows = []
@@ -115,18 +180,36 @@ for s, teams in HP.items():
         yo, yd = adjdev(s, k, 0), adjdev(s, k, 1)
         if yo is None or yd is None: continue
         h = hist(s, k, COACH_AT.get((y, k))) if COACH_HIST else [adjdev(s1, k, 0), adjdev(s1, k, 1), adjdev(s2, k, 0), adjdev(s2, k, 1)]
-        rows.append([y, v['ORtg'] - mP[s][0], v['DRtg'] - mP[s][1], h[0], h[1], h[2], h[3], yo, yd])
+        c = cont_hist(k, y)
+        rows.append([y, v['ORtg'] - mP[s][0], v['DRtg'] - mP[s][1], h[0], h[1], h[2], h[3], yo, yd, (c - CM) if c is not None else 0.0])
 
+def feats(side, nhist, p, h1, h2, cm):
+    """[1, proj, h1, h2, good(h1)*cm, good(h2)*cm, cm] trimmed to the history available"""
+    x = [1, p]
+    if nhist >= 1: x += [h1]
+    if nhist >= 2: x += [h2]
+    if nhist >= 1: x += [good(side, h1) * cm]
+    if nhist >= 2: x += [good(side, h2) * cm]
+    return x + [cm]
 def fit(side, nhist):
     """side 0=O,1=D; nhist 0/1/2 prior seasons. Returns (coefs, loso_r, n)."""
     pc, h1, h2, yc = (1, 3, 5, 7) if side == 0 else (2, 4, 6, 8)
     use = [r for r in rows if (nhist < 1 or r[h1] is not None) and (nhist < 2 or r[h2] is not None)]
-    X = np.array([[1, r[pc]] + ([r[h1]] if nhist >= 1 else []) + ([r[h2]] if nhist >= 2 else []) for r in use], float)
+    X = np.array([feats(side, nhist, r[pc], r[h1], r[h2], r[9]) for r in use], float)
     Y = np.array([r[yc] for r in use], float); S = np.array([r[0] for r in use])
-    c = np.linalg.lstsq(X, Y, rcond=None)[0]
+    hc = [i for i in range(2, X.shape[1] - 1)]          # the history columns (h1, h2, good*cm)
+    oc = [0, 1, X.shape[1] - 1]                         # intercept, roster projection, continuity
+    def solve(Xa, Ya):
+        c = np.linalg.lstsq(Xa, Ya, rcond=None)[0]
+        if not hc or HIST_W >= 1: return c
+        # history at HIST_W of its fitted strength; the roster projection and continuity refit around it
+        c[hc] *= HIST_W
+        c[oc] = np.linalg.lstsq(Xa[:, oc], Ya - Xa[:, hc] @ c[hc], rcond=None)[0]
+        return c
+    c = solve(X, Y)
     pred = np.zeros(len(Y))
     for s in np.unique(S):
-        tr = S != s; pred[~tr] = X[~tr] @ np.linalg.lstsq(X[tr], Y[tr], rcond=None)[0]
+        tr = S != s; pred[~tr] = X[~tr] @ solve(X[tr], Y[tr])
     return c, float(np.corrcoef(pred, Y)[0, 1]), len(Y)
 
 M = {(side, h): fit(side, h) for side in (0, 1) for h in (0, 1, 2)}
@@ -162,8 +245,10 @@ for k, t in P27.items():
     h1o, h1d, h2o, h2d = hist(PROJ, k, cur_coach(k)) if COACH_HIST else (adjdev(LAST, k, 0), adjdev(LAST, k, 1), adjdev(PREV, k, 0), adjdev(PREV, k, 1))
     t['calib_coach'] = cur_coach(k) if COACH_HIST else None
     h = 2 if None not in (h1o, h1d, h2o, h2d) else 1 if None not in (h1o, h1d) else 0
-    xo = [1, po] + ([h1o] if h >= 1 else []) + ([h2o] if h >= 2 else [])
-    xd = [1, pd] + ([h1d] if h >= 1 else []) + ([h2d] if h >= 2 else [])
+    c27 = cont_now(k); cm = (c27 - CM) if c27 is not None else 0.0
+    t['continuity'] = round(c27 * 100, 1) if c27 is not None else None
+    xo = feats(0, h, po, h1o, h2o, cm)
+    xd = feats(1, h, pd, h1d, h2d, cm)
     o = mA[LAST][0] + float(np.dot(M[(0, h)][0], xo)); d = mA[LAST][1] + float(np.dot(M[(1, h)][0], xd))
     t['ORtg'] = round(o, 1); t['DRtg'] = round(d, 1); t['net'] = round(t['ORtg'] - t['DRtg'], 1)
     t['calib'] = h; used[h] += 1

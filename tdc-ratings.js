@@ -36,7 +36,7 @@
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  const SEASON=2027, LS_KEY='tdc_ratings_v18_'+SEASON, TTL=24*3600*1000;
+  const SEASON=2027, LS_KEY='tdc_ratings_v19_'+SEASON, TTL=24*3600*1000;
   // in-season form: once 2026-27 games are played, each team's rating drifts
   // toward how it's ACTUALLY performing vs our own lines. surprise = actual
   // margin - expected margin; form = sum(surprise)/(n + FORM_PRIOR) capped at
@@ -94,7 +94,7 @@
   // Continuity. A high share of returning minutes tends to over-perform raw talent
   // (chemistry/system familiarity) — a standard early-season signal. Small bounded
   // nudge on the final rating, centered on a typical returning-minutes share.
-  const CONT_BASE=35, CONT_K=0.03, CONT_CAP=1.5;
+  const CONT_BASE=35, CONT_K=0, CONT_CAP=1.5;   // K=0 (Sept 29 2026): returning minutes now live in the calibrated projection (calibrate_projected_dna.py), so this bump would double-count
   // Scoring-engine scarcity. Owned BPM rewards efficient LOW-usage players (its usg
   // coefficient is negative), so a rotation of efficient role players with no primary
   // bucket-getter can over-rate (e.g. Saint Louis: everyone efficient, nobody >~18 pts/40).
