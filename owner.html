@@ -67,6 +67,23 @@
     .gate h2{font-family:'Playfair Display',serif;font-size:22px;margin-bottom:8px;}
     .gate p{color:var(--text2);font-size:14px;line-height:1.6;max-width:440px;margin:0 auto 18px;}
     .hide{display:none!important;}
+    .ma-search{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+    .ma-search input{flex:1;min-width:200px;}
+    .ma-in{background:var(--bg);border:1px solid var(--border2);border-radius:9px;padding:9px 12px;font:inherit;font-size:13px;color:var(--text);}
+    .ma-in:focus{outline:none;border-color:var(--accent);}
+    .ma-list{display:flex;flex-direction:column;gap:8px;}
+    .ma-row{display:grid;grid-template-columns:minmax(0,1.6fr) auto auto auto auto;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:11px;padding:10px 12px;}
+    .ma-who{min-width:0;}
+    .ma-who a{font-weight:800;font-size:13.5px;text-decoration:none;}
+    .ma-who a:hover{color:var(--accent);}
+    .ma-who .em{font-size:11.5px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .ma-pill{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:4px 9px;border-radius:999px;background:var(--bg3);color:var(--text2);white-space:nowrap;}
+    .ma-pill.paid{background:color-mix(in srgb,var(--accent) 22%,transparent);color:var(--text);}
+    .ma-row select{padding:7px 8px;font-size:12.5px;}
+    .ma-row .btn{padding:8px 13px;font-size:12px;}
+    .ma-msg{grid-column:1/-1;font-size:12px;font-weight:600;}
+    .ma-msg.ok{color:var(--green);} .ma-msg.err{color:var(--red);}
+    @media(max-width:700px){.ma-row{grid-template-columns:1fr 1fr;}.ma-who{grid-column:1/-1;}}
   </style>
   <!-- new-UI theme layer: navy+blue dark palette (matches index/player); light-mode guard keeps the toggle readable -->
   <link rel="stylesheet" href="tdc-dense.css?v=39"/>
@@ -106,6 +123,17 @@
   <div id="console" class="hide">
     <div class="who"><span class="dot"></span><span>Signed in as <b id="whoEmail">—</b> · owner</span></div>
     <div class="grid">
+
+      <div class="card primary" id="memberAccess">
+        <h2>🎟️ Member access</h2>
+        <div class="desc">Give anyone access without a code or payment. Search by <b>username or email</b>, pick a plan and how long, and hit <b>Save</b> — it applies instantly. Set <b>Free</b> to take access away. (Paying Stripe members: changing their plan here doesn't touch their Stripe subscription.)</div>
+        <form class="ma-search" onsubmit="event.preventDefault();findAccounts();">
+          <input class="ma-in" id="maQ" placeholder="Username or email (blank = newest 50)" autocomplete="off">
+          <button class="btn" type="submit" id="maBtn">Search</button>
+        </form>
+        <div class="status" id="maStatus"></div>
+        <div class="ma-list" id="maList"></div>
+      </div>
 
       <div class="card primary">
         <h2>⚡ Republish projected ratings</h2>
@@ -398,6 +426,55 @@
       .catch(function(e){ st(s,'✗ Failed: '+((e&&e.message)||e),'err'); })
       .then(function(){ btn.disabled=false; });
   }
+
+  // ── Member access (scripts/owner_member_access.sql) ──
+  var MA_TIER={free:'Free',premium:'Premium',pro:'Pro',coach:"Coach's Tier"};
+  function maEsc(x){ return String(x==null?'':x).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+  function maRpc(fn, body){
+    return fetch(SB+'/rest/v1/rpc/'+fn,{method:'POST',headers:{apikey:ANON,Authorization:'Bearer '+ownerToken(),'Content-Type':'application/json'},body:JSON.stringify(body)})
+      .then(function(r){ return r.text().then(function(t){ var j=null; try{ j=JSON.parse(t); }catch(e){}
+        if(!r.ok){ var m=(j&&j.message)||('HTTP '+r.status);
+          if(/admin_find_accounts|admin_set_plan/.test(m)&&/find|schema cache|function/i.test(m)) m='Run scripts/owner_member_access.sql in Supabase first.';
+          throw new Error(m); }
+        return j; }); });
+  }
+  function maPlanLabel(a){
+    var t=MA_TIER[a.plan]||a.plan||'Free';
+    if(a.plan&&a.plan!=='free') t+= a.sub_expires_at ? ' · until '+new Date(a.sub_expires_at).toLocaleDateString() : ' · no expiry';
+    return t;
+  }
+  function findAccounts(){
+    var s=document.getElementById('maStatus'), list=document.getElementById('maList'), q=document.getElementById('maQ').value.trim();
+    st(s,'Searching…','busy'); list.innerHTML='';
+    maRpc('admin_find_accounts',{q:q}).then(function(rows){
+      rows=rows||[];
+      st(s, rows.length ? rows.length+' account'+(rows.length===1?'':'s')+(rows.length===50?' (showing the first 50 — narrow the search)':'') : 'No accounts match.', rows.length?'':'err');
+      list.innerHTML=rows.map(function(a,i){
+        var name=a.username?maEsc(a.username):'<i style="color:var(--text3)">no username yet</i>';
+        var link=a.username?'profile.html?user='+encodeURIComponent(a.username)+'&id='+a.id:'#';
+        var opts=['free','premium','pro','coach'].map(function(p){ return '<option value="'+p+'"'+(p===(a.plan||'free')?' selected':'')+'>'+MA_TIER[p]+'</option>'; }).join('');
+        return '<div class="ma-row" data-id="'+a.id+'">'
+          +'<div class="ma-who"><a href="'+link+'">'+name+'</a><div class="em">'+maEsc(a.email||'')+'</div></div>'
+          +'<span class="ma-pill'+(a.plan&&a.plan!=='free'?' paid':'')+'" id="maPill'+i+'">'+maEsc(maPlanLabel(a))+'</span>'
+          +'<select class="ma-in" id="maPlan'+i+'">'+opts+'</select>'
+          +'<select class="ma-in" id="maLen'+i+'"><option value="">No expiry</option><option value="1">1 month</option><option value="3">3 months</option><option value="12">1 year</option></select>'
+          +'<button class="btn" type="button" onclick="savePlan('+i+',\''+a.id+'\')">Save</button>'
+          +'<div class="ma-msg" id="maMsg'+i+'"></div>'
+          +'</div>';
+      }).join('');
+    }).catch(function(e){ st(s,'✗ '+e.message,'err'); });
+  }
+  function savePlan(i,id){
+    var plan=document.getElementById('maPlan'+i).value, len=document.getElementById('maLen'+i).value, m=document.getElementById('maMsg'+i);
+    m.className='ma-msg'; m.textContent='Saving…';
+    maRpc('admin_set_plan',{p_user:id,p_plan:plan,p_months:len?parseInt(len,10):null}).then(function(r){
+      var a={plan:r.plan,sub_expires_at:r.expires};
+      var pill=document.getElementById('maPill'+i); pill.textContent=maPlanLabel(a); pill.className='ma-pill'+(r.plan!=='free'?' paid':'');
+      m.className='ma-msg ok'; m.textContent='✓ Saved — '+maPlanLabel(a)+'. They see it on their next page load.';
+    }).catch(function(e){ m.className='ma-msg err'; m.textContent='✗ '+e.message; });
+  }
+  // ?q= prefill (the owner "Set access" button on a profile links here)
+  (function(){ var q=new URLSearchParams(location.search).get('q'); if(q){ document.getElementById('maQ').value=q; setTimeout(function(){ if(ownerToken()) findAccounts(); },700); } })();
 
   // auth.js may still be refreshing the token synchronously on load; paint now and
   // once more shortly after so a fresh token is reflected.
