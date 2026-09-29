@@ -166,7 +166,11 @@ CM = 0.5                                     # centre: continuity enters as (con
 # last two seasons) is kept at HIST_W of the strength the 2009-26 fit gives it; the roster projection
 # and continuity are refit around it. Accuracy cost, net LOSO: 1.0 -> r .893 / MAE 3.43, 0.25 -> r .873 /
 # MAE 3.72 (roster only: .858 / 3.90). Raise it toward 1.0 to trust program history more.
-HIST_W = float(os.environ.get('HIST_W', '0.25'))
+# Split by side (owner, same day): OFFENSE follows the players (Purdue's scorers left), DEFENSE follows the
+# coach's system (Tennessee's roster box scores read as an average defense; Barnes' last two were 93.8 / 98.9),
+# and box-score rosters barely see scheme — so defense keeps its full fitted history.
+HIST_W_O = float(os.environ.get('HIST_W_O', os.environ.get('HIST_W', '0.25')))
+HIST_W_D = float(os.environ.get('HIST_W_D', '1.0'))
 def good(side, h): return None if h is None else (max(h, 0.0) if side == 0 else min(h, 0.0))   # only a GOOD history scales
 
 # training rows: [season, projO, projD, h1O, h1D, h2O, h2D, yO, yD, cont-0.5] (None where missing)
@@ -199,11 +203,12 @@ def fit(side, nhist):
     Y = np.array([r[yc] for r in use], float); S = np.array([r[0] for r in use])
     hc = [i for i in range(2, X.shape[1] - 1)]          # the history columns (h1, h2, good*cm)
     oc = [0, 1, X.shape[1] - 1]                         # intercept, roster projection, continuity
+    HW = HIST_W_O if side == 0 else HIST_W_D
     def solve(Xa, Ya):
         c = np.linalg.lstsq(Xa, Ya, rcond=None)[0]
-        if not hc or HIST_W >= 1: return c
-        # history at HIST_W of its fitted strength; the roster projection and continuity refit around it
-        c[hc] *= HIST_W
+        if not hc or HW >= 1: return c
+        # history at HW of its fitted strength; the roster projection and continuity refit around it
+        c[hc] *= HW
         c[oc] = np.linalg.lstsq(Xa[:, oc], Ya - Xa[:, hc] @ c[hc], rcond=None)[0]
         return c
     c = solve(X, Y)
