@@ -56,6 +56,16 @@ TP_LUCK=float(os.environ.get("TP_LUCK","0.55")); OWA_B=0.0092; REG_MP=100.0
 # MAKE_W=0.7 of it. Replaces TP_LUCK for these seasons (3P luck is inside MAKING). Mirrored in
 # build_stat_overall_projected.py and tdc-shotdiff notes in memory grade-statistical-overall.
 LOC_W=float(os.environ.get("LOC_W","0.0")); MAKE_W=float(os.environ.get("MAKE_W","0.7"))
+# RIM PROTECTION — DWA (Oliver DWS) is built from steals, defensive boards and a team-defense share,
+# so it barely sees shot-blocking. Against real defensive on/off (1,944 player-seasons, 2021-26,
+# controlling for position and DWA) every block/40 above average is worth +1.86 pts/100 of team
+# defense (t=4.7; used at 1.3, the low side of the CI), while steals (+0.4) and boards (+0.2) add little beyond DWA. The effect flattens
+# past ~1.75 above average (3+ blk/40 bin), so the excess is capped; credit only, never a penalty.
+# Converted to wins like DWA: 69 poss/40 min, 34 pts/win. Mirrored in build_stat_overall_projected.py.
+RIM_PTS=float(os.environ.get("RIM_PTS","1.3")); RIM_CAP=1.75; POSS40=69.0; PTS_PER_WIN=34.0   # fit 1.86 (95% CI ~1.1-2.6); 1.3 keeps the top-25 guard/big mix sane
+def rim_wins(blk40, lg_blk40, minutes):
+    ex=np.clip(blk40-lg_blk40, 0.0, RIM_CAP)
+    return RIM_PTS*ex/100.0*POSS40*(minutes/40.0)/PTS_PER_WIN
 GENOME_YEARS=range(2020, CUR+1)
 def load_genome(yr):
     f=os.path.join(D, "shot_genome_players.json" if yr==CUR else f"shot_genome_players_{yr}.json")
@@ -108,7 +118,7 @@ for _yr in range(2008, CUR+1):
     if _p: _advp.append(pd.DataFrame(_p))
 adv=pd.concat(_advp,ignore_index=True)
 ts =pd.DataFrame(sb_get("team_seasons?select=season_year,team,conference,srs,wins,losses"))
-ph =pd.DataFrame(sb_get("player_history?select=espn_id,season_year,position,gp,tpa,tp_pct"))
+ph =pd.DataFrame(sb_get("player_history?select=espn_id,season_year,position,gp,tpa,tp_pct,blk,mpg"))
 for c in ["espn_id","season_year","min","g"]: adv[c]=pd.to_numeric(adv[c],errors="coerce")
 for c in ["usg_pct","tov_pct","ti40","owa","dwa"]: adv[c]=pd.to_numeric(adv[c],errors="coerce")
 for c in ["season_year","srs","wins","losses"]: ts[c]=pd.to_numeric(ts[c],errors="coerce")
@@ -205,10 +215,24 @@ for _yr in GENOME_YEARS:
         _p=_g.get(int(_e))
         if _p: _sd[_i]=OWA_B*shot_diff_ti(_p,_lg)*_m/(_m+REG_MP); _hit+=1
 adv["owa"]=adv["owa"]+_sd
+adv["rim"]=0.0
+if RIM_PTS>0:
+    _b=ph.copy()
+    for c in ["gp","blk","mpg"]: _b[c]=pd.to_numeric(_b[c],errors="coerce").fillna(0)
+    _b["bt"]=_b["blk"]*_b["gp"]; _b["mt"]=_b["mpg"]*_b["gp"]
+    _b=_b.groupby(["espn_id","season_year"])[["bt","mt"]].sum().reset_index()
+    _b["blk40"]=np.where(_b["mt"]>0,_b["bt"]/_b["mt"].clip(lower=1)*40.0,0.0)
+    adv=adv.merge(_b[["espn_id","season_year","blk40","mt"]],on=["espn_id","season_year"],how="left")
+    adv["blk40"]=adv["blk40"].fillna(0.0)
+    _rot=adv[(adv["min"]>=400)&(adv["mt"].fillna(0)>0)]
+    _lgb=_rot.groupby("season_year").apply(lambda g: np.average(g["blk40"],weights=g["min"])).rename("lg_blk40")
+    adv=adv.merge(_lgb,left_on="season_year",right_index=True,how="left")
+    adv["rim"]=rim_wins(adv["blk40"],adv["lg_blk40"].fillna(0.75),adv["min"])
+    print(f"  rim protection credited to {(adv['rim']>0).sum()} player-seasons (mean lg blk/40 {_lgb.mean():.2f})",file=sys.stderr)
 print(f"  shot-difficulty adjustment on {_hit} player-seasons (LOC_W={LOC_W}, MAKE_W={MAKE_W})",file=sys.stderr)
 _usg=pd.to_numeric(adv["usg_pct"],errors="coerce").fillna(USG_REF)
 adv["usg_mult"]=np.clip((_usg/USG_REF)**USG_POW, USG_LO, USG_HI)
-adv["wa"]=(adv["owa"].fillna(0)*adv["usg_mult"] + DWA_W*adv["dwa"].fillna(0))*adv["sos"]
+adv["wa"]=(adv["owa"].fillna(0)*adv["usg_mult"] + DWA_W*(adv["dwa"].fillna(0)+adv["rim"]))*adv["sos"]
 # excess-foul dock (season-total wins): max(0, pf40 - base) * season minutes/40 * FOUL_W
 if FOUL_W>0:
     _exc=(adv["pf40"]-FOUL_BASE).clip(lower=0).fillna(0.0)
@@ -261,7 +285,7 @@ for _,r in cur.iterrows():
         "ovr":int(r["ovr"]),"pos":posmap.get(r["espn_id"],"?"),
         "wa":_sf(r["wa"]),"ti40":_sf(r["ti40"]),
         "usg":_sf(r["usg_pct"]),"dwa":_sf(r["dwa"],2),
-        "sos":_sf(r["sos"],2),
+        "sos":_sf(r["sos"],2),"rim":_sf(r["rim"],2),
     }
 json.dump({"season":CUR,"scale":{"mu":MU,"sp":SP},"n":len(out),"players":out},
           open(os.path.join(D,"stat_overall.json"),"w"),separators=(",",":"),allow_nan=False)

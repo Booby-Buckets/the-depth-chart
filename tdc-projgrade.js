@@ -252,7 +252,7 @@
   var _histLoaded = false, _histPromise = null;
   function loadHist(){
     if(_histPromise) return _histPromise;
-    _histPromise = fetch('scripts/data/stat_overall_history.json?v=9')
+    _histPromise = fetch('scripts/data/stat_overall_history.json?v=10')
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){ if(j) setStatHist(j); _histLoaded = true; return true; })
       .catch(function(){ _histLoaded = true; return false; });
@@ -743,8 +743,8 @@
   // ready = EVERY input of gradeSolo (stat overalls + archetype bonus + gp shrink). A page that graded
   // after only the stat files had landed showed 95 for a player whose page (bonus loaded) said 96.
   window.TDCProjGrade.ready = Promise.all([
-    _loadSO('scripts/data/stat_overall.json?v=9').then(function(m){ if(m) setStatOverall(m, null); }),
-    _loadProjRows('scripts/data/stat_overall_projected.json?v=66').then(function(m){ if(m) setStatOverall(null, m); }),
+    _loadSO('scripts/data/stat_overall.json?v=10').then(function(m){ if(m) setStatOverall(m, null); }),
+    _loadProjRows('scripts/data/stat_overall_projected.json?v=67').then(function(m){ if(m) setStatOverall(null, m); }),
     _archP, _gpsP
   ]).then(function(){ return true; }).catch(function(){ return true; });   // history is lazy — see loadHist()
 })();

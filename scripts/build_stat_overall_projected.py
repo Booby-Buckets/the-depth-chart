@@ -53,6 +53,13 @@ def _load_sd40():
         out[int(p["espn_id"])]=1.2*((LOC_W-1.0)*loc+(MAKE_W-1.0)*mk)   # TI points over his 2026 season
     return out
 SD_TI=_load_sd40()
+# RIM PROTECTION — match build_stat_overall.py: blocks/40 above the league average (capped) earn
+# defensive wins that DWA misses. Rate from his 2026 blocks, carried to projected minutes (not damped
+# for transfers like DWA's team-defense share — shot-blocking is his own).
+RIM_PTS=float(os.environ.get("RIM_PTS","1.3")); RIM_CAP=1.75; POSS40=69.0; PTS_PER_WIN=34.0
+def rim_wins(blk40, lg_blk40, minutes):
+    ex=np.clip(blk40-lg_blk40, 0.0, RIM_CAP)
+    return RIM_PTS*ex/100.0*POSS40*(minutes/40.0)/PTS_PER_WIN
 PF40={}
 try:
     import json as _json
@@ -624,7 +631,11 @@ elif TP_LUCK>0:
     _m3=(box["tpm"]*box["gp"]).reindex(d26["espn_id"]).fillna(0).values
     _lg3=_m3.sum()/max(_a3.sum(),1)
     d26["owa"]=d26["owa"]-TP_LUCK*OWA_B*3.5*(_m3-_lg3*_a3)*d26["min"]/(d26["min"]+REG_MP)
-d26["wa"]=(d26["owa"].fillna(0)*d26["usg_mult"]+DWA_W*d26["dwa"].fillna(0))*d26["sos"]
+_blk40=((box["blk"]/box["mpg"].where(box["mpg"]>0))*40.0).reindex(d26["espn_id"]).fillna(0).values
+LG_BLK40=float(np.average(_blk40[d26["min"].values>=400],weights=d26["min"].values[d26["min"].values>=400])) if (d26["min"]>=400).any() else 0.65
+BLK40={int(e):float(v) for e,v in ((box["blk"]/box["mpg"].where(box["mpg"]>0))*40.0).dropna().items()}
+d26["rim"]=rim_wins(_blk40,LG_BLK40,d26["min"].values) if RIM_PTS>0 else 0.0
+d26["wa"]=(d26["owa"].fillna(0)*d26["usg_mult"]+DWA_W*(d26["dwa"].fillna(0)+d26["rim"]))*d26["sos"]
 if FOUL_W>0:   # demonstrated excess-foul dock (matches build_stat_overall.py's 2026 reference)
     d26["wa"]=d26["wa"]-d26.apply(lambda r: foul_pen(r["espn_id"], r["min"] if pd.notna(r["min"]) else 0), axis=1)
 per40=d26["wa"]/d26["mp40"].clip(lower=0.1)
@@ -888,6 +899,7 @@ for short, roster in roster_by_team.items():
             dwa40=dwa_last/(max(last_min,1)/40.0)
             if xfer: dwa40=TRANSFER_DEF_DAMP*dwa40   # team-D credit doesn't fully transfer
             dwa_p=dwa40*(mn/40.0)
+            if RIM_PTS>0 and e in BLK40: dwa_p+=rim_wins(BLK40[e],LG_BLK40,mn)   # rim protection is his own
 
             pg['_fg_p']=fg_p; pg['_tp_p']=tp_p; pg['_ft_p']=ft_p
             return pg, rpg, pts, ti40, owa, mn, dwa_p
