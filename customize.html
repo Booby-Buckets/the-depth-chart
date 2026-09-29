@@ -69,6 +69,7 @@
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
   <link rel="stylesheet" href="tdc-column.css?v=2"/>
   <script src="team-colors.js?v=10"></script>
+  <script src="tdc-ratings.js?v=21"></script>
 </head>
 <body data-anim-auto>
   <script src="tdc-nav.js?v=33"></script>
@@ -104,6 +105,14 @@ async function load(){
     const r=await fetch(`${SB}/rest/v1/teams?select=name,conf,conference,tdc_rank,head_coach,coach&order=tdc_rank.asc.nullslast,name.asc&limit=500`,
       {headers:{apikey:KEY,Authorization:'Bearer '+KEY}});
     TEAMS=(await r.json()).filter(t=>t&&t.name);
+    // Rank = the live projected ratings (same source as the Rankings index and the team
+    // page), not teams.tdc_rank, which is the sheet's hand-typed rank and goes stale.
+    try{
+      const D=window.TDC_RATINGS&&await TDC_RATINGS.get(), by={};
+      ((D&&D.teams)||[]).forEach(x=>{ [x.team,x.full].forEach(n=>{ if(n) by[String(n).toLowerCase()]=x; }); });
+      TEAMS.forEach(t=>{ const x=by[t.name.toLowerCase()]; t._rk=x&&x.rank?+x.rank:null; });
+      TEAMS.sort((a,b)=>(a._rk||9999)-(b._rk||9999)||a.name.localeCompare(b.name));
+    }catch(e){ TEAMS.forEach(t=>{ t._rk=null; }); }
     const confs=['All',...[...new Set(TEAMS.map(t=>t.conf||t.conference).filter(Boolean))].sort()];
     document.getElementById('confPills').innerHTML=confs.map(c=>
       `<button type="button" class="chip ${c===conf?'on':''}" data-conf="${esc(c)}">${esc(c)}</button>`).join('');
@@ -126,7 +135,7 @@ function render(){
   document.getElementById('grid').innerHTML=rows.map(t=>{
     const href=`team.html?team=${encodeURIComponent(t.name)}&tab=customize`, lg=logoOf(t.name);
     return `<tr data-href="${href}">
-      <td class="r">${t.tdc_rank||'—'}</td>
+      <td class="r">${t._rk||'—'}</td>
       <td class="l tm"><a href="${href}">${lg?`<img src="${lg}" alt="" loading="lazy" onerror="this.remove()">`:'<i></i>'}<span>${esc(t.name)}</span></a></td>
       <td class="l">${esc(t.conf||t.conference||'')}</td>
       <td class="l coach">${esc(t.coach||t.head_coach||'')}</td>

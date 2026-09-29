@@ -32,6 +32,7 @@
   <script src="tdc-lineups.js?v=17s"></script>
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js?v=10"></script>
+  <script src="tdc-ratings.js?v=21"></script>
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/><link rel="stylesheet" href="tdc-hero.css?v=4"/><script src="tdc-shotchart.js?v=25s"></script>
   <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-portalfit.js?v=needs10"></script>
@@ -522,6 +523,12 @@ async function load(){
   const tr = await fetch(`${SB}/rest/v1/teams?select=*&order=name.asc`,{headers:H});
   teams = await tr.json();
   teams.forEach(t=>{ teamColors[t.name]=t.color||'#888'; teamMap[t.name]=t; });
+  // national rank = the live projected ratings (Rankings index / team page), not the
+  // sheet's hand-typed teams.tdc_rank_num, which goes stale
+  try{ const D=window.TDC_RATINGS&&await TDC_RATINGS.get(), by={};
+    ((D&&D.teams)||[]).forEach(x=>{ [x.team,x.full].forEach(n=>{ if(n) by[String(n).toLowerCase()]=x; }); });
+    teams.forEach(t=>{ const x=by[String(t.name||'').toLowerCase()]; t.tdc_rank_num=x&&x.rank?+x.rank:null; });
+  }catch(e){ teams.forEach(t=>{ t.tdc_rank_num=null; }); }
 
   const pjr = await fetch(`${SB}/rest/v1/team_projections?select=*`,{headers:H});
   (await pjr.json()).forEach(r=>teamProj[r.team]=r);

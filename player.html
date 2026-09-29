@@ -4027,14 +4027,20 @@ function renderOvcTeamFit(x){
   var usg=parseFloat(adv.usg_pct); var role=(window._ovcScout&&window._ovcScout.role)||'';
   // the stored team rank is this year's — meaningless against a past season's team
   var sameTeam=(tname===player.team);
-  var rk=sameTeam&&teamData&&(parseInt(teamData.tdc_rank_num,10)||parseInt(teamData.tdc_rank,10));
+  // Team Rank = the live projected ratings (same as the Rankings index), filled in below;
+  // teams.tdc_rank is the sheet's hand-typed rank and goes stale
   var cells='';
-  if(rk&&isFinite(rk)&&rk>0) cells+='<div class="ovc-fitc"><div class="v tcr">#'+rk+'</div><div class="k">Team Rank</div></div>';
+  if(sameTeam&&window.TDC_RATINGS) cells+='<div class="ovc-fitc" data-live-rank style="display:none"><div class="v tcr"></div><div class="k">Team Rank</div></div>';
   if(minShare!=null) cells+='<div class="ovc-fitc"><div class="v">'+minShare+'%</div><div class="k">Min Share</div></div>';
   if(isFinite(usg)) cells+='<div class="ovc-fitc"><div class="v">'+usg.toFixed(1)+'%</div><div class="k">Usage</div></div>';
   el.innerHTML='<div class="ovc-fit">'+(logo?'<img class="flogo" src="'+logo+'" alt="" onerror="this.style.display=\'none\'">':'')+
       '<div class="fmeta"><div class="fteam">'+(tname||'')+'</div><div class="fconf">'+conf+(role&&sameTeam?' \u00b7 '+role:'')+'</div></div></div>'+
     (cells?'<div class="ovc-fitrow">'+cells+'</div>':'');
+  var lr=el.querySelector('[data-live-rank]');
+  if(lr) TDC_RATINGS.get().then(function(D){
+    var nm=String(tname||'').toLowerCase(), x=((D&&D.teams)||[]).find(function(r){ return String(r.team||'').toLowerCase()===nm||String(r.full||'').toLowerCase()===nm; });
+    if(x&&x.rank){ lr.querySelector('.v').textContent='#'+x.rank; lr.style.display=''; }
+  }).catch(function(){});
 }
 async function _ovcLoadNil(){
   try{ var N=window.TDC_NIL; if(!N) return;
