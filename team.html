@@ -3438,6 +3438,10 @@ function _lineupRankFor(pr){
   return projRankFor(pr);
 }
 
+// Fingerprint of the editable lineup. While it still equals the default (captured on load and
+// Reset), late async data (freshman profiles, coach rotation, projections) must not show up as
+// a "change": the bar re-syncs its anchors to the default instead of drifting (Kansas +1.5).
+function _czSig(){ try{ return JSON.stringify([POS_KEYS.map(pos=>(customDepth[pos]||[]).map(p=>p&&p.name)),customMpg,customPos,customRole]); }catch(e){ return ''; } }
 function renderAnalyticsBar(analytics, base){
   if(!analytics) return '';
   _ensureProjRatings();
@@ -3471,6 +3475,11 @@ function renderAnalyticsBar(analytics, base){
   let _curPPG=null,_basePPG=null;
   try{
     const curRaw=_teamPPG(buildCustomProjections());
+    if(!window._czBuildMode && window._czSeedSig && _czSig()===window._czSeedSig){
+      if(curRaw!=null) window._czBasePPG=curRaw;
+      window._czBaseAvgGrade=analytics.avgGrade;
+      base=baseAnalytics=analytics;
+    }
     const projSeason=(typeof _rosterSeason==='undefined')||_rosterSeason>=2027;
     if(projSeason && !window._czBuildMode && window._czCanonPPG!=null && window._czBasePPG!=null && curRaw!=null){
       // Anchor to the team's canonical projected PPG (the sidebar Projected Stats card), then
@@ -4008,6 +4017,7 @@ function renderCustomize(t, players, color, rgb, gp){
     // Points/Game" (so edits move the canonical PPG by the client engine's delta, and All-Time
     // / Reset don't zero out the change the way the mutable _baseCustomProj would).
     window._czBasePPG = (function(){ const s=(_baseCustomProj||[]).filter(p=>p&&(parseFloat(p.mpg)||0)>0).reduce((a,p)=>a+(parseFloat(p.ppg)||0),0); return s>0?Math.round(s*10)/10:null; })();
+    window._czSeedSig = _czSig();   // the untouched default lineup (see renderAnalyticsBar)
   }
   rebuildCustomizeUI();
 }
@@ -5176,6 +5186,7 @@ function resetCustomLineup(){
   // exactly back on the canonical numbers (the client engine drifts slightly across rebuilds)
   window._czBaseAvgGrade = baseAnalytics ? baseAnalytics.avgGrade : window._czBaseAvgGrade;
   window._czBasePPG = (function(){ const s=(_baseCustomProj||[]).filter(p=>p&&(parseFloat(p.mpg)||0)>0).reduce((a,p)=>a+(parseFloat(p.ppg)||0),0); return s>0?Math.round(s*10)/10:window._czBasePPG; })();
+  window._czSeedSig = _czSig();
   _baseAdvanced=null;
   rebuildCustomizeUI();
 }
