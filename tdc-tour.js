@@ -28,7 +28,7 @@
   background:var(--bg2,#fff);color:var(--text,#111);border:1px solid var(--border2,#ccd);box-shadow:0 8px 24px -8px rgba(0,0,0,.45);font:700 12px/1 -apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif;letter-spacing:.02em;cursor:pointer;transition:transform .15s,box-shadow .15s;}\
 .tdc-explain:hover{transform:translateY(-1px);box-shadow:0 12px 28px -8px rgba(0,0,0,.5);}\
 .tdc-explain i{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--accent,#3b5bdb);color:#141416;font-style:normal;font-size:11px;font-weight:900;}\
-@media(max-width:760px){.tdc-explain{left:12px;bottom:12px;padding:8px 11px 8px 9px;}.tdc-explain span{display:none;}}\
+@media(max-width:760px){.tdc-explain{left:10px;bottom:10px;padding:6px 8px;opacity:.55;transform:scale(.85);transform-origin:left bottom;}.tdc-explain:active,.tdc-explain:hover{opacity:1;}.tdc-explain span{display:none;}}\
 @media print{.tdc-explain,#tdcTourWrap{display:none !important;}}';
 
   // ── walkthroughs, by page ──────────────────────────────────────────────────

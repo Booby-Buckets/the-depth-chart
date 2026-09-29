@@ -85,6 +85,13 @@
       ".tdn-logo em{font-style:normal;font-family:'Inter',sans-serif;font-size:10px;font-weight:800;letter-spacing:.14em;color:var(--court-on,#fff);background:var(--court,#A8531F);padding:3px 6px;margin-left:8px;vertical-align:3px;border-radius:3px;}",
       '.tdn-x{font-size:11px!important;font-weight:700!important;letter-spacing:.08em!important;}',
       '@media(max-width:520px){.tdn-x{display:none!important;}}',
+      // PHONES (Sept 29 2026): signed in, the avatar + username + Sign Out made the header wider than a
+      // 390px phone, so iOS zoomed the WHOLE page out to fit it — tiny text everywhere, and the desktop-only
+      // Football link came back. On phones the header shows the avatar only (the name is on the profile),
+      // header items may shrink, and nothing past the screen edge can widen the page again.
+      'html{overflow-x:clip;}',
+      '.tdn-top>*{min-width:0;}',
+      '@media(max-width:640px){#navActions a[href="profile.html"] span{display:none!important;}#navActions a[href="profile.html"] img,#navActions a[href="profile.html"]>div{width:28px!important;height:28px!important;}.tdn-logo em{margin-left:5px;padding:2px 5px;}}',
       '.tdn-actions{display:flex;align-items:center;gap:20px;}',
       '.tdn-actions a{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;transition:color .15s;}',
       '.tdn-actions a:hover{color:var(--text);}',
