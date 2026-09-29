@@ -168,7 +168,7 @@
       '<div class="tdn-actions"><a class="tdn-x" href="https://www.thedepthchartcfb.com" title="The Depth Chart — college football">Football \u2197</a>' +
       '<div class="tdn-actions" id="navActions">' +
         '<button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle dark mode">' + themeGlyph + '</button>' +
-        '<a href="pricing.html" style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;">Sign In</a>' +
+        '<a href="signin.html" style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;">Sign In</a>' +
         '<a href="pricing.html" class="tdn-signin">Subscribe</a>' +
       '</div></div>' +
     '</div></div>' +

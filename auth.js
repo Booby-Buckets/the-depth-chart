@@ -133,4 +133,50 @@ window.TDC_PAYWALL_ENABLED = false;
     });
     return _coachPromise;
   };
+  // ── Account deletion (scripts/delete_accounts.sql) ──
+  // tdcDeleteMyAccount(): the signed-in user deletes themselves, after typing DELETE.
+  // tdcAdminDeleteAccount(id, name): owner only (the server checks the JWT email too),
+  // after typing the account's username. Both resolve true only when the delete happened.
+  function rpcDelete(fn, body) {
+    var s = get();
+    if (!s || !s.access_token) { alert('Please sign in first.'); return Promise.resolve(false); }
+    return fetch(SB + '/rest/v1/rpc/' + fn, {
+      method: 'POST',
+      headers: { apikey: KEY, Authorization: 'Bearer ' + s.access_token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {})
+    }).then(function (r) {
+      return r.text().then(function (t) {
+        var j = null; try { j = JSON.parse(t); } catch (e) {}
+        if (!r.ok) { alert('Could not delete the account' + (j && j.message ? ': ' + j.message : ' (HTTP ' + r.status + ').')); return false; }
+        if (j && j.ok === false) { alert(j.msg || 'Could not delete the account.'); return false; }
+        return true;
+      });
+    }).catch(function () { alert('Could not reach the server. Try again.'); return false; });
+  }
+  window.tdcDeleteMyAccount = function () {
+    if (window.tdcIsOwner()) { alert('The owner account cannot be deleted.'); return Promise.resolve(false); }
+    var typed = prompt('This permanently deletes your account, profile, posts, comments and follows. It cannot be undone.\n\n' +
+      'If you pay for a subscription, cancel it under Manage billing first — deleting the account does not stop Stripe charges.\n\n' +
+      'Type DELETE to confirm:');
+    if (typed === null) return Promise.resolve(false);
+    if (typed.trim().toUpperCase() !== 'DELETE') { alert('Not deleted — you must type DELETE.'); return Promise.resolve(false); }
+    return rpcDelete('delete_my_account').then(function (ok) {
+      if (ok) { clear(); try { sessionStorage.removeItem('tdc_alive'); } catch (e) {} alert('Your account has been deleted.'); location.href = 'index.html'; }
+      return ok;
+    });
+  };
+  window.tdcAdminDeleteAccount = function (userId, name) {
+    if (!window.tdcIsOwner()) return Promise.resolve(false);
+    var label = (name || '').trim();
+    var typed = prompt('OWNER: permanently delete the account "' + (label || userId) + '" and everything it posted?\n' +
+      'This cannot be undone. Their Stripe subscription (if any) is NOT cancelled.\n\n' +
+      'Type ' + (label ? 'their username' : 'DELETE') + ' to confirm:');
+    if (typed === null) return Promise.resolve(false);
+    var want = label || 'DELETE';
+    if (typed.trim().toLowerCase() !== want.toLowerCase()) { alert('Not deleted — the confirmation did not match.'); return Promise.resolve(false); }
+    return rpcDelete('admin_delete_account', { p_user: userId }).then(function (ok) {
+      if (ok) alert('Deleted "' + (label || userId) + '".');
+      return ok;
+    });
+  };
 })();

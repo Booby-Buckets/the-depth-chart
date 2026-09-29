@@ -4,14 +4,14 @@
   <link rel="stylesheet" href="tdc-a11y.css?v=1">
   <script src="tdc-a11y.js?v=2" defer></script>
   <script src="tdc-loading.js?v=3"></script>   <!-- first, so it sees every request -->
-  <script src="auth.js?v=shotlock1"></script>
+  <script src="auth.js?v=delacct1"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="team-colors.js?v=11"></script>
   <script src="tdc-shotchart.js?v=25s"></script>
   <script src="tdc-lineups.js?v=17s"></script>
   <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-nil.js?v=prod2"></script>
-  <script src="tdc-gate.js?v=3"></script>
+  <script src="tdc-gate.js?v=4"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js?v=7"></script>
   <script src="tdc-proj.js?v=coach26"></script>
@@ -1207,7 +1207,7 @@
   <link rel="stylesheet" href="tdc-nil-view.css?v=1"/>
 </head>
 <body data-anim-auto>
-<script src="tdc-nav.js?v=34"></script>
+<script src="tdc-nav.js?v=35"></script>
 <div class="tdc-bg" aria-hidden="true">
   <div class="tdc-mesh"></div>
   <div class="tdc-blob b1"></div>
@@ -1230,7 +1230,7 @@
     <div class="nav-actions" id="navActions">
     <a href="pricing.html">Pricing</a>
       <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle dark mode">🌙</button>
-      <a href="pricing.html" style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;margin-right:4px;">Sign In</a>
+      <a href="signin.html" style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;margin-right:4px;">Sign In</a>
       <a href="pricing.html" class="nav-signin" style="text-decoration:none;">Subscribe</a>
     </div>
   </div>
@@ -8933,7 +8933,7 @@ function toggleTheme(){
       const timeAgo = d=>{const s=Math.floor((Date.now()-new Date(d))/1000);if(s<60)return'just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'});};
       const avatarEl=(p,size=32)=>{if(p?.avatar_url)return`<img src="${p.avatar_url}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;">`;const i=(p?.username||'?')[0].toUpperCase();return`<div style="width:${size}px;height:${size}px;border-radius:50%;background:var(--bg2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);font-size:${Math.floor(size*.4)}px;">${i}</div>`;};
       const vb=p=>p?.verified?`<span class="verified-sm"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>`:'';
-      const formHtml = tok ? `<div class="comment-form"><div class="comment-form-title">Leave a Comment</div><textarea class="comment-input" id="commentInput" placeholder="Share your thoughts on this team..."></textarea><div style="font-size:11px;color:var(--red);margin-top:4px;display:none;" id="commentMsg"></div><button class="comment-submit" onclick="submitComment()">Post Comment</button></div>` : `<div style="padding:14px;background:var(--bg2);border:1px solid var(--border);font-size:13px;color:var(--text3);margin-top:12px;"><a href="pricing.html" style="color:var(--accent);font-weight:700;">Sign in</a> to leave a comment.</div>`;
+      const formHtml = tok ? `<div class="comment-form"><div class="comment-form-title">Leave a Comment</div><textarea class="comment-input" id="commentInput" placeholder="Share your thoughts on this team..."></textarea><div style="font-size:11px;color:var(--red);margin-top:4px;display:none;" id="commentMsg"></div><button class="comment-submit" onclick="submitComment()">Post Comment</button></div>` : `<div style="padding:14px;background:var(--bg2);border:1px solid var(--border);font-size:13px;color:var(--text3);margin-top:12px;"><a href="signin.html" style="color:var(--accent);font-weight:700;">Sign in</a> to leave a comment.</div>`;
       document.getElementById('commentsContent').innerHTML = `${formHtml}${comments.length?comments.map(c=>{const p=c.profiles||{};return`<div class="comment-card"><div class="comment-header">${avatarEl(p,32)}<a href="profile.html?user=${encodeURIComponent(c.author_name||'')}" class="comment-author">${c.author_name||'Unknown'}${vb(p)}</a><span class="comment-time">${timeAgo(c.created_at)}</span></div><div class="comment-body">${c.body}</div></div>`;}).join(''):'<div style="text-align:center;padding:32px;color:var(--text3);font-size:13px;">No comments yet. Be the first!</div>'}`;
     } catch(e){ document.getElementById('commentsContent').innerHTML='<div style="text-align:center;padding:32px;color:var(--text3);">Could not load comments.</div>'; }
   }

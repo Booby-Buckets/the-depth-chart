@@ -91,7 +91,7 @@ window.TDCGate = (function () {
     var card = document.createElement('div');
     card.className = 'tdc-gate-card';
     var altHtml = _signedIn ? '' :
-      '<a class="tdc-gate-alt" href="pricing.html">Already a member? Sign in</a>';
+      '<a class="tdc-gate-alt" href="signin.html?next=' + encodeURIComponent(location.pathname.split('/').pop() + location.search) + '">Already a member? Sign in</a>';
     card.innerHTML =
       '<div class="tdc-gate-lock">🔒</div>' +
       '<div class="tdc-gate-tier">' + tierName + '</div>' +

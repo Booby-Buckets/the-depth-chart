@@ -14,7 +14,7 @@
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Account — The Depth Chart">
   <meta name="twitter:description" content="Advanced college basketball roster rankings, team & player analytics, NIL values, and 2026-27 projections for all of Division I.">
-  <script src="auth.js?v=shotlock1"></script>
+  <script src="auth.js?v=delacct1"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=5"></script>
@@ -202,7 +202,7 @@ body{background:transparent!important;}
 <body data-anim-auto>
 <script src="tdc-badge.js?v=1"></script>
 <script src="tdc-billing.js?v=1"></script>
-<script src="tdc-nav.js?v=34"></script>
+<script src="tdc-nav.js?v=35"></script>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
 
 <div class="nav-wrap">
@@ -210,7 +210,7 @@ body{background:transparent!important;}
     <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
     <div class="nav-actions" id="navActions">
       <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
-      <a href="pricing.html" class="nav-signin">Sign In</a>
+      <a href="signin.html" class="nav-signin">Sign In</a>
     </div>
   </div>
   <div class="nav-sub">
@@ -391,6 +391,15 @@ async function renderPage(){
           <button class="form-btn danger" onclick="signOut()">Sign Out</button>
         </div>
       </div>
+
+      <!-- DELETE ACCOUNT -->
+      <div class="glass span2">
+        <div class="glass-title">Delete Account</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+          <span style="font-size:13px;color:var(--text3);">Permanently removes your account, profile, posts, comments and follows. This cannot be undone.</span>
+          <button class="form-btn danger" onclick="tdcDeleteMyAccount()">Delete my account</button>
+        </div>
+      </div>
     </div>`;
 }
 
@@ -430,7 +439,9 @@ async function redeemPromo(){
       const detail = await r.text().catch(()=> '');
       if(r.status === 401 || r.status === 403) return showMsg('promoMsg','Your session has expired — sign out and back in, then try again.','error');
       console.warn('redeem_promo failed', r.status, detail);
-      return showMsg('promoMsg', `Could not reach the redeem service (HTTP ${r.status}).`, 'error');
+      // surface the database's own message (e.g. a check_violation) instead of hiding it
+      let why = ''; try { why = JSON.parse(detail).message || ''; } catch(e){ why = String(detail).slice(0,160); }
+      return showMsg('promoMsg', `Could not apply code (HTTP ${r.status})${why ? ': ' + why : '.'}`, 'error');
     }
     const res = await r.json();
     if(!res.ok) return showMsg('promoMsg', res.msg || 'Could not apply code.', 'error');

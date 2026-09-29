@@ -15,7 +15,7 @@
   <meta property="og:url" content="https://www.thedepthchartcbb.com/forum.html">
   <meta name="twitter:card" content="summary">
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
-  <script src="auth.js?v=shotlock1"></script>
+  <script src="auth.js?v=delacct1"></script>
   <script src="tdc-theme.js?v=5"></script>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <style>
@@ -112,7 +112,7 @@
 </head>
 <body>
 <script src="tdc-badge.js?v=1"></script>
-<script src="tdc-nav.js?v=34"></script>
+<script src="tdc-nav.js?v=35"></script>
 
 <div class="page">
   <div class="page-eyebrow">Community · Forum</div>
@@ -217,7 +217,7 @@
   function banText(){ if(!myBan) return ''; return myBan.until?`You're on a timeout until ${new Date(myBan.until).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}.`:'Your account is banned from the forum.'; }
   function paintMe(){
     const w=$('postBtnWrap');
-    if(!me){ w.innerHTML='<a class="btn" href="pricing.html">Sign in to post</a>'; return; }
+    if(!me){ w.innerHTML='<a class="btn" href="signin.html">Sign in to post</a>'; return; }
     if(myBan){ w.innerHTML=`<span class="cnt" style="color:var(--red);font-weight:700">${esc(banText())}</span>`; }
     else w.innerHTML='<button class="btn" id="newOpen">New topic</button>';
     const o=$('newOpen'); if(o) o.onclick=()=>{ $('newComp').classList.add('show'); $('newTitle').focus(); };
@@ -272,7 +272,7 @@
     $('threadView').innerHTML='<div class="fo-empty">Loading…</div>';
     const rs=await withAuthors(await fetch(`${SB}/rest/v1/forum_replies?topic_id=eq.${id}&select=*&order=created_at.asc`,{headers:H(false)}).then(x=>x.ok?x.json():[]));
     let composer='';
-    if(!me) composer='<div class="notice"><a href="pricing.html" style="color:var(--accent);font-weight:700">Sign in</a> to reply.</div>';
+    if(!me) composer='<div class="notice"><a href="signin.html" style="color:var(--accent);font-weight:700">Sign in</a> to reply.</div>';
     else if(myBan) composer=`<div class="notice"><b>${esc(banText())}</b></div>`;
     else if(t.locked&&!OWNER) composer='<div class="notice"><b>This topic is locked.</b> No new replies.</div>';
     else composer=`<div class="comp show" style="border-top:2px solid var(--border2);margin-top:6px"><div class="comp-h">Reply</div><div class="msg" id="repMsg"></div>

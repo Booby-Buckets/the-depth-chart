@@ -14,7 +14,7 @@
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Pricing — The Depth Chart">
   <meta name="twitter:description" content="Advanced college basketball roster rankings, team & player analytics, NIL values, and 2026-27 projections for all of Division I.">
-  <script src="auth.js?v=shotlock1"></script>
+  <script src="auth.js?v=delacct1"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=5"></script>
@@ -194,7 +194,7 @@ body{background:transparent!important;}
 <body data-anim-auto>
 <script src="tdc-badge.js?v=1"></script>
 <script src="tdc-billing.js?v=1"></script>
-<script src="tdc-nav.js?v=34"></script>
+<script src="tdc-nav.js?v=35"></script>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
 
 <div class="nav-wrap">
@@ -202,7 +202,7 @@ body{background:transparent!important;}
     <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
     <div class="nav-actions" id="navActions">
       <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
-      <a href="pricing.html" style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;">Sign In</a>
+      <a href="signin.html" style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;">Sign In</a>
     </div>
   </div>
   <div class="nav-sub">
@@ -298,55 +298,12 @@ body{background:transparent!important;}
   <!-- AUTH SECTION -->
   <div class="section" id="authSection">
     <div class="section-title" id="authTitle">Sign In</div>
-    <div class="section-sub" id="authSub">Access your account to manage your subscription and favorite team.</div>
+    <div class="section-sub" id="authSub">Sign in to upgrade, manage your subscription, or redeem a promo code. Google sign-in available.</div>
 
-    <div class="auth-tabs" id="authTabsEl">
-      <button class="auth-tab active" onclick="switchAuthTab('signin',this)">Sign In</button>
-      <button class="auth-tab" onclick="switchAuthTab('signup',this)">Create Account</button>
-    </div>
-
-    <!-- SIGN IN -->
-    <div class="form-panel active" id="panel-signin">
-      <div class="msg" id="signinMsg"></div>
-      <div class="form-group">
-        <label class="form-label">Email</label>
-        <input class="form-input" type="email" id="signinEmail" placeholder="you@example.com"/>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Password</label>
-        <input class="form-input" type="password" id="signinPassword" placeholder="••••••••"/>
-      </div>
-      <label class="keep-signed-in"><input type="checkbox" id="keepSignedIn" checked/> <span>Keep me signed in</span></label>
-      <button class="form-btn" onclick="handleSignIn()">Sign In</button>
-    </div>
-
-    <!-- SIGN UP -->
-    <div class="form-panel" id="panel-signup">
-      <div class="msg" id="signupMsg"></div>
-      <div class="form-group">
-        <label class="form-label">Email</label>
-        <input class="form-input" type="email" id="signupEmail" placeholder="you@example.com"/>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Password</label>
-        <input class="form-input" type="password" id="signupPassword" placeholder="At least 8 characters"/>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Favorite Team <span style="font-weight:500;text-transform:none;letter-spacing:0;"> (optional)</span></label>
-        <select class="form-select" id="signupTeam">
-          <option value="">Select a team...</option>
-        </select>
-        <div class="form-hint">Your team will be highlighted on the rankings page.</div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Promo Code <span style="font-weight:500;text-transform:none;letter-spacing:0;"> (optional)</span></label>
-        <div class="promo-row">
-          <input class="form-input" type="text" id="signupPromo" placeholder="DEPTH-FREE-001" style="text-transform:uppercase;"/>
-          <button class="promo-btn" onclick="applyPromo()">Apply</button>
-        </div>
-        <div class="form-hint" id="promoHint"></div>
-      </div>
-      <button class="form-btn" onclick="handleSignUp()">Create Account</button>
+    <!-- SIGNED OUT — sign-in/sign-up live on signin.html now -->
+    <div class="form-panel active" id="panel-signedout">
+      <a class="form-btn" href="signin.html?next=pricing.html" style="display:block;text-align:center;text-decoration:none;">Sign In</a>
+      <a class="form-btn secondary" href="signin.html?mode=signup&amp;next=pricing.html" style="display:block;text-align:center;text-decoration:none;margin-top:10px;">Create Free Account</a>
     </div>
 
     <!-- ACCOUNT (shown when logged in) -->
@@ -421,7 +378,6 @@ const SB_KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 const H = { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' };
 
 let currentUser = null;
-let validatedPromo = null;
 
 // ── AUTH STATE ──────────────────────────────────────────────
 async function checkAuth(){
@@ -437,16 +393,6 @@ async function checkAuth(){
   } catch(e){}
 }
 
-function playSignInAnim(cb){
-  const o = document.createElement('div');
-  o.className = 'auth-success';
-  o.innerHTML = '<div class="as-seal"><svg viewBox="0 0 24 24"><path d="M5 12.5l4 4 10-10.5"/></svg></div><div class="as-text">Welcome back</div>';
-  document.body.appendChild(o);
-  requestAnimationFrame(()=>o.classList.add('show'));
-  setTimeout(()=>{ try{ cb && cb(); }catch(e){} }, 900);
-  setTimeout(()=>{ o.classList.remove('show'); setTimeout(()=>o.remove(), 320); }, 1250);
-}
-
 async function showAccount(token){
   const r = await fetch(`${SB_URL}/rest/v1/profiles?id=eq.${currentUser.id}&select=id,username,avatar_url,banner_color,banner_url,bio,favorite_team,follower_count,following_count,freshman_projections,plan,sub_expires_at,verified,created_at,updated_at`, {
     headers: { ...H, 'Authorization': `Bearer ${token}` }
@@ -455,10 +401,8 @@ async function showAccount(token){
   const profile = profiles[0] || {};
 
   if(!profile.username){ location.href='welcome.html'; return; }   // account setup not finished
-  document.getElementById('panel-signin').classList.remove('active');
-  document.getElementById('panel-signup').classList.remove('active');
+  document.getElementById('panel-signedout').classList.remove('active');
   document.getElementById('panel-account').classList.add('active');
-  document.getElementById('authTabsEl').style.display = 'none';
   document.getElementById('authTitle').textContent = 'Your Account';
   document.getElementById('authSub').textContent = 'Manage your subscription and favorite team.';
 
@@ -520,72 +464,6 @@ async function showAccount(token){
   }
 }
 
-// ── SIGN IN ─────────────────────────────────────────────────
-async function handleSignIn(){
-  const email = document.getElementById('signinEmail').value.trim();
-  const pw    = document.getElementById('signinPassword').value;
-  if(!email || !pw) return showMsg('signinMsg','Please fill in all fields.','error');
-
-  try {
-    const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
-      method:'POST', headers: H,
-      body: JSON.stringify({ email, password: pw })
-    });
-    const data = await r.json();
-    if(!r.ok) return showMsg('signinMsg', data.error_description || data.msg || 'Sign in failed.','error');
-    const keep = document.getElementById('keepSignedIn')?.checked !== false;
-    localStorage.setItem('tdc_session', JSON.stringify(data));
-    localStorage.setItem('tdc_persist', keep ? '1' : '0');
-    if(!keep){ try{ sessionStorage.setItem('tdc_alive','1'); }catch(e){} }
-    currentUser = data.user;
-    playSignInAnim(()=>showAccount(data.access_token));
-  } catch(e){ showMsg('signinMsg','Something went wrong.','error'); }
-}
-
-// ── SIGN UP ─────────────────────────────────────────────────
-async function handleSignUp(){
-  const email = document.getElementById('signupEmail').value.trim();
-  const pw    = document.getElementById('signupPassword').value;
-  const team  = document.getElementById('signupTeam').value;
-  if(!email || !pw) return showMsg('signupMsg','Please fill in email and password.','error');
-  if(pw.length < 8) return showMsg('signupMsg','Password must be at least 8 characters.','error');
-
-  try {
-    const r = await fetch(`${SB_URL}/auth/v1/signup`, {
-      method:'POST', headers: H,
-      body: JSON.stringify({ email, password: pw })
-    });
-    const data = await r.json();
-    if(!r.ok) return showMsg('signupMsg', data.error_description || data.msg || 'Sign up failed.','error');
-
-    const token = data.access_token;
-    currentUser = data.user;
-    localStorage.setItem('tdc_session', JSON.stringify(data));
-
-    // Update profile with favorite team
-    if(team) {
-      await fetch(`${SB_URL}/rest/v1/profiles?id=eq.${currentUser.id}`, {
-        method:'PATCH', headers: { ...H, 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ favorite_team: team })
-      });
-    }
-
-    // Redeem the code now that there is an account to redeem against, and say what actually
-    // happened — a bad code used to fail silently and the user would never know.
-    if(validatedPromo){
-      const pr = await redeemPromo(validatedPromo, token);
-      if(!pr.ok){
-        showMsg('signupMsg','Account created, but that code did not apply: ' + (pr.msg || 'unknown error'),'error');
-        setTimeout(()=>{ location.href='welcome.html'; }, 2200);
-        return;
-      }
-    }
-
-    showMsg('signupMsg','Account created! Let’s set up your profile…','success');
-    setTimeout(()=>{ location.href='welcome.html'; }, 700);   // required setup: username → team → interests
-  } catch(e){ showMsg('signupMsg','Something went wrong.','error'); }
-}
-
 // ── SIGN OUT ────────────────────────────────────────────────
 async function handleSignOut(){
   const session = JSON.parse(localStorage.getItem('tdc_session') || 'null');
@@ -599,21 +477,6 @@ async function handleSignOut(){
 }
 
 // ── PROMO CODES ─────────────────────────────────────────────
-// This button used to call checkPromoCode(), which does not exist anywhere in the codebase —
-// clicking Apply on the signup form threw a ReferenceError and nothing happened. It cannot
-// validate server-side either: redeem_promo keys off auth.uid(), so there is no account to
-// redeem against until signup completes, and a public "is this code real?" endpoint would hand
-// anyone an oracle for guessing codes. So hold the code and redeem it the moment the account
-// exists — handleSignup() reports whatever the server actually says.
-async function applyPromo(){
-  const code = document.getElementById('signupPromo').value.trim().toUpperCase();
-  const hint = document.getElementById('promoHint');
-  if(!code){ hint.textContent = ''; validatedPromo = null; return; }
-  validatedPromo = code;
-  hint.textContent = '✓ ' + code + ' will be applied when your account is created.';
-  hint.style.color = 'var(--text3)';
-}
-
 async function applyPromoAccount(){
   const code = document.getElementById('acctPromo').value.trim().toUpperCase();
   if(!code) return;
@@ -646,7 +509,12 @@ async function redeemPromo(code, token){
       headers: { apikey: SB_KEY, Authorization: `Bearer ${token}`, 'Content-Type':'application/json' },
       body: JSON.stringify({ p_code: code })
     });
-    if(!r.ok) return { ok:false, msg:'Could not verify code.' };
+    if(!r.ok){
+      const detail = await r.text().catch(()=> '');
+      let why = ''; try { why = JSON.parse(detail).message || ''; } catch(e){}
+      console.warn('redeem_promo failed', r.status, detail);
+      return { ok:false, msg: why ? `Could not apply code: ${why}` : `Could not verify code (HTTP ${r.status}).` };
+    }
     return await r.json();
   } catch(e){ return { ok:false, msg:'Could not verify code.' }; }
 }
@@ -673,7 +541,6 @@ async function loadTeams(){
     const r = await fetch(`${SB_URL}/rest/v1/teams?select=name,conference&order=name.asc`, { headers: H });
     const teams = await r.json();
     const opts = teams.map(t=>`<option value="${t.name}">${t.name} (${t.conference||''})</option>`).join('');
-    document.getElementById('signupTeam').innerHTML = '<option value="">Select a team...</option>' + opts;
     document.getElementById('acctTeamSelect').innerHTML = '<option value="">No favorite</option>' + opts;
 
     // Pre-select saved fav team in account selector
@@ -683,17 +550,8 @@ async function loadTeams(){
 }
 
 // ── UI HELPERS ──────────────────────────────────────────────
-function switchAuthTab(tab, btn){
-  document.querySelectorAll('.auth-tab').forEach(b=>b.classList.remove('active'));
-  document.querySelectorAll('.form-panel').forEach(p=>p.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('panel-'+tab).classList.add('active');
-}
-
 function showAuth(tab){
-  document.getElementById('authSection').scrollIntoView({behavior:'smooth'});
-  const btn = [...document.querySelectorAll('.auth-tab')].find(b=>b.onclick?.toString().includes(tab));
-  switchAuthTab(tab, document.querySelectorAll('.auth-tab')[tab==='signup'?1:0]);
+  location.href = 'signin.html?' + (tab === 'signup' ? 'mode=signup&' : '') + 'next=pricing.html';
 }
 
 function showMsg(id, msg, type){
@@ -710,7 +568,6 @@ checkAuth();
 function startCheckout(plan){
   if(!currentUser){
     showAuth('signin');
-    showMsg('signinMsg','Please sign in first to upgrade.','error');
     return;
   }
   // Stripe Payment Links. Create the two Pro links in your Stripe dashboard

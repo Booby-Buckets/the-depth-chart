@@ -14,7 +14,7 @@
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Community — The Depth Chart">
   <meta name="twitter:description" content="Advanced college basketball roster rankings, team & player analytics, NIL values, and 2026-27 projections for all of Division I.">
-  <script src="auth.js?v=shotlock1"></script>
+  <script src="auth.js?v=delacct1"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=5"></script>
@@ -215,14 +215,14 @@ body{background:transparent!important;}
 </head>
 <body data-anim-auto>
 <script src="tdc-badge.js?v=1"></script>
-<script src="tdc-nav.js?v=34"></script>
+<script src="tdc-nav.js?v=35"></script>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
 
 <script>
 (function(){
   const s=JSON.parse(localStorage.getItem('tdc_session')||'null');
   if(!window.TDC_PAYWALL_ENABLED) return;   // paywall master switch (auth.js) — off = open
-  if(!s?.access_token){location.href='pricing.html?gate=1';return;}
+  if(!s?.access_token){location.href='signin.html?next='+encodeURIComponent(location.pathname.split('/').pop()+location.search);return;}
   fetch('https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/profiles?id=eq.'+s.user?.id+'&select=plan',{
     headers:{'apikey':'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye','Authorization':'Bearer '+s.access_token}
   }).then(r=>r.json()).then(([p])=>{if(!(window.tdcIsOwner&&window.tdcIsOwner())&&(!p||['premium','pro','coach'].indexOf(p.plan)<0))location.href='pricing.html?gate=1';}).catch(()=>location.href='pricing.html?gate=1');
@@ -234,7 +234,7 @@ body{background:transparent!important;}
     <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
     <div class="nav-actions" id="navActions">
       <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
-      <a href="pricing.html" class="nav-signin">Sign In</a>
+      <a href="signin.html" class="nav-signin">Sign In</a>
     </div>
   </div>
   <div class="nav-sub">
@@ -411,7 +411,7 @@ function renderTopics(){
   const filtered=currentCategory?allTopics.filter(t=>t.category===currentCategory):allTopics;
   const isPremium=['premium','pro','coach'].includes(currentProfile?.plan);   // a tier ABOVE premium is still paid
   const postBtn=`<button class="new-topic-btn" onclick="openModal()" ${!currentUser||!isPremium?'disabled':''}>+ New Topic</button>`;
-  const notice=!currentUser?`<div class="premium-notice">Sign in to join. <a href="pricing.html">Sign In →</a></div>`:!isPremium?`<div class="premium-notice">Premium members can post. <a href="pricing.html">Upgrade →</a></div>`:'';
+  const notice=!currentUser?`<div class="premium-notice">Sign in to join. <a href="signin.html">Sign In →</a></div>`:!isPremium?`<div class="premium-notice">Premium members can post. <a href="pricing.html">Upgrade →</a></div>`:'';
   if(!filtered.length){document.getElementById('forumContent').innerHTML=`<div class="main-header"><div class="main-title">${currentCategory||'All Topics'}</div>${postBtn}</div>${notice}<div class="empty-state">No topics yet!</div>`;return;}
   document.getElementById('forumContent').innerHTML=`<div class="main-header"><div class="main-title">${currentCategory||'All Topics'}</div>${postBtn}</div>${notice}${filtered.map(t=>`<div class="topic-card${t.pinned?' pinned':''}" onclick="openTopic(${t.id})"><div><div class="topic-title">${t.pinned?'📌 ':''}${t.title}</div><div class="topic-meta"><span class="topic-author">${t.author_name||'Unknown'}</span><span class="topic-cat">${t.category}</span><span>${timeAgo(t.created_at)}</span></div></div><div class="topic-stats"><div class="topic-replies">${t.reply_count||0}</div><div class="topic-replies-lbl">Replies</div></div></div>`).join('')}`;
 }
@@ -439,7 +439,7 @@ async function openTopic(id){
   const r=await fetch(`${SB}/rest/v1/forum_replies?topic_id=eq.${id}&select=*&order=created_at.asc`,{headers:authH(currentToken||KEY)});
   if(!r.ok) console.warn('forum replies failed', r.status, await r.text().catch(()=> ''));
   const replies=await attachAuthors(r.ok?await r.json():[], authH(currentToken||KEY));
-  document.getElementById('forumContent').innerHTML=`<button class="back-btn" onclick="backToList()">← Back to Forum</button><div class="thread-header"><div class="thread-title">${topic.title}</div><div class="thread-meta"><span class="topic-cat">${topic.category}</span><span>Posted by <strong>${topic.author_name||'Unknown'}</strong></span><span>${timeAgo(topic.created_at)}</span></div></div>${topic.body?`<div class="op-card"><div class="op-label">Original Post</div><div style="font-size:14px;color:var(--text2);line-height:1.7;">${topic.body}</div></div>`:''}<div id="repliesList">${replies.length?replies.map(rep=>{const p=rep.profiles||{};return`<div class="reply-card"><div class="reply-header">${avatarEl(p,36)}<a href="profile.html?user=${encodeURIComponent(rep.author_name||'')}" class="reply-name">&nbsp;${rep.author_name||'Unknown'}${vBadge(p)}</a><span class="reply-time">${timeAgo(rep.created_at)}</span></div><div class="reply-body">${rep.body}</div></div>`;}).join(''):'<div class="empty-state" style="padding:30px;">No replies yet!</div>'}</div>${currentUser?`<div class="reply-form"><div class="reply-form-title">Leave a Reply</div><div class="msg" id="replyMsg"></div><div class="form-group"><textarea class="form-textarea" id="replyBody" placeholder="Write your reply..."></textarea></div><button class="form-btn" onclick="submitReply()">Post Reply</button></div>`:`<div class="premium-notice"><span>Sign in to reply.</span><a href="pricing.html">Sign In →</a></div>`}`;
+  document.getElementById('forumContent').innerHTML=`<button class="back-btn" onclick="backToList()">← Back to Forum</button><div class="thread-header"><div class="thread-title">${topic.title}</div><div class="thread-meta"><span class="topic-cat">${topic.category}</span><span>Posted by <strong>${topic.author_name||'Unknown'}</strong></span><span>${timeAgo(topic.created_at)}</span></div></div>${topic.body?`<div class="op-card"><div class="op-label">Original Post</div><div style="font-size:14px;color:var(--text2);line-height:1.7;">${topic.body}</div></div>`:''}<div id="repliesList">${replies.length?replies.map(rep=>{const p=rep.profiles||{};return`<div class="reply-card"><div class="reply-header">${avatarEl(p,36)}<a href="profile.html?user=${encodeURIComponent(rep.author_name||'')}" class="reply-name">&nbsp;${rep.author_name||'Unknown'}${vBadge(p)}</a><span class="reply-time">${timeAgo(rep.created_at)}</span></div><div class="reply-body">${rep.body}</div></div>`;}).join(''):'<div class="empty-state" style="padding:30px;">No replies yet!</div>'}</div>${currentUser?`<div class="reply-form"><div class="reply-form-title">Leave a Reply</div><div class="msg" id="replyMsg"></div><div class="form-group"><textarea class="form-textarea" id="replyBody" placeholder="Write your reply..."></textarea></div><button class="form-btn" onclick="submitReply()">Post Reply</button></div>`:`<div class="premium-notice"><span>Sign in to reply.</span><a href="signin.html">Sign In →</a></div>`}`;
 }
 function backToList(){currentTopicId=null;renderTopics();}
 async function submitReply(){
