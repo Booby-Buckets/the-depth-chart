@@ -668,6 +668,44 @@
     .cz-pill.ghost{border-style:dashed;}
     .cz-dc-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:0 0 4px;padding-top:14px;border-top:1px solid var(--border);}
     .cz-rot + .cz-meter{margin-left:18px!important;}
+    /* depth chart spreadsheet grid */
+    .cz-dc-wrap{margin:6px 0 30px;}
+    .cz-dc-sheet{table-layout:fixed;width:100%;min-width:940px;}
+    .cz-dc-sheet th.dcx-lbl,.cz-dc-sheet td.dcx-lbl{width:74px;position:sticky;left:0;z-index:2;background:var(--bg);}
+    .cz-dc-sheet thead th{font-size:11px;letter-spacing:.1em;color:var(--text);}
+    .cz-dc-sheet thead th.dcx-lbl{z-index:4;background:var(--bg2);}
+    .cz-dc-sheet td.dcx-lbl{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);vertical-align:top;padding-top:11px;}
+    .cz-dc-sheet tr.dcx-start td.dcx-lbl{color:var(--text);}
+    .cz-dc-sheet td.dcx-td{padding:0;vertical-align:top;white-space:normal;}
+    .cz-dc-sheet tbody tr:hover td{background:transparent;}
+    .cz-dc-sheet tbody tr:nth-child(even) td{background:transparent;}
+    .cz-dc-sheet tr.dcx-start td{background:color-mix(in srgb,var(--text) 3%,transparent)!important;}
+    #customizeContent .cz-dc-sheet .dc-player-row.dcx{border:0!important;border-left:0!important;padding:8px 10px 7px;gap:3px;height:100%;background:transparent;}
+    #customizeContent .cz-dc-sheet .dc-player-row.dcx:hover{background:color-mix(in srgb,var(--accent) 9%,transparent);}
+    .dcx-top{display:flex;align-items:baseline;gap:6px;min-width:0;}
+    .dcx-top .dc-row-name{flex:1;min-width:0;font-size:13px;}
+    .cz-dc-sheet .is-starter .dc-row-name{font-weight:800;}
+    .dcx-top .dc-row-grade{font-family:'Inter',system-ui,sans-serif;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;}
+    #customizeContent .cz-dc-sheet .dc-row-drag{opacity:.3;font-size:11px;}
+    .cz-dc-sheet .dcx:hover .dc-row-drag{opacity:1;}
+    .dcx-sub{display:flex;align-items:center;gap:8px;min-height:22px;padding-left:15px;}
+    .dcx-sub .dc-step{margin-left:auto;}
+    .dcx-fit{font-size:10px;font-weight:700;}
+    .dcx-fit.fit-great{color:#2e8b57;} .dcx-fit.fit-ok{color:#b07000;} .dcx-fit.fit-bad,.dcx-fit.fit-poor{color:#c0392b;}
+    .dcx-edit{background:none;border:0;padding:0;font:700 10.5px 'Inter',system-ui,sans-serif;color:var(--text3);cursor:pointer;opacity:0;transition:opacity .12s;}
+    .cz-dc-sheet .dcx:hover .dcx-edit,.dcx-edit:focus-visible{opacity:1;}
+    .dcx-edit:hover{color:var(--accent);text-decoration:underline;}
+    @media (hover:none){ .dcx-edit{opacity:1;} #customizeContent .cz-dc-sheet .dc-row-drag{opacity:.6;} }
+    .cz-dc-sheet .dnp .dc-row-name,.cz-dc-sheet .dnp .dc-row-grade{opacity:.45;}
+    .dcx-add{background:none;border:0;padding:11px 12px;width:100%;text-align:left;font:600 11.5px 'Inter',system-ui,sans-serif;color:var(--text3);cursor:pointer;}
+    .dcx-add:hover{color:var(--text);}
+    .cz-dc-sheet tr.dcx-totrow td{border-top:2px solid var(--border2);font-size:11px;color:var(--text3);padding:7px 12px;}
+    .cz-dc-sheet tr.dcx-totrow td b{color:var(--text);font-size:12.5px;}
+    .cz-dc-sheet td.dcx-tot.over,.cz-dc-sheet td.dcx-tot.over b{color:#c0392b;}
+    .cz-dc-sheet .drag-row-over{outline:2px dashed var(--accent);outline-offset:-3px;}
+    .cz-norm{background:none;border:1px solid var(--border2);border-radius:999px;padding:3px 11px;font:700 11px 'Inter',system-ui,sans-serif;color:var(--text2);cursor:pointer;margin-left:10px;}
+    .cz-norm:hover{border-color:var(--text);color:var(--text);}
+    .cz-norm.warn{border-color:#d9a13a;color:#d9a13a;background:color-mix(in srgb,#d9a13a 10%,transparent);}
     .cz-meter{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--text3);font-variant-numeric:tabular-nums;}
     .cz-meter b{color:var(--text);font-weight:800;}
     .cz-meter.off b{color:#b07000;}
@@ -4685,60 +4723,61 @@ function rebuildCustomizeUI(){
   const color=teamColor_g, rgb=teamRgb_g;
   const analytics=calcCustomAnalytics();
 
-  const colsHtml = POS_KEYS.map(pos=>{
-    const players=customDepth[pos]||[];
-    const rowsHtml = players.map((p,rowIdx)=>{
-      const assignedPos = customPos[p.name]||pos;
-      const fit = calcPositionFit(p, assignedPos);
-      const rawGrade = p.tdc_grade||'';
-      // projected OVR as the base (matches the rest of the site), demonstrated fallback
-      const baseGrade = (()=>{ const pg=parseFloat(_gdisp(p)); if(isFinite(pg)) return pg; const n=parseFloat(rawGrade); if(!isNaN(n)) return n; return gradeToNum(rawGrade)||70; })();
-      const effGrade  = Math.max(40,Math.min(99,Math.round(baseGrade+fit.adjGrade)));
-      const isStarter = rowIdx===0;
-      const mpgCur  = Math.round(_curMpgOf(p));
-      const isDark2=document.documentElement.getAttribute('data-theme')==='dark';
-      const eGradeColor = isDark2
-        ?(effGrade>=90?'#f0c040':effGrade>=83?'#d4a020':effGrade>=76?'#b07818':effGrade>=68?'#8a5c10':'#6a4010')
-        :(effGrade>=90?'#0a3fd4':effGrade>=83?'#2c6ef2':effGrade>=76?'#4a84f4':effGrade>=68?'#7aaaf8':'#aac4fa');
-      const fitTooltip  = fit.reason ? ` title="${_sqAttr(fit.reason)}"` : '';
-      const nAttr=_sqAttr(p.name);
-      return `<div class="dc-player-row${isStarter?' is-starter':''}${_curMpgOf(p)<ROT_MIN?' dnp':''}"
-          data-n="${nAttr}" title="Edit ${nAttr}" onclick="_dcRowClick(event,this)"
-          data-pos="${pos}" data-row="${rowIdx}"
-          ondragover="onDcDragOver(event,'${pos}',${rowIdx})"
-          ondrop="onDcDrop(event,'${pos}',${rowIdx})"
-          ondragleave="onDcDragLeave(event,'${pos}',${rowIdx})">
-        <div class="dc-row-top">
-          <span class="dc-row-drag" draggable="true" title="Drag to reorder" ondragstart="onDcDragStart(event,'${pos}',${rowIdx})">⠿</span>
-          <span class="dc-row-num">${rowIdx+1}</span>
-          <button type="button" class="dc-row-name" data-n="${nAttr}" onclick="openPlayerEditor(this.dataset.n)">${p.name}</button>
-          <span class="dc-row-grade" style="color:${eGradeColor};">${p.tdc_grade ? effGrade : '—'}</span>
-        </div>
-        <div class="dc-row-sub">
-          <button type="button" class="dc-edit" data-n="${nAttr}" onclick="openPlayerEditor(this.dataset.n)">Edit</button>
-          ${fit.fitLabel!=='Natural'?`<span class="fit-badge ${fit.fitClass}"${fitTooltip}>${fit.fitLabel}</span>`:''}
-          <span class="dc-step" data-n="${nAttr}">
-            <button type="button" onclick="stepMpg(this.parentNode.dataset.n,null,-1)" aria-label="Fewer minutes">−</button>
-            <span class="dc-step-v">${mpgCur}</span>
-            <button type="button" onclick="stepMpg(this.parentNode.dataset.n,null,1)" aria-label="More minutes">+</button>
-          </span>
-        </div>
-      </div>`;
-    }).join('');
-
-    return `<div class="pos-col"
-        ondragover="onColDragOver(event,'${pos}')"
-        ondrop="onColDrop(event,'${pos}')">
-      <div class="pos-col-head">
-        <span class="pos-col-label">${pos}</span>
-        ${(()=>{ const cm=Math.round(_colMins(pos)), over=cm>POS_MIN_CAP; return `<span class="pos-col-mins${over?' over':''}">${cm}/${POS_MIN_CAP} min</span>`; })()}
+  // Depth chart as a spreadsheet grid (owner pick, Sept 2026): a row per depth slot
+  // (Starter, 2nd, 3rd ...), a column per position, minutes totals in the last row.
+  // Each cell keeps the mechanics: ⠿ handle drags, − / + minutes, click opens the editor.
+  const _dcCell=(pos,p,rowIdx)=>{
+    const assignedPos = customPos[p.name]||pos;
+    const fit = calcPositionFit(p, assignedPos);
+    const rawGrade = p.tdc_grade||'';
+    // projected OVR as the base (matches the rest of the site), demonstrated fallback
+    const baseGrade = (()=>{ const pg=parseFloat(_gdisp(p)); if(isFinite(pg)) return pg; const n=parseFloat(rawGrade); if(!isNaN(n)) return n; return gradeToNum(rawGrade)||70; })();
+    const effGrade  = Math.max(40,Math.min(99,Math.round(baseGrade+fit.adjGrade)));
+    const mpgCur  = Math.round(_curMpgOf(p));
+    const isDark2=document.documentElement.getAttribute('data-theme')==='dark';
+    const eGradeColor = isDark2
+      ?(effGrade>=90?'#f0c040':effGrade>=83?'#d4a020':effGrade>=76?'#b07818':effGrade>=68?'#8a5c10':'#6a4010')
+      :(effGrade>=90?'#0a3fd4':effGrade>=83?'#2c6ef2':effGrade>=76?'#4a84f4':effGrade>=68?'#7aaaf8':'#aac4fa');
+    const fitTooltip  = fit.reason ? ` title="${_sqAttr(fit.reason)}"` : '';
+    const nAttr=_sqAttr(p.name);
+    return `<div class="dc-player-row dcx${rowIdx===0?' is-starter':''}${mpgCur<ROT_MIN?' dnp':''}"
+        data-n="${nAttr}" title="Edit ${nAttr}" onclick="_dcRowClick(event,this)"
+        data-pos="${pos}" data-row="${rowIdx}"
+        ondragover="onDcDragOver(event,'${pos}',${rowIdx})"
+        ondrop="onDcDrop(event,'${pos}',${rowIdx})"
+        ondragleave="onDcDragLeave(event,'${pos}',${rowIdx})">
+      <div class="dcx-top">
+        <span class="dc-row-drag" draggable="true" title="Drag to reorder" ondragstart="onDcDragStart(event,'${pos}',${rowIdx})">⠿</span>
+        <button type="button" class="dc-row-name" data-n="${nAttr}" onclick="openPlayerEditor(this.dataset.n)">${p.name}</button>
+        <span class="dc-row-grade" style="color:${eGradeColor};">${p.tdc_grade ? effGrade : '—'}</span>
       </div>
-      <div class="pos-col-body">
-        ${rowsHtml}
-        <div class="dc-empty-slot" onclick="openSwapModal('${pos}',${players.length})">+ Add ${pos}</div>
+      <div class="dcx-sub">
+        ${fit.fitLabel!=='Natural'?`<span class="dcx-fit ${fit.fitClass}"${fitTooltip}>${fit.fitLabel}</span>`:''}
+        <button type="button" class="dcx-edit" data-n="${nAttr}" onclick="openPlayerEditor(this.dataset.n)">Edit</button>
+        <span class="dc-step" data-n="${nAttr}">
+          <button type="button" onclick="stepMpg(this.parentNode.dataset.n,null,-1)" aria-label="Fewer minutes">−</button>
+          <span class="dc-step-v">${mpgCur}</span>
+          <button type="button" onclick="stepMpg(this.parentNode.dataset.n,null,1)" aria-label="More minutes">+</button>
+        </span>
       </div>
     </div>`;
-  }).join('');
+  };
+  const _dcDepth=Math.max(...POS_KEYS.map(pos=>(customDepth[pos]||[]).length))+1;   // +1 = the "+ Add" row
+  const _dcLbl=i=>i===0?'Starter':(i+1)+(i===1?'nd':i===2?'rd':'th');
+  let _dcRows='';
+  for(let i=0;i<_dcDepth;i++){
+    _dcRows+=`<tr class="${i===0?'dcx-start':''}"><td class="l dcx-lbl">${_dcLbl(i)}</td>`+POS_KEYS.map(pos=>{
+      const players=customDepth[pos]||[];
+      if(i<players.length) return `<td class="l dcx-td">${_dcCell(pos,players[i],i)}</td>`;
+      if(i===players.length) return `<td class="l dcx-td dcx-addtd" ondragover="onColDragOver(event,'${pos}')" ondrop="onColDrop(event,'${pos}')"><button type="button" class="dcx-add" onclick="openSwapModal('${pos}',${i})">+ Add ${pos}</button></td>`;
+      return `<td class="dcx-td" ondragover="onColDragOver(event,'${pos}')" ondrop="onColDrop(event,'${pos}')"></td>`;
+    }).join('')+`</tr>`;
+  }
+  const _dcTot=POS_KEYS.map(pos=>{ const cm=Math.round(_colMins(pos)); return `<td class="l dcx-tot${cm>POS_MIN_CAP?' over':''}"><b>${cm}</b> / ${POS_MIN_CAP} min</td>`; }).join('');
+  const dcSheetHtml=`<div class="sheet-wrap cz-dc-wrap"><table class="sheet cz-dc-sheet">
+    <thead><tr><th class="l dcx-lbl"></th>${POS_KEYS.map(pos=>`<th class="l">${pos}</th>`).join('')}</tr></thead>
+    <tbody>${_dcRows}<tr class="dcx-totrow"><td class="l dcx-lbl">Minutes</td>${_dcTot}</tr></tbody>
+  </table></div>`;
 
   el.innerHTML=`
     <div class="cz-strength-head">Projected team strength</div>
@@ -4752,8 +4791,8 @@ function rebuildCustomizeUI(){
     </div>
     <div class="cz-subpanel" data-sub="lineup">
       ${_czModeBar()}
-      <div class="cz-dc-head"><span class="sec-head" style="margin:0;padding:0;border:0;">Depth chart</span>${_czRotControl()}${_czMinutesMeter()}</div>
-      <div class="pos-depth-grid">${colsHtml}</div>
+      <div class="cz-dc-head"><span class="sec-head" style="margin:0;padding:0;border:0;">Depth chart</span>${_czRotControl()}${_czMinutesMeter()}<button type="button" class="cz-norm${(()=>{ const t=_czTeamMins(); return (Math.abs(t-MAX_TEAM_MINS)>2||POS_KEYS.some(pos=>_colMins(pos)>POS_MIN_CAP+0.5))?' warn':''; })()}" onclick="czNormalizeMinutes()">Normalize minutes</button></div>
+      ${dcSheetHtml}
       <div class="sec-head" style="margin-bottom:12px;">How this lineup wins</div>
       ${_labWinPanel()}
       <div class="sec-head" style="margin-bottom:16px;">Squad</div>
@@ -5120,6 +5159,31 @@ function onMpgChange(playerName, pKey, val){
   if(v&&p) v.textContent=Math.round(_curMpgOf(p.p));
   _czRefresh(false, true);   // the editor slider is mid-drag: refresh the page, not the editor
 }
+// Normalize: every position at or under 42 (trim the bench first; the starter only if he is
+// alone over it), then scale the whole team to exactly 200, keeping everyone's share. The
+// 38-minute player cap and the 42 column cap hold while scaling up.
+function czNormalizeMinutes(){
+  const cols={}; POS_KEYS.forEach(pos=>{ cols[pos]=(customDepth[pos]||[]).filter(p=>p&&p.name); cols[pos].forEach(p=>{ customMpg[p.name]=_curMpgOf(p); }); });
+  const colSum=pos=>cols[pos].reduce((a,p)=>a+customMpg[p.name],0);
+  POS_KEYS.forEach(pos=>{ let over=colSum(pos)-POS_MIN_CAP; if(over<=0) return;
+    const bench=cols[pos].slice(1), bs=bench.reduce((a,p)=>a+customMpg[p.name],0);
+    if(bs>0){ const k=Math.max(0,(bs-over)/bs); bench.forEach(p=>{ customMpg[p.name]*=k; }); over=Math.max(0,over-bs); }
+    if(over>0&&cols[pos][0]) customMpg[cols[pos][0].name]=Math.max(0,customMpg[cols[pos][0].name]-over); });
+  const all=POS_KEYS.flatMap(pos=>cols[pos].map(p=>({p,pos})));
+  for(let pass=0;pass<8;pass++){
+    const tot=all.reduce((a,x)=>a+customMpg[x.p.name],0), gap=200-tot; if(Math.abs(gap)<0.5) break;
+    const open=all.filter(x=>customMpg[x.p.name]>0&&(gap<0||(customMpg[x.p.name]<38&&colSum(x.pos)<POS_MIN_CAP)));
+    const base=open.reduce((a,x)=>a+customMpg[x.p.name],0); if(base<=0) break;
+    open.forEach(x=>{ let v=customMpg[x.p.name]*(1+gap/base); if(gap>0){ v=Math.min(v,38); v=Math.min(v,customMpg[x.p.name]+Math.max(0,POS_MIN_CAP-colSum(x.pos))); } customMpg[x.p.name]=Math.max(0,v); });
+  }
+  all.forEach(x=>{ customMpg[x.p.name]=Math.round(customMpg[x.p.name]); });
+  // rounding: settle the last minute or two on the biggest shares that still have room
+  let d=200-all.reduce((a,x)=>a+customMpg[x.p.name],0);
+  const byMin=all.slice().sort((a,b)=>customMpg[b.p.name]-customMpg[a.p.name]);
+  for(let i=0;d!==0&&i<byMin.length*2;i++){ const x=byMin[i%byMin.length], v=customMpg[x.p.name];
+    if(d>0&&v>0&&v<38&&colSum(x.pos)<POS_MIN_CAP){ customMpg[x.p.name]++; d--; } else if(d<0&&v>0){ customMpg[x.p.name]--; d++; } }
+  _czRefresh(true);
+}
 function _czTeamMins(){ let t=0; POS_KEYS.forEach(pos=>(customDepth[pos]||[]).forEach(p=>{ if(p&&p.name) t+=_curMpgOf(p); })); return Math.round(t); }
 // ── ROTATION SIZE ────────────────────────────────────────
 // Default minutes follow the team: My team opens on the projection (built from the
@@ -5469,10 +5533,22 @@ function confirmSwap(playerKey){
   if(!p) return;
   const {pos,rowIdx}=swapTargetPos;
   if(!customDepth[pos]) customDepth[pos]=[];
-  if(rowIdx<customDepth[pos].length) customDepth[pos][rowIdx]={...p,_naturalPos:p.position};
-  else customDepth[pos].push({...p,_naturalPos:p.position});
+  const np={...p,_naturalPos:p.position};
+  if(rowIdx<customDepth[pos].length){
+    // replace: the new man takes exactly the minutes of the one he replaces
+    const old=customDepth[pos][rowIdx], m=old?Math.round(_curMpgOf(old)):0;
+    customDepth[pos][rowIdx]=np;
+    if(old&&old.name!==np.name) delete customMpg[old.name];
+    customMpg[np.name]=m;
+  } else {
+    // add: his usual minutes (max 20), taken from this spot's other players so nothing overfills
+    const usual=Math.round(parseFloat(np._projMin)||parseFloat(np.mpg)||12);
+    customDepth[pos].push(np); customMpg[np.name]=0;
+    if(window._czBuildMode&&customDepth[pos].length===1) customMpg[np.name]=Math.min(32,usual);
+    else _czSetMinutes(np.name, Math.min(20,usual));
+  }
   closeSwapModal();
-  rebuildCustomizeUI();
+  _czRefresh(true);
 }
 
 // ── TEAM ADVANCED STATS (live deltas) ─────────────────────
