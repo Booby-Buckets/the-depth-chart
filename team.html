@@ -8403,7 +8403,7 @@ function _sdTable(items, prior, note){
     return `<tr>
       <td class="rk">${i+1}</td>
       <td class="l nm" title="${_e(it.name)}">${_e(it.name)}</td>
-      <td class="l dim">${it.fr?'Fr · ':''}${role(it.share)}</td>
+      <td class="l dim">${it.yr?_e(it.yr)+' · ':(it.fr?'Fr. · ':'')}${role(it.share)}</td>
       <td class="l"><span class="sd-bar" style="display:block;width:160px;"><i style="width:${w}%"></i></span></td>
       <td class="strong">${it.share.toFixed(1)}%</td>
       <td title="${tip}">${it.tend!=null?it.tend:'—'}</td>
@@ -8423,7 +8423,7 @@ async function _renderHistShot(rows, yr){
     (rows||[]).forEach(p=>{
       const m=_g(p,'mpg','mp'), fga=_g(p,'fga','fga'), tpa=_g(p,'tpa','fg3a'), fta=_g(p,'fta','fta');
       if(m<8 || fga<=0) return;
-      items.push({name:p.name, espn:(p.espn_id!=null?String(p.espn_id):null), fga:fga,
+      items.push({name:p.name, espn:(p.espn_id!=null?String(p.espn_id):null), fga:fga, yr:(p.yr||p.class_year||p.class||'').toString().trim(),
         tend:_shotPct(ref.f40, fga*40/m), t3:_shotPct(ref.t3, tpa*40/m),
         t2:_shotPct(ref.t2, Math.max(0,(fga-tpa)*40/m)), tf:_shotPct(ref.ft, fta*40/m)});
       totFga+=fga;
@@ -8497,6 +8497,10 @@ async function _renderShotDist(rows){
     const _outN=new Set((rows||[]).map(r=>(''+r.name).toLowerCase().trim()));
     let items=list.filter(x=>x.share!=null && (!rows||!rows.length||_outN.has((''+x.name).toLowerCase().trim()))).slice().sort((a,b)=>b.share-a.share);
     if(items.length && items.length<list.filter(x=>x.share!=null).length){ const tot=items.reduce((s,x)=>s+x.share,0)||1; items=items.map(x=>Object.assign({},x,{share:+(x.share*100/tot).toFixed(1)})); }
+    // class year for every player from the roster rows (the projection list only flags freshmen)
+    const _yrBy={}; (rows||[]).forEach(r=>{ const y=(r.yr||r.class_year||'').toString().trim(); if(!y) return;
+      if(r.espn_id!=null) _yrBy['e'+r.espn_id]=y; if(r.name) _yrBy['n'+(''+r.name).toLowerCase().trim()]=y; });
+    items=items.map(x=>Object.assign({},x,{yr:_yrBy['e'+x.espn]||_yrBy['n'+(''+(x.name||'')).toLowerCase().trim()]||''}));
     const max=items[0].share||1, tot=items.reduce((s,i)=>s+i.share,0);
     // ── team-level shot profile (from the same rotation) ──
     const _threats=items.filter(x=>(x.tend||0)>=75).length;

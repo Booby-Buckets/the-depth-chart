@@ -703,7 +703,7 @@ function loadRoster(row){
           if(window.TDCProjGrade){ var dr={}; for(var kk in p) dr[kk]=p[kk]; dr.season_year=2026;
             var lv=TDCProjGrade.gradeSolo(dr); if(lv!=null&&isFinite(lv)) last=lv; }
           if(last==null){ var t=parseFloat(p.tdc_grade); if(isFinite(t)) last=t; }
-          return {name:p.name,pos:p.pos,cls:(p.yr||p.class_year||p.class||''),ov:(ov!=null&&isFinite(ov))?Math.round(ov):null,last:last!=null?Math.round(last):null};
+          return {name:p.name,pos:[p.position,p.position2].filter(Boolean).join('/'),cls:(p.yr||p.class_year||p.class||''),ov:(ov!=null&&isFinite(ov))?Math.round(ov):null,last:last!=null?Math.round(last):null};
         }).filter(function(x){ return x.ov!=null && x.name; }).sort(function(a,b){ return b.ov-a.ov; });
         if(!arr.length){ pe.innerHTML='<div class="hx-empty">No graded players on file yet.</div>'; le.innerHTML='<div class="hx-empty">No graded players on file for this roster yet.</div>'; return; }
         // featured (top OVR)
@@ -741,6 +741,10 @@ function _fillHxShot(ps, short){
   var render=function(){
     var T=_hqShot.teams||{}, P=_hqShot.players||{};
     var list=(short&&T[short])?T[short]:null, items=[];
+    // class year for EVERY player from the roster (the projection list only flags freshmen)
+    var yrBy={}; (ps||[]).forEach(function(p){ var y=(p.yr||p.class_year||'').toString().trim(); if(!y) return;
+      if(p.espn_id!=null) yrBy['e'+p.espn_id]=y; if(p.name) yrBy['n'+(''+p.name).toLowerCase().trim()]=y; });
+    var yrOf=function(it){ return yrBy['e'+it.espn]||yrBy['n'+(''+(it.name||'')).toLowerCase().trim()]||(it.fr?'Fr.':''); };
     if(list&&list.length){
       items=list.filter(function(x){ return x.share!=null; }).slice().sort(function(a,b){ return b.share-a.share; });
     }else{
@@ -758,7 +762,7 @@ function _fillHxShot(ps, short){
         var dem=(it.espn&&P[it.espn])?P[it.espn].shot_tend_demo:null;
         var moved=(dem!=null&&it.tend!=null&&Math.abs(it.tend-dem)>=5);
         var tip='Shot tendency '+(it.tend!=null?it.tend:'—')+(moved?' (was '+dem+' last season)':'');
-        return '<tr><td class="l nm">'+esc(it.name||'—')+'</td><td class="l dim">'+(it.fr?'FR':'')+'</td>'+
+        return '<tr><td class="l nm">'+esc(it.name||'—')+'</td><td class="l dim">'+esc(yrOf(it))+'</td>'+
           '<td>'+it.share.toFixed(1)+'%</td>'+
           '<td title="'+tip+'">'+(it.tend!=null?it.tend:'—')+'</td>'+
           '<td class="dim">'+(moved?(it.tend>dem?'+':'')+(it.tend-dem)+' from '+dem:'')+'</td></tr>';
