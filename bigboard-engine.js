@@ -336,7 +336,9 @@
       return eligible(p,ineligible);
     });
     pool.forEach(function(p){ var fy=fromYr[(p.name||'').trim()]; if(fy!=null) p._eligFrom=+fy; });
-    pool.forEach(function(p){ p._mayReturn=null; p._returning=null; });
+    // each board scores its OWN copies — the 2027 and 2028 boards share the input rows, and stamping
+    // rank/_sc on those let the second board overwrite the first's results
+    pool=pool.map(function(p){ var c=Object.assign({},p); c._mayReturn=null; c._returning=null; return c; });
     // 2028 draft class (owner rules, Sept 2026). The 2027 mock is the 2027 board's order (the mock
     // draft fills best-available off it), so:
     //   2027 picks 1-24  -> declared and drafted: gone.
