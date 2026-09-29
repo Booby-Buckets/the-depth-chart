@@ -84,7 +84,9 @@
     el.style.top = Math.max(12, Math.round(b + 10)) + 'px';
   }
   var placeT = null;
-  function busy() { return inflight > 0 || !pageDone; }
+  // DATA work only (fetches + holds). It used to also wait for the window 'load' event, which waits
+  // on every logo and headshot — the wheel kept spinning over a page that had already drawn.
+  function busy() { return inflight > 0; }
 
   function show() {
     if (shown || !make()) return;
@@ -96,7 +98,7 @@
     void el.offsetWidth;
     el.classList.add('on');
     clearTimeout(capT);
-    capT = setTimeout(forceHide, 25000);            // a hung request never spins forever
+    capT = setTimeout(forceHide, initial ? 20000 : 8000);   // a hung or background request never spins forever
   }
   function reallyHide() {
     if (!shown) { if (pageDone && inflight === 0) endInitial(); return; }
@@ -122,12 +124,12 @@
 
   var nativeFetch = window.fetch;
   if (typeof nativeFetch === 'function') {
-    var fetched = 0, firstT = null;
+    var fetched = 0, firstT = null, p0 = false;
     window.fetch = function () {
       inflight++; fetched++; clearTimeout(firstT); update();
       // the page's first data has landed once every request is back (a short pause lets a chained
       // request start first): from then on the mid-screen wheel would sit on real content
-      var done = function () { inflight = Math.max(0, inflight - 1); update();
+      var done = function () { inflight = Math.max(0, inflight - 1); p0 = true; update();   // p0: a response has arrived
         if (initial && inflight === 0) { clearTimeout(firstT); firstT = setTimeout(function () { if (inflight === 0) endInitial(); }, 250); } };
       var p;
       try { p = nativeFetch.apply(this, arguments); }
@@ -136,6 +138,17 @@
     };
   }
 
+  // CONTENT DREW: a burst of new elements (a table filled, cards rendered) means the page is no
+  // longer blank, so the centre wheel steps aside for the corner pill right away.
+  try {
+    var added = 0, mo = new MutationObserver(function (muts) {
+      if (!initial) { mo.disconnect(); return; }
+      for (var i = 0; i < muts.length; i++) added += muts[i].addedNodes.length;
+      if (added > 60 && p0) { endInitial(); mo.disconnect(); }
+    });
+    var startMO = function () { if (document.body) mo.observe(document.body, { childList: true, subtree: true }); };
+    if (document.body) startMO(); else document.addEventListener('DOMContentLoaded', startMO);
+  } catch (e) {}
   if (!pageDone) window.addEventListener('load', function () { pageDone = true; update(); });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', update);
   update();
