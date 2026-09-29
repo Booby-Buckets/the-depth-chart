@@ -62,7 +62,30 @@
     .pos{color:#4ade80;} .neg{color:#f87171;} .wpa{color:var(--gold);}
     .empty{padding:18px 20px;color:var(--ptext3);font-size:13px;}
     .foot{padding:12px 20px 16px;font-size:12px;color:var(--ptext3);border-top:1px solid var(--pline);line-height:1.55;}
-    @media (max-width:640px){.grid,.row2,.filters,.play,.pf-h,.foot{padding-left:14px;padding-right:14px;}}
+    /* Search | Explain tabs */
+    .pf-tabs{display:inline-flex;gap:6px;align-items:center;}
+    .pf-tabs b{margin-right:10px;}
+    .pf-tab{font:700 12px Inter,system-ui,sans-serif;letter-spacing:.02em;background:transparent;color:var(--ptext2);border:1px solid var(--pline);border-radius:999px;padding:5px 13px;cursor:pointer;}
+    .pf-tab:hover{color:var(--ptext);border-color:var(--ptext3);}
+    .pf-tab.on{background:var(--gold);color:#1a1406;border-color:var(--gold);}
+    .px{padding:6px 20px 26px;}
+    .px-sec{padding:18px 0 4px;border-top:1px solid var(--pline);}
+    .px-sec:first-child{border-top:0;}
+    .px-h{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:10px;}
+    .px p{font-size:14px;line-height:1.6;color:var(--ptext2);max-width:820px;margin-bottom:8px;}
+    .px p b{color:var(--ptext);}
+    .px dl{display:grid;grid-template-columns:170px minmax(0,1fr);gap:0 18px;max-width:900px;}
+    .px dt,.px dd{padding:8px 0;border-bottom:1px solid var(--pline);font-size:13.5px;line-height:1.55;}
+    .px dt{color:var(--ptext);font-weight:700;}
+    .px dd{color:var(--ptext2);}
+    .px dd code{font:600 12.5px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--gold);}
+    .px-try{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:0 18px;max-width:900px;}
+    .px-try button{all:unset;cursor:pointer;display:block;padding:10px 0;border-bottom:1px solid var(--pline);}
+    .px-try button b{display:block;color:var(--ptext);font-size:14px;font-weight:700;}
+    .px-try button span{display:block;color:var(--ptext3);font-size:12.5px;margin-top:2px;}
+    .px-try button:hover b{color:var(--gold);}
+    .px-try button:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+    @media (max-width:640px){.grid,.row2,.filters,.play,.pf-h,.foot,.px{padding-left:14px;padding-right:14px;} .px dl{grid-template-columns:1fr;} .px dt{border-bottom:0;padding-bottom:0;}}
   </style>
   <link rel="manifest" href="manifest.webmanifest">
   <script src="tdc-pwa.js?v=2" defer></script>
@@ -73,13 +96,11 @@
   <header class="hero">
     <div class="kicker">Every D-I play · 2008 to now</div>
     <h1>Play Finder</h1>
-    <p class="lede">Search every men's college basketball play by team, player, shot type and game situation, and sort by what it was worth.
-      <b>WP added</b> is how much a play moved the team's chance of winning (our live win-probability model, counting who has the ball).
-      <b>xPts</b> is what the average D-I shot from that spot is worth, so <b>points over expected</b> shows shot-making.</p>
   </header>
 
   <div class="pf" id="pf">
-    <div class="pf-h"><b>PLAY FINDER</b><span id="status">Loading…</span></div>
+    <div class="pf-h"><div class="pf-tabs" role="tablist"><b>PLAY FINDER</b><button type="button" class="pf-tab on" data-tab="search" role="tab" aria-selected="true">Search</button><button type="button" class="pf-tab" data-tab="explain" role="tab" aria-selected="false">Explain</button></div><span id="status">Loading…</span></div>
+    <div id="pfSearch">
     <div class="grid">
       <label>Season<select id="f-season"></select></label>
       <label>Team<select id="f-team"><option value="">Any team (standout plays)</option></select></label>
@@ -113,6 +134,48 @@
     <div class="prog"><i id="prog"></i></div>
     <div class="res" id="res"></div>
     <div class="foot" id="foot"></div>
+    </div>
+    <div id="pfExplain" class="px" hidden>
+      <div class="px-sec">
+        <div class="px-h">What this is</div>
+        <p>Every men's Division I play since 2008, searchable. Pick a season and nothing else and you get that season's <b>standout plays</b> across D-I: the biggest swings in win probability and the best shot-making. Pick a team and every play of its season loads live from ESPN (5 to 10 seconds), so you can filter down to a player, a shot type or a moment in the game.</p>
+        <p>Each result is one play: the play-by-play line, the game and date, the clock and score, and what the play was worth. Click a play to open that game's box score.</p>
+      </div>
+      <div class="px-sec">
+        <div class="px-h">The numbers</div>
+        <dl>
+          <dt>WP added</dt><dd>How much the play changed the acting team's chance of winning, in percentage points. A <code>+94.8%</code> buzzer-beater took a team from about 5% to a win. Win probability comes from our live model: the score margin, the time left, which team has the ball, and a pregame edge from the two teams' power ratings plus home court.</dd>
+          <dt>xPts</dt><dd>Expected points: what the average D-I shot from that spot is worth (make rate for that zone × 2 or 3). A corner three is about <code>1.07</code>, a mid-range jumper about <code>0.70</code>, a shot at the rim about <code>1.28</code>.</dd>
+          <dt>POE</dt><dd>Points over expected: points scored minus xPts. A made 40-footer is about <code>+2.0</code>; a missed layup at the rim is about <code>−1.3</code>. Summed over many shots it measures shot-making.</dd>
+          <dt>Shot distance</dt><dd>Feet from the basket, from ESPN's shot location.</dd>
+          <dt>Score margin</dt><dd>The acting team's lead after the play (negative when trailing).</dd>
+        </dl>
+      </div>
+      <div class="px-sec">
+        <div class="px-h">The filters</div>
+        <dl>
+          <dt>Season</dt><dd>2007-08 to now. A season is named for the year it ends.</dd>
+          <dt>Team</dt><dd>Loads every play of that team's games. Leave it on Any team for the D-I standouts.</dd>
+          <dt>Side</dt><dd>With a team picked: its own plays, its opponents' plays, or both.</dd>
+          <dt>Player</dt><dd>Plays a player made or assisted on (players with at least 5 plays for the team).</dd>
+          <dt>Play type</dt><dd>Any shot, 3PT, 2PT (jumper, layup, dunk, tip-in), free throw, turnover, steal, block, rebound or foul.</dd>
+          <dt>Result</dt><dd>Made, missed, or assisted.</dd>
+          <dt>Period</dt><dd>1st half, 2nd half, or overtime.</dd>
+          <dt>Situation</dt><dd><b>Clutch</b>: last 5:00 of the 2nd half or OT, within 5 points before the play. <b>Final minute</b>: last 1:00, within 3. <b>Last 5 seconds</b>: the final 5 seconds of the 2nd half or OT. <b>Tie or go-ahead</b>: a make that tied the game or took the lead.</dd>
+          <dt>Sort</dt><dd>Biggest WP added, most costly plays (WP added low), points over expected, longest shots, or game order.</dd>
+          <dt>Column filter</dt><dd>Any number against a value, for example WP added % <code>≥ 20</code> or Shot distance <code>≥ 30</code>.</dd>
+          <dt>Text</dt><dd>Words in the play-by-play line or a player's name, for example <code>alley</code> or <code>and one</code>.</dd>
+        </dl>
+      </div>
+      <div class="px-sec">
+        <div class="px-h">Try these</div>
+        <div class="px-try" id="pxTry"></div>
+      </div>
+      <div class="px-sec">
+        <div class="px-h">Coverage</div>
+        <p>Play-by-play runs from 2007-08 to now. For 2008 through 2013, ESPN has play-by-play for only about half of the games (mostly missing low-major matchups), so those seasons are partial. Shot locations exist for most games since 2014; a shot without one is valued at the D-I make rate for its type. Search shows the top 150 matches.</p>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -246,7 +309,7 @@
         <div class="meta"><span>${esc(us)} ${at} ${esc(them)}</span><span>${esc(d)}</span><span>${perName(r)} ${esc(r.clock)}</span><span>${esc(hsc)}</span>${shot}<span class="wpa">WP added ${sgn(r.wpa*100,1)}%</span></div></a>`;
     }).join(''):'<div class="empty">No plays match. Loosen a filter.</div>';
     $('status').textContent=`${state.season-1}-${String(state.season).slice(2)} · ${n.toLocaleString()} matching plays${n>150?' (top 150 shown)':''}`;
-    $('foot').innerHTML=scopeNote+' Click a play for the box score. Shot locations come from ESPN (most games since 2014); shots without one use the D-I make rate for that shot type.';
+    $('foot').innerHTML=scopeNote;
   }
 
   // ---------- run ----------
@@ -274,6 +337,31 @@
     finally{ $('res').classList.remove('busy'); }
   }
 
+  // ---------- Search | Explain ----------
+  function showTab(t){
+    t=t==='explain'?'explain':'search';
+    document.querySelectorAll('.pf-tab').forEach(b=>{ const on=b.dataset.tab===t; b.classList.toggle('on',on); b.setAttribute('aria-selected',on); });
+    $('pfSearch').hidden=t!=='search'; $('pfExplain').hidden=t!=='explain'; $('status').style.display=t==='search'?'':'none';
+    try{ const u=new URL(location.href); if(t==='explain') u.searchParams.set('tab','explain'); else u.searchParams.delete('tab'); history.replaceState(null,'',u.pathname.split('/').pop()+u.search); }catch(e){}
+  }
+  const PRESETS=[
+    ['Buzzer-beaters','Made shots in the last 5 seconds, biggest swing first',{kind:'fga',made:'1',sit:'buzzer'}],
+    ['Costliest turnovers','Giveaways that hurt the most',{kind:'to',sort:'-wpa'}],
+    ['Deepest makes','Made threes, longest first',{kind:'three',made:'1',sort:'dist'}],
+    ['Final-minute shot-making','Last 1:00 within 3, by points over expected',{sit:'min',sort:'poe'}],
+    ['Go-ahead free throws','Free throws in the final minute of a close game',{kind:'ft',sit:'min'}],
+    ['Big dunks','Dunks by win-probability swing',{kind:'dunk'}],
+  ];
+  function applyPreset(f){
+    ['team','player','kind','made','per','sit','col','val','text'].forEach(k=>$('f-'+k).value='');
+    $('f-sort').value='wpa'; $('f-side').value='team'; $('f-op').value='>='; state.rows=[];
+    Object.keys(f).forEach(k=>{ $('f-'+k).value=f[k]; });
+    showTab('search'); run();
+  }
+  $('pxTry').innerHTML=PRESETS.map((p,i)=>`<button type="button" data-i="${i}"><b>${esc(p[0])}</b><span>${esc(p[1])}</span></button>`).join('');
+  $('pxTry').addEventListener('click',e=>{ const b=e.target.closest('[data-i]'); if(b) applyPreset(PRESETS[+b.dataset.i][2]); });
+  document.querySelector('.pf-tabs').addEventListener('click',e=>{ const b=e.target.closest('[data-tab]'); if(b) showTab(b.dataset.tab); });
+
   async function init(){
     const sel=$('f-season');
     for(let y=LAST;y>=FIRST;y--) sel.insertAdjacentHTML('beforeend',`<option value="${y}">${y-1}-${String(y).slice(2)}</option>`);
@@ -283,6 +371,7 @@
     F.forEach(k=>{ if(k!=='season'&&q.get(k)!=null){ if(k==='player') $('f-player').dataset.want=q.get(k); else $('f-'+k).value=q.get(k); } });
     if(v('team')) $('f-side').disabled=false;
     run();
+    if(q.get('tab')==='explain') showTab('explain');
     sel.addEventListener('change',async()=>{ $('f-team').value=''; await loadSeason(+sel.value); run(); });
     $('f-team').addEventListener('change',()=>{ $('f-player').value=''; state.rows=[]; run(); });
     ['side','player','kind','made','per','sit','sort'].forEach(k=>$('f-'+k).addEventListener('change',run));
