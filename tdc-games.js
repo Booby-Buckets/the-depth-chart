@@ -91,15 +91,21 @@ window.TDCGames = (function () {
     return '<dl class="gm-stats">' + cells.map(function (c) { return '<div><dd>' + esc(c[1]) + '</dd><dt>' + esc(c[0]) + '</dt></div>'; }).join('') + '</dl>';
   }
 
-  // Daily / Practice switch. onChange(mode) with 'daily' | 'practice'
+  // Free play / Daily switch, in the games' original segmented-button look. onChange(mode) with
+  // 'practice' (free play: any difficulty, unlimited) | 'daily' (today's puzzle, same for everyone)
   function modeBar(host, mode, onChange) {
     if (typeof host === 'string') host = document.getElementById(host);
     if (!host) return;
-    host.className = 'gm-modes';
-    host.innerHTML = '<button type="button" class="chip' + (mode === 'daily' ? ' on' : '') + '" data-mode="daily">Daily #' + dayNumber() + '</button>' +
-      '<button type="button" class="chip' + (mode === 'practice' ? ' on' : '') + '" data-mode="practice">Practice</button>';
+    host.className = 'gm-modes seg';
+    host.innerHTML = '<button type="button" class="' + (mode === 'practice' ? 'on' : '') + '" data-mode="practice">Free play<small>any difficulty</small></button>' +
+      '<button type="button" class="' + (mode === 'daily' ? 'on' : '') + '" data-mode="daily">Daily #' + dayNumber() + '<small>' + (dailyDoneAny(host) ? 'done today' : 'same for everyone') + '</small></button>';
     host.onclick = function (e) { var b = e.target.closest('[data-mode]'); if (b && b.getAttribute('data-mode') !== mode) onChange(b.getAttribute('data-mode')); };
   }
+
+  // the daily label says "done today" once today's puzzle for this page's game is finished
+  function dailyDoneAny(host) { var id = host && host.getAttribute('data-game'); return !!(id && dailyResult(id)); }
+  // which mode a game should open in: ?daily=1 (the hub's Daily link) -> daily, else free play
+  function startMode() { try { return /[?&]daily=1\b/.test(location.search) ? 'daily' : 'practice'; } catch (e) { return 'practice'; } }
 
   // the end-of-game block: headline, one line, Share button, stats. opts: {title, line, shareText, statsOpts, again}
   function resultHtml(id, opts) {
@@ -126,6 +132,6 @@ window.TDCGames = (function () {
 
   return { NAMES: NAMES, PAGES: PAGES, today: today, dayNumber: dayNumber, seeded: seeded, pick: pick, hash: hash, rng: rng,
     stats: stats, dailyResult: dailyResult, record: record, liveDailyStreak: liveDailyStreak,
-    share: share, shareText: shareText, toast: toast, statsHtml: statsHtml, modeBar: modeBar,
+    share: share, shareText: shareText, toast: toast, statsHtml: statsHtml, modeBar: modeBar, startMode: startMode,
     resultHtml: resultHtml, wireResult: wireResult, untilMidnight: untilMidnight, esc: esc };
 })();

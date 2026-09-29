@@ -31,33 +31,39 @@
     html{background:var(--bg);}
     body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;}
     a{color:inherit;}
-    .gm-stats-panel{margin-top:28px;}
-    .gm-panel-h{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;}
-    /* the two player-seasons: flat columns under a top rule, no card fill */
-    .cards{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:18px;align-items:stretch;}
-    .card{border-top:2px solid var(--border2);padding:18px 6px 8px;text-align:center;transition:border-color .2s;min-width:0;}
-    .card.correct{border-top-color:var(--green);} .card.wrong{border-top-color:var(--red);}
-    .card .photo{width:84px;height:84px;border-radius:50%;object-fit:cover;background:var(--bg2);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-weight:800;font-size:32px;color:var(--text3);border:1px solid var(--border);}
-    .card .nm{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;line-height:1.15;overflow-wrap:anywhere;}
-    .card .tm{font-size:12px;color:var(--text3);margin-top:4px;font-weight:600;}
-    .card .val{font-family:'Playfair Display',serif;font-weight:800;font-size:40px;margin-top:12px;color:var(--text);min-height:48px;font-variant-numeric:tabular-nums;}
-    .card .val.hid{color:var(--text3);}
-    .card .val .lbl{font-size:10px;color:var(--text3);font-weight:800;text-transform:uppercase;letter-spacing:.08em;font-family:'Inter',sans-serif;display:block;margin-top:2px;}
-    .card .btns{display:flex;gap:8px;justify-content:center;margin-top:14px;}
-    .card .btns .gm-btn{flex:1;justify-content:center;max-width:140px;}
-    .vs{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
-    .loading{padding:40px 0;color:var(--text3);}
-    /* phones: keep the pair side by side so the Higher/Lower buttons stay on screen */
-    @media(max-width:640px){ .cards{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;} .vs{display:none;} .card{padding:14px 2px 6px;}
-      .card .photo{width:56px;height:56px;font-size:22px;margin-bottom:8px;} .card .nm{font-size:16px;} .card .tm{font-size:11px;}
-      .card .val{font-size:32px;min-height:38px;margin-top:8px;} .card .btns{flex-direction:column;align-items:stretch;} .card .btns .gm-btn{max-width:none;} }
+    .wrap{max-width:760px;margin:0 auto;padding:24px 20px 90px;}
+    .g-head{text-align:center;margin-bottom:14px;}
+    .g-title{font-family:'Playfair Display',serif;font-weight:800;font-size:34px;letter-spacing:-.01em;}
+    .g-sub{font-size:13px;color:var(--text3);margin-top:4px;}
+    .stat-seg{display:flex;justify-content:center;gap:6px;margin:14px 0 6px;flex-wrap:wrap;}
+    .stat-seg button{font-size:12px;font-weight:700;letter-spacing:.03em;padding:7px 14px;border-radius:8px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;}
+    .stat-seg button.on{background:var(--accent);color:#221c08;border-color:var(--accent);}
+    .diffwrap{text-align:center;margin:4px 0 2px;}
+    .score-row{display:flex;justify-content:center;gap:26px;margin:12px 0 20px;font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;}
+    .score-row b{color:var(--accent);font-size:16px;}
+    .cards{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:stretch;}
+    .card{position:relative;border:1px solid var(--border);border-radius:16px;background:var(--bg2);padding:22px 16px;text-align:center;overflow:hidden;transition:transform .15s,border-color .2s;}
+    .card .photo{width:96px;height:96px;border-radius:20px;object-fit:cover;background:var(--bg3);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-weight:800;font-size:38px;color:var(--accent);border:1px solid var(--border2);}
+    .card .nm{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;line-height:1.1;}
+    .card .tm{font-size:12px;color:var(--text3);margin-top:3px;font-weight:600;}
+    .card .val{font-family:'Playfair Display',serif;font-weight:800;font-size:40px;margin-top:12px;color:var(--accent);min-height:48px;}
+    .card .val .lbl{font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-family:'Inter';display:block;margin-top:2px;}
+    .card .btns{display:flex;flex-direction:column;gap:9px;margin-top:14px;}
+    .card .btns button{font-size:14px;font-weight:700;padding:11px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg);color:var(--text);cursor:pointer;transition:background .12s,border-color .12s;}
+    .card .btns button:hover{border-color:var(--accent);}
+    .card .btns button.hi:hover{background:rgba(31,157,87,.14);}
+    .card .btns button.lo:hover{background:rgba(207,90,78,.14);}
+    .card.correct{border-color:#1f9d57;} .card.wrong{border-color:#cf5a4e;}
+    .vs{display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-weight:800;font-size:18px;color:var(--text3);}
+    .loading{padding:60px;text-align:center;color:var(--text3);}
+    @media(max-width:560px){.cards{grid-template-columns:1fr;}.vs{padding:4px;}.g-title{font-size:27px;}.card .val{font-size:34px;}.wrap{padding-left:6px;padding-right:6px;}}
   </style>
   <link rel="stylesheet" href="tdc-anim.css?v=6"/>
   <script src="tdc-anim.js?v=6"></script>
   <!-- new-UI theme layer: navy+blue dark palette (matches index/player); light-mode guard keeps the toggle readable -->
   <link rel="stylesheet" href="tdc-dense.css?v=39"/>
   <link rel="stylesheet" href="tdc-skin.css?v=14"/>
-  <link rel="stylesheet" href="tdc-games.css?v=1"/>
+  <link rel="stylesheet" href="tdc-games.css?v=2"/>
   <link rel="stylesheet" href="tdc-column.css?v=4"/>
   <style>
     :root:not([data-theme="dark"]){background:var(--bg)!important;}
@@ -75,23 +81,21 @@
 </head>
 <body data-anim-auto>
 <script src="tdc-nav.js?v=33"></script>
-<div class="page gm-page">
-  <a class="gm-back" href="games.html">← All games</a>
-  <div class="gm-eyebrow" id="gmEyebrow">Games · Daily</div>
-  <h1 class="gm-title">Higher or Lower</h1>
-  <div class="gm-controls">
-    <div id="gmModes"></div>
-    <div class="gm-seg" id="diffSeg" title="Difficulty sets how well-known the player-seasons can be"></div>
-    <div class="gm-seg" id="statSeg"></div>
-    <span class="gm-note" id="gmNote"></span>
-  </div>
-  <div class="gm-play">
+<div class="page">
+  <div class="wrap">
+    <div class="g-head">
+      <div class="g-title">Higher or Lower</div>
+      <div class="g-sub">Two player-seasons from 20 years of college hoops — does the mystery one rank higher or lower? Chain them for a streak.</div>
+    </div>
+    <div class="gm-modewrap"><div id="modeSeg" data-game="higher"></div></div>
+    <div class="diffwrap" id="diffWrap"></div>
+    <div class="stat-seg" id="statSeg"></div>
+    <div class="gm-note" id="gmNote"></div>
     <div id="content"><div class="loading">Loading players…</div></div>
-    <div class="gm-panel gm-stats-panel" id="gmStatsPanel"><div class="gm-panel-h">Your stats</div><div id="gmStats"></div></div>
   </div>
 </div>
 
-<script src="tdc-games.js?v=1"></script>
+<script src="tdc-games.js?v=2"></script>
 <script>
 const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
@@ -115,7 +119,7 @@ const STATS=[
 let POOL=[], ACTIVE=[], stat=STATS[0], left=null, right=null, streak=0, best=0, over=false, busy=false;
 let difficulty='medium';
 // mode: 'daily' = today's fixed chain (Grade, Medium, up to 25 pairs, one attempt); 'practice' = the open game
-let mode='daily', practice={stat:0, diff:'medium'}, SEQ=null, seqI=0, marks=[], gen=0; // gen guards stale timers after a mode switch
+let mode=T.startMode(), practice={stat:0, diff:'medium'}, SEQ=null, seqI=0, marks=[], gen=0; // gen guards stale timers after a mode switch
 // difficulty filters WHICH player-seasons can appear, by the player's (box-adjusted) grade —
 // more famous seasons = easier. Falls back to the broad pool if a tier is too small to draw pairs.
 const DIFFS={
@@ -139,27 +143,32 @@ function refreshActive(){
   if(ACTIVE.length<2) ACTIVE = stat.vol ? POOL.filter(stat.vol) : POOL; // vol+tier fallback
 }
 
-// ---- controls: Daily / Practice, then difficulty + stat chips (practice only) ----
+// ---- controls: Free play / Daily, then difficulty + stat buttons (both modes; the daily's are fixed) ----
 function renderControls(){
-  T.modeBar('gmModes', mode, setMode);
-  document.getElementById('gmEyebrow').textContent = mode==='daily' ? 'Games · Daily #'+T.dayNumber() : 'Games · Practice';
-  var ds=document.getElementById('diffSeg'), ss=document.getElementById('statSeg'), note=document.getElementById('gmNote');
-  var daily=mode==='daily';
-  ds.style.display=ss.style.display=daily?'none':'';
-  note.textContent = daily ? 'Daily: Grade · Medium · up to '+DAILY_PAIRS+' pairs, one try' : (DIFFS[difficulty].lbl+': '+DIFFS[difficulty].hint);
-  ds.innerHTML=Object.keys(DIFFS).map(function(k){return '<button type="button" class="chip'+(difficulty===k?' on':'')+'" title="'+DIFFS[k].hint+'" onclick="setDifficulty(\''+k+'\')">'+DIFFS[k].lbl+'</button>';}).join('');
-  ss.innerHTML=STATS.map(function(s,i){return '<button type="button" class="chip'+(s.k===stat.k?' on':'')+'" onclick="setStat('+i+')">'+s.l+'</button>';}).join('');
+  T.modeBar('modeSeg', mode, setMode);
+  var daily=mode==='daily', note=document.getElementById('gmNote');
+  document.getElementById('diffWrap').innerHTML='<div class="seg" title="Difficulty sets how well-known the player-seasons can be">'+
+    Object.keys(DIFFS).map(function(k){return '<button type="button" class="'+(difficulty===k?'on':'')+'" onclick="setDifficulty(\''+k+'\')">'+DIFFS[k].lbl+'<small>'+DIFFS[k].hint+'</small></button>';}).join('')+'</div>';
+  document.getElementById('statSeg').innerHTML=STATS.map(function(s,i){return '<button type="button" class="'+(s.k===stat.k?'on':'')+'" onclick="setStat('+i+')">'+s.l+'</button>';}).join('');
+  note.textContent = daily ? 'Daily #'+T.dayNumber()+' · Grade · Medium · '+DAILY_PAIRS+' pairs · one try' : '';
+  note.style.display = daily ? '' : 'none';
 }
-function renderStats(){ document.getElementById('gmStats').innerHTML=T.statsHtml(GID,{score:'Avg streak'}); }
-// the page stats panel hides while a result block (which carries its own stats row) is on screen
-function statsPanel(on){ document.getElementById('gmStatsPanel').style.display=on?'':'none'; }
 function setMode(m){
   if(m===mode) return; mode=m;
   if(m==='daily'){ stat=STATS[0]; difficulty='medium'; } else { stat=STATS[practice.stat]; difficulty=practice.diff; }
   renderControls(); start();
 }
-function setDifficulty(d){ if(mode!=='practice'||d===difficulty||!DIFFS[d]) return; difficulty=practice.diff=d; renderControls(); newGame(); }
-function setStat(i){ if(mode!=='practice') return; stat=STATS[i]; practice.stat=i; renderControls(); newGame(); }
+// in daily, picking another difficulty or stat leaves for free play at that setting
+function setDifficulty(d){
+  if(d===difficulty||!DIFFS[d]) return;
+  if(mode==='daily'){ practice.stat=STATS.indexOf(stat); practice.diff=d; return setMode('practice'); }
+  difficulty=practice.diff=d; renderControls(); newGame();
+}
+function setStat(i){
+  if(!STATS[i]) return;
+  if(mode==='daily'){ if(STATS[i]===stat) return; practice.stat=i; practice.diff=difficulty; return setMode('practice'); }
+  stat=STATS[i]; practice.stat=i; renderControls(); newGame();
+}
 
 function start(){
   if(!POOL.length) return;
@@ -194,22 +203,20 @@ function cardHtml(p, side, revealed){
   var img=photo?'<img class="photo" src="'+photo+'" alt="" onerror="this.outerHTML=\'<div class=&quot;photo&quot;>'+ini+'</div>\'">':'<div class="photo">'+ini+'</div>';
   var valHtml=revealed
     ? '<div class="val">'+stat.fmt(val(p))+'<span class="lbl">'+stat.l+'</span></div>'
-    : '<div class="val hid">?<span class="lbl">'+stat.l+'</span></div>';
+    : '<div class="val" style="color:var(--text3);">?<span class="lbl">'+stat.l+'</span></div>';
   var btns=(side==='right'&&!revealed&&!over)
-    ? '<div class="btns"><button type="button" class="gm-btn hi" onclick="answer(true)">Higher</button><button type="button" class="gm-btn ghost lo" onclick="answer(false)">Lower</button></div>'
+    ? '<div class="btns"><button type="button" class="hi" onclick="answer(true)">▲ Higher</button><button type="button" class="lo" onclick="answer(false)">▼ Lower</button></div>'
     : '';
   return '<div class="card" id="card-'+side+'">'+img+'<div class="nm">'+esc(p.name)+'</div><div class="tm">'+seasonLbl(p.season_year)+' · '+esc(p.team)+'</div>'+valHtml+btns+'</div>';
 }
 function scoreHtml(){
-  var cells = mode==='daily'
-    ? [['Streak',streak],['Pair',Math.min(seqI,DAILY_PAIRS)+' / '+DAILY_PAIRS],['Stat',stat.l]]
-    : [['Streak',streak],['Best',best],['Stat',stat.l]];
-  return cells.map(function(c){return '<div><dt>'+c[0]+'</dt><dd>'+c[1]+'</dd></div>';}).join('');
+  return '<span>Streak <b>'+streak+'</b></span>'+(mode==='daily'
+    ? '<span>Pair <b>'+Math.min(seqI,DAILY_PAIRS)+' / '+DAILY_PAIRS+'</b></span>'
+    : '<span>Best <b>'+best+'</b></span>');
 }
 function render(){
-  statsPanel(true);
   document.getElementById('content').innerHTML=
-    '<dl class="gm-score" id="scoreRow">'+scoreHtml()+'</dl>'+
+    '<div class="score-row" id="scoreRow">'+scoreHtml()+'</div>'+
     '<div class="cards" id="cards"><div id="leftWrap">'+cardHtml(left,'left',true)+'</div><div class="vs">vs</div><div id="rightWrap">'+cardHtml(right,'right',false)+'</div></div>'+
     '<div id="gr"></div>';
 }
@@ -251,7 +258,7 @@ function endRun(perfect){
   var daily=mode==='daily', score=streak, win=score>=WIN_AT, share=shareFor(daily, score, marks);
   // record immediately so a reload can't replay a finished daily
   T.record(GID,{daily:daily, win:win, score:score, share:share, detail:{stat:stat.k, diff:difficulty, marks:marks.map(function(m){return m?1:0;})}});
-  renderStats();
+  if(daily) renderControls();   // the Daily button now reads "done today"
   var g0=gen;
   setTimeout(function(){
     if(g0!==gen) return;
@@ -259,23 +266,23 @@ function endRun(perfect){
     var line = daily
       ? (perfect ? 'All '+DAILY_PAIRS+' pairs right on Grade.' : 'You got <b>'+score+'</b> of '+DAILY_PAIRS+' pairs in a row on Grade.')
       : 'Best on '+esc(stat.l)+' ('+DIFFS[difficulty].lbl+'): <b>'+best+'</b>.';
-    var el=document.getElementById('gr'); statsPanel(false);
-    el.innerHTML=T.resultHtml(GID,{title:title, line:line, shareText:share, statsOpts:{score:'Avg streak'}, again:daily?'Play practice':'Play again', daily:daily});
+    var el=document.getElementById('gr');
+    el.innerHTML=T.resultHtml(GID,{title:title, line:line, shareText:share, statsOpts:{score:'Avg streak'}, again:daily?'Free play':'Play again', daily:daily});
     T.wireResult(el, share, daily ? function(){ setMode('practice'); } : newGame);
   }, 700);
 }
 function showDailyDone(r){
-  gen++; statsPanel(false);
+  gen++;
   var s=r.score!=null?r.score:0;
   document.getElementById('content').innerHTML='<div id="gr">'+T.resultHtml(GID,{
     title:"Today's daily is done",
     line:'Your streak: <b>'+esc(s)+'</b> of '+DAILY_PAIRS+' on Grade. A new chain unlocks at midnight ET.',
-    shareText:r.share, statsOpts:{score:'Avg streak'}, again:'Play practice', daily:true})+'</div>';
+    shareText:r.share, statsOpts:{score:'Avg streak'}, again:'Free play', daily:true})+'</div>';
   T.wireResult('gr', r.share, function(){ setMode('practice'); });
 }
 
 async function init(){
-  renderControls(); renderStats();
+  renderControls();
   try{
     // order=id keeps the pool in a stable order across visitors (the daily chain depends on it)
     const base=SB+'/rest/v1/player_history?select=id,name,team,season_year,position,height,tdc_grade,ppg,rpg,apg,stl,blk,tovs,oreb,dreb,mpg,fg_pct,tp_pct,ft_pct,fga,tpm,tpa,ftm,fta,espn_id,photo_url&tdc_grade=gte.74&gp=gte.18&mpg=gte.20&order=id.asc';

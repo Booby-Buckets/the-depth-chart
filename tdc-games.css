@@ -1,56 +1,37 @@
-/* tdc-games.css — one look for every game (Sept 2026), on top of tdc-skin.css.
-   Header: gold eyebrow + Playfair title, left-aligned in the site column, no sub-line.
-   Controls: outline chips (active = filled). Panels are flat: a top rule, no card fill or shadow.
-   Result block + stats row are shared (built by tdc-games.js). */
+/* tdc-games.css — the shared pieces of every game, in the games' ORIGINAL look (restored Sept 29 2026):
+   centered page, gold segmented buttons, rounded bg2 panels, a centered result card.
+   Each game page keeps its own original inline CSS for its board; this file only styles what
+   tdc-games.js builds (mode switch, result card, stats, toast) plus the common segmented control. */
 
-.gm-page{ padding:32px 0 64px; }
-.gm-back{ font-size:12px; font-weight:700; color:var(--text3); text-decoration:none; display:inline-block; margin-bottom:10px; }
-.gm-back:hover{ color:var(--text); }
-.gm-eyebrow{ font-size:11px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); margin-bottom:8px; }
-.gm-title{ font-family:'Playfair Display',Georgia,serif; font-weight:800; font-size:34px; letter-spacing:-.02em; margin:0 0 16px; text-align:left; }
+/* segmented control (Free play / Daily, difficulty) — the original .seg */
+.gm-modes, .seg{display:inline-flex;background:var(--bg2);border:1px solid var(--border2);border-radius:9px;padding:3px;gap:3px;flex-wrap:wrap;justify-content:center;}
+.gm-modes button, .seg button{font-size:12px;font-weight:800;letter-spacing:.02em;padding:6px 15px;border:none;border-radius:6px;background:none;color:var(--text3);cursor:pointer;font-family:inherit;transition:background .12s,color .12s;}
+.gm-modes button.on, .seg button.on{background:var(--accent);color:#221c08;}
+.gm-modes button small, .seg button small{display:block;font-size:9px;font-weight:700;letter-spacing:.03em;opacity:.7;margin-top:2px;}
+.gm-modewrap{text-align:center;margin:10px 0 4px;}
+.gm-note{font-size:12px;color:var(--text3);text-align:center;margin-top:6px;}
 
-/* control rows: Daily/Practice, era, difficulty, stat */
-.gm-controls{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; padding:12px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); margin-bottom:20px; }
-.gm-modes, .gm-seg{ display:inline-flex; gap:6px; flex-wrap:wrap; }
-.gm-controls .chip, .gm-modes .chip, .gm-seg .chip{ font:600 11.5px 'Inter',system-ui,sans-serif; letter-spacing:.02em; background:var(--bg);
-  border:1px solid var(--border2); color:var(--text2); padding:5px 11px; border-radius:999px; cursor:pointer; }
-.gm-controls .chip:hover, .gm-modes .chip:hover{ color:var(--text); border-color:var(--text3); }
-.gm-controls .chip.on, .gm-modes .chip.on, .gm-seg .chip.on{ background:var(--text); color:var(--bg); border-color:var(--text); }
-.gm-controls .chip:disabled{ opacity:.45; cursor:default; }
-.gm-note{ font-size:12px; color:var(--text3); }
+/* buttons */
+.gm-btn{display:inline-flex;align-items:center;gap:6px;padding:11px 22px;font:700 14px 'Inter',system-ui,sans-serif;border-radius:10px;border:none;cursor:pointer;background:var(--accent);color:#221c08;}
+.gm-btn.ghost{background:var(--bg);color:var(--text);border:1.5px solid var(--border2);}
+.gm-btn.ghost:hover{border-color:var(--accent);}
+.gm-btn:disabled{opacity:.45;cursor:default;}
 
-/* play area: flat panels */
-.gm-play{ max-width:760px; }
-.gm-panel{ border-top:1px solid var(--border); padding:16px 0; }
-.gm-btn{ font:700 12.5px 'Inter',system-ui,sans-serif; letter-spacing:.02em; padding:9px 16px; border-radius:999px; border:1px solid var(--text);
-  background:var(--text); color:var(--bg); cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
-.gm-btn.ghost{ background:var(--bg); color:var(--text2); border-color:var(--border2); }
-.gm-btn:disabled{ opacity:.45; cursor:default; }
-.gm-input{ width:100%; font:500 14px 'Inter',system-ui,sans-serif; background:var(--bg); border:1px solid var(--border2); color:var(--text);
-  padding:10px 12px; border-radius:8px; outline:none; }
-.gm-input:focus{ border-color:var(--accent); }
+/* end-of-game result card + stats (built by tdc-games.js) */
+.gm-result{text-align:center;margin:24px auto 0;max-width:560px;border:1px solid var(--border);border-radius:16px;background:var(--bg2);padding:22px 18px 18px;animation:gmPop .35s cubic-bezier(.34,1.46,.64,1);}
+@keyframes gmPop{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.gm-result-h{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:30px;margin-bottom:4px;}
+.gm-result-l{font-size:14px;color:var(--text2);line-height:1.5;margin-bottom:14px;}
+.gm-result-a{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:16px;}
+.gm-stats{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 22px;margin:0;padding-top:14px;border-top:1px solid var(--border);}
+.gm-stats > div{display:flex;flex-direction:column;align-items:center;min-width:58px;}
+.gm-stats dd{font-family:'Playfair Display',Georgia,serif;font-size:24px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;order:1;}
+.gm-stats dt{font-size:9.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);order:2;margin-top:2px;}
+.gm-next{font-size:12px;color:var(--text3);margin-top:12px;}
+.gm-done{text-align:center;font-size:13px;color:var(--text2);padding:10px 0;}
+.gm-done b{color:var(--text);}
 
-/* live score line (score / rounds / streak) */
-.gm-score{ display:flex; flex-wrap:wrap; gap:6px 28px; margin:0 0 16px; }
-.gm-score > div{ display:flex; align-items:baseline; gap:8px; }
-.gm-score dt, .gm-score .k{ font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--text3); }
-.gm-score dd, .gm-score .v{ font-size:18px; font-weight:800; color:var(--text); font-variant-numeric:tabular-nums; }
+.gm-toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:var(--text);color:var(--bg);font:700 13px 'Inter',system-ui,sans-serif;padding:10px 16px;border-radius:999px;z-index:500;transition:opacity .4s;}
+.gm-toast.out{opacity:0;}
 
-/* end-of-game result + stats */
-.gm-result{ border-top:2px solid var(--border2); padding:18px 0 6px; margin-top:12px; }
-.gm-result-h{ font-family:'Playfair Display',Georgia,serif; font-weight:800; font-size:24px; margin-bottom:4px; }
-.gm-result-l{ font-size:14px; color:var(--text2); line-height:1.5; margin-bottom:12px; }
-.gm-result-a{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
-.gm-stats{ display:flex; flex-wrap:wrap; gap:6px 26px; margin:0; }
-.gm-stats > div{ display:flex; flex-direction:column; }
-.gm-stats dd{ font-size:20px; font-weight:800; color:var(--text); font-variant-numeric:tabular-nums; order:1; }
-.gm-stats dt{ font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--text3); order:2; }
-.gm-next{ font-size:12px; color:var(--text3); margin-top:12px; }
-.gm-done{ font-size:13px; color:var(--text2); padding:10px 0; }
-.gm-done b{ color:var(--text); }
-
-.gm-toast{ position:fixed; left:50%; bottom:28px; transform:translateX(-50%); background:var(--text); color:var(--bg); font:700 13px 'Inter',system-ui,sans-serif;
-  padding:10px 16px; border-radius:999px; z-index:500; transition:opacity .4s; }
-.gm-toast.out{ opacity:0; }
-
-@media(max-width:640px){ .gm-title{ font-size:28px; } .gm-controls{ gap:8px 10px; } }
+@media(max-width:560px){ .gm-modes button, .seg button{padding:6px 10px;} .gm-result-h{font-size:26px;} }

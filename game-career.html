@@ -26,51 +26,73 @@
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--green:#1a8c3a;--amber:#b5872a;--red:#cc2200;}
     [data-theme="dark"]{--bg:#0A0E18;--bg2:#111726;--bg3:#1A2133;--border:#232B3E;--border2:#34405A;--text:#EEF1F7;--text2:#AEB6C8;--text3:#7A849A;--accent:#E6D5A8;--green:#6fbf7e;--amber:#d8b05a;--red:#e07070;}
     *{margin:0;padding:0;box-sizing:border-box;}
-    html,body{background:var(--bg);}
-    body{color:var(--text);font-family:'Inter',system-ui,sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;}
+    html{background:var(--bg);}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;}
     a{color:inherit;text-decoration:none;}
-    .gm-k{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;}
-    .qmark{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:19px;color:var(--text);line-height:1.3;}
-    .qmark span{font-family:'Inter',system-ui,sans-serif;font-size:12px;color:var(--text3);font-weight:600;display:block;margin-top:3px;}
-    .tl{margin-top:14px;position:relative;padding-left:26px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding-top:6px;padding-bottom:6px;}
-    .tl::before{content:'';position:absolute;left:8px;top:16px;bottom:16px;width:2px;background:var(--border2);}
+    .wrap{max-width:560px;margin:0 auto;padding:30px 20px 90px;}
+    /* tdc-column.css widens body > .wrap to the 1400px column; the games keep their narrow card */
+    :is(body.hqsite, body) > .wrap.wrap{max-width:560px !important;width:auto;}
+    .back{font-size:12px;font-weight:700;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;display:inline-flex;gap:6px;margin-bottom:16px;}
+    .back:hover{color:var(--accent);}
+    .hd{text-align:center;margin-bottom:14px;}
+    .hd h1{font-family:'Playfair Display',serif;font-weight:800;font-size:34px;letter-spacing:-.01em;}
+    .hd p{font-size:13px;color:var(--text3);margin-top:6px;line-height:1.5;}
+    .scorebar{display:flex;justify-content:center;gap:26px;margin:14px 0 6px;}
+    .sb{text-align:center;} .sb .n{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;line-height:1;} .sb .l{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:4px;}
+    .card{border:1px solid var(--border2);border-radius:18px;background:radial-gradient(120% 130% at 0 0,color-mix(in srgb,var(--accent) 8%,var(--bg2)),var(--bg2));padding:22px;margin-top:12px;}
+    .qmark{text-align:center;font-family:'Playfair Display',serif;font-weight:800;font-size:16px;}
+    .qmark span{font-size:12px;color:var(--text3);font-weight:600;display:block;margin-top:3px;}
+    .diffwrap{text-align:center;margin:8px 0 2px;}
+    .seg{display:inline-flex;background:var(--bg2);border:1px solid var(--border2);border-radius:9px;padding:3px;gap:3px;flex-wrap:wrap;justify-content:center;}
+    .seg button{font-size:12px;font-weight:800;letter-spacing:.02em;padding:6px 15px;border:none;border-radius:6px;background:none;color:var(--text3);cursor:pointer;font-family:inherit;transition:background .12s,color .12s;}
+    .seg button.on{background:var(--accent);color:#221c08;}
+    .seg button small{display:block;font-size:9px;font-weight:700;letter-spacing:.03em;opacity:.7;margin-top:2px;}
+    @media(max-width:560px){ .seg button{padding:6px 10px;} }
+    .tl{margin-top:16px;position:relative;padding-left:26px;}
+    .tl::before{content:'';position:absolute;left:8px;top:6px;bottom:6px;width:2px;background:var(--border2);}
     .step{position:relative;padding:9px 0;}
     .step::before{content:'';position:absolute;left:-22px;top:15px;width:11px;height:11px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);}
     .step.hidden{opacity:0;height:0;padding:0;overflow:hidden;}
-    .step .yr{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
-    .step .tm{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:17px;margin-top:1px;color:var(--text);}
+    .step .yr{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);}
+    .step .tm{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;margin-top:1px;}
     .step .ln{font-size:12px;color:var(--text3);font-weight:600;margin-top:1px;}
     .combo{position:relative;margin-top:16px;}
-    .gm-input:disabled{opacity:.55;}
-    .clist{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:30;max-height:280px;overflow-y:auto;background:var(--bg);border:1px solid var(--border2);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.14);}
-    .citem{padding:10px 12px;cursor:pointer;font-size:14px;font-weight:600;color:var(--text);}
-    .citem:hover,.citem.hl{background:var(--bg2);}
+    .search{width:100%;padding:13px 15px;border:1px solid var(--accent);border-radius:12px;background:var(--bg);color:var(--text);font-family:inherit;font-size:15px;font-weight:600;outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent);}
+    .search:disabled{opacity:.6;}
+    .clist{display:none;position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:30;max-height:280px;overflow-y:auto;background:var(--bg);border:1px solid var(--border2);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.2);}
+    .citem{padding:10px 14px;cursor:pointer;font-size:14px;font-weight:600;display:flex;justify-content:space-between;gap:10px;}
+    .citem:hover,.citem.hl{background:var(--bg3);}
+    .citem .tm{color:var(--text3);font-weight:500;font-size:12px;white-space:nowrap;}
     .cempty{padding:12px;font-size:12px;color:var(--text3);}
-    .hintrow{margin-top:10px;}
-    .guesses{margin-top:10px;}
-    .grow{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:700;padding:8px 0;border-bottom:1px solid var(--border);color:var(--red);}
+    .guesses{margin-top:12px;display:flex;flex-direction:column;gap:6px;}
+    .grow{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:700;padding:9px 13px;border-radius:10px;background:var(--bg3);color:var(--red);}
     .grow .x{margin-left:auto;font-weight:800;}
-    .reveal{margin-top:16px;padding-top:14px;border-top:1px solid var(--border);}
-    .reveal .who{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:22px;color:var(--text);}
-    .verdict{font-size:13px;font-weight:800;margin:8px 0 12px;}
-    .verdict.g{color:var(--green);} .verdict.r{color:var(--red);}
-    .loading{padding:40px 0;color:var(--text3);font-size:13px;}
-    .recap{margin-top:14px;border-top:1px solid var(--border);}
-    .recap div{display:flex;gap:10px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
-    .recap .n{color:var(--text3);font-weight:800;width:16px;font-variant-numeric:tabular-nums;}
-    .recap .nm{font-weight:700;color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .hintbtn{width:100%;margin-top:10px;padding:11px;border:1px solid var(--border2);border-radius:12px;background:var(--bg3);color:var(--text2);font-family:inherit;font-weight:800;font-size:13px;cursor:pointer;}
+    .reveal{margin-top:16px;text-align:center;}
+    .reveal .who{font-family:'Playfair Display',serif;font-weight:800;font-size:23px;}
+    .verdict{font-size:14px;font-weight:800;padding:8px 16px;border-radius:20px;display:inline-block;margin-top:12px;}
+    .verdict.g{background:color-mix(in srgb,var(--green) 16%,transparent);color:var(--green);}
+    .verdict.r{background:color-mix(in srgb,var(--red) 16%,transparent);color:var(--red);}
+    .btn{width:100%;margin-top:14px;padding:14px;border:none;border-radius:12px;background:var(--accent);color:#221c08;font-family:inherit;font-weight:800;font-size:15px;cursor:pointer;}
+    .loading{text-align:center;padding:60px;color:var(--text3);}
+    .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:22px;text-align:center;}
+    .recap{max-width:560px;margin:12px auto 0;display:flex;flex-direction:column;gap:6px;}
+    .recap div{display:flex;gap:10px;align-items:baseline;padding:9px 13px;border-radius:10px;background:var(--bg3);font-size:13px;}
+    .recap .n{color:var(--text3);font-weight:800;width:14px;flex:none;}
+    .recap .nm{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .recap .tm{color:var(--text3);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
     .recap .r{margin-left:auto;font-weight:800;white-space:nowrap;}
     .recap .r.g{color:var(--green);} .recap .r.m{color:var(--red);}
-    .gm-rules{margin-top:18px;line-height:1.6;}
     #myStats{margin-top:22px;}
-    @media(max-width:640px){ .recap .tm{display:none;} }
+    #myStats .l{text-align:center;font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
+    @media(max-width:560px){ .recap .tm{display:none;} }
   </style>
   <link rel="stylesheet" href="tdc-anim.css?v=6"/>
   <script src="tdc-anim.js?v=6"></script>
   <link rel="stylesheet" href="tdc-dense.css?v=39"/>
   <link rel="stylesheet" href="tdc-skin.css?v=14"/>
-  <link rel="stylesheet" href="tdc-games.css?v=1"/>
+  <link rel="stylesheet" href="tdc-hq-game.css?v=2"/>
+  <link rel="stylesheet" href="tdc-games.css?v=2"/>
   <link rel="stylesheet" href="tdc-column.css?v=4"/>
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#0A0E18" media="(prefers-color-scheme: dark)">
@@ -84,30 +106,28 @@
 </head>
 <body data-anim-auto>
 <script src="tdc-nav.js?v=33"></script>
-<div class="page gm-page">
-  <a class="gm-back" href="games.html">← All games</a>
-  <div class="gm-eyebrow" id="gmEyebrow">Games · Daily #</div>
-  <h1 class="gm-title">Career Path</h1>
-  <div class="gm-controls">
-    <div id="gmModes"></div>
-    <div class="gm-seg" id="diffSeg"></div>
-    <span class="gm-note" id="gmNote"></span>
-  </div>
-  <div class="gm-play">
-    <dl class="gm-score" id="gmScore">
-      <div><dt>Career</dt><dd id="sLine">–</dd></div>
-      <div><dt>Score</dt><dd id="sScore">0</dd></div>
-      <div><dt>Solved</dt><dd id="sSolved">0</dd></div>
-      <div><dt>Streak</dt><dd id="sStreak">0</dd></div>
-    </dl>
+  <div class="wrap">
+    <a class="back" href="games.html">← All games</a>
+    <div class="hd">
+      <h1>Career Path</h1>
+      <p>A player's college career, season by season: schools, class and scoring, with the name hidden. Each wrong guess reveals the next stop.</p>
+    </div>
+    <div class="gm-modewrap"><div id="modeSeg" data-game="career"></div></div>
+    <div class="diffwrap" id="diffWrap"></div>
+    <div class="gm-note" id="gmNote"></div>
+    <div class="scorebar" id="scorebar">
+      <div class="sb"><div class="n" id="sLine">–</div><div class="l">Career</div></div>
+      <div class="sb"><div class="n" id="sScore">0</div><div class="l">Score</div></div>
+      <div class="sb"><div class="n" id="sSolved">0</div><div class="l">Solved</div></div>
+      <div class="sb"><div class="n" id="sStreak">0</div><div class="l">Streak</div></div>
+    </div>
     <div id="content"><div class="loading">Building career paths from 20 years…</div></div>
     <div id="result"></div>
-    <div class="gm-note game-rules gm-rules">A set is 5 mystery careers; the daily set is the same for everyone. Multi-season players (2+ seasons since 2006-07). Only the first stop shows at first; each miss (or Reveal next stop) uncovers another season. Points = 6 on the first stop, down to 1 (30 max). Transfers show more than one school. Solve 3 of 5 to win the day.</div>
-    <div class="gm-panel" id="myStats"></div>
+    <div class="note game-rules">A set is 5 careers. Multi-season players (2+ seasons since 2006-07). Only the first stop shows at first; each miss (or “Reveal next stop”) uncovers another season. Points = 6 on the first stop, down to 1 (30 max). Transfers show more than one school. Solve 3 of 5 to win the day.</div>
+    <div id="myStats"></div>
   </div>
-</div>
 
-<script src="tdc-games.js?v=1"></script>
+<script src="tdc-games.js?v=2"></script>
 <script>
 const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
@@ -120,12 +140,12 @@ const norm=s=>(''+(s||'')).toLowerCase().replace(/[^a-z]/g,'');
 const seasonLbl=y=>y?((y-1)+'-'+String(y).slice(2)):'';
 const classInfo=y=>{const s=(''+(y||'')).toLowerCase();return s.indexOf('fr')>=0?'Freshman':s.indexOf('so')>=0?'Sophomore':s.indexOf('jr')>=0?'Junior':s.indexOf('sr')>=0?'Senior':(y||'');};
 
-// mode: 'daily' (fixed 5-career set at Medium) | 'practice' (difficulty chips, unlimited sets)
-let mode='daily', gen=0;
-let CAREERS=null, NAMES=[], CUR=null, revealed=1, tries=0, locked=false, hlIdx=-1;
+// mode: 'daily' (fixed 5-career set at Medium) | 'practice' (free play: any difficulty, unlimited sets)
+let mode=T.startMode(), gen=0;
+let CAREERS=null, GUESSES=[], MATCHES=[], CUR=null, revealed=1, tries=0, locked=false, hlIdx=-1;
 let SET=[], idx=0, RES=[];
 let S={score:0,solved:0,streak:0};
-let difficulty='medium';                         // practice choice
+let difficulty='medium';                         // free-play choice
 // difficulty filters WHICH careers the mystery can be, by the player's peak grade
 const DIFFS={
   easy:   {lbl:'Easy',   hint:'household names', min:88},
@@ -139,6 +159,7 @@ async function getJSON(url,headers){
   for(let a=0;a<2;a++){ try{ const r=await fetch(url,{headers}); if(r.ok) return await r.json(); }catch(e){} }
   return [];
 }
+let ROWS=[];
 async function loadCareers(){
   // NOTE: a stable ORDER BY is required — Range pagination without one silently skips/dupes
   // rows at page boundaries, which dropped the correct season row for transfers (e.g. Akron).
@@ -147,6 +168,7 @@ async function loadCareers(){
   const total=+(cr.headers.get('content-range')||'0/0').split('/')[1]||0; const PG=1000, pages=Math.min(Math.ceil(total/PG),60), jobs=[];
   for(let i=0;i<pages;i++) jobs.push(getJSON(base,Object.assign({},H,{'Range-Unit':'items','Range':(i*PG)+'-'+(i*PG+PG-1)})));
   const rows=TDCTeamName.fix((await Promise.all(jobs)).reduce((a,b)=>a.concat(b),[]));
+  ROWS=rows;
   const byId={}; rows.forEach(r=>{ if(!r||r.espn_id==null||!r.name) return; (byId[r.espn_id]=byId[r.espn_id]||[]).push(r); });
   const careers=[];
   Object.keys(byId).forEach(id=>{ const seasons=byId[id];
@@ -164,19 +186,36 @@ async function loadCareers(){
   careers.sort((a,b)=>(+a._id-+b._id)||(a._id<b._id?-1:a._id>b._id?1:0));
   return careers;
 }
-
-/* ---------- controls: Daily / Practice, then difficulty (practice only) ---------- */
-function renderControls(){
-  const d=mode==='daily';
-  T.modeBar('gmModes',mode,m=>{ mode=m; start(); });
-  el('gmEyebrow').textContent=d?'Games · Daily #'+T.dayNumber():'Games · Practice';
-  el('diffSeg').innerHTML=Object.keys(DIFFS).map(k=>`<button type="button" class="chip${difficulty===k?' on':''}" data-diff="${k}" title="${DIFFS[k].hint}">${DIFFS[k].lbl}</button>`).join('');
-  el('diffSeg').style.display=d?'none':'';
-  el('gmNote').textContent=d?'Daily: 5 careers · Medium':'5 careers a set · '+DIFFS[difficulty].hint;
+// the guess list: every player in the seasons careers are drawn from (not just multi-season
+// careers), one entry per espn_id, labelled with his last team and span
+function buildGuesses(rows){
+  const m=new Map();
+  rows.forEach(r=>{ if(!r||!r.name||r.espn_id==null) return;
+    const k=String(r.espn_id), g=m.get(k), y=+r.season_year||0;
+    if(!g){ m.set(k,{id:k,name:r.name,k:norm(r.name),team:r.team||'',y0:y,y1:y}); return; }
+    if(y>=g.y1){ g.y1=y; g.name=r.name; g.k=norm(r.name); if(r.team) g.team=r.team; }
+    if(y&&y<g.y0) g.y0=y; });
+  return [...m.values()].sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:(a.y1-b.y1)||(a.id<b.id?-1:1));
 }
-el('diffSeg').onclick=e=>{ const b=e.target.closest('[data-diff]'); if(b) setDifficulty(b.dataset.diff); };
-function setDifficulty(d){ if(mode!=='practice'||d===difficulty||!DIFFS[d]) return; difficulty=d; start(); }
-function renderStats(show){ const m=el('myStats'); m.style.display=show===false?'none':''; m.innerHTML='<div class="gm-k">Your stats</div>'+T.statsHtml(GID,{score:'Avg score'}); }
+const guessLabel=g=>g.team+(g.y1?' · '+(g.y0===g.y1?seasonLbl(g.y1):(g.y0-1)+'–'+String(g.y1).slice(2)):'');
+
+/* ---------- controls: Free play / Daily, then difficulty. Both visible in both modes ---------- */
+function renderControls(){
+  const d=mode==='daily', dif=curDiff();
+  T.modeBar('modeSeg',mode,m=>{ mode=m; start(); });
+  el('diffWrap').innerHTML='<div class="seg" title="Difficulty sets how well-known the mystery player can be">'+
+    Object.keys(DIFFS).map(k=>`<button type="button" class="${dif===k?'on':''}" data-diff="${k}">${DIFFS[k].lbl}<small>${DIFFS[k].hint}</small></button>`).join('')+'</div>';
+  el('gmNote').textContent=d?'Daily #'+T.dayNumber()+': 5 careers · Medium · same for everyone':'';
+  el('gmNote').style.display=d?'':'none';
+}
+// picking a difficulty the daily doesn't use drops into free play at that difficulty
+el('diffWrap').onclick=e=>{ const b=e.target.closest('[data-diff]'); if(b) setDifficulty(b.dataset.diff); };
+function setDifficulty(d){
+  if(!DIFFS[d]) return;
+  if(mode==='daily'){ if(d===DAILY_DIFF) return; mode='practice'; difficulty=d; start(); return; }
+  if(d===difficulty) return; difficulty=d; start();
+}
+function renderStats(show){ const m=el('myStats'); m.style.display=show===false?'none':''; m.innerHTML='<div class="l">Your stats</div>'+T.statsHtml(GID,{score:'Avg score'}); }
 function renderScore(){ el('sLine').textContent=SET.length?Math.min(idx+1,SET.length)+'/'+SET.length:'–'; el('sScore').textContent=S.score; el('sSolved').textContent=S.solved; el('sStreak').textContent=S.streak; }
 
 /* ---------- a set = 5 careers, ~60% transfers. Daily: seeded rng over a stably ordered pool. ---------- */
@@ -190,12 +229,12 @@ function pickSet(pool,n,rnd){
 }
 async function start(keepStreak){
   const my=++gen;
-  renderControls(); renderStats(); el('result').innerHTML=''; el('gmScore').style.display='';
+  renderControls(); renderStats(); el('result').innerHTML=''; el('scorebar').style.display='';
   SET=[]; idx=0; RES=[]; S={score:0,solved:0,streak:keepStreak?S.streak:0}; renderScore();
   if(mode==='daily'){ const saved=T.dailyResult(GID); if(saved){ showDone(saved); return; } }
   if(!CAREERS){
     el('content').innerHTML='<div class="loading">Building career paths from 20 years…</div>';
-    const c=await loadCareers(); if(!CAREERS){ CAREERS=c; NAMES=[...new Set(c.map(x=>x[x.length-1].name))].sort(); }
+    const c=await loadCareers(); if(!CAREERS){ CAREERS=c; GUESSES=buildGuesses(ROWS); ROWS=[]; }
   }
   if(my!==gen) return;
   if(!CAREERS.length){ el('content').innerHTML='<div class="loading">No careers available. Try reloading.</div>'; return; }
@@ -207,14 +246,13 @@ async function start(keepStreak){
 }
 
 function renderRound(){
-  CUR=SET[idx]; revealed=1; tries=0; locked=false; hlIdx=-1; renderScore();
+  CUR=SET[idx]; revealed=1; tries=0; locked=false; hlIdx=-1; MATCHES=[]; renderScore();
   const steps=CUR.map((s,i)=>`<div class="step${i<revealed?'':' hidden'}" data-i="${i}"><div class="yr">${seasonLbl(s.season_year)}</div><div class="tm">${esc(s.team)}</div><div class="ln">${[classInfo(s.yr),F(s.ppg)+' ppg',F(s.rpg)+' reb',F(s.apg)+' ast'].filter(Boolean).join(' · ')}</div></div>`).join('');
-  el('content').innerHTML=`<div class="gm-panel" data-anim>
-    <div class="gm-k">Career ${idx+1} of ${SET.length}</div>
+  el('content').innerHTML=`<div class="card" data-anim>
     <div class="qmark">Whose career is this?<span>${CUR.length} seasons on file</span></div>
     <div class="tl" id="tl">${steps}</div>
-    <div class="combo"><input id="sel" class="gm-input" placeholder="Guess the player…" autocomplete="off" aria-label="Guess the player"><div class="clist" id="clist"></div></div>
-    <div class="hintrow"><button type="button" class="gm-btn ghost" id="hint">Reveal next stop</button></div>
+    <div class="combo"><input id="sel" class="search" placeholder="Guess the player…" autocomplete="off" aria-label="Guess the player"><div class="clist" id="clist"></div></div>
+    <button type="button" class="hintbtn" id="hint">Reveal next stop ↓</button>
     <div class="guesses" id="guesses"></div>
     <div id="rev"></div>
   </div>`;
@@ -232,8 +270,8 @@ function revealNext(costTry){
   if(tries>=CUR.length+1){ lose(); }
 }
 
-function matches(q){ const t=norm(q); if(!t) return []; const st=[],inc=[]; for(const n of NAMES){ const nn=norm(n); if(nn.startsWith(t))st.push(n); else if(nn.includes(t))inc.push(n); if(st.length>=8)break; } return st.concat(inc).slice(0,8); }
-function renderMatches(){ const list=el('clist'), m=matches(el('sel').value); hlIdx=-1; list.innerHTML=m.length?m.map((n,i)=>`<div class="citem" data-n="${esc(n)}" data-i="${i}">${esc(n)}</div>`).join(''):'<div class="cempty">No players match</div>'; list.style.display='block'; }
+function matches(q){ const t=norm(q); if(!t) return []; const st=[],inc=[]; for(const g of GUESSES){ if(g.k.startsWith(t))st.push(g); else if(inc.length<8&&g.k.includes(t))inc.push(g); if(st.length>=8)break; } return st.concat(inc).slice(0,8); }
+function renderMatches(){ const list=el('clist'); MATCHES=matches(el('sel').value); hlIdx=-1; list.innerHTML=MATCHES.length?MATCHES.map((g,i)=>`<div class="citem" data-i="${i}"><span>${esc(g.name)}</span><span class="tm">${esc(guessLabel(g))}</span></div>`).join(''):'<div class="cempty">No players match</div>'; list.style.display='block'; }
 function wireCombo(){
   const inp=el('sel'), list=el('clist');
   inp.addEventListener('input',renderMatches);
@@ -241,17 +279,19 @@ function wireCombo(){
   inp.addEventListener('keydown',e=>{ const items=[...list.querySelectorAll('.citem')];
     if(e.key==='ArrowDown'){e.preventDefault();hlIdx=Math.min(hlIdx+1,items.length-1);items.forEach((x,i)=>x.classList.toggle('hl',i===hlIdx));}
     else if(e.key==='ArrowUp'){e.preventDefault();hlIdx=Math.max(hlIdx-1,0);items.forEach((x,i)=>x.classList.toggle('hl',i===hlIdx));}
-    else if(e.key==='Enter'){e.preventDefault();const p=hlIdx>=0?items[hlIdx]:items[0];if(p)guess(p.dataset.n);}
+    else if(e.key==='Enter'){e.preventDefault();const p=MATCHES[hlIdx>=0?hlIdx:0];if(p&&items.length&&inp.value.trim())guess(p);}
     else if(e.key==='Escape'){list.style.display='none';}
   });
   inp.addEventListener('blur',()=>setTimeout(()=>{list.style.display='none';},160));
-  list.addEventListener('mousedown',e=>{const it=e.target.closest('.citem');if(it){e.preventDefault();guess(it.dataset.n);}});
+  list.addEventListener('mousedown',e=>{const it=e.target.closest('.citem');if(it){e.preventDefault();guess(MATCHES[+it.dataset.i]);}});
 }
 function targetName(){ return CUR[CUR.length-1].name; }
-function guess(name){
-  if(locked||!name) return; const list=el('clist'); if(list) list.style.display='none';
-  if(norm(name)===norm(targetName())){ win(); return; }
-  el('guesses').insertAdjacentHTML('beforeend',`<div class="grow"><span>${esc(name)}</span><span class="x">✗</span></div>`);
+// same player = same espn_id (every career and guess has one), else the same normalized name
+function isTarget(g){ return (g.id&&CUR._id)?g.id===String(CUR._id):norm(g.name)===norm(targetName()); }
+function guess(g){
+  if(locked||!g) return; const list=el('clist'); if(list) list.style.display='none';
+  if(isTarget(g)){ win(); return; }
+  el('guesses').insertAdjacentHTML('beforeend',`<div class="grow"><span>${esc(g.name)}</span><span class="x">✗</span></div>`);
   el('sel').value='';
   revealNext(true);
 }
@@ -265,13 +305,13 @@ function finish(cls,word,r){
   const last=idx>=SET.length-1;
   el('rev').innerHTML=`<div class="reveal" data-anim><div class="who">${esc(t.name)}</div>
     <div class="verdict ${cls}">${word}</div>
-    ${last?'':'<button type="button" class="gm-btn" id="nextBtn">Next career</button>'}</div>`;
+    ${last?'':'<button type="button" class="btn" id="nextBtn">Next career →</button>'}</div>`;
   const nb=el('nextBtn'); if(nb){ nb.onclick=()=>{ idx++; renderRound(); }; nb.focus(); }
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('rev'));
   if(last) endSet();
 }
 
-/* ---------- end of a set: record, share, result block ---------- */
+/* ---------- end of a set: record, share, result card ---------- */
 function endSet(){
   const daily=mode==='daily', max=SET.length*6, solved=RES.filter(r=>r.solved).length;
   const squares=RES.map(r=>!r.solved?'🟥':r.first?'🟩':'🟨').join('');
@@ -279,23 +319,25 @@ function endSet(){
   const share=T.shareText(GID,daily,[`${S.score}/${max} points · ${solved}/${SET.length} solved${tag}`,squares]);
   const detail={score:S.score,max:max,solved:solved,lines:RES};
   T.record(GID,{daily:daily,win:solved>=3,score:S.score,share:share,detail:detail});
+  if(daily) renderControls();
   showResult(el('result'),detail,share,daily);
 }
 function recapHtml(lines){
-  return '<div class="recap">'+(lines||[]).map((r,i)=>`<div><span class="n">${i+1}</span><span class="nm">${esc(r.name)}</span><span class="tm">${esc(r.schools||'')}</span><span class="r ${r.solved?'g':'m'}">${r.solved?('+'+r.pts):'Missed'}</span></div>`).join('')+'</div>';
+  if(!lines||!lines.length) return '';
+  return '<div class="recap">'+lines.map((r,i)=>`<div><span class="n">${i+1}</span><span class="nm">${esc(r.name)}</span><span class="tm">${esc(r.schools||'')}</span><span class="r ${r.solved?'g':'m'}">${r.solved?('+'+r.pts):'Missed'}</span></div>`).join('')+'</div>';
 }
 function showResult(host,d,share,daily){
   const n=(d.lines||[]).length||SET_N;
   const title=d.solved>=n?'Perfect set':d.solved>=3?'Nice work':'Tough set';
   const line=`You scored <b>${d.score}</b> of ${d.max||n*6} and named ${d.solved} of ${n} careers.`;
-  host.innerHTML=T.resultHtml(GID,{title:title,line:line,shareText:share,statsOpts:{score:'Avg score'},again:daily?'Play practice':'Play again',daily:daily})+recapHtml(d.lines);
+  host.innerHTML=T.resultHtml(GID,{title:title,line:line,shareText:share,statsOpts:{score:'Avg score'},again:daily?'Free play':'Play again',daily:daily})+recapHtml(d.lines);
   T.wireResult(host,share,daily?()=>{ mode='practice'; start(); }:()=>start(true));
   renderStats(false);
 }
 function showDone(saved){
   const d=saved.detail||{score:saved.score,max:SET_N*6,solved:saved.win?3:0,lines:[]};
-  el('gmScore').style.display='none';
-  el('content').innerHTML='<div class="gm-done">You have played today\'s set. A new one unlocks at midnight Eastern; practice is unlimited.</div>';
+  el('scorebar').style.display='none';
+  el('content').innerHTML='<div class="gm-done">You have played today\'s set. A new one unlocks at midnight Eastern; free play is unlimited.</div>';
   showResult(el('result'),d,saved.share||'',true);
 }
 

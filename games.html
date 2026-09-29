@@ -23,27 +23,32 @@
     [data-theme="dark"]{--bg:#0A0E18;--bg2:#111726;--bg3:#1A2133;--border:#232B3E;--border2:#34405A;--text:#EEF1F7;--text2:#AEB6C8;--text3:#7A849A;--accent:#E6D5A8;--green:#6fbf7e;}
     *{margin:0;padding:0;box-sizing:border-box;}
     html,body{background:var(--bg);}
-    body{color:var(--text);font-family:'Inter',system-ui,sans-serif;font-weight:500;min-height:100vh;}
-    .gh-list{border-top:2px solid var(--border2);}
-    .gh-row{display:grid;grid-template-columns:minmax(0,1fr) 170px 110px;gap:18px;align-items:center;padding:16px 4px;border-bottom:1px solid var(--border);
-      text-decoration:none;color:inherit;}
-    .gh-row:hover{background:color-mix(in srgb,var(--accent) 6%,transparent);}
-    .gh-name{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:20px;color:var(--text);margin-bottom:3px;}
-    .gh-desc{font-size:13px;color:var(--text2);line-height:1.5;}
-    .gh-daily{font-size:12.5px;font-weight:700;color:var(--text);}
-    .gh-daily.todo{color:var(--accent);}
-    .gh-daily.done{color:var(--green);}
-    .gh-daily span{display:block;font-size:11px;font-weight:600;color:var(--text3);margin-top:2px;}
-    .gh-streak{text-align:right;}
-    .gh-streak b{display:block;font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;}
-    .gh-streak span{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
-    .gh-sum{display:flex;flex-wrap:wrap;gap:6px 28px;margin:0 0 18px;font-size:13px;color:var(--text2);}
-    .gh-sum b{color:var(--text);font-size:15px;}
-    @media(max-width:640px){ .gh-row{grid-template-columns:minmax(0,1fr) 92px;} .gh-streak{display:none;} .gh-name{font-size:18px;} }
+    body{color:var(--text);font-family:'Inter',system-ui,sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;}
+    a{color:inherit;text-decoration:none;}
+    .wrap{max-width:1000px;margin:0 auto;padding:40px 22px 90px;}
+    .hd{text-align:center;margin-bottom:34px;}
+    .hd h1{font-family:'Playfair Display',serif;font-weight:800;font-size:44px;letter-spacing:-.02em;}
+    .hd p{font-size:15px;color:var(--text3);margin-top:8px;}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;}
+    .card{position:relative;border:1px solid var(--border);border-radius:16px;background:var(--bg2);padding:22px 20px 20px;overflow:hidden;transition:transform .18s,border-color .2s,box-shadow .2s;display:block;cursor:pointer;}
+    .card:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:0 14px 34px rgba(24,20,14,.16);}
+    .card::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 82% -10%, var(--gl,rgba(168,132,60,.14)), transparent 60%);pointer-events:none;}
+    .card .emoji{font-size:34px;line-height:1;margin-bottom:14px;}
+    .card .badge{position:absolute;top:16px;right:16px;font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:20px;}
+    .card .badge.live{background:rgba(31,157,87,.15);color:#1f9d57;}
+    .card .badge.daily{background:rgba(168,132,60,.14);color:var(--accent);}
+    .card h3{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;margin-bottom:6px;}
+    .card p{font-size:13px;color:var(--text2);line-height:1.55;}
+    .card .ctas{margin-top:14px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;position:relative;}
+    .card .cta{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);display:inline-flex;align-items:center;gap:5px;}
+    .card .cta.daily{color:var(--text2);}
+    .card .cta.daily:hover{color:var(--text);}
+    .card .cta.done{color:#1f9d57;}
+    @media(max-width:560px){ .hd h1{font-size:34px;} }
   </style>
   <link rel="stylesheet" href="tdc-skin.css?v=14"/>
   <link rel="stylesheet" href="tdc-hq-list.css?v=4"/>
-  <link rel="stylesheet" href="tdc-games.css?v=1"/>
+  <link rel="stylesheet" href="tdc-games.css?v=2"/>
   <link rel="stylesheet" href="tdc-column.css?v=4"/>
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#0A0E18" media="(prefers-color-scheme: dark)">
@@ -53,45 +58,46 @@
 </head>
 <body>
 <script src="tdc-nav.js?v=33"></script>
-<div class="page gm-page">
-  <div class="gm-eyebrow" id="ghEyebrow">Games · Daily</div>
-  <h1 class="gm-title">Games</h1>
-  <div class="gh-sum" id="ghSum"></div>
-  <div class="gh-list" id="ghList"></div>
+<div class="wrap">
+  <div class="hd">
+    <h1 class="page-h1">Games</h1>
+    <p>College basketball guessing games built on The Depth Chart's player database.</p>
+  </div>
+  <div class="grid" id="grid"></div>
 </div>
-<script src="tdc-games.js?v=1"></script>
+<script src="tdc-games.js?v=2"></script>
 <script>
 (function(){
-  const G=[
-    ['guess','Guess the Player','A mystery player. Each guess tells you how close you are on school, conference, class, position, height and grade.'],
-    ['higher','Higher or Lower','Two player-seasons from 20 years of college hoops. Pick who ranks higher on the stat and keep the streak alive.'],
-    ['grid','Hoop Grid','A 3 by 3 grid of teams, conferences and accolades. Find a player for every square; deeper cuts score higher.'],
-    ['statline','Stat Line Guess','An anonymous season stat line. Name the player; every miss unlocks a clue.'],
-    ['career','Career Path','A career revealed season by season with the name hidden: schools, class and scoring.'],
-    ['rank',"Rank 'Em",'Four players and one stat. Put them in order from highest to lowest.'],
-    ['grade','Grade Guess','See a player and guess the overall grade our model gave him. Score by how close you land.'],
-    ['college','Guess the College','Shown a player, name his college in one guess and build a streak.'],
-  ];
   const T=window.TDCGames, esc=T.esc;
-  // today's result in each game's own terms
+  const GAMES=[
+    {id:'guess',e:'🎯',t:'Guess the Player',d:'A mystery player — guess and get feedback on school, conference, class, position, height and grade. Play the daily or go unlimited, this year or all-time (20 seasons).',badge:'Daily',cls:'daily'},
+    {id:'college',e:'🎓',t:'Guess the College',d:"You're shown a player — name their college in ONE guess and build a streak. Hints are a shared budget per run (3 easy · 2 medium · 1 hard), so spend them wisely. Five difficulty tiers, this year or all-time.",badge:'Streak',cls:'live'},
+    {id:'higher',e:'⚖️',t:'Higher or Lower',d:'Two player-seasons from 20 years of college hoops. Pick who ranks higher and chain a streak — grade, points, boards, assists, steals, blocks or shooting %.',badge:'Live',cls:'live'},
+    {id:'statline',e:'📊',t:'Stat Line Guess',d:'An anonymized season stat line appears — name the player. Each miss (or a hint) unlocks a clue; stars are easy, obscure role players are hard mode.',badge:'Live',cls:'live'},
+    {id:'rank',e:'🔢',t:"Rank 'Em",d:'Four players, one stat — drag them (or use the arrows) into the right order, highest to lowest. Every spot you nail scores.',badge:'Live',cls:'live'},
+    {id:'career',e:'🧭',t:'Career Path',d:'A player’s schools, class progression and scoring revealed season by season with the name hidden. A transfer-portal-era guessing game.',badge:'Live',cls:'live'},
+    {id:'grade',e:'🎓',t:'Grade Guess',d:"See a player and guess the overall grade our model gave them — slide to your answer and score by how close you land.",badge:'Live',cls:'live'},
+    {id:'grid',e:'▦',t:'Hoop Grid',d:'A 3×3 grid — find a player matching each row and column of teams, conferences and accolades across 20 years. Deeper cuts score higher rarity.',badge:'Live',cls:'live'}
+  ];
+  // today's daily result in each game's own terms
   const OUT={college:10,statline:30,career:30,rank:25,grade:500,grid:9};
   function scoreText(id,r){
-    if(id==='guess') return r.win&&r.score!=null?('Solved in '+r.score):'Not solved';
-    if(id==='higher') return 'Streak '+(r.score||0);
-    if(r.score!=null&&OUT[id]) return r.score+' / '+OUT[id];
-    return r.win?'Solved':'Played';
+    if(id==='guess') return r.win&&r.score!=null?('solved in '+r.score):'not solved';
+    if(id==='higher') return 'streak '+(r.score||0);
+    if(r.score!=null&&OUT[id]) return r.score+'/'+OUT[id];
+    return r.win?'solved':'played';
   }
-  let doneN=0, best=0;
-  document.getElementById('ghEyebrow').textContent='Games · Daily #'+T.dayNumber();
-  document.getElementById('ghList').innerHTML=G.map(([id,name,desc])=>{
-    const r=T.dailyResult(id), g=T.stats(id), ds=T.liveDailyStreak(g);
-    if(r) doneN++; best=Math.max(best,ds);
-    const status=r
-      ? `<div class="gh-daily done">Today's done<span>${esc(scoreText(id,r))}</span></div>`
-      : `<div class="gh-daily todo">Play today's #${T.dayNumber()}<span>${g.played?(g.played+' played'):'New'}</span></div>`;
-    return `<a class="gh-row" href="${T.PAGES[id]}"><div><div class="gh-name">${esc(name)}</div><div class="gh-desc">${esc(desc)}</div></div>${status}<div class="gh-streak"><b>${ds}</b><span>Daily streak</span></div></a>`;
+  const n=T.dayNumber();
+  document.getElementById('grid').innerHTML=GAMES.map(function(g){
+    const href=T.PAGES[g.id], r=T.dailyResult(g.id);
+    const daily=r
+      ? '<a class="cta daily done" href="'+href+'?daily=1">Daily #'+n+' ✓ '+esc(scoreText(g.id,r))+'</a>'
+      : '<a class="cta daily" href="'+href+'?daily=1">Daily #'+n+' →</a>';
+    return '<div class="card" onclick="if(!event.target.closest(\'a\'))location.href=\''+href+'\'">'+
+      '<div class="emoji">'+g.e+'</div><span class="badge '+g.cls+'">'+g.badge+'</span>'+
+      '<h3>'+esc(g.t)+'</h3><p>'+esc(g.d)+'</p>'+
+      '<div class="ctas"><a class="cta" href="'+href+'">Play now →</a>'+daily+'</div></div>';
   }).join('');
-  document.getElementById('ghSum').innerHTML=`<span><b>${doneN} of ${G.length}</b> dailies done today</span><span>Next puzzles in <b>${T.untilMidnight()}</b></span>`+(best?`<span>Best daily streak <b>${best}</b></span>`:'');
 })();
 </script>
 <script src="tdc-version.js?v=2"></script>
