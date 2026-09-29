@@ -106,7 +106,7 @@
     *{margin:0;padding:0;box-sizing:border-box;}
     html{background:var(--bg);-webkit-text-size-adjust:100%;text-size-adjust:100%;}   /* stop iOS Safari from auto-inflating big text blocks so mobile sizes match the CSS */
     body{background:transparent;color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;opacity:0;animation:fadeIn .3s ease forwards;}
-    @keyframes fadeIn{from,to{opacity:1;transform:none;}}
+    @keyframes fadeIn{from,to{opacity:1;}}   /* opacity only: an animated transform (even to none) makes body the containing block for position:fixed, so modals scrolled away with the page */
     :root{--bgc1:#9a9aa8;--bgc2:#7c7c8c;--bgc3:#adadbd;--bgm1:rgba(158,158,174,.30);--bgm2:rgba(128,128,146,.28);--bgm3:rgba(176,176,192,.32);--bgm4:rgba(116,116,134,.22);}
     .tdc-bg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:var(--bg);}
     .tdc-mesh{position:absolute;inset:-25%;background:radial-gradient(38% 48% at 22% 26%, var(--bgm1), transparent 62%),radial-gradient(44% 52% at 80% 28%, var(--bgm2), transparent 62%),radial-gradient(50% 50% at 62% 80%, var(--bgm3), transparent 62%),radial-gradient(40% 44% at 14% 82%, var(--bgm4), transparent 62%);filter:blur(46px);animation:tdcMesh 28s ease-in-out infinite alternate;transition:background 1.1s ease;}
@@ -589,11 +589,6 @@
     .swap-tab:hover{color:var(--text);border-color:var(--text3);}
     .swap-tab.on{background:var(--text);border-color:var(--text);color:var(--bg);}
     .hist-chip{font-size:10px;font-weight:700;color:var(--text3);margin-left:6px;}
-    /* CUSTOMIZE BAR */
-    .customize-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:0;padding:14px 0;border-top:1px solid var(--border);}
-    .reset-btn{font:700 12.5px 'Inter',system-ui,sans-serif;letter-spacing:.02em;padding:9px 16px;border-radius:999px;border:1px solid var(--border2);background:var(--bg);color:var(--text2);cursor:pointer;white-space:nowrap;}
-    .reset-btn:hover{color:var(--text);border-color:var(--text3);}
-
     /* POSITION DEPTH COLUMNS — flat (Sept 2026): a header rule per column, one ruled row per player */
     .pos-depth-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0 18px;margin-bottom:20px;width:100%;}
     .pos-col{display:flex;flex-direction:column;min-width:0;}
@@ -623,22 +618,60 @@
     .fit-ok{color:var(--text2);}
     .fit-poor{color:#c07828;}
     .fit-bad{color:#d06060;}
-    /* controls: position / swap / role — compact outline pills */
-    .dc-row-actions{display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
-    .pos-change-select{font-family:'Inter',sans-serif;font-size:10.5px;font-weight:600;padding:3px 6px;border:1px solid var(--border2);border-radius:999px;background:var(--bg);color:var(--text2);cursor:pointer;outline:none;max-width:100%;}
-    .pos-change-select:hover{border-color:var(--text3);color:var(--text);}
-    .pos-change-select:focus{border-color:var(--text);}
-    .dc-swap-btn{font:600 10.5px 'Inter',sans-serif;padding:3px 10px;border:1px solid var(--border2);border-radius:999px;background:var(--bg);color:var(--text2);cursor:pointer;}
-    .dc-swap-btn:hover{border-color:var(--text3);color:var(--text);}
-    /* MPG control */
-    .dc-mpg-wrap{margin-top:0;}
-    .dc-mpg-ctl{display:flex;align-items:center;gap:6px;}
-    .dc-mpg-step{width:20px;height:20px;border:1px solid var(--border2);border-radius:50%;background:var(--bg);color:var(--text2);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1;padding:0;}
-    .dc-mpg-step:hover{border-color:var(--text);color:var(--text);}
-    .dc-mpg-row{display:none;}
-    .dc-mpg-val{font-family:'Inter',system-ui,sans-serif;font-weight:800;color:var(--text);font-size:11.5px;min-width:30px;text-align:right;font-variant-numeric:tabular-nums;flex-shrink:0;}
-    .dc-mpg-warn{font-size:10px;color:#c07828;margin-top:3px;display:none;font-weight:700;}
-    input[type=range].mpg-range{flex:1;min-width:0;width:100%;height:4px;accent-color:var(--text);cursor:pointer;}
+    /* compact minutes stepper (row) */
+    .dc-row-name{background:none;border:0;padding:0;margin:0;text-align:left;cursor:pointer;font:inherit;}
+    .dc-row-name:hover{text-decoration:underline;text-underline-offset:2px;}
+    .dc-row-sub{display:flex;align-items:center;gap:8px;padding-left:19px;min-height:20px;}
+    .dc-row-sub .fit-badge{flex:1;min-width:0;}
+    .dc-step{display:inline-flex;align-items:center;gap:2px;margin-left:auto;flex-shrink:0;}
+    .dc-step button{width:20px;height:20px;border:1px solid var(--border2);border-radius:50%;background:var(--bg);color:var(--text2);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;}
+    .dc-step button:hover{border-color:var(--text);color:var(--text);}
+    .dc-step-v{font-family:'Inter',system-ui,sans-serif;font-weight:800;color:var(--text);font-size:12px;min-width:24px;text-align:center;font-variant-numeric:tabular-nums;}
+    /* Lineup Lab mode bar + minutes meter */
+    /* while the player editor or the picker is open, the floating Install / Explain pills step aside */
+    html:has(#czEdit[style*="flex"]) #tdcInstall, html:has(#swapModal[style*="flex"]) #tdcInstall,
+    html:has(#czEdit[style*="flex"]) #tdcTourWrap, html:has(#swapModal[style*="flex"]) #tdcTourWrap{display:none!important;}
+    .cz-mode{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 18px;}
+    .cz-mode .cz-mode-sep{width:1px;height:18px;background:var(--border2);margin:0 6px;}
+    .cz-pill{font:600 11.5px 'Inter',system-ui,sans-serif;letter-spacing:.02em;padding:6px 12px;border:1px solid var(--border2);background:var(--bg);cursor:pointer;color:var(--text2);border-radius:999px;white-space:nowrap;}
+    .cz-pill:hover{color:var(--text);border-color:var(--text3);}
+    .cz-pill.on{background:var(--text);color:var(--bg);border-color:var(--text);}
+    .cz-pill:disabled{opacity:.45;cursor:default;}
+    .cz-pill.ghost{border-style:dashed;}
+    .cz-dc-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:26px 0 4px;padding-top:14px;border-top:1px solid var(--border);}
+    .cz-meter{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--text3);font-variant-numeric:tabular-nums;}
+    .cz-meter b{color:var(--text);font-weight:800;}
+    .cz-meter.off b{color:#b07000;}
+    .cz-meter-bar{width:80px;height:4px;background:var(--bg3,var(--border));border-radius:2px;overflow:hidden;}
+    .cz-meter-bar span{display:block;height:100%;background:var(--text);}
+    .cz-meter.off .cz-meter-bar span{background:#b07000;}
+    /* player editor (modal; bottom sheet on phones) */
+    .cz-ed-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:100010;display:flex;align-items:center;justify-content:center;}
+    .cz-ed{background:var(--bg);border:1px solid var(--border2);width:440px;max-width:94vw;max-height:88vh;overflow-y:auto;border-radius:6px;padding:18px 20px 20px;box-sizing:border-box;color:var(--text);}
+    .cz-ed-top{display:flex;align-items:flex-start;gap:12px;}
+    .cz-ed-id{flex:1;min-width:0;}
+    .cz-ed-name{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;line-height:1.15;overflow-wrap:anywhere;}
+    .cz-ed-sub{font-size:11.5px;color:var(--text3);font-weight:600;margin-top:3px;}
+    .cz-ed-g{font-family:'Playfair Display',serif;font-weight:800;font-size:26px;line-height:1;font-variant-numeric:tabular-nums;}
+    .cz-ed-sec{margin-top:16px;padding-top:12px;border-top:1px solid var(--border);}
+    .cz-ed-lbl{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;display:flex;justify-content:space-between;gap:8px;}
+    .cz-ed-min{display:flex;align-items:center;gap:8px;}
+    .cz-ed-min input[type=range]{flex:1;min-width:0;accent-color:var(--text);cursor:pointer;}
+    .cz-ed-min .dc-step button{width:26px;height:26px;font-size:15px;}
+    .cz-ed-minv{font-family:'Inter',system-ui,sans-serif;font-weight:800;font-size:18px;min-width:30px;text-align:right;font-variant-numeric:tabular-nums;}
+    .cz-ed-chips{display:flex;gap:6px;flex-wrap:wrap;}
+    .cz-ed-pos{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:52px;padding:6px 8px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);cursor:pointer;font:800 12px 'Inter',system-ui,sans-serif;}
+    .cz-ed-pos .fit-badge{font-size:9.5px;}
+    .cz-ed-pos:hover{border-color:var(--text3);}
+    .cz-ed-pos.on{border-color:var(--text);box-shadow:inset 0 0 0 1px var(--text);}
+    .cz-ed-acts{display:flex;gap:6px;flex-wrap:wrap;}
+    .cz-ed-acts .danger{color:var(--red,#c0392b);}
+    @media (max-width:600px){
+      .cz-ed-overlay{align-items:flex-end;}
+      .cz-ed{width:100%;max-width:100%;max-height:86vh;border-radius:12px 12px 0 0;border-bottom:0;padding:16px 16px calc(22px + env(safe-area-inset-bottom,0px));}
+      .cz-ed-pos{flex:1;min-width:0;padding:6px 2px;}
+      .cz-meter-bar{display:none;}
+    }
     /* Empty slot */
     .dc-empty-slot{padding:9px 0 9px 10px;font-size:11.5px;font-weight:600;color:var(--text3);cursor:pointer;border-bottom:1px dashed var(--border2);}
     .dc-empty-slot:hover{color:var(--text);}
@@ -649,7 +682,7 @@
     #customizeContent .dc-player-row{border-bottom:1px solid var(--border)!important;}
 
     /* SWAP MODAL */
-    .swap-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:flex;align-items:center;justify-content:center;}
+    .swap-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100000;display:flex;align-items:center;justify-content:center;}
     .swap-modal{background:var(--bg);border:1px solid var(--border2);width:460px;max-width:95vw;max-height:82vh;display:flex;flex-direction:column;border-radius:6px;overflow:hidden;}
     .swap-modal-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;}
     .swap-modal-title{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;color:var(--text);}
@@ -659,12 +692,15 @@
     .swap-modal-search input{width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);font-family:'Inter',sans-serif;font-size:13px;color:var(--text);outline:none;}
     .swap-modal-search input:focus{border-color:var(--accent);}
     .swap-modal-list{overflow-y:auto;flex:1;}
-    .swap-player-row{display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid var(--border);cursor:pointer;}
+    .swap-player-row{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;}
+    .swap-player-main{flex:1;min-width:0;}
     .swap-player-row:hover{background:var(--bg2);}
-    .swap-player-pos{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--text3);width:28px;}
-    .swap-player-name{font-size:13px;font-weight:600;color:var(--text);flex:1;}
+    .swap-player-pos{font-size:10.5px;font-weight:800;letter-spacing:.06em;color:var(--text2);width:26px;text-align:center;flex-shrink:0;}
+    .swap-player-name{font-size:13px;font-weight:700;color:var(--text);overflow-wrap:anywhere;}
     .swap-player-team{font-size:11px;color:var(--text3);}
-    .swap-player-grade{font-family:'Playfair Display',serif;font-weight:700;font-size:14px;}
+    .swap-player-grade{font-family:'Playfair Display',serif;font-weight:800;font-size:16px;min-width:26px;text-align:right;flex-shrink:0;}
+    .swap-modal-msg{padding:24px 16px;text-align:center;color:var(--text3);font-size:12.5px;}
+    @media (max-width:600px){ .swap-modal-search input{font-size:16px;} .swap-modal-overlay{align-items:flex-end;} .swap-modal{width:100%;max-width:100%;max-height:88vh;border-radius:12px 12px 0 0;border-bottom:0;} }
     .swap-fit-preview{font-size:10px;font-weight:700;}
 
     /* FULL ROSTER LIST */
@@ -1397,22 +1433,24 @@
 </div>
 
 <div id="swapModal" class="swap-modal-overlay" style="display:none;" onclick="if(event.target===this)closeSwapModal()">
-  <div class="swap-modal">
+  <div class="swap-modal" role="dialog" aria-labelledby="swapModalTitle">
     <div class="swap-modal-head">
-      <span class="swap-modal-title" id="swapModalTitle">Swap Player</span>
+      <span class="swap-modal-title" id="swapModalTitle">Add player</span>
       <button class="swap-modal-close" onclick="closeSwapModal()" aria-label="Close">Close</button>
     </div>
-    <div class="swap-tabs">
-      <button class="swap-tab" data-src="roster" onclick="setSwapSource('roster')">This roster</button>
-      <button class="swap-tab on" data-src="season" onclick="setSwapSource('season')">2025-26 D1</button>
-      <button class="swap-tab" data-src="portal" onclick="setSwapSource('portal')">Portal</button>
-      <button class="swap-tab" data-src="alltime" onclick="setSwapSource('alltime')">All-time</button>
-    </div>
     <div class="swap-modal-search">
-      <input type="text" id="swapSearch" placeholder="Search players…" oninput="filterSwapList(swapTargetPos?.pos)"/>
+      <input type="search" id="swapSearch" placeholder="Search players" autocomplete="off" oninput="_swapSearchInput()"/>
+    </div>
+    <div class="swap-tabs">
+      <button class="swap-tab" data-src="roster" onclick="setSwapSource('roster')">This team</button>
+      <button class="swap-tab on" data-src="season" onclick="setSwapSource('season')">Current players</button>
+      <button class="swap-tab" data-src="alltime" onclick="setSwapSource('alltime')">All-time</button>
     </div>
     <div class="swap-modal-list" id="swapModalList"></div>
   </div>
+</div>
+<div id="czEdit" class="cz-ed-overlay" style="display:none;" onclick="if(event.target===this)closePlayerEditor()">
+  <div class="cz-ed" id="czEditBody" role="dialog" aria-label="Edit player"></div>
 </div>
 
 <footer>
@@ -4076,7 +4114,7 @@ function _courtTile(p,pos){
   </div>`;
 }
 function _emptyTile(pos){ const xy=_COURT_XY[pos];
-  return `<div class="sq-player sq-empty" style="left:${xy.x}%;top:${xy.y}%;"><div class="sq-ava"><span class="sq-init">+</span></div><div class="sq-tag"><span class="sq-pos">${pos}</span></div></div>`;
+  return `<div class="sq-player sq-empty" style="left:${xy.x}%;top:${xy.y}%;cursor:pointer;" onclick="openSwapModal('${pos}',0)"><div class="sq-ava"><span class="sq-init">+</span></div><div class="sq-tag"><span class="sq-pos">${pos}</span></div></div>`;
 }
 function _benchTile(p,pos){ const g=_gdisp(p);
   return `<div class="sq-bench-p${p.name===_squadSel?' sel':''}" data-n="${_sqAttr(p.name)}" onclick="selectSquadPlayer(this.dataset.n)">
@@ -4129,7 +4167,7 @@ function _squadInner(){
   </div>`;
 }
 function renderSquadView(){ return '<div id="squadView">'+_squadInner()+'</div>'; }
-function selectSquadPlayer(name){ _squadSel=name; const v=document.getElementById('squadView'); if(v) v.innerHTML=_squadInner(); }
+function selectSquadPlayer(name){ _squadSel=name; const v=document.getElementById('squadView'); if(v) v.innerHTML=_squadInner(); openPlayerEditor(name); }
 // Toggle the player↔player synergy web on the court (coach-fit lines stay).
 window._showSynergy = (window._showSynergy!==false);
 function toggleSynergyLines(){ window._showSynergy=!window._showSynergy; const v=document.getElementById('squadView'); if(v) v.innerHTML=_squadInner(); }
@@ -4637,33 +4675,13 @@ function rebuildCustomizeUI(){
       const baseGrade = (()=>{ const pg=parseFloat(_gdisp(p)); if(isFinite(pg)) return pg; const n=parseFloat(rawGrade); if(!isNaN(n)) return n; return gradeToNum(rawGrade)||70; })();
       const effGrade  = Math.max(40,Math.min(99,Math.round(baseGrade+fit.adjGrade)));
       const isStarter = rowIdx===0;
-      // Seed from the PROJECTION's own minutes so the editor starts exactly where the
-      // projections land (buildCustomProjections normalizes _projMin to a 200-min game).
-      // Falls back to raw _projMin, then last-season mpg, so a barely-playing player never
-      // starts at ~24 again.
-      const _pr = (typeof _baseCustomProj!=='undefined'&&_baseCustomProj) ? _baseCustomProj.find(r=>r&&r.name===p.name) : null;
-      const mpgBase = (_pr&&_pr.mpg!=null&&isFinite(_pr.mpg)) ? Math.round(_pr.mpg)
-                    : (p._projMin!=null&&isFinite(p._projMin)) ? Math.round(p._projMin)
-                    : (parseFloat(p.mpg)||( isStarter?26:15 ));
-      const mpgCur  = customMpg[p.name]!==undefined ? customMpg[p.name] : parseFloat(mpgBase).toFixed(1);
-      // slider tops out at what's left in this position (42-min cap); floored at the
-      // player's current value so an over-allocated column still renders, then any
-      // increase snaps back to the cap — i.e. you must take minutes off a teammate
-      const maxMpg  = Math.max(Math.round(parseFloat(mpgCur)||0), Math.round(_capForPlayer(p.name)));
-      const minMpg  = 0;
-
-      const wearWarn = mpgCur>=38?'⚠ Wear risk':mpgCur>=35?'⚠ Fatigue':'';
-      const foulWarn = mpgCur>=36&&['PF','C'].includes(assignedPos)?'Foul risk':'';
-      const anyWarn  = [wearWarn,foulWarn].filter(Boolean).join(' · ');
-
-      // Theme-aware grade color
+      const mpgCur  = Math.round(_curMpgOf(p));
       const isDark2=document.documentElement.getAttribute('data-theme')==='dark';
       const eGradeColor = isDark2
         ?(effGrade>=90?'#f0c040':effGrade>=83?'#d4a020':effGrade>=76?'#b07818':effGrade>=68?'#8a5c10':'#6a4010')
         :(effGrade>=90?'#0a3fd4':effGrade>=83?'#2c6ef2':effGrade>=76?'#4a84f4':effGrade>=68?'#7aaaf8':'#aac4fa');
-      const fitTooltip  = fit.reason ? ` title="${fit.reason}"` : '';
-
-      const pKey=`${pos}-${rowIdx}`;
+      const fitTooltip  = fit.reason ? ` title="${_sqAttr(fit.reason)}"` : '';
+      const nAttr=_sqAttr(p.name);
       return `<div class="dc-player-row${isStarter?' is-starter':''}"
           draggable="true"
           data-pos="${pos}" data-row="${rowIdx}"
@@ -4672,33 +4690,18 @@ function rebuildCustomizeUI(){
           ondrop="onDcDrop(event,'${pos}',${rowIdx})"
           ondragleave="onDcDragLeave(event,'${pos}',${rowIdx})">
         <div class="dc-row-top">
+          <span class="dc-row-drag" aria-hidden="true">⠿</span>
           <span class="dc-row-num">${rowIdx+1}</span>
-          <div class="dc-row-name">${p.name}</div>
+          <button type="button" class="dc-row-name" data-n="${nAttr}" onclick="openPlayerEditor(this.dataset.n)">${p.name}</button>
           <span class="dc-row-grade" style="color:${eGradeColor};">${p.tdc_grade ? effGrade : '—'}</span>
-          <span class="dc-row-drag" title="Drag within position">⠿</span>
         </div>
-        <div class="dc-row-meta">
-          <span class="dc-row-yr">${p.class_year||p.yr||''}${p.height?` · ${p.height}`:''}</span>
-          <span class="fit-badge ${fit.fitClass}"${fitTooltip}>${fit.fitLabel}</span>
-        </div>
-        <div class="dc-row-actions">
-          <select class="pos-change-select" title="Change position" onchange="onPosChange('${p.name}','${pos}',${rowIdx},this.value)">
-            ${POS_KEYS.map(op=>`<option value="${op}"${op===assignedPos?' selected':''}>${op}</option>`).join('')}
-          </select>
-          <button class="dc-swap-btn" onclick="openSwapModal('${pos}',${rowIdx})">Swap</button>
-          <select class="pos-change-select" title="Assign role" onchange="onRoleChange('${p.name}',this.value)" style="max-width:120px;">
-            ${Object.entries(PLAYER_ROLES).map(([k,r])=>`<option value="${k}"${(customRole[p.name]||'none')===k?' selected':''}>${r.label}</option>`).join('')}
-          </select>
-        </div>
-        <div class="dc-mpg-wrap">
-          <div class="dc-mpg-ctl">
-            <button class="dc-mpg-step" onclick="stepMpg('${p.name}','${pKey}',-1)" aria-label="fewer minutes">−</button>
-            <input type="range" class="mpg-range" min="${minMpg}" max="${maxMpg}" step="1"
-              value="${mpgCur}" oninput="onMpgChange('${p.name}','${pKey}',this.value)" aria-label="minutes per game"/>
-            <button class="dc-mpg-step" onclick="stepMpg('${p.name}','${pKey}',+1)" aria-label="more minutes">+</button>
-            <span class="dc-mpg-val" id="mpgVal-${pKey}" title="minutes per game">${mpgCur}</span>
-          </div>
-          <div class="dc-mpg-warn" id="mpgWarn-${pKey}" style="${anyWarn?'display:block;':''}">` + `${anyWarn}</div>
+        <div class="dc-row-sub">
+          ${fit.fitLabel!=='Natural'?`<span class="fit-badge ${fit.fitClass}"${fitTooltip}>${fit.fitLabel}</span>`:''}
+          <span class="dc-step" data-n="${nAttr}">
+            <button type="button" onclick="stepMpg(this.parentNode.dataset.n,null,-1)" aria-label="Fewer minutes">−</button>
+            <span class="dc-step-v">${mpgCur}</span>
+            <button type="button" onclick="stepMpg(this.parentNode.dataset.n,null,1)" aria-label="More minutes">+</button>
+          </span>
         </div>
       </div>`;
     }).join('');
@@ -4708,7 +4711,7 @@ function rebuildCustomizeUI(){
         ondrop="onColDrop(event,'${pos}')">
       <div class="pos-col-head">
         <span class="pos-col-label">${pos}</span>
-        ${(()=>{ const cm=Math.round(_colMins(pos)), over=cm>POS_MIN_CAP; return `<span class="pos-col-mins${over?' over':''}" title="Minutes are capped at ${POS_MIN_CAP} per position">${cm}/${POS_MIN_CAP} min · ${players.length} deep</span>`; })()}
+        ${(()=>{ const cm=Math.round(_colMins(pos)), over=cm>POS_MIN_CAP; return `<span class="pos-col-mins${over?' over':''}">${cm}/${POS_MIN_CAP} min</span>`; })()}
       </div>
       <div class="pos-col-body">
         ${rowsHtml}
@@ -4728,14 +4731,10 @@ function rebuildCustomizeUI(){
       <button class="cz-subtab" data-sub="proj" onclick="switchCustomizeSubtab('proj')">Projections</button>
     </div>
     <div class="cz-subpanel" data-sub="lineup">
+      ${_czModeBar()}
       <div class="sec-head" style="margin-bottom:16px;">Squad</div>
       ${renderSquadView()}
-      <div class="customize-bar" style="margin-top:22px;">
-        <span class="sec-head" style="margin:0 auto 0 0;padding:0;border:0;">Depth chart</span>
-        <button class="rb-auto" id="allTimeBtn" onclick="buildAllTimeBest()" title="Load this team's best players from the last 20 years — starters + bench">All-Time Roster</button>
-        <button class="rb-auto" id="buildScratchBtn" onclick="buildFromScratch()" title="Start with an empty lineup and build any team from any players, any era">Build From Scratch</button>
-        <button class="reset-btn" onclick="resetCustomLineup()">Reset</button>
-      </div>
+      <div class="cz-dc-head"><span class="sec-head" style="margin:0;padding:0;border:0;">Depth chart</span>${_czMinutesMeter()}</div>
       <div class="pos-depth-grid">${colsHtml}</div>
     </div>
     <div class="cz-subpanel" data-sub="rotation">
@@ -5010,6 +5009,7 @@ function onColDrop(e, pos){
   document.querySelectorAll('.dc-player-row').forEach(r=>r.classList.remove('drag-row-over','dragging-row'));
   if(!dcDragFrom) return;
   const p=customDepth[dcDragFrom.pos].splice(dcDragFrom.rowIdx,1)[0];
+  if(p&&dcDragFrom.pos!==pos&&customPos[p.name]) customPos[p.name]=pos;
   if(!customDepth[pos]) customDepth[pos]=[];
   customDepth[pos].push(p);
   dcDragFrom=null;
@@ -5030,6 +5030,7 @@ function onDcDrop(e, toPos, toRow){
   } else {
     // Move to different position column
     const [moved]=customDepth[fromPos].splice(fromRow,1);
+    if(moved&&customPos[moved.name]) customPos[moved.name]=toPos;
     if(!customDepth[toPos]) customDepth[toPos]=[];
     customDepth[toPos].splice(toRow,0,moved);
   }
@@ -5048,62 +5049,158 @@ function onPosChange(playerName, curPos, rowIdx, newPos){
   rebuildCustomizeUI();
 }
 
-// ── MINUTE SLIDER ────────────────────────────────────────
-function stepMpg(playerName, pKey, delta){
-  // untouched players step from the minutes shown (the projection's), not last season's mpg
-  const shown = parseFloat((document.getElementById('mpgVal-'+pKey)||{}).textContent);
-  const current = customMpg[playerName]!==undefined ? parseInt(customMpg[playerName]) : isFinite(shown) ? Math.round(shown) : (()=>{
-    let r=0; POS_KEYS.forEach(pos=>{ (customDepth[pos]||[]).forEach(p=>{ if(p.name===playerName) r=parseFloat(p.mpg)||20; }); }); return Math.round(r);
-  })();
-  const newVal = Math.max(0, Math.min(40, current + delta));
-  // Also update the range input visually
-  const wrap = document.getElementById('mpgVal-'+pKey)?.closest?.('.dc-mpg-wrap');
-  if(wrap){ const r=wrap.querySelector('.mpg-range'); if(r) r.value=newVal; }
-  onMpgChange(playerName, pKey, newVal);
-}
-
-function onMpgChange(playerName, pKey, val){
-  // capped so this player's position column never exceeds 42 min — to give him more,
-  // take minutes from a teammate at the same spot first
-  // lowering is always allowed (an over-cap column must not snap a 30 to 22 on one "−");
-  // raising stops at the cap, or at the current value if the column is already over it
-  const _want=parseInt(val)||0, _pl=Object.values(customDepth).flat().find(p=>p&&p.name===playerName);
-  const _cur=_pl?_curMpgOf(_pl):0;
-  const newVal=Math.max(0,_want<=_cur?_want:Math.min(Math.max(_capForPlayer(playerName),_cur),_want));
-  customMpg[playerName]=newVal;
-  val=newVal;
-
-  // Update triggering label
-  const lbl=document.getElementById('mpgVal-'+pKey)||document.getElementById(pKey);
-  if(lbl) lbl.textContent=Number(val).toFixed(1);
-
-  // Sync top customize slider for this player
-  let pos2=null,row2=null;
-  POS_KEYS.forEach(pos=>{ (customDepth[pos]||[]).forEach((p,i)=>{ if(p.name===playerName){pos2=pos;row2=i;} }); });
-  if(pos2!==null){
-    const topKey=`${pos2}-${row2}`;
-    const topLbl=document.getElementById('mpgVal-'+topKey);
-    if(topLbl) topLbl.textContent=Number(val).toFixed(1);
-    const topWrap=topLbl?.closest?.('.dc-mpg-wrap');
-    if(topWrap){ const r=topWrap.querySelector('.mpg-range'); if(r&&r.value!==String(val)) r.value=val; }
-    const warnEl=document.getElementById('mpgWarn-'+topKey);
-    if(warnEl){
-      const mpg=parseInt(val),isBig=['PF','C'].includes(customPos[playerName]||pos2);
-      let w=''; if(mpg>=38)w='⚠ Wear risk'; else if(mpg>=35)w='⚠ Fatigue'; if(mpg>=36&&isBig)w+=(w?' · ':'')+'Foul risk';
-      warnEl.textContent=w; warnEl.style.display=w?'block':'none';
-    }
+// ── MINUTES ──────────────────────────────────────────────
+// One rule for every minutes input (row stepper, editor slider/stepper). Minutes move WITHIN
+// a position column so nothing fights: raising a player takes the minutes from his column
+// teammates, bottom of the depth first (never below 0), then from any room left under the
+// column's 42; lowering hands the minutes to the next man (the starter's next backup, or the
+// starter when a backup is lowered; anything over 40 spills down the depth). A player alone in
+// his column just gives the minutes up. Column totals hold, so the game stays ~200.
+function _czSetMinutes(name, want){
+  const pos=_posColOf(name); if(!pos) return 0;
+  const col=customDepth[pos], i=col.findIndex(p=>p&&p.name===name), me=col[i];
+  col.forEach(p=>{ customMpg[p.name]=Math.round(_curMpgOf(p)); });   // make the column explicit
+  const cur=customMpg[name];
+  want=Math.max(0,Math.min(40,Math.round(parseFloat(want)||0)));
+  let d=want-cur;
+  if(d>0){
+    let need=d;
+    for(let j=col.length-1;j>=0&&need>0;j--){ if(j===i) continue;
+      const q=col[j], take=Math.min(need,customMpg[q.name]); if(take>0){ customMpg[q.name]-=take; need-=take; } }
+    if(need>0){ const room=Math.max(0,POS_MIN_CAP-col.reduce((s,p)=>s+customMpg[p.name],0)); const t=Math.min(need,room); need-=t; }
+    customMpg[name]=cur+(d-need);
+    if(need>0) _czToast(col.length>1?('No backup minutes left at '+pos):(pos+' is at '+POS_MIN_CAP+' minutes'));
+  } else if(d<0){
+    let give=-d; customMpg[name]=want;
+    const order=i===0?col.slice(1):[col[0]].concat(col.filter((q,j)=>j>0&&j!==i));
+    order.forEach(q=>{ if(give<=0) return; const t=Math.min(give,40-customMpg[q.name]); if(t>0){ customMpg[q.name]+=t; give-=t; } });
   }
-
-  // Refresh impact panel + weaknesses + budget
-  const budgetBar=document.getElementById('minsBudget');
-  if(budgetBar){ const t2=document.createElement('div'); t2.innerHTML=renderMinsBudget(); budgetBar.replaceWith(t2.firstElementChild); }
-  requestAnimationFrame(()=>{
-    const imp=document.getElementById('impactPanel');
-    if(imp){ const ti=document.createElement('div'); ti.innerHTML=renderImpactPanel(); imp.replaceWith(ti.firstElementChild); }
-    const projTable=document.getElementById('customProjTable');
-    if(projTable){ const t4=document.createElement('div'); t4.innerHTML=renderCustomProjectionsTable(); projTable.replaceWith(t4.firstElementChild); }
-  });
+  return customMpg[name]-cur;
 }
+let _czRebuildQ=0;
+function _czRefresh(now, keepEditor){
+  const run=()=>{ _czRebuildQ=0; rebuildCustomizeUI(); if(!keepEditor) _czRefreshEditor(); };
+  if(now){ if(_czRebuildQ) cancelAnimationFrame(_czRebuildQ); run(); return; }
+  if(!_czRebuildQ) _czRebuildQ=requestAnimationFrame(run);
+}
+function stepMpg(playerName, pKey, delta){
+  const p=_findSquadPlayer(playerName); if(!p) return;
+  _czSetMinutes(playerName, Math.round(_curMpgOf(p.p))+delta);
+  _czRefresh(true);
+}
+function onMpgChange(playerName, pKey, val){
+  _czSetMinutes(playerName, val);
+  const v=document.getElementById('czEdMinV'); const p=_findSquadPlayer(playerName);
+  if(v&&p) v.textContent=Math.round(_curMpgOf(p.p));
+  _czRefresh(false, true);   // the editor slider is mid-drag: refresh the page, not the editor
+}
+function _czTeamMins(){ let t=0; POS_KEYS.forEach(pos=>(customDepth[pos]||[]).forEach(p=>{ if(p&&p.name) t+=_curMpgOf(p); })); return Math.round(t); }
+function _czMinutesMeter(){
+  const t=_czTeamMins(), off=Math.abs(t-MAX_TEAM_MINS)>2, w=Math.min(100,t/MAX_TEAM_MINS*100);
+  return `<span class="cz-meter${off?' off':''}">Minutes <b>${t} / ${MAX_TEAM_MINS}</b><span class="cz-meter-bar"><span style="width:${w}%"></span></span></span>`;
+}
+function _czToast(msg){
+  let t=document.getElementById('czToast');
+  if(!t){ t=document.createElement('div'); t.id='czToast';
+    t.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:100020;background:var(--text);color:var(--bg);font:600 12.5px Inter,system-ui,sans-serif;padding:9px 16px;border-radius:999px;max-width:90vw;text-align:center;pointer-events:none;transition:opacity .2s;';
+    document.body.appendChild(t); }
+  t.textContent=msg; t.style.opacity='1';
+  clearTimeout(t._h); t._h=setTimeout(()=>{ t.style.opacity='0'; },1800);
+}
+
+// ── MODE BAR: My team | Build any team ───────────────────
+window._czLabMode = window._czLabMode || 'team';
+function _czModeBar(){
+  const team=window._czLabMode!=='build', changed=team&&window._czSeedSig&&_czSig()!==window._czSeedSig;
+  const tn=_sqAttr((teamT&&teamT.name)||'this team'), st=window._czBuildStart;
+  return `<div class="cz-mode">
+    <button type="button" class="cz-pill${team?' on':''}" onclick="setCzMode('team')">My team</button>
+    <button type="button" class="cz-pill${team?'':' on'}" onclick="setCzMode('build')">Build any team</button>
+    ${team?(changed?'<span class="cz-mode-sep"></span><button type="button" class="cz-pill ghost" onclick="resetCustomLineup()">Reset</button>':'')
+      :`<span class="cz-mode-sep"></span>
+      <button type="button" class="cz-pill${st==='blank'?' on':''}" onclick="buildFromScratch()">Start blank</button>
+      <button type="button" class="cz-pill${st==='alltime'?' on':''}" id="allTimeBtn" onclick="buildAllTimeBest()">Start from ${tn}'s all-time best</button>`}
+  </div>`;
+}
+function setCzMode(m){
+  if(m==='team'){ if(window._czLabMode==='team') return; swapSource='season'; resetCustomLineup(); return; }
+  if(window._czLabMode==='build') return;
+  window._czLabMode='build'; window._czBuildStart=null; rebuildCustomizeUI();
+}
+
+// ── PLAYER EDITOR ────────────────────────────────────────
+let _czEdName=null;
+function openPlayerEditor(name){
+  if(!_findSquadPlayer(name)) return;
+  _czEdName=name; _renderPlayerEditor();
+  document.getElementById('czEdit').style.display='flex';
+}
+function closePlayerEditor(){ _czEdName=null; const o=document.getElementById('czEdit'); if(o) o.style.display='none'; }
+function _czRefreshEditor(){ if(!_czEdName) return; if(!_findSquadPlayer(_czEdName)){ closePlayerEditor(); return; } _renderPlayerEditor(); }
+function _renderPlayerEditor(){
+  const body=document.getElementById('czEditBody'), f=_findSquadPlayer(_czEdName); if(!body||!f) return;
+  const p=f.p, pos=f.pos, col=customDepth[pos], row=col.indexOf(p);
+  const assigned=customPos[p.name]||pos, fit=calcPositionFit(p,assigned);
+  const g=_gdisp(p), gn=parseFloat(g), eff=isFinite(gn)?Math.max(40,Math.min(99,Math.round(gn+fit.adjGrade))):null;
+  const m=Math.round(_curMpgOf(p)), role=customRole[p.name]||'none';
+  const sub=[p.team||(teamT&&teamT.name)||'', p._histLabel||'', p.class_year||p.yr||'', p.height||''].filter(Boolean).join(' · ');
+  const posChips=POS_KEYS.map(op=>{ const fx=calcPositionFit(p,op);
+    return `<button type="button" class="cz-ed-pos${op===pos?' on':''}" onclick="czEdPos('${op}')">${op}<span class="fit-badge ${fx.fitClass}">${fx.fitLabel}</span></button>`; }).join('');
+  const roleChips=Object.entries(PLAYER_ROLES).map(([k,r])=>`<button type="button" class="cz-pill${role===k?' on':''}" onclick="czEdRole('${k}')">${r.label}</button>`).join('');
+  body.innerHTML=`<div class="cz-ed-top">
+      <div class="cz-ed-id"><div class="cz-ed-name">${p.name}</div><div class="cz-ed-sub">${sub}</div></div>
+      <div class="cz-ed-g" style="color:${_sqCol(eff)}">${eff!=null&&p.tdc_grade?eff:(g||'—')}</div>
+      <button type="button" class="cz-pill" onclick="closePlayerEditor()">Close</button>
+    </div>
+    <div class="cz-ed-sec"><div class="cz-ed-lbl"><span>Minutes</span><span>${pos} ${Math.round(_colMins(pos))}/${POS_MIN_CAP}</span></div>
+      <div class="cz-ed-min dc-step">
+        <button type="button" onclick="stepMpg(_czEdName,null,-1)" aria-label="Fewer minutes">−</button>
+        <input type="range" min="0" max="40" step="1" value="${m}" oninput="onMpgChange(_czEdName,null,this.value)" onchange="_czRefresh(true)" aria-label="Minutes per game"/>
+        <button type="button" onclick="stepMpg(_czEdName,null,1)" aria-label="More minutes">+</button>
+        <span class="cz-ed-minv" id="czEdMinV">${m}</span>
+      </div></div>
+    <div class="cz-ed-sec"><div class="cz-ed-lbl"><span>Position</span></div><div class="cz-ed-chips">${posChips}</div></div>
+    <div class="cz-ed-sec"><div class="cz-ed-lbl"><span>Role</span></div><div class="cz-ed-chips">${roleChips}</div></div>
+    <div class="cz-ed-sec cz-ed-acts">
+      <button type="button" class="cz-pill" onclick="czEdStarter()"${row===0?' disabled':''}>${row===0?'Starter':'Make starter'}</button>
+      <button type="button" class="cz-pill" onclick="czEdReplace()">Replace…</button>
+      <button type="button" class="cz-pill danger" onclick="czEdRemove()">Remove</button>
+    </div>`;
+}
+function czEdPos(newPos){
+  const f=_findSquadPlayer(_czEdName); if(!f) return;
+  const row=customDepth[f.pos].indexOf(f.p);
+  if(newPos===f.pos && (customPos[f.p.name]||f.pos)===newPos) return;
+  onPosChange(f.p.name, f.pos, row, newPos); _czRefreshEditor();
+}
+function czEdRole(k){ if(!_czEdName) return; onRoleChange(_czEdName,k); _czRefresh(true); }
+function czEdStarter(){
+  const f=_findSquadPlayer(_czEdName); if(!f) return;
+  const col=customDepth[f.pos], i=col.indexOf(f.p); if(i<=0) return;
+  // the new starter takes the old starter's minutes (and vice versa), so "starting" means playing
+  const old=col[0], a=_curMpgOf(f.p), b=_curMpgOf(old);
+  if(b>a){ customMpg[f.p.name]=Math.round(b); customMpg[old.name]=Math.round(a); }
+  col.splice(i,1); col.unshift(f.p); _czRefresh(true);
+}
+function czEdReplace(){
+  const f=_findSquadPlayer(_czEdName); if(!f) return;
+  const row=customDepth[f.pos].indexOf(f.p); closePlayerEditor(); openSwapModal(f.pos,row);
+}
+function czEdRemove(){
+  const f=_findSquadPlayer(_czEdName); if(!f) return;
+  const name=f.p.name, col=customDepth[f.pos], i=col.indexOf(f.p);
+  col.forEach(q=>{ customMpg[q.name]=Math.round(_curMpgOf(q)); });
+  let give=customMpg[name]||0;
+  col.splice(i,1);
+  // his minutes go back to the column: backups in depth order first, then the starter
+  const order=i===0?col.slice():col.slice(1).concat(col.slice(0,1));
+  order.forEach(q=>{ if(give<=0) return; const t=Math.min(give,40-customMpg[q.name]); if(t>0){ customMpg[q.name]+=t; give-=t; } });
+  delete customMpg[name]; delete customPos[name]; delete customRole[name];
+  closePlayerEditor(); _czRefresh(true);
+}
+document.addEventListener('keydown',e=>{ if(e.key!=='Escape') return;
+  const sm=document.getElementById('swapModal'); if(sm&&sm.style.display!=='none'){ closeSwapModal(); return; }
+  if(_czEdName) closePlayerEditor(); });
 
 // ── RESET ─────────────────────────────────────────────────
 // Load a team's ALL-TIME best roster: the top player at each position over the last 20
@@ -5112,13 +5209,13 @@ function onMpgChange(playerName, pKey, val){
 async function buildAllTimeBest(){
   const teamName=(teamT&&teamT.name)||(teamPlayers&&teamPlayers[0]&&teamPlayers[0].team)||'';
   if(!teamName) return;
-  const btn=document.getElementById('allTimeBtn'); if(btn){ btn.disabled=true; btn.textContent='Building…'; }
+  const btn=document.getElementById('allTimeBtn'); const _btnTxt=btn?btn.textContent:''; if(btn){ btn.disabled=true; btn.textContent='Building…'; }
   const sel='select=name,team,season_year,yr,height,position,tdc_grade,espn_id,ppg,rpg,apg,mpg,fgm,fga,fg_pct,tpm,tpa,tp_pct,ftm,fta,ft_pct,oreb,dreb,stl,blk,tovs';
   let rows=[];
   // history keys some programs by formal name (UConn -> Connecticut, FAU -> Florida Atlantic)
   const _phk=(typeof _resolvePhTeamKey==='function' ? await _resolvePhTeamKey().catch(()=>null) : null) || teamName;
   try{ rows=await fetch(`${SB_URL}/rest/v1/player_history?team=eq.${encodeURIComponent(_phk)}&tdc_grade=not.is.null&${sel}&order=tdc_grade.desc.nullslast&limit=500`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
-  if(btn){ btn.disabled=false; btn.textContent='All-Time Roster'; }
+  if(btn){ btn.disabled=false; btn.textContent=_btnTxt; }
   if(!rows||!rows.length) return;
   const best={}; rows.forEach(r=>{ const g=parseFloat(r.tdc_grade)||0; if(!best[r.name]||g>(parseFloat(best[r.name].tdc_grade)||0)) best[r.name]=r; });
   // Height parser ("6-3", "6'3\"") → inches, used to split coarse positions.
@@ -5158,26 +5255,26 @@ async function buildAllTimeBest(){
     for(const a of (adj[pos]||[])){ const x=graded.find(y=>!used.has(y.name)&&y._rp===a); if(x){ nd[pos].push(shape(x)); used.add(x.name); break; } } });
   customDepth=nd; customMpg={}; customPos={}; customRole={}; _rotationUserSet=false;
   window._czBuildMode=false;   // all-time roster is still THIS team → keep the rating anchor
+  window._czLabMode='build'; window._czBuildStart='alltime';
   _baseCustomProj=buildCustomProjections(); if(_czFitColumns()) _baseCustomProj=buildCustomProjections();
   baseAnalytics=calcCustomAnalytics();
   rebuildCustomizeUI();
-  try{ if(typeof toast==='function') toast(teamName+' all-time roster loaded'); }catch(e){}
+  _czToast(teamName+' all-time roster loaded');
 }
 // Blank "Build-a-Team" mode: empty every position, then the owner fills each slot with ANY
 // player from ANY team/era via the + Add picker (defaulted to the All-time source). The Proj
 // Power Rating drops its team anchor here (this is no longer "this team") and reads straight off
 // the regression, so a hand-built dream team still gets a live projected strength + national rank.
 function buildFromScratch(){
-  window._czBuildMode=true;
+  window._czBuildMode=true; window._czLabMode='build'; window._czBuildStart='blank';
   POS_KEYS.forEach(pos=>{ customDepth[pos]=[]; });
   customMpg={}; customPos={}; customRole={}; _rotationUserSet=false;
   baseAnalytics=null; _baseCustomProj=[]; _baseAdvanced=null;
   swapSource='alltime';   // the + Add picker opens straight to any team / any era
-  rebuildCustomizeUI();
-  try{ if(typeof toast==='function') toast('Blank lineup — tap + Add to build any team from any era'); }catch(e){}
+  closePlayerEditor(); rebuildCustomizeUI();
 }
 function resetCustomLineup(){
-  window._czBuildMode=false;
+  window._czBuildMode=false; window._czLabMode='team'; window._czBuildStart=null;
   POS_KEYS.forEach(pos=>{ customDepth[pos]=[...baseDepthSnapshot[pos]]; });
   customMpg={}; customPos={}; customRole={};
   _baseCustomProj=buildCustomProjections(); if(_czFitColumns()) _baseCustomProj=buildCustomProjections();
@@ -5188,18 +5285,23 @@ function resetCustomLineup(){
   window._czBasePPG = (function(){ const s=(_baseCustomProj||[]).filter(p=>p&&(parseFloat(p.mpg)||0)>0).reduce((a,p)=>a+(parseFloat(p.ppg)||0),0); return s>0?Math.round(s*10)/10:window._czBasePPG; })();
   window._czSeedSig = _czSig();
   _baseAdvanced=null;
-  rebuildCustomizeUI();
+  closePlayerEditor(); rebuildCustomizeUI();
 }
 
 // ── SWAP MODAL ───────────────────────────────────────────
 function openSwapModal(pos, rowIdx){
   swapTargetPos={pos, rowIdx};
   const p=(customDepth[pos]||[])[rowIdx];
-  document.getElementById('swapModalTitle').textContent=`${pos} Slot ${rowIdx+1}${p?' — '+p.name:''}`;
-  document.getElementById('swapSearch').value='';
+  document.getElementById('swapModalTitle').textContent=p?`Replace ${p.name}`:`Add ${pos}`;
+  const inp=document.getElementById('swapSearch'); inp.value='';
+  if(swapSource==='portal') swapSource='season';
+  document.querySelectorAll('.swap-tab').forEach(b=>b.classList.toggle('on',b.dataset.src===swapSource));
   filterSwapList(pos);
   document.getElementById('swapModal').style.display='flex';
+  setTimeout(()=>{ try{ inp.focus(); }catch(e){} },30);
 }
+let _swapQT=0;
+function _swapSearchInput(){ clearTimeout(_swapQT); _swapQT=setTimeout(()=>filterSwapList(swapTargetPos?.pos), swapSource==='alltime'?300:60); }
 function closeSwapModal(){
   document.getElementById('swapModal').style.display='none';
   swapTargetPos=null;
@@ -5213,15 +5315,16 @@ async function filterSwapList(hintPos){
   const req=++_swapReq;
   let pool=[];
   if(swapSource==='roster'){
-    pool=(teamPlayers||[]).filter(p=>p.name&&p.name!=='—');
+    const inLineup=new Set(); POS_KEYS.forEach(ps=>(customDepth[ps]||[]).forEach(x=>x&&inLineup.add(x.name)));
+    pool=(teamPlayers||[]).filter(p=>p.name&&p.name!=='—').sort((a,b)=>(inLineup.has(a.name)-inLineup.has(b.name))||((parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0)));
   } else if(swapSource==='portal'){
     pool=allDbPlayers.filter(p=>p.in_portal===true||/portal/i.test(p.team||''));
     if(!pool.length){
-      listEl.innerHTML='<div style="padding:26px 20px;text-align:center;color:var(--text3);font-size:12px;line-height:1.7;">No transfer-portal players in the database yet.<br>This source lights up automatically once portal data is added.</div>';
+      listEl.innerHTML='<div class="swap-modal-msg">No portal players</div>';
       return;
     }
   } else if(swapSource==='alltime'){
-    listEl.innerHTML='<div style="padding:22px;text-align:center;color:var(--text3);font-size:12px;">Searching 20 years of players…</div>';
+    listEl.innerHTML='<div class="swap-modal-msg">Searching…</div>';
     pool=await fetchAllTime(q);
     if(req!==_swapReq) return;   // a newer request superseded this one
   } else {
@@ -5236,22 +5339,26 @@ async function filterSwapList(hintPos){
   });
   if(fx) rows.sort((a,b)=>((parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0))||(fx.rank(b)-fx.rank(a)));
   rows=rows.slice(0,100);
+  if(!fx&&swapSource!=='roster') rows.sort((a,b)=>(parseFloat(_gdisp(b))||0)-(parseFloat(_gdisp(a))||0));
 
+  const curSeason=(typeof _rosterSeason!=='undefined'&&_rosterSeason)?_rosterSeason:2027;
+  const sLbl=y=>y?((y-1)+'-'+(''+y).slice(2)):'';
   listEl.innerHTML=rows.map(p=>{
     const key=p._hist?('ext:'+p.name):p.name;
     if(p._hist) _extPlayers[key]=p;
-    const fit=calcPositionFit({...p,_naturalPos:p.position}, targetPos);
     const fxStat=fx?` · ${swapFixDim==='shooting'?(p.tp_pct||0)+'% 3P on '+(p.tpa||0)+' att':swapFixDim==='rim'?(p.blk||0)+' blk':swapFixDim==='rebounding'?(p.rpg||0)+' rpg':swapFixDim==='playmaking'?(p.apg||0)+' apg':swapFixDim==='ft'?(p.ft_pct||0)+'% FT':swapFixDim==='defense'?((parseFloat(p.stl)||0)+(parseFloat(p.blk)||0)).toFixed(1)+' stocks':swapFixDim==='size'?(p.height||''):swapFixDim==='balance'?(p.ppg||0)+' ppg':''}`:'';
-    return `<div class="swap-player-row" onclick="confirmSwap('${key.replace(/'/g,"\\'")}')">
-      <span class="swap-player-pos">${p.position||'—'}</span>
-      <div style="flex:1;">
-        <div class="swap-player-name">${p.name}${p._hist?'<span class="hist-chip">'+(p._histSeason-1)+'-'+((''+p._histSeason).slice(2))+'</span>':''}</div>
-        <div class="swap-player-team">${p.team||''} · ${p.class_year||p.yr||''}${p.height?' · '+p.height:''}${fxStat}</div>
+    const nm=p._hist?p.name.replace(/\s'\d\d$/,''):p.name;
+    const season=p._hist?sLbl(p._histSeason):sLbl(curSeason);
+    const g=_gdisp(p);
+    return `<div class="swap-player-row" data-k="${_sqAttr(key)}" onclick="confirmSwap(this.dataset.k)">
+      <div class="swap-player-main">
+        <div class="swap-player-name">${nm}</div>
+        <div class="swap-player-team">${[p.team||'',season].filter(Boolean).join(' · ')}${fxStat}</div>
       </div>
-      <span class="swap-fit-preview ${fit.fitClass}">${fit.fitLabel}</span>
-      <span class="swap-player-grade ${gc(p.tdc_grade||'')}" style="margin-left:6px;">${_gdisp(p)||'—'}</span>
+      <span class="swap-player-pos">${p.position||'—'}</span>
+      <span class="swap-player-grade" style="color:${_sqCol(g)}">${g||'—'}</span>
     </div>`;
-  }).join('')||'<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px;">No players found'+(fx?' that fix '+WEAK_DIMS[swapFixDim].label.toLowerCase()+' — try another source tab':'')+'</div>';
+  }).join('')||'<div class="swap-modal-msg">No players found</div>';
 }
 function confirmSwap(playerKey){
   if(!swapTargetPos) return;
