@@ -116,8 +116,11 @@
       '.tdn-menu a{display:block;font-size:12.5px;font-weight:600;letter-spacing:.01em;text-transform:none;color:var(--text2);text-decoration:none;padding:8px 12px;border-radius:4px;white-space:nowrap;transition:background .13s,color .13s;}',
       '.tdn-menu a:hover{background:var(--bg3);color:var(--text);}',
       '.tdn-menu a.active{color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent);}',
+      '.tdn-signout{font-family:inherit;background:none;border:1px solid var(--border2);border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);padding:5px 10px;white-space:nowrap;transition:color .15s,border-color .15s;}',
+      '.tdn-signout:hover{color:var(--text);border-color:var(--text3);}',
       '@media(max-width:900px){',
       '.tdn-top{height:44px;}',
+      '.tdn-signout{padding:4px 7px;font-size:10px;letter-spacing:.02em;}',
       '.tdn-logo{font-size:15px;}',
       '.tdn-signin{padding:5px 8px;font-size:10px;letter-spacing:.02em;}',
       '.tdn-actions{gap:8px;}',
@@ -195,6 +198,7 @@
     if (document.querySelector('.tdn-wrap') !== wrap) document.body.insertBefore(wrap, document.body.firstChild);
     wireMenus();
     upgradeAuth();
+    watchActions();
   }
 
   // member badge (premium/pro/coach seal or verified dot) — shared module tdc-badge.js; load it if the
@@ -232,6 +236,33 @@
           '<span style="display:inline-flex;align-items:center;font-size:13px;font-weight:700;color:var(--text);">' + u + badge(p) + '</span></a>';
       })
       .catch(function () {});
+  }
+
+  // ── Sign Out, next to the avatar on every page ──
+  // Several pages still run their own inline "AUTH NAV" script that rewrites #navActions
+  // after we do, so rather than only baking the button into upgradeAuth's markup we watch
+  // the element and re-add it whenever it shows a signed-in avatar (a profile.html link).
+  window.tdcSignOut = function () {
+    var s; try { s = JSON.parse(localStorage.getItem('tdc_session') || 'null'); } catch (e) {}
+    var done = function () {
+      try { localStorage.removeItem('tdc_session'); localStorage.removeItem('tdc_persist'); sessionStorage.removeItem('tdc_alive'); } catch (e) {}
+      location.href = 'index.html';
+    };
+    if (!s || !s.access_token) return done();
+    fetch(SB + '/auth/v1/logout', { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + s.access_token } })
+      .catch(function () {}).then(done);
+  };
+  function ensureSignOut(el) {
+    if (!el || !el.querySelector('a[href="profile.html"]') || el.querySelector('.tdn-signout')) return;
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'tdn-signout'; b.textContent = 'Sign Out';
+    b.onclick = window.tdcSignOut;
+    el.appendChild(b);
+  }
+  function watchActions() {
+    var el = document.getElementById('navActions'); if (!el) return;
+    ensureSignOut(el);
+    if (window.MutationObserver) new MutationObserver(function () { ensureSignOut(el); }).observe(el, { childList: true });
   }
 
   if (document.body) mount();
