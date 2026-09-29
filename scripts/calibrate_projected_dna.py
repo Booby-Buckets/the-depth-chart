@@ -243,6 +243,35 @@ def cur_coach(full):
         if fl == sl or (fl.startswith(sl + ' ') and not _MARK.search(fl[len(sl) + 1:])):
             if best is None or len(sl) > len(best[0]): best = (sl, r['slug'])
     return best[1] if best else COACH_AT.get((int(LAST), full))   # fallback: last season's coach
+# ── OWNER WEIGHTS (Sept 29 2026, final): "offense .85 and defense .70 and .30 of the coaches" ──────────
+# Each side = ROSTER share x the roster projection (first put on the real-results scale by a roster-only
+# fit, so a share means a share) + the rest x the coach's last two actual seasons (averaged). Replaces the
+# fitted blend above (kept for the report). No continuity term: the owner set the shares explicitly.
+ROSTER_W = (float(os.environ.get('ROSTER_W_O', '0.85')), float(os.environ.get('ROSTER_W_D', '0.70')))
+SCALE = {}
+for side in (0, 1):
+    pc, yc = (1, 7) if side == 0 else (2, 8)
+    X = np.array([[1, r[pc]] for r in rows], float); Y = np.array([r[yc] for r in rows], float)
+    SCALE[side] = np.linalg.lstsq(X, Y, rcond=None)[0]           # actual ~ a + b*roster projection
+def owner_dev(side, p, h1, h2):
+    a, b = SCALE[side]; roster = a + b * p
+    hs = [h for h in (h1, h2) if h is not None]
+    if not hs: return roster
+    return ROSTER_W[side] * roster + (1 - ROSTER_W[side]) * (sum(hs) / len(hs))
+# how it would have done on 2009-26 (each season scored by a scale fit without it)
+_S = np.array([r[0] for r in rows]); _pn = np.zeros(len(rows)); _yn = np.zeros(len(rows))
+for s_ in np.unique(_S):
+    tr = _S != s_
+    for side in (0, 1):
+        pc, yc, h1c, h2c = (1, 7, 3, 5) if side == 0 else (2, 8, 4, 6)
+        X = np.array([[1, r[pc]] for r in np.array(rows, dtype=object)[tr]], float); Y = np.array([r[yc] for r in np.array(rows, dtype=object)[tr]], float)
+        a, b = np.linalg.lstsq(X, Y, rcond=None)[0]
+        for i in np.where(~tr)[0]:
+            r = rows[i]; roster = a + b * r[pc]; hs = [h for h in (r[h1c], r[h2c]) if h is not None]
+            v = ROSTER_W[side] * roster + (1 - ROSTER_W[side]) * (sum(hs) / len(hs)) if hs else roster
+            _pn[i] += v if side == 0 else -v; _yn[i] += r[yc] if side == 0 else -r[yc]
+print(f"owner weights O {ROSTER_W[0]:.2f}/{1-ROSTER_W[0]:.2f}  D {ROSTER_W[1]:.2f}/{1-ROSTER_W[1]:.2f}: net r {np.corrcoef(_pn, _yn)[0,1]:.3f}  MAE {np.mean(abs(_pn - _yn)):.2f}")
+
 used = {0: 0, 1: 0, 2: 0}
 for k, t in P27.items():
     if t.get('ORtg_roster') is None or t.get('DRtg_roster') is None: continue
@@ -254,7 +283,7 @@ for k, t in P27.items():
     t['continuity'] = round(c27 * 100, 1) if c27 is not None else None
     xo = feats(0, h, po, h1o, h2o, cm)
     xd = feats(1, h, pd, h1d, h2d, cm)
-    o = mA[LAST][0] + float(np.dot(M[(0, h)][0], xo)); d = mA[LAST][1] + float(np.dot(M[(1, h)][0], xd))
+    o = mA[LAST][0] + owner_dev(0, po, h1o, h2o); d = mA[LAST][1] + owner_dev(1, pd, h1d, h2d)
     t['ORtg'] = round(o, 1); t['DRtg'] = round(d, 1); t['net'] = round(t['ORtg'] - t['DRtg'], 1)
     t['calib'] = h; used[h] += 1
 
