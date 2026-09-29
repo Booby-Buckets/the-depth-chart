@@ -347,9 +347,12 @@ def pos5_flow(minutes,lists,depths,home):
             need=T-col(rcv)
             if need<=0.05: continue
             # never more than one spot from a position he is LISTED at (a PF can slide to the 3, not the 2)
-            cands=[(1 if st(i) else 0,-alloc[i][dnr],i) for i in range(n) if not parked(i) and alloc[i].get(dnr,0)>0.05
+            # a player LISTED at the short spot slides first (Purdue's PF/C Sharhrvin to the 5 before PF/SF
+            # Benter, who then showed up at center); only then a neighbour, bench before starters
+            cands=[(min(abs(POS5.index(rcv)-POS5.index(l)) for l in lists[i]),1 if st(i) else 0,-alloc[i][dnr],i)
+                   for i in range(n) if not parked(i) and alloc[i].get(dnr,0)>0.05
                    and min(abs(POS5.index(rcv)-POS5.index(l)) for l in lists[i])<=1]
-            for _,_,i in sorted(cands):
+            for _,_,_,i in sorted(cands):
                 give=min(need,alloc[i][dnr],max(col(dnr)-FLOOR,(col(dnr)-col(rcv))/2.0))   # or until the two are level
                 if give<=0.05: continue
                 alloc[i][dnr]-=give; alloc[i][rcv]=alloc[i].get(rcv,0.0)+give; need-=give; moved=True

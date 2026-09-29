@@ -20,7 +20,7 @@
   <script src="tdc-ratings.js?v=21"></script>
   <script src="tdc-schedule.js?v=20s"></script>
   <script src="tdc-preview.js?v=23s"></script>
-  <script src="tdc-projgrade.js?v=base28"></script>
+  <script src="tdc-projgrade.js?v=base29"></script>
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-pool.js?v=5"></script>
@@ -8323,7 +8323,10 @@ function renderHistoricRoster(rows, yr, projected){
     const _byPos={}; cols.forEach(c=>{ _byPos[c.pos]=c; });
     cols.forEach(c=>{ const keep=[], moveOut=[];
       c.list.forEach((p,i)=>{ if(i===0){ keep.push(p); return; } const pm=_posMinOf(p);
-        const best=pm?Object.keys(pm).filter(k=>_byPos[k]).sort((a,b)=>pm[b]-pm[a])[0]:null;
+        // a spot he is LISTED at wins when he plays there at all: minutes the build slid to a
+        // neighbouring spot don't make a PF/SF a centre on the chart (Purdue's Benter)
+        const ks=pm?Object.keys(pm).filter(k=>_byPos[k]&&pm[k]>=0.5).sort((a,b)=>pm[b]-pm[a]):[];
+        const best=ks.find(k=>_oopDist(p,k)===0)||ks[0]||null;
         if(best&&best!==c.pos&&pm[best]>=0.5) moveOut.push([p,best]); else keep.push(p); });
       c.list=keep; c._in=(c._in||[]); moveOut.forEach(([p,b])=>{ (_byPos[b]._in=_byPos[b]._in||[]).push(p); }); });
     cols.forEach(c=>{ if(c._in){ c.list=c.list.concat(c._in); delete c._in; } });
@@ -8465,7 +8468,7 @@ async function _renderShotDist(rows){
   const _e=s=>(''+(s||'')).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
   try{
     if(!_shotProj){
-      const r=await fetch('scripts/data/stat_overall_projected.json?v=68').then(x=>x.ok?x.json():null).catch(()=>null);
+      const r=await fetch('scripts/data/stat_overall_projected.json?v=69').then(x=>x.ok?x.json():null).catch(()=>null);
       _shotProj={players:(r&&r.players)||{}, teams:(r&&r.teams)||{}};
     }
     const P=_shotProj.players, T=_shotProj.teams;
