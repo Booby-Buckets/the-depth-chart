@@ -293,6 +293,8 @@ function syncToSupabase() {
   // ── Conference tabs ────────────────────────────────────────
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let totalTeams = 0, totalPlayers = 0, totalLosses = 0, skippedTabs = 0;
+  const cleanTeams = [];          // teams whose roster fully saved this run
+  const MIN_TEAM_PLAYERS = 5;     // fewer parsed names than this = treat the block as broken
 
   for (const [tabName, confCode] of Object.entries(CONF_TABS)) {
     const sheet = ss.getSheetByName(tabName);
@@ -312,13 +314,19 @@ function syncToSupabase() {
       try {
         upsertTeam(team, rankMap, prevRankMap, tierMap);
         insertLosses(team);
-        insertPlayers(team);
-        Logger.log('  ✅ ' + team.name + ': ' + team.players.length + ' players, ' + team.losses.length + ' losses');
+        const res = insertPlayers(team);
+        const real = team.players.filter(function (p) { return p.name && p.name !== '—' && p.name !== '-'; }).length;
+        // Only a team whose roster actually saved gets its departed players removed below. A
+        // block that parsed to (almost) nobody, or whose rows failed to save, keeps its old roster.
+        if (real >= MIN_TEAM_PLAYERS && res.bad === 0) cleanTeams.push(team.name);
+        else Logger.log('  ⚠️ ' + team.name + ': ' + real + ' players parsed, ' + res.saved + ' saved, ' + res.bad +
+          ' failed — its existing roster is KEPT (check this block on the ' + tabName + ' tab).');
+        Logger.log('  ✅ ' + team.name + ': ' + res.saved + ' players saved, ' + team.losses.length + ' losses');
         totalTeams++;
-        totalPlayers += team.players.length;
+        totalPlayers += res.saved;
         totalLosses  += team.losses.length;
       } catch (e) {
-        Logger.log('  ❌ ' + team.name + ': ' + e.message);
+        Logger.log('  ❌ ' + team.name + ': ' + e.message + ' — its existing roster is KEPT.');
       }
     }
   }
@@ -327,10 +335,15 @@ function syncToSupabase() {
   // Anyone whose (name,team) wasn't upserted this run still has an OLD updated_at.
   // Delete only those. Guarded: if far fewer players synced than expected (a tab
   // failed to parse), SKIP the delete so a partial run can't wipe a conference.
+  // Cleanup is PER TEAM (Sept 29 2026): it used to delete every row not touched this run, so a
+  // team whose save failed lost its whole roster (Tulane, Rice, ECU, Tulsa, UTSA). Teams that
+  // aren't on any tab any more are left alone too — remove those by hand.
   var MIN_EXPECTED = 800;
   if (totalPlayers >= MIN_EXPECTED && skippedTabs === 0) {
-    sbDelete('/rest/v1/players?updated_at=lt.' + encodeURIComponent(SYNC_START));
-    Logger.log('Departed-player cleanup ran (synced ' + totalPlayers + ' players).');
+    cleanTeams.forEach(function (t) {
+      sbDelete('/rest/v1/players?team=eq.' + encodeURIComponent(t) + '&updated_at=lt.' + encodeURIComponent(SYNC_START));
+    });
+    Logger.log('Departed-player cleanup ran for ' + cleanTeams.length + ' of ' + totalTeams + ' teams (synced ' + totalPlayers + ' players).');
   } else {
     Logger.log('⚠️ Cleanup SKIPPED — ' + totalPlayers + ' players synced, ' + skippedTabs +
       ' tab(s) skipped. Departed players left in place to avoid deleting a skipped tab or a partial-sync wipe.');
@@ -406,23 +419,51 @@ function readRankings() {
 // TEAM UPSERT
 // ============================================================
 
+// TEAM COLOURS come from each team's LOGO (owner rule, Sept 2026): scripts/build_logo_colors.py reads
+// every ESPN logo and publishes the colours on the site. First the file keyed by our own team names,
+// then the full D-I list matched by school name / abbreviation, then the old hand list above. A team
+// none of them know keeps whatever colour it already has (the old default painted it grey).
+var SITE_URL = 'https://www.thedepthchartcbb.com';
+var _logoByName = null, _logoList = null;
+function _normTeam(n) { return String(n || '').toLowerCase().replace(/[&.'\u2019]/g, '').replace(/[-_]/g, ' ').replace(/\bst\b/g, 'state').replace(/\s+/g, ' ').trim(); }
+function loadLogoColors() {
+  _logoByName = {}; _logoList = [];
+  try {
+    var r = UrlFetchApp.fetch(SITE_URL + '/scripts/data/team_logo_colors.json', { muteHttpExceptions: true });
+    if (r.getResponseCode() === 200) _logoByName = JSON.parse(r.getContentText());
+    var r2 = UrlFetchApp.fetch(SITE_URL + '/scripts/data/team_colors.json', { muteHttpExceptions: true });
+    if (r2.getResponseCode() === 200) _logoList = JSON.parse(r2.getContentText());
+    Logger.log('Logo colours loaded: ' + Object.keys(_logoByName).length + ' named, ' + _logoList.length + ' D-I teams');
+  } catch (e) { Logger.log('Logo colours not loaded (' + e.message + ') — using the hand list.'); }
+}
+function _hexRgb(h) { h = String(h).replace('#', ''); return [0, 2, 4].map(function (i) { return parseInt(h.substr(i, 2), 16); }).join(','); }
+function teamColors(name) {
+  if (_logoByName === null) loadLogoColors();
+  var hit = _logoByName[name];
+  if (!hit) {
+    var n = _normTeam(name);
+    for (var i = 0; i < _logoList.length && !hit; i++) {
+      var t = _logoList[i];
+      if (_normTeam(t.location) === n || _normTeam(t.abbr) === n || _normTeam(t.display) === n) hit = t;
+    }
+  }
+  if (hit && hit.c1) return { color: hit.c1, color2: hit.c2 || '#ffffff', rgb: _hexRgb(hit.c1) };
+  return TEAM_COLORS[name] || null;
+}
+
 function upsertTeam(team, rankMap, prevRankMap, tierMap) {
-  const colors     = TEAM_COLORS[team.name] || { color: '#666666', color2: '#333333', rgb: '100,100,100' };
+  const colors     = teamColors(team.name);
   const rankNum    = rankMap[team.name]     || null;
   const prevRank   = prevRankMap[team.name] || null;
   const rankChange = (rankNum && prevRank)  ? prevRank - rankNum : null; // positive = moved up
   const teamTier   = tierMap[team.name]     || null;
 
-  sbPost('/rest/v1/teams?on_conflict=name', [{
+  const row = {
     name:          team.name,
     conference:    team.conf,
     conf:          team.conf,
     head_coach:    team.coach,
     coach:         team.coach,
-    color:         colors.color,
-    color2:        colors.color2,
-    color_rgb:     colors.rgb,
-    primary_color: colors.color,
     coach_grade:   team.coach_grade   || null,
     depth_grade:   team.depth_grade   || null,
     recruit_grade: team.recruit_grade || null,
@@ -433,7 +474,9 @@ function upsertTeam(team, rankMap, prevRankMap, tierMap) {
     team_tier:     teamTier,
     rank_change:   rankChange,
     updated_at:    new Date().toISOString(),
-  }]);
+  };
+  if (colors) { row.color = colors.color; row.color2 = colors.color2; row.color_rgb = colors.rgb; row.primary_color = colors.color; }
+  sbPost('/rest/v1/teams?on_conflict=name', [row]);
 }
 
 
@@ -470,7 +513,7 @@ function insertLosses(team) {
 function _isFreshman(p) { return /^r?-?fr\.?/i.test(String(p.yr || '').trim()); }
 
 function insertPlayers(team) {
-  if (!team.players.length) return;
+  if (!team.players.length) return { saved: 0, bad: 0 };
 
   var now = new Date().toISOString();   // > SYNC_START, so these survive the cleanup
   // Base row WITHOUT tdc_grade. We add tdc_grade ONLY for freshmen below — so the
@@ -530,12 +573,22 @@ function insertPlayers(team) {
   const BATCH = 50;
   // Freshmen and experienced go in SEPARATE upsert batches so a batch's column set is
   // uniform — a mixed batch would null out tdc_grade for the experienced rows.
-  for (let i = 0; i < froshRows.length; i += BATCH) {
-    sbPost('/rest/v1/players?on_conflict=name,team', froshRows.slice(i, i + BATCH));
+  // A batch that fails is retried one row at a time, so ONE bad row (a player listed twice,
+  // text in a number column) loses only that row, not the whole team. Returns how many rows saved.
+  var saved = 0, bad = [];
+  function send(rows) {
+    try { sbPost('/rest/v1/players?on_conflict=name,team', rows); saved += rows.length; }
+    catch (e) {
+      rows.forEach(function (r) {
+        try { sbPost('/rest/v1/players?on_conflict=name,team', [r]); saved++; }
+        catch (e2) { bad.push(r.name + ' (' + e2.message.slice(0, 120) + ')'); }
+      });
+    }
   }
-  for (let i = 0; i < expRows.length; i += BATCH) {
-    sbPost('/rest/v1/players?on_conflict=name,team', expRows.slice(i, i + BATCH));
-  }
+  for (let i = 0; i < froshRows.length; i += BATCH) send(froshRows.slice(i, i + BATCH));
+  for (let i = 0; i < expRows.length; i += BATCH) send(expRows.slice(i, i + BATCH));
+  if (bad.length) Logger.log('    ⚠️ ' + team.name + ': ' + bad.length + ' row(s) not saved — ' + bad.join('; '));
+  return { saved: saved, bad: bad.length };
 }
 
 
