@@ -42,6 +42,12 @@ DWA_W=float(os.environ.get("DWA_W","0.85"))   # 2026-09: reweighted up 0.62->0.8
 # Pulled from box_scores for the current season (each season self-calibrates via per-season probit).
 # FOUL_W = wins docked per excess foul (~0.4 pts/foul ÷ ~34 pts/win ≈ 0.012). Off by default (0.0).
 FOUL_W=float(os.environ.get("FOUL_W","0.012")); FOUL_BASE=float(os.environ.get("FOUL_BASE","2.8"))
+# 3-POINT LUCK — OWA counts every 3 made above the league rate at full value, but hot 3P shooting
+# repeats only ~40% as well as the rest of a player's production (14-season test, 20k returner
+# pairs: next-season per-40 wins coef 0.32 for 3P-above-average vs 0.80 for everything else;
+# 2P finishing repeats at 0.85, so 2P% is NOT discounted). Take TP_LUCK of the above/below-average
+# 3P makes back out of OWA: predictive r 0.702 -> 0.707. Mirrored in build_stat_overall_projected.py.
+TP_LUCK=float(os.environ.get("TP_LUCK","0.55")); OWA_B=0.0092; REG_MP=100.0
 
 def sb_get(path):
     # STABLE ORDER required: PostgREST offset pagination without ORDER BY skips/dupes rows.
@@ -81,7 +87,7 @@ for _yr in range(2008, CUR+1):
     if _p: _advp.append(pd.DataFrame(_p))
 adv=pd.concat(_advp,ignore_index=True)
 ts =pd.DataFrame(sb_get("team_seasons?select=season_year,team,conference,srs,wins,losses"))
-ph =pd.DataFrame(sb_get("player_history?select=espn_id,season_year,position"))
+ph =pd.DataFrame(sb_get("player_history?select=espn_id,season_year,position,gp,tpa,tp_pct"))
 for c in ["espn_id","season_year","min","g"]: adv[c]=pd.to_numeric(adv[c],errors="coerce")
 for c in ["usg_pct","tov_pct","ti40","owa","dwa"]: adv[c]=pd.to_numeric(adv[c],errors="coerce")
 for c in ["season_year","srs","wins","losses"]: ts[c]=pd.to_numeric(ts[c],errors="coerce")
@@ -156,6 +162,17 @@ if FOUL_W>0:
 # ROTATION pool (>=REF_MIN minutes) so low-minute players land near the floor.
 adv=adv[adv["g"].fillna(0)>=MIN_GP].copy()
 adv["mp40"]=adv["min"]/40.0
+if TP_LUCK>0:
+    _t=ph.copy()
+    for c in ["gp","tpa","tp_pct"]: _t[c]=pd.to_numeric(_t[c],errors="coerce").fillna(0)
+    _t["a3"]=_t["tpa"]*_t["gp"]; _t["m3"]=_t["a3"]*_t["tp_pct"]/100.0
+    _t=_t.groupby(["espn_id","season_year"])[["a3","m3"]].sum().reset_index()
+    adv=adv.merge(_t,on=["espn_id","season_year"],how="left")
+    adv[["a3","m3"]]=adv[["a3","m3"]].fillna(0)
+    _lg=adv.groupby("season_year").apply(lambda g: g["m3"].sum()/max(g["a3"].sum(),1)).rename("lg3")
+    adv=adv.merge(_lg,left_on="season_year",right_index=True,how="left")
+    _luck=(adv["m3"]-adv["lg3"]*adv["a3"])*3.5          # TI points from 3P% above/below the league rate
+    adv["owa"]=adv["owa"]-TP_LUCK*OWA_B*_luck*adv["min"]/(adv["min"]+REG_MP)
 _usg=pd.to_numeric(adv["usg_pct"],errors="coerce").fillna(USG_REF)
 adv["usg_mult"]=np.clip((_usg/USG_REF)**USG_POW, USG_LO, USG_HI)
 adv["wa"]=(adv["owa"].fillna(0)*adv["usg_mult"] + DWA_W*adv["dwa"].fillna(0))*adv["sos"]

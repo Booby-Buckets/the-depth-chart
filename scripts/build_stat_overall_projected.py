@@ -35,6 +35,7 @@ DWA_W=float(os.environ.get("DWA_W","0.85"))   # match build_stat_overall.py — 
 # FOULS — excess fouls dock wins-added (match build_stat_overall.py). Projected foul rate = last-year
 # pf40 (fouling is a stable trait) applied over projected minutes. Rates from nil-defense.json.
 FOUL_W=float(os.environ.get("FOUL_W","0.012")); FOUL_BASE=float(os.environ.get("FOUL_BASE","2.8"))
+TP_LUCK=float(os.environ.get("TP_LUCK","0.55"))   # match build_stat_overall.py — 3P-above-league makes repeat ~40%
 PF40={}
 try:
     import json as _json
@@ -596,6 +597,13 @@ d26=d26[d26["min"].fillna(0)>=REF_MIN].copy()
 d26["sos"]=d26["team"].map(sos_of)
 d26["mp40"]=d26["min"]/40.0
 d26["usg_mult"]=np.clip((pd.to_numeric(d26["usg_pct"],errors="coerce").fillna(USG_REF)/USG_REF)**USG_POW,USG_LO,USG_HI)
+if TP_LUCK>0:   # the DEMONSTRATED scale discounts 3P luck exactly as build_stat_overall.py does. The
+    # projected line needs no extra step: it already regresses 3P% by sample (tp_cred), and its owa is
+    # stored + (projected - demonstrated), so the luck comes out through that difference.
+    _a3=(box["tpa"]*box["gp"]).reindex(d26["espn_id"]).fillna(0).values
+    _m3=(box["tpm"]*box["gp"]).reindex(d26["espn_id"]).fillna(0).values
+    _lg3=_m3.sum()/max(_a3.sum(),1)
+    d26["owa"]=d26["owa"]-TP_LUCK*OWA_B*3.5*(_m3-_lg3*_a3)*d26["min"]/(d26["min"]+REG_MP)
 d26["wa"]=(d26["owa"].fillna(0)*d26["usg_mult"]+DWA_W*d26["dwa"].fillna(0))*d26["sos"]
 if FOUL_W>0:   # demonstrated excess-foul dock (matches build_stat_overall.py's 2026 reference)
     d26["wa"]=d26["wa"]-d26.apply(lambda r: foul_pen(r["espn_id"], r["min"] if pd.notna(r["min"]) else 0), axis=1)
