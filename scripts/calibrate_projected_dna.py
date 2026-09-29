@@ -46,7 +46,67 @@ def adjdev(s, k, side):
     v = t.get('adjO' if side == 0 else 'adjD')
     return None if v is None else v - mA[s][side]
 
+# ── coach-aware history ────────────────────────────────────────────────────────────────────
+# A program's last two seasons only say something about next year if the same coach ran them
+# (Miami 7-24 under Larranaga, then 26-9 under Jai Lucas; Virginia pre-Odom vs Odom). History
+# therefore follows the COACH: his own last seasons, at whatever school; none if he was not a
+# head coach (then the model uses less history). coach_seasons.json = sports-reference coaches.
+import re
+CS = json.load(open(os.path.join(HERE, 'data', 'coach_seasons.json')))
+ALIAS = {"Connecticut": "UConn Huskies", "Brigham Young": "BYU Cougars", "Louisiana State": "LSU Tigers",
+ "Southern California": "USC Trojans", "Texas Christian": "TCU Horned Frogs", "Southern Methodist": "SMU Mustangs",
+ "Virginia Commonwealth": "VCU Rams", "Nevada-Las Vegas": "UNLV Rebels", "Miami (FL)": "Miami Hurricanes",
+ "Southern Mississippi": "Southern Miss Golden Eagles", "San Jose State": "San José State Spartans",
+ "Massachusetts": "UMass Minutemen", "Louisiana-Monroe": "UL Monroe Warhawks", "Hawaii": "Hawai'i Rainbow Warriors",
+ "NC State": "NC State Wolfpack", "St. John's (NY)": "St. John's Red Storm", "Mississippi": "Ole Miss Rebels",
+ "Pittsburgh": "Pittsburgh Panthers", "Saint Mary's (CA)": "Saint Mary's Gaels", "Loyola (IL)": "Loyola Chicago Ramblers",
+ "Albany (NY)": "UAlbany Great Danes", "Appalachian State": "App State Mountaineers", "Central Connecticut State": "Central Connecticut Blue Devils",
+ "College of Charleston": "Charleston Cougars", "FDU": "Fairleigh Dickinson Knights", "IU Indy": "IU Indianapolis Jaguars",
+ "Illinois-Chicago": "UIC Flames", "Loyola (MD)": "Loyola Maryland Greyhounds", "Maryland-Baltimore County": "UMBC Retrievers",
+ "Maryland-Eastern Shore": "Maryland Eastern Shore Hawks", "Massachusetts-Lowell": "UMass Lowell River Hawks", "Nicholls State": "Nicholls Colonels",
+ "Queens (NC)": "Queens University Royals", "Saint Francis (PA)": "Saint Francis Red Wolves", "Southeastern Louisiana": "SE Louisiana Lions",
+ "St. Thomas": "St. Thomas-Minnesota Tommies", "Texas-Rio Grande Valley": "UT Rio Grande Valley Vaqueros"}
+# programs the coach_seasons scrape has NO rows for at all (VCU, UCLA): their head coaches by
+# season, using the slugs those coaches carry elsewhere in coach_seasons so careers connect
+COACH_FILL = [('VCU Rams', y, 'anthony-grant-2') for y in (2007, 2008, 2009)] + \
+             [('VCU Rams', y, 'shaka-smart-1') for y in range(2010, 2016)] + \
+             [('VCU Rams', y, 'will-wade-1') for y in (2016, 2017)] + \
+             [('VCU Rams', y, 'mike-rhoades-1') for y in range(2018, 2024)] + \
+             [('VCU Rams', y, 'ryan-odom-1') for y in (2024, 2025)] + [('VCU Rams', 2026, 'phil-martelli-2')] + \
+             [('UCLA Bruins', y, 'ben-howland-1') for y in range(2007, 2014)] + \
+             [('UCLA Bruins', y, 'steve-alford-1') for y in range(2014, 2020)] + \
+             [('UCLA Bruins', y, 'mick-cronin-1') for y in range(2020, 2027)]
+_ALLKEYS = sorted({k for s in TD if s.isdigit() for k in TD[s]['teams']})
+_MARK = re.compile(r"\b(atlantic|christian|baptist|state|southern|a&m|a&t|international|wesleyan|of|valley|pine bluff|gulf coast|tech|central|northern|western|eastern|st|chicago|ohio|fl|ny)\b")
+_keymemo = {}
+def school_key(school):
+    """sports-reference school name -> team_dna (ESPN) key"""
+    if school in _keymemo: return _keymemo[school]
+    k = ALIAS.get(school) if ALIAS.get(school) in _ALLKEYS else None
+    if not k:
+        sl = school.lower(); c = [x for x in _ALLKEYS if x.lower() == sl or (x.lower().startswith(sl + ' ') and not _MARK.search(x.lower()[len(sl) + 1:]))]
+        k = sorted(c, key=len)[0] if c else None
+    _keymemo[school] = k; return k
+COACH_AT = {}; SEASONS_OF = {}
+for c in CS:
+    k = school_key(c['school'])
+    if not k: continue
+    COACH_AT[(c['season_year'], k)] = c['coach_slug']; SEASONS_OF[(c['coach_slug'], c['season_year'])] = k
+for k, y, slug in COACH_FILL:
+    COACH_AT.setdefault((y, k), slug); SEASONS_OF.setdefault((slug, y), k)
+
+def hist(s_target, key, coach):
+    """(h1O,h1D,h2O,h2D): the coach's own two prior seasons; program seasons if the coach is unknown"""
+    out = []
+    for back in (1, 2):
+        s = str(int(s_target) - back)
+        k = SEASONS_OF.get((coach, int(s))) if coach else key
+        out += [adjdev(s, k, 0), adjdev(s, k, 1)] if k else [None, None]
+    return out
+
 # training rows: [season, projO, projD, h1O, h1D, h2O, h2D, yO, yD] (None where missing)
+import sys
+COACH_HIST = '--program-history' not in sys.argv   # A/B switch for the report
 rows = []
 for s, teams in HP.items():
     if s not in mA: continue
@@ -54,8 +114,8 @@ for s, teams in HP.items():
     for k, v in teams.items():
         yo, yd = adjdev(s, k, 0), adjdev(s, k, 1)
         if yo is None or yd is None: continue
-        rows.append([y, v['ORtg'] - mP[s][0], v['DRtg'] - mP[s][1],
-                     adjdev(s1, k, 0), adjdev(s1, k, 1), adjdev(s2, k, 0), adjdev(s2, k, 1), yo, yd])
+        h = hist(s, k, COACH_AT.get((y, k))) if COACH_HIST else [adjdev(s1, k, 0), adjdev(s1, k, 1), adjdev(s2, k, 0), adjdev(s2, k, 1)]
+        rows.append([y, v['ORtg'] - mP[s][0], v['DRtg'] - mP[s][1], h[0], h[1], h[2], h[3], yo, yd])
 
 def fit(side, nhist):
     """side 0=O,1=D; nhist 0/1/2 prior seasons. Returns (coefs, loso_r, n)."""
@@ -85,11 +145,22 @@ offO = float(np.mean([P27[k]['ORtg_roster'] - HP[LAST][k]['ORtg'] for k in commo
 offD = float(np.mean([P27[k]['DRtg_roster'] - HP[LAST][k]['DRtg'] for k in common]))
 print(f'scale offsets O {offO:+.2f} D {offD:+.2f} over {len(common)} programs; centring on {LAST} D-I mean O {mA[LAST][0]:.1f} D {mA[LAST][1]:.1f}')
 
+ROT = json.load(open(os.path.join(HERE, 'data', 'coach_rotation.json')))
+def _norm(x): return re.sub(r"[^a-z0-9&' ]", ' ', x.lower().replace('-', ' ')).replace('  ', ' ').strip()
+def cur_coach(full):
+    fl = _norm(full); best = None
+    for short, r in ROT.items():
+        if short.startswith('_') or not isinstance(r, dict) or not r.get('slug'): continue
+        sl = _norm(short)
+        if fl == sl or (fl.startswith(sl + ' ') and not _MARK.search(fl[len(sl) + 1:])):
+            if best is None or len(sl) > len(best[0]): best = (sl, r['slug'])
+    return best[1] if best else COACH_AT.get((int(LAST), full))   # fallback: last season's coach
 used = {0: 0, 1: 0, 2: 0}
 for k, t in P27.items():
     if t.get('ORtg_roster') is None or t.get('DRtg_roster') is None: continue
     po = t['ORtg_roster'] - offO - mP[LAST][0]; pd = t['DRtg_roster'] - offD - mP[LAST][1]
-    h1o, h1d, h2o, h2d = adjdev(LAST, k, 0), adjdev(LAST, k, 1), adjdev(PREV, k, 0), adjdev(PREV, k, 1)
+    h1o, h1d, h2o, h2d = hist(PROJ, k, cur_coach(k)) if COACH_HIST else (adjdev(LAST, k, 0), adjdev(LAST, k, 1), adjdev(PREV, k, 0), adjdev(PREV, k, 1))
+    t['calib_coach'] = cur_coach(k) if COACH_HIST else None
     h = 2 if None not in (h1o, h1d, h2o, h2d) else 1 if None not in (h1o, h1d) else 0
     xo = [1, po] + ([h1o] if h >= 1 else []) + ([h2o] if h >= 2 else [])
     xd = [1, pd] + ([h1d] if h >= 1 else []) + ([h2d] if h >= 2 else [])
