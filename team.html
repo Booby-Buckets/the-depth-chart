@@ -600,6 +600,14 @@
     /* player row */
     .dc-player-row{display:flex;flex-direction:column;gap:6px;padding:10px 0 10px 10px;border-bottom:1px solid var(--border);border-left:2px solid transparent;position:relative;cursor:grab;min-width:0;}
     .dc-player-row:hover{background:color-mix(in srgb,var(--bg2) 55%,transparent);}
+    /* make the player editor discoverable: row = pointer, name reads as a link, an Edit pill on every row */
+    #customizeContent .dc-player-row{cursor:pointer;}
+    #customizeContent .dc-row-drag{cursor:grab;}
+    #customizeContent .dc-row-name{text-decoration:underline dotted;text-decoration-color:var(--border2);text-underline-offset:3px;}
+    #customizeContent .dc-player-row:hover .dc-row-name{text-decoration-color:currentColor;}
+    .dc-edit{font:700 10.5px 'Inter',system-ui,sans-serif;letter-spacing:.02em;background:var(--bg);color:var(--text2);border:1px solid var(--border2);border-radius:999px;padding:2px 10px;cursor:pointer;flex-shrink:0;}
+    .dc-player-row:hover .dc-edit,.dc-edit:focus-visible,.dc-edit:hover{border-color:var(--text);color:var(--text);}
+    .sq-info-edit{margin:8px 0 4px;padding:5px 14px;font-size:11.5px;}
     .dc-player-row.is-starter{border-left-color:var(--tc-readable,var(--text));}
     .dc-player-row.is-starter .dc-row-name{font-weight:800;}
     .dc-player-row.drag-row-over{outline:1px dashed var(--text3);outline-offset:-1px;}
@@ -4162,6 +4170,7 @@ function _squadInfo(sel){
     </div>
     <div class="sq-info-name">${p.name}</div>
     <div class="sq-info-arch">${_sqArchetype(p)}${(p._frProfiled&&_isOwner())?' · <span style="color:#5ab875;">custom</span>':''}</div>
+    <button type="button" class="dc-edit sq-info-edit" data-n="${_sqAttr(p.name)}" onclick="openPlayerEditor(this.dataset.n)">Edit player</button>
     ${(p._noStatEst&&_isOwner())?`<a class="fr-edit-btn" href="player.html?${p.espn_id?('espn='+p.espn_id):('name='+encodeURIComponent(p.name))}" style="text-decoration:none;display:block;text-align:center;">${p._frProfiled?'Edit':'Project'} his playstyle on his page</a>`:''}
     <div class="sq-attrs">${cols}</div>
   </div>`;
@@ -4698,7 +4707,7 @@ function rebuildCustomizeUI(){
       const fitTooltip  = fit.reason ? ` title="${_sqAttr(fit.reason)}"` : '';
       const nAttr=_sqAttr(p.name);
       return `<div class="dc-player-row${isStarter?' is-starter':''}${_curMpgOf(p)<ROT_MIN?' dnp':''}"
-          draggable="true"
+          draggable="true" data-n="${nAttr}" title="Edit ${nAttr}" onclick="_dcRowClick(event,this)"
           data-pos="${pos}" data-row="${rowIdx}"
           ondragstart="onDcDragStart(event,'${pos}',${rowIdx})"
           ondragover="onDcDragOver(event,'${pos}',${rowIdx})"
@@ -4711,6 +4720,7 @@ function rebuildCustomizeUI(){
           <span class="dc-row-grade" style="color:${eGradeColor};">${p.tdc_grade ? effGrade : '—'}</span>
         </div>
         <div class="dc-row-sub">
+          <button type="button" class="dc-edit" data-n="${nAttr}" onclick="openPlayerEditor(this.dataset.n)">Edit</button>
           ${fit.fitLabel!=='Natural'?`<span class="fit-badge ${fit.fitClass}"${fitTooltip}>${fit.fitLabel}</span>`:''}
           <span class="dc-step" data-n="${nAttr}">
             <button type="button" onclick="stepMpg(this.parentNode.dataset.n,null,-1)" aria-label="Fewer minutes">−</button>
@@ -5217,6 +5227,8 @@ function setCzMode(m){
 
 // ── PLAYER EDITOR ────────────────────────────────────────
 let _czEdName=null;
+// the whole depth row opens the editor (the steppers, drag handle and buttons keep their own jobs)
+function _dcRowClick(e,row){ if(e.target.closest('button,.dc-step,.dc-row-drag,select,input')) return; openPlayerEditor(row.dataset.n); }
 function openPlayerEditor(name){
   if(!_findSquadPlayer(name)) return;
   _czEdName=name; _renderPlayerEditor();
