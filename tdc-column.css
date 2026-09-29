@@ -32,7 +32,11 @@ body > .tdc-toolbar + .leaders, .an-shell > .leaders, #leadersView > .leaders,
 }
 /* the hero stat band fills the column's remaining width (it wraps under the copy at 1400) */
 .ix-shell > .ph-hero > .ph-band, .rp-shell > .ph-hero > .ph-band, .an-shell > .ph-hero > .ph-band, body > .ph-hero > .ph-band{ flex:1 1 auto; }
-/* tables: the ranking sheet on the index keeps its own padding knob; the others get the column */
+/* tables: the ranking sheet on the index keeps its own padding knob; the others get the column.
+   The index table-section must NOT keep its own 1600px max-width: this padding is a percentage of
+   the full-bleed PARENT, so on a 2560 screen a 1600px box got 580px a side and the ranking table
+   collapsed to two columns (Windows wide monitor). Full width + column padding = the 1400 column. */
+.ix-shell > .table-section{ max-width:none !important; margin-left:0 !important; margin-right:0 !important; }
 .ix-shell > .table-section,
 .an-shell > #leadersView > div[style], .an-shell > #teamsView > div[style]{
   padding-left:max(var(--tdc-gut), calc((100% - var(--tdc-col)) / 2)) !important;
