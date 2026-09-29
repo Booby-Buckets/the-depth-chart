@@ -117,6 +117,7 @@ body{background:transparent!important;}
 @keyframes tdcB3{to{transform:translate(-90px,70px) scale(1.22);}}
 .tdc-grain{position:absolute;inset:0;opacity:.4;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");background-size:170px 170px;}
 
+.bb-ret{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:9px;font-size:10px;font-weight:700;letter-spacing:.02em;white-space:nowrap;color:var(--accent,#b8862b);border:1px solid currentColor;opacity:.85;vertical-align:1px;}
 </style>
   <link rel="stylesheet" href="tdc-anim.css?v=6"/>
   <script src="tdc-anim.js?v=6"></script>
@@ -279,7 +280,7 @@ body{background:transparent!important;}
 <script src="tdc-freshman.js?v=pub15"></script>   <!-- the Big Board ranks freshmen off the owner's projected line -->
 <script src="tdc-projgrade.js?v=base27"></script>
 <script src="tdc-proj.js?v=coach26"></script>
-<script src="bigboard-engine.js?v=19"></script>
+<script src="bigboard-engine.js?v=20"></script>
 <script>
 const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
@@ -318,7 +319,8 @@ function buildBoard(){
 var BB_COLS=[
   {k:'rank', l:'#',      cls:'rk',      get:function(p){return p.rank;}},
   {k:'name', l:'Prospect',cls:'nm l',     get:function(p){return p.name;},
-     html:function(p){return '<a href="player.html?id='+p.id+'" title="'+p.name.replace(/"/g,'&quot;')+'">'+p.name+'</a>';}},
+     html:function(p){return '<a href="player.html?id='+p.id+'" title="'+p.name.replace(/"/g,'&quot;')+'">'+p.name+'</a>'+
+       (season==='2728'&&p._mayReturn?' <span class="bb-ret" title="Projected pick #'+p._mayReturn+' in 2027 — on this board only if he returns to school">’27 #'+p._mayReturn+' · if he returns</span>':'');}},
   {k:'ovr',  l:'Board',  cls:'big', shade:true, get:function(p){return p._sc.overall;}},
   {k:'pos',  l:'Pos',    cls:'dim l',     get:function(p){return p.position||'';}},
   {k:'team', l:'Team',   cls:'dim l',  get:function(p){return p.team||'';}},
@@ -380,7 +382,7 @@ function renderBoard(){
     x=(x==null||isNaN(x))?-1:x; y=(y==null||isNaN(y))?-1:y;
     return (x-y)*bbSort.dir || a.rank-b.rank;
   });
-  var seasonLbl=season==='2728'?'2028 NBA Draft (early — returning underclassmen)':season==='2526'?'2026 NBA Draft (2025-26 season)':'2027 NBA Draft (2026-27 projected)';
+  var seasonLbl=season==='2728'?'2028 NBA Draft (early — players still in school)':season==='2526'?'2026 NBA Draft (2025-26 season)':'2027 NBA Draft (2026-27 projected)';
   document.getElementById('bbCaption').innerHTML='<b>'+list.length+'</b> prospects · '+seasonLbl+(q||fpos||fcl?' · filtered':'');
   renderHead();
   var byRank=(bbSort.k==='rank'&&bbSort.dir>0);
@@ -400,7 +402,7 @@ function renderBoard(){
   if(window.tdcSheetHeat) tdcSheetHeat(document.querySelector('#bbSheet table'));
   var bn=document.getElementById('basisNote');
   if(bn)bn.innerHTML=season==='2728'
-    ? 'The <b>2028</b> board is a way-too-early watch board — this year\u2019s returning underclassmen, projected a further year forward and ranked on upside, plus reclassified freshmen too young for the 2027 draft. Seniors (out of eligibility) and not-yet-arrived recruits are excluded.'
+    ? 'The <b>2028</b> board is a way-too-early watch board of who should still be in school. The <b>top 24</b> of the 2027 mock are gone (drafted). Picks <b>25–60</b> sometimes come back for more money or a better slot — <b>freshmen</b> for a second-year jump, <b>juniors and seniors</b> for a senior or grad year — so they stay, tagged <span class="bb-ret">’27 #N · if he returns</span>; sophomores in that range declare. Everyone outside the mock with eligibility left stays, plus reclassified freshmen too young for 2027. Not-yet-arrived recruits aren\u2019t on it yet.'
     : season==='2627'
     ? _youngNote()+'The <b>2026-27</b> board scores on <b>projected stat lines</b> from the full projection engine (same as the player &amp; projections pages) — accounting for roster departures, minutes redistribution, and freshman estimates'+(projReady?'.':' (still computing… showing a quick estimate).')
     : 'The <b>2025-26</b> board scores on actual season production.';

@@ -330,12 +330,34 @@
       return eligible(p,ineligible);
     });
     pool.forEach(function(p){ var fy=fromYr[(p.name||'').trim()]; if(fy!=null) p._eligFrom=+fy; });
-    // 2028 draft class: current seniors/grads will have exhausted eligibility, so the
-    // pool is the RETURNING underclassmen (Fr/So/Jr now) — a way-too-early watch board
-    // of the players who'll still be around. The steep youth premium in the scoring floats
-    // the young high-upside prospects to the top, which is what a 2028 board should be.
+    pool.forEach(function(p){ p._mayReturn=null; });
+    // 2028 draft class (owner rules, Sept 2026). The 2027 mock is the 2027 board's order (the mock
+    // draft fills best-available off it), so:
+    //   2027 picks 1-24  -> declared and drafted: gone.
+    //   2027 picks 25-60 -> some come back for more money / a better slot next year — FRESHMEN for a
+    //                       second-year jump, JUNIORS/SENIORS for a senior or grad year. They stay,
+    //                       tagged (_mayReturn = their 2027 pick). Sophomores in that range declare.
+    //   not in the mock  -> everyone with eligibility left (not seniors/grads) stays.
+    // Reclassified kids too young for 2027 (eligible_from) were never on the 2027 board, so they stay.
     if(season==='2728'){
-      pool=pool.filter(function(p){ return classKey(p)!=='sr'; });
+      var m27=opts.mock27;
+      if(!m27){
+        m27={};
+        compute(players, teamMap, Object.assign({}, opts, {season:'2627', mock27:null})).prospects
+          .forEach(function(p){ if(p.rank<=60) m27[p.id]=p.rank; });
+      }
+      var hasYearLeft=function(p){ var y=((p.class_year||p.yr||'')+'').toLowerCase();
+        return !(/gr|5th|r-?\s*sr|rs\s*sr/.test(y)); };   // a plain Sr. can still take a grad year
+      pool=pool.filter(function(p){
+        var pk=m27[p.id], ck=classKey(p);
+        if(pk!=null){
+          if(pk<=24) return false;
+          if(ck==='so') return false;
+          if(ck==='sr' && !hasYearLeft(p)) return false;
+          p._mayReturn=pk; return true;
+        }
+        return ck!=='sr';
+      });
     }
     // Stamp the canonical v5 projected grade for the forward-looking boards so the grade
     // anchor matches the OVR shown on player/team/index pages.
