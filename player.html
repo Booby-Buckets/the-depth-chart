@@ -22,7 +22,7 @@
   <script src="tdc-glossary.js?v=13"></script>
   <script src="tdc-leaderboard.js?v=2"></script>
   <script src="tdc-portalfit.js?v=needs10"></script>
-  <script src="tdc-projgrade.js?v=base26"></script>
+  <script src="tdc-projgrade.js?v=base27"></script>
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-teamname.js?v=1"></script>
   <script src="tdc-owned-seasons.js?v=8"></script>
@@ -4044,7 +4044,7 @@ function renderOvcTeamFit(x){
 }
 async function _ovcLoadNil(){
   try{ var N=window.TDC_NIL; if(!N) return;
-    if(window._nilData===undefined){ window._nilData=null; try{ window._nilData=await fetch('nil-data.json?v=gradesync12').then(function(r){return r.ok?r.json():null;}); }catch(e){} }
+    if(window._nilData===undefined){ window._nilData=null; try{ window._nilData=await fetch('nil-data.json?v=gradesync13').then(function(r){return r.ok?r.json():null;}); }catch(e){} }
     var nd=window._nilData, tn=nd&&nd.teams&&nd.teams[player.team]; if(!tn||!tn.players) return;
     var nk=(player.name||'').toLowerCase().trim(), row=tn.players.find(function(p){return (p.name||'').toLowerCase().trim()===nk;});
     if(!row||row.value==null) return;
@@ -5747,7 +5747,7 @@ function renderRankings(){
   // The REAL decomposition of the projected OVR (demonstrated → role/dev → versatility),
   // straight from the grade engine so it always matches the number shown.
   const _exp = (_projRet && window.TDCProjGrade && TDCProjGrade.explain)
-    ? TDCProjGrade.explain({id:player.id, espn_id:player.espn_id, tdc_grade:(_lastAct&&_lastAct.tdc_grade), yr:player.yr||player.class_year})
+    ? TDCProjGrade.explain({id:player.id, espn_id:player.espn_id, tdc_grade:(_lastAct&&_lastAct.tdc_grade), hand_grade:player.tdc_grade, yr:player.yr||player.class_year})
     : null;
   const _buRow=(lbl,sub,val,isDelta,isTotal)=>{
     const vtxt=isDelta?((val>=0?'+':'')+_f1(val)):(''+Math.round(val));
@@ -5765,6 +5765,8 @@ function renderRankings(){
       parts.push(_buRow('Archetype fit', 'how unusual he is for that height &amp; position vs raw production — graded the same box way every season (breakdown below)', _exp.archetype, true, false));
     if(_exp.gpShrink!=null && _exp.gpShrink<=-0.05)
       parts.push(_buRow('Small-sample regression', (_lastAct&&_lastAct.gp!=null?'only '+_lastAct.gp+' games last season — ':'')+'pulled toward baseline until proven over a fuller season', _exp.gpShrink, true, false));
+    if(_exp.scoutLift!=null && _exp.scoutLift>=0.5)
+      parts.push(_buRow('Scout grade lift','the scouting grade sits above the statistical grade — lifted 40% of the gap, at most +5', _exp.scoutLift, true, false));
     parts.push(_buRow('Projected 2026-27 OVR','',_exp.final,false,true));
     _buildup=`<div class="sec-title" style="margin:22px 0 8px;">How the grade is built</div>
       <div class="rk-buildup">${parts.join('')}</div>
@@ -6711,7 +6713,7 @@ async function renderNilPlayer(){
   let pos=(player&&player.position)||''; const cls=(player&&(player.class_year||player.yr))||'';
   // Read the SAME precomputed roster value as the team page so the two always agree.
   if(window._nilData===undefined){ window._nilData=null;
-    try{ window._nilData=await fetch('nil-data.json?v=gradesync12').then(r=>r.ok?r.json():null); }catch(e){} }
+    try{ window._nilData=await fetch('nil-data.json?v=gradesync13').then(r=>r.ok?r.json():null); }catch(e){} }
   // Market anchors — the owner's positional curve; same source as the team NIL tab.
   if(window._nilMarket===undefined){ window._nilMarket=null;
     try{ window._nilMarket=await fetch('scripts/data/nil_market_anchors.json?v=1').then(r=>r.ok?r.json():null); }catch(e){} }

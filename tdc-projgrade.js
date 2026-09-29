@@ -655,8 +655,11 @@
     if(k && (_SO_DEMO[k] != null || _SO_PROJ[k] != null)){
       var d = _SO_DEMO[k] != null ? _SO_DEMO[k] : _SO_PROJ[k];
       var f = _SO_PROJ[k] != null ? _SO_PROJ[k] : _SO_DEMO[k];
+      // same hand-grade lift gradeSolo applies, so final == gradeSolo (hand_grade = players.tdc_grade
+      // when the caller's tdc_grade is a past season's)
+      var fb = _scoutBlend(f, row.hand_grade != null ? { tdc_grade: row.hand_grade } : row);
       return { demonstrated: d, coupled: false, roleDelta: f - d, devDelta: 0,
-               archetype: 0, gpShrink: 0, anchor: d, final: f, statistical: true };
+               archetype: 0, gpShrink: 0, scoutLift: fb - f, anchor: d, final: fb, statistical: true };
     }
     var demo = parseFloat(row.tdc_grade); if(!isFinite(demo)) return null;
     var gps = _gpsOf(row);   // small-sample (games-played) regression, <= 0
