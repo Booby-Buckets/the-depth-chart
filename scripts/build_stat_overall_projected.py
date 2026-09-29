@@ -73,6 +73,7 @@ FTIMP_W=0.35         # weight on FT-implied 3P% (0.55*ftpct-10)
 DEV_EFF_HOLD=float(os.environ.get("DEV_EFF_HOLD","0.45"))   # developing young returners keep MORE of their real FG/FT% (regress-to-mean scaled by this)
 REG_TPA_K=float(os.environ.get("REG_TPA_K","36"))           # 3P% is trusted by SAMPLE: keep tpa/(tpa+K) of the real number, regress the rest (152 attempts->.81, 4 attempts->.10)
 TP_PRIOR_POS=float(os.environ.get("TP_PRIOR_POS","0.45"))   # the low-sample 3P prior is 45% positional mean, 55% FT-implied
+QUAL_NUDGE=float(os.environ.get("QUAL_NUDGE","0.25")); MPG_HARD_CAP=float(os.environ.get("MPG_HARD_CAP","37"))
 TARGET_TEAM_USG=float(os.environ.get("TARGET_TEAM_USG","22.0")); USG_CAP=(9.0,34.0); MPG_XFER_BUMP=10.0
 VAC_CONC=float(os.environ.get("VAC_CONC","2.0"))  # vacancy concentration: weight ∝ last_usg**VAC_CONC (focal points absorb more of a departed rotation, within the team cap)
 # PROJECTED USAGE — calibrated on 6,782 same-team returner seasons (player_advanced 2020-26,
@@ -243,6 +244,123 @@ POS_FLOOR_DEPTH=int(os.environ.get("POS_FLOOR_DEPTH","11")); DEMO_MIN=float(os.e
 # chart) was floored to 18.6 mpg out of an 84-minute backcourt, paid for by cutting Haugh, Condon
 # and Chinyelu 3-4 mpg each below the minutes they played for the same coach.
 POS_FILL=float(os.environ.get("POS_FILL","0.40"))
+# FIVE-POSITION BALANCE (after the group rebalance/floors): each depth-chart column holds about
+# 40 of the 200 minutes. The group rules only kept guards vs bigs in range, so a team could run a
+# 49-minute PF column and a 27-minute C column (Miami: the starting centre at 19.6 mpg while a
+# bench PF played 16). Columns: the chart's starters (depth 1-5) take distinct spots from their
+# listed position / position2 (primary first), everyone else sits at his listed primary. A column
+# outside POS5_BAND of 40 sends minutes from its bench (deepest first, never below POS_FLOOR_MPG)
+# to the short column, whose starter takes them first (up to POS5_CAP), then its bench.
+POS5=("PG","SG","SF","PF","C"); POS5_BAND=float(os.environ.get("POS5_BAND","3.0")); POS5_CAP=float(os.environ.get("POS5_CAP","34"))
+def _pos5_list(position,height):
+    x=str(position or "").upper().replace(" ","").split("/")[0]; h=_hin(height)
+    if x in POS5: return [x]
+    if x in ("G","CG"): return ["PG","SG"] if (h and h<=74) else ["SG","PG"]
+    if x=="GF": return ["SG","SF"]
+    if x=="F": return ["PF","SF"] if (h and h>=80) else ["SF","PF"]
+    if h: return ["PG"] if h<=74 else ["SG"] if h<=77 else ["SF"] if h<=80 else ["PF"] if h<=82 else ["C"]
+    return ["SF"]
+def pos5_columns(players):
+    """players: list of dict(depth, position, position2, height) -> column per player (same order)"""
+    import itertools
+    lists=[_pos5_list(q["position"],q["height"])+[c for c in _pos5_list(q.get("position2"),q["height"]) if q.get("position2")] for q in players]
+    cols=[l[0] for l in lists]
+    st=[i for i,q in enumerate(players) if q["depth"] is not None and 1<=q["depth"]<=5]
+    if len(st)==5:
+        best=None
+        for perm in itertools.permutations(POS5):
+            sc=0
+            for i,c in zip(st,perm):
+                l=lists[i]; sc+=(3 if l[0]==c else 2 if c in l else (-6 if abs(POS5.index(c)-POS5.index(l[0]))>1 else -2))
+            if best is None or sc>best[0]: best=(sc,perm)
+        for i,c in zip(st,best[1]): cols[i]=c
+    return cols
+def pos5_lists(players):
+    return [_pos5_list(q["position"],q["height"])+[c for c in _pos5_list(q.get("position2"),q["height"]) if q.get("position2")] for q in players]
+def pos5_flow(minutes,lists,depths,home):
+    """Split each player's minutes across the positions he is LISTED at so every column covers ~40
+    (real depth charts: Reneau PF/C plays some 5, Goode PF/SF some 3). Totals only change as a
+    last resort, for a column no listed player can cover. Returns (new minutes, per-player split)."""
+    n=len(minutes); tot=sum(minutes)
+    alloc=[{home[i]:minutes[i]} for i in range(n)]
+    if tot<=0 or n<5: return list(minutes),alloc
+    T=tot/5.0
+    col=lambda c: sum(a.get(c,0.0) for a in alloc)
+    st=lambda i: depths[i] is not None and depths[i]<=5
+    parked=lambda i: depths[i] is not None and depths[i]>=DEEP_PARK
+    for _ in range(120):
+        hi=max(POS5,key=col); lo=min(POS5,key=col)
+        if col(hi)<=T+POS5_BAND and col(lo)>=T-POS5_BAND: break
+        moved=False
+        # receivers below T (neediest first), donors above T (most over first); bench minutes move before a starter's
+        for cu in sorted([c for c in POS5 if col(c)<T-0.05],key=col):
+            need=T-col(cu)
+            cands=[(col(c),1 if st(i) else 0,i,c) for i in range(n) if cu in lists[i] and not parked(i)
+                   for c,v in alloc[i].items() if c!=cu and v>0.05 and col(c)>T+0.05]
+            for _,_,i,c in sorted(cands,key=lambda z:(z[1],-z[0])):
+                give=min(need,alloc[i][c],col(c)-T)
+                if give<=0.05: continue
+                alloc[i][c]-=give; alloc[i][cu]=alloc[i].get(cu,0.0)+give; need-=give; moved=True
+                if need<=0.05: break
+            if moved: break
+        if not moved: break
+    # second pass: nobody LISTED there can cover it -> the adjacent spot slides over (a 2 handles the
+    # point, a 4 plays the 5), still without changing anyone's total
+    # (a donor may drop to the band's floor, so a chain works: the 3 slides to the 2, then the
+    # crowded 4 refills the 3 — Kentucky ran SG 20 / PF 59 before this)
+    ADJ={"PG":("SG",),"SG":("PG","SF"),"SF":("SG","PF"),"PF":("SF","C"),"C":("PF",)}
+    FLOOR=T-POS5_BAND+0.5
+    for _ in range(200):
+        outs=[c for c in POS5 if col(c)<T-POS5_BAND or col(c)>T+POS5_BAND]
+        if not outs: break
+        lo=min(POS5,key=lambda c: col(c)+(0 if col(c)<T-POS5_BAND else 99))   # the short column first
+        hi=max(POS5,key=col)
+        # a column below T takes from an adjacent column that can spare; an over column pushes into a neighbour below T
+        pairs=[(lo,c) for c in ADJ[lo] if col(c)>FLOOR]+[(c,hi) for c in ADJ[hi] if col(hi)>T+POS5_BAND and col(c)<T]
+        moved=False
+        for rcv,dnr in pairs:
+            need=T-col(rcv)
+            if need<=0.05: continue
+            # never more than one spot from a position he is LISTED at (a PF can slide to the 3, not the 2)
+            cands=[(1 if st(i) else 0,-alloc[i][dnr],i) for i in range(n) if not parked(i) and alloc[i].get(dnr,0)>0.05
+                   and min(abs(POS5.index(rcv)-POS5.index(l)) for l in lists[i])<=1]
+            for _,_,i in sorted(cands):
+                give=min(need,alloc[i][dnr],col(dnr)-FLOOR)
+                if give<=0.05: continue
+                alloc[i][dnr]-=give; alloc[i][rcv]=alloc[i].get(rcv,0.0)+give; need-=give; moved=True
+                if need<=0.05: break
+            if moved: break
+        if not moved: break
+    for _ in range(0):
+        need=0; cands=[]
+        moved=False
+        for _,_,i,c in sorted(cands,key=lambda z:(z[1],-z[0])):
+            give=min(need,alloc[i][c],col(c)-T)
+            if give<=0.05: continue
+            alloc[i][c]-=give; alloc[i][lo]=alloc[i].get(lo,0.0)+give; need-=give; moved=True
+            if need<=0.05: break
+        if not moved: break
+    # last resort: a column nobody listed there can cover -> its players play more, the fullest column's bench less
+    for _ in range(40):
+        lo=min(POS5,key=col)
+        if col(lo)>=T-POS5_BAND: break
+        hi=max(POS5,key=col)
+        if col(hi)<=T: break
+        rec=sorted([i for i in range(n) if lo in alloc[i] and not parked(i)],key=lambda i:(0 if home[i]==lo else 1,depths[i] or 99))   # the column's own players first
+        don=sorted([i for i in range(n) if alloc[i].get(hi,0)>0 and not st(i)],key=lambda i:-(depths[i] or 99))
+        if not rec or not don: break
+        amt=min(T-col(lo),col(hi)-T); got=0.0
+        for i in don:
+            t=min(amt-got,max(0.0,alloc[i][hi]-min(POS_FLOOR_MPG,depth_floor(depths[i])))); alloc[i][hi]-=t; got+=t
+            if got>=amt-0.01: break
+        left=got
+        for i in rec:
+            t=min(left,max(0.0,POS5_CAP-sum(alloc[i].values()))); alloc[i][lo]=alloc[i].get(lo,0.0)+t; left-=t
+            if left<=0.01: break
+        if left>0.01 and don: alloc[don[0]][hi]+=left
+        if got<0.05: break
+    new=[sum(a.values()) for a in alloc]
+    return new,[{c:round(v,1) for c,v in a.items() if v>=0.05} for a in alloc]
 def level_factor(gap):
     """gap = new team strength - old team strength (SRS points); a step up shrinks the proven minutes"""
     try: g=float(gap)
@@ -300,9 +418,14 @@ TRUST_MIN=float(os.environ.get("TRUST_MIN","20"))     # a returner who played th
 TRUST_KEEP=float(os.environ.get("TRUST_KEEP","0.985"))  # ...and keeps this share of them (cap TRUST_CAP) regardless of the slot (was .97; see SQZ_TRUST_W)
 TRUST_CAP=float(os.environ.get("TRUST_CAP","34"))
 TRUST_SLOT=int(os.environ.get("TRUST_SLOT","7"))
+DEEP_PARK=int(os.environ.get("DEEP_PARK","12"))   # depth 12+ on the owner's chart = garbage time only
+def depth_floor(d):
+    """the least a player at this depth is ever pushed down to (or given): rotation 5, fringe 2, parked ~1"""
+    return 5.0 if (d is not None and d<=9) else 2.0 if (d is not None and d<=11) else 0.8
 def proj_mpg(d,last,starter,trusted=False):
     d=int(d) if pd.notna(d) else None
-    slot=(SLOT_CUR[d] if d and 1<=d<len(SLOT_CUR) else (5 if d and d>=len(SLOT_CUR) else 0))
+    if d is not None and d>=DEEP_PARK: return 0.8          # Berger (14th, 16.6 mpg at Bucknell) does not play
+    slot=(SLOT_CUR[d] if d and 1<=d<len(SLOT_CUR) else (2.0 if d and d>=len(SLOT_CUR) else 0))
     last=last or 0
     # PROVEN RETURNER: the coach already played him this much last season at this school — that is
     # revealed preference, not a slot average. He keeps ~all of it (the roster squeeze below barely
@@ -366,7 +489,7 @@ def dev_mult(yr,demo,n_prior=None):
 print("Pulling roster, last-year box + advanced, team SOS...",file=sys.stderr)
 adv=pd.DataFrame(sb_get(f"player_advanced?select=espn_id,name,team,g,min,usg_pct,owa,dwa,ti40&season_year=eq.{CUR}"))
 box=pd.DataFrame(sb_get(f"player_history?select=espn_id,ppg,mpg,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb,stl,blk,tovs,apg,gp,fg_pct,tp_pct,ft_pct&season_year=eq.{CUR}"))
-pl =pd.DataFrame(sb_get("players?select=espn_id,name,depth_order,starter,mpg,yr,class_year,team,position,height,tdc_grade,is_injured"))
+pl =pd.DataFrame(sb_get("players?select=espn_id,name,depth_order,starter,mpg,yr,class_year,team,position,position2,height,tdc_grade,is_injured"))
 ts =pd.DataFrame(sb_get("team_seasons?select=season_year,team,conference,srs"))
 # prior seasons played (through CUR) per player — infers class when the roster's is blank
 _cs=pd.DataFrame(sb_get(f"player_history?select=espn_id,season_year&mpg=gt.2&season_year=lte.{CUR}"))
@@ -858,7 +981,30 @@ for short, roster in roster_by_team.items():
             _nm=str(getattr(_p,"name","") or "").strip()
             if not _nm or _nm.lower() in ("name","—"): continue
             _est=_fresh_est(getattr(_p,"tdc_grade",None),_p.depth_order,_p.starter,_p.position)
-            if _est: _fresh.append(_est+(_nm,))
+            if _est: _fresh.append(_est+(_nm,_n(getattr(_p,"tdc_grade",None),74.0),(int(_p.depth_order) if pd.notna(_p.depth_order) else None)))
+        # QUALITY NUDGE (mirrors tdc-proj.js's starter grade nudge, widened to the top 9): the
+        # depth slot sets the role, the grade moves minutes inside it, +/-25% at 10 OVR from the
+        # rotation's average. A 77 starter hands some of his time to better players behind him
+        # (Miami: Dorn 26 mpg while Cason 83, Gaskins 81 sat at 12 / 4). The chart's order still
+        # holds: no bench player passes the weakest starter unless he is a proven returner.
+        _gr=[(rr["demo"],"r",rr) for rr in R if _depR(rr) is not None and _depR(rr)<=9]+[(x[4],"f",i) for i,x in enumerate(_fresh) if x[5] is not None and x[5]<=9]
+        if len(_gr)>=5:
+            _gavg=sum(g for g,_,_ in _gr)/len(_gr)
+            # a starter can only LOSE minutes here (a weak starter shares); the bench can gain or lose.
+            # Stars are not pumped toward 40 — their load is the coach shape's call, not this nudge.
+            _nf=lambda g,d: min(1.0 if (d is not None and d<=5) else 9.0, 1.0+QUAL_NUDGE*max(-1.0,min(1.0,(g-_gavg)/10.0)))
+            for g,kind,ref in _gr:
+                if kind=="r": ref["pm"]=min(MPG_HARD_CAP,ref["pm"]*_nf(g,_depR(ref)))
+                else:
+                    x=_fresh[ref]; f=_nf(g,x[5]); _fresh[ref]=(min(MPG_HARD_CAP,x[0]*f),x[1],x[2]*f)+tuple(x[3:])
+            _stR2=[rr for rr in R if _depR(rr) is not None and _depR(rr)<=5]
+            if _stR2:
+                _minSt2=min(rr["pm"] for rr in _stR2)
+                for rr in R:
+                    _d=_depR(rr)
+                    if _d is not None and _d>5 and not rr["trust"] and rr["pm"]>_minSt2: rr["pm"]=_minSt2
+                for i,x in enumerate(_fresh):
+                    if x[5] is not None and x[5]>5 and x[0]>_minSt2: _fresh[i]=(_minSt2,x[1],x[2]*_minSt2/max(x[0],0.1))+tuple(x[3:])
         _fmin=sum(x[0] for x in _fresh); _ffga=sum(x[2] for x in _fresh)
         _tot=sum(rr["pm"] for rr in R)+_fmin
         _minK=min(1.0, REF_MIN/_tot) if _tot>REF_MIN else 1.0
@@ -878,8 +1024,9 @@ for short, roster in roster_by_team.items():
             _w=lambda key: (SQZ_TRUST_W if (_trustOf.get(key) and _rank[key]<=7) else _wr(_rank[key]))
             _tgt=REF_MIN+(_tot-REF_MIN)*(1.0-TEAM_FIT)
             _fl=lambda rk: 5.0 if rk<=10 else SQZ_DEEP_FLOOR
+            _flR=lambda rr: min(_fl(_rank[("r",id(rr))]), depth_floor(_depR(rr)))   # the chart's parked players are not floored to 5
             def _tot_at(lam):
-                return (sum(max(_fl(_rank[("r",id(rr))]), rr["pm"]*max(0.30,1.0-lam*_w(("r",id(rr))))) for rr in R)
+                return (sum(max(_flR(rr), rr["pm"]*max(0.30,1.0-lam*_w(("r",id(rr))))) for rr in R)
                         +sum(x[0]*max(0.30,1.0-lam*_w(("f",i))) for i,x in enumerate(_fresh)))
             lo,hi=0.0,1.0
             for _ in range(40):
@@ -887,7 +1034,7 @@ for short, roster in roster_by_team.items():
                 if _tot_at(mid)>_tgt: lo=mid
                 else: hi=mid
             _lam=hi; _rem=min(1.0,_tgt/_tot_at(_lam)) if _tot_at(_lam)>_tgt else 1.0
-            for rr in R: _kmap[id(rr)]=max(0.30,1.0-_lam*_w(("r",id(rr))))*_rem; rr["_sqfl"]=_fl(_rank[("r",id(rr))])
+            for rr in R: _kmap[id(rr)]=max(0.30,1.0-_lam*_w(("r",id(rr))))*_rem; rr["_sqfl"]=_flR(rr)
         _target=TEAM_PPG.get(full)
         _ptsK=1.0
         if _target:
@@ -898,7 +1045,7 @@ for short, roster in roster_by_team.items():
         TEAM_FIT_LOG[full]=dict(minK=round(_minK,3),ptsK=round(_ptsK,3),n=len(R),fresh=len(_fresh),sqz=round(_lam,2))
         if abs(_minK-1.0)>0.005 or abs(_ptsK-1.0)>0.005:
             for rr in R:
-                rr["pm"]=max(rr.get("_sqfl",5.0), rr["pm"]*_kmap.get(id(rr),_minK))
+                rr["pm"]=max(rr.get("_sqfl",depth_floor(_depR(rr))), rr["pm"]*_kmap.get(id(rr),_minK))
                 if "_usg_base" in rr: rr["_usg_base"]=max(USG_CAP[0],rr["_usg_base"]*_ptsK)   # transfer: rescale the base; _project_one re-applies the keep-share once
                 else: rr["proj_usg"]=min(USG_CAP[1],rr.get("usg_ceil",USG_CAP[1]),max(USG_CAP[0],rr["proj_usg"]*_ptsK))   # the team-points fit may not push anyone past his usage ceiling
             for rr in R: _project_one(rr)
@@ -940,11 +1087,34 @@ for short, roster in roster_by_team.items():
         _moved=0
         for i,rr in enumerate(_Rk):
             if abs(_new[i]-_items[i][1])>0.05:
-                rr["pm"]=max(POS_FLOOR_MPG,_new[i]); _project_one(rr); _moved+=1
+                rr["pm"]=max(min(POS_FLOOR_MPG,depth_floor(_depR(rr))),_new[i]); _project_one(rr); _moved+=1
         for j,(nm,v) in enumerate(_fk):
             i=len(_Rk)+j
             if abs(_new[i]-_items[i][1])>0.05 and v["mpg"]>0:
                 k=_new[i]/v["mpg"]; FRESH_FIT[short][nm]={"mpg":round(_new[i],1),"ppg":round(v["ppg"]*k,1)}; _moved+=1
+        # five-position balance on the post-floor minutes (returners + freshmen)
+        _pinfo={str(getattr(_p,"name","") or "").strip():_p for _p in pl[pl.team==short].itertuples()}
+        _qs=[]; _mins=[]
+        for i,rr in enumerate(_Rk):
+            _qs.append(dict(depth=(int(rr["p"].depth_order) if pd.notna(rr["p"].depth_order) else None),position=rr["p"].position,
+                            position2=getattr(rr["p"],"position2",None),height=getattr(rr["p"],"height",None))); _mins.append(_new[i])
+        for j,(nm,v) in enumerate(_fk):
+            _pp=_pinfo.get(nm); i=len(_Rk)+j
+            _qs.append(dict(depth=(int(_pp.depth_order) if _pp is not None and pd.notna(_pp.depth_order) else None),position=getattr(_pp,"position",None),
+                            position2=getattr(_pp,"position2",None),height=getattr(_pp,"height",None))); _mins.append(_new[i])
+        if len(_qs)>=5:
+            _c5=pos5_columns(_qs); _b5,_sp5=pos5_flow(_mins,pos5_lists(_qs),[q["depth"] for q in _qs],_c5)
+            for i,rr in enumerate(_Rk): rr["_split"]=_sp5[i]
+            for i,rr in enumerate(_Rk):
+                if abs(_b5[i]-_mins[i])>0.05: rr["pm"]=max(0.5,_b5[i]); _project_one(rr); _moved+=1
+            for j,(nm,v) in enumerate(_fk):
+                i=len(_Rk)+j; cur=FRESH_FIT[short][nm]["mpg"]
+                if abs(_b5[i]-_mins[i])>0.05 and cur>0:
+                    k=_b5[i]/cur; FRESH_FIT[short][nm]={"mpg":round(_b5[i],1),"ppg":round(FRESH_FIT[short][nm]["ppg"]*k,1)}; _moved+=1
+                if nm in FRESH_FIT.get(short,{}): FRESH_FIT[short][nm]["pos_min"]=_sp5[i]
+            for i,rr in enumerate(_Rk):
+                if str(rr["e"]) in out: out[str(rr["e"])]["pos_min"]=_sp5[i]
+            TEAM_FIT_LOG[full]["pos5"]={c:round(sum(sp.get(c,0) for sp in _sp5),1) for c in POS5}
         if _moved:
             _gb=lambda g: round(sum(x[1] for x in _items if x[0]==g),1)
             _ga=lambda g: round(sum(_new[i] for i,x in enumerate(_items) if x[0]==g),1)
@@ -1068,7 +1238,8 @@ for e,row in out.items():
     if "_demo_f40" in row: row["shot_tend_demo"]=_tend(row.pop("_demo_f40"))
 
 json.dump(FRESH_FIT,open(os.path.join(D,"fresh_fit.json"),"w"),separators=(",",":"))
-json.dump({"season":"2026-27","scale":{"mu":MU,"sp":SP},"n":len(out),"players":out,"teams":teams_out},
+POS5_OUT={k:v["pos5"] for k,v in TEAM_FIT_LOG.items() if isinstance(v,dict) and v.get("pos5")}
+json.dump({"season":"2026-27","scale":{"mu":MU,"sp":SP},"n":len(out),"players":out,"teams":teams_out,"pos5":POS5_OUT},
           open(os.path.join(D,"stat_overall_projected.json"),"w"),separators=(",",":"),allow_nan=False)
 if TEAM_FIT_LOG:
     _mk=[v["minK"] for v in TEAM_FIT_LOG.values()]; _pk=[v["ptsK"] for v in TEAM_FIT_LOG.values()]

@@ -385,6 +385,11 @@
     .dc-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:28px;}
     .dc-col{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;}
     .dc-head{padding:9px 14px;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text);border-bottom:2px solid var(--tc,var(--accent));background:rgba(var(--tc-rgb,168,132,60),.07);}
+    .dc-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
+    .dc-head-min{font-size:10.5px;font-weight:700;letter-spacing:.02em;text-transform:none;color:var(--text3);font-variant-numeric:tabular-nums;}
+    .dc-of{color:var(--text3);font-weight:500;}
+    .dc-row.dc-also .dc-name{color:var(--text2);font-weight:600;}
+    .dc-row.dc-also .dc-rk{opacity:.6;}
     .dc-row{display:grid;grid-template-columns:18px minmax(0,1fr) auto;align-items:center;gap:10px;padding:8px 13px;border-top:1px solid var(--border);transition:background .12s,box-shadow .12s;cursor:pointer;}
     .dc-row:first-of-type{border-top:none;}
     .dc-row:hover{background:var(--bg3);}
@@ -8266,12 +8271,41 @@ function renderHistoricRoster(rows, yr, projected){
   const _oopDist=(p,colPos)=>{ const cs=_rsl(colPos); if(cs==null) return 0;
     const L=_rsls(p.position).concat(_rsls(p.position2)); if(!L.length) return 0;
     return Math.min.apply(null, L.map(s=>Math.abs(_IDXd[s]-_IDXd[cs]))); };
+  // Projected season: the build splits each player's minutes across the spots he is listed at so
+  // every column covers ~40 (pos_min; stat_overall_projected / fresh_fit). A player who splits time
+  // also appears in his second column with the minutes he plays THERE, and each column header shows
+  // how many minutes that position gets. Historic seasons keep one column per player.
+  const _usePos=projected&&!window._rosterFromHistory;
+  const _posMinOf=p=>{ try{
+      const row=(window.TDCProjGrade&&TDCProjGrade.projRowOf)?TDCProjGrade.projRowOf(p.espn_id):null;
+      if(row&&row.pos_min) return row.pos_min;
+      const f=(window.TDCFresh&&TDCFresh.fitFor)?TDCFresh.fitFor(p):null;
+      return (f&&f.pos_min)||null; }catch(e){ return null; } };
+  const _totMin=p=>{ const v=(p._projMin!=null)?p._projMin:parseFloat(p.mpg); return (v!=null&&!isNaN(v))?v:null; };
+  const _hereMin=(p,pos)=>{ if(!_usePos) return _totMin(p); const pm=_posMinOf(p); if(!pm) return _totMin(p); return pm[pos]!=null?pm[pos]:0; };
+  if(_usePos){
+    // bench players live in the column where the build gives them the most minutes (starters keep their spot)
+    const _byPos={}; cols.forEach(c=>{ _byPos[c.pos]=c; });
+    cols.forEach(c=>{ const keep=[], moveOut=[];
+      c.list.forEach((p,i)=>{ if(i===0){ keep.push(p); return; } const pm=_posMinOf(p);
+        const best=pm?Object.keys(pm).filter(k=>_byPos[k]).sort((a,b)=>pm[b]-pm[a])[0]:null;
+        if(best&&best!==c.pos&&pm[best]>=0.5) moveOut.push([p,best]); else keep.push(p); });
+      c.list=keep; c._in=(c._in||[]); moveOut.forEach(([p,b])=>{ (_byPos[b]._in=_byPos[b]._in||[]).push(p); }); });
+    cols.forEach(c=>{ if(c._in){ c.list=c.list.concat(c._in); delete c._in; } });
+    cols.forEach(c=>{ c.entries=c.list.map((p,i)=>({p,also:false,star:i===0})); });
+    cols.forEach(c=>{ cols.forEach(o=>{ if(o===c) return; o.list.forEach(p=>{ const pm=_posMinOf(p);
+      if(pm&&pm[c.pos]>=2) c.entries.push({p,also:true,star:false}); }); }); });
+    cols.forEach(c=>{ const st=c.entries.filter(e=>e.star), rest=c.entries.filter(e=>!e.star).sort((a,b)=>_hereMin(b.p,c.pos)-_hereMin(a.p,c.pos));
+      c.entries=st.concat(rest); });
+  } else cols.forEach(c=>{ c.entries=c.list.map((p,i)=>({p,also:false,star:i===0})); });
   const colHtml=cols.map(c=>{
-    const head=`<div class="dc-head" style="border-bottom-color:${color};background:rgba(${rgb},.07);">${c.pos}</div>`;
-    if(!c.list.length) return `<div class="dc-col">${head}<div class="dc-empty">—</div></div>`;
-    const rows=c.list.map((p,i)=>{
-      const _pm=(p._projMin!=null)?p._projMin:parseFloat(p.mpg);   // model-derived projected minutes (2026-27)
-      const mpg=(_pm!=null&&!isNaN(_pm))?num(_pm)+'m':'';
+    const _cm=c.entries.reduce((s,e)=>s+(_hereMin(e.p,c.pos)||0),0);
+    const head=`<div class="dc-head" style="border-bottom-color:${color};background:rgba(${rgb},.07);">${c.pos}${(projected&&_cm>0)?`<span class="dc-head-min" title="Projected minutes at ${c.pos} (5 on the floor x 40 = 200 a game, about 40 a spot)">${Math.round(_cm)} min</span>`:''}</div>`;
+    if(!c.entries.length) return `<div class="dc-col">${head}<div class="dc-empty">—</div></div>`;
+    const rows=c.entries.map((e,i)=>{ const p=e.p;
+      const _pm=_hereMin(p,c.pos), _pt=_totMin(p);
+      const _split=_usePos&&_pt!=null&&_pm!=null&&Math.abs(_pt-_pm)>=0.5;
+      const mpg=(_pm!=null&&!isNaN(_pm))?(_pm<0.5&&!e.star?'—':(num(_pm)+'m'+(_split?` <span class="dc-of">of ${num(_pt)}</span>`:''))):'';
       const bio=[p.yr, p.height, mpg].filter(Boolean).join(' · ');
       let g=_gdisp(p);   // projected OVR for returners (falls back to demonstrated grade for historic seasons)
       const _oop=(projected&&!window._rosterFromHistory)?_oopDist(p,c.pos):0;   // a borrowed roster's slots are our guess — no out-of-position penalty
@@ -8282,8 +8316,8 @@ function renderHistoricRoster(rows, yr, projected){
       const wav=p.is_waiver ? `<span title="On the roster, but has not yet been granted an eligibility waiver — his availability for the season is still pending." style="display:inline-block;font-size:8px;font-weight:800;letter-spacing:.03em;padding:0 4px;border-radius:3px;border:1px solid var(--accent);color:var(--accent);margin-left:6px;cursor:help;line-height:1.6;vertical-align:middle;">WAIVER?</span>` : '';
       // Owner-only injury chip (2026-27 projected view only) — from the on-page injury report.
       const injBadge=(projected && window.TDCInjury) ? TDCInjury.badgeHTML(p) : '';
-      return `<div class="dc-row${i===0?' dc-starter':''}">
-        <span class="dc-rk">${i===0?'★':(i+1)}</span>
+      return `<div class="dc-row${i===0&&e.star?' dc-starter':''}${e.also?' dc-also':''}">
+        <span class="dc-rk">${(i===0&&e.star)?'★':(i+1)}</span>
         <span class="dc-info"><a class="dc-name" href="${link(p)}">${p.name}</a>${wav}${injBadge}<span class="dc-bio">${bio||'&nbsp;'}</span>${inj}</span>
         <span class="dc-grade">${g}</span>
       </div>`;
@@ -8393,7 +8427,7 @@ async function _renderShotDist(rows){
   const _e=s=>(''+(s||'')).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
   try{
     if(!_shotProj){
-      const r=await fetch('scripts/data/stat_overall_projected.json?v=62').then(x=>x.ok?x.json():null).catch(()=>null);
+      const r=await fetch('scripts/data/stat_overall_projected.json?v=63').then(x=>x.ok?x.json():null).catch(()=>null);
       _shotProj={players:(r&&r.players)||{}, teams:(r&&r.teams)||{}};
     }
     const P=_shotProj.players, T=_shotProj.teams;
