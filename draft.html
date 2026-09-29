@@ -279,7 +279,7 @@ body{background:transparent!important;}
 <script src="tdc-freshman.js?v=pub15"></script>   <!-- the Big Board ranks freshmen off the owner's projected line -->
 <script src="tdc-projgrade.js?v=base27"></script>
 <script src="tdc-proj.js?v=coach26"></script>
-<script src="bigboard-engine.js?v=18"></script>
+<script src="bigboard-engine.js?v=19"></script>
 <script>
 const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
@@ -400,12 +400,17 @@ function renderBoard(){
   if(window.tdcSheetHeat) tdcSheetHeat(document.querySelector('#bbSheet table'));
   var bn=document.getElementById('basisNote');
   if(bn)bn.innerHTML=season==='2728'
-    ? 'The <b>2028</b> board is a way-too-early watch board — this year\u2019s returning underclassmen, projected a further year forward and ranked on upside. Seniors (out of eligibility) and not-yet-arrived recruits are excluded.'
+    ? 'The <b>2028</b> board is a way-too-early watch board — this year\u2019s returning underclassmen, projected a further year forward and ranked on upside, plus reclassified freshmen too young for the 2027 draft. Seniors (out of eligibility) and not-yet-arrived recruits are excluded.'
     : season==='2627'
-    ? 'The <b>2026-27</b> board scores on <b>projected stat lines</b> from the full projection engine (same as the player &amp; projections pages) — accounting for roster departures, minutes redistribution, and freshman estimates'+(projReady?'.':' (still computing… showing a quick estimate).')
+    ? _youngNote()+'The <b>2026-27</b> board scores on <b>projected stat lines</b> from the full projection engine (same as the player &amp; projections pages) — accounting for roster departures, minutes redistribution, and freshman estimates'+(projReady?'.':' (still computing… showing a quick estimate).')
     : 'The <b>2025-26</b> board scores on actual season production.';
 }
 
+// players too young for the 2027 draft (reclassified — draft-overrides.json eligible_from)
+function _youngNote(){
+  var m=(draftOverrides&&draftOverrides.eligible_from)||{}, n=Object.keys(m).filter(function(k){return +m[k]>2027;});
+  return n.length?'<b>Not eligible until 2028</b> (too young — reclassified): '+n.join(', ')+'. They\u2019re on the 2028 board. ':'';
+}
 // ── season switching ──
 function syncSeg(segId,attr,val){
   var seg=document.getElementById(segId);if(!seg)return;
@@ -419,7 +424,7 @@ function setSeason(s){
 // ── boot ──
 async function load(){
   try{
-    try{ draftOverrides=await fetch('draft-overrides.json').then(function(r){return r.ok?r.json():{};}); }catch(e){ draftOverrides={}; }
+    try{ draftOverrides=await fetch('draft-overrides.json?v=2',{cache:'no-cache'}).then(function(r){return r.ok?r.json():{};}); }catch(e){ draftOverrides={}; }
     var tr=await fetch(SB+'/rest/v1/teams?select=*',{headers:H});
     (await tr.json()).forEach(function(t){teamMap[t.name]=t;teamColors[t.name]=t.color||'#888';});
     // the SAME shared pool the player page uses — one fetch, one set of columns, one board

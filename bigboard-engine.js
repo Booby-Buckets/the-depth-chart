@@ -321,7 +321,15 @@
     var season=opts.season||'2526', projById=opts.projById||{}, projReady=!!opts.projReady;
     var ov=opts.overrides||{}, ineligible={}, ageOvr=ov.age||{};
     (ov.ineligible||[]).forEach(function(n){ ineligible[(''+n).trim()]=1; });
-    var pool=(players||[]).filter(function(p){return eligible(p,ineligible);});
+    // Too young for this draft (a reclassified high-schooler): draft-overrides.json eligible_from
+    // names his first draft; he's left off earlier boards and ranked on that year's.
+    var draftYear=season==='2728'?2028:season==='2627'?2027:2026, fromYr=ov.eligible_from||{};
+    var pool=(players||[]).filter(function(p){
+      var fy=fromYr[(p.name||'').trim()];
+      if(fy!=null && +fy>draftYear) return false;
+      return eligible(p,ineligible);
+    });
+    pool.forEach(function(p){ var fy=fromYr[(p.name||'').trim()]; if(fy!=null) p._eligFrom=+fy; });
     // 2028 draft class: current seniors/grads will have exhausted eligibility, so the
     // pool is the RETURNING underclassmen (Fr/So/Jr now) — a way-too-early watch board
     // of the players who'll still be around. The steep youth premium in the scoring floats
@@ -445,7 +453,7 @@
   function overrides(){
     if(_ovP) return _ovP;
     _ovP=(typeof fetch==='function')
-      ? fetch('draft-overrides.json').then(function(r){ return r.ok?r.json():{}; }).catch(function(){ return {}; })
+      ? fetch('draft-overrides.json?v=2',{cache:'no-cache'}).then(function(r){ return r.ok?r.json():{}; }).catch(function(){ return {}; })
       : Promise.resolve({});
     return _ovP;
   }
@@ -460,5 +468,7 @@
     });
   }
 
-  global.TDC_BIGBOARD={board:board, compute:compute, liveRanks:liveRanks, buildProjById:buildProjById, sane:sane, overrides:overrides, pgrp:pgrp, posLabel:posLabel, classKey:classKey, fallbackLine:projPlayer};
+  // first draft a player can enter per the overrides (null = the next one)
+  function eligibleFrom(p, ov){ var m=(ov&&ov.eligible_from)||{}; var y=m[((p&&p.name)||'').trim()]; return y!=null?+y:null; }
+  global.TDC_BIGBOARD={board:board, eligibleFrom:eligibleFrom, compute:compute, liveRanks:liveRanks, buildProjById:buildProjById, sane:sane, overrides:overrides, pgrp:pgrp, posLabel:posLabel, classKey:classKey, fallbackLine:projPlayer};
 })(typeof window!=='undefined'?window:this);
