@@ -278,7 +278,7 @@ body{background:transparent!important;}
 <script src="tdc-freshman.js?v=pub15"></script>   <!-- the Big Board ranks freshmen off the owner's projected line -->
 <script src="tdc-projgrade.js?v=base25"></script>
 <script src="tdc-proj.js?v=coach26"></script>
-<script src="bigboard-engine.js?v=17"></script>
+<script src="bigboard-engine.js?v=18"></script>
 <script>
 const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
@@ -428,6 +428,7 @@ async function load(){
     // the first board is built, or a profiled freshman is ranked off a generic estimate
     try{ if(window.TDCFresh&&TDCFresh.load) await TDCFresh.load(); }catch(e){}
     try{ if(window.TDCProjGrade&&TDCProjGrade.ready) await TDCProjGrade.ready; }catch(e){}
+    try{ await TDC_BIGBOARD.liveRanks(); }catch(e){}   // team strength reads the live projected rank
     buildBoard();
     document.getElementById('loadHint').style.display='none';
     renderBoard();

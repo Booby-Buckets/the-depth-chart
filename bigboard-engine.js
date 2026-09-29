@@ -69,10 +69,33 @@
   // team in the country like Duke because they share a league — and the leading scorer on a bad
   // high-major puts his numbers up against a softer slate, with weaker teammates drawing the
   // defence, which is exactly the profile NBA teams write off as empty stats.
-  function teamStrength(team,teamMap,nTeams){var t=teamMap&&teamMap[team];
-    var r=t?parseFloat(t.tdc_rank_num):NaN;
+  // The rank is the LIVE projected ratings (predictive_ratings, same as the Rankings index),
+  // re-ranked within this board's team list so the #1 -> 100 / last -> 22 scale keeps its
+  // meaning. It used to read teams.tdc_rank_num, the sheet's hand-typed rank, which drifted
+  // (Tennessee typed #1, model #32). Not loaded / not matched -> neutral 55, as before.
+  var _liveRows=null, _liveP=null, _poolRank=null, _poolN=0;
+  function liveRanks(){
+    if(_liveP) return _liveP;
+    var viaModule=global.TDC_RATINGS&&global.TDC_RATINGS.get?global.TDC_RATINGS.get():null;
+    var viaDb=function(){ var K='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+      return fetch('https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/predictive_ratings?season=eq.2027&select=data&limit=1',{headers:{apikey:K,Authorization:'Bearer '+K}})
+        .then(function(r){return r.ok?r.json():null;}).then(function(rows){return rows&&rows[0]&&rows[0].data||null;}); };
+    _liveP=Promise.resolve(viaModule||viaDb()).then(function(D){ _liveRows=(D&&D.teams)||null; return _liveRows; })
+      .catch(function(){ _liveRows=null; return null; });
+    return _liveP;
+  }
+  function buildPoolRank(teamMap){
+    _poolRank=null; _poolN=0; if(!_liveRows||!teamMap) return;
+    var by={}; _liveRows.forEach(function(x){ [x.team,x.full].forEach(function(n){ if(n) by[(''+n).toLowerCase()]=x; }); });
+    var have=Object.keys(teamMap).map(function(k){ var x=by[k.toLowerCase()]; return x&&isFinite(parseFloat(x.rating))?{k:k,r:parseFloat(x.rating)}:null; }).filter(Boolean);
+    if(!have.length) return;
+    have.sort(function(a,b){return b.r-a.r;});
+    _poolRank={}; have.forEach(function(h,i){ _poolRank[h.k]=i+1; }); _poolN=have.length;
+  }
+  function teamStrength(team,teamMap,nTeams){
+    var r=_poolRank?_poolRank[team]:NaN;
     if(!isFinite(r)||r<=0) return 55;
-    return clamp(100-(r-1)/Math.max(1,(nTeams||115)-1)*78);}   // #1 -> 100, last -> 22
+    return clamp(100-(r-1)/Math.max(1,(_poolN||nTeams||115)-1)*78);}   // #1 -> 100, last -> 22
   function compLevel(team,teamMap,nTeams){
     return clamp(0.55*confLevel(team,teamMap)+0.45*teamStrength(team,teamMap,nTeams));}
 
@@ -313,6 +336,7 @@
     }
     pool.forEach(function(p){p._s=basisOf(p,season,projById,projReady);});
     var dist=buildDist(pool);
+    buildPoolRank(teamMap);
     var _nT=Object.keys(teamMap||{}).length||115;
     pool.forEach(function(p){p._sc=scoreProspect(p,dist,teamMap,ageOvr,_nT);});
     pool.sort(function(a,b){return b._sc.blended-a._sc.blended || (parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0);});
@@ -429,12 +453,12 @@
     opts=opts||{};
     var pool=(players||[]).map(sane);
     var projP=opts.projById?Promise.resolve(opts.projById):buildProjById(pool, teamMap);
-    return Promise.all([projP, opts.overrides?Promise.resolve(opts.overrides):overrides(), loadGenome(),
+    return Promise.all([projP, opts.overrides?Promise.resolve(opts.overrides):overrides(), loadGenome(), liveRanks(),
       (global.TDCProjGrade&&global.TDCProjGrade.loadHist)?global.TDCProjGrade.loadHist():null]).then(function(r){
       var proj=r[0]||{}, ov=r[1]||{}, ready=Object.keys(proj).length>0;
       return compute(pool, teamMap, {season:opts.season||(ready?'2627':'2526'), projById:proj, projReady:ready, overrides:ov});
     });
   }
 
-  global.TDC_BIGBOARD={board:board, compute:compute, buildProjById:buildProjById, sane:sane, overrides:overrides, pgrp:pgrp, posLabel:posLabel, classKey:classKey, fallbackLine:projPlayer};
+  global.TDC_BIGBOARD={board:board, compute:compute, liveRanks:liveRanks, buildProjById:buildProjById, sane:sane, overrides:overrides, pgrp:pgrp, posLabel:posLabel, classKey:classKey, fallbackLine:projPlayer};
 })(typeof window!=='undefined'?window:this);
