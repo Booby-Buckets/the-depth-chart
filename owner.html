@@ -130,9 +130,9 @@
       </div>
 
       <div class="card">
-        <h2>📊 Refresh team projection box totals</h2>
-        <div class="desc">Recomputes every team's projected per-game team line (PPG/RPG/APG/…) from the live rosters — reconciled to the player-page projection and <b>normalized to a real 200-minute team</b> — and writes them to <b>team_projections</b>, the table the <b>index &amp; analytics</b> pages read. Fixes the inflated totals (e.g. impossible 40+ RPG) baked from the old un-normalized sum. Run after roster/projection changes.</div>
-        <button class="btn" id="teamProjBtn" onclick="refreshTeamProjections(this)">Refresh team projections</button>
+        <h2>📊 Publish team projections</h2>
+        <div class="desc">Publishes the per-game team lines (PPG/RPG/APG/…) from the last <b>Rebuild projections</b> job to <b>team_projections</b> — what the index, analytics and team pages read — then <b>republishes the rankings</b>. Replaces the SQL paste. Order: <b>Rebuild projections</b> → wait for the job (~2 min) → this button.</div>
+        <button class="btn" id="teamProjBtn" onclick="refreshTeamProjections(this)">Publish team projections + rankings</button>
         <div class="status" id="teamProjStatus"></div>
       </div>
 
@@ -316,61 +316,40 @@
     var s=document.getElementById('teamProjStatus');
     var tok=ownerToken();
     if(!tok){ st(s,'You must be signed in as the owner.','err'); return; }
-    // The canonical team line is built server-side from the reconciled projections (with a D-I range
-    // guard) — the in-browser recompute was the source of the bad rows, so it no longer writes.
-    st(s,'This now runs from the terminal so every row passes the range guard: <code>SUPABASE_SERVICE_KEY=… python3 scripts/build_team_projected_box.py --upload</code> (after build_stat_overall_projected.py).','err'); return;
-    if(!(window.TDCProjGrade&&TDCProjGrade.projRowOf)){ st(s,'Projection engine not loaded — reload the page.','err'); return; }
     btn.disabled=true;
-    st(s,'Loading projections &amp; rosters…','busy');
     try{
-      if(TDCProjGrade.ready) await TDCProjGrade.ready;
-      if(window.TDCFresh&&TDCFresh.load) await TDCFresh.load();
-      var H={apikey:ANON,Authorization:'Bearer '+ANON};
-      async function paged(sel){ var out=[],off=0; while(true){
-        var r=await fetch(SB+'/rest/v1/players?name=neq.%E2%80%94&select='+sel+'&order=id.asc&limit=1000&offset='+off,{headers:H});
-        var ch=r.ok?await r.json():[]; out=out.concat(ch); if(ch.length<1000) break; off+=1000; } return out; }
-      var players=await paged('name,team,espn_id,yr,class_year,tdc_grade,mpg,ppg,rpg,apg,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb,stl,blk,tovs,is_injured,hometown');
-      var teamsRows=await fetch(SB+'/rest/v1/teams?select=name,conf,conference&limit=600',{headers:H}).then(function(r){return r.ok?r.json():[];});
-      var confOf={}; teamsRows.forEach(function(t){ if(t.name) confOf[t.name]=t.conf||t.conference||''; });
-      var byTeam={}; players.forEach(function(p){ if(p.team){ (byTeam[p.team]=byTeam[p.team]||[]).push(p); } });
-      var teams=Object.keys(byTeam).filter(function(t){ return byTeam[t].length>=5; });
-      var num=function(v){ var n=parseFloat(v); return isFinite(n)?n:0; };
-      function lineOf(p){
-        var pr=(p.espn_id!=null)?TDCProjGrade.projRowOf(p.espn_id):null;    // returner: player-page projection
-        if(pr) return pr;
-        if(window.TDCFresh&&TDCFresh.isFreshman&&TDCFresh.isFreshman(p)){    // freshman: owner editor line
-          try{ var fl=TDCFresh.line(p, TDCFresh.profileFor(p)); if(fl) return Object.assign({},p,fl); }catch(e){} }
-        return p;                                                           // fallback: last-year stats
+      // the rows the last "Rebuild projections" job built (build_team_projected_box.py, D-I range guard
+      // included) — the same rows the SQL paste used to insert
+      st(s,'Loading the latest build…','busy');
+      var r=await fetch('scripts/data/team_projections_rows.json?t='+Date.now(),{cache:'no-store'});
+      if(!r.ok) throw new Error('could not load team_projections_rows.json ('+r.status+')');
+      var j=await r.json(), rows=(j&&j.rows)||[];
+      if(rows.length<60) throw new Error('only '+rows.length+' rows in the build — not publishing');
+      var W={apikey:ANON,Authorization:'Bearer '+tok,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'};
+      var wrote=0;
+      for(var i=0;i<rows.length;i+=40){
+        var chunk=rows.slice(i,i+40);
+        var resp=await fetch(SB+'/rest/v1/team_projections?on_conflict=team',{method:'POST',headers:W,body:JSON.stringify(chunk)});
+        if(!resp.ok) throw new Error('write failed ('+resp.status+'): '+(await resp.text()).slice(0,160));
+        wrote+=chunk.length; st(s,'Publishing team projections… '+wrote+'/'+rows.length,'busy');
       }
-      var wrote=0, fail=0;
-      for(var i=0;i<teams.length;i++){
-        var tn=teams[i];
-        var roster=byTeam[tn].filter(function(p){ return !p.is_injured && !(p.hometown&&/injured|out/i.test(''+p.hometown)); });
-        // rotation only (mpg>=4) — deep-bench/walk-ons project to ~0 and just inflate ΣMPG, matching
-        // the team page's active projected rotation.
-        var lines=roster.map(lineOf).filter(function(l){ return num(l.mpg)>=4; });
-        var sum=function(k){ return lines.reduce(function(a,l){ return a+num(l[k]); },0); };
-        var sumMpg=sum('mpg'); if(sumMpg<=0){ continue; }
-        var nf=Math.max(0.75,Math.min(1.15,200/sumMpg));
-        var fgm=sum('fgm')*nf, fga=sum('fga')*nf, tpm=sum('tpm')*nf, tpa=sum('tpa')*nf, ftm=sum('ftm')*nf, fta=sum('fta')*nf;
-        var body={ team:tn, conf:confOf[tn]||'',
-          ppg:+(sum('ppg')*nf).toFixed(1), rpg:+(sum('rpg')*nf).toFixed(1), apg:+(sum('apg')*nf).toFixed(1),
-          oreb:+(sum('oreb')*nf).toFixed(1), dreb:+(sum('dreb')*nf).toFixed(1),
-          stl:+(sum('stl')*nf).toFixed(1), blk:+(sum('blk')*nf).toFixed(1), tov:+(sum('tovs')*nf).toFixed(1),
-          fga:+fga.toFixed(1), tpa:+tpa.toFixed(1),
-          fg_pct:fga>0?+(fgm/fga*100).toFixed(1):0, tp_pct:tpa>0?+(tpm/tpa*100).toFixed(1):0, ft_pct:fta>0?+(ftm/fta*100).toFixed(1):0,
-          updated_at:new Date().toISOString() };
-        try{
-          var resp=await fetch(SB+'/rest/v1/team_projections?on_conflict=team',{ method:'POST',
-            headers:{apikey:ANON,Authorization:'Bearer '+tok,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
-            body:JSON.stringify(body) });
-          if(resp.ok) wrote++; else fail++;
-        }catch(e){ fail++; }
-        if((i+1)%10===0||i===teams.length-1) st(s,'Refreshing… '+(i+1)+'/'+teams.length+' teams','busy');
+      // rows the build didn't produce (a team with no roster yet) come out so no stale line shows
+      var keep={}; rows.forEach(function(x){ keep[x.team]=1; });
+      var cur=await (await fetch(SB+'/rest/v1/team_projections?select=team',{headers:{apikey:ANON,Authorization:'Bearer '+tok}})).json();
+      var extra=(cur||[]).map(function(x){return x.team;}).filter(function(t){return !keep[t];});
+      var note='';
+      if(extra.length){
+        var d=await fetch(SB+'/rest/v1/team_projections?team=in.('+extra.map(function(t){return '"'+t.replace(/"/g,'')+'"';}).map(encodeURIComponent).join(',')+')',
+          {method:'DELETE',headers:{apikey:ANON,Authorization:'Bearer '+tok}});
+        note=d.ok?(' Removed '+extra.length+' without a roster ('+extra.join(', ')+').'):' (Could not remove '+extra.join(', ')+'.)';
       }
-      st(s,'✓ Refreshed '+wrote+' teams'+(fail?(' ('+fail+' failed)'):'')+'. Index &amp; analytics now read the normalized totals.', fail?'err':'ok');
-    }catch(e){ st(s,'✗ Failed: '+((e&&e.message)||e),'err'); }
-    finally{ btn.disabled=false; }
+      var built=j.generated?new Date(j.generated):null;
+      st(s,'✓ Published '+wrote+' teams from the build of '+(built?built.toLocaleString():'?')+'.'+note+(j.rejected&&j.rejected.length?(' Left out (out of range): '+j.rejected.join(', ')+'.'):'')+' Republishing the rankings…','ok');
+    }catch(e){ st(s,'✗ Failed: '+((e&&e.message)||e),'err'); btn.disabled=false; return; }
+    btn.disabled=false;
+    // the rankings read these lines, so republish them right after (same as the Republish ratings button)
+    var rb=document.getElementById('republishBtn')||document.querySelector('[onclick^="republishRatings"]');
+    if(rb) republishRatings(rb);
   }
 
   function rebuildProjections(btn){

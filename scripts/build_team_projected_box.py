@@ -192,26 +192,31 @@ for t in ["Florida Gators", "Duke Blue Devils", "Houston Cougars", "Gonzaga Bull
         tgt = pace["teams"].get(t); tgt = round(tgt["o"] * tgt["t"] / 100, 1) if tgt else None
         print(f"  {t}: PPG {out[t]['ppg']} (target {tgt}) FG% {out[t]['fg_pct']} 3P% {out[t]['tp_pct']} RPG {out[t]['rpg']} AST {out[t]['apg']} min {out[t]['mpg']}")
 
+# The rows for team_projections (short team name + conf), always built and saved: the owner console's
+# "Refresh team projections" button publishes this file, so no SQL paste is needed after a rebuild.
+import datetime
+now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+# SANITY GUARD: nothing outside real D-I team ranges reaches the site. A row that fails is
+# printed and left out (the old row stays), and the run exits non-zero so it gets looked at.
+RANGE = {"ppg": (58, 96), "rpg": (26, 46), "apg": (8, 23), "fg_pct": (38, 57), "tp_pct": (26, 43), "ft_pct": (58, 85), "fga": (46, 76), "tov": (6, 21)}
+rows, seen, rejected = [], {}, []
+for full, r in sorted(out.items(), key=lambda kv: -kv[1]["mpg"]):
+    short = full_to_short(full)
+    if not short: continue
+    if short in seen: print(f"  skip {full}: '{short}' already taken by {seen[short]}"); continue
+    bad = [k for k, (lo, hi) in RANGE.items() if not (lo <= float(r.get(k) or 0) <= hi)]
+    if bad: rejected.append((short, {k: r[k] for k in bad})); continue
+    seen[short] = full
+    rows.append({"team": short, "conf": short_conf.get(short) or "", "updated_at": now,
+                 **{k: r[k] for k in ("ppg", "rpg", "apg", "fg_pct", "tp_pct", "ft_pct", "fga", "tpa", "tov", "stl", "blk", "oreb", "dreb")}})
+for t, b in rejected: print(f"  REJECTED (out of D-I range, not uploaded): {t} {b}")
+json.dump({"generated": now, "rows": rows, "rejected": [t for t, _ in rejected]},
+          open(D / "team_projections_rows.json", "w"), separators=(",", ":"))
+print(f"wrote team_projections_rows.json — {len(rows)} rows")
 if UPLOAD or SQL_OUT:
     key = os.environ.get("SUPABASE_SERVICE_KEY")
     if UPLOAD and not key: sys.exit("Set SUPABASE_SERVICE_KEY to upload.")
     HH = {"apikey": key or "", "Authorization": "Bearer " + (key or ""), "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal"}
-    import datetime
-    now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
-    # SANITY GUARD: nothing outside real D-I team ranges reaches the site. A row that fails is
-    # printed and left out (the old row stays), and the run exits non-zero so it gets looked at.
-    RANGE = {"ppg": (58, 96), "rpg": (26, 46), "apg": (8, 23), "fg_pct": (38, 57), "tp_pct": (26, 43), "ft_pct": (58, 85), "fga": (46, 76), "tov": (6, 21)}
-    rows, seen, rejected = [], {}, []
-    for full, r in sorted(out.items(), key=lambda kv: -kv[1]["mpg"]):
-        short = full_to_short(full)
-        if not short: continue
-        if short in seen: print(f"  skip {full}: '{short}' already taken by {seen[short]}"); continue
-        bad = [k for k, (lo, hi) in RANGE.items() if not (lo <= float(r.get(k) or 0) <= hi)]
-        if bad: rejected.append((short, {k: r[k] for k in bad})); continue
-        seen[short] = full
-        rows.append({"team": short, "conf": short_conf.get(short) or "", "updated_at": now,
-                     **{k: r[k] for k in ("ppg", "rpg", "apg", "fg_pct", "tp_pct", "ft_pct", "fga", "tpa", "tov", "stl", "blk", "oreb", "dreb")}})
-    for t, b in rejected: print(f"  REJECTED (out of D-I range, not uploaded): {t} {b}")
     if SQL_OUT:
         COLS = ["team", "conf", "ppg", "rpg", "apg", "fg_pct", "tp_pct", "ft_pct", "fga", "tpa", "tov", "stl", "blk", "oreb", "dreb"]
         q = lambda v: "null" if v is None else ("'" + str(v).replace("'", "''") + "'" if isinstance(v, str) else repr(float(v)))
