@@ -24,6 +24,8 @@ SB = "https://izlqhnxowdhtdofkwrho.supabase.co"; K = "sb_publishable_XQKr9A5ZP79
 H = {"apikey": K, "Authorization": "Bearer " + K}
 D = pathlib.Path(__file__).parent / "data"
 UPLOAD = "--upload" in sys.argv
+# --sql PATH: write the same upsert as one SQL block to paste into the Supabase SQL editor (no key needed)
+SQL_OUT = sys.argv[sys.argv.index("--sql") + 1] if "--sql" in sys.argv else None
 
 def sb(path):
     out, off = [], 0
@@ -190,10 +192,10 @@ for t in ["Florida Gators", "Duke Blue Devils", "Houston Cougars", "Gonzaga Bull
         tgt = pace["teams"].get(t); tgt = round(tgt["o"] * tgt["t"] / 100, 1) if tgt else None
         print(f"  {t}: PPG {out[t]['ppg']} (target {tgt}) FG% {out[t]['fg_pct']} 3P% {out[t]['tp_pct']} RPG {out[t]['rpg']} AST {out[t]['apg']} min {out[t]['mpg']}")
 
-if UPLOAD:
+if UPLOAD or SQL_OUT:
     key = os.environ.get("SUPABASE_SERVICE_KEY")
-    if not key: sys.exit("Set SUPABASE_SERVICE_KEY to upload.")
-    HH = {"apikey": key, "Authorization": "Bearer " + key, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal"}
+    if UPLOAD and not key: sys.exit("Set SUPABASE_SERVICE_KEY to upload.")
+    HH = {"apikey": key or "", "Authorization": "Bearer " + (key or ""), "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal"}
     import datetime
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
     # SANITY GUARD: nothing outside real D-I team ranges reaches the site. A row that fails is
@@ -210,6 +212,19 @@ if UPLOAD:
         rows.append({"team": short, "conf": short_conf.get(short) or "", "updated_at": now,
                      **{k: r[k] for k in ("ppg", "rpg", "apg", "fg_pct", "tp_pct", "ft_pct", "fga", "tpa", "tov", "stl", "blk", "oreb", "dreb")}})
     for t, b in rejected: print(f"  REJECTED (out of D-I range, not uploaded): {t} {b}")
+    if SQL_OUT:
+        COLS = ["team", "conf", "ppg", "rpg", "apg", "fg_pct", "tp_pct", "ft_pct", "fga", "tpa", "tov", "stl", "blk", "oreb", "dreb"]
+        q = lambda v: "null" if v is None else ("'" + str(v).replace("'", "''") + "'" if isinstance(v, str) else repr(float(v)))
+        vals = ",\n".join("  (" + ", ".join(q(r[c]) for c in COLS) + ", now())" for r in rows)
+        upd = ", ".join(f"{c} = excluded.{c}" for c in COLS[1:]) + ", updated_at = excluded.updated_at"
+        keep = ", ".join(q(r["team"]) for r in rows)
+        sql = (f"-- team_projections from build_team_projected_box.py ({len(rows)} teams, {now})\nbegin;\n"
+               f"insert into team_projections ({', '.join(COLS)}, updated_at) values\n{vals}\n"
+               f"on conflict (team) do update set {upd};\n"
+               f"-- rows no build produced (leftovers from the old in-browser engine)\n"
+               f"delete from team_projections where team not in ({keep});\ncommit;\n")
+        open(SQL_OUT, "w").write(sql); print(f"wrote {SQL_OUT} — {len(rows)} rows")
+        if not UPLOAD: sys.exit(2 if rejected else 0)
     ok = 0
     for i in range(0, len(rows), 40):
         ch = rows[i:i + 40]
