@@ -14,7 +14,7 @@
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Owner Console — The Depth Chart">
   <meta name="twitter:description" content="Advanced college basketball roster rankings, team & player analytics, NIL values, and 2026-27 projections for all of Division I.">
-  <script src="auth.js?v=shotlock1"></script>
+  <script src="auth.js?v=delacct1"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=5"></script>
@@ -124,14 +124,14 @@
 
       <div class="card">
         <h2>🔁 Rebuild projections</h2>
-        <div class="desc">Re-runs the projection model against your <b>live rosters</b> so depth-chart edits — a newcomer's projected stat line, a roster move — flow into the projected <b>ORtg / DRtg / net</b> on the homepage. Kicks off a GitHub Actions job that rebuilds <b>team_dna.json / team_eff.json</b> and deploys (~1–2 min). Run this after editing projected stats.</div>
+        <div class="desc">Re-runs the projection model against your <b>live rosters</b> so depth-chart edits — a newcomer's projected stat line, a roster move — flow into the projected <b>ORtg / DRtg / net</b> on the homepage. Kicks off a GitHub Actions job that rebuilds <b>team_dna.json / team_eff.json</b> and deploys, then <b>publishes the team projections and rankings automatically</b> once the new build is live (~2–3 min — keep the page open). After a roster sync or depth-chart change, this is the only button you need.</div>
         <button class="btn" id="rebuildBtn" onclick="rebuildProjections(this)">Rebuild projections</button>
         <div class="status" id="rebuildStatus"></div>
       </div>
 
       <div class="card">
         <h2>📊 Publish team projections</h2>
-        <div class="desc">Publishes the per-game team lines (PPG/RPG/APG/…) from the last <b>Rebuild projections</b> job to <b>team_projections</b> — what the index, analytics and team pages read — then <b>republishes the rankings</b>. Replaces the SQL paste. Order: <b>Rebuild projections</b> → wait for the job (~2 min) → this button.</div>
+        <div class="desc">Publishes the per-game team lines (PPG/RPG/APG/…) from the last <b>Rebuild projections</b> job to <b>team_projections</b> — what the index, analytics and team pages read — then <b>republishes the rankings</b>. Replaces the SQL paste. <b>Rebuild projections</b> now runs this for you when its build lands — use it by hand only if that page was closed mid-rebuild.</div>
         <button class="btn" id="teamProjBtn" onclick="refreshTeamProjections(this)">Publish team projections + rankings</button>
         <div class="status" id="teamProjStatus"></div>
       </div>
@@ -352,6 +352,29 @@
     if(rb) republishRatings(rb);
   }
 
+  // After the rebuild job starts, watch the deployed build file; once a build NEWER than the click is
+  // live, publish team projections + republish the rankings (the same as pressing that button).
+  function waitForBuildThenPublish(s, startedAt, link){
+    var tries=0;
+    (function poll(){
+      tries++;
+      fetch('scripts/data/team_projections_rows.json?t='+Date.now(),{cache:'no-store'})
+        .then(function(r){ return r.ok?r.json():null; })
+        .then(function(j){
+          var g=j&&j.generated?Date.parse(j.generated):0;
+          if(g && g>startedAt-30000){
+            st(s,'✓ New build is live ('+new Date(g).toLocaleTimeString()+'). Publishing team projections + rankings…','ok');
+            var pb=document.getElementById('teamProjBtn'); if(pb) refreshTeamProjections(pb);
+            return;
+          }
+          if(tries>=40){ st(s,'⚠ No new build after 10 min. Check the job:'+link+' — then use Publish team projections + rankings.','err'); return; }
+          st(s,'Rebuilding… '+Math.round(tries*15/60*10)/10+' min — keep this page open; it publishes automatically.'+link,'busy');
+          setTimeout(poll,15000);
+        })
+        .catch(function(){ setTimeout(poll,15000); });
+    })();
+  }
+
   function rebuildProjections(btn){
     var s=document.getElementById('rebuildStatus');
     var tok=ownerToken();
@@ -366,7 +389,8 @@
       .then(function(res){
         if(res.ok && res.j && res.j.ok){
           var link=res.j.runsUrl?(' <a href="'+res.j.runsUrl+'" target="_blank" rel="noopener">Watch it run →</a>'):'';
-          st(s,'✓ Rebuild started. team_dna / team_eff update &amp; deploy in ~1–2 min.'+link,'ok');
+          st(s,'✓ Rebuild started — keep this page open; it publishes automatically when the new build is live (~2–3 min).'+link,'busy');
+          waitForBuildThenPublish(s, Date.now(), link);
         } else {
           st(s,'✗ '+((res.j&&res.j.error)||'Could not start the rebuild.'),'err');
         }
