@@ -632,6 +632,20 @@
     html:has(#czEdit[style*="flex"]) #tdcInstall, html:has(#swapModal[style*="flex"]) #tdcInstall,
     html:has(#czEdit[style*="flex"]) #tdcTourWrap, html:has(#swapModal[style*="flex"]) #tdcTourWrap{display:none!important;}
     .cz-mode{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 18px;}
+    /* How this lineup wins: factor + roster-check sheets */
+    .cz-win{margin:0 0 30px;}
+    .cz-win-top{display:flex;gap:10px 34px;flex-wrap:wrap;margin:0 0 14px;}
+    .cz-win-top>div{display:flex;flex-direction:column;}
+    .cz-win-top b{font-family:'Playfair Display',Georgia,serif;font-size:28px;font-weight:800;line-height:1.05;color:var(--text);font-variant-numeric:tabular-nums;}
+    .cz-win-top b.imp-up{color:#2e8b57;} .cz-win-top b.imp-down{color:#c0392b;}
+    .cz-win-top span{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-top:3px;}
+    .cz-win-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:18px 28px;align-items:start;}
+    .cz-win-t{width:100%;}
+    .cz-win-t td i{font-style:normal;font-size:11px;font-weight:700;margin-left:4px;}
+    .cz-win-u{display:block;font-size:10.5px;color:var(--text3);font-weight:500;white-space:normal;}
+    .cz-win-t td.l{white-space:normal;}
+    .cz-win-split td{font-size:10px!important;font-weight:800!important;letter-spacing:.1em;text-transform:uppercase;color:var(--text3)!important;background:transparent!important;padding-top:10px!important;}
+    @media(max-width:640px){ .cz-win-grid{grid-template-columns:minmax(0,1fr);} }
     .cz-mode .cz-mode-sep{width:1px;height:18px;background:var(--border2);margin:0 6px;}
     .cz-pill{font:600 11.5px 'Inter',system-ui,sans-serif;letter-spacing:.02em;padding:6px 12px;border:1px solid var(--border2);background:var(--bg);cursor:pointer;color:var(--text2);border-radius:999px;white-space:nowrap;}
     .cz-pill:hover{color:var(--text);border-color:var(--text3);}
@@ -4396,9 +4410,6 @@ if(!window.__synTipWired){ window.__synTipWired=1;
 }
 function _playstylePanel(an){
   if(!an) return '<div class="sq-style"><div class="sq-style-h">Lineup Identity</div><div style="color:var(--text3);font-size:12px;">Set a starting five to analyze.</div></div>';
-  const dimBar=([k,v])=>`<div class="sq-dim"><div class="sq-dim-top"><span>${k}</span><b>${v}</b></div><div class="sq-dim-bar"><span style="width:${v}%;background:${v>=70?'#5ab875':v>=45?'var(--tc-readable,var(--accent))':'var(--text3)'};"></span></div></div>`;
-  const ents=Object.entries(an.dims);
-  const top=ents.slice().sort((a,b)=>b[1]-a[1])[0], low=ents.slice().sort((a,b)=>a[1]-b[1])[0];
   const synWord=an.overall>=74?'Elite fit':an.overall>=64?'Complementary':an.overall>=54?'Workable':'Redundant';
   return `<div class="sq-style">
     <div class="sq-style-h">Lineup Identity</div>
@@ -4413,9 +4424,6 @@ function _playstylePanel(an){
       <div class="sq-mini-c"><b>${an.mini.astTov}</b><span>AST/TO</span></div>
       <div class="sq-mini-c"><b>${an.mini.cls}</b><span>Class</span></div>
     </div>
-    <div class="sq-dims">${ents.map(dimBar).join('')}</div>
-    <div class="sq-style-note"><b style="color:#5ab875;">Edge:</b> ${top[0]} &nbsp; <b style="color:#e07070;">Gap:</b> ${low[0]}</div>
-    <div class="sq-style-note" style="color:var(--text3);">${an.shooters} of ${an.count} starters space the floor.</div>
   </div>`;
 }
 
@@ -4734,6 +4742,8 @@ function rebuildCustomizeUI(){
       ${_czModeBar()}
       <div class="cz-dc-head"><span class="sec-head" style="margin:0;padding:0;border:0;">Depth chart</span>${_czMinutesMeter()}</div>
       <div class="pos-depth-grid">${colsHtml}</div>
+      <div class="sec-head" style="margin-bottom:12px;">How this lineup wins</div>
+      ${_labWinPanel()}
       <div class="sec-head" style="margin-bottom:16px;">Squad</div>
       ${renderSquadView()}
     </div>
@@ -5378,11 +5388,17 @@ function confirmSwap(playerKey){
 // team-level advanced line from a set of projected per-player rows: everything
 // the lab edits (minutes, swaps, roles, positions) flows through here.
 function calcTeamAdvanced(proj, skipCal){
-  const rot=(proj||[]).filter(p=>(parseFloat(p.mpg)||0)>0).sort((a,b)=>(parseFloat(b.mpg)||0)-(parseFloat(a.mpg)||0)).slice(0,10);
+  // everyone who plays: the projection already sums to a 200-minute game, and a flat 15-man
+  // rotation (all-time rosters) lost a third of its production to the old top-10 cut
+  const rot=(proj||[]).filter(p=>(parseFloat(p.mpg)||0)>0);
   if(!rot.length) return null;
   const S=k=>rot.reduce((s,p)=>s+(parseFloat(p[k])||0),0);
+  // older seasons carry total rebounds with no offensive/defensive split: fall back to rpg
+  // at the D-I 30/70 split instead of counting that player as zero rebounds
+  const RB=side=>rot.reduce((s,p)=>{ const o=parseFloat(p.oreb)||0, d=parseFloat(p.dreb)||0, t=parseFloat(p.rpg)||0;
+    return s+((o+d>0||!(t>0))?(side==='o'?o:d):t*(side==='o'?0.3:0.7)); },0);
   let pts=S('ppg'), fgm=S('fgm'), fga=S('fga'), tpm=S('tpm'), tpa=S('tpa'),
-      ftm=S('ftm'), fta=S('fta'), or_=S('oreb'), dr=S('dreb'),
+      ftm=S('ftm'), fta=S('fta'), or_=RB('o'), dr=RB('d'),
       ast=S('apg'), tov=S('tovs'), stl=S('stl'), blk=S('blk');
   // calibration to the team's real projected totals (see ensureNatField):
   // summed player lines undercount team-level stats (team rebounds, deadball,
@@ -5444,6 +5460,7 @@ function ensureNatField(){
     _natField={
       ppg:col(r=>+r.ppg), reb:col(r=>+r.rpg), tpPct:col(r=>+r.tp_pct), ftPct:col(r=>+r.ft_pct),
       astTo:col(r=>+r.topg>0?+r.apg/+r.topg:NaN), stocks:col(r=>(+r.spg||0)+(+r.bpg||0)), apg:col(r=>+r.apg),
+      blk:col(r=>+r.bpg), stl:col(r=>+r.spg),
     };
     // calibration factors: this team's real projected totals / raw baseline sums
     const tp=projRow&&projRow[0];
@@ -5467,6 +5484,103 @@ function natRank(key,v){
   // rank is 1..n (best..worst); a value below the whole field must read "#n of n",
   // never "#n+1 of n"
   return {rank:Math.min(a.length, a.length-lo+1), n:a.length, pct:Math.round(lo/a.length*100)};
+}
+
+// ── HOW THIS LINEUP WINS (Lineup tab) ───────────────────────────────────────
+// Real, validated indicators instead of 1-100 bars. The four factors are what the
+// league win model is built on (scripts/data/lab_factors.json, from team_dna.json:
+// fit on 2025-26 games, R2 0.94; points of margin per +5 of each factor). Offense
+// comes straight from the lineup's projected box totals; defense from steals / blocks /
+// rebounds through fits on 2025-26 teams (dTOV r2 .77, deFG .24, dDRB .27). In My team
+// mode the numbers start at the team's projected 2026-27 DNA and move by how far the
+// edited lineup is from the default one; Build any team shows the lineup's own values.
+let _labF=null, _labFLoading=false, _labKeys={}, _labBaseRaw=null;
+function _ensureLabFactors(){
+  const tn=teamT&&teamT.name;
+  if(tn&&_labKeys[tn]===undefined&&typeof _resolveGamesKey==='function'){
+    _labKeys[tn]=null;
+    _resolveGamesKey().then(k=>{ _labKeys[tn]=k||null; if(_labF&&document.getElementById('czWin')) _refreshLabWin(); }).catch(()=>{});
+  }
+  if(_labF||_labFLoading) return; _labFLoading=true;
+  fetch('scripts/data/lab_factors.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null)
+    .then(d=>{ _labF=d; if(d&&document.getElementById('czWin')) _refreshLabWin(); });
+}
+function _refreshLabWin(){ const el=document.getElementById('czWin'); if(el) el.innerHTML=_labWinInner(); }
+const _LAB_ROWS=[
+  ['oeFG','Shooting','eFG%'],['oTOV','Ball security','turnover %'],['oORB','Offensive rebounding','OREB %'],['oFTr','Getting to the line','FT rate'],
+  ['deFG','Shot defense','opp. eFG%'],['dTOV','Forcing turnovers','forced TO %'],['dDRB','Defensive rebounding','DREB %']];
+function _labRaw(adv){
+  if(!adv||!_labF) return null;
+  // counting stats go per possession first (then back to an average-pace game), so a slow
+  // era or a thin rotation isn't read as bad rebounding / rim protection
+  const F=_labF, df=F.def_fit, tempo=F.tempo_mean, k=tempo/Math.max(40,adv.poss||tempo), oppDR=F.box_mean.rpg*0.7;
+  const oreb=adv.oreb*k, reb=adv.reb*k, blk=adv.blk*k, stl=adv.stl*k;
+  return { oeFG:adv.efg, oTOV:adv.tovPct, oORB:oreb/Math.max(1,oreb+oppDR)*100, oFTr:adv.ftRate,
+    deFG:df.deFG.a+df.deFG.b*blk, dTOV:df.dTOV.a+df.dTOV.b*stl/tempo*100, dDRB:df.dDRB.a+df.dDRB.b*reb };
+}
+function _labRank(dist,v,higherBetter){
+  if(!dist||!dist.length||!isFinite(v)) return null;
+  const better=dist.filter(x=>higherBetter?x>v:x<v).length;
+  return {rank:better+1, n:dist.length, pct:Math.round((1-better/dist.length)*100)};
+}
+const _labCls=pct=>pct==null?'':pct>=80?'c4':pct>=60?'c3':pct>=40?'c2':pct>=20?'c1':'c0';
+function _labWinPanel(){ _ensureLabFactors(); return `<div id="czWin" class="cz-win">${_labWinInner()}</div>`; }
+function _labWinInner(){
+  const F=_labF; if(!F) return '';
+  const proj=buildCustomProjections(), adv=calcTeamAdvanced(proj); if(!adv) return '';
+  const cur=_labRaw(adv); if(!cur) return '';
+  const teamMode=window._czLabMode!=='build'&&!window._czBuildMode;
+  const key=teamT&&_labKeys[teamT.name], anchor=teamMode&&key&&F.proj[key];
+  const untouched=window._czSeedSig&&_czSig()===window._czSeedSig;
+  if(teamMode&&untouched) _labBaseRaw=cur;             // the default lineup, on the current calibration
+  const val={}, chg={};
+  _LAB_ROWS.forEach(([k])=>{
+    if(anchor&&anchor[k]!=null&&_labBaseRaw){ const d=cur[k]-_labBaseRaw[k]; val[k]=anchor[k]+d; chg[k]=untouched?0:d; }
+    else { val[k]=cur[k]; chg[k]=0; }
+  });
+  const r1=v=>Math.round(v*10)/10, sg=v=>(v>0?'+':'')+r1(v);
+  let total=0;
+  const facRows=_LAB_ROWS.map(([k,name,unit],i)=>{
+    const w=F.win_model[k], v=val[k], pts=(v-F.mean[k])*w/5; total+=pts;
+    const rk=_labRank(F.dist[k],v,w>0), c=chg[k], cm=Math.abs(c)>=0.1?` <i class="${(w>0?c>0:c<0)?'imp-up':'imp-down'}">${sg(c)}</i>`:'';
+    return (i===4?'<tr class="cz-win-split"><td class="l" colspan="4">Defense</td></tr>':'')+
+      `<tr><td class="l">${name}<span class="cz-win-u">${unit}</span></td><td class="r">${r1(v)}${cm}</td>`+
+      `<td class="r ${_labCls(rk&&rk.pct)}">${rk?'#'+rk.rank:'—'}</td><td class="r ${pts>=0?'imp-up':'imp-down'}">${sg(pts)}</td></tr>`;
+  }).join('');
+  const mr=_labRank(F.margin_dist,total,true);
+
+  // roster checks: plain numbers with a national rank where one exists (2025-26 D-I teams)
+  const rot=proj.filter(p=>(parseFloat(p.mpg)||0)>=12);
+  const shooters=rot.filter(p=>(parseFloat(p.tpa)||0)>=3&&(parseFloat(p.tp_pct)||0)>=35).length;
+  const byPts=proj.slice().sort((a,b)=>(parseFloat(b.ppg)||0)-(parseFloat(a.ppg)||0)), top=byPts[0];
+  const scorers=proj.filter(p=>(parseFloat(p.ppg)||0)>=12).length;
+  const mins=proj.reduce((s,p)=>s+(parseFloat(p.mpg)||0),0);
+  const upper=proj.filter(p=>/jr|sr|gr|grad|senior|junior/i.test(String(p.class_year||p.yr||''))).reduce((s,p)=>s+(parseFloat(p.mpg)||0),0);
+  const expPct=mins>0?Math.round(upper/mins*100):null;
+  const chk=(name,v,rk,note,pctOverride)=>{ const pct=rk?rk.pct:pctOverride;
+    return `<tr><td class="l">${name}<span class="cz-win-u">${note}</span></td><td class="r">${v}</td><td class="r ${_labCls(pct)}">${rk?'#'+rk.rank:(pct>=80?'Strong':pct<20?'Thin':'OK')}</td></tr>`; };
+  const topPts=top?r1(parseFloat(top.ppg)||0):0;
+  const checks=[
+    chk('3-point shooting', adv.tpPct+'%', natRank('tpPct',adv.tpPct), `${shooters} rotation shooter${shooters===1?'':'s'} at 35%+ on 3+ tries`),
+    chk('Go-to scoring', topPts+' ppg', null, `${top?_sqAttr(top.name):'—'} leads · ${scorers} at 12+ ppg`, topPts>=17?90:topPts>=13?50:10),
+    chk('Ball security', adv.astTo, natRank('astTo',adv.astTo), `${adv.apg} assists per game`),
+    chk('Rim protection', adv.blk+' blk', natRank('blk',adv.blk), `${adv.stl} steals per game`),
+    chk('Rebounding', adv.reb+' reb', natRank('reb',adv.reb), `${adv.oreb} offensive`),
+    chk('Free throws', adv.ftPct+'%', natRank('ftPct',adv.ftPct), `FT rate ${adv.ftRate}%`),
+    chk('Experience', expPct!=null?expPct+'%':'—', null, 'of minutes to juniors and seniors', expPct==null?null:expPct>=60?90:expPct>=35?50:10),
+  ].join('');
+  return `<div class="cz-win-top">
+      <div><b class="${total>=0?'imp-up':'imp-down'}">${sg(total)}</b><span>Four-factor margin / game</span></div>
+      <div><b>${mr?'#'+mr.rank:'—'}</b><span>Among ${F.margin_dist.length} teams last season</span></div>
+    </div>
+    <div class="cz-win-grid">
+      <div class="sheet-wrap"><table class="sheet dense cz-win-t">
+        <thead><tr><th class="l">Win factor</th><th class="r">Lineup</th><th class="r">D-I rank</th><th class="r">Pts / game</th></tr></thead>
+        <tbody><tr class="cz-win-split"><td class="l" colspan="4">Offense</td></tr>${facRows}</tbody></table></div>
+      <div class="sheet-wrap"><table class="sheet dense cz-win-t">
+        <thead><tr><th class="l">Roster check</th><th class="r">Lineup</th><th class="r">D-I rank</th></tr></thead>
+        <tbody>${checks}</tbody></table></div>
+    </div>`;
 }
 function renderImpactPanel(){
   ensureNatField();
