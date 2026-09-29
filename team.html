@@ -1403,7 +1403,6 @@
 <div class="page-body">
   <div class="main-col">
     <div class="panel active" id="panel-depth">
-      <div id="playerSpotlight" class="pspot-wrap" style="display:none;"></div>
       <div class="sec-head" id="depthSecHead">Depth Chart <span class="sec-head-sub" style="display:flex;align-items:center;gap:10px;"><span style="display:flex;align-items:center;gap:4px;"><span id="keyStarBadge" style="font-size:9px;font-weight:700;padding:1px 5px;background:rgba(0,0,0,.08);color:#888;">★</span><span>= Starter</span></span><span style="display:flex;align-items:center;gap:4px;"><span id="keyRetBadge" style="font-size:9px;font-weight:700;padding:1px 5px;background:rgba(0,0,0,.08);color:#888;">*</span><span>= Prev. Starter</span></span></span></div>
       <div class="roster-year-bar">
         <span class="rs-label">Season</span>
@@ -9529,22 +9528,7 @@ function renderProjNatlChart(projected, color, rgb){
   }
   window.__renderSpotlight=renderSpotlight;
   window.__spotlightDefault=pickSpotlightDefault;
-  // Spotlight updates on CLICK (not hover — hover was spamming). Clicking the
-  // player's name hyperlink navigates to their page as usual; clicking anywhere
-  // else on their row loads them into the spotlight header.
-  document.addEventListener('click',function(e){
-    var host=document.getElementById('depthContent'); if(!host||!host.contains(e.target)) return;
-    if(e.target.closest('a[href],button,input,select,textarea,.dc-row-drag')) return;  // let real links/controls act
-    var t=e.target.closest('.dc-row,.starter-col-body,.backup-item,tr,.protation-row,.rotation-row,.crotation-row'); if(!t||!host.contains(t)) return;
-    var name=null, a=t.querySelector('a[href*="player.html"]');
-    if(a){var mm=a.getAttribute('href').match(/[?&]name=([^&]+)/); if(mm){try{name=decodeURIComponent(mm[1]);}catch(_){name=mm[1];}}}
-    if(!name){var dp=t.querySelector('[data-pcard]'); if(dp)name=dp.getAttribute('data-pcard');}
-    if(!name) return;
-    host.querySelectorAll('.spot-selected').forEach(function(el){el.classList.remove('spot-selected');});
-    t.classList.add('spot-selected');
-    if(name===window.__spotCur) return;
-    renderSpotlight(name);
-  });
+  // (the spotlight card was removed by request, Sept 2026 — renderSpotlight no-ops without its host)
 })();
 </script>
 <style id="tdc-theme-css">
@@ -9582,7 +9566,7 @@ function renderProjNatlChart(projected, color, rgb){
 </script>
 <script src="tdc-team-dense.js?v=6"></script>
   <script src="tdc-version.js?v=2"></script>
-  <script src="tdc-tour.js?v=13"></script>
+  <script src="tdc-tour.js?v=14"></script>
   <script src="tdc-sheets.js?v=1"></script>
   <script src="tdc-depth-editor.js?v=1"></script>
 </body>
