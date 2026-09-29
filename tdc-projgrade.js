@@ -747,7 +747,7 @@
   // after only the stat files had landed showed 95 for a player whose page (bonus loaded) said 96.
   window.TDCProjGrade.ready = Promise.all([
     _loadSO('scripts/data/stat_overall.json?v=10').then(function(m){ if(m) setStatOverall(m, null); }),
-    _loadProjRows('scripts/data/stat_overall_projected.json?v=67').then(function(m){ if(m) setStatOverall(null, m); }),
+    _loadProjRows('scripts/data/stat_overall_projected.json?v=68').then(function(m){ if(m) setStatOverall(null, m); }),
     _archP, _gpsP
   ]).then(function(){ return true; }).catch(function(){ return true; });   // history is lazy — see loadHist()
 })();
