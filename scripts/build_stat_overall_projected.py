@@ -36,6 +36,23 @@ DWA_W=float(os.environ.get("DWA_W","0.85"))   # match build_stat_overall.py — 
 # pf40 (fouling is a stable trait) applied over projected minutes. Rates from nil-defense.json.
 FOUL_W=float(os.environ.get("FOUL_W","0.012")); FOUL_BASE=float(os.environ.get("FOUL_BASE","2.8"))
 TP_LUCK=float(os.environ.get("TP_LUCK","0.55"))   # match build_stat_overall.py — 3P-above-league makes repeat ~40%
+# SHOT DIFFICULTY — match build_stat_overall.py: an easy shot diet (look quality above league) earns
+# no extra credit (LOC_W, one-way), and only MAKE_W of eFG above the look's expectation counts.
+# Shot diet is a stable trait, so the per-minute adjustment carries into the projected minutes.
+LOC_W=float(os.environ.get("LOC_W","0.0")); MAKE_W=float(os.environ.get("MAKE_W","0.7"))
+def _load_sd40():
+    f=os.path.join(os.path.dirname(os.path.abspath(__file__)),"data","shot_genome_players.json")
+    if not os.path.exists(f): return {}
+    pl=json.load(open(f)).get("players") or {}
+    pl=[p for p in (pl.values() if isinstance(pl,dict) else pl) if p.get("lq") is not None and p.get("efg") is not None and p.get("fga")]
+    if not pl: return {}
+    lg=sum(p["lq"]*p["fga"] for p in pl)/sum(p["fga"] for p in pl)
+    out={}
+    for p in pl:
+        loc=max(0.0,p["lq"]-lg)/100.0*p["fga"]*2.0; mk=(p["efg"]-p["lq"])/100.0*p["fga"]*2.0
+        out[int(p["espn_id"])]=1.2*((LOC_W-1.0)*loc+(MAKE_W-1.0)*mk)   # TI points over his 2026 season
+    return out
+SD_TI=_load_sd40()
 PF40={}
 try:
     import json as _json
@@ -597,9 +614,12 @@ d26=d26[d26["min"].fillna(0)>=REF_MIN].copy()
 d26["sos"]=d26["team"].map(sos_of)
 d26["mp40"]=d26["min"]/40.0
 d26["usg_mult"]=np.clip((pd.to_numeric(d26["usg_pct"],errors="coerce").fillna(USG_REF)/USG_REF)**USG_POW,USG_LO,USG_HI)
-if TP_LUCK>0:   # the DEMONSTRATED scale discounts 3P luck exactly as build_stat_overall.py does. The
-    # projected line needs no extra step: it already regresses 3P% by sample (tp_cred), and its owa is
-    # stored + (projected - demonstrated), so the luck comes out through that difference.
+# the DEMONSTRATED scale takes the same shot-difficulty adjustment as build_stat_overall.py (2026 is a
+# genome season, so it replaces the 3P-luck step there; TP_LUCK applies only if the genome is missing)
+if SD_TI:
+    _sd=np.array([SD_TI.get(int(e),0.0) for e in d26["espn_id"]])
+    d26["owa"]=d26["owa"]+OWA_B*_sd*d26["min"]/(d26["min"]+REG_MP)
+elif TP_LUCK>0:
     _a3=(box["tpa"]*box["gp"]).reindex(d26["espn_id"]).fillna(0).values
     _m3=(box["tpm"]*box["gp"]).reindex(d26["espn_id"]).fillna(0).values
     _lg3=_m3.sum()/max(_a3.sum(),1)
@@ -861,6 +881,8 @@ for short, roster in roster_by_team.items():
                              ast=_n(b["apg"]),stl=_n(b["stl"]),blk=_n(b["blk"]),tov=_n(b["tovs"]))
                 _,owa_demo,_=ti_value(demo_pg,last_mpg*max(gp_demo,1),games=max(gp_demo,1))
                 owa=_n(r["a"]["owa"])+(owa-owa_demo)
+                if e in SD_TI and last_min>0:   # shot difficulty, per 2026 minute, carried to projected minutes
+                    owa+=OWA_B*SD_TI[e]*(mn/last_min)*mn/(mn+REG_MP)
             # DWA carries from last year's defensive RATE (team-D can't be projected), scaled to new minutes
             dwa_last=_n(r["a"]["dwa"] if r["a"] is not None else 0)
             dwa40=dwa_last/(max(last_min,1)/40.0)

@@ -48,6 +48,27 @@ FOUL_W=float(os.environ.get("FOUL_W","0.012")); FOUL_BASE=float(os.environ.get("
 # 2P finishing repeats at 0.85, so 2P% is NOT discounted). Take TP_LUCK of the above/below-average
 # 3P makes back out of OWA: predictive r 0.702 -> 0.707. Mirrored in build_stat_overall_projected.py.
 TP_LUCK=float(os.environ.get("TP_LUCK","0.55")); OWA_B=0.0092; REG_MP=100.0
+# SHOT DIFFICULTY (2020+, where the shot genome has every player's shot locations). OWA credits
+# efficiency against the LEAGUE, so a big living on dunks gets paid for the easiness of his shots.
+# Split his eFG edge into LOCATION (lq, the eFG his shot spots predict, minus league) and MAKING
+# (actual eFG minus lq). Owner call: easy locations earn no extra credit (LOC_W=0). Making above
+# expectation repeats ~0.49 vs 0.69 for the rest of the line (6.9k returner pairs), so keep
+# MAKE_W=0.7 of it. Replaces TP_LUCK for these seasons (3P luck is inside MAKING). Mirrored in
+# build_stat_overall_projected.py and tdc-shotdiff notes in memory grade-statistical-overall.
+LOC_W=float(os.environ.get("LOC_W","0.0")); MAKE_W=float(os.environ.get("MAKE_W","0.7"))
+GENOME_YEARS=range(2020, CUR+1)
+def load_genome(yr):
+    f=os.path.join(D, "shot_genome_players.json" if yr==CUR else f"shot_genome_players_{yr}.json")
+    if not os.path.exists(f): return {}
+    pl=json.load(open(f)).get("players") or {}
+    pl=pl.values() if isinstance(pl,dict) else pl
+    return {int(p["espn_id"]):p for p in pl if p.get("lq") is not None and p.get("efg") is not None and p.get("fga")}
+def shot_diff_ti(g, lg):
+    """TI points to ADD (negative = take away) for shot difficulty; 1.2 TI per point of scoring."""
+    # ONE-WAY on location: an easy diet loses its extra credit, but a player who lives on hard
+    # shots keeps his penalty (poor shot selection is his choice, not bad luck)
+    loc=max(0.0,g["lq"]-lg)/100.0*g["fga"]*2.0; mk=(g["efg"]-g["lq"])/100.0*g["fga"]*2.0
+    return 1.2*((LOC_W-1.0)*loc + (MAKE_W-1.0)*mk)
 
 def sb_get(path):
     # STABLE ORDER required: PostgREST offset pagination without ORDER BY skips/dupes rows.
@@ -172,7 +193,19 @@ if TP_LUCK>0:
     _lg=adv.groupby("season_year").apply(lambda g: g["m3"].sum()/max(g["a3"].sum(),1)).rename("lg3")
     adv=adv.merge(_lg,left_on="season_year",right_index=True,how="left")
     _luck=(adv["m3"]-adv["lg3"]*adv["a3"])*3.5          # TI points from 3P% above/below the league rate
+    _luck=_luck.where(~adv["season_year"].isin(list(GENOME_YEARS)),0.0)   # genome seasons: shot difficulty below
     adv["owa"]=adv["owa"]-TP_LUCK*OWA_B*_luck*adv["min"]/(adv["min"]+REG_MP)
+_sd=np.zeros(len(adv)); _hit=0
+for _yr in GENOME_YEARS:
+    _g=load_genome(_yr)
+    if not _g: continue
+    _lg=sum(p["lq"]*p["fga"] for p in _g.values())/sum(p["fga"] for p in _g.values())
+    for _i,(_e,_y,_m) in enumerate(zip(adv["espn_id"],adv["season_year"],adv["min"])):
+        if _y!=_yr or pd.isna(_e): continue
+        _p=_g.get(int(_e))
+        if _p: _sd[_i]=OWA_B*shot_diff_ti(_p,_lg)*_m/(_m+REG_MP); _hit+=1
+adv["owa"]=adv["owa"]+_sd
+print(f"  shot-difficulty adjustment on {_hit} player-seasons (LOC_W={LOC_W}, MAKE_W={MAKE_W})",file=sys.stderr)
 _usg=pd.to_numeric(adv["usg_pct"],errors="coerce").fillna(USG_REF)
 adv["usg_mult"]=np.clip((_usg/USG_REF)**USG_POW, USG_LO, USG_HI)
 adv["wa"]=(adv["owa"].fillna(0)*adv["usg_mult"] + DWA_W*adv["dwa"].fillna(0))*adv["sos"]
