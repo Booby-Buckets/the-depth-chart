@@ -646,6 +646,11 @@
     .cz-win-t td.l{white-space:normal;}
     .cz-win-split td{font-size:10px!important;font-weight:800!important;letter-spacing:.1em;text-transform:uppercase;color:var(--text3)!important;background:transparent!important;padding-top:10px!important;}
     @media(max-width:640px){ .cz-win-grid{grid-template-columns:minmax(0,1fr);} }
+    .cz-rot{display:inline-flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--text3);margin-left:auto;}
+    .cz-rot .dc-step{margin-left:0;} .cz-rot .dc-step-v{min-width:48px;font-size:12.5px;}
+    .cz-rot-norm{background:none;border:1px solid var(--border2);border-radius:999px;padding:3px 10px;font:600 11px 'Inter',system-ui,sans-serif;color:var(--text2);cursor:pointer;}
+    .cz-rot-norm:hover{border-color:var(--text);color:var(--text);}
+    .dc-player-row.dnp .dc-row-name,.dc-player-row.dnp .dc-row-grade{opacity:.45;}
     .cz-mode .cz-mode-sep{width:1px;height:18px;background:var(--border2);margin:0 6px;}
     .cz-pill{font:600 11.5px 'Inter',system-ui,sans-serif;letter-spacing:.02em;padding:6px 12px;border:1px solid var(--border2);background:var(--bg);cursor:pointer;color:var(--text2);border-radius:999px;white-space:nowrap;}
     .cz-pill:hover{color:var(--text);border-color:var(--text3);}
@@ -653,6 +658,7 @@
     .cz-pill:disabled{opacity:.45;cursor:default;}
     .cz-pill.ghost{border-style:dashed;}
     .cz-dc-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:0 0 4px;padding-top:14px;border-top:1px solid var(--border);}
+    .cz-rot + .cz-meter{margin-left:18px!important;}
     .cz-meter{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--text3);font-variant-numeric:tabular-nums;}
     .cz-meter b{color:var(--text);font-weight:800;}
     .cz-meter.off b{color:#b07000;}
@@ -1923,8 +1929,9 @@ async function applyCoachRotationDefault(){
     if(!_rotationUserSet){ _rotationSize=_coachRotationSize; _baseCustomProj=buildCustomProjections();
       if(document.querySelector('#customizeContent .sq-wrap')) rebuildCustomizeUI(); } }
 }
-function onRotationChange(v){ _rotationSize=Math.max(6,Math.min(15,parseInt(v)||10)); _rotationUserSet=true;
-  _baseCustomProj=buildCustomProjections(); rebuildCustomizeUI(); }
+function onRotationChange(v){ const n=Math.max(5,Math.min(15,parseInt(v)||10));
+  if(typeof _czApplyRotation==='function'){ _czApplyRotation(n); return; }
+  _rotationSize=n; _rotationUserSet=true; rebuildCustomizeUI(); }
 async function updateHeroCoach(teamObj, school, year){
   const el = document.getElementById('heroCoach'); if(!el || !school) return;
   const idx = await loadCoachIdx();
@@ -3598,8 +3605,8 @@ function _curMpgOf(p){
 // over is trimmed from that column's bench; 3) trimmed minutes go to columns with room (capped
 // at 34 so nobody is pushed into the fatigue band) so the game still totals 200.
 // Writes customMpg (+ may move bench players); callers rebuild _baseCustomProj/baseline after.
-function _czFitColumns(){
-  if(window._czBuildMode) return false;
+function _czFitColumns(force){
+  if(window._czBuildMode&&!force) return false;
   const cur={};
   POS_KEYS.forEach(pos=>{ customDepth[pos]=(customDepth[pos]||[]).filter(p=>p&&p.name); customDepth[pos].forEach(p=>{ cur[p.name]=_curMpgOf(p); }); });
   const sum=pos=>customDepth[pos].reduce((s,p)=>s+cur[p.name],0);
@@ -4690,7 +4697,7 @@ function rebuildCustomizeUI(){
         :(effGrade>=90?'#0a3fd4':effGrade>=83?'#2c6ef2':effGrade>=76?'#4a84f4':effGrade>=68?'#7aaaf8':'#aac4fa');
       const fitTooltip  = fit.reason ? ` title="${_sqAttr(fit.reason)}"` : '';
       const nAttr=_sqAttr(p.name);
-      return `<div class="dc-player-row${isStarter?' is-starter':''}"
+      return `<div class="dc-player-row${isStarter?' is-starter':''}${_curMpgOf(p)<ROT_MIN?' dnp':''}"
           draggable="true"
           data-pos="${pos}" data-row="${rowIdx}"
           ondragstart="onDcDragStart(event,'${pos}',${rowIdx})"
@@ -4740,7 +4747,7 @@ function rebuildCustomizeUI(){
     </div>
     <div class="cz-subpanel" data-sub="lineup">
       ${_czModeBar()}
-      <div class="cz-dc-head"><span class="sec-head" style="margin:0;padding:0;border:0;">Depth chart</span>${_czMinutesMeter()}</div>
+      <div class="cz-dc-head"><span class="sec-head" style="margin:0;padding:0;border:0;">Depth chart</span>${_czRotControl()}${_czMinutesMeter()}</div>
       <div class="pos-depth-grid">${colsHtml}</div>
       <div class="sec-head" style="margin-bottom:12px;">How this lineup wins</div>
       ${_labWinPanel()}
@@ -5105,6 +5112,76 @@ function onMpgChange(playerName, pKey, val){
   _czRefresh(false, true);   // the editor slider is mid-drag: refresh the page, not the editor
 }
 function _czTeamMins(){ let t=0; POS_KEYS.forEach(pos=>(customDepth[pos]||[]).forEach(p=>{ if(p&&p.name) t+=_curMpgOf(p); })); return Math.round(t); }
+// ── ROTATION SIZE ────────────────────────────────────────
+// Default minutes follow the team: My team opens on the projection (built from the
+// current coach's real minutes-by-rank, coach_rotation.json). The rotation control
+// re-deals minutes for an N-man rotation on that same coach shape: starters first,
+// then the bench by effective grade, everyone past N at 0. Column caps are then
+// re-fit (_czFitColumns). A player at ROT_MIN+ minutes counts as in the rotation.
+const ROT_MIN=5;
+let _czRot=null, _czRotLoading=false;
+function _ensureCzRot(){
+  if(_czRot||_czRotLoading) return; _czRotLoading=true;
+  fetch('scripts/data/coach_rotation.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null)
+    .then(d=>{ _czRot=d||{}; if(document.querySelector('#customizeContent .cz-rot')) rebuildCustomizeUI(); });
+}
+function _czCoachRot(){
+  const d=_czRot||{}, r=(teamT&&d[teamT.name])||null, n=d._natl||null;
+  const slots=(r&&Array.isArray(r.slots)&&r.slots.length>=10)?r.slots:((n&&n.slots)||[31.6,29.1,26.7,24.0,21.3,18.1,14.9,11.7,8.7,6.0]);
+  return {slots, size:Math.max(6,Math.min(13,(r&&r.rot_size)||(n&&n.rot_size)||8)), coach:(r&&r.coach)||null};
+}
+function _czRotCount(){ let n=0; POS_KEYS.forEach(pos=>(customDepth[pos]||[]).forEach(p=>{ if(p&&p.name&&_curMpgOf(p)>=ROT_MIN) n++; })); return n; }
+function _czRotShape(N){
+  const {slots}=_czCoachRot(), s=[];
+  for(let i=0;i<N;i++) s.push(Math.max(8, i<slots.length?slots[i]:slots[slots.length-1]*Math.pow(0.85,i-slots.length+1)));
+  // scale to a 200-minute game, nobody past 38 (overflow goes to the rest)
+  let fixed=new Array(N).fill(false);
+  for(let pass=0;pass<6;pass++){
+    const tot=s.reduce((a,b)=>a+b,0), free=s.reduce((a,v,i)=>a+(fixed[i]?0:v),0), room=200-(tot-free);
+    if(free<=0) break;
+    let capped=false; for(let i=0;i<N;i++){ if(fixed[i]) continue; s[i]=s[i]*room/free; if(s[i]>38){ s[i]=38; fixed[i]=true; capped=true; } }
+    if(!capped) break;
+  }
+  return s;
+}
+function _czApplyRotation(N, silent){
+  const all=[]; POS_KEYS.forEach(pos=>(customDepth[pos]||[]).forEach((p,i)=>{ if(p&&p.name) all.push({p,pos,row:i,eff:_effAtPos(p,customPos[p.name]||pos)}); }));
+  if(!all.length) return;
+  N=Math.max(1,Math.min(N,all.length));
+  const starters=all.filter(x=>x.row===0).sort((a,b)=>b.eff-a.eff), bench=all.filter(x=>x.row>0).sort((a,b)=>b.eff-a.eff);
+  const order=starters.concat(bench), shape=_czRotShape(N);
+  order.forEach((x,i)=>{ customMpg[x.p.name]=i<N?Math.round(shape[i]):0; });
+  _czFitColumns(true);
+  // the column caps can strand a few minutes; top the rotation back up to 200 (per player 38,
+  // per column 42), proportional to the minutes each already has
+  for(let pass=0;pass<4;pass++){
+    const inR=[]; POS_KEYS.forEach(pos=>(customDepth[pos]||[]).forEach(p=>{ if(p&&p.name&&(customMpg[p.name]||0)>0) inR.push({p,pos}); }));
+    const tot=inR.reduce((a,x)=>a+customMpg[x.p.name],0), need=200-tot; if(need<1||!inR.length) break;
+    const colRoom=pos=>POS_MIN_CAP-(customDepth[pos]||[]).reduce((a,p)=>a+(customMpg[p.name]||0),0);
+    const open=inR.filter(x=>customMpg[x.p.name]<38&&colRoom(x.pos)>=1), base=open.reduce((a,x)=>a+customMpg[x.p.name],0);
+    if(!open.length||base<=0) break;
+    open.forEach(x=>{ const add=Math.min(Math.round(need*customMpg[x.p.name]/base), 38-customMpg[x.p.name], colRoom(x.pos)); if(add>0) customMpg[x.p.name]+=add; });
+  }
+  _rotationSize=N; _rotationUserSet=true;
+  if(!silent) _czRefresh(true);
+}
+function czRotStep(d){
+  const cur=_czRotCount()||_czCoachRot().size, n=Math.max(5,Math.min(13,cur+d));
+  if(n===cur){ _czToast(d>0?'That is everyone on the roster':'Five players is the minimum'); return; }
+  _czApplyRotation(n);
+}
+function _czRotControl(){
+  _ensureCzRot();
+  const n=_czRotCount(), c=_czCoachRot(), who=c.coach?c.coach.split(' ').slice(-1)[0]:'D-I average';
+  return `<span class="cz-rot">Rotation
+    <span class="dc-step"><button type="button" onclick="czRotStep(-1)" aria-label="Shorter rotation">−</button><span class="dc-step-v">${n}-man</span><button type="button" onclick="czRotStep(1)" aria-label="Deeper rotation">+</button></span>
+    ${_czRot?`<button type="button" class="cz-rot-norm" onclick="_czApplyRotation(${c.size})" title="Deal minutes the way ${c.coach||'the average D-I coach'} does">${who} plays ${c.size}</button>`:''}
+  </span>`;
+}
+function czEdRotation(inRot){
+  if(!_czEdName) return;
+  _czSetMinutes(_czEdName, inRot?10:0);
+}
 function _czMinutesMeter(){
   const t=_czTeamMins(), off=Math.abs(t-MAX_TEAM_MINS)>2, w=Math.min(100,t/MAX_TEAM_MINS*100);
   return `<span class="cz-meter${off?' off':''}">Minutes <b>${t} / ${MAX_TEAM_MINS}</b><span class="cz-meter-bar"><span style="width:${w}%"></span></span></span>`;
@@ -5172,6 +5249,7 @@ function _renderPlayerEditor(){
     <div class="cz-ed-sec"><div class="cz-ed-lbl"><span>Position</span></div><div class="cz-ed-chips">${posChips}</div></div>
     <div class="cz-ed-sec"><div class="cz-ed-lbl"><span>Role</span></div><div class="cz-ed-chips">${roleChips}</div></div>
     <div class="cz-ed-sec cz-ed-acts">
+      ${(()=>{ const inR=_curMpgOf(f.p)>=ROT_MIN; return `<button type="button" class="cz-pill${inR?' on':''}" onclick="czEdRotation(true)">In rotation</button><button type="button" class="cz-pill${inR?'':' on'}" onclick="czEdRotation(false)">Out</button><span class="cz-mode-sep"></span>`; })()}
       <button type="button" class="cz-pill" onclick="czEdStarter()"${row===0?' disabled':''}>${row===0?'Starter':'Make starter'}</button>
       <button type="button" class="cz-pill" onclick="czEdReplace()">Replace…</button>
       <button type="button" class="cz-pill danger" onclick="czEdRemove()">Remove</button>
@@ -5266,7 +5344,9 @@ async function buildAllTimeBest(){
   customDepth=nd; customMpg={}; customPos={}; customRole={}; _rotationUserSet=false;
   window._czBuildMode=false;   // all-time roster is still THIS team → keep the rating anchor
   window._czLabMode='build'; window._czBuildStart='alltime';
-  _baseCustomProj=buildCustomProjections(); if(_czFitColumns()) _baseCustomProj=buildCustomProjections();
+  // minutes follow this program's coach (his usual rotation size + minutes shape), not a flat 15-man spread
+  _czApplyRotation(_czCoachRot().size, true);
+  _baseCustomProj=buildCustomProjections();
   baseAnalytics=calcCustomAnalytics();
   rebuildCustomizeUI();
   _czToast(teamName+' all-time roster loaded');
