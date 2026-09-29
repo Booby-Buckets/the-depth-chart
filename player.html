@@ -1066,7 +1066,7 @@ body{background:transparent!important;}
   <script src="tdc-engine.js"></script>
   <script src="tdc-impact.js?v=1"></script>
   <script src="tdc-heat.js?v=2s"></script>
-  <script src="bigboard-engine.js?v=20"></script>
+  <script src="bigboard-engine.js?v=21"></script>
   <style>
     .dna-sub-seg{display:inline-flex;gap:4px;background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:4px;flex-wrap:wrap;}
     .dna-sub-seg button{font:800 12px/1 'Inter',sans-serif;letter-spacing:.02em;color:var(--text3);background:transparent;border:none;border-radius:7px;padding:8px 15px;cursor:pointer;transition:all .14s;}
@@ -4327,8 +4327,8 @@ async function loadDraftSticker(){
       // too young for the 2027 draft (reclassified — draft-overrides.json eligible_from): rank him
       // on the board for the first draft he can enter instead
       var _bbYr='’27';
-      if(!me && TDC_BIGBOARD.eligibleFrom){
-        var _ovr=await TDC_BIGBOARD.overrides(), _fy=TDC_BIGBOARD.eligibleFrom(player,_ovr);
+      if(!me && TDC_BIGBOARD.nextDraftOf){
+        var _ovr=await TDC_BIGBOARD.overrides(), _fy=TDC_BIGBOARD.nextDraftOf(player,_ovr);
         if(_fy===2028){ var res28=await TDC_BIGBOARD.board(players, teamMap, {season:'2728'}); me=res28.byId[player.id]; _bbYr='’28'; }
       }
       // header 2×2 grid — this-year national + position rank from the Big Board
@@ -4350,7 +4350,7 @@ async function loadDraftSticker(){
         [_bbT,_bbP].forEach(function(n){ var cell=n&&n.parentElement; if(!cell||cell._bbLink) return;
           cell._bbLink=true; cell.style.cursor='pointer';
           cell.style.cursor='';
-          cell.title='Ranked #'+me.rank+' on The Depth Chart Big Board — '+(_bbYr==='’28'?'2028 NBA Draft (too young for 2027)':'2027 NBA Draft (2026-27 projected)')+'.';
+          cell.title='Ranked #'+me.rank+' on The Depth Chart Big Board — '+(_bbYr==='’28'?'2028 NBA Draft (not in the 2027 draft)':'2027 NBA Draft (2026-27 projected)')+'.';
         });
       }
     }

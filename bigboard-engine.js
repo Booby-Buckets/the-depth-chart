@@ -324,13 +324,19 @@
     // Too young for this draft (a reclassified high-schooler): draft-overrides.json eligible_from
     // names his first draft; he's left off earlier boards and ranked on that year's.
     var draftYear=season==='2728'?2028:season==='2627'?2027:2026, fromYr=ov.eligible_from||{};
+    // real 2027 decisions (draft-overrides.json): 'returning' withdrew and went back to school,
+    // 'declared' stayed in. They override the mock-based guesses on both boards.
+    var nset=function(a){ var o={}; (a||[]).forEach(function(n){ o[(''+n).trim()]=1; }); return o; };
+    var returning=nset(ov.returning), declared=nset(ov.declared);
     var pool=(players||[]).filter(function(p){
-      var fy=fromYr[(p.name||'').trim()];
+      var nm=(p.name||'').trim(), fy=fromYr[nm];
       if(fy!=null && +fy>draftYear) return false;
+      if(draftYear===2027 && returning[nm]) return false;   // back in school — not in the 2027 draft
+      if(draftYear===2028 && declared[nm]) return false;    // already in the NBA
       return eligible(p,ineligible);
     });
     pool.forEach(function(p){ var fy=fromYr[(p.name||'').trim()]; if(fy!=null) p._eligFrom=+fy; });
-    pool.forEach(function(p){ p._mayReturn=null; });
+    pool.forEach(function(p){ p._mayReturn=null; p._returning=null; });
     // 2028 draft class (owner rules, Sept 2026). The 2027 mock is the 2027 board's order (the mock
     // draft fills best-available off it), so:
     //   2027 picks 1-24  -> declared and drafted: gone.
@@ -350,6 +356,7 @@
         return !(/gr|5th|r-?\s*sr|rs\s*sr/.test(y)); };   // a plain Sr. can still take a grad year
       pool=pool.filter(function(p){
         var pk=m27[p.id], ck=classKey(p);
+        if(returning[(p.name||'').trim()]){ p._returning=true; return true; }   // confirmed returner
         if(pk!=null){
           if(pk<=24) return false;
           if(ck==='so') return false;
@@ -475,7 +482,7 @@
   function overrides(){
     if(_ovP) return _ovP;
     _ovP=(typeof fetch==='function')
-      ? fetch('draft-overrides.json?v=2',{cache:'no-cache'}).then(function(r){ return r.ok?r.json():{}; }).catch(function(){ return {}; })
+      ? fetch('draft-overrides.json?v=3',{cache:'no-cache'}).then(function(r){ return r.ok?r.json():{}; }).catch(function(){ return {}; })
       : Promise.resolve({});
     return _ovP;
   }
@@ -492,5 +499,12 @@
 
   // first draft a player can enter per the overrides (null = the next one)
   function eligibleFrom(p, ov){ var m=(ov&&ov.eligible_from)||{}; var y=m[((p&&p.name)||'').trim()]; return y!=null?+y:null; }
-  global.TDC_BIGBOARD={board:board, eligibleFrom:eligibleFrom, compute:compute, liveRanks:liveRanks, buildProjById:buildProjById, sane:sane, overrides:overrides, pgrp:pgrp, posLabel:posLabel, classKey:classKey, fallbackLine:projPlayer};
+  // the draft a player is headed for when he isn't on the 2027 board: 2028 for a reclassified kid
+  // (eligible_from) or a confirmed returner (returning list); null otherwise
+  function nextDraftOf(p, ov){
+    var nm=((p&&p.name)||'').trim();
+    if(((ov&&ov.returning)||[]).some(function(n){ return (''+n).trim()===nm; })) return 2028;
+    var y=eligibleFrom(p, ov); return y!=null?y:null;
+  }
+  global.TDC_BIGBOARD={board:board, eligibleFrom:eligibleFrom, nextDraftOf:nextDraftOf, compute:compute, liveRanks:liveRanks, buildProjById:buildProjById, sane:sane, overrides:overrides, pgrp:pgrp, posLabel:posLabel, classKey:classKey, fallbackLine:projPlayer};
 })(typeof window!=='undefined'?window:this);

@@ -280,7 +280,7 @@ body{background:transparent!important;}
 <script src="tdc-freshman.js?v=pub15"></script>   <!-- the Big Board ranks freshmen off the owner's projected line -->
 <script src="tdc-projgrade.js?v=base27"></script>
 <script src="tdc-proj.js?v=coach26"></script>
-<script src="bigboard-engine.js?v=20"></script>
+<script src="bigboard-engine.js?v=21"></script>
 <script>
 const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
@@ -320,6 +320,7 @@ var BB_COLS=[
   {k:'rank', l:'#',      cls:'rk',      get:function(p){return p.rank;}},
   {k:'name', l:'Prospect',cls:'nm l',     get:function(p){return p.name;},
      html:function(p){return '<a href="player.html?id='+p.id+'" title="'+p.name.replace(/"/g,'&quot;')+'">'+p.name+'</a>'+
+       (season==='2728'&&p._returning?' <span class="bb-ret" style="color:var(--pos,#3a9a5b)" title="Withdrew from the 2027 draft and returned to school">Returning</span>':'')+
        (season==='2728'&&p._mayReturn?' <span class="bb-ret" title="Projected pick #'+p._mayReturn+' in 2027 — on this board only if he returns to school">’27 #'+p._mayReturn+' · if he returns</span>':'');}},
   {k:'ovr',  l:'Board',  cls:'big', shade:true, get:function(p){return p._sc.overall;}},
   {k:'pos',  l:'Pos',    cls:'dim l',     get:function(p){return p.position||'';}},
@@ -402,7 +403,7 @@ function renderBoard(){
   if(window.tdcSheetHeat) tdcSheetHeat(document.querySelector('#bbSheet table'));
   var bn=document.getElementById('basisNote');
   if(bn)bn.innerHTML=season==='2728'
-    ? 'The <b>2028</b> board is a way-too-early watch board of who should still be in school. The <b>top 24</b> of the 2027 mock are gone (drafted). Picks <b>25–60</b> sometimes come back for more money or a better slot — <b>freshmen</b> for a second-year jump, <b>juniors and seniors</b> for a senior or grad year — so they stay, tagged <span class="bb-ret">’27 #N · if he returns</span>; sophomores in that range declare. Everyone outside the mock with eligibility left stays, plus reclassified freshmen too young for 2027. Not-yet-arrived recruits aren\u2019t on it yet.'
+    ? 'The <b>2028</b> board is a way-too-early watch board of who should still be in school. Once decisions are in, players who <b>declared</b> leave it and confirmed returners are tagged <span class="bb-ret" style="color:var(--pos,#3a9a5b)">Returning</span>. Until then: the <b>top 24</b> of the 2027 mock are gone (drafted). Picks <b>25–60</b> sometimes come back for more money or a better slot — <b>freshmen</b> for a second-year jump, <b>juniors and seniors</b> for a senior or grad year — so they stay, tagged <span class="bb-ret">’27 #N · if he returns</span>; sophomores in that range declare. Everyone outside the mock with eligibility left stays, plus reclassified freshmen too young for 2027. Not-yet-arrived recruits aren\u2019t on it yet.'
     : season==='2627'
     ? _youngNote()+'The <b>2026-27</b> board scores on <b>projected stat lines</b> from the full projection engine (same as the player &amp; projections pages) — accounting for roster departures, minutes redistribution, and freshman estimates'+(projReady?'.':' (still computing… showing a quick estimate).')
     : 'The <b>2025-26</b> board scores on actual season production.';
@@ -411,7 +412,10 @@ function renderBoard(){
 // players too young for the 2027 draft (reclassified — draft-overrides.json eligible_from)
 function _youngNote(){
   var m=(draftOverrides&&draftOverrides.eligible_from)||{}, n=Object.keys(m).filter(function(k){return +m[k]>2027;});
-  return n.length?'<b>Not eligible until 2028</b> (too young — reclassified): '+n.join(', ')+'. They\u2019re on the 2028 board. ':'';
+  var r=(draftOverrides&&draftOverrides.returning)||[];
+  return (n.length?'<b>Not eligible until 2028</b> (too young — reclassified): '+n.join(', ')+'. ':'')+
+         (r.length?'<b>Returned to school</b> (withdrew from 2027): '+r.join(', ')+'. ':'')+
+         (n.length||r.length?'They\u2019re on the 2028 board. ':'');
 }
 // ── season switching ──
 function syncSeg(segId,attr,val){
@@ -426,7 +430,7 @@ function setSeason(s){
 // ── boot ──
 async function load(){
   try{
-    try{ draftOverrides=await fetch('draft-overrides.json?v=2',{cache:'no-cache'}).then(function(r){return r.ok?r.json():{};}); }catch(e){ draftOverrides={}; }
+    try{ draftOverrides=await fetch('draft-overrides.json?v=3',{cache:'no-cache'}).then(function(r){return r.ok?r.json():{};}); }catch(e){ draftOverrides={}; }
     var tr=await fetch(SB+'/rest/v1/teams?select=*',{headers:H});
     (await tr.json()).forEach(function(t){teamMap[t.name]=t;teamColors[t.name]=t.color||'#888';});
     // the SAME shared pool the player page uses — one fetch, one set of columns, one board
