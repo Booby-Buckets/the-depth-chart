@@ -8180,10 +8180,15 @@ function renderHistoricRoster(rows, yr, projected){
     // MINUTES lead: within the players eligible for a spot, the one who projects to play the
     // most gets it (grade only breaks ties / rewards quality), so the starting five is the five
     // who actually play — subject to being positionally real.
+    // where the build actually gives him minutes (pos_min): a PF the minutes model plays at the 5
+    // (Saint Louis' Michaeli) is placed at C, not the other forward
+    const _pmAt=(p,pos)=>{ try{ const row=(window.TDCProjGrade&&TDCProjGrade.projRowOf)?TDCProjGrade.projRowOf(p.espn_id):null;
+      const pm=(row&&row.pos_min)||((window.TDCFresh&&TDCFresh.fitFor&&(TDCFresh.fitFor(p)||{}).pos_min)||null);
+      return pm&&pm[pos]?pm[pos]:0; }catch(e){ return 0; } };
     const value=(p,pos)=>{ const d=posDist(p,pos);
-      if(d>=2) return OOP_BLOCK;
+      if(d>=2&&!(_pmAt(p,pos)>=5)) return OOP_BLOCK;
       const primaryPref = (slot(p)===pos) ? 2.5 : 0;   // his primary beats his secondary on a tie
-      return _pm(p)*1.0 + gr(p)*0.22 - htFit(p,pos)*0.5 - (d===1?OOP_1:0)
+      return _pm(p)*1.0 + gr(p)*0.22 - htFit(p,pos)*0.5 - (d===1?OOP_1:0) + _pmAt(p,pos)*2.2
              + (pos==='C'?Math.max(0,(_htIn(p.height)-80))*0.15:0) + primaryPref; };
     // The starter pool is the top EIGHT by projected minutes, not the top five: a roster whose
     // five biggest-minute players contain no centre used to have one of them dragged to the 5.
@@ -8312,7 +8317,7 @@ function renderHistoricRoster(rows, yr, projected){
       const f=(window.TDCFresh&&TDCFresh.fitFor)?TDCFresh.fitFor(p):null;
       return (f&&f.pos_min)||null; }catch(e){ return null; } };
   const _totMin=p=>{ const v=(p._projMin!=null)?p._projMin:parseFloat(p.mpg); return (v!=null&&!isNaN(v))?v:null; };
-  const _hereMin=(p,pos)=>{ if(!_usePos) return _totMin(p); const pm=_posMinOf(p); if(!pm) return _totMin(p); return pm[pos]!=null?pm[pos]:0; };
+  const _hereMin=(p,pos)=>_totMin(p);   // each player is listed once, with his full projected minutes
   if(_usePos){
     // bench players live in the column where the build gives them the most minutes (starters keep their spot)
     const _byPos={}; cols.forEach(c=>{ _byPos[c.pos]=c; });
@@ -8322,19 +8327,17 @@ function renderHistoricRoster(rows, yr, projected){
         if(best&&best!==c.pos&&pm[best]>=0.5) moveOut.push([p,best]); else keep.push(p); });
       c.list=keep; c._in=(c._in||[]); moveOut.forEach(([p,b])=>{ (_byPos[b]._in=_byPos[b]._in||[]).push(p); }); });
     cols.forEach(c=>{ if(c._in){ c.list=c.list.concat(c._in); delete c._in; } });
-    cols.forEach(c=>{ c.entries=c.list.map((p,i)=>({p,also:false,star:i===0})); });
-    cols.forEach(c=>{ cols.forEach(o=>{ if(o===c) return; o.list.forEach(p=>{ const pm=_posMinOf(p);
-      if(pm&&pm[c.pos]>=2) c.entries.push({p,also:true,star:false}); }); }); });
-    cols.forEach(c=>{ const st=c.entries.filter(e=>e.star), rest=c.entries.filter(e=>!e.star).sort((a,b)=>_hereMin(b.p,c.pos)-_hereMin(a.p,c.pos));
-      c.entries=st.concat(rest); });
+    // one row per player (owner: no duplicates) — starter first, then the bench by minutes
+    cols.forEach(c=>{ const st=c.list.slice(0,1), rest=c.list.slice(1).sort((a,b)=>(_totMin(b)||0)-(_totMin(a)||0));
+      c.entries=st.map(p=>({p,also:false,star:true})).concat(rest.map(p=>({p,also:false,star:false}))); });
   } else cols.forEach(c=>{ c.entries=c.list.map((p,i)=>({p,also:false,star:i===0})); });
   const colHtml=cols.map(c=>{
     const _cm=c.entries.reduce((s,e)=>s+(_hereMin(e.p,c.pos)||0),0);
-    const head=`<div class="dc-head" style="border-bottom-color:${color};background:rgba(${rgb},.07);">${c.pos}${(projected&&_cm>0)?`<span class="dc-head-min" title="Projected minutes at ${c.pos} (5 on the floor x 40 = 200 a game, about 40 a spot)">${Math.round(_cm)} min</span>`:''}</div>`;
+    const head=`<div class="dc-head" style="border-bottom-color:${color};background:rgba(${rgb},.07);">${c.pos}${(projected&&_cm>0)?`<span class="dc-head-min" title="Projected minutes of the players listed at ${c.pos} (5 on the floor x 40 = 200 a game)">${Math.round(_cm)} min</span>`:''}</div>`;
     if(!c.entries.length) return `<div class="dc-col">${head}<div class="dc-empty">—</div></div>`;
     const rows=c.entries.map((e,i)=>{ const p=e.p;
       const _pm=_hereMin(p,c.pos), _pt=_totMin(p);
-      const _split=_usePos&&_pt!=null&&_pm!=null&&Math.abs(_pt-_pm)>=0.5;
+      const _split=false;
       const mpg=(_pm!=null&&!isNaN(_pm))?(_pm<0.5&&!e.star?'—':(num(_pm)+'m'+(_split?` <span class="dc-of">of ${num(_pt)}</span>`:''))):'';
       const bio=[p.yr, p.height, mpg].filter(Boolean).join(' · ');
       let g=_gdisp(p);   // projected OVR for returners (falls back to demonstrated grade for historic seasons)
@@ -8462,7 +8465,7 @@ async function _renderShotDist(rows){
   const _e=s=>(''+(s||'')).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
   try{
     if(!_shotProj){
-      const r=await fetch('scripts/data/stat_overall_projected.json?v=63').then(x=>x.ok?x.json():null).catch(()=>null);
+      const r=await fetch('scripts/data/stat_overall_projected.json?v=64').then(x=>x.ok?x.json():null).catch(()=>null);
       _shotProj={players:(r&&r.players)||{}, teams:(r&&r.teams)||{}};
     }
     const P=_shotProj.players, T=_shotProj.teams;

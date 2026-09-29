@@ -325,7 +325,7 @@ def pos5_flow(minutes,lists,depths,home):
             cands=[(1 if st(i) else 0,-alloc[i][dnr],i) for i in range(n) if not parked(i) and alloc[i].get(dnr,0)>0.05
                    and min(abs(POS5.index(rcv)-POS5.index(l)) for l in lists[i])<=1]
             for _,_,i in sorted(cands):
-                give=min(need,alloc[i][dnr],col(dnr)-FLOOR)
+                give=min(need,alloc[i][dnr],max(col(dnr)-FLOOR,(col(dnr)-col(rcv))/2.0))   # or until the two are level
                 if give<=0.05: continue
                 alloc[i][dnr]-=give; alloc[i][rcv]=alloc[i].get(rcv,0.0)+give; need-=give; moved=True
                 if need<=0.05: break
@@ -346,7 +346,10 @@ def pos5_flow(minutes,lists,depths,home):
         if col(lo)>=T-POS5_BAND: break
         hi=max(POS5,key=col)
         if col(hi)<=T: break
-        rec=sorted([i for i in range(n) if lo in alloc[i] and not parked(i)],key=lambda i:(0 if home[i]==lo else 1,depths[i] or 99))   # the column's own players first
+        # only the ROTATION (depth <= 7) may be handed extra minutes here, at most +6 each: a short spot
+        # stays a little short rather than an unrated 8th-man freshman playing 24 (Saint Louis, Pearson)
+        rec=sorted([i for i in range(n) if lo in alloc[i] and not parked(i) and depths[i] is not None and depths[i]<=7
+                    and sum(alloc[i].values())<minutes[i]+6.0],key=lambda i:(0 if home[i]==lo else 1,depths[i] or 99))   # the column's own players first
         don=sorted([i for i in range(n) if alloc[i].get(hi,0)>0 and not st(i)],key=lambda i:-(depths[i] or 99))
         if not rec or not don: break
         amt=min(T-col(lo),col(hi)-T); got=0.0
@@ -355,7 +358,7 @@ def pos5_flow(minutes,lists,depths,home):
             if got>=amt-0.01: break
         left=got
         for i in rec:
-            t=min(left,max(0.0,POS5_CAP-sum(alloc[i].values()))); alloc[i][lo]=alloc[i].get(lo,0.0)+t; left-=t
+            t=min(left,max(0.0,min(POS5_CAP,minutes[i]+6.0)-sum(alloc[i].values()))); alloc[i][lo]=alloc[i].get(lo,0.0)+t; left-=t
             if left<=0.01: break
         if left>0.01 and don: alloc[don[0]][hi]+=left
         if got<0.05: break
