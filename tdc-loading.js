@@ -7,11 +7,16 @@
    How: wraps window.fetch to count in-flight requests. Load it EARLY in <head> so it sees the
    page's first requests. Anti-flicker: it waits 150ms before appearing, stays up at least 400ms
    once shown, and waits 300ms of quiet before hiding (chained requests re-arm it). A 25s ceiling
-   means a hung request can never leave it spinning. Respects prefers-reduced-motion. */
+   means a hung request can never leave it spinning. Respects prefers-reduced-motion.
+   FIRST LOAD (Sept 2026): until the page's first data lands it is a centred wheel card, so an
+   empty table reads as loading rather than broken; it turns into the corner pill once the page's
+   first data has landed (every request back, after a 250ms pause for chained ones) or after 20s. */
 (function () {
   if (window.__tdcLoading) return; window.__tdcLoading = true;
 
   var inflight = 0, el = null, shown = false, shownAt = 0;
+  var initial = true, initT = setTimeout(function () { endInitial(); }, 20000);   // first-load mode, 20s ceiling
+  function endInitial() { if (!initial) return; initial = false; clearTimeout(initT); if (el) { el.classList.remove('init'); el.style.left = ''; } }
   var showT = null, hideT = null, capT = null;
   var pageDone = document.readyState === 'complete';
 
@@ -29,7 +34,16 @@
       'border-top-color:var(--accent,#2952e0);animation:tdcLoadSpin .7s linear infinite;flex:0 0 auto;}' +
       '@keyframes tdcLoadSpin{to{transform:rotate(360deg);}}' +
       '@media (prefers-reduced-motion: reduce){#tdcLoading i{animation-duration:1.8s;}}' +
-      '@media (max-width:600px){#tdcLoading{right:10px;padding:6px;}#tdcLoading span{display:none;}}';
+      '@media (max-width:600px){#tdcLoading{right:10px;padding:6px;}#tdcLoading span{display:none;}}' +
+      /* FIRST LOAD: a centred wheel while the page's first data is on its way, so an empty table
+         reads as "loading", not "broken"; it drops back to the corner pill after that */
+      '#tdcLoading.init{top:42% !important;left:50%;right:auto;transform:translate(-50%,-50%) scale(.96);flex-direction:column;gap:10px;' +
+      'padding:18px 26px;border-radius:16px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;}' +
+      '#tdcLoading.init.on{transform:translate(-50%,-50%);}' +
+      '#tdcLoading.init i{width:30px;height:30px;border-width:3px;}' +
+      '#tdcLoading.init,:root[data-theme="dark"] #tdcLoading.init{background:var(--bg2,#fff);box-shadow:0 10px 30px rgba(0,0,0,.18);}' +
+      ':root[data-theme="dark"] #tdcLoading.init{background:var(--bg2,#111726);border-color:var(--border2,rgba(255,255,255,.16));box-shadow:0 10px 30px rgba(0,0,0,.45);}' +
+      '@media (max-width:600px){#tdcLoading.init{padding:16px 20px;}#tdcLoading.init span{display:inline;}}';
     document.head.appendChild(s);
   }
   function make() {
@@ -40,6 +54,7 @@
     el.setAttribute('role', 'status');
     el.setAttribute('aria-live', 'polite');
     el.innerHTML = '<i aria-hidden="true"></i><span>Loading</span>';
+    if (initial) el.classList.add('init');
     document.body.appendChild(el);
     return el;
   }
@@ -65,6 +80,7 @@
       var k = kids[j], p = getComputedStyle(k).position;
       if ((p === 'sticky' || p === 'fixed') && k.getBoundingClientRect().width > vw * 0.8 && k.id !== 'tdcLoading') consider(k);
     }
+    if (el.classList.contains('init')) return;          // the first-load wheel sits mid-screen
     el.style.top = Math.max(12, Math.round(b + 10)) + 'px';
   }
   var placeT = null;
@@ -83,9 +99,11 @@
     capT = setTimeout(forceHide, 25000);            // a hung request never spins forever
   }
   function reallyHide() {
-    if (!shown) return;
+    if (!shown) { if (pageDone && inflight === 0) endInitial(); return; }
     shown = false; clearTimeout(capT); clearInterval(placeT);
     if (el) el.classList.remove('on');
+    // the page's first load is done: later work (tabs, filters) uses the small corner pill
+    if (pageDone) setTimeout(endInitial, 220);
   }
   function forceHide() { inflight = 0; pageDone = true; reallyHide(); }
 
@@ -104,9 +122,13 @@
 
   var nativeFetch = window.fetch;
   if (typeof nativeFetch === 'function') {
+    var fetched = 0, firstT = null;
     window.fetch = function () {
-      inflight++; update();
-      var done = function () { inflight = Math.max(0, inflight - 1); update(); };
+      inflight++; fetched++; clearTimeout(firstT); update();
+      // the page's first data has landed once every request is back (a short pause lets a chained
+      // request start first): from then on the mid-screen wheel would sit on real content
+      var done = function () { inflight = Math.max(0, inflight - 1); update();
+        if (initial && inflight === 0) { clearTimeout(firstT); firstT = setTimeout(function () { if (inflight === 0) endInitial(); }, 250); } };
       var p;
       try { p = nativeFetch.apply(this, arguments); }
       catch (e) { done(); throw e; }
