@@ -593,6 +593,18 @@ for short, roster in roster_by_team.items():
                       last_usg=_n(a["usg_pct"] if a is not None else None,USG_REF) or USG_REF,
                       demo=demo_ovr.get(e,72)))
     if not R: continue
+    # THE DEPTH CHART'S STARTERS START. The owner's depth 1-5 are the starting five, so a bench
+    # player's projection may not climb above the weakest starter's (his old minutes only nudge
+    # inside the bench role) unless he is a proven same-school returner. Miami: Goode (6th, 30.9 mpg
+    # at Robert Morris) projected 22.9 over Cyril's 22.3 starter slot, was then squeezed as a
+    # "starter" while Cyril was squeezed as a 6th man, and the team page started Goode.
+    _depR=lambda r: (int(r["p"].depth_order) if pd.notna(r["p"].depth_order) else None)
+    _stR=[r for r in R if _depR(r) is not None and _depR(r)<=5]
+    if _stR:
+        _minSt=min(r["pm"] for r in _stR)
+        for r in R:
+            _d=_depR(r)
+            if _d is not None and _d>5 and not r["trust"] and r["pm"]>_minSt: r["pm"]=_minSt
     # Vacated usage -> each player's expected change, from the calibrated grid above (not a split of
     # the whole departed load across only the players who have a box line).
     tot_load=sum(_n(r.usg_pct,USG_REF)*_n(r.min) for r in last_roster if _n(r.min)>=150) or 1.0
@@ -856,7 +868,10 @@ for short, roster in roster_by_team.items():
         # fitted 200. Beyond lam=1 (absurd over-booking) the remainder is taken pro rata.
         _kmap={}; _lam=0.0
         if _tot>REF_MIN and TEAM_FIT>0:
-            _order=sorted([(rr["pm"],"r",id(rr)) for rr in R]+[(x[0],"f",i) for i,x in enumerate(_fresh)], key=lambda z:-z[0])
+            # rank for the squeeze: the depth chart's starters (depth 1-5) first, then by minutes
+            _fdep={str(getattr(_p,"name","") or "").strip():(int(_p.depth_order) if pd.notna(_p.depth_order) else 99) for _p in pl[pl.team==short].itertuples()}
+            _isSt=lambda d: d is not None and d<=5
+            _order=sorted([(rr["pm"],"r",id(rr),_isSt(_depR(rr))) for rr in R]+[(x[0],"f",i,_isSt(_fdep.get(x[3]))) for i,x in enumerate(_fresh)], key=lambda z:(0 if z[3] else 1,-z[0]))
             _rank={(z[1],z[2]):i+1 for i,z in enumerate(_order)}
             _wr=lambda rk: SQZ_W[0] if rk<=5 else SQZ_W[1] if rk<=7 else SQZ_W[2] if rk<=9 else SQZ_W[3]
             _trustOf={("r",id(rr)):bool(rr.get("trust")) for rr in R}

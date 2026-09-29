@@ -8171,12 +8171,19 @@ function renderHistoricRoster(rows, yr, projected){
     // With a wider pool the optimiser can start the real centre (Creighton's Erhunmwunse) and
     // leave the SF/PF at the 3 or 4 where he is listed.
     const _byMin=[...rows].sort((a,b)=>_pm(b)-_pm(a));
-    const poolS=_byMin.slice(0, Math.min(rows.length,8));
+    // The OWNER'S depth chart decides who starts: the website depth editor now writes depth_order
+    // (the old sheet push that clobbered it is gone), so when five players hold depth 1-5 they are
+    // the starters and the optimiser only places them at their listed spots (Miami: Reneau at the
+    // 4 and Cyril at the 5, not Reneau at the 5 and a bench 4 starting because he projected more).
+    const _auth=rows.filter(p=>{ const d=parseInt(p.depth_order,10); return d>=1&&d<=5; });
+    const _authored=_auth.length===5 && new Set(_auth.map(p=>parseInt(p.depth_order,10))).size===5;
+    const poolS=_authored ? _auth.slice() : _byMin.slice(0, Math.min(rows.length,8));
     // …and if a column has NO listed player inside that pool, pull in the roster's best listed one
     // (by minutes) so the spot is filled by someone who actually plays there. Without this, a team
     // whose only centre is a deep reserve started a power forward at the 5 (Loyola Chicago, Amos
     // ahead of three listed centres) — the same error as a wing at centre, one slot smaller.
     POS.forEach(pos=>{
+      if(_authored) return;                 // the owner's five start; they slide one spot if they must
       if(poolS.some(p=>posDist(p,pos)===0)) return;
       const cand=_byMin.find(p=>posDist(p,pos)===0 && poolS.indexOf(p)<0);
       if(cand) poolS.push(cand);
@@ -8386,7 +8393,7 @@ async function _renderShotDist(rows){
   const _e=s=>(''+(s||'')).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
   try{
     if(!_shotProj){
-      const r=await fetch('scripts/data/stat_overall_projected.json?v=61').then(x=>x.ok?x.json():null).catch(()=>null);
+      const r=await fetch('scripts/data/stat_overall_projected.json?v=62').then(x=>x.ok?x.json():null).catch(()=>null);
       _shotProj={players:(r&&r.players)||{}, teams:(r&&r.teams)||{}};
     }
     const P=_shotProj.players, T=_shotProj.teams;
