@@ -13,7 +13,7 @@ Output: scripts/data/team_needs.json  { generated_for, teams:[...] }.
 The client fit engine (tdc-portalfit.js) joins this with a player's archetype to
 score need / team-success / player-success / coaching fit per team.
 """
-import json, os, re, urllib.request
+import json, os, re, difflib, urllib.request
 from collections import defaultdict
 
 SB="https://izlqhnxowdhtdofkwrho.supabase.co"
@@ -33,6 +33,47 @@ def get_all(path):
 def norm(s): return re.sub(r"[^a-z0-9]","",(s or "").lower())
 def htin(h):
     m=re.match(r"(\d+)\D+(\d+)", h or ""); return (int(m.group(1))*12+int(m.group(2))) if m else 0
+
+
+# sheet short name -> Sports-Reference school (coach_seasons spelling)
+SR_ALIAS={"UConn":"Connecticut","BYU":"Brigham Young","LSU":"Louisiana State","USC":"Southern California",
+ "TCU":"Texas Christian","SMU":"Southern Methodist","VCU":"Virginia Commonwealth","UNLV":"Nevada-Las Vegas",
+ "Miami":"Miami (FL)","St. John's":"St. John's (NY)","Ole Miss":"Mississippi","Loyola Chicago":"Loyola (IL)",
+ "FAU":"Florida Atlantic","NC-State":"North Carolina State","NC State":"North Carolina State",
+ "Pitt":"Pittsburgh","UMass":"Massachusetts","ECU":"East Carolina","UTSA":"UTSA","USF":"South Florida",
+ "UNC Asheville":"North Carolina-Asheville","UNC Greensboro":"North Carolina-Greensboro"}
+# player_history (Sports-Reference) spellings -> sheet/ESPN short names, so a fallback roster
+# neither duplicates a rostered team ("Connecticut" vs "UConn") nor misses its rating.
+HIST_ALIAS={v:k for k,v in SR_ALIAS.items() if k not in ('NC State','USF','UTSA')}
+HIST_ALIAS.update({'Albany (NY)':'Albany','College of Charleston':'Charleston','Illinois-Chicago':'UIC',
+ 'Louisiana-Monroe':'UL Monroe','Maryland-Baltimore County':'UMBC','Saint Francis (PA)':'Saint Francis',
+ 'Tennessee-Martin':'UT Martin','Southern Mississippi':'Southern Miss','Loyola (MD)':'Loyola Maryland',
+ 'Central Connecticut State':'Central Connecticut','FDU':'Fairleigh Dickinson','IU Indy':'IU Indianapolis',
+ 'San Jose State':'San José State','St. Thomas':'St. Thomas-Minnesota','Southeastern Louisiana':'SE Louisiana',
+ 'Appalachian State':'App State','North Carolina State':'NC-State','Pittsburgh':'Pittsburgh'})
+RATING_ALIAS={'ECU':'East Carolina','UMass':'Massachusetts','Albany':'UAlbany'}
+SCHOOL_WORDS={'State','Tech','A&M','Atlantic','Christian','Southern','International','Gulf','Central',
+ 'Baptist','Poly','Methodist','Wesleyan','Northern','Eastern','Western','(OH)','(FL)','Chicago','Maryland'}
+# one label per conference (the sheet uses codes, predictive_ratings full names for the rest)
+_CONF={'b10':'Big Ten','bigten':'Big Ten','big12':'Big 12','bigeast':'Big East','pac12':'Pac-12','a10':'A-10',
+ 'atlantic10':'A-10','aac':'American','american':'American','americanathletic':'American','acc':'ACC','sec':'SEC',
+ 'wcc':'WCC','westcoast':'WCC','mwc':'Mountain West','mountainwest':'Mountain West','mvc':'Missouri Valley',
+ 'cusa':'Conference USA','conferenceusa':'Conference USA','mac':'MAC','midamerican':'MAC','maac':'MAAC',
+ 'metroatlanticathletic':'MAAC','caa':'CAA','coastalathletic':'CAA','swac':'SWAC','southwesternathletic':'SWAC',
+ 'meac':'MEAC','mideasternathletic':'MEAC','asun':'ASUN','atlanticsun':'ASUN','ovc':'OVC','ohiovalley':'OVC',
+ 'nec':'NEC','coastalathleticassociation':'CAA','northeast':'NEC','wac':'WAC','westernathletic':'WAC','uac':'UAC','unitedathletic':'UAC',
+ 'socon':'SoCon','southern':'SoCon'}
+_NICK={'mike':'michael','penny':'anfernee','bill':'william','bob':'robert','bobby':'robert','jim':'james',
+ 'tom':'thomas','tommy':'thomas','rick':'richard','rich':'richard','dan':'daniel','danny':'daniel','matt':'matthew',
+ 'chris':'christopher','steve':'steven','tj':'tj','jeff':'jeffrey','greg':'gregory','joe':'joseph','tony':'anthony'}
+def cnorm(n):   # coach name for matching: lowercase, no suffix/punctuation, nickname -> given name
+    w=[x for x in re.sub(r"[^a-z ]","",(n or "").lower().replace('.','')).split() if x not in ('jr','sr','ii','iii','iv')]
+    if w: w[0]=_NICK.get(w[0],w[0])
+    return ' '.join(w)
+def conf_label(c):
+    if not c: return None
+    k=norm(re.sub(r'\bconference\b','',c,flags=re.I))
+    return _CONF.get(k) or re.sub(r'\s*Conference\s*$','',c).strip()
 
 POS=['PG','SG','SF','PF','C']
 def slot(pos, h):
@@ -111,36 +152,69 @@ def main():
     hist=get_all("player_history?season_year=eq.2026&tdc_grade=not.is.null&select=name,team,position,height,tdc_grade,ppg,apg,tp_pct,mpg,espn_id")
     hist_by_team=defaultdict(list)
     for p in hist:
-        if p.get('team') and norm(p['team']) not in cur_keys: hist_by_team[p['team']].append(p)
+        tm=HIST_ALIAS.get(p.get('team'), p.get('team'))   # SR spellings -> the name everything else uses
+        if tm and norm(tm) not in cur_keys: hist_by_team[tm].append(p)
     print("  %d history players across %d fallback teams"%(len(hist),len(hist_by_team)))
 
     print("fetching predictive_ratings (2027)…")
     pr=get_all("predictive_ratings?season=eq.2027&select=data")
-    ratings={}   # exact + prefix keys → rating. Non-rostered teams are stored under their
-                 # FULL name ("Gonzaga Bulldogs") while player_history uses the short name
-                 # ("Gonzaga"), so index each rating under its full name AND every leading
-                 # prefix (mascot stripped). Teams are rank-sorted, so a higher-ranked team
-                 # wins an ambiguous prefix ("alabama" → Alabama, not Alabama State).
+    ratings={}   # exact + mascot-stripped keys → rating. Non-rostered teams are stored under
+                 # their FULL name ("Gonzaga Bulldogs") while player_history uses the short name
+                 # ("Gonzaga"). Keys are filled in passes: exact names first, then 1 trailing word
+                 # stripped, then 2... so "Michigan" resolves to Michigan Wolverines (1 word off)
+                 # and never to Michigan State Spartans (2 words off) — the old single-pass prefix
+                 # loop let a higher-ranked "X State" steal "X" (Michigan/Iowa/Texas/Ohio).
     if pr and pr[0].get('data',{}).get('teams'):
+        rts=[]
         for t in pr[0]['data']['teams']:
             r={'rank':t.get('rank'),'rating':t.get('rating'),'conf':t.get('conf'),
                'full':t.get('full'),'allPlay':t.get('allPlay')}
-            for nm in (t.get('team'), t.get('full')):
-                if not nm: continue
-                w=nm.split()
-                for i in range(len(w),0,-1):
-                    k=norm(' '.join(w[:i]))
-                    if k and k not in ratings: ratings[k]=r   # longest/first (higher-ranked) wins
+            rts.append((r,[(t.get('team') or '').split(), (t.get('full') or '').split()]))
+        for strip in range(0,3):
+            for r,names in rts:
+                for j,w in enumerate(names):
+                    if not w or (strip and (j==0 or len(w)-strip<1)): continue   # only strip the mascot off FULL names
+                    if strip>=2 and w[len(w)-strip] in SCHOOL_WORDS: continue   # "Ohio State Buckeyes" is not "Ohio"
+                    k=norm(' '.join(w[:len(w)-strip]))
+                    if k and k not in ratings: ratings[k]=r
     print("  %d rating keys"%len(ratings))
 
-    # current coach per team from coach_seasons (latest season)
+    # current coach per team: the owner's `teams.head_coach` (the sheet — current for every
+    # rostered program, incl. hires coach_seasons hasn't seen yet, e.g. Mick Cronin/UCLA), matched
+    # to a coach profile by name; else the latest coach_seasons row, with Sports-Reference school
+    # spellings aliased ("St. John's (NY)", "Connecticut", "Miami (FL)", ...).
     coach_seasons=json.load(open(os.path.join(D,"coach_seasons.json")))
     latest={}
     for s in coach_seasons:
         k=norm(s.get('school'));
         if not k or not s.get('coach_slug'): continue
         if k not in latest or s['season_year']>latest[k]['season_year']: latest[k]=s
-    profs={p['coach_slug']:p for p in json.load(open(os.path.join(D,"coach_profiles.json")))}
+    for short,sr in SR_ALIAS.items():
+        if norm(sr) in latest and norm(short) not in latest: latest[norm(short)]=latest[norm(sr)]
+    prof_list=json.load(open(os.path.join(D,"coach_profiles.json")))
+    profs={p['coach_slug']:p for p in prof_list}
+    by_coach=defaultdict(list)
+    by_cn=defaultdict(list)
+    for p in prof_list: by_coach[norm(p.get('coach'))].append(p); by_cn[cnorm(p.get('coach'))].append(p)
+    teams_tbl=get_all("teams?select=name,conference,head_coach,coach")
+    sheet={norm(t['name']):t for t in teams_tbl if t.get('name')}
+    def coach_for(team):
+        nk=norm(team); row=sheet.get(nk); name=row and (row.get('head_coach') or row.get('coach'))
+        if name:
+            sch={norm(team), norm(SR_ALIAS.get(team,''))}
+            at=lambda c: bool(sch & {norm(x) for x in (c.get('schools') or '').split(',')})
+            cands=by_coach.get(norm(name),[]) or by_coach.get(cnorm(name),[])
+            if not cands:   # sheet spellings: "Mike White"/"Michael White", "Mussleman", "Jr."
+                cn=cnorm(name); last=cn.split()[-1] if cn else ''
+                cands=[c for c in prof_list if cnorm(c.get('coach')).split()[-1:]==[last] and at(c)]
+                if not cands:
+                    close=difflib.get_close_matches(cn, list(by_cn), n=1, cutoff=0.86)
+                    cands=by_cn.get(close[0],[]) if close else []
+            here=[c for c in cands if at(c)]
+            pick=(here or sorted(cands,key=lambda c:-(c.get('last_year') or 0)) or [None])[0]
+            return name,(pick or {}).get('coach_slug')
+        co=latest.get(nk)
+        return ((co or {}).get('coach'),(co or {}).get('coach_slug'))
 
     def pos_profile(roster):
         cols=defaultdict(list)
@@ -178,12 +252,13 @@ def main():
         return posdata
     def make_team(team, roster, src):
         nk=norm(team)
-        r=ratings.get(nk,{}); co=latest.get(nk); cslug=co['coach_slug'] if co else None
+        r=ratings.get(nk) or ratings.get(norm(RATING_ALIAS.get(team,''))) or {}; cname,cslug=coach_for(team)
         prof=profs.get(cslug) if cslug else None
+        conf=r.get('conf') or (sheet.get(nk) or {}).get('conference') or (latest.get(nk) or {}).get('conf')
         return {
-            'team':team, 'full':r.get('full') or team, 'conf':r.get('conf'),
+            'team':team, 'full':r.get('full') or team, 'conf':conf_label(conf),
             'rank':r.get('rank'), 'rating':r.get('rating'), 'allPlay':r.get('allPlay'),
-            'coach_slug':cslug, 'coach':(co or {}).get('coach'),
+            'coach_slug':cslug, 'coach':cname,
             'archetype':(prof or {}).get('archetype'),
             'pos':pos_profile(roster), 'roster_src':src,
         }

@@ -21,7 +21,7 @@
   <script src="tdc-ratings.js?v=25"></script>
   <script src="tdc-glossary.js?v=13"></script>
   <script src="tdc-leaderboard.js?v=2"></script>
-  <script src="tdc-portalfit.js?v=needs10"></script>
+  <script src="tdc-portalfit.js?v=needs11"></script>
   <script src="tdc-projgrade.js?v=base33"></script>
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-teamname.js?v=1"></script>
@@ -5590,7 +5590,7 @@ async function renderPortalFit(){
   const host=document.getElementById('portalfitContent'); if(!host||!window.TDCPortalFit) return;
   host.innerHTML='<div style="padding:44px;text-align:center;color:var(--text3);">Loading portal fits…</div>';
   try{
-    if(!window._pfTeamNeeds) window._pfTeamNeeds=await fetch('scripts/data/team_needs.json?v=2').then(r=>r.json());
+    if(!window._pfTeamNeeds) window._pfTeamNeeds=await fetch('scripts/data/team_needs.json?v=3').then(r=>r.json());
     if(!window._pfCoachProfs){ const cp=await fetch('scripts/data/coach_profiles.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]);
       window._pfCoachProfs={}; (Array.isArray(cp)?cp:[]).forEach(p=>{ if(p.coach_slug) window._pfCoachProfs[p.coach_slug]=p; }); }
   }catch(e){ host.innerHTML='<div style="padding:44px;text-align:center;color:var(--text3);">Portal fit data unavailable.</div>'; return; }
@@ -5665,10 +5665,15 @@ function _pfReport(r){
 }
 function _pfPaint(){
   const host=document.getElementById('portalfitContent'); if(!host) return;
-  const teams=window._pfTeamNeeds.teams||[];
+  // a transfer is a move — his own program isn't a destination
+  const _nk=s=>(''+(s||'')).toLowerCase().replace(/[^a-z0-9]/g,'');
+  const teams=(window._pfTeamNeeds.teams||[]).filter(t=>_nk(t.team)!==_nk(player.team));
+  // score him at the SAME overall the page shows (projected OVR), not the raw stored grade
+  const _ovr=(window.TDCProjGrade&&TDCProjGrade.gradeSolo)?+TDCProjGrade.gradeSolo(player):NaN;
+  const pl=isFinite(_ovr)&&_ovr>0?Object.assign({},player,{tdc_grade:_ovr}):player;
   const ppos=TDCPortalFit.pos(player), arch=TDCPortalFit.archetype(player);
   const confs=[...new Set(teams.map(t=>t.conf).filter(Boolean))].sort();
-  let rows=TDCPortalFit.rank(player, teams, window._pfCoachProfs, {sortBy:'overall', filter:{maxRank:_PF.maxRank||null, confs:_PF.conf?[_PF.conf]:null}});
+  let rows=TDCPortalFit.rank(pl, teams, window._pfCoachProfs, {sortBy:'overall', filter:{maxRank:_PF.maxRank||null, confs:_PF.conf?[_PF.conf]:null}});
   const key=_PF.sort;
   rows.sort((a,b)=>{ if(key==='team') return ((a.full||a.team)>(b.full||b.team)?1:-1)*(-_PF.dir); if(key==='rank') return ((a.rank||999)-(b.rank||999))*(-_PF.dir); return ((b[key]||0)-(a[key]||0))*(-_PF.dir)||(b.overall-a.overall); });
   const sc=v=>`<td>${v}</td>`;
@@ -5677,7 +5682,7 @@ function _pfPaint(){
   const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
   host.innerHTML=`
     <div class="sec-title" style="margin:0 0 4px;">Portal Fit — where he fits best</div>
-    <div style="font-size:12.5px;color:var(--text3);margin-bottom:14px;line-height:1.5;">Every ranked program scored for <b style="color:var(--text2);">${esc(player.name)}</b> (${esc(arch)} · ${esc(ppos)}) if he transfers — <b>Need</b> at his spot, <b>Team success</b>, <b>Production</b> (his projected role and numbers there), and <b>Coach fit</b> with that system, blended into an <b>Overall</b>. Click a column to re-rank.</div>
+    <div style="font-size:12.5px;color:var(--text3);margin-bottom:14px;line-height:1.5;">Every ranked program scored for <b style="color:var(--text2);">${esc(player.name)}</b> (${esc(arch)} · ${esc(ppos)}) if he transfers — <b>Need</b> at his spot, <b>Team success</b>, <b>Production</b> (his projected role and numbers there), and <b>Coach fit</b> with that system, blended into an <b>Overall</b>. Click a column to re-rank.${player.team?` <span style="color:var(--text3);">His current team (${esc(player.team)}) is left out.</span>`:''}</div>
     <div class="pf-ctrls">
       <span class="pf-lbl">Rank by</span>
       <div class="pf-seg" id="pfSortSeg">${seg('overall','Overall')}${seg('teamSuccess','Team success')}${seg('playerSuccess','Production')}${seg('coachFit','Coach fit')}${seg('need','Need')}</div>

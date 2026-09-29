@@ -155,9 +155,14 @@
   function positionsFor(player){
     var ORD=['PG','SG','SF','PF','C'], natural=pos(player), ni=ORD.indexOf(natural);
     if(ni<0){ ni=1; natural='SG'; }
-    var natSuit=posSuit(player, natural), out=[{pos:natural, pen:0}];
+    var natSuit=posSuit(player, natural), out=[{pos:natural, pen:0}], P=profile(player);
     [ni-1, ni+1].forEach(function(i){ if(i<0||i>4) return;
       var p=ORD[i], pen=-(posSuit(player,p)-natSuit);   // extra unsuitability vs his natural spot
+      // skill gates: the relative penalty alone let a non-shooting rim-runner "slide" to the
+      // wing (his PF fit was already dinged, so SF looked nearly as good). A big only moves
+      // out to the wing if he spaces the floor; only a real creator slides up to the point.
+      if((p==='SF'||p==='SG') && (natural==='PF'||natural==='C') && P.shooter<0.15) return;
+      if(p==='PG' && (n(player,'apg')||0)<2.2) return;
       if(pen>=-9) out.push({pos:p, pen:clamp(pen,-9,0)});
     });
     return out;
