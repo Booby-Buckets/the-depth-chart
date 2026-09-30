@@ -50,7 +50,7 @@ HIST_ALIAS.update({'Albany (NY)':'Albany','College of Charleston':'Charleston','
  'Tennessee-Martin':'UT Martin','Southern Mississippi':'Southern Miss','Loyola (MD)':'Loyola Maryland',
  'Central Connecticut State':'Central Connecticut','FDU':'Fairleigh Dickinson','IU Indy':'IU Indianapolis',
  'San Jose State':'San José State','St. Thomas':'St. Thomas-Minnesota','Southeastern Louisiana':'SE Louisiana',
- 'Appalachian State':'App State','North Carolina State':'NC-State','Pittsburgh':'Pittsburgh'})
+ 'Appalachian State':'App State','Massachusetts-Lowell':'UMass Lowell','Texas-Rio Grande Valley':'UT Rio Grande Valley','North Carolina State':'NC-State','Pittsburgh':'Pittsburgh'})
 RATING_ALIAS={'ECU':'East Carolina','UMass':'Massachusetts','Albany':'UAlbany'}
 SCHOOL_WORDS={'State','Tech','A&M','Atlantic','Christian','Southern','International','Gulf','Central',
  'Baptist','Poly','Methodist','Wesleyan','Northern','Eastern','Western','(OH)','(FL)','Chicago','Maryland'}
