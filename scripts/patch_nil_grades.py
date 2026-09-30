@@ -42,26 +42,9 @@ proj = json.load(open(os.path.join(D, "stat_overall_projected.json")))
 P = proj.get("players", proj)
 demo = json.load(open(os.path.join(D, "stat_overall.json")))["players"]
 
-# SCOUT BLEND — mirror tdc-projgrade.js _scoutBlend: when the owner's hand grade (players.tdc_grade)
-# is above the statistical overall, the displayed grade is lifted SCOUT_W of the way, capped at +SCOUT_CAP.
-SCOUT_W, SCOUT_CAP = 0.40, 5
-def fetch_hand_grades():
-    out, off = {}, 0
-    while True:
-        req = urllib.request.Request(SB + f"/rest/v1/players?select=espn_id,tdc_grade&espn_id=not.is.null&order=espn_id.asc&limit=1000&offset={off}",
-                                     headers={"apikey": KEY, "Authorization": "Bearer " + KEY})
-        ch = json.load(urllib.request.urlopen(req, timeout=30))
-        for r in ch:
-            try: out[str(r["espn_id"])] = float(r["tdc_grade"])
-            except (TypeError, ValueError): pass
-        if len(ch) < 1000: return out
-        off += 1000
-HAND = fetch_hand_grades()
-
-def _blend(sv, e):
-    hg = HAND.get(e)
-    if hg is None or hg <= sv: return sv
-    return min(99, sv + min(SCOUT_CAP, math.floor(SCOUT_W * (hg - sv) + 0.5)))   # JS Math.round
+# No hand-grade blend: tdc-projgrade.js dropped _scoutBlend (Sept 30 2026) — the NIL grade is the
+# statistical overall, same as every page.
+def _blend(sv, e): return sv
 
 def live(e):
     e = str(e)

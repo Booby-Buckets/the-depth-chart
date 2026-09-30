@@ -117,7 +117,14 @@ def _cls_trans(yr):
     return None
 def _qtier(q): return "low" if q<73 else ("mid" if q<84 else "high")
 
+try:
+    _SOP=(json.load(open(os.path.join(D,"stat_overall_projected.json"))) or {}).get("players",{})
+except Exception: _SOP={}
 def grade(p):
+    # the statistical projected overall (what every page shows) — never the sheet's hand grade
+    e=p.get('espn_id')
+    if e is not None and str(e) in _SOP and _SOP[str(e)].get('ovr') is not None:
+        return round(float(_SOP[str(e)]['ovr']))
     try: g=float(p.get('tdc_grade'))
     except (TypeError,ValueError): return None
     pid=p.get('id')

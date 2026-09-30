@@ -535,6 +535,11 @@
   function gradeRoster(roster){
     if(!roster || !roster.length) return [];
     var quals = roster.map(function(p){
+      // STATISTICAL overall first (by espn_id) — minutes, and through them the team rating, must
+      // not move with the sheet's hand grade. The sheet/editor number only stands in for a player
+      // with no stat line (a true freshman, whose editor OVR the caller puts in tdc_grade).
+      var sv0 = _statOvrOf(p);
+      if(sv0 != null && isFinite(sv0)) return sv0;
       var g = parseFloat(p.tdc_grade);
       if(!isFinite(g)){
         // No hand grade yet (e.g. a just-added transfer the owner hasn't graded — Jaxon
@@ -603,20 +608,10 @@
   // level-adjusted quality + development, NO role penalty. Equals gradeRoster's grade for
   // starters (whose role penalty is ~0), which is who the strip shows — so it stays consistent
   // with the player/team pages without needing every team's full roster.
-  // Scout-grade blend: the statistical overall is production-only and can't see on-ball
-  // defense, tools, or upside. When the owner's hand grade (tdc_grade) is ABOVE the
-  // statistical grade, pull the OVR partway toward it (bounded) so a defensive stopper or a
-  // young high-upside player isn't undervalued. UP-ONLY — a player the stats grade HIGHER
-  // than the scout keeps his (higher) stat grade. Current/projected OVR only; historical
-  // rows (season_year set) stay pure statistical.
-  var SCOUT_W = 0.40, SCOUT_CAP = 5;
-  function _scoutBlend(sv, row){
-    if(sv == null || !row) return sv;
-    if(row.season_year != null) return sv;
-    var hg = parseFloat(row.tdc_grade);
-    if(!isFinite(hg) || hg <= sv) return sv;
-    return Math.min(99, sv + Math.min(SCOUT_CAP, Math.round(SCOUT_W * (hg - sv))));
-  }
+  // No scout/hand-grade blend (owner, Sept 30 2026): a player with stats is graded ONLY by the
+  // statistical overall. The sheet's tdc_grade no longer lifts anyone. Kept as a pass-through so
+  // explain()'s scoutLift stays 0 and callers don't change.
+  function _scoutBlend(sv, row){ return sv; }
   // Floor for real roster players too raw to grade — barely-played deep-bench guys
   // (too few games for the stat model) and the ungraded. They used to render blank;
   // a baseline keeps them on the board without inventing a number from noise. They
