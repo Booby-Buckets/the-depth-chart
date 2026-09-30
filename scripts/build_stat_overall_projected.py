@@ -449,6 +449,7 @@ TRUST_MIN=float(os.environ.get("TRUST_MIN","20"))     # a returner who played th
 TRUST_KEEP=float(os.environ.get("TRUST_KEEP","0.985"))  # ...and keeps this share of them (cap TRUST_CAP) regardless of the slot (was .97; see SQZ_TRUST_W)
 TRUST_CAP=float(os.environ.get("TRUST_CAP","34"))
 TRUST_SLOT=int(os.environ.get("TRUST_SLOT","7"))
+XSTAR_MIN=float(os.environ.get("XSTAR_MIN","28")); XSTAR_KEEP=float(os.environ.get("XSTAR_KEEP","0.88")); XSTAR_STEP=float(os.environ.get("XSTAR_STEP","0.12"))   # schedule-strength gap that still counts as lateral (power -> power)
 DEEP_PARK=int(os.environ.get("DEEP_PARK","12"))   # depth 12+ on the owner's chart = garbage time only
 def depth_floor(d):
     """the least a player at this depth is ever pushed down to (or given): rotation 5, fringe 2, parked ~1"""
@@ -741,6 +742,15 @@ for short, roster in roster_by_team.items():
         _do=int(p.depth_order) if pd.notna(p.depth_order) else None
         _trust=bool(_ret) and last_mpg>=TRUST_MIN and _do is not None and _do<=TRUST_SLOT
         pm=proj_mpg(p.depth_order,last_mpg,starter,_trust)
+        # PROVEN STAR TRANSFER: a heavy-minutes player moving across (or down) a level into the
+        # owner's starting five is not a coach-slot guess. The slot+4 cap put PJ Haggerty (35.2 mpg,
+        # K-State -> Texas A&M) at 27.8 behind Bucky McMillan's flat rotation; 20 yrs of power-to-power
+        # 30+ mpg transfers keep ~0.88 of their minutes (median 29.4 of 32.8). Squeezed like a trusted returner.
+        _xstar=False
+        if _xfer and _do is not None and _do<=5 and last_mpg>=XSTAR_MIN and a is not None:
+            _so,_sn=sos_of(a.team),sos_of(full)
+            if _sn<=0 or (_sn-_so)/_sn<XSTAR_STEP:
+                pm=max(pm,min(TRUST_CAP,last_mpg*XSTAR_KEEP)); _xstar=True
         # RETURNER MINUTES from the 2025-26 backtest (stat_dev.json "minutes"): young risers earn more
         # than "90% of last year", and minutes that left the roster flow to the returners. Rotation
         # returners only (top 9 on the depth chart); the depth chart still orders them (curve capped at
@@ -757,7 +767,7 @@ for short, roster in roster_by_team.items():
         # high-volume, low-percentage one. ppg / (2·(FGA+0.44·FTA)); None when he barely shot.
         _shots=_n(b["fga"])+0.44*_n(b["fta"])
         _eff=(_n(b["ppg"])/(2.0*_shots)) if _shots>=2 else None
-        R.append(dict(e=e,p=p,b=b,a=a,last_mpg=last_mpg,pm=pm,xfer=_xfer,eff=_eff,trust=_trust,
+        R.append(dict(e=e,p=p,b=b,a=a,last_mpg=last_mpg,pm=pm,xfer=_xfer,eff=_eff,trust=_trust,xstar=_xstar,
                       last_usg=_n(a["usg_pct"] if a is not None else None,USG_REF) or USG_REF,
                       demo=demo_ovr.get(e,72)))
     if not R: continue
@@ -1068,7 +1078,7 @@ for short, roster in roster_by_team.items():
             _order=sorted([(rr["pm"],"r",id(rr),_isSt(_depR(rr))) for rr in R]+[(x[0],"f",i,_isSt(_fdep.get(x[3]))) for i,x in enumerate(_fresh)], key=lambda z:(0 if z[3] else 1,-z[0]))
             _rank={(z[1],z[2]):i+1 for i,z in enumerate(_order)}
             _wr=lambda rk: SQZ_W[0] if rk<=5 else SQZ_W[1] if rk<=7 else SQZ_W[2] if rk<=9 else SQZ_W[3]
-            _trustOf={("r",id(rr)):bool(rr.get("trust")) for rr in R}
+            _trustOf={("r",id(rr)):bool(rr.get("trust") or rr.get("xstar")) for rr in R}
             _w=lambda key: (SQZ_TRUST_W if (_trustOf.get(key) and _rank[key]<=7) else _wr(_rank[key]))
             _tgt=REF_MIN+(_tot-REF_MIN)*(1.0-TEAM_FIT)
             _fl=lambda rk: 5.0 if rk<=10 else SQZ_DEEP_FLOOR
