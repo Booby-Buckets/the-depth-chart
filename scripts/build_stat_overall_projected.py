@@ -1045,7 +1045,9 @@ for short, roster in roster_by_team.items():
         # rotation's average. A 77 starter hands some of his time to better players behind him
         # (Miami: Dorn 26 mpg while Cason 83, Gaskins 81 sat at 12 / 4). The chart's order still
         # holds: no bench player passes the weakest starter unless he is a proven returner.
-        _gr=[(rr["demo"],"r",rr) for rr in R if _depR(rr) is not None and _depR(rr)<=9]+[(x[4],"f",i) for i,x in enumerate(_fresh) if x[5] is not None and x[5]<=9]
+        # Returners only, by their STATISTICAL demonstrated overall. A player with no college stat
+        # line keeps his depth-chart slot minutes: the sheet grade never moves minutes (owner rule).
+        _gr=[(rr["demo"],"r",rr) for rr in R if _depR(rr) is not None and _depR(rr)<=9]
         if len(_gr)>=5:
             _gavg=sum(g for g,_,_ in _gr)/len(_gr)
             # a starter can only LOSE minutes here (a weak starter shares); the bench can gain or lose.
