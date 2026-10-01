@@ -270,3 +270,17 @@ function createNewTeamTabs() {
   srNotice('New teams added', made.length + ' teams across ' + Object.keys(byConf).length + ' conference tabs (' +
     Object.keys(byConf).sort().join(', ') + '). Next: paste the updated sheet_sync.gs (keep your key line), then sync.');
 }
+
+// Diagnostic: every tab that holds "<Team>: Roster" blocks, and which teams are on it.
+// Run it, then copy the execution log (it only reads; changes nothing).
+function listRosterBlocks() {
+  var by = {};
+  var blocks = srFindBlocks();
+  Object.keys(blocks).forEach(function (k) {
+    var tab = blocks[k].sheet.getName();
+    (by[tab] = by[tab] || []).push(k + '(' + Object.keys(blocks[k].names).length + ')');
+  });
+  Object.keys(by).sort().forEach(function (tab) {
+    Logger.log(tab + ' — ' + by[tab].length + ' teams: ' + by[tab].sort().join(', '));
+  });
+}
