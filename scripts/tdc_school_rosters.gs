@@ -263,7 +263,9 @@ function createNewTeamTabs() {
   var W = SR_COL.FLAGS + 1;                                       // A..AG
   function blank() { var r = []; for (var i = 0; i < W; i++) r.push(''); return r; }
   var made = [];
+  var t0 = Date.now(), stoppedAt = null;
   Object.keys(byConf).sort().forEach(function (conf) {
+    if (stoppedAt || Date.now() - t0 > 4.5 * 60 * 1000) { stoppedAt = stoppedAt || conf; return; }   // stop cleanly before Google's 6-min limit
     var sh = ss.getSheetByName(conf) || ss.insertSheet(conf);
     var rows = [], bold = [];
     byConf[conf].sort(function (a, b) { return a.team < b.team ? -1 : 1; }).forEach(function (t) {
@@ -292,8 +294,14 @@ function createNewTeamTabs() {
     if (sh.getMaxRows() < start + rows.length) sh.insertRowsAfter(sh.getMaxRows(), start + rows.length - sh.getMaxRows());
     sh.getRange(start, SR_COL.HT, rows.length, 1).setNumberFormat('@');   // heights stay "6-7", not dates
     sh.getRange(start, 1, rows.length, W).setValues(rows);
-    bold.forEach(function (i) { sh.getRange(start + i, 1, 1, W).setFontWeight('bold'); });
+    // one call for every header line on the tab (row-by-row bolding was ~700 calls -> timeout)
+    if (bold.length) sh.getRangeList(bold.map(function (i) { return 'A' + (start + i) + ':AG' + (start + i); })).setFontWeight('bold');
   });
+  if (stoppedAt) {
+    srNotice('Paused — run createNewTeamTabs again', made.length + ' teams added so far; stopped before the ' + stoppedAt +
+      ' tab to stay under Google\'s time limit. Run it again — it only adds the teams still missing.');
+    return;
+  }
   srNotice('New teams added', made.length + ' teams across ' + Object.keys(byConf).length + ' conference tabs (' +
     Object.keys(byConf).sort().join(', ') + '). Next: add tdc_sync_more.gs and run syncMoreConferences.');
 }
