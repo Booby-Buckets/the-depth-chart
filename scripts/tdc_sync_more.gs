@@ -12,8 +12,10 @@
 // Different from syncToSupabase on purpose:
 //   • Losses are cleared PER TEAM, not wiped table-wide — so running this never touches the
 //     losses of your 115 main teams (and your main sync never touches these teams' rosters).
-//   • Departed-player cleanup is per team and only when that team saved cleanly with 5+ players
-//     (same rule as the main sync).
+//   • A team that is ALSO on one of your main tabs is skipped (its main-tab block is the real one —
+//     e.g. AAC teams left on a tab you duplicated as a template). A block with fewer than 8 players
+//     is treated as unfinished and skipped. Skipped teams are left exactly as they are.
+//   • Departed-player cleanup is per team and only when that team saved cleanly.
 //   • ~230 teams is more than one 6-minute Apps Script run can do, so it stops at ~4.5 minutes,
 //     remembers where it was, and schedules itself to continue a minute later until every tab is
 //     done. Run it again any time to resume; it re-syncs from the first tab once finished.
@@ -29,6 +31,8 @@ function moreNotice(title, msg) {
   try { SpreadsheetApp.getActiveSpreadsheet().toast(msg, title, 30); } catch (e) {}
 }
 
+function moreKey(n) { return String(n || '').toLowerCase().replace(/saint /g, 'st ').replace(/[^a-z]/g, ''); }
+
 function moreClearTriggers() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'syncMoreConferences') ScriptApp.deleteTrigger(t);
@@ -43,7 +47,16 @@ function syncMoreConferences() {
   loadDbGrades();                                   // keep existing grades / website depth charts
   var rk = readRankings();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var teamsDone = 0, players = 0, kept = [];
+  var teamsDone = 0, players = 0, kept = [], skipped = [];
+  // Teams on your MAIN tabs belong to your main sync. A copy of one on another tab (e.g. AAC teams
+  // left on a tab duplicated as a template) must never move that team's conference or cut its roster.
+  var mainKeys = {};
+  Object.keys(CONF_TABS).forEach(function (tab) {
+    var msh = ss.getSheetByName(tab);
+    if (!msh) return;
+    try { parseSheet(msh.getDataRange().getValues(), CONF_TABS[tab]).forEach(function (t) { mainKeys[moreKey(t.name)] = tab; }); }
+    catch (e) { Logger.log('⚠️ could not read main tab ' + tab + ': ' + e.message); }
+  });
 
   for (var i = from; i < MORE_CONF_TABS.length; i++) {
     if (Date.now() - t0 > MORE_LIMIT_MS) {
@@ -62,13 +75,15 @@ function syncMoreConferences() {
 
     teams.forEach(function (team) {
       var start = new Date().toISOString();
+      var real = team.players.filter(function (p) { return p.name && p.name !== '—' && p.name !== '-'; }).length;
+      if (mainKeys[moreKey(team.name)]) { skipped.push(team.name + ' (on your ' + mainKeys[moreKey(team.name)] + ' tab)'); return; }
+      if (real < 8) { skipped.push(team.name + ' (' + real + ' players — unfinished block)'); return; }
       try {
         upsertTeam(team, rk.rankMap, rk.prevRankMap, rk.tierMap);
         sbDelete('/rest/v1/losses?team=eq.' + encodeURIComponent(team.name));
         insertLosses(team);
         var res = insertPlayers(team);
-        var real = team.players.filter(function (p) { return p.name && p.name !== '—' && p.name !== '-'; }).length;
-        if (real >= 5 && res.bad === 0) {
+        if (res.bad === 0) {
           sbDelete('/rest/v1/players?team=eq.' + encodeURIComponent(team.name) + '&updated_at=lt.' + encodeURIComponent(start));
         } else {
           kept.push(team.name);
@@ -87,6 +102,8 @@ function syncMoreConferences() {
   // link ESPN ids (headshots + history) and fill box lines for the new players — same RPCs as the main sync
   try { sbPost('/rest/v1/rpc/backfill_espn_ids', {}); } catch (e) { Logger.log('ESPN id backfill skipped: ' + e.message); }
   try { sbPost('/rest/v1/rpc/backfill_player_stats', {}); } catch (e) { Logger.log('Stat backfill skipped: ' + e.message); }
+  if (skipped.length) Logger.log('Skipped (left exactly as they are): ' + skipped.join(', '));
   moreNotice('More conferences synced', 'Finished: ' + teamsDone + ' teams this run, ' + players + ' players saved' +
-    (kept.length ? '. Kept old roster (check these blocks): ' + kept.join(', ') : '') + '.');
+    (kept.length ? '. Kept old roster (check these blocks): ' + kept.join(', ') : '') +
+    (skipped.length ? '. Skipped ' + skipped.length + ' (see log): duplicates of main-tab teams or unfinished blocks' : '') + '.');
 }

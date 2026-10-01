@@ -60,9 +60,16 @@ function srLoad() {
   return JSON.parse(r.getContentText());
 }
 
-// Every "<Team>: Roster" block on every tab -> {sheet, headerRow, lastRow, names{}}
-function srFindBlocks() {
-  var blocks = {};
+// Your main conference tabs — the ones your sync pushes to the site (sheet_sync.gs's CONF_TABS when
+// it's in this project). A team's block on one of these always wins over a copy on any other tab.
+function srMainTabs() {
+  if (typeof CONF_TABS === 'object' && CONF_TABS) return Object.keys(CONF_TABS);
+  return ['ACC', 'B10', 'Big-Ten', 'BIG-12', 'Big-East', 'SEC', 'PAC-12', 'A10', 'AAC'];
+}
+
+// Every "<Team>: Roster" block on every tab, tab by tab: [{tab, main, key, sheet, headerRow, lastRow, names{}}]
+function srScanTabs() {
+  var main = srMainTabs(), out = [];
   SpreadsheetApp.getActiveSpreadsheet().getSheets().forEach(function (sh) {
     if (sh.getName() === SR_TAB) return;
     var lastRow = sh.getLastRow();
@@ -76,9 +83,10 @@ function srFindBlocks() {
       for (var c = 0; c < row.length && !hdr; c++) { var m = row[c].match(/^(.+?):\s*Roster\s*$/i); if (m) hdr = m[1].trim(); }
       var endsBlock = row.some(function (x) { return /^Significant .+?:\s*Losses/i.test(x) || /^HC\s*[-–]/i.test(x); });
       if (hdr) {
-        cur = { sheet: sh, headerRow: r + 1, lastRow: r + 1, names: {} };
         // sheet_sync.gs's typo self-heal ("Saint Joeseph's" -> "Saint Joseph's"), when it's in the project
-        blocks[srTeamKey(typeof fixTeamName === 'function' ? fixTeamName(hdr) : hdr)] = cur;
+        var key = srTeamKey(typeof fixTeamName === 'function' ? fixTeamName(hdr) : hdr);
+        cur = { tab: sh.getName(), main: main.indexOf(sh.getName()) >= 0, key: key, sheet: sh, headerRow: r + 1, lastRow: r + 1, names: {} };
+        out.push(cur);
         continue;
       }
       if (!cur) continue;
@@ -90,6 +98,22 @@ function srFindBlocks() {
       }
     }
   });
+  return out;
+}
+
+// One block per team. When a team is on more than one tab, the copy on a MAIN tab wins (never a
+// template / work-in-progress copy elsewhere); among equals the fuller block wins. blk.copies lists
+// every tab the team appears on.
+function srFindBlocks() {
+  var blocks = {};
+  srScanTabs().forEach(function (b) {
+    var cur = blocks[b.key];
+    if (!cur) { b.copies = [b.tab]; blocks[b.key] = b; return; }
+    cur.copies.push(b.tab);
+    var better = (b.main && !cur.main) ||
+      (b.main === cur.main && Object.keys(b.names).length > Object.keys(cur.names).length);
+    if (better) { b.copies = cur.copies; blocks[b.key] = b; }
+  });
   return blocks;
 }
 
@@ -98,6 +122,7 @@ function srFindBlocks() {
 // non-returner). A block still showing last season's roster — or an empty block — has none.
 function srIsUpdated(t, blk) {
   if (!blk) return false;
+  if (!blk.main) return true;          // only on your own tab (e.g. a conference you're building) -> yours, untouched
   return t.players.some(function (p) {
     return p.status !== 'returner' && (blk.names[srNorm(p.name)] || (p.site_name && blk.names[srNorm(p.site_name)]));
   });
@@ -220,7 +245,7 @@ function applySchoolAdditions() {
 //   Significant <Team>: Losses
 // Teams already in the Sheet (any "<Team>: Roster" block on any tab) are never touched, and a
 // re-run only adds teams that are still missing. Stats are filled on the site by the sync's
-// espn-id + stat backfill. sheet_sync.gs must list these tabs in CONF_TABS.
+// espn-id + stat backfill once syncMoreConferences (tdc_sync_more.gs) pushes these tabs.
 function createNewTeamTabs() {
   var data = srLoad();
   var blocks = srFindBlocks();
@@ -268,19 +293,20 @@ function createNewTeamTabs() {
     bold.forEach(function (i) { sh.getRange(start + i, 1, 1, W).setFontWeight('bold'); });
   });
   srNotice('New teams added', made.length + ' teams across ' + Object.keys(byConf).length + ' conference tabs (' +
-    Object.keys(byConf).sort().join(', ') + '). Next: paste the updated sheet_sync.gs (keep your key line), then sync.');
+    Object.keys(byConf).sort().join(', ') + '). Next: add tdc_sync_more.gs and run syncMoreConferences.');
 }
 
-// Diagnostic: every tab that holds "<Team>: Roster" blocks, and which teams are on it.
-// Run it, then copy the execution log (it only reads; changes nothing).
+// Diagnostic: every tab that holds "<Team>: Roster" blocks, which teams are on it (player count),
+// and any team that appears on MORE than one tab. Read-only.
 function listRosterBlocks() {
-  var by = {};
-  var blocks = srFindBlocks();
-  Object.keys(blocks).forEach(function (k) {
-    var tab = blocks[k].sheet.getName();
-    (by[tab] = by[tab] || []).push(k + '(' + Object.keys(blocks[k].names).length + ')');
+  var all = srScanTabs(), by = {}, seen = {};
+  all.forEach(function (b) { (seen[b.key] = seen[b.key] || []).push(b.tab); });
+  all.forEach(function (b) {
+    var dup = seen[b.key].length > 1 ? ' [ALSO ON ' + seen[b.key].filter(function (t) { return t !== b.tab; }).join('/') + ']' : '';
+    (by[b.tab] = by[b.tab] || []).push(b.key + '(' + Object.keys(b.names).length + ')' + dup);
   });
+  var main = srMainTabs();
   Object.keys(by).sort().forEach(function (tab) {
-    Logger.log(tab + ' — ' + by[tab].length + ' teams: ' + by[tab].sort().join(', '));
+    Logger.log((main.indexOf(tab) >= 0 ? 'MAIN ' : 'other ') + tab + ' — ' + by[tab].length + ' teams: ' + by[tab].join(', '));
   });
 }
