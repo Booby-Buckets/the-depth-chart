@@ -20,7 +20,7 @@
 //   plus each player's class, height, position, status and where a transfer came from.
 //   Teams whose school hasn't posted a 2026-27 roster yet are listed and left alone.
 //
-// TDC → Apply school-roster additions
+// TDC → Apply school-roster additions   (or run applySchoolAdditions from the editor; no pop-ups — results show as a corner notice + in the execution log)
 //   Teams you've ALREADY updated (the block holds any 2026-27 newcomer) are locked: never touched.
 //   Appends every ADD player to the BENCH of his team's block on the conference tabs, in your
 //   format (Pos · Ht · Name+ · From · Yr · 🌍 flag), tinted green. Nothing is deleted or
@@ -47,6 +47,13 @@ function srTeamKey(s) {
   return String(s || '').toLowerCase().replace(/saint /g, 'st ').replace(/[^a-z]/g, '');
 }
 
+// Non-blocking result notice: a corner toast in the Sheet + the execution log. (A ui.alert run
+// from the editor waits for someone to click OK in the Sheet tab, and times out after 6 min.)
+function srNotice(title, msg) {
+  Logger.log(title + ' — ' + msg);
+  try { SpreadsheetApp.getActiveSpreadsheet().toast(msg, title, 30); } catch (e) {}
+}
+
 function srLoad() {
   var r = UrlFetchApp.fetch(SR_SITE + '/scripts/data/roster_diff_2027.json?t=' + Date.now(), { muteHttpExceptions: true });
   if (r.getResponseCode() !== 200) throw new Error('Could not load roster_diff_2027.json (HTTP ' + r.getResponseCode() + ')');
@@ -58,7 +65,10 @@ function srFindBlocks() {
   var blocks = {};
   SpreadsheetApp.getActiveSpreadsheet().getSheets().forEach(function (sh) {
     if (sh.getName() === SR_TAB) return;
-    var vals = sh.getDataRange().getValues();
+    var lastRow = sh.getLastRow();
+    if (lastRow < 1) return;
+    // only the roster columns (A..L) — reading whole stat tabs is what made this slow
+    var vals = sh.getRange(1, 1, lastRow, Math.min(12, Math.max(1, sh.getLastColumn()))).getValues();
     var cur = null;
     for (var r = 0; r < vals.length; r++) {
       var row = vals[r].map(function (c) { return String(c || '').trim(); });
@@ -141,13 +151,12 @@ function pullSchoolRosters() {
   sh.setFrozenRows(1);
   sh.autoResizeColumns(1, head.length);
   ss.setActiveSheet(sh);
-  SpreadsheetApp.getUi().alert('School rosters pulled', locked.length + ' teams you already updated — locked, not touched\n' + nAdd + ' to ADD (green)\n' + nLeft + ' possibly LEFT (red — check, nothing is removed)\n' +
-    nSpell + ' SPELLING differences (yellow — report only)\n' + notPosted.length + ' teams have not posted a 2026-27 roster yet\n\n' +
-    'Run TDC → Apply school-roster additions to add the green players to the bench of each team.', SpreadsheetApp.getUi().ButtonSet.OK);
+  var summary = locked.length + ' already-updated teams locked (not touched) · ' + nAdd + ' to ADD · ' + nLeft +
+    ' possibly LEFT (never removed) · ' + nSpell + ' spelling differences (report only) · ' + notPosted.length + ' not posted yet';
+  srNotice('School rosters pulled', summary + '. Next: run applySchoolAdditions to add the green players.');
 }
 
 function applySchoolAdditions() {
-  var ui = SpreadsheetApp.getUi();
   var data = srLoad();
   var blocks = srFindBlocks();
   // count first, so the confirm says exactly what will happen
@@ -163,10 +172,8 @@ function applySchoolAdditions() {
     if (adds.length) plan.push({ team: t.team, blk: blk, adds: adds });
   });
   var total = plan.reduce(function (a, x) { return a + x.adds.length; }, 0);
-  if (!total) { ui.alert('Nothing to add — every school-roster player is already in your Sheet.'); return; }
-  var ok = ui.alert('Apply school-roster additions?', 'Adds ' + total + ' players to the bench of ' + plan.length +
-    ' teams (tinted green). Nothing is deleted or reordered. Continue?', ui.ButtonSet.YES_NO);
-  if (ok !== ui.Button.YES) return;
+  if (!total) { srNotice('Nothing to add', 'Every school-roster player is already in your Sheet (or the team is locked).'); return; }
+  // no confirm dialog: this only ADDS rows (green), skips locked teams, and you reviewed the list first
 
   // bottom-up per sheet so inserting rows never shifts a block we haven't written yet
   plan.sort(function (a, b) {
@@ -191,6 +198,6 @@ function applySchoolAdditions() {
     sh.getRange(at + 1, SR_COL.HT, rows.length, 1).setNumberFormat('@');   // keep "6-7" from turning into a date
     rng.setValues(rows).setBackground('#d9ead3');
   });
-  ui.alert('Added ' + total + ' players across ' + plan.length + ' teams.\n\nNext: run TDC → Fill roster from database on each conference tab ' +
-    '(fills transfers\' stats), then sync. Freshmen and international newcomers get their OVR in the site\'s projection editor.');
+  srNotice('School rosters applied', 'Added ' + total + ' players to ' + plan.map(function (x) { return x.team; }).join(', ') +
+    ' (green rows). Next: sync as usual; give freshmen / international newcomers their OVR in the site editor.');
 }
