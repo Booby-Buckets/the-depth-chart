@@ -16,7 +16,9 @@ const CONF_TIERS = {
   'MVC':4,'CUSA':4,'MAC':4,'Big West':4,
   'CAA':5,'Big Sky':5,'Sun Belt':5,
   'ASUN':6,'MAAC':6,'OVC':6,
-  'NEC':7,'SWAC':7,'MEAC':7
+  'NEC':7,'SWAC':7,'MEAC':7,
+  // the rest of D1 (Oct 2026 — every conference now has rosters)
+  'Ivy':4,'WAC':5,'UAC':5,'Horizon':5,'Big South':5,'SoCon':6,'Summit':6,'Southland':6,'Patriot':7,'AEC':7
 };
 
 const TIER_TRANSLATION = {

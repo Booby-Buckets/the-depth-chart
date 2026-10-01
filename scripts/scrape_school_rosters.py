@@ -348,6 +348,35 @@ def parse_schema_athletes(h):
     return out
 
 
+def parse_presto(h):
+    """PrestoSports (/sports/mbkb/<season>/roster): a table whose cells carry data-field
+    (number, first_name: :last_name, position, year, height, weight, hometown:/:college > highschool).
+    Class is a number on some sites (1 = Fr … 4 = Sr, 5+ = Gr)."""
+    out = []
+    tb = re.search(r'<table.*?</table>', h, re.S)
+    if not tb:
+        return out
+    for row in re.findall(r'<tr[^>]*>(.*?)</tr>', tb.group(0), re.S):
+        cells = {f: c for f, c in re.findall(r'<t[hd][^>]*data-field="([^"]+)"[^>]*>(.*?)</t[hd]>', row, re.S)}
+        name_cell = next((c for f, c in cells.items() if 'last_name' in f or f == 'name'), None)
+        if not name_cell:
+            continue
+        a = re.search(r'<a[^>]*>(.*?)</a>', name_cell, re.S)
+        name = text(a.group(1) if a else name_cell)
+        if not name:
+            continue
+        val = lambda key: text(re.sub(r'<span class="label[^"]*">.*?</span>', '', next((c for f, c in cells.items() if f.startswith(key)), '')))
+        cl = val('year')
+        if cl.isdigit():
+            cl = {1: 'Fr', 2: 'So', 3: 'Jr', 4: 'Sr'}.get(int(cl), 'Gr')
+        home = val('hometown')
+        hometown, _, last = home.partition(' / ')
+        out.append({'name': name, 'jersey': val('number'), 'pos': val('position'), 'cls': clean_cls(cl),
+                    'ht': clean_ht(val('height')), 'wt': clean_wt(val('weight')), 'hometown': hometown.strip() or None,
+                    'high_school': None, 'prev_school': last.strip()})
+    return out
+
+
 def scrape(team, site):
     d = site['domain']
     url = f"https://{d}{site.get('roster_path') or '/sports/mens-basketball/roster'}"
@@ -370,6 +399,8 @@ def scrape(team, site):
             rec['platform'], rec['players'] = 'sidearm-next', parse_sidearm_next(h)
         elif 'sidearm-roster-player' in h:
             rec['platform'], rec['players'] = 'sidearm-legacy', parse_sidearm_legacy(h)
+        elif 'data-field="first_name: :last_name"' in h or '/sports/mbkb/' in rec['url']:
+            rec['platform'], rec['players'] = 'presto', parse_presto(h)
         elif 'class="roster__item roster-item"' in h:
             rec['platform'], rec['players'] = 'roster-item', parse_roster_item(h)
         elif 'roster-card-item' in h:
@@ -393,6 +424,10 @@ def scrape(team, site):
             rec['error'] = f"site still shows the {rec['season']} roster (2026-27 not posted yet)"
         elif not uniq:
             rec['error'] = 'no players listed yet' if rec['season'] == SEASON else 'no players parsed'
+        elif len(uniq) < 8:
+            # a JS-rendered page can leak a few stray names (LSU: 4) — never treat that as a roster
+            rec['incomplete'] = True
+            rec['error'] = f'only {len(uniq)} players found — page incomplete, add by hand'
     except Exception as e:
         rec['error'] = str(e)[:120]
     return rec

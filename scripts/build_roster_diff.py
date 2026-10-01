@@ -154,9 +154,10 @@ def main():
         team = rec['team']
         site = sites.get(team, {})
         me = ts_by_id.get(str(site.get('espn_id'))) or {}
-        row = {'team': team, 'url': rec.get('url'), 'season': rec.get('season'), 'error': rec.get('error'),
-               'stale': bool(rec.get('stale')), 'players': [], 'added': [], 'removed': []}
-        if rec.get('stale') or not rec.get('players'):
+        row = {'team': team, 'conf': site.get('conf'), 'coach': site.get('coach'), 'in_sheet': site.get('in_sheet', True),
+               'url': rec.get('url'), 'season': rec.get('season'), 'error': rec.get('error'),
+               'stale': bool(rec.get('stale') or rec.get('incomplete')), 'players': [], 'added': [], 'removed': []}
+        if rec.get('stale') or rec.get('incomplete') or not rec.get('players'):
             out.append(row)
             continue
         our_names = {nk(p['name']): p for p in ours_by_team.get(team, [])}
@@ -200,6 +201,10 @@ def main():
             # the Sheet's "From" column: transfer origin, or an international club / JUCO for a newcomer
             p['sheet_from'] = p.get('from_team') or (sp.get('prev_school') if p['status'] == 'newcomer' else '') or ''
             row['players'].append(p)
+        # depth order for a brand-new Sheet block: last season's minutes first (returners/transfers),
+        # then by class (Gr > Sr > … > Fr) — the owner reorders on the site's depth-chart editor
+        CLS_RANK = {'Gr': 5, 'Sr': 4, 'Jr': 3, 'So': 2, 'Fr': 1}
+        row['players'].sort(key=lambda p: (-(p.get('last_mpg') or 0), -CLS_RANK.get((p.get('cls') or '').replace('R-', ''), 0)))
         sk = {nk(p['name']) for p in rec['players']}
         added = [p for p in row['players'] if not p['on_site']]
         removed = [p for p in ours_by_team.get(team, []) if nk(p['name']) not in sk]

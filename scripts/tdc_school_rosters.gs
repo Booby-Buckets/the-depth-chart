@@ -111,11 +111,12 @@ function pullSchoolRosters() {
   var head = ['Team', 'Change', 'Name', 'Pos', 'Ht', 'Wt', 'Class', 'Status', 'Move', 'From / prev school', 'Hometown', '🌍', 'In your Sheet as', 'Source'];
   var out = [head], colors = [head.map(function () { return '#d9d9d9'; })];
   var blocks = srFindBlocks();
-  var nAdd = 0, nLeft = 0, nSpell = 0, notPosted = [], locked = [];
+  var nAdd = 0, nLeft = 0, nSpell = 0, notPosted = [], locked = [], newTeams = [];
   data.forEach(function (t) {
     if (!t.players || !t.players.length || t.stale) { notPosted.push(t.team + ' — ' + (t.error || 'no roster')); return; }
     var blk = blocks[srTeamKey(t.team)];
     if (srIsUpdated(t, blk)) { locked.push(t.team); return; }
+    if (!blk && t.in_sheet === false) { newTeams.push(t.team); return; }   // -> createNewTeamTabs
     var spell = {}; (t.renamed || []).forEach(function (x) { spell[srNorm(x.school)] = x.site; });
     out.push([t.team + (blk ? '' : '   (no "' + t.team + ': Roster" block found in the Sheet)'), '', '', '', '', '', '', '', '', '', '', '', '', t.url]);
     colors.push(head.map(function () { return '#eeeeee'; }));
@@ -141,6 +142,12 @@ function pullSchoolRosters() {
     out.push(['', locked.join(', '), '', '', '', '', '', '', '', '', '', '', '', '']);
     colors.push(head.map(function () { return '#ffffff'; }));
   }
+  if (newTeams.length) {
+    out.push(['🆕 Not in your Sheet yet — run createNewTeamTabs to add them (' + newTeams.length + '):', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+    colors.push(head.map(function () { return '#eeeeee'; }));
+    out.push(['', newTeams.join(', '), '', '', '', '', '', '', '', '', '', '', '', '']);
+    colors.push(head.map(function () { return '#ffffff'; }));
+  }
   if (notPosted.length) {
     out.push(['No 2026-27 roster posted yet (left alone):', '', '', '', '', '', '', '', '', '', '', '', '', '']);
     colors.push(head.map(function () { return '#eeeeee'; }));
@@ -152,7 +159,7 @@ function pullSchoolRosters() {
   sh.autoResizeColumns(1, head.length);
   ss.setActiveSheet(sh);
   var summary = locked.length + ' already-updated teams locked (not touched) · ' + nAdd + ' to ADD · ' + nLeft +
-    ' possibly LEFT (never removed) · ' + nSpell + ' spelling differences (report only) · ' + notPosted.length + ' not posted yet';
+    ' possibly LEFT (never removed) · ' + nSpell + ' spelling differences (report only) · ' + notPosted.length + ' not posted yet · ' + newTeams.length + ' new teams ready for createNewTeamTabs';
   srNotice('School rosters pulled', summary + '. Next: run applySchoolAdditions to add the green players.');
 }
 
@@ -200,4 +207,66 @@ function applySchoolAdditions() {
   });
   srNotice('School rosters applied', 'Added ' + total + ' players to ' + plan.map(function (x) { return x.team; }).join(', ') +
     ' (green rows). Next: sync as usual; give freshmen / international newcomers their OVR in the site editor.');
+}
+
+
+// ── NEW TEAMS: every D1 team that isn't in the Sheet yet ─────────────────────────────────────
+// One tab per conference, named with the site's conference code (WCC, MVC, Sun Belt…), each team
+// a block in the exact layout sheet_sync.gs reads:
+//   HC - <coach>            (always written: the sync carries the previous coach forward otherwise)
+//   <Team>: Roster
+//   Pos. | Ht. | Name | From | Yr.
+//   players — depth order = last season's minutes, then class; newcomers marked "+"
+//   Significant <Team>: Losses
+// Teams already in the Sheet (any "<Team>: Roster" block on any tab) are never touched, and a
+// re-run only adds teams that are still missing. Stats are filled on the site by the sync's
+// espn-id + stat backfill. sheet_sync.gs must list these tabs in CONF_TABS.
+function createNewTeamTabs() {
+  var data = srLoad();
+  var blocks = srFindBlocks();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var byConf = {}, n = 0;
+  data.forEach(function (t) {
+    if (t.in_sheet !== false || t.stale || !t.players || !t.players.length || !t.conf) return;
+    if (blocks[srTeamKey(t.team)]) return;                       // already in the Sheet
+    (byConf[t.conf] = byConf[t.conf] || []).push(t);
+    n++;
+  });
+  if (!n) { srNotice('Nothing to create', 'Every D1 team with a posted roster already has a block in your Sheet.'); return; }
+  var W = SR_COL.FLAGS + 1;                                       // A..AG
+  function blank() { var r = []; for (var i = 0; i < W; i++) r.push(''); return r; }
+  var made = [];
+  Object.keys(byConf).sort().forEach(function (conf) {
+    var sh = ss.getSheetByName(conf) || ss.insertSheet(conf);
+    var rows = [], bold = [];
+    byConf[conf].sort(function (a, b) { return a.team < b.team ? -1 : 1; }).forEach(function (t) {
+      var r;
+      r = blank(); r[0] = 'HC - ' + (t.coach || 'TBD'); bold.push(rows.length); rows.push(r);
+      r = blank(); r[SR_COL.NAME - 1] = t.team + ': Roster'; bold.push(rows.length); rows.push(r);
+      r = blank(); r[SR_COL.POS - 1] = 'Pos.'; r[SR_COL.HT - 1] = 'Ht.'; r[SR_COL.NAME - 1] = 'Name';
+      r[SR_COL.FROM - 1] = 'From'; r[SR_COL.YR - 1] = 'Yr.'; rows.push(r);
+      t.players.forEach(function (p) {
+        r = blank();
+        r[SR_COL.POS - 1] = p.sheet_pos || '';
+        r[SR_COL.HT - 1] = p.ht || '';
+        r[SR_COL.NAME - 1] = p.name + (p.status === 'returner' ? '' : '+');
+        r[SR_COL.FROM - 1] = p.sheet_from || '';
+        r[SR_COL.YR - 1] = p.sheet_yr || '';
+        r[SR_COL.FLAGS - 1] = p.intl ? '🌍' : '';
+        rows.push(r);
+      });
+      r = blank(); r[0] = 'Significant ' + t.team + ': Losses'; bold.push(rows.length); rows.push(r);
+      rows.push(blank());
+      made.push(t.team);
+    });
+    var last = sh.getLastRow();
+    var start = last ? last + 2 : 1;
+    if (sh.getMaxColumns() < W) sh.insertColumnsAfter(sh.getMaxColumns(), W - sh.getMaxColumns());
+    if (sh.getMaxRows() < start + rows.length) sh.insertRowsAfter(sh.getMaxRows(), start + rows.length - sh.getMaxRows());
+    sh.getRange(start, SR_COL.HT, rows.length, 1).setNumberFormat('@');   // heights stay "6-7", not dates
+    sh.getRange(start, 1, rows.length, W).setValues(rows);
+    bold.forEach(function (i) { sh.getRange(start + i, 1, 1, W).setFontWeight('bold'); });
+  });
+  srNotice('New teams added', made.length + ' teams across ' + Object.keys(byConf).length + ' conference tabs (' +
+    Object.keys(byConf).sort().join(', ') + '). Next: paste the updated sheet_sync.gs (keep your key line), then sync.');
 }
