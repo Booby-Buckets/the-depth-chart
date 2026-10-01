@@ -46,6 +46,9 @@ var SKIP_NAMES = /^(bench|name|player|pos|position|significant|roster|starters?|
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('TDC')
     .addItem('Fill roster from database', 'fillRosterFromDB')
+    .addSeparator()
+    .addItem('Pull school rosters (review)', 'pullSchoolRosters')        // tdc_school_rosters.gs
+    .addItem('Apply school-roster additions', 'applySchoolAdditions')
     .addToUi();
 }
 
