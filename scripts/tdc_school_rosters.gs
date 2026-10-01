@@ -141,7 +141,7 @@ function pullSchoolRosters() {
     if (!t.players || !t.players.length || t.stale) { notPosted.push(t.team + ' — ' + (t.error || 'no roster')); return; }
     var blk = blocks[srTeamKey(t.team)];
     if (srIsUpdated(t, blk)) { locked.push(t.team); return; }
-    if (!blk && t.in_sheet === false) { newTeams.push(t.team); return; }   // -> createNewTeamTabs
+    if (!blk) { newTeams.push(t.team); return; }   // no block anywhere (new team, or one that fell out of the Sheet) -> createNewTeamTabs
     var spell = {}; (t.renamed || []).forEach(function (x) { spell[srNorm(x.school)] = x.site; });
     out.push([t.team + (blk ? '' : '   (no "' + t.team + ': Roster" block found in the Sheet)'), '', '', '', '', '', '', '', '', '', '', '', '', t.url]);
     colors.push(head.map(function () { return '#eeeeee'; }));
@@ -235,7 +235,7 @@ function applySchoolAdditions() {
 }
 
 
-// ── NEW TEAMS: every D1 team that isn't in the Sheet yet ─────────────────────────────────────
+// ── NEW TEAMS: every D1 team with no block anywhere in the Sheet ─────────────────────────────────────
 // One tab per conference, named with the site's conference code (WCC, MVC, Sun Belt…), each team
 // a block in the exact layout sheet_sync.gs reads:
 //   HC - <coach>            (always written: the sync carries the previous coach forward otherwise)
@@ -252,8 +252,10 @@ function createNewTeamTabs() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var byConf = {}, n = 0;
   data.forEach(function (t) {
-    if (t.in_sheet !== false || t.stale || !t.players || !t.players.length || !t.conf) return;
-    if (blocks[srTeamKey(t.team)]) return;                       // already in the Sheet
+    if (t.stale || !t.players || !t.players.length || !t.conf) return;
+    if (blocks[srTeamKey(t.team)]) return;                       // already in the Sheet (any tab) — never touched
+    // no block anywhere: a new team, OR one of yours that fell out of the Sheet (ECU/Rice/UTSA after the
+    // Sept 29 sync) — its block goes on its conference tab (for those three, your AAC tab)
     (byConf[t.conf] = byConf[t.conf] || []).push(t);
     n++;
   });
