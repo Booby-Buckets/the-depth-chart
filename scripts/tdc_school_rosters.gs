@@ -21,6 +21,7 @@
 //   Teams whose school hasn't posted a 2026-27 roster yet are listed and left alone.
 //
 // TDC → Apply school-roster additions
+//   Teams you've ALREADY updated (the block holds any 2026-27 newcomer) are locked: never touched.
 //   Appends every ADD player to the BENCH of his team's block on the conference tabs, in your
 //   format (Pos · Ht · Name+ · From · Yr · 🌍 flag), tinted green. Nothing is deleted or
 //   reordered, and re-running it never adds a player twice. Then run
@@ -82,6 +83,16 @@ function srFindBlocks() {
   return blocks;
 }
 
+// A team you've ALREADY updated for 2026-27 is never touched. "Updated" = its block in the Sheet
+// already holds at least one of the school's 2026-27 newcomers (a freshman, transfer or other
+// non-returner). A block still showing last season's roster — or an empty block — has none.
+function srIsUpdated(t, blk) {
+  if (!blk) return false;
+  return t.players.some(function (p) {
+    return p.status !== 'returner' && (blk.names[srNorm(p.name)] || (p.site_name && blk.names[srNorm(p.site_name)]));
+  });
+}
+
 function pullSchoolRosters() {
   var data = srLoad();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -90,10 +101,11 @@ function pullSchoolRosters() {
   var head = ['Team', 'Change', 'Name', 'Pos', 'Ht', 'Wt', 'Class', 'Status', 'Move', 'From / prev school', 'Hometown', '🌍', 'In your Sheet as', 'Source'];
   var out = [head], colors = [head.map(function () { return '#d9d9d9'; })];
   var blocks = srFindBlocks();
-  var nAdd = 0, nLeft = 0, nSpell = 0, notPosted = [];
+  var nAdd = 0, nLeft = 0, nSpell = 0, notPosted = [], locked = [];
   data.forEach(function (t) {
     if (!t.players || !t.players.length || t.stale) { notPosted.push(t.team + ' — ' + (t.error || 'no roster')); return; }
     var blk = blocks[srTeamKey(t.team)];
+    if (srIsUpdated(t, blk)) { locked.push(t.team); return; }
     var spell = {}; (t.renamed || []).forEach(function (x) { spell[srNorm(x.school)] = x.site; });
     out.push([t.team + (blk ? '' : '   (no "' + t.team + ': Roster" block found in the Sheet)'), '', '', '', '', '', '', '', '', '', '', '', '', t.url]);
     colors.push(head.map(function () { return '#eeeeee'; }));
@@ -113,6 +125,12 @@ function pullSchoolRosters() {
       nLeft++;
     });
   });
+  if (locked.length) {
+    out.push(['🔒 Already updated by you — not touched (' + locked.length + '):', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+    colors.push(head.map(function () { return '#eeeeee'; }));
+    out.push(['', locked.join(', '), '', '', '', '', '', '', '', '', '', '', '', '']);
+    colors.push(head.map(function () { return '#ffffff'; }));
+  }
   if (notPosted.length) {
     out.push(['No 2026-27 roster posted yet (left alone):', '', '', '', '', '', '', '', '', '', '', '', '', '']);
     colors.push(head.map(function () { return '#eeeeee'; }));
@@ -123,7 +141,7 @@ function pullSchoolRosters() {
   sh.setFrozenRows(1);
   sh.autoResizeColumns(1, head.length);
   ss.setActiveSheet(sh);
-  SpreadsheetApp.getUi().alert('School rosters pulled', nAdd + ' to ADD (green)\n' + nLeft + ' possibly LEFT (red — check, nothing is removed)\n' +
+  SpreadsheetApp.getUi().alert('School rosters pulled', locked.length + ' teams you already updated — locked, not touched\n' + nAdd + ' to ADD (green)\n' + nLeft + ' possibly LEFT (red — check, nothing is removed)\n' +
     nSpell + ' SPELLING differences (yellow — report only)\n' + notPosted.length + ' teams have not posted a 2026-27 roster yet\n\n' +
     'Run TDC → Apply school-roster additions to add the green players to the bench of each team.', SpreadsheetApp.getUi().ButtonSet.OK);
 }
@@ -137,7 +155,7 @@ function applySchoolAdditions() {
   data.forEach(function (t) {
     if (!t.players || t.stale) return;
     var blk = blocks[srTeamKey(t.team)];
-    if (!blk) return;
+    if (!blk || srIsUpdated(t, blk)) return;      // already updated by you -> never touched
     var spell = {}; (t.renamed || []).forEach(function (x) { spell[srNorm(x.school)] = true; });
     var adds = t.players.filter(function (p) {
       return !blk.names[srNorm(p.name)] && !spell[srNorm(p.name)] && !(p.site_name && blk.names[srNorm(p.site_name)]);
