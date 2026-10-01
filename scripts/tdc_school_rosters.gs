@@ -246,6 +246,40 @@ function applySchoolAdditions() {
 // Teams already in the Sheet (any "<Team>: Roster" block on any tab) are never touched, and a
 // re-run only adds teams that are still missing. Stats are filled on the site by the sync's
 // espn-id + stat backfill once syncMoreConferences (tdc_sync_more.gs) pushes these tabs.
+// One team's block, in the exact layout sheet_sync.gs's parseSheet reads, appended to rows[]
+// (header-line indexes go in bold[]). Shared by createNewTeamTabs and replaceSchoolBlocks.
+var SR_W = SR_COL.FLAGS + 1;                                        // A..AG
+function srBlank() { var r = []; for (var i = 0; i < SR_W; i++) r.push(''); return r; }
+function srBlockRows(t, rows, bold) {
+  var r;
+  r = srBlank(); r[0] = 'HC - ' + (t.coach || 'TBD'); bold.push(rows.length); rows.push(r);
+  r = srBlank(); r[SR_COL.NAME - 1] = t.team + ': Roster'; bold.push(rows.length); rows.push(r);
+  r = srBlank(); r[SR_COL.POS - 1] = 'Pos.'; r[SR_COL.HT - 1] = 'Ht.'; r[SR_COL.NAME - 1] = 'Name';
+  r[SR_COL.FROM - 1] = 'From'; r[SR_COL.YR - 1] = 'Yr.'; rows.push(r);
+  t.players.forEach(function (p) {
+    r = srBlank();
+    r[SR_COL.POS - 1] = p.sheet_pos || '';
+    r[SR_COL.HT - 1] = p.ht || '';
+    r[SR_COL.NAME - 1] = p.name + (p.status === 'returner' ? '' : '+');
+    r[SR_COL.FROM - 1] = p.sheet_from || '';
+    r[SR_COL.YR - 1] = p.sheet_yr || '';
+    r[SR_COL.FLAGS - 1] = p.intl ? '🌍' : '';
+    rows.push(r);
+  });
+  r = srBlank(); r[0] = 'Significant ' + t.team + ': Losses'; bold.push(rows.length); rows.push(r);
+  rows.push(srBlank());
+}
+function srAppendRows(sh, rows, bold) {
+  var last = sh.getLastRow();
+  var start = last ? last + 2 : 1;
+  if (sh.getMaxColumns() < SR_W) sh.insertColumnsAfter(sh.getMaxColumns(), SR_W - sh.getMaxColumns());
+  if (sh.getMaxRows() < start + rows.length) sh.insertRowsAfter(sh.getMaxRows(), start + rows.length - sh.getMaxRows());
+  sh.getRange(start, SR_COL.HT, rows.length, 1).setNumberFormat('@');   // heights stay "6-7", not dates
+  sh.getRange(start, 1, rows.length, SR_W).setValues(rows);
+  // one call for every header line on the tab (row-by-row bolding was ~700 calls -> timeout)
+  if (bold.length) sh.getRangeList(bold.map(function (i) { return 'A' + (start + i) + ':AG' + (start + i); })).setFontWeight('bold');
+}
+
 function createNewTeamTabs() {
   var data = srLoad();
   var blocks = srFindBlocks();
@@ -260,8 +294,6 @@ function createNewTeamTabs() {
     n++;
   });
   if (!n) { srNotice('Nothing to create', 'Every D1 team with a posted roster already has a block in your Sheet.'); return; }
-  var W = SR_COL.FLAGS + 1;                                       // A..AG
-  function blank() { var r = []; for (var i = 0; i < W; i++) r.push(''); return r; }
   var made = [];
   var t0 = Date.now(), stoppedAt = null;
   Object.keys(byConf).sort().forEach(function (conf) {
@@ -269,33 +301,10 @@ function createNewTeamTabs() {
     var sh = ss.getSheetByName(conf) || ss.insertSheet(conf);
     var rows = [], bold = [];
     byConf[conf].sort(function (a, b) { return a.team < b.team ? -1 : 1; }).forEach(function (t) {
-      var r;
-      r = blank(); r[0] = 'HC - ' + (t.coach || 'TBD'); bold.push(rows.length); rows.push(r);
-      r = blank(); r[SR_COL.NAME - 1] = t.team + ': Roster'; bold.push(rows.length); rows.push(r);
-      r = blank(); r[SR_COL.POS - 1] = 'Pos.'; r[SR_COL.HT - 1] = 'Ht.'; r[SR_COL.NAME - 1] = 'Name';
-      r[SR_COL.FROM - 1] = 'From'; r[SR_COL.YR - 1] = 'Yr.'; rows.push(r);
-      t.players.forEach(function (p) {
-        r = blank();
-        r[SR_COL.POS - 1] = p.sheet_pos || '';
-        r[SR_COL.HT - 1] = p.ht || '';
-        r[SR_COL.NAME - 1] = p.name + (p.status === 'returner' ? '' : '+');
-        r[SR_COL.FROM - 1] = p.sheet_from || '';
-        r[SR_COL.YR - 1] = p.sheet_yr || '';
-        r[SR_COL.FLAGS - 1] = p.intl ? '🌍' : '';
-        rows.push(r);
-      });
-      r = blank(); r[0] = 'Significant ' + t.team + ': Losses'; bold.push(rows.length); rows.push(r);
-      rows.push(blank());
+      srBlockRows(t, rows, bold);
       made.push(t.team);
     });
-    var last = sh.getLastRow();
-    var start = last ? last + 2 : 1;
-    if (sh.getMaxColumns() < W) sh.insertColumnsAfter(sh.getMaxColumns(), W - sh.getMaxColumns());
-    if (sh.getMaxRows() < start + rows.length) sh.insertRowsAfter(sh.getMaxRows(), start + rows.length - sh.getMaxRows());
-    sh.getRange(start, SR_COL.HT, rows.length, 1).setNumberFormat('@');   // heights stay "6-7", not dates
-    sh.getRange(start, 1, rows.length, W).setValues(rows);
-    // one call for every header line on the tab (row-by-row bolding was ~700 calls -> timeout)
-    if (bold.length) sh.getRangeList(bold.map(function (i) { return 'A' + (start + i) + ':AG' + (start + i); })).setFontWeight('bold');
+    srAppendRows(sh, rows, bold);
   });
   if (stoppedAt) {
     srNotice('Paused — run createNewTeamTabs again', made.length + ' teams added so far; stopped before the ' + stoppedAt +
@@ -319,4 +328,58 @@ function listRosterBlocks() {
   Object.keys(by).sort().forEach(function (tab) {
     Logger.log((main.indexOf(tab) >= 0 ? 'MAIN ' : 'other ') + tab + ' — ' + by[tab].length + ' teams: ' + by[tab].join(', '));
   });
+}
+
+// ── REPLACE placeholder blocks with the school roster ───────────────────────────────────────
+// For the teams listed below ONLY, and only where the block sits on one of YOUR OWN tabs (never a
+// main tab): removes the whole block — "HC - …" line through its Losses section — and writes a
+// fresh block from the official school roster at the bottom of the same tab, in the standard layout.
+// Owner-approved list (Oct 2026): these were placeholders in a different column layout. Bradley is
+// left alone until its school posts a 2026-27 roster.
+var SR_REPLACE = ['High Point', 'Winthrop', 'Radford', 'Belmont', 'Northern Iowa', 'Murray State', 'Illinois State',
+  'Valparaiso', 'Drake', 'Indiana State', 'Evansville'];
+
+function replaceSchoolBlocks() {
+  var data = srLoad(), byKey = {};
+  data.forEach(function (t) { byKey[srTeamKey(t.team)] = t; });
+  var want = {}; SR_REPLACE.forEach(function (n) { want[srTeamKey(n)] = n; });
+  var main = srMainTabs(), done = [], skipped = [];
+  SpreadsheetApp.getActiveSpreadsheet().getSheets().forEach(function (sh) {
+    if (sh.getName() === SR_TAB || main.indexOf(sh.getName()) >= 0) return;   // never a main tab
+    var lastRow = sh.getLastRow();
+    if (lastRow < 1) return;
+    var vals = sh.getRange(1, 1, lastRow, Math.min(12, Math.max(1, sh.getLastColumn()))).getValues();
+    var heads = [], hcs = [];
+    vals.forEach(function (row, i) {
+      var cells = row.map(function (c) { return String(c || '').trim(); });
+      cells.forEach(function (c) {
+        var m = c.match(/^(.+?):\s*Roster\s*$/i);
+        if (m) heads.push({ r: i + 1, key: srTeamKey(typeof fixTeamName === 'function' ? fixTeamName(m[1].trim()) : m[1].trim()) });
+      });
+      if (cells.some(function (c) { return /^HC\s*[-–]/i.test(c); })) hcs.push(i + 1);
+    });
+    // a block starts at its "HC - …" line (the last one between the previous header and its own), else its header
+    function startOf(j) {
+      var lo = j > 0 ? heads[j - 1].r : 0, hi = heads[j].r, s = hi;
+      hcs.forEach(function (h) { if (h > lo && h < hi) s = h; });
+      return s;
+    }
+    var cuts = [], rows = [], bold = [];
+    heads.forEach(function (h, j) {
+      if (!want[h.key]) return;
+      var t = byKey[h.key];
+      if (!t || t.stale || !t.players || t.players.length < 8) { skipped.push(want[h.key] + ' (no full school roster yet)'); return; }
+      var end = j + 1 < heads.length ? startOf(j + 1) - 1 : lastRow;
+      cuts.push({ start: startOf(j), end: end });
+      srBlockRows(t, rows, bold);
+      done.push(want[h.key] + ' (' + sh.getName() + ')');
+    });
+    if (!cuts.length) return;
+    cuts.sort(function (a, b) { return b.start - a.start; }).forEach(function (c) {   // bottom-up: earlier rows don't shift
+      sh.deleteRows(c.start, c.end - c.start + 1);
+    });
+    srAppendRows(sh, rows, bold);
+  });
+  srNotice('Blocks replaced', done.length + ' replaced with the school roster: ' + done.join(', ') +
+    (skipped.length ? '. Left alone: ' + skipped.join(', ') : '') + '. Next: run syncMoreConferences.');
 }
