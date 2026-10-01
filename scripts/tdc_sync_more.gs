@@ -78,6 +78,10 @@ function syncMoreConferences() {
       var real = team.players.filter(function (p) { return p.name && p.name !== '—' && p.name !== '-'; }).length;
       if (mainKeys[moreKey(team.name)]) { skipped.push(team.name + ' (on your ' + mainKeys[moreKey(team.name)] + ' tab)'); return; }
       if (real < 8) { skipped.push(team.name + ' (' + real + ' players — unfinished block)'); return; }
+      // a block laid out differently (class or height sitting in the Name column) parses to "players"
+      // named "Sr." / "Fr." / "6-5" — that is a layout mismatch, never a roster
+      var junk = team.players.filter(function (p) { return /^((R-|RS-?)?(Fr|So|Jr|Sr|Gr)\.?|\d{1,2}|\d-\d{1,2})$/i.test(String(p.name || '').trim()); }).length;
+      if (junk > 1) { skipped.push(team.name + ' (Name column holds class/height — block uses a different column layout)'); return; }
       try {
         upsertTeam(team, rk.rankMap, rk.prevRankMap, rk.tierMap);
         sbDelete('/rest/v1/losses?team=eq.' + encodeURIComponent(team.name));
