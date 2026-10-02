@@ -383,3 +383,39 @@ function replaceSchoolBlocks() {
   srNotice('Blocks replaced', done.length + ' replaced with the school roster: ' + done.join(', ') +
     (skipped.length ? '. Left alone: ' + skipped.join(', ') : '') + '. Next: run syncMoreConferences.');
 }
+
+// ── RE-ORDER script-written blocks so rows 1-5 are a positional starting five ────────────────
+// The team page treats a block's first five players as the starting five (one per spot). The first
+// version of createNewTeamTabs ordered players by last season's minutes only, so a team could "start"
+// two SGs and no PF (UNC Wilmington slid 6-3 CJ Luster II to the 4). roster_diff_2027.json now lists
+// players starters-first (best PG, SG, SF, PF, C, then bench). This rewrites ONLY blocks that are
+// still EXACTLY what the script wrote — same players, in the old minutes order. Any block you have
+// added to, trimmed or re-ordered is left alone. Whole rows move, so anything beside a name moves too.
+function reorderSchoolBlocks() {
+  var data = srLoad(), byKey = {};
+  data.forEach(function (t) { byKey[srTeamKey(t.team)] = t; });
+  var CLS = { Gr: 5, Sr: 4, Jr: 3, So: 2, Fr: 1 };
+  var done = [], kept = 0;
+  srScanTabs().forEach(function (b) {
+    var t = byKey[b.key];
+    if (!t || t.stale || !t.players || t.players.length < 8) return;
+    var sh = b.sheet, first = b.headerRow + 2, n = b.lastRow - first + 1;   // header, column labels, players
+    if (n !== t.players.length) { kept++; return; }
+    var rows = sh.getRange(first, 1, n, SR_W).getValues();
+    var have = rows.map(function (r) { return srNorm(String(r[SR_COL.NAME - 1]).replace(/[\*\+\?\(\)]/g, '')); });
+    // the order the first version wrote: last season's minutes, then class
+    var old = t.players.slice().sort(function (a, c) {
+      return ((c.last_mpg || 0) - (a.last_mpg || 0)) ||
+        ((CLS[String(c.cls || '').replace('R-', '')] || 0) - (CLS[String(a.cls || '').replace('R-', '')] || 0)) ||
+        ((a.school_idx || 0) - (c.school_idx || 0));
+    }).map(function (p) { return srNorm(p.name); });
+    var want = t.players.map(function (p) { return srNorm(p.name); });
+    if (have.join('|') !== old.join('|')) { kept++; return; }     // you've touched it -> leave it
+    if (have.join('|') === want.join('|')) return;                 // already in starter order
+    var byName = {}; rows.forEach(function (r, i) { byName[have[i]] = r; });
+    sh.getRange(first, 1, n, SR_W).setValues(want.map(function (k) { return byName[k]; }));
+    done.push(t.team);
+  });
+  srNotice('Depth order fixed', done.length + ' script-written blocks re-ordered so rows 1-5 are a PG/SG/SF/PF/C starting five' +
+    (kept ? ' (' + kept + ' blocks you\'ve edited were left alone)' : '') + '. Next: run syncMoreConferences, then your main sync (for ECU / Rice / UTSA).');
+}

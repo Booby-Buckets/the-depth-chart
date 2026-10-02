@@ -152,6 +152,11 @@ ALIAS = {   # NCAA / school spellings → our ESPN full names
 }
 
 
+PLACEHOLDER_RE = re.compile(r"\b(tba|tbd|to be (announced|determined)|opponents?\b.*\b(tba|tbd)|quarter-?finals?|semi-?finals?|finals?|"
+                            r"championships?|first round|second round|third round|round of \d+|sweet (16|sixteen)|elite (8|eight)|"
+                            r"final four|consolation|third place|winner of|loser of)\b", re.I)
+
+
 def norm(s):
     s = _html.unescape(s or "")
     s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
@@ -387,6 +392,9 @@ def merge():
         home_city = home_city[0][0] if home_city else None
         for g in gs:
             if norm(g["opp"]) in Matcher.PLACEHOLDER or not g["opp"].strip(): continue   # "TBA", bracket placeholders
+            # bracket / postseason / unnamed-opponent placeholders written into a longer label
+            # ("Patriot League Quarterfinals", "Sweet 16", "vs. TBD", "TBD Sun Belt Opponent", "Players Era Semifinals")
+            if PLACEHOLDER_RE.search(g["opp"]): continue
             if g["date"] < "2026-11-01" or re.search(r"exhib|scrimmage|countdown|madness|craziness|open practice", g["opp"] + " " + g.get("event", ""), re.I): continue
             bare = norm(g["opp"])
             if bare in AMBIG:

@@ -123,6 +123,31 @@ def sheet_yr(cls):
     return (c + '.') if re.fullmatch(r'(R-)?(Fr|So|Jr|Sr|Gr)', c) else c
 
 
+POS5 = ['PG', 'SG', 'SF', 'PF', 'C']
+
+
+def depth_order(players, cls_rank):
+    """Rows 1-5 of a Sheet block are read by the team page as the STARTING FIVE (one per spot, only
+    slid if it must), so they have to be a positional five, not just the five biggest minute-getters
+    (UNC Wilmington: two SGs started and a 6-3 guard was slid to PF). Starters: for PG, SG, SF, PF, C
+    in turn, the best available player listed there (last season's minutes, then class), falling back
+    to the nearest spot. Then the bench by minutes, then class."""
+    key = lambda p: (-(p.get('last_mpg') or 0), -cls_rank.get((p.get('cls') or '').replace('R-', ''), 0), -(ht_in(p.get('ht')) or 0))
+    pool = sorted(players, key=key)
+    used, starters = set(), []
+    for pos in POS5:
+        i = POS5.index(pos)
+        for dist in (0, 1, 2):
+            cand = [p for p in pool if id(p) not in used and p.get('sheet_pos') in POS5
+                    and abs(POS5.index(p['sheet_pos']) - i) == dist]
+            if cand:
+                used.add(id(cand[0]))
+                starters.append(cand[0])
+                break
+    bench = [p for p in pool if id(p) not in used]
+    return starters + bench
+
+
 def main():
     scraped = json.load(open(os.path.join(HERE, 'data', 'school_rosters_2027.json')))
     sites = json.load(open(os.path.join(HERE, 'data', 'school_sites.json')))
@@ -178,6 +203,7 @@ def main():
             if pick and fr and tk(short(pick['team'])) != tk(team) and not prev:
                 pick = None      # a true freshman sharing an older player's name — the namesake trap
             p = dict(sp)
+            p['school_idx'] = len(row['players'])     # order on the school site (tie-break the old depth order)
             if pick:
                 p['espn_id'] = pick['espn_id']
                 p['last_team'], p['last_season'] = pick['team'], pick['season_year']
@@ -204,7 +230,7 @@ def main():
         # depth order for a brand-new Sheet block: last season's minutes first (returners/transfers),
         # then by class (Gr > Sr > … > Fr) — the owner reorders on the site's depth-chart editor
         CLS_RANK = {'Gr': 5, 'Sr': 4, 'Jr': 3, 'So': 2, 'Fr': 1}
-        row['players'].sort(key=lambda p: (-(p.get('last_mpg') or 0), -CLS_RANK.get((p.get('cls') or '').replace('R-', ''), 0)))
+        row['players'] = depth_order(row['players'], CLS_RANK)
         sk = {nk(p['name']) for p in rec['players']}
         added = [p for p in row['players'] if not p['on_site']]
         removed = [p for p in ours_by_team.get(team, []) if nk(p['name']) not in sk]
