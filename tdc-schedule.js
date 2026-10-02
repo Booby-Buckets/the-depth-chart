@@ -95,6 +95,8 @@
   }
 
   // ── projection ────────────────────────────────────────────────────────────
+  // blowout tail (tdc-ratings.js tame): same soft knee as every other line on the site
+  function tame(m) { return g.TDC_RATINGS && g.TDC_RATINGS.tame ? g.TDC_RATINGS.tame(m) : m; }
   function phi(x) { return g.TDC_RATINGS ? g.TDC_RATINGS.phi(x) : 0.5 * (1 + Math.tanh(x * 0.8)); }
   function gauss() { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
 
@@ -172,7 +174,7 @@
           const cands = r.pool.filter(n => !faced.has(n)); oppName = cands[Math.floor(Math.random() * cands.length)] || r.pool[0];
         }
         const oppR = oppName ? (rOpp[oppName] != null ? rOpp[oppName] : FLOOR.rating) : FLOOR.rating;
-        const m = (rMe - oppR) * STRETCH * r.paceK + venuePts + r.sit + streakPts(streak);
+        const m = tame((rMe - oppR) * STRETCH * r.paceK + venuePts + r.sit + streakPts(streak));
         const won = Math.random() < phi(m / SIGMA);
         if (rows[i + 1] && rows[i + 1].bracket && !r.bracket) day1Won = won;   // the game right before a bracket day-2 is our day-1
         if (oppName) faced.add(oppName);
@@ -194,7 +196,7 @@
     rows.forEach((r, i) => {
       r.p = wins[i] / SIMS;
       const oppR = r.opp ? r.opp.rating : (r.bracket ? mean(r.bracket.map(x => pool[x].rating)) : r.pool ? mean(r.pool.map(x => pool[x].rating)) : FLOOR.rating);
-      const margin = (me.rating - oppR) * STRETCH * r.paceK + r.venuePts + r.sit;
+      const margin = tame((me.rating - oppR) * STRETCH * r.paceK + r.venuePts + r.sit);
       r.margin = +margin.toFixed(1);
       r.p0 = phi(margin / SIGMA);                                          // point-estimate odds, no rating uncertainty / streak
       const total = r.eff ? r.eff.total : DEFAULT_TOTAL;                   // pace + efficiency total, flat when unknown
@@ -334,7 +336,8 @@
   function renderPast(host, rows, opts) {
     ensureCss(); opts = opts || {};
     const sn = g.tdcShortSchool || (x => x);
-    const hca = g.TDC_RATINGS && g.TDC_RATINGS.baseHca ? g.TDC_RATINGS.baseHca : (() => 3.7);
+    // oppSrs / mySrs here are RAW team_seasons SRS (D-I average ≈ +12): use the raw-SRS reader
+    const hca = g.TDC_RATINGS && g.TDC_RATINGS.baseHcaSrs ? g.TDC_RATINGS.baseHcaSrs : (() => 3.7);
     let lastMo = null, html = '';
     const moCls = key => { const c = lastMo !== null && key !== lastMo ? ' mo1' : ''; lastMo = key; return c; };
     rows.forEach(x => {
@@ -382,7 +385,7 @@
       if (wh && wa) sit = restPts(wh.rest) - restPts(wa.rest) + stintPts(wh.stint) - stintPts(wa.stint);
     }
     const eff = effLine(x.home, x.away), paceK = eff ? eff.pace / _eff.avgT : 1;
-    const margin = (H.rating - A.rating) * STRETCH * paceK + venue + sit;
+    const margin = tame((H.rating - A.rating) * STRETCH * paceK + venue + sit);
     return { margin: +margin.toFixed(1), p: phi(margin / SIGMA), total: eff ? +eff.total.toFixed(1) : DEFAULT_TOTAL,
       home: H.team, away: A.team };
   }

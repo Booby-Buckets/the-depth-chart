@@ -117,16 +117,25 @@
   // (~+3.7 vs decent visitors, larger vs weak ones) + a shrunk per-venue
   // offset (r.hcaOff). HOME_ADV is only the no-data fallback.
   const HOME_ADV=3.7, SIGMA=11;
-  // Preseason gaps are compressed: the projection tracks last season's SRS at ~0.85 of its
-  // scale (r=0.97), and scripts/backtest_lines.py shows last season's SRS predicts next
-  // season's margins at slope 0.98 (65k games, 2012-26) — no shrinkage needed — so a gap on
-  // our scale is worth ~1.15× in points. Applied to LINES only; rankings keep the raw rating.
-  const GAP_STRETCH=1.15;
-  let _hcaCurve=null;                      // {base:[[srs,edge],...], capMin}
+  // Gap → points. Re-backtested Oct 2026 (91k D-I v D-I games, 2010-26, last season's SRS as the
+  // preseason rating): the best slope is ~0.95-1.0, and our ratings now track last season's SRS at
+  // slope 0.96 (was 0.85 when this was 1.15) — so a rating point is worth one point of margin.
+  // The old 1.15 plus the home-court scale bug (below) priced Duke-Army at -55.
+  const GAP_STRETCH=1.0;
+  // Blowout tail: past ~30 points real margins stop growing as fast (walk-ons, running clock).
+  // Backtest: predicted 35-40 → actual 33.8, 45-50 → 39.2. Soft knee at TAIL_K, slope TAIL_S beyond.
+  const TAIL_K=30, TAIL_S=0.5;
+  function tame(m){ const a=Math.abs(m); return a<=TAIL_K?m:Math.sign(m)*(TAIL_K+TAIL_S*(a-TAIL_K)); }
+  let _hcaCurve=null;                      // {base:[[opp,edge],...], capMin, centered, d1Mean}
+  // The curve's x-axis is opponent strength CENTERED on the D-I average (calibrate_hca.py), i.e. our
+  // rating scale. A legacy (raw-SRS) curve cached in an old published blob is read with the pooled
+  // D-I offset until the fresh curve loads; raw SRS values go through baseHcaSrs().
+  const LEGACY_D1=9.74;
   function baseHca(oppRating){
     if(!_hcaCurve||!_hcaCurve.base||!_hcaCurve.base.length) return HOME_ADV;
     const pts=_hcaCurve.base;
-    const x=Math.max(_hcaCurve.capMin!=null?_hcaCurve.capMin:-10, Math.min(pts[pts.length-1][0], oppRating));
+    const o=_hcaCurve.centered?oppRating:oppRating+LEGACY_D1;
+    const x=Math.max(_hcaCurve.capMin!=null?_hcaCurve.capMin:-10, Math.min(pts[pts.length-1][0], o));
     if(x<=pts[0][0]) return pts[0][1];
     for(let i=1;i<pts.length;i++){
       if(x<=pts[i][0]){
@@ -135,7 +144,14 @@
       }
     }
     return pts[pts.length-1][1];
-  }
+  }  // raw SRS (team_seasons.srs, D-I average ≈ +12) → the same edge
+  function baseHcaSrs(srs){ const d=(_hcaCurve&&_hcaCurve.d1Mean!=null)?_hcaCurve.d1Mean:LEGACY_D1; return baseHca(srs-d); }
+  let _hcaP=null;
+  function loadHca(){ if(_hcaP) return _hcaP;
+    _hcaP=fetch('scripts/data/team_hca.json?v=c1').then(r=>r.ok?r.json():null).then(d=>{
+      if(d&&d.base&&d.centered) _hcaCurve={base:d.base,capMin:d.capMin,centered:true,d1Mean:d.d1Mean}; }).catch(()=>{});
+    return _hcaP; }
+
 
   function phi(x){ const t=1/(1+0.2316419*Math.abs(x)), d=0.3989423*Math.exp(-x*x/2);
     const p=d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));
@@ -224,7 +240,7 @@
       fetchPaged(SB+'/rest/v1/players?name=neq.%E2%80%94&select=name,team,espn_id,yr,class_year,tdc_grade,mpg,ppg,rpg,depth_order,is_injured,hometown&order=id.asc'),
       fetchPaged(SB+'/rest/v1/player_advanced?season_year=eq.2026&espn_id=not.is.null&select=espn_id,team,ts_pct,efg_pct,tp_pct,ft_pct,pts40,reb40,ast40,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,stl_pct,blk_pct,ti40&order=espn_id.asc'),
       fetch(SB+'/rest/v1/team_seasons?season_year=eq.2026&select=team,conference,srs,tier&limit=1000',{headers:H}).then(r=>r.json()),
-      fetch('scripts/data/team_hca.json').then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch('scripts/data/team_hca.json?v=c1').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('data/coach-careers.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('scripts/data/shot_genome_players.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('data/continuity.json').then(r=>r.ok?r.json():null).catch(()=>null),
@@ -475,7 +491,7 @@
     return {season:SEASON, generated:new Date().toISOString(),
       model:{calA:CAL_A,calB:CAL_B,blendRoster:BLEND_ROSTER,anchor:ANCHOR,homeAdv:HOME_ADV,sigma:SIGMA,
         coachW:COACH_W,coachK:COACH_K,coachCap:COACH_CAP,shotK:SHOT_K,shotRegress:SHOT_REGRESS,shotCap:SHOT_CAP,contBase:CONT_BASE,contK:CONT_K,contCap:CONT_CAP,
-        hcaBase:hcaData?{base:hcaData.base,capMin:hcaData.capMin}:null},
+        hcaBase:hcaData?{base:hcaData.base,capMin:hcaData.capMin,centered:!!hcaData.centered,d1Mean:hcaData.d1Mean}:null},
       teams:rows};
   }
 
@@ -505,7 +521,9 @@
   function get(){
     if(_mem) return Promise.resolve(_mem);
     if(_loading) return _loading;
-    const adopt=data=>{ if(data&&data.model&&data.model.hcaBase) _hcaCurve=data.model.hcaBase; _mem=data; return data; };
+    const adopt=data=>{ if(data&&data.model&&data.model.hcaBase) _hcaCurve=data.model.hcaBase; _mem=data;
+      if(!_hcaCurve||!_hcaCurve.centered) loadHca();   // published before the centered curve: fetch it
+      return data; };
     _loading=(async()=>{
       const db=await readDb();
       if(db) return adopt(db);
@@ -518,7 +536,7 @@
       try{ localStorage.setItem(LS_KEY,JSON.stringify({t:Date.now(),data})); }catch(e){}
       writeDb(data);
       return data;
-    })();
+    })().then(d=>_hcaP?_hcaP.then(()=>d):d);   // lines need the fresh home-court curve before first use
     return _loading;
   }
 
@@ -542,7 +560,7 @@
   function lineFor(a,b,venue,totals){
     const hc=venue==='home'?  baseHca(b.rating)+(a.hcaOff||0)
             :venue==='away'?-(baseHca(a.rating)+(b.hcaOff||0)):0;
-    const margin=(a.rating-b.rating)*GAP_STRETCH+hc;
+    const margin=tame((a.rating-b.rating)*GAP_STRETCH+hc);
     const pA=phi(margin/SIGMA);
     const total=(totals&&isFinite(totals))?totals:145.5;   // league-ish default
     const _sn=window.tdcShortSchool||(x=>x);   // trim carry-team mascots when the map is loaded
@@ -561,5 +579,5 @@
   function rosterTeams(){ return _CTX?Object.keys(_CTX.byTeam):[]; }
   function rosterOf(short){ return _CTX&&_CTX.byTeam[short]?_CTX.byTeam[short].slice():[]; }
   function winPctVsField(rating, field){ let s=0,n=0; (field||[]).forEach(o=>{ if(o.rating==null) return; s+=phi((rating-o.rating)/SIGMA); n++; }); return n?s/n:0.5; }
-  g.TDC_RATINGS={get, rebuild, lineFor, phi, applyForm, baseHca, SEASON, HOME_ADV, SIGMA, GAP_STRETCH, prepare, rateRoster, rosterOf, rosterTeams, winPctVsField};
+  g.TDC_RATINGS={get, rebuild, lineFor, phi, applyForm, baseHca, baseHcaSrs, tame, SEASON, HOME_ADV, SIGMA, GAP_STRETCH, prepare, rateRoster, rosterOf, rosterTeams, winPctVsField};
 })(window);

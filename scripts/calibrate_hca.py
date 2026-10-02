@@ -3,7 +3,7 @@
 CONTROLLED FOR OPPONENT STRENGTH.
 
 For every completed non-neutral game where both teams have a same-season SRS:
-    residual = (home_score - away_score) - (SRS_home - SRS_away)
+    residual = (home_score - away_score) - (SRS_home - SRS_away)   [SRS centered per season on D-I]
 
 The naive mean residual is NOT pure venue: it varies hugely with opponent
 quality (vs SRS>=0 visitors it's a flat ~3.2; vs -15 SRS visitors it's ~+16 —
@@ -29,8 +29,12 @@ from collections import defaultdict
 
 DATA = Path(__file__).parent / "data"
 BUCKET = 5
-LO, HI = -20, 25          # opponent-SRS clamp for the baseline buckets
-CAP_MIN = -10             # pricing-time opponent clamp (see header)
+# Opponent strength is CENTERED per season on the D-I average (teams with 20+ games): raw SRS here is
+# fit with non-D-I opponents in the pool, so the average D-I team sits at +7..+12 depending on the
+# season. Centering puts the curve on the same scale as our power ratings (D-I mean 0) — reading
+# raw-SRS buckets with a rating made a bottom-30 D-I visitor look like a D-II team (+11 pts home edge).
+LO, HI = -30, 25          # opponent clamp for the baseline buckets (centered scale)
+CAP_MIN = -20             # pricing-time opponent clamp (centered; ~ the old raw -10)
 
 def bucket(s):
     return max(LO, min(HI - BUCKET, int(s // BUCKET) * BUCKET))
@@ -41,6 +45,16 @@ def main(write=False):
         r = json.loads(line)
         if r.get("srs") is not None:
             srs[(r["team"], r.get("season_year") or r.get("season"))] = float(r["srs"])
+    # D-I average per season = mean SRS of teams with 20+ games in our history
+    ngames = defaultdict(int)
+    for line in open(DATA / "games.jsonl"):
+        g = json.loads(line); yr = g.get("season_year") or g.get("season")
+        ngames[(g.get("home"), yr)] += 1; ngames[(g.get("away"), yr)] += 1
+    d1 = defaultdict(list)
+    for (t, yr), v in srs.items():
+        if ngames[(t, yr)] >= 20: d1[yr].append(v)
+    d1_mean = {yr: statistics.mean(v) for yr, v in d1.items()}
+    srs = {k: v - d1_mean.get(k[1], 0.0) for k, v in srs.items()}
 
     games = []                       # (yr, venue, opp_srs, residual)
     for line in open(DATA / "games.jsonl"):
@@ -98,7 +112,9 @@ def main(write=False):
 
     if write:
         curve = [[b + BUCKET / 2, round(m + era_shift, 2)] for b, m in base.items()]
-        out = {"global": round(typical, 2), "base": curve, "capMin": CAP_MIN,
+        last = max(d1_mean)
+        out = {"global": round(typical, 2), "base": curve, "capMin": CAP_MIN, "centered": True,
+               "d1Mean": round(d1_mean[last], 2), "d1MeanSeason": last,
                "k": round(K), "gameSd": round(g_var**.5, 1),
                "seasons": len(season_mean), "games": len(games), "teams": teams}
         (DATA / "team_hca.json").write_text(json.dumps(out))
