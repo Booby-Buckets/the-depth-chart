@@ -84,7 +84,7 @@
     <h1>Betting Cheat Sheet</h1>
     <div class="sub">The props that hit most often, the best value plays and the team trends that beat the spread, ranked and filterable.</div>
     <div class="banner">
-      <div>These boards use our model and each player's track record, not live sportsbook lines. Players are ranked by how often they beat their expected line in past seasons, adjusted for level of competition so transfers aren't inflated by weaker schedules. The line shown is our 2026-27 projection. Live book lines arrive through the odds feed once the season starts. <a class="xlink" href="betting.html">Full Betting Lab →</a></div>
+      <div>These boards use our model and each player's track record, not live sportsbook lines. Overs and unders come from a backtested pattern: players drift back toward their own career pace, so a down year tends to bounce back and a career year tends to fade. Live book lines arrive through the odds feed once the season starts. <a class="xlink" href="betting.html">Full Betting Lab →</a></div>
     </div>
 
     <!-- ══ PLAYER PROPS ══ -->
@@ -100,8 +100,8 @@
       </div>
       <span class="cg-lab" style="margin-left:6px;">Board</span>
       <div class="cg" id="boardPills">
-        <button data-board="over" class="on">Best Overs</button>
-        <button data-board="under">Best Unders</button>
+        <button data-board="over" class="on" title="Last season ran well below his career per-minute pace — a bounce-back candidate">Bounce-back Overs</button>
+        <button data-board="under" title="Last season ran well above his career per-minute pace — a regression candidate">Regression Unders</button>
         <button data-board="value">Value Movers</button>
       </div>
       <select id="confSel" title="Filter by conference"><option value="">All conferences</option></select>
@@ -109,13 +109,13 @@
     </div>
     <div class="sheet-wrap"><table id="propTbl" class="sheet dense freeze2">
       <thead><tr>
-        <th class="rk">#</th><th class="l sort" data-sort="name">Player<span class="ar"></span></th><th class="l">Team</th><th class="l" title="Transferred from (↑ up a level, ↔ lateral move). Hit rate is level-adjusted, so old numbers aren't taken at face value.">From</th>
+        <th class="rk">#</th><th class="l sort" data-sort="name">Player<span class="ar"></span></th><th class="l">Team</th><th class="l" title="Transferred from (↑ up a level, ↔ lateral move). Per-minute pace can shift at a new level.">From</th>
         <th class="sort" data-sort="line">Line<span class="ar"></span></th><th class="l" id="thPick">Pick</th>
-        <th class="sort" data-sort="beat" data-heat="1" title="How often he beat the number expected of him each season — level-adjusted, so it travels across a transfer">Beats line<span class="ar"></span></th><th class="sort" data-sort="over" title="Share of his past games that would have cleared THIS line">Cleared it<span class="ar"></span></th><th class="sort" data-sort="avg">Career avg<span class="ar"></span></th><th class="sort" data-sort="proj">Proj ’26-27<span class="ar"></span></th><th class="sort" data-sort="projM" title="Minutes last season → projected 2026-27">Minutes<span class="ar"></span></th><th class="sort" data-sort="hi">Range<span class="ar"></span></th>
+        <th class="sort" data-sort="norm" title="Last season's per-minute production vs his earlier career (per minute). Well below = bounce-back candidate; well above = regression candidate">Vs his norm<span class="ar"></span></th><th class="sort" data-sort="over" title="Share of his past games that would have cleared THIS line">Cleared it<span class="ar"></span></th><th class="sort" data-sort="lastAvg" title="His per-game average last season">Last yr<span class="ar"></span></th><th class="sort" data-sort="proj">Proj ’26-27<span class="ar"></span></th><th class="sort" data-sort="projM" title="Minutes last season → projected 2026-27">Minutes<span class="ar"></span></th><th class="sort" data-sort="hi">Range<span class="ar"></span></th>
       </tr></thead>
       <tbody id="propBody"><tr><td colspan="12" class="empty">Loading prop board…</td></tr></tbody>
     </table></div>
-    <div class="note" id="propNote"><b>Hit rate is level-adjusted.</b> For each past season we set the line at the number he was <i>expected</i> to hit that year — his prior-season average — and measure how often his games beat it. Because that bar moves with his level every season, the rate <b>travels across a transfer</b>: a low-major who kept topping his line stays a strong over even after a jump to a tougher league (his old raw totals never enter the math). <b>Line</b> is our 2026-27 projection, set at the nearest half-point — where a book will likely price him. <b>Cleared it</b> = the share of his past games that would have gone the pick's way at this exact line; <b>Minutes</b> = last season → projected, so a role change is visible. <b>Overs</b> beat their expected line most; <b>Unders</b> least; <b>Value Movers</b> = the biggest gap between our projection and his career norm (the props to watch when lines post). Needs a couple of seasons to normalize, so newcomers appear only on Value Movers. Not a guarantee — a starting point.</div>
+    <div class="note" id="propNote"><b>How the boards work.</b> A player's production per minute drifts back toward his own career norm. <b>Bounce-back Overs</b> are players whose last season ran at 85% or less of their earlier per-minute pace; <b>Regression Unders</b> ran at 125% or more. <b>Line</b> is what a book anchored on last season would hang: his last-season per-minute pace × his projected 2026-27 minutes, at the nearest half-point. Tested on the last two seasons, bounce-back points overs went over about 61% of the time, and rebound regression unders went under about 62%. The board header shows the rate for the stat you pick. <b>Cleared it</b> = his past games that went the pick's way at this exact line. <b>Minutes</b> = last season → projected. <b>Value Movers</b> = the biggest gaps between our projection and his career norm. It's a starting point, not a guarantee: always compare with the book's actual number once lines post.</div>
 
     <!-- ══ TEAM ANGLES ══ -->
     <div id="teamAnglesSec" style="display:none;">
@@ -127,7 +127,7 @@
 
 <script>
 // ═══ DATA ═══════════════════════════════════════════════════════════════════
-let PLAYERS=null, PROJ={}, TEAMS=null;
+let PLAYERS=null, PROJ={}, TEAMS=null, BT=null, DIP=0.85, SPIKE=1.25, LAST_SEASON=2026;
 const STAT_LABEL={pts:'Points',reb:'Rebounds',ast:'Assists',tpm:'3-Pointers',pra:'P+R+A'};
 let curStat='pts', curBoard='over', propSort=null, propDir=-1, curConf='';
 // short labels for the conference dropdown (fall back to the full name)
@@ -177,7 +177,13 @@ function buildProps(){
   PLAYERS.forEach(p=>{
     const st=p.stats&&p.stats[curStat]; if(!st||st.g<25) return;   // rotation-caliber, real sample
     const proj=projStat(p.id,curStat); if(proj==null||proj<1) return;   // must have a 2026-27 projection
-    const line=bookLine(proj); if(line<0.5) return;
+    const pr0=PROJ[p.id]||{}, bn=st.bounce||null;
+    // Over/Under boards: the line a book anchored on LAST season would hang — his last-season
+    // per-minute pace x his projected minutes. Value Movers: our own projection.
+    const pace=(bn&&pr0.mpg)?bn.last/40*pr0.mpg:null;
+    const line=(curBoard!=='value'&&pace!=null)?bookLine(pace):bookLine(proj); if(line<0.5) return;
+    const norm=bn?bn.ratio-1:null;
+    const lastAvg=(st.bySeason&&st.bySeason[String(LAST_SEASON)])?st.bySeason[String(LAST_SEASON)].avg:null;
     const beat=(st.beat!=null?st.beat:null);                       // LEVEL-NORMALIZED beats-his-line rate
     const over=empiricalOver(st,line);                            // raw vs projected line (context only)
     const lean=proj-st.avg;                                        // projection vs his career norm
@@ -191,7 +197,7 @@ function buildProps(){
     const fromShort=pr.xfer_from?shortTeam(pr.xfer_from):null;
     const sameTeam=fromShort && shortTeam(curTeam) && fromShort===shortTeam(curTeam);   // guard false-positive detection
     if(q && !((p.name||'').toLowerCase().includes(q) || (curTeam||'').toLowerCase().includes(q))) return;
-    rows.push({id:p.id,name:p.name,team:curTeam,line,beat,beatG:st.beatG||0,over,avg:st.avg,proj,lean,lastM,projM,
+    rows.push({id:p.id,name:p.name,team:curTeam,line,beat,beatG:st.beatG||0,over,avg:st.avg,proj,lean,lastM,projM,norm,ratio:bn?bn.ratio:null,lastAvg,
                lo:st.lo,hi:st.hi,g:st.g,sd:st.sd,
                xfer:!!pr.xfer&&!sameTeam,xferUp:!!pr.xfer_up&&!sameTeam,xferFrom:pr.xfer_from||null});
   });
@@ -205,14 +211,15 @@ function renderProps(){
   const body=document.getElementById('propBody');
   if(!PLAYERS){ return; }
   const minL=MIN_LINE[curStat]||0;
-  // Over/Under boards rank by the LEVEL-NORMALIZED beat rate (how often he beat the number
-  // expected of him each season) — so a transfer's low-major history is on the same footing as
-  // a returner's, no exclusion needed. Needs enough multi-season history (r.beat present).
+  // Over/Under boards = BOUNCE-BACK / REGRESSION: per-minute production regresses to a player's
+  // own career. Backtested on 2025 + 2026 (meta.backtest): last season <=85% of his career pace went
+  // over a last-season-anchored line ~61% (pts); >=125% went under ~54-62%. (The old "beats his
+  // expected line" ranking was ANTI-predictive, r -0.13 to -0.31, and is retired.)
   // Value Movers stays projection-vs-career and takes everyone.
   const okLine=r=>r.line>=minL;
   let view=rows;
-  if(curBoard==='over')      view=rows.filter(r=>r.beat!=null&&okLine(r)&&r.beat>=0.55);
-  else if(curBoard==='under')view=rows.filter(r=>r.beat!=null&&okLine(r)&&r.beat<=0.45);
+  if(curBoard==='over')      view=rows.filter(r=>r.ratio!=null&&okLine(r)&&r.ratio<=DIP);
+  else if(curBoard==='under')view=rows.filter(r=>r.ratio!=null&&okLine(r)&&r.ratio>=SPIKE);
   else /* value */           view=rows.filter(r=>r.lean!=null&&Math.abs(r.lean)>=1.5&&r.line>=minL*0.5);
   // SORT: a clicked column wins; otherwise each board's natural order.
   if(propSort){
@@ -222,8 +229,8 @@ function renderProps(){
       if(key==='name') return av<bv?-propDir:av>bv?propDir:0;
       return (av-bv)*propDir;});
   } else {
-    if(curBoard==='over')       view.sort((a,b)=>b.beat-a.beat);
-    else if(curBoard==='under') view.sort((a,b)=>a.beat-b.beat);
+    if(curBoard==='over')       view.sort((a,b)=>a.ratio-b.ratio);
+    else if(curBoard==='under') view.sort((a,b)=>b.ratio-a.ratio);
     else                        view.sort((a,b)=>Math.abs(b.lean)-Math.abs(a.lean));
   }
   // reflect the active sort in the header
@@ -233,8 +240,12 @@ function renderProps(){
     const ar=th.querySelector('.ar'); if(ar) ar.textContent=on?(propDir<0?'▼':'▲'):'';
   });
   document.getElementById('thPick').textContent = curBoard==='value'?'Lean':'Pick';
+  const bt=(BT&&BT[curStat])||{};
+  const btTxt=(v,n)=>v!=null?` · backtest ${Math.round(v*100)}% (${n} picks, last 2 seasons)`:'';
   document.getElementById('propHint').textContent =
-    curBoard==='over'?'beats his expected line most (level-adjusted)':curBoard==='under'?'beats his expected line least':'projection vs recent baseline';
+    curBoard==='over'?'last season well below his career pace'+btTxt(bt.dip_over,bt.dip_n)
+    :curBoard==='under'?'last season well above his career pace'+btTxt(bt.spike_under,bt.spike_n)
+    :'our projection vs his career norm';
   view=view.slice(0,60);
   if(!view.length){ body.innerHTML='<tr><td colspan="12" class="empty">No plays match this filter.</td></tr>'; return; }
   body.innerHTML=view.map((r,i)=>{
@@ -242,12 +253,10 @@ function renderProps(){
     const pickTxt = curBoard==='value'
       ? `${r.lean>0?'+':''}${r.lean.toFixed(1)}`
       : `${isOver?'Over':'Under'} ${r.line}`;
-    const rate=(r.beat!=null?r.beat:r.over);                       // level-normalized when available
-    const shown=(curBoard==='value')?r.beat:(isOver?rate:(1-rate));
     const clr=r.over==null?null:(isOver?r.over:1-r.over);   // past games that cleared THIS line (the pick's side)
     // one line per player: team and transfer origin in their own dim columns; the hit rate is a
     // plain % shaded by tdcSheetHeat (higher = the stronger play on this board)
-    const from=r.xfer?`<span title="Transferred from ${shortTeam(r.xferFrom||'')}${r.xferUp?' — up a level':' — lateral move'}. Hit rate is level-adjusted, so his old numbers aren't taken at face value.">${r.xferUp?'↑':'↔'} ${shortTeam(r.xferFrom||'xfer')}</span>`:'';
+    const from=r.xfer?`<span title="Transferred from ${shortTeam(r.xferFrom||'')}${r.xferUp?' — up a level':' — lateral move'}. Per-minute pace at a new level can shift — weigh the move.">${r.xferUp?'↑':'↔'} ${shortTeam(r.xferFrom||'xfer')}</span>`:'';
     return `<tr>
       <td class="rk">${i+1}</td>
       <td class="l nm"><a href="player.html?espn=${r.id}&tab=betting">${r.name}</a></td>
@@ -255,9 +264,9 @@ function renderProps(){
       <td class="l dim">${from}</td>
       <td>${r.line}</td>
       <td class="l">${pickTxt}</td>
-      <td class="big">${shown!=null?Math.round(shown*100)+'%':'—'}</td>
+      <td class="big">${r.norm!=null?(r.norm>0?'+':'−')+Math.abs(Math.round(r.norm*100))+'%':'—'}</td>
       <td class="dim">${clr!=null?Math.round(clr*100)+'%':'—'}</td>
-      <td>${r.avg}</td>
+      <td>${r.lastAvg!=null?r.lastAvg:'—'}</td>
       <td>${r.proj!=null?r.proj.toFixed(1):'—'}</td>
       <td class="dim">${r.lastM!=null&&r.projM!=null?Math.round(r.lastM)+' → '+Math.round(r.projM):'—'}</td>
       <td class="dim">${r.lo}–${r.hi}</td>
@@ -311,7 +320,8 @@ function renderSharp(){
 fetch('scripts/data/stat_overall_projected.json?v=77').then(r=>r.ok?r.json():null).then(d=>{
   if(d&&d.players){ PROJ=d.players; populateConfs(); if(PLAYERS) renderProps(); }
 }).catch(()=>{});
-fetch('scripts/data/bet_trends_players.json?v=beat2').then(r=>r.ok?r.json():null).then(d=>{
+fetch('scripts/data/bet_trends_players.json?v=bounce2').then(r=>r.ok?r.json():null).then(d=>{
+  if(d&&d.meta){ BT=d.meta.backtest||null; if(d.meta.dip) DIP=d.meta.dip; if(d.meta.spike) SPIKE=d.meta.spike; if(d.meta.seasons) LAST_SEASON=Math.max.apply(null,d.meta.seasons); }
   if(!d||!d.players){ document.getElementById('propBody').innerHTML='<tr><td colspan="12" class="empty">Prop data not available yet.</td></tr>'; return; }
   PLAYERS=Object.entries(d.players).map(([id,p])=>({id,name:p.name,team:p.team,stats:p.stats}));
   renderProps();
@@ -324,6 +334,6 @@ fetch('scripts/data/bet_trends_teams.json').then(r=>r.ok?r.json():null).then(d=>
 }).catch(()=>{});
 </script>
   <script src="tdc-sheets.js?v=1"></script>
-  <script src="tdc-tour.js?v=20"></script>
+  <script src="tdc-tour.js?v=21"></script>
 </body>
 </html>

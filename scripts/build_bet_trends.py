@@ -180,13 +180,14 @@ def build_player_trends(seasons):
     print("Player prop trends — seasons %s" % seasons, flush=True)
     # per player: espn_id -> {name, team(last), stat -> {all:[], home:[], away:[], bySeason:{yr:[]}}}
     logs = defaultdict(lambda: {"name": None, "team": None,
-                                "stat": defaultdict(lambda: {"all": [], "home": [], "away": [], "sea": defaultdict(list)})})
+                                "stat": defaultdict(lambda: {"all": [], "home": [], "away": [], "sea": defaultdict(list)}),
+                                "mins": defaultdict(list)})
     STATS = ["pts", "reb", "ast", "tpm", "pra"]
 
     for yr in seasons:
         teams = sorted({t["team"] for t in get("team_seasons?season_year=eq.%d&select=team&team=not.is.null" % yr)})
         for i, tm in enumerate(teams):
-            rows = get("box_scores?season_year=eq.%d&team=eq.%s&select=espn_id,player,team,pts,reb,ast,tpm,min,game_id"
+            rows = get("box_scores?season_year=eq.%d&team=eq.%s&select=espn_id,player,team,pts,reb,ast,tpm,min,game_id&order=game_id,espn_id"
                        % (yr, urllib.parse.quote(tm)))
             # home/away: infer from games.jsonl later is costly; use per-game team side via game_id map not available here,
             # so we approximate home/away by comparing to a games index below. For v1 we skip precise venue and mark all.
@@ -199,6 +200,7 @@ def build_player_trends(seasons):
                 vals = {"pts": r.get("pts") or 0, "reb": r.get("reb") or 0, "ast": r.get("ast") or 0,
                         "tpm": r.get("tpm") or 0}
                 vals["pra"] = vals["pts"] + vals["reb"] + vals["ast"]
+                P["mins"][yr].append(r.get("min") or 0)
                 for s in STATS:
                     P["stat"][s]["all"].append(vals[s])
                     P["stat"][s]["sea"][yr].append(vals[s])
@@ -261,6 +263,48 @@ def build_player_trends(seasons):
         GROWTH[s] = round(min(1.25, max(1.0, median(ratios))), 3)   # clamp to a sane band
     print("  year-over-year growth priced into the beat line: %s" % GROWTH, flush=True)
 
+    # BOUNCE-BACK / REGRESSION (the cheat sheet's Over/Under boards). Per-minute production regresses
+    # to a player's own career: a season well BELOW his earlier per-minute rate tends to bounce back,
+    # one well ABOVE tends to fade. Backtested (2025 + 2026 seasons, line = last season's per-minute
+    # pace x his new minutes, i.e. a book anchoring on last year): dips <=0.85 went over ~61% (pts),
+    # spikes >=1.25 went under ~54-62%. The OLD "beats his expected line" rate was ANTI-predictive
+    # (r = -0.13 to -0.31: players who beat expectations regress), so the page no longer ranks by it.
+    DIP, SPIKE = 0.85, 1.25
+    MINL = {"pts": 7.5, "reb": 3.5, "ast": 2.5, "tpm": 1.5, "pra": 12.5}
+    def per_min(sea, mins, yrs):
+        v = sum(sum(sea.get(y, [])) for y in yrs); m = sum(sum(mins.get(y, [])) for y in yrs)
+        return v / m if m > 0 else None
+    def bounce(sea, mins, last):
+        prev = [y for y in sea if y < last and len(sea[y]) >= 5]
+        if not prev or len(sea.get(last, [])) < 5: return None
+        # both sides need a real sample (300+ minutes): a 40-minute freshman cameo is not a "norm"
+        if sum(sum(mins.get(y, [])) for y in prev) < 300 or sum(mins.get(last, [])) < 300: return None
+        rl, rc = per_min(sea, mins, [last]), per_min(sea, mins, prev)
+        if not rl or not rc: return None
+        return {"last": round(rl * 40, 2), "career": round(rc * 40, 2), "ratio": round(rl / rc, 3)}
+    def bt_line(x): return round(x * 2) / 2 - 0.5
+    BT = {}
+    for s in ["pts", "reb", "ast", "tpm", "pra"]:
+        dip, spk, allv = [], [], []
+        for test in sorted(seasons)[-2:]:
+            for P in logs.values():
+                sea = P["stat"][s]["sea"]; mins = P["mins"]
+                if len(sea.get(test, [])) < 10: continue
+                sub = {y: v for y, v in sea.items() if y < test}
+                b = bounce(sub, mins, test - 1)
+                if not b: continue
+                mc = sum(mins[test]) / len(mins[test])
+                ln = bt_line(b["last"] / 40.0 * mc)
+                if ln < MINL[s]: continue
+                o = sum(v > ln for v in sea[test]) / len(sea[test]); allv.append(o)
+                if b["ratio"] <= DIP: dip.append(o)
+                elif b["ratio"] >= SPIKE: spk.append(o)
+        mean = lambda a: round(sum(a) / len(a), 3) if a else None
+        BT[s] = {"base_over": mean(allv), "n": len(allv), "dip_over": mean(dip), "dip_n": len(dip),
+                 "spike_under": (round(1 - mean(spk), 3) if spk else None), "spike_n": len(spk)}
+    print("  bounce/regression backtest: %s" % BT, flush=True)
+    LAST = max(seasons)
+
     # keep only players active in the last two seasons — props are only bettable on
     # current players, and it keeps the file loadable (graduated players just bloat it).
     active_seasons = set(sorted(seasons)[-2:])
@@ -284,10 +328,14 @@ def build_player_trends(seasons):
             br = beat_rate(d["sea"], GROWTH.get(s, 1.08))
             if br:
                 base["beat"], base["beatG"] = br
+            bn = bounce(d["sea"], P["mins"], LAST)
+            if bn:
+                base["bounce"] = bn
             rec["stats"][s] = base
         out[str(eid)] = rec
 
-    payload = {"meta": {"seasons": seasons, "players": len(out), "min_gp": MIN_GP_PLAYER}, "players": out}
+    payload = {"meta": {"seasons": seasons, "players": len(out), "min_gp": MIN_GP_PLAYER,
+                        "dip": DIP, "spike": SPIKE, "backtest": BT}, "players": out}
     os.makedirs(OUT, exist_ok=True)
     with open(os.path.join(OUT, "bet_trends_players.json"), "w") as f:
         json.dump(payload, f, separators=(",", ":"))

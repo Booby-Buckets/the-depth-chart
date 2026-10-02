@@ -373,8 +373,8 @@
 
     'cheatsheet.html': [
       { sel:'#statPills', t:'Betting Cheat Sheet', d:'Pick the prop market — points, rebounds, assists, threes.' },
-      { sel:'#boardPills', t:'The board', html:bl('<b>Best player bets</b> — the props with the biggest gap between the projection and a typical line.', '<b>Value bets</b> — where the hit-rate over his own game logs is highest.', '<b>Team bets</b> — spreads and totals with an edge.') + 'Sortable, with a conference filter.' },
-      { sel:'#teamAnglesSec', t:'Team angles', d:'ATS (against the spread) and over/under trends from twenty seasons of real closing lines — situations where teams have beaten the number more often than chance.' }
+      { sel:'#boardPills', t:'The board', html:bl('<b>Bounce-back Overs</b> — last season ran well below his career pace per minute; players drift back toward their norm.', '<b>Regression Unders</b> — last season ran well above it.', '<b>Value Movers</b> — the biggest gaps between our projection and his career norm.') + 'The header shows how often each board hit over the last two seasons. Sortable, with a conference filter.' },
+      { sel:'#teamAnglesSec', t:'Team angles', d:'ATS (against the spread) and over/under trends from five seasons of real closing lines — situations where teams have beaten the number more often than chance.' }
     ]
   };
 
