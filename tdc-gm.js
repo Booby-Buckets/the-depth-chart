@@ -11,7 +11,9 @@
   var POS5=['PG','SG','SF','PF','C'];
   var SPOT={PG:['38%','40%'],SG:['6%','14%'],SF:['70%','14%'],PF:['12%','64%'],C:['60%','64%']};
   var GAMES=32, FANTASY_BUDGET=20, MAX_ROSTER=15;
-  var S={mode:'program', team:null, budget:null, roster:[], cut:[], hist:[], tpos:'need', tmax:'', tq:'', tlimit:20};
+  var S={mode:'program', team:null, budget:null, roster:[], cut:[], hist:[], tpos:'need', tmax:'', tq:'', tlimit:20, goal:25};
+  var RATE=null, WINS=null, TCURVE=null;   // Moneyball's going rate ($M per win) + per-player projected wins, passed in by the page
+  var GOALS=[[4,'Final Four contender (top 4)'],[10,'Top 10'],[25,'Top 25'],[45,'NCAA tournament (top 45)'],[75,'Bubble (top 75)']];
   var D=null, NIL={}, ROT={}, POOL=[], BYTEAM={}, BASE=null, host=null, projWins=null, ready=false;
   var INIT=new URLSearchParams(location.search);   // captured at load: the page rewrites the URL when it switches tabs
 
@@ -95,6 +97,16 @@
       return L; }
     var at2=5; while(at2<L.length && (L[at2].ovr||0)>=(p.ovr||0)) at2++; L.splice(at2,0,p); return L;
   }
+  function winsSum(list){ if(!WINS) return null; return list.reduce(function(a,p){ var w=WINS(p.key); return a+(w!=null&&w>0?w:0); },0); }
+  // goal = finish inside the top N: the rating the Nth team carries is the bar (excluding this program)
+  function goalRow(rt,rk){
+    var g=GOALS.find(function(x){return x[0]===S.goal;})||GOALS[2], me=S.mode==='program'?S.team:null;
+    var field=(D.teams||[]).filter(function(t){ return t.team!==me&&t.rating!=null; }).map(function(t){return t.rating;}).sort(function(a,b){return b-a;});
+    var bar=field[g[0]-1];
+    if(rt==null) return {lbl:g[1], v:'—', cls:'', note:'add at least 5 players'};
+    if(rk!=null&&rk<=g[0]) return {lbl:g[1], v:'On track', cls:'c4', note:'#'+rk+' clears the top '+g[0]+(bar!=null?(' by '+(rt-bar).toFixed(1)):'')};
+    return {lbl:g[1], v:'Short', cls:'c1', note:'need '+(bar!=null?('+'+(bar-rt+0.05).toFixed(1)+' rating'):'more')+' to reach #'+g[0]};
+  }
   function spend(list){ return list.reduce(function(a,p){ return a+(p.cost||0); },0); }
   function push(){ S.hist.push({roster:S.roster.slice(), cut:S.cut.slice()}); if(S.hist.length>60) S.hist.shift(); }
 
@@ -114,7 +126,11 @@
       ['Projected record', w!=null?(w+'–'+Math.max(0,GAMES-w)):'—','', pubW!=null?('was '+pubW+'–'+Math.max(0,GAMES-pubW)):'over a '+GAMES+'-game season'],
       ['Roster cost', fM(cost), over>0?'c1':'', 'budget '+fM(budget)],
       [over>0?'Over budget':'Room left', fM(Math.abs(over)), '', over>0?'<span class="dn">cut or trade down to fit</span>':(MAX_ROSTER-S.roster.length)+' roster spots open'],
-      ['Cost per win', (w&&w>0)?fM(cost/w):'—', '', 'open-market NIL ÷ projected wins'],
+      (function(){ if(!(w>0)) return ['Cost per win','—','','']; var cpw=cost/w, typ=(TCURVE&&rt!=null)?TCURVE(rt)/w:null;
+        return ['Cost per win', fM(cpw), typ?(cpw<=typ?'c3':cpw>typ*1.25?'c1':'c2'):'', 'roster cost ÷ '+w+' projected wins'+(typ?(' · rosters this good: '+fM(typ)):'')]; })(),
+      (function(){ if(!TCURVE||rt==null) return null; var ex=TCURVE(rt), v=ex-cost;
+        return ['Rosters this good cost', fM(ex), v>=0?'c3':(v<-ex*0.25?'c1':'c2'), (v>=0?'you pay '+fM(v)+' less':'you pay '+fM(-v)+' more')+' than the market']; })(),
+      (function(){ var g=goalRow(rt,rk); return ['Goal: '+g.lbl, g.v, g.cls, g.note]; })(),
       ['Weakest spot', wk&&wk.p?wk.pos:(wk?wk.pos:'—'), wk&&wk.p?hc(wk.v):'c0', wk&&wk.p?(esc(wk.p.name)+' · '+wk.v+' OVR'):'empty'],
       ['Roster', S.roster.length+' / '+MAX_ROSTER, '', S.cut.length?(S.cut.length+' cut'):'']
     ];
@@ -122,6 +138,7 @@
       '<div class="gm-bar">'+
         '<div class="gm-mode" role="group" aria-label="Mode"><button type="button" data-m="program" class="'+(S.mode==='program'?'on':'')+'">My program</button><button type="button" data-m="fantasy" class="'+(S.mode==='fantasy'?'on':'')+'">Fantasy build</button></div>'+
         (S.mode==='program'?'<label class="gm-lab">Program <select id="gmTeam" class="gm-sel">'+teams.map(function(t){ return '<option'+(t===S.team?' selected':'')+'>'+esc(t)+'</option>'; }).join('')+'</select></label>':'')+
+        '<label class="gm-lab">Goal <select id="gmGoal" class="gm-sel">'+GOALS.map(function(g){ return '<option value="'+g[0]+'"'+(S.goal===g[0]?' selected':'')+'>'+g[1]+'</option>'; }).join('')+'</select></label>'+
         '<label class="gm-lab">Budget $<input id="gmBudget" class="gm-num" type="number" min="0" step="0.5" value="'+(+budget).toFixed(1)+'">M</label>'+
         (S.mode==='fantasy'?'<button type="button" class="gm-btn add" id="gmAuto">Auto-fill to budget</button>':'')+
         '<button type="button" class="gm-btn" id="gmUndo"'+(S.hist.length?'':' disabled')+'>Undo</button>'+
@@ -130,7 +147,7 @@
       '<div class="gm-top">'+
         '<div class="gm-court" aria-label="Starting five">'+courtHTML()+'</div>'+
         '<div><div class="gm-h">Summary <em>'+(S.mode==='program'?'live · vs real roster':'live')+'</em></div>'+
-          '<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense gm-sum"><tbody>'+summary.map(function(r){ return '<tr><td class="l nm">'+r[0]+'</td><td class="strong '+r[2]+'">'+r[1]+'</td><td class="l dim">'+r[3]+'</td></tr>'; }).join('')+'</tbody></table></div></div>'+
+          '<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense gm-sum"><tbody>'+summary.filter(Boolean).map(function(r){ return '<tr><td class="l nm">'+r[0]+'</td><td class="strong '+r[2]+'">'+r[1]+'</td><td class="l dim">'+r[3]+'</td></tr>'; }).join('')+'</tbody></table></div></div>'+
       '</div>'+
       '<div class="gm-bot">'+
         '<div><div class="gm-h">Your roster <em>top five start · use the arrows to change the depth chart</em></div>'+rosterHTML()+'</div>'+
@@ -181,10 +198,10 @@
     var note=document.getElementById('gmTgtNote'); if(note) note.textContent=rated?((pos?('best fits at '+pos):'best fits')+' · ranked by what they add'):'sign five players to see what each one adds';
     var shownList=scored.slice(0,S.tlimit);
     if(!shownList.length){ el.innerHTML='<div class="gm-empty">No players match these filters.</div>'; return; }
-    el.innerHTML='<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense gm-tgt"><thead><tr><th class="l">Player</th><th class="l">From</th><th class="l">Pos</th><th>OVR</th><th>Cost</th><th title="change in power rating if signed">Adds</th><th>Rank after</th><th></th></tr></thead><tbody>'+
+    el.innerHTML='<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense gm-tgt"><thead><tr><th class="l">Player</th><th class="l">From</th><th class="l">Pos</th><th>OVR</th><th>Cost</th>'+(WINS?'<th title="projected 2026-27 wins added">Wins</th>':'')+'<th title="change in power rating if signed">Adds</th><th>Rank after</th><th></th></tr></thead><tbody>'+
       shownList.map(function(x){ var p=x.p, ra=x.after!=null?rankOf(x.after):null;
         return '<tr><td class="l nm"><a href="player.html?espn='+encodeURIComponent(p.row.espn_id||'')+'&team='+encodeURIComponent(p.team)+'">'+esc(p.name)+'</a></td><td class="l dim">'+esc(p.team)+'</td><td class="l dim">'+p.pos+'</td>'+
-          '<td class="'+hc(p.ovr)+'">'+p.ovr+'</td><td>'+fM(p.cost)+'</td><td class="'+(x.d==null?'':x.d>=1.5?'c4':x.d>=0.8?'c3':x.d>=0.3?'c2':x.d>0?'c1':'c0')+'">'+(x.d==null?'—':(rated?sgn(x.d):'= '+sgn(x.after)))+'</td><td class="dim">'+(ra?'#'+ra:'—')+'</td>'+
+          '<td class="'+hc(p.ovr)+'">'+p.ovr+'</td><td>'+fM(p.cost)+'</td>'+(WINS?'<td class="dim">'+((WINS(p.key)!=null)?WINS(p.key).toFixed(1):'—')+'</td>':'')+'<td class="'+(x.d==null?'':x.d>=1.5?'c4':x.d>=0.8?'c3':x.d>=0.3?'c2':x.d>0?'c1':'c0')+'">'+(x.d==null?'—':(rated?sgn(x.d):'= '+sgn(x.after)))+'</td><td class="dim">'+(ra?'#'+ra:'—')+'</td>'+
           '<td><button type="button" class="gm-btn sm add" data-sign="'+esc(p.key)+'"'+(S.roster.length>=MAX_ROSTER?' disabled title="Roster full"':'')+'>Sign</button></td></tr>'; }).join('')+
       '</tbody></table></div>'+(scored.length>shownList.length?'<button type="button" class="gm-btn" id="gmMore" style="margin-top:10px">Show more</button>':'');
     el.querySelectorAll('[data-sign]').forEach(function(b){ b.addEventListener('click',function(){ var p=POOL.find(function(x){return x.key===b.dataset.sign;}); if(!p) return;
@@ -194,6 +211,7 @@
   function wire(){
     host.querySelectorAll('.gm-mode button').forEach(function(b){ b.addEventListener('click',function(){ if(S.mode===b.dataset.m) return; setMode(b.dataset.m); }); });
     var t=document.getElementById('gmTeam'); if(t) t.addEventListener('change',function(){ setTeam(t.value); });
+    var gg=document.getElementById('gmGoal'); if(gg) gg.addEventListener('change',function(){ S.goal=+gg.value; render(); });
     var bu=document.getElementById('gmBudget'); if(bu) bu.addEventListener('change',function(){ S.budget=Math.max(0,+bu.value||0); render(); });
     var au=document.getElementById('gmAuto'); if(au) au.addEventListener('click',function(){ au.disabled=true; au.textContent='Filling…'; setTimeout(autoFill,20); });
     document.getElementById('gmUndo').addEventListener('click',function(){ var h=S.hist.pop(); if(!h) return; S.roster=h.roster; S.cut=h.cut; render(); });
@@ -261,7 +279,7 @@
 
   window.TDC_GM={
     boot:function(el, opts){
-      host=el; projWins=(opts&&opts.projWins)||function(r){ return Math.max(4,Math.min(35,15.91+0.548*r)); };
+      host=el; RATE=(opts&&opts.rate)||null; TCURVE=(opts&&opts.teamCurve)||null; WINS=(opts&&opts.winsOf)||null; projWins=(opts&&opts.projWins)||function(r){ return Math.max(4,Math.min(35,15.91+0.548*r)); };
       render();
       load().then(function(){
         var m=INIT.get('gm');
