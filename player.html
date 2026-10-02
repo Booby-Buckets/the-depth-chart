@@ -1141,7 +1141,7 @@ body{background:transparent!important;}
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
   <link rel="stylesheet" href="tdc-nil-view.css?v=1"/>
   <link rel="stylesheet" href="tdc-column.css?v=4"/>
-  <link rel="stylesheet" href="tdc-player-a.css?v=6"/>
+  <link rel="stylesheet" href="tdc-player-a.css?v=8"/>
 </head>
 <body data-anim-auto>
 <script src="tdc-nav.js?v=38"></script>
@@ -1922,22 +1922,22 @@ function buildBadgesSection(p, B){
     'Glass Eater':'<rect x="4" y="4" width="16" height="10" rx="1.5" fill="none" stroke="#fff" stroke-width="2.2"/><rect x="9" y="8" width="6" height="4" rx=".6" fill="none" stroke="#fff" stroke-width="1.9"/><circle cx="12" cy="19" r="2.6" fill="#fff"/><path d="M12 14v2.2" stroke="#fff" stroke-width="1.8"/>',
     'Two-Way Disruptor':'<path d="M6 3l12 12M18 3L6 15" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><path d="M4 15l3 6 2-3 2 3 1-8z" fill="#fff"/><path d="M20 15l-3 6" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>'
   };
-  function frame(nm,t){ var r=RAMP[t.name]||['#dfe6f0','#8b94a3','#aab4c2'];
-    return '<span class="bframe" style="filter:drop-shadow(0 4px 10px rgba(0,0,0,.5)) drop-shadow(0 0 8px '+r[2]+'66)">'+
-      '<span class="bf-disc" style="background:radial-gradient(circle at 50% 30%,'+r[0]+','+r[1]+' 82%)"></span>'+
-      '<span class="bf-rim"></span><span class="bf-gloss"></span>'+
+  // flat tier disc (Oct 2026): solid tier colour + white icon, no gloss / rim / glow
+  var FLAT={'All-American':'#B8860B','Star':'#6D4BC2','Starter':'#6E7787','Prospect':'#8A5A2B'};
+  function frame(nm,t){
+    return '<span class="bframe flat" style="background:'+(FLAT[t.name]||'#6E7787')+'">'+
       '<svg viewBox="0 0 24 24">'+(IC[nm]||ICON[order.find(function(c){return (B.badges[c]||[]).some(function(b){return b.name===nm;});})]||'')+'</svg></span>';
   }
   var cats=order.filter(function(c){return (B.badges[c]||[]).length;}).map(function(c){
     var list=(B.badges[c]||[]).slice().sort(function(a,b){return ((b.tier&&b.tier.pips)||0)-((a.tier&&a.tier.pips)||0);});
     var rows=list.map(function(b){ var t=b.tier||{name:''}, r=RAMP[t.name]||['#dfe6f0','#8b94a3','#aab4c2'];
       return '<div class="bbadge" title="'+(b.desc||'').replace(/"/g,'&quot;')+'">'+frame(b.name,t)+
-        '<span class="bb-txt"><span class="bb-nm">'+b.name+'</span><span class="bb-tier" style="color:'+r[2]+'">'+t.name+'</span></span></div>';
+        '<span class="bb-txt"><span class="bb-nm">'+b.name+'</span><span class="bb-tier" style="color:'+(FLAT[t.name]||'#6E7787')+'">'+t.name+'</span></span></div>';
     }).join('');
     return '<div class="bcat"><div class="bcat-h"><span class="bcat-dot" style="background:'+CATCOL[c]+'"></span>'+CATLBL[c]+'</div>'+rows+'</div>';
   }).join('');
   return '<div class="badge-head"><span class="badge-count">'+B.total+' earned</span>'+
-    '<span class="badge-sub">Skill badges from '+B.basis+' production \u2014 colour = tier (gold \u203a purple \u203a silver \u203a bronze), icon = the skill.</span></div>'+
+    '<span class="badge-sub">From '+B.basis+' production. Tiers: All-American \u203a Star \u203a Starter \u203a Prospect.</span></div>'+
     '<div class="bcats">'+(cats||'<div class="badge-empty">No badges yet</div>')+'</div>';
 }
 
@@ -3330,30 +3330,14 @@ function _impScore(c){
 function _ampOrd(n){ var s=['th','st','nd','rd'],v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
 function _ampStatHtml(a){
   var v=a.amp, pv=a.pct;
-  var col = pv>=68?'var(--green)':pv>=40?'var(--text2)':'var(--red)';
   var tier = pv>=88?'Elite lift':pv>=68?'Lifts':pv>=40?'Neutral':pv>=18?'Slight drag':'Drag';
-  var os=a.off_swing, ds=a.def_swing;
   var sgn=function(x,d){ return (x>=0?'+':'')+(d?x.toFixed(1):Math.round(x)); };
-  // on-court vs off-court net + the swing, spelled out (was hidden before)
-  var oo='';
-  if(a.on_net!=null && a.off_net!=null){
-    var onC=(a.on_net>=0?'var(--green)':'var(--red)');
-    oo='<div class="oo-mini">'
-      +'<div class="oo-col"><div class="oo-v" style="color:'+onC+'">'+sgn(a.on_net,1)+'</div><div class="oo-l">On-court net</div></div>'
-      +'<div class="oo-col"><div class="oo-v" style="color:var(--text2)">'+sgn(a.off_net,1)+'</div><div class="oo-l">Off-court net</div></div>'
-      +'<div class="oo-col"><div class="oo-v" style="color:'+col+'">'+sgn(v,1)+'</div><div class="oo-l">Swing / 100</div></div>'
-      +'</div>';
-  }
-  var parts=[];
-  if(os!=null) parts.push('Offense <b style="color:'+(os>=0?'var(--green)':'var(--red)')+'">'+sgn(os,0)+'/100</b>');
-  if(ds!=null) parts.push('Defense <b style="color:'+(ds>=0?'var(--green)':'var(--red)')+'">'+(ds>=0?'−'+Math.round(ds):'+'+Math.round(-ds))+'/100</b>');
-  return '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">'
-    +'<span style="font-family:\'Playfair Display\',serif;font-weight:800;font-size:34px;line-height:1;color:'+col+';">'+(v>0?'+':'')+v.toFixed(1)+'</span>'
-    +'<span style="font-weight:800;font-size:13px;color:'+col+';">'+tier+'</span></div>'
-    +'<div style="font-size:11.5px;color:var(--text3);margin-top:4px;">team net efficiency per 100, on vs off · '+_ampOrd(pv)+' percentile</div>'
-    + oo
-    +(parts.length?'<div style="font-size:12px;color:var(--text2);margin-top:8px;font-weight:600;">'+parts.join(' &nbsp;·&nbsp; ')+'</div>':'')
-    +'<div style="font-size:11px;color:var(--text3);margin-top:6px;">'+a.games+'g · '+a.on_poss+' on / '+a.off_poss+' off poss'+(a.conf==='med'?' · modest off-court sample':'')+'</div>';
+  var rows=['<tr><td class="l nm">Swing per 100 (on − off)</td><td class="'+_hc(pv)+' strong">'+sgn(v,1)+'</td><td class="l dim">'+tier+' · '+_ampOrd(pv)+' pct</td></tr>'];
+  if(a.on_net!=null) rows.push('<tr><td class="l nm">Team net with him on</td><td>'+sgn(a.on_net,1)+'</td><td class="l dim">'+(a.on_poss!=null?Math.round(a.on_poss).toLocaleString()+' poss':'')+'</td></tr>');
+  if(a.off_net!=null) rows.push('<tr><td class="l nm">Team net with him off</td><td>'+sgn(a.off_net,1)+'</td><td class="l dim">'+(a.off_poss!=null?Math.round(a.off_poss).toLocaleString()+' poss':'')+'</td></tr>');
+  if(a.off_swing!=null) rows.push('<tr><td class="l nm">Offense swing</td><td class="'+_hcDiff(a.off_swing/2)+'">'+sgn(a.off_swing,0)+'</td><td class="l dim">points per 100</td></tr>');
+  if(a.def_swing!=null) rows.push('<tr><td class="l nm">Defense swing</td><td class="'+_hcDiff(a.def_swing/2)+'">'+(a.def_swing>=0?'−'+Math.round(a.def_swing):'+'+Math.round(-a.def_swing))+'</td><td class="l dim">opp. points per 100</td></tr>');
+  return _ovSheet(['On / off','Value',''], rows);
 }
 function _ampLockHtml(){
   return '<div style="display:flex;flex-direction:column;gap:8px;">'
@@ -3410,30 +3394,18 @@ function renderImpact(srcRow, projectedFlag){
       '<div class="imp-card-v">'+g.v+'</div>'+
       '<div class="imp-card-bar"><i class="impact-fill" style="width:'+Math.max(g.v,2)+'%;background:var(--tc);"></i></div></div>';
   }).join('');
-  var headHtml, barPct=2;
-  if(wa==null){
-    headHtml='<div class="impact-num" style="font-size:34px;">—</div>'+
-      '<div class="impact-meta"><div class="impact-rank">Awaiting college data</div>'+
-      '<div class="impact-pctl">Wins Added needs a played season</div></div>';
-  } else {
-    var pctl=getPctNat(wa,'wa'); barPct=pctl;
-    var rank=_waAllTimeRank(wa)||1;
-    var top=Math.max(1,101-pctl);
-    headHtml='<div class="impact-num">'+(wa>0?'+':'')+wa.toFixed(1)+'<span> wins</span></div>'+
-      '<div class="impact-meta"><div class="impact-rank">'+ord(rank)+' of '+WA_POOL_N.toLocaleString()+' all-time</div>'+
-      '<div class="impact-pctl">Top '+(top<=1?'1':top)+'% &middot; wins added</div></div>';
-  }
-  // mirror wins-added + all-time percentile into the header 2×2 grid
   var _hgWA=document.getElementById('heroWA'); if(_hgWA) _hgWA.textContent=(wa==null)?'—':((wa>0?'+':'')+wa.toFixed(1));
-  // (the hero's all-time cell is grade-based; owned by _updateHeroGridForSeason)
   var badge=advSeason?((advSeason-1)+'-'+(''+advSeason).slice(2)):'';
-  host.innerHTML='<div class="sec-title" style="margin-bottom:14px;">Wins Added'+(badge?' <span style="font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--accent);background:rgba(139,105,20,.12);padding:2px 6px;border-radius:4px;vertical-align:middle;">'+badge+'</span>':'')+'</div>'+
-    '<div class="impact-wrap">'+
-      '<div class="impact-head">'+headHtml+'</div>'+
-      '<div class="impact-bar"><i class="impact-fill" style="width:'+Math.max(barPct,2)+'%;"></i></div>'+
-    '</div>';
-  growBarsIn(host);
+  if(wa==null){ host.innerHTML='<div class="ovc-muted">Wins Added needs a played season.</div>'; return; }
+  var pctl=getPctNat(wa,'wa'), rank=_waAllTimeRank(wa)||1, top=Math.max(1,101-pctl);
+  var wrows=['<tr><td class="l nm">Wins added'+(badge?' <span class="dim">'+badge+'</span>':'')+'</td><td class="'+_hc(pctl)+' strong">'+(wa>0?'+':'')+wa.toFixed(1)+'</td></tr>',
+    '<tr><td class="l nm">All-time rank</td><td>'+ord(rank)+' of '+WA_POOL_N.toLocaleString()+'</td></tr>',
+    '<tr><td class="l nm">Percentile</td><td class="'+_hc(pctl)+'">Top '+(top<=1?'1':top)+'%</td></tr>'];
+  if(adv.owa!=null&&adv.owa!=='') wrows.push('<tr><td class="l nm">Offense (OWA)</td><td>'+(+adv.owa>0?'+':'')+(+adv.owa).toFixed(1)+'</td></tr>');
+  if(adv.dwa!=null&&adv.dwa!=='') wrows.push('<tr><td class="l nm">Defense (DWA)</td><td>'+(+adv.dwa>0?'+':'')+(+adv.dwa).toFixed(1)+'</td></tr>');
+  host.innerHTML=_ovSheet(['Measure','Value'], wrows);
 }
+
 
 // ── PERCENTILE DISTRIBUTION CARDS ────────────────────────
 function _lb(a,x){var lo=0,hi=a.length;while(lo<hi){var m=(lo+hi)>>1;if(a[m]<x)lo=m+1;else hi=m;}return lo;}
@@ -3738,7 +3710,7 @@ function setOvrSeason(val){
   else { var s=_ovrSeasonRow(val); if(!s){ try{ renderOvcExtras(val); }catch(e){} return; } host.innerHTML=ovrCardsFor(s); _updateHeroSeason(s.team, s.gp, s.season_year); }
   _updateHeroGridForSeason(val);   // grade + WA + ranks + all-time all follow the season
   try{ renderOvcExtras(val); }catch(e){}
-  try{ if(document.getElementById('radarChart')) drawRadar(1); }catch(e){}
+  try{ renderSkillSheet(val); }catch(e){}
 }
 // ===== boxed overview card: season options + the new insight boxes =====
 function _ovcSeasonOpts(){
@@ -3795,7 +3767,30 @@ function _mountSeasonCtl(){
 function _ovcPct(v,k,invert){ if(v==null||v===''||!isFinite(+v)) return null; var p=getPctNat(+v,k); return invert?(100-p):p; }
 function _ovcColor(p){ return _inkTier(p); }
 function _ovcAdv(s,proje){ var hist=(careerHistory&&careerHistory.length)?careerHistory[careerHistory.length-1]:null; return s._advanced||(proje&&hist&&hist._advanced)||{}; }
+// ── Overview cards as sheets (tdc-sheets kit), Oct 2026: the owner dropped the chart-style
+// cards (bars, sparklines, radar, big-number tiles) for plain tables like the rest of the site.
+function _hc(p){ if(p==null||!isFinite(p)) return ''; return p>=80?'c4':p>=60?'c3':p>=40?'c2':p>=20?'c1':'c0'; }
+function _hcDiff(d){ if(d==null||!isFinite(d)) return ''; return d>=5?'c4':d>=2?'c3':d>-2?'c2':d>-5?'c1':'c0'; }
+function _ovSheet(head, rows, extraCls){
+  return '<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense'+(extraCls?' '+extraCls:'')+'"><thead><tr>'+
+    head.map(function(h,i){ return '<th'+(i===0?' class="l"':'')+'>'+h+'</th>'; }).join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div>';
+}
+function renderSkillSheet(val){
+  var host=document.getElementById('skillSheet'); if(!host) return;
+  var x=_skillSrcFor(val!=null?val:((document.getElementById('ovrSeasonSel')||{}).value)), s=x.src||player;
+  var P=function(v,k){ return (v==null||v===''||!isFinite(+v))?null:getPctNat(+v,k); };
+  var avg=function(a,b){ return (a==null||b==null)?(a!=null?a:b):Math.round((a+b)/2); };
+  var rows=[
+    ['Scoring',P(s.ppg,'ppg')],['Efficiency',avg(P(s.fg_pct,'fg_pct'),P(s.ft_pct,'ft_pct'))],['3-Point',P(s.tp_pct,'tp_pct')],
+    ['Playmaking',P(s.apg,'apg')],['Rebounding',P(s.rpg,'rpg')],['Defense',avg(P(s.stl,'stl'),P(s.blk,'blk'))],
+    ['Ball care',(function(q){ return q==null?null:100-q; })(P(s.tovs,'tovs'))],['Role (minutes)',P(s.mpg,'mpg')]
+  ].filter(function(r){ return r[1]!=null; });
+  if(!rows.length){ host.innerHTML='<div class="ovc-muted">Not enough data.</div>'; return; }
+  host.innerHTML=_ovSheet(['Skill','Percentile'], rows.map(function(r){
+    var v=Math.max(1,Math.min(99,Math.round(r[1]))); return '<tr><td class="l nm">'+r[0]+'</td><td class="'+_hc(v)+'">'+_ord(v)+'</td></tr>'; }));
+}
 function renderOvcExtras(val){
+  try{ renderSkillSheet(val); }catch(e){}
   var x=_skillSrcFor(val); var s=x.src||player; var proje=x.projected; var adv=_ovcAdv(s,proje);
   var seasonLbl=x.label||(proje?(_seasonLbl2(2027)+' Projected'):'');
   var sl=document.getElementById('ovcStatLbl'); if(sl) sl.textContent=seasonLbl;
@@ -3849,18 +3844,12 @@ function renderOvcExtras(val){
       {l:'3-Point',    v:num(s.tp_pct)!=null?num(s.tp_pct):pct(tpm,tpa), m:tpm, a:tpa, avg:34.0},
       {l:'Free Throw', v:num(s.ft_pct)!=null?num(s.ft_pct):pct(ftm,fta), m:ftm, a:fta, avg:71.5}
     ];
-    // one row per shot type: label · make % · ink bar with the D-I average tick · made/att;
-    // the edge vs D-I is the only coloured (verdict) number
-    var prow=function(l,v,avg,vol){ if(v==null||!isFinite(v)) return '';
-      var d=v-avg, w=Math.max(2,Math.min(100,v));
-      return '<div class="ovc-prow"><div class="ovc-pl">'+l+(vol?'<span class="ovc-psub">'+vol+'</span>':'')+'</div>'+
-        '<div class="ovc-pv">'+f1(v)+'%</div>'+
-        '<div class="ovc-ptrack"><i style="width:'+w+'%"></i><b style="left:'+Math.min(99,avg)+'%" title="D-I average '+avg+'%"></b></div>'+
-        '<div class="ovc-pd '+(d>=0?'pos':'neg')+'">'+(d>=0?'+':'−')+Math.abs(d).toFixed(1)+'</div></div>'; };
-    var rows=TYPES.map(function(t){ var vol=(isFinite(t.a)&&t.a>0)?(f1(t.m)+' / '+f1(t.a)+' per game'):''; return prow(t.l,t.v,t.avg,vol); }).join('');
+    var srow=function(l,v,avg,vol){ if(v==null||!isFinite(v)) return ''; var d=v-avg;
+      return '<tr><td class="l nm">'+l+'</td><td class="dim">'+(vol||'')+'</td><td class="strong">'+f1(v)+'%</td><td class="'+_hcDiff(d)+'" title="D-I average '+avg.toFixed(1)+'%">'+(d>=0?'+':'−')+Math.abs(d).toFixed(1)+'</td></tr>'; };
+    var rows=TYPES.map(function(t){ var vol=(isFinite(t.a)&&t.a>0)?(f1(t.m)+' / '+f1(t.a)):''; return srow(t.l,t.v,t.avg,vol); });
     var EFF=[['Field goal %',num(s.fg_pct)!=null?num(s.fg_pct):pct(fgm,fga),45],['Effective FG%',efg,50],['True shooting %',ts,55]];
-    var tiles=EFF.map(function(e){ return prow(e[0],e[1],e[2],''); }).join('');
-    shEl.innerHTML=rows?('<div class="ovc-shot2">'+rows+(tiles?'<div class="ovc-efftitle">Overall efficiency <span class="ovc-psub" style="display:inline;margin-left:6px;">vs D-I average tick</span></div>'+tiles:'')+'</div>'):'<div class="ovc-muted">—</div>';
+    rows=rows.concat(EFF.map(function(e){ return srow(e[0],e[1],e[2],''); }));
+    shEl.innerHTML=rows.join('')?_ovSheet(['Shot','Made / att','Make %','vs D-I'], rows):'<div class="ovc-muted">—</div>';
   }
   // ---- Grade trend ----
   var tEl=document.getElementById('ovcTrend');
@@ -3870,19 +3859,14 @@ function renderOvcExtras(val){
     // unconditionally duplicated the last grade for one-and-done players, so a
     // single season read as "+0 over 2 seasons".
     var _hasProj=false; try{ _hasProj=!!_ovcSeasonOpts().useProj; }catch(e){}
-    if(_hasProj){ var pg=parseFloat(_projectedGrade&&_projectedGrade()||player.tdc_grade); if(isFinite(pg)) gs.push(pg); }
-    if(gs.length===1){
-      tEl.innerHTML='<div class="ti"><span class="now">'+Math.round(gs[0])+'</span> &nbsp;<b>single season</b><br>no prior year to trend against</div>';
-    } else if(gs.length>=2){
-      var min=Math.min.apply(null,gs)-3, max=Math.max.apply(null,gs)+2, W=110,H=42,pad=6;
-      var sp='<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'"><defs><linearGradient id="ovcsg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".3"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>';
-      var X=function(i){return pad+(W-2*pad)*i/(gs.length-1);}, Y=function(v){return pad+(H-2*pad)*(1-(v-min)/(max-min));};
-      sp+='<path d="M'+X(0)+' '+Y(min)+' '+gs.map(function(v,i){return 'L'+X(i)+' '+Y(v);}).join(' ')+' L'+X(gs.length-1)+' '+Y(min)+' Z" fill="url(#ovcsg)"/>';
-      sp+='<polyline points="'+gs.map(function(v,i){return X(i)+','+Y(v);}).join(' ')+'" fill="none" stroke="var(--accent)" stroke-width="2"/><circle cx="'+X(gs.length-1)+'" cy="'+Y(gs[gs.length-1])+'" r="3" fill="var(--accent)"/></svg>';
-      var d0=gs[0], d1=gs[gs.length-1], dd=Math.round(d1-d0);
-      var dir=dd>4?'&#9650; rising':dd<-4?'&#9660; sliding':'&#9644; steady';
-      tEl.innerHTML=sp+'<div class="ti"><span class="now">'+Math.round(d1)+'</span> &nbsp;<b>'+dir+'</b><br>'+(dd>=0?'+':'')+dd+' over '+gs.length+' season'+(gs.length===1?'':'s')+'</div>';
-    } else { tEl.innerHTML='<div class="ovc-muted">No grade history.</div>'; }
+    var pg=NaN; if(_hasProj){ pg=parseFloat(_projectedGrade&&_projectedGrade()||player.tdc_grade); if(isFinite(pg)) gs.push(pg); }
+    var trows=seasons.slice().reverse().filter(function(r){ return isFinite(+r.tdc_grade); }).map(function(r){
+      var g=Math.round(+r.tdc_grade);
+      return '<tr><td class="l nm">'+_seasonLbl2(r.season_year)+'</td><td class="l dim">'+(r.team?(window.tdcShortSchool?tdcShortSchool(r.team):r.team):'')+'</td><td class="'+_hc((g-60)*2.5)+'">'+g+'</td></tr>'; });
+    if(_hasProj && isFinite(pg)) trows.push('<tr><td class="l nm">'+_seasonLbl2(2027)+' proj.</td><td class="l dim">'+(player.team||'')+'</td><td class="'+_hc((Math.round(pg)-60)*2.5)+'">'+Math.round(pg)+'</td></tr>');
+    tEl.innerHTML=trows.length?_ovSheet(['Season','Team','Overall'], trows):'<div class="ovc-muted">No grade history.</div>';
+    var tl=document.getElementById('ovcTrendLbl');
+    if(tl){ if(gs.length>=2){ var dd=Math.round(gs[gs.length-1]-gs[0]); tl.textContent=(dd>=0?'+':'')+dd+' over '+gs.length+' seasons'; } else tl.textContent=''; }
   }
   // ---- Bottom line ----
   var bEl=document.getElementById('ovcBottom'); var sc=window._ovcScout;
@@ -4112,18 +4096,10 @@ function loadOvcForm(seasonYr){
       var avg=function(k){ return sum(k)/n; }, r1=function(v){ return (Math.round(v*10)/10).toFixed(1); };
       var fgp=sum('fga')>0?(sum('fgm')/sum('fga')*100):null;
       var tpp=sum('tpa')>0?(sum('tpm')/sum('tpa')*100):null;
-      var pts=g.map(function(x){return +x.pts||0;}), mx=Math.max.apply(null,pts.concat([1]));
-      var W=104,Hh=38,pad=4,bw=(W-2*pad)/n*0.6, rev=g.slice().reverse();
-      var sv='<svg width="'+W+'" height="'+Hh+'" viewBox="0 0 '+W+' '+Hh+'">';
-      rev.forEach(function(x,i){ var v=+x.pts||0, bx=pad+(W-2*pad)*(i+0.5)/n, by=pad+(Hh-2*pad-6)*(1-v/mx)+6;
-        sv+='<rect x="'+(bx-bw/2)+'" y="'+by+'" width="'+bw+'" height="'+((Hh-3)-by)+'" rx="1.5" fill="var(--accent)" opacity="'+(0.55+0.08*i)+'"/>'; });
-      sv+='</svg>';
-      var cells=[['PTS',r1(avg('pts'))],['REB',r1(avg('reb'))],['AST',r1(avg('ast'))],['MIN',r1(avg('min'))],
-                 ['FG%',fgp==null?'—':r1(fgp)],['3P%',tpp==null?'—':r1(tpp)],['STL',r1(avg('stl'))],['TO',r1(avg('tov'))]];
-      el.innerHTML='<div class="ovc-trend" style="margin-bottom:10px">'+sv+
-          '<div class="ti"><span class="now">'+r1(avg('pts'))+'</span> ppg &middot; <b>'+r1(avg('reb'))+' reb &middot; '+r1(avg('ast'))+' ast</b><br>averages over the last '+n+' games</div></div>'+
-        '<div class="ovc-formgrid">'+cells.map(function(c){
-          return '<div class="ovc-fc"><div class="v">'+c[1]+'</div><div class="k">'+c[0]+'</div></div>'; }).join('')+'</div>';
+      var dt=function(d){ var m=/^(\d{4})-(\d\d)-(\d\d)/.exec(d||''); return m?(+m[2])+'/'+(+m[3]):''; };
+      var grow=g.map(function(x){ return '<tr><td class="l nm">'+(x.opp?(window.tdcShortSchool?tdcShortSchool(x.opp):x.opp):'')+' <span class="dim">'+dt(x.date)+'</span></td><td>'+(x.min!=null?x.min:'—')+'</td><td class="strong">'+(x.pts!=null?x.pts:'—')+'</td><td>'+(x.reb!=null?x.reb:'—')+'</td><td>'+(x.ast!=null?x.ast:'—')+'</td></tr>'; });
+      grow.push('<tr class="tot"><td class="l nm">Average</td><td>'+r1(avg('min'))+'</td><td class="strong">'+r1(avg('pts'))+'</td><td>'+r1(avg('reb'))+'</td><td>'+r1(avg('ast'))+'</td></tr>');
+      el.innerHTML=_ovSheet(['Game','Min','Pts','Reb','Ast'], grow);
       window._ovcFormCache[key]=el.innerHTML;
     }).catch(function(){ el.innerHTML='<div class="ovc-muted">Game logs unavailable.</div>'; });
 }
@@ -4276,7 +4252,8 @@ function _updateHeroGridForSeason(val){
     // the CURRENT player pool, so any old elite season came back #1.)
     // rank by the RAW stored grade — the pool is raw tdc_grade, so comparing the box-adjusted
     // display grade (which the archetype bonus lifts above raw) over-ranked the player (#2).
-    _seasonRanks(row.season_year, parseFloat(row.tdc_grade), (row.position||player.position||''), (row._pillars||null), eN, eP, ePL);
+    // the old summary strip is hidden in the design-A hero, so don't run its (broken: grade_pillars) rank query
+    if(eN && eN.offsetParent!==null) _seasonRanks(row.season_year, parseFloat(row.tdc_grade), (row.position||player.position||''), (row._pillars||null), eN, eP, ePL);
   }
 }
 
@@ -4740,9 +4717,9 @@ function renderPage(){
         <div class="ovc-box"><div class="ovc-sl">Shot profile <span class="sub">make %</span></div><div id="ovcShot"></div></div>
         <div class="ovc-box"><div class="ovc-sl">Recent form <span class="sub" id="ovcFormLbl">last 5</span></div><div id="ovcForm"><div class="ovc-muted">Loading…</div></div></div>
         <div class="ovc-box"><div class="ovc-sl">Team fit</div><div id="ovcFit"></div></div>
-        <div class="ovc-box"><div class="ovc-sl">Skill profile <span class="sub">percentile</span></div><div class="radar-wrap"><canvas id="radarChart" width="600" height="600"></canvas></div><div class="radar-legend" id="radarLegend"></div></div>
+        <div class="ovc-box"><div class="ovc-sl">Skill profile <span class="sub">percentile vs D-I</span></div><div id="skillSheet"></div></div>
         <div class="ovc-box"><div class="ovc-sl">The jump <span class="sub" id="ovcJumpLbl"></span></div><div id="ovcJump"></div></div>
-        <div class="ovc-box"><div class="ovc-sl">Grade trend</div><div class="ovc-trend" id="ovcTrend"></div></div>
+        <div class="ovc-box"><div class="ovc-sl">Grade by season <span class="sub" id="ovcTrendLbl"></span></div><div id="ovcTrend"></div></div>
         <div class="ovc-box"><div class="ovc-sl">Wins added</div><div id="impactSection"></div></div>
         <div class="ovc-box" id="ovcAmplifierBox"><div class="ovc-sl">Lineup Amplifier <span class="sub">Coach's Tier</span></div><div id="ovcAmplifier"><div class="ovc-muted">Loading…</div></div></div>
         <div class="ovc-box full"><div class="ovc-sl">Badges <span class="sub" id="ovcBadgeLbl"></span></div><div id="badgesSection">${buildBadgesSection(p, badgeData)}</div></div>
