@@ -99,6 +99,9 @@ DEV_EFF_HOLD=float(os.environ.get("DEV_EFF_HOLD","0.45"))   # developing young r
 REG_TPA_K=float(os.environ.get("REG_TPA_K","36"))           # 3P% is trusted by SAMPLE: keep tpa/(tpa+K) of the real number, regress the rest (152 attempts->.81, 4 attempts->.10)
 TP_PRIOR_POS=float(os.environ.get("TP_PRIOR_POS","0.45"))   # the low-sample 3P prior is 45% positional mean, 55% FT-implied
 QUAL_NUDGE=float(os.environ.get("QUAL_NUDGE","0.25")); MPG_HARD_CAP=float(os.environ.get("MPG_HARD_CAP","37"))
+# absolute ceiling on any projected line: the positional rebalance on a thin roster (few bigs or guards)
+# used to pour a whole spot's minutes onto one player (56 mpg). Nobody plays more than 38 a game.
+MPG_MAX=float(os.environ.get("MPG_MAX","38"))
 TARGET_TEAM_USG=float(os.environ.get("TARGET_TEAM_USG","22.0")); USG_CAP=(9.0,34.0); MPG_XFER_BUMP=10.0
 VAC_CONC=float(os.environ.get("VAC_CONC","2.0"))  # vacancy concentration: weight ∝ last_usg**VAC_CONC (focal points absorb more of a departed rotation, within the team cap)
 # PROJECTED USAGE — calibrated on 6,782 same-team returner seasons (player_advanced 2020-26,
@@ -802,7 +805,7 @@ for short, roster in roster_by_team.items():
 
     def _project_one(r):
         p,b,e=r["p"],r["b"],r["e"]; pos=_pos(p.position)
-        last_mpg=r["last_mpg"]; pm=r["pm"]
+        last_mpg=r["last_mpg"]; pm=min(MPG_MAX,r["pm"])
         # transfer? computed once in the roster loop (r["xfer"]); needs the old team for the discounts
         demo_team_full=(r["a"].team if r["a"] is not None else (FILL.get(str(r["e"]),{}) or {}).get("last_team"))
         xfer = r["xfer"]
@@ -1119,7 +1122,7 @@ for short, roster in roster_by_team.items():
             _fm=sum(x[0] for x in _fresh) or 1.0; _fp=sum(x[2]*FRESH_PPS for x in _fresh) or 1.0
             _kmin=max(0.5,min(1.3,max(0.0,REF_MIN-_rmin)/_fm))
             _kpts=max(0.5,min(1.3,max(0.0,(_target or (_rpts+_fp))-_rpts)/_fp))
-            FRESH_FIT[short]={x[3]:{"mpg":round(x[0]*_kmin,1),"ppg":round(x[2]*FRESH_PPS*_kpts,1)} for x in _fresh}
+            FRESH_FIT[short]={x[3]:{"mpg":round(min(MPG_MAX,x[0]*_kmin),1),"ppg":round(x[2]*FRESH_PPS*_kpts*min(1.0,MPG_MAX/max(0.1,x[0]*_kmin)),1)} for x in _fresh}
             TEAM_FIT_LOG[full].update(fresh_min_k=round(_kmin,2),fresh_pts_k=round(_kpts,2))
         # POSITIONAL REBALANCE over the whole roster (fitted returners + fitted freshmen): two bigs,
         # two guards — see pos_rebalance. A returner whose minutes move is re-projected on them
@@ -1144,6 +1147,7 @@ for short, roster in roster_by_team.items():
         _dem=[(_demo_eff(_Rk[i]) if i<len(_Rk) else 0.0) for i in range(len(_items))]
         _new=pos_rebalance([[_items[i][0],_items[i][1],_dem[i]] for i in range(len(_items))])
         _new=pos_floors([[_items[i][0],_new[i],_dem[i]] for i in range(len(_items))])
+        _new=[min(MPG_MAX,x) for x in _new]
         _moved=0
         for i,rr in enumerate(_Rk):
             if abs(_new[i]-_items[i][1])>0.05:
@@ -1164,6 +1168,7 @@ for short, roster in roster_by_team.items():
                             position2=getattr(_pp,"position2",None),height=getattr(_pp,"height",None))); _mins.append(_new[i])
         if len(_qs)>=5:
             _c5=pos5_columns(_qs); _b5,_sp5=pos5_flow(_mins,pos5_lists(_qs),[q["depth"] for q in _qs],_c5)
+            _b5=[min(MPG_MAX,x) for x in _b5]
             for i,rr in enumerate(_Rk): rr["_split"]=_sp5[i]
             for i,rr in enumerate(_Rk):
                 if abs(_b5[i]-_mins[i])>0.05: rr["pm"]=max(0.5,_b5[i]); _project_one(rr); _moved+=1
