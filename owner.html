@@ -165,6 +165,14 @@
       </div>
 
       <div class="card">
+        <h2>💰 NIL position prices: market calibration</h2>
+        <div class="desc">Raises your published <b>Market Value</b> position prices (the PG/SG/SF/PF/C dollar anchors at grades 90/80/70 you set in the team page's NIL tab) by <b>18%</b>, to match the Oct 2026 market calibration of the Model Value. Runs once: it refuses a second time so the prices can't be raised twice.</div>
+        <div class="meta" id="nilMktMeta">Current prices: <b>checking…</b></div>
+        <button class="btn" id="nilMktBtn" onclick="scaleNilMarket(this)">Raise position prices 18%</button>
+        <div class="status" id="nilMktStatus"></div>
+      </div>
+
+      <div class="card">
         <h2>📡 Data feeds</h2>
         <div class="desc">Per-player content, refreshed daily by the news/buzz GitHub Action. Fan buzz needs a free Reddit app key — if it shows <b>not configured</b>, add <code>REDDIT_CLIENT_ID</code> / <code>REDDIT_CLIENT_SECRET</code> as GitHub repo secrets and the next daily run populates it.</div>
         <div class="status" id="feedNews"></div>
@@ -200,6 +208,48 @@
 <script src="team-colors.js?v=11"></script>
 <script src="tdc-projgrade.js?v=base37"></script>
 <script src="tdc-freshman.js?v=pub18"></script>
+<script>
+/* NIL market anchors ×1.18 (one-time): reads the published blob (profiles.freshman_projections.nil_market),
+   scales every anchor, writes it back with the owner JWT via TDCFresh.setKey. */
+var NIL_MKT_SCALE=1.18;
+function _nilMktFmt(c){ return ['PG','SG','SF','PF','C'].filter(function(k){return c&&c[k];}).map(function(k){ return k+' '+[90,80,70].map(function(g){ return '$'+(+c[k][g]).toFixed(2)+'M'; }).join(' / '); }).join(' · '); }
+function _nilMktLoad(){
+  if(!(window.TDCFresh&&TDCFresh.load)) return Promise.resolve(null);
+  return TDCFresh.load().then(function(){ var pub=TDCFresh.getKey&&TDCFresh.getKey('nil_market');
+    if(pub&&pub.curves) return pub;
+    return fetch('scripts/data/nil_market_anchors.json?v=cal1').then(function(r){ return r.ok?r.json():null; }); });
+}
+(function(){ setTimeout(function(){ _nilMktLoad().then(function(m){ var el=document.getElementById('nilMktMeta'); if(!el) return;
+  if(!m||!m.curves){ el.innerHTML='Current prices: <b>unavailable</b>'; return; }
+  el.innerHTML='Current (grade 90 / 80 / 70): <b>'+_nilMktFmt(m.curves)+'</b>'+((m.meta&&m.meta.calibrated)?'<br>Already calibrated on '+m.meta.calibrated+'.':''); }).catch(function(){}); }, 600); })();
+function scaleNilMarket(btn){
+  var st=document.getElementById('nilMktStatus');
+  if(!(window.TDCFresh&&TDCFresh.setKey)){ st.textContent='Sign in as the owner first.'; return; }
+  btn.disabled=true; st.textContent='Reading your published prices…';
+  _nilMktLoad().then(function(m){
+    // setKey writes the WHOLE owner blob (freshman projections, injuries, ratings overrides…). Only
+    // proceed when the blob really loaded — proven by the published prices being in it — so a failed
+    // read can never push an empty blob over everything else.
+    var pubNow=TDCFresh.getKey&&TDCFresh.getKey('nil_market');
+    if(!pubNow||!pubNow.curves) throw new Error('could not load your saved data — reload the page and try again');
+    if(!m||!m.curves) throw new Error('no published prices found');
+    if(m.meta&&m.meta.calibrated) throw new Error('already raised on '+m.meta.calibrated+' — not applying twice');
+    var out={};
+    Object.keys(m.curves).forEach(function(pos){ out[pos]={}; Object.keys(m.curves[pos]).forEach(function(g){ out[pos][g]=Math.round(+m.curves[pos][g]*NIL_MKT_SCALE*100)/100; }); });
+    var today=new Date().toISOString().slice(0,10);
+    var meta=Object.assign({}, m.meta||{}, {updated:today, calibrated:today, calibration:'x'+NIL_MKT_SCALE+' (Oct 2026 market calibration)'});
+    st.textContent='Saving…';
+    return TDCFresh.setKey('nil_market',{meta:meta,curves:out}).then(function(r){
+      if(!r||r.ok===false) throw new Error('write rejected — are you signed in as owner?');
+      try{ localStorage.removeItem('tdc_nil_market'); }catch(e){}
+      st.innerHTML='✓ Raised 18%. Now: <b>'+_nilMktFmt(out)+'</b>';
+      document.getElementById('nilMktMeta').innerHTML='Current (grade 90 / 80 / 70): <b>'+_nilMktFmt(out)+'</b><br>Calibrated '+today+'.';
+      btn.textContent='✓ Done';
+    });
+  }).catch(function(e){ st.textContent='✗ '+((e&&e.message)||e); btn.disabled=false; });
+}
+</script>
+
   <script src="tdc-injury.js?v=5"></script>
 <script src="tdc-ratings.js?v=26"></script>
 <script src="tdc-awards.js?v=10"></script>
