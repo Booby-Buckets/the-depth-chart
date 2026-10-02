@@ -421,28 +421,19 @@
        next to the side panels squeezed five cards to ~100px and names broke letter by letter), and a
        name only wraps between words. Beats tdc-team-dense.css's overflow-wrap:anywhere. */
     .dc-grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))!important;}
-    /* Depth chart on a HALF COURT (Oct 2026, owner: "like the Moneyball GM court"): basket at the top,
-       PF/C on the blocks either side of the lane, SG/SF on the wings, PG at the top of the key. A grid
-       (not absolute spots) so each card grows with its bench. Phones fall back to the stacked list. */
-    #depthContent .dc-grid.dc-court{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))!important;
-      grid-template-areas:"pf lane c" "sg pg sf";column-gap:clamp(14px,3vw,48px);row-gap:22px;align-items:start;
-      padding:22px clamp(14px,2.4vw,30px) 30px;border:1px solid var(--border);border-radius:16px;overflow:hidden;
-      background:color-mix(in srgb,var(--accent,#A8843C) 11%,var(--bg2));}
-    .dc-court .dc-lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;}
-    .dc-court .dc-lines *{stroke:color-mix(in srgb,var(--text) 22%,transparent);stroke-width:2;vector-effect:non-scaling-stroke;}
-    .dc-court .dc-col{position:relative;z-index:1;background:var(--bg);box-shadow:0 6px 18px rgba(0,0,0,.08);}
-    .dc-court .dc-col[data-pos="PF"]{grid-area:pf;} .dc-court .dc-col[data-pos="C"]{grid-area:c;}
-    .dc-court .dc-col[data-pos="SG"]{grid-area:sg;margin-top:-6px;} .dc-court .dc-col[data-pos="SF"]{grid-area:sf;margin-top:-6px;}
-    .dc-court .dc-col[data-pos="PG"]{grid-area:pg;margin-top:28px;}
-    .dc-court .dc-head{background:rgba(var(--tc-rgb,168,132,60),.10);}
-    .dc-court .dc-starter .dc-grade{font-size:19px;}
-    .dc-court .dc-starter .dc-name{font-size:14.5px;}
-    @media(max-width:760px){
-      #depthContent .dc-grid.dc-court{grid-template-columns:1fr!important;grid-template-areas:none;padding:12px;row-gap:10px;}
-      .dc-court .dc-col{grid-area:auto!important;margin-top:0!important;}
-      .dc-court .dc-col[data-pos="PG"]{order:1;} .dc-court .dc-col[data-pos="SG"]{order:2;} .dc-court .dc-col[data-pos="SF"]{order:3;}
-      .dc-court .dc-col[data-pos="PF"]{order:4;} .dc-court .dc-col[data-pos="C"]{order:5;}
-      .dc-court .dc-lines{display:none;} }
+    /* Depth chart as a SHEET (Oct 2026): same table kit as Shot distribution — starters by spot, then 6th, 7th…
+       The .dc-row class stays on each <tr> (the Premium gate keys on it), so undo the card-row grid here. */
+    #depthContent .dc-grid.dc-depth{display:block!important;margin-bottom:28px;}
+    .dc-depth tr.dc-row{display:table-row;padding:0;border-top:0;cursor:default;}
+    .dc-depth tr.dc-row:hover{background:transparent;}
+    .dc-depth .dc-slot{font-weight:800;letter-spacing:.04em;color:var(--text2);font-variant-numeric:tabular-nums;white-space:nowrap;}
+    .dc-depth tr.dc-starter .dc-slot{color:var(--tc-readable,var(--accent));}
+    .dc-depth tr.dc-starter td{background:rgba(var(--tc-rgb,168,132,60),.06);}
+    .dc-depth .dc-name{display:inline!important;-webkit-line-clamp:unset!important;font-size:inherit;white-space:nowrap!important;}
+    .dc-depth .dc-ovr{font-weight:800;font-variant-numeric:tabular-nums;}
+    .dc-depth .dc-wav{display:inline-block;font-size:8px;font-weight:800;letter-spacing:.03em;padding:0 4px;border-radius:3px;border:1px solid var(--accent);color:var(--accent);margin-left:6px;cursor:help;line-height:1.6;vertical-align:middle;}
+    .dc-depth .dc-posov{display:inline-block;margin:0 0 0 8px;}
+    .dc-depth .dc-inj{margin:0 0 0 6px;}
     #depthContent .dc-name{white-space:normal!important;overflow-wrap:normal!important;word-break:normal!important;
       display:-webkit-box!important;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden!important;hyphens:none;}
     #depthContent .dc-row{grid-template-columns:14px minmax(0,1fr) auto;gap:8px;padding:8px 10px;}
@@ -8379,6 +8370,41 @@ function renderHistoricRoster(rows, yr, projected){
     return `<div class="dc-col" data-pos="${c.pos}">${head}${rows}</div>`;
   }).join('');
 
+  // DEPTH SHEET (Oct 2026, owner: "like the Shot distribution table"): one row per player — the five
+  // starters labelled by spot (PG SG SF PF C), then the bench as 6th, 7th, 8th… by minutes. Rows keep
+  // .dc-row / .dc-starter so the Premium gate (_gateDepth) still shows only the starting five free.
+  const _ord=n=>n+(n%100>=11&&n%100<=13?'th':({1:'st',2:'nd',3:'rd'}[n%10]||'th'));
+  const _seat=[]; const _seen=new Set();
+  cols.forEach(c=>{ const e=c.entries&&c.entries[0];
+    if(e){ _seat.push({slot:c.pos,e,col:c.pos,star:true}); _seen.add(e.p); } else _seat.push({slot:c.pos,e:null,col:c.pos,star:true}); });
+  const _bench=[]; cols.forEach(c=>{ (c.entries||[]).forEach((e,i)=>{ if(i===0||_seen.has(e.p)) return; _seen.add(e.p); _bench.push({e,col:c.pos}); }); });
+  _bench.sort((a,b)=>(_totMin(b.e.p)||0)-(_totMin(a.e.p)||0));
+  _bench.forEach((b,i)=>_seat.push({slot:_ord(i+6),e:b.e,col:b.col,star:false}));
+  const _barTip=projected?'Projected minutes per game (of 40)':'Minutes per game (of 40)';
+  const depthRows=_seat.map((r,i)=>{
+    if(!r.e) return `<tr class="dc-row dc-starter dc-open"><td class="rk">${i+1}</td><td class="l dc-slot">${r.slot}</td><td class="l dim" colspan="5">Open: no ${r.slot} on the roster</td></tr>`;
+    const p=r.e.p, m=_totMin(p);
+    let g=_gdisp(p);
+    const _oop=(projected&&!window._rosterFromHistory&&r.star)?_oopDist(p,r.col):0;
+    if(_oop>0){ const _n=parseFloat(g); if(isFinite(_n)){ const _pen=Math.min(8,_oop*3);
+      g=`<span title="Out of position (${p.position}${p.position2?'/'+p.position2:''} → ${r.col}) · OVR −${_pen}" style="color:var(--amber,#c9962b);">${Math.round(_n-_pen)}<span style="font-size:9px;vertical-align:super;">↓</span></span>`; } }
+    const inj=_ltd(p) ? ` <span class="dc-inj" title="Played ${parseFloat(p.gp)||0} of ${_teamGp} games — injury-shortened season">${parseFloat(p.gp)||0}/${_teamGp} GP</span>` : '';
+    const wav=p.is_waiver ? ` <span title="On the roster, but has not yet been granted an eligibility waiver — his availability for the season is still pending." class="dc-wav">WAIVER?</span>` : '';
+    const injBadge=(projected && window.TDCInjury) ? TDCInjury.badgeHTML(p) : '';
+    const posEd=(!projected && window._histPosEdit && typeof _isOwner==='function' && _isOwner())
+      ? `<select class="dc-posov" data-k="${p.espn_id?('e'+p.espn_id):('n'+(p.name||'').toLowerCase().replace(/"/g,''))}" data-yr="${yr}" onchange="_setHistPos(this)"><option value="">Auto</option>${['PG','SG','SF','PF','C'].map(x=>`<option${(_histPosOverrides(yr)[p.espn_id?('e'+p.espn_id):('n'+(p.name||'').toLowerCase())]===x)?' selected':''}>${x}</option>`).join('')}</select>` : '';
+    const role=[p.yr, p.height, p.position?(p.position+(p.position2?'/'+p.position2:'')):''].filter(Boolean).join(' · ');
+    const w=m!=null?Math.max(m>0?3:0,Math.min(100,Math.round(m/40*100))):0;
+    return `<tr class="dc-row${r.star?' dc-starter':''}">
+      <td class="rk">${i+1}</td>
+      <td class="l dc-slot">${r.slot}</td>
+      <td class="l nm"><a class="dc-name" href="${link(p)}">${p.name}</a>${wav}${injBadge}${inj}${posEd}</td>
+      <td class="l dim">${role||'—'}</td>
+      <td class="l"><span class="sd-bar" style="display:block;width:160px;" title="${_barTip}"><i style="width:${w}%"></i></span></td>
+      <td class="strong">${m!=null&&m>=0.5?num(m):'—'}</td>
+      <td class="dc-ovr">${g}</td>
+    </tr>`; }).join('');
+  const depthSheet=`<div class="dc-grid dc-depth"><div class="sheet-wrap" style="max-height:none;"><table class="sheet dense dc-sheet"><thead><tr><th class="rk">#</th><th class="l">Slot</th><th class="l">Player</th><th class="l">Role</th><th class="l" title="${_barTip}"></th><th title="${_barTip}">Min</th><th>OVR</th></tr></thead><tbody>${depthRows}</tbody></table></div></div>`;
   const injHtml = injured.length
     ? `<div class="sec-head" style="margin-top:28px;color:#ef4444;">Injured — Out for ${rosterLbl(yr)} <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· stats from last season played · minutes redistributed in projections</span></div>`
       + histTable(injured, yr-1)
@@ -8386,9 +8412,7 @@ function renderHistoricRoster(rows, yr, projected){
   window._lastHistRender=[rows.concat(injured), yr, projected];
   const _posBar=(!projected && typeof _isOwner==='function' && _isOwner())
     ? `<div class="dc-posbar"><button type="button" class="dc-posbtn${window._histPosEdit?' on':''}" onclick="window._histPosEdit=!window._histPosEdit;renderHistoricRoster.apply(null,window._lastHistRender)">${window._histPosEdit?'Done editing positions':'Edit positions'}</button></div>` : '';
-  // the five spots drawn on a half court (basket at the top): bigs on the blocks, wings, PG up top
-  const _court=`<svg class="dc-lines" viewBox="0 0 300 200" preserveAspectRatio="none" aria-hidden="true"><path d="M110 0V92H190V0M20 0V40A130 128 0 0 0 280 40V0M120 92A30 24 0 0 0 180 92M110 200A40 30 0 0 1 190 200" fill="none"/><line x1="136" y1="7" x2="164" y2="7"/><ellipse cx="150" cy="14" rx="6" ry="5" fill="none"/></svg>`;
-  host.innerHTML = `${_posBar}<div class="dc-grid dc-court">${_court}${colHtml}</div>${histTable(rows, yr, projected)}${injHtml}<div id="shotDistCard"></div><div id="seasonLossesWrap"></div>`;
+  host.innerHTML = `${_posBar}${depthSheet}${histTable(rows, yr, projected)}${injHtml}<div id="shotDistCard"></div><div id="seasonLossesWrap"></div>`;
   if(projected && yr>=2026){ try{ _renderShotDist(rows); }catch(e){} }
   else if(!projected && yr>=2012){ try{ _renderHistShot(rows, yr); }catch(e){} }
 }
