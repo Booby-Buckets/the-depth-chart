@@ -1141,6 +1141,7 @@ body{background:transparent!important;}
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
   <link rel="stylesheet" href="tdc-nil-view.css?v=1"/>
   <link rel="stylesheet" href="tdc-column.css?v=4"/>
+  <link rel="stylesheet" href="tdc-player-a.css?v=6"/>
 </head>
 <body data-anim-auto>
 <script src="tdc-nav.js?v=38"></script>
@@ -4539,7 +4540,74 @@ function _openInjuryEditor(){
   if(!window.TDCInjury || !player) return;
   TDCInjury.openEditor(player, function(){ _applyInjury(); renderPage(); });
 }
+// ── HERO (design A, Oct 2026): identity + overall tile + three plain ranks on the left,
+// the 2026-27 projected line vs last season on the right. Ranks fill in asynchronously.
+function _paLastRow(){ try{ var ss=_ovrSeasons(); return (ss&&ss.length)?ss[0]:null; }catch(e){ return null; } }
+function _paFrom(){
+  var last=_paLastRow(); if(!last||!last.team||!player||!player.team) return '';
+  var a=(''+last.team).toLowerCase(), b=(''+player.team).toLowerCase();
+  if(a===b || a.indexOf(b)===0 || b.indexOf(a)===0) return '';
+  return (window.tdcShortSchool?tdcShortSchool(last.team):last.team);
+}
+function _paSeasonLbl(y){ y=+y; return (y-1)+'-'+(''+y).slice(2); }
+function _paProjHTML(){
+  var f=function(v,d){ v=parseFloat(v); return isFinite(v)?v.toFixed(d==null?1:d):'—'; };
+  var last=_paLastRow();
+  var useProj=(typeof proj!=='undefined' && proj && !proj._injured && !proj._dnp && parseFloat(proj.ppg)>0);
+  var src=useProj?proj:last;
+  if(!src) return '<div class="pa-proj-h"><span>No stat line yet</span></div>';
+  var pr=(useProj && player && player.espn_id!=null && window.TDCProjGrade && TDCProjGrade.projRowOf)?TDCProjGrade.projRowOf(player.espn_id):null;
+  var adv=player&&player._advanced;
+  var usgNow=useProj?(pr&&pr.usg):(adv&&adv.usg_pct);
+  var usgLast=adv&&adv.usg_pct;
+  var cmp=useProj && last;
+  var big=[['PPG','ppg'],['RPG','rpg'],['APG','apg'],['MPG','mpg']].map(function(x){
+    return '<div class="pa-big"><div class="pa-k">'+x[0]+'</div><div class="pa-bv">'+f(src[x[1]])+'</div>'+
+      (cmp?'<div class="pa-was">last yr '+f(last[x[1]])+'</div>':'')+'</div>'; }).join('');
+  var pct=function(v){ v=parseFloat(v); if(!isFinite(v)) return '—'; if(v<=1) v*=100; return v.toFixed(1); };
+  var small=[['FG%',pct(src.fg_pct)],['3P%',pct(src.tp_pct!=null?src.tp_pct:src.three_pct)],['FT%',pct(src.ft_pct)],(usgNow!=null&&isFinite(+usgNow))?['Usage',(+usgNow).toFixed(1)+'%']:((!useProj&&src.gp!=null&&src.gp!=='')?['GP',src.gp]:null)].filter(Boolean)
+    .map(function(x){ return '<div class="pa-sm"><div class="pa-k">'+x[0]+'</div><div class="pa-sv">'+x[1]+'</div></div>'; }).join('');
+  var read='';
+  if(cmp){
+    var from=_paFrom(), d=parseFloat(src.ppg)-parseFloat(last.ppg);
+    read=(from?'Transfers in from '+from+'. ':'')+'Projected '+f(src.ppg)+' points on '+f(src.mpg)+' minutes, '+
+      (Math.abs(d)<0.5?'about the same as':(d>0?'up from ':'down from '))+(Math.abs(d)<0.5?' ':'')+f(last.ppg)+' last season'+
+      ((usgLast!=null&&usgNow!=null&&Math.abs(usgNow-usgLast)>=3)?' (usage '+(+usgLast).toFixed(1)+'% → '+(+usgNow).toFixed(1)+'%)':'')+'.';
+  } else if(useProj){ read='No college stats yet. This line comes from his recruiting profile and projected role.'; }
+  var head=useProj?'2026-27 projection':(_paSeasonLbl(last.season_year)+' season');
+  var sub=cmp?('vs '+_paSeasonLbl(last.season_year)+(last.team?' at '+(window.tdcShortSchool?tdcShortSchool(last.team):last.team):'')):'';
+  return '<div class="pa-proj-h"><span>'+head+'</span>'+(sub?'<span class="pa-sub">'+sub+'</span>':'')+'</div>'+
+    '<div class="pa-bigs">'+big+'</div><div class="pa-rule"></div><div class="pa-smalls">'+small+'</div>'+
+    (read?'<div class="pa-read">'+read+'</div>':'');
+}
+function _paRanksHTML(){ return '<div class="pa-rk" id="paRankPlayer"></div><div class="pa-rk" id="paRankLast"></div><div class="pa-rk" id="paRankTeam"></div>'; }
+function _paFillRanks(){
+  var p=player; if(!p) return;
+  var set=function(id,html){ var el=document.getElementById(id); if(el) el.innerHTML=html; };
+  var g=parseFloat(typeof _projectedGrade==='function'?_projectedGrade():NaN);
+  var go=function(){
+    var pj=document.getElementById('paProj'); if(pj) pj.innerHTML=_paProjHTML();
+    try{
+      var maps=TDCProjGrade.statMaps(), vals=[], k;
+      for(k in maps.proj){ var v=+maps.proj[k]; if(isFinite(v)) vals.push(v); }
+      var inPool=(p.espn_id!=null && maps.proj[String(p.espn_id)]!=null);
+      if(inPool && isFinite(g) && vals.length){ var above=vals.filter(function(v){return v>g;}).length;
+        set('paRankPlayer','<b>#'+(above+1).toLocaleString()+'</b> of '+vals.length.toLocaleString()+' projected players'); }
+      var e=p.espn_id!=null?String(p.espn_id):null, last=_paLastRow();
+      if(e && maps.demo[e]!=null && last && +last.season_year===2026)
+        set('paRankLast','<b>'+maps.demo[e]+'</b> last season'+(last.team?' at '+(window.tdcShortSchool?tdcShortSchool(last.team):last.team):''));
+    }catch(err){}
+  };
+  if(window.TDCProjGrade && TDCProjGrade.ready) TDCProjGrade.ready.then(go); 
+  var onRoster=(p.depth_order!=null||p.is_addition!=null||p.starter!=null);
+  if(onRoster && window.TDC_RATINGS && TDC_RATINGS.get) TDC_RATINGS.get().then(function(D){
+    if(!D||!D.teams) return; var nm=(p.team||'').toLowerCase();
+    var r=D.teams.find(function(t){ return (t.team||'').toLowerCase()===nm || (t.full||'').toLowerCase()===nm; });
+    if(r&&r.rank) set('paRankTeam','<b>#'+r.rank+'</b> '+(p.team||'')+' team rank');
+  }).catch(function(){});
+}
 function renderPage(){
+  setTimeout(_paFillRanks,0);   // hero ranks + projection card refresh once the grade maps / ratings resolve
   const p=player;
   _applyInjury();   // owner-only: set proj injury flags before scouting/overview read them
   const color=_teamAccent(p.team)||teamData?.color||'#888';
@@ -4576,44 +4644,53 @@ function renderPage(){
     if(a&&a.ti40!=null&&a.ti40!==''&&typeof _winsAdded==='function'){var w=_winsAdded(a);return (w>0?'+':'')+w.toFixed(1);}
     return '—';})();
   document.getElementById('heroSection').innerHTML=`
-    <div class="player-hero" style="--tc:${color};">
-     ${_teamLogo?`<img class="hero-wm" src="${_teamLogo}" alt="" aria-hidden="true" onerror="this.remove()">`:''}
-     <div class="hero-idwrap">
-      <div class="hero-avatar">${_headshot
-        ? `<img src="${_headshot}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" onerror="this.parentNode.textContent='${(p.name||'?')[0].toUpperCase()}'">`
-        : (p.name||'?')[0].toUpperCase()}${_teamLogo?`<img class="hero-crest" src="${_teamLogo}" alt="${p.team||''} logo" onerror="this.remove()">`:''}</div>
-      <div class="hero-info">
-        <h1 class="hero-name">${p.name}</h1>
-        <div class="hero-teamline">
-          <a class="hero-team" id="heroTeam" href="team.html?team=${encodeURIComponent(p.team||'')}"><span class="team-dot" style="background:${color};"></span>${p.team||'—'}${_confChip(teamData?.conf||'', p.team||'', null)}</a>
-          ${(geoHome||p.hometown)?`<span class="hero-home">${geoHome||p.hometown}</span>`:''}
-          ${(function(){ // current-roster player whose last season on file is 2024-25: sat out / redshirted 2025-26
-              var ys=(careerHistory||[]).map(function(x){return +x.season_year||0;}); var ly=ys.length?Math.max.apply(null,ys):null;
+    <div class="pa-hero" style="--tc:${color};">
+     <div class="pa-stripe"></div>
+     <div class="pa-top">
+      <div class="pa-id">
+       <div class="pa-shot${_headshot?' has-photo':''}">${_headshot
+          ? `<img class="pa-photo" src="${_headshot}" alt="${p.name||''}" onerror="this.remove()">`
+          : (_teamLogo?`<img class="pa-biglogo" src="${_teamLogo}" alt="" aria-hidden="true" onerror="this.remove()">`:`<span class="pa-init">${(p.name||'?')[0].toUpperCase()}</span>`)}
+         ${_teamLogo&&_headshot?`<span class="pa-crest"><img class="hero-crest" src="${_teamLogo}" alt="${p.team||''} logo" onerror="this.remove()"></span>`:''}
+       </div>
+       <div class="pa-info">
+        <div class="pa-eyebrow">
+          <a class="hero-team" id="heroTeam" href="team.html?team=${encodeURIComponent(p.team||'')}">${p.team||'—'}${_confChip(teamData?.conf||'', p.team||'', null)}</a>
+          ${_paFrom()?`<span class="pa-sep">/</span><span class="pa-from">from ${_paFrom()}</span>`:''}
+          ${(function(){ var ys=(careerHistory||[]).map(function(x){return +x.season_year||0;}); var ly=ys.length?Math.max.apply(null,ys):null;
               var onRoster=(p.depth_order!=null||p.is_addition!=null||p.starter!=null);
-              return (onRoster&&ly===2025)?'<span class="hero-home" title="No 2025-26 season on file: sat out, redshirted or did not play">Sat out 2025-26</span>':''; })()}
+              return (onRoster&&ly===2025)?'<span class="pa-sep">/</span><span class="pa-from" title="No 2025-26 season on file: sat out, redshirted or did not play">Sat out 2025-26</span>':''; })()}
         </div>
-        <div class="hero-pills">
-          <div class="hp"><span class="k">Pos</span><span class="v">${p.position2 ? `${p.position||'—'} / ${p.position2}` : (p.position||'—')}</span></div>
-          <div class="hp"><span class="k">Class</span><span class="v">${yr||'—'}</span></div>
-          <div class="hp" id="heroArchPill" style="display:none;cursor:help"><span class="k">Style</span><span class="v" id="heroArch"></span></div>
-          ${p.height?`<div class="hp"><span class="k">Ht</span><span class="v">${p.height}${p.weight?` · ${p.weight}`:''}</span></div>`:''}
-          <div class="hp" id="heroGpPill"${p.gp?'':' style="display:none;"'}><span class="k">GP</span><span class="v" id="heroGp">${p.gp||''}</span></div>
-          ${p.is_injured?`<div class="hp hp-warn"><span class="k">Status</span><span class="v">Injured</span></div>`:''}
+        <h1 class="pa-name">${p.name}</h1>
+        <div class="pa-meta">
+          <span class="pa-pos">${p.position2 ? `${p.position||'—'} / ${p.position2}` : (p.position||'—')}</span>
+          ${yr?`<span>${yr}</span>`:''}
+          ${p.height?`<span>${p.height}${p.weight?` · ${p.weight} lb`:''}</span>`:''}
+          <span id="heroArchPill" style="display:none;cursor:help"><span id="heroArch"></span></span>
+          ${geoHome?`<span class="pa-home">${geoHome}</span>`:''}
+          ${p.is_injured?`<span class="pa-inj">Injured</span>`:''}
         </div>
         ${((proj&&proj._origin) || (window.TDCFresh&&TDCFresh.isOwner()&&TDCFresh.isFreshman(p)) || (window.TDCInjury&&TDCInjury.isOwner()))?`<div class="hero-tags">
           ${proj&&proj._origin?`<a class="hero-tag" href="transfer-fit.html?espn=${p.espn_id||''}&name=${encodeURIComponent(p.name)}" title="See the full transfer-fit report">Transfer · Fit Report ↗</a>`:''}
           ${(window.TDCFresh&&TDCFresh.isOwner()&&TDCFresh.isFreshman(p))?`<button class="hero-tag edit" onclick="_openFreshEditor()">⚙ ${TDCFresh.profileFor(p)?'Edit':'Project'} playstyle${TDCFresh.profileFor(p)?' · custom':''}</button>`:''}
           ${(window.TDCInjury&&TDCInjury.isOwner())?(function(){var r=TDCInjury.get(p);return '<button class="hero-tag edit'+(r?' inj-on':'')+'" onclick="_openInjuryEditor()">⚕ '+(r?TDCInjury.statusLabel(r):'Add injury')+'</button>';})():''}
         </div>`:''}
+        <div class="pa-ovr-row">
+          <div class="pa-ovr"><div class="pa-ovr-v" id="heroGrade">${_hGrade}</div><div class="pa-ovr-l">Overall</div></div>
+          <div class="pa-ranks" id="paRanks">${_paRanksHTML()}</div>
+        </div>
+       </div>
       </div>
-     </div><!-- /hero-idwrap -->
-      <div class="hero-grid">
-        <div class="hg"><div class="hg-v grade" id="heroGrade">${_hGrade}</div><div class="hg-l">TDC Grade</div></div>
-        <div class="hg"><div class="hg-v wa" id="heroWA">${_hWA}</div><div class="hg-l">Wins Added</div></div>
-        <div class="hg"><div class="hg-v" id="heroNatRank">—</div><div class="hg-l" id="heroNatRankL">’27 Big Board</div></div>
-        <div class="hg"><div class="hg-v" id="heroPosRank">—</div><div class="hg-l" id="heroPosRankL">Pos Rank</div></div>
-        <div class="hg"><div class="hg-v" id="heroRank">—</div><div class="hg-l">All-Time</div></div>
-      </div>
+      <div class="pa-proj" id="paProj">${_paProjHTML()}</div>
+     </div>
+     <!-- legacy summary cells: still written by the season/rank updaters, not shown -->
+     <div class="pa-legacy" aria-hidden="true">
+       <div class="hg"><div id="heroWA">${_hWA}</div><div class="hg-l"></div></div>
+       <div class="hg"><div id="heroNatRank">—</div><div class="hg-l" id="heroNatRankL"></div></div>
+       <div class="hg"><div id="heroPosRank">—</div><div class="hg-l" id="heroPosRankL"></div></div>
+       <div class="hg"><div id="heroRank">—</div><div class="hg-l"></div></div>
+       <span id="heroGpPill"><span id="heroGp"></span></span>
+     </div>
     </div>
 
     <div class="tab-row-wrap">
@@ -4653,20 +4730,22 @@ function renderPage(){
     <div class="tab-panel active" id="panel-overview">
       <div class="ovc-seasonbar" id="tdcSeasonSlot"></div>
       <div class="ovc-accent"></div>
+      <div class="pa-row3">
+        <div class="ovc-box ovc-read"><div class="ovc-sl">The read <span class="sub">vs everyone</span></div><div id="ovcRead"></div></div>
+        <div class="ovc-box ovc-comps"><div class="ovc-sl">Plays like <span class="sub" id="ovcCompLbl"></span></div><div id="ovcComps"><button class="ovc-complink" onclick="loadOvcCompsNow()">Find similar players →</button></div></div>
+        <div class="ovc-box ovc-bottom"><div class="ovc-sl">Bottom line</div><div id="ovcBottom"></div></div>
+      </div>
       <div class="ovc">
         <div class="ovc-box full"><div class="ovc-sl">Stats <span class="sub" id="ovcStatLbl"></span></div><div id="ovrCards">${_ovcInitialStats()}</div></div>
+        <div class="ovc-box"><div class="ovc-sl">Shot profile <span class="sub">make %</span></div><div id="ovcShot"></div></div>
+        <div class="ovc-box"><div class="ovc-sl">Recent form <span class="sub" id="ovcFormLbl">last 5</span></div><div id="ovcForm"><div class="ovc-muted">Loading…</div></div></div>
         <div class="ovc-box"><div class="ovc-sl">Team fit</div><div id="ovcFit"></div></div>
         <div class="ovc-box"><div class="ovc-sl">Skill profile <span class="sub">percentile</span></div><div class="radar-wrap"><canvas id="radarChart" width="600" height="600"></canvas></div><div class="radar-legend" id="radarLegend"></div></div>
         <div class="ovc-box"><div class="ovc-sl">The jump <span class="sub" id="ovcJumpLbl"></span></div><div id="ovcJump"></div></div>
-        <div class="ovc-box"><div class="ovc-sl">Shot profile <span class="sub">make %</span></div><div id="ovcShot"></div></div>
-        <div class="ovc-box"><div class="ovc-sl">Recent form <span class="sub" id="ovcFormLbl">last 5</span></div><div id="ovcForm"><div class="ovc-muted">Loading…</div></div></div>
-        <div class="ovc-box ovc-comps"><div class="ovc-sl">Plays like <span class="sub" id="ovcCompLbl"></span></div><div id="ovcComps"><button class="ovc-complink" onclick="loadOvcCompsNow()">Find similar players →</button></div></div>
         <div class="ovc-box"><div class="ovc-sl">Grade trend</div><div class="ovc-trend" id="ovcTrend"></div></div>
         <div class="ovc-box"><div class="ovc-sl">Wins added</div><div id="impactSection"></div></div>
         <div class="ovc-box" id="ovcAmplifierBox"><div class="ovc-sl">Lineup Amplifier <span class="sub">Coach's Tier</span></div><div id="ovcAmplifier"><div class="ovc-muted">Loading…</div></div></div>
-        <div class="ovc-box ovc-read"><div class="ovc-sl">The read <span class="sub">vs everyone</span></div><div id="ovcRead"></div></div>
         <div class="ovc-box full"><div class="ovc-sl">Badges <span class="sub" id="ovcBadgeLbl"></span></div><div id="badgesSection">${buildBadgesSection(p, badgeData)}</div></div>
-        <div class="ovc-box full ovc-bottom"><div class="ovc-sl">Bottom line</div><div id="ovcBottom"></div></div>
       </div>
       <div class="ovc-foot" id="ovcFoot"></div>
     </div>
@@ -7907,7 +7986,7 @@ init();
 </script>
 <script src="tdc-player-dense.js?v=2"></script>
   <script src="tdc-version.js?v=2"></script>
-  <script src="tdc-tour.js?v=16"></script>
+  <script src="tdc-tour.js?v=17"></script>
 <script src="tdc-sheets.js?v=1"></script>
 </body>
 </html>
