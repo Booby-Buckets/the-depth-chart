@@ -112,7 +112,7 @@
 </head>
 <body>
 <script src="tdc-badge.js?v=1"></script>
-<script src="tdc-nav.js?v=37"></script>
+<script src="tdc-nav.js?v=38"></script>
 
 <div class="page">
   <div class="page-eyebrow">Community · Forum</div>
@@ -244,7 +244,7 @@
     const L=topics.filter(t=>(!cat||t.category===cat)&&(!q||(t.title+' '+(t.body||'')+' '+nameOf(t)).toLowerCase().includes(q)));
     if(!L.length){ $('listView').innerHTML='<div class="fo-empty">No topics here yet.'+(me&&!myBan?' Start one with New topic.':'')+'</div>'; return; }
     $('listView').innerHTML=`<div class="sheet-wrap"><table class="sheet dense tl"><thead><tr><th class="l">Topic</th><th class="l">Category</th><th class="l">Started by</th><th>Replies</th><th>Active</th></tr></thead><tbody>${
-      L.map(t=>`<tr><td class="l t"><a href="#t${t.id}" data-open="${t.id}">${t.pinned?'<span class="tag pin">Pinned</span>':''}${t.locked?'<span class="tag">Locked</span>':''}${esc(t.title)}</a></td><td class="l dim">${esc(t.category||'')}</td><td class="l dim">${esc(nameOf(t))}</td><td>${t.reply_count||0}</td><td class="dim">${ago(t.updated_at||t.created_at)}</td></tr>`).join('')
+      L.map(t=>`<tr><td class="l t"><a href="#t${t.id}" data-open="${t.id}">${t.pinned?'<span class="tag pin">Pinned</span>':''}${t.locked?'<span class="tag">Locked</span>':''}${t.team?`<span class="tag">${esc(t.team)}</span>`:''}${esc(t.title)}</a></td><td class="l dim">${esc(t.category||'')}</td><td class="l dim">${esc(nameOf(t))}</td><td>${t.reply_count||0}</td><td class="dim">${ago(t.updated_at||t.created_at)}</td></tr>`).join('')
     }</tbody></table></div>`;
   }
 
@@ -279,7 +279,7 @@
       <textarea class="ft" id="repBody" maxlength="2000" placeholder="Add to the conversation" style="min-height:90px"></textarea>
       <div class="comp-row"><button class="btn" id="repSubmit">Post reply</button><span class="cnt" id="repCnt">0 / 2,000</span></div></div>`;
     $('threadView').innerHTML=`<button class="th-back" id="thBack">← All topics</button>
-      <div>${t.pinned?'<span class="tag pin">Pinned</span>':''}${t.locked?'<span class="tag">Locked</span>':''}<span class="tag">${esc(t.category||'General')}</span></div>
+      <div>${t.pinned?'<span class="tag pin">Pinned</span>':''}${t.locked?'<span class="tag">Locked</span>':''}<span class="tag">${esc(t.category||'General')}</span>${t.team?`<a class="tag" style="text-decoration:none" href="fan.html?team=${encodeURIComponent(t.team)}&tab=forum&t=${t.id}">${esc(t.team)} fan site →</a>`:''}</div>
       <h2 class="th-title">${esc(t.title)}</h2>
       <div class="th-meta">${rs.length} ${rs.length===1?'reply':'replies'} · started ${ago(t.created_at)}</div>
       ${postHtml('topic',t,true,t)}${rs.map(r=>postHtml('reply',r,false,t)).join('')}${composer}`;

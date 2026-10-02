@@ -54,6 +54,7 @@
       ['coaches.html',         'Coaching Lab'],
       ['buzz.html',            'News'],
       ['community.html',       'Community'],
+      ['fan.html',             '📰 Fan Sites'],
       ['games.html',           '🎮 Games'],
       ['customize.html',       '✦ Customize'],
       ['pricing.html',         'Pricing'],
