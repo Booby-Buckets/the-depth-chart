@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="tdc-loading.js?v=3"></script>   <!-- first, so it sees every request -->
+  <link rel="stylesheet" href="tdc-a11y.css?v=1">
+  <script src="tdc-a11y.js?v=2" defer></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="robots" content="noindex, nofollow">
+  <title>Fantasy League — The Depth Chart</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <script src="auth.js?v=delacct1"></script>
+  <script src="tdc-theme.js?v=5"></script>
+  <script src="team-colors.js?v=11"></script>
+  <script src="tdc-freshman.js?v=pub19"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--green:#2e8b57;--red:#c0392b;}
+    [data-theme="dark"]{--bg:#0A0E18;--bg2:#111726;--bg3:#1A2133;--border:#232B3E;--border2:#34405A;--text:#EEF1F7;--text2:#AEB6C8;--text3:#7A849A;--accent:#E6D5A8;--green:#6fbf7e;--red:#e07a7a;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html,body{background:var(--bg);}
+    body{color:var(--text);font-family:'Inter',system-ui,sans-serif;font-weight:500;min-height:100vh;}
+    .page{padding:28px 0 64px;}
+    button{font:inherit;cursor:pointer;}
+    a{color:inherit;}
+    .page-eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
+    .page-h1{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:34px;letter-spacing:-.02em;margin-bottom:14px;}
+    .btn{font:700 12px 'Inter',system-ui,sans-serif;letter-spacing:.02em;padding:8px 14px;border-radius:999px;border:1px solid var(--text);background:var(--text);color:var(--bg);text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;}
+    .btn.ghost{background:var(--bg);color:var(--text2);border-color:var(--border2);}
+    .btn.danger{background:var(--bg);color:var(--red);border-color:color-mix(in srgb,var(--red) 45%,var(--border2));}
+    .btn.sm{padding:4px 10px;font-size:11px;}
+    .btn:disabled{opacity:.45;cursor:default;}
+    .fi,.fs{font:500 13.5px 'Inter',system-ui,sans-serif;background:var(--bg);border:1px solid var(--border2);color:var(--text);padding:8px 11px;border-radius:8px;outline:none;}
+    .fi:focus,.fs:focus{border-color:var(--accent);}
+    .lab{display:block;font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
+    .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .sp{flex:1;}
+    .msg{font-size:12.5px;margin:6px 0;} .msg.err{color:var(--red);font-weight:600;} .msg.ok{color:var(--green);font-weight:600;}
+    .empty{padding:30px 12px;text-align:center;color:var(--text3);font-size:13px;}
+    .fl-note{font-size:12px;color:var(--text3);margin:6px 0 12px;}
+    .sec-h{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding-bottom:8px;border-bottom:1px solid var(--border);margin:0 0 12px;display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
+    .card{border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:18px;background:var(--bg);}
+    .card h3{font-size:14px;font-weight:800;margin-bottom:12px;}
+    .grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;}
+    .grid-side{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start;}
+    @media(max-width:980px){ .grid2,.grid-side{grid-template-columns:1fr;} }
+    .tabs{display:flex;gap:6px;flex-wrap:wrap;padding:12px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:20px;}
+    .tab{font:700 12px 'Inter',system-ui,sans-serif;background:var(--bg);border:1px solid var(--border2);color:var(--text2);padding:6px 13px;border-radius:999px;text-decoration:none;}
+    .tab.on{background:var(--text);color:var(--bg);border-color:var(--text);}
+    .tab .dot{display:inline-block;min-width:16px;padding:0 4px;border-radius:999px;background:var(--red);color:#fff;font-size:10px;margin-left:5px;}
+    .hd{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:6px;}
+    .hd .meta{font-size:12px;color:var(--text3);margin-bottom:18px;}
+    .pill{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:999px;border:1px solid var(--border2);color:var(--text3);vertical-align:1px;}
+    .pill.g{color:var(--green);border-color:color-mix(in srgb,var(--green) 45%,var(--border2));}
+    .pill.r{color:var(--red);border-color:color-mix(in srgb,var(--red) 45%,var(--border2));}
+    .lg{width:16px;height:16px;object-fit:contain;vertical-align:-3px;margin-right:6px;}
+    .nm a{text-decoration:none;font-weight:700;} .nm a:hover{color:var(--accent);text-decoration:underline;}
+    .sheet td .sub{display:block;font-size:10.5px;color:var(--text3);font-weight:500;}
+    .sheet tfoot td{text-align:right;padding:8px 10px;font-variant-numeric:tabular-nums;border-top:2px solid var(--border2);} .sheet tfoot td.l{text-align:left;}
+    .me-row td{background:color-mix(in srgb,var(--accent) 10%,transparent)!important;}
+    /* draft */
+    .entry{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.3fr) 110px auto;gap:10px;align-items:end;}
+    @media(max-width:800px){ .entry{grid-template-columns:1fr 1fr;} }
+    .entry .fi,.entry .fs{width:100%;}
+    .ac{position:relative;}
+    .ac-list{position:absolute;left:0;right:0;top:100%;margin-top:4px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.18);z-index:60;max-height:330px;overflow:auto;display:none;}
+    .ac-opt{display:flex;align-items:center;gap:8px;padding:8px 10px;font-size:13px;cursor:pointer;}
+    .ac-opt:hover,.ac-opt.hi{background:var(--bg2);}
+    .ac-opt .r{margin-left:auto;color:var(--text3);font-size:11.5px;font-variant-numeric:tabular-nums;}
+    .info{font-size:12px;color:var(--text2);margin-top:10px;min-height:16px;}
+    .info b{color:var(--text);}
+    .board{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;}
+    .bt{border:1px solid var(--border);border-radius:10px;padding:12px;font-size:12.5px;}
+    .bt.me{border-color:var(--accent);}
+    .bt-h{display:flex;justify-content:space-between;gap:8px;font-weight:800;margin-bottom:2px;}
+    .bt-s{font-size:11px;color:var(--text3);margin-bottom:8px;font-variant-numeric:tabular-nums;}
+    .bt ol{list-style:none;}
+    .bt li{display:flex;gap:6px;padding:3px 0;border-top:1px solid var(--border);}
+    .bt li .p{margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums;}
+    .bt li button{background:none;border:none;color:var(--text3);font-weight:800;padding:0 2px;}
+    .bt li button:hover{color:var(--red);}
+    .bt .open{color:var(--text3);font-style:italic;}
+    /* dates */
+    .cal{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px;}
+    .mo h4{font-size:12px;font-weight:800;margin-bottom:6px;}
+    .days{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+    .days .w{font-size:9.5px;font-weight:800;color:var(--text3);text-align:center;}
+    .dy{border:1px solid var(--border);border-radius:6px;padding:3px 0;text-align:center;font-size:11px;background:var(--bg);color:var(--text2);line-height:1.2;}
+    .dy .n{display:block;font-size:9px;color:var(--text3);}
+    .dy.on{background:var(--text);color:var(--bg);border-color:var(--text);} .dy.on .n{color:var(--bg);opacity:.7;}
+    .dy.none{opacity:.35;cursor:default;}
+    .dy.past{outline:1px dashed var(--border2);}
+    .chk{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;}
+    .chk:last-child{border-bottom:none;}
+    .chk input{accent-color:var(--accent);}
+    .chk .r{margin-left:auto;font-size:11.5px;color:var(--text3);font-variant-numeric:tabular-nums;}
+    .delta b.up{color:var(--green);} .delta b.dn{color:var(--red);}
+    .code{font:800 22px ui-monospace,Menlo,monospace;letter-spacing:.18em;}
+  </style>
+  <link rel="stylesheet" href="tdc-skin.css?v=14"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+  <link rel="stylesheet" href="tdc-column.css?v=4"/>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0A0E18" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#FAF9F6" media="(prefers-color-scheme: light)">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script src="tdc-pwa.js?v=2" defer></script>
+</head>
+<body>
+<script src="tdc-badge.js?v=1"></script>
+<script src="tdc-nav.js?v=38"></script>
+
+<div class="page" id="app"><div class="empty">Loading…</div></div>
+
+<script>
+(function(){
+  const SB='https://izlqhnxowdhtdofkwrho.supabase.co', KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+  const CONFS={'B10':'Big Ten','SEC':'SEC','ACC':'ACC','BIG-12':'Big 12','Big-East':'Big East'};
+  const CATS=[['pts','PTS'],['reb','REB'],['ast','AST']];
+  const $=id=>document.getElementById(id);
+  const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const session=()=>{ try{ return JSON.parse(localStorage.getItem('tdc_session')||'null'); }catch(e){ return null; } };
+  const tok=()=>{ const s=session(); return s&&s.access_token||null; };
+  const H=pub=>({apikey:KEY,Authorization:'Bearer '+((!pub&&tok())||KEY),'Content-Type':'application/json'});
+  const f1=v=>v==null||isNaN(v)?'—':(+v).toFixed(1);
+  const f0=v=>v==null||isNaN(v)?'—':Math.round(v).toLocaleString();
+  const TODAY=new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+  const say=(id,t,c)=>{ const el=$(id); if(el){ el.className='msg '+(c||''); el.textContent=t||''; } };
+  const nk=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+  const logo=t=>{ try{ const c=window.tdcTeamColor&&tdcTeamColor(t); return c&&c.logo||null; }catch(e){ return null; } };
+  const lgImg=t=>{ const l=logo(t); return l?`<img class="lg" src="${esc(l)}" alt="" loading="lazy">`:''; };
+
+  async function errText(r){
+    let t=''; try{ t=await r.text(); }catch(e){}
+    if(r.status===401) return 'Your session has expired. Sign out and back in, then try again.';
+    try{ const j=JSON.parse(t); if(j.message) return j.message; }catch(e){}
+    return 'Something went wrong ('+r.status+').';
+  }
+  async function get(path,pub){ const r=await fetch(`${SB}/rest/v1/${path}`,{headers:H(pub)}); if(!r.ok) throw new Error(await errText(r)); return r.json(); }
+  async function getAll(path,pub){   // paginated; every caller passes a stable order=
+    const out=[]; for(let off=0;;off+=1000){ const rows=await get(`${path}&limit=1000&offset=${off}`,pub); out.push(...rows); if(rows.length<1000) return out; }
+  }
+  async function rpc(fn,body){ const r=await fetch(`${SB}/rest/v1/rpc/${fn}`,{method:'POST',headers:H(),body:JSON.stringify(body)}); if(!r.ok) throw new Error(await errText(r)); return r.json().catch(()=>null); }
+  async function patch(path,body){ const r=await fetch(`${SB}/rest/v1/${path}`,{method:'PATCH',headers:{...H(),Prefer:'return=representation'},body:JSON.stringify(body)}); if(!r.ok) throw new Error(await errText(r)); const j=await r.json(); if(!j.length) throw new Error('That change was not allowed.'); return j; }
+  const qList=a=>a.map(x=>'"'+String(x).replace(/"/g,'\\"')+'"').join(',');
+
+  // ── state ──────────────────────────────────────────────────────────────
+  let me=null, meProfile=null, OWNER=false;
+  let L=null, MEM=[], ROS=[], DATES=new Set(), TRADES=[];
+  let POOL=[], PBY={}, PROJ={}, FULL={}, TEAMGAMES={}, BOX={}, FORM=null, VALUE={};
+  let poolReady=null;
+  const memOf=uid=>MEM.find(m=>m.user_id===uid);
+  const tname=uid=>{ const m=memOf(uid); return m?m.team_name:'(left the league)'; };
+  const isCommish=()=>OWNER||(L&&me&&L.commissioner===me.id);
+  const active=()=>ROS.filter(r=>!r.end_date);
+  const rosterOf=uid=>active().filter(r=>r.user_id===uid);
+  const owned=pid=>active().find(r=>r.player_id===pid);
+  const counts=(r,d)=>(!r.start_date||d>=r.start_date)&&(!r.end_date||d<r.end_date);
+
+  async function loadMe(){
+    const t=tok(); if(!t) return;
+    try{
+      const r=await fetch(`${SB}/auth/v1/user`,{headers:{apikey:KEY,Authorization:'Bearer '+t}}); if(!r.ok) return;
+      me=await r.json(); OWNER=!!(window.tdcIsOwner&&tdcIsOwner());
+      meProfile=(await get(`profiles?id=eq.${me.id}&select=id,username,avatar_url`).catch(()=>[]))[0]||null;
+    }catch(e){}
+  }
+
+  // the player pool + projections + schedule, loaded once
+  function loadPool(){
+    if(poolReady) return poolReady;
+    poolReady=(async()=>{
+      const [teams,proj,sched]=await Promise.all([
+        get(`teams?conference=in.(${Object.keys(CONFS).join(',')})&select=name,conference&order=name.asc`,true),
+        fetch('scripts/data/stat_overall_projected.json?v=77').then(r=>r.ok?r.json():null).catch(()=>null),
+        fetch('scripts/data/schedule_2027.json?v=2').then(r=>r.ok?r.json():null).catch(()=>null)]);
+      const CONF=Object.fromEntries(teams.map(t=>[t.name,t.conference]));
+      POOL=await getAll(`players?team=in.(${encodeURIComponent(qList(teams.map(t=>t.name)))})&select=id,name,team,position,espn_id,yr,is_injured,tdc_grade,height,ppg,mpg&order=id.asc`,true);
+      if(window.TDCFresh) await TDCFresh.load().catch(()=>{});
+      PROJ=(proj&&proj.players)||{};
+      POOL.forEach(p=>{
+        p.conf=CONF[p.team]; const pr=p.espn_id!=null?PROJ[String(p.espn_id)]:null;
+        p.proj=pr?{pts:pr.ppg||0,reb:pr.rpg||0,ast:pr.apg||0,mpg:pr.mpg||0}:null;
+        // no published projection (mostly freshmen): the freshman engine's line, the same one the Big Board uses
+        if(!p.proj&&window.TDCFresh){ try{ const F=TDCFresh.line(p,TDCFresh.profileFor(p)); if(F&&F.mpg>0) p.proj={pts:F.ppg||0,reb:F.rpg||0,ast:F.apg||0,mpg:F.mpg,est:true}; }catch(e){} }
+        if(pr&&pr.team&&!FULL[p.team]) FULL[p.team]=pr.team;     // sheet short name -> ESPN full name (schedule/box key)
+        PBY[p.id]=p;
+      });
+      if(sched){ const T=sched.teams; sched.games.forEach(g=>{ [T[g[2]],T[g[3]]].forEach(t=>{ (TEAMGAMES[t]=TEAMGAMES[t]||[]).push(g[1]); }); }); }
+    })();
+    return poolReady;
+  }
+  const gameDates=short=>TEAMGAMES[FULL[short]]||[];
+  // games a player's team plays on counting dates still to come (today counts until a box score exists)
+  function gamesLeft(p,fromDate){
+    if(!p) return 0; const box=BOX[p.espn_id]||[], played=new Set(box.map(b=>b.date));
+    const from=fromDate&&fromDate>TODAY?fromDate:TODAY;
+    return gameDates(p.team).filter(d=>DATES.has(d)&&d>=from&&!played.has(d)).length;
+  }
+  const allCountingGames=p=>p?gameDates(p.team).filter(d=>DATES.has(d)).length:0;
+
+  // auction value: z-scores over the players a full league would roster, replacement = the next man up
+  function computeValues(){
+    const teams=Math.max(L.max_teams,MEM.length), N=teams*L.roster_size, cap=teams*L.budget;
+    const P=POOL.filter(p=>p.proj);
+    // weight by counting games when the dates are set, so a team that plays more is worth more
+    const mult=p=>DATES.size?Math.max(1,allCountingGames(p)):1;
+    const raw=p=>CATS.reduce((s,[k])=>s+p.proj[k]*mult(p),0);
+    let top=P.slice().sort((a,b)=>raw(b)-raw(a)).slice(0,N);
+    const st={}; CATS.forEach(([k])=>{ const v=top.map(p=>p.proj[k]*mult(p)); const m=v.reduce((a,b)=>a+b,0)/v.length; const sd=Math.sqrt(v.reduce((a,b)=>a+(b-m)**2,0)/v.length)||1; st[k]={m,sd}; });
+    const z=p=>CATS.reduce((s,[k])=>s+(p.proj[k]*mult(p)-st[k].m)/st[k].sd,0);
+    const ranked=P.map(p=>({p,z:z(p)})).sort((a,b)=>b.z-a.z);
+    const repl=ranked[N]?ranked[N].z:ranked[ranked.length-1].z;
+    const above=ranked.slice(0,N).reduce((s,x)=>s+Math.max(0,x.z-repl),0)||1;
+    VALUE={}; ranked.forEach((x,i)=>{ x.p.rank=i+1; VALUE[x.p.id]=i<N?Math.max(1,Math.round(1+(x.z-repl)/above*(cap-N))):(x.z>repl-1?1:0); x.p.z=x.z; });
+  }
+
+  async function loadLeague(id){
+    const [lg,mem,ros,dates,trades]=await Promise.all([
+      get(`fl_leagues?id=eq.${id}&select=*`), get(`fl_members?league_id=eq.${id}&select=*&order=joined_at.asc`),
+      get(`fl_rosters?league_id=eq.${id}&select=*&order=id.asc`), get(`fl_dates?league_id=eq.${id}&select=d&order=d.asc`),
+      get(`fl_trades?league_id=eq.${id}&select=*&order=created_at.desc`)]);
+    if(!lg[0]) throw new Error('not-member');
+    L=lg[0]; MEM=mem; ROS=ros; DATES=new Set(dates.map(x=>x.d)); TRADES=trades;
+    const ids=[...new Set(MEM.map(m=>m.user_id))];
+    if(ids.length){ const ps=await get(`profiles?id=in.(${ids.join(',')})&select=id,username`).catch(()=>[]); const by=Object.fromEntries(ps.map(p=>[p.id,p.username])); MEM.forEach(m=>m.username=by[m.user_id]||''); }
+    await loadPool(); await loadBox(); computeValues();
+  }
+  // box scores for every player who has ever been on a roster, counting dates only
+  async function loadBox(){
+    BOX={};
+    const ids=[...new Set(ROS.map(r=>r.espn_id).filter(Boolean))];
+    const dates=[...DATES].filter(d=>d<=TODAY);
+    if(!ids.length||!dates.length) return;
+    for(let i=0;i<ids.length;i+=120){
+      const rows=await getAll(`box_scores?season_year=eq.${L.season}&espn_id=in.(${ids.slice(i,i+120).join(',')})&date=gte.${dates[0]}&select=espn_id,date,pts,reb,ast&order=game_id.asc,espn_id.asc`,true).catch(()=>[]);
+      rows.forEach(b=>{ if(DATES.has(b.date)) (BOX[b.espn_id]=BOX[b.espn_id]||[]).push(b); });
+    }
+  }
+  async function refreshRosters(){ ROS=await get(`fl_rosters?league_id=eq.${L.id}&select=*&order=id.asc`); }
+
+  // ── scoring: rotisserie over PTS / REB / AST on the counting dates ─────
+  function actualFor(uid){
+    const t={pts:0,reb:0,ast:0,g:0};
+    ROS.filter(r=>r.user_id===uid&&r.espn_id).forEach(r=>(BOX[r.espn_id]||[]).forEach(b=>{ if(counts(r,b.date)){ t.pts+=b.pts||0; t.reb+=b.reb||0; t.ast+=b.ast||0; t.g++; } }));
+    return t;
+  }
+  function playerActual(r){
+    const t={pts:0,reb:0,ast:0,g:0}; (BOX[r.espn_id]||[]).forEach(b=>{ if(counts(r,b.date)){ t.pts+=b.pts||0; t.reb+=b.reb||0; t.ast+=b.ast||0; t.g++; } }); return t;
+  }
+  // per-game projection when no dates are set; otherwise actual-so-far + projection x games left
+  function projectedFor(uid,rows){
+    rows=rows||rosterOf(uid); const a=DATES.size?actualFor(uid):{pts:0,reb:0,ast:0};
+    const t={...a};
+    rows.forEach(r=>{ const p=PBY[r.player_id]; if(!p||!p.proj) return; const n=DATES.size?gamesLeft(p,r.start_date):1; CATS.forEach(([k])=>t[k]+=p.proj[k]*n); });
+    return t;
+  }
+  function roto(totals){   // {uid:{pts,reb,ast}} -> {uid:{pts:rp,...,total}}
+    const ids=Object.keys(totals), out={}; ids.forEach(u=>out[u]={total:0});
+    CATS.forEach(([k])=>ids.forEach(u=>{ const v=totals[u][k]; let p=1; ids.forEach(o=>{ if(o!==u){ if(totals[o][k]<v) p+=1; else if(totals[o][k]===v) p+=.5; } }); out[u][k]=p; out[u].total+=p; }));
+    return out;
+  }
+  function budgetOf(uid){ const rs=rosterOf(uid), spent=rs.reduce((s,r)=>s+r.price,0), left=L.budget-spent, spots=L.roster_size-rs.length;
+    return {spent,left,spots,max:spots>0?left-(spots-1):0,n:rs.length}; }
+  const pickupsUsed=uid=>ROS.filter(r=>r.user_id===uid&&r.how==='pickup').length;
+
+  // ── routing ────────────────────────────────────────────────────────────
+  const P=()=>new URLSearchParams(location.search);
+  function go(o,replace){ const u=new URLSearchParams(); Object.entries(o).forEach(([k,v])=>{ if(v!=null&&v!=='') u.set(k,v); });
+    history[replace?'replaceState':'pushState'](null,'',location.pathname+(u.toString()?'?'+u:'')); route(); }
+  window.addEventListener('popstate',()=>route());
+  document.addEventListener('click',e=>{ const a=e.target.closest('[data-go]'); if(!a||e.metaKey||e.ctrlKey) return; e.preventDefault(); go(JSON.parse(a.dataset.go)); });
+  const goA=o=>`data-go='${esc(JSON.stringify(o))}' href="league.html?${esc(new URLSearchParams(Object.entries(o).filter(([,v])=>v!=null&&v!=='')).toString())}"`;
+  let pollT=null;
+
+  async function route(){
+    clearInterval(pollT); pollT=null;
+    const p=P(), id=p.get('id');
+    if(!me){ $('app').innerHTML=`<div class="page-eyebrow">Private league</div><h1 class="page-h1">Fantasy League</h1><div class="card"><p style="margin-bottom:12px;font-size:14px">This league is private. Sign in with the account you joined it with.</p><a class="btn" href="signin.html">Sign in</a></div>`; return; }
+    if(!id) return renderLanding();
+    if(!L||L.id!==+id){
+      $('app').innerHTML='<div class="empty">Loading the league…</div>';
+      try{ await loadLeague(+id); }catch(e){
+        $('app').innerHTML=e.message==='not-member'?`<div class="empty">You're not in this league. Ask the commissioner for the invite code. <a ${goA({})}>Your leagues</a></div>`
+          :`<div class="empty">${esc(/relation|does not exist|schema cache|404/.test(e.message)?'The league tables are not installed yet. Run scripts/fantasy_league.sql in Supabase.':e.message)}</div>`; return; }
+    }
+    const tab=p.get('tab')||'standings';
+    shell(tab);
+    ({standings:viewStandings,draft:viewDraft,team:viewTeam,players:viewPlayers,trades:viewTrades,league:viewLeague}[tab]||viewStandings)();
+  }
+
+  // ── no league chosen: my leagues / create / join ───────────────────────
+  async function renderLanding(){
+    let mine=[];
+    try{ const ms=await get(`fl_members?user_id=eq.${me.id}&select=league_id,team_name`); if(ms.length){ const ls=await get(`fl_leagues?id=in.(${ms.map(m=>m.league_id).join(',')})&select=id,name,draft_done`); mine=ls.map(l=>({...l,team:(ms.find(m=>m.league_id===l.id)||{}).team_name})); } }
+    catch(e){ $('app').innerHTML=`<div class="empty">${esc(/relation|does not exist|schema cache|404/.test(e.message)?'The league tables are not installed yet. Run scripts/fantasy_league.sql in Supabase.':e.message)}</div>`; return; }
+    if(mine.length===1&&!sessionStorage.getItem('fl_landing')){ sessionStorage.setItem('fl_landing','1'); go({id:mine[0].id},true); return; }
+    $('app').innerHTML=`<div class="page-eyebrow">Private league</div><h1 class="page-h1">Fantasy League</h1>
+      ${mine.length?`<div class="card"><h3>Your leagues</h3>${mine.map(l=>`<div class="chk"><a class="nm" ${goA({id:l.id})}><b>${esc(l.name)}</b></a><span class="r">${esc(l.team||'')} · ${l.draft_done?'season on':'drafting'}</span></div>`).join('')}</div>`:''}
+      <div class="grid2">
+        <div class="card"><h3>Join a league</h3>
+          <label class="lab">Invite code</label><input class="fi" id="jCode" maxlength="12" style="width:100%;margin-bottom:10px;text-transform:uppercase" placeholder="ABC123"/>
+          <label class="lab">Your team name</label><input class="fi" id="jTeam" maxlength="40" style="width:100%;margin-bottom:10px" value="${esc((meProfile&&meProfile.username)||'')}'s Team"/>
+          <div class="msg" id="jMsg"></div><button class="btn" id="jGo">Join</button></div>
+        <div class="card"><h3>Start a league</h3><p class="fl-note" style="margin-top:0">You'll be the commissioner: you enter the draft results, pick the dates that count, and get an invite code to send everyone.</p>
+          <label class="lab">League name</label><input class="fi" id="cName" maxlength="60" style="width:100%;margin-bottom:10px" placeholder="The Group Chat League"/>
+          <label class="lab">Your team name</label><input class="fi" id="cTeam" maxlength="40" style="width:100%;margin-bottom:10px" value="${esc((meProfile&&meProfile.username)||'')}'s Team"/>
+          <div class="msg" id="cMsg"></div><button class="btn" id="cGo">Create league</button></div>
+      </div>`;
+    $('jGo').onclick=async()=>{ try{ const id=await rpc('fl_join',{p_code:$('jCode').value,p_team_name:$('jTeam').value}); go({id}); }catch(e){ say('jMsg',e.message,'err'); } };
+    $('cGo').onclick=async()=>{ try{ const id=await rpc('fl_create_league',{p_name:$('cName').value,p_team_name:$('cTeam').value}); go({id,tab:'league'}); }catch(e){ say('cMsg',e.message,'err'); } };
+  }
+
+  function shell(tab){
+    const pend=TRADES.filter(t=>t.status==='pending'&&t.to_user===me.id).length;
+    const tabs=[['standings','Power rankings'],['draft',L.draft_done?'Draft results':'Draft room'],['team','My team'],['players','Players'],['trades','Trades'],['league','League']];
+    $('app').innerHTML=`<div class="page-eyebrow"><a ${goA({})} style="text-decoration:none">Fantasy League</a> · Big Ten · SEC · ACC · Big 12 · Big East</div>
+      <div class="hd"><h1 class="page-h1" style="margin:0">${esc(L.name)}</h1></div>
+      <div class="hd"><div class="meta">${MEM.length} teams · $${L.budget} budget · ${L.roster_size} players · ${L.max_pickups} pickups · ${DATES.size?DATES.size+' counting dates':'counting dates not picked yet'} · ${L.draft_done?'<span class="pill g">Season on</span>':'<span class="pill">Drafting</span>'}${isCommish()?' · <span class="pill">Commissioner</span>':''}</div></div>
+      <div class="tabs">${tabs.map(([k,l])=>`<a class="tab${k===tab?' on':''}" ${goA({id:L.id,tab:k==='standings'?null:k})}>${l}${k==='trades'&&pend?`<span class="dot">${pend}</span>`:''}</a>`).join('')}</div>
+      <div id="view"></div>`;
+  }
+  const teamLink=uid=>`<a class="nm" ${goA({id:L.id,tab:'team',u:uid})}>${esc(tname(uid))}</a>`;
+  function playerCell(p,r){
+    if(!p) return `<td class="l nm">${esc(r?r.player_name:'?')}</td>`;
+    const href=p.espn_id?`player.html?espn=${p.espn_id}`:`player.html?name=${encodeURIComponent(p.name)}`;
+    return `<td class="l nm"><a href="${href}">${esc(p.name)}</a>${p.is_injured?' <span class="pill r">Inj</span>':''}${p.proj&&p.proj.est?' <span class="pill" title="Freshman / no-stats estimate">Est</span>':''}<span class="sub">${lgImg(FULL[p.team]||p.team)}${esc(p.team)} · ${esc(p.position||'')}${p.yr?' · '+esc(p.yr):''}</span></td>`;
+  }
+  const projCells=p=>p&&p.proj?CATS.map(([k])=>`<td>${f1(p.proj[k])}</td>`).join(''):'<td class="dim">—</td><td class="dim">—</td><td class="dim">—</td>';
+  const heat=el=>{ if(window.tdcSheetHeat&&el) try{ tdcSheetHeat(el); }catch(e){} };
+
+  // ── power rankings ─────────────────────────────────────────────────────
+  function viewStandings(){
+    const act={}, prj={}; MEM.forEach(m=>{ act[m.user_id]=actualFor(m.user_id); prj[m.user_id]=projectedFor(m.user_id); });
+    const ra=roto(act), rp=roto(prj);
+    const started=[...DATES].some(d=>d<=TODAY)&&Object.keys(BOX).length;
+    const order=MEM.slice().sort((a,b)=>rp[b.user_id].total-rp[a.user_id].total||ra[b.user_id].total-ra[a.user_id].total);
+    const pl=!DATES.size?'per game':'season';
+    $('view').innerHTML=`<div class="sec-h">Power rankings <span>${started?'standings to date + projected finish':'projected, from each roster’s projected '+pl+' PTS / REB / AST'}</span></div>
+      ${!DATES.size?'<div class="fl-note">The commissioner hasn’t picked the counting dates yet, so these rank teams by projected stats per game. Once dates are set they rank the projected season totals over those dates.</div>':''}
+      <div class="sheet-wrap"><table class="sheet dense" id="stTbl"><thead><tr><th>#</th><th class="l">Team</th>
+        ${started?`<th>Roto</th>${CATS.map(([,l])=>`<th>${l}</th>`).join('')}`:''}
+        <th>Proj roto</th>${CATS.map(([,l])=>`<th>Proj ${l}</th>`).join('')}<th>Players</th><th>$ left</th><th>Pickups</th></tr></thead><tbody>${
+        order.map((m,i)=>{ const u=m.user_id, b=budgetOf(u);
+          return `<tr class="${u===me.id?'me-row':''}"><td class="rk">${i+1}</td><td class="l">${teamLink(u)}<span class="sub">${esc(m.username||'')}</span></td>
+          ${started?`<td><b>${ra[u].total}</b></td>${CATS.map(([k])=>`<td>${f0(act[u][k])}</td>`).join('')}`:''}
+          <td><b>${rp[u].total}</b></td>${CATS.map(([k])=>`<td>${DATES.size?f0(prj[u][k]):f1(prj[u][k])}</td>`).join('')}
+          <td>${b.n}/${L.roster_size}</td><td>$${b.left}</td><td>${L.max_pickups-pickupsUsed(u)} left</td></tr>`; }).join('')}</tbody></table></div>
+`;
+    heat($('stTbl'));
+  }
+
+  // ── draft room ─────────────────────────────────────────────────────────
+  let chosen=null;
+  function viewDraft(){
+    const C=isCommish()&&!L.draft_done;
+    $('view').innerHTML=`${C?`<div class="card"><h3>Enter a sale</h3>
+        <div class="entry">
+          <div class="ac"><label class="lab">Player</label><input class="fi" id="dP" placeholder="Search name or school…" autocomplete="off"/><div class="ac-list" id="dList"></div></div>
+          <div><label class="lab">Sold to</label><select class="fs" id="dT">${MEM.map(m=>`<option value="${m.user_id}">${esc(m.team_name)}</option>`).join('')}</select></div>
+          <div><label class="lab">Price $</label><input class="fi" id="dPrice" type="number" min="1" inputmode="numeric"/></div>
+          <div><button class="btn" id="dGo">Sold</button></div>
+        </div><div class="info" id="dInfo"></div><div class="msg" id="dMsg"></div></div>`:''}
+      <div class="grid-side"><div>
+        <div class="sec-h">Teams <span id="dCount"></span></div><div class="board" id="dBoard"></div>
+      </div><div>
+        <div class="sec-h">Best available</div>
+        <input class="fi" id="avQ" placeholder="Filter…" style="width:100%;margin-bottom:8px"/>
+        <div class="sheet-wrap" style="max-height:720px;overflow:auto"><table class="sheet dense" id="avTbl"></table></div>
+        ${isCommish()?`<div class="card" style="margin-top:16px"><h3>${L.draft_done?'Draft is finished':'When everyone has '+L.roster_size+' players'}</h3>
+          <p class="fl-note" style="margin-top:0">${L.draft_done?'Pickups and trades are open.':'Mark the draft finished to open pickups.'}</p>
+          <button class="btn ${L.draft_done?'ghost':''}" id="dDone">${L.draft_done?'Reopen the draft':'Mark draft finished'}</button></div>`:''}
+      </div></div>`;
+    paintBoard(); paintAvail();
+    $('avQ').oninput=paintAvail;
+    if($('dDone')) $('dDone').onclick=async()=>{ if(!L.draft_done){ const short=MEM.filter(m=>budgetOf(m.user_id).spots>0); if(short.length&&!confirm(short.length+' team(s) still have open spots. Finish anyway?')) return; }
+      try{ [L]=await patch(`fl_leagues?id=eq.${L.id}`,{draft_done:!L.draft_done}); route(); }catch(e){ alert(e.message); } };
+    if(C){
+      const inp=$('dP'), list=$('dList'); let hi=0, opts=[];
+      const paintAc=()=>{ const q=nk(inp.value); if(!q){ list.style.display='none'; return; }
+        opts=POOL.filter(p=>!owned(p.id)&&(nk(p.name).includes(q)||nk(p.team).includes(q))).sort((a,b)=>(VALUE[b.id]||0)-(VALUE[a.id]||0)||(a.rank||9e9)-(b.rank||9e9)).slice(0,10);
+        hi=Math.min(hi,opts.length-1);
+        list.innerHTML=opts.map((p,i)=>`<div class="ac-opt${i===hi?' hi':''}" data-i="${i}">${lgImg(FULL[p.team]||p.team)}<span><b>${esc(p.name)}</b> <span class="dim">${esc(p.team)} · ${esc(p.position||'')}</span></span><span class="r">${p.proj?`${f1(p.proj.pts)}/${f1(p.proj.reb)}/${f1(p.proj.ast)} · `:''}$${VALUE[p.id]||0}</span></div>`).join('')||'<div class="ac-opt dim">No available player matches.</div>';
+        list.style.display='block'; };
+      const pick=p=>{ chosen=p; inp.value=p.name+' · '+p.team; list.style.display='none'; if(!$('dPrice').value) $('dPrice').value=Math.max(1,VALUE[p.id]||1); info(); $('dPrice').focus(); $('dPrice').select(); };
+      inp.oninput=()=>{ chosen=null; hi=0; paintAc(); info(); };
+      inp.onkeydown=e=>{ if(list.style.display!=='block') return;
+        if(e.key==='ArrowDown'){ hi=Math.min(hi+1,opts.length-1); paintAc(); e.preventDefault(); } else if(e.key==='ArrowUp'){ hi=Math.max(hi-1,0); paintAc(); e.preventDefault(); }
+        else if(e.key==='Enter'&&opts[hi]){ pick(opts[hi]); e.preventDefault(); } };
+      list.onmousedown=e=>{ const o=e.target.closest('[data-i]'); if(o){ e.preventDefault(); pick(opts[+o.dataset.i]); } };
+      inp.onblur=()=>setTimeout(()=>list.style.display='none',150);
+      const info=()=>{ const u=$('dT').value, b=budgetOf(u);
+        $('dInfo').innerHTML=`<b>${esc(tname(u))}</b>: $${b.left} left · ${b.spots} spot${b.spots===1?'':'s'} open · max bid <b>$${b.max}</b>${chosen?` · <b>${esc(chosen.name)}</b> is worth about <b>$${VALUE[chosen.id]||1}</b>${chosen.proj?` (${f1(chosen.proj.pts)} pts, ${f1(chosen.proj.reb)} reb, ${f1(chosen.proj.ast)} ast projected)`:' (no projection)'}`:''}`; };
+      $('dT').onchange=info; info();
+      window._flFill=p=>{ pick(p); };
+      const sell=async()=>{
+        if(!chosen){ say('dMsg','Pick a player from the list first.','err'); return; }
+        const price=+$('dPrice').value; $('dGo').disabled=true;
+        try{ await rpc('fl_draft',{p_league:L.id,p_user:$('dT').value,p_player:chosen.id,p_price:price});
+          say('dMsg',`${chosen.name} to ${tname($('dT').value)} for $${price}.`,'ok'); chosen=null; inp.value=''; $('dPrice').value='';
+          await refreshRosters(); paintBoard(); paintAvail(); info(); inp.focus();
+        }catch(e){ say('dMsg',e.message,'err'); } $('dGo').disabled=false; };
+      $('dGo').onclick=sell; $('dPrice').onkeydown=e=>{ if(e.key==='Enter') sell(); };
+    }
+    // everyone else watches it fill in
+    if(!L.draft_done) pollT=setInterval(async()=>{ if(document.hidden) return; const before=ROS.length; await refreshRosters().catch(()=>{}); if(ROS.length!==before){ paintBoard(); paintAvail(); } },5000);
+  }
+  function paintBoard(){
+    const C=isCommish();
+    $('dCount').textContent=`${active().filter(r=>r.how==='draft').length} of ${MEM.length*L.roster_size} sold`;
+    $('dBoard').innerHTML=MEM.map(m=>{ const u=m.user_id, b=budgetOf(u), rs=rosterOf(u);
+      return `<div class="bt${u===me.id?' me':''}"><div class="bt-h"><span>${teamLink(u)}</span><span>$${b.left}</span></div>
+        <div class="bt-s">${esc(m.username||'')} · ${b.n}/${L.roster_size} · max bid $${b.max}</div>
+        <ol>${rs.map(r=>`<li><span>${esc(r.player_name)}</span><span class="p">$${r.price}</span>${C&&!L.draft_done?`<button data-undo="${r.id}" title="Undo">×</button>`:''}</li>`).join('')}
+        ${b.spots>0?`<li class="open"><span>${b.spots} open</span></li>`:''}</ol></div>`; }).join('');
+    $('dBoard').onclick=async e=>{ const x=e.target.closest('[data-undo]'); if(!x) return; if(!confirm('Undo this sale?')) return;
+      try{ await rpc('fl_undo',{p_roster:+x.dataset.undo}); await refreshRosters(); paintBoard(); paintAvail(); }catch(err){ alert(err.message); } };
+  }
+  function paintAvail(){
+    const q=nk(($('avQ')||{}).value);
+    const L2=POOL.filter(p=>!owned(p.id)&&(!q||nk(p.name+' '+p.team).includes(q))).sort((a,b)=>(VALUE[b.id]||0)-(VALUE[a.id]||0)||(a.rank||9e9)-(b.rank||9e9)).slice(0,150);
+    $('avTbl').innerHTML=`<thead><tr><th class="l">Player</th><th>PTS</th><th>REB</th><th>AST</th><th>$</th></tr></thead><tbody>${
+      L2.map(p=>`<tr data-pid="${p.id}" style="${isCommish()&&!L.draft_done?'cursor:pointer':''}">${playerCell(p)}${projCells(p)}<td><b>${VALUE[p.id]?'$'+VALUE[p.id]:'—'}</b></td></tr>`).join('')}</tbody>`;
+    $('avTbl').onclick=e=>{ const tr=e.target.closest('[data-pid]'); if(!tr||e.target.closest('a')||!window._flFill||!isCommish()||L.draft_done) return; window._flFill(PBY[+tr.dataset.pid]); window.scrollTo({top:0,behavior:'smooth'}); };
+  }
+
+  // ── a team ─────────────────────────────────────────────────────────────
+  function viewTeam(){
+    const uid=P().get('u')||me.id, m=memOf(uid);
+    if(!m){ $('view').innerHTML='<div class="empty">That team is not in this league.</div>'; return; }
+    const mine=uid===me.id, rs=rosterOf(uid), b=budgetOf(uid), a=actualFor(uid), pj=projectedFor(uid);
+    const past=ROS.filter(r=>r.user_id===uid&&r.end_date);
+    const started=[...DATES].some(d=>d<=TODAY);
+    $('view').innerHTML=`<div class="row" style="margin-bottom:12px">
+        <div><div style="font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:24px">${esc(m.team_name)}</div><div class="fl-note" style="margin:2px 0 0">${esc(m.username||'')} · $${b.left} of $${L.budget} left · ${b.n}/${L.roster_size} players · ${L.max_pickups-pickupsUsed(uid)} of ${L.max_pickups} pickups left${DATES.size?` · projected finish <b>${f0(pj.pts)}</b> pts · <b>${f0(pj.reb)}</b> reb · <b>${f0(pj.ast)}</b> ast`:''}</div></div>
+        <span class="sp"></span>${mine?'<button class="btn ghost sm" id="tRename">Rename team</button>':''}
+        <select class="fs" id="tPick">${MEM.map(x=>`<option value="${x.user_id}"${x.user_id===uid?' selected':''}>${esc(x.team_name)}</option>`).join('')}</select></div>
+      <div class="sheet-wrap"><table class="sheet dense" id="tTbl"><thead><tr><th class="l">Player</th><th>$</th><th class="l">How</th><th>Proj PTS</th><th>Proj REB</th><th>Proj AST</th>
+        ${DATES.size?'<th>Games left</th>':''}${started?'<th>GP</th><th>PTS</th><th>REB</th><th>AST</th>':''}${mine&&L.draft_done?'<th></th>':''}</tr></thead><tbody>${
+        rs.map(r=>{ const p=PBY[r.player_id], x=playerActual(r);
+          return `<tr>${playerCell(p,r)}<td>${r.price?'$'+r.price:'—'}</td><td class="l dim">${r.how}${r.start_date?' · '+r.start_date.slice(5):''}</td>${projCells(p)}
+          ${DATES.size?`<td>${gamesLeft(p,r.start_date)}</td>`:''}${started?`<td>${x.g}</td><td>${x.pts}</td><td>${x.reb}</td><td>${x.ast}</td>`:''}
+          ${mine&&L.draft_done?`<td><a class="btn ghost sm" ${goA({id:L.id,tab:'players',drop:r.id})}>Swap</a></td>`:''}</tr>`; }).join('')||`<tr><td class="l dim" colspan="9">No players yet.</td></tr>`}
+        </tbody><tfoot><tr><td class="l"><b>Team</b></td><td>$${b.spent}</td><td></td>${CATS.map(([k])=>`<td><b>${f1(rs.reduce((s,r)=>s+((PBY[r.player_id]||{}).proj||{})[k]||0,0))}</b></td>`).join('')}
+          ${DATES.size?'<td></td>':''}${started?`<td>${a.g}</td><td><b>${a.pts}</b></td><td><b>${a.reb}</b></td><td><b>${a.ast}</b></td>`:''}${mine&&L.draft_done?'<td></td>':''}</tr></tfoot></table></div>
+      ${past.length?`<div class="sec-h" style="margin-top:22px">Former players</div><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th><th class="l">On the team</th><th>GP</th><th>PTS</th><th>REB</th><th>AST</th></tr></thead><tbody>${
+        past.map(r=>{ const x=playerActual(r); return `<tr>${playerCell(PBY[r.player_id],r)}<td class="l dim">${r.start_date||'draft'} → ${r.end_date}</td><td>${x.g}</td><td>${x.pts}</td><td>${x.reb}</td><td>${x.ast}</td></tr>`; }).join('')}</tbody></table></div>`:''}`;
+    $('tPick').onchange=e=>go({id:L.id,tab:'team',u:e.target.value});
+    if($('tRename')) $('tRename').onclick=async()=>{ const n=prompt('Team name',m.team_name); if(!n) return;
+      try{ const [row]=await patch(`fl_members?league_id=eq.${L.id}&user_id=eq.${me.id}`,{team_name:n.trim()}); m.team_name=row.team_name; route(); }catch(e){ alert(e.message); } };
+  }
+
+  // ── players / pickups ──────────────────────────────────────────────────
+  async function loadForm(){   // last 14 days of every pool team, for "who's hot"
+    if(FORM||TODAY<'2026-11-01') return;
+    const since=new Date(Date.now()-14*864e5).toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+    const fulls=[...new Set(Object.values(FULL))]; FORM={};
+    for(let i=0;i<fulls.length;i+=25){
+      const rows=await getAll(`box_scores?season_year=eq.${L.season}&date=gte.${since}&team=in.(${encodeURIComponent(qList(fulls.slice(i,i+25)))})&select=espn_id,pts,reb,ast,min&order=game_id.asc,espn_id.asc`,true).catch(()=>[]);
+      rows.forEach(b=>{ const f=FORM[b.espn_id]=FORM[b.espn_id]||{g:0,pts:0,reb:0,ast:0}; if((b.min||0)>0){ f.g++; f.pts+=b.pts||0; f.reb+=b.reb||0; f.ast+=b.ast||0; } });
+    }
+  }
+  async function viewPlayers(){
+    const p=P(), dropId=p.get('drop')?+p.get('drop'):null, mine=rosterOf(me.id);
+    const canAdd=L.draft_done&&!!memOf(me.id), left=L.max_pickups-pickupsUsed(me.id);
+    $('view').innerHTML=`<div class="row" style="margin-bottom:10px">
+        <input class="fi" id="plQ" placeholder="Search players or schools…" style="flex:1;min-width:200px"/>
+        <select class="fs" id="plC"><option value="">All five conferences</option>${Object.entries(CONFS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select>
+        <select class="fs" id="plS"><option value="value">Sort: value</option><option value="pts">Sort: points</option><option value="reb">Sort: rebounds</option><option value="ast">Sort: assists</option><option value="form">Sort: last 14 days</option><option value="games">Sort: games left</option></select>
+        <label class="chk" style="border:none;padding:0"><input type="checkbox" id="plAll"/> Show rostered</label></div>
+      ${canAdd?`<div class="fl-note">${left>0?`You have <b>${left}</b> pickup${left===1?'':'s'} left.`:'You have used all your pickups.'} ${dropId?'':'Hit <b>Add</b> on a free agent, and pick who to drop if your roster is full.'}</div>`:`<div class="fl-note">${L.draft_done?'':'Pickups open once the commissioner marks the draft finished. Until then, this is the best-available board.'}</div>`}
+      <div id="plPanel"></div>
+      <div class="sheet-wrap"><table class="sheet dense" id="plTbl"></table></div>`;
+    await loadForm();
+    const paint=()=>{
+      const q=nk($('plQ').value), c=$('plC').value, s=$('plS').value, all=$('plAll').checked;
+      const key=x=>s==='value'?(x.z==null?-99:x.z):s==='form'?(FORM&&FORM[x.espn_id]&&FORM[x.espn_id].g?CATS.reduce((t,[k])=>t+FORM[x.espn_id][k],0)/FORM[x.espn_id].g:-1):s==='games'?gamesLeft(x):(x.proj?x.proj[s]:-1);
+      const rows=POOL.filter(x=>(all||!owned(x.id))&&(!c||x.conf===c)&&(!q||nk(x.name+' '+x.team).includes(q))).sort((a,b)=>key(b)-key(a)).slice(0,200);
+      $('plTbl').innerHTML=`<thead><tr><th class="l">Player</th><th class="l">Conf</th><th>Proj PTS</th><th>Proj REB</th><th>Proj AST</th><th>Value</th>${DATES.size?'<th>Games left</th>':''}${FORM?'<th>Last 14 (P/R/A)</th>':''}<th class="l">Status</th></tr></thead><tbody>${
+        rows.map(x=>{ const o=owned(x.id), f=FORM&&FORM[x.espn_id];
+          return `<tr>${playerCell(x)}<td class="l dim">${CONFS[x.conf]||''}</td>${projCells(x)}<td>${VALUE[x.id]?'$'+VALUE[x.id]:'—'}</td>${DATES.size?`<td>${gamesLeft(x)}</td>`:''}
+          ${FORM?`<td>${f&&f.g?`${f1(f.pts/f.g)} / ${f1(f.reb/f.g)} / ${f1(f.ast/f.g)}`:'<span class="dim">—</span>'}</td>`:''}
+          <td class="l">${o?`<span class="dim">${esc(tname(o.user_id))}</span>`:canAdd&&left>0?`<button class="btn sm" data-add="${x.id}">Add</button>`:'<span class="dim">Free agent</span>'}</td></tr>`; }).join('')}</tbody>`;
+    };
+    ['plQ','plC','plS','plAll'].forEach(i=>$(i).addEventListener('input',paint)); paint();
+    const panel=(addP)=>{
+      const full=mine.length>=L.roster_size;
+      $('plPanel').innerHTML=`<div class="card"><h3>Add ${esc(addP.name)}</h3>
+        <div class="row"><label class="lab" style="margin:0">Drop</label><select class="fs" id="pkDrop">${full?'':'<option value="">Nobody (I have an open spot)</option>'}${mine.map(r=>`<option value="${r.id}"${r.id===dropId?' selected':''}>${esc(r.player_name)}${(PBY[r.player_id]||{}).proj?` · ${f1(PBY[r.player_id].proj.pts)}/${f1(PBY[r.player_id].proj.reb)}/${f1(PBY[r.player_id].proj.ast)}`:''}</option>`).join('')}</select>
+        <button class="btn" id="pkGo">Confirm pickup</button><button class="btn ghost" id="pkX">Cancel</button></div>
+        <div class="fl-note">Uses 1 of your ${left} remaining pickups. ${esc(addP.name)} starts counting tomorrow; the player you drop still counts today.</div><div class="msg" id="pkMsg"></div></div>`;
+      $('pkX').onclick=()=>{ $('plPanel').innerHTML=''; };
+      $('pkGo').onclick=async()=>{ $('pkGo').disabled=true; const d=$('pkDrop').value;
+        try{ await rpc('fl_pickup',{p_league:L.id,p_add:addP.id,p_drop:d?+d:null}); await refreshRosters(); go({id:L.id,tab:'team'}); }
+        catch(e){ say('pkMsg',e.message,'err'); $('pkGo').disabled=false; } };
+      window.scrollTo({top:0,behavior:'smooth'});
+    };
+    $('plTbl').onclick=e=>{ const b=e.target.closest('[data-add]'); if(b) panel(PBY[+b.dataset.add]); };
+  }
+
+  // ── trades ─────────────────────────────────────────────────────────────
+  function viewTrades(){
+    const others=MEM.filter(m=>m.user_id!==me.id);
+    const pid=r=>PBY[r.player_id];
+    const rowName=id=>{ const r=ROS.find(x=>x.id===id); return r?esc(r.player_name):'?'; };
+    const tradeLine=t=>`<b>${esc(tname(t.from_user))}</b> sends ${t.give.map(rowName).join(', ')||'nothing'} · <b>${esc(tname(t.to_user))}</b> sends ${t.get.map(rowName).join(', ')||'nothing'}${t.note?`<div class="fl-note" style="margin:4px 0 0">“${esc(t.note)}”</div>`:''}`;
+    const inbox=TRADES.filter(t=>t.status==='pending'&&t.to_user===me.id), sent=TRADES.filter(t=>t.status==='pending'&&t.from_user===me.id);
+    const hist=TRADES.filter(t=>t.status!=='pending').slice(0,30), pendOthers=TRADES.filter(t=>t.status==='pending'&&t.from_user!==me.id&&t.to_user!==me.id);
+    $('view').innerHTML=`<div class="grid-side"><div>
+        <div class="card"><h3>Propose a trade</h3>
+          ${L.draft_done?'':'<div class="fl-note" style="margin-top:0">You can trade during the draft too. Rosters update the moment a trade is accepted.</div>'}
+          <div class="row" style="margin-bottom:12px"><label class="lab" style="margin:0">With</label><select class="fs" id="trTo">${others.map(m=>`<option value="${m.user_id}">${esc(m.team_name)}</option>`).join('')}</select></div>
+          <div class="grid2"><div><div class="sec-h">You send</div><div id="trGive"></div></div><div><div class="sec-h">You get</div><div id="trGet"></div></div></div>
+          <div class="delta" id="trDelta" style="margin:12px 0;font-size:12.5px"></div>
+          <input class="fi" id="trNote" maxlength="300" placeholder="Add a note (optional)" style="width:100%;margin-bottom:10px"/>
+          <div class="msg" id="trMsg"></div><button class="btn" id="trGo">Send offer</button></div>
+      </div><div>
+        <div class="card"><h3>Offers to you${inbox.length?' · '+inbox.length:''}</h3>${inbox.length?inbox.map(t=>`<div class="chk" style="display:block">${tradeLine(t)}<div class="row" style="margin-top:8px"><button class="btn sm" data-acc="${t.id}">Accept</button><button class="btn ghost sm" data-dec="${t.id}">Decline</button></div></div>`).join(''):'<div class="fl-note" style="margin:0">Nothing waiting.</div>'}</div>
+        <div class="card"><h3>Your offers</h3>${sent.length?sent.map(t=>`<div class="chk" style="display:block">${tradeLine(t)}<div class="row" style="margin-top:8px"><button class="btn ghost sm" data-can="${t.id}">Cancel</button></div></div>`).join(''):'<div class="fl-note" style="margin:0">None out.</div>'}</div>
+        ${pendOthers.length&&isCommish()?`<div class="card"><h3>Pending around the league</h3>${pendOthers.map(t=>`<div class="chk" style="display:block">${tradeLine(t)}<div class="row" style="margin-top:8px"><button class="btn danger sm" data-can="${t.id}">Veto</button></div></div>`).join('')}</div>`:''}
+        <div class="card"><h3>Trade log</h3>${hist.length?hist.map(t=>`<div class="chk" style="display:block"><span class="pill ${t.status==='accepted'?'g':''}">${t.status}</span> ${tradeLine(t)}</div>`).join(''):'<div class="fl-note" style="margin:0">No trades yet.</div>'}</div>
+      </div></div>`;
+    const box=(uid,el)=>{ $(el).innerHTML=rosterOf(uid).map(r=>{ const p=pid(r); return `<label class="chk"><input type="checkbox" value="${r.id}"/> ${esc(r.player_name)}<span class="r">${p&&p.proj?`${f1(p.proj.pts)} / ${f1(p.proj.reb)} / ${f1(p.proj.ast)}`:'—'}</span></label>`; }).join('')||'<div class="fl-note">No players.</div>'; };
+    const sel=el=>[...$(el).querySelectorAll('input:checked')].map(i=>+i.value);
+    const delta=()=>{
+      const to=$('trTo').value, give=sel('trGive'), get=sel('trGet');
+      if(!give.length&&!get.length){ $('trDelta').innerHTML='<span class="dim">Tick players on both sides to see how the trade changes each team.</span>'; return; }
+      // projected totals with the swap applied, then the roto table for everyone
+      const tot={}; MEM.forEach(m=>{ let rs=rosterOf(m.user_id);
+        if(m.user_id===me.id) rs=rs.filter(r=>!give.includes(r.id)).concat(ROS.filter(r=>get.includes(r.id)));
+        if(m.user_id===to) rs=rs.filter(r=>!get.includes(r.id)).concat(ROS.filter(r=>give.includes(r.id)));
+        tot[m.user_id]=projectedFor(m.user_id,rs); });
+      const base={}; MEM.forEach(m=>base[m.user_id]=projectedFor(m.user_id));
+      const r0=roto(base), r1=roto(tot);
+      const line=u=>`${esc(tname(u))}: ${CATS.map(([k,l])=>{ const d=tot[u][k]-base[u][k]; return `${l} <b class="${d>0?'up':d<0?'dn':''}">${d>0?'+':''}${DATES.size?f0(d):f1(d)}</b>`; }).join(' · ')} · roto <b class="${r1[u].total>r0[u].total?'up':r1[u].total<r0[u].total?'dn':''}">${r0[u].total} → ${r1[u].total}</b>`;
+      $('trDelta').innerHTML=`<div>${line(me.id)}</div><div>${line(to)}</div><div class="fl-note" style="margin:4px 0 0">${DATES.size?'Projected season totals over the remaining counting dates.':'Projected per game.'}</div>`;
+    };
+    const refill=()=>{ box(me.id,'trGive'); box($('trTo').value,'trGet'); delta(); };
+    if(others.length){ refill(); $('trTo').onchange=refill; $('view').addEventListener('change',e=>{ if(e.target.matches('#trGive input,#trGet input')) delta(); }); }
+    else $('trGive').innerHTML='<div class="fl-note">Nobody else has joined yet.</div>';
+    $('trGo').onclick=async()=>{ $('trGo').disabled=true;
+      try{ await rpc('fl_trade_propose',{p_league:L.id,p_to:$('trTo').value,p_give:sel('trGive'),p_get:sel('trGet'),p_note:$('trNote').value});
+        TRADES=await get(`fl_trades?league_id=eq.${L.id}&select=*&order=created_at.desc`); route(); }catch(e){ say('trMsg',e.message,'err'); $('trGo').disabled=false; } };
+    $('view').onclick=async e=>{ const a=e.target.closest('[data-acc]'), d=e.target.closest('[data-dec]'), c=e.target.closest('[data-can]'); if(!a&&!d&&!c) return;
+      try{ if(a){ if(!confirm('Accept this trade? Rosters change right away.')) return; await rpc('fl_trade_respond',{p_trade:+a.dataset.acc,p_accept:true}); }
+        else if(d) await rpc('fl_trade_respond',{p_trade:+d.dataset.dec,p_accept:false});
+        else { if(!confirm('Cancel this offer?')) return; await rpc('fl_trade_cancel',{p_trade:+c.dataset.can}); }
+      }catch(err){ alert(err.message); }
+      TRADES=await get(`fl_trades?league_id=eq.${L.id}&select=*&order=created_at.desc`); await refreshRosters(); route(); };
+  }
+
+  // ── league: rules, members, invite code, counting dates ────────────────
+  function viewLeague(){
+    const C=isCommish();
+    // how many pool games fall on each date (the counting-date picker shows it)
+    const perDay={}; const fulls=new Set(Object.values(FULL));
+    Object.entries(TEAMGAMES).forEach(([t,ds])=>{ if(fulls.has(t)) ds.forEach(d=>perDay[d]=(perDay[d]||0)+1); });
+    Object.keys(perDay).forEach(d=>perDay[d]=Math.round(perDay[d]/2));   // each game was counted once per team
+    const months=[[2026,10],[2026,11],[2027,0],[2027,1],[2027,2]];
+    let sel=new Set(DATES);
+    const cal=()=>months.map(([y,mo])=>{ const first=new Date(y,mo,1), n=new Date(y,mo+1,0).getDate(), pad=first.getDay();
+      let cells='SMTWTFS'.split('').map(w=>`<div class="w">${w}</div>`).join('')+'<div></div>'.repeat(pad);
+      for(let d=1;d<=n;d++){ const k=`${y}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`, g=perDay[k]||0;
+        cells+=`<button class="dy${sel.has(k)?' on':''}${g?'':' none'}${k<TODAY?' past':''}" data-d="${k}" ${C&&g?'':'disabled'} title="${g} power-conference game${g===1?'':'s'}">${d}<span class="n">${g||''}</span></button>`; }
+      return `<div class="mo"><h4>${first.toLocaleDateString('en-US',{month:'long',year:'numeric'})}</h4><div class="days">${cells}</div></div>`; }).join('');
+    $('view').innerHTML=`<div class="grid-side"><div>
+        <div class="card"><h3>Dates that count · <span id="dtN">${sel.size}</span> picked</h3>
+          <p class="fl-note" style="margin-top:0">Only games on these dates count toward the standings. Each square shows how many games teams in the five conferences play that day.${C?' Click a day to toggle it.':''}</p>
+          ${C?`<div class="row" style="margin-bottom:12px"><button class="btn ghost sm" data-q="all">Every game day</button><button class="btn ghost sm" data-q="sat">Saturdays</button><button class="btn ghost sm" data-q="wknd">Fri–Sun</button><button class="btn ghost sm" data-q="jan">From Jan 1 (conference play)</button><button class="btn ghost sm" data-q="none">Clear</button><span class="sp"></span><button class="btn" id="dtSave">Save dates</button></div><div class="msg" id="dtMsg"></div>`:''}
+          <div class="cal" id="cal">${cal()}</div></div>
+      </div><div>
+        <div class="card"><h3>Invite code</h3><div class="code">${esc(L.invite_code)}</div><p class="fl-note">Friends sign up on The Depth Chart, open <b>thedepthchartcbb.com/league.html</b> and enter this code. ${MEM.length} of ${L.max_teams} teams have joined.</p>
+          <button class="btn ghost sm" id="cpLink">Copy invite message</button></div>
+        <div class="card"><h3>Teams</h3>${MEM.map(m=>`<div class="chk"><span>${teamLink(m.user_id)} <span class="dim">· ${esc(m.username||'')}</span>${m.user_id===L.commissioner?' <span class="pill">Commish</span>':''}</span><span class="r">${C&&m.user_id!==L.commissioner?`<button class="btn danger sm" data-kick="${m.user_id}">Remove</button>`:''}</span></div>`).join('')}</div>
+        <div class="card"><h3>Rules</h3>
+          ${C?`<div class="grid2" style="gap:10px">${[['budget','Budget $'],['roster_size','Roster size'],['max_pickups','Pickups per team'],['max_teams','Max teams']].map(([k,l])=>`<div><label class="lab">${l}</label><input class="fi" type="number" id="r_${k}" value="${L[k]}" style="width:100%"/></div>`).join('')}</div>
+            <label class="lab" style="margin-top:10px">League name</label><input class="fi" id="r_name" value="${esc(L.name)}" style="width:100%;margin-bottom:10px"/>
+            <div class="msg" id="rMsg"></div><button class="btn" id="rSave">Save rules</button>`
+          :`<div class="chk">Budget<span class="r">$${L.budget}</span></div><div class="chk">Roster<span class="r">${L.roster_size} players</span></div><div class="chk">Pickups<span class="r">${L.max_pickups} per team</span></div><div class="chk">Scoring<span class="r">Roto: PTS · REB · AST</span></div>`}
+        </div>
+      </div></div>`;
+    $('cpLink').onclick=()=>{ const t=`Join our fantasy league "${L.name}" on The Depth Chart: sign up at https://www.thedepthchartcbb.com/signin.html, then go to https://www.thedepthchartcbb.com/league.html and enter code ${L.invite_code}`;
+      (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>{ $('cpLink').textContent='Copied'; },()=>prompt('Copy this',t)); };
+    $('view').onclick=async e=>{
+      const k=e.target.closest('[data-kick]');
+      if(k){ if(!confirm(`Remove ${tname(k.dataset.kick)}? Their players go back to the pool.`)) return; try{ await rpc('fl_remove_member',{p_league:L.id,p_user:k.dataset.kick}); L=null; route(); }catch(err){ alert(err.message); } return; }
+      if(!C) return;
+      const d=e.target.closest('[data-d]'), q=e.target.closest('[data-q]');
+      if(d){ sel.has(d.dataset.d)?sel.delete(d.dataset.d):sel.add(d.dataset.d); }
+      else if(q){ const days=Object.keys(perDay).filter(x=>perDay[x]>0), dow=x=>new Date(x+'T12:00:00').getDay();
+        const pickD={all:()=>days,sat:()=>days.filter(x=>dow(x)===6),wknd:()=>days.filter(x=>[0,5,6].includes(dow(x))),jan:()=>days.filter(x=>x>='2027-01-01'),none:()=>[]}[q.dataset.q]();
+        sel=new Set(pickD); }
+      else return;
+      $('cal').innerHTML=cal(); $('dtN').textContent=sel.size;
+    };
+    if($('dtSave')) $('dtSave').onclick=async()=>{ try{ await rpc('fl_set_dates',{p_league:L.id,p_dates:[...sel].sort()}); DATES=new Set(sel); await loadBox(); computeValues(); say('dtMsg',`Saved ${sel.size} dates.`,'ok'); }catch(err){ say('dtMsg',err.message,'err'); } };
+    if($('rSave')) $('rSave').onclick=async()=>{ try{ [L]=await patch(`fl_leagues?id=eq.${L.id}`,{name:$('r_name').value.trim(),budget:+$('r_budget').value,roster_size:+$('r_roster_size').value,max_pickups:+$('r_max_pickups').value,max_teams:+$('r_max_teams').value}); computeValues(); route(); }catch(err){ say('rMsg',err.message,'err'); } };
+  }
+
+  (async()=>{ await loadMe(); route(); })();
+})();
+</script>
+<script src="tdc-version.js?v=2"></script>
+</body>
+</html>
