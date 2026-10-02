@@ -11,7 +11,7 @@
   <script src="tdc-shotchart.js?v=25s"></script>
   <script src="tdc-shotprofile.js?v=1s"></script>
   <script src="tdc-shotflow.js?v=12"></script>
-  <script src="tdc-nil.js?v=prod3"></script>
+  <script src="tdc-nil.js?v=cal1"></script>
   <script src="tdc-archetypes.js?v=2"></script>
   <script src="tdc-gate.js?v=4"></script>
   <script src="tdc-pos.js"></script>
@@ -4029,7 +4029,7 @@ function renderOvcTeamFit(x){
 }
 async function _ovcLoadNil(){
   try{ var N=window.TDC_NIL; if(!N) return;
-    if(window._nilData===undefined){ window._nilData=null; try{ window._nilData=await fetch('nil-data.json?v=gradesync14').then(function(r){return r.ok?r.json():null;}); }catch(e){} }
+    if(window._nilData===undefined){ window._nilData=null; try{ window._nilData=await fetch('nil-data.json?v=gradesync15').then(function(r){return r.ok?r.json():null;}); }catch(e){} }
     var nd=window._nilData, tn=nd&&nd.teams&&nd.teams[player.team]; if(!tn||!tn.players) return;
     var nk=(player.name||'').toLowerCase().trim(), row=tn.players.find(function(p){return (p.name||'').toLowerCase().trim()===nk;});
     if(!row||row.value==null) return;
@@ -6578,9 +6578,8 @@ function _nilBoard(N){
 // "How he stacks up" — national + positional NIL rank and a comparables list, all on the
 // live-model scale so the numbers agree with the headline value.
 // percentile track: a 0-100 line with his marker, end labels and a one-sentence read
-function _nvTrack(pct, col, lo, hi, read){
-  return '<div class="nv-track"><div class="nv-track-bar"><i style="width:'+pct+'%"></i><b style="left:'+pct+'%;background:'+col+'"></b></div>'
-    +'<div class="nv-track-ax"><span>'+lo+'</span><span>'+hi+'</span></div><div class="nv-track-read">'+read+'</div></div>';
+function _nvTrack(pct, col, lo, hi, read){   // (Oct 2026: percentile slider dropped; the sentence carries it)
+  return '<div class="nv-track-read" style="margin:0 0 14px;">'+read+'</div>';
 }
 function _nvOrdSuf(n){ var v=n%100; return (v>=11&&v<=13)?'th':(['th','st','nd','rd'][n%10]||'th'); }
 function _nilCompareHtml(N, cur, col){
@@ -6625,28 +6624,19 @@ function _nilScaleHtml(N, cur, modelVal, marketVal, marketPos, col){
   var fmt=N.fmt, med=q(0.5), p25=q(0.25), p75=q(0.75), P=cur.pos5||'position';
   // the line carries markers only; every value is in the readout underneath, so close values
   // (model $808K next to market $890K next to a $732K median) can never print over each other
-  var ticks=[0,0.25,0.5,0.75,1].map(function(f){ var v=lo+(hi-lo)*f; return '<span style="left:'+(f*100)+'%">'+fmt(v)+'</span>'; }).join('');
-  return '<div class="nv-scale" style="--nv-c:'+col+'">'
-    +'<div class="nv-scale-h">Where he sits among '+P+'s</div>'
-    +'<div class="nv-line">'
-      +'<div class="nv-band" style="left:'+X(p25).toFixed(2)+'%;width:'+(X(p75)-X(p25)).toFixed(2)+'%"></div>'
-      +'<div class="nv-med" style="left:'+X(med).toFixed(2)+'%"></div>'
-      +(marketVal!=null?'<div class="nv-mk mkt" style="left:'+X(marketVal).toFixed(2)+'%" title="Market '+fmt(marketVal)+'"><i></i></div>':'')
-      +'<div class="nv-mk mdl" style="left:'+X(modelVal).toFixed(2)+'%" title="Model '+fmt(modelVal)+'"><i></i></div>'
-    +'</div>'
-    +'<div class="nv-ticks">'+ticks+'</div>'
-    +'<div class="nv-key">'
-      +'<span><i class="k-mdl"></i>Model <b>'+fmt(modelVal)+'</b><em>what his production is worth</em></span>'
-      +(marketVal!=null?'<span><i class="k-mkt"></i>Market <b>'+fmt(marketVal)+'</b><em>the '+marketPos+' curve at his grade</em></span>':'')
-      +'<span><i class="k-med"></i>'+P+' median <b>'+fmt(med)+'</b></span>'
-      +'<span><i class="k-band"></i>Middle half of '+P+'s <b>'+fmt(p25)+'–'+fmt(p75)+'</b></span>'
-    +'</div>'
-  +'</div>';
+  var row=function(l,v,n,me){ return '<tr'+(me?' class="me"':'')+'><td class="l nm">'+l+'</td><td class="big">'+v+'</td><td class="l dim">'+n+'</td></tr>'; };
+  return '<div class="sec-title" style="margin:26px 0 12px;">Where he sits among '+P+'s</div>'
+    +'<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense nil-cmp"><thead><tr><th class="l">Measure</th><th>Value</th><th class="l"></th></tr></thead><tbody>'
+    +row('Model value', fmt(modelVal), 'what his production is worth', true)
+    +(marketVal!=null?row('Market value', fmt(marketVal), 'the '+marketPos+' market curve at his grade'):'')
+    +row(P+' median', fmt(med), 'the typical '+P)
+    +row('Middle half of '+P+'s', fmt(p25)+'–'+fmt(p75), '25th to 75th percentile')
+    +'</tbody></table></div>';
 }
 // Scatter: NIL value (y) vs production/Wins Added (x) for the player's position peers, with a
 // fair-value reference line. Below the line = out-produces his price (value); above = paying for
 // name/upside/scarcity. Pure inline SVG, theme-token colors so it reads in light and dark.
-function _nilScatterSVG(N, cur, col){
+function _nilScatterSVG(N, cur, col){ return '';   // (Oct 2026: scatter dropped for tables)
   var board=_nilBoard(N); if(!board) return '';
   var pool=board.filter(function(p){ return p.pos5===cur.pos5&&p.wa!=null&&p.wa>0&&p.val>0; });
   if(pool.length<6) pool=board.filter(function(p){ return p.wa!=null&&p.wa>0&&p.val>0; });
@@ -6731,9 +6721,7 @@ function _nilTeamContextHtml(N, cur, col){
       +'</tr>';
   }).join('');
   return '<div class="sec-title" style="margin:26px 0 12px;">On '+esc(cur.team||'his team')+'</div>'
-    +'<div class="nv-share">'+pls.map(function(p){ var meP=(p.name||'').toLowerCase().trim()===(cur.name||'').toLowerCase().trim();
-        return '<i style="width:'+(p.val/total*100).toFixed(2)+'%'+(meP?';background:'+col:'')+'" title="'+esc(p.name)+': '+fmt(p.val)+'"></i>'; }).join('')+'</div>'
-    +'<div class="nv-track-read" style="margin:10px 0 18px;"><b>'+share.toFixed(0)+'% of the roster\'s NIL value.</b> #'+rank+' of '+pls.length+' valued players on a roster worth '+fmt(total)+' on the open market.</div>'
+    +'<div class="nv-track-read" style="margin:0 0 14px;"><b>'+share.toFixed(0)+'% of the roster\'s NIL value.</b> #'+rank+' of '+pls.length+' valued players on a roster worth '+fmt(total)+' on the open market.</div>'
     +'<div class="nilc-cmp-h">Top earners on '+esc(cur.team||'the roster')+'</div>'
     +'<div class="sheet-wrap"><table class="sheet dense nil-cmp"><thead><tr><th class="rk">#</th><th class="l">Player</th><th>NIL</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
@@ -6781,7 +6769,7 @@ async function renderNilPlayer(){
   let pos=(player&&player.position)||''; const cls=(player&&(player.class_year||player.yr))||'';
   // Read the SAME precomputed roster value as the team page so the two always agree.
   if(window._nilData===undefined){ window._nilData=null;
-    try{ window._nilData=await fetch('nil-data.json?v=gradesync14').then(r=>r.ok?r.json():null); }catch(e){} }
+    try{ window._nilData=await fetch('nil-data.json?v=gradesync15').then(r=>r.ok?r.json():null); }catch(e){} }
   // Market anchors — the owner's positional curve; same source as the team NIL tab.
   if(window._nilMarket===undefined){ window._nilMarket=null;
     try{ window._nilMarket=await fetch('scripts/data/nil_market_anchors.json?v=1').then(r=>r.ok?r.json():null); }catch(e){} }

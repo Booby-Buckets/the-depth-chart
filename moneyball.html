@@ -26,7 +26,7 @@
   <script src="tdc-projgrade.js?v=base37"></script>
   <script src="team-colors.js?v=11"></script>
   <script src="tdc-ratings.js?v=26"></script>
-  <script src="tdc-nil.js?v=prod3"></script>
+  <script src="tdc-nil.js?v=cal1"></script>
   <script src="tdc-archetypes.js?v=2"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=6"/>
   <script src="tdc-anim.js?v=6"></script>
@@ -133,7 +133,17 @@
     .mb-tab:hover{color:var(--text);}
     .mb-tab.on{color:var(--text);}
     .mb-tab.on::after{content:'';position:absolute;left:12px;right:12px;bottom:-1px;height:2.5px;background:var(--accent);border-radius:2px 2px 0 0;}
-    .mb-tab .tico{font-size:14px;}
+    .mb-tab .tico{display:none;}
+    .mb-tabs{gap:26px !important;}
+    .mb-tab{padding:0 0 13px !important;font-size:15px !important;font-weight:500 !important;letter-spacing:0 !important;}
+    .mb-tab.on{font-weight:700 !important;}
+    .mb-tab.on::after{left:0 !important;right:0 !important;height:3px !important;background:var(--text) !important;}
+    #rvRows a{color:var(--text);text-decoration:none;font-weight:600;}
+    #rvRows a:hover{text-decoration:underline;}
+    .rv-ctrls{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 12px;}
+    .rv-ctrls .search{flex:1;min-width:200px;max-width:360px;}
+    .rv-sel{font:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);}
+    .rv-more{margin:12px 0 0;font:inherit;font-size:13px;font-weight:700;padding:9px 14px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);cursor:pointer;}
     .mb-tab .soon{font-size:8.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);border:1px solid var(--border2);border-radius:12px;padding:1px 6px;}
     .mb-panel{display:none;} .mb-panel.on{display:block;animation:mbFade .3s ease both;}
     @keyframes mbFade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
@@ -280,14 +290,20 @@
   <div class="sub">Every player measured two ways: the wins their production is worth and what it costs. Use it to find undervalued players, price a goal and build a roster.</div>
 
   <div class="mb-tabs" id="mbTabs">
-    <button class="mb-tab on" data-tab="market"><span class="tico">📈</span> The Market</button>
-    <button class="mb-tab" data-tab="office"><span class="tico">🏛️</span> Front Office</button>
-    <button class="mb-tab" data-tab="gm"><span class="tico">🧩</span> GM Mode</button>
-    <button class="mb-tab" data-tab="ledger"><span class="tico">📊</span> The Ledger</button>
+    <button class="mb-tab on" data-tab="values">Roster Values</button>
+    <button class="mb-tab" data-tab="market">The Market</button>
+    <button class="mb-tab" data-tab="office">Front Office</button>
+    <button class="mb-tab" data-tab="gm">GM Mode</button>
+    <button class="mb-tab" data-tab="ledger">The Ledger</button>
+  </div>
+
+  <!-- ── ROSTER VALUES ── -->
+  <div class="mb-panel on" id="tab-values">
+    <div id="valuesBody"><div class="loading">Pricing every roster…</div></div>
   </div>
 
   <!-- ── THE MARKET ── -->
-  <div class="mb-panel on" id="tab-market">
+  <div class="mb-panel" id="tab-market">
     <div id="mktBody"><div class="loading">Loading the market…</div></div>
   </div>
 
@@ -605,7 +621,7 @@ function wvOf(pl){ if(!WINVAL) return null; let r=null; if(pl.espn_id!=null&&WIN
 
 async function ensureMarketData(){
   if(MKT) return MKT;
-  let nil; try{ nil=await fetch('nil-data.json').then(r=>r.ok?r.json():null); }catch(e){}
+  let nil; try{ nil=await fetch('nil-data.json?v=gradesync15').then(r=>r.ok?r.json():null); }catch(e){}
   if(!nil||!nil.teams) return null;
   const rm=await ratingsMap();
   if(window.TDC_NIL&&TDC_NIL.dealsReady){ try{ await TDC_NIL.dealsReady; }catch(e){} }   // known real deals before pricing
@@ -756,7 +772,7 @@ function renderMarket(){
     (topOverStyle&&topOverStyle.avg<0?`; the most overpaid style is <b style="color:${_ai(topOverStyle.a).color||'inherit'}">${esc(topOverStyle.a)}</b> (${fM(topOverStyle.avg)}).`:'.')+
     (posAvg.length>=2?` By position the market underpays <b>${posName[posAvg[0].b]}</b> most and overpays <b>${posName[posAvg[posAvg.length-1].b]}</b> most.`:'')+`</div>`;
   $id('mktBody').innerHTML=`
-    <div class="mkt-intro">Three numbers on every rotation player across the <b>${nTeams} biggest-spending programs</b>: <b style="color:var(--green)">Win value</b> — what his winning is worth (a win-driver score: efficiency, defense, rebounding, ball-security, priced in dollars); <b>Market value</b> — what the open market would pay him (our model, independent of any deal); and <b>Paid</b> — what he's actually on the books for (a known deal if on file, with any hometown/dream-school discount baked in). Plotted <b>win value vs paid</b>: <b style="color:var(--green)">above the line</b> = wins more than he's paid — the Moneyball buys.</div>
+    <div class="mkt-intro">Three numbers on every rotation player across <b>${nTeams} programs</b>: <b style="color:var(--green)">Win value</b> — what his winning is worth (a win-driver score: efficiency, defense, rebounding, ball-security, priced in dollars); <b>Market value</b> — what the open market would pay him (our model, independent of any deal); and <b>Paid</b> — what he's actually on the books for (a known deal if on file, with any hometown/dream-school discount baked in).</div>
     ${band([
       {v:scored.length,l:'Players scored',s:'of '+M.players.length+' priced'},
       {v:fM(M.winRate),l:'$ per win',s:'winning-value rate'},
@@ -766,11 +782,6 @@ function renderMarket(){
       {v:over,cls:'r',l:'Overpaid',s:'paid > win value'}
     ])}
     ${mktRead}
-    ${secH('Win value vs paid','every scored player · hover a dot')}
-    <div class="scatter-wrap">
-      <div class="scatter-legend"><span><i class="buy"></i>Undervalued</span><span><i class="fair"></i>Fair</span><span><i class="over"></i>Overpaid</span><span><i class="line"></i>Paid = worth</span></div>
-      <div id="scatterHost"></div>
-    </div>
     ${archPanel}
     ${secH('Screener','sort any column · filter by conference, position, class, verdict')}
     <div class="mkt-ctrl">
@@ -794,7 +805,7 @@ function renderMarket(){
   renderScatter(); renderTable();
 }
 
-function renderScatter(){
+function renderScatter(){ if(!$id('scatterHost')) return;
   const list=marketFiltered();
   const W=720,H=380, mL=46,mB=32,mT=12,mR=12, pw=W-mL-mR, ph=H-mT-mB;
   const pool=MKT.players.filter(p=>p.winVal!=null);            // only players with a winning score
@@ -1092,7 +1103,7 @@ function renderLedger(){
   // tier table: the going rate at every level of the market
   const tiers=Object.keys(LEDGER.fit.tierCpw).map(k=>+k).sort((a,b)=>a-b).map(k=>{ const rows=LEDGER.filter(t=>t.tier===k); return {k, n:rows.length, cpw:LEDGER.fit.tierCpw[k], spend:sum(rows.map(t=>t.spend))/rows.length, win:sum(rows.map(t=>t.winning))/rows.length}; }).filter(x=>x.n);
   $id('ledgerBody').innerHTML=`
-    <div class="mkt-intro">Every one of the <b>${LEDGER.length} biggest-spending programs</b> as a balance sheet: what its roster <b>costs</b> against the <b style="color:var(--green)">winning</b> that roster produces (its win-driver score — efficiency, defense, rebounding, ball-security — minute-constrained over a 200-minute rotation). Programs are judged against their own NIL tier's going rate per win: <b style="color:var(--green)">above the line</b> = more winning than the money usually buys. Click a team for its smartest and dumbest contracts.</div>
+    <div class="mkt-intro">Every one of <b>${LEDGER.length} programs</b> as a balance sheet: what its roster <b>costs</b> against the <b style="color:var(--green)">winning</b> that roster produces (its win-driver score — efficiency, defense, rebounding, ball-security — minute-constrained over a 200-minute rotation). Programs are judged against their own NIL tier's going rate per win. Click a team for its smartest and dumbest contracts.</div>
     ${band([
       {v:LEDGER.length,l:'Programs',s:'tracked'},
       {v:fM(total),l:'Total spend',s:'roster cost'},
@@ -1103,11 +1114,6 @@ function renderLedger(){
       {v:esc(worst.team),cls:'r',l:'Overpaying most',s:signed(worst.surplus,fM)+' vs tier rate'}
     ])}
     <div class="mb-read"><b>Ledger read.</b> The league pays about <b>${fM(total/Math.max(totalW,1))}</b> per win of winning. <b>${esc(cheapest.full)}</b> buys its winning cheapest (${fM(cheapest.cpw)}/win); <b>${esc(dearest.full)}</b> pays the most (${fM(dearest.cpw)}/win). The biggest book is <b>${esc(bigSp.full)}</b> at ${fM(bigSp.spend)}${bigSp.verdict==='over'?', <span class="neg">and it is overpaying for what it gets</span>':bigSp.verdict==='buy'?', <span class="pos">and it still gets value for it</span>':''}. ${best.full} is the best-run front office in its tier: <span class="pos">${signed(best.surplus,fM)}</span> saved vs the Tier ${best.tier} rate; ${worst.full} is the worst, <span class="neg">${signed(worst.surplus,fM)}</span>.</div>
-    ${secH('Winning vs spend','every program · the line is what the money usually buys')}
-    <div class="scatter-wrap">
-      <div class="scatter-legend"><span><i class="buy"></i>Great value</span><span><i class="fair"></i>Fair</span><span><i class="over"></i>Overpaying</span><span><i class="line"></i>League fit</span></div>
-      <div id="ledScatterHost"></div>
-    </div>
     ${secH('The going rate by tier','median cost per win inside each NIL tier')}
     <div class="sheet-wrap"><table class="sheet dense" id="tierTable"><thead><tr><th class="l">Tier</th><th>Programs</th><th>Avg spend</th><th data-heat="1">Avg winning</th><th title="median cost per win">$ / win</th></tr></thead><tbody>${tiers.map(x=>`<tr><td class="l nm">T${x.k}</td><td class="dim">${x.n}</td><td>${fM(x.spend)}</td><td>${x.win.toFixed(1)}</td><td class="big">${fM(x.cpw)}</td></tr>`).join('')}</tbody></table></div>
     ${secH('Balance sheets','sort any column · click a program')}
@@ -1120,7 +1126,7 @@ function renderLedger(){
   if(ledState.sel) renderLedTeam(ledState.sel);
 }
 
-function renderLedScatter(){
+function renderLedScatter(){ if(!$id('ledScatterHost')) return;
   const L=LEDGER, W=720,H=380,mL=46,mB=32,mT=12,mR=12,pw=W-mL-mR,ph=H-mT-mB;
   const xmax=Math.max(1,(Math.max(...L.map(t=>t.spend))||1)*1.04);
   const ys=L.map(t=>t.winning); const ymin=Math.max(0,Math.min(...ys)-2), ymax=Math.max(...ys)+1.5;
@@ -1206,6 +1212,90 @@ function renderLedTeam(team){
   const c=$id('ledClose'); if(c) c.addEventListener('click',e=>{ e.stopPropagation(); ledState.sel=null; $id('ledDetail').innerHTML=''; renderLedTable(); });
 }
 
+/* ═══════════════════════ ROSTER VALUES ═══════════════════════
+   Every program's full roster priced at open-market NIL value (tdc-nil.js neutralValueOf — the same
+   number the player and team pages show), ranked, plus what it costs to build a team in each band of
+   the projected rankings. Market calibration: tdc-nil.js NEU_TOP (fit to public roster-cost reports). */
+let RV=null, rvState={sort:'value', dir:-1, conf:'all', q:'', limit:50};
+async function buildRosterValues(){
+  let nil; try{ nil=await fetch('nil-data.json?v=gradesync15').then(r=>r.ok?r.json():null); }catch(e){}
+  if(!nil||!nil.teams) return null;
+  const rm=await ratingsMap(), N=window.TDC_NIL;
+  for(const k of ['dealsReady','pedigreeReady','defenseReady','adjustReady','injuryReady','programsReady']){ try{ if(N&&N[k]) await N[k]; }catch(e){} }
+  const rows=Object.keys(nil.teams).map(short=>{
+    const T=nil.teams[short], info=rm[short]||{};
+    const ps=(T.players||[]).map(p=>({name:p.name, espn_id:p.espn_id, pos:(p.pos||'').toUpperCase(), grade:p.grade, v:(N&&N.neutralValueOf)?N.neutralValueOf(p):(+p.value||0)}))
+      .sort((a,b)=>b.v-a.v);
+    const value=sum(ps.map(p=>p.v)), top3=sum(ps.slice(0,3).map(p=>p.v));
+    return {team:short, full:info.full||short, conf:info.conf||'', rank:info.rank||null, rating:info.rating,
+      value, n:ps.length, top:ps[0]||null, top3share:value>0?top3/value:0, players:ps,
+      perWin:(info.rating!=null&&isFinite(info.rating)&&typeof projWins==='function'&&projWins(info.rating)>0)?value/projWins(info.rating):null};
+  }).filter(r=>r.n>=5&&r.value>0);
+  rows.sort((a,b)=>b.value-a.value); rows.forEach((r,i)=>r.vrank=i+1);
+  RV=rows; return RV;
+}
+function bootValues(){ buildRosterValues().then(d=>{ if(!d){ $id('valuesBody').innerHTML='<div class="loading">Data unavailable.</div>'; return; } renderValues(); }); }
+function rvSorted(){ const s=rvState, q=s.q.trim().toLowerCase();
+  return RV.filter(r=>(s.conf==='all'||r.conf===s.conf)&&(!q||r.full.toLowerCase().includes(q)||r.team.toLowerCase().includes(q)))
+    .sort((a,b)=>{ const k=s.sort; const av=a[k], bv=b[k]; if(k==='full'||k==='conf') return (''+av).localeCompare(''+bv)*s.dir*-1;
+      return ((av==null?-1e9:av)-(bv==null?-1e9:bv))*s.dir; }); }
+function renderValues(){
+  const med=a=>{ a=a.slice().sort((x,y)=>x-y); return a.length?a[Math.floor(a.length/2)]:null; };
+  const ranked=RV.filter(r=>r.rank);
+  const BANDS=[[1,10,'Top 10'],[11,25,'11–25'],[26,50,'26–50'],[51,75,'51–75'],[76,100,'76–100'],[101,200,'101–200'],[201,999,'201+']];
+  const bandRows=BANDS.map(([lo,hi,l])=>{ const g=ranked.filter(r=>r.rank>=lo&&r.rank<=hi); if(!g.length) return '';
+    const v=g.map(r=>r.value).sort((a,b)=>a-b); const lo10=v[Math.floor(v.length*0.1)];
+    const cheap=g.slice().sort((a,b)=>a.value-b.value)[0], dear=g.slice().sort((a,b)=>b.value-a.value)[0];
+    return `<tr><td class="l nm">${l}</td><td class="dim">${g.length}</td><td class="strong">${fM(med(v))}</td><td>${fM(lo10)}+</td><td class="l">${esc(cheap.full)} <span class="dim">${fM(cheap.value)}</span></td><td class="l">${esc(dear.full)} <span class="dim">${fM(dear.value)}</span></td></tr>`; }).join('');
+  const total=sum(RV.map(r=>r.value)), top=RV[0];
+  const confs=[...new Set(RV.map(r=>r.conf).filter(Boolean))].sort();
+  $id('valuesBody').innerHTML=`
+    <div class="mkt-intro">Every program's full 2026-27 roster priced at <b>open-market NIL value</b>: what each player would command on the market (the same figure on his player page), added up. It is not what a school actually pays; budgets, hometown discounts and pre-existing deals vary. Ranked by total, with what a roster in each band of the projected rankings typically costs.</div>
+    ${band([
+      {v:RV.length,l:'Programs',s:'full rosters priced'},
+      {v:fM(total),l:'All rosters',s:'combined market value'},
+      {v:esc(top.full),l:'Most valuable',s:fM(top.value)},
+      {v:fM(med(ranked.filter(r=>r.rank<=25).map(r=>r.value))),l:'Typical top-25',s:'median roster value'}
+    ])}
+    ${secH('What it costs to build a team','by projected 2026-27 ranking')}
+    <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense" id="rvBands"><thead><tr><th class="l">Projected rank</th><th>Programs</th><th>Median roster</th><th title="90% of rosters in the band are worth at least this">Floor (90%)</th><th class="l">Cheapest</th><th class="l">Most expensive</th></tr></thead><tbody>${bandRows}</tbody></table></div>
+    ${secH('Most valuable rosters','sort any column · click a program')}
+    <div class="rv-ctrls">
+      <input class="search" id="rvSearch" placeholder="Search a program…" autocomplete="off" value="${esc(rvState.q)}">
+      <select class="rv-sel" id="rvConf"><option value="all">All conferences</option>${confs.map(c=>`<option value="${esc(c)}"${rvState.conf===c?' selected':''}>${esc(c)}</option>`).join('')}</select>
+    </div>
+    <div class="sheet-wrap mkt-twrap" style="--c1:34px;--c2:200px;max-height:none;"><table class="sheet mkt dense freeze2"><thead id="rvHead"></thead><tbody id="rvRows"></tbody></table></div>
+    <div id="rvMore"></div>
+    <div class="disclaimer" style="margin-top:12px"><b>Roster value</b> = the sum of every rostered player's open-market NIL value from our model (production, role, position, class, recruiting pedigree, availability). <b>Per projected win</b> = roster value ÷ projected 2026-27 wins. Calibrated so the cost of a top-25, top-50, top-75 and top-100 roster matches reported market levels. A model, not a cap sheet.</div>`;
+  $id('rvSearch').addEventListener('input',e=>{ rvState.q=e.target.value; rvState.limit=50; renderRvTable(); });
+  $id('rvConf').addEventListener('change',e=>{ rvState.conf=e.target.value; rvState.limit=50; renderRvTable(); });
+  renderRvTable();
+}
+const RVCOLS=[['#','rk',null],['Program','l','full'],['Conf','l','conf'],['Proj. rank','','rank'],['Roster value','','value'],['Players','','n'],['Top player','l',null],['Top value','',null],['Top-3 share','','top3share'],['Per proj. win','','perWin']];
+function renderRvTable(){
+  const list=rvSorted(), shown=list.slice(0,rvState.limit);
+  const vmax=Math.max(...RV.map(r=>r.value));
+  const heat=v=>{ const p=v/vmax; return p>=0.8?' c4':p>=0.6?' c3':p>=0.4?' c2':p>=0.2?' c1':' c0'; };
+  $id('rvHead').innerHTML=`<tr>${RVCOLS.map(c=>{ const k=c[2], on=k===rvState.sort, ar=on?(rvState.dir<0?'▼':'▲'):'';
+    return `<th class="${c[1]||''}${k?' sort':''}${on?' on':''}" ${k?`data-sort="${k}"`:''}>${c[0]}${k?`<span class="ar">${ar}</span>`:''}</th>`; }).join('')}</tr>`;
+  $id('rvRows').innerHTML=shown.map((r,i)=>`<tr>
+    <td class="rk">${rvState.sort==='value'&&rvState.dir<0&&rvState.conf==='all'&&!rvState.q?r.vrank:i+1}</td>
+    <td class="l nm"><a href="team.html?team=${encodeURIComponent(r.team)}">${esc(r.full)}</a></td>
+    <td class="l dim">${esc(r.conf)}</td>
+    <td class="dim">${r.rank?('#'+r.rank):'—'}</td>
+    <td class="strong${heat(r.value)}">${fM(r.value)}</td>
+    <td class="dim">${r.n}</td>
+    <td class="l">${r.top?`<a href="player.html?espn=${encodeURIComponent(r.top.espn_id||'')}&team=${encodeURIComponent(r.team)}">${esc(r.top.name)}</a>`:'—'}</td>
+    <td>${r.top?fM(r.top.v):'—'}</td>
+    <td class="dim">${Math.round(r.top3share*100)}%</td>
+    <td class="dim">${r.perWin!=null?fM(r.perWin):'—'}</td>
+  </tr>`).join('');
+  $id('rvMore').innerHTML=list.length>shown.length?`<button class="rv-more" id="rvMoreBtn">Show ${Math.min(50,list.length-shown.length)} more (${list.length-shown.length} left)</button>`:'';
+  const mb=$id('rvMoreBtn'); if(mb) mb.addEventListener('click',()=>{ rvState.limit+=50; renderRvTable(); });
+  $id('rvHead').querySelectorAll('th[data-sort]').forEach(th=>th.addEventListener('click',()=>{ const k=th.dataset.sort;
+    if(rvState.sort===k) rvState.dir*=-1; else { rvState.sort=k; rvState.dir=(k==='full'||k==='conf'||k==='rank')?1:-1; } renderRvTable(); }));
+}
+
 /* ═══════════════════════ TABS ═══════════════════════ */
 const booted={};
 function showTab(name){
@@ -1216,6 +1306,7 @@ function showTab(name){
     else if(name==='market') bootMarket();
     else if(name==='gm') bootGM();
     else if(name==='ledger') bootLedger();
+    else if(name==='values') bootValues();
   }
   try{ const sp=new URLSearchParams(location.search); sp.set('tab',name); if(name!=='office') sp.delete('team');
     history.replaceState(null,'',location.pathname+'?'+sp.toString()); }catch(e){}
@@ -1224,9 +1315,9 @@ document.getElementById('mbTabs').addEventListener('click',e=>{ const b=e.target
 
 (function init(){
   const sp=new URLSearchParams(location.search), tab=sp.get('tab');
-  if(tab&&['market','office','gm','ledger'].includes(tab)) showTab(tab);
+  if(tab&&['values','market','office','gm','ledger'].includes(tab)) showTab(tab);
   else if(sp.get('team')) showTab('office');
-  else showTab('market');
+  else showTab('values');
 })();
 </script>
   <script src="tdc-version.js?v=2"></script>

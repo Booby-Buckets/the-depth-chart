@@ -114,6 +114,16 @@ for r in fetch("bbref_seasons?select=espn_id,advanced,pergame,tdc_grade,height,g
         gnum(r.get("tdc_grade")),gnum(pg.get("mp_per_g")),ht_in(r.get("height")),gnum(pg.get("pts_per_g")),
         r.get("grade_pillars") or {})
 teams=fetch("teams?select=name,nil_tier,conference"); tinfo={t["name"]:t for t in teams if t.get("nil_tier")}
+# EVERY rostered program (Oct 2026: ~350 rosters from the school-site scrape, not just the ~115 with a
+# hand-set nil_tier). Player values are tier-neutral (tdc-nil.js), so a team without a tier only needs
+# one for the budget display: Power 3, mid-major 5, low-major 7. Conference from the projected rankings.
+_conf27={}
+try:
+    _pr=fetch("predictive_ratings?season=eq.2027&select=data")
+    for _t in ((_pr[0].get("data") or {}).get("teams") or []):
+        if _t.get("team"): _conf27[_t["team"]]=_t.get("conf")
+except Exception: pass
+_TIER_BY_CLS={"P":"Tier 3","M":"Tier 5","L":"Tier 7"}
 srs={}
 for r in fetch("team_seasons?select=team,srs&season_year=eq.2026&srs=not.is.null"): srs[r["team"]]=gnum(r["srs"])
 def team_srs(b):
@@ -121,10 +131,27 @@ def team_srs(b):
     for k,v in srs.items():
         if k.startswith(b+" ") or k==b: return v
     return None
-players=fetch("players?select=name,team,espn_id,mpg,tdc_grade,starter,height,ppg,position,class_year&tdc_grade=not.is.null")
+players=fetch("players?select=name,team,espn_id,mpg,tdc_grade,starter,height,ppg,position,class_year")
+# live statistical grade (projected, else demonstrated) for players whose sheet grade is blank
+_D0=os.path.join(os.path.dirname(__file__),"data")
+try:
+    _SOP0=(lambda j:j.get("players",j))(json.load(open(os.path.join(_D0,"stat_overall_projected.json"))))
+    _SOD0=json.load(open(os.path.join(_D0,"stat_overall.json")))["players"]
+except Exception: _SOP0,_SOD0={},{}
+def _live0(e):
+    if e is None: return None
+    e=str(e); x=_SOP0.get(e) or _SOD0.get(e)
+    return (x.get("ovr") if isinstance(x,dict) else x) if x is not None else None
 ros=defaultdict(list)
 for p in players:
-    if p["team"] in tinfo: ros[p["team"]].append(p)
+    if not p.get("team") or (p.get("name") or "").strip() in ("","—","Name"): continue
+    if p.get("tdc_grade") in (None,""):
+        lg=_live0(p.get("espn_id"))
+        if lg is None: continue
+        p["tdc_grade"]=lg
+    ros[p["team"]].append(p)
+    if p["team"] not in tinfo:
+        cf=_conf27.get(p["team"]); tinfo[p["team"]]={"name":p["team"],"conference":cf,"nil_tier":_TIER_BY_CLS.get(conf_class(cf),"Tier 6"),"_auto":True}
 # demonstrated production (last season) for the roster table columns: real ppg/rpg/apg + Wins
 # Added (owa+dwa). Keyed by espn_id. Newcomers/freshmen without a 2026 line come back empty.
 padv={}

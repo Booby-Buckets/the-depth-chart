@@ -10,7 +10,7 @@
   <script src="tdc-shotchart.js?v=25s"></script>
   <script src="tdc-lineups.js?v=17s"></script>
   <script src="tdc-shotflow.js?v=12"></script>
-  <script src="tdc-nil.js?v=prod3"></script>
+  <script src="tdc-nil.js?v=cal1"></script>
   <script src="tdc-gate.js?v=4"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js?v=10"></script>
@@ -7312,7 +7312,7 @@ async function _nilMarketPublish(btn){
 }
 async function renderNil(){
   const host=document.getElementById('nilContent'); const tT=(typeof teamT!=='undefined')?teamT:null; if(!host||!tT) return;
-  if(!_nilData){ try{ _nilData=await fetch('nil-data.json?v=gradesync14').then(r=>r.json()); }catch(e){ host.innerHTML='<div style="padding:40px;color:var(--text3);">NIL data unavailable.</div>'; return; } }
+  if(!_nilData){ try{ _nilData=await fetch('nil-data.json?v=gradesync15').then(r=>r.json()); }catch(e){ host.innerHTML='<div style="padding:40px;color:var(--text3);">NIL data unavailable.</div>'; return; } }
   if(window.TDC_NIL&&TDC_NIL.dealsReady){ try{ await TDC_NIL.dealsReady; }catch(e){} }   // known real deals before pricing
   if(window.TDC_NIL&&TDC_NIL.pedigreeReady){ try{ await TDC_NIL.pedigreeReady; }catch(e){} }   // recruiting pedigree (folded into neutralValueOf)
   if(window.TDC_NIL&&TDC_NIL.defenseReady){ try{ await TDC_NIL.defenseReady; }catch(e){} }   // defensive/foul profile before pricing
@@ -7379,22 +7379,15 @@ async function renderNil(){
   if(_tb.length>=8){
     const vs=_tb.map(x=>x.val).sort((a,b)=>a-b), q=f=>vs[Math.floor(f*(vs.length-1))];
     const hi=Math.max(q(0.97),nVal,_rosterMarket||0,d.budget)*1.06, X=v=>Math.max(0,Math.min(100,v/hi*100));
-    const ticks=[0,.25,.5,.75,1].map(f=>`<span style="left:${f*100}%">${fmt(hi*f)}</span>`).join('');
-    _scale=`<div class="nv-scale" style="--nv-c:${_tcol}">
-      <div class="nv-scale-h">Worth vs budget, against every D-I roster</div>
-      <div class="nv-line">
-        <div class="nv-band" style="left:${X(q(.25)).toFixed(2)}%;width:${(X(q(.75))-X(q(.25))).toFixed(2)}%"></div>
-        <div class="nv-med nv-bud" style="left:${X(d.budget).toFixed(2)}%"></div>
-        ${_rosterMarket>0?`<div class="nv-mk mkt" style="left:${X(_rosterMarket).toFixed(2)}%" title="Market ${fmt(_rosterMarket)}"><i></i></div>`:''}
-        <div class="nv-mk mdl" style="left:${X(nVal).toFixed(2)}%" title="Model ${fmt(nVal)}"><i></i></div>
-      </div>
-      <div class="nv-ticks">${ticks}</div>
-      <div class="nv-key">
-        <span><i class="k-mdl"></i>Roster value <b>${fmt(nVal)}</b><em>open market, player by player</em></span>
-        ${_rosterMarket>0?`<span><i class="k-mkt"></i>Market <b>${fmt(_rosterMarket)}</b><em>positional curves</em></span>`:''}
-        <span><i class="k-med k-bud"></i>Budget <b>${fmt(d.budget)}</b><em>Tier ${d.tier}</em></span>
-        <span><i class="k-band"></i>Middle half of D-I rosters <b>${fmt(q(.25))}–${fmt(q(.75))}</b></span>
-      </div></div>`;
+    const r=(l,v,n,me)=>`<tr${me?' class="me"':''}><td class="l nm">${l}</td><td class="big">${v}</td><td class="l dim">${n}</td></tr>`;
+    _scale=`<div class="sec-title nv-sec">Worth vs budget, against every D-I roster</div>
+      <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense nil-cmp"><thead><tr><th class="l">Measure</th><th>Value</th><th class="l"></th></tr></thead><tbody>
+      ${r('Roster value',fmt(nVal),'open market, player by player',true)}
+      ${_rosterMarket>0?r('Market value',fmt(_rosterMarket),'positional market curves'):''}
+      ${r('NIL budget',fmt(d.budget),'Tier '+d.tier)}
+      ${r('Median D-I roster',fmt(q(.5)),'every rostered program')}
+      ${r('Middle half of D-I rosters',fmt(q(.25))+'–'+fmt(q(.75)),'25th to 75th percentile')}
+      </tbody></table></div>`;
   }
   let html=`<div class="nilx">
     <div class="nv-head">
@@ -7451,7 +7444,8 @@ async function renderNil(){
     const val=judged.filter(x=>x.vd.tag==='underrated').sort((a,b)=>b.vd.ratio-a.vd.ratio)[0];
     const over=judged.filter(x=>x.vd.tag==='overrated').sort((a,b)=>b.vd.ratio-a.vd.ratio)[0];
     const line=(lbl,x,c,txt)=>x?`<div class="nv-track-read"><b style="color:${c}">${lbl}:</b> <b>${_esc(x.p.name)}</b> (${x.bm.pos}, ${x.p.grade} OVR, market ${fmt(x.bm.val)}) ${txt(x)}.</div>`:'';
-    html+=`<div class="sec-title nv-sec">Where the money sits</div>${bar}${key}
+    const posSheet=`<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">Position</th><th>Market value</th><th>Share</th></tr></thead><tbody>${P5.map(pp=>`<tr><td class="l nm">${pp}</td><td class="big">${fmt(byPos[pp])}</td><td class="dim">${Math.round(byPos[pp]/tot*100)}%</td></tr>`).join('')}</tbody></table></div>`;
+    html+=`<div class="sec-title nv-sec">Where the money sits</div>${posSheet}
       <div style="margin-top:14px;">
         ${line('Best value',val,'var(--green)',x=>`produces about ${x.vd.ratio.toFixed(1)}× his market price`)||'<div class="nv-track-read">No standout values on this roster.</div>'}
         ${line('Biggest overpay',over,'var(--amber,#c9962b)',x=>`is priced at about ${x.vd.ratio.toFixed(1)}× his production`)}
@@ -7464,7 +7458,7 @@ async function renderNil(){
     let natRank=1; board.forEach(x=>{ if(x.val>myVal) natRank++; });
     const natTot=board.length, pctile=natTot>1?Math.round((1-(natRank-1)/(natTot-1))*100):50;
     const confBoard=board.filter(x=>x.conf===myConf); let confRank=1; confBoard.forEach(x=>{ if(x.val>myVal) confRank++; });
-    const track=(pct,lo,hi,read)=>`<div class="nv-track"><div class="nv-track-bar"><i style="width:${pct}%"></i><b style="left:${pct}%;background:${_tcol}"></b></div><div class="nv-track-ax"><span>${lo}</span><span>${hi}</span></div><div class="nv-track-read">${read}</div></div>`;
+    const track=(pct,lo,hi,read)=>`<div class="nv-track-read" style="margin:0 0 14px;">${read}</div>`;   // (Oct 2026: slider dropped — the sentence carries it)
     // comparables window — rosters nearest by total value, this team in place (unshaded: a ranked list)
     const other=board.filter(x=>x.team!==myName);
     let at=other.findIndex(x=>x.val<=myVal); if(at<0) at=other.length;
