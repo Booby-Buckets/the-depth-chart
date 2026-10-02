@@ -20,11 +20,11 @@
   <script src="tdc-glossary.js?v=13"></script>
   <script src="team-colors.js?v=11"></script>
   <script src="tdc-teamname.js?v=1"></script>
-  <script src="tdc-freshman.js?v=pub17"></script>
-  <script src="tdc-projgrade.js?v=base36"></script>
+  <script src="tdc-freshman.js?v=pub18"></script>
+  <script src="tdc-projgrade.js?v=base37"></script>
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-archetypes.js?v=2"></script>
-  <script src="tdc-nil.js?v=prod2"></script>
+  <script src="tdc-nil.js?v=prod3"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-pool.js?v=5"></script>
   <script src="tdc-proj.js?v=d1conf1"></script>
@@ -206,7 +206,7 @@
     const [raw, teams, proj] = await Promise.all([
       pull(),
       fetch(`${SB}/rest/v1/teams?select=name,conf,conference`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]),
-      fetch('scripts/data/stat_overall_projected.json?v=75').then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch('scripts/data/stat_overall_projected.json?v=76').then(r=>r.ok?r.json():null).catch(()=>null),
     ]);
     if(window.TDCProjGrade&&TDCProjGrade.ready){ try{ await TDCProjGrade.ready; }catch(e){} }
     try{ if(window.TDCRealStats) await TDCRealStats.enrich(raw); }catch(e){}
@@ -248,7 +248,7 @@
     });
     // NIL: the open-market value the team NIL tab shows (nil-data.json row priced by TDC_NIL)
     try{
-      const N=window.TDC_NIL, nd=await fetch('nil-data.json?v=gradesync13').then(r=>r.ok?r.json():null);
+      const N=window.TDC_NIL, nd=await fetch('nil-data.json?v=gradesync14').then(r=>r.ok?r.json():null);
       if(N&&nd&&nd.teams&&N.neutralValueOf){
         for(const k of ['dealsReady','pedigreeReady','defenseReady','adjustReady','injuryReady','programsReady']){ if(N[k]){ try{ await N[k]; }catch(e){} } }
         const byTeam={}; for(const t in nd.teams){ const T=nd.teams[t]; (T.players||[]).forEach(r=>{ byTeam[t+'|'+String(r.name||'').toLowerCase().trim()]={r,tier:T.tier}; }); }

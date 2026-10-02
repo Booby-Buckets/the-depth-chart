@@ -56,7 +56,7 @@ SD_TI=_load_sd40()
 # RIM PROTECTION — match build_stat_overall.py: blocks/40 above the league average (capped) earn
 # defensive wins that DWA misses. Rate from his 2026 blocks, carried to projected minutes (not damped
 # for transfers like DWA's team-defense share — shot-blocking is his own).
-RIM_PTS=float(os.environ.get("RIM_PTS","1.3")); RIM_CAP=1.75; POSS40=69.0; PTS_PER_WIN=34.0
+RIM_PTS=float(os.environ.get("RIM_PTS","0"))   # OFF (owner, Oct 2 2026): with it the win% fit was .778 vs .785 without (same season), .558 vs .562 (next season); was 1.3; RIM_CAP=1.75; POSS40=69.0; PTS_PER_WIN=34.0
 def rim_wins(blk40, lg_blk40, minutes):
     ex=np.clip(blk40-lg_blk40, 0.0, RIM_CAP)
     return RIM_PTS*ex/100.0*POSS40*(minutes/40.0)/PTS_PER_WIN

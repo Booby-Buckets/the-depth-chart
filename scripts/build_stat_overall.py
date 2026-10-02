@@ -62,7 +62,7 @@ LOC_W=float(os.environ.get("LOC_W","0.0")); MAKE_W=float(os.environ.get("MAKE_W"
 # defense (t=4.7; used at 1.3, the low side of the CI), while steals (+0.4) and boards (+0.2) add little beyond DWA. The effect flattens
 # past ~1.75 above average (3+ blk/40 bin), so the excess is capped; credit only, never a penalty.
 # Converted to wins like DWA: 69 poss/40 min, 34 pts/win. Mirrored in build_stat_overall_projected.py.
-RIM_PTS=float(os.environ.get("RIM_PTS","1.3")); RIM_CAP=1.75; POSS40=69.0; PTS_PER_WIN=34.0   # fit 1.86 (95% CI ~1.1-2.6); 1.3 keeps the top-25 guard/big mix sane
+RIM_PTS=float(os.environ.get("RIM_PTS","0"))   # OFF (owner, Oct 2 2026): with it the win% fit was .778 vs .785 without (same season), .558 vs .562 (next season); was 1.3; RIM_CAP=1.75; POSS40=69.0; PTS_PER_WIN=34.0   # fit 1.86 (95% CI ~1.1-2.6); 1.3 keeps the top-25 guard/big mix sane
 def rim_wins(blk40, lg_blk40, minutes):
     ex=np.clip(blk40-lg_blk40, 0.0, RIM_CAP)
     return RIM_PTS*ex/100.0*POSS40*(minutes/40.0)/PTS_PER_WIN
