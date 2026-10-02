@@ -92,5 +92,9 @@ jobs:
             echo "No projection changes."
           else
             git commit -m "Auto: rebuild projected DNA, development paths + team needs [skip ci]"
-            git push
+            # other sessions push to main all the time; rebase onto whatever landed and retry
+            for i in 1 2 3 4 5; do
+              git pull --rebase -X theirs origin main && git push && break
+              echo "push raced another commit (try $i); retrying"; sleep $((i*5))
+            done
           fi
