@@ -166,7 +166,11 @@
   // these the roster projection AND the carryover row both land in the field (ECU and
   // East Carolina Pirates were ranked as two teams)
   const SHORT_ALIAS={'ECU':'East Carolina','FAU':'Florida Atlantic','UMass':'Massachusetts','UMKC':'Kansas City',
-    'Pitt':'Pittsburgh','Miami (FL)':'Miami','Hawaii':"Hawai'i",'UNC':'North Carolina','USF':'South Florida','FIU':'Florida International'};
+    'Pitt':'Pittsburgh','Miami (FL)':'Miami','Hawaii':"Hawai'i",'UNC':'North Carolina','USF':'South Florida','FIU':'Florida International',
+    // all-D1 rosters (Oct 2026): names that miss, or prefix-match the WRONG school
+    // ("Penn" → Penn State, "North Dakota" → North Dakota State) — each was ranked twice
+    'Penn':'Pennsylvania','North Dakota':'North Dakota Fighting Hawks','St. Thomas':'St. Thomas-Minnesota',
+    'FDU':'Fairleigh Dickinson','IU Indy':'IU Indianapolis','Central Connecticut State':'Central Connecticut'};
   function matchFull(short, tsRows, confCode){
     if(SHORT_ALIAS[short]) short=SHORT_ALIAS[short];
     let cands=tsRows.filter(t=>t.team===short||t.team.indexOf(short+' ')===0);

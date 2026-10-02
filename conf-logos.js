@@ -206,4 +206,35 @@ window.TDC_CONFS={
 "short": "Great West"
 }
 };
-window.tdcConf=function(name){var M=window.TDC_CONFS;return (name&&M[name])||null;};
+// The site stores conferences three ways: full names (team_seasons), ESPN short names
+// ("Mountain West", "A-10") and the roster sheet's codes in teams.conf ("MWC", "A10", "BIG-12").
+// TDC_CONF_CODE maps every sheet code to its full name; tdcConfFull() resolves ANY of the three
+// to the full name, and tdcConf() accepts any of them. One resolver for every page.
+window.TDC_CONF_CODE={'ACC':'Atlantic Coast Conference','B10':'Big Ten Conference','BIG-12':'Big 12 Conference',
+  'Big-East':'Big East Conference','SEC':'Southeastern Conference','PAC-12':'Pac-12 Conference',
+  'A10':'Atlantic 10 Conference','AAC':'American Conference','AEC':'America East Conference',
+  'ASUN':'Atlantic Sun Conference','Big Sky':'Big Sky Conference','Big South':'Big South Conference',
+  'Big West':'Big West Conference','CAA':'Coastal Athletic Association','CUSA':'Conference USA',
+  'Horizon':'Horizon League','Ivy':'Ivy League','MAAC':'Metro Atlantic Athletic Conference',
+  'MAC':'Mid-American Conference','MEAC':'Mid-Eastern Athletic Conference','MVC':'Missouri Valley Conference',
+  'MWC':'Mountain West Conference','NEC':'Northeast Conference','OVC':'Ohio Valley Conference',
+  'Patriot':'Patriot League','SWAC':'Southwestern Athletic Conference','SoCon':'Southern Conference',
+  'Southland':'Southland Conference','Summit':'Summit League','Sun Belt':'Sun Belt Conference',
+  'UAC':'United Athletic Conference','WCC':'West Coast Conference','WAC':'Western Athletic Conference'};
+window.tdcConfFull=function(c){
+  if(!c) return '';
+  var M=window.TDC_CONFS, C=window.TDC_CONF_CODE;
+  if(M[c]) return c;
+  if(C[c]) return C[c];
+  var k=String(c).toLowerCase().replace(/[^a-z0-9]/g,'');
+  for(var f in M){ var m=M[f]; if([f,m.short,m.abbr].some(function(x){ return String(x||'').toLowerCase().replace(/[^a-z0-9]/g,'')===k; })) return f; }
+  for(var code in C){ if(code.toLowerCase().replace(/[^a-z0-9]/g,'')===k) return C[code]; }
+  return String(c);
+};
+// …and the reverse: full name -> the sheet code the teams table uses
+window.tdcConfCode=function(c){
+  var f=window.tdcConfFull(c), C=window.TDC_CONF_CODE;
+  for(var code in C){ if(C[code]===f) return code; }
+  return f;
+};
+window.tdcConf=function(name){var M=window.TDC_CONFS;return (name&&(M[name]||M[window.tdcConfFull(name)]))||null;};

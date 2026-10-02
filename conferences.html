@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="tdc-loading.js?v=3"></script>   <!-- first, so it sees every request -->
+  <link rel="stylesheet" href="tdc-a11y.css?v=1">
+  <script src="tdc-a11y.js?v=2" defer></script>
+  <script src="auth.js?v=delacct1"></script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <script src="team-colors.js?v=11"></script>
+  <script src="conf-logos.js?v=4"></script>
+  <script src="tdc-projgrade.js?v=base36"></script>
+  <script src="tdc-awards.js?v=9"></script>
+  <script src="tdc-ratings.js?v=26"></script>
+  <script src="tdc-schedule.js?v=20s"></script>
+  <script src="tdc-glossary.js?v=13"></script>
+  <meta charset="UTF-8"/>
+  <script src="tdc-theme.js?v=5"></script>
+  <script src="tdc-season.js?v=1"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Conferences &mdash; The Depth Chart</title>
+  <meta name="description" content="Every Division I conference ranked by strength: projected power, top-25 teams, favourites and best players."/>
+  <meta property="og:type" content="website"/>
+  <meta property="og:site_name" content="The Depth Chart"/>
+  <meta property="og:title" content="Conferences &mdash; The Depth Chart"/>
+  <meta property="og:description" content="Every Division I conference ranked by strength."/>
+  <meta name="twitter:card" content="summary_large_image"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,600;1,700&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Inter:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html{background:var(--bg);}
+    body{background:transparent;color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;opacity:0;animation:fadeIn .3s ease forwards;}
+    @keyframes fadeIn{from,to{opacity:1;transform:none;}}
+    :root{--bg: #FAF9F6;--bg2: #F1EFEA;--bg3: #E6E3DB;--border: #DEDACF;--border2: #C6C0B2;--text: #1A1814;--text2: #4A463C;--text3: #8A867A;--accent: #A8843C;--accent-on:#221c08;--tc:#003087;--tc-rgb:0,48,135;--green:#1a8c3a;--red:#cc2200;}
+
+    [data-theme="dark"]{--bg: #141416;--bg2: #1D1D20;--bg3: #28282C;--border: #2E2E34;--border2: #45454D;--text: #F1EFEA;--text2: #B4B0A8;--text3: #807C74;--accent: #E6D5A8;--accent-on:#221c08;}
+    [data-theme="dark"] .nav-signin{color:var(--bg);background:var(--text);}
+    [data-theme="dark"] .filter-btn{background:var(--bg2);}
+    [data-theme="dark"] .filter-select{background:var(--bg2);}
+    [data-theme="dark"] .plan{background:var(--bg2);}
+    [data-theme="dark"] .account-card{background:var(--bg2);}
+    [data-theme="dark"] .form-input{background:var(--bg2);color:var(--text);}
+    [data-theme="dark"] .form-select{background:var(--bg2);color:var(--text);}
+    [data-theme="dark"] .form-textarea{background:var(--bg2);color:var(--text);}
+    [data-theme="dark"] .side-card{background:var(--bg2);}
+    [data-theme="dark"] .what-card{background:var(--bg2);}
+    [data-theme="dark"] .gAp,[data-theme="dark"] .gA,[data-theme="dark"] .gAm{color:#f0c040;}
+    [data-theme="dark"] .gBp,[data-theme="dark"] .gB,[data-theme="dark"] .gBm{color:#d4a020;}
+    [data-theme="dark"] .gCp,[data-theme="dark"] .gC,[data-theme="dark"] .gCm{color:#b07818;}
+    [data-theme="dark"] .gDp,[data-theme="dark"] .gD,[data-theme="dark"] .gDm,[data-theme="dark"] .gF{color:#785010;}
+    [data-theme="dark"] .dc-row-grade .gAp,[data-theme="dark"] .dc-row-grade .gA,[data-theme="dark"] .dc-row-grade .gAm,
+    [data-theme="dark"] .swap-player-grade.gAp,[data-theme="dark"] .swap-player-grade.gA,[data-theme="dark"] .swap-player-grade.gAm{color:#f0c040;}
+    [data-theme="dark"] .dc-row-grade .gBp,[data-theme="dark"] .dc-row-grade .gB,[data-theme="dark"] .dc-row-grade .gBm,
+    [data-theme="dark"] .swap-player-grade.gBp,[data-theme="dark"] .swap-player-grade.gB,[data-theme="dark"] .swap-player-grade.gBm{color:#d4a020;}
+    [data-theme="dark"] .dc-row-grade .gCp,[data-theme="dark"] .dc-row-grade .gC,[data-theme="dark"] .dc-row-grade .gCm,
+    [data-theme="dark"] .swap-player-grade.gCp,[data-theme="dark"] .swap-player-grade.gC,[data-theme="dark"] .swap-player-grade.gCm{color:#b07818;}
+    [data-theme="dark"] .dc-row-grade .gDp,[data-theme="dark"] .dc-row-grade .gD,[data-theme="dark"] .dc-row-grade .gF,
+    [data-theme="dark"] .swap-player-grade.gDp,[data-theme="dark"] .swap-player-grade.gD,[data-theme="dark"] .swap-player-grade.gF{color:#785010;}
+    [data-theme="dark"] .form-btn{background:var(--text);color:var(--bg);}
+    [data-theme="dark"] .plan-btn.paid{background:var(--text);color:var(--bg);}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;}
+    .theme-toggle:hover{border-color:var(--text3);color:var(--text);}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html{background:var(--bg);}
+    body{background:transparent;color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;opacity:0;animation:fadeIn .3s ease forwards;}
+    @keyframes fadeIn{from,to{opacity:1;transform:none;}}
+    :root{--bgc1:#9a9aa8;--bgc2:#7c7c8c;--bgc3:#adadbd;--bgm1:rgba(158,158,174,.30);--bgm2:rgba(128,128,146,.28);--bgm3:rgba(176,176,192,.32);--bgm4:rgba(116,116,134,.22);}
+    .tdc-bg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:var(--bg);}
+    .tdc-mesh{position:absolute;inset:-25%;background:radial-gradient(38% 48% at 22% 26%, var(--bgm1), transparent 62%),radial-gradient(44% 52% at 80% 28%, var(--bgm2), transparent 62%),radial-gradient(50% 50% at 62% 80%, var(--bgm3), transparent 62%),radial-gradient(40% 44% at 14% 82%, var(--bgm4), transparent 62%);filter:blur(46px);animation:tdcMesh 28s ease-in-out infinite alternate;transition:background 1.1s ease;}
+    [data-theme="dark"] .tdc-mesh{opacity:.5;} :root:not([data-theme="dark"]) .tdc-mesh{opacity:.3;}
+    @keyframes tdcMesh{0%{transform:translate(0,0) scale(1) rotate(0deg);}50%{transform:translate(2%,-2.5%) scale(1.08) rotate(2deg);}100%{transform:translate(-2%,2%) scale(1.03) rotate(-2deg);}}
+    .tdc-blob{position:absolute;border-radius:50%;filter:blur(72px);opacity:.35;mix-blend-mode:screen;transition:background 1.1s ease;}
+    :root:not([data-theme="dark"]) .tdc-blob{opacity:.2;mix-blend-mode:multiply;}
+    .tdc-blob.b1{width:520px;height:520px;background:radial-gradient(circle,var(--bgc1),transparent 70%);top:-130px;left:-90px;animation:tdcB1 24s ease-in-out infinite alternate;}
+    .tdc-blob.b2{width:620px;height:620px;background:radial-gradient(circle,var(--bgc2),transparent 70%);bottom:-180px;right:-130px;animation:tdcB2 30s ease-in-out infinite alternate;}
+    .tdc-blob.b3{width:460px;height:460px;background:radial-gradient(circle,var(--bgc3),transparent 70%);top:38%;left:54%;animation:tdcB3 22s ease-in-out infinite alternate;}
+    @keyframes tdcB1{to{transform:translate(130px,90px) scale(1.18);}}
+    @keyframes tdcB2{to{transform:translate(-110px,-100px) scale(1.12);}}
+    @keyframes tdcB3{to{transform:translate(-90px,70px) scale(1.22);}}
+    .tdc-grain{position:absolute;inset:0;opacity:.4;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");background-size:170px 170px;}
+    
+
+    /* NAV — frosted glass */
+    .nav-wrap{border-bottom:1px solid var(--border);background:rgba(250,249,246,.66);backdrop-filter:blur(18px) saturate(180%);-webkit-backdrop-filter:blur(18px) saturate(180%);position:sticky;top:0;z-index:200;}
+    [data-theme="dark"] .nav-wrap{background:rgba(12,10,22,.62);border-bottom-color:rgba(26,43,68,.9);}
+    .nav-top{padding:0 40px;height:52px;display:flex;align-items:center;justify-content:space-between;min-width:0;}
+    /* Entrance motion is off, like The Depth Chart CFB: content is simply there on first paint instead of
+       fading/sliding in (and flickering out and back as scripts re-rendered it). Keyframes kept as no-ops
+       so every rule that names them still resolves. */
+    @keyframes logoReveal{from,to{opacity:1;transform:none;}}
+    .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;letter-spacing:-.01em;white-space:nowrap;animation:logoReveal .55s cubic-bezier(.22,1,.36,1) both;}
+    .nav-logo span{color:var(--accent);}
+    .nav-actions{display:flex;align-items:center;gap:24px;}
+    .nav-actions a{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;transition:color .15s;}
+    .nav-actions a:hover{color:var(--text);}
+    .nav-signin{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bg);background:var(--text);border:none;padding:6px 16px;cursor:pointer;text-decoration:none;display:inline-block;transition:opacity .15s;}
+    .nav-signin:hover{opacity:.85;}
+    [data-theme="dark"] .nav-signin{background:var(--text);color:var(--bg);}
+    .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+    .nav-sub::-webkit-scrollbar{display:none;}
+    .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-decoration:none;padding:0 14px;height:100%;display:flex;align-items:center;position:relative;white-space:nowrap;flex-shrink:0;transition:color .2s;}
+    .nav-sub a:first-child{padding-left:0;}
+    .nav-sub a::after{content:'';position:absolute;bottom:0;left:14px;right:14px;height:2px;background:var(--accent);transform:scaleX(0);transform-origin:left center;transition:transform .22s cubic-bezier(.22,1,.36,1);border-radius:1px 1px 0 0;}
+    .nav-sub a:first-child::after{left:0;}
+    .nav-sub a:hover{color:var(--text);}
+    .nav-sub a:hover::after,.nav-sub a.active::after{transform:scaleX(1);}
+    .nav-sub a.active{color:var(--text);}
+    .breadcrumb{padding:10px 40px;font-size:11px;color:var(--text3);border-bottom:1px solid var(--border);position:relative;z-index:1;}
+    .breadcrumb a{color:var(--text3);text-decoration:none;transition:color .15s;}
+    .breadcrumb a:hover{color:var(--text);}
+
+    /* AMBIENT LAYER */
+    .ambient-layer{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;}
+    .ambient-blob{position:absolute;border-radius:50%;will-change:transform;}
+    .amb-1{width:800px;height:800px;background:radial-gradient(circle at center,rgba(var(--tc-rgb),.04) 0%,transparent 65%);filter:blur(60px);top:-280px;right:-200px;animation:ambA 22s ease-in-out infinite alternate;}
+    .amb-2{width:700px;height:700px;background:radial-gradient(circle at center,rgba(140,140,148,.05) 0%,transparent 65%);filter:blur(70px);bottom:-240px;left:-180px;animation:ambB 28s ease-in-out infinite alternate;}
+    .amb-3{width:400px;height:400px;background:radial-gradient(circle at center,rgba(var(--tc-rgb),.03) 0%,transparent 65%);filter:blur(50px);top:40%;left:35%;animation:ambC 16s ease-in-out infinite alternate;}
+    [data-theme="dark"] .amb-1{background:radial-gradient(circle at center,rgba(var(--tc-rgb),.10) 0%,transparent 65%);}
+    [data-theme="dark"] .amb-2{background:radial-gradient(circle at center,rgba(150,150,158,.06) 0%,transparent 65%);}
+    @keyframes ambA{0%{transform:translate(0,0) scale(1);}33%{transform:translate(-45px,30px) scale(1.06);}100%{transform:translate(38px,18px) scale(1.04);}}
+    @keyframes ambB{0%{transform:translate(0,0) scale(1);}50%{transform:translate(50px,-30px) scale(1.08);}100%{transform:translate(-32px,16px) scale(1.05);}}
+    @keyframes ambC{0%{transform:translate(0,0) scale(1);}100%{transform:translate(-20px,14px) scale(.90);}}
+    #particleCanvas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;}
+    .nav-wrap,.breadcrumb,.team-hero,.page-body,footer{position:relative;z-index:1;}
+    .nav-wrap{z-index:200;}
+    footer{border-top:1px solid var(--border);padding:28px 40px;display:flex;align-items:center;justify-content:space-between;position:relative;z-index:1;}
+    .footer-logo{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:var(--text3);}
+    .footer-logo span{color:var(--accent);}
+    .footer-meta{font-size:11px;font-weight:600;color:var(--text3);}
+    .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;}
+    .theme-toggle:hover{border-color:var(--text3);color:var(--text);}
+
+    /* ---------- conference page ---------- */
+    :root{--cmono:ui-monospace,'SF Mono','SFMono-Regular',Menlo,Consolas,monospace;}
+    .cwrap{max-width:1400px;margin:0 auto;padding:22px 64px 60px;position:relative;z-index:1;}
+    /* header = the site pattern: gold eyebrow + Playfair title, league logo, season picker. No rail, no box. */
+    .chead{display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:6px 0 4px;}
+    .cmark{width:56px;height:56px;object-fit:contain;flex:0 0 auto;}
+    .chead .page-h1{margin:0;}
+    .csub{display:none;}
+    .seasonsel{margin-left:auto;display:flex;align-items:center;gap:9px;}
+    .seasonsel .lb{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
+    .seasonsel select{background:var(--bg);color:var(--text);border:1px solid var(--border2);border-radius:9px;padding:7px 11px;font-size:13px;font-family:inherit;cursor:pointer;}
+    /* stat tiles: flat cards (page bg + 1px border), Playfair values */
+    .tiles{display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));gap:12px;margin-top:18px;}
+    .tiles:empty{display:none;}
+    .tile{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:13px 16px 12px;min-width:0;}
+    .tile .k{font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .tile .v{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:24px;line-height:1.05;letter-spacing:-.01em;font-variant-numeric:tabular-nums;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .tile .v a{color:inherit;text-decoration:none;} .tile .v a:hover{color:var(--accent);}
+    .tile .s{font-size:11px;color:var(--text3);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    @media(max-width:1000px){ .tiles{grid-template-columns:repeat(2,minmax(0,1fr));} }
+    /* standings get the full width; the side panels sit in a row underneath */
+    .cols{display:grid;grid-template-columns:1fr;gap:16px;margin-top:16px;align-items:start;}
+    .cols>*{min-width:0;}
+    .cols>div:not(.box){display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
+    .cols>div:not(.box)>.box{margin-top:0 !important;}
+    .cols2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;align-items:start;}
+    .cols2>*{min-width:0;}
+    @media(max-width:920px){ .cols>div:not(.box), .cols2{grid-template-columns:1fr;} }
+    .box{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px 16px;min-width:0;}
+    .box.full{margin-top:16px;}
+    .sl{font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);margin-bottom:11px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+    .sl .sub{color:var(--text3);font-weight:600;letter-spacing:0;text-transform:none;font-size:10px;opacity:.85;}
+    /* power-rating chart: one bar per team, team colour, zero line */
+    .pwr{display:flex;flex-direction:column;gap:6px;}
+    .prow{display:grid;grid-template-columns:200px 1fr 56px;align-items:center;gap:12px;}
+    .prow .pt{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--text2);min-width:0;}
+    .prow .pt a{color:inherit;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .prow .pt a:hover{color:var(--accent);}
+    .prow .pt img{width:18px;height:18px;object-fit:contain;flex:0 0 auto;}
+    .ptrack{position:relative;height:12px;background:var(--bg3);border-radius:6px;}
+    .pbar{position:absolute;top:0;bottom:0;border-radius:6px;}
+    .pzero{position:absolute;top:-3px;bottom:-3px;width:1px;background:var(--text3);opacity:.5;}
+    .prow .pv{font-variant-numeric:tabular-nums;font-size:12px;font-weight:700;text-align:right;color:var(--text);}
+    @media(max-width:700px){ .prow{grid-template-columns:120px 1fr 44px;} }
+    #topTbl{--c1:34px;--c2:200px;} #newTbl{--c1:34px;--c2:200px;}
+    /* standings + coach rankings = the site sheet (tdc-sheets.css) */
+    #stand{--c1:34px;--c2:280px;}
+    .sheet .tm{display:inline-flex;align-items:center;gap:8px;vertical-align:middle;}
+    .sheet .tlogo{width:18px;height:18px;object-fit:contain;flex:0 0 auto;}
+    .sheet .tnm{color:var(--text);text-decoration:none;}
+    .sheet .tnm:hover{color:var(--accent);text-decoration:underline;}
+    .sheet .tag{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-left:6px;}
+    .sheet span.dim{color:var(--text3);font-size:10.5px;}
+    .sheet td.cload{text-align:left;color:var(--text3);}
+    /* awards */
+    .aw{display:flex;align-items:center;gap:10px;padding:8px 0;}
+    .aw + .aw{border-top:1px solid var(--border);}
+    .awi{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+    .awi svg{width:15px;height:15px;}
+    .awk{font-size:8.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+    .awp{font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;}
+    .awp a{color:var(--text);text-decoration:none;} .awp a:hover{color:var(--accent);}
+    .awt{font-size:10.5px;color:var(--text3);display:inline-flex;align-items:center;gap:7px;text-align:right;}
+    .awlogo{width:20px;height:20px;object-fit:contain;flex:0 0 auto;}
+    /* all-conference */
+    .actm{margin-bottom:13px;} .actm:last-child{margin-bottom:0;}
+    .acth{font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;margin-bottom:7px;}
+    .acps{display:flex;flex-wrap:wrap;gap:6px;}
+    .acp{font-size:11.5px;font-weight:600;background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:4px 11px;display:inline-flex;align-items:center;gap:6px;}
+    .acp img{width:16px;height:16px;object-fit:contain;}
+    .acp span{color:var(--text3);font-size:10px;}
+    /* inter-conference */
+    .cmp{display:flex;flex-direction:column;gap:8px;}
+    .crow{display:grid;grid-template-columns:190px 1fr 186px;align-items:center;gap:12px;}
+    @media(max-width:700px){.crow{grid-template-columns:120px 1fr;}.crow .cnum{grid-column:2;text-align:left;}}
+    .cl{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--text2);min-width:0;}
+    .cl span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .crow.me .cl{color:var(--accent);}
+    .clogo{width:19px;height:19px;object-fit:contain;flex:0 0 auto;}
+    .cbar{position:relative;height:11px;border-radius:6px;background:var(--bg3);}
+    .cfill{position:absolute;inset:0 auto 0 0;border-radius:6px;}
+    .cnum{font-family:var(--cmono);font-size:11px;color:var(--text3);text-align:right;white-space:nowrap;}
+    .cnum b{color:var(--text);font-size:12px;}
+    /* coach rankings */
+    .seg{display:inline-flex;background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:2px;}
+    .seg button{background:none;border:0;color:var(--text3);font:inherit;font-size:10.5px;font-weight:700;padding:4px 12px;border-radius:7px;cursor:pointer;}
+    .seg button.on{background:var(--bg2);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.18);}
+    .cohint{font-size:10.5px;color:var(--text3);margin:-4px 0 10px;}
+    .cohint b{color:var(--text2);}
+    .note{font-size:11.5px;color:var(--text3);margin-top:12px;padding:10px 13px;border-left:2px solid var(--border2);background:var(--bg);border-radius:0 8px 8px 0;}
+    .note b{color:var(--text2);}
+    .empty{color:var(--text3);font-size:12px;padding:6px 0;}
+    .cload{color:var(--text3);font-size:12px;padding:10px 0;}
+    @media(max-width:960px){
+      .cwrap{padding:16px 16px 50px;}
+      .cmark{width:44px;height:44px;}
+      .nav-top{height:44px;} .nav-logo{font-size:17px;}
+      .nav-signin{padding:5px 10px;font-size:10px;}
+      .nav-actions{gap:10px;} .nav-actions a{font-size:10px;}
+      .nav-sub a{white-space:nowrap;padding:0 12px;font-size:10px;}
+      .seasonsel{margin-left:0;width:100%;}
+    }
+  </style>
+  <!-- new-UI theme layer: navy+blue dark palette (matches index/player); light-mode guard keeps the toggle readable -->
+  <link rel="stylesheet" href="tdc-dense.css?v=39"/>
+  <link rel="stylesheet" href="tdc-skin.css?v=14"/>
+  <style>
+    :root:not([data-theme="dark"]){background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .nav-wrap{background:var(--bg)!important;}
+  </style>
+  <link rel="stylesheet" href="tdc-grades.css?v=1">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#FAF9F6" media="(prefers-color-scheme: light)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="The Depth Chart">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script src="tdc-pwa.js?v=2" defer></script>
+  <link rel="stylesheet" href="tdc-hq-site.css?v=24"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+  <link rel="stylesheet" href="tdc-column.css?v=4"/>
+</head>
+<body class="hqsite">
+<script src="tdc-nav.js?v=37"></script>
+<div class="tdc-bg" aria-hidden="true">
+  <div class="tdc-mesh"></div>
+  <div class="tdc-blob b1"></div>
+  <div class="tdc-blob b2"></div>
+  <div class="tdc-blob b3"></div>
+  <div class="tdc-grain"></div>
+</div>
+
+<div class="nav-wrap">
+  <div class="nav-top">
+    <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
+    <div class="nav-actions" id="navActions">
+      <a href="pricing.html">Pricing</a>
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle dark mode">&#127769;</button>
+      <a href="signin.html" style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;margin-right:4px;">Sign In</a>
+      <a href="pricing.html" class="nav-signin" style="text-decoration:none;">Subscribe</a>
+    </div>
+  </div>
+  <div class="nav-sub">
+      <a href="index.html">Rankings</a>
+      <a href="roster.html">Players</a>
+      <a href="compare-players.html">Compare</a>
+      <a href="draft.html">Big Board</a>
+      <a href="analytics.html">Stats</a>
+      <a href="shot-genome.html">Shot Genome</a>
+      <a href="onoff.html">On/Off</a>
+      <a href="tournaments.html">Tournaments</a>
+      <a href="predict.html">Predict</a>
+      <a href="awards.html">Awards</a>
+      <a href="bracket.html">Bracket</a>
+      <a href="buzz.html">News</a>
+      <a href="coaches.html">Coaches</a>
+      <a href="development.html">Development</a>
+      <a href="games.html">🎮 Games</a>
+      <a href="community.html">Community</a>
+      <a href="team.html">Teams</a>
+      <a href="coach-tier.html">⬡ Coach's Tier</a>
+    <a href="customize.html">✦ Customize</a>
+      <a href="pricing.html">Pricing</a>
+    </div>
+</div>
+
+<div class="breadcrumb">
+  <a href="index.html">Rankings</a> &rsaquo; <span id="bcHub">Conferences</span>
+</div>
+
+<div class="cwrap">
+  <div class="chead">
+    <div>
+      <div class="page-eyebrow" id="ceyebrow">Teams &middot; Conferences</div>
+      <h1 class="page-h1">Conferences</h1>
+    </div>
+    <div class="seasonsel" id="tdcSeasonSlot"></div>
+  </div>
+
+  <div class="tiles" id="tiles"></div>
+
+  <div class="box full">
+    <div class="sl"><span id="hubTitle">Conference rankings</span><span class="sub" id="hubSub"></span></div>
+    <div class="sheet-wrap"><table class="sheet dense freeze2" id="hub"><tbody><tr><td class="cload">Loading&hellip;</td></tr></tbody></table></div>
+  </div>
+
+  <div class="box full" id="pwrbox" style="display:none">
+    <div class="sl"><span>League strength</span><span class="sub" id="pwrSub">average power rating of every team in the league</span></div>
+    <div class="pwr" id="pwr"></div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-logo">The Depth <span>Chart</span></div>
+  <div class="footer-meta">College Basketball Roster Analysis &middot; 2026&ndash;27</div>
+</footer>
+
+<style>
+  #hub{--c1:34px;--c2:250px;}
+  #hub .cl{display:inline-flex;align-items:center;gap:8px;}
+  #hub .cl img{width:20px;height:20px;object-fit:contain;flex:0 0 auto;}
+</style>
+<script>
+const SB_URL = 'https://izlqhnxowdhtdofkwrho.supabase.co';
+const SB_KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H = { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` };
+function toggleTheme(){
+  var cur=document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light';
+  var next=cur==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',next);
+  try{localStorage.setItem('tdc_theme',next);}catch(e){}
+}
+try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.setAttribute('data-theme',_s);}catch(e){}
+
+// Every D1 league, ranked. 2026-27 reads the published projection (predictive_ratings, every team's
+// projected power rating + national rank); past seasons read team_seasons (Power Rating, NCAA bids).
+// Conferences come in three spellings (sheet codes, ESPN short names, full names) — tdcConfFull()
+// (conf-logos.js) folds them into one, so no league is split in two.
+(function(){
+  var MINY=2007, MAXY=2026, PROJ=2027;
+  var P=new URLSearchParams(location.search);
+  var YEAR=parseInt(P.get('season'),10);
+  if(!((YEAR>=MINY&&YEAR<=MAXY)||YEAR===PROJ)) YEAR=PROJ;
+  var isProj=(YEAR===PROJ);
+  function sel(id){ return document.getElementById(id); }
+  function label(y){ return (y-1)+'\u2013'+String(y).slice(2); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function nn(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }
+  function full(c){ return window.tdcConfFull?tdcConfFull(c):c; }
+  function cInfo(c){ try{ return window.tdcConf?tdcConf(c):null; }catch(e){ return null; } }
+  function tInfo(n){ try{ return window.tdcTeamColor?tdcTeamColor(n):null; }catch(e){ return null; } }
+  function tLogo(n){ var i=tInfo(n); return (i&&i.logo)?'<img class="tlogo" src="'+i.logo+'" alt="" loading="lazy" onerror="this.remove()">':''; }
+  function sgn(v){ return (v>=0?'+':'')+(+v).toFixed(1); }
+  function get(path){ return fetch(SB_URL+'/rest/v1/'+path,{headers:H}).then(function(r){ if(!r.ok) throw new Error(path+' '+r.status); return r.json(); }); }
+  function confHref(c){ return 'conference.html?conf='+encodeURIComponent(c)+'&season='+YEAR; }
+  function teamHref(t){ return 'team.html?team='+encodeURIComponent(t)+'&season='+YEAR; }
+
+  TDCSeason.mount('#tdcSeasonSlot', {
+    min:MINY, max:PROJ, current:YEAR, title:'Season',
+    labelFn:function(y){ return y===PROJ ? (label(y)+' \u00b7 Projected') : label(y); },
+    onChange:function(y){ var u=new URL(location.href); u.searchParams.set('season',y); location.href=u.toString(); }
+  });
+  sel('ceyebrow').textContent='Teams \u00b7 Conferences \u00b7 '+label(YEAR)+(isProj?' projected':'');
+  document.title='Conferences '+label(YEAR)+' \u2014 The Depth Chart';
+
+  function tiles(list, n){
+    sel('tiles').style.setProperty('--n',list.length);
+    sel('tiles').innerHTML=list.map(function(x){
+      return '<div class="tile"><div class="k">'+x[0]+'</div><div class="v">'+x[1]+'</div>'+(x[2]?'<div class="s">'+x[2]+'</div>':'')+'</div>'; }).join('');
+  }
+  function chart(L, key, sub){
+    var vals=L.map(function(c){ return c[key]; }), lo=Math.min(0,Math.min.apply(null,vals)), hi=Math.max(0,Math.max.apply(null,vals)), span=(hi-lo)||1, z=(-lo/span)*100;
+    sel('pwr').innerHTML=L.map(function(c){
+      var v=c[key], i=cInfo(c.conf)||{}, x=((Math.min(v,0)-lo)/span)*100, w=(Math.abs(v)/span)*100;
+      return '<div class="prow"><span class="pt">'+(i.logo?'<img src="'+i.logo+'" alt="" loading="lazy">':'')+'<a href="'+confHref(c.conf)+'">'+esc(i.short||c.conf)+'</a></span>'+
+        '<span class="ptrack"><span class="pbar" style="left:'+x.toFixed(2)+'%;width:'+Math.max(w,.6).toFixed(2)+'%;background:'+(i.color||'var(--accent)')+'"></span><span class="pzero" style="left:'+z.toFixed(2)+'%"></span></span>'+
+        '<span class="pv">'+sgn(v)+'</span></div>'; }).join('');
+    sel('pwrSub').textContent=sub; sel('pwrbox').style.display='';
+  }
+  function confCell(c){ var i=cInfo(c)||{}; return '<td class="l nm"><span class="cl">'+(i.logo?'<img src="'+i.logo+'" alt="" loading="lazy">':'')+'<a class="tnm" href="'+confHref(c)+'">'+esc(c)+'</a></span></td>'; }
+
+  if(isProj) loadProj(); else loadPast();
+
+  function loadProj(){
+    get('predictive_ratings?season=eq.'+PROJ+'&select=data&limit=1').then(function(res){
+      var teams=(res&&res[0]&&res[0].data&&res[0].data.teams)||[];
+      if(!teams.length) throw new Error('no projection on file');
+      var seen={}, by={};
+      teams.slice().sort(function(a,b){ return ((b.projected?1:0)-(a.projected?1:0))||((a.rank||999)-(b.rank||999)); })
+        .forEach(function(t){ var k=nn(t.full)+'|'+full(t.conf); if(seen[k]||!t.conf) return; seen[k]=1; var c=full(t.conf); (by[c]=by[c]||[]).push(t); });
+      var L=Object.keys(by).map(function(c){
+        var ts=by[c].sort(function(a,b){ return (a.rank||999)-(b.rank||999); });
+        var avg=ts.reduce(function(a,t){ return a+(+t.rating||0); },0)/ts.length;
+        return {conf:c, teams:ts, n:ts.length, avg:avg, top25:ts.filter(function(t){ return t.rank<=25; }).length,
+                top50:ts.filter(function(t){ return t.rank<=50; }).length, fav:ts[0]};
+      }).sort(function(a,b){ return b.avg-a.avg; });
+      paintProj(L);
+      bestPlayers(L);
+    }).catch(function(e){ sel('hub').innerHTML='<tbody><tr><td class="cload">Could not load the projection ('+esc(e.message||e)+').</td></tr></tbody>'; });
+  }
+  var BEST={};
+  function paintProj(L){
+    var top=L[0]||{};
+    tiles([['Conferences',L.length,'Division I'],['Teams',L.reduce(function(a,c){ return a+c.n; },0),''],
+      ['Strongest',esc((cInfo(top.conf)||{}).short||top.conf||'\u2014'),'avg power '+sgn(top.avg||0)],
+      ['Most top-25 teams',(function(){ var m=L.slice().sort(function(a,b){ return b.top25-a.top25; })[0]||{}; return esc((cInfo(m.conf)||{}).short||m.conf||'\u2014')+' \u00b7 '+(m.top25||0); })(),'projected']]);
+    sel('hubSub').textContent='ranked by the average projected power rating of every team in the league';
+    sel('hub').innerHTML='<thead><tr><th class="rk">#</th><th class="l">Conference</th><th>Teams</th><th data-heat="1">Avg power</th><th>Top 25</th><th>Top 50</th><th class="l">Favourite</th><th>Nat&rsquo;l</th><th class="l">Best player</th><th>OVR</th></tr></thead><tbody>'+
+      L.map(function(c,i){
+        var f=c.fav||{}, b=BEST[c.conf];
+        return '<tr><td class="rk">'+(i+1)+'</td>'+confCell(c.conf)+'<td>'+c.n+'</td><td class="big">'+sgn(c.avg)+'</td><td>'+c.top25+'</td><td>'+c.top50+'</td>'+
+          '<td class="l"><span class="tm">'+tLogo(f.full)+'<a class="tnm" href="'+teamHref(f.full)+'">'+esc(f.team||f.full)+'</a></span></td><td class="dim">#'+(f.rank||'\u2014')+'</td>'+
+          '<td class="l">'+(b?'<a class="tnm" href="player.html?'+(b.espn_id?'espn='+b.espn_id+'&':'')+'name='+encodeURIComponent(b.name)+'&team='+encodeURIComponent(b.team)+'">'+esc(b.name)+'</a><span class="dim"> \u00b7 '+esc(b.team)+'</span>':'<span class="dim">\u2014</span>')+'</td>'+
+          '<td class="strong">'+(b?b._ovr:'')+'</td></tr>';
+      }).join('')+'</tbody>';
+    if(window.tdcSheetHeat) tdcSheetHeat(sel('hub'));
+    chart(L,'avg','average projected power rating of every team in the league');
+    paintProj._L=L;
+  }
+  // best player per league: every 2026-27 roster, graded like every other page (gradeSolo with
+  // minutes, editor OVR for freshmen)
+  function bestPlayers(L){
+    var confOf={}; L.forEach(function(c){ c.teams.forEach(function(t){ confOf[t.team]=c.conf; confOf[t.full]=c.conf; }); });
+    var out=[], off=0;
+    (function page(){
+      return get('players?select=id,name,team,espn_id,tdc_grade,class_year,mpg&order=id.asc&limit=1000&offset='+off).then(function(r){
+        out=out.concat(r); off+=1000; if(r.length===1000) return page();
+      });
+    })().then(function(){ return (window.TDCProjGrade&&TDCProjGrade.ready)?TDCProjGrade.ready.catch(function(){}):null; }).then(function(){
+      out.forEach(function(p){
+        if(!p.name||p.name==='\u2014') return;
+        var c=confOf[p.team]; if(!c) return;
+        var raw=parseFloat(p.tdc_grade), g=null;
+        if((+p.mpg||0)>0&&window.TDCProjGrade&&TDCProjGrade.gradeSolo){ try{ g=TDCProjGrade.gradeSolo({id:p.id,espn_id:p.espn_id,tdc_grade:p.tdc_grade,yr:p.class_year}); }catch(e){} }
+        p._ovr=(g!=null&&isFinite(g))?Math.round(g):(isFinite(raw)?Math.round(raw):null);
+        if(p._ovr!=null&&(!BEST[c]||p._ovr>BEST[c]._ovr)) BEST[c]=p;
+      });
+      if(paintProj._L) paintProj(paintProj._L);
+    }).catch(function(){});
+  }
+
+  function loadPast(){
+    get('team_seasons?select=team,conference,srs,wins,losses,conf_wins,conf_losses,ncaa_seed,ncaa_result&season_year=eq.'+YEAR+'&limit=1000').then(function(all){
+      var by={};
+      all.forEach(function(r){ if(!r.conference) return; var c=full(r.conference); (by[c]=by[c]||[]).push(r); });
+      var DEPTH=['Round of 64','Round of 32','Sweet 16','Elite Eight','Final Four','Championship Game','Champion'];
+      var L=Object.keys(by).map(function(c){
+        var ts=by[c], s=ts.filter(function(t){ return t.srs!=null; });
+        var avg=s.reduce(function(a,t){ return a+(+t.srs); },0)/Math.max(1,s.length);
+        var champ=ts.slice().sort(function(a,b){ return ((b.conf_wins-b.conf_losses)-(a.conf_wins-a.conf_losses))||((+b.srs||-99)-(+a.srs||-99)); })[0];
+        var best=ts.filter(function(t){ return t.ncaa_result; }).sort(function(a,b){ return DEPTH.indexOf(b.ncaa_result)-DEPTH.indexOf(a.ncaa_result); })[0];
+        return {conf:c, n:ts.length, avg:avg, bids:ts.filter(function(t){ return t.ncaa_seed!=null; }).length, champ:champ, best:best};
+      }).filter(function(c){ return c.n>=4; }).sort(function(a,b){ return b.avg-a.avg; });
+      var top=L[0]||{}, mostBids=L.slice().sort(function(a,b){ return b.bids-a.bids; })[0]||{};
+      tiles([['Conferences',L.length,label(YEAR)],['Strongest',esc((cInfo(top.conf)||{}).short||top.conf||'\u2014'),'avg power '+sgn(top.avg||0)],
+        ['Most NCAA bids',esc((cInfo(mostBids.conf)||{}).short||mostBids.conf||'\u2014')+' \u00b7 '+(mostBids.bids||0),'']]);
+      sel('hubSub').textContent='ranked by the average Power Rating of every team in the league';
+      sel('hub').innerHTML='<thead><tr><th class="rk">#</th><th class="l">Conference</th><th>Teams</th><th data-heat="1">Avg power</th><th>NCAA bids</th><th class="l">Regular-season champion</th><th class="l">Deepest NCAA run</th></tr></thead><tbody>'+
+        L.map(function(c,i){
+          return '<tr><td class="rk">'+(i+1)+'</td>'+confCell(c.conf)+'<td>'+c.n+'</td><td class="big">'+sgn(c.avg)+'</td><td>'+c.bids+'</td>'+
+            '<td class="l"><span class="tm">'+tLogo(c.champ.team)+'<a class="tnm" href="'+teamHref(c.champ.team)+'">'+esc(c.champ.team)+'</a><span class="dim"> \u00b7 '+c.champ.conf_wins+'-'+c.champ.conf_losses+'</span></span></td>'+
+            '<td class="l dim">'+(c.best?esc(c.best.team)+' \u00b7 '+esc(c.best.ncaa_result):'\u2014')+'</td></tr>';
+        }).join('')+'</tbody>';
+      if(window.tdcSheetHeat) tdcSheetHeat(sel('hub'));
+      chart(L,'avg','average Power Rating of every team in the league');
+    }).catch(function(e){ sel('hub').innerHTML='<tbody><tr><td class="cload">Could not load '+label(YEAR)+' ('+esc(e.message||e)+').</td></tr></tbody>'; });
+  }
+})();
+</script>
+  <script src="tdc-sheets.js?v=1"></script>
+  <script src="tdc-version.js?v=2"></script>
+</body>
+</html>

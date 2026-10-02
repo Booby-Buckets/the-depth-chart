@@ -7,10 +7,10 @@
   <script src="auth.js?v=delacct1"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="team-colors.js?v=11"></script>
-  <script src="conf-logos.js?v=3"></script>
+  <script src="conf-logos.js?v=4"></script>
   <script src="tdc-projgrade.js?v=base36"></script>
   <script src="tdc-awards.js?v=9"></script>
-  <script src="tdc-ratings.js?v=25"></script>
+  <script src="tdc-ratings.js?v=26"></script>
   <script src="tdc-schedule.js?v=20s"></script>
   <script src="tdc-glossary.js?v=13"></script>
   <meta charset="UTF-8"/>
@@ -131,42 +131,48 @@
 
     /* ---------- conference page ---------- */
     :root{--cmono:ui-monospace,'SF Mono','SFMono-Regular',Menlo,Consolas,monospace;}
-    .cwrap{max-width:1180px;margin:0 auto;padding:18px 40px 60px;position:relative;z-index:1;}
-    .chead{position:relative;display:flex;align-items:center;gap:18px;flex-wrap:wrap;border:1px solid var(--border);
-      border-left:3px solid var(--accent);border-radius:16px;padding:18px 22px;overflow:hidden;background:var(--bg2);}
-    .cmark{width:60px;height:60px;object-fit:contain;flex:0 0 auto;}
-    .cname{font-family:'Playfair Display',serif;font-size:28px;font-weight:800;letter-spacing:-.02em;line-height:1.05;}
-    .csub{font-size:12.5px;color:var(--text2);margin-top:5px;}
-    .csub b{color:var(--text);}
+    .cwrap{max-width:1400px;margin:0 auto;padding:22px 64px 60px;position:relative;z-index:1;}
+    /* header = the site pattern: gold eyebrow + Playfair title, league logo, season picker. No rail, no box. */
+    .chead{display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:6px 0 4px;}
+    .cmark{width:56px;height:56px;object-fit:contain;flex:0 0 auto;}
+    .chead .page-h1{margin:0;}
+    .csub{display:none;}
     .seasonsel{margin-left:auto;display:flex;align-items:center;gap:9px;}
     .seasonsel .lb{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
     .seasonsel select{background:var(--bg);color:var(--text);border:1px solid var(--border2);border-radius:9px;padding:7px 11px;font-size:13px;font-family:inherit;cursor:pointer;}
-    /* the site's navy KPI band (homepage / team / player heroes): one strip of tiles,
-       Playfair values, small-caps labels, the league's headline (Avg Power Rating) in gold */
-    .tiles{display:grid;grid-template-columns:repeat(var(--n,6),minmax(0,1fr));gap:0;margin-top:14px;position:relative;color:#fff;
-      border:1px solid rgba(255,255,255,.14);border-radius:14px;overflow:hidden;
-      background:linear-gradient(120deg,#0B1220 0%,#121C33 48%,#1A2A4C 100%);
-      box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 14px 34px rgba(0,8,30,.28);}
-    .tiles::after{content:'';position:absolute;inset:0;pointer-events:none;
-      background:radial-gradient(560px 180px at 96% 0%, rgba(168,132,60,.20), transparent 70%), radial-gradient(420px 160px at 0% 100%, rgba(90,169,255,.14), transparent 70%);}
+    /* stat tiles: flat cards (page bg + 1px border), Playfair values */
+    .tiles{display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));gap:12px;margin-top:18px;}
     .tiles:empty{display:none;}
-    .tile{position:relative;z-index:1;background:none;border:none;border-right:1px solid rgba(255,255,255,.12);border-radius:0;padding:14px 18px 13px;min-width:0;}
-    .tile:last-child{border-right:none;}
-    .tile .k{font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.55);margin:0 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .tile .v{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:24px;line-height:1;letter-spacing:-.01em;font-variant-numeric:tabular-nums;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .tile.acc .v{color:#E6D5A8;}
-    .tile .s{font-size:11px;color:rgba(255,255,255,.55);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .tile .s b{color:rgba(255,255,255,.88);font-weight:700;}
-    @media(max-width:1000px){ .tiles{grid-template-columns:repeat(3,minmax(0,1fr));} .tile{border-bottom:1px solid rgba(255,255,255,.12);} .tile:nth-child(3n){border-right:none;} .tile:nth-last-child(-n+3){border-bottom:none;} }
-    @media(max-width:560px){ .tiles{grid-template-columns:repeat(2,minmax(0,1fr));} .tile:nth-child(3n){border-right:1px solid rgba(255,255,255,.12);} .tile:nth-child(2n){border-right:none;} .tile:nth-last-child(-n+3){border-bottom:1px solid rgba(255,255,255,.12);} .tile:nth-last-child(-n+2){border-bottom:none;} }
-    .cols{display:grid;grid-template-columns:1.55fr 1fr;gap:16px;margin-top:16px;align-items:start;}
-    @media(max-width:920px){.cols{grid-template-columns:1fr;}}
-    .cols>*{min-width:0;}   /* a grid item's auto min-width let the standings sheet push its box 16px past the column on an iPad */
-    .cols .box{overflow-x:auto;}
-    .box{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px 16px 16px;}
+    .tile{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:13px 16px 12px;min-width:0;}
+    .tile .k{font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .tile .v{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:24px;line-height:1.05;letter-spacing:-.01em;font-variant-numeric:tabular-nums;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .tile .v a{color:inherit;text-decoration:none;} .tile .v a:hover{color:var(--accent);}
+    .tile .s{font-size:11px;color:var(--text3);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    @media(max-width:1000px){ .tiles{grid-template-columns:repeat(2,minmax(0,1fr));} }
+    /* standings get the full width; the side panels sit in a row underneath */
+    .cols{display:grid;grid-template-columns:1fr;gap:16px;margin-top:16px;align-items:start;}
+    .cols>*{min-width:0;}
+    .cols>div:not(.box){display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
+    .cols>div:not(.box)>.box{margin-top:0 !important;}
+    .cols2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;align-items:start;}
+    .cols2>*{min-width:0;}
+    @media(max-width:920px){ .cols>div:not(.box), .cols2{grid-template-columns:1fr;} }
+    .box{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px 16px;min-width:0;}
     .box.full{margin-top:16px;}
     .sl{font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);margin-bottom:11px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
     .sl .sub{color:var(--text3);font-weight:600;letter-spacing:0;text-transform:none;font-size:10px;opacity:.85;}
+    /* power-rating chart: one bar per team, team colour, zero line */
+    .pwr{display:flex;flex-direction:column;gap:6px;}
+    .prow{display:grid;grid-template-columns:200px 1fr 56px;align-items:center;gap:12px;}
+    .prow .pt{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--text2);min-width:0;}
+    .prow .pt a{color:inherit;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .prow .pt a:hover{color:var(--accent);}
+    .prow .pt img{width:18px;height:18px;object-fit:contain;flex:0 0 auto;}
+    .ptrack{position:relative;height:12px;background:var(--bg3);border-radius:6px;}
+    .pbar{position:absolute;top:0;bottom:0;border-radius:6px;}
+    .pzero{position:absolute;top:-3px;bottom:-3px;width:1px;background:var(--text3);opacity:.5;}
+    .prow .pv{font-variant-numeric:tabular-nums;font-size:12px;font-weight:700;text-align:right;color:var(--text);}
+    @media(max-width:700px){ .prow{grid-template-columns:120px 1fr 44px;} }
+    #topTbl{--c1:34px;--c2:200px;} #newTbl{--c1:34px;--c2:200px;}
     /* standings + coach rankings = the site sheet (tdc-sheets.css) */
     #stand{--c1:34px;--c2:280px;}
     .sheet .tm{display:inline-flex;align-items:center;gap:8px;vertical-align:middle;}
@@ -217,11 +223,11 @@
     .cload{color:var(--text3);font-size:12px;padding:10px 0;}
     @media(max-width:960px){
       .cwrap{padding:16px 16px 50px;}
+      .cmark{width:44px;height:44px;}
       .nav-top{height:44px;} .nav-logo{font-size:17px;}
       .nav-signin{padding:5px 10px;font-size:10px;}
       .nav-actions{gap:10px;} .nav-actions a{font-size:10px;}
       .nav-sub a{white-space:nowrap;padding:0 12px;font-size:10px;}
-      .cname{font-size:22px;}
       .seasonsel{margin-left:0;width:100%;}
     }
   </style>
@@ -248,7 +254,7 @@
   <link rel="stylesheet" href="tdc-column.css?v=4"/>
 </head>
 <body class="hqsite">
-<script src="tdc-nav.js?v=36"></script>
+<script src="tdc-nav.js?v=37"></script>
 <div class="tdc-bg" aria-hidden="true">
   <div class="tdc-mesh"></div>
   <div class="tdc-blob b1"></div>
@@ -292,14 +298,15 @@
 </div>
 
 <div class="breadcrumb">
-  <a href="index.html">Rankings</a> &rsaquo; <span id="bcConf">Conference</span>
+  <a href="index.html">Rankings</a> &rsaquo; <a href="conferences.html" id="bcHub">Conferences</a> &rsaquo; <span id="bcConf">Conference</span>
 </div>
 
 <div class="cwrap">
   <div class="chead">
     <img class="cmark" id="cmark" alt="" style="display:none">
     <div>
-      <div class="cname" id="cname">Loading&hellip;</div>
+      <div class="page-eyebrow" id="ceyebrow">Conferences</div>
+      <h1 class="page-h1" id="cname">Loading&hellip;</h1>
       <div class="csub" id="csub"></div>
     </div>
     <div class="seasonsel" id="tdcSeasonSlot"></div>
@@ -322,6 +329,22 @@
         <div id="honours"></div>
       </div>
     </div>
+  </div>
+
+  <div class="cols2" id="projPlayers" style="display:none">
+    <div class="box">
+      <div class="sl"><span>Top players</span><span class="sub">projected 2026-27 overall</span></div>
+      <div class="sheet-wrap"><table class="sheet dense freeze2" id="topTbl"><tbody><tr><td class="cload">Loading&hellip;</td></tr></tbody></table></div>
+    </div>
+    <div class="box">
+      <div class="sl"><span>Top newcomers</span><span class="sub">transfers and incoming freshmen</span></div>
+      <div class="sheet-wrap"><table class="sheet dense freeze2" id="newTbl"><tbody><tr><td class="cload">Loading&hellip;</td></tr></tbody></table></div>
+    </div>
+  </div>
+
+  <div class="box full" id="pwrbox" style="display:none">
+    <div class="sl"><span>Power ratings</span><span class="sub">projected points better than an average D1 team, per game</span></div>
+    <div class="pwr" id="pwr"></div>
   </div>
 
   <div class="box full">
@@ -467,6 +490,7 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
     if(QCONF){
       if(names[QCONF]) return QCONF;
       if(CODE2CONF[QCONF]&&names[CODE2CONF[QCONF]]) return CODE2CONF[QCONF];
+      if(window.tdcConfFull&&names[tdcConfFull(QCONF)]) return tdcConfFull(QCONF);
       var q=nn(QCONF);
       var hit=Object.keys(names).filter(function(c){
         var i=cInfo(c)||{};
@@ -536,9 +560,14 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
       teams.forEach(function(t){ if(t.full&&t.conf) TEAMCONF[t.full]=CONF_FULL(t.conf); });
       CONF=resolveConf(teams.map(function(t){ return {team:t.full, conference:CONF_FULL(t.conf)}; }));
       if(!CONF){ notFound(teams.map(function(t){ return {conference:CONF_FULL(t.conf)}; })); return; }
+      // one row per school: a rostered projection beats a carried-over prior row for the same team
+      var seen={};
       ROWS=teams.filter(function(t){ return CONF_FULL(t.conf)===CONF; })
+                .sort(function(a,b){ return ((b.projected?1:0)-(a.projected?1:0))||((a.rank||999)-(b.rank||999)); })
+                .filter(function(t){ var k=nn(t.full)+'|'+nn(t.team); if(seen[k]) return false; seen[k]=1; return true; })
                 .sort(function(a,b){ return (a.rank||999)-(b.rank||999); });
       renderProjHead(); renderProjStandings();
+      renderPower(); loadProjPlayers();
       renderProjAwards(res[1]);
       loadCoaches();
       sel('cmptitle').parentNode.parentNode.style.display='none';   // no games played yet
@@ -551,13 +580,17 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
   // for everyone else; normalise to the full name the rest of the page uses.
   var CODE_FULL={ACC:'Atlantic Coast Conference','B10':'Big Ten Conference',
     'BIG-12':'Big 12 Conference','Big-East':'Big East Conference','SEC':'Southeastern Conference'};
-  function CONF_FULL(c){ return CODE_FULL[c]||c||''; }
+  // predictive_ratings mixes the sheet codes (rostered teams: 'WCC', 'A10', 'MWC') with full league
+  // names (teams carried over from last season) — normalise both so a league is never split in two.
+  function CONF_FULL(c){ return window.tdcConfFull ? tdcConfFull(c) : (CODE_FULL[c]||c||''); }
 
   function renderProjHead(){
     var info=cInfo(CONF)||{};
     document.title=(info.short||CONF)+' '+label(PROJ)+' projection \u2014 The Depth Chart';
     sel('bcConf').textContent=(info.short||CONF)+' '+label(PROJ);
     sel('cname').textContent=CONF;
+    sel('ceyebrow').textContent='Conferences \u00b7 '+label(PROJ)+' projected';
+    sel('bcHub').href='conferences.html?season='+PROJ;
     if(info.logo){ var m=sel('cmark'); m.src=info.logo; m.alt=CONF; m.style.display='';
       m.onerror=function(){ this.style.display='none'; }; }
     var best=ROWS[0]||{};
@@ -566,11 +599,14 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
     sel('awyr').textContent=label(PROJ)+' projected';
     var top25=ROWS.filter(function(t){ return (t.rank||999)<=25; }).length;
     var avg=ROWS.reduce(function(a,t){ return a+(+t.rating||0); },0)/Math.max(1,ROWS.length);
+    var top50=ROWS.filter(function(t){ return (t.rank||999)<=50; }).length;
+    sel('tiles').style.setProperty('--n',5);
     sel('tiles').innerHTML=[
+      ['Favourite','<a href="'+teamHref(best.full||'')+'">'+esc(best.team||best.full||'\u2014')+'</a>','#'+(best.rank||'\u2014')+' nationally'],
       ['Teams',ROWS.length,''],
       ['Top 25',top25,'nationally projected'],
-      ['Avg rating',(Math.round(avg*10)/10),'league strength'],
-      ['Favourite',esc((best.full||'\u2014').split(' ')[0]),'#'+(best.rank||'\u2014')+" nat'l"]
+      ['Top 50',top50,'nationally projected'],
+      ['Avg power',(avg>=0?'+':'')+(Math.round(avg*10)/10),'league strength']
     ].map(function(x){
       return '<div class="tile"><div class="v">'+x[1]+'</div><div class="k">'+x[0]+'</div>'+
              (x[2]?'<div class="s">'+x[2]+'</div>':'')+'</div>'; }).join('');
@@ -617,6 +653,61 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
     }
   }
 
+  // ── power-rating chart: one bar per team from a zero line, in team colour ──
+  function renderPower(){
+    var box=sel('pwrbox'); if(!ROWS.length) return;
+    var vals=ROWS.map(function(t){ return +t.rating||0; });
+    var lo=Math.min(0,Math.min.apply(null,vals)), hi=Math.max(0,Math.max.apply(null,vals)), span=(hi-lo)||1;
+    var z=(-lo/span)*100;
+    sel('pwr').innerHTML=ROWS.slice().sort(function(a,b){ return (+b.rating||0)-(+a.rating||0); }).map(function(t){
+      var v=+t.rating||0, i=tInfo(t.full)||tInfo(t.team)||{}, col=i.color||i.hex||'var(--accent)';
+      var x=((Math.min(v,0)-lo)/span)*100, w=(Math.abs(v)/span)*100;
+      return '<div class="prow"><span class="pt">'+tLogo(t.full,'')+'<a href="'+teamHref(t.full)+'">'+esc(t.team||t.full)+'</a></span>'+
+        '<span class="ptrack"><span class="pbar" style="left:'+x.toFixed(2)+'%;width:'+Math.max(w,.6).toFixed(2)+'%;background:'+col+'"></span>'+
+        '<span class="pzero" style="left:'+z.toFixed(2)+'%"></span></span>'+
+        '<span class="pv">'+(v>=0?'+':'')+v.toFixed(1)+'</span></div>';
+    }).join('');
+    box.style.display='';
+  }
+
+  // ── top players + top newcomers: the league's 2026-27 rosters, graded the way every
+  // other page grades them (gradeSolo for anyone with minutes, the editor OVR for freshmen) ──
+  function loadProjPlayers(){
+    var wrap=sel('projPlayers'), names=ROWS.map(function(t){ return t.team; }).filter(Boolean);
+    if(!names.length) return;
+    wrap.style.display='';
+    var q='players?select=id,name,team,espn_id,tdc_grade,class_year,yr,mpg,position,height,hometown,is_addition&team=in.('+
+      names.map(function(n){ return '"'+String(n).replace(/"/g,'')+'"'; }).map(encodeURIComponent).join(',')+')&order=id.asc&limit=2000';
+    var ready=(window.TDCProjGrade&&TDCProjGrade.ready)?TDCProjGrade.ready.catch(function(){}):Promise.resolve();
+    Promise.all([get(q), ready]).then(function(res){
+      var pl=(res[0]||[]).filter(function(p){ return p.name&&p.name!=='\u2014'&&p.name!=='-'; });
+      pl.forEach(function(p){
+        var raw=parseFloat(p.tdc_grade), g=null;
+        if((+p.mpg||0)>0 && window.TDCProjGrade && TDCProjGrade.gradeSolo){
+          try{ g=TDCProjGrade.gradeSolo({id:p.id, espn_id:p.espn_id, tdc_grade:p.tdc_grade, yr:p.class_year||p.yr}); }catch(e){}
+        }
+        p._ovr=(g!=null&&isFinite(g))?Math.round(g):(isFinite(raw)?Math.round(raw):null);
+        p._new=!!(p.is_addition || (p.hometown&&String(p.hometown).trim()) || /^(r-)?fr/i.test(String(p.class_year||p.yr||'')));
+      });
+      var graded=pl.filter(function(p){ return p._ovr!=null; }).sort(function(a,b){ return b._ovr-a._ovr; });
+      function rowsHtml(list, from){
+        return list.map(function(p,i){
+          return '<tr><td class="rk">'+(i+1)+'</td>'+
+            '<td class="l nm"><a class="tnm" href="player.html?'+(p.espn_id?'espn='+p.espn_id+'&':'')+'name='+encodeURIComponent(p.name)+'&team='+encodeURIComponent(p.team)+'">'+esc(p.name)+'</a></td>'+
+            '<td class="l dim"><span class="tm">'+tLogo(p.team,'tlogo')+esc(p.team)+'</span></td>'+
+            '<td class="dim">'+esc(p.position||'')+'</td><td class="dim">'+esc(p.class_year||p.yr||'')+'</td>'+
+            (from?'<td class="l dim">'+esc(p.hometown||(/^(r-)?fr/i.test(String(p.class_year||''))?'Freshman':''))+'</td>':'')+
+            '<td class="big strong">'+p._ovr+'</td></tr>';
+        }).join('');
+      }
+      var head=function(from){ return '<thead><tr><th class="rk">#</th><th class="l">Player</th><th class="l">Team</th><th>Pos</th><th>Yr</th>'+
+        (from?'<th class="l">From</th>':'')+'<th>OVR</th></tr></thead>'; };
+      var top=graded.slice(0,15), nw=graded.filter(function(p){ return p._new; }).slice(0,15);
+      sel('topTbl').innerHTML=top.length?head(false)+'<tbody>'+rowsHtml(top,false)+'</tbody>':'<tbody><tr><td class="cload">No 2026-27 rosters on file for this league yet.</td></tr></tbody>';
+      sel('newTbl').innerHTML=nw.length?head(true)+'<tbody>'+rowsHtml(nw,true)+'</tbody>':'<tbody><tr><td class="cload">No newcomers on file yet.</td></tr></tbody>';
+    }).catch(function(){ wrap.style.display='none'; });
+  }
+
   function renderProjAwards(aw){
     var host=sel('awards'), acHost=sel('allconf');
     var code=AWCODE[CONF];
@@ -655,6 +746,8 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
     document.title=(info.short||CONF)+' '+label(YEAR)+' \u2014 The Depth Chart';
     sel('bcConf').textContent=(info.short||CONF)+' '+label(YEAR);
     sel('cname').textContent=CONF;
+    sel('ceyebrow').textContent='Conferences \u00b7 '+label(YEAR);
+    sel('bcHub').href='conferences.html?season='+YEAR;
     if(info.logo){ var m=sel('cmark'); m.src=info.logo; m.alt=CONF; m.style.display='';
       m.onerror=function(){ this.style.display='none'; }; }
     var bids=ROWS.filter(function(r){ return r.ncaa_seed!=null; }).length;
