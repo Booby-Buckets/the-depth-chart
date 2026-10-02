@@ -421,6 +421,28 @@
        next to the side panels squeezed five cards to ~100px and names broke letter by letter), and a
        name only wraps between words. Beats tdc-team-dense.css's overflow-wrap:anywhere. */
     .dc-grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))!important;}
+    /* Depth chart on a HALF COURT (Oct 2026, owner: "like the Moneyball GM court"): basket at the top,
+       PF/C on the blocks either side of the lane, SG/SF on the wings, PG at the top of the key. A grid
+       (not absolute spots) so each card grows with its bench. Phones fall back to the stacked list. */
+    #depthContent .dc-grid.dc-court{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))!important;
+      grid-template-areas:"pf lane c" "sg pg sf";column-gap:clamp(14px,3vw,48px);row-gap:22px;align-items:start;
+      padding:22px clamp(14px,2.4vw,30px) 30px;border:1px solid var(--border);border-radius:16px;overflow:hidden;
+      background:color-mix(in srgb,var(--accent,#A8843C) 11%,var(--bg2));}
+    .dc-court .dc-lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;}
+    .dc-court .dc-lines *{stroke:color-mix(in srgb,var(--text) 22%,transparent);stroke-width:2;vector-effect:non-scaling-stroke;}
+    .dc-court .dc-col{position:relative;z-index:1;background:var(--bg);box-shadow:0 6px 18px rgba(0,0,0,.08);}
+    .dc-court .dc-col[data-pos="PF"]{grid-area:pf;} .dc-court .dc-col[data-pos="C"]{grid-area:c;}
+    .dc-court .dc-col[data-pos="SG"]{grid-area:sg;margin-top:-6px;} .dc-court .dc-col[data-pos="SF"]{grid-area:sf;margin-top:-6px;}
+    .dc-court .dc-col[data-pos="PG"]{grid-area:pg;margin-top:28px;}
+    .dc-court .dc-head{background:rgba(var(--tc-rgb,168,132,60),.10);}
+    .dc-court .dc-starter .dc-grade{font-size:19px;}
+    .dc-court .dc-starter .dc-name{font-size:14.5px;}
+    @media(max-width:760px){
+      #depthContent .dc-grid.dc-court{grid-template-columns:1fr!important;grid-template-areas:none;padding:12px;row-gap:10px;}
+      .dc-court .dc-col{grid-area:auto!important;margin-top:0!important;}
+      .dc-court .dc-col[data-pos="PG"]{order:1;} .dc-court .dc-col[data-pos="SG"]{order:2;} .dc-court .dc-col[data-pos="SF"]{order:3;}
+      .dc-court .dc-col[data-pos="PF"]{order:4;} .dc-court .dc-col[data-pos="C"]{order:5;}
+      .dc-court .dc-lines{display:none;} }
     #depthContent .dc-name{white-space:normal!important;overflow-wrap:normal!important;word-break:normal!important;
       display:-webkit-box!important;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden!important;hyphens:none;}
     #depthContent .dc-row{grid-template-columns:14px minmax(0,1fr) auto;gap:8px;padding:8px 10px;}
@@ -8331,7 +8353,7 @@ function renderHistoricRoster(rows, yr, projected){
   const colHtml=cols.map(c=>{
     const _cm=c.entries.reduce((s,e)=>s+(_hereMin(e.p,c.pos)||0),0);
     const head=`<div class="dc-head" style="border-bottom-color:${color};background:rgba(${rgb},.07);">${c.pos}${(projected&&_cm>0)?`<span class="dc-head-min" title="Projected minutes of the players listed at ${c.pos} (5 on the floor x 40 = 200 a game)">${Math.round(_cm)} min</span>`:''}</div>`;
-    if(!c.entries.length) return `<div class="dc-col">${head}<div class="dc-empty">—</div></div>`;
+    if(!c.entries.length) return `<div class="dc-col" data-pos="${c.pos}">${head}<div class="dc-empty">—</div></div>`;
     const rows=c.entries.map((e,i)=>{ const p=e.p;
       const _pm=_hereMin(p,c.pos), _pt=_totMin(p);
       const _split=false;
@@ -8354,7 +8376,7 @@ function renderHistoricRoster(rows, yr, projected){
         <span class="dc-grade">${g}</span>
       </div>`;
     }).join('');
-    return `<div class="dc-col">${head}${rows}</div>`;
+    return `<div class="dc-col" data-pos="${c.pos}">${head}${rows}</div>`;
   }).join('');
 
   const injHtml = injured.length
@@ -8364,7 +8386,9 @@ function renderHistoricRoster(rows, yr, projected){
   window._lastHistRender=[rows.concat(injured), yr, projected];
   const _posBar=(!projected && typeof _isOwner==='function' && _isOwner())
     ? `<div class="dc-posbar"><button type="button" class="dc-posbtn${window._histPosEdit?' on':''}" onclick="window._histPosEdit=!window._histPosEdit;renderHistoricRoster.apply(null,window._lastHistRender)">${window._histPosEdit?'Done editing positions':'Edit positions'}</button></div>` : '';
-  host.innerHTML = `${_posBar}<div class="dc-grid">${colHtml}</div>${histTable(rows, yr, projected)}${injHtml}<div id="shotDistCard"></div><div id="seasonLossesWrap"></div>`;
+  // the five spots drawn on a half court (basket at the top): bigs on the blocks, wings, PG up top
+  const _court=`<svg class="dc-lines" viewBox="0 0 300 200" preserveAspectRatio="none" aria-hidden="true"><path d="M110 0V92H190V0M20 0V40A130 128 0 0 0 280 40V0M120 92A30 24 0 0 0 180 92M110 200A40 30 0 0 1 190 200" fill="none"/><line x1="136" y1="7" x2="164" y2="7"/><ellipse cx="150" cy="14" rx="6" ry="5" fill="none"/></svg>`;
+  host.innerHTML = `${_posBar}<div class="dc-grid dc-court">${_court}${colHtml}</div>${histTable(rows, yr, projected)}${injHtml}<div id="shotDistCard"></div><div id="seasonLossesWrap"></div>`;
   if(projected && yr>=2026){ try{ _renderShotDist(rows); }catch(e){} }
   else if(!projected && yr>=2012){ try{ _renderHistShot(rows, yr); }catch(e){} }
 }
