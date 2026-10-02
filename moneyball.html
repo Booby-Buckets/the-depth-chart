@@ -25,7 +25,8 @@
   <script src="tdc-gate.js?v=4" data-gate="pro" data-label="Moneyball"></script>
   <script src="tdc-projgrade.js?v=base37"></script>
   <script src="team-colors.js?v=11"></script>
-  <script src="tdc-ratings.js?v=26"></script>
+  <script src="tdc-ratings.js?v=27"></script>
+  <script src="tdc-gm.js?v=8"></script>
   <script src="tdc-nil.js?v=cal1"></script>
   <script src="tdc-archetypes.js?v=2"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=6"/>
@@ -133,6 +134,56 @@
     .mb-tab:hover{color:var(--text);}
     .mb-tab.on{color:var(--text);}
     .mb-tab.on::after{content:'';position:absolute;left:12px;right:12px;bottom:-1px;height:2.5px;background:var(--accent);border-radius:2px 2px 0 0;}
+
+    /* ── GM MODE (war-room front office) ── */
+    .gm-bar{display:flex;flex-wrap:wrap;gap:10px 12px;align-items:center;margin:0 0 18px;}
+    .gm-mode{display:inline-flex;border:1px solid var(--border2);border-radius:10px;overflow:hidden;background:var(--bg);}
+    .gm-mode button{font:inherit;font-size:14px;font-weight:600;padding:9px 16px;border:0;background:none;color:var(--text2);cursor:pointer;min-height:40px;}
+    .gm-mode button.on{background:var(--text);color:var(--bg);}
+    .gm-lab{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--text2);}
+    .gm-sel,.gm-num,.gm-q{font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--border2);border-radius:9px;background:var(--bg);color:var(--text);min-height:40px;}
+    .gm-num{width:80px;}
+    .gm-btn{font:inherit;font-size:13px;font-weight:700;padding:8px 13px;border:1px solid var(--border2);border-radius:9px;background:var(--bg);color:var(--text);cursor:pointer;min-height:40px;}
+    .gm-btn:disabled{opacity:.45;cursor:default;}
+    .gm-btn.sm{padding:4px 10px;font-size:12px;min-height:30px;}
+    .gm-btn.add{background:var(--text);color:var(--bg);border-color:var(--text);}
+    .gm-btn.cut{color:var(--red);}
+    .gm-ic{font:inherit;font-size:13px;width:28px;height:28px;border:1px solid var(--border2);border-radius:7px;background:var(--bg);color:var(--text2);cursor:pointer;margin-right:4px;}
+    .gm-ic:disabled{opacity:.35;cursor:default;}
+    .gm-act{white-space:nowrap;}
+    .gm-top{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:20px;align-items:start;}
+    .gm-bot{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:20px;align-items:start;margin-top:8px;}
+    .gm-h{font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text);margin:18px 0 10px;display:flex;justify-content:space-between;gap:10px;align-items:baseline;}
+    .gm-top .gm-h{margin-top:0;}
+    .gm-h em{font-style:normal;font-weight:500;letter-spacing:0;text-transform:none;color:var(--text3);font-size:12.5px;text-align:right;}
+    .gm-court{position:relative;height:380px;border:1px solid var(--border);border-radius:16px;background:color-mix(in srgb,var(--gold,#A8843C) 12%,var(--bg2));overflow:hidden;}
+    .gm-court:before{content:'';position:absolute;left:50%;top:-150px;width:460px;height:460px;margin-left:-230px;border:2px solid color-mix(in srgb,var(--text) 16%,transparent);border-radius:50%;}
+    .gm-court:after{content:'';position:absolute;left:50%;top:0;width:190px;height:205px;margin-left:-95px;border:2px solid color-mix(in srgb,var(--text) 16%,transparent);border-top:0;}
+    .gm-spot{position:absolute;width:31%;max-width:210px;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:10px 12px;box-shadow:0 4px 14px rgba(0,0,0,.08);z-index:2;}
+    .gm-spot .p{font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--text3);}
+    .gm-spot .nm{font-weight:700;font-size:15px;line-height:1.2;padding-right:34px;}
+    .gm-spot .m{font-size:12px;color:var(--text3);}
+    .gm-spot .g{position:absolute;right:12px;top:10px;font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:24px;}
+    .gm-spot.need{border:2px dashed var(--red);}
+    .gm-spot.need .p{color:var(--red);}
+    .gm-spot.new{border:2px solid var(--green);}
+    .gm-spot.new .p{color:var(--green);}
+    .gm-tag{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:4px;margin-left:4px;}
+    .gm-tag.n{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green);}
+    .gm-tag.c{background:color-mix(in srgb,var(--red) 16%,transparent);color:var(--red);}
+    tr.gm-cut td{opacity:.55;}
+    tr.gm-cut td.nm{text-decoration:line-through;}
+    .gm-filt{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px;}
+    .gm-q{flex:1;min-width:160px;}
+    .gm-empty{border:1px dashed var(--border2);border-radius:12px;padding:22px;text-align:center;color:var(--text3);font-size:14px;}
+    .gm-tgt a{color:var(--text);text-decoration:none;}
+    .gm-tgt a:hover{text-decoration:underline;}
+    @media(max-width:1000px){ .gm-top,.gm-bot{grid-template-columns:minmax(0,1fr);} }
+    @media(max-width:560px){ .gm-court{height:auto;padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+      .gm-court:before,.gm-court:after{display:none;}
+      .gm-spot{position:relative;left:auto !important;top:auto !important;width:auto;max-width:none;}
+      .gm-spot:first-child{grid-column:1 / -1;}
+      .gm-spot .nm{font-size:14px;} .gm-spot .g{font-size:20px;} }
     .mb-tab .tico{display:none;}
     .mb-tabs{gap:26px !important;}
     .mb-tab{padding:0 0 13px !important;font-size:15px !important;font-weight:500 !important;letter-spacing:0 !important;}
@@ -201,41 +252,6 @@
     .soon-wrap p{font-size:13px;max-width:440px;margin:0 auto;line-height:1.6;}
 
     /* ── GM Mode ── */
-    .gm-top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px;}
-    .gm-cap{display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:9px 13px;}
-    .gm-cap label{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
-    .gm-cap input[type=number]{width:66px;padding:5px 7px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);font-family:inherit;font-weight:800;font-size:14px;text-align:right;}
-    .gm-cap input[type=range]{width:130px;accent-color:var(--accent);cursor:pointer;}
-    .gm-btn{font-family:inherit;font-size:12px;font-weight:800;letter-spacing:.02em;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);border-radius:10px;padding:10px 15px;cursor:pointer;transition:all .12s;}
-    .gm-btn:hover{border-color:var(--accent);color:var(--text);}
-    .gm-btn.primary{background:var(--accent);border-color:var(--accent);color:#1a1206;}
-    .gm-dash{display:grid;grid-template-columns:1.35fr 1fr;gap:14px;margin-bottom:20px;}
-    @media(max-width:720px){.gm-dash{grid-template-columns:1fr;}}
-    .gm-spend .bar{height:13px;border-radius:8px;background:var(--bg3);overflow:hidden;margin:10px 0 6px;}
-    .gm-spend .bar>span{display:block;height:100%;border-radius:8px;background:linear-gradient(90deg,var(--accent),var(--blue));transition:width .25s;}
-    .gm-spend .bar.over>span{background:linear-gradient(90deg,var(--red),var(--amber));}
-    .gm-nums{display:flex;gap:22px;flex-wrap:wrap;}
-    .gm-nums .v{font-family:'Playfair Display',serif;font-weight:800;font-size:29px;line-height:1;}
-    .gm-nums .k{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:5px;}
-    .gm-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
-    @media(max-width:820px){.gm-cols{grid-template-columns:1fr;}}
-    .gm-col-h{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);margin-bottom:10px;display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
-    .gm-col-h .sub2{font-weight:600;color:var(--text3);letter-spacing:0;text-transform:none;font-size:11px;}
-    .gm-list{max-height:600px;overflow-y:auto;}
-    .gm-p{display:flex;align-items:center;gap:10px;padding:9px 13px;border-bottom:1px solid var(--border);font-size:13px;}
-    .gm-p:last-child{border-bottom:none;}
-    .gm-p .nm{font-weight:700;flex:1;min-width:0;}
-    .gm-p .nm .pt{font-size:10px;color:var(--text3);font-weight:500;margin-top:1px;}
-    .gm-p .st{font-variant-numeric:tabular-nums;text-align:right;font-size:11.5px;color:var(--text2);line-height:1.4;flex-shrink:0;}
-    .gm-p .st b{color:var(--text);}
-    .gm-p .act{border:none;background:none;cursor:pointer;font-size:17px;line-height:1;width:26px;height:26px;border-radius:7px;flex-shrink:0;font-weight:800;}
-    .gm-p .act.add{color:var(--green);} .gm-p .act.add:hover{background:color-mix(in srgb,var(--green) 15%,transparent);}
-    .gm-p .act.rm{color:var(--red);} .gm-p .act.rm:hover{background:color-mix(in srgb,var(--red) 15%,transparent);}
-    .gm-empty{padding:30px 20px;text-align:center;color:var(--text3);font-size:12.5px;line-height:1.5;}
-    .gm-pool-ctrl{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
-    .gm-pool-ctrl input{flex:1;min-width:110px;padding:8px 11px;border:1px solid var(--border2);border-radius:9px;background:var(--bg);color:var(--text);font-family:inherit;font-size:12.5px;font-weight:600;outline:none;}
-    .gm-pool-ctrl input:focus{border-color:var(--accent);}
-    .gm-pool-ctrl select{padding:8px 9px;border:1px solid var(--border2);border-radius:9px;background:var(--bg);color:var(--text);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;outline:none;}
     .posdot{font-size:8.5px;font-weight:800;color:var(--text3);border:1px solid var(--border2);border-radius:5px;padding:1px 5px;margin-left:6px;vertical-align:middle;}
 
     /* ── The Ledger ── */
@@ -316,7 +332,7 @@
     <div id="body"></div>
   </div>
 
-  <!-- ── GM MODE (placeholder) ── -->
+  <!-- ── GM MODE ── -->
   <div class="mb-panel" id="tab-gm">
     <div id="gmBody"><div class="loading">Loading GM Mode…</div></div>
   </div>
@@ -889,153 +905,9 @@ function renderTable(){
 }
 
 /* ═══════════════════════ GM MODE ═══════════════════════
-   Build a roster from the Market pool under a budget cap. The rotation shares 200
-   minutes (starters ~30, bench less) via proportional scaling, so stacking stars past
-   a full rotation gives diminishing returns. Team WA → wins uses the validated relation
-   (team wins ≈ −2.67 + 0.989·ΣWA). Auto-build is a marginal greedy: each step adds the
-   player that most improves wins per dollar ("Best value") or per win ("Win the cap"). */
-const WA_INTERCEPT=-2.67, WA_SLOPE=0.989, ROT_MIN=200, PLAYER_MIN_CAP=34;
-let gmState={cap:15, roster:[], mode:'value', q:'', pos:'all', affordOnly:false, limit:40};
-const pk=p=>p.name+'|'+p.team;
-const inRoster=p=>gmState.roster.some(x=>pk(x)===pk(p));
-function rosterMinutes(list){ const des=list.map(p=>Math.min(p.min,PLAYER_MIN_CAP)); const tot=sum(des); const f=tot>ROT_MIN?ROT_MIN/tot:1; return des.map(d=>d*f); }
-function rosterWA(list){ if(!list.length) return 0; const mn=rosterMinutes(list); return sum(list.map((p,i)=>waOf(p.ti,mn[i]))); }   // grade-WA (used by the Ledger)
-// winning contribution the roster actually generates: each player's win-driver wins, scaled to his
-// allocated share of the 200-minute rotation (so stacking talent past a full rotation diminishes).
-function rosterWinning(list){ if(!list.length) return 0; const mn=rosterMinutes(list); return sum(list.map((p,i)=>(p.wcon||0)*(mn[i]/Math.max(p.min,1)))); }
-function rosterWinsRaw(list){ return WA_INTERCEPT+WA_SLOPE*rosterWinning(list); }
-// team winning VALUE ($): convex per-player pricing (a star is worth disproportionately more), minute-scaled
-function rosterWinningValue(list){ const f=(window.MKT&&MKT.winValOf)||(w=>w*((window.MKT&&MKT.winRate)||1)); if(!list.length) return 0; const mn=rosterMinutes(list); return sum(list.map((p,i)=>f((p.wcon||0)*(mn[i]/Math.max(p.min,1))))); }
-function rosterWins(list){ return list.length?Math.max(0,Math.min(37,rosterWinsRaw(list))):0; }
-function posBreak(R){ const c={G:0,F:0,C:0}; R.forEach(p=>c[posBucket(p.pos)]++); return `${c.G}G ${c.F}F ${c.C}C`; }
-function goalReached(wins){ let best=null; for(const g of GOALS){ if(wins>=projWins(g.rtg)-0.4) best=g; } return best; }
-function nextGoal(wins){ for(const g of GOALS){ if(wins<projWins(g.rtg)-0.4) return g; } return null; }
-
-function autoBuild(cap,mode){
-  const pool=MKT.players.filter(p=>p.wa>0.3);
-  const picks=[]; let spend=0; const posCap={G:5,F:5,C:3};
-  function posOk(p){ const c={G:0,F:0,C:0}; picks.forEach(x=>c[posBucket(x.pos)]++); return c[posBucket(p.pos)]<posCap[posBucket(p.pos)]; }
-  while(picks.length<10){
-    const cur=rosterWinsRaw(picks); let best=null, bestScore=1e-9;
-    for(const p of pool){
-      if(spend+p.cost>cap+1e-6) continue;
-      if(picks.some(x=>pk(x)===pk(p))) continue;
-      if(!posOk(p)) continue;
-      const gain=rosterWinsRaw(picks.concat(p))-cur; if(gain<=0.001) continue;
-      const score=mode==='wins'?gain:gain/Math.max(p.cost,0.05);
-      if(score>bestScore){ bestScore=score; best=p; }
-    }
-    if(!best) break; picks.push(best); spend+=best.cost;
-  }
-  return picks;
-}
-
-function bootGM(){ ensureMarketData().then(d=>{ if(!d){ $id('gmBody').innerHTML='<div class="loading">Data unavailable.</div>'; return; } renderGM(); }); }
-
-function renderGM(){
-  $id('gmBody').innerHTML=`
-   <div class="gm-top">
-     <div class="gm-cap"><label>Budget cap</label>
-       <input type="range" id="gmCapR" min="1" max="40" step="0.5" value="${gmState.cap}">
-       <span style="font-weight:800">$</span><input type="number" id="gmCapN" min="0" step="0.5" value="${gmState.cap}"><span style="font-weight:800">M</span></div>
-     <div class="seg2" id="gmMode"><button data-m="value" class="${gmState.mode==='value'?'on':''}">Best value</button><button data-m="wins" class="${gmState.mode==='wins'?'on':''}">Win the cap</button></div>
-     <button class="gm-btn primary" id="gmAuto">⚡ Auto-build</button>
-     <select class="gm-btn" id="gmLoadTeam" style="max-width:230px;cursor:pointer;"><option value="">🏫 Load a team's roster…</option></select>
-     <button class="gm-btn" id="gmClear">Clear</button>
-   </div>
-   <div id="gmDash"></div>
-   <div class="gm-cols">
-     <div><div class="gm-col-h">Your roster <span class="sub2" id="gmRosterSub"></span></div><div class="gm-list" id="gmRoster"></div></div>
-     <div><div class="gm-col-h">Add players <span class="sub2">best winning value / $</span></div>
-       <div class="gm-pool-ctrl">
-         <input id="gmSearch" placeholder="Search player or team…" value="${esc(gmState.q)}" autocomplete="off">
-         <select id="gmPos"><option value="all">All pos</option><option value="G">Guards</option><option value="F">Forwards</option><option value="C">Centers</option></select>
-         <select id="gmAfford"><option value="0">Any price</option><option value="1">Fits budget</option></select>
-       </div>
-       <div class="gm-list" id="gmPool"></div>
-     </div>
-   </div>
-   <div class="disclaimer" style="margin-top:14px"><b>Winning value</b> now drives the build: each player's worth is his <b>win-driver score</b> (efficiency, defense, rebounding, ball-security — not empty scoring), priced in dollars. Auto-build and the pool rank by winning value per dollar. Your roster shares 200 minutes a game, so stacking talent past a full rotation gives diminishing returns. Value surplus = winning value − cost. Freshmen without 2025-26 stats fall back to a grade estimate. A fantasy front office — build from any program's players.</div>
-   ${(window.TDC_COACHLINKS&&TDC_COACHLINKS.bar)?TDC_COACHLINKS.bar('The Depth Chart'):''}`;
-  const capR=$id('gmCapR'), capN=$id('gmCapN');
-  capR.addEventListener('input',()=>{ gmState.cap=+capR.value; capN.value=capR.value; renderGMDash(); renderGMPool(); });
-  capN.addEventListener('change',()=>{ gmState.cap=Math.max(0,+capN.value||0); capR.value=Math.min(40,gmState.cap); renderGMDash(); renderGMPool(); });
-  $id('gmMode').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; gmState.mode=b.dataset.m; $id('gmMode').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b)); });
-  $id('gmAuto').addEventListener('click',()=>{ gmState.roster=autoBuild(gmState.cap,gmState.mode); renderGMDash(); renderGMRoster(); renderGMPool(); });
-  $id('gmClear').addEventListener('click',()=>{ gmState.roster=[]; renderGMDash(); renderGMRoster(); renderGMPool(); });
-  // Load a full, already-built roster — GM an existing team, then tweak from there.
-  (function(){ var sel=$id('gmLoadTeam'); if(!sel||!(MKT&&MKT.players))return;
-    var teams=Array.from(new Set(MKT.players.map(p=>p.team).filter(Boolean))).sort();
-    sel.innerHTML='<option value="">🏫 Load a team’s roster…</option>'+teams.map(function(t){return '<option value="'+esc(t)+'">'+esc(t)+'</option>';}).join('');
-    sel.addEventListener('change',function(){ var t=sel.value; if(!t){return;}
-      gmState.roster=MKT.players.filter(function(p){return p.team===t;}).slice(0,15);
-      sel.value=''; renderGMDash(); renderGMRoster(); renderGMPool();
-    });
-  })();
-  $id('gmSearch').addEventListener('input',e=>{ gmState.q=e.target.value; gmState.limit=40; renderGMPool(); });
-  $id('gmPos').addEventListener('change',e=>{ gmState.pos=e.target.value; gmState.limit=40; renderGMPool(); });
-  $id('gmAfford').addEventListener('change',e=>{ gmState.affordOnly=e.target.value==='1'; gmState.limit=40; renderGMPool(); });
-  renderGMDash(); renderGMRoster(); renderGMPool();
-}
-
-function renderGMDash(){
-  const R=gmState.roster, cap=gmState.cap;
-  const spend=sum(R.map(p=>p.cost)), over=spend>cap+1e-6;
-  const wins=rosterWins(R);
-  const winValTot=rosterWinningValue(R);                             // minute-constrained roster winning worth (convex)
-  const surplus=sum(R.map(p=>(p.wconVal||0)-p.cost));               // winning-value surplus (worth − paid)
-  const goal=goalReached(wins), next=nextGoal(wins);
-  const pctBar=cap>0?Math.min(100,100*spend/cap):(spend>0?100:0);
-  const cpw=(R.length&&wins>0)?spend/wins:null, lg=(MKT&&MKT.leagueCpw)||null;
-  const read=!R.length?`Add players from the pool, load a real roster, or hit <b>⚡ Auto-build</b>.`
-    :`${R.length} players (${posBreak(R)}) for <b>${fM(spend)}</b>${over?` — <span class="neg">over the cap by ${fM(spend-cap)}</span>`:` with ${fM(Math.max(0,cap-spend))} left`}. Projects to <b>${wins.toFixed(0)} wins</b>${goal?` — reaches <b>${goal.label}</b> (${goal.blurb})`:' — below the tournament line'}${next?`; ${next.label.toLowerCase()} needs ${projWins(next.rtg).toFixed(0)}`:''}.`+
-     (cpw&&lg?` That is <b>${fM(cpw)} per win</b> vs the league's ${fM(lg)} — ${cpw<=lg*0.8?'<span class="pos">a very efficient build</span>':cpw>=lg*1.25?'<span class="neg">paying up for wins</span>':'about the going rate'}.`:'');
-  $id('gmDash').innerHTML=band([
-    {v:`<span style="color:${over?'var(--red)':'var(--text)'}">${fM(spend)}</span>`,l:'Spend',s:'cap '+fM(cap)},
-    {v:over?`<span style="color:var(--red)">${fM(spend-cap)}</span>`:fM(Math.max(0,cap-spend)),l:over?'Over budget':'Remaining',s:R.length+' players'},
-    {v:wins.toFixed(0),l:'Projected wins',s:goal?goal.label:'below the line'},
-    {v:fM(winValTot),l:'Winning value',s:'minute-constrained'},
-    {v:signed(surplus,fM),cls:surplus>=0?'g':'r',l:'Value surplus',s:'worth − paid'},
-    {v:cpw?fM(cpw):'—',l:'Cost per win',s:lg?'league '+fM(lg):''}
-  ])+`<div class="gm-spend"><div class="bar ${over?'over':''}" style="margin:0 0 6px"><span style="width:${pctBar.toFixed(0)}%"></span></div></div>
-  ${next?`<div class="meter"><span id="gmMeter" style="width:${Math.min(100,100*wins/projWins(next.rtg)).toFixed(0)}%"></span></div><div class="meter-lbls"><span>${wins.toFixed(0)} wins</span><span>${next.label}: ${projWins(next.rtg).toFixed(0)}</span></div>`:''}
-  <div class="mb-read" style="margin-bottom:16px">${read}</div>`;
-}
-
-function renderGMRoster(){
-  const R=gmState.roster;
-  if(!R.length){ $id('gmRoster').innerHTML='<div class="gm-empty">No one signed yet.<br>Hit <b>⚡ Auto-build</b> for an instant roster, or add players from the right.</div>'; $id('gmRosterSub').textContent=''; return; }
-  const mn=rosterMinutes(R);
-  const rows=R.map((p,i)=>({p, mn:mn[i], wv:(MKT.winValOf?MKT.winValOf((p.wcon||0)*(mn[i]/Math.max(p.min,1))):0)})).sort((a,b)=>b.wv-a.wv);
-  $id('gmRosterSub').textContent=posBreak(R)+' · '+R.length;
-  $id('gmRoster').innerHTML=`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th><th class="l">Team</th><th class="l">Pos</th><th>Min</th><th data-heat="1" title="win score">WS</th><th data-heat="1">Win value</th><th>Paid</th><th></th></tr></thead><tbody>${rows.map(r=>`<tr>
-    <td class="l nm">${esc(r.p.name)}</td><td class="l dim">${esc(r.p.full)}</td>
-    <td class="l dim">${posBucket(r.p.pos)}</td><td>${r.mn.toFixed(0)}</td><td>${r.p.ws!=null?Math.round(r.p.ws):'—'}</td>
-    <td class="big" data-v="${r.wv}">${fM(r.wv)}</td><td>${fM(r.p.cost)}</td>
-    <td class="c"><button class="act rm" data-k="${esc(pk(r.p))}" title="Release">×</button></td></tr>`).join('')}</tbody></table></div>`;
-  if(window.tdcSheetHeat) $id('gmRoster').querySelectorAll('table.sheet').forEach(t=>tdcSheetHeat(t));
-  $id('gmRoster').querySelectorAll('.act.rm').forEach(b=>b.addEventListener('click',()=>{ gmState.roster=gmState.roster.filter(x=>pk(x)!==b.dataset.k); renderGMDash(); renderGMRoster(); renderGMPool(); }));
-}
-
-function renderGMPool(){
-  const s=gmState, rem=s.cap-sum(s.roster.map(p=>p.cost));
-  let a=MKT.players.filter(p=>!inRoster(p)&&p.wa>0.3);
-  if(s.q){ const q=s.q.toLowerCase(); a=a.filter(p=>p.name.toLowerCase().includes(q)||p.full.toLowerCase().includes(q)||p.team.toLowerCase().includes(q)); }
-  if(s.pos!=='all') a=a.filter(p=>posBucket(p.pos)===s.pos);
-  if(s.affordOnly) a=a.filter(p=>p.cost<=rem+1e-6);
-  a.sort((x,y)=>(y.wconVal/Math.max(y.cost,0.05))-(x.wconVal/Math.max(x.cost,0.05)));   // best winning value per $ first
-  const shown=a.slice(0,s.limit);
-  $id('gmPool').innerHTML=(shown.length?`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th><th class="l">Team</th><th class="l">Pos</th><th data-heat="1" title="win score">WS</th><th data-heat="1">Win value</th><th>Paid</th><th class="l">Value</th><th></th></tr></thead><tbody>${shown.map(p=>{ const vd=p.winVerdict||((p.wconVal>=p.cost*1.25)?'buy':(p.wconVal<=p.cost*0.75)?'over':'fair'); return `<tr>
-    <td class="l nm">${esc(p.name)}</td><td class="l dim">${esc(p.full)}</td>
-    <td class="l dim">${posBucket(p.pos)}</td><td>${p.ws!=null?Math.round(p.ws):'—'}</td>
-    <td class="big" data-v="${p.wconVal}">${fM(p.wconVal)}</td><td>${fM(p.cost)}</td>
-    <td class="l dim">${vd==='buy'?'Buy':vd==='over'?'Over':'Fair'}</td>
-    <td class="c"><button class="act add" data-k="${esc(pk(p))}" title="Sign">＋</button></td></tr>`;}).join('')}</tbody></table></div>`:'<div class="gm-empty">No players match.</div>')
-   + (a.length>s.limit?`<div style="padding:10px;text-align:center"><button class="gm-btn" id="gmMoreBtn" style="padding:6px 14px;font-size:11px">Show more (${a.length-s.limit})</button></div>`:'');
-  if(window.tdcSheetHeat) $id('gmPool').querySelectorAll('table.sheet').forEach(t=>tdcSheetHeat(t));
-  $id('gmPool').querySelectorAll('.act.add').forEach(b=>b.addEventListener('click',()=>{ const p=MKT.players.find(x=>pk(x)===b.dataset.k); if(p&&!inRoster(p)&&gmState.roster.length<15){ gmState.roster.push(p); renderGMDash(); renderGMRoster(); renderGMPool(); } }));
-  const mb=$id('gmMoreBtn'); if(mb) mb.addEventListener('click',()=>{ gmState.limit+=40; renderGMPool(); });
-}
+   Rebuilt Oct 2026 as the war-room front office: tdc-gm.js (My program / Fantasy build, scored by the
+   rankings engine via TDC_RATINGS.rateRoster). */
+function bootGM(){ if(window.TDC_GM) TDC_GM.boot($id('gmBody'), {projWins}); else $id('gmBody').innerHTML='<div class="loading">GM Mode unavailable.</div>'; }
 
 /* ═══════════════════════ THE LEDGER ═══════════════════════
    Every program as a balance sheet: roster cost (Σ modeled NIL market value) vs the
@@ -1321,7 +1193,7 @@ document.getElementById('mbTabs').addEventListener('click',e=>{ const b=e.target
 })();
 </script>
   <script src="tdc-version.js?v=2"></script>
-  <script src="tdc-tour.js?v=17"></script>
+  <script src="tdc-tour.js?v=18"></script>
   <script src="tdc-sheets.js?v=1"></script>
 </body>
 </html>

@@ -214,7 +214,7 @@
   // Owner's freshman projection overrides {byEspn/byNameTeam: {bpm, min}}, applied
   // during a rebuild() so a freshman's PROJECTED STATS (not his OVR) move the
   // canonical projected rankings — same stat-derived currency as returners.
-  let _ovr=null;
+  let _ovr=null, _CTX=null;
   // owner-entered injuries (tdc-injury.js, public-readable blob): "out" = off the season
   function _injOut(p){ try{ return !!(g.TDCInjury && g.TDCInjury.isOut(p)); }catch(e){ return false; } }
   async function compute(){
@@ -304,13 +304,21 @@
       (byTeam[p.team]=byTeam[p.team]||[]).push(p);
     });
 
-    const rows=[];
-    Object.keys(byTeam).forEach(short=>{
-      const roster=byTeam[short];
+    const rows=[], _scratch=[];
+    // ONE team's rating from ANY roster (players-table rows). The rankings run it over every
+    // rostered program below; GM Mode (moneyball.html) calls it through TDC_RATINGS.rateRoster
+    // on edited rosters so a signing / cut is scored by exactly this engine.
+    //   opts.baseMw: the team's REAL roster minute-weighted BPM. team_eff's projected net is
+    //   precomputed for the real roster only, so an edited roster moves that box/DNA term by the
+    //   same BPM change (else 85% of the rating would ignore the move).
+    //   opts.noProgram: a fantasy roster with no program (no prior / coach / continuity / level).
+    //   opts.minutes: per-player minutes aligned with roster (overrides the projection's minutes).
+    function rateTeam(short, roster, opts){
+      opts=opts||{};
       // new team's own Power Rating (2025-26 SRS) — the level this roster projects INTO.
       // Used both for the program-anchor blend below and the transfer level-of-comp discount.
-      const full=matchFull(short, tsRows, confOf[short])||short;
-      const prior=srsOf[full];
+      const full=opts.noProgram?'':(matchFull(short, tsRows, confOf[short])||short);
+      const prior=opts.noProgram?undefined:srsOf[full];
       const newSrs=isFinite(prior)?prior:0;
       // this team's strength-of-competition haircut on projected BPM (0 for high-major leagues),
       // tapered down for a proven-elite mid-major whose own prior clears the proven line (Gonzaga)
@@ -321,8 +329,8 @@
       // pages use), so the rating weights each player by his projected ROLE, not last
       // season's minutes — a benched transfer stops counting as a starter. Falls back to
       // last-season mpg if the module isn't loaded.
-      let projMin=null;
-      if(window.TDCProjGrade && TDCProjGrade.gradeRoster){
+      let projMin=(opts.minutes&&opts.minutes.length===roster.length)?opts.minutes.slice():null;   // GM Mode: minutes from its own depth chart
+      if(!projMin && window.TDCProjGrade && TDCProjGrade.gradeRoster){
         try{ const gr=TDCProjGrade.gradeRoster(roster); projMin=roster.map((p,i)=>(gr[i]&&isFinite(gr[i].min))?gr[i].min:null); }catch(e){}
       }
       let entries=roster.map((p,i)=>{
@@ -377,7 +385,7 @@
                  :(hasStats?Math.max(4,(parseFloat(p.mpg)||8)*(isTr?0.95:1))
                           :(grade>=92?26:grade>=88?22:grade>=82?15:grade>=78?10:6));
         // a transfer's role at a new school is uncertain — cap his projected minutes bump
-        if(isXfer && isFinite(min)){ const lm=parseFloat(p.mpg); if(isFinite(lm)) min=Math.min(min, lm+10); }
+        if(!opts.minutes && isXfer && isFinite(min)){ const lm=parseFloat(p.mpg); if(isFinite(lm)) min=Math.min(min, lm+10); }
         // Owner's freshman projection: value him by his PROJECTED STATS (a BPM
         // computed from the projected box score) and projected minutes — the same
         // currency as returners — rather than the grade/OVR fallback.
@@ -397,13 +405,14 @@
       let rosterRating=CAL_A+CAL_B*mw;
       // Blend in the projected box/DNA efficiency (team_eff net → SRS) so the projected stats move the
       // ranking. Only when the team has a projected-efficiency row; otherwise the BPM roster stands.
-      const _ef=_eff2027[full];
-      if(_ef && isFinite(+_ef.net)){ rosterRating=(1-EFF_W)*rosterRating + EFF_W*(EFF_A+EFF_B*(+_ef.net)); }
+      const _ef=opts.noProgram?null:_eff2027[full];
+      if(_ef && isFinite(+_ef.net)){ const effTerm=EFF_A+EFF_B*(+_ef.net)+((opts.baseMw!=null&&isFinite(opts.baseMw))?CAL_B*(mw-opts.baseMw):0);
+        rosterRating=(1-EFF_W)*rosterRating + EFF_W*effTerm; }
       rosterRating=+rosterRating.toFixed(2);
       // team shot luck: minutes-weighted eFG-over-quality of the rotation's returners
       const sgEnt=rot.filter(e=>e.hasSg); const sgMin=sgEnt.reduce((s,e)=>s+e.min,0);
       const shotLuck=sgMin?+(sgEnt.reduce((s,e)=>s+e.luckEfg*e.min,0)/sgMin).toFixed(1):null;
-      let cAdj=coachAdjOf[short]||0;
+      let cAdj=opts.noProgram?0:(coachAdjOf[short]||0);
       // taper a POSITIVE coach lift by the program's strength-of-competition (same proven-elite
       // relief as the roster) — a mid-major coach's overachievement doesn't fully translate.
       if(cAdj>0){
@@ -412,7 +421,7 @@
           cd*=Math.max(LEVEL_PROVEN_FLOOR, 1-(prior-LEVEL_PROVEN_HM)/LEVEL_PROVEN_SPAN);
         if(cd>0) cAdj=+(cAdj*(1-cd)).toFixed(2);
       }
-      const cont=(contData&&contData[short])?contData[short].continuity:null;
+      const cont=(!opts.noProgram&&contData&&contData[short])?contData[short].continuity:null;
       const contAdj=cont!=null?+Math.max(-CONT_CAP,Math.min(CONT_CAP,CONT_K*(cont-CONT_BASE))).toFixed(2):0;
       // Scoring-engine scarcity penalty (see constants). Uses the projected rotation regulars.
       let scePen=0;
@@ -435,11 +444,15 @@
       // (strength-of-competition now regresses the roster BPM per-player above, so no flat team tax)
       const rating=(((prior!=null)?(BLEND_ROSTER*rosterRating+(1-BLEND_ROSTER)*(ANCHOR*prior))
                                  :rosterRating) + cAdj + contAdj) - scePen;
-      rows.push({team:short, full, conf:confOf[short]||'', rating:+rating.toFixed(2), coachAdj:cAdj,
+      (opts.scratch?(_scratch.length=0,_scratch):rows).push({team:short, full, conf:confOf[short]||'', rating:+rating.toFixed(2), coachAdj:cAdj,
         contAdj:contAdj, continuity:cont,
         roster:+rosterRating.toFixed(2), prior:prior!=null?+prior.toFixed(1):null, projected:true,
-        scePen:scePen||0, levelDisc:+levelDisc.toFixed(3), shotLuck:shotLuck, hcaOff:hcaOf[full]!=null?hcaOf[full]:0});
-    });
+        scePen:scePen||0, levelDisc:+levelDisc.toFixed(3), shotLuck:shotLuck, hcaOff:hcaOf[full]!=null?hcaOf[full]:0,
+        mw:+mw.toFixed(3), entries:opts.detail?roster.map((p,i)=>({name:p.name, min:entries[i].min, projBpm:entries[i].projBpm})):undefined});
+      return opts.scratch?_scratch[0]:rows[rows.length-1];
+    }
+    Object.keys(byTeam).forEach(short=>{ rateTeam(short, byTeam[short]); });
+    _CTX={rateTeam, byTeam, rows};
     // non-rostered D1 teams: regressed carryover of last season's SRS
     const covered=new Set(rows.map(r=>r.full));
     (ts||[]).forEach(t=>{
@@ -538,5 +551,15 @@
       spread:(margin>=0?`${_sn(a.team)} -${margin.toFixed(1)}`:`${_sn(b.team)} -${(-margin).toFixed(1)}`) };
   }
 
-  g.TDC_RATINGS={get, rebuild, lineFor, phi, applyForm, baseHca, SEASON, HOME_ADV, SIGMA, GAP_STRETCH};
+  // GM Mode: load the engine's context once (same fetches as a rebuild, no publish), then rate
+  // edited rosters with rateRoster(short, rows, opts). opts as rateTeam's; scratch is forced on.
+  let _prepP=null;
+  function prepare(){ if(_CTX) return Promise.resolve(_CTX); if(_prepP) return _prepP;
+    _prepP=compute().then(()=>_CTX).catch(e=>{ _prepP=null; throw e; }); return _prepP; }
+  function rateRoster(short, roster, opts){ if(!_CTX) throw new Error('call TDC_RATINGS.prepare() first');
+    return _CTX.rateTeam(short, roster, Object.assign({}, opts||{}, {scratch:true})); }
+  function rosterTeams(){ return _CTX?Object.keys(_CTX.byTeam):[]; }
+  function rosterOf(short){ return _CTX&&_CTX.byTeam[short]?_CTX.byTeam[short].slice():[]; }
+  function winPctVsField(rating, field){ let s=0,n=0; (field||[]).forEach(o=>{ if(o.rating==null) return; s+=phi((rating-o.rating)/SIGMA); n++; }); return n?s/n:0.5; }
+  g.TDC_RATINGS={get, rebuild, lineFor, phi, applyForm, baseHca, SEASON, HOME_ADV, SIGMA, GAP_STRETCH, prepare, rateRoster, rosterOf, rosterTeams, winPctVsField};
 })(window);
