@@ -52,17 +52,15 @@
         var my = P ? (home ? P.m : -P.m) : null, wp = P ? (home ? P.probH : 100 - P.probH) : null;
         var line = my == null ? '—' : Math.abs(my) < 0.25 ? 'Pick’em' : (my > 0 ? '−' : '+') + (Math.round(Math.abs(my) * 2) / 2).toFixed(1);
         var dd = new Date(x.date + 'T12:00:00');
-        var result = '—';
+        // result = one shaded cell like the season table's (green W / red L); the detail lives on the game page
+        var resCell = '<td class="l">—</td>';
         if (res && res.hs != null && res.as != null) {
-          var ms = x.home === me ? res.hs : res.as, os = x.home === me ? res.as : res.hs;   // listed home team = hs (also on neutral floors)
-          var won = ms > os, beat = my != null ? (ms - os) - my : null;
-          result = '<span title="Unofficial scrimmage result">' + (won ? 'W' : 'L') + ' ' + ms + '–' + os + '</span>' +
-            (beat != null ? ' <span class="dim" title="Margin vs our line">' + (beat >= 0 ? '+' : '−') + Math.abs(beat).toFixed(1) + ' vs line</span>' : '') +
-            ((res.note || res.auto_note) ? '<div class="dim" style="font-size:10.5px;white-space:normal;margin-top:2px;">' + esc(res.note || res.auto_note) + '</div>' : '') +
-            '<div style="font-size:10.5px;margin-top:2px;"><a href="scrimmage.html?id=' + encodeURIComponent(x.id) + '">' + (res.box ? 'Box score →' : 'Game page →') + '</a></div>';
-        } else if (res && res.note) result = '<span class="dim">' + esc(res.note) + '</span>';
+          var ms = x.home === me ? res.hs : res.as, os = x.home === me ? res.as : res.hs, won = ms > os;
+          resCell = '<td class="strong ' + (won ? 'c4' : 'c0') + '" title="Unofficial scrimmage result · open the box score">' + (won ? 'W' : 'L') + ' ' + ms + '–' + os + '</td>';
+        }
+        var href = (res && (res.hs != null || res.box)) ? 'scrimmage.html?id=' + encodeURIComponent(x.id) : '';
         var ol = logo(opp, byFull), ot = byFull[opp];
-        return '<tr' + (x.check ? ' title="Opponent read from a logo; still being confirmed"' : '') + '>' +
+        return '<tr' + (href ? ' style="cursor:pointer" onclick="location.href=\'' + href + '\'"' : '') + '>' +
           '<td class="l dim">' + dd.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' }) + '</td>' +
           '<td class="l dim">' + (x.time ? esc(x.time) : 'TBD') + (x.tv ? ' · ' + esc(x.tv) : '') + '</td>' +
           '<td class="l nm">' + (ol ? '<img class="scrim-lg" src="' + ol + '" alt="" width="16" height="16" loading="lazy" onerror="this.style.display=\'none\'">' : '') +
@@ -72,12 +70,12 @@
           '<td class="l dim">' + (site === 'H' ? 'Home' : site === 'A' ? 'Away' : 'Neutral') + '</td>' +
           '<td>' + line + '</td><td>' + (wp != null ? Math.round(wp) + '%' : '—') + '</td>' +
           '<td>' + (P && P.tot != null ? Math.round(P.tot) : '—') + '</td>' +
-          '<td class="l">' + result + '</td></tr>';
+          resCell + '</tr>';
       }).join('');
       var wrap = document.createElement('div'); wrap.className = 'scrim-wrap';
       wrap.innerHTML = '<div class="sec-head" style="margin:4px 0 10px;">Preseason scrimmages <span class="sec-head-sub" style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· unofficial · not counted in the record, stats, ratings or projections</span></div>' +
         '<div class="sheet-wrap" style="max-height:none;margin-bottom:22px;"><table class="sheet dense tsp-table"><thead><tr><th class="l">Date</th><th class="l">Time</th><th class="l">Opponent</th><th class="l">Site</th>' +
-        '<th title="Our line for this team (− = favored)">Line</th><th title="Our win probability">Win %</th><th title="Projected total points">Total</th><th class="l">Result</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+        '<th title="Our line for this team (− = favored)">Line</th><th title="Our win probability">Win %</th><th title="Projected total points">Total</th><th>Result</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
       // owner: under the projected-season tiles (record / conference / 20+ wins), ahead of the November games
       var tiles = host.querySelector('.tsp-sum');
       if (tiles && tiles.parentNode) tiles.parentNode.insertBefore(wrap, tiles.nextSibling); else host.insertBefore(wrap, host.firstChild);
