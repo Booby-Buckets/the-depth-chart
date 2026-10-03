@@ -8385,12 +8385,17 @@ function renderHistoricRoster(rows, yr, projected){
   // freshmen = the freshman model's team-fit line) or the real season line for past years
   const _line=p=>{ if(!projected) return p;
     try{ const r=(p.espn_id!=null&&window.TDCProjGrade&&TDCProjGrade.projRowOf)?TDCProjGrade.projRowOf(p.espn_id):null; if(r) return r;
-      if(window.TDCFresh&&TDCFresh.line) return TDCFresh.line(p, TDCFresh.profileFor?TDCFresh.profileFor(p):null)||p; }catch(e){}
+      if(window.TDCFresh&&TDCFresh.line){
+        // the freshman model's line is built at its own minutes: scale the counting stats to the
+        // minutes he actually gets on this depth chart (a 6.8-min freshman was showing 6.3 ppg)
+        const f=TDCFresh.line(p, TDCFresh.profileFor?TDCFresh.profileFor(p):null)||p, fm=parseFloat(f.mpg), mm=_totMin(p);
+        if(isFinite(fm)&&fm>0&&mm!=null&&Math.abs(fm-mm)>0.5){ const k=mm/fm; return Object.assign({},f,{ppg:f.ppg*k,rpg:f.rpg*k,apg:f.apg*k}); }
+        return f; } }catch(e){}
     return p; };
   const _f1=v=>{ const n=parseFloat(v); return isFinite(n)?n.toFixed(1):'—'; };
   const _pc=v=>{ let n=parseFloat(v); if(!isFinite(n)) return '—'; if(n<=1) n*=100; return n.toFixed(1); };
   const depthRows=_seat.map((r,i)=>{
-    if(!r.e) return `<tr class="dc-row dc-starter dc-open"><td class="rk">${i+1}</td><td class="l dc-slot">${r.slot}</td><td class="l dim" colspan="9">Open: no ${r.slot} on the roster</td></tr>`;
+    if(!r.e) return `<tr class="dc-row dc-starter dc-open"><td class="l dc-slot">${r.slot}</td><td class="l dim" colspan="9">Open: no ${r.slot} on the roster</td></tr>`;
     const p=r.e.p, m=_totMin(p);
     let g=_gdisp(p);
     const _oop=(projected&&!window._rosterFromHistory&&r.star)?_oopDist(p,r.col):0;
@@ -8404,7 +8409,6 @@ function renderHistoricRoster(rows, yr, projected){
     const role=[p.yr, p.height, p.position?(p.position+(p.position2?'/'+p.position2:'')):''].filter(Boolean).join(' · ');
     const L=(projected&&!(m>=0.5))?{}:_line(p);   // no projected minutes → no projected line
     return `<tr class="dc-row${r.star?' dc-starter':''}">
-      <td class="rk">${i+1}</td>
       <td class="l dc-slot">${r.slot}</td>
       <td class="l nm"><a class="dc-name" href="${link(p)}">${p.name}</a>${wav}${injBadge}${inj}${posEd}</td>
       <td class="l dim">${role||'—'}</td>
@@ -8413,7 +8417,7 @@ function renderHistoricRoster(rows, yr, projected){
       <td class="dim">${_pc(L.fg_pct)}</td><td class="dim">${_pc(L.tp_pct!=null?L.tp_pct:(L.three_pct!=null?L.three_pct:L['3p_pct']))}</td>
       <td class="dc-ovr">${g}</td>
     </tr>`; }).join('');
-  const depthSheet=`<div class="dc-grid dc-depth"><div class="sheet-wrap" style="max-height:none;"><table class="sheet dense dc-sheet"><thead><tr><th class="rk">#</th><th class="l">Slot</th><th class="l">Player</th><th class="l">Role</th><th title="${_barTip}">Min</th><th title="Points per game${projected?' (projected)':''}">PPG</th><th title="Rebounds per game${projected?' (projected)':''}">RPG</th><th title="Assists per game${projected?' (projected)':''}">APG</th><th>FG%</th><th>3P%</th><th>OVR</th></tr></thead><tbody>${depthRows}</tbody></table></div></div>`;
+  const depthSheet=`<div class="dc-grid dc-depth"><div class="sheet-wrap" style="max-height:none;"><table class="sheet dense dc-sheet"><thead><tr><th class="l">Slot</th><th class="l">Player</th><th class="l">Role</th><th title="${_barTip}">Min</th><th title="Points per game${projected?' (projected)':''}">PPG</th><th title="Rebounds per game${projected?' (projected)':''}">RPG</th><th title="Assists per game${projected?' (projected)':''}">APG</th><th>FG%</th><th>3P%</th><th>OVR</th></tr></thead><tbody>${depthRows}</tbody></table></div></div>`;
   const injHtml = injured.length
     ? `<div class="sec-head" style="margin-top:28px;color:#ef4444;">Injured — Out for ${rosterLbl(yr)} <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· stats from last season played · minutes redistributed in projections</span></div>`
       + histTable(injured, yr-1)
