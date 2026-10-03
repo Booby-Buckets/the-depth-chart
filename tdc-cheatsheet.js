@@ -65,7 +65,7 @@
       var toEdge = mk && mk.total != null && tot != null ? +(tot - mk.total).toFixed(1) : null;
       var fav = m >= 0 ? g.home : g.away, dog = m >= 0 ? g.away : g.home;
       var favP = Math.max(L.probA, L.probB);
-      return { g: g, home: g.home, away: g.away, neutral: g.neutral, conf: g.conf, m: m, tot: tot, probH: L.probA, probA: L.probB,
+      return { g: g, exh: !!g.exh, home: g.home, away: g.away, neutral: g.neutral, conf: g.conf, m: m, tot: tot, probH: L.probA, probA: L.probB,
                fav: fav, dog: dog, favP: favP, dogP: 100 - favP, mk: mk, spEdge: spEdge, toEdge: toEdge,
                quality: Math.min(H.rank || 400, A.rank || 400), both: Math.max(H.rank || 400, A.rank || 400) };
     }).filter(Boolean);
@@ -170,18 +170,24 @@
     var hi = tots.length ? tots.slice().sort(function (a, b) { return b.tot - a.tot; })[0] : null;
     var lo = tots.length ? tots.slice().sort(function (a, b) { return a.tot - b.tot; })[0] : null;
     var top = props.filter(function (c) { return c.s !== 'tpm' && (c.proj == null || (c.side === 'over' ? c.proj >= c.line - 0.3 : c.proj <= c.line + 0.3)); }).sort(function (a, b) { return b.score - a.score || b.ppg - a.ppg; })[0];
-    var h = [];
+    var h = [], used = {};
+    var tile1 = function (r, o) { if (!r || used[r.g.id]) return; used[r.g.id] = 1; h.push(tile(o)); };   // a small slate shouldn't show one game five times
     h.push(tile({ k: 'Game of the night', m: mu(gotn), v: spreadTxt(gotn.m, gotn.home, gotn.away), s: (gotn.both <= 25 ? 'two top-25 teams' : 'best pairing on the slate') + (gotn.tot ? ' · total ' + Math.round(gotn.tot) : '') }));
-    if (upset) h.push(tile({ k: 'Upset alert', m: mu(upset), v: Math.round(upset.dogP) + '%', s: esc(short(upset.dog)) + ' win chance as a ' + Math.abs(upset.m).toFixed(1) + '-pt dog' }));
-    h.push(tile({ k: 'Biggest mismatch', m: mu(mis), v: spreadTxt(mis.m, mis.home, mis.away), s: Math.round(mis.favP) + '% for ' + esc(short(mis.fav)) }));
-    if (hi) h.push(tile({ k: 'Shootout', m: mu(hi), v: Math.round(hi.tot), s: 'highest projected total' }));
-    if (lo) h.push(tile({ k: 'Rock fight', m: mu(lo), v: Math.round(lo.tot), s: 'lowest projected total' }));
+    used[gotn.g.id] = 1;
+    if (upset) tile1(upset, { k: 'Upset alert', m: mu(upset), v: Math.round(upset.dogP) + '%', s: esc(short(upset.dog)) + ' win chance as a ' + Math.abs(upset.m).toFixed(1) + '-pt dog' });
+    tile1(mis, { k: 'Biggest mismatch', m: mu(mis), v: spreadTxt(mis.m, mis.home, mis.away), s: Math.round(mis.favP) + '% for ' + esc(short(mis.fav)) });
+    if (hi) tile1(hi, { k: 'Shootout', m: mu(hi), v: Math.round(hi.tot), s: 'highest projected total' });
+    if (lo) tile1(lo, { k: 'Rock fight', m: mu(lo), v: Math.round(lo.tot), s: 'lowest projected total' });
     if (top) h.push(tile({ k: 'Top play', href: '#bestBets', m: logoImg(top.team, 'cs-mlg') + '<span>' + esc(top.name) + '</span>', v: (top.side === 'over' ? 'O ' : 'U ') + top.line + ' ' + STAT_ABBR[top.s], s: Math.round(top.rate * 100) + '% in the backtest' }));
     host.innerHTML = h.join('');
   }
 
   // ── best / worst ───────────────────────────────────────────────────────────
   function renderBets(rows, props) {
+    if (rows.length && rows.every(function (r) { return r.exh; })) {   // scrimmages have no betting markets
+      var msg = '<div class="cs-empty">Exhibition day: books don\'t post lines or props on scrimmages. Our line for every game is in Game lines below, and results get logged as they come in.</div>';
+      $('csBest').innerHTML = msg; $('csWorst').innerHTML = msg; return;
+    }
     var best = [], used = {};
     // model vs market (in-season): biggest spread gaps
     rows.filter(function (r) { return r.spEdge != null && Math.abs(r.spEdge) >= 3; })
@@ -221,7 +227,8 @@
     var lim = S.showAll ? view.length : Math.min(view.length, 40);
     var body = view.slice(0, lim).map(function (r, i) {
       var tag = '';
-      if (r.spEdge != null && Math.abs(r.spEdge) >= 3) tag = '<span class="cs-tag good">Edge ' + Math.abs(r.spEdge).toFixed(1) + '</span>';
+      if (r.exh) tag = '<span class="cs-tag warn">Exhibition</span>';
+      else if (r.spEdge != null && Math.abs(r.spEdge) >= 3) tag = '<span class="cs-tag good">Edge ' + Math.abs(r.spEdge).toFixed(1) + '</span>';
       else if ((S.byFull[r.fav].rank || 400) <= 60 && r.dogP >= 30 && Math.abs(r.m) >= 2.5) tag = '<span class="cs-tag warn">Upset watch</span>';
       else if (r.both <= 40) tag = '<span class="cs-tag">Marquee</span>';
       else if (Math.abs(r.m) <= 1.5) tag = '<span class="cs-tag">Coin flip</span>';
@@ -248,17 +255,19 @@
     var i = S.dates.indexOf(S.date);
     var near = S.dates.slice(Math.max(0, i - 2), Math.max(0, i - 2) + 8);
     $('csDates').innerHTML = near.map(function (d) {
-      var n = S.games.filter(function (g) { return g.date === d; }).length;
-      return '<button class="' + (d === S.date ? 'on' : '') + '" data-d="' + d + '"><b>' + fmtDate(d) + '</b><span>' + n + ' games</span></button>';
+      var gs = S.games.filter(function (g) { return g.date === d; }), n = gs.length, xe = gs.every(function (g) { return g.exh; });
+      return '<button class="' + (d === S.date ? 'on' : '') + '" data-d="' + d + '"><b>' + fmtDate(d) + '</b><span>' + (xe ? n + ' exhibition' + (n > 1 ? 's' : '') : n + ' games') + '</span></button>';
     }).join('');
     var top = rows.filter(function (r) { return r.both <= 100; }).length;
     $('csSlateT').textContent = fmtDate(S.date, true);
-    $('csSlateS').textContent = rows.length + ' rated games · ' + top + ' between top-100 teams' + (rows.some(function (r) { return r.mk; }) ? ' · book lines in' : ' · book lines post about a week out');
+    var nx = rows.filter(function (r) { return r.exh; }).length;
+    $('csSlateS').textContent = (nx === rows.length && nx ? nx + ' exhibition' + (nx > 1 ? 's' : '') + ' · ' : rows.length + ' rated games · ' + (nx ? nx + ' exhibitions · ' : '')) + top + ' between top-100 teams' + (nx === rows.length && nx ? ' · no betting markets on scrimmages' : rows.some(function (r) { return r.mk; }) ? ' · book lines in' : ' · book lines post about a week out');
     $('csPrev').disabled = i <= 0; $('csNext').disabled = i >= S.dates.length - 1;
   }
 
   function render() {
-    var rows = slate(S.date), props = propCands(S.date, rows);
+    var rows = slate(S.date), allExh = rows.length && rows.every(function (r) { return r.exh; });
+    var props = allExh ? [] : propCands(S.date, rows.filter(function (r) { return !r.exh; }));   // no props on scrimmages
     renderSlateBar(rows); renderEyes(rows, props); renderBets(rows, props); renderLines(rows);
   }
   function setDate(d) { S.date = d; S.showAll = false; try { history.replaceState(null, '', '?date=' + d); } catch (e) {} render(); }
@@ -271,7 +280,8 @@
       fetch('scripts/data/schedule_2027.json?v=3').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
       fetch('scripts/data/team_pace_eff.json?v=7').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
       fetch('scripts/data/odds_live.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
-      L.teams || null, L.players || null, L.proj || null
+      L.teams || null, L.players || null, L.proj || null,
+      window.TDCScrim ? TDCScrim.load() : null
     ]).then(function (res) {
       var D = res[0], sch = res[1]; S.eff = res[2]; S.odds = res[3];
       var teams = (D && D.teams || []).filter(function (t) { return t.rating != null; }).sort(function (a, b) { return b.rating - a.rating; });
@@ -280,9 +290,10 @@
       if (!sch) { $('csEyes').innerHTML = '<div class="cs-empty">Schedule not available.</div>'; return; }
       var T = sch.teams;
       S.games = sch.games.map(function (a) { return { id: a[0], date: a[1], home: T[a[2]], away: T[a[3]], neutral: !!a[4], conf: !!a[5] }; });
+      var X = res[7]; if (X && X.games) X.games.forEach(function (x) { S.games.push({ id: x.id, date: x.date, home: x.home, away: x.away, neutral: !!x.neutral, conf: false, exh: true }); });
       // game days with real slates (skip the odd one-game exhibition date)
-      var cnt = {}; S.games.forEach(function (g) { if (S.byFull[g.home] && S.byFull[g.away]) cnt[g.date] = (cnt[g.date] || 0) + 1; });
-      S.dates = Object.keys(cnt).filter(function (d) { return cnt[d] >= 3; }).sort();
+      var cnt = {}, ex = {}; S.games.forEach(function (g) { if (S.byFull[g.home] && S.byFull[g.away]) { cnt[g.date] = (cnt[g.date] || 0) + 1; if (g.exh) ex[g.date] = 1; } });
+      S.dates = Object.keys(cnt).filter(function (d) { return cnt[d] >= 3 || ex[d]; }).sort();   // exhibition days count even with one game
       var want = new URLSearchParams(location.search).get('date');
       var today = new Date(); var iso = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
       S.date = (want && cnt[want]) ? want : (S.dates.find(function (d) { return d >= iso; }) || S.dates[S.dates.length - 1]);
