@@ -58,6 +58,10 @@
     // the tournament champion + runner-up and how many tournament games each member played
     const idxOf = {}; T.forEach((n, i) => idxOf[n] = i);
     const champS = new Int16Array(SIMS).fill(-1), ruS = new Int16Array(SIMS).fill(-1), gamesS = new Uint8Array(SIMS * T.length);
+    // who fills each bracket slot (side a / side b of every game) and who wins it — the bracket view
+    // shows the likeliest occupant of every slot instead of "winner of …"
+    const occ = {};
+    const bump = (gid, k, n) => { const o = occ[gid] = occ[gid] || { a: {}, b: {}, w: {} }; o[k][n] = (o[k][n] || 0) + 1; };
     // a league slate a school hasn't fully announced (MEAC / SWAC releases lag): the most common slate
     // length is the league's; the missing games are played against an average league opponent
     const lens = {}; T.forEach(n => { const c = proj[n].confN; lens[c] = (lens[c] || 0) + 1; });
@@ -86,11 +90,12 @@
         out[a].reach[gameRound[gid]] = (out[a].reach[gameRound[gid]] || 0) + 1;
         out[b].reach[gameRound[gid]] = (out[b].reach[gameRound[gid]] || 0) + 1;
         gamesS[s * T.length + idxOf[a]]++; gamesS[s * T.length + idxOf[b]]++;
+        bump(gid, 'a', a); bump(gid, 'b', b);
         let venue = 0;
         if (site === 'H') { const homeA = seedOf[a] < seedOf[b], H = homeA ? a : b, A = homeA ? b : a;
           const e = R.baseHca(rt[A]) + (out[H].row.hcaOff || 0); venue = homeA ? e : -e; }
         const m = sim.tame((str[a] - str[b]) * STRETCH + venue), p = sim.phi(m / SIGMA);
-        const w = sim.U(6, s, gkey(gid)) < p ? a : b; lastLoser = w === a ? b : a;
+        const w = sim.U(6, s, gkey(gid)) < p ? a : b; lastLoser = w === a ? b : a; bump(gid, 'w', w);
         return w;
       };
       const gameRound = {}; (fmt.games || []).forEach(x => gameRound[x.id] = x.round);
@@ -138,7 +143,9 @@
       return { team: n, row: o.row, confN: o.confN, filled: o.filled, cw: o.cw / k, cl: o.confN - o.cw / k, expW: o.expW, n: o.n,
         title: o.title / k, outright: o.outright / k, seed, avgSeed, invited: o.invited / k, reach, champ: o.champ / k };
     }).sort((a, b) => (b.cw - a.cw) || (rt[b.team] - rt[a.team]));
-    return (memo[key] = { code, fmt, sims: SIMS, rounds, teams: res, names: T, proj, champS, ruS, gamesS });
+    const top = m => Object.entries(m).sort((x, y) => y[1] - x[1]).slice(0, 8).map(([n, c]) => [n, c / SIMS]);
+    const slots = {}; Object.keys(occ).forEach(gid => { slots[gid] = { a: top(occ[gid].a), b: top(occ[gid].b), w: top(occ[gid].w) }; });
+    return (memo[key] = { code, fmt, sims: SIMS, rounds, teams: res, names: T, proj, champS, ruS, gamesS, slots });
   }
 
   g.TDCConfT = { load, project, formats: () => _fmt };

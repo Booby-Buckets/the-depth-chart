@@ -1178,6 +1178,7 @@
     .tdc-prem:hover .tv-seal{animation:tvSpin .7s cubic-bezier(.34,1.3,.5,1), tvPulse .7s ease;}
     .tdc-prem:hover .tv-check{animation:tvDraw .5s .18s both;}
     @media (prefers-reduced-motion: reduce){.tdc-prem:hover .tv-seal,.tdc-prem:hover .tv-check{animation:none;}}
+  .ix-conf{color:inherit;text-decoration:none;border-bottom:1px dotted var(--border2);} .ix-conf:hover{color:var(--accent);border-bottom-color:var(--accent);}
 </style>
   <link rel="stylesheet" href="tdc-anim.css?v=6"/>
   <script src="tdc-anim.js?v=6"></script>
@@ -1201,7 +1202,7 @@
 </head>
 <body data-anim-auto>
 <script src="tdc-badge.js?v=1"></script>
-<script src="tdc-nav.js?v=39"></script>
+<script src="tdc-nav.js?v=40"></script>
 <div class="tdc-bg" aria-hidden="true">
   <div class="tdc-mesh"></div>
   <div class="tdc-blob b1"></div>
@@ -2030,7 +2031,7 @@ function renderRows(data, srt, favTeam){
     let row = `<tr${isFav?' class="fav"':''}>`
       + `<td class="rk">${t.rk}</td>`
       + `<td class="l nm"><a href="${href}" data-tn="${q(t.short||t.name)}">${logo?`<img src="${logo}" alt="" loading="lazy" onerror="this.remove()">`:'<i class="ix-nologo"></i>'}<span>${_shortNm(t.short||t.name)}</span></a>${carry}</td>`
-      + `<td class="l dim">${confAbbr(t.confName)}</td>`;
+      + `<td class="l dim"><a class="ix-conf" href="conference.html?conf=${encodeURIComponent(t.confName||'')}${curSeason===2027?'':'&season='+curSeason}" title="${q(t.confName||'')} standings, tournament &amp; all-conference teams">${confAbbr(t.confName)}</a></td>`;
     RANK_COLS.forEach(([k,f,dir,col])=>{
       if(col && !RC[col]) return;
       const cls=[k==='wins'?'c':'', k==='srs'?'big':'', dir&&heat[k]?heat[k](_heatVal(t,k)):''].filter(Boolean).join(' ');

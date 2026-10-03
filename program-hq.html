@@ -243,7 +243,8 @@
     .tool .td{font-size:11.5px;color:var(--txt3);font-weight:600;margin-top:2px;display:block;line-height:1.35;}
     .tool .lk{font-size:8px;font-weight:800;letter-spacing:.06em;color:var(--txt3);border:1px solid var(--line2);border-radius:6px;padding:1px 5px;margin-left:auto;flex-shrink:0;}
     .note{font-size:11.5px;color:var(--tc-ink);opacity:.66;line-height:1.6;margin-top:24px;max-width:760px;}
-  </style>
+    .hx-more{color:inherit;font-weight:700;text-decoration:none;border-bottom:1px solid currentColor;} .hx-more:hover{opacity:.8;}
+</style>
   <link rel="stylesheet" href="tdc-anim.css?v=6"/>
   <script src="tdc-anim.js?v=6"></script>
   <link rel="stylesheet" href="tdc-dense.css?v=39"/>
@@ -322,7 +323,7 @@
   <div class="hq-word" id="hqWord" aria-hidden="true"></div>
   <div class="bgwm"><img id="wm1" alt=""></div>
   <div class="bggrunge" aria-hidden="true"></div>
-  <script src="tdc-nav.js?v=39"></script>
+  <script src="tdc-nav.js?v=40"></script>
 
   <!-- team picker -->
   <div class="pick-hero" id="picker">
@@ -417,6 +418,7 @@ function fitStand(){ var c=byId('hxStandings').querySelector('.st-scroll'); if(!
 
 var LAUNCH=[
   ['📊','team.html','Team Page','depth chart · DNA · projections'],
+  ['🏆','conference.html','Conference','standings · tournament bracket · all-conference'],
   ['🪞','self-scout.html','Self-Scout','identity · rotation · exposures','coach'],
   ['🔍','scout.html','Scout an Opponent','the full opponent game plan','coach'],
   ['⚔️','matchup.html','Matchup','head-to-head projected game plan','coach'],
@@ -574,7 +576,7 @@ function analyticsProj(row){
 }
 function projStandings(row){
   byId('hxStandLbl').textContent=(row.conf||'Conference')+' Standings';
-  byId('hxStandSub').textContent='2026-27 projected';
+  byId('hxStandSub').innerHTML='2026-27 projected &middot; <a class="hx-more" href="conference.html?team='+encodeURIComponent(row.full||row.team)+'">Full standings &amp; tournament &rarr;</a>';
   var mine=POOL.filter(function(t){return t.conf===row.conf;}).sort(function(a,b){return (a.rank||999)-(b.rank||999);});
   var el=byId('hxStandings');
   if(!mine.length){ el.innerHTML='<div class="hx-empty">No conference on file.</div>'; return; }

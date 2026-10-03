@@ -137,7 +137,7 @@
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
 </head>
 <body data-anim-auto class="hqsite">
-<script src="tdc-nav.js?v=39"></script>
+<script src="tdc-nav.js?v=40"></script>
   <div class="nav-wrap">
     <div class="nav-top">
       <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
@@ -188,7 +188,15 @@ const AXES=[['Pace','poss_pg'],['Bench','rotation_size'],['3PT Vol','three_pa_ra
 const BARS=[['Pace','poss_pg'],['Bench','rotation_size'],['3PT','three_pa_rate'],['Ball Mv','ast_rate'],['Defense','opp_tov_pg'],['Star Use','top_scorer_share']];
 
 function seasonLbl(y){y=+y;return (y-1)+'-'+(''+y).slice(2);}
-function lastSchool(p){ var s=(SEASONS[p.coach_slug]||[]); return s.length?s[s.length-1].school:(p.schools||'').split(',')[0]; }
+// 2026-27 jobs (data/coach-2027.json = last season's staffs + the 2026 coaching carousel): a coach's current
+// school when he has one, and "former" for a coach who coached 2025-26 but isn't a head coach now
+let CUR={};
+const _sch=n=>window.tdcShortSchool?tdcShortSchool(n):n;
+function lastSchool(p){
+  if(CUR[p.coach_slug]) return _sch(CUR[p.coach_slug]);
+  var s=(SEASONS[p.coach_slug]||[]), last=s.length?s[s.length-1].school:(p.schools||'').split(',')[0];
+  return (+p.last_year>=2026&&Object.keys(CUR).length)?last+' (former)':last;
+}
 function _logoFor(school){ var M=window.TDC_TEAM_COLORS||{};
   var k=(school||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/['’]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
   var t=M[k]||(k&&window.tdcTeamColor&&window.tdcTeamColor(school)); return (t&&t.logo)||''; }   // shared mascot-aware resolver, not a loose prefix scan
@@ -327,10 +335,12 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 
 async function init(){
   try{
-    const [prof, seas]=await Promise.all([
+    const [prof, seas, cur]=await Promise.all([
       fetch('scripts/data/coach_profiles.json',{cache:'no-cache'}).then(r=>r.json()),
-      fetch('scripts/data/coach_seasons.json').then(r=>r.json()).catch(()=>[])
+      fetch('scripts/data/coach_seasons.json').then(r=>r.json()).catch(()=>[]),
+      fetch('data/coach-2027.json').then(r=>r.ok?r.json():[]).catch(()=>[])
     ]);
+    (cur||[]).forEach(c=>{ if(c.c) CUR[c.c]=c.tm; });
     PROF=prof; PROF.forEach(p=>BYSLUG[p.coach_slug]=p);
     (seas||[]).forEach(function(s){ if(!s.coach_slug)return; (SEASONS[s.coach_slug]=SEASONS[s.coach_slug]||[]).push(s); });
     Object.values(SEASONS).forEach(a=>a.sort((x,y)=>x.season_year-y.season_year));
