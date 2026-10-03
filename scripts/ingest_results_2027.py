@@ -118,7 +118,17 @@ def upsert(table, rows, conflict):
     return ok
 
 
+def check_key():
+    """the service key can read what the public key can't (league invite codes are column-revoked) → write access is real"""
+    if not KEY: print("  SUPABASE_SERVICE_KEY not set — results file only"); return False
+    r = requests.get(f"{SB}/rest/v1/fl_leagues?select=invite_code&limit=1", headers={"apikey": KEY, "Authorization": f"Bearer {KEY}"}, timeout=30)
+    ok = r.status_code == 200
+    print("  database key: OK (service role)" if ok else f"  database key REJECTED ({r.status_code}): {r.text[:120]} — check the SUPABASE_SERVICE_KEY secret")
+    return ok
+
+
 def main():
+    if not check_key() and KEY: sys.exit(1)
     today = min(et_today(), LAST)
     if "--all" in sys.argv: start = FIRST
     else:
