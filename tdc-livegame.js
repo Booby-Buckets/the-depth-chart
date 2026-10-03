@@ -12,15 +12,17 @@
   .lg{display:grid;gap:18px;margin-top:16px;font-family:'Inter',system-ui,sans-serif;}
   .lg-card{border:1px solid var(--border);border-radius:10px;background:var(--bg);padding:16px;min-width:0;}
   .lg-card h2{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;color:var(--text);margin:0 0 8px;}
-  .lg-board{display:grid;grid-template-columns:1fr 1fr;gap:12px 20px;}
-  .lg-team{display:flex;align-items:center;gap:12px;min-width:0;}
+  .lg-board{display:grid;grid-template-columns:1fr auto 1fr;gap:12px 22px;align-items:center;}
+  .lg-team{display:flex;align-items:center;gap:12px;min-width:0;justify-content:flex-end;}
+  .lg-team.home{flex-direction:row-reverse;text-align:right;}
+  .lg-vs{font-size:22px;font-weight:700;color:var(--text3);}
   .lg-team img{width:48px;height:48px;object-fit:contain;flex:0 0 48px;}
-  .lg-tn{flex:1;min-width:0;}
+  .lg-tn{min-width:0;}
   .lg-tn .n{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;line-height:1.15;color:var(--text);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .lg-tn a{color:inherit;text-decoration:none;} .lg-tn a:hover{color:var(--accent);}
   .lg-tn small{display:block;font-size:11.5px;color:var(--text3);font-weight:600;margin-top:2px;}
   .lg-tn .rk{font-family:'Inter',sans-serif;font-size:12px;color:var(--text3);font-weight:700;margin-right:5px;}
-  .lg-sc{font-family:'Playfair Display',serif;font-size:38px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text);}
+  .lg-sc{margin:0 4px;font-family:'Playfair Display',serif;font-size:38px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text);}
   .lg-team.lose .lg-sc,.lg-team.lose .n{color:var(--text3);}
   .lg-ps{color:var(--accent);font-size:10px;margin-left:6px;vertical-align:3px;}
   .lg-status{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px 16px;font-size:13px;color:var(--text2);border-top:1px solid var(--border);padding-top:10px;}
@@ -69,7 +71,7 @@
   .lg-tile b{display:block;font-size:22px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;margin-top:2px;}
   .lg-tile small{font-size:12px;color:var(--text2);}
   @media(max-width:720px){.lg-sitrow{grid-template-columns:1fr;}}
-  @media(max-width:640px){.lg-board{grid-template-columns:1fr;}.lg-sc{font-size:30px;}.lg-tn .n{font-size:19px;}.lg-card{padding:12px;}}`;
+  @media(max-width:640px){.lg-board{grid-template-columns:1fr;}.lg-team{justify-content:flex-start;}.lg-tn{flex:1;}.lg-team.home{flex-direction:row;text-align:left;}.lg-vs{display:none;}.lg-sc{font-size:30px;}.lg-tn .n{font-size:19px;}.lg-card{padding:12px;}}`;
   let cssDone = false;
   function css() { if (cssDone) return; cssDone = true; const s = document.createElement('style'); s.textContent = CSS; document.head.appendChild(s); }
 
@@ -145,7 +147,7 @@
 
     function board() {
       const h = game.home, a = game.away, live = game.state === 'in', fin = game.state === 'post', pre = game.state === 'pre';
-      const team = (t, o, home) => `<div class="lg-team${fin && t.score < o.score ? ' lose' : ''}">
+      const team = (t, o, home) => `<div class="lg-team${home ? ' home' : ''}${fin && t.score < o.score ? ' lose' : ''}">
         <img src="${esc(t.logo)}" alt="" onerror="this.style.visibility='hidden'">
         <div class="lg-tn"><span class="n">${t.rank ? `<span class="rk">${t.rank}</span>` : ''}${teamLink(t)}${live && game.poss === t.id ? '<span class="lg-ps" title="Possession">●</span>' : ''}</span>
           <small>${home ? (game.neutral ? 'Neutral site' : 'Home') : 'Away'}${t.record ? ' · ' + esc(t.record) : ''}</small></div>
@@ -154,7 +156,7 @@
       const ls = nq ? `<div class="sheet-wrap lg-lsw"><table class="sheet dense lg-ls"><thead><tr><th class="l">Team</th>${Array.from({ length: nq }, (_, i) => `<th>${periodName(i + 1)}</th>`).join('')}<th>T</th></tr></thead><tbody>
         ${[a, h].map(t => `<tr><td class="l nm">${esc(t.abbr)}</td>${Array.from({ length: nq }, (_, i) => `<td>${t.halves[i] != null ? t.halves[i] : ''}</td>`).join('')}<td class="big">${t.score != null ? t.score : ''}</td></tr>`).join('')}</tbody></table></div>` : '';
       const status = live ? `<span class="lg-live">LIVE · ${esc(game.detail)}</span>` : `<b>${esc(game.detail)}</b>`;
-      return `<section class="lg-card"><div class="lg-board">${team(a, h, false)}${team(h, a, true)}
+      return `<section class="lg-card"><div class="lg-board">${team(a, h, false)}<div class="lg-vs" aria-hidden="true">–</div>${team(h, a, true)}
         <div class="lg-status"><span>${status}${game.venue ? ` · ${esc(game.venue)}` : ''}${err ? ' · <span class="lg-err">feed hiccup, retrying</span>' : ''}</span>${ls}</div></div></section>`;
     }
 
