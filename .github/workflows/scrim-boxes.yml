@@ -1,0 +1,52 @@
+name: Scrimmage box scores
+
+# Preseason only: pulls box scores for played 2026-27 scrimmages from the schools' athletics sites
+# (scripts/scrim_boxes.py) into scripts/data/scrimmage_results_2027.json, then commits — Vercel
+# redeploys and each team's Schedule tab shows the unofficial box score. Scrimmage stats are
+# display-only; nothing downstream reads this file. Runs Oct 1 – Nov 10 (the script is a no-op
+# once every played game has a box score). Hand-entered results (manual: true) are never overwritten.
+
+on:
+  schedule:
+    - cron: '0 13 * 10,11 *'   # ~9:00 ET — last night's games
+    - cron: '0 3 * 10,11 *'    # ~23:00 ET — same-day games that already posted
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: scrim-boxes
+  cancel-in-progress: false
+
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Pull scrimmage box scores
+        run: |
+          if [ "$(date -u +%m%d)" \> "1110" ]; then echo "Preseason over — skipping."; exit 0; fi
+          pip install --quiet requests
+          python3 scripts/scrim_boxes.py
+
+      - name: Commit if changed
+        run: |
+          git config user.name "tdc-scrim-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/data/scrimmage_results_2027.json
+          if git diff --cached --quiet; then
+            echo "No new box scores."
+          else
+            git commit -m "Auto: scrimmage box scores [skip ci]"
+            for i in 1 2 3 4 5; do
+              git pull --rebase -X theirs origin main && git push && break
+              sleep $((i * 5))
+            done
+          fi
