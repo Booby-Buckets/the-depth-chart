@@ -185,7 +185,7 @@
   // ── best / worst ───────────────────────────────────────────────────────────
   function renderBets(rows, props) {
     if (rows.length && rows.every(function (r) { return r.exh; })) {   // scrimmages have no betting markets
-      var msg = '<div class="cs-empty">Exhibition day: books don\'t post lines or props on scrimmages. Our line for every game is in Game lines below, and results get logged as they come in.</div>';
+      var msg = '<div class="cs-empty">Scrimmage day: these games are unofficial and books don\'t post lines or props on them. Our line for every game is in Game lines below, and results get logged as they come in.</div>';
       $('csBest').innerHTML = msg; $('csWorst').innerHTML = msg; return;
     }
     var best = [], used = {};
@@ -227,7 +227,7 @@
     var lim = S.showAll ? view.length : Math.min(view.length, 40);
     var body = view.slice(0, lim).map(function (r, i) {
       var tag = '';
-      if (r.exh) tag = '<span class="cs-tag warn">Exhibition</span>';
+      if (r.exh) tag = '<span class="cs-tag warn" title="Preseason scrimmage: unofficial, no betting markets">Scrimmage</span>';
       else if (r.spEdge != null && Math.abs(r.spEdge) >= 3) tag = '<span class="cs-tag good">Edge ' + Math.abs(r.spEdge).toFixed(1) + '</span>';
       else if ((S.byFull[r.fav].rank || 400) <= 60 && r.dogP >= 30 && Math.abs(r.m) >= 2.5) tag = '<span class="cs-tag warn">Upset watch</span>';
       else if (r.both <= 40) tag = '<span class="cs-tag">Marquee</span>';
@@ -256,12 +256,12 @@
     var near = S.dates.slice(Math.max(0, i - 2), Math.max(0, i - 2) + 8);
     $('csDates').innerHTML = near.map(function (d) {
       var gs = S.games.filter(function (g) { return g.date === d; }), n = gs.length, xe = gs.every(function (g) { return g.exh; });
-      return '<button class="' + (d === S.date ? 'on' : '') + '" data-d="' + d + '"><b>' + fmtDate(d) + '</b><span>' + (xe ? n + ' exhibition' + (n > 1 ? 's' : '') : n + ' games') + '</span></button>';
+      return '<button class="' + (d === S.date ? 'on' : '') + '" data-d="' + d + '"><b>' + fmtDate(d) + '</b><span>' + (xe ? n + ' scrimmage' + (n > 1 ? 's' : '') : n + ' games') + '</span></button>';
     }).join('');
     var top = rows.filter(function (r) { return r.both <= 100; }).length;
     $('csSlateT').textContent = fmtDate(S.date, true);
     var nx = rows.filter(function (r) { return r.exh; }).length;
-    $('csSlateS').textContent = (nx === rows.length && nx ? nx + ' exhibition' + (nx > 1 ? 's' : '') + ' · ' : rows.length + ' rated games · ' + (nx ? nx + ' exhibitions · ' : '')) + top + ' between top-100 teams' + (nx === rows.length && nx ? ' · no betting markets on scrimmages' : rows.some(function (r) { return r.mk; }) ? ' · book lines in' : ' · book lines post about a week out');
+    $('csSlateS').textContent = (nx === rows.length && nx ? nx + ' preseason scrimmage' + (nx > 1 ? 's' : '') + ' · ' : rows.length + ' rated games · ' + (nx ? nx + ' scrimmages · ' : '')) + top + ' between top-100 teams' + (nx === rows.length && nx ? ' · unofficial, no betting markets' : rows.some(function (r) { return r.mk; }) ? ' · book lines in' : ' · book lines post about a week out');
     $('csPrev').disabled = i <= 0; $('csNext').disabled = i >= S.dates.length - 1;
   }
 

@@ -14,7 +14,7 @@
     if (_p) return _p;
     _p = Promise.all([
       fetch('scripts/data/scrimmages_2027.json?v=5').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
-      fetch('scripts/data/scrimmage_results_2027.json?v=2', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+      fetch('scripts/data/scrimmage_results_2027.json?v=3', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
       fetch('scripts/data/team_pace_eff.json?v=7').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
     ]).then(function (a) {
       return { games: (a[0] && a[0].games) || [], results: (a[1] && a[1].results) || {}, eff: a[2] };
@@ -56,7 +56,7 @@
         if (res && res.hs != null && res.as != null) {
           var ms = x.home === me ? res.hs : res.as, os = x.home === me ? res.as : res.hs;   // listed home team = hs (also on neutral floors)
           var won = ms > os, beat = my != null ? (ms - os) - my : null;
-          result = '<b class="' + (won ? 'up' : 'dn') + '">' + (won ? 'W' : 'L') + ' ' + ms + '–' + os + '</b>' +
+          result = '<span title="Unofficial scrimmage result">' + (won ? 'W' : 'L') + ' ' + ms + '–' + os + '</span>' +
             (beat != null ? ' <span class="dim" title="Margin vs our line">' + (beat >= 0 ? '+' : '−') + Math.abs(beat).toFixed(1) + ' vs line</span>' : '') +
             (res.note ? '<div class="dim" style="font-size:10.5px;white-space:normal;margin-top:2px;">' + esc(res.note) + (res.src ? ' · <a href="' + esc(res.src) + '" target="_blank" rel="noopener">recap</a>' : '') + '</div>' : '');
         } else if (res && res.note) result = '<span class="dim">' + esc(res.note) + '</span>';
@@ -66,18 +66,22 @@
           '<td class="l dim">' + (x.time ? esc(x.time) : 'TBD') + (x.tv ? ' · ' + esc(x.tv) : '') + '</td>' +
           '<td class="l nm">' + (ol ? '<img class="tsp-lg" src="' + ol + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">' : '') +
             (ot ? '<a href="team.html?team=' + encodeURIComponent(ot.team) + '">' + esc(sn(opp, byFull)) + '</a>' : esc(sn(opp, byFull))) +
-            (ot && ot.rank ? ' <span class="dim">#' + ot.rank + '</span>' : (ot ? '' : ' <span class="dim">non-D-I</span>')) + (x.check ? ' <span class="dim">?</span>' : '') + '</td>' +
+            (ot && ot.rank ? ' <span class="dim">#' + ot.rank + '</span>' : (ot ? '' : ' <span class="dim">non-D-I</span>')) + (x.check ? ' <span class="dim">?</span>' : '') +
+            ' <span class="scrim-chip" title="Preseason scrimmage: unofficial, counts toward nothing">Scrimmage</span></td>' +
           '<td class="l dim">' + (site === 'H' ? 'Home' : site === 'A' ? 'Away' : 'Neutral') + '</td>' +
           '<td>' + line + '</td><td>' + (wp != null ? Math.round(wp) + '%' : '—') + '</td>' +
           '<td>' + (P && P.tot != null ? Math.round(P.tot) : '—') + '</td>' +
           '<td class="l">' + result + '</td></tr>';
       }).join('');
       var wrap = document.createElement('div'); wrap.className = 'scrim-wrap';
-      wrap.innerHTML = '<div class="sec-head" style="margin:0 0 10px;">Preseason exhibitions <span class="sec-head-sub" style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· scrimmages and exhibitions · not part of the record or projection</span></div>' +
+      wrap.innerHTML = '<div class="sec-head" style="margin:0 0 10px;">Preseason scrimmages <span class="sec-head-sub" style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· unofficial · not counted in the record, stats, ratings or projections</span></div>' +
         '<div class="sheet-wrap" style="max-height:none;margin-bottom:22px;"><table class="sheet dense tsp-table"><thead><tr><th class="l">Date</th><th class="l">Time</th><th class="l">Opponent</th><th class="l">Site</th>' +
         '<th title="Our line for this team (− = favored)">Line</th><th title="Our win probability">Win %</th><th title="Projected total points">Total</th><th class="l">Result</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
       host.insertBefore(wrap, host.firstChild);
     }).catch(function () {});
   }
+  (function css() { if (document.getElementById('scrim-css')) return; var st = document.createElement('style'); st.id = 'scrim-css';
+    st.textContent = '.scrim-chip{display:inline-block;margin-left:7px;padding:0 6px;border:1px dashed var(--border2);border-radius:4px;font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);vertical-align:1px;line-height:1.7;}.scrim-wrap td{color:var(--text2);}';
+    (document.head || document.documentElement).appendChild(st); })();
   g.TDCScrim = { load: load, price: price, renderFor: renderFor };
 })(window);
