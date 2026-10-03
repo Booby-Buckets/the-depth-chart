@@ -148,6 +148,23 @@ for c in CS:
     sc=c["school"]; y=c["season_year"]
     if sc not in _cur_slug or y>_cur_slug[sc][0]: _cur_slug[sc]=(y,c.get("coach_slug"))
     if c.get("coach_slug"): _slug_ts[c["coach_slug"]].append((y,sc))
+# 2026-27 head coaches (data/coach-2027.json = 2025-26 staffs + the 2026 carousel, build_coaches_2027.py):
+# a school whose 2025-26 coach left gets its NEW coach's tempo history — his own teams' real pace — and a
+# first-time head coach (no D-I record) gets a mostly-neutral pace (NEW_KEEP of the program's old tempo kept).
+NEW_KEEP=0.35
+_new_first=set()
+try:
+    _c26={r["tm"]:r.get("c") for r in json.load(open(D.parent.parent/"data"/"coach-2026.json"))}
+    _c27=json.load(open(D.parent.parent/"data"/"coach-2027.json"))
+    _swap={_c26.get(r["tm"]):r for r in _c27 if r.get("new") and _c26.get(r["tm"])}
+    for sc,(y,slug) in list(_cur_slug.items()):
+        r=_swap.get(slug)
+        if r and y>=2026:
+            if r.get("career") and r.get("c"): _cur_slug[sc]=(y,r["c"])
+            else: _cur_slug[sc]=(y,None); _new_first.add(sc)
+    print(f"coach changes applied to tempo: {sum(1 for r in _swap.values() if r.get('career'))} with a head-coaching record, {len(_new_first)} first-time head coaches")
+except Exception as _e:
+    print("warn: 2026-27 coach changes not applied to tempo (%s)" % _e)
 def _real_tempo(school,year):
     tt=TD.get(str(year),{}).get("teams",{})
     k=espn_key(school,tt)
@@ -160,7 +177,9 @@ for sc,(y,slug) in _cur_slug.items():
         t=_real_tempo(school,yy)
         if t: hist.append(t)
     if not hist:
-        t=_real_tempo(sc,2026); hist=[t] if t else []
+        t=_real_tempo(sc,2026)
+        if t and sc in _new_first: t=_TEMPO_MEAN+(t-_TEMPO_MEAN)*NEW_KEEP   # new head coach, no pace record
+        hist=[t] if t else []
     if hist:
         w=[PACE_W[i] if i<len(PACE_W) else 0.3 for i in range(len(hist))]
         raw=sum(wi*h for wi,h in zip(w,hist))/sum(w)

@@ -112,21 +112,38 @@ for s in seas:
         coach_ts[s["coach_slug"]].append((s["school"],s["season_year"]))
 
 out={"_natl":{"slots":[round(x,1) for x in natl],"top5":round(sum(natl[:5]),1),"rot_size":rot_of(natl),"seasons":len(allsh)}}
+# programs that changed head coaches in the 2026 carousel (scripts/data/coach_changes_2026.json): their OWN
+# past rotation belongs to the old coach, so an unmatched new coach gets the national shape. Every other program
+# with a coach we can't match (a gap in the coaching data, e.g. UNC Asheville's Mike Morrell) keeps the same
+# coach, so its own recent rotation is his.
+_nk=lambda x: re.sub(r"[^a-z0-9]","",(x or "").lower().replace("state","st"))
+try: CHANGED={_nk(c["school"]) for c in json.load(open(os.path.join(D,"coach_changes_2026.json")))}
+except Exception: CHANGED=set()
+def own_shapes(name):
+    shapes,src=[],[]
+    for yr in range(CUR,CUR-ROT_YEARS,-1):
+        mins=hist.get((name,yr))
+        if mins and len(mins)>=7: shapes.append(shape(mins)); src.append([name,yr])
+    return shapes,src
 unres=[]; nohist=[]
 for t in teams:
     name=t.get("name"); hc=(t.get("head_coach") or t.get("coach") or "").strip()
     if not name: continue
     slug=resolve(hc)
     rec={"coach":hc or None,"slug":slug,"seasons":0,"slots":out["_natl"]["slots"],"top5":out["_natl"]["top5"],"rot_size":out["_natl"]["rot_size"],"raw":None,"src":[]}
+    shapes=[]; src=[]
     if slug:
         ts=sorted(coach_ts.get(slug,[]),key=lambda x:-x[1])
-        shapes=[]; src=[]
         for school,yr in ts:
             sh=short_of(school)
             if not sh: continue
             mins=hist.get((sh,yr))
             if not mins or len(mins)<7: continue
             shapes.append(shape(mins)); src.append([sh,yr])
+    if not shapes and _nk(name) not in CHANGED:   # same coach as before, just missing from the coaching data
+        shapes,src=own_shapes(name)
+        if shapes: rec["src_note"]="program's own recent rotation (coach not in the coaching data)"
+    if slug or shapes:
         if shapes:
             w=[REC_W[i] if i<len(REC_W) else 0.4 for i in range(len(shapes))]; W=sum(w)
             raw=[sum(w[j]*shapes[j][i] for j in range(len(shapes)))/W for i in range(10)]
@@ -134,7 +151,7 @@ for t in teams:
             sl=[natl[i]+(raw[i]-natl[i])*k for i in range(10)]
             rec.update(seasons=len(shapes),slots=[round(x,1) for x in sl],top5=round(sum(sl[:5]),1),rot_size=rot_of(sl),raw=[round(x,1) for x in raw],src=src)
         else: nohist.append((name,hc))
-    else: unres.append((name,hc))
+    if not slug: unres.append((name,hc))
     out[name]=rec
 json.dump(out,open(os.path.join(D,"coach_rotation.json"),"w"),separators=(",",":"))
 n=len(out)-1; withh=sum(1 for k,v in out.items() if k!="_natl" and v["seasons"])
