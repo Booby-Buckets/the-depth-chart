@@ -213,9 +213,11 @@ function projectPlayer(p, teamConf, teamRoster, targetMpg){
   // ── CAREER HISTORY ────────────────────────────────────────
   // window._careerHistoryMap is populated by player pages; on team pages
   // it may not exist — fall back gracefully.
-  const history = (window._careerHistoryMap && window._careerHistoryMap[
+  // name-keyed, so filter to THIS person (a namesake's seasons must never become his history)
+  const _hraw = (window._careerHistoryMap && window._careerHistoryMap[
     (p.name||'').toLowerCase().trim()
   ]) || null;
+  const history = window.tdcHistFor ? (tdcHistFor(p, _hraw)||null) : _hraw;
 
   // Pull all played seasons (sat_out=false, has real ppg)
   const playedSeasons = history
@@ -538,7 +540,8 @@ function buildTeamProjections(players, conf){
     const posFitMult  = p.position2 ? (isOutOfPos ? 0.97 : 1.02) : 1.0;
 
     const key    = (p.name||'').toLowerCase().trim();
-    const history= (window._careerHistoryMap&&window._careerHistoryMap[key])||[];
+    const _hraw  = (window._careerHistoryMap&&window._careerHistoryMap[key])||[];
+    const history= window.tdcHistFor ? (tdcHistFor(p, _hraw)||[]) : _hraw;   // this person only, never a namesake
 
     const played = history
       .filter(h => !h.sat_out && parseFloat(h.ppg||0)>0 && parseFloat(h.mpg||0)>=6)

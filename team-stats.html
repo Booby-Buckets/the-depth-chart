@@ -15,6 +15,7 @@
   <meta name="twitter:title" content="Projected Team Stats — The Depth Chart">
   <meta name="twitter:description" content="Advanced college basketball roster rankings, team & player analytics, NIL values, and 2026-27 projections for all of Division I.">
   <script src="auth.js?v=delacct1"></script>
+  <script src="tdc-histguard.js?v=1"></script>
   <!-- canonical grade module: displayed OVRs = the coupled v5 grade shown site-wide -->
   <script src="tdc-projgrade.js?v=base38"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
@@ -349,9 +350,11 @@ function projectPlayer(p, teamConf, teamRoster, targetMpg){
   // ── CAREER HISTORY ────────────────────────────────────────
   // window._careerHistoryMap is populated by player pages; on team pages
   // it may not exist — fall back gracefully.
-  const history = (window._careerHistoryMap && window._careerHistoryMap[
+  // name-keyed, so filter to THIS person (a namesake's seasons must never become his history)
+  const _hraw = (window._careerHistoryMap && window._careerHistoryMap[
     (p.name||'').toLowerCase().trim()
   ]) || null;
+  const history = window.tdcHistFor ? (tdcHistFor(p, _hraw)||null) : _hraw;
 
   // Pull all played seasons (sat_out=false, has real ppg)
   const playedSeasons = history
@@ -1156,7 +1159,8 @@ function buildTeamProjections(players, conf){
     const posFitMult  = p.position2 ? (isOutOfPos ? 0.97 : 1.02) : 1.0;
 
     const key    = (p.name||'').toLowerCase().trim();
-    const history= (window._careerHistoryMap&&window._careerHistoryMap[key])||[];
+    const _hraw  = (window._careerHistoryMap&&window._careerHistoryMap[key])||[];
+    const history= window.tdcHistFor ? (tdcHistFor(p, _hraw)||[]) : _hraw;   // this person only, never a namesake
 
     const played = history
       .filter(h => !h.sat_out && parseFloat(h.ppg||0)>0 && parseFloat(h.mpg||0)>=6)
@@ -1675,7 +1679,7 @@ load();
 <script src="tdc-nil.js?v=cal1"></script>
 <script src="tdc-pos.js"></script>
 <script src="tdc-realstats.js?v=2"></script>
-<script src="tdc-proj.js?v=d1conf1"></script>
+<script src="tdc-proj.js?v=hg1"></script>
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=22"></script>
 </body>
