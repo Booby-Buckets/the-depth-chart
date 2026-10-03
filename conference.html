@@ -11,7 +11,8 @@
   <script src="tdc-projgrade.js?v=base38"></script>
   <script src="tdc-awards.js?v=11"></script>
   <script src="tdc-ratings.js?v=28"></script>
-  <script src="tdc-schedule.js?v=24s"></script>
+  <script src="tdc-schedule.js?v=25s"></script>
+  <script src="tdc-conftourney.js?v=2"></script>
   <script src="tdc-glossary.js?v=13"></script>
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=5"></script>
@@ -230,7 +231,14 @@
       .nav-sub a{white-space:nowrap;padding:0 12px;font-size:10px;}
       .seasonsel{margin-left:0;width:100%;}
     }
-  </style>
+    .ctb{display:flex;gap:14px;overflow-x:auto;padding-bottom:6px;}
+  .ctr{min-width:150px;flex:1;}
+  .ctrh{font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
+  .ctg{border:1px solid var(--border);border-radius:8px;padding:6px 8px;margin-bottom:8px;font-size:12px;line-height:1.55;background:var(--bg);}
+  .ctg b{display:inline-block;min-width:16px;color:var(--text3);font-weight:800;}
+  .ctmeta{font-size:11px;font-weight:700;color:var(--text3);margin:2px 0 8px;letter-spacing:.02em;}
+  .ctflag{display:inline-block;margin-left:6px;font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:1px 7px;border-radius:999px;border:1px solid var(--border2);color:var(--text3);cursor:help;}
+</style>
   <!-- new-UI theme layer: navy+blue dark palette (matches index/player); light-mode guard keeps the toggle readable -->
   <link rel="stylesheet" href="tdc-dense.css?v=39"/>
   <link rel="stylesheet" href="tdc-skin.css?v=14"/>
@@ -330,6 +338,8 @@
       </div>
     </div>
   </div>
+
+  <div class="box full" id="ctbox" style="display:none;margin-bottom:16px"></div>
 
   <div class="cols2" id="projPlayers" style="display:none">
     <div class="box">
@@ -550,9 +560,14 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
   function loadProjected(){
     Promise.all([
       get('predictive_ratings?season=eq.'+PROJ+'&select=data&limit=1'),
-      (window.TDC_AWARDS? TDC_AWARDS.get().catch(function(){return null;}) : Promise.resolve(null))
+      (window.TDC_AWARDS? TDC_AWARDS.get().catch(function(){return null;}) : Promise.resolve(null)),
+      fetch('scripts/data/conf_members_2027.json?v=1').then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; })
     ]).then(function(res){
       var pr=res[0]&&res[0][0]&&res[0][0].data;
+      // 2026-27 membership from the official league groupings: the ratings' conf lags realignment
+      // (Little Rock still says OVC, Louisiana Tech still says CUSA)
+      var MEMB=res[2]&&res[2].teams||{};
+      ((pr&&pr.teams)||[]).forEach(function(t){ if(MEMB[t.full]) t.conf=MEMB[t.full]; });
       var teams=(pr&&pr.teams)||[];
       if(!teams.length) throw new Error('no projection on file');
       // predictive_ratings uses short codes for the power leagues and full names
@@ -648,9 +663,78 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
     // team honours make no sense before a ball is thrown up
     var hon=sel('honours'); if(hon) hon.closest('.box').style.display='none';
     // projected records arrive after the first paint (one cached simulation of every team)
-    if(!recs._loaded && window.TDCSched){
+    if(window.TDCConfT && window.tdcConfCode){
+      // standings + the conference tournament, simulated together in the shared seasons
+      if(!recs._ct){ TDCConfT.project(tdcConfCode(CONF),{sims:2000}).then(function(R){ if(R) renderConfProj(R); }).catch(function(e){ console.warn('conf proj',e); }); }
+    } else if(!recs._loaded && window.TDCSched){
       TDCSched.projectAll().then(function(all){ if(!all) return; all._loaded=true; renderProjStandings(all); }).catch(function(){});
     }
+  }
+
+  // ── projected standings + conference tournament ──────────────────────────
+  var pc=function(v){ return v==null||!isFinite(v)?'\u2014':(v>=.995?'>99':v<.005?(v>0?'<1':'0'):Math.round(v*100))+'%'; };
+  function roundNames(rounds){ var n=rounds.length;
+    return rounds.map(function(r,i){ return i===n-1?'Final':i===n-2?'Semis':i===n-3?'Quarters':(r===0&&i===0?'Play-in':(i===0?'First round':i===1?'Second round':'Round '+(i+1))); }); }
+  function renderConfProj(R){
+    var rec=function(w,l){ return Math.round(w)+'-'+Math.round(l); };
+    var body=R.teams.map(function(t,i){
+      var r=+t.row.rating||0;
+      return '<tr><td class="rk">'+(i+1)+'</td>'+
+        '<td class="l nm"><span class="tm">'+tLogo(t.team,'tlogo')+'<a class="tnm" href="'+teamHref(t.team)+'">'+esc(t.team)+'</a></span></td>'+
+        '<td class="strong" title="'+t.cw.toFixed(1)+' expected league wins of '+t.confN+(t.filled?' ('+t.filled+' league game'+(t.filled>1?'s':'')+' not announced yet, simulated vs an average league opponent)':'')+'">'+rec(t.cw,t.cl)+(t.filled?'<span class="dim">*</span>':'')+'</td>'+
+        '<td>'+(t.n>=20?rec(t.expW,t.n-t.expW):'\u2014')+'</td>'+
+        '<td title="wins or shares the regular-season title · '+pc(t.outright)+' outright">'+pc(t.title)+'</td>'+
+        '<td>'+(t.avgSeed?t.avgSeed.toFixed(1):'\u2014')+'</td>'+
+        '<td class="strong">'+pc(t.champ)+'</td>'+
+        '<td class="big">'+f1(r)+'</td><td class="dim">#'+(t.row.rank||'\u2014')+'</td></tr>';
+    }).join('');
+    sel('stand').innerHTML='<thead><tr><th class="rk">#</th><th class="l">Team</th>'+
+      '<th title="projected conference record (shared simulated seasons: every league W is someone\u2019s L)">Proj Conf</th><th title="projected overall record">Proj W-L</th>'+
+      '<th data-heat="1" title="wins or shares the regular-season title">Reg. title</th><th data-heat="-1" title="average tournament seed">Avg seed</th>'+
+      '<th data-heat="1" title="wins the conference tournament (the automatic NCAA bid)">Tourney</th>'+
+      '<th data-heat="1"'+(window.tipAttr?tipAttr('projrating'):'')+' style="cursor:help;">Proj Power</th><th>Nat&rsquo;l</th></tr></thead><tbody>'+body+'</tbody>';
+    if(window.tdcSheetHeat) tdcSheetHeat(sel('stand'));
+    document.querySelector('#stand').closest('.box').querySelector('.sub').innerHTML='projected league record &middot; regular-season title &middot; seed &middot; tournament odds &middot; '+R.sims.toLocaleString()+' simulated seasons';
+    renderTourney(R);
+  }
+  function renderTourney(R){
+    var f=R.fmt, box=sel('ctbox'); if(!box) return;
+    if(!f){ box.style.display='none'; return; }
+    var names=roundNames(R.rounds);
+    // projected seeding = average seed among the teams most often invited
+    var seeded=R.teams.filter(function(t){ return t.invited>0; }).sort(function(a,b){ return (b.invited-a.invited)||(a.avgSeed-b.avgSeed); }).slice(0,f.invited)
+      .sort(function(a,b){ return a.avgSeed-b.avgSeed; });
+    var bySeed={}; seeded.forEach(function(t,i){ bySeed[i+1]=t; });
+    var short=function(t){ return t?esc(window.tdcShortSchool?tdcShortSchool(t.team):t.team):'?'; };
+    var games={}; (f.games||[]).forEach(function(g){ games[g.id]=g; });
+    var lbl=function(v){
+      if(typeof v==='number') return '<b>'+v+'</b> '+short(bySeed[v]);
+      var t=String(v);
+      if(t.indexOf('RS:')===0){ var p=t.split(':'); return '#'+p[2]+' remaining seed'; }
+      var g=games[t.slice(2)]; if(!g) return 'winner';
+      // a game between two seeds reads "winner 8/9"; deeper ones read by their round ("Quarters winner")
+      if(typeof g.a==='number'&&typeof g.b==='number') return '<span class="dim">winner '+g.a+'/'+g.b+'</span>';
+      return '<span class="dim">'+names[R.rounds.indexOf(g.round)]+' winner</span>';
+    };
+    var cols=R.rounds.filter(function(r){ return (f.games||[]).some(function(g){ return g.round===r; }); }).map(function(r){
+      var i=R.rounds.indexOf(r);
+      return '<div class="ctr"><div class="ctrh">'+names[i]+'</div>'+(f.games||[]).filter(function(g){ return g.round===r; }).map(function(g){
+        return '<div class="ctg"><div>'+lbl(g.a)+'</div><div>'+lbl(g.b)+'</div></div>'; }).join('')+'</div>';
+    }).join('')+(f.reseed?'<div class="ctr"><div class="ctrh">Then</div><div class="ctg"><div class="dim">reseeded: highest remaining seed hosts the lowest</div></div></div>':'');
+    // shading only where every team has to play (byes make early-round odds low for the best teams)
+    var head=R.rounds.map(function(r,i){ return '<th'+(i>=R.rounds.length-2?' data-heat="1"':'')+'>'+names[i]+'</th>'; }).join('');
+    var rows=R.teams.slice().sort(function(a,b){ return (b.champ-a.champ)||(a.avgSeed||99)-(b.avgSeed||99); }).map(function(t){
+      return '<tr><td class="l nm"><span class="tm">'+tLogo(t.team,'tlogo')+'<a class="tnm" href="'+teamHref(t.team)+'">'+esc(t.team)+'</a></span></td>'+
+        (f.invited<R.teams.length?'<td>'+pc(t.invited)+'</td>':'')+
+        R.rounds.map(function(r){ return '<td>'+pc(t.reach[r])+'</td>'; }).join('')+'<td class="strong">'+pc(t.champ)+'</td></tr>'; }).join('');
+    var meta=[f.venue, f.dates, f.invited+' of '+(f.league||R.teams.length)+' teams', f.site==='campus'?'campus sites, higher seed hosts':f.site==='mixed'?'campus early rounds, then neutral':'neutral site'].filter(Boolean).map(esc).join(' &middot; ');
+    var conf=f.confidence==='high'?'':' <span class="ctflag" title="'+esc(f.notes||'')+'">'+(f.confidence==='low'?'bracket not yet announced':'some pairings inferred')+'</span>';
+    var basis=/2025-26/.test(f.format_season||'')?' <span class="ctflag" title="2027 format not announced yet">2026 format</span>':'';
+    box.innerHTML='<div class="sl"><span>Conference tournament</span><span class="sub">'+meta+'</span></div>'+
+      '<div class="ctmeta">Projected seeds'+conf+basis+'</div><div class="ctb">'+cols+'</div>'+
+      '<div class="sheet-wrap" style="margin-top:14px"><table class="sheet dense freeze2" id="ctTbl"><thead><tr><th class="l">Team</th>'+(f.invited<R.teams.length?'<th data-heat="1">Makes it</th>':'')+head+'<th data-heat="1">Wins it</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+    box.style.display='';
+    if(window.tdcSheetHeat) tdcSheetHeat(sel('ctTbl'));
   }
 
   // ── power-rating chart: one bar per team from a zero line, in team colour ──

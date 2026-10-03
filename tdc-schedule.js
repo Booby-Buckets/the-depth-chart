@@ -40,7 +40,9 @@
   // team T's true-rating draw in sim s (Box-Muller on two of its uniforms)
   const zTeam = (s, name) => { const k = hkey('t:' + name); return Math.sqrt(-2 * Math.log(U(1, s, k))) * Math.cos(2 * Math.PI * U(2, s, k)); };
   const DEFAULT_TOTAL = 145.5;
-  let _sched = null, _model = null, _extras = null, _eff = null, _loading = null;
+  let _sched = null, _model = null, _extras = null, _eff = null, _members = null, _loading = null;
+  // 2026-27 league membership (ESPN team groups — realignment-correct; the ratings' conf can be stale)
+  const leagueOf = (full, row) => (_members && _members.teams && _members.teams[full]) || (row && row.conf) || null;
 
   function load() {
     if (_loading) return _loading;
@@ -49,8 +51,9 @@
       fetch('scripts/data/situational_model.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('scripts/data/schedule_extras_2027.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('scripts/data/team_pace_eff.json?v=7').then(r => r.ok ? r.json() : null).catch(() => null),
-    ]).then(([s, m, x, e]) => {
-      _sched = s; _model = m || { rest: {}, stint: {}, streak: {}, form: 0 }; _extras = x || {}; _eff = e || null;
+      fetch('scripts/data/conf_members_2027.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([s, m, x, e, mem]) => {
+      _sched = s; _model = m || { rest: {}, stint: {}, streak: {}, form: 0 }; _extras = x || {}; _eff = e || null; _members = mem;
       return { sched: s, model: _model, extras: _extras };
     });
     return _loading;
@@ -179,8 +182,9 @@
 
     // ── Monte Carlo season ──
     const wins = new Array(rows.length).fill(0), W = new Int16Array(SIMS), CW = new Int16Array(SIMS);
-    // ESPN doesn't flag conference games until the season starts — same league in the ratings = league game
-    rows.forEach(r => { if (!r.g.conf && !r.g.neutral && r.opp && r.opp.conf && me.conf && r.opp.conf === me.conf) r.g.conf = true; });
+    // ESPN doesn't flag conference games until the season starts — same 2026-27 league = league game
+    const myLg = leagueOf(team, me);
+    rows.forEach(r => { if (!r.g.conf && r.oppName && !r.g.extra && myLg && leagueOf(r.oppName, r.opp) === myLg) r.g.conf = true; });
     let confN = rows.filter(r => r.g.conf).length;
     for (let s = 0; s < SIMS; s++) {
       const rMe = me.rating + TAU * zTeam(s, team);
@@ -232,7 +236,7 @@
       r.label = oppLabel;
       r.spread = margin >= 0 ? `${sn(team)} −${margin.toFixed(1)}` : `${r.oppName ? sn(r.oppName) : 'Opp'} −${(-margin).toFixed(1)}`;
     });
-    return { team, me, rows, sims: SIMS, tau: TAU, sigma: SIGMA, n, confN, expW, expCW, modeW, lo: pct(0.1), hi: pct(0.9),
+    return { team, me, rows, sims: SIMS, tau: TAU, sigma: SIGMA, n, confN, expW, expCW, modeW, lo: pct(0.1), hi: pct(0.9), W, CW, league: myLg,
       p20: pAtLeast(20), p25: pAtLeast(25), pHalf: sorted.filter(w => w * 2 >= n).length / sorted.length, model: _model, hist };
   }
 
@@ -339,7 +343,7 @@
 
   // every rated team's projected record for the rankings table — lighter sims, cached in
   // localStorage until the ratings or the schedule file change
-  const LS_ALL = 'tdc_projrec_v7';
+  const LS_ALL = 'tdc_projrec_v8';
   async function projectAll(opts) {
     opts = opts || {};
     await load();
@@ -416,5 +420,8 @@
       home: H.team, away: A.team };
   }
 
-  g.TDCSched = { load, project, projectAll, render, renderPast, gamesFor, extrasFor, lineFor, SEASON };
+  // shared simulation pieces for the conference-tournament projection (tdc-conftourney.js): the same
+  // per-sim team strength draw every schedule uses, the hashed coins, and the 2026-27 league map
+  const sim = { TAU, U, hkey, zTeam, leagueOf, members: () => _members, tame, phi };
+  g.TDCSched = { load, project, projectAll, render, renderPast, gamesFor, extrasFor, lineFor, SEASON, sim };
 })(window);

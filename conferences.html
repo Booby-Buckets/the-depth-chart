@@ -11,7 +11,8 @@
   <script src="tdc-projgrade.js?v=base38"></script>
   <script src="tdc-awards.js?v=11"></script>
   <script src="tdc-ratings.js?v=28"></script>
-  <script src="tdc-schedule.js?v=24s"></script>
+  <script src="tdc-schedule.js?v=25s"></script>
+  <script src="tdc-conftourney.js?v=2"></script>
   <script src="tdc-glossary.js?v=13"></script>
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=5"></script>
@@ -395,9 +396,13 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
   if(isProj) loadProj(); else loadPast();
 
   function loadProj(){
-    get('predictive_ratings?season=eq.'+PROJ+'&select=data&limit=1').then(function(res){
+    Promise.all([get('predictive_ratings?season=eq.'+PROJ+'&select=data&limit=1'),
+      fetch('scripts/data/conf_members_2027.json?v=1').then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; })]).then(function(both){
+      var res=both[0], MEMB=both[1]&&both[1].teams||{};
       var teams=(res&&res[0]&&res[0].data&&res[0].data.teams)||[];
       if(!teams.length) throw new Error('no projection on file');
+      // 2026-27 league membership (official groupings) over the ratings' lagging conf
+      teams.forEach(function(t){ if(MEMB[t.full]) t.conf=MEMB[t.full]; });
       var seen={}, by={};
       teams.slice().sort(function(a,b){ return ((b.projected?1:0)-(a.projected?1:0))||((a.rank||999)-(b.rank||999)); })
         .forEach(function(t){ var k=nn(t.full)+'|'+full(t.conf); if(seen[k]||!t.conf) return; seen[k]=1; var c=full(t.conf); (by[c]=by[c]||[]).push(t); });
@@ -409,20 +414,44 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
       }).sort(function(a,b){ return b.avg-a.avg; });
       paintProj(L);
       bestPlayers(L);
+      favourites(L);
     }).catch(function(e){ sel('hub').innerHTML='<tbody><tr><td class="cload">Could not load the projection ('+esc(e.message||e)+').</td></tr></tbody>'; });
   }
-  var BEST={};
+  var BEST={}, FAV={};
+  // regular-season + tournament favourite per league: the conference projection (tdc-conftourney.js),
+  // league by league after the first paint, cached until the ratings / schedule / formats change
+  function favourites(L){
+    if(!window.TDCConfT||!window.TDC_RATINGS||!window.tdcConfCode) return;
+    var KEY='tdc_conffav_v2';
+    Promise.all([TDC_RATINGS.get(), TDCConfT.load()]).then(function(r){
+      var stamp=(r[0].generated||'')+'|'+((TDCConfT.formats()||{}).built||'');
+      try{ var c=JSON.parse(localStorage.getItem(KEY)||'null'); if(c&&c.stamp===stamp){ FAV=c.fav; paintProj(paintProj._L||L); return; } }catch(e){}
+      var i=0;
+      (function next(){
+        if(i>=L.length){ try{ localStorage.setItem(KEY,JSON.stringify({stamp:stamp,fav:FAV})); }catch(e){} return; }
+        var c=L[i++];
+        TDCConfT.project(tdcConfCode(c.conf),{sims:2000}).then(function(R){
+          if(R&&R.teams.length){ var t=R.teams;
+            var pick=function(k){ var b=t.slice().sort(function(a,b){ return b[k]-a[k]; })[0]; return {team:b.team,title:b.title,champ:b.champ}; };
+            FAV[c.conf]={reg:pick('title'),ct:pick('champ')}; paintProj(paintProj._L||L); }
+        }).catch(function(){}).then(function(){ setTimeout(next,0); });
+      })();
+    });
+  }
   function paintProj(L){
     var top=L[0]||{};
     tiles([['Conferences',L.length,'Division I'],['Teams',L.reduce(function(a,c){ return a+c.n; },0),''],
       ['Strongest',esc((cInfo(top.conf)||{}).short||top.conf||'\u2014'),'avg power '+sgn(top.avg||0)],
       ['Most top-25 teams',(function(){ var m=L.slice().sort(function(a,b){ return b.top25-a.top25; })[0]||{}; return esc((cInfo(m.conf)||{}).short||m.conf||'\u2014')+' \u00b7 '+(m.top25||0); })(),'projected']]);
     sel('hubSub').textContent='ranked by the average projected power rating of every team in the league';
-    sel('hub').innerHTML='<thead><tr><th class="rk">#</th><th class="l">Conference</th><th>Teams</th><th data-heat="1">Avg power</th><th>Top 25</th><th>Top 50</th><th class="l">Favourite</th><th>Nat&rsquo;l</th><th class="l">Best player</th><th>OVR</th></tr></thead><tbody>'+
+    var pcx=function(v){ return v==null?'':(v>=.995?'>99':v<.005?'<1':Math.round(v*100))+'%'; };
+    var favCell=function(x,k){ if(!x) return '<td class="l dim">\u2026</td>'; return '<td class="l"><span class="tm">'+tLogo(x.team)+'<a class="tnm" href="'+teamHref(x.team)+'">'+esc(window.tdcShortSchool?tdcShortSchool(x.team):x.team)+'</a><span class="dim"> \u00b7 '+pcx(x[k])+'</span></span></td>'; };
+    sel('hub').innerHTML='<thead><tr><th class="rk">#</th><th class="l">Conference</th><th>Teams</th><th data-heat="1">Avg power</th><th>Top 25</th><th>Top 50</th><th class="l">Favourite</th><th>Nat&rsquo;l</th><th class="l" title="most likely regular-season champion (wins or shares)">Reg-season pick</th><th class="l" title="most likely conference tournament champion = the automatic NCAA bid">Tourney pick</th><th class="l">Best player</th><th>OVR</th></tr></thead><tbody>'+
       L.map(function(c,i){
-        var f=c.fav||{}, b=BEST[c.conf];
+        var f=c.fav||{}, b=BEST[c.conf], F=FAV[c.conf];
         return '<tr><td class="rk">'+(i+1)+'</td>'+confCell(c.conf)+'<td>'+c.n+'</td><td class="big">'+sgn(c.avg)+'</td><td>'+c.top25+'</td><td>'+c.top50+'</td>'+
           '<td class="l"><span class="tm">'+tLogo(f.full)+'<a class="tnm" href="'+teamHref(f.full)+'">'+esc(f.team||f.full)+'</a></span></td><td class="dim">#'+(f.rank||'\u2014')+'</td>'+
+          favCell(F&&F.reg,'title')+favCell(F&&F.ct,'champ')+
           '<td class="l">'+(b?'<a class="tnm" href="player.html?'+(b.espn_id?'espn='+b.espn_id+'&':'')+'name='+encodeURIComponent(b.name)+'&team='+encodeURIComponent(b.team)+'">'+esc(b.name)+'</a><span class="dim"> \u00b7 '+esc(b.team)+'</span>':'<span class="dim">\u2014</span>')+'</td>'+
           '<td class="strong">'+(b?b._ovr:'')+'</td></tr>';
       }).join('')+'</tbody>';
