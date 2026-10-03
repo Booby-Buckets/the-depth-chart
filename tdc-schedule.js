@@ -9,11 +9,16 @@
  *   rest       days since each side's previous game  — back-to-backs cost ~2.4 pts,
  *              8+ days ~1.2, an opener ~3.4 (scripts/calibrate_situational.py, 111k games)
  *   road trip  2nd/3rd/4th straight road game — measured ≈ 0 beyond the venue itself
- *   streaks    won 2+ straight ≈ +0.3 pts — momentum barely exists once strength is known
+ *   streaks    won 2+ straight ≈ +0.3 pts — measured but NOT applied: it depends on each team's own path
+ *              through a simulated season, so it would make the two sides of one game disagree
  *   snowball   what DOES chain wins together is not knowing how good a team really is:
  *              each simulated season draws every team's true rating from N(projection, τ),
  *              so in the seasons where a team is better than we think it wins the close
  *              ones in a row, and the record distribution widens honestly
+ *   one league every page draws from the SAME simulated seasons: sim s gives each team one true rating
+ *              and each game one coin (both hashed from the sim number + team / game id), so in every
+ *              sim a game Notre Dame wins on its page is a loss on the opponent's page, and the two
+ *              win %s add to exactly 100
  *
  * API:  await TDCSched.load();  const r = await TDCSched.project(fullName);  TDCSched.render(host, r)
  */
@@ -21,7 +26,19 @@
   const SEASON = 2027;
   const SIMS_FULL = 3000;
   const _walkCache = {};
-  const TAU = 4.5;          // preseason rating uncertainty, pts (≈ historical projection RMSE)
+  // preseason rating uncertainty, pts: a team's rating vs last year's (regressed) misses by 4.7 pre-portal
+  // (2013-19) and 5.05 in the portal era (2022-26) — team_seasons SRS, Oct 2026
+  const TAU = 5.0;
+  // common random numbers: a uniform in [0,1) from (stream, sim, key) — the same on every page
+  const _hk = {};
+  function hkey(str) { if (_hk[str] != null) return _hk[str]; let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (_hk[str] = h >>> 0); }
+  function U(stream, sim, key) {
+    let h = Math.imul(stream ^ 0x9E3779B9, 0x85EBCA6B) ^ Math.imul(sim + 1, 0xC2B2AE35) ^ key;
+    h ^= h >>> 16; h = Math.imul(h, 0x7FEB352D); h ^= h >>> 15; h = Math.imul(h, 0x846CA68B); h ^= h >>> 16;
+    return ((h >>> 0) + 0.5) / 4294967296;
+  }
+  // team T's true-rating draw in sim s (Box-Muller on two of its uniforms)
+  const zTeam = (s, name) => { const k = hkey('t:' + name); return Math.sqrt(-2 * Math.log(U(1, s, k))) * Math.cos(2 * Math.PI * U(2, s, k)); };
   const DEFAULT_TOTAL = 145.5;
   let _sched = null, _model = null, _extras = null, _eff = null, _loading = null;
 
@@ -149,6 +166,12 @@
         event: ex && ex.event || '', bracket: ex && ex.bracket ? ex.opps : null, pool: ex && ex.pool || null };
     });
 
+    // listed games (ESPN or school-site ids) share one coin per sim across both teams' pages
+    rows.forEach(r => {
+      r.shared = !r.g.extra && !r.bracket && !r.pool && r.g.id != null;
+      r.meHome = r.g.home === team;
+      if (r.shared) { const k = hkey('g:' + r.g.id); r.coin = new Float64Array(SIMS); for (let s = 0; s < SIMS; s++) r.coin[s] = U(3, s, k); }
+    });
     // pool of every rated team we might meet (for the per-sim rating draws)
     const names = new Set();
     rows.forEach(r => { if (r.oppName) names.add(r.oppName); (r.bracket || []).forEach(n => names.add(n)); (r.pool || []).forEach(n => names.add(n)); });
@@ -160,8 +183,8 @@
     rows.forEach(r => { if (!r.g.conf && !r.g.neutral && r.opp && r.opp.conf && me.conf && r.opp.conf === me.conf) r.g.conf = true; });
     let confN = rows.filter(r => r.g.conf).length;
     for (let s = 0; s < SIMS; s++) {
-      const rMe = me.rating + TAU * gauss();
-      const rOpp = {}; for (const n in pool) rOpp[n] = pool[n].rating + TAU * gauss();
+      const rMe = me.rating + TAU * zTeam(s, team);
+      const rOpp = {}; for (const n in pool) rOpp[n] = pool[n].rating + TAU * zTeam(s, n);
       let streak = 0, w = 0, cw = 0; const faced = new Set(); let day1Won = null;
       for (let i = 0; i < rows.length; i++) {
         const r = rows[i]; let oppName = r.oppName, venuePts = r.venuePts;
@@ -174,8 +197,11 @@
           const cands = r.pool.filter(n => !faced.has(n)); oppName = cands[Math.floor(Math.random() * cands.length)] || r.pool[0];
         }
         const oppR = oppName ? (rOpp[oppName] != null ? rOpp[oppName] : FLOOR.rating) : FLOOR.rating;
-        const m = tame((rMe - oppR) * STRETCH * r.paceK + venuePts + r.sit + streakPts(streak));
-        const won = Math.random() < phi(m / SIGMA);
+        const m = tame((rMe - oppR) * STRETCH * r.paceK + venuePts + r.sit);
+        const p = phi(m / SIGMA);
+        // one coin per game per sim, read from the LISTED home side: home wins below p_home, so the
+        // away page (p_away = 1 − p_home) wins above it — the same game can't go both ways
+        const won = r.shared ? (r.meHome ? r.coin[s] < p : r.coin[s] > 1 - p) : Math.random() < p;
         if (rows[i + 1] && rows[i + 1].bracket && !r.bracket) day1Won = won;   // the game right before a bracket day-2 is our day-1
         if (oppName) faced.add(oppName);
         if (won) { wins[i]++; w++; if (r.g.conf) cw++; streak = streak > 0 ? streak + 1 : 1; }
@@ -313,7 +339,7 @@
 
   // every rated team's projected record for the rankings table — lighter sims, cached in
   // localStorage until the ratings or the schedule file change
-  const LS_ALL = 'tdc_projrec_v6';
+  const LS_ALL = 'tdc_projrec_v7';
   async function projectAll(opts) {
     opts = opts || {};
     await load();
