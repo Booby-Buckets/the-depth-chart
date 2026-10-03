@@ -55,6 +55,7 @@
       ['buzz.html',            'News'],
       ['community.html',       'Community'],
       ['fan.html',             '📰 Fan Sites'],
+      ['league.html',          '🏀 Fantasy'],
       ['games.html',           '🎮 Games'],
       ['customize.html',       '✦ Customize'],
       ['pricing.html',         'Pricing'],

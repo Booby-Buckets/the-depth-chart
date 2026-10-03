@@ -128,7 +128,8 @@ def pull():
 
 
 # ESPN renamed a few programs since the ratings were built — keep the site on the ratings' spelling
-NAME_FIX = {"St. Thomas Tommies": "St. Thomas-Minnesota Tommies", "LSU New Orleans Privateers": "New Orleans Privateers"}
+NAME_FIX = {"St. Thomas Tommies": "St. Thomas-Minnesota Tommies", "LSU New Orleans Privateers": "New Orleans Privateers",
+            "West Florida Argonauts": "West Florida"}
 
 
 def write_site(rows):
@@ -176,5 +177,6 @@ if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "pull"
     if cmd == "pull": pull()
     elif cmd == "show": show(" ".join(sys.argv[2:]))
+    elif cmd == "site": write_site([json.loads(l) for l in open(OUT)])   # rebuild schedule_2027.json from the last pull, no network
     elif cmd == "upload": upload()
     else: sys.exit(__doc__)

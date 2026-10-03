@@ -10,6 +10,8 @@ school pages give us each program's athletics domain.
   python3 scripts/scrape_school_schedules.py sites     # NCAA.com index → school_sites_2027.json (cached)
   python3 scripts/scrape_school_schedules.py pull      # every site → school_schedules_2027.json
   python3 scripts/scrape_school_schedules.py merge     # add games ESPN lacks into schedule_2027.json
+  python3 scripts/scrape_school_schedules.py prune     # drop ESPN games neither school's own site lists
+  python3 scripts/scrape_school_schedules.py audit     # per-team completeness report → schedule_audit_2027.json
   python3 scripts/scrape_school_schedules.py show "Yale"
 
 Merged games get negative synthetic ids (they are not in the `games` table) and
@@ -381,7 +383,7 @@ def merge():
     for g in sched["games"]:
         busy.add((g[1], T[g[2]])); busy.add((g[1], T[g[3]]))
         d0 = _d.fromisoformat(g[1])
-        for k in (-1, 0, 1):   # a school site's local date can sit a day off ESPN's
+        for k in range(-3, 4):   # a school site's local date can sit a day off ESPN's; two sites can disagree by two
             have.add(((d0 + _td(days=k)).isoformat(), frozenset((T[g[2]], T[g[3]]))))
     # neutral heuristic: a "home" game whose city isn't the school's usual home city
     adds, unmatched = [], Counter()
@@ -408,7 +410,7 @@ def merge():
             if opp == full: continue
             key = (g["date"], frozenset((full, opp)))
             if key in have: continue
-            if (g["date"], full) in busy: continue                              # already has a game that day (same game, other spelling)
+            if (g["date"], full) in busy or (g["date"], opp) in busy: continue   # either side already plays that day (same game, other spelling or date)
             d0 = _d.fromisoformat(g["date"])
             neutral = g["where"] == "N" or (g["where"] == "H" and home_city and g["city"] and g["city"] != home_city)
             home, away = (full, opp) if g["where"] in ("H", "N") else (opp, full)
@@ -416,7 +418,7 @@ def merge():
                 if n not in idx: idx[n] = len(T); T.append(n)
             sched["games"].append([nid, g["date"], idx[home], idx[away], 1 if neutral else 0, 0])
             adds.append({"id": nid, "date": g["date"], "home": home, "away": away, "neutral": bool(neutral), "src": "school", "from": full, "venue": g["venue"]})
-            for k in (-1, 0, 1): have.add(((d0 + _td(days=k)).isoformat(), frozenset((full, opp))))
+            for k in range(-3, 4): have.add(((d0 + _td(days=k)).isoformat(), frozenset((full, opp))))
             busy.add((g["date"], full)); busy.add((g["date"], opp))
             nid -= 1
     sched["games"].sort(key=lambda g: (g[1], g[0]))
@@ -425,6 +427,132 @@ def merge():
     json.dump(adds, open(ADDS, "w"), indent=0)
     print(f"+{len(adds)} games from school sites → {SCHED} (audit: {ADDS})")
     print("  opponent strings not matched to a D-I name (kept raw):", unmatched.most_common(25))
+
+
+# ── 4. prune + audit ───────────────────────────────────────────────────────
+DROPS = DATA / "school_drops_2027.json"
+AUDIT = DATA / "schedule_audit_2027.json"
+# the ratings carry a few leagues under their full name; one key per league for the audit
+CONF_NORM = {"Atlantic Sun Conference": "ASUN", "Big West Conference": "Big West", "Coastal Athletic Association": "CAA",
+             "Mid-American Conference": "MAC", "Mid-Eastern Athletic Conference": "MEAC", "Mountain West Conference": "MWC",
+             "Northeast Conference": "NEC", "Ohio Valley Conference": "OVC", "Patriot League": "Patriot",
+             "Southland Conference": "Southland", "Southwestern Athletic Conference": "SWAC"}
+MIN_SITE = 20   # a school site listing fewer games than this is too partial to overrule ESPN
+
+
+def _site_games(sched):
+    """{D-I full name: {(date, opponent full name or raw string)}} from each school's own site."""
+    raw = json.load(open(RAW)); sites_ = json.load(open(SITES)); names = d1_names()
+    M = Matcher(names + [n for n in sched["teams"] if n not in names], ncaa={k: v["ncaa"] for k, v in sites_.items() if v.get("ncaa")}, prefixes=False)
+    conf_of = {t["full"]: t.get("conf") for t in d1_rows()}
+    out = {}
+    for full, rec in raw.items():
+        gs = []
+        for g in rec.get("games") or []:
+            if not g["opp"].strip() or g["date"] < "2026-11-01": continue
+            bare = norm(g["opp"])
+            opp = (AMBIG[bare].get(conf_of.get(full)) or AMBIG[bare].get("*")) if bare in AMBIG else M.match(g["opp"])
+            gs.append((g["date"], opp or g["opp"]))
+        out[full] = gs
+    return out
+
+
+def _on_site(site, date, opp):
+    from datetime import date as _d
+    d0 = _d.fromisoformat(date)
+    # a TBA / event slot on that day ("ESPN Events Invitational") can be this game, so it counts as listed
+    return any(abs((_d.fromisoformat(d) - d0).days) <= 1 and (o == opp or o == "__EVENT__" or o is None) for d, o in site)
+
+
+def prune():
+    """Drop ESPN games that NEITHER school's official site lists, when both sites have a real slate posted.
+    ESPN's men's team endpoints occasionally carry a second, phantom slate (Boston College 2026-27: 26 extra
+    games, one per opponent a day or two off the real one); both sides' sites agreeing it isn't there is the
+    only signal strong enough to delete a game."""
+    sched = json.load(open(SCHED)); T = sched["teams"]; site = _site_games(sched)
+    full_site = {k for k, v in site.items() if len(v) >= MIN_SITE}
+    from datetime import date as _d
+    by_team = defaultdict(list)
+    for g in sched["games"]:
+        by_team[T[g[2]]].append(g); by_team[T[g[3]]].append(g)
+    def confirmed_twin(team, g):
+        """team's own site lists a DIFFERENT game that shadows g: the same opponent within 10 days (a phantom
+        second slate), or another opponent on the same day (two games can't both be that day)"""
+        opp = T[g[3]] if T[g[2]] == team else T[g[2]]
+        for o in by_team[team]:
+            if o is g: continue
+            oo = T[o[3]] if T[o[2]] == team else T[o[2]]
+            near = abs((_d.fromisoformat(o[1]) - _d.fromisoformat(g[1])).days)
+            if ((oo == opp and near <= 10) or (oo != opp and near == 0)) and _on_site(site[team], o[1], oo): return True
+        return False
+    # a site with a full season on it (28+ games) is the school's own word on its slate — but only for a team ESPN
+    # OVER-lists (35+ games, a phantom second slate). For everyone else a site that skips a game is the likelier
+    # mistake (MAC/SWAC sites drop real league games), so one site alone never deletes it.
+    espn_n = Counter(x for g in sched["games"] if g[0] > 0 for x in (T[g[2]], T[g[3]]))
+    whole = {k for k, v in site.items() if len(v) >= 28 and espn_n[k] >= 35}
+    exact = lambda team, d, opp: team in site and any(x == d and o == opp for x, o in site[team])
+    keep, drops, gone = [], [], set()
+    # 1) the same two teams twice within 3 days: one is a copy. Keep the one a site lists on that exact day.
+    pairs = defaultdict(list)
+    for g in sched["games"]: pairs[frozenset((T[g[2]], T[g[3]]))].append(g)
+    for pr, gs in pairs.items():
+        gs = sorted(gs, key=lambda g: g[1])
+        for x, y in zip(gs, gs[1:]):
+            if x[0] in gone or y[0] in gone: continue
+            if abs((_d.fromisoformat(y[1]) - _d.fromisoformat(x[1])).days) > 3: continue
+            score = lambda g: sum(exact(t, g[1], o) for t, o in ((T[g[2]], T[g[3]]), (T[g[3]], T[g[2]])))
+            if score(x) == score(y) == 0 and not (set(pr) & full_site): continue          # nobody can say which
+            lose = y if (score(x), -abs(x[0])) >= (score(y), -abs(y[0])) else x
+            gone.add(lose[0]); drops.append({"id": lose[0], "date": lose[1], "home": T[lose[2]], "away": T[lose[3]], "why": "duplicate of a game days apart"})
+    for g in sched["games"]:
+        if g[0] in gone: continue
+        h, a = T[g[2]], T[g[3]]
+        off_h = h in full_site and not _on_site(site[h], g[1], a)
+        off_a = a in full_site and not _on_site(site[a], g[1], h)
+        why = None
+        if g[0] > 0 and off_h and off_a: why = "on neither site"
+        elif g[0] > 0 and off_h and h in whole and not (a in site and _on_site(site[a], g[1], h)): why = f"not on {h}'s full official schedule"
+        elif g[0] > 0 and off_a and a in whole and not (h in site and _on_site(site[h], g[1], a)): why = f"not on {a}'s full official schedule"
+        elif off_h and h not in (a,) and (a not in full_site or off_a) and confirmed_twin(h, g): why = f"shadow of a listed {h} game"
+        elif off_a and (h not in full_site or off_h) and confirmed_twin(a, g): why = f"shadow of a listed {a} game"
+        if why:
+            drops.append({"id": g[0], "date": g[1], "home": h, "away": a, "why": why}); continue
+        keep.append(g)
+    sched["games"] = keep
+    json.dump(sched, open(SCHED, "w"), separators=(",", ":"))
+    json.dump(drops, open(DROPS, "w"), indent=0)
+    print(f"-{len(drops)} games no official site lists → {DROPS}")
+    for t, n in Counter(x for d in drops for x in (d["home"], d["away"])).most_common(12): print(f"  {n:3}  {t}")
+
+
+def audit():
+    """Per D-I team: games listed, D-I games, league games vs the league's full slate, same-day clashes,
+    and the official site's count. Writes schedule_audit_2027.json; prints the teams that look incomplete."""
+    sched = json.load(open(SCHED)); T = sched["teams"]; site = _site_games(sched)
+    conf = {t["full"]: CONF_NORM.get(t.get("conf"), t.get("conf")) for t in d1_rows()}
+    tot, d1g, cg, days = Counter(), Counter(), Counter(), Counter()
+    for g in sched["games"]:
+        h, a = T[g[2]], T[g[3]]
+        for x in (h, a): tot[x] += 1; days[(x, g[1])] += 1
+        if h in conf and a in conf:
+            d1g[h] += 1; d1g[a] += 1
+            if conf[h] == conf[a]: cg[h] += 1; cg[a] += 1
+    slate = {}
+    for c in set(conf.values()):
+        v = [cg[t] for t in conf if conf[t] == c]; slate[c] = Counter(v).most_common(1)[0][0]
+    rows = []
+    for t in sorted(conf):
+        clash = sorted(d for (x, d), n in days.items() if x == t and n > 1)
+        r = {"team": t, "conf": conf[t], "games": tot[t], "d1": d1g[t], "league": cg[t], "league_slate": slate[conf[t]],
+             "site_games": len(site.get(t) or []), "clash_days": clash}
+        r["flags"] = [f for f, on in (("few games", tot[t] < 27), ("league slate short", cg[t] < slate[conf[t]]),
+                                       ("same-day clash", bool(clash)), ("over-listed", tot[t] > 34)) if on]
+        rows.append(r)
+    json.dump(rows, open(AUDIT, "w"), indent=0)
+    bad = [r for r in rows if r["flags"]]
+    print(f"{len(rows)} D-I teams · {sum(1 for r in rows if r['games'] >= 28)} with 28+ games · {len(bad)} flagged → {AUDIT}")
+    for r in sorted(bad, key=lambda r: r["games"]):
+        print(f"  {r['games']:3} games  league {r['league']:2}/{r['league_slate']:2}  site {r['site_games']:3}  {r['team']}  [{', '.join(r['flags'])}]{'  clash ' + ','.join(r['clash_days']) if r['clash_days'] else ''}")
 
 
 def show(team):
@@ -438,4 +566,4 @@ def show(team):
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "pull"
-    {"sites": sites, "pull": lambda: pull("--force" in sys.argv), "merge": merge}.get(cmd, lambda: show(" ".join(sys.argv[2:])))()
+    {"sites": sites, "pull": lambda: pull("--force" in sys.argv), "merge": merge, "prune": prune, "audit": audit}.get(cmd, lambda: show(" ".join(sys.argv[2:])))()
