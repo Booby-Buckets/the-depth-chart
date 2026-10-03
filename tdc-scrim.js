@@ -77,7 +77,7 @@
         return '<tr' + (x.check ? ' title="Opponent read from a logo; still being confirmed"' : '') + '>' +
           '<td class="l dim">' + dd.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' }) + '</td>' +
           '<td class="l dim">' + (x.time ? esc(x.time) : 'TBD') + (x.tv ? ' · ' + esc(x.tv) : '') + '</td>' +
-          '<td class="l nm">' + (ol ? '<img class="tsp-lg" src="' + ol + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">' : '') +
+          '<td class="l nm">' + (ol ? '<img class="scrim-lg" src="' + ol + '" alt="" width="16" height="16" loading="lazy" onerror="this.style.display=\'none\'">' : '') +
             (ot ? '<a href="team.html?team=' + encodeURIComponent(ot.team) + '">' + esc(sn(opp, byFull)) + '</a>' : esc(sn(opp, byFull))) +
             (ot && ot.rank ? ' <span class="dim">#' + ot.rank + '</span>' : (ot ? '' : ' <span class="dim">non-D-I</span>')) + (x.check ? ' <span class="dim">?</span>' : '') +
             ' <span class="scrim-chip" title="Preseason scrimmage: unofficial, counts toward nothing">Scrimmage</span></td>' +
@@ -97,7 +97,7 @@
     }).catch(function () {});
   }
   (function css() { if (document.getElementById('scrim-css')) return; var st = document.createElement('style'); st.id = 'scrim-css';
-    st.textContent = '.scrim-chip{display:inline-block;margin-left:7px;padding:0 6px;border:1px dashed var(--border2);border-radius:4px;font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);vertical-align:1px;line-height:1.7;}.scrim-wrap td{color:var(--text2);}.scrim-boxes{padding:6px 2px 10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:14px;}.scrim-boxes .dim:first-child{grid-column:1/-1;}.scrim-bth{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text2);margin-bottom:4px;}tr.scrim-box>td{background:var(--bg2)!important;white-space:normal;}';
+    st.textContent = '.scrim-chip{display:inline-block;margin-left:7px;padding:0 6px;border:1px dashed var(--border2);border-radius:4px;font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);vertical-align:1px;line-height:1.7;}.scrim-wrap td{color:var(--text2);}.scrim-wrap img.scrim-lg{width:16px!important;height:16px!important;max-width:16px;object-fit:contain;vertical-align:middle;margin:-2px 7px 0 0;display:inline-block;}.scrim-boxes{padding:6px 2px 10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:14px;}.scrim-boxes .dim:first-child{grid-column:1/-1;}.scrim-bth{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text2);margin-bottom:4px;}tr.scrim-box>td{background:var(--bg2)!important;white-space:normal;}';
     (document.head || document.documentElement).appendChild(st); })();
   g.TDCScrim = { load: load, price: price, renderFor: renderFor };
 })(window);
