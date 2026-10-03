@@ -1,0 +1,54 @@
+name: Ingest game results
+
+# Every finished 2026-27 D-I game → scripts/data/results_2027.json (committed, so Vercel redeploys and every
+# projection on the site starts from the real record) and, when the SUPABASE_SERVICE_KEY secret is set, the
+# `games` scores + `box_scores` player lines (fantasy stats, player pages).
+# Off-season runs exit in seconds (the season window is Nov 1 – Apr 6).
+
+on:
+  schedule:
+    - cron: '30 3 * * *'     # ~10:30 pm ET — most evening games are final
+    - cron: '15 6 * * *'     # ~1:15 am ET — late West Coast games
+    - cron: '0 17 * * *'     # ~noon ET — catch-up sweep of the last three days (corrections, missed runs)
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'days back to sweep (or "all")'
+        required: false
+        default: '3'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ingest-results
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install deps
+        run: pip install requests
+      - name: Pull results
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          D="${{ github.event.inputs.days }}"
+          if [ "${{ github.event.schedule }}" = "0 17 * * *" ]; then D=3; fi
+          if [ "$D" = "all" ]; then python3 scripts/ingest_results_2027.py --all
+          else python3 scripts/ingest_results_2027.py --days "${D:-2}"; fi
+      - name: Commit if changed
+        run: |
+          git config user.name "tdc-results-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          [ -f scripts/data/results_2027.json ] && git add scripts/data/results_2027.json || true
+          if git diff --cached --quiet; then echo "No new results."; else
+            git commit -m "Auto: game results $(date -u +%Y-%m-%d) [skip ci]"
+            git pull --rebase -q && git push
+          fi

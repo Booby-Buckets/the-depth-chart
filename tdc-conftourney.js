@@ -63,9 +63,11 @@
     const lens = {}; T.forEach(n => { const c = proj[n].confN; lens[c] = (lens[c] || 0) + 1; });
     const slate = +Object.keys(lens).sort((a, b) => (lens[b] - lens[a]) || (b - a))[0];
     const missing = {}; T.forEach(n => { missing[n] = Math.max(0, slate - proj[n].confN); out[n].confN = proj[n].confN + missing[n]; out[n].filled = missing[n]; });
-    const avgR = T.reduce((a, n) => a + (out[n].row.rating || 0), 0) / T.length;
+    // current strength: the preseason rating updated by the results so far (tdc-schedule.js)
+    const rt = {}; T.forEach(n => { rt[n] = sim.rate(n, out[n].row); });
+    const avgR = T.reduce((a, n) => a + rt[n], 0) / T.length;
     for (let s = 0; s < SIMS; s++) {
-      const str = {}; T.forEach(n => { str[n] = out[n].row.rating + sim.TAU * sim.zTeam(s, n); });
+      const str = {}; T.forEach(n => { str[n] = rt[n] + sim.tau(n) * sim.zTeam(s, n); });
       const cw = {}; T.forEach(n => {
         cw[n] = proj[n].CW[s];
         for (let k = 0; k < missing[n]; k++) { const p = sim.phi(sim.tame((str[n] - avgR) * STRETCH) / SIGMA); if (sim.U(7, s, sim.hkey('mg:' + n + ':' + k)) < p) cw[n]++; }
@@ -86,7 +88,7 @@
         gamesS[s * T.length + idxOf[a]]++; gamesS[s * T.length + idxOf[b]]++;
         let venue = 0;
         if (site === 'H') { const homeA = seedOf[a] < seedOf[b], H = homeA ? a : b, A = homeA ? b : a;
-          const e = R.baseHca(out[A].row.rating) + (out[H].row.hcaOff || 0); venue = homeA ? e : -e; }
+          const e = R.baseHca(rt[A]) + (out[H].row.hcaOff || 0); venue = homeA ? e : -e; }
         const m = sim.tame((str[a] - str[b]) * STRETCH + venue), p = sim.phi(m / SIGMA);
         const w = sim.U(6, s, gkey(gid)) < p ? a : b; lastLoser = w === a ? b : a;
         return w;
@@ -135,7 +137,7 @@
       const reach = {}; rounds.forEach(r => reach[r] = o.reach[r] / k);
       return { team: n, row: o.row, confN: o.confN, filled: o.filled, cw: o.cw / k, cl: o.confN - o.cw / k, expW: o.expW, n: o.n,
         title: o.title / k, outright: o.outright / k, seed, avgSeed, invited: o.invited / k, reach, champ: o.champ / k };
-    }).sort((a, b) => (b.cw - a.cw) || ((b.row.rating || 0) - (a.row.rating || 0)));
+    }).sort((a, b) => (b.cw - a.cw) || (rt[b.team] - rt[a.team]));
     return (memo[key] = { code, fmt, sims: SIMS, rounds, teams: res, names: T, proj, champS, ruS, gamesS });
   }
 

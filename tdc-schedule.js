@@ -40,7 +40,35 @@
   // team T's true-rating draw in sim s (Box-Muller on two of its uniforms)
   const zTeam = (s, name) => { const k = hkey('t:' + name); return Math.sqrt(-2 * Math.log(U(1, s, k))) * Math.cos(2 * Math.PI * U(2, s, k)); };
   const DEFAULT_TOTAL = 145.5;
-  let _sched = null, _model = null, _extras = null, _eff = null, _members = null, _loading = null;
+  let _sched = null, _model = null, _extras = null, _eff = null, _members = null, _results = null, _loading = null;
+  // ── results so far (scripts/data/results_2027.json, written by the nightly ingest) ─────────────────
+  // id → {date, home, away, hs, as}. A played game is a FIXED result in every simulated season.
+  let RES = {};
+  // In-season strength: the preseason rating is a prior worth K games; every result adds a performance
+  // (opponent's rating + the margin, net of the venue edge, capped at ±25 so one blowout can't run away).
+  // Uncertainty shrinks the same way — after K games it is TAU/√2.
+  const K_PRIOR = 10;
+  let _rate = null;
+  function buildRates(D) {
+    if (_rate && _rate.D === D) return _rate;
+    const row = n => D.teams.find(t => t.full === n), out = { D, r: {}, n: {} };
+    const sum = {}, cnt = {};
+    Object.values(RES).forEach(x => {
+      const H = row(x.home), A = row(x.away);
+      [[H, A, x.hs - x.as, 1], [A, H, x.as - x.hs, -1]].forEach(([me, op, mg, side]) => {
+        if (!me) return;
+        const opR = op ? +op.rating : -14;
+        const ven = x.neutral || !op ? 0 : side === 1 ? g.TDC_RATINGS.baseHca(opR) + (me.hcaOff || 0) : -(g.TDC_RATINGS.baseHca(+me.rating) + (op.hcaOff || 0));
+        const perf = opR + Math.max(-25, Math.min(25, mg - ven));
+        sum[me.full] = (sum[me.full] || 0) + perf; cnt[me.full] = (cnt[me.full] || 0) + 1;
+      });
+    });
+    D.teams.forEach(t => { const n = cnt[t.full] || 0; out.n[t.full] = n; out.r[t.full] = n ? (K_PRIOR * (+t.rating || 0) + sum[t.full]) / (K_PRIOR + n) : (+t.rating || 0); });
+    return (_rate = out);
+  }
+  // a team's current strength + its uncertainty, for every simulation on the site
+  const rateOf = (full, row) => (_rate && _rate.r[full] != null) ? _rate.r[full] : (row ? +row.rating || 0 : 0);
+  const tauOf = full => TAU * Math.sqrt(K_PRIOR / (K_PRIOR + ((_rate && _rate.n[full]) || 0)));
   // 2026-27 league membership (ESPN team groups — realignment-correct; the ratings' conf can be stale)
   const leagueOf = (full, row) => (_members && _members.teams && _members.teams[full]) || (row && row.conf) || null;
 
@@ -52,8 +80,12 @@
       fetch('scripts/data/schedule_extras_2027.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('scripts/data/team_pace_eff.json?v=7').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('scripts/data/conf_members_2027.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
-    ]).then(([s, m, x, e, mem]) => {
-      _sched = s; _model = m || { rest: {}, stint: {}, streak: {}, form: 0 }; _extras = x || {}; _eff = e || null; _members = mem;
+      // results change every night: an hourly query string keeps the offline cache from serving a stale copy
+      fetch('scripts/data/results_2027.json?h=' + new Date().toISOString().slice(0, 13), { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([s, m, x, e, mem, res]) => {
+      _sched = s; _model = m || { rest: {}, stint: {}, streak: {}, form: 0 }; _extras = x || {}; _eff = e || null; _members = mem; _results = res;
+      RES = {};
+      if (res && res.games) res.games.forEach(a => { RES[a[0]] = { id: a[0], date: a[1], home: res.teams[a[2]], away: res.teams[a[3]], hs: a[4], as: a[5], neutral: !!a[6], conf: !!a[7] }; });
       return { sched: s, model: _model, extras: _extras };
     });
     return _loading;
@@ -65,6 +97,10 @@
     if (_sched._rows) return _sched._rows;
     const T = _sched.teams;
     _sched._rows = _sched.games.map(a => ({ id: a[0], date: a[1], home: T[a[2]], away: T[a[3]], neutral: !!a[4], conf: !!a[5] }));
+    // games that were played but never on the announced slate (late adds, event pairings) still count
+    const ids = new Set(_sched._rows.map(r => String(r.id)));
+    Object.values(RES).forEach(x => { if (!ids.has(String(x.id))) _sched._rows.push({ id: x.id, date: x.date, home: x.home, away: x.away, neutral: x.neutral, conf: x.conf }); });
+    _sched._rows.sort((a, b) => a.date.localeCompare(b.date));
     return _sched._rows;
   }
   function gamesFor(team) { return allGames().filter(x => x.home === team || x.away === team); }
@@ -126,12 +162,17 @@
     if (!_sched || !g.TDC_RATINGS) return null;
     const D = await g.TDC_RATINGS.get();
     const SIGMA = g.TDC_RATINGS.SIGMA || 11, STRETCH = g.TDC_RATINGS.GAP_STRETCH || 1;
+    buildRates(D);
     const rowOf = n => D.teams.find(t => t.full === n) || null;
-    const me = rowOf(team); if (!me) return null;
+    const me0 = rowOf(team); if (!me0) return null;
+    // current strength (preseason prior + results so far) and its shrinking uncertainty
+    const me = Object.assign({}, me0, { rating: rateOf(team, me0) }), tauMe = tauOf(team);
     const FLOOR = { team: '?', full: '?', rating: -14, hcaOff: 0 };     // unrated (non-D-I) opponents
+    const rated = n => { const r = rowOf(n); return r ? Object.assign({}, r, { rating: rateOf(n, r), _tau: tauOf(n) }) : null; };
 
-    // my slate: listed games + hand-added ones, date order; played games (from the DB) are passed in and skipped
-    const played = new Set((opts.playedIds || []).map(String));
+    // my slate: listed games + hand-added ones, date order. A game in the results file is a fixed result;
+    // a game the page knows is played (DB) but the results file doesn't have yet is left out.
+    const played = new Set((opts.playedIds || []).map(String).filter(id => !RES[id]));
     // hand-added extras only fill dates the listed schedule doesn't already cover
     const listed = gamesFor(team), days = new Set(listed.map(x => x.date));
     const slate = listed.concat(extrasFor(team).filter(x => !days.has(x.date))).filter(x => !played.has(String(x.id))).sort((a, b) => a.date.localeCompare(b.date));
@@ -149,7 +190,7 @@
       const homeMe = x.home === team && !x.neutral, awayMe = x.away === team && !x.neutral;
       const venue = x.neutral ? 'N' : homeMe ? 'H' : 'A';
       const oppName = ex && (ex.opps || ex.pool) ? null : oppOf(x);
-      const opp = oppName ? (rowOf(oppName) || FLOOR) : null;
+      const opp = oppName ? (rated(oppName) || FLOOR) : null;
       const mf = myWalk[x.date] || { rest: null, stint: 0 };
       const known = !!(oppName && oppWalk[oppName] && oppWalk[oppName][x.date]);   // ESPN lists the game from their side too
       const of = known ? oppWalk[oppName][x.date] : { rest: null, stint: 0 };
@@ -165,7 +206,10 @@
       // ratings are points per game at an average pace; a fast game stretches the gap, a slow
       // one squeezes it (KenPom's tempo step, applied to our ratings gap)
       const paceK = eff ? eff.pace / _eff.avgT : 1;
-      return { g: x, opp, oppName, venue, venuePts, sit, mf, of, known, restMe, restOpp, stintMe, stintOpp, eff, paceK,
+      const res = !ex && RES[x.id];
+      const final = res ? { ms: res.home === team ? res.hs : res.as, os: res.home === team ? res.as : res.hs } : null;
+      if (final) final.won = final.ms > final.os;
+      return { g: x, opp, oppName, venue, venuePts, sit, mf, of, known, restMe, restOpp, stintMe, stintOpp, eff, paceK, final,
         event: ex && ex.event || '', bracket: ex && ex.bracket ? ex.opps : null, pool: ex && ex.pool || null };
     });
 
@@ -178,7 +222,7 @@
     // pool of every rated team we might meet (for the per-sim rating draws)
     const names = new Set();
     rows.forEach(r => { if (r.oppName) names.add(r.oppName); (r.bracket || []).forEach(n => names.add(n)); (r.pool || []).forEach(n => names.add(n)); });
-    const pool = {}; names.forEach(n => { pool[n] = rowOf(n) || FLOOR; });
+    const pool = {}; names.forEach(n => { pool[n] = rated(n) || Object.assign({ _tau: TAU }, FLOOR); });
 
     // ── Monte Carlo season ──
     const wins = new Array(rows.length).fill(0), W = new Int16Array(SIMS), CW = new Int16Array(SIMS);
@@ -187,11 +231,12 @@
     rows.forEach(r => { if (!r.g.conf && r.oppName && !r.g.extra && myLg && leagueOf(r.oppName, r.opp) === myLg) r.g.conf = true; });
     let confN = rows.filter(r => r.g.conf).length;
     for (let s = 0; s < SIMS; s++) {
-      const rMe = me.rating + TAU * zTeam(s, team);
-      const rOpp = {}; for (const n in pool) rOpp[n] = pool[n].rating + TAU * zTeam(s, n);
+      const rMe = me.rating + tauMe * zTeam(s, team);
+      const rOpp = {}; for (const n in pool) rOpp[n] = pool[n].rating + (pool[n]._tau != null ? pool[n]._tau : TAU) * zTeam(s, n);
       let streak = 0, w = 0, cw = 0; const faced = new Set(); let day1Won = null;
       for (let i = 0; i < rows.length; i++) {
         const r = rows[i]; let oppName = r.oppName, venuePts = r.venuePts;
+        if (r.final) { if (r.final.won) { wins[i]++; w++; if (r.g.conf) cw++; } continue; }   // already played
         if (r.bracket) {
           // day 2 of a 4-team bracket: our day-1 result decides whether we meet the other pair's winner or loser
           const [a, b] = r.bracket; const pa = phi((rOpp[a] - rOpp[b]) / SIGMA); const aWon = Math.random() < pa;
@@ -214,6 +259,8 @@
       W[s] = w; CW[s] = cw;
     }
     const sorted = Array.from(W).sort((a, b) => a - b), n = rows.length;
+    const done = rows.filter(r => r.final), playedW = done.filter(r => r.final.won).length;
+    const playedCW = done.filter(r => r.final.won && r.g.conf).length, playedCN = done.filter(r => r.g.conf).length;
     const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
     const expW = mean(Array.from(W)), expCW = mean(Array.from(CW));
     const pct = q => sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))];
@@ -236,7 +283,9 @@
       r.label = oppLabel;
       r.spread = margin >= 0 ? `${sn(team)} −${margin.toFixed(1)}` : `${r.oppName ? sn(r.oppName) : 'Opp'} −${(-margin).toFixed(1)}`;
     });
-    return { team, me, rows, sims: SIMS, tau: TAU, sigma: SIGMA, n, confN, expW, expCW, modeW, lo: pct(0.1), hi: pct(0.9), W, CW, league: myLg,
+    // rows = the games still to play (what the schedule table projects); played = the results already in
+    return { team, me, rows: rows.filter(r => !r.final), played: done, playedW, playedL: done.length - playedW, playedCW, playedCL: playedCN - playedCW,
+      counted: new Set(done.map(r => String(r.g.id))), sims: SIMS, tau: tauMe, sigma: SIGMA, n, confN, expW, expCW, modeW, lo: pct(0.1), hi: pct(0.9), W, CW, league: myLg,
       p20: pAtLeast(20), p25: pAtLeast(25), pHalf: sorted.filter(w => w * 2 >= n).length / sorted.length, model: _model, hist };
   }
 
@@ -289,7 +338,16 @@
     const sn = g.tdcShortSchool || (x => x), team = R.team;
     let lastMo = null, rows = '';
     const moCls = key => { const c = lastMo !== null && key !== lastMo ? ' mo1' : ''; lastMo = key; return c; };
-    (opts.played || []).forEach(x => {          // results already on the books
+    // results already on the books: the page's own (database) rows + any the results file has that it doesn't,
+    // one running record across both
+    const idOf = x => x.id != null ? String(x.id) : ((String(x.href || '').match(/id=(\d+)/) || [])[1] || null);
+    const pageIds = new Set((opts.played || []).map(idOf).filter(Boolean));
+    const fromFile = (R.played || []).filter(r => !pageIds.has(String(r.g.id))).map(r => ({ id: r.g.id, date: r.g.date, opp: r.oppName,
+      rank: r.opp && r.opp.rank, site: r.venue, won: r.final.won, ms: r.final.ms, os: r.final.os, conf: r.g.conf, href: 'game.html?id=' + r.g.id }));
+    const playedAll = (opts.played || []).concat(fromFile).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    if (fromFile.length) { let w = 0, l = 0, cw = 0, cl = 0;
+      playedAll.forEach(x => { x.won ? w++ : l++; const cf = x.conf != null ? x.conf : /\(/.test(x.rec || ''); if (x.conf) { x.won ? cw++ : cl++; } x.rec = `${w}–${l}` + (x.conf ? ` (${cw}–${cl})` : ''); }); }
+    playedAll.forEach(x => {          // results already on the books
       const d = dParts(x.date);
       rows += `<tr class="${x.won ? 'w' : 'x'}${moCls(d.key)}" style="cursor:${x.href ? 'pointer' : 'default'}" onclick="${x.href ? `location.href='${x.href}'` : ''}">
         <td class="l dim tsp-d">${d.dw} ${d.num}</td>
@@ -327,10 +385,13 @@
         <td class="tsp-line">${r.margin >= 0 ? '−' : '+'}${Math.abs(r.margin).toFixed(1)}</td></tr>`;
     });
     const W = Math.round(R.expW), L = R.n - W, cw = Math.round(R.expCW), cl = R.confN - cw;
-    const pw = (opts.played || []).filter(x => x.won).length, pl = (opts.played || []).length - pw;
+    // the projection already counts every game in the results file; add only played games it doesn't know yet
+    const extra = (opts.played || []).filter(x => !(R.counted && R.counted.has(idOf(x))));
+    const pw = extra.filter(x => x.won).length, pl = extra.length - pw;
+    const sw = pw + (R.playedW || 0), sl = pl + (R.playedL || 0);
     const m = R.model || {};
     const sum = `<div class="tsp-sum">
-      <div class="tsp-tile" title="likely range ${pw + R.lo}–${pl + R.n - R.lo} to ${pw + R.hi}–${pl + R.n - R.hi} (10th–90th pct of ${R.sims.toLocaleString()} simulated seasons)"><div class="k">Projected record</div><div class="v">${pw + W}–${pl + L}</div><div class="s">${(pw + R.expW).toFixed(1)} expected wins${pw + pl ? ` · ${pw}–${pl} so far` : ''}</div></div>
+      <div class="tsp-tile" title="likely range ${pw + R.lo}–${pl + R.n - R.lo} to ${pw + R.hi}–${pl + R.n - R.hi} (10th–90th pct of ${R.sims.toLocaleString()} simulated seasons)"><div class="k">Projected record</div><div class="v">${pw + W}–${pl + L}</div><div class="s">${(pw + R.expW).toFixed(1)} expected wins${sw + sl ? ` · ${sw}–${sl} so far` : ''}</div></div>
       <div class="tsp-tile"><div class="k">Conference</div><div class="v">${R.confN ? `${cw}–${cl}` : '—'}</div><div class="s">${R.confN ? `${R.expCW.toFixed(1)} of ${R.confN} league games` : 'no league games listed yet'}</div></div>
       <div class="tsp-tile"><div class="k">20+ wins</div><div class="v">${Math.round(R.p20 * 100)}%</div><div class="s">25+ ${Math.round(R.p25 * 100)}% · .500+ ${Math.round(R.pHalf * 100)}%</div></div>
     </div>`;
@@ -343,13 +404,13 @@
 
   // every rated team's projected record for the rankings table — lighter sims, cached in
   // localStorage until the ratings or the schedule file change
-  const LS_ALL = 'tdc_projrec_v8';
+  const LS_ALL = 'tdc_projrec_v9';
   async function projectAll(opts) {
     opts = opts || {};
     await load();
     if (!_sched || !g.TDC_RATINGS) return {};
     const D = await g.TDC_RATINGS.get();
-    const stamp = (D.generated || '') + '|' + (_sched.pulled || '') + '|' + (_sched.games || []).length;
+    const stamp = (D.generated || '') + '|' + (_sched.pulled || '') + '|' + (_sched.games || []).length + '|' + ((_results && _results.updated) || '');
     try { const c = JSON.parse(localStorage.getItem(LS_ALL) || 'null'); if (c && c.stamp === stamp) return c.recs; } catch (e) {}
     const recs = {};
     for (const t of D.teams) {
@@ -403,8 +464,10 @@
     const rowOf = n => D.teams.find(t => t.full === n) || null;
     const listed = q.id != null ? allGames().find(r => String(r.id) === String(q.id)) : null;
     const x = listed || { id: q.id, date: q.date, home: q.home, away: q.away, neutral: !!q.neutral };
-    const H = rowOf(x.home), A = rowOf(x.away);
-    if (!H || !A) return null;
+    buildRates(D);
+    const H0 = rowOf(x.home), A0 = rowOf(x.away);
+    if (!H0 || !A0) return null;
+    const H = Object.assign({}, H0, { rating: rateOf(x.home, H0) }), A = Object.assign({}, A0, { rating: rateOf(x.away, A0) });
     const STRETCH = g.TDC_RATINGS.GAP_STRETCH || 1, SIGMA = g.TDC_RATINGS.SIGMA || 11;
     const venue = x.neutral ? 0 : g.TDC_RATINGS.baseHca(A.rating) + (H.hcaOff || 0);
     let sit = 0;
@@ -422,6 +485,6 @@
 
   // shared simulation pieces for the conference-tournament projection (tdc-conftourney.js): the same
   // per-sim team strength draw every schedule uses, the hashed coins, and the 2026-27 league map
-  const sim = { TAU, U, hkey, zTeam, leagueOf, members: () => _members, tame, phi };
+  const sim = { TAU, U, hkey, zTeam, leagueOf, members: () => _members, tame, phi, rate: rateOf, tau: tauOf, results: () => RES, resultsMeta: () => _results && { updated: _results.updated, n: (_results.games || []).length } };
   g.TDCSched = { load, project, projectAll, render, renderPast, gamesFor, extrasFor, lineFor, SEASON, sim };
 })(window);

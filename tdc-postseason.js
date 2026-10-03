@@ -73,7 +73,7 @@
       const N = T.length;
       const W = T.map(n => CT[confOf[n]].proj[n].W), GN = T.map(n => CT[confOf[n]].proj[n].n || 1);
       const meanWP = T.map((n, i) => { let a = 0; for (let s = 0; s < SIMS; s++) a += W[i][s]; return a / SIMS / GN[i]; });
-      const rating = T.map(n => +rowOf[n].rating || 0);
+      const rating = T.map(n => sim.rate(n, rowOf[n]));          // preseason prior + results so far
       const confAvg = {}; codes.forEach(c => { const ns = T.filter(n => confOf[n] === c); confAvg[c] = ns.reduce((a, n) => a + rating[ix[n]], 0) / Math.max(1, ns.length); });
       const exemptConfs = codes.slice().sort((a, b) => confAvg[b] - confAvg[a]).slice(0, NIT.exempt_top_conferences || 10).concat(NIT.exempt_extra || []);
       // per team tallies
@@ -91,7 +91,7 @@
 
       for (let s = 0; s < SIMS; s++) {
         for (let i = 0; i < N; i++) {
-          str[i] = rating[i] + sim.TAU * sim.zTeam(s, T[i]);
+          str[i] = rating[i] + sim.tau(T[i]) * sim.zTeam(s, T[i]);
           sel[i] = str[i] + RES * (W[i][s] / GN[i] - meanWP[i]);
           A.sel[i] += sel[i];
         }
@@ -190,7 +190,7 @@
         Object.keys(A).forEach(key => o[key] = A[key][i] / k);
         o.avgSeed = A.ncaa[i] ? A.seedSum[i] / A.ncaa[i] : null;
         o.seed = Array.from(seedHist[i]).map(v => v / k);
-        o.team = n; o.conf = confOf[n]; o.row = rowOf[n]; o.ineligible = INEL.has(n);
+        o.team = n; o.conf = confOf[n]; o.row = rowOf[n]; o.ineligible = INEL.has(n); o.rate = rating[i];
         let cg = 0, f1 = 0, rr = 0; for (let s = 0; s < SIMS; s++) { cg += confG[s * N + i]; f1 += fwS[s * N + i]; rr += restS[s * N + i]; }
         o.confGames = cg / SIMS; o.fwGames = f1 / SIMS; o.restGames = rr / SIMS;
         return o;
@@ -206,7 +206,7 @@
     const P = await run(); if (!P) return null;
     const NC = P.rules.ncaa || {}, FF_AL = (NC.first_four || {}).at_large_teams ?? 4, FF_AQ = (NC.first_four || {}).auto_teams ?? 4;
     const byConf = {}; P.teams.forEach(t => (byConf[t.conf] = byConf[t.conf] || []).push(t));
-    const aq = Object.values(byConf).map(ts => ts.filter(t => !t.ineligible).sort((a, b) => (b.auto - a.auto) || ((b.row.rating || 0) - (a.row.rating || 0)))[0]).filter(Boolean);
+    const aq = Object.values(byConf).map(ts => ts.filter(t => !t.ineligible).sort((a, b) => (b.auto - a.auto) || (b.rate - a.rate))[0]).filter(Boolean);
     const aqSet = new Set(aq.map(t => t.team));
     const atl = P.teams.filter(t => !aqSet.has(t.team) && !t.ineligible).sort((a, b) => (b.sel) - (a.sel)).slice(0, P.field - aq.length);
     const key = t => t.sel;
@@ -241,7 +241,7 @@
     const D = (B.P.rules.ncaa || {}).dates || {};
     const DT = { open: D.first_four || '2027-03-16', r1: D.first_round || '2027-03-18', r2: D.second_round || '2027-03-20', s16: D.sweet16 || '2027-03-25',
       e8: D.elite8 || '2027-03-27', ff: D.final_four || '2027-04-03', nc: D.championship || '2027-04-05' };
-    const T = t => ({ full: t.team, team: (t.row && t.row.team) || t.team, conf: t.conf, rating: +(t.row && t.row.rating) || 0, rank: t.row && t.row.rank, _seed: null });
+    const T = t => ({ full: t.team, team: (t.row && t.row.team) || t.team, conf: t.conf, rating: t.rate, rank: t.row && t.row.rank, _seed: null });
     const proj = (a, b) => ((a.rating - b.rating) + edge(a, b)) >= 0 ? a : b;
     let gid = 920000000; const games = [];
     const mk = (a, b, round, rord, region, date) => { const w = proj(a, b);
@@ -265,7 +265,7 @@
     });
     games.push(mk(champs[0], champs[1], 'Final Four', 5, null, DT.ff)); games.push(mk(champs[2], champs[3], 'Final Four', 5, null, DT.ff));
     games.push(mk(proj(champs[0], champs[1]), proj(champs[2], champs[3]), 'National Championship', 6, null, DT.nc));
-    const srs = {}; B.P.teams.forEach(t => srs[t.team] = +(t.row && t.row.rating) || 0);
+    const srs = {}; B.P.teams.forEach(t => srs[t.team] = t.rate);
     return (_games = { games, srs, bracket: B });
   }
 

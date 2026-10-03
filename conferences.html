@@ -11,8 +11,8 @@
   <script src="tdc-projgrade.js?v=base38"></script>
   <script src="tdc-awards.js?v=11"></script>
   <script src="tdc-ratings.js?v=28"></script>
-  <script src="tdc-schedule.js?v=25s"></script>
-  <script src="tdc-conftourney.js?v=3"></script>
+  <script src="tdc-schedule.js?v=26s"></script>
+  <script src="tdc-conftourney.js?v=4"></script>
   <script src="tdc-glossary.js?v=13"></script>
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=5"></script>
@@ -424,7 +424,8 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
     if(!window.TDCConfT||!window.TDC_RATINGS||!window.tdcConfCode) return;
     var KEY='tdc_conffav_v2';
     Promise.all([TDC_RATINGS.get(), TDCConfT.load()]).then(function(r){
-      var stamp=(r[0].generated||'')+'|'+((TDCConfT.formats()||{}).built||'');
+      var rm=window.TDCSched&&TDCSched.sim&&TDCSched.sim.resultsMeta&&TDCSched.sim.resultsMeta();
+      var stamp=(r[0].generated||'')+'|'+((TDCConfT.formats()||{}).built||'')+'|'+((rm&&rm.updated)||'');
       try{ var c=JSON.parse(localStorage.getItem(KEY)||'null'); if(c&&c.stamp===stamp){ FAV=c.fav; paintProj(paintProj._L||L); return; } }catch(e){}
       var i=0;
       (function next(){

@@ -18,7 +18,7 @@
   <script src="tdc-freshman.js?v=pub19"></script>
   <script src="tdc-injury.js?v=5"></script>
   <script src="tdc-ratings.js?v=28"></script>
-  <script src="tdc-schedule.js?v=25s"></script>
+  <script src="tdc-schedule.js?v=26s"></script>
   <script src="tdc-preview.js?v=27s"></script>
   <script src="tdc-projgrade.js?v=base38"></script>
   <script src="tdc-realstats.js?v=2"></script>
@@ -8769,8 +8769,13 @@ async function loadSchedule(){
           played.push({date:g.date, opp, rank:rankMap[opp], site:g.neutral?'N':(homeMe?'H':'A'), won, ms, os,
             rec:`${w}–${l}`+(g.conf_game?` (${cw}–${cl})`:''), href:`game.html?id=${g.id}`});
         });
+        played.forEach((p,i)=>{ p.id=games[i].id; });
         TDCSched.render(host,R,{played});
-        document.getElementById('schedSummary').textContent=(games.length?`${w}–${l} · `:'')+`proj ${w+Math.round(R.expW)}–${l+(R.n-Math.round(R.expW))}`;
+        // the projection already counts every game in the nightly results file — add only the ones it hasn't seen
+        const xg=games.filter(g=>!(R.counted&&R.counted.has(String(g.id))));
+        const xw=xg.filter(g=>{ const hm=g.home===mascot; return (hm?g.home_score:g.away_score)>(hm?g.away_score:g.home_score); }).length, xl=xg.length-xw;
+        const sw=xw+(R.playedW||0), sl=xl+(R.playedL||0);
+        document.getElementById('schedSummary').textContent=(sw+sl?`${sw}–${sl} · `:'')+`proj ${xw+Math.round(R.expW)}–${xl+(R.n-Math.round(R.expW))}`;
         return;
       }
       if(!all.length){ host.innerHTML=`<div style="padding:30px;color:var(--text3);">The 2026-27 schedule for ${teamT.name} hasn't been announced yet.</div>`; document.getElementById('schedSummary').textContent=''; return; }
