@@ -8,8 +8,9 @@
  * tdcHistFor(player, rows) keeps only the rows that are this person:
  *   - he has an ESPN id → rows with that id (anything else under his name is a namesake)
  *   - no id and a freshman who isn't a listed transfer → no history
- *   - no id otherwise → one person who played in the last four seasons; when the roster names the school
- *     he came from ("George Mason (24-25)") it has to be that school; ambiguous → no history
+ *   - no id otherwise → one person who played in the last four seasons, either at his CURRENT school (a
+ *     returner whose id was dropped) or at the school the roster lists ("George Mason (24-25)").
+ *     Anything else stays unlinked until players.espn_id is set (scripts/link_espn_ids_*.sql).
  */
 (function (g) {
   const RECENT = 2023;   // 2022-23 or later: a roster player's real history is never older than this
@@ -27,8 +28,11 @@
       const ids = [...new Set(recent.filter(r => { const t = norm(r.team); return t && (t.indexOf(from) === 0 || from.indexOf(t) === 0); }).map(r => r.espn_id))];
       if (ids.length === 1) return ids[0];
     }
-    const ids = [...new Set(recent.map(r => r.espn_id))];
-    return ids.length === 1 ? ids[0] : null;
+    // no listed school: only a RETURNER — the same name on his current team. A namesake elsewhere is a
+    // different person until the roster says otherwise (Longwood's Elijah Thomas ≠ Eastern Washington's).
+    const cur = norm(p.team).replace(/-/g, ' ');
+    const own = [...new Set(recent.filter(r => { const t = norm(r.team); return t && cur && (t.indexOf(cur) === 0 || cur.indexOf(t) === 0); }).map(r => r.espn_id))];
+    return own.length === 1 ? own[0] : null;
   }
   function tdcHistFor(p, rows) {
     if (!p || !rows || !rows.length) return rows || null;

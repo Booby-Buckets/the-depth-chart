@@ -572,9 +572,9 @@ if os.path.exists(_fp):
 # ── SAT-OUT FILL ─────────────────────────────────────────────────────────────────────
 # A rostered player with no 2025-26 line who played a real role before it (injury, redshirt, a sit-out
 # transfer: Jalen Haynes, George Mason 2024-25 -> Dayton) used to drop out of the projection and show up
-# unlinked across the site. Project him from his most recent real season (10+ mpg, 8+ games, within two
+# unlinked across the site. Project him from his most recent real season (10+ mpg, 8+ games, within three
 # years); the grade is pulled toward neutral like a short fill (rust / the missed year), more for two years.
-SAT_CRED={CUR-1: 0.85, CUR-2: 0.70}
+SAT_CRED={CUR-1: 0.85, CUR-2: 0.70, CUR-3: 0.60}   # three years out: e.g. Tyler Nelson, Navy 2022-23 -> UNCW
 _have=set(int(x) for x in box.index)
 _ros=set(int(x) for x in pl["espn_id"].dropna())
 _miss=sorted(_ros-_have)
@@ -582,7 +582,7 @@ if _miss:
     _cols="espn_id,season_year,ppg,mpg,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb,stl,blk,tovs,apg,gp,fg_pct,tp_pct,ft_pct"
     _prev=[]
     for _i in range(0,len(_miss),150):
-        _prev+=sb_get(f"player_history?select={_cols}&espn_id=in.({','.join(map(str,_miss[_i:_i+150]))})&season_year=gte.{CUR-2}&season_year=lt.{CUR}&order=espn_id.asc,season_year.asc")
+        _prev+=sb_get(f"player_history?select={_cols}&espn_id=in.({','.join(map(str,_miss[_i:_i+150]))})&season_year=gte.{CUR-3}&season_year=lt.{CUR}&order=espn_id.asc,season_year.asc")
     _best={}
     for _r in _prev:
         if (_r.get("mpg") or 0)>=10 and (_r.get("gp") or 0)>=8 and (_r["espn_id"] not in _best or _r["season_year"]>_best[_r["espn_id"]]["season_year"]):
@@ -592,7 +592,7 @@ if _miss:
         _teams={}
         _ids=list(_best)
         for _i in range(0,len(_ids),60):
-            for _b in sb_get(f"box_scores?select=espn_id,team,season_year,game_id&espn_id=in.({','.join(map(str,_ids[_i:_i+60]))})&season_year=gte.{CUR-2}&season_year=lt.{CUR}&order=espn_id.asc,game_id.asc"):
+            for _b in sb_get(f"box_scores?select=espn_id,team,season_year,game_id&espn_id=in.({','.join(map(str,_ids[_i:_i+60]))})&season_year=gte.{CUR-3}&season_year=lt.{CUR}&order=espn_id.asc,game_id.asc"):
                 if _b["season_year"]==_best[_b["espn_id"]]["season_year"] and _b.get("team"): _teams.setdefault(_b["espn_id"],_b["team"])
         _add=[]
         for _e,_r in _best.items():
