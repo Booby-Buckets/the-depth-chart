@@ -13,7 +13,7 @@
   function load() {
     if (_p) return _p;
     _p = Promise.all([
-      fetch('scripts/data/scrimmages_2027.json?v=3').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+      fetch('scripts/data/scrimmages_2027.json?v=4').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
       fetch('scripts/data/scrimmage_results_2027.json?v=2', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
       fetch('scripts/data/team_pace_eff.json?v=7').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
     ]).then(function (a) {
