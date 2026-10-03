@@ -206,14 +206,29 @@ try:
         if _t.get("team") and _t.get("full"): SHORT2FULL[_t["team"].lower()]=_t["full"]
 except Exception as _e:
     print("warn: could not load predictive_ratings short->full map (%s); using espn_key only" % _e)
+# the 2026-27 coach by ESPN full name, for sheet names the SR crosswalk doesn't know (NC-State, LSU)
+try: _C27FULL={r["tm"]:r for r in _c27 if r.get("new")}
+except Exception: _C27FULL={}
+def _slug_pace(slug):
+    hist=[]
+    for yy,school in sorted(_slug_ts.get(slug,[]),key=lambda x:-x[0]):
+        if yy<2026-PACE_YEARS+1: continue
+        t=_real_tempo(school,yy)
+        if t: hist.append(t)
+    if not hist: return None
+    w=[PACE_W[i] if i<len(PACE_W) else 0.3 for i in range(len(hist))]
+    return _TEMPO_MEAN+(sum(wi*h for wi,h in zip(w,hist))/sum(w)-_TEMPO_MEAN)*PACE_KEEP
 def team_tempo(team):
     """coach's recent real tempo; a sheet short name the SR crosswalk doesn't know (SMU) falls back
-    to the school's own 2026 tempo, then the D-I mean"""
+    to the school's own 2026 tempo, then the D-I mean — with the 2026-27 coach applied either way"""
     t=coachpace.get(team)
     if not t:
         full=SHORT2FULL.get(team.lower()) or espn_key(team,teams26)
-        t=(teams26.get(full) or {}).get("tempo") if full else None
-        if t: t=_TEMPO_MEAN+(t-_TEMPO_MEAN)*PACE_KEEP
+        nc=_C27FULL.get(full) if full else None
+        if nc and nc.get("career") and nc.get("c"): t=_slug_pace(nc["c"])          # new coach with a record
+        if not t:
+            t=(teams26.get(full) or {}).get("tempo") if full else None
+            if t: t=_TEMPO_MEAN+(t-_TEMPO_MEAN)*(NEW_KEEP if nc else PACE_KEEP)       # first-time head coach: mostly neutral
     return t or _TEMPO_MEAN
 proj={}
 for team,roster in byteam.items():
