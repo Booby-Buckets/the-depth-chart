@@ -1,6 +1,8 @@
 /* tdc-livegame.js — game.html live mode, fed by ESPN's summary through tdc-live.js.
  * Scoreboard header, win-probability chart over every play (biggest swings marked), scoring
- * runs, recent plays, team stats and the live player box. Polls every 20s while live.
+ * runs, recent plays, team stats and the live player box. Live games also get a situation bar
+ * (possession, team fouls / bonus, timeouts, momentum, live win probability, last play), a shot chart
+ * of every shot and a lead tracker. Polls every 10s while live.
  *   TDCLiveGame.mount(host, id, {onFinal})   onFinal() fires once when ESPN marks the game final */
 (function (g) {
   'use strict';
@@ -42,6 +44,31 @@
   .lg-chip:hover{color:var(--text);border-color:var(--text3);}
   .sheet.lg-box tbody tr.totals td{border-top:2px solid var(--border2);}
   .lg-err{font-size:12.5px;color:var(--red);}
+
+  .lg-sit{border-color:color-mix(in srgb,var(--red) 35%,var(--border));}
+  .lg-sitrow{display:grid;grid-template-columns:1fr auto minmax(170px,230px);gap:18px;align-items:center;}
+  .lg-poss{display:flex;align-items:center;gap:12px;} .lg-poss img{width:30px;height:30px;object-fit:contain;}
+  .lg-poss b{display:block;font-size:19px;font-weight:800;color:var(--text);} .lg-poss span{font-size:12.5px;color:var(--text2);}
+  .lg-fouls{display:grid;gap:5px;font-size:12px;font-weight:700;color:var(--text2);}
+  .lg-fouls div{display:flex;align-items:center;gap:8px;justify-content:space-between;}
+  .lg-bonus{font-size:10px;font-weight:800;letter-spacing:.05em;color:#fff;background:var(--red);border-radius:4px;padding:1px 5px;}
+  .lg-bonus.db{background:#7c2d12;}
+  .lg-wpnow span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:700;}
+  .lg-wpnow b{font-size:18px;font-weight:800;color:var(--text);}
+  .lg-wpbar{display:flex;height:7px;border-radius:4px;overflow:hidden;margin-top:4px;background:var(--border);} .lg-wpbar i{display:block;height:100%;}
+  .lg-mom{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:12px;font-size:13px;color:var(--text2);}
+  .lg-mom b{color:var(--text);}
+  .lg-last{margin-top:10px;font-size:13.5px;line-height:1.45;color:var(--text);}
+  .lg-last span,.lg-k{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-right:6px;}
+  .lg-upd{margin-top:8px;font-size:11.5px;color:var(--text3);}
+  .lg-court{width:100%;height:auto;display:block;margin-top:8px;}
+  .lg-courtleg{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--text2);margin-top:8px;}
+  .lg-courtleg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px;}
+  .lg-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;}
+  .lg-tile{border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--bg2);}
+  .lg-tile b{display:block;font-size:22px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;margin-top:2px;}
+  .lg-tile small{font-size:12px;color:var(--text2);}
+  @media(max-width:720px){.lg-sitrow{grid-template-columns:1fr;}}
   @media(max-width:640px){.lg-board{grid-template-columns:1fr;}.lg-sc{font-size:30px;}.lg-tn .n{font-size:19px;}.lg-card{padding:12px;}}`;
   let cssDone = false;
   function css() { if (cssDone) return; cssDone = true; const s = document.createElement('style'); s.textContent = CSS; document.head.appendChild(s); }
@@ -66,6 +93,9 @@
     opts = opts || {};
     css();
     host.innerHTML = '<div class="loading">Loading the live game…</div>';
+    let fetchedAt = 0, updTimer = null;
+    const tickUpd = () => { const el = host.querySelector('[data-upd]'); if (!el) return; const s_ = Math.round((Date.now() - fetchedAt) / 1000); el.textContent = `Updated ${s_ < 5 ? 'just now' : s_ + 's ago'} · refreshes every 10 seconds`; };
+    updTimer = setInterval(tickUpd, 1000);
     let game = null, line = undefined, keyOf = {}, showAll = false, finalFired = false, err = null;
     deps().then(() => {
       if (g.TDC_RATINGS) g.TDC_RATINGS.get().then(D => { (D.teams || []).forEach(t => { keyOf[t.full] = t.team; }); draw(); }).catch(() => {});
@@ -224,15 +254,142 @@
         ${f.length > 25 ? `<button class="lg-chip" data-allplays="1">${showAll ? 'Show latest 25' : `Show all ${f.length} plays`}</button>` : ''}</section>`;
     }
 
+
+    // ── team colours that read on the page (same rule as the football site) ──
+    function hex(c) { const n = parseInt(c.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
+    function dist(a, b) { const x = hex(a), y = hex(b); return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]); }
+    function lum(c) { return hex(c).map(v => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }).reduce((a, v, i) => a + v * [0.2126, 0.7152, 0.0722][i], 0); }
+    const okC = c => !!c && /^#[0-9a-f]{6}$/i.test(c) && lum(c) < 0.6 && lum(c) > 0.012;
+    function colors() {
+      const H = [game.home.color, game.home.alt].find(okC) || '#2d7a3e';
+      let A = [game.away.color, game.away.alt].filter(okC).find(c => dist(H, c) >= 110);
+      if (!A) A = ['#2563eb', '#d97706', '#0d9488', '#7c3aed'].sort((x, y) => dist(H, y) - dist(H, x))[0];
+      return { [game.home.id]: H, [game.away.id]: A, home: H, away: A };
+    }
+
+    // ── live state from the play-by-play (ESPN's basketball feed doesn't send possession or fouls) ──
+    function liveState() {
+      const P = game.plays, h = game.home.id, a = game.away.id, other = t => (t === h ? a : t === a ? h : null);
+      let poss = game.poss || null;
+      if (!poss) for (let i = P.length - 1; i >= 0 && !poss; i--) {
+        const p = P[i], ty = (p.type || '') + ' ' + (p.text || '');
+        if (!p.team) continue;
+        if (/rebound|steal/i.test(ty)) poss = p.team;
+        else if (/turnover/i.test(ty)) poss = other(p.team);
+        else if (p.score && p.pts >= 2) poss = other(p.team);
+        else if (p.score && p.pts === 1 && !/1 of 2|2 of 3|1 of 3/i.test(p.text)) poss = other(p.team);
+        else if (/jump ?ball/i.test(ty)) poss = p.team;
+        else if (isShot(p) && !p.score) break;                        // a missed shot: ball loose until the rebound
+      }
+      const per = game.period || (P.length ? P[P.length - 1].q : 1);
+      const fouls = { [h]: 0, [a]: 0 }, tos = { [h]: 0, [a]: 0 };
+      P.forEach(p => {
+        if (!p.team) return;
+        const ty = (p.type || '') + ' ' + (p.text || '');
+        if (/foul/i.test(ty) && !/technical|flagrant|offensive/i.test(ty) && (p.q === per || (per >= 3 && p.q >= 2))) fouls[p.team]++;   // OT carries the 2nd-half count
+        if (/timeout/i.test(p.type || '') && !/official|tv/i.test(ty)) tos[p.team]++;
+      });
+      // current run and field-goal droughts
+      let run = null, ph = 0, pa = 0;
+      P.forEach(p => {
+        const dh = p.hs - ph, da = p.as - pa;
+        if (dh > 0 || da > 0) {
+          const side = dh > 0 && da <= 0 ? h : da > 0 && dh <= 0 ? a : null;
+          if (side && run && run.team === side) run.pts += dh > 0 ? dh : da;
+          else run = side ? { team: side, pts: dh > 0 ? dh : da, since: p } : null;
+        }
+        ph = p.hs; pa = p.as;
+      });
+      const nowT = elapsed(per, game.clock);
+      const lastFG = {};
+      P.forEach(p => { if (isShot(p) && p.score && p.team) lastFG[p.team] = elapsed(p.q, p.clock); });
+      const drought = t => (lastFG[t] != null ? nowT - lastFG[t] : nowT);
+      return { poss, fouls, tos, run, drought, per };
+    }
+    const isShot = p => !/free ?throw/i.test((p.type || '') + ' ' + (p.text || '')) && (p.shot || /shot$|jumper|layup|dunk|tip|hook/i.test(p.type || ''));
+    const mmss = t => `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, '0')}`;
+
+    function situation() {
+      if (game.state !== 'in') return '';
+      const C = colors(), S = liveState(), h = game.home, a = game.away;
+      const owner = S.poss === h.id ? h : S.poss === a.id ? a : null;
+      const wpNow = series().slice(-1)[0].wp;
+      const fav = wpNow >= 0.5 ? h : a;
+      // 7 team fouls in a half = the opponent shoots one-and-one; 10 = two shots on every foul
+      const bonus = (n, o) => n >= 10 ? `<span class="lg-bonus db" title="${esc(o.abbr)} shoots two on every foul">${esc(o.abbr)} DOUBLE BONUS</span>` : n >= 7 ? `<span class="lg-bonus" title="${esc(o.abbr)} shoots one-and-one">${esc(o.abbr)} IN BONUS</span>` : '';
+      const foulRow = (t, o) => `<div><span>${esc(t.abbr)} team fouls ${S.fouls[t.id]}</span>${bonus(S.fouls[t.id], o)}</div>`;
+      const run = S.run && S.run.pts >= 6 ? `<span><b>${esc((S.run.team === h.id ? h : a).abbr)} ${S.run.pts}–0 run</b></span>` : '';
+      const dr = [a, h].map(t => S.drought(t.id) >= 150 ? `<span><b>${esc(t.abbr)}</b> no field goal in ${mmss(S.drought(t.id))}</span>` : '').join('');
+      const lp = game.plays.slice().reverse().find(p => p.text && !/substitution/i.test(p.type));
+      return `<section class="lg-card lg-sit"><div class="lg-sitrow">
+          <div class="lg-poss">${owner ? `<img src="${esc(owner.logo)}" alt=""><div><b>${esc(nameOf(owner))} ball</b><span>${esc(periodName(S.per))} half · ${esc(game.clock || '')}</span></div>`
+            : `<div><b>Ball loose / dead ball</b><span>${esc(game.detail)}</span></div>`}</div>
+          <div class="lg-fouls">${foulRow(a, h)}${foulRow(h, a)}<div><span>Timeouts used</span><span>${esc(a.abbr)} ${S.tos[a.id]} · ${esc(h.abbr)} ${S.tos[h.id]}</span></div></div>
+          <div class="lg-wpnow"><span>Win probability</span><b>${esc(fav.abbr)} ${Math.round(Math.max(wpNow, 1 - wpNow) * 100)}%</b>
+            <div class="lg-wpbar"><i style="width:${(1 - wpNow) * 100}%;background:${C.away}"></i><i style="width:${wpNow * 100}%;background:${C.home}"></i></div></div>
+        </div>
+        ${run || dr ? `<div class="lg-mom"><span class="lg-k">Momentum</span>${run}${dr}</div>` : ''}
+        ${lp ? `<div class="lg-last"><span>Last play</span>${esc(lp.text)}</div>` : ''}
+        <div class="lg-upd" data-upd="1"></div></section>`;
+    }
+
+    // every shot of the game on a full court: away attacks the left basket, home the right
+    function court() {
+      const shots = game.plays.filter(p => isShot(p) && p.x != null && p.y != null && p.team);
+      if (shots.length < 4) return '';
+      const C = colors(), h = game.home, a = game.away, S = 8, W = 94 * S, Hh = 50 * S;
+      const last = game.state === 'in' ? shots[shots.length - 1] : null;
+      const pt = p => { const d = p.y + 5.25; return p.team === h.id ? [(94 - d) * S, (50 - p.x) * S] : [d * S, p.x * S]; };
+      const arc = side => { const cx = side ? (94 - 5.25) * S : 5.25 * S, dir = side ? -1 : 1; const r = 22.15 * S;
+        const yc = 3.35 * S, ang = Math.asin((25 - 3.35) / 22.15); const dx = r * Math.cos(ang);
+        return `<path d="M${side ? W : 0},${yc} L${cx + dir * dx},${yc} A${r},${r} 0 0 ${side ? 0 : 1} ${cx + dir * dx},${Hh - yc} L${side ? W : 0},${Hh - yc}" fill="none" stroke="var(--border2)" stroke-width="2"/>`; };
+      const lane = side => `<rect x="${side ? W - 19 * S : 0}" y="${19 * S}" width="${19 * S}" height="${12 * S}" fill="none" stroke="var(--border2)" stroke-width="2"/>
+        <circle cx="${side ? W - 19 * S : 19 * S}" cy="${25 * S}" r="${6 * S}" fill="none" stroke="var(--border2)" stroke-width="2"/>
+        <circle cx="${side ? W - 5.25 * S : 5.25 * S}" cy="${25 * S}" r="${0.75 * S}" fill="none" stroke="var(--text3)" stroke-width="2"/>`;
+      const fg = t => { const m = shots.filter(p => p.team === t.id), mk = m.filter(p => p.score); const three = m.filter(p => p.pa === 3 || /three/i.test(p.text));
+        return `${mk.length}/${m.length} FG · ${three.filter(p => p.score).length}/${three.length} 3PT`; };
+      const dots = shots.map(p => { const [x, y] = pt(p), c = C[p.team], isLast = p === last;
+        return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${isLast ? 9 : 6}" fill="${p.score ? c : 'none'}" stroke="${c}" stroke-width="${p.score ? 1.5 : 2.2}" ${p.score ? '' : 'stroke-opacity="0.75"'}>
+          <title>${esc(periodName(p.q))} ${esc(p.clock)} · ${esc(p.text)}</title></circle>${isLast ? `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="14" fill="none" stroke="var(--accent)" stroke-width="2.5"/>` : ''}`; }).join('');
+      return `<section class="lg-card"><div class="lg-wph"><h2>Shot chart</h2><span>${shots.length} shots with a location${game.state === 'in' ? ' · newest is ringed' : ''}</span></div>
+        <svg class="lg-court" viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Every shot of the game: ${esc(a.abbr)} at the left basket, ${esc(h.abbr)} at the right">
+          <rect x="1" y="1" width="${W - 2}" height="${Hh - 2}" rx="6" fill="var(--bg2)" stroke="var(--border2)" stroke-width="2"/>
+          <line x1="${W / 2}" x2="${W / 2}" y1="0" y2="${Hh}" stroke="var(--border2)" stroke-width="2"/><circle cx="${W / 2}" cy="${Hh / 2}" r="${6 * S}" fill="none" stroke="var(--border2)" stroke-width="2"/>
+          ${lane(0)}${lane(1)}${arc(0)}${arc(1)}${dots}</svg>
+        <div class="lg-courtleg"><span><i style="background:${C.away}"></i>${esc(nameOf(a))} (left basket): ${fg(a)}</span><span><i style="background:${C.home}"></i>${esc(nameOf(h))} (right basket): ${fg(h)}</span><span>Filled = made · hollow = missed · hover a shot</span></div></section>`;
+    }
+
+    // lead tracker: lead changes, ties, biggest leads, time in front
+    function leadTiles() {
+      const h = game.home, a = game.away; let lead = 0, changes = 0, ties = 0, bigH = 0, bigA = 0, pt = 0, pm = 0; const tIn = { h: 0, a: 0, t: 0 };
+      game.plays.forEach(p => {
+        const m = p.hs - p.as; if (m === pm) return;
+        const t = elapsed(p.q, p.clock), dt = t - pt;
+        if (pm > 0) tIn.h += dt; else if (pm < 0) tIn.a += dt; else tIn.t += dt;
+        const sd = Math.sign(m); if (sd && lead && sd !== lead) changes++; if (sd) lead = sd; if (!sd && pm) ties++;
+        bigH = Math.max(bigH, m); bigA = Math.max(bigA, -m); pt = t; pm = m;
+      });
+      const end = game.state === 'post' ? Math.max(pt, elapsed(game.period || 2, '0:00')) : elapsed(game.period || 1, game.clock);
+      const dt = Math.max(0, end - pt); if (pm > 0) tIn.h += dt; else if (pm < 0) tIn.a += dt; else tIn.t += dt;
+      const tot = Math.max(1, tIn.h + tIn.a + tIn.t), pc = x => Math.round(x / tot * 100);
+      if (!game.plays.length) return '';
+      return `<div class="lg-tiles">
+        <div class="lg-tile"><span class="lg-k">Lead changes</span><b>${changes}</b><small>${ties} time${ties === 1 ? '' : 's'} tied</small></div>
+        <div class="lg-tile"><span class="lg-k">${esc(a.abbr)} biggest lead</span><b>${bigA ? '+' + bigA : '—'}</b><small>${bigA ? '' : 'never led'}</small></div>
+        <div class="lg-tile"><span class="lg-k">${esc(h.abbr)} biggest lead</span><b>${bigH ? '+' + bigH : '—'}</b><small>${bigH ? '' : 'never led'}</small></div>
+        <div class="lg-tile"><span class="lg-k">Time in front</span><b style="font-size:16px">${esc(a.abbr)} ${pc(tIn.a)}% · ${esc(h.abbr)} ${pc(tIn.h)}%</b><small>tied ${pc(tIn.t)}%</small></div></div>`;
+    }
+
     function draw() {
       if (!game) return;
       document.title = `${nameOf(game.away)} at ${nameOf(game.home)} — ${game.state === 'in' ? 'Live' : 'Box Score'}`;
       const hasPlays = game.plays.length > 0;
       const pbox = playerBox();
-      host.innerHTML = `<div class="lg">${board()}${hasPlays || game.state !== 'pre' ? chart() : ''}${hasPlays ? sidebars() : ''}${pbox ? `<section class="lg-card"><h2>Box score</h2>${pbox}</section>` : ''}${feed()}</div>`;
+      host.innerHTML = `<div class="lg">${board()}${situation()}${hasPlays ? `<section class="lg-card"><h2>Lead tracker</h2>${leadTiles()}</section>` : ''}${court()}${hasPlays || game.state !== 'pre' ? chart() : ''}${pbox ? `<section class="lg-card"><h2>Box score</h2>${pbox}</section>` : ''}${hasPlays ? sidebars() : ''}${feed()}</div>`;
+      fetchedAt = Date.now(); tickUpd();
       if (g.tdcSheetHeat) host.querySelectorAll('table.lg-box').forEach(t => g.tdcSheetHeat(t));
     }
-    return { stop };
+    return { stop: () => { stop(); clearInterval(updTimer); } };
   }
 
   g.TDCLiveGame = { mount };

@@ -30,7 +30,7 @@
   const HOSTS = ['https://site.web.api.espn.com', 'https://site.api.espn.com'];
   const BASE = '/apis/site/v2/sports/basketball/mens-college-basketball';
   const SD = 13.5, EXP = 0.4, REG = 2400, HALF = 1200, OT = 300;
-  const FAST = 20000, SLOW = 300000;
+  const FAST = 10000, SLOW = 300000;   // live games refresh every 10s
   const qs = new URLSearchParams(g.location ? g.location.search : '');
   const TEST = qs.get('livetest');                 // '1' | 'replay' | null
   const DATE = /^\d{8}$/.test(qs.get('livedate') || '') ? qs.get('livedate') : null;
@@ -105,7 +105,7 @@
       score: c.score != null && c.score !== '' ? +(typeof c.score === 'object' ? c.score.value : c.score) : null,
       rank: c.curatedRank && c.curatedRank.current && c.curatedRank.current <= 25 ? c.curatedRank.current : (c.rank && +c.rank <= 25 ? +c.rank : null),
       logo: t.logo || (t.logos && t.logos[0] && t.logos[0].href) || (t.id ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${t.id}.png` : ''),
-      color: t.color ? '#' + t.color : null, record: (c.records && c.records[0] && c.records[0].summary) || (c.record && c.record[0] && c.record[0].summary) || null,
+      color: t.color ? '#' + t.color : null, alt: t.alternateColor ? '#' + t.alternateColor : null, record: (c.records && c.records[0] && c.records[0].summary) || (c.record && c.record[0] && c.record[0].summary) || null,
       halves: (c.linescores || []).map(x => +(x.value != null ? x.value : x.displayValue) || 0),
     };
   }
@@ -131,6 +131,10 @@
       seq: String(p.sequenceNumber || p.id), q: p.period.number, clock: p.clock && p.clock.displayValue || '',
       hs: +p.homeScore || 0, as: +p.awayScore || 0, text: p.text || '', type: p.type && p.type.text || '',
       score: !!p.scoringPlay, pts: +p.scoreValue || 0, team: p.team && p.team.id ? String(p.team.id) : null,
+      shot: !!p.shootingPlay, pa: +p.pointsAttempted || 0,
+      x: p.coordinate && p.coordinate.x != null && p.coordinate.x >= 0 && p.coordinate.x <= 50 ? +p.coordinate.x : null,
+      y: p.coordinate && p.coordinate.y != null && p.coordinate.y >= 0 && p.coordinate.y <= 47 ? +p.coordinate.y : null,
+      pid: p.participants && p.participants[0] && p.participants[0].athlete ? String(p.participants[0].athlete.id) : null,
     }));
     const last = plays[plays.length - 1];
     const box = (d.boxscore && d.boxscore.teams || []).map(t => ({
