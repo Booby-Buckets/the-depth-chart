@@ -17,12 +17,12 @@
   <script src="tdc-proj.js?v=hg1"></script>
   <script src="tdc-freshman.js?v=pub20"></script>
   <script src="tdc-injury.js?v=5"></script>
-  <script src="tdc-ratings.js?v=28"></script>
+  <script src="tdc-ratings.js?v=30"></script>
   <script src="tdc-histguard.js?v=2"></script>
   <script src="tdc-schedule.js?v=26s"></script>
   <script src="tdc-scrim.js?v=11"></script>
   <script src="tdc-preview.js?v=28s"></script>
-  <script src="tdc-projgrade.js?v=base39"></script>
+  <script src="tdc-projgrade.js?v=base41"></script>
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-pool.js?v=5"></script>
@@ -2980,6 +2980,8 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
   // Expose projected stats by name for hover micro-cards
   window._projByName={};
   projected.forEach(pp=>{ window._projByName[(pp.name||'').toLowerCase().trim()]=pp; });
+  // the depth chart reads these lines — redraw it once they exist (it can render first)
+  try{ const L=window._lastHistRender; if(L&&L[2]&&!window._dcProjSynced){ window._dcProjSynced=true; renderHistoricRoster.apply(null,L); } }catch(e){}
   if(!projected.length){
     el.innerHTML='<div style="padding:20px;color:var(--text3);">No projections available — add player grades to enable projections.</div>';
     return;
@@ -8409,6 +8411,9 @@ function renderHistoricRoster(rows, yr, projected){
   // the per-game line: projected 2026-27 (returners = stat_overall_projected, the player page's line;
   // freshmen = the freshman model's team-fit line) or the real season line for past years
   const _line=p=>{ if(!projected) return p;
+    // SAME line as the Projected Stats table (window._projByName, built from the page's projection) so
+    // the two tables can't disagree; the build's row / freshman model only stand in before it exists
+    try{ const pb=window._projByName&&window._projByName[(p.name||'').toLowerCase().trim()]; if(pb&&pb.ppg!=null) return pb; }catch(e){}
     try{ const r=(p.espn_id!=null&&window.TDCProjGrade&&TDCProjGrade.projRowOf)?TDCProjGrade.projRowOf(p.espn_id):null; if(r) return r;
       if(window.TDCFresh&&TDCFresh.line){
         // the freshman model's line is built at its own minutes: scale the counting stats to the

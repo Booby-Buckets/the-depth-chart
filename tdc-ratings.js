@@ -350,7 +350,11 @@
         try{ const gr=TDCProjGrade.gradeRoster(roster); projMin=roster.map((p,i)=>(gr[i]&&isFinite(gr[i].min))?gr[i].min:null); }catch(e){}
       }
       let entries=roster.map((p,i)=>{
-        const grade=parseFloat(p.tdc_grade)||70;
+        // no grade yet → the same number the site shows for him (editor OVR, stat overall, or 70 =
+        // a typical newcomer for an ungraded freshman/transfer, owner's call) — and he now keeps the
+        // minutes the build gave him instead of being dropped from the rotation
+        let grade=parseFloat(p.tdc_grade);
+        if(!isFinite(grade)){ let gs=null; try{ gs=(window.TDCProjGrade&&TDCProjGrade.gradeSolo)?TDCProjGrade.gradeSolo(p):null; }catch(e){} grade=(gs!=null&&isFinite(gs))?+gs:70; }
         const c=cls(p.yr||p.class_year);
         const adv=p.espn_id!=null?advById[p.espn_id]:null;
         // TRANSFER: his 2025-26 team differs from his 2026-27 program, so the team-defense/

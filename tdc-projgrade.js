@@ -548,7 +548,12 @@
         // A true freshman with no played season isn't in the stat map → stays null (his
         // editor OVR should already be in tdc_grade before this is called).
         var sv = _statOvrOf(p);
-        return (sv != null && isFinite(sv)) ? sv : null;
+        if (sv != null && isFinite(sv)) return sv;
+        // A ROSTERED player with no grade and no stats (an ungraded freshman — Wake's Lukas Bojovic)
+        // is a typical newcomer (the same number the depth chart shows), not "nobody": he keeps the minutes the build
+        // gave his depth slot, and the rating counts a baseline player in those minutes. (Was null →
+        // 0 minutes here while the build started him 28 mpg, so the rankings quietly replaced him.)
+        return (p && p.name) ? UNGRADED_OVR : null;
       }
       return g;   // NO conference discount in the grade — the level is ALREADY priced into the
                   // projected stat LINE this grade is built on (the projection engine discounts a
@@ -617,6 +622,9 @@
   // a baseline keeps them on the board without inventing a number from noise. They
   // still sort to the very bottom, so rankings/leaderboards are unaffected up top.
   var BASELINE_OVR = 50;
+  // a ROSTERED newcomer the owner hasn't graded and who has no college stats counts as a typical D-I
+  // newcomer (owner, Oct 2026) — shown on the depth chart AND used by the rankings — until he's graded
+  var UNGRADED_OVR = 70;
   function gradeSolo(row){
     if(!row) return null;
     // Recruit / no-college-stats freshman: the OVR is the owner's editor profile number — the
@@ -631,7 +639,7 @@
     var _sv = _statOvrOf(row);                               // LIVE: statistical overall (projected→demonstrated) by espn_id
     if(_sv != null) return _scoutBlend(_sv, row);
     if(row.id != null && _COUPLED[row.id] != null){ var ca = _COUPLED[row.id]; return Math.min(99, Math.round(ca + _taperArch(ca, _archOf(row)) + _gpsOf(row))); }   // legacy fallback (no stat overall — e.g. freshmen): coupled + tapered archetype
-    var g = parseFloat(row.tdc_grade); if(!isFinite(g)) return BASELINE_OVR; // on a roster but ungraded → baseline, not blank
+    var g = parseFloat(row.tdc_grade); if(!isFinite(g)) return UNGRADED_OVR; // on a roster but ungraded → a typical newcomer, not blank
     var qual = g;   // no conference discount here — see gradeRoster; the level lives in the projection
     var trans = _clsTrans(row.yr || row.class_year);
     var devBpm = (trans && _DEV && _DEV.bpm_delta && _DEV.bpm_delta[trans]) ? (_DEV.bpm_delta[trans][_qtier(qual)] || 0) : 0;
