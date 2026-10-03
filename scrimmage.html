@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="tdc-loading.js?v=3"></script>   <!-- first, so it sees every request -->
+  <link rel="stylesheet" href="tdc-a11y.css?v=1">
+  <script src="tdc-a11y.js?v=2" defer></script>
+  <meta name="description" content="Unofficial preseason scrimmage box score: both teams' player lines, who played and who didn't, and how the result compared with our line.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Depth Chart">
+  <meta property="og:title" content="Scrimmage Box Score — The Depth Chart">
+  <meta property="og:description" content="Unofficial preseason scrimmage box scores: player lines, DNPs and our line.">
+  <meta property="og:url" content="https://www.thedepthchartcbb.com/scrimmage.html">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Scrimmage Box Score — The Depth Chart">
+  <meta charset="UTF-8"/>
+  <script src="tdc-theme.js?v=5"></script>
+  <script src="auth.js?v=delacct1"></script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Scrimmage Box Score — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="team-colors.js?v=11"></script>
+  <script src="tdc-ratings.js?v=28"></script>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--gold:#C8A020;--green:#1a8c3a;--red:#cc2200;}
+    [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--gold:#C8A020;--green:#5ab875;--red:#e07070;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);}
+    .page{max-width:1240px;margin:0 auto;padding:30px 24px 80px;}
+    h1{font-family:'Playfair Display',serif;font-size:32px;font-weight:800;margin:4px 0 6px;line-height:1.15;}
+    .chip{display:inline-block;padding:1px 8px;border:1px dashed var(--border2);border-radius:5px;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+    .meta{font-size:13px;color:var(--text3);margin-bottom:18px;}
+    .board{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:18px;border:1px solid var(--border);border-radius:16px;background:var(--bg2);padding:20px 24px;margin-bottom:14px;}
+    .side{display:flex;align-items:center;gap:14px;min-width:0;}
+    .side.home{justify-content:flex-end;text-align:right;}
+    .side img{width:54px;height:54px;object-fit:contain;flex:0 0 auto;}
+    .side a{font-size:19px;font-weight:800;color:var(--text);text-decoration:none;}
+    .side a:hover{color:var(--accent);}
+    .side .sub{font-size:11.5px;color:var(--text3);margin-top:2px;}
+    .score{font-family:'Playfair Display',serif;font-size:40px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;}
+    .score .l{color:var(--text3);}
+    .score small{display:block;font-family:'Inter',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:center;margin-top:4px;}
+    .read{font-size:13px;color:var(--text2);line-height:1.6;margin:0 0 6px;}
+    .read b{color:var(--text);}
+    .sec{display:flex;align-items:center;gap:12px;margin:30px 0 10px;padding-bottom:8px;border-bottom:1px solid var(--border2);}
+    .sec img{width:24px;height:24px;object-fit:contain;}
+    .sec h2{font-family:'Playfair Display',serif;font-size:22px;font-weight:800;}
+    .sec .hint{margin-left:auto;font-size:11.5px;color:var(--text3);}
+    .dnp{font-size:12.5px;color:var(--text2);line-height:1.7;margin:10px 2px 0;}
+    .dnp b{color:var(--text);}
+    .dnp .none{color:var(--text3);}
+    .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:22px;}
+    .sheet td.l a{color:var(--text);text-decoration:none;} .sheet td.l a:hover{color:var(--accent);}
+    tr.tot td{font-weight:800;border-top:2px solid var(--border2);}
+    .empty{padding:30px;text-align:center;color:var(--text3);border:1px dashed var(--border2);border-radius:12px;}
+    @media (max-width:640px){ .board{grid-template-columns:1fr;text-align:center;} .side,.side.home{justify-content:center;text-align:center;flex-direction:column;} .score{text-align:center;} h1{font-size:26px;} }
+  </style>
+  <link rel="stylesheet" href="tdc-dense.css?v=39"/>
+  <link rel="stylesheet" href="tdc-skin.css?v=14"/>
+  <style>
+    :root:not([data-theme="dark"]){background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .nav-wrap{background:var(--bg)!important;}
+  </style>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#FAF9F6" media="(prefers-color-scheme: light)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script src="tdc-pwa.js?v=2" defer></script>
+  <link rel="stylesheet" href="tdc-hq-site.css?v=24"/>
+  <link rel="stylesheet" href="tdc-column.css?v=4"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+</head>
+<body class="hqsite">
+  <script src="tdc-nav.js?v=40"></script>
+  <div class="page" id="app"><div class="empty">Loading the box score…</div></div>
+
+<script src="tdc-scrim.js?v=10"></script>
+<script>
+(function(){
+  const SB='https://izlqhnxowdhtdofkwrho.supabase.co', KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+  const H={apikey:KEY, Authorization:'Bearer '+KEY};
+  const $app=document.getElementById('app');
+  const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+  // "Fears Jr., Jeremy" / "Jeremy Fears Jr." / "D.J. Smith" → one key
+  const nk=s=>String(s||'').toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b\.?/g,'').replace(/[^a-z]/g,'');
+  const id=new URLSearchParams(location.search).get('id');
+
+  function shortOf(full,byFull){ const t=byFull[full]; const s=(t&&t.team)||full.replace(/ \S+$/,''); try{ return (window.tdcShortSchool&&tdcShortSchool(s))||s; }catch(e){ return s; } }
+  function logoOf(full,byFull){ const t=byFull[full]; const c=window.tdcTeamColor&&(tdcTeamColor((t&&t.team)||full)||tdcTeamColor(full)); return (c&&c.logo)||''; }
+  async function roster(short){
+    if(!short) return [];
+    try{ const r=await fetch(`${SB}/rest/v1/players?team=eq.${encodeURIComponent(short)}&select=name,espn_id,position,yr,class_year,depth_order&order=depth_order.asc.nullslast`,{headers:H}); return r.ok?await r.json():[]; }catch(e){ return []; }
+  }
+  const f2=(m,a)=>(m==null||a==null)?'—':m+'-'+a;
+  const v=x=>x==null?'—':x;
+
+  function teamBlock(side, box, full, short, ros, byFull){
+    const lg=logoOf(full,byFull);
+    const byKey={}; ros.forEach(p=>{ byKey[nk(p.name)]=p; });
+    const played=(box.players||[]).filter(p=>p.min==null||p.min>0);
+    const zero=(box.players||[]).filter(p=>p.min===0);
+    const inBox=new Set((box.players||[]).map(p=>nk(p.name)));
+    const link=p=>{ const r=byKey[nk(p.name)]; return r&&r.espn_id?`player.html?espn=${r.espn_id}`:(r?`player.html?name=${encodeURIComponent(r.name)}&team=${encodeURIComponent(short||'')}`:null); };
+    const rows=played.slice().sort((a,b)=>(b.gs-a.gs)||((b.min||0)-(a.min||0))).map(p=>{ const r=byKey[nk(p.name)], L=link(p);
+      return `<tr><td class="l nm">${L?`<a href="${L}">${esc(p.name)}</a>`:esc(p.name)}${p.gs?' <span class="dim" title="Started">*</span>':''}</td>
+        <td class="l dim">${esc((r&&r.position)||'')}</td><td>${v(p.min)}</td><td class="strong">${v(p.pts)}</td>
+        <td>${v(p.reb)}</td><td class="dim">${p.oreb!=null&&p.dreb!=null?p.oreb+'-'+p.dreb:'—'}</td><td>${v(p.ast)}</td>
+        <td>${v(p.stl)}</td><td>${v(p.blk)}</td><td>${v(p.tov)}</td><td class="dim">${v(p.pf)}</td>
+        <td>${f2(p.fgm,p.fga)}</td><td>${f2(p.tpm,p.tpa)}</td><td>${f2(p.ftm,p.fta)}</td></tr>`; }).join('');
+    const T=box.totals;
+    const tot=T?`<tr class="tot"><td class="l">Team</td><td></td><td>${played.reduce((s,p)=>s+(p.min||0),0)||'—'}</td><td>${v(T.pts)}</td><td>${v(T.reb)}</td><td></td><td>${v(T.ast)}</td><td>${v(T.stl)}</td><td>${v(T.blk)}</td><td>${v(T.tov)}</td><td></td><td>${f2(T.fgm,T.fga)}</td><td>${f2(T.tpm,T.tpa)}</td><td>${f2(T.ftm,T.fta)}</td></tr>`:'';
+    // who didn't play: everyone on our 2026-27 roster with no minutes in the box (0-minute rows included)
+    const dnp=ros.filter(p=>!inBox.has(nk(p.name))).map(p=>p.name).concat(zero.map(p=>p.name));
+    const extra=played.filter(p=>ros.length&&!byKey[nk(p.name)]).map(p=>p.name);
+    return `<div class="sec">${lg?`<img src="${lg}" alt="">`:''}<h2>${esc(shortOf(full,byFull))}</h2><span class="hint">${played.length} played${ros.length?' · '+dnp.length+' did not play':''}</span></div>
+      <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">Player</th><th class="l">Pos</th><th>MIN</th><th>PTS</th><th>REB</th><th title="Offensive-defensive rebounds">O-D</th><th>AST</th><th>STL</th><th>BLK</th><th>TO</th><th>PF</th><th>FG</th><th>3PT</th><th>FT</th></tr></thead><tbody>${rows}${tot}</tbody></table></div>
+      <div class="dnp"><b>Did not play:</b> ${ros.length?(dnp.length?dnp.map(esc).join(', '):'<span class="none">everyone on the roster played</span>'):`<span class="none">we don’t have ${esc(shortOf(full,byFull))}’s 2026-27 roster yet, so we can’t list who sat</span>`}</div>
+      ${extra.length?`<div class="dnp"><b>Played, not on our roster:</b> ${extra.map(esc).join(', ')}</div>`:''}`;
+  }
+
+  async function main(){
+    if(!id){ $app.innerHTML='<div class="empty">No scrimmage selected.</div>'; return; }
+    const [S,D]=await Promise.all([TDCScrim.load(), window.TDC_RATINGS?TDC_RATINGS.get().catch(()=>null):null]);
+    const g=S.games.find(x=>x.id===id);
+    if(!g){ $app.innerHTML='<div class="empty">That scrimmage isn\'t on our list.</div>'; return; }
+    const byFull={}; ((D&&D.teams)||[]).slice().sort((a,b)=>b.rating-a.rating).forEach((t,i)=>{ if(t.rank==null) t.rank=i+1; byFull[t.full]=t; });
+    const res=S.results[g.id]||{}, box=res.box||null;
+    const hS=shortOf(g.home,byFull), aS=shortOf(g.away,byFull);
+    document.title=`${aS} ${g.neutral?'vs':'at'} ${hS} · Scrimmage — The Depth Chart`;
+    const dd=new Date(g.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+    const P=TDCScrim.price(g,byFull,S.eff);
+    const has=res.hs!=null&&res.as!=null;
+    const teamLink=full=>{ const t=byFull[full]; return t?`team.html?team=${encodeURIComponent(t.team)}&tab=schedule`:null; };
+    const side=(full,cls,sc,win)=>{ const L=teamLink(full), lg=logoOf(full,byFull), t=byFull[full];
+      const name=L?`<a href="${L}">${esc(shortOf(full,byFull))}</a>`:`<b>${esc(shortOf(full,byFull))}</b>`;
+      return `<div class="side ${cls}">${cls==='home'?'':(lg?`<img src="${lg}" alt="">`:'')}<div>${name}<div class="sub">${t&&t.rank?'#'+t.rank+' in our rankings':(t?'':'non-D-I')}</div></div>${cls==='home'?(lg?`<img src="${lg}" alt="">`:''):''}</div>`; };
+    const aWin=has&&res.as>res.hs;
+    let read='';
+    if(P){ const fav=P.m>=0?g.home:g.away, sp=Math.abs(P.m);
+      read=`Our line: <b>${esc(shortOf(fav,byFull))} −${(Math.round(sp*2)/2).toFixed(1)}</b> (${Math.round(Math.max(P.probH,100-P.probH))}% to win)`;
+      if(has){ const actual=res.hs-res.as, diff=actual-P.m, beat=(P.m>=0?diff:-diff);
+        read+=` · Result: <b>${esc(shortOf(actual>=0?g.home:g.away,byFull))} by ${Math.abs(actual)}</b>, ${Math.abs(diff).toFixed(1)} points ${beat>=0?'better':'worse'} than our line for the favorite.`; } }
+    const [rh,ra]=await Promise.all([roster(byFull[g.home]&&byFull[g.home].team), roster(byFull[g.away]&&byFull[g.away].team)]);
+    $app.innerHTML=`
+      <div><span class="chip">Preseason scrimmage · unofficial</span></div>
+      <h1>${esc(aS)} ${g.neutral?'vs':'at'} ${esc(hS)}</h1>
+      <div class="meta">${dd}${g.time?' · '+esc(g.time):''}${g.tv?' · '+esc(g.tv):''} · ${g.neutral?'Neutral site':esc(hS)+' home floor'}</div>
+      <div class="board">${side(g.away,'away')}<div class="score">${has?`<span class="${aWin?'':'l'}">${res.as}</span> – <span class="${aWin?'l':''}">${res.hs}</span>`:'—'}<small>${has?'Final · unofficial':'Not played yet'}</small></div>${side(g.home,'home')}</div>
+      ${read?`<p class="read">${read}</p>`:''}
+      ${res.note?`<p class="read">${esc(res.note)}</p>`:''}
+      ${box?teamBlock('away',box.away,g.away,byFull[g.away]&&byFull[g.away].team,ra,byFull)+teamBlock('home',box.home,g.home,byFull[g.home]&&byFull[g.home].team,rh,byFull)
+           :`<div class="empty" style="margin-top:20px;">${has?'Only the final score is in for this one; no box score has posted.':'This scrimmage hasn’t been played yet. Its box score lands here once it’s out.'}</div>`}
+      <div class="note">Unofficial preseason scrimmage: not counted in either team's record, season stats, ratings or projections. * = started. "Did not play" lists everyone on our 2026-27 roster with no minutes in the box score.${res.src?` <a href="${esc(res.src)}" target="_blank" rel="noopener">Source box score</a>.`:''}</div>`;
+  }
+  main().catch(e=>{ console.error(e); $app.innerHTML='<div class="empty">Could not load this box score.</div>'; });
+})();
+</script>
+  <script src="tdc-sheets.js?v=1"></script>
+</body>
+</html>

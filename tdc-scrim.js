@@ -38,16 +38,6 @@
   function sn(full, byFull) { var t = byFull[full]; var s = (t && t.team) || full.replace(/ [A-Z][a-z]+$/, ''); try { if (g.tdcShortSchool) return g.tdcShortSchool(s) || s; } catch (e) {} return s; }
   function logo(full, byFull) { var t = byFull[full]; var c = g.tdcTeamColor && (g.tdcTeamColor((t && t.team) || full) || g.tdcTeamColor(full)); return (c && c.logo) || ''; }
 
-  // both teams' box score (unofficial) as two compact sheets
-  function boxHTML(box, byFull) {
-    var one = function (side) { var t = box[side]; if (!t) return '';
-      var ps = (t.players || []).filter(function (p) { return p.min == null || p.min > 0; });
-      var f = function (m, a) { return (m == null || a == null) ? '—' : m + '-' + a; };
-      return '<div class="scrim-bt"><div class="scrim-bth">' + esc(sn(t.team, byFull)) + '</div><table class="sheet dense"><thead><tr><th class="l">Player</th><th>MIN</th><th>PTS</th><th>REB</th><th>AST</th><th>FG</th><th>3PT</th><th>FT</th><th>STL</th><th>BLK</th><th>TO</th></tr></thead><tbody>' +
-        ps.map(function (p) { return '<tr><td class="l nm">' + esc(p.name) + (p.gs ? ' <span class="dim">*</span>' : '') + '</td><td>' + (p.min != null ? p.min : '—') + '</td><td class="strong">' + (p.pts != null ? p.pts : '—') + '</td><td>' + (p.reb != null ? p.reb : '—') + '</td><td>' + (p.ast != null ? p.ast : '—') + '</td><td>' + f(p.fgm, p.fga) + '</td><td>' + f(p.tpm, p.tpa) + '</td><td>' + f(p.ftm, p.fta) + '</td><td>' + (p.stl != null ? p.stl : '—') + '</td><td>' + (p.blk != null ? p.blk : '—') + '</td><td>' + (p.tov != null ? p.tov : '—') + '</td></tr>'; }).join('') +
-        '</tbody></table></div>'; };
-    return '<div class="scrim-boxes"><div class="dim" style="font-size:10.5px;margin:2px 0 8px;">Unofficial scrimmage box score · * = started · not counted in any stats</div>' + one('away') + one('home') + '</div>';
-  }
   function renderFor(host, me) {
     if (!host || !me) return Promise.resolve();
     return Promise.all([load(), g.TDC_RATINGS ? g.TDC_RATINGS.get() : null]).then(function (a) {
@@ -69,11 +59,9 @@
           result = '<span title="Unofficial scrimmage result">' + (won ? 'W' : 'L') + ' ' + ms + '–' + os + '</span>' +
             (beat != null ? ' <span class="dim" title="Margin vs our line">' + (beat >= 0 ? '+' : '−') + Math.abs(beat).toFixed(1) + ' vs line</span>' : '') +
             ((res.note || res.auto_note) ? '<div class="dim" style="font-size:10.5px;white-space:normal;margin-top:2px;">' + esc(res.note || res.auto_note) + '</div>' : '') +
-            '<div style="font-size:10.5px;margin-top:2px;">' + (res.box ? '<a href="#" class="scrim-boxbtn" data-id="' + esc(x.id) + '">Box score ▾</a>' : '') +
-            (res.src ? (res.box ? ' · ' : '') + '<a href="' + esc(res.src) + '" target="_blank" rel="noopener">source</a>' : '') + '</div>';
+            '<div style="font-size:10.5px;margin-top:2px;"><a href="scrimmage.html?id=' + encodeURIComponent(x.id) + '">' + (res.box ? 'Box score →' : 'Game page →') + '</a></div>';
         } else if (res && res.note) result = '<span class="dim">' + esc(res.note) + '</span>';
         var ol = logo(opp, byFull), ot = byFull[opp];
-        var boxRow = (res && res.box) ? '<tr class="scrim-box" data-for="' + esc(x.id) + '" style="display:none;"><td colspan="8">' + boxHTML(res.box, byFull) + '</td></tr>' : '';
         return '<tr' + (x.check ? ' title="Opponent read from a logo; still being confirmed"' : '') + '>' +
           '<td class="l dim">' + dd.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' }) + '</td>' +
           '<td class="l dim">' + (x.time ? esc(x.time) : 'TBD') + (x.tv ? ' · ' + esc(x.tv) : '') + '</td>' +
@@ -84,16 +72,15 @@
           '<td class="l dim">' + (site === 'H' ? 'Home' : site === 'A' ? 'Away' : 'Neutral') + '</td>' +
           '<td>' + line + '</td><td>' + (wp != null ? Math.round(wp) + '%' : '—') + '</td>' +
           '<td>' + (P && P.tot != null ? Math.round(P.tot) : '—') + '</td>' +
-          '<td class="l">' + result + '</td></tr>' + boxRow;
+          '<td class="l">' + result + '</td></tr>';
       }).join('');
       var wrap = document.createElement('div'); wrap.className = 'scrim-wrap';
-      wrap.innerHTML = '<div class="sec-head" style="margin:0 0 10px;">Preseason scrimmages <span class="sec-head-sub" style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· unofficial · not counted in the record, stats, ratings or projections</span></div>' +
+      wrap.innerHTML = '<div class="sec-head" style="margin:4px 0 10px;">Preseason scrimmages <span class="sec-head-sub" style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· unofficial · not counted in the record, stats, ratings or projections</span></div>' +
         '<div class="sheet-wrap" style="max-height:none;margin-bottom:22px;"><table class="sheet dense tsp-table"><thead><tr><th class="l">Date</th><th class="l">Time</th><th class="l">Opponent</th><th class="l">Site</th>' +
         '<th title="Our line for this team (− = favored)">Line</th><th title="Our win probability">Win %</th><th title="Projected total points">Total</th><th class="l">Result</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
-      host.insertBefore(wrap, host.firstChild);
-      wrap.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('.scrim-boxbtn'); if (!b) return; e.preventDefault();
-        var r = wrap.querySelector('tr.scrim-box[data-for="' + b.dataset.id + '"]'); if (!r) return;
-        var open = r.style.display === 'none'; r.style.display = open ? '' : 'none'; b.textContent = open ? 'Box score ▴' : 'Box score ▾'; });
+      // owner: under the projected-season tiles (record / conference / 20+ wins), ahead of the November games
+      var tiles = host.querySelector('.tsp-sum');
+      if (tiles && tiles.parentNode) tiles.parentNode.insertBefore(wrap, tiles.nextSibling); else host.insertBefore(wrap, host.firstChild);
     }).catch(function () {});
   }
   (function css() { if (document.getElementById('scrim-css')) return; var st = document.createElement('style'); st.id = 'scrim-css';

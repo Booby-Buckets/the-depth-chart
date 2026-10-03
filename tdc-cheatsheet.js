@@ -227,7 +227,7 @@
     var lim = S.showAll ? view.length : Math.min(view.length, 40);
     var body = view.slice(0, lim).map(function (r, i) {
       var tag = '';
-      if (r.exh) tag = '<span class="cs-tag warn" title="Preseason scrimmage: unofficial, no betting markets">Scrimmage</span>';
+      if (r.exh) tag = '<a href="scrimmage.html?id=' + encodeURIComponent(r.g.id) + '" class="cs-tag warn" style="text-decoration:none" title="Preseason scrimmage: unofficial, no betting markets · open the game page">Scrimmage →</a>';
       else if (r.spEdge != null && Math.abs(r.spEdge) >= 3) tag = '<span class="cs-tag good">Edge ' + Math.abs(r.spEdge).toFixed(1) + '</span>';
       else if ((S.byFull[r.fav].rank || 400) <= 60 && r.dogP >= 30 && Math.abs(r.m) >= 2.5) tag = '<span class="cs-tag warn">Upset watch</span>';
       else if (r.both <= 40) tag = '<span class="cs-tag">Marquee</span>';
