@@ -21,6 +21,11 @@
   <title>Bracketology — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="tdc-ratings.js?v=28"></script>
+  <script src="conf-logos.js?v=4"></script>
+  <script src="tdc-schedule.js?v=25s"></script>
+  <script src="tdc-conftourney.js?v=3"></script>
+  <script src="tdc-postseason.js?v=1"></script>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
   <script src="team-colors.js?v=11"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=6"/>
   <script src="tdc-anim.js?v=6"></script>
@@ -86,7 +91,15 @@
     .orgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;}
     .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:30px;max-width:860px;}
     .loading{padding:70px;text-align:center;color:var(--text3);}
-  </style>
+    .bubgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:8px;}
+  @media(max-width:900px){ .bubgrid{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  .bub{border:1px solid var(--border);border-radius:10px;padding:10px 12px;}
+  .bubh{font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
+  .bubr{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:3px 0;border-top:1px solid var(--border);}
+  .bubr:first-of-type{border-top:none;}
+  .tmc{display:inline-flex;align-items:center;gap:6px;} .tmc img{width:16px;height:16px;object-fit:contain;}
+  .tmc a{color:var(--text);text-decoration:none;font-weight:700;} .tmc a:hover{color:var(--accent);text-decoration:underline;}
+</style>
   <!-- new-UI theme layer: navy+blue dark palette (matches index/player); light-mode guard keeps the toggle readable -->
   <link rel="stylesheet" href="tdc-dense.css?v=39"/>
   <link rel="stylesheet" href="tdc-skin.css?v=14"/>
@@ -112,9 +125,9 @@
   <div class="page">
     <div class="page-eyebrow">Postseason · 2026-27</div>
     <h1 data-anim>Bracketology</h1>
-    <div class="sub" data-anim>The projected 76-team NCAA Tournament field for 2026-27, seeded from our roster-based ratings. Teams are placed on an S-curve with conference protection, so a league's top teams land in different regions. It projects seeds, not game results.</div>
+    <div class="sub" data-anim>The projected 2026-27 NCAA Tournament and NIT, from thousands of simulated seasons: every league's real conference tournament, résumé at-large bids, the First Four and the committee's bracketing rules.</div>
     <div id="out"><div class="loading">Projecting the seed field…</div></div>
-    <div class="note" data-anim>How it works: 1 automatic bid per conference (projected league-tournament champ) plus the best at-large teams to 76. The 24 lowest fill the 12-game Opening Round; the field of 64 is seeded 1–16, four per line, snaked across the four regions. Ratings are on the SRS (point-margin) scale — the seed order follows the rating order, so no game outcomes are simulated.</div>
+    
   </div>
 
 <script>
@@ -128,96 +141,12 @@
 const PROJ_REGIONS=['South Region','West Region','East Region','Midwest Region'];
 const PROJ_DATE={open:'2027-03-16',r1:'2027-03-18',r2:'2027-03-20',s16:'2027-03-25',e8:'2027-03-27',ff:'2027-04-03',nc:'2027-04-05'};
 let _projBuilt=null;
+// the field, seeds and regions come from the shared postseason simulation (tdc-postseason.js): real
+// conference tournaments → automatic bids, résumé at-larges, the First Four and the committee's
+// conference separation — the same engine the team, conference and fantasy pages read
 async function buildProjectedNCAA(){
   if(_projBuilt) return _projBuilt;
-  const D=await TDC_RATINGS.get();
-  const teams=D.teams.filter(t=>t.rating!=null&&t.conf).map(t=>({full:t.full,team:t.team,conf:t.conf,rating:t.rating,rank:t.rank}));
-  const rt={}; teams.forEach(t=>{ rt[t.full]=t.rating; });
-  // ── STYLE MATCHUP POINTS (team_dna four factors) ──────────────────────────
-  let _dna={}; try{ _dna=((await fetch('scripts/data/team_dna.json',{cache:'no-cache'}).then(r=>r.ok?r.json():{}))['2027']||{}).teams||{}; }catch(e){}
-  const _LG={oeFG:53.0,deFG:48.4,oTOV:15.1,dTOV:17.8,oORB:31.2,dDRB:73.2};
-  function _muEdge(a,b){
-    const da=_dna[a.full], db=_dna[b.full]; if(!da||!db) return 0;
-    const num=(o,k)=>{ const v=o&&o[k]; return (typeof v==='number'&&isFinite(v))?v:null; };
-    const exploit=(o,d)=>{
-      let s=0,ok=false;
-      const oE=num(o,'oeFG'),oT=num(o,'oTOV'),oO=num(o,'oORB');
-      const dE=num(d,'deFG'),dT=num(d,'dTOV'),dD=num(d,'dDRB');
-      if(oE!=null&&dE!=null){ s+=0.115*((oE-_LG.oeFG)*(dE-_LG.deFG)); ok=true; }
-      if(oT!=null&&dT!=null){ s+=0.088*((_LG.oTOV-oT)*(_LG.dTOV-dT)); ok=true; }
-      if(oO!=null&&dD!=null){ s+=0.054*((oO-_LG.oORB)*(_LG.dDRB-dD)); ok=true; }
-      return ok?s:0;
-    };
-    const m=exploit(da,db)-exploit(db,da);
-    return Math.max(-4.0, Math.min(4.0, m));
-  }
-  // AQ = top-rated team per conference (projected conference-tournament champ)
-  const byConf={}; teams.forEach(t=>{ if(!byConf[t.conf]||t.rating>byConf[t.conf].rating) byConf[t.conf]=t; });
-  const aqs=Object.values(byConf).sort((a,b)=>b.rating-a.rating);
-  const aqN=new Set(aqs.map(t=>t.full));
-  const atlarge=teams.filter(t=>!aqN.has(t.full)).sort((a,b)=>b.rating-a.rating).slice(0,76-aqs.length);
-  let gid=920000000; const games=[];
-  const proj=(a,b)=> ((a.rating-b.rating)+_muEdge(a,b))>=0 ? a : b;
-  const mk=(a,b,round,rord,region,date)=>{ const w=proj(a,b);
-    return {id:gid++, season:2027, date, category:'NCAA', tournament:'NCAA Tournament (Projected)',
-      round, round_order:rord, division:region, neutral:true, _proj:true, notable:true,
-      home:a.full, home_id:a.full, home_score:null, home_seed:a._seed, _hr:a.rating,
-      away:b.full, away_id:b.full, away_score:null, away_seed:b._seed, _ar:b.rating,
-      winner:w.full, winner_id:w.full}; };
-  const openWinners=[];
-  const openBand=(pool,seed)=>{ for(let i=0;i+1<pool.length;i+=2){ pool[i]._seed=seed; pool[i+1]._seed=seed;
-    games.push(mk(pool[i],pool[i+1],'Opening Round',0,null,PROJ_DATE.open));
-    const w=proj(pool[i],pool[i+1]); w._playinSeed=seed; openWinners.push(w); } };
-  const aqPlay=aqs.slice(-12), aqDirect=aqs.slice(0,aqs.length-12);
-  const alPlay=atlarge.slice(-12), alDirect=atlarge.slice(0,atlarge.length-12);
-  openBand(aqPlay.slice(0,4),15); openBand(aqPlay.slice(4),16);
-  openBand(alPlay.slice(0,4),11); openBand(alPlay.slice(4),12);
-  // Build the field of 64 in SEED ORDER. A play-in (Opening Round) winner HOLDS the seed
-  // line it played on — a 12-vs-12 winner is a 12 seed, never re-seeded up by rating.
-  // Direct-entry teams fill the remaining slots on each line by rating rank.
-  const directTeams=[...aqDirect,...alDirect].sort((a,b)=>b.rating-a.rating);
-  const winnersBySeed={}; openWinners.forEach(w=>{ (winnersBySeed[w._playinSeed]=winnersBySeed[w._playinSeed]||[]).push(w); });
-  const field=[]; let _di=0;
-  for(let s=1;s<=16;s++){
-    const pins=winnersBySeed[s]||[]; const need=Math.max(0,4-pins.length);
-    directTeams.slice(_di,_di+need).forEach(t=>{ t._seed=s; field.push(t); }); _di+=need;
-    pins.forEach(t=>{ t._seed=s; field.push(t); });
-  }
-  const permute=a=>a.length<=1?[a]:a.flatMap((v,i)=>permute(a.slice(0,i).concat(a.slice(i+1))).map(p=>[v,...p]));
-  const PERMS=permute([0,1,2,3]);
-  const regionTeams=[[],[],[],[]], regConf=[{},{},{},{}];
-  for(let s=1;s<=16;s++){
-    const line=field.slice((s-1)*4, s*4);
-    line.forEach(t=>{ t._seed=s; });
-    const pref=(s%2===1)?[0,1,2,3]:[3,2,1,0];
-    let best=PERMS[0], bestCost=Infinity;
-    PERMS.forEach(perm=>{
-      let cost=0;
-      line.forEach((t,li)=>{ const rg=perm[li];
-        cost += (regConf[rg][t.conf]||0)*100 + Math.abs(pref.indexOf(rg)-li); });
-      if(cost<bestCost){ bestCost=cost; best=perm; }
-    });
-    line.forEach((t,li)=>{ const rg=best[li];
-      regionTeams[rg].push(t); regConf[rg][t.conf]=(regConf[rg][t.conf]||0)+1; });
-  }
-  const SO=[1,16,8,9,5,12,4,13,6,11,3,14,7,10,2,15];
-  const regionWinners=[];
-  regionTeams.forEach((rteams,ri)=>{
-    const bySeed={}; rteams.forEach(t=>{ bySeed[t._seed]=t; });
-    const region=PROJ_REGIONS[ri];
-    let cur=[]; for(let i=0;i<16;i+=2){ const a=bySeed[SO[i]],b=bySeed[SO[i+1]]; if(!a||!b) continue;
-      games.push(mk(a,b,'1st Round',1,region,PROJ_DATE.r1)); cur.push(proj(a,b)); }
-    const nextR=(arr,round,rord,date)=>{ const nx=[]; for(let i=0;i+1<arr.length;i+=2){ games.push(mk(arr[i],arr[i+1],round,rord,region,date)); nx.push(proj(arr[i],arr[i+1])); } return nx; };
-    let r2=nextR(cur,'2nd Round',2,PROJ_DATE.r2);
-    let s16=nextR(r2,'Sweet 16',3,PROJ_DATE.s16);
-    nextR(s16,'Elite Eight',4,PROJ_DATE.e8);
-    regionWinners.push(proj(s16[0],s16[1]));
-  });
-  games.push(mk(regionWinners[0],regionWinners[1],'Final Four',5,null,PROJ_DATE.ff));
-  games.push(mk(regionWinners[2],regionWinners[3],'Final Four',5,null,PROJ_DATE.ff));
-  const f1=proj(regionWinners[0],regionWinners[1]), f2=proj(regionWinners[2],regionWinners[3]);
-  games.push(mk(f1,f2,'National Championship',6,null,PROJ_DATE.nc));
-  _projBuilt={games, srs:rt};
+  _projBuilt=await TDCPost.projectedGames();
   return _projBuilt;
 }
 
@@ -270,7 +199,7 @@ const fmtR=r=>r==null?'':(r>=0?'+':'')+(+r).toFixed(1);
       <span class="seed">${seed!=null?seed:''}</span>
       <span class="tlogo">${lg?`<img src="${lg}" alt="" onerror="this.style.display='none'">`:''}</span>
       <span class="tnm">${s}</span>
-      ${ff&&playIn.has(full)?'<span class="fftag" title="Reached the field through the Opening Round">First Four</span>':''}
+      ${ff&&playIn.has(full)?'<span class="fftag" title="Reached the field through the Opening Round">Opening Rd</span>':''}
       <span class="tr">${fmtR(rating)}</span></div>`; };
   const matchBox=(g,ff)=>`<div class="gm">${teamRow(g.home,g.home_seed,g._hr,ff)}${teamRow(g.away,g.away_seed,g._ar,ff)}</div>`;
 
@@ -290,11 +219,36 @@ const fmtR=r=>r==null?'':(r>=0?'+':'')+(+r).toFixed(1);
 
   el('out').innerHTML=
     `<div class="sec">The Regions <span class="shint">projected seed lines 1–16 in each region</span></div>${regionsBlock}`+
-    (orHtml?`<div class="sec">Opening Round <span class="shint">the 12 play-in pairings on the 11 / 12 / 15 / 16 seed lines</span></div>${orHtml}`:'');
+    (orHtml?`<div class="sec">Opening Round <span class="shint">${orG.length} play-in games · seed lines ${[...new Set(orG.map(g=>g.home_seed))].sort((a,b)=>a-b).join(' / ')}</span></div>${orHtml}`:'')+
+    `<div id="oddsOut"></div>`;
+  renderOdds();
 
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
+
+  // ── odds from the simulation ──
+  async function renderOdds(){
+    const B=(await TDCPost.projectedGames()).bracket, P=B.P;
+    const pc=v=>v==null?'':(v>=.995?'>99':v<.005?(v>0?'<1':'—'):Math.round(v*100))+'%';
+    const nm=t=>{ const s=shortName(t.team), lg=logoFor(t.team); return `<span class="tmc">${lg?`<img src="${lg}" alt="" onerror="this.style.display='none'">`:''}<a href="team.html?team=${encodeURIComponent(s)}">${s}</a></span>`; };
+    const conf=t=>(window.tdcConfFull&&TDC_CONFS&&TDC_CONFS[tdcConfFull(t.conf)]&&TDC_CONFS[tdcConfFull(t.conf)].short)||t.conf;
+    const inF=P.teams.filter(t=>t.ncaa>=0.005).sort((a,b)=>(b.champ-a.champ)||(b.ncaa-a.ncaa));
+    const oddsRows=inF.map(t=>`<tr><td class="l nm">${nm(t)}</td><td class="l dim">${conf(t)}</td><td>${pc(t.ncaa)}</td><td>${pc(t.auto)}</td><td>${t.avgSeed?t.avgSeed.toFixed(1):''}</td><td>${pc(t.seed[1])}</td><td>${pc(t.r32)}</td><td>${pc(t.s16)}</td><td>${pc(t.e8)}</td><td>${pc(t.f4)}</td><td>${pc(t.final)}</td><td class="strong">${pc(t.champ)}</td></tr>`).join('');
+    const bubbleList=(arr,lab)=>`<div class="bub"><div class="bubh">${lab}</div>${arr.map(t=>`<div class="bubr">${nm(t)}<span class="dim">${conf(t)} · in ${pc(t.ncaa)}</span></div>`).join('')}</div>`;
+    const li=B.lastIn.slice().reverse(), fo=B.firstOut;
+    const nit=P.teams.filter(t=>t.nit>=0.02).sort((a,b)=>(b.nitChamp-a.nitChamp)||(b.nit-a.nit)).slice(0,60);
+    const nitRows=nit.map(t=>`<tr><td class="l nm">${nm(t)}</td><td class="l dim">${conf(t)}</td><td>${pc(t.nit)}</td><td>${pc(t.nitAuto)}</td><td>${pc(t.ncaa)}</td><td>${pc(t.nitQ)}</td><td>${pc(t.nitSF)}</td><td>${pc(t.nitF)}</td><td class="strong">${pc(t.nitChamp)}</td></tr>`).join('');
+    const R=P.rules||{}, nitR=R.nit||{};
+    el('oddsOut').innerHTML=`<div class="sec">Bubble watch <span class="shint">the projected bracket's last teams in and first out</span></div>
+      <div class="bubgrid">${bubbleList(li.slice(0,4),'Last four byes')}${bubbleList(li.slice(4,8),'Last four in')}${bubbleList(fo.slice(0,4),'First four out')}${bubbleList(fo.slice(4,8),'Next four out')}</div>
+      <div class="sec">Tournament odds <span class="shint">${P.sims.toLocaleString()} simulated seasons · ${P.field}-team field</span></div>
+      <div class="sheet-wrap"><table class="sheet dense freeze2" id="oddsT"><thead><tr><th class="l">Team</th><th class="l">Conf</th><th data-heat="1">Makes it</th><th data-heat="1" title="wins the conference tournament (automatic bid)">Auto bid</th><th data-heat="-1">Avg seed</th><th data-heat="1">1 seed</th><th data-heat="1">2nd rd</th><th data-heat="1">Sweet 16</th><th data-heat="1">Elite 8</th><th data-heat="1">Final Four</th><th data-heat="1">Title game</th><th data-heat="1">Champion</th></tr></thead><tbody>${oddsRows}</tbody></table></div>
+      <div class="sec">NIT <span class="shint">${nitR.field||32} teams${(nitR.auto_conferences||[]).length?' · automatic berths for the top '+(nitR.auto_per_conference||2)+' left out of the '+nitR.auto_conferences.join(', '):''} · higher seed hosts until the semifinals${nitR.venue_final?' at '+nitR.venue_final:''}</span></div>
+      <div class="sheet-wrap"><table class="sheet dense freeze2" id="nitT"><thead><tr><th class="l">Team</th><th class="l">Conf</th><th data-heat="1">Makes NIT</th><th data-heat="1">Auto berth</th><th title="makes the NCAA field instead">NCAA</th><th data-heat="1">Quarters</th><th data-heat="1">Semis</th><th data-heat="1">Final</th><th data-heat="1">Champion</th></tr></thead><tbody>${nitRows}</tbody></table></div>`;
+    if(window.tdcSheetHeat){ tdcSheetHeat(el('oddsT')); tdcSheetHeat(el('nitT')); }
+  }
 })();
 </script>
+  <script src="tdc-sheets.js?v=1"></script>
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=22"></script>
 </body>

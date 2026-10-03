@@ -54,6 +54,10 @@
     T.forEach(n => { out[n] = { team: n, row: rowOf(n), confN: proj[n].confN, cw: 0, title: 0, outright: 0, seed: new Float64Array(K + 1),
       invited: 0, reach: {}, champ: 0, expW: proj[n].expW, n: proj[n].n }; rounds.forEach(r => out[n].reach[r] = 0); });
     const gkey = gid => sim.hkey('ct:' + code + ':' + gid);
+    // per-sim detail for the NCAA / NIT projection (tdc-postseason.js) and the fantasy playoffs:
+    // the tournament champion + runner-up and how many tournament games each member played
+    const idxOf = {}; T.forEach((n, i) => idxOf[n] = i);
+    const champS = new Int16Array(SIMS).fill(-1), ruS = new Int16Array(SIMS).fill(-1), gamesS = new Uint8Array(SIMS * T.length);
     // a league slate a school hasn't fully announced (MEAC / SWAC releases lag): the most common slate
     // length is the league's; the missing games are played against an average league opponent
     const lens = {}; T.forEach(n => { const c = proj[n].confN; lens[c] = (lens[c] || 0) + 1; });
@@ -75,14 +79,17 @@
       const seedTeam = {}; elig.slice(0, K).forEach((n, i) => { seedTeam[i + 1] = n; out[n].seed[i + 1]++; out[n].invited++; });
       const seedOf = {}; Object.keys(seedTeam).forEach(k => seedOf[seedTeam[k]] = +k);
       // one game: neutral, or the higher seed at home on campus
+      let lastLoser = null;
       const play = (a, b, site, gid) => {
         out[a].reach[gameRound[gid]] = (out[a].reach[gameRound[gid]] || 0) + 1;
         out[b].reach[gameRound[gid]] = (out[b].reach[gameRound[gid]] || 0) + 1;
+        gamesS[s * T.length + idxOf[a]]++; gamesS[s * T.length + idxOf[b]]++;
         let venue = 0;
         if (site === 'H') { const homeA = seedOf[a] < seedOf[b], H = homeA ? a : b, A = homeA ? b : a;
           const e = R.baseHca(out[A].row.rating) + (out[H].row.hcaOff || 0); venue = homeA ? e : -e; }
         const m = sim.tame((str[a] - str[b]) * STRETCH + venue), p = sim.phi(m / SIGMA);
-        return sim.U(6, s, gkey(gid)) < p ? a : b;
+        const w = sim.U(6, s, gkey(gid)) < p ? a : b; lastLoser = w === a ? b : a;
+        return w;
       };
       const gameRound = {}; (fmt.games || []).forEach(x => gameRound[x.id] = x.round);
       let champ = null;
@@ -119,7 +126,7 @@
         });
         champ = alive[0];
       }
-      if (champ) out[champ].champ++;
+      if (champ) { out[champ].champ++; champS[s] = idxOf[champ]; if (lastLoser) ruS[s] = idxOf[lastLoser]; }
     }
     const res = T.map(n => {
       const o = out[n], k = SIMS;
@@ -129,7 +136,7 @@
       return { team: n, row: o.row, confN: o.confN, filled: o.filled, cw: o.cw / k, cl: o.confN - o.cw / k, expW: o.expW, n: o.n,
         title: o.title / k, outright: o.outright / k, seed, avgSeed, invited: o.invited / k, reach, champ: o.champ / k };
     }).sort((a, b) => (b.cw - a.cw) || ((b.row.rating || 0) - (a.row.rating || 0)));
-    return (memo[key] = { code, fmt, sims: SIMS, rounds, teams: res });
+    return (memo[key] = { code, fmt, sims: SIMS, rounds, teams: res, names: T, proj, champS, ruS, gamesS });
   }
 
   g.TDCConfT = { load, project, formats: () => _fmt };
