@@ -19,7 +19,7 @@
   <script src="tdc-injury.js?v=5"></script>
   <script src="tdc-ratings.js?v=30"></script>
   <script src="tdc-histguard.js?v=2"></script>
-  <script src="tdc-schedule.js?v=26s"></script>
+  <script src="tdc-schedule.js?v=27"></script>
   <script src="tdc-scrim.js?v=11"></script>
   <script src="tdc-preview.js?v=28s"></script>
   <script src="tdc-projgrade.js?v=base41"></script>
@@ -1806,6 +1806,8 @@ async function loadTeam(name){
     }
     // Store globally for projection slider
     teamPlayers=[...players]; teamConf=t.conf||t.conference||''; teamGp=globalPercentiles; teamColor_g=teamColor; teamRgb_g=teamRgb; teamT=t;
+    // live game banner while this team is playing today (score + top scorers; tdc-liveplayer.js)
+    try{ if(window.TDCLivePlayer && !window._liveTeamOn){ window._liveTeamOn=1; let el=document.getElementById('liveTeam'); if(!el){ el=document.createElement('div'); el.id='liveTeam'; el.style.cssText='max-width:1400px;margin:0 auto;padding:0 64px;'; const hh=document.getElementById('teamHero'); if(hh) hh.insertAdjacentElement('afterend', el); } _teamEspnId().then(tid=>{ if(tid) TDCLivePlayer.team('liveTeam', tid); }); } }catch(e){}
     if(window.TDCDepthEditor) TDCDepthEditor.attach();   // owner-only "Edit depth chart" button
     // Expose actual stats + team color by name for hover micro-cards
     window._actualByName={}; players.forEach(pl=>{ window._actualByName[(pl.name||'').toLowerCase().trim()]=pl; });
@@ -9668,6 +9670,7 @@ function renderProjNatlChart(projected, color, rgb){
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=22"></script>
   <script src="tdc-sheets.js?v=1"></script>
+  <script src="tdc-liveplayer.js?v=3"></script>
   <script src="tdc-depth-editor.js?v=1"></script>
 </body>
 </html>

@@ -8,7 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="team-colors.js?v=11"></script>
   <script src="tdc-ratings.js?v=30"></script>
-  <script src="tdc-schedule.js?v=26s"></script>
+  <script src="tdc-schedule.js?v=27"></script>
   <script src="tdc-glossary.js?v=13"></script>
   <script src="tdc-freshman.js?v=pub20"></script>
   <script src="tdc-injury.js?v=5"></script>
@@ -1385,7 +1385,7 @@
       <th class="rk">RK</th>
       <th class="l">Team</th>
       <th class="l">Conf</th>
-      <th class="c sort" data-sort="wins" data-col="wl" title="Win–Loss record. For the projected season it is the expected record from simulating the announced 2026-27 schedule 600 times (hover a team for the likely range); blank until a team's slate is announced.">W-L<span class="ar"></span></th>
+      <th class="c sort" data-sort="wins" data-col="wl" title="Win–Loss record. Once the 2026-27 season starts it is the real record (games count the moment they go final); before that, the expected record from simulating the announced schedule 600 times. Hover a team for the projected final record and range.">W-L<span class="ar"></span></th>
       <th class="sort" data-sort="srs" title="Power Rating — how many points better than an average Division I team this team is, on a neutral court and adjusted for who they played. A +18 team would beat an average team by about 18. The gap between two teams' Power Ratings is the projected point spread.">Rating<span class="ar"></span></th>
       <th class="sort" data-sort="ortg" title="Offensive Rating — points scored per 100 possessions, adjusted for opponent and pace (from the Team DNA engine). Higher = better offense. Sort by this to find the best offenses.">ORtg<span class="ar"></span></th>
       <th class="sort" data-sort="drtg" title="Defensive Rating — points allowed per 100 possessions, adjusted for opponent and pace (from the Team DNA engine). LOWER = better defense. Sort by this to find the best defenses.">DRtg<span class="ar"></span></th>
@@ -1738,8 +1738,13 @@ async function loadProjectedSeason(){
         color:(window.tdcTeamColorHex&&tdcTeamColorHex(r.full))||mc.color||'#7c7c8a',
         conf:code, confName:r.projected?code:(r.conf||'—'),
         // only once most of the slate is announced (partial schedules would read like a 4–2 team)
-        ...(function(){ const pr=projRec[r.full]; return (pr&&pr.n>=20)?{wins:pr.w,losses:pr.l,cw:pr.cw,cl:pr.cl,projRec:pr}:{wins:0,losses:0,cw:0,cl:0,projRec:null}; })(),
-        gp:0, winpct:(r.allPlay||0)/100,
+        // once a team has played, W-L is its real record (incl. games that just went final); the projected
+        // final record stays in the tooltip. Before that, the projected record from the schedule sims.
+        gp:0,
+        ...(function(){ const pr=projRec[r.full];
+          if(pr&&(pr.pw+pr.pl)>0) return {wins:pr.pw,losses:pr.pl,cw:pr.pcw,cl:pr.pcl,gp:pr.pw+pr.pl,projRec:pr,actual:true};
+          return (pr&&pr.n>=20)?{wins:pr.w,losses:pr.l,cw:pr.cw,cl:pr.cl,projRec:pr}:{wins:0,losses:0,cw:0,cl:0,projRec:null}; })(),
+        winpct:(r.allPlay||0)/100,
         ppg:num('ppg'), oppg:0, margin:r.roster!=null?r.roster:r.rating,
         fg:num('fg_pct'), tp:num('tp_pct'), ft:num('ft_pct'),
         rpg:num('rpg'), apg:num('apg'), topg:num('tov'),
@@ -1770,6 +1775,17 @@ async function loadProjectedSeason(){
       `<tr><td class="ix-msg" colspan="25"><b>Could not build projections.</b> ${e.message}</td></tr>`;
   }
 }
+
+// a game just went final (tdc-schedule.js live merge): refresh the projected season's records in place
+window.addEventListener('tdc:results', async ()=>{
+  if(typeof allTeams==='undefined'||!allTeams.length||!allTeams.some(t=>t.projected)||!window.TDCSched) return;
+  try{
+    const pr=await TDCSched.projectAll();
+    allTeams.forEach(t=>{ const p=pr[t.name]; if(!p) return; t.projRec=p;
+      if(p.pw+p.pl>0){ t.wins=p.pw; t.losses=p.pl; t.cw=p.pcw; t.cl=p.pcl; t.gp=p.pw+p.pl; t.actual=true; } });
+    applyFilters(false);
+  }catch(e){ console.warn('live records',e); }
+});
 
 async function loadSeason(yr){
   if(+yr===2027) return loadProjectedSeason();
@@ -2027,7 +2043,8 @@ function renderRows(data, srt, favTeam){
     const href = `program-hq.html?team=${encodeURIComponent(t.short)}${curSeason===2027?'':'&season='+curSeason}`;
     const logo = _rankLogo(t);
     const carry = t.projected===false ? `<span class="ix-carry" title="No 2026-27 roster synced yet. The rating is a regressed carryover and the box stats are this team's 2025-26 actuals.">’25-26</span>` : '';
-    const rec = t.projRec ? ` title="Projected ${t.wins}–${t.losses} (${t.projRec.lo}–${t.projRec.n-t.projRec.lo} to ${t.projRec.hi}–${t.projRec.n-t.projRec.hi}) · ${t.cw}–${t.cl} in conference · from ${t.projRec.n} announced games"` : '';
+    const P=t.projRec;
+    const rec = P ? ` title="${t.actual?`${t.wins}–${t.losses} so far (${t.cw}–${t.cl} conf) · projected `:'Projected '}${P.w}–${P.l} (${P.lo}–${P.n-P.lo} to ${P.hi}–${P.n-P.hi}) · ${P.cw}–${P.cl} in conference · from ${P.n} announced games"` : '';
     let row = `<tr${isFav?' class="fav"':''}>`
       + `<td class="rk">${t.rk}</td>`
       + `<td class="l nm"><a href="${href}" data-tn="${q(t.short||t.name)}">${logo?`<img src="${logo}" alt="" loading="lazy" onerror="this.remove()">`:'<i class="ix-nologo"></i>'}<span>${_shortNm(t.short||t.name)}</span></a>${carry}</td>`

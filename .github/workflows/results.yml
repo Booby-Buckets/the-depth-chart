@@ -3,13 +3,19 @@ name: Ingest game results
 # Every finished 2026-27 D-I game → scripts/data/results_2027.json (committed, so Vercel redeploys and every
 # projection on the site starts from the real record) and, when the SUPABASE_SERVICE_KEY secret is set, the
 # `games` scores + `box_scores` player lines (fantasy stats, player pages).
-# Off-season runs exit in seconds (the season window is Nov 1 – Apr 6).
+# Off-season runs exit in seconds (the season window is Nov 1 – Apr 6). In season it runs every 20 minutes
+# during game hours; a run with nothing new commits nothing (so no redeploy).
 
 on:
   schedule:
     - cron: '30 3 * * *'     # ~10:30 pm ET — most evening games are final
     - cron: '15 6 * * *'     # ~1:15 am ET — late West Coast games
     - cron: '0 17 * * *'     # ~noon ET — catch-up sweep of the last three days (corrections, missed runs)
+    # in season, every 20 minutes while games are on (~11 AM – 2:40 AM ET): finals reach records, standings and
+    # every projection within ~20 min. Between runs the pages also count a game the moment ESPN marks it final
+    # (tdc-schedule.js live merge), so this mainly keeps the DB box scores and the committed file current.
+    - cron: '*/20 15-23 * 11,12,1,2,3,4 *'
+    - cron: '*/20 0-6 * 11,12,1,2,3,4 *'
   workflow_dispatch:
     inputs:
       days:
@@ -41,6 +47,7 @@ jobs:
         run: |
           D="${{ github.event.inputs.days }}"
           if [ "${{ github.event.schedule }}" = "0 17 * * *" ]; then D=3; fi
+          case "${{ github.event.schedule }}" in "*/20 "*) D=2;; esac     # game-hour runs: today + yesterday (games past midnight)
           if [ "$D" = "all" ]; then python3 scripts/ingest_results_2027.py --all
           else python3 scripts/ingest_results_2027.py --days "${D:-2}"; fi
       - name: Commit if changed

@@ -2926,6 +2926,8 @@ async function init(){
       }catch(e){}
     }
     window._playerEspn = _espnId;
+    // live stat line while the player's team is playing today (tdc-liveplayer.js; empty otherwise)
+    try{ if(_espnId && window.TDCLivePlayer && !window._livePlayerOn){ window._livePlayerOn=1; TDCLivePlayer.player('livePlayer', _espnId); } }catch(e){}
     try{
       if(_espnId){
         // OWNED career: player_advanced + player_history (bbref-shaped) → bbrefToFlat unchanged.
@@ -4674,7 +4676,8 @@ function renderPage(){
      </div>
     </div>
 
-    <div class="tab-row-wrap">
+    <div id="livePlayer"></div>
+<div class="tab-row-wrap">
     <div class="tab-row" id="tabRow" onscroll="_tabScrollHint()">
       <button class="tab-btn active" id="tab-overview" onclick="switchTab('overview')">Overview</button>
       <button class="tab-btn" id="tab-playerdna" onclick="switchTab('playerdna')">Player DNA</button>
@@ -7957,5 +7960,6 @@ init();
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=22"></script>
 <script src="tdc-sheets.js?v=1"></script>
+<script src="tdc-liveplayer.js?v=3"></script>
 </body>
 </html>

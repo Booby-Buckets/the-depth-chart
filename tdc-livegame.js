@@ -84,7 +84,7 @@
   }
   let _deps = null;
   function deps() {
-    if (!_deps) _deps = loadScript('team-colors.js?v=10').then(() => loadScript('tdc-ratings.js?v=21')).then(() => loadScript('tdc-schedule.js?v=21'));
+    if (!_deps) _deps = loadScript('team-colors.js?v=10').then(() => loadScript('tdc-ratings.js?v=21')).then(() => loadScript('tdc-schedule.js?v=27'));
     return _deps;
   }
 

@@ -86,9 +86,57 @@
       _sched = s; _model = m || { rest: {}, stint: {}, streak: {}, form: 0 }; _extras = x || {}; _eff = e || null; _members = mem; _results = res;
       RES = {};
       if (res && res.games) res.games.forEach(a => { RES[a[0]] = { id: a[0], date: a[1], home: res.teams[a[2]], away: res.teams[a[3]], hs: a[4], as: a[5], neutral: !!a[6], conf: !!a[7] }; });
-      return { sched: s, model: _model, extras: _extras };
+      // games that went final since the last ingest: straight from ESPN (capped wait, never blocks the page)
+      return Promise.race([mergeLive(), new Promise(r => setTimeout(r, 3500))]).then(() => { watchLive(); return { sched: s, model: _model, extras: _extras }; });
     });
     return _loading;
+  }
+
+  // ── live finals ─────────────────────────────────────────────────────────────────────────────────
+  // The nightly/20-minute ingest writes results_2027.json; between runs, a game ESPN has marked final
+  // joins RES right here (matched by ESPN game id to the announced schedule, so no name translation),
+  // records and every projection count it immediately, and pages hear 'tdc:results' to redraw.
+  let _liveN = 0, _liveTimer = null;
+  const SB_URL = 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=50&limit=400&dates=';
+  const etDate = d => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d).replace(/-/g, '');
+  const inSeason = () => { const m = new Date().getMonth(); return m >= 10 || m <= 3; };     // Nov – Apr
+  async function mergeLive() {
+    if (!_sched || !inSeason()) return 0;
+    const byId = {}; (_sched.games || []).forEach(a => { byId[String(a[0])] = a; });
+    const T = _sched.teams, now = Date.now();
+    let added = 0;
+    for (const d of [etDate(new Date(now)), etDate(new Date(now - 86400e3))]) {
+      let j; try { j = await fetch(SB_URL + d).then(r => r.ok ? r.json() : null); } catch (e) { j = null; }
+      ((j && j.events) || []).forEach(ev => {
+        const id = String(ev.id), st = ev.status && ev.status.type;
+        if (!st || st.state !== 'post' || RES[id] || !byId[id]) return;
+        const c = ev.competitions && ev.competitions[0]; if (!c) return;
+        const side = {}; (c.competitors || []).forEach(x => { side[x.homeAway] = x; });
+        if (!side.home || !side.away) return;
+        const hs = +side.home.score, as = +side.away.score; if (!isFinite(hs) || !isFinite(as) || hs === as) return;
+        const a = byId[id];
+        // our schedule's home/away came from ESPN too; if a game was flipped, swap the scores to match
+        const flip = String(side.home.team && side.home.team.id) && a.length > 6 && a[6] && String(a[6]) !== String(side.home.team.id);
+        RES[id] = { id, date: a[1], home: T[a[2]], away: T[a[3]], hs: flip ? as : hs, as: flip ? hs : as, neutral: !!a[4], conf: !!a[5], live: true };
+        added++;
+      });
+    }
+    if (added) {
+      _liveN += added; _rate = null;
+      if (_sched) _sched._rows = null;
+      if (_results) _results.updated = String(_results.updated || '') + '|live' + _liveN;
+      else _results = { updated: 'live' + _liveN, games: [] };
+    }
+    return added;
+  }
+  // while a page is open on a game day: look again every 2 minutes (visible tabs only)
+  function watchLive() {
+    if (_liveTimer || !inSeason() || typeof document === 'undefined') return;
+    _liveTimer = setInterval(async () => {
+      if (document.visibilityState !== 'visible') return;
+      const n = await mergeLive();
+      if (n) { try { g.dispatchEvent(new CustomEvent('tdc:results', { detail: { added: n } })); } catch (e) {} }
+    }, 120000);
   }
 
   // every listed game as {id,date,home,away,neutral,conf}
@@ -404,7 +452,7 @@
 
   // every rated team's projected record for the rankings table — lighter sims, cached in
   // localStorage until the ratings or the schedule file change
-  const LS_ALL = 'tdc_projrec_v9';
+  const LS_ALL = 'tdc_projrec_v10';
   async function projectAll(opts) {
     opts = opts || {};
     await load();
@@ -416,7 +464,9 @@
     for (const t of D.teams) {
       const R = await project(t.full, { sims: opts.sims || 600 });
       if (R) recs[t.full] = { w: Math.round(R.expW), l: R.n - Math.round(R.expW), cw: Math.round(R.expCW), cl: R.confN - Math.round(R.expCW),
-        n: R.n, confN: R.confN, lo: R.lo, hi: R.hi, p20: +R.p20.toFixed(2) };
+        n: R.n, confN: R.confN, lo: R.lo, hi: R.hi, p20: +R.p20.toFixed(2),
+        // the record so far (every result incl. games that just went final)
+        pw: R.playedW || 0, pl: R.playedL || 0, pcw: R.playedCW || 0, pcl: R.playedCL || 0 };
     }
     try { localStorage.setItem(LS_ALL, JSON.stringify({ stamp, recs })); } catch (e) {}
     return recs;
