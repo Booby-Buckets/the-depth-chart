@@ -34,7 +34,7 @@
     return Promise.all([
       fetch('nil-data.json?v=gradesync15').then(function(r){return r.json();}),
       fetch('scripts/data/stat_overall_projected.json?v=78').then(function(r){return r.json();}),
-      fetch('scripts/data/fresh_fit.json?v=21').then(function(r){return r.ok?r.json():{};}).catch(function(){return {};}),
+      fetch('scripts/data/fresh_fit.json?v=22').then(function(r){return r.ok?r.json():{};}).catch(function(){return {};}),
       R.get()].concat(waits)).then(function(a){
       var nil=a[0], SOP=(a[1]&&a[1].players)||{}, FF=a[2]||{}, D=a[3]||{teams:[]};
       var rat={}; (D.teams||[]).forEach(function(t){ rat[t.team]=t; });

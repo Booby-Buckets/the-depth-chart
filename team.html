@@ -13,16 +13,16 @@
   <script src="tdc-nil.js?v=cal1"></script>
   <script src="tdc-gate.js?v=4"></script>
   <script src="tdc-pos.js"></script>
-  <script src="tdc-awards.js?v=11"></script>
+  <script src="tdc-awards.js?v=12"></script>
   <script src="tdc-proj.js?v=hg1"></script>
-  <script src="tdc-freshman.js?v=pub19"></script>
+  <script src="tdc-freshman.js?v=pub20"></script>
   <script src="tdc-injury.js?v=5"></script>
   <script src="tdc-ratings.js?v=28"></script>
   <script src="tdc-histguard.js?v=2"></script>
   <script src="tdc-schedule.js?v=26s"></script>
   <script src="tdc-scrim.js?v=8"></script>
-  <script src="tdc-preview.js?v=27s"></script>
-  <script src="tdc-projgrade.js?v=base38"></script>
+  <script src="tdc-preview.js?v=28s"></script>
+  <script src="tdc-projgrade.js?v=base39"></script>
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-pool.js?v=5"></script>
@@ -8380,9 +8380,29 @@ function renderHistoricRoster(rows, yr, projected){
   // .dc-row / .dc-starter so the Premium gate (_gateDepth) still shows only the starting five free.
   const _ord=n=>n+(n%100>=11&&n%100<=13?'th':({1:'st',2:'nd',3:'rd'}[n%10]||'th'));
   const _seat=[]; const _seen=new Set();
-  cols.forEach(c=>{ const e=c.entries&&c.entries[0];
+  // PROJECTED season (owner, Oct 2026): the starting five = the top five HEALTHY players in the owner's
+  // depth-chart order (an injured starter's place goes to the next man up), then each is seated at the
+  // spot that fits his position best (St. John's: Freeman out -> Ian Jackson starts at SG, Yessoufou
+  // slides to SF). Past seasons keep the column-derived starters.
+  const _SLOTS=['PG','SG','SF','PF','C'];
+  let _five=null;
+  if(projected && !window._rosterFromHistory){
+    const _all=[]; cols.forEach(c=>(c.entries||[]).forEach(e=>{ if(!_all.includes(e)) _all.push(e); }));
+    const _do=e=>{ const d=parseFloat(e.p.depth_order); return isFinite(d)?d:999; };
+    const top=_all.slice().sort((a,b)=>_do(a)-_do(b)).slice(0,5);
+    if(top.length===5){
+      const cost=(e,sl)=>_oopDist(e.p,sl)+((''+(e.p.position||'')).toUpperCase()===sl?0:0.25);
+      let best=null, bestC=1e9;
+      const perm=(arr,k)=>{ if(k===arr.length){ const c=arr.reduce((t,e,i)=>t+cost(e,_SLOTS[i]),0); if(c<bestC){ bestC=c; best=arr.slice(); } return; }
+        for(let i=k;i<arr.length;i++){ [arr[k],arr[i]]=[arr[i],arr[k]]; perm(arr,k+1); [arr[k],arr[i]]=[arr[i],arr[k]]; } };
+      perm(top.slice(),0); _five=best;
+    }
+  }
+  if(_five){ _five.forEach((e,i)=>{ _seat.push({slot:_SLOTS[i],e,col:_SLOTS[i],star:true}); _seen.add(e.p); }); }
+  else cols.forEach(c=>{ const e=c.entries&&c.entries[0];
     if(e){ _seat.push({slot:c.pos,e,col:c.pos,star:true}); _seen.add(e.p); } else _seat.push({slot:c.pos,e:null,col:c.pos,star:true}); });
-  const _bench=[]; cols.forEach(c=>{ (c.entries||[]).forEach((e,i)=>{ if(i===0||_seen.has(e.p)) return; _seen.add(e.p); _bench.push({e,col:c.pos}); }); });
+  // bench = everyone not seated (with the healthy-five rule a column's first man is not always a starter)
+  const _bench=[]; cols.forEach(c=>{ (c.entries||[]).forEach((e,i)=>{ if((!_five&&i===0)||_seen.has(e.p)) return; _seen.add(e.p); _bench.push({e,col:c.pos}); }); });
   _bench.sort((a,b)=>(_totMin(b.e.p)||0)-(_totMin(a.e.p)||0));
   _bench.forEach((b,i)=>_seat.push({slot:_ord(i+6),e:b.e,col:b.col,star:false}));
   const _barTip=projected?'Projected minutes per game':'Minutes per game';

@@ -525,6 +525,37 @@ print("Pulling roster, last-year box + advanced, team SOS...",file=sys.stderr)
 adv=pd.DataFrame(sb_get(f"player_advanced?select=espn_id,name,team,g,min,usg_pct,owa,dwa,ti40&season_year=eq.{CUR}"))
 box=pd.DataFrame(sb_get(f"player_history?select=espn_id,ppg,mpg,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb,stl,blk,tovs,apg,gp,fg_pct,tp_pct,ft_pct&season_year=eq.{CUR}"))
 pl =pd.DataFrame(sb_get("players?select=espn_id,name,depth_order,starter,mpg,yr,class_year,team,position,position2,height,tdc_grade,is_injured"))
+# OUT FOR THE SEASON (owner rule, Oct 2026): the owner's injury report (profiles.freshman_projections,
+# keys tdc_inj:<team>:<name>, written by tdc-injury.js) plus the players table's is_injured flag. A player
+# who is out (timeline 'multi'/'season', or play=false) leaves the roster BEFORE minutes are split, so his
+# 200-minute share goes to healthy players and his production counts as departed usage; everyone below
+# him moves up one depth slot (St. John's: Freeman out -> Ian Jackson starts). Mirrors TDCInjury.isOut.
+OWNER_ID="c5784cf4-dd77-4429-b0e6-578a0c1c5c8f"
+try:
+    OWNER_BLOB=(sb_get(f"profiles?id=eq.{OWNER_ID}&select=freshman_projections") or [{}])[0].get("freshman_projections") or {}
+except Exception:
+    OWNER_BLOB={}
+# minutes the owner set by hand in the freshman editor (tdc_fr:<team>:<name>.mpg) — fixed in the team fit
+FIXED_MIN={}
+for _k,_v in OWNER_BLOB.items():
+    if _k.startswith("tdc_fr:") and isinstance(_v,dict) and _v.get("mpg") not in (None,""):
+        try: _,_ft,_fn=_k.split(":",2); FIXED_MIN[(_ft.strip(),_fn.strip().lower())]=min(float(_v["mpg"]),40.0)
+        except Exception: pass
+def _owner_out():
+    blob=OWNER_BLOB
+    out=set()
+    for k,v in blob.items():
+        if not k.startswith("tdc_inj:") or not isinstance(v,dict) or not v.get("part"): continue
+        if v.get("timeline") in ("multi","season") or v.get("play") is False:
+            _,team,name=k.split(":",2); out.add((team.strip(),name.strip().lower()))
+    return out
+INJ_OUT=_owner_out()
+_inj_mask=pl["is_injured"].astype(str).str.lower().isin(["true","t","1"]) | pl.apply(lambda r:(str(r["team"]).strip(),str(r["name"]).strip().lower()) in INJ_OUT,axis=1)
+INJURED_OUT=pl[_inj_mask][["team","name"]].values.tolist()
+pl=pl[~_inj_mask].copy()
+pl["depth_order"]=pd.to_numeric(pl["depth_order"],errors="coerce")
+pl["depth_order"]=pl.groupby("team")["depth_order"].rank(method="first")   # close the gap the injured player left
+print(f"  out for the season (removed before minutes): {len(INJURED_OUT)} — "+", ".join(f"{n} ({t})" for t,n in INJURED_OUT[:12]),file=sys.stderr)
 ts =pd.DataFrame(sb_get("team_seasons?select=season_year,team,conference,srs"))
 # prior seasons played (through CUR) per player — infers class when the roster's is blank
 _cs=pd.DataFrame(sb_get(f"player_history?select=espn_id,season_year&mpg=gt.2&season_year=lte.{CUR}"))
@@ -1219,6 +1250,40 @@ for short, roster in roster_by_team.items():
             _gb=lambda g: round(sum(x[1] for x in _items if x[0]==g),1)
             _ga=lambda g: round(sum(_new[i] for i,x in enumerate(_items) if x[0]==g),1)
             TEAM_FIT_LOG[full].update(pos_moved=_moved,pos_before={g:_gb(g) for g in "BGW"},pos_after={g:_ga(g) for g in "BGW"})
+        # MINUTES TO 200 (owner, Oct 2026: "the minutes add up to 179.7"): the freshman share is clamped to
+        # 1.3x their slot estimate and the 38-min cap can strand time, so a roster could end well short of
+        # 200 (William & Mary 165, N. Illinois 168). Spread whatever is still missing over the rotation
+        # (5+ min) in proportion to minutes, nobody past MPG_MAX; returners are re-projected on the new
+        # minutes and freshmen lines scale with theirs, so the stats follow the time.
+        # minutes the owner typed into the freshman editor are FIXED (the page shows exactly those);
+        # the rest of the rotation flexes up or down around them so the team still plays 200.
+        for _nm,_f in FRESH_FIT.get(short,{}).items():
+            _fx=FIXED_MIN.get((short,_nm.strip().lower()))
+            if _fx is not None and _f.get("mpg") and abs(_f["mpg"]-_fx)>0.05:
+                _kk=_fx/_f["mpg"]; _f["mpg"]=round(_fx,1); _f["ppg"]=round(_f.get("ppg",0)*_kk,1)
+                if _f.get("pos_min"): _f["pos_min"]={c:round(v*_kk,1) for c,v in _f["pos_min"].items()}
+        _rot=[("r",rr) for rr in _Rk if str(rr["e"]) in out]+[("f",nm) for nm in list(FRESH_FIT.get(short,{}).keys())]
+        _fixed=[k=="f" and (short,x.strip().lower()) in FIXED_MIN for k,x in _rot]
+        _m0=[(out[str(x["e"])]["mpg"] if k=="r" else FRESH_FIT[short][x]["mpg"]) or 0.0 for k,x in _rot]
+        _cur=list(_m0)
+        for _ in range(8):
+            _gap=REF_MIN-sum(_cur)
+            _el=[i for i,m in enumerate(_cur) if m>=5.0 and not _fixed[i] and (_gap<0 or m<MPG_MAX-0.05)]
+            _w=sum(_cur[i] for i in _el)
+            if abs(_gap)<0.5 or _w<=0: break
+            for i in _el: _cur[i]=max(0.5,min(MPG_MAX,_cur[i]*(1.0+_gap/_w)))
+        if abs(sum(_cur)-sum(_m0))>0.5:
+            for (k,x),m0,m1 in zip(_rot,_m0,_cur):
+                if abs(m1-m0)<0.05 or m0<=0: continue
+                if k=="r":
+                    x["pm"]=m1; _project_one(x)
+                    if str(x["e"]) in out and out[str(x["e"])].get("pos_min"):
+                        out[str(x["e"])]["pos_min"]={c:round(v*m1/m0,1) for c,v in out[str(x["e"])]["pos_min"].items()}
+                else:
+                    f=FRESH_FIT[short][x]; kk=m1/m0
+                    f["mpg"]=round(m1,1); f["ppg"]=round(f.get("ppg",0)*kk,1)
+                    if f.get("pos_min"): f["pos_min"]={c:round(v*kk,1) for c,v in f["pos_min"].items()}
+            TEAM_FIT_LOG[full]["topup"]=round(sum(_cur)-sum(_m0),1)   # + filled a short roster, − made room for fixed minutes
 
 # ---- IMPACT RECONCILIATION (lift-only) ----
 # Map each player's Total Impact (ti40) through the SAME percentile→grade curve as the wa
