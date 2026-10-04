@@ -80,6 +80,19 @@
     'body.mt .page-body{display:block!important;margin:0 14px 24px!important}',
     'body.mt .main-col{padding:0 0 8px!important;border:0!important;width:auto!important}',
     'body.mt.mt-depth .page-body .side-col{display:block!important}',
+    /* every panel sits flat in the column */
+    'body.mt .main-col > .panel{margin:0!important;padding:0!important;border:0!important;background:none!important;box-shadow:none!important;border-radius:0!important}',
+    /* Schedule: summary tiles → one row of cells; no per-row SCRIMMAGE chip; low-value columns dropped (mtPrune) */
+    'body.mt .tsp-sum{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:0!important;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:0 0 18px!important}',
+    'body.mt .tsp-tile{background:var(--bg)!important;border:0!important;border-right:1px solid var(--border)!important;border-radius:0!important;padding:8px 8px!important;box-shadow:none!important;min-width:0}',
+    'body.mt .tsp-tile:last-child{border-right:0!important}',
+    'body.mt .scrim-wrap .sec-head{margin-top:0!important}',
+    'body.mt .scrim-chip,body.mt [class*="scrim-tag"],body.mt .scrim-wrap td span[class*="chip"]{display:none!important}',
+    'body.mt .mt-x{display:none!important}',
+    'body.mt #schedBody{padding:0!important;border:0!important;background:none!important;box-shadow:none!important}',
+    'body.mt #schedBody .sheet-wrap{margin-left:0!important;margin-right:0!important}',
+    'body.mt .tsp-table td,body.mt .tsp-table th,body.mt .scrim-wrap td,body.mt .scrim-wrap th{padding-left:5px!important;padding-right:5px!important}',
+    'body.mt .tsp-tile *{white-space:normal!important;overflow:visible!important;text-overflow:clip!important}',
     /* Team DNA: no headline sentence or explainer lines — the tiles and factor rows carry it */
     'body.mt .dA-head{background:none!important;color:var(--text)!important;padding:0!important;margin:0 0 18px!important;border:0!important;box-shadow:none!important;border-radius:0!important}',
     'body.mt .dA-h1,body.mt .dA-hsub,body.mt .dA-eyebrow,body.mt .dA-foot,body.mt .dA-read,body.mt .dA-calib{display:none!important}',
@@ -232,6 +245,26 @@
     w.__mt = true; window.switchTab = w;
   }
 
+  // drop low-value columns from wide tables on a phone, by header label
+  var PRUNE = { '.tsp-table': ['RK', 'QUAD', 'OPP PRTG'], '.scrim-wrap table': ['TIME', 'TOTAL'] };
+  var WD = /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*,?\s+/;
+  function prune() {
+    // weekday off the date cells ("Mon 11/2" → "11/2"); kept in a hidden span so desktop is untouched
+    document.querySelectorAll('.tsp-table tbody td:first-child,.scrim-wrap tbody td:first-child').forEach(function (td) {
+      if (td.__wd || td.children.length) return; var m = td.textContent.match(WD); if (!m) return;
+      td.__wd = true; td.innerHTML = '<span class="mt-x">' + m[0] + '</span>' + td.textContent.slice(m[0].length);
+    });
+    Object.keys(PRUNE).forEach(function (sel) {
+      document.querySelectorAll(sel).forEach(function (t) {
+        var heads = [].slice.call(t.querySelectorAll('thead th'));
+        heads.forEach(function (th, i) {
+          if (PRUNE[sel].indexOf(th.textContent.trim().toUpperCase()) < 0) return;
+          th.classList.add('mt-x');
+          t.querySelectorAll('tbody tr').forEach(function (tr) { var c = tr.children[i]; if (c && tr.children.length === heads.length) c.classList.add('mt-x'); });
+        });
+      });
+    });
+  }
   function build() {
     if (built) return;
     if (!document.getElementById('miCssT')) { var st = el('style'); st.id = 'miCssT'; st.textContent = CSS; document.head.appendChild(st); }
@@ -239,6 +272,7 @@
     built = true;
     buildStrip(); hookSwitch();
     var act = document.querySelector('.main-col .panel.active'); setActive(act ? act.id.replace('panel-', '') : 'depth');
+    var mc = document.querySelector('.main-col'); if (mc) watch(mc, debounce(prune, 150));
   }
   function apply() { document.body.classList.toggle('mt', MQ.matches); if (MQ.matches) build(); }
   function start() {
