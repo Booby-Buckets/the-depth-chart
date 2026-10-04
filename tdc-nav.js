@@ -73,7 +73,8 @@
     css.id = 'tdc-nav-css';
     css.textContent = [
       '.nav-wrap{display:none!important;}',            // suppress legacy inline nav on older pages
-      '.tdn-wrap{border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:400;}',
+      '.tdn-wrap{border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:400;font-family:\'Inter\',system-ui,sans-serif;}',
+      '.tdn-wrap button,.tdn-wrap a{font-family:inherit;}',
       // the bar's contents sit in the same 1400px column as the page, like CFB
       // same column maths as tdc-column.css, so the bar lines up with the page at EVERY width:
       // content starts at max(gutter, the space that centres a 1400px column)
@@ -141,12 +142,12 @@
       '.tdn-menu{min-width:170px;}',
       '}',
       // phones: the five menus on ONE row (it used to wrap to two, the second indented)
-      '@media(max-width:640px){.tdn-row{flex-wrap:nowrap;justify-content:space-between;gap:0;}.tdn-btn{padding:0 4px;font-size:11px;letter-spacing:.03em;}.tdn-btn .car{display:none;}.tdn-btn.active::after{left:4px;right:4px;}}',
+      '@media(max-width:640px){.tdn-logo em{font-size:11px!important;}.tdn-signin,.tdn-actions a{font-size:11px!important;}.tdn-wrap .theme-toggle{font-family:inherit;font-size:13px!important;}.tdn-row{flex-wrap:nowrap;justify-content:space-between;gap:0;}.tdn-btn{padding:0 4px;font-size:11px;letter-spacing:.03em;}.tdn-btn .car{display:none;}.tdn-btn.active::after{left:4px;right:4px;}}',
     ].join('');
     document.head.appendChild(css);
     // phones: one type system across every page (tdc-mobile.js; desktop untouched)
     if (window.matchMedia && window.matchMedia('(max-width: 640px)').matches && !document.getElementById('tdc-mobile-js')) {
-      var mj = document.createElement('script'); mj.id = 'tdc-mobile-js'; mj.src = 'tdc-mobile.js?v=4'; document.head.appendChild(mj);
+      var mj = document.createElement('script'); mj.id = 'tdc-mobile-js'; mj.src = 'tdc-mobile.js?v=6'; document.head.appendChild(mj);
     }
   }
 
