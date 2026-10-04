@@ -28,6 +28,17 @@
     'body.mp .mp-hero{display:flex;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border);margin:0 0 14px}',
     'body.mp .tdc-explain{bottom:calc(62px + env(safe-area-inset-bottom))!important}body.mp #tdc-ver{display:none!important}',
     '.mp-id{flex:1;min-width:0}',
+    /* team band: the team colour, darkened only as far as white text needs (--tc-band from applyTeamTheme) */
+    'body.mp .mp-band{background:var(--tc-band,#1d2433);color:#fff;border-bottom:0;margin:0 0 14px;padding:14px;position:relative;overflow:hidden}',
+    '.mp-band .mp-eye,.mp-band .mp-eye a{color:rgba(255,255,255,.78)}',
+    '.mp-band .mp-name{color:#fff}',
+    '.mp-band .mp-sel{background:rgba(0,0,0,.22);border-color:rgba(255,255,255,.35);color:#fff}',
+    '.mp-band .mp-sel option{color:#111;background:#fff}',
+    '.mp-band .mp-ovr{border-color:rgba(255,255,255,.45);background:#fff}',
+    '.mp-band .mp-ovr span{background:rgba(0,0,0,.06);color:#555;border-bottom-color:rgba(0,0,0,.12)}',
+    '.mp-band .mp-ovr b{color:#111}',
+    '.mp-logo{flex:0 0 46px;height:46px;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;align-self:flex-start;margin-top:2px}',
+    '.mp-logo img{width:36px;height:36px;object-fit:contain}',
     '.mp-eye{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.mp-eye a{color:inherit;text-decoration:none}',
     '.mp-name{margin:4px 0 8px;font-family:"Playfair Display",Georgia,serif;font-size:28px;font-weight:800;line-height:1.05;color:var(--text)}',
@@ -171,7 +182,9 @@
     if (p.position) bits.push(esc(p.position));
     var yr = p.yr || p.class_year; if (yr) bits.push(esc(yr));
     if (fromEl) bits.push(esc(fromEl.textContent.trim()));
-    var hero = el('div', 'mp-hero',
+    var tc = (window.tdcTeamColor && window.tdcTeamColor(p.team)) || {};
+    var hero = el('div', 'mp-hero mp-band',
+      (tc.logo ? '<a class="mp-logo" href="team.html?team=' + encodeURIComponent(p.team || '') + '"><img src="' + tc.logo + '" alt="" onerror="this.parentNode.remove()"></a>' : '') +
       '<div class="mp-id"><div class="mp-eye">' + bits.join(' · ') + '</div>' +
       '<h1 class="mp-name">' + esc(p.name) + '</h1><span class="mp-selhost"></span></div>' +
       '<div class="mp-ovr"><span>OVR</span><b id="mpOvr">—</b></div>');
