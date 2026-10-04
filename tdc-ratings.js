@@ -521,6 +521,29 @@
     }catch(e){}
   }
 
+  // 2026-27 D-I membership (the same file the schedule sim uses): the published ratings were
+  // built off last season's leagues, so they kept Saint Francis (PA, now D-III → 366 teams) and
+  // the old leagues of realigned schools (Louisiana Tech → Sun Belt, Little Rock → UAC).
+  // Applied to every load, cached or fresh. Drops only when nearly every name matches, so a
+  // naming change can never empty the board.
+  let _membersP=null;
+  function members(){
+    if(!_membersP) _membersP=fetch('scripts/data/conf_members_2027.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null);
+    return _membersP;
+  }
+  function applyMembership(data, m){
+    if(!data||!data.teams||!m||!m.teams||SEASON!==2027) return data;
+    const nk=s=>(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+    const mem={}; Object.keys(m.teams).forEach(n=>{ mem[nk(n)]=m.teams[n]; });
+    const out=data.teams.filter(r=>nk(r.full) in mem);
+    const keep=(data.teams.length-out.length)<=5?out:data.teams;
+    const full=m.conferences||{};
+    keep.forEach(r=>{ const c=mem[nk(r.full)]; if(c && r.conf!==c && r.conf!==full[c]) r.conf=c; });
+    keep.sort((a,b)=>b.rating-a.rating); keep.forEach((r,i)=>r.rank=i+1);
+    data.teams=keep;
+    return data;
+  }
+
   let _mem=null,_loading=null;
   function get(){
     if(_mem) return Promise.resolve(_mem);
@@ -540,7 +563,8 @@
       try{ localStorage.setItem(LS_KEY,JSON.stringify({t:Date.now(),data})); }catch(e){}
       writeDb(data);
       return data;
-    })().then(d=>_hcaP?_hcaP.then(()=>d):d);   // lines need the fresh home-court curve before first use
+    })().then(d=>members().then(m=>applyMembership(d,m)))
+      .then(d=>_hcaP?_hcaP.then(()=>d):d);   // lines need the fresh home-court curve before first use
     return _loading;
   }
 
@@ -552,6 +576,7 @@
     _ovr=overrides||null;
     let data;
     try{ data=await compute(); } finally { _ovr=null; }
+    applyMembership(data, await members());
     _mem=data;
     try{ localStorage.setItem(LS_KEY,JSON.stringify({t:Date.now(),data})); }catch(e){}
     await writeDb(data);

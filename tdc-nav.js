@@ -181,7 +181,7 @@
   wrap.className = 'tdn-wrap';
   wrap.innerHTML =
     '<div class="tdn-col"><div class="tdn-top">' +
-      '<a class="tdn-logo" href="index.html">The <span>Depth</span> Chart<em>CBB</em></a>' +
+      '<a class="tdn-logo" href="index.html">The <span>Depth</span> Chart</a>' +
       '<div class="tdn-actions"><a class="tdn-x" href="https://www.thedepthchartcfb.com" title="The Depth Chart — college football">Football \u2197</a>' +
       '<div class="tdn-actions" id="navActions">' +
         '<button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle dark mode">' + themeGlyph + '</button>' +
