@@ -83,7 +83,9 @@
         }
         else if (m.target && m.target.parentElement) { done.delete(m.target.parentElement); pending.push(m.target.parentElement); }
       }
-      if (pending.length && !raf) raf = requestAnimationFrame(flush);
+      // a short timer, not requestAnimationFrame: rAF is paused in background tabs, which left pages
+      // opened in a new tab unstyled until they were looked at
+      if (pending.length && !raf) raf = setTimeout(flush, 30);
     }).observe(document.body, { childList: true, subtree: true, characterData: true });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
