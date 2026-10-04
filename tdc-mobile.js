@@ -38,6 +38,7 @@
       el.style.setProperty('font-family', "'Inter', system-ui, sans-serif", 'important');
       return;
     }
+    if (el.classList && el.classList.contains('sheet-wrap')) flattenTable(el);
     if (!hasOwnText(el)) return;
     const cs = getComputedStyle(el);
     if (cs.display === 'none') return;
@@ -56,6 +57,26 @@
       if (NUMERIC.test(text)) el.style.setProperty('font-variant-numeric', 'tabular-nums', 'important');
     }
     if (cs.textTransform === 'uppercase') el.style.setProperty('letter-spacing', '.05em', 'important');
+  }
+  // A bordered table box inside a padded, bordered card reads as box-in-a-box on a phone and costs the
+  // table ~30px of width: run it edge to edge inside the card instead (top/bottom rules stay).
+  function boxed(e) {
+    const c = getComputedStyle(e);
+    return parseFloat(c.borderLeftWidth) > 0 && parseFloat(c.borderRightWidth) > 0 && parseFloat(c.paddingLeft) >= 8;
+  }
+  function flattenTable(el) {
+    let p = el.parentElement;
+    for (let i = 0; p && p !== document.body && i < 6; i++, p = p.parentElement) {
+      if (boxed(p)) {
+        const cs = getComputedStyle(p), pl = parseFloat(cs.paddingLeft), pr = parseFloat(cs.paddingRight);
+        el.style.setProperty('margin-left', -pl + 'px', 'important');
+        el.style.setProperty('margin-right', -pr + 'px', 'important');
+        el.style.setProperty('border-left-width', '0', 'important');
+        el.style.setProperty('border-right-width', '0', 'important');
+        el.style.setProperty('border-radius', '0', 'important');
+        return;
+      }
+    }
   }
   function walk(root) {
     if (root.nodeType !== 1) return;
