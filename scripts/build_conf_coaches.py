@@ -60,7 +60,9 @@ ALIAS = {
     'St. Francis (BKN)': 'St. Francis Brooklyn',
     'Queens (NC)': 'Queens University',
     'Connecticut': 'UConn',
-    'Pennsylvania': 'Penn',
+    'Pennsylvania': 'Pennsylvania Quakers',   # 'Penn' prefix-matched Penn State (Donahue/McCaffery filed under Penn State)
+    'Alabama': 'Alabama Crimson Tide',          # prefix matched Alabama A&M (Nate Oats)
+    'Illinois': 'Illinois Fighting Illini',     # prefix matched Illinois State (Brad Underwood)
     'Detroit Mercy': 'Detroit Mercy',
     'Albany (NY)': 'UAlbany',
     'Loyola (IL)': 'Loyola Chicago',
@@ -80,8 +82,8 @@ ALIAS = {
     'Louisiana-Lafayette': 'Louisiana',
     'Nebraska-Omaha': 'Omaha',
     'Bowling Green State': 'Bowling Green',
-    'Ole Miss': 'Ole Miss',
-    'Mississippi': 'Ole Miss',
+    'Ole Miss': 'Ole Miss Rebels',
+    'Mississippi': 'Ole Miss Rebels',
     'Pitt': 'Pittsburgh',
     'Purdue-Fort Wayne': 'Purdue Fort Wayne',
     'IUPUI': 'IU Indianapolis',
@@ -117,7 +119,7 @@ def resolve(school, rows):
     """Match a coach_seasons school to a team_seasons row for the same year."""
     cands = [ALIAS[school]] if school in ALIAS else []
     cands.append(school)                   # a stale alias must not block a clean match
-    for cand in cands:
+    for i, cand in enumerate(cands):
         n = norm(cand)
         exact = [r for r in rows if norm(r['team']) == n]
         if exact:
