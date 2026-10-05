@@ -26,7 +26,7 @@
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
   const SEASON=2027, LS_KEY='tdc_awards_v6_'+SEASON, TTL=24*3600*1000;
-  const GVER=6;   // grade version — bump to invalidate any cached/published blob with old grades
+  const GVER=7;   // grade version — bump to invalidate any cached/published blob with old grades
 
   function cls(yr){ yr=((yr||'')+'').toLowerCase();
     if(yr.includes('fr')) return 'FR';
@@ -73,38 +73,36 @@
     (players||[]).forEach(p=>{
       const hs=(p.hometown||'').trim().toLowerCase();
       if(!p.name||p.is_injured||hs==='injured'||hs==='out') return;   // out for the season (sheet convention)
-      const rawGrade=parseFloat(p.tdc_grade); if(!isFinite(rawGrade)||rawGrade<72) return;
-      // grade shown (and scored) = canonical projected OVR (returners) or the editor OVR (freshmen),
-      // so grades match the index/player/team pages exactly; tdc_grade is only the last-ditch fallback
-      // returners: TDCProjGrade.gradeSolo (stat overall + development + archetype bonus — the ONE
-      // displayed OVR site-wide); the raw JSON ovr only if the module isn't loaded
+      // GRADE = the canonical projected OVR shown everywhere (gradeSolo: stat overall for returners/transfers,
+      // projected newcomer OVR for freshmen). The sheet's tdc_grade is only a last resort — it is blank for
+      // new transfers, which used to drop Malik Reneau (projected 90) off every ballot.
       let grade=null;
-      if(p.espn_id!=null&&window.TDCProjGrade&&TDCProjGrade.gradeSolo){ try{ const gs=TDCProjGrade.gradeSolo(p); if(gs!=null&&isFinite(gs)) grade=Math.round(gs); }catch(e){} }
-      if(grade==null) grade=(p.espn_id!=null&&ovrById[p.espn_id]!=null)?ovrById[p.espn_id]:(freshOvr(p)??rawGrade);
+      if(window.TDCProjGrade&&TDCProjGrade.gradeSolo){ try{ const gs=TDCProjGrade.gradeSolo(p); if(gs!=null&&isFinite(gs)) grade=Math.round(gs); }catch(e){} }
+      if(grade==null&&p.espn_id!=null&&ovrById[p.espn_id]!=null) grade=ovrById[p.espn_id];
+      if(grade==null) grade=freshOvr(p);
+      if(grade==null){ const rg=parseFloat(p.tdc_grade); if(isFinite(rg)) grade=rg; }
+      if(grade==null||grade<72) return;
       const conf=confOf[p.team]||'';
       const c=cls(p.yr||p.class_year);
       const adv=p.espn_id!=null?advById[p.espn_id]:null;
       const ti=adv?parseFloat(adv.ti40):NaN;
-      // projected impact: owned TI mapped to a BPM-like scale (+class bump); grade proxy w/o box data
-      const gi=(grade-77)*0.55-0.6;
-      const projBpm=isFinite(ti)?((ti-10)*0.5+(CLS_BUMP[c]||0)):gi;
-      const projDbpm=(grade-80)*0.15;   // defense leans on `stocks` (stl+blk) below; no owned dbpm
-      const hasStats=(parseFloat(p.ppg)||0)>0;
-      const prod=hasStats
-        ? (parseFloat(p.ppg)||0)*0.9+(parseFloat(p.rpg)||0)*0.5+(parseFloat(p.apg)||0)*0.7
-        : Math.max(0,grade-68)*0.45;                       // freshman estimate
-      const stocks=hasStats?((parseFloat(p.stl)||0)+(parseFloat(p.blk)||0)):Math.max(0,grade-75)*0.06;
-      // bench returners can't crowd the ballot
-      if(hasStats&&(parseFloat(p.mpg)||0)<10&&grade<80) return;
+      const projBpm=isFinite(ti)?((ti-10)*0.5+(CLS_BUMP[c]||0)):(grade-77)*0.55-0.6;
+      const projDbpm=(grade-80)*0.15;
+      // STATS = the 2026-27 projected line (same file as the player page), not last season's box score
+      const pr=(p.espn_id!=null&&proj&&proj.players)?proj.players[String(p.espn_id)]:null;
+      const fit=(!pr&&window.TDCFresh&&TDCFresh.fitFor)?TDCFresh.fitFor(p):null;
+      const n=v=>parseFloat(v)||0;
+      let prod, stocks, mpg;
+      if(pr){ prod=n(pr.ppg)*0.9+n(pr.rpg)*0.5+n(pr.apg)*0.7; stocks=n(pr.stl)+n(pr.blk); mpg=n(pr.mpg); }
+      else if(fit){ prod=n(fit.ppg)*0.9+Math.max(0,grade-68)*0.15; stocks=Math.max(0,grade-75)*0.06; mpg=n(fit.mpg); }
+      else { prod=Math.max(0,grade-68)*0.45; stocks=Math.max(0,grade-75)*0.06; mpg=n(p.mpg)||20; }
+      // a projected bench player can't crowd the ballot
+      if(mpg<10&&grade<80) return;
       cand.push({
         name:p.name, team:p.team, conf, pos:p.position||'', yr:p.yr||p.class_year||'', grade, espn_id:p.espn_id,
         isFr:c==='FR',
-        // Lean on the canonical projected OVR (grade), not the demonstrated ti40, because the
-        // grade already bakes in the level-jump discount for transfers — so a mid-major star
-        // jumping up (Faulkner: Samford SoCon -> Clemson ACC) can't win All-Conference off his
-        // un-discounted old-level production while his OVR correctly sits at 80. projBpm keeps a
-        // small weight for impact nuance; the discounted grade drives the ballot.
-        score:+(0.8*projBpm+2.2*(grade-75)+0.55*prod).toFixed(2),
+        // the projected OVR leads; projected production second; last season's impact only a nudge
+        score:+(2.2*(grade-75)+0.55*prod+0.3*projBpm).toFixed(2),
         def:+(2.4*projDbpm+1.5*stocks+0.4*(grade-78)).toFixed(2),
         rook:+(grade+0.3*prod).toFixed(2),
       });
