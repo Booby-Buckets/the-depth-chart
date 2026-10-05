@@ -173,6 +173,7 @@ SQZ_W=tuple(float(x) for x in os.environ.get("SQZ_W","0.3,0.7,1.0,1.5").split(",
 # held flat (so trimming a star's minutes buys no efficiency). The crowding comes out of the bench.
 SQZ_TRUST_W=float(os.environ.get("SQZ_TRUST_W","0.02"))
 SQZ_DEEP_FLOOR=float(os.environ.get("SQZ_DEEP_FLOOR","5.0"))   # 11th man and deeper can fall to garbage-time minutes
+ROT_MIN=float(os.environ.get("ROT_MIN","5.0")); BENCH_EXTRA=(2.0,5.0)   # rotation = 5+ projected minutes; the rest share 2-5 extra
 FRESH_PPS=1.08          # points per FGA (incl. the FTs a shot draws) for a no-box player's estimated shots
 TEAM_PPG={}; TEAM_FIT_LOG={}; FRESH_FIT={}   # FRESH_FIT[short][name] = fitted {mpg, ppg} for no-box players (tdc-freshman.js scales its lines to these)
 try:
@@ -1423,7 +1424,26 @@ for short, roster in roster_by_team.items():
                 if _pass<8 and abs(_gap)>=0.5: continue
                 break
             for i in _el: _cur[i]=max(0.5,min(_caps[i],_cur[i]*(1.0+_gap/_w)))
-        if abs(sum(_cur)-sum(_m0))>0.5:
+        # BEYOND THE ROTATION (owner, Oct 2026): a real team plays 202-205 minutes a game — overtime, and garbage
+        # time for the end of the bench. The rotation (5+ min) plays exactly 200; the players outside it (the
+        # 11th, 12th, ... man) share 2-5 more, the first man out getting the most.
+        _ordI=sorted(range(len(_cur)),key=lambda i:-_cur[i])
+        _rotI=[i for i in _ordI if _cur[i]>=ROT_MIN or _fixed[i]]; _rs=set(_rotI)
+        _benI=[i for i in _ordI if i not in _rs]
+        if _benI and _rotI:
+            _E=max(BENCH_EXTRA[0],min(BENCH_EXTRA[1],BENCH_EXTRA[0]+0.6*(len(_benI)-1)))   # 1 man out 2.0 ... 6+ out 5.0
+            for _ in range(12):   # the rotation to 200, inside each player's cap
+                _gap=REF_MIN-sum(_cur[i] for i in _rotI)
+                _el=[i for i in _rotI if not _fixed[i] and (_gap<0 or _cur[i]<_caps[i]-0.05)]
+                _w=sum(_cur[i] for i in _el)
+                if abs(_gap)<0.3 or _w<=0: break
+                for i in _el: _cur[i]=max(ROT_MIN if _gap>0 else 0.5,min(_caps[i],_cur[i]*(1.0+_gap/_w)))
+            _rsum=sum(_cur[i] for i in _rotI)
+            # a rotation that can't reach 200 (everyone at his cap) hands the rest to the bench; the team stays 202-205
+            _bt=min(max(_E+max(0.0,REF_MIN-_rsum),BENCH_EXTRA[0]),max(BENCH_EXTRA[0],REF_MIN+BENCH_EXTRA[1]-_rsum))
+            _bw=[1.0/(k+1) for k in range(len(_benI))]; _bs=sum(_bw)
+            for k,i in enumerate(_benI): _cur[i]=max(0.1,_bt*_bw[k]/_bs)
+        if any(abs(c-m)>0.05 for c,m in zip(_cur,_m0)):
             for (k,x),m0,m1 in zip(_rot,_m0,_cur):
                 if abs(m1-m0)<0.05 or m0<=0: continue
                 if k=="r":
@@ -1571,6 +1591,12 @@ for _sh,_g in pl[pl.espn_id.isna()].groupby("team"):
         _gap=REF_MIN-sum(_m); _el=[i for i,v in enumerate(_m) if v<MPG_MAX-0.05]; _w=sum(_m[i] for i in _el)
         if abs(_gap)<0.5 or _w<=0: break
         for i in _el: _m[i]=max(0.5,min(MPG_MAX,_m[i]*(1.0+_gap/_w)))
+    _bi=sorted([i for i,v in enumerate(_m) if v<ROT_MIN],key=lambda i:-_m[i]); _ri=[i for i in range(len(_m)) if i not in set(_bi)]
+    if _bi and _ri:   # same 202-205 rule: the rotation plays 200, the rest share 2-5
+        _rs=sum(_m[i] for i in _ri)
+        for i in _ri: _m[i]=min(MPG_MAX,_m[i]*REF_MIN/_rs)
+        _E=max(BENCH_EXTRA[0],min(BENCH_EXTRA[1],BENCH_EXTRA[0]+0.6*(len(_bi)-1))); _bw=[1.0/(k+1) for k in range(len(_bi))]
+        for k,i in enumerate(_bi): _m[i]=max(0.1,_E*_bw[k]/sum(_bw))
     FRESH_FIT[_sh]={nm:{"mpg":round(_m[i],1),"ppg":round(e[2]*FRESH_PPS*_m[i]/max(0.1,e[0]),1)} for i,(nm,e) in enumerate(_ests)}
     print("newcomer-only roster: %s projected (%d players)"%(_sh,len(_ests)),file=sys.stderr)
 for _sh,_fm in FRESH_FIT.items():
