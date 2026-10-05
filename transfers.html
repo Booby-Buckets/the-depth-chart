@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="tdc-loading.js?v=3"></script>   <!-- first, so it sees every request -->
+  <link rel="stylesheet" href="tdc-a11y.css?v=1">
+  <script src="tdc-a11y.js?v=2" defer></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Transfer Portal — The Depth Chart</title>
+  <meta name="description" content="Every Division I transfer for 2026-27: where they came from, where they landed, last season's line against their projected one, and each program's portal gains and losses.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Depth Chart">
+  <meta property="og:title" content="Transfer Portal — The Depth Chart">
+  <meta property="og:description" content="Every 2026-27 Division I transfer: from, to, last season vs projected, and each team's portal class.">
+  <meta property="og:url" content="https://www.thedepthchartcbb.com/transfers.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <script src="auth.js?v=delacct1"></script>
+  <script src="tdc-theme.js?v=5"></script>
+  <script src="team-colors.js?v=11"></script>
+  <script src="tdc-teamname.js?v=1"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;}
+    [data-theme="dark"]{--bg:#0A0E18;--bg2:#111726;--bg3:#1A2133;--border:#232B3E;--border2:#34405A;--text:#EEF1F7;--text2:#AEB6C8;--text3:#7A849A;--accent:#E6D5A8;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html,body{background:var(--bg);}
+    body{color:var(--text);font-family:'Inter',system-ui,sans-serif;font-weight:500;min-height:100vh;}
+    .page{padding:32px 0 56px;}
+    .page-eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
+    .page-h1{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:34px;letter-spacing:-.02em;margin-bottom:14px;}
+    .tp-sum{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px;max-width:720px;}
+    .tp-sum div{padding:9px 12px;border-right:1px solid var(--border);background:var(--bg);}
+    .tp-sum div:last-child{border-right:0;}
+    .tp-sum span{display:block;font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);}
+    .tp-sum b{display:block;font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:2px;}
+    .tp-bar{display:flex;flex-direction:column;gap:10px;padding:14px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:14px;}
+    .tp-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+    .tp-lab{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);width:92px;flex:none;}
+    .chip{font:600 11.5px 'Inter',system-ui,sans-serif;letter-spacing:.02em;background:var(--bg);border:1px solid var(--border2);color:var(--text2);padding:5px 11px;border-radius:999px;cursor:pointer;}
+    .chip:hover{color:var(--text);border-color:var(--text3);}
+    .chip.on{background:var(--text);color:var(--bg);border-color:var(--text);}
+    .tp-sel,.tp-search{font:600 12px 'Inter',system-ui,sans-serif;background:var(--bg);border:1px solid var(--border2);color:var(--text);padding:6px 10px;border-radius:8px;outline:none;}
+    .tp-search{width:220px;}
+    .tp-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:6px 0 10px;}
+    .tp-title{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:22px;}
+    .tp-note{font-size:12px;color:var(--text3);}
+    .tp-table{--c1:44px;--c2:200px;}
+    .tp-table th.sort{cursor:pointer;user-select:none;} .tp-table th.on{color:var(--text);}
+    .tp-table td.nm a{color:var(--text);text-decoration:none;} .tp-table td.nm a:hover{color:var(--accent);text-decoration:underline;}
+    .tp-table td.tm a{display:inline-flex;align-items:center;gap:7px;color:inherit;text-decoration:none;vertical-align:middle;}
+    .tp-table td.tm a:hover span{color:var(--accent);text-decoration:underline;}
+    .tp-table td.tm img,.tp-table td.tm i{width:18px;height:18px;object-fit:contain;flex:none;}
+    .tp-table td.up{color:#2e8b57;font-weight:800;} .tp-table td.dn{color:#c75d5d;font-weight:800;}
+    [data-theme="dark"] .tp-table td.up{color:#6fbf7e;} [data-theme="dark"] .tp-table td.dn{color:#e07a7a;}
+    .tp-lvl{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border:1px solid var(--border2);border-radius:4px;padding:1px 5px;color:var(--text2);}
+    .tp-fit{font-size:11.5px;font-weight:700;color:var(--accent);text-decoration:none;white-space:nowrap;}
+    .tp-fit:hover{text-decoration:underline;}
+    .tp-more{margin:14px auto 0;display:block;}
+    .tp-empty{padding:48px 12px;text-align:center;color:var(--text3);}
+    @media(max-width:640px){
+      .page{padding:16px 0 40px;} .page-h1{font-size:28px;}
+      .tp-sum{grid-template-columns:repeat(2,minmax(0,1fr));} .tp-sum div:nth-child(2){border-right:0;} .tp-sum div:nth-child(-n+2){border-bottom:1px solid var(--border);}
+      .tp-lab{width:100%;} .tp-search{width:100%;} .tp-table{--c1:34px;--c2:136px;}
+      .tp-bar{gap:12px;}
+      .tp-players th:nth-child(3),.tp-players td:nth-child(3),.tp-players th:nth-child(4),.tp-players td:nth-child(4),
+      .tp-players th:nth-child(12),.tp-players td:nth-child(12),.tp-players th:nth-child(13),.tp-players td:nth-child(13),
+      .tp-players th:nth-child(14),.tp-players td:nth-child(14),.tp-players th:nth-child(15),.tp-players td:nth-child(15){display:none;}
+    }
+  </style>
+  <link rel="stylesheet" href="tdc-skin.css?v=14"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+  <link rel="stylesheet" href="tdc-column.css?v=4"/>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script src="tdc-pwa.js?v=2" defer></script>
+</head>
+<body>
+<script src="tdc-nav.js?v=49"></script>
+
+<div class="page">
+  <div class="page-eyebrow">Players · Transfer Portal · 2026-27</div>
+  <h1 class="page-h1">Transfer Portal</h1>
+  <div class="tp-sum" id="tpSum"></div>
+
+  <div class="tp-bar">
+    <div class="tp-row" id="viewRow"><span class="tp-lab">View</span></div>
+    <div class="tp-row" id="posRow"><span class="tp-lab">Position</span></div>
+    <div class="tp-row" id="lvlRow"><span class="tp-lab">Move</span></div>
+    <div class="tp-row wrap"><span class="tp-lab">Conference</span><select class="tp-sel" id="confSel" aria-label="Landing conference"></select></div>
+  </div>
+
+  <div class="tp-head">
+    <div><div class="tp-title" id="tpTitle">Every transfer</div><div class="tp-note" id="tpNote">Loading the portal…</div></div>
+    <input class="tp-search" id="tpSearch" type="search" placeholder="Find a player or school…" aria-label="Find a player or school"/>
+  </div>
+
+  <div class="sheet-wrap">
+    <table class="sheet dense freeze2 tp-table" aria-label="Transfer portal">
+      <thead><tr id="tpHead"></tr></thead>
+      <tbody id="tpBody"><tr><td class="tp-empty" colspan="16">Loading…</td></tr></tbody>
+    </table>
+  </div>
+  <button type="button" class="chip tp-more" id="tpMore" style="display:none">Show 100 more</button>
+</div>
+
+<script>
+(function(){
+  const PAGE = 100;
+  const VIEWS = [['players','Players'],['teams','Teams']];
+  const POS = [['','All'],['G','Guards'],['F','Forwards'],['C','Centers']];
+  const LVL = [['','All'],['up','Moved up'],['side','Same level or down']];
+  const st = { view:'players', pos:'', lvl:'', conf:'', q:'', sort:null, dir:-1, shown:PAGE };
+  let D = null;
+
+  const sn = n => (window.tdcShortSchool ? tdcShortSchool(n) : n) || n || '';
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const logo = n => { try { const c = window.tdcTeamColor && (tdcTeamColor(sn(n)) || tdcTeamColor(n)); return c && c.logo || ''; } catch (e) { return ''; } };
+  const teamCell = n => n ? `<a href="team.html?team=${encodeURIComponent(sn(n))}" onclick="event.stopPropagation()">${logo(n) ? `<img src="${logo(n)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : '<i></i>'}<span>${esc(sn(n))}</span></a>` : '<span class="dim">—</span>';
+  const CN = { 'BIG-12': 'Big 12', 'Big-East': 'Big East', 'B10': 'Big Ten', 'PAC-12': 'Pac-12', 'A10': 'Atlantic 10', 'AEC': 'America East', 'MWC': 'Mountain West', 'SBC': 'Sun Belt' };
+  const cn = c => CN[c] || c || '';
+  const f1 = v => v == null ? '—' : (+v).toFixed(1);
+  const grp = p => { p = (p || '').toUpperCase(); return /C/.test(p) && !/G/.test(p) ? 'C' : /F/.test(p) ? 'F' : /G/.test(p) ? 'G' : ''; };
+  const playerHref = p => `player.html?espn=${p.espn}`;
+  const fitHref = p => `portal.html?espn=${p.espn}&name=${encodeURIComponent(p.name)}`;
+
+  // nulls always last; dir −1 = high→low (A→Z reversed), +1 = low→high (A→Z)
+  const cmp = (x, y) => typeof x === 'string' ? (st.dir < 0 ? y.localeCompare(x) : x.localeCompare(y)) : (st.dir < 0 ? y - x : x - y);
+  function chips(rowId, list, key) {
+    const row = document.getElementById(rowId);
+    list.forEach(([v, l]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip' + (st[key] === v ? ' on' : ''); b.textContent = l;
+      b.onclick = () => { st[key] = v; st.shown = PAGE; st.sort = null; row.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c === b)); render(); };
+      row.appendChild(b); });
+  }
+
+  function filtered() {
+    const q = st.q.trim().toLowerCase();
+    return D.players.filter(p =>
+      (!st.pos || grp(p.pos) === st.pos) &&
+      (!st.lvl || (st.lvl === 'up' ? p.up : !p.up)) &&
+      (!st.conf || p.toConf === st.conf) &&
+      (!q || (p.name + ' ' + sn(p.from) + ' ' + sn(p.to) + ' ' + p.from + ' ' + p.to).toLowerCase().includes(q)));
+  }
+
+  // ── players view ──
+  const PCOLS = [
+    ['#', 'rk', null], ['Player', 'l', null], ['Pos', 'c', null], ['Yr', 'c', null], ['From', 'l', 'from'], ['To', 'l', 'to'],
+    ['OVR', '', 'ovr', 1], ['Last', '', 'lastOvr', 1], ['Δ', '', 'chg'], ['Proj PPG', '', 'pp', 1], ['Last PPG', '', 'lp', 1],
+    ['Proj MIN', '', 'pm', 1], ['Last MIN', '', 'lm', 1], ['Move', 'c', 'up'], ['Status', 'c', null], ['', 'l', null]];
+  const pval = (p, k) => k === 'chg' ? (p.ovr != null && p.lastOvr != null ? p.ovr - p.lastOvr : null)
+    : k === 'pp' ? p.proj.ppg : k === 'lp' ? p.last.ppg : k === 'pm' ? p.proj.mpg : k === 'lm' ? p.last.mpg
+    : k === 'from' ? sn(p.from) : k === 'to' ? sn(p.to) : p[k];
+
+  function renderPlayers() {
+    let rows = filtered();
+    const k = st.sort || 'ovr';
+    rows = rows.slice().sort((a, b) => { const x = pval(a, k), y = pval(b, k);
+      if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1;
+      return cmp(x, y); });
+    document.getElementById('tpHead').innerHTML = PCOLS.map(([l, c, key, heat]) =>
+      `<th class="${c}${key ? ' sort' : ''}${(st.sort || 'ovr') === key ? ' on' : ''}"${heat ? ` data-heat="${heat}"` : ''}${key ? ` data-k="${key}"` : ''}>${l}${(st.sort || 'ovr') === key ? (st.dir < 0 ? ' ▾' : ' ▴') : ''}</th>`).join('');
+    const show = rows.slice(0, st.shown);
+    document.getElementById('tpBody').innerHTML = show.length ? show.map((p, i) => {
+      const chg = pval(p, 'chg');
+      return `<tr style="cursor:pointer" onclick="location.href='${playerHref(p)}'">
+        <td class="rk">${i + 1}</td>
+        <td class="l nm"><a href="${playerHref(p)}" onclick="event.stopPropagation()">${esc(p.name)}</a></td>
+        <td class="c dim">${esc(p.pos)}</td><td class="c dim">${esc(p.cls)}</td>
+        <td class="l tm">${teamCell(p.from)}</td><td class="l tm">${teamCell(p.to)}</td>
+        <td class="strong">${p.ovr ?? '—'}</td><td>${p.lastOvr ?? '—'}</td>
+        <td class="${chg > 0 ? 'up' : chg < 0 ? 'dn' : 'dim'}">${chg == null ? '—' : (chg > 0 ? '+' : chg < 0 ? '−' : '') + Math.abs(chg)}</td>
+        <td class="strong">${f1(p.proj.ppg)}</td><td>${f1(p.last.ppg)}</td><td>${f1(p.proj.mpg)}</td><td>${f1(p.last.mpg)}</td>
+        <td class="c">${p.up ? '<span class="tp-lvl">Up</span>' : ''}</td>
+        <td class="c dim">${p.status === 'committed' ? 'Committed' : esc(p.status || '')}</td>
+        <td class="l"><a class="tp-fit" href="${fitHref(p)}" onclick="event.stopPropagation()">Fit ›</a></td></tr>`;
+    }).join('') : `<tr><td class="tp-empty" colspan="${PCOLS.length}">No transfers match.</td></tr>`;
+    document.getElementById('tpTitle').textContent = st.pos || st.lvl || st.conf || st.q ? 'Filtered transfers' : 'Every transfer';
+    document.getElementById('tpNote').textContent = `${rows.length.toLocaleString()} players · sorted by ${(PCOLS.find(c => c[2] === k) || [])[0] || 'OVR'}`;
+    const more = document.getElementById('tpMore'); more.style.display = rows.length > st.shown ? '' : 'none';
+    more.textContent = `Show ${Math.min(PAGE, rows.length - st.shown)} more`;
+  }
+
+  // ── teams view: each program's portal class ──
+  const TCOLS = [['#', 'rk', null], ['Team', 'l', 'name'], ['Conf', 'c', 'conf'], ['Haul', '', 'haul', 1], ['In', '', 'nIn', 1], ['Out', '', 'nOut', -1],
+    ['Avg OVR in', '', 'avgIn', 1], ['Avg OVR out', '', 'avgOut', -1], ['Net', '', 'net', 1], ['Top addition', 'l', null], ['Top loss', 'l', null]];
+  function teamRows() {
+    const T = {}; const get = n => T[n] || (T[n] = { name: n, conf: '', ins: [], outs: [] });
+    filtered().forEach(p => { if (p.to) { const t = get(p.to); t.conf = p.toConf; t.ins.push(p); } if (p.from) get(p.from).outs.push(p); });
+    const avg = (a, k) => { const v = a.map(x => x[k]).filter(x => x != null); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
+    return Object.values(T).filter(t => !st.conf || t.conf === st.conf).map(t => {
+      t.ins.sort((a, b) => (b.ovr || 0) - (a.ovr || 0)); t.outs.sort((a, b) => (b.lastOvr || 0) - (a.lastOvr || 0));
+      t.haul = t.ins.reduce((s, p) => s + Math.max(0, (p.ovr || 0) - 70), 0);   // each addition's OVR above 70, summed
+      t.nIn = t.ins.length; t.nOut = t.outs.length; t.avgIn = avg(t.ins, 'ovr'); t.avgOut = avg(t.outs, 'lastOvr'); t.net = t.nIn - t.nOut;
+      return t; });
+  }
+  function renderTeams() {
+    let rows = teamRows();
+    const k = st.sort || 'haul';
+    rows.sort((a, b) => { const x = a[k], y = b[k]; if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1;
+      return cmp(x, y); });
+    document.getElementById('tpHead').innerHTML = TCOLS.map(([l, c, key, heat]) =>
+      `<th class="${c}${key ? ' sort' : ''}${k === key ? ' on' : ''}"${heat ? ` data-heat="${heat}"` : ''}${key ? ` data-k="${key}"` : ''}>${l}${k === key ? (st.dir < 0 ? ' ▾' : ' ▴') : ''}</th>`).join('');
+    const top = p => p ? `<a href="${playerHref(p)}" onclick="event.stopPropagation()">${esc(p.name)}</a> <span class="dim">${p.ovr ?? p.lastOvr ?? ''}</span>` : '<span class="dim">—</span>';
+    const show = rows.slice(0, st.shown);
+    document.getElementById('tpBody').innerHTML = show.length ? show.map((t, i) => `<tr style="cursor:pointer" onclick="location.href='team.html?team=${encodeURIComponent(sn(t.name))}'">
+        <td class="rk">${i + 1}</td><td class="l tm">${teamCell(t.name)}</td><td class="c dim">${esc(cn(t.conf))}</td>
+        <td class="strong">${t.haul}</td><td>${t.nIn}</td><td>${t.nOut}</td><td>${t.avgIn == null ? '—' : t.avgIn.toFixed(1)}</td><td>${t.avgOut == null ? '—' : t.avgOut.toFixed(1)}</td>
+        <td class="${t.net > 0 ? 'up' : t.net < 0 ? 'dn' : 'dim'}">${t.net > 0 ? '+' : t.net < 0 ? '−' : ''}${Math.abs(t.net)}</td>
+        <td class="l nm">${top(t.ins[0])}</td><td class="l nm">${top(t.outs[0] && Object.assign({}, t.outs[0], { ovr: t.outs[0].lastOvr }))}</td></tr>`).join('')
+      : `<tr><td class="tp-empty" colspan="${TCOLS.length}">No programs match.</td></tr>`;
+    document.getElementById('tpTitle').textContent = 'Portal class by program';
+    document.getElementById('tpNote').textContent = `${rows.length} programs · Haul = each addition's OVR above 70, summed`;
+    const more = document.getElementById('tpMore'); more.style.display = rows.length > st.shown ? '' : 'none';
+    more.textContent = `Show ${Math.min(PAGE, rows.length - st.shown)} more`;
+  }
+
+  function render() {
+    const tb = document.querySelector('.tp-table'); tb.classList.toggle('tp-players', st.view === 'players'); tb.classList.toggle('tp-teams', st.view === 'teams');
+    (st.view === 'teams' ? renderTeams : renderPlayers)();
+    const t = document.querySelector('.tp-table'); if (t && window.tdcSheetHeat) tdcSheetHeat(t);
+  }
+
+  document.getElementById('tpHead').addEventListener('click', e => {
+    const th = e.target.closest('th[data-k]'); if (!th) return; const k = th.dataset.k;
+    const cur = st.sort || (st.view === 'teams' ? 'haul' : 'ovr');
+    if (cur === k) st.dir = -st.dir; else { st.sort = k; st.dir = (k === 'from' || k === 'to' || k === 'name' || k === 'conf') ? 1 : -1; }
+    st.sort = k; st.shown = PAGE; render();
+  });
+  document.getElementById('tpMore').onclick = () => { st.shown += PAGE; render(); };
+  let tq; document.getElementById('tpSearch').addEventListener('input', e => { clearTimeout(tq); tq = setTimeout(() => { st.q = e.target.value; st.shown = PAGE; render(); }, 120); });
+  document.getElementById('confSel').addEventListener('change', e => { st.conf = e.target.value; st.shown = PAGE; render(); });
+
+  chips('viewRow', VIEWS, 'view'); chips('posRow', POS, 'pos'); chips('lvlRow', LVL, 'lvl');
+  // deep links: ?view=teams&conf=SEC&q=duke
+  const u = new URLSearchParams(location.search);
+  ['view', 'conf', 'q'].forEach(k => { if (u.get(k)) st[k] = u.get(k); });
+  document.querySelectorAll('#viewRow .chip').forEach((c, i) => c.classList.toggle('on', VIEWS[i][0] === st.view));
+  if (st.q) document.getElementById('tpSearch').value = st.q;
+
+  fetch('data/portal_2027.json?v=1').then(r => r.json()).then(d => {
+    D = d;
+    const confs = [...new Set(d.players.map(p => p.toConf).filter(Boolean))].sort();
+    const sel = document.getElementById('confSel');
+    sel.innerHTML = '<option value="">All conferences</option>' + confs.sort((a, b) => cn(a).localeCompare(cn(b))).map(c => `<option value="${esc(c)}">${esc(cn(c))}</option>`).join('');
+    sel.value = st.conf;
+    const up = d.players.filter(p => p.up).length, top = d.players.filter(p => (p.ovr || 0) >= 85).length;
+    const progs = new Set(d.players.map(p => p.to)).size;
+    document.getElementById('tpSum').innerHTML = [['Transfers', d.n], ['Moved up a level', up], ['Rated 85+', top], ['Programs adding', progs]]
+      .map(([l, v]) => `<div><span>${l}</span><b>${(+v).toLocaleString()}</b></div>`).join('');
+    render();
+  }).catch(() => { document.getElementById('tpBody').innerHTML = '<tr><td class="tp-empty" colspan="16">Could not load the portal data.</td></tr>'; });
+})();
+</script>
+<script src="tdc-version.js?v=2"></script>
+<script src="tdc-sheets.js?v=2"></script>
+</body>
+</html>
