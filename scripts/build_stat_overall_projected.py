@@ -484,7 +484,10 @@ def proj_mpg(d,last,starter,trusted=False):
     if d is None and last>0: pm=last
     return pm
 DEV=json.load(open(os.path.join(D,"dev_curves.json")))["rate_mult"]
-DEV_SCALE=float(os.environ.get("DEV_SCALE","1.0"))   # shrink the class-development multipliers toward 1 (calibration knob)
+DEV_SCALE=float(os.environ.get("DEV_SCALE","1.0"))
+CRED_K=float(os.environ.get("CRED_K","400"))
+CRED_K_LO=float(os.environ.get("CRED_K_LO","200"))   # the same pull for a BELOW-median rate: at 400 it lifted weak bench returners ~1 pt above history (65-70 +2.3 vs +1.9,
+# <65 +6.9 vs +5.6); 200 lands them at +1.4 / +6.0 and leaves every tier 75+ untouched (Oct 2026 calibration)   # projected-rate reliability: last-year minutes worth of pull toward the median per-40   # shrink the class-development multipliers toward 1 (calibration knob)
 # PER-STAT DEVELOPMENT (scripts/build_stat_dev.py -> stat_dev.json): next per-40 = a + b*this for
 # rebounds, assists, steals, blocks and turnovers, per class step, fit on ~17k same-school returner
 # pairs. b<1 pulls an outlier season back toward normal, a is the step's typical growth (assists
@@ -1074,7 +1077,7 @@ for short, roster in roster_by_team.items():
         # noisy small-minutes line stays shrunk toward the median even projected into a big
         # role (else a hot 200-min stretch projects to an elite starter). Projected minutes
         # drive only the volume/role credit below.
-        cred_a=last_min/(last_min+400.0)
+        cred_a=last_min/(last_min+(CRED_K_LO if per40_p<MU40 else CRED_K))
         b_p=MU40+cred_a*(per40_p-MU40)
         # ROLE CREDIT: the grade is the player, not the minutes. ROLE_FLOOR keeps most of the
         # per-40 quality even in a small role (0 = the old pure sqrt(minutes) scaling, where a
