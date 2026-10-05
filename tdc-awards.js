@@ -26,7 +26,7 @@
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
   const SEASON=2027, LS_KEY='tdc_awards_v6_'+SEASON, TTL=24*3600*1000;
-  const GVER=8;   // grade version — bump to invalidate any cached/published blob with old grades
+  const GVER=10;   // grade version — bump to invalidate any cached/published blob with old grades
 
   function cls(yr){ yr=((yr||'')+'').toLowerCase();
     if(yr.includes('fr')) return 'FR';
@@ -50,13 +50,27 @@
   }
 
   async function compute(){
-    const [teams, players, bb, proj]=await Promise.all([
+    const [teams, players, bb, proj, prRows]=await Promise.all([
       fetch(SB+'/rest/v1/teams?select=name,conf,conference&limit=500',{headers:H}).then(r=>r.json()),
       fetchPaged(SB+'/rest/v1/players?name=neq.%E2%80%94&select=name,team,espn_id,position,yr,class_year,tdc_grade,ppg,rpg,apg,stl,blk,mpg,is_injured,hometown&order=id.asc'),
       fetchPaged(SB+'/rest/v1/player_advanced?season_year=eq.2026&espn_id=not.is.null&select=espn_id,ti40&order=espn_id.asc'),
       fetch('scripts/data/stat_overall_projected.json?v=83').then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch(SB+'/rest/v1/predictive_ratings?season=eq.'+SEASON+'&select=data&limit=1',{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]),
     ]);
     const confOf={}; (teams||[]).forEach(t=>{ confOf[t.name]=t.conf||t.conference||''; });
+    // TEAM SUCCESS (owner, Oct 2026: "all-conference teams heavily favor good teams" — voters reward winning).
+    // Each team's projected Power Rating as a z-score inside its conference (and nationally for All-America),
+    // worth TEAM_W OVR points per SD, capped at ±2 SD: a star on the league's best team gains ~4, one on its
+    // worst loses ~4, so equal players split by team success while a clearly better player still makes it.
+    const TEAM_W=2.0, TEAM_W_NAT=1.5;
+    const rateOf={}; (((prRows&&prRows[0]&&prRows[0].data)||{}).teams||[]).forEach(t=>{ if(t.team&&isFinite(+t.rating)) rateOf[t.team]=+t.rating; });
+    const zStats=xs=>{ const m=xs.reduce((a,b)=>a+b,0)/Math.max(1,xs.length); const sd=Math.sqrt(xs.reduce((a,b)=>a+(b-m)*(b-m),0)/Math.max(1,xs.length)); return {m, sd:Math.max(3,sd)}; };
+    const confRates={}; Object.keys(rateOf).forEach(tm=>{ const cf=confOf[tm]; if(cf) (confRates[cf]=confRates[cf]||[]).push(rateOf[tm]); });
+    const confZ={}; Object.keys(confRates).forEach(cf=>{ confZ[cf]=zStats(confRates[cf]); });
+    const natZ=zStats(Object.values(rateOf));
+    const clampZ=z=>Math.max(-2,Math.min(2,z));
+    const teamZ=(tm,cf)=>{ const r=rateOf[tm]; if(r==null) return 0; const st=confZ[cf]; return st?clampZ((r-st.m)/st.sd):0; };
+    const teamZNat=tm=>{ const r=rateOf[tm]; return r==null?0:clampZ((r-natZ.m)/natZ.sd); };
     const advById={}; (bb||[]).forEach(r=>{ if(r.espn_id!=null&&r.ti40!=null) advById[r.espn_id]={ti40:r.ti40}; });
     // canonical projected OVR — the SAME file the index/player/team pages read, so grades match site-wide
     const ovrById={}; if(proj&&proj.players){ Object.keys(proj.players).forEach(function(e){ var o=proj.players[e]; if(o&&o.ovr!=null) ovrById[e]=+o.ovr; }); }
@@ -102,7 +116,8 @@
         name:p.name, team:p.team, conf, pos:p.position||'', yr:p.yr||p.class_year||'', grade, espn_id:p.espn_id,
         isFr:c==='FR',
         // the projected OVR leads; projected production second; last season's impact only a nudge
-        score:+(2.2*(grade-75)+0.55*prod+0.3*projBpm).toFixed(2),
+        score:+(2.2*(grade-75)+0.55*prod+0.3*projBpm+2.2*TEAM_W*teamZ(p.team,conf)).toFixed(2),
+        scoreNat:+(2.2*(grade-75)+0.55*prod+0.3*projBpm+2.2*TEAM_W_NAT*teamZNat(p.team)).toFixed(2),
         def:+(2.4*projDbpm+1.5*stocks+0.4*(grade-78)).toFixed(2),
         rook:+(grade+0.3*prod).toFixed(2),
       });
@@ -120,20 +135,21 @@
       rule=rule||{minG:2,minF:2,maxC:2};
       const left=arr.slice(), out=[];
       for(let t=0;t<count&&left.length;t++){
-        const pick=[]; let g=0,f=0,c=0;
+        const pick=[]; let g=0,f=0,c=0; const byTeam={};
         for(let i=0;i<left.length&&pick.length<per;i++){
           const x=left[i], ps=posOf(x), isG=ps==='G', isF=ps==='F'||ps==='C', isC=ps==='C';
           if(isC&&c>=rule.maxC) continue;
+          if((byTeam[x.team]||0)>=(rule.maxTeam||2)) continue;   // at most two from one program per five
           const g2=g+(isG?1:0), f2=f+(isF?1:0), slots=per-pick.length-1;
           if(Math.max(0,rule.minG-g2)+Math.max(0,rule.minF-f2)>slots) continue;
-          pick.push(x); left.splice(i,1); i--; g=g2; f=f2; if(isC) c++;
+          pick.push(x); left.splice(i,1); i--; g=g2; f=f2; if(isC) c++; byTeam[x.team]=(byTeam[x.team]||0)+1;
         }
         while(pick.length<per&&left.length) pick.push(left.shift());   // pool ran out of a position
         out.push(pick.map(slim));
       }
       return out; };
 
-    const national=[...cand].sort((a,b)=>b.score-a.score);
+    const national=[...cand].sort((a,b)=>b.scoreNat-a.scoreNat);
     const awards={ season:SEASON, gver:GVER, generated:new Date().toISOString(),
       allAmerica:teamsOf(national,5,3), conferences:{} };
 
