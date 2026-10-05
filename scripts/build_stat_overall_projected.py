@@ -572,6 +572,34 @@ _cs=pd.DataFrame(sb_get(f"player_history?select=espn_id,season_year&mpg=gt.2&sea
 _cs["espn_id"]=pd.to_numeric(_cs["espn_id"],errors="coerce")
 CAREER_SEASONS=_cs.dropna(subset=["espn_id"]).groupby("espn_id")["season_year"].nunique().to_dict()
 for df in (adv,pl,box): df["espn_id"]=pd.to_numeric(df["espn_id"],errors="coerce").astype("Int64")
+# ONE ESPN ID, TWO ROSTERS (Oct 2026): the roster autofill matched by name, so a namesake on another roster
+# borrowed a real player's espn_id — Jayden Reid (5-10 guard, Northwestern -> Memphis) also sat on Quinnipiac as a
+# 6-10 forward. Both rows projected under one key, the second overwrote the first, and Memphis came up 32 minutes
+# short (Wichita State, Montana the same). The id belongs to the row that matches his record: same height, same
+# name, same school as his last season; the others are treated as newcomers (no stats, no id).
+_dups=pl.dropna(subset=["espn_id"]).groupby("espn_id").filter(lambda g: len(g)>1)
+if len(_dups):
+    _ids=",".join(str(int(x)) for x in _dups["espn_id"].unique())
+    _hist={}
+    for _r in sb_get(f"player_history?select=espn_id,season_year,name,team,height&espn_id=in.({_ids})&order=espn_id.asc,season_year.asc"):
+        _hist[_r["espn_id"]]=_r   # last season wins (ordered)
+    def _hin2(h):
+        try: a,b=str(h).replace("'","-").split("-")[:2]; return int(a)*12+int(b)
+        except Exception: return None
+    def _score(row,h):
+        if not h: return 0
+        sc=0
+        if str(row["name"]).strip().lower()==str(h.get("name") or "").strip().lower(): sc+=2
+        a,b=_hin2(row.get("height")),_hin2(h.get("height"))
+        if a and b: sc+=2 if a==b else (1 if abs(a-b)<=1 else -2)
+        if str(h.get("team") or "").strip().lower()==str(row["team"]).strip().lower(): sc+=1
+        return sc
+    for _e,_g in _dups.groupby("espn_id"):
+        _h=_hist.get(int(_e)); _best=max(_g.index,key=lambda i:_score(pl.loc[i],_h))
+        for _i in _g.index:
+            if _i!=_best:
+                print("duplicate espn %s: kept %s (%s), cleared %s (%s)"%(_e,pl.at[_best,"name"],pl.at[_best,"team"],pl.at[_i,"name"],pl.at[_i,"team"]),file=sys.stderr)
+                pl.at[_i,"espn_id"]=pd.NA
 for c in ["g","min","usg_pct","owa","dwa","ti40"]: adv[c]=pd.to_numeric(adv[c],errors="coerce")
 for c in ["ppg","mpg","fgm","fga","tpm","tpa","ftm","fta","oreb","dreb","stl","blk","tovs","apg","gp","fg_pct","tp_pct","ft_pct"]:
     box[c]=pd.to_numeric(box[c],errors="coerce")
@@ -822,9 +850,50 @@ POS_FGA40={"PG":13.5,"SG":14.5,"CG":14.0,"G":14.0,"SF":13.0,"F":12.0,"PF":11.5,"
 # based: a freshman guard reads as a shooter, a freshman big as an interior/foul-drawer.
 POS_3FRAC ={"PG":0.42,"SG":0.44,"CG":0.43,"G":0.43,"SF":0.36,"F":0.28,"PF":0.22,"C":0.10}
 POS_FTFRAC={"PG":0.24,"SG":0.24,"CG":0.25,"G":0.25,"SF":0.28,"F":0.34,"PF":0.38,"C":0.44}
+# ── FRESHMAN PROJECTION (Oct 2026: "the overall should be based on projections, not blanket overalls") ──
+# A no-stats newcomer's OVR used to be the sheet's hand grade. Now it is projected from what players like him
+# actually did as freshmen: 3,367 ranked recruits, 2011-25 247 composite classes matched to their freshman
+# season (grade / minutes by rank band below), plus 13,594 unranked first-year players (63.2 avg grade).
+# His TALENT PRIOR is the editor OVR if the owner set one, else the 247 curve at his rank, else the sheet
+# grade (the only scouting signal for internationals / prep players 247 doesn't rank), else 63. Minutes are
+# split on that prior, and the OVR is the prior moved by the role he projects to win (damped: a top recruit
+# buried behind veterans really does grade lower, R^2 .64 fit grade ~ ln(rank) + 0.77*mpg).
+import re as _re, unicodedata as _ud
+def _nk(s):
+    s=_ud.normalize("NFKD",str(s or "")).encode("ascii","ignore").decode().lower()
+    return _re.sub(r"[^a-z]","",_re.sub(r"\b(jr|sr|ii|iii|iv)\b\.?","",s))
+try: _R247={_nk(r["name"]):r["rank"] for r in json.load(open(os.path.join(D,"recruiting_247.json")))["classes"].get(str(CUR),[])}
+except Exception: _R247={}
+FR_RANK_T=((3,88.2),(8,84.5),(18,81.2),(38,76.6),(75,72.9),(125,70.8),(175,67.9),(250,67.1),(350,67.1))   # rank-band mean freshman grade
+FR_UNRANKED=float(os.environ.get("FR_UNRANKED","63.0")); FR_MIN_W=float(os.environ.get("FR_MIN_W","0.4"))
+EDITOR_OVR={}
+for _k,_v in OWNER_BLOB.items():
+    if _k.startswith("tdc_fr:") and isinstance(_v,dict) and _v.get("ovr") not in (None,""):
+        try: _,_ft,_fn=_k.split(":",2); EDITOR_OVR[(_ft.strip(),_fn.strip().lower())]=float(_v["ovr"])
+        except Exception: pass
+def fr_rank_grade(rk):
+    x=math.log(max(1,rk)); pts=[(math.log(r),g) for r,g in FR_RANK_T]
+    if x<=pts[0][0]: return pts[0][1]
+    for (x0,g0),(x1,g1) in zip(pts,pts[1:]):
+        if x<=x1: return g0+(g1-g0)*(x-x0)/(x1-x0)
+    return pts[-1][1]
+FR_PRIOR={}   # (short, name) -> (prior, source, rank)
+def fr_prior(short,name,sheet):
+    key=(short,str(name).strip())
+    if key in FR_PRIOR: return FR_PRIOR[key][0]
+    ed=EDITOR_OVR.get((short,str(name).strip().lower()))
+    rk=_R247.get(_nk(name))
+    if ed is not None: v=(ed,"editor",rk)
+    elif rk: v=(fr_rank_grade(rk),"247",rk)
+    elif _n(sheet,0)>0: v=(float(sheet),"sheet",None)
+    else: v=(FR_UNRANKED,"baseline",None)
+    FR_PRIOR[key]=v; return v[0]
+def fr_exp_mpg(t): return min(32.0,max(4.0,0.75*t-37.5))   # minutes a freshman of that talent usually plays (from the rank bands)
+def fr_ovr(t,mpg): return int(round(min(99,max(55,t+FR_MIN_W*max(-8.0,min(8.0,mpg-fr_exp_mpg(t)))))))
 def _fresh_est(grade,depth,starter,position):
     pm=proj_mpg(depth,0,str(starter).lower() in ("true","t","1"))
-    if pm<5: return None
+    # a deep-bench newcomer still gets a sliver of the 200 (he used to be dropped under 5 mpg and showed blank)
+    pm=max(pm,1.0)
     base=POS_FGA40.get(_pos(position),12.5)
     g=_n(grade,0) or 74.0
     # Shot RATE (per-40) must scale with ROLE, not just grade+position — a real bench
@@ -1177,8 +1246,9 @@ for short, roster in roster_by_team.items():
             if _e is not None and _e in _rids: continue
             _nm=str(getattr(_p,"name","") or "").strip()
             if not _nm or _nm.lower() in ("name","—"): continue
-            _est=_fresh_est(getattr(_p,"tdc_grade",None),_p.depth_order,_p.starter,_p.position)
-            if _est: _fresh.append(_est+(_nm,_n(getattr(_p,"tdc_grade",None),74.0),(int(_p.depth_order) if pd.notna(_p.depth_order) else None)))
+            _fp=fr_prior(short,_nm,getattr(_p,"tdc_grade",None))
+            _est=_fresh_est(_fp,_p.depth_order,_p.starter,_p.position)
+            if _est: _fresh.append(_est+(_nm,_fp,(int(_p.depth_order) if pd.notna(_p.depth_order) else None)))
         # QUALITY NUDGE (mirrors tdc-proj.js's starter grade nudge, widened to the top 9): the
         # depth slot sets the role, the grade moves minutes inside it, +/-25% at 10 OVR from the
         # rotation's average. A 77 starter hands some of his time to better players behind him
@@ -1336,12 +1406,23 @@ for short, roster in roster_by_team.items():
         _fixed=[k=="f" and (short,x.strip().lower()) in FIXED_MIN for k,x in _rot]
         _m0=[(out[str(x["e"])]["mpg"] if k=="r" else FRESH_FIT[short][x]["mpg"]) or 0.0 for k,x in _rot]
         _cur=list(_m0)
-        for _ in range(8):
+        # each player's real ceiling: a transfer is re-capped at max(his slot, last year + MPG_XFER_BUMP) when he
+        # is re-projected, so minutes handed past it were silently lost (N. Illinois ended at 190.9)
+        def _capOf(k,x):
+            if k!="r" or not x.get("xfer"): return MPG_MAX
+            _xd=x["p"].depth_order; _xd=int(_xd) if pd.notna(_xd) else None
+            _xs=(SLOT_CUR[_xd] if _xd and 1<=_xd<len(SLOT_CUR) else (5 if _xd and _xd>=len(SLOT_CUR) else 0))
+            return min(MPG_MAX,max(_xs,x["last_mpg"]+MPG_XFER_BUMP))
+        _caps=[_capOf(k,x) for k,x in _rot]
+        for _pass in range(16):
             _gap=REF_MIN-sum(_cur)
-            _el=[i for i,m in enumerate(_cur) if m>=5.0 and not _fixed[i] and (_gap<0 or m<MPG_MAX-0.05)]
+            _minm=5.0 if _pass<8 else 0.5   # rotation first; a thin roster's deep bench takes what's left
+            _el=[i for i,m in enumerate(_cur) if m>=_minm and not _fixed[i] and (_gap<0 or m<_caps[i]-0.05)]
             _w=sum(_cur[i] for i in _el)
-            if abs(_gap)<0.5 or _w<=0: break
-            for i in _el: _cur[i]=max(0.5,min(MPG_MAX,_cur[i]*(1.0+_gap/_w)))
+            if abs(_gap)<0.5 or _w<=0:
+                if _pass<8 and abs(_gap)>=0.5: continue
+                break
+            for i in _el: _cur[i]=max(0.5,min(_caps[i],_cur[i]*(1.0+_gap/_w)))
         if abs(sum(_cur)-sum(_m0))>0.5:
             for (k,x),m0,m1 in zip(_rot,_m0,_cur):
                 if abs(m1-m0)<0.05 or m0<=0: continue
@@ -1437,7 +1518,7 @@ for r in pl.itertuples():
     if e is not None and str(e) in out: continue          # already a returner/transfer
     nm=str(getattr(r,"name","") or "").strip()
     if not nm or nm.lower() in ("name","—"): continue      # placeholder rows
-    est=_fresh_est(getattr(r,"tdc_grade",None),r.depth_order,r.starter,r.position)
+    est=_fresh_est(fr_prior(r.team,nm,getattr(r,"tdc_grade",None)),r.depth_order,r.starter,r.position)
     if not est: continue
     pm,f40,fga=est
     roster_full.setdefault(r.team,[]).append(
@@ -1472,10 +1553,39 @@ for short,lst in roster_full.items():
 for e,row in out.items():
     if "_demo_f40" in row: row["shot_tend_demo"]=_tend(row.pop("_demo_f40"))
 
+# NEWCOMER-ONLY ROSTERS: the team fit above runs only where a returner has a stat line, so a roster made
+# entirely of unlinked newcomers (St. Thomas, Oct 2026) projected nobody and showed blank minutes. Give them
+# the same freshman estimate, scaled so the team plays 200, nobody past MPG_MAX.
+_has=set(proj_team.values())
+for _sh,_g in pl[pl.espn_id.isna()].groupby("team"):
+    if _sh in _has or _sh in FRESH_FIT: continue
+    _ests=[]
+    for _p in _g.itertuples():
+        _nm=str(getattr(_p,"name","") or "").strip()
+        if not _nm or _nm.lower() in ("name","—") or _nm.rstrip(".").lower() in ("fr","so","jr","sr","r-fr","r-so","r-jr","r-sr","rs","gr"): continue
+        _e=_fresh_est(fr_prior(_sh,_nm,getattr(_p,"tdc_grade",None)),_p.depth_order,_p.starter,_p.position)
+        if _e: _ests.append((_nm,_e))
+    if len(_ests)<5: continue
+    _m=[e[0] for _,e in _ests]
+    for _ in range(12):
+        _gap=REF_MIN-sum(_m); _el=[i for i,v in enumerate(_m) if v<MPG_MAX-0.05]; _w=sum(_m[i] for i in _el)
+        if abs(_gap)<0.5 or _w<=0: break
+        for i in _el: _m[i]=max(0.5,min(MPG_MAX,_m[i]*(1.0+_gap/_w)))
+    FRESH_FIT[_sh]={nm:{"mpg":round(_m[i],1),"ppg":round(e[2]*FRESH_PPS*_m[i]/max(0.1,e[0]),1)} for i,(nm,e) in enumerate(_ests)}
+    print("newcomer-only roster: %s projected (%d players)"%(_sh,len(_ests)),file=sys.stderr)
+for _sh,_fm in FRESH_FIT.items():
+    for _nm,_f in _fm.items():
+        _pr=FR_PRIOR.get((_sh,_nm))
+        if not _pr: continue
+        _f["ovr"]=fr_ovr(_pr[0],_n(_f.get("mpg"),0)) if _pr[1]!="editor" else int(round(_pr[0]))
+        _f["src"]=_pr[1]
+        if _pr[2]: _f["rank"]=_pr[2]
 json.dump(FRESH_FIT,open(os.path.join(D,"fresh_fit.json"),"w"),separators=(",",":"))
 POS5_OUT={k:v["pos5"] for k,v in TEAM_FIT_LOG.items() if isinstance(v,dict) and v.get("pos5")}
 json.dump({"season":"2026-27","scale":{"mu":MU,"sp":SP},"n":len(out),"players":out,"teams":teams_out,"pos5":POS5_OUT},
           open(os.path.join(D,"stat_overall_projected.json"),"w"),separators=(",",":"),allow_nan=False)
+if os.environ.get("FIT_DEBUG"):
+    for _t in os.environ["FIT_DEBUG"].split(","): print("FITDBG",_t,TEAM_FIT_LOG.get(_t),file=sys.stderr)
 if TEAM_FIT_LOG:
     _mk=[v["minK"] for v in TEAM_FIT_LOG.values()]; _pk=[v["ptsK"] for v in TEAM_FIT_LOG.values()]
     print(f"team fit: {len(TEAM_FIT_LOG)} rosters · minutes x{np.mean(_mk):.3f} avg (min {min(_mk):.2f}) · points x{np.mean(_pk):.3f} avg (min {min(_pk):.2f}, max {max(_pk):.2f})",file=sys.stderr)

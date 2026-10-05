@@ -540,6 +540,7 @@
       // with no stat line (a true freshman, whose editor OVR the caller puts in tdc_grade).
       var sv0 = _statOvrOf(p);
       if(sv0 != null && isFinite(sv0)) return sv0;
+      var fo0 = _freshOvrOf(p); if(fo0 != null) return fo0;   // projected newcomer OVR
       var g = parseFloat(p.tdc_grade);
       if(!isFinite(g)){
         // No hand grade yet (e.g. a just-added transfer the owner hasn't graded — Jaxon
@@ -625,6 +626,11 @@
   // a ROSTERED newcomer the owner hasn't graded and who has no college stats counts as a typical D-I
   // newcomer (owner, Oct 2026) — shown on the depth chart AND used by the rankings — until he's graded
   var UNGRADED_OVR = 70;
+  // projected OVR for a player with no college stat line (freshman / unlinked newcomer), from fresh_fit.json
+  var _FRESH = null;
+  function _fk(t, n){ return String(t || '').trim().toLowerCase() + '|' + String(n || '').trim().toLowerCase(); }
+  function _freshOvrOf(row){ if(!_FRESH || !row) return null; var v = _FRESH[_fk(row.team, row.name)]; return (v != null && isFinite(+v)) ? +v : null; }
+  window.TDCProjGrade_freshOvrOf = _freshOvrOf;
   function gradeSolo(row){
     if(!row) return null;
     // Recruit / no-college-stats freshman: the OVR is the owner's editor profile number — the
@@ -638,6 +644,7 @@
     if(_gp != null && _gp > 0 && _gp < 3) return BASELINE_OVR; // played <3 games → baseline (too small a sample to grade)
     var _sv = _statOvrOf(row);                               // LIVE: statistical overall (projected→demonstrated) by espn_id
     if(_sv != null) return _scoutBlend(_sv, row);
+    var _fo = _freshOvrOf(row); if(_fo != null) return Math.min(99, Math.round(_fo));   // projected newcomer OVR, not the sheet grade
     if(row.id != null && _COUPLED[row.id] != null){ var ca = _COUPLED[row.id]; return Math.min(99, Math.round(ca + _taperArch(ca, _archOf(row)) + _gpsOf(row))); }   // legacy fallback (no stat overall — e.g. freshmen): coupled + tapered archetype
     var g = parseFloat(row.tdc_grade); if(!isFinite(g)) return UNGRADED_OVR; // on a roster but ungraded → a typical newcomer, not blank
     var qual = g;   // no conference discount here — see gradeRoster; the level lives in the projection
@@ -750,7 +757,10 @@
   // after only the stat files had landed showed 95 for a player whose page (bonus loaded) said 96.
   window.TDCProjGrade.ready = Promise.all([
     _loadSO('scripts/data/stat_overall.json?v=11').then(function(m){ if(m) setStatOverall(m, null); }),
-    _loadProjRows('scripts/data/stat_overall_projected.json?v=81').then(function(m){ if(m) setStatOverall(null, m); }),
-    _archP, _gpsP
+    _loadProjRows('scripts/data/stat_overall_projected.json?v=82').then(function(m){ if(m) setStatOverall(null, m); }),
+    _archP, _gpsP,
+    // projected freshman / newcomer OVRs (build: recruiting rank or scouting prior x projected role)
+    fetch('scripts/data/fresh_fit.json?v=23').then(function(r){ return r.ok ? r.json() : {}; }).then(function(j){
+      _FRESH = {}; for(var t in (j||{})){ for(var n in j[t]){ var f = j[t][n]; if(f && f.ovr != null) _FRESH[_fk(t, n)] = f.ovr; } } }).catch(function(){})
   ]).then(function(){ return true; }).catch(function(){ return true; });   // history is lazy — see loadHist()
 })();

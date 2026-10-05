@@ -105,7 +105,8 @@
   function line(p,profile){
     var B=FRB();
     var ovr=(profile&&profile.ovr!=null&&profile.ovr!=='')?parseFloat(profile.ovr):null;
-    var grade=(ovr!=null?ovr:parseFloat(p.tdc_grade))||70;
+    var _fo=(_fit&&_fit[p.team]&&_fit[p.team][p.name]&&_fit[p.team][p.name].ovr);
+    var grade=(ovr!=null?ovr:(_fo!=null?+_fo:parseFloat(p.tdc_grade)))||70;   // projected newcomer OVR before the sheet grade
     var pos=['PG','SG','SF','PF','C'].indexOf(p.position)>=0?p.position:(p.position==='CG'?'SG':'SG');
     var tier=grade>=92?'92+':grade>=85?'85-91':grade>=75?'75-84':'below75';
     var base=Object.assign({}, (B[tier]&&B[tier][pos])||(B['75-84']&&B['75-84']['SG'])||FR_BASE_FALLBACK['75-84']['SG']);
@@ -228,7 +229,7 @@
   var _blob=null, _loaded=false, _loading=null, _fit=null;
   // per-team fitted {mpg, ppg} for no-box players, from the projection build (small file)
   function loadFit(){ if(_fit) return Promise.resolve(_fit);
-    return fetch('scripts/data/fresh_fit.json?v=22').then(function(r){ return r.ok?r.json():{}; }).then(function(j){ _fit=j||{}; return _fit; }).catch(function(){ _fit={}; return _fit; }); }
+    return fetch('scripts/data/fresh_fit.json?v=23').then(function(r){ return r.ok?r.json():{}; }).then(function(j){ _fit=j||{}; return _fit; }).catch(function(){ _fit={}; return _fit; }); }
   function profileFor(p){ var k=frKey(p); if(_blob&&typeof _blob==='object') return _blob[k]||null;
     try{ var s=localStorage.getItem(k); return s?JSON.parse(s):null; }catch(e){ return null; } }
   function pushBlob(){ var s=session(); if(!isOwner()||!s||!s.access_token||!s.user||!s.user.id) return Promise.resolve({ok:false});
