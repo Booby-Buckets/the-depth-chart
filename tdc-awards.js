@@ -26,7 +26,7 @@
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
   const SEASON=2027, LS_KEY='tdc_awards_v6_'+SEASON, TTL=24*3600*1000;
-  const GVER=7;   // grade version — bump to invalidate any cached/published blob with old grades
+  const GVER=8;   // grade version — bump to invalidate any cached/published blob with old grades
 
   function cls(yr){ yr=((yr||'')+'').toLowerCase();
     if(yr.includes('fr')) return 'FR';
@@ -110,7 +110,28 @@
 
     const slim=x=>({name:x.name,team:x.team,conf:x.conf,pos:x.pos,yr:x.yr,grade:x.grade,espn_id:x.espn_id});
     const take=(arr,n)=>arr.slice(0,n).map(slim);
-    const teamsOf=(arr,per,count)=>{ const out=[]; for(let i=0;i<count;i++){ const t=take(arr.slice(i*per),per); if(t.length) out.push(t); } return out; };
+    // POSITION-BALANCED teams (owner, Oct 2026: "the first team will never be all PF/Cs"): each five
+    // needs minG guards and minF forwards/centers, at most maxC centers. Best-first greedy — a player is
+    // taken unless taking him would leave too few slots for the guards/forwards still owed; skipped players
+    // stay in line for the next team. If the pool runs dry of a position, the rest fill best-available.
+    const posOf=x=>{ const s=String(x.pos||'').toUpperCase().split(/[\/ ,-]/)[0];
+      return /^C$/.test(s)?'C':/^(PG|SG|G|CG)$/.test(s)?'G':/^(SF|PF|F|W|WF)$/.test(s)?'F':'?'; };
+    const teamsOf=(arr,per,count,rule)=>{
+      rule=rule||{minG:2,minF:2,maxC:2};
+      const left=arr.slice(), out=[];
+      for(let t=0;t<count&&left.length;t++){
+        const pick=[]; let g=0,f=0,c=0;
+        for(let i=0;i<left.length&&pick.length<per;i++){
+          const x=left[i], ps=posOf(x), isG=ps==='G', isF=ps==='F'||ps==='C', isC=ps==='C';
+          if(isC&&c>=rule.maxC) continue;
+          const g2=g+(isG?1:0), f2=f+(isF?1:0), slots=per-pick.length-1;
+          if(Math.max(0,rule.minG-g2)+Math.max(0,rule.minF-f2)>slots) continue;
+          pick.push(x); left.splice(i,1); i--; g=g2; f=f2; if(isC) c++;
+        }
+        while(pick.length<per&&left.length) pick.push(left.shift());   // pool ran out of a position
+        out.push(pick.map(slim));
+      }
+      return out; };
 
     const national=[...cand].sort((a,b)=>b.score-a.score);
     const awards={ season:SEASON, gver:GVER, generated:new Date().toISOString(),
@@ -125,8 +146,8 @@
       const rks=pool.filter(x=>x.isFr).sort((a,b)=>b.rook-a.rook);
       awards.conferences[cf]={
         allConf:teamsOf(all,5,3),
-        defense:teamsOf(dfs,5,2),
-        rookies:teamsOf(rks,5,2),
+        defense:teamsOf(dfs,5,2,{minG:1,minF:1,maxC:2}),
+        rookies:teamsOf(rks,5,2,{minG:1,minF:1,maxC:2}),
       };
     });
     return awards;
