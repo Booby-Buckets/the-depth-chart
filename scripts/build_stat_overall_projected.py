@@ -143,7 +143,10 @@ XFER_OFF_STR=float(os.environ.get("XFER_OFF_STR","0.7"))  # 0=off, 1=fully apply
 # at ACC weight (.84-.96), inflating the grade ABOVE his demonstrated level (Duncomb 84->89).
 # Value his production at a SOS pulled back toward where it was earned; 1=fully old-level,
 # 0=old behavior. Only bites on a step UP (max(0,...)); step-downs and returners are untouched.
-XFER_SOS_STR=float(os.environ.get("XFER_SOS_STR","0.85"))
+# Calibrated Oct 2026 to what transfers really did the next season (2023-24 -> 2025-26, grade change by
+# last-season tier: 85+ -1.9, 80-85 -1.1, 75-80 -0.5, 70-75 +0.2). At 0.85 the model docked them about
+# twice that (75-80 transfers projected -1.7); 0.45 lands each tier within ~0.7 of history.
+XFER_SOS_STR=float(os.environ.get("XFER_SOS_STR","0.45"))
 # a recovered season line with fewer than FILL_FULL_GP games has its GRADE pulled toward neutral
 FILL_FULL_GP=float(os.environ.get("FILL_FULL_GP","20"))
 FILL_NEUTRAL=float(os.environ.get("FILL_NEUTRAL","72"))
@@ -634,6 +637,66 @@ if _miss:
         box=pd.concat([box,_df])
         for _c in box.columns: box[_c]=pd.to_numeric(box[_c],errors="coerce")
         print("sat-out fill: %d players projected from 2024-25 / 2023-24 (no 2025-26 line)"%len(_add),file=sys.stderr)
+
+# ── CAREER BLEND (short seasons) ─────────────────────────────────────────────────────
+# A season cut short (injury, a mid-year move) used to be read like a full one: Jaland Lowe's 9-game
+# 2025-26 at Kentucky (67) set his whole projection, not his 31-game 2024-25 at Pitt (86). Fit on
+# every 2013-2026 player whose season t followed a 20+ game season t-1 (next season ~ w*t + (1-w)*t-1):
+# 1-10 games w=0.00 (n=493), 10-16 w=0.11 (411), 16-22 w=0.35 (847), 22+ w=0.87 (10,577). So a short
+# season is blended with his most recent full one (15+ games, 10+ mpg, within three years): per-40
+# rates, minutes, usage and the per-40 value (ti40 / OWA / DWA) are mixed at weight w; season totals
+# are rebuilt from the blended rate x blended minutes. Full seasons (24+ games) are untouched.
+CB_PTS=((8,0.0),(13,0.11),(19,0.35),(24,1.0))
+def cb_weight(gp):
+    if gp is None or gp!=gp: return 1.0
+    if gp<=CB_PTS[0][0]: return CB_PTS[0][1]
+    for (g0,w0),(g1,w1) in zip(CB_PTS,CB_PTS[1:]):
+        if gp<=g1: return w0+(w1-w0)*(gp-g0)/(g1-g0)
+    return 1.0
+CAREER_BLEND={}
+if os.environ.get("CAREER_BLEND","1")!="0":
+    for _c in ("g","min","usg_pct","owa","dwa","ti40"): advByEspn[_c]=pd.to_numeric(advByEspn[_c],errors="coerce").astype(float)
+    for _c in box.columns: box[_c]=pd.to_numeric(box[_c],errors="coerce").astype(float)
+    _short=[int(e) for e,g in box["gp"].items() if pd.notna(g) and float(g)<CB_PTS[-1][0] and str(int(e)) not in FILL]
+    _pcols="espn_id,season_year,ppg,mpg,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb,stl,blk,tovs,apg,gp,fg_pct,tp_pct,ft_pct"
+    _ph=[]; _pa=[]
+    for _i in range(0,len(_short),150):
+        _ids=",".join(map(str,_short[_i:_i+150]))
+        _ph+=sb_get(f"player_history?select={_pcols}&espn_id=in.({_ids})&season_year=gte.{CUR-3}&season_year=lt.{CUR}&order=espn_id.asc,season_year.asc")
+        _pa+=sb_get(f"player_advanced?select=espn_id,season_year,g,min,usg_pct,owa,dwa,ti40&espn_id=in.({_ids})&season_year=gte.{CUR-3}&season_year=lt.{CUR}&order=espn_id.asc,season_year.asc")
+    _prior={}
+    for _r in _ph:   # most recent full season before this one
+        if (_r.get("gp") or 0)>=15 and (_r.get("mpg") or 0)>=10 and (_r["espn_id"] not in _prior or _r["season_year"]>_prior[_r["espn_id"]]["season_year"]):
+            _prior[_r["espn_id"]]=_r
+    _padv={(_r["espn_id"],_r["season_year"]):_r for _r in _pa}
+    _RATE=["ppg","fgm","fga","tpm","tpa","ftm","fta","oreb","dreb","stl","blk","tovs","apg"]
+    for _e in _short:
+        _p=_prior.get(_e); _c=box.loc[_e]
+        if not _p: continue
+        _gp=float(_c["gp"]); _w=cb_weight(_gp)
+        if _w>=1.0: continue
+        _cm=_n(_c["mpg"]); _pm=_n(_p.get("mpg"))
+        if _pm<=0: continue
+        _m=_w*_cm+(1-_w)*_pm
+        for _k in _RATE:   # per-40 rates blended, then back to per game at the blended minutes
+            _r40=_w*(_n(_c[_k])*40/_cm if _cm>0 else 0)+(1-_w)*(_n(_p.get(_k))*40/_pm)
+            box.at[_e,_k]=_r40*_m/40
+        box.at[_e,"mpg"]=_m
+        for _pc,_mk,_ak in (("fg_pct","fgm","fga"),("tp_pct","tpm","tpa"),("ft_pct","ftm","fta")):
+            box.at[_e,_pc]=100*box.at[_e,_mk]/box.at[_e,_ak] if box.at[_e,_ak]>0 else _c[_pc]
+        _g=_w*_gp+(1-_w)*float(_p["gp"]); box.at[_e,"gp"]=_g
+        _pa_r=_padv.get((_e,_p["season_year"]))
+        if _e in advByEspn.index and _pa_r and (_pa_r.get("min") or 0)>0:
+            _a=advByEspn.loc[_e]; _cmin=_n(_a["min"]); _pmin=float(_pa_r["min"])
+            _bmin=_m*_g   # blended season minutes
+            for _k in ("owa","dwa"):   # season totals: blend the per-40 value, rebuild over the blended season
+                _v40=_w*(_n(_a[_k])*40/_cmin if _cmin>0 else 0)+(1-_w)*(_n(_pa_r.get(_k))*40/_pmin)
+                advByEspn.at[_e,_k]=_v40*_bmin/40
+            for _k in ("usg_pct","ti40"):
+                if _pa_r.get(_k) is not None: advByEspn.at[_e,_k]=_w*_n(_a[_k])+(1-_w)*float(_pa_r[_k])
+            advByEspn.at[_e,"min"]=_bmin; advByEspn.at[_e,"g"]=_g
+        CAREER_BLEND[str(_e)]={"w":round(_w,2),"gp":_gp,"prior":_p["season_year"]}
+    print("career blend: %d short seasons blended with a prior full season"%len(CAREER_BLEND),file=sys.stderr)
 
 BOX_IDS=set(int(x) for x in box.index)   # plain-int membership (Int64Index `in` is unreliable)
 
