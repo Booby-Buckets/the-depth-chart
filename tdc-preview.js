@@ -214,7 +214,26 @@
     host.innerHTML = '<div class="gp-empty">Building the preview…</div>';
     const [R, E, D] = await Promise.all([g.TDCSched ? g.TDCSched.project(team).catch(() => null) : null, loadEff(), g.TDC_RATINGS ? g.TDC_RATINGS.get() : null, loadProj(),
       g.TDCFresh && g.TDCFresh.load ? g.TDCFresh.load().catch(() => null) : null]);
-    const row = R && R.rows.find(r => r.g.date === date && (r.oppName === opp || !r.oppName)) || (R && R.rows.find(r => r.oppName === opp));
+    let row = R && R.rows.find(r => r.g.date === date && (r.oppName === opp || !r.oppName)) || (R && R.rows.find(r => r.oppName === opp && !opts.scrimOnly));
+    // not on the season slate: a preseason scrimmage on that date → priced by the same line engine
+    // (TDCScrim.price → TDC_RATINGS.lineFor), labelled Scrimmage, no rest/situational edge
+    if ((!row || row.g.date !== date) && g.TDCScrim && D) {
+      const S = await g.TDCScrim.load();
+      const x = S.games.find(v => v.date === date && ((v.home === team && v.away === opp) || (v.away === team && v.home === opp)));
+      if (x) {
+        const byFull = {}; D.teams.forEach(t => { byFull[t.full] = t; });
+        const P = g.TDCScrim.price(x, byFull, S.eff);
+        if (P) {
+          const home = x.home === team, my = home ? P.m : -P.m, wp = (home ? P.probH : 100 - P.probH) / 100;
+          const venue = x.neutral ? 'N' : home ? 'H' : 'A', tot = P.tot != null ? P.tot : 140;
+          const A = byFull[team], B = byFull[opp];
+          const venuePts = venue === 'H' && B ? g.TDC_RATINGS.baseHca(B.rating) : venue === 'A' && A ? -g.TDC_RATINGS.baseHca(A.rating) : 0;
+          row = { g: { date, id: x.id }, oppName: opp, opp: B || null, venue, venuePts, sit: 0, margin: my, p: wp, p0: wp,
+            scoreMe: Math.round((tot + my) / 2), scoreOpp: Math.round((tot - my) / 2), total: P.tot, pace: P.pace ? Math.round(P.pace) : null,
+            mf: { rest: null, stint: 0 }, of: { rest: null, stint: 0 }, known: false, event: 'Scrimmage · unofficial' };
+        }
+      }
+    }
     if (!row) { host.innerHTML = `<div class="gp-empty">No projected game between ${sn(team)} and ${sn(opp)} on ${date} in the announced schedule.</div>`; return; }
     const rowOf = n => D && D.teams.find(t => t.full === n) || null;
     const RA = rowOf(team), RB = row.oppName ? rowOf(row.oppName) : null;

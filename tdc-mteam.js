@@ -246,7 +246,7 @@
   }
 
   // drop low-value columns from wide tables on a phone, by header label
-  var PRUNE = { '.tsp-table': ['RK', 'QUAD', 'OPP PRTG'], '.scrim-wrap table': ['TIME', 'TOTAL'] };
+  var PRUNE = { '.tsp-table': ['RK', 'QUAD', 'OPP PRTG'] };
   var WD = /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*,?\s+/;
   function prune() {
     // weekday off the date cells ("Mon 11/2" → "11/2"); kept in a hidden span so desktop is untouched
