@@ -156,7 +156,10 @@ FILL_NEUTRAL=float(os.environ.get("FILL_NEUTRAL","72"))
 # made the TI-driven award (All-ACC) disagree with the OVR. Blend a ti40-based grade in, but
 # LIFT-ONLY: a player is pulled UP toward his impact grade when it exceeds his wa grade, and
 # nobody is dropped (protects the validated board; never demotes to fix the award). 0=off.
-IMPACT_LIFT=float(os.environ.get("IMPACT_LIFT","0.55"))
+# OFF (Oct 2026): the lift only ever RAISED returners, and with it every returner tier projected
+# 0.4-1.6 above what returners really did the next season (2023-24 -> 2025-26: 85+ +0.0, 80-85 +0.3,
+# 75-80 +0.5, 70-75 +1.0). At 0 each tier lands within ~0.2 of history. Set >0 to bring it back.
+IMPACT_LIFT=float(os.environ.get("IMPACT_LIFT","0"))
 # TEAM FIT (see the team loop): 1 = fully reconcile each roster's minutes to 200 and its points to
 # the team's projected scoring; 0 = off (independent lines, the pre-Sep-2026 behavior).
 TEAM_FIT=float(os.environ.get("TEAM_FIT","1.0"))
@@ -481,6 +484,7 @@ def proj_mpg(d,last,starter,trusted=False):
     if d is None and last>0: pm=last
     return pm
 DEV=json.load(open(os.path.join(D,"dev_curves.json")))["rate_mult"]
+DEV_SCALE=float(os.environ.get("DEV_SCALE","1.0"))   # shrink the class-development multipliers toward 1 (calibration knob)
 # PER-STAT DEVELOPMENT (scripts/build_stat_dev.py -> stat_dev.json): next per-40 = a + b*this for
 # rebounds, assists, steals, blocks and turnovers, per class step, fit on ~17k same-school returner
 # pairs. b<1 pulls an outlier season back toward normal, a is the step's typical growth (assists
@@ -522,7 +526,7 @@ def dev_mult(yr,demo,n_prior=None):
     t=cls_trans(yr) or (infer_trans(n_prior) if n_prior else None)
     if not t: return 1.0
     tier="low" if demo<73 else ("mid" if demo<84 else "high")
-    return DEV.get(t,{}).get(tier,1.0)
+    return 1.0+DEV_SCALE*(DEV.get(t,{}).get(tier,1.0)-1.0)
 
 print("Pulling roster, last-year box + advanced, team SOS...",file=sys.stderr)
 adv=pd.DataFrame(sb_get(f"player_advanced?select=espn_id,name,team,g,min,usg_pct,owa,dwa,ti40&season_year=eq.{CUR}"))
