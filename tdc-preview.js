@@ -166,7 +166,41 @@
   .gp-note b{color:var(--text2);}
   .gp-empty{padding:16px 14px;font-size:12.5px;color:var(--text3);}
   @media(max-width:860px){.gp-strip{grid-template-columns:repeat(2,minmax(0,1fr));}.gp-hero{grid-template-columns:1fr;text-align:center;}.gp-side,.gp-side.r{flex-direction:column;text-align:center;}}`;
-  function ensureCss() { if (document.getElementById('gp-css')) return; const s = document.createElement('style'); s.id = 'gp-css'; s.textContent = CSS; document.head.appendChild(s); }
+  // phones: one compact scoreboard row, the five tiles as one row of cells, no subtitles, and the
+  // player tables cut to Player · Min · Pts · FG · Reb · Ast so they fit without scrolling
+  const CSS_PHONE = `@media (max-width:640px){
+    .gp-hero{display:grid!important;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)!important;align-items:center!important;gap:6px!important;padding:12px 10px!important;min-height:0!important;border-radius:12px!important;text-align:center}
+    .gp-hero .gp-side,.gp-hero .gp-side.r{display:flex!important;flex-direction:column!important;align-items:center!important;gap:4px!important;min-width:0;text-align:center!important}
+    .gp-hero .gp-side img{width:34px!important;height:34px!important;margin:0!important}
+    .gp-hero .gp-nm{font-size:15px!important;line-height:1.15!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+    .gp-hero .gp-sub{font-size:11px!important;line-height:1.2!important}
+    .gp-hero .gp-mid{order:0;padding:0 4px!important}
+    .gp-hero .gp-when{font-size:11px!important;letter-spacing:.04em!important}
+    .gp-hero .gp-score{font-size:26px!important;line-height:1.1!important;margin:2px 0!important}
+    .gp-hero .gp-odds{font-size:11px!important;line-height:1.3!important}
+    .gp-strip{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:0!important;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:12px 0 18px!important}
+    .gp-strip .gp-tile{border:0!important;border-right:1px solid var(--border)!important;border-bottom:1px solid var(--border)!important;border-radius:0!important;box-shadow:none!important;padding:7px 8px!important;background:var(--bg)!important;min-width:0}
+    .gp-strip .gp-tile .s{display:none!important}
+    .gp-strip .gp-tile .v{font-size:15px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .gp-h{font:800 11px Inter,system-ui,sans-serif!important;letter-spacing:.06em!important;text-transform:uppercase;color:var(--text3)!important;margin:18px 0 6px!important}
+    .gp-h span{display:none!important}
+    .gp-two table.gp-t th:nth-child(2),.gp-two table.gp-t td:nth-child(2),.gp-two table.gp-t th:nth-child(3),.gp-two table.gp-t td:nth-child(3),
+    .gp-two table.gp-t th:nth-child(4),.gp-two table.gp-t td:nth-child(4),.gp-two table.gp-t th:nth-child(9),.gp-two table.gp-t td:nth-child(9),
+    .gp-two table.gp-t th:nth-child(10),.gp-two table.gp-t td:nth-child(10),.gp-two table.gp-t th:nth-child(11),.gp-two table.gp-t td:nth-child(11),
+    .gp-two table.gp-t th:nth-child(14),.gp-two table.gp-t td:nth-child(14),.gp-two table.gp-t th:nth-child(15),.gp-two table.gp-t td:nth-child(15),
+    .gp-two table.gp-t th:nth-child(16),.gp-two table.gp-t td:nth-child(16){display:none!important}
+    .gp-two table.gp-t small{display:none}
+    .gp-two table.gp-t th:nth-child(8),.gp-two table.gp-t td:nth-child(8){display:none!important}
+    .gp-two table.gp-t th:first-child,.gp-two table.gp-t td:first-child{max-width:132px;overflow:hidden;text-overflow:ellipsis}
+    .gp-two table.gp-t th,.gp-two table.gp-t td{padding-left:5px!important;padding-right:5px!important}
+    .gp-h{background:none!important;border:0!important;padding:0!important;box-shadow:none!important;border-radius:0!important}
+    .gp-h::before,.gp-h::after{display:none!important}
+    #gpCmp table.gp-t{table-layout:fixed;width:100%!important}
+    #gpCmp table.gp-t th,#gpCmp table.gp-t td{white-space:normal!important;padding:6px 5px!important;overflow-wrap:anywhere}
+    #gpCmp table.gp-t th:first-child,#gpCmp table.gp-t td:first-child{width:31%}
+    #gpCmp table.gp-t small{display:none}
+  }`;
+  function ensureCss() { if (document.getElementById('gp-css')) return; const s = document.createElement('style'); s.id = 'gp-css'; s.textContent = CSS + CSS_PHONE; document.head.appendChild(s); }
 
   const teamHref = n => `team.html?team=${encodeURIComponent(sn(n))}`;
   const playerHref = (p, team) => `player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(sn(team))}`;
