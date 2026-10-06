@@ -22,6 +22,12 @@ SB='https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1'
 KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye'
 SEASON=2026; K=10
 REFIT='--refit' in sys.argv
+# FROZEN STYLES: each style's average profile (z-space) saved from the published labels by --freeze.
+# When present, players are classified to the nearest frozen style instead of re-clustering, so a
+# style can't drift (Oct 2026 re-fit: k-means re-grouped 43 high-usage scoring forwards — Dybantsa,
+# Haralson — and Hungarian-matched that group to "Two-Way Big"). --recluster ignores the file.
+CENT=os.path.join(os.path.dirname(__file__),'data','archetype_centroids.json')
+RECLUSTER='--recluster' in sys.argv
 # Any season back to 2014 can be clustered with the same templates: `--year 2019` writes
 # archetypes_2019.json (2026 stays archetypes.json). `--all` rebuilds 2014..2026.
 HERE=os.path.dirname(__file__)
@@ -98,18 +104,26 @@ def season_rows(season, loose=False):
 def main():
     rows=season_rows(SEASON)
     X=np.array([[r['f'][k] for k in FEAT] for r in rows])
-    scaler=StandardScaler().fit(X); Xs=scaler.transform(X)
-    km=KMeans(n_clusters=K,n_init=10,random_state=42).fit(Xs)
-    cent=km.cluster_centers_   # z-space (K x 9)
-    # Hungarian: match each cluster to a unique template by nearest z-signature
-    T=np.array([[tpl[1].get(k,0.0) for k in FEAT] for tpl in TEMPLATES])
-    cost=np.linalg.norm(cent[:,None,:]-T[None,:,:],axis=2)   # K x K
-    ri,ci=linear_sum_assignment(cost)
-    cluster_name={int(ri[i]):TEMPLATES[int(ci[i])][0] for i in range(len(ri))}
+    if os.path.exists(CENT) and not RECLUSTER:
+        C=json.load(open(CENT)); mu=np.array(C['mean']); sd=np.array(C['scale'])
+        names=[c['name'] for c in C['styles']]; cz=np.array([c['z'] for c in C['styles']])
+        def classify(M):
+            Z=(np.asarray(M,dtype=float)-mu)/sd
+            return [names[i] for i in np.argmin(np.linalg.norm(Z[:,None,:]-cz[None,:,:],axis=2),axis=1)]
+        print('classifying against frozen styles (%s)'%C.get('frozen'))
+    else:
+        scaler=StandardScaler().fit(X); Xs=scaler.transform(X)
+        km=KMeans(n_clusters=K,n_init=10,random_state=42).fit(Xs)
+        cent=km.cluster_centers_   # z-space (K x 9)
+        # Hungarian: match each cluster to a unique template by nearest z-signature
+        T=np.array([[tpl[1].get(k,0.0) for k in FEAT] for tpl in TEMPLATES])
+        cost=np.linalg.norm(cent[:,None,:]-T[None,:,:],axis=2)   # K x K
+        ri,ci=linear_sum_assignment(cost)
+        cluster_name={int(ri[i]):TEMPLATES[int(ci[i])][0] for i in range(len(ri))}
+        def classify(M): return [cluster_name[int(l)] for l in km.predict(scaler.transform(np.asarray(M,dtype=float)))]
     def norm(s): return ''.join(ch for ch in (s or '').lower() if ch.isalnum())
     players={}; by_name={}; roster={}
-    for i,r in enumerate(rows):
-        nm=cluster_name[int(km.labels_[i])]
+    for r,nm in zip(rows,classify(X)):
         if r['espn_id'] is not None: players[str(r['espn_id'])]={'a':nm}
         by_name[norm(r['name'])]={'a':nm}
         roster.setdefault(nm,[]).append({'n':r['name'],'t':r['team'],'g':round(r['grade']),'e':r['espn_id']})
@@ -126,9 +140,9 @@ def main():
             if not need: break
             prior=[r for r in season_rows(y) if str(r['espn_id']) in need]
             if not prior: continue
-            lab=km.predict(scaler.transform(np.array([[r['f'][k] for k in FEAT] for r in prior])))
+            lab=classify([[r['f'][k] for k in FEAT] for r in prior])
             for r,l in zip(prior,lab):
-                players[str(r['espn_id'])]={'a':cluster_name[int(l)],'y':y}; need.discard(str(r['espn_id'])); back+=1
+                players[str(r['espn_id'])]={'a':l,'y':y}; need.discard(str(r['espn_id'])); back+=1
         print('styles from an earlier season for %d current-roster players'%back)
         # LOW MINUTES: bench players under the 12-mpg/10-game bar (Jake Wilkins, 10 mpg at Georgia) —
         # classify from their most recent season with any shots, same scaler + clusters.
@@ -137,9 +151,9 @@ def main():
             if not need: break
             prior=[r for r in season_rows(y,loose=True) if str(r['espn_id']) in need]
             if not prior: continue
-            lab=km.predict(scaler.transform(np.array([[r['f'][k] for k in FEAT] for r in prior])))
+            lab=classify([[r['f'][k] for k in FEAT] for r in prior])
             for r,l in zip(prior,lab):
-                players[str(r['espn_id'])]={'a':cluster_name[int(l)],'y':y,'est':'low'}; need.discard(str(r['espn_id'])); low+=1
+                players[str(r['espn_id'])]={'a':l,'y':y,'est':'low'}; need.discard(str(r['espn_id'])); low+=1
         print('styles from a low-minutes season for %d players'%low)
         # NO COLLEGE LINE (freshmen, internationals, no box score): the most common style among
         # clustered players at the same position and height (+-1 inch, widening if thin).
@@ -197,8 +211,22 @@ def main():
     print('wrote %s  (%d players)'%(os.path.abspath(path),len(players)))
     for n,_ in TEMPLATES: print('  %-22s %d'%(n,counts.get(n,0)))
 
+def freeze():
+    """save each style's average profile from the PUBLISHED labels (archetypes.json, stats-based only)"""
+    pub=json.load(open(os.path.join(HERE,'..','archetypes.json')))['players']
+    rows=[r for r in season_rows(2026) if str(r['espn_id']) in pub and not pub[str(r['espn_id'])].get('est')]
+    X=np.array([[r['f'][k] for k in FEAT] for r in rows]); mu=X.mean(0); sd=X.std(0)
+    styles=[]
+    for n,_ in TEMPLATES:
+        M=np.array([[r['f'][k] for k in FEAT] for r in rows if pub[str(r['espn_id'])]['a']==n])
+        styles.append({'name':n,'n':len(M),'z':[round(v,4) for v in ((M.mean(0)-mu)/sd)],'raw':[round(v,2) for v in M.mean(0)]})
+    json.dump({'frozen':__import__('datetime').date.today().isoformat(),'features':FEAT,'mean':[round(v,4) for v in mu],
+               'scale':[round(v,4) for v in sd],'styles':styles},open(CENT,'w'),indent=1)
+    print('froze %d styles from %d labeled players -> %s'%(len(styles),len(rows),CENT))
+
 if __name__=='__main__':
     args=sys.argv[1:]
+    if '--freeze' in args: freeze(); sys.exit()
     if '--all' in args:
         for y in range(2014,2027):
             SEASON=y; print('== %d'%y); main()
