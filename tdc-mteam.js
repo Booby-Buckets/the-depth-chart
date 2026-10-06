@@ -50,10 +50,13 @@
     '.mt-season tr.lab td{font-size:11px!important;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);background:var(--bg2)!important;padding:6px 4px!important;white-space:normal;line-height:1.2}',
     '.mt-season td{text-align:center!important;padding:7px 4px!important;font-weight:700}',
     /* bottom tab strip */
-    'body.mt .mt-strip{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;height:calc(52px + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:var(--bg2);border-top:1px solid var(--border2);overflow-x:auto;scrollbar-width:none}',
+    'body.mt .mt-strip{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;height:calc(64px + env(safe-area-inset-bottom));padding:0 0 env(safe-area-inset-bottom);background:var(--bg2);border-top:1px solid var(--border2);overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;box-shadow:0 -4px 14px rgba(0,0,0,.08)}',
     '.mt-strip::-webkit-scrollbar{display:none}',
-    '.mt-strip button{flex:0 0 auto;border:0;background:none;font:600 13px Inter,system-ui,sans-serif;color:var(--text2);padding:0 14px;margin:12px 0;border-right:1px solid var(--border);white-space:nowrap;cursor:pointer}',
-    '.mt-strip button.on{background:var(--bg);color:var(--text);font-weight:800;border-top:3px solid var(--accent);border-right:0;margin:-1px 0 0}',
+    '.mt-strip button{flex:1 0 78px;min-width:78px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:0;border-top:3px solid transparent;background:none;font:600 12.5px Inter,system-ui,sans-serif;color:var(--text2);padding:6px 8px 4px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+    '.mt-strip button svg{width:22px;height:22px;flex:none}',
+    '.mt-strip button.on{background:color-mix(in srgb,var(--accent) 16%,var(--bg2));color:var(--text);font-weight:800;border-top-color:var(--accent)}',
+    'body.mt{padding-bottom:calc(72px + env(safe-area-inset-bottom))!important}',
+    'body.mt .tdc-explain{bottom:calc(74px + env(safe-area-inset-bottom))!important}',
     'body.mt .tdc-explain{bottom:calc(62px + env(safe-area-inset-bottom))!important}',
     'body.mt .mt-sub.show{display:flex}',
     '.mt-sub{border:1px solid var(--border2);border-radius:8px;overflow:hidden;margin:0 14px 14px}',
@@ -110,6 +113,7 @@
     'body.mt .side-col{width:auto!important;max-width:none!important;padding:18px 0 0!important;border:0!important;position:static!important}'
   ].join('\n');
 
+  var TAB_ICON = {"depth": "M4 6h16M4 12h16M4 18h10", "schedule": "M4 6h16v14H4zM4 10h16M9 3v5M15 3v5", "preview": "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 100 6 3 3 0 000-6z", "stats": "M5 20V11M12 20V5M19 20v-7M3 20h18", "coach": "M9 4h6v3H9zM7 5H5v16h14V5h-2M8 12h8M8 16h5", "nil": "M12 3v18M16 7.5c0-1.9-1.8-3-4-3s-4 1.1-4 3 1.8 2.6 4 3 4 1.1 4 3-1.8 3-4 3-4-1.1-4-3", "betting": "M4 7h16v3a2 2 0 000 4v3H4v-3a2 2 0 000-4zM14 7v10", "conf": "M7 4h10v4a5 5 0 01-10 0zM5 5H3v2a3 3 0 003 3M19 5h2v2a3 3 0 01-3 3M12 13v4M8 21h8"};
   function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function debounce(fn, ms) { var t; return function () { clearTimeout(t); t = setTimeout(fn, ms || 60); }; }
@@ -192,7 +196,7 @@
   function buildStrip() {
     var nav = el('nav', 'mt-strip'); nav.setAttribute('aria-label', 'Team sections');
     GROUPS.forEach(function (g) {
-      var b = el('button', '', esc(g.label)); b.type = 'button'; b.dataset.g = g.key;
+      var b = el('button', '', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + (TAB_ICON[g.key] || '') + '"></path></svg><span>' + esc(g.label) + '</span>'); b.type = 'button'; b.dataset.g = g.key;
       b.onclick = function () {
         if (g.link) { var a = document.getElementById('heroConfTab'); if (a) location.href = a.href; return; }
         if (g.key === 'coach') { showCoach(); return; }

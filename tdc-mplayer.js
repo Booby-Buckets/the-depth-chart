@@ -28,20 +28,25 @@
     'body.mp .mp-hero{display:flex;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border);margin:0 0 14px}',
     'body.mp .tdc-explain{bottom:calc(62px + env(safe-area-inset-bottom))!important}body.mp #tdc-ver{display:none!important}',
     '.mp-id{flex:1;min-width:0}',
-    /* team band: the team colour, darkened only as far as white text needs (--tc-band from applyTeamTheme) */
-    'body.mp .mp-band{background:var(--tc-band,#1d2433);color:#fff;border-bottom:0;margin:0 0 14px;padding:14px;position:relative;overflow:hidden}',
-    '.mp-band .mp-eye,.mp-band .mp-eye a{color:rgba(255,255,255,.78)}',
-    '.mp-band .mp-name{color:#fff}',
-    '.mp-band .mp-sel{background:rgba(0,0,0,.22);border-color:rgba(255,255,255,.35);color:#fff}',
-    '.mp-band .mp-sel option{color:#111;background:#fff}',
-    '.mp-band .mp-ovr{border-color:rgba(255,255,255,.45);background:#fff}',
-    '.mp-band .mp-ovr span{background:rgba(0,0,0,.06);color:#555;border-bottom-color:rgba(0,0,0,.12)}',
-    '.mp-band .mp-ovr b{color:#111}',
-    '.mp-logo{flex:0 0 46px;height:46px;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;align-self:flex-start;margin-top:2px}',
-    '.mp-logo img{width:36px;height:36px;object-fit:contain}',
+    /* header: team-colour rule + logo, name, bio, then one sheet row of the numbers that matter */
+    'body.mp .mp-hero{display:block;padding:0;border-bottom:0;margin:0 0 16px}',
+    '.mp-rule{height:5px;background:var(--tc-band,var(--accent))}',
+    '.mp-top{display:flex;gap:12px;align-items:center;padding:14px 14px 10px}',
+    '.mp-team{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--tc-readable,var(--text2));text-decoration:none}',
+    '.mp-bio{font-size:13px;color:var(--text2);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.mp-selrow{padding:0 14px 10px}.mp-selrow .mp-sel{width:100%;padding:8px 10px;font-size:14px}',
+    '.mp-line{margin:0 14px;border:1px solid var(--border2);border-radius:8px;overflow:hidden;display:grid;grid-template-columns:1.25fr 1fr 1fr 1fr 1fr}',
+    '.mp-line div{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 2px 8px;border-left:1px solid var(--border2);min-width:0}',
+    '.mp-line div:first-child{border-left:0}',
+    '.mp-line span{font-size:10.5px;font-weight:800;letter-spacing:.07em;color:var(--text3);text-transform:uppercase}',
+    '.mp-line b{font-size:21px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text);line-height:1.15}',
+    '.mp-line small{font-size:10.5px;color:var(--text3);white-space:nowrap}',
+    '.mp-line .mp-o b{font-size:30px}',
+    '.mp-logo{flex:0 0 52px;height:52px;border-radius:12px;background:#fff;border:1px solid var(--border2);display:flex;align-items:center;justify-content:center}',
+    '.mp-logo img{width:40px;height:40px;object-fit:contain}',
     '.mp-eye{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.mp-eye a{color:inherit;text-decoration:none}',
-    '.mp-name{margin:4px 0 8px;font-family:"Playfair Display",Georgia,serif;font-size:28px;font-weight:800;line-height:1.05;color:var(--text)}',
+    '.mp-name{margin:2px 0 0;font-family:"Playfair Display",Georgia,serif;font-size:28px;font-weight:800;line-height:1.05;color:var(--text)}',
     '.mp-sel{font:700 13px Inter,system-ui,sans-serif;color:var(--text);background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:5px 8px;max-width:100%}',
     '.mp-ovr{flex:0 0 76px;border:1px solid var(--border2);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;align-self:stretch}',
     '.mp-ovr span{font-size:11px;font-weight:800;letter-spacing:.07em;color:var(--text3);background:var(--bg2);border-bottom:1px solid var(--border2);text-align:center;padding:5px 0}',
@@ -52,10 +57,13 @@
     '.mp-c3{background-image:linear-gradient(hsla(115,70%,48%,.26),hsla(115,70%,48%,.26))}',
     '.mp-c4{background-image:linear-gradient(hsla(125,70%,48%,.40),hsla(125,70%,48%,.40))}',
     /* bottom sheet tabs */
-    'body.mp .mp-strip{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;height:calc(52px + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:var(--bg2);border-top:1px solid var(--border2);overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}',
+    'body.mp .mp-strip{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;height:calc(64px + env(safe-area-inset-bottom));padding:0 0 env(safe-area-inset-bottom);background:var(--bg2);border-top:1px solid var(--border2);overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;box-shadow:0 -4px 14px rgba(0,0,0,.08)}',
     '.mp-strip::-webkit-scrollbar{display:none}',
-    '.mp-strip button{flex:0 0 auto;border:0;background:none;font:600 13px Inter,system-ui,sans-serif;color:var(--text2);padding:0 14px;margin:12px 0;border-right:1px solid var(--border);white-space:nowrap;cursor:pointer}',
-    '.mp-strip button.on{background:var(--bg);color:var(--text);font-weight:800;border-top:3px solid var(--accent);border-right:0;margin:-1px 0 0}',
+    '.mp-strip button{flex:1 0 78px;min-width:78px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:0;border-top:3px solid transparent;background:none;font:600 12.5px Inter,system-ui,sans-serif;color:var(--text2);padding:6px 8px 4px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+    '.mp-strip button svg{width:22px;height:22px;flex:none}',
+    '.mp-strip button.on{background:color-mix(in srgb,var(--accent) 16%,var(--bg2));color:var(--text);font-weight:800;border-top-color:var(--accent)}',
+    'body.mp{padding-bottom:calc(72px + env(safe-area-inset-bottom))!important}',
+    'body.mp .tdc-explain{bottom:calc(74px + env(safe-area-inset-bottom))!important}',
     /* sub-switch (Shots) and back row (Scouting tools) */
     'body.mp .mp-sub.show{display:flex}',
     '.mp-sub{border:1px solid var(--border2);border-radius:8px;overflow:hidden;margin:0 14px 14px}',
@@ -154,6 +162,7 @@
     });
   }
 
+  var TAB_ICON = {"overview": "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z", "stats": "M5 20V11M12 20V5M19 20v-7M3 20h18", "shots": "M12 3a9 9 0 100 18 9 9 0 000-18zM12 8a4 4 0 100 8 4 4 0 000-8zM12 11.5v1", "dna": "M7 3c0 6 10 6 10 12s-10 6-10 6M17 3c0 6-10 6-10 12M8 7h8M8 17h8", "scouting": "M9 4h6v3H9zM7 5H5v16h14V5h-2M8 12h8M8 16h5", "nil": "M12 3v18M16 7.5c0-1.9-1.8-3-4-3s-4 1.1-4 3 1.8 2.6 4 3 4 1.1 4 3-1.8 3-4 3-4-1.1-4-3", "betting": "M4 7h16v3a2 2 0 000 4v3H4v-3a2 2 0 000-4zM14 7v10", "buzz": "M4 10v4h3l6 4V6L7 10zM17 9a4 4 0 010 6"};
   function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function ovrBucket(g) { g = parseFloat(g); if (isNaN(g)) return ''; return g >= 85 ? 'mp-c4' : g >= 80 ? 'mp-c3' : g >= 75 ? 'mp-c2' : g >= 70 ? 'mp-c1' : 'mp-c0'; }
@@ -176,25 +185,42 @@
     var p = (typeof player !== 'undefined') ? player : null; if (!p) return;
     var td = (typeof teamData !== 'undefined') ? teamData : null;
     var fromEl = hs.querySelector('.pa-from');
-    var bits = [];
-    bits.push('<a href="team.html?team=' + encodeURIComponent(p.team || '') + '">' + esc(p.team || '—') + '</a>');
-    if (td && td.conf) bits.push(esc(td.conf));
-    if (p.position) bits.push(esc(p.position));
-    var yr = p.yr || p.class_year; if (yr) bits.push(esc(yr));
-    if (fromEl) bits.push(esc(fromEl.textContent.trim()));
+    var team = esc(p.team || '—') + (td && td.conf ? ' · ' + esc(td.conf) : '');
+    var bio = [];
+    if (p.position) bio.push(esc(p.position2 ? p.position + '/' + p.position2 : p.position));
+    var yr = p.yr || p.class_year; if (yr) bio.push(esc(yr));
+    if (p.height) bio.push(esc(p.height));
+    if (fromEl) bio.push(esc(fromEl.textContent.trim()));
     var tc = (window.tdcTeamColor && window.tdcTeamColor(p.team)) || {};
-    var hero = el('div', 'mp-hero mp-band',
-      (tc.logo ? '<a class="mp-logo" href="team.html?team=' + encodeURIComponent(p.team || '') + '"><img src="' + tc.logo + '" alt="" onerror="this.parentNode.remove()"></a>' : '') +
-      '<div class="mp-id"><div class="mp-eye">' + bits.join(' · ') + '</div>' +
-      '<h1 class="mp-name">' + esc(p.name) + '</h1><span class="mp-selhost"></span></div>' +
-      '<div class="mp-ovr"><span>OVR</span><b id="mpOvr">—</b></div>');
+    var href = 'team.html?team=' + encodeURIComponent(p.team || '');
+    var hero = el('div', 'mp-hero',
+      '<div class="mp-rule"></div><div class="mp-top">' +
+      (tc.logo ? '<a class="mp-logo" href="' + href + '"><img src="' + tc.logo + '" alt="" onerror="this.parentNode.remove()"></a>' : '') +
+      '<div class="mp-id"><a class="mp-team" href="' + href + '">' + team + '</a>' +
+      '<h1 class="mp-name">' + esc(p.name) + '</h1><div class="mp-bio">' + bio.join(' · ') + '</div></div></div>' +
+      '<div class="mp-selrow mp-selhost"></div><div class="mp-line" id="mpLine"></div>');
     hs.insertBefore(hero, hs.firstChild);
-    watch(document.getElementById('heroGrade'), function () {
-      var g = (document.getElementById('heroGrade') || {}).textContent || '—';
-      var b = document.getElementById('mpOvr'); if (!b) return;
-      b.textContent = g.trim(); b.className = ovrBucket(g);
-    });
+    var upd = debounce(renderLine, 80);
+    watch(document.getElementById('heroGrade'), upd);
+    watch(document.getElementById('paProj'), upd);
+    watch(document.getElementById('paRanks'), upd);
+    renderLine();
     mirrorSeason();
+  }
+  // OVR · rank · the line for the selected season, read from the desktop hero the page keeps updating
+  function renderLine() {
+    var host = document.getElementById('mpLine'); if (!host) return;
+    var g = txt('#heroGrade') || '—';
+    var rank = txt('#paRankPlayer b'), of = (txt('#paRankPlayer').match(/of ([\d,]+)/) || [])[1];
+    var cells = ['<div class="mp-o ' + ovrBucket(g) + '"><span>OVR</span><b>' + esc(g) + '</b></div>'];
+    cells.push('<div><span>Rank</span><b>' + esc(rank || '—') + '</b>' + (of ? '<small>of ' + esc(of) + '</small>' : '') + '</div>');
+    var bigs = {}; document.querySelectorAll('#paProj .pa-big').forEach(function (b) {
+      var k = (b.querySelector('.pa-k') || {}).textContent, v = (b.querySelector('.pa-bv') || {}).textContent;
+      if (k) bigs[k.trim().toUpperCase()] = (v || '').trim();
+    });
+    ['PPG', 'RPG', 'APG'].forEach(function (k) { cells.push('<div><span>' + k + '</span><b>' + esc(bigs[k] || '—') + '</b></div>'); });
+    var h = cells.join('');
+    if (host.__h !== h) { host.__h = h; host.innerHTML = h; }
   }
   // mirror the page's season <select> into the header (the original keeps its listeners)
   function mirrorSeason() {
@@ -214,7 +240,7 @@
     if (document.querySelector('.mp-strip')) return;
     var nav = el('nav', 'mp-strip'); nav.setAttribute('aria-label', 'Player sections');
     GROUPS.forEach(function (g) {
-      var b = el('button', '', esc(g.label)); b.type = 'button'; b.dataset.g = g.key;
+      var b = el('button', '', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + (TAB_ICON[g.key] || '') + '"></path></svg><span>' + esc(g.label) + '</span>'); b.type = 'button'; b.dataset.g = g.key;
       b.onclick = function () { openGroup(g.key); };
       nav.appendChild(b);
     });
@@ -298,7 +324,7 @@
     var bb = (txt('#ovcFoot .bb').match(/#(\d+)/) || [])[1];
     var nil = window._ovcNil || '';
     var cols = [];
-    if (rank) cols.push(['Rank', rank, rankOf ? 'of ' + rankOf : '']);
+    // rank lives in the header row now
     if (last) cols.push(['Last OVR', last, '', ovrBucket(last)]);
     if (wa) cols.push(['Wins add.', wa, '']);
     if (bb) cols.push(['Big Board', '#' + bb, '']);
