@@ -182,8 +182,14 @@ def main():
             players[k]=v
         for k,v in (prev.get('by_name') or {}).items(): by_name[k]=v
         print('kept %d published labels a re-fit would have changed'%kept)
-    counts={}
-    for v in players.values(): counts[v['a']]=counts.get(v['a'],0)+1
+    # explorer counts are stats-based only, so they match the card's player list and averages
+    # (estimated low-minutes / size labels still show on player pages, rosters and rankings)
+    roster={}
+    for r in rows:   # this season's qualifying players, filed under their FINAL (kept) label
+        v=players.get(str(r['espn_id'])) if r['espn_id'] is not None else by_name.get(norm(r['name']))
+        if v: roster.setdefault(v['a'],[]).append({'n':r['name'],'t':r['team'],'g':round(r['grade']),'e':r['espn_id']})
+    for nm in roster: roster[nm]=sorted(roster[nm],key=lambda x:-x['g'])
+    counts={nm:len(v) for nm,v in roster.items()}
     out={'meta':{'season':SEASON,'k':K,'n':len(players),'features':FEAT},
          'archetypes':[{'name':n,'desc':DESC[n],'color':COLOR[n],'count':counts.get(n,0)} for n,_ in TEMPLATES],
          'players':players,'by_name':by_name,'roster':roster}

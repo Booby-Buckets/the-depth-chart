@@ -12,7 +12,7 @@ window.TDC_ARCH = (function () {
   var A = { _players:{}, _byName:{}, _dict:{}, _list:[], _break:null, _breakMeta:null, loaded:false };
   function norm(s){ return (''+(s||'')).toLowerCase().replace(/[^a-z0-9]/g,''); }
   A.ready = Promise.all([
-    fetch('archetypes.json?v=2', { cache:'no-cache' }).then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; }),
+    fetch('archetypes.json?v=3', { cache:'no-cache' }).then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; }),
     fetch('breakout.json',   { cache:'no-cache' }).then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; })
   ]).then(function(res){
       var j=res[0], b=res[1];
