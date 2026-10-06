@@ -1,7 +1,8 @@
 /* tdc-archetypes.js — shared player STYLE-archetype lookup (from build_archetypes.py).
    Loads archetypes.json once and exposes:
      TDC_ARCH.ready              -> promise (resolves when loaded)
-     TDC_ARCH.of(espn_id, name)  -> {name, desc, color} | null   (espn_id first, then name)
+     TDC_ARCH.of(espn_id, name)  -> {name, desc, color, est} | null   (espn_id first, then name;
+                                    est 'low' = from a low-minutes season, 'size' = position + height only)
      TDC_ARCH.info(name)         -> {name, desc, color, count} | null
      TDC_ARCH.list()             -> [archetype dicts]
      TDC_ARCH.breakout(name)     -> {rate, n, star, avg_gain, color, examples, meta} | null
@@ -11,7 +12,7 @@ window.TDC_ARCH = (function () {
   var A = { _players:{}, _byName:{}, _dict:{}, _list:[], _break:null, _breakMeta:null, loaded:false };
   function norm(s){ return (''+(s||'')).toLowerCase().replace(/[^a-z0-9]/g,''); }
   A.ready = Promise.all([
-    fetch('archetypes.json', { cache:'no-cache' }).then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; }),
+    fetch('archetypes.json?v=2', { cache:'no-cache' }).then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; }),
     fetch('breakout.json',   { cache:'no-cache' }).then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; })
   ]).then(function(res){
       var j=res[0], b=res[1];
@@ -26,7 +27,7 @@ window.TDC_ARCH = (function () {
     if (!r && name && A._byName) r = A._byName[norm(name)];
     if (!r) return null;
     var d = A._dict[r.a] || {};
-    return { name:r.a, desc:d.desc||'', color:d.color||'var(--accent)' };
+    return { name:r.a, desc:d.desc||'', color:d.color||'var(--accent)', est:r.est||null, y:r.y||null };
   };
   A.info = function(name){ return A._dict[name] || null; };
   A.list = function(){ return A._list.slice(); };

@@ -12,7 +12,7 @@
   <script src="tdc-shotprofile.js?v=1s"></script>
   <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-nil.js?v=cal1"></script>
-  <script src="tdc-archetypes.js?v=2"></script>
+  <script src="tdc-archetypes.js?v=3"></script>
   <script src="tdc-gate.js?v=4"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-proj.js?v=hg1"></script>
@@ -3945,7 +3945,7 @@ function _updateHeroGridForSeason(val){
     var a=TDC_ARCH.of(player&&player.espn_id, player&&player.name); if(!a) return;
     var pill=document.getElementById('heroArchPill'), v=document.getElementById('heroArch');
     var b=TDC_ARCH.breakout(a.name);
-    var tip=a.desc;
+    var tip=a.desc+(a.est==='size'?' (Estimated from position and size — no college stats yet.)':a.est==='low'?' (From limited minutes.)':'');
     if(b){ var pct=Math.round(b.rate*100);
       tip+=(tip?' · ':'')+pct+'% of young non-star '+a.name+'s grow into stars ('+
            (b.meta.years?b.meta.years[0]+'–'+b.meta.years[1]:'')+', n='+b.n+')'; }
@@ -4266,7 +4266,6 @@ function _paProjHTML(){
   var pr=(useProj && player && player.espn_id!=null && window.TDCProjGrade && TDCProjGrade.projRowOf)?TDCProjGrade.projRowOf(player.espn_id):null;
   var adv=player&&player._advanced;
   var usgNow=useProj?(pr&&pr.usg):(adv&&adv.usg_pct);
-  var usgLast=adv&&adv.usg_pct;
   var cmp=useProj && last;
   var big=[['PPG','ppg'],['RPG','rpg'],['APG','apg'],['MPG','mpg']].map(function(x){
     return '<div class="pa-big"><div class="pa-k">'+x[0]+'</div><div class="pa-bv">'+f(src[x[1]])+'</div>'+
@@ -4274,18 +4273,10 @@ function _paProjHTML(){
   var pct=function(v){ v=parseFloat(v); if(!isFinite(v)) return '—'; if(v<=1) v*=100; return v.toFixed(1); };
   var small=[['FG%',pct(src.fg_pct)],['3P%',pct(src.tp_pct!=null?src.tp_pct:src.three_pct)],['FT%',pct(src.ft_pct)],(usgNow!=null&&isFinite(+usgNow))?['Usage',(+usgNow).toFixed(1)+'%']:((!useProj&&src.gp!=null&&src.gp!=='')?['GP',src.gp]:null)].filter(Boolean)
     .map(function(x){ return '<div class="pa-sm"><div class="pa-k">'+x[0]+'</div><div class="pa-sv">'+x[1]+'</div></div>'; }).join('');
-  var read='';
-  if(cmp){
-    var from=_paFrom(), d=parseFloat(src.ppg)-parseFloat(last.ppg);
-    read=(from?'Transfers in from '+from+'. ':'')+'Projected '+f(src.ppg)+' points on '+f(src.mpg)+' minutes, '+
-      (Math.abs(d)<0.5?'about the same as':(d>0?'up from ':'down from '))+(Math.abs(d)<0.5?' ':'')+f(last.ppg)+' last season'+
-      ((usgLast!=null&&usgNow!=null&&Math.abs(usgNow-usgLast)>=3)?' (usage '+(+usgLast).toFixed(1)+'% → '+(+usgNow).toFixed(1)+'%)':'')+'.';
-  } else if(useProj){ read='No college stats yet. This line comes from his recruiting profile and projected role.'; }
   var head=useProj?'2026-27 projection':(_paSeasonLbl(last.season_year)+' season');
   var sub=cmp?('vs '+_paSeasonLbl(last.season_year)+(last.team?' at '+(window.tdcShortSchool?tdcShortSchool(last.team):last.team):'')):'';
   return '<div class="pa-proj-h"><span>'+head+'</span>'+(sub?'<span class="pa-sub">'+sub+'</span>':'')+'</div>'+
-    '<div class="pa-bigs">'+big+'</div><div class="pa-rule"></div><div class="pa-smalls">'+small+'</div>'+
-    (read?'<div class="pa-read">'+read+'</div>':'');
+    '<div class="pa-bigs">'+big+'</div><div class="pa-rule"></div><div class="pa-smalls">'+small+'</div>';
 }
 function _paRanksHTML(){ return '<div class="pa-rk" id="paRankPlayer"></div><div class="pa-rk" id="paRankLast"></div><div class="pa-rk" id="paRankTeam"></div>'; }
 function _paFillRanks(){

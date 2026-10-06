@@ -21,6 +21,7 @@ from scipy.optimize import linear_sum_assignment
 SB='https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1'
 KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye'
 SEASON=2026; K=10
+REFIT='--refit' in sys.argv
 # Any season back to 2014 can be clustered with the same templates: `--year 2019` writes
 # archetypes_2019.json (2026 stays archetypes.json). `--all` rebuilds 2014..2026.
 HERE=os.path.dirname(__file__)
@@ -58,10 +59,10 @@ COLOR={'Two-Way Big':'#c0417d','Rim Protector':'#6f5bd0','Rim-Runner':'#3b83d4',
 
 def q(p):
     r=urllib.request.Request(SB+p,headers={'apikey':KEY,'Authorization':'Bearer '+KEY}); return json.load(urllib.request.urlopen(r,timeout=90))
-def pull(t):
+def pull(t,order='espn_id'):
     rows=[];off=0
     while True:
-        b=q(t+('&' if '?' in t else '?')+'order=espn_id.asc&limit=1000&offset=%d'%off)
+        b=q(t+('&' if '?' in t else '?')+'order=%s.asc&limit=1000&offset=%d'%(order,off))
         if not b: break
         rows+=b; off+=1000
         if len(b)<1000: break
@@ -72,8 +73,9 @@ def f(v):
 def ht_in(s):
     m=re.match(r'(\d+)-(\d+)',s or ''); return int(m.group(1))*12+int(m.group(2)) if m else None
 
-def season_rows(season):
-    """qualifying player-seasons (10+ games, 12+ mpg, 2+ FGA) with the style features"""
+def season_rows(season, loose=False):
+    """qualifying player-seasons (10+ games, 12+ mpg, 2+ FGA) with the style features.
+    loose=True keeps anyone who took a shot — used only to CLASSIFY (never to fit) bench players."""
     adv={str(r['espn_id']):r for r in pull('/player_advanced?season_year=eq.%d&select=espn_id,team,usg_pct,ast_pct,orb_pct,drb_pct,blk_pct,stl_pct'%season) if r.get('espn_id') is not None}
     ph=pull('/player_history?season_year=eq.%d&select=espn_id,name,position,height,fga,tpa,fta,mpg,gp,tdc_grade'%season)
     rows=[]
@@ -81,7 +83,9 @@ def season_rows(season):
         eid=str(r.get('espn_id')); a=adv.get(eid)
         if not a: continue
         mpg,gp,fga=f(r.get('mpg')),f(r.get('gp')),f(r.get('fga'))
-        if not mpg or not gp or gp<10 or mpg<12 or not fga or fga<2: continue
+        if loose:
+            if not mpg or not gp or not fga: continue
+        elif not mpg or not gp or gp<10 or mpg<12 or not fga or fga<2: continue
         ff={'usg':f(a.get('usg_pct')),'ast':f(a.get('ast_pct')),
             'tp_rate':(f(r.get('tpa')) or 0)/fga,'ft_rate':(f(r.get('fta')) or 0)/fga,
             'orb':f(a.get('orb_pct')),'drb':f(a.get('drb_pct')),
@@ -116,7 +120,7 @@ def main():
     # clusters, so the labels mean the same thing. Keyed by espn_id only (no name matches).
     back=0
     if SEASON==2026:
-        on_roster={str(r['espn_id']) for r in pull('/players?select=espn_id&espn_id=not.is.null')}
+        on_roster={str(r['espn_id']) for r in pull('/players?select=id,espn_id&espn_id=not.is.null',order='id')}
         need=on_roster-set(players)
         for y in range(SEASON-1,SEASON-4,-1):
             if not need: break
@@ -126,12 +130,63 @@ def main():
             for r,l in zip(prior,lab):
                 players[str(r['espn_id'])]={'a':cluster_name[int(l)],'y':y}; need.discard(str(r['espn_id'])); back+=1
         print('styles from an earlier season for %d current-roster players'%back)
+        # LOW MINUTES: bench players under the 12-mpg/10-game bar (Jake Wilkins, 10 mpg at Georgia) —
+        # classify from their most recent season with any shots, same scaler + clusters.
+        low=0
+        for y in range(SEASON,SEASON-4,-1):
+            if not need: break
+            prior=[r for r in season_rows(y,loose=True) if str(r['espn_id']) in need]
+            if not prior: continue
+            lab=km.predict(scaler.transform(np.array([[r['f'][k] for k in FEAT] for r in prior])))
+            for r,l in zip(prior,lab):
+                players[str(r['espn_id'])]={'a':cluster_name[int(l)],'y':y,'est':'low'}; need.discard(str(r['espn_id'])); low+=1
+        print('styles from a low-minutes season for %d players'%low)
+        # NO COLLEGE LINE (freshmen, internationals, no box score): the most common style among
+        # clustered players at the same position and height (+-1 inch, widening if thin).
+        def pos_of(x): return ((x or '').split('/')[0].strip().upper() or '?')
+        pool={}
+        bio={str(r['espn_id']):r for r in pull('/player_history?season_year=eq.%d&select=espn_id,position,height'%SEASON) if r.get('espn_id') is not None}
+        for eid,v in players.items():
+            b=bio.get(eid); h=ht_in(b and b.get('height'))
+            if b and h: pool.setdefault(pos_of(b.get('position')),[]).append((h,v['a']))
+        allp=[x for v in pool.values() for x in v]
+        def guess(pos,h):
+            cand=pool.get(pos) or allp
+            for w in (1,2,3,6):
+                near=[a for hh,a in cand if h is not None and abs(hh-h)<=w]
+                if len(near)>=15 or w==6: break
+            if not near: near=[a for _,a in cand]
+            c={}
+            for a in near: c[a]=c.get(a,0)+1
+            return max(c,key=c.get) if c else None
+        rost=pull('/players?select=id,espn_id,name,position,height',order='id')   # espn_id is null for freshmen: page on id
+        fr=0
+        for r in rost:
+            eid=str(r['espn_id']) if r.get('espn_id') is not None else None
+            if eid and eid in players: continue
+            if not eid and norm(r.get('name')) in by_name: continue
+            a=guess(pos_of(r.get('position')),ht_in(r.get('height')))
+            if not a: continue
+            rec={'a':a,'est':'size'}
+            if eid: players[eid]=rec
+            if norm(r.get('name')) and norm(r.get('name')) not in by_name: by_name[norm(r.get('name'))]=rec
+            fr+=1
+        print('styles from position + height for %d players with no college line'%fr)
+    path=os.path.join(HERE,'..','archetypes.json' if SEASON==2026 else 'archetypes_%d.json'%SEASON)
+    # keep every label already published (a re-fit on refreshed stats flips ~10% of them — Cooper Jr.
+    # Scoring Guard -> Shot Creator); new players are only ADDED. --refit relabels everyone on purpose.
+    if os.path.exists(path) and not REFIT:
+        prev=json.load(open(path)); kept=0
+        for k,v in (prev.get('players') or {}).items():
+            if players.get(k,{}).get('a')!=v['a']: kept+=1
+            players[k]=v
+        for k,v in (prev.get('by_name') or {}).items(): by_name[k]=v
+        print('kept %d published labels a re-fit would have changed'%kept)
     counts={}
     for v in players.values(): counts[v['a']]=counts.get(v['a'],0)+1
     out={'meta':{'season':SEASON,'k':K,'n':len(players),'features':FEAT},
          'archetypes':[{'name':n,'desc':DESC[n],'color':COLOR[n],'count':counts.get(n,0)} for n,_ in TEMPLATES],
          'players':players,'by_name':by_name,'roster':roster}
-    path=os.path.join(HERE,'..','archetypes.json' if SEASON==2026 else 'archetypes_%d.json'%SEASON)
     json.dump(out,open(path,'w'),separators=(',',':'))
     print('wrote %s  (%d players)'%(os.path.abspath(path),len(players)))
     for n,_ in TEMPLATES: print('  %-22s %d'%(n,counts.get(n,0)))
