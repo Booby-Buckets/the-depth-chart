@@ -19,6 +19,7 @@
   <script src="tdc-theme.js?v=5"></script>
   <script src="team-colors.js?v=11"></script>
   <script src="tdc-teamname.js?v=1"></script>
+  <script src="tdc-nil.js?v=cal1"></script>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <style>
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;}
@@ -47,10 +48,10 @@
     .tp-note{font-size:12px;color:var(--text3);}
     .tp-table{--c1:44px;--c2:200px;}
     .tp-table th.sort{cursor:pointer;user-select:none;} .tp-table th.on{color:var(--text);}
-    .tp-table td.nm a{color:var(--text);text-decoration:none;} .tp-table td.nm a:hover{color:var(--accent);text-decoration:underline;}
-    .tp-table td.tm a{display:inline-flex;align-items:center;gap:7px;color:inherit;text-decoration:none;vertical-align:middle;}
-    .tp-table td.tm a:hover span{color:var(--accent);text-decoration:underline;}
-    .tp-table td.tm img,.tp-table td.tm i{width:18px;height:18px;object-fit:contain;flex:none;}
+    .tp-table td.nm a,.tp-board td.nm a{color:var(--text);text-decoration:none;} .tp-table td.nm a:hover,.tp-board td.nm a:hover{color:var(--accent);text-decoration:underline;}
+    .tp-table td.tm a,.tp-board td.tm a{display:inline-flex;align-items:center;gap:7px;color:inherit;text-decoration:none;vertical-align:middle;}
+    .tp-table td.tm a:hover span,.tp-board td.tm a:hover span{color:var(--accent);text-decoration:underline;}
+    .tp-table td.tm img,.tp-table td.tm i,.tp-board td.tm img,.tp-board td.tm i{width:18px;height:18px;object-fit:contain;flex:none;}
     .tp-table td.up{color:#2e8b57;font-weight:800;} .tp-table td.dn{color:#c75d5d;font-weight:800;}
     [data-theme="dark"] .tp-table td.up{color:#6fbf7e;} [data-theme="dark"] .tp-table td.dn{color:#e07a7a;}
     .tp-lvl{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border:1px solid var(--border2);border-radius:4px;padding:1px 5px;color:var(--text2);}
@@ -58,11 +59,23 @@
     .tp-fit:hover{text-decoration:underline;}
     .tp-more{margin:14px auto 0;display:block;}
     .tp-empty{padding:48px 12px;text-align:center;color:var(--text3);}
+    .tp-boards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;}
+    .tp-board .sheet-wrap{max-height:none;}
+    .tp-board .sheet th.bt{font-family:'Playfair Display',Georgia,serif;font-size:16px!important;font-weight:800;letter-spacing:0!important;text-transform:none!important;color:var(--text)!important;}
+    .tp-board td.mv{position:relative;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;}
+    .tp-board td.mv i{position:absolute;left:0;top:3px;bottom:3px;background:color-mix(in srgb,var(--accent) 22%,transparent);border-radius:2px;z-index:0;}
+    .tp-board td.mv span{position:relative;z-index:1;}
+    .tp-board td.mv.neg i{background:color-mix(in srgb,#c75d5d 24%,transparent);}
+    .tp-board td.det{font-size:11.5px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;}
+    .tp-board td.det a{color:var(--text2);text-decoration:none;} .tp-board td.det a:hover{color:var(--accent);text-decoration:underline;}
+    .tp-board tr.go{cursor:pointer;}
+    body.tp-rank .tp-main,body.tp-rank #tpMore,body.tp-rank .tp-search{display:none!important;}
+    body:not(.tp-rank) #tpBoards{display:none;}
     @media(max-width:640px){
       .page{padding:16px 0 40px;} .page-h1{font-size:28px;}
       .tp-sum{grid-template-columns:repeat(2,minmax(0,1fr));} .tp-sum div:nth-child(2){border-right:0;} .tp-sum div:nth-child(-n+2){border-bottom:1px solid var(--border);}
       .tp-lab{width:100%;} .tp-search{width:100%;} .tp-table{--c1:34px;--c2:136px;}
-      .tp-bar{gap:12px;}
+      .tp-bar{gap:12px;} .tp-boards{grid-template-columns:minmax(0,1fr);} .tp-board td.det{max-width:120px;}
       .tp-players th:nth-child(3),.tp-players td:nth-child(3),.tp-players th:nth-child(4),.tp-players td:nth-child(4),
       .tp-players th:nth-child(12),.tp-players td:nth-child(12),.tp-players th:nth-child(13),.tp-players td:nth-child(13),
       .tp-players th:nth-child(14),.tp-players td:nth-child(14),.tp-players th:nth-child(15),.tp-players td:nth-child(15){display:none;}
@@ -95,7 +108,8 @@
     <input class="tp-search" id="tpSearch" type="search" placeholder="Find a player or school…" aria-label="Find a player or school"/>
   </div>
 
-  <div class="sheet-wrap">
+  <div class="tp-boards" id="tpBoards"></div>
+  <div class="sheet-wrap tp-main">
     <table class="sheet dense freeze2 tp-table" aria-label="Transfer portal">
       <thead><tr id="tpHead"></tr></thead>
       <tbody id="tpBody"><tr><td class="tp-empty" colspan="16">Loading…</td></tr></tbody>
@@ -107,10 +121,10 @@
 <script>
 (function(){
   const PAGE = 100;
-  const VIEWS = [['players','Players'],['teams','Teams']];
+  const VIEWS = [['rankings','Rankings'],['players','Players'],['teams','Teams']];
   const POS = [['','All'],['G','Guards'],['F','Forwards'],['C','Centers']];
   const LVL = [['','All'],['up','Moved up'],['side','Same level or down']];
-  const st = { view:'players', pos:'', lvl:'', conf:'', q:'', sort:null, dir:-1, shown:PAGE };
+  const st = { view:'rankings', pos:'', lvl:'', conf:'', q:'', sort:null, dir:-1, shown:PAGE };
   let D = null;
 
   const sn = n => (window.tdcShortSchool ? tdcShortSchool(n) : n) || n || '';
@@ -133,12 +147,13 @@
       row.appendChild(b); });
   }
 
-  function filtered() {
+  let CONF = {};   // program → its 2026-27 league (from where transfers landed)
+  function filtered(anyConf) {
     const q = st.q.trim().toLowerCase();
     return D.players.filter(p =>
       (!st.pos || grp(p.pos) === st.pos) &&
       (!st.lvl || (st.lvl === 'up' ? p.up : !p.up)) &&
-      (!st.conf || p.toConf === st.conf) &&
+      (anyConf || !st.conf || p.toConf === st.conf) &&
       (!q || (p.name + ' ' + sn(p.from) + ' ' + sn(p.to) + ' ' + p.from + ' ' + p.to).toLowerCase().includes(q)));
   }
 
@@ -182,14 +197,22 @@
 
   // ── teams view: each program's portal class ──
   const TCOLS = [['#', 'rk', null], ['Team', 'l', 'name'], ['Conf', 'c', 'conf'], ['Haul', '', 'haul', 1], ['In', '', 'nIn', 1], ['Out', '', 'nOut', -1],
+    ['$ In', '', 'spent', 1], ['$ Out', '', 'lost', -1],
     ['Avg OVR in', '', 'avgIn', 1], ['Avg OVR out', '', 'avgOut', -1], ['Net', '', 'net', 1], ['Top addition', 'l', null], ['Top loss', 'l', null]];
   function teamRows() {
     const T = {}; const get = n => T[n] || (T[n] = { name: n, conf: '', ins: [], outs: [] });
-    filtered().forEach(p => { if (p.to) { const t = get(p.to); t.conf = p.toConf; t.ins.push(p); } if (p.from) get(p.from).outs.push(p); });
+    // every move counts for both schools; the conference filter picks PROGRAMS (a loss to another league still counts)
+    filtered(true).forEach(p => { if (p.to) get(p.to).ins.push(p); if (p.from) get(p.from).outs.push(p); });
+    Object.values(T).forEach(t => { t.conf = CONF[t.name] || ''; });
     const avg = (a, k) => { const v = a.map(x => x[k]).filter(x => x != null); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
     return Object.values(T).filter(t => !st.conf || t.conf === st.conf).map(t => {
       t.ins.sort((a, b) => (b.ovr || 0) - (a.ovr || 0)); t.outs.sort((a, b) => (b.lastOvr || 0) - (a.lastOvr || 0));
       t.haul = t.ins.reduce((s, p) => s + Math.max(0, (p.ovr || 0) - 70), 0);   // each addition's OVR above 70, summed
+      t.haulOut = t.outs.reduce((s, p) => s + Math.max(0, (p.lastOvr || 0) - 70), 0);   // what walked out: last season's OVR above 70
+      t.netHaul = t.haul - t.haulOut;
+      const sum = a => a.reduce((s, p) => s + (p.nil || 0), 0);
+      t.spent = D.hasNil ? sum(t.ins) : null; t.lost = D.hasNil ? sum(t.outs) : null;
+      t.perM = t.spent >= 0.5 ? t.haul / t.spent : null;   // haul points per $1M of estimated NIL
       t.nIn = t.ins.length; t.nOut = t.outs.length; t.avgIn = avg(t.ins, 'ovr'); t.avgOut = avg(t.outs, 'lastOvr'); t.net = t.nIn - t.nOut;
       return t; });
   }
@@ -204,7 +227,7 @@
     const show = rows.slice(0, st.shown);
     document.getElementById('tpBody').innerHTML = show.length ? show.map((t, i) => `<tr style="cursor:pointer" onclick="location.href='team.html?team=${encodeURIComponent(sn(t.name))}'">
         <td class="rk">${i + 1}</td><td class="l tm">${teamCell(t.name)}</td><td class="c dim">${esc(cn(t.conf))}</td>
-        <td class="strong">${t.haul}</td><td>${t.nIn}</td><td>${t.nOut}</td><td>${t.avgIn == null ? '—' : t.avgIn.toFixed(1)}</td><td>${t.avgOut == null ? '—' : t.avgOut.toFixed(1)}</td>
+        <td class="strong">${t.haul}</td><td>${t.nIn}</td><td>${t.nOut}</td><td>${money(t.spent)}</td><td>${money(t.lost)}</td><td>${t.avgIn == null ? '—' : t.avgIn.toFixed(1)}</td><td>${t.avgOut == null ? '—' : t.avgOut.toFixed(1)}</td>
         <td class="${t.net > 0 ? 'up' : t.net < 0 ? 'dn' : 'dim'}">${t.net > 0 ? '+' : t.net < 0 ? '−' : ''}${Math.abs(t.net)}</td>
         <td class="l nm">${top(t.ins[0])}</td><td class="l nm">${top(t.outs[0] && Object.assign({}, t.outs[0], { ovr: t.outs[0].lastOvr }))}</td></tr>`).join('')
       : `<tr><td class="tp-empty" colspan="${TCOLS.length}">No programs match.</td></tr>`;
@@ -214,7 +237,59 @@
     more.textContent = `Show ${Math.min(PAGE, rows.length - st.shown)} more`;
   }
 
+  // ── rankings: leaderboards built from the same team classes ──
+  const money = m => m == null ? '—' : (window.TDC_NIL ? TDC_NIL.fmt(m) : '$' + (+m).toFixed(2) + 'M');
+  const plink = p => `<a href="${playerHref(p)}" onclick="event.stopPropagation()">${esc(p.name)}</a>`;
+  function board(title, metric, rows, val, fmt, det, opts) {
+    opts = opts || {};
+    const max = Math.max(...rows.map(r => Math.abs(val(r)) || 0), 1e-9);
+    const body = rows.length ? rows.map((r, i) => {
+      const v = val(r), w = Math.round(Math.abs(v) / max * 100);
+      const href = opts.player ? playerHref(r) : opts.conf ? `transfers.html?view=teams&conf=${encodeURIComponent(r.conf)}` : `team.html?team=${encodeURIComponent(sn(r.name))}`;
+      const who = opts.player ? `<td class="l nm">${plink(r)}</td>` : opts.conf ? `<td class="l nm">${esc(cn(r.conf))}</td>` : `<td class="l tm">${teamCell(r.name)}</td>`;
+      return `<tr class="go" onclick="location.href='${href}'"><td class="rk">${i + 1}</td>${who}<td class="mv${v < 0 ? ' neg' : ''}"><i style="width:${w}%"></i><span>${fmt(v, r)}</span></td><td class="l det">${det(r)}</td></tr>`;
+    }).join('') : `<tr><td class="tp-empty" colspan="4">Nothing to rank.</td></tr>`;
+    return `<div class="tp-board"><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l bt" colspan="2">${title}</th><th>${metric}</th><th class="l"></th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+  }
+  function renderRankings() {
+    const T = teamRows(), N = 10;
+    const top = (a, k, dir, keep) => a.filter(t => t[k] != null && (!keep || keep(t))).sort((x, y) => dir * (y[k] - x[k])).slice(0, N);
+    const signed = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v);
+    const best = t => t.ins[0] ? `${plink(t.ins[0])} ${t.ins[0].ovr ?? ''}` : '';
+    const worst = t => t.outs[0] ? `${plink(t.outs[0])} ${t.outs[0].lastOvr ?? ''}` : '';
+    const spendKeep = t => (t.spent || 0) >= 2 && t.nIn >= 2;
+    // conference totals (programs in the league)
+    const C = {}; T.forEach(t => { if (!t.conf) return; const c = C[t.conf] || (C[t.conf] = { conf: t.conf, haul: 0, spent: 0, n: 0, teams: 0 });
+      c.haul += t.haul; c.spent += t.spent || 0; c.n += t.nIn; c.teams++; });
+    const confs = Object.values(C).map(c => Object.assign(c, { per: c.haul / c.teams }));
+    const P = filtered();
+    // glow-ups need real minutes on both ends: 55 is the floor rating for barely-used players
+    const pTop = (k, keep, dir) => P.filter(p => p[k] != null && (!keep || keep(p))).sort((a, b) => (dir || 1) * (b[k] - a[k])).slice(0, N);
+    P.forEach(p => { p._glow = p.ovr > 55 && p.lastOvr > 55 && (p.last.mpg || 0) >= 12 && (p.proj.mpg || 0) >= 12 ? p.ovr - p.lastOvr : null; p._steal = p.nil > 0 && p.ovr >= 78 ? (p.ovr - 70) / Math.max(p.nil, 0.15) : null; });
+    const B = [
+      board('Best portal class', 'Haul', top(T, 'haul', 1), t => t.haul, v => v, t => `${t.nIn} in · ${best(t)}`),
+      D.hasNil && board('Biggest spenders', 'Est. NIL', top(T, 'spent', 1), t => t.spent, v => money(v), t => `${t.nIn} in · avg ${money(t.spent / Math.max(1, t.nIn))}`),
+      D.hasNil && board('Best bang for the buck', 'Haul / $1M', top(T, 'perM', 1, spendKeep), t => t.perM, v => v.toFixed(1), t => `haul ${t.haul} for ${money(t.spent)}`),
+      D.hasNil && board('Worst bang for the buck', 'Haul / $1M', top(T, 'perM', -1, spendKeep), t => t.perM, v => v.toFixed(1), t => `haul ${t.haul} for ${money(t.spent)}`),
+      board('Lost the most', 'Haul lost', top(T, 'haulOut', 1), t => t.haulOut, v => v, t => `${t.nOut} out · ${worst(t)}`),
+      D.hasNil && board('Most NIL walked out the door', 'Est. NIL', top(T, 'lost', 1), t => t.lost, v => money(v), t => `${t.nOut} out · ${worst(t)}`),
+      board('Biggest net winners', 'Net haul', top(T, 'netHaul', 1), t => t.netHaul, signed, t => `+${t.haul} in · −${t.haulOut} out`),
+      board('Biggest net losers', 'Net haul', top(T, 'netHaul', -1), t => t.netHaul, signed, t => `+${t.haul} in · −${t.haulOut} out`),
+      board('Total roster overhaul', 'Moves', T.map(t => Object.assign(t, { moves: t.nIn + t.nOut })).sort((a, b) => b.moves - a.moves).slice(0, N), t => t.moves, v => v, t => `${t.nIn} in · ${t.nOut} out`),
+      !st.conf && board('Conference portal rankings', 'Haul / team', confs.sort((a, b) => b.per - a.per).slice(0, N), c => c.per, v => v.toFixed(1), c => `${c.n} transfers in` + (D.hasNil ? ` · ${money(c.spent)}` : ''), { conf: 1 }),
+      D.hasNil && board('Biggest splashes', 'Est. NIL', pTop('nil'), p => p.nil, v => money(v), p => `${esc(sn(p.from))} → ${esc(sn(p.to))} · ${p.ovr ?? '—'} OVR`, { player: 1 }),
+      D.hasNil && board('Best bargains', 'OVR', pTop('_steal'), p => p.ovr, v => v, p => `${money(p.nil)} · ${esc(sn(p.from))} → ${esc(sn(p.to))}`, { player: 1 }),
+      board('Biggest glow-ups', 'OVR change', pTop('_glow'), p => p._glow, signed, p => `${p.lastOvr} → ${p.ovr} · ${esc(sn(p.from))} → ${esc(sn(p.to))}`, { player: 1 }),
+      board('Biggest step backs', 'OVR change', pTop('_glow', null, -1), p => p._glow, signed, p => `${p.lastOvr} → ${p.ovr} · ${esc(sn(p.from))} → ${esc(sn(p.to))}`, { player: 1 }),
+    ].filter(Boolean);
+    document.getElementById('tpBoards').innerHTML = B.join('');
+    document.getElementById('tpTitle').textContent = st.conf ? cn(st.conf) + ' portal rankings' : 'Portal rankings';
+    document.getElementById('tpNote').textContent = 'Haul = each addition\'s projected OVR above 70, summed (losses use last season\'s OVR)' + (D.hasNil ? ' · NIL = our estimated market value, not reported deals' : '');
+  }
+
   function render() {
+    document.body.classList.toggle('tp-rank', st.view === 'rankings');
+    if (st.view === 'rankings') { renderRankings(); document.querySelectorAll('#tpBoards table').forEach(t => window.tdcSheetHeat && tdcSheetHeat(t)); return; }
     const tb = document.querySelector('.tp-table'); tb.classList.toggle('tp-players', st.view === 'players'); tb.classList.toggle('tp-teams', st.view === 'teams');
     (st.view === 'teams' ? renderTeams : renderPlayers)();
     const t = document.querySelector('.tp-table'); if (t && window.tdcSheetHeat) tdcSheetHeat(t);
@@ -237,8 +312,21 @@
   document.querySelectorAll('#viewRow .chip').forEach((c, i) => c.classList.toggle('on', VIEWS[i][0] === st.view));
   if (st.q) document.getElementById('tpSearch').value = st.q;
 
-  fetch('data/portal_2027.json?v=6').then(r => r.json()).then(d => {
+  // estimated NIL value of each transfer = the same open-market figure his player page shows (tdc-nil.js on nil-data.json)
+  async function attachNil(d) {
+    const N = window.TDC_NIL; if (!N || !N.neutralValueOf) return;
+    try {
+      const nd = await fetch('nil-data.json?v=gradesync15').then(r => r.ok ? r.json() : null); if (!nd || !nd.teams) return;
+      await Promise.all([N.dealsReady, N.pedigreeReady, N.defenseReady, N.adjustReady, N.programsReady, N.injuryReady].map(x => Promise.resolve(x).catch(() => null)));
+      const by = {}; Object.values(nd.teams).forEach(t => (t.players || []).forEach(r => { if (r.espn_id != null) by[String(r.espn_id)] = [r, t.tier]; }));
+      let n = 0; d.players.forEach(p => { const x = by[p.espn]; if (x) { const v = N.neutralValueOf(x[0], x[1]); if (isFinite(v)) { p.nil = v; n++; } } });
+      d.hasNil = n > d.players.length * 0.5;
+    } catch (e) {}
+  }
+  fetch('data/portal_2027.json?v=6').then(r => r.json()).then(async d => {
+    await attachNil(d);
     D = d;
+    d.players.forEach(p => { if (p.to && p.toConf) CONF[p.to] = p.toConf; });
     const confs = [...new Set(d.players.map(p => p.toConf).filter(Boolean))].sort();
     const sel = document.getElementById('confSel');
     sel.innerHTML = '<option value="">All conferences</option>' + confs.sort((a, b) => cn(a).localeCompare(cn(b))).map(c => `<option value="${esc(c)}">${esc(cn(c))}</option>`).join('');
