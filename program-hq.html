@@ -21,6 +21,7 @@
   <script src="team-colors.js?v=11"></script>
   <script src="tdc-ratings.js?v=31"></script>
   <script src="tdc-schedule.js?v=27"></script>
+  <script src="tdc-scrim.js?v=15"></script>
   <script src="tdc-teamlink.js?v=2"></script>
   <script src="tdc-teamgrades.js?v=2"></script>
   <script src="tdc-projgrade.js?v=base46"></script>
@@ -353,7 +354,8 @@
       </div>
 
       <div class="hx-tabbar">
-        <div class="hx-tab2 on">Today</div>
+        <div class="hx-tab2 on" id="hxTodayTab" onclick="hqView('today')">Today</div>
+        <div class="hx-tab2" id="hxSchedTab" onclick="hqView('schedule')">Schedule</div>
         <a class="hx-tab2" id="hxTeamTab" href="#">Team Page</a>
         <a class="hx-tab2" href="#cmd">All Tools</a>
         <div class="hx-tabctrls">
@@ -363,7 +365,8 @@
       </div>
 
       <div class="hx-stage">
-      <div class="hx-grid">
+      <div class="hx-card" id="hxSchedPane" style="display:none;"><div class="hx-lab">Schedule <span class="sub" id="hxSchedSub"></span></div><div id="hxSched"></div></div>
+      <div class="hx-grid" id="hxToday">
         <div class="hx-col">
           <div class="hx-card" id="hxGame"></div>
           <div class="hx-card"><div class="hx-lab" id="hxAnaLbl">Team Analytics</div><div id="hxAnalytics"></div></div>
@@ -513,7 +516,61 @@ function renderSeason(){
       pastHero(row,tr); analyticsPast(P,tr); seasonRecap(P,tr,row); pastStandings(P,tr,row); lastGame(row.full,HQ_SEASON);
     });
   }
+  if(HQ_VIEW==='schedule') loadHQSchedule();
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(byId('hq'));
+}
+
+// ── Schedule tab: the team page's schedule grid (tdc-schedule.js) for the selected season ──
+var HQ_VIEW='today', _hqSchedTok=0;
+function hqView(v){
+  HQ_VIEW=v;
+  byId('hxTodayTab').classList.toggle('on',v==='today'); byId('hxSchedTab').classList.toggle('on',v==='schedule');
+  byId('hxToday').style.display=v==='today'?'':'none'; byId('hxSchedPane').style.display=v==='schedule'?'':'none';
+  try{ var u=new URL(location.href); if(v==='schedule') u.searchParams.set('view','schedule'); else u.searchParams.delete('view'); history.replaceState(null,'',u); }catch(e){}
+  if(v==='schedule') loadHQSchedule();
+}
+function loadHQSchedule(){
+  var row=rowOf(MY); if(!row) return;
+  var host=byId('hxSched'), sub=byId('hxSchedSub'), full=row.full, yr=+HQ_SEASON, tok=++_hqSchedTok;
+  var stale=function(){ return tok!==_hqSchedTok; };
+  host.innerHTML='<div class="hx-empty">Loading schedule…</div>'; sub.textContent=seasonLabel(yr);
+  var q=encodeURIComponent(full);
+  Promise.all([
+    fetch(SB+'/rest/v1/games?season_year=eq.'+yr+'&or=(home.eq.'+q+',away.eq.'+q+')&select=*&order=date.asc',{headers:H}).then(function(r){return r.ok?r.json():[];}),
+    fetch(SB+'/rest/v1/team_seasons?season_year=eq.'+yr+'&srs=not.is.null&select=team,srs,ncaa_seed&order=srs.desc',{headers:H}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];}),
+    fetch(SB+'/rest/v1/postseason_games?or=(home.eq.'+q+',away.eq.'+q+')&season_year=eq.'+yr+'&select=id,tournament,round',{headers:H}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];})
+  ]).then(function(res){
+    if(stale()) return;
+    var all=res[0]||[], ranks=res[1]||[], post=res[2]||[];
+    var rankMap={}, srsMap={}; ranks.forEach(function(t,i){ rankMap[t.team]=i+1; if(t.srs!=null) srsMap[t.team]=+t.srs; });
+    var games=all.filter(function(g){ return g.status==='STATUS_FINAL'&&g.home_score!=null&&g.away_score!=null; });
+    var w=0,l=0,cw=0,cl=0, rows=[];
+    var postMap={}; post.forEach(function(p){ postMap[p.id]=p.tournament; });
+    var mySeed=(ranks.filter(function(t){return t.team===full;})[0]||{}).ncaa_seed, lastTour=null;
+    games.forEach(function(g){
+      var tour=postMap[g.id]||null;
+      if(yr<2027 && tour && tour!==lastTour){ rows.push({section:tour+((tour==='NCAA Tournament'&&mySeed)?' · #'+mySeed+' seed':'')}); lastTour=tour; }
+      var hm=g.home===full, ms=hm?g.home_score:g.away_score, os=hm?g.away_score:g.home_score, won=ms>os, opp=hm?g.away:g.home;
+      won?w++:l++; if(g.conf_game){ won?cw++:cl++; }
+      rows.push({id:g.id, date:g.date, opp:opp, rank:rankMap[opp], oppSrs:srsMap[opp], site:g.neutral?'N':(hm?'H':'A'), won:won, ms:ms, os:os, conf:!!g.conf_game,
+        rec:w+'–'+l+(g.conf_game?' ('+cw+'–'+cl+')':''), href:'game.html?id='+g.id});
+    });
+    if(yr>=2027 && window.TDCSched){
+      return TDCSched.project(full,{playedIds:games.map(function(g){return g.id;})}).then(function(R){
+        if(stale()) return;
+        if(!R){ host.innerHTML='<div class="hx-empty">The 2026-27 schedule for '+esc(full)+' hasn\'t been announced yet.</div>'; return; }
+        host.innerHTML=''; TDCSched.render(host,R,{played:rows});
+        if(window.TDCScrim) TDCScrim.renderFor(host, full);
+        var xg=games.filter(function(g){ return !(R.counted&&R.counted.has(String(g.id))); });
+        var xw=xg.filter(function(g){ var hm=g.home===full; return (hm?g.home_score:g.away_score)>(hm?g.away_score:g.home_score); }).length, xl=xg.length-xw;
+        var sw=xw+(R.playedW||0), sl=xl+(R.playedL||0);
+        sub.textContent=seasonLabel(yr)+' · '+(sw+sl?sw+'–'+sl+' · ':'')+'proj '+(xw+Math.round(R.expW))+'–'+(xl+(R.n-Math.round(R.expW)));
+      });
+    }
+    if(!rows.length){ host.innerHTML='<div class="hx-empty">No games on file for '+esc(full)+' in '+seasonLabel(yr)+'.</div>'; return; }
+    host.innerHTML=''; TDCSched.renderPast(host,rows,{mySrs:srsMap[full]});
+    sub.textContent=seasonLabel(yr)+' · '+w+'–'+l+(cw+cl?' · '+cw+'–'+cl+' conf':'');
+  }).catch(function(e){ if(!stale()) host.innerHTML='<div class="hx-empty">Could not load the schedule.</div>'; });
 }
 
 // ── projected ──
@@ -846,7 +903,7 @@ function loadBuzz(row){
     var _sp=new URLSearchParams(location.search);
     var sy=+_sp.get('season'); if(sy>=2007 && sy<=2027) HQ_SEASON=sy;
     var qp=_sp.get('team'); if(qp){ var rr=rowOf(qp); if(rr){ MY=rr.full; } }
-    if(MY && rowOf(MY)) renderHQ(); else i.focus();
+    if(MY && rowOf(MY)){ renderHQ(); if(_sp.get('view')==='schedule') hqView('schedule'); } else i.focus();
   }).catch(function(){ i.placeholder='Could not load teams — reload.'; });
 })();
 </script>
