@@ -88,8 +88,16 @@
   // on every logo and headshot — the wheel kept spinning over a page that had already drawn.
   function busy() { return inflight > 0; }
 
+  // the page's own spinner already on screen? then the centred first-load wheel would be a second one
+  function pageSpinnerOnScreen() {
+    var ns = document.querySelectorAll('.loading-spinner,.spinner'), vh = window.innerHeight || 800;
+    for (var i = 0; i < ns.length; i++) { var r = ns[i].getBoundingClientRect(); if (r.width > 0 && r.bottom > 0 && r.top < vh) return true; }
+    return false;
+  }
   function show() {
-    if (shown || !make()) return;
+    if (shown) return;
+    if (initial && pageSpinnerOnScreen()) { clearTimeout(showT); showT = setTimeout(function () { showT = null; if (busy()) show(); }, 400); return; }
+    if (!make()) return;
     place(); shown = true; shownAt = Date.now();
     clearInterval(placeT); placeT = setInterval(place, 400);
     // Force a reflow, then add the class, so the fade-in transition runs. This used to wait on
