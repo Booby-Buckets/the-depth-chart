@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="tdc-loading.js?v=4"></script>   <!-- first, so it sees every request -->
+  <link rel="stylesheet" href="tdc-a11y.css?v=2">
+  <script src="tdc-a11y.js?v=2" defer></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Today's Games — The Depth Chart</title>
+  <meta name="description" content="Every college basketball game on the day, scrimmages and exhibitions included: live scores, finals, our line and win odds, with a box score or preview for each.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Depth Chart">
+  <meta property="og:title" content="Today's Games — The Depth Chart">
+  <meta property="og:description" content="Every game today, scrimmages included: live scores, finals, our line and win odds.">
+  <meta property="og:url" content="https://www.thedepthchartcbb.com/today.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <script src="tdc-theme.js?v=5"></script>
+  <script src="auth.js?v=delacct1"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="team-colors.js?v=11"></script>
+  <script src="tdc-teamname.js?v=1"></script>
+  <script src="tdc-ratings.js?v=31"></script>
+  <script src="tdc-schedule.js?v=31"></script>
+  <script src="tdc-scrim.js?v=15"></script>
+  <script src="tdc-live.js?v=2"></script>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--green:#2e8b57;--red:#c75d5d;}
+    [data-theme="dark"]{--bg:#0A0E18;--bg2:#111726;--bg3:#1A2133;--border:#232B3E;--border2:#34405A;--text:#EEF1F7;--text2:#AEB6C8;--text3:#7A849A;--accent:#E6D5A8;--green:#6fbf7e;--red:#e07a7a;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html,body{background:var(--bg);}
+    body{color:var(--text);font-family:'Inter',system-ui,sans-serif;font-weight:500;min-height:100vh;}
+    .page{padding:30px 0 60px;}
+    .eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
+    h1{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:34px;letter-spacing:-.02em;margin-bottom:12px;}
+    .daybar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;}
+    .daybar button,.daybar input{font:700 13px 'Inter',system-ui,sans-serif;background:var(--bg2);border:1px solid var(--border2);color:var(--text);padding:7px 12px;border-radius:8px;cursor:pointer;}
+    .daybar .lbl{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:20px;margin:0 6px;}
+    .daybar .today{margin-left:4px;}
+    .sub{font-size:12.5px;color:var(--text3);margin-bottom:20px;}
+    .sec{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:26px 0 10px;padding-bottom:8px;border-bottom:1px solid var(--border2);}
+    .sec h2{font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:800;}
+    .sec .n{font-size:12px;color:var(--text3);}
+    .td-tbl td.mu{white-space:nowrap;}
+    .td-tbl td.mu img{width:18px;height:18px;object-fit:contain;vertical-align:middle;margin:-2px 6px 0 0;}
+    .td-tbl td.mu a{color:var(--text);text-decoration:none;font-weight:700;} .td-tbl td.mu a:hover{color:var(--accent);text-decoration:underline;}
+    .td-tbl td.mu .at{color:var(--text3);font-weight:600;margin:0 7px;}
+    .td-tbl td.mu .rk{font-size:10.5px;color:var(--text3);font-weight:700;margin-right:3px;}
+    .td-tbl td.st{white-space:nowrap;font-weight:700;}
+    .td-tbl td.st.live{color:var(--red);}
+    .td-tbl td.st.live::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--red);margin-right:6px;vertical-align:1px;animation:tdpulse 1.6s infinite;}
+    @keyframes tdpulse{50%{opacity:.25}}
+    .td-tbl td.sc{font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;}
+    .td-tbl td.sc .w{color:var(--green);} .td-tbl td.sc .l{color:var(--text3);font-weight:600;}
+    .td-tbl td.note{font-size:11.5px;color:var(--text3);white-space:normal;min-width:220px;}
+    .td-tbl tr.go{cursor:pointer;}
+    .chip{display:inline-block;padding:0 6px;border:1px dashed var(--border2);border-radius:4px;font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-left:6px;vertical-align:1px;}
+    .empty{padding:26px;text-align:center;color:var(--text3);border:1px dashed var(--border2);border-radius:12px;font-size:13px;}
+    @media(max-width:640px){ h1{font-size:28px;} .td-tbl td.note{min-width:160px;} }
+  </style>
+  <link rel="stylesheet" href="tdc-skin.css?v=14"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+  <link rel="stylesheet" href="tdc-column.css?v=4"/>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script src="tdc-pwa.js?v=2" defer></script>
+</head>
+<body>
+<script src="tdc-nav.js?v=50"></script>
+<div class="page">
+  <div class="eyebrow">Scores · every game, scrimmages included</div>
+  <h1>Today's Games</h1>
+  <div class="daybar">
+    <button type="button" id="prev" aria-label="Previous day">‹</button>
+    <span class="lbl" id="dayLbl"></span>
+    <button type="button" id="next" aria-label="Next day">›</button>
+    <input type="date" id="pick" aria-label="Pick a day"/>
+    <button type="button" class="today" id="goToday">Today</button>
+  </div>
+  <div class="sub" id="sub">Loading the slate…</div>
+  <div id="scrimSec"></div>
+  <div id="gameSec"></div>
+</div>
+<script>
+(function(){
+  const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const etDay=d=>(d||new Date()).toLocaleDateString('en-CA',{timeZone:'America/New_York'});   // YYYY-MM-DD, US Eastern
+  const P=new URLSearchParams(location.search);
+  const TODAY=etDay(), DAY=/^\d{4}-\d{2}-\d{2}$/.test(P.get('date')||'')?P.get('date'):TODAY;
+  const shift=(d,n)=>{ const x=new Date(d+'T12:00:00'); x.setDate(x.getDate()+n); return x.toISOString().slice(0,10); };
+  // tdc-live.js reads ?livedate=YYYYMMDD at load, so another day is a reload with both params
+  const go=d=>{ location.href='today.html'+(d===TODAY?'':'?date='+d+'&livedate='+d.replace(/-/g,'')); };
+  const nice=d=>new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  document.getElementById('dayLbl').textContent=(DAY===TODAY?'Today · ':'')+nice(DAY);
+  const pk=document.getElementById('pick'); pk.value=DAY; pk.onchange=()=>pk.value&&go(pk.value);
+  document.getElementById('prev').onclick=()=>go(shift(DAY,-1));
+  document.getElementById('next').onclick=()=>go(shift(DAY,1));
+  document.getElementById('goToday').onclick=()=>go(TODAY);
+  if(DAY!==TODAY) document.title=nice(DAY)+' — Games — The Depth Chart';
+
+  let BY={}, SCR=null, BOARD=null;
+  const short=full=>{ const t=BY[full]; const s=(t&&t.team)||String(full||'').replace(/ \S+$/,''); try{ return (window.tdcShortSchool&&tdcShortSchool(s))||s; }catch(e){ return s; } };
+  const logo=full=>{ try{ const t=BY[full]; const c=window.tdcTeamColor&&(tdcTeamColor((t&&t.team)||full)||tdcTeamColor(full)); return (c&&c.logo)||''; }catch(e){ return ''; } };
+  const teamA=(full,lg)=>{ const t=BY[full], img=lg||logo(full);
+    return (img?`<img src="${esc(img)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`:'')+(t?`<a href="team.html?team=${encodeURIComponent(t.team)}" onclick="event.stopPropagation()">${esc(short(full))}</a>`:`<b>${esc(short(full))}</b>`); };
+  const sg=v=>(v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(1);
+  const lineTxt=(home,away,m)=>m==null?'—':Math.abs(m)<0.25?'Pick':`${esc(short(m>0?home:away))} −${Math.abs(m).toFixed(1)}`;
+  const pairKey=(a,b)=>[a,b].sort().join('|');
+
+  // "7:30 PM" → minutes after midnight (TBA last), so the day reads in order
+  const mins=t=>{ const m=String(t||'').match(/(\d{1,2})(?::(\d{2}))?\s*([AP])M/i); if(!m) return 9999; return (+m[1]%12+(m[3].toUpperCase()==='P'?12:0))*60+(+m[2]||0); };
+  // ── scrimmages & exhibitions (scripts/data/scrimmages_2027.json + results) ──
+  function renderScrims(){
+    const el=document.getElementById('scrimSec'); if(!SCR) return;
+    const list=SCR.games.filter(x=>x.date===DAY).sort((a,b)=>mins(a.time)-mins(b.time));
+    if(!list.length){ el.innerHTML=''; return; }
+    const live={}; ((BOARD&&BOARD.games)||[]).forEach(g=>{ live[pairKey(g.home.name,g.away.name)]=g; });
+    const rows=list.map(x=>{
+      const res=SCR.results[x.id], played=res&&res.hs!=null&&res.as!=null, lv=live[pairKey(x.home,x.away)];
+      const P=window.TDCScrim?TDCScrim.price(x,BY,SCR.eff):null;
+      let st=esc(x.time||'TBA'), sc='—', cls='';
+      if(played){ st='Final'; const hw=res.hs>res.as;
+        sc=`<span class="${hw?'l':'w'}">${res.as}</span>–<span class="${hw?'w':'l'}">${res.hs}</span>`; }
+      else if(lv&&lv.state!=='pre'&&lv.home.score!=null){ st=esc(lv.state==='post'?'Final':lv.detail); cls=lv.state==='in'?' live':'';
+        const hm=lv.home.name===x.home; const hs=hm?lv.home.score:lv.away.score, as=hm?lv.away.score:lv.home.score; sc=`${as}–${hs}`; }
+      else if(P&&P.tot!=null) sc=`<span class="l">proj ${Math.round((P.tot-P.m)/2)}–${Math.round((P.tot+P.m)/2)}</span>`;
+      const href=played?'scrimmage.html?id='+encodeURIComponent(x.id):'preview.html?team='+encodeURIComponent(x.home)+'&opp='+encodeURIComponent(x.away)+'&date='+x.date;
+      const fav=P?(P.probH>=50?P.probH:100-P.probH):null;
+      return `<tr class="go" onclick="location.href='${href.replace(/'/g,'%27')}'" title="${played?'open the box score':'open the game preview'}">
+        <td class="l st${cls}">${st}</td>
+        <td class="l mu">${teamA(x.away)}<span class="at">${x.neutral?'vs':'@'}</span>${teamA(x.home)}</td>
+        <td class="c sc">${sc}</td>
+        <td class="l">${played?'':lineTxt(x.home,x.away,P&&P.m)}</td>
+        <td>${played||fav==null?'':Math.round(fav)+'%'}</td>
+        <td class="l dim">${esc(x.tv||'')}</td>
+        <td class="l note">${esc((res&&(res.note||res.auto_note))||'')}</td></tr>`; }).join('');
+    el.innerHTML=`<div class="sec"><h2>Scrimmages &amp; exhibitions <span class="chip">Unofficial</span></h2><span class="n">${list.length} game${list.length===1?'':'s'} · not counted in records, stats or ratings</span></div>
+      <div class="sheet-wrap" style="max-height:none"><table class="sheet dense td-tbl"><thead><tr><th class="l">Time</th><th class="l">Matchup</th><th class="c">Score</th><th class="l">Our line</th><th>Fav win %</th><th class="l">TV</th><th class="l">Top performers</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+
+  // ── games: ESPN's scoreboard for the day (live + finals), else our 2026-27 schedule ──
+  async function renderGames(){
+    const el=document.getElementById('gameSec');
+    const scrimPairs=new Set(((SCR&&SCR.games)||[]).filter(x=>x.date===DAY).map(x=>pairKey(x.home,x.away)));
+    let games=((BOARD&&BOARD.games)||[]).filter(g=>!scrimPairs.has(pairKey(g.home.name,g.away.name)));
+    let fromSched=false;
+    if(!games.length){   // ESPN had nothing (or the day is far off): the slate we've pulled
+      try{ const all=await fetch('scripts/data/schedule_2027.json?v=5').then(r=>r.json()); const T=all.teams;
+        games=all.games.filter(g=>g[1]===DAY).map(g=>({id:String(g[0]),date:DAY,state:'pre',detail:'',neutral:!!g[4],home:{name:T[g[2]]},away:{name:T[g[3]]},tv:null})); fromSched=true; }catch(e){}
+    }
+    if(!games.length){ el.innerHTML=(document.getElementById('scrimSec').innerHTML?'':`<div class="empty">No games on ${esc(nice(DAY))}.</div>`); return; }
+    const ord={in:0,pre:1,post:2};
+    games.sort((a,b)=>(ord[a.state]-ord[b.state])||String(a.date).localeCompare(String(b.date)));
+    const time=g=>{ if(g.state==='in') return esc(g.detail||'Live'); if(g.state==='post') return esc(g.detail||'Final');
+      if(fromSched||!g.date||g.timeValid===false) return 'TBA';
+      return new Date(g.date).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'})+' ET'; };
+    const rk=s=>s.rank?`<span class="rk">${s.rank}</span>`:'';
+    const rows=games.map(g=>{
+      const final=g.state==='post', hs=g.home.score, as=g.away.score, hw=hs>as;
+      const sc=(g.state!=='pre'&&hs!=null)?`<span class="${final&&!hw?'w':final?'l':''}">${as}</span>–<span class="${final&&hw?'w':final?'l':''}">${hs}</span>`:'—';
+      const href=fromSched?'preview.html?team='+encodeURIComponent(g.home.name)+'&opp='+encodeURIComponent(g.away.name)+'&date='+DAY:'game.html?id='+encodeURIComponent(g.id);
+      return `<tr class="go" data-gid="${esc(g.id)}" onclick="location.href='${href.replace(/'/g,'%27')}'">
+        <td class="l st${g.state==='in'?' live':''}">${time(g)}</td>
+        <td class="l mu">${rk(g.away)}${teamA(g.away.name,g.away.logo)}<span class="at">${g.neutral?'vs':'@'}</span>${rk(g.home)}${teamA(g.home.name,g.home.logo)}</td>
+        <td class="c sc">${sc}</td><td class="l ln">…</td><td class="wp"></td><td class="l dim">${esc(g.tv||'')}</td></tr>`; }).join('');
+    el.innerHTML=`<div class="sec"><h2>Games</h2><span class="n">${games.length} game${games.length===1?'':'s'}${fromSched?' · from the announced schedule':''}</span></div>
+      <div class="sheet-wrap" style="max-height:none"><table class="sheet dense td-tbl"><thead><tr><th class="l">Time</th><th class="l">Matchup</th><th class="c">Score</th><th class="l">Our line</th><th>Fav win %</th><th class="l">TV</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    // our pregame line for each (tdc-schedule pricing; same as the game page)
+    games.forEach(async g=>{
+      const tr=el.querySelector(`tr[data-gid="${CSS.escape(g.id)}"]`); if(!tr) return;
+      let l=null; try{ l=window.TDC_LIVE?await TDC_LIVE.pregame(g):null; }catch(e){}
+      tr.querySelector('.ln').innerHTML=l?lineTxt(g.home.name,g.away.name,l.margin):'—';
+      tr.querySelector('.wp').textContent=l&&l.p!=null?Math.round(100*Math.max(l.p,1-l.p))+'%':'';
+    });
+  }
+
+  function summary(){
+    const s=((SCR&&SCR.games)||[]).filter(x=>x.date===DAY).length, n=document.querySelectorAll('#gameSec tbody tr').length;
+    const live=((BOARD&&BOARD.games)||[]).filter(g=>g.state==='in').length;
+    const parts=[n?`${n} game${n===1?'':'s'}`:'',s?`${s} scrimmage${s===1?'':'s'}`:'',live?`${live} live now`:''].filter(Boolean);
+    document.getElementById('sub').textContent=(parts.length?parts.join(' · '):'Nothing scheduled')+(DAY===TODAY?' · scores update automatically':'');
+  }
+
+  Promise.all([window.TDC_RATINGS?TDC_RATINGS.get():null, window.TDCScrim?TDCScrim.load():null]).then(([D,S])=>{
+    ((D&&D.teams)||[]).forEach(t=>{ if(t.full) BY[t.full]=t; });
+    SCR=S; renderScrims();
+    const onBoard=async b=>{ BOARD=b; renderScrims(); await renderGames(); summary(); };
+    if(window.TDC_LIVE) TDC_LIVE.subscribe(onBoard);
+    else renderGames().then(summary);
+    // ESPN unreachable: still show the scheduled slate
+    setTimeout(()=>{ if(!BOARD) renderGames().then(summary); },6000);
+  });
+})();
+</script>
+<script src="tdc-version.js?v=2"></script>
+<script src="tdc-sheets.js?v=2"></script>
+</body>
+</html>
