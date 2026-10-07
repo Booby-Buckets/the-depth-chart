@@ -1299,6 +1299,8 @@
 <style>
   .td-bar{display:flex;align-items:center;gap:12px;margin:14px 0 0;padding:10px 14px;border:1px solid var(--border2);border-radius:10px;background:var(--bg2);text-decoration:none;color:var(--text);font-size:13px;}
   .td-bar[hidden]{display:none;}
+  /* sit in the page column like the filter bar below it (tdc-column.css gutters), not edge to edge */
+  @media(min-width:641px){ .ix-shell > .td-bar{margin-left:max(var(--tdc-gut,32px), calc((100% - var(--tdc-col,1400px)) / 2));margin-right:max(var(--tdc-gut,32px), calc((100% - var(--tdc-col,1400px)) / 2));} }
   .td-bar:hover{border-color:var(--accent);}
   .td-bar .td-k{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);white-space:nowrap;}
   .td-bar .td-t{flex:1;min-width:0;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -1316,7 +1318,7 @@
   var bar=document.getElementById('tdBar'), t=document.getElementById('tdBarT');
   function show(){ var p=[]; if(gm) p.push(gm+' game'+(gm===1?'':'s')); if(sc) p.push(sc+' scrimmage'+(sc===1?'':'s'));
     if(!p.length){ bar.hidden=true; return; } t.textContent=p.join(' · ')+' today'; bar.hidden=false; }
-  fetch('scripts/data/scrimmages_2027.json?v=5').then(function(r){return r.ok?r.json():null;}).then(function(j){
+  fetch('scripts/data/scrimmages_2027.json?v=6').then(function(r){return r.ok?r.json():null;}).then(function(j){
     sc=((j&&j.games)||[]).filter(function(x){return x.date===day;}).length; show(); }).catch(function(){});
   window.addEventListener('load',function(){ if(window.TDC_LIVE) TDC_LIVE.subscribe(function(b){ gm=(b&&b.games||[]).length||0; show(); }); });
 })();

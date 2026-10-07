@@ -3,7 +3,7 @@ name: Scrimmage box scores
 # Preseason only: pulls box scores for played 2026-27 scrimmages from the schools' athletics sites
 # (scripts/scrim_boxes.py) into scripts/data/scrimmage_results_2027.json, then commits — Vercel
 # redeploys and each team's Schedule tab shows the unofficial box score. Scrimmage stats are
-# display-only; nothing downstream reads this file. Runs Oct 1 – Nov 10 (the script is a no-op
+# display-only; nothing downstream reads this file. Also fills each upcoming scrimmage's TV (scripts/scrim_tv.py). Runs Oct 1 – Nov 10 (the script is a no-op
 # once every played game has a box score). Hand-entered results (manual: true) are never overwritten.
 
 on:
@@ -35,12 +35,13 @@ jobs:
           if [ "$(date -u +%m%d)" \> "1110" ]; then echo "Preseason over — skipping."; exit 0; fi
           pip install --quiet requests
           python3 scripts/scrim_boxes.py
+          python3 scripts/scrim_tv.py   # TV / stream for upcoming scrimmages, as schools post it
 
       - name: Commit if changed
         run: |
           git config user.name "tdc-scrim-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add scripts/data/scrimmage_results_2027.json
+          git add scripts/data/scrimmage_results_2027.json scripts/data/scrimmages_2027.json
           if git diff --cached --quiet; then
             echo "No new box scores."
           else

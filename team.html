@@ -20,7 +20,7 @@
   <script src="tdc-ratings.js?v=31"></script>
   <script src="tdc-histguard.js?v=2"></script>
   <script src="tdc-schedule.js?v=31"></script>
-  <script src="tdc-scrim.js?v=15"></script>
+  <script src="tdc-scrim.js?v=16"></script>
   <script src="tdc-preview.js?v=40s"></script>
   <script src="tdc-projgrade.js?v=base50"></script>
   <script src="tdc-realstats.js?v=2"></script>
@@ -1317,6 +1317,7 @@
   <div class="hero-tabs">
     <button class="hero-tab active" onclick="switchTab('depth',this)">Depth Chart</button>
     <button class="hero-tab" onclick="switchTab('schedule',this)">Schedule</button>
+    <button class="hero-tab" onclick="switchTab('lineups',this)">Lineups</button>
     <button class="hero-tab" onclick="switchTab('preview',this)">Preview</button>
     <a class="hero-tab" id="heroConfTab" href="conferences.html" style="text-decoration:none">Conference</a>
     <div class="hero-grp" data-grp="analytics">
@@ -1509,6 +1510,10 @@
         <div class="dA-sec"><span>Shot flow</span><span class="dA-cap">where · how · who creates the makes</span></div>
         <div id="teamShotFlowHost" style="margin-top:10px;"></div>
       </div>
+    </div>
+    <div class="panel" id="panel-lineups">
+      <div class="sec-head">Lineups <span class="sec-head-sub" style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· who actually started, how each five did, starters vs bench</span></div>
+      <div id="lineupHistHost"></div>
     </div>
     <div class="panel" id="panel-onoff">
       <div id="onoffHost"><div style="padding:24px;color:var(--text3);">Loading On/Off…</div></div>
@@ -6298,6 +6303,7 @@ function switchTab(id, btn){
     renderCustomize(teamT, teamPlayers, teamColor_g, teamRgb_g, teamGp);
   }
   if(id==='schedule') initSchedule();
+  if(id==='lineups' && window.TDCLineupHist){ (async()=>{ const full=(await _resolveGamesKey().catch(()=>null))||teamMascot(); TDCLineupHist.render(document.getElementById('lineupHistHost'), full); })(); }
   if(id==='preview') initPreview();
   if(id==='report') renderRosterReport();
   if(id==='nil') renderNil();
