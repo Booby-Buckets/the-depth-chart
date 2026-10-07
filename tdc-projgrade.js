@@ -753,14 +753,22 @@
       .catch(function(){ return null; });
   }
   window.TDCProjGrade.projRowOf = function(espn){ return (espn!=null && _SO_PROJ_ROW) ? (_SO_PROJ_ROW['' + espn] || null) : null; };
+  // THE projected line for any rostered player — the same one his team's projected totals are summed from
+  // (build_team_projected_box.py reconciles both files to the team line): a returner's stat_overall_projected
+  // row, else a newcomer's fresh_fit row (keyed by the SHORT team + name). null when the build didn't project him.
+  var _FRESH_ROW = {};
+  window.TDCProjGrade.lineOf = function(p){ if(!p) return null;
+    var r = (p.espn_id != null) ? _SO_PROJ_ROW['' + p.espn_id] : null;
+    if(r && r.ppg != null) return r;
+    var f = _FRESH_ROW[_fk(p.team, p.name)]; return (f && f.ppg != null && f.rpg != null) ? f : null; };
   // ready = EVERY input of gradeSolo (stat overalls + archetype bonus + gp shrink). A page that graded
   // after only the stat files had landed showed 95 for a player whose page (bonus loaded) said 96.
   window.TDCProjGrade.ready = Promise.all([
     _loadSO('scripts/data/stat_overall.json?v=11').then(function(m){ if(m) setStatOverall(m, null); }),
-    _loadProjRows('scripts/data/stat_overall_projected.json?v=84').then(function(m){ if(m) setStatOverall(null, m); }),
+    _loadProjRows('scripts/data/stat_overall_projected.json?v=85').then(function(m){ if(m) setStatOverall(null, m); }),
     _archP, _gpsP,
     // projected freshman / newcomer OVRs (build: recruiting rank or scouting prior x projected role)
-    fetch('scripts/data/fresh_fit.json?v=25').then(function(r){ return r.ok ? r.json() : {}; }).then(function(j){
-      _FRESH = {}; for(var t in (j||{})){ for(var n in j[t]){ var f = j[t][n]; if(f && f.ovr != null) _FRESH[_fk(t, n)] = f.ovr; } } }).catch(function(){})
+    fetch('scripts/data/fresh_fit.json?v=26').then(function(r){ return r.ok ? r.json() : {}; }).then(function(j){
+      _FRESH = {}; _FRESH_ROW = {}; for(var t in (j||{})){ for(var n in j[t]){ var f = j[t][n]; if(f && f.ovr != null) _FRESH[_fk(t, n)] = f.ovr; if(f) _FRESH_ROW[_fk(t, n)] = f; } } }).catch(function(){})
   ]).then(function(){ return true; }).catch(function(){ return true; });   // history is lazy — see loadHist()
 })();

@@ -13,16 +13,16 @@
   <script src="tdc-nil.js?v=cal5"></script>
   <script src="tdc-gate.js?v=4"></script>
   <script src="tdc-pos.js"></script>
-  <script src="tdc-awards.js?v=22"></script>
+  <script src="tdc-awards.js?v=23"></script>
   <script src="tdc-proj.js?v=hg1"></script>
-  <script src="tdc-freshman.js?v=pub23"></script>
+  <script src="tdc-freshman.js?v=pub24"></script>
   <script src="tdc-injury.js?v=5"></script>
   <script src="tdc-ratings.js?v=31"></script>
   <script src="tdc-histguard.js?v=2"></script>
   <script src="tdc-schedule.js?v=30"></script>
   <script src="tdc-scrim.js?v=15"></script>
-  <script src="tdc-preview.js?v=38s"></script>
-  <script src="tdc-projgrade.js?v=base47"></script>
+  <script src="tdc-preview.js?v=39s"></script>
+  <script src="tdc-projgrade.js?v=base48"></script>
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-pool.js?v=5"></script>
@@ -2999,6 +2999,13 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
                       : estimateAdvanced(parseFloat(pp.tdc_grade)||70, parseFloat(pp.mpg)||0, parseFloat(pp.fga)||0);
   });
 
+  // ONE line per player: where the build projected him, its reconciled line replaces the live engine's, so
+  // this table, its sums and the team's projected totals (Analytics / Team Stats) are the same numbers
+  if(window.TDCProjGrade&&TDCProjGrade.lineOf) projected.forEach(pp=>{ if(pp._injured||pp._dnp) return;
+    const c=TDCProjGrade.lineOf(pp); if(!c) return;
+    ['ppg','rpg','apg','mpg','fgm','fga','tpm','tpa','ftm','fta','stl','blk','tovs','oreb','dreb','fg_pct','tp_pct','ft_pct']
+      .forEach(k=>{ if(c[k]!=null) pp[k]=c[k]; });
+    pp._projMin=c.mpg; });
   // Expose projected stats by name for hover micro-cards
   window._projByName={};
   projected.forEach(pp=>{ window._projByName[(pp.name||'').toLowerCase().trim()]=pp; });
@@ -8352,7 +8359,8 @@ function renderHistoricRoster(rows, yr, projected){
       if(row&&row.pos_min) return row.pos_min;
       const f=(window.TDCFresh&&TDCFresh.fitFor)?TDCFresh.fitFor(p):null;
       return (f&&f.pos_min)||null; }catch(e){ return null; } };
-  const _totMin=p=>{ const v=(p._projMin!=null)?p._projMin:parseFloat(p.mpg); return (v!=null&&!isNaN(v))?v:null; };
+  const _totMin=p=>{ try{ if(projected&&window.TDCProjGrade&&TDCProjGrade.lineOf){ const c=TDCProjGrade.lineOf(p); if(c&&c.mpg!=null) return +c.mpg; } }catch(e){}
+    const v=(p._projMin!=null)?p._projMin:parseFloat(p.mpg); return (v!=null&&!isNaN(v))?v:null; };
   const _hereMin=(p,pos)=>_totMin(p);   // each player is listed once, with his full projected minutes
   if(_usePos){
     // bench players live in the column where the build gives them the most minutes (starters keep their spot)
@@ -8433,8 +8441,10 @@ function renderHistoricRoster(rows, yr, projected){
   // the per-game line: projected 2026-27 (returners = stat_overall_projected, the player page's line;
   // freshmen = the freshman model's team-fit line) or the real season line for past years
   const _line=p=>{ if(!projected) return p;
-    // SAME line as the Projected Stats table (window._projByName, built from the page's projection) so
-    // the two tables can't disagree; the build's row / freshman model only stand in before it exists
+    // THE build's reconciled line first: it is what the team's projected totals (Analytics, Team Stats,
+    // index) are summed from, so this table adds up to them exactly. The page's live engine only stands in
+    // for a player the build didn't project.
+    try{ const c=window.TDCProjGrade&&TDCProjGrade.lineOf?TDCProjGrade.lineOf(p):null; if(c) return c; }catch(e){}
     try{ const pb=window._projByName&&window._projByName[(p.name||'').toLowerCase().trim()]; if(pb&&pb.ppg!=null) return pb; }catch(e){}
     try{ const r=(p.espn_id!=null&&window.TDCProjGrade&&TDCProjGrade.projRowOf)?TDCProjGrade.projRowOf(p.espn_id):null; if(r) return r;
       if(window.TDCFresh&&TDCFresh.line){
@@ -8458,13 +8468,15 @@ function renderHistoricRoster(rows, yr, projected){
     const injBadge=(projected && window.TDCInjury) ? TDCInjury.badgeHTML(p) : '';
     const posEd=(!projected && window._histPosEdit && typeof _isOwner==='function' && _isOwner())
       ? `<select class="dc-posov" data-k="${p.espn_id?('e'+p.espn_id):('n'+(p.name||'').toLowerCase().replace(/"/g,''))}" data-yr="${yr}" onchange="_setHistPos(this)"><option value="">Auto</option>${['PG','SG','SF','PF','C'].map(x=>`<option${(_histPosOverrides(yr)[p.espn_id?('e'+p.espn_id):('n'+(p.name||'').toLowerCase())]===x)?' selected':''}>${x}</option>`).join('')}</select>` : '';
-    const L=(projected&&!(m>=0.5))?{}:_line(p);   // no projected minutes → no projected line
+    // no projected minutes → no projected line, unless the build gave him one (it counts in the team totals)
+    const _cl=(projected&&window.TDCProjGrade&&TDCProjGrade.lineOf)?TDCProjGrade.lineOf(p):null;
+    const L=_cl||((projected&&!(m>=0.5))?{}:_line(p));
     return `<tr class="dc-row${r.star?' dc-starter':''}">
       <td class="l dc-slot">${r.slot}</td>
       <td class="c big dc-ovr">${g}</td>
       <td class="l nm"><a class="dc-name" href="${link(p)}">${p.name}</a>${wav}${injBadge}${inj}${posEd}</td>
       <td class="l dim">${p.yr||p.class_year||''}</td><td class="l dim">${p.position||''}</td><td class="l dim">${p.height||''}</td>
-      <td>${m!=null&&m>=0.5?num(m):'—'}</td>
+      <td>${m!=null&&(m>=0.5||_cl)?num(m):'—'}</td>
       <td>${_f1(L.ppg)}</td><td>${_f1(L.rpg)}</td><td>${_f1(L.apg)}</td>
       <td>${_pc(L.fg_pct)}</td><td>${_pc(L.tp_pct!=null?L.tp_pct:(L.three_pct!=null?L.three_pct:L['3p_pct']))}</td>
     </tr>`; }).join('');
@@ -8579,7 +8591,7 @@ async function _renderShotDist(rows){
   const _e=s=>(''+(s||'')).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
   try{
     if(!_shotProj){
-      const r=await fetch('scripts/data/stat_overall_projected.json?v=84').then(x=>x.ok?x.json():null).catch(()=>null);
+      const r=await fetch('scripts/data/stat_overall_projected.json?v=85').then(x=>x.ok?x.json():null).catch(()=>null);
       _shotProj={players:(r&&r.players)||{}, teams:(r&&r.teams)||{}};
     }
     const P=_shotProj.players, T=_shotProj.teams;

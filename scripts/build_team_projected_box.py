@@ -39,7 +39,12 @@ def sb(path):
 
 teams = sb("teams?select=name,conference&order=name.asc")
 short_conf = {t["name"]: t.get("conference") or "" for t in teams}
-proj = json.load(open(D / "stat_overall_projected.json"))["players"]
+_PROJ_DOC = json.load(open(D / "stat_overall_projected.json"))
+proj = _PROJ_DOC["players"]
+# a player's ORIGINAL line (before the team reconcile below rewrote it) — every run starts from it, so
+# re-running this build never compounds the team adjustments
+RAWK = ["ppg", "rpg", "apg", "oreb", "dreb", "stl", "blk", "tovs", "fga", "fgm", "tpa", "tpm", "fta", "ftm", "mpg"]
+def raw(v): return v.get("_raw") or {k: v.get(k) for k in RAWK}
 # full team name -> the sheet's short name, learned from the roster rows themselves (no alias table):
 # every projected player carries his FULL team; the players table carries his SHORT team.
 _pl = sb("players?select=espn_id,team,name,position,height&order=id.asc")
@@ -99,13 +104,13 @@ CNT = ["ppg", "rpg", "apg", "oreb", "dreb", "stl", "blk", "tov", "fga", "fgm", "
 by = defaultdict(lambda: {k: 0.0 for k in CNT})
 bigmin = defaultdict(float)
 _bg = {"m": 0.0, "rpg": 0.0, "oreb": 0.0, "dreb": 0.0, "blk": 0.0}; _nb = dict(_bg)
-for e, v in proj.items():
-    t = by[v["team"]]
+for e, v0 in proj.items():
+    v = raw(v0); t = by[v0["team"]]
     for k in CNT:
         src = "tovs" if k == "tov" else k
         t[k] += float(v.get(src) or 0)
     acc = _bg if e in BIG_ESPN else _nb
-    if e in BIG_ESPN: bigmin[v["team"]] += float(v.get("mpg") or 0)
+    if e in BIG_ESPN: bigmin[v0["team"]] += float(v.get("mpg") or 0)
     acc["m"] += float(v.get("mpg") or 0)
     for k in ("rpg", "oreb", "dreb", "blk"): acc[k] += float(v.get(k) or 0)
 # per-minute rebounding / shot-blocking of a big vs everyone else, from the projections themselves
@@ -123,13 +128,13 @@ MIN_ROSTER = 8
 _cnt = defaultdict(int)
 for r in _pl:
     if (r.get("name") or "").strip() and (r.get("name") or "").strip() != "\u2014": _cnt[r["team"]] += 1
-out = {}
+out = {}; LINES = {}
 for full, t in by.items():
     if t["mpg"] < 40: continue                           # nothing to project from
     short = full_to_short(full)
     if short and 0 < _cnt.get(short, 0) < MIN_ROSTER:
         print(f"  skipped {full}: only {_cnt[short]} players on the sheet — roster incomplete, not projected"); continue
-    fr = fresh.get(short, {}) if short else {}
+    fr = {nm: (x.get("_raw") or x) for nm, x in (fresh.get(short, {}) if short else {}).items()}
     f_mpg = sum(float(x.get("mpg") or 0) for x in fr.values()); f_ppg = sum(float(x.get("ppg") or 0) for x in fr.values())
     line = dict(t)
     f_big = sum(float(x.get("mpg") or 0) for nm, x in fr.items() if (short, nm.strip().lower()) in BIG_NAME)
@@ -184,6 +189,59 @@ for full, t in by.items():
     row["tp_pct"] = round(100 * line["tpm"] / line["tpa"], 1) if line["tpa"] else 0
     row["ft_pct"] = round(100 * line["ftm"] / line["fta"], 1) if line["fta"] else 0
     out[full] = row
+    LINES[full] = (line, dict(t), short, fr)
+
+# ── RECONCILE: the team line IS the sum of its players (Oct 2026, owner: every page must match) ──
+# The team line adds what no player line carries: team rebounds (the DNA rebounding blend), minutes and
+# points nobody on the sheet is credited with yet, and the ORtg x tempo points floor. Those used to stay
+# at the TEAM level only, so a depth chart's players summed to 87.7 ppg / 45.3% FG while the same team's
+# Analytics line read 87.9 / 48.3. Each stat's team adjustment is now spread over that team's players in
+# proportion to their own share, the reconciled lines are written back into stat_overall_projected.json
+# (returners) and fresh_fit.json (newcomers), and the team row is re-summed from the players' ROUNDED
+# numbers — so the depth chart, player pages, team stats and Analytics show one set of numbers.
+PK = ["ppg", "oreb", "dreb", "apg", "stl", "blk", "tov", "fga", "fgm", "tpa", "tpm", "fta", "ftm", "mpg"]
+for full, (line, t, short, fr) in LINES.items():
+    pls = []
+    for e, v0 in proj.items():
+        if v0.get("team") != full: continue
+        v = raw(v0); pls.append(("r", e, {k: float(v.get("tovs" if k == "tov" else k) or 0) for k in PK}))
+    for nm, x in fr.items():
+        m, pp = float(x.get("mpg") or 0), float(x.get("ppg") or 0)
+        big = (short, nm.strip().lower()) in BIG_NAME
+        d = {"mpg": m, "ppg": pp, "apg": m * LG["apg"], "stl": m * LG["stl"], "tov": m * LG["tov"],
+             "oreb": m * (BIGR if big else NBR)["oreb"], "dreb": m * (BIGR if big else NBR)["dreb"], "blk": m * (BIGR if big else NBR)["blk"]}
+        for k in ("fga", "fgm", "tpa", "tpm", "fta", "ftm"): d[k] = pp * (0.5 * t[k] / max(t["ppg"], 1) + 0.5 * LGP[k])
+        pls.append(("f", nm, d))
+    if not pls: continue
+    tot_m = sum(d["mpg"] for _, _, d in pls) or 1.0
+    for k in PK:
+        S = sum(d[k] for _, _, d in pls)
+        for _, _, d in pls: d[k] = d[k] * line[k] / S if S > 0 else line[k] * d["mpg"] / tot_m
+    agg = {k: 0.0 for k in PK}
+    for kind, key, d in pls:
+        r = {k: round(d[k], 1) for k in PK}
+        r["rpg"] = round(r["oreb"] + r["dreb"], 1)
+        pct = lambda a, b: round(100 * r[a] / r[b], 1) if r[b] > 0 else None
+        for k in PK: agg[k] += r[k]
+        agg["rpg"] = agg.get("rpg", 0.0) + r["rpg"]
+        if kind == "r":
+            v0 = proj[key]
+            if "_raw" not in v0: v0["_raw"] = {k: v0.get(k) for k in RAWK}
+            for k in PK: v0["tovs" if k == "tov" else k] = r[k]
+            v0["rpg"] = r["rpg"]; v0["fg_pct"] = pct("fgm", "fga"); v0["tp_pct"] = pct("tpm", "tpa"); v0["ft_pct"] = pct("ftm", "fta")
+        else:
+            x = fresh[short][key]
+            if "_raw" not in x: x["_raw"] = {"mpg": x.get("mpg"), "ppg": x.get("ppg")}
+            for k in PK: x["tovs" if k == "tov" else k] = r[k]
+            x["rpg"] = r["rpg"]; x["fg_pct"] = pct("fgm", "fga"); x["tp_pct"] = pct("tpm", "tpa"); x["ft_pct"] = pct("ftm", "fta")
+    row = {k: round(agg[k], 1) for k in ("ppg", "rpg", "apg", "oreb", "dreb", "stl", "blk", "tov", "fga", "tpa", "mpg")}
+    row["fg_pct"] = round(100 * agg["fgm"] / agg["fga"], 1) if agg["fga"] else 0
+    row["tp_pct"] = round(100 * agg["tpm"] / agg["tpa"], 1) if agg["tpa"] else 0
+    row["ft_pct"] = round(100 * agg["ftm"] / agg["fta"], 1) if agg["fta"] else 0
+    out[full] = row
+json.dump(_PROJ_DOC, open(D / "stat_overall_projected.json", "w"), separators=(",", ":"))
+json.dump(fresh, open(D / "fresh_fit.json", "w"), separators=(",", ":"))
+print(f"reconciled player lines to their team line for {len(LINES)} teams (stat_overall_projected.json + fresh_fit.json rewritten)")
 
 json.dump(out, open(D / "team_projected_box.json", "w"), separators=(",", ":"))
 print(f"wrote team_projected_box.json — {len(out)} teams")
