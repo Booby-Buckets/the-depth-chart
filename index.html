@@ -1269,6 +1269,7 @@
     <a href="buzz.html">News</a>
     <a href="coaches.html">Coaches</a>
     <a href="development.html">Development</a>
+    <a href="today.html">📅 Today's Games</a>
     <a href="games.html">🎮 Games</a>
     <a href="community.html">Community</a>
     <a href="team.html">Teams</a>
@@ -1287,10 +1288,34 @@
   </div>
 </div>
 
+<!-- ═══ TODAY BAR: one line linking to today.html — also covers scrimmage-only days, when the live strip stays hidden ═══ -->
+<a class="td-bar" id="tdBar" href="today.html" hidden><span class="td-k">📅 Today</span><span class="td-t" id="tdBarT">Today's games</span><span class="td-go">See every game →</span></a>
+<style>
+  .td-bar{display:flex;align-items:center;gap:12px;margin:14px 0 0;padding:10px 14px;border:1px solid var(--border2);border-radius:10px;background:var(--bg2);text-decoration:none;color:var(--text);font-size:13px;}
+  .td-bar[hidden]{display:none;}
+  .td-bar:hover{border-color:var(--accent);}
+  .td-bar .td-k{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);white-space:nowrap;}
+  .td-bar .td-t{flex:1;min-width:0;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .td-bar .td-go{font-weight:700;color:var(--text2);white-space:nowrap;}
+  @media(max-width:640px){.td-bar .td-go{display:none;}}
+</style>
+<script>
+(function(){
+  // today's slate in one line: scrimmages from the list, games from ESPN's board (tdc-live, once it loads)
+  var day=new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'}), sc=0, gm=null;
+  var bar=document.getElementById('tdBar'), t=document.getElementById('tdBarT');
+  function show(){ var p=[]; if(gm) p.push(gm+' game'+(gm===1?'':'s')); if(sc) p.push(sc+' scrimmage'+(sc===1?'':'s'));
+    if(!p.length){ bar.hidden=true; return; } t.textContent=p.join(' · ')+' today'; bar.hidden=false; }
+  fetch('scripts/data/scrimmages_2027.json?v=5').then(function(r){return r.ok?r.json():null;}).then(function(j){
+    sc=((j&&j.games)||[]).filter(function(x){return x.date===day;}).length; show(); }).catch(function(){});
+  window.addEventListener('load',function(){ if(window.TDC_LIVE) TDC_LIVE.subscribe(function(b){ gm=(b&&b.games||[]).length||0; show(); }); });
+})();
+</script>
+
 <!-- ═══ LIVE SCORES (tdc-livestrip.js; hidden when there are no games today) ═══ -->
 <section id="tdcLive" aria-label="Live scores" hidden></section>
 <script src="tdc-live.js?v=2" defer></script>
-<script src="tdc-livestrip.js?v=1" defer></script>
+<script src="tdc-livestrip.js?v=2" defer></script>
 
 <!-- ═══ FILTER BAR ════════════════════════════════════════════ -->
 <div class="filter-bar tdc-toolbar" id="filterBar">

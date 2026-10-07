@@ -133,7 +133,7 @@
     host.innerHTML = `<div class="tlv-head"><div>
         <div class="tlv-eye">Scores · ${esc(dayLabel(board.day))}${board.test ? ' · test data' : ''}</div>
         <h2 class="tlv-h">${live.length ? `<span class="dot" aria-hidden="true"></span>Live now` : 'Today’s games'}</h2></div>
-        <div class="tlv-chips" role="group" aria-label="Filter games">${chips}</div></div>
+        <div class="tlv-chips" role="group" aria-label="Filter games">${chips}<a class="tlv-chip" href="today.html" style="text-decoration:none">All of today's games →</a></div></div>
       ${shown.length ? `<div class="tlv-grid">${shown.map(card).join('')}</div>` : '<div class="tlv-note">No games in this view.</div>'}
       ${list.length > CAP ? `<div class="tlv-more"><button class="tlv-chip" data-more="1">${showAll ? 'Show fewer' : `Show all ${list.length} games`}</button></div>` : ''}
       <div class="tlv-note">Live odds blend the TDC pregame line with the score and clock. Scores from ESPN, updated every 20 seconds while games are on.</div>`;
