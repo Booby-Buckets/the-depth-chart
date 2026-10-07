@@ -897,13 +897,16 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
   }
   function renderProjAwards(aw){
     var host=sel('awards'), acHost=sel('allconf');
-    var code=AWCODE[CONF];
-    var c=aw&&aw.conferences&&code?aw.conferences[code]:null;
+    // the awards engine keys leagues by the teams table's code (PAC-12, A10, AEC, ASUN…), not the
+    // historical awards' codes in AWCODE (Pac-12, A-10, Am. East…) — match on the league itself
+    var cs=(aw&&aw.conferences)||{}, code=null;
+    Object.keys(cs).forEach(function(k){ if(!code && CONF_FULL(k)===CONF) code=k; });
+    if(!code && cs[AWCODE[CONF]]) code=AWCODE[CONF];
+    var c=code?cs[code]:null;
     if(!c){
       sel('awbox').style.display='none';
-      acHost.innerHTML='<div class="empty">No projected all-league teams for this conference.<br>'+
-        '<span style="color:var(--text3)">Projections need a 2026-27 roster on file, and those currently '+
-        'cover the ACC, Big Ten, Big 12, Big East and SEC only.</span></div>';
+      acHost.innerHTML='<div class="empty">No projected all-league teams for this conference yet.<br>'+
+        '<span style="color:var(--text3)">They need 2026-27 rosters on file for the league\'s teams.</span></div>';
       return;
     }
     sel('awbox').style.display='none';       // no individual winners projected yet
