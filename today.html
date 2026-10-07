@@ -101,8 +101,9 @@
   let BY={}, SCR=null, BOARD=null;
   const short=full=>{ const t=BY[full]; const s=(t&&t.team)||String(full||'').replace(/ \S+$/,''); try{ return (window.tdcShortSchool&&tdcShortSchool(s))||s; }catch(e){ return s; } };
   const logo=full=>{ try{ const t=BY[full]; const c=window.tdcTeamColor&&(tdcTeamColor((t&&t.team)||full)||tdcTeamColor(full)); return (c&&c.logo)||''; }catch(e){ return ''; } };
-  const teamA=(full,lg)=>{ const t=BY[full], img=lg||logo(full);
-    return (img?`<img src="${esc(img)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`:'')+(t?`<a href="team.html?team=${encodeURIComponent(t.team)}" onclick="event.stopPropagation()">${esc(short(full))}</a>`:`<b>${esc(short(full))}</b>`); };
+  // eager: the scrimmage table is a handful of rows and a lazy logo there showed blank; the long game list stays lazy
+  const teamA=(full,lg,lazy)=>{ const t=BY[full], img=lg||logo(full);
+    return (img?`<img src="${esc(img)}" alt=""${lazy?' loading="lazy"':''} onerror="this.style.visibility='hidden'">`:'')+(t?`<a href="team.html?team=${encodeURIComponent(t.team)}" onclick="event.stopPropagation()">${esc(short(full))}</a>`:`<b>${esc(short(full))}</b>`); };
   const sg=v=>(v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(1);
   const lineTxt=(home,away,m)=>m==null?'—':Math.abs(m)<0.25?'Pick':`${esc(short(m>0?home:away))} −${Math.abs(m).toFixed(1)}`;
   const pairKey=(a,b)=>[a,b].sort().join('|');
@@ -161,7 +162,7 @@
       const href=fromSched?'preview.html?team='+encodeURIComponent(g.home.name)+'&opp='+encodeURIComponent(g.away.name)+'&date='+DAY:'game.html?id='+encodeURIComponent(g.id);
       return `<tr class="go" data-gid="${esc(g.id)}" onclick="location.href='${href.replace(/'/g,'%27')}'">
         <td class="l st${g.state==='in'?' live':''}">${time(g)}</td>
-        <td class="l mu">${rk(g.away)}${teamA(g.away.name,g.away.logo)}<span class="at">${g.neutral?'vs':'@'}</span>${rk(g.home)}${teamA(g.home.name,g.home.logo)}</td>
+        <td class="l mu">${rk(g.away)}${teamA(g.away.name,g.away.logo,true)}<span class="at">${g.neutral?'vs':'@'}</span>${rk(g.home)}${teamA(g.home.name,g.home.logo,true)}</td>
         <td class="c sc">${sc}</td><td class="l ln">…</td><td class="wp"></td><td class="l dim">${esc(g.tv||'')}</td></tr>`; }).join('');
     el.innerHTML=`<div class="sec"><h2>Games</h2><span class="n">${games.length} game${games.length===1?'':'s'}${fromSched?' · from the announced schedule':''}</span></div>
       <div class="sheet-wrap" style="max-height:none"><table class="sheet dense td-tbl"><thead><tr><th class="l">Time</th><th class="l">Matchup</th><th class="c">Score</th><th class="l">Our line</th><th>Fav win %</th><th class="l">TV</th></tr></thead><tbody>${rows}</tbody></table></div>`;
