@@ -94,6 +94,25 @@ def main():
     json.dump({"season": 2027, "built": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
                "n": len(rows), "players": rows}, open(OUT, "w"), separators=(",", ":"))
     print(f"wrote {len(rows)} transfers to {OUT.relative_to(ROOT)}")
+    write_nil_origin(rows, members)
+
+
+def write_nil_origin(rows, members):
+    """data/nil_origin.json — each transfer's ORIGIN school + league, so tdc-nil.js prices his NIL off where
+    he earned it (his old conference premium / program / floor), not the school he's going to."""
+    nd = json.load(open(ROOT / "nil-data.json"))["teams"]
+    short_of_espn = {str(r["espn_id"]): k for k, t in nd.items() for r in t.get("players", []) if r.get("espn_id") is not None}
+    full2short = {}
+    for x in rows:   # a transfer's new school (full name) sits under its short nil-data key
+        k = short_of_espn.get(x["espn"])
+        if k and x["to"]: full2short.setdefault(x["to"], k)
+    def short(full):
+        if full in full2short: return full2short[full]
+        best = max((k for k in nd if full.startswith(k + " ")), key=len, default=None)   # "Saint Mary's Gaels" -> "Saint Mary's"
+        return best or full
+    out = {x["espn"]: {"t": short(x["from"]), "c": members.get(x["from"], "")} for x in rows if x["from"]}
+    json.dump({"season": 2027, "n": len(out), "origin": out}, open(ROOT / "data" / "nil_origin.json", "w"), separators=(",", ":"))
+    print(f"wrote {len(out)} transfer origins to data/nil_origin.json")
 
 
 if __name__ == "__main__":

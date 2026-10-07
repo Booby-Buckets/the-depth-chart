@@ -176,7 +176,14 @@ window.TDC_NIL = {
       .then(function(j){ if(j&&j.deals) for(var k in j.deals){ var v=+j.deals[k]; if(isFinite(v)) N.NAME_DEALS[(''+k).trim()]=v; } return N.NAME_DEALS; })
       .catch(function(){ return N.NAME_DEALS; });
     return N._dealsP; };
-  N.dealsReady = N.loadDeals();
+  // TRANSFER ORIGIN: a transfer is priced off where he EARNED it — his old school's conference premium,
+  // program multiplier and conference floor — not the school he's heading to (data/nil_origin.json,
+  // written by build_portal.py). Rides on dealsReady because every pricing path already awaits it.
+  N.ORIGIN = {};
+  N.originOf = function(p){ return (p && p.espn_id != null) ? (N.ORIGIN[String(p.espn_id)] || null) : null; };
+  N._originP = fetch('data/nil_origin.json?v=1',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null;})
+    .then(function(j){ if(j&&j.origin) N.ORIGIN=j.origin; return N.ORIGIN; }).catch(function(){ return N.ORIGIN; });
+  N.dealsReady = Promise.all([N.loadDeals(), N._originP]).then(function(r){ return r[0]; });
   // ── recruiting PEDIGREE → market value only (never production). A former five-star still commands a
   //    premium that decays each year as production proves out (a top-3 senior barely gets it).
   //    Coefficient (0..1 per espn_id) from recruit_pedigree.json (247 composite; raw ranks stay private).
@@ -269,10 +276,12 @@ window.TDC_NIL = {
     // GRADE-LED: recompute every player live from the model (grade/mpg/premium/class/pos), so the
     // valuation is controlled entirely by tdc-nil.js — no dependency on the baked tier value, and
     // baked real-deal "override" figures are never surfaced. tier is unused (open-market worth).
-    var mv=N.gradeValueNeutral(p.grade,p.mpg,N.premOf(p),p.cls,p.pos,p.wa);
+    var prem=N.premOf(p), team=p.team, conf=p.conf, o=N.originOf(p);
+    if(o && o.c){ prem=prem*N.confMult(N.confClass(o.c))/N.confMult(N.confClass(p.conf)); team=o.t||team; conf=o.c; }   // transfer: his old league + program
+    var mv=N.gradeValueNeutral(p.grade,p.mpg,prem,p.cls,p.pos,p.wa);
     mv=isFinite(+mv)?+mv:(isFinite(v)?v:0);
-    mv=mv*N.draftBoost(p.grade,p.ppg)*N.defMultOf(p)*N.mktMult(p.ppg)*N.proMult(p.ht,p.pos)*N.injuryMultOf(p)*N.adjMultOf(p.name)*N.progMultOf(p.team);
-    return Math.max(N.progFloorOf(p.conf), mv); };   // × draft × defense × mkt × pro × injury × adjust × program, then conf floor
+    mv=mv*N.draftBoost(p.grade,p.ppg)*N.defMultOf(p)*N.mktMult(p.ppg)*N.proMult(p.ht,p.pos)*N.injuryMultOf(p)*N.adjMultOf(p.name)*N.progMultOf(team);
+    return Math.max(N.progFloorOf(conf), mv); };   // × draft × defense × mkt × pro × injury × adjust × program, then conf floor
   N.tierBudget  = function(t){ return N.TIER_BUDGET[+((''+t).replace(/\D/g,''))] || null; };
   N.fmt         = function(m){ if(m==null||!isFinite(m)) return '—'; return m>=1 ? ('$'+(+m).toFixed(2)+'M') : ('$'+Math.round(m*1000)+'K'); };
 })();
