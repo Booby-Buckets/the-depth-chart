@@ -6956,8 +6956,19 @@ function _displaySwitch(t){
 function _grpToggle(btn, e){ if(e) e.stopPropagation();
   var grp=btn.parentElement, wasOpen=grp.classList.contains('open');
   document.querySelectorAll('.tab-grp.open').forEach(function(g){ g.classList.remove('open'); });
-  if(!wasOpen){ grp.classList.add('open'); _grpLinkPlayer(); }
+  if(!wasOpen){ grp.classList.add('open'); _grpLinkPlayer(); _grpPlace(grp); }
 }
+// The tab row scrolls sideways (phones), and a scrolling box clips anything that pops out of it — the
+// Shots / Coach's Tier menus opened INSIDE the 33px row, invisible. Pin the open menu to the viewport
+// just under its button instead, so no ancestor can clip it.
+function _grpPlace(grp){
+  var m=grp&&grp.querySelector('.tab-grp-menu'), b=grp&&grp.querySelector('.tab-grp-btn'); if(!m||!b) return;
+  var r=b.getBoundingClientRect();
+  m.style.position='fixed'; m.style.top=Math.round(r.bottom+6)+'px'; m.style.right='auto';
+  var w=m.offsetWidth||320; m.style.left=Math.round(Math.max(8,Math.min(r.left,window.innerWidth-w-8)))+'px';
+}
+['scroll','resize'].forEach(function(ev){ window.addEventListener(ev,function(){ document.querySelectorAll('.tab-grp.open').forEach(_grpPlace); },{passive:true}); });
+document.addEventListener('scroll',function(e){ if(e.target&&e.target.id==='tabRow') document.querySelectorAll('.tab-grp.open').forEach(_grpPlace); },true);
 // Point the Coach's Tier toolkit links at THIS player so they open pre-loaded.
 function _grpLinkPlayer(){
   // Always build from the loaded player so every toolkit link carries BOTH the player id and
