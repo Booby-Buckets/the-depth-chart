@@ -142,12 +142,10 @@ window.TDC_NIL = {
   // baked prem (it carries pillar-based efficiency the row can't reproduce).
   N.premOf = function(p){ if(!p) return 1;
     if((p.ppg==null||p.ppg==='') && p.conf!=null && p.ht!=null && N.sizeMult) return N.sizeMult(p.ht,p.pos)*N.confMult(N.confClass(p.conf));
-    var pr=(p.prem!=null&&isFinite(+p.prem))?+p.prem:1;
-    // returners: the baked prem mis-classified BIG-12 & PAC-12 as low-major (conf factor 0.90). Only
-    // those two were wrong (B10/SEC/ACC/Big-East/AAC baked right). Correct the conference factor.
-    var c=(''+(p.conf||'')).toUpperCase().replace(/[\s\-_.]/g,'');
-    if(c==='BIG12'||c==='PAC12') pr=pr*(N.confMult(N.confClass(p.conf))/0.90);
-    return pr; };
+    // returners keep their baked prem. (A Big 12 / Pac-12 ×1.49 correction used to live here for an old
+    // low-major mis-classification; nil-data has since been rebuilt with the right conference factor, so
+    // it double-counted — Big 12 returners averaged prem 2.33 vs SEC 1.57 and Murauskas priced at $7.1M.)
+    return (p.prem!=null&&isFinite(+p.prem))?+p.prem:1; };
   N.gradeValueNeutral = function(grade,mpg,prem,cls,pos,wa){ var b=N.neuGradeBase(grade); if(b<=0.002) return N.WALKON_VALUE;
     return b*N.NEU_TOP*N.premAdj(prem)*N.neuMinFactor(N.estMpg(mpg,grade))*N.neuYouth(cls)*N.bigMult(pos,grade)*N.waCoherence(grade,wa); };
   // MARKETABILITY — NIL is a brand market, not just a talent market: a featured SCORER draws the
