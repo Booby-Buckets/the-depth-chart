@@ -89,6 +89,30 @@ def main():
                      "mpg": r1((L.get("min") or 0) / L["g"]) if L.get("g") else None, "g": L.get("g"),
                      "ts": r1((L.get("ts_pct") or 0) * 100) if L.get("ts_pct") else None, "usg": r1(L.get("usg_pct"))},
         })
+    # transfers with too thin a college record for the returner model (under DEMO_MIN minutes) are projected as
+    # newcomers in fresh_fit.json — still real transfers: last season's school differs from this one
+    fresh = json.load(open(D / "fresh_fit.json"))
+    full_of = {}
+    for x in rows:
+        sb = bio.get(x["espn"], {}).get("team")
+        if sb and x["to"]: full_of.setdefault(sb, x["to"])
+    have = {x["espn"] for x in rows}
+    for espn, b in bio.items():
+        L = last.get(espn)
+        if espn in have or not L or not b.get("team"): continue
+        lt, nt = str(L.get("team") or "").strip(), str(b["team"]).strip()
+        to = full_of.get(nt, nt)
+        if not lt or lt.lower() in (nt.lower(), to.lower()) or lt.lower().startswith(nt.lower() + " "): continue   # same school (Penn = Pennsylvania Quakers)
+        f = (fresh.get(nt) or {}).get(b.get("name"))
+        if not f: continue
+        rows.append({
+            "espn": espn, "name": b.get("name"), "pos": b.get("position") or "", "cls": b.get("class_year") or b.get("yr") or "",
+            "ht": b.get("height") or "", "from": lt, "to": to, "toConf": members.get(to, ""), "status": "committed",
+            "ovr": f.get("ovr"), "lastOvr": last_ovr.get(espn), "up": 0,
+            "proj": {"ppg": r1(f.get("ppg")), "rpg": None, "apg": None, "mpg": r1(f.get("mpg"))},
+            "last": {"ppg": r1(L.get("ppg")), "rpg": r1(L.get("rpg")), "apg": r1(L.get("apg")),
+                     "mpg": r1((L.get("min") or 0) / L["g"]) if L.get("g") else None, "g": L.get("g"), "ts": None, "usg": None},
+        })
     rows.sort(key=lambda x: (-(x["ovr"] or 0), x["name"]))
     OUT.parent.mkdir(exist_ok=True)
     json.dump({"season": 2027, "built": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),

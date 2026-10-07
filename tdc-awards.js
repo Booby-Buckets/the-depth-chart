@@ -54,7 +54,7 @@
       fetch(SB+'/rest/v1/teams?select=name,conf,conference&limit=500',{headers:H}).then(r=>r.json()),
       fetchPaged(SB+'/rest/v1/players?name=neq.%E2%80%94&select=name,team,espn_id,position,yr,class_year,tdc_grade,ppg,rpg,apg,stl,blk,mpg,is_injured,hometown&order=id.asc'),
       fetchPaged(SB+'/rest/v1/player_advanced?season_year=eq.2026&espn_id=not.is.null&select=espn_id,ti40&order=espn_id.asc'),
-      fetch('scripts/data/stat_overall_projected.json?v=83').then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch('scripts/data/stat_overall_projected.json?v=84').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch(SB+'/rest/v1/predictive_ratings?season=eq.'+SEASON+'&select=data&limit=1',{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]),
     ]);
     const confOf={}; (teams||[]).forEach(t=>{ confOf[t.name]=t.conf||t.conference||''; });

@@ -486,6 +486,8 @@ def proj_mpg(d,last,starter,trusted=False):
     return pm
 DEV=json.load(open(os.path.join(D,"dev_curves.json")))["rate_mult"]
 DEV_SCALE=float(os.environ.get("DEV_SCALE","1.0"))
+DEMO_MIN=float(os.environ.get("DEMO_MIN","150"))   # fewer demonstrated college minutes than this -> projected as a newcomer
+_THIN=[]
 CRED_K=float(os.environ.get("CRED_K","400"))
 CRED_K_LO=float(os.environ.get("CRED_K_LO","200"))   # the same pull for a BELOW-median rate: at 400 it lifted weak bench returners ~1 pt above history (65-70 +2.3 vs +1.9,
 # <65 +6.9 vs +5.6); 200 lands them at +1.4 / +6.0 and leaves every tier 75+ untouched (Oct 2026 calibration)   # projected-rate reliability: last-year minutes worth of pull toward the median per-40   # shrink the class-development multipliers toward 1 (calibration knob)
@@ -933,6 +935,14 @@ for short, roster in roster_by_team.items():
         if not (pd.notna(b["ppg"]) and pd.notna(b["fga"]) and _n(b["gp"])>=1): continue
         last_mpg=_n(b["mpg"]) or _n(p.mpg) or 0
         if last_mpg<3: continue
+        # TOO LITTLE TO GO ON (Oct 2026): a college record of a few garbage-time minutes is no evidence.
+        # Its per-minute line scaled up to a real role read as a star — Kaleb Spencer (6 games, 5.7 mpg,
+        # 34 total minutes at William & Mary) projected 18.3 ppg / 76 OVR and lifted Incarnate Word from
+        # #353 to #154. Under DEMO_MIN demonstrated minutes he is projected like any newcomer instead (the
+        # same path a player with an old, thin record already takes — Queens' Nasir Mann, 66).
+        _demo_min=_n(b["gp"])*last_mpg
+        if _demo_min<DEMO_MIN:
+            _THIN.append((str(p.name),str(short),int(_n(b["gp"])),round(last_mpg,1),int(_demo_min))); continue
         starter=str(p.starter).lower() in ("true","t")
         # transfer? (last-year team != this school) — needed BEFORE the vacancy split AND the minutes
         # A filled player has no player_advanced row by construction, so his last school comes
@@ -1617,6 +1627,8 @@ if TEAM_FIT_LOG:
     print(f"team fit: {len(TEAM_FIT_LOG)} rosters · minutes x{np.mean(_mk):.3f} avg (min {min(_mk):.2f}) · points x{np.mean(_pk):.3f} avg (min {min(_pk):.2f}, max {max(_pk):.2f})",file=sys.stderr)
     for _t in ("Florida Gators","Notre Dame Fighting Irish","Duke Blue Devils","Vanderbilt Commodores"):
         if _t in TEAM_FIT_LOG: print("  ",_t,TEAM_FIT_LOG[_t],file=sys.stderr)
+_thin_u=sorted(set(_THIN),key=lambda x:x[4])
+print(f"projected as newcomers (under {int(DEMO_MIN)} college minutes): {len(_thin_u)} — "+", ".join(f"{n} ({t}, {g}g x {m}mpg)" for n,t,g,m,_ in _thin_u[:25]),file=sys.stderr)
 print(f"Wrote stat_overall_projected.json ({len(out)} returners, {sum(len(v) for v in teams_out.values())} rotation slots across {len(teams_out)} teams)",file=sys.stderr)
 prev=pd.DataFrame([{**v,"espn":k} for k,v in out.items()]); prev["move"]=prev["ovr"]-prev["demo_ovr"]
 print("\nTop projected 2026-27:",file=sys.stderr)
