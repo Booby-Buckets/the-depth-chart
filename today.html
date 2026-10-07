@@ -56,7 +56,19 @@
     .td-tbl tr.go{cursor:pointer;}
     .chip{display:inline-block;padding:0 6px;border:1px dashed var(--border2);border-radius:4px;font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-left:6px;vertical-align:1px;}
     .empty{padding:26px;text-align:center;color:var(--text3);border:1px dashed var(--border2);border-radius:12px;font-size:13px;}
-    @media(max-width:640px){ h1{font-size:28px;} .td-tbl td.note{min-width:160px;} }
+    @media(max-width:640px){
+      h1{font-size:28px;}
+      .daybar .lbl{order:-1;flex:1 0 100%;margin:0 0 4px;font-size:18px;}
+      .daybar input{flex:1;min-width:0;}
+      .sec{flex-wrap:wrap;} .sec h2{font-size:20px;} .sec .n{flex:1 0 100%;}
+      .td-tbl td.mu .tm{display:block;line-height:1.7;} .td-tbl td.mu .at{display:none;}
+      .td-tbl td.mu .tm.h::before{content:'@ ';color:var(--text3);font-weight:600;}
+      .td-tbl td.mu .tm.h.n::before{content:'vs ';}
+      .td-tbl th.tv,.td-tbl td.tv,.td-tbl th.nt,.td-tbl td.note{display:none;}
+      .td-tbl td.ln{white-space:normal!important;min-width:0;max-width:84px;line-height:1.3;} .td-tbl th.wph,.td-tbl td.wp{display:none;} .td-tbl .pj{display:none;} .td-tbl td.st{font-size:12px;}
+      .td-tbl td.ln .sp{display:block!important;}
+      .td-tbl th,.td-tbl td{padding-left:6px!important;padding-right:6px!important;}
+    }
   </style>
   <link rel="stylesheet" href="tdc-skin.css?v=14"/>
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
@@ -105,7 +117,7 @@
   const teamA=(full,lg,lazy)=>{ const t=BY[full], img=lg||logo(full);
     return (img?`<img src="${esc(img)}" alt=""${lazy?' loading="lazy"':''} onerror="this.style.visibility='hidden'">`:'')+(t?`<a href="team.html?team=${encodeURIComponent(t.team)}" onclick="event.stopPropagation()">${esc(short(full))}</a>`:`<b>${esc(short(full))}</b>`); };
   const sg=v=>(v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(1);
-  const lineTxt=(home,away,m)=>m==null?'—':Math.abs(m)<0.25?'Pick':`${esc(short(m>0?home:away))} −${Math.abs(m).toFixed(1)}`;
+  const lineTxt=(home,away,m)=>m==null?'—':Math.abs(m)<0.25?'Pick':`${esc(short(m>0?home:away))} <span class="sp">−${Math.abs(m).toFixed(1)}</span>`;
   const pairKey=(a,b)=>[a,b].sort().join('|');
 
   // "7:30 PM" → minutes after midnight (TBA last), so the day reads in order
@@ -124,19 +136,19 @@
         sc=`<span class="${hw?'l':'w'}">${res.as}</span>–<span class="${hw?'w':'l'}">${res.hs}</span>`; }
       else if(lv&&lv.state!=='pre'&&lv.home.score!=null){ st=esc(lv.state==='post'?'Final':lv.detail); cls=lv.state==='in'?' live':'';
         const hm=lv.home.name===x.home; const hs=hm?lv.home.score:lv.away.score, as=hm?lv.away.score:lv.home.score; sc=`${as}–${hs}`; }
-      else if(P&&P.tot!=null) sc=`<span class="l">proj ${Math.round((P.tot-P.m)/2)}–${Math.round((P.tot+P.m)/2)}</span>`;
+      else if(P&&P.tot!=null) sc=`<span class="l"><span class="pj">proj </span>${Math.round((P.tot-P.m)/2)}–${Math.round((P.tot+P.m)/2)}</span>`;
       const href=played?'scrimmage.html?id='+encodeURIComponent(x.id):'preview.html?team='+encodeURIComponent(x.home)+'&opp='+encodeURIComponent(x.away)+'&date='+x.date;
       const fav=P?(P.probH>=50?P.probH:100-P.probH):null;
       return `<tr class="go" onclick="location.href='${href.replace(/'/g,'%27')}'" title="${played?'open the box score':'open the game preview'}">
         <td class="l st${cls}">${st}</td>
-        <td class="l mu">${teamA(x.away)}<span class="at">${x.neutral?'vs':'@'}</span>${teamA(x.home)}</td>
+        <td class="l mu"><span class="tm">${teamA(x.away)}</span><span class="at">${x.neutral?'vs':'@'}</span><span class="tm h${x.neutral?' n':''}">${teamA(x.home)}</span></td>
         <td class="c sc">${sc}</td>
-        <td class="l">${played?'':lineTxt(x.home,x.away,P&&P.m)}</td>
-        <td>${played||fav==null?'':Math.round(fav)+'%'}</td>
-        <td class="l dim">${esc(x.tv||'')}</td>
+        <td class="l ln">${played?'':lineTxt(x.home,x.away,P&&P.m)}</td>
+        <td class="wp">${played||fav==null?'':Math.round(fav)+'%'}</td>
+        <td class="l dim tv">${esc(x.tv||'')}</td>
         <td class="l note">${esc((res&&(res.note||res.auto_note))||'')}</td></tr>`; }).join('');
     el.innerHTML=`<div class="sec"><h2>Scrimmages &amp; exhibitions <span class="chip">Unofficial</span></h2><span class="n">${list.length} game${list.length===1?'':'s'} · not counted in records, stats or ratings</span></div>
-      <div class="sheet-wrap" style="max-height:none"><table class="sheet dense td-tbl"><thead><tr><th class="l">Time</th><th class="l">Matchup</th><th class="c">Score</th><th class="l">Our line</th><th>Fav win %</th><th class="l">TV</th><th class="l">Top performers</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      <div class="sheet-wrap" style="max-height:none"><table class="sheet dense td-tbl"><thead><tr><th class="l">Time</th><th class="l">Matchup</th><th class="c">Score</th><th class="l">Our line</th><th class="wph">Fav win %</th><th class="l tv">TV</th><th class="l nt">Top performers</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }
 
   // ── games: ESPN's scoreboard for the day (live + finals), else our 2026-27 schedule ──
@@ -162,10 +174,10 @@
       const href=fromSched?'preview.html?team='+encodeURIComponent(g.home.name)+'&opp='+encodeURIComponent(g.away.name)+'&date='+DAY:'game.html?id='+encodeURIComponent(g.id);
       return `<tr class="go" data-gid="${esc(g.id)}" onclick="location.href='${href.replace(/'/g,'%27')}'">
         <td class="l st${g.state==='in'?' live':''}">${time(g)}</td>
-        <td class="l mu">${rk(g.away)}${teamA(g.away.name,g.away.logo,true)}<span class="at">${g.neutral?'vs':'@'}</span>${rk(g.home)}${teamA(g.home.name,g.home.logo,true)}</td>
-        <td class="c sc">${sc}</td><td class="l ln">…</td><td class="wp"></td><td class="l dim">${esc(g.tv||'')}</td></tr>`; }).join('');
+        <td class="l mu"><span class="tm">${rk(g.away)}${teamA(g.away.name,g.away.logo,true)}</span><span class="at">${g.neutral?'vs':'@'}</span><span class="tm h${g.neutral?' n':''}">${rk(g.home)}${teamA(g.home.name,g.home.logo,true)}</span></td>
+        <td class="c sc">${sc}</td><td class="l ln">…</td><td class="wp"></td><td class="l dim tv">${esc(g.tv||'')}</td></tr>`; }).join('');
     el.innerHTML=`<div class="sec"><h2>Games</h2><span class="n">${games.length} game${games.length===1?'':'s'}${fromSched?' · from the announced schedule':''}</span></div>
-      <div class="sheet-wrap" style="max-height:none"><table class="sheet dense td-tbl"><thead><tr><th class="l">Time</th><th class="l">Matchup</th><th class="c">Score</th><th class="l">Our line</th><th>Fav win %</th><th class="l">TV</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      <div class="sheet-wrap" style="max-height:none"><table class="sheet dense td-tbl"><thead><tr><th class="l">Time</th><th class="l">Matchup</th><th class="c">Score</th><th class="l">Our line</th><th class="wph">Fav win %</th><th class="l tv">TV</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     // our pregame line for each (tdc-schedule pricing; same as the game page)
     games.forEach(async g=>{
       const tr=el.querySelector(`tr[data-gid="${CSS.escape(g.id)}"]`); if(!tr) return;
