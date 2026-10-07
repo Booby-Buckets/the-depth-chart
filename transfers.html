@@ -196,9 +196,13 @@
   }
 
   // ── teams view: each program's portal class ──
-  const TCOLS = [['#', 'rk', null], ['Team', 'l', 'name'], ['Conf', 'c', 'conf'], ['Haul', '', 'haul', 1], ['In', '', 'nIn', 1], ['Out', '', 'nOut', -1],
+  const TCOLS = [['#', 'rk', null], ['Team', 'l', 'name'], ['Conf', 'c', 'conf'], ['Class', '', 'haul', 1], ['In', '', 'nIn', 1], ['Out', '', 'nOut', -1],
     ['$ In', '', 'spent', 1], ['$ Out', '', 'lost', -1],
     ['Avg OVR in', '', 'avgIn', 1], ['Avg OVR out', '', 'avgOut', -1], ['Net', '', 'net', 1], ['Top addition', 'l', null], ['Top loss', 'l', null]];
+  // Class score: each player's OVR above 70, raised to 1.4 (an 88 is worth ~2.6x a 78, not 2.25x), best player
+  // first, each next one counting 0.7x the one before — a class of two stars beats a pile of role players
+  const classScore = (a, k) => Math.round(a.map(p => Math.max(0, (p[k] || 0) - 70)).sort((x, y) => y - x)
+    .reduce((s, v, i) => s + Math.pow(v, 1.4) * Math.pow(0.7, i), 0));
   function teamRows() {
     const T = {}; const get = n => T[n] || (T[n] = { name: n, conf: '', ins: [], outs: [] });
     // every move counts for both schools; the conference filter picks PROGRAMS (a loss to another league still counts)
@@ -207,12 +211,12 @@
     const avg = (a, k) => { const v = a.map(x => x[k]).filter(x => x != null); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
     return Object.values(T).filter(t => !st.conf || t.conf === st.conf).map(t => {
       t.ins.sort((a, b) => (b.ovr || 0) - (a.ovr || 0)); t.outs.sort((a, b) => (b.lastOvr || 0) - (a.lastOvr || 0));
-      t.haul = t.ins.reduce((s, p) => s + Math.max(0, (p.ovr || 0) - 70), 0);   // each addition's OVR above 70, summed
-      t.haulOut = t.outs.reduce((s, p) => s + Math.max(0, (p.lastOvr || 0) - 70), 0);   // what walked out: last season's OVR above 70
+      t.haul = classScore(t.ins, 'ovr');         // quality over size: stars count more, each extra addition less
+      t.haulOut = classScore(t.outs, 'lastOvr');  // what walked out, scored the same way on last season's OVR
       t.netHaul = t.haul - t.haulOut;
       const sum = a => a.reduce((s, p) => s + (p.nil || 0), 0);
       t.spent = D.hasNil ? sum(t.ins) : null; t.lost = D.hasNil ? sum(t.outs) : null;
-      t.perM = t.spent >= 0.5 ? t.haul / t.spent : null;   // haul points per $1M of estimated NIL
+      t.perM = t.spent >= 0.5 ? t.haul / t.spent : null;   // class-score points per $1M of estimated NIL
       t.nIn = t.ins.length; t.nOut = t.outs.length; t.avgIn = avg(t.ins, 'ovr'); t.avgOut = avg(t.outs, 'lastOvr'); t.net = t.nIn - t.nOut;
       return t; });
   }
@@ -232,7 +236,7 @@
         <td class="l nm">${top(t.ins[0])}</td><td class="l nm">${top(t.outs[0] && Object.assign({}, t.outs[0], { ovr: t.outs[0].lastOvr }))}</td></tr>`).join('')
       : `<tr><td class="tp-empty" colspan="${TCOLS.length}">No programs match.</td></tr>`;
     document.getElementById('tpTitle').textContent = 'Portal class by program';
-    document.getElementById('tpNote').textContent = `${rows.length} programs · Haul = each addition's OVR above 70, summed`;
+    document.getElementById('tpNote').textContent = `${rows.length} programs · Class = quality-weighted score: stars count most, each extra addition less`;
     const more = document.getElementById('tpMore'); more.style.display = rows.length > st.shown ? '' : 'none';
     more.textContent = `Show ${Math.min(PAGE, rows.length - st.shown)} more`;
   }
@@ -263,28 +267,25 @@
       c.haul += t.haul; c.spent += t.spent || 0; c.n += t.nIn; c.teams++; });
     const confs = Object.values(C).map(c => Object.assign(c, { per: c.haul / c.teams }));
     const P = filtered();
-    // glow-ups need real minutes on both ends: 55 is the floor rating for barely-used players
     const pTop = (k, keep, dir) => P.filter(p => p[k] != null && (!keep || keep(p))).sort((a, b) => (dir || 1) * (b[k] - a[k])).slice(0, N);
-    P.forEach(p => { p._glow = p.ovr > 55 && p.lastOvr > 55 && (p.last.mpg || 0) >= 12 && (p.proj.mpg || 0) >= 12 ? p.ovr - p.lastOvr : null; p._steal = p.nil > 0 && p.ovr >= 78 && (p.last.mpg || 0) >= 12 ? (p.ovr - 70) / Math.max(p.nil, 0.15) : null; });
+    P.forEach(p => { p._steal = p.nil > 0 && p.ovr >= 78 && (p.last.mpg || 0) >= 12 ? (p.ovr - 70) / Math.max(p.nil, 0.15) : null; });
     const B = [
-      board('Best portal class', 'Haul', top(T, 'haul', 1), t => t.haul, v => v, t => `${t.nIn} in · ${best(t)}`),
+      board('Best portal class', 'Class score', top(T, 'haul', 1), t => t.haul, v => v, t => `${t.nIn} in · ${best(t)}`),
       D.hasNil && board('Biggest spenders', 'Est. NIL', top(T, 'spent', 1), t => t.spent, v => money(v), t => `${t.nIn} in · avg ${money(t.spent / Math.max(1, t.nIn))}`),
-      D.hasNil && board('Best bang for the buck', 'Haul / $1M', top(T, 'perM', 1, spendKeep), t => t.perM, v => v.toFixed(1), t => `haul ${t.haul} for ${money(t.spent)}`),
-      D.hasNil && board('Worst bang for the buck', 'Haul / $1M', top(T, 'perM', -1, spendKeep), t => t.perM, v => v.toFixed(1), t => `haul ${t.haul} for ${money(t.spent)}`),
-      board('Lost the most', 'Haul lost', top(T, 'haulOut', 1), t => t.haulOut, v => v, t => `${t.nOut} out · ${worst(t)}`),
+      D.hasNil && board('Best bang for the buck', 'Score / $1M', top(T, 'perM', 1, spendKeep), t => t.perM, v => v.toFixed(1), t => `score ${t.haul} for ${money(t.spent)}`),
+      D.hasNil && board('Worst bang for the buck', 'Score / $1M', top(T, 'perM', -1, spendKeep), t => t.perM, v => v.toFixed(1), t => `score ${t.haul} for ${money(t.spent)}`),
+      board('Lost the most', 'Score lost', top(T, 'haulOut', 1), t => t.haulOut, v => v, t => `${t.nOut} out · ${worst(t)}`),
       D.hasNil && board('Most NIL walked out the door', 'Est. NIL', top(T, 'lost', 1), t => t.lost, v => money(v), t => `${t.nOut} out · ${worst(t)}`),
-      board('Biggest net winners', 'Net haul', top(T, 'netHaul', 1), t => t.netHaul, signed, t => `+${t.haul} in · −${t.haulOut} out`),
-      board('Biggest net losers', 'Net haul', top(T, 'netHaul', -1), t => t.netHaul, signed, t => `+${t.haul} in · −${t.haulOut} out`),
+      board('Biggest net winners', 'Net score', top(T, 'netHaul', 1), t => t.netHaul, signed, t => `+${t.haul} in · −${t.haulOut} out`),
+      board('Biggest net losers', 'Net score', top(T, 'netHaul', -1), t => t.netHaul, signed, t => `+${t.haul} in · −${t.haulOut} out`),
       board('Total roster overhaul', 'Moves', T.map(t => Object.assign(t, { moves: t.nIn + t.nOut })).sort((a, b) => b.moves - a.moves).slice(0, N), t => t.moves, v => v, t => `${t.nIn} in · ${t.nOut} out`),
-      !st.conf && board('Conference portal rankings', 'Haul / team', confs.sort((a, b) => b.per - a.per).slice(0, N), c => c.per, v => v.toFixed(1), c => `${c.n} transfers in` + (D.hasNil ? ` · ${money(c.spent)}` : ''), { conf: 1 }),
+      !st.conf && board('Conference portal rankings', 'Score / team', confs.sort((a, b) => b.per - a.per).slice(0, N), c => c.per, v => v.toFixed(1), c => `${c.n} transfers in` + (D.hasNil ? ` · ${money(c.spent)}` : ''), { conf: 1 }),
       D.hasNil && board('Biggest splashes', 'Est. NIL', pTop('nil'), p => p.nil, v => money(v), p => `${esc(sn(p.from))} → ${esc(sn(p.to))} · ${p.ovr ?? '—'} OVR`, { player: 1 }),
       D.hasNil && board('Best bargains', 'OVR', pTop('_steal'), p => p.ovr, v => v, p => `${money(p.nil)} · ${esc(sn(p.from))} → ${esc(sn(p.to))}`, { player: 1 }),
-      board('Biggest glow-ups', 'OVR change', pTop('_glow'), p => p._glow, signed, p => `${p.lastOvr} → ${p.ovr} · ${esc(sn(p.from))} → ${esc(sn(p.to))}`, { player: 1 }),
-      board('Biggest step backs', 'OVR change', pTop('_glow', null, -1), p => p._glow, signed, p => `${p.lastOvr} → ${p.ovr} · ${esc(sn(p.from))} → ${esc(sn(p.to))}`, { player: 1 }),
     ].filter(Boolean);
     document.getElementById('tpBoards').innerHTML = B.join('');
     document.getElementById('tpTitle').textContent = st.conf ? cn(st.conf) + ' portal rankings' : 'Portal rankings';
-    document.getElementById('tpNote').textContent = 'Haul = each addition\'s projected OVR above 70, summed (losses use last season\'s OVR)' + (D.hasNil ? ' · NIL = our estimated market value, not reported deals' : '');
+    document.getElementById('tpNote').textContent = 'Class score = quality over size: each player\'s OVR above 70 (stars weigh more), best first, each next one counting 0.7× the one before (losses use last season\'s OVR)' + (D.hasNil ? ' · NIL = our estimated market value, not reported deals' : '');
   }
 
   function render() {
