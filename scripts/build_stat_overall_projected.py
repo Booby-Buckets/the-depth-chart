@@ -62,7 +62,7 @@ def rim_wins(blk40, lg_blk40, minutes):
     return RIM_PTS*ex/100.0*POSS40*(minutes/40.0)/PTS_PER_WIN
 PF40={}
 try:
-    import json as _json
+    import json, math as _json
     _ndp=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),"nil-defense.json")
     if os.path.exists(_ndp):
         for _e,_r in _json.load(open(_ndp)).get("by",{}).items():
@@ -574,6 +574,32 @@ ts =pd.DataFrame(sb_get("team_seasons?select=season_year,team,conference,srs"))
 _cs=pd.DataFrame(sb_get(f"player_history?select=espn_id,season_year&mpg=gt.2&season_year=lte.{CUR}"))
 _cs["espn_id"]=pd.to_numeric(_cs["espn_id"],errors="coerce")
 CAREER_SEASONS=_cs.dropna(subset=["espn_id"]).groupby("espn_id")["season_year"].nunique().to_dict()
+# CAREER shooting totals through {CUR} (made/att summed over seasons) — next season's FG/3P/FT% track the
+# shrunk CAREER rate far more than last season alone (backtest, 2012-26, 21.7k player-season pairs).
+_cr=pd.DataFrame(sb_get(f"player_history?select=espn_id,season_year,gp,fgm,fga,tpm,tpa,ftm,fta&season_year=lte.{CUR}"))
+_cr["espn_id"]=pd.to_numeric(_cr["espn_id"],errors="coerce")
+for _c in ["gp","fgm","fga","tpm","tpa","ftm","fta"]: _cr[_c]=pd.to_numeric(_cr[_c],errors="coerce").fillna(0)
+for _c in ["fgm","fga","tpm","tpa","ftm","fta"]: _cr[_c]=_cr[_c]*_cr["gp"]
+CAREER_SHOT=_cr.dropna(subset=["espn_id"]).groupby("espn_id")[["fgm","fga","tpm","tpa","ftm","fta"]].sum().to_dict("index")
+# SHOOTING MODEL (owner, Oct 2026: "the percentages look robotic"). Fitted by scripts/fit_shooting.py on 2012-26
+# season pairs (21.7k players, weighted by next-season attempts):
+#   next% = c + b_eb*EB + b_last*last + b_mix*career 3PA share [+ FG only: b_jump*level jump + b_u*ln(usage ratio)]
+#   EB = career makes/attempts shrunk toward a league prior with K pseudo-attempts.
+# The 3PA share is the player's TYPE (a rim big shoots a far higher FG%, a shooter a higher FT%), so a 68% big
+# regresses toward bigs, not guards. Weighted MAE vs the old position-mean regression: FG 3.42 vs 3.81, 3P 3.76 vs
+# 3.98, FT 5.56 vs 6.28. Checked on raw history: 65%+ bigs went 67.9 -> 61.6; ~120-FTA 85% guards 85.3 -> 82.4.
+# Level jump (new team Power Rating − old, transfers, ±15) and usage only move FG% — for 3P/FT those terms were
+# role-selection artifacts, not causes.
+SHOOT={"fg":dict(K=75,prior=45.0,c=17.531,eb=0.4961,last=0.1746,mix=-7.216,jump=-0.0304,u=0.321),
+       "tp":dict(K=800,prior=34.5,c=15.328,eb=0.4974,last=0.0051,mix=6.071,jump=0.0,u=0.0),
+       "ft":dict(K=150,prior=71.0,c=6.465,eb=0.7319,last=0.1469,mix=13.638,jump=0.0,u=0.0)}
+def shoot_proj(kind,e,last,jump,usg_ratio):
+    m=SHOOT[kind]; mk,ak={"fg":("fgm","fga"),"tp":("tpm","tpa"),"ft":("ftm","fta")}[kind]
+    c=CAREER_SHOT.get(e) or {}; cm=c.get(mk,0.0); ca=c.get(ak,0.0)
+    eb=100.0*(cm+m["K"]*m["prior"]/100.0)/(ca+m["K"])
+    mix=(c.get("tpa",0.0)/c["fga"]) if c.get("fga",0)>0 else 0.35
+    return (m["c"]+m["eb"]*eb+m["last"]*last+m["mix"]*mix+m["jump"]*jump
+            +m["u"]*math.log(max(0.5,min(1.6,usg_ratio))))
 for df in (adv,pl,box): df["espn_id"]=pd.to_numeric(df["espn_id"],errors="coerce").astype("Int64")
 # ONE ESPN ID, TWO ROSTERS (Oct 2026): the roster autofill matched by name, so a namesake on another roster
 # borrowed a real player's espn_id — Jayden Reid (5-10 guard, Northwestern -> Memphis) also sat on Quinnipiac as a
@@ -1058,6 +1084,7 @@ for short, roster in roster_by_team.items():
             r["proj_usg"]=min(USG_CAP[1],r.get("usg_ceil",USG_CAP[1]),max(USG_CAP[0],r["_usg_base"]*disc))
             r["_xfdisc"]=disc
         usg_ratio=min(1.6,max(0.6,r["proj_usg"]/max(r["last_usg"],1)))
+        shoot_jump=max(-15.0,min(15.0,(q_new-q_old))) if (xfer and locals().get('q_new') is not None and locals().get('q_old') is not None) else 0.0
         dm=dev_mult(p.yr or p.class_year, r["demo"], CAREER_SEASONS.get(e))
         developing = dm>=1.04
         last_min=_n(r["a"]["min"] if r["a"] is not None else 0) or last_mpg*G_PROJ   # real minutes last year (for the dev-hold + guards)
@@ -1077,21 +1104,10 @@ for short, roster in roster_by_team.items():
             # positional/FT-implied mean paints a rising player as declining, which he isn't (his OVR
             # is already floored, but the visible LINE shouldn't read as worse). Scale the pull-away-
             # from-actual by DEV_EFF_HOLD for those players; everyone else regresses as before.
-            rs=DEV_EFF_HOLD if (developing and not xfer and last_min>=400) else 1.0
             ft=_n(b["ft_pct"],POS_FT[pos]); tp=_n(b["tp_pct"],POS_TP[pos]); fg=_n(b["fg_pct"],POS_FG[pos])
-            ftimp=0.55*ft-10.0
-            # 3P%: trust the real number by SAMPLE SIZE. A proven-volume shooter keeps his stroke; a
-            # 3-for-4 fluke regresses to the prior. This is what separates a real 37.5% sophomore (152
-            # attempts -> keep 81%) from a 100%-on-2 mirage (keep 4%) — the old fixed-weight blend
-            # dragged BOTH down the same amount and painted real shooters as decliners.
-            tpa_tot=_n(b["tpa"])*_n(b["gp"])
-            tp_cred=tpa_tot/(tpa_tot+REG_TPA_K)
-            tp_prior=TP_PRIOR_POS*POS_TP[pos]+(1-TP_PRIOR_POS)*ftimp
-            tp_p=tp_cred*tp+(1-tp_cred)*tp_prior
-            fg_p=((1-REG_FG*rs)*fg+REG_FG*rs*POS_FG[pos])*(1-USG_EFF_PEN*(usg_ratio-1))
-            ft_p=(1-REG_FT*rs)*ft+REG_FT*rs*POS_FT[pos]
-            _ftc=(STAT_DEV.get("pct",{}).get(dev_step(p.yr or p.class_year)) or {}).get("ft")
-            if _ftc and _n(b["fta"])>=1.0: ft_p+=(_ftc["mean_next"]-_ftc["mean_this"])   # a year of reps at the line
+            fg_p=shoot_proj("fg",e,fg,shoot_jump,usg_ratio)
+            tp_p=shoot_proj("tp",e,tp,0.0,usg_ratio)
+            ft_p=shoot_proj("ft",e,ft,0.0,usg_ratio)
             fg_p=min(72,max(30,fg_p)); tp_p=min(48,max(20,tp_p)); ft_p=min(95,max(45,ft_p))
             # per-game projected line
             sc=pm/40.0
