@@ -353,6 +353,12 @@
   .tsp-table td.tsp-o .cfdot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--text3);margin-left:7px;vertical-align:middle;}
   .tsp-table .tsp-ev{margin-left:6px;font-size:9.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);}
   .tsp-table tr.mo1 td{border-top:2px solid var(--border2);}
+  /* the whole season, not a 600px box that scrolls on its own (a 2007-08 slate ended at 8-17 in view) */
+  .tsp-wrap{max-height:none!important;}
+  /* winner / loser on the result */
+  .tsp-table tr.w td.tsp-sc{color:#2e8b57;} .tsp-table tr.x td.tsp-sc{color:#c75d5d;}
+  [data-theme="dark"] .tsp-table tr.w td.tsp-sc{color:#6fbf7e;} [data-theme="dark"] .tsp-table tr.x td.tsp-sc{color:#e07a7a;}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .tsp-table tr.w td.tsp-sc{color:#6fbf7e;}:root:not([data-theme="light"]) .tsp-table tr.x td.tsp-sc{color:#e07a7a;}}
   .tsp-table tbody tr.sec td{background:var(--bg2);color:var(--text3);font-size:9.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;text-align:left;}
   .tsp-note{font-size:11px;color:var(--text3);line-height:1.5;margin:10px 2px 0;}
   .tsp-note b{color:var(--text2);}

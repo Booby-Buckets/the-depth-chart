@@ -20,7 +20,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   <script src="team-colors.js?v=11"></script>
   <script src="tdc-ratings.js?v=31"></script>
-  <script src="tdc-schedule.js?v=27"></script>
+  <script src="tdc-schedule.js?v=28"></script>
   <script src="tdc-scrim.js?v=15"></script>
   <script src="tdc-teamlink.js?v=2"></script>
   <script src="tdc-teamgrades.js?v=2"></script>
@@ -791,12 +791,29 @@ function ncaaPhrase(r){
   return ({'Champion':'won the national championship','Runner-Up':'reached the national championship game',
     'Round of 64':'lost in the NCAA Round of 64','Round of 32':'lost in the NCAA Round of 32'}[r]) || ('reached the '+esc(r));
 }
+// a season's roster totalled from our own per-game box scores (2006-07 on) — for seasons before the
+// player_history table starts (2011-12) or a school filed under another name there
+function boxRoster(full,yr){
+  var out=[], page=function(off){
+    return fetch(SB+'/rest/v1/box_scores?season_year=eq.'+yr+'&team=eq.'+encodeURIComponent(full)+'&select=game_id,player,espn_id,min,pts,reb,ast,tpm,stl,blk&order=game_id.asc,player.asc&limit=1000&offset='+off,{headers:H})
+      .then(function(r){return r.ok?r.json():[];}).then(function(rows){ out=out.concat(rows||[]); return (rows||[]).length===1000?page(off+1000):out; });
+  };
+  return page(0).then(function(rows){
+    var P={};
+    rows.forEach(function(b){ var k=b.espn_id!=null?'e'+b.espn_id:'n'+b.player; var p=P[k]||(P[k]={espn_id:b.espn_id,name:b.player,gp:0,min:0,pts:0,reb:0,ast:0,tpm:0,stl:0,blk:0});
+      if(!(b.min>0)) return; p.gp++; ['min','pts','reb','ast','tpm','stl','blk'].forEach(function(x){ p[x]+=(+b[x]||0); }); });
+    return Object.keys(P).map(function(k){ var p=P[k], g=p.gp||1;
+      return {espn_id:p.espn_id,name:p.name,gp:p.gp,mpg:p.min/g,ppg:p.pts/g,rpg:p.reb/g,apg:p.ast/g,tpm:p.tpm/g,stl:p.stl/g,blk:p.blk/g}; })
+      .filter(function(p){ return p.gp>0; }).sort(function(a,b){ return b.mpg-a.mpg; });
+  }).catch(function(){ return []; });
+}
 function pastRoster(row,yr){
   var le=byId('hxLeaders'), se=byId('hxShot');
   le.innerHTML='<div class="hx-empty">Loading roster…</div>'; se.innerHTML='<div class="hx-empty">Loading…</div>';
   var stale=function(){ return MY!==row.full||+HQ_SEASON!==yr; };
   Promise.all([
-    fetch(SB+'/rest/v1/player_history?season_year=eq.'+yr+'&team=eq.'+encodeURIComponent(row.team||row.full)+'&select=espn_id,name,position,yr,gp,mpg,ppg,rpg,apg,tpm,stl,blk&order=mpg.desc.nullslast',{headers:H}).then(function(r){return r.ok?r.json():[];}),
+    fetch(SB+'/rest/v1/player_history?season_year=eq.'+yr+'&team=eq.'+encodeURIComponent(row.team||row.full)+'&select=espn_id,name,position,yr,gp,mpg,ppg,rpg,apg,tpm,stl,blk&order=mpg.desc.nullslast',{headers:H}).then(function(r){return r.ok?r.json():[];})
+      .then(function(ph){ return (ph||[]).length>=5 ? ph : boxRoster(row.full,yr).then(function(bx){ return bx.length>(ph||[]).length?bx:ph; }); }),
     (window.TDCProjGrade&&TDCProjGrade.loadHist?Promise.resolve(TDCProjGrade.loadHist()).catch(function(){}):Promise.resolve())
   ]).then(function(res){
     if(stale()) return;
@@ -807,10 +824,10 @@ function pastRoster(row,yr){
     var f1=function(v){ return v==null?'—':(+v).toFixed(1); };
     var link=function(p){ return p.espn_id?'<a href="player.html?espn='+p.espn_id+'">'+esc(p.name)+'</a>':esc(p.name); };
     var hasOv=ps.some(function(p){return p.ov!=null;});
-    var hasYr=ps.some(function(p){return p.yr;});
+    var hasYr=ps.some(function(p){return p.yr;}), hasPos=ps.some(function(p){return p.position;});
     var list=ps.slice(0,12);
-    le.innerHTML='<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th>'+(hasYr?'<th class="c">Yr</th>':'')+'<th class="c">Pos</th><th data-heat="1">MPG</th><th data-heat="1">PPG</th><th data-heat="1">RPG</th><th data-heat="1">APG</th>'+(hasOv?'<th data-heat="1">OVR</th>':'')+'</tr></thead><tbody>'+
-      list.map(function(p){ return '<tr><td class="l nm">'+link(p)+'</td>'+(hasYr?'<td class="c dim">'+esc(p.yr||'')+'</td>':'')+'<td class="c dim">'+esc(p.position||'')+'</td><td>'+f1(p.mpg)+'</td><td class="strong">'+f1(p.ppg)+'</td><td>'+f1(p.rpg)+'</td><td>'+f1(p.apg)+'</td>'+(hasOv?'<td class="big">'+(p.ov==null?'—':p.ov)+'</td>':'')+'</tr>'; }).join('')+
+    le.innerHTML='<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th>'+(hasYr?'<th class="c">Yr</th>':'')+(hasPos?'<th class="c">Pos</th>':'')+'<th data-heat="1">MPG</th><th data-heat="1">PPG</th><th data-heat="1">RPG</th><th data-heat="1">APG</th>'+(hasOv?'<th data-heat="1">OVR</th>':'')+'</tr></thead><tbody>'+
+      list.map(function(p){ return '<tr><td class="l nm">'+link(p)+'</td>'+(hasYr?'<td class="c dim">'+esc(p.yr||'')+'</td>':'')+(hasPos?'<td class="c dim">'+esc(p.position||'')+'</td>':'')+'<td>'+f1(p.mpg)+'</td><td class="strong">'+f1(p.ppg)+'</td><td>'+f1(p.rpg)+'</td><td>'+f1(p.apg)+'</td>'+(hasOv?'<td class="big">'+(p.ov==null?'—':p.ov)+'</td>':'')+'</tr>'; }).join('')+
       '</tbody></table></div>';
     if(window.tdcSheetHeat) tdcSheetHeat(le.querySelector('table'));
     // team leaders: per-game leaders among players with real minutes
