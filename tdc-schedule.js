@@ -355,6 +355,13 @@
   .tsp-table tr.mo1 td{border-top:2px solid var(--border2);}
   /* the whole season, not a 600px box that scrolls on its own (a 2007-08 slate ended at 8-17 in view) */
   .tsp-wrap{max-height:none!important;}
+  /* the whole row green for a win, red for a loss (opaque mixes so frozen columns tint too; heat cells keep their scale) */
+  .tsp-table tbody tr.w td:not(.heat){background-color:color-mix(in srgb,#2e8b57 24%,var(--bg))!important;}
+  .tsp-table tbody tr.x td:not(.heat){background-color:color-mix(in srgb,#c75d5d 24%,var(--bg))!important;}
+  .tsp-table tbody tr.w:hover td:not(.heat){background-color:color-mix(in srgb,#2e8b57 32%,var(--bg))!important;}
+  .tsp-table tbody tr.x:hover td:not(.heat){background-color:color-mix(in srgb,#c75d5d 32%,var(--bg))!important;}
+  [data-theme="dark"] .tsp-table tbody tr.w td:not(.heat){background-color:color-mix(in srgb,#3fa86a 26%,var(--bg))!important;}
+  [data-theme="dark"] .tsp-table tbody tr.x td:not(.heat){background-color:color-mix(in srgb,#d0605a 26%,var(--bg))!important;}
   /* winner / loser on the result */
   .tsp-table tr.w td.tsp-sc{color:#2e8b57;} .tsp-table tr.x td.tsp-sc{color:#c75d5d;}
   [data-theme="dark"] .tsp-table tr.w td.tsp-sc{color:#6fbf7e;} [data-theme="dark"] .tsp-table tr.x td.tsp-sc{color:#e07a7a;}
