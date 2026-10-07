@@ -75,9 +75,9 @@
   function load() {
     if (_loading) return _loading;
     _loading = Promise.all([
-      fetch('scripts/data/schedule_2027.json?v=4').then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('scripts/data/schedule_2027.json?v=5').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('scripts/data/situational_model.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch('scripts/data/schedule_extras_2027.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('scripts/data/schedule_extras_2027.json?v=2').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('scripts/data/team_pace_eff.json?v=7').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('scripts/data/conf_members_2027.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
       // results change every night: an hourly query string keeps the offline cache from serving a stale copy
@@ -465,7 +465,7 @@
 
   // every rated team's projected record for the rankings table — lighter sims, cached in
   // localStorage until the ratings or the schedule file change
-  const LS_ALL = 'tdc_projrec_v11';
+  const LS_ALL = 'tdc_projrec_v12';
   async function projectAll(opts) {
     opts = opts || {};
     await load();

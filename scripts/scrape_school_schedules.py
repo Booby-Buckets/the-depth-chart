@@ -17,7 +17,7 @@ school pages give us each program's athletics domain.
 Merged games get negative synthetic ids (they are not in the `games` table) and
 a `src:"school"` tag in school_adds_2027.json so they're easy to audit or drop.
 """
-import html as _html, json, re, sys, time, unicodedata
+import html as _html, json, os, re, sys, time, unicodedata
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -387,6 +387,7 @@ def merge():
             have.add(((d0 + _td(days=k)).isoformat(), frozenset((T[g[2]], T[g[3]]))))
     # neutral heuristic: a "home" game whose city isn't the school's usual home city
     adds, unmatched = [], Counter()
+    auto = {}   # undecided event games ("A/B", "A or B") -> schedule_extras_2027.json bracket / pool entries
     nid = min([g[0] for g in sched["games"] if g[0] < 0] + [0]) - 1
     for full, rec in raw.items():
         gs = rec.get("games") or []
@@ -405,6 +406,16 @@ def merge():
             else:
                 opp = M.match(g["opp"])
             if opp == "__EVENT__": continue                                    # "ACC Tournament" listed as the opponent
+            # "Houston/Rutgers", "Oregon or St. John's", "Louisville, Texas Tech, St. John's or Oregon": an event's
+            # undecided game, not a non-D-I opponent — kept raw it simulated as a near-certain win. Those days come
+            # from schedule_extras_2027.json (bracket / pool) instead.
+            if not opp and re.search(r"/|\bor\b", g["opp"], re.I):
+                parts = [M.match(x) for x in re.split(r"\s*(?:/|,|-?\bor\b-?)\s*", g["opp"], flags=re.I) if x.strip()]
+                parts = [x for x in dict.fromkeys(parts) if x and x != "__EVENT__" and x != full]
+                if len(parts) >= 2: auto.setdefault(full, []).append({"date": g["date"], "where": "N" if g["where"] == "N" else g["where"],
+                    "event": (g.get("event") or "Event").strip() + " · TBD", "auto": True,
+                    **({"opps": parts, "bracket": True} if len(parts) == 2 else {"pool": parts})})
+                continue
             if not opp:
                 unmatched[g["opp"]] += 1; opp = g["opp"]           # non-D-I (or unrecognised) — keep the raw name
             if opp == full: continue
@@ -426,6 +437,37 @@ def merge():
     json.dump(sched, open(SCHED, "w"), separators=(",", ":"))
     json.dump(adds, open(ADDS, "w"), indent=0)
     print(f"+{len(adds)} games from school sites → {SCHED} (audit: {ADDS})")
+    # an event's undecided day ("Houston/Rutgers", "Oregon or St. John's") becomes a bracket (two names) or pool
+    # (three+) entry in schedule_extras_2027.json, the file tdc-schedule.js simulates them from. Hand-written
+    # entries win on their date; earlier auto entries are replaced each run.
+    _xp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "schedule_extras_2027.json")
+    _ex = json.load(open(_xp))
+    for _t in [k for k in _ex if k != "_doc"]:
+        _ex[_t] = [e for e in _ex[_t] if not e.get("auto")]
+        if not _ex[_t]: del _ex[_t]
+    # a bracket day is symmetric: if X's day 2 is "A or B", X's day-1 opponent P has the same day 2, and A and B
+    # each meet "X or P". Fill those in for the teams whose own site listed nothing (VCU, UCLA, Middle Tennessee…).
+    import datetime as _dt
+    _T = sched["teams"]; _day1 = {}
+    for _g in sched["games"]:
+        _a, _b = _T[_g[2]], _T[_g[3]]; _day1.setdefault((_a, _g[1]), _b); _day1.setdefault((_b, _g[1]), _a)
+    def _prev(d, k): return (_dt.date.fromisoformat(d) - _dt.timedelta(days=k)).isoformat()
+    for _t, _lst in list(auto.items()):
+        for e in list(_lst):
+            if not e.get("bracket"): continue
+            _p = _day1.get((_t, _prev(e["date"], 1))) or _day1.get((_t, _prev(e["date"], 2)))
+            if not _p: continue
+            _a, _b = e["opps"]
+            for _who, _opps in ((_p, [_a, _b]), (_a, [_t, _p]), (_b, [_t, _p])):
+                if any(x["date"] == e["date"] for x in auto.get(_who, [])) or (_who, e["date"]) in _day1: continue
+                auto.setdefault(_who, []).append(dict(e, opps=_opps))
+    _n = 0
+    for _t, _lst in auto.items():
+        _have = {e["date"] for e in _ex.get(_t, [])}
+        _new = [e for e in _lst if e["date"] not in _have]
+        if _new: _ex[_t] = sorted(_ex.get(_t, []) + _new, key=lambda e: e["date"]); _n += len(_new)
+    json.dump(_ex, open(_xp, "w"), indent=1, ensure_ascii=False)
+    print(f"  undecided event games -> schedule_extras_2027.json: {_n} auto entries ({len(auto)} teams)")
     print("  opponent strings not matched to a D-I name (kept raw):", unmatched.most_common(25))
 
 
