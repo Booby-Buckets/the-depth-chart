@@ -9,8 +9,8 @@
   var GROUPS = [
     { key: 'overview', label: 'Overview', tabs: ['overview'] },
     { key: 'stats', label: 'Stats', tabs: ['stats'] },
-    { key: 'shots', label: 'Shots', tabs: ['shotcharts', 'shotflow', 'percentiles'] },
     { key: 'dna', label: 'DNA', tabs: ['playerdna'] },
+    { key: 'shots', label: 'Shots', tabs: ['shotcharts', 'shotflow', 'percentiles'] },
     { key: 'scouting', label: 'Scouting', tabs: ['mscout', 'scout', 'dossier', 'role', 'devpath', 'scheme', 'portalfit'] },
     { key: 'nil', label: 'NIL', tabs: ['nil'] },
     { key: 'betting', label: 'Betting', tabs: ['betting'] },
@@ -99,7 +99,7 @@
     '.mp-list .mp-tag{grid-row:1/span 2;grid-column:2;align-self:center}',
     '.mp-st{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin:0 0 6px}',
     /* every other tab: no explainer prose or legends — the tables carry the information */
-    'body.mp .dna-read,body.mp .sheet-legend,body.mp .pd-legend,body.mp .ct-note,body.mp .bet-sub,body.mp .bet-cap,body.mp .buzz-note,' +
+    'body.mp .dna-read,body.mp .sheet-legend,body.mp .pd-legend,body.mp .bet-sub,body.mp .bet-cap,body.mp .buzz-note,' +
     'body.mp .nv-read,body.mp .nv-track-read,body.mp .sg-verdict,body.mp .sg-desc,body.mp .hc-foot,body.mp .si-detail,body.mp .statmode-bar label,' +
     'body.mp .statmode-bar [class*="pctl"],body.mp .statmode-bar [class*="toggle"],body.mp .gl-tier-head,body.mp .gl-chart-head{display:none!important}',
     /* one heading style */
@@ -140,7 +140,7 @@
   ].join('\n');
 
   // charts that fold behind one row on a phone: [selector, label]
-  var FOLDS = [['.ct-wrap', 'Career trajectory chart'], ['.gl-chart', 'Game rating chart'], ['.gl-tier-grid', 'By opponent tier'],
+  var FOLDS = [['.gl-chart', 'Game rating chart'], ['.gl-tier-grid', 'By opponent tier'],
     ['.nil-chart', 'Value curve chart']];
   function foldCharts() {
     if (!document.body.classList.contains('mp')) return;
@@ -149,7 +149,7 @@
         if (n.__mpFold) return; n.__mpFold = true;
         // the chart's own title and legend fold with it; the row names it instead
         var group = [n], prev = n.previousElementSibling;
-        while (prev && prev.matches('.ct-legend,.sec-title,.nil-chart-h')) { group.push(prev); prev = prev.previousElementSibling; }
+        while (prev && prev.matches('.sec-title,.nil-chart-h')) { group.push(prev); prev = prev.previousElementSibling; }
         group.forEach(function (g) { g.classList.add('mp-fold'); });
         var b = el('button', 'mp-row mp-unfold', '<span>' + f[1] + '</span><span class="mp-tag">Show</span>'); b.type = 'button';
         b.onclick = function () {
