@@ -982,7 +982,8 @@ function loadBuzz(row){
     POOL=(D.teams||[]).filter(function(t){ return t.projected!==false && t.rating!=null; }).sort(function(a,b){ return (a.rank||999)-(b.rank||999); });
     var _sp=new URLSearchParams(location.search);
     var sy=+_sp.get('season'); if(sy>=2007 && sy<=2027) HQ_SEASON=sy;
-    var qp=_sp.get('team'); if(qp){ var rr=rowOf(qp); if(rr){ MY=rr.full; } }
+    var qp=_sp.get('team'); if(qp){ var rr=rowOf(qp); if(rr){ MY=rr.full; }
+      else { location.replace('team.html?team='+encodeURIComponent(qp)+(sy>=2007&&sy<2027?'&season='+sy:'')); return; } }   // not a current D-I program (left the division): its team page for that season
     if(MY && rowOf(MY)){ renderHQ(); if(_sp.get('view')==='schedule') hqView('schedule'); } else i.focus();
   }).catch(function(){ i.placeholder='Could not load teams — reload.'; });
 })();
