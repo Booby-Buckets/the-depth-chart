@@ -181,7 +181,7 @@ window.TDC_NIL = {
   // written by build_portal.py). Rides on dealsReady because every pricing path already awaits it.
   N.ORIGIN = {};
   N.originOf = function(p){ return (p && p.espn_id != null) ? (N.ORIGIN[String(p.espn_id)] || null) : null; };
-  N._originP = fetch('data/nil_origin.json?v=2',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null;})
+  N._originP = fetch('data/nil_origin.json?v=3',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null;})
     .then(function(j){ if(j&&j.origin) N.ORIGIN=j.origin; return N.ORIGIN; }).catch(function(){ return N.ORIGIN; });
   N.dealsReady = Promise.all([N.loadDeals(), N._originP]).then(function(r){ return r[0]; });
   // ── recruiting PEDIGREE → market value only (never production). A former five-star still commands a

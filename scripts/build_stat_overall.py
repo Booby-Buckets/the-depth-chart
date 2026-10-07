@@ -121,6 +121,9 @@ ts =pd.DataFrame(sb_get("team_seasons?select=season_year,team,conference,srs,win
 ph =pd.DataFrame(sb_get("player_history?select=espn_id,season_year,position,gp,tpa,tp_pct,blk,mpg"))
 for c in ["espn_id","season_year","min","g"]: adv[c]=pd.to_numeric(adv[c],errors="coerce")
 for c in ["usg_pct","tov_pct","ti40","owa","dwa"]: adv[c]=pd.to_numeric(adv[c],errors="coerce")
+# TEAM-ADJUSTED DWA (scripts/team_d_adjust.py): most of a great defense's team share comes off each player
+import team_d_adjust
+team_d_adjust.adjust_frame(adv)
 for c in ["season_year","srs","wins","losses"]: ts[c]=pd.to_numeric(ts[c],errors="coerce")
 ph["espn_id"]=pd.to_numeric(ph["espn_id"],errors="coerce")
 ph["season_year"]=pd.to_numeric(ph["season_year"],errors="coerce")

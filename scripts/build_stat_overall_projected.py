@@ -630,6 +630,11 @@ if len(_dups):
                 print("duplicate espn %s: kept %s (%s), cleared %s (%s)"%(_e,pl.at[_best,"name"],pl.at[_best,"team"],pl.at[_i,"name"],pl.at[_i,"team"]),file=sys.stderr)
                 pl.at[_i,"espn_id"]=pd.NA
 for c in ["g","min","usg_pct","owa","dwa","ti40"]: adv[c]=pd.to_numeric(adv[c],errors="coerce")
+# TEAM-ADJUSTED DWA (scripts/team_d_adjust.py) — the same adjustment build_stat_overall.py makes, so the
+# demonstrated and projected scales move together
+import team_d_adjust
+adv["season_year"]=CUR
+team_d_adjust.adjust_frame(adv)
 for c in ["ppg","mpg","fgm","fga","tpm","tpa","ftm","fta","oreb","dreb","stl","blk","tovs","apg","gp","fg_pct","tp_pct","ft_pct"]:
     box[c]=pd.to_numeric(box[c],errors="coerce")
 box=box.dropna(subset=["espn_id"]).drop_duplicates("espn_id").set_index("espn_id")
@@ -727,7 +732,12 @@ if os.environ.get("CAREER_BLEND","1")!="0":
     for _i in range(0,len(_short),150):
         _ids=",".join(map(str,_short[_i:_i+150]))
         _ph+=sb_get(f"player_history?select={_pcols}&espn_id=in.({_ids})&season_year=gte.{CUR-3}&season_year=lt.{CUR}&order=espn_id.asc,season_year.asc")
-        _pa+=sb_get(f"player_advanced?select=espn_id,season_year,g,min,usg_pct,owa,dwa,ti40&espn_id=in.({_ids})&season_year=gte.{CUR-3}&season_year=lt.{CUR}&order=espn_id.asc,season_year.asc")
+        _pa+=sb_get(f"player_advanced?select=espn_id,season_year,team,g,min,usg_pct,owa,dwa,ti40&espn_id=in.({_ids})&season_year=gte.{CUR-3}&season_year=lt.{CUR}&order=espn_id.asc,season_year.asc")
+    # earlier seasons' DWA team-adjusted too (each season's team and league rates from that season's full pull)
+    _TDR={}
+    for _y in range(CUR-3,CUR):
+        _TDR.update(team_d_adjust.rates((_y,_r.get("team"),_r.get("min"),_r.get("dwa")) for _r in sb_get(f"player_advanced?select=espn_id,team,min,dwa&season_year=eq.{_y}&order=espn_id.asc")))
+    for _r in _pa: _r["dwa"]=team_d_adjust.adjust(_r.get("dwa"),_r.get("min"),_r.get("season_year"),_r.get("team"),_TDR)
     _prior={}
     for _r in _ph:   # most recent full season before this one
         if (_r.get("gp") or 0)>=15 and (_r.get("mpg") or 0)>=10 and (_r["espn_id"] not in _prior or _r["season_year"]>_prior[_r["espn_id"]]["season_year"]):
