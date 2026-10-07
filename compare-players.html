@@ -38,6 +38,7 @@
   <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-portalfit.js?v=needs11"></script>
   <script src="tdc-chemistry.js?v=8"></script>
+  <script src="tdc-lineup-history.js?v=3"></script>
   <script src="tdc-advstats.js?v=1"></script>
   <style>
     :root{--bg: #FAF9F6;--bg2: #F1EFEA;--bg3: #E6E3DB;--border: #DEDACF;--border2: #C6C0B2;--text: #1A1814;--text2: #4A463C;--text3: #8A867A;--accent: #A8843C;--teal:#3f8d7d;--green:#1a8c3a;--red:#cc2200;--blue:#1a5fbf;}
@@ -1845,6 +1846,22 @@ async function _chemStats(s, y, isCurrent){
 async function _fillTeamChem(r1,r2,t1,t2,c1,c2,s1,s2,y1,y2){
   const e1=document.getElementById('tchem1'), e2=document.getElementById('tchem2'), em=document.getElementById('tmatch');
   const rows1=(r1&&r1.rows)||[], rows2=(r2&&r2.rows)||[];
+  // REAL lineups (owner, Oct 2026: "tangible numbers, not our made-up sliders; the starting five is usually
+  // wrong"): who actually started, how each five did, bench scoring — counted from box scores. The 2026-27
+  // projection has no games yet, so it shows last season's real lineups, labelled.
+  if(window.TDCLineupHist && s1 && s2 && s1.team && s2.team){
+    const yr=(t,y)=>(t&&t._isHistory&&y)?y:2026;
+    const [F1,F2]=await Promise.all([TDCLineupHist.load(s1.team), TDCLineupHist.load(s2.team)]);
+    const Y1=yr(t1,y1), Y2=yr(t2,y2), S1=F1?TDCLineupHist.season(F1,Y1):null, S2=F2?TDCLineupHist.season(F2,Y2):null;
+    if(S1||S2){
+      const lab=(t,Y)=>(t&&t._isHistory)?'':'2026-27 hasn’t started — these are last season’s ('+(Y-1)+'-'+String(Y).slice(2)+') real lineups.';
+      if(e1) e1.innerHTML=TDCLineupHist.card(S1,lab(t1,Y1));
+      if(e2) e2.innerHTML=TDCLineupHist.card(S2,lab(t2,Y2));
+      if(em) em.innerHTML=TDCLineupHist.compareTable(S1,S2,(t1&&t1.name)||'Team A',(t2&&t2.name)||'Team B');
+      if(window.tdcSheetHeat) [e1,e2,em].forEach(el=>el&&el.querySelectorAll('table.sheet').forEach(t=>tdcSheetHeat(t)));
+      return;
+    }
+  }
   if(window.TDCChem){   // full lineup-identity + synergy court (shared engine)
     await _ensureCoachProfiles().catch(()=>{});
     const [st1,st2]=await Promise.all([_chemStats(s1,y1,!t1._isHistory), _chemStats(s2,y2,!t2._isHistory)]);
@@ -2806,16 +2823,16 @@ async function renderTeams(){
     </div>
     <div class="sg-note">Projected share of each team's shots (zero-sum across the rotation), with per-player <b>Shot Tendency</b> and the shift from his prior role. Same 2026-27 projection as the team pages — so you can see how two rosters divide the ball differently.</div>
 
-    <div class="compare-section-head">Lineup Chemistry — starting five, synergy &amp; fit</div>
+    <div class="compare-section-head">Lineups — who actually started &amp; how they did</div>
     <div class="scc-lbl" style="color:${c1};border-bottom-color:${c1};">${t1.name}${sameYear?'':' · '+yl1}</div>
-    <div id="tchem1" style="margin-bottom:22px;"><div class="sim-row" style="color:var(--text3);">Analyzing lineup…</div></div>
+    <div id="tchem1" style="margin-bottom:22px;"><div class="sim-row" style="color:var(--text3);">Loading lineups…</div></div>
     <div class="scc-lbl" style="color:${c2};border-bottom-color:${c2};">${t2.name}${sameYear?'':' · '+yl2}</div>
-    <div id="tchem2" style="margin-bottom:6px;"><div class="sim-row" style="color:var(--text3);">Analyzing lineup…</div></div>
+    <div id="tchem2" style="margin-bottom:6px;"><div class="sim-row" style="color:var(--text3);">Loading lineups…</div></div>
 
     <div id="unitsClash" style="margin-top:26px;"></div>
 
-    <div class="compare-section-head">Matchup Factor — ${t1.name} vs ${t2.name}, if they played</div>
-    <div id="tmatch" style="margin-bottom:6px;"><div class="sim-row" style="color:var(--text3);">Running the matchup…</div></div>
+    <div class="compare-section-head">Lineup numbers side by side</div>
+    <div id="tmatch" style="margin-bottom:6px;"><div class="sim-row" style="color:var(--text3);">Loading…</div></div>
 
     <div class="compare-section-head">Best Player Seasons on File · Since 2006</div>
     <div class="sim-grid">
