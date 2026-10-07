@@ -8421,13 +8421,25 @@ function renderHistoricRoster(rows, yr, projected){
   if(projected && !window._rosterFromHistory){
     const _all=[]; cols.forEach(c=>(c.entries||[]).forEach(e=>{ if(!_all.includes(e)) _all.push(e); }));
     const _do=e=>{ const d=parseFloat(e.p.depth_order); return isFinite(d)?d:999; };
-    const top=_all.slice().sort((a,b)=>_do(a)-_do(b)).slice(0,5);
-    if(top.length===5){
-      const cost=(e,sl)=>_oopDist(e.p,sl)+((''+(e.p.position||'')).toUpperCase()===sl?0:0.25);
-      let best=null, bestC=1e9;
+    // a misfit costs its distance SQUARED: a PF at the 2 (two spots) is worse than two players each one spot
+    // over (Purdue, Oct 2026: Lewis out — Spears Jr. at SG was wrong; Freeman slides to the 2 and Spears plays the 3)
+    const cost=(e,sl)=>{ const d=_oopDist(e.p,sl); return d*d+((''+(e.p.position||'')).toUpperCase()===sl?0:0.25); };
+    const arrange=five=>{ let best=null, bestC=1e9;
       const perm=(arr,k)=>{ if(k===arr.length){ const c=arr.reduce((t,e,i)=>t+cost(e,_SLOTS[i]),0); if(c<bestC){ bestC=c; best=arr.slice(); } return; }
         for(let i=k;i<arr.length;i++){ [arr[k],arr[i]]=[arr[i],arr[k]]; perm(arr,k+1); [arr[k],arr[i]]=[arr[i],arr[k]]; } };
-      perm(top.slice(),0); _five=best;
+      perm(five.slice(),0); return {five:best,c:bestC}; };
+    const ord=_all.slice().sort((a,b)=>_do(a)-_do(b));
+    // the owner's healthy starters (depth 1-5) keep their jobs; each open spot (a starter is out) goes to the
+    // bench player — among the next few in the owner's order — whose position fits best. Passing over a man in
+    // the order costs SKIP, so a near-tie still follows the depth chart (Lewis out → Goosby, the SG, not Spears).
+    const kept=ord.filter(e=>_do(e)<=5), bench=ord.filter(e=>_do(e)>5), open=5-kept.length, SKIP=0.6;
+    if(open<=0) _five=arrange(ord.slice(0,5)).five;
+    else if(bench.length>=open){
+      const pool=bench.slice(0,open+2); let bestF=null, bestT=1e9;
+      const pick=(start,chosen)=>{ if(chosen.length===open){ const r=arrange(kept.concat(chosen)); const skip=chosen.reduce((t,e)=>t+pool.indexOf(e),0)-(open*(open-1))/2;
+          const tot=r.c+SKIP*skip; if(tot<bestT){ bestT=tot; bestF=r.five; } return; }
+        for(let i=start;i<pool.length;i++) pick(i+1,chosen.concat([pool[i]])); };
+      pick(0,[]); _five=bestF;
     }
   }
   if(_five){ _five.forEach((e,i)=>{ _seat.push({slot:_SLOTS[i],e,col:_SLOTS[i],star:true}); _seen.add(e.p); }); }
