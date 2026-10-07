@@ -426,9 +426,10 @@ function seasonLbl(y){ return `${y-1}–${(''+y).slice(2)}`; }
 
 let seasonCtl=null;
 (function initSeasons(){
-  curSeason=2027;   // default to the 2026-27 projected postseason
+  const _qs=+new URLSearchParams(location.search).get('season');   // ?season=2015 deep link (Program HQ archive)
+  curSeason=(_qs>=2007&&_qs<=2027)?_qs:2027;   // default to the 2026-27 projected postseason
   seasonCtl=TDCSeason.mount('#tdcSeasonSlot', {
-    min:2007, max:2027, current:2027, title:false, currentLabel:'',
+    min:2007, max:2027, current:curSeason, title:false, currentLabel:'',
     labelFn:(y)=> y===2027 ? '2026–27 · Projected' : seasonLbl(y),
     onChange:(y)=>{ curSeason=+y; loadSeason(); renderDropoff(); }
   });

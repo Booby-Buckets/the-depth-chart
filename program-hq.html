@@ -357,7 +357,7 @@
         <div class="hx-tab2 on" id="hxTodayTab" onclick="hqView('today')">Today</div>
         <div class="hx-tab2" id="hxSchedTab" onclick="hqView('schedule')">Schedule</div>
         <a class="hx-tab2" id="hxTeamTab" href="#">Team Page</a>
-        <a class="hx-tab2" href="#cmd">All Tools</a>
+        <a class="hx-tab2" id="hxToolsTab" href="#cmd">All Tools</a>
         <div class="hx-tabctrls">
           <select id="hqSeason" class="hx-sel2"></select>
           <button class="hx-change2" onclick="changeTeam()">Change</button>
@@ -371,8 +371,8 @@
           <div class="hx-card" id="hxGame"></div>
           <div class="hx-card"><div class="hx-lab" id="hxAnaLbl">Team Analytics</div><div id="hxAnalytics"></div></div>
           <div class="hx-card"><div class="hx-lab" id="hxOutlookLbl">Season Outlook</div><div id="hxOutlook"></div></div>
-          <div class="hx-card"><div class="hx-lab">Roster Leaders <span class="sub">projected OVR</span></div><div id="hxLeaders"></div></div>
-          <div class="hx-card"><div class="hx-lab">Shot Distribution <span class="sub">2026-27 projected</span></div><div id="hxShot"></div></div>
+          <div class="hx-card"><div class="hx-lab" id="hxLeadLbl">Roster Leaders <span class="sub">projected OVR</span></div><div id="hxLeaders"></div></div>
+          <div class="hx-card"><div class="hx-lab" id="hxShotLbl">Shot Distribution <span class="sub">2026-27 projected</span></div><div id="hxShot"></div></div>
         </div>
         <div class="hx-col">
           <div class="hx-card"><div class="hx-lab"><span id="hxStandLbl">Conference Standings</span><span class="sub" id="hxStandSub"></span></div><div id="hxStandings"></div></div>
@@ -381,7 +381,7 @@
         </div>
       </div>
 
-      <div class="hx-sec" id="cmd"><span>Your command center</span><span class="h" id="hxTeamLbl"></span></div>
+      <div class="hx-sec" id="cmd"><span id="hxCmdLbl">Your command center</span><span class="h" id="hxTeamLbl"></span></div>
       <div class="launch" id="hqLaunch"></div>
       <div class="note" id="hqNote"></div>
       </div>
@@ -497,19 +497,28 @@ function renderSeason(){
   var row=rowOf(MY); if(!row) return;
   var q=encodeURIComponent(row.full), sq=(+HQ_SEASON===2027?'':'&season='+HQ_SEASON);
   byId('hxTeamTab').href='team.html?team='+q+sq;
-  byId('hqLaunch').innerHTML=LAUNCH.map(function(t){
-    return '<a class="tool" href="'+t[1]+'?team='+q+sq+'"><span class="ic">'+t[0]+'</span><span style="min-width:0"><span class="tn">'+esc(t[2])+'</span><span class="td">'+t[3]+'</span></span>'+(t[4]?'<span class="lk">'+t[4].toUpperCase()+'</span>':'')+'</a>';
+  var past=+HQ_SEASON<2027;
+  document.body.classList.toggle('hq-past',past);
+  byId('hxTodayTab').textContent=past?'Season':'Today';
+  byId('hxToolsTab').textContent=past?'Explore':'All Tools';
+  byId('hxCmdLbl').textContent=past?'Explore this season':'Your command center';
+  byId('hqNote').style.display=past?'none':'';
+  byId('hqLaunch').innerHTML=(past?LAUNCH_PAST:LAUNCH).map(function(t){
+    var href=typeof t[1]==='function'?t[1](row):(t[1]+'?team='+q+sq);
+    return '<a class="tool" href="'+href+'"'+(t[5]?' onclick="'+t[5]+'"':'')+'><span class="ic">'+t[0]+'</span><span style="min-width:0"><span class="tn">'+esc(t[2])+'</span><span class="td">'+t[3]+'</span></span>'+(t[4]?'<span class="lk">'+t[4].toUpperCase()+'</span>':'')+'</a>';
   }).join('');
-  byId('hxTeamLbl').textContent='— every tool, loaded for '+row.full;
+  byId('hxTeamLbl').textContent=past?('— '+row.full+', '+seasonLabel(HQ_SEASON)):('— every tool, loaded for '+row.full);
   var mediaCard=byId('hxMediaCard');
-  loadRoster(row);
+  byId('hxLeadLbl').innerHTML=past?'Roster <span class="sub">'+seasonLabel(HQ_SEASON)+'</span>':'Roster Leaders <span class="sub">projected OVR</span>';
+  byId('hxShotLbl').innerHTML=past?'Team Leaders <span class="sub">'+seasonLabel(HQ_SEASON)+'</span>':'Shot Distribution <span class="sub">2026-27 projected</span>';
+  if(past){ byId('hxShotProfCard').style.display='none'; pastRoster(row,HQ_SEASON); } else loadRoster(row);
   if(+HQ_SEASON===2027){
     mediaCard.style.display='';
     byId('hxKick').textContent='⬡ Program HQ · 2026-27 Projected';
     projHero(row); analyticsProj(row); seasonOutlook(row); projStandings(row); projGame(row); loadBuzz(row);
   } else {
     mediaCard.style.display='none';
-    byId('hxKick').textContent='⬡ Program HQ · '+seasonLabel(HQ_SEASON);
+    byId('hxKick').textContent='⬡ Season Archive · '+seasonLabel(HQ_SEASON);
     byId('hxAnalytics').innerHTML='<div class="hx-empty">Loading…</div>';
     loadPast(HQ_SEASON).then(function(P){
       var tr=P.byFull[(row.full||'').toLowerCase().trim()];
@@ -687,7 +696,7 @@ function seasonRecap(P,tr,row){
   if(pos) tags+='<span class="otag">'+ord(pos)+' in '+esc(conf||'conf')+'</span>';
   if(tr.ncaa_seed) tags+='<span class="otag good">#'+tr.ncaa_seed+' seed</span>';
   if(tr.ncaa_result) tags+='<span class="otag">'+esc(tr.ncaa_result)+'</span>';
-  var sent='<b>'+esc(row.full)+'</b> went <b>'+recStr(tr.wins,tr.losses)+'</b>'+(tr.conf_wins!=null?(' ('+recStr(tr.conf_wins,tr.conf_losses)+' '+esc(conf||'')+')'):'')+(pos?(', finishing '+ord(pos)+' in the league'):'')+(tr.ncaa_result?(', and reached the '+esc(tr.ncaa_result)):(tr.ncaa_seed?(' as a #'+tr.ncaa_seed+' seed'):''))+'. Power rating: <b>'+fmtR(tr.srs)+'</b>.';
+  var sent='<b>'+esc(row.full)+'</b> went <b>'+recStr(tr.wins,tr.losses)+'</b>'+(tr.conf_wins!=null?(' ('+recStr(tr.conf_wins,tr.conf_losses)+' '+esc(conf||'')+')'):'')+(pos?(', finishing '+ord(pos)+' in the league'):'')+(tr.ncaa_result?(', and '+ncaaPhrase(tr.ncaa_result)):'')+'. Power rating: <b>'+fmtR(tr.srs)+'</b>.';
   el.innerHTML='<div class="otags">'+tags+'</div><p class="otxt">'+sent+'</p>';
 }
 function projGame(row){
@@ -721,7 +730,10 @@ function loadPast(year){
 }
 function pastHero(row,tr){
   byId('hxName').textContent=row.full;
-  byId('hxKick').textContent='⬡ Program HQ · '+seasonLabel(HQ_SEASON);
+  var yr=HQ_SEASON;
+  byId('hxKick').textContent='⬡ Season Archive · '+seasonLabel(yr);
+  var _rk=byId('hxRank'); if(_rk) _rk.innerHTML='';
+  coachIn(row.full,yr).then(function(c){ if(c && MY===row.full && +HQ_SEASON===yr) byId('hxKick').textContent='⬡ Season Archive · '+seasonLabel(yr)+' · Coach '+c; });
   if(!tr){ byId('hxPills').innerHTML='<span class="pill">no '+seasonLabel(HQ_SEASON)+' season on file</span>'; return; }
   byId('hxPills').innerHTML='<span class="rec">'+recStr(tr.wins,tr.losses)+'</span>'+
     (tr.conf_wins!=null?'<span class="pill">CONF '+recStr(tr.conf_wins,tr.conf_losses)+'</span>':'')+
@@ -749,17 +761,67 @@ function pastStandings(P,tr,row){
   el.innerHTML=wrapStand(rows,mine.length,'<th class="rk">#</th><th class="l">Team</th><th>Conf</th><th>Overall</th>'); fitStand();
 }
 function lastGame(full,year){
-  var el=byId('hxGame'); el.innerHTML='<div class="hx-lab">Last Game</div><div class="hx-empty">Loading…</div>';
+  var LBL=+year<2027?'Final Game':'Last Game';
+  var el=byId('hxGame'); el.innerHTML='<div class="hx-lab">'+LBL+'</div><div class="hx-empty">Loading…</div>';
   var q=encodeURIComponent(full);
   fetch(SB+'/rest/v1/games?season_year=eq.'+year+'&or=(home.eq.'+q+',away.eq.'+q+')&status=eq.STATUS_FINAL&select=id,date,home,away,home_score,away_score,neutral&order=date.desc&limit=1',{headers:H})
     .then(function(r){return r.ok?r.json():[];})
     .then(function(g){
-      if(!g||!g.length){ el.innerHTML='<div class="hx-lab">Last Game</div><div class="hx-empty">No games on file for '+esc(full)+' in '+seasonLabel(year)+'.</div>'; return; }
+      if(!g||!g.length){ el.innerHTML='<div class="hx-lab">'+LBL+'</div><div class="hx-empty">No games on file for '+esc(full)+' in '+seasonLabel(year)+'.</div>'; return; }
       var m=g[0], home=(m.home===full), opp=home?m.away:m.home, us=home?m.home_score:m.away_score, them=home?m.away_score:m.home_score, win=us>them, lg=logoFor(opp);
-      el.innerHTML='<div class="hx-lab">Last Game <span class="sub">'+m.date+'</span></div>'+
+      el.innerHTML='<div class="hx-lab">'+LBL+' <span class="sub">'+m.date+'</span></div>'+
         '<div class="ng-match">'+(lg?'<img class="ng-logo" src="'+lg+'" alt="">':'')+'<div><div class="ng-vs">'+(m.neutral?'vs':(home?'vs':'at'))+'</div><div class="ng-opp">'+esc(opp)+'</div><div class="ng-res"><span class="'+(win?'w':'l')+'">'+(win?'W':'L')+' '+us+'–'+them+'</span></div></div></div>'+
         '<a class="ng-report" href="game.html?id='+m.id+'">Full game report →</a>';
-    }).catch(function(){ el.innerHTML='<div class="hx-lab">Last Game</div><div class="hx-empty">Could not load games.</div>'; });
+    }).catch(function(){ el.innerHTML='<div class="hx-lab">'+LBL+'</div><div class="hx-empty">Could not load games.</div>'; });
+}
+
+// ── season archive (any season before 2026-27): that year's coach, roster and leaders ──
+var LAUNCH_PAST=[
+  ['📊',function(r){ return 'team.html?team='+encodeURIComponent(r.full)+'&season='+HQ_SEASON; },'Team Page','that season’s depth chart · stats'],
+  ['📅',function(){ return '#'; },'Schedule','every game and result','',"hqView('schedule');window.scrollTo({top:0});return false;"],
+  ['🏆',function(r){ var tr=PAST[HQ_SEASON]&&PAST[HQ_SEASON].byFull[(r.full||'').toLowerCase().trim()]; return 'conference.html?conf='+encodeURIComponent((tr&&tr.conference)||'')+'&season='+HQ_SEASON+'&team='+encodeURIComponent(r.full); },'Conference','standings · tournament · all-conference'],
+  ['🗂️',function(){ return 'tournaments.html?season='+HQ_SEASON; },'Postseason','that year’s NCAA tournament'],
+];
+var _coachY={};
+function coachIn(full,yr){
+  if(!_coachY[yr]) _coachY[yr]=fetch('data/coach-'+yr+'.json').then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
+  return _coachY[yr].then(function(L){ var f=(full||'').toLowerCase().trim(), c=(L||[]).filter(function(x){return (x.tm||'').toLowerCase().trim()===f;})[0]; return c?c.n:''; });
+}
+function ncaaPhrase(r){
+  return ({'Champion':'won the national championship','Runner-Up':'reached the national championship game',
+    'Round of 64':'lost in the NCAA Round of 64','Round of 32':'lost in the NCAA Round of 32'}[r]) || ('reached the '+esc(r));
+}
+function pastRoster(row,yr){
+  var le=byId('hxLeaders'), se=byId('hxShot');
+  le.innerHTML='<div class="hx-empty">Loading roster…</div>'; se.innerHTML='<div class="hx-empty">Loading…</div>';
+  var stale=function(){ return MY!==row.full||+HQ_SEASON!==yr; };
+  Promise.all([
+    fetch(SB+'/rest/v1/player_history?season_year=eq.'+yr+'&team=eq.'+encodeURIComponent(row.team||row.full)+'&select=espn_id,name,position,yr,gp,mpg,ppg,rpg,apg,tpm,stl,blk&order=mpg.desc.nullslast',{headers:H}).then(function(r){return r.ok?r.json():[];}),
+    (window.TDCProjGrade&&TDCProjGrade.loadHist?Promise.resolve(TDCProjGrade.loadHist()).catch(function(){}):Promise.resolve())
+  ]).then(function(res){
+    if(stale()) return;
+    var ps=(res[0]||[]).filter(function(p){ return (p.gp||0)>0; });
+    if(!ps.length){ le.innerHTML='<div class="hx-empty">No '+seasonLabel(yr)+' roster on file.</div>'; se.innerHTML='<div class="hx-empty">—</div>'; return; }
+    var H_=(window.TDCProjGrade&&TDCProjGrade.statMaps)?(TDCProjGrade.statMaps().hist||{})[''+yr]||{}:{};
+    ps.forEach(function(p){ p.ov=(p.espn_id!=null&&H_[String(p.espn_id)]!=null)?H_[String(p.espn_id)]:null; });
+    var f1=function(v){ return v==null?'—':(+v).toFixed(1); };
+    var link=function(p){ return p.espn_id?'<a href="player.html?espn='+p.espn_id+'">'+esc(p.name)+'</a>':esc(p.name); };
+    var hasOv=ps.some(function(p){return p.ov!=null;});
+    var hasYr=ps.some(function(p){return p.yr;});
+    var list=ps.slice(0,12);
+    le.innerHTML='<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th>'+(hasYr?'<th class="c">Yr</th>':'')+'<th class="c">Pos</th><th data-heat="1">MPG</th><th data-heat="1">PPG</th><th data-heat="1">RPG</th><th data-heat="1">APG</th>'+(hasOv?'<th data-heat="1">OVR</th>':'')+'</tr></thead><tbody>'+
+      list.map(function(p){ return '<tr><td class="l nm">'+link(p)+'</td>'+(hasYr?'<td class="c dim">'+esc(p.yr||'')+'</td>':'')+'<td class="c dim">'+esc(p.position||'')+'</td><td>'+f1(p.mpg)+'</td><td class="strong">'+f1(p.ppg)+'</td><td>'+f1(p.rpg)+'</td><td>'+f1(p.apg)+'</td>'+(hasOv?'<td class="big">'+(p.ov==null?'—':p.ov)+'</td>':'')+'</tr>'; }).join('')+
+      '</tbody></table></div>';
+    if(window.tdcSheetHeat) tdcSheetHeat(le.querySelector('table'));
+    // team leaders: per-game leaders among players with real minutes
+    var reg=ps.filter(function(p){ return (p.mpg||0)>=10 && (p.gp||0)>=8; }); if(!reg.length) reg=ps;
+    var lead=function(k,lab){ var b=reg.slice().sort(function(a,c){ return (c[k]||0)-(a[k]||0); })[0]; return b&&b[k]!=null?'<tr><td class="l dim">'+lab+'</td><td class="l nm">'+link(b)+'</td><td class="strong">'+f1(b[k])+'</td></tr>':''; };
+    var top=hasOv?ps.filter(function(p){return p.ov!=null;}).sort(function(a,c){return c.ov-a.ov;})[0]:null;
+    se.innerHTML='<div class="sheet-wrap"><table class="sheet dense"><tbody>'+
+      (top?'<tr><td class="l dim">Best player</td><td class="l nm">'+link(top)+'</td><td class="strong">'+top.ov+' OVR</td></tr>':'')+
+      lead('ppg','Points')+lead('rpg','Rebounds')+lead('apg','Assists')+lead('tpm','3-pointers')+lead('stl','Steals')+lead('blk','Blocks')+
+      '</tbody></table></div>';
+  }).catch(function(){ if(!stale()){ le.innerHTML='<div class="hx-empty">Could not load the roster.</div>'; se.innerHTML=''; } });
 }
 
 // ── roster: featured progression (top OVR) + roster-leaders list, one fetch ──
@@ -771,6 +833,7 @@ function loadRoster(row){
   fetch(SB+'/rest/v1/players?team=eq.'+encodeURIComponent(short)+'&select=*',{headers:H})
     .then(function(r){return r.ok?r.json():[];})
     .then(function(ps){
+      if(+HQ_SEASON<2027) return;   // switched to an archive season while this loaded
       _fillHxShot(ps, short);
       var go=function(){
         var arr=ps.map(function(p){
