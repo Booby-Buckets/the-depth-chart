@@ -125,3 +125,15 @@ by "quick UI wins" → "bigger data/model work". `[x]` done · `[ ]` open · `[!
       stripe-webhook sets plan='coach' for a coach checkout, so the first real Coach's Tier sale
       would have failed identically. `scripts/fix_profiles_plan_check.sql`.
 - [ ] **"Some other things"** — not yet specified.
+
+## Dynasty – Phase 2: Engine
+- [x] Export players/teams snapshot to data/dynasty-snapshot.json — `scripts/build_dynasty_snapshot.py` (2026-27 projected lines → 7 pillars + pillar/overall/defense maps)
+- [x] Record D1 calibration targets in engine/targets.json — real 2025-26 (team_dna 2026 + team_seasons 2026)
+- [x] rng.js – seeded PRNG (mulberry32) + tests
+- [x] ratings.js – map 7 pillars → sim attributes
+- [x] possession.js – actor, TO, shot type, make, foul/FT, rebound
+- [x] game.js – full game, subs by MPG, box score + event log
+- [x] tools/calibrate.js – 500-season sim vs targets + projection chain (team_pace_eff stands in for buildTeamProjections, which needs the browser)
+- [x] Tune constants until within tolerance; log results in engine/CALIBRATION.md
+- [ ] Open: big mismatches finish ~85% of the projected spread (12-pt favourite wins by ~10) — decide whether the sim or the projection's cross-conference spread is right (needs out-of-sample real spreads, e.g. preseason ratings vs results)
+- [ ] Phase 3: season schedule + league hub page (only after the engine is signed off)
