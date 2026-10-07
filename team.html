@@ -33,6 +33,13 @@
     .nil-big{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;line-height:1;}
     .nil-sub{font-size:10px;font-weight:600;color:var(--text3);margin-top:3px;}
     .nil-cards{display:flex;flex-wrap:wrap;gap:13px;margin-bottom:20px;justify-content:center;}
+    /* depth chart: OVR sits in the frozen block, whose opaque background would hide its heat tint — re-apply it */
+    .dc-sheet tbody tr td.dc-ovr{font-size:15px;font-weight:800;}
+    .dc-sheet tbody tr td.dc-ovr.c0{background-image:linear-gradient(hsla(0,70%,48%,.34),hsla(0,70%,48%,.34))!important;}
+    .dc-sheet tbody tr td.dc-ovr.c1{background-image:linear-gradient(hsla(30,70%,48%,.15),hsla(30,70%,48%,.15))!important;}
+    .dc-sheet tbody tr td.dc-ovr.c2{background-image:linear-gradient(hsla(95,70%,48%,.15),hsla(95,70%,48%,.15))!important;}
+    .dc-sheet tbody tr td.dc-ovr.c3{background-image:linear-gradient(hsla(115,70%,48%,.26),hsla(115,70%,48%,.26))!important;}
+    .dc-sheet tbody tr td.dc-ovr.c4{background-image:linear-gradient(hsla(125,70%,48%,.40),hsla(125,70%,48%,.40))!important;}
     /* sheet extras (tdc-sheets.css): a genuine up/down change tag, and a section-label row */
     .sheet span.up{color:#1a8c3a;font-weight:700;} .sheet span.dn{color:#cc2200;font-weight:700;}
     [data-theme="dark"] .sheet span.up{color:#5ab875;} [data-theme="dark"] .sheet span.dn{color:#e07070;}
@@ -8440,7 +8447,7 @@ function renderHistoricRoster(rows, yr, projected){
   const _f1=v=>{ const n=parseFloat(v); return isFinite(n)?n.toFixed(1):'—'; };
   const _pc=v=>{ let n=parseFloat(v); if(!isFinite(n)) return '—'; if(n<=1) n*=100; return n.toFixed(1)+'%'; };
   const depthRows=_seat.map((r,i)=>{
-    if(!r.e) return `<tr class="dc-row dc-starter dc-open"><td class="l dc-slot">${r.slot}</td><td class="l dim" colspan="11">Open: no ${r.slot} on the roster</td></tr>`;
+    if(!r.e) return `<tr class="dc-row dc-starter dc-open"><td class="l dc-slot">${r.slot}</td><td class="c dim">—</td><td class="l dim" colspan="10">Open: no ${r.slot} on the roster</td></tr>`;
     const p=r.e.p, m=_totMin(p);
     let g=_gdisp(p);
     const _oop=(projected&&!window._rosterFromHistory&&r.star)?_oopDist(p,r.col):0;
@@ -8454,18 +8461,18 @@ function renderHistoricRoster(rows, yr, projected){
     const L=(projected&&!(m>=0.5))?{}:_line(p);   // no projected minutes → no projected line
     return `<tr class="dc-row${r.star?' dc-starter':''}">
       <td class="l dc-slot">${r.slot}</td>
+      <td class="c big dc-ovr">${g}</td>
       <td class="l nm"><a class="dc-name" href="${link(p)}">${p.name}</a>${wav}${injBadge}${inj}${posEd}</td>
       <td class="l dim">${p.yr||p.class_year||''}</td><td class="l dim">${p.position||''}</td><td class="l dim">${p.height||''}</td>
       <td>${m!=null&&m>=0.5?num(m):'—'}</td>
       <td>${_f1(L.ppg)}</td><td>${_f1(L.rpg)}</td><td>${_f1(L.apg)}</td>
       <td>${_pc(L.fg_pct)}</td><td>${_pc(L.tp_pct!=null?L.tp_pct:(L.three_pct!=null?L.three_pct:L['3p_pct']))}</td>
-      <td class="big">${g}</td>
     </tr>`; }).join('');
   const _dth=(lbl,heat,tip,cls)=>`<th${cls?` class="${cls}"`:''}${heat?` data-heat="${heat}"`:''}${tip?` title="${tip}"`:''}>${lbl}</th>`;
   const _dsId='dcs'+(++histTable._n);
   setTimeout(()=>{ const t=document.getElementById(_dsId); if(t&&window.tdcSheetHeat) tdcSheetHeat(t); },0);
   const _pj=projected?' (projected)':'';
-  const depthSheet=`<div class="dc-grid dc-depth"><div class="sheet-wrap" style="max-height:none;"><table class="sheet dense freeze2 hr-sheet dc-sheet" id="${_dsId}" style="--c1:56px;"><thead><tr>${_dth('Slot',0,'','l')}${_dth('Player',0,'','l')}${_dth('Yr',0,'','l')}${_dth('Pos',0,'','l')}${_dth('Ht',0,'','l')}${_dth('MIN',1,_barTip)}${_dth('PPG',1,'Points per game'+_pj)}${_dth('RPG',1,'Rebounds per game'+_pj)}${_dth('APG',1,'Assists per game'+_pj)}${_dth('FG%',1,'Field-goal %'+_pj)}${_dth('3P%',1,'3-point %'+_pj)}${_dth('OVR',1)}</tr></thead><tbody>${depthRows}</tbody></table></div></div>`;
+  const depthSheet=`<div class="dc-grid dc-depth"><div class="sheet-wrap" style="max-height:none;"><table class="sheet dense freeze3 hr-sheet dc-sheet" id="${_dsId}" style="--c1:56px;--c2:52px;--c3:190px;"><thead><tr>${_dth('Slot',0,'','l')}${_dth('OVR',1,'','c')}${_dth('Player',0,'','l')}${_dth('Yr',0,'','l')}${_dth('Pos',0,'','l')}${_dth('Ht',0,'','l')}${_dth('MIN',1,_barTip)}${_dth('PPG',1,'Points per game'+_pj)}${_dth('RPG',1,'Rebounds per game'+_pj)}${_dth('APG',1,'Assists per game'+_pj)}${_dth('FG%',1,'Field-goal %'+_pj)}${_dth('3P%',1,'3-point %'+_pj)}</tr></thead><tbody>${depthRows}</tbody></table></div></div>`;
   const injHtml = injured.length
     ? `<div class="sec-head" style="margin-top:28px;color:#ef4444;">Injured — Out for ${rosterLbl(yr)} <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· stats from last season played · minutes redistributed in projections</span></div>`
       + histTable(injured, yr-1)
