@@ -195,6 +195,9 @@
   // ── state ──────────────────────────────────────────────────────────────
   let me=null, meProfile=null, OWNER=false;
   let L=null, MEM=[], ROS=[], DATES=new Set(), REG=new Set(), TRADES=[], CODE=null;
+  // the fixed COUNTING SCHEDULE (scripts/build_fantasy_counting.py): every pool team counts 22 games — 18 conference
+  // + 4 non-conference — and a counted game counts for both teams. When it loads it replaces counting dates.
+  let CNT=null, CNTG=null;
   let POOL=[], PBY={}, PROJ={}, FULL={}, TEAMGAMES={}, BOX={}, FORM=null, VALUE={}, MARCH=null;
   let poolReady=null;
   const memOf=uid=>MEM.find(m=>m.user_id===uid);
@@ -231,6 +234,8 @@
         fetch('scripts/data/stat_overall_projected.json?v=86').then(r=>r.ok?r.json():null).catch(()=>null),
         fetch('scripts/data/schedule_2027.json?v=5').then(r=>r.ok?r.json():null).catch(()=>null),
         get('predictive_ratings?select=data&limit=1',true).catch(()=>[])]);
+      try{ const cs=await fetch('scripts/data/fantasy_counting_2027.json?v=1').then(r=>r.ok?r.json():null);
+        if(cs&&cs.teams){ CNTG=cs; CNT={}; Object.entries(cs.teams).forEach(([t,l])=>{ CNT[t]=new Set(l.map(x=>x.date)); }); } }catch(e){}
       const CONF=Object.fromEntries(teams.map(t=>[t.name,t.conference]));
       POOL=await getAll(`players?team=in.(${encodeURIComponent(qList(teams.map(t=>t.name)))})&select=id,name,team,position,espn_id,yr,is_injured,tdc_grade,height,ppg,mpg&order=id.asc`,true);
       if(window.TDCFresh) await TDCFresh.load().catch(()=>{});
@@ -259,17 +264,19 @@
     return poolReady;
   }
   const fullOf=p=>p&&FULL[p.team];
+  // does this team's game on this date count in the regular season? (counting schedule, else the commissioner's dates)
+  const regHas=(short,d)=>CNT?(!L||d<L.r1_start)&&!!(CNT[FULL[short]]&&CNT[FULL[short]].has(d)):REG.has(d);
   const gameDates=short=>TEAMGAMES[FULL[short]]||[];
   // regular-season counting games still to come (today counts until its box score exists)
   function gamesLeft(p,fromDate){
     if(!p) return 0; const played=new Set((BOX[p.espn_id]||[]).map(b=>b.date));
     const from=fromDate&&fromDate>TODAY?fromDate:TODAY;
-    return gameDates(p.team).filter(d=>REG.has(d)&&d>=from&&!played.has(d)).length;
+    return gameDates(p.team).filter(d=>regHas(p.team,d)&&d>=from&&!played.has(d)).length;
   }
   // regular-season games a team plays inside the round-1 window (early March), cached per window
   const _r1={}; const r1Reg=p=>{ if(!p) return 0; const k=p.team+'|'+L.r1_start+'|'+L.r1_end;
     return _r1[k]!=null?_r1[k]:(_r1[k]=gameDates(p.team).filter(d=>d>=L.r1_start&&d<=L.r1_end).length); };
-  const allCountingGames=p=>p?gameDates(p.team).filter(d=>REG.has(d)).length:0;
+  const allCountingGames=p=>p?gameDates(p.team).filter(d=>regHas(p.team,d)).length:0;
   // expected games in each playoff window: scheduled games that fall in it + simulated tournament games
   function windowGames(p){
     const f=fullOf(p), m=MARCH&&f?MARCH.mean[f]:null;
@@ -310,9 +317,11 @@
     const ids=[...new Set(MEM.filter(m=>!m.placeholder).map(m=>m.user_id))];
     if(ids.length){ const ps=await get(`profiles?id=in.(${ids.join(',')})&select=id,username`).catch(()=>[]); const by=Object.fromEntries(ps.map(p=>[p.id,p.username])); MEM.forEach(m=>m.username=m.placeholder?'test team':(by[m.user_id]||'')); }
     else MEM.forEach(m=>m.username=m.placeholder?'test team':'');
-    await loadPool(); await loadBox(); computeValues();
+    await loadPool(); if(CNT) setDates([...DATES]); await loadBox(); computeValues();
   }
-  function setDates(list){ DATES=new Set(list); REG=new Set(list.filter(d=>!L||d<L.r1_start)); }
+  function setDates(list){ DATES=new Set(list);
+    // counting schedule: the regular season is every date any team has a counted game (each player still counts only his own)
+    REG=CNT?new Set(Object.values(CNT).flatMap(x=>[...x]).filter(d=>!L||d<L.r1_start)):new Set(list.filter(d=>!L||d<L.r1_start)); }
   // box scores for everyone who has ever been on a roster: the regular-season dates and the playoff windows
   async function loadBox(){
     BOX={};
@@ -330,12 +339,13 @@
   // stats a roster earned on the dates `inWin` accepts (regular season: the counting dates; playoffs: a window)
   function statsFor(uid,inWin){
     const t={pts:0,reb:0,ast:0,g:0};
-    ROS.filter(r=>r.user_id===uid&&r.espn_id).forEach(r=>(BOX[r.espn_id]||[]).forEach(b=>{ if(inWin(b.date)&&counts(r,b.date)){ t.pts+=b.pts||0; t.reb+=b.reb||0; t.ast+=b.ast||0; t.g++; } }));
+    ROS.filter(r=>r.user_id===uid&&r.espn_id).forEach(r=>(BOX[r.espn_id]||[]).forEach(b=>{ if(inWin(b.date,r)&&counts(r,b.date)){ t.pts+=b.pts||0; t.reb+=b.reb||0; t.ast+=b.ast||0; t.g++; } }));
     return t;
   }
-  const actualFor=uid=>statsFor(uid,d=>REG.has(d));
+  const rTeam=r=>{ const p=PBY[r.player_id]; return p&&p.team; };
+  const actualFor=uid=>statsFor(uid,(d,r)=>regHas(rTeam(r),d));
   function playerActual(r,inWin){
-    inWin=inWin||(d=>REG.has(d)); const t={pts:0,reb:0,ast:0,g:0};
+    inWin=inWin||(d=>regHas(rTeam(r),d)); const t={pts:0,reb:0,ast:0,g:0};
     (BOX[r.espn_id]||[]).forEach(b=>{ if(inWin(b.date)&&counts(r,b.date)){ t.pts+=b.pts||0; t.reb+=b.reb||0; t.ast+=b.ast||0; t.g++; } }); return t;
   }
   // per game when no dates are set; otherwise actual so far + projection x games left
@@ -406,7 +416,7 @@
     $('app').innerHTML=`<div class="page-eyebrow">Fantasy · Big Ten · SEC · ACC · Big 12 · Big East</div><h1 class="page-h1">Fantasy</h1>
       <div class="hero-cards">
         <div class="card"><b>Draft your way</b><span>A $200 auction or a snake draft from every player in the five power conferences, priced by our 2026-27 projections.</span></div>
-        <div class="card"><b>Roto all season</b><span>Points, rebounds and assists on the dates your league picks. Trades, pickups, live standings.</span></div>
+        <div class="card"><b>Roto all season</b><span>Points, rebounds and assists from 22 games a team: 18 conference games and the 4 best non-conference games, the same games for both sides. Trades, pickups, live standings.</span></div>
         <div class="card"><b>March decides it</b><span>The top six play a bracket through the conference tournaments and the NCAA tournament. Stats reset every round, so players on teams that go home early sink you.</span></div>
       </div>
       ${mine.length?`<div class="card"><h3>Your leagues</h3>${mine.map(l=>`<div class="chk"><a class="nm" ${goA({id:l.id})}><b>${esc(l.name)}</b></a><span class="r">${esc(l.team||'')} · ${l.draft_type==='snake'?'snake':'auction'} · ${l.draft_done?'season on':'drafting'}</span></div>`).join('')}</div>`:''}
@@ -445,7 +455,7 @@
     const ph=placeholders();
     $('app').innerHTML=`<div class="page-eyebrow"><a ${goA({})} style="text-decoration:none">Fantasy</a> · Big Ten · SEC · ACC · Big 12 · Big East</div>
       <div class="hd"><h1 class="page-h1" style="margin:0">${esc(L.name)}</h1></div>
-      <div class="hd"><div class="meta">${MEM.length} teams · ${L.draft_type==='snake'?'snake draft':'$'+L.budget+' auction'} · ${L.roster_size} players · ${L.max_pickups} pickups · ${REG.size?REG.size+' counting dates':'counting dates not picked yet'} · ${L.draft_done?'<span class="pill g">Season on</span>':'<span class="pill">Drafting</span>'}${L.is_public?' · <span class="pill">Public</span>':''}${isCommish()?' · <span class="pill">Commissioner</span>':''}</div></div>
+      <div class="hd"><div class="meta">${MEM.length} teams · ${L.draft_type==='snake'?'snake draft':'$'+L.budget+' auction'} · ${L.roster_size} players · ${L.max_pickups} pickups · ${CNT?'22 counting games a team':REG.size?REG.size+' counting dates':'counting dates not picked yet'} · ${L.draft_done?'<span class="pill g">Season on</span>':'<span class="pill">Drafting</span>'}${L.is_public?' · <span class="pill">Public</span>':''}${isCommish()?' · <span class="pill">Commissioner</span>':''}</div></div>
       ${!isMember()&&!isCommish()?`<div class="banner">You're viewing <b>${esc(L.name)}</b>. ${me?'Ask the commissioner for the invite code to join.':'<a href="signin.html">Sign in</a> to start or join a league of your own.'}</div>`:''}
       ${isCommish()&&ph.length?`<div class="banner">Managing <select class="fs" id="actSel"><option value="">${esc(isMember()?tname(me.id):'— your view —')}</option>${ph.map(m=>`<option value="${m.user_id}"${actId()===m.user_id?' selected':''}>${esc(m.team_name)} (test team)</option>`).join('')}</select> <span class="dim">My team, pickups and trades act for this team.</span></div>`:''}
       <div class="tabs">${tabs.map(([k,l])=>`<a class="tab${k===tab?' on':''}" ${goA({id:L.id,tab:k==='standings'?null:k})}>${l}${k==='trades'&&pend?`<span class="dot">${pend}</span>`:''}</a>`).join('')}</div>
@@ -820,8 +830,22 @@
           :`<button class="dy${sel.has(k)?' on':''}${g?'':' none'}${k<TODAY?' past':''}" data-d="${k}" ${C&&g?'':'disabled'} title="${g} power-conference game${g===1?'':'s'}">${d}<span class="n">${g||''}</span></button>`; }
       return `<div class="mo"><h4>${first.toLocaleDateString('en-US',{month:'long',year:'numeric'})}</h4><div class="days">${cells}</div></div>`; }).join('');
     const ph=placeholders();
+    const cntTeams=CNTG?Object.keys(CNTG.teams).sort((a,b)=>(window.tdcShortSchool?tdcShortSchool(a):a).localeCompare(window.tdcShortSchool?tdcShortSchool(b):b)):[];
+    const cntPick=(window._cntTeam&&CNTG&&CNTG.teams[window._cntTeam])?window._cntTeam:cntTeams[0];
+    const sn=t=>window.tdcShortSchool?tdcShortSchool(t):t;
+    const cntList=t=>{ const l=(CNTG&&CNTG.teams[t])||[]; let nc=0,cc=0;
+      return `<div class="sheet-wrap" style="max-height:none"><table class="sheet dense"><thead><tr><th class="l">Date</th><th class="l">Opponent</th><th class="c">Site</th><th class="l">Type</th></tr></thead><tbody>${
+        l.map(x=>{ x.conf?cc++:nc++; return `<tr><td class="l dim">${md(x.date)}</td><td class="l nm">${esc(sn(x.opp))}</td><td class="c dim">${x.site==='N'?'Neutral':x.site==='H'?'Home':'Away'}</td><td class="l${x.conf?' dim':''}">${x.conf?'Conference':'<b>Non-conference</b>'}</td></tr>`; }).join('')}</tbody></table></div>
+        <div class="fl-note" style="margin-top:8px">${cc} conference + ${nc} non-conference = ${l.length} counting games</div>`; };
     $('view').innerHTML=`<div class="grid-side"><div>
-        <div class="card"><h3>Regular-season dates that count · <span id="dtN">${sel.size}</span> picked</h3>
+        ${CNTG?`<div class="card"><h3>Counting schedule · 22 games a team</h3>
+          <p style="font-size:12.5px;color:var(--text2);margin-bottom:12px">Every team counts 18 conference games and 4 non-conference games, and a counted game counts for both teams. The non-conference games are the strongest each team plays. Only a player's team's counted games score in the regular season; from ${md(L.r1_start)} on it's the playoffs.</p>
+          ${(()=>{ const last=Object.values(CNTG.teams).flat().reduce((m,x)=>x.date>m?x.date:m,''); if(!(L.r1_start<=last)) return '';
+            const nx=new Date(last+'T12:00:00'); nx.setDate(nx.getDate()+1); const k=nx.toISOString().slice(0,10);
+            return `<div class="fl-note" style="color:var(--amber,#c9962b);margin-bottom:10px">The last counting games are on ${md(last)}, but round 1 of the playoffs starts ${md(L.r1_start)} — games from then on stop counting for the regular season. ${isCommish()?`Set round 1 to start ${md(k)} under Rules.`:`The commissioner can move round 1 to ${md(k)}.`}</div>`; })()}
+          <select class="fs" id="cntSel" style="width:100%;margin-bottom:10px">${cntTeams.map(t=>`<option value="${esc(t)}"${t===cntPick?' selected':''}>${esc(sn(t))}</option>`).join('')}</select>
+          <div id="cntBody">${cntList(cntPick)}</div></div>`:''}
+        <div class="card"${CNTG?' style="display:none"':''}><h3>Regular-season dates that count · <span id="dtN">${sel.size}</span> picked</h3>
           <p style="font-size:12.5px;color:var(--text2);margin-bottom:12px">Only games on these dates count toward the standings. Each square shows how many power-conference games are played that day. From ${md(L.r1_start)} on it's the playoffs, where every game in a round's window counts.${C?' Click a day to toggle it.':''}</p>
           ${C?`<div class="row" style="margin-bottom:12px"><button class="btn ghost sm" data-q="all">Every game day</button><button class="btn ghost sm" data-q="sat">Saturdays</button><button class="btn ghost sm" data-q="wknd">Fri–Sun</button><button class="btn ghost sm" data-q="jan">From Jan 1</button><button class="btn ghost sm" data-q="none">Clear</button><span class="sp"></span><button class="btn" id="dtSave">Save dates</button></div><div class="msg" id="dtMsg"></div>`:''}
           <div class="cal" id="cal">${cal()}</div></div>
@@ -842,6 +866,7 @@
           :`<div class="chk">Draft<span class="r">${L.draft_type==='snake'?'Snake':'$'+L.budget+' auction'}</span></div><div class="chk">Roster<span class="r">${L.roster_size} players</span></div><div class="chk">Pickups<span class="r">${L.max_pickups} per team</span></div><div class="chk">Scoring<span class="r">Roto: PTS · REB · AST</span></div><div class="chk">Playoffs<span class="r">Top 6 · ${md(L.r1_start)} – ${md(L.f_end)}</span></div>`}
         </div>
       </div></div>`;
+    if($('cntSel')) $('cntSel').onchange=e=>{ window._cntTeam=e.target.value; $('cntBody').innerHTML=cntList(e.target.value); };
     if($('cpLink')) $('cpLink').onclick=()=>{ const t=`Join our fantasy league "${L.name}" on The Depth Chart: sign up at https://www.thedepthchartcbb.com/signin.html, then open https://www.thedepthchartcbb.com/league.html and enter code ${CODE}`;
       (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>{ $('cpLink').textContent='Copied'; },()=>prompt('Copy this',t)); };
     if($('phAdd')) $('phAdd').onclick=async()=>{ const n=$('phName').value.trim()||`Test Team ${placeholders().length+1}`;
