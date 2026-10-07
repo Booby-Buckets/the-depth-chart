@@ -22,7 +22,7 @@
   <script src="tdc-fantasy-march.js?v=1"></script>
   <script src="conf-logos.js?v=4"></script>
   <script src="tdc-ratings.js?v=31"></script>
-  <script src="tdc-schedule.js?v=29"></script>
+  <script src="tdc-schedule.js?v=30"></script>
   <script src="tdc-conftourney.js?v=5"></script>
   <script src="tdc-postseason.js?v=2"></script>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
@@ -229,7 +229,7 @@
       const [teams,proj,sched,rat]=await Promise.all([
         get(`teams?conference=in.(${Object.keys(CONFS).join(',')})&select=name,conference&order=name.asc`,true),
         fetch('scripts/data/stat_overall_projected.json?v=83').then(r=>r.ok?r.json():null).catch(()=>null),
-        fetch('scripts/data/schedule_2027.json?v=3').then(r=>r.ok?r.json():null).catch(()=>null),
+        fetch('scripts/data/schedule_2027.json?v=4').then(r=>r.ok?r.json():null).catch(()=>null),
         get('predictive_ratings?select=data&limit=1',true).catch(()=>[])]);
       const CONF=Object.fromEntries(teams.map(t=>[t.name,t.conference]));
       POOL=await getAll(`players?team=in.(${encodeURIComponent(qList(teams.map(t=>t.name)))})&select=id,name,team,position,espn_id,yr,is_injured,tdc_grade,height,ppg,mpg&order=id.asc`,true);
