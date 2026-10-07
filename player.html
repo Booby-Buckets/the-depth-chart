@@ -287,6 +287,7 @@
     .gl-tier-head{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;}
     .gl-tier-clear{color:var(--accent);cursor:pointer;text-transform:none;letter-spacing:0;font-weight:700;margin-left:6px;}
     .gl-tier-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;}
+    .gl-sheet th.gl-sort{cursor:pointer;user-select:none;} .gl-sheet th.gl-sort:hover,.gl-sheet th.gl-sort.on{color:var(--text);} .gl-ar{font-size:9px;}
     .gl-tcard{background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:13px 14px;cursor:pointer;transition:transform .15s,border-color .15s,box-shadow .15s;}
     .gl-tcard:hover:not(.empty){transform:translateY(-2px);border-color:var(--border2);}
     .gl-tcard.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);}
@@ -4448,10 +4449,10 @@ function renderPage(){
       <div style="overflow-x:auto;" id="sm-body-pergame">${renderStatTable(p, proj)}</div>
       <div style="overflow-x:auto;display:none;" id="sm-body-per40">${renderModeTable('per40')}</div>
       <div style="display:none;" id="sm-body-advanced"><div style="overflow-x:auto;">${renderModeTable('advanced')}</div></div>
-      <div id="peakMetHost">${buildPeakMetrics()}</div>
       <div id="playerMarchHost"></div>
       <div class="sec-title" style="margin:34px 0 14px;">Game Log</div>
       <div id="sm-body-gamelog"></div>
+      <div id="peakMetHost">${buildPeakMetrics()}</div>
     </div>
 
     <!-- SHOT CHARTS TAB -->
@@ -4891,13 +4892,28 @@ function setGameLogSeason(y){ _gameLogSeason=y; _glTierFilter=null; renderTierSu
   document.querySelectorAll('#glSeasons .gl-season-btn').forEach(b=>b.classList.toggle('active',b.textContent===`${y-1}-${String(y).slice(2)}`));
   renderGameLog();
 }
+// sortable game log (owner): any column, and Tier sorts T1 -> T4 with the best performances first inside a tier
+let _glSort={k:null,dir:1};
+const _GL_KEY={date:g=>g.date||'', opp:g=>(g.opp||'').toLowerCase(), tier:g=>{ const t=gameOppTier(g); return (t||9)*100-_gameRating(g); },
+  result:g=>{ const r=window._glResults&&window._glResults[g.game_id]; if(!r||r.home_score==null) return -999; const mine=(g.team||'').toLowerCase().trim(), home=(r.home||'').toLowerCase().trim()===mine;
+    return (home?r.home_score-r.away_score:r.away_score-r.home_score); },
+  rating:g=>_gameRating(g), min:g=>+g.min||0, pts:g=>+g.pts||0, reb:g=>+g.reb||0, ast:g=>+g.ast||0, fg:g=>+g.fgm||0, tp:g=>+g.tpm||0, ft:g=>+g.ftm||0,
+  stl:g=>+g.stl||0, blk:g=>+g.blk||0, tov:g=>+g.tov||0};
+function setGlSort(k){
+  // first click: text/tier/date ascending, stats descending (best first); next click flips
+  if(_glSort.k===k) _glSort.dir=-_glSort.dir; else { _glSort.k=k; _glSort.dir=(k==='opp'||k==='tier')?1:-1; }
+  renderGameLog();
+}
 function renderGameLog(){
   const wrap=document.getElementById('glTableWrap'); if(!wrap) return;
   const filtered=!!_glTierFilter;
   const seasonGames=_gameLog[_gameLogSeason]||[];
-  const games=filtered
+  const chrono=filtered
     ? seasonGames.filter(g=>gameOppTier(g)===_glTierFilter).sort((a,b)=>(b.date||'').localeCompare(a.date||''))
     : seasonGames;
+  let games=chrono;
+  if(_glSort.k && _GL_KEY[_glSort.k]){ const f=_GL_KEY[_glSort.k], dir=_glSort.dir;
+    games=chrono.slice().sort((a,b)=>{ const x=f(a), y=f(b); return (x<y?-1:x>y?1:0)*dir; }); }
 
   const d=v=>{const x=new Date((v||'')+'T12:00:00');if(isNaN(x))return '—';return x.toLocaleDateString('en-US',filtered?{month:'short',day:'numeric',year:'2-digit'}:{month:'short',day:'numeric'});};
   const n=v=>(v==null||v==='')?'—':v;
@@ -4923,10 +4939,11 @@ function renderGameLog(){
       <td>${n(g.stl)}</td><td>${n(g.blk)}</td><td>${n(g.tov)}</td>
     </tr>`;
   }).join('');
-  wrap.innerHTML=`${_ratingChartSvg(games)}<div class="sheet-wrap"><table class="sheet dense freeze2 gl-sheet"><thead><tr>
-    <th class="l">Date</th><th class="l">Opp</th><th class="l" title="Opponent tier">Tier</th><th class="l">Result</th><th data-heat="1" title="0-10 performance score for the game">Rating</th><th data-heat="1">MIN</th><th data-heat="1">PTS</th><th data-heat="1">REB</th><th data-heat="1">AST</th><th>FG</th><th>3P</th><th>FT</th><th data-heat="1">STL</th><th data-heat="1">BLK</th><th data-heat="-1">TO</th>
+  const _th=(k,lbl,cls,heat,tip)=>{ const on=_glSort.k===k; return `<th class="${cls||''} gl-sort${on?' on':''}"${heat?` data-heat="${heat}"`:''}${tip?` title="${tip}"`:''} onclick="setGlSort('${k}')">${lbl}<span class="gl-ar">${on?(_glSort.dir>0?' ▲':' ▼'):''}</span></th>`; };
+  wrap.innerHTML=`${_ratingChartSvg(chrono)}<div class="sheet-wrap"><table class="sheet dense freeze2 gl-sheet"><thead><tr>
+    ${_th('date','Date','l')}${_th('opp','Opp','l')}${_th('tier','Tier','l',0,'Opponent tier · sorts T1 → T4, best games first within a tier')}${_th('result','Result','l',0,'Sorts by margin')}${_th('rating','Rating','',1,'0-10 performance score for the game')}${_th('min','MIN','',1)}${_th('pts','PTS','',1)}${_th('reb','REB','',1)}${_th('ast','AST','',1)}${_th('fg','FG','',0,'Sorts by makes')}${_th('tp','3P','',0,'Sorts by makes')}${_th('ft','FT','',0,'Sorts by makes')}${_th('stl','STL','',1)}${_th('blk','BLK','',1)}${_th('tov','TO','',-1)}
   </tr></thead><tbody>${rows}</tbody></table></div>
-  <div style="font-size:11px;color:var(--text3);font-style:italic;margin-top:10px;">${games.length} games${filtered?` vs Tier ${_glTierFilter} (career)`:''} · click a row for the full box score · Rating is a 0–10 performance score per game</div>`;
+  <div style="font-size:11px;color:var(--text3);font-style:italic;margin-top:10px;">${games.length} games${filtered?` vs Tier ${_glTierFilter} (career)`:''} · click a row for the full box score · click a column to sort (Tier = T1 first, best games first) · Rating is a 0–10 performance score per game</div>`;
   _sheetHeatIn(wrap);
 }
 
