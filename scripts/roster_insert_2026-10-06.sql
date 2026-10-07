@@ -52,7 +52,7 @@ select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::tex
   ('Krisnan Ioane', 'Incarnate Word', 'SF', 'Fr.', 'Fr.', '6-6', null, null, 12, false, true, true, false),
   ('Marc Harvey', 'Incarnate Word', 'SG', 'Fr.', 'Fr.', '6-3', null, null, 13, false, true, false, false),
   ('Tristan Collins', 'Incarnate Word', 'SF', 'Fr.', 'Fr.', '6-6', null, null, 14, false, true, false, false),
-  ('Max Garcia-Plata', 'Incarnate Word', 'SG', 'Rf.', 'Rf.', '6-4', null, null, 15, false, true, true, false)
+  ('Max Garcia-Plata', 'Incarnate Word', 'SG', 'R-Fr.', 'R-Fr.', '6-4', null, null, 15, false, true, true, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
 where not exists (select 1 from players p where p.name = v.name and p.team = v.team);
@@ -133,9 +133,9 @@ select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::tex
   ('Caleb Jones', 'Queens', 'SG', 'Fr.', 'Fr.', '6-4', null, null, 13, false, true, false, false),
   ('Julius Matusek', 'Queens', 'SF', 'Fr.', 'Fr.', '6-7', null, null, 14, false, true, true, false),
   ('Nicholas McLean', 'Queens', 'PF', 'Fr.', 'Fr.', '6-9', null, null, 15, false, true, false, false),
-  ('Matthew Walter', 'Queens', 'SG', 'RS-So.', 'RS-So.', '6-3', null, null, 16, false, true, false, false),
-  ('Saif-Allah Zatari', 'Queens', 'SG', 'RS-So.', 'RS-So.', '6-3', null, null, 17, false, true, true, false),
-  ('Seamus Wilson', 'Queens', 'PG', 'RS-So.', 'RS-So.', '6-0', null, null, 18, false, true, false, false)
+  ('Matthew Walter', 'Queens', 'SG', 'R-So.', 'R-So.', '6-3', null, null, 16, false, true, false, false),
+  ('Saif-Allah Zatari', 'Queens', 'SG', 'R-So.', 'R-So.', '6-3', null, null, 17, false, true, true, false),
+  ('Seamus Wilson', 'Queens', 'PG', 'R-So.', 'R-So.', '6-0', null, null, 18, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
 where not exists (select 1 from players p where p.name = v.name and p.team = v.team);

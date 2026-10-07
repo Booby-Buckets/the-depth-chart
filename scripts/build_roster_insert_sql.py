@@ -64,6 +64,7 @@ def main():
                              f"(players.id {taken[e]['id']}, \"{taken[e]['name']}\"); loaded without the id")
                 e = None
             yr = p.get("sheet_yr") or None
+            yr = {"Rf.": "R-Fr.", "RS-Fr.": "R-Fr.", "RS-So.": "R-So.", "RS-Jr.": "R-Jr.", "RS-Sr.": "R-Sr."}.get(yr, yr)   # site spelling
             # players.hometown holds a transfer's PREVIOUS SCHOOL on this site (the roster "from" column), not a town
             frm = (p.get("sheet_from") or p.get("from_team")) if p.get("status") == "transfer" else None
             rows.append("  (" + ", ".join([q(p["name"]), q(team), q(p.get("sheet_pos")), q(yr), q(yr), q(p.get("ht")),
