@@ -1,14 +1,14 @@
 // Dynasty — the page. Engine (pure) + browser saves + rendering. One league in memory (S); every action
 // mutates it through the engine, re-renders, and autosaves.
-import { C } from '../engine/constants.js?v=2';
-import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=2';
-import { overall } from '../engine/ratings.js?v=2';
-import { prepared, playGame, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=2';
-import { simNext, simTo, afterDay } from '../engine/flow.js?v=2';
-import { REGION_NAMES, ncaaResult } from '../engine/postseason.js?v=2';
-import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS } from '../engine/offseason.js?v=2';
-import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=2';
-import { lines as pbpLines } from './pbp.js?v=2';
+import { C } from '../engine/constants.js?v=3';
+import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=3';
+import { overall } from '../engine/ratings.js?v=3';
+import { prepared, playGame, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=3';
+import { simNext, simTo, afterDay } from '../engine/flow.js?v=3';
+import { REGION_NAMES, ncaaResult } from '../engine/postseason.js?v=3';
+import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS } from '../engine/offseason.js?v=3';
+import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=3';
+import { lines as pbpLines } from './pbp.js?v=3';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -29,7 +29,7 @@ async function loadData() {
   if (SNAP) return;
   $('#dyBody').innerHTML = '<div class="dy-empty">Loading the league…</div>';
   [SNAP, SCHED] = await Promise.all([
-    fetch('data/dynasty-snapshot.json?v=1').then(r => r.json()),
+    fetch('data/dynasty-snapshot.json?v=2').then(r => r.json()),
     fetch('scripts/data/schedule_2027.json?v=5').then(r => r.json()),
   ]);
 }
