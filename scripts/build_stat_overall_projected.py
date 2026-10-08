@@ -18,7 +18,7 @@ Pipeline:
 
 Read-only vs the DB. Writes scripts/data/stat_overall_projected.json.
 """
-import sys, json, os, math
+import sys, json, os, math, re
 import numpy as np, pandas as pd
 import urllib.request
 from scipy.stats import norm
@@ -101,7 +101,7 @@ TP_PRIOR_POS=float(os.environ.get("TP_PRIOR_POS","0.45"))   # the low-sample 3P 
 QUAL_NUDGE=float(os.environ.get("QUAL_NUDGE","0.25")); MPG_HARD_CAP=float(os.environ.get("MPG_HARD_CAP","37"))
 # absolute ceiling on any projected line: the positional rebalance on a thin roster (few bigs or guards)
 # used to pour a whole spot's minutes onto one player (56 mpg). Nobody plays more than 38 a game.
-MPG_MAX=float(os.environ.get("MPG_MAX","38"))
+MPG_MAX=float(os.environ.get("MPG_MAX","36"))   # ~the real D-I ceiling (a 38-mpg line is a stacking artifact)
 TARGET_TEAM_USG=float(os.environ.get("TARGET_TEAM_USG","22.0")); USG_CAP=(9.0,34.0); MPG_XFER_BUMP=10.0
 VAC_CONC=float(os.environ.get("VAC_CONC","2.0"))  # vacancy concentration: weight ∝ last_usg**VAC_CONC (focal points absorb more of a departed rotation, within the team cap)
 # PROJECTED USAGE — calibrated on 6,782 same-team returner seasons (player_advanced 2020-26,
@@ -905,6 +905,10 @@ try: _R247={_nk(r["name"]):r["rank"] for r in json.load(open(os.path.join(D,"rec
 except Exception: _R247={}
 FR_RANK_T=((3,88.2),(8,84.5),(18,81.2),(38,76.6),(75,72.9),(125,70.8),(175,67.9),(250,67.1),(350,67.1))   # rank-band mean freshman grade
 FR_UNRANKED=float(os.environ.get("FR_UNRANKED","63.0")); FR_MIN_W=float(os.environ.get("FR_MIN_W","0.4"))
+# an UPPERCLASS newcomer with no D-I data and no grade (JUCO / D-II / NAIA / international transfer) counts as a
+# typical D-I newcomer (owner, Oct 2026: ungraded = ~70), not as an unranked true freshman (63)
+NEWC_UNKNOWN=float(os.environ.get("NEWC_UNKNOWN","70.0"))
+def _is_fr(yr): return bool(re.match(r"\s*(r-?|rs-?)?fr", str(yr or "").lower()))
 EDITOR_OVR={}
 for _k,_v in OWNER_BLOB.items():
     if _k.startswith("tdc_fr:") and isinstance(_v,dict) and _v.get("ovr") not in (None,""):
@@ -917,7 +921,7 @@ def fr_rank_grade(rk):
         if x<=x1: return g0+(g1-g0)*(x-x0)/(x1-x0)
     return pts[-1][1]
 FR_PRIOR={}   # (short, name) -> (prior, source, rank)
-def fr_prior(short,name,sheet):
+def fr_prior(short,name,sheet,yr=None):
     key=(short,str(name).strip())
     if key in FR_PRIOR: return FR_PRIOR[key][0]
     ed=EDITOR_OVR.get((short,str(name).strip().lower()))
@@ -925,7 +929,7 @@ def fr_prior(short,name,sheet):
     if ed is not None: v=(ed,"editor",rk)
     elif rk: v=(fr_rank_grade(rk),"247",rk)
     elif _n(sheet,0)>0: v=(float(sheet),"sheet",None)
-    else: v=(FR_UNRANKED,"baseline",None)
+    else: v=((FR_UNRANKED if (yr is None or _is_fr(yr)) else NEWC_UNKNOWN),"baseline",None)
     FR_PRIOR[key]=v; return v[0]
 def fr_exp_mpg(t): return min(32.0,max(4.0,0.75*t-37.5))   # minutes a freshman of that talent usually plays (from the rank bands)
 def fr_ovr(t,mpg): return int(round(min(99,max(55,t+FR_MIN_W*max(-8.0,min(8.0,mpg-fr_exp_mpg(t)))))))
@@ -1283,7 +1287,7 @@ for short, roster in roster_by_team.items():
             if _e is not None and _e in _rids: continue
             _nm=str(getattr(_p,"name","") or "").strip()
             if not _nm or _nm.lower() in ("name","—"): continue
-            _fp=fr_prior(short,_nm,getattr(_p,"tdc_grade",None))
+            _fp=fr_prior(short,_nm,getattr(_p,"tdc_grade",None),getattr(_p,"yr",None) or getattr(_p,"class_year",None))
             _est=_fresh_est(_fp,_p.depth_order,_p.starter,_p.position)
             if _est: _fresh.append(_est+(_nm,_fp,(int(_p.depth_order) if pd.notna(_p.depth_order) else None)))
         # QUALITY NUDGE (mirrors tdc-proj.js's starter grade nudge, widened to the top 9): the
@@ -1574,7 +1578,7 @@ for r in pl.itertuples():
     if e is not None and str(e) in out: continue          # already a returner/transfer
     nm=str(getattr(r,"name","") or "").strip()
     if not nm or nm.lower() in ("name","—"): continue      # placeholder rows
-    est=_fresh_est(fr_prior(r.team,nm,getattr(r,"tdc_grade",None)),r.depth_order,r.starter,r.position)
+    est=_fresh_est(fr_prior(r.team,nm,getattr(r,"tdc_grade",None),getattr(r,"yr",None) or getattr(r,"class_year",None)),r.depth_order,r.starter,r.position)
     if not est: continue
     pm,f40,fga=est
     roster_full.setdefault(r.team,[]).append(
@@ -1619,7 +1623,7 @@ for _sh,_g in pl[pl.espn_id.isna()].groupby("team"):
     for _p in _g.itertuples():
         _nm=str(getattr(_p,"name","") or "").strip()
         if not _nm or _nm.lower() in ("name","—") or _nm.rstrip(".").lower() in ("fr","so","jr","sr","r-fr","r-so","r-jr","r-sr","rs","gr"): continue
-        _e=_fresh_est(fr_prior(_sh,_nm,getattr(_p,"tdc_grade",None)),_p.depth_order,_p.starter,_p.position)
+        _e=_fresh_est(fr_prior(_sh,_nm,getattr(_p,"tdc_grade",None),getattr(_p,"yr",None) or getattr(_p,"class_year",None)),_p.depth_order,_p.starter,_p.position)
         if _e: _ests.append((_nm,_e))
     if len(_ests)<5: continue
     _m=[e[0] for _,e in _ests]
