@@ -55,6 +55,8 @@ Defense comes from three places:
 | 7 | `sysDef` (scheme defense, ±8 cap). DEF_PTS_K 0.07→0.03 (slope had gone to 2.4). | **Net r 0.93, slope 0.98, RMSE 3.2. DRtg r 0.95.** |
 | 8 | Lead management only on the part of a lead beyond 10 points (LEAD_FREE). Unbiased within-matchup SD (the 6-season estimate was 9% low). LEAD_K 0.2, HCA_K 0.12. | See final run below. |
 
+| 9 | **March benchmark** (dynasty, `/tmp/seeds.mjs`-style: R64 seed win rates, champion seeds, Final Four seed vs real history). Round 8 constants: 1v16 91.7% (real 98.8), 3v14 76.7 (85.3), 1 seeds won 20% of titles (~50-63%), Final Four avg seed 4.9 (3.5). Calibrating to the projection had inherited its compressed spread (7.9 vs 9.8 real). LEVEL_OFF_K 0.037→0.06, LEVEL_DEF_K 0.043→0.07, DEF_PTS_K 0.03→0.035, new TALENT_K 0.07 (logit per 5 pts of team roster-overall edge). | 11/11 league targets; net sd 11.1 (true talent, opp-adjusted); 1v16 97.5, 2v15 95.0, 4v13 81.9, 8v9 46.9; Final Four avg seed 4.0. Still loose at the very top (1 seeds ~20-35% of titles): the snapshot's best teams are bunched (projection top ~+21/100 vs real favourites ~+30). Net vs projection slope now ~1.3 by design (projection is compressed). |
+
 ## Final run (100 seasons, constants as committed)
 
 ```

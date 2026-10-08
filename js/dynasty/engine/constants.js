@@ -24,14 +24,15 @@ export const C = {
   P2_MULT: 0.985,
   P3_MULT: 0.925,
   FT_MULT: 1.0,
-  DEF_PTS_K: 0.03,     // - logit on the shooter per DRtg point the five on the floor save (ratings def100)
+  DEF_PTS_K: 0.035,     // - logit on the shooter per DRtg point the five on the floor save (ratings def100)
+  TALENT_K: 0.07,       // + logit on makes per 5 points of roster-overall edge (offense five's team vs defense's)
   SYS_DEF_W: 1.0,       // weight on the team's system defense (snapshot sysDef, DRtg points per 100)
   BLK_RATE: 0.2,       // share of missed 2s that are blocked at league-average block rates
   HCA_K: 0.12,          // + logit on the home side's shots (not on neutral floors)
 
   // the schedule baked into a player's rates: offense and defense both scale with conference strength
-  LEVEL_OFF_K: 0.037,    // + logit on the team's own makes per 10 pts of league net (strong league -> better)
-  LEVEL_DEF_K: 0.043,    // - logit on opponents' makes per 10 pts of league net
+  LEVEL_OFF_K: 0.06,    // + logit on the team's own makes per 10 pts of league net (strong league -> better)
+  LEVEL_DEF_K: 0.07,    // - logit on opponents' makes per 10 pts of league net
 
   // rebounds: P(off reb) = O / (O + LAMBDA * D), O/D = summed oreb40 / dreb40 on the floor
   OREB_LAMBDA: 1.0,     // set by calibration so league ORB% hits target

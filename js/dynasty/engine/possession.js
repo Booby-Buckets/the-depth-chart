@@ -62,7 +62,8 @@ export function runPossession(o, d, env) {
     // shooting foul (FT trip with no FGA) vs field-goal attempt.  FTA/FGA = (2q + and1*fg)/(1-q)
     const three = rng.chance(Math.min(0.9, aa.r3 * C.R3_MULT * (o.team.r3m || 1)));
     const pMake = adj(three ? aa.p3 * C.P3_MULT : aa.p2 * C.P2_MULT,
-      hca + lv - C.DEF_PTS_K * (D.def100 + d.team.sysDef) + (o.team.shotQ || 0) + C.PLAN_PRESS_MAKE * press);
+      hca + lv - C.DEF_PTS_K * (D.def100 + d.team.sysDef) + (o.team.shotQ || 0) + C.PLAN_PRESS_MAKE * press
+      + C.TALENT_K * ((o.team.q || 0) - (d.team.q || 0)) / 5);
     const ftr = aa.ftr * C.FTR_MULT * (1 + C.PLAN_PRESS_FTR * press), c1 = C.AND1 * pMake;
     const q = Math.max(0, (ftr - c1) / (2 + ftr - c1));
     let missed = false, ftMissLast = false;

@@ -90,6 +90,8 @@ export function prepareTeam(team, byId, snap, C, opts = {}) {
   })).filter(p => p.target > 0 || roster.length <= 8).sort((a, b) => b.target - a.target);
   const hasLvl = roster.some(p => p.lvl != null);
   const lvl = hasLvl ? roster.reduce((s, p) => s + (p.lvl ?? team.level ?? 0) * p.target, 0) / 200 : (team.level || 0);
+  // team talent (minutes-weighted overall): elite rosters separate in head-to-head play (TALENT_K, possession.js)
+  const q = roster.reduce((s, p) => s + overall(p, snap) * p.target, 0) / 200;
   const plan = opts.plan || {};
   const pl = k => Math.max(-2, Math.min(2, +plan[k] || 0));
   return {
@@ -102,6 +104,7 @@ export function prepareTeam(team, byId, snap, C, opts = {}) {
     r3m: 1 + C.PLAN_THREE_R3 * pl('three'),      // more / fewer threes...
     shotQ: -C.PLAN_THREE_Q * Math.abs(pl('three')),   // ...forcing the mix either way costs a little shot quality
     press: pl('pressure'),                          // turnovers forced vs fouls + easy looks given up
+    q,
   };
 }
 
