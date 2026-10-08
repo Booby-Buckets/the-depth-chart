@@ -278,7 +278,7 @@
     Promise.all([
       TDC_RATINGS.get(),
       fetch('scripts/data/schedule_2027.json?v=5').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
-      fetch('scripts/data/team_pace_eff.json?v=7').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+      fetch('scripts/data/team_pace_eff.json?v=8').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
       fetch('scripts/data/odds_live.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
       L.teams || null, L.players || null, L.proj || null,
       window.TDCScrim ? TDCScrim.load() : null

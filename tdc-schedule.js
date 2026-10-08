@@ -78,7 +78,7 @@
       fetch('scripts/data/schedule_2027.json?v=5').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('scripts/data/situational_model.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('scripts/data/schedule_extras_2027.json?v=2').then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch('scripts/data/team_pace_eff.json?v=7').then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('scripts/data/team_pace_eff.json?v=8').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('scripts/data/conf_members_2027.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
       // results change every night: an hourly query string keeps the offline cache from serving a stale copy
       fetch('scripts/data/results_2027.json?h=' + new Date().toISOString().slice(0, 13), { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).catch(() => null),
