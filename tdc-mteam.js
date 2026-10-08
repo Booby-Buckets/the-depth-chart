@@ -100,6 +100,18 @@
     'body.mt #schedBody{padding:0!important;border:0!important;background:none!important;box-shadow:none!important}',
     'body.mt #schedBody .sheet-wrap{margin-left:0!important;margin-right:0!important}',
     'body.mt .tsp-table td,body.mt .tsp-table th,body.mt .scrim-wrap td,body.mt .scrim-wrap th{padding-left:5px!important;padding-right:5px!important}',
+    /* schedule fits the phone: the section label rows (a long "Preseason scrimmages · unofficial · not counted…"
+       line) were nowrap and stretched the whole table to ~660px; let them wrap, and cap long opponent names */
+    'body.mt .tsp-table tr.sec td{white-space:normal!important;line-height:1.35}',
+    'body.mt .tsp-table{width:100%!important}',
+    'body.mt .tsp-table td:has(.tsp-lg){max-width:108px;white-space:normal!important;line-height:1.2}',
+    'body.mt .tsp-table td:has(.tsp-lg) .tsp-lg{vertical-align:middle}',
+    'body.mt .tsp-table td:has(.tsp-lg){position:relative;padding-right:12px!important}',
+    'body.mt .tsp-table td:has(.tsp-lg) a{display:inline-block;max-width:calc(100% - 22px);vertical-align:middle}',
+    'body.mt .tsp-table td:has(.tsp-lg) .cfdot{position:absolute;right:3px;top:50%;margin:-3px 0 0}',
+    'body.mt .tsp-table td:has(.tsp-lg) .tsp-lg{width:16px;height:16px;margin-right:4px}',
+    'body.mt .tsp-table .tsp-site,body.mt .tsp-table td:first-child{padding-left:3px!important;padding-right:3px!important;font-size:12px!important}',
+    'body.mt .tsp-table th{font-size:10.5px!important;letter-spacing:.02em}',
     'body.mt .tsp-tile *{white-space:normal!important;overflow:visible!important;text-overflow:clip!important}',
     /* Team DNA: no headline sentence or explainer lines — the tiles and factor rows carry it */
     'body.mt .dA-head{background:none!important;color:var(--text)!important;padding:0!important;margin:0 0 18px!important;border:0!important;box-shadow:none!important;border-radius:0!important}',
