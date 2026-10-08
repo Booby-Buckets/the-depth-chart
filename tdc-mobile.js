@@ -127,15 +127,91 @@
     (root.querySelectorAll ? root.querySelectorAll('button,a') : []).forEach(b => { const p = b.parentElement; if (p && !seen.has(p)) { seen.add(p); pillRow(p); } });
   }
 
+  // ── Tables fit the phone (Oct 2026, owner: "make every page fit down to mobile") ──
+  // Any table wider than its box is first compacted (full width, tighter cells, text columns wrap, frozen
+  // columns released — nothing scrolls sideways so nothing needs to stick); if it is STILL too wide, columns are
+  // hidden from the right until it fits, never the rank / name columns on the left. A "Show all N columns" chip
+  // brings the full sheet back (sideways scroll, frozen columns restored); "Fit to screen" folds it again.
+  // Add data-fit-keep to a table (or any ancestor) to leave it alone, or to a <th> to keep that column.
+  const FIT_CSS = '.tdc-m table.tdc-fit{width:100%!important;min-width:0!important}' +
+    '.tdc-m table.tdc-fit th,.tdc-m table.tdc-fit td{padding-left:5px!important;padding-right:5px!important;position:static!important;left:auto!important;min-width:0!important;max-width:none!important}' +
+    '.tdc-m table.tdc-fit td:nth-child(-n+3),.tdc-m table.tdc-fit th:nth-child(-n+3){width:auto!important}' +
+    '.tdc-m table.tdc-fit td.l,.tdc-m table.tdc-fit td.nm,.tdc-m table.tdc-fit th.l,.tdc-m table.tdc-fit td:nth-child(-n+3),.tdc-m table.tdc-fit td a{white-space:normal!important}' +
+    '.tdc-m table.tdc-fit td:nth-child(-n+3) a{display:inline}' +
+    // inner name spans carry their own nowrap (".tm{white-space:nowrap}"), which beat the cell's wrap and let
+    // the longest school name set a 280px column: wrap everything inside the leading columns
+    '.tdc-m table.tdc-fit td:nth-child(-n+3) *{white-space:normal!important;min-width:0!important;flex-wrap:wrap;align-items:center}' +
+    '.tdc-m table.tdc-fit .tdc-fx{display:none!important}' +
+    '.tdc-fitbar{display:flex;justify-content:flex-end;margin:6px 0}' +
+    '.tdc-fitbar button{font:600 12px Inter,system-ui,sans-serif;border:1px solid var(--border2,#c6c0b2);background:var(--bg2,#f1efea);color:var(--text2,#4a463c);border-radius:999px;padding:5px 11px;cursor:pointer}';
+  function fitBar(t, hidden, all) {
+    const host = t.closest('.sheet-wrap') || t.parentElement; if (!host || !host.parentElement) return;
+    let bar = host.previousElementSibling && host.previousElementSibling.classList.contains('tdc-fitbar') ? host.previousElementSibling : null;
+    if (!hidden && !all) { if (bar) bar.remove(); return; }
+    const label = all ? 'Fit to screen' : 'Show all ' + (hidden + visibleCols(t)) + ' columns';
+    if (!bar) { bar = document.createElement('div'); bar.className = 'tdc-fitbar'; bar.innerHTML = '<button type="button"></button>'; host.parentElement.insertBefore(bar, host); }
+    const b = bar.firstChild;
+    if (b.textContent !== label) b.textContent = label;
+    b.onclick = () => {
+      if (all) { delete t.dataset.fit; fitTable(t, true); }
+      else { t.dataset.fit = 'all'; t.classList.remove('tdc-fit'); t.querySelectorAll('.tdc-fx').forEach(c => c.classList.remove('tdc-fx')); fitBar(t, 0, true); }
+    };
+  }
+  function visibleCols(t) { const h = headRow(t); return h ? [...h.cells].filter(c => !c.classList.contains('tdc-fx')).length : 0; }
+  function headRow(t) { return t.tHead && t.tHead.rows.length ? t.tHead.rows[t.tHead.rows.length - 1] : t.rows[0]; }
+  function fitTable(t, force) {
+    if (!mq.matches || t.closest('[data-fit-keep]')) return;
+    if (t.dataset.fit === 'all') { fitBar(t, 0, true); return; }
+    if (t.offsetParent === null) return;
+    const box = t.closest('.sheet-wrap') || t.parentElement, avail = box && box.clientWidth; if (!avail) return;
+    const wide = () => t.getBoundingClientRect().width > avail + 2;
+    if (!force && !t.classList.contains('tdc-fit') && !wide()) return;
+    t.classList.add('tdc-fit');
+    t.querySelectorAll('.tdc-fx').forEach(c => c.classList.remove('tdc-fx'));
+    let hidden = 0;
+    const head = headRow(t);
+    if (wide() && head && ![...head.cells].some(c => c.colSpan > 1)) {
+      const n = head.cells.length, rows = [...t.rows].filter(r => r.cells.length === n);
+      // group-header rows above the column header (colspans) can't follow single hidden columns: drop them
+      const groupRows = t.tHead ? [...t.tHead.rows].filter(r => r !== head) : [];
+      // keep the first column (rank / slot) and the NAME column (first text column); drop secondary text
+      // columns (team, conf, pos…) before stats, then stats from the right
+      const isText = c => c.classList.contains('l') || c.classList.contains('nm');
+      let nameIdx = [...head.cells].findIndex((c, i) => i > 0 && isText(c)); if (nameIdx < 0) nameIdx = 1;
+      const keep = i => i === 0 || i === nameIdx || head.cells[i].hasAttribute('data-fit-keep');
+      const order = [];
+      for (let i = nameIdx + 1; i < n; i++) if (isText(head.cells[i]) && !keep(i)) order.push(i);
+      // unshaded columns before the shaded (data-heat) ones — the heat-coloured stats are the page's point
+      const heat = i => head.cells[i].hasAttribute('data-heat') && head.cells[i].getAttribute('data-heat') !== '0';
+      for (let i = n - 1; i >= 0; i--) if (!keep(i) && !order.includes(i) && !heat(i)) order.push(i);
+      for (let i = n - 1; i >= 0; i--) if (!keep(i) && !order.includes(i)) order.push(i);
+      for (const i of order) {
+        if (!wide() || n - hidden <= 2) break;
+        rows.forEach(r => r.cells[i].classList.add('tdc-fx')); hidden++;
+      }
+      if (hidden) groupRows.forEach(r => r.classList.add('tdc-fx'));
+    }
+    fitBar(t, hidden, false);
+  }
+  let fitT = 0;
+  function fitAll() { fitT = 0; document.querySelectorAll('table').forEach(t => { try { fitTable(t); } catch (e) {} }); }
+  function scheduleFit(ms) { if (!mq.matches) return; clearTimeout(fitT); fitT = setTimeout(fitAll, ms || 150); }
+
   let pending = [], raf = 0;
   function flush() {
     raf = 0;
     const list = pending; pending = [];
     for (const n of list) if (n.isConnected) { walk(n); scanRows(n.parentElement || n); }
+    if (list.some(n => n.isConnected && !(n.classList && n.classList.contains('tdc-fitbar')))) scheduleFit();
   }
   function start() {
     if (!mq.matches) return;
     document.documentElement.classList.add('tdc-m');
+    if (!document.getElementById('tdc-fit-css')) { const st = document.createElement('style'); st.id = 'tdc-fit-css'; st.textContent = FIT_CSS; document.head.appendChild(st); }
+    scheduleFit(300);
+    // tabs / menus reveal tables that were hidden when measured
+    document.addEventListener('click', () => scheduleFit(400), true);
+    window.addEventListener('resize', () => scheduleFit(200));
     walk(document.body);
     scanRows(document.body);
     new MutationObserver(muts => {
