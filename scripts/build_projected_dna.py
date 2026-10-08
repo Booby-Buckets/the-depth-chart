@@ -27,8 +27,8 @@ def grp(pos,h):
 def htin(s):
     import re;m=re.match(r"(\d+)-(\d+)",str(s or ""));return int(m[1])*12+int(m[2]) if m else None
 # ---- fit roster->team models on history + freshman metric~grade per group ----
-def rfeat(R, minn=6):
-    R=[p for p in R if (p.get('mpg') or 0)>=8 and p.get('bpm') is not None]
+def rfeat(R, minn=6, minmpg=8):
+    R=[p for p in R if (p.get('mpg') or 0)>=minmpg and p.get('bpm') is not None]
     if len(R)<minn: return None
     def wm(k,shot=False):
         num=den=0
@@ -295,7 +295,13 @@ for team,roster in byteam.items():
         fp["mpg"]=float(mp)
         R.append(fp)
     F=rfeat(R, minn=5)   # projection is more permissive than the historical fit (6)
-    if not F: continue
+    # a roster of mostly unlinked newcomers can have <5 players projected at 8+ mpg (their minutes
+    # are spread thin) and would get NO projected DNA -> the rating falls back to pure roster BPM
+    # (Idaho State -25, Navy, Yale, Liberty, SIU, Dartmouth, Oct 2026). Widen the rotation first.
+    if not F: F=rfeat(R, minn=5, minmpg=3)
+    if not F:
+        print(f"  no projected DNA for {team}: {len(R)} fingerprints, {sum(1 for x in R if (x.get('mpg') or 0)>=3 and x.get('bpm') is not None)} at 3+ mpg")
+        continue
     dna={}
     for t,(fe,c) in COEF.items(): dna[t]=round(float(c[0]+sum(c[i+1]*F[fe[i]] for i in range(len(fe)))),1)
     dna["tempo"]=round(team_tempo(team),1)
