@@ -133,16 +133,22 @@
   // hidden from the right until it fits, never the rank / name columns on the left. A "Show all N columns" chip
   // brings the full sheet back (sideways scroll, frozen columns restored); "Fit to screen" folds it again.
   // Add data-fit-keep to a table (or any ancestor) to leave it alone, or to a <th> to keep that column.
-  const FIT_CSS = '.tdc-m table.tdc-fit{width:100%!important;min-width:0!important}' +
+  // iOS Safari "boosts" text in wide blocks of long text (a full-width table label row rendered ~28px on an
+  // iPhone while measuring 12px everywhere else): pin the text size to what the CSS says
+  const FIT_CSS = 'html{-webkit-text-size-adjust:100%!important;text-size-adjust:100%!important}' +
+    '.tdc-m table.tdc-fit{width:100%!important;min-width:0!important}' +
     '.tdc-m table.tdc-fit th,.tdc-m table.tdc-fit td{padding-left:5px!important;padding-right:5px!important;position:static!important;left:auto!important;min-width:0!important;max-width:none!important}' +
     '.tdc-m table.tdc-fit td:nth-child(-n+3),.tdc-m table.tdc-fit th:nth-child(-n+3){width:auto!important}' +
     '.tdc-m table.tdc-fit td.l,.tdc-m table.tdc-fit td.nm,.tdc-m table.tdc-fit th.l,.tdc-m table.tdc-fit td:nth-child(n+2):nth-child(-n+3),.tdc-m table.tdc-fit td a{white-space:normal!important}' +
     '.tdc-m table.tdc-fit td:first-child{white-space:nowrap!important}' +
+    '.tdc-m table.tdc-fit.tdc-wrap0 td:first-child,.tdc-m table.tdc-fit.tdc-wrap0 td:first-child *{white-space:normal!important;min-width:0!important}' +
     '.tdc-m table.tdc-fit td:nth-child(-n+3) a{display:inline}' +
     // inner name spans carry their own nowrap (".tm{white-space:nowrap}"), which beat the cell's wrap and let
     // the longest school name set a 280px column: wrap everything inside the leading columns
     '.tdc-m table.tdc-fit td:nth-child(n+2):nth-child(-n+3) *{white-space:normal!important;min-width:0!important}' +
     '.tdc-m table.tdc-fit .tdc-fx{display:none!important}' +
+    // "Boozer·Evans·Sarr·Foster·Ngongba" has no spaces, so it was one ~280px unbreakable word: let each name break
+    '.tdc-m .lu-five a,.tdc-m .lu-five i{display:inline-block}' +
     '.tdc-fitbar{display:flex;justify-content:flex-end;margin:6px 0}' +
     '.tdc-fitbar button{font:600 12px Inter,system-ui,sans-serif;border:1px solid var(--border2,#c6c0b2);background:var(--bg2,#f1efea);color:var(--text2,#4a463c);border-radius:999px;padding:5px 11px;cursor:pointer}';
   function fitBar(t, hidden, all) {
@@ -164,11 +170,27 @@
     if (!mq.matches || t.closest('[data-fit-keep]')) return;
     if (t.dataset.fit === 'all') { fitBar(t, 0, true); return; }
     if (t.offsetParent === null) return;
+    // a grid / flex parent can size its column to the table (a "1fr" track that grows to 567px on a 347px
+    // screen): make every such ancestor shrinkable so the table sees the real width
+    for (let a = t.parentElement, i = 0; a && a !== document.body && i < 8; a = a.parentElement, i++) {
+      const pa = a.parentElement && getComputedStyle(a.parentElement);
+      if (pa && /grid|flex/.test(pa.display)) a.style.setProperty('min-width', '0', 'important');
+      const cs = getComputedStyle(a);
+      if (cs.display === 'grid' && a.scrollWidth > a.clientWidth + 2) a.style.setProperty('grid-template-columns', 'minmax(0,1fr)', 'important');
+    }
     const box = t.closest('.sheet-wrap') || t.parentElement, avail = box && box.clientWidth; if (!avail) return;
     const wide = () => t.getBoundingClientRect().width > avail + 2;
     if (!force && !t.classList.contains('tdc-fit') && !wide()) return;
     t.classList.add('tdc-fit');
     t.querySelectorAll('.tdc-fx').forEach(c => c.classList.remove('tdc-fx'));
+    // the first column stays on one line when it is short (rank, season, date); a long one (a lineup) wraps
+    const firsts = [...t.tBodies].flatMap(b => [...b.rows]).map(r => r.cells[0] && r.cells[0].colSpan === 1 ? r.cells[0].textContent.trim().length : 0);
+    t.classList.toggle('tdc-wrap0', firsts.length > 0 && Math.max(...firsts) > 12);
+    // flex rows of 3+ items in the name columns (a starting five "A · B · C · D · E") may wrap; a logo + name
+    // pair (2 items) stays on one line
+    t.querySelectorAll((t.classList.contains('tdc-wrap0') ? 'td:nth-child(1) *, ' : '') + 'td:nth-child(2) *, td:nth-child(3) *').forEach(e => {
+      if (e.children.length > 2 && /flex/.test(getComputedStyle(e).display)) e.style.setProperty('flex-wrap', 'wrap', 'important');
+    });
     let hidden = 0;
     const head = headRow(t);
     if (wide() && head && ![...head.cells].some(c => c.colSpan > 1)) {

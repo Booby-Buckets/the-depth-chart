@@ -36,7 +36,7 @@ async function auditPage(p) {
   await send('Page.enable', {}, s);
   // AUDIT_UNLOCK=1: local test harness only — wrap the paywall so every tab renders (no sign-in, no network)
   if (process.env.AUDIT_UNLOCK) await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => { let G; Object.defineProperty(window, 'TDCGate', { configurable: true,
-    get() { return G; }, set(v) { G = Object.assign({}, v, { has: () => true, plan: () => 'coach', resolved: () => true, ready: Promise.resolve('coach'), lock: () => {}, lockEl: () => {} }); } }); })();` }, s);
+    get() { return G; }, set(v) { G = v; if (v && typeof v === 'object') { v.has = () => true; v.plan = () => 'coach'; v.resolved = () => true; v.ready = Promise.resolve('coach'); v.lock = () => {}; } } }); })();` }, s);
   await send('Page.navigate', { url: BASE + '/' + p + '.html' + (Q[p] || '') }, s);
   await sleep(+(process.env.WAIT || 7000));
   const r = await send('Runtime.evaluate', { expression: process.env.EXPR ? fs.readFileSync(process.env.EXPR, 'utf8') : AUDIT, returnByValue: true, awaitPromise: true }, s);
