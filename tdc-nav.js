@@ -272,7 +272,14 @@
       .catch(function () {}).then(done);
   };
   function ensureSignOut(el) {
-    if (!el || !el.querySelector('a[href="profile.html"]') || el.querySelector('.tdn-signout')) return;
+    if (!el || !el.querySelector('a[href="profile.html"]')) return;
+    // owner only: a "Console" link to owner.html (Rebuild projections / Republish ratings live there)
+    if (window.tdcIsOwner && window.tdcIsOwner() && !el.querySelector('.tdn-owner')) {
+      var o = document.createElement('a');
+      o.href = 'owner.html'; o.className = 'tdn-signout tdn-owner'; o.textContent = 'Console'; o.style.textDecoration = 'none';
+      el.appendChild(o);
+    }
+    if (el.querySelector('.tdn-signout:not(.tdn-owner)')) return;
     var b = document.createElement('button');
     b.type = 'button'; b.className = 'tdn-signout'; b.textContent = 'Sign Out';
     b.onclick = window.tdcSignOut;
