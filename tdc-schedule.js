@@ -339,6 +339,28 @@
 
   // ── render ────────────────────────────────────────────────────────────────
   // its own table class (not .sched-table) so the team page's mono/dim overrides don't apply
+  // early-season events (MTEs) ride as a short tag in the opponent cell, full name on hover: the long names
+  // ("WestStar Don Haskins Sun Bowl Invitational · TBD") used to sit in the Date cell and blow it out
+  const EV_SHORT = [[/players era/i, 'Players Era'], [/maui/i, 'Maui'], [/battle 4 atlantis/i, 'B4A'], [/baha mar/i, 'Baha Mar'],
+    [/canc[uú]n/i, 'Cancún'], [/paradise jam/i, 'Paradise Jam'], [/sun bowl|don haskins/i, 'Sun Bowl'], [/rady/i, 'Rady'],
+    [/acrisure/i, 'Acrisure'], [/charleston classic/i, 'Charleston'], [/fort myers/i, 'Ft. Myers'], [/espn events/i, 'ESPN Events'],
+    [/sunshine slam/i, 'Sunshine Slam'], [/greenbrier/i, 'Greenbrier'], [/rainbow/i, 'Rainbow'], [/resorts world/i, 'Resorts World'],
+    [/live oak/i, 'Live Oak'], [/thanksgiving/i, 'Thanksgiving'], [/bourbon/i, 'Bourbon St'], [/dallas tournament/i, 'Dallas'], [/^event$/i, 'MTE']];
+  const evEsc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  // phones: initials for multi-word names (Players Era -> PE, Paradise Jam -> PJ), one-word names stay (Maui)
+  function evTiny(s) {
+    const full = evShort(s), [nm, day] = full.split(' · ');
+    const w = nm.replace(/[^A-Za-zÀ-ÿ0-9 ]/g, ' ').split(/\s+/).filter(Boolean);
+    const ini = w.length > 1 ? w.map(x => /^\d+$/.test(x) ? x : x[0].toUpperCase()).join('') : nm;
+    return ini + (day ? ' · ' + day : '');
+  }
+  function evShort(s) {
+    const [name, rest] = String(s).split(/\s*·\s*/);
+    const hit = EV_SHORT.find(([re]) => re.test(name));
+    const sh = hit ? hit[1] : name.replace(/\s+(MTE|Invitational|Classic|Tip-Off|Championship|Challenge|Tournament)$/i, '').trim();
+    const day = (rest || '').match(/day\s*(\d+)/i);
+    return sh + (day ? ' · D' + day[1] : '');
+  }
   const CSS = `
   .tsp{font-family:'Inter',system-ui,sans-serif;}
   .tsp-sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 12px;}
@@ -351,7 +373,9 @@
   .tsp-table td.tsp-o .tsp-lg{display:inline-block;width:16px;height:16px;object-fit:contain;vertical-align:middle;margin:-2px 7px 0 0;}
   .tsp-table td.tsp-o a{color:var(--text);text-decoration:none;} .tsp-table td.tsp-o a:hover{color:var(--accent);text-decoration:underline;}
   .tsp-table td.tsp-o .cfdot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--text3);margin-left:7px;vertical-align:middle;}
-  .tsp-table .tsp-ev{margin-left:6px;font-size:9.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);}
+  .tsp-table .tsp-ev .ev-s{display:none;}
+  .tsp-table .tsp-ev,.tsp-table .tsp-ev *{white-space:nowrap!important;}
+  .tsp-table .tsp-ev{display:inline-block;margin-left:7px;padding:1px 6px;border:1px solid var(--border2);border-radius:4px;font-size:9.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text3);white-space:nowrap;vertical-align:1px;cursor:help;}
   .tsp-table tr.mo1 td{border-top:2px solid var(--border2);}
   /* the whole season, not a 600px box that scrolls on its own (a 2007-08 slate ended at 8-17 in view) */
   .tsp-wrap{max-height:none!important;}
@@ -374,7 +398,7 @@
   .tsp-table th,.tsp-table td{width:1%;white-space:nowrap;}
   .tsp-table th:nth-child(3),.tsp-table td.tsp-o{width:auto;}
   .tsp-table tr.sec td{width:auto;}
-  @media(min-width:900px){ .tsp-table td:not(.tsp-o):not(.tsp-d):not([colspan]),.tsp-table th:not(:nth-child(1)):not(:nth-child(3)){min-width:76px;} .tsp-table td.tsp-d,.tsp-table th:first-child{min-width:96px;} }
+  @media(min-width:900px){ .tsp-table td:not(.tsp-o):not(.tsp-d):not([colspan]),.tsp-table th:not(:nth-child(1)):not(:nth-child(3)){min-width:76px;} .tsp-table td.tsp-d,.tsp-table th:first-child{min-width:80px;} }
   @media(max-width:760px){.tsp-sum{grid-template-columns:repeat(2,minmax(0,1fr));}}
   /* phones (every page that shows a schedule): fit the screen. The section label rows were nowrap, so one long
      "Preseason scrimmages · unofficial…" line stretched the table to ~660px; they wrap now. Opponent names
@@ -391,6 +415,8 @@
     .tsp-table td.tsp-o .tsp-lg{width:16px;height:16px;margin-right:4px;vertical-align:middle;}
     .tsp-table td.tsp-o a{display:inline-block;max-width:calc(100% - 22px);vertical-align:middle;}
     .tsp-table td.tsp-o .cfdot{position:absolute;right:3px;top:50%;margin:-3px 0 0;}
+    .tsp-table .tsp-ev .ev-l{display:none;} .tsp-table .tsp-ev .ev-s{display:inline;}
+    .tsp-table .tsp-ev{margin-left:4px;padding:0 4px;font-size:9px;}
   }`;
   function ensureCss() { if (document.getElementById('tsp-css')) return; const s = document.createElement('style'); s.id = 'tsp-css'; s.textContent = CSS; document.head.appendChild(s); }
 
@@ -457,9 +483,9 @@
       const rk = r.opp && r.opp.rank ? r.opp.rank : null, q = quad(rk, r.venue);
       const pc = Math.round(r.p * 100);
       rows += `<tr class="${mc.trim()}"${pv ? ` style="cursor:pointer" onclick="location.href='${pv}'" title="open the game preview"` : ''}>
-        <td class="l dim tsp-d"><span class="tsp-dw">${d.dw} </span>${d.num}${r.event ? `<span class="tsp-ev">${r.event}</span>` : ''}</td>
+        <td class="l dim tsp-d"><span class="tsp-dw">${d.dw} </span>${d.num}</td>
         <td class="dim tsp-rk">${rk || ''}</td>
-        <td class="l nm tsp-o">${r.oppName ? logoImg(r.oppName) : '<i class="tsp-lg"></i>'}${oppTxt}${r.g.conf ? '<i class="cfdot" title="conference game"></i>' : ''}</td>
+        <td class="l nm tsp-o">${r.oppName ? logoImg(r.oppName) : '<i class="tsp-lg"></i>'}${oppTxt}${r.g.conf ? '<i class="cfdot" title="conference game"></i>' : ''}${r.event ? `<span class="tsp-ev" title="${evEsc(r.event)}"><span class="ev-l">${evEsc(evShort(r.event))}</span><span class="ev-s">${evEsc(evTiny(r.event))}</span></span>` : ''}</td>
         <td class="c tsp-sc" title="${r.pace ? `${r.pace} possessions · total ${r.total}` : 'league-average total'}">${r.scoreMe}–${r.scoreOpp}</td>
         <td class="c tsp-site" title="${siteTitle} · rest ${restTxt(r.mf)} vs ${r.known ? restTxt(r.of) : (r.oppName ? '?' : 'same')}${Math.abs(restD) >= 0.15 ? ` (${sg(restD)})` : ''}${r.mf.stint >= 2 ? ` · ${r.mf.stint}${r.mf.stint === 2 ? 'nd' : r.mf.stint === 3 ? 'rd' : 'th'} straight away` : ''} · situational edge ${sg(edge)}">${r.venue}</td>
         <td class="c tsp-q" title="NET-style quadrant: opponent rank ${rk || '—'} ${r.venue === 'H' ? 'at home' : r.venue === 'A' ? 'on the road' : 'on a neutral floor'}">${q ? 'Q' + q : ''}</td>

@@ -140,7 +140,7 @@
     '.tdc-m table.tdc-fit td:nth-child(-n+3) a{display:inline}' +
     // inner name spans carry their own nowrap (".tm{white-space:nowrap}"), which beat the cell's wrap and let
     // the longest school name set a 280px column: wrap everything inside the leading columns
-    '.tdc-m table.tdc-fit td:nth-child(-n+3) *{white-space:normal!important;min-width:0!important;flex-wrap:wrap;align-items:center}' +
+    '.tdc-m table.tdc-fit td:nth-child(-n+3) *{white-space:normal!important;min-width:0!important}' +
     '.tdc-m table.tdc-fit .tdc-fx{display:none!important}' +
     '.tdc-fitbar{display:flex;justify-content:flex-end;margin:6px 0}' +
     '.tdc-fitbar button{font:600 12px Inter,system-ui,sans-serif;border:1px solid var(--border2,#c6c0b2);background:var(--bg2,#f1efea);color:var(--text2,#4a463c);border-radius:999px;padding:5px 11px;cursor:pointer}';
