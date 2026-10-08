@@ -192,6 +192,29 @@ while True:
     if not b: break
     rows+=b; off+=1000
     if len(b)<1000: break
+# Newcomers the sheet carries with NO stats and no espn_id (school-site roster scrapes: transfers and
+# freshmen the sheet hasn't linked) still have a projected line in fresh_fit.json (the freshman /
+# no-box fit, keyed by short team + name). Without it they can't be fingerprinted, and a roster that
+# is mostly newcomers falls under rfeat's 5-player floor and gets NO projected DNA — 66 teams (Oct
+# 2026) were left on build_team_pace_eff's rating fallback (Western Illinois -43/100). Fill the
+# missing box fields from that line; the sheet's own numbers always win.
+try: FRESH=json.load(open(D/"fresh_fit.json"))
+except Exception: FRESH={}
+_FRK=("mpg","ppg","rpg","apg","stl","blk","oreb","dreb","tovs","fga","fgm","fta","ftm","tpa","tpm")
+_nfill=0
+for p in rows:
+    # ONLY players the loop below would otherwise drop: no stats, no grade, no projected OVR. A graded
+    # freshman keeps his grade fingerprint (filling him too moved established teams ~2 pts/100).
+    if p.get("ppg") not in (None,"") or p.get("fga") not in (None,""): continue
+    if p.get("tdc_grade") not in (None,""): continue
+    if p.get("espn_id") not in (None,"") and str(p["espn_id"]) in SOP: continue
+    fr=(FRESH.get(p.get("team")) or {}).get(p.get("name"))
+    if not fr: continue
+    for k in _FRK:
+        if fr.get(k) is not None and p.get(k) in (None,""): p[k]=fr[k]
+    if fr.get("ovr") is not None: p["_fresh_ovr"]=fr["ovr"]
+    _nfill+=1
+print(f"filled {_nfill} stat-less sheet players from fresh_fit.json")
 byteam=defaultdict(list)
 for p in rows: byteam[p["team"]].append(p)
 teams26=TD["2026"]["teams"]
@@ -244,7 +267,7 @@ for team,roster in byteam.items():
         # only used when a player has no projected line at all (a true unknown). A rotation player
         # whose grade never synced (Sheet->Supabase gap) still keeps their real Player-DNA
         # fingerprint. Skip only when there is NEITHER DNA, NOR a projected OVR, NOR a grade.
-        proj_ovr=(sp.get("ovr") if sp else None)
+        proj_ovr=(sp.get("ovr") if sp else p.get("_fresh_ovr"))
         q=(float(proj_ovr) if proj_ovr not in (None,"")
            else (float(g) if g not in (None,"") else None))
         tempo=team_tempo(team)

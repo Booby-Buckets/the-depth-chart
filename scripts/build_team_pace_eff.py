@@ -3,7 +3,7 @@
 
 Pulls from team_dna.json: the 2026-27 PROJECTED line where one exists (114 rosters).
 Everyone else keeps last season's TEMPO (for pace / totals) but gets offense and
-defense split evenly from their projected Power Rating (last season's raw
+defense split evenly from their projected Power Rating, converted with a fit on the projected teams (last season's raw
 efficiencies aren't opponent-adjusted, so a mid-major's net would lie). tdc-schedule.js
 turns two teams' lines into an expected pace + total and lets the efficiency margin
 nudge the ratings-based spread.
@@ -39,9 +39,17 @@ R = ratings()
 out = {}
 for k, v in P.items():
     out[k] = {"o": round(v["o"], 1), "d": round(v["d"], 1), "t": round(v["t"], 1), "src": "proj", "ff": v["ff"]}
+# Rating -> net per 100: FIT on the projected teams (net ~ a + b*rating, r ~0.99, b ~0.83), not
+# rating*100/tempo. The Power Rating is not points per game on the efficiency scale — the old x1.45
+# stretched every fallback team ~75% too far from average (Western Illinois -30 -> -43/100, Oct 2026).
+_pr = [(R[k], v["o"] - v["d"]) for k, v in P.items() if k in R and R[k] is not None]
+_mx = st.mean(x for x, _ in _pr); _my = st.mean(y for _, y in _pr)
+_b = sum((x - _mx) * (y - _my) for x, y in _pr) / sum((x - _mx) ** 2 for x, _ in _pr)
+_a = _my - _b * _mx
+print(f"fallback: net/100 = {_a:.2f} + {_b:.3f} x rating  (fit on {len(_pr)} projected teams)")
 for k, v in L.items():
     if k in out or k not in R: continue
-    net100 = R[k] * 100 / avgT_p            # points per game → per 100 possessions
+    net100 = _a + _b * R[k]
     out[k] = {"o": round(avgO_p + net100 / 2, 1), "d": round(avgD_p - net100 / 2, 1), "t": round(v["t"], 1), "src": "rating", "ff": v["ff"], "ffSrc": "last"}
 ffavg = {k: round(st.mean(v["ff"][k] for v in P.values() if k in v["ff"]), 1) for k in FF}
 json.dump({"avgO": round(avgO_p, 1), "avgD": round(avgD_p, 1), "avgT": round(avgT_p, 1), "shrink": shrink, "ffAvg": ffavg, "teams": out},
