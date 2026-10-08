@@ -255,6 +255,16 @@
     .hgm-item{display:flex;flex-direction:column;gap:1px;width:100%;text-align:left;padding:8px 12px;border:none;border-radius:8px;background:none;cursor:pointer;font-family:'Inter',sans-serif;text-decoration:none;}
     .hgm-item:hover{background:var(--bg3);}
     .hgm-item.active{background:var(--bg3);}
+    .sq-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0 4px;}
+    .sq-tile{border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--bg);cursor:help;}
+    .sq-tile .l{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+    .sq-tile .v{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;margin:4px 0 2px;} .sq-tile .v.g{color:var(--green,#2e8b57);} .sq-tile .v.b{color:var(--red,#c75d5d);}
+    .sq-tile .s{font-size:11.5px;color:var(--text3);}
+    .sq-diets{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:10px;} .sq-diet .h{font-size:12px;font-weight:800;margin-bottom:6px;}
+    .sq-bar{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:12.5px;} .sq-bar .k{width:84px;color:var(--text2);} .sq-bar .n{width:46px;text-align:right;font-weight:800;font-variant-numeric:tabular-nums;}
+    .sq-bar .t{flex:1;height:10px;border-radius:5px;background:var(--bg3);position:relative;} .sq-bar .t i{position:absolute;left:0;top:0;bottom:0;border-radius:5px;background:var(--tc-readable,var(--accent));opacity:.85;}
+    .sq-bar .t b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--text);}
+    @media(max-width:760px){ .sq-tiles{grid-template-columns:1fr 1fr;} .sq-diets{grid-template-columns:1fr;} .sq-tile .v{font-size:20px;} }
     .hgm-item.active .hgm-t{color:var(--tc-readable,var(--accent));}
     .hgm-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;}
     .hgm-card{display:flex;flex-direction:column;gap:1px;padding:8px 12px;border-radius:8px;text-decoration:none;cursor:pointer;}
@@ -1321,9 +1331,15 @@
       <button class="hero-grp-btn" onclick="_tgToggle(this,event)">Analytics<span class="hero-grp-car">▾</span></button>
       <div class="hero-grp-menu" style="min-width:252px;">
         <button class="hgm-item" onclick="_tgPick('dna',this)"><span class="hgm-t">Team DNA</span><span class="hgm-d">Four factors & winning engine</span></button>
-        <button class="hgm-item" onclick="_tgPick('shots',this)"><span class="hgm-t">Shot Charts</span><span class="hgm-d">Where the team shoots from, by season</span></button>
         <button class="hgm-item" onclick="_tgPick('onoff',this)"><span class="hgm-t">On/Off</span><span class="hgm-d">Impact with each player on vs off</span></button>
         <button class="hgm-item" id="projTabBtn" onclick="_tgPick('projections',this)"><span class="hgm-t">2026-27 Projections</span><span class="hgm-d">Next season's projected line</span></button>
+      </div>
+    </div>
+    <div class="hero-grp" data-grp="shots">
+      <button class="hero-grp-btn" onclick="_tgToggle(this,event)">Shots<span class="hero-grp-car">▾</span></button>
+      <div class="hero-grp-menu" style="min-width:252px;">
+        <button class="hgm-item" onclick="_tgPick('shots',this)"><span class="hgm-t">Shot Charts</span><span class="hgm-d">Where the team shoots from, by season</span></button>
+        <button class="hgm-item" onclick="_tgPick('shotq',this)"><span class="hgm-t">Shot Quality</span><span class="hgm-d">Look quality, shot-making &amp; creation</span></button>
       </div>
     </div>
     <button class="hero-tab" onclick="switchTab('schedule',this)">Schedule</button>
@@ -1511,6 +1527,9 @@
         <div class="dA-sec"><span>Shot flow</span><span class="dA-cap">where · how · who creates the makes</span></div>
         <div id="teamShotFlowHost" style="margin-top:10px;"></div>
       </div>
+    </div>
+    <div class="panel" id="panel-shotq">
+      <div id="teamShotQHost"><div style="padding:24px;color:var(--text3);">Loading shot quality…</div></div>
     </div>
     <div class="panel" id="panel-lineups">
       <div class="sec-head">Lineups <span class="sec-head-sub" style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· who actually started, how each five did, starters vs bench</span></div>
@@ -6096,6 +6115,69 @@ async function loadTeamShotChart(season){
   }catch(e){ host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Could not load shot chart.</div>'; }
 }
 
+// ── SHOT QUALITY (Shot Genome: scripts/data/shot_genome_{teams,players}[_YEAR].json, build_shot_genome.py) ──
+// LQ = Look Quality: the eFG% an average shooter makes on this team's shot diet (zone x shot type).
+// SM+ = Shot-Making: points per 100 shots above that, competition-adjusted. CR = Creation: expected points the
+// team's passing creates per game. Defense = the same numbers for opponents' shots in this team's games.
+var _sqCache = {};
+function _sqFile(kind, y){ return 'scripts/data/shot_genome_'+kind+(y===2026?'':'_'+y)+'.json?v=1'; }
+async function _sqLoad(y){
+  if(_sqCache[y]) return _sqCache[y];
+  var [t, p] = await Promise.all([fetch(_sqFile('teams', y)).then(r=>r.ok?r.json():null).catch(()=>null), fetch(_sqFile('players', y)).then(r=>r.ok?r.json():null).catch(()=>null)]);
+  return (_sqCache[y] = { t:t, p:p });
+}
+async function renderShotQuality(season){
+  var host = document.getElementById('teamShotQHost'); if(!host) return;
+  var y = season || window._sqSeason || 2026; window._sqSeason = y;
+  host.innerHTML = '<div style="padding:24px;color:var(--text3);">Loading shot quality…</div>';
+  if(window._sgProj===undefined){ try{ var spd=await fetch('scripts/data/shot_genome_projected.json?v=1').then(r=>r.ok?r.json():null); window._sgProj=(spd&&spd['2027'])||{}; }catch(e){ window._sgProj={}; } }
+  var tid = await _teamEspnId(), D = await _sqLoad(y);
+  var sel = '<select id="sqSeason" class="dna-mu-sel" style="min-width:0;padding:5px 8px;font-size:12px;">'+[2026,2025,2024,2023,2022,2021,2020].map(function(v){return '<option value="'+v+'"'+(v===y?' selected':'')+'>'+((v-1)+'-'+String(v).slice(2))+'</option>';}).join('')+'</select>';
+  var T = D.t && D.t.teams ? D.t.teams.find(function(x){ return x.team_id===tid; }) : null;
+  if(!tid || !T){ host.innerHTML='<div class="dA-card"><div class="dA-sec"><span>Shot quality</span><span class="dA-cap">'+sel+'</span></div><div style="padding:24px;text-align:center;color:var(--text3);font-size:13px;">No tracked shots for this team in '+((y-1)+'-'+String(y).slice(2))+'.</div></div>'; _sqWire(); return; }
+  var all = D.t.teams, n = all.length;
+  var avg = function(side,k){ var v=all.map(function(x){return x[side]&&x[side][k];}).filter(function(v){return v!=null;}); return v.reduce(function(a,b){return a+b;},0)/(v.length||1); };
+  var rank = function(side,k,hi){ var v=T[side][k]; return 1+all.filter(function(x){ return x[side] && x[side][k]!=null && (hi? x[side][k]>v : x[side][k]<v); }).length; };
+  var f1 = function(v){ return v==null?'—':(+v).toFixed(1); }, sg = function(v){ return v==null?'—':(v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(1); };
+  var tile = function(lbl, val, sub, tip, good){ return '<div class="sq-tile" title="'+tip+'"><div class="l">'+lbl+'</div><div class="v'+(good==null?'':good?' g':' b')+'">'+val+'</div><div class="s">'+sub+'</div></div>'; };
+  var O = T.off, Df = T.def, ord = function(r){ return r+(['th','st','nd','rd'][(r%10>3||[11,12,13].includes(r%100))?0:r%10]); };
+  var tiles = '<div class="sq-tiles">'
+    + tile('Look quality', f1(O.lq)+'%', ord(rank('off','lq',true))+' of '+n+' · D-I avg '+f1(avg('off','lq'))+'%', 'Expected eFG% from where and how the team shoots — an average shooter on this shot diet', O.lq>=avg('off','lq'))
+    + tile('Actual eFG', f1(O.efg)+'%', ord(rank('off','efg',true))+' of '+n, 'What the team actually shot (eFG%)', O.efg>=avg('off','efg'))
+    + tile('Shot-making', sg(O.smAdj), ord(rank('off','smAdj',true))+' of '+n+' · pts/100 shots vs expected', 'Points per 100 shots above (or below) what an average shooter makes on the same looks, adjusted for competition. High numbers tend to regress.', O.smAdj>=0)
+    + tile('Creation', f1(T.crAdjPg), (T.crPct!=null?T.crPct+'th pct':'')+' · pts/game from assists', 'Expected points the passing creates per game: each assist valued by the look it set up (a corner-three dime is worth more than a long-two dime)', (T.crPct||50)>=50)
+    + '</div><div class="sq-tiles">'
+    + tile('Looks allowed', f1(Df.lq)+'%', ord(rank('def','lq',false))+' of '+n+' (lower is better)', 'Expected eFG% of the shots opponents took — what the defense allowed by location', Df.lq<=avg('def','lq'))
+    + tile('Opp. eFG', f1(Df.efg)+'%', ord(rank('def','efg',false))+' of '+n, 'What opponents actually shot', Df.efg<=avg('def','efg'))
+    + tile('Opp. shot-making', sg(Df.smAdj), 'pts/100 vs expected · luck-ish', 'How opponents shot relative to their looks. A big negative number means opponents missed open looks — part of it is luck', Df.smAdj<=0)
+    + tile('Self-created makes', f1(T.selfPct)+'%', 'of made shots unassisted', 'Share of made field goals with no assist — how much the offense leans on one-on-one creation', null)
+    + '</div>';
+  var bar = function(lbl, v, a){ var w=Math.max(0,Math.min(100,v)); return '<div class="sq-bar"><span class="k">'+lbl+'</span><span class="t"><i style="width:'+w+'%"></i><b style="left:'+Math.max(0,Math.min(100,a))+'%" title="D-I average '+f1(a)+'%"></b></span><span class="n">'+f1(v)+'%</span></div>'; };
+  var zm = (D.t.meta && D.t.meta.zone_make) || {};
+  var diet = function(side, lbl){ var X=T[side]; return '<div class="sq-diet"><div class="h">'+lbl+'</div>'+bar('At the rim', X.rimRate, avg(side,'rimRate'))+bar('Midrange', X.midRate, avg(side,'midRate'))+bar('Three', X.threeRate, avg(side,'threeRate'))+'</div>'; };
+  var P = (D.p && D.p.players || []).filter(function(x){ return x.team_id===tid && x.fga; }).sort(function(a,b){ return b.fga-a.fga; });
+  var rows = P.map(function(x){ return '<tr><td class="l"><a href="player.html?id='+x.espn_id+'" style="color:inherit;text-decoration:none;font-weight:700;">'+_esc(x.name)+'</a></td><td>'+x.fga+'</td><td>'+f1(x.lq)+'</td><td>'+f1(x.efg)+'</td><td data-v="'+x.smAdj+'">'+sg(x.smAdj)+'</td><td>'+(x.smPct!=null?x.smPct:'—')+'</td><td>'+f1(x.selfPct)+'</td></tr>'; }).join('');
+  host.innerHTML = '<div class="dA-card"><div class="dA-sec"><span>Shot quality</span><span class="dA-cap" style="display:flex;align-items:center;gap:10px;">'+T.gp+' games · '+O.n+' shots tracked '+sel+'</span></div>'+tiles+'</div>'
+    + '<div class="dA-card" style="margin-top:16px;"><div class="dA-sec"><span>Shot diet</span><span class="dA-cap">share of attempts · tick = D-I average · league makes: rim '+Math.round(100*(zm.rim||0))+'%, mid '+Math.round(100*(zm.mid||0))+'%, three '+Math.round(100*(zm.atb3||0))+'%</span></div><div class="sq-diets">'+diet('off','Offense')+diet('def','Defense (opponents)')+'</div></div>'
+    + (P.length ? '<div class="dA-card" style="margin-top:16px;"><div class="dA-sec"><span>Players</span><span class="dA-cap">150+ attempts · LQ = expected eFG of his shots · SM+ = pts/100 above it (competition-adjusted)</span></div>'
+      + '<div class="sheet-wrap"><table class="sheet dense" id="sqPlayers"><thead><tr><th class="l">Player</th><th data-heat="1">FGA</th><th data-heat="1">LQ</th><th data-heat="1">eFG%</th><th data-heat="1">SM+</th><th data-heat="1">SM pct</th><th>Self-created %</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>' : '')
+    + _sqProjCard(y, T.team);
+  _sqWire();
+  var tb=document.getElementById('sqPlayers'); if(tb && window.tdcSheetHeat) tdcSheetHeat(tb);
+}
+function _sqProjCard(y, full){
+  if(y!==2026 || !window._sgProj) return '';
+  var row = window._sgProj[full];
+  if(!row || !row.off) return '';
+  return '<div class="dA-card" style="margin-top:16px;"><div class="dA-sec"><span>2026-27 projection (offense)</span><span class="dA-cap">from returning players\' 2025-26 shots, weighted by projected minutes</span></div><div class="sq-tiles">'
+    + '<div class="sq-tile"><div class="l">Look quality</div><div class="v">'+(+row.off.lq).toFixed(1)+'%</div><div class="s">'+(row.off.pct&&row.off.pct.lq!=null?row.off.pct.lq+'th pct':'')+'</div></div>'
+    + '<div class="sq-tile"><div class="l">Shot-making</div><div class="v">'+((row.off.smAdj>0?'+':'')+(+row.off.smAdj).toFixed(1))+'</div><div class="s">'+(row.off.pct&&row.off.pct.smAdj!=null?row.off.pct.smAdj+'th pct':'')+'</div></div>'
+    + (row.crAdjPg!=null?'<div class="sq-tile"><div class="l">Creation</div><div class="v">'+(+row.crAdjPg).toFixed(1)+'</div><div class="s">'+(row.crPct!=null?row.crPct+'th pct':'')+'</div></div>':'')
+    + '</div></div>';
+}
+function _sqWire(){ var s=document.getElementById('sqSeason'); if(s) s.onchange=function(){ renderShotQuality(+this.value); }; }
+function _esc(t){ return String(t==null?'':t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
 // ── On/Off (WOWY) — reads scripts/data/player_onoff.json (game-level lineup on/off) ──
 let _onoffData=null;
 async function renderOnOff(){
@@ -6282,6 +6364,7 @@ function switchTab(id, btn){
   if(id==='dna'){ renderTeamDNA(); }
   if(id==='shots'){ _dnaCSS(); if(!window._teamShotInit){ window._teamShotInit=true; _initTeamShot(); } }
   if(id==='onoff'){ renderOnOff(); }
+  if(id==='shotq'){ _dnaCSS(); renderShotQuality(); }
   // The right sidebar (coach/depth/recruit grades, offseason additions, roster
   // turnover) is 2026-27 depth-chart context — show it only on the Depth Chart tab.
   const sideCol = document.querySelector('.side-col');
@@ -6320,6 +6403,7 @@ var TAB_GATE = {
   betting:     { tier:'premium', label:'the betting board', blurb:'See every rotation player’s prop lines and over rates in one board. Included with Premium — $4.99/mo.' },
   losses:      { tier:'premium', label:'offseason losses', blurb:'See who this team lost and the impact. Included with Premium — $4.99/mo.' },
   shots:       { tier:'pro', label:'Shot Charts', blurb:'Every tracked attempt on a half court — zones, signature spots, hexbin, heat — plus the shot flow. Included with Pro — $8.99/mo.' },
+  shotq:       { tier:'pro', label:'Shot Quality', blurb:'Look quality (the eFG% your shot selection earns), shot-making above or below it, creation, the shot diet on both ends and every player\'s numbers. Included with Pro — $8.99/mo.' },
   dna:         { tier:'pro', label:'Team DNA', blurb:'The team’s statistical identity — four factors, shot quality and the winning engine. Included with Pro — $8.99/mo.' },
   onoff:       { tier:'pro', label:'On/Off', blurb:'How the team performs with each player on vs off the floor. Included with Pro — $8.99/mo.' },
   projections: { tier:'pro', label:'2026-27 projections', blurb:'Cohesion-adjusted minutes and scoring projections for next season. Included with Pro — $8.99/mo.' },
@@ -9723,6 +9807,6 @@ function renderProjNatlChart(projected, color, rgb){
   <script src="tdc-sheets.js?v=2"></script>
   <script src="tdc-liveplayer.js?v=3"></script>
   <script src="tdc-depth-editor.js?v=1"></script>
-<script src="tdc-mteam.js?v=11"></script>
+<script src="tdc-mteam.js?v=12"></script>
 </body>
 </html>

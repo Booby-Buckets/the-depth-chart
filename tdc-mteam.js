@@ -7,16 +7,21 @@
 (function () {
   var MQ = window.matchMedia('(max-width:640px)');
   var GROUPS = [
+    // same order as the desktop tab row (owner, Oct 2026)
     { key: 'depth', label: 'Depth chart', tabs: ['depth'] },
+    { key: 'stats', label: 'Analytics', tabs: ['dna', 'onoff', 'projections'] },
+    { key: 'shots', label: 'Shots', tabs: ['shots', 'shotq'] },
     { key: 'schedule', label: 'Schedule', tabs: ['schedule'] },
-    { key: 'preview', label: 'Preview', tabs: ['preview'] },
-    { key: 'stats', label: 'Analytics', tabs: ['dna', 'shots', 'onoff', 'projections'] },
     { key: 'coach', label: "Coach's Tier", tabs: ['mcoach', 'customize', 'report'] },
+    { key: 'lineups', label: 'Lineups', tabs: ['lineups'] },
+    { key: 'preview', label: 'Preview', tabs: ['preview'] },
     { key: 'nil', label: 'NIL', tabs: ['nil'] },
     { key: 'betting', label: 'Betting', tabs: ['betting'] },
     { key: 'conf', label: 'Conference', link: true }
   ];
-  var STATS = [['dna', 'DNA'], ['shots', 'Shots'], ['onoff', 'On/Off'], ['projections', 'Projections']];
+  var STATS = [['dna', 'DNA'], ['onoff', 'On/Off'], ['projections', 'Projections']];
+  var SHOTS = [['shots', 'Shot charts'], ['shotq', 'Shot quality']];
+  var SUBS = { stats: STATS, shots: SHOTS };
   var COACH = [['customize', 'Lineup Lab', 'Lineups, minutes, live projections'], ['report', 'Roster report', 'Scouting breakdown of the roster']];
   var TOOLS = [['scout.html', 'Opponent scouting', 'Scout any opponent'], ['self-scout.html', 'Self-scout', 'Your own tendencies'],
     ['matchup.html', 'Matchup predictor', 'Project any game'], ['offense.html', 'Offensive profile', 'Scheme and shot diet'],
@@ -113,7 +118,7 @@
     'body.mt .side-col{width:auto!important;max-width:none!important;padding:18px 0 0!important;border:0!important;position:static!important}'
   ].join('\n');
 
-  var TAB_ICON = {"depth": "M4 6h16M4 12h16M4 18h10", "schedule": "M4 6h16v14H4zM4 10h16M9 3v5M15 3v5", "preview": "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 100 6 3 3 0 000-6z", "stats": "M5 20V11M12 20V5M19 20v-7M3 20h18", "coach": "M9 4h6v3H9zM7 5H5v16h14V5h-2M8 12h8M8 16h5", "nil": "M12 3v18M16 7.5c0-1.9-1.8-3-4-3s-4 1.1-4 3 1.8 2.6 4 3 4 1.1 4 3-1.8 3-4 3-4-1.1-4-3", "betting": "M4 7h16v3a2 2 0 000 4v3H4v-3a2 2 0 000-4zM14 7v10", "conf": "M7 4h10v4a5 5 0 01-10 0zM5 5H3v2a3 3 0 003 3M19 5h2v2a3 3 0 01-3 3M12 13v4M8 21h8"};
+  var TAB_ICON = {"shots": "M12 3a9 9 0 100 18 9 9 0 000-18zM12 8a4 4 0 100 8 4 4 0 000-8zM12 11.5v1", "lineups": "M8 11a3 3 0 100-6 3 3 0 000 6zM16 11a3 3 0 100-6 3 3 0 000 6zM2 20c0-3 3-5 6-5s6 2 6 5M14 15.5c.6-.3 1.3-.5 2-.5 3 0 6 2 6 5", "depth": "M4 6h16M4 12h16M4 18h10", "schedule": "M4 6h16v14H4zM4 10h16M9 3v5M15 3v5", "preview": "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 100 6 3 3 0 000-6z", "stats": "M5 20V11M12 20V5M19 20v-7M3 20h18", "coach": "M9 4h6v3H9zM7 5H5v16h14V5h-2M8 12h8M8 16h5", "nil": "M12 3v18M16 7.5c0-1.9-1.8-3-4-3s-4 1.1-4 3 1.8 2.6 4 3 4 1.1 4 3-1.8 3-4 3-4-1.1-4-3", "betting": "M4 7h16v3a2 2 0 000 4v3H4v-3a2 2 0 000-4zM14 7v10", "conf": "M7 4h10v4a5 5 0 01-10 0zM5 5H3v2a3 3 0 003 3M19 5h2v2a3 3 0 01-3 3M12 13v4M8 21h8"};
   function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function debounce(fn, ms) { var t; return function () { clearTimeout(t); t = setTimeout(fn, ms || 60); }; }
@@ -231,9 +236,9 @@
     var season = document.getElementById('mtSeason'); if (season) season.style.display = (g.key === 'depth') ? '' : 'none';
     document.body.classList.toggle('mt-depth', g.key === 'depth');
     var sub = document.getElementById('mtSub'); if (!sub) return;
-    if (g.key === 'stats') {
+    if (SUBS[g.key]) {
       sub.className = 'mt-sub show';
-      sub.innerHTML = STATS.map(function (s) { return '<button type="button" data-t="' + s[0] + '" class="' + (s[0] === t ? 'on' : '') + '">' + s[1] + '</button>'; }).join('');
+      sub.innerHTML = SUBS[g.key].map(function (s) { return '<button type="button" data-t="' + s[0] + '" class="' + (s[0] === t ? 'on' : '') + '">' + s[1] + '</button>'; }).join('');
     } else if (g.key === 'coach' && t !== 'mcoach') {
       sub.className = 'mt-sub back show'; sub.innerHTML = '<button type="button" data-back="1">‹ All Coach\'s Tier tools</button>';
     } else { sub.className = 'mt-sub'; sub.innerHTML = ''; }
