@@ -226,6 +226,10 @@
     .sg-verdict{font-size:13px;color:var(--text2);line-height:1.5;margin:2px 0 16px;max-width:720px;}
     .sg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
     .sg-grid.cols4{grid-template-columns:repeat(4,1fr);}
+    .sg-grid.cols3{grid-template-columns:repeat(3,1fr);}
+    @media(max-width:900px){.sg-grid.cols3{grid-template-columns:repeat(2,1fr);}}
+    .pg-sec{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin:18px 0 10px;}
+    .pg-note{font-size:12px;color:var(--text3);margin-top:14px;line-height:1.5;}
     @media(max-width:900px){.sg-grid.cols4{grid-template-columns:repeat(2,1fr);}}
     @media(max-width:680px){.sg-grid,.sg-grid.cols4{grid-template-columns:1fr;}}
     .sg-metric{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:14px 15px;}
@@ -4391,6 +4395,7 @@ function renderPage(){
         <div class="tab-grp-menu tab-grp-mega">
           <div class="hgm-grid">
             <button class="hgm-item" id="tab-shotcharts" onclick="_grpPick('shotcharts')"><span class="hgm-t">Shot Charts</span><span class="hgm-d">Shot locations, genome & season profile</span></button>
+            <button class="hgm-item" id="tab-shotgenome" onclick="_grpPick('shotgenome')"><span class="hgm-t">Shot Genome</span><span class="hgm-d">Look quality, shot-making, creation — every season</span></button>
             <button class="hgm-item" id="tab-shotflow" onclick="_grpPick('shotflow')"><span class="hgm-t">Shot Flow</span><span class="hgm-d">How his shots are created and finished</span></button>
             <button class="hgm-item" id="tab-percentiles" onclick="_grpPick('percentiles')"><span class="hgm-t">Percentiles</span><span class="hgm-d">Percentile vs every peer</span></button>
           </div>
@@ -4481,6 +4486,7 @@ function renderPage(){
         <div id="shotFlowHost"></div>
       </div></div>
     </div>
+    <div class="tab-panel" id="panel-shotgenome"><div id="playerGenomeHost"></div></div>
     <div class="tab-panel" id="panel-scheme"><div id="schemeContent"></div></div>
     <div class="tab-panel" id="panel-dossier"><div id="dossierContent"></div></div>
     <div class="tab-panel" id="panel-role"><div id="roleContent"></div></div>
@@ -5890,6 +5896,90 @@ async function loadShotGenome(){
     +'<div style="margin-top:14px;"><a class="sg-link" href="shot-genome.html">Compare every player on the Maker vs Creator chart →</a></div></div>';
   fillHeatIndex();   // scoring-consistency card sits directly below
 }
+// ── SHOT GENOME TAB: every genome stat for this player, with national percentiles, every season ──
+// Data: scripts/data/shot_genome_players[_YEAR].json (build_shot_genome.py). LQ = expected eFG of his shot diet;
+// SM = points per 100 shots above an average shooter on those looks (SM+ = competition-adjusted); sm_total = total
+// points added; Creation = expected points his assists set up (CR adj = competition-adjusted); self-created = share
+// of his makes that were unassisted.
+var _pgCache = {};
+function _pgFile(y){ return 'scripts/data/shot_genome_players'+(y===2026?'':'_'+y)+'.json?v=1'; }
+function _pgLoad(y){
+  if(!_pgCache[y]) _pgCache[y] = fetch(_pgFile(y)).then(function(r){ return r.ok?r.json():null; }).then(function(d){
+    var L = (d && d.players) || [], by = {};
+    L.forEach(function(p){ if(p.espn_id!=null) by[p.espn_id]=p; });
+    // national percentile pools: shooters (150+ FGA) and passers (have a creation number)
+    var pool = function(k, f){ return L.filter(f).map(function(p){ return p[k]; }).filter(function(v){ return v!=null; }).sort(function(a,b){ return a-b; }); };
+    var shoot = function(p){ return p.fga>=150; }, pass = function(p){ return p.cr!=null; };
+    var P = { lq:pool('lq',shoot), efg:pool('efg',shoot), sm:pool('sm',shoot), smAdj:pool('smAdj',shoot), sm_total:pool('sm_total',shoot),
+      fga:pool('fga',shoot), cr:pool('cr',pass), crAdj:pool('crAdj',pass), crPer:pool('crPer',pass), ast:pool('ast',pass), selfPct:pool('selfPct',shoot) };
+    var mean = function(a){ return a.length ? a.reduce(function(x,y){return x+y;},0)/a.length : null; };
+    var M = {}; Object.keys(P).forEach(function(k){ M[k]=mean(P[k]); });
+    return { by:by, P:P, M:M, n:L.length };
+  }).catch(function(){ return null; });
+  return _pgCache[y];
+}
+function _pgPct(arr, v){ if(v==null || !arr || !arr.length) return null; var lo=0; while(lo<arr.length && arr[lo]<v) lo++; return Math.round(100*lo/arr.length); }
+async function renderPlayerGenome(season){
+  var host=document.getElementById('playerGenomeHost'); if(!host) return;
+  var espn=window._playerEspn, y=season||window._pgSeason||2026; window._pgSeason=y;
+  var YRS=[2026,2025,2024,2023,2022,2021,2020];
+  host.innerHTML='<div class="sg-card"><div class="sg-empty">Loading the Shot Genome…</div></div>';
+  var D=await _pgLoad(y), p=D&&espn?D.by[espn]:null;
+  var lbl=function(v){ return (v-1)+'-'+String(v).slice(2); };
+  var sel='<select id="pgSeason" class="exp-sel" style="padding:6px 9px;font-size:12px;">'+YRS.map(function(v){ return '<option value="'+v+'"'+(v===y?' selected':'')+'>'+lbl(v)+'</option>'; }).join('')+'</select>';
+  var head='<div class="sg-head"><div class="sg-title">Shot Genome <small>'+lbl(y)+'</small></div><div style="display:flex;gap:10px;align-items:center;">'+(p?(_sgType(p.smPct,p.crPct)?'<span class="sg-type">'+_sgType(p.smPct,p.crPct)+'</span>':''):'')+sel+'</div></div>';
+  if(!p){
+    host.innerHTML='<div class="sg-card">'+head+'<div class="sg-empty">No tracked shots or assists for '+lbl(y)+'. Pick another season — the genome needs shot locations, which exist from 2019-20 on.</div></div><div id="pgCareer"></div>';
+    _pgWire(); _pgCareer(espn, YRS); return;
+  }
+  var P=D.P, M=D.M, f1=function(v){ return v==null?'—':(+v).toFixed(1); }, sg=function(v){ return v==null?'—':(v>0?'+':'')+(+v).toFixed(1); };
+  var tile=function(lbl, tip, val, sub, pct, avg){
+    var bar = pct!=null ? '<div class="sg-bar"><i style="width:'+pct+'%;background:'+_sgBarColor(pct)+'"></i></div><div class="sg-pctl" style="color:'+_sgBarColor(pct)+'">'+_ord(pct)+' percentile</div>' : '';
+    return '<div class="sg-metric"><div class="sg-mlbl" title="'+tip.replace(/"/g,'&quot;')+'">'+lbl+'</div><div class="sg-mval">'+val+'</div><div class="sg-msub">'+sub+(avg!=null?' · D-I avg '+avg:'')+'</div>'+bar+'</div>';
+  };
+  var shooter=p.fga>=150, passer=p.cr!=null;
+  var shoot = p.fga!=null ? [
+    tile('Look Quality','The eFG% a league-average shooter would post on his exact shot diet (zone × shot type) — how good his looks are before he shoots.', f1(p.lq)+'%','expected eFG on his shots', shooter?_pgPct(P.lq,p.lq):null, f1(M.lq)+'%'),
+    tile('Actual eFG','What he actually shot (effective FG%).', f1(p.efg)+'%', (p.efg!=null&&p.lq!=null?sg(p.efg-p.lq)+' vs his looks':''), shooter?_pgPct(P.efg,p.efg):null, f1(M.efg)+'%'),
+    tile('Shot-Making','Points per 100 shots above (or below) what an average shooter makes on the same looks — raw, before the competition adjustment.', sg(p.sm),'pts / 100 shots vs expected', shooter?_pgPct(P.sm,p.sm):null, null),
+    tile('SM+ (adjusted)','Shot-Making adjusted for the level of competition — the version used in rankings. High numbers tend to regress the next season.', sg(p.smAdj),'pts / 100 shots, competition-adjusted', p.smPct!=null?p.smPct:(shooter?_pgPct(P.smAdj,p.smAdj):null), null),
+    tile('Points added','Total points he added over an average shooter on his looks across the season (shot-making × volume).', sg(p.sm_total),'over the season', shooter?_pgPct(P.sm_total,p.sm_total):null, null),
+    tile('Volume', 'Tracked field-goal attempts and makes.', (p.fga||0)+' FGA', (p.makes!=null?p.makes+' makes':'')+(p.fga<150?' · under 150 FGA — no percentiles':''), shooter?_pgPct(P.fga,p.fga):null, null),
+  ] : [];
+  var create = [
+    passer ? tile('Creation','Expected points his passing set up — each assist valued by the quality of the look it created (a corner-three dime beats a long-two dime).', Math.round(p.cr)+'','xPts created over the season', _pgPct(P.cr,p.cr), null) : '',
+    passer ? tile('Creation (adjusted)','Creation adjusted for the level of competition.', Math.round(p.crAdj)+'','xPts, competition-adjusted', p.crPct!=null?p.crPct:_pgPct(P.crAdj,p.crAdj), null) : '',
+    passer && p.crPer!=null ? tile('Value per assist','Average expected points of the looks his assists created — the QUALITY of his passing, not the volume.', (+p.crPer).toFixed(2),'xPts per assist', _pgPct(P.crPer,p.crPer), (M.crPer!=null?M.crPer.toFixed(2):null)) : '',
+    passer ? tile('Assists','Tracked assists.', (p.ast||0)+'','assists', _pgPct(P.ast,p.ast), null) : '',
+    p.selfPct!=null ? tile('Self-Creation','Share of his made field goals that were unassisted — how much of his own offense he creates.', f1(p.selfPct)+'%','of his makes unassisted', p.selfPctl!=null?p.selfPctl:null, f1(M.selfPct)+'%') : '',
+  ].filter(Boolean);
+  var bits=[];
+  if(p.smPct!=null) bits.push(p.smPct>=80?'finishes well above the quality of his looks ('+_ord(p.smPct)+' nationally)':p.smPct>=45?'finishes about where his shot diet predicts':'has finished below the quality of his looks');
+  if(p.lq!=null && shooter){ var lqp=_pgPct(P.lq,p.lq); bits.push(lqp>=70?'gets high-quality looks ('+_ord(lqp)+' in look quality)':lqp<=30?'lives on hard shots ('+_ord(lqp)+' in look quality)':'takes an average shot diet'); }
+  if(p.crPct!=null) bits.push(p.crPct>=80?'and is an elite creator for others ('+_ord(p.crPct)+')':p.crPct>=50?'and is a capable creator ('+_ord(p.crPct)+')':'and creates little for others');
+  var nm=(player&&player.name?player.name.split(' ').slice(-1)[0]:'He');
+  host.innerHTML='<div class="sg-card">'+head+(bits.length?'<div class="sg-verdict">'+nm+' '+bits.join(', ')+'.</div>':'')
+    +(shoot.length?'<div class="pg-sec">Shooting</div><div class="sg-grid cols3">'+shoot.join('')+'</div>':'')
+    +(create.length?'<div class="pg-sec">Creation</div><div class="sg-grid cols3">'+create.join('')+'</div>':'')
+    +'<div class="pg-note">Percentiles are national for '+lbl(y)+': shooting stats among players with 150+ tracked attempts, creation among players with 40+ assists. '
+    +'<a class="sg-link" href="shot-genome.html">Maker vs Creator chart for every player →</a></div></div><div id="pgCareer"></div>';
+  _pgWire(); _pgCareer(espn, YRS);
+}
+async function _pgCareer(espn, YRS){
+  var host=document.getElementById('pgCareer'); if(!host||!espn) return;
+  var all=await Promise.all(YRS.map(function(y){ return _pgLoad(y).then(function(D){ return [y, D]; }); }));
+  var rows=all.map(function(a){ var y=a[0], D=a[1], p=D&&D.by[espn]; if(!p) return null;
+    return { y:y, p:p, lqp:p.fga>=150?_pgPct(D.P.lq,p.lq):null }; }).filter(Boolean);
+  if(rows.length<1){ host.innerHTML=''; return; }
+  var f1=function(v){ return v==null?'—':(+v).toFixed(1); }, sg=function(v){ return v==null?'—':(v>0?'+':'')+(+v).toFixed(1); };
+  host.innerHTML='<div class="sg-card" style="margin-top:16px;"><div class="sg-head"><div class="sg-title">Career genome</div></div><div class="sheet-wrap"><table class="sheet dense" id="pgCareerTbl"><thead><tr>'
+    +'<th class="l">Season</th><th class="l">Team</th><th data-heat="1">FGA</th><th data-heat="1">LQ</th><th data-heat="1">LQ pct</th><th data-heat="1">eFG%</th><th data-heat="1">SM+</th><th data-heat="1">SM pct</th><th data-heat="1">Pts added</th><th data-heat="1">AST</th><th data-heat="1">Creation</th><th data-heat="1">CR pct</th><th>Self-created %</th></tr></thead><tbody>'
+    +rows.map(function(r){ var p=r.p; return '<tr><td class="l">'+((r.y-1)+'-'+String(r.y).slice(2))+'</td><td class="l">'+(p.team||'')+'</td><td>'+(p.fga||'—')+'</td><td>'+f1(p.lq)+'</td><td>'+(r.lqp==null?'—':r.lqp)+'</td><td>'+f1(p.efg)+'</td><td>'+sg(p.smAdj)+'</td><td>'+(p.smPct==null?'—':p.smPct)+'</td><td>'+sg(p.sm_total)+'</td><td>'+(p.ast==null?'—':p.ast)+'</td><td>'+(p.crAdj==null?'—':Math.round(p.crAdj))+'</td><td>'+(p.crPct==null?'—':p.crPct)+'</td><td>'+f1(p.selfPct)+'</td></tr>'; }).join('')
+    +'</tbody></table></div></div>';
+  var t=document.getElementById('pgCareerTbl'); if(t && window.tdcSheetHeat) tdcSheetHeat(t);
+}
+function _pgWire(){ var s=document.getElementById('pgSeason'); if(s) s.onchange=function(){ renderPlayerGenome(+this.value); }; }
+
 function _initShotSeasons(){
   var sel=document.getElementById('scSeasonSel'); if(!sel) return;
   var yrs=[...new Set((careerHistory||[]).map(function(s){return +s.season_year;}).filter(Boolean))].sort(function(a,b){return b-a;});
@@ -6839,7 +6929,7 @@ function _tabUrl(id, dflt){ try{ var u=new URL(location.href); if(!id||id===dflt
 function switchTab(t){
   if(t==='rankings') t='percentiles';   // the Rankings tab was removed (Sept 2026); old links land on Percentiles
   _tabUrl(t,'overview');
-  const tabs=['overview','playerdna','stats','shotcharts','shotflow','scheme','dossier','role','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
+  const tabs=['overview','playerdna','stats','shotcharts','shotgenome','shotflow','scheme','dossier','role','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
   const cur=tabs.map(x=>document.getElementById('panel-'+x)).find(el=>el&&el.classList.contains('active'));
   function activate(id){
     tabs.forEach(x=>{
@@ -6859,6 +6949,7 @@ function switchTab(t){
     if(id==='playerdna' && !window._pctDashGenome){ window._pctDashGenome=true; try{ (typeof ensureSgPlayers==='function'?ensureSgPlayers():Promise.resolve()).then(function(){ renderPctDash(); renderImpDecomp(); renderSeasonLedger(); setTimeout(function(){ growBarsIn(document.getElementById('panel-playerdna')); },60); }); }catch(e){} }
     if(id==='playerdna' && !window._situationalDone){ window._situationalDone=true; loadSituational(); }
     if(id==='playerdna'){ setTimeout(function(){ growBarsIn(document.getElementById('panel-playerdna')); }, 80); }
+    if(id==='shotgenome' && !window._pgLoaded){ window._pgLoaded=true; renderPlayerGenome(); }
     if(id==='shotflow' && !window._shotFlowLoaded){ window._shotFlowLoaded=true; _initShotFlowSeasons(); }
     if(id==='scheme' && !window._schemeLoaded){ window._schemeLoaded=true; setTimeout(renderScheme,40); }
     if(id==='dossier' && !window._dossierLoaded){ window._dossierLoaded=true; setTimeout(renderDossier,40); }
@@ -6889,6 +6980,7 @@ var TAB_GATE = {
   betting:     { tier:'premium', label:'betting props', blurb:'See this player’s prop lines, over/under hit rates, L10 form and best bets for every stat. Included with Premium — $4.99/mo.' },
   scout:       { tier:'premium', label:'the scouting report', blurb:'Archetype, comparable players and the full scouting breakdown. Included with Premium — $4.99/mo.' },
   shotcharts:  { tier:'pro', label:'shot charts', blurb:'Shot-location charts, the shot genome and his season-by-season shot profile. Included with Pro — $8.99/mo.' },
+  shotgenome:  { tier:'pro', label:'the Shot Genome', blurb:'Look quality, shot-making, creation and self-creation — every number with its national percentile, season by season. Included with Pro — $8.99/mo.' },
   shotflow:    { tier:'pro', label:'shot flow', blurb:'How this player’s shots are created and finished — zone, shot type, result and who assisted. Included with Pro — $8.99/mo.' },
   role:        { tier:'pro', label:'Role & Fit', blurb:'His archetype and style signals, year-over-year development path, shot profile and the "how to attack him" reads. Included with Pro — $8.99/mo.' },
   devpath:     { tier:'pro', label:'his development path', blurb:'His TDC grade season by season — first graded year to career peak to now, with every jump and transfer marked. Included with Pro — $8.99/mo.' },
@@ -6896,7 +6988,7 @@ var TAB_GATE = {
   scheme:      { tier:'pro', label:'Scheme Lab', blurb:'How this player fits different systems and lineups. Included with Pro — $8.99/mo.' },
   portalfit:   { tier:'pro', label:'Portal Fit', blurb:'Which programs this player best fits, ranked by need, production and coach fit. Included with Pro — $8.99/mo.' }
 };
-var _TABS = ['overview','playerdna','stats','shotcharts','shotflow','scheme','dossier','role','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
+var _TABS = ['overview','playerdna','stats','shotcharts','shotgenome','shotflow','scheme','dossier','role','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
 function _lockPanel(pnl, g){
   if(!pnl || pnl.__locked) return; pnl.__locked = true;
   pnl.innerHTML = '';
@@ -7652,6 +7744,6 @@ init();
   <script src="tdc-tour.js?v=22"></script>
 <script src="tdc-sheets.js?v=2"></script>
 <script src="tdc-liveplayer.js?v=3"></script>
-<script src="tdc-mplayer.js?v=8"></script>
+<script src="tdc-mplayer.js?v=9"></script>
 </body>
 </html>

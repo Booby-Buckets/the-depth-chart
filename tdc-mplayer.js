@@ -10,13 +10,13 @@
     { key: 'overview', label: 'Overview', tabs: ['overview'] },
     { key: 'stats', label: 'Stats', tabs: ['stats'] },
     { key: 'dna', label: 'DNA', tabs: ['playerdna'] },
-    { key: 'shots', label: 'Shots', tabs: ['shotcharts', 'shotflow', 'percentiles'] },
+    { key: 'shots', label: 'Shots', tabs: ['shotcharts', 'shotgenome', 'shotflow', 'percentiles'] },
     { key: 'scouting', label: 'Scouting', tabs: ['mscout', 'scout', 'dossier', 'role', 'devpath', 'scheme', 'portalfit'] },
     { key: 'nil', label: 'NIL', tabs: ['nil'] },
     { key: 'betting', label: 'Betting', tabs: ['betting'] },
     { key: 'buzz', label: 'Buzz', tabs: ['buzz'] }
   ];
-  var SHOTS = [['shotcharts', 'Charts'], ['shotflow', 'Flow'], ['percentiles', 'Percentiles']];
+  var SHOTS = [['shotcharts', 'Charts'], ['shotgenome', 'Genome'], ['shotflow', 'Flow'], ['percentiles', 'Percentiles']];
   var SCOUT = [['scout', 'Scouting report', 'Grades, floor, ceiling'], ['dossier', 'Player dossier', 'Situational splits'],
     ['role', 'Role & fit', 'His role on this roster'], ['devpath', 'Development', 'Grade path by year'],
     ['scheme', 'Scheme lab', 'Same player, other systems'], ['portalfit', 'Portal fit', 'Best-fit programs']];
