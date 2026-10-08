@@ -593,6 +593,39 @@ CAREER_SHOT=_cr.dropna(subset=["espn_id"]).groupby("espn_id")[["fgm","fga","tpm"
 SHOOT={"fg":dict(K=75,prior=45.0,c=17.531,eb=0.4961,last=0.1746,mix=-7.216,jump=-0.0304,u=0.321),
        "tp":dict(K=800,prior=34.5,c=15.328,eb=0.4974,last=0.0051,mix=6.071,jump=0.0,u=0.0),
        "ft":dict(K=150,prior=71.0,c=6.465,eb=0.7319,last=0.1469,mix=13.638,jump=0.0,u=0.0)}
+# PRESEASON SCRIMMAGES (owner, Oct 2026): weighted by the Reality Meter (scrim_reality.py). Each box line
+# carries w = real-game equivalents (<=1 x reality x share of his projected minutes). A returner's
+# per-40 rates blend toward his scrimmage per-40s with weight W/(W + SCRIM_PRIOR), capped at
+# SCRIM_CAP, so a game-like scrimmage nudges a line and a practice-style one barely moves it.
+# Percentages are left to the career model (one exhibition is a tiny, noisy shooting sample).
+SCRIM_MAP={"ppg":"pts","fga":"fga","tpa":"tpa","fta":"fta","apg":"ast","tovs":"tov","oreb":"oreb","dreb":"dreb","stl":"stl","blk":"blk"}
+SCRIM_CAP=float(os.environ.get("SCRIM_CAP","0.15"))
+# last season is worth ~10 games of evidence about THIS season's role (new teammates, new coach, a year older)
+SCRIM_PRIOR=float(os.environ.get("SCRIM_PRIOR","10"))
+_snk=lambda s: re.sub(r"[^a-z]","",re.sub(r"\b(jr|sr|ii|iii|iv)\b\.?","",str(s or "").lower()))
+SCRIM={}
+try:
+    for _r in json.load(open(os.path.join(D,"scrimmage_results_2027.json")))["results"].values():
+        for _sd in ("home","away"):
+            _bx=(_r.get("box") or {}).get(_sd) or {}
+            for _q in _bx.get("players") or []:
+                _w=float(_q.get("w") or 0); _m=float(_q.get("min") or 0)
+                if _w<=0 or _m<=0: continue
+                _a=SCRIM.setdefault((_bx.get("team"),_snk(_q.get("name"))),{"w":0.0})
+                _a["w"]+=_w
+                for _k in set(SCRIM_MAP.values()):
+                    if _q.get(_k) is None: continue
+                    _a[_k]=_a.get(_k,0.0)+_w*float(_q[_k]); _a["m_"+_k]=_a.get("m_"+_k,0.0)+_w*_m
+    print(f"scrimmages: {len(SCRIM)} player lines weighted by the Reality Meter",file=sys.stderr)
+except Exception as _e:
+    print(f"warn: no scrimmage weights ({_e})",file=sys.stderr)
+def scrim_blend(full,name,prior_games):
+    """(weight, per-40 getter) for this player's scrimmage evidence, or (0, None)"""
+    a=SCRIM.get((full,_snk(name)))
+    if not a or a["w"]<=0: return 0.0,None
+    w=min(SCRIM_CAP, a["w"]/(a["w"]+min(SCRIM_PRIOR,max(float(prior_games or 0),4.0))))
+    return w,(lambda k: (a[SCRIM_MAP[k]]/a["m_"+SCRIM_MAP[k]]*40.0) if a.get("m_"+SCRIM_MAP.get(k,""),0)>0 else None)
+
 def shoot_proj(kind,e,last,jump,usg_ratio):
     m=SHOOT[kind]; mk,ak={"fg":("fgm","fga"),"tp":("tpm","tpa"),"ft":("ftm","fta")}[kind]
     c=CAREER_SHOT.get(e) or {}; cm=c.get(mk,0.0); ca=c.get(ak,0.0)
@@ -1103,7 +1136,12 @@ for short, roster in roster_by_team.items():
         developing = dm>=1.04
         last_min=_n(r["a"]["min"] if r["a"] is not None else 0) or last_mpg*G_PROJ   # real minutes last year (for the dev-hold + guards)
         # per-40 last-year rates
-        def p40(k): return _n(b[k])*40.0/max(last_mpg,1)
+        _sw,_s40=scrim_blend(full,p.name,_n(b["gp"]) or 25)
+        r["_scrim_w"]=round(_sw,3)
+        def p40(k):
+            v=_n(b[k])*40.0/max(last_mpg,1)
+            sv=_s40(k) if (_sw>0 and k in SCRIM_MAP) else None
+            return v if sv is None else (1-_sw)*v+_sw*sv
         def _line_value(ur):
             """projected per-game line at usage ratio `ur` -> (pg, rpg, pts, ti40, owa, mn, dwa_p)"""
             usg_ratio=ur
@@ -1262,6 +1300,7 @@ for short, roster in roster_by_team.items():
             if r.get("_xfup"): out[str(e)]["xfer_up"]=1     # meaningful step UP in level
             if demo_team_full: out[str(e)]["xfer_from"]=demo_team_full
             if r.get("_xfdisc") is not None: out[str(e)]["_xfdisc"]=round(r["_xfdisc"],3)
+            if r.get("_scrim_w"): out[str(e)]["scrim_w"]=r["_scrim_w"]   # Reality-weighted scrimmage share of his rates
             if r.get("eff") is not None: out[str(e)]["_ts"]=round(r["eff"],3)
             _dt=demo_team_full or ""
             out[str(e)]["_from"]=_dt; out[str(e)]["_to"]=full
@@ -1646,6 +1685,21 @@ for _sh,_fm in FRESH_FIT.items():
         _f["ovr"]=fr_ovr(_pr[0],_n(_f.get("mpg"),0)) if _pr[1]!="editor" else int(round(_pr[0]))
         _f["src"]=_pr[1]
         if _pr[2]: _f["rank"]=_pr[2]
+# newcomers' scoring rate leans on scrimmage evidence harder than a returner's (no D-I sample to
+# outweigh it: SCRIM_PRIOR_NEW games), still capped at SCRIM_CAP. rpg/apg/... follow in
+# build_team_projected_box.py, which rebuilds the full line around this ppg.
+SCRIM_PRIOR_NEW=float(os.environ.get("SCRIM_PRIOR_NEW","5"))
+_nsb=0
+for _sh,_fm in FRESH_FIT.items():
+    _full=S2F.get(_sh.lower()) or _sh
+    for _nm,_f in _fm.items():
+        _sw,_s40=scrim_blend(_full,_nm,SCRIM_PRIOR_NEW)
+        _mp=_n(_f.get("mpg"),0)
+        if _sw<=0 or _mp<=0: continue
+        _sv=_s40("ppg")
+        if _sv is None: continue
+        _f["ppg"]=round(((1-_sw)*_n(_f.get("ppg"),0)/_mp*40.0+_sw*_sv)*_mp/40.0,1); _f["scrim_w"]=round(_sw,3); _nsb+=1
+print(f"scrimmages: blended {_nsb} newcomer lines",file=sys.stderr)
 json.dump(FRESH_FIT,open(os.path.join(D,"fresh_fit.json"),"w"),separators=(",",":"))
 POS5_OUT={k:v["pos5"] for k,v in TEAM_FIT_LOG.items() if isinstance(v,dict) and v.get("pos5")}
 json.dump({"season":"2026-27","scale":{"mu":MU,"sp":SP},"n":len(out),"players":out,"teams":teams_out,"pos5":POS5_OUT},

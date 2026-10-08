@@ -14,7 +14,7 @@
     if (_p) return _p;
     _p = Promise.all([
       fetch('scripts/data/scrimmages_2027.json?v=7').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
-      fetch('scripts/data/scrimmage_results_2027.json?v=4', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+      fetch('scripts/data/scrimmage_results_2027.json?v=5', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
       fetch('scripts/data/team_pace_eff.json?v=7').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
     ]).then(function (a) {
       return { games: (a[0] && a[0].games) || [], results: (a[1] && a[1].results) || {}, eff: a[2] };
@@ -85,7 +85,7 @@
       if (main && main.tBodies[0]) {
         var n = main.tHead.rows[0].cells.length, body = main.tBodies[0];
         var sec = function (txt) { return '<tr class="sec scrim-sec"><td class="l" colspan="' + n + '">' + txt + '</td></tr>'; };
-        body.insertAdjacentHTML('afterbegin', sec('Preseason scrimmages · unofficial · not counted in the record, stats, ratings or projections') + rows +
+        body.insertAdjacentHTML('afterbegin', sec('Preseason scrimmages · unofficial · not in the record or season stats · weighted lightly into projections by the Reality Meter') + rows +
           sec('2026-27 season'));
         if (g.tdcSheetHeat) g.tdcSheetHeat(main);
         return;
@@ -93,7 +93,7 @@
       var wrap = document.createElement('div'); wrap.className = 'scrim-wrap';
       wrap.innerHTML = '<div class="sheet-wrap tsp-wrap" style="max-height:none;margin-bottom:22px;"><table class="sheet dense tsp-table"><thead><tr>' +
         '<th class="l">Date</th><th>Rk</th><th class="l">Opponent</th><th class="c">Score</th><th class="c">Site</th><th class="c">Quad</th><th>Opp PRtg</th><th data-heat="1">Win %</th><th data-heat="-1">Line</th>' +
-        '</tr></thead><tbody><tr class="sec scrim-sec"><td class="l" colspan="9">Preseason scrimmages · unofficial · not counted in the record, stats, ratings or projections</td></tr>' + rows + '</tbody></table></div>';
+        '</tr></thead><tbody><tr class="sec scrim-sec"><td class="l" colspan="9">Preseason scrimmages · unofficial · not in the record or season stats · weighted lightly into projections by the Reality Meter</td></tr>' + rows + '</tbody></table></div>';
       var tiles = host.querySelector('.tsp-sum');
       if (tiles && tiles.parentNode) tiles.parentNode.insertBefore(wrap, tiles.nextSibling); else host.insertBefore(wrap, host.firstChild);
     }).catch(function () {});

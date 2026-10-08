@@ -52,6 +52,15 @@
     .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:22px;}
     .sheet td.l a{color:var(--text);text-decoration:none;} .sheet td.l a:hover{color:var(--accent);}
     tr.tot td{font-weight:800;border-top:2px solid var(--border2);}
+    .rm{display:flex;align-items:center;gap:16px;margin:16px 0 8px;}
+    .rm-n{font-family:'Playfair Display',serif;font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;}
+    .rm-l{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+    .rm-t{font-size:15px;font-weight:800;margin-top:2px;}
+    .rm-bar{flex:1;max-width:340px;height:8px;border-radius:4px;background:var(--bg3);overflow:hidden;}
+    .rm-bar i{display:block;height:100%;border-radius:4px;}
+    .rm-why{font-size:12px;color:var(--text3);line-height:1.6;margin:0 0 8px;}
+    td .mb{display:inline-block;width:46px;height:6px;border-radius:3px;background:var(--bg3);margin-left:7px;vertical-align:1px;overflow:hidden;}
+    td .mb i{display:block;height:100%;background:var(--text3);}
     .empty{padding:30px;text-align:center;color:var(--text3);border:1px dashed var(--border2);border-radius:12px;}
     @media (max-width:640px){ .board{grid-template-columns:1fr;text-align:center;} .side,.side.home{justify-content:center;text-align:center;flex-direction:column;} .score{text-align:center;} h1{font-size:26px;} }
   </style>
@@ -75,7 +84,7 @@
   <script src="tdc-nav.js?v=61"></script>
   <div class="page" id="app"><div class="empty">Loading the box score…</div></div>
 
-<script src="tdc-scrim.js?v=18"></script>
+<script src="tdc-scrim.js?v=19"></script>
 <script>
 (function(){
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co', KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
@@ -107,16 +116,36 @@
         <td class="l dim">${esc((r&&r.position)||'')}</td><td>${v(p.min)}</td><td class="strong">${v(p.pts)}</td>
         <td>${v(p.reb)}</td><td class="dim">${p.oreb!=null&&p.dreb!=null?p.oreb+'-'+p.dreb:'—'}</td><td>${v(p.ast)}</td>
         <td>${v(p.stl)}</td><td>${v(p.blk)}</td><td>${v(p.tov)}</td><td class="dim">${v(p.pf)}</td>
-        <td>${f2(p.fgm,p.fga)}</td><td>${f2(p.tpm,p.tpa)}</td><td>${f2(p.ftm,p.fta)}</td></tr>`; }).join('');
+        <td>${f2(p.fgm,p.fga)}</td><td>${f2(p.tpm,p.tpa)}</td><td>${f2(p.ftm,p.fta)}</td><td class="dim">${p.w!=null?p.w.toFixed(2)+' g':'—'}</td></tr>`; }).join('');
     const T=box.totals;
-    const tot=T?`<tr class="tot"><td class="l">Team</td><td></td><td>${played.reduce((s,p)=>s+(p.min||0),0)||'—'}</td><td>${v(T.pts)}</td><td>${v(T.reb)}</td><td></td><td>${v(T.ast)}</td><td>${v(T.stl)}</td><td>${v(T.blk)}</td><td>${v(T.tov)}</td><td></td><td>${f2(T.fgm,T.fga)}</td><td>${f2(T.tpm,T.tpa)}</td><td>${f2(T.ftm,T.fta)}</td></tr>`:'';
+    const tot=T?`<tr class="tot"><td class="l">Team</td><td></td><td>${played.reduce((s,p)=>s+(p.min||0),0)||'—'}</td><td>${v(T.pts)}</td><td>${v(T.reb)}</td><td></td><td>${v(T.ast)}</td><td>${v(T.stl)}</td><td>${v(T.blk)}</td><td>${v(T.tov)}</td><td></td><td>${f2(T.fgm,T.fga)}</td><td>${f2(T.tpm,T.tpa)}</td><td>${f2(T.ftm,T.fta)}</td><td></td></tr>`:'';
     // who didn't play: everyone on our 2026-27 roster with no minutes in the box (0-minute rows included)
     const dnp=ros.filter(p=>!inBox.has(nk(p.name))).map(p=>p.name).concat(zero.map(p=>p.name));
     const extra=played.filter(p=>ros.length&&!byKey[nk(p.name)]).map(p=>p.name);
     return `<div class="sec">${lg?`<img src="${lg}" alt="">`:''}<h2>${esc(shortOf(full,byFull))}</h2><span class="hint">${played.length} played${ros.length?' · '+dnp.length+' did not play':''}</span></div>
-      <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">Player</th><th class="l">Pos</th><th>MIN</th><th>PTS</th><th>REB</th><th title="Offensive-defensive rebounds">O-D</th><th>AST</th><th>STL</th><th>BLK</th><th>TO</th><th>PF</th><th>FG</th><th>3PT</th><th>FT</th></tr></thead><tbody>${rows}${tot}</tbody></table></div>
+      <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">Player</th><th class="l">Pos</th><th>MIN</th><th>PTS</th><th>REB</th><th title="Offensive-defensive rebounds">O-D</th><th>AST</th><th>STL</th><th>BLK</th><th>TO</th><th>PF</th><th>FG</th><th>3PT</th><th>FT</th><th title="How much this line counts toward his 2026-27 projection, in real games (Reality Meter × his share of a normal night's minutes)">Counts</th></tr></thead><tbody>${rows}${tot}</tbody></table></div>
       <div class="dnp"><b>Did not play:</b> ${ros.length?(dnp.length?dnp.map(esc).join(', '):'<span class="none">everyone on the roster played</span>'):`<span class="none">we don’t have ${esc(shortOf(full,byFull))}’s 2026-27 roster yet, so we can’t list who sat</span>`}</div>
       ${extra.length?`<div class="dnp"><b>Played, not on our roster:</b> ${extra.map(esc).join(', ')}</div>`:''}`;
+  }
+
+  // Reality Meter (scripts/scrim_reality.py): how much each side looked like a real game, from the box
+  const RM_PARTS=[['format','Format','Team minutes vs a full 40-minute game (200)'],['rotation','Rotation','Minutes concentrated like a real rotation (top 5 ≈ 70%, ~10 players) vs spread out to experiment'],
+    ['availability','Availability','Share of our projected rotation that played, and projected starters who started'],['competitive','Competitive','Garbage time: big margins mean bench run-outs'],
+    ['pace','Pace','Possessions per 40 inside the normal 60–80'],['plausible','Line fit','How close the result landed to our line']];
+  const rmCls=v=>v>=80?'c4':v>=65?'c3':v>=50?'c2':v>=35?'c1':'c0';
+  const rmCol=v=>v>=75?'var(--green)':v>=55?'#9bbf3a':v>=35?'#d9a33a':'var(--red)';
+  function meter(R,g,byFull){
+    if(!R||R.score==null) return '';
+    const row=(s,full)=>{ const x=R[s]; if(!x) return ''; const P=x.parts||{};
+      return `<tr><td class="l nm">${esc(shortOf(full,byFull))}</td><td class="${rmCls(x.score)} strong">${x.score}<span class="mb"><i style="width:${x.score}%;background:${rmCol(x.score)}"></i></span></td><td class="l dim">${esc(x.label)}</td>`+
+        RM_PARTS.map(([k])=>P[k]!=null?`<td class="${rmCls(P[k])}">${P[k]}</td>`:'<td class="dim">—</td>').join('')+
+        `<td class="dim">${x.top5!=null?Math.round(x.top5*100)+'%':'—'}</td><td class="dim">${x.n5!=null?x.n5:'—'}</td><td class="l dim" style="white-space:normal">${x.boxless?'final score only':(x.missing&&x.missing.length?x.missing.map(esc).join(', '):'—')}</td></tr>`; };
+    return `<div class="rm"><div><div class="rm-l">Reality Meter</div><div class="rm-n" style="color:${rmCol(R.score)}">${R.score}</div></div>
+        <div style="flex:1"><div class="rm-t">${esc(R.label)}</div><div class="rm-bar"><i style="width:${R.score}%;background:${rmCol(R.score)}"></i></div></div></div>
+      <p class="rm-why">How much this looked like a real game, read from the box score. The higher it is, the more these lines count toward the players' 2026-27 projections.</p>
+      <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">Team</th><th>Reality</th><th class="l">Read</th>`+
+      RM_PARTS.map(([k,l,t])=>`<th title="${esc(t)}">${l}</th>`).join('')+
+      `<th title="Share of minutes played by the top 5">Top-5 min</th><th title="Players with 5+ minutes">5+ min</th><th class="l" title="Projected rotation players (10+ mpg) with no minutes">Projected rotation sat</th></tr></thead><tbody>${row('away',g.away)}${row('home',g.home)}</tbody></table></div>`;
   }
 
   async function main(){
@@ -149,9 +178,10 @@
       <div class="board">${side(g.away,'away')}<div class="score">${has?`<span class="${aWin?'':'l'}">${res.as}</span> – <span class="${aWin?'l':''}">${res.hs}</span>`:'—'}<small>${has?'Final · unofficial':'Not played yet'}</small></div>${side(g.home,'home')}</div>
       ${read?`<p class="read">${read}</p>`:''}
       ${res.note?`<p class="read">${esc(res.note)}</p>`:''}
+      ${meter(res.reality,g,byFull)}
       ${box?teamBlock('away',box.away,g.away,byFull[g.away]&&byFull[g.away].team,ra,byFull)+teamBlock('home',box.home,g.home,byFull[g.home]&&byFull[g.home].team,rh,byFull)
            :`<div class="empty" style="margin-top:20px;">${has?'Only the final score is in for this one; no box score has posted.':'This scrimmage hasn’t been played yet. Its box score lands here once it’s out.'}</div>`}
-      <div class="note">Unofficial preseason scrimmage: not counted in either team's record, season stats, ratings or projections. * = started. "Did not play" lists everyone on our 2026-27 roster with no minutes in the box score.${res.src?` <a href="${esc(res.src)}" target="_blank" rel="noopener">Source box score</a>.`:''}</div>`;
+      <div class="note">Unofficial preseason scrimmage: not counted in either team's record, season stats or ratings. Its box score nudges player projections only as far as the Reality Meter allows (a fully game-like scrimmage counts as one real game, capped at 15% of a player's projected rates). * = started. "Did not play" lists everyone on our 2026-27 roster with no minutes in the box score.${res.src?` <a href="${esc(res.src)}" target="_blank" rel="noopener">Source box score</a>.`:''}</div>`;
   }
   main().catch(e=>{ console.error(e); $app.innerHTML='<div class="empty">Could not load this box score.</div>'; });
 })();

@@ -11,8 +11,8 @@ the linescore + both teams' player tables, and write them into scrimmage_results
 hs/as follow the LISTED home team in scrimmages_2027.json (also on neutral floors). A hand-entered
 result (from a PDF or screenshot the owner sends) is never overwritten unless --force.
 
-Scrimmage stats are DISPLAY-ONLY by owner rule: nothing here writes to games / box_scores /
-player_history, and no model reads this file.
+Scrimmage stats never write to games / box_scores /
+player_history; scrim_reality.py weights them and the projection build blends them in lightly.
 
     python3 scripts/scrim_boxes.py            # fetch what's missing
     python3 scripts/scrim_boxes.py --force    # refetch every played game
@@ -101,10 +101,16 @@ def num(v):
 
 def parse_box(h):
     p = Tables(); p.feed(h)
-    line = next((t for t in p.tables if t and t[0] and t[0][0] == "Team" and "Total" in t[0]), None)
+    # two Sidearm layouts: "Team | 1 | 2 | Total" and "Team | 1 | 2 | Total F | Records" with
+    # "Winner MUR Murray St." / "WSU Wichita St." labels and "##" player sheets ("77 Domon,Roman")
+    line = next((t for t in p.tables if t and t[0] and t[0][0] == "Team" and any(c.startswith("Total") for c in t[0])), None)
     if not line: return None
-    teams = [(r[0], num(r[-1])) for r in line[1:] if len(r) >= 2]
-    sheets = [t for t in p.tables if t and t[0][:2] == ["#", "Player"]]
+    ti = next(i for i, c in enumerate(line[0]) if c.startswith("Total"))
+    def lab(x):
+        x = re.sub(r"^Winner\s+", "", x.strip()); w = x.split()
+        return " ".join(w[1:]) if len(w) > 1 and re.fullmatch(r"[A-Z&]{2,6}", w[0]) and not re.fullmatch(r"[A-Z&]{2,6}", w[1]) else x
+    teams = [(lab(r[0]), num(r[ti])) for r in line[1:] if len(r) > ti]
+    sheets = [t for t in p.tables if t and len(t[0]) > 1 and t[0][0] in ("#", "##") and t[0][1] == "Player"]
     if len(teams) != 2 or len(sheets) != 2: return None
     out = []
     for (name, score), t in zip(teams, sheets):
@@ -112,9 +118,9 @@ def parse_box(h):
         players, totals = [], None
         for r in t[1:]:
             if len(r) < len(hdr): continue
-            if r[0] == "Totals": totals = r; continue
-            if r[0] == "TM": continue
-            nm = r[ix["player"]]
+            if r[0] == "Totals" or r[1] == "Totals": totals = r; continue
+            if r[0] == "TM" or r[1].endswith("TEAM"): continue
+            nm = re.sub(r"^\d+\s+", "", r[ix["player"]])
             if "," in nm: last, first = [x.strip() for x in nm.split(",", 1)]; nm = f"{first} {last}"
             fgm, fga = split(r[ix["fg"]]); tpm, tpa = split(r[ix["3pt"]]); ftm, fta = split(r[ix["ft"]])
             orb, drb = split(r[ix.get("orb-drb", -1)]) if "orb-drb" in ix else (None, None)

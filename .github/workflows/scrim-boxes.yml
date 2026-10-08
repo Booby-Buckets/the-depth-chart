@@ -2,8 +2,9 @@ name: Scrimmage box scores
 
 # Preseason only: pulls box scores for played 2026-27 scrimmages from the schools' athletics sites
 # (scripts/scrim_boxes.py) into scripts/data/scrimmage_results_2027.json, then commits — Vercel
-# redeploys and each team's Schedule tab shows the unofficial box score. Scrimmage stats are
-# display-only; nothing downstream reads this file. Also fills each upcoming scrimmage's TV (scripts/scrim_tv.py). Runs Oct 1 – Nov 10 (the script is a no-op
+# redeploys and each team's Schedule tab shows the unofficial box score. scrim_reality.py then scores
+# every game with the Reality Meter and weights each player line; the next projection rebuild blends
+# those lines lightly into player projections (never the record, season stats or team ratings). Also fills each upcoming scrimmage's TV (scripts/scrim_tv.py). Runs Oct 1 – Nov 10 (the script is a no-op
 # once every played game has a box score). Hand-entered results (manual: true) are never overwritten.
 
 on:
@@ -36,6 +37,7 @@ jobs:
           pip install --quiet requests
           python3 scripts/scrim_boxes.py
           python3 scripts/scrim_tv.py   # TV / stream for upcoming scrimmages, as schools post it
+          python3 scripts/scrim_reality.py   # Reality Meter + per-player weights
 
       - name: Commit if changed
         run: |
