@@ -239,6 +239,23 @@ for full, (line, t, short, fr) in LINES.items():
     row["tp_pct"] = round(100 * agg["tpm"] / agg["tpa"], 1) if agg["tpa"] else 0
     row["ft_pct"] = round(100 * agg["ftm"] / agg["fta"], 1) if agg["fta"] else 0
     out[full] = row
+# Newcomers on a team this build couldn't project (almost no linked returners — St. Thomas, Queens, Idaho
+# State, Campbell, La Tech, MVSU in Oct 2026) still need a FULL line, or their player page falls back to a
+# different engine than their team page (owner: "check the other freshmen"). Fill from their fitted minutes
+# and points at the league's per-minute / per-point shape (a big's rebounding/blocks for listed bigs) — the
+# same rates the team line uses for newcomers everywhere else.
+_filled = 0
+for short, rows in fresh.items():
+    for nm, x in rows.items():
+        if x.get("rpg") is not None or x.get("ppg") is None: continue
+        m = float(x.get("mpg") or 0); pts = float(x.get("ppg") or 0)
+        big = (short, nm.strip().lower()) in BIG_NAME; R = BIGR if big else NBR
+        x["apg"] = round(m * LG["apg"], 1); x["stl"] = round(m * LG["stl"], 1); x["tovs"] = round(m * LG["tov"], 1)
+        x["oreb"] = round(m * R["oreb"], 1); x["dreb"] = round(m * R["dreb"], 1); x["rpg"] = round(m * R["rpg"], 1); x["blk"] = round(m * R["blk"], 1)
+        for k in ("fga", "fgm", "tpa", "tpm", "fta", "ftm"): x[k] = round(pts * LGP[k], 1)
+        x["fg_pct"] = round(100 * LGP["fgm"] / LGP["fga"], 1); x["tp_pct"] = round(100 * LGP["tpm"] / LGP["tpa"], 1); x["ft_pct"] = round(100 * LGP["ftm"] / LGP["fta"], 1)
+        _filled += 1
+if _filled: print(f"  filled full lines for {_filled} newcomers on teams without a team line")
 json.dump(_PROJ_DOC, open(D / "stat_overall_projected.json", "w"), separators=(",", ":"))
 json.dump(fresh, open(D / "fresh_fit.json", "w"), separators=(",", ":"))
 print(f"reconciled player lines to their team line for {len(LINES)} teams (stat_overall_projected.json + fresh_fit.json rewritten)")
