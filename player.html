@@ -2821,8 +2821,11 @@ async function init(){
         // depth-chart slot projects to ~0 min falls back to his last actual season instead of
         // his real projection (e.g. Dallas Thomas showed 2025-26/56 while the team page had 71).
         if(window.TDCProjGrade && TDCProjGrade.ready){ try{ await TDCProjGrade.ready; }catch(e){} }
-        const _spk = (window.TDCProjGrade && TDCProjGrade.projRowOf && player && player.espn_id!=null)
-          ? TDCProjGrade.projRowOf(player.espn_id) : null;
+        // lineOf = THE projected line the team page shows and its totals are summed from: the returner's
+        // stat_overall_projected row, else a newcomer's team-fitted fresh_fit row (Ahneman showed the
+        // editor's 5.1/2.5/0.3 here while his team page had the fitted 3.6/3.2/1.1)
+        const _spk = (window.TDCProjGrade && TDCProjGrade.lineOf && player) ? TDCProjGrade.lineOf(player)
+          : ((window.TDCProjGrade && TDCProjGrade.projRowOf && player && player.espn_id!=null) ? TDCProjGrade.projRowOf(player.espn_id) : null);
         if(_spk && _spk.ppg!=null){
           // projRowOf is authoritative — the SAME source as his OVR/grade and the team page —
           // so build the projection from it even when the live engine produced nothing/zero.
@@ -2863,8 +2866,8 @@ async function init(){
     if(!window._historicalView && (!proj || !(parseFloat(proj.ppg)>0))){
       try{
         if(window.TDCProjGrade && TDCProjGrade.ready){ await TDCProjGrade.ready; }
-        const _pr=(window.TDCProjGrade && TDCProjGrade.projRowOf && player && player.espn_id!=null)
-                  ? TDCProjGrade.projRowOf(player.espn_id) : null;
+        const _pr=(window.TDCProjGrade && TDCProjGrade.lineOf && player) ? TDCProjGrade.lineOf(player)
+                  : ((window.TDCProjGrade && TDCProjGrade.projRowOf && player && player.espn_id!=null) ? TDCProjGrade.projRowOf(player.espn_id) : null);
         if(_pr && _pr.ppg!=null){
           proj=Object.assign({}, _pr, {_reconciled:true, _proj:true});
           if(_pr.ovr!=null){ player._projGrade=Math.round(+_pr.ovr); try{ _setHeroGrade(_projectedGrade()); }catch(e){} }
@@ -4245,7 +4248,10 @@ function _projectWithLine(customLine){
 function _applyFreshProfile(){
   if(!window.TDCFresh || !player || !TDCFresh.isFreshman(player)) return;
   var prof = TDCFresh.profileFor(player);
-  // Use the direct line so this page's stat boxes match the editor preview exactly.
+  // The build's team-fitted line (what the team page shows and sums) wins over the raw editor line, so the
+  // player page and the team page can't disagree; the editor line only stands in before he's been fitted.
+  var _canon = (window.TDCProjGrade && TDCProjGrade.lineOf) ? TDCProjGrade.lineOf(player) : null;
+  if(_canon && _canon.ppg!=null) return;
   if(prof){ proj = Object.assign({}, proj||{}, TDCFresh.line(player, prof)); }
 }
 function _openFreshEditor(){
