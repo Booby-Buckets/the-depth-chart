@@ -69,6 +69,7 @@ def main():
     pace = json.load(open(D / "team_pace_eff.json"))["teams"]
     pbox = json.load(open(D / "team_projected_box.json"))
     dna = json.load(open(D / "team_dna.json"))
+    coach = {c["tm"]: c["n"] for c in json.load(open(ROOT / "data" / "coach-2027.json")) if c.get("tm") and c.get("n")}
     rows = sb("players?select=id,espn_id,name,team,position,position2,height,class_year,yr,starter,depth_order,is_injured&order=id.asc")
     pr = json.load(urllib.request.urlopen(urllib.request.Request(
         API + "predictive_ratings?season=eq.2027&select=data&limit=1", headers={"apikey": KEY, "Authorization": "Bearer " + KEY}), timeout=60))
@@ -197,7 +198,7 @@ def main():
         mates = [net[t] for t, cc in members.items() if cc == c and t != full and t in net]
         pe = pace.get(full) or {}
         teams.append({"name": full, "conf": c, "tempo": pe.get("t"), "projO": pe.get("o"), "projD": pe.get("d"),
-                      "projSrc": pe.get("src"), "projBox": pbox.get(full), "rating": rating.get(full),
+                      "projSrc": pe.get("src"), "coach": coach.get(full), "projBox": pbox.get(full), "rating": rating.get(full),
                       "level": round(S.mean(mates), 2) if mates else 0.0, "minutes": round(mins, 1),
                       "players": [p["id"] for p in sorted(ps, key=lambda p: -p["line"]["mpg"])]})
     # ── overall map: projected OVR ~ pillars + height (player level, minutes-weighted). The dynasty recomputes

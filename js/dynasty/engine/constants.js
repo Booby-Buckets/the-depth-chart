@@ -8,7 +8,7 @@ export const C = {
   POSS_SCALE: 0.975,    // team tempos are box-score ESTIMATES (FGA-ORB+TOV+.475FTA), which run ~2.5% above real trips
 
   // who uses the possession: weight = use40 ^ USE_POW among the five on the floor
-  USE_POW: 1.6,
+  USE_POW: 1.2,
 
   // turnovers
   TOV_MULT: 0.93,        // x player's turnovers per possession used

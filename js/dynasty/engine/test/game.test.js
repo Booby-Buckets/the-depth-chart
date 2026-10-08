@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { C } from '../constants.js?v=3';
-import { indexSnapshot } from '../snapshot.js?v=3';
-import { simulateGame, totals } from '../game.js?v=3';
+import { C } from '../constants.js?v=8';
+import { indexSnapshot } from '../snapshot.js?v=8';
+import { simulateGame, totals } from '../game.js?v=8';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const snap = JSON.parse(fs.readFileSync(path.resolve(HERE, '../../../../data/dynasty-snapshot.json')));

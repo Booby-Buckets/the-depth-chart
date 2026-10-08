@@ -17,7 +17,7 @@ export function attributes(player, snap) {
     return v;
   };
   return {
-    use40: clamp(val('use40'), 3, 40),       // possessions used per 40
+    use40: clamp(val('use40'), 3, 26),       // possessions used per 40 (26 ~ a 37% usage rate, the real ceiling)
     r3: clamp(val('r3'), 0, 0.85),           // 3PA / FGA
     p3: clamp(val('p3'), 0.15, 0.48),
     p2: clamp(val('p2'), 0.30, 0.72),
@@ -78,7 +78,9 @@ export function leagueRefs(snap, byId) {
 // Players may carry `lvl` (the competition level their pillars were measured against — it travels with a
 // transfer); otherwise the team's own `level` is used.
 export function prepareTeam(team, byId, snap, C, opts = {}) {
-  let roster = team.players.map(id => byId[id]).filter(p => p && !p.injured && (p.line ? p.line.mpg > 0 : true));
+  const all = team.players.map(id => byId[id]).filter(p => p && !p.injured && (p.line ? p.line.mpg > 0 : true));
+  let roster = all.filter(p => !(p.out > 0));                       // dynasty injuries: out players sit
+  if (roster.length < 7) roster = roster.concat(all.filter(p => p.out > 0).sort((a, b) => a.out - b.out).slice(0, 7 - roster.length));
   const want = opts.minutes || {};
   const base = p => (want[p.id] != null ? +want[p.id] : (p.line ? p.line.mpg : (p.mpg || 0)));
   const tot = roster.reduce((s, p) => s + Math.max(0, base(p)), 0) || 1;

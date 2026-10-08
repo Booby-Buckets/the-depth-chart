@@ -5,11 +5,13 @@
 //
 // Calibrated to the snapshot: freshmen enter at a median OVR ~59 (top 1% ~77); players gain ~+5 Fr->So,
 // ~+3 So->Jr, ~+1.5 after; teams lose ~3.4 upperclassmen a year; rosters carry 13 scholarships.
-import { overall, attributes } from './ratings.js?v=3';
-import { makeRng, hashSeed } from './rng.js?v=3';
-import { record_, power, touch } from './season.js?v=3';
-import { ncaaResult } from './postseason.js?v=3';
-import { effOvr } from './league.js?v=3';
+import { overall, attributes } from './ratings.js?v=8';
+import { makeRng, hashSeed } from './rng.js?v=8';
+import { record_, power, touch } from './season.js?v=8';
+import { ncaaResult } from './postseason.js?v=8';
+import { effOvr } from './league.js?v=8';
+import { evaluateCoaches } from './coaching.js?v=8';
+import { healAll } from './injuries.js?v=8';
 
 export const SCHOLARSHIPS = 13;
 const PIL = ['SCO', 'SHT', 'FIN', 'PLY', 'SEC', 'REB', 'DEF'];
@@ -41,11 +43,20 @@ function shiftTo(state, p, target, rng, spread = 0.6) {
 
 // ── 1. recap: history row, prestige ──
 export function beginOffseason(state) {
+  // archive every player's season line (career history on the player card)
+  for (const [id, s] of Object.entries(state.stats)) {
+    const p = state.players[id]; if (!p || !s.g) continue;
+    (p.hist = p.hist || []).push({ y: state.year, team: s.team || p.team, g: s.g, mpg: +(s.min / s.g).toFixed(1), ppg: +(s.pts / s.g).toFixed(1),
+      rpg: +((s.orb + s.drb) / s.g).toFixed(1), apg: +(s.ast / s.g).toFixed(1), ovr: Math.round(effOvr(p, state)) });
+    if (p.hist.length > 6) p.hist.shift();
+  }
+  if (state.job) evaluateCoaches(state);
   const pw = power(state), order = Object.keys(pw).sort((a, b) => pw[b] - pw[a]);
   const N = state.post && state.post.ncaa;
   const rec = state.user ? record_(state, state.user) : null;
   state.history.push({
-    year: state.year, champ: N && N.champ, top: order.slice(0, 5),
+    year: state.year, champ: N && N.champ, top: order.slice(0, 5), awards: state.awards || null,
+    coach: state.teams[state.user] && state.teams[state.user].coach ? state.teams[state.user].coach.name : null,
     user: state.user && Object.assign({ team: state.user, rank: order.indexOf(state.user) + 1, post: ncaaResult(state, state.user) || 'No NCAA bid' }, rec),
   });
   // prestige: 65% memory, 35% this season (power percentile + a tournament bump)
@@ -63,6 +74,10 @@ export function beginOffseason(state) {
 // who leaves: graduates (all 5th years, ~75% of 4th years), early pro entrants (elite players), portal entrants
 function markDepartures(state) {
   const rng = rngFor(state, 'departures'), L = state.off.leaving;
+  // early-entry bars by league percentile (top ~1% / 2.5% / 4% of rated players), so the scale can't inflate them
+  const E = Object.values(state.players).filter(p => p.team && (p.mpg || 0) >= 10).map(p => eff(state, p)).sort((a, b) => b - a);
+  const at = q => E[Math.min(E.length - 1, Math.floor(q * E.length))] ?? 99;
+  const P1 = at(0.01), P2 = at(0.025), P3 = at(0.04);
   const roles = {};   // expected next-season minutes rank within each team (by OVR)
   for (const t of Object.values(state.teams)) {
     t.players.map(id => state.players[id]).filter(Boolean).sort((a, b) => eff(state, b) - eff(state, a)).forEach((p, i) => { roles[p.id] = i; });
@@ -72,7 +87,7 @@ function markDepartures(state) {
     const o = eff(state, p);
     if (p.yr >= 5 || (p.yr === 4 && rng.chance(0.75))) { L[p.id] = 'graduated'; continue; }
     // early entry: the best players go pro (a top-1% sophomore+ almost always, a top freshman sometimes)
-    const pro = o >= 84 ? 0.75 : o >= 81 ? 0.4 : o >= 79 ? 0.15 : 0;
+    const pro = o >= P1 ? 0.75 : o >= P2 ? 0.4 : o >= P3 ? 0.15 : 0;
     if (pro && rng.chance(p.yr === 1 ? pro * 0.7 : pro)) { L[p.id] = 'pro'; continue; }
     // portal: buried players with game transfer most; everyone has a small base rate
     const buried = roles[p.id] >= 8 && o >= 62, starved = roles[p.id] >= 6 && o >= 70;
@@ -170,7 +185,7 @@ export function resolveRecruiting(state) {
   const pool = state.off.recruits.slice();
   const take = (r, team) => {
     const p = { id: r.id, name: r.name, team, pos: r.pos, ht: r.ht, yr: 1, pillars: r.pillars, pot: r.pot, stars: r.stars,
-      lvl: state.lvl0 || 0, mpg: 0, injured: false, fresh: true };
+      lvl: state.lvlRef || 0, mpg: 0, injured: false, fresh: true };
     state.players[p.id] = p; state.teams[team].players.push(p.id);
     pool.splice(pool.indexOf(r), 1);
   };
@@ -212,6 +227,7 @@ export function startNextSeason(state) {
     p.yr = Math.min(5, p.yr + 1);
     if (p.team === state.user) state.off.progress[p.id] = Math.round(ovr(state, p) - before);
   }
+  healAll(state);
   for (const p of Object.values(state.players)) p.attr = attributes(p, state.maps);
   for (const t of Object.values(state.teams)) {
     defaultMinutes(state, t); t.minutes = null; t.starters = null;
@@ -220,7 +236,7 @@ export function startNextSeason(state) {
   }
   state.year += 1;
   state.schedule = makeSchedule(state);
-  state.stats = {}; state.userBox = {}; state.post = null;
+  state.stats = {}; state.userBox = {}; state.post = null; state.awards = null;
   state.phase = 'regular';
   state.lastOff = { progress: state.off.progress, signed: state.off.signed, portalResults: state.off.portalResults };
   state.off = null;

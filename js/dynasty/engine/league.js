@@ -7,8 +7,9 @@
 //   players: { id: { id, name, team, pos, pos2, ht, yr, pillars, lvl, mpg, pot } },
 //   schedule:[ { id, d, h, a, n, c, r } ],             r = [homePts, awayPts, ot, poss] once played
 //   stats:   { id: season totals },  powerFit, history:[], userBox:{ gameId: box } }
-import { attributes, overall } from './ratings.js?v=3';
-import { makeRng } from './rng.js?v=3';
+import { attributes, overall } from './ratings.js?v=8';
+import { makeRng } from './rng.js?v=8';
+import { initCoaches } from './coaching.js?v=8';
 
 export const YR = { 'FR': 1, 'FR.': 1, 'RS FR.': 1, 'SO': 2, 'SO.': 2, 'RS SO.': 2, 'JR': 3, 'JR.': 3, 'RS JR.': 3, 'SR': 4, 'SR.': 4, 'RS SR.': 4, 'GR': 5, 'GR.': 5, '5TH': 5 };
 export const YR_LABEL = ['', 'Fr', 'So', 'Jr', 'Sr', 'Gr'];
@@ -39,13 +40,18 @@ export function rosterOvr(team, players, maps) {
   return ps.reduce((s, p) => s + overall(p, maps) * (p.mpg || 0), 0) / m;
 }
 
-// Effective OVR: overall(pillars) adjusted for the competition the pillars were measured against. The engine
-// values 10 points of competition level like ~9 points of team OVR (LEVEL_OFF_K + LEVEL_DEF_K vs TALENT_K), so a
-// low-major "84" plays like a ~75 in a power league. lvl0 = the league's minutes-weighted mean level, so the
-// average stays put. Generated recruits carry lvl0 (their ratings are absolute).
-export const LVL_OVR = 0.9;
+// Effective OVR: overall(pillars) adjusted for the competition the pillars were measured against, on a
+// power-conference scale — lvlRef is the 75th-percentile league level, so a power-conference player reads about
+// his raw rating, a mid-major ~6 lower and a low-major ~12 lower (a Radford "84" reads ~73). 0.6 OVR per level
+// point (gentler than the engine's raw level effect, which also carries schedule strength). Generated recruits
+// carry lvlRef: their ratings are on this scale already.
+export const LVL_OVR = 0.6;
 export function effOvr(p, state) {
-  return overall(p, state.maps) + LVL_OVR * ((p.lvl ?? state.lvl0 ?? 0) - (state.lvl0 || 0));
+  return overall(p, state.maps) + LVL_OVR * ((p.lvl ?? state.lvlRef ?? 0) - (state.lvlRef || 0));
+}
+export function levelRef(teams) {
+  const L = Object.values(teams).map(t => t.level || 0).sort((a, b) => a - b);
+  return Math.round(L[Math.floor(0.75 * (L.length - 1))] * 100) / 100;
 }
 
 export function powerFeatures(team, players, maps) {
@@ -93,8 +99,11 @@ export function createLeague(snap, sched, opts = {}) {
   let lw = 0, lm = 0; for (const p of Object.values(players)) { lw += (p.lvl || 0) * (p.mpg || 0); lm += p.mpg || 0; }
   const lvl0 = Math.round(lw / (lm || 1) * 100) / 100;
   const user = opts.user && teams[opts.user] ? opts.user : null;
-  return { v: 1, seed, year: opts.year || 2027, user, phase: 'regular', maps, powerFit, teams, players, schedule, templates, lvl0,
-    stats: {}, results: {}, history: [], userBox: {}, created: opts.now || null };
+  const lvlRef = levelRef(teams);
+  const state = { v: 2, lvlRef, seed, year: opts.year || 2027, user, phase: 'regular', maps, powerFit, teams, players, schedule, templates, lvl0,
+    stats: {}, results: {}, history: [], userBox: {}, news: [], awards: null, created: opts.now || null };
+  initCoaches(state, snap, opts.coachName);
+  return state;
 }
 
 // attributes need the maps the snapshot carried — rebuilt on load, never saved
@@ -103,6 +112,9 @@ export function hydrate(state) {
     let lw = 0, lm = 0; for (const p of Object.values(state.players)) { lw += (p.lvl || 0) * (p.mpg || 0); lm += p.mpg || 0; }
     state.lvl0 = Math.round(lw / (lm || 1) * 100) / 100;
   }
+  if (state.lvlRef == null) state.lvlRef = levelRef(state.teams);
+  if (!state.job) initCoaches(state, null, null);   // saves from before coaching
+  if (!state.news) state.news = [];
   for (const p of Object.values(state.players)) p.attr = attributes(p, state.maps);
   return state;
 }
