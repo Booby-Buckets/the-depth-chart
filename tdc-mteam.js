@@ -103,6 +103,19 @@
     /* schedule fits the phone: the section label rows (a long "Preseason scrimmages · unofficial · not counted…"
        line) were nowrap and stretched the whole table to ~660px; let them wrap, and cap long opponent names */
     'body.mt .tsp-table tr.sec td{white-space:normal!important;line-height:1.35}',
+    /* depth chart fits the phone: slot · OVR · player · min · ppg · rpg · apg (yr/pos/ht/fg%/3p% stay on desktop);
+       frozen columns released, names wrap. Shot distribution: # · player · share · tendency. */
+    'body.mt .dc-sheet{width:100%!important;min-width:0!important}',
+    'body.mt .dc-sheet th,body.mt .dc-sheet td{padding-left:4px!important;padding-right:4px!important;font-size:12px!important}',
+    'body.mt .dc-sheet th{font-size:10px!important;letter-spacing:.02em}',
+    'body.mt .dc-sheet th:nth-child(4),body.mt .dc-sheet td:nth-child(4),body.mt .dc-sheet th:nth-child(5),body.mt .dc-sheet td:nth-child(5),body.mt .dc-sheet th:nth-child(6),body.mt .dc-sheet td:nth-child(6),body.mt .dc-sheet th:nth-child(n+11),body.mt .dc-sheet td:nth-child(n+11){display:none!important}',
+    'body.mt .dc-sheet th:nth-child(-n+3),body.mt .dc-sheet td:nth-child(-n+3){position:static!important;left:auto!important;min-width:0!important;width:auto!important}',
+    'body.mt .dc-sheet td:nth-child(3){white-space:normal!important;line-height:1.2}',
+    'body.mt .dc-sheet td[colspan]{white-space:normal!important}',
+    'body.mt #shotDistCard .sheet{width:100%!important;min-width:0!important}',
+    'body.mt #shotDistCard .sheet th,body.mt #shotDistCard .sheet td{padding-left:4px!important;padding-right:4px!important;font-size:12px!important}',
+    'body.mt #shotDistCard .sheet th:nth-child(3),body.mt #shotDistCard .sheet td:nth-child(3),body.mt #shotDistCard .sheet th:nth-child(4),body.mt #shotDistCard .sheet td:nth-child(4),body.mt #shotDistCard .sheet th:nth-child(7),body.mt #shotDistCard .sheet td:nth-child(7){display:none!important}',
+    'body.mt #shotDistCard .sheet td.nm{white-space:normal!important}',
     'body.mt .tsp-table{width:100%!important}',
     'body.mt .tsp-table td:has(.tsp-lg){max-width:108px;white-space:normal!important;line-height:1.2}',
     'body.mt .tsp-table td:has(.tsp-lg) .tsp-lg{vertical-align:middle}',
