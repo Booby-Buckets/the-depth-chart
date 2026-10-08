@@ -59,6 +59,7 @@
       ['fan.html',             '📰 Fan Sites'],
       ['league.html',          '🏀 Fantasy'],
       ['games.html',           '🎮 Games'],
+      ['dynasty.html',         '🏆 Dynasty (beta)'],
       ['customize.html',       '✦ Customize'],
       ['pricing.html',         'Pricing'],
       ['just-added.html',      'Just Added'],

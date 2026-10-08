@@ -47,6 +47,14 @@ export const C = {
   LEAD_K: 0.2,
   LEAD_FREE: 10,        // only the part of a lead beyond this many points counts
 
+  // game plan (dynasty sliders, each -2..+2; 0 = neutral, so calibration is unaffected)
+  PLAN_TEMPO: 0.035,    // x tempo per step
+  PLAN_THREE_R3: 0.12,  // x 3PA rate per step
+  PLAN_THREE_Q: 0.02,   // - logit on makes per step away from the natural mix
+  PLAN_PRESS_TOV: 0.10, // + logit on the opponent's turnovers per step of pressure
+  PLAN_PRESS_FTR: 0.08, // x the opponent's free-throw rate per step
+  PLAN_PRESS_MAKE: 0.025, // + logit on the opponent's makes per step (gambling gives up looks)
+
   // fouls with no free throws (reach-ins, offensive fouls are inside TOV)
   NS_FOUL: 0.07,
   FOUL_OUT: 5,

@@ -49,7 +49,8 @@ export function runPossession(o, d, env) {
     const a = five[rng.pick(w)], aa = a.attr, row = o.box(a);
 
     // turnover
-    const pTo = adj(aa.tovp * C.TOV_MULT, C.DEF_TOV_K * D.def - 0.5 * lv);
+    const press = d.team.press || 0;
+    const pTo = adj(aa.tovp * C.TOV_MULT, C.DEF_TOV_K * D.def - 0.5 * lv + C.PLAN_PRESS_TOV * press);
     if (rng.chance(pTo)) {
       row.tov++;
       const stlP = Math.min(0.9, C.STL_SHARE * D.stl / (5 * L.stl40));
@@ -59,9 +60,10 @@ export function runPossession(o, d, env) {
     }
 
     // shooting foul (FT trip with no FGA) vs field-goal attempt.  FTA/FGA = (2q + and1*fg)/(1-q)
-    const three = rng.chance(Math.min(0.9, aa.r3 * C.R3_MULT));
-    const pMake = adj(three ? aa.p3 * C.P3_MULT : aa.p2 * C.P2_MULT, hca + lv - C.DEF_PTS_K * (D.def100 + d.team.sysDef));
-    const ftr = aa.ftr * C.FTR_MULT, c1 = C.AND1 * pMake;
+    const three = rng.chance(Math.min(0.9, aa.r3 * C.R3_MULT * (o.team.r3m || 1)));
+    const pMake = adj(three ? aa.p3 * C.P3_MULT : aa.p2 * C.P2_MULT,
+      hca + lv - C.DEF_PTS_K * (D.def100 + d.team.sysDef) + (o.team.shotQ || 0) + C.PLAN_PRESS_MAKE * press);
+    const ftr = aa.ftr * C.FTR_MULT * (1 + C.PLAN_PRESS_FTR * press), c1 = C.AND1 * pMake;
     const q = Math.max(0, (ftr - c1) / (2 + ftr - c1));
     let missed = false, ftMissLast = false;
 

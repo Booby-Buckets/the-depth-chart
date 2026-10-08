@@ -11,6 +11,11 @@ const ROW = () => ({ sec: 0, pts: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta
 // at least one G, at least one B (when the roster has one), at most three B and three G.
 function chooseFive(side, tNext, C) {
   const avail = side.team.roster.filter(p => side.rows[p.id].pf < C.FOUL_OUT);
+  // the coach's starters open each half (if all five can play)
+  if (side.team.starters && (tNext - C.SUB_EVERY === 0 || tNext - C.SUB_EVERY === 1200)) {
+    const st = side.team.starters.map(id => avail.find(p => p.id === id)).filter(Boolean);
+    if (st.length === 5) return st;
+  }
   const pool = avail.length >= 5 ? avail : side.team.roster;          // foul-out disaster: play anyone
   const owed = p => p.target * 60 * tNext / 2400 - side.rows[p.id].sec;
   const sorted = pool.slice().sort((a, b) => owed(b) - owed(a) || b.target - a.target);

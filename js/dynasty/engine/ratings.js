@@ -71,19 +71,37 @@ export function leagueRefs(snap, byId) {
 }
 
 // A team ready to simulate: roster with attributes + minute targets summing to 200.
-export function prepareTeam(team, byId, snap, C) {
-  let roster = team.players.map(id => byId[id]).filter(p => p && !p.injured && p.line.mpg > 0);
-  const tot = roster.reduce((s, p) => s + p.line.mpg, 0) || 1;
+// opts (all optional — a dynasty passes them, calibration doesn't):
+//   minutes: {id: mpg}     the coach's minutes (players left out keep their projected share of what's left)
+//   starters: [5 ids]      who starts each half
+//   plan: {tempo, three, pressure}   game-plan sliders, each -2..+2 (0 = the team's natural game)
+// Players may carry `lvl` (the competition level their pillars were measured against — it travels with a
+// transfer); otherwise the team's own `level` is used.
+export function prepareTeam(team, byId, snap, C, opts = {}) {
+  let roster = team.players.map(id => byId[id]).filter(p => p && !p.injured && (p.line ? p.line.mpg > 0 : true));
+  const want = opts.minutes || {};
+  const base = p => (want[p.id] != null ? +want[p.id] : (p.line ? p.line.mpg : (p.mpg || 0)));
+  const tot = roster.reduce((s, p) => s + Math.max(0, base(p)), 0) || 1;
   roster = roster.map(p => ({
     id: p.id, name: p.name, pos: p.pos, group: group(p), pillars: p.pillars,
-    target: p.line.mpg * 200 / tot,           // minutes per 40
+    target: Math.max(0, base(p)) * 200 / tot,  // minutes per 40
     attr: p.attr || attributes(p, snap),
-  })).sort((a, b) => b.target - a.target);
+    lvl: p.lvl,
+  })).filter(p => p.target > 0 || roster.length <= 8).sort((a, b) => b.target - a.target);
+  const hasLvl = roster.some(p => p.lvl != null);
+  const lvl = hasLvl ? roster.reduce((s, p) => s + (p.lvl ?? team.level ?? 0) * p.target, 0) / 200 : (team.level || 0);
+  const plan = opts.plan || {};
+  const pl = k => Math.max(-2, Math.min(2, +plan[k] || 0));
   return {
-    name: team.name, conf: team.conf, tempo: team.tempo || C.LG_PACE, roster,
+    name: team.name, conf: team.conf, roster,
+    tempo: (team.tempo || C.LG_PACE) * (1 + C.PLAN_TEMPO * pl('tempo')),
     sysDef: C.SYS_DEF_W * (team.sysDef || 0),   // scheme / coaching defense, DRtg points per 100 (+ = better)
-    offLevel: C.LEVEL_OFF_K * (team.level || 0) / 10,
-    defLevel: C.LEVEL_DEF_K * (team.level || 0) / 10,
+    offLevel: C.LEVEL_OFF_K * lvl / 10,
+    defLevel: C.LEVEL_DEF_K * lvl / 10,
+    starters: Array.isArray(opts.starters) && opts.starters.length === 5 ? opts.starters.slice() : null,
+    r3m: 1 + C.PLAN_THREE_R3 * pl('three'),      // more / fewer threes...
+    shotQ: -C.PLAN_THREE_Q * Math.abs(pl('three')),   // ...forcing the mix either way costs a little shot quality
+    press: pl('pressure'),                          // turnovers forced vs fouls + easy looks given up
   };
 }
 
