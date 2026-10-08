@@ -136,11 +136,12 @@
   const FIT_CSS = '.tdc-m table.tdc-fit{width:100%!important;min-width:0!important}' +
     '.tdc-m table.tdc-fit th,.tdc-m table.tdc-fit td{padding-left:5px!important;padding-right:5px!important;position:static!important;left:auto!important;min-width:0!important;max-width:none!important}' +
     '.tdc-m table.tdc-fit td:nth-child(-n+3),.tdc-m table.tdc-fit th:nth-child(-n+3){width:auto!important}' +
-    '.tdc-m table.tdc-fit td.l,.tdc-m table.tdc-fit td.nm,.tdc-m table.tdc-fit th.l,.tdc-m table.tdc-fit td:nth-child(-n+3),.tdc-m table.tdc-fit td a{white-space:normal!important}' +
+    '.tdc-m table.tdc-fit td.l,.tdc-m table.tdc-fit td.nm,.tdc-m table.tdc-fit th.l,.tdc-m table.tdc-fit td:nth-child(n+2):nth-child(-n+3),.tdc-m table.tdc-fit td a{white-space:normal!important}' +
+    '.tdc-m table.tdc-fit td:first-child{white-space:nowrap!important}' +
     '.tdc-m table.tdc-fit td:nth-child(-n+3) a{display:inline}' +
     // inner name spans carry their own nowrap (".tm{white-space:nowrap}"), which beat the cell's wrap and let
     // the longest school name set a 280px column: wrap everything inside the leading columns
-    '.tdc-m table.tdc-fit td:nth-child(-n+3) *{white-space:normal!important;min-width:0!important}' +
+    '.tdc-m table.tdc-fit td:nth-child(n+2):nth-child(-n+3) *{white-space:normal!important;min-width:0!important}' +
     '.tdc-m table.tdc-fit .tdc-fx{display:none!important}' +
     '.tdc-fitbar{display:flex;justify-content:flex-end;margin:6px 0}' +
     '.tdc-fitbar button{font:600 12px Inter,system-ui,sans-serif;border:1px solid var(--border2,#c6c0b2);background:var(--bg2,#f1efea);color:var(--text2,#4a463c);border-radius:999px;padding:5px 11px;cursor:pointer}';
@@ -178,6 +179,8 @@
       // columns (team, conf, pos…) before stats, then stats from the right
       const isText = c => c.classList.contains('l') || c.classList.contains('nm');
       let nameIdx = [...head.cells].findIndex((c, i) => i > 0 && isText(c)); if (nameIdx < 0) nameIdx = 1;
+      // a season / date table is identified by its first column — Team there is context, hide it before stats
+      if (/^(season|year|yr|date|game|wk|week)\b/i.test(head.cells[0].textContent.trim())) nameIdx = -1;
       const keep = i => i === 0 || i === nameIdx || head.cells[i].hasAttribute('data-fit-keep');
       const order = [];
       for (let i = nameIdx + 1; i < n; i++) if (isText(head.cells[i]) && !keep(i)) order.push(i);

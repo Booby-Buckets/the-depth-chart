@@ -34,9 +34,12 @@ async function auditPage(p) {
   await send('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 2, mobile: true }, s);
   await send('Emulation.setUserAgentOverride', { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' }, s);
   await send('Page.enable', {}, s);
+  // AUDIT_UNLOCK=1: local test harness only — wrap the paywall so every tab renders (no sign-in, no network)
+  if (process.env.AUDIT_UNLOCK) await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => { let G; Object.defineProperty(window, 'TDCGate', { configurable: true,
+    get() { return G; }, set(v) { G = Object.assign({}, v, { has: () => true, plan: () => 'coach', resolved: () => true, ready: Promise.resolve('coach'), lock: () => {}, lockEl: () => {} }); } }); })();` }, s);
   await send('Page.navigate', { url: BASE + '/' + p + '.html' + (Q[p] || '') }, s);
   await sleep(+(process.env.WAIT || 7000));
-  const r = await send('Runtime.evaluate', { expression: process.env.EXPR ? fs.readFileSync(process.env.EXPR, 'utf8') : AUDIT, returnByValue: true }, s);
+  const r = await send('Runtime.evaluate', { expression: process.env.EXPR ? fs.readFileSync(process.env.EXPR, 'utf8') : AUDIT, returnByValue: true, awaitPromise: true }, s);
   await send('Target.closeTarget', { targetId: tid });
   try { if (process.env.EXPR) return { raw: r.result.result.value }; return JSON.parse(r.result.result.value); } catch (e) { return { err: JSON.stringify(r.result).slice(0, 200) }; }
 }
