@@ -1,16 +1,16 @@
 // Dynasty — the page. Engine (pure) + browser saves + rendering. One league in memory (S); every action
 // mutates it through the engine, re-renders, and autosaves.
-import { C } from '../engine/constants.js?v=8';
-import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=8';
-import { overall } from '../engine/ratings.js?v=8';
-import { prepared, playGame, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=8';
-import { simNext, simTo, afterDay } from '../engine/flow.js?v=8';
-import { REGION_NAMES, ncaaResult } from '../engine/postseason.js?v=8';
-import { takeJob } from '../engine/coaching.js?v=8';
-import { TYPES as INJ } from '../engine/injuries.js?v=8';
-import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS } from '../engine/offseason.js?v=8';
-import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=8';
-import { lines as pbpLines } from './pbp.js?v=8';
+import { C } from '../engine/constants.js?v=10';
+import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=10';
+import { overall } from '../engine/ratings.js?v=10';
+import { prepared, playGame, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=10';
+import { simNext, simTo, afterDay } from '../engine/flow.js?v=10';
+import { REGION_NAMES, ncaaResult } from '../engine/postseason.js?v=10';
+import { takeJob } from '../engine/coaching.js?v=10';
+import { TYPES as INJ } from '../engine/injuries.js?v=10';
+import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS } from '../engine/offseason.js?v=10';
+import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=10';
+import { lines as pbpLines } from './pbp.js?v=10';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -179,7 +179,7 @@ function home() {
 
 function gamesTable(games, mine) {
   if (!games.length) return '<div class="dy-empty">No games yet.</div>';
-  return `<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Date</th><th class="l">Opponent</th><th>Result</th><th class="l"></th></tr></thead><tbody>
+  return `<div class="sheet-wrap"><table class="sheet dense dy-g"><thead><tr><th class="l">Date</th><th class="l">Opponent</th><th>Result</th><th class="l"></th></tr></thead><tbody>
   ${games.map(g => {
     const home = g.h === S.user, opp = home ? g.a : g.h;
     let res = '';
@@ -233,7 +233,7 @@ function watch() {
 }
 
 function boxHtml(g, rec) {
-  const side = (rows, team) => `<div class="sec"><h2>${tm(team)}</h2></div><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th><th>MIN</th><th>PTS</th><th>FG</th><th>3PT</th><th>FT</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>TO</th><th>PF</th></tr></thead><tbody>
+  const side = (rows, team) => `<div class="sec"><h2>${tm(team)}</h2></div><div class="sheet-wrap"><table class="sheet dense dy-box"><thead><tr><th class="l">Player</th><th>MIN</th><th>PTS</th><th>FG</th><th>3PT</th><th>FT</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>TO</th><th>PF</th></tr></thead><tbody>
     ${rows.slice().sort((a, b) => b.min - a.min).map(r => `<tr><td class="l">${esc(r.name)}</td><td>${Math.round(r.min)}</td><td><b>${r.pts}</b></td><td>${r.fgm}-${r.fga}</td><td>${r.tpm}-${r.tpa}</td><td>${r.ftm}-${r.fta}</td><td>${r.orb + r.drb}</td><td>${r.ast}</td><td>${r.stl}</td><td>${r.blk}</td><td>${r.tov}</td><td>${r.pf}</td></tr>`).join('')}</tbody></table></div>`;
   return `<div class="dy-box"><div class="dy-final">${tm(g.a)} <b>${rec.score[1]}</b> — <b>${rec.score[0]}</b> ${tm(g.h)}${rec.ot ? ` <span class="dim">${rec.ot > 1 ? rec.ot : ''}OT</span>` : ''}</div>${side(rec.box.away, g.a)}${side(rec.box.home, g.h)}</div>`;
 }
@@ -250,7 +250,7 @@ function schedule() {
   const mine = S.schedule.filter(g => g.h === S.user || g.a === S.user);
   const pw = power(S);
   $('#dyBody').innerHTML = `<div class="sec"><h2>Schedule</h2><span class="n">${mine.length} games · click a played game for its box score</span></div>
-  <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Date</th><th class="l">Opponent</th><th>Opp power</th><th>Line</th><th>Result</th><th class="l"></th></tr></thead><tbody>
+  <div class="sheet-wrap"><table class="sheet dense dy-s"><thead><tr><th class="l">Date</th><th class="l">Opponent</th><th>Opp power</th><th>Line</th><th>Result</th><th class="l"></th></tr></thead><tbody>
   ${mine.map(g => {
     const home = g.h === S.user, opp = home ? g.a : g.h, sp = lineFor(S, g, pw) * (home ? 1 : -1);
     let res = '';
@@ -316,7 +316,7 @@ function standingsView() {
 function rankings() {
   const pw = power(S), all = Object.keys(pw).sort((a, b) => pw[b] - pw[a]);
   $('#dyBody').innerHTML = `<div class="sec"><h2>Power rankings</h2><span class="n">Opponent-adjusted scoring margin, blended with the preseason roster rating early in the year</span></div>
-  <div class="sheet-wrap"><table class="sheet dense heat"><thead><tr><th>#</th><th class="l">Team</th><th class="l">Conf</th><th>Rec</th><th data-heat="1">Power</th></tr></thead><tbody>
+  <div class="sheet-wrap"><table class="sheet dense heat dy-rk"><thead><tr><th>#</th><th class="l">Team</th><th class="l">Conf</th><th>Rec</th><th data-heat="1">Power</th></tr></thead><tbody>
   ${all.map((t, i) => { const r = record_(S, t); return `<tr class="${t === S.user ? 'me' : ''}"><td>${i + 1}</td><td class="l">${tm(t)}</td><td class="l dim">${esc(S.teams[t].conf)}</td><td>${r.w}-${r.l}</td><td>${pw[t].toFixed(1)}</td></tr>`; }).join('')}
   </tbody></table></div>`;
 }
@@ -326,7 +326,7 @@ function leaders() {
   const cats = [['pts', 'Points'], ['reb', 'Rebounds'], ['ast', 'Assists'], ['stl', 'Steals'], ['blk', 'Blocks']];
   const val = (x, k) => (k === 'reb' ? x.s.orb + x.s.drb : x.s[k]) / x.s.g;
   $('#dyBody').innerHTML = `<div class="sec"><h2>League leaders</h2><span class="n">Per game, players in 60%+ of games</span></div><div class="dy-grid">
-  ${cats.map(([k, l]) => `<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th>#</th><th class="l">${l}</th><th class="l">Team</th><th>Per game</th></tr></thead><tbody>
+  ${cats.map(([k, l]) => `<div class="sheet-wrap"><table class="sheet dense dy-ld"><thead><tr><th>#</th><th class="l">${l}</th><th class="l">Team</th><th>Per game</th></tr></thead><tbody>
     ${rows.slice().sort((a, b) => val(b, k) - val(a, k)).slice(0, 15).map((x, i) => `<tr class="${x.p.team === S.user ? 'me' : ''}"><td>${i + 1}</td><td class="l">${pl(x.p, false)}</td><td class="l">${tm(x.p.team)}</td><td><b>${val(x, k).toFixed(1)}</b></td></tr>`).join('')}
   </tbody></table></div>`).join('')}</div>`;
 }
@@ -385,12 +385,12 @@ document.addEventListener('click', e => {
 function awardsList(A) {
   if (!A) return '<div class="dy-empty">Awards are announced when the season ends.</div>';
   const row = (lbl, x) => x ? `<tr><td class="l"><b>${lbl}</b></td><td class="l">${S.players[x.id] ? pl(S.players[x.id], false) : esc(x.name)}</td><td class="l">${tm(x.team)}</td><td>${x.ppg ?? ''}</td><td>${x.rpg ?? ''}</td><td>${x.apg ?? ''}</td></tr>` : '';
-  return `<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Award</th><th class="l">Player</th><th class="l">Team</th><th>PPG</th><th>RPG</th><th>APG</th></tr></thead><tbody>
+  return `<div class="sheet-wrap"><table class="sheet dense dy-aw"><thead><tr><th class="l">Award</th><th class="l">Player</th><th class="l">Team</th><th>PPG</th><th>RPG</th><th>APG</th></tr></thead><tbody>
     ${row('National Player of the Year', A.poy)}${row('Defensive Player of the Year', A.dpoy)}${row('Freshman of the Year', A.fr)}
     ${A.aa1.map((x, i) => row(i ? '' : 'All-America 1st team', x)).join('')}${A.aa2.map((x, i) => row(i ? '' : 'All-America 2nd team', x)).join('')}
     ${A.coy ? `<tr><td class="l"><b>Coach of the Year</b></td><td class="l">${esc(A.coy.coach || '')}</td><td class="l">${tm(A.coy.team)}</td><td colspan="3">${A.coy.w}-${A.coy.l}</td></tr>` : ''}
   </tbody></table></div>
-  <div class="sec"><h2>Conference players of the year</h2></div><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Conference</th><th class="l">Player</th><th class="l">Team</th><th>PPG</th></tr></thead><tbody>
+  <div class="sec"><h2>Conference players of the year</h2></div><div class="sheet-wrap"><table class="sheet dense dy-awc"><thead><tr><th class="l">Conference</th><th class="l">Player</th><th class="l">Team</th><th>PPG</th></tr></thead><tbody>
     ${Object.entries(A.conf).sort().map(([c, x]) => `<tr class="${x.team === S.user ? 'me' : ''}"><td class="l">${esc(c)}</td><td class="l">${S.players[x.id] ? pl(S.players[x.id], false) : esc(x.name)}</td><td class="l">${tm(x.team)}</td><td>${x.ppg}</td></tr>`).join('')}
   </tbody></table></div>`;
 }
@@ -453,7 +453,7 @@ function offseason() {
     const pool = O.portal.map(id => S.players[id]).filter(Boolean);
     const max = open + 3, n = () => Object.keys(O.offers).filter(k => O.offers[k]).length;
     html += `<div class="sec"><h2>Transfer portal</h2><span class="n">${pool.length} players · you have <b>${open}</b> open scholarship${open === 1 ? '' : 's'} (of ${SCHOLARSHIPS}) · offer up to ${max}. Players weigh your prestige and the minutes they'd get.</span></div>
-      <div class="sheet-wrap"><table class="sheet dense heat"><thead><tr><th>Offer</th><th class="l">Player</th><th class="l">From</th><th>Pos</th><th>Yr</th><th>Ht</th><th data-heat="1">OVR</th>${PILLARS.map(([k, l]) => `<th data-heat="1" title="${l}">${k}</th>`).join('')}</tr></thead><tbody>
+      <div class="sheet-wrap"><table class="sheet dense heat dy-portal"><thead><tr><th>Offer</th><th class="l">Player</th><th class="l">From</th><th>Pos</th><th>Yr</th><th>Ht</th><th data-heat="1">OVR</th>${PILLARS.map(([k, l]) => `<th data-heat="1" title="${l}">${k}</th>`).join('')}</tr></thead><tbody>
       ${pool.slice(0, 250).map(p => `<tr><td><input type="checkbox" data-offer="${esc(p.id)}" ${O.offers[p.id] ? 'checked' : ''}></td><td class="l">${pl(p)}</td><td class="l">${tm(p.from)}</td><td>${esc(p.pos || '')}</td><td>${YR_LABEL[Math.min(5, p.yr + 1)]}</td><td>${p.ht ? `${Math.floor(p.ht / 12)}-${p.ht % 12}` : ''}</td><td><b>${ovrOf(p)}</b></td>${PILLARS.map(([k]) => `<td>${p.pillars[k]}</td>`).join('')}</tr>`).join('')}
       </tbody></table></div>
       <div class="dy-btns"><span class="dim" id="offN"></span><button class="btn" id="oNext">Make offers & close the portal →</button><button class="btn ghost" id="oAuto">Let my staff handle it</button></div>`;
@@ -478,7 +478,7 @@ function offseason() {
     const got = (O.portalResults || []).filter(x => x.to === U);
     html += `${got.length ? `<div class="dy-next"><div class="lbl">From the portal</div><div class="ln">${got.map(x => `<b>${esc(x.name)}</b> (${x.ovr}, from ${esc(short(x.from))})`).join(' · ')}</div></div>` : ''}
       <div class="sec"><h2>Recruiting — class of ${S.year}</h2><span class="n">${open} open scholarship${open === 1 ? '' : 's'} · put up to ${max} recruits on your board and split ${budget} effort points. OVR is your staff's scouting estimate.</span></div>
-      <div class="sheet-wrap"><table class="sheet dense heat"><thead><tr><th>Effort</th><th>Odds</th><th>#</th><th class="l">Recruit</th><th class="l">Stars</th><th>Pos</th><th>Ht</th><th data-heat="1">OVR (scouted)</th>${PILLARS.map(([k, l]) => `<th data-heat="1" title="${l}">${k}</th>`).join('')}</tr></thead><tbody>
+      <div class="sheet-wrap"><table class="sheet dense heat dy-rec"><thead><tr><th>Effort</th><th>Odds</th><th>#</th><th class="l">Recruit</th><th class="l">Stars</th><th>Pos</th><th>Ht</th><th data-heat="1">OVR (scouted)</th>${PILLARS.map(([k, l]) => `<th data-heat="1" title="${l}">${k}</th>`).join('')}</tr></thead><tbody>
       ${R.slice(0, 300).map(r => `<tr><td><input type="number" class="dy-min" min="0" max="60" step="5" data-eff="${esc(r.id)}" value="${B[r.id] || 0}"></td><td class="odds" data-odds="${esc(r.id)}"></td><td>${r.rank}</td><td class="l"><b>${esc(r.name)}</b></td><td class="l">${stars(r.stars)}</td><td>${esc(r.pos || '')}</td><td>${r.ht ? `${Math.floor(r.ht / 12)}-${r.ht % 12}` : ''}</td><td><b>${r.scout}</b></td>${PILLARS.map(([k]) => `<td>${r.pillars[k]}</td>`).join('')}</tr>`).join('')}
       </tbody></table></div>
       <div class="dy-btns"><span class="dim" id="effN"></span><button class="btn" id="oNext">Signing day →</button><button class="btn ghost" id="oAuto">Let my staff handle it</button></div>`;
@@ -508,7 +508,7 @@ function offseason() {
     ${sg.length ? `<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th>#</th><th class="l">Recruit</th><th class="l">Stars</th><th class="l">Decision</th></tr></thead><tbody>
       ${sg.map(x => `<tr><td>${x.rank}</td><td class="l"><b>${esc(x.name)}</b></td><td class="l">${stars(x.stars)}</td><td class="l">${x.won ? '<b class="w">Signed with you</b>' : '<span class="dim">Went elsewhere</span>'}</td></tr>`).join('')}</tbody></table></div>` : ''}
     <div class="sec"><h2>Your ${S.year}-${String(S.year + 1).slice(2)} roster</h2><span class="n">${roster.length} players · development happens when the new season starts</span></div>
-    <div class="sheet-wrap"><table class="sheet dense heat"><thead><tr><th class="l">Player</th><th>Pos</th><th>Yr</th><th data-heat="1">OVR</th>${PILLARS.map(([k, l]) => `<th data-heat="1" title="${l}">${k}</th>`).join('')}</tr></thead><tbody>
+    <div class="sheet-wrap"><table class="sheet dense heat dy-sign"><thead><tr><th class="l">Player</th><th>Pos</th><th>Yr</th><th data-heat="1">OVR</th>${PILLARS.map(([k, l]) => `<th data-heat="1" title="${l}">${k}</th>`).join('')}</tr></thead><tbody>
       ${roster.map(p => `<tr><td class="l">${pl(p)}${p.fresh ? ' <span class="chip new">new</span>' : ''}</td><td>${esc(p.pos || '')}</td><td>${p.fresh ? 'Fr' : YR_LABEL[Math.min(5, p.yr + 1)]}</td><td><b>${ovrOf(p)}</b></td>${PILLARS.map(([k]) => `<td>${p.pillars[k]}</td>`).join('')}</tr>`).join('')}
     </tbody></table></div>
     <div class="dy-btns"><button class="btn" id="oNext">Start the ${S.year}-${String(S.year + 1).slice(2)} season →</button></div>`;
@@ -529,7 +529,7 @@ function jobPanel() {
 
 function history() {
   const H = S.history;
-  $('#dyBody').innerHTML = `<div class="sec"><h2>Program history</h2></div>${H.length ? `<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Season</th><th class="l">Program</th><th>Record</th><th>Conf</th><th>Final power</th><th class="l">March</th><th class="l">Champion</th><th class="l">National POY</th></tr></thead><tbody>
+  $('#dyBody').innerHTML = `<div class="sec"><h2>Program history</h2></div>${H.length ? `<div class="sheet-wrap"><table class="sheet dense dy-hist"><thead><tr><th class="l">Season</th><th class="l">Program</th><th>Record</th><th>Conf</th><th>Final power</th><th class="l">March</th><th class="l">Champion</th><th class="l">National POY</th></tr></thead><tbody>
     ${H.slice().reverse().map(h => `<tr><td class="l">${h.year - 1}-${String(h.year).slice(2)}</td><td class="l">${tm(h.user.team)}</td><td>${h.user.w}-${h.user.l}</td><td>${h.user.cw}-${h.user.cl}</td><td>#${h.user.rank}</td><td class="l">${esc(h.user.post)}</td><td class="l">${tm(h.champ)}</td><td class="l">${h.awards && h.awards.poy ? esc(h.awards.poy.name) : ''}</td></tr>`).join('')}</tbody></table></div>` : '<div class="dy-empty">Finish a season to start your program\'s history.</div>'}`;
 }
 

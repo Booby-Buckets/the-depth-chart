@@ -227,6 +227,23 @@
     .sg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
     .sg-grid.cols4{grid-template-columns:repeat(4,1fr);}
     .sg-grid.cols3{grid-template-columns:repeat(3,1fr);}
+    /* game log on phones: the essentials only (date, opponent, result, rating, pts/reb/ast) so it fits the screen;
+       minutes, shooting splits, stl/blk/to and opponent tier stay on desktop (and in the box score a row opens) */
+    .gl-sheet .gl-os{display:none;}
+    @media(max-width:640px){
+      .gl-sheet .gl-x{display:none!important;}
+      .gl-sheet .gl-of{display:none;} .gl-sheet .gl-os{display:inline;}
+      .gl-sheet{width:100%!important;}
+      .gl-sheet th,.gl-sheet td{padding-left:3px!important;padding-right:3px!important;font-size:12px!important;}
+      .gl-sheet th{font-size:9.5px!important;letter-spacing:0!important;}
+      .gl-sheet td:first-child{font-size:11px!important;}
+      .gl-sheet th[onclick*="'rating'"]{font-size:0!important;} .gl-sheet th[onclick*="'rating'"]::before{content:'RTG';font-size:9.5px;}
+      .gl-sheet td:nth-child(4){font-size:11.5px!important;}
+      .gl-sheet td.nm{max-width:72px;white-space:normal!important;line-height:1.2;}
+      .gl-sheet.freeze2 th:nth-child(-n+2),.gl-sheet.freeze2 td:nth-child(-n+2){position:static!important;min-width:0!important;width:auto!important;left:auto!important;}
+      .gl-sheet th .gl-ar{display:none;}
+      #glTableWrap .sheet-wrap{max-height:none!important;overflow-y:visible!important;}
+    }
     @media(max-width:900px){.sg-grid.cols3{grid-template-columns:repeat(2,1fr);}}
     .pg-sec{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin:18px 0 10px;}
     .pg-note{font-size:12px;color:var(--text3);margin-top:14px;line-height:1.5;}
@@ -4935,19 +4952,19 @@ function renderGameLog(){
     const ot=gameOppTier(g);
     return `<tr ${g.game_id?`onclick="location.href='game.html?id=${g.game_id}'" style="cursor:pointer;"`:''}>
       <td class="l dim">${d(g.date)}</td>
-      <td class="l nm">${g.opp||'—'}</td>
-      <td class="l dim"${ot?` title="Tier ${ot} opponent — ${_TIER_LBL[ot]}"`:''}>${ot?'T'+ot:''}</td>
+      <td class="l nm"><span class="gl-of">${g.opp||'—'}</span><span class="gl-os">${g.opp?((window.tdcShortSchool&&tdcShortSchool(g.opp))||g.opp):'—'}</span></td>
+      <td class="l dim gl-x"${ot?` title="Tier ${ot} opponent — ${_TIER_LBL[ot]}"`:''}>${ot?'T'+ot:''}</td>
       ${resultCell(g)}
       <td class="big">${rt.toFixed(1)}</td>
-      <td>${n(g.min)}</td>
+      <td class="gl-x">${n(g.min)}</td>
       <td>${n(g.pts)}</td><td>${n(g.reb)}</td><td>${n(g.ast)}</td>
-      <td>${n(g.fgm)}-${n(g.fga)}</td><td>${n(g.tpm)}-${n(g.tpa)}</td><td>${n(g.ftm)}-${n(g.fta)}</td>
-      <td>${n(g.stl)}</td><td>${n(g.blk)}</td><td>${n(g.tov)}</td>
+      <td class="gl-x">${n(g.fgm)}-${n(g.fga)}</td><td class="gl-x">${n(g.tpm)}-${n(g.tpa)}</td><td class="gl-x">${n(g.ftm)}-${n(g.fta)}</td>
+      <td class="gl-x">${n(g.stl)}</td><td class="gl-x">${n(g.blk)}</td><td class="gl-x">${n(g.tov)}</td>
     </tr>`;
   }).join('');
   const _th=(k,lbl,cls,heat,tip)=>{ const on=_glSort.k===k; return `<th class="${cls||''} gl-sort${on?' on':''}"${heat?` data-heat="${heat}"`:''}${tip?` title="${tip}"`:''} onclick="setGlSort('${k}')">${lbl}<span class="gl-ar">${on?(_glSort.dir>0?' ▲':' ▼'):''}</span></th>`; };
   wrap.innerHTML=`${_ratingChartSvg(chrono)}<div class="sheet-wrap"><table class="sheet dense freeze2 gl-sheet"><thead><tr>
-    ${_th('date','Date','l')}${_th('opp','Opp','l')}${_th('tier','Tier','l',0,'Opponent tier · sorts T1 → T4, best games first within a tier')}${_th('result','Result','l',0,'Sorts by margin')}${_th('rating','Rating','',1,'0-10 performance score for the game')}${_th('min','MIN','',1)}${_th('pts','PTS','',1)}${_th('reb','REB','',1)}${_th('ast','AST','',1)}${_th('fg','FG','',0,'Sorts by makes')}${_th('tp','3P','',0,'Sorts by makes')}${_th('ft','FT','',0,'Sorts by makes')}${_th('stl','STL','',1)}${_th('blk','BLK','',1)}${_th('tov','TO','',-1)}
+    ${_th('date','Date','l')}${_th('opp','Opp','l')}${_th('tier','Tier','l gl-x',0,'Opponent tier · sorts T1 → T4, best games first within a tier')}${_th('result','Result','l',0,'Sorts by margin')}${_th('rating','Rating','',1,'0-10 performance score for the game')}${_th('min','MIN','gl-x',1)}${_th('pts','PTS','',1)}${_th('reb','REB','',1)}${_th('ast','AST','',1)}${_th('fg','FG','gl-x',0,'Sorts by makes')}${_th('tp','3P','gl-x',0,'Sorts by makes')}${_th('ft','FT','gl-x',0,'Sorts by makes')}${_th('stl','STL','gl-x',1)}${_th('blk','BLK','gl-x',1)}${_th('tov','TO','gl-x',-1)}
   </tr></thead><tbody>${rows}</tbody></table></div>
   <div style="font-size:11px;color:var(--text3);font-style:italic;margin-top:10px;">${games.length} games${filtered?` vs Tier ${_glTierFilter} (career)`:''} · click a row for the full box score · click a column to sort (Tier = T1 first, best games first) · Rating is a 0–10 performance score per game</div>`;
   _sheetHeatIn(wrap);

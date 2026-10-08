@@ -369,7 +369,29 @@
   .tsp-table tbody tr.sec td{background:var(--bg2);color:var(--text3);font-size:9.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;text-align:left;}
   .tsp-note{font-size:11px;color:var(--text3);line-height:1.5;margin:10px 2px 0;}
   .tsp-note b{color:var(--text2);}
-  @media(max-width:760px){.tsp-sum{grid-template-columns:repeat(2,minmax(0,1fr));}}`;
+  /* every column but Opponent hugs its content; the opponent takes the spare width (it used to land on Date and
+     Rk, so a "Sat 10/17" column ran ~500px wide on desktop) */
+  .tsp-table th,.tsp-table td{width:1%;white-space:nowrap;}
+  .tsp-table th:nth-child(3),.tsp-table td.tsp-o{width:auto;}
+  .tsp-table tr.sec td{width:auto;}
+  @media(min-width:900px){ .tsp-table td:not(.tsp-o):not(.tsp-d):not([colspan]),.tsp-table th:not(:nth-child(1)):not(:nth-child(3)){min-width:76px;} .tsp-table td.tsp-d,.tsp-table th:first-child{min-width:96px;} }
+  @media(max-width:760px){.tsp-sum{grid-template-columns:repeat(2,minmax(0,1fr));}}
+  /* phones (every page that shows a schedule): fit the screen. The section label rows were nowrap, so one long
+     "Preseason scrimmages · unofficial…" line stretched the table to ~660px; they wrap now. Opponent names
+     wrap beside the logo, the weekday and the Rk / Quad / Opp PRtg columns go, cells tighten. */
+  @media(max-width:640px){
+    .tsp-table{width:100%!important;}
+    .tsp-table tr.sec td{white-space:normal!important;line-height:1.35;}
+    .tsp-table th,.tsp-table td{padding-left:3px!important;padding-right:3px!important;font-size:12px!important;}
+    .tsp-table th{font-size:10.5px!important;letter-spacing:.02em;}
+    .tsp-dw,.tsp-table .tsp-rk,.tsp-table .tsp-q,.tsp-table .tsp-pr,
+    .tsp-table th[title="opponent's rank"],.tsp-table th[title^="NET-style"],.tsp-table th[title^="opponent's projected"]{display:none!important;}
+    .tsp-table td.tsp-d,.tsp-table td.tsp-site{padding-left:3px!important;padding-right:3px!important;font-size:12px!important;}
+    .tsp-table td.tsp-o{max-width:100px;white-space:normal!important;line-height:1.2;position:relative;padding-right:12px!important;}
+    .tsp-table td.tsp-o .tsp-lg{width:16px;height:16px;margin-right:4px;vertical-align:middle;}
+    .tsp-table td.tsp-o a{display:inline-block;max-width:calc(100% - 22px);vertical-align:middle;}
+    .tsp-table td.tsp-o .cfdot{position:absolute;right:3px;top:50%;margin:-3px 0 0;}
+  }`;
   function ensureCss() { if (document.getElementById('tsp-css')) return; const s = document.createElement('style'); s.id = 'tsp-css'; s.textContent = CSS; document.head.appendChild(s); }
 
   const MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], DW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -411,7 +433,7 @@
     playedAll.forEach(x => {          // results already on the books
       const d = dParts(x.date);
       rows += `<tr class="${x.won ? 'w' : 'x'}${moCls(d.key)}" style="cursor:${x.href ? 'pointer' : 'default'}" onclick="${x.href ? `location.href='${x.href}'` : ''}">
-        <td class="l dim tsp-d">${d.dw} ${d.num}</td>
+        <td class="l dim tsp-d"><span class="tsp-dw">${d.dw} </span>${d.num}</td>
         <td class="dim tsp-rk">${x.rank || ''}</td>
         <td class="l nm tsp-o">${logoImg(x.opp)}<a href="team.html?team=${encodeURIComponent(sn(x.opp))}" onclick="event.stopPropagation()">${sn(x.opp)}</a></td>
         <td class="c strong tsp-sc">${x.won ? 'W' : 'L'} ${x.ms}–${x.os}</td>
@@ -435,7 +457,7 @@
       const rk = r.opp && r.opp.rank ? r.opp.rank : null, q = quad(rk, r.venue);
       const pc = Math.round(r.p * 100);
       rows += `<tr class="${mc.trim()}"${pv ? ` style="cursor:pointer" onclick="location.href='${pv}'" title="open the game preview"` : ''}>
-        <td class="l dim tsp-d">${d.dw} ${d.num}${r.event ? `<span class="tsp-ev">${r.event}</span>` : ''}</td>
+        <td class="l dim tsp-d"><span class="tsp-dw">${d.dw} </span>${d.num}${r.event ? `<span class="tsp-ev">${r.event}</span>` : ''}</td>
         <td class="dim tsp-rk">${rk || ''}</td>
         <td class="l nm tsp-o">${r.oppName ? logoImg(r.oppName) : '<i class="tsp-lg"></i>'}${oppTxt}${r.g.conf ? '<i class="cfdot" title="conference game"></i>' : ''}</td>
         <td class="c tsp-sc" title="${r.pace ? `${r.pace} possessions · total ${r.total}` : 'league-average total'}">${r.scoreMe}–${r.scoreOpp}</td>
@@ -500,7 +522,7 @@
       const exp = (opts.mySrs != null && x.oppSrs != null) ? opts.mySrs - x.oppSrs + (x.site === 'H' ? hca(x.oppSrs) : x.site === 'A' ? -hca(opts.mySrs) : 0) : null;
       const diff = exp != null ? m - exp : null;
       html += `<tr class="${x.won ? 'w' : 'x'}${moCls(d.key)}" style="cursor:${x.href ? 'pointer' : 'default'}" onclick="${x.href ? `location.href='${x.href}'` : ''}">
-        <td class="l dim tsp-d">${d.dw} ${d.num}</td>
+        <td class="l dim tsp-d"><span class="tsp-dw">${d.dw} </span>${d.num}</td>
         <td class="dim tsp-rk">${x.rank || ''}</td>
         <td class="l nm tsp-o">${logoImg(x.opp)}<a href="team.html?team=${encodeURIComponent(sn(x.opp))}" onclick="event.stopPropagation()">${sn(x.opp)}</a>${x.conf ? '<i class="cfdot" title="conference game"></i>' : ''}</td>
         <td class="c strong tsp-sc">${x.won ? 'W' : 'L'} ${x.ms}–${x.os}</td>

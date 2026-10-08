@@ -5,13 +5,13 @@
 //
 // Calibrated to the snapshot: freshmen enter at a median OVR ~59 (top 1% ~77); players gain ~+5 Fr->So,
 // ~+3 So->Jr, ~+1.5 after; teams lose ~3.4 upperclassmen a year; rosters carry 13 scholarships.
-import { overall, attributes } from './ratings.js?v=8';
-import { makeRng, hashSeed } from './rng.js?v=8';
-import { record_, power, touch } from './season.js?v=8';
-import { ncaaResult } from './postseason.js?v=8';
-import { effOvr } from './league.js?v=8';
-import { evaluateCoaches } from './coaching.js?v=8';
-import { healAll } from './injuries.js?v=8';
+import { overall, attributes } from './ratings.js?v=10';
+import { makeRng, hashSeed } from './rng.js?v=10';
+import { record_, power, touch } from './season.js?v=10';
+import { ncaaResult } from './postseason.js?v=10';
+import { effOvr } from './league.js?v=10';
+import { evaluateCoaches } from './coaching.js?v=10';
+import { healAll } from './injuries.js?v=10';
 
 export const SCHOLARSHIPS = 13;
 const PIL = ['SCO', 'SHT', 'FIN', 'PLY', 'SEC', 'REB', 'DEF'];

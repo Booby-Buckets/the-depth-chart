@@ -66,7 +66,7 @@
           : 'preview.html?team=' + enc(me) + '&opp=' + enc(opp) + '&date=' + x.date;
         var ol = logo(opp, byFull);
         return '<tr data-noheat class="scrim-row ' + (played ? (ms > os ? 'w' : 'x') : '') + '" style="cursor:pointer" onclick="location.href=\'' + href + '\'" title="' + (played ? 'open the box score' : 'open the game preview') + '">' +
-          '<td class="l dim tsp-d">' + DW[dd.getDay()] + ' ' + (dd.getMonth() + 1) + '/' + dd.getDate() + '</td>' +
+          '<td class="l dim tsp-d"><span class="tsp-dw">' + DW[dd.getDay()] + ' </span>' + (dd.getMonth() + 1) + '/' + dd.getDate() + '</td>' +
           '<td class="dim tsp-rk">' + (ot && ot.rank ? ot.rank : '') + '</td>' +
           '<td class="l nm tsp-o">' + (ol ? '<img class="tsp-lg" src="' + ol + '" alt="" loading="lazy" onerror="this.style.visibility=\'hidden\'">' : '<i class="tsp-lg"></i>') +
             (ot ? '<a href="team.html?team=' + encodeURIComponent(ot.team) + '" onclick="event.stopPropagation()">' + esc(sn(opp, byFull)) + '</a>' : esc(sn(opp, byFull))) + '</td>' +

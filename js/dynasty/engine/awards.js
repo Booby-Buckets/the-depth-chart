@@ -2,9 +2,9 @@
 // Defensive POY, Freshman of the Year, Coach of the Year, and every conference's Player of the Year.
 // Player value = Hollinger game score per game, scaled by team success and by the team's power rank (voters weigh
 // competition — a low-major's 28 ppg doesn't beat a power-conference star's 20).
-import { record_, power } from './season.js?v=8';
-import { powerFeatures } from './league.js?v=8';
-import { news } from './injuries.js?v=8';
+import { record_, power } from './season.js?v=10';
+import { powerFeatures } from './league.js?v=10';
+import { news } from './injuries.js?v=10';
 
 const gmsc = s => (s.pts + 0.4 * s.fgm - 0.7 * s.fga - 0.4 * (s.fta - s.ftm) + 0.7 * s.orb + 0.3 * s.drb + s.stl + 0.7 * s.ast + 0.7 * s.blk - 0.4 * s.pf - s.tov) / s.g;
 
