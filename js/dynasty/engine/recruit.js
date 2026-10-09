@@ -8,9 +8,9 @@
 //   brand  brand: prestige, the conference, NIL clout
 //   nil    NIL: what the program offers against his asking price
 // The user's odds come from how the user's school stacks up against the best rival bidding for him. Pure.
-import { makeRng, hashSeed } from './rng.js?v=40';
-import { effOvr } from './league.js?v=40';
-import { power } from './season.js?v=40';
+import { makeRng, hashSeed } from './rng.js?v=42';
+import { effOvr } from './league.js?v=42';
+import { power } from './season.js?v=42';
 
 export const FACTORS = [['prox', 'Close to home'], ['pt', 'Playing time'], ['rel', 'Relationships'], ['draft', 'Draft path'], ['team', 'Winning now'], ['brand', 'Brand'], ['nil', 'NIL money']];
 const BASE_W = { prox: 0.18, pt: 0.19, rel: 0.14, draft: 0.09, team: 0.12, brand: 0.09, nil: 0.19 };
@@ -28,7 +28,7 @@ const HOME_W = { TX: 9, CA: 9, FL: 7, GA: 6, NY: 5, NC: 5, IL: 4, MD: 4, NJ: 4, 
   MS: 2, WI: 1.5, MA: 1.5, CT: 1.5, OK: 1.5, KS: 1.2, CO: 1.2, NV: 1, AR: 1, IA: 1, OR: 1, UT: 1, DC: 1.5, NE: 0.6, WV: 0.5, NM: 0.5, DE: 0.5, ID: 0.4, RI: 0.4, NH: 0.3, ME: 0.3,
   HI: 0.3, MT: 0.3, SD: 0.3, ND: 0.3, VT: 0.2, WY: 0.2, AK: 0.2, INTL: 6 };
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
-function miles(a, b) {
+export function miles(a, b) {
   const A = XY[a], B = XY[b]; if (!A || !B) return 900;
   const r = Math.PI / 180, dl = (B[0] - A[0]) * r, dn = (B[1] - A[1]) * r;
   const h = Math.sin(dl / 2) ** 2 + Math.cos(A[0] * r) * Math.cos(B[0] * r) * Math.sin(dn / 2) ** 2;
@@ -65,7 +65,7 @@ function ctx(state) {
   const funds = Object.values(state.teams).map(t => (t.prog ? t.prog.nil.fund : 0)).sort((a, b) => a - b);
   const pw = state.phase === 'offseason' || !state.schedule.some(g => g.r) ? null : power(state);
   const pwS = pw ? Object.values(pw).sort((a, b) => a - b) : null;
-  const lv = Object.values(state.teams).map(t => t.level || 0).sort((a, b) => a - b);
+  const lv = Object.values(state.teams).map(t => (t.level || 0) + (t.lvAdj || 0)).sort((a, b) => a - b);   // + conference exposure (realign.js)
   const pct = (arr, v) => { let lo = 0, hi = arr.length; while (lo < hi) { const m = (lo + hi) >> 1; if (arr[m] < v) lo = m + 1; else hi = m; } return lo / Math.max(1, arr.length - 1); };
   const roster = {};
   for (const t of Object.values(state.teams)) {
@@ -89,7 +89,7 @@ export function factors(state, team, r, offer, rel) {
   const draft = clamp(0.55 * (T.prestige || 30) / 100 + 0.45 * Math.min(1, pros / 5), 0, 1);
   const teamQ = C.pw ? C.pct(C.pwS, C.pw[team] ?? 0) : (T.prestige || 30) / 100;
   const fund = T.prog ? T.prog.nil.fund : 0;
-  const brand = clamp(0.55 * (T.prestige || 30) / 100 + 0.25 * C.pct(C.lv, T.level || 0) + 0.2 * C.pct(C.funds, fund), 0, 1);
+  const brand = clamp(0.55 * (T.prestige || 30) / 100 + 0.25 * C.pct(C.lv, (T.level || 0) + (T.lvAdj || 0)) + 0.2 * C.pct(C.funds, fund), 0, 1);
   const nil = clamp((offer || 0) / Math.max(5, r.ask), 0, 1.4) / 1.4;
   return { prox, pt, rel: clamp((rel ?? 30) / 100, 0, 1), draft, team: teamQ, brand, nil };
 }

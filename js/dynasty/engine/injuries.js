@@ -1,7 +1,7 @@
 // In-season injuries. After every game each player who played rolls for an injury in proportion to his
 // minutes; an injured player sits out a number of his team's games (p.out), then returns. ~2.5 injuries per
 // team-season, most a game or three, a few for weeks, the rare one for the season. Pure + seeded per game.
-import { makeRng, hashSeed } from './rng.js?v=40';
+import { makeRng, hashSeed } from './rng.js?v=42';
 
 // [name, min games, max games, weight]; max 99 = out for the season
 export const TYPES = [

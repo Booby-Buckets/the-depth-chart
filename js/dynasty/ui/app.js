@@ -1,24 +1,25 @@
 // Dynasty — the page. Engine (pure) + browser saves + rendering. One league in memory (S); every action
 // mutates it through the engine, re-renders, and autosaves.
-import { C } from '../engine/constants.js?v=40';
-import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=40';
-import { overall } from '../engine/ratings.js?v=40';
-import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=40';
-import { simNext, simTo, afterDay } from '../engine/flow.js?v=40';
-import { REGION_NAMES, ncaaResult } from '../engine/postseason.js?v=40';
-import { takeJob } from '../engine/coaching.js?v=40';
-import { TYPES as INJ } from '../engine/injuries.js?v=40';
-import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain } from '../engine/offseason.js?v=40';
-import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=40';
-import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=40';
-import { lines as pbpLines } from './pbp.js?v=40';
-import { gameSteps, newCtl } from '../engine/game.js?v=40';
-import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=40';
-import { tireAt } from '../engine/program.js?v=40';
-import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=40';
-import { recruitingView } from './recruiting.js?v=40';
-import { portalView } from './portal.js?v=40';
-import { programView, diffPicker } from './program.js?v=40';
+import { C } from '../engine/constants.js?v=42';
+import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=42';
+import { overall } from '../engine/ratings.js?v=42';
+import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=42';
+import { simNext, simTo, afterDay } from '../engine/flow.js?v=42';
+import { REGION_NAMES, ncaaResult } from '../engine/postseason.js?v=42';
+import { takeJob } from '../engine/coaching.js?v=42';
+import { TYPES as INJ } from '../engine/injuries.js?v=42';
+import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain } from '../engine/offseason.js?v=42';
+import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=42';
+import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=42';
+import { lines as pbpLines } from './pbp.js?v=42';
+import { gameSteps, newCtl } from '../engine/game.js?v=42';
+import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=42';
+import { tireAt } from '../engine/program.js?v=42';
+import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=42';
+import { recruitingView } from './recruiting.js?v=42';
+import { portalView } from './portal.js?v=42';
+import { inviteInfo, decide as realignDecide } from '../engine/realign.js?v=42';
+import { programView, diffPicker } from './program.js?v=42';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -465,7 +466,7 @@ function roundName(br, rd) {
 }
 
 // ── news, awards, player cards ──
-const NICON = { injury: '🩹', return: '✅', award: '🏆', coach: '📋', title: '🏆' };
+const NICON = { conf: '🏛️',  injury: '🩹', return: '✅', award: '🏆', coach: '📋', title: '🏆' };
 function newsList(items) {
   if (!items.length) return '<div class="dy-empty">No news yet.</div>';
   return `<div class="dy-news">${items.map(n => `<div class="${n.mine ? 'mine' : ''}"><span class="d">${fmtDate(n.d)}</span><span>${NICON[n.type] || '•'}</span><span>${esc(n.text).replace(/\[\[([^\]]+)\]\]/g, (m, t) => esc(short(t)))}</span></div>`).join('')}</div>`;
@@ -532,7 +533,7 @@ function offseason() {
     const h = S.history.at(-1);
     html += `<div class="dy-next"><div class="lbl">${S.year - 1}-${String(S.year).slice(2)} in review</div><div class="mu">${esc(short(U))} ${h.user.w}-${h.user.l} · ${esc(h.user.post)} · final power #${h.user.rank}</div>
       <div class="ln">Champion: ${tm(h.champ)} · Prestige now ${S.teams[U].prestige}/100${h.awards && h.awards.poy ? ` · National POY: ${esc(h.awards.poy.name)} (${esc(short(h.awards.poy.team))})` : ''}</div></div>
-      ${jobPanel()}
+      ${jobPanel()}${realignPanel()}
       <div class="sec"><h2>Leaving ${esc(short(U))}</h2><span class="n">League-wide: ${c('graduated')} graduated, ${c('pro')} turned pro, ${c('portal')} entered the portal</span></div>
       ${mine.length ? `<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th><th>Pos</th><th>Yr</th><th>OVR</th><th class="l">Why</th></tr></thead><tbody>
         ${mine.sort((a, b) => ovrOf(b.p) - ovrOf(a.p)).map(x => `<tr><td class="l">${pl(x.p)}</td><td>${esc(x.p.pos || '')}</td><td>${YR_LABEL[x.p.yr]}</td><td>${ovrOf(x.p)}</td><td class="l">${WHY[x.why]}${x.why === 'portal' ? ` — wants <b>$${retainAsk(S, x.p)}k</b> to stay <button class="btn ghost pg-sm" data-keep="${esc(x.p.id)}">Pay him</button>` : ''}</td></tr>`).join('')}</tbody></table></div>
@@ -547,6 +548,7 @@ function offseason() {
     const nx = $('#oNext');
     if (S.job && S.job.fired) { nx.disabled = true; nx.title = 'Pick your next job first'; }
     nx.onclick = () => { processDepartures(S); autosave(); render(); };
+    document.querySelectorAll('[data-realign]').forEach(b => b.onclick = () => { realignDecide(S, b.dataset.realign === '1'); autosave(); render(); });
     document.querySelectorAll('[data-keep]').forEach(b => b.onclick = () => { const e = retain(S, b.dataset.keep); if (e) return alert(e); autosave(); render(); });
     return;
   }
@@ -621,6 +623,32 @@ function jobPanel() {
     <div class="ln">${L ? `${verdict}: the preseason roster rating had you #${L.pre}, you finished #${L.fin}. ` : ''}Job security <b>${J.security}</b>/100.</div>
     ${offers.length ? `<div class="ln" style="margin-top:8px">${J.fired ? 'These programs will hire you — pick one to continue:' : 'Job offers:'}</div>
       <div class="dy-btns">${offers.map(t => `<button class="btn ${J.fired ? '' : 'ghost'}" data-take="${esc(t)}">${tm(t)} <span class="dim">prestige ${S.teams[t].prestige}</span></button>`).join('')}</div>` : ''}</div>`;
+}
+
+// conference realignment (engine/realign.js): an invitation to the user's program + the league-wide moves
+function realignPanel() {
+  const inv = (S.off && S.off.invites) || [], x = inv.find(i => i.team === S.user && !i.done);
+  const others = inv.filter(i => i.team !== S.user && i.decision === 'accept');
+  const m = v => '$' + (v >= 1000 ? (v / 1000).toFixed(2) + 'M' : Math.round(v) + 'k');
+  let h = '';
+  if (x) {
+    const I = inviteInfo(S, x), F = I.from, T = I.to;
+    const row = (l, a, b) => `<tr><td class="l">${l}</td><td>${a}</td><td><b>${b}</b></td></tr>`;
+    h += `<div class="dy-next rl-card"><div class="lbl">Conference realignment</div><div class="mu">The ${esc(T.conf)} has invited ${esc(short(S.user))} to join</div>
+      <div class="ln">Leagues only call programs that keep winning — three straight seasons at or above their median member. It starts next season; you can change your mind until then.</div>
+      <div class="rl-grid"><table class="pg-tbl"><thead><tr><th class="l"></th><th>${esc(F.conf)} (now)</th><th>${esc(T.conf)}</th></tr></thead><tbody>
+        ${row('Tier', F.tier, T.tier)}${row('League value rank', '#' + F.rank, '#' + T.rank)}
+        ${row('Your revenue / yr', m(F.rev), `${m(T.rev)}<div class="dim">year 1: ${m(T.yr1)}</div>`)}
+        ${row('Avg trip to a league game', F.travel + ' mi', T.travel + ' mi')}
+        ${row('You by power', `#${F.me.r} of ${F.me.n}`, `#${T.me.r} of ${T.me.n}`)}
+        ${row('Contract', `through ${F.until}`, `through ${T.gor}`)}${row('Exit fee', '', I.fee ? m(I.fee) + ' <span class="dim">over 3 yrs</span>' : 'None')}</tbody></table>
+      <div><ul class="rl-pc">${I.pro.map(t => `<li class="pro">${esc(t)}</li>`).join('')}${I.con.map(t => `<li class="con">${esc(t)}</li>`).join('')}</ul>
+        <div class="dim rl-mem">${esc(T.conf)}: ${T.members.map(n => esc(short(n))).join(', ')}</div></div></div>
+      <div class="dy-btns"><button class="btn ${x.decision === 'accept' ? '' : 'ghost'}" data-realign="1">${x.decision === 'accept' ? '✓ Accepted' : `Accept — join the ${esc(T.conf)}`}</button>
+        <button class="btn ${x.decision === 'decline' ? '' : 'ghost'}" data-realign="0">${x.decision === 'decline' ? '✓ Declined' : `Decline — stay in the ${esc(F.conf)}`}</button></div></div>`;
+  }
+  if (others.length) h += `<div class="pg-d rl-moves"><b>Realignment this offseason:</b> ${others.map(i => `${tm(i.team)} ${esc(i.from)} → <b>${esc(i.to)}</b>`).join(' · ')} <span class="dim">(from next season)</span></div>`;
+  return h;
 }
 
 function history() {

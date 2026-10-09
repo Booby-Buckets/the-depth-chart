@@ -1,10 +1,10 @@
 // The dynasty's phase machine: regular season -> conference tournaments -> NCAA -> done (-> offseason).
 // Pure. The UI calls simNext / simTo; each simulated day is followed by afterDay, which schedules the next
 // postseason round or moves the phase on.
-import { simDay, nextDate, touch } from './season.js?v=40';
-import { startConferenceTournaments, advance } from './postseason.js?v=40';
-import { computeAwards } from './awards.js?v=40';
-import { programWeek } from './program.js?v=40';
+import { simDay, nextDate, touch } from './season.js?v=42';
+import { startConferenceTournaments, advance } from './postseason.js?v=42';
+import { computeAwards } from './awards.js?v=42';
+import { programWeek } from './program.js?v=42';
 
 // the program's week: every 7 days of the calendar the staff + hours turn into familiarity, focus growth,
 // recruiting points and NIL money (all teams), then the prepared teams are rebuilt

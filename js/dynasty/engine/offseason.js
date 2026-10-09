@@ -5,16 +5,17 @@
 //
 // Calibrated to the snapshot: freshmen enter at a median OVR ~59 (top 1% ~77); players gain ~+5 Fr->So,
 // ~+3 So->Jr, ~+1.5 after; teams lose ~3.4 upperclassmen a year; rosters carry 13 scholarships.
-import { overall, attributes } from './ratings.js?v=40';
-import { makeRng, hashSeed } from './rng.js?v=40';
-import { record_, power, touch } from './season.js?v=40';
-import { ncaaResult } from './postseason.js?v=40';
-import { effOvr } from './league.js?v=40';
-import { evaluateCoaches } from './coaching.js?v=40';
-import { healAll } from './injuries.js?v=40';
-import { profile, userOdds, pickSchool, notePro, factors, utility, relationship, aiSign } from './recruit.js?v=40';
-import { openPortal, portalDay, PORTAL_DAYS } from './portal.js?v=40';
-import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina } from './program.js?v=40';
+import { overall, attributes } from './ratings.js?v=42';
+import { makeRng, hashSeed } from './rng.js?v=42';
+import { record_, power, touch } from './season.js?v=42';
+import { ncaaResult } from './postseason.js?v=42';
+import { effOvr } from './league.js?v=42';
+import { evaluateCoaches } from './coaching.js?v=42';
+import { healAll } from './injuries.js?v=42';
+import { profile, userOdds, pickSchool, notePro, factors, utility, relationship, aiSign } from './recruit.js?v=42';
+import { openPortal, portalDay, PORTAL_DAYS } from './portal.js?v=42';
+import { realignWindow, applyMoves, applyRevenue } from './realign.js?v=42';
+import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina } from './program.js?v=42';
 
 export const SCHOLARSHIPS = 13;
 const PIL = ['SCO', 'SHT', 'FIN', 'PLY', 'SEC', 'REB', 'DEF'];
@@ -75,6 +76,7 @@ export function beginOffseason(state) {
   state.off = { step: 'departures', leaving: {}, portal: [], offers: {}, recruits: null, board: {}, signed: {}, log: [],
     budget: state.user ? recruitPoints(state, state.teams[state.user]) : 100 };   // the season's recruiting hours = signing-day effort
   markDepartures(state);
+  realignWindow(state);             // conference realignment: league values, contracts, invitations (realign.js)
 }
 
 // who leaves: graduates (all 5th years, ~75% of 4th years), early pro entrants (elite players), portal entrants
@@ -313,8 +315,10 @@ export function startNextSeason(state) {
     // scheme edges fade (staff turnover, the league adapts): system defense regresses 20% a year toward 0
     t.sysDef = Math.round((t.sysDef || 0) * 0.8 * 100) / 100;
   }
+  applyMoves(state);                // accepted realignment moves take effect (exit fees, new contracts)
   newSeasonProgram(state);          // NIL payroll, staff contracts + poaching, familiarity fades, hiring pool
   state.year += 1;
+  applyRevenue(state);              // league money + exposure vs where each program started
   state.schedule = makeSchedule(state);
   state.visits = []; state.targets = []; state.rclass = makeClass(state, classSize(state));   // next year's class, recruitable all season
   state.stats = {}; state.userBox = {}; state.post = null; state.awards = null;

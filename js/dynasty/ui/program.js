@@ -2,7 +2,8 @@
 // pillars + offensive / defensive scheme with fit and familiarity) and the NIL collective. UI only — every rule
 // lives in engine/program.js.
 import { DIFFS, HOURS, AREAS, ROLES, OFF, DEF, PIL_LABEL, FOCUS_LABEL, cover, effort, fitOf, famOf, payroll, hire, fire, boosterEvent,
-  devMult, focusBonus, recruitPoints, nilRetention, nilOffer } from '../engine/program.js?v=40';
+  devMult, focusBonus, recruitPoints, nilRetention, nilOffer } from '../engine/program.js?v=42';
+import { TIERS, revenueOf, exitFee, travel, ladder, powerAvg, members } from '../engine/realign.js?v=42';
 
 const AREA_TXT = {
   practice: 'Scheme familiarity and your two focus areas grow with practice time.',
@@ -66,12 +67,27 @@ export function programView(ctx) {
     <div class="pg-d"><b>Grows with:</b> your NIL hours and GM, winning, your program's prestige, booster events. <b>Shrinks with:</b> losing, the roster's deals each offseason (half the fund), and booster disputes (more common on harder levels).</div>
     <button class="btn ghost" id="pgBooster">Host a booster event</button> <span class="pg-d" id="pgBoosterMsg">Trades two weeks of recruiting momentum for money now.</span></div>`;
 
-  // 5. season so far
+  // 5. the conference: tier, media deal, contract, exit fee, what moving up takes (engine/realign.js)
+  const C = S.confs && S.confs[t.conf], top = v => `top ${Math.max(1, Math.round(100 * (1 - v)))}%`;
+  const conf = !C ? `<div class="pg-card"><div class="pg-h"><h3>Conference — ${esc(t.conf)}</h3></div><div class="pg-d">League values, media deals and membership contracts are set after your first season. Programs that excel for three straight seasons get invited to stronger leagues.</div></div>`
+    : (() => { const rev = revenueOf(S, t.name), fee = exitFee(S, t.name), L = ladder(S, t.name), yrs = t.joined != null ? S.year - t.joined : 9;
+      return `<div class="pg-card"><div class="pg-h"><h3>Conference — ${esc(t.conf)}</h3><span class="pg-n">${TIERS[C.tier]} · #${C.rank} of ${Object.keys(S.confs).length} leagues · ${members(S, t.conf).length} members</span></div>
+      ${(() => { const mv = S.off && (S.off.invites || []).find(i => i.team === t.name && i.decision === 'accept' && !i.done); return mv ? `<div class="rl-moves"><b>Moving to the ${esc(mv.to)} next season.</b></div>` : ''; })()}
+      <div class="pg-kv"><div><span>Media deal</span><b>${m(C.deal.rev)}/school</b></div><div><span>Deal runs through</span><b>${C.deal.until}</b></div>
+        <div><span>Your share</span><b>${yrs >= 2 ? 'Full' : yrs === 1 ? '75%' : '50%'}</b></div><div><span>Your revenue</span><b>${m(rev)}/yr</b></div>
+        <div><span>Avg trip</span><b>${travel(S, t.name, t.conf)} mi</b></div><div><span>Grant of rights</span><b>through ${t.gor ? t.gor.until : '—'}</b></div>
+        <div><span>Exit fee today</span><b>${fee ? m(fee) : 'None'}</b></div>${t.debt ? `<div><span>Exit fee owed</span><b>${m(t.debt.per)} × ${t.debt.left}</b></div>` : ''}
+        <div><span>Your 3-yr power</span><b>${(t.pph || []).length ? top(powerAvg(t)) : '—'}</b></div></div>
+      ${L.length ? `<table class="pg-tbl"><thead><tr><th class="l">A step up</th><th class="l">Tier</th><th>Deal</th><th>Members</th><th title="3-season average power a program needs to get an invitation">Needs (3 yrs)</th></tr></thead><tbody>
+        ${L.map(x => `<tr><td class="l">${esc(x.conf)}</td><td class="l">${x.tier}</td><td>${m(x.rev)}</td><td>${x.size}</td><td>${top(x.need)}${(t.pph || []).length >= 3 && powerAvg(t) >= x.need ? ' ✓' : ''}</td></tr>`).join('')}</tbody></table>` : ''}
+      <div class="pg-d">Leagues invite programs that <b>excel for three straight seasons</b> (at or above their median member's power), about one tier up at a time, when they have room. A bigger league brings a bigger media check (staff budget + NIL), more exposure in recruiting and a tougher schedule; new members start at a half share. Leaving before your grant of rights runs out costs an exit fee, paid out of the collective over 3 seasons. You decide on any invitation in the offseason.</div></div>`; })();
+
+  // 6. season so far
   const season = `<div class="pg-card"><div class="pg-h"><h3>This season so far</h3><span class="pg-n">${P.acc.weeks} week${P.acc.weeks === 1 ? '' : 's'} of work</span></div>
     <div class="pg-kv"><div><span>Signing-day effort</span><b>${recruitPoints(S, t)} pts</b></div><div><span>Summer development</span><b>×${devMult(t).toFixed(2)}</b></div>
     <div><span>Focus carry-over</span><b>+${focusBonus(t).toFixed(1)}</b></div></div></div>`;
 
-  $('#dyBody').innerHTML = `<div class="sec"><h2>Program</h2><span class="n">Difficulty: <b>${esc(d.label)}</b> · ${esc(d.blurb)}</span></div>` + hours + plan + staff + nil + season;
+  $('#dyBody').innerHTML = `<div class="sec"><h2>Program</h2><span class="n">Difficulty: <b>${esc(d.label)}</b> · ${esc(d.blurb)}</span></div>` + hours + plan + staff + nil + conf + season;
   bind(ctx);
 }
 
