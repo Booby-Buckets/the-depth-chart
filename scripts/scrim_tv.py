@@ -155,9 +155,13 @@ def main():
     doc = json.loads(sb.GAMES.read_text())
     sites = json.loads(sb.SITES.read_text())
     ids = {}
-    for line in open(sb.DATA / "games_2027.jsonl"):
-        r = json.loads(line)
-        ids[r["home"]] = r["home_id"]; ids[r["away"]] = r["away_id"]
+    # ESPN team ids (only used to learn each site's time zone); games_2027.jsonl is gitignored, so it is
+    # absent on the Actions runner — without it times fall back to the site's listed clock, never a crash
+    gp = sb.DATA / "games_2027.jsonl"
+    if gp.exists():
+        for line in open(gp):
+            r = json.loads(line)
+            ids[r["home"]] = r["home_id"]; ids[r["away"]] = r["away_id"]
     today = datetime.date.today().isoformat()
     todo = [g for g in doc["games"] if (every or g["date"] >= today) and (force or not g.get("tv") or not g.get("time"))]
     print(f"{len(todo)} scrimmages to check")
