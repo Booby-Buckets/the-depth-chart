@@ -5,13 +5,14 @@
 //
 // Calibrated to the snapshot: freshmen enter at a median OVR ~59 (top 1% ~77); players gain ~+5 Fr->So,
 // ~+3 So->Jr, ~+1.5 after; teams lose ~3.4 upperclassmen a year; rosters carry 13 scholarships.
-import { overall, attributes } from './ratings.js?v=15';
-import { makeRng, hashSeed } from './rng.js?v=15';
-import { record_, power, touch } from './season.js?v=15';
-import { ncaaResult } from './postseason.js?v=15';
-import { effOvr } from './league.js?v=15';
-import { evaluateCoaches } from './coaching.js?v=15';
-import { healAll } from './injuries.js?v=15';
+import { overall, attributes } from './ratings.js?v=16';
+import { makeRng, hashSeed } from './rng.js?v=16';
+import { record_, power, touch } from './season.js?v=16';
+import { ncaaResult } from './postseason.js?v=16';
+import { effOvr } from './league.js?v=16';
+import { evaluateCoaches } from './coaching.js?v=16';
+import { healAll } from './injuries.js?v=16';
+import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram } from './program.js?v=16';
 
 export const SCHOLARSHIPS = 13;
 const PIL = ['SCO', 'SHT', 'FIN', 'PLY', 'SEC', 'REB', 'DEF'];
@@ -67,7 +68,8 @@ export function beginOffseason(state) {
     T.prestige = Math.round(clamp(0.65 * T.prestige + 0.35 * Math.min(100, pct + (bump[ncaaResult(state, t)] || 0)), 1, 100));
   });
   state.phase = 'offseason';
-  state.off = { step: 'departures', leaving: {}, portal: [], offers: {}, recruits: null, board: {}, signed: {}, log: [] };
+  state.off = { step: 'departures', leaving: {}, portal: [], offers: {}, recruits: null, board: {}, signed: {}, log: [],
+    budget: state.user ? recruitPoints(state, state.teams[state.user]) : 100 };   // the season's recruiting hours = signing-day effort
   markDepartures(state);
 }
 
@@ -91,7 +93,8 @@ function markDepartures(state) {
     if (pro && rng.chance(p.yr === 1 ? pro * 0.7 : pro)) { L[p.id] = 'pro'; continue; }
     // portal: buried players with game transfer most; everyone has a small base rate
     const buried = roles[p.id] >= 8 && o >= 62, starved = roles[p.id] >= 6 && o >= 70;
-    const pp = 0.07 + (buried ? 0.35 : 0) + (starved ? 0.2 : 0) + (p.yr === 4 ? 0.25 : 0);
+    // the NIL collective buys off part of the temptation (a well-funded program keeps its players)
+    const pp = (0.07 + (buried ? 0.35 : 0) + (starved ? 0.2 : 0) + (p.yr === 4 ? 0.25 : 0)) * (1 - nilRetention(state, state.teams[p.team]));
     if (rng.chance(pp)) L[p.id] = 'portal';
   }
 }
@@ -116,7 +119,7 @@ function appeal(state, team, p) {
   const t = state.teams[team];
   const os = t.players.map(id => eff(state, state.players[id])).sort((a, b) => b - a);
   const seventh = os[6] ?? 50, minutes = clamp((eff(state, p) - seventh) / 6, -1.5, 1.5);
-  return t.prestige / 25 + minutes;
+  return t.prestige / 25 + minutes + 0.8 * nilOffer(state, t);
 }
 
 // ── 3. portal: the user's offers first-class, then everyone signs where the appeal is best ──
@@ -176,7 +179,7 @@ function recruitAppeal(state, rank) {
 }
 export function landOdds(state, r, effort) {
   const p = state.teams[state.user].prestige, need = recruitAppeal(state, r.rank);
-  const x = (p - need) / 9 + (effort - 15) / 12;
+  const x = (p - need) / 9 + (effort - 15) / 12 + (DIFFS[state.diff || 'pro'].recruit || 0) + nilOffer(state, state.teams[state.user]);
   return 1 / (1 + Math.exp(-x));
 }
 
@@ -221,8 +224,11 @@ export function startNextSeason(state) {
     if (!p.team) continue;
     if (p.fresh) { delete p.fresh; continue; }                       // incoming freshmen: no growth yet
     const before = ovr(state, p);
-    const g = (GROW[p.yr] || 0.6) * (0.55 + (p.pot || 0) / 12) + rng.normal(0, 1.8);
+    const T = state.teams[p.team];
+    const g = (GROW[p.yr] || 0.6) * (0.55 + (p.pot || 0) / 12) * devMult(T) + rng.normal(0, 1.8);   // development staff + hours
     shiftTo(state, p, before + g, rng, 0.8);
+    // the season's practice focus carries into the summer
+    const fb = focusBonus(T); if (fb && T.prog && T.prog.focus) for (const k of T.prog.focus) p.pillars[k] = clamp(Math.round(p.pillars[k] + fb), 1, 99);
     p.pot = Math.max(0, Math.round(((p.pot || 0) - Math.max(0, g) * 0.5) * 10) / 10);
     p.yr = Math.min(5, p.yr + 1);
     if (p.team === state.user) state.off.progress[p.id] = Math.round(ovr(state, p) - before);
@@ -234,6 +240,7 @@ export function startNextSeason(state) {
     // scheme edges fade (staff turnover, the league adapts): system defense regresses 20% a year toward 0
     t.sysDef = Math.round((t.sysDef || 0) * 0.8 * 100) / 100;
   }
+  newSeasonProgram(state);          // NIL payroll, staff contracts + poaching, familiarity fades, hiring pool
   state.year += 1;
   state.schedule = makeSchedule(state);
   state.stats = {}; state.userBox = {}; state.post = null; state.awards = null;

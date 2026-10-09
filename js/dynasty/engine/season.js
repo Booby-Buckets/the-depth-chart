@@ -1,11 +1,12 @@
 // The season: day-by-day simulation over state.schedule, results, player stats, standings, a power rating
 // (opponent-adjusted net blended with the preseason prior) and the poll. Pure: works on the state object.
-import { prepareTeam } from './ratings.js?v=15';
-import { simulateGame, totals } from './game.js?v=15';
-import { makeRng, hashSeed } from './rng.js?v=15';
-import { powerFeatures } from './league.js?v=15';
-import { afterGame } from './injuries.js?v=15';
-import { resolvePending, nextPendingDate, EXT_RATING } from './fill.js?v=15';
+import { prepareTeam } from './ratings.js?v=16';
+import { simulateGame, totals } from './game.js?v=16';
+import { makeRng, hashSeed } from './rng.js?v=16';
+import { powerFeatures } from './league.js?v=16';
+import { afterGame } from './injuries.js?v=16';
+import { resolvePending, nextPendingDate, EXT_RATING } from './fill.js?v=16';
+import { schemeMods, programGame } from './program.js?v=16';
 
 const STAT_KEYS = ['min', 'pts', 'fgm', 'fga', 'tpm', 'tpa', 'ftm', 'fta', 'orb', 'drb', 'ast', 'stl', 'blk', 'tov', 'pf'];
 
@@ -16,7 +17,7 @@ export function prepared(state, C, cache = {}) {
   for (const t of Object.values(state.teams)) {
     const opts = t.name === state.user || t.minutes || t.starters || t.plan
       ? { minutes: t.minutes || undefined, starters: t.starters || undefined, plan: t.plan || undefined } : {};
-    teams[t.name] = prepareTeam(t, byId, state.maps, C, opts);
+    teams[t.name] = schemeMods(state, t, prepareTeam(t, byId, state.maps, C, opts), C);   // scheme fit x familiarity, fatigue
   }
   for (const t of Object.values((state.ext && state.ext.teams) || {})) teams[t.name] = prepareTeam(t, state.ext.players, state.maps, C, {});
   return Object.assign(cache, { ver: state._ver, year: state.year, teams, L: leagueRefsOf(state) });
@@ -60,6 +61,7 @@ export function record(state, g, sim) {
   if (state.user && (g.h === state.user || g.a === state.user)) {
     state.userBox[g.id] = { box: sim.box, score: sim.score, ot: sim.ot };
   }
+  programGame(state, g, sim);                                 // playing a scheme teaches it
   if (state.injuries !== false && afterGame(state, g, sim)) touch(state);
 }
 

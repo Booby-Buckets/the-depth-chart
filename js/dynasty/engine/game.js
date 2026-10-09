@@ -2,8 +2,8 @@
 // target (MPG scaled to 200), fouls / foul-outs, overtime. Returns the final, a box score and an optional
 // event log. Pure: no DOM, no Supabase.
 
-import { makeRng } from './rng.js?v=15';
-import { runPossession, unitStats } from './possession.js?v=15';
+import { makeRng } from './rng.js?v=16';
+import { runPossession, unitStats } from './possession.js?v=16';
 
 const ROW = () => ({ sec: 0, pts: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0, orb: 0, drb: 0, ast: 0, stl: 0, blk: 0, tov: 0, pf: 0 });
 

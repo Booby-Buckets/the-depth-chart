@@ -1,18 +1,19 @@
 // Dynasty — the page. Engine (pure) + browser saves + rendering. One league in memory (S); every action
 // mutates it through the engine, re-renders, and autosaves.
-import { C } from '../engine/constants.js?v=15';
-import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=15';
-import { overall } from '../engine/ratings.js?v=15';
-import { prepared, playGame, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=15';
-import { simNext, simTo, afterDay } from '../engine/flow.js?v=15';
-import { REGION_NAMES, ncaaResult } from '../engine/postseason.js?v=15';
-import { takeJob } from '../engine/coaching.js?v=15';
-import { TYPES as INJ } from '../engine/injuries.js?v=15';
-import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS } from '../engine/offseason.js?v=15';
-import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=15';
-import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=15';
-import { lines as pbpLines } from './pbp.js?v=15';
-import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=15';
+import { C } from '../engine/constants.js?v=16';
+import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=16';
+import { overall } from '../engine/ratings.js?v=16';
+import { prepared, playGame, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=16';
+import { simNext, simTo, afterDay } from '../engine/flow.js?v=16';
+import { REGION_NAMES, ncaaResult } from '../engine/postseason.js?v=16';
+import { takeJob } from '../engine/coaching.js?v=16';
+import { TYPES as INJ } from '../engine/injuries.js?v=16';
+import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS } from '../engine/offseason.js?v=16';
+import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=16';
+import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=16';
+import { lines as pbpLines } from './pbp.js?v=16';
+import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=16';
+import { programView, diffPicker } from './program.js?v=16';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -27,6 +28,7 @@ const pl = (p, bold = true) => `<a class="pl" data-pid="${esc(p.id)}">${bold ? '
 const PILLARS = [['SCO', 'Scoring'], ['SHT', 'Shooting'], ['FIN', 'Finishing'], ['PLY', 'Playmaking'], ['SEC', 'Ball security'], ['REB', 'Rebounding'], ['DEF', 'Defense']];
 
 let S = null, slot = null, cache = {}, SNAP = null, SCHED = null, EXTRAS = null, tab = 'home', busy = false;
+let newDiff = (() => { try { return localStorage.getItem('dy_diff') || 'pro'; } catch (e) { return 'pro'; } })();
 const ovrOf = p => Math.round(effOvr(p, S));   // competition-adjusted: a low-major 84 shows ~75
 
 // ── data + saves ──
@@ -103,10 +105,12 @@ async function startScreen() {
       </tbody></table></div>` : ''}
     <div class="dy-acct">${signedIn() ? (cloudErr ? `☁ Account saves are unavailable right now (${esc(cloudErr)}). Your dynasties are still saved on this device.` : '☁ Your dynasties save to your account, so you can continue them on any device.')
       : '☁ <a href="signin.html?next=dynasty.html">Sign in</a> to keep your dynasties on your account and continue them on any device. Without an account they live only in this browser.'}</div>
-    <div class="sec"><h2>New dynasty</h2><span class="n">Pick a program. You start with its real 2026-27 roster and schedule.</span></div>
+    <div class="sec"><h2>New dynasty</h2><span class="n">Pick a difficulty and a program. You start with its real 2026-27 roster, schedule, staff and NIL situation.</span></div>
+    ${diffPicker(newDiff, esc)}
     <div class="dy-row"><input id="dyCoach" class="dy-input" placeholder="Your name (head coach)" maxlength="40" autocomplete="off"><input id="dySearch" class="dy-input" placeholder="Search programs…" autocomplete="off"></div>
     <div id="dyPick" class="dy-pick"></div>`;
   body.querySelectorAll('[data-load]').forEach(b => b.onclick = () => openSave(b.dataset.load));
+  body.querySelectorAll('[data-diff]').forEach(b => b.onclick = () => { newDiff = b.dataset.diff; try { localStorage.setItem('dy_diff', newDiff); } catch (e) {} body.querySelectorAll('[data-diff]').forEach(x => x.classList.toggle('on', x === b)); });
   body.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
     const x = by[b.dataset.del];
     if (!confirm('Delete this dynasty' + (x && x.acct ? ' from this device AND your account' : '') + '? This cannot be undone.')) return;
@@ -129,7 +133,7 @@ async function startScreen() {
 async function newDynasty(team) {
   await loadData();
   const cn = ($('#dyCoach') && $('#dyCoach').value.trim()) || 'You';
-  S = hydrate(createLeague(SNAP, SCHED, { user: team, now: Date.now(), coachName: cn, extras: EXTRAS }));
+  S = hydrate(createLeague(SNAP, SCHED, { user: team, now: Date.now(), coachName: cn, extras: EXTRAS, diff: newDiff }));
   slot = 'dyn-' + Date.now();
   cache = {}; touch(S); tab = 'calendar'; CAL._fresh = true;
   await saveSlot(slot, dehydrate(S), meta());
@@ -159,7 +163,7 @@ async function openSave(s) {
 function phaseLabel(p) {
   return { regular: 'Regular season', conftourney: 'Conference tournaments', ncaa: 'NCAA tournament', done: 'Season complete', offseason: 'Offseason' }[p] || p;
 }
-const TABS = [['calendar', 'Calendar'], ['home', 'Home'], ['schedule', 'Schedule'], ['roster', 'Roster'], ['plan', 'Game plan'], ['standings', 'Standings'], ['rankings', 'Rankings'], ['leaders', 'Leaders'], ['post', 'Postseason'], ['awards', 'Awards'], ['news', 'News'], ['history', 'History']];
+const TABS = [['calendar', 'Calendar'], ['program', 'Program'], ['home', 'Home'], ['schedule', 'Schedule'], ['roster', 'Roster'], ['plan', 'Game plan'], ['standings', 'Standings'], ['rankings', 'Rankings'], ['leaders', 'Leaders'], ['post', 'Postseason'], ['awards', 'Awards'], ['news', 'News'], ['history', 'History']];
 function render() {
   if (!S) return startScreen();
   const t = S.teams[S.user], r = record_(S, S.user), pw = power(S);
@@ -176,14 +180,14 @@ function render() {
   $('#dyExit').onclick = () => { if (isCrawling()) stopCrawl(); if (cloudT) flushCloud(); S = null; startScreen(); };
   $('#dyHead').querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { if (isCrawling()) stopCrawl(); tab = b.dataset.tab; render(); });
   if (S.phase === 'offseason' && tab === 'home') tab = 'off';
-  ({ calendar: () => calendarView(CAL), home, schedule, roster, plan, standings: standingsView, rankings, leaders, post, history, off: offseason, awards: awardsView, news: newsView })[tab]();
+  ({ calendar: () => calendarView(CAL), program: () => programView(CAL), home, schedule, roster, plan, standings: standingsView, rankings, leaders, post, history, off: offseason, awards: awardsView, news: newsView })[tab]();
   document.querySelectorAll('#dyBody table.heat').forEach(x => window.tdcSheetHeat && tdcSheetHeat(x));
 }
 
 // the calendar's view of the app (S and cache are reassigned on new / open, so read them live)
 const CAL = {
   get: () => S, get cache() { return cache; }, C, esc, short, logo, color, $,
-  autosave: () => autosave(), render: () => render(), onWatch: () => watch(), onSimGame: () => run(simUserGame),
+  autosave: () => autosave(), render: () => render(), touch: () => touch(S), onWatch: () => watch(), onSimGame: () => run(simUserGame),
   openBox: id => { const g = S.schedule.find(x => x.id === id); if (g && S.userBox[id]) showBox(g, S.userBox[id]); },
 };
 // ── sim controls ──
@@ -540,7 +544,7 @@ function offseason() {
     return;
   }
   if (step === 'recruiting') {
-    const R = O.recruits, B = O.board, max = open + 4, budget = 100;
+    const R = O.recruits, B = O.board, max = open + 4, budget = O.budget || 100;   // the season's recruiting hours (Program tab)
     const used = () => Object.values(B).reduce((a, b) => a + (+b || 0), 0);
     const got = (O.portalResults || []).filter(x => x.to === U);
     html += `${got.length ? `<div class="dy-next"><div class="lbl">From the portal</div><div class="ln">${got.map(x => `<b>${esc(x.name)}</b> (${x.ovr}, from ${esc(short(x.from))})`).join(' · ')}</div></div>` : ''}

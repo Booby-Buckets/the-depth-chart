@@ -7,10 +7,11 @@
 //   players: { id: { id, name, team, pos, pos2, ht, yr, pillars, lvl, mpg, pot } },
 //   schedule:[ { id, d, h, a, n, c, r } ],             r = [homePts, awayPts, ot, poss] once played
 //   stats:   { id: season totals },  powerFit, history:[], userBox:{ gameId: box } }
-import { attributes, overall } from './ratings.js?v=15';
-import { makeRng } from './rng.js?v=15';
-import { initCoaches } from './coaching.js?v=15';
-import { fillLeague, buildSchedule } from './fill.js?v=15';
+import { attributes, overall } from './ratings.js?v=16';
+import { makeRng } from './rng.js?v=16';
+import { initCoaches } from './coaching.js?v=16';
+import { fillLeague, buildSchedule } from './fill.js?v=16';
+import { initProgram } from './program.js?v=16';
 
 export const YR = { 'FR': 1, 'FR.': 1, 'RS FR.': 1, 'SO': 2, 'SO.': 2, 'RS SO.': 2, 'JR': 3, 'JR.': 3, 'RS JR.': 3, 'SR': 4, 'SR.': 4, 'RS SR.': 4, 'GR': 5, 'GR.': 5, '5TH': 5 };
 export const YR_LABEL = ['', 'Fr', 'So', 'Jr', 'Sr', 'Gr'];
@@ -103,6 +104,7 @@ export function createLeague(snap, sched, opts = {}) {
     ext: pre.ext, pending: pre.pending || [],
     stats: {}, results: {}, history: [], userBox: {}, news: [], awards: null, created: opts.now || null };
   initCoaches(state, snap, opts.coachName);
+  initProgram(state, opts.diff || 'pro');          // staff, hours, schemes, NIL — every team
   return state;
 }
 
@@ -117,6 +119,7 @@ export function hydrate(state) {
   if (!state.news) state.news = [];
   if (!state.ext) state.ext = { teams: {}, players: {} };      // saves from before full schedules
   if (!state.pending) state.pending = [];
+  if (!state.diff || Object.values(state.teams).some(t => !t.prog)) initProgram(state, state.diff || 'pro');   // saves from before programs
   for (const p of Object.values(state.players)) p.attr = attributes(p, state.maps);
   for (const p of Object.values(state.ext.players)) p.attr = attributes(p, state.maps);
   return state;
