@@ -10,7 +10,7 @@
  */
 (function (g) {
   var CSS = '\
-#tdcTourWrap{position:fixed;inset:0;z-index:9000;display:none;}\
+#tdcTourWrap{position:fixed;inset:0;z-index:2147483100;display:none;}\
 #tdcTourWrap.on{display:block;}\
 .tdc-tour-spot{position:absolute;border-radius:12px;box-shadow:0 0 0 9999px rgba(8,10,18,.74);transition:all .32s cubic-bezier(.22,1,.36,1);pointer-events:none;}\
 .tdc-tour-tip{position:absolute;max-width:380px;max-height:calc(100vh - 24px);overflow:auto;background:var(--bg2,#fff);border:1px solid var(--border2,#ccd);border-radius:14px;padding:16px 18px;box-shadow:0 18px 50px -12px rgba(0,0,0,.6);transition:all .32s cubic-bezier(.22,1,.36,1);}\
@@ -24,7 +24,7 @@
 .tdc-tour-dots{display:flex;gap:5px;}\
 .tdc-tour-dot{width:6px;height:6px;border-radius:50%;background:var(--border2,#ccd);}\
 .tdc-tour-dot.on{background:var(--accent,#3b5bdb);}\
-.tdc-explain{position:fixed;left:16px;bottom:16px;z-index:8000;display:inline-flex;align-items:center;gap:7px;padding:8px 13px 8px 10px;border-radius:22px;\
+.tdc-explain{position:fixed;left:16px;bottom:16px;z-index:2147483050;display:inline-flex;align-items:center;gap:7px;padding:8px 13px 8px 10px;border-radius:22px;\
   background:var(--bg2,#fff);color:var(--text,#111);border:1px solid var(--border2,#ccd);box-shadow:0 8px 24px -8px rgba(0,0,0,.45);font:700 12px/1 -apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif;letter-spacing:.02em;cursor:pointer;transition:transform .15s,box-shadow .15s;}\
 .tdc-explain:hover{transform:translateY(-1px);box-shadow:0 12px 28px -8px rgba(0,0,0,.5);}\
 .tdc-explain i{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--accent,#3b5bdb);color:#141416;font-style:normal;font-size:11px;font-weight:900;}\
@@ -65,6 +65,8 @@
       { sel:'.hero-tabs', t:'The tabs', html:bl('<b>Depth Chart</b> — the rotation, position by position.', '<b>Schedule</b> — every game with a projected line.', '<b>Preview</b> — a full matchup report against any opponent.', '<b>Analytics ▾</b> — Team DNA, projected stats, shot charts, on/off, lineups.', '<b>Coach\'s Tier ▾</b> — the scouting tools.', '<b>NIL Value</b> and <b>Betting</b>.') },
       { sel:'.dc-grid', t:'The depth chart', html:'The rotation as the coach would draw it — a column per position (PG, SG, SF, PF, C), starters on top, bench underneath.' + bl('The number on each card is his <b>projected OVR</b> (0-99).', 'The minutes are his <b>projected minutes per game</b> — the same minutes his player page and the team stats are built from.', '★ = projected starter. FR = true freshman, whose line comes from his evaluation rather than college stats.') , tab:'depth' },
       { sel:'#panel-schedule', t:'Schedule', html:'Every game on the slate.' + bl('<b>Line</b> — the projected margin. −7 means this team is favoured by 7.', '<b>Win %</b> — the chance of winning that game.', 'The summary above it is a <b>simulated season</b>: the record range you should expect, not one fixed number, because every game carries uncertainty.'), tab:'schedule' },
+      { sel:'#lineupHistHost', tab:'lineups', t:'Lineups', d:'Who actually started, from real box scores: the most common starting fives, the starters over the last 5 and 10 games and by month, how each five did, and the best performers as starters and off the bench.' },
+      { sel:'#teamTrendsHost', tab:'trends', t:'Preseason trends', html:'What the scrimmages said, weighted by how game-like each one was (the Reality Meter).' + bl('<b>Preseason trend</b> — rating points the scrimmages added or took away.', '<b>Results vs our line</b> — the projected margin, the real one and the difference, with who started.', '<b>Team box vs projection</b> — the scrimmage stats next to the projected per-game line.', '<b>Risers &amp; fallers</b> — how much each player\'s projection moved.') },
       { sel:'#panel-preview', t:'Game preview', html:'Pick any opponent for a matchup report:' + bl(G.spread, 'Four-factor edges — which side wins the shooting, turnover, rebounding and free-throw battles.', 'Each player\'s <b>projected line in that specific game</b>, based on the opponent\'s defense.'), tab:'preview' },
       { sel:'#teamDnaHost', t:'Team DNA', html:'The team\'s statistical identity.' + bl(G.ortg, G.tempo, G.ff, 'Each bar shows the team\'s <b>percentile</b> nationally — the tick is the median team. The matchup projector at the bottom uses the same numbers to project a game against any opponent.'), tab:'dna' },
       { sel:'#projectionsContent', t:'Projected stats', d:'The team\'s projected per-game line (points, rebounds, assists, shooting) for the coming season, each number ranked against every Division-I team from last season so you can see whether 78 points a game is a lot (it is about 65th percentile). Below it: every player\'s projected line.', tab:'projections' },
@@ -85,15 +87,16 @@
       { sel:'.tab-row', t:'The tabs', html:bl('<b>Overview</b> — his projected line next to last season, skills, role.', '<b>Player DNA</b> — the analyst view: dashboard, offense, defense, six-factor.', '<b>Stats</b> — per game, per 40 minutes, advanced, game log, career.', '<b>Shots ▾</b> — shot charts, shot flow, percentiles.', '<b>Coach\'s Tier ▾</b> — dossier, role & fit, development path, scheme.', '<b>NIL</b>, <b>Buzz</b> (news), <b>Betting</b> (props).') },
       { sel:'#tdcSeasonSlot', t:'Season switcher', d:'"2026-27 Projected" is the model\'s estimate for the coming season. Every other entry is a real season he played: the stats he actually posted and the grade he earned that year. Historical grades use the same scale, so an 85 in 2016 means the same as an 85 today.' },
       { sel:'#ovrCards', t:'Actual vs projected', html:'Last season and the coming season, with the change on every stat.' + bl('<b>MPG</b> — minutes per game; the projection\'s minutes come from his depth-chart slot, the coach\'s rotation habits and what he played last year.', G.usg, G.ts, 'A drop in points with a drop in minutes usually means a smaller role, not a worse player.') },
-      { sel:'#radarChart', t:'Skill wheel', d:'Each spoke is one skill — scoring, shooting, playmaking, rebounding, defense, ball security — shown as a national percentile among players at his position. A full spoke is elite; a short one is a weakness.' },
+      { sel:'#radarChart', alt:'#ovrCards', t:'Skill wheel', d:'Each spoke is one skill — scoring, shooting, playmaking, rebounding, defense, ball security — shown as a national percentile among players at his position. A full spoke is elite; a short one is a weakness.' },
       { sel:'#panel-playerdna', t:'Player DNA', html:'The analyst view, with sub-tabs:' + bl('<b>Dashboard</b> — his percentile in every category at once.', '<b>Offense</b> — how he scores: shot diet, efficiency by shot type, creation.', '<b>Defense</b> — steals, blocks, rebounding, what the team allows with him on.', '<b>Six-factor</b> — the four factors plus rim protection and creation, as a fingerprint.') + 'Blue is strong, grey is average — the colours are one scale everywhere.', before:function(){ try{ switchTab('playerdna'); }catch(e){} } },
       { sel:'#panel-stats', t:'Stats', html:bl('<b>Per game</b> — the familiar box score.', '<b>Per 40</b> — the same stats stretched to 40 minutes, so a 15-minute bench player and a 35-minute starter can be compared.', '<b>Advanced</b> — usage, TS%, rebound and assist rates, TI (total impact per 40) and Wins Added.', '<b>Career trajectory</b> — his grade season by season.'), before:function(){ try{ switchTab('stats'); }catch(e){} } },
-      { sel:'#shotChartHost', t:'Shot chart', d:'Every located shot he took: filled = make, hollow = miss. "His spots" highlights the areas where he shoots better than the national average — and "trouble spots" where he doesn\'t. Shot Flow underneath shows where his shots come from (catch-and-shoot, off the dribble, at the rim) and who sets them up.', before:function(){ try{ _grpPick('shotcharts'); }catch(e){} } },
-      { sel:'#shotFlowHost', t:'Shot Flow', d:'How his shots are created and finished: where they come from, what kind of shot, whether it went in, and who set it up.', before:function(){ try{ _grpPick('shotflow'); }catch(e){} } },
-      { sel:'#distSection', t:'Percentile distributions', html:'Each row is one stat.' + bl('The bar is <b>where he sits</b> among the comparison group; the tick in the middle is the median player.', 'The number on the right is his <b>percentile</b> — 85th means better than 85% of them.', 'The toggle switches the comparison group between the whole country and his position.'), before:function(){ try{ _grpPick('percentiles'); }catch(e){} } },
-      { sel:'#nilContent', t:'NIL value', d:'What his projected production is worth in the name-image-likeness market: a dollar figure from his impact, his market premium (position, star power) and the spending tier of his program. An estimate of value, not a report of what he is paid.', before:function(){ try{ switchTab('nil'); }catch(e){} } },
+      { sel:'#trendsContent .tl, #trendsContent', alt:'#panel-trends', t:'Trends', html:'His preseason timeline: one stamp per scrimmage.' + bl('<b>Projected for this game</b> — his 2026-27 projection for one game, at his projected minutes, adjusted for the opponent.', '<b>Projected at N min</b> — the same projection at the minutes he actually played: the fair yardstick.', '<b>Actual</b> and <b>vs projection</b> — what he produced and the difference.', '<b>Reality Meter</b> — how game-like the scrimmage was, which sets how much it moves his projection.'), before:function(){ try{ switchTab('trends'); }catch(e){} } },
+      { sel:'#shotChartHost', alt:'#panel-shotcharts', t:'Shot chart', d:'Every located shot he took: filled = make, hollow = miss. "His spots" highlights the areas where he shoots better than the national average — and "trouble spots" where he doesn\'t. Shot Flow underneath shows where his shots come from (catch-and-shoot, off the dribble, at the rim) and who sets them up.', before:function(){ try{ _grpPick('shotcharts'); }catch(e){} } },
+      { sel:'#shotFlowHost', alt:'#panel-shotflow', t:'Shot Flow', d:'How his shots are created and finished: where they come from, what kind of shot, whether it went in, and who set it up.', before:function(){ try{ _grpPick('shotflow'); }catch(e){} } },
+      { sel:'#distSection', alt:'#panel-percentiles', t:'Percentile distributions', html:'Each row is one stat.' + bl('The bar is <b>where he sits</b> among the comparison group; the tick in the middle is the median player.', 'The number on the right is his <b>percentile</b> — 85th means better than 85% of them.', 'The toggle switches the comparison group between the whole country and his position.'), before:function(){ try{ _grpPick('percentiles'); }catch(e){} } },
+      { sel:'#nilContent', alt:'#panel-nil', t:'NIL value', d:'What his projected production is worth in the name-image-likeness market: a dollar figure from his impact, his market premium (position, star power) and the spending tier of his program. An estimate of value, not a report of what he is paid.', before:function(){ try{ switchTab('nil'); }catch(e){} } },
       { sel:'#buzzContent', t:'Buzz', d:'Headlines and posts about him, newest first — the human context behind the numbers.', before:function(){ try{ switchTab('buzz'); }catch(e){} } },
-      { sel:'#bettingContent', t:'Betting', d:'His projected prop lines (points, rebounds, assists) and how often he has cleared similar numbers, built from his own game logs.', before:function(){ try{ switchTab('betting'); }catch(e){} } }
+      { sel:'#bettingContent', alt:'#panel-betting', t:'Betting', d:'His projected prop lines (points, rebounds, assists) and how often he has cleared similar numbers, built from his own game logs.', before:function(){ try{ switchTab('betting'); }catch(e){} } }
     ],
 
     'compare-players.html': [
@@ -222,8 +225,8 @@
       { sel:'#out', t:'Bracketology', html:'A projected NCAA tournament field built from the Power Ratings:' + bl('<b>Seeds</b> 1-16 by projected strength, with automatic bids for projected conference champions.', '<b>Regions</b> follow the real bracketing rules — top seeds spread across regions, conference rivals kept apart where possible.', 'Once the real bracket is announced, the page shows it with the model\'s pick for every game.') }
     ],
     'games.html': [
-      { sel:'.gm-title', t:'Games',  d:'Eight quick games built on the site\'s own data. Each has a daily puzzle, the same for everyone, that resets at midnight Eastern.' },
-      { sel:'#ghList',   t:'Pick one', html:bl('<b>Guess the Player / College</b> — from a stat line or a career path.', '<b>Grade Guess</b> — guess a player\'s OVR from his line; teaches the grade scale fast.', '<b>Higher or Lower</b> and <b>Rank \'Em</b> — order players by a stat.', '<b>Hoop Grid</b> — the tic-tac-toe of teams and accolades.') }
+      { sel:'h1', t:'Games',  d:'Eight quick games built on the site\'s own data. Each has a daily puzzle, the same for everyone, that resets at midnight Eastern.' },
+      { sel:'#grid, .grid',   t:'Pick one', html:bl('<b>Guess the Player / College</b> — from a stat line or a career path.', '<b>Grade Guess</b> — guess a player\'s OVR from his line; teaches the grade scale fast.', '<b>Higher or Lower</b> and <b>Rank \'Em</b> — order players by a stat.', '<b>Hoop Grid</b> — the tic-tac-toe of teams and accolades.') }
     ],
     'game.html': [
       { sel:'#content', t:'Box score', html:'One game in full.' + bl('The header has the final, the four factors for each side and the player of the game.', 'Each player\'s line, with his <b>game impact</b> — how much he swung the result, from his stats in that game.', 'Below: the flow of the game and the runs that decided it.') }
@@ -380,6 +383,79 @@
       { sel:'#statPills', t:'Player prop board', d:'The full prop board. Pick the market: points, rebounds, assists, threes.' },
       { sel:'#boardPills', t:'The board', html:bl('<b>Bounce-back Overs</b> — last season ran well below his career pace per minute; players drift back toward their norm.', '<b>Regression Unders</b> — last season ran well above it.', '<b>Value Movers</b> — the biggest gaps between our projection and his career norm.') + 'The header shows how often each board hit over the last two seasons. Sortable, with a conference filter.' },
       { sel:'#teamAnglesSec', t:'Team angles', d:'ATS (against the spread) and over/under trends from five seasons of real closing lines — situations where teams have beaten the number more often than chance.' }
+    ],
+
+    'conferences.html': [
+      { sel:'#tiles, .tiles', t:'Every conference at a glance', d:'One tile per Division-I league for the season shown: how strong it is, who leads it and how many teams it has. Click a tile to open that conference\'s own page (standings, team ratings and its tournament).' },
+      { sel:'#hub', t:'The conference table', html:'Every league side by side, ranked by strength.' + bl(G.power + ' The conference number is the average of its teams.', '<b>Top team</b> — the best-rated team in that league.', '<b>Depth</b> — how strong the middle and bottom of the league are, not just the top.') },
+      { sel:'#pwrbox', t:'Power rating by conference', d:'How the conferences stack up when you compare every team in them, not just the champions.' }
+    ],
+
+    'player-rankings.html': [
+      { sel:'#grpRow', t:'Pick a list', d:'Choose the group of players to rank: everyone, a position, a class (freshmen, transfers…) or a category list.' },
+      { sel:'#byRow', t:'Rank by', html:'Choose the number the list is sorted by.' + bl(G.ovr, G.wa, '<b>Per-game stats</b> — points, rebounds, assists and the rest, from the 2026-27 projection.') },
+      { sel:'#confRow', t:'Conference filter', d:'Narrow the list to one league (ACC, SEC, Big Ten…) or keep every Division-I player.' },
+      { sel:'#prSearch', t:'Find a player', d:'Type a player or a school to jump straight to him in the current list.' },
+      { sel:'.sheet-wrap, #prHead', t:'The rankings', d:'The ranked list. Green-shaded cells are strong for that column, red are weak. Click a player for his full page.' }
+    ],
+
+    'transfers.html': [
+      { sel:'#tpSum', t:'The 2026-27 portal class', d:'The headline numbers for this year\'s transfer class: how many players moved, how many committed and where the most value went.' },
+      { sel:'#viewRow', t:'Players or teams', d:'<b>Players</b> lists every transfer; <b>Teams</b> ranks the schools by the talent they added and lost through the portal (their portal "haul").' },
+      { sel:'#posRow, #lvlRow', t:'Filters', html:bl('<b>Position</b> — guards, wings or bigs.', '<b>Move</b> — up a level (mid-major to high-major), down a level, or across.') },
+      { sel:'#tpBoards', t:'Top boards', d:'Quick lists: the best transfers still available, the biggest commitments and the biggest level jumps.' },
+      { sel:'.sheet-wrap, #tpHead', t:'The full tracker', html:'Every transfer with his old school, his new one and his projected value.' + bl(G.ovr) + 'Click a row to see how well he fits every program (Portal Fit).' }
+    ],
+
+    'today.html': [
+      { sel:'.daybar', t:'Pick a day', d:'The arrows step a day at a time, the calendar jumps to any date, and Today brings you back. Everything below re-loads for the day you pick.' },
+      { sel:'#scrimSec', t:'Scrimmages & exhibitions', d:'Preseason games, including the "secret" scrimmages. They are unofficial: they never count in a team\'s record. Click one for its box score and its Reality Meter (how game-like it was, which sets how much it moves our projections).' },
+      { sel:'#gameSec', t:'Games', html:'Every Division-I game that day: live scores while they are on, finals after. Before tip-off you see our line.' + bl(G.spread) }
+    ],
+
+    'plays.html': [
+      { sel:'#pfSearch', t:'Build a search', d:'Search every play in Division-I play-by-play back to 2008. Pick a season, a team, a player, the kind of play (three-pointer, dunk, block…), the result and the situation (late and close, overtime…).' },
+      { sel:'#f-form', t:'Stat conditions', d:'Add a condition on a number, for example plays where the win probability swung by more than 20%, or shots taken with under five seconds left.' },
+      { sel:'#chips', t:'Your filters', d:'Each filter you add shows here as a chip; click one to remove it.' },
+      { sel:'#res', t:'The results', html:'Every matching play, newest first (or as sorted).' + bl('<b>WPA</b> — win probability added: how much the play changed the team\'s chance of winning.', '<b>xPts / POE</b> — how many points an average shooter would expect from that shot, and how many he scored over that expectation.') }
+    ],
+
+    'scrimmage.html': [
+      { sel:'.board', t:'The final', d:'Unofficial preseason scrimmage or exhibition: it does not count in either team\'s record or season stats.' },
+      { sel:'.read', t:'Against our line', d:'What we projected before the game (the favorite and by how much) and how the result compared.' },
+      { sel:'.rm', t:'The Reality Meter', html:'How much this looked like a real game, read from the box score (0-100):' + bl('<b>Rotation</b> — were the minutes concentrated like a real game, or spread around to experiment?', '<b>Availability</b> — did the projected rotation play and start?', '<b>Competitive</b> — big margins mean garbage time.', '<b>Pace / line fit</b> — a normal number of possessions and a believable result.') + 'The higher it is, the more these lines count toward the players\' projections.' },
+      { sel:'.sheet-wrap', t:'The box score', d:'Each team\'s player lines. * = started. "Counts" is how many real games that line is worth toward his projection. Below each table: who on our roster did not play.' }
+    ],
+
+    'forum.html': [
+      { sel:'#catChips', t:'Categories', d:'Filter the forum to one topic: transfer portal, recruiting, game threads or general talk.' },
+      { sel:'#foSearch', t:'Search', d:'Find a topic by its title or text.' },
+      { sel:'#postBtnWrap', t:'Start a topic', d:'Sign in to post. Every post follows the forum rules; reported posts are reviewed by a moderator.' },
+      { sel:'#listView', t:'The topics', d:'Newest activity first. Pinned topics stay on top; locked topics can be read but not replied to.' }
+    ],
+
+    'community.html': [
+      { sel:'#tab-forum', t:'Forum', d:'Discussion threads by topic: portal, recruiting, game threads and general talk.' },
+      { sel:'#tab-members', t:'Members', d:'Everyone with an account, with their favorite team and member badges.' },
+      { sel:'#tab-feed', t:'Feed', d:'The latest activity across the site: new posts, follows and fan-site stories.' }
+    ],
+
+    'fan.html': [
+      { sel:'#dirPubs', t:'Fan publications', d:'Each team can have its own fan site: articles written by its fans, with a masthead and editors. These are the publications running now.' },
+      { sel:'#dirLatest', t:'Latest stories', d:'The newest articles across every fan site.' },
+      { sel:'#dirTeams', t:'Find your team', d:'Open any team\'s fan site and forum, or apply to write for it.' }
+    ],
+
+    'league.html': [
+      { sel:'.hero-cards', t:'How it works', d:'Public fantasy leagues on real 2026-27 players from the five power conferences: draft (auction or snake), compete in points, rebounds and assists all season, then a March playoff bracket.' },
+      { sel:'#jCode', alt:'#app .btn, .btn', t:'Join a league', d:'Have an invite code from a friend? Enter it to join their league and claim a team.' },
+      { sel:'#cName', alt:'#app .btn, .btn', t:'Start a league', d:'Name your league and your team, pick an auction or snake draft, then share the invite code. Leagues use real 2026-27 players and our projections.' },
+      { sel:'#view', alt:'.hero-cards', t:'Your league', d:'Once you are in: the draft board, your roster, the standings (rotisserie categories) and the March playoff bracket, priced by simulating the tournament.' }
+    ],
+
+    'dynasty.html': [
+      { sel:'#dyHead', t:'Dynasty (beta)', d:'Run a program over many seasons: recruit, develop and play games simulated by our own game engine, built on 20 years of real box scores.' },
+      { sel:'#dyBody', t:'Your program', d:'Your roster, season and results live here. It is a beta, so features are still being added.' }
     ]
   };
 
@@ -420,12 +496,41 @@
       if (typeof step.before === 'function') step.before();
     } catch (e) {}
   }
+  // the step's target, else its alternate (alt), else the tab's own panel — a Pro/Premium tab shows its lock
+  // card instead of the content, and the walkthrough should light that card, not skip the step
+  function target(st){
+    var el = q(st.sel); if (visible(el)) return el;
+    var alt = st.alt || (st.tab ? '#panel-' + st.tab : null);
+    var e2 = alt ? q(alt) : null; return visible(e2) ? e2 : el;
+  }
   function place(){
-    var el = STEPS[i] ? q(STEPS[i].sel) : null;
-    if (STEPS[i] && (STEPS[i].tab || STEPS[i].before)) { prep(STEPS[i]); el = q(STEPS[i].sel); }
-    var guard = 0;
-    while (!visible(el) && i < STEPS.length - 1 && guard < STEPS.length) { i++; prep(STEPS[i]); el = q(STEPS[i].sel); guard++; }
-    if (!visible(el)) { end(); return; }
+    var el = STEPS[i] ? target(STEPS[i]) : null;
+    if (STEPS[i] && (STEPS[i].tab || STEPS[i].before)) { prep(STEPS[i]); el = target(STEPS[i]); }
+    if (!visible(el)) {
+      // the target may still be loading (a tab panel, data that arrives late): look again, and if it never
+      // shows (an empty state, a gated or not-yet-built section) still EXPLAIN the step — centred, no
+      // spotlight — instead of silently skipping it or closing the walkthrough (it used to look broken)
+      var mine = ++_seq; centred();
+      [500, 1300, 2600].forEach(function (ms) { setTimeout(function () { if (mine !== _seq) return; var e2 = target(STEPS[i]); if (visible(e2)) { _seq++; spotlight(e2); } }, ms); });
+      return;
+    }
+    spotlight(el);
+  }
+  function texts(){
+    document.getElementById('tdcTourStep').textContent = 'Step ' + (i + 1) + ' of ' + STEPS.length;
+    document.getElementById('tdcTourTitle').textContent = STEPS[i].t;
+    var dsc = document.getElementById('tdcTourDesc'); if (STEPS[i].html) dsc.innerHTML = STEPS[i].html; else dsc.textContent = STEPS[i].d || '';
+    W.querySelector('.tdc-tour-next').textContent = (i === STEPS.length - 1) ? 'Got it' : 'Next';
+    document.getElementById('tdcTourDots').innerHTML = STEPS.map(function (_, k) { return '<span class="tdc-tour-dot' + (k === i ? ' on' : '') + '"></span>'; }).join('');
+  }
+  function centred(){
+    texts();
+    var spot = document.getElementById('tdcTourSpot');
+    spot.style.left = (window.innerWidth / 2) + 'px'; spot.style.top = (window.innerHeight / 2) + 'px'; spot.style.width = '0px'; spot.style.height = '0px';
+    var tip = document.getElementById('tdcTourTip'), tw = Math.min(380, window.innerWidth - 24), th = tip.offsetHeight || 160;
+    tip.style.left = Math.max(12, (window.innerWidth - tw) / 2) + 'px'; tip.style.top = Math.max(12, (window.innerHeight - th) / 2) + 'px';
+  }
+  function spotlight(el){
     var tall = function(){ return el.getBoundingClientRect().height > window.innerHeight - 80; };
     var scrollTo = function(){ try { el.scrollIntoView({ behavior: 'smooth', block: tall() ? 'start' : 'center' }); } catch (e) {} };
     scrollTo();
@@ -444,11 +549,7 @@
       var sTop = Math.max(r.top, 8), sH = Math.min(r.bottom - sTop, window.innerHeight - sTop - 12);
       spot.style.left = (r.left - pad) + 'px'; spot.style.top = (sTop - pad) + 'px';
       spot.style.width = (r.width + pad * 2) + 'px'; spot.style.height = (sH + pad * 2) + 'px';
-      document.getElementById('tdcTourStep').textContent = 'Step ' + (i + 1) + ' of ' + STEPS.length;
-      document.getElementById('tdcTourTitle').textContent = STEPS[i].t;
-      var dsc = document.getElementById('tdcTourDesc'); if (STEPS[i].html) dsc.innerHTML = STEPS[i].html; else dsc.textContent = STEPS[i].d || '';
-      W.querySelector('.tdc-tour-next').textContent = (i === STEPS.length - 1) ? 'Got it' : 'Next';
-      document.getElementById('tdcTourDots').innerHTML = STEPS.map(function (_, k) { return '<span class="tdc-tour-dot' + (k === i ? ' on' : '') + '"></span>'; }).join('');
+      texts();
       var tip = document.getElementById('tdcTourTip'); var th = tip.offsetHeight || 160, tw = Math.min(380, window.innerWidth - 24);
       var bottom = sTop + sH;
       var top = bottom + 14; if (top + th > window.innerHeight - 12) top = Math.max(12, sTop - th - 14);
@@ -471,7 +572,9 @@
     b.addEventListener('click', function () { start(); });
     document.body.appendChild(b);
   }
-  function boot(){ button(); }   // on demand only — the walkthrough never opens by itself
+  // on demand only — the walkthrough never opens by itself. Pages that re-render their body after load could
+  // drop the button, so it re-checks for a while after boot.
+  function boot(){ button(); var n = 0, iv = setInterval(function () { button(); if (++n >= 15) clearInterval(iv); }, 2000); }
   if (document.readyState === 'complete') setTimeout(boot, 400); else window.addEventListener('load', function () { setTimeout(boot, 400); });
   g.TDCTour = { start: start, end: end, register: function (pg, steps) { TOURS[pg] = steps; if (pg === page()) button(); }, tours: TOURS };
 })(window);
