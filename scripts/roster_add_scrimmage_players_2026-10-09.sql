@@ -26,8 +26,8 @@ select 'Mason Moses', 'Georgetown', 'SG', 'Jr.', 'Jr.', '6-6', null, 5240523,
        (select coalesce(max(depth_order), 0) + 1 from players where team = 'Georgetown'), false, false, false, false
 where not exists (select 1 from players p where p.team = 'Georgetown' and p.name = 'Mason Moses');
 
--- Georgetown: Michael Van Raaphorst, Jr. G 6-3 (walk-on, #30; 1 min vs Wake Forest). End of the bench.
+-- Georgetown: Michael Van Raaphorst, Jr. G 6-3 (walk-on, #30; 9 games over 2024-26; 1 min vs Wake Forest). End of the bench.
 insert into players (name, team, position, class_year, yr, height, hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
-select 'Michael Van Raaphorst', 'Georgetown', 'SG', 'Jr.', 'Jr.', '6-3', null, null,
+select 'Michael Van Raaphorst', 'Georgetown', 'SG', 'Jr.', 'Jr.', '6-3', null, 5240525,
        (select coalesce(max(depth_order), 0) + 1 from players where team = 'Georgetown'), false, false, false, false
 where not exists (select 1 from players p where p.team = 'Georgetown' and p.name = 'Michael Van Raaphorst');
