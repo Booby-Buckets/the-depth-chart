@@ -3,17 +3,17 @@
 // ranked the team vs where it finished, plus March): AI coaches on a hot seat get fired, successful coaches at
 // smaller programs get hired up (taking their defensive scheme with them), and the user's job security moves —
 // a strong year brings offers from bigger programs, a run of bad ones gets you fired.
-import { power } from './season.js?v=12';
-import { powerFeatures } from './league.js?v=12';
-import { ncaaResult } from './postseason.js?v=12';
-import { makeRng, hashSeed } from './rng.js?v=12';
-import { news } from './injuries.js?v=12';
+import { power } from './season.js?v=15';
+import { powerFeatures } from './league.js?v=15';
+import { ncaaResult } from './postseason.js?v=15';
+import { makeRng, hashSeed } from './rng.js?v=15';
+import { news } from './injuries.js?v=15';
 
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 const BUMP = { Champion: 3, 'Runner-up': 2.3, 'Final Four': 2, 'Elite Eight': 1.2, 'Sweet 16': 0.6, 'Round of 32': 0.2 };
 
 export function initCoaches(state, snap, userName) {
-  const byName = Object.fromEntries((snap ? snap.teams : []).map(t => [t.name, t.coach]));
+  const byName = Object.fromEntries((snap ? snap.teams.concat(snap.shells || []) : []).map(t => [t.name, t.coach]));
   const rng = makeRng(hashSeed(`${state.seed}:coaches`));
   for (const t of Object.values(state.teams)) {
     t.coach = t.name === state.user ? { name: userName || 'You', yrs: 0, user: true, hot: 0 }

@@ -5,13 +5,13 @@
 //
 // Calibrated to the snapshot: freshmen enter at a median OVR ~59 (top 1% ~77); players gain ~+5 Fr->So,
 // ~+3 So->Jr, ~+1.5 after; teams lose ~3.4 upperclassmen a year; rosters carry 13 scholarships.
-import { overall, attributes } from './ratings.js?v=12';
-import { makeRng, hashSeed } from './rng.js?v=12';
-import { record_, power, touch } from './season.js?v=12';
-import { ncaaResult } from './postseason.js?v=12';
-import { effOvr } from './league.js?v=12';
-import { evaluateCoaches } from './coaching.js?v=12';
-import { healAll } from './injuries.js?v=12';
+import { overall, attributes } from './ratings.js?v=15';
+import { makeRng, hashSeed } from './rng.js?v=15';
+import { record_, power, touch } from './season.js?v=15';
+import { ncaaResult } from './postseason.js?v=15';
+import { effOvr } from './league.js?v=15';
+import { evaluateCoaches } from './coaching.js?v=15';
+import { healAll } from './injuries.js?v=15';
 
 export const SCHOLARSHIPS = 13;
 const PIL = ['SCO', 'SHT', 'FIN', 'PLY', 'SEC', 'REB', 'DEF'];
@@ -281,10 +281,11 @@ export function makeSchedule(state) {
     const start = ISO(y, 1, 2), step = Math.max(2, Math.floor(64 / Math.max(1, rounds.length)));
     rounds.forEach((rd, i) => rd.forEach(([h, a]) => add(addD(start, i * step), h, a, false, true)));
   }
-  // non-conference: 11 rounds of random pairings across leagues (Nov 3 – Dec 30)
+  // non-conference: 13 rounds of random pairings across leagues (Nov 3 – Dec 30) — with ~18-20 league games that
+  // is a real ~31-33 game slate (11 rounds left teams around 29)
   const names = Object.keys(state.teams);
-  for (let r = 0; r < 11; r++) {
-    const pool = names.slice().sort(() => rng.next() - 0.5), used = new Set(), d = addD(ISO(y - 1, 11, 3), r * 5 + rng.int(3));
+  for (let r = 0; r < 13; r++) {
+    const pool = names.slice().sort(() => rng.next() - 0.5), used = new Set(), d = addD(ISO(y - 1, 11, 3), r * 4 + rng.int(3));
     for (const a of pool) {
       if (used.has(a)) continue;
       const b = pool.find(x => !used.has(x) && x !== a && state.teams[x].conf !== state.teams[a].conf);

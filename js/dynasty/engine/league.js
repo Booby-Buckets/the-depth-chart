@@ -7,9 +7,10 @@
 //   players: { id: { id, name, team, pos, pos2, ht, yr, pillars, lvl, mpg, pot } },
 //   schedule:[ { id, d, h, a, n, c, r } ],             r = [homePts, awayPts, ot, poss] once played
 //   stats:   { id: season totals },  powerFit, history:[], userBox:{ gameId: box } }
-import { attributes, overall } from './ratings.js?v=12';
-import { makeRng } from './rng.js?v=12';
-import { initCoaches } from './coaching.js?v=12';
+import { attributes, overall } from './ratings.js?v=15';
+import { makeRng } from './rng.js?v=15';
+import { initCoaches } from './coaching.js?v=15';
+import { fillLeague, buildSchedule } from './fill.js?v=15';
 
 export const YR = { 'FR': 1, 'FR.': 1, 'RS FR.': 1, 'SO': 2, 'SO.': 2, 'RS SO.': 2, 'JR': 3, 'JR.': 3, 'RS JR.': 3, 'SR': 4, 'SR.': 4, 'RS SR.': 4, 'GR': 5, 'GR.': 5, '5TH': 5 };
 export const YR_LABEL = ['', 'Fr', 'So', 'Jr', 'Sr', 'Gr'];
@@ -79,20 +80,18 @@ export function createLeague(snap, sched, opts = {}) {
   const X = [], y = [];
   for (const t of Object.values(teams)) if (t.rating0 != null) { X.push(powerFeatures(t, players, maps)); y.push(t.rating0); }
   const powerFit = lstsq(X, y);
+  // full schedules: D-I teams with no snapshot roster (shells) + non-D-I opponents (state.ext) get generated rosters
+  const pre = { maps, powerFit, teams, players, ext: { teams: {}, players: {} } };
+  fillLeague(pre, snap, sched, opts.extras, rng);
   const T = Object.values(teams);
   const pw = T.map(t => powerFeatures(t, players, maps).reduce((s, x, i) => s + x * powerFit[i], 0));
   const lo = Math.min(...pw), hi = Math.max(...pw);
   T.forEach((t, i) => { t.prestige = Math.round(100 * (pw[i] - lo) / (hi - lo)); t.power0 = pw[i]; delete t.rating0; });
 
-  // the real 2026-27 slate, D-I vs D-I games between league teams
-  const names = sched.teams;
-  const schedule = sched.games.map(g => ({ id: String(g[0]), d: g[1], h: names[g[2]], a: names[g[3]], n: !!g[4], c: !!g[5], r: null }))
-    .filter(g => teams[g.h] && teams[g.a])
-    // the regular season ends by mid-March (one stray extras-file game dated April 6 pushed every
-    // conference tournament three weeks late)
-    .filter(g => g.d <= `${opts.year || 2027}-03-15`)
-    .map(g => Object.assign(g, { c: g.c || (teams[g.h].conf === teams[g.a].conf && !g.n) }))
-    .sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : 0);
+  // the real 2026-27 slate: every listed game (incl. non-D-I opponents), the extras file's added games, and the
+  // MTE bracket / pool days that resolve from real results as they arrive (state.pending). The regular season
+  // ends mid-March (a stray extras game dated April 6 once pushed every conference tournament three weeks late).
+  const schedule = buildSchedule(pre, sched, opts.extras, opts.year || 2027);
 
   // real freshmen's pillar shapes (position + height + profile): generated recruits are rescaled copies
   const templates = Object.values(players).filter(p => p.yr === 1 && p.mpg >= 3).map(p => ({ pos: p.pos, ht: p.ht, pillars: Object.assign({}, p.pillars) }));
@@ -101,6 +100,7 @@ export function createLeague(snap, sched, opts = {}) {
   const user = opts.user && teams[opts.user] ? opts.user : null;
   const lvlRef = levelRef(teams);
   const state = { v: 2, lvlRef, seed, year: opts.year || 2027, user, phase: 'regular', maps, powerFit, teams, players, schedule, templates, lvl0,
+    ext: pre.ext, pending: pre.pending || [],
     stats: {}, results: {}, history: [], userBox: {}, news: [], awards: null, created: opts.now || null };
   initCoaches(state, snap, opts.coachName);
   return state;
@@ -115,7 +115,10 @@ export function hydrate(state) {
   if (state.lvlRef == null) state.lvlRef = levelRef(state.teams);
   if (!state.job) initCoaches(state, null, null);   // saves from before coaching
   if (!state.news) state.news = [];
+  if (!state.ext) state.ext = { teams: {}, players: {} };      // saves from before full schedules
+  if (!state.pending) state.pending = [];
   for (const p of Object.values(state.players)) p.attr = attributes(p, state.maps);
+  for (const p of Object.values(state.ext.players)) p.attr = attributes(p, state.maps);
   return state;
 }
 

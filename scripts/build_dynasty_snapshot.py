@@ -243,6 +243,15 @@ def main():
         t["sysDef"] = round(float(max(-8.0, min(8.0, -(t["projD"] - float(x @ cd))))), 2)
     keep = {t["name"] for t in teams}
     players = [p for p in players if p["team"] in keep]
+    # ── SHELLS: D-I members with no usable roster (Long Island, Wyoming, Ohio… — 13 in Oct 2026). The dynasty
+    # generates a roster for each, sized to its real power rating, so every scheduled D-I game gets played. ──
+    lv_conf = defaultdict(list)
+    for t in teams: lv_conf[t["conf"]].append(t["level"])
+    tempo_mu = round(S.mean([t["tempo"] for t in teams if t.get("tempo")]), 2)
+    shells = [{"name": full, "conf": c, "rating": rating.get(full), "tempo": (pace.get(full) or {}).get("t") or tempo_mu,
+               "level": round(S.mean(lv_conf[c]), 2) if lv_conf.get(c) else 0.0, "coach": coach.get(full)}
+              for full, c in sorted(members.items()) if full not in keep]
+    print(f"shells (D-I, no roster): {len(shells)} — " + ", ".join(x["name"] for x in shells))
 
     # ── targets: real 2025-26 D-I averages ──
     d26 = list(dna["2026"]["teams"].values())
@@ -264,7 +273,7 @@ def main():
 
     OUT.parent.mkdir(exist_ok=True)
     json.dump({"season": "2026-27", "built": "scripts/build_dynasty_snapshot.py", "pillarScale": "50 = avg D-I rotation player, 15 = 1 SD",
-               "heightRef": HT0, "pillarMap": pmap, "ovrMap": omap, "defMap": dmap, "teams": teams, "players": players},
+               "heightRef": HT0, "pillarMap": pmap, "ovrMap": omap, "defMap": dmap, "teams": teams, "players": players, "shells": shells},
               open(OUT, "w"), separators=(",", ":"), ensure_ascii=False)
     TGT.parent.mkdir(parents=True, exist_ok=True)
     json.dump(targets, open(TGT, "w"), indent=1)

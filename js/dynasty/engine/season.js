@@ -1,10 +1,11 @@
 // The season: day-by-day simulation over state.schedule, results, player stats, standings, a power rating
 // (opponent-adjusted net blended with the preseason prior) and the poll. Pure: works on the state object.
-import { prepareTeam } from './ratings.js?v=12';
-import { simulateGame, totals } from './game.js?v=12';
-import { makeRng, hashSeed } from './rng.js?v=12';
-import { powerFeatures } from './league.js?v=12';
-import { afterGame } from './injuries.js?v=12';
+import { prepareTeam } from './ratings.js?v=15';
+import { simulateGame, totals } from './game.js?v=15';
+import { makeRng, hashSeed } from './rng.js?v=15';
+import { powerFeatures } from './league.js?v=15';
+import { afterGame } from './injuries.js?v=15';
+import { resolvePending, nextPendingDate, EXT_RATING } from './fill.js?v=15';
 
 const STAT_KEYS = ['min', 'pts', 'fgm', 'fga', 'tpm', 'tpa', 'ftm', 'fta', 'orb', 'drb', 'ast', 'stl', 'blk', 'tov', 'pf'];
 
@@ -17,6 +18,7 @@ export function prepared(state, C, cache = {}) {
       ? { minutes: t.minutes || undefined, starters: t.starters || undefined, plan: t.plan || undefined } : {};
     teams[t.name] = prepareTeam(t, byId, state.maps, C, opts);
   }
+  for (const t of Object.values((state.ext && state.ext.teams) || {})) teams[t.name] = prepareTeam(t, state.ext.players, state.maps, C, {});
   return Object.assign(cache, { ver: state._ver, year: state.year, teams, L: leagueRefsOf(state) });
 }
 
@@ -48,6 +50,7 @@ export function record(state, g, sim) {
   const est = t => t.fga - t.orb + t.tov + 0.475 * t.fta;
   g.r = [sim.score[0], sim.score[1], sim.ot, Math.round((est(th) + est(ta)) / 2)];
   for (const [rows, team] of [[sim.box.home, g.h], [sim.box.away, g.a]]) {
+    if (!state.teams[team]) continue;                         // non-D-I opponents keep no season stats
     for (const r of rows) {
       const s = state.stats[r.id] || (state.stats[r.id] = Object.fromEntries([['g', 0], ['gs', 0], ...STAT_KEYS.map(k => [k, 0])]));
       s.g++; for (const k of STAT_KEYS) s[k] += r[k] || 0;
@@ -61,13 +64,15 @@ export function record(state, g, sim) {
 }
 
 export function nextDate(state) {
-  const g = state.schedule.find(x => !x.r);
-  return g ? g.d : null;
+  const g = state.schedule.find(x => !x.r), p = nextPendingDate(state);
+  const d = g ? g.d : null;
+  return !d ? p : !p ? d : (p < d ? p : d);
 }
 
 // sim every game on the next unplayed date (skipping any the caller already played, e.g. a watched game)
 export function simDay(state, C, cache, opts = {}) {
   const d = nextDate(state); if (!d) return null;
+  resolvePending(state, d, makeRng(hashSeed(`${state.seed}:${state.year}:mte:${d}`)));   // MTE day 2 / 3 from real results
   const prep = prepared(state, C, cache);
   const out = [];
   for (const g of state.schedule) if (g.d === d && !g.r) { playGame(state, g, prep, C, opts); out.push(g); }
@@ -109,7 +114,7 @@ const PRIOR_G = 8;
 export function power(state) {
   const T = Object.keys(state.teams), prior = {};
   for (const n of T) prior[n] = powerFeatures(state.teams[n], state.players, state.maps).reduce((s, x, i) => s + x * state.powerFit[i], 0);
-  const games = state.schedule.filter(g => g.r);
+  const games = state.schedule.filter(g => g.r && state.teams[g.h] && state.teams[g.a]);   // D-I vs D-I only
   const opp = {}, mar = {};
   for (const n of T) { opp[n] = []; mar[n] = []; }
   for (const g of games) {
@@ -140,7 +145,7 @@ export function poll(state, n = 25) {
 export function lineFor(state, g, pw) {
   // home spread (positive = home favoured) from power ratings
   const p = pw || power(state);
-  return p[g.h] - p[g.a] + (g.n ? 0 : 3);
+  return (p[g.h] ?? EXT_RATING) - (p[g.a] ?? EXT_RATING) + (g.n ? 0 : 3);   // a non-D-I opponent has no power rating
 }
 
 export const statKeys = STAT_KEYS;
