@@ -245,8 +245,8 @@
       fetch('scripts/data/shot_genome_players.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('data/continuity.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('scripts/data/level_adj.json').then(r=>r.ok?r.json():null).catch(()=>null),
-      fetch('scripts/data/team_eff.json?v=12').then(r=>r.ok?r.json():null).catch(()=>null),
-      fetch('scripts/data/scrim_trends_2027.json?v=3').then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch('scripts/data/team_eff.json?v=13').then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch('scripts/data/scrim_trends_2027.json?v=4').then(r=>r.ok?r.json():null).catch(()=>null),
     ]);
     // PRESEASON SCRIMMAGES (build_scrim_trends.py): each team's Reality-weighted result vs our line,
     // shrunk toward 0 (10-game prior) and capped ±2.5 — a game-like blowout loss moves a team a little.
