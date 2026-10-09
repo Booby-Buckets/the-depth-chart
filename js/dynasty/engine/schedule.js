@@ -15,8 +15,8 @@
 //   6. DATES — every non-conference game lands on an open day (a day's rest on both sides when possible), rivalries
 //      near their traditional date.
 // Pure: works on the state object.
-import { planMTEs, EVENTS, ccOpponent } from './mte.js?v=48';
-import { miles } from './recruit.js?v=48';
+import { planMTEs, EVENTS, ccOpponent } from './mte.js?v=49';
+import { miles } from './recruit.js?v=49';
 
 const ISO = (y, m, d) => new Date(Date.UTC(y, m - 1, d)).toISOString().slice(0, 10);
 const addD = (iso, n) => new Date(Date.parse(iso + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);

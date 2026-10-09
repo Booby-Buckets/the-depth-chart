@@ -4,10 +4,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { C } from '../engine/constants.js?v=48';
-import { indexSnapshot } from '../engine/snapshot.js?v=48';
-import { simulateGame } from '../engine/game.js?v=48';
-import { makeRng } from '../engine/rng.js?v=48';
+import { C } from '../engine/constants.js?v=49';
+import { indexSnapshot } from '../engine/snapshot.js?v=49';
+import { simulateGame } from '../engine/game.js?v=49';
+import { makeRng } from '../engine/rng.js?v=49';
 const HERE = path.dirname(fileURLToPath(import.meta.url)), ROOT = path.resolve(HERE, '../../..');
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
 for (const kv of (arg('set', '') || '').split(',').filter(Boolean)) { const [k, v] = kv.split('='); C[k] = +v; }

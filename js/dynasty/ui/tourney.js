@@ -1,8 +1,8 @@
 // Tournaments tab (NCAA / NIT / CBI / conference tournaments / early-season events / bracketology) and the Awards
 // tab (national + every conference, coaches). Rules live in engine/postseason.js, engine/mte.js, engine/awards.js.
-import { projectField, ctFormat } from '../engine/postseason.js?v=48';
-import { mteFinish } from '../engine/mte.js?v=48';
-import { confLabel } from '../engine/awards.js?v=48';
+import { projectField, ctFormat } from '../engine/postseason.js?v=49';
+import { mteFinish } from '../engine/mte.js?v=49';
+import { confLabel } from '../engine/awards.js?v=49';
 
 let view = null, ctSel = null, evSel = null, awConf = null;
 

@@ -2,8 +2,8 @@
 // pillars + offensive / defensive scheme with fit and familiarity) and the NIL collective. UI only — every rule
 // lives in engine/program.js.
 import { DIFFS, HOURS, AREAS, ROLES, OFF, DEF, PIL_LABEL, FOCUS_LABEL, cover, effort, fitOf, famOf, payroll, hire, fire, boosterEvent,
-  devMult, focusBonus, recruitPoints, nilRetention, nilOffer } from '../engine/program.js?v=48';
-import { TIERS, revenueOf, exitFee, travel, ladder, powerAvg, members } from '../engine/realign.js?v=48';
+  devMult, focusBonus, recruitPoints, nilRetention, nilOffer } from '../engine/program.js?v=49';
+import { TIERS, revenueOf, exitFee, travel, ladder, powerAvg, members } from '../engine/realign.js?v=49';
 
 const AREA_TXT = {
   practice: 'Scheme familiarity and your two focus areas grow with practice time.',

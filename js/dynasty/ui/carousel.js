@@ -1,11 +1,11 @@
 // Offseason steps 1-2: the coaching carousel (your job, offers, then every opening filled with the cascade) and the
 // staff market (re-sign, hire free agents, poach assistants). Rules in engine/coaching.js + engine/program.js.
-import { takeJob, wantFor } from '../engine/coaching.js?v=48';
-import { finishCarousel, finishStaff } from '../engine/offseason.js?v=48';
-import { record_, power } from '../engine/season.js?v=48';
-import { effOvr } from '../engine/league.js?v=48';
-import { ROLES, payroll, staffAsk, offerStaff, poachAsk, poachStaff, fire } from '../engine/program.js?v=48';
-import { confLabel } from '../engine/awards.js?v=48';
+import { takeJob, wantFor } from '../engine/coaching.js?v=49';
+import { finishCarousel, finishStaff } from '../engine/offseason.js?v=49';
+import { record_, power } from '../engine/season.js?v=49';
+import { effOvr } from '../engine/league.js?v=49';
+import { ROLES, payroll, staffAsk, offerStaff, poachAsk, poachStaff, fire } from '../engine/program.js?v=49';
+import { confLabel } from '../engine/awards.js?v=49';
 
 const m$ = k => '$' + (k >= 1000 ? (k / 1000).toFixed(2) + 'M' : Math.round(k) + 'k');
 const WHY = { fired: 'fired', retired: 'retired', left: 'left' };

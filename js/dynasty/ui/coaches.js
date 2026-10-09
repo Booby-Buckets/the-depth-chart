@@ -1,6 +1,6 @@
 // Coaches tab: every head coach in the league (ratings, career, tenure, hot seat) + the latest carousel.
-import { hotNow } from '../engine/coaching.js?v=48';
-import { confLabel } from '../engine/awards.js?v=48';
+import { hotNow } from '../engine/coaching.js?v=49';
+import { confLabel } from '../engine/awards.js?v=49';
 
 let sortK = 'hot', conf = '', dir = 1;
 export function coachesView(ctx) {

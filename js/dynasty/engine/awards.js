@@ -7,9 +7,9 @@
 // competition — a low-major's 28 ppg doesn't beat a power-conference star's 20). Coaches: how far the team finished
 // above its preseason roster rating, plus winning. Every honoree also carries the honor (p.hon) for his card; the
 // season history keeps the compact version (no full conference teams).
-import { record_, power } from './season.js?v=48';
-import { powerFeatures, effOvr } from './league.js?v=48';
-import { news } from './injuries.js?v=48';
+import { record_, power } from './season.js?v=49';
+import { powerFeatures, effOvr } from './league.js?v=49';
+import { news } from './injuries.js?v=49';
 
 const gmsc = s => (s.pts + 0.4 * s.fgm - 0.7 * s.fga - 0.4 * (s.fta - s.ftm) + 0.7 * s.orb + 0.3 * s.drb + s.stl + 0.7 * s.ast + 0.7 * s.blk - 0.4 * s.pf - s.tov) / s.g;
 export const CONF_LABEL = { B10: 'Big Ten', 'BIG-12': 'Big 12', 'Big-East': 'Big East', 'PAC-12': 'Pac-12', AEC: 'America East', MWC: 'Mountain West', CUSA: 'Conference USA',

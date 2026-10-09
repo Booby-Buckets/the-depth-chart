@@ -5,20 +5,20 @@
 //
 // Calibrated to the snapshot: freshmen enter at a median OVR ~59 (top 1% ~77); players gain ~+5 Fr->So,
 // ~+3 So->Jr, ~+1.5 after; teams lose ~3.4 upperclassmen a year; rosters carry 13 scholarships.
-import { overall, attributes } from './ratings.js?v=48';
-import { makeRng, hashSeed } from './rng.js?v=48';
-import { record_, power, touch } from './season.js?v=48';
-import { ncaaResult, postResult } from './postseason.js?v=48';
-import { effOvr } from './league.js?v=48';
-import { evaluateCoaches, runCarousel } from './coaching.js?v=48';
-import { healAll } from './injuries.js?v=48';
-import { profile, userOdds, pickSchool, notePro, factors, utility, relationship, aiSign } from './recruit.js?v=48';
-import { openPortal, portalDay, PORTAL_DAYS } from './portal.js?v=48';
-import { realignWindow, applyMoves, applyRevenue } from './realign.js?v=48';
-import { makeSchedule } from './schedule.js?v=48';
-import { runDraft } from './draft.js?v=48';
-import { compactAwards } from './awards.js?v=48';
-import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina, openStaffMarket, closeStaffMarket } from './program.js?v=48';
+import { overall, attributes } from './ratings.js?v=49';
+import { makeRng, hashSeed } from './rng.js?v=49';
+import { record_, power, touch } from './season.js?v=49';
+import { ncaaResult, postResult } from './postseason.js?v=49';
+import { effOvr } from './league.js?v=49';
+import { evaluateCoaches, runCarousel } from './coaching.js?v=49';
+import { healAll } from './injuries.js?v=49';
+import { profile, userOdds, pickSchool, notePro, factors, utility, relationship, aiSign } from './recruit.js?v=49';
+import { openPortal, portalDay, PORTAL_DAYS } from './portal.js?v=49';
+import { realignWindow, applyMoves, applyRevenue } from './realign.js?v=49';
+import { makeSchedule } from './schedule.js?v=49';
+import { runDraft } from './draft.js?v=49';
+import { compactAwards } from './awards.js?v=49';
+import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina, openStaffMarket, closeStaffMarket } from './program.js?v=49';
 
 export const SCHOLARSHIPS = 13;
 const PIL = ['SCO', 'SHT', 'FIN', 'PLY', 'SEC', 'REB', 'DEF'];
