@@ -1,16 +1,17 @@
 // Dynasty — the page. Engine (pure) + browser saves + rendering. One league in memory (S); every action
 // mutates it through the engine, re-renders, and autosaves.
-import { C } from '../engine/constants.js?v=11';
-import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=11';
-import { overall } from '../engine/ratings.js?v=11';
-import { prepared, playGame, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=11';
-import { simNext, simTo, afterDay } from '../engine/flow.js?v=11';
-import { REGION_NAMES, ncaaResult } from '../engine/postseason.js?v=11';
-import { takeJob } from '../engine/coaching.js?v=11';
-import { TYPES as INJ } from '../engine/injuries.js?v=11';
-import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS } from '../engine/offseason.js?v=11';
-import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=11';
-import { lines as pbpLines } from './pbp.js?v=11';
+import { C } from '../engine/constants.js?v=12';
+import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=12';
+import { overall } from '../engine/ratings.js?v=12';
+import { prepared, playGame, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=12';
+import { simNext, simTo, afterDay } from '../engine/flow.js?v=12';
+import { REGION_NAMES, ncaaResult } from '../engine/postseason.js?v=12';
+import { takeJob } from '../engine/coaching.js?v=12';
+import { TYPES as INJ } from '../engine/injuries.js?v=12';
+import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS } from '../engine/offseason.js?v=12';
+import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=12';
+import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=12';
+import { lines as pbpLines } from './pbp.js?v=12';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -37,35 +38,79 @@ async function loadData() {
   ]);
 }
 function meta() {
-  const r = record_(S, S.user);
-  return { team: S.user, year: S.year, w: r.w, l: r.l, phase: S.phase };
+  const r = record_(S, S.user), t = S.teams[S.user];
+  return { team: S.user, year: S.year, w: r.w, l: r.l, phase: S.phase, coach: (t && t.coach && t.coach.name) || '' };
 }
 let saveT = null;
 function autosave() {
   clearTimeout(saveT);
-  saveT = setTimeout(() => { saveSlot(slot, dehydrate(S), meta()).catch(e => console.warn('save failed', e)); }, 300);
+  saveT = setTimeout(() => { saveSlot(slot, dehydrate(S), meta()).then(() => queueCloud()).catch(e => console.warn('save failed', e)); }, 300);
 }
+
+// ── account saves (cloud.js): every dynasty also syncs to the signed-in account, so it follows you across
+// devices and survives a cleared browser. The device copy stays instant/offline; the account copy uploads
+// ~20 s after you stop (and right away when you leave the page). Newest copy wins when you continue.
+const CLOUD_WAIT = 20000;
+let cloudT = null, cloudState = 'idle', cloudMsg = '';
+function cloudBadge() {
+  if (!signedIn()) return '<a class="dy-cloud off" href="signin.html?next=dynasty.html" title="Sign in to keep your dynasties on your account and play them on any device">☁ Sign in to save to your account</a>';
+  const txt = { idle: '☁ On your account', pending: '☁ Saving soon…', saving: '☁ Saving…', saved: '☁ Saved to your account', error: '☁ Not saved to your account' }[cloudState];
+  return `<span class="dy-cloud ${cloudState}" title="${esc(cloudState === 'error' ? cloudMsg + ' — your dynasty is still saved on this device' : 'Saved on this device and to your account')}">${txt}</span>`;
+}
+function setCloud(st, msg) { cloudState = st; cloudMsg = msg || ''; const el = $('#dyCloud'); if (el) el.innerHTML = cloudBadge(); }
+function queueCloud(wait) {
+  if (!signedIn() || !S || !slot) return;
+  clearTimeout(cloudT); setCloud('pending'); cloudT = setTimeout(flushCloud, wait == null ? CLOUD_WAIT : wait);
+}
+async function flushCloud() {
+  clearTimeout(cloudT); cloudT = null;
+  if (!signedIn() || !S || !slot) return;
+  setCloud('saving');
+  try { await cloudPut(slot, dehydrate(S), meta(), Date.now()); setCloud('saved'); }
+  catch (e) { setCloud('error', e.message); console.warn(e); }
+}
+// leaving the page (tab hidden / closed) uploads a pending save right away
+document.addEventListener('visibilitychange', () => { if (document.hidden && cloudT) flushCloud(); });
+window.addEventListener('pagehide', () => { if (cloudT) flushCloud(); });
 
 // ── start screen ──
 async function startScreen() {
   $('#dyHead').innerHTML = '<div class="eyebrow">Dynasty · beta</div><h1>Dynasty</h1>';
-  const saves = await listSlots().catch(() => []);
+  // device + account saves, merged by slot (newest copy wins); a device-only or newer-on-device dynasty is
+  // uploaded to the account in the background so existing dynasties move to the account on their own
+  let cloudErr = '';
+  const [loc, cl] = await Promise.all([listSlots().catch(() => []), signedIn() ? cloudList().catch(e => { cloudErr = e.message; return []; }) : []]);
+  const by = {};
+  for (const x of loc) by[x.slot] = { slot: x.slot, meta: x.meta, at: x.at, dev: x.at, acct: 0 };
+  for (const x of cl) { const o = by[x.slot] || (by[x.slot] = { slot: x.slot, meta: x.meta, at: 0, dev: 0, acct: 0 }); o.acct = x.at; if (x.at > o.at) { o.at = x.at; o.meta = x.meta; } }
+  const saves = Object.values(by).sort((a, b) => b.at - a.at);
+  if (signedIn() && !cloudErr) saves.filter(x => x.dev && x.dev > x.acct + 1000).forEach(x => {
+    loadSlot(x.slot).then(rec => rec && cloudPut(x.slot, rec.json, rec.meta, rec.at)).then(() => { const c = document.querySelector(`[data-where="${CSS.escape(x.slot)}"]`); if (c) c.innerHTML = where({ dev: 1, acct: 1 }); }).catch(e => console.warn(e));
+  });
+  const where = x => x.dev && x.acct ? '<span class="dy-where both" title="On this device and your account">Device + account</span>'
+    : x.acct ? '<span class="dy-where acct" title="On your account — it downloads when you continue">Account</span>'
+    : `<span class="dy-where dev" title="Only in this browser${signedIn() ? ' — uploading to your account' : ' — sign in to keep it on your account'}">This device</span>`;
   await loadData();
   const body = $('#dyBody');
   body.innerHTML = `
     ${saves.length ? `<div class="sec"><h2>Continue</h2></div>
-      <div class="sheet-wrap"><table class="sheet dense dy-saves"><thead><tr><th class="l">Program</th><th>Season</th><th>Record</th><th class="l">Stage</th><th class="l">Saved</th><th></th></tr></thead><tbody>
+      <div class="sheet-wrap"><table class="sheet dense dy-saves"><thead><tr><th class="l">Program</th><th>Season</th><th>Record</th><th class="l">Stage</th><th class="l">Saved</th><th class="l">Where</th><th></th></tr></thead><tbody>
       ${saves.map(s => `<tr><td class="l">${tm(s.meta.team)}</td><td>${s.meta.year - 1}-${String(s.meta.year).slice(2)}</td><td>${s.meta.w}-${s.meta.l}</td>
-        <td class="l">${esc(phaseLabel(s.meta.phase))}</td><td class="l dim">${new Date(s.at).toLocaleString()}</td>
+        <td class="l">${esc(phaseLabel(s.meta.phase))}</td><td class="l dim">${new Date(s.at).toLocaleString()}</td><td class="l" data-where="${esc(s.slot)}">${where(s)}</td>
         <td><button class="btn" data-load="${esc(s.slot)}">Continue</button> <button class="btn ghost" data-del="${esc(s.slot)}" title="Delete this save">✕</button></td></tr>`).join('')}
       </tbody></table></div>` : ''}
+    <div class="dy-acct">${signedIn() ? (cloudErr ? `☁ Account saves are unavailable right now (${esc(cloudErr)}). Your dynasties are still saved on this device.` : '☁ Your dynasties save to your account, so you can continue them on any device.')
+      : '☁ <a href="signin.html?next=dynasty.html">Sign in</a> to keep your dynasties on your account and continue them on any device. Without an account they live only in this browser.'}</div>
     <div class="sec"><h2>New dynasty</h2><span class="n">Pick a program. You start with its real 2026-27 roster and schedule.</span></div>
     <div class="dy-row"><input id="dyCoach" class="dy-input" placeholder="Your name (head coach)" maxlength="40" autocomplete="off"><input id="dySearch" class="dy-input" placeholder="Search programs…" autocomplete="off"></div>
     <div id="dyPick" class="dy-pick"></div>`;
   body.querySelectorAll('[data-load]').forEach(b => b.onclick = () => openSave(b.dataset.load));
   body.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
-    if (!confirm('Delete this dynasty save? This cannot be undone.')) return;
-    await removeSlot(b.dataset.del); startScreen();
+    const x = by[b.dataset.del];
+    if (!confirm('Delete this dynasty' + (x && x.acct ? ' from this device AND your account' : '') + '? This cannot be undone.')) return;
+    await removeSlot(b.dataset.del).catch(() => {});
+    if (x && x.acct) await cloudDel(b.dataset.del).catch(e => alert('Could not delete it from your account: ' + e.message));
+    startScreen();
   });
   const teams = SNAP.teams.slice().sort((a, b) => (b.rating ?? -99) - (a.rating ?? -99));
   const draw = q => {
@@ -87,10 +132,24 @@ async function newDynasty(team) {
   cache = {}; touch(S); tab = 'home';
   await saveSlot(slot, dehydrate(S), meta());
   render();
+  queueCloud(0);
 }
 async function openSave(s) {
-  const rec = await loadSlot(s); if (!rec) return startScreen();
+  // newest copy wins: download the account's copy when it is newer than this device's (or the device has none)
+  let rec = await loadSlot(s).catch(() => null);
+  if (signedIn()) {
+    try {
+      const L = await cloudList(), c = L.find(x => x.slot === s);
+      if (c && (!rec || c.at > rec.at + 1000)) {
+        $('#dyBody').innerHTML = '<div class="dy-empty">Downloading your dynasty from your account…</div>';
+        const got = await cloudGet(s);
+        if (got) { rec = got; await saveSlot(s, got.json, got.meta, got.at).catch(() => {}); }
+      }
+    } catch (e) { if (!rec) { alert('Could not load this dynasty from your account: ' + e.message); return startScreen(); } }
+  }
+  if (!rec) return startScreen();
   S = hydrate(JSON.parse(rec.json)); slot = s; cache = {}; touch(S); tab = 'home';
+  setCloud(signedIn() ? 'idle' : 'idle');
   render();
 }
 
@@ -110,9 +169,9 @@ function render() {
       <h1>${esc(short(S.user))}</h1>
       <div class="dy-meta">Coach ${esc((t.coach && t.coach.name) || 'You')} · <span class="sec-m" title="Job security: rises and falls with results vs expectations">Job security <i style="--v:${S.job ? S.job.security : 60}%"></i> ${S.job ? S.job.security : 60}</span></div>
       <div class="dy-meta"><b>${r.w}-${r.l}</b> · ${r.cw}-${r.cl} ${esc(t.conf)} (${cpos}${['th', 'st', 'nd', 'rd'][cpos % 10 > 3 || [11, 12, 13].includes(cpos % 100) ? 0 : cpos % 10]}) · Power #${rank}</div></div>
-      <div class="dy-acts"><button class="btn ghost" id="dyExit">Saves</button></div></div>
+      <div class="dy-acts"><span id="dyCloud">${cloudBadge()}</span><button class="btn ghost" id="dyExit">Saves</button></div></div>
     <nav class="dy-tabs">${(S.phase === 'offseason' ? [['off', 'Offseason']] : []).concat(TABS).map(([k, l]) => `<button class="${k === tab ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</nav>`;
-  $('#dyExit').onclick = () => { S = null; startScreen(); };
+  $('#dyExit').onclick = () => { if (cloudT) flushCloud(); S = null; startScreen(); };
   $('#dyHead').querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; render(); });
   if (S.phase === 'offseason' && tab === 'home') tab = 'off';
   ({ home, schedule, roster, plan, standings: standingsView, rankings, leaders, post, history, off: offseason, awards: awardsView, news: newsView })[tab]();

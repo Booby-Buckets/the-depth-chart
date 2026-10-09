@@ -3,7 +3,7 @@
 // at-large bids by power rating, an S-curve into four regions of 16, First Four play-ins (the four lowest
 // automatic bids for two 16 seeds, the last four at-large teams for two 11 seeds). All neutral floors.
 // Pure: brackets live in state.post; their games are appended to state.schedule as they become known.
-import { standings, power } from './season.js?v=11';
+import { standings, power } from './season.js?v=12';
 
 const DAY = 86400000;
 const addDays = (iso, n) => new Date(Date.parse(iso + 'T12:00:00Z') + n * DAY).toISOString().slice(0, 10);

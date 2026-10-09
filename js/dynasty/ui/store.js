@@ -15,7 +15,8 @@ function tx(mode, fn) {
     t.onerror = () => rej(t.error);
   }));
 }
-export const saveSlot = (slot, json, meta) => tx('readwrite', s => s.put({ json, meta, at: Date.now() }, slot));
+// `at` = when this copy was made (a download from the account keeps the account's time, so it isn't re-uploaded)
+export const saveSlot = (slot, json, meta, at) => tx('readwrite', s => s.put({ json, meta, at: at || Date.now() }, slot));
 export const loadSlot = slot => tx('readonly', s => s.get(slot));
 export const removeSlot = slot => tx('readwrite', s => s.delete(slot));
 export function listSlots() {
