@@ -1,23 +1,24 @@
 // Dynasty — the page. Engine (pure) + browser saves + rendering. One league in memory (S); every action
 // mutates it through the engine, re-renders, and autosaves.
-import { C } from '../engine/constants.js?v=36';
-import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=36';
-import { overall } from '../engine/ratings.js?v=36';
-import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=36';
-import { simNext, simTo, afterDay } from '../engine/flow.js?v=36';
-import { REGION_NAMES, ncaaResult } from '../engine/postseason.js?v=36';
-import { takeJob } from '../engine/coaching.js?v=36';
-import { TYPES as INJ } from '../engine/injuries.js?v=36';
-import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain } from '../engine/offseason.js?v=36';
-import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=36';
-import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=36';
-import { lines as pbpLines } from './pbp.js?v=36';
-import { gameSteps, newCtl } from '../engine/game.js?v=36';
-import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=36';
-import { tireAt } from '../engine/program.js?v=36';
-import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=36';
-import { recruitingView } from './recruiting.js?v=36';
-import { programView, diffPicker } from './program.js?v=36';
+import { C } from '../engine/constants.js?v=39';
+import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=39';
+import { overall } from '../engine/ratings.js?v=39';
+import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=39';
+import { simNext, simTo, afterDay } from '../engine/flow.js?v=39';
+import { REGION_NAMES, ncaaResult } from '../engine/postseason.js?v=39';
+import { takeJob } from '../engine/coaching.js?v=39';
+import { TYPES as INJ } from '../engine/injuries.js?v=39';
+import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain } from '../engine/offseason.js?v=39';
+import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=39';
+import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=39';
+import { lines as pbpLines } from './pbp.js?v=39';
+import { gameSteps, newCtl } from '../engine/game.js?v=39';
+import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=39';
+import { tireAt } from '../engine/program.js?v=39';
+import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=39';
+import { recruitingView } from './recruiting.js?v=39';
+import { portalView } from './portal.js?v=39';
+import { programView, diffPicker } from './program.js?v=39';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -191,6 +192,7 @@ function render() {
 // the calendar's view of the app (S and cache are reassigned on new / open, so read them live)
 const CAL = {
   get: () => S, get cache() { return cache; }, C, esc, short, logo, color, $,
+  tm, ovrOf: p => ovrOf(p), run: f => run(f), head: '',
   autosave: () => autosave(), render: () => render(), touch: () => touch(S), onWatch: () => watch(), onSimGame: () => run(simUserGame),
   openBox: id => { const g = S.schedule.find(x => x.id === id); if (g && S.userBox[id]) showBox(g, S.userBox[id]); },
 };
@@ -548,29 +550,7 @@ function offseason() {
     document.querySelectorAll('[data-keep]').forEach(b => b.onclick = () => { const e = retain(S, b.dataset.keep); if (e) return alert(e); autosave(); render(); });
     return;
   }
-  if (step === 'portal') {
-    const pool = O.portal.map(id => S.players[id]).filter(Boolean);
-    const max = open + 3, n = () => Object.keys(O.offers).filter(k => O.offers[k]).length;
-    html += `<div class="sec"><h2>Transfer portal</h2><span class="n">${pool.length} players · you have <b>${open}</b> open scholarship${open === 1 ? '' : 's'} (of ${SCHOLARSHIPS}) · offer up to ${max}. Players weigh your prestige and the minutes they'd get.</span></div>
-      <div class="sheet-wrap"><table class="sheet dense heat dy-portal"><thead><tr><th>Offer</th><th class="l">Player</th><th class="l">From</th><th>Pos</th><th>Yr</th><th>Ht</th><th data-heat="1">OVR</th>${PILLARS.map(([k, l]) => `<th data-heat="1" title="${l}">${k}</th>`).join('')}</tr></thead><tbody>
-      ${pool.slice(0, 250).map(p => `<tr><td><input type="checkbox" data-offer="${esc(p.id)}" ${O.offers[p.id] ? 'checked' : ''}></td><td class="l">${pl(p)}</td><td class="l">${tm(p.from)}</td><td>${esc(p.pos || '')}</td><td>${YR_LABEL[Math.min(5, p.yr + 1)]}</td><td>${p.ht ? `${Math.floor(p.ht / 12)}-${p.ht % 12}` : ''}</td><td><b>${ovrOf(p)}</b></td>${PILLARS.map(([k]) => `<td>${p.pillars[k]}</td>`).join('')}</tr>`).join('')}
-      </tbody></table></div>
-      <div class="dy-btns"><span class="dim" id="offN"></span><button class="btn" id="oNext">Make offers & close the portal →</button><button class="btn ghost" id="oAuto">Let my staff handle it</button></div>`;
-    $('#dyBody').innerHTML = html;
-    const cnt = () => { $('#offN').textContent = `${n()} / ${max} offers`; };
-    document.querySelectorAll('[data-offer]').forEach(i => i.onchange = () => {
-      if (i.checked && n() >= max) { i.checked = false; return alert(`You can make up to ${max} offers.`); }
-      O.offers[i.dataset.offer] = i.checked; cnt(); autosave();
-    }); cnt();
-    const go = () => run(() => resolvePortal(S));
-    $('#oNext').onclick = go;
-    $('#oAuto').onclick = () => {
-      const os = S.teams[U].players.map(id => ovrOf(S.players[id])).sort((a, b) => b - a), bar = os[7] ?? 60;
-      O.offers = {}; pool.filter(p => ovrOf(p) > bar).slice(0, max).forEach(p => { O.offers[p.id] = true; });
-      go();
-    };
-    return;
-  }
+  if (step === 'portal') { CAL.head = html; portalView(CAL); return; }   // the live 10-day window (ui/portal.js)
   if (step === 'recruiting') {
     const R = O.recruits, B = O.board, max = open + 4, budget = O.budget || 100;   // the season's recruiting hours (Program tab)
     const used = () => Object.values(B).reduce((a, b) => a + (+b || 0), 0);

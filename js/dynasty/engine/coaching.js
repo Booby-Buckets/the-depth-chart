@@ -3,12 +3,12 @@
 // ranked the team vs where it finished, plus March): AI coaches on a hot seat get fired, successful coaches at
 // smaller programs get hired up (taking their defensive scheme with them), and the user's job security moves —
 // a strong year brings offers from bigger programs, a run of bad ones gets you fired.
-import { power } from './season.js?v=36';
-import { powerFeatures } from './league.js?v=36';
-import { ncaaResult } from './postseason.js?v=36';
-import { makeRng, hashSeed } from './rng.js?v=36';
-import { DIFFS } from './program.js?v=36';
-import { news } from './injuries.js?v=36';
+import { power } from './season.js?v=39';
+import { powerFeatures } from './league.js?v=39';
+import { ncaaResult } from './postseason.js?v=39';
+import { makeRng, hashSeed } from './rng.js?v=39';
+import { DIFFS } from './program.js?v=39';
+import { news } from './injuries.js?v=39';
 
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 const BUMP = { Champion: 3, 'Runner-up': 2.3, 'Final Four': 2, 'Elite Eight': 1.2, 'Sweet 16': 0.6, 'Round of 32': 0.2 };

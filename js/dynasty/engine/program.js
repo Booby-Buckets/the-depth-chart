@@ -7,9 +7,9 @@
 //   team.prog  = { staff:{OC,DC,REC,DEV,GM}, budget, hours:{practice,recruiting,nil,development}, focus:[p1,p2],
 //                  off, def (scheme keys), nil:{fund, wk}, acc:{practice,recruiting,nil,development, weeks} }
 //   player.fam = { o:{scheme: 0-100}, d:{scheme: 0-100} }   — familiarity follows the player (transfers keep it)
-import { makeRng, hashSeed } from './rng.js?v=36';
-import { attributes } from './ratings.js?v=36';
-import { news } from './injuries.js?v=36';
+import { makeRng, hashSeed } from './rng.js?v=39';
+import { attributes } from './ratings.js?v=39';
+import { news } from './injuries.js?v=39';
 
 export const DIFFS = {
   rookie: { label: 'Rookie', blurb: 'Your staff handles what you leave alone, recruits like you, boosters are patient and the job is safe.', recruit: 0.6, jobK: 0.5, nilK: 1.25, need: 0.85, aiPlan: 0.6, scandal: 0 },
@@ -188,6 +188,8 @@ export function programWeek(state, weeks = 1) {
     const wp = winPct(state, t.name);
     const inc = (10 + 26 * E.nil + (t.prestige || 30) * 0.35 + (wp - 0.5) * 40) * (t.name === state.user ? d.nilK : 1) * weeks;
     P.nil.wk = Math.round(inc); P.nil.fund = Math.max(0, Math.round(P.nil.fund + inc));
+    // high-school recruiting is a long game: the user's targets warm up every week with the recruiting effort
+    if (t.name === state.user) for (const id of state.targets || []) { const r = (state.rclass || []).find(x => x.id === id); if (r) r.relAdj = Math.min(70, (r.relAdj || 0) + 1.1 * E.recruiting * weeks); }
   }
 }
 function winPct(state, team) {

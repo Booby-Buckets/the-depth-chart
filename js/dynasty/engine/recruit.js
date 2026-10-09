@@ -8,9 +8,9 @@
 //   brand  brand: prestige, the conference, NIL clout
 //   nil    NIL: what the program offers against his asking price
 // The user's odds come from how the user's school stacks up against the best rival bidding for him. Pure.
-import { makeRng, hashSeed } from './rng.js?v=36';
-import { effOvr } from './league.js?v=36';
-import { power } from './season.js?v=36';
+import { makeRng, hashSeed } from './rng.js?v=39';
+import { effOvr } from './league.js?v=39';
+import { power } from './season.js?v=39';
 
 export const FACTORS = [['prox', 'Close to home'], ['pt', 'Playing time'], ['rel', 'Relationships'], ['draft', 'Draft path'], ['team', 'Winning now'], ['brand', 'Brand'], ['nil', 'NIL money']];
 const BASE_W = { prox: 0.18, pt: 0.19, rel: 0.14, draft: 0.09, team: 0.12, brand: 0.09, nil: 0.19 };
@@ -51,7 +51,7 @@ export function profile(state, r) {
   if (r.ask == null) {
     // $k a year: 5-star 400-900k, 4-star 150-400k, 3-star 40-150k, 2-star 10-50k, 1-star 0-15k (NIL-first kids ask more)
     const band = [null, [0, 15], [10, 50], [40, 150], [150, 400], [400, 900]][Math.max(1, Math.min(5, r.stars || 2))];
-    let a = band[0] + (band[1] - band[0]) * rng.next() ** 1.3;
+    let a = (band[0] + (band[1] - band[0]) * rng.next() ** 1.3) * 0.7;   // high-schoolers are cheaper than proven transfers
     if (r.w.nil >= 0.22) a *= 1.3;
     r.ask = Math.round(a / 5) * 5;
   }
@@ -120,7 +120,8 @@ export function bestRival(state, r, exclude) {
 /** the user's relationship with a recruit: base + effort points + visits + recruiting coordinator */
 export function relationship(state, r, effort = 0) {
   const T = state.teams[state.user], rec = T && T.prog && T.prog.staff.REC ? T.prog.staff.REC.r : 45;
-  return clamp(15 + (effort || 0) * 1.1 + (r.vs || 0) * 0.6 + (rec - 45) * 0.35 + (r.relAdj || 0), 0, 100);
+  // high-schoolers: the staff has known them for years (base 25); transfers arrive as near-strangers (base 5)
+  return clamp((r.transfer ? 5 : 25) + (effort || 0) * 1.1 + (r.vs || 0) * 0.6 + (rec - 45) * 0.35 + (r.relAdj || 0), 0, 100);
 }
 
 /** everything the board shows for the user's pursuit of r */

@@ -6,14 +6,23 @@
 //   • HOME visits — the head coach in the living room, any time: a week of recruiting momentum for a smaller boost.
 // What a visit earns lives on the recruit (r.vb = landing-odds logit, r.vs = scouting effort equivalent) and carries to
 // signing day (offseason.landOdds adds vb; the board's scouting view adds vs). Pure: works on the state object.
-import { power } from './season.js?v=36';
-import { news as push } from './injuries.js?v=36';
+import { power } from './season.js?v=39';
+import { news as push } from './injuries.js?v=39';
 
 export const OFFICIAL_MAX = 5;
 const VB_CAP = 1.2;                                    // a recruit's total visit boost (logit) is capped
 
 export function visitsLeft(state) { return OFFICIAL_MAX - (state.visits || []).filter(v => v.type === 'official').length; }
 export const visitsFor = (state, rid) => (state.visits || []).filter(v => v.rid === rid);
+// targets: the recruits the staff works all season (their relationship warms every week with recruiting hours,
+// program.programWeek). High-school recruiting is the long game the portal is not.
+export const TARGET_MAX = 15;
+export function toggleTarget(state, rid) {
+  const T = state.targets = state.targets || [];
+  const i = T.indexOf(rid); if (i >= 0) { T.splice(i, 1); return null; }
+  if (T.length >= TARGET_MAX) return `You can work at most ${TARGET_MAX} targets at once.`;
+  T.push(rid); return null;
+}
 export function upcomingHomeGames(state) {
   return state.schedule.filter(g => !g.r && g.h === state.user && !g.n && !g.t);
 }

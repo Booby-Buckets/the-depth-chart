@@ -5,15 +5,16 @@
 //
 // Calibrated to the snapshot: freshmen enter at a median OVR ~59 (top 1% ~77); players gain ~+5 Fr->So,
 // ~+3 So->Jr, ~+1.5 after; teams lose ~3.4 upperclassmen a year; rosters carry 13 scholarships.
-import { overall, attributes } from './ratings.js?v=36';
-import { makeRng, hashSeed } from './rng.js?v=36';
-import { record_, power, touch } from './season.js?v=36';
-import { ncaaResult } from './postseason.js?v=36';
-import { effOvr } from './league.js?v=36';
-import { evaluateCoaches } from './coaching.js?v=36';
-import { healAll } from './injuries.js?v=36';
-import { profile, userOdds, pickSchool, notePro, factors, utility, relationship, aiSign } from './recruit.js?v=36';
-import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina } from './program.js?v=36';
+import { overall, attributes } from './ratings.js?v=39';
+import { makeRng, hashSeed } from './rng.js?v=39';
+import { record_, power, touch } from './season.js?v=39';
+import { ncaaResult } from './postseason.js?v=39';
+import { effOvr } from './league.js?v=39';
+import { evaluateCoaches } from './coaching.js?v=39';
+import { healAll } from './injuries.js?v=39';
+import { profile, userOdds, pickSchool, notePro, factors, utility, relationship, aiSign } from './recruit.js?v=39';
+import { openPortal, portalDay, PORTAL_DAYS } from './portal.js?v=39';
+import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina } from './program.js?v=39';
 
 export const SCHOLARSHIPS = 13;
 const PIL = ['SCO', 'SHT', 'FIN', 'PLY', 'SEC', 'REB', 'DEF'];
@@ -129,6 +130,7 @@ export function processDepartures(state) {
   }
   state.off.portal.sort((a, b) => eff(state, state.players[b]) - eff(state, state.players[a]));
   state.off.step = 'portal';
+  openPortal(state);                                     // the 10-day window (portal.js)
 }
 
 export const openSpots = (state, team) => Math.max(0, SCHOLARSHIPS - state.teams[team].players.length);
@@ -142,31 +144,13 @@ function appeal(state, team, p) {
 }
 
 // ── 3. portal: the user's offers first-class, then everyone signs where the appeal is best ──
+// the window is played day by day from the UI (portal.js); this closes it — any days left run without the user
 export function resolvePortal(state) {
-  const rng = rngFor(state, 'portal'), O = state.off.offers, U = state.user, out = [];
-  // an AI program takes at most PORTAL_CAP transfers a year, and where a player lands is noisier than prestige alone
-  // (fit, relationships, location) — without both, the top 40 took ~3.4 transfers each, mostly low-majors' best
-  // players, and the multi-season talent spread kept widening
-  const PORTAL_CAP = 3, took = {};
-  for (const id of state.off.portal) {
-    const p = state.players[id]; if (!p) continue;
-    p.stars = p.stars || Math.max(1, Math.min(5, Math.round((eff(state, p) - 50) / 7))); p.scout = Math.round(eff(state, p)); profile(state, p);
-    const cands = Object.keys(state.teams).filter(t => t !== p.from && openSpots(state, t) > 0 && (t === U || (took[t] || 0) < PORTAL_CAP));
-    let best = null, bestS = -1e9;
-    for (const t of cands) {
-      if (t === U && !O[id]) continue;                       // the user only gets players he offered
-      const f = factors(state, t, p, 0, 30);
-      const nilU = t === U && O[id] && O[id].nil ? 1.2 * Math.min(1.3, O[id].nil / Math.max(5, p.ask)) : 0;   // the user's NIL offer
-      const s = appeal(state, t, p) + 0.8 * f.prox + rng.normal(0, 1.4) + (t === U ? 0.6 + nilU : 0) + (state.teams[t].conf === state.teams[p.from]?.conf ? -0.3 : 0);
-      if (s > bestS) { bestS = s; best = t; }
-    }
-    if (best && (eff(state, p) >= 58 || best === U)) {
-      p.team = best; state.teams[best].players.push(id); took[best] = (took[best] || 0) + 1;
-      if (best === U && O[id] && O[id].nil && state.teams[U].prog) state.teams[U].prog.nil.fund = Math.max(0, state.teams[U].prog.nil.fund - O[id].nil);   // the deal is paid
-      if (best === U || O[id]) out.push({ id, name: p.name, to: best, from: p.from, ovr: Math.round(eff(state, p)) });
-    } else delete state.players[id];                        // nobody took him: out of D-I
-  }
-  state.off.portalResults = out;
+  if (state.off.pday == null) openPortal(state);
+  while (state.off.pday < PORTAL_DAYS) portalDay(state);
+  const U = state.user, O = state.off.offers || {};
+  state.off.portalResults = (state.off.pfeed || []).filter(e => e.to && (e.to === U || O[e.id])).map(e => ({ id: e.id, name: e.name, to: e.to, from: e.from, ovr: e.ovr, nil: e.nil }));
+  for (const id of state.off.portal) if (state.players[id] && !state.players[id].team) delete state.players[id];   // unsigned: out of D-I
   state.off.step = 'recruiting';
   // the class has existed all season (visits, scouting) — fall back to a fresh one for old saves
   state.off.recruits = state.rclass && state.rclass.length ? state.rclass : makeClass(state);
@@ -214,7 +198,7 @@ export function makeClass(state, nIn) {
 // recruiting coordinator is and how much effort you put on him — visits and evaluations sharpen it) ──
 export function scoutSD(state, effort = 0) {
   const t = state.teams[state.user], rec = t && t.prog && t.prog.staff.REC ? t.prog.staff.REC.r : 40;
-  return clamp(8.5 - (rec - 30) / 10, 2.5, 8.5) / (1 + (effort || 0) / 20);
+  return clamp(9.5 - (rec - 30) / 10, 3, 9.5) / (1 + (effort || 0) / 20);   // high-schoolers are harder to read than transfers
 }
 export function scoutView(state, r, effort = 0) {
   const sd = scoutSD(state, effort), z = r.z || {};
@@ -311,7 +295,8 @@ export function startNextSeason(state) {
     // growth tapers near the ceiling (an 85 doesn't add like a 65), so loaded rosters can't keep climbing
     const room = clamp((94 - before) / 22, 0.15, 1.15);
     const arc = p.arc === 'bust' ? 0.35 : p.arc === 'gem' ? 1.3 : 1;   // a bust stalls, a diamond in the rough takes off
-    const g = (GROW[p.yr] || 0.6) * (0.55 + (p.pot || 0) / 12) * devMult(T) * room * arc + rng.normal(0, 1.8);   // development staff + hours
+    // a freshman's first summer swings more than a veteran's (high-schoolers are volatile)
+    const g = (GROW[p.yr] || 0.6) * (0.55 + (p.pot || 0) / 12) * devMult(T) * room * arc + rng.normal(0, p.yr === 1 ? 3 : 1.8);   // development staff + hours
     shiftTo(state, p, before + g, rng, 0.8);
     // the season's practice focus carries into the summer
     const fb = focusBonus(T); if (fb && T.prog && T.prog.focus) for (const k of T.prog.focus) p.pillars[k] = clamp(Math.round(p.pillars[k] + fb), 1, 99);
@@ -331,7 +316,7 @@ export function startNextSeason(state) {
   newSeasonProgram(state);          // NIL payroll, staff contracts + poaching, familiarity fades, hiring pool
   state.year += 1;
   state.schedule = makeSchedule(state);
-  state.visits = []; state.rclass = makeClass(state, classSize(state));   // next year's class, recruitable all season
+  state.visits = []; state.targets = []; state.rclass = makeClass(state, classSize(state));   // next year's class, recruitable all season
   state.stats = {}; state.userBox = {}; state.post = null; state.awards = null;
   state.phase = 'regular';
   state.lastOff = { progress: state.off.progress, signed: state.off.signed, portalResults: state.off.portalResults };
