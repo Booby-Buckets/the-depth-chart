@@ -64,11 +64,45 @@ def main():
     mx = sum(a for a, _ in xs) / len(xs); my = sum(b for _, b in xs) / len(xs)
     slope = sum((a - mx) * (b - my) for a, b in xs) / sum((a - mx) ** 2 for a, _ in xs); icpt = my - slope * mx
 
+    # PER-MINUTE projected rates for every stat. Returners: their own pre-scrimmage projected line.
+    # Newcomers: the base run only fits minutes + points, so rebounds / assists / shooting come from their last
+    # published full line (git HEAD fresh_fit, filled by build_team_projected_box.py), else the returners'
+    # position average — scaled so the attempts still add up to his projected points.
+    STAT = ("pts", "reb", "ast", "stl", "blk", "tov", "fgm", "fga", "tpm", "tpa", "ftm", "fta", "oreb", "dreb")
+    SRC = {"pts": "ppg", "reb": "rpg", "ast": "apg", "tov": "tovs"}
+    def rates_of(line):
+        mp = n(line.get("mpg"))
+        return {k: n(line.get(SRC.get(k, k))) / mp for k in STAT} if mp > 0 else None
+    try:
+        import subprocess
+        HEADFF = json.loads(subprocess.run(["git", "show", "HEAD:scripts/data/fresh_fit.json"], cwd=ROOT, capture_output=True, text=True, check=True).stdout)
+    except Exception:
+        HEADFF = {}
+    grp = lambda pos: "big" if re.search(r"C|PF|F$", str(pos or "").upper()) and "G" not in str(pos or "").upper() else ("wing" if re.search(r"SF|F", str(pos or "").upper()) else "guard")
+    POSAVG = {}
+    for v in B.values():
+        if n(v.get("mpg")) < 12 or not n(v.get("rpg")): continue
+        r = rates_of(v); g_ = "big" if n(v.get("blk")) / n(v["mpg"]) > 0.035 or n(v.get("oreb")) / n(v["mpg"]) > 0.06 else "guard" if n(v.get("apg")) / n(v["mpg"]) > 0.09 else "wing"
+        a = POSAVG.setdefault(g_, {k: 0.0 for k in STAT} | {"_n": 0}); a["_n"] += 1
+        for k in STAT: a[k] += r[k]
+    for a in POSAVG.values():
+        for k in STAT: a[k] /= a["_n"]
+    def newcomer_rates(p, bl):
+        bmp = n(bl.get("mpg")); pts = n(bl.get("ppg")) / bmp if bmp else 0
+        h = (HEADFF.get(p["team"]) or {}).get(p["name"])
+        r = rates_of(h) if (h and n(h.get("rpg")) and n(h.get("mpg"))) else None
+        if not r: r = dict(POSAVG.get(grp(p.get("position")), POSAVG.get("wing")))
+        if r.get("pts"):
+            kk = pts / r["pts"]
+            for k in ("fgm", "fga", "tpm", "tpa", "ftm", "fta"): r[k] *= kk
+        r["pts"] = pts
+        return r
+
     rosters, out_p, out_f, teams = {}, {}, {}, {}
     def roster(full):
         if full not in rosters:
             short = (T.get(full) or {}).get("team")
-            rosters[full] = get(f"players?select=name,espn_id,team,depth_order&team=eq.{urllib.parse.quote(short)}&order=depth_order.asc") if short else []
+            rosters[full] = get(f"players?select=name,espn_id,team,depth_order,position,height&team=eq.{urllib.parse.quote(short)}&order=depth_order.asc") if short else []
         return rosters[full]
 
     for gid, r in sorted(R.items(), key=lambda kv: (G.get(kv[0]) or {}).get("date", "")):
@@ -100,12 +134,12 @@ def main():
                 bl, kind = base_line(p)
                 if not bl or not n(bl.get("mpg")): continue
                 m = n(q.get("min")); bmp = n(bl["mpg"]); k = m / bmp * oppf if bmp else 0
-                if kind == "r":
-                    exp = {"pts": bl["ppg"] * k, "reb": n(bl.get("rpg")) * k, "ast": n(bl.get("apg")) * k,
-                           "gmsc": gmsc(dict(bl, pts=bl["ppg"], ast=bl.get("apg"), tov=bl.get("tovs"))) * k}
-                else:
-                    p40 = bl["ppg"] / bmp * 40
-                    exp = {"pts": bl["ppg"] * k, "reb": None, "ast": None, "gmsc": (icpt + slope * p40) / 40 * m * oppf}
+                rt = rates_of(bl) if kind == "r" else newcomer_rates(p, bl)
+                # what we PROJECTED for this game (his projected minutes, adjusted for the opponent) and the same
+                # projection at the minutes he actually played ("pace") — the fair yardstick for his production
+                proj = {k2: rt[k2] * bmp * oppf for k2 in STAT}; proj["min"] = bmp; proj["gmsc"] = gmsc(proj)
+                pace = {k2: rt[k2] * m * oppf for k2 in STAT}; pace["min"] = m; pace["gmsc"] = gmsc(pace)
+                exp = {"pts": pace["pts"], "reb": pace["reb"], "ast": pace["ast"], "gmsc": pace["gmsc"]}
                 gs = gmsc(q)
                 d40 = (gs - exp["gmsc"]) / m * 40 if m >= 4 else None
                 notes = []
@@ -133,6 +167,8 @@ def main():
                        "reality": rs.get("score"), "w": q.get("w"), "gs": bool(q.get("gs")),
                        **{k2: q.get(k2) for k2 in ("min", "pts", "reb", "ast", "stl", "blk", "tov", "pf", "fgm", "fga", "tpm", "tpa", "ftm", "fta")},
                        "gmsc": round(gs, 1), "exp": {k2: (round(v, 1) if v is not None else None) for k2, v in exp.items()},
+                       "proj": {k2: round(v, 1) for k2, v in proj.items()}, "pace": {k2: round(v, 1) for k2, v in pace.items()},
+                       "opp_adj": round((oppf - 1) * 100, 1), "opp_rating": round(rating(opp), 1),
                        "exp_min": round(bmp, 1), "d40": round(d40, 1) if d40 is not None else None, "notes": notes}
                 key = str(p["espn_id"]) if kind == "r" else f"{p['team']}|{p['name']}".lower()
                 dst = out_p if kind == "r" else out_f
@@ -140,6 +176,11 @@ def main():
                 P["games"].append(ent)
 
     def finish(P, base, fin):
+        # the trend as it stood after each scrimmage (timeline stamps)
+        acc_w = acc = 0.0
+        for e in sorted(P["games"], key=lambda e: e["date"]):
+            if e.get("d40") is not None: acc_w += n(e.get("w")); acc += n(e.get("w")) * e["d40"]
+            e["trend_after"] = round(acc / (acc_w + 1.0), 1) if acc_w > 0 else 0.0
         ws = [(n(e.get("w")), e["d40"]) for e in P["games"] if e.get("d40") is not None]
         W = sum(w for w, _ in ws)
         P["trend"] = round(sum(w * d for w, d in ws) / (W + 1.0), 1) if W > 0 else 0.0
