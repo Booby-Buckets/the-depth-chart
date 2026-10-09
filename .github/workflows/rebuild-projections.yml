@@ -16,10 +16,21 @@ name: Rebuild projected DNA
 # player_history, so it stays current as grades update.
 #
 # Triggered manually from the owner console (via the rebuild-projections edge function),
-# from the Actions tab, or `gh workflow run rebuild-projections.yml`.
+# from the Actions tab, or `gh workflow run rebuild-projections.yml` — and AUTOMATICALLY every morning
+# (roster / depth-chart / sheet changes) and after every scrimmage box-score run (owner-approved Oct 9 2026).
+#
+# Ends by doing the owner console's publish buttons itself (scripts/headless_publish.mjs): team
+# projections -> team_projections, the tdc-ratings.js rankings -> predictive_ratings (run in headless
+# Chrome on the files just built, with the owner's freshman projections), awards -> award_projections.
+# Needs the SUPABASE_SERVICE_KEY secret; writes are limited to those three tables and sanity-checked.
 
 on:
   workflow_dispatch: {}
+  schedule:
+    - cron: '30 10 * * *'   # ~6:30 ET daily: picks up overnight roster, depth-chart and injury edits
+  workflow_run:
+    workflows: ["Scrimmage box scores"]
+    types: [completed]
 
 permissions:
   contents: write
@@ -112,3 +123,15 @@ jobs:
               echo "push raced another commit (try $i); retrying"; sleep $((i*5))
             done
           fi
+
+                # the owner console's publish buttons, headless: team projections + rankings + awards, from the files
+      # just built (served locally — no waiting on the Vercel deploy)
+      - name: Publish team projections, rankings + awards
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_SERVICE_KEY" ]; then echo "::warning::SUPABASE_SERVICE_KEY not set — skipping publish"; exit 0; fi
+          python3 -m http.server 8765 >/dev/null 2>&1 &
+          mkdir -p "$RUNNER_TEMP/pp" && (cd "$RUNNER_TEMP/pp" && npm init -y >/dev/null && npm i --silent puppeteer@22.15.0)
+          sleep 1
+          PUPPETEER_MODULE="$RUNNER_TEMP/pp/node_modules/puppeteer/lib/esm/puppeteer/puppeteer.js" BASE=http://localhost:8765/ node scripts/headless_publish.mjs
