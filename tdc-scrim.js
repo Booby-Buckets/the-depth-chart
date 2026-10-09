@@ -14,7 +14,7 @@
     if (_p) return _p;
     _p = Promise.all([
       fetch('scripts/data/scrimmages_2027.json?v=7').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
-      fetch('scripts/data/scrimmage_results_2027.json?v=8', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+      fetch('scripts/data/scrimmage_results_2027.json?v=9', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
       fetch('scripts/data/team_pace_eff.json?v=8').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
     ]).then(function (a) {
       return { games: (a[0] && a[0].games) || [], results: (a[1] && a[1].results) || {}, eff: a[2] };

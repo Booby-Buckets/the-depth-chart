@@ -82,6 +82,7 @@ def main():
             T_["games"].append({"id": gid, "date": g["date"], "opp": opp, "site": site, "pred": round(pred, 1), "actual": ms - os_,
                                 "resid": round(ms - os_ - pred, 1), "reality": rs.get("score")})
             box = (r.get("box") or {}).get(side) or {}
+            if box.get("totals"): T_["games"][-1]["tot"] = box["totals"]       # team line (partial recaps carry totals too)
             if box.get("partial") or rs.get("boxless"): continue
             ros = roster(full); byk = {nk(p["name"]): p for p in ros}
             # projected starters before the scrimmages: the top 5 by base minutes
@@ -90,9 +91,11 @@ def main():
                 f = (BF.get(p["team"]) or {}).get(p["name"]); return (f, "f") if f else (None, None)
             bm = sorted(((n((base_line(p)[0] or {}).get("mpg")), nk(p["name"])) for p in ros), reverse=True)
             starters = {k for _, k in bm[:5]}
+            T_["games"][-1]["gs"] = [q.get("rn") or q["name"] for q in box.get("players") or [] if q.get("gs")]
+            T_["games"][-1]["proj_gs"] = [p["name"] for p in ros if nk(p["name"]) in starters]
             oppf = max(0.75, min(1.25, 1 - OPP_K * rating(opp)))
             for q in box.get("players") or []:
-                p = byk.get(nk(q["name"]))
+                p = byk.get(nk(q.get("rn") or q["name"]))
                 if not p: continue
                 bl, kind = base_line(p)
                 if not bl or not n(bl.get("mpg")): continue
@@ -161,9 +164,22 @@ def main():
             row["scrim_ovr"] = adj
         finish(P, (BF.get(t) or {}).get(nm), row)
     json.dump(FF, open(D / "fresh_fit.json", "w"), separators=(",", ":"))
+    try: PBOX = json.load(open(D / "team_projected_box.json"))
+    except Exception: PBOX = {}
     for full, X in teams.items():
         num = sum((x["reality"] or 0) / 100 * x["resid"] for x in X["games"]); den = sum((x["reality"] or 0) / 100 for x in X["games"])
         X["adj"] = round(max(-TEAM_CAP, min(TEAM_CAP, num / (den + TEAM_PRIOR))), 2)
+        # team box vs projection: Reality-weighted scrimmage team line next to the projected per-game line
+        tg = [(max(0.05, (x["reality"] or 0) / 100), x["tot"]) for x in X["games"] if x.get("tot")]
+        if tg:
+            W = sum(w for w, _ in tg)
+            avg = lambda k: sum(w * n(t.get(k)) for w, t in tg) / W
+            pct = lambda m, a: (sum(w * n(t.get(m)) for w, t in tg) / max(1e-9, sum(w * n(t.get(a)) for w, t in tg)) * 100) if sum(n(t.get(a)) for _, t in tg) else None
+            sc = {"ppg": avg("pts"), "fg_pct": pct("fgm", "fga"), "tp_pct": pct("tpm", "tpa"), "ft_pct": pct("ftm", "fta"), "tpa": avg("tpa"), "fga": avg("fga"),
+                  "rpg": avg("reb"), "apg": avg("ast"), "tov": avg("tov"), "stl": avg("stl"), "blk": avg("blk")}
+            pb = PBOX.get(full) or {}
+            X["box"] = {"scrim": {k: (round(v, 1) if v is not None else None) for k, v in sc.items()},
+                        "proj": {k: pb.get(k) for k in sc if pb.get(k) is not None}, "n": len(tg)}
     json.dump({"season": 2027, "note": "Reality-weighted scrimmage trends (build_scrim_trends.py). trend = Game Score per 40 vs the pre-scrimmage projection, shrunk; moved = projection with − without scrimmages.",
                "players": out_p, "fresh": out_f, "teams": teams}, open(D / "scrim_trends_2027.json", "w"), separators=(",", ":"))
     print(f"scrim trends: {len(out_p)} returners, {len(out_f)} newcomers, {len(teams)} teams")

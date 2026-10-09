@@ -51,6 +51,20 @@ clip = lambda v, a=0.0, b=1.0: max(a, min(b, v))
 nk = lambda s: re.sub(r"[^a-z]", "", re.sub(r"\b(jr|sr|ii|iii|iv)\b\.?", "", (s or "").lower()))
 
 
+def roster_name(name, roster):
+    """the roster spelling of a box-score name: exact, else same last name + first initial, else a close
+    spelling (difflib >= 0.85) — unique matches only"""
+    import difflib
+    k = nk(name); byk = {nk(r): r for r in roster}
+    if k in byk: return byk[k]
+    w = (name or "").replace(".", "").split()
+    if len(w) >= 2:
+        c = [r for r in roster if r.replace(".", "").split() and nk(r.replace(".", "").split()[-1]) == nk(w[-1]) and r[:1].lower() == w[0][:1].lower()]
+        if len(c) == 1: return c[0]
+    c = [r for r in roster if difflib.SequenceMatcher(None, nk(r), k).ratio() >= 0.85]
+    return c[0] if len(c) == 1 else None
+
+
 def label(s):
     return "Game-like" if s >= 75 else "Mostly real" if s >= 55 else "Experimental" if s >= 35 else "Practice-like"
 
@@ -130,9 +144,14 @@ def main():
             out[s] = {"score": sc, "label": label(sc), "parts": {k: round(v * 100) for k, v in dict(parts, plausible=plaus).items()}, **info}
             scores.append(sc)
             # per-player weight in real-game equivalents
-            pj = {nk(n): m for n, m in proj_roster(full)}
+            ros = proj_roster(full); pj = {nk(n): m for n, m in ros}
             for p in box[s]["players"]:
-                pm = pj.get(nk(p["name"])) or 20.0
+                # rn = his name as OUR roster spells it (box scores misspell: "Ojianwuna" vs "Ojanwuna"), so the
+                # projection build and the trends builder key him correctly
+                rn = roster_name(p["name"], [n for n, _ in ros])
+                if rn: p["rn"] = rn
+                else: p.pop("rn", None)
+                pm = pj.get(nk(rn or p["name"])) or 20.0
                 p["w"] = round(SCRIM_GAME * sc / 100 * clip((p.get("min") or 0) / max(pm, 10)), 3)
         out["score"] = round(sum(scores) / len(scores)) if scores else None
         out["label"] = label(out["score"]) if out["score"] is not None else None

@@ -611,7 +611,7 @@ try:
             for _q in _bx.get("players") or []:
                 _w=float(_q.get("w") or 0); _m=float(_q.get("min") or 0)
                 if _w<=0 or _m<=0: continue
-                _a=SCRIM.setdefault((_bx.get("team"),_snk(_q.get("name"))),{"w":0.0})
+                _a=SCRIM.setdefault((_bx.get("team"),_snk(_q.get("rn") or _q.get("name"))),{"w":0.0})
                 _a["w"]+=_w
                 for _k in set(SCRIM_MAP.values()):
                     if _q.get(_k) is None: continue
@@ -635,7 +635,7 @@ try:
             _rw=_rs["score"]/100.0
             for _q in _bx.get("players") or []:
                 if _q.get("min") is None: continue
-                _a=SCRIM_ROLE.setdefault((_bx.get("team"),_snk(_q.get("name"))),[0.0,0.0]); _a[0]+=_rw; _a[1]+=_rw*float(_q["min"])
+                _a=SCRIM_ROLE.setdefault((_bx.get("team"),_snk(_q.get("rn") or _q.get("name"))),[0.0,0.0]); _a[0]+=_rw; _a[1]+=_rw*float(_q["min"])
             for _nm in _rs.get("dnp") or []:
                 _a=SCRIM_DNP.setdefault((_bx.get("team"),_snk(_nm)),[0.0]); _a[0]+=0.5*_rw
 except Exception as _e:

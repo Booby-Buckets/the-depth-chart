@@ -73,14 +73,19 @@ def main():
             roster = over[team]
             rows, ret = [], []
             for p in roster:
-                e, _ = link(p["name"], [team], team)
+                # a transfer links through his previous school ("prev", from the school's roster page)
+                e, _ = link(p["name"], [team] + ([p["prev"]] if p.get("prev") else []), team)
                 last = [h for h in by_name.get(nk(p["name"]), []) if e and h["espn_id"] == e]
                 lm = max([float(h.get("mpg") or 0) for h in last if h["season_year"] >= 2025] or [0])
                 ret.append((p, e, lm))
             ret.sort(key=lambda x: (-x[2], x[0]["name"]))
             for i, (p, e, lm) in enumerate(ret, 1):
-                rows.append("  (" + ", ".join([q(p["name"]), q(team), q(p["pos"]), q(p["yr"]), q(p["yr"]), q(p["ht"]), "null",
-                                               q(e), q(i), q(i <= 5), q(e is None), "false", "false"]) + ")")
+                # hometown holds a TRANSFER's last college (site convention) — only when he linked there,
+                # never a high school / overseas club (that would flag him as a transfer)
+                last = [h for h in by_name.get(nk(p["name"]), []) if e and h["espn_id"] == e]
+                prev = p.get("prev") if (e and p.get("prev") and any(school_match(h["team"], p["prev"]) for h in last)) else None
+                rows.append("  (" + ", ".join([q(p["name"]), q(team), q(p["pos"]), q(p["yr"]), q(p["yr"]), q(p["ht"]), q(prev),
+                                               q(e), q(i), q(i <= 5), q(e is None or prev is not None), "false", "false"]) + ")")
             linked = sum(1 for _, e, _ in ret if e)
             out.append(f"-- {team}: the {len(cur)} rows on file are NOT this school's roster (none match its 2025-26 players);\n"
                        f"-- replace them with the official 2026-27 roster ({len(ret)} players, {linked} linked to their stats).")
@@ -110,6 +115,9 @@ def main():
             "-- Run in the Supabase SQL editor. Then owner console: 🔁 Rebuild projections → ⚡ Republish projected ratings."]
     if notes: head += ["--", "-- Notes:"] + notes
     path = ROOT / "scripts" / f"roster_repair_{day}.sql"
+    k = 2
+    while path.exists():   # never overwrite an earlier (possibly already-run) repair file
+        path = ROOT / "scripts" / f"roster_repair_{day}_{k}.sql"; k += 1
     path.write_text("\n".join(head) + "\n\n" + "\n".join(out) + "\n")
     print(f"wrote {path.relative_to(ROOT)}")
 
