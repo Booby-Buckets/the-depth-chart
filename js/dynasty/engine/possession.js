@@ -36,7 +36,8 @@ export function runPossession(o, d, env) {
   const five = o.five, A = o.unit, D = d.unit;
   const hca = o.home ? C.HCA_K : 0;
   const lv = o.team.offLevel - d.team.defLevel           // conference-strength correction (logit)
-    - C.LEAD_K * cushion(env.lead || 0, C.LEAD_FREE) / 10;   // game state: a comfortable lead coasts, a big deficit presses
+    - C.LEAD_K * cushion(env.lead || 0, C.LEAD_FREE) / 10   // game state: a comfortable lead coasts, a big deficit presses
+    + (env.mom || 0);                                        // momentum / a timeout's set play + fresher legs (game.js)
   let pts = 0;
   const ev = (ty, p, x) => { if (log) log.push(Object.assign({ t: Math.round(env.t), s: env.side, ty, p: p && p.id }, x)); };
 

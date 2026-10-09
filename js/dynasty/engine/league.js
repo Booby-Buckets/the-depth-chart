@@ -7,11 +7,12 @@
 //   players: { id: { id, name, team, pos, pos2, ht, yr, pillars, lvl, mpg, pot } },
 //   schedule:[ { id, d, h, a, n, c, r } ],             r = [homePts, awayPts, ot, poss] once played
 //   stats:   { id: season totals },  powerFit, history:[], userBox:{ gameId: box } }
-import { attributes, overall } from './ratings.js?v=23';
-import { makeRng } from './rng.js?v=23';
-import { initCoaches } from './coaching.js?v=23';
-import { fillLeague, buildSchedule } from './fill.js?v=23';
-import { initProgram, ensureStamina } from './program.js?v=23';
+import { attributes, overall } from './ratings.js?v=29';
+import { makeRng } from './rng.js?v=29';
+import { initCoaches } from './coaching.js?v=29';
+import { fillLeague, buildSchedule } from './fill.js?v=29';
+import { makeClass, classSize } from './offseason.js?v=29';
+import { initProgram, ensureStamina } from './program.js?v=29';
 
 export const YR = { 'FR': 1, 'FR.': 1, 'RS FR.': 1, 'SO': 2, 'SO.': 2, 'RS SO.': 2, 'JR': 3, 'JR.': 3, 'RS JR.': 3, 'SR': 4, 'SR.': 4, 'RS SR.': 4, 'GR': 5, 'GR.': 5, '5TH': 5 };
 export const YR_LABEL = ['', 'Fr', 'So', 'Jr', 'Sr', 'Gr'];
@@ -106,6 +107,7 @@ export function createLeague(snap, sched, opts = {}) {
   initCoaches(state, snap, opts.coachName);
   ensureStamina(state);                              // per-player stamina (minutes wear)
   initProgram(state, opts.diff || 'pro');          // staff, hours, schemes, NIL — every team
+  state.visits = []; state.rclass = makeClass(state, classSize(state));   // next year's class, recruitable all season
   return state;
 }
 
@@ -122,6 +124,7 @@ export function hydrate(state) {
   if (!state.pending) state.pending = [];
   if (!state.diff || Object.values(state.teams).some(t => !t.prog)) initProgram(state, state.diff || 'pro');   // saves from before programs
   ensureStamina(state);
+  if (!state.rclass && state.phase !== 'offseason') { state.visits = state.visits || []; state.rclass = makeClass(state, classSize(state)); }   // saves from before visits
   for (const p of Object.values(state.players)) p.attr = attributes(p, state.maps);
   for (const p of Object.values(state.ext.players)) p.attr = attributes(p, state.maps);
   return state;

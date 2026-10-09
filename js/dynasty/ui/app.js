@@ -1,20 +1,22 @@
 // Dynasty — the page. Engine (pure) + browser saves + rendering. One league in memory (S); every action
 // mutates it through the engine, re-renders, and autosaves.
-import { C } from '../engine/constants.js?v=23';
-import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=23';
-import { overall } from '../engine/ratings.js?v=23';
-import { prepared, playGame, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=23';
-import { simNext, simTo, afterDay } from '../engine/flow.js?v=23';
-import { REGION_NAMES, ncaaResult } from '../engine/postseason.js?v=23';
-import { takeJob } from '../engine/coaching.js?v=23';
-import { TYPES as INJ } from '../engine/injuries.js?v=23';
-import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf } from '../engine/offseason.js?v=23';
-import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=23';
-import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=23';
-import { lines as pbpLines } from './pbp.js?v=23';
-import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=23';
-import { tireAt } from '../engine/program.js?v=23';
-import { programView, diffPicker } from './program.js?v=23';
+import { C } from '../engine/constants.js?v=29';
+import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=29';
+import { overall } from '../engine/ratings.js?v=29';
+import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=29';
+import { simNext, simTo, afterDay } from '../engine/flow.js?v=29';
+import { REGION_NAMES, ncaaResult } from '../engine/postseason.js?v=29';
+import { takeJob } from '../engine/coaching.js?v=29';
+import { TYPES as INJ } from '../engine/injuries.js?v=29';
+import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf } from '../engine/offseason.js?v=29';
+import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=29';
+import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=29';
+import { lines as pbpLines } from './pbp.js?v=29';
+import { gameSteps, newCtl } from '../engine/game.js?v=29';
+import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=29';
+import { tireAt } from '../engine/program.js?v=29';
+import { recruitingView } from './recruiting.js?v=29';
+import { programView, diffPicker } from './program.js?v=29';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -164,7 +166,7 @@ async function openSave(s) {
 function phaseLabel(p) {
   return { regular: 'Regular season', conftourney: 'Conference tournaments', ncaa: 'NCAA tournament', done: 'Season complete', offseason: 'Offseason' }[p] || p;
 }
-const TABS = [['calendar', 'Calendar'], ['program', 'Program'], ['home', 'Home'], ['schedule', 'Schedule'], ['roster', 'Roster'], ['plan', 'Game plan'], ['standings', 'Standings'], ['rankings', 'Rankings'], ['leaders', 'Leaders'], ['post', 'Postseason'], ['awards', 'Awards'], ['news', 'News'], ['history', 'History']];
+const TABS = [['calendar', 'Calendar'], ['program', 'Program'], ['recruit', 'Recruiting'], ['home', 'Home'], ['schedule', 'Schedule'], ['roster', 'Roster'], ['plan', 'Game plan'], ['standings', 'Standings'], ['rankings', 'Rankings'], ['leaders', 'Leaders'], ['post', 'Postseason'], ['awards', 'Awards'], ['news', 'News'], ['history', 'History']];
 function render() {
   if (!S) return startScreen();
   const t = S.teams[S.user], r = record_(S, S.user), pw = power(S);
@@ -181,7 +183,7 @@ function render() {
   $('#dyExit').onclick = () => { if (isCrawling()) stopCrawl(); if (cloudT) flushCloud(); S = null; startScreen(); };
   $('#dyHead').querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { if (isCrawling()) stopCrawl(); tab = b.dataset.tab; render(); });
   if (S.phase === 'offseason' && tab === 'home') tab = 'off';
-  ({ calendar: () => calendarView(CAL), program: () => programView(CAL), home, schedule, roster, plan, standings: standingsView, rankings, leaders, post, history, off: offseason, awards: awardsView, news: newsView })[tab]();
+  ({ calendar: () => calendarView(CAL), program: () => programView(CAL), recruit: () => recruitingView(CAL), home, schedule, roster, plan, standings: standingsView, rankings, leaders, post, history, off: offseason, awards: awardsView, news: newsView })[tab]();
   document.querySelectorAll('#dyBody table.heat').forEach(x => window.tdcSheetHeat && tdcSheetHeat(x));
 }
 
@@ -271,34 +273,55 @@ function watch() {
   simToUserGame();
   const g = userNext(); if (!g) return render();
   const prep = prepared(S, C, cache);
-  const sim = playGame(S, g, prep, C, { log: true });
-  autosave();
-  const names = {}; for (const r of sim.box.home.concat(sim.box.away)) names[r.id] = r.name;
-  const L = pbpLines(sim.events, id => names[id] || '?', [g.h, g.a]);
+  // LIVE: the game is played a possession at a time, so the coach's timeouts change what happens next
+  const me = g.h === S.user ? 0 : 1, opp = me ? g.h : g.a;
+  let autoTO = false; try { autoTO = localStorage.getItem('dy_autoto') === '1'; } catch (e) {}
+  const ctl = newCtl(me === 0 ? [autoTO, true] : [true, autoTO]);
+  const it = gameSteps(prep.teams[g.h], prep.teams[g.a], { C, L: prep.L, seed: gameSeed(S, g), neutral: g.n, log: true, ctl });
+  const names = {}; for (const t of [prep.teams[g.h], prep.teams[g.a]]) for (const p of t.roster) names[p.id] = p.name;
   const ov = document.createElement('div'); ov.className = 'dy-ov';
   ov.innerHTML = `<div class="dy-watch"><div class="dy-sb"><div>${tm(g.a)}<b id="sA">0</b></div><div class="clk"><span id="sP">1st</span><b id="sC">20:00</b></div><div><b id="sH">0</b>${tm(g.h)}</div></div>
+    <div class="dy-tobar"><button class="btn" id="wTO">⏱ Timeout (<span id="toN">${ctl.to[me]}</span> left)</button><span id="wRun" class="dy-run"></span>
+      <label class="cal-chk"><input type="checkbox" id="wAuto" ${autoTO ? 'checked' : ''}> Let my staff call them</label></div>
     <div class="dy-speed">Speed <button data-sp="700">Live</button><button data-sp="140" class="on">Fast</button><button data-sp="25">Faster</button><button data-sp="0">Skip to end</button></div>
     <div class="dy-feed" id="feed"></div><div class="dy-btns"><button class="btn" id="wDone" disabled>Final — continue</button></div></div>`;
   document.body.appendChild(ov);
-  let i = 0, sp = 140, timer = null;
-  const feed = ov.querySelector('#feed');
-  const step = () => {
-    if (i >= L.length) { clearInterval(timer); finish(); return; }
-    const l = L[i++];
-    ov.querySelector('#sH').textContent = l.score[0]; ov.querySelector('#sA').textContent = l.score[1];
-    ov.querySelector('#sP').textContent = l.period; ov.querySelector('#sC').textContent = l.clock;
-    if (!l.sub || sp >= 140) {
-      const row = document.createElement('div'); row.className = 'pl' + (l.pts ? ' sc' : '') + (l.sub ? ' sub' : '');
+  let sp = 140, timer = null, shown = 0, result = null;
+  const feed = ov.querySelector('#feed'), teams = [g.h, g.a];
+  const draw = ev => {
+    const L = pbpLines(ev, id => names[id] || '?', teams, short);
+    for (; shown < L.length; shown++) {
+      const l = L[shown];
+      ov.querySelector('#sH').textContent = l.score[0]; ov.querySelector('#sA').textContent = l.score[1];
+      ov.querySelector('#sP').textContent = l.period; ov.querySelector('#sC').textContent = l.clock;
+      if (l.sub && sp < 140) continue;
+      const row = document.createElement('div'); row.className = 'pl' + (l.pts ? ' sc' : '') + (l.sub ? ' sub' : '') + (/^TIMEOUT/.test(l.txt) ? ' tmo' : '');
       row.innerHTML = `<span class="t">${l.period} ${l.clock}</span><img src="${esc(logo(l.team))}" alt=""><span>${esc(l.txt)}</span><span class="s">${l.score[1]}-${l.score[0]}</span>`;
       feed.prepend(row);
     }
   };
-  const go = () => { clearInterval(timer); if (sp === 0) { while (i < L.length) step(); step(); } else timer = setInterval(step, sp); };
+  const status = v => {
+    const toB = ov.querySelector('#wTO'); ov.querySelector('#toN').textContent = ctl.to[me];
+    toB.disabled = !!result || ctl.to[me] <= 0 || ctl.call[me];
+    const r = v && v.run, el = ov.querySelector('#wRun');
+    el.textContent = r && r[1 - me] >= 8 ? `${short(opp)} on a ${r[1 - me]}-point run` : r && r[me] >= 8 ? `${short(S.user)} on a ${r[me]}-point run` : '';
+    el.className = 'dy-run' + (r && r[1 - me] >= 8 ? ' bad' : r && r[me] >= 8 ? ' good' : '');
+  };
+  const step = () => {
+    if (result) return;
+    const r = it.next();
+    if (r.done) { result = r.value; record(S, g, result); autosave(); draw(result.events); clearInterval(timer); finish(); return; }
+    draw(r.value.events); status(r.value);
+  };
+  const go = () => { clearInterval(timer); if (sp === 0) { while (!result) step(); } else timer = setInterval(step, sp); };
   ov.querySelectorAll('[data-sp]').forEach(b => b.onclick = () => { ov.querySelectorAll('[data-sp]').forEach(x => x.classList.remove('on')); b.classList.add('on'); sp = +b.dataset.sp; go(); });
+  ov.querySelector('#wTO').onclick = () => { if (ctl.to[me] > 0) { ctl.call[me] = true; status(null); } };
+  ov.querySelector('#wAuto').onchange = e => { ctl.auto[me] = e.target.checked; try { localStorage.setItem('dy_autoto', e.target.checked ? '1' : '0'); } catch (x) {} };
   const finish = () => {
+    status(null);
     const done = ov.querySelector('#wDone'); done.disabled = false;
-    ov.querySelector('#sP').textContent = 'Final' + (sim.ot ? (sim.ot > 1 ? ` (${sim.ot}OT)` : ' (OT)') : ''); ov.querySelector('#sC').textContent = '';
-    feed.insertAdjacentHTML('afterbegin', boxHtml(g, { box: sim.box, score: sim.score, ot: sim.ot }));
+    ov.querySelector('#sP').textContent = 'Final' + (result.ot ? (result.ot > 1 ? ` (${result.ot}OT)` : ' (OT)') : ''); ov.querySelector('#sC').textContent = '';
+    feed.insertAdjacentHTML('afterbegin', boxHtml(g, { box: result.box, score: result.score, ot: result.ot }));
     done.onclick = () => { ov.remove(); run(() => simNext(S, C, cache)); };
   };
   go();
@@ -550,9 +573,9 @@ function offseason() {
     const used = () => Object.values(B).reduce((a, b) => a + (+b || 0), 0);
     // a recruit as YOUR staff sees him (scoutView: true ratings + his scouting error, tighter with a better
     // recruiting coordinator and more effort on him) — busts and diamonds in the rough are invisible here
-    const recRow = (r, e) => { const v = scoutView(S, r, e);
+    const recRow = (r, e) => { const v = scoutView(S, r, e + (r.vs || 0));   // + the long look his visits gave your staff
       return `<tr data-rrow="${esc(r.id)}"><td><input type="number" class="dy-min" min="0" max="60" step="5" data-eff="${esc(r.id)}" value="${e}"></td><td class="odds" data-odds="${esc(r.id)}"></td><td>${r.rank}</td>
-        <td class="l"><b>${esc(r.name)}</b><div class="dy-tags">${v.tags.map(t => `<span>${esc(t)}</span>`).join('')}</div></td><td class="l">${stars(r.stars)}</td><td>${esc(r.pos || '')}</td><td>${r.ht ? `${Math.floor(r.ht / 12)}-${r.ht % 12}` : ''}</td>
+        <td class="l"><b>${esc(r.name)}</b>${(S.visits || []).filter(x => x.rid === r.id && x.done).map(x => ` <span class="rv ${x.res}" title="${x.type === 'home' ? 'Home visit' : 'Official visit'}: ${x.res}">${x.type === 'home' ? '🏠' : '🎓'}</span>`).join('')}<div class="dy-tags">${v.tags.map(t => `<span>${esc(t)}</span>`).join('')}</div></td><td class="l">${stars(r.stars)}</td><td>${esc(r.pos || '')}</td><td>${r.ht ? `${Math.floor(r.ht / 12)}-${r.ht % 12}` : ''}</td>
         <td><b>${v.ovr}</b></td>${PILLARS.map(([k]) => `<td>${v.pillars[k]}</td>`).join('')}<td>${v.sta}</td><td><b>${v.grade}</b></td><td class="dim">±${v.sd}</td></tr>`; };
     const got = (O.portalResults || []).filter(x => x.to === U);
     html += `${got.length ? `<div class="dy-next"><div class="lbl">From the portal</div><div class="ln">${got.map(x => `<b>${esc(x.name)}</b> (${x.ovr}, from ${esc(short(x.from))})`).join(' · ')}</div></div>` : ''}

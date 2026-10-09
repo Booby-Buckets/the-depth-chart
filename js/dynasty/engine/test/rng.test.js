@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mulberry32, makeRng, hashSeed } from '../rng.js?v=23';
+import { mulberry32, makeRng, hashSeed } from '../rng.js?v=29';
 
 test('same seed -> same sequence', () => {
   const a = mulberry32(42), b = mulberry32(42);

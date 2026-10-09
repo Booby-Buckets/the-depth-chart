@@ -5,14 +5,14 @@
 //
 // Calibrated to the snapshot: freshmen enter at a median OVR ~59 (top 1% ~77); players gain ~+5 Fr->So,
 // ~+3 So->Jr, ~+1.5 after; teams lose ~3.4 upperclassmen a year; rosters carry 13 scholarships.
-import { overall, attributes } from './ratings.js?v=23';
-import { makeRng, hashSeed } from './rng.js?v=23';
-import { record_, power, touch } from './season.js?v=23';
-import { ncaaResult } from './postseason.js?v=23';
-import { effOvr } from './league.js?v=23';
-import { evaluateCoaches } from './coaching.js?v=23';
-import { healAll } from './injuries.js?v=23';
-import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina } from './program.js?v=23';
+import { overall, attributes } from './ratings.js?v=29';
+import { makeRng, hashSeed } from './rng.js?v=29';
+import { record_, power, touch } from './season.js?v=29';
+import { ncaaResult } from './postseason.js?v=29';
+import { effOvr } from './league.js?v=29';
+import { evaluateCoaches } from './coaching.js?v=29';
+import { healAll } from './injuries.js?v=29';
+import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina } from './program.js?v=29';
 
 export const SCHOLARSHIPS = 13;
 const PIL = ['SCO', 'SHT', 'FIN', 'PLY', 'SEC', 'REB', 'DEF'];
@@ -149,15 +149,17 @@ export function resolvePortal(state) {
   }
   state.off.portalResults = out;
   state.off.step = 'recruiting';
-  state.off.recruits = makeClass(state);
+  // the class has existed all season (visits, scouting) — fall back to a fresh one for old saves
+  state.off.recruits = state.rclass && state.rclass.length ? state.rclass : makeClass(state);
+  state.rclass = null;
 }
 
 // ── 4. recruiting ──
 const STAR_OVR = [null, [47, 54], [53, 61], [60, 68], [67, 74], [73, 80]];
-function makeClass(state) {
+export function makeClass(state, nIn) {
   const rng = rngFor(state, 'class');
   const spots = Object.keys(state.teams).reduce((s, t) => s + openSpots(state, t), 0);
-  const n = spots + 300;   // enough that the last teams to sign still find D-I-level players
+  const n = nIn || spots + 300;   // enough that the last teams to sign still find D-I-level players
   // templates: real freshmen pillar profiles (position + height + shape), rescaled to each recruit's level
   const tpl = state.templates && state.templates.length ? state.templates
     : Object.values(state.players).filter(p => p.yr <= 2).map(p => ({ pos: p.pos, ht: p.ht, pillars: p.pillars }));
@@ -218,6 +220,9 @@ export function tagsOf(P, ht = 77, sta = 50) {
   return t.slice(0, 3);
 }
 
+// the in-season class is made before anyone knows the open spots: ~3.4 per team leave a year, plus slack
+export const classSize = state => Math.round(Object.keys(state.teams).length * 3.4 + 300);
+
 // how much prestige a recruit expects: where the AI order would send him
 function recruitAppeal(state, rank) {
   const pres = Object.values(state.teams).map(t => t.prestige).sort((a, b) => b - a);
@@ -225,7 +230,7 @@ function recruitAppeal(state, rank) {
 }
 export function landOdds(state, r, effort) {
   const p = state.teams[state.user].prestige, need = recruitAppeal(state, r.rank);
-  const x = (p - need) / 9 + (effort - 15) / 12 + (DIFFS[state.diff || 'pro'].recruit || 0) + nilOffer(state, state.teams[state.user]);
+  const x = (p - need) / 9 + (effort - 15) / 12 + (DIFFS[state.diff || 'pro'].recruit || 0) + nilOffer(state, state.teams[state.user]) + (r.vb || 0);   // + what his visits earned
   return 1 / (1 + Math.exp(-x));
 }
 
@@ -296,6 +301,7 @@ export function startNextSeason(state) {
   newSeasonProgram(state);          // NIL payroll, staff contracts + poaching, familiarity fades, hiring pool
   state.year += 1;
   state.schedule = makeSchedule(state);
+  state.visits = []; state.rclass = makeClass(state, classSize(state));   // next year's class, recruitable all season
   state.stats = {}; state.userBox = {}; state.post = null; state.awards = null;
   state.phase = 'regular';
   state.lastOff = { progress: state.off.progress, signed: state.off.signed, portalResults: state.off.portalResults };

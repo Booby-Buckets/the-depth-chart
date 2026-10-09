@@ -7,8 +7,9 @@
 //   team.prog  = { staff:{OC,DC,REC,DEV,GM}, budget, hours:{practice,recruiting,nil,development}, focus:[p1,p2],
 //                  off, def (scheme keys), nil:{fund, wk}, acc:{practice,recruiting,nil,development, weeks} }
 //   player.fam = { o:{scheme: 0-100}, d:{scheme: 0-100} }   — familiarity follows the player (transfers keep it)
-import { makeRng, hashSeed } from './rng.js?v=23';
-import { attributes } from './ratings.js?v=23';
+import { makeRng, hashSeed } from './rng.js?v=29';
+import { attributes } from './ratings.js?v=29';
+import { news } from './injuries.js?v=29';
 
 export const DIFFS = {
   rookie: { label: 'Rookie', blurb: 'Your staff handles what you leave alone, recruits like you, boosters are patient and the job is safe.', recruit: 0.6, jobK: 0.5, nilK: 1.25, need: 0.85, aiPlan: 0.6, scandal: 0 },
@@ -236,15 +237,16 @@ export function newSeasonProgram(state) {
     P.nil.hist.push({ y: state.year - 1, fund: P.nil.fund });
     if (P.nil.hist.length > 6) P.nil.hist.shift();
     P.nil.fund = Math.round(P.nil.fund * 0.5);
-    if (rng.chance(0.03 * d.scandal) && t.name === state.user) { P.nil.fund = Math.round(P.nil.fund * 0.6); (state.news = state.news || []).push({ d: `${state.year - 1}-08-01`, k: 'nil', t: `A booster dispute cost [[${t.name}]]'s collective 40% of its fund`, team: t.name }); }
+    if (rng.chance(0.03 * d.scandal) && t.name === state.user) { P.nil.fund = Math.round(P.nil.fund * 0.6); news(state, `${state.year - 1}-08-01`, 'nil', `A booster dispute cost [[${t.name}]]'s collective 40% of its fund`, t.name, null); }
     P.acc = { practice: 0, recruiting: 0, nil: 0, development: 0, weeks: 0 };
+    P.hvFree = 2;                                          // summer home visits (visits.js)
     // staff contracts: a year off every deal; expired deals walk (the AI re-hires at a similar level)
     for (const [k] of ROLES) {
       const s = P.staff[k]; if (!s) continue;
       s.yrs -= 1;
       // a great assistant gets a head-coaching job elsewhere
-      if (s.r >= 80 && rng.chance((s.r - 75) / 60)) { if (t.name === state.user) (state.news = state.news || []).push({ d: `${state.year - 1}-04-15`, k: 'staff', t: `${s.name} left [[${t.name}]] to become a head coach`, team: t.name }); P.staff[k] = null; continue; }
-      if (s.yrs <= 0) { if (t.name === state.user) { P.staff[k] = null; (state.news = state.news || []).push({ d: `${state.year - 1}-04-20`, k: 'staff', t: `${s.name}'s contract ran out at [[${t.name}]]`, team: t.name }); } else { s.yrs = 1 + rng.int(3); s.r = clamp(Math.round(s.r + rng.normal(0, 4)), 25, 95); s.pay = payFor(s.r); } }
+      if (s.r >= 80 && rng.chance((s.r - 75) / 60)) { if (t.name === state.user) news(state, `${state.year - 1}-04-15`, 'staff', `${s.name} left [[${t.name}]] to become a head coach`, t.name, null); P.staff[k] = null; continue; }
+      if (s.yrs <= 0) { if (t.name === state.user) { P.staff[k] = null; news(state, `${state.year - 1}-04-20`, 'staff', `${s.name}'s contract ran out at [[${t.name}]]`, t.name, null); } else { s.yrs = 1 + rng.int(3); s.r = clamp(Math.round(s.r + rng.normal(0, 4)), 25, 95); s.pay = payFor(s.r); } }
     }
     if (t.name !== state.user) for (const [k] of ROLES) if (!P.staff[k]) P.staff[k] = staffer(rng, k, 38 + (t.prestige || 30) * 0.42);
     P.budget = Math.round(clamp(P.budget * 0.85 + budgetFor(t, rng) * 0.15, 380, 2600));

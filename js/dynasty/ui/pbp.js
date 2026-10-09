@@ -6,7 +6,7 @@ export function clock(t) {
   const m = Math.floor(left / 60), s = Math.floor(left % 60);
   return { period: h <= 2 ? (h === 1 ? '1st' : '2nd') : (h === 3 ? 'OT' : `${h - 2}OT`), clock: `${m}:${String(s).padStart(2, '0')}` };
 }
-export function lines(events, nameOf, teams) {
+export function lines(events, nameOf, teams, teamName) {
   const sc = [0, 0], out = [];
   const N = id => (id == null ? 'Team' : nameOf(id));
   for (const e of events) {
@@ -23,6 +23,7 @@ export function lines(events, nameOf, teams) {
     else if (e.ty === 'drb') txt = e.p ? `Rebound ${N(e.p)}` : 'Defensive rebound (team)';
     else if (e.ty === 'pf') txt = `Foul on ${N(e.p)}`;
     else if (e.ty === 'sub') txt = `Sub: ${e.in.map(N).join(', ')} in for ${e.out.map(N).join(', ')}`;
+    else if (e.ty === 'tmo') txt = `TIMEOUT — ${teams[e.s] ? (teamName ? teamName(teams[e.s]) : teams[e.s]) : 'Team'}${e.why === 'run' ? ' stops the run' : ''} (${e.left} left)`;
     if (!txt) continue;
     sc[e.s] += pts;
     // rebounds / fouls / steals belong to the defending side

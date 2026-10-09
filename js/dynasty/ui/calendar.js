@@ -3,8 +3,8 @@
 // in between — and a CRAWL that walks the season a day at a time (league-wide), stopping before the user's
 // games so they can watch or sim them. The cursor (state.cal) is saved with the dynasty.
 // UI-side only: drives the engine's simNext / nextDate; never touches storage itself (ctx.autosave does).
-import { simNext } from '../engine/flow.js?v=23';
-import { nextDate, power, lineFor } from '../engine/season.js?v=23';
+import { simNext } from '../engine/flow.js?v=29';
+import { nextDate, power, lineFor } from '../engine/season.js?v=29';
 
 const MON = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -49,7 +49,7 @@ export function calendarView(ctx) {
       ${crawling ? '<button class="btn" id="calStop">⏸ Stop</button>' : '<button class="btn" id="calCrawl">▶ Crawl</button>'}
       <span class="cal-spd">${['slow', 'normal', 'fast'].map(s => `<button class="${s === speed ? 'on' : ''}" data-spd="${s}">${s[0].toUpperCase() + s.slice(1)}</button>`).join('')}</span>
       <label class="cal-chk"><input type="checkbox" id="calStopMine" ${stopMine ? 'checked' : ''}> Stop before my games</label>
-      ${!crawling && g0 ? '<button class="btn ghost" id="calWatch">▶ Watch my game</button><button class="btn ghost" id="calSimG">Sim my game</button>' : ''}
+      ${!crawling && S.schedule.some(x => !x.r && (x.h === S.user || x.a === S.user)) ? '<button class="btn ghost" id="calWatch">▶ Watch my next game</button><button class="btn ghost" id="calSimG">Sim my next game</button>' : ''}
       ${target ? `<span class="cal-tgt">Crawling to ${esc(fmtShort(target))} <a href="#" id="calTgtX">✕</a></span>` : ''}
     </div></div>`;
   const nav = `<div class="cal-nav"><button class="btn ghost" id="calPrev">‹</button><b>${MON[vm - 1]} ${vy}</b><button class="btn ghost" id="calNext">›</button>
@@ -68,7 +68,7 @@ export function calendarView(ctx) {
       const tag = g.t === 'ct' ? 'Conf. tourney' : g.t === 'ncaa' ? 'NCAA' : g.ev ? g.ev.replace(/ · day.*/, '') : g.fill ? 'Added' : g.c ? '' : '';
       cells += `<div class="cal-c game ${site}${isCur ? ' cur' : ''}${past ? ' past' : ''}" style="--oc:${esc(color(opp))}" data-day="${d}" ${g.r && S.userBox[g.id] ? `data-box="${esc(g.id)}"` : ''} title="${esc((home ? 'vs ' : g.n ? 'vs ' : '@ ') + short(opp))}">
         ${lbl}<span class="site">${g.n ? 'N' : home ? 'H' : 'A'}</span>${logo(opp) ? `<img src="${esc(logo(opp))}" alt="" loading="lazy">` : `<span class="nm">${esc(short(opp))}</span>`}
-        ${tag ? `<span class="tag">${esc(tag)}</span>` : ''}${res}</div>`;
+        ${tag ? `<span class="tag">${esc(tag)}</span>` : ''}${(() => { const nV = (S.visits || []).filter(v => v.gid === g.id).length; return nV ? `<span class="vis" title="${nV} recruit${nV > 1 ? 's' : ''} on an official visit">🎓${nV > 1 ? nV : ''}</span>` : ''; })()}${res}</div>`;
     } else if (pe) {
       cells += `<div class="cal-c game neu tbd${isCur ? ' cur' : ''}" data-day="${d}">${lbl}<span class="site">N</span><span class="nm">TBD</span><span class="tag">${esc((pe.ev || 'Event').replace(/ · day.*/, ''))}</span></div>`;
     } else {
