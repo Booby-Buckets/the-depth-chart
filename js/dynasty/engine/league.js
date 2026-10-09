@@ -7,12 +7,12 @@
 //   players: { id: { id, name, team, pos, pos2, ht, yr, pillars, lvl, mpg, pot } },
 //   schedule:[ { id, d, h, a, n, c, r } ],             r = [homePts, awayPts, ot, poss] once played
 //   stats:   { id: season totals },  powerFit, history:[], userBox:{ gameId: box } }
-import { attributes, overall } from './ratings.js?v=46';
-import { makeRng } from './rng.js?v=46';
-import { initCoaches } from './coaching.js?v=46';
-import { fillLeague, buildSchedule } from './fill.js?v=46';
-import { makeClass, classSize } from './offseason.js?v=46';
-import { initProgram, ensureStamina } from './program.js?v=46';
+import { attributes, overall } from './ratings.js?v=48';
+import { makeRng } from './rng.js?v=48';
+import { initCoaches, ensureCoaches } from './coaching.js?v=48';
+import { fillLeague, buildSchedule } from './fill.js?v=48';
+import { makeClass, classSize } from './offseason.js?v=48';
+import { initProgram, ensureStamina } from './program.js?v=48';
 
 export const YR = { 'FR': 1, 'FR.': 1, 'RS FR.': 1, 'SO': 2, 'SO.': 2, 'RS SO.': 2, 'JR': 3, 'JR.': 3, 'RS JR.': 3, 'SR': 4, 'SR.': 4, 'RS SR.': 4, 'GR': 5, 'GR.': 5, '5TH': 5 };
 export const YR_LABEL = ['', 'Fr', 'So', 'Jr', 'Sr', 'Gr'];
@@ -128,6 +128,7 @@ export function hydrate(state) {
   }
   if (state.lvlRef == null) state.lvlRef = levelRef(state.teams);
   if (!state.job) initCoaches(state, null, null);   // saves from before coaching
+  ensureCoaches(state);                            // saves from before coach ratings
   if (!state.news) state.news = [];
   if (!state.names) state.names = namePool(state.players);   // older saves: freeze what they have now
   if (!state.ext) state.ext = { teams: {}, players: {} };      // saves from before full schedules

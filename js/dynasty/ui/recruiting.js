@@ -1,8 +1,8 @@
 // In-season Recruiting tab: next year's class (scouted through your staff), official visits at your home games and
 // home visits. Rules in engine/visits.js; signing day itself stays in the offseason (app.js).
-import { scoutView, landOdds, scoutSD } from '../engine/offseason.js?v=46';
-import { pursuit, priorities, negotiate, acceptCounter, FACTORS, committedNIL, profile, relationship } from '../engine/recruit.js?v=46';
-import { OFFICIAL_MAX, TARGET_MAX, toggleTarget, visitsLeft, visitsFor, upcomingHomeGames, scheduleOfficial, cancelVisit, homeVisit } from '../engine/visits.js?v=46';
+import { scoutView, landOdds, scoutSD } from '../engine/offseason.js?v=48';
+import { pursuit, priorities, negotiate, acceptCounter, FACTORS, committedNIL, profile, relationship } from '../engine/recruit.js?v=48';
+import { OFFICIAL_MAX, TARGET_MAX, toggleTarget, visitsLeft, visitsFor, upcomingHomeGames, scheduleOfficial, cancelVisit, homeVisit } from '../engine/visits.js?v=48';
 
 let q = '', pos = '', minStars = 0, onlyT = false, open = null, detail = null, lastMsg = {};
 

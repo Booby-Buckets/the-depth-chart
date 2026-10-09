@@ -7,9 +7,9 @@
 //   team.prog  = { staff:{OC,DC,REC,DEV,GM}, budget, hours:{practice,recruiting,nil,development}, focus:[p1,p2],
 //                  off, def (scheme keys), nil:{fund, wk}, acc:{practice,recruiting,nil,development, weeks} }
 //   player.fam = { o:{scheme: 0-100}, d:{scheme: 0-100} }   — familiarity follows the player (transfers keep it)
-import { makeRng, hashSeed } from './rng.js?v=46';
-import { attributes } from './ratings.js?v=46';
-import { news } from './injuries.js?v=46';
+import { makeRng, hashSeed } from './rng.js?v=48';
+import { attributes } from './ratings.js?v=48';
+import { news } from './injuries.js?v=48';
 
 export const DIFFS = {
   rookie: { label: 'Rookie', blurb: 'Your staff handles what you leave alone, recruits like you, boosters are patient and the job is safe.', recruit: 0.6, jobK: 0.5, nilK: 1.25, need: 0.85, aiPlan: 0.6, scandal: 0 },
@@ -66,9 +66,9 @@ const rngFor = (state, tag) => makeRng(hashSeed(`${state.seed}:${state.year}:pro
 const FIRST = ['Mike', 'Chris', 'Tony', 'Ryan', 'Kevin', 'Brian', 'Jason', 'Matt', 'Derek', 'Marcus', 'Andre', 'Josh', 'Tim', 'Greg', 'Darius', 'Sean', 'Luke', 'Eric', 'Will', 'Jamal'];
 const LAST = ['Johnson', 'Miller', 'Davis', 'Brooks', 'Carter', 'Hayes', 'Foster', 'Reed', 'Bennett', 'Coleman', 'Walsh', 'Porter', 'Dixon', 'Hughes', 'Sullivan', 'Price', 'Ward', 'Grant', 'Pierce', 'Lane'];
 export const payFor = r => Math.round(40 + (r * r) / 22);                 // $k a year: a 50 earns ~150k, an 85 ~370k
-function staffer(rng, role, mean) {
+function staffer(rng, role, mean, age) {
   const r = Math.round(clamp(mean + rng.normal(0, 9), 25, 95));
-  return { role, name: `${FIRST[rng.int(FIRST.length)]} ${LAST[rng.int(LAST.length)]}`, r, pay: payFor(r), yrs: 1 + rng.int(4) };
+  return { role, name: `${FIRST[rng.int(FIRST.length)]} ${LAST[rng.int(LAST.length)]}`, r, pay: payFor(r), yrs: 1 + rng.int(4), age: age || 30 + rng.int(30), id: `s${rng.int(1e9).toString(36)}` };
 }
 // every program starts somewhere different: budget + staff quality from prestige and league, with noise
 function budgetFor(t, rng) { return Math.round(clamp(500 + (t.prestige || 30) * 14 + (t.level || 0) * 25 + rng.normal(0, 120), 380, 2400)); }
@@ -80,8 +80,14 @@ export function cover(prog, area) {
   return h;
 }
 export function effort(state, team, area) {
-  const P = team.prog, d = DIFFS[state.diff || 'pro'];
-  return clamp((P.hours[area] + cover(P, area)) / (AREA_NEED[area] * (team.name === state.user ? d.need : 1)), 0, 2.2);
+  const P = team.prog, d = DIFFS[state.diff || 'pro'], me = team.name === state.user;
+  return clamp((P.hours[area] * (me ? 1 : coachMult(team, area)) + cover(P, area)) / (AREA_NEED[area] * (me ? d.need : 1)), 0, 2.2);   // an AI head coach's quality (coaching.js)
+}
+// (mirrors coaching.coachMult without the import cycle: coaching.js imports this module)
+function coachMult(team, area) {
+  const c = team.coach; if (!c || c.user || c.r == null) return 1;
+  const sub = area === 'practice' ? (c.off + c.def) / 2 : area === 'recruiting' ? c.rec : area === 'development' ? c.dev : c.r;
+  return clamp(1 + (sub - (48 + (team.prestige || 30) * 0.35)) / 120, 0.82, 1.22);
 }
 const defaultHours = () => ({ practice: 20, recruiting: 16, nil: 10, development: 14 });
 
@@ -242,14 +248,7 @@ export function newSeasonProgram(state) {
     if (rng.chance(0.03 * d.scandal) && t.name === state.user) { P.nil.fund = Math.round(P.nil.fund * 0.6); news(state, `${state.year - 1}-08-01`, 'nil', `A booster dispute cost [[${t.name}]]'s collective 40% of its fund`, t.name, null); }
     P.acc = { practice: 0, recruiting: 0, nil: 0, development: 0, weeks: 0 };
     P.hvFree = 2;                                          // summer home visits (visits.js)
-    // staff contracts: a year off every deal; expired deals walk (the AI re-hires at a similar level)
-    for (const [k] of ROLES) {
-      const s = P.staff[k]; if (!s) continue;
-      s.yrs -= 1;
-      // a great assistant gets a head-coaching job elsewhere
-      if (s.r >= 80 && rng.chance((s.r - 75) / 60)) { if (t.name === state.user) news(state, `${state.year - 1}-04-15`, 'staff', `${s.name} left [[${t.name}]] to become a head coach`, t.name, null); P.staff[k] = null; continue; }
-      if (s.yrs <= 0) { if (t.name === state.user) { P.staff[k] = null; news(state, `${state.year - 1}-04-20`, 'staff', `${s.name}'s contract ran out at [[${t.name}]]`, t.name, null); } else { s.yrs = 1 + rng.int(3); s.r = clamp(Math.round(s.r + rng.normal(0, 4)), 25, 95); s.pay = payFor(s.r); } }
-    }
+    // (staff contracts, departures and hiring happen in the offseason staff market: openStaffMarket / closeStaffMarket)
     if (t.name !== state.user) for (const [k] of ROLES) if (!P.staff[k]) P.staff[k] = staffer(rng, k, 38 + (t.prestige || 30) * 0.42);
     P.budget = Math.round(clamp(P.budget * 0.85 + budgetFor(t, rng) * 0.15, 380, 2600));
     if (t.name !== state.user || state.diff === 'rookie') { P.off = bestScheme(state, t, 'o'); P.def = bestScheme(state, t, 'd'); P.focus = autoFocus(state, t); }
@@ -259,7 +258,7 @@ export function newSeasonProgram(state) {
     if (!p.fam) continue;
     for (const side of ['o', 'd']) for (const k in p.fam[side]) p.fam[side][k] = Math.round(p.fam[side][k] * K.FAM_KEEP);
   }
-  state.staffPool = hiringPool(state);
+  if (!state.staffPool || !state.staffPool.length) state.staffPool = hiringPool(state);
 }
 export function hiringPool(state) {
   const rng = rngFor(state, 'pool'), pool = [];
@@ -267,12 +266,107 @@ export function hiringPool(state) {
   return pool;
 }
 export const payroll = P => ROLES.reduce((s, [k]) => s + (P.staff[k] ? P.staff[k].pay : 0), 0);
+
+// ── the offseason staff market (Oct 2026): after the head-coach carousel, every staff gets a year older (young
+// assistants grow, old ones fade and retire), contracts tick down — the AI keeps most of its people, the rest hit the
+// market with the user's expired deals, fired head coaches (as coordinators in their best area) and young
+// up-and-comers. The user hires first (offers: salary + years; they accept, counter or pass) and can poach another
+// program's assistant with a raise; then every AI program fills its empty seats, best job first. ──
+const ROLE_OF = { off: 'OC', def: 'DC', rec: 'REC', dev: 'DEV' };
+const ageStaff = (s, rng) => { s.age = (s.age || 45) + 1; const d = s.age < 38 ? 1.2 : s.age < 48 ? 0.2 : s.age < 58 ? -0.5 : -1.5; s.r = Math.round(clamp(s.r + d + rng.normal(0, 1.5), 25, 95)); };
+export function openStaffMarket(state) {
+  if (state.staffMarket && state.staffMarket.year === state.year) return;
+  const rng = rngFor(state, 'market'), U = state.user, pool = [], d = `${state.year}-04-20`;
+  for (const t of Object.values(state.teams)) {
+    const P = t.prog; if (!P) continue;
+    for (const [k] of ROLES) {
+      const s = P.staff[k]; if (!s) continue;
+      ageStaff(s, rng); s.yrs -= 1; s.id = s.id || `s${rng.int(1e9).toString(36)}`; s.age = s.age || 45;
+      if (s.age >= 66 && rng.chance(0.4)) { P.staff[k] = null; if (t.name === U) news(state, d, 'staff', `${s.name} retired from your staff`, U, null); continue; }
+      if (s.yrs > 0) continue;
+      if (t.name !== U && rng.chance(0.65) && payroll(P) <= P.budget) { s.yrs = 1 + rng.int(3); s.pay = payFor(s.r); continue; }   // re-signed
+      P.staff[k] = null;
+      pool.push(Object.assign(s, { from: t.name, mine: t.name === U }));
+      if (t.name === U) news(state, d, 'staff', `${s.name}'s contract is up — he's on the market (you can re-sign him first)`, U, null);
+    }
+  }
+  // fired head coaches, as coordinators in their best area
+  for (const c of state.coachPool || []) {
+    if (rng.chance(0.5)) continue;
+    const best = ['off', 'def', 'rec', 'dev'].sort((a, b) => (c[b] || 0) - (c[a] || 0))[0], r = Math.round(clamp((c[best] || c.r || 60) - 3, 30, 92));
+    pool.push({ role: ROLE_OF[best], name: c.name, r, pay: payFor(r), yrs: 2, age: c.age || 55, id: `s${rng.int(1e9).toString(36)}`, exHC: true, cid: c.id });
+  }
+  // young up-and-comers (cheaper, still growing)
+  for (const [k] of ROLES) for (let i = 0; i < 5; i++) { const s = staffer(rng, k, 40 + i * 6, 27 + rng.int(9)); s.young = true; pool.push(s); }
+  for (const s of pool) { s.ask = Math.round(payFor(s.r) * (s.exHC ? 1.15 : s.young ? 0.9 : 1) * (1 + rng.next() * 0.15)); s.pay = s.ask; }
+  state.staffMarket = { year: state.year, pool, log: [], open: true };
+}
+/** what a candidate wants from the user's program: his ask, more from a smaller program if he's good */
+export function staffAsk(state, s) {
+  const pr = state.teams[state.user].prestige || 30, want = s.r >= 80 ? 60 : s.r >= 70 ? 45 : 0;
+  return Math.round((s.mine ? s.ask * 0.92 : s.ask) * (pr < want ? 1 + (want - pr) / 60 : 1));
+}
+/** the user offers a market candidate `pay` ($k) for `yrs` years */
+export function offerStaff(state, id, pay, yrs) {
+  const M = state.staffMarket, P = state.teams[state.user].prog; if (!M || !M.open) return { ok: false, msg: 'The staff market is closed until the offseason.' };
+  const s = M.pool.find(x => x.id === id); if (!s) return { ok: false, msg: 'He has already taken another job.' };
+  pay = Math.round(+pay || 0); yrs = clamp(Math.round(+yrs || 2), 1, 5);
+  const cur = P.staff[s.role];
+  if (payroll(P) - (cur ? cur.pay : 0) + pay > P.budget) return { ok: false, msg: `That puts you over your staff budget ($${P.budget}k).` };
+  const ask = staffAsk(state, s) * (yrs >= 4 ? 0.95 : 1);
+  if (pay < ask * 0.85) return { ok: false, msg: `${s.name} passes — he's looking for about $${Math.round(ask)}k.` };
+  if (pay < ask) return { ok: false, counter: Math.round(ask), msg: `${s.name} counters at $${Math.round(ask)}k.` };
+  if (cur) { cur.yrs = 0; M.pool.push(Object.assign(cur, { ask: cur.pay, from: state.user })); }   // the man he replaces hits the market
+  P.staff[s.role] = { role: s.role, name: s.name, r: s.r, pay, yrs, age: s.age, id: s.id };
+  M.pool = M.pool.filter(x => x !== s);
+  if (s.cid) state.coachPool = (state.coachPool || []).filter(c => c.id !== s.cid);
+  news(state, `${state.year}-04-25`, 'staff', `You hired ${s.name} as your ${s.role} ($${pay}k, ${yrs} yr${yrs > 1 ? 's' : ''})`, state.user, null);
+  return { ok: true, msg: `${s.name} accepts: $${pay}k for ${yrs} year${yrs > 1 ? 's' : ''}.` };
+}
+/** what it takes to pry an assistant away from his program: a raise, more if his school is bigger or his deal is long */
+export function poachAsk(state, team, role) {
+  const s = state.teams[team].prog.staff[role]; if (!s) return null;
+  const gap = (state.teams[team].prestige || 30) - (state.teams[state.user].prestige || 30);
+  return Math.round(s.pay * (1.2 + Math.max(0, gap) / 50 + (s.yrs >= 2 ? 0.1 : 0)));
+}
+export function poachStaff(state, team, role, pay, yrs) {
+  const M = state.staffMarket, P = state.teams[state.user].prog; if (!M || !M.open) return { ok: false, msg: 'You can only poach in the offseason.' };
+  const s = state.teams[team].prog.staff[role]; if (!s) return { ok: false, msg: 'That seat is empty.' };
+  pay = Math.round(+pay || 0); yrs = clamp(Math.round(+yrs || 2), 1, 5);
+  const cur = P.staff[role];
+  if (payroll(P) - (cur ? cur.pay : 0) + pay > P.budget) return { ok: false, msg: `That puts you over your staff budget ($${P.budget}k).` };
+  const ask = poachAsk(state, team, role);
+  if (pay < ask) return { ok: false, counter: ask, msg: `${s.name} stays at ${team} unless you go to about $${ask}k.` };
+  if (cur) { cur.yrs = 0; M.pool.push(Object.assign(cur, { ask: cur.pay, from: state.user })); }
+  state.teams[team].prog.staff[role] = null;
+  P.staff[role] = { role, name: s.name, r: s.r, pay, yrs, age: s.age, id: s.id };
+  news(state, `${state.year}-04-25`, 'staff', `You hired ${s.name} away from [[${team}]] as your ${role} ($${pay}k)`, state.user, null);
+  return { ok: true, msg: `${s.name} is coming: $${pay}k for ${yrs} year${yrs > 1 ? 's' : ''}.` };
+}
+/** the AI fills every empty seat, best programs first; what's left stays on the market (in-season hires) */
+export function closeStaffMarket(state) {
+  const M = state.staffMarket; if (!M || !M.open) return;
+  const rng = rngFor(state, 'market2'), U = state.user;
+  const teams = Object.values(state.teams).filter(t => t.prog && t.name !== U).sort((a, b) => (b.prestige || 30) - (a.prestige || 30));
+  for (const t of teams) {
+    const P = t.prog;
+    for (const [k] of ROLES) {
+      if (P.staff[k]) continue;
+      const room = P.budget - payroll(P);
+      const c = M.pool.filter(s => s.role === k && s.ask <= room).sort((a, b) => b.r - a.r)[0];
+      if (c && rng.chance(0.85)) { M.pool = M.pool.filter(x => x !== c); if (c.cid) state.coachPool = (state.coachPool || []).filter(x => x.id !== c.cid); P.staff[k] = { role: k, name: c.name, r: c.r, pay: c.ask, yrs: 1 + rng.int(4), age: c.age, id: c.id }; M.log.push({ team: t.name, role: k, name: c.name, r: c.r }); }
+      else P.staff[k] = staffer(rng, k, 34 + (t.prestige || 30) * 0.38);
+    }
+  }
+  M.open = false;
+  state.staffPool = M.pool.filter(s => s.r >= 40).sort((a, b) => b.r - a.r).slice(0, 40).map(s => Object.assign({}, s, { pay: s.ask }));
+}
 export function hire(state, id) {
   const t = state.teams[state.user], P = t.prog, s = (state.staffPool || []).find(x => x.id === id);
   if (!s) return 'That candidate is gone.';
   const cur = P.staff[s.role];
   if (payroll(P) - (cur ? cur.pay : 0) + s.pay > P.budget) return `Over your staff budget ($${P.budget}k).`;
-  P.staff[s.role] = { role: s.role, name: s.name, r: s.r, pay: s.pay, yrs: 3 };
+  P.staff[s.role] = { role: s.role, name: s.name, r: s.r, pay: s.pay, yrs: 3, age: s.age, id: s.id };
   state.staffPool = state.staffPool.filter(x => x.id !== id);
   return null;
 }

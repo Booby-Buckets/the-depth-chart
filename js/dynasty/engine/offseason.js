@@ -5,20 +5,20 @@
 //
 // Calibrated to the snapshot: freshmen enter at a median OVR ~59 (top 1% ~77); players gain ~+5 Fr->So,
 // ~+3 So->Jr, ~+1.5 after; teams lose ~3.4 upperclassmen a year; rosters carry 13 scholarships.
-import { overall, attributes } from './ratings.js?v=46';
-import { makeRng, hashSeed } from './rng.js?v=46';
-import { record_, power, touch } from './season.js?v=46';
-import { ncaaResult, postResult } from './postseason.js?v=46';
-import { effOvr } from './league.js?v=46';
-import { evaluateCoaches } from './coaching.js?v=46';
-import { healAll } from './injuries.js?v=46';
-import { profile, userOdds, pickSchool, notePro, factors, utility, relationship, aiSign } from './recruit.js?v=46';
-import { openPortal, portalDay, PORTAL_DAYS } from './portal.js?v=46';
-import { realignWindow, applyMoves, applyRevenue } from './realign.js?v=46';
-import { makeSchedule } from './schedule.js?v=46';
-import { runDraft } from './draft.js?v=46';
-import { compactAwards } from './awards.js?v=46';
-import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina } from './program.js?v=46';
+import { overall, attributes } from './ratings.js?v=48';
+import { makeRng, hashSeed } from './rng.js?v=48';
+import { record_, power, touch } from './season.js?v=48';
+import { ncaaResult, postResult } from './postseason.js?v=48';
+import { effOvr } from './league.js?v=48';
+import { evaluateCoaches, runCarousel } from './coaching.js?v=48';
+import { healAll } from './injuries.js?v=48';
+import { profile, userOdds, pickSchool, notePro, factors, utility, relationship, aiSign } from './recruit.js?v=48';
+import { openPortal, portalDay, PORTAL_DAYS } from './portal.js?v=48';
+import { realignWindow, applyMoves, applyRevenue } from './realign.js?v=48';
+import { makeSchedule } from './schedule.js?v=48';
+import { runDraft } from './draft.js?v=48';
+import { compactAwards } from './awards.js?v=48';
+import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina, openStaffMarket, closeStaffMarket } from './program.js?v=48';
 
 export const SCHOLARSHIPS = 13;
 const PIL = ['SCO', 'SHT', 'FIN', 'PLY', 'SEC', 'REB', 'DEF'];
@@ -76,7 +76,7 @@ export function beginOffseason(state) {
     T.prestige = Math.round(clamp(0.06 * 50 + 0.94 * (0.65 * T.prestige + 0.35 * Math.min(100, pct + (bump[postResult(state, t)] || 0))), 1, 100));
   });
   state.phase = 'offseason';
-  state.off = { step: 'departures', leaving: {}, portal: [], offers: {}, recruits: null, board: {}, signed: {}, log: [],
+  state.off = { step: 'carousel', leaving: {}, portal: [], offers: {}, recruits: null, board: {}, signed: {}, log: [],
     budget: state.user ? recruitPoints(state, state.teams[state.user]) : 100 };   // the season's recruiting hours = signing-day effort
   markDepartures(state);
   runDraft(state);                  // early entrants -> a 60-pick draft (draft.js)
@@ -126,7 +126,12 @@ export function retain(state, id) {
 }
 
 // ── 2. departures take effect; portal opens ──
+/** the offseason's first two steps: the head-coach carousel, then the staff market (the UI runs them one at a time;
+ *  anything that skips ahead — the AI-only harnesses — gets them here) */
+export function finishCarousel(state) { runCarousel(state); openStaffMarket(state); }
+export function finishStaff(state) { finishCarousel(state); closeStaffMarket(state); if (state.off.step === 'carousel' || state.off.step === 'staff') state.off.step = 'departures'; }
 export function processDepartures(state) {
+  finishStaff(state);
   const L = state.off.leaving;
   for (const [id, why] of Object.entries(L)) {
     const p = state.players[id]; if (!p) continue;

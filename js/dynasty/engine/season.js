@@ -1,14 +1,14 @@
 // The season: day-by-day simulation over state.schedule, results, player stats, standings, a power rating
 // (opponent-adjusted net blended with the preseason prior) and the poll. Pure: works on the state object.
-import { prepareTeam } from './ratings.js?v=46';
-import { simulateGame, totals } from './game.js?v=46';
-import { makeRng, hashSeed } from './rng.js?v=46';
-import { powerFeatures } from './league.js?v=46';
-import { afterGame } from './injuries.js?v=46';
-import { resolvePending, nextPendingDate, EXT_RATING } from './fill.js?v=46';
-import { resolveVisits } from './visits.js?v=46';
-import { resolveMTE } from './mte.js?v=46';
-import { schemeMods, programGame } from './program.js?v=46';
+import { prepareTeam } from './ratings.js?v=48';
+import { simulateGame, totals } from './game.js?v=48';
+import { makeRng, hashSeed } from './rng.js?v=48';
+import { powerFeatures } from './league.js?v=48';
+import { afterGame } from './injuries.js?v=48';
+import { resolvePending, nextPendingDate, EXT_RATING } from './fill.js?v=48';
+import { resolveVisits } from './visits.js?v=48';
+import { resolveMTE } from './mte.js?v=48';
+import { schemeMods, programGame } from './program.js?v=48';
 
 const STAT_KEYS = ['min', 'pts', 'fgm', 'fga', 'tpm', 'tpa', 'ftm', 'fta', 'orb', 'drb', 'ast', 'stl', 'blk', 'tov', 'pf'];
 

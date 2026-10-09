@@ -2,8 +2,8 @@
 // pillars + offensive / defensive scheme with fit and familiarity) and the NIL collective. UI only — every rule
 // lives in engine/program.js.
 import { DIFFS, HOURS, AREAS, ROLES, OFF, DEF, PIL_LABEL, FOCUS_LABEL, cover, effort, fitOf, famOf, payroll, hire, fire, boosterEvent,
-  devMult, focusBonus, recruitPoints, nilRetention, nilOffer } from '../engine/program.js?v=46';
-import { TIERS, revenueOf, exitFee, travel, ladder, powerAvg, members } from '../engine/realign.js?v=46';
+  devMult, focusBonus, recruitPoints, nilRetention, nilOffer } from '../engine/program.js?v=48';
+import { TIERS, revenueOf, exitFee, travel, ladder, powerAvg, members } from '../engine/realign.js?v=48';
 
 const AREA_TXT = {
   practice: 'Scheme familiarity and your two focus areas grow with practice time.',
@@ -33,11 +33,11 @@ export function programView(ctx) {
 
   // 2. staff
   const pool = (S.staffPool || []);
-  const canHire = role => offseason || !P.staff[role];
-  const staff = `<div class="pg-card"><div class="pg-h"><h3>Staff</h3><span class="pg-n">Payroll ${m(payroll(P))} of ${m(P.budget)} budget${offseason ? ' · the offseason is hiring season' : ' · you can fill an empty seat any time'}</span></div>
-    <table class="pg-tbl"><thead><tr><th class="l">Role</th><th class="l">Coach</th><th>Rating</th><th>Covers</th><th>Salary</th><th>Contract</th><th></th></tr></thead><tbody>
+  const mkt = S.staffMarket && S.staffMarket.open, canHire = role => !mkt && !P.staff[role];   // offseason hiring runs through the Staff step
+  const staff = `<div class="pg-card"><div class="pg-h"><h3>Staff</h3><span class="pg-n">Payroll ${m(payroll(P))} of ${m(P.budget)} budget${mkt ? ' · hiring happens in the offseason Staff step' : ' · fill an empty seat from the leftover candidates any time'}</span></div>
+    <table class="pg-tbl"><thead><tr><th class="l">Role</th><th class="l">Coach</th><th>Age</th><th>Rating</th><th>Covers</th><th>Salary</th><th>Contract</th><th></th></tr></thead><tbody>
     ${ROLES.map(([k, l, a]) => { const s = P.staff[k];
-      return `<tr><td class="l">${l}</td><td class="l">${s ? esc(s.name) : '<span class="pg-warn">Vacant</span>'}</td><td>${s ? `<b>${s.r}</b>` : '—'}</td>
+      return `<tr><td class="l">${l}</td><td class="l">${s ? esc(s.name) : '<span class="pg-warn">Vacant</span>'}</td><td>${s && s.age ? s.age : ''}</td><td>${s ? `<b>${s.r}</b>` : '—'}</td>
         <td>${s ? '+' + (Math.max(0, (s.r - 30) / 70) * (a === 'practice' ? 7 : 12)).toFixed(1) + ' h ' + esc(AREAS.find(x => x[0] === a)[1].toLowerCase()) : '—'}</td>
         <td>${s ? m(s.pay) : '—'}</td><td>${s ? s.yrs + ' yr' + (s.yrs === 1 ? '' : 's') : ''}</td>
         <td>${s ? `<button class="btn ghost pg-sm" data-fire="${k}">Release</button>` : ''}</td></tr>`; }).join('')}
@@ -45,7 +45,7 @@ export function programView(ctx) {
     ${pool.length ? `<details class="pg-pool" ${ROLES.some(([k]) => !P.staff[k]) ? 'open' : ''}><summary>Candidates (${pool.length})</summary>
       <table class="pg-tbl"><thead><tr><th class="l">Role</th><th class="l">Coach</th><th>Rating</th><th>Salary</th><th></th></tr></thead><tbody>
       ${pool.slice().sort((a, b) => a.role.localeCompare(b.role) || b.r - a.r).map(s => `<tr><td class="l">${esc(ROLES.find(r => r[0] === s.role)[1])}</td><td class="l">${esc(s.name)}</td><td><b>${s.r}</b></td><td>${m(s.pay)}</td>
-        <td>${canHire(s.role) ? `<button class="btn ghost pg-sm" data-hire="${esc(s.id)}">Hire</button>` : '<span class="pg-d">in the offseason</span>'}</td></tr>`).join('')}</tbody></table></details>` : ''}</div>`;
+        <td>${canHire(s.role) ? `<button class="btn ghost pg-sm" data-hire="${esc(s.id)}">Hire</button>` : ''}</td></tr>`).join('')}</tbody></table></details>` : ''}</div>`;
 
   // 3. practice plan
   const schemeRows = (side, SET, cur) => Object.entries(SET).map(([k, x]) => {
