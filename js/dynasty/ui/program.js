@@ -1,8 +1,8 @@
 // Program tab: the head coach's week (hours), the staff (coverage, budget, hiring), the practice plan (two focus
 // pillars + offensive / defensive scheme with fit and familiarity) and the NIL collective. UI only — every rule
 // lives in engine/program.js.
-import { DIFFS, HOURS, AREAS, ROLES, OFF, DEF, PIL_LABEL, cover, effort, fitOf, famOf, payroll, hire, fire, boosterEvent,
-  devMult, focusBonus, recruitPoints, nilRetention, nilOffer } from '../engine/program.js?v=16';
+import { DIFFS, HOURS, AREAS, ROLES, OFF, DEF, PIL_LABEL, FOCUS_LABEL, cover, effort, fitOf, famOf, payroll, hire, fire, boosterEvent,
+  devMult, focusBonus, recruitPoints, nilRetention, nilOffer } from '../engine/program.js?v=23';
 
 const AREA_TXT = {
   practice: 'Scheme familiarity and your two focus areas grow with practice time.',
@@ -20,6 +20,7 @@ export function programView(ctx) {
   const m = v => '$' + (v >= 1000 ? (v / 1000).toFixed(2) + 'M' : Math.round(v) + 'k');
   const avgP = k => { let w = 0, s = 0; for (const id of t.players) { const p = S.players[id]; if (p && p.mpg) { s += p.pillars[k] * p.mpg; w += p.mpg; } } return w ? Math.round(s / w) : 50; };
   const offseason = S.phase === 'offseason';
+  const avgSta = () => { let w = 0, v = 0; for (const id of t.players) { const p = S.players[id]; if (p && p.mpg) { v += (p.sta ?? 50) * p.mpg; w += p.mpg; } } return w ? Math.round(v / w) : 50; };
 
   // 1. hours
   const hours = `<div class="pg-card"><div class="pg-h"><h3>Your week</h3><span class="pg-n">${used} / ${HOURS} hours · your staff covers part of every area, so a better staff frees your time</span></div>
@@ -51,7 +52,7 @@ export function programView(ctx) {
     return `<tr class="${k === cur ? 'on' : ''}"><td class="l"><label><input type="radio" name="sch-${side}" value="${k}" ${k === cur ? 'checked' : ''}> <b>${esc(x.label)}</b></label><div class="pg-d">${esc(x.blurb)}</div></td>
       <td class="l">${bar(Math.max(0, f + 1), 2)} ${f >= 0 ? '+' : ''}${f.toFixed(2)}</td><td class="l">${bar(fm / 50, 2)} ${Math.round(fm)}</td></tr>`; }).join('');
   const plan = `<div class="pg-card"><div class="pg-h"><h3>Practice plan</h3><span class="pg-n">Two focus areas grow faster all season (and carry into the summer). The longer your players run a scheme, the better they get at it.</span></div>
-    <div class="pg-focus">${[0, 1].map(i => `<label>Focus ${i + 1} <select data-focus="${i}">${Object.entries(PIL_LABEL).map(([k, l]) => `<option value="${k}" ${P.focus && P.focus[i] === k ? 'selected' : ''}>${l} (team ${avgP(k)})</option>`).join('')}</select></label>`).join('')}</div>
+    <div class="pg-focus">${[0, 1].map(i => `<label>Focus ${i + 1} <select data-focus="${i}">${Object.entries(FOCUS_LABEL).map(([k, l]) => `<option value="${k}" ${P.focus && P.focus[i] === k ? 'selected' : ''}>${l} (team ${k === 'STA' ? avgSta() : avgP(k)})</option>`).join('')}</select></label>`).join('')}</div>
     <div class="pg-two"><div><h4>Offense</h4><table class="pg-tbl"><thead><tr><th class="l">Scheme</th><th class="l">Roster fit</th><th class="l">Familiarity</th></tr></thead><tbody>${schemeRows('o', OFF, P.off)}</tbody></table></div>
     <div><h4>Defense</h4><table class="pg-tbl"><thead><tr><th class="l">Scheme</th><th class="l">Roster fit</th><th class="l">Familiarity</th></tr></thead><tbody>${schemeRows('d', DEF, P.def)}</tbody></table></div></div>
     <div class="pg-d">Fit = how well your rotation's skills match what the scheme asks for (0 = average). Familiarity = how well your players know it (0-100, minutes-weighted): it grows with practice and games, carries over when players return, and starts low for newcomers. Switching schemes starts the new one from what each player already knows.</div></div>`;

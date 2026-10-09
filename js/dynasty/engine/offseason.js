@@ -5,14 +5,14 @@
 //
 // Calibrated to the snapshot: freshmen enter at a median OVR ~59 (top 1% ~77); players gain ~+5 Fr->So,
 // ~+3 So->Jr, ~+1.5 after; teams lose ~3.4 upperclassmen a year; rosters carry 13 scholarships.
-import { overall, attributes } from './ratings.js?v=16';
-import { makeRng, hashSeed } from './rng.js?v=16';
-import { record_, power, touch } from './season.js?v=16';
-import { ncaaResult } from './postseason.js?v=16';
-import { effOvr } from './league.js?v=16';
-import { evaluateCoaches } from './coaching.js?v=16';
-import { healAll } from './injuries.js?v=16';
-import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram } from './program.js?v=16';
+import { overall, attributes } from './ratings.js?v=23';
+import { makeRng, hashSeed } from './rng.js?v=23';
+import { record_, power, touch } from './season.js?v=23';
+import { ncaaResult } from './postseason.js?v=23';
+import { effOvr } from './league.js?v=23';
+import { evaluateCoaches } from './coaching.js?v=23';
+import { healAll } from './injuries.js?v=23';
+import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina } from './program.js?v=23';
 
 export const SCHOLARSHIPS = 13;
 const PIL = ['SCO', 'SHT', 'FIN', 'PLY', 'SEC', 'REB', 'DEF'];
@@ -65,7 +65,9 @@ export function beginOffseason(state) {
   order.forEach((t, i) => {
     const pct = 100 * (1 - i / (order.length - 1));
     const T = state.teams[t];
-    T.prestige = Math.round(clamp(0.65 * T.prestige + 0.35 * Math.min(100, pct + (bump[ncaaResult(state, t)] || 0)), 1, 100));
+    // (and 6% back toward the middle every year: without it prestige kept concentrating — sd 21.7 -> 25 — and
+    // recruiting, which sorts by prestige, widened the talent spread season after season)
+    T.prestige = Math.round(clamp(0.06 * 50 + 0.94 * (0.65 * T.prestige + 0.35 * Math.min(100, pct + (bump[ncaaResult(state, t)] || 0))), 1, 100));
   });
   state.phase = 'offseason';
   state.off = { step: 'departures', leaving: {}, portal: [], offers: {}, recruits: null, board: {}, signed: {}, log: [],
@@ -76,10 +78,12 @@ export function beginOffseason(state) {
 // who leaves: graduates (all 5th years, ~75% of 4th years), early pro entrants (elite players), portal entrants
 function markDepartures(state) {
   const rng = rngFor(state, 'departures'), L = state.off.leaving;
-  // early-entry bars by league percentile (top ~1% / 2.5% / 4% of rated players), so the scale can't inflate them
-  const E = Object.values(state.players).filter(p => p.team && (p.mpg || 0) >= 10).map(p => eff(state, p)).sort((a, b) => b - a);
-  const at = q => E[Math.min(E.length - 1, Math.floor(q * E.length))] ?? 99;
-  const P1 = at(0.01), P2 = at(0.025), P3 = at(0.04);
+  // early entry by LEAGUE RANK among returning (non-senior) rotation players — a steady ~60 a year, like real
+  // drafts + pro contracts. (A percentile bar rose with the league, so as rosters got better fewer stars left —
+  // 33 then 11 a year — and the top programs hoarded talent: the multi-season spread blew up 8.7 -> 13.5.)
+  const rankOf = {};
+  Object.values(state.players).filter(p => p.team && p.yr <= 4 && (p.mpg || 0) >= 8).sort((a, b) => eff(state, b) - eff(state, a)).forEach((p, i) => { rankOf[p.id] = i + 1; });
+  const proP = r => !r ? 0 : r <= 25 ? 0.9 : r <= 50 ? 0.65 : r <= 90 ? 0.32 : r <= 150 ? 0.1 : 0;
   const roles = {};   // expected next-season minutes rank within each team (by OVR)
   for (const t of Object.values(state.teams)) {
     t.players.map(id => state.players[id]).filter(Boolean).sort((a, b) => eff(state, b) - eff(state, a)).forEach((p, i) => { roles[p.id] = i; });
@@ -89,8 +93,8 @@ function markDepartures(state) {
     const o = eff(state, p);
     if (p.yr >= 5 || (p.yr === 4 && rng.chance(0.75))) { L[p.id] = 'graduated'; continue; }
     // early entry: the best players go pro (a top-1% sophomore+ almost always, a top freshman sometimes)
-    const pro = o >= P1 ? 0.75 : o >= P2 ? 0.4 : o >= P3 ? 0.15 : 0;
-    if (pro && rng.chance(p.yr === 1 ? pro * 0.7 : pro)) { L[p.id] = 'pro'; continue; }
+    const pro = proP(rankOf[p.id]);
+    if (pro && rng.chance(p.yr === 1 ? pro * 0.8 : pro)) { L[p.id] = 'pro'; continue; }
     // portal: buried players with game transfer most; everyone has a small base rate
     const buried = roles[p.id] >= 8 && o >= 62, starved = roles[p.id] >= 6 && o >= 70;
     // the NIL collective buys off part of the temptation (a well-funded program keeps its players)
@@ -125,17 +129,21 @@ function appeal(state, team, p) {
 // ── 3. portal: the user's offers first-class, then everyone signs where the appeal is best ──
 export function resolvePortal(state) {
   const rng = rngFor(state, 'portal'), O = state.off.offers, U = state.user, out = [];
+  // an AI program takes at most PORTAL_CAP transfers a year, and where a player lands is noisier than prestige alone
+  // (fit, relationships, location) — without both, the top 40 took ~3.4 transfers each, mostly low-majors' best
+  // players, and the multi-season talent spread kept widening
+  const PORTAL_CAP = 3, took = {};
   for (const id of state.off.portal) {
     const p = state.players[id]; if (!p) continue;
-    const cands = Object.keys(state.teams).filter(t => t !== p.from && openSpots(state, t) > 0);
+    const cands = Object.keys(state.teams).filter(t => t !== p.from && openSpots(state, t) > 0 && (t === U || (took[t] || 0) < PORTAL_CAP));
     let best = null, bestS = -1e9;
     for (const t of cands) {
       if (t === U && !O[id]) continue;                       // the user only gets players he offered
-      const s = appeal(state, t, p) + rng.normal(0, 0.9) + (t === U ? 0.6 : 0) + (state.teams[t].conf === state.teams[p.from]?.conf ? -0.3 : 0);
+      const s = appeal(state, t, p) + rng.normal(0, 1.4) + (t === U ? 0.6 : 0) + (state.teams[t].conf === state.teams[p.from]?.conf ? -0.3 : 0);
       if (s > bestS) { bestS = s; best = t; }
     }
     if (best && (eff(state, p) >= 58 || best === U)) {
-      p.team = best; state.teams[best].players.push(id);
+      p.team = best; state.teams[best].players.push(id); took[best] = (took[best] || 0) + 1;
       if (best === U || O[id]) out.push({ id, name: p.name, to: best, from: p.from, ovr: Math.round(eff(state, p)) });
     } else delete state.players[id];                        // nobody took him: out of D-I
   }
@@ -164,12 +172,50 @@ function makeClass(state) {
     const r = { id: `r${state.year}-${i}`, name: `${firsts[rng.int(firsts.length)]} ${lasts[rng.int(lasts.length)]}`,
       pos: t.pos, ht: t.ht, stars, pillars: Object.assign({}, t.pillars), yr: 1,
       pot: Math.round((stars * 1.6 + 2 + rng.normal(0, 2)) * 10) / 10 };
+    // BUSTS + DIAMONDS (hidden): ~9% of recruits barely grow (most painful among the stars), ~6% of 1-3 star kids
+    // (2% of 4-5 stars) blossom far beyond their ranking. The scouting report doesn't know which is which.
+    if (rng.chance(stars >= 4 ? 0.11 : 0.08)) { r.pot = Math.max(0, r.pot - 8 - rng.next() * 3); r.arc = 'bust'; }
+    else if (rng.chance(stars <= 3 ? 0.06 : 0.02)) { r.pot = r.pot + 7 + rng.next() * 4; r.arc = 'gem'; }
+    r.pot = Math.round(r.pot * 10) / 10;
     shiftTo(state, r, target, rng);
-    r.scout = Math.round(ovr(state, r) + rng.normal(0, 2.5));      // what the user sees
+    r.sta = staminaOf(r, rng);
+    // the scouting error is fixed per recruit (z ~ N(0,1) per rating); how much of it you see depends on your
+    // recruiting coordinator and the effort you put on him (scoutView)
+    r.z = Object.fromEntries(PIL.concat(['STA', 'POT']).map(k => [k, Math.round(rng.normal(0, 1) * 100) / 100]));
+    r.scout = Math.round(ovr(state, r) + rng.normal(0, 2.5));      // the national ranking's estimate (what everyone sees)
     out.push(r);
   }
   out.sort((a, b) => b.scout - a.scout).forEach((r, i) => { r.rank = i + 1; });
   return out;
+}
+
+// ── the scouting report: what YOUR staff sees of a recruit (true ratings + his fixed error, scaled by how good your
+// recruiting coordinator is and how much effort you put on him — visits and evaluations sharpen it) ──
+export function scoutSD(state, effort = 0) {
+  const t = state.teams[state.user], rec = t && t.prog && t.prog.staff.REC ? t.prog.staff.REC.r : 40;
+  return clamp(8.5 - (rec - 30) / 10, 2.5, 8.5) / (1 + (effort || 0) / 20);
+}
+export function scoutView(state, r, effort = 0) {
+  const sd = scoutSD(state, effort), z = r.z || {};
+  const pillars = Object.fromEntries(PIL.map(k => [k, clamp(Math.round(r.pillars[k] + (z[k] || 0) * sd), 1, 99)]));
+  const pot = (r.pot || 0) + (z.POT || 0) * sd * 0.6;
+  const grade = pot >= 12 ? 'A+' : pot >= 10.5 ? 'A' : pot >= 9 ? 'B+' : pot >= 7.5 ? 'B' : pot >= 6 ? 'C+' : pot >= 4.5 ? 'C' : pot >= 3 ? 'D' : 'F';
+  const v = { pillars, ht: r.ht, pos: r.pos };
+  return { pillars, sta: clamp(Math.round((r.sta ?? 50) + (z.STA || 0) * sd), 15, 95), ovr: Math.round(ovr(state, v)), grade, sd: Math.round(sd * 10) / 10, tags: tagsOf(pillars, r.ht, r.sta) };
+}
+// identity tags: the statistical role a set of ratings points to (players and recruits)
+export function tagsOf(P, ht = 77, sta = 50) {
+  const t = [];
+  if (P.SHT >= 72) t.push('Sharpshooter');
+  if (P.SCO >= 72) t.push('Bucket getter');
+  if (P.PLY >= 70) t.push('Floor general');
+  if (P.FIN >= 72) t.push(ht >= 80 ? 'Rim runner' : 'Slasher');
+  if (P.REB >= 70) t.push('Glass cleaner');
+  if (P.DEF >= 72) t.push(ht >= 81 ? 'Rim protector' : 'Lockdown defender');
+  if (P.SEC >= 75) t.push('Steady hands');
+  if (sta >= 78) t.push('Iron man');
+  if (!t.length) { const k = Object.keys(P).sort((a, b) => P[b] - P[a])[0]; t.push({ SCO: 'Scorer', SHT: 'Shooter', FIN: 'Finisher', PLY: 'Passer', SEC: 'Low-mistake', REB: 'Rebounder', DEF: 'Defender' }[k] + ' (raw)'); }
+  return t.slice(0, 3);
 }
 
 // how much prestige a recruit expects: where the AI order would send him
@@ -187,8 +233,8 @@ export function resolveRecruiting(state) {
   const rng = rngFor(state, 'signing'), U = state.user, B = state.off.board || {}, signed = [];
   const pool = state.off.recruits.slice();
   const take = (r, team) => {
-    const p = { id: r.id, name: r.name, team, pos: r.pos, ht: r.ht, yr: 1, pillars: r.pillars, pot: r.pot, stars: r.stars,
-      lvl: state.lvlRef || 0, mpg: 0, injured: false, fresh: true };
+    const p = { id: r.id, name: r.name, team, pos: r.pos, ht: r.ht, yr: 1, pillars: r.pillars, pot: r.pot, stars: r.stars, arc: r.arc || null,
+      sta: r.sta, lvl: state.lvlRef || 0, mpg: 0, injured: false, fresh: true };
     state.players[p.id] = p; state.teams[team].players.push(p.id);
     pool.splice(pool.indexOf(r), 1);
   };
@@ -201,8 +247,10 @@ export function resolveRecruiting(state) {
   }
   // everyone else: rounds by prestige (with noise); each team takes one of the best few left, until full
   for (let round = 0; round < 30; round++) {
+    // prestige + noise, minus a crowded depth chart (recruits want minutes: every returning 72+ player costs 2.5)
+    const crowd = t => state.teams[t].players.reduce((n, id) => n + (state.players[id] && !state.players[id].fresh && eff(state, state.players[id]) >= 72 ? 1 : 0), 0);
     const order = Object.keys(state.teams).filter(t => t !== U && openSpots(state, t) > 0)
-      .map(t => [t, state.teams[t].prestige + rng.normal(0, 8)]).sort((a, b) => b[1] - a[1]).map(x => x[0]);
+      .map(t => [t, state.teams[t].prestige + rng.normal(0, 11) - 2.5 * crowd(t)]).sort((a, b) => b[1] - a[1]).map(x => x[0]);
     if (!order.length) break;
     for (const t of order) {
       if (!pool.length) break;
@@ -225,15 +273,20 @@ export function startNextSeason(state) {
     if (p.fresh) { delete p.fresh; continue; }                       // incoming freshmen: no growth yet
     const before = ovr(state, p);
     const T = state.teams[p.team];
-    const g = (GROW[p.yr] || 0.6) * (0.55 + (p.pot || 0) / 12) * devMult(T) + rng.normal(0, 1.8);   // development staff + hours
+    // growth tapers near the ceiling (an 85 doesn't add like a 65), so loaded rosters can't keep climbing
+    const room = clamp((94 - before) / 22, 0.15, 1.15);
+    const arc = p.arc === 'bust' ? 0.35 : p.arc === 'gem' ? 1.3 : 1;   // a bust stalls, a diamond in the rough takes off
+    const g = (GROW[p.yr] || 0.6) * (0.55 + (p.pot || 0) / 12) * devMult(T) * room * arc + rng.normal(0, 1.8);   // development staff + hours
     shiftTo(state, p, before + g, rng, 0.8);
     // the season's practice focus carries into the summer
     const fb = focusBonus(T); if (fb && T.prog && T.prog.focus) for (const k of T.prog.focus) p.pillars[k] = clamp(Math.round(p.pillars[k] + fb), 1, 99);
     p.pot = Math.max(0, Math.round(((p.pot || 0) - Math.max(0, g) * 0.5) * 10) / 10);
     p.yr = Math.min(5, p.yr + 1);
+    if (p.yr <= 3) p.sta = Math.min(95, (p.sta ?? 50) + 1 + rng.int(3));   // bodies mature
     if (p.team === state.user) state.off.progress[p.id] = Math.round(ovr(state, p) - before);
   }
   healAll(state);
+  ensureStamina(state);
   for (const p of Object.values(state.players)) p.attr = attributes(p, state.maps);
   for (const t of Object.values(state.teams)) {
     defaultMinutes(state, t); t.minutes = null; t.starters = null;

@@ -1,19 +1,20 @@
 // Dynasty — the page. Engine (pure) + browser saves + rendering. One league in memory (S); every action
 // mutates it through the engine, re-renders, and autosaves.
-import { C } from '../engine/constants.js?v=16';
-import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=16';
-import { overall } from '../engine/ratings.js?v=16';
-import { prepared, playGame, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=16';
-import { simNext, simTo, afterDay } from '../engine/flow.js?v=16';
-import { REGION_NAMES, ncaaResult } from '../engine/postseason.js?v=16';
-import { takeJob } from '../engine/coaching.js?v=16';
-import { TYPES as INJ } from '../engine/injuries.js?v=16';
-import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS } from '../engine/offseason.js?v=16';
-import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=16';
-import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=16';
-import { lines as pbpLines } from './pbp.js?v=16';
-import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=16';
-import { programView, diffPicker } from './program.js?v=16';
+import { C } from '../engine/constants.js?v=23';
+import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=23';
+import { overall } from '../engine/ratings.js?v=23';
+import { prepared, playGame, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=23';
+import { simNext, simTo, afterDay } from '../engine/flow.js?v=23';
+import { REGION_NAMES, ncaaResult } from '../engine/postseason.js?v=23';
+import { takeJob } from '../engine/coaching.js?v=23';
+import { TYPES as INJ } from '../engine/injuries.js?v=23';
+import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf } from '../engine/offseason.js?v=23';
+import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=23';
+import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=23';
+import { lines as pbpLines } from './pbp.js?v=23';
+import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=23';
+import { tireAt } from '../engine/program.js?v=23';
+import { programView, diffPicker } from './program.js?v=23';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -340,15 +341,16 @@ function roster() {
   const stat = (id, k) => { const s = S.stats[id]; return s && s.g ? (s[k] / s.g).toFixed(1) : '—'; };
   $('#dyBody').innerHTML = `<div class="sec"><h2>Roster</h2><span class="n">Set starters (exactly five) and minutes per game — the sim plays your rotation. Minutes are scaled to 200 per game.</span></div>
   <div class="sheet-wrap"><table class="sheet dense heat dy-roster"><thead><tr><th class="l">Player</th><th>Pos</th><th>Yr</th><th>Ht</th><th data-heat="1" title="Overall, adjusted for the level of competition the player's ratings came from">OVR</th>
-    ${PILLARS.map(([k, l]) => `<th data-heat="1" title="${l}">${k}</th>`).join('')}<th>Start</th><th>Min</th><th>MPG</th><th>PPG</th><th>RPG</th><th>APG</th></tr></thead><tbody>
-  ${ps.map(p => `<tr class="${p.out > 0 ? 'hurt' : ''}"><td class="l">${pl(p)}${p.out > 0 ? ` <span class="chip" title="${esc(p.inj ? p.inj.type : '')}">OUT ${p.out >= 99 ? 'season' : p.out + 'g'}</span>` : ''}${(() => { const d = S.lastOff && S.lastOff.progress && S.lastOff.progress[p.id]; return d ? ` <span class="${d > 0 ? 'up' : 'dn'}">${d > 0 ? '+' : ''}${d}</span>` : ''; })()}</td><td>${esc(p.pos || '')}</td><td>${YR_LABEL[p.yr] || ''}</td><td>${p.ht ? `${Math.floor(p.ht / 12)}-${p.ht % 12}` : ''}</td><td><b>${ovrOf(p)}</b></td>
-    ${PILLARS.map(([k]) => `<td>${p.pillars[k]}</td>`).join('')}
+    ${PILLARS.map(([k, l]) => `<th data-heat="1" title="${l}">${k}</th>`).join('')}<th data-heat="1" title="Stamina: he starts to wear down past about 28 + STA/9 minutes a night (guards usually carry more than bigs). Conditioning is a practice focus.">STA</th><th>Start</th><th>Min</th><th>MPG</th><th>PPG</th><th>RPG</th><th>APG</th></tr></thead><tbody>
+  ${ps.map(p => `<tr class="${p.out > 0 ? 'hurt' : ''}"><td class="l">${pl(p)}<div class="dy-tags">${tagsOf(p.pillars, p.ht, p.sta).map(x => `<span>${esc(x)}</span>`).join('')}</div>${p.out > 0 ? ` <span class="chip" title="${esc(p.inj ? p.inj.type : '')}">OUT ${p.out >= 99 ? 'season' : p.out + 'g'}</span>` : ''}${(() => { const d = S.lastOff && S.lastOff.progress && S.lastOff.progress[p.id]; return d ? ` <span class="${d > 0 ? 'up' : 'dn'}">${d > 0 ? '+' : ''}${d}</span>` : ''; })()}</td><td>${esc(p.pos || '')}</td><td>${YR_LABEL[p.yr] || ''}</td><td>${p.ht ? `${Math.floor(p.ht / 12)}-${p.ht % 12}` : ''}</td><td><b>${ovrOf(p)}</b></td>
+    ${PILLARS.map(([k]) => `<td>${p.pillars[k]}</td>`).join('')}<td title="Wears down past ~${Math.round(tireAt(p))} min">${p.sta ?? '—'}</td>
     <td><input type="checkbox" data-st="${esc(p.id)}" ${starters.has(p.id) ? 'checked' : ''}></td>
-    <td><input type="number" class="dy-min" min="0" max="40" step="1" data-min="${esc(p.id)}" value="${Math.round(t.minutes && t.minutes[p.id] != null ? t.minutes[p.id] : (auto[p.id] || 0))}"></td>
+    <td><input type="number" class="dy-min" min="0" max="40" step="1" data-min="${esc(p.id)}" data-tire="${tireAt(p).toFixed(1)}" value="${Math.round(t.minutes && t.minutes[p.id] != null ? t.minutes[p.id] : (auto[p.id] || 0))}"></td>
     <td>${stat(p.id, 'min')}</td><td>${stat(p.id, 'pts')}</td><td>${(() => { const s = S.stats[p.id]; return s && s.g ? ((s.orb + s.drb) / s.g).toFixed(1) : '—'; })()}</td><td>${stat(p.id, 'ast')}</td></tr>`).join('')}
   </tbody></table></div>
   <div class="dy-btns"><span id="minSum" class="dim"></span><button class="btn" id="rSave">Save rotation</button><button class="btn ghost" id="rAuto">Reset to the coach's default</button></div>`;
-  const sum = () => { let s = 0; document.querySelectorAll('[data-min]').forEach(i => s += +i.value || 0); $('#minSum').textContent = `Total ${s} min (scaled to 200)`; };
+  // a player set past his stamina threshold is flagged (he loses shooting + ball security and gets hurt more)
+  const sum = () => { let s = 0; document.querySelectorAll('[data-min]').forEach(i => { s += +i.value || 0; const over = (+i.value || 0) - (+i.dataset.tire || 99); i.classList.toggle('tired', over > 0); i.title = over > 0 ? `${over.toFixed(0)} min past what he can carry: he'll wear down` : ''; }); $('#minSum').textContent = `Total ${s} min (scaled to 200)`; };
   document.querySelectorAll('[data-min]').forEach(i => i.oninput = sum); sum();
   $('#rSave').onclick = () => {
     const st = [...document.querySelectorAll('[data-st]:checked')].map(i => i.dataset.st);
@@ -546,11 +548,17 @@ function offseason() {
   if (step === 'recruiting') {
     const R = O.recruits, B = O.board, max = open + 4, budget = O.budget || 100;   // the season's recruiting hours (Program tab)
     const used = () => Object.values(B).reduce((a, b) => a + (+b || 0), 0);
+    // a recruit as YOUR staff sees him (scoutView: true ratings + his scouting error, tighter with a better
+    // recruiting coordinator and more effort on him) — busts and diamonds in the rough are invisible here
+    const recRow = (r, e) => { const v = scoutView(S, r, e);
+      return `<tr data-rrow="${esc(r.id)}"><td><input type="number" class="dy-min" min="0" max="60" step="5" data-eff="${esc(r.id)}" value="${e}"></td><td class="odds" data-odds="${esc(r.id)}"></td><td>${r.rank}</td>
+        <td class="l"><b>${esc(r.name)}</b><div class="dy-tags">${v.tags.map(t => `<span>${esc(t)}</span>`).join('')}</div></td><td class="l">${stars(r.stars)}</td><td>${esc(r.pos || '')}</td><td>${r.ht ? `${Math.floor(r.ht / 12)}-${r.ht % 12}` : ''}</td>
+        <td><b>${v.ovr}</b></td>${PILLARS.map(([k]) => `<td>${v.pillars[k]}</td>`).join('')}<td>${v.sta}</td><td><b>${v.grade}</b></td><td class="dim">±${v.sd}</td></tr>`; };
     const got = (O.portalResults || []).filter(x => x.to === U);
     html += `${got.length ? `<div class="dy-next"><div class="lbl">From the portal</div><div class="ln">${got.map(x => `<b>${esc(x.name)}</b> (${x.ovr}, from ${esc(short(x.from))})`).join(' · ')}</div></div>` : ''}
-      <div class="sec"><h2>Recruiting — class of ${S.year}</h2><span class="n">${open} open scholarship${open === 1 ? '' : 's'} · put up to ${max} recruits on your board and split ${budget} effort points. OVR is your staff's scouting estimate.</span></div>
-      <div class="sheet-wrap"><table class="sheet dense heat dy-rec"><thead><tr><th>Effort</th><th>Odds</th><th>#</th><th class="l">Recruit</th><th class="l">Stars</th><th>Pos</th><th>Ht</th><th data-heat="1">OVR (scouted)</th>${PILLARS.map(([k, l]) => `<th data-heat="1" title="${l}">${k}</th>`).join('')}</tr></thead><tbody>
-      ${R.slice(0, 300).map(r => `<tr><td><input type="number" class="dy-min" min="0" max="60" step="5" data-eff="${esc(r.id)}" value="${B[r.id] || 0}"></td><td class="odds" data-odds="${esc(r.id)}"></td><td>${r.rank}</td><td class="l"><b>${esc(r.name)}</b></td><td class="l">${stars(r.stars)}</td><td>${esc(r.pos || '')}</td><td>${r.ht ? `${Math.floor(r.ht / 12)}-${r.ht % 12}` : ''}</td><td><b>${r.scout}</b></td>${PILLARS.map(([k]) => `<td>${r.pillars[k]}</td>`).join('')}</tr>`).join('')}
+      <div class="sec"><h2>Recruiting — class of ${S.year}</h2><span class="n">${open} open scholarship${open === 1 ? '' : 's'} · put up to ${max} recruits on your board and split ${budget} effort points (your recruiting hours this season). Ratings are your staff's scouting estimates — more effort on a recruit sharpens them (±). Some recruits will bust; some will blossom.</span></div>
+      <div class="sheet-wrap"><table class="sheet dense heat dy-rec"><thead><tr><th>Effort</th><th>Odds</th><th>#</th><th class="l">Recruit</th><th class="l">Stars</th><th>Pos</th><th>Ht</th><th data-heat="1" title="Your staff's estimate of his overall">OVR</th>${PILLARS.map(([k, l]) => `<th data-heat="1" title="${l} (scouted)">${k}</th>`).join('')}<th data-heat="1" title="Stamina (scouted): how many minutes a night he can carry">STA</th><th title="Scouted potential: how much he should grow. Busts and diamonds in the rough hide here.">POT</th><th title="How sure your staff is (± rating points). Better recruiting coordinator and more effort on him = tighter.">±</th></tr></thead><tbody>
+      ${R.slice(0, 300).map(r => recRow(r, B[r.id] || 0)).join('')}
       </tbody></table></div>
       <div class="dy-btns"><span class="dim" id="effN"></span><button class="btn" id="oNext">Signing day →</button><button class="btn ghost" id="oAuto">Let my staff handle it</button></div>`;
     $('#dyBody').innerHTML = html;
@@ -563,6 +571,8 @@ function offseason() {
       if (v && !was && Object.values(B).filter(x => x > 0).length >= max) { i.value = 0; return alert(`Your board holds up to ${max} recruits.`); }
       if (used() - was + v > budget) { i.value = was; return alert(`You only have ${budget} effort points.`); }
       B[i.dataset.eff] = v; odds(); autosave();
+      const tr = document.querySelector(`[data-rrow="${CSS.escape(i.dataset.eff)}"]`), r = R.find(x => x.id === i.dataset.eff);
+      if (tr && r) { tr.outerHTML = recRow(r, v); const ni = document.querySelector(`[data-eff="${CSS.escape(r.id)}"]`); if (ni) { ni.onchange = i.onchange; } odds(); if (window.tdcSheetHeat) tdcSheetHeat(document.querySelector('.dy-rec')); }
     }); odds();
     const go = () => run(() => resolveRecruiting(S));
     $('#oNext').onclick = go;

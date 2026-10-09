@@ -1,7 +1,7 @@
 // In-season injuries. After every game each player who played rolls for an injury in proportion to his
 // minutes; an injured player sits out a number of his team's games (p.out), then returns. ~2.5 injuries per
 // team-season, most a game or three, a few for weeks, the rare one for the season. Pure + seeded per game.
-import { makeRng, hashSeed } from './rng.js?v=16';
+import { makeRng, hashSeed } from './rng.js?v=23';
 
 // [name, min games, max games, weight]; max 99 = out for the season
 export const TYPES = [
@@ -31,7 +31,9 @@ export function afterGame(state, g, sim) {
   for (const [rows, team] of [[sim.box.home, g.h], [sim.box.away, g.a]]) {
     if (!state.teams[team]) continue;
     for (const r of rows) {
-      if (!(r.min > 0) || !rng.chance(RATE * r.min / 30)) continue;
+      // a tired body breaks down more: every minute a night past his stamina threshold adds 6% to the risk
+      const pl0 = state.players[r.id], thr = pl0 && pl0.sta != null ? 28 + pl0.sta / 9 : 34, over = Math.max(0, (pl0 && pl0.mpg || 0) - thr);
+      if (!(r.min > 0) || !rng.chance(RATE * r.min / 30 * (1 + 0.06 * over))) continue;
       const p = state.players[r.id]; if (!p) continue;
       const [type, lo, hi] = TYPES[rng.pick(W)];
       const games = hi === 99 ? 99 : lo + rng.int(hi - lo + 1);

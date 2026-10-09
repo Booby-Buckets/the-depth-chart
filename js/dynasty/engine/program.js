@@ -7,8 +7,8 @@
 //   team.prog  = { staff:{OC,DC,REC,DEV,GM}, budget, hours:{practice,recruiting,nil,development}, focus:[p1,p2],
 //                  off, def (scheme keys), nil:{fund, wk}, acc:{practice,recruiting,nil,development, weeks} }
 //   player.fam = { o:{scheme: 0-100}, d:{scheme: 0-100} }   — familiarity follows the player (transfers keep it)
-import { makeRng, hashSeed } from './rng.js?v=16';
-import { attributes } from './ratings.js?v=16';
+import { makeRng, hashSeed } from './rng.js?v=23';
+import { attributes } from './ratings.js?v=23';
 
 export const DIFFS = {
   rookie: { label: 'Rookie', blurb: 'Your staff handles what you leave alone, recruits like you, boosters are patient and the job is safe.', recruit: 0.6, jobK: 0.5, nilK: 1.25, need: 0.85, aiPlan: 0.6, scandal: 0 },
@@ -37,6 +37,22 @@ export const DEF = {
   switch: { label: 'Switch Everything', blurb: 'Versatile defenders switch every screen.', need: { DEF: 0.6, SHT: 0.2, PLY: 0.2 }, press: 0, tempo: 0 },
 };
 export const PIL_LABEL = { SCO: 'Scoring', SHT: 'Shooting', FIN: 'Finishing', PLY: 'Playmaking', SEC: 'Ball security', REB: 'Rebounding', DEF: 'Defense' };
+export const FOCUS_LABEL = Object.assign({}, PIL_LABEL, { STA: 'Conditioning' });   // practice focus options (STA = stamina)
+
+// STAMINA (owner, Oct 2026: wear depends on the position and the player): 15-95. Guards carry more than bigs, height
+// costs a little, a player who really logged 33+ minutes a night proved it, plus a personal component. A player
+// starts to wear down past 28 + sta/9 minutes a night (sta 25 -> ~31, 50 -> ~34, 80 -> ~37, 95 -> ~38.5).
+export const tireAt = p => 28 + (p.sta ?? 50) / 9;
+export function staminaOf(p, rng) {
+  const g = /C|PF/.test(p.pos || '') ? 44 : /SF|F/.test(p.pos || '') ? 52 : 58;
+  const real = (p.mpg || 0) >= 33 ? 12 : (p.mpg || 0) >= 30 ? 6 : 0;
+  return Math.round(clamp(g - ((p.ht || 77) - 77) * 1.3 + real + rng.normal(0, 10), 15, 95));
+}
+export function ensureStamina(state) {
+  const rng = rngFor(state, 'stamina');
+  for (const p of Object.values(state.players)) if (p.sta == null) p.sta = staminaOf(p, rng);
+  if (state.ext) for (const p of Object.values(state.ext.players)) if (p.sta == null) p.sta = staminaOf(p, rng);
+}
 
 // effect sizes (logit on makes per unit, DRtg points per unit) — modest by design: a great fit run by a group that
 // knows it is worth ~2-3 points per 100 possessions; a brand-new scheme the roster doesn't fit costs about that
@@ -134,8 +150,8 @@ export function schemeMods(state, team, prep, C) {
   prep.tempo *= 1 + O.tempo + D.tempo;
   prep.r3m *= 1 + O.r3;
   prep.press += D.press;
-  // minutes matter: starters pushed past ~34 a night wear down (a little shot quality per extra minute)
-  prep.shotQ -= K.FATIGUE * prep.roster.reduce((s, p) => s + Math.max(0, p.target - 34), 0);
+  // minutes matter, player by player: each one wears down past his own stamina threshold (possession.js reads .fat)
+  for (const e of prep.roster) { const p = state.players[e.id]; e.fat = p ? Math.max(0, e.target - tireAt(p)) : 0; }
   prep.scheme = { ofit, dfit, ofam, dfam };
   return prep;
 }
@@ -161,7 +177,8 @@ export function programWeek(state, weeks = 1) {
       const young = p.yr <= 2 ? 1.3 : p.yr === 3 ? 1 : 0.7, play = 0.5 + Math.min(1, (p.mpg || 0) / 25);
       let moved = false;
       for (const k of P.focus || []) {
-        p.gx = p.gx || {}; p.gx[k] = (p.gx[k] || 0) + K.FOCUS_WK * E.practice * young * play * weeks;
+        p.gx = p.gx || {}; p.gx[k] = (p.gx[k] || 0) + K.FOCUS_WK * E.practice * young * play * weeks * (k === 'STA' ? 2 : 1);
+        if (k === 'STA') { while (p.gx[k] >= 1 && (p.sta ?? 50) < 95) { p.sta = (p.sta ?? 50) + 1; p.gx[k] -= 1; } continue; }   // conditioning
         while (p.gx[k] >= 1 && p.pillars[k] < 99) { p.pillars[k] += 1; p.gx[k] -= 1; moved = true; }
       }
       if (moved) p.attr = attributes(p, state.maps);

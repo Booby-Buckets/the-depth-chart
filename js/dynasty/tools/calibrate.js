@@ -12,10 +12,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { C } from '../engine/constants.js?v=16';
-import { indexSnapshot } from '../engine/snapshot.js?v=16';
-import { simulateGame, totals } from '../engine/game.js?v=16';
-import { makeRng } from '../engine/rng.js?v=16';
+import { C } from '../engine/constants.js?v=23';
+import { indexSnapshot } from '../engine/snapshot.js?v=23';
+import { simulateGame, totals } from '../engine/game.js?v=23';
+import { makeRng } from '../engine/rng.js?v=23';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../../..');
