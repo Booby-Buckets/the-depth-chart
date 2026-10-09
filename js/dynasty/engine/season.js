@@ -1,14 +1,14 @@
 // The season: day-by-day simulation over state.schedule, results, player stats, standings, a power rating
 // (opponent-adjusted net blended with the preseason prior) and the poll. Pure: works on the state object.
-import { prepareTeam } from './ratings.js?v=44';
-import { simulateGame, totals } from './game.js?v=44';
-import { makeRng, hashSeed } from './rng.js?v=44';
-import { powerFeatures } from './league.js?v=44';
-import { afterGame } from './injuries.js?v=44';
-import { resolvePending, nextPendingDate, EXT_RATING } from './fill.js?v=44';
-import { resolveVisits } from './visits.js?v=44';
-import { resolveMTE } from './mte.js?v=44';
-import { schemeMods, programGame } from './program.js?v=44';
+import { prepareTeam } from './ratings.js?v=46';
+import { simulateGame, totals } from './game.js?v=46';
+import { makeRng, hashSeed } from './rng.js?v=46';
+import { powerFeatures } from './league.js?v=46';
+import { afterGame } from './injuries.js?v=46';
+import { resolvePending, nextPendingDate, EXT_RATING } from './fill.js?v=46';
+import { resolveVisits } from './visits.js?v=46';
+import { resolveMTE } from './mte.js?v=46';
+import { schemeMods, programGame } from './program.js?v=46';
 
 const STAT_KEYS = ['min', 'pts', 'fgm', 'fga', 'tpm', 'tpa', 'ftm', 'fta', 'orb', 'drb', 'ast', 'stl', 'blk', 'tov', 'pf'];
 
@@ -64,6 +64,11 @@ export function record(state, g, sim) {
   }
   if (state.user && (g.h === state.user || g.a === state.user)) {
     state.userBox[g.id] = { box: sim.box, score: sim.score, ot: sim.ot };
+  }
+  if (g.pay > 0) {                                            // a buy / guarantee game: the host pays the visitor (schedule.js)
+    const H = state.teams[g.h] && state.teams[g.h].prog, A = state.teams[g.a] && state.teams[g.a].prog;
+    if (H) H.nil.fund = Math.max(0, H.nil.fund - g.pay);
+    if (A) A.nil.fund += g.pay;
   }
   programGame(state, g, sim);                                 // playing a scheme teaches it
   if (state.user && g.h === state.user && !g.n) resolveVisits(state, g);   // official visits at this home game

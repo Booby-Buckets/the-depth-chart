@@ -31,22 +31,26 @@ export const EVENTS = [
   { name: 'Jamaica Classic', site: 'Montego Bay, Jamaica', size: 8, tier: 2, day: -7 },
   { name: 'Cancún Challenge', site: 'Cancún, Mexico', size: 8, tier: 2, day: -2 },
 ];
-const CHAMPIONS = ['Duke Blue Devils', 'Kentucky Wildcats', 'Kansas Jayhawks', 'Michigan State Spartans'];
+export const CHAMPIONS = ['Duke Blue Devils', 'Kentucky Wildcats', 'Kansas Jayhawks', 'Michigan State Spartans'];
+const CC_PAIRS = [[[0, 1], [2, 3]], [[0, 2], [1, 3]], [[0, 3], [1, 2]]];
+/** a Champions Classic program's opponent in season y (the pairings rotate) */
+export function ccOpponent(team, y) { const i = CHAMPIONS.indexOf(team); if (i < 0) return null; const p = CC_PAIRS[y % 3].find(x => x.includes(i)); return CHAMPIONS[p[0] === i ? p[1] : p[0]]; }
 const POOL = [[0, 62], [50, 230], [190, 9999]];           // prestige-rank window each tier invites from
 
 function thanksgiving(y) { const d = new Date(Date.UTC(y, 10, 1)); const first = (4 - d.getUTCDay() + 7) % 7 + 1; return `${y}-11-${String(first + 21).padStart(2, '0')}`; }
 
 /** this season's events: day-one games now, later days pending; `busy` = each team's event dates */
-export function planMTEs(state, rng) {
+export function planMTEs(state, rng, userEvent) {   // userEvent: undefined = normal, null = sit out, a name = that event
   const y = state.year, tg = thanksgiving(y - 1), games = [], pending = [], busy = {}, mtes = [];
   const mark = (t, d) => (busy[t] = busy[t] || []).push(d);
   const g = (m, rd, i, d, h, a) => { const x = { id: `mte-${y}-${m.k}-${rd}-${i}`, d, h, a, n: true, c: false, r: null, ev: m.name, mte: m.id }; games.push(x); return x.id; };
   // stature order with some noise, so the same programs aren't in the same events every year
   const order = Object.values(state.teams).map(t => [t.name, (t.prestige || 30) + rng.normal(0, 9)]).sort((a, b) => b[1] - a[1]).map(x => x[0]);
-  const used = new Set();
+  const U = state.user, used = new Set(userEvent !== undefined && U ? [U] : []);
   EVENTS.forEach((E, k) => {
     const [lo, hi] = POOL[E.tier], pool = order.slice(lo, hi).filter(t => !used.has(t));
     const teams = [], confs = new Set();
+    if (userEvent && E.name === userEvent && U && state.teams[U]) { teams.push(U); confs.add(state.teams[U].conf); }
     for (const t of pool.sort(() => rng.next() - 0.5)) {
       if (teams.length >= E.size) break;
       if (confs.has(state.teams[t].conf)) continue;
@@ -67,7 +71,7 @@ export function planMTEs(state, rng) {
   // the Champions Classic: two blue-blood games in the second week (pairings rotate by year)
   const cc = CHAMPIONS.filter(t => state.teams[t]);
   if (cc.length === 4) {
-    const d = addD(tg, -16), r = y % 3, P = [[[0, 1], [2, 3]], [[0, 2], [1, 3]], [[0, 3], [1, 2]]][r];
+    const d = addD(tg, -16), P = CC_PAIRS[y % 3];
     const m = { id: `mte-${y}-cc`, k: 'cc', name: 'Champions Classic', site: 'Indianapolis / New York / Chicago / Atlanta', size: 4, tier: 0, showcase: true, teams: cc.map((t, i) => ({ team: t, seed: i + 1 })), days: [d], rounds: [] };
     m.rounds.push(P.map(([a, b], i) => g(m, 0, i, d, cc[a], cc[b])));
     cc.forEach(t => mark(t, d)); mtes.push(m);

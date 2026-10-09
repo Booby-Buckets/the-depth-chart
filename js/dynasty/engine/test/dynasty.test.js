@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { C } from '../constants.js?v=44';
-import { createLeague, hydrate, dehydrate } from '../league.js?v=44';
-import { overall } from '../ratings.js?v=44';
-import { simTo } from '../flow.js?v=44';
-import * as O from '../offseason.js?v=44';
+import { C } from '../constants.js?v=46';
+import { createLeague, hydrate, dehydrate } from '../league.js?v=46';
+import { overall } from '../ratings.js?v=46';
+import { simTo } from '../flow.js?v=46';
+import * as O from '../offseason.js?v=46';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const R = f => JSON.parse(fs.readFileSync(path.resolve(HERE, '../../../..', f)));
@@ -36,7 +36,7 @@ test('offseason: rosters land at 13, recruits by star band, players develop, a n
   O.startNextSeason(st);
   assert.equal(st.phase, 'regular'); assert.equal(st.year, 2028);
   assert.ok(st.schedule.length > 4000);
-  const per = {}; for (const g of st.schedule) { per[g.h] = (per[g.h] || 0) + 1; per[g.a] = (per[g.a] || 0) + 1; }
+  const per = {}; for (const g of st.schedule) for (const t of [g.h, g.a]) if (st.teams[t]) per[t] = (per[t] || 0) + 1;   // D-I programs (non-D-I opponents play once)
   const counts = Object.values(per); assert.ok(Math.min(...counts) >= 20 && Math.max(...counts) <= 34, `games per team ${Math.min(...counts)}-${Math.max(...counts)}`);
   for (const t of Object.values(st.teams)) assert.ok(Math.abs(t.players.reduce((s, id) => s + st.players[id].mpg, 0) - 200) < 2);
 });

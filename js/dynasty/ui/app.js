@@ -1,26 +1,27 @@
 // Dynasty — the page. Engine (pure) + browser saves + rendering. One league in memory (S); every action
 // mutates it through the engine, re-renders, and autosaves.
-import { C } from '../engine/constants.js?v=44';
-import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=44';
-import { overall } from '../engine/ratings.js?v=44';
-import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=44';
-import { simNext, simTo, afterDay } from '../engine/flow.js?v=44';
-import { postResult } from '../engine/postseason.js?v=44';
-import { takeJob } from '../engine/coaching.js?v=44';
-import { TYPES as INJ } from '../engine/injuries.js?v=44';
-import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain } from '../engine/offseason.js?v=44';
-import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=44';
-import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=44';
-import { lines as pbpLines } from './pbp.js?v=44';
-import { gameSteps, newCtl } from '../engine/game.js?v=44';
-import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=44';
-import { tireAt } from '../engine/program.js?v=44';
-import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=44';
-import { recruitingView } from './recruiting.js?v=44';
-import { portalView } from './portal.js?v=44';
-import { tournamentsView, awardsView } from './tourney.js?v=44';
-import { inviteInfo, decide as realignDecide } from '../engine/realign.js?v=44';
-import { programView, diffPicker } from './program.js?v=44';
+import { C } from '../engine/constants.js?v=46';
+import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=46';
+import { overall } from '../engine/ratings.js?v=46';
+import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=46';
+import { simNext, simTo, afterDay } from '../engine/flow.js?v=46';
+import { postResult } from '../engine/postseason.js?v=46';
+import { takeJob } from '../engine/coaching.js?v=46';
+import { TYPES as INJ } from '../engine/injuries.js?v=46';
+import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain } from '../engine/offseason.js?v=46';
+import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=46';
+import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=46';
+import { lines as pbpLines } from './pbp.js?v=46';
+import { gameSteps, newCtl } from '../engine/game.js?v=46';
+import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=46';
+import { tireAt } from '../engine/program.js?v=46';
+import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=46';
+import { recruitingView } from './recruiting.js?v=46';
+import { portalView } from './portal.js?v=46';
+import { tournamentsView, awardsView } from './tourney.js?v=46';
+import { scheduleStep } from './sched.js?v=46';
+import { inviteInfo, decide as realignDecide } from '../engine/realign.js?v=46';
+import { programView, diffPicker } from './program.js?v=46';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -34,7 +35,9 @@ function erf(x) { const t = 1 / (1 + 0.3275911 * Math.abs(x)); const y = 1 - (((
 const pl = (p, bold = true) => `<a class="pl" data-pid="${esc(p.id)}">${bold ? '<b>' : ''}${esc(p.name)}${bold ? '</b>' : ''}</a>`;
 const PILLARS = [['SCO', 'Scoring'], ['SHT', 'Shooting'], ['FIN', 'Finishing'], ['PLY', 'Playmaking'], ['SEC', 'Ball security'], ['REB', 'Rebounding'], ['DEF', 'Defense']];
 
-let S = null, slot = null, cache = {}, SNAP = null, SCHED = null, EXTRAS = null, tab = 'home', busy = false;
+let S = null, slot = null, cache = {}, SNAP = null, SCHED = null, EXTRAS = null, RIVALS = null, tab = 'home', busy = false;
+// annual non-conference series (scripts/build_dynasty_rivals.py) — new leagues and older saves both get them
+const getRivals = async () => RIVALS || (RIVALS = await fetch('data/dynasty-rivals.json?v=1').then(r => r.ok ? r.json() : { pairs: [] }).then(d => d.pairs || []).catch(() => []));
 let newDiff = (() => { try { return localStorage.getItem('dy_diff') || 'pro'; } catch (e) { return 'pro'; } })();
 const ovrOf = p => Math.round(effOvr(p, S));   // competition-adjusted: a low-major 84 shows ~75
 
@@ -140,7 +143,7 @@ async function startScreen() {
 async function newDynasty(team) {
   await loadData();
   const cn = ($('#dyCoach') && $('#dyCoach').value.trim()) || 'You';
-  S = hydrate(createLeague(SNAP, SCHED, { user: team, now: Date.now(), coachName: cn, extras: EXTRAS, diff: newDiff }));
+  S = hydrate(createLeague(SNAP, SCHED, { user: team, now: Date.now(), coachName: cn, extras: EXTRAS, diff: newDiff, rivals: await getRivals() }));
   slot = 'dyn-' + Date.now();
   cache = {}; touch(S); tab = 'calendar'; CAL._fresh = true;
   await saveSlot(slot, dehydrate(S), meta());
@@ -162,6 +165,7 @@ async function openSave(s) {
   }
   if (!rec) return startScreen();
   S = hydrate(JSON.parse(rec.json)); slot = s; cache = {}; touch(S); tab = 'calendar'; CAL._fresh = true;
+  if (!S.rivals) S.rivals = (await getRivals()).filter(r => S.teams[r[0]] && S.teams[r[1]]);   // saves from before rivalries
   setCloud(signedIn() ? 'idle' : 'idle');
   render();
 }
@@ -194,7 +198,7 @@ function render() {
 // the calendar's view of the app (S and cache are reassigned on new / open, so read them live)
 const CAL = {
   get: () => S, get cache() { return cache; }, C, esc, short, logo, color, $,
-  tm, pl, ovrOf: p => ovrOf(p), run: f => run(f), head: '',
+  tm, pl, ovrOf: p => ovrOf(p), run: f => run(f), head: '', startSeason: () => run(() => { startNextSeason(S); tab = 'roster'; }),
   autosave: () => autosave(), render: () => render(), touch: () => touch(S), onWatch: () => watch(), onSimGame: () => run(simUserGame),
   openBox: id => { const g = S.schedule.find(x => x.id === id); if (g && S.userBox[id]) showBox(g, S.userBox[id]); },
 };
@@ -346,6 +350,14 @@ function showBox(g, rec) {
 }
 
 // ── tabs ──
+// what kind of non-conference game it is (schedule.js), with the guarantee money
+function gameKind(g, home) {
+  if (g.k === 'rivalry') return 'Rivalry';
+  if (g.k === 'return') return 'Return game';
+  if (g.k === 'marquee') return 'Marquee';
+  if (g.pay) return home ? `Buy game <span class="dn">−$${g.pay}k</span>` : `Guarantee <span class="up">+$${g.pay}k</span>`;
+  return g.fill ? 'Added' : '';
+}
 function schedule() {
   const mine = S.schedule.filter(g => g.h === S.user || g.a === S.user);
   const pw = power(S);
@@ -356,8 +368,8 @@ function schedule() {
     let res = '';
     if (g.r) { const us = home ? g.r[0] : g.r[1], them = home ? g.r[1] : g.r[0]; res = `<b class="${us > them ? 'w' : 'l'}">${us > them ? 'W' : 'L'}</b> ${us}-${them}${g.r[2] ? ' OT' : ''}`; }
     return `<tr class="${g.r && S.userBox[g.id] ? 'go' : ''}" data-box="${esc(g.id)}"><td class="l">${fmtDate(g.d)}</td><td class="l">${g.n ? 'vs' : home ? 'vs' : '@'} ${tm(opp)}</td>
-      <td>${pw[opp] != null ? pw[opp].toFixed(1) : '—'}</td><td>${g.r ? '' : (sp >= 0 ? '−' : '+') + Math.abs(sp).toFixed(1)}</td><td>${res}</td><td class="l dim">${g.t === 'ct' ? 'Conf. tourney' : g.t === 'ncaa' ? 'NCAA' : g.ev ? esc(g.ev.replace(/ · day.*/, '')) : !S.teams[opp] ? 'Non-D-I' : g.fill ? 'Added (date TBA)' : g.c ? 'Conf' : ''}</td></tr>`;
-  }).join('')}${(S.pending || []).filter(x => x.team === S.user && !x.done).map(x => `<tr><td class="l">${fmtDate(x.d)}</td><td class="l dim">TBD — decided by the earlier rounds</td><td></td><td></td><td></td><td class="l dim">${esc((x.ev || '').replace(/ · day.*/, ''))}</td></tr>`).join('')}</tbody></table></div>`;
+      <td>${pw[opp] != null ? pw[opp].toFixed(1) : '—'}</td><td>${g.r ? '' : (sp >= 0 ? '−' : '+') + Math.abs(sp).toFixed(1)}</td><td>${res}</td><td class="l dim">${g.t === 'ct' ? 'Conf. tourney' : g.t === 'ncaa' ? 'NCAA' : g.t === 'nit' ? 'NIT' : g.t === 'cbi' ? 'CBI' : g.ev ? esc(g.ev.replace(/ · day.*/, '')) : !S.teams[opp] ? 'Non-D-I' : g.c ? 'Conf' : gameKind(g, home)}</td></tr>`;
+  }).join('')}${(S.mtes || []).filter(m => m.teams.some(x => x.team === S.user)).flatMap(m => (S.pending || []).filter(x => x.type === 'mte' && x.id === m.id && !x.done).map(x => `<tr><td class="l">${fmtDate(x.d)}</td><td class="l dim">TBD — decided by the earlier rounds</td><td></td><td></td><td></td><td class="l dim">${esc(m.name)}</td></tr>`)).join('')}${(S.pending || []).filter(x => x.team === S.user && !x.done).map(x => `<tr><td class="l">${fmtDate(x.d)}</td><td class="l dim">TBD — decided by the earlier rounds</td><td></td><td></td><td></td><td class="l dim">${esc((x.ev || '').replace(/ · day.*/, ''))}</td></tr>`).join('')}</tbody></table></div>`;
 }
 
 function roster() {
@@ -472,7 +484,7 @@ const stars = n => '★'.repeat(n) + '<span class="dim">' + '★'.repeat(Math.ma
 const WHY = { graduated: 'Graduated', pro: 'Turned pro', portal: 'Entered the transfer portal' };
 function offseason() {
   const O = S.off, U = S.user, step = O.step, open = openSpots(S, U);
-  const steps = [['departures', 'Departures'], ['portal', 'Transfer portal'], ['recruiting', 'Recruiting'], ['ready', 'Signing day']];
+  const steps = [['departures', 'Departures'], ['portal', 'Transfer portal'], ['recruiting', 'Recruiting'], ['ready', 'Signing day'], ['schedule', 'Schedule']];
   let html = `<div class="dy-steps">${steps.map(([k, l], i) => `<span class="${k === step ? 'on' : steps.findIndex(x => x[0] === step) > i ? 'done' : ''}">${i + 1}. ${l}</span>`).join('')}</div>`;
   if (step === 'departures') {
     const mine = Object.entries(O.leaving).map(([id, why]) => ({ p: S.players[id], why })).filter(x => x.p && x.p.team === U);
@@ -501,6 +513,7 @@ function offseason() {
     return;
   }
   if (step === 'portal') { CAL.head = html; portalView(CAL); return; }   // the live 10-day window (ui/portal.js)
+  if (step === 'schedule') { CAL.head = html; scheduleStep(CAL); return; }   // next season's non-conference schedule (ui/sched.js)
   if (step === 'recruiting') {
     const R = O.recruits, B = O.board, max = open + 4, budget = O.budget || 100;   // the season's recruiting hours (Program tab)
     const used = () => Object.values(B).reduce((a, b) => a + (+b || 0), 0);
@@ -557,9 +570,9 @@ function offseason() {
     <div class="sheet-wrap"><table class="sheet dense heat dy-sign"><thead><tr><th class="l">Player</th><th>Pos</th><th>Yr</th><th data-heat="1">OVR</th>${PILLARS.map(([k, l]) => `<th data-heat="1" title="${l}">${k}</th>`).join('')}</tr></thead><tbody>
       ${roster.map(p => `<tr><td class="l">${pl(p)}${p.fresh ? ' <span class="chip new">new</span>' : ''}</td><td>${esc(p.pos || '')}</td><td>${p.fresh ? 'Fr' : YR_LABEL[Math.min(5, p.yr + 1)]}</td><td><b>${ovrOf(p)}</b></td>${PILLARS.map(([k]) => `<td>${p.pillars[k]}</td>`).join('')}</tr>`).join('')}
     </tbody></table></div>
-    <div class="dy-btns"><button class="btn" id="oNext">Start the ${S.year}-${String(S.year + 1).slice(2)} season →</button></div>`;
+    <div class="dy-btns"><button class="btn" id="oNext">Build your schedule →</button></div>`;
   $('#dyBody').innerHTML = html;
-  $('#oNext').onclick = () => run(() => { startNextSeason(S); tab = 'roster'; });
+  $('#oNext').onclick = () => { O.step = 'schedule'; autosave(); render(); };
 }
 
 function jobPanel() {

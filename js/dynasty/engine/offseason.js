@@ -5,20 +5,20 @@
 //
 // Calibrated to the snapshot: freshmen enter at a median OVR ~59 (top 1% ~77); players gain ~+5 Fr->So,
 // ~+3 So->Jr, ~+1.5 after; teams lose ~3.4 upperclassmen a year; rosters carry 13 scholarships.
-import { overall, attributes } from './ratings.js?v=44';
-import { makeRng, hashSeed } from './rng.js?v=44';
-import { record_, power, touch } from './season.js?v=44';
-import { ncaaResult, postResult } from './postseason.js?v=44';
-import { effOvr } from './league.js?v=44';
-import { evaluateCoaches } from './coaching.js?v=44';
-import { healAll } from './injuries.js?v=44';
-import { profile, userOdds, pickSchool, notePro, factors, utility, relationship, aiSign } from './recruit.js?v=44';
-import { openPortal, portalDay, PORTAL_DAYS } from './portal.js?v=44';
-import { realignWindow, applyMoves, applyRevenue } from './realign.js?v=44';
-import { planMTEs } from './mte.js?v=44';
-import { runDraft } from './draft.js?v=44';
-import { compactAwards } from './awards.js?v=44';
-import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina } from './program.js?v=44';
+import { overall, attributes } from './ratings.js?v=46';
+import { makeRng, hashSeed } from './rng.js?v=46';
+import { record_, power, touch } from './season.js?v=46';
+import { ncaaResult, postResult } from './postseason.js?v=46';
+import { effOvr } from './league.js?v=46';
+import { evaluateCoaches } from './coaching.js?v=46';
+import { healAll } from './injuries.js?v=46';
+import { profile, userOdds, pickSchool, notePro, factors, utility, relationship, aiSign } from './recruit.js?v=46';
+import { openPortal, portalDay, PORTAL_DAYS } from './portal.js?v=46';
+import { realignWindow, applyMoves, applyRevenue } from './realign.js?v=46';
+import { makeSchedule } from './schedule.js?v=46';
+import { runDraft } from './draft.js?v=46';
+import { compactAwards } from './awards.js?v=46';
+import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina } from './program.js?v=46';
 
 export const SCHOLARSHIPS = 13;
 const PIL = ['SCO', 'SHT', 'FIN', 'PLY', 'SEC', 'REB', 'DEF'];
@@ -323,7 +323,7 @@ export function startNextSeason(state) {
   newSeasonProgram(state);          // NIL payroll, staff contracts + poaching, familiarity fades, hiring pool
   state.year += 1;
   applyRevenue(state);              // league money + exposure vs where each program started
-  state.schedule = makeSchedule(state);
+  state.schedule = makeSchedule(state, rngFor);
   state.visits = []; state.targets = []; state.rclass = makeClass(state, classSize(state));   // next year's class, recruitable all season
   state.stats = {}; state.userBox = {}; state.post = null; state.awards = null;
   state.phase = 'regular';
@@ -343,65 +343,5 @@ export function defaultMinutes(state, t) {
   ps.forEach((p, i) => { p.mpg = Math.round((SHAPE[i] || 0) * 200 / sum * 10) / 10; });
 }
 
-// ── schedule: conference round robins (Jan–early Mar) + 11 non-conference games (Nov–Dec) ──
-const ISO = (y, m, d) => new Date(Date.UTC(y, m - 1, d)).toISOString().slice(0, 10);
-const addD = (iso, n) => new Date(Date.parse(iso + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
-function circle(teams) {
-  const t = teams.length % 2 ? teams.concat([null]) : teams.slice(), n = t.length, rounds = [];
-  for (let r = 0; r < n - 1; r++) {
-    const pairs = [];
-    for (let i = 0; i < n / 2; i++) { const a = t[i], b = t[n - 1 - i]; if (a && b) pairs.push(r % 2 ? [a, b] : [b, a]); }
-    rounds.push(pairs); t.splice(1, 0, t.pop());
-  }
-  return rounds;
-}
-export function makeSchedule(state) {
-  const rng = rngFor(state, 'schedule'), y = state.year, games = [];
-  let gid = 0;
-  const add = (d, h, a, n, c) => games.push({ id: `${y}-${gid++}`, d, h, a, n, c, r: null });
-  // conference: double round robin for leagues of <= 10, single + rematches to ~18-20 games otherwise
-  const confs = {};
-  for (const t of Object.values(state.teams)) (confs[t.conf] = confs[t.conf] || []).push(t.name);
-  for (const members of Object.values(confs)) {
-    const R = circle(members.slice().sort(() => rng.next() - 0.5));
-    let rounds = R.concat(R.map(rd => rd.map(([h, a]) => [a, h])));
-    const want = Math.min(rounds.length, members.length <= 10 ? rounds.length : 20);
-    rounds = rounds.slice(0, want);
-    const start = ISO(y, 1, 2), step = Math.max(2, Math.floor(64 / Math.max(1, rounds.length)));
-    rounds.forEach((rd, i) => rd.forEach(([h, a]) => add(addD(start, i * step), h, a, false, true)));
-  }
-  // non-conference: 13 rounds of random pairings across leagues (Nov 3 – Dec 30) — with ~18-20 league games that
-  // is a real ~31-33 game slate (11 rounds left teams around 29)
-  // multi-team events first (mte.js): day-one games now, later days pending; their teams skip nearby rounds
-  const M = planMTEs(state, rngFor(state, 'mte'));
-  M.games.forEach(g => games.push(g)); state.pending = M.pending;
-  const near = (t, d) => (M.busy[t] || []).some(x => Math.abs(Date.parse(x) - Date.parse(d)) <= 2 * 864e5);
-  const names = Object.keys(state.teams);
-  for (let r = 0; r < 13; r++) {
-    const pool = names.slice().sort(() => rng.next() - 0.5), used = new Set(), d = addD(ISO(y - 1, 11, 3), r * 4 + rng.int(3));
-    for (const a of pool) {
-      if (used.has(a) || near(a, d)) continue;
-      const b = pool.find(x => !used.has(x) && x !== a && state.teams[x].conf !== state.teams[a].conf && !near(x, d));
-      if (!b) continue;
-      used.add(a); used.add(b);
-      const neutral = rng.chance(0.12);
-      const [h, w] = rng.chance(0.5 + (state.teams[a].prestige - state.teams[b].prestige) / 200) ? [a, b] : [b, a];
-      add(d, h, w, neutral, false);
-    }
-  }
-  // top-up: teams short of a 30-game slate (small leagues, an event's days, a busy partner pool) play each other in
-  // late December
-  const nc = {}; for (const g of games) for (const t of [g.h, g.a]) nc[t] = (nc[t] || 0) + 1;
-  for (const m of state.mtes || []) if (!m.showcase) for (const x of m.teams) nc[x.team] = (nc[x.team] || 0) + (m.size === 8 ? 2 : 1);   // the event's later days
-  for (let r = 0; r < 4; r++) {
-    const d = addD(ISO(y - 1, 12, 18), r * 3), short_ = names.filter(t => (nc[t] || 0) < 30).sort(() => rng.next() - 0.5), used = new Set();
-    for (const a of short_) {
-      if (used.has(a)) continue;
-      const b = short_.find(x => !used.has(x) && x !== a && state.teams[x].conf !== state.teams[a].conf);
-      if (!b) continue;
-      used.add(a); used.add(b); nc[a]++; nc[b]++;
-      add(d, a, b, false, false);
-    }
-  }
-  return games.sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0));
-}
+// the schedule itself is built in schedule.js (conference, events, rivalries, the user's picks, tiered fill)
+

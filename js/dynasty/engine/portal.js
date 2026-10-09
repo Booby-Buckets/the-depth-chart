@@ -3,9 +3,9 @@
 // players commit with rising odds (the best ones first). Transfers are proven (true ratings, real stats), ask more
 // NIL than high-schoolers, and start with almost no relationship. AI programs sign them too (<= PORTAL_CAP each).
 // Pure: works on the state object.
-import { makeRng, hashSeed } from './rng.js?v=44';
-import { effOvr } from './league.js?v=44';
-import { profile, factors, negotiate, acceptCounter } from './recruit.js?v=44';
+import { makeRng, hashSeed } from './rng.js?v=46';
+import { effOvr } from './league.js?v=46';
+import { profile, factors, negotiate, acceptCounter } from './recruit.js?v=46';
 
 export const PORTAL_DAYS = 10, PORTAL_CAP = 3, CONTACTS_PER_DAY = 4;
 const SCHOL = 13;
