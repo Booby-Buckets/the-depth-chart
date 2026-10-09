@@ -537,7 +537,19 @@ def dev_mult(yr,demo,n_prior=None):
 print("Pulling roster, last-year box + advanced, team SOS...",file=sys.stderr)
 adv=pd.DataFrame(sb_get(f"player_advanced?select=espn_id,name,team,g,min,usg_pct,owa,dwa,ti40&season_year=eq.{CUR}"))
 box=pd.DataFrame(sb_get(f"player_history?select=espn_id,ppg,mpg,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb,stl,blk,tovs,apg,gp,fg_pct,tp_pct,ft_pct&season_year=eq.{CUR}"))
-pl =pd.DataFrame(sb_get("players?select=espn_id,name,depth_order,starter,mpg,yr,class_year,team,position,position2,height,tdc_grade,is_injured"))
+pl =pd.DataFrame(sb_get("players?select=id,espn_id,name,depth_order,starter,mpg,yr,class_year,team,position,position2,height,tdc_grade,is_injured"))
+# the no-scrimmage BASE run (SCRIM_ROT_CAP=0, for the Trends tab) must also undo the scrimmage depth charts
+# (build_scrim_depth.py): put back each team's saved pre-scrimmage order, or "before the scrimmages" would
+# already contain them (Givens read "15 min, 13 fewer than projected" against his scrimmage-earned start)
+if os.environ.get("SCRIM_ROT_CAP")=="0":
+    try:
+        _sdb={b["id"]:b["depth"] for t in json.load(open(os.path.join(D,"scrim_depth_2027.json")))["teams"].values()
+              if t.get("applied") or t.get("proposed") for b in t.get("base") or []}
+        _hit=pl["id"].map(lambda i: i in _sdb)
+        pl.loc[_hit,"depth_order"]=pl.loc[_hit,"id"].map(_sdb)
+        print(f"base run: {int(_hit.sum())} players back on their pre-scrimmage depth",file=sys.stderr)
+    except Exception as _e:
+        print(f"warn: no scrimmage depth baseline ({_e})",file=sys.stderr)
 # OUT FOR THE SEASON (owner rule, Oct 2026): the owner's injury report (profiles.freshman_projections,
 # keys tdc_inj:<team>:<name>, written by tdc-injury.js) plus the players table's is_injured flag. A player
 # who is out (timeline 'multi'/'season', or play=false) leaves the roster BEFORE minutes are split, so his
@@ -640,9 +652,21 @@ try:
                 _a=SCRIM_DNP.setdefault((_bx.get("team"),_snk(_nm)),[0.0]); _a[0]+=0.5*_rw
 except Exception as _e:
     print(f"warn: no scrimmage role evidence ({_e})",file=sys.stderr)
+# teams with a scrimmage depth chart (build_scrim_depth.py): minutes are pulled toward the scrimmage role
+# (real minutes in a close game, the minutes rank on the roster curve in a blowout) with the SAME weight that re-ordered the chart, because slot
+# minutes alone hand a new 5th starter who played 8 scrimmage minutes a full starter's load
+SCRIM_DEPTH={}
+try:
+    for _t in json.load(open(os.path.join(D,"scrim_depth_2027.json")))["teams"].values():
+        for _o in _t.get("order") or []:
+            if _o.get("scrim_mpg") is not None and _o.get("w"): SCRIM_DEPTH[(_t["full"],_snk(_o["name"]))]=(float(_o["w"]),float(_o["scrim_mpg"]))
+except Exception as _e:
+    print(f"warn: no scrimmage depth minutes ({_e})",file=sys.stderr)
 def scrim_minutes(full,name,cur):
     """projected minutes after the scrimmage rotation nudge"""
     if SCRIM_ROT_CAP<=0: return cur
+    sd=SCRIM_DEPTH.get((full,_snk(name)))
+    if sd: return max(0.1, min(MPG_MAX, (1-sd[0])*cur + sd[0]*sd[1]))
     k=(full,_snk(name)); a=SCRIM_ROLE.get(k); dn=SCRIM_DNP.get(k)
     rw=(a[0] if a else 0.0)+((dn[0] if dn and cur<20 else 0.0)); rm=(a[1] if a else 0.0)
     if rw<=0: return cur

@@ -5,9 +5,9 @@ are injuries" — not the final word, but the best early look at the coach's rea
 
 For every team with a scored scrimmage box (scrim_reality.py):
 
-  1. Each scrimmage is turned into a role ladder: starters first, then by minutes. The k-th rung is worth the
-     k-th biggest projected minute load on that roster, so a 40-point blowout's flattened minutes don't read
-     as a demotion — only the ORDER the coach used counts.
+  1. Each scrimmage gives every player a minutes figure: in a close game his real minutes; in a blowout (fully
+     past 35 points) his minutes RANK mapped onto the roster's own projected minute curve, since a 40-point
+     game's flattened minutes would read as a demotion. Starting is scored separately (step 3).
   2. That scrimmage role is blended with the current projection, the blend weight growing with how game-like
      the scrimmages were (Reality Meter) and how little we know about the roster:
          a = R / (R + PRIOR),  R = sum of reality/100,  PRIOR = 0.1 + 1.2 x known   (capped at A_CAP)
@@ -57,7 +57,8 @@ def main():
             if bx.get("partial") or rs.get("boxless") or (rs.get("score") or 0) < MIN_REALITY: continue
             ps = [p for p in bx.get("players") or [] if (p.get("min") or 0) > 0]
             if len(ps) < 8: continue
-            ev.setdefault(g[sd], []).append({"id": gid, "date": g["date"], "rw": rs["score"] / 100, "players": ps, "dnp": rs.get("dnp") or []})
+            ev.setdefault(g[sd], []).append({"id": gid, "date": g["date"], "rw": rs["score"] / 100, "players": ps, "dnp": rs.get("dnp") or [],
+                                             "margin": abs((r.get("hs") or 0) - (r.get("as") or 0)), "tm": sum(p["min"] for p in ps)})
 
     # the BASELINE per team (the chart + projected minutes before any scrimmage re-order), kept across runs so
     # each run re-blends ALL scrimmages from the same starting point instead of stacking on its own last result
@@ -107,14 +108,20 @@ def main():
         for p in roster: p.update(sw=0.0, sm=0.0, ss=0.0, gp=0, gs=0, dnp=0)
         unmatched = set()
         for x in games:
-            ladder = sorted(x["players"], key=lambda q: (not q.get("gs"), -(q.get("min") or 0)))
+            # minutes rank -> the roster's minute curve (starting is scored separately, below): a bench player who
+            # out-played two starters (Pippen 22 min vs Givens 15 / Njegovan 8) earns the bigger minute load
+            ladder = sorted(x["players"], key=lambda q: (-(q.get("min") or 0), not q.get("gs")))
             seen = set()
             for k, q in enumerate(ladder):
                 rn = sr.roster_name(q["name"], names)
                 p = byk.get(nk(rn)) if rn else None
                 if not p: unmatched.add(q["name"]); continue
                 seen.add(p["k"])
-                p["sw"] += x["rw"]; p["sm"] += x["rw"] * (curve[k] if k < len(curve) else 0.0)
+                # a close game's minutes are real minutes; a blowout's are flattened, so there the minutes RANK on
+                # the roster's own curve stands in (fully past a 35-point margin)
+                f = max(0.0, min(1.0, 1 - (x["margin"] - 10) / 25))
+                raw = (q.get("min") or 0) * 200.0 / (x["tm"] or 200)
+                p["sw"] += x["rw"]; p["sm"] += x["rw"] * (f * raw + (1 - f) * (curve[k] if k < len(curve) else 0.0))
                 p["ss"] += x["rw"] * (1.0 if q.get("gs") else 0.0); p["gp"] += 1; p["gs"] += 1 if q.get("gs") else 0
             for p in roster:
                 if p["k"] in seen: continue
@@ -124,21 +131,19 @@ def main():
         for p in roster:
             if p["sw"] > 0:
                 s_m, s_s = p["sm"] / p["sw"], p["ss"] / p["sw"]
-                ww = a * min(1.0, p["sw"] / Rw)                         # sat-only evidence weighs half
+                ww = p["ww"] = a * min(1.0, p["sw"] / Rw)               # sat-only evidence weighs half
                 p["bm"] = (1 - ww) * p["proj"] + ww * s_m
                 p["bs"] = (1 - ww) * (1.0 if p["k"] in cur_st else 0.0) + ww * s_s
             else:
                 p["bm"] = p["proj"]; p["bs"] = 1.0 if p["k"] in cur_st else 0.0
             if p["is_injured"]: p["bm"] = p["proj"]; p["bs"] = 1.0 if p["k"] in cur_st else 0.0
-        order_old = [p for p in roster if p["depth_order"]] + [p for p in roster if not p["depth_order"]]
+        order_old = sorted([p for p in roster if p["depth_order"]], key=lambda p: p["depth_order"]) + [p for p in roster if not p["depth_order"]]
         st = sorted(roster, key=lambda p: (-p["bs"], -p["bm"]))[:5]
         stk = {p["k"] for p in st}
-        # keep the starters in their old relative order (the chart's PG..C reading); a new starter takes the
-        # slot of the starter he replaced
+        # starters by blended minutes: slots 1-5 set the build's starter minutes (the page seats PG..C by position,
+        # not slot), so a new starter who played 15 scrimmage minutes is the 5th starter, not the 33-minute 1st
         old_st = [p for p in order_old if p["k"] in cur_st]
-        ins = [p for p in st if p["k"] not in cur_st]
-        five = [p if p["k"] in stk else (ins.pop(0) if ins else None) for p in old_st]
-        five = [p for p in five if p] + ins
+        five = sorted(st, key=lambda p: -p["bm"])
         bench = sorted([p for p in roster if p["k"] not in stk], key=lambda p: (-p["bm"], p["depth_order"] or 99))
         new = five[:5] + bench
         dbd = {i: n for n, i in enumerate(cur_ids, 1)}
@@ -151,6 +156,7 @@ def main():
             "owner_set_after": owner_after, "applied": bool(moves) and not owner_after,
             "starters_old": [p["name"] for p in old_st], "starters_new": [p["name"] for p in new[:5]],
             "order": [{"name": p["name"], "old": p["depth_order"], "new": i, "proj_mpg": round(p["proj"], 1), "blend_mpg": round(p["bm"], 1),
+                       "scrim_mpg": round(p["sm"] / p["sw"], 1) if p["sw"] > 0 else None, "w": round(p.get("ww", 0.0), 3),
                        "scrim_gp": p["gp"], "scrim_gs": p["gs"], "dnp": p["dnp"]} for i, p in enumerate(new, 1)],
             "moves": moves, "flags": flags, "unmatched": sorted(unmatched),
             "base": list(base.values()), "proposed": [p["id"] for p in new]}
