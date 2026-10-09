@@ -8,7 +8,7 @@
   var _p = null;
   function load() {
     if (!_p) _p = Promise.all([
-      fetch('scripts/data/scrim_trends_2027.json?v=1').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+      fetch('scripts/data/scrim_trends_2027.json?v=2').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
       fetch('scripts/data/scrimmages_2027.json?v=7').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
     ]).then(function (a) { return { T: a[0] || {}, S: (a[1] && a[1].games) || [] }; });
     return _p;
