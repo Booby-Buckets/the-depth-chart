@@ -135,3 +135,20 @@ jobs:
           mkdir -p "$RUNNER_TEMP/pp" && (cd "$RUNNER_TEMP/pp" && npm init -y >/dev/null && npm i --silent puppeteer@22.15.0)
           sleep 1
           PUPPETEER_MODULE="$RUNNER_TEMP/pp/node_modules/puppeteer/lib/esm/puppeteer/puppeteer.js" BASE=http://localhost:8765/ node scripts/headless_publish.mjs
+
+                # Dynasty starts from the same rosters + projections: rebuild its snapshot and commit it when it changed
+      # (the build is deterministic, so an unchanged roster commits nothing)
+      - name: Rebuild Dynasty snapshot
+        continue-on-error: true
+        run: |
+          python3 scripts/build_dynasty_snapshot.py
+          git add data/dynasty-snapshot.json js/dynasty/engine/targets.json
+          if git diff --cached --quiet; then
+            echo "Dynasty snapshot unchanged."
+          else
+            git commit -m "Auto: rebuild Dynasty snapshot [skip ci]"
+            for i in 1 2 3 4 5; do
+              git pull --rebase -X theirs origin main && git push && break
+              sleep $((i*5))
+            done
+          fi
