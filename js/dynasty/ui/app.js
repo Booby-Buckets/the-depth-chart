@@ -1,22 +1,23 @@
 // Dynasty — the page. Engine (pure) + browser saves + rendering. One league in memory (S); every action
 // mutates it through the engine, re-renders, and autosaves.
-import { C } from '../engine/constants.js?v=29';
-import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=29';
-import { overall } from '../engine/ratings.js?v=29';
-import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=29';
-import { simNext, simTo, afterDay } from '../engine/flow.js?v=29';
-import { REGION_NAMES, ncaaResult } from '../engine/postseason.js?v=29';
-import { takeJob } from '../engine/coaching.js?v=29';
-import { TYPES as INJ } from '../engine/injuries.js?v=29';
-import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf } from '../engine/offseason.js?v=29';
-import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=29';
-import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=29';
-import { lines as pbpLines } from './pbp.js?v=29';
-import { gameSteps, newCtl } from '../engine/game.js?v=29';
-import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=29';
-import { tireAt } from '../engine/program.js?v=29';
-import { recruitingView } from './recruiting.js?v=29';
-import { programView, diffPicker } from './program.js?v=29';
+import { C } from '../engine/constants.js?v=36';
+import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=36';
+import { overall } from '../engine/ratings.js?v=36';
+import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=36';
+import { simNext, simTo, afterDay } from '../engine/flow.js?v=36';
+import { REGION_NAMES, ncaaResult } from '../engine/postseason.js?v=36';
+import { takeJob } from '../engine/coaching.js?v=36';
+import { TYPES as INJ } from '../engine/injuries.js?v=36';
+import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain } from '../engine/offseason.js?v=36';
+import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=36';
+import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=36';
+import { lines as pbpLines } from './pbp.js?v=36';
+import { gameSteps, newCtl } from '../engine/game.js?v=36';
+import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=36';
+import { tireAt } from '../engine/program.js?v=36';
+import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=36';
+import { recruitingView } from './recruiting.js?v=36';
+import { programView, diffPicker } from './program.js?v=36';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -532,7 +533,8 @@ function offseason() {
       ${jobPanel()}
       <div class="sec"><h2>Leaving ${esc(short(U))}</h2><span class="n">League-wide: ${c('graduated')} graduated, ${c('pro')} turned pro, ${c('portal')} entered the portal</span></div>
       ${mine.length ? `<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th><th>Pos</th><th>Yr</th><th>OVR</th><th class="l">Why</th></tr></thead><tbody>
-        ${mine.sort((a, b) => ovrOf(b.p) - ovrOf(a.p)).map(x => `<tr><td class="l">${pl(x.p)}</td><td>${esc(x.p.pos || '')}</td><td>${YR_LABEL[x.p.yr]}</td><td>${ovrOf(x.p)}</td><td class="l">${WHY[x.why]}</td></tr>`).join('')}</tbody></table></div>` : '<div class="dy-empty">Nobody is leaving.</div>'}
+        ${mine.sort((a, b) => ovrOf(b.p) - ovrOf(a.p)).map(x => `<tr><td class="l">${pl(x.p)}</td><td>${esc(x.p.pos || '')}</td><td>${YR_LABEL[x.p.yr]}</td><td>${ovrOf(x.p)}</td><td class="l">${WHY[x.why]}${x.why === 'portal' ? ` — wants <b>$${retainAsk(S, x.p)}k</b> to stay <button class="btn ghost pg-sm" data-keep="${esc(x.p.id)}">Pay him</button>` : ''}</td></tr>`).join('')}</tbody></table></div>
+        <div class="pg-d">NIL retention: a player headed for the portal names his price to stay. Your collective has <b>$${S.teams[U].prog ? S.teams[U].prog.nil.fund : 0}k</b>.${(O.kept || []).length ? ' Kept: ' + O.kept.map(k => `${esc(k.name)} ($${k.nil}k)`).join(', ') + '.' : ''}</div>` : '<div class="dy-empty">Nobody is leaving.</div>'}
       <div class="dy-btns"><button class="btn" id="oNext">Open the transfer portal →</button></div>`;
     $('#dyBody').innerHTML = html;
     document.querySelectorAll('[data-take]').forEach(b => b.onclick = () => {
@@ -543,6 +545,7 @@ function offseason() {
     const nx = $('#oNext');
     if (S.job && S.job.fired) { nx.disabled = true; nx.title = 'Pick your next job first'; }
     nx.onclick = () => { processDepartures(S); autosave(); render(); };
+    document.querySelectorAll('[data-keep]').forEach(b => b.onclick = () => { const e = retain(S, b.dataset.keep); if (e) return alert(e); autosave(); render(); });
     return;
   }
   if (step === 'portal') {
@@ -576,11 +579,14 @@ function offseason() {
     const recRow = (r, e) => { const v = scoutView(S, r, e + (r.vs || 0));   // + the long look his visits gave your staff
       return `<tr data-rrow="${esc(r.id)}"><td><input type="number" class="dy-min" min="0" max="60" step="5" data-eff="${esc(r.id)}" value="${e}"></td><td class="odds" data-odds="${esc(r.id)}"></td><td>${r.rank}</td>
         <td class="l"><b>${esc(r.name)}</b>${(S.visits || []).filter(x => x.rid === r.id && x.done).map(x => ` <span class="rv ${x.res}" title="${x.type === 'home' ? 'Home visit' : 'Official visit'}: ${x.res}">${x.type === 'home' ? '🏠' : '🎓'}</span>`).join('')}<div class="dy-tags">${v.tags.map(t => `<span>${esc(t)}</span>`).join('')}</div></td><td class="l">${stars(r.stars)}</td><td>${esc(r.pos || '')}</td><td>${r.ht ? `${Math.floor(r.ht / 12)}-${r.ht % 12}` : ''}</td>
-        <td><b>${v.ovr}</b></td>${PILLARS.map(([k]) => `<td>${v.pillars[k]}</td>`).join('')}<td>${v.sta}</td><td><b>${v.grade}</b></td><td class="dim">±${v.sd}</td></tr>`; };
+        <td><b>${v.ovr}</b></td>${PILLARS.map(([k]) => `<td>${v.pillars[k]}</td>`).join('')}<td>${v.sta}</td><td><b>${v.grade}</b></td><td class="dim">±${v.sd}</td>
+        <td>${esc(r.home === 'INTL' ? 'Intl' : r.home || '')}</td><td class="l rv-w">${priorities(profile(S, r)).map(x => `<span>${esc(x)}</span>`).join('')}</td><td>$${r.ask}k</td>
+        <td class="l"><input type="number" class="dy-min rv-nil" min="0" step="5" data-nilb="${esc(r.id)}" value="${r.offer || ''}" placeholder="$k"><span class="rv-st ${r.nilState || ''}">${r.nilState === 'accepted' ? '✓' : r.nilState || ''}</span></td>
+        <td class="l">${esc(short(pursuit(S, r, e).rival || ''))}</td></tr>`; };
     const got = (O.portalResults || []).filter(x => x.to === U);
     html += `${got.length ? `<div class="dy-next"><div class="lbl">From the portal</div><div class="ln">${got.map(x => `<b>${esc(x.name)}</b> (${x.ovr}, from ${esc(short(x.from))})`).join(' · ')}</div></div>` : ''}
       <div class="sec"><h2>Recruiting — class of ${S.year}</h2><span class="n">${open} open scholarship${open === 1 ? '' : 's'} · put up to ${max} recruits on your board and split ${budget} effort points (your recruiting hours this season). Ratings are your staff's scouting estimates — more effort on a recruit sharpens them (±). Some recruits will bust; some will blossom.</span></div>
-      <div class="sheet-wrap"><table class="sheet dense heat dy-rec"><thead><tr><th>Effort</th><th>Odds</th><th>#</th><th class="l">Recruit</th><th class="l">Stars</th><th>Pos</th><th>Ht</th><th data-heat="1" title="Your staff's estimate of his overall">OVR</th>${PILLARS.map(([k, l]) => `<th data-heat="1" title="${l} (scouted)">${k}</th>`).join('')}<th data-heat="1" title="Stamina (scouted): how many minutes a night he can carry">STA</th><th title="Scouted potential: how much he should grow. Busts and diamonds in the rough hide here.">POT</th><th title="How sure your staff is (± rating points). Better recruiting coordinator and more effort on him = tighter.">±</th></tr></thead><tbody>
+      <div class="sheet-wrap"><table class="sheet dense heat dy-rec"><thead><tr><th>Effort</th><th>Odds</th><th>#</th><th class="l">Recruit</th><th class="l">Stars</th><th>Pos</th><th>Ht</th><th data-heat="1" title="Your staff's estimate of his overall">OVR</th>${PILLARS.map(([k, l]) => `<th data-heat="1" title="${l} (scouted)">${k}</th>`).join('')}<th data-heat="1" title="Stamina (scouted): how many minutes a night he can carry">STA</th><th title="Scouted potential: how much he should grow. Busts and diamonds in the rough hide here.">POT</th><th title="How sure your staff is (± rating points). Better recruiting coordinator and more effort on him = tighter.">±</th><th>From</th><th class="l">Wants</th><th>Ask</th><th class="l" title="Your NIL offer ($k a year)">Offer</th><th class="l">Rival</th></tr></thead><tbody>
       ${R.slice(0, 300).map(r => recRow(r, B[r.id] || 0)).join('')}
       </tbody></table></div>
       <div class="dy-btns"><span class="dim" id="effN"></span><button class="btn" id="oNext">Signing day →</button><button class="btn ghost" id="oAuto">Let my staff handle it</button></div>`;
@@ -589,6 +595,12 @@ function offseason() {
       document.querySelectorAll('[data-odds]').forEach(td => { const r = R.find(x => x.id === td.dataset.odds), e = +B[r.id] || 0; td.textContent = e ? Math.round(100 * landOdds(S, r, e)) + '%' : ''; });
       $('#effN').textContent = `${Object.values(B).filter(v => v > 0).length} / ${max} on board · ${used()} / ${budget} effort`;
     };
+    document.querySelectorAll('[data-nilb]').forEach(i => i.onchange = () => {
+      const r = R.find(x => x.id === i.dataset.nilb); if (!r) return;
+      const P = S.teams[U].prog, others = R.filter(x => x !== r && x.offer && x.nilState === 'accepted').reduce((s2, x) => s2 + x.offer, 0);
+      if (P && others + (+i.value || 0) > P.nil.fund) { alert(`Your collective has $${P.nil.fund}k; $${others}k is already promised.`); i.value = r.offer || ''; return; }
+      const res = negotiate(S, r, i.value); alert(res.msg); autosave(); render();
+    });
     document.querySelectorAll('[data-eff]').forEach(i => i.onchange = () => {
       const v = Math.max(0, Math.min(60, +i.value || 0)), was = +B[i.dataset.eff] || 0;
       if (v && !was && Object.values(B).filter(x => x > 0).length >= max) { i.value = 0; return alert(`Your board holds up to ${max} recruits.`); }

@@ -7,12 +7,12 @@
 //   players: { id: { id, name, team, pos, pos2, ht, yr, pillars, lvl, mpg, pot } },
 //   schedule:[ { id, d, h, a, n, c, r } ],             r = [homePts, awayPts, ot, poss] once played
 //   stats:   { id: season totals },  powerFit, history:[], userBox:{ gameId: box } }
-import { attributes, overall } from './ratings.js?v=29';
-import { makeRng } from './rng.js?v=29';
-import { initCoaches } from './coaching.js?v=29';
-import { fillLeague, buildSchedule } from './fill.js?v=29';
-import { makeClass, classSize } from './offseason.js?v=29';
-import { initProgram, ensureStamina } from './program.js?v=29';
+import { attributes, overall } from './ratings.js?v=36';
+import { makeRng } from './rng.js?v=36';
+import { initCoaches } from './coaching.js?v=36';
+import { fillLeague, buildSchedule } from './fill.js?v=36';
+import { makeClass, classSize } from './offseason.js?v=36';
+import { initProgram, ensureStamina } from './program.js?v=36';
 
 export const YR = { 'FR': 1, 'FR.': 1, 'RS FR.': 1, 'SO': 2, 'SO.': 2, 'RS SO.': 2, 'JR': 3, 'JR.': 3, 'RS JR.': 3, 'SR': 4, 'SR.': 4, 'RS SR.': 4, 'GR': 5, 'GR.': 5, '5TH': 5 };
 export const YR_LABEL = ['', 'Fr', 'So', 'Jr', 'Sr', 'Gr'];
@@ -67,7 +67,7 @@ export function createLeague(snap, sched, opts = {}) {
   const maps = { pillarMap: snap.pillarMap, ovrMap: snap.ovrMap, defMap: snap.defMap, heightRef: snap.heightRef };
   const teams = {}, players = {};
   for (const t of snap.teams) {
-    teams[t.name] = { name: t.name, conf: t.conf, tempo: t.tempo, level: t.level || 0, sysDef: t.sysDef || 0,
+    teams[t.name] = { name: t.name, conf: t.conf, state: t.state || null, tempo: t.tempo, level: t.level || 0, sysDef: t.sysDef || 0,
       rating0: t.rating, players: t.players.slice(), plan: { tempo: 0, three: 0, pressure: 0 }, minutes: null, starters: null };
   }
   for (const p of snap.players) {

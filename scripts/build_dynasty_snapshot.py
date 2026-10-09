@@ -70,6 +70,8 @@ def main():
     pbox = json.load(open(D / "team_projected_box.json"))
     dna = json.load(open(D / "team_dna.json"))
     coach = {c["tm"]: c["n"] for c in json.load(open(ROOT / "data" / "coach-2027.json")) if c.get("tm") and c.get("n")}
+    # home state per program (scripts/build_team_states.py) — Dynasty recruiting: proximity / hometown pull
+    st = {k: v.get("state") for k, v in json.load(open(D / "team_states.json")).items()} if (D / "team_states.json").exists() else {}
     rows = sb("players?select=id,espn_id,name,team,position,position2,height,class_year,yr,starter,depth_order,is_injured&order=id.asc")
     pr = json.load(urllib.request.urlopen(urllib.request.Request(
         API + "predictive_ratings?season=eq.2027&select=data&limit=1", headers={"apikey": KEY, "Authorization": "Bearer " + KEY}), timeout=60))
@@ -199,7 +201,7 @@ def main():
         pe = pace.get(full) or {}
         teams.append({"name": full, "conf": c, "tempo": pe.get("t"), "projO": pe.get("o"), "projD": pe.get("d"),
                       "projSrc": pe.get("src"), "coach": coach.get(full), "projBox": pbox.get(full), "rating": rating.get(full),
-                      "level": round(S.mean(mates), 2) if mates else 0.0, "minutes": round(mins, 1),
+                      "level": round(S.mean(mates), 2) if mates else 0.0, "minutes": round(mins, 1), "state": st.get(full),
                       "players": [p["id"] for p in sorted(ps, key=lambda p: -p["line"]["mpg"])]})
     # ── overall map: projected OVR ~ pillars + height (player level, minutes-weighted). The dynasty recomputes
     # OVR from pillars with this, and the defense map below reads talent through it. ──
@@ -249,7 +251,7 @@ def main():
     for t in teams: lv_conf[t["conf"]].append(t["level"])
     tempo_mu = round(S.mean([t["tempo"] for t in teams if t.get("tempo")]), 2)
     shells = [{"name": full, "conf": c, "rating": rating.get(full), "tempo": (pace.get(full) or {}).get("t") or tempo_mu,
-               "level": round(S.mean(lv_conf[c]), 2) if lv_conf.get(c) else 0.0, "coach": coach.get(full)}
+               "level": round(S.mean(lv_conf[c]), 2) if lv_conf.get(c) else 0.0, "coach": coach.get(full), "state": st.get(full)}
               for full, c in sorted(members.items()) if full not in keep]
     print(f"shells (D-I, no roster): {len(shells)} — " + ", ".join(x["name"] for x in shells))
 

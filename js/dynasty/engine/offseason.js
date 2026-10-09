@@ -5,14 +5,15 @@
 //
 // Calibrated to the snapshot: freshmen enter at a median OVR ~59 (top 1% ~77); players gain ~+5 Fr->So,
 // ~+3 So->Jr, ~+1.5 after; teams lose ~3.4 upperclassmen a year; rosters carry 13 scholarships.
-import { overall, attributes } from './ratings.js?v=29';
-import { makeRng, hashSeed } from './rng.js?v=29';
-import { record_, power, touch } from './season.js?v=29';
-import { ncaaResult } from './postseason.js?v=29';
-import { effOvr } from './league.js?v=29';
-import { evaluateCoaches } from './coaching.js?v=29';
-import { healAll } from './injuries.js?v=29';
-import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina } from './program.js?v=29';
+import { overall, attributes } from './ratings.js?v=36';
+import { makeRng, hashSeed } from './rng.js?v=36';
+import { record_, power, touch } from './season.js?v=36';
+import { ncaaResult } from './postseason.js?v=36';
+import { effOvr } from './league.js?v=36';
+import { evaluateCoaches } from './coaching.js?v=36';
+import { healAll } from './injuries.js?v=36';
+import { profile, userOdds, pickSchool, notePro, factors, utility, relationship, aiSign } from './recruit.js?v=36';
+import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina } from './program.js?v=36';
 
 export const SCHOLARSHIPS = 13;
 const PIL = ['SCO', 'SHT', 'FIN', 'PLY', 'SEC', 'REB', 'DEF'];
@@ -94,13 +95,27 @@ function markDepartures(state) {
     if (p.yr >= 5 || (p.yr === 4 && rng.chance(0.75))) { L[p.id] = 'graduated'; continue; }
     // early entry: the best players go pro (a top-1% sophomore+ almost always, a top freshman sometimes)
     const pro = proP(rankOf[p.id]);
-    if (pro && rng.chance(p.yr === 1 ? pro * 0.8 : pro)) { L[p.id] = 'pro'; continue; }
+    if (pro && rng.chance(p.yr === 1 ? pro * 0.8 : pro)) { L[p.id] = 'pro'; notePro(state, p.team); continue; }   // the program's draft pipeline
     // portal: buried players with game transfer most; everyone has a small base rate
     const buried = roles[p.id] >= 8 && o >= 62, starved = roles[p.id] >= 6 && o >= 70;
     // the NIL collective buys off part of the temptation (a well-funded program keeps its players)
     const pp = (0.07 + (buried ? 0.35 : 0) + (starved ? 0.2 : 0) + (p.yr === 4 ? 0.25 : 0)) * (1 - nilRetention(state, state.teams[p.team]));
     if (rng.chance(pp)) L[p.id] = 'portal';
   }
+}
+
+// ── NIL retention: one of YOUR players headed for the portal names his price to stay ──
+export function retainAsk(state, p) {
+  const o = eff(state, p);
+  return Math.round(Math.max(10, 6 * Math.exp((o - 60) / 7.5)) / 5) * 5;    // ~70 -> 25k, 78 -> 70k, 84 -> 160k, 90 -> 330k
+}
+export function retain(state, id) {
+  const L = state.off && state.off.leaving, p = state.players[id];
+  if (!L || L[id] !== 'portal' || !p || p.team !== state.user) return 'He is not entering the portal.';
+  const P = state.teams[state.user].prog, ask = retainAsk(state, p);
+  if (!P || P.nil.fund < ask) return `Your collective can't cover his $${ask}k ask.`;
+  P.nil.fund -= ask; delete L[id]; (state.off.kept = state.off.kept || []).push({ id, name: p.name, nil: ask });
+  return null;
 }
 
 // ── 2. departures take effect; portal opens ──
@@ -135,15 +150,19 @@ export function resolvePortal(state) {
   const PORTAL_CAP = 3, took = {};
   for (const id of state.off.portal) {
     const p = state.players[id]; if (!p) continue;
+    p.stars = p.stars || Math.max(1, Math.min(5, Math.round((eff(state, p) - 50) / 7))); p.scout = Math.round(eff(state, p)); profile(state, p);
     const cands = Object.keys(state.teams).filter(t => t !== p.from && openSpots(state, t) > 0 && (t === U || (took[t] || 0) < PORTAL_CAP));
     let best = null, bestS = -1e9;
     for (const t of cands) {
       if (t === U && !O[id]) continue;                       // the user only gets players he offered
-      const s = appeal(state, t, p) + rng.normal(0, 1.4) + (t === U ? 0.6 : 0) + (state.teams[t].conf === state.teams[p.from]?.conf ? -0.3 : 0);
+      const f = factors(state, t, p, 0, 30);
+      const nilU = t === U && O[id] && O[id].nil ? 1.2 * Math.min(1.3, O[id].nil / Math.max(5, p.ask)) : 0;   // the user's NIL offer
+      const s = appeal(state, t, p) + 0.8 * f.prox + rng.normal(0, 1.4) + (t === U ? 0.6 + nilU : 0) + (state.teams[t].conf === state.teams[p.from]?.conf ? -0.3 : 0);
       if (s > bestS) { bestS = s; best = t; }
     }
     if (best && (eff(state, p) >= 58 || best === U)) {
       p.team = best; state.teams[best].players.push(id); took[best] = (took[best] || 0) + 1;
+      if (best === U && O[id] && O[id].nil && state.teams[U].prog) state.teams[U].prog.nil.fund = Math.max(0, state.teams[U].prog.nil.fund - O[id].nil);   // the deal is paid
       if (best === U || O[id]) out.push({ id, name: p.name, to: best, from: p.from, ovr: Math.round(eff(state, p)) });
     } else delete state.players[id];                        // nobody took him: out of D-I
   }
@@ -228,17 +247,17 @@ function recruitAppeal(state, rank) {
   const pres = Object.values(state.teams).map(t => t.prestige).sort((a, b) => b - a);
   return pres[Math.min(pres.length - 1, Math.floor((rank - 1) / 4))];
 }
+// the user's odds: his 7-factor view of your program vs the best rival (recruit.js) + visits + difficulty
 export function landOdds(state, r, effort) {
-  const p = state.teams[state.user].prestige, need = recruitAppeal(state, r.rank);
-  const x = (p - need) / 9 + (effort - 15) / 12 + (DIFFS[state.diff || 'pro'].recruit || 0) + nilOffer(state, state.teams[state.user]) + (r.vb || 0);   // + what his visits earned
-  return 1 / (1 + Math.exp(-x));
+  r.appeal = recruitAppeal(state, r.rank);
+  return userOdds(state, r, effort, DIFFS[state.diff || 'pro'].recruit || 0);
 }
 
 export function resolveRecruiting(state) {
   const rng = rngFor(state, 'signing'), U = state.user, B = state.off.board || {}, signed = [];
   const pool = state.off.recruits.slice();
   const take = (r, team) => {
-    const p = { id: r.id, name: r.name, team, pos: r.pos, ht: r.ht, yr: 1, pillars: r.pillars, pot: r.pot, stars: r.stars, arc: r.arc || null,
+    const p = { id: r.id, name: r.name, team, pos: r.pos, ht: r.ht, yr: 1, pillars: r.pillars, pot: r.pot, stars: r.stars, arc: r.arc || null, home: r.home || null, w: r.w || null, ask: r.ask,
       sta: r.sta, lvl: state.lvlRef || 0, mpg: 0, injured: false, fresh: true };
     state.players[p.id] = p; state.teams[team].players.push(p.id);
     pool.splice(pool.indexOf(r), 1);
@@ -247,20 +266,31 @@ export function resolveRecruiting(state) {
   for (const r of pool.filter(r => B[r.id] > 0).sort((a, b) => a.rank - b.rank)) {
     if (!openSpots(state, U)) break;
     const won = rng.chance(landOdds(state, r, B[r.id]));
-    signed.push({ id: r.id, name: r.name, stars: r.stars, rank: r.rank, won });
-    if (won) take(r, U);
+    signed.push({ id: r.id, name: r.name, stars: r.stars, rank: r.rank, won, nil: won ? (r.offer || 0) : 0 });
+    if (won) { take(r, U); if (r.offer && state.teams[U].prog) state.teams[U].prog.nil.fund = Math.max(0, state.teams[U].prog.nil.fund - r.offer); }
   }
-  // everyone else: rounds by prestige (with noise); each team takes one of the best few left, until full
-  for (let round = 0; round < 30; round++) {
-    // prestige + noise, minus a crowded depth chart (recruits want minutes: every returning 72+ player costs 2.5)
-    const crowd = t => state.teams[t].players.reduce((n, id) => n + (state.players[id] && !state.players[id].fresh && eff(state, state.players[id]) >= 72 ? 1 : 0), 0);
-    const order = Object.keys(state.teams).filter(t => t !== U && openSpots(state, t) > 0)
-      .map(t => [t, state.teams[t].prestige + rng.normal(0, 11) - 2.5 * crowd(t)]).sort((a, b) => b[1] - a[1]).map(x => x[0]);
-    if (!order.length) break;
-    for (const t of order) {
-      if (!pool.length) break;
-      take(pool[Math.min(pool.length - 1, rng.int(3))], t);
-    }
+  state._aiSpend = {}; const elite = {};                    // this class's NIL promises + 4-5 star signings, per program
+  // everyone else: in rank order, each recruit picks the program (with a spot) he likes most — proximity,
+  // playing time, relationships, draft path, winning, brand, NIL (recruit.js). Candidates: programs at or above his
+  // level (prestige within 25 of where his ranking points) plus a random handful, so a hometown school can win him.
+  const pres = Object.values(state.teams).map(t => t.prestige).sort((a, b) => b - a);
+  const names = Object.keys(state.teams).filter(t => t !== U);
+  // in ROUNDS, like a real signing period: each program lands at most one recruit per round (a round ends when every
+  // program with a spot has signed one), and within a round the recruits choose — pure rank order let the best
+  // programs fill every spot before anyone else signed, and the freshman-quality gap doubled
+  let round = new Set();
+  for (const r of pool.slice()) {
+    let open = names.filter(t => openSpots(state, t) > 0);
+    if (!open.length) break;
+    if (open.every(t => round.has(t))) round = new Set();
+    open = open.filter(t => !round.has(t));
+    const need = pres[Math.min(pres.length - 1, Math.floor((r.rank - 1) / 4))] - 40;
+    // a program signs at most 3 four/five-star recruits a class (real blue bloods land a handful, not every one)
+    const cands = open.filter(t => (state.teams[t].prestige >= need || rng.chance(0.06)) && !(r.stars >= 4 && (elite[t] || 0) >= 3));
+    const t = pickSchool(state, r, cands.length ? cands : open, rng) || open[0];
+    aiSign(state, t, r); if (r.stars >= 4) elite[t] = (elite[t] || 0) + 1; round.add(t);
+    take(r, t);
+    if (state._rc && state._rc.roster[t]) { const g = /C|PF/.test(r.pos || '') ? 'B' : /SF|F/.test(r.pos || '') ? 'W' : 'G'; state._rc.roster[t][g].push(r.scout || 60); state._rc.roster[t][g].sort((a, b) => b - a); }
   }
   // the user's leftover spots go to walk-ons (the best unsigned) — a roster always reaches 13
   while (U && openSpots(state, U) && pool.length) take(pool[0], U);

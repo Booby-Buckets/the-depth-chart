@@ -7,7 +7,7 @@
 //     4-team bracket's day 2 (winner vs winner) and an event's day 3 (pool) stay in state.pending and become
 //     real games on the morning they are played, from the actual day-1 / day-2 results.
 // Pure: works on the state object; no DOM, no Supabase.
-import { overall } from './ratings.js?v=29';
+import { overall } from './ratings.js?v=36';
 
 const EXT_RATING = -26;                         // a typical non-D-I opponent vs an average D-I team
 const MPG13 = [33, 31, 29, 27, 24, 19, 14, 10, 7, 4, 2, 1, 0];
@@ -52,7 +52,7 @@ export function fillLeague(state, snap, sched, extras, rng) {
   // 1. D-I shells
   for (const sh of snap.shells || []) {
     if (teams[sh.name]) continue;
-    const t = teams[sh.name] = Object.assign(blankTeam(sh.name, sh.conf, sh.tempo || tempoMu, sh.level || 0), { shell: true });
+    const t = teams[sh.name] = Object.assign(blankTeam(sh.name, sh.conf, sh.tempo || tempoMu, sh.level || 0), { shell: true, state: sh.state || null });
     const rating = sh.rating != null ? sh.rating : -12;
     for (const p of genRoster(state, t, rating, 13, rng, templates, names, maps)) { players[p.id] = p; t.players.push(p.id); }
   }
