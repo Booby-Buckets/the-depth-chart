@@ -7,11 +7,14 @@ box for the tell-tale signs of a practice-style game (0-100 per side, then the g
 
   Format         10%  team minutes ~200 (a full 40-minute game). Running clocks / 4x10s / extra
                       periods move this off 200 (school box scores almost always total 200, so it rarely moves).
-  Rotation       30%  how concentrated the minutes were: a real game's top 5 play ~70% of them and
-                      ~9-10 players get 5+ min. Even minutes / 13-man rotations = experimenting.
-  Availability   25%  did OUR projected rotation play (share of its projected minutes on the floor)
-                      and did the projected starters start?
-  Competitiveness 20% garbage time: a 30-point game is mostly bench run-outs.
+  Rotation       30%  how concentrated the minutes were vs a REAL game with the same margin: the top 5 play
+                      ~73% in a close game but only ~58% in a 40-point one (Nov 2025 D-I box scores: <10 pts
+                      .727, 10-19 .707, 20-29 .654, 30-39 .623, 40+ .575; ~9 players get 5+ min, ~11 in a
+                      40-point game). Even minutes / 13-man rotations in a close game = experimenting.
+  Availability   25%  did OUR projected rotation play: every 1% of its projected minutes missing costs 2
+                      points (a 17-mpg guard sitting ~ -17), times did the projected starters start.
+  Competitiveness 20% a blowout BEYOND what a real game between these two would give: within 10 points of
+                      our line's margin is full marks (a #1 beating a #115 by 40 is a normal game).
   Plausibility   15%  pace (5%) inside the normal 60-80 possessions, and a result within reason of our line.
 
 A score-only game (no box) gets competitiveness + plausibility only and is capped at 40.
@@ -35,7 +38,9 @@ SB = "https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1"
 KEY = re.search(r"sb_publishable_[A-Za-z0-9_-]+", (ROOT / "player.html").read_text()).group(0)
 H = {"apikey": KEY, "Authorization": "Bearer " + KEY}
 SCRIM_GAME = 1.0          # a perfectly game-like scrimmage counts as one real game
-HCA, SIGMA = 3.0, 11.0
+HCA, SIGMA = 3.0, 13.0      # preseason lines are less sure than in-season ones (~11)
+# real-game top-5 minute share by final margin (Nov 2025 D-I box scores), linearly interpolated
+TOP5 = [(5, .727), (15, .707), (25, .654), (35, .623), (45, .575)]
 
 
 def get(path):
@@ -65,6 +70,20 @@ def roster_name(name, roster):
     return c[0] if len(c) == 1 else None
 
 
+def top5_target(m):
+    m = abs(m)
+    if m <= TOP5[0][0]: return TOP5[0][1]
+    for (a, x), (b, y) in zip(TOP5, TOP5[1:]):
+        if m <= b: return x + (y - x) * (m - a) / (b - a)
+    return TOP5[-1][1]
+
+
+def competitive(m, pred):
+    """1 unless the margin runs well past what a real game between these teams would give"""
+    exp = abs(pred) if pred is not None else 0
+    return clip(1 - max(0, abs(m) - max(12, exp + 10)) / 25)
+
+
 def label(s):
     return "Game-like" if s >= 75 else "Mostly real" if s >= 55 else "Experimental" if s >= 35 else "Practice-like"
 
@@ -88,7 +107,7 @@ def main():
             out.append((p["name"], float(m)))
         return out
 
-    def side(box, full, margin):
+    def side(box, full, margin, pred):
         if (box or {}).get("partial"): return None   # a recap with a few lines + totals: score-only for the meter
         ps = [p for p in (box or {}).get("players") or [] if (p.get("min") or 0) > 0]
         if not ps: return None
@@ -97,8 +116,10 @@ def main():
         mins = sorted((p["min"] for p in ps), reverse=True)
         top5 = sum(mins[:5]) / tm if tm else 0
         n5 = sum(1 for m in mins if m >= 5)
-        rot = math.exp(-((top5 - 0.70) / 0.10) ** 2 / 2) * clip(1 - max(0, n5 - 11) * 0.12)
-        pj = proj_roster(full); rot7 = sorted(pj, key=lambda x: -x[1])[:7]; st5 = {nk(n) for n, _ in rot7[:5]}
+        rot = math.exp(-((top5 - top5_target(margin)) / 0.10) ** 2 / 2) * clip(1 - max(0, n5 - (12 if abs(margin) >= 30 else 11)) * 0.12)
+        pj = proj_roster(full); srt = sorted(pj, key=lambda x: -x[1]); st5 = {nk(n) for n, _ in srt[:5]}
+        # the projected rotation: everyone projected for 8+ minutes (at least 7 players)
+        rot7 = [x for x in srt if x[1] >= 8] if sum(1 for x in srt if x[1] >= 8) >= 7 else srt[:7]
         played = {nk(p["name"]) for p in ps}
         last = {nk(p["name"].split()[-1]) for p in ps}
         here = lambda n: nk(n) in played or nk(n.split()[-1]) in last
@@ -107,14 +128,14 @@ def main():
             present = sum(m for n, m in rot7 if here(n)) / sum(m for _, m in rot7)
             gs = [nk(p["name"]) for p in ps if p.get("gs")]
             overlap = sum(1 for n in gs if n in st5) / 5 if gs else present
-            avail = 0.7 * present + 0.3 * overlap
+            avail = clip(1 - 2 * (1 - present)) * (0.7 + 0.3 * overlap)
         poss = sum((p.get("fga") or 0) - (p.get("oreb") or 0) + (p.get("tov") or 0) + 0.44 * (p.get("fta") or 0) for p in ps)
         pace = poss * 200 / tm if tm else None
         pace_s = 1.0 if pace is None or 60 <= pace <= 80 else clip(1 - (min(abs(pace - 60), abs(pace - 80))) / 15)
-        comp = clip(1 - max(0, abs(margin) - 12) / 28)
+        comp = competitive(margin, pred)
         parts = {"format": fmt, "rotation": rot, "availability": avail if avail is not None else 0.6, "competitive": comp, "pace": pace_s}
         return parts, {"min": tm, "top5": round(top5, 3), "n5": n5, "pace": round(pace, 1) if pace else None,
-                       "missing": [n for n, m in rot7 if m >= 10 and not here(n)],
+                       "missing": [n for n, m in rot7 if not here(n)],
                        # everyone on our roster who sat: a DNP in a game-like scrimmage is (light) role evidence
                        "dnp": [n for n, m in pj if not here(n)] if len(ps) >= 8 else []}
 
@@ -131,9 +152,9 @@ def main():
         out = {"pred": round(pred, 1) if pred is not None else None}
         scores = []
         for s, full, m in (("home", g["home"], margin), ("away", g["away"], -margin)):
-            got = side(box.get(s), full, m)
+            got = side(box.get(s), full, m, pred)
             if not got:
-                comp = clip(1 - max(0, abs(m) - 12) / 28)
+                comp = competitive(m, pred)
                 sc = round(min(40, 100 * (0.5 * comp + 0.5 * plaus)))
                 out[s] = {"score": sc, "label": label(sc), "boxless": True}
                 scores.append(sc); continue
