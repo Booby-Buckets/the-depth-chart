@@ -1084,7 +1084,7 @@ body{background:transparent!important;}
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
   <link rel="stylesheet" href="tdc-nil-view.css?v=1"/>
   <link rel="stylesheet" href="tdc-column.css?v=4"/>
-  <link rel="stylesheet" href="tdc-player-a.css?v=8"/>
+  <link rel="stylesheet" href="tdc-player-a.css?v=9"/>
 </head>
 <body data-anim-auto>
 <script src="tdc-nav.js?v=65"></script>
@@ -3444,14 +3444,16 @@ function _skillSrcFor(val){
 function renderSkill(val){ var h=document.getElementById('skillHost'); if(!h) return; var x=_skillSrcFor(val); h.innerHTML=buildSkillBreakdown(x.src,x.projected,x.label); }
 function _setHeroGrade(g){ var hg=document.getElementById('heroGrade'); if(hg && g!=null && g!=='') hg.textContent=g;
   // expose the canonical displayed grade (statistical overall) so the scouting card etc. match the hero
-  window._tdcHeroGrade=(g!=null && g!=='' && g!=='—' && !isNaN(parseFloat(g)))?parseFloat(g):null; }
+  window._tdcHeroGrade=(g!=null && g!=='' && g!=='—' && !isNaN(parseFloat(g)))?parseFloat(g):null; _paShade(); }
 // Re-render the scouting card once the canonical grade + data are ready (it's first built during
 // the initial render, before player._projGrade is stamped, so it can show a stale grade).
 function _renderScoutCard(){ var host=document.getElementById('prospectCardHost');
   if(!host || typeof buildProspectCard!=='function' || !window._ovcScout) return;
   try{ host.innerHTML=buildProspectCard(player,(typeof proj!=='undefined'?proj:null),window._ovcScout); }catch(e){} }
 function setOvrSeason(val){
-  var host=document.getElementById('ovrCards'); if(!host) return;
+  window._paSel=val; try{ var _ph=document.querySelector('.pa-hero'); if(_ph) _ph.classList.toggle('pc-past', !!val && val!=='proj'); }catch(e){}
+  try{ var _pj=document.getElementById('paProj'); if(_pj) _pj.innerHTML=_paProjHTML(); }catch(e){}
+  var host=document.getElementById('ovrCards'); if(!host){ _paShade(); return; }
   renderSkill(val);
   try{ var _xi=_skillSrcFor(val); renderImpact(_xi.src,_xi.projected); }catch(e){}
   if(val==='proj'){ host.innerHTML=buildOverviewCards(player, proj); _updateHeroSeason(player.team, player.gp); }
@@ -3459,6 +3461,7 @@ function setOvrSeason(val){
   _updateHeroGridForSeason(val);   // grade + WA + ranks + all-time all follow the season
   try{ renderOvcExtras(val); }catch(e){}
   try{ renderSkillSheet(val); }catch(e){}
+  _paShade();
 }
 // ===== boxed overview card: season options + the new insight boxes =====
 function _ovcSeasonOpts(){
@@ -4277,26 +4280,38 @@ function _paFrom(){
   return (window.tdcShortSchool?tdcShortSchool(last.team):last.team);
 }
 function _paSeasonLbl(y){ y=+y; return (y-1)+'-'+(''+y).slice(2); }
+// stat line (design C1): follows the header season picker (window._paSel: 'proj' | year) and shows each
+// stat's change vs the season before it; the projection compares with his last real season
 function _paProjHTML(){
-  var f=function(v,d){ v=parseFloat(v); return isFinite(v)?v.toFixed(d==null?1:d):'—'; };
-  var last=_paLastRow();
+  var f=function(v){ v=parseFloat(v); return isFinite(v)?v.toFixed(1):'—'; };
+  var pct=function(v){ v=parseFloat(v); if(!isFinite(v)) return null; if(v<=1) v*=100; return v; };
+  var seasons=_ovrSeasons(), sel=window._paSel;
   var useProj=(typeof proj!=='undefined' && proj && !proj._injured && !proj._dnp && parseFloat(proj.ppg)>0);
-  var src=useProj?proj:last;
-  if(!src) return '<div class="pa-proj-h"><span>No stat line yet</span></div>';
-  var pr=(useProj && player && player.espn_id!=null && window.TDCProjGrade && TDCProjGrade.projRowOf)?TDCProjGrade.projRowOf(player.espn_id):null;
-  var adv=player&&player._advanced;
-  var usgNow=useProj?(pr&&pr.usg):(adv&&adv.usg_pct);
-  var cmp=useProj && last;
-  var big=[['PPG','ppg'],['RPG','rpg'],['APG','apg'],['MPG','mpg']].map(function(x){
-    return '<div class="pa-big"><div class="pa-k">'+x[0]+'</div><div class="pa-bv">'+f(src[x[1]])+'</div>'+
-      (cmp?'<div class="pa-was">last yr '+f(last[x[1]])+'</div>':'')+'</div>'; }).join('');
-  var pct=function(v){ v=parseFloat(v); if(!isFinite(v)) return '—'; if(v<=1) v*=100; return v.toFixed(1); };
-  var small=[['FG%',pct(src.fg_pct)],['3P%',pct(src.tp_pct!=null?src.tp_pct:src.three_pct)],['FT%',pct(src.ft_pct)],(usgNow!=null&&isFinite(+usgNow))?['Usage',(+usgNow).toFixed(1)+'%']:((!useProj&&src.gp!=null&&src.gp!=='')?['GP',src.gp]:null)].filter(Boolean)
-    .map(function(x){ return '<div class="pa-sm"><div class="pa-k">'+x[0]+'</div><div class="pa-sv">'+x[1]+'</div></div>'; }).join('');
-  var head=useProj?'2026-27 projection':(_paSeasonLbl(last.season_year)+' season');
-  var sub=cmp?('vs '+_paSeasonLbl(last.season_year)+(last.team?' at '+(window.tdcShortSchool?tdcShortSchool(last.team):last.team):'')):'';
-  return '<div class="pa-proj-h"><span>'+head+'</span>'+(sub?'<span class="pa-sub">'+sub+'</span>':'')+'</div>'+
-    '<div class="pa-bigs">'+big+'</div><div class="pa-rule"></div><div class="pa-smalls">'+small+'</div>';
+  var src, prev, isProj=false;
+  if(sel && sel!=='proj'){ var i=seasons.findIndex(function(x){ return String(x.season_year)===String(sel); });
+    src=i>=0?seasons[i]:null; prev=i>=0?seasons[i+1]:null; }
+  if(!src){ if(useProj){ src=proj; prev=seasons[0]; isProj=true; } else { src=seasons[0]; prev=seasons[1]; } }
+  if(!src) return '<div class="pc-none">No stat line yet</div>';
+  var pr=(isProj && player && player.espn_id!=null && window.TDCProjGrade && TDCProjGrade.projRowOf)?TDCProjGrade.projRowOf(player.espn_id):null;
+  var usgOf=function(r,proje){ if(!r) return null; if(proje) return pr&&pr.usg!=null?+pr.usg:null;
+    var a=r._advanced||(r===seasons[0]&&player&&player._advanced)||null; var u=a&&a.usg_pct; u=parseFloat(u); return isFinite(u)?(u<=1?u*100:u):null; };
+  var cells=[['PPG','ppg'],['RPG','rpg'],['APG','apg'],['MPG','mpg']].map(function(x){ return [x[0], parseFloat(src[x[1]]), prev?parseFloat(prev[x[1]]):NaN]; });
+  [['FG%','fg_pct'],['3P%','tp_pct','three_pct'],['FT%','ft_pct']].forEach(function(x){
+    var g=function(r){ if(!r) return null; var v=r[x[1]]; if((v==null||v==='')&&x[2]) v=r[x[2]]; return pct(v); };
+    cells.push([x[0], g(src), g(prev)]); });
+  var u=usgOf(src,isProj); if(u!=null) cells.push(['USG', u, usgOf(prev,false)]);
+  else if(!isProj && src.gp!=null && src.gp!=='') cells.push(['GP', +src.gp, NaN, 0]);
+  var vs=prev?('vs '+_paSeasonLbl(prev.season_year)+(prev.team?' · '+(window.tdcShortSchool?tdcShortSchool(prev.team):prev.team):'')):'';
+  return cells.map(function(c){
+    var v=c[1], w=c[2], d=(v!=null&&w!=null&&isFinite(v)&&isFinite(w))?v-w:null;
+    var em=(d==null)?(isProj&&!prev?'<em class="pc-fl">proj</em>':''):
+      '<em class="'+(Math.abs(d)<0.05?'pc-fl':d>0?'pc-up':'pc-dn')+'" title="'+vs+'">'+(d>0?'+':d<0?'−':'±')+Math.abs(d).toFixed(1)+'</em>';
+    return '<div class="pa-big"><div class="pa-k">'+c[0]+'</div><div class="pa-bv">'+(v==null||!isFinite(v)?'—':(c[3]===0?v:v.toFixed(1)))+'</div>'+em+'</div>';
+  }).join('');
+}
+function _paShade(){
+  var o=document.getElementById('paOvr'), g=parseFloat((document.getElementById('heroGrade')||{}).textContent);
+  if(!o) return; o.className='pa-ovr'+(isNaN(g)?'':(' pc-c'+(g>=85?4:g>=80?3:g>=75?2:g>=70?1:0)));
 }
 function _paRanksHTML(){ return '<div class="pa-rk" id="paRankPlayer"></div><div class="pa-rk" id="paRankLast"></div><div class="pa-rk" id="paRankTeam"></div>'; }
 function _paFillRanks(){
@@ -4304,16 +4319,16 @@ function _paFillRanks(){
   var set=function(id,html){ var el=document.getElementById(id); if(el) el.innerHTML=html; };
   var g=parseFloat(typeof _projectedGrade==='function'?_projectedGrade():NaN);
   var go=function(){
-    var pj=document.getElementById('paProj'); if(pj) pj.innerHTML=_paProjHTML();
+    var pj=document.getElementById('paProj'); if(pj) pj.innerHTML=_paProjHTML(); _paShade();
     try{
       var maps=TDCProjGrade.statMaps(), vals=[], k;
       for(k in maps.proj){ var v=+maps.proj[k]; if(isFinite(v)) vals.push(v); }
       var inPool=(p.espn_id!=null && maps.proj[String(p.espn_id)]!=null);
       if(inPool && isFinite(g) && vals.length){ var above=vals.filter(function(v){return v>g;}).length;
-        set('paRankPlayer','<b>#'+(above+1).toLocaleString()+'</b> of '+vals.length.toLocaleString()+' projected players'); }
+        set('paRankPlayer','<b>#'+(above+1).toLocaleString()+'</b>national <span class="pc-of">of '+vals.length.toLocaleString()+'</span>'); }
       var e=p.espn_id!=null?String(p.espn_id):null, last=_paLastRow();
       if(e && maps.demo[e]!=null && last && +last.season_year===2026)
-        set('paRankLast','<b>'+maps.demo[e]+'</b> last season'+(last.team?' at '+(window.tdcShortSchool?tdcShortSchool(last.team):last.team):''));
+        set('paRankLast','<b>'+maps.demo[e]+'</b>last season'+(last.team&&_paFrom()?' at '+(window.tdcShortSchool?tdcShortSchool(last.team):last.team):''));
     }catch(err){}
   };
   if(window.TDCProjGrade && TDCProjGrade.ready) TDCProjGrade.ready.then(go); 
@@ -4321,7 +4336,7 @@ function _paFillRanks(){
   if(onRoster && window.TDC_RATINGS && TDC_RATINGS.get) TDC_RATINGS.get().then(function(D){
     if(!D||!D.teams) return; var nm=(p.team||'').toLowerCase();
     var r=D.teams.find(function(t){ return (t.team||'').toLowerCase()===nm || (t.full||'').toLowerCase()===nm; });
-    if(r&&r.rank) set('paRankTeam','<b>#'+r.rank+'</b> '+(p.team||'')+' team rank');
+    if(r&&r.rank) set('paRankTeam','<b>#'+r.rank+'</b>'+(window.tdcShortSchool?tdcShortSchool(p.team||''):(p.team||''))+' team rank');
   }).catch(function(){});
 }
 function renderPage(){
@@ -4358,45 +4373,45 @@ function renderPage(){
     if(a&&a.ti40!=null&&a.ti40!==''&&typeof _winsAdded==='function'){var w=_winsAdded(a);return (w>0?'+':'')+w.toFixed(1);}
     return '—';})();
   document.getElementById('heroSection').innerHTML=`
-    <div class="pa-hero" style="--tc:${color};">
-     <div class="pa-stripe"></div>
-     <div class="pa-top">
-      <div class="pa-id">
-       <div class="pa-shot${_headshot?' has-photo':''}">${_headshot
-          ? `<img class="pa-photo" src="${_headshot}" alt="${p.name||''}" onerror="this.remove()">`
-          : (_teamLogo?`<img class="pa-biglogo" src="${_teamLogo}" alt="" aria-hidden="true" onerror="this.remove()">`:`<span class="pa-init">${(p.name||'?')[0].toUpperCase()}</span>`)}
-         ${_teamLogo&&_headshot?`<span class="pa-crest"><img class="hero-crest" src="${_teamLogo}" alt="${p.team||''} logo" onerror="this.remove()"></span>`:''}
-       </div>
+    <div class="pa-hero pc1" style="--tc:${color};">
+     ${_teamLogo?`<img class="hero-wm pc-wm" src="${_teamLogo}" alt="" aria-hidden="true" onerror="this.remove()">`:''}
+     <div class="pc-grid">
+      <div class="pc-id">
+       ${_headshot?`<div class="pc-shot"><img class="pa-photo" src="${_headshot}" alt="${p.name||''}" onerror="this.parentNode.remove()"></div>`:''}
        <div class="pa-info">
         <div class="pa-eyebrow">
+          ${_teamLogo?`<img class="hero-crest pc-crest" src="${_teamLogo}" alt="${p.team||''} logo" onerror="this.remove()">`:''}
           <a class="hero-team" id="heroTeam" href="team.html?team=${encodeURIComponent(p.team||'')}">${p.team||'—'}${_confChip(teamData?.conf||'', p.team||'', null)}</a>
-          ${_paFrom()?`<span class="pa-sep">/</span><span class="pa-from">from ${_paFrom()}</span>`:''}
+          ${_paFrom()?`<span class="pa-sep">·</span><span class="pa-from">from ${_paFrom()}</span>`:''}
           ${(function(){ var ys=(careerHistory||[]).map(function(x){return +x.season_year||0;}); var ly=ys.length?Math.max.apply(null,ys):null;
               var onRoster=(p.depth_order!=null||p.is_addition!=null||p.starter!=null);
-              return (onRoster&&ly===2025)?'<span class="pa-sep">/</span><span class="pa-from" title="No 2025-26 season on file: sat out, redshirted or did not play">Sat out 2025-26</span>':''; })()}
+              return (onRoster&&ly===2025)?'<span class="pa-sep">·</span><span class="pa-from" title="No 2025-26 season on file: sat out, redshirted or did not play">Sat out 2025-26</span>':''; })()}
         </div>
         <h1 class="pa-name">${p.name}</h1>
-        <div class="pa-meta">
-          <span class="pa-pos">${p.position2 ? `${p.position||'—'} / ${p.position2}` : (p.position||'—')}</span>
-          ${yr?`<span>${yr}</span>`:''}
-          ${p.height?`<span>${p.height}${p.weight?` · ${p.weight} lb`:''}</span>`:''}
-          <span id="heroArchPill" style="display:none;cursor:help"><span id="heroArch"></span></span>
-          ${geoHome?`<span class="pa-home">${geoHome}</span>`:''}
-          ${p.is_injured?`<span class="pa-inj">Injured</span>`:''}
+        <div class="pc-bio">
+          <div><b>Pos</b><span class="pa-pos">${p.position2 ? `${p.position||'—'} / ${p.position2}` : (p.position||'—')}</span></div>
+          ${yr?`<div><b>Class</b>${yr}</div>`:''}
+          ${p.height?`<div><b>${p.weight?'Ht / Wt':'Height'}</b>${p.height}${p.weight?` · ${p.weight}`:''}</div>`:''}
+          <div id="heroArchPill" style="display:none;cursor:help"><b>Role</b><span id="heroArch"></span></div>
+          ${geoHome?`<div><b>Hometown</b>${geoHome}</div>`:''}
+          ${p.is_injured?`<div class="pa-inj"><b>Status</b>Injured</div>`:''}
         </div>
         ${((proj&&proj._origin) || (window.TDCFresh&&TDCFresh.isOwner()&&TDCFresh.isFreshman(p)) || (window.TDCInjury&&TDCInjury.isOwner()))?`<div class="hero-tags">
-          ${proj&&proj._origin?`<a class="hero-tag" href="transfer-fit.html?espn=${p.espn_id||''}&name=${encodeURIComponent(p.name)}" title="See the full transfer-fit report">Transfer · Fit Report ↗</a>`:''}
+          ${proj&&proj._origin?`<a class="hero-tag" href="transfer-fit.html?espn=${p.espn_id||''}&name=${encodeURIComponent(p.name)}" title="See the full transfer-fit report">Transfer · Fit report ↗</a>`:''}
           ${(window.TDCFresh&&TDCFresh.isOwner()&&TDCFresh.isFreshman(p))?`<button class="hero-tag edit" onclick="_openFreshEditor()">⚙ ${TDCFresh.profileFor(p)?'Edit':'Project'} playstyle${TDCFresh.profileFor(p)?' · custom':''}</button>`:''}
           ${(window.TDCInjury&&TDCInjury.isOwner())?(function(){var r=TDCInjury.get(p);return '<button class="hero-tag edit'+(r?' inj-on':'')+'" onclick="_openInjuryEditor()">⚕ '+(r?TDCInjury.statusLabel(r):'Add injury')+'</button>';})():''}
         </div>`:''}
-        <div class="pa-ovr-row">
-          <div class="pa-ovr"><div class="pa-ovr-v" id="heroGrade">${_hGrade}</div><div class="pa-ovr-l">Overall</div></div>
-          <div class="pa-ranks" id="paRanks">${_paRanksHTML()}</div>
-        </div>
        </div>
       </div>
-      <div class="pa-proj" id="paProj">${_paProjHTML()}</div>
+      <div class="pc-side">
+        <div class="pc-season" id="tdcSeasonSlot"></div>
+        <div class="pa-ovr-row pc-seal">
+          <div class="pa-ovr" id="paOvr"><div class="pa-ovr-v" id="heroGrade">${_hGrade}</div><div class="pa-ovr-l">Overall</div></div>
+          <div class="pa-ranks" id="paRanks">${_paRanksHTML()}</div>
+        </div>
+      </div>
      </div>
+     <div class="pa-proj pc-line" id="paProj">${_paProjHTML()}</div>
      <!-- legacy summary cells: still written by the season/rank updaters, not shown -->
      <div class="pa-legacy" aria-hidden="true">
        <div class="hg"><div id="heroWA">${_hWA}</div><div class="hg-l"></div></div>
@@ -4445,7 +4460,6 @@ function renderPage(){
 
     <!-- OVERVIEW TAB (boxed player card) -->
     <div class="tab-panel active" id="panel-overview">
-      <div class="ovc-seasonbar" id="tdcSeasonSlot"></div>
       <div class="ovc-accent"></div>
       <div class="pa-row3">
         <div class="ovc-box ovc-read"><div class="ovc-sl">The read <span class="sub">vs everyone</span></div><div id="ovcRead"></div></div>
@@ -7770,7 +7784,7 @@ init();
   <script src="tdc-tour.js?v=22"></script>
 <script src="tdc-sheets.js?v=2"></script>
 <script src="tdc-liveplayer.js?v=3"></script>
-<script src="tdc-mplayer.js?v=9"></script>
+<script src="tdc-mplayer.js?v=10"></script>
 <script src="tdc-trends.js?v=4"></script>
 </body>
 </html>

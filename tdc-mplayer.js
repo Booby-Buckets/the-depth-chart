@@ -28,29 +28,36 @@
     'body.mp .mp-hero{display:flex;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border);margin:0 0 14px}',
     'body.mp .tdc-explain{bottom:calc(62px + env(safe-area-inset-bottom))!important}body.mp #tdc-ver{display:none!important}',
     '.mp-id{flex:1;min-width:0}',
-    /* header: team-colour rule + logo, name, bio, then one sheet row of the numbers that matter */
-    'body.mp .mp-hero{display:block;padding:0;border-bottom:0;margin:0 0 16px}',
-    '.mp-rule{height:5px;background:var(--tc-band,var(--accent))}',
-    '.mp-top{display:flex;gap:12px;align-items:center;padding:14px 14px 10px}',
-    '.mp-team{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--tc-readable,var(--text2));text-decoration:none}',
-    '.mp-bio{font-size:13px;color:var(--text2);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    '.mp-selrow{padding:0 14px 10px}.mp-selrow .mp-sel{width:100%;padding:8px 10px;font-size:14px}',
-    '.mp-line{margin:0 14px;border:1px solid var(--border2);border-radius:8px;overflow:hidden;display:grid;grid-template-columns:1.25fr 1fr 1fr 1fr 1fr}',
-    '.mp-line div{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 2px 8px;border-left:1px solid var(--border2);min-width:0}',
-    '.mp-line div:first-child{border-left:0}',
-    '.mp-line span{font-size:10.5px;font-weight:800;letter-spacing:.07em;color:var(--text3);text-transform:uppercase}',
-    '.mp-line b{font-size:21px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text);line-height:1.15}',
-    '.mp-line small{font-size:10.5px;color:var(--text3);white-space:nowrap}',
-    '.mp-line .mp-o b{font-size:30px}',
-    '.mp-logo{flex:0 0 52px;height:52px;border-radius:12px;background:#fff;border:1px solid var(--border2);display:flex;align-items:center;justify-content:center}',
-    '.mp-logo img{width:40px;height:40px;object-fit:contain}',
-    '.mp-eye{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    '.mp-eye a{color:inherit;text-decoration:none}',
-    '.mp-name{margin:2px 0 0;font-family:"Playfair Display",Georgia,serif;font-size:28px;font-weight:800;line-height:1.05;color:var(--text)}',
+    /* header, design C1 "profile split": faint crest watermark, logo eyebrow, name + shaded OVR seal,
+       labelled bio, a 3-cell rank row, the season picker, then a 4-stat line with +/- vs the season before */
+    'body.mp .mp-hero{display:block;position:relative;overflow:hidden;padding:16px 14px 0;border-bottom:1px solid var(--border);margin:0 0 16px;background:var(--card,var(--bg))}',
+    '.mp-wm{position:absolute;right:-34px;top:-34px;width:180px;height:180px;object-fit:contain;opacity:.07;pointer-events:none}',
+    ':root[data-theme="dark"] .mp-wm{opacity:.06}',
+    '.mp-eye{position:relative;display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.mp-eye img{width:17px;height:17px;object-fit:contain;flex:none}',
+    '.mp-eye a{color:var(--tc-readable,var(--text2));text-decoration:none}',
+    '.mp-t2{position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-top:6px}',
+    '.mp-id{flex:1;min-width:0}',
+    '.mp-name{margin:0 0 8px;font-family:"Playfair Display",Georgia,serif;font-size:30px;font-weight:800;line-height:1;letter-spacing:-.02em;color:var(--text)}',
+    '.mp-bio{display:flex;flex-wrap:wrap;gap:4px 14px}',
+    '.mp-bio div{font-size:12.5px;font-weight:600;color:var(--text)}',
+    '.mp-bio b{display:block;font-size:8.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)}',
+    '.mp-ovr{flex:none;min-width:72px;border:1px solid var(--border2);border-radius:9px;padding:6px 10px;text-align:center;background-color:var(--card,var(--bg))}',
+    '.mp-ovr b{display:block;font-size:32px;font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums;color:var(--text)}',
+    '.mp-ovr span{font-size:8.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)}',
+    '.mp-rk{position:relative;display:flex;border:1px solid var(--border2);border-radius:8px;overflow:hidden;margin-top:12px;background:var(--card,var(--bg))}',
+    '.mp-rk:empty{display:none}',
+    '.mp-rk div{flex:1;text-align:center;padding:6px 4px;border-left:1px solid var(--border2);font-size:11px;color:var(--text2);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.mp-rk div:first-child{border-left:0}',
+    '.mp-rk b{display:block;font-size:15px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums}',
+    '.mp-selrow{position:relative;margin-top:10px}.mp-selrow .mp-sel{width:100%;padding:8px 10px;font-size:14px}',
     '.mp-sel{font:700 13px Inter,system-ui,sans-serif;color:var(--text);background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:5px 8px;max-width:100%}',
-    '.mp-ovr{flex:0 0 76px;border:1px solid var(--border2);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;align-self:stretch}',
-    '.mp-ovr span{font-size:11px;font-weight:800;letter-spacing:.07em;color:var(--text3);background:var(--bg2);border-bottom:1px solid var(--border2);text-align:center;padding:5px 0}',
-    '.mp-ovr b{flex:1;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text);min-height:56px}',
+    '.mp-line{position:relative;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:12px -14px 0;border-top:1px solid var(--border);background:var(--bg2)}',
+    '.mp-line div{padding:8px 10px 9px;border-left:1px solid var(--border);min-width:0;white-space:nowrap}',
+    '.mp-line div:first-child{border-left:0}',
+    '.mp-line span{display:block;font-size:8.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)}',
+    '.mp-line b{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text)}',
+    '.mp-line em{font-style:normal;font-size:10.5px;font-weight:700;margin-left:3px}',
     '.mp-c0{background-image:linear-gradient(hsla(0,70%,48%,.34),hsla(0,70%,48%,.34))}',
     '.mp-c1{background-image:linear-gradient(hsla(30,70%,48%,.15),hsla(30,70%,48%,.15))}',
     '.mp-c2{background-image:linear-gradient(hsla(95,70%,48%,.15),hsla(95,70%,48%,.15))}',
@@ -185,20 +192,21 @@
     var p = (typeof player !== 'undefined') ? player : null; if (!p) return;
     var td = (typeof teamData !== 'undefined') ? teamData : null;
     var fromEl = hs.querySelector('.pa-from');
-    var team = esc(p.team || '—') + (td && td.conf ? ' · ' + esc(td.conf) : '');
-    var bio = [];
-    if (p.position) bio.push(esc(p.position2 ? p.position + '/' + p.position2 : p.position));
-    var yr = p.yr || p.class_year; if (yr) bio.push(esc(yr));
-    if (p.height) bio.push(esc(p.height));
-    if (fromEl) bio.push(esc(fromEl.textContent.trim()));
     var tc = (window.tdcTeamColor && window.tdcTeamColor(p.team)) || {};
     var href = 'team.html?team=' + encodeURIComponent(p.team || '');
+    var eye = '<a href="' + href + '">' + esc(p.team || '—') + '</a>' + (td && td.conf ? ' · ' + esc(td.conf) : '') +
+      (fromEl ? ' · <span class="mp-from">' + esc(fromEl.textContent.trim()) + '</span>' : '');
+    var bio = [];
+    if (p.position) bio.push(['Pos', p.position2 ? p.position + '/' + p.position2 : p.position]);
+    var yr = p.yr || p.class_year; if (yr) bio.push(['Class', yr]);
+    if (p.height) bio.push(['Ht', p.height]);
     var hero = el('div', 'mp-hero',
-      '<div class="mp-rule"></div><div class="mp-top">' +
-      (tc.logo ? '<a class="mp-logo" href="' + href + '"><img src="' + tc.logo + '" alt="" onerror="this.parentNode.remove()"></a>' : '') +
-      '<div class="mp-id"><a class="mp-team" href="' + href + '">' + team + '</a>' +
-      '<h1 class="mp-name">' + esc(p.name) + '</h1><div class="mp-bio">' + bio.join(' · ') + '</div></div></div>' +
-      '<div class="mp-selrow mp-selhost"></div><div class="mp-line" id="mpLine"></div>');
+      (tc.logo ? '<img class="mp-wm" src="' + tc.logo + '" alt="" aria-hidden="true" onerror="this.remove()">' : '') +
+      '<div class="mp-eye">' + (tc.logo ? '<img src="' + tc.logo + '" alt="" onerror="this.remove()">' : '') + '<span>' + eye + '</span></div>' +
+      '<div class="mp-t2"><div class="mp-id"><h1 class="mp-name">' + esc(p.name) + '</h1><div class="mp-bio">' +
+      bio.map(function (x) { return '<div><b>' + x[0] + '</b>' + esc(x[1]) + '</div>'; }).join('') + '</div></div>' +
+      '<div class="mp-ovr" id="mpOvr"><b>—</b><span>OVR</span></div></div>' +
+      '<div class="mp-rk" id="mpRk"></div><div class="mp-selrow mp-selhost"></div><div class="mp-line" id="mpLine"></div>');
     hs.insertBefore(hero, hs.firstChild);
     var upd = debounce(renderLine, 80);
     watch(document.getElementById('heroGrade'), upd);
@@ -207,18 +215,32 @@
     renderLine();
     mirrorSeason();
   }
-  // OVR · rank · the line for the selected season, read from the desktop hero the page keeps updating
+  // OVR seal, ranks and the line for the selected season, read from the desktop hero the page keeps updating
   function renderLine() {
     var host = document.getElementById('mpLine'); if (!host) return;
-    var g = txt('#heroGrade') || '—';
-    var rank = txt('#paRankPlayer b'), of = (txt('#paRankPlayer').match(/of ([\d,]+)/) || [])[1];
-    var cells = ['<div class="mp-o ' + ovrBucket(g) + '"><span>OVR</span><b>' + esc(g) + '</b></div>'];
-    cells.push('<div><span>Rank</span><b>' + esc(rank || '—') + '</b>' + (of ? '<small>of ' + esc(of) + '</small>' : '') + '</div>');
-    var bigs = {}; document.querySelectorAll('#paProj .pa-big').forEach(function (b) {
-      var k = (b.querySelector('.pa-k') || {}).textContent, v = (b.querySelector('.pa-bv') || {}).textContent;
-      if (k) bigs[k.trim().toUpperCase()] = (v || '').trim();
+    var g = txt('#heroGrade') || '—', o = document.getElementById('mpOvr');
+    if (o) { o.className = 'mp-ovr ' + ovrBucket(g); o.firstChild.textContent = g; }
+    var past = !!document.querySelector('.pa-hero.pc-past');
+    var rk = document.getElementById('mpRk');
+    if (rk) {
+      var r = [];
+      if (!past) {
+        var a = txt('#paRankPlayer b'), l = txt('#paRankLast b'), t = txt('#paRankTeam b');
+        if (a) r.push('<div><b>' + esc(a) + '</b>national</div>');
+        if (l) r.push('<div><b>' + esc(l) + '</b>last season</div>');
+        if (t) r.push('<div><b>' + esc(t) + '</b>team rank</div>');
+      }
+      var rh = r.join(''); if (rk.__h !== rh) { rk.__h = rh; rk.innerHTML = rh; }
+    }
+    var fr = document.querySelector('.mp-hero .mp-from'); if (fr) fr.style.display = past ? 'none' : '';
+    var cells = [];
+    document.querySelectorAll('#paProj .pa-big').forEach(function (b) {
+      var k = ((b.querySelector('.pa-k') || {}).textContent || '').trim().toUpperCase();
+      if (['PPG', 'RPG', 'APG', '3P%'].indexOf(k) < 0) return;
+      var v = ((b.querySelector('.pa-bv') || {}).textContent || '—').trim(), em = b.querySelector('em');
+      var d = em ? '<em class="' + em.className + '">' + esc(em.textContent.replace(/^([+−-])0\./, '$1.')) + '</em>' : '';
+      cells.push('<div><span>' + esc(k) + '</span><b>' + esc(v) + '</b>' + d + '</div>');
     });
-    ['PPG', 'RPG', 'APG'].forEach(function (k) { cells.push('<div><span>' + k + '</span><b>' + esc(bigs[k] || '—') + '</b></div>'); });
     var h = cells.join('');
     if (host.__h !== h) { host.__h = h; host.innerHTML = h; }
   }
