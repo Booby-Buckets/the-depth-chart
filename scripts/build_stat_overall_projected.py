@@ -619,6 +619,36 @@ try:
     print(f"scrimmages: {len(SCRIM)} player lines weighted by the Reality Meter",file=sys.stderr)
 except Exception as _e:
     print(f"warn: no scrimmage weights ({_e})",file=sys.stderr)
+# ROLE evidence (rotation): each game-like scrimmage is a look at the coach's real rotation. A player's
+# projected minutes are pulled toward his reality-weighted scrimmage minutes with weight RW/(RW+SCRIM_ROT_PRIOR)
+# (RW = sum of reality/100 over his team's scrimmages), capped at SCRIM_ROT_CAP; the team is re-balanced to 200
+# afterwards. A DNP in a game-like scrimmage counts as 0 minutes at half weight, only for players projected
+# under 20 mpg (a projected starter sitting is rest/injury far more often than a demotion).
+SCRIM_ROT_CAP=float(os.environ.get("SCRIM_ROT_CAP","0.30")); SCRIM_ROT_PRIOR=float(os.environ.get("SCRIM_ROT_PRIOR","5"))
+SCRIM_ROLE={}; SCRIM_DNP={}
+try:
+    for _r in json.load(open(os.path.join(D,"scrimmage_results_2027.json")))["results"].values():
+        _rl=_r.get("reality") or {}
+        for _sd in ("home","away"):
+            _bx=(_r.get("box") or {}).get(_sd) or {}; _rs=(_rl.get(_sd) or {})
+            if _bx.get("partial") or _rs.get("boxless") or not _rs.get("score"): continue
+            _rw=_rs["score"]/100.0
+            for _q in _bx.get("players") or []:
+                if _q.get("min") is None: continue
+                _a=SCRIM_ROLE.setdefault((_bx.get("team"),_snk(_q.get("name"))),[0.0,0.0]); _a[0]+=_rw; _a[1]+=_rw*float(_q["min"])
+            for _nm in _rs.get("dnp") or []:
+                _a=SCRIM_DNP.setdefault((_bx.get("team"),_snk(_nm)),[0.0]); _a[0]+=0.5*_rw
+except Exception as _e:
+    print(f"warn: no scrimmage role evidence ({_e})",file=sys.stderr)
+def scrim_minutes(full,name,cur):
+    """projected minutes after the scrimmage rotation nudge"""
+    if SCRIM_ROT_CAP<=0: return cur
+    k=(full,_snk(name)); a=SCRIM_ROLE.get(k); dn=SCRIM_DNP.get(k)
+    rw=(a[0] if a else 0.0)+((dn[0] if dn and cur<20 else 0.0)); rm=(a[1] if a else 0.0)
+    if rw<=0: return cur
+    w=min(SCRIM_ROT_CAP, rw/(rw+SCRIM_ROT_PRIOR))
+    return max(0.1, min(MPG_MAX, (1-w)*cur + w*(rm/rw)))
+
 def scrim_blend(full,name,prior_games):
     """(weight, per-40 getter) for this player's scrimmage evidence, or (0, None)"""
     a=SCRIM.get((full,_snk(name)))
@@ -1486,6 +1516,10 @@ for short, roster in roster_by_team.items():
         _fixed=[k=="f" and (short,x.strip().lower()) in FIXED_MIN for k,x in _rot]
         _m0=[(out[str(x["e"])]["mpg"] if k=="r" else FRESH_FIT[short][x]["mpg"]) or 0.0 for k,x in _rot]
         _cur=list(_m0)
+        # scrimmage rotation evidence (Reality-weighted) nudges minutes BEFORE the team is balanced to 200
+        for i,(k,x) in enumerate(_rot):
+            if _fixed[i]: continue
+            _cur[i]=scrim_minutes(full, x["p"].name if k=="r" else x, _cur[i])
         # each player's real ceiling: a transfer is re-capped at max(his slot, last year + MPG_XFER_BUMP) when he
         # is re-projected, so minutes handed past it were silently lost (N. Illinois ended at 190.9)
         def _capOf(k,x):
@@ -1700,10 +1734,14 @@ for _sh,_fm in FRESH_FIT.items():
         if _sv is None: continue
         _f["ppg"]=round(((1-_sw)*_n(_f.get("ppg"),0)/_mp*40.0+_sw*_sv)*_mp/40.0,1); _f["scrim_w"]=round(_sw,3); _nsb+=1
 print(f"scrimmages: blended {_nsb} newcomer lines",file=sys.stderr)
-json.dump(FRESH_FIT,open(os.path.join(D,"fresh_fit.json"),"w"),separators=(",",":"))
+# SOP_OUT_DIR: write somewhere else (the workflow's no-scrimmage BASE run, SCRIM_CAP=0 SCRIM_ROT_CAP=0, which
+# build_scrim_trends.py diffs against to show exactly what the scrimmages moved)
+OUT_DIR=os.environ.get("SOP_OUT_DIR") or D
+os.makedirs(OUT_DIR,exist_ok=True)
+json.dump(FRESH_FIT,open(os.path.join(OUT_DIR,"fresh_fit.json"),"w"),separators=(",",":"))
 POS5_OUT={k:v["pos5"] for k,v in TEAM_FIT_LOG.items() if isinstance(v,dict) and v.get("pos5")}
 json.dump({"season":"2026-27","scale":{"mu":MU,"sp":SP},"n":len(out),"players":out,"teams":teams_out,"pos5":POS5_OUT},
-          open(os.path.join(D,"stat_overall_projected.json"),"w"),separators=(",",":"),allow_nan=False)
+          open(os.path.join(OUT_DIR,"stat_overall_projected.json"),"w"),separators=(",",":"),allow_nan=False)
 if os.environ.get("FIT_DEBUG"):
     for _t in os.environ["FIT_DEBUG"].split(","): print("FITDBG",_t,TEAM_FIT_LOG.get(_t),file=sys.stderr)
 if TEAM_FIT_LOG:

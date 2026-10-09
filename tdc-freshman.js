@@ -229,9 +229,15 @@
   var _blob=null, _loaded=false, _loading=null, _fit=null;
   // per-team fitted {mpg, ppg} for no-box players, from the projection build (small file)
   function loadFit(){ if(_fit) return Promise.resolve(_fit);
-    return fetch('scripts/data/fresh_fit.json?v=30').then(function(r){ return r.ok?r.json():{}; }).then(function(j){ _fit=j||{}; return _fit; }).catch(function(){ _fit={}; return _fit; }); }
-  function profileFor(p){ var k=frKey(p); if(_blob&&typeof _blob==='object') return _blob[k]||null;
+    return fetch('scripts/data/fresh_fit.json?v=31').then(function(r){ return r.ok?r.json():{}; }).then(function(j){ _fit=j||{}; return _fit; }).catch(function(){ _fit={}; return _fit; }); }
+  function rawProfileFor(p){ var k=frKey(p); if(_blob&&typeof _blob==='object') return _blob[k]||null;
     try{ var s=localStorage.getItem(k); return s?JSON.parse(s):null; }catch(e){ return null; } }
+  // the saved profile + his preseason-scrimmage trend (fresh_fit scrim_ovr, build_scrim_trends.py: Reality-
+  // weighted, capped ±4): the editor OVR is the prior, the scrimmages are evidence on top. Every page reads
+  // this; the EDITOR edits rawProfileFor so a save never bakes the scrimmage adjustment in.
+  function profileFor(p){ var r=rawProfileFor(p); if(!r||r.ovr==null||r.ovr==='') return r;
+    var f=_fit&&p&&_fit[p.team]&&_fit[p.team][p.name], a=(f&&isFinite(+f.scrim_ovr))?+f.scrim_ovr:0;
+    return a?Object.assign({},r,{ovr:Math.min(99,Math.round(+r.ovr+a)),ovr_base:r.ovr,scrim_ovr:a}):r; }
   function pushBlob(){ var s=session(); if(!isOwner()||!s||!s.access_token||!s.user||!s.user.id) return Promise.resolve({ok:false});
     return fetch(SB+'/rest/v1/profiles?id=eq.'+s.user.id,{method:'PATCH',headers:{apikey:KEY,Authorization:'Bearer '+s.access_token,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({freshman_projections:_blob||{}})})
       .then(function(r){ if(r.ok) return {ok:true,status:r.status};
@@ -345,7 +351,7 @@
     opts=opts||{}; if(typeof opts==='function') opts={onSaved:opts};
     _p=p; _onSaved=opts.onSaved||null; _transform=opts.transform||null;
     var g=Math.round(parseFloat(p.tdc_grade)||75);
-    _d=profileFor(p)||{ archetype:archetypeOf(p), role:(g>=90?'star':g>=82?'starter':g>=74?'rotation':'bench'), sliders:{} };
+    _d=rawProfileFor(p)||{ archetype:archetypeOf(p), role:(g>=90?'star':g>=82?'starter':g>=74?'rotation':'bench'), sliders:{} };
     _d.sliders=migrateSliders(_d.sliders||{}); FR_SLIDERS.forEach(function(kv){ if(_d.sliders[kv[0]]==null) _d.sliders[kv[0]]=50; });
     if(_d.ovr==null) _d.ovr=g;
     render();
@@ -386,7 +392,7 @@
   function setKey(k,v){ _blob=_blob||{}; if(v==null){ delete _blob[k]; } else { _blob[k]=v; } return pushBlob(); }
 
   window.TDCFresh={
-    isOwner:isOwner, isFreshman:isFreshman, load:load, profileFor:profileFor, line:line, archetypeOf:archetypeOf, openEditor:openEditor, estBPM:estBPM, ratingOverrides:ratingOverrides,
+    isOwner:isOwner, isFreshman:isFreshman, load:load, profileFor:profileFor, rawProfileFor:rawProfileFor, line:line, archetypeOf:archetypeOf, openEditor:openEditor, estBPM:estBPM, ratingOverrides:ratingOverrides,
     getKey:getKey, setKey:setKey, fitFor:function(p){ return (_fit&&p&&_fit[p.team]&&_fit[p.team][p.name])||null; },
     _set:function(k,v){ if(k==='archetype')_d.archetype=v; else if(k==='role')_d.role=v;
       else if(k==='usg'){ _d.usg=(v==null||v==='')?null:+v;

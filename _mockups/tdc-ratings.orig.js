@@ -117,25 +117,16 @@
   // (~+3.7 vs decent visitors, larger vs weak ones) + a shrunk per-venue
   // offset (r.hcaOff). HOME_ADV is only the no-data fallback.
   const HOME_ADV=3.7, SIGMA=11;
-  // Gap → points. Re-backtested Oct 2026 (91k D-I v D-I games, 2010-26, last season's SRS as the
-  // preseason rating): the best slope is ~0.95-1.0, and our ratings now track last season's SRS at
-  // slope 0.96 (was 0.85 when this was 1.15) — so a rating point is worth one point of margin.
-  // The old 1.15 plus the home-court scale bug (below) priced Duke-Army at -55.
-  const GAP_STRETCH=1.0;
-  // Blowout tail: past ~30 points real margins stop growing as fast (walk-ons, running clock).
-  // Backtest: predicted 35-40 → actual 33.8, 45-50 → 39.2. Soft knee at TAIL_K, slope TAIL_S beyond.
-  const TAIL_K=30, TAIL_S=0.5;
-  function tame(m){ const a=Math.abs(m); return a<=TAIL_K?m:Math.sign(m)*(TAIL_K+TAIL_S*(a-TAIL_K)); }
-  let _hcaCurve=null;                      // {base:[[opp,edge],...], capMin, centered, d1Mean}
-  // The curve's x-axis is opponent strength CENTERED on the D-I average (calibrate_hca.py), i.e. our
-  // rating scale. A legacy (raw-SRS) curve cached in an old published blob is read with the pooled
-  // D-I offset until the fresh curve loads; raw SRS values go through baseHcaSrs().
-  const LEGACY_D1=9.74;
+  // Preseason gaps are compressed: the projection tracks last season's SRS at ~0.85 of its
+  // scale (r=0.97), and scripts/backtest_lines.py shows last season's SRS predicts next
+  // season's margins at slope 0.98 (65k games, 2012-26) — no shrinkage needed — so a gap on
+  // our scale is worth ~1.15× in points. Applied to LINES only; rankings keep the raw rating.
+  const GAP_STRETCH=1.15;
+  let _hcaCurve=null;                      // {base:[[srs,edge],...], capMin}
   function baseHca(oppRating){
     if(!_hcaCurve||!_hcaCurve.base||!_hcaCurve.base.length) return HOME_ADV;
     const pts=_hcaCurve.base;
-    const o=_hcaCurve.centered?oppRating:oppRating+LEGACY_D1;
-    const x=Math.max(_hcaCurve.capMin!=null?_hcaCurve.capMin:-10, Math.min(pts[pts.length-1][0], o));
+    const x=Math.max(_hcaCurve.capMin!=null?_hcaCurve.capMin:-10, Math.min(pts[pts.length-1][0], oppRating));
     if(x<=pts[0][0]) return pts[0][1];
     for(let i=1;i<pts.length;i++){
       if(x<=pts[i][0]){
@@ -144,14 +135,7 @@
       }
     }
     return pts[pts.length-1][1];
-  }  // raw SRS (team_seasons.srs, D-I average ≈ +12) → the same edge
-  function baseHcaSrs(srs){ const d=(_hcaCurve&&_hcaCurve.d1Mean!=null)?_hcaCurve.d1Mean:LEGACY_D1; return baseHca(srs-d); }
-  let _hcaP=null;
-  function loadHca(){ if(_hcaP) return _hcaP;
-    _hcaP=fetch('scripts/data/team_hca.json?v=c1').then(r=>r.ok?r.json():null).then(d=>{
-      if(d&&d.base&&d.centered) _hcaCurve={base:d.base,capMin:d.capMin,centered:true,d1Mean:d.d1Mean}; }).catch(()=>{});
-    return _hcaP; }
-
+  }
 
   function phi(x){ const t=1/(1+0.2316419*Math.abs(x)), d=0.3989423*Math.exp(-x*x/2);
     const p=d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));
@@ -230,27 +214,23 @@
   // Owner's freshman projection overrides {byEspn/byNameTeam: {bpm, min}}, applied
   // during a rebuild() so a freshman's PROJECTED STATS (not his OVR) move the
   // canonical projected rankings — same stat-derived currency as returners.
-  let _ovr=null, _CTX=null;
+  let _ovr=null;
   // owner-entered injuries (tdc-injury.js, public-readable blob): "out" = off the season
   function _injOut(p){ try{ return !!(g.TDCInjury && g.TDCInjury.isOut(p)); }catch(e){ return false; } }
   async function compute(){
     if(g.TDCFresh && g.TDCFresh.load){ try{ await g.TDCFresh.load(); }catch(e){} }
-    const [teams, players, bb, ts, hcaData, coachData, sgData, contData, levelData, effData, scrimData]=await Promise.all([
+    const [teams, players, bb, ts, hcaData, coachData, sgData, contData, levelData, effData]=await Promise.all([
       fetch(SB+'/rest/v1/teams?select=name,conf,conference,head_coach,coach&limit=500',{headers:H}).then(r=>r.json()),
       fetchPaged(SB+'/rest/v1/players?name=neq.%E2%80%94&select=name,team,espn_id,yr,class_year,tdc_grade,mpg,ppg,rpg,depth_order,is_injured,hometown&order=id.asc'),
       fetchPaged(SB+'/rest/v1/player_advanced?season_year=eq.2026&espn_id=not.is.null&select=espn_id,team,ts_pct,efg_pct,tp_pct,ft_pct,pts40,reb40,ast40,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,stl_pct,blk_pct,ti40&order=espn_id.asc'),
       fetch(SB+'/rest/v1/team_seasons?season_year=eq.2026&select=team,conference,srs,tier&limit=1000',{headers:H}).then(r=>r.json()),
-      fetch('scripts/data/team_hca.json?v=c1').then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch('scripts/data/team_hca.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('data/coach-careers.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('scripts/data/shot_genome_players.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('data/continuity.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('scripts/data/level_adj.json').then(r=>r.ok?r.json():null).catch(()=>null),
-      fetch('scripts/data/team_eff.json?v=12').then(r=>r.ok?r.json():null).catch(()=>null),
-      fetch('scripts/data/scrim_trends_2027.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch('scripts/data/team_eff.json?v=11').then(r=>r.ok?r.json():null).catch(()=>null),
     ]);
-    // PRESEASON SCRIMMAGES (build_scrim_trends.py): each team's Reality-weighted result vs our line,
-    // shrunk toward 0 (10-game prior) and capped ±2.5 — a game-like blowout loss moves a team a little.
-    const scrimOf=((scrimData&&scrimData.teams)||{});
     // Projected team efficiency (build_projected_dna.py → team_eff.json "2027"), keyed by FULL name:
     // {o,d,net}. Its NET is the box/DNA lens on team strength; blended into the roster rating so the
     // projected box explicitly moves the ranking (they correlate ~0.90; the blend mainly pulls the
@@ -324,21 +304,13 @@
       (byTeam[p.team]=byTeam[p.team]||[]).push(p);
     });
 
-    const rows=[], _scratch=[];
-    // ONE team's rating from ANY roster (players-table rows). The rankings run it over every
-    // rostered program below; GM Mode (moneyball.html) calls it through TDC_RATINGS.rateRoster
-    // on edited rosters so a signing / cut is scored by exactly this engine.
-    //   opts.baseMw: the team's REAL roster minute-weighted BPM. team_eff's projected net is
-    //   precomputed for the real roster only, so an edited roster moves that box/DNA term by the
-    //   same BPM change (else 85% of the rating would ignore the move).
-    //   opts.noProgram: a fantasy roster with no program (no prior / coach / continuity / level).
-    //   opts.minutes: per-player minutes aligned with roster (overrides the projection's minutes).
-    function rateTeam(short, roster, opts){
-      opts=opts||{};
+    const rows=[];
+    Object.keys(byTeam).forEach(short=>{
+      const roster=byTeam[short];
       // new team's own Power Rating (2025-26 SRS) — the level this roster projects INTO.
       // Used both for the program-anchor blend below and the transfer level-of-comp discount.
-      const full=opts.noProgram?'':(matchFull(short, tsRows, confOf[short])||short);
-      const prior=opts.noProgram?undefined:srsOf[full];
+      const full=matchFull(short, tsRows, confOf[short])||short;
+      const prior=srsOf[full];
       const newSrs=isFinite(prior)?prior:0;
       // this team's strength-of-competition haircut on projected BPM (0 for high-major leagues),
       // tapered down for a proven-elite mid-major whose own prior clears the proven line (Gonzaga)
@@ -349,16 +321,12 @@
       // pages use), so the rating weights each player by his projected ROLE, not last
       // season's minutes — a benched transfer stops counting as a starter. Falls back to
       // last-season mpg if the module isn't loaded.
-      let projMin=(opts.minutes&&opts.minutes.length===roster.length)?opts.minutes.slice():null;   // GM Mode: minutes from its own depth chart
-      if(!projMin && window.TDCProjGrade && TDCProjGrade.gradeRoster){
+      let projMin=null;
+      if(window.TDCProjGrade && TDCProjGrade.gradeRoster){
         try{ const gr=TDCProjGrade.gradeRoster(roster); projMin=roster.map((p,i)=>(gr[i]&&isFinite(gr[i].min))?gr[i].min:null); }catch(e){}
       }
       let entries=roster.map((p,i)=>{
-        // no grade yet → the same number the site shows for him (editor OVR, stat overall, or 70 =
-        // a typical newcomer for an ungraded freshman/transfer, owner's call) — and he now keeps the
-        // minutes the build gave him instead of being dropped from the rotation
-        let grade=parseFloat(p.tdc_grade);
-        if(!isFinite(grade)){ let gs=null; try{ gs=(window.TDCProjGrade&&TDCProjGrade.gradeSolo)?TDCProjGrade.gradeSolo(p):null; }catch(e){} grade=(gs!=null&&isFinite(gs))?+gs:70; }
+        const grade=parseFloat(p.tdc_grade)||70;
         const c=cls(p.yr||p.class_year);
         const adv=p.espn_id!=null?advById[p.espn_id]:null;
         // TRANSFER: his 2025-26 team differs from his 2026-27 program, so the team-defense/
@@ -409,7 +377,7 @@
                  :(hasStats?Math.max(4,(parseFloat(p.mpg)||8)*(isTr?0.95:1))
                           :(grade>=92?26:grade>=88?22:grade>=82?15:grade>=78?10:6));
         // a transfer's role at a new school is uncertain — cap his projected minutes bump
-        if(!opts.minutes && isXfer && isFinite(min)){ const lm=parseFloat(p.mpg); if(isFinite(lm)) min=Math.min(min, lm+10); }
+        if(isXfer && isFinite(min)){ const lm=parseFloat(p.mpg); if(isFinite(lm)) min=Math.min(min, lm+10); }
         // Owner's freshman projection: value him by his PROJECTED STATS (a BPM
         // computed from the projected box score) and projected minutes — the same
         // currency as returners — rather than the grade/OVR fallback.
@@ -429,14 +397,13 @@
       let rosterRating=CAL_A+CAL_B*mw;
       // Blend in the projected box/DNA efficiency (team_eff net → SRS) so the projected stats move the
       // ranking. Only when the team has a projected-efficiency row; otherwise the BPM roster stands.
-      const _ef=opts.noProgram?null:_eff2027[full];
-      if(_ef && isFinite(+_ef.net)){ const effTerm=EFF_A+EFF_B*(+_ef.net)+((opts.baseMw!=null&&isFinite(opts.baseMw))?CAL_B*(mw-opts.baseMw):0);
-        rosterRating=(1-EFF_W)*rosterRating + EFF_W*effTerm; }
+      const _ef=_eff2027[full];
+      if(_ef && isFinite(+_ef.net)){ rosterRating=(1-EFF_W)*rosterRating + EFF_W*(EFF_A+EFF_B*(+_ef.net)); }
       rosterRating=+rosterRating.toFixed(2);
       // team shot luck: minutes-weighted eFG-over-quality of the rotation's returners
       const sgEnt=rot.filter(e=>e.hasSg); const sgMin=sgEnt.reduce((s,e)=>s+e.min,0);
       const shotLuck=sgMin?+(sgEnt.reduce((s,e)=>s+e.luckEfg*e.min,0)/sgMin).toFixed(1):null;
-      let cAdj=opts.noProgram?0:(coachAdjOf[short]||0);
+      let cAdj=coachAdjOf[short]||0;
       // taper a POSITIVE coach lift by the program's strength-of-competition (same proven-elite
       // relief as the roster) — a mid-major coach's overachievement doesn't fully translate.
       if(cAdj>0){
@@ -445,7 +412,7 @@
           cd*=Math.max(LEVEL_PROVEN_FLOOR, 1-(prior-LEVEL_PROVEN_HM)/LEVEL_PROVEN_SPAN);
         if(cd>0) cAdj=+(cAdj*(1-cd)).toFixed(2);
       }
-      const cont=(!opts.noProgram&&contData&&contData[short])?contData[short].continuity:null;
+      const cont=(contData&&contData[short])?contData[short].continuity:null;
       const contAdj=cont!=null?+Math.max(-CONT_CAP,Math.min(CONT_CAP,CONT_K*(cont-CONT_BASE))).toFixed(2):0;
       // Scoring-engine scarcity penalty (see constants). Uses the projected rotation regulars.
       let scePen=0;
@@ -466,18 +433,13 @@
         }
       }
       // (strength-of-competition now regresses the roster BPM per-player above, so no flat team tax)
-      const scrimAdj=(!opts.noProgram&&scrimOf[full]&&isFinite(+scrimOf[full].adj))?+scrimOf[full].adj:0;
       const rating=(((prior!=null)?(BLEND_ROSTER*rosterRating+(1-BLEND_ROSTER)*(ANCHOR*prior))
-                                 :rosterRating) + cAdj + contAdj) - scePen + scrimAdj;
-      (opts.scratch?(_scratch.length=0,_scratch):rows).push({team:short, full, conf:confOf[short]||'', rating:+rating.toFixed(2), coachAdj:cAdj,
-        contAdj:contAdj, continuity:cont, scrimAdj:scrimAdj||0,
+                                 :rosterRating) + cAdj + contAdj) - scePen;
+      rows.push({team:short, full, conf:confOf[short]||'', rating:+rating.toFixed(2), coachAdj:cAdj,
+        contAdj:contAdj, continuity:cont,
         roster:+rosterRating.toFixed(2), prior:prior!=null?+prior.toFixed(1):null, projected:true,
-        scePen:scePen||0, levelDisc:+levelDisc.toFixed(3), shotLuck:shotLuck, hcaOff:hcaOf[full]!=null?hcaOf[full]:0,
-        mw:+mw.toFixed(3), entries:opts.detail?roster.map((p,i)=>({name:p.name, min:entries[i].min, projBpm:entries[i].projBpm})):undefined});
-      return opts.scratch?_scratch[0]:rows[rows.length-1];
-    }
-    Object.keys(byTeam).forEach(short=>{ rateTeam(short, byTeam[short]); });
-    _CTX={rateTeam, byTeam, rows};
+        scePen:scePen||0, levelDisc:+levelDisc.toFixed(3), shotLuck:shotLuck, hcaOff:hcaOf[full]!=null?hcaOf[full]:0});
+    });
     // non-rostered D1 teams: regressed carryover of last season's SRS
     const covered=new Set(rows.map(r=>r.full));
     (ts||[]).forEach(t=>{
@@ -500,7 +462,7 @@
     return {season:SEASON, generated:new Date().toISOString(),
       model:{calA:CAL_A,calB:CAL_B,blendRoster:BLEND_ROSTER,anchor:ANCHOR,homeAdv:HOME_ADV,sigma:SIGMA,
         coachW:COACH_W,coachK:COACH_K,coachCap:COACH_CAP,shotK:SHOT_K,shotRegress:SHOT_REGRESS,shotCap:SHOT_CAP,contBase:CONT_BASE,contK:CONT_K,contCap:CONT_CAP,
-        hcaBase:hcaData?{base:hcaData.base,capMin:hcaData.capMin,centered:!!hcaData.centered,d1Mean:hcaData.d1Mean}:null},
+        hcaBase:hcaData?{base:hcaData.base,capMin:hcaData.capMin}:null},
       teams:rows};
   }
 
@@ -526,36 +488,11 @@
     }catch(e){}
   }
 
-  // 2026-27 D-I membership (the same file the schedule sim uses): the published ratings were
-  // built off last season's leagues, so they kept Saint Francis (PA, now D-III → 366 teams) and
-  // the old leagues of realigned schools (Louisiana Tech → Sun Belt, Little Rock → UAC).
-  // Applied to every load, cached or fresh. Drops only when nearly every name matches, so a
-  // naming change can never empty the board.
-  let _membersP=null;
-  function members(){
-    if(!_membersP) _membersP=fetch('scripts/data/conf_members_2027.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null);
-    return _membersP;
-  }
-  function applyMembership(data, m){
-    if(!data||!data.teams||!m||!m.teams||SEASON!==2027) return data;
-    const nk=s=>(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
-    const mem={}; Object.keys(m.teams).forEach(n=>{ mem[nk(n)]=m.teams[n]; });
-    const out=data.teams.filter(r=>nk(r.full) in mem);
-    const keep=(data.teams.length-out.length)<=5?out:data.teams;
-    const full=m.conferences||{};
-    keep.forEach(r=>{ const c=mem[nk(r.full)]; if(c && r.conf!==c && r.conf!==full[c]) r.conf=c; });
-    keep.sort((a,b)=>b.rating-a.rating); keep.forEach((r,i)=>r.rank=i+1);
-    data.teams=keep;
-    return data;
-  }
-
   let _mem=null,_loading=null;
   function get(){
     if(_mem) return Promise.resolve(_mem);
     if(_loading) return _loading;
-    const adopt=data=>{ if(data&&data.model&&data.model.hcaBase) _hcaCurve=data.model.hcaBase; _mem=data;
-      if(!_hcaCurve||!_hcaCurve.centered) loadHca();   // published before the centered curve: fetch it
-      return data; };
+    const adopt=data=>{ if(data&&data.model&&data.model.hcaBase) _hcaCurve=data.model.hcaBase; _mem=data; return data; };
     _loading=(async()=>{
       const db=await readDb();
       if(db) return adopt(db);
@@ -568,8 +505,7 @@
       try{ localStorage.setItem(LS_KEY,JSON.stringify({t:Date.now(),data})); }catch(e){}
       writeDb(data);
       return data;
-    })().then(d=>members().then(m=>applyMembership(d,m)))
-      .then(d=>_hcaP?_hcaP.then(()=>d):d);   // lines need the fresh home-court curve before first use
+    })();
     return _loading;
   }
 
@@ -581,7 +517,6 @@
     _ovr=overrides||null;
     let data;
     try{ data=await compute(); } finally { _ovr=null; }
-    applyMembership(data, await members());
     _mem=data;
     try{ localStorage.setItem(LS_KEY,JSON.stringify({t:Date.now(),data})); }catch(e){}
     await writeDb(data);
@@ -594,7 +529,7 @@
   function lineFor(a,b,venue,totals){
     const hc=venue==='home'?  baseHca(b.rating)+(a.hcaOff||0)
             :venue==='away'?-(baseHca(a.rating)+(b.hcaOff||0)):0;
-    const margin=tame((a.rating-b.rating)*GAP_STRETCH+hc);
+    const margin=(a.rating-b.rating)*GAP_STRETCH+hc;
     const pA=phi(margin/SIGMA);
     const total=(totals&&isFinite(totals))?totals:145.5;   // league-ish default
     const _sn=window.tdcShortSchool||(x=>x);   // trim carry-team mascots when the map is loaded
@@ -603,15 +538,5 @@
       spread:(margin>=0?`${_sn(a.team)} -${margin.toFixed(1)}`:`${_sn(b.team)} -${(-margin).toFixed(1)}`) };
   }
 
-  // GM Mode: load the engine's context once (same fetches as a rebuild, no publish), then rate
-  // edited rosters with rateRoster(short, rows, opts). opts as rateTeam's; scratch is forced on.
-  let _prepP=null;
-  function prepare(){ if(_CTX) return Promise.resolve(_CTX); if(_prepP) return _prepP;
-    _prepP=compute().then(()=>_CTX).catch(e=>{ _prepP=null; throw e; }); return _prepP; }
-  function rateRoster(short, roster, opts){ if(!_CTX) throw new Error('call TDC_RATINGS.prepare() first');
-    return _CTX.rateTeam(short, roster, Object.assign({}, opts||{}, {scratch:true})); }
-  function rosterTeams(){ return _CTX?Object.keys(_CTX.byTeam):[]; }
-  function rosterOf(short){ return _CTX&&_CTX.byTeam[short]?_CTX.byTeam[short].slice():[]; }
-  function winPctVsField(rating, field){ let s=0,n=0; (field||[]).forEach(o=>{ if(o.rating==null) return; s+=phi((rating-o.rating)/SIGMA); n++; }); return n?s/n:0.5; }
-  g.TDC_RATINGS={get, rebuild, lineFor, phi, applyForm, baseHca, baseHcaSrs, tame, SEASON, HOME_ADV, SIGMA, GAP_STRETCH, prepare, rateRoster, rosterOf, rosterTeams, winPctVsField};
+  g.TDC_RATINGS={get, rebuild, lineFor, phi, applyForm, baseHca, SEASON, HOME_ADV, SIGMA, GAP_STRETCH};
 })(window);

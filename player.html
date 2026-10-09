@@ -16,14 +16,14 @@
   <script src="tdc-gate.js?v=4"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-proj.js?v=hg1"></script>
-  <script src="tdc-freshman.js?v=pub26"></script>
+  <script src="tdc-freshman.js?v=pub27"></script>
   <script src="tdc-injury.js?v=5"></script>
-  <script src="tdc-ratings.js?v=31"></script>
+  <script src="tdc-ratings.js?v=32"></script>
   <script src="tdc-histguard.js?v=2"></script>
   <script src="tdc-glossary.js?v=13"></script>
   <script src="tdc-leaderboard.js?v=2"></script>
   <script src="tdc-portalfit.js?v=needs11"></script>
-  <script src="tdc-projgrade.js?v=base51"></script>
+  <script src="tdc-projgrade.js?v=base52"></script>
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-teamname.js?v=1"></script>
   <script src="tdc-owned-seasons.js?v=8"></script>
@@ -4412,6 +4412,7 @@ function renderPage(){
     <div class="tab-row" id="tabRow" onscroll="_tabScrollHint()">
       <button class="tab-btn active" id="tab-overview" onclick="switchTab('overview')">Overview</button>
       <button class="tab-btn" id="tab-stats" onclick="switchTab('stats')">Stats</button>
+      <button class="tab-btn" id="tab-trends" onclick="switchTab('trends')">Trends</button>
       <button class="tab-btn" id="tab-playerdna" onclick="switchTab('playerdna')">Player DNA</button>
       <div class="tab-grp" data-grp="stats">
         <button class="tab-grp-btn" onclick="_grpToggle(this,event)">Shots<span class="tab-grp-car">▾</span></button>
@@ -4585,6 +4586,7 @@ function renderPage(){
     </div>
 
     <!-- BUZZ TAB (headlines + social) -->
+    <div class="tab-panel" id="panel-trends"><div id="trendsContent"></div></div>
     <div class="tab-panel" id="panel-nil"><div id="nilContent"></div></div>
     <div class="tab-panel" id="panel-betting"><div id="bettingContent"></div></div>
     <div class="tab-panel" id="panel-buzz"><div id="buzzContent"></div></div>
@@ -5573,7 +5575,7 @@ function renderRankings(){
     window._statOvr=null;
     Promise.all([
       fetch('scripts/data/stat_overall.json?v=12').then(r=>r.ok?r.json():null).catch(()=>null),
-      fetch('scripts/data/stat_overall_projected.json?v=88').then(r=>r.ok?r.json():null).catch(()=>null)
+      fetch('scripts/data/stat_overall_projected.json?v=89').then(r=>r.ok?r.json():null).catch(()=>null)
     ]).then(([demo,proj])=>{
       window._statOvr=(demo&&demo.players)?demo.players:{};
       window._statOvrProj=(proj&&proj.players)?proj.players:{};
@@ -6952,7 +6954,7 @@ function _tabUrl(id, dflt){ try{ var u=new URL(location.href); if(!id||id===dflt
 function switchTab(t){
   if(t==='rankings') t='percentiles';   // the Rankings tab was removed (Sept 2026); old links land on Percentiles
   _tabUrl(t,'overview');
-  const tabs=['overview','playerdna','stats','shotcharts','shotgenome','shotflow','scheme','dossier','role','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
+  const tabs=['overview','playerdna','stats','trends','shotcharts','shotgenome','shotflow','scheme','dossier','role','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
   const cur=tabs.map(x=>document.getElementById('panel-'+x)).find(el=>el&&el.classList.contains('active'));
   function activate(id){
     tabs.forEach(x=>{
@@ -6981,6 +6983,7 @@ function switchTab(t){
     if(id==='nil' && !window._nilLoaded){ window._nilLoaded=true; setTimeout(renderNilPlayer,40); }
     if(id==='betting' && !window._bettingLoaded){ window._bettingLoaded=true; setTimeout(renderBetting,40); }
     if(id==='buzz' && !window._buzzLoaded){ window._buzzLoaded=true; setTimeout(renderBuzz,40); }
+    if(id==='trends' && !window._trendsLoaded){ window._trendsLoaded=true; setTimeout(function(){ var p=player||{}; if(window.TDCTrends) TDCTrends.render(document.getElementById('trendsContent'),{espn_id:window._playerEspn||p.espn_id,team:p.team,name:p.name}); },40); }
     if(id==='portalfit' && !window._portalLoaded){ window._portalLoaded=true; setTimeout(renderPortalFit,40); }
     if(id==='scout'){
       setTimeout(renderArchetype,60);
@@ -7011,7 +7014,7 @@ var TAB_GATE = {
   scheme:      { tier:'pro', label:'Scheme Lab', blurb:'How this player fits different systems and lineups. Included with Pro — $8.99/mo.' },
   portalfit:   { tier:'pro', label:'Portal Fit', blurb:'Which programs this player best fits, ranked by need, production and coach fit. Included with Pro — $8.99/mo.' }
 };
-var _TABS = ['overview','playerdna','stats','shotcharts','shotgenome','shotflow','scheme','dossier','role','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
+var _TABS = ['overview','playerdna','stats','trends','shotcharts','shotgenome','shotflow','scheme','dossier','role','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
 function _lockPanel(pnl, g){
   if(!pnl || pnl.__locked) return; pnl.__locked = true;
   pnl.innerHTML = '';
@@ -7768,5 +7771,6 @@ init();
 <script src="tdc-sheets.js?v=2"></script>
 <script src="tdc-liveplayer.js?v=3"></script>
 <script src="tdc-mplayer.js?v=9"></script>
+<script src="tdc-trends.js?v=1"></script>
 </body>
 </html>

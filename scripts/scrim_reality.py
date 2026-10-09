@@ -75,6 +75,7 @@ def main():
         return out
 
     def side(box, full, margin):
+        if (box or {}).get("partial"): return None   # a recap with a few lines + totals: score-only for the meter
         ps = [p for p in (box or {}).get("players") or [] if (p.get("min") or 0) > 0]
         if not ps: return None
         tm = sum(p["min"] for p in ps)
@@ -99,14 +100,18 @@ def main():
         comp = clip(1 - max(0, abs(margin) - 12) / 28)
         parts = {"format": fmt, "rotation": rot, "availability": avail if avail is not None else 0.6, "competitive": comp, "pace": pace_s}
         return parts, {"min": tm, "top5": round(top5, 3), "n5": n5, "pace": round(pace, 1) if pace else None,
-                       "missing": [n for n, m in rot7 if m >= 10 and not here(n)]}
+                       "missing": [n for n, m in rot7 if m >= 10 and not here(n)],
+                       # everyone on our roster who sat: a DNP in a game-like scrimmage is (light) role evidence
+                       "dnp": [n for n, m in pj if not here(n)] if len(ps) >= 8 else []}
 
     for gid, r in R["results"].items():
         g = G.get(gid)
         if not g or r.get("hs") is None: continue
         margin = r["hs"] - r["as"]
         th, ta = T.get(g["home"]), T.get(g["away"])
-        pred = (th["rating"] - ta["rating"] + (0 if g.get("neutral") else HCA)) if th and ta else None
+        # the line WITHOUT any scrimmage adjustment already in the ratings (else it would feed on itself)
+        base = lambda t: t["rating"] - (t.get("scrimAdj") or 0)
+        pred = (base(th) - base(ta) + (0 if g.get("neutral") else HCA)) if th and ta else None
         plaus = math.exp(-(((margin - pred) / SIGMA) ** 2) / 2) if pred is not None else 0.6
         box = r.get("box") or {}
         out = {"pred": round(pred, 1) if pred is not None else None}

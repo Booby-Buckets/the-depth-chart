@@ -638,7 +638,7 @@
     // nor the possibly-stale players.tdc_grade. Resolve it here so the team page, Program HQ and
     // Big Board all agree (Tyran Stokes was 89 on the team page but 91 via the recompute).
     if(row.espn_id == null && typeof window !== 'undefined' && window.TDCFresh && TDCFresh.profileFor){
-      try{ var _fp = TDCFresh.profileFor(row); if(_fp && _fp.ovr != null && isFinite(+_fp.ovr)) return Math.min(99, Math.round(+_fp.ovr)); }catch(e){}
+      try{ var _fp = TDCFresh.profileFor(row); if(_fp && _fp.ovr != null && isFinite(+_fp.ovr)) return Math.min(99, Math.round(+_fp.ovr)); }catch(e){}   // includes his scrimmage trend (TDCFresh.profileFor)
     }
     var _gp = (row.gp != null && row.gp !== '') ? +row.gp : ((row.g != null && row.g !== '') ? +row.g : null);
     if(_gp != null && _gp > 0 && _gp < 3) return BASELINE_OVR; // played <3 games → baseline (too small a sample to grade)
@@ -765,10 +765,10 @@
   // after only the stat files had landed showed 95 for a player whose page (bonus loaded) said 96.
   window.TDCProjGrade.ready = Promise.all([
     _loadSO('scripts/data/stat_overall.json?v=12').then(function(m){ if(m) setStatOverall(m, null); }),
-    _loadProjRows('scripts/data/stat_overall_projected.json?v=88').then(function(m){ if(m) setStatOverall(null, m); }),
+    _loadProjRows('scripts/data/stat_overall_projected.json?v=89').then(function(m){ if(m) setStatOverall(null, m); }),
     _archP, _gpsP,
     // projected freshman / newcomer OVRs (build: recruiting rank or scouting prior x projected role)
-    fetch('scripts/data/fresh_fit.json?v=30').then(function(r){ return r.ok ? r.json() : {}; }).then(function(j){
+    fetch('scripts/data/fresh_fit.json?v=31').then(function(r){ return r.ok ? r.json() : {}; }).then(function(j){
       _FRESH = {}; _FRESH_ROW = {}; for(var t in (j||{})){ for(var n in j[t]){ var f = j[t][n]; if(f && f.ovr != null) _FRESH[_fk(t, n)] = f.ovr; if(f) _FRESH_ROW[_fk(t, n)] = f; } } }).catch(function(){})
   ]).then(function(){ return true; }).catch(function(){ return true; });   // history is lazy — see loadHist()
 })();
