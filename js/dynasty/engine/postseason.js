@@ -2,8 +2,12 @@
 // seeds; the Ivy takes four), then the 68-team NCAA tournament: automatic bids for the conference champions,
 // at-large bids by power rating, an S-curve into four regions of 16, First Four play-ins (the four lowest
 // automatic bids for two 16 seeds, the last four at-large teams for two 11 seeds). All neutral floors.
+// Alongside it (Oct 2026): the NIT (32 of the best teams left — regular-season conference champions that lost their
+// tournament get a bid — higher seed hosts through the quarterfinals, then a neutral final four) and the CBI (16
+// mid-majors on a neutral floor). Conference tournaments follow each league's format (CT_FORMAT: who qualifies,
+// early rounds on the higher seed's floor). projectField = in-season bracketology.
 // Pure: brackets live in state.post; their games are appended to state.schedule as they become known.
-import { standings, power } from './season.js?v=42';
+import { standings, power } from './season.js?v=44';
 
 const DAY = 86400000;
 const addDays = (iso, n) => new Date(Date.parse(iso + 'T12:00:00Z') + n * DAY).toISOString().slice(0, 10);
@@ -15,11 +19,15 @@ export function seedOrder(size) {
   return o;
 }
 
-const CONF_CAP = { Ivy: 4 };
+// conference tournament formats: n = teams that qualify (default all), home = rounds on the higher seed's floor
+const CT_FORMAT = { Ivy: { n: 4 }, MAC: { n: 8 }, Summit: { n: 8 }, 'Big West': { n: 8 }, 'Big-East': {}, ACC: { n: 15 }, B10: { n: 15 },
+  Patriot: { home: 3 }, AEC: { home: 3 }, Horizon: { home: 2 }, NEC: { n: 8, home: 3 }, ASUN: { home: 1 }, 'Big South': { home: 0 }, MEAC: {}, SWAC: { n: 8 },
+  'Sun Belt': {}, CAA: {}, 'PAC-12': {}, WCC: {}, MWC: {}, Southland: { n: 8 }, OVC: { n: 8 }, MAAC: { n: 10 }, UAC: { n: 8 } };
+export const ctFormat = conf => CT_FORMAT[conf] || {};
 
 function newGame(state, br, rd, i, h, a, date) {
   const id = `${br.id}-${rd}-${i}`;
-  const g = { id, d: date, h: h.team, a: a.team, n: true, c: false, r: null, t: br.kind, br: br.id };
+  const g = { id, d: date, h: h.team, a: a.team, n: !(br.home && rd <= br.home), c: false, r: null, t: br.kind, br: br.id };
   state.schedule.push(g);
   return id;
 }
@@ -70,11 +78,11 @@ export function startConferenceTournaments(state) {
   const start = addDays(last, 3);
   state.post = { conf: {}, ncaa: null, start };
   for (const [conf, rows] of Object.entries(st)) {
-    const n = Math.min(rows.length, CONF_CAP[conf] || rows.length);
+    const F = ctFormat(conf), n = Math.min(rows.length, F.n || rows.length);
     if (n < 2) continue;
     const teams = rows.slice(0, n).map((r, i) => ({ team: r.team, seed: i + 1 }));
     let size = 1; while (size < n) size *= 2;
-    const br = { id: 'ct-' + conf.replace(/[^A-Za-z0-9]/g, ''), kind: 'ct', conf, size, rounds: [], champ: null, start };
+    const br = { id: 'ct-' + conf.replace(/[^A-Za-z0-9]/g, ''), kind: 'ct', conf, size, rounds: [], champ: null, start, home: F.home || 0, reg: rows[0].team };
     startBracket(state, br, seededField(teams, size), start);
     state.post.conf[conf] = br;
   }
@@ -88,7 +96,7 @@ export function advance(state) {
     while (!br.champ) {
       const rd = br.rounds.length;
       const lastDate = br.rounds[rd - 1].map(s => s && s.game && state.schedule.find(x => x.id === s.game)).filter(Boolean).reduce((m, g) => (g.d > m ? g.d : m), br.start);
-      const date = addDays(lastDate, br.kind === 'ncaa' ? 2 : 1);
+      const date = addDays(lastDate, br.gaps ? br.gaps[rd - 1] || 2 : br.kind === 'ncaa' ? 2 : 1);
       if (!buildRound(state, br, rd, date)) break;
       moved = true;
     }
@@ -108,7 +116,9 @@ export function advance(state) {
       moved = true;
     }
     step(N.main);
-    if (N.main.champ) { N.champ = N.main.champ; state.phase = 'done'; moved = true; }
+    for (const k of ['nit', 'cbi']) if (state.post[k]) step(state.post[k]);
+    if (N.main.champ && !N.champ) { N.champ = N.main.champ; moved = true; }
+    if (N.champ && ['nit', 'cbi'].every(k => !state.post[k] || state.post[k].champ)) { state.phase = 'done'; moved = true; }
   }
   return moved;
 }
@@ -157,7 +167,68 @@ export function selectField(state) {
     }
   });
   state.post.ncaa = { field, firstFour, ffDate, main: null, champ: null, regions: REGION_NAMES, autoBids: [...auto], atLarge };
+  startNIT(state, new Set([...auto, ...atLarge]), pw, ffDate);
   state.phase = 'ncaa';
+}
+
+// conference strength tiers without realign.js's table (first season): mean member level, top 6 = power leagues
+function powerConfs(state) {
+  if (state.confs) return new Set(Object.keys(state.confs).filter(c => state.confs[c].tier === 0 || state.confs[c].rank <= 6));
+  const lv = {}; for (const t of Object.values(state.teams)) (lv[t.conf] = lv[t.conf] || []).push(t.level || 0);
+  return new Set(Object.keys(lv).sort((a, b) => lv[b].reduce((x, y) => x + y, 0) / lv[b].length - lv[a].reduce((x, y) => x + y, 0) / lv[a].length).slice(0, 6));
+}
+const NIT_N = 32, CBI_N = 16;
+function startNIT(state, inNCAA, pw, ffDate) {
+  const order = Object.keys(state.teams).filter(t => !inNCAA.has(t)).sort((a, b) => pw[b] - pw[a]);
+  const rank = Object.fromEntries(Object.keys(pw).sort((a, b) => pw[b] - pw[a]).map((t, i) => [t, i + 1]));
+  // automatic NIT bids: regular-season champions that lost their conference tournament (inside the top 150)
+  const regChamps = Object.values(state.post.conf).map(b => b.reg).filter(t => t && !inNCAA.has(t) && rank[t] <= 150);
+  const nit = [...new Set([...regChamps, ...order])].slice(0, NIT_N).sort((a, b) => pw[b] - pw[a]);
+  const field = (list, size) => seededField(list.map((t, i) => ({ team: t, seed: i + 1 })), size);
+  // NIT: overall seeds 1-32 in four quadrants (shown as 1-8 seeds); higher seed hosts through the quarterfinals
+  state.post.nit = { id: 'nit', kind: 'nit', size: NIT_N, rounds: [], champ: null, start: ffDate, home: 3, gaps: [2, 2, 3, 2] };
+  startBracket(state, state.post.nit, field(nit, NIT_N), ffDate);
+  // CBI: the next 16 from outside the power leagues, all in one neutral spot
+  const P = powerConfs(state), taken = new Set(nit);
+  const cbi = order.filter(t => !taken.has(t) && !P.has(state.teams[t].conf)).slice(0, CBI_N);
+  if (cbi.length === CBI_N) {
+    state.post.cbi = { id: 'cbi', kind: 'cbi', size: CBI_N, rounds: [], champ: null, start: addDays(ffDate, 1), gaps: [1, 1, 2] };
+    startBracket(state, state.post.cbi, field(cbi, CBI_N), addDays(ffDate, 1));
+  }
+}
+
+/** a team's whole postseason in one phrase (NCAA first, then the NIT / CBI), for history and prestige */
+export function postResult(state, team) {
+  const r = ncaaResult(state, team); if (r) return r;
+  for (const [k, L] of [['nit', 'NIT'], ['cbi', 'CBI']]) {
+    const B = state.post && state.post[k]; if (!B || !B.rounds.length) continue;
+    if (!B.rounds[0].some(s => s && s.team === team)) continue;
+    if (B.champ === team) return `${L} Champion`;
+    let best = 0; B.rounds.forEach((rd, i) => { if (i > 0 && rd.some(s => s && ((s.h && s.h.team === team) || (s.a && s.a.team === team) || s.team === team))) best = i; });
+    const left = B.rounds[best] ? B.rounds[best].length : 0;
+    return `${L} ${left === 1 ? 'Runner-up' : left === 2 ? 'Semifinal' : left === 4 ? 'Quarterfinal' : 'appearance'}`;
+  }
+  return null;
+}
+
+/** in-season bracketology: today's leaders as automatic bids, then the same selection as Selection Sunday */
+export function projectField(state) {
+  const pw = power(state), st = standings(state);
+  const auto = new Set(Object.values(st).map(rows => rows.slice().sort((a, b) => (b.cw - b.cl) - (a.cw - a.cl) || pw[b.team] - pw[a.team])[0]).filter(Boolean).map(r => r.team));
+  const atLarge = Object.keys(state.teams).filter(t => !auto.has(t)).sort((a, b) => pw[b] - pw[a]);
+  const inAt = atLarge.slice(0, 68 - auto.size);
+  // exactly like Selection Sunday: the last four at-large teams play in on the 11 line, the four weakest automatic
+  // bids on the 16 line; everyone else by power, four to a line
+  const autoS = [...auto].sort((a, b) => pw[b] - pw[a]), ffAuto = autoS.slice(-4), ffAt = inAt.slice(-4);
+  const direct = [...autoS.slice(0, -4), ...inAt.slice(0, -4)].sort((a, b) => pw[b] - pw[a]);
+  const lines = []; let k = 0;
+  for (let s = 1; s <= 16; s++) {
+    const want = s === 11 || s === 16 ? 2 : 4, T = direct.slice(k, k + want).map(t => ({ team: t, auto: auto.has(t) })); k += want;
+    if (s === 11) ffAt.forEach(t => T.push({ team: t, auto: false, ff: true }));
+    if (s === 16) ffAuto.forEach(t => T.push({ team: t, auto: true, ff: true }));
+    lines.push({ seed: s, teams: T });
+  }
+  return { lines, lastIn: inAt.slice(-4), firstOut: atLarge.slice(68 - auto.size, 68 - auto.size + 4), auto: [...auto] };
 }
 
 // a team's postseason result, for history: 'Champion', 'Final Four', 'Elite Eight', ...

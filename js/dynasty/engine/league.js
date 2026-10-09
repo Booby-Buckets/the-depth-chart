@@ -7,12 +7,12 @@
 //   players: { id: { id, name, team, pos, pos2, ht, yr, pillars, lvl, mpg, pot } },
 //   schedule:[ { id, d, h, a, n, c, r } ],             r = [homePts, awayPts, ot, poss] once played
 //   stats:   { id: season totals },  powerFit, history:[], userBox:{ gameId: box } }
-import { attributes, overall } from './ratings.js?v=42';
-import { makeRng } from './rng.js?v=42';
-import { initCoaches } from './coaching.js?v=42';
-import { fillLeague, buildSchedule } from './fill.js?v=42';
-import { makeClass, classSize } from './offseason.js?v=42';
-import { initProgram, ensureStamina } from './program.js?v=42';
+import { attributes, overall } from './ratings.js?v=44';
+import { makeRng } from './rng.js?v=44';
+import { initCoaches } from './coaching.js?v=44';
+import { fillLeague, buildSchedule } from './fill.js?v=44';
+import { makeClass, classSize } from './offseason.js?v=44';
+import { initProgram, ensureStamina } from './program.js?v=44';
 
 export const YR = { 'FR': 1, 'FR.': 1, 'RS FR.': 1, 'SO': 2, 'SO.': 2, 'RS SO.': 2, 'JR': 3, 'JR.': 3, 'RS JR.': 3, 'SR': 4, 'SR.': 4, 'RS SR.': 4, 'GR': 5, 'GR.': 5, '5TH': 5 };
 export const YR_LABEL = ['', 'Fr', 'So', 'Jr', 'Sr', 'Gr'];

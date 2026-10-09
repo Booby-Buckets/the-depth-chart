@@ -1,25 +1,26 @@
 // Dynasty — the page. Engine (pure) + browser saves + rendering. One league in memory (S); every action
 // mutates it through the engine, re-renders, and autosaves.
-import { C } from '../engine/constants.js?v=42';
-import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=42';
-import { overall } from '../engine/ratings.js?v=42';
-import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=42';
-import { simNext, simTo, afterDay } from '../engine/flow.js?v=42';
-import { REGION_NAMES, ncaaResult } from '../engine/postseason.js?v=42';
-import { takeJob } from '../engine/coaching.js?v=42';
-import { TYPES as INJ } from '../engine/injuries.js?v=42';
-import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain } from '../engine/offseason.js?v=42';
-import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=42';
-import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=42';
-import { lines as pbpLines } from './pbp.js?v=42';
-import { gameSteps, newCtl } from '../engine/game.js?v=42';
-import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=42';
-import { tireAt } from '../engine/program.js?v=42';
-import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=42';
-import { recruitingView } from './recruiting.js?v=42';
-import { portalView } from './portal.js?v=42';
-import { inviteInfo, decide as realignDecide } from '../engine/realign.js?v=42';
-import { programView, diffPicker } from './program.js?v=42';
+import { C } from '../engine/constants.js?v=44';
+import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=44';
+import { overall } from '../engine/ratings.js?v=44';
+import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=44';
+import { simNext, simTo, afterDay } from '../engine/flow.js?v=44';
+import { postResult } from '../engine/postseason.js?v=44';
+import { takeJob } from '../engine/coaching.js?v=44';
+import { TYPES as INJ } from '../engine/injuries.js?v=44';
+import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain } from '../engine/offseason.js?v=44';
+import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=44';
+import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=44';
+import { lines as pbpLines } from './pbp.js?v=44';
+import { gameSteps, newCtl } from '../engine/game.js?v=44';
+import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=44';
+import { tireAt } from '../engine/program.js?v=44';
+import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=44';
+import { recruitingView } from './recruiting.js?v=44';
+import { portalView } from './portal.js?v=44';
+import { tournamentsView, awardsView } from './tourney.js?v=44';
+import { inviteInfo, decide as realignDecide } from '../engine/realign.js?v=44';
+import { programView, diffPicker } from './program.js?v=44';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -169,7 +170,7 @@ async function openSave(s) {
 function phaseLabel(p) {
   return { regular: 'Regular season', conftourney: 'Conference tournaments', ncaa: 'NCAA tournament', done: 'Season complete', offseason: 'Offseason' }[p] || p;
 }
-const TABS = [['calendar', 'Calendar'], ['program', 'Program'], ['recruit', 'Recruiting'], ['home', 'Home'], ['schedule', 'Schedule'], ['roster', 'Roster'], ['plan', 'Game plan'], ['standings', 'Standings'], ['rankings', 'Rankings'], ['leaders', 'Leaders'], ['post', 'Postseason'], ['awards', 'Awards'], ['news', 'News'], ['history', 'History']];
+const TABS = [['calendar', 'Calendar'], ['program', 'Program'], ['recruit', 'Recruiting'], ['home', 'Home'], ['schedule', 'Schedule'], ['roster', 'Roster'], ['plan', 'Game plan'], ['standings', 'Standings'], ['rankings', 'Rankings'], ['leaders', 'Leaders'], ['post', 'Tournaments'], ['awards', 'Awards'], ['news', 'News'], ['history', 'History']];
 function render() {
   if (!S) return startScreen();
   const t = S.teams[S.user], r = record_(S, S.user), pw = power(S);
@@ -186,14 +187,14 @@ function render() {
   $('#dyExit').onclick = () => { if (isCrawling()) stopCrawl(); if (cloudT) flushCloud(); S = null; startScreen(); };
   $('#dyHead').querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { if (isCrawling()) stopCrawl(); tab = b.dataset.tab; render(); });
   if (S.phase === 'offseason' && tab === 'home') tab = 'off';
-  ({ calendar: () => calendarView(CAL), program: () => programView(CAL), recruit: () => recruitingView(CAL), home, schedule, roster, plan, standings: standingsView, rankings, leaders, post, history, off: offseason, awards: awardsView, news: newsView })[tab]();
+  ({ calendar: () => calendarView(CAL), program: () => programView(CAL), recruit: () => recruitingView(CAL), home, schedule, roster, plan, standings: standingsView, rankings, leaders, post: () => tournamentsView(CAL), history, off: offseason, awards: () => awardsView(CAL), news: newsView })[tab]();
   document.querySelectorAll('#dyBody table.heat').forEach(x => window.tdcSheetHeat && tdcSheetHeat(x));
 }
 
 // the calendar's view of the app (S and cache are reassigned on new / open, so read them live)
 const CAL = {
   get: () => S, get cache() { return cache; }, C, esc, short, logo, color, $,
-  tm, ovrOf: p => ovrOf(p), run: f => run(f), head: '',
+  tm, pl, ovrOf: p => ovrOf(p), run: f => run(f), head: '',
   autosave: () => autosave(), render: () => render(), touch: () => touch(S), onWatch: () => watch(), onSimGame: () => run(simUserGame),
   openBox: id => { const g = S.schedule.find(x => x.id === id); if (g && S.userBox[id]) showBox(g, S.userBox[id]); },
 };
@@ -233,7 +234,7 @@ function home() {
   } else {
     const champ = S.post.ncaa.champ;
     card = `<div class="dy-next"><div class="lbl">Season complete</div><div class="mu">🏆 ${tm(champ, 'big')} national champions</div>
-      <div class="ln">${esc(short(S.user))}: ${esc(ncaaResult(S, S.user) || 'missed the NCAA tournament')}</div>
+      <div class="ln">${esc(short(S.user))}: ${esc(postResult(S, S.user) || 'no postseason')}${S.post.nit && S.post.nit.champ ? ` · NIT: ${esc(short(S.post.nit.champ))}` : ''}${S.post.cbi && S.post.cbi.champ ? ` · CBI: ${esc(short(S.post.cbi.champ))}` : ''}</div>
       <div class="dy-btns"><button class="btn" id="bOff">Begin the offseason →</button></div></div>`;
   }
   const recent = S.schedule.filter(x => x.r && (x.h === S.user || x.a === S.user)).slice(-6).reverse();
@@ -432,41 +433,8 @@ function leaders() {
 }
 const maxG = () => Math.max(0, ...Object.values(S.stats).map(s => s.g));
 
-function post() {
-  if (!S.post) { $('#dyBody').innerHTML = '<div class="dy-empty">Conference tournaments start when the regular season ends.</div>'; return; }
-  const conf = S.post.conf, mine = S.teams[S.user].conf;
-  const N = S.post.ncaa;
-  const slotTxt = s => !s ? '' : s.team ? `<span class="sd">${s.seed}</span>${tm(s.team)}` : '';
-  const gameTxt = s => {
-    if (!s) return '<div class="bg empty">—</div>';
-    if (s.team) return `<div class="bg"><div class="w">${slotTxt(s)}</div></div>`;
-    const g = S.schedule.find(x => x.id === s.game), r = g && g.r;
-    const row = (t, pts, won) => `<div class="${r ? (won ? 'w' : 'l') : ''}"><span class="sd">${t.seed}</span>${tm(t.team, t.team === S.user ? 'me' : '')}<b>${r ? pts : ''}</b></div>`;
-    return `<div class="bg">${row(s.h, r && r[0], r && r[0] > r[1])}${row(s.a, r && r[1], r && r[1] > r[0])}</div>`;
-  };
-  const bracket = (br, from = 1) => `<div class="dy-br">${br.rounds.slice(from).map((rd, i) => `<div class="col"><div class="rh">${roundName(br, i + from)}</div>${rd.map(gameTxt).join('')}</div>`).join('')}</div>`;
-  let html = '';
-  if (N) {
-    html += `<div class="sec"><h2>NCAA tournament</h2><span class="n">${N.champ ? '🏆 ' + esc(short(N.champ)) : ''}</span></div>
-      <div class="dy-ff"><b>First Four</b> ${N.firstFour.map(f => gameTxt(f.slot)).join('')}</div>`;
-    if (N.main) html += bracket(N.main);
-    else html += `<div class="dy-empty">The field of 64 is set once the First Four is played.</div>`;
-  }
-  const sel = post.conf || mine;
-  html += `<div class="sec"><h2>Conference tournaments</h2><select id="ctSel" class="dy-input sm">${Object.keys(conf).sort().map(c => `<option ${c === sel ? 'selected' : ''}>${esc(c)}${conf[c].champ ? ' — ' + esc(short(conf[c].champ)) : ''}</option>`).join('')}</select></div>`;
-  if (conf[sel]) html += bracket(conf[sel]);
-  $('#dyBody').innerHTML = html;
-  const cs = $('#ctSel'); if (cs) cs.onchange = e => { post.conf = e.target.value.split(' — ')[0]; render(); };
-}
-function roundName(br, rd) {
-  const R = br.rounds[rd] || [], left = R.length;
-  if (left === 1 && R[0] && R[0].team) return 'Champion';
-  if (br.kind === 'ncaa') return { 32: 'Round of 64', 16: 'Round of 32', 8: 'Sweet 16', 4: 'Elite Eight', 2: 'Final Four', 1: 'Championship' }[left] || '';
-  return left === 1 ? 'Final' : left === 2 ? 'Semifinals' : left === 4 ? 'Quarterfinals' : `Round ${rd}`;
-}
-
 // ── news, awards, player cards ──
-const NICON = { conf: '🏛️',  injury: '🩹', return: '✅', award: '🏆', coach: '📋', title: '🏆' };
+const NICON = { conf: '🏛️', draft: '🎟️',  injury: '🩹', return: '✅', award: '🏆', coach: '📋', title: '🏆' };
 function newsList(items) {
   if (!items.length) return '<div class="dy-empty">No news yet.</div>';
   return `<div class="dy-news">${items.map(n => `<div class="${n.mine ? 'mine' : ''}"><span class="d">${fmtDate(n.d)}</span><span>${NICON[n.type] || '•'}</span><span>${esc(n.text).replace(/\[\[([^\]]+)\]\]/g, (m, t) => esc(short(t)))}</span></div>`).join('')}</div>`;
@@ -482,31 +450,10 @@ document.addEventListener('click', e => {
   const p = e.target.closest('a.pl[data-pid]'); if (p && S) { e.preventDefault(); playerCard(p.dataset.pid); }
 });
 
-function awardsList(A) {
-  if (!A) return '<div class="dy-empty">Awards are announced when the season ends.</div>';
-  const row = (lbl, x) => x ? `<tr><td class="l"><b>${lbl}</b></td><td class="l">${S.players[x.id] ? pl(S.players[x.id], false) : esc(x.name)}</td><td class="l">${tm(x.team)}</td><td>${x.ppg ?? ''}</td><td>${x.rpg ?? ''}</td><td>${x.apg ?? ''}</td></tr>` : '';
-  return `<div class="sheet-wrap"><table class="sheet dense dy-aw"><thead><tr><th class="l">Award</th><th class="l">Player</th><th class="l">Team</th><th>PPG</th><th>RPG</th><th>APG</th></tr></thead><tbody>
-    ${row('National Player of the Year', A.poy)}${row('Defensive Player of the Year', A.dpoy)}${row('Freshman of the Year', A.fr)}
-    ${A.aa1.map((x, i) => row(i ? '' : 'All-America 1st team', x)).join('')}${A.aa2.map((x, i) => row(i ? '' : 'All-America 2nd team', x)).join('')}
-    ${A.coy ? `<tr><td class="l"><b>Coach of the Year</b></td><td class="l">${esc(A.coy.coach || '')}</td><td class="l">${tm(A.coy.team)}</td><td colspan="3">${A.coy.w}-${A.coy.l}</td></tr>` : ''}
-  </tbody></table></div>
-  <div class="sec"><h2>Conference players of the year</h2></div><div class="sheet-wrap"><table class="sheet dense dy-awc"><thead><tr><th class="l">Conference</th><th class="l">Player</th><th class="l">Team</th><th>PPG</th></tr></thead><tbody>
-    ${Object.entries(A.conf).sort().map(([c, x]) => `<tr class="${x.team === S.user ? 'me' : ''}"><td class="l">${esc(c)}</td><td class="l">${S.players[x.id] ? pl(S.players[x.id], false) : esc(x.name)}</td><td class="l">${tm(x.team)}</td><td>${x.ppg}</td></tr>`).join('')}
-  </tbody></table></div>`;
-}
-function awardsView() {
-  const A = S.awards || (S.history.at(-1) && S.history.at(-1).awards);
-  $('#dyBody').innerHTML = `<div class="sec"><h2>${A ? `${A.year - 1}-${String(A.year).slice(2)} awards` : 'Awards'}</h2></div>${awardsList(A)}`;
-}
-
 function playerCard(id) {
   const p = S.players[id]; if (!p) return;
   const s = S.stats[id], line = s && s.g ? `${s.g} G · ${(s.min / s.g).toFixed(1)} MPG · ${(s.pts / s.g).toFixed(1)} PPG · ${((s.orb + s.drb) / s.g).toFixed(1)} RPG · ${(s.ast / s.g).toFixed(1)} APG · ${s.fga ? (100 * s.fgm / s.fga).toFixed(1) : '—'} FG% · ${s.tpa ? (100 * s.tpm / s.tpa).toFixed(1) : '—'} 3P%` : 'No games this season';
-  const awards = [];
-  for (const h of S.history) { const A = h.awards; if (!A) continue; const yr = `${h.year - 1}-${String(h.year).slice(2)}`;
-    if (A.poy && A.poy.id === id) awards.push(`National POY ${yr}`); if (A.dpoy && A.dpoy.id === id) awards.push(`DPOY ${yr}`); if (A.fr && A.fr.id === id) awards.push(`Freshman of the Year ${yr}`);
-    if (A.aa1.some(x => x && x.id === id)) awards.push(`1st-team All-American ${yr}`); else if (A.aa2.some(x => x && x.id === id)) awards.push(`2nd-team All-American ${yr}`);
-    if (Object.values(A.conf).some(x => x.id === id)) awards.push(`Conference POY ${yr}`); }
+  const awards = (p.hon || []).slice().reverse();   // every honor he has won (engine/awards.js honor())
   const ov = document.createElement('div'); ov.className = 'dy-ov';
   ov.innerHTML = `<div class="dy-watch dy-card"><div class="hd">${p.team ? `<img src="${esc(logo(p.team))}" alt="">` : ''}<div><div class="eyebrow">${esc(p.team ? short(p.team) : 'Transfer portal')} · ${esc(p.pos || '')} · ${YR_LABEL[p.yr] || ''}${p.ht ? ` · ${Math.floor(p.ht / 12)}-${p.ht % 12}` : ''}${p.stars ? ` · ${'★'.repeat(p.stars)} recruit` : ''}</div>
       <h2>${esc(p.name)}</h2><div class="dim">${line}</div>${p.out > 0 ? `<div class="hurt">🩹 ${esc(p.inj ? p.inj.type : 'Injured')} — ${p.out >= 99 ? 'out for the season' : `out ${p.out} game${p.out > 1 ? 's' : ''}`}</div>` : ''}</div><div class="ovr"><b>${ovrOf(p)}</b><span>OVR</span></div></div>
@@ -536,8 +483,9 @@ function offseason() {
       ${jobPanel()}${realignPanel()}
       <div class="sec"><h2>Leaving ${esc(short(U))}</h2><span class="n">League-wide: ${c('graduated')} graduated, ${c('pro')} turned pro, ${c('portal')} entered the portal</span></div>
       ${mine.length ? `<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th><th>Pos</th><th>Yr</th><th>OVR</th><th class="l">Why</th></tr></thead><tbody>
-        ${mine.sort((a, b) => ovrOf(b.p) - ovrOf(a.p)).map(x => `<tr><td class="l">${pl(x.p)}</td><td>${esc(x.p.pos || '')}</td><td>${YR_LABEL[x.p.yr]}</td><td>${ovrOf(x.p)}</td><td class="l">${WHY[x.why]}${x.why === 'portal' ? ` — wants <b>$${retainAsk(S, x.p)}k</b> to stay <button class="btn ghost pg-sm" data-keep="${esc(x.p.id)}">Pay him</button>` : ''}</td></tr>`).join('')}</tbody></table></div>
+        ${mine.sort((a, b) => ovrOf(b.p) - ovrOf(a.p)).map(x => `<tr><td class="l">${pl(x.p)}</td><td>${esc(x.p.pos || '')}</td><td>${YR_LABEL[x.p.yr]}</td><td>${ovrOf(x.p)}</td><td class="l">${WHY[x.why]}${x.why === 'pro' ? draftNote(x.p.id) : ''}${x.why === 'portal' ? ` — wants <b>$${retainAsk(S, x.p)}k</b> to stay <button class="btn ghost pg-sm" data-keep="${esc(x.p.id)}">Pay him</button>` : ''}</td></tr>`).join('')}</tbody></table></div>
         <div class="pg-d">NIL retention: a player headed for the portal names his price to stay. Your collective has <b>$${S.teams[U].prog ? S.teams[U].prog.nil.fund : 0}k</b>.${(O.kept || []).length ? ' Kept: ' + O.kept.map(k => `${esc(k.name)} ($${k.nil}k)`).join(', ') + '.' : ''}</div>` : '<div class="dy-empty">Nobody is leaving.</div>'}
+      ${draftPanel()}
       <div class="dy-btns"><button class="btn" id="oNext">Open the transfer portal →</button></div>`;
     $('#dyBody').innerHTML = html;
     document.querySelectorAll('[data-take]').forEach(b => b.onclick = () => {
@@ -623,6 +571,22 @@ function jobPanel() {
     <div class="ln">${L ? `${verdict}: the preseason roster rating had you #${L.pre}, you finished #${L.fin}. ` : ''}Job security <b>${J.security}</b>/100.</div>
     ${offers.length ? `<div class="ln" style="margin-top:8px">${J.fired ? 'These programs will hire you — pick one to continue:' : 'Job offers:'}</div>
       <div class="dy-btns">${offers.map(t => `<button class="btn ${J.fired ? '' : 'ghost'}" data-take="${esc(t)}">${tm(t)} <span class="dim">prestige ${S.teams[t].prestige}</span></button>`).join('')}</div>` : ''}</div>`;
+}
+
+// the draft (engine/draft.js): where the early entrants went + the first round
+function draftNote(id) {
+  const D = S.off && S.off.draft; if (!D) return '';
+  const x = D.picks.find(p => p.id === id);
+  return x ? ` — drafted <b>No. ${x.pick}</b> (${x.round === 1 ? '1st' : '2nd'} round)` : D.und.some(p => p.id === id) ? ' — undrafted, signed a pro deal' : '';
+}
+function draftPanel() {
+  const D = S.off && S.off.draft; if (!D || !D.picks.length) return '';
+  const back = D.withdrew.filter(x => x.team === S.user);
+  return `<div class="sec"><h2>The draft</h2><span class="n">${D.picks.length} college players picked (the rest of the 60 picks went to international and G League players)${D.und.length ? ` · ${D.und.length} early entrants went undrafted` : ''} · ${D.withdrew.length} tested the waters and returned</span></div>
+    ${back.length ? `<div class="pg-d"><b>Returning after testing the waters:</b> ${back.map(x => esc(x.name)).join(', ')}</div>` : ''}
+    <div class="sheet-wrap"><table class="sheet dense dy-draft"><thead><tr><th>Pick</th><th class="l">Player</th><th class="l">School</th><th>Pos</th><th>Yr</th><th>OVR</th></tr></thead><tbody>
+    ${D.picks.filter(x => x.round === 1 || x.team === S.user).map(x => `<tr class="${x.team === S.user ? 'me' : ''}"><td><b>${x.pick}</b>${x.round === 2 ? ' <span class="dim">R2</span>' : ''}</td><td class="l">${esc(x.name)}</td><td class="l">${tm(x.team)}</td><td>${esc(x.pos || '')}</td><td>${YR_LABEL[x.yr] || ''}</td><td>${x.ovr}</td></tr>`).join('')}
+    </tbody></table></div>`;
 }
 
 // conference realignment (engine/realign.js): an invitation to the user's program + the league-wide moves

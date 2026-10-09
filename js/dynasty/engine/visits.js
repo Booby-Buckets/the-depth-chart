@@ -6,8 +6,8 @@
 //   • HOME visits — the head coach in the living room, any time: a week of recruiting momentum for a smaller boost.
 // What a visit earns lives on the recruit (r.vb = landing-odds logit, r.vs = scouting effort equivalent) and carries to
 // signing day (offseason.landOdds adds vb; the board's scouting view adds vs). Pure: works on the state object.
-import { power } from './season.js?v=42';
-import { news as push } from './injuries.js?v=42';
+import { power } from './season.js?v=44';
+import { news as push } from './injuries.js?v=44';
 
 export const OFFICIAL_MAX = 5;
 const VB_CAP = 1.2;                                    // a recruit's total visit boost (logit) is capped

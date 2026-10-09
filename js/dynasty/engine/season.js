@@ -1,13 +1,14 @@
 // The season: day-by-day simulation over state.schedule, results, player stats, standings, a power rating
 // (opponent-adjusted net blended with the preseason prior) and the poll. Pure: works on the state object.
-import { prepareTeam } from './ratings.js?v=42';
-import { simulateGame, totals } from './game.js?v=42';
-import { makeRng, hashSeed } from './rng.js?v=42';
-import { powerFeatures } from './league.js?v=42';
-import { afterGame } from './injuries.js?v=42';
-import { resolvePending, nextPendingDate, EXT_RATING } from './fill.js?v=42';
-import { resolveVisits } from './visits.js?v=42';
-import { schemeMods, programGame } from './program.js?v=42';
+import { prepareTeam } from './ratings.js?v=44';
+import { simulateGame, totals } from './game.js?v=44';
+import { makeRng, hashSeed } from './rng.js?v=44';
+import { powerFeatures } from './league.js?v=44';
+import { afterGame } from './injuries.js?v=44';
+import { resolvePending, nextPendingDate, EXT_RATING } from './fill.js?v=44';
+import { resolveVisits } from './visits.js?v=44';
+import { resolveMTE } from './mte.js?v=44';
+import { schemeMods, programGame } from './program.js?v=44';
 
 const STAT_KEYS = ['min', 'pts', 'fgm', 'fga', 'tpm', 'tpa', 'ftm', 'fta', 'orb', 'drb', 'ast', 'stl', 'blk', 'tov', 'pf'];
 
@@ -53,9 +54,11 @@ export function record(state, g, sim) {
   g.r = [sim.score[0], sim.score[1], sim.ot, Math.round((est(th) + est(ta)) / 2)];
   for (const [rows, team] of [[sim.box.home, g.h], [sim.box.away, g.a]]) {
     if (!state.teams[team]) continue;                         // non-D-I opponents keep no season stats
+    const starters = new Set(rows.slice().sort((a, b) => (b.min || 0) - (a.min || 0)).slice(0, 5).map(r => r.id));   // a start = top-5 minutes
     for (const r of rows) {
       const s = state.stats[r.id] || (state.stats[r.id] = Object.fromEntries([['g', 0], ['gs', 0], ...STAT_KEYS.map(k => [k, 0])]));
       s.g++; for (const k of STAT_KEYS) s[k] += r[k] || 0;
+      if (starters.has(r.id)) s.gs = (s.gs || 0) + 1;
       s.team = team;
     }
   }
@@ -76,6 +79,7 @@ export function nextDate(state) {
 // sim every game on the next unplayed date (skipping any the caller already played, e.g. a watched game)
 export function simDay(state, C, cache, opts = {}) {
   const d = nextDate(state); if (!d) return null;
+  resolveMTE(state, d);                                          // multi-team event rounds (mte.js)
   resolvePending(state, d, makeRng(hashSeed(`${state.seed}:${state.year}:mte:${d}`)));   // MTE day 2 / 3 from real results
   const prep = prepared(state, C, cache);
   const out = [];

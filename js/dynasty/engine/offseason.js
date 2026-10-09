@@ -5,17 +5,20 @@
 //
 // Calibrated to the snapshot: freshmen enter at a median OVR ~59 (top 1% ~77); players gain ~+5 Fr->So,
 // ~+3 So->Jr, ~+1.5 after; teams lose ~3.4 upperclassmen a year; rosters carry 13 scholarships.
-import { overall, attributes } from './ratings.js?v=42';
-import { makeRng, hashSeed } from './rng.js?v=42';
-import { record_, power, touch } from './season.js?v=42';
-import { ncaaResult } from './postseason.js?v=42';
-import { effOvr } from './league.js?v=42';
-import { evaluateCoaches } from './coaching.js?v=42';
-import { healAll } from './injuries.js?v=42';
-import { profile, userOdds, pickSchool, notePro, factors, utility, relationship, aiSign } from './recruit.js?v=42';
-import { openPortal, portalDay, PORTAL_DAYS } from './portal.js?v=42';
-import { realignWindow, applyMoves, applyRevenue } from './realign.js?v=42';
-import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina } from './program.js?v=42';
+import { overall, attributes } from './ratings.js?v=44';
+import { makeRng, hashSeed } from './rng.js?v=44';
+import { record_, power, touch } from './season.js?v=44';
+import { ncaaResult, postResult } from './postseason.js?v=44';
+import { effOvr } from './league.js?v=44';
+import { evaluateCoaches } from './coaching.js?v=44';
+import { healAll } from './injuries.js?v=44';
+import { profile, userOdds, pickSchool, notePro, factors, utility, relationship, aiSign } from './recruit.js?v=44';
+import { openPortal, portalDay, PORTAL_DAYS } from './portal.js?v=44';
+import { realignWindow, applyMoves, applyRevenue } from './realign.js?v=44';
+import { planMTEs } from './mte.js?v=44';
+import { runDraft } from './draft.js?v=44';
+import { compactAwards } from './awards.js?v=44';
+import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina } from './program.js?v=44';
 
 export const SCHOLARSHIPS = 13;
 const PIL = ['SCO', 'SHT', 'FIN', 'PLY', 'SEC', 'REB', 'DEF'];
@@ -59,23 +62,24 @@ export function beginOffseason(state) {
   const N = state.post && state.post.ncaa;
   const rec = state.user ? record_(state, state.user) : null;
   state.history.push({
-    year: state.year, champ: N && N.champ, top: order.slice(0, 5), awards: state.awards || null,
+    year: state.year, champ: N && N.champ, top: order.slice(0, 5), awards: compactAwards(state.awards),
     coach: state.teams[state.user] && state.teams[state.user].coach ? state.teams[state.user].coach.name : null,
-    user: state.user && Object.assign({ team: state.user, rank: order.indexOf(state.user) + 1, post: ncaaResult(state, state.user) || 'No NCAA bid' }, rec),
+    user: state.user && Object.assign({ team: state.user, rank: order.indexOf(state.user) + 1, post: postResult(state, state.user) || 'No postseason' }, rec),
   });
   // prestige: 65% memory, 35% this season (power percentile + a tournament bump)
-  const bump = { Champion: 25, 'Runner-up': 18, 'Final Four': 14, 'Elite Eight': 9, 'Sweet 16': 6, 'Round of 32': 3, 'Round of 64': 1 };
+  const bump = { Champion: 25, 'Runner-up': 18, 'Final Four': 14, 'Elite Eight': 9, 'Sweet 16': 6, 'Round of 32': 3, 'Round of 64': 1, 'NIT Champion': 2 };
   order.forEach((t, i) => {
     const pct = 100 * (1 - i / (order.length - 1));
     const T = state.teams[t];
     // (and 6% back toward the middle every year: without it prestige kept concentrating — sd 21.7 -> 25 — and
     // recruiting, which sorts by prestige, widened the talent spread season after season)
-    T.prestige = Math.round(clamp(0.06 * 50 + 0.94 * (0.65 * T.prestige + 0.35 * Math.min(100, pct + (bump[ncaaResult(state, t)] || 0))), 1, 100));
+    T.prestige = Math.round(clamp(0.06 * 50 + 0.94 * (0.65 * T.prestige + 0.35 * Math.min(100, pct + (bump[postResult(state, t)] || 0))), 1, 100));
   });
   state.phase = 'offseason';
   state.off = { step: 'departures', leaving: {}, portal: [], offers: {}, recruits: null, board: {}, signed: {}, log: [],
     budget: state.user ? recruitPoints(state, state.teams[state.user]) : 100 };   // the season's recruiting hours = signing-day effort
   markDepartures(state);
+  runDraft(state);                  // early entrants -> a 60-pick draft (draft.js)
   realignWindow(state);             // conference realignment: league values, contracts, invitations (realign.js)
 }
 
@@ -368,17 +372,35 @@ export function makeSchedule(state) {
   }
   // non-conference: 13 rounds of random pairings across leagues (Nov 3 – Dec 30) — with ~18-20 league games that
   // is a real ~31-33 game slate (11 rounds left teams around 29)
+  // multi-team events first (mte.js): day-one games now, later days pending; their teams skip nearby rounds
+  const M = planMTEs(state, rngFor(state, 'mte'));
+  M.games.forEach(g => games.push(g)); state.pending = M.pending;
+  const near = (t, d) => (M.busy[t] || []).some(x => Math.abs(Date.parse(x) - Date.parse(d)) <= 2 * 864e5);
   const names = Object.keys(state.teams);
   for (let r = 0; r < 13; r++) {
     const pool = names.slice().sort(() => rng.next() - 0.5), used = new Set(), d = addD(ISO(y - 1, 11, 3), r * 4 + rng.int(3));
     for (const a of pool) {
-      if (used.has(a)) continue;
-      const b = pool.find(x => !used.has(x) && x !== a && state.teams[x].conf !== state.teams[a].conf);
+      if (used.has(a) || near(a, d)) continue;
+      const b = pool.find(x => !used.has(x) && x !== a && state.teams[x].conf !== state.teams[a].conf && !near(x, d));
       if (!b) continue;
       used.add(a); used.add(b);
       const neutral = rng.chance(0.12);
       const [h, w] = rng.chance(0.5 + (state.teams[a].prestige - state.teams[b].prestige) / 200) ? [a, b] : [b, a];
       add(d, h, w, neutral, false);
+    }
+  }
+  // top-up: teams short of a 30-game slate (small leagues, an event's days, a busy partner pool) play each other in
+  // late December
+  const nc = {}; for (const g of games) for (const t of [g.h, g.a]) nc[t] = (nc[t] || 0) + 1;
+  for (const m of state.mtes || []) if (!m.showcase) for (const x of m.teams) nc[x.team] = (nc[x.team] || 0) + (m.size === 8 ? 2 : 1);   // the event's later days
+  for (let r = 0; r < 4; r++) {
+    const d = addD(ISO(y - 1, 12, 18), r * 3), short_ = names.filter(t => (nc[t] || 0) < 30).sort(() => rng.next() - 0.5), used = new Set();
+    for (const a of short_) {
+      if (used.has(a)) continue;
+      const b = short_.find(x => !used.has(x) && x !== a && state.teams[x].conf !== state.teams[a].conf);
+      if (!b) continue;
+      used.add(a); used.add(b); nc[a]++; nc[b]++;
+      add(d, a, b, false, false);
     }
   }
   return games.sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0));
