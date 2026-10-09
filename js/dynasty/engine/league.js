@@ -7,12 +7,12 @@
 //   players: { id: { id, name, team, pos, pos2, ht, yr, pillars, lvl, mpg, pot } },
 //   schedule:[ { id, d, h, a, n, c, r } ],             r = [homePts, awayPts, ot, poss] once played
 //   stats:   { id: season totals },  powerFit, history:[], userBox:{ gameId: box } }
-import { attributes, overall } from './ratings.js?v=39';
-import { makeRng } from './rng.js?v=39';
-import { initCoaches } from './coaching.js?v=39';
-import { fillLeague, buildSchedule } from './fill.js?v=39';
-import { makeClass, classSize } from './offseason.js?v=39';
-import { initProgram, ensureStamina } from './program.js?v=39';
+import { attributes, overall } from './ratings.js?v=40';
+import { makeRng } from './rng.js?v=40';
+import { initCoaches } from './coaching.js?v=40';
+import { fillLeague, buildSchedule } from './fill.js?v=40';
+import { makeClass, classSize } from './offseason.js?v=40';
+import { initProgram, ensureStamina } from './program.js?v=40';
 
 export const YR = { 'FR': 1, 'FR.': 1, 'RS FR.': 1, 'SO': 2, 'SO.': 2, 'RS SO.': 2, 'JR': 3, 'JR.': 3, 'RS JR.': 3, 'SR': 4, 'SR.': 4, 'RS SR.': 4, 'GR': 5, 'GR.': 5, '5TH': 5 };
 export const YR_LABEL = ['', 'Fr', 'So', 'Jr', 'Sr', 'Gr'];
@@ -104,11 +104,19 @@ export function createLeague(snap, sched, opts = {}) {
   const state = { v: 2, lvlRef, seed, year: opts.year || 2027, user, phase: 'regular', maps, powerFit, teams, players, schedule, templates, lvl0,
     ext: pre.ext, pending: pre.pending || [],
     stats: {}, results: {}, history: [], userBox: {}, news: [], awards: null, created: opts.now || null };
+  state.names = namePool(players);                   // frozen once: recruits draw from it forever
   initCoaches(state, snap, opts.coachName);
   ensureStamina(state);                              // per-player stamina (minutes wear)
   initProgram(state, opts.diff || 'pro');          // staff, hours, schemes, NIL — every team
   state.visits = []; state.targets = []; state.rclass = makeClass(state, classSize(state));   // next year's class, recruitable all season
   return state;
+}
+
+// the recruit name pool, captured from the real league at creation. Drawing names from the CURRENT players instead
+// drifted: rare names died out every class (1,896 first names -> 357 after 30 seasons).
+function namePool(players) {
+  const ps = Object.values(players).map(p => p.name.split(' '));
+  return { f: [...new Set(ps.map(x => x[0]))], l: [...new Set(ps.map(x => x.slice(1).join(' ')).filter(Boolean))] };
 }
 
 // attributes need the maps the snapshot carried — rebuilt on load, never saved
@@ -120,6 +128,7 @@ export function hydrate(state) {
   if (state.lvlRef == null) state.lvlRef = levelRef(state.teams);
   if (!state.job) initCoaches(state, null, null);   // saves from before coaching
   if (!state.news) state.news = [];
+  if (!state.names) state.names = namePool(state.players);   // older saves: freeze what they have now
   if (!state.ext) state.ext = { teams: {}, players: {} };      // saves from before full schedules
   if (!state.pending) state.pending = [];
   if (!state.diff || Object.values(state.teams).some(t => !t.prog)) initProgram(state, state.diff || 'pro');   // saves from before programs

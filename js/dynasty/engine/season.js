@@ -1,13 +1,13 @@
 // The season: day-by-day simulation over state.schedule, results, player stats, standings, a power rating
 // (opponent-adjusted net blended with the preseason prior) and the poll. Pure: works on the state object.
-import { prepareTeam } from './ratings.js?v=39';
-import { simulateGame, totals } from './game.js?v=39';
-import { makeRng, hashSeed } from './rng.js?v=39';
-import { powerFeatures } from './league.js?v=39';
-import { afterGame } from './injuries.js?v=39';
-import { resolvePending, nextPendingDate, EXT_RATING } from './fill.js?v=39';
-import { resolveVisits } from './visits.js?v=39';
-import { schemeMods, programGame } from './program.js?v=39';
+import { prepareTeam } from './ratings.js?v=40';
+import { simulateGame, totals } from './game.js?v=40';
+import { makeRng, hashSeed } from './rng.js?v=40';
+import { powerFeatures } from './league.js?v=40';
+import { afterGame } from './injuries.js?v=40';
+import { resolvePending, nextPendingDate, EXT_RATING } from './fill.js?v=40';
+import { resolveVisits } from './visits.js?v=40';
+import { schemeMods, programGame } from './program.js?v=40';
 
 const STAT_KEYS = ['min', 'pts', 'fgm', 'fga', 'tpm', 'tpa', 'ftm', 'fta', 'orb', 'drb', 'ast', 'stl', 'blk', 'tov', 'pf'];
 

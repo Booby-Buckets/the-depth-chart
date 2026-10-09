@@ -5,16 +5,16 @@
 //
 // Calibrated to the snapshot: freshmen enter at a median OVR ~59 (top 1% ~77); players gain ~+5 Fr->So,
 // ~+3 So->Jr, ~+1.5 after; teams lose ~3.4 upperclassmen a year; rosters carry 13 scholarships.
-import { overall, attributes } from './ratings.js?v=39';
-import { makeRng, hashSeed } from './rng.js?v=39';
-import { record_, power, touch } from './season.js?v=39';
-import { ncaaResult } from './postseason.js?v=39';
-import { effOvr } from './league.js?v=39';
-import { evaluateCoaches } from './coaching.js?v=39';
-import { healAll } from './injuries.js?v=39';
-import { profile, userOdds, pickSchool, notePro, factors, utility, relationship, aiSign } from './recruit.js?v=39';
-import { openPortal, portalDay, PORTAL_DAYS } from './portal.js?v=39';
-import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina } from './program.js?v=39';
+import { overall, attributes } from './ratings.js?v=40';
+import { makeRng, hashSeed } from './rng.js?v=40';
+import { record_, power, touch } from './season.js?v=40';
+import { ncaaResult } from './postseason.js?v=40';
+import { effOvr } from './league.js?v=40';
+import { evaluateCoaches } from './coaching.js?v=40';
+import { healAll } from './injuries.js?v=40';
+import { profile, userOdds, pickSchool, notePro, factors, utility, relationship, aiSign } from './recruit.js?v=40';
+import { openPortal, portalDay, PORTAL_DAYS } from './portal.js?v=40';
+import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina } from './program.js?v=40';
 
 export const SCHOLARSHIPS = 13;
 const PIL = ['SCO', 'SHT', 'FIN', 'PLY', 'SEC', 'REB', 'DEF'];
@@ -166,8 +166,8 @@ export function makeClass(state, nIn) {
   // templates: real freshmen pillar profiles (position + height + shape), rescaled to each recruit's level
   const tpl = state.templates && state.templates.length ? state.templates
     : Object.values(state.players).filter(p => p.yr <= 2).map(p => ({ pos: p.pos, ht: p.ht, pillars: p.pillars }));
-  const names = Object.values(state.players).map(p => p.name.split(' '));
-  const firsts = names.map(x => x[0]), lasts = names.map(x => x.slice(1).join(' ')).filter(Boolean);
+  const NP = state.names || { f: Object.values(state.players).map(p => p.name.split(' ')[0]), l: Object.values(state.players).map(p => p.name.split(' ').slice(1).join(' ')).filter(Boolean) };
+  const firsts = NP.f, lasts = NP.l;   // the frozen pool (league.namePool), so names never thin out
   const out = [];
   for (let i = 0; i < n; i++) {
     const stars = i < 25 ? 5 : i < 125 ? 4 : i < 525 ? 3 : i < 1100 ? 2 : 1;

@@ -1,24 +1,24 @@
 // Dynasty — the page. Engine (pure) + browser saves + rendering. One league in memory (S); every action
 // mutates it through the engine, re-renders, and autosaves.
-import { C } from '../engine/constants.js?v=39';
-import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=39';
-import { overall } from '../engine/ratings.js?v=39';
-import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=39';
-import { simNext, simTo, afterDay } from '../engine/flow.js?v=39';
-import { REGION_NAMES, ncaaResult } from '../engine/postseason.js?v=39';
-import { takeJob } from '../engine/coaching.js?v=39';
-import { TYPES as INJ } from '../engine/injuries.js?v=39';
-import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain } from '../engine/offseason.js?v=39';
-import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=39';
-import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=39';
-import { lines as pbpLines } from './pbp.js?v=39';
-import { gameSteps, newCtl } from '../engine/game.js?v=39';
-import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=39';
-import { tireAt } from '../engine/program.js?v=39';
-import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=39';
-import { recruitingView } from './recruiting.js?v=39';
-import { portalView } from './portal.js?v=39';
-import { programView, diffPicker } from './program.js?v=39';
+import { C } from '../engine/constants.js?v=40';
+import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=40';
+import { overall } from '../engine/ratings.js?v=40';
+import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=40';
+import { simNext, simTo, afterDay } from '../engine/flow.js?v=40';
+import { REGION_NAMES, ncaaResult } from '../engine/postseason.js?v=40';
+import { takeJob } from '../engine/coaching.js?v=40';
+import { TYPES as INJ } from '../engine/injuries.js?v=40';
+import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain } from '../engine/offseason.js?v=40';
+import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=40';
+import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=40';
+import { lines as pbpLines } from './pbp.js?v=40';
+import { gameSteps, newCtl } from '../engine/game.js?v=40';
+import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=40';
+import { tireAt } from '../engine/program.js?v=40';
+import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=40';
+import { recruitingView } from './recruiting.js?v=40';
+import { portalView } from './portal.js?v=40';
+import { programView, diffPicker } from './program.js?v=40';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
