@@ -12,10 +12,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { C } from '../engine/constants.js?v=10';
-import { indexSnapshot } from '../engine/snapshot.js?v=10';
-import { simulateGame, totals } from '../engine/game.js?v=10';
-import { makeRng } from '../engine/rng.js?v=10';
+import { C } from '../engine/constants.js?v=11';
+import { indexSnapshot } from '../engine/snapshot.js?v=11';
+import { simulateGame, totals } from '../engine/game.js?v=11';
+import { makeRng } from '../engine/rng.js?v=11';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../../..');
@@ -127,6 +127,7 @@ games.forEach(([h, a, neu], gi) => {
   const b = buckets.find(b => fav >= b.lo && fav < b.hi);
   b.n++; b.exp += phi(fav / T.game_margin_sd); b.sp += fav; b.mm += simFavMargin;
   if (neu) { b.nn++; b.nsp += fav; b.nmm += simFavMargin; }
+  const cross = mh.conf !== ma.conf; b[cross ? 'xn' : 'cn'] = (b[cross ? 'xn' : 'cn'] || 0) + 1; b[cross ? 'xsp' : 'csp'] = (b[cross ? 'xsp' : 'csp'] || 0) + fav; b[cross ? 'xmm' : 'cmm'] = (b[cross ? 'xmm' : 'cmm'] || 0) + simFavMargin;
   // sim win % for the favourite from this matchup's mean / sd
   const sd = Math.sqrt(Math.max(1, gm[gi].s2 / SEASONS - (gm[gi].s / SEASONS) ** 2));
   b.win += phi(simFavMargin / sd);
@@ -163,6 +164,17 @@ console.log(`  vs 2027 power rating (all ${allRows.length} teams): r ${f(cR.r, 3
 console.log(`PLAYERS (mpg>=15, n=${P.length}): ppg r ${f(cPl.r, 3)} slope ${f(cPl.slope, 2)} (sim ${f(cPl.my)} vs proj ${f(cPl.mx)}) · minutes r ${f(cMin.r, 3)} (sim ${f(cMin.my)} vs proj ${f(cMin.mx)})`);
 console.log('\nFAVOURITES (projected spread)   games   sim fav win%   expected (N(spread, 11))   avg spread / sim margin');
 for (const b of buckets) if (b.n) console.log(`  ${String(b.lo).padStart(2)}–${b.hi === 99 ? '+ ' : String(b.hi).padEnd(2)} pts`.padEnd(31) + `${String(b.n).padStart(5)}   ${f(100 * b.win / b.n).padStart(8)}       ${f(100 * b.exp / b.n).padStart(8)}          ${f(b.sp / b.n)} / ${f(b.mm / b.n)}`);
+// the same check against the site's own line: power-rating gap + home court (what lineFor publishes)
+const rb = [[0, 3], [3, 6], [6, 10], [10, 15], [15, 20], [20, 99]].map(([lo, hi]) => ({ lo, hi, n: 0, sp: 0, mm: 0 }));
+games.forEach(([h, a, neu], gi) => {
+  const mh = meta[h], ma = meta[a]; if (mh.rating == null || ma.rating == null) return;
+  const spread = mh.rating - ma.rating + (neu ? 0 : T.hca_pts), fav = Math.abs(spread);
+  const b = rb.find(b => fav >= b.lo && fav < b.hi); b.n++; b.sp += fav; b.mm += (spread >= 0 ? 1 : -1) * gm[gi].s / SEASONS;
+});
+console.log('  vs the POWER RATING line (rating gap + HCA)    games   avg line / sim margin   ratio');
+for (const b of rb) if (b.n) console.log(`  ${String(b.lo).padStart(2)}–${b.hi === 99 ? '+ ' : String(b.hi).padEnd(2)} pts`.padEnd(48) + `${String(b.n).padStart(5)}   ${f(b.sp / b.n)} / ${f(b.mm / b.n)}`.padEnd(26) + f(b.mm / b.sp, 2));
+console.log('  margin ratio (sim margin / projected spread)   same conference      cross conference');
+for (const b of buckets) if (b.n) console.log(`  ${String(b.lo).padStart(2)}–${b.hi === 99 ? '+ ' : String(b.hi).padEnd(2)} pts`.padEnd(48) + `${b.cn ? f(b.cmm / b.csp, 2) + ' (n ' + b.cn + ')' : '—'}`.padEnd(21) + `${b.xn ? f(b.xmm / b.xsp, 2) + ' (n ' + b.xn + ')' : '—'}`);
 const top = rows.slice().sort((a, b) => (b.po - b.pd) - (a.po - a.pd));
 console.log('\nTOP 10 by projection        proj net  sim net  sim win%');
 for (const r of top.slice(0, 10)) console.log(`  ${r.n.padEnd(26)} ${f(r.po - r.pd).padStart(7)} ${f(r.o - r.d).padStart(8)} ${f(100 * r.wp).padStart(8)}`);
@@ -175,4 +187,6 @@ if (process.argv.includes('--resid')) {
     console.log(`  ${r.n.padEnd(34)} proj ${f(r.po - r.pd).padStart(6)}  sim ${f(r.o - r.d).padStart(6)}  (O ${f(r.po)}->${f(r.o)}  D ${f(r.pd)}->${f(r.d)})  conf ${meta[r.n].conf} lvl ${meta[r.n].level}`);
 }
 const out = arg('json');
+const dump = arg('dump', null);   // --dump file: every game's mean sim margin (home - away), for an offline strength fit
+if (dump) fs.writeFileSync(dump, JSON.stringify(games.map(([h, a, neu], gi) => [h, a, neu ? 1 : 0, +(gm[gi].s / SEASONS).toFixed(2)])));
 if (out) fs.writeFileSync(out, JSON.stringify({ seasons: SEASONS, seed: SEED, sim, targets: T, net: cN, ortg: cO, drtg: cD, ppg: cP, players: cPl, buckets, C }, null, 1));

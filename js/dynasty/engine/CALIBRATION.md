@@ -56,6 +56,7 @@ Defense comes from three places:
 | 8 | Lead management only on the part of a lead beyond 10 points (LEAD_FREE). Unbiased within-matchup SD (the 6-season estimate was 9% low). LEAD_K 0.2, HCA_K 0.12. | See final run below. |
 
 | 9 | **March benchmark** (dynasty, `/tmp/seeds.mjs`-style: R64 seed win rates, champion seeds, Final Four seed vs real history). Round 8 constants: 1v16 91.7% (real 98.8), 3v14 76.7 (85.3), 1 seeds won 20% of titles (~50-63%), Final Four avg seed 4.9 (3.5). Calibrating to the projection had inherited its compressed spread (7.9 vs 9.8 real). LEVEL_OFF_K 0.037→0.06, LEVEL_DEF_K 0.043→0.07, DEF_PTS_K 0.03→0.035, new TALENT_K 0.07 (logit per 5 pts of team roster-overall edge). | 11/11 league targets; net sd 11.1 (true talent, opp-adjusted); 1v16 97.5, 2v15 95.0, 4v13 81.9, 8v9 46.9; Final Four avg seed 4.0. Still loose at the very top (1 seeds ~20-35% of titles): the snapshot's best teams are bunched (projection top ~+21/100 vs real favourites ~+30). Net vs projection slope now ~1.3 by design (projection is compressed). |
+| 10 | **Blowouts / talent spread** (Oct 9). Fresh snapshot (352 teams, all with projected DNA). New calibrate checks: margin ratio vs the POWER RATING line (what the site publishes) and `--dump` + an offline least-squares strength fit. At TALENT_K 0.07 sim team strength was 0.58x the power rating (SD 5.7 pts/game vs 8.7 rated; real 2025-26 games fit to SD ~10.5), so a 25-pt line played as ~15 (ratio 0.61) and 1v16 won only 93.5%. The old `net_sd 9.78` target is RAW (unadjusted) net, so comparing adjusted sim net to it hid the compression. TALENT_K 0.07 -> 0.33 (`tools/seeds.js` added for the March check). | 11/11 league targets; strength slope 0.96 vs rating (r 0.90), no conference-level bias (-0.75/10 lvl, r -0.12); vs rating line: 15-20 pts 0.98, 20+ 0.94, mid gaps ~1.07-1.17; player ppg r 0.98; 1v16 99.0 (real 98.8), 8v9 51.8; middle seeds follow the rating gaps exactly (3v14 sim 93.0 vs rating-implied 94.1). |
 
 | 10 | Dynasty awards showed National POYs at 30-40 ppg (real leaders ~25-28): usage too concentrated — player ppg slope 1.20 vs projections. USE_POW 1.6→1.2. | Player ppg slope 1.02 (r 0.977); 11/11 league targets; team net unchanged. |
 
@@ -126,7 +127,7 @@ DRtg r 0.965, and 10/11 league targets (margin SD 12.0).
 
 ## Open questions
 
-1. **Mismatch margins.** Big favourites finish about 80–85% of the projected spread (a 12-point favourite wins by
+1. **Mismatch margins.** RESOLVED in round 10 (TALENT_K 0.33; the sim was 0.58x the power rating). Was: big favourites finish about 80–85% of the projected spread (a 12-point favourite wins by
    ~10). Lead management isn't the cause: with no lead term the ratio is the same. Either the sim compresses
    cross-level games, or the projection's cross-conference spreads are too wide. In-sample real data can't settle
    it (end-of-season ratings fitted to the same games show margins 1.45× their spread). It needs preseason

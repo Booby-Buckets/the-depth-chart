@@ -25,7 +25,10 @@ export const C = {
   P3_MULT: 0.925,
   FT_MULT: 1.0,
   DEF_PTS_K: 0.035,     // - logit on the shooter per DRtg point the five on the floor save (ratings def100)
-  TALENT_K: 0.07,       // + logit on makes per 5 points of roster-overall edge (offense five's team vs defense's)
+  // + logit on makes per 5 points of roster-overall edge (offense five's team vs defense's). Round 10 (Oct 9):
+  // 0.07 -> 0.33. At 0.07 sim team strength was only 0.58x the power rating (SD 5.7 pts/game vs 8.7 rated,
+  // ~10.5 realized in real 2025-26 games), so a 25-point line played out as ~15. 0.33 = slope ~0.97 vs rating.
+  TALENT_K: 0.33,
   SYS_DEF_W: 1.0,       // weight on the team's system defense (snapshot sysDef, DRtg points per 100)
   BLK_RATE: 0.2,       // share of missed 2s that are blocked at league-average block rates
   HCA_K: 0.12,          // + logit on the home side's shots (not on neutral floors)
