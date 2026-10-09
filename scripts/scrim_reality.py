@@ -56,6 +56,13 @@ clip = lambda v, a=0.0, b=1.0: max(a, min(b, v))
 nk = lambda s: re.sub(r"[^a-z]", "", re.sub(r"\b(jr|sr|ii|iii|iv)\b\.?", "", (s or "").lower()))
 
 
+NICK = {"mike": "michael", "will": "william", "bill": "william", "charlie": "charles", "matt": "matthew", "nick": "nicholas",
+        "tony": "anthony", "jimmy": "james", "jim": "james", "rob": "robert", "bobby": "robert", "tom": "thomas",
+        "tommy": "thomas", "joe": "joseph", "danny": "daniel", "dave": "david", "chris": "christopher", "alex": "alexander",
+        "ben": "benjamin", "sam": "samuel", "zach": "zachary", "jake": "jacob", "josh": "joshua", "andy": "andrew",
+        "steve": "steven", "greg": "gregory", "jon": "jonathan", "johnny": "john", "pat": "patrick", "eddie": "edward"}
+
+
 def roster_name(name, roster):
     """the roster spelling of a box-score name: exact, else same last name + first initial, else a close
     spelling (difflib >= 0.85) — unique matches only"""
@@ -64,7 +71,11 @@ def roster_name(name, roster):
     if k in byk: return byk[k]
     w = (name or "").replace(".", "").split()
     if len(w) >= 2:
-        c = [r for r in roster if r.replace(".", "").split() and nk(r.replace(".", "").split()[-1]) == nk(w[-1]) and r[:1].lower() == w[0][:1].lower()]
+        # same last name and the first names agree as a nickname/prefix ("Cam" = "Cameron") — a first INITIAL
+        # alone matched brothers (Gallagher Placide -> Gavin Placide)
+        f0 = NICK.get(nk(w[0]), nk(w[0]))
+        c = [r for r in roster if r.replace(".", "").split() and nk(r.replace(".", "").split()[-1]) == nk(w[-1])
+             and (lambda f: f and (f.startswith(f0) or f0.startswith(f)))(NICK.get(nk(r.replace(".", "").split()[0]), nk(r.replace(".", "").split()[0])))]
         if len(c) == 1: return c[0]
     c = [r for r in roster if difflib.SequenceMatcher(None, nk(r), k).ratio() >= 0.85]
     return c[0] if len(c) == 1 else None
