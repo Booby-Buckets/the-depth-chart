@@ -1,9 +1,9 @@
 // "This week" (Oct 2026, owner: "you need week to week tasks, not just tasks to do"): the home screen opens with a
 // checklist rebuilt every week from the save — what needs doing now, why, and a button straight to it. The old home
 // panel (next game, sims, results, news, top 10) follows underneath.
-import { HOURS, AREAS, OFF, DEF, fitOf } from '../engine/program.js?v=57';
-import { classNeed, commitsOf, cutWeeks, hoursBudget, hoursUsed, planHours, rankOf, SUMMER, STAGE_LABEL } from '../engine/commits.js?v=57';
-import { visitsLeft, upcomingHomeGames } from '../engine/visits.js?v=57';
+import { HOURS, AREAS, OFF, DEF, fitOf } from '../engine/program.js?v=58';
+import { classNeed, commitsOf, cutWeeks, hoursBudget, hoursUsed, planHours, rankOf, SUMMER, STAGE_LABEL } from '../engine/commits.js?v=58';
+import { visitsLeft, upcomingHomeGames } from '../engine/visits.js?v=58';
 
 const KIND = { must: ['Must', 'must'], rec: ['Recommended', 'rec'], done: ['Done', 'done'] };
 
@@ -37,6 +37,8 @@ export function weekTasks(S, short) {
     const home = upcomingHomeGames(S).find(g => in7(g.d));
     if (home && visitsLeft(S) > 0 && !(S.visits || []).some(v => v.gid === home.id))
       add('rec', `Bring a recruit to ${fmt(home.d)} vs ${short(home.a)}`, `${visitsLeft(S)} official visits left — a home win in front of a recruit is your strongest pitch.`, 'recruit', 'Pick a recruit');
+    const noFocus = (S.visits || []).filter(v => v.type === 'official' && !v.done && !v.focus && in7(v.d));
+    if (noFocus.length) add('must', `Set the focus for ${noFocus.length} visit${noFocus.length === 1 ? '' : 's'} this week`, noFocus.map(v => { const r = R.find(x => x.id === v.rid); return r ? r.name : ''; }).filter(Boolean).join(', ') + ' — what you show him should match what he values.', 'recruit', 'Visits');
     const counters = R.filter(r => r.nilState === 'counter');
     if (counters.length) add('must', `${counters.length} NIL counter-offer${counters.length === 1 ? '' : 's'} waiting`, counters.map(r => `${r.name} wants $${r.counter}k`).join(' · '), 'recruit', 'Answer');
     const shaky = R.filter(r => r.commit === U && !r.signed && r.list.some(x => x !== U && (r.int[x] || 0) > 0.85 * (r.int[U] || 1)));

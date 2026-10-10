@@ -6,14 +6,32 @@
 //   • HOME visits — the head coach in the living room, any time: a week of recruiting momentum for a smaller boost.
 // What a visit earns lives on the recruit (r.vb = landing-odds logit, r.vs = scouting effort equivalent) and carries to
 // signing day (offseason.landOdds adds vb; the board's scouting view adds vs). Pure: works on the state object.
-import { power } from './season.js?v=57';
-import { news as push } from './injuries.js?v=57';
-import { visitBonus } from './facilities.js?v=57';
-import { rank, tv } from './legacy.js?v=57';
-import { profile, miles } from './recruit.js?v=57';
-import { visitInterest } from './commits.js?v=57';
+import { power } from './season.js?v=58';
+import { news as push } from './injuries.js?v=58';
+import { visitBonus } from './facilities.js?v=58';
+import { rank, tv } from './legacy.js?v=58';
+import { profile, miles, factors, relationship } from './recruit.js?v=58';
+import { visitInterest } from './commits.js?v=58';
 
 export const OFFICIAL_MAX = 5;
+// VISIT WEEKENDS (Oct 2026): every official visit has a FOCUS — what you show him. It pays off when it matches what
+// he values AND you're strong there; it backfires when you're weak on something he cares about. Twice a season a home
+// game can be a BIG WEEKEND: up to 6 recruits instead of 3, and recruits on the same weekend bond (+ per extra guest).
+export const VISIT_FOCUS = [['pt', 'Meet the team', 'Playing time — the rotation he could join'], ['team', 'Game-day atmosphere', 'Winning now — the crowd and the show'],
+  ['nil', 'Booster dinner', 'NIL money — meet the collective'], ['acad', 'Campus tour', 'Academics — classes, the degree'], ['draft', 'Pro development', 'Draft path — film, alumni in the pros'],
+  ['prox', 'Family weekend', 'Close to home — his family comes too'], ['brand', 'Brand day', 'Brand — gear, media, the conference']];
+export const BIG_MAX = 2;
+export const isBig = (state, gid) => (state.bigW || []).includes(gid);
+/** make a home game a big visit weekend (or undo it); returns an error string or null */
+export function toggleBig(state, gid) {
+  const B = state.bigW = state.bigW || [];
+  if (B.includes(gid)) { if ((state.visits || []).filter(v => v.gid === gid && !v.done).length > 3) return 'Move some visits off this weekend first (a normal game hosts three).'; B.splice(B.indexOf(gid), 1); return null; }
+  const g = state.schedule.find(x => x.id === gid);
+  if (!g || g.r || g.h !== state.user || g.n) return 'Big weekends are upcoming home games.';
+  if (B.length >= BIG_MAX) return `You get ${BIG_MAX} big weekends a season.`;
+  B.push(gid); return null;
+}
+export function setFocus(state, rid, gid, focus) { const v = (state.visits || []).find(x => x.rid === rid && x.gid === gid && !x.done); if (v) v.focus = focus; }
 /** official visits this class: 5, +1 per rank of Frequent Flyer (legacy.js) */
 export const officialMax = state => OFFICIAL_MAX + rank(state, 'flyer');
 /** what a visit costs in weeks of recruiting momentum: by how far he lives (EA-style location-based visits) */
@@ -40,14 +58,15 @@ export function upcomingHomeGames(state) {
 }
 
 /** schedule an official visit for recruit `rid` at home game `gid`; returns an error string or null */
-export function scheduleOfficial(state, rid, gid) {
+export function scheduleOfficial(state, rid, gid, focus) {
   const r = (state.rclass || []).find(x => x.id === rid); if (!r) return 'That recruit is no longer available.';
   const g = state.schedule.find(x => x.id === gid);
   if (!g || g.r || g.h !== state.user || g.n) return 'Official visits are hosted at one of your upcoming home games.';
   if (visitsFor(state, rid).some(v => v.type === 'official')) return `${r.name} already has an official visit with you.`;
   if (visitsLeft(state) <= 0) return `You've used all ${officialMax(state)} official visits for this class.`;
-  if ((state.visits || []).filter(v => v.gid === gid).length >= 3) return 'You can host at most three recruits at one game.';
-  (state.visits = state.visits || []).push({ rid, gid, d: g.d, type: 'official', done: false });
+  const cap = isBig(state, gid) ? 6 : 3;
+  if ((state.visits || []).filter(v => v.gid === gid).length >= cap) return cap === 3 ? 'A normal game hosts three recruits — make it a big weekend to host six.' : 'A big weekend hosts six recruits.';
+  (state.visits = state.visits || []).push({ rid, gid, d: g.d, type: 'official', done: false, focus: focus || null });
   return null;
 }
 export function cancelVisit(state, rid, gid) {
@@ -78,10 +97,26 @@ export function resolveVisits(state, g) {
   const pw = power(state), order = Object.keys(pw).sort((a, b) => pw[b] - pw[a]);
   const ranked = order.indexOf(g.a) >= 0 && order.indexOf(g.a) < 25;
   const pres = (state.teams[state.user].prestige || 30) / 100;
+  const rival = (state.rivals || []).some(([a, b]) => (a === g.h && b === g.a) || (a === g.a && b === g.h));
+  const big = isBig(state, g.id), n = V.length;
   for (const v of V) {
     const r = (state.rclass || []).find(x => x.id === v.rid); v.done = true; if (!r) continue;
-    let gain = 0.3 + visitBonus(state.teams[state.user]) + (won ? 0.25 : -0.12) + (won && margin >= 15 ? 0.1 : 0) + (ranked ? (won ? 0.25 : 0.05) : 0) + pres * 0.25 + (g.c ? 0.05 : 0);
+    profile(state, r);
+    // the night, part by part — kept on the visit so the board can say why it went the way it did
+    const parts = [['The program', 0.3 + pres * 0.25], ['Arena & crowd', visitBonus(state.teams[state.user]) + (big ? 0.05 : 0)],
+      [won ? `The win (${g.r[0]}-${g.r[1]})` : `The loss (${g.r[0]}-${g.r[1]})`, (won ? 0.25 : -0.12) + (won && margin >= 15 ? 0.1 : 0)]];
+    if (ranked) parts.push([won ? 'Beat a ranked team' : 'Ranked opponent', won ? 0.25 : 0.05]);
+    if (rival) parts.push(['Rivalry game', won ? 0.15 : 0.03]);
+    if (g.c) parts.push(['League game', 0.05]);
+    if (big && n > 1) parts.push([`Big weekend · ${n - 1} other recruit${n === 2 ? '' : 's'}`, Math.min(0.3, 0.08 * (n - 1))]);
+    if (v.focus) {
+      const f = factors(state, state.user, r, r.offer || 0, relationship(state, r, 0))[v.focus], care = Math.min(2.2, (r.w[v.focus] || 0) / 0.125);
+      const fg = 0.35 * care * (f - 0.5) * 2, lab = (VISIT_FOCUS.find(x => x[0] === v.focus) || [0, 'Focus'])[1];
+      parts.push([`${lab} (${care >= 1.3 ? 'he cares a lot' : care >= 0.8 ? 'he cares' : 'not his priority'})`, fg]);
+    }
+    let gain = parts.reduce((t, x) => t + x[1], 0);
     gain = Math.round(gain * 100) / 100;
+    v.parts = parts.map(([l, x]) => [l, Math.round(x * 100) / 100]);
     r.vb = Math.max(-0.4, Math.min(VB_CAP, (r.vb || 0) + gain)); r.vs = (r.vs || 0) + 35;
     visitInterest(state, r, gain);   // the recruiting race: a great visit is worth a lot of interest (commits.js)
     const P = state.teams[state.user].prog; if (P) P.acc.recruiting = Math.max(0, P.acc.recruiting - visitCost(state, r) * 0.5);   // flying him in (half a home visit's time)

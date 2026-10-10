@@ -2,9 +2,9 @@
 // pillars + offensive / defensive scheme with fit and familiarity) and the NIL collective. UI only — every rule
 // lives in engine/program.js.
 import { DIFFS, HOURS, AREAS, ROLES, OFF, DEF, PIL_LABEL, FOCUS_LABEL, cover, effort, fitOf, famOf, payroll, hire, fire, boosterEvent,
-  devMult, focusBonus, recruitPoints, nilRetention, nilOffer } from '../engine/program.js?v=57';
-import { facilitiesCard, bindFacilitiesCard } from './facilities.js?v=57';
-import { admitBar } from '../engine/people.js?v=57';
+  devMult, focusBonus, recruitPoints, nilRetention, nilOffer } from '../engine/program.js?v=58';
+import { facilitiesCard, bindFacilitiesCard } from './facilities.js?v=58';
+import { admitBar } from '../engine/people.js?v=58';
 
 // the school itself: admissions bar + international access (engine/people.js)
 function schoolCard(ctx) {
@@ -27,7 +27,7 @@ function settingsCard(ctx) {
     <div class="pg-focus">${sel('injFreq', 'Injuries', 'How often players get hurt (every player also has his own durability)')}${sel('injSev', 'Injury length', 'How long injuries keep players out')}
       ${sel('maxXfer', 'Max transfers per team', 'The most players one program can lose to the portal in an offseason (Off = no portal)')}${sel('xferUser', 'Transfers (your team)', 'How likely your players are to enter the portal')}${sel('xferCpu', 'Transfers (AI teams)', 'How likely AI players are to enter the portal')}</div></div>`;
 }
-import { TIERS, revenueOf, exitFee, travel, ladder, powerAvg, members } from '../engine/realign.js?v=57';
+import { TIERS, revenueOf, exitFee, travel, ladder, powerAvg, members } from '../engine/realign.js?v=58';
 
 const AREA_TXT = {
   practice: 'Scheme familiarity and your two focus areas grow with practice time.',

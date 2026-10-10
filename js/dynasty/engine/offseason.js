@@ -5,29 +5,29 @@
 //
 // Calibrated to the snapshot: freshmen enter at a median OVR ~59 (top 1% ~77); players gain ~+5 Fr->So,
 // ~+3 So->Jr, ~+1.5 after; teams lose ~4 upperclassmen a year; rosters carry 16 scholarships (the service academies 20, commits.rosterMax).
-import { overall, attributes } from './ratings.js?v=57';
-import { makeRng, hashSeed } from './rng.js?v=57';
-import { record_, power, touch } from './season.js?v=57';
-import { ncaaResult, postResult } from './postseason.js?v=57';
-import { effOvr } from './league.js?v=57';
-import { evaluateCoaches, runCarousel } from './coaching.js?v=57';
-import { healAll } from './injuries.js?v=57';
-import { profile, userOdds, pickSchool, notePro, factors, utility, relationship, aiSign } from './recruit.js?v=57';
-import { openPortal, portalDay, PORTAL_DAYS } from './portal.js?v=57';
-import { realignWindow, applyMoves, applyRevenue } from './realign.js?v=57';
-import { makeSchedule } from './schedule.js?v=57';
-import { runDraft } from './draft.js?v=57';
-import { compactAwards } from './awards.js?v=57';
-import { recordSeason, breakouts } from './history.js?v=57';
-import { violation, moodCtx } from './morale.js?v=57';
-import { tv, award } from './legacy.js?v=57';
-import { offseasonHealth } from './health.js?v=57';
-import { facilitiesSeason, retainMult } from './facilities.js?v=57';
-import { admitP, admissible, NCAA_MIN } from './people.js?v=57';
-import { rosterMax, isNewClass, signClass, initRecruiting, updatePipelines } from './commits.js?v=57';
+import { overall, attributes } from './ratings.js?v=58';
+import { makeRng, hashSeed } from './rng.js?v=58';
+import { record_, power, touch } from './season.js?v=58';
+import { ncaaResult, postResult } from './postseason.js?v=58';
+import { effOvr } from './league.js?v=58';
+import { evaluateCoaches, runCarousel } from './coaching.js?v=58';
+import { healAll } from './injuries.js?v=58';
+import { profile, userOdds, pickSchool, notePro, factors, utility, relationship, aiSign } from './recruit.js?v=58';
+import { openPortal, portalDay, PORTAL_DAYS } from './portal.js?v=58';
+import { realignWindow, applyMoves, applyRevenue } from './realign.js?v=58';
+import { makeSchedule } from './schedule.js?v=58';
+import { runDraft } from './draft.js?v=58';
+import { compactAwards } from './awards.js?v=58';
+import { recordSeason, breakouts } from './history.js?v=58';
+import { violation, moodCtx } from './morale.js?v=58';
+import { tv, award } from './legacy.js?v=58';
+import { offseasonHealth } from './health.js?v=58';
+import { facilitiesSeason, retainMult } from './facilities.js?v=58';
+import { admitP, admissible, NCAA_MIN } from './people.js?v=58';
+import { rosterMax, isNewClass, signClass, initRecruiting, updatePipelines } from './commits.js?v=58';
 // the weight room, nutrition and sports science help players grow (EA CFB26: facilities boost progression)
 const facDev = T => (T && T.fac ? Math.max(0.95, Math.min(1.05, 1 + ((T.fac.practice + T.fac.medical) / 2 - 50) / 900)) : 1);
-import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina, openStaffMarket, closeStaffMarket } from './program.js?v=57';
+import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina, openStaffMarket, closeStaffMarket } from './program.js?v=58';
 
 export const SCHOLARSHIPS = 16;   // the usual roster; commits.rosterMax has the per-program number
 const PIL = ['SCO', 'SHT', 'FIN', 'PLY', 'SEC', 'REB', 'DEF'];
@@ -384,7 +384,7 @@ export function startNextSeason(state) {
   applyRevenue(state);              // league money + exposure vs where each program started
   facilitiesSeason(state);          // projects open, facilities age, AI programs build (facilities.js)
   state.schedule = makeSchedule(state, rngFor);
-  state.visits = []; state.targets = []; state.rclass = makeClass(state, classSize(state));   // next year's class, recruitable all season
+  state.visits = []; state.targets = []; state.bigW = []; state.rclass = makeClass(state, classSize(state));   // next year's class, recruitable all season
   state.earlySigned = false; initRecruiting(state);   // its summer: offers go out, the clearest leads commit (commits.js)
   state.stats = {}; state.userBox = {}; state.post = null; state.awards = null;
   state.phase = 'regular';

@@ -3,9 +3,9 @@
 // entrants fill the rest in order of a draft grade (effective OVR + youth + size + upside + scouts' noise). Whoever
 // isn't picked signs pro elsewhere (undrafted). Some borderline players test the waters and come back.
 // Pure: works on the state object.
-import { makeRng, hashSeed } from './rng.js?v=57';
-import { effOvr } from './league.js?v=57';
-import { news } from './injuries.js?v=57';
+import { makeRng, hashSeed } from './rng.js?v=58';
+import { effOvr } from './league.js?v=58';
+import { news } from './injuries.js?v=58';
 
 const PICKS = 60, NON_COLLEGE = 0.2;
 export const NBA = ['Atlanta Hawks', 'Boston Celtics', 'Brooklyn Nets', 'Charlotte Hornets', 'Chicago Bulls', 'Cleveland Cavaliers', 'Dallas Mavericks', 'Denver Nuggets',

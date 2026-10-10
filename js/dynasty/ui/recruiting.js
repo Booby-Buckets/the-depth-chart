@@ -1,13 +1,15 @@
 // In-season Recruiting tab, EA College Football 25 style (Oct 2026): offers, a weekly hours budget spent on actions,
 // recruits narrowing their lists (Top 8 / 5 / 3), commitments that can flip, signings. Rules: engine/commits.js
 // (the race), engine/visits.js (official visits at home games), engine/recruit.js (what each recruit values, NIL).
-import { scoutView, scoutSD } from '../engine/offseason.js?v=57';
-import { moneyButtons, ensureMoneyCss } from './money.js?v=57';
-import { acadGrade, admitP, admitLabel } from '../engine/people.js?v=57';
-import { priorities, negotiate, acceptCounter, FACTORS, committedNIL, profile } from '../engine/recruit.js?v=57';
-import { officialMax, visitsLeft, visitsFor, upcomingHomeGames, scheduleOfficial, cancelVisit } from '../engine/visits.js?v=57';
+import { scoutView, scoutSD } from '../engine/offseason.js?v=58';
+import { moneyButtons, ensureMoneyCss } from './money.js?v=58';
+import { acadGrade, admitP, admitLabel } from '../engine/people.js?v=58';
+import { priorities, negotiate, acceptCounter, FACTORS, committedNIL, profile } from '../engine/recruit.js?v=58';
+import { officialMax, visitsLeft, visitsFor, upcomingHomeGames, scheduleOfficial, cancelVisit, VISIT_FOCUS, BIG_MAX, isBig, toggleBig, setFocus } from '../engine/visits.js?v=58';
+import { power, lineFor } from '../engine/season.js?v=58';
+import { factors as facOf, relationship as relOf } from '../engine/recruit.js?v=58';
 import { STAGE_LABEL, ACTIONS, HOURS_CAP, USER_OFFERS_MAX, SUMMER, cutWeeks, classNeed, commitsOf, hoursBudget, hoursUsed, planHours,
-  offerRecruit, withdrawOffer, toggleAction, userChance, gradesFor, rankOf, passesDB, dbLabel, grade, scoutedPct, revealed, needs, groupOf, classRanks, pipeOf, pipeTier, pipelinesOf } from '../engine/commits.js?v=57';
+  offerRecruit, withdrawOffer, toggleAction, userChance, gradesFor, rankOf, passesDB, dbLabel, grade, scoutedPct, revealed, needs, groupOf, classRanks, pipeOf, pipeTier, pipelinesOf } from '../engine/commits.js?v=58';
 
 let sel = null, q = '', pos = '', minStars = 3, onlyOpen = true, pickVisit = false, msg = '', rv = 'board', needOnly = false;
 const CSS = `
@@ -51,6 +53,11 @@ tr.rc-sel td{background:color-mix(in srgb,var(--accent,#c9a227) 10%,transparent)
 .rc-need{display:inline-flex;gap:4px}.rc-need span{font-size:11px;font-weight:800;padding:2px 6px;border-radius:4px;background:hsla(0,70%,48%,.14)}.rc-need span.ok{background:var(--bg3,#eee);color:var(--text3)}
 .rc-dl{font-size:11px;font-weight:700}
 .rc-pipe{font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px;background:hsla(140,55%,40%,.18);color:var(--green,#1a8c3a);white-space:nowrap}
+.vs-focus{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:5px;margin-top:6px}.vs-focus button{border:1px solid var(--border2,#ccc);background:none;color:inherit;border-radius:7px;padding:5px 7px;text-align:left;cursor:pointer;font:inherit}
+.vs-focus button b{display:block;font-size:12px}.vs-focus button span{font-size:10.5px;color:var(--text3)}.vs-focus button.on{border-color:var(--accent,#c9a227);background:color-mix(in srgb,var(--accent,#c9a227) 12%,transparent)}
+.vs-parts{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:6px;font-size:11.5px;font-weight:700}
+.vs-g{border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px}.vs-g.big{border-color:var(--accent,#c9a227)}.vs-gh{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.vs-tags span{font-size:10.5px;font-weight:800;padding:1px 6px;border-radius:4px;background:var(--bg3,#eee);margin-right:4px}
 .rc-pipes{display:flex;gap:5px;flex-wrap:wrap;margin:-4px 0 10px;font-size:12px;align-items:center}
 `;
 
@@ -61,8 +68,8 @@ export function recruitingView(ctx) {
   const R = S.rclass || [];
   if (!R.length || !R[0].list) { $('#dyBody').innerHTML = '<div class="dy-empty">The recruiting class appears at the start of the season.</div>'; return; }
   const P = S.teams[U].prog, w = S.rweek || 0, wk = Math.max(0, w - SUMMER), plan = S.rplan || {};
-  const sub = `<div class="tn-tabs">${[['board', 'Your board'], ['ranks', 'Class rankings'], ['top', 'Top 100']].map(([k, l]) => `<button class="${rv === k ? 'on' : ''}" data-rv="${k}">${l}</button>`).join('')}</div>`;
-  if (rv !== 'board') { $('#dyBody').innerHTML = sub + (rv === 'ranks' ? ranksHtml(ctx) : topHtml(ctx)); bind(ctx); return; }
+  const sub = `<div class="tn-tabs">${[['board', 'Your board'], ['visits', 'Visits'], ['ranks', 'Class rankings'], ['top', 'Top 100']].map(([k, l]) => `<button class="${rv === k ? 'on' : ''}" data-rv="${k}">${l}</button>`).join('')}</div>`;
+  if (rv !== 'board') { $('#dyBody').innerHTML = sub + (rv === 'ranks' ? ranksHtml(ctx) : rv === 'visits' ? visitsHtml(ctx) : topHtml(ctx)); bind(ctx); return; }
   const fmt = iso => new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
   const stars = n => '★'.repeat(n) + '<span class="dim">' + '★'.repeat(5 - n) + '</span>';
   const m$ = k => '$' + (k >= 1000 ? (k / 1000).toFixed(2) + 'M' : Math.round(k) + 'k');
@@ -121,8 +128,10 @@ export function recruitingView(ctx) {
       ${!can && !r.signed && !revealed(r) ? `<div style="margin-top:8px"><button class="rc-act ${(plan[r.id] || {}).scout ? 'on' : ''}" data-act="${esc(r.id)}|scout"><b>Scout him</b><span>10 h a week · no offer needed · reveals a gem or a bust</span></button></div>` : ''}
       ${can ? `<div class="dim" style="margin-top:10px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase">This week · ${Math.min(HOURS_CAP, planHours(p))} / ${HOURS_CAP} h on him · repeats every week until you change it</div>
       <div class="rc-acts">${ACTIONS.map(([k, l, h, d]) => `<button class="rc-act ${p[k] ? 'on' : ''}" data-act="${esc(r.id)}|${k}" ${(k === 'home' && r.hv) || (k === 'scout' && revealed(r)) || ((k === 'soft' || k === 'hard') && !['t5', 't3', 'commit'].includes(r.stage)) ? 'disabled' : ''}><b>${l}</b><span>${h} h · ${d}</span></button>`).join('')}
-        <div class="rc-act" style="cursor:default"><b>Official visit</b><span>${off ? (off.done ? `done · ${off.res}` : `${fmt(off.d)} <a href="#" data-cancel="${esc(r.id)}|${esc(off.gid)}">cancel</a>`) : `${visitsLeft(S)} left · <a href="#" data-pickv="${esc(r.id)}">pick a home game</a>`}</span></div></div>
-      ${pickVisit && !off ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">${home.slice(0, 10).map(gm => `<button class="btn ghost pg-sm" data-visit="${esc(r.id)}|${esc(gm.id)}">${fmt(gm.d)} vs ${esc(short(gm.a))}</button>`).join('') || '<span class="dim">No home games left.</span>'}</div>` : ''}
+        <div class="rc-act" style="cursor:default"><b>Official visit</b><span>${off ? (off.done ? `done · ${off.res}` : `${fmt(off.d)}${isBig(S, off.gid) ? ' · big weekend' : ''} <a href="#" data-cancel="${esc(r.id)}|${esc(off.gid)}">cancel</a>`) : `${visitsLeft(S)} left · <a href="#" data-pickv="${esc(r.id)}">pick a home game</a>`}</span></div></div>
+      ${pickVisit && !off ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">${home.slice(0, 10).map(gm => `<button class="btn ghost pg-sm" data-visit="${esc(r.id)}|${esc(gm.id)}">${fmt(gm.d)} vs ${esc(short(gm.a))}${isBig(S, gm.id) ? ' ★' : ''}</button>`).join('') || '<span class="dim">No home games left.</span>'}</div>` : ''}
+      ${off && !off.done ? focusPicker(S, r, off, esc) : ''}
+      ${off && off.done && off.parts ? `<div class="vs-parts">${off.parts.map(([l, x]) => `<span class="${x >= 0 ? 'up' : 'dn'}">${esc(l)} ${x >= 0 ? '+' : ''}${x.toFixed(2)}</span>`).join('')}</div>` : ''}
       <div style="margin-top:10px;font-size:12.5px"><b>NIL offer</b> <span class="dim">asks ${m$(r.ask)}/yr</span><div style="margin-top:4px">${moneyButtons('nil', r.id, r.ask, r.offer, esc)}</div>
         ${r.nilState === 'counter' ? `<button class="btn ghost pg-sm" data-takec="${esc(r.id)}">Take ${m$(r.counter)}</button>` : ''} <span class="rv-st ${r.nilState || ''}">${{ accepted: '✓ deal', counter: 'counter', low: 'lukewarm', insulted: 'insulted' }[r.nilState] || ''}</span>
         <span class="dim" style="font-size:11px">· money matters most once he's down to a Top 3</span></div>` : ''}
@@ -169,6 +178,8 @@ function bind(ctx) {
   document.querySelectorAll('[data-rv]').forEach(b => b.onclick = () => { rv = b.dataset.rv; recruitingView(ctx); });
   document.querySelectorAll('[data-pickv]').forEach(a => a.onclick = e => { e.preventDefault(); pickVisit = !pickVisit; recruitingView(ctx); });
   document.querySelectorAll('[data-visit]').forEach(b => b.onclick = () => { const [rid, gid] = b.dataset.visit.split('|'); pickVisit = false; again(scheduleOfficial(S, rid, gid) || 'Official visit scheduled.'); });
+  document.querySelectorAll('[data-vfocus]').forEach(b => b.onclick = () => { const [rid, gid, k] = b.dataset.vfocus.split('|'); setFocus(S, rid, gid, k); again('Visit focus set.'); });
+  document.querySelectorAll('[data-big]').forEach(b => b.onclick = () => { again(toggleBig(S, b.dataset.big) || ''); });
   document.querySelectorAll('[data-cancel]').forEach(a => a.onclick = e => { e.preventDefault(); const [rid, gid] = a.dataset.cancel.split('|'); cancelVisit(S, rid, gid); again('Visit cancelled.'); });
   document.querySelectorAll('[data-nil]').forEach(b => b.onclick = () => {
     const [rid, amt] = b.dataset.nil.split('|'), r = (S.rclass || []).find(x => x.id === rid); if (!r) return;
@@ -203,4 +214,37 @@ function topHtml(ctx) {
     <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th>#</th><th class="l">Recruit</th><th>Pos</th><th>From</th><th>Offers</th><th class="l">Status</th></tr></thead><tbody>
     ${R.map(r => `<tr class="${(r.signed || r.commit) === U ? 'me' : ''}"><td>${r.rank}</td><td class="l"><a href="#" data-sel="${esc(r.id)}"><b>${esc(r.name)}</b></a> ${'★'.repeat(r.stars)}${r.list.includes(U) && !(r.signed || r.commit) ? ' <span class="chip">you offered</span>' : ''}</td><td>${esc(r.pos || '')}</td>
       <td>${esc(r.home === 'INTL' ? (r.country || 'Intl') : r.home || '')}</td><td>${r.list.length}</td><td class="l">${st(r)}</td></tr>`).join('')}</tbody></table></div>`;
+}
+
+// ── visit focus: what you show him on his official visit (the ★ = the best match for what he values) ──
+function focusPicker(S, r, v, esc) {
+  const f = facOf(S, S.user, r, r.offer || 0, relOf(S, r, 0));
+  const score = k => (r.w[k] || 0) * (f[k] - 0.5);
+  const best = VISIT_FOCUS.slice().sort((a, b) => score(b[0]) - score(a[0]))[0][0];
+  return `<div class="dim" style="margin-top:8px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase">Visit focus — what you show him${v.focus ? '' : ' · <span class="dn">not set</span>'}</div>
+    <div class="vs-focus">${VISIT_FOCUS.map(([k, l, d]) => `<button class="${v.focus === k ? 'on' : ''}" data-vfocus="${esc(r.id)}|${esc(v.gid)}|${k}"><b>${l}${k === best ? ' ★' : ''}</b><span>${d}</span></button>`).join('')}</div>`;
+}
+// ── visits: your upcoming home games as visit weekends + what past visits earned ──
+function visitsHtml(ctx) {
+  const S = ctx.get(), { esc, tm, short } = ctx, U = S.user, R = S.rclass || [];
+  const fmt = iso => new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const pw = power(S), order = Object.keys(pw).sort((a, b) => pw[b] - pw[a]);
+  const home = upcomingHomeGames(S).slice(0, 14), V = S.visits || [];
+  const rec = id => R.find(r => r.id === id);
+  const bigN = (S.bigW || []).length;
+  const game = g => {
+    const opp = g.a, rk = order.indexOf(opp) + 1, sp = lineFor(S, g, pw), win = Math.round(100 / (1 + Math.exp(-sp / 6.5)));
+    const rival = (S.rivals || []).some(([a, b]) => (a === g.h && b === g.a) || (a === g.a && b === g.h)), big = isBig(S, g.id);
+    const guests = V.filter(v => v.gid === g.id), cap = big ? 6 : 3;
+    const tags = [rk && rk <= 25 ? `#${rk} opponent` : null, rival ? 'Rivalry' : null, g.c ? 'League game' : null].filter(Boolean);
+    return `<div class="vs-g ${big ? 'big' : ''}"><div class="vs-gh"><div><b>${fmt(g.d)}</b> · vs ${tm(opp)} <span class="vs-tags">${tags.map(t => `<span>${t}</span>`).join('')}</span></div>
+      <div><span class="dim">win ${win}% · ${guests.length}/${cap} recruits</span> <button class="btn ${big ? '' : 'ghost'} pg-sm" data-big="${esc(g.id)}" ${!big && bigN >= BIG_MAX ? 'disabled' : ''}>${big ? '★ Big weekend' : 'Make it a big weekend'}</button></div></div>
+      ${guests.length ? `<div style="margin-top:6px;font-size:12.5px">${guests.map(v => { const r = rec(v.rid); return r ? `<a href="#" data-sel="${esc(r.id)}"><b>${esc(r.name)}</b></a> ${'★'.repeat(r.stars)} · ${v.focus ? esc((VISIT_FOCUS.find(x => x[0] === v.focus) || [0, ''])[1]) : '<span class="dn">no focus set</span>'}` : ''; }).join(' &nbsp;·&nbsp; ')}</div>` : '<div class="dim" style="font-size:12px;margin-top:4px">No visitors yet — schedule one from a recruit on your board.</div>'}</div>`;
+  };
+  const past = V.filter(v => v.done && v.type === 'official').slice().reverse();
+  return `<div class="sec"><h2>Visit weekends</h2><span class="n">${visitsLeft(S)} official visits left · ${BIG_MAX - bigN} big weekend${BIG_MAX - bigN === 1 ? '' : 's'} left (6 recruits instead of 3 — they bond, but a loss hits all of them)</span></div>
+    <div class="pg-d" style="margin-bottom:8px">A win sells; a ranked opponent, a rivalry and a league game sell more; your arena and crowd count. Pick each visit's focus to match what that recruit values — and where you're strong.</div>
+    ${home.map(game).join('') || '<div class="dim">No home games left this season.</div>'}
+    ${past.length ? `<div class="sec"><h2>How visits went</h2></div>${past.map(v => { const r = rec(v.rid), g = S.schedule.find(x => x.id === v.gid); return r ? `<div class="vs-g"><div class="vs-gh"><div><b>${esc(r.name)}</b> ${'★'.repeat(r.stars)} · ${g ? `${fmt(g.d)} vs ${esc(short(g.a))}` : ''}</div><b class="${v.gain >= 0.3 ? 'up' : v.gain > 0 ? '' : 'dn'}">${{ great: 'Loved it', good: 'Enjoyed it', meh: 'Lukewarm', bad: 'Unimpressed' }[v.res] || ''}</b></div>
+      ${v.parts ? `<div class="vs-parts">${v.parts.map(([l, x]) => `<span class="${x >= 0 ? 'up' : 'dn'}">${esc(l)} ${x >= 0 ? '+' : ''}${x.toFixed(2)}</span>`).join('')}</div>` : ''}</div>` : ''; }).join('')}` : ''}`;
 }
