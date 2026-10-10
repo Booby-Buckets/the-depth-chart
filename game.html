@@ -94,6 +94,7 @@
 
 <script src="tdc-live.js?v=2"></script>
 <script src="tdc-livegame.js?v=4"></script>
+<script src="tdc-gameflow.js?v=4"></script>
 <script>
 const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
@@ -235,6 +236,8 @@ async function load(afterLive){
     const trFor=t=>tr?(t===home?tr.home:t===away?tr.away:null):null;
     c.innerHTML=header+callout+order.map(t=>tableFor(t,byTeam[t],potgId,trFor(t))).join('');
     shadeBoxes(c);
+    // game flow + rotation (ESPN play-by-play; hides itself when ESPN has no PBP)
+    if(window.TDC_GAMEFLOW){ const gf=document.createElement('div'); gf.id='gfHost'; c.appendChild(gf); TDC_GAMEFLOW.mount(gf,gid); }
   }catch(e){ if(afterLive) return; if(window.TDCLiveGame){ goLive(c); return; } c.innerHTML='<div class="err">Could not load box score. '+e.message+'</div>'; }
 }
 load();
