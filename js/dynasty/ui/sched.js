@@ -2,10 +2,10 @@
 // home-and-home returns are set; the user picks an event (or none) and fills the open dates — buy games (you pay),
 // guarantee games (they pay you), home-and-homes, neutral sites — and the AD fills whatever is left by the same
 // rules the AI programs use.
-import { userSchedInfo, eventOptions, askGame, addGame, removeGame, chooseEvent, tiers, TIER_NAME } from '../engine/schedule.js?v=49';
-import { power } from '../engine/season.js?v=49';
-import { miles } from '../engine/recruit.js?v=49';
-import { confLabel } from '../engine/awards.js?v=49';
+import { userSchedInfo, eventOptions, askGame, addGame, removeGame, chooseEvent, tiers, TIER_NAME } from '../engine/schedule.js?v=50';
+import { power } from '../engine/season.js?v=50';
+import { miles } from '../engine/recruit.js?v=50';
+import { confLabel } from '../engine/awards.js?v=50';
 
 let q = '', tierF = '', msg = '';
 

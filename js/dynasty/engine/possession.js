@@ -34,7 +34,7 @@ function pickBy(rng, five, f, skip) {
 export function runPossession(o, d, env) {
   const { C, L, rng, log } = env;
   const five = o.five, A = o.unit, D = d.unit;
-  const hca = o.home ? C.HCA_K : 0;
+  const hca = o.home ? C.HCA_K * (o.team.hcaM || 1) : 0;   // a louder arena, a bigger edge (facilities.js)
   const lv = o.team.offLevel - d.team.defLevel           // conference-strength correction (logit)
     - C.LEAD_K * cushion(env.lead || 0, C.LEAD_FREE) / 10   // game state: a comfortable lead coasts, a big deficit presses
     + (env.mom || 0);                                        // momentum / a timeout's set play + fresher legs (game.js)

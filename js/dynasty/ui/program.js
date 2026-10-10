@@ -2,8 +2,32 @@
 // pillars + offensive / defensive scheme with fit and familiarity) and the NIL collective. UI only — every rule
 // lives in engine/program.js.
 import { DIFFS, HOURS, AREAS, ROLES, OFF, DEF, PIL_LABEL, FOCUS_LABEL, cover, effort, fitOf, famOf, payroll, hire, fire, boosterEvent,
-  devMult, focusBonus, recruitPoints, nilRetention, nilOffer } from '../engine/program.js?v=49';
-import { TIERS, revenueOf, exitFee, travel, ladder, powerAvg, members } from '../engine/realign.js?v=49';
+  devMult, focusBonus, recruitPoints, nilRetention, nilOffer } from '../engine/program.js?v=50';
+import { facilitiesCard, bindFacilitiesCard } from './facilities.js?v=50';
+import { admitBar } from '../engine/people.js?v=50';
+
+// the school itself: admissions bar + international access (engine/people.js)
+function schoolCard(ctx) {
+  const S = ctx.get(), { esc } = ctx, t = S.teams[S.user];
+  if (t.acad == null) return '';
+  const all = Object.values(S.teams).filter(x => x.acad != null), rk = k => all.filter(x => (x[k] ?? 0) > (t[k] ?? 0)).length + 1;
+  const lvl = t.acad >= 90 ? 'Elite' : t.acad >= 75 ? 'High' : t.acad >= 55 ? 'Solid' : 'Standard';
+  return `<div class="pg-card"><div class="pg-h"><h3>School profile</h3><span class="pg-n">Academics: ${lvl} (#${rk('acad')}) · International access #${rk('intl')}</span></div>
+    <div class="pg-kv"><div><span>Admissions</span><b>${t.acad}</b></div><div><span>Freshman bar</span><b>${admitBar(S, t.name, false)}</b></div><div><span>Transfer bar</span><b>${admitBar(S, t.name, true)}</b></div>
+      <div><span>International access</span><b>${Math.round(100 * (t.intl ?? 0.3))}</b></div><div><span>Nearest gateway</span><b>${t.hub ? `${esc(t.hub)} · ${t.hubMi} mi` : '—'}</b></div>${t.cityPop ? `<div><span>City</span><b>${t.cityPop.toLocaleString()}</b></div>` : ''}</div>
+    <div class="pg-d">Every recruit and transfer has an academic profile (A+ to F). Your school admits athletes who clear its bar — elite academic schools have a high one and take even fewer transfers, so some players you want simply can't get in (and below a D- nobody in D-I can sign him). Strong students value a strong school. International recruits care less about distance than about getting here: schools near a major international airport and in bigger cities recruit abroad better. Their NIL is limited by visa rules, so they ask for less.</div></div>`;
+}
+// league settings (state.settings): injuries + the transfer portal
+const SET_OPTS = { injFreq: [[0, 'Off'], [0.5, 'Fewer'], [1, 'Realistic'], [1.5, 'More']], injSev: [[0.6, 'Lighter'], [1, 'Realistic'], [1.4, 'Harsher']],
+  maxXfer: [[0, 'Off'], [2, '2'], [4, '4'], [6, '6'], [30, 'No limit']], xferUser: [[0, 'Never'], [0.5, 'Half'], [1, 'Realistic'], [1.5, 'More']], xferCpu: [[0, 'Never'], [0.5, 'Half'], [1, 'Realistic'], [1.5, 'More']] };
+function settingsCard(ctx) {
+  const S = ctx.get(), st = S.settings || {};
+  const sel = (k, l, tip) => `<label title="${tip}">${l} <select data-set="${k}" class="dy-input sm">${SET_OPTS[k].map(([v, n]) => `<option value="${v}" ${(st[k] ?? 1) == v ? 'selected' : ''}>${n}</option>`).join('')}</select></label>`;
+  return `<div class="pg-card"><div class="pg-h"><h3>League settings</h3><span class="pg-n">Change any time</span></div>
+    <div class="pg-focus">${sel('injFreq', 'Injuries', 'How often players get hurt (every player also has his own durability)')}${sel('injSev', 'Injury length', 'How long injuries keep players out')}
+      ${sel('maxXfer', 'Max transfers per team', 'The most players one program can lose to the portal in an offseason (Off = no portal)')}${sel('xferUser', 'Transfers (your team)', 'How likely your players are to enter the portal')}${sel('xferCpu', 'Transfers (AI teams)', 'How likely AI players are to enter the portal')}</div></div>`;
+}
+import { TIERS, revenueOf, exitFee, travel, ladder, powerAvg, members } from '../engine/realign.js?v=50';
 
 const AREA_TXT = {
   practice: 'Scheme familiarity and your two focus areas grow with practice time.',
@@ -87,11 +111,13 @@ export function programView(ctx) {
     <div class="pg-kv"><div><span>Signing-day effort</span><b>${recruitPoints(S, t)} pts</b></div><div><span>Summer development</span><b>×${devMult(t).toFixed(2)}</b></div>
     <div><span>Focus carry-over</span><b>+${focusBonus(t).toFixed(1)}</b></div></div></div>`;
 
-  $('#dyBody').innerHTML = `<div class="sec"><h2>Program</h2><span class="n">Difficulty: <b>${esc(d.label)}</b> · ${esc(d.blurb)}</span></div>` + hours + plan + staff + nil + conf + season;
+  $('#dyBody').innerHTML = `<div class="sec"><h2>Program</h2><span class="n">Difficulty: <b>${esc(d.label)}</b> · ${esc(d.blurb)}</span></div>` + hours + plan + staff + nil + facilitiesCard(ctx) + schoolCard(ctx) + conf + settingsCard(ctx) + season;
   bind(ctx);
 }
 
 function bind(ctx) {
+  document.querySelectorAll('[data-set]').forEach(x => x.onchange = () => { const S2 = ctx.get(); S2.settings = Object.assign({}, S2.settings, { [x.dataset.set]: +x.value }); ctx.touch(); ctx.autosave(); });
+  bindFacilitiesCard(ctx, () => programView(ctx));
   const S = ctx.get(), t = S.teams[S.user], P = t.prog, $ = ctx.$;
   document.querySelectorAll('[data-hr]').forEach(r => {
     r.oninput = () => {

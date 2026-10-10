@@ -1,8 +1,9 @@
 // Offseason step 2: the transfer portal, played day by day (engine/portal.js). Fast: the best players commit in the
 // first few days. Contact players (relationship), make NIL offers (they answer), watch the commitments roll in.
-import { PORTAL_DAYS, CONTACTS_PER_DAY, openPortal, leaning, contact, offer, takeCounter, withdraw, portalDay } from '../engine/portal.js?v=49';
-import { priorities, profile } from '../engine/recruit.js?v=49';
-import { resolvePortal, tagsOf } from '../engine/offseason.js?v=49';
+import { PORTAL_DAYS, CONTACTS_PER_DAY, openPortal, leaning, contact, offer, takeCounter, withdraw, portalDay } from '../engine/portal.js?v=50';
+import { priorities, profile } from '../engine/recruit.js?v=50';
+import { resolvePortal, tagsOf } from '../engine/offseason.js?v=50';
+import { admitP, admitLabel, acadGrade, durability, durTag } from '../engine/people.js?v=50';
 
 const PIL = ['SCO', 'SHT', 'FIN', 'PLY', 'SEC', 'REB', 'DEF'];
 let pos = '', onlyOpen = true, q = '', msg = {};
@@ -27,7 +28,7 @@ export function portalView(ctx) {
     return `<tr class="${p.team === U ? 'pt-won' : p.team ? 'pt-gone' : ''}"><td class="l"><b>${esc(p.name)}</b><div class="dy-tags">${tagsOf(p.pillars, p.ht, p.sta).map(t => `<span>${esc(t)}</span>`).join('')}</div></td>
       <td class="l">${tm(p.from)}</td><td>${esc(p.pos || '')}</td><td>${p.ht ? `${Math.floor(p.ht / 12)}-${p.ht % 12}` : ''}</td><td><b>${ovrOf(p)}</b></td>
       ${PIL.map(k => `<td>${p.pillars[k]}</td>`).join('')}<td>${p.sta ?? ''}</td>
-      <td class="dim">${h ? `${h.ppg}/${h.rpg}/${h.apg}` : '—'}</td><td>${esc(p.home === 'INTL' ? 'Intl' : p.home || '')}</td>
+      <td class="dim">${h ? `${h.ppg}/${h.rpg}/${h.apg}` : '—'}</td><td>${esc(p.home === 'INTL' ? (p.country || 'Intl') : p.home || '')}</td><td class="${admitP(S, U, p, true) < 0.5 ? 'dn' : ''}" title="Academics ${acadGrade(p.acad ?? 60)} — elite academic schools take fewer transfers">${admitLabel(admitP(S, U, p, true))}</td><td title="${esc(durTag(p))}">${durability(p)}</td>
       <td class="l rv-w">${priorities(p).map(x => `<span>${esc(x)}</span>`).join('')}</td><td>${m$(p.ask)}</td>
       <td class="l rv-nilc">${p.team ? (of && of.nil ? m$(of.nil) : '') : `<input type="number" class="dy-min rv-nil" min="0" step="5" data-pnil="${esc(p.id)}" value="${of ? of.nil || 0 : ''}" placeholder="$k">
         ${p.nilState === 'counter' ? `<button class="btn ghost pg-sm" data-ptake="${esc(p.id)}">Take ${m$(p.counter)}</button>` : ''}${of ? ` <a href="#" data-pwd="${esc(p.id)}" title="Withdraw the offer">✕</a>` : ''}
@@ -40,12 +41,12 @@ export function portalView(ctx) {
     <div class="pg-kv"><div><span>Open scholarships</span><b>${open}</b></div><div><span>Calls left today</span><b>${calls}</b></div>
       <div><span>NIL fund</span><b>${m$(P ? P.nil.fund : 0)}</b></div><div><span>Promised</span><b>${m$(promised)}</b></div><div><span>Signed</span><b>${mine.length}</b></div>
       <div><span>Still available</span><b>${all.filter(p => !p.team).length}</b></div></div>
-    ${feed.length ? `<div class="pt-feed"><b>Day ${day} commitments:</b> ${feed.map(e => e.to ? `<span class="${e.to === U ? 'pt-mine' : ''}">${esc(e.name)} (${e.ovr}) → ${esc(short(e.to))}</span>` : `<span class="dim">${esc(e.name)} left D-I</span>`).join(' · ')}</div>` : ''}
+    ${feed.length ? `<div class="pt-feed"><b>Day ${day} commitments:</b> ${feed.map(e => e.denied ? `<span class="dn">${esc(e.name)} picked you — denied admission</span>` : e.to ? `<span class="${e.to === U ? 'pt-mine' : ''}">${esc(e.name)} (${e.ovr}) → ${esc(short(e.to))}</span>` : `<span class="dim">${esc(e.name)} left D-I</span>`).join(' · ')}</div>` : ''}
     <div class="dy-btns">${done ? '<button class="btn" id="ptNext">Continue to recruiting →</button>' : `<button class="btn" id="ptDay">Next day →</button><button class="btn ghost" id="ptClose">Sim to the close</button><button class="btn ghost" id="ptAuto">Let my staff handle it</button>`}</div>
     <div class="dy-row"><input id="ptQ" class="dy-input" placeholder="Search players…" value="${esc(q)}"><select id="ptPos" class="dy-input"><option value="">All positions</option>${['PG', 'SG', 'SF', 'PF', 'C'].map(x => `<option ${x === pos ? 'selected' : ''}>${x}</option>`).join('')}</select>
       <label class="cal-chk"><input type="checkbox" id="ptOpen" ${onlyOpen ? 'checked' : ''}> Uncommitted only</label></div>
     <div class="sheet-wrap"><table class="sheet dense heat dy-portal"><thead><tr><th class="l">Player</th><th class="l">From</th><th>Pos</th><th>Ht</th><th data-heat="1">OVR</th>${PIL.map(k => `<th data-heat="1">${k}</th>`).join('')}<th data-heat="1">STA</th>
-      <th title="Last season: points / rebounds / assists per game">Last yr</th><th>Home</th><th class="l">Wants</th><th>Ask</th><th class="l">Your offer</th><th></th><th class="l" title="The programs most in on him, and the chance he picks each if he decided today">Suitors</th><th title="Your chance if he decided today">Odds</th></tr></thead>
+      <th title="Last season: points / rebounds / assists per game">Last yr</th><th>Home</th><th title="Can your school admit him as a transfer?">Admit</th><th title="Durability">DUR</th><th class="l">Wants</th><th>Ask</th><th class="l">Your offer</th><th></th><th class="l" title="The programs most in on him, and the chance he picks each if he decided today">Suitors</th><th title="Your chance if he decided today">Odds</th></tr></thead>
     <tbody>${list.map(row).join('')}</tbody></table></div>`;
   if (window.tdcSheetHeat) document.querySelectorAll('#dyBody table.heat').forEach(x => window.tdcSheetHeat(x));
   bind(ctx);

@@ -1,14 +1,17 @@
 // The season: day-by-day simulation over state.schedule, results, player stats, standings, a power rating
 // (opponent-adjusted net blended with the preseason prior) and the poll. Pure: works on the state object.
-import { prepareTeam } from './ratings.js?v=49';
-import { simulateGame, totals } from './game.js?v=49';
-import { makeRng, hashSeed } from './rng.js?v=49';
-import { powerFeatures } from './league.js?v=49';
-import { afterGame } from './injuries.js?v=49';
-import { resolvePending, nextPendingDate, EXT_RATING } from './fill.js?v=49';
-import { resolveVisits } from './visits.js?v=49';
-import { resolveMTE } from './mte.js?v=49';
-import { schemeMods, programGame } from './program.js?v=49';
+import { prepareTeam } from './ratings.js?v=50';
+import { simulateGame, totals } from './game.js?v=50';
+import { makeRng, hashSeed } from './rng.js?v=50';
+import { powerFeatures } from './league.js?v=50';
+import { afterGame } from './injuries.js?v=50';
+import { resolvePending, nextPendingDate, EXT_RATING } from './fill.js?v=50';
+import { resolveVisits } from './visits.js?v=50';
+import { resolveMTE } from './mte.js?v=50';
+import { hcaMult } from './facilities.js?v=50';
+import { academicCheck } from './people.js?v=50';
+import { news } from './injuries.js?v=50';
+import { schemeMods, programGame } from './program.js?v=50';
 
 const STAT_KEYS = ['min', 'pts', 'fgm', 'fga', 'tpm', 'tpa', 'ftm', 'fta', 'orb', 'drb', 'ast', 'stl', 'blk', 'tov', 'pf'];
 
@@ -20,6 +23,7 @@ export function prepared(state, C, cache = {}) {
     const opts = t.name === state.user || t.minutes || t.starters || t.plan
       ? { minutes: t.minutes || undefined, starters: t.starters || undefined, plan: t.plan || undefined } : {};
     teams[t.name] = schemeMods(state, t, prepareTeam(t, byId, state.maps, C, opts), C);   // scheme fit x familiarity, fatigue
+    teams[t.name].hcaM = hcaMult(t);                                                       // the home crowd (facilities.js)
   }
   for (const t of Object.values((state.ext && state.ext.teams) || {})) teams[t.name] = prepareTeam(t, state.ext.players, state.maps, C, {});
   return Object.assign(cache, { ver: state._ver, year: state.year, teams, L: leagueRefsOf(state) });
@@ -85,6 +89,7 @@ export function nextDate(state) {
 export function simDay(state, C, cache, opts = {}) {
   const d = nextDate(state); if (!d) return null;
   resolveMTE(state, d);                                          // multi-team event rounds (mte.js)
+  academicCheck(state, d, news);                                  // spring semester eligibility (people.js)
   resolvePending(state, d, makeRng(hashSeed(`${state.seed}:${state.year}:mte:${d}`)));   // MTE day 2 / 3 from real results
   const prep = prepared(state, C, cache);
   const out = [];

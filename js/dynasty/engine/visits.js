@@ -6,8 +6,9 @@
 //   • HOME visits — the head coach in the living room, any time: a week of recruiting momentum for a smaller boost.
 // What a visit earns lives on the recruit (r.vb = landing-odds logit, r.vs = scouting effort equivalent) and carries to
 // signing day (offseason.landOdds adds vb; the board's scouting view adds vs). Pure: works on the state object.
-import { power } from './season.js?v=49';
-import { news as push } from './injuries.js?v=49';
+import { power } from './season.js?v=50';
+import { news as push } from './injuries.js?v=50';
+import { visitBonus } from './facilities.js?v=50';
 
 export const OFFICIAL_MAX = 5;
 const VB_CAP = 1.2;                                    // a recruit's total visit boost (logit) is capped
@@ -67,7 +68,7 @@ export function resolveVisits(state, g) {
   const pres = (state.teams[state.user].prestige || 30) / 100;
   for (const v of V) {
     const r = (state.rclass || []).find(x => x.id === v.rid); v.done = true; if (!r) continue;
-    let gain = 0.3 + (won ? 0.25 : -0.12) + (won && margin >= 15 ? 0.1 : 0) + (ranked ? (won ? 0.25 : 0.05) : 0) + pres * 0.25 + (g.c ? 0.05 : 0);
+    let gain = 0.3 + visitBonus(state.teams[state.user]) + (won ? 0.25 : -0.12) + (won && margin >= 15 ? 0.1 : 0) + (ranked ? (won ? 0.25 : 0.05) : 0) + pres * 0.25 + (g.c ? 0.05 : 0);
     gain = Math.round(gain * 100) / 100;
     r.vb = Math.max(-0.4, Math.min(VB_CAP, (r.vb || 0) + gain)); r.vs = (r.vs || 0) + 35;
     v.res = gain >= 0.6 ? 'great' : gain >= 0.3 ? 'good' : gain > 0 ? 'meh' : 'bad'; v.gain = gain;

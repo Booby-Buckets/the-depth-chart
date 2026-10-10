@@ -7,12 +7,14 @@
 //   players: { id: { id, name, team, pos, pos2, ht, yr, pillars, lvl, mpg, pot } },
 //   schedule:[ { id, d, h, a, n, c, r } ],             r = [homePts, awayPts, ot, poss] once played
 //   stats:   { id: season totals },  powerFit, history:[], userBox:{ gameId: box } }
-import { attributes, overall } from './ratings.js?v=49';
-import { makeRng } from './rng.js?v=49';
-import { initCoaches, ensureCoaches } from './coaching.js?v=49';
-import { fillLeague, buildSchedule } from './fill.js?v=49';
-import { makeClass, classSize } from './offseason.js?v=49';
-import { initProgram, ensureStamina } from './program.js?v=49';
+import { attributes, overall } from './ratings.js?v=50';
+import { makeRng } from './rng.js?v=50';
+import { initCoaches, ensureCoaches } from './coaching.js?v=50';
+import { initFacilities } from './facilities.js?v=50';
+import { initSchools, initPeople } from './people.js?v=50';
+import { fillLeague, buildSchedule } from './fill.js?v=50';
+import { makeClass, classSize } from './offseason.js?v=50';
+import { initProgram, ensureStamina } from './program.js?v=50';
 
 export const YR = { 'FR': 1, 'FR.': 1, 'RS FR.': 1, 'SO': 2, 'SO.': 2, 'RS SO.': 2, 'JR': 3, 'JR.': 3, 'RS JR.': 3, 'SR': 4, 'SR.': 4, 'RS SR.': 4, 'GR': 5, 'GR.': 5, '5TH': 5 };
 export const YR_LABEL = ['', 'Fr', 'So', 'Jr', 'Sr', 'Gr'];
@@ -109,6 +111,10 @@ export function createLeague(snap, sched, opts = {}) {
   initCoaches(state, snap, opts.coachName);
   ensureStamina(state);                              // per-player stamina (minutes wear)
   initProgram(state, opts.diff || 'pro');          // staff, hours, schemes, NIL — every team
+  initFacilities(state, opts.facilities || null);  // arena (real attendance) / practice / medical / amenities
+  initSchools(state, opts.geo || null);            // admissions bar + international access
+  initPeople(state);                               // durability + academics
+  state.settings = defaultSettings();
   state.visits = []; state.targets = []; state.rclass = makeClass(state, classSize(state));   // next year's class, recruitable all season
   return state;
 }
@@ -120,6 +126,9 @@ function namePool(players) {
   return { f: [...new Set(ps.map(x => x[0]))], l: [...new Set(ps.map(x => x.slice(1).join(' ')).filter(Boolean))] };
 }
 
+/** league settings (Program tab): injury frequency / severity, the transfer portal */
+export const defaultSettings = () => ({ injFreq: 1, injSev: 1, maxXfer: 30, xferUser: 1, xferCpu: 1 });
+
 // attributes need the maps the snapshot carried — rebuilt on load, never saved
 export function hydrate(state) {
   if (state.lvl0 == null) {   // saves from before effective OVR
@@ -129,6 +138,8 @@ export function hydrate(state) {
   if (state.lvlRef == null) state.lvlRef = levelRef(state.teams);
   if (!state.job) initCoaches(state, null, null);   // saves from before coaching
   ensureCoaches(state);                            // saves from before coach ratings
+  state.settings = Object.assign(defaultSettings(), state.settings || {});
+  if (Object.values(state.players).some(p => p.prone == null)) initPeople(state);   // saves from before durability / academics
   if (!state.news) state.news = [];
   if (!state.names) state.names = namePool(state.players);   // older saves: freeze what they have now
   if (!state.ext) state.ext = { teams: {}, players: {} };      // saves from before full schedules

@@ -3,9 +3,10 @@
 // players commit with rising odds (the best ones first). Transfers are proven (true ratings, real stats), ask more
 // NIL than high-schoolers, and start with almost no relationship. AI programs sign them too (<= PORTAL_CAP each).
 // Pure: works on the state object.
-import { makeRng, hashSeed } from './rng.js?v=49';
-import { effOvr } from './league.js?v=49';
-import { profile, factors, negotiate, acceptCounter } from './recruit.js?v=49';
+import { makeRng, hashSeed } from './rng.js?v=50';
+import { effOvr } from './league.js?v=50';
+import { profile, factors, negotiate, acceptCounter } from './recruit.js?v=50';
+import { admitP, admissible } from './people.js?v=50';
 
 export const PORTAL_DAYS = 10, PORTAL_CAP = 3, CONTACTS_PER_DAY = 4;
 const SCHOL = 13;
@@ -46,7 +47,7 @@ function score(state, t, p) {
   if (T.conf === state.teams[p.from]?.conf) s -= 0.3;    // rarely within the league
   return s;
 }
-const eligible = (state, p, t) => t !== p.from && spots(state, t) > 0 && (t === state.user ? !!state.off.offers[p.id] : (state.off.took[t] || 0) < PORTAL_CAP);
+const eligible = (state, p, t) => t !== p.from && spots(state, t) > 0 && (t === state.user ? !!state.off.offers[p.id] && admitP(state, t, p, true) > 0 : (state.off.took[t] || 0) < PORTAL_CAP && admissible(state, t, p, true));   // + admissions (people.js)
 
 // a transfer hears from a handful of serious suitors: the SUITORS AI programs that want him most (+ the user if he
 // offered). He decides by a softmax over them (Gumbel noise at TAU in portalDay), so the odds shown are exactly real.
@@ -81,6 +82,7 @@ export function contact(state, id) {
 /** an NIL offer (or a plain scholarship offer with amount 0) */
 export function offer(state, id, amount) {
   const O = state.off, p = state.players[id]; if (!p || p.team) return { ok: false, msg: 'He has already committed.' };
+  if (admitP(state, state.user, p, true) <= 0.02) return { ok: false, msg: `${p.name} can't be admitted at your school as a transfer.` };
   const r = (+amount || 0) > 0 ? negotiate(state, p, amount) : { ok: true, msg: `Scholarship offer sent to ${p.name}.` };
   O.offers[id] = { nil: p.nilState === 'accepted' ? p.offer : (+amount || 0) };
   return r;
@@ -105,6 +107,7 @@ export function portalDay(state) {
       if (v > bs) { bs = v; best = t; }
     }
     if (!best || (best !== U && o < 58)) { if (last) { O.pfeed.push({ d: O.pday, name: p.name, to: null, ovr: Math.round(o) }); delete state.players[p.id]; } continue; }
+    if (best === U && !rng.chance(admitP(state, U, p, true))) { delete O.offers[p.id]; O.pfeed.push({ d: O.pday, name: p.name, to: null, ovr: Math.round(o), denied: true }); continue; }   // he chose you; admissions said no
     p.team = best; state.teams[best].players.push(p.id);
     if (best !== U) O.took[best] = (O.took[best] || 0) + 1;
     else { const of = O.offers[p.id]; if (of && of.nil && state.teams[U].prog) state.teams[U].prog.nil.fund = Math.max(0, state.teams[U].prog.nil.fund - of.nil); }

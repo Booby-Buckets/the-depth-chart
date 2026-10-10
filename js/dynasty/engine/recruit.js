@@ -8,12 +8,14 @@
 //   brand  brand: prestige, the conference, NIL clout
 //   nil    NIL: what the program offers against his asking price
 // The user's odds come from how the user's school stacks up against the best rival bidding for him. Pure.
-import { makeRng, hashSeed } from './rng.js?v=49';
-import { effOvr } from './league.js?v=49';
-import { power } from './season.js?v=49';
+import { makeRng, hashSeed } from './rng.js?v=50';
+import { effOvr } from './league.js?v=50';
+import { power } from './season.js?v=50';
+import { facOverall } from './facilities.js?v=50';
+import { personalize } from './people.js?v=50';
 
-export const FACTORS = [['prox', 'Close to home'], ['pt', 'Playing time'], ['rel', 'Relationships'], ['draft', 'Draft path'], ['team', 'Winning now'], ['brand', 'Brand'], ['nil', 'NIL money']];
-const BASE_W = { prox: 0.18, pt: 0.19, rel: 0.14, draft: 0.09, team: 0.12, brand: 0.09, nil: 0.19 };
+export const FACTORS = [['prox', 'Close to home'], ['pt', 'Playing time'], ['rel', 'Relationships'], ['draft', 'Draft path'], ['team', 'Winning now'], ['brand', 'Brand'], ['nil', 'NIL money'], ['acad', 'Academics']];
+const BASE_W = { prox: 0.18, pt: 0.19, rel: 0.14, draft: 0.09, team: 0.12, brand: 0.09, nil: 0.19, acad: 0.03 };
 const U_SCALE = 7;                              // utility points per unit of weighted factor (sets how decisive a gap is)
 
 // state centroids (lat, lon) — distance is all proximity needs
@@ -26,7 +28,7 @@ const XY = { AL: [32.8, -86.8], AK: [61.4, -152.3], AZ: [34.2, -111.7], AR: [34.
 // where D-I players come from (real talent production, roughly) + international
 const HOME_W = { TX: 9, CA: 9, FL: 7, GA: 6, NY: 5, NC: 5, IL: 4, MD: 4, NJ: 4, PA: 4, OH: 4, VA: 4, IN: 3, MI: 3, TN: 3, LA: 3, AL: 2.5, MO: 2.5, MN: 2, WA: 2, AZ: 2, KY: 2, SC: 2,
   MS: 2, WI: 1.5, MA: 1.5, CT: 1.5, OK: 1.5, KS: 1.2, CO: 1.2, NV: 1, AR: 1, IA: 1, OR: 1, UT: 1, DC: 1.5, NE: 0.6, WV: 0.5, NM: 0.5, DE: 0.5, ID: 0.4, RI: 0.4, NH: 0.3, ME: 0.3,
-  HI: 0.3, MT: 0.3, SD: 0.3, ND: 0.3, VT: 0.2, WY: 0.2, AK: 0.2, INTL: 6 };
+  HI: 0.3, MT: 0.3, SD: 0.3, ND: 0.3, VT: 0.2, WY: 0.2, AK: 0.2, INTL: 11 };   // ~10% of a class from abroad
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 export function miles(a, b) {
   const A = XY[a], B = XY[b]; if (!A || !B) return 900;
@@ -38,14 +40,16 @@ const grp = pos => /C|PF/.test(pos || '') ? 'B' : /SF|F/.test(pos || '') ? 'W' :
 
 // ── a recruit's profile: home, priorities, asking price (made once, saved on the recruit) ──
 export function profile(state, r) {
-  if (r.home && r.w && r.ask != null) return r;
+  if (r.home && r.w && r.ask != null) { if (r.acad == null || (r.home === 'INTL' && !r.country)) personalize(state, r, makeRng(hashSeed(`${state.seed}:pers:${r.id}`)), !r.team); return r; }
   const rng = makeRng(hashSeed(`${state.seed}:prof:${r.id}`));
   if (!r.home) { const ks = Object.keys(HOME_W), ws = ks.map(k => HOME_W[k]); r.home = ks[rng.pick(ws)]; }
+  personalize(state, r, rng, !r.team);   // durability, academics, country (people.js)
   if (!r.w) {
     const w = {}; let s = 0;
     for (const [k] of FACTORS) { w[k] = BASE_W[k] * Math.exp(rng.normal(0, 0.55)); s += w[k]; }
+    if ((r.acad ?? 50) >= 75) { s -= w.acad; w.acad *= 5; s += w.acad; }             // strong students care about the school
+    if (r.home === 'INTL') { s -= w.nil; w.nil *= 0.3; s += w.nil; }                   // visa rules limit what he can earn
     for (const k in w) w[k] = Math.round(w[k] / s * 1000) / 1000;
-    if (r.home === 'INTL') { w.prox = 0.02; }
     r.w = w;
   }
   if (r.ask == null) {
@@ -53,6 +57,7 @@ export function profile(state, r) {
     const band = [null, [0, 15], [10, 50], [40, 150], [150, 400], [400, 900]][Math.max(1, Math.min(5, r.stars || 2))];
     let a = (band[0] + (band[1] - band[0]) * rng.next() ** 1.3) * 0.7;   // high-schoolers are cheaper than proven transfers
     if (r.w.nil >= 0.22) a *= 1.3;
+    if (r.home === 'INTL') a *= 0.35;
     r.ask = Math.round(a / 5) * 5;
   }
   return r;
@@ -74,13 +79,14 @@ function ctx(state) {
     for (const k in g) g[k].sort((a, b) => b - a);
     roster[t.name] = g;
   }
-  return (state._rc = { ver: state._ver, n: Object.keys(state.teams).length, funds, pct, pw, pwS, lv, roster });
+  const fac = Object.values(state.teams).map(t => facOverall(t.fac)).sort((a, b) => a - b);
+  return (state._rc = { ver: state._ver, n: Object.keys(state.teams).length, funds, pct, pw, pwS, lv, roster, fac });
 }
 
 /** factor scores 0-1 for program `team` and recruit `r` (offer = $k NIL a year; rel = relationship 0-100) */
 export function factors(state, team, r, offer, rel) {
   const C = ctx(state), T = state.teams[team]; profile(state, r);
-  const prox = r.home === 'INTL' ? 0.5 : r.home === T.state ? 1 : 0.85 * (1 - Math.min(1200, miles(r.home, T.state)) / 1200);   // home state = 1
+  const prox = r.home === 'INTL' ? 0.15 + 0.85 * (T.intl ?? 0.3) : r.home === T.state ? 1 : 0.85 * (1 - Math.min(1200, miles(r.home, T.state)) / 1200);   // home state = 1; abroad: the international airport + city
   const mine = (r.scout || r.ovr || 60) + (state.lvlRef || 0) * 0;
   const better = (C.roster[team] && C.roster[team][grp(r.pos)] || []).filter(o => o >= mine).length;
   const slots = { G: 2, W: 1.5, B: 1.5 }[grp(r.pos)];
@@ -89,11 +95,11 @@ export function factors(state, team, r, offer, rel) {
   const draft = clamp(0.55 * (T.prestige || 30) / 100 + 0.45 * Math.min(1, pros / 5), 0, 1);
   const teamQ = C.pw ? C.pct(C.pwS, C.pw[team] ?? 0) : (T.prestige || 30) / 100;
   const fund = T.prog ? T.prog.nil.fund : 0;
-  const brand = clamp(0.55 * (T.prestige || 30) / 100 + 0.25 * C.pct(C.lv, (T.level || 0) + (T.lvAdj || 0)) + 0.2 * C.pct(C.funds, fund), 0, 1);
+  const brand = clamp(0.45 * (T.prestige || 30) / 100 + 0.2 * C.pct(C.lv, (T.level || 0) + (T.lvAdj || 0)) + 0.15 * C.pct(C.funds, fund) + 0.2 * C.pct(C.fac, facOverall(T.fac)), 0, 1);   // + facilities
   const nil = clamp((offer || 0) / Math.max(5, r.ask), 0, 1.4) / 1.4;
-  return { prox, pt, rel: clamp((rel ?? 30) / 100, 0, 1), draft, team: teamQ, brand, nil };
+  return { prox, pt, rel: clamp((rel ?? 30) / 100, 0, 1), draft, team: teamQ, brand, nil, acad: clamp((T.acad ?? 45) / 100, 0, 1) };
 }
-export const utility = (r, f) => U_SCALE * FACTORS.reduce((s, [k]) => s + r.w[k] * f[k], 0);
+export const utility = (r, f) => U_SCALE * FACTORS.reduce((s, [k]) => s + (r.w[k] || 0) * (f[k] || 0), 0);
 
 // an AI program's implied offer (its collective's clout x the market) and its relationship (its staff's reach)
 // (each signing spends from the collective: a program that has already promised most of its fund can't keep outbidding)

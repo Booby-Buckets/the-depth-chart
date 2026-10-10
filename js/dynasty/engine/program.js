@@ -7,9 +7,9 @@
 //   team.prog  = { staff:{OC,DC,REC,DEV,GM}, budget, hours:{practice,recruiting,nil,development}, focus:[p1,p2],
 //                  off, def (scheme keys), nil:{fund, wk}, acc:{practice,recruiting,nil,development, weeks} }
 //   player.fam = { o:{scheme: 0-100}, d:{scheme: 0-100} }   — familiarity follows the player (transfers keep it)
-import { makeRng, hashSeed } from './rng.js?v=49';
-import { attributes } from './ratings.js?v=49';
-import { news } from './injuries.js?v=49';
+import { makeRng, hashSeed } from './rng.js?v=50';
+import { attributes } from './ratings.js?v=50';
+import { news } from './injuries.js?v=50';
 
 export const DIFFS = {
   rookie: { label: 'Rookie', blurb: 'Your staff handles what you leave alone, recruits like you, boosters are patient and the job is safe.', recruit: 0.6, jobK: 0.5, nilK: 1.25, need: 0.85, aiPlan: 0.6, scandal: 0 },
@@ -81,7 +81,8 @@ export function cover(prog, area) {
 }
 export function effort(state, team, area) {
   const P = team.prog, d = DIFFS[state.diff || 'pro'], me = team.name === state.user;
-  return clamp((P.hours[area] * (me ? 1 : coachMult(team, area)) + cover(P, area)) / (AREA_NEED[area] * (me ? d.need : 1)), 0, 2.2);   // an AI head coach's quality (coaching.js)
+  const fm = area === 'practice' && team.fac ? clamp(1 + (team.fac.practice - 50) / 700, 0.94, 1.07) : 1;   // the practice facility (facilities.js)
+  return clamp(fm * (P.hours[area] * (me ? 1 : coachMult(team, area)) + cover(P, area)) / (AREA_NEED[area] * (me ? d.need : 1)), 0, 2.2);   // an AI head coach's quality (coaching.js)
 }
 // (mirrors coaching.coachMult without the import cycle: coaching.js imports this module)
 function coachMult(team, area) {

@@ -1,8 +1,9 @@
 // In-season Recruiting tab: next year's class (scouted through your staff), official visits at your home games and
 // home visits. Rules in engine/visits.js; signing day itself stays in the offseason (app.js).
-import { scoutView, landOdds, scoutSD } from '../engine/offseason.js?v=49';
-import { pursuit, priorities, negotiate, acceptCounter, FACTORS, committedNIL, profile, relationship } from '../engine/recruit.js?v=49';
-import { OFFICIAL_MAX, TARGET_MAX, toggleTarget, visitsLeft, visitsFor, upcomingHomeGames, scheduleOfficial, cancelVisit, homeVisit } from '../engine/visits.js?v=49';
+import { scoutView, landOdds, scoutSD } from '../engine/offseason.js?v=50';
+import { acadGrade, admitP, admitLabel, scoutDur } from '../engine/people.js?v=50';
+import { pursuit, priorities, negotiate, acceptCounter, FACTORS, committedNIL, profile, relationship } from '../engine/recruit.js?v=50';
+import { OFFICIAL_MAX, TARGET_MAX, toggleTarget, visitsLeft, visitsFor, upcomingHomeGames, scheduleOfficial, cancelVisit, homeVisit } from '../engine/visits.js?v=50';
 
 let q = '', pos = '', minStars = 0, onlyT = false, open = null, detail = null, lastMsg = {};
 
@@ -30,7 +31,7 @@ export function recruitingView(ctx) {
     return `<tr class="${tg ? 'rv-tg' : ''}"><td><button class="rv-star ${tg ? 'on' : ''}" data-tgt="${esc(r.id)}" title="${tg ? 'Stop working him' : 'Make him a target: your staff builds the relationship every week'}">${tg ? '★' : '☆'}</button></td><td>${r.rank}</td><td class="l"><b>${esc(r.name)}</b> ${V.map(badge).join(' ')}<div class="dy-tags">${v.tags.map(t => `<span>${esc(t)}</span>`).join('')}</div></td>
       <td class="l">${stars(r.stars)}</td><td>${esc(r.pos || '')}</td><td>${r.ht ? `${Math.floor(r.ht / 12)}-${r.ht % 12}` : ''}</td><td><b>${v.ovr}</b></td>
       ${PILLARS.map(k => `<td>${v.pillars[k]}</td>`).join('')}<td>${v.sta}</td><td><b>${v.grade}</b></td><td class="dim">±${v.sd}</td>
-      <td title="Relationship (0-100). Targets warm up every week with your recruiting hours.">${rel}</td><td>${esc(r.home === 'INTL' ? 'Intl' : r.home || '')}</td><td class="l rv-w">${priorities(r).map(x => `<span>${esc(x)}</span>`).join('')}</td>
+      <td title="Relationship (0-100). Targets warm up every week with your recruiting hours.">${rel}</td><td>${esc(r.home === 'INTL' ? (r.country || 'Intl') : r.home || '')}</td><td title="Academics ${r.acad ?? ''}">${acadGrade(r.acad ?? 60)}</td><td class="${admitP(S, S.user, r, false) < 0.5 ? 'dn' : ''}">${admitLabel(admitP(S, S.user, r, false))}</td><td title="Durability as your medical staff reads it">${scoutDur(S, r)}</td><td class="l rv-w">${priorities(r).map(x => `<span>${esc(x)}</span>`).join('')}</td>
       <td>${m$(r.ask)}</td><td class="l rv-nilc">${nilCell}</td>
       <td class="l">${P2.rival ? `<a href="#" data-detail="${esc(r.id)}" title="See how he compares you">${esc(short(P2.rival))}</a>` : '—'}</td>
       <td title="Your odds at signing day with an average effort on him (visits + NIL included)"><b>${odds}%</b></td>
@@ -52,7 +53,7 @@ export function recruitingView(ctx) {
       <select id="rvPos" class="dy-input"><option value="">All positions</option>${['PG', 'SG', 'SF', 'PF', 'C'].map(p => `<option ${p === pos ? 'selected' : ''}>${p}</option>`).join('')}</select>
       <label class="cal-chk"><input type="checkbox" id="rvT" ${onlyT ? 'checked' : ''}> Targets only</label>
       <select id="rvStars" class="dy-input"><option value="0">All stars</option>${[5, 4, 3, 2].map(n => `<option value="${n}" ${n === minStars ? 'selected' : ''}>${n}★ +</option>`).join('')}</select></div>
-    <div class="sheet-wrap"><table class="sheet dense heat dy-rec"><thead><tr><th title="Target">★</th><th>#</th><th class="l">Recruit</th><th class="l">Stars</th><th>Pos</th><th>Ht</th><th data-heat="1">OVR</th>${PILLARS.map(k => `<th data-heat="1">${k}</th>`).join('')}<th data-heat="1">STA</th><th>POT</th><th title="Scouting accuracy (± rating points)">±</th><th title="Relationship (0-100)">Rel</th><th>From</th><th class="l">Wants</th><th title="His NIL asking price ($ a year)">Ask</th><th class="l" title="Your NIL offer ($k a year). He answers: accepts, counters, or feels lowballed.">Your offer</th><th class="l">Top rival</th><th>Odds</th><th class="l">Visits</th></tr></thead>
+    <div class="sheet-wrap"><table class="sheet dense heat dy-rec"><thead><tr><th title="Target">★</th><th>#</th><th class="l">Recruit</th><th class="l">Stars</th><th>Pos</th><th>Ht</th><th data-heat="1">OVR</th>${PILLARS.map(k => `<th data-heat="1">${k}</th>`).join('')}<th data-heat="1">STA</th><th>POT</th><th title="Scouting accuracy (± rating points)">±</th><th title="Relationship (0-100)">Rel</th><th>From</th><th title="Academics (A+ to F; below D- he can't play anywhere in D-I)">Acad</th><th title="Can your school admit him?">Admit</th><th title="Durability, as your medical staff reads it (a better medical facility reads it more accurately)">Dur</th><th class="l">Wants</th><th title="His NIL asking price ($ a year)">Ask</th><th class="l" title="Your NIL offer ($k a year). He answers: accepts, counters, or feels lowballed.">Your offer</th><th class="l">Top rival</th><th>Odds</th><th class="l">Visits</th></tr></thead>
     <tbody>${list.map(row).join('')}</tbody></table></div>`;
   if (window.tdcSheetHeat) document.querySelectorAll('#dyBody table.heat').forEach(x => window.tdcSheetHeat(x));
   bind(ctx);

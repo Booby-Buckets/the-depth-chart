@@ -1,28 +1,31 @@
 // Dynasty — the page. Engine (pure) + browser saves + rendering. One league in memory (S); every action
 // mutates it through the engine, re-renders, and autosaves.
-import { C } from '../engine/constants.js?v=49';
-import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=49';
-import { overall } from '../engine/ratings.js?v=49';
-import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=49';
-import { simNext, simTo, afterDay } from '../engine/flow.js?v=49';
-import { postResult } from '../engine/postseason.js?v=49';
-import { TYPES as INJ } from '../engine/injuries.js?v=49';
-import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain } from '../engine/offseason.js?v=49';
-import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=49';
-import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=49';
-import { lines as pbpLines } from './pbp.js?v=49';
-import { gameSteps, newCtl } from '../engine/game.js?v=49';
-import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=49';
-import { tireAt } from '../engine/program.js?v=49';
-import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=49';
-import { recruitingView } from './recruiting.js?v=49';
-import { portalView } from './portal.js?v=49';
-import { tournamentsView, awardsView } from './tourney.js?v=49';
-import { scheduleStep } from './sched.js?v=49';
-import { carouselStep, staffStep } from './carousel.js?v=49';
-import { coachesView } from './coaches.js?v=49';
-import { inviteInfo, decide as realignDecide } from '../engine/realign.js?v=49';
-import { programView, diffPicker } from './program.js?v=49';
+import { C } from '../engine/constants.js?v=50';
+import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=50';
+import { overall } from '../engine/ratings.js?v=50';
+import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=50';
+import { simNext, simTo, afterDay } from '../engine/flow.js?v=50';
+import { postResult } from '../engine/postseason.js?v=50';
+import { TYPES as INJ } from '../engine/injuries.js?v=50';
+import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain } from '../engine/offseason.js?v=50';
+import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=50';
+import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=50';
+import { lines as pbpLines } from './pbp.js?v=50';
+import { gameSteps, newCtl } from '../engine/game.js?v=50';
+import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=50';
+import { tireAt } from '../engine/program.js?v=50';
+import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=50';
+import { recruitingView } from './recruiting.js?v=50';
+import { portalView } from './portal.js?v=50';
+import { tournamentsView, awardsView } from './tourney.js?v=50';
+import { scheduleStep } from './sched.js?v=50';
+import { carouselStep, staffStep } from './carousel.js?v=50';
+import { coachesView } from './coaches.js?v=50';
+import { facilitiesRankHtml, bindFacilitiesRank } from './facilities.js?v=50';
+import { durability, durTag, acadGrade, admitP, admitLabel, initSchools } from '../engine/people.js?v=50';
+import { initFacilities } from '../engine/facilities.js?v=50';
+import { inviteInfo, decide as realignDecide } from '../engine/realign.js?v=50';
+import { programView, diffPicker } from './program.js?v=50';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -38,6 +41,9 @@ const PILLARS = [['SCO', 'Scoring'], ['SHT', 'Shooting'], ['FIN', 'Finishing'], 
 
 let S = null, slot = null, cache = {}, SNAP = null, SCHED = null, EXTRAS = null, RIVALS = null, tab = 'home', busy = false;
 // annual non-conference series (scripts/build_dynasty_rivals.py) — new leagues and older saves both get them
+const getFac = async () => FAC || (FAC = await fetch('data/dynasty-facilities.json?v=1').then(r => r.ok ? r.json() : {}).catch(() => ({})));   // real arenas + crowds
+let FAC = null, GEO = null;
+const getGeo = async () => GEO || (GEO = await fetch('data/dynasty-geo.json?v=1').then(r => r.ok ? r.json() : {}).catch(() => ({})));   // city, airport, international access
 const getRivals = async () => RIVALS || (RIVALS = await fetch('data/dynasty-rivals.json?v=1').then(r => r.ok ? r.json() : { pairs: [] }).then(d => d.pairs || []).catch(() => []));
 let newDiff = (() => { try { return localStorage.getItem('dy_diff') || 'pro'; } catch (e) { return 'pro'; } })();
 const ovrOf = p => Math.round(effOvr(p, S));   // competition-adjusted: a low-major 84 shows ~75
@@ -144,7 +150,7 @@ async function startScreen() {
 async function newDynasty(team) {
   await loadData();
   const cn = ($('#dyCoach') && $('#dyCoach').value.trim()) || 'You';
-  S = hydrate(createLeague(SNAP, SCHED, { user: team, now: Date.now(), coachName: cn, extras: EXTRAS, diff: newDiff, rivals: await getRivals() }));
+  S = hydrate(createLeague(SNAP, SCHED, { user: team, now: Date.now(), coachName: cn, extras: EXTRAS, diff: newDiff, rivals: await getRivals(), facilities: await getFac(), geo: await getGeo() }));
   slot = 'dyn-' + Date.now();
   cache = {}; touch(S); tab = 'calendar'; CAL._fresh = true;
   await saveSlot(slot, dehydrate(S), meta());
@@ -167,6 +173,8 @@ async function openSave(s) {
   if (!rec) return startScreen();
   S = hydrate(JSON.parse(rec.json)); slot = s; cache = {}; touch(S); tab = 'calendar'; CAL._fresh = true;
   if (!S.rivals) S.rivals = (await getRivals()).filter(r => S.teams[r[0]] && S.teams[r[1]]);   // saves from before rivalries
+  if (Object.values(S.teams).some(t => !t.fac)) initFacilities(S, await getFac());               // saves from before facilities
+  if (Object.values(S.teams).some(t => t.acad == null)) initSchools(S, await getGeo());           // saves from before academics / international access
   setCloud(signedIn() ? 'idle' : 'idle');
   render();
 }
@@ -382,9 +390,9 @@ function roster() {
   const stat = (id, k) => { const s = S.stats[id]; return s && s.g ? (s[k] / s.g).toFixed(1) : '—'; };
   $('#dyBody').innerHTML = `<div class="sec"><h2>Roster</h2><span class="n">Set starters (exactly five) and minutes per game — the sim plays your rotation. Minutes are scaled to 200 per game.</span></div>
   <div class="sheet-wrap"><table class="sheet dense heat dy-roster"><thead><tr><th class="l">Player</th><th>Pos</th><th>Yr</th><th>Ht</th><th data-heat="1" title="Overall, adjusted for the level of competition the player's ratings came from">OVR</th>
-    ${PILLARS.map(([k, l]) => `<th data-heat="1" title="${l}">${k}</th>`).join('')}<th data-heat="1" title="Stamina: he starts to wear down past about 28 + STA/9 minutes a night (guards usually carry more than bigs). Conditioning is a practice focus.">STA</th><th>Start</th><th>Min</th><th>MPG</th><th>PPG</th><th>RPG</th><th>APG</th></tr></thead><tbody>
+    ${PILLARS.map(([k, l]) => `<th data-heat="1" title="${l}">${k}</th>`).join('')}<th data-heat="1" title="Stamina: he starts to wear down past about 28 + STA/9 minutes a night (guards usually carry more than bigs). Conditioning is a practice focus.">STA</th><th data-heat="1" title="Durability: how well his body holds up. Low = injury prone (a serious injury lowers it).">DUR</th><th title="Academics (A+ to F). Below a D- he's ineligible; weak students can lose the spring semester.">ACAD</th><th>Start</th><th>Min</th><th>MPG</th><th>PPG</th><th>RPG</th><th>APG</th></tr></thead><tbody>
   ${ps.map(p => `<tr class="${p.out > 0 ? 'hurt' : ''}"><td class="l">${pl(p)}<div class="dy-tags">${tagsOf(p.pillars, p.ht, p.sta).map(x => `<span>${esc(x)}</span>`).join('')}</div>${p.out > 0 ? ` <span class="chip" title="${esc(p.inj ? p.inj.type : '')}">OUT ${p.out >= 99 ? 'season' : p.out + 'g'}</span>` : ''}${(() => { const d = S.lastOff && S.lastOff.progress && S.lastOff.progress[p.id]; return d ? ` <span class="${d > 0 ? 'up' : 'dn'}">${d > 0 ? '+' : ''}${d}</span>` : ''; })()}</td><td>${esc(p.pos || '')}</td><td>${YR_LABEL[p.yr] || ''}</td><td>${p.ht ? `${Math.floor(p.ht / 12)}-${p.ht % 12}` : ''}</td><td><b>${ovrOf(p)}</b></td>
-    ${PILLARS.map(([k]) => `<td>${p.pillars[k]}</td>`).join('')}<td title="Wears down past ~${Math.round(tireAt(p))} min">${p.sta ?? '—'}</td>
+    ${PILLARS.map(([k]) => `<td>${p.pillars[k]}</td>`).join('')}<td title="Wears down past ~${Math.round(tireAt(p))} min">${p.sta ?? '—'}</td><td title="${esc(durTag(p))}">${durability(p)}</td><td>${acadGrade(p.acad ?? 60)}</td>
     <td><input type="checkbox" data-st="${esc(p.id)}" ${starters.has(p.id) ? 'checked' : ''}></td>
     <td><input type="number" class="dy-min" min="0" max="40" step="1" data-min="${esc(p.id)}" data-tire="${tireAt(p).toFixed(1)}" value="${Math.round(t.minutes && t.minutes[p.id] != null ? t.minutes[p.id] : (auto[p.id] || 0))}"></td>
     <td>${stat(p.id, 'min')}</td><td>${stat(p.id, 'pts')}</td><td>${(() => { const s = S.stats[p.id]; return s && s.g ? ((s.orb + s.drb) / s.g).toFixed(1) : '—'; })()}</td><td>${stat(p.id, 'ast')}</td></tr>`).join('')}
@@ -428,11 +436,15 @@ function standingsView() {
 }
 
 function rankings() {
+  const sub = `<div class="tn-tabs">${[['power', 'Power'], ['fac', 'Facilities']].map(([k, l]) => `<button class="${(rankings.v || 'power') === k ? 'on' : ''}" data-rkv="${k}">${l}</button>`).join('')}</div>`;
+  const bindSub = () => document.querySelectorAll('[data-rkv]').forEach(b => b.onclick = () => { rankings.v = b.dataset.rkv; rankings(); });
+  if (rankings.v === 'fac') { $('#dyBody').innerHTML = sub + facilitiesRankHtml(CAL); bindFacilitiesRank(CAL, rankings); bindSub(); if (window.tdcSheetHeat) document.querySelectorAll('#dyBody table.heat').forEach(x => tdcSheetHeat(x)); return; }
   const pw = power(S), all = Object.keys(pw).sort((a, b) => pw[b] - pw[a]);
-  $('#dyBody').innerHTML = `<div class="sec"><h2>Power rankings</h2><span class="n">Opponent-adjusted scoring margin, blended with the preseason roster rating early in the year</span></div>
+  $('#dyBody').innerHTML = sub + `<div class="sec"><h2>Power rankings</h2><span class="n">Opponent-adjusted scoring margin, blended with the preseason roster rating early in the year</span></div>
   <div class="sheet-wrap"><table class="sheet dense heat dy-rk"><thead><tr><th>#</th><th class="l">Team</th><th class="l">Conf</th><th>Rec</th><th data-heat="1">Power</th></tr></thead><tbody>
   ${all.map((t, i) => { const r = record_(S, t); return `<tr class="${t === S.user ? 'me' : ''}"><td>${i + 1}</td><td class="l">${tm(t)}</td><td class="l dim">${esc(S.teams[t].conf)}</td><td>${r.w}-${r.l}</td><td>${pw[t].toFixed(1)}</td></tr>`; }).join('')}
   </tbody></table></div>`;
+  bindSub();
 }
 
 function leaders() {
@@ -447,7 +459,7 @@ function leaders() {
 const maxG = () => Math.max(0, ...Object.values(S.stats).map(s => s.g));
 
 // ── news, awards, player cards ──
-const NICON = { conf: '🏛️', draft: '🎟️',  injury: '🩹', return: '✅', award: '🏆', coach: '📋', title: '🏆' };
+const NICON = { fac: '🏗️', conf: '🏛️', draft: '🎟️',  injury: '🩹', return: '✅', award: '🏆', coach: '📋', title: '🏆' };
 function newsList(items) {
   if (!items.length) return '<div class="dy-empty">No news yet.</div>';
   return `<div class="dy-news">${items.map(n => `<div class="${n.mine ? 'mine' : ''}"><span class="d">${fmtDate(n.d)}</span><span>${NICON[n.type] || '•'}</span><span>${esc(n.text).replace(/\[\[([^\]]+)\]\]/g, (m, t) => esc(short(t)))}</span></div>`).join('')}</div>`;
@@ -468,8 +480,8 @@ function playerCard(id) {
   const s = S.stats[id], line = s && s.g ? `${s.g} G · ${(s.min / s.g).toFixed(1)} MPG · ${(s.pts / s.g).toFixed(1)} PPG · ${((s.orb + s.drb) / s.g).toFixed(1)} RPG · ${(s.ast / s.g).toFixed(1)} APG · ${s.fga ? (100 * s.fgm / s.fga).toFixed(1) : '—'} FG% · ${s.tpa ? (100 * s.tpm / s.tpa).toFixed(1) : '—'} 3P%` : 'No games this season';
   const awards = (p.hon || []).slice().reverse();   // every honor he has won (engine/awards.js honor())
   const ov = document.createElement('div'); ov.className = 'dy-ov';
-  ov.innerHTML = `<div class="dy-watch dy-card"><div class="hd">${p.team ? `<img src="${esc(logo(p.team))}" alt="">` : ''}<div><div class="eyebrow">${esc(p.team ? short(p.team) : 'Transfer portal')} · ${esc(p.pos || '')} · ${YR_LABEL[p.yr] || ''}${p.ht ? ` · ${Math.floor(p.ht / 12)}-${p.ht % 12}` : ''}${p.stars ? ` · ${'★'.repeat(p.stars)} recruit` : ''}</div>
-      <h2>${esc(p.name)}</h2><div class="dim">${line}</div>${p.out > 0 ? `<div class="hurt">🩹 ${esc(p.inj ? p.inj.type : 'Injured')} — ${p.out >= 99 ? 'out for the season' : `out ${p.out} game${p.out > 1 ? 's' : ''}`}</div>` : ''}</div><div class="ovr"><b>${ovrOf(p)}</b><span>OVR</span></div></div>
+  ov.innerHTML = `<div class="dy-watch dy-card"><div class="hd">${p.team ? `<img src="${esc(logo(p.team))}" alt="">` : ''}<div><div class="eyebrow">${esc(p.team ? short(p.team) : 'Transfer portal')} · ${esc(p.pos || '')} · ${YR_LABEL[p.yr] || ''}${p.ht ? ` · ${Math.floor(p.ht / 12)}-${p.ht % 12}` : ''}${p.stars ? ` · ${'★'.repeat(p.stars)} recruit` : ''}${p.country ? ` · ${esc(p.country)}` : ''}</div>
+      <h2>${esc(p.name)}</h2><div class="dim">${line}</div><div class="dim">Durability ${durability(p)} (${esc(durTag(p))}) · Academics ${acadGrade(p.acad ?? 60)}</div>${p.out > 0 ? `<div class="hurt">🩹 ${esc(p.inj ? p.inj.type : 'Injured')} — ${p.out >= 99 ? 'out for the season' : `out ${p.out} game${p.out > 1 ? 's' : ''}`}</div>` : ''}</div><div class="ovr"><b>${ovrOf(p)}</b><span>OVR</span></div></div>
     <div class="bars">${PILLARS.map(([k, l]) => `<div><span>${l}</span><i style="--v:${p.pillars[k]}%"></i><b>${p.pillars[k]}</b></div>`).join('')}</div>
     ${awards.length ? `<div class="aw">🏆 ${awards.map(esc).join(' · ')}</div>` : ''}
     ${(p.hist || []).length ? `<div class="sec"><h2>Career</h2></div><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Season</th><th class="l">Team</th><th>G</th><th>MPG</th><th>PPG</th><th>RPG</th><th>APG</th><th>OVR</th></tr></thead><tbody>
@@ -517,13 +529,13 @@ function offseason() {
       return `<tr data-rrow="${esc(r.id)}"><td><input type="number" class="dy-min" min="0" max="60" step="5" data-eff="${esc(r.id)}" value="${e}"></td><td class="odds" data-odds="${esc(r.id)}"></td><td>${r.rank}</td>
         <td class="l"><b>${esc(r.name)}</b>${(S.visits || []).filter(x => x.rid === r.id && x.done).map(x => ` <span class="rv ${x.res}" title="${x.type === 'home' ? 'Home visit' : 'Official visit'}: ${x.res}">${x.type === 'home' ? '🏠' : '🎓'}</span>`).join('')}<div class="dy-tags">${v.tags.map(t => `<span>${esc(t)}</span>`).join('')}</div></td><td class="l">${stars(r.stars)}</td><td>${esc(r.pos || '')}</td><td>${r.ht ? `${Math.floor(r.ht / 12)}-${r.ht % 12}` : ''}</td>
         <td><b>${v.ovr}</b></td>${PILLARS.map(([k]) => `<td>${v.pillars[k]}</td>`).join('')}<td>${v.sta}</td><td><b>${v.grade}</b></td><td class="dim">±${v.sd}</td>
-        <td>${esc(r.home === 'INTL' ? 'Intl' : r.home || '')}</td><td class="l rv-w">${priorities(profile(S, r)).map(x => `<span>${esc(x)}</span>`).join('')}</td><td>$${r.ask}k</td>
+        <td>${esc(r.home === 'INTL' ? (r.country || 'Intl') : r.home || '')}</td><td title="Academics ${r.acad ?? ''}">${acadGrade(r.acad ?? 60)}</td><td class="${admitP(S, U, r, false) < 0.5 ? 'dn' : ''}">${admitLabel(admitP(S, U, r, false))}</td><td class="l rv-w">${priorities(profile(S, r)).map(x => `<span>${esc(x)}</span>`).join('')}</td><td>$${r.ask}k</td>
         <td class="l"><input type="number" class="dy-min rv-nil" min="0" step="5" data-nilb="${esc(r.id)}" value="${r.offer || ''}" placeholder="$k"><span class="rv-st ${r.nilState || ''}">${r.nilState === 'accepted' ? '✓' : r.nilState || ''}</span></td>
         <td class="l">${esc(short(pursuit(S, r, e).rival || ''))}</td></tr>`; };
     const got = (O.portalResults || []).filter(x => x.to === U);
     html += `${got.length ? `<div class="dy-next"><div class="lbl">From the portal</div><div class="ln">${got.map(x => `<b>${esc(x.name)}</b> (${x.ovr}, from ${esc(short(x.from))})`).join(' · ')}</div></div>` : ''}
       <div class="sec"><h2>Recruiting — class of ${S.year}</h2><span class="n">${open} open scholarship${open === 1 ? '' : 's'} · put up to ${max} recruits on your board and split ${budget} effort points (your recruiting hours this season). Ratings are your staff's scouting estimates — more effort on a recruit sharpens them (±). Some recruits will bust; some will blossom.</span></div>
-      <div class="sheet-wrap"><table class="sheet dense heat dy-rec"><thead><tr><th>Effort</th><th>Odds</th><th>#</th><th class="l">Recruit</th><th class="l">Stars</th><th>Pos</th><th>Ht</th><th data-heat="1" title="Your staff's estimate of his overall">OVR</th>${PILLARS.map(([k, l]) => `<th data-heat="1" title="${l} (scouted)">${k}</th>`).join('')}<th data-heat="1" title="Stamina (scouted): how many minutes a night he can carry">STA</th><th title="Scouted potential: how much he should grow. Busts and diamonds in the rough hide here.">POT</th><th title="How sure your staff is (± rating points). Better recruiting coordinator and more effort on him = tighter.">±</th><th>From</th><th class="l">Wants</th><th>Ask</th><th class="l" title="Your NIL offer ($k a year)">Offer</th><th class="l">Rival</th></tr></thead><tbody>
+      <div class="sheet-wrap"><table class="sheet dense heat dy-rec"><thead><tr><th>Effort</th><th>Odds</th><th>#</th><th class="l">Recruit</th><th class="l">Stars</th><th>Pos</th><th>Ht</th><th data-heat="1" title="Your staff's estimate of his overall">OVR</th>${PILLARS.map(([k, l]) => `<th data-heat="1" title="${l} (scouted)">${k}</th>`).join('')}<th data-heat="1" title="Stamina (scouted): how many minutes a night he can carry">STA</th><th title="Scouted potential: how much he should grow. Busts and diamonds in the rough hide here.">POT</th><th title="How sure your staff is (± rating points). Better recruiting coordinator and more effort on him = tighter.">±</th><th>From</th><th title="Academics">Acad</th><th title="Can your school admit him? Elite academic schools have a higher bar.">Admit</th><th class="l">Wants</th><th>Ask</th><th class="l" title="Your NIL offer ($k a year)">Offer</th><th class="l">Rival</th></tr></thead><tbody>
       ${R.slice(0, 300).map(r => recRow(r, B[r.id] || 0)).join('')}
       </tbody></table></div>
       <div class="dy-btns"><span class="dim" id="effN"></span><button class="btn" id="oNext">Signing day →</button><button class="btn ghost" id="oAuto">Let my staff handle it</button></div>`;
@@ -559,7 +571,7 @@ function offseason() {
   const roster = S.teams[U].players.map(id => S.players[id]).filter(Boolean).sort((a, b) => ovrOf(b) - ovrOf(a));
   html += `<div class="sec"><h2>Signing day</h2><span class="n">${sg.filter(x => x.won).length} of ${sg.length} board targets signed</span></div>
     ${sg.length ? `<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th>#</th><th class="l">Recruit</th><th class="l">Stars</th><th class="l">Decision</th></tr></thead><tbody>
-      ${sg.map(x => `<tr><td>${x.rank}</td><td class="l"><b>${esc(x.name)}</b></td><td class="l">${stars(x.stars)}</td><td class="l">${x.won ? '<b class="w">Signed with you</b>' : '<span class="dim">Went elsewhere</span>'}</td></tr>`).join('')}</tbody></table></div>` : ''}
+      ${sg.map(x => `<tr><td>${x.rank}</td><td class="l"><b>${esc(x.name)}</b></td><td class="l">${stars(x.stars)}</td><td class="l">${x.won ? '<b class="w">Signed with you</b>' : x.denied ? '<span class="dn">Picked you — denied admission</span>' : '<span class="dim">Went elsewhere</span>'}</td></tr>`).join('')}</tbody></table></div>` : ''}
     <div class="sec"><h2>Your ${S.year}-${String(S.year + 1).slice(2)} roster</h2><span class="n">${roster.length} players · development happens when the new season starts</span></div>
     <div class="sheet-wrap"><table class="sheet dense heat dy-sign"><thead><tr><th class="l">Player</th><th>Pos</th><th>Yr</th><th data-heat="1">OVR</th>${PILLARS.map(([k, l]) => `<th data-heat="1" title="${l}">${k}</th>`).join('')}</tr></thead><tbody>
       ${roster.map(p => `<tr><td class="l">${pl(p)}${p.fresh ? ' <span class="chip new">new</span>' : ''}</td><td>${esc(p.pos || '')}</td><td>${p.fresh ? 'Fr' : YR_LABEL[Math.min(5, p.yr + 1)]}</td><td><b>${ovrOf(p)}</b></td>${PILLARS.map(([k]) => `<td>${p.pillars[k]}</td>`).join('')}</tr>`).join('')}
