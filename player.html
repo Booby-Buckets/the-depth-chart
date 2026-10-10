@@ -4506,7 +4506,10 @@ function renderPage(){
         <div class="sa-col">
           <div class="sec-title" style="margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
             <span>Shot Chart</span>
-            <select id="scSeasonSel" class="exp-sel" style="padding:6px 9px;font-size:12px;" onchange="loadShotChart(this.value)"></select>
+            <span style="display:flex;gap:8px;flex-wrap:wrap;">
+              <select id="scSeasonSel" class="exp-sel" style="padding:6px 9px;font-size:12px;" onchange="loadShotChart(this.value)"></select>
+              <select id="scGameSel" class="exp-sel" style="padding:6px 9px;font-size:12px;max-width:260px;display:none;" onchange="_shotGame(this.value)" aria-label="Pick a game"></select>
+            </span>
           </div>
           <div id="shotChartHost"></div>
         </div>
@@ -5760,7 +5763,8 @@ async function loadShotChart(season){
   if(!espn){ host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">No shot data — this player has no ESPN id.</div>'; return; }
   host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Loading shot chart…</div>';
   try{
-    var rows=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.'+season+'&select=x,y,made,sv,dist&limit=1500',{headers:tdcH()}).then(r=>r.ok?r.json():[]);
+    var gsel=document.getElementById('scGameSel'); if(gsel){ gsel.style.display='none'; gsel.innerHTML=''; }
+    var rows=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.'+season+'&select=x,y,made,sv,dist,game_id,team_id&limit=1500',{headers:tdcH()}).then(r=>r.ok?r.json():[]);
     // how many attempts he ACTUALLY took that season, so the chart can flag partial
     // coverage instead of presenting a third of the shots as the whole story
     var exp=null;
@@ -5782,9 +5786,40 @@ async function loadShotChart(season){
         +'<div style="color:var(--text3);font-size:12.5px;line-height:1.6;max-width:460px;margin:0 auto;">'+_msg+'</div></div>';
       return;
     }
-    TDC_SHOTCHART.render(host, Array.isArray(rows)?rows:[],
-      {subtitle:(player&&player.name)||'this player', expected:exp, season:season, pos:(player&&(player.position||player.pos))||''});
+    window._scState={rows:Array.isArray(rows)?rows:[], season:season, exp:exp};
+    _shotGame('');
+    _shotGameList(window._scState);
   }catch(e){ host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Could not load shot chart.</div>'; }
+}
+// one game or the whole season, from the rows loadShotChart already pulled
+function _shotGame(gid){
+  var st=window._scState, host=document.getElementById('shotChartHost'); if(!st||!host) return;
+  var nm=(player&&player.name)||'this player', pos=(player&&(player.position||player.pos))||'';
+  if(!gid){ TDC_SHOTCHART.render(host, st.rows, {subtitle:nm, expected:st.exp, season:st.season, pos:pos}); return; }
+  var g=(st.games||{})[gid];
+  TDC_SHOTCHART.render(host, st.rows.filter(function(r){ return String(r.game_id)===String(gid); }),
+    {subtitle:nm+(g?' \u00b7 '+g.lbl:''), short:'This game', season:st.season, pos:pos});
+}
+// the game picker: every game he has located shots in, oldest first, with the result and his line
+async function _shotGameList(st){
+  var sel=document.getElementById('scGameSel'); if(!sel||!st.rows.length) return;
+  var by={}; st.rows.forEach(function(r){ if(r.game_id==null) return; var k=String(r.game_id); var b=by[k]||(by[k]={m:0,a:0,team:r.team_id}); b.a++; if(r.made) b.m++; });
+  var ids=Object.keys(by); if(ids.length<2) return;
+  var meta={};
+  try{ for(var i=0;i<ids.length;i+=150){
+      var gs=await fetch(SB+'/rest/v1/games?id=in.('+ids.slice(i,i+150).join(',')+')&select=id,date,home,away,home_id,away_id,home_score,away_score,neutral',{headers:tdcH()}).then(r=>r.ok?r.json():[]);
+      (gs||[]).forEach(function(g){ meta[String(g.id)]=g; }); } }catch(e){}
+  if(window._scState!==st) return;   // season changed while loading
+  var short=function(n){ try{ return (window.tdcShortSchool&&tdcShortSchool(n))||String(n||'').replace(/ \S+$/,''); }catch(e){ return n; } };
+  var games=ids.map(function(id){ var g=meta[id], b=by[id], lbl, d='';
+    if(g){ var home=String(g.home_id)===String(b.team), opp=home?g.away:g.home, us=home?g.home_score:g.away_score, them=home?g.away_score:g.home_score;
+      d=g.date||''; var dt=d?new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
+      lbl=dt+' '+(home||g.neutral?'vs ':'@ ')+short(opp)+(us!=null&&them!=null?' ('+(us>them?'W':'L')+' '+us+'\u2013'+them+')':''); }
+    else lbl='Game '+id;
+    return {id:id,d:d,lbl:lbl,m:b.m,a:b.a}; }).sort(function(a,b){ return (a.d||'').localeCompare(b.d||''); });
+  st.games={}; games.forEach(function(g){ st.games[g.id]=g; });
+  sel.innerHTML='<option value="">All games ('+games.length+')</option>'+games.map(function(g){ return '<option value="'+g.id+'">'+g.lbl+' \u00b7 '+g.m+'/'+g.a+'</option>'; }).join('');
+  sel.style.display='';
 }
 // the Shot Flow tab: its own season picker, loaded when the tab is first opened
 function _initShotFlowSeasons(){
