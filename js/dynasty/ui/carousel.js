@@ -1,12 +1,12 @@
 // Offseason steps 1-2: the coaching carousel (your job, offers, then every opening filled with the cascade) and the
 // staff market (re-sign, hire free agents, poach assistants). Rules in engine/coaching.js + engine/program.js.
-import { takeJob, wantFor } from '../engine/coaching.js?v=55';
-import { finishCarousel, finishStaff } from '../engine/offseason.js?v=55';
-import { record_, power } from '../engine/season.js?v=55';
-import { effOvr } from '../engine/league.js?v=55';
-import { ROLES, payroll, staffAsk, offerStaff, poachAsk, poachStaff, fire } from '../engine/program.js?v=55';
-import { confLabel } from '../engine/awards.js?v=55';
-import { moneySelect } from './money.js?v=55';
+import { takeJob, wantFor } from '../engine/coaching.js?v=56';
+import { finishCarousel, finishStaff } from '../engine/offseason.js?v=56';
+import { record_, power } from '../engine/season.js?v=56';
+import { effOvr } from '../engine/league.js?v=56';
+import { ROLES, payroll, staffAsk, offerStaff, poachAsk, poachStaff, fire } from '../engine/program.js?v=56';
+import { confLabel } from '../engine/awards.js?v=56';
+import { moneySelect } from './money.js?v=56';
 
 const m$ = k => '$' + (k >= 1000 ? (k / 1000).toFixed(2) + 'M' : Math.round(k) + 'k');
 const WHY = { fired: 'fired', retired: 'retired', left: 'left' };

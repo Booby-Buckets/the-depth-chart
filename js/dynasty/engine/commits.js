@@ -11,11 +11,11 @@
 //   • A SUMMER — real recruiting starts long before November, so each new class gets a few simulated summer weeks:
 //     offers go out (the user's staff included), the clearest leads commit early, and the user arrives with work to do.
 // Rosters: 16 scholarships (the service academies carry more). Pure; deterministic per seed.
-import { makeRng, hashSeed } from './rng.js?v=55';
-import { profile, factors, utility, aiOffer, aiRel, relationship } from './recruit.js?v=55';
-import { effort, DIFFS } from './program.js?v=55';
-import { admitP } from './people.js?v=55';
-import { news as push } from './injuries.js?v=55';
+import { makeRng, hashSeed } from './rng.js?v=56';
+import { profile, factors, utility, aiOffer, aiRel, relationship } from './recruit.js?v=56';
+import { effort, DIFFS } from './program.js?v=56';
+import { admitP } from './people.js?v=56';
+import { news as push } from './injuries.js?v=56';
 
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 export const MILITARY = /^(Army|Navy|Air Force)\b/;
@@ -29,6 +29,7 @@ export const cutWeeks = { t8: 8, t5: 12, t3: 16 };
 export const USER_OFFERS_MAX = 25, HOURS_CAP = 50;
 // the user's weekly actions on one recruit (hours); pitches unlock at the Top 5, a home visit once a season
 export const ACTIONS = [
+  ['scout', 'Scout him', 10, 'Sharpens his ratings · enough reveals a gem or a bust (no offer needed)'],
   ['dm', 'Text / DM', 10, 'Small and steady'],
   ['call', 'Call his family', 25, 'Builds the relationship'],
   ['home', 'Head-coach home visit', 50, 'Once a season · a big jump'],
@@ -114,7 +115,29 @@ function aiHours(state, team) {   // an AI program's weekly hours per recruit
 export function hoursBudget(state) { const t = state.teams[state.user]; return t && t.prog ? Math.round(440 * effort(state, t, 'recruiting')) : 440; }
 /** hours planned for one recruit this week, and in total */
 export const planHours = p => Object.keys(p || {}).filter(k => p[k] && ACT[k]).reduce((s, k) => s + ACT[k][2], 0);
-export const hoursUsed = state => Object.entries(state.rplan || {}).reduce((s, [id, p]) => (byId(state, id) && userIn(state, byId(state, id)) ? s + Math.min(HOURS_CAP, planHours(p)) : s), 0);
+export const hoursUsed = state => Object.entries(state.rplan || {}).reduce((s, [id, p]) => { const r = byId(state, id); if (!r || r.signed) return s;
+  return s + (userIn(state, r) ? Math.min(HOURS_CAP, planHours(p)) : (p.scout ? 10 : 0)); }, 0);
+// SCOUTING (EA-style): every recruit hides how he'll really develop (offseason.js r.arc: a bust stalls, a gem takes
+// off). Scouting hours (r.vs, also earned by visits) tighten the ratings your staff sees and, past SCOUT_REVEAL, tell
+// you which he is. Anyone can be scouted — before you offer.
+export const SCOUT_REVEAL = 45;
+export const scoutedPct = r => Math.min(100, Math.round(100 * (r.vs || 0) / SCOUT_REVEAL));
+export const revealed = r => (r.vs || 0) >= SCOUT_REVEAL ? (r.arc === 'gem' ? 'gem' : r.arc === 'bust' ? 'bust' : 'solid') : null;
+/** next year's open scholarships by position group for a team (G guards, W wings, B bigs) */
+export function needs(state, team) {
+  const want = { G: 6, W: 5, B: 5 }, have = { G: 0, W: 0, B: 0 };
+  for (const id of state.teams[team].players) { const p = state.players[id]; if (p && (p.yr || 1) <= 3) have[G(p.pos)]++; }
+  for (const r of commitsOf(state, team)) have[G(r.pos)]++;
+  return Object.fromEntries(Object.keys(want).map(k => [k, Math.max(0, want[k] - have[k])]));
+}
+export const groupOf = G;
+/** recruiting class rankings: sum of stars squared over commits + signees */
+export function classRanks(state) {
+  const sc = {}, n = {};
+  for (const r of cls(state)) { const t = r.signed || r.commit; if (!t) continue; sc[t] = (sc[t] || 0) + r.stars * r.stars; n[t] = (n[t] || 0) + 1; }
+  return Object.keys(sc).sort((a, b) => sc[b] - sc[a]).map((t, i) => ({ rank: i + 1, team: t, pts: sc[t], n: n[t],
+    five: cls(state).filter(r => (r.signed || r.commit) === t && r.stars === 5).length, four: cls(state).filter(r => (r.signed || r.commit) === t && r.stars === 4).length }));
+}
 
 function weekGain(state, r, team, hours, rng) {
   const user = team === state.user;
@@ -128,6 +151,9 @@ export function recruitWeek(state, d) {
   const w = state.rweek = (state.rweek || 0) + 1, rng = rngFor(state, 'w' + w), U = state.user;
   if (w <= 3 || w % 4 === 0) aiOffers(state, rng, w <= SUMMER);   // new offers early, then a top-up every month (decommits, filled classes)
   const plan = state.rplan || {};
+  if (w > SUMMER) for (const r of R) if (r.list.includes(U)) { r.prevU = r.int[U] || 0; r.prevRk = rankOf(r, U); }
+  if (w > SUMMER) for (const [id, p] of Object.entries(plan)) if (p.scout) { const r = byId(state, id); if (r && !r.signed) { const was = revealed(r); r.vs = (r.vs || 0) + 12; const now = revealed(r);
+    if (!was && now) feed(state, r, now === 'gem' ? 'Your staff thinks he is a hidden gem' : now === 'bust' ? 'Your staff has real doubts — bust risk' : 'Your staff is sure: he is what his ranking says'); } }
   // the staff spends the hours the user leaves on the table (all of them on Rookie, half on Pro, none on HOF),
   // spread over his offers that have no plan this week
   const autoK = { rookie: 1, pro: 0.5, aa: 0.25, hof: 0 }[state.diff || 'pro'] ?? 0.5;
@@ -139,7 +165,7 @@ export function recruitWeek(state, d) {
     for (const t of r.list) {
       let h;
       if (t === U && w > SUMMER) {   // the user's own work (the summer was his staff's)
-        const p = plan[r.id] || {}; h = Math.min(HOURS_CAP, planHours(p)) || autoH;
+        const p = plan[r.id] || {}; h = (Math.min(HOURS_CAP, planHours(p)) - (p.scout ? 10 : 0)) || (planHours(p) ? 0 : autoH);
         if (p.home) { if (r.hv) h -= 50; else { r.hv = true; h += 50; feed(state, r, 'You visited his home'); } p.home = false; }
         if ((p.soft || p.hard) && !['t5', 't3', 'commit'].includes(r.stage)) { h -= (p.soft ? 20 : 0) + (p.hard ? 40 : 0); p.soft = p.hard = false; }
       } else {
@@ -252,9 +278,10 @@ export function withdrawOffer(state, rid) {
 /** toggle an action in this week's plan for a recruit; returns an error string or null */
 export function toggleAction(state, rid, k) {
   const r = byId(state, rid); if (!r || !ACT[k]) return null;
-  if (!userIn(state, r)) return 'Offer him first.';
+  if (!userIn(state, r) && k !== 'scout') return 'Offer him first.';
   const P = state.rplan = state.rplan || {}, p = P[rid] = P[rid] || {};
   if (p[k]) { p[k] = false; return null; }
+  if (k === 'scout' && revealed(r)) return 'Your staff already knows what he is.';
   if ((k === 'soft' || k === 'hard') && !['t5', 't3', 'commit'].includes(r.stage)) return 'Pitches unlock when he cuts to a Top 5.';
   if (k === 'home' && r.hv) return 'You already visited his home this season.';
   if (planHours(p) + ACT[k][2] > HOURS_CAP) return `At most ${HOURS_CAP} hours a week on one recruit.`;

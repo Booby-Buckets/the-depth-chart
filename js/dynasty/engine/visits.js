@@ -6,12 +6,12 @@
 //   • HOME visits — the head coach in the living room, any time: a week of recruiting momentum for a smaller boost.
 // What a visit earns lives on the recruit (r.vb = landing-odds logit, r.vs = scouting effort equivalent) and carries to
 // signing day (offseason.landOdds adds vb; the board's scouting view adds vs). Pure: works on the state object.
-import { power } from './season.js?v=55';
-import { news as push } from './injuries.js?v=55';
-import { visitBonus } from './facilities.js?v=55';
-import { rank, tv } from './legacy.js?v=55';
-import { profile, miles } from './recruit.js?v=55';
-import { visitInterest } from './commits.js?v=55';
+import { power } from './season.js?v=56';
+import { news as push } from './injuries.js?v=56';
+import { visitBonus } from './facilities.js?v=56';
+import { rank, tv } from './legacy.js?v=56';
+import { profile, miles } from './recruit.js?v=56';
+import { visitInterest } from './commits.js?v=56';
 
 export const OFFICIAL_MAX = 5;
 /** official visits this class: 5, +1 per rank of Frequent Flyer (legacy.js) */

@@ -1,39 +1,39 @@
 // Dynasty — the page. Engine (pure) + browser saves + rendering. One league in memory (S); every action
 // mutates it through the engine, re-renders, and autosaves.
-import { C } from '../engine/constants.js?v=55';
-import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=55';
-import { overall } from '../engine/ratings.js?v=55';
-import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=55';
-import { simNext, simTo, afterDay } from '../engine/flow.js?v=55';
-import { postResult } from '../engine/postseason.js?v=55';
-import { TYPES as INJ } from '../engine/injuries.js?v=55';
-import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain, pushRecruit, PUSHES } from '../engine/offseason.js?v=55';
-import { mood, moodCtx, letter, talk, talksFor } from '../engine/morale.js?v=55';
-import { ROT } from '../engine/health.js?v=55';
-import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=55';
-import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=55';
-import { lines as pbpLines } from './pbp.js?v=55';
-import { gameSteps, newCtl } from '../engine/game.js?v=55';
-import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=55';
-import { tireAt } from '../engine/program.js?v=55';
-import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=55';
-import { recruitingView } from './recruiting.js?v=55';
-import { ensureMoneyCss } from './money.js?v=55';
-import { weekBox, openTasks, WEEK_CSS } from './week.js?v=55';
+import { C } from '../engine/constants.js?v=56';
+import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=56';
+import { overall } from '../engine/ratings.js?v=56';
+import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=56';
+import { simNext, simTo, afterDay } from '../engine/flow.js?v=56';
+import { postResult } from '../engine/postseason.js?v=56';
+import { TYPES as INJ } from '../engine/injuries.js?v=56';
+import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain, pushRecruit, PUSHES } from '../engine/offseason.js?v=56';
+import { mood, moodCtx, letter, talk, talksFor } from '../engine/morale.js?v=56';
+import { ROT } from '../engine/health.js?v=56';
+import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=56';
+import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=56';
+import { lines as pbpLines } from './pbp.js?v=56';
+import { gameSteps, newCtl } from '../engine/game.js?v=56';
+import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=56';
+import { tireAt } from '../engine/program.js?v=56';
+import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=56';
+import { recruitingView } from './recruiting.js?v=56';
+import { ensureMoneyCss } from './money.js?v=56';
+import { weekBox, openTasks, WEEK_CSS } from './week.js?v=56';
 const ensureWeekCss = () => { if (!document.getElementById('wkCss')) { const s = document.createElement('style'); s.id = 'wkCss'; s.textContent = WEEK_CSS; document.head.appendChild(s); } };
-import { isNewClass, userChance } from '../engine/commits.js?v=55';
-import { portalView } from './portal.js?v=55';
-import { tournamentsView, awardsView } from './tourney.js?v=55';
-import { scheduleStep } from './sched.js?v=55';
-import { carouselStep, staffStep } from './carousel.js?v=55';
-import { coachesView } from './coaches.js?v=55';
-import { legacyView } from './legacy.js?v=55';
-import { margins } from '../engine/history.js?v=55';
-import { facilitiesRankHtml, bindFacilitiesRank } from './facilities.js?v=55';
-import { durability, durTag, acadGrade, admitP, admitLabel, initSchools } from '../engine/people.js?v=55';
-import { initFacilities } from '../engine/facilities.js?v=55';
-import { inviteInfo, decide as realignDecide } from '../engine/realign.js?v=55';
-import { programView, diffPicker } from './program.js?v=55';
+import { isNewClass, userChance } from '../engine/commits.js?v=56';
+import { portalView } from './portal.js?v=56';
+import { tournamentsView, awardsView } from './tourney.js?v=56';
+import { scheduleStep } from './sched.js?v=56';
+import { carouselStep, staffStep } from './carousel.js?v=56';
+import { coachesView } from './coaches.js?v=56';
+import { legacyView } from './legacy.js?v=56';
+import { margins } from '../engine/history.js?v=56';
+import { facilitiesRankHtml, bindFacilitiesRank } from './facilities.js?v=56';
+import { durability, durTag, acadGrade, admitP, admitLabel, initSchools } from '../engine/people.js?v=56';
+import { initFacilities } from '../engine/facilities.js?v=56';
+import { inviteInfo, decide as realignDecide } from '../engine/realign.js?v=56';
+import { programView, diffPicker } from './program.js?v=56';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -205,6 +205,27 @@ function navHtml() {
     ${cur[2].length > 1 ? `<nav class="dy-tabs dy-sub">${cur[2].map(([k, l]) => `<button class="${k === tab ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</nav>` : ''}`;
 }
 const g0 = g => g[0];
+// ── the guided week (Oct 2026, owner: "the weekly tasks need to take you through everything you need to do and
+// you have the option to sim"): Start my week walks Practice -> Recruiting -> Rotation -> Game plan -> Play, with a
+// bar on every step to go back, skip ahead or sim the week right there.
+const FLOW = [['program', 'Practice & hours'], ['recruit', 'Recruiting'], ['roster', 'Rotation'], ['plan', 'Game plan'], ['home', 'Play the week']];
+let flow = null;
+function simWeek() { run(() => { const d0 = nextDate(S); if (!d0) return; const end = new Date(Date.parse(d0 + 'T12:00:00Z') + 7 * 864e5).toISOString().slice(0, 10); simTo(S, C, cache, st => !nextDate(st) || nextDate(st) >= end); }); }
+function flowBar() {
+  if (flow == null || S.phase === 'offseason') return '';
+  const [k, l] = FLOW[flow], nx = FLOW[flow + 1];
+  return `<div class="wf-bar"><div class="wf-steps">${FLOW.map(([, x], i) => `<span class="${i === flow ? 'on' : i < flow ? 'done' : ''}" data-wf="${i}">${i < flow ? '✓ ' : ''}${x}</span>`).join('')}</div>
+    <div class="wf-acts">${flow > 0 ? '<button class="btn ghost pg-sm" id="wfBack">← Back</button>' : ''}${nx ? `<button class="btn pg-sm" id="wfNext">Next: ${nx[1]} →</button>` : ''}
+      <button class="btn ${nx ? 'ghost' : ''} pg-sm" id="wfSim">Sim the week ▸</button><button class="btn ghost pg-sm" id="wfEnd">Exit</button></div></div>`;
+}
+function bindFlow() {
+  const go = i => { flow = i; tab = FLOW[i][0]; render(); window.scrollTo(0, 0); };
+  const on = (id, f) => { const b = document.getElementById(id); if (b) b.onclick = f; };
+  on('wfBack', () => go(flow - 1)); on('wfNext', () => go(flow + 1));
+  on('wfSim', () => { flow = null; tab = 'home'; simWeek(); });
+  on('wfEnd', () => { flow = null; render(); });
+  document.querySelectorAll('[data-wf]').forEach(x => x.onclick = () => go(+x.dataset.wf));
+}
 function render() {
   if (!S) return startScreen();
   const t = S.teams[S.user], r = record_(S, S.user), pw = power(S);
@@ -223,6 +244,8 @@ function render() {
   if (S.phase === 'offseason' && tab === 'home') tab = 'off';
   ({ calendar: () => calendarView(CAL), program: () => programView(CAL), recruit: () => recruitingView(CAL), home, schedule, roster, plan, standings: standingsView, coaches: () => coachesView(CAL), coach: () => legacyView(CAL), rankings, leaders, post: () => tournamentsView(CAL), history, off: offseason, awards: () => awardsView(CAL), news: newsView })[tab]();
   document.querySelectorAll('#dyBody table.heat').forEach(x => window.tdcSheetHeat && tdcSheetHeat(x));
+  if (flow != null && FLOW[flow][0] !== tab) flow = FLOW.findIndex(f => f[0] === tab) >= 0 ? FLOW.findIndex(f => f[0] === tab) : null;   // the user wandered: follow him, or drop the walkthrough
+  const fb = flowBar(); if (fb) { $('#dyBody').insertAdjacentHTML('beforeend', fb); bindFlow(); }
 }
 
 // the calendar's view of the app (S and cache are reassigned on new / open, so read them live)
@@ -277,12 +300,16 @@ function home() {
   const inj = hurt.length ? `<div class="dy-inj"><b>Injury report</b> ${hurt.map(p => `${pl(p, false)} — ${esc(p.inj ? p.inj.type : 'injured')}, ${p.out >= 99 ? 'out for the season' : `out ${p.out} game${p.out > 1 ? 's' : ''}`}`).join(' · ')}</div>` : '';
   const nws = (S.news || []).slice(-8).reverse();
   ensureWeekCss();
-  $('#dyBody').innerHTML = (S.phase === 'offseason' ? '' : weekBox(S, esc, short)) + card + inj + `<div class="dy-two"><div><div class="sec"><h2>Recent results</h2></div>${gamesTable(recent, true)}
+  const startBar = S.phase === 'offseason' || !userNext() ? '' : `<div class="wf-start"><div><b>${flow === FLOW.length - 1 ? 'All set — play the week' : 'Get your week done'}</b><span class="dim">${flow === FLOW.length - 1 ? 'Sim it, play it game by game, or watch.' : 'Walk through practice, recruiting, your rotation and the game plan — or just sim it.'}</span></div>
+    ${flow === FLOW.length - 1 ? '' : '<button class="btn" id="wfStart">Start my week →</button>'}<button class="btn ${flow === FLOW.length - 1 ? '' : 'ghost'}" id="wfSim2">Sim the week ▸</button></div>`;
+  $('#dyBody').innerHTML = startBar + (S.phase === 'offseason' ? '' : weekBox(S, esc, short)) + card + inj + `<div class="dy-two"><div><div class="sec"><h2>Recent results</h2></div>${gamesTable(recent, true)}
     <div class="sec"><h2>News</h2><a class="n" data-goto="news" href="#">All news →</a></div>${newsList(nws)}</div>
     <div><div class="sec"><h2>Top 10</h2></div><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th>#</th><th class="l">Team</th><th>Rec</th><th>Power</th></tr></thead><tbody>
     ${top.map(r => `<tr class="${r.team === S.user ? 'me' : ''}"><td>${r.rank}</td><td class="l">${tm(r.team)}</td><td>${r.w}-${r.l}</td><td>${r.power.toFixed(1)}</td></tr>`).join('')}</tbody></table></div></div></div>`;
   const on = (id, f) => { const b = document.getElementById(id); if (b) b.onclick = f; };
   document.querySelectorAll('#dyBody [data-go]').forEach(b => b.onclick = () => { tab = b.dataset.go; render(); window.scrollTo(0, 0); });
+  on('wfStart', () => { flow = 0; tab = FLOW[0][0]; render(); window.scrollTo(0, 0); });
+  on('wfSim2', () => { flow = null; simWeek(); });
   on('bWatch', watch);
   on('bSim', () => run(simUserGame));
   on('bWeek', () => run(() => { const d0 = nextDate(S); const end = new Date(Date.parse(d0 + 'T12:00:00Z') + 7 * 864e5).toISOString().slice(0, 10); simTo(S, C, cache, st => !nextDate(st) || nextDate(st) >= end); }));
@@ -404,7 +431,72 @@ function schedule() {
   }).join('')}${(S.mtes || []).filter(m => m.teams.some(x => x.team === S.user)).flatMap(m => (S.pending || []).filter(x => x.type === 'mte' && x.id === m.id && !x.done).map(x => `<tr><td class="l">${fmtDate(x.d)}</td><td class="l dim">TBD — decided by the earlier rounds</td><td></td><td></td><td></td><td class="l dim">${esc(m.name)}</td></tr>`)).join('')}${(S.pending || []).filter(x => x.team === S.user && !x.done).map(x => `<tr><td class="l">${fmtDate(x.d)}</td><td class="l dim">TBD — decided by the earlier rounds</td><td></td><td></td><td></td><td class="l dim">${esc((x.ev || '').replace(/ · day.*/, ''))}</td></tr>`).join('')}</tbody></table></div>`;
 }
 
+// ── the rotation (Oct 2026 UI update): starting five as cards, the bench in order, -/+ minutes, swap starters with
+// two clicks; the full ratings spreadsheet is the other view. Edits are a draft until Save.
+let rView = 'rot', rDraft = null, rSwap = null;
+const POS5 = ['PG', 'SG', 'SF', 'PF', 'C'];
+function rotationView() {
+  ensureMoneyCss();
+  const t = S.teams[S.user], prep = prepared(S, C, cache).teams[S.user];
+  const auto = Object.fromEntries(prep.roster.map(p => [p.id, p.target]));
+  if (!rDraft || rDraft.team !== S.user || rDraft.ver !== S._ver) {
+    const st = t.starters || prep.roster.slice(0, 5).map(p => p.id);
+    rDraft = { team: S.user, ver: S._ver, starters: st.slice(), min: Object.fromEntries(t.players.map(id => [id, Math.round(t.minutes && t.minutes[id] != null ? t.minutes[id] : (auto[id] || 0))])), dirty: false };
+  }
+  const D = rDraft, ps = t.players.map(id => S.players[id]).filter(Boolean);
+  const startP = D.starters.map(id => S.players[id]).filter(Boolean).sort((a, b) => POS5.indexOf(a.pos) - POS5.indexOf(b.pos));
+  const bench = ps.filter(p => !D.starters.includes(p.id)).sort((a, b) => (D.min[b.id] || 0) - (D.min[a.id] || 0) || ovrOf(b) - ovrOf(a));
+  const tot = Object.values(D.min).reduce((x, y) => x + y, 0);
+  const tired = p => (D.min[p.id] || 0) > tireAt(p) + 0.5;
+  const stp = p => `<span class="ro-stp"><button class="dy-step" data-rm="${esc(p.id)}|-2">−</button><b>${D.min[p.id] || 0}</b><button class="dy-step" data-rm="${esc(p.id)}|2">+</button></span>`;
+  const bar = p => `<span class="ro-bar"><i style="width:${Math.min(100, 2.5 * (D.min[p.id] || 0))}%" class="${tired(p) ? 'tired' : ''}"></i><em style="left:${Math.min(100, 2.5 * tireAt(p))}%" title="Wears down past ~${Math.round(tireAt(p))} min"></em></span>`;
+  const st = s => (s.out > 0 ? `<span class="chip">OUT ${s.out >= 99 ? 'season' : s.out + 'g'}</span>` : '');
+  const card = p => `<div class="ro-card ${rSwap === p.id ? 'sel' : ''} ${p.out > 0 ? 'hurt' : ''}"><div class="ro-pos">${esc(p.pos || '')}</div><div class="ro-nm">${pl(p)}</div>
+    <div class="ro-ovr">${ovrOf(p)} <span class="dim">OVR</span> ${st(p)}</div><div class="dy-tags">${tagsOf(p.pillars, p.ht, p.sta).slice(0, 2).map(x => `<span>${esc(x)}</span>`).join('')}</div>
+    <div class="ro-min">${stp(p)} min ${tired(p) ? '<span class="warn">tired</span>' : ''}</div>${bar(p)}
+    <button class="btn ghost pg-sm" data-bench="${esc(p.id)}">${rSwap === p.id ? 'Pick his replacement ↓' : 'Bench him'}</button></div>`;
+  const row = (p, i) => `<tr class="${p.out > 0 ? 'hurt' : ''}"><td class="l dim">${i === 0 ? '6th man' : i < 4 ? 'Rotation' : (D.min[p.id] || 0) ? 'Spot' : 'DNP'}</td><td class="l">${pl(p)} ${st(p)}</td><td>${esc(p.pos || '')}</td><td>${YR_LABEL[p.yr] || ''}</td><td><b>${ovrOf(p)}</b></td>
+    <td class="l">${tagsOf(p.pillars, p.ht, p.sta).slice(0, 2).map(x => `<span class="dim">${esc(x)}</span>`).join(' · ')}</td><td>${stp(p)}</td><td class="l">${bar(p)}</td>
+    <td><button class="btn ${rSwap ? '' : 'ghost'} pg-sm" data-start="${esc(p.id)}" ${p.out > 0 ? 'disabled' : ''}>${rSwap ? 'Start him' : 'Start'}</button></td></tr>`;
+  return `<div class="sec"><h2>Rotation</h2><span class="n">The sim plays this rotation (minutes scale to 200). ${rSwap ? '<b>Pick a bench player to start in his place.</b>' : 'Bench a starter, then pick who starts.'}</span></div>
+    <div class="ro-five">${startP.map(card).join('')}</div>
+    <div class="ro-tot"><span>Minutes</span><span class="ro-bar big"><i style="width:${Math.min(100, tot / 2)}%" class="${Math.abs(tot - 200) > 10 ? 'tired' : ''}"></i></span><b>${tot} / 200</b>
+      <span class="dim">${tot > 210 ? 'over — everyone is scaled down' : tot < 190 ? 'under — everyone is scaled up' : ''}</span></div>
+    <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Role</th><th class="l">Bench</th><th>Pos</th><th>Yr</th><th>OVR</th><th class="l">Game</th><th>Min</th><th class="l"></th><th></th></tr></thead><tbody>${bench.map(row).join('')}</tbody></table></div>
+    <div class="dy-btns"><button class="btn" id="roSave" ${D.dirty ? '' : 'disabled'}>Save rotation</button><button class="btn ghost" id="roAuto">Coach's default</button>
+      <span class="ro-rot">${ROT.map(([k, l]) => `<button class="mb ${(t.rot || 'normal') === k ? 'on' : ''}" data-rot="${k}" title="How hard the default rotation rides your starters">${l}</button>`).join('')}</span></div>
+    <style>.ro-five{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:6px 0 12px}.ro-card{border:1px solid var(--border);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:5px}
+    .ro-card.sel{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent)}.ro-card.hurt{opacity:.7}.ro-pos{font:800 11px Inter;letter-spacing:.08em;color:var(--text3)}.ro-nm{font-weight:800}.ro-ovr{font:800 18px Inter}
+    .ro-stp{display:inline-flex;gap:6px;align-items:center}.ro-min{font-size:12px;color:var(--text3)}.ro-bar{position:relative;display:inline-block;width:120px;height:8px;border-radius:4px;background:var(--bg3,#eee);vertical-align:middle}
+    .ro-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--green,#1a8c3a)}.ro-bar i.tired{background:var(--red,#cc2200)}.ro-bar em{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--text3)}
+    .ro-card .ro-bar{width:100%}.ro-tot{display:flex;gap:12px;align-items:center;margin:0 0 10px;font-size:13px}.ro-bar.big{flex:1;max-width:420px;height:10px}.ro-rot{display:inline-flex;gap:5px;margin-left:10px}
+    @media(max-width:900px){.ro-five{grid-template-columns:1fr 1fr}}</style>`;
+}
+function bindRotation() {
+  const t = S.teams[S.user], D = rDraft, again = () => roster();
+  document.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { const [id, d] = b.dataset.rm.split('|'); D.min[id] = Math.max(0, Math.min(40, (D.min[id] || 0) + +d)); D.dirty = true; again(); });
+  document.querySelectorAll('[data-bench]').forEach(b => b.onclick = () => { rSwap = rSwap === b.dataset.bench ? null : b.dataset.bench; again(); });
+  document.querySelectorAll('[data-start]').forEach(b => b.onclick = () => {
+    const id = b.dataset.start, out = rSwap || D.starters.map(x => S.players[x]).sort((a, c) => ovrOf(a) - ovrOf(c))[0].id;   // no pick: replace the lowest-rated starter
+    D.starters = D.starters.map(x => (x === out ? id : x));
+    if ((D.min[id] || 0) < (D.min[out] || 0)) { const m = D.min[id] || 0; D.min[id] = D.min[out] || 0; D.min[out] = m; }   // the new starter takes the starter's minutes
+    rSwap = null; D.dirty = true; again();
+  });
+  const sv = $('#roSave'); if (sv) sv.onclick = () => { t.starters = D.starters.slice(); t.minutes = Object.assign({}, D.min); touch(S); autosave(); rDraft = null; render(); };
+  $('#roAuto').onclick = () => { t.starters = null; t.minutes = null; touch(S); autosave(); rDraft = null; rSwap = null; render(); };
+  document.querySelectorAll('[data-rot]').forEach(b => b.onclick = () => { t.rot = b.dataset.rot; touch(S); autosave(); rDraft = null; render(); });
+}
 function roster() {
+  const tabs = `<div class="tn-tabs">${[['rot', 'Rotation'], ['sheet', 'Full ratings']].map(([k, l]) => `<button class="${rView === k ? 'on' : ''}" data-rv="${k}">${l}</button>`).join('')}</div>`;
+  if (rView === 'rot') {
+    $('#dyBody').innerHTML = tabs + rotationView(); bindRotation();
+    document.querySelectorAll('[data-rv]').forEach(b => b.onclick = () => { rView = b.dataset.rv; roster(); });
+    ctx_bindPlayers(); return;
+  }
+  rosterSheet(tabs);
+}
+function ctx_bindPlayers() { if (CAL.bindPlayers) CAL.bindPlayers(); }
+function rosterSheet(tabs) {
   ensureMoneyCss();
   const t = S.teams[S.user];
   const prep = prepared(S, C, cache).teams[S.user];
@@ -413,7 +505,7 @@ function roster() {
   const starters = new Set(t.starters || prep.roster.slice(0, 5).map(p => p.id));
   const stat = (id, k) => { const s = S.stats[id]; return s && s.g ? (s[k] / s.g).toFixed(1) : '—'; };
   const MC = moodCtx(S);
-  $('#dyBody').innerHTML = `<div class="sec"><h2>Roster</h2><span class="n">Set starters (exactly five) and minutes per game — the sim plays your rotation. Minutes are scaled to 200 per game.</span></div>
+  $('#dyBody').innerHTML = tabs + `<div class="sec"><h2>Roster</h2><span class="n">Every rating, health and mood — set starters and minutes here or on the Rotation view.</span></div>
   <div class="sheet-wrap"><table class="sheet dense heat dy-roster"><thead><tr><th class="l">Player</th><th>Pos</th><th>Yr</th><th>Ht</th><th data-heat="1" title="Overall, adjusted for the level of competition the player's ratings came from">OVR</th>
     ${PILLARS.map(([k, l]) => `<th data-heat="1" title="${l}">${k}</th>`).join('')}<th data-heat="1" title="Stamina: he starts to wear down past about 28 + STA/9 minutes a night (guards usually carry more than bigs). Conditioning is a practice focus.">STA</th><th data-heat="1" title="Durability: how well his body holds up. Low = injury prone (a serious injury lowers it).">DUR</th><th title="Academics (A+ to F). Below a D- he's ineligible; weak students can lose the spring semester.">ACAD</th><th title="Season health: minutes wear him down, days off recover him. Worn-down players play tired and get hurt more; a hard season costs career health.">HP</th><th class="l" title="His dealbreaker — the one thing he has to have — graded vs what he expects (better players expect more). A broken dealbreaker pushes him toward the portal.">Mood</th><th>Start</th><th>Min</th><th>MPG</th><th>PPG</th><th>RPG</th><th>APG</th></tr></thead><tbody>
   ${ps.map(p => `<tr class="${p.out > 0 ? 'hurt' : ''}"><td class="l">${pl(p)}<div class="dy-tags">${tagsOf(p.pillars, p.ht, p.sta).map(x => `<span>${esc(x)}</span>`).join('')}</div>${p.out > 0 ? ` <span class="chip" title="${esc(p.inj ? p.inj.type : '')}">OUT ${p.out >= 99 ? 'season' : p.out + 'g'}</span>` : ''}${(() => { const d = S.lastOff && S.lastOff.progress && S.lastOff.progress[p.id]; return d ? ` <span class="${d > 0 ? 'up' : 'dn'}">${d > 0 ? '+' : ''}${d}</span>` : ''; })()}</td><td>${esc(p.pos || '')}</td><td>${YR_LABEL[p.yr] || ''}</td><td>${p.ht ? `${Math.floor(p.ht / 12)}-${p.ht % 12}` : ''}</td><td><b>${ovrOf(p)}</b></td>
@@ -436,20 +528,53 @@ function roster() {
     t.starters = st; t.minutes = m; touch(S); autosave(); render();
   };
   $('#rRot').onchange = e => { t.rot = e.target.value; touch(S); autosave(); render(); };
+  document.querySelectorAll('[data-rv]').forEach(b => b.onclick = () => { rView = b.dataset.rv; roster(); });
   $('#rAuto').onclick = () => { t.starters = null; t.minutes = null; touch(S); autosave(); render(); };
 }
 
 function plan() {
+  // the game plan as a pre-game screen (Oct 2026 UI update): the next opponent, a scouting report (your team vs his,
+  // minutes-weighted ratings), the three levers as five buttons each, and a recommended plan with its reasons
   const t = S.teams[S.user], p = t.plan || (t.plan = { tempo: 0, three: 0, pressure: 0 });
-  const rows = [['tempo', 'Tempo', 'Slow it down', 'Push the pace', 'More possessions favour the better team and raise totals; slowing down shortens the game (an underdog\'s friend).'],
-    ['three', 'Three-point emphasis', 'Attack inside', 'Bomb away', 'Shifts your shot mix. Forcing the mix away from your roster\'s natural game costs a little shot quality.'],
-    ['pressure', 'Defensive pressure', 'Sit back', 'Full-court pressure', 'More pressure forces turnovers but sends opponents to the line more and gives up easier looks.']];
-  $('#dyBody').innerHTML = `<div class="sec"><h2>Game plan</h2><span class="n">Applies to every game until you change it. 0 = your team's natural game.</span></div>
-  ${rows.map(([k, l, lo, hi, d]) => `<div class="dy-slider"><div class="hd"><b>${l}</b><span id="v-${k}">${p[k] > 0 ? '+' : ''}${p[k]}</span></div>
-    <div class="row"><span class="dim">${lo}</span><input type="range" min="-2" max="2" step="1" value="${p[k]}" data-plan="${k}"><span class="dim">${hi}</span></div><div class="d">${d}</div></div>`).join('')}`;
-  document.querySelectorAll('[data-plan]').forEach(i => i.oninput = () => {
-    p[i.dataset.plan] = +i.value; $('#v-' + i.dataset.plan).textContent = (+i.value > 0 ? '+' : '') + i.value; touch(S); autosave();
-  });
+  const g = userNext(), pw = power(S), opp = g ? (g.h === S.user ? g.a : g.h) : null;
+  const avg = (team, k) => { const T = S.teams[team]; if (!T) return null; let w = 0, v = 0; for (const id of T.players) { const q = S.players[id]; if (q && (q.mpg || 0) > 0 && !(q.out > 0)) { v += (k === 'STA' ? (q.sta ?? 50) : q.pillars[k]) * q.mpg; w += q.mpg; } } return w ? Math.round(v / w) : null; };
+  const sp = g ? lineFor(S, g, pw) * (g.h === S.user ? 1 : -1) : 0;
+  const LEV = [['tempo', 'Tempo', ['Crawl', 'Slow', 'Normal', 'Push', 'Run'], 'More possessions favour the better team; slowing down shortens the game (an underdog\'s friend).'],
+    ['three', 'Shot mix', ['Paint only', 'Inside', 'Balanced', 'Lean 3s', 'Bomb away'], 'Forcing the mix away from your roster\'s natural game costs a little shot quality.'],
+    ['pressure', 'Defensive pressure', ['Pack it in', 'Sit back', 'Normal', 'Pressure', 'Full court'], 'Pressure forces turnovers but sends them to the line and gives up easier looks.']];
+  // recommended: tempo by the line, threes by your shooting vs their defense, pressure by their ball security
+  const rec = { tempo: 0, three: 0, pressure: 0 }, why = [];
+  if (opp && S.teams[opp]) {
+    if (sp >= 6) { rec.tempo = 1; why.push(`You're ${sp.toFixed(0)} points better — more possessions widen the gap`); } else if (sp <= -6) { rec.tempo = -1; why.push(`You're a ${Math.abs(sp).toFixed(0)}-point underdog — shorten the game`); }
+    const sh = avg(S.user, 'SHT'), fi = avg(S.user, 'FIN'), dfo = avg(opp, 'DEF'), so = avg(opp, 'SEC'), rbo = avg(opp, 'REB'), rbu = avg(S.user, 'REB');
+    if (sh - fi >= 5) { rec.three = 1; why.push(`Your shooting (${sh}) is your strength over finishing (${fi})`); } else if (fi - sh >= 5) { rec.three = -1; why.push(`Your finishing (${fi}) beats your shooting (${sh}) — attack the rim`); }
+    if (so <= 47) { rec.pressure = 1; why.push(`Their ball security is weak (${so}) — make them handle it`); } else if (so >= 57) { rec.pressure = -1; why.push(`They take care of the ball (${so}) — pressure just gives up easy looks`); }
+    if (rbo - rbu >= 6) why.push(`They out-rebound you (${rbo} vs ${rbu}) — second chances will hurt`);
+  }
+  const ROWS = [['SCO', 'Scoring'], ['SHT', 'Shooting'], ['FIN', 'Finishing'], ['PLY', 'Playmaking'], ['SEC', 'Ball security'], ['REB', 'Rebounding'], ['DEF', 'Defense'], ['STA', 'Conditioning']];
+  const scout = opp && S.teams[opp] ? ROWS.map(([k, l]) => { const a = avg(S.user, k), b = avg(opp, k), d = a - b;
+    return `<tr><td class="l">${l}</td><td><b>${a}</b></td><td class="l"><span class="gp-vs"><i style="width:${Math.max(0, Math.min(100, a))}%"></i></span></td><td><b>${b}</b></td><td class="l"><span class="gp-vs them"><i style="width:${Math.max(0, Math.min(100, b))}%"></i></span></td>
+      <td class="l ${d >= 4 ? 'up' : d <= -4 ? 'dn' : 'dim'}">${d >= 4 ? 'Your edge' : d <= -4 ? 'Their edge' : 'Even'}</td></tr>`; }).join('') : '';
+  const isRec = LEV.every(([k]) => p[k] === rec[k]);
+  $('#dyBody').innerHTML = `<div class="sec"><h2>Game plan</h2><span class="n">Applies to every game until you change it</span></div>
+    ${g ? `<div class="dy-next"><div class="lbl">Next game · ${fmtDate(g.d)}</div><div class="mu">${g.n ? 'vs' : g.h === S.user ? 'vs' : '@'} ${tm(opp, 'big')}</div>
+      <div class="ln">${sp >= 0 ? `${esc(short(S.user))} −${Math.abs(sp).toFixed(1)}` : `${esc(short(opp))} −${Math.abs(sp).toFixed(1)}`} · win ${Math.max(1, Math.min(99, Math.round(100 * phi(sp / 11))))}%</div></div>` : ''}
+    <div class="gp-two"><div>
+      ${LEV.map(([k, l, opts, d]) => `<div class="gp-lev"><div class="gp-h"><b>${l}</b>${rec[k] !== 0 || why.length ? `<span class="dim">recommended: ${opts[rec[k] + 2]}</span>` : ''}</div>
+        <div class="gp-btns">${opts.map((o, i) => `<button class="mb ${p[k] === i - 2 ? 'on' : ''} ${rec[k] === i - 2 ? 'rec' : ''}" data-lev="${k}|${i - 2}">${o}</button>`).join('')}</div><div class="pg-d">${d}</div></div>`).join('')}
+      <div class="dy-btns"><button class="btn ${isRec ? 'ghost' : ''}" id="gpRec" ${isRec ? 'disabled' : ''}>${isRec ? 'Using the recommended plan' : 'Use the recommended plan'}</button><button class="btn ghost" id="gpNat">Our natural game</button></div>
+      ${why.length ? `<div class="pg-d"><b>Why:</b> ${why.map(esc).join(' · ')}</div>` : ''}</div>
+    <div>${scout ? `<div class="sec" style="margin-top:0"><h2>Scouting report</h2><span class="n">vs ${esc(short(opp))} · minutes-weighted, healthy players</span></div>
+      <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l"></th><th>You</th><th></th><th>${esc(short(opp)).slice(0, 10)}</th><th></th><th class="l"></th></tr></thead><tbody>${scout}</tbody></table></div>` : '<div class="dim">No game scheduled.</div>'}</div></div>
+    <style>.gp-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;margin-top:10px}.gp-lev{border-top:1px solid var(--border);padding:10px 0}.gp-h{display:flex;justify-content:space-between;margin-bottom:6px}
+    .gp-btns{display:flex;gap:5px;flex-wrap:wrap}.gp-btns .mb{padding:7px 11px;font-size:12.5px}.mb.rec{box-shadow:inset 0 -3px 0 var(--green,#1a8c3a)}
+    .gp-vs{display:inline-block;width:110px;height:8px;border-radius:4px;background:var(--bg3,#eee);vertical-align:middle;overflow:hidden}.gp-vs i{display:block;height:100%;background:var(--accent,#c9a227)}.gp-vs.them i{background:#8a8f99}
+    @media(max-width:900px){.gp-two{grid-template-columns:1fr}}</style>`;
+  ensureMoneyCss();
+  const set = (k, v) => { p[k] = v; touch(S); autosave(); plan(); };
+  document.querySelectorAll('[data-lev]').forEach(b => b.onclick = () => { const [k, v] = b.dataset.lev.split('|'); set(k, +v); });
+  $('#gpRec').onclick = () => { Object.assign(p, rec); touch(S); autosave(); plan(); };
+  $('#gpNat').onclick = () => { Object.assign(p, { tempo: 0, three: 0, pressure: 0 }); touch(S); autosave(); plan(); };
 }
 
 function standingsView() {

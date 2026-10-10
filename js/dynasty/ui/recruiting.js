@@ -1,15 +1,15 @@
 // In-season Recruiting tab, EA College Football 25 style (Oct 2026): offers, a weekly hours budget spent on actions,
 // recruits narrowing their lists (Top 8 / 5 / 3), commitments that can flip, signings. Rules: engine/commits.js
 // (the race), engine/visits.js (official visits at home games), engine/recruit.js (what each recruit values, NIL).
-import { scoutView, scoutSD } from '../engine/offseason.js?v=55';
-import { moneyButtons, ensureMoneyCss } from './money.js?v=55';
-import { acadGrade, admitP, admitLabel } from '../engine/people.js?v=55';
-import { priorities, negotiate, acceptCounter, FACTORS, committedNIL, profile } from '../engine/recruit.js?v=55';
-import { officialMax, visitsLeft, visitsFor, upcomingHomeGames, scheduleOfficial, cancelVisit } from '../engine/visits.js?v=55';
+import { scoutView, scoutSD } from '../engine/offseason.js?v=56';
+import { moneyButtons, ensureMoneyCss } from './money.js?v=56';
+import { acadGrade, admitP, admitLabel } from '../engine/people.js?v=56';
+import { priorities, negotiate, acceptCounter, FACTORS, committedNIL, profile } from '../engine/recruit.js?v=56';
+import { officialMax, visitsLeft, visitsFor, upcomingHomeGames, scheduleOfficial, cancelVisit } from '../engine/visits.js?v=56';
 import { STAGE_LABEL, ACTIONS, HOURS_CAP, USER_OFFERS_MAX, SUMMER, cutWeeks, classNeed, commitsOf, hoursBudget, hoursUsed, planHours,
-  offerRecruit, withdrawOffer, toggleAction, userChance, gradesFor, rankOf, passesDB, dbLabel, grade } from '../engine/commits.js?v=55';
+  offerRecruit, withdrawOffer, toggleAction, userChance, gradesFor, rankOf, passesDB, dbLabel, grade, scoutedPct, revealed, needs, groupOf, classRanks } from '../engine/commits.js?v=56';
 
-let sel = null, q = '', pos = '', minStars = 3, onlyOpen = true, pickVisit = false, msg = '';
+let sel = null, q = '', pos = '', minStars = 3, onlyOpen = true, pickVisit = false, msg = '', rv = 'board', needOnly = false;
 const CSS = `
 .rc-stages{display:grid;grid-template-columns:repeat(6,1fr);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:6px 0 12px}
 .rc-stages div{padding:8px 10px;border-left:1px solid var(--border);font-size:11.5px;color:var(--text3)}
@@ -44,6 +44,12 @@ tr.rc-sel td{background:color-mix(in srgb,var(--accent,#c9a227) 10%,transparent)
 .rc-act:disabled{opacity:.45;cursor:not-allowed}
 .rc-feed{margin-top:10px;border-top:1px solid var(--border);padding-top:6px;font-size:12px;color:var(--text2)}
 .rc-msg{margin:6px 0;font-size:12.5px;font-weight:700}
+.rc-q{display:inline-flex;gap:3px}.rc-q button{border:1px solid var(--border2,#ccc);background:none;color:var(--text3);font:700 10.5px Inter,system-ui,sans-serif;border-radius:5px;padding:2px 5px;cursor:pointer}
+.rc-q button.on{border-color:var(--accent,#c9a227);color:var(--text);background:color-mix(in srgb,var(--accent,#c9a227) 14%,transparent)}
+.rc-gem{font-size:10px;font-weight:800;padding:1px 5px;border-radius:4px;background:hsla(200,80%,50%,.18);color:#1b6fb0}.rc-bust{font-size:10px;font-weight:800;padding:1px 5px;border-radius:4px;background:hsla(0,70%,48%,.18);color:var(--red,#cc2200)}
+.rc-sc{display:inline-block;width:46px;height:6px;border-radius:3px;background:var(--bg3,#eee);vertical-align:middle;overflow:hidden}.rc-sc i{display:block;height:100%;background:#1b6fb0}
+.rc-need{display:inline-flex;gap:4px}.rc-need span{font-size:11px;font-weight:800;padding:2px 6px;border-radius:4px;background:hsla(0,70%,48%,.14)}.rc-need span.ok{background:var(--bg3,#eee);color:var(--text3)}
+.rc-dl{font-size:11px;font-weight:700}
 `;
 
 export function recruitingView(ctx) {
@@ -52,7 +58,9 @@ export function recruitingView(ctx) {
   if (!document.getElementById('rcCss')) { const st = document.createElement('style'); st.id = 'rcCss'; st.textContent = CSS; document.head.appendChild(st); }
   const R = S.rclass || [];
   if (!R.length || !R[0].list) { $('#dyBody').innerHTML = '<div class="dy-empty">The recruiting class appears at the start of the season.</div>'; return; }
-  const P = S.teams[U].prog, w = S.rweek || 0, wk = Math.max(0, w - SUMMER);
+  const P = S.teams[U].prog, w = S.rweek || 0, wk = Math.max(0, w - SUMMER), plan = S.rplan || {};
+  const sub = `<div class="tn-tabs">${[['board', 'Your board'], ['ranks', 'Class rankings'], ['top', 'Top 100']].map(([k, l]) => `<button class="${rv === k ? 'on' : ''}" data-rv="${k}">${l}</button>`).join('')}</div>`;
+  if (rv !== 'board') { $('#dyBody').innerHTML = sub + (rv === 'ranks' ? ranksHtml(ctx) : topHtml(ctx)); bind(ctx); return; }
   const fmt = iso => new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
   const stars = n => '★'.repeat(n) + '<span class="dim">' + '★'.repeat(5 - n) + '</span>';
   const m$ = k => '$' + (k >= 1000 ? (k / 1000).toFixed(2) + 'M' : Math.round(k) + 'k');
@@ -61,6 +69,10 @@ export function recruitingView(ctx) {
   const stage = r => r.signed ? `<span class="rc-st ${r.signed === U ? 'me' : 'sg'}">Signed · ${team(r.signed)}</span>`
     : r.commit ? `<span class="rc-st ${r.commit === U ? 'me' : 'them'}">Committed · ${team(r.commit)}</span>`
     : r.cutUser ? '<span class="rc-st cut">Cut you</span>' : `<span class="rc-st ${r.stage}">${STAGE_LABEL[r.stage]}</span>`;
+  const scoutTag = r => { const x = revealed(r); return x === 'gem' ? ' <span class="rc-gem">💎 Gem</span>' : x === 'bust' ? ' <span class="rc-bust">⚠ Bust risk</span>' : x === 'solid' ? ' <span class="dim" style="font-size:10px">✓ scouted</span>' : ''; };
+  const scBar = r => revealed(r) ? '' : `<span class="rc-sc" title="Scouted ${scoutedPct(r)}% — at 100% your staff knows if he's a gem or a bust"><i style="width:${scoutedPct(r)}%"></i></span>`;
+  const NEED = needs(S, U), GL = { G: 'Guard', W: 'Wing', B: 'Big' };
+  const quick = r => { const p = plan[r.id] || {}; return `<span class="rc-q">${[['dm', 'DM'], ['call', 'Call'], ['scout', 'Scout']].map(([k, l]) => `<button class="${p[k] ? 'on' : ''}" data-act="${esc(r.id)}|${k}" ${k === 'scout' && revealed(r) ? 'disabled' : ''}>${l}</button>`).join('')}</span>`; };
   const mine = R.filter(r => r.list.includes(U) || r.cutUser || r.signed === U).sort((a, b) => (b.signed === U || b.commit === U) - (a.signed === U || a.commit === U) || userChance(S, b) - userChance(S, a));
   if (!sel && mine.length) sel = mine[0].id;
   const nextCut = Object.entries(cutWeeks).find(([, v]) => v > w);
@@ -68,13 +80,13 @@ export function recruitingView(ctx) {
   const now = !nextCut ? 'commit' : nextCut[0] === 't8' ? 'open' : nextCut[0] === 't5' ? 't8' : 't5';
 
   // ── your board ──
-  const plan = S.rplan || {};
   const boardRow = r => {
     const v = scoutView(S, r, r.vs || 0), ld = leader(r), rk = rankOf(r, U), ch = Math.round(100 * userChance(S, r));
     const ph = Math.min(HOURS_CAP, planHours(plan[r.id])), db = r.db && r.list.includes(U) && !passesDB(S, U, r);
-    return `<tr class="rc-row ${sel === r.id ? 'rc-sel' : ''}" data-sel="${esc(r.id)}"><td class="l"><b>${esc(r.name)}</b> ${stars(r.stars)}<div class="dim" style="font-size:11px">#${r.rank} · ${esc(v.tags.join(' · '))}</div></td>
+    const dI = r.prevU != null && r.list.includes(U) ? (r.int[U] || 0) - r.prevU : null, dR = r.prevRk && r.list.includes(U) ? r.prevRk - rk : 0;
+    return `<tr class="rc-row ${sel === r.id ? 'rc-sel' : ''}" data-sel="${esc(r.id)}"><td class="l"><b>${esc(r.name)}</b> ${stars(r.stars)}${scoutTag(r)}<div class="dim" style="font-size:11px">#${r.rank} · ${esc(v.tags.join(' · '))}</div>${r.list.includes(U) && !r.signed ? `<div style="margin-top:3px">${quick(r)} ${scBar(r)}</div>` : ''}</td>
       <td>${esc(r.pos || '')}</td><td><b>${v.ovr}</b></td><td class="l">${stage(r)}${db ? `<div class="rc-flag">dealbreaker: ${esc(dbLabel(r.db.k).toLowerCase())}</div>` : r.commit && r.commit !== U && r.list.includes(U) ? '<div class="rc-flag">flip him?</div>' : ''}</td>
-      <td>${r.list.includes(U) ? `<b class="${rk === 1 ? 'up' : rk <= 3 ? '' : 'dn'}">${rk}${['th', 'st', 'nd', 'rd'][rk < 4 ? rk : 0]}</b> of ${r.list.length}` : '—'}</td>
+      <td>${r.list.includes(U) ? `<b class="${rk === 1 ? 'up' : rk <= 3 ? '' : 'dn'}">${rk}${['th', 'st', 'nd', 'rd'][rk < 4 ? rk : 0]}</b> of ${r.list.length}${dR ? ` <span class="rc-dl ${dR > 0 ? 'up' : 'dn'}">${dR > 0 ? '▲' : '▼'}${Math.abs(dR)}</span>` : ''}${dI != null && dI > 0 ? `<div class="rc-dl dim">+${dI} this wk</div>` : ''}` : '—'}</td>
       <td class="l">${ld && ld !== U ? esc(short(ld)) : ld === U ? '<b class="up">You</b>' : '—'}</td><td><b>${r.list.includes(U) || r.signed === U ? ch + '%' : '—'}</b></td>
       <td>${r.list.includes(U) && !r.signed ? (ph ? `<b>${ph}</b>` : '<span class="dim">staff</span>') : ''}</td></tr>`;
   };
@@ -94,7 +106,7 @@ export function recruitingView(ctx) {
     const inOpen = !r.list.includes(U) && !r.cutUser && !r.signed && r.stage === 'open';
     return `<div class="rc-box"><h3>${esc(r.name)}</h3>
       <div class="dim" style="font-size:12px;margin:2px 0 8px">${stars(r.stars)} #${r.rank} · ${esc(r.pos || '')} · ${r.ht ? `${Math.floor(r.ht / 12)}-${r.ht % 12}` : ''} · ${esc(r.home === 'INTL' ? (r.country || 'International') : r.home || '')}
-        · OVR <b>${v.ovr}</b> (±${v.sd}) · ceiling <b>${v.grade}</b> · academics ${acadGrade(r.acad ?? 60)} (${admitLabel(admitP(S, U, r, false))}) · asks ${m$(r.ask)}</div>
+        · OVR <b>${v.ovr}</b> (±${v.sd}) · ceiling <b>${v.grade}</b>${scoutTag(r)} ${revealed(r) ? '' : `· scouted ${scoutedPct(r)}% ${scBar(r)}`} · academics ${acadGrade(r.acad ?? 60)} (${admitLabel(admitP(S, U, r, false))}) · asks ${m$(r.ask)}</div>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${stage(r)}${nxt ? `<span class="dim" style="font-size:11.5px">cuts to a Top ${nxt} in ${Math.max(1, cutWeeks[nextCut[0]] - w)} week${cutWeeks[nextCut[0]] - w === 1 ? '' : 's'}</span>` : ''}
         ${inOpen ? `<button class="btn pg-sm" data-offer="${esc(r.id)}">Offer a scholarship</button>` : r.list.includes(U) && !r.signed ? `<button class="btn ghost pg-sm" data-pull="${esc(r.id)}">Pull offer</button>` : ''}</div>
       ${msg ? `<div class="rc-msg">${esc(msg)}</div>` : ''}
@@ -102,8 +114,9 @@ export function recruitingView(ctx) {
       <div class="rc-gr"><span class="h">What he wants</span><span class="h">You</span><span class="h">${ld ? esc(short(ld)).slice(0, 6) : ''}</span><span class="h">Weight</span>
         ${wants.map(([k, l]) => `<span>${l}</span>${gu ? g(gu[k]) : '<span class="dim">—</span>'}${gl ? g(gl[k]) : '<span></span>'}<span class="dim">${'●'.repeat(Math.max(1, Math.round(r.w[k] * 12)))}</span>`).join('')}</div>
       ${r.db ? `<div class="rc-db"><b>Dealbreaker:</b> ${esc(dbLabel(r.db.k))} must be <b>${grade(r.db.min)} or better</b>${gu ? ` — you're <b class="${gu[r.db.k].x >= r.db.min ? 'up' : 'dn'}">${gu[r.db.k].g}</b>` : ''}. A school below it is cut no matter what.</div>` : ''}
+      ${!can && !r.signed && !revealed(r) ? `<div style="margin-top:8px"><button class="rc-act ${(plan[r.id] || {}).scout ? 'on' : ''}" data-act="${esc(r.id)}|scout"><b>Scout him</b><span>10 h a week · no offer needed · reveals a gem or a bust</span></button></div>` : ''}
       ${can ? `<div class="dim" style="margin-top:10px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase">This week · ${Math.min(HOURS_CAP, planHours(p))} / ${HOURS_CAP} h on him · repeats every week until you change it</div>
-      <div class="rc-acts">${ACTIONS.map(([k, l, h, d]) => `<button class="rc-act ${p[k] ? 'on' : ''}" data-act="${esc(r.id)}|${k}" ${(k === 'home' && r.hv) || ((k === 'soft' || k === 'hard') && !['t5', 't3', 'commit'].includes(r.stage)) ? 'disabled' : ''}><b>${l}</b><span>${h} h · ${d}</span></button>`).join('')}
+      <div class="rc-acts">${ACTIONS.map(([k, l, h, d]) => `<button class="rc-act ${p[k] ? 'on' : ''}" data-act="${esc(r.id)}|${k}" ${(k === 'home' && r.hv) || (k === 'scout' && revealed(r)) || ((k === 'soft' || k === 'hard') && !['t5', 't3', 'commit'].includes(r.stage)) ? 'disabled' : ''}><b>${l}</b><span>${h} h · ${d}</span></button>`).join('')}
         <div class="rc-act" style="cursor:default"><b>Official visit</b><span>${off ? (off.done ? `done · ${off.res}` : `${fmt(off.d)} <a href="#" data-cancel="${esc(r.id)}|${esc(off.gid)}">cancel</a>`) : `${visitsLeft(S)} left · <a href="#" data-pickv="${esc(r.id)}">pick a home game</a>`}</span></div></div>
       ${pickVisit && !off ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">${home.slice(0, 10).map(gm => `<button class="btn ghost pg-sm" data-visit="${esc(r.id)}|${esc(gm.id)}">${fmt(gm.d)} vs ${esc(short(gm.a))}</button>`).join('') || '<span class="dim">No home games left.</span>'}</div>` : ''}
       <div style="margin-top:10px;font-size:12.5px"><b>NIL offer</b> <span class="dim">asks ${m$(r.ask)}/yr</span><div style="margin-top:4px">${moneyButtons('nil', r.id, r.ask, r.offer, esc)}</div>
@@ -113,17 +126,18 @@ export function recruitingView(ctx) {
   };
 
   // ── find recruits ──
-  const finds = R.filter(r => !r.list.includes(U) && !r.signed && !r.cutUser && (!onlyOpen || (r.stage === 'open' && !r.commit)) && r.stars >= minStars && (!pos || r.pos === pos) && (!q || r.name.toLowerCase().includes(q))).slice(0, 120);
+  const finds = R.filter(r => !r.list.includes(U) && !r.signed && !r.cutUser && (!onlyOpen || (r.stage === 'open' && !r.commit)) && r.stars >= minStars && (!pos || r.pos === pos) && (!needOnly || NEED[groupOf(r.pos)] > 0) && (!q || r.name.toLowerCase().includes(q))).slice(0, 120);
   const findRow = r => { const v = scoutView(S, r, r.vs || 0), ld = leader(r);
-    return `<tr><td><button class="btn ghost pg-sm" data-offer="${esc(r.id)}" ${r.stage !== 'open' ? 'disabled' : ''}>Offer</button></td><td class="l"><a href="#" data-sel="${esc(r.id)}"><b>${esc(r.name)}</b></a> ${stars(r.stars)}</td><td>${r.rank}</td><td>${esc(r.pos || '')}</td>
+    return `<tr><td style="white-space:nowrap"><button class="btn ghost pg-sm" data-offer="${esc(r.id)}" ${r.stage !== 'open' ? 'disabled' : ''}>Offer</button> <span class="rc-q"><button class="${(plan[r.id] || {}).scout ? 'on' : ''}" data-act="${esc(r.id)}|scout" ${revealed(r) ? 'disabled' : ''}>Scout</button></span></td><td class="l"><a href="#" data-sel="${esc(r.id)}"><b>${esc(r.name)}</b></a> ${stars(r.stars)}${scoutTag(r)} ${scBar(r)}</td><td>${r.rank}</td><td>${esc(r.pos || '')}</td>
       <td>${r.ht ? `${Math.floor(r.ht / 12)}-${r.ht % 12}` : ''}</td><td><b>${v.ovr}</b></td><td>${v.grade}</td><td class="l dim">${esc(v.tags.join(' · '))}</td><td>${esc(r.home === 'INTL' ? (r.country || 'Intl') : r.home || '')}</td>
       <td class="${admitP(S, U, r, false) < 0.5 ? 'dn' : ''}">${admitLabel(admitP(S, U, r, false))}</td><td>${r.list.length}</td><td class="l">${stage(r)} ${ld ? esc(short(ld)) : ''}</td><td>${m$(r.ask)}</td></tr>`; };
 
-  $('#dyBody').innerHTML = `<div class="sec"><h2>Recruiting — class of ${S.year + 1}</h2><span class="n">Recruits only consider schools that offer them, narrow their lists on a schedule, commit to the school that pulls clear — and can flip until they sign.</span></div>
+  $('#dyBody').innerHTML = sub + `<div class="sec"><h2>Recruiting — class of ${S.year + 1}</h2><span class="n">Recruits only consider schools that offer them, narrow their lists on a schedule, commit to the school that pulls clear — and can flip until they sign.</span></div>
     <div class="rc-stages">${[['open', 'Open', 'Offers out · build interest'], ['t8', 'Top 8', 'Week 2 (mid-Nov)'], ['t5', 'Top 5', 'Week 6 · pitches unlock'], ['t3', 'Top 3', 'Week 10 · NIL matters most'], ['commit', 'Committed', 'Soft — can still flip'], ['signed', 'Signed', 'Nov 18 or signing day · final']].map(([k, l, d]) => `<div class="${k === now ? 'now' : ''}"><b>${l}</b>${d}</div>`).join('')}</div>
     <div class="rc-bud"><div><span>Hours this week</span><b>${used} / ${bud}</b></div><div class="rc-bar"><i style="width:${Math.min(100, Math.round(100 * used / Math.max(1, bud)))}%"></i></div>
       <div><span>Class</span><b>${have} / ${need}</b></div><div><span>Offers out</span><b>${R.filter(r => r.list.includes(U) && !r.signed).length} / ${USER_OFFERS_MAX}</b></div>
       <div><span>Official visits</span><b>${visitsLeft(S)} / ${officialMax(S)}</b></div><div><span>NIL promised</span><b>${m$(committedNIL(S))}</b></div>
+      <div><span>Needs next year</span><span class="rc-need">${Object.entries(NEED).map(([k, n]) => `<span class="${n ? '' : 'ok'}">${n} ${GL[k]}${n === 1 ? '' : 's'}</span>`).join('')}</span></div>
       <div><span>Week</span><b>${wk ? wk : 'Summer'}</b></div></div>
     <div class="pg-d" style="margin:-4px 0 10px">Hours you don't assign, your staff spends for you (${{ rookie: 'all of them', pro: 'half', aa: 'a quarter', hof: 'none' }[S.diff || 'pro']} on this difficulty). Scouting accuracy ±${scoutSD(S, 0).toFixed(1)}.</div>
     <div class="rc-cols"><div><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Your board</th><th>Pos</th><th>OVR</th><th class="l">Stage</th><th>You</th><th class="l">Leader</th><th title="Your chance he signs with you if signing day were today">Chance</th><th title="Your hours on him this week (staff = your staff covers him)">Hrs</th></tr></thead>
@@ -133,7 +147,8 @@ export function recruitingView(ctx) {
     <div class="dy-row"><input id="rvQ" class="dy-input" placeholder="Search recruits…" value="${esc(q)}">
       <select id="rvPos" class="dy-input"><option value="">All positions</option>${['PG', 'SG', 'SF', 'PF', 'C'].map(p => `<option ${p === pos ? 'selected' : ''}>${p}</option>`).join('')}</select>
       <select id="rvStars" class="dy-input">${[5, 4, 3, 2, 1].map(n => `<option value="${n}" ${n === minStars ? 'selected' : ''}>${n}★ +</option>`).join('')}</select>
-      <label class="cal-chk"><input type="checkbox" id="rvOpen" ${onlyOpen ? 'checked' : ''}> Still open only</label></div>
+      <label class="cal-chk"><input type="checkbox" id="rvOpen" ${onlyOpen ? 'checked' : ''}> Still open only</label>
+      <label class="cal-chk"><input type="checkbox" id="rvNeed" ${needOnly ? 'checked' : ''}> Fits a need</label></div>
     <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th></th><th class="l">Recruit</th><th>#</th><th>Pos</th><th>Ht</th><th>OVR</th><th>Ceil.</th><th class="l">Skills</th><th>From</th><th>Admits?</th><th title="Schools that have offered him">Offers</th><th class="l">Status</th><th>Ask</th></tr></thead>
       <tbody>${finds.map(findRow).join('')}</tbody></table></div>`;
   bind(ctx);
@@ -142,10 +157,11 @@ export function recruitingView(ctx) {
 function bind(ctx) {
   const S = ctx.get(), $ = ctx.$;
   const again = m => { msg = m || ''; ctx.autosave(); recruitingView(ctx); };
-  document.querySelectorAll('[data-sel]').forEach(el => el.onclick = e => { e.preventDefault(); sel = el.dataset.sel; msg = ''; pickVisit = false; recruitingView(ctx); });
+  document.querySelectorAll('[data-sel]').forEach(el => el.onclick = e => { e.preventDefault(); sel = el.dataset.sel; msg = ''; pickVisit = false; rv = 'board'; recruitingView(ctx); });
   document.querySelectorAll('[data-offer]').forEach(b => b.onclick = e => { e.stopPropagation(); const err = offerRecruit(S, b.dataset.offer); if (!err) sel = b.dataset.offer; again(err); });
   document.querySelectorAll('[data-pull]').forEach(b => b.onclick = () => { if (confirm('Pull your offer? He drops you from his list.')) { withdrawOffer(S, b.dataset.pull); again('Offer pulled.'); } });
-  document.querySelectorAll('[data-act]').forEach(b => b.onclick = () => { const [rid, k] = b.dataset.act.split('|'); again(toggleAction(S, rid, k)); });
+  document.querySelectorAll('[data-act]').forEach(b => b.onclick = e => { e.stopPropagation(); const [rid, k] = b.dataset.act.split('|'); again(toggleAction(S, rid, k)); });
+  document.querySelectorAll('[data-rv]').forEach(b => b.onclick = () => { rv = b.dataset.rv; recruitingView(ctx); });
   document.querySelectorAll('[data-pickv]').forEach(a => a.onclick = e => { e.preventDefault(); pickVisit = !pickVisit; recruitingView(ctx); });
   document.querySelectorAll('[data-visit]').forEach(b => b.onclick = () => { const [rid, gid] = b.dataset.visit.split('|'); pickVisit = false; again(scheduleOfficial(S, rid, gid) || 'Official visit scheduled.'); });
   document.querySelectorAll('[data-cancel]').forEach(a => a.onclick = e => { e.preventDefault(); const [rid, gid] = a.dataset.cancel.split('|'); cancelVisit(S, rid, gid); again('Visit cancelled.'); });
@@ -156,8 +172,30 @@ function bind(ctx) {
     again(negotiate(S, r, +amt).msg);
   });
   document.querySelectorAll('[data-takec]').forEach(b => b.onclick = () => { const r = (S.rclass || []).find(x => x.id === b.dataset.takec); if (r) acceptCounter(S, r); again(r ? `${r.name} accepts.` : ''); });
+  if (!$('#rvQ')) return;
   $('#rvQ').oninput = e => { q = e.target.value.toLowerCase().trim(); clearTimeout(bind.t); bind.t = setTimeout(() => { recruitingView(ctx); const i = $('#rvQ'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }, 250); };
   $('#rvPos').onchange = e => { pos = e.target.value; recruitingView(ctx); };
   $('#rvStars').onchange = e => { minStars = +e.target.value; recruitingView(ctx); };
   $('#rvOpen').onchange = e => { onlyOpen = e.target.checked; recruitingView(ctx); };
+  $('#rvNeed').onchange = e => { needOnly = e.target.checked; recruitingView(ctx); };
+}
+
+// ── national class rankings (stars squared over commits + signees) ──
+function ranksHtml(ctx) {
+  const S = ctx.get(), { esc, tm } = ctx, CR = classRanks(S), me = CR.find(x => x.team === S.user);
+  const rows = CR.slice(0, 40).concat(me && me.rank > 40 ? [me] : []);
+  return `<div class="sec"><h2>Class rankings — ${S.year + 1}</h2><span class="n">Commits + signees, scored by stars (a 5★ is worth 25, a 4★ 16…)${me ? ` · you're <b>#${me.rank}</b>` : ' · no commits yet'}</span></div>
+    <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th>#</th><th class="l">Program</th><th>Commits</th><th>5★</th><th>4★</th><th>Points</th></tr></thead><tbody>
+    ${rows.map(x => `<tr class="${x.team === S.user ? 'me' : ''}"><td>${x.rank}</td><td class="l">${tm(x.team)}</td><td>${x.n}</td><td>${x.five || ''}</td><td>${x.four || ''}</td><td><b>${x.pts}</b></td></tr>`).join('')}</tbody></table></div>`;
+}
+// ── the top 100 tracker: where every elite recruit stands ──
+function topHtml(ctx) {
+  const S = ctx.get(), { esc, short } = ctx, U = S.user;
+  const R = (S.rclass || []).slice().sort((a, b) => a.rank - b.rank).slice(0, 100);
+  const st = r => { const ord = r.list.slice().sort((a, b) => (r.int[b] || 0) - (r.int[a] || 0)), nm = t => (t === U ? '<b class="up">You</b>' : esc(short(t)));
+    return r.signed ? `<b>Signed</b> · ${nm(r.signed)}` : r.commit ? `<b>Committed</b> · ${nm(r.commit)}` : r.list.length ? `${STAGE_LABEL[r.stage]}: ${ord.slice(0, 3).map(nm).join(', ')}${ord.length > 3 ? '…' : ''}` : '<span class="dim">No offers</span>'; };
+  return `<div class="sec"><h2>Top 100 tracker</h2><span class="n">The nation's best recruits — commitments, flips and who's still in it</span></div>
+    <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th>#</th><th class="l">Recruit</th><th>Pos</th><th>From</th><th>Offers</th><th class="l">Status</th></tr></thead><tbody>
+    ${R.map(r => `<tr class="${(r.signed || r.commit) === U ? 'me' : ''}"><td>${r.rank}</td><td class="l"><a href="#" data-sel="${esc(r.id)}"><b>${esc(r.name)}</b></a> ${'★'.repeat(r.stars)}${r.list.includes(U) && !(r.signed || r.commit) ? ' <span class="chip">you offered</span>' : ''}</td><td>${esc(r.pos || '')}</td>
+      <td>${esc(r.home === 'INTL' ? (r.country || 'Intl') : r.home || '')}</td><td>${r.list.length}</td><td class="l">${st(r)}</td></tr>`).join('')}</tbody></table></div>`;
 }
