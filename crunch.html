@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="tdc-loading.js?v=4"></script>   <!-- first, so it sees every request -->
+  <link rel="stylesheet" href="tdc-a11y.css?v=3">
+  <script src="tdc-a11y.js?v=2" defer></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Crunch-Time Takeovers — The Depth Chart</title>
+  <meta name="description" content="Which high-major returners take over late in close games: each player's share of his team's shots in crunch time vs the rest of the game, from every 2025-26 play-by-play.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Depth Chart">
+  <meta property="og:title" content="Crunch-Time Takeovers — The Depth Chart">
+  <meta property="og:description" content="Who takes over late in close games: crunch-time shot share vs the rest of the game for every high-major returner.">
+  <meta property="og:url" content="https://www.thedepthchartcbb.com/crunch.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <script src="tdc-theme.js?v=5"></script>
+  <script src="auth.js?v=delacct1"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="team-colors.js?v=11"></script>
+  <script src="tdc-teamname.js?v=1"></script>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--ct:#14a8c4;--ct-bg:rgba(20,168,196,.12);--rest:#a3a3aa;}
+    [data-theme="dark"]{--bg:#0A0E18;--bg2:#111726;--bg3:#1A2133;--border:#232B3E;--border2:#34405A;--text:#EEF1F7;--text2:#AEB6C8;--text3:#7A849A;--accent:#E6D5A8;--ct:#3fd0ea;--ct-bg:rgba(63,208,234,.12);--rest:#6d7486;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html,body{background:var(--bg);}
+    body{color:var(--text);font-family:'Inter',system-ui,sans-serif;font-weight:500;min-height:100vh;}
+    .page{padding:30px 0 60px;}
+    .eyebrow{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--text2);margin-bottom:6px;}
+    .hero{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;}
+    h1{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:44px;letter-spacing:-.02em;line-height:1.05;}
+    .lede{font-size:17px;color:var(--text2);margin:8px 0 18px;max-width:820px;line-height:1.45;} .lede b{color:var(--text);}
+    .key{display:flex;gap:18px;font-size:14px;font-weight:600;color:var(--text2);} .key i{display:inline-block;width:13px;height:13px;border-radius:50%;margin-right:6px;vertical-align:-2px;}
+    .ctl{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin:4px 0 16px;font-size:13px;color:var(--text2);}
+    .seg{display:inline-flex;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:3px;gap:3px;}
+    .seg button{font:700 12px Inter,system-ui,sans-serif;padding:6px 13px;border:0;border-radius:5px;background:none;color:var(--text3);cursor:pointer;white-space:nowrap;}
+    .seg button.on{background:var(--text);color:var(--bg);}
+    .ctl label{display:inline-flex;align-items:center;gap:8px;} .ctl input[type=range]{accent-color:var(--ct);width:130px;}
+    /* the dumbbell board */
+    .board{display:grid;grid-template-columns:1fr 1fr;gap:0 36px;border-top:2px solid var(--text);}
+    @media(max-width:860px){.board{grid-template-columns:1fr;}}
+    .db{display:grid;grid-template-columns:44px 1fr auto;grid-template-rows:auto auto;align-items:center;column-gap:12px;padding:10px 12px 12px;border-bottom:1px solid var(--border2);}
+    .db.top{background:var(--ct-bg);}
+    .db .lg{grid-row:1 / span 2;width:40px;height:40px;object-fit:contain;}
+    .db .lg.x{display:flex;align-items:center;justify-content:center;font:800 13px Inter;color:var(--text3);border:1px solid var(--border2);border-radius:50%;}
+    .db .nm{font-size:21px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .db .nm a{color:inherit;text-decoration:none;} .db .nm a:hover{text-decoration:underline;}
+    .db .nm .at{font-size:14px;font-weight:500;color:var(--text2);margin-left:6px;}
+    .db .jp{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;text-align:right;}
+    .db .track{grid-column:2 / span 2;position:relative;height:28px;margin-top:2px;}
+    .db .track i,.db .track span{position:absolute;font-style:normal;}
+    .db .tk{top:0;bottom:0;width:1px;background:var(--border2);}
+    .db .bar{top:12px;height:4px;border-radius:2px;} .db .bar.up{background:linear-gradient(90deg,var(--rest),var(--ct));} .db .bar.dn{background:linear-gradient(90deg,var(--ct),var(--rest));}
+    .db .dot{top:14px;width:15px;height:15px;border-radius:50%;transform:translate(-50%,-50%);} .db .dot.r{background:var(--rest);} .db .dot.c{background:var(--ct);width:18px;height:18px;}
+    .db .pv{top:4px;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;} .db .pv.r{color:var(--text2);} .db .pv.c{color:var(--ct);}
+    .axis{display:grid;grid-template-columns:1fr 1fr;gap:0 36px;} @media(max-width:860px){.axis .a2{display:none;} .axis{grid-template-columns:1fr;}}
+    .ax{position:relative;height:30px;margin-left:56px;} .ax span{position:absolute;top:8px;transform:translateX(-50%);font-size:16px;font-weight:600;color:var(--text2);}
+    @media(max-width:640px){.ax{margin-left:46px;} .ax span{font-size:13px;} .db .pv{font-size:12.5px;}}
+    .foot{font-size:13px;color:var(--text2);line-height:1.55;margin:16px 0 0;padding-top:10px;border-top:1px solid var(--border2);} .foot b{color:var(--text);}
+    .sec{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:36px 0 10px;padding-bottom:8px;border-bottom:1px solid var(--border2);flex-wrap:wrap;}
+    .sec h2{font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:800;} .sec .n{font-size:12px;color:var(--text3);}
+    .ct-tbl th{cursor:pointer;} .ct-tbl td.lgc img{width:18px;height:18px;object-fit:contain;vertical-align:middle;margin:-2px 6px 0 0;}
+    .ct-tbl td a{color:var(--text);text-decoration:none;font-weight:700;} .ct-tbl td a:hover{text-decoration:underline;}
+    .empty{padding:26px;text-align:center;color:var(--text3);border:1px dashed var(--border2);border-radius:12px;font-size:13px;}
+    @media(max-width:640px){ h1{font-size:32px;} .lede{font-size:15px;} .db .nm{font-size:17px;} .db .jp{font-size:19px;} .db{grid-template-columns:34px 1fr auto;padding:9px 6px 10px;} .db .lg{width:32px;height:32px;} }
+  </style>
+  <link rel="stylesheet" href="tdc-skin.css?v=14"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+  <link rel="stylesheet" href="tdc-column.css?v=4"/>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script src="tdc-pwa.js?v=2" defer></script>
+</head>
+<body>
+<script src="tdc-nav.js?v=66"></script>
+<div class="page">
+  <div class="hero"><div>
+    <div class="eyebrow" id="eyebrow">2026–27 high-major returners</div>
+    <h1>Crunch-Time Takeovers</h1></div>
+    <div class="key"><span><i style="background:var(--rest)"></i>Rest of game</span><span><i style="background:var(--ct)"></i>Crunch time</span></div>
+  </div>
+  <div class="lede" id="lede"><b>High-major returners</b> with the biggest increase in <b>on-floor crunch-time shot share</b> in 2025–26</div>
+  <div class="ctl">
+    <div class="seg" id="dirSeg"><button data-v="up" class="on">Takeovers</button><button data-v="down">Fade-outs</button></div>
+    <div class="seg" id="whoSeg"><button data-v="ret" class="on">Returners</button><button data-v="all">Everyone in 2025–26</button></div>
+    <label>Min. crunch-time team shots on floor <input type="range" id="minN" min="15" max="80" step="5" value="50"><b id="minV">50</b></label>
+  </div>
+  <div id="board"><div class="empty">Loading every 2025–26 high-major play-by-play…</div></div>
+  <div class="foot" id="foot"></div>
+  <div class="sec"><h2>Every high-major player</h2><span class="n" id="tblN"></span></div>
+  <div id="tbl"></div>
+</div>
+<script>
+(function(){
+  const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const logo=t=>{ try{ const c=window.tdcTeamColor&&tdcTeamColor(t); return (c&&c.logo)||''; }catch(e){ return ''; } };
+  const school=t=>{ try{ return (window.tdcShortSchool&&tdcShortSchool(t))||t; }catch(e){ return t; } };
+  const same=(a,b)=>{ const n=x=>String(x||'').toLowerCase().replace(/[^a-z]/g,''); a=n(school(a)); b=n(school(b)); return !!a&&!!b&&(a===b||a.indexOf(b)===0||b.indexOf(a)===0); };
+  const S={dir:'up',who:'ret',min:50,sort:'jump',asc:false};
+  let D=null;
+  function pool(){ return D.players.filter(p=>p.jump!=null&&p.c_team>=S.min&&(S.who==='all'||p.now)); }
+  const PX=(v,lo,hi)=>4+(v-lo)/(hi-lo)*92;      // % across the track, 4% gutters so end dots/labels fit
+  function ticks(lo,hi){ let g=''; for(let v=Math.ceil(lo/10)*10; v<=hi; v+=10) g+=`<i class="tk" style="left:${PX(v,lo,hi)}%"></i>`; return g; }
+  function dumbbell(p,lo,hi){
+    const a=PX(p.r_share,lo,hi), b=PX(p.c_share,lo,hi), up=b>=a, l=Math.min(a,b), w=Math.abs(b-a);
+    return ticks(lo,hi)+`<i class="bar ${up?'up':'dn'}" style="left:${l}%;width:${w}%"></i>`+
+      `<i class="dot r" style="left:${a}%"></i><i class="dot c" style="left:${b}%"></i>`+
+      `<span class="pv r" style="${up?`right:calc(${100-a}% + 12px)`:`left:calc(${a}% + 12px)`}">${p.r_share.toFixed(1)}%</span>`+
+      `<span class="pv c" style="${up?`left:calc(${b}% + 13px)`:`right:calc(${100-b}% + 13px)`}">${p.c_share.toFixed(1)}%</span>`;
+  }
+  function axis(lo,hi){ let g=''; for(let v=Math.ceil(lo/10)*10; v<=hi; v+=10) g+=`<span style="left:${PX(v,lo,hi)}%">${v}%</span>`; return g; }
+  function row(p,i,lo,hi){
+    const moved=p.now&&!same(p.now,p.team), lg=logo(moved?p.now:p.team), sg=p.jump>0?'+':'−';
+    return `<div class="db${i===0?' top':''}">${lg?`<img class="lg" src="${esc(lg)}" alt="" loading="lazy">`:`<span class="lg x">${esc(school(moved?p.now:p.team).slice(0,2))}</span>`}
+      <div class="nm"><a href="player.html?espn=${p.espn_id}">${esc(p.name)}</a>${moved?`<span class="at">at ${esc(school(p.team))}</span>`:''}</div>
+      <div class="jp">${sg}${Math.abs(p.jump).toFixed(1)}</div>
+      <div class="track">${dumbbell(p,lo,hi)}</div></div>`;
+  }
+  function render(){
+    const L=pool().sort((a,b)=>S.dir==='up'?b.jump-a.jump:a.jump-b.jump).slice(0,10);
+    document.getElementById('eyebrow').textContent=(S.who==='ret'?'2026–27 high-major returners':'2025–26 high-major players');
+    document.getElementById('lede').innerHTML=`<b>${S.who==='ret'?'High-major returners':'High-major players'}</b> with the biggest ${S.dir==='up'?'increase':'drop'} in <b>on-floor crunch-time shot share</b> in 2025–26`;
+    if(!L.length){ document.getElementById('board').innerHTML='<div class="empty">Nobody clears that minimum.</div>'; return; }
+    let lo=Math.min(...L.map(p=>Math.min(p.r_share,p.c_share))), hi=Math.max(...L.map(p=>Math.max(p.r_share,p.c_share)));
+    lo=Math.max(0,Math.floor((lo-4)/10)*10); hi=Math.ceil((hi+4)/10)*10;
+    const col=k=>L.slice(k*5,k*5+5).map((p,i)=>row(p,k*5+i,lo,hi)).join('');
+    document.getElementById('board').innerHTML=`<div class="board"><div>${col(0)}</div><div>${col(1)}</div></div><div class="axis"><div class="ax">${axis(lo,hi)}</div><div class="ax a2">${axis(lo,hi)}</div></div>`;
+    renderTable();
+  }
+  function renderTable(){
+    const L=pool(), k=S.sort, m=S.asc?1:-1;
+    L.sort((a,b)=>{ const x=a[k], y=b[k]; if(typeof x==='string'||typeof y==='string') return m*String(x||'').localeCompare(String(y||'')); return m*((x??-1e9)-(y??-1e9)); });
+    document.getElementById('tblN').textContent=L.length+' players · click a column to sort';
+    const th=(key,lab,cls)=>`<th class="${cls||''}" data-k="${key}">${lab}${S.sort===key?(S.asc?' ▲':' ▼'):''}</th>`;
+    document.getElementById('tbl').innerHTML=`<div class="sheet-wrap"><table class="sheet dense ct-tbl"><thead><tr>${th('name','Player','l')}${th('team','2025–26','l')}${th('now','2026–27','l')}${th('c_games','Crunch games')}${th('c_fga','His crunch FGA')}${th('c_team','Team crunch FGA on floor')}${th('r_share','Rest of game')}${th('c_share','Crunch time')}<th data-k="jump" data-heat="1">Jump${S.sort==='jump'?(S.asc?' ▲':' ▼'):''}</th></tr></thead><tbody>${
+      L.map(p=>{ const lg=logo(p.team); return `<tr><td class="l"><a href="player.html?espn=${p.espn_id}">${esc(p.name)}</a></td><td class="l lgc">${lg?`<img src="${esc(lg)}" alt="">`:''}${esc(school(p.team))}</td><td class="l dim">${p.now?esc(school(p.now)):'—'}</td><td>${p.c_games}</td><td>${p.c_fga}</td><td>${p.c_team}</td><td>${p.r_share.toFixed(1)}%</td><td class="strong">${p.c_share.toFixed(1)}%</td><td class="strong">${p.jump>0?'+':''}${p.jump.toFixed(1)}</td></tr>`; }).join('')
+    }</tbody></table></div>`;
+    const t=document.querySelector('.ct-tbl'); if(window.tdcSheetHeat) tdcSheetHeat(t);
+    t.querySelectorAll('th[data-k]').forEach(h=>h.onclick=()=>{ const kk=h.getAttribute('data-k'); if(S.sort===kk) S.asc=!S.asc; else { S.sort=kk; S.asc=(kk==='name'||kk==='team'||kk==='now'); } renderTable(); });
+  }
+  const seg=(id,key)=>document.querySelectorAll('#'+id+' button').forEach(b=>b.onclick=()=>{ S[key]=b.getAttribute('data-v'); document.querySelectorAll('#'+id+' button').forEach(x=>x.classList.toggle('on',x===b)); render(); });
+  seg('dirSeg','dir'); seg('whoSeg','who');
+  const mn=document.getElementById('minN'); mn.oninput=()=>{ S.min=+mn.value; document.getElementById('minV').textContent=mn.value; render(); };
+  fetch('scripts/data/crunch_time_2026.json?v=1').then(r=>r.json()).then(j=>{ D=j;
+    document.getElementById('foot').innerHTML=`Crunch time is defined as shots taken with a <b>margin of five points or fewer</b>, with <b>under 4:00 left in the second half</b> or at <b>any point in overtime</b>. Jumps are measured as a player's crunch-time share of his team's field-goal attempts while on the floor, minus his share the rest of the game, in percentage points. Only players who were at a high-major program (ACC, Big Ten, Big 12, SEC or Big East) in 2025–26 are included; "Returners" are on a 2026–27 roster we track, with the logo of his 2026–27 team and "at" marking where a transfer played in 2025–26. Built from ${j.games.toLocaleString()} games of ESPN play-by-play; who was on the floor is rebuilt from the substitution log.`;
+    render(); }).catch(()=>{ document.getElementById('board').innerHTML='<div class="empty">Could not load the crunch-time data.</div>'; });
+})();
+</script>
+<script src="tdc-version.js?v=2"></script>
+<script src="tdc-sheets.js?v=2"></script>
+</body>
+</html>

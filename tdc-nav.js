@@ -42,6 +42,7 @@
       ['cheatsheet.html',               '🧮 Betting Cheat Sheet'],
       ['analytics.html',                'Advanced Stats'],
       ['shot-genome.html',              'Shot Genome'],
+      ['crunch.html',                   'Crunch-Time Takeovers'],
       ['plays.html',                    'Play Finder'],
       ['onoff.html',                    'On / Off'],
     ]],

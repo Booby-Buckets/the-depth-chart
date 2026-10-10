@@ -102,6 +102,8 @@
       // a player acting without a logged sub-in goes on the floor
       (p.participants||[]).forEach(function(x){ var id=x.athlete&&x.athlete.id, t=teamOf(id); if(!t) return; lastSeen[id]=e;
         if(!on[t][id]){ enter(id,e); if(Object.keys(on[t]).length>5){ var idle=Object.keys(on[t]).filter(function(y){return y!==id;}).sort(function(a,b){return (lastSeen[a]||0)-(lastSeen[b]||0);})[0]; leave(idle,e); } } });
+      // optional per-play hook (build scripts): the play, who's on the floor, the score BEFORE it
+      if(G.onPlay) G.onPlay(p,on,e,prevH,prevA);
       // scoring
       var hs=+p.homeScore||0, as=+p.awayScore||0, dh=hs-prevH, da=as-prevA;
       if(dh||da){
