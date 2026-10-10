@@ -73,9 +73,13 @@ def roster_name(name, roster):
     if len(w) >= 2:
         # same last name and the first names agree as a nickname/prefix ("Cam" = "Cameron") — a first INITIAL
         # alone matched brothers (Gallagher Placide -> Gavin Placide)
-        f0 = NICK.get(nk(w[0]), nk(w[0]))
-        c = [r for r in roster if r.replace(".", "").split() and nk(r.replace(".", "").split()[-1]) == nk(w[-1])
-             and (lambda f: f and (f.startswith(f0) or f0.startswith(f)))(NICK.get(nk(r.replace(".", "").split()[0]), nk(r.replace(".", "").split()[0])))]
+        # compare both the raw first names and their nickname expansions: "Alex" -> "alexander" misses
+        # "Alexandros", but raw "alex" is its prefix; "Neo" is a prefix of "Neoklis"
+        f0s = {nk(w[0]), NICK.get(nk(w[0]), nk(w[0]))} - {""}
+        def _fm(rn):
+            r0 = nk(rn.replace(".", "").split()[0]); fs = {r0, NICK.get(r0, r0)} - {""}
+            return any(f.startswith(g) or g.startswith(f) for f in fs for g in f0s if min(len(f), len(g)) >= 3)
+        c = [r for r in roster if r.replace(".", "").split() and nk(r.replace(".", "").split()[-1]) == nk(w[-1]) and _fm(r)]
         if len(c) == 1: return c[0]
     c = [r for r in roster if difflib.SequenceMatcher(None, nk(r), k).ratio() >= 0.85]
     return c[0] if len(c) == 1 else None
@@ -93,6 +97,15 @@ def competitive(m, pred):
     """1 unless the margin runs well past what a real game between these teams would give"""
     exp = abs(pred) if pred is not None else 0
     return clip(1 - max(0, abs(m) - max(12, exp + 10)) / 25)
+
+
+# WHO WAS MISSING: a projected-rotation player who sat is worth WA_A x max(OVR - WA_C, 0) x mpg/40 Wins Added
+# (fit on 2,186 projected returners, r=.95 — works for freshmen too, from their editor/fit OVR and minutes) and
+# PTS_PER_WA points of margin per game (34 pts per win over 31 games, less the part his minutes' replacement makes
+# back). The line a scrimmage is judged against uses both teams' lineup-adjusted strength, and a side's Reality
+# drops with its OPPONENT's availability: UNC's stats against a USC missing three of its top eight are not a full game.
+WA_C, WA_A, PTS_PER_WA, MISS_CAP = 67.0, 0.24, 0.85, 12.0
+OPP_AVAIL_FLOOR = 0.6     # side score x (OPP_AVAIL_FLOOR + (1 - OPP_AVAIL_FLOOR) x opponent availability)
 
 
 def label(s):
@@ -117,6 +130,22 @@ def main():
             m = (s or {}).get("mpg") or (f or {}).get("mpg") or 0
             out.append((p["name"], float(m)))
         return out
+
+    def value_of(full):
+        """{roster name: (OVR, projected mpg)} — the returner projection, else the newcomer fit"""
+        t = T.get(full); short = t and t["team"]; out = {}
+        if not short: return out
+        for p in get(f"players?select=name,espn_id&team=eq.{urllib.parse.quote(short)}"):
+            s_ = SOP.get(str(p["espn_id"])) if p.get("espn_id") else None
+            f = (FRESH.get(short) or {}).get(p["name"])
+            src = s_ if (s_ and s_.get("ovr") is not None) else f
+            if src and src.get("ovr") is not None: out[p["name"]] = (float(src["ovr"]), float(src.get("mpg") or 0))
+        return out
+
+    def miss_pts(full, names):
+        v = value_of(full)
+        wa = sum(WA_A * max(v[n][0] - WA_C, 0) * v[n][1] / 40 for n in names if n in v)
+        return round(min(MISS_CAP, PTS_PER_WA * wa), 1)
 
     def side(box, full, margin, pred):
         if (box or {}).get("partial"): return None   # a recap with a few lines + totals: score-only for the meter
@@ -161,6 +190,16 @@ def main():
         plaus = math.exp(-(((margin - pred) / SIGMA) ** 2) / 2) if pred is not None else 0.6
         box = r.get("box") or {}
         out = {"pred": round(pred, 1) if pred is not None else None}
+        # first pass: who sat on each side -> the lineup-adjusted line (then the real scoring pass uses it)
+        if pred is not None:
+            mh = (side(box.get("home"), g["home"], margin, pred) or (None, {}))[1].get("missing") or []
+            ma = (side(box.get("away"), g["away"], -margin, pred) or (None, {}))[1].get("missing") or []
+            ph, pa = miss_pts(g["home"], mh), miss_pts(g["away"], ma)
+            if ph or pa:
+                out["pred_full"] = round(pred, 1); out["miss_pts"] = {"home": ph, "away": pa}
+                pred = pred - ph + pa
+                out["pred"] = round(pred, 1)
+                plaus = math.exp(-(((margin - pred) / SIGMA) ** 2) / 2)
         scores = []
         for s, full, m in (("home", g["home"], margin), ("away", g["away"], -margin)):
             got = side(box.get(s), full, m, pred)
@@ -185,6 +224,17 @@ def main():
                 else: p.pop("rn", None)
                 pm = pj.get(nk(rn or p["name"])) or 20.0
                 p["w"] = round(SCRIM_GAME * sc / 100 * clip((p.get("min") or 0) / max(pm, 10)), 3)
+        # a side's evidence is worth less when the OPPONENT was short-handed (second pass, both availabilities known)
+        for s, o in (("home", "away"), ("away", "home")):
+            a = ((out.get(o) or {}).get("parts") or {}).get("availability")
+            if a is None or not out.get(s) or out[s].get("boxless"): continue
+            f = OPP_AVAIL_FLOOR + (1 - OPP_AVAIL_FLOOR) * a / 100
+            if f < 0.995:
+                out[s]["opp_avail"] = round(f, 2)
+                out[s]["score"] = round(out[s]["score"] * f); out[s]["label"] = label(out[s]["score"])
+                for p in (box.get(s) or {}).get("players") or []:
+                    if p.get("w") is not None: p["w"] = round(p["w"] * f, 3)
+        scores = [out[s]["score"] for s in ("home", "away") if out.get(s) and out[s].get("score") is not None]
         out["score"] = round(sum(scores) / len(scores)) if scores else None
         out["label"] = label(out["score"]) if out["score"] is not None else None
         r["reality"] = out

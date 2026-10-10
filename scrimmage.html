@@ -107,11 +107,12 @@
   function teamBlock(side, box, full, short, ros, byFull){
     const lg=logoOf(full,byFull);
     const byKey={}; ros.forEach(p=>{ byKey[nk(p.name)]=p; });
+    const bk=p=>nk(p.rn||p.name);   // the box name as our roster spells it (nicknames, initials, misspellings)
     const played=(box.players||[]).filter(p=>p.min==null||p.min>0);
     const zero=(box.players||[]).filter(p=>p.min===0);
-    const inBox=new Set((box.players||[]).map(p=>nk(p.name)));
-    const link=p=>{ const r=byKey[nk(p.name)]; return r&&r.espn_id?`player.html?espn=${r.espn_id}`:(r?`player.html?name=${encodeURIComponent(r.name)}&team=${encodeURIComponent(short||'')}`:null); };
-    const rows=played.slice().sort((a,b)=>(b.gs-a.gs)||((b.min||0)-(a.min||0))).map(p=>{ const r=byKey[nk(p.name)], L=link(p);
+    const inBox=new Set((box.players||[]).map(bk));
+    const link=p=>{ const r=byKey[bk(p)]; return r&&r.espn_id?`player.html?espn=${r.espn_id}`:(r?`player.html?name=${encodeURIComponent(r.name)}&team=${encodeURIComponent(short||'')}`:null); };
+    const rows=played.slice().sort((a,b)=>(b.gs-a.gs)||((b.min||0)-(a.min||0))).map(p=>{ const r=byKey[bk(p)], L=link(p);
       return `<tr><td class="l nm">${L?`<a href="${L}">${esc(p.name)}</a>`:esc(p.name)}${p.gs?' <span class="dim" title="Started">*</span>':''}</td>
         <td class="l dim">${esc((r&&r.position)||'')}</td><td>${v(p.min)}</td><td class="strong">${v(p.pts)}</td>
         <td>${v(p.reb)}</td><td class="dim">${p.oreb!=null&&p.dreb!=null?p.oreb+'-'+p.dreb:'—'}</td><td>${v(p.ast)}</td>
@@ -120,8 +121,8 @@
     const T=box.totals;
     const tot=T?`<tr class="tot"><td class="l">Team</td><td></td><td>${played.reduce((s,p)=>s+(p.min||0),0)||'—'}</td><td>${v(T.pts)}</td><td>${v(T.reb)}</td><td></td><td>${v(T.ast)}</td><td>${v(T.stl)}</td><td>${v(T.blk)}</td><td>${v(T.tov)}</td><td></td><td>${f2(T.fgm,T.fga)}</td><td>${f2(T.tpm,T.tpa)}</td><td>${f2(T.ftm,T.fta)}</td><td></td></tr>`:'';
     // who didn't play: everyone on our 2026-27 roster with no minutes in the box (0-minute rows included)
-    const dnp=ros.filter(p=>!inBox.has(nk(p.name))).map(p=>p.name).concat(zero.map(p=>p.name));
-    const extra=played.filter(p=>ros.length&&!byKey[nk(p.name)]).map(p=>p.name);
+    const dnp=ros.filter(p=>!inBox.has(nk(p.name))).map(p=>p.name).concat(zero.map(p=>p.rn||p.name));
+    const extra=played.filter(p=>ros.length&&!byKey[bk(p)]).map(p=>p.name);
     return `<div class="sec">${lg?`<img src="${lg}" alt="">`:''}<h2>${esc(shortOf(full,byFull))}</h2><span class="hint">${played.length} played${ros.length?' · '+dnp.length+' did not play':''}</span></div>
       <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">Player</th><th class="l">Pos</th><th>MIN</th><th>PTS</th><th>REB</th><th title="Offensive-defensive rebounds">O-D</th><th>AST</th><th>STL</th><th>BLK</th><th>TO</th><th>PF</th><th>FG</th><th>3PT</th><th>FT</th><th title="How much this line counts toward his 2026-27 projection, in real games (Reality Meter × his share of a normal night's minutes)">Counts</th></tr></thead><tbody>${rows}${tot}</tbody></table></div>
       <div class="dnp"><b>Did not play:</b> ${ros.length?(dnp.length?dnp.map(esc).join(', '):'<span class="none">everyone on the roster played</span>'):`<span class="none">we don’t have ${esc(shortOf(full,byFull))}’s 2026-27 roster yet, so we can’t list who sat</span>`}</div>
@@ -143,6 +144,13 @@
     return `<div class="rm"><div><div class="rm-l">Reality Meter</div><div class="rm-n" style="color:${rmCol(R.score)}">${R.score}</div></div>
         <div style="flex:1"><div class="rm-t">${esc(R.label)}</div><div class="rm-bar"><i style="width:${R.score}%;background:${rmCol(R.score)}"></i></div></div></div>
       <p class="rm-why">How much this looked like a real game, read from the box score. The higher it is, the more these lines count toward the players' 2026-27 projections.</p>
+      ${(()=>{ const M=R.miss_pts||{}, lines=[];
+        [['away',g.away],['home',g.home]].forEach(([sd,full])=>{ const o=sd==='home'?'away':'home', x=R[sd]||{};
+          if(!(M[sd]>0&&x.missing&&x.missing.length)) return;
+          const oa=R[o]&&R[o].opp_avail, of=shortOf(o==='home'?g.home:g.away,byFull);
+          lines.push(`<b>${esc(shortOf(full,byFull))}</b> played without ${x.missing.map(esc).join(', ')} (worth about ${M[sd].toFixed(1)} points a game)`+(oa&&oa<1?`, so ${esc(of)}'s lines count ${Math.round((1-oa)*100)}% less`:''));
+        });
+        return lines.length?`<p class="rm-why"><b>Short-handed:</b> ${lines.join('. ')}. Our line for the lineups that actually played was ${R.pred!=null?(R.pred>0?esc(shortOf(g.home,byFull))+' by '+Math.abs(R.pred).toFixed(1):R.pred<0?esc(shortOf(g.away,byFull))+' by '+Math.abs(R.pred).toFixed(1):'even'):'—'}${R.pred_full!=null?` (${R.pred_full>0?esc(shortOf(g.home,byFull))+' by '+Math.abs(R.pred_full).toFixed(1):esc(shortOf(g.away,byFull))+' by '+Math.abs(R.pred_full).toFixed(1)} at full strength)`:''}.</p>`:''; })()}
       <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">Team</th><th>Reality</th><th class="l">Read</th>`+
       RM_PARTS.map(([k,l,t])=>`<th title="${esc(t)}">${l}</th>`).join('')+
       `<th title="Share of minutes played by the top 5">Top-5 min</th><th title="Players with 5+ minutes">5+ min</th><th class="l" title="Projected rotation players (10+ mpg) with no minutes">Projected rotation sat</th></tr></thead><tbody>${row('away',g.away)}${row('home',g.home)}</tbody></table></div>`;

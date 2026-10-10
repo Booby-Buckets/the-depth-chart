@@ -111,10 +111,15 @@ def main():
         for side, full, opp, ms, os_ in (("home", g["home"], g["away"], r["hs"], r["as"]), ("away", g["away"], g["home"], r["as"], r["hs"])):
             rs = rl.get(side) or {}; rw = (rs.get("score") or 0) / 100.0
             site = "N" if g.get("neutral") else ("H" if side == "home" else "A")
-            pred = rating(full) - rating(opp) + (0 if site == "N" else HCA if site == "H" else -HCA)
+            # LINEUP-ADJUSTED line (scrim_reality.py miss_pts): each side's rating less the projected value of its
+            # rotation players who sat — beating USC without Collins, Reibe and Lewis is not beating USC
+            mp = (rl.get("miss_pts") or {}); my_miss = float(mp.get(side) or 0); opp_miss = float(mp.get("away" if side == "home" else "home") or 0)
+            pred = (rating(full) - my_miss) - (rating(opp) - opp_miss) + (0 if site == "N" else HCA if site == "H" else -HCA)
             T_ = teams.setdefault(full, {"short": (T.get(full) or {}).get("team"), "games": []})
             T_["games"].append({"id": gid, "date": g["date"], "opp": opp, "site": site, "pred": round(pred, 1), "actual": ms - os_,
-                                "resid": round(ms - os_ - pred, 1), "reality": rs.get("score")})
+                                "resid": round(ms - os_ - pred, 1), "reality": rs.get("score"),
+                                **({"opp_missing": (rl.get("away" if side == "home" else "home") or {}).get("missing"), "opp_miss_pts": opp_miss} if opp_miss else {}),
+                                **({"my_miss_pts": my_miss} if my_miss else {})})
             box = (r.get("box") or {}).get(side) or {}
             if box.get("totals"): T_["games"][-1]["tot"] = box["totals"]       # team line (partial recaps carry totals too)
             if box.get("partial") or rs.get("boxless"): continue
@@ -127,7 +132,7 @@ def main():
             starters = {k for _, k in bm[:5]}
             T_["games"][-1]["gs"] = [q.get("rn") or q["name"] for q in box.get("players") or [] if q.get("gs")]
             T_["games"][-1]["proj_gs"] = [p["name"] for p in ros if nk(p["name"]) in starters]
-            oppf = max(0.75, min(1.25, 1 - OPP_K * rating(opp)))
+            oppf = max(0.75, min(1.25, 1 - OPP_K * (rating(opp) - opp_miss)))   # the opponent as it actually took the floor
             for q in box.get("players") or []:
                 p = byk.get(nk(q.get("rn") or q["name"]))
                 if not p: continue
@@ -168,7 +173,7 @@ def main():
                        **{k2: q.get(k2) for k2 in ("min", "pts", "reb", "ast", "stl", "blk", "tov", "pf", "fgm", "fga", "tpm", "tpa", "ftm", "fta")},
                        "gmsc": round(gs, 1), "exp": {k2: (round(v, 1) if v is not None else None) for k2, v in exp.items()},
                        "proj": {k2: round(v, 1) for k2, v in proj.items()}, "pace": {k2: round(v, 1) for k2, v in pace.items()},
-                       "opp_adj": round((oppf - 1) * 100, 1), "opp_rating": round(rating(opp), 1),
+                       "opp_adj": round((oppf - 1) * 100, 1), "opp_rating": round(rating(opp) - opp_miss, 1),
                        "exp_min": round(bmp, 1), "d40": round(d40, 1) if d40 is not None else None, "notes": notes}
                 key = str(p["espn_id"]) if kind == "r" else f"{p['team']}|{p['name']}".lower()
                 dst = out_p if kind == "r" else out_f
