@@ -524,6 +524,157 @@
     ctx.putImageData(im,0,0);
   }
 
+  // ── BY DISTANCE: four linked panels (frequency + FG% by foot vs the league and the player's
+  //    position; then left side vs right side). League curves: scripts/data/shot_dist_ref.json
+  //    (build_shot_dist_ref.py, CBBD located shots by foot, league + Guard/Forward/Center). ──
+  var DREF=null, NF=31, D3=22.15;
+  var POSN={G:'Guards',F:'Forwards',C:'Centers'};
+  try{
+    fetch('scripts/data/shot_dist_ref.json?v=1').then(function(r){return r.ok?r.json():null;}).then(function(j){
+      if(!j) return; DREF=j;
+      Array.prototype.forEach.call(document.querySelectorAll('[data-sc-host]'),function(el){ if(el._shots&&(el._opts.mode||'zones')==='zones') render(el,el._shots,el._opts); });
+    }).catch(function(){});
+  }catch(e){}
+  function posGroup(p){ p=String(p||'').toUpperCase(); if(!p) return null; if(/C/.test(p)&&!/G/.test(p)) return 'C'; if(/G/.test(p)) return 'G'; if(/F/.test(p)) return 'F'; return null; }
+  function distRefFor(season){
+    if(!DREF||!DREF.seasons) return null; var ys=Object.keys(DREF.seasons).map(Number).sort(function(a,b){return a-b;});
+    var y=parseInt(season,10), pick=ys[ys.length-1]; if(y){ pick=ys[0]; ys.forEach(function(v){ if(v<=y) pick=v; }); }
+    return DREF.seasons[String(pick)]; }
+  function smooth(arr){ return arr.map(function(v,i){ var a=arr[i-1], b=arr[i+1]; if(v==null) return null;
+    var s=v*2, w=2; if(a!=null){ s+=a; w++; } if(b!=null){ s+=b; w++; } return s/w; }); }
+  function distData(shots, opts){
+    var A=[],M=[],La=[],Lm=[],Ra=[],Rm=[]; for(var i=0;i<NF;i++){ A[i]=M[i]=La[i]=Lm[i]=Ra[i]=Rm[i]=0; }
+    var n=0;
+    shots.forEach(function(s){ var d=edist(s); if(d>35) return; var f=Math.min(NF-1,Math.max(0,Math.round(d))); n++;
+      A[f]++; if(s.made) M[f]++;
+      var x=fxf(s.x), wl=x<HOOP_X-0.01?1:x>HOOP_X+0.01?0:0.5, wr=1-wl;     // dead-centre shots split half/half
+      La[f]+=wl; Ra[f]+=wr; if(s.made){ Lm[f]+=wl; Rm[f]+=wr; } });
+    var ref=distRefFor(opts.season||(shots[0]&&shots[0].season_year)), pg=posGroup(opts.pos);
+    var share=function(a){ var t=a.reduce(function(x,y){return x+y;},0)||1; return a.map(function(v){ return v/t; }); };
+    var fg=function(a,m){ return a.map(function(v,i){ return v?m[i]/v:null; }); };
+    var lg=ref&&ref.all, ps=ref&&pg&&ref[pg];
+    // the player's FG% curve: pool each foot with its neighbours and shrink toward the league
+    // there (8 attempts of prior) so a 1-for-1 foot doesn't spike to 100%
+    var lgFg=lg?fg(lg.a,lg.m):null;
+    var W5=[0.25,0.6,1,0.6,0.25];
+    var pFg=A.map(function(v,i){ var a=0, m=0; for(var k=-2;k<=2;k++){ a+=(A[i+k]||0)*W5[k+2]; m+=(M[i+k]||0)*W5[k+2]; }
+      var base=lgFg&&lgFg[i]!=null?lgFg[i]:(a?m/a:0.4); return a>=0.5?(m+8*base)/(a+8):null; });
+    pFg=smooth(pFg);
+    return {n:n,A:A,M:M,La:La,Ra:Ra,Lm:Lm,Rm:Rm,
+      freq:smooth(share(A)), fgp:pFg, lgFreq:lg?share(lg.a):null, lgFg:lgFg, psFreq:ps?share(ps.a):null, psFg:ps?fg(ps.a,ps.m):null,
+      pos:pg, who:opts.distWho||'Player'};
+  }
+  function linePath(vals, X, Y){ var d='', pen=false;
+    vals.forEach(function(v,i){ if(v==null){ pen=false; return; } d+=(pen?' L':' M')+X(i).toFixed(1)+' '+Y(v).toFixed(1); pen=true; }); return d; }
+  // panel frame: viewBox 600x380, plot box l=70 r=585 t=40 b=320
+  var PL=70, PR=585, PT=46, PB=320;
+  function axisX(ticks, X, lab){ var g='<line class="sd-axis" x1="'+PL+'" x2="'+PR+'" y1="'+PB+'" y2="'+PB+'"/>';
+    ticks.forEach(function(t){ g+='<line class="sd-axis" x1="'+X(t[0])+'" x2="'+X(t[0])+'" y1="'+PB+'" y2="'+(PB+6)+'"/><text class="sd-tk" x="'+X(t[0])+'" y="'+(PB+24)+'" text-anchor="middle">'+t[1]+'</text>'; });
+    return g+'<text class="sd-lab" x="'+((PL+PR)/2)+'" y="'+(PB+54)+'" text-anchor="middle">'+lab+'</text>'; }
+  function axisY(ticks, Y, lab){ var g='<line class="sd-axis" x1="'+PL+'" x2="'+PL+'" y1="'+PT+'" y2="'+PB+'"/>';
+    ticks.forEach(function(t){ g+='<line class="sd-axis" x1="'+(PL-6)+'" x2="'+PL+'" y1="'+Y(t[0])+'" y2="'+Y(t[0])+'"/><text class="sd-tk" x="'+(PL-10)+'" y="'+(Y(t[0])+5)+'" text-anchor="end">'+t[1]+'</text>'; });
+    return g+'<text class="sd-lab" transform="translate(18 '+((PT+PB)/2)+') rotate(-90)" text-anchor="middle">'+lab+'</text>'; }
+  function hoverCols(horizontal){ var g='';
+    for(var f=0;f<NF;f++){
+      if(horizontal){ var y0=PB-(f+0.5)*(PB-PT)/30, y1=PB-(f-0.5)*(PB-PT)/30; g+='<rect class="sd-hit" data-f="'+f+'" x="'+PL+'" width="'+(PR-PL)+'" y="'+Math.max(PT,y0)+'" height="'+(Math.min(PB,y1)-Math.max(PT,y0))+'"/>'; }
+      else { var x0=PL+(f-0.5)*(PR-PL)/30, x1=PL+(f+0.5)*(PR-PL)/30; g+='<rect class="sd-hit" data-f="'+f+'" y="'+PT+'" height="'+(PB-PT)+'" x="'+Math.max(PL,x0)+'" width="'+(Math.min(PR,x1)-Math.max(PL,x0))+'"/>'; } }
+    return g; }
+  function lineLegend(D){ var it=[['sd-pl',D.who]]; if(D.lgFreq) it.push(['sd-lg','League']); if(D.psFreq) it.push(['sd-ps',POSN[D.pos]]);
+    return it.map(function(x,i){ return '<g transform="translate('+(PL+150+i*125)+' 22)"><line class="'+x[0]+'" x1="0" x2="18" y1="0" y2="0"/><text class="sd-leg" x="24" y="5">'+esc(x[1])+'</text></g>'; }).join(''); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function distLinePanel(D, kind){
+    var X=function(f){ return PL+f*(PR-PL)/30; };
+    var series=kind==='freq'?[D.freq,D.lgFreq,D.psFreq]:[D.fgp,D.lgFg,D.psFg];
+    var top=kind==='freq'?Math.max(0.05,Math.ceil(Math.max.apply(null,series.filter(Boolean).map(function(s){ return Math.max.apply(null,s.map(function(v){return v||0;})); }))*20)/20):1;
+    var Y=function(v){ return PB-v/top*(PB-PT); };
+    var ys=[]; var step=kind==='freq'?(top>0.1?0.05:0.02):0.2; for(var v=0;v<=top+1e-9;v+=step) ys.push([v,Math.round(v*100)+'%']);
+    var g='<svg class="sd-svg" viewBox="0 0 600 380" data-kind="'+kind+'">';
+    g+='<line class="sd-3" x1="'+X(D3)+'" x2="'+X(D3)+'" y1="'+PT+'" y2="'+PB+'"/><text class="sd-3t" x="'+(X(D3)+4)+'" y="'+(PT+12)+'">3pt</text>';
+    g+=axisY(ys,Y,kind==='freq'?'Frequency %':'Field goal %')+axisX([[0,0],[5,5],[10,10],[15,15],[20,20],[25,25],[30,30]],X,'Distance (ft)');
+    if(series[2]) g+='<path class="sd-ps" d="'+linePath(series[2],X,Y)+'"/>';
+    if(series[1]) g+='<path class="sd-lg" d="'+linePath(series[1],X,Y)+'"/>';
+    g+='<path class="sd-pl" d="'+linePath(series[0],X,Y)+'"/>';
+    g+=lineLegend(D);
+    g+='<g class="sd-cross" style="display:none"><line x1="0" x2="0" y1="'+PT+'" y2="'+PB+'"/><circle r="5"/></g>';
+    g+='<text class="sd-read" x="'+(PL+16)+'" y="'+(PT+28)+'"></text>';
+    return g+hoverCols(false)+'</svg>'; }
+  function distSidePanel(D, kind){
+    var Y=function(f){ return PB-f*(PB-PT)/30; }, mid=(PL+PR)/2, bh=(PB-PT)/30;
+    var both=function(i){ var a=D.La[i]+D.Ra[i]; return a?(D.Lm[i]+D.Rm[i])/a:0.4; };
+    var L=kind==='freq'?D.La:D.La.map(function(a,i){ return a>=1?D.Lm[i]/a:null; });
+    var R=kind==='freq'?D.Ra:D.Ra.map(function(a,i){ return a>=1?D.Rm[i]/a:null; });
+    var Ls=D.La.map(function(a,i){ return (D.Lm[i]+4*both(i))/(a+4); }), Rs=D.Ra.map(function(a,i){ return (D.Rm[i]+4*both(i))/(a+4); });
+    var mx=kind==='freq'?Math.max(10,Math.ceil(Math.max.apply(null,L.concat(R))/25)*25):1;
+    var X=function(v){ return v*(PR-mid)/mx; };
+    var g='<svg class="sd-svg" viewBox="0 0 600 380" data-kind="side-'+kind+'">';
+    var tl=kind==='freq'?[[-mx,mx],[-mx/2,Math.round(mx/2)],[0,0],[mx/2,Math.round(mx/2)],[mx,mx]]:[[-1,'100%'],[-0.5,'50%'],[0,'0%'],[0.5,'50%'],[1,'100%']];
+    g+=axisY([[0,0],[5,5],[10,10],[15,15],[20,20],[25,25],[30,30]],Y,'Distance (ft)');
+    g+=axisX(tl.map(function(t){ return [t[0],t[1]]; }),function(v){ return mid+X(v); },kind==='freq'?'Left  ·  # of shots  ·  Right':'Left  ·  Field goal %  ·  Right');
+    g+='<line class="sd-3" x1="'+PL+'" x2="'+PR+'" y1="'+Y(D3)+'" y2="'+Y(D3)+'"/><text class="sd-3t" x="'+(PL+4)+'" y="'+(Y(D3)+14)+'">3pt</text>';
+    for(var f=0;f<NF;f++){ var y=Y(f)-bh/2, lo=kind==='fg'&&(D.La[f]<3), ro=kind==='fg'&&(D.Ra[f]<3);
+      if(L[f]) g+='<rect class="sd-bl'+(lo?' thin':'')+'" x="'+(mid-X(L[f])).toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+X(L[f]).toFixed(1)+'" height="'+bh.toFixed(1)+'"/>';
+      if(R[f]) g+='<rect class="sd-br'+(ro?' thin':'')+'" x="'+mid+'" y="'+y.toFixed(1)+'" width="'+X(R[f]).toFixed(1)+'" height="'+bh.toFixed(1)+'"/>'; }
+    g+='<line class="sd-axis" x1="'+mid+'" x2="'+mid+'" y1="'+PT+'" y2="'+PB+'"/>';
+    // the difference line (right minus left): green where the left side leads, purple where the right does
+    var pool=function(arr,i){ var W5=[0.25,0.6,1,0.6,0.25], t=0; for(var k=-2;k<=2;k++) t+=(arr[i+k]||0)*W5[k+2]; return t; };
+    var diff=kind==='fg'
+      ? D.La.map(function(_,i){ var la=pool(D.La,i), lm=pool(D.Lm,i), ra=pool(D.Ra,i), rm=pool(D.Rm,i), base=(la+ra)?(lm+rm)/(la+ra):0.4;
+          return (la>=1.5&&ra>=1.5)?((rm+3*base)/(ra+3))-((lm+3*base)/(la+3)):null; })
+      : L.map(function(l,i){ return (R[i]||0)-(l||0); });
+    if(kind==='fg') diff=smooth(diff);
+    var pts=diff.map(function(v,i){ return v==null?null:[mid+X(Math.max(-mx,Math.min(mx,v))),Y(i)]; });
+    var d='', pen=false; pts.forEach(function(p){ if(!p){ pen=false; return; } d+=(pen?' L':' M')+p[0].toFixed(1)+' '+p[1].toFixed(1); pen=true; });
+    var cid='sdc'+(++_zid);
+    g+='<defs><clipPath id="'+cid+'l"><rect x="0" y="0" width="'+mid+'" height="380"/></clipPath><clipPath id="'+cid+'r"><rect x="'+mid+'" y="0" width="'+(600-mid)+'" height="380"/></clipPath></defs>';
+    g+='<path class="sd-dl" d="'+d+'" clip-path="url(#'+cid+'l)"/><path class="sd-dr" d="'+d+'" clip-path="url(#'+cid+'r)"/>';
+    g+='<g transform="translate('+(PL+70)+' 22)"><rect class="sd-bl" x="0" y="-8" width="14" height="14"/><text class="sd-leg" x="20" y="5">Left</text>'+
+      '<rect class="sd-br" x="80" y="-8" width="14" height="14"/><text class="sd-leg" x="100" y="5">Right</text>'+
+      '<line class="sd-dl" x1="170" x2="188" y1="0" y2="0"/><line class="sd-dr" x1="188" x2="206" y1="0" y2="0"/><text class="sd-leg" x="212" y="5">Difference</text></g>';
+    g+='<g class="sd-cross" style="display:none"><line x1="'+PL+'" x2="'+PR+'" y1="0" y2="0"/><circle r="5"/></g>';
+    g+='<text class="sd-read" x="'+(PL+12)+'" y="'+(PB-96)+'"></text>';
+    return g+hoverCols(true)+'</svg>'; }
+  function distOverall(D, kind){
+    var l=D.La.reduce(function(a,b){return a+b;},0), r=D.Ra.reduce(function(a,b){return a+b;},0);
+    var lv, rv; if(kind==='freq'){ var t=(l+r)||1; lv=l/t; rv=r/t; } else { var lm=D.Lm.reduce(function(a,b){return a+b;},0), rm=D.Rm.reduce(function(a,b){return a+b;},0); lv=l?lm/l:0; rv=r?rm/r:0; }
+    return '<div class="sd-ov"><span>Overall %</span><i class="l">'+Math.round(lv*100)+'%</i><i class="r">'+Math.round(rv*100)+'%</i></div>'; }
+  function distBlock(shots, opts){
+    var D=distData(shots,opts); if(D.n<40) return '';
+    return '<div class="scz-cap" style="margin-top:22px;">By distance</div><div class="sd-grid" data-sd="1">'+
+      '<div class="sd-p"><div class="sd-t">Shot frequency % by distance</div>'+distLinePanel(D,'freq')+'</div>'+
+      '<div class="sd-p"><div class="sd-t">Field goal % by distance</div>'+distLinePanel(D,'fg')+'</div>'+
+      '<div class="sd-p"><div class="sd-t">Shot frequency: left side vs. right side</div>'+distOverall(D,'freq')+distSidePanel(D,'freq')+'</div>'+
+      '<div class="sd-p"><div class="sd-t">Field goal %: left side vs. right side</div>'+distOverall(D,'fg')+distSidePanel(D,'fg')+'</div>'+
+      '</div><div class="scz-foot" style="font-size:11px;color:var(--text3);margin-top:6px;">Hover any panel to read one distance across all four. '+(D.lgFreq?'League'+(D.psFreq?' and '+POSN[D.pos].toLowerCase():'')+' lines are every located D-I shot that season. ':'')+'The '+esc(D.who.toLowerCase())+' FG% line is smoothed toward the league at thin distances. Left/right are as drawn on the court above; heaves (35+ ft) excluded.</div>'; }
+  function wireDist(el, shots, opts){
+    var grid=el.querySelector('[data-sd]'); if(!grid) return; var D=distData(shots,opts);
+    var pc=function(v){ return v==null?'—':Math.round(v*100)+'%'; };
+    var show=function(f){
+      grid.querySelectorAll('.sd-svg').forEach(function(svg){ var k=svg.getAttribute('data-kind'), cr=svg.querySelector('.sd-cross'), rd=svg.querySelector('.sd-read');
+        if(f==null){ cr.style.display='none'; rd.innerHTML=''; return; }
+        cr.style.display=''; var line=cr.querySelector('line'), dot=cr.querySelector('circle'), lines=[];
+        if(k==='freq'||k==='fg'){ var x=PL+f*(PR-PL)/30; line.setAttribute('x1',x); line.setAttribute('x2',x);
+          var arr=k==='freq'?D.freq:D.fgp, top=parseFloat(svg.getAttribute('data-top'))||null;
+          var lgA=k==='freq'?D.lgFreq:D.lgFg, psA=k==='freq'?D.psFreq:D.psFg;
+          var pv=arr[f]; dot.setAttribute('cx',x);
+          var path=svg.querySelector('.sd-pl'); dot.setAttribute('cy', pv==null?-99:yAt(svg,pv,k));
+          var raw=(k==='fg'&&D.A[f]>=5)?D.M[f]/D.A[f]:pv;
+          lines=[['','Distance: '+f+' ft'],['sd-tpl',D.who+': '+pc(raw)+(k==='fg'&&D.A[f]?' ('+D.M[f]+'/'+D.A[f]+')':'')]];
+          if(lgA) lines.push(['sd-tlg','League: '+pc(lgA[f])]); if(psA) lines.push(['sd-tps',POSN[D.pos]+': '+pc(psA[f])]);
+        } else { var y=PB-f*(PB-PT)/30; line.setAttribute('y1',y); line.setAttribute('y2',y); dot.setAttribute('cy',y);
+          var fq=k==='side-freq', l=D.La[f], r=D.Ra[f], lv=fq?l:(l>=1?D.Lm[f]/l:null), rv=fq?r:(r>=1?D.Rm[f]/r:null);
+          var mid=(PL+PR)/2, mx=fq?Math.max(10,Math.ceil(Math.max.apply(null,D.La.concat(D.Ra))/25)*25):1, dv=(rv||0)-(lv||0);
+          dot.setAttribute('cx', mid+Math.max(-mx,Math.min(mx,dv))*(PR-mid)/mx);
+          var fmt=function(v){ return fq?Math.round(v):pc(v); };
+          lines=[['','Distance: '+f+' ft'],['sd-tl','Left: '+(lv==null?'—':fmt(lv))],['sd-tr','Right: '+(rv==null?'—':fmt(rv))]];
+          if(lv!=null&&rv!=null) lines.push([dv>0?'sd-tr':'sd-tl','Difference: '+(fq?Math.round(Math.abs(dv)):Math.round(Math.abs(dv)*100)+'%')+(dv>0?' right':dv<0?' left':'')]); }
+        rd.innerHTML=lines.map(function(t,i){ return '<tspan x="'+rd.getAttribute('x')+'" dy="'+(i?24:0)+'" class="'+t[0]+'">'+esc(t[1])+'</tspan>'; }).join(''); }); };
+    function yAt(svg,v,k){ var p=svg.querySelector('.sd-pl'); var top=k==='freq'?(svg._top||(svg._top=topOf(svg))):1; return PB-v/top*(PB-PT); }
+    function topOf(svg){ var ts=svg.querySelectorAll('.sd-tk'), mx=0; ts.forEach(function(t){ var v=parseFloat(t.textContent); if(/%/.test(t.textContent)&&v>mx) mx=v; }); return mx/100||1; }
+    grid.querySelectorAll('.sd-hit').forEach(function(h){ h.addEventListener('mouseenter',function(){ show(+h.getAttribute('data-f')); }); });
+    grid.addEventListener('mouseleave',function(){ show(null); });
+    show(3);
+  }
+
   // ── SIGNATURE SPOTS ──
   // The zones that DEFINE this shooter: enough volume to trust (floor = max(10, 5% of
   // attempts)) and clearly above the D-I average there — lit in the one ink on the court, with
@@ -679,7 +830,7 @@
       body='<div class="sc-mk-legend"><span><i class="scz-sw" style="background:rgba('+ink.join(',')+',.18)"></i><i class="scz-sw" style="background:rgba('+ink.join(',')+',.5)"></i><i class="scz-sw" style="background:rgba('+ink.join(',')+',.92)"></i>deeper shade = more of the shots</span>'+
         '<span style="margin-left:auto;color:var(--text3);font-size:10px;">made\u2013attempts \u00b7 FG% \u00b7 hover a zone for D-I</span></div>'+
         '<div class="sc-court-wrap scz-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+cg.slice(0,cut)+zz.tiles+cg.slice(cut)+zz.labels+'</svg><div class="sc-tip"></div></div>';
-      extra=dietBlock(shots,opts)+splitTables(shots)+(opts.names?playerZoneTable(shots,opts.names):'');
+      extra=dietBlock(shots,opts)+splitTables(shots)+distBlock(shots,opts)+(opts.names?playerZoneTable(shots,opts.names):'');
     } else if(mode==='spots'){
       var so={};
       var sg=spotsSvg(shots,so);
@@ -716,7 +867,7 @@
     el.innerHTML=head+coverageNote(shots,opts)+'<div class="sc-main"><div class="sc-court-col">'+body+'</div></div>'+(mode==='zones'?'':zoneStrip(shots))+extra;
     el.classList.remove('sc-settled');
     if(mode==='heat') drawHeat(el, shots);
-    wire(el);
+    wire(el); if(mode==='zones') wireDist(el,shots,opts);
     // settle-guard: entrance animations are done by ~1.3s; force the final state
     // shortly after so environments that freeze/skip the animation clock (some
     // webviews, screenshotters) never leave the chart stuck invisible.
@@ -880,6 +1031,22 @@
       '.sc-zv{font-family:Inter,system-ui,sans-serif;font-weight:800;font-size:21px;line-height:1.1;font-variant-numeric:tabular-nums;color:var(--text);}'+
       '.sc-zl{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:5px;}'+
       '.sc-zs{font-size:10.5px;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'+
+      // by-distance panels
+      ':root{--sd-pl:#d0392b;--sd-lg:#4fb8cc;--sd-ps:#6f6f75;--sd-l:#3f9b3a;--sd-r:#8a5cc7;--sd-lf:rgba(63,155,58,.16);--sd-rf:rgba(138,92,199,.16);}'+
+      ':root[data-theme="dark"]{--sd-pl:#ff6a5a;--sd-lg:#5fd0e4;--sd-ps:#a9adb8;--sd-l:#6cc764;--sd-r:#b38ef0;--sd-lf:rgba(108,199,100,.2);--sd-rf:rgba(179,142,240,.2);}'+
+      '@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--sd-pl:#ff6a5a;--sd-lg:#5fd0e4;--sd-ps:#a9adb8;--sd-l:#6cc764;--sd-r:#b38ef0;--sd-lf:rgba(108,199,100,.2);--sd-rf:rgba(179,142,240,.2);}}'+
+      '.sd-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 28px;} @media(max-width:720px){.sd-grid{grid-template-columns:1fr;}}'+
+      '.sd-t{font-size:13px;font-weight:800;color:var(--text);margin-bottom:4px;} .sd-svg{width:100%;height:auto;display:block;overflow:visible;}'+
+      '.sd-axis{stroke:var(--text2);stroke-width:1.2;} .sd-tk{font:500 15px Inter,system-ui,sans-serif;fill:var(--text2);font-variant-numeric:tabular-nums;} .sd-lab{font:600 16px Inter,system-ui,sans-serif;fill:var(--text2);}'+
+      '.sd-3{stroke:var(--text3);stroke-dasharray:6 5;stroke-width:1.2;} .sd-3t{font:500 11px Inter,system-ui,sans-serif;fill:var(--text3);}'+
+      '.sd-pl{fill:none;stroke:var(--sd-pl);stroke-width:3.2;stroke-linejoin:round;} .sd-lg{fill:none;stroke:var(--sd-lg);stroke-width:2;} .sd-ps{fill:none;stroke:var(--sd-ps);stroke-width:2;}'+
+      '.sd-leg{font:500 15px Inter,system-ui,sans-serif;fill:var(--text2);}'+
+      '.sd-bl{fill:var(--sd-lf);stroke:var(--sd-l);stroke-width:0;} .sd-br{fill:var(--sd-rf);stroke:var(--sd-r);stroke-width:0;} .sd-bl.thin,.sd-br.thin{opacity:.45;} g .sd-bl,g .sd-br{stroke-width:1.5;}'+
+      '.sd-dl{fill:none;stroke:var(--sd-l);stroke-width:2.6;} .sd-dr{fill:none;stroke:var(--sd-r);stroke-width:2.6;}'+
+      '.sd-cross line{stroke:var(--text3);stroke-width:1.2;} .sd-cross circle{fill:var(--bg,#fff);stroke:var(--text2);stroke-width:2.4;}'+
+      '.sd-read{font:500 16px Inter,system-ui,sans-serif;fill:var(--text2);paint-order:stroke;stroke:var(--bg,#fff);stroke-width:4px;pointer-events:none;} .sd-read .sd-tpl{fill:var(--sd-pl);} .sd-read .sd-tlg{fill:var(--sd-lg);} .sd-read .sd-tps{fill:var(--sd-ps);} .sd-read .sd-tl{fill:var(--sd-l);} .sd-read .sd-tr{fill:var(--sd-r);}'+
+      '.sd-hit{fill:transparent;cursor:crosshair;}'+
+      '.sd-ov{display:flex;align-items:center;gap:0;font-size:13px;color:var(--text2);margin:2px 0 -6px 0;} .sd-ov span{width:110px;font-weight:600;} .sd-ov i{font-style:normal;font-weight:700;padding:3px 8px;min-width:72px;font-variant-numeric:tabular-nums;} .sd-ov i.l{background:var(--sd-lf);color:var(--sd-l);border:1.5px solid var(--sd-l);} .sd-ov i.r{background:var(--sd-rf);color:var(--sd-r);border:1.5px solid var(--sd-r);border-left:0;}'+
       // editorial zone chart + diet bars + shift map
       ':root{--scz-s0:#ececec;--scz-s1:#c8c8c8;--scz-s2:#8e8e8e;--scz-s3:#474747;--scz-t0:#2a2a2a;--scz-t1:#2a2a2a;--scz-t2:#fff;--scz-t3:#fff;}'+
       ':root[data-theme="dark"]{--scz-s0:#262d3b;--scz-s1:#3a4354;--scz-s2:#6c778c;--scz-s3:#c9d0dc;--scz-t0:#e6e9ef;--scz-t1:#e6e9ef;--scz-t2:#fff;--scz-t3:#141a26;}'+
