@@ -9,10 +9,10 @@
 // player at a small program can outgrow it — the big fish in a small pond who transfers up. A broken dealbreaker
 // is the biggest single push toward the portal (markDepartures). The user can talk to his own portal-bound players
 // (a few conversations each offseason). Pure: works on the state object.
-import { makeRng, hashSeed } from './rng.js?v=60';
-import { effOvr } from './league.js?v=60';
-import { record_ } from './season.js?v=60';
-import { tv } from './legacy.js?v=60';
+import { makeRng, hashSeed } from './rng.js?v=62';
+import { effOvr } from './league.js?v=62';
+import { record_ } from './season.js?v=62';
+import { tv } from './legacy.js?v=62';
 
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 export const DB = [['pt', 'Playing time'], ['nil', 'NIL money'], ['win', 'Winning'], ['conf', 'League stature'], ['pro', 'Pro path']];

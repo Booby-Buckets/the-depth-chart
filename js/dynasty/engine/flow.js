@@ -1,12 +1,12 @@
 // The dynasty's phase machine: regular season -> conference tournaments -> NCAA -> done (-> offseason).
 // Pure. The UI calls simNext / simTo; each simulated day is followed by afterDay, which schedules the next
 // postseason round or moves the phase on.
-import { simDay, nextDate, touch } from './season.js?v=60';
-import { startConferenceTournaments, advance } from './postseason.js?v=60';
-import { computeAwards } from './awards.js?v=60';
-import { programWeek } from './program.js?v=60';
-import { landOdds } from './offseason.js?v=60';
-import { recruitWeek, isNewClass } from './commits.js?v=60';
+import { simDay, nextDate, touch, power } from './season.js?v=62';
+import { startConferenceTournaments, advance } from './postseason.js?v=62';
+import { computeAwards } from './awards.js?v=62';
+import { programWeek } from './program.js?v=62';
+import { landOdds } from './offseason.js?v=62';
+import { recruitWeek, isNewClass } from './commits.js?v=62';
 // the recruiting board's week-to-week arrows: your odds on the recruits you're working (targets, visits, NIL offers)
 function trends(state) {
   if (!state.user || !state.rclass) return;
@@ -23,6 +23,7 @@ function weekTick(state, d) {
   if (days >= 7) {
     const n = Math.floor(days / 7);
     programWeek(state, n); state.progT = d;
+    { const pw = power(state); state.rkPrev = state.rkNow || null; state.rkNow = Object.keys(pw).sort((a, b) => pw[b] - pw[a]); }   // rankings movement week to week
     if (isNewClass(state.rclass) && state.phase !== 'offseason') for (let i = 0; i < n; i++) recruitWeek(state, d);   // the recruiting race (commits.js)
     else trends(state);
     touch(state);

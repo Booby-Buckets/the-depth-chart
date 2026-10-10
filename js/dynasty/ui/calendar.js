@@ -3,8 +3,10 @@
 // in between — and a CRAWL that walks the season a day at a time (league-wide), stopping before the user's
 // games so they can watch or sim them. The cursor (state.cal) is saved with the dynasty.
 // UI-side only: drives the engine's simNext / nextDate; never touches storage itself (ctx.autosave does).
-import { simNext } from '../engine/flow.js?v=60';
-import { nextDate, power, lineFor } from '../engine/season.js?v=60';
+import { simNext } from '../engine/flow.js?v=62';
+import { nextDate, power, lineFor } from '../engine/season.js?v=62';
+import { cutWeeks, STAGE_LABEL } from '../engine/commits.js?v=62';
+import { isBig } from '../engine/visits.js?v=62';
 
 const MON = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -54,6 +56,13 @@ export function calendarView(ctx) {
     </div></div>`;
   const nav = `<div class="cal-nav"><button class="btn ghost" id="calPrev">‹</button><b>${MON[vm - 1]} ${vy}</b><button class="btn ghost" id="calNext">›</button>
     <span class="cal-leg"><i class="away"></i>Away <i class="home"></i>Home <i class="neu"></i>Neutral <span class="pr">📋</span> Practice</span></div>`;
+  // recruiting dates on the grid: list cuts (from the race's week clock), the early signing period, big weekends
+  const marks = {};
+  const mark = (d, t) => { (marks[d] = marks[d] || []).push(t); };
+  if (S.rclass && S.rclass.length && S.rclass[0].list && S.progT) for (const [k, w] of Object.entries(cutWeeks)) if (w > (S.rweek || 0)) mark(addD(S.progT, (w - S.rweek) * 7), `${STAGE_LABEL[k]} cuts`);
+  mark(`${S.year - 1}-11-18`, 'Early signing');
+  const wkStart = addD(cur, -((new Date(cur + 'T12:00:00Z').getUTCDay() + 6) % 7)), wkEnd = addD(wkStart, 6);
+  let mw = 0, ml = 0;
   let cells = '';
   for (let i = 0; i < startDow; i++) cells += '<div class="cal-c out"></div>';
   for (let day = 1; day <= days; day++) {
@@ -68,7 +77,7 @@ export function calendarView(ctx) {
       const tag = g.t === 'ct' ? 'Conf. tourney' : g.t === 'ncaa' ? 'NCAA' : g.ev ? g.ev.replace(/ · day.*/, '') : g.fill ? 'Added' : g.c ? '' : '';
       cells += `<div class="cal-c game ${site}${isCur ? ' cur' : ''}${past ? ' past' : ''}" style="--oc:${esc(color(opp))}" data-day="${d}" ${g.r && S.userBox[g.id] ? `data-box="${esc(g.id)}"` : ''} title="${esc((home ? 'vs ' : g.n ? 'vs ' : '@ ') + short(opp))}">
         ${lbl}<span class="site">${g.n ? 'N' : home ? 'H' : 'A'}</span>${logo(opp) ? `<img src="${esc(logo(opp))}" alt="" loading="lazy">` : `<span class="nm">${esc(short(opp))}</span>`}
-        ${tag ? `<span class="tag">${esc(tag)}</span>` : ''}${(() => { const nV = (S.visits || []).filter(v => v.gid === g.id).length; return nV ? `<span class="vis" title="${nV} recruit${nV > 1 ? 's' : ''} on an official visit">🎓${nV > 1 ? nV : ''}</span>` : ''; })()}${res}</div>`;
+        ${tag ? `<span class="tag">${esc(tag)}</span>` : ''}${(() => { const nV = (S.visits || []).filter(v => v.gid === g.id).length; return (isBig(S, g.id) ? '<span class="vis" title="Big visit weekend">★</span>' : '') + (nV ? `<span class="vis" title="${nV} recruit${nV > 1 ? 's' : ''} on an official visit">🎓${nV > 1 ? nV : ''}</span>` : ''); })()}${res}</div>`;
     } else if (pe) {
       cells += `<div class="cal-c game neu tbd${isCur ? ' cur' : ''}" data-day="${d}">${lbl}<span class="site">N</span><span class="nm">TBD</span><span class="tag">${esc((pe.ev || 'Event').replace(/ · day.*/, ''))}</span></div>`;
     } else {
@@ -77,8 +86,13 @@ export function calendarView(ctx) {
     }
   }
   for (let i = startDow + days; i % 7; i++) cells += '<div class="cal-c out"></div>';
+  // this week's band + the recruiting markers (added after the fact, keyed by data-day)
+  cells = cells.replace(/<div class="cal-c([^"]*)" ([^>]*?)data-day="(\d{4}-\d\d-\d\d)"/g, (m0, cl, mid, d) => `<div class="cal-c${cl}${d >= wkStart && d <= wkEnd ? ' wk' : ''}" ${mid}data-day="${d}"`)
+    .replace(/(data-day="(\d{4}-\d\d-\d\d)"[^>]*>)/g, (m0, a, d) => a + (marks[d] ? marks[d].map(t => `<span class="mk">${esc(t)}</span>`).join('') : ''));
+  for (const g of S.schedule) if (g.r && g.d.slice(0, 7) === viewMonth && (g.h === S.user || g.a === S.user)) { if ((g.h === S.user) === (g.r[0] > g.r[1])) mw++; else ml++; }
   const tick = ticker(S, ctx);
-  $('#dyBody').innerHTML = head + nav + `<div class="cal-grid">${DOW.map(x => `<div class="cal-h">${x}</div>`).join('')}${cells}</div>` + tick +
+  const sum = mw + ml ? `<div class="cal-note"><b>${MON[vm - 1]}:</b> ${mw}-${ml}${(() => { const n = Object.keys(marks).filter(d => d.slice(0, 7) === viewMonth).length; return n ? ` · ${n} recruiting date${n === 1 ? '' : 's'}` : ''; })()}</div>` : '';
+  $('#dyBody').innerHTML = head + nav + sum + `<div class="cal-grid">${DOW.map(x => `<div class="cal-h">${x}</div>`).join('')}${cells}</div>` + tick +
     `<div class="cal-note">Click a future day to crawl to it · click a played game for its box score.</div>`;
   bind(ctx);
 }

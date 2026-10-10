@@ -16,10 +16,10 @@
 // t.lvAdj), the competition (harder league = more losses but a better NCAA résumé; weaker = an easier auto bid —
 // that part simply happens on the court), and travel (miles to league opponents cost money).
 // Pure: works on the state object.
-import { makeRng, hashSeed } from './rng.js?v=60';
-import { power } from './season.js?v=60';
-import { miles } from './recruit.js?v=60';
-import { news } from './injuries.js?v=60';
+import { makeRng, hashSeed } from './rng.js?v=62';
+import { power } from './season.js?v=62';
+import { miles } from './recruit.js?v=62';
+import { news } from './injuries.js?v=62';
 
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 const rngFor = (state, tag) => makeRng(hashSeed(`${state.seed}:${state.year}:realign:${tag}`));

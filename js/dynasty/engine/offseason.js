@@ -5,29 +5,29 @@
 //
 // Calibrated to the snapshot: freshmen enter at a median OVR ~59 (top 1% ~77); players gain ~+5 Fr->So,
 // ~+3 So->Jr, ~+1.5 after; teams lose ~4 upperclassmen a year; rosters carry 16 scholarships (the service academies 20, commits.rosterMax).
-import { overall, attributes } from './ratings.js?v=60';
-import { makeRng, hashSeed } from './rng.js?v=60';
-import { record_, power, touch } from './season.js?v=60';
-import { ncaaResult, postResult } from './postseason.js?v=60';
-import { effOvr } from './league.js?v=60';
-import { evaluateCoaches, runCarousel } from './coaching.js?v=60';
-import { healAll } from './injuries.js?v=60';
-import { profile, userOdds, pickSchool, notePro, factors, utility, relationship, aiSign } from './recruit.js?v=60';
-import { openPortal, portalDay, PORTAL_DAYS } from './portal.js?v=60';
-import { realignWindow, applyMoves, applyRevenue } from './realign.js?v=60';
-import { makeSchedule } from './schedule.js?v=60';
-import { runDraft } from './draft.js?v=60';
-import { compactAwards } from './awards.js?v=60';
-import { recordSeason, breakouts } from './history.js?v=60';
-import { violation, moodCtx } from './morale.js?v=60';
-import { tv, award } from './legacy.js?v=60';
-import { offseasonHealth } from './health.js?v=60';
-import { facilitiesSeason, retainMult } from './facilities.js?v=60';
-import { admitP, admissible, NCAA_MIN } from './people.js?v=60';
-import { rosterMax, isNewClass, signClass, initRecruiting, updatePipelines } from './commits.js?v=60';
+import { overall, attributes } from './ratings.js?v=62';
+import { makeRng, hashSeed } from './rng.js?v=62';
+import { record_, power, touch } from './season.js?v=62';
+import { ncaaResult, postResult } from './postseason.js?v=62';
+import { effOvr } from './league.js?v=62';
+import { evaluateCoaches, runCarousel } from './coaching.js?v=62';
+import { healAll } from './injuries.js?v=62';
+import { profile, userOdds, pickSchool, notePro, factors, utility, relationship, aiSign } from './recruit.js?v=62';
+import { openPortal, portalDay, PORTAL_DAYS } from './portal.js?v=62';
+import { realignWindow, applyMoves, applyRevenue } from './realign.js?v=62';
+import { makeSchedule } from './schedule.js?v=62';
+import { runDraft } from './draft.js?v=62';
+import { compactAwards } from './awards.js?v=62';
+import { recordSeason, breakouts } from './history.js?v=62';
+import { violation, moodCtx } from './morale.js?v=62';
+import { tv, award } from './legacy.js?v=62';
+import { offseasonHealth } from './health.js?v=62';
+import { facilitiesSeason, retainMult } from './facilities.js?v=62';
+import { admitP, admissible, NCAA_MIN } from './people.js?v=62';
+import { rosterMax, isNewClass, signClass, initRecruiting, updatePipelines } from './commits.js?v=62';
 // the weight room, nutrition and sports science help players grow (EA CFB26: facilities boost progression)
 const facDev = T => (T && T.fac ? Math.max(0.95, Math.min(1.05, 1 + ((T.fac.practice + T.fac.medical) / 2 - 50) / 900)) : 1);
-import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina, openStaffMarket, closeStaffMarket } from './program.js?v=60';
+import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina, openStaffMarket, closeStaffMarket } from './program.js?v=62';
 
 export const SCHOLARSHIPS = 16;   // the usual roster; commits.rosterMax has the per-program number
 const PIL = ['SCO', 'SHT', 'FIN', 'PLY', 'SEC', 'REB', 'DEF'];

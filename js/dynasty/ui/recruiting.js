@@ -1,15 +1,15 @@
 // In-season Recruiting tab, EA College Football 25 style (Oct 2026): offers, a weekly hours budget spent on actions,
 // recruits narrowing their lists (Top 8 / 5 / 3), commitments that can flip, signings. Rules: engine/commits.js
 // (the race), engine/visits.js (official visits at home games), engine/recruit.js (what each recruit values, NIL).
-import { scoutView, scoutSD } from '../engine/offseason.js?v=60';
-import { moneyButtons, ensureMoneyCss } from './money.js?v=60';
-import { acadGrade, admitP, admitLabel } from '../engine/people.js?v=60';
-import { priorities, negotiate, acceptCounter, FACTORS, committedNIL, profile } from '../engine/recruit.js?v=60';
-import { officialMax, visitsLeft, visitsFor, upcomingHomeGames, scheduleOfficial, cancelVisit, VISIT_FOCUS, BIG_MAX, isBig, toggleBig, setFocus } from '../engine/visits.js?v=60';
-import { power, lineFor } from '../engine/season.js?v=60';
-import { factors as facOf, relationship as relOf } from '../engine/recruit.js?v=60';
+import { scoutView, scoutSD } from '../engine/offseason.js?v=62';
+import { moneyButtons, ensureMoneyCss } from './money.js?v=62';
+import { acadGrade, admitP, admitLabel } from '../engine/people.js?v=62';
+import { priorities, negotiate, acceptCounter, FACTORS, committedNIL, profile } from '../engine/recruit.js?v=62';
+import { officialMax, visitsLeft, visitsFor, upcomingHomeGames, scheduleOfficial, cancelVisit, VISIT_FOCUS, BIG_MAX, isBig, toggleBig, setFocus } from '../engine/visits.js?v=62';
+import { power, lineFor } from '../engine/season.js?v=62';
+import { factors as facOf, relationship as relOf } from '../engine/recruit.js?v=62';
 import { STAGE_LABEL, ACTIONS, HOURS_CAP, USER_OFFERS_MAX, SUMMER, cutWeeks, classNeed, commitsOf, hoursBudget, hoursUsed, planHours,
-  offerRecruit, withdrawOffer, toggleAction, userChance, gradesFor, rankOf, passesDB, dbLabel, grade, scoutedPct, revealed, needs, groupOf, classRanks, pipeOf, pipeTier, pipelinesOf, battleOf } from '../engine/commits.js?v=60';
+  offerRecruit, withdrawOffer, toggleAction, userChance, gradesFor, rankOf, passesDB, dbLabel, grade, scoutedPct, revealed, needs, groupOf, classRanks, pipeOf, pipeTier, pipelinesOf, battleOf } from '../engine/commits.js?v=62';
 
 let sel = null, q = '', pos = '', minStars = 3, onlyOpen = true, pickVisit = false, msg = '', rv = 'board', needOnly = false;
 const CSS = `

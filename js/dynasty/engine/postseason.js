@@ -7,7 +7,7 @@
 // mid-majors on a neutral floor). Conference tournaments follow each league's format (CT_FORMAT: who qualifies,
 // early rounds on the higher seed's floor). projectField = in-season bracketology.
 // Pure: brackets live in state.post; their games are appended to state.schedule as they become known.
-import { standings, power } from './season.js?v=60';
+import { standings, power } from './season.js?v=62';
 
 const DAY = 86400000;
 const addDays = (iso, n) => new Date(Date.parse(iso + 'T12:00:00Z') + n * DAY).toISOString().slice(0, 10);

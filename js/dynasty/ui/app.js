@@ -1,39 +1,40 @@
 // Dynasty — the page. Engine (pure) + browser saves + rendering. One league in memory (S); every action
 // mutates it through the engine, re-renders, and autosaves.
-import { C } from '../engine/constants.js?v=60';
-import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=60';
-import { overall } from '../engine/ratings.js?v=60';
-import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=60';
-import { simNext, simTo, afterDay } from '../engine/flow.js?v=60';
-import { postResult } from '../engine/postseason.js?v=60';
-import { TYPES as INJ } from '../engine/injuries.js?v=60';
-import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain, pushRecruit, PUSHES } from '../engine/offseason.js?v=60';
-import { mood, moodCtx, letter, talk, talksFor } from '../engine/morale.js?v=60';
-import { ROT } from '../engine/health.js?v=60';
-import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=60';
-import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=60';
-import { lines as pbpLines } from './pbp.js?v=60';
-import { gameSteps, newCtl } from '../engine/game.js?v=60';
-import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=60';
-import { tireAt } from '../engine/program.js?v=60';
-import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=60';
-import { recruitingView } from './recruiting.js?v=60';
-import { ensureMoneyCss } from './money.js?v=60';
-import { weekBox, openTasks, WEEK_CSS } from './week.js?v=60';
+import { C } from '../engine/constants.js?v=62';
+import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=62';
+import { overall } from '../engine/ratings.js?v=62';
+import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=62';
+import { simNext, simTo, afterDay } from '../engine/flow.js?v=62';
+import { postResult } from '../engine/postseason.js?v=62';
+import { TYPES as INJ } from '../engine/injuries.js?v=62';
+import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain, pushRecruit, PUSHES } from '../engine/offseason.js?v=62';
+import { mood, moodCtx, letter, talk, talksFor } from '../engine/morale.js?v=62';
+import { ROT } from '../engine/health.js?v=62';
+import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=62';
+import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=62';
+import { lines as pbpLines } from './pbp.js?v=62';
+import { gameSteps, newCtl } from '../engine/game.js?v=62';
+import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=62';
+import { tireAt } from '../engine/program.js?v=62';
+import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=62';
+import { recruitingView } from './recruiting.js?v=62';
+import { projectField } from '../engine/postseason.js?v=62';
+import { ensureMoneyCss } from './money.js?v=62';
+import { weekBox, openTasks, WEEK_CSS } from './week.js?v=62';
 const ensureWeekCss = () => { if (!document.getElementById('wkCss')) { const s = document.createElement('style'); s.id = 'wkCss'; s.textContent = WEEK_CSS; document.head.appendChild(s); } };
-import { isNewClass, userChance } from '../engine/commits.js?v=60';
-import { portalView } from './portal.js?v=60';
-import { tournamentsView, awardsView } from './tourney.js?v=60';
-import { scheduleStep } from './sched.js?v=60';
-import { carouselStep, staffStep } from './carousel.js?v=60';
-import { coachesView } from './coaches.js?v=60';
-import { legacyView } from './legacy.js?v=60';
-import { margins } from '../engine/history.js?v=60';
-import { facilitiesRankHtml, bindFacilitiesRank } from './facilities.js?v=60';
-import { durability, durTag, acadGrade, admitP, admitLabel, initSchools } from '../engine/people.js?v=60';
-import { initFacilities } from '../engine/facilities.js?v=60';
-import { inviteInfo, decide as realignDecide } from '../engine/realign.js?v=60';
-import { programView, diffPicker } from './program.js?v=60';
+import { isNewClass, userChance } from '../engine/commits.js?v=62';
+import { portalView } from './portal.js?v=62';
+import { tournamentsView, awardsView } from './tourney.js?v=62';
+import { scheduleStep } from './sched.js?v=62';
+import { carouselStep, staffStep } from './carousel.js?v=62';
+import { coachesView } from './coaches.js?v=62';
+import { legacyView } from './legacy.js?v=62';
+import { margins } from '../engine/history.js?v=62';
+import { facilitiesRankHtml, bindFacilitiesRank } from './facilities.js?v=62';
+import { durability, durTag, acadGrade, admitP, admitLabel, initSchools } from '../engine/people.js?v=62';
+import { initFacilities } from '../engine/facilities.js?v=62';
+import { inviteInfo, decide as realignDecide } from '../engine/realign.js?v=62';
+import { programView, diffPicker } from './program.js?v=62';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -578,24 +579,51 @@ function plan() {
 }
 
 function standingsView() {
-  const st = standings(S), mine = S.teams[S.user].conf;
-  const confs = Object.keys(st).sort();
-  const sel = standingsView.conf || mine;
-  $('#dyBody').innerHTML = `<div class="sec"><h2>Standings</h2><select id="cSel" class="dy-input sm">${confs.map(c => `<option ${c === sel ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div>
-  <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th>#</th><th class="l">Team</th><th>Conf</th><th>Overall</th><th title="Points scored minus allowed (regular season)">Diff</th><th title="Average margin a game">Margin</th><th>Power</th><th class="l" title="How a tie in the league record was broken">Tiebreak</th></tr></thead><tbody>
-  ${(() => { const pw = power(S), M = margins(S); return st[sel].map((r, i) => { const m = M[r.team] || { pf: 0, pa: 0, g: 0 }, d = m.pf - m.pa; return `<tr class="${r.team === S.user ? 'me' : ''}"><td>${i + 1}</td><td class="l">${tm(r.team)}</td><td>${r.cw}-${r.cl}</td><td>${r.w}-${r.l}</td><td class="${d >= 0 ? 'up' : 'dn'}">${d > 0 ? '+' : ''}${d}</td><td>${m.g ? (d / m.g > 0 ? '+' : '') + (d / m.g).toFixed(1) : ''}</td><td>${pw[r.team].toFixed(1)}</td><td class="l dim">${r.tb || ''}</td></tr>`; }).join(''); })()}
-  </tbody></table></div><div class="pg-d">Ties in the league standings: head-to-head among the tied teams first, then record against the teams above them, then power rating.</div>`;
+  // standings (Oct 2026 UI update): the conference race up top, then every team with games back, home / away,
+  // streak, last 10, a power bar and where bracketology has them
+  const st = standings(S), mine = S.teams[S.user].conf, confs = Object.keys(st).sort();
+  const sel = standingsView.conf || mine, rows = st[sel] || [];
+  const pw = power(S), M = margins(S), order = Object.keys(pw).sort((a, b) => pw[b] - pw[a]);
+  const B = S.phase === 'regular' ? projectField(S) : null;
+  const seedOf = t => { if (!B) return null; const ln = B.lines.find(l => l.teams.some(x => x.team === t)); return ln ? ln.seed : B.firstOut.includes(t) ? 'out' : null; };
+  const games = t => S.schedule.filter(g => g.r && (g.h === t || g.a === t)).sort((a, b) => (a.d < b.d ? -1 : 1));
+  const won = (g, t) => (g.h === t) === (g.r[0] > g.r[1]);
+  const extra = t => { const G = games(t), hw = G.filter(g => g.h === t && !g.n), aw = G.filter(g => g.a === t && !g.n);
+    let k = 0, last = null; for (let i = G.length - 1; i >= 0; i--) { const w = won(G[i], t); if (last == null) last = w; if (w !== last) break; k++; }
+    const l10 = G.slice(-10), w10 = l10.filter(g => won(g, t)).length;
+    return { home: `${hw.filter(g => won(g, t)).length}-${hw.filter(g => !won(g, t)).length}`, away: `${aw.filter(g => won(g, t)).length}-${aw.filter(g => !won(g, t)).length}`, strk: last == null ? '—' : `${last ? 'W' : 'L'}${k}`, l10: `${w10}-${l10.length - w10}` }; };
+  const lead = rows[0], gb = r => lead ? ((lead.cw - r.cw) + (r.cl - lead.cl)) / 2 : 0;
+  const me = rows.find(r => r.team === S.user), pmax = Math.max(1, ...rows.map(r => Math.abs(pw[r.team] || 0)));
+  const race = me ? `<div class="sd-race"><div><span>Leader</span><b>${tm(lead.team)}</b><em>${lead.cw}-${lead.cl}</em></div>
+      <div><span>You</span>${lead.cw + lead.cl === 0 ? `<b>League play not started</b><em>${me.w}-${me.l} so far</em>` : `<b>${rows.indexOf(me) + 1}${['th', 'st', 'nd', 'rd'][rows.indexOf(me) + 1 < 4 ? rows.indexOf(me) + 1 : 0]} place</b><em>${me.cw}-${me.cl}${gb(me) ? ` · ${gb(me)} back` : ' · first'}</em>`}</div>
+      <div><span>National</span><b>Power #${order.indexOf(S.user) + 1}</b><em>${me.w}-${me.l} overall</em></div>
+      ${B ? `<div><span>Bracketology</span><b>${seedOf(S.user) === 'out' ? 'First four out' : seedOf(S.user) ? `${seedOf(S.user)} seed` : 'Out'}</b><em>if the season ended today</em></div>` : ''}</div>` : '';
+  $('#dyBody').innerHTML = `<div class="sec"><h2>Standings</h2><select id="cSel" class="dy-input sm">${confs.map(c => `<option ${c === sel ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>${sel !== mine ? ` <button class="btn ghost pg-sm" id="cMine">My league</button>` : ''}</div>
+  ${sel === mine ? race : ''}
+  <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th>#</th><th class="l">Team</th><th>Conf</th><th title="Games back of the league leader">GB</th><th>Overall</th><th>Home</th><th>Away</th><th>Streak</th><th>Last 10</th><th title="Points per game, for minus against">Margin</th><th class="l">Power</th>${B ? '<th title="Bracketology: projected NCAA seed today">NCAA</th>' : ''}</tr></thead><tbody>
+  ${rows.map((r, i) => { const m = M[r.team] || { pf: 0, pa: 0, g: 0 }, x = extra(r.team), p = pw[r.team] || 0, sd = seedOf(r.team);
+    return `<tr class="${r.team === S.user ? 'me' : ''}"><td>${i + 1}</td><td class="l">${tm(r.team)}</td><td><b>${r.cw}-${r.cl}</b></td><td>${gb(r) ? gb(r) : '—'}</td><td>${r.w}-${r.l}</td><td>${x.home}</td><td>${x.away}</td>
+      <td class="${x.strk[0] === 'W' ? 'up' : x.strk[0] === 'L' ? 'dn' : ''}">${x.strk}</td><td>${x.l10}</td><td class="${m.pf >= m.pa ? 'up' : 'dn'}">${m.g ? ((m.pf - m.pa) / m.g >= 0 ? '+' : '') + ((m.pf - m.pa) / m.g).toFixed(1) : '—'}</td>
+      <td class="l"><span class="sd-pw"><i style="width:${Math.round(50 * Math.abs(p) / pmax)}%;${p >= 0 ? 'left:50%' : 'right:50%'};background:${p >= 0 ? 'var(--green,#1a8c3a)' : 'var(--red,#cc2200)'}"></i></span> ${p.toFixed(1)} <span class="dim">#${order.indexOf(r.team) + 1}</span></td>
+      ${B ? `<td>${sd === 'out' ? '<span class="dim">first 4 out</span>' : sd ? `<b>${sd}</b>` : ''}</td>` : ''}</tr>`; }).join('')}
+  </tbody></table></div><div class="pg-d">Ties in the league standings: head-to-head among the tied teams first, then record against the teams above them, then power rating.</div>
+  <style>.sd-race{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:4px 0 12px}.sd-race>div{padding:10px 14px;border-left:1px solid var(--border)}.sd-race>div:first-child{border-left:0}
+  .sd-race span{display:block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3)}.sd-race b{display:block;font-size:16px}.sd-race em{font-style:normal;font-size:12px;color:var(--text3)}
+  .sd-pw{position:relative;display:inline-block;width:90px;height:8px;border-radius:4px;background:var(--bg3,#eee);vertical-align:middle}.sd-pw i{position:absolute;top:0;bottom:0;border-radius:4px}.sd-pw:after{content:'';position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--text3)}
+  @media(max-width:800px){.sd-race{grid-template-columns:1fr 1fr}}</style>`;
   $('#cSel').onchange = e => { standingsView.conf = e.target.value; render(); };
+  const cm = $('#cMine'); if (cm) cm.onclick = () => { standingsView.conf = mine; render(); };
 }
 
 function rankings() {
   const sub = `<div class="tn-tabs">${[['power', 'Power'], ['fac', 'Facilities']].map(([k, l]) => `<button class="${(rankings.v || 'power') === k ? 'on' : ''}" data-rkv="${k}">${l}</button>`).join('')}</div>`;
   const bindSub = () => document.querySelectorAll('[data-rkv]').forEach(b => b.onclick = () => { rankings.v = b.dataset.rkv; rankings(); });
   if (rankings.v === 'fac') { $('#dyBody').innerHTML = sub + facilitiesRankHtml(CAL); bindFacilitiesRank(CAL, rankings); bindSub(); if (window.tdcSheetHeat) document.querySelectorAll('#dyBody table.heat').forEach(x => tdcSheetHeat(x)); return; }
-  const pw = power(S), all = Object.keys(pw).sort((a, b) => pw[b] - pw[a]);
+  const pw = power(S), all = Object.keys(pw).sort((a, b) => pw[b] - pw[a]), prev = S.rkPrev || null;
+  const mv = t => { if (!prev) return ''; const a = prev.indexOf(t), b = all.indexOf(t); if (a < 0) return ''; const d = a - b; return d ? `<span class="${d > 0 ? 'up' : 'dn'}" style="font-size:11px;font-weight:800">${d > 0 ? '▲' : '▼'}${Math.abs(d)}</span>` : '<span class="dim" style="font-size:11px">—</span>'; };
   $('#dyBody').innerHTML = sub + `<div class="sec"><h2>Power rankings</h2><span class="n">Opponent-adjusted scoring margin, blended with the preseason roster rating early in the year</span></div>
-  <div class="sheet-wrap"><table class="sheet dense heat dy-rk"><thead><tr><th>#</th><th class="l">Team</th><th class="l">Conf</th><th>Rec</th><th data-heat="1">Power</th></tr></thead><tbody>
-  ${all.map((t, i) => { const r = record_(S, t); return `<tr class="${t === S.user ? 'me' : ''}"><td>${i + 1}</td><td class="l">${tm(t)}</td><td class="l dim">${esc(S.teams[t].conf)}</td><td>${r.w}-${r.l}</td><td>${pw[t].toFixed(1)}</td></tr>`; }).join('')}
+  <div class="sheet-wrap"><table class="sheet dense heat dy-rk"><thead><tr><th>#</th><th title="Since last week">±</th><th class="l">Team</th><th class="l">Conf</th><th>Rec</th><th data-heat="1">Power</th></tr></thead><tbody>
+  ${all.map((t, i) => { const r = record_(S, t); return `<tr class="${t === S.user ? 'me' : ''}"><td>${i + 1}</td><td>${mv(t)}</td><td class="l">${tm(t)}</td><td class="l dim">${esc(S.teams[t].conf)}</td><td>${r.w}-${r.l}</td><td>${pw[t].toFixed(1)}</td></tr>`; }).join('')}
   </tbody></table></div>`;
   bindSub();
 }

@@ -7,7 +7,7 @@
 //     4-team bracket's day 2 (winner vs winner) and an event's day 3 (pool) stay in state.pending and become
 //     real games on the morning they are played, from the actual day-1 / day-2 results.
 // Pure: works on the state object; no DOM, no Supabase.
-import { overall } from './ratings.js?v=60';
+import { overall } from './ratings.js?v=62';
 
 const EXT_RATING = -26;                         // a typical non-D-I opponent vs an average D-I team
 const MPG13 = [33, 31, 29, 27, 24, 19, 14, 10, 7, 4, 2, 1, 0];
