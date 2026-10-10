@@ -7,7 +7,7 @@
   <script src="auth.js?v=delacct1"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="team-colors.js?v=11"></script>
-  <script src="tdc-shotchart.js?v=27"></script>
+  <script src="tdc-shotchart.js?v=28"></script>
   <script src="tdc-lineups.js?v=17s"></script>
   <script src="tdc-lineup-history.js?v=4"></script>
   <script src="tdc-shotflow.js?v=12"></script>
@@ -6146,7 +6146,7 @@ async function loadTeamShotChart(season){
     try{ var ids=[...new Set(rows.map(function(r){return r.espn_id;}).filter(function(x){return x!=null;}))];
       if(ids.length){ var nr=await fetch(SB_URL+'/rest/v1/player_history?espn_id=in.('+ids.join(',')+')&season_year=eq.'+season+'&select=espn_id,name',{headers:tdcH()}).then(r=>r.ok?r.json():[]);
         (nr||[]).forEach(function(r){ names[String(r.espn_id)]=r.name; }); } }catch(e){}
-    TDC_SHOTCHART.render(host, rows, {subtitle:(teamT&&teamT.name)||'this team', names:names});
+    TDC_SHOTCHART.render(host, rows, {subtitle:(teamT&&teamT.name)||'this team', names:names, kind:'team'});
     window._teamShotCur={season:season, rows:rows}; _initTeamShift(season);
     // shot flow (zone → type → outcome → assist) needs the enriched rows; older seasons never got them
     if(fhost&&window.TDC_SHOTFLOW){
@@ -7445,7 +7445,7 @@ async function loadLineupShotProfile(){
     wrap.innerHTML='<div id="lspChart"></div>'+
       '<div class="sec-head" style="margin-top:26px;"><span>Lineup Shot Flow <span class="sec-head-sub">'+used+' player'+(used>1?'s':'')+' · minutes-weighted</span></span></div><div id="lspFlow"></div>'+
       (missing.length?'<div style="font-size:11px;color:var(--text3);margin-top:12px;">No shot data yet (excluded): '+missing.join(', ')+'</div>':'');
-    TDC_SHOTCHART.render(document.getElementById('lspChart'), combined, {subtitle:(teamT&&teamT.name)||'lineup'});
+    TDC_SHOTCHART.render(document.getElementById('lspChart'), combined, {subtitle:(teamT&&teamT.name)||'lineup', kind:'team'});
     var enriched=combined.filter(function(r){return r.stype;});
     if(enriched.length>=8 && window.TDC_SHOTFLOW) TDC_SHOTFLOW.render(document.getElementById('lspFlow'), enriched, {subtitle:(teamT&&teamT.name)||'lineup', team:(teamT&&teamT.name), who:'Who creates the makes'});
     else document.getElementById('lspFlow').innerHTML='<div style="padding:24px;text-align:center;color:var(--text3);font-size:13px;">Shot-flow (type/assist) data for this lineup is still being processed.</div>';

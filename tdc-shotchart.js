@@ -293,36 +293,26 @@
     for(y=0;y<h;y++)for(x=0;x<w;x++){ s=0;n=0; for(k=-rad;k<=rad;k++){var xx=x+k; if(xx>=0&&xx<w){s+=g[y*w+xx];n++;}} t[y*w+x]=s/n; }
     for(y=0;y<h;y++)for(x=0;x<w;x++){ s=0;n=0; for(k=-rad;k<=rad;k++){var yy=y+k; if(yy>=0&&yy<h){s+=t[yy*w+x];n++;}} g[y*w+x]=s/n; }
   }
+  var HEAT_BANDS=['#fdeadb','#fcd3b6','#f9b68a','#f6975d','#f07a35','#e25d14'];
   function drawHeat(el, shots){
     var cv=el.querySelector('.sc-heat'); if(!cv||!cv.getContext) return;
     cv.width=W; cv.height=H; var ctx=cv.getContext('2d');
-    var GW=90, GH=76, grid=new Float32Array(GW*GH);
-    function gx(fx){ return Math.max(0,Math.min(GW-1, Math.round(clampx(fx)/50*(GW-1)))); }
-    function gy(fy){ fy=clampy(fy); return Math.max(0,Math.min(GH-1, Math.round((YMAX-fy)/(YMAX-YMIN)*(GH-1)))); }
-    shots.forEach(function(s){ grid[gy(fyf(s.y))*GW+gx(fxf(s.x))]+=1; });
-    blur(grid,GW,GH,2); blur(grid,GW,GH,2); blur(grid,GW,GH,2);
-    // normalize to a high percentile (not the absolute max) so the ultra-dense
-    // rim doesn't crush the visibility of the three-point band
-    var nz=[]; for(var i=0;i<grid.length;i++) if(grid[i]>0) nz.push(grid[i]);
-    nz.sort(function(a,b){return a-b;});
-    var max=(nz.length?nz[Math.floor(nz.length*0.93)]:1)||1;
-    var sm=document.createElement('canvas'); sm.width=GW; sm.height=GH; var sc=sm.getContext('2d');
-    var im=sc.createImageData(GW,GH), p=im.data;
-    // classic heat: yellow → orange → red, painted over the normal court floor; opacity rises
-    // with density so the sparse edges stay translucent and the hot spots go solid red
-    var cs=getComputedStyle(el);
-    var floor=(cs.getPropertyValue('--sc-floor')||'#f1e7d3').trim();
-    for(var i=0;i<grid.length;i++){
-      var v=Math.min(1,grid[i]/max), o=i*4;
-      if(v<0.04){ p[o+3]=0; continue; }
-      var c=heatRamp(Math.pow(v,0.7)); p[o]=c[0]; p[o+1]=c[1]; p[o+2]=c[2];
-      p[o+3]=Math.min(255, (0.35+0.62*Math.pow(v,0.6))*255)|0;
-    }
-    sc.putImageData(im,0,0);
-    ctx.fillStyle=floor; ctx.fillRect(0,0,W,H);
-    ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
-    ctx.drawImage(sm,0,0,GW,GH,0,0,W,H);
+    var GW=100, GH=Math.round((YMAX-YMIN)*2), G=densityGrid(shots,GW,GH).g;
+    // bands are relative to this chart's own busiest spots (98th percentile), so a 150-shot
+    // player and a 2,000-shot team both use the full ramp
+    var nz=[]; for(var i=0;i<G.length;i++) if(G[i]>0) nz.push(G[i]); nz.sort(function(a,b){return a-b;});
+    var mx=(nz.length?nz[Math.floor(nz.length*0.98)]:1)||1;
+    var floor=(getComputedStyle(el).getPropertyValue('--sc-floor')||'#fbfbf9').trim(); ctx.fillStyle=floor; ctx.fillRect(0,0,W,H);
+    var im=ctx.getImageData(0,0,W,H), p=im.data, TH=[0.16,0.3,0.44,0.58,0.73,0.88], C=HEAT_BANDS.map(hexRgb);
+    for(var yy=0;yy<H;yy++){ var gy=yy/(H-1)*(GH-1), y0=Math.floor(gy), y1=Math.min(GH-1,y0+1), fy=gy-y0;
+      for(var xx=0;xx<W;xx++){ var gx=xx/(W-1)*(GW-1), x0=Math.floor(gx), x1=Math.min(GW-1,x0+1), fx=gx-x0;
+        var v=((G[y0*GW+x0]*(1-fx)+G[y0*GW+x1]*fx)*(1-fy)+(G[y1*GW+x0]*(1-fx)+G[y1*GW+x1]*fx)*fy)/mx, band=-1;
+        v=Math.pow(Math.max(0,v),0.6);   // a gentler curve so the arc isn't swamped by the rim
+        for(var b=TH.length-1;b>=0;b--) if(v>=TH[b]){ band=b; break; }
+        if(band<0) continue; var c=C[band], o=(yy*W+xx)*4; p[o]=c[0]; p[o+1]=c[1]; p[o+2]=c[2]; p[o+3]=255; } }
+    ctx.putImageData(im,0,0);
   }
+
 
   // ── ZONES (editorial, Sept-Oct 2026 rebuild) ──────────────────────────────────────────
   // Twelve regions fanned out from the rim (the print-style zone chart): restricted area,
@@ -707,6 +697,10 @@
     var soft=q.filter(function(r){ return r.d<=-0.03; }).sort(function(a,b){ return a.score-b.score; }).slice(0,2);
     out.Z=Z; out.floor=floor; out.sig=sig; out.soft=soft; out.rows=rows; out.N=N;
   }
+  // who the chart is about: 'he / his' for a player, 'the team' for team / lineup / opponent charts
+  function voice(opts){ var t=opts&&(opts.kind==='team'||opts.names);
+    return t?{poss:'the team\u2019s',subj:'the team',Subj:'The team',shoots:'shoots',makes:'makes',has:'has'}
+            :{poss:'his',subj:'he',Subj:'He',shoots:'shoots',makes:'makes',has:'has'}; }
   function spotsSvg(shots, out){
     spotsPick(shots, out);
     var lit={}; out.sig.forEach(function(r,i){ lit[r.k]={kind:'sig',rank:i}; }); out.soft.forEach(function(r){ lit[r.k]={kind:'soft'}; });
@@ -715,50 +709,51 @@
     g+='<clipPath id="'+id+'out"><path fill-rule="evenodd" clip-rule="evenodd" d="M 0 0 H '+W+' V '+H+' H 0 Z '+arcPath()+' Z"/></clipPath>';
     g+='<pattern id="'+id+'hatch" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="7" stroke="var(--sc-soft)" stroke-width="1.6"/></pattern>';
     g+='</defs>';
-    var fillFor=function(k){ var L=lit[k]; if(!L) return 'none';
-      if(L.kind==='soft') return 'url(#'+id+'hatch)';
-      return 'rgba(var(--sc-ink-rgb),'+(L.rank===0?0.62:L.rank===1?0.46:0.34)+')'; };
-    var strokeFor=function(k){ var L=lit[k]; return L?(L.kind==='soft'?'var(--sc-soft)':'rgb(var(--sc-ink-rgb))'):'none'; };
+    var fillFor=function(k){ var L=lit[k]; if(!L) return 'none'; return L.kind==='soft'?'var(--sc-cold)':'var(--sc-hot)'; };
+    var opFor=function(k){ var L=lit[k]; if(!L) return 0; return L.kind==='soft'?0.28:(L.rank===0?0.62:L.rank===1?0.48:0.36); };
+    var strokeFor=function(k){ var L=lit[k]; return L?(L.kind==='soft'?'var(--sc-cold)':'var(--sc-hot)'):'none'; };
     regionDefs().forEach(function(r){ var b=r[2]; var L=lit[r[0]];
-      g+='<rect class="sc-spotz'+(L?' on':'')+'" data-zk="'+r[0]+'" clip-path="url(#'+id+r[1]+')" x="'+b[0]+'" y="'+b[1]+'" width="'+b[2]+'" height="'+b[3]+'" fill="'+fillFor(r[0])+'" stroke="'+strokeFor(r[0])+'" stroke-width="2"'+(L&&L.kind==='soft'?' stroke-dasharray="5 4"':'')+'/>'; });
+      g+='<rect class="sc-spotz'+(L?' on':'')+'" data-zk="'+r[0]+'" clip-path="url(#'+id+r[1]+')" x="'+b[0]+'" y="'+b[1]+'" width="'+b[2]+'" height="'+b[3]+'" fill="'+fillFor(r[0])+'" fill-opacity="'+opFor(r[0])+'" stroke="'+strokeFor(r[0])+'" stroke-width="2"'+(L&&L.kind==='soft'?' stroke-dasharray="5 4"':'')+'/>'; });
     var Lr=lit.rim;
-    g+='<circle class="sc-spotz'+(Lr?' on':'')+'" data-zk="rim" cx="'+px(HOOP_X)+'" cy="'+py(HOOP_Y)+'" r="'+px(4)+'" fill="'+fillFor('rim')+'" stroke="'+strokeFor('rim')+'" stroke-width="2"'+(Lr&&Lr.kind==='soft'?' stroke-dasharray="5 4"':'')+'/>';
-    // faint shot dots for context (the lit zones read through them)
-    shots.forEach(function(s){ var cx=px(clampx(fxf(s.x))), cy=py(clampy(fyf(s.y)));
-      g+='<circle class="sc-spot-off" cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="2.4"/>'; });
+    g+='<circle class="sc-spotz'+(Lr?' on':'')+'" data-zk="rim" cx="'+px(HOOP_X)+'" cy="'+py(HOOP_Y)+'" r="'+px(4)+'" fill="'+fillFor('rim')+'" fill-opacity="'+opFor('rim')+'" stroke="'+strokeFor('rim')+'" stroke-width="2"'+(Lr&&Lr.kind==='soft'?' stroke-dasharray="5 4"':'')+'/>';
+    // (no shot dots: ESPN logs whole-foot coordinates, so on the flat court they stacked into a
+    //  dot grid that read as data and buried the hot / cold zones)
     // labels on the lit zones only: FG% · share, and the edge
     out.sig.concat(out.soft).forEach(function(r){ var at=SPOT_LAB[r.k]; if(!at) return;
       var x=px(at[0]), y=py(at[1]), d=Math.round(r.d*100);
       var anc=r.k==='c3l'?'start':r.k==='c3r'?'end':'middle'; if(anc==='start') x=px(1.6); if(anc==='end') x=px(48.4);
-      g+='<text class="sc-zlab" x="'+x+'" y="'+(y+4)+'" text-anchor="'+anc+'">'+Math.round(r.p*100)+'%<tspan class="sc-zedge"> '+(d>=0?'+':'\u2212')+Math.abs(d)+'</tspan></text>'; });
+      var hot=out.sig.indexOf(r)>=0;
+      g+='<text class="sc-sptag '+(hot?'hot':'cold')+'" x="'+x+'" y="'+(y-11)+'" text-anchor="'+anc+'">'+(hot?'HOT':'COLD')+'</text>'+
+         '<text class="sc-zlab" x="'+x+'" y="'+(y+7)+'" text-anchor="'+anc+'">'+Math.round(r.p*100)+'%<tspan class="sc-zedge"> '+(d>=0?'+':'\u2212')+Math.abs(d)+'</tspan></text>'; });
     return g;
   }
   // the ledger under the court: signature spots, soft spots — percentile-row language
-  function spotsLedger(out){
-    if(!out.rows) return '';
+  function spotsLedger(out, opts){
+    if(!out.rows) return ''; var V=voice(opts);
     var maxShare=Math.max.apply(null,out.rows.map(function(r){return r.share;}).concat([0.01]));
     var cap=function(t){ return t.charAt(0).toUpperCase()+t.slice(1); };
     var row=function(r,kind){ var d=Math.round(r.d*100), w=100*r.share/maxShare;
       return '<div class="sc-srow" data-zk="'+r.k+'"><div class="sc-sl">'+cap(r.n)+'</div>'+
-        '<div class="sc-strack"><i class="'+kind+'" style="width:'+w.toFixed(1)+'%"></i><span class="sc-ssub">'+Math.round(r.share*100)+'% of his shots</span></div>'+
+        '<div class="sc-strack"><i class="'+kind+'" style="width:'+w.toFixed(1)+'%"></i><span class="sc-ssub">'+Math.round(r.share*100)+'% of '+V.poss+' shots</span></div>'+
         '<div class="sc-sv">'+Math.round(r.p*100)+'%<span class="sc-ssub">D-I avg '+Math.round(r.avg*100)+'%</span></div>'+
         '<div class="sc-sd '+(d>=0?'pos':'neg')+'">'+(d>=0?'+':'\u2212')+Math.abs(d)+'<span class="sc-ssub">'+(d>=0?'better':'worse')+'</span></div></div>'; };
     var h='<div class="sc-ledger">';
-    h+='<div class="sc-lsec"><span>His spots</span><span class="sc-lcap">shoots from here a lot AND makes more than the D-I average from there</span></div>';
-    h+='<div class="sc-lhead"><span>Zone</span><span>How often he shoots from here</span><span>FG%</span><span>vs D-I</span></div>';
+    h+='<div class="sc-lsec"><span>Hot spots</span><span class="sc-lcap">'+V.subj+' '+V.shoots+' from here a lot <b>and</b> '+V.makes+' more than the average D-I player from there</span></div>';
+    h+='<div class="sc-lhead"><span>Zone</span><span>Share of '+V.poss+' shots from here</span><span>FG%</span><span>vs D-I</span></div>';
     h+=out.sig.length?out.sig.map(function(r){return row(r,'sig');}).join(''):'<div class="sc-lempty">No zone qualifies yet \u2014 needs '+out.floor+'+ attempts from one spot and a make rate above the D-I average there.</div>';
-    if(out.soft.length){ h+='<div class="sc-lsec" style="margin-top:6px;"><span>Trouble spots</span><span class="sc-lcap">shoots from here a lot, but makes less than the D-I average from there</span></div>'+out.soft.map(function(r){return row(r,'soft');}).join(''); }
-    h+='<div class="sc-lfoot">A zone only counts once he has taken '+out.floor+'+ shots from it. "vs D-I" is his make rate minus what the average Division-I player makes from that same zone.</div></div>';
+    if(out.soft.length){ h+='<div class="sc-lsec" style="margin-top:6px;"><span>Cold spots</span><span class="sc-lcap">'+V.subj+' '+V.shoots+' from here a lot, but '+V.makes+' less than the average D-I player from there</span></div>'+out.soft.map(function(r){return row(r,'soft');}).join(''); }
+    h+='<div class="sc-lfoot">A zone only counts once '+V.subj+' '+V.has+' taken '+out.floor+'+ shots from it. "vs D-I" is '+V.poss+' make rate minus what the average Division-I player makes from that same zone, in percentage points.</div></div>';
     return h;
   }
-  function spotsRead(out){
-    var s=out.sig||[], w=out.soft||[];
-    if(!s.length&&!w.length) return '';
+  function spotsRead(out, opts){
+    var s=out.sig||[], w=out.soft||[], V=voice(opts);
+    var intro='<div class="sc-explain"><b>What this shows:</b> the zones '+V.subj+' '+V.shoots+' from most, marked <span class="hot">hot</span> where '+V.subj+' '+V.makes+' a higher share than the average D-I player from that spot, and <span class="cold">cold</span> where '+V.subj+' '+V.makes+' fewer. Zones '+V.subj+' rarely '+(V.subj==='he'?'shoots':'shoots')+' from, or where '+V.subj+' '+V.makes+' about the average, stay blank. Each label is the FG% from that zone and the gap to D-I, in points.</div>';
+    if(!s.length&&!w.length) return intro;
     var ph=function(r){ return r.n+' <b>'+Math.round(r.p*100)+'%</b> (<b class="'+(r.d>=0?'pos':'neg')+'">'+(r.d>=0?'+':'\u2212')+Math.abs(Math.round(r.d*100))+'</b> vs D-I)'; };
     var t='';
-    if(s.length) t+='Best from '+s.map(ph).join(s.length>2?', ':' and ')+'.';
-    if(w.length) t+=(t?' ':'')+'Struggles from '+w.map(ph).join(' and ')+'.';
-    return '<div class="sc-read">'+t+'</div>';
+    if(s.length) t+='<span class="hot">Hot</span> from '+s.map(ph).join(s.length>2?', ':' and ')+'.';
+    if(w.length) t+=(t?' ':'')+'<span class="cold">Cold</span> from '+w.map(ph).join(' and ')+'.';
+    return intro+'<div class="sc-read">'+t+'</div>';
   }
   function spotsCaption(out){
     var s=out.sig||[], w=out.soft||[];
@@ -817,7 +812,7 @@
     var courtOpts={color:tcol};
     var toggle='<div class="sc-modes">'+
       '<button class="'+(mode==='zones'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'zones\')">Zones</button>'+
-      '<button class="'+(mode==='spots'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'spots\')">His spots</button>'+
+      '<button class="'+(mode==='spots'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'spots\')">Hot &amp; cold spots</button>'+
       '<button class="'+(mode==='hex'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'hex\')">Hexbin</button>'+
       '<button class="'+(mode==='heat'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'heat\')">Heat</button>'+
       '<button class="'+(mode==='shots'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'shots\')">All shots</button></div>';
@@ -834,11 +829,12 @@
     } else if(mode==='spots'){
       var so={};
       var sg=spotsSvg(shots,so);
-      body=spotsRead(so)+
-        '<div class="sc-mk-legend"><span><i class="sc-sig"></i>Makes more than the D-I average here</span><span><i class="sc-softsw"></i>Makes less</span>'+
-        '<span style="margin-left:auto;color:var(--text3);font-size:10px;">label = his FG% and the gap vs D-I</span></div>'+
+      var V=voice(opts);
+      body=spotsRead(so,opts)+
+        '<div class="sc-mk-legend"><span><i class="sc-sig"></i>Hot: makes more than the D-I average here</span><span><i class="sc-softsw"></i>Cold: makes fewer</span>'+
+        '<span style="margin-left:auto;color:var(--text3);font-size:10px;">label = '+V.poss+' FG% there and the gap to D-I</span></div>'+
         '<div class="sc-court-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+defs()+court(null,courtOpts)+sg+'</svg><div class="sc-tip"></div></div>';
-      extra=spotsLedger(so);
+      extra=spotsLedger(so,opts);
     } else if(mode==='hex'){
       body='<div class="sc-court-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+defs()+court(null,courtOpts)+hexbinSvg(shots)+'</svg><div class="sc-tip"></div></div>'+
         hexSummary(shots)+
@@ -849,7 +845,7 @@
     } else if(mode==='heat'){
       body='<div class="sc-court-wrap sc-heat-wrap"><canvas class="sc-heat"></canvas>'+
         '<svg class="sc-svg sc-heat-court" viewBox="0 0 '+W+' '+H+'">'+court(null,courtOpts).replace(/var\(--sc-floor\)|var\(--sc-inside\)/g,'none').replace(/url\(#scVig\)/g,'none')+'</svg></div>'+
-        '<div class="sc-heat-legend"><span>Where he shoots from</span><i class="sc-grad"></i><span style="color:var(--text3)">rarely → constantly</span></div>';
+        '<div class="sc-heat-legend"><span>Where '+voice(opts).subj+' '+voice(opts).shoots+' from</span><span style="color:var(--text3)">fewer shots</span><i class="sc-bands">'+HEAT_BANDS.map(function(c){return '<b style="background:'+c+'"></b>';}).join('')+'</i><span style="color:var(--text3)">more shots</span></div>';
     } else {
       var dots=shots.map(function(s,i){
         var cx=px(clampx(fxf(s.x))), cy=py(clampy(fyf(s.y)));
@@ -953,8 +949,11 @@
         'border-left:2px solid #E0A030;border-radius:0 8px 8px 0;padding:8px 12px;margin-bottom:10px;}'+
       '.sc-cov b{color:var(--text);}'+
       ':root{--sc-ink-rgb:26,42,76;--sc-soft:rgba(120,130,150,.9);} :root[data-theme="dark"]{--sc-ink-rgb:170,192,236;--sc-soft:rgba(190,200,220,.7);} @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--sc-ink-rgb:170,192,236;--sc-soft:rgba(190,200,220,.7);}}'+
-      '.sc-sig{width:14px;height:10px;border-radius:2px;background:rgba(var(--sc-ink-rgb),.6);display:inline-block;}'+
-      '.sc-softsw{width:14px;height:10px;border-radius:2px;border:1.5px dashed var(--sc-soft);display:inline-block;box-sizing:border-box;}'+
+      '.sc-sig{width:14px;height:10px;border-radius:2px;background:var(--sc-hot);opacity:.75;display:inline-block;}'+
+      '.sc-softsw{width:14px;height:10px;border-radius:2px;border:1.5px dashed var(--sc-cold);background:color-mix(in srgb,var(--sc-cold) 30%,transparent);display:inline-block;box-sizing:border-box;}'+
+      '.sc-explain{font-size:13px;line-height:1.55;color:var(--text2);background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 13px;margin:0 0 10px;} .sc-explain b{color:var(--text);}'+
+      '.sc-explain .hot,.sc-read .hot{color:var(--sc-hot);font-weight:800;} .sc-explain .cold,.sc-read .cold{color:var(--sc-cold);font-weight:800;}'+
+      '.sc-sptag{font:900 10.5px Inter,system-ui,sans-serif;letter-spacing:.14em;paint-order:stroke;stroke:var(--sc-floor);stroke-width:3px;pointer-events:none;} .sc-sptag.hot{fill:var(--sc-hot);} .sc-sptag.cold{fill:var(--sc-cold);}'+
       '.sc-spotz{pointer-events:none;} .sc-spotz.on{animation:scFade .5s ease backwards;}'+
       '.sc-ledger{margin-top:12px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:4px 16px 10px;}'+
       '.sc-lsec{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:2px solid var(--text);padding:12px 0 8px;}'+
@@ -965,7 +964,7 @@
       '.sc-ssub{font-size:10.5px;font-weight:500;color:var(--text3);font-variant-numeric:tabular-nums;}'+
       '.sc-strack{position:relative;height:8px;background:var(--bg3);border-radius:4px;}'+
       '.sc-strack i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:rgb(var(--sc-ink-rgb));}'+
-      '.sc-strack i.soft{background:repeating-linear-gradient(45deg,var(--sc-soft) 0 2px,transparent 2px 5px);}'+
+      '.sc-strack i.sig{background:var(--sc-hot);} .sc-strack i.soft{background:var(--sc-cold);opacity:.6;}'+
       '.sc-sv{font-size:13px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;color:var(--text);display:flex;flex-direction:column;gap:1px;} .sc-sv .sc-ssub{text-align:right;}'+
       '.sc-sd{font-size:13px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;display:flex;flex-direction:column;gap:1px;} .sc-sd .sc-ssub{text-align:right;} .sc-sd.pos{color:var(--green);} .sc-sd.neg{color:var(--red);}'+
       '.sc-lhead{display:grid;grid-template-columns:minmax(120px,170px) 1fr 74px 54px;gap:12px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding:8px 0 2px;} .sc-lhead span:nth-child(n+3){text-align:right;}'+
@@ -1016,6 +1015,7 @@
       '.sc-heat-wrap{max-width:760px;margin:0 auto;}'+
       '.sc-heat-court{position:absolute;left:0;top:0;width:100%;}'+
       '.sc-heat-legend{max-width:580px;margin:10px auto 0;display:flex;align-items:center;gap:10px;font-size:11px;font-weight:600;color:var(--text2);justify-content:center;animation:scUp .5s ease .3s backwards;}'+
+      '.sc-bands{display:inline-flex;gap:0;border:1px solid var(--border);} .sc-bands b{width:22px;height:11px;display:block;}'+
       '.sc-grad{width:150px;height:10px;border-radius:5px;display:inline-block;border:1px solid var(--border);background:linear-gradient(90deg,rgba(255,222,89,.35),#ffb430,#fb7820,#e43a20,#a8121c);}'+
       '.sc-eff-legend{max-width:520px;margin:11px auto 0;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--text2);animation:scUp .5s ease .3s backwards;}'+
       '.sc-effbar{display:flex;align-items:center;gap:9px;}'+
