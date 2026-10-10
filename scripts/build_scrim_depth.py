@@ -26,6 +26,7 @@ SQL in the Supabase editor (it stamps depth_set_at, so the sheet sync keeps the 
 rebuild-projections job re-projects minutes and lines from the new charts.
 
     python3 scripts/build_scrim_depth.py          # report + SQL
+    python3 scripts/build_scrim_depth.py --apply  # ...and write the new charts (needs SUPABASE_SERVICE_KEY)
 """
 import json, re, sys
 from pathlib import Path
@@ -37,6 +38,36 @@ DATA = ROOT / "scripts" / "data"
 A_CAP = 0.85
 MIN_REALITY = 50          # an "Experimental"/"Practice-like" scrimmage says little about the real rotation
 nk = sr.nk
+
+
+def apply(report, prev):
+    """--apply (owner, Oct 2026: "can we not automate this?"): write each team's new chart straight to players with
+    the SUPABASE_SERVICE_KEY secret — the same writes the SQL file holds (depth_order + depth_set_at, so the sheet
+    sync keeps it). Guards: every id must already sit on that team, the order must be a 1..n permutation of the
+    team's charted players, and the written order is read back. A team that fails keeps its previous entry in the
+    report, so the next run still starts from the right baseline."""
+    import os, datetime as dt, requests
+    key = os.environ.get("SUPABASE_SERVICE_KEY")
+    if not key:
+        print("SUPABASE_SERVICE_KEY not set — not applying (run scripts/scrim_depth_2027.sql by hand)"); return
+    W = {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json", "Prefer": "return=minimal"}
+    now = dt.datetime.now(dt.timezone.utc).isoformat()
+    for short, t in report.items():
+        if not t.get("applied"): continue
+        q = re.sub(" ", "%20", short)
+        cur = sr.get(f"players?select=id,depth_order&team=eq.{q}&depth_order=not.is.null&order=depth_order.asc")
+        ids = t["proposed"]
+        if sorted(ids) != sorted(r["id"] for r in cur):
+            print(f"  skip {short}: roster changed since the proposal"); report[short] = prev.get(short) or {**t, "applied": False, "proposed": None}; continue
+        bad = False
+        for i, pid in enumerate(ids, 1):
+            r = requests.patch(f"{sr.SB}/players?id=eq.{pid}&team=eq.{q}", headers=W, json={"depth_order": i, "depth_set_at": now}, timeout=30)
+            if r.status_code not in (200, 204): print(f"  ERR {short} {r.status_code}: {r.text[:150]}"); bad = True; break
+        back = [r["id"] for r in sr.get(f"players?select=id,depth_order&team=eq.{q}&depth_order=not.is.null&order=depth_order.asc")]
+        if bad or back != ids:
+            print(f"  FAILED {short} (read-back {'ok' if back == ids else 'mismatch'})"); report[short] = prev.get(short) or {**t, "applied": False, "proposed": None}
+        else:
+            print(f"  applied {short}: {len(ids)} players")
 
 
 def main():
@@ -174,6 +205,8 @@ def main():
         for f in flags: print("   flag:", f)
         if unmatched: print("   not on roster:", ", ".join(sorted(unmatched)))
 
+    if "--apply" in sys.argv:
+        apply(report, prev)
     json.dump({"teams": report}, open(DATA / "scrim_depth_2027.json", "w"), indent=1, ensure_ascii=False)
     head = ("-- Scrimmage depth charts (scripts/build_scrim_depth.py). Run in the Supabase SQL editor, then the\n"
             "-- rebuild-projections job (owner console) re-projects minutes and lines from the new charts.\n"

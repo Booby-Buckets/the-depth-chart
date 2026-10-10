@@ -34,6 +34,8 @@ jobs:
           python-version: '3.12'
 
       - name: Pull scrimmage box scores
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           if [ "$(date -u +%m%d)" \> "1110" ]; then echo "Preseason over — skipping."; exit 0; fi
           pip install --quiet requests
@@ -41,7 +43,7 @@ jobs:
           python3 scripts/scrim_boxes.py || echo "::warning::scrim_boxes failed"
           python3 scripts/scrim_tv.py || echo "::warning::scrim_tv failed"   # TV / stream for upcoming scrimmages, as schools post it
           python3 scripts/scrim_reality.py || echo "::warning::scrim_reality failed"   # Reality Meter + per-player weights
-          python3 scripts/build_scrim_depth.py || echo "::warning::build_scrim_depth failed"   # proposed depth charts -> scripts/scrim_depth_2027.sql (owner runs it)
+          python3 scripts/build_scrim_depth.py --apply || echo "::warning::build_scrim_depth failed"   # new depth charts, written to players (the SQL file stays as a record)
 
       - name: Commit if changed
         run: |
