@@ -1,15 +1,15 @@
 // In-season Recruiting tab, EA College Football 25 style (Oct 2026): offers, a weekly hours budget spent on actions,
 // recruits narrowing their lists (Top 8 / 5 / 3), commitments that can flip, signings. Rules: engine/commits.js
 // (the race), engine/visits.js (official visits at home games), engine/recruit.js (what each recruit values, NIL).
-import { scoutView, scoutSD } from '../engine/offseason.js?v=58';
-import { moneyButtons, ensureMoneyCss } from './money.js?v=58';
-import { acadGrade, admitP, admitLabel } from '../engine/people.js?v=58';
-import { priorities, negotiate, acceptCounter, FACTORS, committedNIL, profile } from '../engine/recruit.js?v=58';
-import { officialMax, visitsLeft, visitsFor, upcomingHomeGames, scheduleOfficial, cancelVisit, VISIT_FOCUS, BIG_MAX, isBig, toggleBig, setFocus } from '../engine/visits.js?v=58';
-import { power, lineFor } from '../engine/season.js?v=58';
-import { factors as facOf, relationship as relOf } from '../engine/recruit.js?v=58';
+import { scoutView, scoutSD } from '../engine/offseason.js?v=60';
+import { moneyButtons, ensureMoneyCss } from './money.js?v=60';
+import { acadGrade, admitP, admitLabel } from '../engine/people.js?v=60';
+import { priorities, negotiate, acceptCounter, FACTORS, committedNIL, profile } from '../engine/recruit.js?v=60';
+import { officialMax, visitsLeft, visitsFor, upcomingHomeGames, scheduleOfficial, cancelVisit, VISIT_FOCUS, BIG_MAX, isBig, toggleBig, setFocus } from '../engine/visits.js?v=60';
+import { power, lineFor } from '../engine/season.js?v=60';
+import { factors as facOf, relationship as relOf } from '../engine/recruit.js?v=60';
 import { STAGE_LABEL, ACTIONS, HOURS_CAP, USER_OFFERS_MAX, SUMMER, cutWeeks, classNeed, commitsOf, hoursBudget, hoursUsed, planHours,
-  offerRecruit, withdrawOffer, toggleAction, userChance, gradesFor, rankOf, passesDB, dbLabel, grade, scoutedPct, revealed, needs, groupOf, classRanks, pipeOf, pipeTier, pipelinesOf } from '../engine/commits.js?v=58';
+  offerRecruit, withdrawOffer, toggleAction, userChance, gradesFor, rankOf, passesDB, dbLabel, grade, scoutedPct, revealed, needs, groupOf, classRanks, pipeOf, pipeTier, pipelinesOf, battleOf } from '../engine/commits.js?v=60';
 
 let sel = null, q = '', pos = '', minStars = 3, onlyOpen = true, pickVisit = false, msg = '', rv = 'board', needOnly = false;
 const CSS = `
@@ -58,6 +58,12 @@ tr.rc-sel td{background:color-mix(in srgb,var(--accent,#c9a227) 10%,transparent)
 .vs-parts{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:6px;font-size:11.5px;font-weight:700}
 .vs-g{border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px}.vs-g.big{border-color:var(--accent,#c9a227)}.vs-gh{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
 .vs-tags span{font-size:10.5px;font-weight:800;padding:1px 6px;border-radius:4px;background:var(--bg3,#eee);margin-right:4px}
+.h2h{margin-top:10px;border:1px solid var(--accent,#c9a227);border-radius:10px;padding:10px 12px;background:color-mix(in srgb,var(--accent,#c9a227) 6%,transparent)}
+.h2h-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-weight:800}.h2h-race{display:grid;grid-template-columns:70px 1fr 64px 70px;gap:6px;align-items:center;font-size:12.5px;margin-top:6px}
+.h2h-race i{display:block;height:10px;border-radius:5px;background:var(--bg3,#eee);overflow:hidden}.h2h-race i em{display:block;height:100%}
+.h2h-e{display:grid;grid-template-columns:110px 1fr 34px 34px;gap:6px;align-items:center;font-size:12px;margin-top:3px}
+.h2h-bar{position:relative;height:9px;background:var(--bg3,#eee);border-radius:4px}.h2h-bar em{position:absolute;top:0;bottom:0;border-radius:4px}.h2h-bar:after{content:'';position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--text3)}
+.h2h-m{margin:6px 0 0;padding-left:16px;font-size:12.5px}.h2h-m li{margin:2px 0}
 .rc-pipes{display:flex;gap:5px;flex-wrap:wrap;margin:-4px 0 10px;font-size:12px;align-items:center}
 `;
 
@@ -95,7 +101,7 @@ export function recruitingView(ctx) {
     const v = scoutView(S, r, r.vs || 0), ld = leader(r), rk = rankOf(r, U), ch = Math.round(100 * userChance(S, r));
     const ph = Math.min(HOURS_CAP, planHours(plan[r.id])), db = r.db && r.list.includes(U) && !passesDB(S, U, r);
     const dI = r.prevU != null && r.list.includes(U) ? (r.int[U] || 0) - r.prevU : null, dR = r.prevRk && r.list.includes(U) ? r.prevRk - rk : 0;
-    return `<tr class="rc-row ${sel === r.id ? 'rc-sel' : ''}" data-sel="${esc(r.id)}"><td class="l"><b>${esc(r.name)}</b> ${stars(r.stars)}${scoutTag(r)}<div class="dim" style="font-size:11px">#${r.rank} · ${esc(v.tags.join(' · '))}</div>${r.list.includes(U) && !r.signed ? `<div style="margin-top:3px">${quick(r)} ${scBar(r)}</div>` : ''}</td>
+    return `<tr class="rc-row ${sel === r.id ? 'rc-sel' : ''}" data-sel="${esc(r.id)}"><td class="l"><b>${esc(r.name)}</b> ${stars(r.stars)}${scoutTag(r)}${battleOf(S, r) ? ' <span class="rc-flag" title="Neck and neck with one school — open him for the head-to-head">⚔ battle</span>' : ''}<div class="dim" style="font-size:11px">#${r.rank} · ${esc(v.tags.join(' · '))}</div>${r.list.includes(U) && !r.signed ? `<div style="margin-top:3px">${quick(r)} ${scBar(r)}</div>` : ''}</td>
       <td>${esc(r.pos || '')}</td><td><b>${v.ovr}</b></td><td class="l">${stage(r)}${db ? `<div class="rc-flag">dealbreaker: ${esc(dbLabel(r.db.k).toLowerCase())}</div>` : r.commit && r.commit !== U && r.list.includes(U) ? '<div class="rc-flag">flip him?</div>' : ''}</td>
       <td>${r.list.includes(U) ? `<b class="${rk === 1 ? 'up' : rk <= 3 ? '' : 'dn'}">${rk}${['th', 'st', 'nd', 'rd'][rk < 4 ? rk : 0]}</b> of ${r.list.length}${dR ? ` <span class="rc-dl ${dR > 0 ? 'up' : 'dn'}">${dR > 0 ? '▲' : '▼'}${Math.abs(dR)}</span>` : ''}${dI != null && dI > 0 ? `<div class="rc-dl dim">+${dI} this wk</div>` : ''}` : '—'}</td>
       <td class="l">${ld && ld !== U ? esc(short(ld)) : ld === U ? '<b class="up">You</b>' : '—'}</td><td><b>${r.list.includes(U) || r.signed === U ? ch + '%' : '—'}</b></td>
@@ -122,6 +128,7 @@ export function recruitingView(ctx) {
         ${inOpen ? `<button class="btn pg-sm" data-offer="${esc(r.id)}">Offer a scholarship</button>` : r.list.includes(U) && !r.signed ? `<button class="btn ghost pg-sm" data-pull="${esc(r.id)}">Pull offer</button>` : ''}</div>
       ${msg ? `<div class="rc-msg">${esc(msg)}</div>` : ''}
       <div style="margin-top:8px">${ord.map((t, i) => `${nxt && i === nxt ? '<div class="rc-cut">next cut</div>' : ''}<div class="rc-sch ${t === U ? 'me' : ''}"><span>${i + 1}</span><span>${team(t)}${r.commit === t ? ' ✓' : ''}</span><i><em style="width:${Math.round(100 * (r.int[t] || 0) / top)}%"></em></i><span style="text-align:right">${(r.int[t] || 0).toLocaleString()}</span></div>`).join('') || '<div class="dim">No offers yet.</div>'}</div>
+      ${h2h(S, r, esc, short)}
       <div class="rc-gr"><span class="h">What he wants</span><span class="h">You</span><span class="h">${ld ? esc(short(ld)).slice(0, 6) : ''}</span><span class="h">Weight</span>
         ${wants.map(([k, l]) => `<span>${l}</span>${gu ? g(gu[k]) : '<span class="dim">—</span>'}${gl ? g(gl[k]) : '<span></span>'}<span class="dim">${'●'.repeat(Math.max(1, Math.round(r.w[k] * 12)))}</span>`).join('')}</div>
       ${r.db ? `<div class="rc-db"><b>Dealbreaker:</b> ${esc(dbLabel(r.db.k))} must be <b>${grade(r.db.min)} or better</b>${gu ? ` — you're <b class="${gu[r.db.k].x >= r.db.min ? 'up' : 'dn'}">${gu[r.db.k].g}</b>` : ''}. A school below it is cut no matter what.</div>` : ''}
@@ -247,4 +254,23 @@ function visitsHtml(ctx) {
     ${home.map(game).join('') || '<div class="dim">No home games left this season.</div>'}
     ${past.length ? `<div class="sec"><h2>How visits went</h2></div>${past.map(v => { const r = rec(v.rid), g = S.schedule.find(x => x.id === v.gid); return r ? `<div class="vs-g"><div class="vs-gh"><div><b>${esc(r.name)}</b> ${'★'.repeat(r.stars)} · ${g ? `${fmt(g.d)} vs ${esc(short(g.a))}` : ''}</div><b class="${v.gain >= 0.3 ? 'up' : v.gain > 0 ? '' : 'dn'}">${{ great: 'Loved it', good: 'Enjoyed it', meh: 'Lukewarm', bad: 'Unimpressed' }[v.res] || ''}</b></div>
       ${v.parts ? `<div class="vs-parts">${v.parts.map(([l, x]) => `<span class="${x >= 0 ? 'up' : 'dn'}">${esc(l)} ${x >= 0 ? '+' : ''}${x.toFixed(2)}</span>`).join('')}</div>` : ''}</div>` : ''; }).join('')}` : ''}`;
+}
+
+// ── the head-to-head panel ──
+function h2h(S, r, esc, short) {
+  const B = battleOf(S, r); if (!B) return '';
+  const U = S.user, them = esc(short(B.rival)), top = Math.max(B.you, B.them, 1);
+  const LBL = { prox: 'Close to home', pt: 'Playing time', rel: 'Relationships', draft: 'Draft path', team: 'Winning now', brand: 'Brand', nil: 'NIL money', acad: 'Academics' };
+  const g = x => (x >= 0.9 ? 'A+' : x >= 0.82 ? 'A' : x >= 0.75 ? 'A-' : x >= 0.68 ? 'B+' : x >= 0.6 ? 'B' : x >= 0.53 ? 'B-' : x >= 0.46 ? 'C+' : x >= 0.38 ? 'C' : x >= 0.3 ? 'C-' : x >= 0.2 ? 'D' : 'F');
+  const mx = Math.max(0.05, ...B.edges.map(e => Math.abs(e.d)));
+  const pace = B.weeks == null ? '' : B.weeks === Infinity ? (B.lead ? 'You are pulling away at this pace.' : `${them} is pulling away — you need more.`) : B.lead ? `At this week's pace ${them} catches you in about ${B.weeks} week${B.weeks === 1 ? '' : 's'}.` : `At this week's pace you pass ${them} in about ${B.weeks} week${B.weeks === 1 ? '' : 's'}.`;
+  const d = x => (x == null ? '' : `<span class="dim">${x >= 0 ? '+' : ''}${x}</span>`);
+  return `<div class="h2h"><div class="h2h-h"><span>⚔ Head to head vs ${them}</span><span class="${B.lead ? 'up' : 'dn'}">${B.lead ? 'You lead' : 'You trail'} by ${Math.abs(B.you - B.them).toLocaleString()}</span></div>
+    <div class="h2h-race"><b>You</b><i><em style="width:${Math.round(100 * B.you / top)}%;background:var(--accent,#c9a227)"></em></i><span>${B.you.toLocaleString()}</span>${d(B.dYou)}
+      <b>${them}</b><i><em style="width:${Math.round(100 * B.them / top)}%;background:#8a8f99"></em></i><span>${B.them.toLocaleString()}</span>${d(B.dThem)}</div>
+    ${pace ? `<div class="dim" style="font-size:12px;margin-top:4px">${pace}</div>` : ''}
+    <div class="dim" style="font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-top:8px">Where it's won — weighted by what he cares about</div>
+    ${B.edges.filter(e => e.w >= 0.05).slice(0, 6).map(e => `<div class="h2h-e"><span>${LBL[e.k] || e.k}</span><span class="h2h-bar"><em style="${e.d >= 0 ? 'left:50%' : `right:50%`};width:${Math.round(50 * Math.abs(e.d) / mx)}%;background:${e.d >= 0 ? 'var(--green,#1a8c3a)' : 'var(--red,#cc2200)'}"></em></span><b>${g(e.you)}</b><span class="dim">${g(e.them)}</span></div>`).join('')}
+    <div class="dim" style="font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-top:8px">Moves that swing it</div>
+    <ol class="h2h-m">${B.moves.map(m => `<li>${esc(m.txt)}${m.v != null ? ` <span class="up">+${m.v.toFixed(2)}</span>` : ''}</li>`).join('')}</ol></div>`;
 }

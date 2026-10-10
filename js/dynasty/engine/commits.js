@@ -11,11 +11,11 @@
 //   • A SUMMER — real recruiting starts long before November, so each new class gets a few simulated summer weeks:
 //     offers go out (the user's staff included), the clearest leads commit early, and the user arrives with work to do.
 // Rosters: 16 scholarships (the service academies carry more). Pure; deterministic per seed.
-import { makeRng, hashSeed } from './rng.js?v=58';
-import { profile, factors, utility, aiOffer, aiRel, relationship, miles, HOME_W, XY } from './recruit.js?v=58';
-import { effort, DIFFS } from './program.js?v=58';
-import { admitP } from './people.js?v=58';
-import { news as push } from './injuries.js?v=58';
+import { makeRng, hashSeed } from './rng.js?v=60';
+import { profile, factors, utility, aiOffer, aiRel, relationship, miles, HOME_W, XY } from './recruit.js?v=60';
+import { effort, DIFFS } from './program.js?v=60';
+import { admitP } from './people.js?v=60';
+import { news as push } from './injuries.js?v=60';
 
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 export const MILITARY = /^(Army|Navy|Air Force)\b/;
@@ -26,7 +26,7 @@ export const STAGE_LABEL = Object.fromEntries(STAGES);
 export const SUMMER = 6;
 const CUTS = { 8: ['t8', 8], 12: ['t5', 5], 16: ['t3', 3] };   // week -> [stage, list size]  (mid-Nov, mid-Dec, mid-Jan)
 export const cutWeeks = { t8: 8, t5: 12, t3: 16 };
-export const USER_OFFERS_MAX = 25, HOURS_CAP = 50;
+export const USER_OFFERS_MAX = 25, HOURS_CAP = 50, AI_SPREAD = 12;
 // the user's weekly actions on one recruit (hours); pitches unlock at the Top 5, a home visit once a season
 export const ACTIONS = [
   ['scout', 'Scout him', 10, 'Sharpens his ratings · enough reveals a gem or a bust (no offer needed)'],
@@ -179,26 +179,35 @@ export function recruitWeek(state, d) {
   const w = state.rweek = (state.rweek || 0) + 1, rng = rngFor(state, 'w' + w), U = state.user;
   if (w <= 3 || w % 4 === 0) aiOffers(state, rng, w <= SUMMER);   // new offers early, then a top-up every month (decommits, filled classes)
   const plan = state.rplan || {};
-  if (w > SUMMER) for (const r of R) if (r.list.includes(U)) { r.prevU = r.int[U] || 0; r.prevRk = rankOf(r, U); }
+  if (w > SUMMER) for (const r of R) if (r.list.includes(U)) { r.prevU = r.int[U] || 0; r.prevRk = rankOf(r, U); r.prevAll = Object.assign({}, r.int); }
   if (w > SUMMER) for (const [id, p] of Object.entries(plan)) if (p.scout) { const r = byId(state, id); if (r && !r.signed) { const was = revealed(r); r.vs = (r.vs || 0) + 12; const now = revealed(r);
     if (!was && now) feed(state, r, now === 'gem' ? 'Your staff thinks he is a hidden gem' : now === 'bust' ? 'Your staff has real doubts — bust risk' : 'Your staff is sure: he is what his ranking says'); } }
   // the staff spends the hours the user leaves on the table (all of them on Rookie, half on Pro, none on HOF),
   // spread over his offers that have no plan this week
   const autoK = { rookie: 1, pro: 0.5, aa: 0.25, hof: 0 }[state.diff || 'pro'] ?? 0.5;
+  // ...the way a real staff would: full 50-hour weeks on the races you can win (best rank on his list first, a commit
+  // to you kept warm at half), not a thin spread over every offer (a 25-hour week loses to every AI school's 35-40)
   const mineOpen = w > SUMMER ? R.filter(r => !r.signed && r.list.includes(U) && !planHours(plan[r.id])) : [];
-  const autoH = mineOpen.length ? Math.min(HOURS_CAP, autoK * Math.max(0, hoursBudget(state) - hoursUsed(state)) / mineOpen.length) : 0;
+  const autoMap = {};
+  { let left = autoK * Math.max(0, hoursBudget(state) - hoursUsed(state));
+    for (const r of mineOpen.slice().sort((a, b) => (a.commit === U) - (b.commit === U) || rankOf(a, U) - rankOf(b, U) || b.stars - a.stars)) {
+      if (left <= 0) break; const h = Math.min(r.commit === U ? HOURS_CAP / 2 : HOURS_CAP, left); autoMap[r.id] = h; left -= h; } }
+  // every program, the AI included, works on a weekly budget: about AI_SPREAD recruits' worth of full hours, spread
+  // over its live offers (it used to put full hours on every offer, out-working the user's 500-hour week everywhere)
+  const nOff = {};
+  for (const r of R) if (!r.signed) for (const t of r.list) nOff[t] = (nOff[t] || 0) + (r.commit && r.commit !== t ? 0.4 : 1);
   for (const r of R) {
     if (r.signed || !r.list.length) continue;
     setup(state, r, rng);
     for (const t of r.list) {
       let h;
       if (t === U && w > SUMMER) {   // the user's own work (the summer was his staff's)
-        const p = plan[r.id] || {}; h = (Math.min(HOURS_CAP, planHours(p)) - (p.scout ? 10 : 0)) || (planHours(p) ? 0 : autoH);
+        const p = plan[r.id] || {}; h = (Math.min(HOURS_CAP, planHours(p)) - (p.scout ? 10 : 0)) || (planHours(p) ? 0 : autoMap[r.id] || 0);
         if (p.home) { if (r.hv) h -= 50; else { r.hv = true; h += 50; feed(state, r, 'You visited his home'); } p.home = false; }
         if ((p.soft || p.hard) && !['t5', 't3', 'commit'].includes(r.stage)) { h -= (p.soft ? 20 : 0) + (p.hard ? 40 : 0); p.soft = p.hard = false; }
       } else {
         // AI (and the user's staff over the summer): its staff's time, less on a kid committed to someone else
-        h = aiHours(state, t);
+        h = aiHours(state, t) * Math.min(1, AI_SPREAD / Math.max(1, nOff[t] || 1));
         if (r.commit && r.commit !== t) h *= (state.teams[t].prestige || 0) >= (state.teams[r.commit].prestige || 0) + 8 ? 0.9 : 0.4;   // bigger programs keep recruiting another school's commit
         if (r.commit === t) h *= 0.45;   // keeping a commit warm (a school that coasts can lose him)
       }
@@ -369,4 +378,29 @@ export function signClass(state, recruits, openSpots, take) {
     else left.push(r);
   }
   return left;
+}
+
+// ── HEAD TO HEAD (Oct 2026): when you and one school are within ~15% for a recruit, the panel shows the race, where
+// each of you wins on what he values, how long a lead lasts at this week's pace, and the moves that would swing it ──
+export function battleOf(state, r) {
+  const U = state.user;
+  if (!r || r.signed || !r.list || !r.list.includes(U) || r.list.length < 2) return null;
+  const ord = r.list.slice().sort((a, b) => (r.int[b] || 0) - (r.int[a] || 0)), you = r.int[U] || 0;
+  const rival = ord[0] === U ? ord[1] : ord[0], them = r.int[rival] || 0;
+  if (ord.indexOf(U) > 1 || Math.abs(you - them) > 0.15 * Math.max(you, them, 1)) return null;
+  const P = r.prevAll || {}, dYou = r.prevAll ? you - (P[U] || 0) : null, dThem = r.prevAll ? them - (P[rival] || 0) : null;
+  const fu = factors(state, U, r, r.offer || 0, relationship(state, r, 0)), fr = factors(state, rival, r, aiOffer(state, rival, r), aiRel(state, rival));
+  const U_SC = 7;
+  const edges = Object.keys(r.w).map(k => ({ k, w: r.w[k], you: fu[k], them: fr[k], d: U_SC * r.w[k] * (fu[k] - fr[k]) })).sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
+  const pace = dYou != null && dThem != null ? dYou - dThem : null;
+  const weeks = pace == null || pace === 0 ? null : you >= them ? (pace < 0 ? Math.ceil((you - them) / -pace) : Infinity) : (pace > 0 ? Math.ceil((them - you) / pace) : Infinity);
+  // the moves: what each lever is worth in his eyes (utility points, the same scale as the edges)
+  const moves = [];
+  if ((r.offer || 0) < r.ask && r.w.nil >= 0.1) { const at = Math.min(1.4, 1) / 1.4; moves.push({ k: 'nil', txt: `Meet his NIL ask ($${r.ask}k)`, v: U_SC * r.w.nil * (at - fu.nil) }); }
+  const top = Object.keys(r.w).sort((a, b) => r.w[b] - r.w[a])[0];
+  if (['t5', 't3', 'commit'].includes(r.stage) && fu[top] >= 0.53) moves.push({ k: 'hard', txt: `Hard sell on ${dbLabel(top).toLowerCase()} (you grade ${grade(fu[top])})`, v: null });
+  const best = ['pt', 'team', 'nil', 'acad', 'draft', 'prox', 'brand'].sort((a, b) => (r.w[b] || 0) * (fu[b] - 0.5) - (r.w[a] || 0) * (fu[a] - 0.5))[0];
+  moves.push({ k: 'visit', txt: `Official visit with a ${({ pt: 'Meet the team', team: 'Game-day atmosphere', nil: 'Booster dinner', acad: 'Campus tour', draft: 'Pro development', prox: 'Family weekend', brand: 'Brand day' })[best]} focus`, v: 0.35 * Math.min(2.2, (r.w[best] || 0) / 0.125) * (fu[best] - 0.5) * 2 });
+  moves.push({ k: 'hours', txt: 'Max your weekly hours on him (50 h)', v: null });
+  return { rival, you, them, lead: you >= them, dYou, dThem, weeks, edges, moves: moves.filter(m => m.v == null || m.v > 0.02).sort((a, b) => (b.v ?? 0) - (a.v ?? 0)) };
 }

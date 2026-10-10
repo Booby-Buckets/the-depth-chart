@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { C } from '../constants.js?v=58';
-import { createLeague, hydrate, dehydrate } from '../league.js?v=58';
-import { overall } from '../ratings.js?v=58';
-import { simTo } from '../flow.js?v=58';
-import * as O from '../offseason.js?v=58';
-import { rosterMax } from '../commits.js?v=58';
+import { C } from '../constants.js?v=60';
+import { createLeague, hydrate, dehydrate } from '../league.js?v=60';
+import { overall } from '../ratings.js?v=60';
+import { simTo } from '../flow.js?v=60';
+import * as O from '../offseason.js?v=60';
+import { rosterMax } from '../commits.js?v=60';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const R = f => JSON.parse(fs.readFileSync(path.resolve(HERE, '../../../..', f)));
