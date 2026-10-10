@@ -238,9 +238,15 @@
   function profileFor(p){ var r=rawProfileFor(p); if(!r||r.ovr==null||r.ovr==='') return r;
     var f=_fit&&p&&_fit[p.team]&&_fit[p.team][p.name], a=(f&&isFinite(+f.scrim_ovr))?+f.scrim_ovr:0;
     return a?Object.assign({},r,{ovr:Math.min(99,Math.round(+r.ovr+a)),ovr_base:r.ovr,scrim_ovr:a}):r; }
+  // every owner write here (freshman minutes / OVR, injuries) feeds the projection build, which only ran on the
+  // schedule or a depth-chart save, so an editor change sat unused for hours (Amosov: 22.5 mpg saved, page kept
+  // 0.5). A successful write now starts the rebuild job too; debounced so a burst of edits is one run.
+  var _rbT=null;
+  function kickRebuild(tok){ clearTimeout(_rbT); _rbT=setTimeout(function(){
+    fetch(SB+'/functions/v1/rebuild-projections',{method:'POST',headers:{apikey:KEY,Authorization:'Bearer '+tok,'Content-Type':'application/json'}}).catch(function(){}); },4000); }
   function pushBlob(){ var s=session(); if(!isOwner()||!s||!s.access_token||!s.user||!s.user.id) return Promise.resolve({ok:false});
     return fetch(SB+'/rest/v1/profiles?id=eq.'+s.user.id,{method:'PATCH',headers:{apikey:KEY,Authorization:'Bearer '+s.access_token,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({freshman_projections:_blob||{}})})
-      .then(function(r){ if(r.ok) return {ok:true,status:r.status};
+      .then(function(r){ if(r.ok){ kickRebuild(s.access_token); return {ok:true,status:r.status}; }
         return r.text().then(function(t){ try{var j=JSON.parse(t);t=j.message||j.hint||t;}catch(e){} return {ok:false,status:r.status,error:(t||'').slice(0,160)}; },
                             function(){ return {ok:false,status:r.status}; }); })
       .catch(function(e){return {ok:false,error:String(e)};}); }
@@ -439,7 +445,7 @@
         if(window.TDC_RATINGS && isOwner()){
           if(msg) msg.textContent='✓ Saved · updating rankings…';
           TDC_RATINGS.rebuild(ratingOverrides()).then(function(){
-            if(msg) msg.textContent='✓ Saved · rankings updated'; setTimeout(close, 700);
+            if(msg) msg.textContent='✓ Saved · rankings updated · team pages refresh in ~3 min'; setTimeout(close, 1400);
           }).catch(function(){ if(msg) msg.textContent='✓ Saved (rankings will update on next load)'; setTimeout(close, 900); });
         } else { setTimeout(close, 750); }
       });
