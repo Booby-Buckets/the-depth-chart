@@ -1,6 +1,6 @@
 // Load helpers shared by tools and (later) the browser: index the snapshot and prepare every team.
 // The caller supplies the parsed JSON — this module never fetches (engine rule: no DOM / no Supabase).
-import { attributes, prepareTeam, leagueRefs } from './ratings.js?v=52';
+import { attributes, prepareTeam, leagueRefs } from './ratings.js?v=54';
 
 export function indexSnapshot(snap, C) {
   const byId = {};

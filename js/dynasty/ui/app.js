@@ -1,35 +1,36 @@
 // Dynasty — the page. Engine (pure) + browser saves + rendering. One league in memory (S); every action
 // mutates it through the engine, re-renders, and autosaves.
-import { C } from '../engine/constants.js?v=52';
-import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=52';
-import { overall } from '../engine/ratings.js?v=52';
-import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=52';
-import { simNext, simTo, afterDay } from '../engine/flow.js?v=52';
-import { postResult } from '../engine/postseason.js?v=52';
-import { TYPES as INJ } from '../engine/injuries.js?v=52';
-import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain, pushRecruit, PUSHES } from '../engine/offseason.js?v=52';
-import { mood, moodCtx, letter, talk, talksFor } from '../engine/morale.js?v=52';
-import { ROT } from '../engine/health.js?v=52';
-import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=52';
-import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=52';
-import { lines as pbpLines } from './pbp.js?v=52';
-import { gameSteps, newCtl } from '../engine/game.js?v=52';
-import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=52';
-import { tireAt } from '../engine/program.js?v=52';
-import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=52';
-import { recruitingView } from './recruiting.js?v=52';
-import { portalView } from './portal.js?v=52';
-import { tournamentsView, awardsView } from './tourney.js?v=52';
-import { scheduleStep } from './sched.js?v=52';
-import { carouselStep, staffStep } from './carousel.js?v=52';
-import { coachesView } from './coaches.js?v=52';
-import { legacyView } from './legacy.js?v=52';
-import { margins } from '../engine/history.js?v=52';
-import { facilitiesRankHtml, bindFacilitiesRank } from './facilities.js?v=52';
-import { durability, durTag, acadGrade, admitP, admitLabel, initSchools } from '../engine/people.js?v=52';
-import { initFacilities } from '../engine/facilities.js?v=52';
-import { inviteInfo, decide as realignDecide } from '../engine/realign.js?v=52';
-import { programView, diffPicker } from './program.js?v=52';
+import { C } from '../engine/constants.js?v=54';
+import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=54';
+import { overall } from '../engine/ratings.js?v=54';
+import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=54';
+import { simNext, simTo, afterDay } from '../engine/flow.js?v=54';
+import { postResult } from '../engine/postseason.js?v=54';
+import { TYPES as INJ } from '../engine/injuries.js?v=54';
+import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain, pushRecruit, PUSHES } from '../engine/offseason.js?v=54';
+import { mood, moodCtx, letter, talk, talksFor } from '../engine/morale.js?v=54';
+import { ROT } from '../engine/health.js?v=54';
+import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=54';
+import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=54';
+import { lines as pbpLines } from './pbp.js?v=54';
+import { gameSteps, newCtl } from '../engine/game.js?v=54';
+import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=54';
+import { tireAt } from '../engine/program.js?v=54';
+import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=54';
+import { recruitingView } from './recruiting.js?v=54';
+import { isNewClass, userChance } from '../engine/commits.js?v=54';
+import { portalView } from './portal.js?v=54';
+import { tournamentsView, awardsView } from './tourney.js?v=54';
+import { scheduleStep } from './sched.js?v=54';
+import { carouselStep, staffStep } from './carousel.js?v=54';
+import { coachesView } from './coaches.js?v=54';
+import { legacyView } from './legacy.js?v=54';
+import { margins } from '../engine/history.js?v=54';
+import { facilitiesRankHtml, bindFacilitiesRank } from './facilities.js?v=54';
+import { durability, durTag, acadGrade, admitP, admitLabel, initSchools } from '../engine/people.js?v=54';
+import { initFacilities } from '../engine/facilities.js?v=54';
+import { inviteInfo, decide as realignDecide } from '../engine/realign.js?v=54';
+import { programView, diffPicker } from './program.js?v=54';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -528,6 +529,20 @@ function offseason() {
   if (step === 'staff') { CAL.head = html; staffStep(CAL); return; }         // the staff market
   if (step === 'portal') { CAL.head = html; portalView(CAL); return; }   // the live 10-day window (ui/portal.js)
   if (step === 'schedule') { CAL.head = html; scheduleStep(CAL); return; }   // next season's non-conference schedule (ui/sched.js)
+  if (step === 'recruiting' && isNewClass(O.recruits)) {
+    // a class recruited all season (engine/commits.js): commits sign; uncommitted recruits pick from their lists
+    const R = O.recruits, got = (O.portalResults || []).filter(x => x.to === U);
+    const yours = R.filter(r => r.signed === U || r.commit === U), live = R.filter(r => !r.signed && !r.commit && (r.list || []).includes(U));
+    const row = r => `<tr><td>${r.rank}</td><td class="l"><b>${esc(r.name)}</b></td><td class="l">${stars(r.stars)}</td><td>${esc(r.pos || '')}</td><td class="l">${r.signed === U ? '<b class="w">Signed</b>' : r.commit === U ? 'Committed — signs today' : `Undecided · your chance <b>${Math.round(100 * userChance(S, r))}%</b>`}</td></tr>`;
+    html += `${got.length ? `<div class="dy-next"><div class="lbl">From the portal</div><div class="ln">${got.map(x => `<b>${esc(x.name)}</b> (${x.ovr}, from ${esc(short(x.from))})`).join(' · ')}</div></div>` : ''}
+      <div class="sec"><h2>Signing day — class of ${S.year}</h2><span class="n">${open} open scholarship${open === 1 ? '' : 's'} · your commits sign; undecided recruits choose among the schools still on their list (by interest). Leftover spots go to walk-ons.</span></div>
+      <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th>#</th><th class="l">Recruit</th><th class="l">Stars</th><th>Pos</th><th class="l">Status</th></tr></thead><tbody>
+        ${yours.concat(live).map(row).join('') || '<tr><td colspan="5" class="l dim">No commits — your spots go to the best unsigned players and walk-ons.</td></tr>'}</tbody></table></div>
+      <div class="dy-btns"><button class="btn" id="oNext">Sign the class →</button></div>`;
+    $('#dyBody').innerHTML = html;
+    $('#oNext').onclick = () => run(() => resolveRecruiting(S));
+    return;
+  }
   if (step === 'recruiting') {
     const R = O.recruits, B = O.board, max = open + 4, budget = O.budget || 100;   // the season's recruiting hours (Program tab)
     const used = () => Object.values(B).reduce((a, b) => a + (+b || 0), 0);
@@ -581,7 +596,7 @@ function offseason() {
   const roster = S.teams[U].players.map(id => S.players[id]).filter(Boolean).sort((a, b) => ovrOf(b) - ovrOf(a));
   html += `<div class="sec"><h2>Signing day</h2><span class="n">${sg.filter(x => x.won).length} of ${sg.length} board targets signed</span></div>
     ${sg.length ? `<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th>#</th><th class="l">Recruit</th><th class="l">Stars</th><th class="l">Decision</th></tr></thead><tbody>
-      ${sg.map(x => `<tr><td>${x.rank}</td><td class="l"><b>${esc(x.name)}</b></td><td class="l">${stars(x.stars)}</td><td class="l">${x.won ? '<b class="w">Signed with you</b>' : x.denied ? '<span class="dn">Picked you — denied admission</span>' : '<span class="dim">Went elsewhere</span>'}</td></tr>`).join('')}</tbody></table></div>` : ''}
+      ${sg.map(x => `<tr><td>${x.rank}</td><td class="l"><b>${esc(x.name)}</b></td><td class="l">${stars(x.stars)}</td><td class="l">${x.won ? '<b class="w">Signed with you</b>' : x.denied ? '<span class="dn">Picked you — denied admission</span>' : x.to ? `<span class="dim">Signed with ${esc(short(x.to))}</span>` : '<span class="dim">Went elsewhere</span>'}</td></tr>`).join('')}</tbody></table></div>` : ''}
     <div class="sec"><h2>Your ${S.year}-${String(S.year + 1).slice(2)} roster</h2><span class="n">${roster.length} players · development happens when the new season starts</span></div>
     <div class="sheet-wrap"><table class="sheet dense heat dy-sign"><thead><tr><th class="l">Player</th><th>Pos</th><th>Yr</th><th data-heat="1">OVR</th>${PILLARS.map(([k, l]) => `<th data-heat="1" title="${l}">${k}</th>`).join('')}</tr></thead><tbody>
       ${roster.map(p => `<tr><td class="l">${pl(p)}${p.fresh ? ' <span class="chip new">new</span>' : ''}</td><td>${esc(p.pos || '')}</td><td>${p.fresh ? 'Fr' : YR_LABEL[Math.min(5, p.yr + 1)]}</td><td><b>${ovrOf(p)}</b></td>${PILLARS.map(([k]) => `<td>${p.pillars[k]}</td>`).join('')}</tr>`).join('')}

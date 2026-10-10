@@ -1,10 +1,10 @@
 // Offseason step 2: the transfer portal, played day by day (engine/portal.js). Fast: the best players commit in the
 // first few days. Contact players (relationship), make NIL offers (they answer), watch the commitments roll in.
-import { PORTAL_DAYS, CONTACTS_PER_DAY, openPortal, leaning, contact, offer, takeCounter, withdraw, portalDay } from '../engine/portal.js?v=52';
-import { priorities, profile } from '../engine/recruit.js?v=52';
-import { tv } from '../engine/legacy.js?v=52';
-import { resolvePortal, tagsOf } from '../engine/offseason.js?v=52';
-import { admitP, admitLabel, acadGrade, durability, durTag } from '../engine/people.js?v=52';
+import { PORTAL_DAYS, CONTACTS_PER_DAY, openPortal, leaning, contact, offer, takeCounter, withdraw, portalDay } from '../engine/portal.js?v=54';
+import { priorities, profile } from '../engine/recruit.js?v=54';
+import { tv } from '../engine/legacy.js?v=54';
+import { resolvePortal, tagsOf } from '../engine/offseason.js?v=54';
+import { admitP, admitLabel, acadGrade, durability, durTag } from '../engine/people.js?v=54';
 
 const PIL = ['SCO', 'SHT', 'FIN', 'PLY', 'SEC', 'REB', 'DEF'];
 let pos = '', onlyOpen = true, q = '', msg = {};

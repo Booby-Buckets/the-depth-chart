@@ -4,12 +4,12 @@
 // (legacy.js), BREAKOUT seasons (a player who far outplays his rating raises his ceiling) and the conference
 // standings tiebreakers (head-to-head among the tied teams, then record vs the teams above, then power).
 // Pure: works on the state object.
-import { record_, power } from './season.js?v=52';
-import { postResult } from './postseason.js?v=52';
-import { mteFinish } from './mte.js?v=52';
-import { seasonLegacy } from './legacy.js?v=52';
-import { effOvr } from './league.js?v=52';
-import { news } from './injuries.js?v=52';
+import { record_, power } from './season.js?v=54';
+import { postResult } from './postseason.js?v=54';
+import { mteFinish } from './mte.js?v=54';
+import { seasonLegacy } from './legacy.js?v=54';
+import { effOvr } from './league.js?v=54';
+import { news } from './injuries.js?v=54';
 
 const gmsc = s => (s.pts + 0.4 * s.fgm - 0.7 * s.fga - 0.4 * (s.fta - s.ftm) + 0.7 * s.orb + 0.3 * s.drb + s.stl + 0.7 * s.ast + 0.7 * s.blk - 0.4 * s.pf - s.tov);
 

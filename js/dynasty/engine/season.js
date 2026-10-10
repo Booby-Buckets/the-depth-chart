@@ -1,20 +1,20 @@
 // The season: day-by-day simulation over state.schedule, results, player stats, standings, a power rating
 // (opponent-adjusted net blended with the preseason prior) and the poll. Pure: works on the state object.
-import { prepareTeam } from './ratings.js?v=52';
-import { simulateGame, totals } from './game.js?v=52';
-import { makeRng, hashSeed } from './rng.js?v=52';
-import { powerFeatures } from './league.js?v=52';
-import { afterGame } from './injuries.js?v=52';
-import { resolvePending, nextPendingDate, EXT_RATING } from './fill.js?v=52';
-import { resolveVisits } from './visits.js?v=52';
-import { resolveMTE } from './mte.js?v=52';
-import { hcaMult } from './facilities.js?v=52';
-import { academicCheck } from './people.js?v=52';
-import { wear, rotate } from './health.js?v=52';
-import { tv } from './legacy.js?v=52';
-import { tieBreak } from './history.js?v=52';
-import { news } from './injuries.js?v=52';
-import { schemeMods, programGame } from './program.js?v=52';
+import { prepareTeam } from './ratings.js?v=54';
+import { simulateGame, totals } from './game.js?v=54';
+import { makeRng, hashSeed } from './rng.js?v=54';
+import { powerFeatures } from './league.js?v=54';
+import { afterGame } from './injuries.js?v=54';
+import { resolvePending, nextPendingDate, EXT_RATING } from './fill.js?v=54';
+import { resolveVisits } from './visits.js?v=54';
+import { resolveMTE } from './mte.js?v=54';
+import { hcaMult } from './facilities.js?v=54';
+import { academicCheck } from './people.js?v=54';
+import { wear, rotate } from './health.js?v=54';
+import { tv } from './legacy.js?v=54';
+import { tieBreak } from './history.js?v=54';
+import { news } from './injuries.js?v=54';
+import { schemeMods, programGame } from './program.js?v=54';
 
 const STAT_KEYS = ['min', 'pts', 'fgm', 'fga', 'tpm', 'tpa', 'ftm', 'fta', 'orb', 'drb', 'ast', 'stl', 'blk', 'tov', 'pf'];
 

@@ -13,12 +13,12 @@
 //      smaller program moving up (his job opens: the cascade), a top assistant getting his first head job (his
 //      program loses a staffer), a fired coach getting another chance, or a new name
 // Pure: works on the state object.
-import { power, record_ } from './season.js?v=52';
-import { powerFeatures } from './league.js?v=52';
-import { ncaaResult } from './postseason.js?v=52';
-import { makeRng, hashSeed } from './rng.js?v=52';
-import { DIFFS } from './program.js?v=52';
-import { news } from './injuries.js?v=52';
+import { power, record_ } from './season.js?v=54';
+import { powerFeatures } from './league.js?v=54';
+import { ncaaResult } from './postseason.js?v=54';
+import { makeRng, hashSeed } from './rng.js?v=54';
+import { DIFFS } from './program.js?v=54';
+import { news } from './injuries.js?v=54';
 
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 const BUMP = { Champion: 3, 'Runner-up': 2.3, 'Final Four': 2, 'Elite Eight': 1.2, 'Sweet 16': 0.6, 'Round of 32': 0.2 };
@@ -36,10 +36,15 @@ function makeCoach(state, rng, name, r, opts = {}) {
 
 export function initCoaches(state, snap, userName) {
   const byName = Object.fromEntries((snap ? snap.teams.concat(snap.shells || []) : []).map(t => [t.name, t.coach]));
+  const meta = Object.fromEntries((snap ? snap.teams.concat(snap.shells || []) : []).map(t => [t.name, t.coachMeta]));
   const rng = makeRng(hashSeed(`${state.seed}:coaches`));
   for (const t of Object.values(state.teams)) {
     if (t.name === state.user) { t.coach = { name: userName || 'You', yrs: 0, user: true, hot: 0, car: { w: 0, l: 0, ncaa: 0, ff: 0, titles: 0, jobs: 1 } }; continue; }
-    t.coach = makeCoach(state, rng, byName[t.name] || randomName(state, rng), wantFor(t.prestige) + rng.normal(0, 7), { yrs: 1 + rng.int(12), cont: 1 + rng.int(6) });
+    // the real coach's tenure, age (estimated from his head-coaching career) and NCAA résumé (snapshot coachMeta)
+    const m = meta[t.name];
+    t.coach = makeCoach(state, rng, byName[t.name] || randomName(state, rng), wantFor(t.prestige) + rng.normal(0, 7),
+      m ? { yrs: m.yrs, age: m.age + rng.int(3), cont: m.yrs <= 1 ? 4 + rng.int(3) : 1 + rng.int(6), car: { w: 0, l: 0, ncaa: m.apps || 0, ff: m.ff || 0, titles: m.titles || 0, jobs: 1 } }
+        : { yrs: 1 + rng.int(12), cont: 1 + rng.int(6) });
     t.coach.pay = payHC(t.coach.r, t.prestige);
   }
   state.job = { security: 60, seasons: 0, offers: [], fired: false, log: [], rep: Math.round(wantFor(state.teams[state.user] ? state.teams[state.user].prestige : 50) - 4) };
@@ -108,9 +113,14 @@ export function evaluateCoaches(state) {
     c.hot = 0.55 * (c.hot || 0) + perf[t];
     c.yrs = (c.yrs || 0) + 1; c.cont = Math.max(0, (c.cont ?? 3) - 1);
     age1(c, rng);
-    const P = state.teams[t].prestige || 30, grace = P > 70 ? 2 : 3;
-    const fireP = c.yrs < grace ? 0 : c.hot < -2 ? 0.75 : c.hot < -1.2 ? (P > 70 ? 0.45 : 0.3) : 0;
-    const retireP = c.age >= 70 ? 0.5 : c.age >= 65 ? 0.18 : c.age >= 60 ? 0.05 : 0.01;
+    // Oct 2026 (owner: "way too many firings"): nobody is fired before his third season, long tenure and a real
+    // résumé buy a lot of patience (a coach with a title, 2+ Final Fours or 10 NCAA trips is never fired — he
+    // retires on his own terms), and it takes a bad run, not one bad year. Retirement starts near 60.
+    const P = state.teams[t].prestige || 30;
+    const legend = (car.titles || 0) >= 1 || (car.ff || 0) >= 2 || (car.ncaa || 0) >= 10;
+    const patience = c.yrs >= 12 ? 0.1 : c.yrs >= 8 ? 0.3 : c.yrs >= 5 ? 0.7 : 1;
+    const fireP = (c.yrs <= 2 || legend) ? 0 : (c.hot < -2 ? 0.5 : c.hot < -1.4 ? (P > 70 ? 0.3 : 0.2) : 0) * patience;
+    const retireP = c.age >= 72 ? 0.4 : c.age >= 68 ? 0.22 : c.age >= 64 ? 0.1 : c.age >= 60 ? 0.04 : c.age >= 57 ? 0.01 : 0;
     if (rng.chance(fireP)) {
       const buy = Math.round(Math.min(c.cont, 4) * (c.pay || 300) * 0.5);   // the buyout comes out of the collective
       const pr = state.teams[t].prog; if (pr && buy) pr.nil.fund = Math.max(0, pr.nil.fund - buy);

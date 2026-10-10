@@ -8,12 +8,12 @@
 //   brand  brand: prestige, the conference, NIL clout
 //   nil    NIL: what the program offers against his asking price
 // The user's odds come from how the user's school stacks up against the best rival bidding for him. Pure.
-import { makeRng, hashSeed } from './rng.js?v=52';
-import { effOvr } from './league.js?v=52';
-import { power } from './season.js?v=52';
-import { facOverall } from './facilities.js?v=52';
-import { personalize } from './people.js?v=52';
-import { tv } from './legacy.js?v=52';
+import { makeRng, hashSeed } from './rng.js?v=54';
+import { effOvr } from './league.js?v=54';
+import { power } from './season.js?v=54';
+import { facOverall } from './facilities.js?v=54';
+import { personalize } from './people.js?v=54';
+import { tv } from './legacy.js?v=54';
 
 export const FACTORS = [['prox', 'Close to home'], ['pt', 'Playing time'], ['rel', 'Relationships'], ['draft', 'Draft path'], ['team', 'Winning now'], ['brand', 'Brand'], ['nil', 'NIL money'], ['acad', 'Academics']];
 const BASE_W = { prox: 0.18, pt: 0.19, rel: 0.14, draft: 0.09, team: 0.12, brand: 0.09, nil: 0.19, acad: 0.03 };
@@ -106,13 +106,13 @@ export const utility = (r, f) => U_SCALE * FACTORS.reduce((s, [k]) => s + (r.w[k
 
 // an AI program's implied offer (its collective's clout x the market) and its relationship (its staff's reach)
 // (each signing spends from the collective: a program that has already promised most of its fund can't keep outbidding)
-function aiOffer(state, team, r) {
+export function aiOffer(state, team, r) {
   const C = ctx(state), T = state.teams[team], fund = T.prog ? T.prog.nil.fund : 0;
   const left = clamp(1 - ((state._aiSpend && state._aiSpend[team]) || 0) / Math.max(40, fund * 0.6), 0.1, 1);
   return r.ask * (0.45 + 0.9 * C.pct(C.funds, fund)) * left;
 }
 export function aiSign(state, team, r) { (state._aiSpend = state._aiSpend || {})[team] = (state._aiSpend[team] || 0) + aiOffer(state, team, r); }
-function aiRel(state, team) { const T = state.teams[team], rec = T.prog && T.prog.staff.REC ? T.prog.staff.REC.r : 45; return 22 + (T.prestige || 30) * 0.3 + (rec - 45) * 0.3; }
+export function aiRel(state, team) { const T = state.teams[team], rec = T.prog && T.prog.staff.REC ? T.prog.staff.REC.r : 45; return 22 + (T.prestige || 30) * 0.3 + (rec - 45) * 0.3; }
 
 /** the best rival for recruit r among programs at his level: { team, u } */
 export function bestRival(state, r, exclude) {

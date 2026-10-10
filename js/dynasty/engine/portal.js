@@ -3,17 +3,17 @@
 // players commit with rising odds (the best ones first). Transfers are proven (true ratings, real stats), ask more
 // NIL than high-schoolers, and start with almost no relationship. AI programs sign them too (<= PORTAL_CAP each).
 // Pure: works on the state object.
-import { makeRng, hashSeed } from './rng.js?v=52';
-import { effOvr } from './league.js?v=52';
-import { profile, factors, negotiate, acceptCounter } from './recruit.js?v=52';
-import { admitP, admissible } from './people.js?v=52';
-import { tv } from './legacy.js?v=52';
+import { makeRng, hashSeed } from './rng.js?v=54';
+import { effOvr } from './league.js?v=54';
+import { profile, factors, negotiate, acceptCounter } from './recruit.js?v=54';
+import { admitP, admissible } from './people.js?v=54';
+import { tv } from './legacy.js?v=54';
+import { rosterMax } from './commits.js?v=54';
 
 export const PORTAL_DAYS = 10, PORTAL_CAP = 3, CONTACTS_PER_DAY = 4;
-const SCHOL = 13;
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 const eff = (state, p) => effOvr(p, state);
-const spots = (state, t) => Math.max(0, SCHOL - state.teams[t].players.length);
+const spots = (state, t) => Math.max(0, rosterMax(state, t) - state.teams[t].players.length);
 const rngFor = (state, tag) => makeRng(hashSeed(`${state.seed}:${state.year}:portal:${tag}`));
 
 // what a proven transfer asks ($k a year): 70 -> ~50k, 76 -> ~115k, 80 -> ~200k, 85 -> ~400k, 90 -> ~800k

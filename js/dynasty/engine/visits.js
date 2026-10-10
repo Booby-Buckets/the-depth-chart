@@ -6,11 +6,12 @@
 //   • HOME visits — the head coach in the living room, any time: a week of recruiting momentum for a smaller boost.
 // What a visit earns lives on the recruit (r.vb = landing-odds logit, r.vs = scouting effort equivalent) and carries to
 // signing day (offseason.landOdds adds vb; the board's scouting view adds vs). Pure: works on the state object.
-import { power } from './season.js?v=52';
-import { news as push } from './injuries.js?v=52';
-import { visitBonus } from './facilities.js?v=52';
-import { rank, tv } from './legacy.js?v=52';
-import { profile, miles } from './recruit.js?v=52';
+import { power } from './season.js?v=54';
+import { news as push } from './injuries.js?v=54';
+import { visitBonus } from './facilities.js?v=54';
+import { rank, tv } from './legacy.js?v=54';
+import { profile, miles } from './recruit.js?v=54';
+import { visitInterest } from './commits.js?v=54';
 
 export const OFFICIAL_MAX = 5;
 /** official visits this class: 5, +1 per rank of Frequent Flyer (legacy.js) */
@@ -82,6 +83,7 @@ export function resolveVisits(state, g) {
     let gain = 0.3 + visitBonus(state.teams[state.user]) + (won ? 0.25 : -0.12) + (won && margin >= 15 ? 0.1 : 0) + (ranked ? (won ? 0.25 : 0.05) : 0) + pres * 0.25 + (g.c ? 0.05 : 0);
     gain = Math.round(gain * 100) / 100;
     r.vb = Math.max(-0.4, Math.min(VB_CAP, (r.vb || 0) + gain)); r.vs = (r.vs || 0) + 35;
+    visitInterest(state, r, gain);   // the recruiting race: a great visit is worth a lot of interest (commits.js)
     const P = state.teams[state.user].prog; if (P) P.acc.recruiting = Math.max(0, P.acc.recruiting - visitCost(state, r) * 0.5);   // flying him in (half a home visit's time)
     v.res = gain >= 0.6 ? 'great' : gain >= 0.3 ? 'good' : gain > 0 ? 'meh' : 'bad'; v.gain = gain;
     const how = { great: 'left raving about the atmosphere', good: 'enjoyed the visit', meh: 'came away lukewarm', bad: 'left unimpressed' }[v.res];

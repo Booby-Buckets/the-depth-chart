@@ -62,6 +62,35 @@ def inches(h):
 def nm(s): return re.sub(r"[^a-z]", "", (s or "").lower().replace(" jr", "").replace(" iii", "").replace(" ii", ""))
 
 
+def coach_meta(D, ROOT):
+    """{team full name: {yrs, career, age, apps, ff, titles}} from coach-2027.json + coach_seasons + coach_profiles.
+    Seasons on record start in 2007, so a career that starts there is longer than we can see: the age estimate adds
+    a few unseen years. A new hire's tenure is 0."""
+    cur = json.load(open(ROOT / "data" / "coach-2027.json"))
+    seas = defaultdict(list)
+    for x in json.load(open(D / "coach_seasons.json")): seas[x["coach_slug"]].append(x)
+    prof = {c["coach_slug"]: c for c in json.load(open(D / "coach_profiles.json"))}
+    out = {}
+    for c in cur:
+        tm, slug = c.get("tm"), c.get("c")
+        if not tm: continue
+        ss = sorted(seas.get(slug, []), key=lambda x: -x["season_year"])
+        school = ss[0]["school"] if ss else None
+        yrs = 0
+        if not c.get("new") and ss:
+            y = 2026
+            for x in ss:
+                if x["season_year"] == y and x["school"] == school: yrs += 1; y -= 1
+                elif x["season_year"] < y: break
+        career = len({x["season_year"] for x in ss})
+        first = min((x["season_year"] for x in ss), default=2027)
+        t = (prof.get(slug) or {}).get("tourney") or {}
+        age = 34 + career + (9 if first <= 2007 else 0)
+        out[tm] = {"yrs": yrs, "career": career, "age": min(76, age), "apps": t.get("apps", 0) or 0,
+                   "ff": t.get("final_fours", 0) or 0, "titles": t.get("titles", 0) or 0}
+    return out
+
+
 def main():
     proj = json.load(open(D / "stat_overall_projected.json"))["players"]
     fresh = json.load(open(D / "fresh_fit.json"))
@@ -70,6 +99,9 @@ def main():
     pbox = json.load(open(D / "team_projected_box.json"))
     dna = json.load(open(D / "team_dna.json"))
     coach = {c["tm"]: c["n"] for c in json.load(open(ROOT / "data" / "coach-2027.json")) if c.get("tm") and c.get("n")}
+    # the real coach behind each program (Dynasty carousel, Oct 2026: legends and first-year coaches don't get fired,
+    # nobody retires in his 40s): tenure at this school, head-coaching seasons since 2007, NCAA résumé, an age estimate
+    cmeta = coach_meta(D, ROOT)
     # home state per program (scripts/build_team_states.py) — Dynasty recruiting: proximity / hometown pull
     st = {k: v.get("state") for k, v in json.load(open(D / "team_states.json")).items()} if (D / "team_states.json").exists() else {}
     rows = sb("players?select=id,espn_id,name,team,position,position2,height,class_year,yr,starter,depth_order,is_injured&order=id.asc")
@@ -200,7 +232,7 @@ def main():
         mates = [net[t] for t, cc in members.items() if cc == c and t != full and t in net]
         pe = pace.get(full) or {}
         teams.append({"name": full, "conf": c, "tempo": pe.get("t"), "projO": pe.get("o"), "projD": pe.get("d"),
-                      "projSrc": pe.get("src"), "coach": coach.get(full), "projBox": pbox.get(full), "rating": rating.get(full),
+                      "projSrc": pe.get("src"), "coach": coach.get(full), "coachMeta": cmeta.get(full), "projBox": pbox.get(full), "rating": rating.get(full),
                       "level": round(S.mean(mates), 2) if mates else 0.0, "minutes": round(mins, 1), "state": st.get(full),
                       "players": [p["id"] for p in sorted(ps, key=lambda p: -p["line"]["mpg"])]})
     # ── overall map: projected OVR ~ pillars + height (player level, minutes-weighted). The dynasty recomputes
@@ -251,7 +283,7 @@ def main():
     for t in teams: lv_conf[t["conf"]].append(t["level"])
     tempo_mu = round(S.mean([t["tempo"] for t in teams if t.get("tempo")]), 2)
     shells = [{"name": full, "conf": c, "rating": rating.get(full), "tempo": (pace.get(full) or {}).get("t") or tempo_mu,
-               "level": round(S.mean(lv_conf[c]), 2) if lv_conf.get(c) else 0.0, "coach": coach.get(full), "state": st.get(full)}
+               "level": round(S.mean(lv_conf[c]), 2) if lv_conf.get(c) else 0.0, "coach": coach.get(full), "coachMeta": cmeta.get(full), "state": st.get(full)}
               for full, c in sorted(members.items()) if full not in keep]
     print(f"shells (D-I, no roster): {len(shells)} — " + ", ".join(x["name"] for x in shells))
 
