@@ -1,15 +1,17 @@
 // Offseason step 2: the transfer portal, played day by day (engine/portal.js). Fast: the best players commit in the
 // first few days. Contact players (relationship), make NIL offers (they answer), watch the commitments roll in.
-import { PORTAL_DAYS, CONTACTS_PER_DAY, openPortal, leaning, contact, offer, takeCounter, withdraw, portalDay } from '../engine/portal.js?v=54';
-import { priorities, profile } from '../engine/recruit.js?v=54';
-import { tv } from '../engine/legacy.js?v=54';
-import { resolvePortal, tagsOf } from '../engine/offseason.js?v=54';
-import { admitP, admitLabel, acadGrade, durability, durTag } from '../engine/people.js?v=54';
+import { PORTAL_DAYS, CONTACTS_PER_DAY, openPortal, leaning, contact, offer, takeCounter, withdraw, portalDay } from '../engine/portal.js?v=55';
+import { priorities, profile } from '../engine/recruit.js?v=55';
+import { tv } from '../engine/legacy.js?v=55';
+import { resolvePortal, tagsOf } from '../engine/offseason.js?v=55';
+import { admitP, admitLabel, acadGrade, durability, durTag } from '../engine/people.js?v=55';
+import { moneyButtons, ensureMoneyCss } from './money.js?v=55';
 
 const PIL = ['SCO', 'SHT', 'FIN', 'PLY', 'SEC', 'REB', 'DEF'];
 let pos = '', onlyOpen = true, q = '', msg = {};
 
 export function portalView(ctx) {
+  ensureMoneyCss();
   const S = ctx.get(), { esc, $, short, tm, ovrOf } = ctx, O = S.off, U = S.user;
   if (O.pday == null) { openPortal(S); ctx.autosave(); }   // saves made before the live portal
   const open = Math.max(0, 13 - S.teams[U].players.length), P = S.teams[U].prog;
@@ -31,7 +33,7 @@ export function portalView(ctx) {
       ${PIL.map(k => `<td>${p.pillars[k]}</td>`).join('')}<td>${p.sta ?? ''}</td>
       <td class="dim">${h ? `${h.ppg}/${h.rpg}/${h.apg}` : '—'}</td><td>${esc(p.home === 'INTL' ? (p.country || 'Intl') : p.home || '')}</td><td class="${admitP(S, U, p, true) < 0.5 ? 'dn' : ''}" title="Academics ${acadGrade(p.acad ?? 60)} — elite academic schools take fewer transfers">${admitLabel(admitP(S, U, p, true))}</td><td title="${esc(durTag(p))}">${durability(p)}</td>
       <td class="l rv-w">${priorities(p).map(x => `<span>${esc(x)}</span>`).join('')}</td><td>${m$(p.ask)}</td>
-      <td class="l rv-nilc">${p.team ? (of && of.nil ? m$(of.nil) : '') : `<input type="number" class="dy-min rv-nil" min="0" step="5" data-pnil="${esc(p.id)}" value="${of ? of.nil || 0 : ''}" placeholder="$k">
+      <td class="l rv-nilc">${p.team ? (of && of.nil ? m$(of.nil) : '') : `${moneyButtons('pnil', p.id, p.ask, of ? of.nil : 0, esc)}
         ${p.nilState === 'counter' ? `<button class="btn ghost pg-sm" data-ptake="${esc(p.id)}">Take ${m$(p.counter)}</button>` : ''}${of ? ` <a href="#" data-pwd="${esc(p.id)}" title="Withdraw the offer">✕</a>` : ''}
         <div class="rv-st ${p.nilState || ''}">${msg[p.id] ? esc(msg[p.id]) : of ? (of.nil ? 'offer out' : 'scholarship offered') : ''}</div>`}</td>
       <td>${p.team || done ? '' : `<button class="btn ghost pg-sm" data-call="${esc(p.id)}" ${calls <= 0 ? 'disabled' : ''}>Call</button>`}</td>
@@ -70,10 +72,11 @@ function bind(ctx) {
   $('#ptPos').onchange = e => { pos = e.target.value; portalView(ctx); };
   $('#ptOpen').onchange = e => { onlyOpen = e.target.checked; portalView(ctx); };
   document.querySelectorAll('[data-call]').forEach(b => b.onclick = () => { const e = contact(S, b.dataset.call); msg[b.dataset.call] = e || 'Good call — he’s listening (relationship +12).'; again(); });
-  document.querySelectorAll('[data-pnil]').forEach(i => i.onchange = () => {
-    const P = S.teams[S.user].prog, others = Object.entries(O.offers || {}).filter(([id, o]) => id !== i.dataset.pnil && o && o.nil && S.players[id] && !S.players[id].team).reduce((s, [, o]) => s + o.nil, 0);
-    if (P && others + (+i.value || 0) > P.nil.fund) { alert(`Your collective has $${P.nil.fund}k; $${others}k is already promised.`); return portalView(ctx); }
-    const r = offer(S, i.dataset.pnil, i.value); msg[i.dataset.pnil] = r.msg; again();
+  document.querySelectorAll('[data-pnil]').forEach(b => b.onclick = () => {
+    const [pid, amt] = b.dataset.pnil.split('|');
+    const P = S.teams[S.user].prog, others = Object.entries(O.offers || {}).filter(([id, o]) => id !== pid && o && o.nil && S.players[id] && !S.players[id].team).reduce((s, [, o]) => s + o.nil, 0);
+    if (P && others + (+amt || 0) > P.nil.fund) { alert(`Your collective has $${P.nil.fund}k; $${others}k is already promised.`); return portalView(ctx); }
+    const r = offer(S, pid, +amt); msg[pid] = r.msg; again();
   });
   document.querySelectorAll('[data-ptake]').forEach(b => b.onclick = () => { takeCounter(S, b.dataset.ptake); msg[b.dataset.ptake] = 'Deal.'; again(); });
   document.querySelectorAll('[data-pwd]').forEach(a => a.onclick = e => { e.preventDefault(); withdraw(S, a.dataset.pwd); msg[a.dataset.pwd] = 'Offer withdrawn.'; again(); });

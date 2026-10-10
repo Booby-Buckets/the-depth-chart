@@ -1,10 +1,10 @@
 // Tournaments tab (NCAA / NIT / CBI / conference tournaments / early-season events / bracketology) and the Awards
 // tab (national + every conference, coaches). Rules live in engine/postseason.js, engine/mte.js, engine/awards.js.
-import { projectField, ctFormat } from '../engine/postseason.js?v=54';
-import { mteFinish } from '../engine/mte.js?v=54';
-import { confLabel } from '../engine/awards.js?v=54';
+import { projectField, ctFormat } from '../engine/postseason.js?v=55';
+import { mteFinish } from '../engine/mte.js?v=55';
+import { confLabel } from '../engine/awards.js?v=55';
 
-let view = null, ctSel = null, evSel = null, awConf = null;
+let view = null, ctSel = null, evSel = null, awConf = null, region = 0;
 
 function bracketKit(ctx) {
   const S = ctx.get(), { esc, tm } = ctx;
@@ -23,7 +23,14 @@ function bracketKit(ctx) {
     if (br.kind === 'nit' || br.kind === 'cbi') return { 16: 'First round', 8: left === br.size / 2 ? 'First round' : 'Second round', 4: 'Quarterfinals', 2: 'Semifinals', 1: 'Championship' }[left] || '';
     return left === 1 ? 'Final' : left === 2 ? 'Semifinals' : left === 4 ? 'Quarterfinals' : `Round ${rd}`;
   };
-  const bracket = (br, seedOf) => `<div class="dy-br">${br.rounds.slice(1).map((rd, i) => `<div class="col"><div class="rh">${roundName(br, i + 1)}</div>${rd.map(s => gameTxt(s, seedOf)).join('')}</div>`).join('')}</div>`;
+  const bracket = (br, seedOf, part) => {
+    // part = [index, of]: one region — round r keeps its share of the games (32/4 = 8, then 4, 2, 1)
+    const cols = br.rounds.slice(1).map((rd, i) => {
+      if (!part) return [i, rd];
+      const n = rd.length / part[1]; return n >= 1 ? [i, rd.slice(part[0] * n, (part[0] + 1) * n)] : null;
+    }).filter(Boolean);
+    return `<div class="dy-br">${cols.map(([i, rd]) => `<div class="col"><div class="rh">${roundName(br, i + 1)}</div><div class="gms">${rd.map(s => gameTxt(s, seedOf)).join('')}</div></div>`).join('')}</div>`;
+  };
   return { gameTxt, bracket };
 }
 
@@ -44,7 +51,9 @@ export function tournamentsView(ctx) {
     const N = P.ncaa;
     html += `<div class="sec"><h2>NCAA tournament</h2><span class="n">${N.champ ? '🏆 ' + esc(short(N.champ)) : `${N.autoBids.length} automatic bids · ${68 - N.autoBids.length} at-large`}</span></div>
       <div class="dy-ff"><b>First Four</b> ${N.firstFour.map(f => K.gameTxt(f.slot)).join('')}</div>
-      ${N.main ? K.bracket(N.main) : '<div class="dy-empty">The field of 64 is set once the First Four is played.</div>'}`;
+      ${N.main ? `<div class="tn-tabs tn-sub">${['Region 1', 'Region 2', 'Region 3', 'Region 4', 'Final Four'].map((l, i) => `<button class="${i === region ? 'on' : ''}" data-rg="${i}">${l}</button>`).join('')}</div>
+        ${region < 4 ? K.bracket({ ...N.main, rounds: N.main.rounds.slice(0, 5) }, undefined, [region, 4])
+          : K.bracket({ ...N.main, rounds: [null].concat(N.main.rounds.slice(5)) })}` : '<div class="dy-empty">The field of 64 is set once the First Four is played.</div>'}`;
   } else if (view === 'nit' || view === 'cbi') {
     const B = P[view], nit = view === 'nit';
     html += `<div class="sec"><h2>${nit ? 'National Invitation Tournament' : 'College Basketball Invitational'}</h2><span class="n">${B.champ ? '🏆 ' + esc(short(B.champ)) : nit ? '32 teams — regular-season champions who lost their tournament get in; the higher seed hosts through the quarterfinals, then a neutral-site final four' : '16 teams from outside the power leagues, all games on one neutral floor'}</span></div>
@@ -68,7 +77,9 @@ export function tournamentsView(ctx) {
   $('#dyBody').innerHTML = html;
   document.querySelectorAll('[data-tn]').forEach(b => b.onclick = () => { view = b.dataset.tn; tournamentsView(ctx); });
   const cs = $('#ctSel'); if (cs) cs.onchange = e => { ctSel = e.target.value; tournamentsView(ctx); };
+  document.querySelectorAll('[data-rg]').forEach(b => b.onclick = () => { region = +b.dataset.rg; tournamentsView(ctx); });
   const es = $('#evSel'); if (es) es.onchange = e => { evSel = e.target.value; tournamentsView(ctx); };
+  document.querySelectorAll('[data-ev]').forEach(b => b.onclick = () => { evSel = b.dataset.ev; tournamentsView(ctx); });
 }
 
 // the season's multi-team events: generated seasons carry full brackets (state.mtes); the first season's real
@@ -97,9 +108,15 @@ function eventsHtml(ctx) {
   if (!names.length) return '<div class="dy-empty">No multi-team events on this season\'s schedule.</div>';
   const mineN = names.filter(n => ev[n].some(g => g.h === S.user || g.a === S.user));
   const sel = names.includes(evSel) ? evSel : mineN[0] || names[0];
-  return `<div class="sec"><h2>Early-season events</h2><select id="evSel" class="dy-input sm">${names.map(n => `<option value="${esc(n)}" ${n === sel ? 'selected' : ''}>${esc(n)}${mineN.includes(n) ? ' ★' : ''}</option>`).join('')}</select></div>
-    <div class="pg-d">This season's real events (from the 2026-27 schedules). From next season on, every event is generated with a full bracket.</div>
-    <div class="tn-ev"><div><h4>Games</h4>${ev[sel].sort((a, b) => (a.d < b.d ? -1 : 1)).map(gm).join('')}</div></div>`;
+  const card = g => { const r = g.r, row = (t, pts, won) => `<div class="${r ? (won ? 'w' : 'l') : ''}">${tm(t, t === S.user ? 'me' : '')}<b>${r ? pts : ''}</b></div>`;
+    return `<div class="bg">${row(g.h, r && r[0], r && r[0] > r[1])}${row(g.a, r && r[1], r && r[1] > r[0])}<div class="dim bh">${r ? 'Final' : fmt(g.d)}</div></div>`; };
+  const days = {}; for (const g of ev[sel]) (days[g.d] = days[g.d] || []).push(g);
+  const teamsIn = n => new Set(ev[n].flatMap(g => [g.h, g.a])).size;
+  const champ = n => { const last = ev[n].slice().sort((a, b) => (a.d < b.d ? 1 : -1))[0]; return last && last.r ? (last.r[0] > last.r[1] ? last.h : last.a) : null; };
+  return `<div class="sec"><h2>${esc(sel)}</h2><span class="n">${teamsIn(sel)} teams · ${ev[sel].length} games${mineN.includes(sel) ? ' · you play here' : ''}</span></div>
+    <div class="tn-days">${Object.keys(days).sort().map(d => `<div><div class="rh">${fmt(d)}</div>${days[d].map(card).join('')}</div>`).join('')}</div>
+    <div class="sec"><h2>Every event</h2><span class="n">This season's real events (from the 2026-27 schedules); from next season on, every event is generated with a full bracket</span></div>
+    <div class="tn-evs">${names.map(n => { const c = champ(n); return `<button class="tn-evc ${n === sel ? 'on' : ''} ${mineN.includes(n) ? 'me' : ''}" data-ev="${esc(n)}"><b>${esc(n)}</b><span>${teamsIn(n)} teams${mineN.includes(n) ? ' · you' : ''}</span>${c ? `<span>🏆 ${esc(short(c))}</span>` : ''}</button>`; }).join('')}</div>`;
 }
 
 // ── awards ──

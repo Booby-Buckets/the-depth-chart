@@ -1,36 +1,39 @@
 // Dynasty — the page. Engine (pure) + browser saves + rendering. One league in memory (S); every action
 // mutates it through the engine, re-renders, and autosaves.
-import { C } from '../engine/constants.js?v=54';
-import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=54';
-import { overall } from '../engine/ratings.js?v=54';
-import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=54';
-import { simNext, simTo, afterDay } from '../engine/flow.js?v=54';
-import { postResult } from '../engine/postseason.js?v=54';
-import { TYPES as INJ } from '../engine/injuries.js?v=54';
-import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain, pushRecruit, PUSHES } from '../engine/offseason.js?v=54';
-import { mood, moodCtx, letter, talk, talksFor } from '../engine/morale.js?v=54';
-import { ROT } from '../engine/health.js?v=54';
-import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=54';
-import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=54';
-import { lines as pbpLines } from './pbp.js?v=54';
-import { gameSteps, newCtl } from '../engine/game.js?v=54';
-import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=54';
-import { tireAt } from '../engine/program.js?v=54';
-import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=54';
-import { recruitingView } from './recruiting.js?v=54';
-import { isNewClass, userChance } from '../engine/commits.js?v=54';
-import { portalView } from './portal.js?v=54';
-import { tournamentsView, awardsView } from './tourney.js?v=54';
-import { scheduleStep } from './sched.js?v=54';
-import { carouselStep, staffStep } from './carousel.js?v=54';
-import { coachesView } from './coaches.js?v=54';
-import { legacyView } from './legacy.js?v=54';
-import { margins } from '../engine/history.js?v=54';
-import { facilitiesRankHtml, bindFacilitiesRank } from './facilities.js?v=54';
-import { durability, durTag, acadGrade, admitP, admitLabel, initSchools } from '../engine/people.js?v=54';
-import { initFacilities } from '../engine/facilities.js?v=54';
-import { inviteInfo, decide as realignDecide } from '../engine/realign.js?v=54';
-import { programView, diffPicker } from './program.js?v=54';
+import { C } from '../engine/constants.js?v=55';
+import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=55';
+import { overall } from '../engine/ratings.js?v=55';
+import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=55';
+import { simNext, simTo, afterDay } from '../engine/flow.js?v=55';
+import { postResult } from '../engine/postseason.js?v=55';
+import { TYPES as INJ } from '../engine/injuries.js?v=55';
+import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain, pushRecruit, PUSHES } from '../engine/offseason.js?v=55';
+import { mood, moodCtx, letter, talk, talksFor } from '../engine/morale.js?v=55';
+import { ROT } from '../engine/health.js?v=55';
+import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=55';
+import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=55';
+import { lines as pbpLines } from './pbp.js?v=55';
+import { gameSteps, newCtl } from '../engine/game.js?v=55';
+import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=55';
+import { tireAt } from '../engine/program.js?v=55';
+import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=55';
+import { recruitingView } from './recruiting.js?v=55';
+import { ensureMoneyCss } from './money.js?v=55';
+import { weekBox, openTasks, WEEK_CSS } from './week.js?v=55';
+const ensureWeekCss = () => { if (!document.getElementById('wkCss')) { const s = document.createElement('style'); s.id = 'wkCss'; s.textContent = WEEK_CSS; document.head.appendChild(s); } };
+import { isNewClass, userChance } from '../engine/commits.js?v=55';
+import { portalView } from './portal.js?v=55';
+import { tournamentsView, awardsView } from './tourney.js?v=55';
+import { scheduleStep } from './sched.js?v=55';
+import { carouselStep, staffStep } from './carousel.js?v=55';
+import { coachesView } from './coaches.js?v=55';
+import { legacyView } from './legacy.js?v=55';
+import { margins } from '../engine/history.js?v=55';
+import { facilitiesRankHtml, bindFacilitiesRank } from './facilities.js?v=55';
+import { durability, durTag, acadGrade, admitP, admitLabel, initSchools } from '../engine/people.js?v=55';
+import { initFacilities } from '../engine/facilities.js?v=55';
+import { inviteInfo, decide as realignDecide } from '../engine/realign.js?v=55';
+import { programView, diffPicker } from './program.js?v=55';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -157,7 +160,7 @@ async function newDynasty(team) {
   const cn = ($('#dyCoach') && $('#dyCoach').value.trim()) || 'You';
   S = hydrate(createLeague(SNAP, SCHED, { user: team, now: Date.now(), coachName: cn, extras: EXTRAS, diff: newDiff, rivals: await getRivals(), facilities: await getFac(), geo: await getGeo() }));
   slot = 'dyn-' + Date.now();
-  cache = {}; touch(S); tab = 'calendar'; CAL._fresh = true;
+  cache = {}; touch(S); tab = 'home'; CAL._fresh = true;
   await saveSlot(slot, dehydrate(S), meta());
   render();
   queueCloud(0);
@@ -176,7 +179,7 @@ async function openSave(s) {
     } catch (e) { if (!rec) { alert('Could not load this dynasty from your account: ' + e.message); return startScreen(); } }
   }
   if (!rec) return startScreen();
-  S = hydrate(JSON.parse(rec.json)); slot = s; cache = {}; touch(S); tab = 'calendar'; CAL._fresh = true;
+  S = hydrate(JSON.parse(rec.json)); slot = s; cache = {}; touch(S); tab = 'home'; CAL._fresh = true;
   if (!S.rivals) S.rivals = (await getRivals()).filter(r => S.teams[r[0]] && S.teams[r[1]]);   // saves from before rivalries
   if (Object.values(S.teams).some(t => !t.fac)) initFacilities(S, await getFac());               // saves from before facilities
   if (Object.values(S.teams).some(t => t.acad == null)) initSchools(S, await getGeo());           // saves from before academics / international access
@@ -189,6 +192,19 @@ function phaseLabel(p) {
   return { regular: 'Regular season', conftourney: 'Conference tournaments', ncaa: 'NCAA tournament', done: 'Season complete', offseason: 'Offseason' }[p] || p;
 }
 const TABS = [['calendar', 'Calendar'], ['program', 'Program'], ['recruit', 'Recruiting'], ['home', 'Home'], ['schedule', 'Schedule'], ['roster', 'Roster'], ['plan', 'Game plan'], ['standings', 'Standings'], ['coach', 'Coach'], ['coaches', 'Coaches'], ['rankings', 'Rankings'], ['leaders', 'Leaders'], ['post', 'Tournaments'], ['awards', 'Awards'], ['news', 'News'], ['history', 'History']];
+// five sections instead of sixteen tabs (Oct 2026 UI update); the red count = open items on the week's to-do
+const GROUPS = [['home', 'This week', [['home', 'This week']]],
+  ['team', 'Team', [['roster', 'Roster'], ['plan', 'Game plan'], ['program', 'Practice & program']]],
+  ['recruit', 'Recruiting', [['recruit', 'Recruiting']]],
+  ['season', 'Season', [['calendar', 'Calendar'], ['schedule', 'Schedule'], ['standings', 'Standings'], ['rankings', 'Rankings'], ['leaders', 'Leaders'], ['post', 'Tournaments']]],
+  ['prog', 'Career', [['coach', 'Coach'], ['coaches', 'Coaches'], ['awards', 'Awards'], ['news', 'News'], ['history', 'History']]]];
+function navHtml() {
+  const G = (S.phase === 'offseason' ? [['off', 'Offseason', [['off', 'Offseason']]]] : []).concat(GROUPS);
+  const cur = G.find(g => g[2].some(x => x[0] === tab)) || G[0], n = S.phase === 'offseason' ? 0 : openTasks(S, short);
+  return `<nav class="dy-tabs dy-grp">${G.map(([k, l, sub]) => `<button class="${g0(cur) === k ? 'on' : ''}" data-tab="${sub[0][0]}">${l}${k === 'home' && n ? ` <i class="dy-ct">${n}</i>` : ''}</button>`).join('')}</nav>
+    ${cur[2].length > 1 ? `<nav class="dy-tabs dy-sub">${cur[2].map(([k, l]) => `<button class="${k === tab ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</nav>` : ''}`;
+}
+const g0 = g => g[0];
 function render() {
   if (!S) return startScreen();
   const t = S.teams[S.user], r = record_(S, S.user), pw = power(S);
@@ -201,7 +217,7 @@ function render() {
       <div class="dy-meta">Coach ${esc((t.coach && t.coach.name) || 'You')} · <span class="sec-m" title="Job security: rises and falls with results vs expectations">Job security <i style="--v:${S.job ? S.job.security : 60}%"></i> ${S.job ? S.job.security : 60}</span></div>
       <div class="dy-meta"><b>${r.w}-${r.l}</b> · ${r.cw}-${r.cl} ${esc(t.conf)} (${cpos}${['th', 'st', 'nd', 'rd'][cpos % 10 > 3 || [11, 12, 13].includes(cpos % 100) ? 0 : cpos % 10]}) · Power #${rank}</div></div>
       <div class="dy-acts"><span id="dyCloud">${cloudBadge()}</span><button class="btn ghost" id="dyExit">Saves</button></div></div>
-    <nav class="dy-tabs">${(S.phase === 'offseason' ? [['off', 'Offseason']] : []).concat(TABS).map(([k, l]) => `<button class="${k === tab ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</nav>`;
+    ${navHtml()}`;
   $('#dyExit').onclick = () => { if (isCrawling()) stopCrawl(); if (cloudT) flushCloud(); S = null; startScreen(); };
   $('#dyHead').querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { if (isCrawling()) stopCrawl(); tab = b.dataset.tab; render(); });
   if (S.phase === 'offseason' && tab === 'home') tab = 'off';
@@ -260,11 +276,13 @@ function home() {
   const hurt = S.teams[S.user].players.map(id => S.players[id]).filter(p => p && p.out > 0);
   const inj = hurt.length ? `<div class="dy-inj"><b>Injury report</b> ${hurt.map(p => `${pl(p, false)} — ${esc(p.inj ? p.inj.type : 'injured')}, ${p.out >= 99 ? 'out for the season' : `out ${p.out} game${p.out > 1 ? 's' : ''}`}`).join(' · ')}</div>` : '';
   const nws = (S.news || []).slice(-8).reverse();
-  $('#dyBody').innerHTML = card + inj + `<div class="dy-two"><div><div class="sec"><h2>Recent results</h2></div>${gamesTable(recent, true)}
+  ensureWeekCss();
+  $('#dyBody').innerHTML = (S.phase === 'offseason' ? '' : weekBox(S, esc, short)) + card + inj + `<div class="dy-two"><div><div class="sec"><h2>Recent results</h2></div>${gamesTable(recent, true)}
     <div class="sec"><h2>News</h2><a class="n" data-goto="news" href="#">All news →</a></div>${newsList(nws)}</div>
     <div><div class="sec"><h2>Top 10</h2></div><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th>#</th><th class="l">Team</th><th>Rec</th><th>Power</th></tr></thead><tbody>
     ${top.map(r => `<tr class="${r.team === S.user ? 'me' : ''}"><td>${r.rank}</td><td class="l">${tm(r.team)}</td><td>${r.w}-${r.l}</td><td>${r.power.toFixed(1)}</td></tr>`).join('')}</tbody></table></div></div></div>`;
   const on = (id, f) => { const b = document.getElementById(id); if (b) b.onclick = f; };
+  document.querySelectorAll('#dyBody [data-go]').forEach(b => b.onclick = () => { tab = b.dataset.go; render(); window.scrollTo(0, 0); });
   on('bWatch', watch);
   on('bSim', () => run(simUserGame));
   on('bWeek', () => run(() => { const d0 = nextDate(S); const end = new Date(Date.parse(d0 + 'T12:00:00Z') + 7 * 864e5).toISOString().slice(0, 10); simTo(S, C, cache, st => !nextDate(st) || nextDate(st) >= end); }));
@@ -387,6 +405,7 @@ function schedule() {
 }
 
 function roster() {
+  ensureMoneyCss();
   const t = S.teams[S.user];
   const prep = prepared(S, C, cache).teams[S.user];
   const auto = Object.fromEntries(prep.roster.map(p => [p.id, p.target]));
@@ -400,7 +419,7 @@ function roster() {
   ${ps.map(p => `<tr class="${p.out > 0 ? 'hurt' : ''}"><td class="l">${pl(p)}<div class="dy-tags">${tagsOf(p.pillars, p.ht, p.sta).map(x => `<span>${esc(x)}</span>`).join('')}</div>${p.out > 0 ? ` <span class="chip" title="${esc(p.inj ? p.inj.type : '')}">OUT ${p.out >= 99 ? 'season' : p.out + 'g'}</span>` : ''}${(() => { const d = S.lastOff && S.lastOff.progress && S.lastOff.progress[p.id]; return d ? ` <span class="${d > 0 ? 'up' : 'dn'}">${d > 0 ? '+' : ''}${d}</span>` : ''; })()}</td><td>${esc(p.pos || '')}</td><td>${YR_LABEL[p.yr] || ''}</td><td>${p.ht ? `${Math.floor(p.ht / 12)}-${p.ht % 12}` : ''}</td><td><b>${ovrOf(p)}</b></td>
     ${PILLARS.map(([k]) => `<td>${p.pillars[k]}</td>`).join('')}<td title="Wears down past ~${Math.round(tireAt(p))} min">${p.sta ?? '—'}</td><td title="${esc(durTag(p))}">${durability(p)}</td><td>${acadGrade(p.acad ?? 60)}</td><td title="Career health ${Math.round(p.chp ?? 100)}" class="${(p.hp ?? 100) < 60 ? 'dn' : ''}">${Math.round(p.hp ?? 100)}</td><td class="l">${(m => m ? `<span class="${m.mood === 'Wants out' ? 'dn' : m.mood === 'Restless' ? 'warn' : m.mood === 'Happy' ? 'up' : ''}" title="${esc(m.label)}: ${letter(m.grade)} (expects ${letter(m.exp)})">${esc(m.label)} ${letter(m.grade)} · ${m.mood}</span>` : '')(mood(S, p, MC))}</td>
     <td><input type="checkbox" data-st="${esc(p.id)}" ${starters.has(p.id) ? 'checked' : ''}></td>
-    <td><input type="number" class="dy-min" min="0" max="40" step="1" data-min="${esc(p.id)}" data-tire="${tireAt(p).toFixed(1)}" value="${Math.round(t.minutes && t.minutes[p.id] != null ? t.minutes[p.id] : (auto[p.id] || 0))}"></td>
+    <td style="white-space:nowrap"><button class="dy-step" data-mm="${esc(p.id)}|-2" title="2 fewer minutes">−</button><input type="number" readonly class="dy-min" min="0" max="40" step="1" data-min="${esc(p.id)}" data-tire="${tireAt(p).toFixed(1)}" value="${Math.round(t.minutes && t.minutes[p.id] != null ? t.minutes[p.id] : (auto[p.id] || 0))}"><button class="dy-step" data-mm="${esc(p.id)}|2" title="2 more minutes">+</button></td>
     <td>${stat(p.id, 'min')}</td><td>${stat(p.id, 'pts')}</td><td>${(() => { const s = S.stats[p.id]; return s && s.g ? ((s.orb + s.drb) / s.g).toFixed(1) : '—'; })()}</td><td>${stat(p.id, 'ast')}</td></tr>`).join('')}
   </tbody></table></div>
   <div class="dy-btns"><span id="minSum" class="dim"></span><button class="btn" id="rSave">Save rotation</button><button class="btn ghost" id="rAuto">Reset to the coach's default</button>
@@ -408,6 +427,7 @@ function roster() {
   // a player set past his stamina threshold is flagged (he loses shooting + ball security and gets hurt more)
   const sum = () => { let s = 0; document.querySelectorAll('[data-min]').forEach(i => { s += +i.value || 0; const over = (+i.value || 0) - (+i.dataset.tire || 99); i.classList.toggle('tired', over > 0); i.title = over > 0 ? `${over.toFixed(0)} min past what he can carry: he'll wear down` : ''; }); $('#minSum').textContent = `Total ${s} min (scaled to 200)`; };
   document.querySelectorAll('[data-min]').forEach(i => i.oninput = sum); sum();
+  document.querySelectorAll('[data-mm]').forEach(b => b.onclick = () => { const [id, d] = b.dataset.mm.split('|'), i = document.querySelector(`[data-min="${CSS.escape(id)}"]`); if (i) { i.value = Math.max(0, Math.min(40, (+i.value || 0) + +d)); sum(); } });
   $('#rSave').onclick = () => {
     const st = [...document.querySelectorAll('[data-st]:checked')].map(i => i.dataset.st);
     if (st.length !== 5) return alert(`Pick exactly five starters (you have ${st.length}).`);
@@ -520,6 +540,7 @@ function offseason() {
     $('#dyBody').innerHTML = html;
     const nx = $('#oNext');
     nx.onclick = () => { processDepartures(S); autosave(); render(); };
+    const da = $('#drAll'); if (da) da.onclick = () => { draftAll = !draftAll; render(); };
     document.querySelectorAll('[data-realign]').forEach(b => b.onclick = () => { realignDecide(S, b.dataset.realign === '1'); autosave(); render(); });
     document.querySelectorAll('[data-talk]').forEach(b => b.onclick = () => { alert(talk(S, b.dataset.talk).msg); autosave(); render(); });
     document.querySelectorAll('[data-keep]').forEach(b => b.onclick = () => { const e = retain(S, b.dataset.keep); if (e) return alert(e); autosave(); render(); });
@@ -612,14 +633,23 @@ function draftNote(id) {
   const x = D.picks.find(p => p.id === id);
   return x ? ` — drafted <b>No. ${x.pick}</b> (${x.round === 1 ? '1st' : '2nd'} round)` : D.und.some(p => p.id === id) ? ' — undrafted, signed a pro deal' : '';
 }
+let draftAll = false;
 function draftPanel() {
   const D = S.off && S.off.draft; if (!D || !D.picks.length) return '';
-  const back = D.withdrew.filter(x => x.team === S.user);
-  return `<div class="sec"><h2>The draft</h2><span class="n">${D.picks.length} college players picked (the rest of the 60 picks went to international and G League players)${D.und.length ? ` · ${D.und.length} early entrants went undrafted` : ''} · ${D.withdrew.length} tested the waters and returned</span></div>
+  const back = D.withdrew.filter(x => x.team === S.user), col = D.picks.filter(x => !x.intl).length;
+  const nbaShort = n => n.split(' ').slice(-1)[0];
+  const why = x => (x.why || []).map(w => ({ young: 'Young', size: 'Size', upside: 'Upside' }[w])).join(' · ');
+  const yrL = { 1: 'Fr', 2: 'So', 3: 'Jr', 4: 'Sr', 5: 'Gr' };
+  const rows = D.picks.filter(x => draftAll || x.round === 1 || x.team === S.user);
+  return `<div class="sec"><h2>The draft</h2><span class="n">60 picks · ${col} college players · ${60 - col} international / G League${D.und.length ? ` · ${D.und.length} early entrants undrafted` : ''} · ${D.withdrew.length} tested the waters and returned</span></div>
+    <div class="pg-d">Teams draft on <b>draft score</b> = rating + youth (a freshman gets +4, a senior −1) + size + upside — so a young 85 can go ahead of a senior 90, like the real draft.</div>
     ${back.length ? `<div class="pg-d"><b>Returning after testing the waters:</b> ${back.map(x => esc(x.name)).join(', ')}</div>` : ''}
-    <div class="sheet-wrap"><table class="sheet dense dy-draft"><thead><tr><th>Pick</th><th class="l">Player</th><th class="l">School</th><th>Pos</th><th>Yr</th><th>OVR</th></tr></thead><tbody>
-    ${D.picks.filter(x => x.round === 1 || x.team === S.user).map(x => `<tr class="${x.team === S.user ? 'me' : ''}"><td><b>${x.pick}</b>${x.round === 2 ? ' <span class="dim">R2</span>' : ''}</td><td class="l">${esc(x.name)}</td><td class="l">${tm(x.team)}</td><td>${esc(x.pos || '')}</td><td>${YR_LABEL[x.yr] || ''}</td><td>${x.ovr}</td></tr>`).join('')}
-    </tbody></table></div>`;
+    <div class="sheet-wrap"><table class="sheet dense dy-draft"><thead><tr><th>Pick</th><th class="l">NBA team</th><th class="l">Player</th><th class="l">From</th><th>Pos</th><th>Yr</th><th>OVR</th><th title="Rating + youth + size + upside">Draft score</th><th class="l">Why</th></tr></thead><tbody>
+    ${rows.map((x, i) => `${i && x.round === 2 && rows[i - 1].round === 1 ? '<tr><td colspan="9" class="l dim"><b>Second round</b></td></tr>' : ''}<tr class="${x.team === S.user ? 'me' : ''}"><td><b>${x.pick}</b></td><td class="l">${esc(nbaShort(x.nba || ''))}</td>
+      <td class="l">${x.intl ? `<span class="dim">${esc(x.name)}</span>` : `<b>${esc(x.name)}</b>`}</td><td class="l">${x.intl ? `<span class="dim">${esc(x.from)}</span>` : tm(x.team)}</td>
+      <td>${esc(x.pos || '')}</td><td>${x.intl ? '<span class="dim">Intl</span>' : yrL[x.yr] || ''}</td><td>${x.ovr ?? ''}</td><td>${x.ds ?? ''}</td><td class="l dim">${x.intl ? 'Overseas pro' : why(x)}</td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="dy-btns"><button class="btn ghost" id="drAll">${draftAll ? 'Show the first round only' : 'Show both rounds (60 picks)'}</button></div>`;
 }
 
 // conference realignment (engine/realign.js): an invitation to the user's program + the league-wide moves

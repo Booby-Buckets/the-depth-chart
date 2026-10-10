@@ -8,12 +8,12 @@
 //   brand  brand: prestige, the conference, NIL clout
 //   nil    NIL: what the program offers against his asking price
 // The user's odds come from how the user's school stacks up against the best rival bidding for him. Pure.
-import { makeRng, hashSeed } from './rng.js?v=54';
-import { effOvr } from './league.js?v=54';
-import { power } from './season.js?v=54';
-import { facOverall } from './facilities.js?v=54';
-import { personalize } from './people.js?v=54';
-import { tv } from './legacy.js?v=54';
+import { makeRng, hashSeed } from './rng.js?v=55';
+import { effOvr } from './league.js?v=55';
+import { power } from './season.js?v=55';
+import { facOverall } from './facilities.js?v=55';
+import { personalize } from './people.js?v=55';
+import { tv } from './legacy.js?v=55';
 
 export const FACTORS = [['prox', 'Close to home'], ['pt', 'Playing time'], ['rel', 'Relationships'], ['draft', 'Draft path'], ['team', 'Winning now'], ['brand', 'Brand'], ['nil', 'NIL money'], ['acad', 'Academics']];
 const BASE_W = { prox: 0.18, pt: 0.19, rel: 0.14, draft: 0.09, team: 0.12, brand: 0.09, nil: 0.19, acad: 0.03 };

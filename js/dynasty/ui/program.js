@@ -2,9 +2,9 @@
 // pillars + offensive / defensive scheme with fit and familiarity) and the NIL collective. UI only — every rule
 // lives in engine/program.js.
 import { DIFFS, HOURS, AREAS, ROLES, OFF, DEF, PIL_LABEL, FOCUS_LABEL, cover, effort, fitOf, famOf, payroll, hire, fire, boosterEvent,
-  devMult, focusBonus, recruitPoints, nilRetention, nilOffer } from '../engine/program.js?v=54';
-import { facilitiesCard, bindFacilitiesCard } from './facilities.js?v=54';
-import { admitBar } from '../engine/people.js?v=54';
+  devMult, focusBonus, recruitPoints, nilRetention, nilOffer } from '../engine/program.js?v=55';
+import { facilitiesCard, bindFacilitiesCard } from './facilities.js?v=55';
+import { admitBar } from '../engine/people.js?v=55';
 
 // the school itself: admissions bar + international access (engine/people.js)
 function schoolCard(ctx) {
@@ -27,7 +27,7 @@ function settingsCard(ctx) {
     <div class="pg-focus">${sel('injFreq', 'Injuries', 'How often players get hurt (every player also has his own durability)')}${sel('injSev', 'Injury length', 'How long injuries keep players out')}
       ${sel('maxXfer', 'Max transfers per team', 'The most players one program can lose to the portal in an offseason (Off = no portal)')}${sel('xferUser', 'Transfers (your team)', 'How likely your players are to enter the portal')}${sel('xferCpu', 'Transfers (AI teams)', 'How likely AI players are to enter the portal')}</div></div>`;
 }
-import { TIERS, revenueOf, exitFee, travel, ladder, powerAvg, members } from '../engine/realign.js?v=54';
+import { TIERS, revenueOf, exitFee, travel, ladder, powerAvg, members } from '../engine/realign.js?v=55';
 
 const AREA_TXT = {
   practice: 'Scheme familiarity and your two focus areas grow with practice time.',
@@ -47,13 +47,19 @@ export function programView(ctx) {
   const offseason = S.phase === 'offseason';
   const avgSta = () => { let w = 0, v = 0; for (const id of t.players) { const p = S.players[id]; if (p && p.mpg) { v += (p.sta ?? 50) * p.mpg; w += p.mpg; } } return w ? Math.round(v / w) : 50; };
 
-  // 1. hours
-  const hours = `<div class="pg-card"><div class="pg-h"><h3>Your week</h3><span class="pg-n">${used} / ${HOURS} hours · your staff covers part of every area, so a better staff frees your time</span></div>
-    <table class="pg-tbl"><thead><tr><th class="l">Area</th><th class="l">Your hours</th><th>Staff covers</th><th class="l">Effort vs an average program</th></tr></thead><tbody>
-    ${AREAS.map(([a, l]) => { const e = effort(S, t, a); return `<tr><td class="l"><b>${l}</b><div class="pg-d">${AREA_TXT[a]}</div></td>
-      <td class="l"><input type="range" min="0" max="40" step="1" value="${P.hours[a]}" data-hr="${a}"> <b class="pg-hv" id="hv-${a}">${P.hours[a]}</b> h</td>
-      <td>+${cover(P, a).toFixed(1)} h</td><td class="l">${bar(e)} <b>${pct(e)}%</b></td></tr>`; }).join('')}
-    </tbody></table><div class="pg-d">${S.diff === 'hof' ? 'Hall of Fame: every area needs 25% more effort to keep pace.' : S.diff === 'aa' ? 'All-American: every area needs 10% more effort.' : S.diff === 'rookie' ? 'Rookie: your staff fills more of the gaps (15% less effort needed).' : ''}</div></div>`;
+  // 1. hours — one-click presets, then fine-tune with steppers (Oct 2026, owner: "the practice stuff is hard to do")
+  const PRESETS = [['Balanced', { practice: 15, recruiting: 15, nil: 15, development: 15 }, 'Even across the board'],
+    ['Win now', { practice: 26, recruiting: 12, nil: 10, development: 12 }, 'Practice: schemes + focus areas'],
+    ['Recruiting push', { practice: 12, recruiting: 28, nil: 10, development: 10 }, 'More weekly recruiting hours'],
+    ['Develop', { practice: 14, recruiting: 12, nil: 8, development: 26 }, 'Bigger summer jumps'],
+    ['Boosters', { practice: 12, recruiting: 14, nil: 24, development: 10 }, 'Grow the NIL collective']];
+  const curPre = PRESETS.find(([, h]) => AREAS.every(([a]) => (P.hours[a] || 0) === h[a]));
+  const hours = `<div class="pg-card"><div class="pg-h"><h3>Your week</h3><span class="pg-n">${used} / ${HOURS} hours · pick a plan, then fine-tune · your staff covers part of every area</span></div>
+    <div class="pg-presets">${PRESETS.map(([l, , d]) => `<button class="pg-pre ${curPre && curPre[0] === l ? 'on' : ''}" data-pre="${esc(l)}"><b>${l}</b><span>${d}</span></button>`).join('')}</div>
+    <div class="pg-areas">${AREAS.map(([a, l]) => { const e = effort(S, t, a); return `<div class="pg-area"><div><b>${l}</b><div class="pg-d">${AREA_TXT[a]}</div></div>
+      <div class="pg-stp"><button class="dy-step" data-hstep="${a}|-2">−</button><b>${P.hours[a]} h</b><button class="dy-step" data-hstep="${a}|2" ${used >= HOURS ? 'disabled' : ''}>+</button></div>
+      <div class="pg-eff">${bar(e)} <b>${pct(e)}%</b><span class="pg-d">+${cover(P, a).toFixed(1)} h staff</span></div></div>`; }).join('')}</div>
+    <div class="pg-d">${used < HOURS ? `<b>${HOURS - used} hours unassigned.</b> ` : ''}${S.diff === 'hof' ? 'Hall of Fame: every area needs 25% more effort to keep pace.' : S.diff === 'aa' ? 'All-American: every area needs 10% more effort.' : S.diff === 'rookie' ? 'Rookie: your staff fills more of the gaps (15% less effort needed).' : ''}</div></div>`;
 
   // 2. staff
   const pool = (S.staffPool || []);
@@ -71,16 +77,24 @@ export function programView(ctx) {
       ${pool.slice().sort((a, b) => a.role.localeCompare(b.role) || b.r - a.r).map(s => `<tr><td class="l">${esc(ROLES.find(r => r[0] === s.role)[1])}</td><td class="l">${esc(s.name)}</td><td><b>${s.r}</b></td><td>${m(s.pay)}</td>
         <td>${canHire(s.role) ? `<button class="btn ghost pg-sm" data-hire="${esc(s.id)}">Hire</button>` : ''}</td></tr>`).join('')}</tbody></table></details>` : ''}</div>`;
 
-  // 3. practice plan
-  const schemeRows = (side, SET, cur) => Object.entries(SET).map(([k, x]) => {
-    const f = fitOf(S, t, side, k), fm = famOf(S, t, side, k);
-    return `<tr class="${k === cur ? 'on' : ''}"><td class="l"><label><input type="radio" name="sch-${side}" value="${k}" ${k === cur ? 'checked' : ''}> <b>${esc(x.label)}</b></label><div class="pg-d">${esc(x.blurb)}</div></td>
-      <td class="l">${bar(Math.max(0, f + 1), 2)} ${f >= 0 ? '+' : ''}${f.toFixed(2)}</td><td class="l">${bar(fm / 50, 2)} ${Math.round(fm)}</td></tr>`; }).join('');
-  const plan = `<div class="pg-card"><div class="pg-h"><h3>Practice plan</h3><span class="pg-n">Two focus areas grow faster all season (and carry into the summer). The longer your players run a scheme, the better they get at it.</span></div>
-    <div class="pg-focus">${[0, 1].map(i => `<label>Focus ${i + 1} <select data-focus="${i}">${Object.entries(FOCUS_LABEL).map(([k, l]) => `<option value="${k}" ${P.focus && P.focus[i] === k ? 'selected' : ''}>${l} (team ${k === 'STA' ? avgSta() : avgP(k)})</option>`).join('')}</select></label>`).join('')}</div>
-    <div class="pg-two"><div><h4>Offense</h4><table class="pg-tbl"><thead><tr><th class="l">Scheme</th><th class="l">Roster fit</th><th class="l">Familiarity</th></tr></thead><tbody>${schemeRows('o', OFF, P.off)}</tbody></table></div>
-    <div><h4>Defense</h4><table class="pg-tbl"><thead><tr><th class="l">Scheme</th><th class="l">Roster fit</th><th class="l">Familiarity</th></tr></thead><tbody>${schemeRows('d', DEF, P.def)}</tbody></table></div></div>
-    <div class="pg-d">Fit = how well your rotation's skills match what the scheme asks for (0 = average). Familiarity = how well your players know it (0-100, minutes-weighted): it grows with practice and games, carries over when players return, and starts low for newcomers. Switching schemes starts the new one from what each player already knows.</div></div>`;
+  // 3. practice plan — focus chips + scheme cards
+  const fv = k => (k === 'STA' ? avgSta() : avgP(k));
+  const weakest = Object.keys(FOCUS_LABEL).sort((a, b) => fv(a) - fv(b)).slice(0, 2);
+  const card = (side, SET, cur) => { const fits = Object.keys(SET).map(k => [k, fitOf(S, t, side, k)]), best = fits.sort((a, b) => b[1] - a[1])[0][0];
+    return Object.entries(SET).map(([k, x]) => { const f = fitOf(S, t, side, k), fm = famOf(S, t, side, k);
+      return `<button class="pg-sch ${k === cur ? 'on' : ''}" data-sch="${side}|${k}"><b>${esc(x.label)}</b>${k === best ? ' <span class="chip new">best fit</span>' : ''}${k === cur ? ' <span class="chip">current</span>' : ''}
+        <span class="pg-d">${esc(x.blurb)}</span><span class="pg-mini">Fit ${bar(Math.max(0, f + 1), 2)} Know-how ${bar(fm / 50, 2)} ${Math.round(fm)}</span></button>`; }).join(''); };
+  const plan = `<div class="pg-card"><div class="pg-h"><h3>Practice plan</h3><span class="pg-n">Pick two focus areas (they grow all season and into the summer) and your schemes</span></div>
+    <div class="pg-chips">${Object.entries(FOCUS_LABEL).map(([k, l]) => `<button class="pg-chip ${P.focus && P.focus.includes(k) ? 'on' : ''}" data-fc="${k}"><b>${l}</b><span>team ${fv(k)}${weakest.includes(k) ? ' · weak spot' : ''}</span></button>`).join('')}</div>
+    <h4 style="margin:14px 0 6px">Offense</h4><div class="pg-schs">${card('o', OFF, P.off)}</div>
+    <h4 style="margin:14px 0 6px">Defense</h4><div class="pg-schs">${card('d', DEF, P.def)}</div>
+    <div class="pg-d">Fit = how well your rotation's skills suit the scheme. Know-how = how well your players know it; it grows with practice and games. Switching mid-season starts the new scheme from what each player already knows.</div></div>
+  <style>.pg-presets{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:6px 0 12px}.pg-pre,.pg-chip,.pg-sch{border:1px solid var(--border2,#ccc);background:none;color:inherit;border-radius:9px;padding:9px 11px;text-align:left;cursor:pointer;font:inherit}
+  .pg-pre b,.pg-chip b,.pg-sch b{font-size:13.5px}.pg-pre span,.pg-chip span{display:block;font-size:11.5px;color:var(--text3)}.pg-pre.on,.pg-chip.on,.pg-sch.on{border-color:var(--accent,#c9a227);background:color-mix(in srgb,var(--accent,#c9a227) 12%,transparent)}
+  .pg-areas{display:grid;gap:6px}.pg-area{display:grid;grid-template-columns:minmax(0,1fr) 150px 260px;gap:12px;align-items:center;border-top:1px solid var(--border);padding-top:6px}
+  .pg-stp{display:flex;gap:8px;align-items:center;justify-content:center}.pg-eff{display:flex;gap:6px;align-items:center}
+  .pg-chips{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.pg-schs{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}.pg-sch .pg-d{display:block;margin:3px 0}.pg-mini{display:block;font-size:11px;color:var(--text3)}
+  @media(max-width:800px){.pg-presets,.pg-chips{grid-template-columns:1fr 1fr}.pg-area{grid-template-columns:1fr}}</style>`;
 
   // 4. NIL
   const ret = nilRetention(S, t), off = nilOffer(S, t);
@@ -119,6 +133,22 @@ function bind(ctx) {
   document.querySelectorAll('[data-set]').forEach(x => x.onchange = () => { const S2 = ctx.get(); S2.settings = Object.assign({}, S2.settings, { [x.dataset.set]: +x.value }); ctx.touch(); ctx.autosave(); });
   bindFacilitiesCard(ctx, () => programView(ctx));
   const S = ctx.get(), t = S.teams[S.user], P = t.prog, $ = ctx.$;
+  const PRE = { 'Balanced': [15, 15, 15, 15], 'Win now': [26, 12, 10, 12], 'Recruiting push': [12, 28, 10, 10], 'Develop': [14, 12, 8, 26], 'Boosters': [12, 14, 24, 10] };
+  document.querySelectorAll('[data-pre]').forEach(b => b.onclick = () => { const v = PRE[b.dataset.pre]; AREAS.forEach(([a], i) => { P.hours[a] = v[i]; }); ctx.touch(); ctx.autosave(); programView(ctx); });
+  document.querySelectorAll('[data-hstep]').forEach(b => b.onclick = () => {
+    const [a, d] = b.dataset.hstep.split('|'), tot = Object.values(P.hours).reduce((x, y) => x + y, 0);
+    P.hours[a] = Math.max(0, Math.min(40, (P.hours[a] || 0) + (+d > 0 ? Math.min(+d, HOURS - tot) : +d))); ctx.touch(); ctx.autosave(); programView(ctx);
+  });
+  document.querySelectorAll('[data-fc]').forEach(b => b.onclick = () => {
+    const k = b.dataset.fc, f = (P.focus || ['SHT', 'DEF']).slice();
+    if (f.includes(k)) return;                       // always two: click another to swap out the older one
+    P.focus = [f[1], k]; ctx.autosave(); programView(ctx);
+  });
+  document.querySelectorAll('[data-sch]').forEach(b => b.onclick = () => {
+    const [sd, k] = b.dataset.sch.split('|'), side = sd === 'o' ? 'off' : 'def'; if (P[side] === k) return;
+    if (S.phase !== 'offseason' && !confirm(`Switch your ${side === 'off' ? 'offense' : 'defense'} mid-season? Your players start the new scheme from what they already know of it.`)) return;
+    P[side] = k; ctx.touch(); ctx.autosave(); programView(ctx);
+  });
   document.querySelectorAll('[data-hr]').forEach(r => {
     r.oninput = () => {
       const a = r.dataset.hr, others = Object.entries(P.hours).filter(([k]) => k !== a).reduce((s, [, v]) => s + v, 0);

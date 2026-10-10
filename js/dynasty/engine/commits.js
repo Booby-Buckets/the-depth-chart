@@ -11,11 +11,11 @@
 //   • A SUMMER — real recruiting starts long before November, so each new class gets a few simulated summer weeks:
 //     offers go out (the user's staff included), the clearest leads commit early, and the user arrives with work to do.
 // Rosters: 16 scholarships (the service academies carry more). Pure; deterministic per seed.
-import { makeRng, hashSeed } from './rng.js?v=54';
-import { profile, factors, utility, aiOffer, aiRel, relationship } from './recruit.js?v=54';
-import { effort, DIFFS } from './program.js?v=54';
-import { admitP } from './people.js?v=54';
-import { news as push } from './injuries.js?v=54';
+import { makeRng, hashSeed } from './rng.js?v=55';
+import { profile, factors, utility, aiOffer, aiRel, relationship } from './recruit.js?v=55';
+import { effort, DIFFS } from './program.js?v=55';
+import { admitP } from './people.js?v=55';
+import { news as push } from './injuries.js?v=55';
 
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 export const MILITARY = /^(Army|Navy|Air Force)\b/;

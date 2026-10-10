@@ -1,12 +1,13 @@
 // In-season Recruiting tab, EA College Football 25 style (Oct 2026): offers, a weekly hours budget spent on actions,
 // recruits narrowing their lists (Top 8 / 5 / 3), commitments that can flip, signings. Rules: engine/commits.js
 // (the race), engine/visits.js (official visits at home games), engine/recruit.js (what each recruit values, NIL).
-import { scoutView, scoutSD } from '../engine/offseason.js?v=54';
-import { acadGrade, admitP, admitLabel } from '../engine/people.js?v=54';
-import { priorities, negotiate, acceptCounter, FACTORS, committedNIL, profile } from '../engine/recruit.js?v=54';
-import { officialMax, visitsLeft, visitsFor, upcomingHomeGames, scheduleOfficial, cancelVisit } from '../engine/visits.js?v=54';
+import { scoutView, scoutSD } from '../engine/offseason.js?v=55';
+import { moneyButtons, ensureMoneyCss } from './money.js?v=55';
+import { acadGrade, admitP, admitLabel } from '../engine/people.js?v=55';
+import { priorities, negotiate, acceptCounter, FACTORS, committedNIL, profile } from '../engine/recruit.js?v=55';
+import { officialMax, visitsLeft, visitsFor, upcomingHomeGames, scheduleOfficial, cancelVisit } from '../engine/visits.js?v=55';
 import { STAGE_LABEL, ACTIONS, HOURS_CAP, USER_OFFERS_MAX, SUMMER, cutWeeks, classNeed, commitsOf, hoursBudget, hoursUsed, planHours,
-  offerRecruit, withdrawOffer, toggleAction, userChance, gradesFor, rankOf, passesDB, dbLabel, grade } from '../engine/commits.js?v=54';
+  offerRecruit, withdrawOffer, toggleAction, userChance, gradesFor, rankOf, passesDB, dbLabel, grade } from '../engine/commits.js?v=55';
 
 let sel = null, q = '', pos = '', minStars = 3, onlyOpen = true, pickVisit = false, msg = '';
 const CSS = `
@@ -47,6 +48,7 @@ tr.rc-sel td{background:color-mix(in srgb,var(--accent,#c9a227) 10%,transparent)
 
 export function recruitingView(ctx) {
   const S = ctx.get(), { esc, $, short } = ctx, U = S.user;
+  ensureMoneyCss();
   if (!document.getElementById('rcCss')) { const st = document.createElement('style'); st.id = 'rcCss'; st.textContent = CSS; document.head.appendChild(st); }
   const R = S.rclass || [];
   if (!R.length || !R[0].list) { $('#dyBody').innerHTML = '<div class="dy-empty">The recruiting class appears at the start of the season.</div>'; return; }
@@ -104,7 +106,7 @@ export function recruitingView(ctx) {
       <div class="rc-acts">${ACTIONS.map(([k, l, h, d]) => `<button class="rc-act ${p[k] ? 'on' : ''}" data-act="${esc(r.id)}|${k}" ${(k === 'home' && r.hv) || ((k === 'soft' || k === 'hard') && !['t5', 't3', 'commit'].includes(r.stage)) ? 'disabled' : ''}><b>${l}</b><span>${h} h · ${d}</span></button>`).join('')}
         <div class="rc-act" style="cursor:default"><b>Official visit</b><span>${off ? (off.done ? `done · ${off.res}` : `${fmt(off.d)} <a href="#" data-cancel="${esc(r.id)}|${esc(off.gid)}">cancel</a>`) : `${visitsLeft(S)} left · <a href="#" data-pickv="${esc(r.id)}">pick a home game</a>`}</span></div></div>
       ${pickVisit && !off ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">${home.slice(0, 10).map(gm => `<button class="btn ghost pg-sm" data-visit="${esc(r.id)}|${esc(gm.id)}">${fmt(gm.d)} vs ${esc(short(gm.a))}</button>`).join('') || '<span class="dim">No home games left.</span>'}</div>` : ''}
-      <div style="margin-top:10px;font-size:12.5px"><b>NIL offer</b> <input type="number" class="dy-min rv-nil" min="0" step="5" data-nil="${esc(r.id)}" value="${r.offer || ''}" placeholder="$k"> asks ${m$(r.ask)}
+      <div style="margin-top:10px;font-size:12.5px"><b>NIL offer</b> <span class="dim">asks ${m$(r.ask)}/yr</span><div style="margin-top:4px">${moneyButtons('nil', r.id, r.ask, r.offer, esc)}</div>
         ${r.nilState === 'counter' ? `<button class="btn ghost pg-sm" data-takec="${esc(r.id)}">Take ${m$(r.counter)}</button>` : ''} <span class="rv-st ${r.nilState || ''}">${{ accepted: '✓ deal', counter: 'counter', low: 'lukewarm', insulted: 'insulted' }[r.nilState] || ''}</span>
         <span class="dim" style="font-size:11px">· money matters most once he's down to a Top 3</span></div>` : ''}
       <div class="rc-feed"><div class="dim" style="font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase">His recruitment</div>${(r.feed || []).slice().reverse().slice(0, 8).map(f => `<div>${f.d ? `<b>${fmt(f.d)}</b> — ` : '<b>Summer</b> — '}${esc(f.text.replace(/\[\[(.+?)\]\]/g, (m, t) => short(t)))}</div>`).join('') || '<div class="dim">Nothing yet.</div>'}</div></div>`;
@@ -147,11 +149,11 @@ function bind(ctx) {
   document.querySelectorAll('[data-pickv]').forEach(a => a.onclick = e => { e.preventDefault(); pickVisit = !pickVisit; recruitingView(ctx); });
   document.querySelectorAll('[data-visit]').forEach(b => b.onclick = () => { const [rid, gid] = b.dataset.visit.split('|'); pickVisit = false; again(scheduleOfficial(S, rid, gid) || 'Official visit scheduled.'); });
   document.querySelectorAll('[data-cancel]').forEach(a => a.onclick = e => { e.preventDefault(); const [rid, gid] = a.dataset.cancel.split('|'); cancelVisit(S, rid, gid); again('Visit cancelled.'); });
-  document.querySelectorAll('[data-nil]').forEach(i => i.onchange = () => {
-    const r = (S.rclass || []).find(x => x.id === i.dataset.nil); if (!r) return;
+  document.querySelectorAll('[data-nil]').forEach(b => b.onclick = () => {
+    const [rid, amt] = b.dataset.nil.split('|'), r = (S.rclass || []).find(x => x.id === rid); if (!r) return;
     const P = S.teams[S.user].prog, others = committedNIL(S) - (r.nilState === 'accepted' ? r.offer : 0);
-    if (P && others + (+i.value || 0) > P.nil.fund) return again(`Your collective has $${P.nil.fund}k; $${others}k is already promised.`);
-    again(negotiate(S, r, i.value).msg);
+    if (P && others + (+amt || 0) > P.nil.fund) return again(`Your collective has $${P.nil.fund}k; $${others}k is already promised.`);
+    again(negotiate(S, r, +amt).msg);
   });
   document.querySelectorAll('[data-takec]').forEach(b => b.onclick = () => { const r = (S.rclass || []).find(x => x.id === b.dataset.takec); if (r) acceptCounter(S, r); again(r ? `${r.name} accepts.` : ''); });
   $('#rvQ').oninput = e => { q = e.target.value.toLowerCase().trim(); clearTimeout(bind.t); bind.t = setTimeout(() => { recruitingView(ctx); const i = $('#rvQ'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }, 250); };

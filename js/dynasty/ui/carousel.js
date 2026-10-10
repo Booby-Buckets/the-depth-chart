@@ -1,11 +1,12 @@
 // Offseason steps 1-2: the coaching carousel (your job, offers, then every opening filled with the cascade) and the
 // staff market (re-sign, hire free agents, poach assistants). Rules in engine/coaching.js + engine/program.js.
-import { takeJob, wantFor } from '../engine/coaching.js?v=54';
-import { finishCarousel, finishStaff } from '../engine/offseason.js?v=54';
-import { record_, power } from '../engine/season.js?v=54';
-import { effOvr } from '../engine/league.js?v=54';
-import { ROLES, payroll, staffAsk, offerStaff, poachAsk, poachStaff, fire } from '../engine/program.js?v=54';
-import { confLabel } from '../engine/awards.js?v=54';
+import { takeJob, wantFor } from '../engine/coaching.js?v=55';
+import { finishCarousel, finishStaff } from '../engine/offseason.js?v=55';
+import { record_, power } from '../engine/season.js?v=55';
+import { effOvr } from '../engine/league.js?v=55';
+import { ROLES, payroll, staffAsk, offerStaff, poachAsk, poachStaff, fire } from '../engine/program.js?v=55';
+import { confLabel } from '../engine/awards.js?v=55';
+import { moneySelect } from './money.js?v=55';
 
 const m$ = k => '$' + (k >= 1000 ? (k / 1000).toFixed(2) + 'M' : Math.round(k) + 'k');
 const WHY = { fired: 'fired', retired: 'retired', left: 'left' };
@@ -67,7 +68,7 @@ export function staffStep(ctx) {
   const RN = Object.fromEntries(ROLES.map(([k, l]) => [k, l]));
   const room = P.budget - payroll(P);
   const tag = s => s.mine ? '<span class="chip">your staff</span>' : s.exHC ? '<span class="chip">ex-head coach</span>' : s.young ? '<span class="chip new">rising</span>' : '';
-  const offerCell = (key, ask) => `<input type="number" class="dy-min" min="0" step="5" value="${ask}" data-pay="${esc(key)}"> <select class="dy-min" data-yrs="${esc(key)}">${[1, 2, 3, 4].map(y => `<option ${y === 3 ? 'selected' : ''}>${y}</option>`).join('')}</select> yrs`;
+  const offerCell = (key, ask) => `${moneySelect('pay', key, ask, esc)} <select class="dy-min" data-yrs="${esc(key)}">${[1, 2, 3, 4].map(y => `<option ${y === 3 ? 'selected' : ''}>${y}</option>`).join('')}</select> yrs`;
   // the best assistants elsewhere in one role, to poach
   const poach = Object.values(S.teams).filter(t => t.name !== U && t.prog && t.prog.staff[poachRole]).map(t => ({ t, s: t.prog.staff[poachRole] }))
     .sort((a, b) => b.s.r - a.s.r).slice(0, 25);

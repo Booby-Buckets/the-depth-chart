@@ -1,7 +1,7 @@
 // Facilities: the national ranking (Rankings tab) and the user's facilities card with building projects (Program
 // tab). Rules in engine/facilities.js.
-import { PARTS, PROJECTS, facRanks, facOverall, projCost, startProject, hcaMult, injuryMult, practiceMult, retainMult } from '../engine/facilities.js?v=54';
-import { confLabel } from '../engine/awards.js?v=54';
+import { PARTS, PROJECTS, facRanks, facOverall, projCost, startProject, hcaMult, injuryMult, practiceMult, retainMult } from '../engine/facilities.js?v=55';
+import { confLabel } from '../engine/awards.js?v=55';
 
 let conf = '';
 const m$ = k => '$' + (k >= 1000 ? (k / 1000).toFixed(2) + 'M' : Math.round(k) + 'k');
