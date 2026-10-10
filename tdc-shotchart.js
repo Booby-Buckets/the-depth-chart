@@ -3,7 +3,7 @@
      shots: [{x,y,made,sv,dist}]  (ESPN coords: x 0-50 width, y feet from baseline)
      opts:  {title, subtitle, mode:'spots'|'hex'|'heat'|'shots'}
    Modes: Signature spots (default — best/worst high-volume zones lit and
-   annotated, everything else greyed) · Hexbin (FG% vs D-1 avg) · Heat
+   annotated, everything else greyed) · Hexbin (FG% vs D-I avg) · Heat
    (frequency) · All shots (every made/missed marker).
    The court is cropped to the range shots actually occupy (-2.6 to 34.6 ft).
    Interactive: hover tooltips on shots/hexes, zone-card hover highlights that
@@ -182,7 +182,7 @@
     return 'rgba(var(--sc-ink-rgb),'+a.toFixed(3)+')';
   }
   // ── hex grid (pointy-top) ── smaller cells than before for a denser, smoother map
-  var HS=1.15;                                           // hex size in feet
+  var HS=1.75;                                           // hex size in feet (bigger cells read as a pattern, not speckle)
   function axial(x,y){ var q=(Math.sqrt(3)/3*x - 1/3*y)/HS, r=(2/3*y)/HS; return hexRound(q,r); }
   function hexRound(q,r){
     var s=-q-r, rq=Math.round(q), rr=Math.round(r), rs=Math.round(s);
@@ -202,6 +202,11 @@
     return Math.round(dh)+' ft from rim';
   }
 
+  // FG% vs D-I from that distance -> the same navy (colder) / grey / orange (hotter) bands the
+  // Hot & cold and 'Where the shots moved' charts use; 4 points per step, +/-14 tops out
+  var HEX_NEG=['#3a4767','#6c7894','#9aa4ba','#c3c9d7'], HEX_MID='#dcdde2', HEX_POS=['#fbc6a4','#f8a577','#f5874a','#ef6a1f'];
+  function hexBand(d){ var a=Math.abs(d), i=a<0.02?-1:a<0.05?0:a<0.08?1:a<0.11?2:3;
+    if(i<0) return HEX_MID; return d>0?HEX_POS[i]:HEX_NEG[3-i]; }
   function hexbinSvg(shots){
     var bins={};
     shots.forEach(function(s){
@@ -210,25 +215,8 @@
       b.att++; if(s.made)b.mk++; if(s.sv===3)b.three++;
     });
     var maxAtt=0; for(var k in bins) if(bins[k].att>maxAtt) maxAtt=bins[k].att;
-    // FILL INTERIOR GAPS: any empty cell that sits inside the shot cloud (>=3 of its
-    // six neighbors have shots) gets a synthetic cell so the surface reads as one
-    // continuous field instead of a scatter of tallies. Synthetic cells are colored
-    // from their neighbors, drawn faintly underneath, and carry no tooltip.
-    var real={}; for(var rk in bins) real[rk]=1;
-    var synth={};
-    for(var bk in real){
-      var pa=bk.split(','), pq=+pa[0], pr=+pa[1];
-      HXN.forEach(function(d){
-        var nk=(pq+d[0])+','+(pr+d[1]); if(real[nk]||synth[nk]) return;
-        var na=nk.split(','), nq=+na[0], nr=+na[1], cnt=0;
-        HXN.forEach(function(d2){ if(real[(nq+d2[0])+','+(nr+d2[1])]) cnt++; });
-        if(cnt>=3) synth[nk]=1;
-      });
-    }
-    for(var sk in synth) if(!bins[sk]) bins[sk]={att:0,mk:0,three:0,synth:true};
-
     var keys=Object.keys(bins);
-    // draw low-volume (incl. synthetic) first, biggest last, so the paint blob and
+    // draw low-volume first, biggest last, so the paint blob and
     // real high-volume cells sit on top of the continuous background
     keys.sort(function(a,b){return bins[a].att-bins[b].att;});
     var K=6, g='', idx=0;                                 // K = shrinkage prior strength
@@ -246,13 +234,6 @@
       HXN.forEach(function(d){ var nb=bins[(q+d[0])+','+(r+d[1])]; if(nb){ pAtt+=nb.att*0.5; pMk+=nb.mk*0.5; } });
       var diff=(pMk + K*base)/(pAtt + K) - base;
       var zc=isThree?'sc-zt':(dh<=4?'sc-zr':'sc-zm');
-      if(b.synth){
-        // interior gap-fill: SMALL + faint (they carry zero volume, so in a volume-sized
-        // map they must read as the smallest cells) — a subtle continuity hint, not a
-        // full-size tile that would flatten the size signal.
-        g+='<path class="sc-mark sc-hex sc-synth '+zc+'" style="animation-delay:'+Math.min(idx*7,700)+'ms" d="'+hexPath(cx,cy,px(HS)*0.50)+'" fill="'+effColor(diff)+'" stroke="rgba(var(--sc-ink-rgb),.25)" stroke-width="0.4"/>';
-        idx++; return;
-      }
       // SIZE = SHOT VOLUME (the whole point of the hexbin): radius spans a WIDE range so
       // high-volume zones read as big cells and thin zones as small ones. sqrt keeps it
       // perceptually fair (area ∝ attempts). Was 0.90–1.16 (a ~29% span — every hex looked
@@ -261,7 +242,7 @@
       // tooltip carries the RAW numbers (pipe-delimited; wire() builds the card)
       var rawFg=b.mk/b.att, rawDiff=rawFg-base;
       var tip=(rawFg*100).toFixed(1)+'|'+distLabel(dh,isThree)+'|'+b.mk+'/'+b.att+'|'+(base*100).toFixed(1)+'|'+(rawDiff>=0?'+':'')+(rawDiff*100).toFixed(1)+'|'+(rawDiff>=0?'1':'0');
-      g+='<path class="sc-mark sc-hex '+zc+'" data-tip="'+tip+'" style="animation-delay:'+Math.min(idx*7,700)+'ms" d="'+hexPath(cx,cy,rp)+'" fill="'+effColor(diff)+'" stroke="rgba(var(--sc-ink-rgb),.45)" stroke-width="0.6"/>';
+      g+='<path class="sc-mark sc-hex '+zc+'" data-tip="'+tip+'" style="animation-delay:'+Math.min(idx*7,700)+'ms" d="'+hexPath(cx,cy,rp)+'" fill="'+hexBand(diff)+'" stroke="var(--sc-floor)" stroke-width="1.2"/>';
       idx++;
     });
     return g;
@@ -836,12 +817,11 @@
         '<div class="sc-court-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+defs()+court(null,courtOpts)+sg+'</svg><div class="sc-tip"></div></div>';
       extra=spotsLedger(so,opts);
     } else if(mode==='hex'){
-      body='<div class="sc-court-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+defs()+court(null,courtOpts)+hexbinSvg(shots)+'</svg><div class="sc-tip"></div></div>'+
-        hexSummary(shots)+
-        '<div class="sc-eff-legend">'+
-          '<div class="sc-effbar"><span>−10% · worse than D-I</span><i class="sc-effgrad"></i><span>better · +10%</span></div>'+
-          '<span class="sc-eff-cap">Hex size = how many shots from there · ink = FG% vs the D-I average from that distance · <b>mid ink = league average</b></span>'+
-        '</div>';
+      var hk=function(c){ return '<b style="background:'+c+'"></b>'; };
+      var hc=court(null,courtOpts), hcut=hc.indexOf('<g class="sc-lines"');     // court lines over the hexes
+      body='<div class="sc-court-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+defs()+hc.slice(0,hcut)+hexbinSvg(shots)+hc.slice(hcut)+'</svg><div class="sc-tip"></div></div>'+
+        '<div class="sc-heat-legend"><span>FG% vs D-I from that spot</span><span style="color:var(--text3)">colder</span><i class="sc-bands">'+HEX_NEG.map(hk).join('')+hk(HEX_MID)+HEX_POS.map(hk).join('')+'</i><span style="color:var(--text3)">hotter</span></div>'+
+        '<div class="sc-eff-cap" style="text-align:center;margin-top:5px;">Bigger hexes = more shots from there \u00b7 grey = within 2 points of the D-I average \u00b7 hover a hex for the numbers</div>';
     } else if(mode==='heat'){
       body='<div class="sc-court-wrap sc-heat-wrap"><canvas class="sc-heat"></canvas>'+
         '<svg class="sc-svg sc-heat-court" viewBox="0 0 '+W+' '+H+'">'+court(null,courtOpts).replace(/var\(--sc-floor\)|var\(--sc-inside\)/g,'none').replace(/url\(#scVig\)/g,'none')+'</svg></div>'+
@@ -881,14 +861,14 @@
         var r=wrap.getBoundingClientRect();
         if(t.hasAttribute('data-ztip')){
           var zf=t.getAttribute('data-ztip').split('|');
-          tip.innerHTML='<b>'+zf[0].charAt(0).toUpperCase()+zf[0].slice(1)+' · '+zf[1]+'%</b><span class="scq">'+zf[2]+' FG</span><span class="scr">Division-1 here: '+zf[3]+'%</span><span class="scd" style="color:'+(zf[4].charAt(0)==='-'?'var(--sc-cold)':'var(--sc-hot)')+'">'+zf[4]+' vs D-1 avg</span>';
+          tip.innerHTML='<b>'+zf[0].charAt(0).toUpperCase()+zf[0].slice(1)+' · '+zf[1]+'%</b><span class="scq">'+zf[2]+' FG</span><span class="scr">D-I here: '+zf[3]+'%</span><span class="scd" style="color:'+(zf[4].charAt(0)==='-'?'var(--sc-cold)':'var(--sc-hot)')+'">'+zf[4]+' vs D-I avg</span>';
           tip.classList.add('rich');
         } else if(t.hasAttribute('data-tip')){
           var f=t.getAttribute('data-tip').split('|');
           tip.innerHTML='<b>FG% here: '+f[0]+'%</b>'+
             '<span class="scq">'+f[1]+' · '+f[2]+' FG</span>'+
-            '<span class="scr">Division-1 here: '+f[3]+'%</span>'+
-            '<span class="scd" style="color:'+(f[5]==='1'?'var(--sc-hot)':'var(--sc-cold)')+'">'+f[4]+'% vs D-1 avg</span>';
+            '<span class="scr">D-I here: '+f[3]+'%</span>'+
+            '<span class="scd" style="color:'+(f[5]==='1'?'var(--sc-hot)':'var(--sc-cold)')+'">'+f[4]+'% vs D-I avg</span>';
           tip.classList.add('rich');
         } else {
           tip.textContent=t.getAttribute('data-t'); tip.classList.remove('rich');
