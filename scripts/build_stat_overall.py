@@ -256,6 +256,13 @@ if FOUL_W>0:
     _exc=(adv["pf40"]-FOUL_BASE).clip(lower=0).fillna(0.0)
     adv["wa"]=adv["wa"] - FOUL_W*_exc*adv["mp40"]
 
+# SHORT SEASONS (Oct 2026, owner: Rodney Rice — 20/5/6 in 6 games graded a 73). A small sample used to be shrunk toward
+# the MEDIAN player and given a bench player's role credit. Now an injury-shortened season (under SHORT_G games) is
+# shrunk toward the player's OWN last full season (400+ minutes within two years, its edge over that season's median,
+# regressed 10%), his role credit follows his minutes per game at a full season's pace, and the earned role floor
+# counts half his prior minutes. Mirrored in build_stat_overall_projected.py's demonstrated reference.
+SHORT_G=int(os.environ.get("SHORT_G","20")); SHORT_PACE=28
+prior={}   # espn_id -> (edge over that season's median per-40, minutes, season)
 rows=[]
 for yr,g in adv.groupby("season_year"):
     g=g.copy()
@@ -263,17 +270,28 @@ for yr,g in adv.groupby("season_year"):
     if len(ref)<20: ref=g                       # tiny season fallback
     ref_per40=ref["wa"]/ref["mp40"].clip(lower=0.1)
     mu40=ref_per40.median(); P90=ref["min"].quantile(0.90)
+    _pe=g["espn_id"].map(lambda e: prior.get(e) if pd.notna(e) and prior.get(e) and yr-prior[e][2]<=2 else None)
+    _mpg=g["min"]/g["g"].clip(lower=1)
+    _short=(g["g"].fillna(0)<SHORT_G)&(g["min"]<600)&(_mpg>=15)&_pe.notna()   # an injured REGULAR, not a deep-bench season
+    g["_tgt"]=np.where(_short, mu40+0.9*_pe.map(lambda x: x[0] if x else 0.0), mu40)
+    g["_pmin"]=np.where(_short, _pe.map(lambda x: x[1] if x else 0.0), 0.0)
+    g["_rmin"]=np.where((g["g"].fillna(0)<SHORT_G)&(_mpg>=15), np.maximum(g["min"], _mpg*SHORT_PACE), g["min"])
+    ref=g[g["min"]>=REF_MIN] if (g["min"]>=REF_MIN).sum()>=20 else g   # the same reference rows, now carrying the new columns
     def _craw(gg):
         per40=gg["wa"]/gg["mp40"].clip(lower=0.1)
         cred=gg["min"]/(gg["min"]+400.0)
-        b=mu40+cred*(per40-mu40)
+        tgt=gg["_tgt"] if "_tgt" in gg else mu40
+        b=tgt+cred*(per40-tgt)
         # ROLE CREDIT with a floor: the grade is the player, not his minutes (a 6-mpg big with a
         # starter's per-40 keeps most of it); volume lives in Wins Added. Must match the projected build.
         # ...but only once he has SHOWN it: the floor is earned by sample (full at ROLE_FLOOR_MIN
         # minutes), so a 40-minute walk-on with a median-shrunk per-40 still grades near the floor.
-        ff=ROLE_FLOOR*(gg["min"]/ROLE_FLOOR_MIN).clip(0,1)
-        return b*(ff+(1.0-ff)*np.sqrt((gg["min"]/P90).clip(0,1.3)))
+        ff=ROLE_FLOOR*((gg["min"]+0.5*gg["_pmin"])/ROLE_FLOOR_MIN).clip(0,1)
+        return b*(ff+(1.0-ff)*np.sqrt((gg["_rmin"]/P90).clip(0,1.3)))
     g["_c"]=_craw(g)
+    _p40=g["wa"]/g["mp40"].clip(lower=0.1)
+    for e,m,v in zip(g["espn_id"],g["min"],_p40):
+        if pd.notna(e) and m>=400: prior[e]=(float(v-mu40),float(m),int(yr))
     refc=np.sort(_craw(ref).values)             # rotation-pool reference distribution
     pct=(np.searchsorted(refc,g["_c"].values,side="right"))/(len(refc)+1)
     pct=np.clip(pct,1e-4,1-1e-4)
