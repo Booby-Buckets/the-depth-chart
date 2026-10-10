@@ -12,6 +12,7 @@
   <script src="tdc-lineup-history.js?v=4"></script>
   <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-nil.js?v=cal7"></script>
+  <script src="tdc-nilchart.js?v=1"></script>
   <script src="tdc-gate.js?v=4"></script>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js?v=24"></script>
@@ -54,22 +55,6 @@
     #nilContent .nv-pos i{position:relative;}
     #nilContent .nv-pos i span{position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:800;color:#fff;letter-spacing:.04em;}
     #nilContent .nil-cmp tr.me td{font-weight:800;}
-    #nilContent .nlc-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px;}
-    #nilContent .nlc-lede{font-size:14px;color:var(--text2);} #nilContent .nlc-lede b{color:var(--text);}
-    #nilContent .nlc-seg{display:inline-flex;gap:3px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:3px;}
-    #nilContent .nlc-seg button{font:700 12px Inter,system-ui,sans-serif;border:0;background:none;color:var(--text3);padding:5px 11px;border-radius:5px;cursor:pointer;white-space:nowrap;}
-    #nilContent .nlc-seg button.on{background:var(--text);color:var(--bg);}
-    #nilContent .nlc{position:relative;width:100%;}
-    #nilContent .nlc-grid{position:absolute;left:58px;right:120px;height:1px;background:var(--border);}
-    #nilContent .nlc-ax{position:absolute;left:0;width:50px;text-align:right;font-size:12px;font-weight:600;color:var(--text3);font-variant-numeric:tabular-nums;}
-    #nilContent .nlc-dot{position:absolute;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--bg);border:1px solid var(--border2);box-shadow:0 1px 2px rgba(0,0,0,.08);overflow:hidden;transition:transform .12s;z-index:2;}
-    #nilContent .nlc-dot:hover{transform:scale(1.35);z-index:5;}
-    #nilContent .nlc-dot img{width:78%;height:78%;object-fit:contain;} #nilContent .nlc-dot span{font-size:9px;font-weight:800;color:var(--text3);}
-    #nilContent .nlc-dot.me{border:2.5px solid var(--ring);box-shadow:0 0 0 3px color-mix(in srgb,var(--ring) 25%,transparent);z-index:4;}
-    #nilContent .nlc-lead{position:absolute;height:1px;background:var(--text3);z-index:1;} #nilContent .nlc-lead.me{background:var(--text);height:1.5px;}
-    #nilContent .nlc-call{position:absolute;font-size:13px;line-height:1.25;white-space:nowrap;} #nilContent .nlc-call b{display:block;font-weight:800;color:var(--text);} #nilContent .nlc-call span{color:var(--text3);font-variant-numeric:tabular-nums;}
-    #nilContent .nlc-call.me b{font-size:14px;}
-    #nilContent .nlc-foot{font-size:11.5px;color:var(--text3);margin-top:8px;line-height:1.5;}
     #nilContent .nrc{display:flex;flex-direction:column;gap:5px;}
     #nilContent .nrc-row{display:grid;grid-template-columns:minmax(120px,190px) 1fr 92px;gap:10px;align-items:center;}
     #nilContent .nrc-nm{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} #nilContent .nrc-nm em{font-style:normal;font-weight:600;color:var(--text3);margin-left:6px;font-size:11.5px;}
@@ -78,7 +63,7 @@
     #nilContent .nrc-mkk{position:relative;display:inline-block;width:2.5px;height:11px;vertical-align:-1px;transform:none;top:0;}
     #nilContent .nrc-key{display:inline-block;width:14px;height:9px;border-radius:2px;background:var(--tc-readable,var(--text2));vertical-align:0;}
     #nilContent .nrc-v{text-align:right;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;} #nilContent .nrc-v span{font-weight:600;color:var(--text3);margin-left:6px;font-size:11px;}
-    @media(max-width:640px){ #nilContent .nrc-row{grid-template-columns:96px 1fr 70px;gap:6px;} #nilContent .nrc-v span{display:none;} #nilContent .nlc-grid{right:96px;} }
+    @media(max-width:640px){ #nilContent .nrc-row{grid-template-columns:96px 1fr 70px;gap:6px;} #nilContent .nrc-v span{display:none;} }
 
     /* side column (Sept 2026): flat like the rest of the site — a small label over a sheet table,
        no card fill, border or coloured rail */
@@ -7549,59 +7534,9 @@ async function _nilMarketPublish(btn){
   }catch(e){ alert('✗ Publish failed: '+((e&&e.message)||e)); if(btn){ btn.disabled=false; btn.textContent=_t||'Publish to site'; } }
 }
 // ── NIL charts (Oct 2026) ─────────────────────────────────────────────────────────────────────────
-// LEAGUE: every roster's open-market worth as a stack of team logos — height is the roster's value, logos in
-// the same value band sit side by side (the "does your roster cost $8M or $50M?" layout). This team is ringed
-// and called out. View: its conference / the high-majors / all of D-I.
-var _NIL_HM={'ACC':1,'B10':1,'BIG-12':1,'SEC':1,'Big-East':1};
-var _NIL_CONF_NAME={'B10':'Big Ten','BIG-12':'Big 12','Big-East':'Big East','PAC-12':'Pac-12','A10':'Atlantic 10','AAC':'American','AEC':'America East','CUSA':'Conference USA','MWC':'Mountain West','UAC':'United Athletic','WCC':'West Coast','MVC':'Missouri Valley'};
-function _nilLeagueChart(host, board, me, myVal, myConf, tcol, fmt, mode){
-  if(!host||!board||board.length<4) return;
-  var hm=!!_NIL_HM[myConf];
-  mode=mode||(hm?'hm':'conf');
-  var pool=board.filter(function(x){ return mode==='all'?true:mode==='hm'?!!_NIL_HM[x.conf]:x.conf===myConf; });
-  if(!pool.some(function(x){ return x.team===me; })) pool=pool.concat([{team:me,val:myVal,conf:myConf}]);
-  pool=pool.slice().sort(function(a,b){ return b.val-a.val; });
-  var W=Math.max(320,host.clientWidth||900), left=58, right=150, iw=W-left-right;
-  var L=pool.length>120?20:pool.length>60?28:34, gap=4;
-  // all of D-I bunches 250 rosters between $1M and $5M: a log scale spreads that band out (the high-majors and a
-  // conference read fine on a straight $ scale)
-  var F=mode==='all'?function(v){ return Math.log(Math.max(v,0.05)); }:function(v){ return v; };
-  var vmax=F(pool[0].val), vmin=F(pool[pool.length-1].val), H=pool.length>120?640:Math.max(220,Math.min(560,pool.length*12+170));
-  var rows, dv, bins;
-  // shrink the logos until the busiest value band fits the width
-  for(var tries=0;tries<8;tries++){
-    rows=Math.max(4,Math.floor(H/(L+gap))); dv=(vmax-vmin)/rows||1;
-    bins={}; pool.forEach(function(x){ var r=Math.min(rows-1,Math.floor((vmax-F(x.val))/dv)); (bins[r]=bins[r]||[]).push(x); });
-    var widest=Math.max.apply(null,Object.keys(bins).map(function(k){ return bins[k].length; }));
-    if(widest*(L+gap)<=iw||L<=14) break; L-=3;
-  }
-  var rowH=L+gap, chartH=rows*rowH+L, Yv=function(v){ return 8+(vmax-F(v))/dv*rowH; };
-  var esc=function(t){ return String(t==null?'':t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); };
-  var logo=function(t){ try{ var c=window.tdcTeamColor&&tdcTeamColor(t); return (c&&c.logo)||''; }catch(e){ return ''; } };
-  // y axis: round $ steps
-  var rv=pool[0].val, rl=pool[pool.length-1].val, span=rv-rl, step=span>40?10:span>20?5:span>8?2:span>3?1:0.5, ax='';
-  var ticks=[]; if(mode==='all'){ [0.25,0.5,1,2,5,10,20,40].forEach(function(t){ if(t>=rl&&t<=rv) ticks.push(t); }); }
-  else for(var t0=Math.ceil(rl/step)*step; t0<=rv; t0+=step) ticks.push(t0);
-  ticks.forEach(function(v){ var y=Yv(v)+L/2;
-    ax+='<div class="nlc-grid" style="top:'+y.toFixed(1)+'px"></div><div class="nlc-ax" style="top:'+(y-8).toFixed(1)+'px">'+fmt(v)+'</div>'; });
-  var marks='', meXY=null, topXY=null, botXY=null;
-  Object.keys(bins).forEach(function(k){ var r=+k;
-    bins[k].forEach(function(x,i){ var X=left+i*rowH, Y=8+r*rowH, lg=logo(x.team), isMe=x.team===me;
-      if(isMe) meXY=[X,Y,x]; if(x===pool[0]) topXY=[X,Y,x]; if(x===pool[pool.length-1]) botXY=[X,Y,x];
-      marks+='<a class="nlc-dot'+(isMe?' me':'')+'" href="team.html?team='+encodeURIComponent(x.team)+'" title="'+esc(x.team)+' \u00b7 '+fmt(x.val)+'" style="left:'+X+'px;top:'+Y+'px;width:'+L+'px;height:'+L+'px;'+(isMe?'--ring:'+tcol+';':'')+'">'+
-        (lg?'<img src="'+esc(lg)+'" alt="" decoding="async">':'<span>'+esc(String(x.team).slice(0,3))+'</span>')+'</a>'; }); });
-  var call=function(xy,cls){ if(!xy) return ''; var x=xy[2], y=xy[1]+L/2, x0=xy[0]+L+3;
-    return '<div class="nlc-lead '+cls+'" style="left:'+x0+'px;top:'+y.toFixed(1)+'px;width:'+Math.max(10,W-right-x0+12)+'px"></div>'+
-      '<div class="nlc-call '+cls+'" style="left:'+(W-right+16)+'px;top:'+(y-17).toFixed(1)+'px"><b>'+esc(x.team)+'</b><span>'+fmt(x.val)+'</span></div>'; };
-  var rank=pool.findIndex(function(x){ return x.team===me; })+1;
-  var label={conf:(_NIL_CONF_NAME[myConf]||myConf||'Conference'),hm:'High-majors',all:'All D-I'};
-  var seg=['conf','hm','all'].map(function(m){ return '<button class="'+(m===mode?'on':'')+'" data-m="'+m+'">'+label[m]+'</button>'; }).join('');
-  host.innerHTML='<div class="sec-title nv-sec">What every roster is worth</div>'+
-    '<div class="nlc-top"><div class="nlc-lede"><b>'+esc(me)+'</b> is <b>#'+rank+' of '+pool.length+'</b> '+(mode==='conf'?'in the '+esc(label.conf):mode==='hm'?'among high-major rosters':'in Division I')+' at <b>'+fmt(myVal)+'</b>.</div><div class="nlc-seg">'+seg+'</div></div>'+
-    '<div class="nlc" style="height:'+(chartH+12)+'px">'+ax+marks+
-      call(topXY!==meXY?topXY:null,'top')+call(meXY,'me')+call(botXY!==meXY&&pool.length>2?botXY:null,'bot')+'</div>'+
-    '<div class="nlc-foot">Each logo is a roster, placed by its open-market NIL worth (every player priced on last season, career and upside). Logos in the same band are side by side.'+(mode==='all'?' The scale is compressed at the top so the crowded middle of D-I spreads out.':'')+'</div>';
-  host.querySelectorAll('.nlc-seg button').forEach(function(b){ b.onclick=function(){ _nilLeagueChart(host,board,me,myVal,myConf,tcol,fmt,b.getAttribute('data-m')); }; });
+// LEAGUE: every roster's open-market worth as a stack of team logos (shared with Moneyball: tdc-nilchart.js)
+function _nilLeagueChart(host, board, me, myVal, myConf, tcol, fmt){
+  if(window.TDC_NILCHART) TDC_NILCHART.league(host, board, {me:me, myVal:myVal, myConf:myConf, tcol:tcol, fmt:fmt});
 }
 // ROSTER: each player's open-market worth, biggest first, with his market price as a tick
 function _nilRosterChart(host, d, tcol, fmt, bmOf){

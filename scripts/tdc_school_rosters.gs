@@ -188,7 +188,16 @@ function pullSchoolRosters() {
   srNotice('School rosters pulled', summary + '. Next: run applySchoolAdditions to add the green players.');
 }
 
-function applySchoolAdditions() {
+// MAJOR-CONFERENCE FILL (Oct 2026, owner: "all players for all major conference teams"): the same ADD-ONLY
+// pass, for ACC / Big Ten / Big 12 / SEC / Big East teams INCLUDING ones you've already updated. It appends the
+// missing players (walk-ons, late transfers) as green rows at the bottom of the block and never edits, moves or
+// removes an existing row; spelling differences stay report-only.
+function applyMajorConferenceAdditions() {
+  applySchoolAdditions({ confs: { 'ACC': 1, 'B10': 1, 'BIG-12': 1, 'SEC': 1, 'Big-East': 1 } });
+}
+
+function applySchoolAdditions(opts) {
+  opts = opts || {};
   var data = srLoad();
   var blocks = srFindBlocks();
   // count first, so the confirm says exactly what will happen
@@ -196,7 +205,10 @@ function applySchoolAdditions() {
   data.forEach(function (t) {
     if (!t.players || t.stale) return;
     var blk = blocks[srTeamKey(t.team)];
-    if (!blk || srIsUpdated(t, blk)) return;      // already updated by you -> never touched
+    if (!blk) return;
+    if (opts.confs) { if (!opts.confs[t.conf]) return; }       // the major-conference fill: only these leagues...
+    else if (srIsUpdated(t, blk)) return;                      // ...otherwise already updated by you -> never touched
+    if (opts.confs && !blk.main) return;                       // never write into your own work-in-progress tabs
     var spell = {}; (t.renamed || []).forEach(function (x) { spell[srNorm(x.school)] = true; });
     var adds = t.players.filter(function (p) {
       return !blk.names[srNorm(p.name)] && !spell[srNorm(p.name)] && !(p.site_name && blk.names[srNorm(p.site_name)]);
@@ -204,7 +216,7 @@ function applySchoolAdditions() {
     if (adds.length) plan.push({ team: t.team, blk: blk, adds: adds });
   });
   var total = plan.reduce(function (a, x) { return a + x.adds.length; }, 0);
-  if (!total) { srNotice('Nothing to add', 'Every school-roster player is already in your Sheet (or the team is locked).'); return; }
+  if (!total) { srNotice('Nothing to add', opts.confs ? 'Every major-conference school-roster player is already in your Sheet.' : 'Every school-roster player is already in your Sheet (or the team is locked).'); return; }
   // no confirm dialog: this only ADDS rows (green), skips locked teams, and you reviewed the list first
 
   // bottom-up per sheet so inserting rows never shifts a block we haven't written yet

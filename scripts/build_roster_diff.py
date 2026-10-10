@@ -150,6 +150,10 @@ def depth_order(players, cls_rank):
 
 def main():
     scraped = json.load(open(os.path.join(HERE, 'data', 'school_rosters_2027.json')))
+    # a row with no jersey, position or height is STAFF the page layout leaked into the parse (Kentucky's
+    # coaches: Mark Pope, Mark Fox, Cody Fueger...), not a player
+    for r in scraped:
+        if r.get('players'): r['players'] = [x for x in r['players'] if x.get('jersey') or x.get('pos') or x.get('ht')]
     sites = json.load(open(os.path.join(HERE, 'data', 'school_sites.json')))
     ours = [p for p in pull('players?select=id,name,team,espn_id,hometown,tdc_grade', 'id') if p['name'] not in ('—', '-')]
     hist = pull('player_history?select=name,team,season_year,espn_id,mpg,ppg,position&season_year=gte.2024', 'id')

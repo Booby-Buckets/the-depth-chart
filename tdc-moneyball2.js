@@ -21,8 +21,12 @@
   function secH(t,n){ return '<div class="sec-h">'+t+(n?' <span class="note">'+n+'</span>':'')+'</div>'; }
   function projWins(r){ return Math.max(4,Math.min(35,15.91+0.548*r)); }
   function heatV(r){ return r>=0.5?'c4':r>=0.2?'c3':r>-0.2?'c2':r>-0.5?'c1':'c0'; }
-  function verdict(p){ var r=p.value/Math.max(p.cost,0.25); if(Math.abs(p.value)<0.15) return 'f'; return r>=0.25?'b':r<=-0.25?'o':'f'; }
+  // symmetric on the RATIO scale (Oct 2026): a bargain costs 1/1.25 or less of what players like him cost, overpriced
+  // costs 1.25x or more. (value/cost >= .25 vs <= −.25 called 20%-under a bargain but needed 33%-over to be overpriced.)
+  function verdict(p){ if(Math.abs(p.value)<0.15||!(p.expected>0)||!(p.cost>0)) return 'f'; var r=Math.log(p.expected/Math.max(p.cost,0.05)), k=Math.log(1.25);
+    return r>=k?'b':r<=-k?'o':'f'; }
   var POWER=['ACC','B10','BIG-12','SEC','Big-East','Big Ten','Big 12','Big East'];
+  function isPower(c){ return ['ACC','B10','BIG-12','SEC','Big-East','Big Ten','Big 12','Big East'].indexOf(c)>=0; }
   function confOk(c,want){ return want==='all'||(want==='__power'?POWER.indexOf(c)>=0:c===want); }
   var VLBL={b:'Bargain',f:'Fair',o:'Overpriced'};
 
@@ -54,7 +58,10 @@
           var cost=(N&&N.neutralValueOf)?N.neutralValueOf(p):(+p.value||0);
           if(!isFinite(cost)) cost=0;
           players.push({name:p.name, team:short, full:full, conf:info.conf||p.conf||'', espn:p.espn_id, pos:(N&&N.POS5)?N.POS5(p.pos||''):(p.pos||''),
-            cls:(p.cls||'').replace(/\./g,''), ovr:ovr!=null?Math.round(+ovr):null, mpg:mpg, wins:wins, cost:cost});
+            cls:(p.cls||'').replace(/\./g,''), ovr:ovr!=null?Math.round(+ovr):null, mpg:mpg, wins:wins, cost:cost,
+            // the quality his PRICE is built on (NIL grade + minutes: last season, career, potential) — "players like
+            // him" match on this, so a proven player buried on a depth chart is compared with his peers, not 5-min players
+            ng:(N&&N.nilGradeOf&&N.nilGradeOf(p)!=null)?+N.nilGradeOf(p):(ovr!=null?+ovr:null), nm:(N&&N.nilMpgOf&&+N.nilMpgOf(p)>0)?Math.min(MPG_CAP,+N.nilMpgOf(p)):mpg});
         });
       });
       var rot=players.filter(function(p){ return p.mpg>=ROT_MIN && p.wins>0.1 && p.cost>0; });
@@ -63,13 +70,18 @@
       // overall and minutes. (A curve on wins alone called every star overpriced — the market pays a steep
       // premium for elite talent — and a smooth OVR fit overshot the real market at the top; neighbours
       // keep a star judged against other stars, a role player against role players, inside real prices.)
-      var POOL=rot.filter(function(p){ return p.ovr!=null&&p.cost>0.05; }).sort(function(a,b){ return a.ovr-b.ovr; });
-      CURVE=function(ovr,mpg,self){ if(ovr==null||!(mpg>0)||!POOL.length) return 0;
+      // ...from his OWN kind of conference (Oct 2026): a power-conference player carries the conference NIL premium,
+      // so against all of D-I the power median read −11% (203 overpriced, 140 bargains). No `self` (the band's
+      // headline prices) = power-conference neighbours.
+      var POOL_ALL=players.filter(function(p){ return p.ng!=null&&p.nm>=ROT_MIN&&p.cost>0.05; }).sort(function(a,b){ return a.ng-b.ng; });
+      var POOL_PW=POOL_ALL.filter(function(p){ return isPower(p.conf); }), POOL_NP=POOL_ALL.filter(function(p){ return !isPower(p.conf); });
+      CURVE=function(ovr,mpg,self){ var POOL=(self&&!isPower(self.conf))?POOL_NP:POOL_PW;
+        if(ovr==null||!(mpg>0)||!POOL.length) return 0;
         var lm=Math.log(Math.max(1,mpg)), near=[];
-        for(var w=4; w<=40 && near.length<30; w*=2){ near=POOL.filter(function(q){ return q!==self&&Math.abs(q.ovr-ovr)<=w; }); }
-        near=near.map(function(q){ var a=(q.ovr-ovr)/2, b=(Math.log(Math.max(1,q.mpg))-lm)/0.25; return [a*a+b*b,q.cost]; }).sort(function(x,y){ return x[0]-y[0]; }).slice(0,30).map(function(x){ return x[1]; }).sort(function(x,y){ return x-y; });
+        for(var w=4; w<=40 && near.length<30; w*=2){ near=POOL.filter(function(q){ return q!==self&&Math.abs(q.ng-ovr)<=w; }); }
+        near=near.map(function(q){ var a=(q.ng-ovr)/2, b=(Math.log(Math.max(1,q.nm))-lm)/0.25; return [a*a+b*b,q.cost]; }).sort(function(x,y){ return x[0]-y[0]; }).slice(0,30).map(function(x){ return x[1]; }).sort(function(x,y){ return x-y; });
         var n=near.length; return n? (n%2? near[(n-1)/2] : (near[n/2-1]+near[n/2])/2) : 0; };
-      players.forEach(function(p){ p.expected=CURVE(p.ovr,p.mpg,p); p.value=p.expected-p.cost; p.cpw=p.wins>0.05?p.cost/p.wins:null; p.v=verdict(p); });
+      players.forEach(function(p){ p.expected=CURVE(p.ng,p.nm,p); p.value=p.expected-p.cost; p.cpw=p.wins>0.05?p.cost/p.wins:null; p.v=verdict(p); });
       var teams={};
       players.forEach(function(p){ (teams[p.team]=teams[p.team]||{team:p.team,full:p.full,conf:p.conf,players:[]}).players.push(p); });
       Object.keys(teams).forEach(function(k){ var t=teams[k], info=rat[k]||{};
@@ -77,13 +89,22 @@
         t.rank=info.rank||null; t.rating=info.rating; t.rec=info.rating!=null?Math.round(projWins(info.rating)):null;
         t.cpw=t.rec?t.cost/t.rec:null;
         t.best=t.players.slice().sort(function(a,b){return b.value-a.value;})[0]; t.n=t.players.length; });
-      // PROGRAM CURVE: what a roster projected this good usually costs — ln(cost) = a + b·rating over every
-      // priced roster. Value = expected − actual (a cheap roster that projects well is the bargain).
+      // PROGRAM CURVE: what a roster projected this good usually costs IN ITS KIND OF CONFERENCE —
+      // ln(cost) = a + b·rating + c·rating² + d·power, least squares over every priced roster (Oct 2026). One
+      // all-D-I line (the old ln(cost) = a + b·rating) read 37 of 79 power rosters overpriced and 9 bargains:
+      // at the same rating a power roster costs ~1.6x (the conference NIL premium), and the bend at the ends
+      // (price floors at the bottom) tilted it further. With the power term both groups split ~evenly.
       (function(){ var T=Object.keys(teams).map(function(k){return teams[k];}).filter(function(t){ return t.n>=5&&t.cost>0.3&&t.rating!=null; });
-        var n=T.length, xs=T.map(function(t){return t.rating;}), ys=T.map(function(t){return Math.log(t.cost);});
-        var mx=sum(xs)/n, my=sum(ys)/n, sxy=0, sxx=0; for(var i=0;i<n;i++){ sxy+=(xs[i]-mx)*(ys[i]-my); sxx+=(xs[i]-mx)*(xs[i]-mx); }
-        var b=sxy/sxx, a=my-b*mx; TCURVE=function(r){ return Math.exp(a+b*r); };
-        Object.keys(teams).forEach(function(k){ var t=teams[k]; if(t.rating!=null){ t.expected=TCURVE(t.rating); t.value=t.expected-t.cost; } else { t.expected=null; t.value=null; } }); })();
+        var K=4, A=[], B=[0,0,0,0], i, j, q;
+        for(i=0;i<K;i++){ A.push([0,0,0,0]); }
+        T.forEach(function(t){ var x=[1,t.rating,t.rating*t.rating,isPower(t.conf)?1:0], y=Math.log(t.cost);
+          for(i=0;i<K;i++){ B[i]+=x[i]*y; for(j=0;j<K;j++) A[i][j]+=x[i]*x[j]; } });
+        for(i=0;i<K;i++){ var m=i; for(j=i+1;j<K;j++) if(Math.abs(A[j][i])>Math.abs(A[m][i])) m=j;
+          var tA=A[i]; A[i]=A[m]; A[m]=tA; var tB=B[i]; B[i]=B[m]; B[m]=tB;
+          for(j=i+1;j<K;j++){ var f=A[j][i]/A[i][i]; for(q=i;q<K;q++) A[j][q]-=f*A[i][q]; B[j]-=f*B[i]; } }
+        var w=[0,0,0,0]; for(i=K-1;i>=0;i--){ var sm=B[i]; for(q=i+1;q<K;q++) sm-=A[i][q]*w[q]; w[i]=sm/A[i][i]; }
+        TCURVE=function(r,pw){ return Math.exp(w[0]+w[1]*r+w[2]*r*r+(pw?w[3]:0)); };
+        Object.keys(teams).forEach(function(k){ var t=teams[k]; if(t.rating!=null){ t.expected=TCURVE(t.rating,isPower(t.conf)); t.value=t.expected-t.cost; } else { t.expected=null; t.value=null; } }); })();
       MB={players:players, rot:rot, teams:teams, D:D};
       return MB;
     });
@@ -101,9 +122,9 @@
     var best=rot.slice().sort(function(a,b){return b.value-a.value;})[0];
     var confs=Array.from(new Set(rot.map(function(p){return p.conf;}).filter(Boolean))).sort();
     $('playersBody').innerHTML=
-      '<div class="explain"><div><b>Cost</b>What he would command on the open NIL market. The same number as his player page.</div><div><b>Wins</b>Wins he is projected to add in 2026-27: his overall × his projected minutes.</div><div><b>Value</b>What the 30 players closest to him in overall and minutes usually cost, minus what he costs. Positive = you get him for less than the market charges for his quality.</div></div>'+
-      band([{v:fM(CURVE(80,25))+' · '+fM(CURVE(90,32)),l:'Market price',s:'an 80 OVR, 25-min player · a 90 OVR star'},{v:rot.length.toLocaleString(),l:'Rotation players',s:'10+ projected minutes'},
-            {v:nb,l:'Bargains',s:'value ≥ 25% of cost and $150K'},{v:no,l:'Overpriced',s:'value ≤ −25% of cost and $150K'}])+
+      '<div class="explain"><div><b>Cost</b>What he would command on the open NIL market. The same number as his player page.</div><div><b>Wins</b>Wins he is projected to add in 2026-27: his overall × his projected minutes.</div><div><b>Value</b>What the 30 players closest to him (NIL grade and minutes, in his kind of conference) usually cost, minus what he costs. Positive = you get him for less than the market charges for his quality.</div></div>'+
+      band([{v:fM(CURVE(80,25))+' · '+fM(CURVE(90,32)),l:'Market price',s:'power conference: an 80 OVR, 25-min player · a 90 OVR star'},{v:rot.length.toLocaleString(),l:'Rotation players',s:'10+ projected minutes'},
+            {v:nb,l:'Bargains',s:'costs 20%+ under players like him'},{v:no,l:'Overpriced',s:'costs 25%+ over players like him'}])+
       secH('What he costs vs what players like him cost','each dot is a player in your filter · hover for details')+
       '<div class="chart" id="plChart"></div>'+
       secH('Bargain board','sort any column')+
@@ -176,15 +197,29 @@
     var dear=T.slice().sort(function(a,b){return b.cost-a.cost;})[0], bestV=T.filter(function(t){return t.value!=null;}).sort(function(a,b){return b.value-a.value;})[0];
     var confs=Array.from(new Set(T.map(function(t){return t.conf;}).filter(Boolean))).sort();
     $('programsBody').innerHTML=
-      '<div class="explain"><div><b>Roster cost</b>Every player\'s open-market NIL value, added up. Not what the school actually pays.</div><div><b>Usually costs</b>What a roster projected this good typically costs, from every program in the country.</div><div><b>Value</b>Usually costs minus roster cost. Positive = this program gets its projected strength for less than the market.</div></div>'+
-      band([{v:fM(TCURVE(20)),l:'A top-10 roster',s:'usually costs (rating +20)'},{v:esc(dear.full),l:'Most expensive roster',s:fM(dear.cost)},{v:esc(bestV.full),l:'Best value',s:fSign(bestV.value)+' under the market'},
+      '<div class="explain"><div><b>Roster cost</b>Every player\'s open-market NIL value, added up. Not what the school actually pays.</div><div><b>Usually costs</b>What a roster projected this good typically costs in its kind of conference. Power-conference rosters run about 60% dearer at the same quality, so each is judged against its own market.</div><div><b>Value</b>Usually costs minus roster cost. Positive = this program gets its projected strength for less than the market.</div></div>'+
+      band([{v:fM(TCURVE(20,true)),l:'A top-10 roster',s:'usually costs (power conference, rating +20)'},{v:esc(dear.full),l:'Most expensive roster',s:fM(dear.cost)},{v:esc(bestV.full),l:'Best value',s:fSign(bestV.value)+' under the market'},
             {v:fM(med(ranked.filter(function(t){return t.rank<=25;}).map(function(t){return t.cost;}))),l:'Typical top-25 roster',s:'median cost'}])+
+      '<div id="pgLogos"></div>'+
       secH('What it costs to build a team','by projected 2026-27 ranking')+
       '<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">Projected rank</th><th>Programs</th><th>Median cost</th><th title="90% of rosters in the band cost at least this">Floor (90%)</th><th class="l">Cheapest</th><th class="l">Most expensive</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
       secH('Every program','sort any column · click a program for its best and worst value')+
       '<div class="ctrls"><input id="pgQ" placeholder="Search a program…" value="'+esc(PG.q)+'" aria-label="Search programs"><select id="pgConf" aria-label="Conference"><option value="all">All conferences</option><option value="__power"'+(PG.conf==='__power'?' selected':'')+'>Power conferences</option>'+confs.map(function(c){ return '<option'+(PG.conf===c?' selected':'')+'>'+esc(c)+'</option>'; }).join('')+'</select></div>'+
       '<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead id="pgHead"></thead><tbody id="pgRows"></tbody></table></div><div id="pgMore"></div><div id="pgDetail"></div>'+
       '<div class="disclaimer">Roster cost and value are model estimates from open-market NIL values, not cap sheets. "Usually costs" is fit across every priced roster against its projected Power Rating. Cost per win = roster cost ÷ projected wins.</div>';
+    // every roster as a logo, stacked by what it costs; the ring says whether that's a bargain for how good it is
+    if(window.TDC_NILCHART){
+      var VC={b:'var(--green)',o:'var(--red)'};
+      var vtag=function(t){ if(t.value==null) return null; var r=t.value/Math.max(t.cost,0.5); return r>=0.15?'b':r<=-0.15?'o':null; };
+      TDC_NILCHART.league($('pgLogos'), T.map(function(t){ return {team:t.team, val:t.cost, conf:t.conf, _t:t}; }), {
+        title:'What every roster costs', fmt:fM, hmLabel:'Power conferences', modes:['hm','all'],
+        ring:function(x){ var v=vtag(x._t); return v?VC[v]:null; },
+        lede:function(pool){ var b=pool.filter(function(x){ return vtag(x._t)==='b'; }).length, o=pool.filter(function(x){ return vtag(x._t)==='o'; }).length;
+          return '<b>'+pool.length+' rosters</b>, from '+esc(pool[0].team)+' ('+fM(pool[0].val)+') to '+esc(pool[pool.length-1].team)+' ('+fM(pool[pool.length-1].val)+'). <b style="color:var(--green)">'+b+'</b> cost well under what rosters this good usually do, <b style="color:var(--red)">'+o+'</b> well over.'; },
+        legend:'<div class="nlc-key"><span><i style="border-color:var(--green)"></i>Bargain: costs 15%+ less than rosters this good usually do</span><span><i style="border-color:var(--red)"></i>Overpriced: 15%+ more</span><span><i style="border-color:var(--border2)"></i>About the going rate</span></div>',
+        foot:'Each logo is a roster, placed by its cost (every player\u2019s open-market NIL value, added up). Logos in the same band are side by side. Click a logo for that program\u2019s best and worst values.',
+        onPick:function(x){ PG.sel=x.team; paintPg(T); return true; } });
+    }
     var deb; $('pgQ').addEventListener('input',function(e){ clearTimeout(deb); var v=e.target.value; deb=setTimeout(function(){ PG.q=v; PG.limit=50; paintPg(T); },200); });
     $('pgConf').addEventListener('change',function(e){ PG.conf=e.target.value; PG.limit=50; paintPg(T); });
     paintPg(T);
@@ -223,7 +258,7 @@
     if(!booted[name]){ booted[name]=true;
       if(name==='gm'){ build().then(function(){ var w={}; MB.players.forEach(function(p){ w[p.team+'|'+(p.name||'').toLowerCase().trim()]=p.wins; });
           var cp=Object.keys(MB.teams).map(function(k){return MB.teams[k].cpw;}).filter(function(x){return x!=null&&isFinite(x);});
-          window.TDC_GM.boot($('gmBody'),{projWins:projWins, rate:med(cp), teamCurve:TCURVE, winsOf:function(key){ return w[key]; }}); }); }
+          window.TDC_GM.boot($('gmBody'),{projWins:projWins, rate:med(cp), teamCurve:function(r){ return TCURVE(r,true); }, winsOf:function(key){ return w[key]; }}); }); }
       else build().then(function(){ if(name==='players') renderPlayers(); else renderPrograms(); }).catch(function(e){ $(name+'Body').innerHTML='<div class="loading">Could not load ('+esc(e&&e.message||e)+').</div>'; });
     }
     try{ var sp=new URLSearchParams(location.search); sp.set('tab',name); if(name!=='gm'){ sp.delete('team'); sp.delete('gm'); } history.replaceState(null,'',location.pathname+'?'+sp.toString()); }catch(e){}
@@ -234,4 +269,5 @@
   if(INIT.get('team') && /^(ledger|values|programs)$/.test(INIT.get('tab')||'')) PG.sel=INIT.get('team');   // team page → its program
   var t=INIT.get('tab'), MAP={players:'players',market:'players',programs:'programs',values:'programs',ledger:'programs',gm:'gm',office:'gm'};
   show(MAP[t]||(INIT.get('team')?'gm':'players'));
+  window.TDC_MONEYBALL={data:function(){ return MB; }};   // read-only (checks / other pages)
 })();
