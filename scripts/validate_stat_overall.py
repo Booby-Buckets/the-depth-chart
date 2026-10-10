@@ -38,7 +38,7 @@ def sb_get(path):
     return out
 
 print("Loading overall history + box grades + minutes + team results...",file=sys.stderr)
-stat=pd.read_csv(os.path.join(D,"stat_overall_history.csv"))
+stat=pd.read_csv(os.environ.get("STAT_CSV") or os.path.join(D,"stat_overall_history.csv"))
 adv =pd.DataFrame(sb_get("player_advanced?select=espn_id,season_year,min"))
 ph  =pd.DataFrame(sb_get("player_history?select=espn_id,season_year,tdc_grade"))
 ts  =pd.DataFrame(sb_get("team_seasons?select=season_year,team,wins,losses,srs"))

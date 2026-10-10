@@ -40,6 +40,10 @@ TP_LUCK=float(os.environ.get("TP_LUCK","0.55"))   # match build_stat_overall.py 
 # no extra credit (LOC_W, one-way), and only MAKE_W of eFG above the look's expectation counts.
 # Shot diet is a stable trait, so the per-minute adjustment carries into the projected minutes.
 LOC_W=float(os.environ.get("LOC_W","0.0")); MAKE_W=float(os.environ.get("MAKE_W","0.7"))
+# SHOOTING EFFICIENCY — match build_stat_overall.py: credit/dock the points scored above/below what the league
+# true-shooting rate makes on the same attempts (TI docks a miss only 0.5). The demonstrated reference takes his
+# real 2026 efficiency; the projected grade takes the PROJECTED line's (its shooting is already regressed).
+EFF_W=float(os.environ.get("EFF_W","2.5"))
 def _load_sd40():
     f=os.path.join(os.path.dirname(os.path.abspath(__file__)),"data","shot_genome_players.json")
     if not os.path.exists(f): return {}
@@ -932,6 +936,14 @@ _blk40=((box["blk"]/box["mpg"].where(box["mpg"]>0))*40.0).reindex(d26["espn_id"]
 LG_BLK40=float(np.average(_blk40[d26["min"].values>=400],weights=d26["min"].values[d26["min"].values>=400])) if (d26["min"]>=400).any() else 0.65
 BLK40={int(e):float(v) for e,v in ((box["blk"]/box["mpg"].where(box["mpg"]>0))*40.0).dropna().items()}
 d26["rim"]=rim_wins(_blk40,LG_BLK40,d26["min"].values) if RIM_PTS>0 else 0.0
+# league true shooting over the 2026 rotation (2 x TSA in the denominator), then each reference player's edge
+_bx=box.reindex(d26["espn_id"])
+_pts=(_bx["ppg"].fillna(0)*_bx["gp"].fillna(0)).values
+_tsa2=(2.0*(_bx["fga"].fillna(0)+0.44*_bx["fta"].fillna(0))*_bx["gp"].fillna(0)).values
+LG_TS=float(_pts.sum()/max(_tsa2.sum(),1.0)) if _tsa2.sum()>0 else 0.56
+if EFF_W>0:
+    d26["owa"]=d26["owa"]+EFF_W*OWA_B*(_pts-LG_TS*_tsa2)*d26["min"]/(d26["min"]+REG_MP)
+    print(f"shooting efficiency: EFF_W={EFF_W}, league TS {LG_TS:.3f}",file=sys.stderr)
 d26["wa"]=(d26["owa"].fillna(0)*d26["usg_mult"]+DWA_W*(d26["dwa"].fillna(0)+d26["rim"]))*d26["sos"]
 if FOUL_W>0:   # demonstrated excess-foul dock (matches build_stat_overall.py's 2026 reference)
     d26["wa"]=d26["wa"]-d26.apply(lambda r: foul_pen(r["espn_id"], r["min"] if pd.notna(r["min"]) else 0), axis=1)
@@ -1248,6 +1260,9 @@ for short, roster in roster_by_team.items():
                 owa=_n(r["a"]["owa"])+(owa-owa_demo)
                 if e in SD_TI and last_min>0:   # shot difficulty, per 2026 minute, carried to projected minutes
                     owa+=OWA_B*SD_TI[e]*(mn/last_min)*mn/(mn+REG_MP)
+            if EFF_W>0:   # shooting efficiency of the PROJECTED line vs the league (same term as the reference)
+                _effp=(pg["pts"]-LG_TS*2.0*(pg["fga"]+0.44*pg["fta"]))*G_PROJ
+                owa+=EFF_W*OWA_B*_effp*mn/(mn+REG_MP)
             # DWA carries from last year's defensive RATE (team-D can't be projected), scaled to new minutes
             dwa_last=_n(r["a"]["dwa"] if r["a"] is not None else 0)
             dwa40=dwa_last/(max(last_min,1)/40.0)

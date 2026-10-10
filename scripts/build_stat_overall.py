@@ -24,6 +24,7 @@ from scipy.stats import norm
 SB="https://izlqhnxowdhtdofkwrho.supabase.co"; KEY="sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye"
 H={"apikey":KEY,"Authorization":"Bearer "+KEY}
 D=os.path.join(os.path.dirname(os.path.abspath(__file__)),"data")
+OUT=os.environ.get("STAT_OUT_DIR") or D   # experiments write elsewhere; inputs still come from D
 ROLE_FLOOR=float(os.environ.get("ROLE_FLOOR","0.75"))   # talent-first grade; 0 = the old pure sqrt(minutes) role credit
 ROLE_FLOOR_MIN=float(os.environ.get("ROLE_FLOOR_MIN","500"))   # season minutes that earn the full floor
 CUR=2026; K_SOS=0.42; MU=73.0; SP=7.6; FLOOR=55; MIN_GP=3; REF_MIN=200
@@ -114,13 +115,13 @@ print("Pulling player_advanced (all seasons), team_seasons, positions...",file=s
 # per-season pulls keep offsets shallow (deep offset pagination on the full 79k table 500s)
 _advp=[]
 for _yr in range(2008, CUR+1):
-    _p=sb_get(f"player_advanced?season_year=eq.{_yr}&select=espn_id,season_year,name,team,g,min,ppg,usg_pct,tov_pct,ti40,owa,dwa")
+    _p=sb_get(f"player_advanced?season_year=eq.{_yr}&select=espn_id,season_year,name,team,g,min,ppg,usg_pct,tov_pct,ti40,owa,dwa,ts_pct")
     if _p: _advp.append(pd.DataFrame(_p))
 adv=pd.concat(_advp,ignore_index=True)
 ts =pd.DataFrame(sb_get("team_seasons?select=season_year,team,conference,srs,wins,losses"))
 ph =pd.DataFrame(sb_get("player_history?select=espn_id,season_year,position,gp,tpa,tp_pct,blk,mpg"))
 for c in ["espn_id","season_year","min","g"]: adv[c]=pd.to_numeric(adv[c],errors="coerce")
-for c in ["usg_pct","tov_pct","ti40","owa","dwa"]: adv[c]=pd.to_numeric(adv[c],errors="coerce")
+for c in ["usg_pct","tov_pct","ti40","owa","dwa","ts_pct"]: adv[c]=pd.to_numeric(adv[c],errors="coerce")
 # TEAM-ADJUSTED DWA (scripts/team_d_adjust.py): most of a great defense's team share comes off each player
 import team_d_adjust
 team_d_adjust.adjust_frame(adv)
@@ -218,6 +219,20 @@ for _yr in GENOME_YEARS:
         _p=_g.get(int(_e))
         if _p: _sd[_i]=OWA_B*shot_diff_ti(_p,_lg)*_m/(_m+REG_MP); _hit+=1
 adv["owa"]=adv["owa"]+_sd
+# SHOOTING EFFICIENCY (Oct 2026, owner: Pippen 88 on 52.8% TS). TI docks a miss only 0.5 against 2 for a make,
+# so any shooter above ~20% "adds" value and high-volume, low-efficiency scorers grade like stars (Council 87 on
+# 46.7% TS, Dent 89 on 47.2%). Credit/dock the points he scored above/below what the league's true-shooting
+# rate makes on the same attempts: pts x (1 - lgTS/TS), in OWA units. Validated on team win% 2013-25.
+EFF_W=float(os.environ.get("EFF_W","2.5"))   # validated Oct 2026: team win% r .765->.826, next-season .553->.582; peak 2.5 (4.0 .577, 6.0 worse)
+if EFF_W>0:
+    _ts=adv["ts_pct"].where(adv["ts_pct"]>1.5, adv["ts_pct"]*100.0)/100.0
+    _pts=adv["ppg"].fillna(0)*adv["g"].fillna(0)
+    _tsa2=np.where(_ts>0.05,_pts/_ts.clip(lower=0.05),0.0)            # 2 x true-shot attempts
+    _rot=(adv["min"]>=200)&(_ts>0.05)
+    _lgts=pd.Series(_pts.where(_rot,0)).groupby(adv["season_year"]).sum()/pd.Series(np.where(_rot,_tsa2,0.0)).groupby(adv["season_year"]).sum()
+    _eff=_pts-adv["season_year"].map(_lgts).fillna(0.54)*_tsa2
+    adv["owa"]=adv["owa"]+EFF_W*OWA_B*_eff.where(_ts>0.05,0.0)*adv["min"]/(adv["min"]+REG_MP)
+    print(f"  shooting efficiency (EFF_W={EFF_W}): league TS {', '.join(f'{int(y)} {v:.3f}' for y,v in _lgts.tail(3).items())}",file=sys.stderr)
 adv["rim"]=0.0
 if RIM_PTS>0:
     _b=ph.copy()
@@ -270,13 +285,13 @@ print(f"Scored {len(allg)} player-seasons across {allg['season_year'].nunique()}
 # ---- history CSV (all seasons) ----
 hist=allg[["espn_id","season_year","team","ovr"]].dropna(subset=["espn_id"]).copy()
 hist["espn_id"]=hist["espn_id"].astype(int)
-hist.to_csv(os.path.join(D,"stat_overall_history.csv"),index=False)
+hist.to_csv(os.path.join(OUT,"stat_overall_history.csv"),index=False)
 # client JSON: {season: {espn_id: ovr}} so gradeSolo can be season-aware for
 # historical views (conference/team/index past-season top players, player history).
 histj={}
 for _,r in hist.iterrows():
     histj.setdefault(str(int(r["season_year"])),{})[str(int(r["espn_id"]))]=int(r["ovr"])
-json.dump(histj, open(os.path.join(D,"stat_overall_history.json"),"w"), separators=(",",":"))
+json.dump(histj, open(os.path.join(OUT,"stat_overall_history.json"),"w"), separators=(",",":"))
 
 # ---- current-season JSON for the player page ----
 def _sf(x,nd=1):   # NaN/None-safe number (low-minute players can have null usg/ti)
@@ -291,6 +306,6 @@ for _,r in cur.iterrows():
         "sos":_sf(r["sos"],2),"rim":_sf(r["rim"],2),
     }
 json.dump({"season":CUR,"scale":{"mu":MU,"sp":SP},"n":len(out),"players":out},
-          open(os.path.join(D,"stat_overall.json"),"w"),separators=(",",":"),allow_nan=False)
+          open(os.path.join(OUT,"stat_overall.json"),"w"),separators=(",",":"),allow_nan=False)
 print(f"Wrote stat_overall.json ({len(out)} current players) + stat_overall_history.csv ({len(hist)} rows)",file=sys.stderr)
 print(f"[{CUR}] top: "+", ".join(f"{r['name']} {int(r['ovr'])}" for _,r in cur.sort_values('ovr',ascending=False).head(5).iterrows()),file=sys.stderr)
