@@ -541,7 +541,7 @@ def dev_mult(yr,demo,n_prior=None):
 print("Pulling roster, last-year box + advanced, team SOS...",file=sys.stderr)
 adv=pd.DataFrame(sb_get(f"player_advanced?select=espn_id,name,team,g,min,usg_pct,owa,dwa,ti40&season_year=eq.{CUR}"))
 box=pd.DataFrame(sb_get(f"player_history?select=espn_id,ppg,mpg,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb,stl,blk,tovs,apg,gp,fg_pct,tp_pct,ft_pct&season_year=eq.{CUR}"))
-pl =pd.DataFrame(sb_get("players?select=id,espn_id,name,depth_order,starter,mpg,yr,class_year,team,position,position2,height,tdc_grade,is_injured"))
+pl =pd.DataFrame(sb_get("players?select=id,espn_id,name,depth_order,depth_set_at,starter,mpg,yr,class_year,team,position,position2,height,tdc_grade,is_injured"))
 # the no-scrimmage BASE run (SCRIM_ROT_CAP=0, for the Trends tab) must also undo the scrimmage depth charts
 # (build_scrim_depth.py): put back each team's saved pre-scrimmage order, or "before the scrimmages" would
 # already contain them (Givens read "15 min, 13 fewer than projected" against his scrimmage-earned start)
@@ -1010,6 +1010,56 @@ def to_grade(c):
     pct=np.searchsorted(REF,c,side="right")/(len(REF)+1); pct=min(max(pct,1e-4),1-1e-4)
     return int(round(min(99,max(FLOOR,MU+SP*norm.ppf(pct)))))
 demo_ovr={int(r.espn_id):to_grade(r.C) for r in d26.itertuples()}
+
+# ---- BURIED PROVEN PLAYERS (Oct 2026) ----
+# Minutes follow depth_order almost entirely, and on a sheet nobody has ordered by hand a newcomer is
+# often just appended at the bottom: 179 players who averaged 8+ mpg last season projected for <=2
+# (Brody Robinson, 35.8 mpg at Oakland, 9th of 14 at Creighton -> 1.9). On a team whose depth chart
+# was NOT deliberately set (no depth_set_at: owner editor or applied scrimmage order — those keep
+# their exact order), a proven player (BURY_MIN_MPG+ mpg over BURY_MIN_GP+ games) moves up past each
+# teammate listed ahead of him whose grade is BURY_MARGIN+ points lower. Grades are the demonstrated
+# overall, with a transfer stepping up a level docked BURY_LVL per point of conference-strength gap
+# (level_adj.json) for this ordering only — the grade itself is untouched. A teammate with no grade
+# (a freshman, an unlinked newcomer) holds his spot, and the authored starting five is never entered.
+BURY_FIX=os.environ.get("BURY_FIX","1")!="0"
+BURY_MARGIN=float(os.environ.get("BURY_MARGIN","4")); BURY_LVL=float(os.environ.get("BURY_LVL","0.35"))
+BURY_MIN_MPG=float(os.environ.get("BURY_MIN_MPG","12")); BURY_MIN_GP=float(os.environ.get("BURY_MIN_GP","10"))
+BURY_MOVES=[]
+if BURY_FIX:
+    try:
+        _lv=json.load(open(os.path.join(D,"level_adj.json"))); _CS=_lv.get("conf_strength") or {}; _TC=_lv.get("team_conf") or {}
+    except Exception:
+        _CS={}; _TC={}
+    _authored={_bzt for _bzt,_bzg in pl.groupby("team") if _bzg["depth_set_at"].notna().any()}
+    def _bury_q(e, short):
+        if e is None or e not in demo_ovr: return None
+        q=float(demo_ovr[e])
+        _old=advByEspn.loc[e]["team"] if e in advByEspn.index else None
+        _new=S2F.get(str(short).lower())
+        a=_CS.get(_TC.get(_old)) if _old else None; b=_CS.get(_TC.get(_new)) if _new else None
+        if a is not None and b is not None and str(_old)!=str(_new): q-=BURY_LVL*max(0.0,b-a)
+        return q
+    def _bury_proven(e):
+        if e is None or e not in box.index: return False
+        return _n(box.loc[e]["mpg"])>=BURY_MIN_MPG and _n(box.loc[e]["gp"])>=BURY_MIN_GP
+    for _bzt,_bzg in pl.groupby("team"):
+        if _bzt in _authored: continue
+        _bzg=_bzg.sort_values("depth_order",na_position="last")
+        L=[]
+        for _bzp in _bzg.itertuples():
+            _bze=int(_bzp.espn_id) if pd.notna(_bzp.espn_id) else None
+            L.append({"i":_bzp.Index,"name":_bzp.name,"q":_bury_q(_bze,_bzt),"pv":_bury_proven(_bze)})
+        _from={x["i"]:k+1 for k,x in enumerate(L)}
+        for k in range(len(L)):
+            if not L[k]["pv"] or L[k]["q"] is None: continue
+            j=k
+            while j>5 and L[j-1]["q"] is not None and L[j]["q"]>=L[j-1]["q"]+BURY_MARGIN:
+                L[j-1],L[j]=L[j],L[j-1]; j-=1
+        for k,x in enumerate(L):
+            pl.at[x["i"],"depth_order"]=float(k+1)
+            if k+1<_from[x["i"]] and x["pv"]: BURY_MOVES.append((_bzt,x["name"],_from[x["i"]],k+1))
+    print(f"buried proven players moved up: {len(BURY_MOVES)} on {len(set(m[0] for m in BURY_MOVES))} teams "
+          f"(authored depth charts kept: {len(_authored)}) — "+", ".join(f"{n} ({t}) {a}->{b}" for t,n,a,b in sorted(BURY_MOVES,key=lambda m:m[3]-m[2])[:10]),file=sys.stderr)
 
 # ---- group last-year rotations (by full team) + current roster (by short team) ----
 adv_by_team={}

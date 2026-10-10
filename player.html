@@ -1084,7 +1084,7 @@ body{background:transparent!important;}
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
   <link rel="stylesheet" href="tdc-nil-view.css?v=1"/>
   <link rel="stylesheet" href="tdc-column.css?v=4"/>
-  <link rel="stylesheet" href="tdc-player-a.css?v=9"/>
+  <link rel="stylesheet" href="tdc-player-a.css?v=10"/>
 </head>
 <body data-anim-auto>
 <script src="tdc-nav.js?v=66"></script>
@@ -2840,15 +2840,21 @@ async function init(){
       // DEMONSTRATED line forward at ~his usual minutes (top-level stats, so a sparse row with
       // null oreb/dreb/fga doesn't break it, and no team-usage over/under-shoot). Team/rankings
       // pages keep the honest depth-chart order.
-      if((!proj || !(parseFloat(proj.mpg)>2)) && parseFloat(player.mpg)>8 && parseFloat(player.ppg)>0){
-        const _dm=parseFloat(player.mpg)||1, _pm=Math.min(_dm*0.95, 32), _sc=_pm/_dm;   // ~usual minutes, capped
-        const _F=k=>{ const v=parseFloat(player[k]); return isFinite(v)?Math.round(v*_sc*10)/10:null; };
+      // Carry his REAL most recent season (the season history this page shows), not the roster sheet's
+      // stat columns — those can be a year stale (Dontrez Williams: the sheet still had his 15.5-mpg
+      // 2024-25 bench year, not his 32-mpg 2025-26 at Lindenwood).
+      let _cf=player;
+      try{ const _ls=(typeof _ovrSeasons==='function'?_ovrSeasons():[])[0];
+        if(_ls && +_ls.season_year>=2025 && parseFloat(_ls.mpg)>8 && parseFloat(_ls.ppg)>0) _cf=_ls; }catch(e){}
+      if((!proj || !(parseFloat(proj.mpg)>2)) && parseFloat(_cf.mpg)>8 && parseFloat(_cf.ppg)>0){
+        const _dm=parseFloat(_cf.mpg)||1, _pm=Math.min(_dm*0.95, 32), _sc=_pm/_dm;   // ~usual minutes, capped
+        const _F=k=>{ const v=parseFloat(_cf[k]); return isFinite(v)?Math.round(v*_sc*10)/10:null; };
         proj=Object.assign({}, player, {
           mpg:Math.round(_pm*10)/10,
           ppg:_F('ppg'), rpg:_F('rpg'), apg:_F('apg'), oreb:_F('oreb'), dreb:_F('dreb'),
           stl:_F('stl'), blk:_F('blk'), tovs:_F('tovs'),
           fgm:_F('fgm'), fga:_F('fga'), tpm:_F('tpm'), tpa:_F('tpa'), ftm:_F('ftm'), fta:_F('fta'),
-          fg_pct:player.fg_pct, tp_pct:player.tp_pct, ft_pct:player.ft_pct, _proj:true, _carryFwd:true
+          fg_pct:_cf.fg_pct, tp_pct:_cf.tp_pct, ft_pct:_cf.ft_pct, _proj:true, _carryFwd:true, _carrySeason:_cf.season_year||null
         });
         player._carryFwd=true;
       }
@@ -3452,7 +3458,7 @@ function _renderScoutCard(){ var host=document.getElementById('prospectCardHost'
   try{ host.innerHTML=buildProspectCard(player,(typeof proj!=='undefined'?proj:null),window._ovcScout); }catch(e){} }
 function setOvrSeason(val){
   window._paSel=val; try{ var _ph=document.querySelector('.pa-hero'); if(_ph) _ph.classList.toggle('pc-past', !!val && val!=='proj'); }catch(e){}
-  try{ var _pj=document.getElementById('paProj'); if(_pj) _pj.innerHTML=_paProjHTML(); }catch(e){}
+  try{ var _pj=document.getElementById('paProj'); if(_pj) _pj.innerHTML=_paProjHTML(); var _pc=document.getElementById('paCarry'); if(_pc) _pc.innerHTML=_paCarryHTML(); }catch(e){}
   var host=document.getElementById('ovrCards'); if(!host){ _paShade(); return; }
   renderSkill(val);
   try{ var _xi=_skillSrcFor(val); renderImpact(_xi.src,_xi.projected); }catch(e){}
@@ -4309,6 +4315,23 @@ function _paProjHTML(){
     return '<div class="pa-big"><div class="pa-k">'+c[0]+'</div><div class="pa-bv">'+(v==null||!isFinite(v)?'—':(c[3]===0?v:v.toFixed(1)))+'</div>'+em+'</div>';
   }).join('');
 }
+// When the projection gives a proven player (almost) no minutes, the hero shows LAST season's line at his
+// usual minutes instead (the _carryFwd fallback in the projection block). Say so — the numbers are not a
+// projection, and the grade and rankings use the small role.
+function _paCarryHTML(){
+  try{
+    var sel=window._paSel; if(sel && sel!=='proj') return '';
+    if(typeof proj==='undefined' || !proj || !proj._carryFwd) return '';
+    var pr=(player && player.espn_id!=null && window.TDCProjGrade && TDCProjGrade.projRowOf)?TDCProjGrade.projRowOf(player.espn_id):null;
+    var pm=pr&&pr.mpg!=null?parseFloat(pr.mpg):null;
+    var d=parseInt(player&&player.depth_order,10), tm=player&&player.team?((window.tdcShortSchool&&tdcShortSchool(player.team))||player.team):'his team';
+    var ord=function(n){ var s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); };
+    var role=(pm!=null&&isFinite(pm))?('<b>'+(pm<1?'under a minute':pm.toFixed(1)+' minutes')+' a game</b>'):'<b>almost no minutes</b>';
+    return '<div class="pa-carry-in"><b>Not a projection.</b> Our 2026-27 projection has him in a small role \u2014 '+role+
+      (isFinite(d)?(', '+ord(d)+' on '+tm+'\u2019s depth chart'):'')+
+      ' \u2014 so these are his '+(proj._carrySeason?((proj._carrySeason-1)+'-'+String(proj._carrySeason).slice(2)):'last season\u2019s')+' numbers at about his usual minutes. His overall and rankings use the projected role.</div>';
+  }catch(e){ return ''; }
+}
 function _paShade(){
   var o=document.getElementById('paOvr'), g=parseFloat((document.getElementById('heroGrade')||{}).textContent);
   if(!o) return; o.className='pa-ovr'+(isNaN(g)?'':(' pc-c'+(g>=85?4:g>=80?3:g>=75?2:g>=70?1:0)));
@@ -4319,7 +4342,7 @@ function _paFillRanks(){
   var set=function(id,html){ var el=document.getElementById(id); if(el) el.innerHTML=html; };
   var g=parseFloat(typeof _projectedGrade==='function'?_projectedGrade():NaN);
   var go=function(){
-    var pj=document.getElementById('paProj'); if(pj) pj.innerHTML=_paProjHTML(); _paShade();
+    var pj=document.getElementById('paProj'); if(pj) pj.innerHTML=_paProjHTML(); var pc=document.getElementById('paCarry'); if(pc) pc.innerHTML=_paCarryHTML(); _paShade();
     try{
       var maps=TDCProjGrade.statMaps(), vals=[], k;
       for(k in maps.proj){ var v=+maps.proj[k]; if(isFinite(v)) vals.push(v); }
@@ -4412,6 +4435,7 @@ function renderPage(){
       </div>
      </div>
      <div class="pa-proj pc-line" id="paProj">${_paProjHTML()}</div>
+     <div class="pa-carry" id="paCarry">${_paCarryHTML()}</div>
      <!-- legacy summary cells: still written by the season/rank updaters, not shown -->
      <div class="pa-legacy" aria-hidden="true">
        <div class="hg"><div id="heroWA">${_hWA}</div><div class="hg-l"></div></div>
