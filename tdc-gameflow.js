@@ -322,6 +322,43 @@
     el.querySelectorAll('.gr-tabs button').forEach(function(b){ b.onclick=function(){ renderRotation(el,G,R,b.getAttribute('data-t')); }; });
   }
 
+  // ── SHOT CHART: both teams' located shots from the same play-by-play ──
+  function gameShots(G){
+    var out={}; out[G.home]=[]; out[G.away]=[];
+    G.plays.forEach(function(p){
+      if(!p.shootingPlay||/FreeThrow/i.test((p.type&&p.type.text)||'')) return;
+      var c=p.coordinate, t=p.team&&p.team.id; if(!c||!out[t]) return;
+      var x=+c.x, y=+c.y; if(!isFinite(x)||!isFinite(y)||x<-5||x>55||y<-6||y>60) return;   // ESPN's 'no location' sentinels
+      var sv=+p.scoreValue||+p.pointsAttempted||(/three point/i.test(p.text||'')?3:2); if(sv!==3) sv=2;
+      var a=p.participants&&p.participants[0]&&p.participants[0].athlete;
+      out[t].push({x:x,y:y,made:!!p.scoringPlay,sv:sv,dist:null,espn_id:a&&a.id,season_year:null}); });
+    return out;
+  }
+  function shotSplit(G,R,K,S){
+    var Z=window.TDC_SHOTCHART, a=K.up, b=K.dn;
+    var tally=function(sh){ var t={rim:[0,0],paint:[0,0],mid:[0,0],c3:[0,0],ab3:[0,0]};
+      sh.forEach(function(s){ var k=Z.zone10(s), g=k==='rim'?'rim':k==='paint'?'paint':k.charAt(0)==='m'?'mid':(k==='c3l'||k==='c3r')?'c3':'ab3'; t[g][1]++; if(s.made) t[g][0]++; });
+      t.two=[t.rim[0]+t.paint[0]+t.mid[0],t.rim[1]+t.paint[1]+t.mid[1]]; t.three=[t.c3[0]+t.ab3[0],t.c3[1]+t.ab3[1]]; return t; };
+    var A=tally(S[a]), B=tally(S[b]);
+    var pc=function(v){ return v[1]?Math.round(v[0]/v[1]*100)+'%':'—'; }, f=function(v){ return v[1]?v[0]/v[1]:-1; };
+    var row=function(lab,k,tot){ var va=A[k], vb=B[k], aw=(va[1]&&vb[1]&&f(va)!==f(vb))?f(va)>f(vb):null;
+      return '<div class="gf-r'+(tot?' gf-tot':'')+'"><span class="gf-s">'+va[0]+'-'+va[1]+'</span><b'+(aw===true?' style="color:'+css(K.cu)+'"':'')+'>'+pc(va)+'</b><span class="gf-l">'+lab+'</span><b'+(aw===false?' style="color:'+css(K.cd)+'"':'')+'>'+pc(vb)+'</b><span class="gf-s">'+vb[0]+'-'+vb[1]+'</span></div>'; };
+    var head=function(t){ return '<div class="gf-h"><span></span><span>'+logo(G.T[a],22)+'</span><span>'+t+'</span><span>'+logo(G.T[b],22)+'</span><span></span></div>'; };
+    return '<div class="gf-cmp" style="margin-top:18px;"><div>'+head('2-pointers')+row('Restricted area','rim')+row('Paint','paint')+row('Midrange','mid')+row('All 2s','two',1)+'</div>'+
+      '<div>'+head('3-pointers')+row('Corner','c3')+row('Above the break','ab3')+row('All 3s','three',1)+'</div></div>';
+  }
+  function renderShots(el,G,R){
+    var S=gameShots(G), K=colors(G);
+    if(!window.TDC_SHOTCHART||S[G.home].length<15||S[G.away].length<15){ el.style.display='none'; return; }
+    var names={}; Object.keys(G.P).forEach(function(id){ names[id]=G.P[id].name; });
+    el.innerHTML=scoreHead(G,K,'Shot chart')+'<div class="gsc-grid"><div class="gsc" data-t="'+K.up+'"></div><div class="gsc" data-t="'+K.dn+'"></div></div>'+
+      '<div class="gsc-grid gsc-tbls"><div>'+TDC_SHOTCHART.playerZoneTable(S[K.up],names)+'</div><div>'+TDC_SHOTCHART.playerZoneTable(S[K.dn],names)+'</div></div>'+
+      shotSplit(G,R,K,S)+'<div class="gf-foot">Every located field-goal attempt from ESPN\u2019s play-by-play (free throws excluded). Zones are shaded by how many of the team\u2019s shots came from there; switch to <b>All shots</b> to see each make and miss.</div>';
+    [K.up,K.dn].forEach(function(t,i){ var h=el.querySelector('.gsc[data-t="'+t+'"]');
+      TDC_SHOTCHART.render(h,S[t],{subtitle:G.T[t].name,kind:'team',compact:true,color:css(i?K.cd:K.cu)}); });
+    // label each by-player sheet with its team
+    el.querySelectorAll('.gsc-tbls > div').forEach(function(d,i){ var c=d.querySelector('.scz-cap'); if(c) c.textContent=G.T[i?K.dn:K.up].name+' \u00b7 by player'; });
+  }
   var cache={};
   async function load(gid){
     if(cache[gid]) return cache[gid];
@@ -334,8 +371,9 @@
     var res=null; try{ res=await load(gid); }catch(e){}
     if(!res){ el.innerHTML=''; el.style.display='none'; return false; }
     el.style.display='';
-    el.innerHTML='<section class="gf-card" id="gfFlow"></section><section class="gf-card" id="gfRot"></section>';
+    el.innerHTML='<section class="gf-card" id="gfFlow"></section><section class="gf-card" id="gfShots"></section><section class="gf-card" id="gfRot"></section>';
     renderFlow(el.querySelector('#gfFlow'),res.G,res.R);
+    try{ renderShots(el.querySelector('#gfShots'),res.G,res.R); }catch(e){ el.querySelector('#gfShots').style.display='none'; }
     renderRotation(el.querySelector('#gfRot'),res.G,res.R,opts&&opts.team);
     return true;
   }
@@ -374,6 +412,9 @@
       '.gr-bar{position:absolute;top:7px;bottom:7px;font-style:normal;font-size:11.5px;font-weight:800;display:flex;align-items:center;justify-content:center;overflow:hidden;white-space:nowrap;font-variant-numeric:tabular-nums;}'+
       '@media(max-width:600px){.gr-row{grid-template-columns:86px 1fr 26px 30px;gap:5px;} .gr-nm{font-size:12px;} .gr-n{font-size:12px;} .gr-bar{font-size:0;} .gr-mid{display:none;} .gr-per{padding:0 3px;font-size:9px;}}'+
       '.gr-lu td.l{font-weight:600;}'+
+      '.gsc-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start;} @media(max-width:760px){.gsc-grid{grid-template-columns:1fr;}}'+
+      '.gsc .scz-name{font-size:18px;} .gsc .scz-tot{font-size:15px;} .gsc .sc-court-wrap{max-width:none;} .gsc .sc-legend{margin-bottom:6px;}'+
+      '.gsc-tbls .scz-cap{margin-top:14px;} .gf-r.gf-tot{border-top:1px solid var(--border2);font-weight:800;}'+
       '.gs-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;} @media(max-width:1180px){.gs-grid{grid-template-columns:1fr;}}'+
       '.gs-wrap{max-height:none;} .gs-t tr.gs-p td{border-top:1.5px solid var(--text3);padding-top:9px;} .gs-t tr.gs-p td.nm{font-weight:800;}'+
       '.gs-mini{display:block;} .gs-mini line{stroke:var(--text3);stroke-opacity:.6;stroke-width:1.2;} .gs-mini rect{fill:var(--gf-pos);}';

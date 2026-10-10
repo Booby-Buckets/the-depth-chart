@@ -840,7 +840,7 @@
         '<span style="margin-left:auto;color:var(--text3);font-size:10px;">filled = made · hollow = missed · hover a shot</span></div>'+
         '<div class="sc-court-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+defs()+court(null,courtOpts)+dots+'</svg><div class="sc-tip"></div></div>';
     }
-    el.innerHTML=head+coverageNote(shots,opts)+'<div class="sc-main"><div class="sc-court-col">'+body+'</div></div>'+(mode==='zones'?'':zoneStrip(shots))+extra;
+    el.innerHTML=head+coverageNote(shots,opts)+'<div class="sc-main"><div class="sc-court-col">'+body+'</div></div>'+(opts.compact?'':(mode==='zones'?'':zoneStrip(shots))+extra);
     el.classList.remove('sc-settled');
     if(mode==='heat') drawHeat(el, shots);
     wire(el); if(mode==='zones') wireDist(el,shots,opts);
@@ -1061,5 +1061,5 @@
       '.sc-settled .sc-mark,.sc-settled .sc-cl,.sc-settled .sc-z,.sc-settled .sc-court-wrap,.sc-settled .sc-title,.sc-settled .sc-legend,.sc-settled .sc-heat,.sc-settled .sc-heat-legend,.sc-settled .sc-eff-legend{animation:none!important;}';
     document.head.appendChild(st);
   }
-  window.TDC_SHOTCHART={render:render,renderShift:renderShift,_m:_m,zone10:zone10,zone12:zone12,avgOf:avgOf,useSeason:useSeason};
+  window.TDC_SHOTCHART={render:render,playerZoneTable:playerZoneTable,renderShift:renderShift,_m:_m,zone10:zone10,zone12:zone12,avgOf:avgOf,useSeason:useSeason};
 })();
