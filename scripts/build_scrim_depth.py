@@ -89,7 +89,10 @@ def main():
             ps = [p for p in bx.get("players") or [] if (p.get("min") or 0) > 0]
             if len(ps) < 8: continue
             ev.setdefault(g[sd], []).append({"id": gid, "date": g["date"], "rw": rs["score"] / 100, "players": ps, "dnp": rs.get("dnp") or [],
-                                             "margin": abs((r.get("hs") or 0) - (r.get("as") or 0)), "tm": sum(p["min"] for p in ps)})
+                                             "margin": abs((r.get("hs") or 0) - (r.get("as") or 0)), "tm": sum(p["min"] for p in ps),
+                                             # how real the ROTATION looked (Reality Meter part): a 13-man, flat-minutes game says
+                                             # who started, but almost nothing about minutes (Nebraska: top player 26 min, top 5 = 53%)
+                                             "rot": max(0.1, ((rs.get("parts") or {}).get("rotation", 60)) / 100.0)})
 
     # the BASELINE per team (the chart + projected minutes before any scrimmage re-order), kept across runs so
     # each run re-blends ALL scrimmages from the same starting point instead of stacking on its own last result
@@ -139,12 +142,18 @@ def main():
         byk = {p["k"]: p for p in roster}
         # map box names onto the roster (box spellings drift)
         names = [p["name"] for p in roster]
-        for p in roster: p.update(sw=0.0, sm=0.0, ss=0.0, gp=0, gs=0, dnp=0)
+        for p in roster: p.update(sw=0.0, mw=0.0, sm=0.0, ss=0.0, gp=0, gs=0, dnp=0)
         unmatched = set()
         for x in games:
             # minutes rank -> the roster's minute curve (starting is scored separately, below): a bench player who
             # out-played two starters (Pippen 22 min vs Givens 15 / Njegovan 8) earns the bigger minute load
             ladder = sorted(x["players"], key=lambda q: (-(q.get("min") or 0), not q.get("gs")))
+            # exhibition minutes run flatter than a real game's (starters rest): rescale so this game's top five hold the
+            # roster's projected top-five share, the rest share the remainder — the ORDER and the gaps inside each group stay
+            mins = [(q.get("min") or 0) * 200.0 / (x["tm"] or 200) for q in ladder]
+            t5, c5 = sum(mins[:5]), min(sum(curve[:5]), 185.0)
+            k_top = c5 / t5 if t5 > 0 else 1.0
+            k_bn = (200.0 - c5) / max(200.0 - t5, 1.0)
             seen = set()
             for k, q in enumerate(ladder):
                 rn = sr.roster_name(q["name"], names)
@@ -154,19 +163,21 @@ def main():
                 # a close game's minutes are real minutes; a blowout's are flattened, so there the minutes RANK on
                 # the roster's own curve stands in (fully past a 35-point margin)
                 f = max(0.0, min(1.0, 1 - (x["margin"] - 10) / 25))
-                raw = (q.get("min") or 0) * 200.0 / (x["tm"] or 200)
-                p["sw"] += x["rw"]; p["sm"] += x["rw"] * (f * raw + (1 - f) * (curve[k] if k < len(curve) else 0.0))
+                raw = mins[k] * (k_top if k < 5 else k_bn)
+                mw = x["rw"] * x["rot"]
+                p["sw"] += x["rw"]; p["mw"] += mw; p["sm"] += mw * (f * raw + (1 - f) * (curve[k] if k < len(curve) else 0.0))
                 p["ss"] += x["rw"] * (1.0 if q.get("gs") else 0.0); p["gp"] += 1; p["gs"] += 1 if q.get("gs") else 0
             for p in roster:
                 if p["k"] in seen: continue
                 p["dnp"] += 1
                 if p["is_injured"] or p["k"] in cur_st: continue      # sat: injury / rest — no evidence
-                p["sw"] += 0.5 * x["rw"]                              # a bench player who sat: 0 minutes, half weight
+                p["sw"] += 0.5 * x["rw"]; p["mw"] += 0.5 * x["rw"] * x["rot"]   # a bench player who sat: 0 minutes, half weight
         for p in roster:
             if p["sw"] > 0:
-                s_m, s_s = p["sm"] / p["sw"], p["ss"] / p["sw"]
-                ww = p["ww"] = a * min(1.0, p["sw"] / Rw)               # sat-only evidence weighs half
-                p["bm"] = (1 - ww) * p["proj"] + ww * s_m
+                s_s = p["ss"] / p["sw"]
+                ww = a * min(1.0, p["sw"] / Rw)                         # starts: sat-only evidence weighs half
+                wm = p["ww"] = a * min(1.0, p["mw"] / Rw)               # minutes: also scaled by how real the rotation was
+                p["bm"] = (1 - wm) * p["proj"] + (wm * p["sm"] / p["mw"] if p["mw"] > 0 else wm * p["proj"])
                 p["bs"] = (1 - ww) * (1.0 if p["k"] in cur_st else 0.0) + ww * s_s
             else:
                 p["bm"] = p["proj"]; p["bs"] = 1.0 if p["k"] in cur_st else 0.0
@@ -190,7 +201,7 @@ def main():
             "owner_set_after": owner_after, "applied": bool(moves) and not owner_after,
             "starters_old": [p["name"] for p in old_st], "starters_new": [p["name"] for p in new[:5]],
             "order": [{"name": p["name"], "old": p["depth_order"], "new": i, "proj_mpg": round(p["proj"], 1), "blend_mpg": round(p["bm"], 1),
-                       "scrim_mpg": round(p["sm"] / p["sw"], 1) if p["sw"] > 0 else None, "w": round(p.get("ww", 0.0), 3),
+                       "scrim_mpg": round(p["sm"] / p["mw"], 1) if p["mw"] > 0 else None, "w": round(p.get("ww", 0.0), 3),
                        "scrim_gp": p["gp"], "scrim_gs": p["gs"], "dnp": p["dnp"]} for i, p in enumerate(new, 1)],
             "moves": moves, "flags": flags, "unmatched": sorted(unmatched),
             "base": list(base.values()), "proposed": [p["id"] for p in new],
