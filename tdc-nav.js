@@ -19,7 +19,7 @@
   // [group label, [[href, name], …]] — the six top-level menus.
   var GROUPS = [
     ['Teams', [
-      ['today.html',           "📅 Today's Games"],
+      ['today.html',           "Today's Games"],
       ['index.html',           'Team Rankings'],
       ['team.html',            'Teams'],
       ['team-stats.html',      'Team Stats'],
@@ -38,8 +38,8 @@
       ['roles.html#arch',      'Archetypes'],
     ]],
     ['Analytics', [
-      ['betting.html',                  '🎯 Betting Lab'],
-      ['cheatsheet.html',               '🧮 Betting Cheat Sheet'],
+      ['betting.html',                  'Betting Lab'],
+      ['cheatsheet.html',               'Betting Cheat Sheet'],
       ['analytics.html',                'Advanced Stats'],
       ['shot-genome.html',              'Shot Genome'],
       ['crunch.html',                   'Crunch-Time Takeovers'],
@@ -52,16 +52,16 @@
       ['awards.html',          'Awards'],
     ]],
     ['More', [
-      ['explore.html',         '✦ Explore all tools'],
-      ['coach-tier.html',      "⬡ Coach's Tier"],
+      ['explore.html',         'Explore all tools'],
+      ['coach-tier.html',      "Coach's Tier"],
       ['coaches.html',         'Coaching Lab'],
       ['buzz.html',            'News'],
       ['community.html',       'Community'],
-      ['fan.html',             '📰 Fan Sites'],
-      ['league.html',          '🏀 Fantasy'],
-      ['games.html',           '🎮 Games'],
-      ['dynasty.html',         '🏆 Dynasty (beta)'],
-      ['customize.html',       '✦ Customize'],
+      ['fan.html',             'Fan Sites'],
+      ['league.html',          'Fantasy'],
+      ['games.html',           'Games'],
+      ['dynasty.html',         'Dynasty (beta)'],
+      ['customize.html',       'Customize'],
       ['pricing.html',         'Pricing'],
       ['just-added.html',      'Just Added'],
       ['changelog.html',       "What's New"],
@@ -186,7 +186,7 @@
   wrap.innerHTML =
     '<div class="tdn-col"><div class="tdn-top">' +
       '<a class="tdn-logo" href="index.html">The <span>Depth</span> Chart</a>' +
-      '<div class="tdn-actions"><a class="tdn-x" href="https://www.thedepthchartcfb.com" title="The Depth Chart — college football">Football \u2197</a>' +
+      '<div class="tdn-actions">' +   // (Football link removed from the top bar, owner Oct 2026)
       '<div class="tdn-actions" id="navActions">' +
         '<button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle dark mode">' + themeGlyph + '</button>' +
         '<a href="signin.html" style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;">Sign In</a>' +
