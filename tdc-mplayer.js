@@ -63,6 +63,34 @@
     '.mp-c2{background-image:linear-gradient(hsla(95,70%,48%,.15),hsla(95,70%,48%,.15))}',
     '.mp-c3{background-image:linear-gradient(hsla(115,70%,48%,.26),hsla(115,70%,48%,.26))}',
     '.mp-c4{background-image:linear-gradient(hsla(125,70%,48%,.40),hsla(125,70%,48%,.40))}',
+    /* header, "team band" (Oct 2026, owner picked mockup 1 of _mockups/player-header-mobile.html): team colour only in
+       the band, name in Playfair, every bio fact on one line, OVR in a white tile with last season under it; then a
+       five-stat strip shaded by the player's D-I rank, one swipeable row of context chips, the season as a pill */
+    'body.mp .mp-hero.mpb{padding:0;border:0;margin:0 0 14px;background:none;overflow:visible}',
+    '.mpb .mpb-band{position:relative;overflow:hidden;background:var(--mpb-band,#1a1814);color:#fff;padding:14px 100px 16px 14px;min-height:118px}',
+    '.mpb .mp-wm{right:-28px;top:-24px;width:170px;height:170px;opacity:.13!important;filter:brightness(0) invert(1)}',
+    '.mpb .mp-eye{color:rgba(255,255,255,.86);font-size:10.5px}.mpb .mp-eye a{color:#fff}',
+    '.mpb .mp-eye img{width:20px;height:20px;background:#fff;border-radius:50%;padding:2px}',
+    '.mpb .mp-name{color:#fff;font-size:29px;line-height:1.02;margin:7px 0 5px}',
+    '.mpb-meta{position:relative;font-size:12.5px;line-height:1.4;color:rgba(255,255,255,.9)}',
+    '.mpb-ovr{position:absolute;right:14px;top:30px;width:76px;text-align:center;background:#fff;color:#14120f;border-radius:10px;padding:7px 0 6px;box-shadow:0 2px 10px rgba(0,0,0,.18)}',
+    '.mpb-ovr b{display:block;font:800 34px/1 "Playfair Display",Georgia,serif;color:#14120f}',
+    '.mpb-ovr span{font:800 8.5px Inter,system-ui,sans-serif;letter-spacing:.14em;color:#8a867a}',
+    '.mpb-ovr em{display:block;font:700 10px Inter,system-ui,sans-serif;font-style:normal;margin-top:2px;color:#8a867a}',
+    '.mpb-ovr em.dn{color:#c0392b}.mpb-ovr em.up{color:#1f8a45}',
+    '.mpb-sub{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px 7px}',
+    '.mpb-sub b{font:800 10px Inter,system-ui,sans-serif;letter-spacing:.09em;text-transform:uppercase;color:var(--text3)}',
+    '.mpb-sub .mp-sel{flex:none;width:auto;min-width:170px;max-width:62%;font:700 12px Inter,system-ui,sans-serif;border-radius:999px;padding:5px 26px 5px 11px;background-color:var(--bg)}',
+    '.mpb .mp-line{grid-template-columns:repeat(5,minmax(0,1fr));margin:0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg)}',
+    '.mpb .mp-line div{padding:8px 3px 7px;text-align:center}',
+    '.mpb .mp-line span{font-size:9px;letter-spacing:.09em}',
+    '.mpb .mp-line b{display:block;font-size:18.5px;margin-top:1px}',
+    '.mpb .mp-line i{display:block;font:700 10px Inter,system-ui,sans-serif;font-style:normal;color:var(--text2);margin-top:1px}',
+    '.mpb .mp-line em{display:block;margin:1px 0 0;font-size:10px}',
+    '.mpb-chips{display:flex;gap:6px;overflow-x:auto;padding:10px 14px;border-bottom:1px solid var(--border);scrollbar-width:none}',
+    '.mpb-chips::-webkit-scrollbar{display:none}.mpb-chips:empty{display:none}',
+    '.mpb-chips span{flex:none;font:600 11.5px Inter,system-ui,sans-serif;border:1px solid var(--border2);border-radius:999px;padding:5px 10px;color:var(--text2);white-space:nowrap}',
+    '.mpb-chips b{color:var(--text);font-weight:800}',
     /* bottom sheet tabs */
     'body.mp .mp-strip{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;height:calc(64px + env(safe-area-inset-bottom));padding:0 0 env(safe-area-inset-bottom);background:var(--bg2);border-top:1px solid var(--border2);overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;box-shadow:0 -4px 14px rgba(0,0,0,.08)}',
     '.mp-strip::-webkit-scrollbar{display:none}',
@@ -89,7 +117,7 @@
     'body.mp [data-mp="read"],body.mp [data-mp="bottom"],body.mp [data-mp="shot"],body.mp [data-mp="fit"],body.mp [data-mp="jump"],body.mp [data-mp="trend"],body.mp #ovcFoot{display:none!important}',
     'body.mp [data-mp="stats"]{order:1}body.mp .mp-standing{order:2}body.mp [data-mp="skill"]{order:3}body.mp [data-mp="form"]{order:4}',
     'body.mp [data-mp="impact"]{order:5}body.mp [data-mp="amp"]{order:6}body.mp [data-mp="comps"]{order:7}',
-    '.mp-standing{display:none}body.mp .mp-standing{display:block}',
+    '.mp-standing{display:none!important}',
     '.mp-bar{display:block;height:8px;border-radius:2px;background:var(--bg2);overflow:hidden;min-width:60px}',
     '.mp-bar i{display:block;height:100%;border-radius:2px}',
     '.mp-row{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:13px;font-weight:650;color:var(--text);text-decoration:none;background:var(--bg)}',
@@ -200,13 +228,19 @@
     if (p.position) bio.push(['Pos', p.position2 ? p.position + '/' + p.position2 : p.position]);
     var yr = p.yr || p.class_year; if (yr) bio.push(['Class', yr]);
     if (p.height) bio.push(['Ht', p.height]);
-    var hero = el('div', 'mp-hero',
+    var meta = bio.map(function (x) { return esc(x[1]); });
+    if (fromEl) meta.push('<span class="mp-from">' + esc(fromEl.textContent.trim()) + '</span>');
+    var band = (window.tdcBandColor && tc.c1) ? window.tdcBandColor(tc.c1) : (tc.c1 || '#1a1814');
+    var hero = el('div', 'mp-hero mpb',
+      '<div class="mpb-band" style="--mpb-band:' + band + '">' +
       (tc.logo ? '<img class="mp-wm" src="' + tc.logo + '" alt="" aria-hidden="true" onerror="this.remove()">' : '') +
-      '<div class="mp-eye">' + (tc.logo ? '<img src="' + tc.logo + '" alt="" onerror="this.remove()">' : '') + '<span>' + eye + '</span></div>' +
-      '<div class="mp-t2"><div class="mp-id"><h1 class="mp-name">' + esc(p.name) + '</h1><div class="mp-bio">' +
-      bio.map(function (x) { return '<div><b>' + x[0] + '</b>' + esc(x[1]) + '</div>'; }).join('') + '</div></div>' +
-      '<div class="mp-ovr" id="mpOvr"><b>—</b><span>OVR</span></div></div>' +
-      '<div class="mp-rk" id="mpRk"></div><div class="mp-selrow mp-selhost"></div><div class="mp-line" id="mpLine"></div>');
+      '<div class="mp-eye">' + (tc.logo ? '<img src="' + tc.logo + '" alt="" onerror="this.remove()">' : '') +
+      '<span><a href="' + href + '">' + esc(p.team || '—') + '</a>' + (td && td.conf ? ' · ' + esc(td.conf) : '') + '</span></div>' +
+      '<h1 class="mp-name">' + esc(p.name) + '</h1><div class="mpb-meta">' + meta.join(' · ') + '</div>' +
+      '<div class="mpb-ovr" id="mpOvr"><b>—</b><span>OVR</span><em id="mpOvrD"></em></div></div>' +
+      '<div class="mpb-sub"><b id="mpLineLbl">D-I rank</b><span class="mp-selhost"></span></div>' +
+      '<div class="mp-line" id="mpLine"></div><div class="mpb-chips" id="mpChips"></div>');
+    hero.setAttribute('data-type-keep', '');   // tdc-mobile.js snaps text sizes; the band sets its own
     hs.insertBefore(hero, hs.firstChild);
     var upd = debounce(renderLine, 80);
     watch(document.getElementById('heroGrade'), upd);
@@ -216,32 +250,64 @@
     mirrorSeason();
   }
   // OVR seal, ranks and the line for the selected season, read from the desktop hero the page keeps updating
+  // D-I rank of a projected stat among rotation players (10+ projected minutes) — the same pool the OVR rank uses
+  var POOL = null, POOLP = null;
+  function loadPool() {
+    if (POOLP) return POOLP;
+    POOLP = fetch('scripts/data/stat_overall_projected.json?v=93').then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { var P = (j && j.players) || {}; POOL = Object.keys(P).map(function (k) { return P[k]; }).filter(function (v) { return v && (+v.mpg || 0) >= 10; }); renderLine(); })
+      .catch(function () { POOL = []; });
+    return POOLP;
+  }
+  var RK = { PPG: ['ppg'], RPG: ['rpg'], APG: ['apg'], MPG: ['mpg'], '3P%': ['tp_pct', function (v) { return (+v.tpa || 0) >= 1.5; }] };
+  function rankOf(k, val) {
+    var d = RK[k]; if (!POOL || !d || !isFinite(val)) return null;
+    var pool = d[1] ? POOL.filter(d[1]) : POOL, n = pool.length; if (n < 50) return null;
+    var above = 0; pool.forEach(function (v) { var x = parseFloat(v[d[0]]); if (isFinite(x) && x > val + 1e-9) above++; });
+    return { r: above + 1, n: n, pc: Math.round(100 * (1 - above / n)) };
+  }
+  // OVR tile, the stat strip and the chips, read from the desktop hero the page keeps updating
   function renderLine() {
     var host = document.getElementById('mpLine'); if (!host) return;
     var g = txt('#heroGrade') || '—', o = document.getElementById('mpOvr');
-    if (o) { o.className = 'mp-ovr ' + ovrBucket(g); o.firstChild.textContent = g; }
+    if (o) o.firstChild.textContent = g;
     var past = !!document.querySelector('.pa-hero.pc-past');
-    var rk = document.getElementById('mpRk');
-    if (rk) {
-      var r = [];
-      if (!past) {
-        var a = txt('#paRankPlayer b'), l = txt('#paRankLast b'), t = txt('#paRankTeam b');
-        if (a) r.push('<div><b>' + esc(a) + '</b>national</div>');
-        if (l) r.push('<div><b>' + esc(l) + '</b>last season</div>');
-        if (t) r.push('<div><b>' + esc(t) + '</b>team rank</div>');
-      }
-      var rh = r.join(''); if (rk.__h !== rh) { rk.__h = rh; rk.innerHTML = rh; }
-    }
+    var last = txt('#paRankLast b'), od = document.getElementById('mpOvrD');
+    if (od) { var dg = parseFloat(g), dl = parseFloat(last);
+      var dh = (!past && isFinite(dg) && isFinite(dl) && dg !== dl) ? (dg < dl ? '▼' : '▲') + ' from ' + dl : (!past && isFinite(dl) ? 'same as last yr' : '');
+      od.className = (!past && isFinite(dg) && isFinite(dl)) ? (dg < dl ? 'dn' : dg > dl ? 'up' : '') : ''; od.textContent = dh; }
     var fr = document.querySelector('.mp-hero .mp-from'); if (fr) fr.style.display = past ? 'none' : '';
-    var cells = [];
-    document.querySelectorAll('#paProj .pa-big').forEach(function (b) {
-      var k = ((b.querySelector('.pa-k') || {}).textContent || '').trim().toUpperCase();
-      if (['PPG', 'RPG', 'APG', '3P%'].indexOf(k) < 0) return;
-      var v = ((b.querySelector('.pa-bv') || {}).textContent || '—').trim(), em = b.querySelector('em');
-      var d = em ? '<em class="' + em.className + '">' + esc(em.textContent.replace(/^([+−-])0\./, '$1.')) + '</em>' : '';
-      cells.push('<div><span>' + esc(k) + '</span><b>' + esc(v) + '</b>' + d + '</div>');
+    var sel = document.querySelector('.mpb-sub .mp-sel'), lbl = document.getElementById('mpLineLbl');
+    var isProj = !past;
+    if (lbl) lbl.textContent = isProj ? 'D-I rank' : 'Change vs year before';
+    if (isProj) loadPool();
+    var cells = [], want = ['PPG', 'RPG', 'APG', '3P%', 'MPG'], lab = { PPG: 'PTS', RPG: 'REB', APG: 'AST', '3P%': '3P%', MPG: 'MIN' };
+    var by = {};
+    document.querySelectorAll('#paProj .pa-big').forEach(function (b) { var k = ((b.querySelector('.pa-k') || {}).textContent || '').trim().toUpperCase(); by[k] = b; });
+    want.forEach(function (k) {
+      var b = by[k]; if (!b) return;
+      var v = ((b.querySelector('.pa-bv') || {}).textContent || '—').trim(), em = b.querySelector('em'), sub = '', cls = '';
+      if (isProj) { var rr = rankOf(k, parseFloat(v)); if (rr) { sub = '<i>#' + rr.r.toLocaleString() + '</i>'; cls = 'mp-c' + pctBucket(rr.pc); } }
+      else if (em) sub = '<em class="' + em.className + '">' + esc(em.textContent.replace(/^([+−-])0\./, '$1.')) + '</em>';
+      cells.push('<div class="' + cls + '"><span>' + lab[k] + '</span><b>' + esc(v) + '</b>' + sub + '</div>');
     });
     var h = cells.join('');
+    if (host.__h !== h) { host.__h = h; host.innerHTML = h; }
+    renderChips(past);
+  }
+  function renderChips(past) {
+    var host = document.getElementById('mpChips'); if (!host) return;
+    if (past === undefined) past = !!document.querySelector('.pa-hero.pc-past');
+    var c = [], rank = txt('#paRankPlayer b'), tr = txt('#paRankTeam b');
+    var wa = ''; var w = document.querySelector('#impactSection tbody tr td.strong'); if (w) wa = w.textContent.trim();
+    var bb = (txt('#ovcFoot .bb').match(/#(\d+)/) || [])[1], nil = window._ovcNil || '';
+    var p = (typeof player !== 'undefined') ? player : null, tm = p && p.team ? (window.tdcShortSchool ? tdcShortSchool(p.team) : p.team) : '';
+    if (!past && rank) c.push('<b>' + esc(rank) + '</b> in D-I');
+    if (wa) c.push('<b>' + esc(wa) + '</b> wins added');
+    if (!past && bb) c.push('<b>#' + esc(bb) + '</b> big board');
+    if (nil) c.push('<b>' + esc(nil) + '</b> NIL');
+    if (!past && tr && tm) c.push(esc(tm) + ' <b>' + esc(tr) + '</b> nationally');
+    var h = c.map(function (x) { return '<span>' + x + '</span>'; }).join('');
     if (host.__h !== h) { host.__h = h; host.innerHTML = h; }
   }
   // mirror the page's season <select> into the header (the original keeps its listeners)
@@ -356,6 +422,7 @@
       cols.map(function (c) { return '<th class="c">' + c[0] + '</th>'; }).join('') + '</tr></thead><tbody><tr>' +
       cols.map(function (c) { return '<td class="c strong ' + (c[3] ? c[3].replace('mp-c', 'c') : '') + '">' + esc(c[1]) + '</td>'; }).join('') + '</tr></tbody></table></div>';
     if (host.__h !== h) { host.__h = h; host.innerHTML = h; }
+    renderChips();
   }
   // percentile table → add an in-cell bar column (the only "chart" on the page)
   function barSkill() {
