@@ -7,7 +7,7 @@
   <script src="auth.js?v=delacct1"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="team-colors.js?v=11"></script>
-  <script src="tdc-shotchart.js?v=25s"></script>
+  <script src="tdc-shotchart.js?v=26"></script>
   <script src="tdc-lineups.js?v=17s"></script>
   <script src="tdc-lineup-history.js?v=4"></script>
   <script src="tdc-shotflow.js?v=12"></script>
@@ -1526,6 +1526,11 @@
         <div class="dA-sec"><span>Shot chart</span><span class="dA-cap" style="display:flex;align-items:center;gap:10px;">every tracked attempt · pick a season
           <select id="teamShotSeason" class="dna-mu-sel" style="min-width:0;padding:5px 8px;font-size:12px;"></select></span></div>
         <div id="teamShotHost"></div>
+      </div>
+      <div class="dA-card" style="margin-top:16px;">
+        <div class="dA-sec"><span>Where the shots moved</span><span class="dA-cap" style="display:flex;align-items:center;gap:10px;">shot-diet change vs
+          <select id="teamShiftBase" class="dna-mu-sel" style="min-width:0;padding:5px 8px;font-size:12px;" onchange="loadTeamShift()"></select></span></div>
+        <div id="teamShiftHost" style="margin-top:10px;"></div>
       </div>
       <div class="dA-card" style="margin-top:16px;">
         <div class="dA-sec"><span>Shot flow</span><span class="dA-cap">where · how · who creates the makes</span></div>
@@ -6097,6 +6102,29 @@ async function _teamEspnId(){
   }catch(e){}
   return window._teamShotTid;
 }
+// ── where the shots moved: this season's shot density minus a comparison season's ──
+var _teamShiftCache={};
+function _seasonLbl3(y){ return (y-1)+'\u2013'+String(y).slice(2); }
+function _initTeamShift(season){
+  var sel=document.getElementById('teamShiftBase'); if(!sel) return;
+  var keep=+sel.value, yrs=[]; for(var y=season-1;y>=2020;y--) yrs.push(y);
+  if(!yrs.length){ sel.innerHTML=''; var h=document.getElementById('teamShiftHost'); if(h) h.innerHTML='<div style="padding:18px;text-align:center;color:var(--text3);font-size:12.5px;">No earlier located season to compare with.</div>'; return; }
+  sel.innerHTML=yrs.map(function(y){return '<option value="'+y+'">'+_seasonLbl3(y)+'</option>';}).join('');
+  sel.value=String(yrs.indexOf(keep)>=0?keep:yrs[0]);
+  loadTeamShift();
+}
+async function loadTeamShift(){
+  var host=document.getElementById('teamShiftHost'), sel=document.getElementById('teamShiftBase'), cur=window._teamShotCur;
+  if(!host||!sel||!cur||!window.TDC_SHOTCHART||!TDC_SHOTCHART.renderShift) return;
+  var base=+sel.value, tid=await _teamEspnId(); if(!base||!tid) return;
+  host.innerHTML='<div style="padding:24px;text-align:center;color:var(--text3);">Loading '+_seasonLbl3(base)+'…</div>';
+  try{
+    var key=tid+':'+base, rows=_teamShiftCache[key];
+    if(!rows){ rows=await fetch(SB_URL+'/rest/v1/shots?team_id=eq.'+tid+'&season_year=eq.'+base+'&select=x,y,made,sv,dist&limit=8000',{headers:tdcH()}).then(r=>r.ok?r.json():[]); _teamShiftCache[key]=rows=Array.isArray(rows)?rows:[]; }
+    if(window._teamShotCur!==cur) return;   // season changed while loading
+    TDC_SHOTCHART.renderShift(host, cur.rows, rows, {name:(teamT&&teamT.name)||'This team', cur:_seasonLbl3(cur.season), base:_seasonLbl3(base)});
+  }catch(e){ host.innerHTML='<div style="padding:24px;text-align:center;color:var(--text3);">Could not load the comparison season.</div>'; }
+}
 function _initTeamShot(){
   var sel=document.getElementById('teamShotSeason'); if(!sel) return;
   // ESPN shot locations exist back to 2013-14 (thin before 2024-25) — offer every season; empty ones say so
@@ -6111,9 +6139,15 @@ async function loadTeamShotChart(season){
   if(!tid||!season){ host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">Team shot data unavailable.</div>'; return; }
   var fhost=document.getElementById('teamShotFlowHost'); if(fhost) fhost.innerHTML='';
   try{
-    var rows=await fetch(SB_URL+'/rest/v1/shots?team_id=eq.'+tid+'&season_year=eq.'+season+'&select=x,y,made,sv,dist,stype,ast_name&limit=8000',{headers:tdcH()}).then(r=>r.ok?r.json():[]);
+    var rows=await fetch(SB_URL+'/rest/v1/shots?team_id=eq.'+tid+'&season_year=eq.'+season+'&select=x,y,made,sv,dist,stype,ast_name,espn_id&limit=8000',{headers:tdcH()}).then(r=>r.ok?r.json():[]);
     rows=Array.isArray(rows)?rows:[];
-    TDC_SHOTCHART.render(host, rows, {subtitle:(teamT&&teamT.name)||'this team'});
+    // names for the by-player zone table (shots only carry espn_id)
+    var names={};
+    try{ var ids=[...new Set(rows.map(function(r){return r.espn_id;}).filter(function(x){return x!=null;}))];
+      if(ids.length){ var nr=await fetch(SB_URL+'/rest/v1/player_history?espn_id=in.('+ids.join(',')+')&season_year=eq.'+season+'&select=espn_id,name',{headers:tdcH()}).then(r=>r.ok?r.json():[]);
+        (nr||[]).forEach(function(r){ names[String(r.espn_id)]=r.name; }); } }catch(e){}
+    TDC_SHOTCHART.render(host, rows, {subtitle:(teamT&&teamT.name)||'this team', names:names});
+    window._teamShotCur={season:season, rows:rows}; _initTeamShift(season);
     // shot flow (zone → type → outcome → assist) needs the enriched rows; older seasons never got them
     if(fhost&&window.TDC_SHOTFLOW){
       var enriched=rows.filter(function(r){return r.stype;});

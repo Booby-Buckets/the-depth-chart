@@ -93,18 +93,20 @@
     var hx=px(HOOP_X), hy=py(HOOP_Y), g='', CL='class="sc-cl" pathLength="1"', L='var(--sc-line)';
     var tc=(opts&&opts.color)||'var(--sc-accent)';
     g+='<rect x="0" y="0" width="'+W+'" height="'+H+'" fill="var(--sc-floor)"/>';
-    g+='<rect x="0" y="0" width="'+W+'" height="'+H+'" fill="url(#scVig)" opacity=".55"/>';
     // lane (paint) tinted with the team colour; the arc interior a hair lighter than the floor
     g+='<path d="'+arcPath()+' Z" fill="var(--sc-inside)"/>';
-    g+='<rect x="'+px(19)+'" y="'+py(19)+'" width="'+px(12)+'" height="'+(py(0)-py(19))+'" fill="'+tc+'" opacity=".16"/>';
-    g+='<rect '+CL+' x="1.5" y="1.5" width="'+(W-3)+'" height="'+(H-3)+'" fill="none" stroke="'+L+'" stroke-width="2.5"/>';
-    g+='<rect '+CL+' x="'+px(19)+'" y="'+py(19)+'" width="'+px(12)+'" height="'+(py(0)-py(19))+'" fill="none" stroke="'+L+'" stroke-width="2"/>';
-    g+='<circle '+CL+' cx="'+px(25)+'" cy="'+py(19)+'" r="'+px(6)+'" fill="none" stroke="'+L+'" stroke-width="2"/>';
-    g+='<path '+CL+' d="M '+(hx-px(4))+' '+hy+' A '+px(4)+' '+px(4)+' 0 0 1 '+(hx+px(4))+' '+hy+'" fill="none" stroke="'+L+'" stroke-width="1.6"/>';
-    g+='<path '+CL+' d="'+arcPath()+'" fill="none" stroke="'+L+'" stroke-width="2.4"/>';
+    g+='<g class="sc-lines" pointer-events="none">';
+    g+='<rect '+CL+' x="'+px(19)+'" y="'+py(19)+'" width="'+px(12)+'" height="'+(py(0)-py(19))+'" fill="none" stroke="'+L+'" stroke-width="1.6"/>';
+    // free-throw circle: solid on the far side, dashed inside the lane
+    g+='<path '+CL+' d="M '+px(19)+' '+py(19)+' A '+px(6)+' '+px(6)+' 0 0 1 '+px(31)+' '+py(19)+'" fill="none" stroke="'+L+'" stroke-width="1.6"/>';
+    g+='<path d="M '+px(19)+' '+py(19)+' A '+px(6)+' '+px(6)+' 0 0 0 '+px(31)+' '+py(19)+'" fill="none" stroke="'+L+'" stroke-width="1.4" stroke-dasharray="6 5"/>';
+    g+='<path '+CL+' d="M '+(hx-px(4))+' '+hy+' A '+px(4)+' '+px(4)+' 0 0 1 '+(hx+px(4))+' '+hy+'" fill="none" stroke="'+L+'" stroke-width="1.4"/>';
+    g+='<path '+CL+' d="'+arcPath()+'" fill="none" stroke="'+L+'" stroke-width="1.8"/>';
+    g+='<line x1="0" y1="'+(H-1)+'" x2="'+W+'" y2="'+(H-1)+'" stroke="'+L+'" stroke-width="2"/>';
     // backboard + rim
-    g+='<line x1="'+(px(25)-px(3))+'" y1="'+py(4)+'" x2="'+(px(25)+px(3))+'" y2="'+py(4)+'" stroke="var(--sc-board)" stroke-width="3.5" stroke-linecap="round"/>';
-    g+='<circle cx="'+hx+'" cy="'+hy+'" r="'+px(0.75)+'" fill="none" stroke="#f08a3c" stroke-width="2.6"/>';
+    g+='<line x1="'+(px(25)-px(3))+'" y1="'+py(4)+'" x2="'+(px(25)+px(3))+'" y2="'+py(4)+'" stroke="'+L+'" stroke-width="2.4"/>';
+    g+='<circle cx="'+hx+'" cy="'+hy+'" r="'+px(0.75)+'" fill="none" stroke="'+L+'" stroke-width="2"/>';
+    g+='</g>';
     return g;
   }
   function defs(){
@@ -322,6 +324,206 @@
     ctx.drawImage(sm,0,0,GW,GH,0,0,W,H);
   }
 
+  // ── ZONES (editorial, Sept-Oct 2026 rebuild) ──────────────────────────────────────────
+  // Twelve regions fanned out from the rim (the print-style zone chart): restricted area,
+  // paint, five midrange slices and five three-point slices split by rays from the hoop at
+  // ±22.5° and at the corner break. Shaded by SHARE of attempts (where the shots come from),
+  // labelled made-attempts; FG% vs D-I lives in the tooltip and the 2s/3s sheet underneath.
+  var ANG_TOP=22.5, ANG_CB=Math.atan2(HOOP_X-CORNER_X, CORNER_Y-HOOP_Y)*180/Math.PI;
+  var Z12={
+    ra   :{n:'restricted area',     ref:'rim',   lab:[25,8.25]},
+    paint:{n:'the paint',           ref:'paint', lab:[25,16.4]},
+    mt   :{n:'top of the key (mid)',ref:'midc',  lab:[25,22.7]},
+    mwl  :{n:'left wing (mid)',     ref:'midl',  lab:[13.4,18.6]},
+    mwr  :{n:'right wing (mid)',    ref:'midr',  lab:[36.6,18.6]},
+    mbl  :{n:'left baseline (mid)', ref:'midl',  lab:[11.4,8.6]},
+    mbr  :{n:'right baseline (mid)',ref:'midr',  lab:[38.6,8.6]},
+    c3l  :{n:'left corner 3',       ref:'c3l',   lab:[1.68,5.7], rot:-90},
+    c3r  :{n:'right corner 3',      ref:'c3r',   lab:[48.32,5.7], rot:90},
+    w3l  :{n:'left wing 3',         ref:'w3l',   lab:[6.2,27]},
+    t3   :{n:'top of the key 3',    ref:'t3',    lab:[25,32.4]},
+    w3r  :{n:'right wing 3',        ref:'w3r',   lab:[43.8,27]}
+  };
+  function zone12(s){
+    var x=fxf(s.x), y=fyf(s.y), d=edist(s), dx=x-HOOP_X, dy=y-HOOP_Y;
+    var ang=Math.atan2(Math.abs(dx), dy)*180/Math.PI;
+    if(s.sv===3){ if(y<=CORNER_Y-0.4) return dx<0?'c3l':'c3r'; return ang<ANG_TOP?'t3':(dx<0?'w3l':'w3r'); }
+    if(d<=4) return 'ra';
+    if(x>=19&&x<=31&&y<=19) return 'paint';
+    if(ang<ANG_TOP) return 'mt';
+    if(ang<ANG_CB) return dx<0?'mwl':'mwr';
+    return dx<0?'mbl':'mbr';
+  }
+  // a pie slice from the hoop between two angles (0 = straight out, negative = left), far past the frame
+  function wedge(a1,a2){
+    var p='M'+px(HOOP_X).toFixed(1)+' '+py(HOOP_Y).toFixed(1);
+    for(var i=0;i<=24;i++){ var a=(a1+(a2-a1)*i/24)*Math.PI/180; p+=' L'+px(HOOP_X+70*Math.sin(a)).toFixed(1)+' '+py(HOOP_Y+70*Math.cos(a)).toFixed(1); }
+    return p+' Z';
+  }
+  // the fill ink: the team colour when we have one (lightened on the dark theme when it's a
+  // deep navy/black, or it vanishes into the floor), else the house blue
+  function darkTheme(){ var t=document.documentElement.getAttribute('data-theme'); if(t) return t==='dark';
+    return !!(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches); }
+  function inkRgb(col){
+    var m=/^#?([0-9a-f]{6})$/i.exec((col||'').trim()), r,g,b;
+    if(m){ r=parseInt(m[1].slice(0,2),16); g=parseInt(m[1].slice(2,4),16); b=parseInt(m[1].slice(4,6),16); }
+    else if((m=/rgba?\((\d+)[ ,]+(\d+)[ ,]+(\d+)/i.exec(col||''))){ r=+m[1]; g=+m[2]; b=+m[3]; }
+    else { r=31; g=95; b=168; }
+    var lum=(0.2126*r+0.7152*g+0.0722*b)/255;
+    if(darkTheme()&&lum<0.3){ var f=0.42; r=r+(255-r)*f|0; g=g+(255-g)*f|0; b=b+(255-b)*f|0; }
+    if(lum>0.72){ r=r*0.6|0; g=g*0.6|0; b=b*0.6|0; }       // a near-white team colour would wash out
+    return [r,g,b];
+  }
+  function z12Totals(shots){ var Z={}; Object.keys(Z12).forEach(function(k){ Z[k]={m:0,a:0}; });
+    shots.forEach(function(s){ var k=zone12(s); Z[k].a++; if(s.made) Z[k].m++; }); return Z; }
+  function zones12Svg(shots, ink){
+    var Z=z12Totals(shots), N=shots.length||1, maxA=0;
+    Object.keys(Z).forEach(function(k){ if(Z[k].a>maxA) maxA=Z[k].a; });
+    var id='zz'+(++_zid), g='<defs>', cyCut=py(CORNER_Y-0.4);
+    var lane='M '+px(19)+' '+py(19)+' H '+px(31)+' V '+py(0)+' H '+px(19)+' Z';
+    g+='<clipPath id="'+id+'in"><path clip-rule="evenodd" d="'+arcPath()+' Z '+lane+'"/></clipPath>';
+    g+='<clipPath id="'+id+'out"><path clip-rule="evenodd" d="M 0 0 H '+W+' V '+H+' H 0 Z '+arcPath()+' Z"/></clipPath>';
+    g+='<clipPath id="'+id+'hi"><rect x="0" y="0" width="'+W+'" height="'+cyCut+'"/></clipPath>';
+    g+='<clipPath id="'+id+'lo"><rect x="0" y="'+cyCut+'" width="'+W+'" height="'+(H-cyCut)+'"/></clipPath></defs>';
+    var alphaOf=function(k){ var a=Z[k].a; return a?0.07+0.85*Math.pow(a/maxA,0.8):0; };
+    var fill=function(k){ var al=alphaOf(k); return al?'rgba('+ink.join(',')+','+al.toFixed(3)+')':'transparent'; };
+    var tip=function(k){ var z=Z[k], av=avgOf(Z12[k].ref);
+      return Z12[k].n+' · '+Math.round(z.a/N*100)+'% of shots|'+(z.a?Math.round(z.m/z.a*100):0)+'|'+z.m+'/'+z.a+'|'+Math.round(av*100)+'|'+(z.a?((z.m/z.a-av>=0?'+':'')+Math.round((z.m/z.a-av)*100)):'—'); };
+    var reg=function(k,d,clip,clip2){ var el='<path class="sc-zone scz-z" data-zk="'+k+'" data-ztip="'+tip(k)+'" d="'+d+'" fill="'+fill(k)+'"'+(clip2?' clip-path="url(#'+id+clip2+')"':'')+'/>';
+      return '<g clip-path="url(#'+id+clip+')">'+el+'</g>'; };
+    var CX=CORNER_X, FULL='M 0 0 H '+W+' V '+H+' H 0 Z';
+    // threes
+    g+=reg('c3l','M 0 '+cyCut+' H '+px(25)+' V '+H+' H 0 Z','out');
+    g+=reg('c3r','M '+px(25)+' '+cyCut+' H '+W+' V '+H+' H '+px(25)+' Z','out');
+    g+=reg('w3l',wedge(-180,-ANG_TOP),'out','hi');
+    g+=reg('t3', wedge(-ANG_TOP,ANG_TOP),'out');
+    g+=reg('w3r',wedge(ANG_TOP,180),'out','hi');
+    // midrange (inside the arc, outside the lane)
+    g+=reg('mt', wedge(-ANG_TOP,ANG_TOP),'in');
+    g+=reg('mwl',wedge(-ANG_CB,-ANG_TOP),'in');
+    g+=reg('mwr',wedge(ANG_TOP,ANG_CB),'in');
+    g+=reg('mbl',wedge(-180,-ANG_CB),'in');
+    g+=reg('mbr',wedge(ANG_CB,180),'in');
+    // paint = lane minus the restricted-area circle; then the circle itself
+    var hx=px(HOOP_X), hy=py(HOOP_Y), rr=px(4);
+    var circ='M '+(hx-rr)+' '+hy+' a '+rr+' '+rr+' 0 1 0 '+(2*rr)+' 0 a '+rr+' '+rr+' 0 1 0 '+(-2*rr)+' 0 Z';
+    g+='<path class="sc-zone scz-z" data-zk="paint" data-ztip="'+tip('paint')+'" fill-rule="evenodd" d="'+lane+' '+circ+'" fill="'+fill('paint')+'"/>';
+    g+='<path class="sc-zone scz-z" data-zk="ra" data-ztip="'+tip('ra')+'" d="'+circ+'" fill="'+fill('ra')+'"/>';
+    // the zone seams (thin floor-coloured rays so the slices read as tiles)
+    var seam=function(a, r0, r1){ var s=Math.sin(a*Math.PI/180), c=Math.cos(a*Math.PI/180);
+      return '<line x1="'+px(HOOP_X+r0*s).toFixed(1)+'" y1="'+py(HOOP_Y+r0*c).toFixed(1)+'" x2="'+px(HOOP_X+r1*s).toFixed(1)+'" y2="'+py(HOOP_Y+r1*c).toFixed(1)+'"/>'; };
+    var midR0=(19-HOOP_Y)/Math.cos(ANG_TOP*Math.PI/180);
+    g+='<g class="scz-seam">'+
+      '<g clip-path="url(#'+id+'out)">'+seam(-ANG_TOP,10,60)+seam(ANG_TOP,10,60)+'<line x1="0" y1="'+cyCut+'" x2="'+px(CX+0.6)+'" y2="'+cyCut+'"/><line x1="'+px(50-CX-0.6)+'" y1="'+cyCut+'" x2="'+W+'" y2="'+cyCut+'"/></g>'+
+      '<g clip-path="url(#'+id+'in)">'+seam(-ANG_TOP,midR0,30)+seam(ANG_TOP,midR0,30)+seam(-ANG_CB,4,30)+seam(ANG_CB,4,30)+'</g></g>';
+    // labels: made-att, FG% under it (returned separately so they sit above the court lines)
+    var tiles=g; g='';
+    Object.keys(Z12).forEach(function(k){ var z=Z[k], at=Z12[k].lab, x=px(at[0]), y=py(at[1]);
+      var dark=alphaOf(k)>0.5, cls='scz-lab'+(dark?' on':''), big=z.a?(z.m+'–'+z.a):'–';
+      if(Z12[k].rot){ g+='<text class="'+cls+' sm" transform="translate('+x.toFixed(1)+' '+y.toFixed(1)+') rotate('+Z12[k].rot+')" text-anchor="middle" dominant-baseline="central">'+big+'</text>'; return; }
+      g+='<text class="'+cls+'" x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" text-anchor="middle" dominant-baseline="central">'+big+'</text>';
+      if(z.a>=5) g+='<text class="scz-sub'+(dark?' on':'')+'" x="'+x.toFixed(1)+'" y="'+(y+16).toFixed(1)+'" text-anchor="middle" dominant-baseline="central">'+Math.round(z.m/z.a*100)+'%</text>'; });
+    return {tiles:tiles, labels:g};
+  }
+  // ── shot-diet bars: share of FGA by restricted area / paint / midrange / three ──
+  var DIET=[['rim','Restricted area'],['paint','Paint'],['mid','Midrange'],['three','Three']];
+  function dietOf(shots){ var c={rim:0,paint:0,mid:0,three:0};
+    shots.forEach(function(s){ var k=zone10(s); c[k==='rim'||k==='paint'?k:(k.charAt(0)==='m'?'mid':'three')]++; });
+    var n=shots.length||1; return {rim:c.rim/n,paint:c.paint/n,mid:c.mid/n,three:c.three/n,n:shots.length}; }
+  function dietRef(){ var z=REF; if(!z) return {rim:.26,paint:.23,mid:.115,three:.395};
+    var sh=function(k){ return (z[k]&&z[k].share)||0; };
+    return {rim:sh('rim'),paint:sh('paint'),mid:sh('midl')+sh('midc')+sh('midr'),three:sh('c3l')+sh('c3r')+sh('w3l')+sh('t3')+sh('w3r')}; }
+  function dietRow(label, sub, d, cls){
+    var segs=DIET.map(function(b,i){ var v=d[b[0]]||0;
+      return '<i class="scz-seg s'+i+'" style="flex:'+Math.max(v,0.0001).toFixed(4)+'" title="'+b[1]+' '+Math.round(v*100)+'%">'+(v>=0.055?Math.round(v*100)+'%':'')+'</i>'; }).join('');
+    return '<div class="scz-drow'+(cls?' '+cls:'')+'"><div class="scz-dl"><b>'+label+'</b>'+(sub?'<span>'+sub+'</span>':'')+'</div><div class="scz-dbar">'+segs+'</div></div>'; }
+  function dietBlock(shots, opts){
+    var me=dietOf(shots), ref=dietRef();
+    return '<div class="scz-diet"><div class="scz-cap">Share of field-goal attempts by zone</div>'+
+      '<div class="scz-drow scz-dhead"><div class="scz-dl"></div><div class="scz-dbar">'+DIET.map(function(b,i){ return '<i class="scz-seg s'+i+'" style="flex:1"><span class="lf">'+b[1]+'</span><span class="ls">'+(b[0]==='rim'?'Rim':b[0]==='mid'?'Mid':b[1])+'</span></i>'; }).join('')+'</div></div>'+
+      dietRow(opts.short||opts.subtitle||'This chart', shots.length.toLocaleString()+' FGA', me)+
+      dietRow('D-I average', REF_YEAR?((REF_YEAR-1)+'–'+String(REF_YEAR).slice(2)):'', ref, 'ref')+'</div>'; }
+  // ── 2-pointers / 3-pointers split (sheet kit; FG% shaded vs the D-I figure) ──
+  function splitTables(shots){
+    var Z=zoneTotals(shots), sum=function(ks){ var m=0,a=0; ks.forEach(function(k){ m+=Z[k].m; a+=Z[k].a; }); return [m,a]; };
+    var refP=function(ks){ if(!REF){ var t=0,n=0; ks.forEach(function(k){ t+=ZMETA[k].avg; n++; }); return t/n; }
+      var m=0,a=0; ks.forEach(function(k){ if(REF[k]){ m+=REF[k].m; a+=REF[k].a; } }); return a?m/a:null; };
+    var row=function(lab, ks, tot){ var v=sum(ks), p=v[1]?v[0]/v[1]:null, r=refP(ks), d=(p!=null&&r!=null)?(p-r)*100:null;
+      var sh=(v[1]>=8&&d!=null)?(d>=5?' c4':d>=2?' c3':d<=-5?' c0':d<=-2?' c1':''):'';
+      return '<tr'+(tot?' class="scz-total"':'')+'><td class="l nm">'+lab+'</td><td>'+v[0]+'–'+v[1]+'</td><td class="strong'+sh+'">'+(p!=null?Math.round(p*100)+'%':'—')+'</td><td class="dim">'+(r!=null?Math.round(r*100)+'%':'')+'</td></tr>'; };
+    var th='<thead><tr><th class="l">Zone</th><th>FGM–A</th><th>FG%</th><th>D-I</th></tr></thead>';
+    var MID=['midl','midc','midr'], AB=['w3l','t3','w3r'], C3=['c3l','c3r'];
+    return '<div class="scz-split">'+
+      '<div><div class="scz-cap">2-pointers</div><div class="sheet-wrap sc-sheet"><table class="sheet dense">'+th+'<tbody>'+
+        row('Restricted area',['rim'])+row('Paint',['paint'])+row('Midrange',MID)+row('All 2s',['rim','paint'].concat(MID),1)+'</tbody></table></div></div>'+
+      '<div><div class="scz-cap">3-pointers</div><div class="sheet-wrap sc-sheet"><table class="sheet dense">'+th+'<tbody>'+
+        row('Corner',C3)+row('Above the break',AB)+row('All 3s',C3.concat(AB),1)+'</tbody></table></div></div></div>'; }
+  // ── team charts: who shot from where (needs espn_id on the shots + opts.names) ──
+  function playerZoneTable(shots, names){
+    var P={}; shots.forEach(function(s){ if(s.espn_id==null) return; var id=String(s.espn_id);
+      var p=P[id]||(P[id]={id:id,ra:[0,0],paint:[0,0],mid:[0,0],three:[0,0],fg:[0,0]});
+      var k=zone10(s), b=k==='rim'?'ra':k==='paint'?'paint':k.charAt(0)==='m'?'mid':'three';
+      p[b][1]++; p.fg[1]++; if(s.made){ p[b][0]++; p.fg[0]++; } });
+    var L=Object.keys(P).map(function(k){ return P[k]; }).sort(function(a,b){ return b.fg[1]-a.fg[1]; }).slice(0,14);
+    if(L.length<2) return '';
+    var c=function(v){ return v[1]?(v[0]+'–'+v[1]):'<span class="dim">–</span>'; };
+    var nm=function(id){ var n=names&&names[id]; return n?n.replace(/^(\S)\S*\s+/,'$1. '):('#'+id); };
+    return '<div class="scz-cap" style="margin-top:16px;">By player</div><div class="sheet-wrap sc-sheet"><table class="sheet dense"><thead><tr><th class="l">Player</th><th>Restricted</th><th>Paint</th><th>Mid</th><th>3PT</th><th>FG</th><th>FG%</th></tr></thead><tbody>'+
+      L.map(function(p){ return '<tr><td class="l nm"><a href="player.html?espn='+p.id+'" style="color:inherit;text-decoration:none;">'+nm(p.id)+'</a></td><td>'+c(p.ra)+'</td><td>'+c(p.paint)+'</td><td>'+c(p.mid)+'</td><td>'+c(p.three)+'</td><td class="strong">'+c(p.fg)+'</td><td>'+Math.round(p.fg[0]/p.fg[1]*100)+'%</td></tr>'; }).join('')+
+      '</tbody></table></div>'; }
+  function zHead(shots, opts){
+    var m=0,t3m=0,t3a=0; shots.forEach(function(s){ if(s.made) m++; if(s.sv===3){ t3a++; if(s.made) t3m++; } });
+    return '<div class="scz-head"><span class="scz-name">'+(opts.subtitle||'')+'</span><span class="scz-tot"><i>FG</i> '+m+'–'+shots.length+'<i>3PT</i> '+t3m+'–'+t3a+'</span></div>'; }
+
+  // ── WHERE THE SHOTS MOVED: season-vs-season shot-density difference (contour bands) ──
+  //    TDC_SHOTCHART.renderShift(el, curShots, baseShots, {name, cur:'2026', base:'2025'})
+  var SH_POS=['#fde4d4','#fbc6a4','#f8a577','#f5874a','#ef6a1f'], SH_NEG=['#e3e6ed','#c3c9d7','#9aa4ba','#6c7894','#3a4767'];
+  function densityGrid(shots, GW, GH){
+    var g=new Float32Array(GW*GH), n=0;
+    shots.forEach(function(s){ if(edist(s)>35) return;      // heaves excluded
+      var fx=clampx(fxf(s.x)), fy=clampy(fyf(s.y));
+      var gx=Math.round(fx/50*(GW-1)), gy=Math.round((YMAX-fy)/(YMAX-YMIN)*(GH-1));
+      g[gy*GW+gx]+=1; n++; });
+    for(var p=0;p<3;p++) blur(g,GW,GH,3);
+    if(n) for(var i=0;i<g.length;i++) g[i]/=n;
+    return {g:g,n:n};
+  }
+  function hexRgb(h){ return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]; }
+  function renderShift(el, cur, base, opts){
+    opts=opts||{}; if(!el) return;
+    cur=(cur||[]).filter(function(s){return s.x!=null&&s.y!=null;}); base=(base||[]).filter(function(s){return s.x!=null&&s.y!=null;});
+    if(cur.length<60||base.length<60){ el.innerHTML='<div style="padding:22px;text-align:center;color:var(--text3);font-size:12.5px;">Not enough located shots in one of the two seasons to compare.</div>'; return; }
+    var curL=opts.cur||'this season', baseL=opts.base||'last season';
+    var dc=dietOf(cur), db=dietOf(base), NM={rim:'at the rim',paint:'in the paint',mid:'from midrange',three:'beyond the arc'};
+    var up=[],dn=[]; DIET.forEach(function(b){ var d=dc[b[0]]-db[b[0]]; if(d>=0.02) up.push([b[0],d]); else if(d<=-0.02) dn.push([b[0],d]); });
+    up.sort(function(a,b){return b[1]-a[1];}); dn.sort(function(a,b){return a[1]-b[1];});
+    var lst=function(a){ var w=a.map(function(x){return '<b>'+NM[x[0]]+'</b>';}); return w.length>1?w.slice(0,-1).join(', ')+' and '+w[w.length-1]:w[0]; };
+    var who=opts.name||'This team';
+    var lede=(up.length||dn.length)
+      ? who+' took '+(up.length?'a bigger share of its attempts '+lst(up):'')+(up.length&&dn.length?' in '+curL+' than in '+baseL+', and a smaller share '+lst(dn):(dn.length?'a smaller share of its attempts '+lst(dn)+' in '+curL+' than in '+baseL:' in '+curL+' than in '+baseL))+'.'
+      : who+'’s shot diet barely moved between '+baseL+' and '+curL+'.';
+    el.innerHTML='<div class="scz-lede">'+lede+'</div>'+
+      '<div class="scz-shleg"><span>Fewer shots in '+curL+'</span><i class="neg"></i><i class="pos"></i><span>More shots in '+curL+'</span></div>'+
+      '<div class="sc-court-wrap sc-heat-wrap scz-shwrap"><canvas class="sc-heat"></canvas><svg class="sc-svg sc-heat-court" viewBox="0 0 '+W+' '+H+'">'+court(null,{}).replace(/var\(--sc-floor\)|var\(--sc-inside\)/g,'none')+'</svg></div>'+
+      '<div class="scz-diet" style="margin-top:14px;"><div class="scz-cap">Share of field-goal attempts by zone</div>'+
+        '<div class="scz-drow scz-dhead"><div class="scz-dl"></div><div class="scz-dbar">'+DIET.map(function(b,i){ return '<i class="scz-seg s'+i+'" style="flex:1"><span class="lf">'+b[1]+'</span><span class="ls">'+(b[0]==='rim'?'Rim':b[0]==='mid'?'Mid':b[1])+'</span></i>'; }).join('')+'</div></div>'+
+        dietRow(baseL, base.length.toLocaleString()+' FGA', db, 'ref')+dietRow(curL, cur.length.toLocaleString()+' FGA', dc)+'</div>'+
+      '<div class="scz-foot">Orange marks where '+who+' took a <b>larger share of its attempts in '+curL+'</b> than in '+baseL+', navy where it took a <b>smaller share</b>. Heaves (35+ ft) excluded; seasons are labelled by the year they end.</div>';
+    var GW=100, GH=Math.round((YMAX-YMIN)*2), A=densityGrid(cur,GW,GH).g, B=densityGrid(base,GW,GH).g;
+    var D=new Float32Array(GW*GH), ab=[]; for(var i=0;i<D.length;i++){ D[i]=A[i]-B[i]; if(D[i]) ab.push(Math.abs(D[i])); }
+    ab.sort(function(a,b){return a-b;}); var mx=(ab.length?ab[Math.floor(ab.length*0.985)]:1)||1;
+    var cv=el.querySelector('.sc-heat'); cv.width=W; cv.height=H; var ctx=cv.getContext('2d');
+    var floor=(getComputedStyle(el).getPropertyValue('--sc-floor')||'#fbfbf9').trim(); ctx.fillStyle=floor; ctx.fillRect(0,0,W,H);
+    var im=ctx.getImageData(0,0,W,H), p=im.data, TH=[0.14,0.3,0.48,0.66,0.84];
+    var POS=SH_POS.map(hexRgb), NEG=SH_NEG.map(hexRgb);
+    for(var yy=0;yy<H;yy++){ var gy=yy/(H-1)*(GH-1), y0=Math.floor(gy), y1=Math.min(GH-1,y0+1), fy=gy-y0;
+      for(var xx=0;xx<W;xx++){ var gx=xx/(W-1)*(GW-1), x0=Math.floor(gx), x1=Math.min(GW-1,x0+1), fx=gx-x0;
+        var v=(D[y0*GW+x0]*(1-fx)+D[y0*GW+x1]*fx)*(1-fy)+(D[y1*GW+x0]*(1-fx)+D[y1*GW+x1]*fx)*fy;
+        var t=Math.min(1,Math.abs(v)/mx), band=-1; for(var b=TH.length-1;b>=0;b--) if(t>=TH[b]){ band=b; break; }
+        if(band<0) continue; var c=(v>0?POS:NEG)[band], o=(yy*W+xx)*4; p[o]=c[0]; p[o+1]=c[1]; p[o+2]=c[2]; p[o+3]=255; } }
+    ctx.putImageData(im,0,0);
+  }
+
   // ── SIGNATURE SPOTS ──
   // The zones that DEFINE this shooter: enough volume to trust (floor = max(10, 5% of
   // attempts)) and clearly above the D-I average there — lit in the one ink on the court, with
@@ -468,14 +670,16 @@
       '<button class="'+(mode==='hex'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'hex\')">Hexbin</button>'+
       '<button class="'+(mode==='heat'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'heat\')">Heat</button>'+
       '<button class="'+(mode==='shots'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'shots\')">All shots</button></div>';
-    var head=(opts.title?'<div class="sc-title">'+opts.title+'</div>':'')+
+    var head=(opts.title?'<div class="sc-title">'+opts.title+'</div>':'')+(opts.subtitle?zHead(shots,opts):'')+
       '<div class="sc-legend">'+toggle+'<span style="margin-left:auto;color:var(--text3);">'+shots.length+' field-goal attempts</span></div>';
     var body, extra='';
     if(mode==='zones'){
-      body='<div class="sc-mk-legend"><span><i class="sc-hot"></i>Above the D-I average</span><span><i class="sc-cold"></i>Below</span>'+
-        '<span style="margin-left:auto;color:var(--text3);font-size:10px;">FG% · made/attempts \u00b7 hover a zone</span></div>'+
-        '<div class="sc-court-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+defs()+court(null,courtOpts)+zonesSvg(shots)+'</svg><div class="sc-tip"></div></div>';
-      extra=zoneSheet(shots);
+      // the lines go ON TOP of the tiles (court() draws floor + lines; split them)
+      var ink=inkRgb(tcol), cg=court(null,courtOpts), cut=cg.indexOf('<g class="sc-lines"'), zz=zones12Svg(shots,ink);
+      body='<div class="sc-mk-legend"><span><i class="scz-sw" style="background:rgba('+ink.join(',')+',.18)"></i><i class="scz-sw" style="background:rgba('+ink.join(',')+',.5)"></i><i class="scz-sw" style="background:rgba('+ink.join(',')+',.92)"></i>deeper shade = more of the shots</span>'+
+        '<span style="margin-left:auto;color:var(--text3);font-size:10px;">made\u2013attempts \u00b7 FG% \u00b7 hover a zone for D-I</span></div>'+
+        '<div class="sc-court-wrap scz-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+cg.slice(0,cut)+zz.tiles+cg.slice(cut)+zz.labels+'</svg><div class="sc-tip"></div></div>';
+      extra=dietBlock(shots,opts)+splitTables(shots)+(opts.names?playerZoneTable(shots,opts.names):'');
     } else if(mode==='spots'){
       var so={};
       var sg=spotsSvg(shots,so);
@@ -509,7 +713,7 @@
         '<span style="margin-left:auto;color:var(--text3);font-size:10px;">filled = made · hollow = missed · hover a shot</span></div>'+
         '<div class="sc-court-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+defs()+court(null,courtOpts)+dots+'</svg><div class="sc-tip"></div></div>';
     }
-    el.innerHTML=head+coverageNote(shots,opts)+'<div class="sc-main"><div class="sc-court-col">'+body+'</div></div>'+zoneStrip(shots)+extra;
+    el.innerHTML=head+coverageNote(shots,opts)+'<div class="sc-main"><div class="sc-court-col">'+body+'</div></div>'+(mode==='zones'?'':zoneStrip(shots))+extra;
     el.classList.remove('sc-settled');
     if(mode==='heat') drawHeat(el, shots);
     wire(el);
@@ -570,9 +774,9 @@
     var st=document.createElement('style'); st.id='sc-styles';
     st.textContent=
       // theme-aware court palette: dark = navy hardwood-ish floor with white lines; light = pale maple
-      ':root{--sc-floor:#f1e7d3;--sc-inside:#ead9bb;--sc-line:rgba(60,45,25,.62);--sc-board:#3a3a3a;--sc-accent:#A8843C;--sc-made:#1f9d57;--sc-miss:#c74d3f;--sc-hot:#e06a1e;--sc-cold:#2f66c9;}'+
-      ':root[data-theme="dark"]{--sc-floor:#121a2b;--sc-inside:#172238;--sc-line:rgba(255,255,255,.55);--sc-board:#e8e8f0;--sc-accent:#E6D5A8;--sc-made:#5ee89a;--sc-miss:#ff6b5c;--sc-hot:#f5934a;--sc-cold:#6b9cf0;}'+
-      '@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--sc-floor:#121a2b;--sc-inside:#172238;--sc-line:rgba(255,255,255,.55);--sc-board:#e8e8f0;--sc-accent:#E6D5A8;--sc-made:#5ee89a;--sc-miss:#ff6b5c;--sc-hot:#f5934a;--sc-cold:#6b9cf0;}}'+
+      ':root{--sc-floor:#fbfbf9;--sc-inside:#fbfbf9;--sc-line:#1f1f22;--sc-board:#3a3a3a;--sc-accent:#A8843C;--sc-made:#1f9d57;--sc-miss:#c74d3f;--sc-hot:#e06a1e;--sc-cold:#2f66c9;}'+
+      ':root[data-theme="dark"]{--sc-floor:#101624;--sc-inside:#101624;--sc-line:rgba(232,236,244,.7);--sc-board:#e8e8f0;--sc-accent:#E6D5A8;--sc-made:#5ee89a;--sc-miss:#ff6b5c;--sc-hot:#f5934a;--sc-cold:#6b9cf0;}'+
+      '@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--sc-floor:#101624;--sc-inside:#101624;--sc-line:rgba(232,236,244,.7);--sc-board:#e8e8f0;--sc-accent:#E6D5A8;--sc-made:#5ee89a;--sc-miss:#ff6b5c;--sc-hot:#f5934a;--sc-cold:#6b9cf0;}}'+
       '.sc-zone{cursor:pointer;transition:filter .15s,stroke-opacity .15s;}'+
       '.sc-zone.sc-zone-hl{filter:brightness(1.25);stroke:var(--sc-accent);stroke-opacity:1;stroke-width:2;}'+
       '.sc-zlab{font-family:Inter,system-ui,sans-serif;font-size:14px;font-weight:900;fill:#fff;paint-order:stroke;stroke:rgba(0,0,0,.55);stroke-width:3px;pointer-events:none;}'+
@@ -586,12 +790,12 @@
       '@keyframes scFade{from{opacity:0;transform:scale(.97);}to{opacity:1;transform:scale(1);}}'+
       '@keyframes scDraw{from{stroke-dashoffset:1;}to{stroke-dashoffset:0;}}'+
       '.sc-title{font-size:13px;font-weight:700;color:var(--text2);margin-bottom:8px;animation:scUp .4s ease backwards;}'+
-      '.sc-legend{display:flex;align-items:center;gap:14px;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:10px;animation:scUp .4s ease backwards;}'+
-      '.sc-modes{display:inline-flex;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:3px;gap:3px;}'+
-      '.sc-modes button{font-size:11.5px;font-weight:700;padding:5px 13px;border:none;border-radius:5px;background:none;color:var(--text3);cursor:pointer;transition:color .15s,background .15s;}'+
+      '.sc-legend{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:10px;animation:scUp .4s ease backwards;}'+
+      '.sc-modes{display:inline-flex;max-width:100%;overflow-x:auto;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:3px;gap:3px;}'+
+      '.sc-modes button{white-space:nowrap;font-size:11.5px;font-weight:700;padding:5px 13px;border:none;border-radius:5px;background:none;color:var(--text3);cursor:pointer;transition:color .15s,background .15s;}'+
       '.sc-modes button:hover{color:var(--text);}'+
       '.sc-modes button.on{background:var(--accent);color:#fff;}'+
-      '.sc-mk-legend{display:flex;align-items:center;gap:16px;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:8px;}'+
+      '.sc-mk-legend{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:8px;}'+
       '.sc-mk-legend span{display:inline-flex;align-items:center;gap:6px;}'+
       '.sc-made{width:11px;height:11px;border-radius:50%;background:rgb(var(--sc-ink-rgb));display:inline-block;}'+
       '.sc-cov{font-size:11.5px;color:var(--text2);background:var(--bg2);border:1px solid var(--border2);'+
@@ -635,7 +839,7 @@
       '.sc-miss{width:11px;height:11px;border-radius:50%;border:1.6px solid rgb(var(--sc-ink-rgb));box-sizing:border-box;display:inline-block;opacity:.8;}'+
       '.sc-main{display:flex;gap:12px;align-items:stretch;}'+
       '.sc-court-col{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;}'+
-      '.sc-court-wrap{position:relative;min-width:0;max-width:760px;margin:0 auto;width:100%;background:var(--sc-floor);border:1px solid var(--border);border-radius:14px;padding:0;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.22);animation:scFade .5s ease backwards;}'+
+      '.sc-court-wrap{position:relative;min-width:0;max-width:760px;margin:0 auto;width:100%;background:var(--sc-floor);border:1px solid var(--border);border-radius:14px;padding:0;overflow:hidden;animation:scFade .5s ease backwards;}'+
       '.sc-court-wrap .sc-svg{border-radius:14px;}'+
       '.sc-svg{width:100%;height:auto;display:block;}'+
       '.sc-cl{stroke-dasharray:1;stroke-dashoffset:0;animation:scDraw 1s ease .1s backwards;}'+
@@ -676,9 +880,39 @@
       '.sc-zv{font-family:Inter,system-ui,sans-serif;font-weight:800;font-size:21px;line-height:1.1;font-variant-numeric:tabular-nums;color:var(--text);}'+
       '.sc-zl{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:5px;}'+
       '.sc-zs{font-size:10.5px;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'+
+      // editorial zone chart + diet bars + shift map
+      ':root{--scz-s0:#ececec;--scz-s1:#c8c8c8;--scz-s2:#8e8e8e;--scz-s3:#474747;--scz-t0:#2a2a2a;--scz-t1:#2a2a2a;--scz-t2:#fff;--scz-t3:#fff;}'+
+      ':root[data-theme="dark"]{--scz-s0:#262d3b;--scz-s1:#3a4354;--scz-s2:#6c778c;--scz-s3:#c9d0dc;--scz-t0:#e6e9ef;--scz-t1:#e6e9ef;--scz-t2:#fff;--scz-t3:#141a26;}'+
+      '@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--scz-s0:#262d3b;--scz-s1:#3a4354;--scz-s2:#6c778c;--scz-s3:#c9d0dc;--scz-t0:#e6e9ef;--scz-t1:#e6e9ef;--scz-t2:#fff;--scz-t3:#141a26;}}'+
+      '.scz-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:2px solid var(--text);padding:0 0 7px;margin-bottom:10px;}'+
+      '.scz-name{font-size:20px;font-weight:800;color:var(--text);letter-spacing:-.01em;}'+
+      '.scz-tot{font-size:17px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap;} .scz-tot i{font-style:normal;font-size:10.5px;font-weight:800;letter-spacing:.08em;color:var(--text3);margin:0 6px 0 14px;}'+
+      '.scz-wrap{max-width:640px;}'+
+      '.scz-z{transition:filter .15s;} .scz-z:hover,.scz-z.sc-zone-hl{filter:brightness(.9) saturate(1.2);stroke:var(--sc-line);stroke-width:1.5;}'+
+      '.scz-seam line{stroke:var(--sc-floor);stroke-width:2.2;}'+
+      '.scz-lab{font-family:Inter,system-ui,sans-serif;font-size:17px;font-weight:800;fill:var(--text);font-variant-numeric:tabular-nums;pointer-events:none;} .scz-lab.sm{font-size:13px;} .scz-lab{paint-order:stroke;stroke:var(--sc-floor);stroke-width:0;} .scz-lab.on{fill:#fff;}'+
+      '.scz-sub{font-family:Inter,system-ui,sans-serif;font-size:11px;font-weight:700;fill:var(--text2);pointer-events:none;} .scz-sub.on{fill:rgba(255,255,255,.85);}'+
+      '.scz-sw{width:12px;height:10px;display:inline-block;border-radius:2px;margin-right:-4px;}'+
+      '.scz-cap{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text);margin:16px 0 7px;}'+
+      '.scz-diet{max-width:760px;margin:0 auto;}'+
+      '.scz-drow{display:grid;grid-template-columns:118px 1fr;gap:10px;align-items:center;margin-bottom:6px;}'+
+      '.scz-dl b{display:block;font-size:15px;font-weight:800;color:var(--text);line-height:1.1;} .scz-dl span{font-size:11px;color:var(--text3);font-variant-numeric:tabular-nums;}'+
+      '.scz-drow.ref .scz-dl b{color:var(--text2);font-size:13px;}'+
+      '.scz-dbar{display:flex;gap:3px;height:34px;min-width:0;}'+
+      '.scz-seg{font-style:normal;display:flex;align-items:center;padding:0 9px;font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;overflow:hidden;white-space:nowrap;min-width:0;}'+
+      '.scz-seg.s0{background:var(--scz-s0);color:var(--scz-t0);} .scz-seg.s1{background:var(--scz-s1);color:var(--scz-t1);} .scz-seg.s2{background:var(--scz-s2);color:var(--scz-t2);} .scz-seg.s3{background:var(--scz-s3);color:var(--scz-t3);}'+
+      '.scz-drow.ref .scz-seg{font-size:13px;opacity:.85;height:auto;} .scz-drow.ref .scz-dbar{height:26px;}'+
+      '.scz-dhead .scz-dbar{height:24px;} .scz-dhead .scz-seg{font-size:10px;letter-spacing:.08em;text-transform:uppercase;justify-content:center;} .scz-seg .ls{display:none;}'+
+      '@media(max-width:600px){.scz-drow{grid-template-columns:78px 1fr;} .scz-seg{font-size:12px;padding:0 5px;} .scz-dhead .scz-seg{font-size:9px;letter-spacing:.04em;} .scz-seg .lf{display:none;} .scz-seg .ls{display:inline;} .scz-name{font-size:16px;} .scz-tot{font-size:14px;}}'+
+      '.scz-split{display:grid;grid-template-columns:1fr 1fr;gap:16px;} @media(max-width:600px){.scz-split{grid-template-columns:1fr;gap:0;}}'+
+      '.scz-split .sc-sheet{margin-top:0;} .sc-sheet tr.scz-total td{border-top:1.5px solid var(--text3);font-weight:800;}'+
+      '.scz-lede{font-size:16px;line-height:1.45;color:var(--text2);margin:0 0 10px;} .scz-lede b{color:var(--text);font-weight:800;}'+
+      '.scz-shleg{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:10px;flex-wrap:wrap;}'+
+      '.scz-shleg i{width:110px;height:10px;display:inline-block;} .scz-shleg i.neg{background:linear-gradient(90deg,#3a4767,#9aa4ba,#e3e6ed);} .scz-shleg i.pos{background:linear-gradient(90deg,#fde4d4,#f8a577,#ef6a1f);margin-left:-8px;}'+
+      '.scz-shwrap{max-width:640px;} .scz-foot{font-size:11.5px;line-height:1.5;color:var(--text3);margin-top:10px;} .scz-foot b{color:var(--text2);}'+
       '.sc-settled .sc-lead,.sc-settled .sc-ring,.sc-settled .sc-callout,.sc-settled .sc-calsub,.sc-settled .sc-spot-cap,'+
       '.sc-settled .sc-mark,.sc-settled .sc-cl,.sc-settled .sc-z,.sc-settled .sc-court-wrap,.sc-settled .sc-title,.sc-settled .sc-legend,.sc-settled .sc-heat,.sc-settled .sc-heat-legend,.sc-settled .sc-eff-legend{animation:none!important;}';
     document.head.appendChild(st);
   }
-  window.TDC_SHOTCHART={render:render,_m:_m,zone10:zone10,avgOf:avgOf,useSeason:useSeason};
+  window.TDC_SHOTCHART={render:render,renderShift:renderShift,_m:_m,zone10:zone10,zone12:zone12,avgOf:avgOf,useSeason:useSeason};
 })();
