@@ -1,6 +1,6 @@
 // Coach tab: the Coaching Legacy (level, points, the three disciplines' traits) + the Trophy Room + where the legacy
 // came from. Rules in engine/legacy.js / engine/history.js.
-import { DISCIPLINES, TRAITS, MAX_RANK, MAX_LEVEL, ensureLegacy, rank, cost, buyTrait, lpFor, pct } from '../engine/legacy.js?v=62';
+import { DISCIPLINES, TRAITS, MAX_RANK, MAX_LEVEL, ensureLegacy, rank, cost, buyTrait, lpFor, pct } from '../engine/legacy.js?v=71';
 
 const KINDS = [['title', 'National titles', '🏆'], ['ff', 'Final Fours', '🏀'], ['conf', 'Conference titles', '🥇'], ['event', 'Event titles', '🏝️'], ['nit', 'NIT / CBI titles', '🎖️'],
   ['rivalry', 'Rivalry wins', '⚔️'], ['coach', 'Coach awards', '📋'], ['award', 'Player awards', '⭐']];

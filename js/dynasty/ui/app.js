@@ -1,40 +1,41 @@
 // Dynasty — the page. Engine (pure) + browser saves + rendering. One league in memory (S); every action
 // mutates it through the engine, re-renders, and autosaves.
-import { C } from '../engine/constants.js?v=62';
-import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=62';
-import { overall } from '../engine/ratings.js?v=62';
-import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=62';
-import { simNext, simTo, afterDay } from '../engine/flow.js?v=62';
-import { postResult } from '../engine/postseason.js?v=62';
-import { TYPES as INJ } from '../engine/injuries.js?v=62';
-import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain, pushRecruit, PUSHES } from '../engine/offseason.js?v=62';
-import { mood, moodCtx, letter, talk, talksFor } from '../engine/morale.js?v=62';
-import { ROT } from '../engine/health.js?v=62';
-import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=62';
-import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=62';
-import { lines as pbpLines } from './pbp.js?v=62';
-import { gameSteps, newCtl } from '../engine/game.js?v=62';
-import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=62';
-import { tireAt } from '../engine/program.js?v=62';
-import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=62';
-import { recruitingView } from './recruiting.js?v=62';
-import { projectField } from '../engine/postseason.js?v=62';
-import { ensureMoneyCss } from './money.js?v=62';
-import { weekBox, openTasks, WEEK_CSS } from './week.js?v=62';
+import { C } from '../engine/constants.js?v=71';
+import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=71';
+import { overall } from '../engine/ratings.js?v=71';
+import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=71';
+import { simNext, simTo, afterDay } from '../engine/flow.js?v=71';
+import { postResult } from '../engine/postseason.js?v=71';
+import { TYPES as INJ } from '../engine/injuries.js?v=71';
+import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain, pushRecruit, PUSHES } from '../engine/offseason.js?v=71';
+import { mood, moodCtx, letter, talk, talksFor } from '../engine/morale.js?v=71';
+import { ROT } from '../engine/health.js?v=71';
+import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=71';
+import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=71';
+import { lines as pbpLines } from './pbp.js?v=71';
+import { gameSteps, newCtl } from '../engine/game.js?v=71';
+import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=71';
+import { tireAt } from '../engine/program.js?v=71';
+import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=71';
+import { recruitingView } from './recruiting.js?v=71';
+import { projectField } from '../engine/postseason.js?v=71';
+import { confLabel } from '../engine/awards.js?v=71';
+import { ensureMoneyCss } from './money.js?v=71';
+import { weekBox, openTasks, WEEK_CSS } from './week.js?v=71';
 const ensureWeekCss = () => { if (!document.getElementById('wkCss')) { const s = document.createElement('style'); s.id = 'wkCss'; s.textContent = WEEK_CSS; document.head.appendChild(s); } };
-import { isNewClass, userChance } from '../engine/commits.js?v=62';
-import { portalView } from './portal.js?v=62';
-import { tournamentsView, awardsView } from './tourney.js?v=62';
-import { scheduleStep } from './sched.js?v=62';
-import { carouselStep, staffStep } from './carousel.js?v=62';
-import { coachesView } from './coaches.js?v=62';
-import { legacyView } from './legacy.js?v=62';
-import { margins } from '../engine/history.js?v=62';
-import { facilitiesRankHtml, bindFacilitiesRank } from './facilities.js?v=62';
-import { durability, durTag, acadGrade, admitP, admitLabel, initSchools } from '../engine/people.js?v=62';
-import { initFacilities } from '../engine/facilities.js?v=62';
-import { inviteInfo, decide as realignDecide } from '../engine/realign.js?v=62';
-import { programView, diffPicker } from './program.js?v=62';
+import { isNewClass, userChance } from '../engine/commits.js?v=71';
+import { portalView } from './portal.js?v=71';
+import { tournamentsView, awardsView } from './tourney.js?v=71';
+import { scheduleStep } from './sched.js?v=71';
+import { carouselStep, staffStep } from './carousel.js?v=71';
+import { coachesView } from './coaches.js?v=71';
+import { legacyView } from './legacy.js?v=71';
+import { margins } from '../engine/history.js?v=71';
+import { facilitiesRankHtml, bindFacilitiesRank } from './facilities.js?v=71';
+import { durability, durTag, acadGrade, admitP, admitLabel, initSchools } from '../engine/people.js?v=71';
+import { initFacilities } from '../engine/facilities.js?v=71';
+import { inviteInfo, decide as realignDecide } from '../engine/realign.js?v=71';
+import { programView, diffPicker } from './program.js?v=71';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -46,6 +47,14 @@ const fmtDate = iso => new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', 
 const phi = x => 0.5 * (1 + erf(x / Math.SQRT2));
 function erf(x) { const t = 1 / (1 + 0.3275911 * Math.abs(x)); const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x); return x >= 0 ? y : -y; }
 const pl = (p, bold = true) => `<a class="pl" data-pid="${esc(p.id)}">${bold ? '<b>' : ''}${esc(p.name)}${bold ? '</b>' : ''}</a>`;
+// phones: tdc-mobile.js folds wide tables by hiding columns from the right, which took the Hire / Start / Offer
+// buttons with them. Any column holding a control is marked data-fit-keep before it measures (it waits 150ms+).
+let keepQ = false;
+const keepControls = () => { keepQ = false; document.querySelectorAll('.page table').forEach(t => {
+  const h = t.tHead && t.tHead.rows.length ? t.tHead.rows[t.tHead.rows.length - 1] : null; if (!h) return;
+  const n = h.cells.length, rows = [...t.tBodies].flatMap(b => [...b.rows]).filter(r => r.cells.length === n);
+  for (let i = 0; i < n; i++) if (!h.cells[i].hasAttribute('data-fit-keep') && rows.some(r => r.cells[i].querySelector('button,input,select'))) h.cells[i].setAttribute('data-fit-keep', ''); }); };
+if (window.matchMedia && matchMedia('(max-width: 760px)').matches) new MutationObserver(() => { if (!keepQ) { keepQ = true; queueMicrotask(keepControls); } }).observe(document.body, { childList: true, subtree: true });
 const PILLARS = [['SCO', 'Scoring'], ['SHT', 'Shooting'], ['FIN', 'Finishing'], ['PLY', 'Playmaking'], ['SEC', 'Ball security'], ['REB', 'Rebounding'], ['DEF', 'Defense']];
 
 let S = null, slot = null, cache = {}, SNAP = null, SCHED = null, EXTRAS = null, RIVALS = null, tab = 'home', busy = false;
@@ -215,7 +224,7 @@ function simWeek() { run(() => { const d0 = nextDate(S); if (!d0) return; const 
 function flowBar() {
   if (flow == null || S.phase === 'offseason') return '';
   const [k, l] = FLOW[flow], nx = FLOW[flow + 1];
-  return `<div class="wf-bar"><div class="wf-steps">${FLOW.map(([, x], i) => `<span class="${i === flow ? 'on' : i < flow ? 'done' : ''}" data-wf="${i}">${i < flow ? '✓ ' : ''}${x}</span>`).join('')}</div>
+  return `<div class="wf-bar"><div class="wf-steps">${FLOW.map(([, x], i) => `<span class="${i === flow ? 'on' : i < flow ? 'done' : ''}" data-wf="${i}" data-n="Step ${i + 1} of ${FLOW.length} · ">${i < flow ? '✓ ' : ''}${x}</span>`).join('')}</div>
     <div class="wf-acts">${flow > 0 ? '<button class="btn ghost pg-sm" id="wfBack">← Back</button>' : ''}${nx ? `<button class="btn pg-sm" id="wfNext">Next: ${nx[1]} →</button>` : ''}
       <button class="btn ${nx ? 'ghost' : ''} pg-sm" id="wfSim">Sim the week ▸</button><button class="btn ghost pg-sm" id="wfEnd">Exit</button></div></div>`;
 }
@@ -463,7 +472,7 @@ function rotationView() {
     <div class="ro-five">${startP.map(card).join('')}</div>
     <div class="ro-tot"><span>Minutes</span><span class="ro-bar big"><i style="width:${Math.min(100, tot / 2)}%" class="${Math.abs(tot - 200) > 10 ? 'tired' : ''}"></i></span><b>${tot} / 200</b>
       <span class="dim">${tot > 210 ? 'over — everyone is scaled down' : tot < 190 ? 'under — everyone is scaled up' : ''}</span></div>
-    <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Role</th><th class="l">Bench</th><th>Pos</th><th>Yr</th><th>OVR</th><th class="l">Game</th><th>Min</th><th class="l"></th><th></th></tr></thead><tbody>${bench.map(row).join('')}</tbody></table></div>
+    <div class="sheet-wrap"><table class="sheet dense ro-bench" data-fit-keep><thead><tr><th class="l">Role</th><th class="l">Bench</th><th>Pos</th><th>Yr</th><th>OVR</th><th class="l">Game</th><th>Min</th><th class="l"></th><th></th></tr></thead><tbody>${bench.map(row).join('')}</tbody></table></div>
     <div class="dy-btns"><button class="btn" id="roSave" ${D.dirty ? '' : 'disabled'}>Save rotation</button><button class="btn ghost" id="roAuto">Coach's default</button>
       <span class="ro-rot">${ROT.map(([k, l]) => `<button class="mb ${(t.rot || 'normal') === k ? 'on' : ''}" data-rot="${k}" title="How hard the default rotation rides your starters">${l}</button>`).join('')}</span></div>
     <style>.ro-five{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:6px 0 12px}.ro-card{border:1px solid var(--border);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:5px}
@@ -471,7 +480,9 @@ function rotationView() {
     .ro-stp{display:inline-flex;gap:6px;align-items:center}.ro-min{font-size:12px;color:var(--text3)}.ro-bar{position:relative;display:inline-block;width:120px;height:8px;border-radius:4px;background:var(--bg3,#eee);vertical-align:middle}
     .ro-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--green,#1a8c3a)}.ro-bar i.tired{background:var(--red,#cc2200)}.ro-bar em{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--text3)}
     .ro-card .ro-bar{width:100%}.ro-tot{display:flex;gap:12px;align-items:center;margin:0 0 10px;font-size:13px}.ro-bar.big{flex:1;max-width:420px;height:10px}.ro-rot{display:inline-flex;gap:5px;margin-left:10px}
-    @media(max-width:900px){.ro-five{grid-template-columns:1fr 1fr}}</style>`;
+    @media(max-width:900px){.ro-five{grid-template-columns:1fr 1fr}}
+    @media(max-width:640px){.ro-five{gap:8px}.ro-card{padding:8px}.ro-bench{width:100%!important}.ro-bench th:nth-child(1),.ro-bench td:nth-child(1),.ro-bench th:nth-child(4),.ro-bench td:nth-child(4),.ro-bench th:nth-child(6),.ro-bench td:nth-child(6),.ro-bench th:nth-child(8),.ro-bench td:nth-child(8){display:none}
+      .ro-bench td{white-space:normal!important}.ro-tot{flex-wrap:wrap}.ro-rot{margin-left:0}}</style>`;
 }
 function bindRotation() {
   const t = S.teams[S.user], D = rDraft, again = () => roster();
@@ -628,14 +639,40 @@ function rankings() {
   bindSub();
 }
 
+// league leaders (Oct 2026 UI update): category + scope buttons, a top 25 with bars against the leader, and your
+// own leaders with their national rank in every category
+let ldCat = 'pts', ldScope = 'nat';
+const LD_CATS = [['pts', 'Points'], ['reb', 'Rebounds'], ['ast', 'Assists'], ['stl', 'Steals'], ['blk', 'Blocks'], ['fg', 'FG%'], ['tp', '3P%'], ['ft', 'FT%'], ['min', 'Minutes'], ['eff', 'Efficiency']];
 function leaders() {
-  const rows = Object.entries(S.stats).filter(([, s]) => s.g >= Math.max(3, Math.floor(maxG() * 0.6))).map(([id, s]) => ({ id, s, p: S.players[id] })).filter(x => x.p);
-  const cats = [['pts', 'Points'], ['reb', 'Rebounds'], ['ast', 'Assists'], ['stl', 'Steals'], ['blk', 'Blocks']];
-  const val = (x, k) => (k === 'reb' ? x.s.orb + x.s.drb : x.s[k]) / x.s.g;
-  $('#dyBody').innerHTML = `<div class="sec"><h2>League leaders</h2><span class="n">Per game, players in 60%+ of games</span></div><div class="dy-grid">
-  ${cats.map(([k, l]) => `<div class="sheet-wrap"><table class="sheet dense dy-ld"><thead><tr><th>#</th><th class="l">${l}</th><th class="l">Team</th><th>Per game</th></tr></thead><tbody>
-    ${rows.slice().sort((a, b) => val(b, k) - val(a, k)).slice(0, 15).map((x, i) => `<tr class="${x.p.team === S.user ? 'me' : ''}"><td>${i + 1}</td><td class="l">${pl(x.p, false)}</td><td class="l">${tm(x.p.team)}</td><td><b>${val(x, k).toFixed(1)}</b></td></tr>`).join('')}
-  </tbody></table></div>`).join('')}</div>`;
+  const U = S.user, myConf = S.teams[U].conf;
+  const base = Object.entries(S.stats).filter(([, s]) => s.g >= Math.max(3, Math.floor(maxG() * 0.6))).map(([id, s]) => ({ id, s, p: S.players[id] })).filter(x => x.p);
+  const val = (x, k) => { const s = x.s, g = s.g || 1;
+    return k === 'reb' ? (s.orb + s.drb) / g : k === 'fg' ? (s.fga >= 4 * g ? 100 * s.fgm / s.fga : null) : k === 'tp' ? (s.tpa >= 1.5 * g ? 100 * s.tpm / s.tpa : null) : k === 'ft' ? (s.fta >= 1.5 * g ? 100 * s.ftm / s.fta : null)
+      : k === 'eff' ? (s.pts + 0.4 * s.fgm - 0.7 * s.fga - 0.4 * (s.fta - s.ftm) + 0.7 * s.orb + 0.3 * s.drb + s.stl + 0.7 * s.ast + 0.7 * s.blk - 0.4 * s.pf - s.tov) / g : s[k] / g; };
+  const inScope = x => ldScope === 'nat' || (ldScope === 'conf' ? (S.teams[x.p.team] || {}).conf === myConf : x.p.team === U);
+  const rank = (k, pool) => pool.map(x => [x, val(x, k)]).filter(([, v]) => v != null && isFinite(v)).sort((a, b) => b[1] - a[1]);
+  const R = rank(ldCat, base.filter(inScope)), top = R.slice(0, 25), lead = top.length ? top[0][1] : 1;
+  const dec = ['fg', 'tp', 'ft'].includes(ldCat) ? 1 : 1, unit = ['fg', 'tp', 'ft'].includes(ldCat) ? '%' : '';
+  const line = x => { const s = x.s, g = s.g || 1; return `${(s.pts / g).toFixed(1)} / ${((s.orb + s.drb) / g).toFixed(1)} / ${(s.ast / g).toFixed(1)}`; };
+  const natAll = Object.fromEntries(LD_CATS.map(([k]) => [k, rank(k, base)]));
+  const mine = base.filter(x => x.p.team === U);
+  const myBest = LD_CATS.map(([k, l]) => { const r = rank(k, mine)[0]; if (!r) return null; const n = natAll[k].findIndex(([x]) => x.id === r[0].id) + 1; return { k, l, x: r[0], v: r[1], n }; }).filter(Boolean);
+  $('#dyBody').innerHTML = `<div class="sec"><h2>League leaders</h2><span class="n">Per game · players in 60%+ of games${['fg', 'tp', 'ft'].includes(ldCat) ? ' · shooting needs a minimum of attempts per game' : ''}</span></div>
+    <div class="ld-ctl"><span class="mb-row">${LD_CATS.map(([k, l]) => `<button class="mb ${k === ldCat ? 'on' : ''}" data-ldc="${k}">${l}</button>`).join('')}</span>
+      <span class="mb-row">${[['nat', 'National'], ['conf', esc(confLabel ? confLabel(myConf) : myConf)], ['team', esc(short(U))]].map(([k, l]) => `<button class="mb ${k === ldScope ? 'on' : ''}" data-lds="${k}">${l}</button>`).join('')}</span></div>
+    <div class="ld-two"><div class="sheet-wrap" style="max-height:none"><table class="sheet dense dy-ld2"><thead><tr><th>#</th><th class="l">Player</th><th class="l">Team</th><th>Pos</th><th>G</th><th class="l">${esc(LD_CATS.find(c => c[0] === ldCat)[1])}</th><th class="l dim">Pts / Reb / Ast</th></tr></thead><tbody>
+      ${top.map(([x, v], i) => `<tr class="${x.p.team === U ? 'me' : ''}"><td>${i + 1}</td><td class="l">${pl(x.p)}</td><td class="l">${tm(x.p.team)}</td><td>${esc(x.p.pos || '')}</td><td>${x.s.g}</td>
+        <td class="l" style="white-space:nowrap"><span class="ld-bar"><i style="width:${Math.max(4, Math.round(100 * v / (lead || 1)))}%"></i></span><b>${v.toFixed(dec)}${unit}</b></td><td class="l dim">${line(x)}</td></tr>`).join('') || '<tr><td colspan="7" class="l dim">No qualified players yet.</td></tr>'}
+    </tbody></table></div>
+    <div class="ld-mine"><div class="ld-h">${esc(short(U))} leaders</div>${myBest.map(b => `<div class="ld-r"><span class="dim">${b.l}</span><span>${pl(b.x.p, false)}</span><b>${b.v.toFixed(1)}${['fg', 'tp', 'ft'].includes(b.k) ? '%' : ''}</b><span class="${b.n <= 25 ? 'up' : 'dim'}">#${b.n}</span></div>`).join('') || '<div class="dim">No qualified players yet.</div>'}</div></div>
+    <style>.ld-ctl{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:4px 0 12px}.ld-two{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+    .ld-bar{display:inline-block;width:110px;height:8px;border-radius:4px;background:var(--bg3,#eee);vertical-align:middle;overflow:hidden;margin-right:8px}.ld-bar i{display:block;height:100%;background:var(--accent)}
+    .ld-mine{border:1px solid var(--border);border-radius:10px;padding:10px 12px}.ld-h{font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
+    .ld-r{display:grid;grid-template-columns:80px 1fr auto 40px;gap:6px;align-items:center;font-size:12.5px;padding:4px 0;border-top:1px solid var(--border)}.ld-r b{text-align:right}.ld-r span:last-child{text-align:right;font-weight:700}
+    @media(max-width:900px){.ld-two{grid-template-columns:1fr}}</style>`;
+  ensureMoneyCss();
+  document.querySelectorAll('[data-ldc]').forEach(b => b.onclick = () => { ldCat = b.dataset.ldc; leaders(); });
+  document.querySelectorAll('[data-lds]').forEach(b => b.onclick = () => { ldScope = b.dataset.lds; leaders(); });
 }
 const maxG = () => Math.max(0, ...Object.values(S.stats).map(s => s.g));
 

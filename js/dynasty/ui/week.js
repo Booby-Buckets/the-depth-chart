@@ -1,9 +1,9 @@
 // "This week" (Oct 2026, owner: "you need week to week tasks, not just tasks to do"): the home screen opens with a
 // checklist rebuilt every week from the save — what needs doing now, why, and a button straight to it. The old home
 // panel (next game, sims, results, news, top 10) follows underneath.
-import { HOURS, AREAS, OFF, DEF, fitOf } from '../engine/program.js?v=62';
-import { classNeed, commitsOf, cutWeeks, hoursBudget, hoursUsed, planHours, rankOf, SUMMER, STAGE_LABEL, battleOf } from '../engine/commits.js?v=62';
-import { visitsLeft, upcomingHomeGames } from '../engine/visits.js?v=62';
+import { HOURS, AREAS, OFF, DEF, fitOf } from '../engine/program.js?v=71';
+import { classNeed, commitsOf, cutWeeks, hoursBudget, hoursUsed, planHours, rankOf, SUMMER, STAGE_LABEL, battleOf } from '../engine/commits.js?v=71';
+import { visitsLeft, upcomingHomeGames } from '../engine/visits.js?v=71';
 
 const KIND = { must: ['Must', 'must'], rec: ['Recommended', 'rec'], done: ['Done', 'done'] };
 
@@ -70,12 +70,15 @@ export const WEEK_CSS = `.wk-box{border:1px solid var(--border);border-radius:10
 .wk-t.must .wk-ck{border-color:var(--red,#cc2200)}.wk-t.done .wk-ck{background:var(--green,#1a8c3a);border-color:var(--green,#1a8c3a)}
 .wk-t.done b{color:var(--text3)}.wk-t .why{font-size:12px;color:var(--text3);margin-top:1px}
 .wk-tag{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:4px;margin-left:8px;vertical-align:1px}
-.wk-tag.must{background:hsla(0,70%,48%,.18);color:var(--red,#cc2200)}.wk-tag.rec{background:hsla(45,80%,50%,.2)}.wk-tag.done{background:var(--bg3,#eee);color:var(--text3)}`;
+.wk-tag.must{background:hsla(0,70%,48%,.18);color:var(--red,#cc2200)}.wk-tag.rec{background:hsla(45,80%,50%,.2)}.wk-tag.done{background:var(--bg3,#eee);color:var(--text3)}
+@media(max-width:640px){.wk-h{padding:9px 12px;font-size:12px}.wk-t{grid-template-columns:20px minmax(0,1fr);gap:4px 10px;padding:10px 12px}.wk-t>button{grid-column:2;justify-self:start}.wk-t b{font-size:13.5px}}`;
 
 export function weekBox(S, esc, short) {
   const T = weekTasks(S, short), open = T.filter(x => x.kind !== 'done').length;
-  const wk = Math.max(0, (S.rweek || 0) - SUMMER);
-  return `<div class="wk-box"><div class="wk-h">${S.phase === 'regular' ? `Week ${wk || 1} to-do` : 'To-do'}<span>${open ? `${open} open` : 'all caught up'} · rebuilt every week</span></div>
+  // the season week from the calendar (rweek runs on from the summer and old saves caught it up, so it read 31)
+  const d0 = S.schedule.reduce((m, g) => (!m || g.d < m ? g.d : m), ''), now = S.progT || (S.schedule.find(g => !g.r) || {}).d || d0;
+  const wk = d0 && now ? Math.max(1, Math.floor((Date.parse(now) - Date.parse(d0)) / (7 * 864e5)) + 1) : 1;
+  return `<div class="wk-box"><div class="wk-h">${S.phase === 'regular' ? `Week ${wk} to-do` : 'To-do'}<span>${open ? `${open} open` : 'all caught up'} · rebuilt every week</span></div>
     ${T.map(x => `<div class="wk-t ${x.kind}"><span class="wk-ck">${x.kind === 'done' ? '✓' : ''}</span><div><b>${esc(x.title)}</b><span class="wk-tag ${KIND[x.kind][1]}">${KIND[x.kind][0]}</span><div class="why">${esc(x.why)}</div></div>
       <button class="btn ${x.kind === 'must' ? '' : 'ghost'} pg-sm" data-go="${x.go}">${esc(x.btn)}</button></div>`).join('') || '<div class="wk-t"><span></span><div class="dim">Nothing to do — play the week.</div></div>'}</div>`;
 }

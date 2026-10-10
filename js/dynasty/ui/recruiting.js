@@ -1,15 +1,15 @@
 // In-season Recruiting tab, EA College Football 25 style (Oct 2026): offers, a weekly hours budget spent on actions,
 // recruits narrowing their lists (Top 8 / 5 / 3), commitments that can flip, signings. Rules: engine/commits.js
 // (the race), engine/visits.js (official visits at home games), engine/recruit.js (what each recruit values, NIL).
-import { scoutView, scoutSD } from '../engine/offseason.js?v=62';
-import { moneyButtons, ensureMoneyCss } from './money.js?v=62';
-import { acadGrade, admitP, admitLabel } from '../engine/people.js?v=62';
-import { priorities, negotiate, acceptCounter, FACTORS, committedNIL, profile } from '../engine/recruit.js?v=62';
-import { officialMax, visitsLeft, visitsFor, upcomingHomeGames, scheduleOfficial, cancelVisit, VISIT_FOCUS, BIG_MAX, isBig, toggleBig, setFocus } from '../engine/visits.js?v=62';
-import { power, lineFor } from '../engine/season.js?v=62';
-import { factors as facOf, relationship as relOf } from '../engine/recruit.js?v=62';
+import { scoutView, scoutSD } from '../engine/offseason.js?v=71';
+import { moneyButtons, ensureMoneyCss } from './money.js?v=71';
+import { acadGrade, admitP, admitLabel } from '../engine/people.js?v=71';
+import { priorities, negotiate, acceptCounter, FACTORS, committedNIL, profile } from '../engine/recruit.js?v=71';
+import { officialMax, visitsLeft, visitsFor, upcomingHomeGames, scheduleOfficial, cancelVisit, VISIT_FOCUS, BIG_MAX, isBig, toggleBig, setFocus } from '../engine/visits.js?v=71';
+import { power, lineFor } from '../engine/season.js?v=71';
+import { factors as facOf, relationship as relOf } from '../engine/recruit.js?v=71';
 import { STAGE_LABEL, ACTIONS, HOURS_CAP, USER_OFFERS_MAX, SUMMER, cutWeeks, classNeed, commitsOf, hoursBudget, hoursUsed, planHours,
-  offerRecruit, withdrawOffer, toggleAction, userChance, gradesFor, rankOf, passesDB, dbLabel, grade, scoutedPct, revealed, needs, groupOf, classRanks, pipeOf, pipeTier, pipelinesOf, battleOf } from '../engine/commits.js?v=62';
+  offerRecruit, withdrawOffer, toggleAction, userChance, gradesFor, rankOf, passesDB, dbLabel, grade, scoutedPct, revealed, needs, groupOf, classRanks, pipeOf, pipeTier, pipelinesOf, battleOf } from '../engine/commits.js?v=71';
 
 let sel = null, q = '', pos = '', minStars = 3, onlyOpen = true, pickVisit = false, msg = '', rv = 'board', needOnly = false;
 const CSS = `
@@ -23,6 +23,12 @@ const CSS = `
 .rc-bar i{display:block;height:100%;background:var(--accent,#c9a227)}
 .rc-cols{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:14px;align-items:start}
 @media(max-width:1000px){.rc-cols{grid-template-columns:1fr}.rc-stages{grid-template-columns:repeat(3,1fr)}}
+/* phones: the board keeps recruit / OVR / stage / your rank / chance; find-recruits keeps offer / recruit / pos / OVR / status */
+@media(max-width:640px){.rc-board th:nth-child(2),.rc-board td:nth-child(2),.rc-board th:nth-child(6),.rc-board td:nth-child(6),.rc-board th:nth-child(8),.rc-board td:nth-child(8){display:none}
+.rc-find th:nth-child(3),.rc-find td:nth-child(3),.rc-find th:nth-child(5),.rc-find td:nth-child(5),.rc-find th:nth-child(n+7):nth-child(-n+11),.rc-find td:nth-child(n+7):nth-child(-n+11),.rc-find th:nth-child(13),.rc-find td:nth-child(13){display:none}
+.rc-board,.rc-find{width:100%!important}.rc-board td,.rc-find td{white-space:normal!important}.rc-cols{grid-template-columns:minmax(0,1fr)!important}.rc-board div.rc-dl{display:none}.rc-board .rc-st,.rc-find .rc-st{white-space:normal!important;display:inline-block;line-height:1.25}
+.rc-find td:first-child .rc-q{display:block;margin-top:4px}.rc-stages{grid-template-columns:repeat(2,1fr)}.rc-stages div{padding:6px 8px;font-size:10.5px}
+.rc-bud{gap:10px 16px;padding:10px 12px}.rc-bud b{font-size:15px}.rc-bar{min-width:100%;order:9}}
 .rc-st{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:2px 6px;border-radius:4px;white-space:nowrap;background:var(--bg3,#eee)}
 .rc-st.t8{background:hsla(30,70%,48%,.2)}.rc-st.t5{background:hsla(60,70%,48%,.22)}.rc-st.t3{background:hsla(100,60%,45%,.28)}
 .rc-st.me{background:var(--green,#1a8c3a);color:#fff}.rc-st.them{background:var(--red,#cc2200);color:#fff}.rc-st.sg{background:var(--text);color:var(--bg)}.rc-st.cut{background:hsla(0,70%,48%,.22);color:var(--red,#cc2200)}
@@ -161,16 +167,16 @@ export function recruitingView(ctx) {
       <div><span>Week</span><b>${wk ? wk : 'Summer'}</b></div></div>
     <div class="rc-pipes"><b>Your pipelines</b>${PL.length ? PL.map(([k, v, t]) => `<span class="rc-pipe" title="+${Math.round(30 * v / 100)}% interest with recruits from here">${k === 'INTL' ? 'International' : k} · ${t}</span>`).join('') : '<span class="dim">none yet — every signing builds one in his home state</span>'}</div>
     <div class="pg-d" style="margin:-4px 0 10px">Hours you don't assign, your staff spends for you (${{ rookie: 'all of them', pro: 'half', aa: 'a quarter', hof: 'none' }[S.diff || 'pro']} on this difficulty). Scouting accuracy ±${scoutSD(S, 0).toFixed(1)}.</div>
-    <div class="rc-cols"><div><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Your board</th><th>Pos</th><th>OVR</th><th class="l">Stage</th><th>You</th><th class="l">Leader</th><th title="Your chance he signs with you if signing day were today">Chance</th><th title="Your hours on him this week (staff = your staff covers him)">Hrs</th></tr></thead>
+    <div class="rc-cols"><div><div class="sheet-wrap"><table class="sheet dense rc-board" data-fit-keep><thead><tr><th class="l">Your board</th><th>Pos</th><th>OVR</th><th class="l">Stage</th><th>You</th><th class="l">Leader</th><th title="Your chance he signs with you if signing day were today">Chance</th><th title="Your hours on him this week (staff = your staff covers him)">Hrs</th></tr></thead>
       <tbody>${mine.map(boardRow).join('') || '<tr><td colspan="8" class="dim l">No offers out — find recruits below.</td></tr>'}</tbody></table></div></div>
-      <div>${detail(R.find(r => r.id === sel))}</div></div>
+      <div id="rcDetail">${detail(R.find(r => r.id === sel))}</div></div>
     <div class="sec" style="margin-top:18px"><h2>Find recruits</h2><span class="n">Offer while he's still open — once he cuts to a Top 8 it's too late.</span></div>
     <div class="dy-row"><input id="rvQ" class="dy-input" placeholder="Search recruits…" value="${esc(q)}">
       <select id="rvPos" class="dy-input"><option value="">All positions</option>${['PG', 'SG', 'SF', 'PF', 'C'].map(p => `<option ${p === pos ? 'selected' : ''}>${p}</option>`).join('')}</select>
       <select id="rvStars" class="dy-input">${[5, 4, 3, 2, 1].map(n => `<option value="${n}" ${n === minStars ? 'selected' : ''}>${n}★ +</option>`).join('')}</select>
       <label class="cal-chk"><input type="checkbox" id="rvOpen" ${onlyOpen ? 'checked' : ''}> Still open only</label>
       <label class="cal-chk"><input type="checkbox" id="rvNeed" ${needOnly ? 'checked' : ''}> Fits a need</label></div>
-    <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th></th><th class="l">Recruit</th><th>#</th><th>Pos</th><th>Ht</th><th>OVR</th><th>Ceil.</th><th class="l">Skills</th><th>From</th><th>Admits?</th><th title="Schools that have offered him">Offers</th><th class="l">Status</th><th>Ask</th></tr></thead>
+    <div class="sheet-wrap"><table class="sheet dense rc-find" data-fit-keep><thead><tr><th></th><th class="l">Recruit</th><th>#</th><th>Pos</th><th>Ht</th><th>OVR</th><th>Ceil.</th><th class="l">Skills</th><th>From</th><th>Admits?</th><th title="Schools that have offered him">Offers</th><th class="l">Status</th><th>Ask</th></tr></thead>
       <tbody>${finds.map(findRow).join('')}</tbody></table></div>`;
   bind(ctx);
 }
@@ -178,7 +184,9 @@ export function recruitingView(ctx) {
 function bind(ctx) {
   const S = ctx.get(), $ = ctx.$;
   const again = m => { msg = m || ''; ctx.autosave(); recruitingView(ctx); };
-  document.querySelectorAll('[data-sel]').forEach(el => el.onclick = e => { e.preventDefault(); sel = el.dataset.sel; msg = ''; pickVisit = false; rv = 'board'; recruitingView(ctx); });
+  document.querySelectorAll('[data-sel]').forEach(el => el.onclick = e => { e.preventDefault(); sel = el.dataset.sel; msg = ''; pickVisit = false; rv = 'board'; recruitingView(ctx);
+    // on a phone the detail sits under the whole board: take him there
+    const d = document.getElementById('rcDetail'); if (d && window.innerWidth <= 1000) d.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   document.querySelectorAll('[data-offer]').forEach(b => b.onclick = e => { e.stopPropagation(); const err = offerRecruit(S, b.dataset.offer); if (!err) sel = b.dataset.offer; again(err); });
   document.querySelectorAll('[data-pull]').forEach(b => b.onclick = () => { if (confirm('Pull your offer? He drops you from his list.')) { withdrawOffer(S, b.dataset.pull); again('Offer pulled.'); } });
   document.querySelectorAll('[data-act]').forEach(b => b.onclick = e => { e.stopPropagation(); const [rid, k] = b.dataset.act.split('|'); again(toggleAction(S, rid, k)); });

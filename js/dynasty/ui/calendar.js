@@ -3,10 +3,10 @@
 // in between — and a CRAWL that walks the season a day at a time (league-wide), stopping before the user's
 // games so they can watch or sim them. The cursor (state.cal) is saved with the dynasty.
 // UI-side only: drives the engine's simNext / nextDate; never touches storage itself (ctx.autosave does).
-import { simNext } from '../engine/flow.js?v=62';
-import { nextDate, power, lineFor } from '../engine/season.js?v=62';
-import { cutWeeks, STAGE_LABEL } from '../engine/commits.js?v=62';
-import { isBig } from '../engine/visits.js?v=62';
+import { simNext } from '../engine/flow.js?v=71';
+import { nextDate, power, lineFor } from '../engine/season.js?v=71';
+import { cutWeeks, STAGE_LABEL } from '../engine/commits.js?v=71';
+import { isBig } from '../engine/visits.js?v=71';
 
 const MON = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -68,7 +68,7 @@ export function calendarView(ctx) {
   for (let day = 1; day <= days; day++) {
     const d = `${vy}-${String(vm).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const g = userGameOn(S, d), pe = !g && userPendingOn(S, d);
-    const isCur = d === cur, past = d < cur, lbl = `<span class="dt">${MON[vm - 1].slice(0, 3).toUpperCase()} ${day}</span>`;
+    const isCur = d === cur, past = d < cur, lbl = `<span class="dt"><i class="mo">${MON[vm - 1].slice(0, 3).toUpperCase()} </i>${day}</span>`;
     if (g) {
       const home = g.h === S.user, opp = home ? g.a : g.h, site = g.n ? 'neu' : home ? 'home' : 'away';
       let res = '';
@@ -92,7 +92,7 @@ export function calendarView(ctx) {
   for (const g of S.schedule) if (g.r && g.d.slice(0, 7) === viewMonth && (g.h === S.user || g.a === S.user)) { if ((g.h === S.user) === (g.r[0] > g.r[1])) mw++; else ml++; }
   const tick = ticker(S, ctx);
   const sum = mw + ml ? `<div class="cal-note"><b>${MON[vm - 1]}:</b> ${mw}-${ml}${(() => { const n = Object.keys(marks).filter(d => d.slice(0, 7) === viewMonth).length; return n ? ` · ${n} recruiting date${n === 1 ? '' : 's'}` : ''; })()}</div>` : '';
-  $('#dyBody').innerHTML = head + nav + sum + `<div class="cal-grid">${DOW.map(x => `<div class="cal-h">${x}</div>`).join('')}${cells}</div>` + tick +
+  $('#dyBody').innerHTML = head + nav + sum + `<div class="cal-grid" data-type-keep>${DOW.map(x => `<div class="cal-h">${x}</div>`).join('')}${cells}</div>` + tick +
     `<div class="cal-note">Click a future day to crawl to it · click a played game for its box score.</div>`;
   bind(ctx);
 }
