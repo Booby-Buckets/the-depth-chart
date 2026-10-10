@@ -1,17 +1,20 @@
 // The season: day-by-day simulation over state.schedule, results, player stats, standings, a power rating
 // (opponent-adjusted net blended with the preseason prior) and the poll. Pure: works on the state object.
-import { prepareTeam } from './ratings.js?v=50';
-import { simulateGame, totals } from './game.js?v=50';
-import { makeRng, hashSeed } from './rng.js?v=50';
-import { powerFeatures } from './league.js?v=50';
-import { afterGame } from './injuries.js?v=50';
-import { resolvePending, nextPendingDate, EXT_RATING } from './fill.js?v=50';
-import { resolveVisits } from './visits.js?v=50';
-import { resolveMTE } from './mte.js?v=50';
-import { hcaMult } from './facilities.js?v=50';
-import { academicCheck } from './people.js?v=50';
-import { news } from './injuries.js?v=50';
-import { schemeMods, programGame } from './program.js?v=50';
+import { prepareTeam } from './ratings.js?v=52';
+import { simulateGame, totals } from './game.js?v=52';
+import { makeRng, hashSeed } from './rng.js?v=52';
+import { powerFeatures } from './league.js?v=52';
+import { afterGame } from './injuries.js?v=52';
+import { resolvePending, nextPendingDate, EXT_RATING } from './fill.js?v=52';
+import { resolveVisits } from './visits.js?v=52';
+import { resolveMTE } from './mte.js?v=52';
+import { hcaMult } from './facilities.js?v=52';
+import { academicCheck } from './people.js?v=52';
+import { wear, rotate } from './health.js?v=52';
+import { tv } from './legacy.js?v=52';
+import { tieBreak } from './history.js?v=52';
+import { news } from './injuries.js?v=52';
+import { schemeMods, programGame } from './program.js?v=52';
 
 const STAT_KEYS = ['min', 'pts', 'fgm', 'fga', 'tpm', 'tpa', 'ftm', 'fta', 'orb', 'drb', 'ast', 'stl', 'blk', 'tov', 'pf'];
 
@@ -22,8 +25,13 @@ export function prepared(state, C, cache = {}) {
   for (const t of Object.values(state.teams)) {
     const opts = t.name === state.user || t.minutes || t.starters || t.plan
       ? { minutes: t.minutes || undefined, starters: t.starters || undefined, plan: t.plan || undefined } : {};
+    if (t.name === state.user && !t.minutes && t.rot && t.rot !== 'normal') {          // rotation strategy (health.js)
+      const ps = t.players.map(id => byId[id]).filter(p => p && !(p.out > 0)).sort((a, b) => (b.mpg || 0) - (a.mpg || 0));
+      opts.minutes = rotate(Object.fromEntries(ps.map(p => [p.id, p.mpg || 0])), ps.map(p => p.id), t.rot);
+    }
     teams[t.name] = schemeMods(state, t, prepareTeam(t, byId, state.maps, C, opts), C);   // scheme fit x familiarity, fatigue
     teams[t.name].hcaM = hcaMult(t);                                                       // the home crowd (facilities.js)
+    if (t.name === state.user) teams[t.name].tr = { tmo: tv(state, 'tmo'), crunch: tv(state, 'crunch'), half: tv(state, 'half'), road: tv(state, 'road') };   // Coaching Legacy traits
   }
   for (const t of Object.values((state.ext && state.ext.teams) || {})) teams[t.name] = prepareTeam(t, state.ext.players, state.maps, C, {});
   return Object.assign(cache, { ver: state._ver, year: state.year, teams, L: leagueRefsOf(state) });
@@ -69,6 +77,7 @@ export function record(state, g, sim) {
   if (state.user && (g.h === state.user || g.a === state.user)) {
     state.userBox[g.id] = { box: sim.box, score: sim.score, ot: sim.ot };
   }
+  for (const [rows, team] of [[sim.box.home, g.h], [sim.box.away, g.a]]) if (state.teams[team]) wear(state, g, rows);   // wear and tear (health.js)
   if (g.pay > 0) {                                            // a buy / guarantee game: the host pays the visitor (schedule.js)
     const H = state.teams[g.h] && state.teams[g.h].prog, A = state.teams[g.a] && state.teams[g.a].prog;
     if (H) H.nil.fund = Math.max(0, H.nil.fund - g.pay);
@@ -122,7 +131,7 @@ export function standings(state) {
     (by[t.conf] = by[t.conf] || []).push(Object.assign({ team: t.name }, r));
   }
   const pct = (w, l) => (w + l ? w / (w + l) : 0);
-  for (const c in by) by[c].sort((a, b) => pct(b.cw, b.cl) - pct(a.cw, a.cl) || (b.cw - a.cw) || pct(b.w, b.l) - pct(a.w, a.l));
+  for (const c in by) by[c] = tieBreak(state, by[c]);   // league win%, head-to-head, record vs the top, power (history.js; power only if a tie needs it)
   return by;
 }
 

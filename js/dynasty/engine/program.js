@@ -7,9 +7,11 @@
 //   team.prog  = { staff:{OC,DC,REC,DEV,GM}, budget, hours:{practice,recruiting,nil,development}, focus:[p1,p2],
 //                  off, def (scheme keys), nil:{fund, wk}, acc:{practice,recruiting,nil,development, weeks} }
 //   player.fam = { o:{scheme: 0-100}, d:{scheme: 0-100} }   — familiarity follows the player (transfers keep it)
-import { makeRng, hashSeed } from './rng.js?v=50';
-import { attributes } from './ratings.js?v=50';
-import { news } from './injuries.js?v=50';
+import { makeRng, hashSeed } from './rng.js?v=52';
+import { attributes } from './ratings.js?v=52';
+import { news } from './injuries.js?v=52';
+import { tv } from './legacy.js?v=52';
+import { tiredness } from './health.js?v=52';
 
 export const DIFFS = {
   rookie: { label: 'Rookie', blurb: 'Your staff handles what you leave alone, recruits like you, boosters are patient and the job is safe.', recruit: 0.6, jobK: 0.5, nilK: 1.25, need: 0.85, aiPlan: 0.6, scandal: 0 },
@@ -159,7 +161,7 @@ export function schemeMods(state, team, prep, C) {
   prep.r3m *= 1 + O.r3;
   prep.press += D.press;
   // minutes matter, player by player: each one wears down past his own stamina threshold (possession.js reads .fat)
-  for (const e of prep.roster) { const p = state.players[e.id]; e.fat = p ? Math.max(0, e.target - tireAt(p)) : 0; }
+  for (const e of prep.roster) { const p = state.players[e.id]; e.fat = p ? Math.max(0, e.target - tireAt(p)) + tiredness(p) : 0; }   // + a worn-down body (health.js)
   prep.scheme = { ofit, dfit, ofam, dfam };
   return prep;
 }
@@ -177,7 +179,7 @@ export function programWeek(state, weeks = 1) {
     for (const id of t.players) {
       const p = state.players[id]; if (!p) continue;
       p.fam = p.fam || { o: {}, d: {} };
-      const g = K.FAM_WK * E.practice * weeks;
+      const g = K.FAM_WK * E.practice * weeks * (t.name === state.user ? 1 + tv(state, 'install') : 1);   // Quick Install (legacy.js)
       p.fam.o[P.off] = clamp((p.fam.o[P.off] || 0) + g, 0, 100);
       p.fam.d[P.def] = clamp((p.fam.d[P.def] || 0) + g, 0, 100);
       // in-season focus growth: practice time on two pillars, more for young players who play
@@ -210,7 +212,7 @@ export function programGame(state, g, sim) {
     for (const r of rows) {
       const p = state.players[r.id]; if (!p || !(r.min > 0)) continue;
       p.fam = p.fam || { o: {}, d: {} };
-      const g2 = K.FAM_GAME * r.min / 30;
+      const g2 = K.FAM_GAME * r.min / 30 * (team === state.user ? 1 + tv(state, 'install') : 1);
       p.fam.o[t.prog.off] = clamp((p.fam.o[t.prog.off] || 0) + g2, 0, 100);
       p.fam.d[t.prog.def] = clamp((p.fam.d[t.prog.def] || 0) + g2, 0, 100);
     }

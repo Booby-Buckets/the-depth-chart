@@ -8,8 +8,8 @@
 // Everything ages a little every year; programs build (the user from the Program tab, the AI by its money), paid
 // out of the NIL collective — donors give to buildings or to players, not both. Effects are centred on an average
 // facility (50), so a league of average facilities plays exactly as before. Pure: works on the state object.
-import { makeRng, hashSeed } from './rng.js?v=50';
-import { news } from './injuries.js?v=50';
+import { makeRng, hashSeed } from './rng.js?v=52';
+import { news } from './injuries.js?v=52';
 
 export const PARTS = [['arena', 'Arena'], ['practice', 'Practice facility'], ['medical', 'Strength & medical'], ['amen', 'Player amenities']];
 const W = { arena: 0.35, practice: 0.25, medical: 0.2, amen: 0.2 };

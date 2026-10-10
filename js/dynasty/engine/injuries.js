@@ -1,8 +1,10 @@
 // In-season injuries. After every game each player who played rolls for an injury in proportion to his
 // minutes; an injured player sits out a number of his team's games (p.out), then returns. ~2.5 injuries per
 // team-season, most a game or three, a few for weeks, the rare one for the season. Pure + seeded per game.
-import { makeRng, hashSeed } from './rng.js?v=50';
-import { injuryMult } from './facilities.js?v=50';
+import { makeRng, hashSeed } from './rng.js?v=52';
+import { injuryMult } from './facilities.js?v=52';
+import { injuryRisk } from './health.js?v=52';
+import { tv } from './legacy.js?v=52';
 
 // [name, min games, max games, weight]; max 99 = out for the season
 export const TYPES = [
@@ -35,10 +37,10 @@ export function afterGame(state, g, sim) {
       // a tired body breaks down more: every minute a night past his stamina threshold adds 6% to the risk
       const pl0 = state.players[r.id], thr = pl0 && pl0.sta != null ? 28 + pl0.sta / 9 : 34, over = Math.max(0, (pl0 && pl0.mpg || 0) - thr);
       const S0 = state.settings || {};
-      if (!(r.min > 0) || !rng.chance(RATE * r.min / 30 * (1 + 0.06 * over) * injuryMult(state.teams[team]) * (pl0 && pl0.prone || 1) * (S0.injFreq ?? 1))) continue;   // sports medicine (facilities.js), his durability (people.js), the league setting
+      if (!(r.min > 0) || !rng.chance(RATE * r.min / 30 * (1 + 0.06 * over) * injuryMult(state.teams[team]) * (pl0 && pl0.prone || 1) * (pl0 ? injuryRisk(pl0) : 1) * (S0.injFreq ?? 1))) continue;   // sports medicine (facilities.js), his durability (people.js), the league setting
       const p = state.players[r.id]; if (!p) continue;
       const [type, lo, hi] = TYPES[rng.pick(W)];
-      const games = hi === 99 ? 99 : Math.max(1, Math.round((lo + rng.int(hi - lo + 1)) * ((state.settings && state.settings.injSev) ?? 1)));
+      const games = hi === 99 ? 99 : Math.max(1, Math.round((lo + rng.int(hi - lo + 1)) * ((state.settings && state.settings.injSev) ?? 1) * (team === state.user ? 1 - tv(state, 'nextman') : 1)));   // Next Man Up (legacy.js)
       if (games >= 8) p.prone = Math.min(2.5, Math.round((p.prone || 1) * 1.12 * 100) / 100);   // a serious injury makes the next one likelier
       p.out = games; p.inj = { type, games, d: g.d };
       changed = true;

@@ -3,9 +3,9 @@
 // entrants fill the rest in order of a draft grade (effective OVR + youth + size + upside + scouts' noise). Whoever
 // isn't picked signs pro elsewhere (undrafted). Some borderline players test the waters and come back.
 // Pure: works on the state object.
-import { makeRng, hashSeed } from './rng.js?v=50';
-import { effOvr } from './league.js?v=50';
-import { news } from './injuries.js?v=50';
+import { makeRng, hashSeed } from './rng.js?v=52';
+import { effOvr } from './league.js?v=52';
+import { news } from './injuries.js?v=52';
 
 const PICKS = 60, NON_COLLEGE = 0.2;
 
@@ -33,7 +33,7 @@ export function runDraft(state) {
   for (; k < entrants.length; k++) { const p = entrants[k].p; und.push({ id: p.id, name: p.name, team: p.team, pos: p.pos, yr: p.yr, ovr: Math.round(effOvr(p, state)) }); }
   O.draft = { year: state.year, picks, und, withdrew };
   // the league's draft record (the first round + every pick from the user's program), for history
-  state.drafts = (state.drafts || []).concat(picks.filter(x => x.round === 1 || x.team === U).map(x => ({ y: state.year, pick: x.pick, name: x.name, team: x.team }))).slice(-400);
+  state.drafts = (state.drafts || []).concat(picks.filter(x => x.round === 1 || x.team === U).map(x => ({ y: state.year, pick: x.pick, name: x.name, team: x.team, pos: x.pos }))).slice(-400);
   const d = `${state.year}-06-25`;
   if (picks[0]) news(state, d, 'draft', `${picks[0].name} ([[${picks[0].team}]]) goes No. 1 in the draft`, picks[0].team, null);
   for (const x of picks.filter(x => x.team === U)) news(state, d, 'draft', `${x.name} drafted — ${x.round === 1 ? 'first' : 'second'} round, No. ${x.pick}`, U, null);

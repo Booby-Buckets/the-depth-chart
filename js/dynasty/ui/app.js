@@ -1,31 +1,35 @@
 // Dynasty — the page. Engine (pure) + browser saves + rendering. One league in memory (S); every action
 // mutates it through the engine, re-renders, and autosaves.
-import { C } from '../engine/constants.js?v=50';
-import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=50';
-import { overall } from '../engine/ratings.js?v=50';
-import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=50';
-import { simNext, simTo, afterDay } from '../engine/flow.js?v=50';
-import { postResult } from '../engine/postseason.js?v=50';
-import { TYPES as INJ } from '../engine/injuries.js?v=50';
-import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain } from '../engine/offseason.js?v=50';
-import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=50';
-import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=50';
-import { lines as pbpLines } from './pbp.js?v=50';
-import { gameSteps, newCtl } from '../engine/game.js?v=50';
-import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=50';
-import { tireAt } from '../engine/program.js?v=50';
-import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=50';
-import { recruitingView } from './recruiting.js?v=50';
-import { portalView } from './portal.js?v=50';
-import { tournamentsView, awardsView } from './tourney.js?v=50';
-import { scheduleStep } from './sched.js?v=50';
-import { carouselStep, staffStep } from './carousel.js?v=50';
-import { coachesView } from './coaches.js?v=50';
-import { facilitiesRankHtml, bindFacilitiesRank } from './facilities.js?v=50';
-import { durability, durTag, acadGrade, admitP, admitLabel, initSchools } from '../engine/people.js?v=50';
-import { initFacilities } from '../engine/facilities.js?v=50';
-import { inviteInfo, decide as realignDecide } from '../engine/realign.js?v=50';
-import { programView, diffPicker } from './program.js?v=50';
+import { C } from '../engine/constants.js?v=52';
+import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=52';
+import { overall } from '../engine/ratings.js?v=52';
+import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=52';
+import { simNext, simTo, afterDay } from '../engine/flow.js?v=52';
+import { postResult } from '../engine/postseason.js?v=52';
+import { TYPES as INJ } from '../engine/injuries.js?v=52';
+import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain, pushRecruit, PUSHES } from '../engine/offseason.js?v=52';
+import { mood, moodCtx, letter, talk, talksFor } from '../engine/morale.js?v=52';
+import { ROT } from '../engine/health.js?v=52';
+import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=52';
+import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=52';
+import { lines as pbpLines } from './pbp.js?v=52';
+import { gameSteps, newCtl } from '../engine/game.js?v=52';
+import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=52';
+import { tireAt } from '../engine/program.js?v=52';
+import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=52';
+import { recruitingView } from './recruiting.js?v=52';
+import { portalView } from './portal.js?v=52';
+import { tournamentsView, awardsView } from './tourney.js?v=52';
+import { scheduleStep } from './sched.js?v=52';
+import { carouselStep, staffStep } from './carousel.js?v=52';
+import { coachesView } from './coaches.js?v=52';
+import { legacyView } from './legacy.js?v=52';
+import { margins } from '../engine/history.js?v=52';
+import { facilitiesRankHtml, bindFacilitiesRank } from './facilities.js?v=52';
+import { durability, durTag, acadGrade, admitP, admitLabel, initSchools } from '../engine/people.js?v=52';
+import { initFacilities } from '../engine/facilities.js?v=52';
+import { inviteInfo, decide as realignDecide } from '../engine/realign.js?v=52';
+import { programView, diffPicker } from './program.js?v=52';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -183,7 +187,7 @@ async function openSave(s) {
 function phaseLabel(p) {
   return { regular: 'Regular season', conftourney: 'Conference tournaments', ncaa: 'NCAA tournament', done: 'Season complete', offseason: 'Offseason' }[p] || p;
 }
-const TABS = [['calendar', 'Calendar'], ['program', 'Program'], ['recruit', 'Recruiting'], ['home', 'Home'], ['schedule', 'Schedule'], ['roster', 'Roster'], ['plan', 'Game plan'], ['standings', 'Standings'], ['coaches', 'Coaches'], ['rankings', 'Rankings'], ['leaders', 'Leaders'], ['post', 'Tournaments'], ['awards', 'Awards'], ['news', 'News'], ['history', 'History']];
+const TABS = [['calendar', 'Calendar'], ['program', 'Program'], ['recruit', 'Recruiting'], ['home', 'Home'], ['schedule', 'Schedule'], ['roster', 'Roster'], ['plan', 'Game plan'], ['standings', 'Standings'], ['coach', 'Coach'], ['coaches', 'Coaches'], ['rankings', 'Rankings'], ['leaders', 'Leaders'], ['post', 'Tournaments'], ['awards', 'Awards'], ['news', 'News'], ['history', 'History']];
 function render() {
   if (!S) return startScreen();
   const t = S.teams[S.user], r = record_(S, S.user), pw = power(S);
@@ -200,7 +204,7 @@ function render() {
   $('#dyExit').onclick = () => { if (isCrawling()) stopCrawl(); if (cloudT) flushCloud(); S = null; startScreen(); };
   $('#dyHead').querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { if (isCrawling()) stopCrawl(); tab = b.dataset.tab; render(); });
   if (S.phase === 'offseason' && tab === 'home') tab = 'off';
-  ({ calendar: () => calendarView(CAL), program: () => programView(CAL), recruit: () => recruitingView(CAL), home, schedule, roster, plan, standings: standingsView, coaches: () => coachesView(CAL), rankings, leaders, post: () => tournamentsView(CAL), history, off: offseason, awards: () => awardsView(CAL), news: newsView })[tab]();
+  ({ calendar: () => calendarView(CAL), program: () => programView(CAL), recruit: () => recruitingView(CAL), home, schedule, roster, plan, standings: standingsView, coaches: () => coachesView(CAL), coach: () => legacyView(CAL), rankings, leaders, post: () => tournamentsView(CAL), history, off: offseason, awards: () => awardsView(CAL), news: newsView })[tab]();
   document.querySelectorAll('#dyBody table.heat').forEach(x => window.tdcSheetHeat && tdcSheetHeat(x));
 }
 
@@ -388,16 +392,18 @@ function roster() {
   const ps = t.players.map(id => S.players[id]).filter(Boolean).sort((a, b) => (auto[b.id] || 0) - (auto[a.id] || 0));
   const starters = new Set(t.starters || prep.roster.slice(0, 5).map(p => p.id));
   const stat = (id, k) => { const s = S.stats[id]; return s && s.g ? (s[k] / s.g).toFixed(1) : '—'; };
+  const MC = moodCtx(S);
   $('#dyBody').innerHTML = `<div class="sec"><h2>Roster</h2><span class="n">Set starters (exactly five) and minutes per game — the sim plays your rotation. Minutes are scaled to 200 per game.</span></div>
   <div class="sheet-wrap"><table class="sheet dense heat dy-roster"><thead><tr><th class="l">Player</th><th>Pos</th><th>Yr</th><th>Ht</th><th data-heat="1" title="Overall, adjusted for the level of competition the player's ratings came from">OVR</th>
-    ${PILLARS.map(([k, l]) => `<th data-heat="1" title="${l}">${k}</th>`).join('')}<th data-heat="1" title="Stamina: he starts to wear down past about 28 + STA/9 minutes a night (guards usually carry more than bigs). Conditioning is a practice focus.">STA</th><th data-heat="1" title="Durability: how well his body holds up. Low = injury prone (a serious injury lowers it).">DUR</th><th title="Academics (A+ to F). Below a D- he's ineligible; weak students can lose the spring semester.">ACAD</th><th>Start</th><th>Min</th><th>MPG</th><th>PPG</th><th>RPG</th><th>APG</th></tr></thead><tbody>
+    ${PILLARS.map(([k, l]) => `<th data-heat="1" title="${l}">${k}</th>`).join('')}<th data-heat="1" title="Stamina: he starts to wear down past about 28 + STA/9 minutes a night (guards usually carry more than bigs). Conditioning is a practice focus.">STA</th><th data-heat="1" title="Durability: how well his body holds up. Low = injury prone (a serious injury lowers it).">DUR</th><th title="Academics (A+ to F). Below a D- he's ineligible; weak students can lose the spring semester.">ACAD</th><th title="Season health: minutes wear him down, days off recover him. Worn-down players play tired and get hurt more; a hard season costs career health.">HP</th><th class="l" title="His dealbreaker — the one thing he has to have — graded vs what he expects (better players expect more). A broken dealbreaker pushes him toward the portal.">Mood</th><th>Start</th><th>Min</th><th>MPG</th><th>PPG</th><th>RPG</th><th>APG</th></tr></thead><tbody>
   ${ps.map(p => `<tr class="${p.out > 0 ? 'hurt' : ''}"><td class="l">${pl(p)}<div class="dy-tags">${tagsOf(p.pillars, p.ht, p.sta).map(x => `<span>${esc(x)}</span>`).join('')}</div>${p.out > 0 ? ` <span class="chip" title="${esc(p.inj ? p.inj.type : '')}">OUT ${p.out >= 99 ? 'season' : p.out + 'g'}</span>` : ''}${(() => { const d = S.lastOff && S.lastOff.progress && S.lastOff.progress[p.id]; return d ? ` <span class="${d > 0 ? 'up' : 'dn'}">${d > 0 ? '+' : ''}${d}</span>` : ''; })()}</td><td>${esc(p.pos || '')}</td><td>${YR_LABEL[p.yr] || ''}</td><td>${p.ht ? `${Math.floor(p.ht / 12)}-${p.ht % 12}` : ''}</td><td><b>${ovrOf(p)}</b></td>
-    ${PILLARS.map(([k]) => `<td>${p.pillars[k]}</td>`).join('')}<td title="Wears down past ~${Math.round(tireAt(p))} min">${p.sta ?? '—'}</td><td title="${esc(durTag(p))}">${durability(p)}</td><td>${acadGrade(p.acad ?? 60)}</td>
+    ${PILLARS.map(([k]) => `<td>${p.pillars[k]}</td>`).join('')}<td title="Wears down past ~${Math.round(tireAt(p))} min">${p.sta ?? '—'}</td><td title="${esc(durTag(p))}">${durability(p)}</td><td>${acadGrade(p.acad ?? 60)}</td><td title="Career health ${Math.round(p.chp ?? 100)}" class="${(p.hp ?? 100) < 60 ? 'dn' : ''}">${Math.round(p.hp ?? 100)}</td><td class="l">${(m => m ? `<span class="${m.mood === 'Wants out' ? 'dn' : m.mood === 'Restless' ? 'warn' : m.mood === 'Happy' ? 'up' : ''}" title="${esc(m.label)}: ${letter(m.grade)} (expects ${letter(m.exp)})">${esc(m.label)} ${letter(m.grade)} · ${m.mood}</span>` : '')(mood(S, p, MC))}</td>
     <td><input type="checkbox" data-st="${esc(p.id)}" ${starters.has(p.id) ? 'checked' : ''}></td>
     <td><input type="number" class="dy-min" min="0" max="40" step="1" data-min="${esc(p.id)}" data-tire="${tireAt(p).toFixed(1)}" value="${Math.round(t.minutes && t.minutes[p.id] != null ? t.minutes[p.id] : (auto[p.id] || 0))}"></td>
     <td>${stat(p.id, 'min')}</td><td>${stat(p.id, 'pts')}</td><td>${(() => { const s = S.stats[p.id]; return s && s.g ? ((s.orb + s.drb) / s.g).toFixed(1) : '—'; })()}</td><td>${stat(p.id, 'ast')}</td></tr>`).join('')}
   </tbody></table></div>
-  <div class="dy-btns"><span id="minSum" class="dim"></span><button class="btn" id="rSave">Save rotation</button><button class="btn ghost" id="rAuto">Reset to the coach's default</button></div>`;
+  <div class="dy-btns"><span id="minSum" class="dim"></span><button class="btn" id="rSave">Save rotation</button><button class="btn ghost" id="rAuto">Reset to the coach's default</button>
+    <label class="dim" title="How hard the default rotation rides your starters (wear and tear)">Rotation <select id="rRot" class="dy-input sm">${ROT.map(([k, l]) => `<option value="${k}" ${(t.rot || 'normal') === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>`;
   // a player set past his stamina threshold is flagged (he loses shooting + ball security and gets hurt more)
   const sum = () => { let s = 0; document.querySelectorAll('[data-min]').forEach(i => { s += +i.value || 0; const over = (+i.value || 0) - (+i.dataset.tire || 99); i.classList.toggle('tired', over > 0); i.title = over > 0 ? `${over.toFixed(0)} min past what he can carry: he'll wear down` : ''; }); $('#minSum').textContent = `Total ${s} min (scaled to 200)`; };
   document.querySelectorAll('[data-min]').forEach(i => i.oninput = sum); sum();
@@ -408,6 +414,7 @@ function roster() {
     if (st.some(id => !m[id])) return alert('Every starter needs minutes.');
     t.starters = st; t.minutes = m; touch(S); autosave(); render();
   };
+  $('#rRot').onchange = e => { t.rot = e.target.value; touch(S); autosave(); render(); };
   $('#rAuto').onclick = () => { t.starters = null; t.minutes = null; touch(S); autosave(); render(); };
 }
 
@@ -429,9 +436,9 @@ function standingsView() {
   const confs = Object.keys(st).sort();
   const sel = standingsView.conf || mine;
   $('#dyBody').innerHTML = `<div class="sec"><h2>Standings</h2><select id="cSel" class="dy-input sm">${confs.map(c => `<option ${c === sel ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div>
-  <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th>#</th><th class="l">Team</th><th>Conf</th><th>Overall</th><th>Power</th></tr></thead><tbody>
-  ${(() => { const pw = power(S); return st[sel].map((r, i) => `<tr class="${r.team === S.user ? 'me' : ''}"><td>${i + 1}</td><td class="l">${tm(r.team)}</td><td>${r.cw}-${r.cl}</td><td>${r.w}-${r.l}</td><td>${pw[r.team].toFixed(1)}</td></tr>`).join(''); })()}
-  </tbody></table></div>`;
+  <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th>#</th><th class="l">Team</th><th>Conf</th><th>Overall</th><th title="Points scored minus allowed (regular season)">Diff</th><th title="Average margin a game">Margin</th><th>Power</th><th class="l" title="How a tie in the league record was broken">Tiebreak</th></tr></thead><tbody>
+  ${(() => { const pw = power(S), M = margins(S); return st[sel].map((r, i) => { const m = M[r.team] || { pf: 0, pa: 0, g: 0 }, d = m.pf - m.pa; return `<tr class="${r.team === S.user ? 'me' : ''}"><td>${i + 1}</td><td class="l">${tm(r.team)}</td><td>${r.cw}-${r.cl}</td><td>${r.w}-${r.l}</td><td class="${d >= 0 ? 'up' : 'dn'}">${d > 0 ? '+' : ''}${d}</td><td>${m.g ? (d / m.g > 0 ? '+' : '') + (d / m.g).toFixed(1) : ''}</td><td>${pw[r.team].toFixed(1)}</td><td class="l dim">${r.tb || ''}</td></tr>`; }).join(''); })()}
+  </tbody></table></div><div class="pg-d">Ties in the league standings: head-to-head among the tied teams first, then record against the teams above them, then power rating.</div>`;
   $('#cSel').onchange = e => { standingsView.conf = e.target.value; render(); };
 }
 
@@ -505,7 +512,7 @@ function offseason() {
     html += `${realignPanel()}
       <div class="sec"><h2>Leaving ${esc(short(U))}</h2><span class="n">League-wide: ${c('graduated')} graduated, ${c('pro')} turned pro, ${c('portal')} entered the portal</span></div>
       ${mine.length ? `<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th><th>Pos</th><th>Yr</th><th>OVR</th><th class="l">Why</th></tr></thead><tbody>
-        ${mine.sort((a, b) => ovrOf(b.p) - ovrOf(a.p)).map(x => `<tr><td class="l">${pl(x.p)}</td><td>${esc(x.p.pos || '')}</td><td>${YR_LABEL[x.p.yr]}</td><td>${ovrOf(x.p)}</td><td class="l">${WHY[x.why]}${x.why === 'pro' ? draftNote(x.p.id) : ''}${x.why === 'portal' ? ` — wants <b>$${retainAsk(S, x.p)}k</b> to stay <button class="btn ghost pg-sm" data-keep="${esc(x.p.id)}">Pay him</button>` : ''}</td></tr>`).join('')}</tbody></table></div>
+        ${mine.sort((a, b) => ovrOf(b.p) - ovrOf(a.p)).map(x => `<tr><td class="l">${pl(x.p)}</td><td>${esc(x.p.pos || '')}</td><td>${YR_LABEL[x.p.yr]}</td><td>${ovrOf(x.p)}</td><td class="l">${WHY[x.why]}${x.why === 'pro' ? draftNote(x.p.id) : ''}${x.why === 'portal' ? ` — wants <b>$${retainAsk(S, x.p)}k</b> to stay <button class="btn ghost pg-sm" data-keep="${esc(x.p.id)}">Pay him</button> <button class="btn ghost pg-sm" data-talk="${esc(x.p.id)}" ${(O.talks && O.talks.tried[x.p.id]) || (O.talks && O.talks.used >= talksFor(S)) ? 'disabled' : ''}>Talk to him</button>${(m => m ? ` <span class="dim">(${esc(m.label.toLowerCase())}: ${letter(m.grade)}, expects ${letter(m.exp)})</span>` : '')(mood(S, x.p))}` : ''}</td></tr>`).join('')}</tbody></table></div>
         <div class="pg-d">NIL retention: a player headed for the portal names his price to stay. Your collective has <b>$${S.teams[U].prog ? S.teams[U].prog.nil.fund : 0}k</b>.${(O.kept || []).length ? ' Kept: ' + O.kept.map(k => `${esc(k.name)} ($${k.nil}k)`).join(', ') + '.' : ''}</div>` : '<div class="dy-empty">Nobody is leaving.</div>'}
       ${draftPanel()}
       <div class="dy-btns"><button class="btn" id="oNext">Open the transfer portal →</button></div>`;
@@ -513,6 +520,7 @@ function offseason() {
     const nx = $('#oNext');
     nx.onclick = () => { processDepartures(S); autosave(); render(); };
     document.querySelectorAll('[data-realign]').forEach(b => b.onclick = () => { realignDecide(S, b.dataset.realign === '1'); autosave(); render(); });
+    document.querySelectorAll('[data-talk]').forEach(b => b.onclick = () => { alert(talk(S, b.dataset.talk).msg); autosave(); render(); });
     document.querySelectorAll('[data-keep]').forEach(b => b.onclick = () => { const e = retain(S, b.dataset.keep); if (e) return alert(e); autosave(); render(); });
     return;
   }
@@ -541,8 +549,10 @@ function offseason() {
       <div class="dy-btns"><span class="dim" id="effN"></span><button class="btn" id="oNext">Signing day →</button><button class="btn ghost" id="oAuto">Let my staff handle it</button></div>`;
     $('#dyBody').innerHTML = html;
     const odds = () => {
-      document.querySelectorAll('[data-odds]').forEach(td => { const r = R.find(x => x.id === td.dataset.odds), e = +B[r.id] || 0; td.textContent = e ? Math.round(100 * landOdds(S, r, e)) + '%' : ''; });
-      $('#effN').textContent = `${Object.values(B).filter(v => v > 0).length} / ${max} on board · ${used()} / ${budget} effort`;
+      document.querySelectorAll('[data-odds]').forEach(td => { const r = R.find(x => x.id === td.dataset.odds), e = +B[r.id] || 0; const o = e ? landOdds(S, r, e) : 0;
+        td.innerHTML = e ? `${Math.round(100 * o)}%${o >= 0.3 && o <= 0.7 ? `<div class="rv-bt" title="A close race — make a final push">⚔️ <button class="btn ghost pg-sm" data-push="${esc(r.id)}" ${(O.pushes ?? PUSHES) <= 0 || (r.pushN || 0) >= 2 ? 'disabled' : ''}>Push</button></div>` : ''}` : ''; });
+      document.querySelectorAll('[data-push]').forEach(b => b.onclick = () => { const res = pushRecruit(S, b.dataset.push); alert(res.msg); autosave(); odds(); });
+      $('#effN').textContent = `${Object.values(B).filter(v => v > 0).length} / ${max} on board · ${used()} / ${budget} effort · ${O.pushes ?? PUSHES} final pushes left`;
     };
     document.querySelectorAll('[data-nilb]').forEach(i => i.onchange = () => {
       const r = R.find(x => x.id === i.dataset.nilb); if (!r) return;
@@ -624,9 +634,25 @@ function realignPanel() {
 }
 
 function history() {
-  const H = S.history;
-  $('#dyBody').innerHTML = `<div class="sec"><h2>Program history</h2></div>${H.length ? `<div class="sheet-wrap"><table class="sheet dense dy-hist"><thead><tr><th class="l">Season</th><th class="l">Program</th><th>Record</th><th>Conf</th><th>Final power</th><th class="l">March</th><th class="l">Champion</th><th class="l">National POY</th></tr></thead><tbody>
+  const H = S.history, v = history.v || 'mine';
+  const sub = `<div class="tn-tabs">${[['mine', 'Your program'], ['league', 'League history'], ['conf', 'Conference champions']].map(([k, l]) => `<button class="${v === k ? 'on' : ''}" data-hv="${k}">${l}</button>`).join('')}</div>`;
+  const bind = () => document.querySelectorAll('[data-hv]').forEach(b => b.onclick = () => { history.v = b.dataset.hv; render(); });
+  const LH = (S.leagueHist || []).slice().reverse(), yr = y => `${y - 1}-${String(y).slice(2)}`;
+  if (v === 'league') {
+    $('#dyBody').innerHTML = sub + `<div class="sec"><h2>League history</h2><span class="n">Every season of your dynasty</span></div>${LH.length ? `<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Season</th><th class="l">Champion</th><th class="l">Coach</th><th>Record</th><th class="l">Title game</th><th class="l">Final Four</th><th class="l">Player of the Year</th><th class="l">Coach of the Year</th><th class="l">NIT</th><th class="l">CBI</th></tr></thead><tbody>
+      ${LH.map(h => `<tr class="${h.champ === S.user ? 'me' : ''}"><td class="l">${yr(h.y)}</td><td class="l">${h.champ ? tm(h.champ) : ''}</td><td class="l">${esc(h.coach || '')}</td><td>${h.rec || ''}</td><td class="l">${h.final ? `${esc(short(h.final.w))} ${esc(h.final.s)} ${esc(short(h.final.l))}` : ''}</td><td class="l dim">${h.ff.map(t => esc(short(t))).join(', ')}</td><td class="l">${h.poy ? `${esc(h.poy.name)} <span class="dim">${esc(short(h.poy.team))}</span>` : ''}</td><td class="l">${h.coy ? `${esc(h.coy.name || '')} <span class="dim">${esc(short(h.coy.team))}</span>` : ''}</td><td class="l">${h.nit ? esc(short(h.nit)) : ''}</td><td class="l">${h.cbi ? esc(short(h.cbi)) : ''}</td></tr>`).join('')}</tbody></table></div>` : '<div class="dy-empty">Finish a season to start the record books.</div>'}`;
+    return bind();
+  }
+  if (v === 'conf') {
+    const cs = [...new Set(LH.flatMap(h => Object.keys(h.conf || {})))].sort(), sel = history.conf && cs.includes(history.conf) ? history.conf : S.teams[S.user].conf;
+    $('#dyBody').innerHTML = sub + `<div class="sec"><h2>Conference champions</h2><select id="hcSel" class="dy-input sm">${cs.map(c => `<option ${c === sel ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div>${LH.length ? `<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Season</th><th class="l">Regular season</th><th class="l">Tournament</th></tr></thead><tbody>
+      ${LH.filter(h => h.conf && h.conf[sel]).map(h => `<tr><td class="l">${yr(h.y)}</td><td class="l">${tm(h.conf[sel].reg)}</td><td class="l">${h.conf[sel].tour ? tm(h.conf[sel].tour) : ''}</td></tr>`).join('')}</tbody></table></div>` : '<div class="dy-empty">Finish a season first.</div>'}`;
+    const hs = $('#hcSel'); if (hs) hs.onchange = e => { history.conf = e.target.value; render(); };
+    return bind();
+  }
+  $('#dyBody').innerHTML = sub + `<div class="sec"><h2>Program history</h2></div>${H.length ? `<div class="sheet-wrap"><table class="sheet dense dy-hist"><thead><tr><th class="l">Season</th><th class="l">Program</th><th>Record</th><th>Conf</th><th>Final power</th><th class="l">March</th><th class="l">Champion</th><th class="l">National POY</th></tr></thead><tbody>
     ${H.slice().reverse().map(h => `<tr><td class="l">${h.year - 1}-${String(h.year).slice(2)}</td><td class="l">${tm(h.user.team)}</td><td>${h.user.w}-${h.user.l}</td><td>${h.user.cw}-${h.user.cl}</td><td>#${h.user.rank}</td><td class="l">${esc(h.user.post)}</td><td class="l">${tm(h.champ)}</td><td class="l">${h.awards && h.awards.poy ? esc(h.awards.poy.name) : ''}</td></tr>`).join('')}</tbody></table></div>` : '<div class="dy-empty">Finish a season to start your program\'s history.</div>'}`;
+  bind();
 }
 
 // boot

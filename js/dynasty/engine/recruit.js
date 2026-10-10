@@ -8,11 +8,12 @@
 //   brand  brand: prestige, the conference, NIL clout
 //   nil    NIL: what the program offers against his asking price
 // The user's odds come from how the user's school stacks up against the best rival bidding for him. Pure.
-import { makeRng, hashSeed } from './rng.js?v=50';
-import { effOvr } from './league.js?v=50';
-import { power } from './season.js?v=50';
-import { facOverall } from './facilities.js?v=50';
-import { personalize } from './people.js?v=50';
+import { makeRng, hashSeed } from './rng.js?v=52';
+import { effOvr } from './league.js?v=52';
+import { power } from './season.js?v=52';
+import { facOverall } from './facilities.js?v=52';
+import { personalize } from './people.js?v=52';
+import { tv } from './legacy.js?v=52';
 
 export const FACTORS = [['prox', 'Close to home'], ['pt', 'Playing time'], ['rel', 'Relationships'], ['draft', 'Draft path'], ['team', 'Winning now'], ['brand', 'Brand'], ['nil', 'NIL money'], ['acad', 'Academics']];
 const BASE_W = { prox: 0.18, pt: 0.19, rel: 0.14, draft: 0.09, team: 0.12, brand: 0.09, nil: 0.19, acad: 0.03 };
@@ -91,8 +92,10 @@ export function factors(state, team, r, offer, rel) {
   const better = (C.roster[team] && C.roster[team][grp(r.pos)] || []).filter(o => o >= mine).length;
   const slots = { G: 2, W: 1.5, B: 1.5 }[grp(r.pos)];
   const pt = clamp(1 - better / (slots + 1.2), 0, 1);
-  const pros = (state.pros && state.pros[team] || []).filter(y => y >= state.year - 4).length;
-  const draft = clamp(0.55 * (T.prestige || 30) / 100 + 0.45 * Math.min(1, pros / 5), 0, 1);
+  // pro path: the program's draft picks the last four years (1st round counts double), more if they play his position
+  const pros = (state.pros && state.pros[team] || []).filter(y => y >= state.year - 4).length, gr = grp(r.pos);
+  const picks = (state.drafts || []).filter(d => d.team === team && d.y >= state.year - 4).reduce((s, d) => s + (d.pick <= 30 ? 1 : 0.5) * (d.pos && grp(d.pos) === gr ? 1.5 : 1), 0);
+  const draft = clamp(0.5 * (T.prestige || 30) / 100 + 0.5 * Math.min(1, Math.max(pros / 5, picks / 4)), 0, 1);
   const teamQ = C.pw ? C.pct(C.pwS, C.pw[team] ?? 0) : (T.prestige || 30) / 100;
   const fund = T.prog ? T.prog.nil.fund : 0;
   const brand = clamp(0.45 * (T.prestige || 30) / 100 + 0.2 * C.pct(C.lv, (T.level || 0) + (T.lvAdj || 0)) + 0.15 * C.pct(C.funds, fund) + 0.2 * C.pct(C.fac, facOverall(T.fac)), 0, 1);   // + facilities
@@ -143,7 +146,7 @@ export function pursuit(state, r, effort = 0) {
 // ── NIL negotiation: make an offer, the recruit answers ──
 export function negotiate(state, r, amount) {
   profile(state, r);
-  const a = Math.max(0, Math.round(+amount || 0)), ratio = a / Math.max(5, r.ask);
+  const a = Math.max(0, Math.round(+amount || 0)), ratio = a / Math.max(5, r.ask * (1 - tv(state, 'handshake')));   // Handshake Deals (legacy.js)
   if (ratio >= 1) { r.offer = a; r.nilState = 'accepted'; return { ok: true, msg: `${r.name} accepts $${a}k a year.` }; }
   if (ratio >= 0.8) { const c = Math.round((a + r.ask) / 2 / 5) * 5; r.offer = a; r.counter = c; r.nilState = 'counter'; return { ok: false, msg: `${r.name}'s camp counters at $${c}k.` }; }
   if (ratio >= 0.5) { r.offer = a; r.nilState = 'low'; return { ok: false, msg: `${r.name} is lukewarm — he's looking for about $${r.ask}k.` }; }

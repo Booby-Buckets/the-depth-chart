@@ -6,14 +6,24 @@
 //   • HOME visits — the head coach in the living room, any time: a week of recruiting momentum for a smaller boost.
 // What a visit earns lives on the recruit (r.vb = landing-odds logit, r.vs = scouting effort equivalent) and carries to
 // signing day (offseason.landOdds adds vb; the board's scouting view adds vs). Pure: works on the state object.
-import { power } from './season.js?v=50';
-import { news as push } from './injuries.js?v=50';
-import { visitBonus } from './facilities.js?v=50';
+import { power } from './season.js?v=52';
+import { news as push } from './injuries.js?v=52';
+import { visitBonus } from './facilities.js?v=52';
+import { rank, tv } from './legacy.js?v=52';
+import { profile, miles } from './recruit.js?v=52';
 
 export const OFFICIAL_MAX = 5;
+/** official visits this class: 5, +1 per rank of Frequent Flyer (legacy.js) */
+export const officialMax = state => OFFICIAL_MAX + rank(state, 'flyer');
+/** what a visit costs in weeks of recruiting momentum: by how far he lives (EA-style location-based visits) */
+export function visitCost(state, r) {
+  const T = state.teams[state.user]; profile(state, r);
+  const base = r.home === 'INTL' ? 2 : r.home === T.state ? 0.4 : (m => (m < 400 ? 0.7 : m < 1000 ? 1 : 1.4))(miles(r.home, T.state));
+  return Math.round(base * (1 - tv(state, 'flyer')) * 10) / 10;
+}
 const VB_CAP = 1.2;                                    // a recruit's total visit boost (logit) is capped
 
-export function visitsLeft(state) { return OFFICIAL_MAX - (state.visits || []).filter(v => v.type === 'official').length; }
+export function visitsLeft(state) { return officialMax(state) - (state.visits || []).filter(v => v.type === 'official').length; }
 export const visitsFor = (state, rid) => (state.visits || []).filter(v => v.rid === rid);
 // targets: the recruits the staff works all season (their relationship warms every week with recruiting hours,
 // program.programWeek). High-school recruiting is the long game the portal is not.
@@ -34,7 +44,7 @@ export function scheduleOfficial(state, rid, gid) {
   const g = state.schedule.find(x => x.id === gid);
   if (!g || g.r || g.h !== state.user || g.n) return 'Official visits are hosted at one of your upcoming home games.';
   if (visitsFor(state, rid).some(v => v.type === 'official')) return `${r.name} already has an official visit with you.`;
-  if (visitsLeft(state) <= 0) return `You've used all ${OFFICIAL_MAX} official visits for this class.`;
+  if (visitsLeft(state) <= 0) return `You've used all ${officialMax(state)} official visits for this class.`;
   if ((state.visits || []).filter(v => v.gid === gid).length >= 3) return 'You can host at most three recruits at one game.';
   (state.visits = state.visits || []).push({ rid, gid, d: g.d, type: 'official', done: false });
   return null;
@@ -49,9 +59,10 @@ export function homeVisit(state, rid) {
   if (visitsFor(state, rid).some(v => v.type === 'home')) return `You've already been to ${r.name}'s home.`;
   const P = state.teams[state.user].prog;
   // two summer evaluation-period visits are free each season; after that each costs a week of recruiting momentum
+  const c = visitCost(state, r);
   if (P && (P.hvFree ?? 2) > 0) P.hvFree = (P.hvFree ?? 2) - 1;
-  else if (!P || P.acc.recruiting < 1) return 'No free home visits left and not enough recruiting momentum (put more hours into recruiting).';
-  else P.acc.recruiting -= 1;
+  else if (!P || P.acc.recruiting < c) return `No free home visits left — this trip costs ${c} week${c === 1 ? '' : 's'} of recruiting momentum and you have ${P ? P.acc.recruiting.toFixed(1) : 0}.`;
+  else P.acc.recruiting -= c;
   const gain = 0.22 + (state.teams[state.user].prestige || 30) / 100 * 0.1;
   r.vb = Math.min(VB_CAP, (r.vb || 0) + gain); r.vs = (r.vs || 0) + 20;
   (state.visits = state.visits || []).push({ rid, type: 'home', d: null, done: true, res: 'good', gain: +gain.toFixed(2) });
@@ -71,6 +82,7 @@ export function resolveVisits(state, g) {
     let gain = 0.3 + visitBonus(state.teams[state.user]) + (won ? 0.25 : -0.12) + (won && margin >= 15 ? 0.1 : 0) + (ranked ? (won ? 0.25 : 0.05) : 0) + pres * 0.25 + (g.c ? 0.05 : 0);
     gain = Math.round(gain * 100) / 100;
     r.vb = Math.max(-0.4, Math.min(VB_CAP, (r.vb || 0) + gain)); r.vs = (r.vs || 0) + 35;
+    const P = state.teams[state.user].prog; if (P) P.acc.recruiting = Math.max(0, P.acc.recruiting - visitCost(state, r) * 0.5);   // flying him in (half a home visit's time)
     v.res = gain >= 0.6 ? 'great' : gain >= 0.3 ? 'good' : gain > 0 ? 'meh' : 'bad'; v.gain = gain;
     const how = { great: 'left raving about the atmosphere', good: 'enjoyed the visit', meh: 'came away lukewarm', bad: 'left unimpressed' }[v.res];
     news(state, `${r.stars}★ ${r.name} ${how} (${won ? 'W' : 'L'} ${g.r[0]}-${g.r[1]} vs [[${g.a}]])`, r, g.d);

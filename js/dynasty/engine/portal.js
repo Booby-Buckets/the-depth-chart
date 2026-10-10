@@ -3,10 +3,11 @@
 // players commit with rising odds (the best ones first). Transfers are proven (true ratings, real stats), ask more
 // NIL than high-schoolers, and start with almost no relationship. AI programs sign them too (<= PORTAL_CAP each).
 // Pure: works on the state object.
-import { makeRng, hashSeed } from './rng.js?v=50';
-import { effOvr } from './league.js?v=50';
-import { profile, factors, negotiate, acceptCounter } from './recruit.js?v=50';
-import { admitP, admissible } from './people.js?v=50';
+import { makeRng, hashSeed } from './rng.js?v=52';
+import { effOvr } from './league.js?v=52';
+import { profile, factors, negotiate, acceptCounter } from './recruit.js?v=52';
+import { admitP, admissible } from './people.js?v=52';
+import { tv } from './legacy.js?v=52';
 
 export const PORTAL_DAYS = 10, PORTAL_CAP = 3, CONTACTS_PER_DAY = 4;
 const SCHOL = 13;
@@ -74,9 +75,10 @@ export function leaning(state, p) {
 export function contact(state, id) {
   const O = state.off, p = state.players[id]; if (!p || p.team) return 'He has already committed.';
   const today = O.contacts[O.pday] = O.contacts[O.pday] || [];
-  if (today.length >= CONTACTS_PER_DAY) return `You've made your ${CONTACTS_PER_DAY} calls today.`;
+  const cap = CONTACTS_PER_DAY + tv(state, 'hawk');                       // Portal Hawk (legacy.js)
+  if (today.length >= cap) return `You've made your ${cap} calls today.`;
   if (today.includes(id)) return 'You already called him today.';
-  today.push(id); p.relAdj = Math.min(60, (p.relAdj || 0) + 12);
+  today.push(id); p.relAdj = Math.min(60, (p.relAdj || 0) + 12 + 3 * tv(state, 'hawk'));
   return null;
 }
 /** an NIL offer (or a plain scholarship offer with amount 0) */

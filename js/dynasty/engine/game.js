@@ -2,8 +2,8 @@
 // target (MPG scaled to 200), fouls / foul-outs, overtime. Returns the final, a box score and an optional
 // event log. Pure: no DOM, no Supabase.
 
-import { makeRng } from './rng.js?v=50';
-import { runPossession, unitStats } from './possession.js?v=50';
+import { makeRng } from './rng.js?v=52';
+import { runPossession, unitStats } from './possession.js?v=52';
 
 const ROW = () => ({ sec: 0, pts: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0, orb: 0, drb: 0, ast: 0, stl: 0, blk: 0, tov: 0, pf: 0 });
 
@@ -83,6 +83,7 @@ export function* gameSteps(home, away, opts) {
   let first = rng.int(2);                                   // who wins the tip
   const score = [0, 0];
   let t = 0, lastSub = -1e9, ot = 0, poss = 0;
+  const halfLead = [0, 0];
   const runOf = () => { const r = [0, 0]; for (const [k, pts] of ctl.recent) r[k] += pts; return [r[0] - r[1], r[1] - r[0]]; };
   const timeout = (k, why) => {
     if (ctl.to[k] <= 0) return;
@@ -107,8 +108,11 @@ export function* gameSteps(home, away, opts) {
       const k = (first + i) % 2, o = S[k], d = S[1 - k];
       const r2 = runOf();
       let mom = r2[k] >= RUN_AT ? MOM_K * Math.min(1, (r2[k] - RUN_AT + 1) / 6) : 0;   // riding a run
-      if (ctl.play[k]) { mom += PLAY_K; ctl.play[k] = 0; }                                // the drawn-up play
-      if (ctl.rest[k] > 0) { mom += REST_K; ctl.rest[k]--; }                               // fresher legs
+      const tr = o.team.tr || {};                                                          // the user's Coaching Legacy traits
+      if (ctl.play[k]) { mom += PLAY_K * (1 + (tr.tmo || 0)); ctl.play[k] = 0; }            // the drawn-up play
+      if (ctl.rest[k] > 0) { mom += REST_K * (1 + (tr.tmo || 0)); ctl.rest[k]--; }         // fresher legs
+      if (tr.crunch && t >= 2160 && Math.abs(score[k] - score[1 - k]) <= 6) mom += tr.crunch;   // crunch time
+      if (tr.half && t >= 1200 && halfLead[k] < 0) mom += tr.half;                         // the halftime fix
       const env = { C, L, rng, log, t, side: k, lead: score[k] - score[1 - k], mom };
       const pts = runPossession(o, d, env);
       score[k] += pts;
@@ -121,6 +125,7 @@ export function* gameSteps(home, away, opts) {
 
   const half = Math.round(per / 2);
   yield* period(half, 0, 1200);
+  halfLead[0] = score[0] - score[1]; halfLead[1] = -halfLead[0];
   first = 1 - first;
   ctl.recent = [];                                           // halftime resets the momentum
   yield* period(per - half, 1200, 1200);
