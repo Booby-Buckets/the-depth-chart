@@ -916,9 +916,7 @@ function loadRoster(row){
     .then(function(r){return r.ok?r.json():[];})
     .then(function(ps){
       if(+HQ_SEASON<2027) return;   // switched to an archive season while this loaded
-      // staff the school-roster import filed as players (Kentucky's Pope / Fox / Mo Williams…) have no class year and
-      // no height; some carry an old ESPN id from their playing days, so the id doesn't make them players
-      ps=(ps||[]).filter(function(p){ return p&&p.name && (p.yr||p.class_year||p.height); });
+      ps=(ps||[]).filter(function(p){ return p&&p.name; });
       var go=function(){
         var f1=function(v){ var n=parseFloat(v); return isFinite(n)?n.toFixed(1):'—'; };
         var link=function(p){ return p.espn_id?'<a href="player.html?espn='+p.espn_id+'">'+esc(p.name)+'</a>':esc(p.name); };
