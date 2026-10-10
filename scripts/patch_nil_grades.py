@@ -85,8 +85,59 @@ for tn, t in nil.get("teams", {}).items():
         else:
             kept += 1   # unprofiled freshman → keep (already matches the DB tdc_grade the site uses)
 
+# ── NIL PRICE BASIS (Oct 2026, owner: "focused on the player from last year + his career + potential, not just
+#    what he is being projected") ─────────────────────────────────────────────────────────────────────────────
+# `grade`/`mpg` stay the site's projected OVR and minutes (what the board shows). The NIL price uses its own:
+#   ng = NIL grade = LAST season (2025-26 demonstrated) · CAREER (earlier seasons, recency-weighted) · POTENTIAL
+#        (the better of his projected grade and last season + a normal class-year step), weights NIL_W, with the
+#        last-season weight scaled down when he barely played (it moves to career + potential).
+#   nm = NIL minutes = the bigger of last season's real minutes and his projected minutes — a buried transfer's
+#        price isn't erased by a depth chart, and a rising player's bigger role still counts.
+# Freshmen (no college line) keep their projected / editor grade and minutes. The parts ride along (ngl/ngc/ngp,
+# lm, hist) so the player NIL tab can show what the price is built on.
+NIL_W = {"last": 0.50, "career": 0.20, "pot": 0.30}
+STEP = {"so": 3.0, "jr": 1.5, "sr": 0.5}            # typical next-season grade step by the class he is entering
+HIST = json.load(open(os.path.join(D, "stat_overall_history.json")))
+def hist_of(e):
+    e = str(e); out = []
+    for y in sorted(HIST.keys()):
+        g = HIST[y].get(e) if isinstance(HIST[y], dict) else None
+        if g is not None: out.append([int(y), int(round(ov(g)))])
+    return out
+def step_for(cls):
+    c = str(cls or "").lower().replace("r-", "").replace(".", "").strip()[:2]
+    return STEP.get(c, 0.0)
+nb = 0
+for tn, t in nil.get("teams", {}).items():
+    for p in t.get("players", []):
+        e = p.get("espn_id")
+        if e is None or p.get("walkon"): continue
+        e = str(e); pr = P.get(e) if isinstance(P.get(e), dict) else None
+        last = demo.get(e); last = ov(last) if last is not None else None
+        if last is None and pr is not None and pr.get("demo_ovr") is not None and float(pr.get("last_mpg") or 0) > 0:
+            last = pr["demo_ovr"]                        # a box-score-filled line (no advanced row): the build's demonstrated grade
+        if last is None: continue                        # a freshman / no 2025-26 line: price on his projection
+        # out for the season (owner injury report) -> not in the projection: price on last season; the injury dock applies on top
+        lm = float((pr or {}).get("last_mpg") or p.get("mpg") or 0); pm = float((pr or {}).get("proj_mpg") or 0)
+        h = [x for x in hist_of(e) if x[0] < 2026]
+        car = None
+        if h:
+            ws = [0.5, 0.3, 0.2]; recent = list(reversed(h))[:3]
+            car = sum(g * w for (y, g), w in zip(recent, ws)) / sum(ws[:len(recent)])
+        pot = float(last) + step_for(p.get("cls"))
+        if pr is not None: pot = max(float(ov(pr)), pot)
+        rel = max(0.25, min(1.0, lm / 20.0))           # 20+ mpg = a full season of evidence
+        w_last = NIL_W["last"] * rel; spare = NIL_W["last"] - w_last
+        w_car = (NIL_W["career"] + spare * 0.5) if car is not None else 0.0
+        w_pot = NIL_W["pot"] + spare * (0.5 if car is not None else 1.0) + (0.0 if car is not None else NIL_W["career"])
+        ng = (w_last * last + w_car * (car or 0) + w_pot * pot) / (w_last + w_car + w_pot)
+        p["ng"] = int(round(ng)); p["nm"] = round(max(lm, pm), 1)
+        p["ngl"] = int(last); p["ngc"] = (round(car, 1) if car is not None else None); p["ngp"] = round(pot, 1)
+        p["ngw"] = [round(w_last / (w_last + w_car + w_pot), 2), round(w_car / (w_last + w_car + w_pot), 2), round(w_pot / (w_last + w_car + w_pot), 2)]
+        p["lm"] = round(lm, 1); p["hist"] = h[-4:]
+        nb += 1
 json.dump(nil, open(path, "w"), separators=(",", ":"))
-print(f"repointed {patched} returners to stat_overall; {fr_patched} freshmen to editor OVR; kept {kept}")
+print(f"repointed {patched} returners to stat_overall; {fr_patched} freshmen to editor OVR; kept {kept}; NIL basis for {nb}")
 # spot check
 for tn, t in nil["teams"].items():
     for p in t.get("players", []):

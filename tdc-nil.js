@@ -269,6 +269,8 @@ window.TDC_NIL = {
   // publish a reported real-deal salary: baked "override" rows carry a hardcoded deal figure, so they
   // are recomputed from the model (grade × minutes × premium, tier-neutral) × recruiting pedigree —
   // the same as everyone else. Walk-ons keep their floor; the rest are rescaled off their tier.
+  N.nilGradeOf = function(p){ return (p&&p.ng!=null&&isFinite(+p.ng))?+p.ng:(p?p.grade:null); };
+  N.nilMpgOf   = function(p){ return (p&&p.nm!=null&&isFinite(+p.nm))?+p.nm:(p?p.mpg:null); };
   N.neutralValueOf = function(p,tier){ if(!p) return 0;
     var dl=N.dealOf(p.name); if(dl!=null) return dl;      // (mechanism retained; nil-deals.json is empty by policy)
     var v=+(p.value);
@@ -278,9 +280,12 @@ window.TDC_NIL = {
     // baked real-deal "override" figures are never surfaced. tier is unused (open-market worth).
     var prem=N.premOf(p), team=p.team, conf=p.conf, o=N.originOf(p);
     if(o && o.c){ prem=prem*N.confMult(N.confClass(o.c))/N.confMult(N.confClass(p.conf)); team=o.t||team; conf=o.c; }   // transfer: his old league + program
-    var mv=N.gradeValueNeutral(p.grade,p.mpg,prem,p.cls,p.pos,p.wa);
+    // priced on the NIL basis (last season · career · potential, and the bigger of last season's real or the
+    // projected minutes — patch_nil_grades.py), not the projection alone; freshmen fall back to the projection
+    var g=N.nilGradeOf(p), m=N.nilMpgOf(p);
+    var mv=N.gradeValueNeutral(g,m,prem,p.cls,p.pos,p.wa);
     mv=isFinite(+mv)?+mv:(isFinite(v)?v:0);
-    mv=mv*N.draftBoost(p.grade,p.ppg)*N.defMultOf(p)*N.mktMult(p.ppg)*N.proMult(p.ht,p.pos)*N.injuryMultOf(p)*N.adjMultOf(p.name)*N.progMultOf(team);
+    mv=mv*N.draftBoost(g,p.ppg)*N.defMultOf(p)*N.mktMult(p.ppg)*N.proMult(p.ht,p.pos)*N.injuryMultOf(p)*N.adjMultOf(p.name)*N.progMultOf(team);
     return Math.max(N.progFloorOf(conf), mv); };   // × draft × defense × mkt × pro × injury × adjust × program, then conf floor
   N.tierBudget  = function(t){ return N.TIER_BUDGET[+((''+t).replace(/\D/g,''))] || null; };
   N.fmt         = function(m){ if(m==null||!isFinite(m)) return '—'; return m>=1 ? ('$'+(+m).toFixed(2)+'M') : ('$'+Math.round(m*1000)+'K'); };

@@ -29,7 +29,7 @@
     var R=window.TDC_RATINGS, N=window.TDC_NIL;
     var waits=['pedigreeReady','defenseReady','adjustReady','injuryReady','programsReady'].map(function(k){ return (N&&N[k])?N[k].catch(function(){}):null; });
     return Promise.all([R.prepare(), R.get(),
-      fetch('nil-data.json?v=gradesync15').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}),
+      fetch('nil-data.json?v=gradesync16').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}),
       fetch('scripts/data/coach_rotation.json?v=1').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;})].concat(waits))
     .then(function(a){
       D=a[1]; ROT=a[3]||{}; var nd=a[2]||{teams:{}};

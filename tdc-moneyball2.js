@@ -32,7 +32,7 @@
     var N=window.TDC_NIL, R=window.TDC_RATINGS;
     var waits=['pedigreeReady','defenseReady','adjustReady','injuryReady','programsReady'].map(function(k){ return (N&&N[k])?N[k].catch(function(){}):null; });
     return Promise.all([
-      fetch('nil-data.json?v=gradesync15').then(function(r){return r.json();}),
+      fetch('nil-data.json?v=gradesync16').then(function(r){return r.json();}),
       fetch('scripts/data/stat_overall_projected.json?v=93').then(function(r){return r.json();}),
       fetch('scripts/data/fresh_fit.json?v=35').then(function(r){return r.ok?r.json():{};}).catch(function(){return {};}),
       R.get()].concat(waits)).then(function(a){

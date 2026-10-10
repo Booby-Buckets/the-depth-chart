@@ -11,7 +11,7 @@
   <script src="tdc-shotchart.js?v=31"></script>
   <script src="tdc-shotprofile.js?v=1s"></script>
   <script src="tdc-shotflow.js?v=12"></script>
-  <script src="tdc-nil.js?v=cal6"></script>
+  <script src="tdc-nil.js?v=cal7"></script>
   <script src="tdc-archetypes.js?v=7"></script>
   <script src="tdc-gate.js?v=4"></script>
   <script src="tdc-pos.js"></script>
@@ -3785,7 +3785,7 @@ function renderOvcTeamFit(x){
 }
 async function _ovcLoadNil(){
   try{ var N=window.TDC_NIL; if(!N) return;
-    if(window._nilData===undefined){ window._nilData=null; try{ window._nilData=await fetch('nil-data.json?v=gradesync15').then(function(r){return r.ok?r.json():null;}); }catch(e){} }
+    if(window._nilData===undefined){ window._nilData=null; try{ window._nilData=await fetch('nil-data.json?v=gradesync16').then(function(r){return r.ok?r.json():null;}); }catch(e){} }
     var nd=window._nilData, tn=nd&&nd.teams&&nd.teams[player.team]; if(!tn||!tn.players) return;
     var nk=(player.name||'').toLowerCase().trim(), row=tn.players.find(function(p){return (p.name||'').toLowerCase().trim()===nk;});
     if(!row||row.value==null) return;
@@ -6422,10 +6422,11 @@ window.addEventListener('resize',_tabScrollHint);
 // reruns compute_nil.py). Mirrors renderNilPlayer's modelVal chain; every lever is guarded so a
 // missing helper just drops out. Skips per-player injury (rare, headline-only).
 function _nilLiveVal(N, p){
-  var g=p.grade; if(g==null||!isFinite(+g)) return null;
+  var g=N.nilGradeOf?N.nilGradeOf(p):p.grade; if(g==null||!isFinite(+g)) return null;   // NIL basis, like the headline
+  var mp=N.nilMpgOf?N.nilMpgOf(p):p.mpg;
   var cls=p.cls||p.class_year||p.yr||'', ps=p.pos||'', ppg=(p.ppg!=null&&isFinite(+p.ppg))?+p.ppg:null;
   var wa=(p.wa!=null&&isFinite(+p.wa))?+p.wa:null, ht=(p.ht!=null&&isFinite(+p.ht))?+p.ht:null;
-  var v=N.gradeValueNeutral(+g, (+p.mpg>0?+p.mpg:18), (+p.prem||1), cls, ps, wa);
+  var v=N.gradeValueNeutral(+g, (+mp>0?+mp:18), (+p.prem||1), cls, ps, wa);
   if(typeof N.draftBoost==='function') v*=N.draftBoost(+g, ppg);
   if(typeof N.defMultOf==='function'&&p.espn!=null) v*=N.defMultOf(p.espn);
   if(typeof N.mktMult==='function') v*=N.mktMult(ppg);
@@ -6482,7 +6483,7 @@ function _nilCompareHtml(N, cur, col){
   }).join('');
   return '<div class="sec-title" style="margin:26px 0 12px;">How he stacks up</div>'
     +_nvTrack(pct, col, 'Least valuable', 'Most valuable', '<b>'+pct+'<sup>'+_nvOrdSuf(pct)+'</sup> percentile.</b> #'+natRank+' of '+natTot.toLocaleString()+' rotation players nationally, #'+posRank+' of '+posTot.toLocaleString()+' '+esc(cur.pos5||'')+'s.')
-    +'<div class="nilc-cmp-h">Comparable '+esc(cur.pos5||'')+'s by projected NIL value</div>'
+    +'<div class="nilc-cmp-h">Comparable '+esc(cur.pos5||'')+'s by NIL value</div>'
     +'<div class="sheet-wrap"><table class="sheet dense nil-cmp"><thead><tr><th class="rk">#</th><th class="l">Player</th><th class="l">Team</th><th>Grd</th><th>NIL</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
     +'<div class="nilx-note" style="margin-top:10px;">Every player here is re-priced on the same model as the headline, so the values line up. Rank is among rotation players with a graded projection.</div>';
 }
@@ -6644,7 +6645,7 @@ async function renderNilPlayer(){
   let pos=(player&&player.position)||''; const cls=(player&&(player.class_year||player.yr))||'';
   // Read the SAME precomputed roster value as the team page so the two always agree.
   if(window._nilData===undefined){ window._nilData=null;
-    try{ window._nilData=await fetch('nil-data.json?v=gradesync15').then(r=>r.ok?r.json():null); }catch(e){} }
+    try{ window._nilData=await fetch('nil-data.json?v=gradesync16').then(r=>r.ok?r.json():null); }catch(e){} }
   // Market anchors — the owner's positional curve; same source as the team NIL tab.
   if(window._nilMarket===undefined){ window._nilMarket=null;
     try{ window._nilMarket=await fetch('scripts/data/nil_market_anchors.json?v=cal1').then(r=>r.ok?r.json():null); }catch(e){} }
@@ -6663,15 +6664,18 @@ async function renderNilPlayer(){
     walkon=(grade!=null&&N.gradeBase(grade)<=0.003);
     value=(grade==null)?null:N.gradeValue(grade,mpg,nilTier,prem,cls,pos);
   }
-  // Prefer the LIVE projected minutes (same source as the projection & team pages) so PROJ MINUTES
-  // here matches the rest of the site — the published nil-data mpg lags a projection rebuild.
-  try{ if(window.TDCProjGrade&&TDCProjGrade.ready){ await TDCProjGrade.ready; }
+  // NIL BASIS (Oct 2026, owner): the price is built on last season + career + potential and the bigger of last
+  // season's real or the projected minutes (nil-data ng/nm, patch_nil_grades.py) — not the projection alone.
+  // Only a player without that basis (a freshman, no college line) falls back to the projection below.
+  const _nb=(row&&row.ng!=null&&isFinite(+row.ng))?row:null;
+  if(_nb){ grade=+_nb.ng; mpg=+_nb.nm; walkon=(N.gradeBase(grade)<=0.003); }
+  if(!_nb) try{ if(window.TDCProjGrade&&TDCProjGrade.ready){ await TDCProjGrade.ready; }
     const _pr=(window.TDCProjGrade&&TDCProjGrade.projRowOf&&player&&player.espn_id!=null)?TDCProjGrade.projRowOf(player.espn_id):null;
     if(_pr&&_pr.mpg!=null&&isFinite(+_pr.mpg)&&+_pr.mpg>0) mpg=+_pr.mpg;
   }catch(e){}
   // the NIL tab values the SAME overall every other page shows (projected OVR), not the older
   // roster grade it used to read (Kellen Thames: 83 here vs 90 on the depth chart and his hero)
-  try{ const _og=(typeof _projectedGrade==='function')?_projectedGrade():null;
+  if(!_nb) try{ const _og=(typeof _projectedGrade==='function')?_projectedGrade():null;
     if(_og!=null&&isFinite(+_og)){ grade=+_og; if(value==null) value=0; walkon=(N.gradeBase(grade)<=0.003); }
   }catch(e){}
   if(value==null){ host.innerHTML='<div style="padding:40px;color:var(--text3);">No NIL valuation — needs a graded roster on an NIL-tiered team.</div>'; return; }
@@ -6712,68 +6716,69 @@ async function renderNilPlayer(){
   const pSize=N.sizeMult(N.htIn(player&&player.height),pos), pConf=N.confMult(N.confClass(conf));
   const tierN=N.tierNum(nilTier);
   const tierRange=({1:'$20M+',2:'$16–20M',3:'$11–16M',4:'$9–11M',5:'$6–9M',6:'$4–6M',7:'$2–4M',8:'$500K–2M',9:'$0–500K'})[tierN]||'';
-  // Grade → value curve: hold his role/premium/size fixed and sweep the grade, so you SEE the
-  // convex model and where he sits (a +grade is worth exponentially more near the top).
-  const _valAtGrade=(g)=>{ let v=N.gradeValueNeutral(g,mpg,prem,cls,pos,_wa);
-    if(N.draftBoost) v*=N.draftBoost(g,_ppgMkt); v*=_defM*_mktM*_proM*_injM*_adjM*_progM;
-    if(!walkon) v=Math.max(_floorV,v); return v; };
-  let _curveSVG='';
-  if(!walkon && grade!=null){
-    const gLo=68,gHi=99,W=660,H=250,pl=46,pr=16,pt=14,pb=30,iw=W-pl-pr,ih=H-pt-pb;
-    const pts=[]; for(let g=gLo;g<=gHi;g++) pts.push([g,_valAtGrade(g)]);
-    const vHi=Math.max(...pts.map(p=>p[1]))||1;
-    const GX=g=>pl+iw*(g-gLo)/(gHi-gLo), VY=v=>pt+ih*(1-v/vHi);
-    const line=pts.map((p,i)=>(i?'L':'M')+GX(p[0]).toFixed(1)+' '+VY(p[1]).toFixed(1)).join(' ');
-    const area=line+' L '+GX(gHi).toFixed(1)+' '+(pt+ih).toFixed(1)+' L '+GX(gLo).toFixed(1)+' '+(pt+ih).toFixed(1)+' Z';
-    let grid=''; for(let gi=0;gi<=2;gi++){ const vv=vHi*gi/2,yy=VY(vv); grid+='<line x1="'+pl+'" y1="'+yy.toFixed(1)+'" x2="'+(W-pr)+'" y2="'+yy.toFixed(1)+'" stroke="var(--border)" opacity=".5"/><text x="'+(pl-6)+'" y="'+(yy+3).toFixed(1)+'" font-size="9" fill="var(--text3)" text-anchor="end">'+fmt(vv)+'</text>'; }
-    [70,80,90,99].forEach(g=>{ grid+='<text x="'+GX(g).toFixed(1)+'" y="'+(H-8)+'" font-size="9" fill="var(--text3)" text-anchor="middle">'+g+'</text>'; });
-    const mx=GX(grade),my=VY(_valAtGrade(grade));
-    const mark='<line x1="'+mx.toFixed(1)+'" y1="'+(pt).toFixed(1)+'" x2="'+mx.toFixed(1)+'" y2="'+(pt+ih).toFixed(1)+'" stroke="'+col+'" stroke-dasharray="4 3" opacity=".55"/><circle cx="'+mx.toFixed(1)+'" cy="'+my.toFixed(1)+'" r="6" fill="'+col+'" stroke="var(--bg2)" stroke-width="2"/><text x="'+mx.toFixed(1)+'" y="'+(my-11).toFixed(1)+'" font-size="10.5" font-weight="800" fill="'+col+'" text-anchor="middle">'+fmt(_valAtGrade(grade))+'</text>';
-    const nextG=Math.min(99,grade+2), lift=_valAtGrade(nextG)-_valAtGrade(grade);
-    _curveSVG='<div class="nil-chart"><div class="nil-chart-h">What each grade point is worth — his role held fixed</div>'
-      +'<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;">'+grid
-      +'<path d="'+area+'" fill="'+col+'" opacity=".10"/><path d="'+line+'" fill="none" stroke="'+col+'" stroke-width="2.4" stroke-linejoin="round"/>'+mark
-      +'<text x="'+(pl+iw/2)+'" y="'+H+'" font-size="9" fill="var(--text3)" text-anchor="middle" dy="-1">TDC grade →</text></svg>'
-      +'<div class="nil-chart-cap">The curve is <b>convex</b> — value accelerates near the top. At his '+grade+', a bump to '+nextG+' is worth about <b style="color:'+col+'">'+(lift>=0?'+':'')+fmt(Math.abs(lift))+'</b>.</div></div>';
-  }
   const _cur0={name:(player&&player.name)||'',team:_teamNm,pos5:(N.POS5?N.POS5(pos):pos),val:modelVal,grade:grade,wa:_wa};
   const _clsName={fr:'freshman',so:'sophomore',jr:'junior',sr:'senior',gr:'graduate'}[String(cls||'').toLowerCase().replace(/^r-/,'').slice(0,2)]||'';
-  const _read=grade!=null?`Realistic open-market value for a ${grade}-grade ${/^r-/i.test(cls||'')?'redshirt ':''}${_clsName?_clsName+' ':''}${pos||'player'} projected for ${Math.round(mpg)} minutes.`:'Realistic open-market value.';
+  const _clsTxt=`${/^r-/i.test(cls||'')?'redshirt ':''}${_clsName?_clsName+' ':''}${pos||'player'}`;
+  const _read=_nb
+    ? `What a ${_clsTxt} is worth on the open market, priced on <b>last season</b>, his <b>career</b> and his <b>upside</b>, not just next year's projection.`
+    : (grade!=null?`What a ${_clsTxt} is worth on the open market. No college seasons yet, so he is priced on his 2026-27 projection.`:'Realistic open-market value.');
+  // WHAT THE PRICE IS BUILT ON: his season grades, last season (highlighted), potential, and the blended NIL grade
+  let _basisSVG='';
+  if(_nb && !walkon){
+    const hist=(Array.isArray(_nb.hist)?_nb.hist:[]).slice(-3), w=_nb.ngw||[0.5,0.2,0.3];
+    const cols=hist.map(h=>({lbl:(h[0]-1)+'-'+String(h[0]).slice(2),g:+h[1],k:'car'}));
+    cols.push({lbl:'2025-26',g:+_nb.ngl,k:'last'});
+    cols.push({lbl:'Potential',g:+_nb.ngp,k:'pot'});
+    const W=660,H=236,pl=34,pr=14,pt=22,pb=46,iw=W-pl-pr,ih=H-pt-pb, lo=Math.max(40,Math.floor((Math.min(...cols.map(c=>c.g),grade)-6)/5)*5), hi=Math.min(100,Math.ceil((Math.max(...cols.map(c=>c.g),grade)+3)/5)*5);
+    const Y=g=>pt+ih*(1-(g-lo)/(hi-lo)), bw=Math.min(84,iw/cols.length*0.62), cx=i=>pl+iw*(i+0.5)/cols.length;
+    let g='';
+    for(let v=lo; v<=hi; v+=5){ g+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="var(--border)" stroke-width="1"/><text x="${pl-6}" y="${(Y(v)+3.5).toFixed(1)}" font-size="10" fill="var(--text3)" text-anchor="end">${v}</text>`; }
+    const wTxt={car:w[1]>0?Math.round(w[1]*100)+'% career':'',last:Math.round(w[0]*100)+'% of the price',pot:Math.round(w[2]*100)+'% of the price'};
+    cols.forEach((c,i)=>{ const x=cx(i)-bw/2, y=Y(c.g), h=pt+ih-y;
+      const fill=c.k==='last'?col:c.k==='pot'?'none':`color-mix(in srgb,${col} 38%,var(--bg3,#ddd))`;
+      g+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,h).toFixed(1)}" rx="3" fill="${fill}" ${c.k==='pot'?`stroke="${col}" stroke-width="2" stroke-dasharray="5 4"`:''}/>`
+        +`<text x="${cx(i).toFixed(1)}" y="${(y-6).toFixed(1)}" font-size="13" font-weight="800" fill="var(--text)" text-anchor="middle">${Math.round(c.g)}</text>`
+        +`<text x="${cx(i).toFixed(1)}" y="${(pt+ih+16).toFixed(1)}" font-size="11.5" font-weight="700" fill="var(--text2)" text-anchor="middle">${c.lbl}</text>`; });
+    // weights under the columns: career spans the earlier seasons
+    const nCar=cols.filter(c=>c.k==='car').length;
+    if(nCar&&wTxt.car) g+=`<text x="${((cx(0)+cx(nCar-1))/2).toFixed(1)}" y="${(pt+ih+32).toFixed(1)}" font-size="10.5" fill="var(--text3)" text-anchor="middle">${wTxt.car}</text>`;
+    g+=`<text x="${cx(nCar).toFixed(1)}" y="${(pt+ih+32).toFixed(1)}" font-size="10.5" fill="var(--text3)" text-anchor="middle">${wTxt.last}</text>`;
+    g+=`<text x="${cx(nCar+1).toFixed(1)}" y="${(pt+ih+32).toFixed(1)}" font-size="10.5" fill="var(--text3)" text-anchor="middle">${wTxt.pot}</text>`;
+    // the blended NIL grade
+    g+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(grade).toFixed(1)}" y2="${Y(grade).toFixed(1)}" stroke="var(--text)" stroke-width="1.6" stroke-dasharray="6 4"/>`
+      +`<text x="${pl+6}" y="${(Y(grade)-6).toFixed(1)}" font-size="11.5" font-weight="800" fill="var(--text)" text-anchor="start" paint-order="stroke" stroke="var(--bg)" stroke-width="3">NIL grade ${Math.round(grade)}</text>`;
+    _basisSVG=`<div class="nil-chart"><div class="nil-chart-h">What his price is built on</div><svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;" role="img" aria-label="Season grades, potential and the NIL grade">${g}</svg>`
+      +`<div class="nil-chart-cap">Priced as a <b>${Math.round(grade)}</b> over <b>${Math.round(mpg)} minutes</b>: last season's grade, his earlier seasons and his potential (the better of his 2026-27 projection and a normal ${_clsName||'class'}-year step), and the bigger of last season's minutes (${Math.round(+_nb.lm||0)}) and his projected role. A thin last season counts for less.</div></div>`;
+  }
   const _vText=_verdict.tag==='underrated'?`<b style="color:${N.markColor('underrated')}">Underrated.</b> His production is worth about ${_verdict.ratio.toFixed(1)}× what the market pays for his grade and position.`
     :_verdict.tag==='overrated'?`<b style="color:${N.markColor('overrated')}">Overrated.</b> The market pays about ${_verdict.ratio.toFixed(1)}× what his production is worth.`
     :_verdict.tag==='fair'?`<b>Fair value.</b> The market prices him about where his production does.`:'';
   const html=`<div class="nilx">
     <div class="nv-head">
-      <div class="nv-ey">2026-27 projected NIL value</div>
+      <div class="nv-ey">2026-27 NIL value</div>
       <div class="nv-row">
         <div class="nv-big">${fmt(value)}</div>
         <div class="nv-copy"><div class="nv-read">${_read}</div>${_vText?`<div class="nv-verdict">${_vText}</div>`:''}</div>
       </div>
       ${(_injRec&&_injM!==1)?`<div class="nv-flag"><b>Injury:</b> ${String((_injRec.part||'Injury')).replace(/</g,'&lt;')}${((_injRec.play===false)||_injRec.timeline==='multi'||_injRec.timeline==='season')?', out':(_injRec.timeline==='1-3m'?', about 1–3 months':'')} (−${Math.round((1-_injM)*100)}% NIL)</div>`:''}
       ${(_adj&&_adj.reason&&_adjM!==1)?`<div class="nv-flag"><b>Market adjustment:</b> ${String(_adj.reason).replace(/</g,'&lt;')} (${_adjM<1?'−':'+'}${Math.round(Math.abs(1-_adjM)*100)}%)</div>`:''}
-      <dl class="nv-in">
-        <div><dt>TDC grade</dt><dd>${grade!=null?grade:'—'}</dd></div>
-        <div><dt>Projected minutes</dt><dd>${Math.round(mpg)}</dd></div>
-        <div><dt>Market premium</dt><dd>×${(+prem||1).toFixed(2)}</dd></div>
-        <div><dt>Position</dt><dd>${pos||'—'}${cls?` · ${cls}`:''}</dd></div>
-      </dl>
     </div>
+    ${_basisSVG}
     ${(!walkon)?_nilScaleHtml(N,_cur0,modelVal,marketVal,marketPos,col):''}
     ${(!walkon)?(function(){var _cur={name:(player&&player.name)||'',team:_teamNm,pos5:(N.POS5?N.POS5(pos):pos),val:modelVal,grade:grade,wa:_wa};
       return _nilCompareHtml(N,_cur,col)+_nilEfficiencyHtml(N,_cur,col)+_nilTeamContextHtml(N,_cur,col);})():''}
     ${walkon?`<div class="nilx-flag" style="border-color:${col}"><b>Walk-on / non-rotation</b> — nominal value; not part of NIL roster spend.</div>`:`
     <div class="sec-title" style="margin:26px 0 14px;">How it's valued</div>
     <div class="nv-eq">
-      <span><em>Grade ${grade}</em> puts him at ${(base*100).toFixed(0)}% of the ~${fmt(N.MODEL.top_m*N.NEUTRAL_MULT)} open-market ceiling</span>
+      <span><em>NIL grade ${Math.round(grade)}</em> puts him at ${(base*100).toFixed(0)}% of the ~${fmt(N.MODEL.top_m*N.NEUTRAL_MULT)} open-market ceiling</span>
       <span class="op">×</span><span><em>minutes</em> ${mf.toFixed(2)}</span>
       <span class="op">×</span><span><em>market premium</em> ${(+prem||1).toFixed(2)}</span>
       <span class="op">×</span><span><em>youth</em> ${ym.toFixed(2)}</span>
       ${bigM>1.01?`<span class="op">×</span><span><em>big</em> ${bigM.toFixed(2)}</span>`:''}
       ${prospM>1.01?`<span class="op">×</span><span><em>prospect</em> ${prospM.toFixed(2)}</span>`:''}
       <span class="op">=</span><span class="tot" style="color:${col}">${fmt(value)}</span>
-    </div>
-    ${_curveSVG}`}
-    <div class="nilx-note">A realistic-market estimate: the player's <b>TDC grade</b> (talent, usage, efficiency, recruiting hype) on a <b>convex curve</b> — stars are worth exponentially more — times <b>projected minutes</b> (role), a <b>market premium</b> (size · scoring · conference), a <b>youth bump</b> for upside, a <b>big premium</b> (good bigs are scarce), and an <b>NBA-prospect premium</b> for young lottery-caliber grades. It's <b>tier-neutral</b> — a player's open-market worth, priced the same whether he's at a blue-blood or a mid-major (talent and role, not the program). Calibrated to real NIL deals.${marketVal!=null?` <b>Market Value</b> is a different lens — a <b>positional market curve</b> (what a 90 / 80 / 70-grade player goes for at each slot, set by the owner) read off by this player's grade &amp; position, independent of minutes. The <b>Verdict</b> is <b>tier-fair</b>: it strips out team spending so talent (not the program) drives it, then compares his production to the market price for his grade &amp; slot — <span style="color:var(--green);font-weight:700;">UNDERRATED</span> = slept on (produces more than the market pays), <span style="color:var(--amber);font-weight:700;">OVERRATED</span> = market pays above production.`:''}</div>
+    </div>`}
+    <div class="nilx-note"><b>How NIL is priced.</b> An open-market estimate: his <b>NIL grade</b> (last season, his career and his upside, with last season counting most) on a curve where stars are worth exponentially more, times his <b>minutes</b> (the bigger of last season's and his projected role), a <b>market premium</b> (size, scoring, conference), a <b>youth</b> bump, and the <b>big</b> and <b>NBA-prospect</b> premiums where they apply. It is the same whether he plays at a blue-blood or a mid-major.${marketVal!=null?` <b>Market value</b> is a separate lens: the going rate for his grade at his position, regardless of minutes. <b>Underrated</b> means his production is worth more than that rate; <b>overrated</b> means the market pays more than his production.`:''}</div>
     ${_nilLedgerHtml(N,prem,pos,cls)}
     ${row?`<div style="margin-top:16px;text-align:center;">
       <a href="moneyball.html?tab=players&q=${encodeURIComponent(player.name||'')}" style="display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:800;letter-spacing:.02em;color:var(--accent);border:1px solid var(--border2);border-radius:22px;padding:9px 18px;text-decoration:none;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)'">⬡ See ${(player.name||'this player')} in the Moneyball Market →</a>

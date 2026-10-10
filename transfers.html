@@ -19,7 +19,7 @@
   <script src="tdc-theme.js?v=5"></script>
   <script src="team-colors.js?v=11"></script>
   <script src="tdc-teamname.js?v=1"></script>
-  <script src="tdc-nil.js?v=cal6"></script>
+  <script src="tdc-nil.js?v=cal7"></script>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <style>
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;}
@@ -317,7 +317,7 @@
   async function attachNil(d) {
     const N = window.TDC_NIL; if (!N || !N.neutralValueOf) return;
     try {
-      const nd = await fetch('nil-data.json?v=gradesync15').then(r => r.ok ? r.json() : null); if (!nd || !nd.teams) return;
+      const nd = await fetch('nil-data.json?v=gradesync16').then(r => r.ok ? r.json() : null); if (!nd || !nd.teams) return;
       await Promise.all([N.dealsReady, N.pedigreeReady, N.defenseReady, N.adjustReady, N.programsReady, N.injuryReady].map(x => Promise.resolve(x).catch(() => null)));
       const by = {}; Object.values(nd.teams).forEach(t => (t.players || []).forEach(r => { if (r.espn_id != null) by[String(r.espn_id)] = [r, t.tier]; }));
       let n = 0; d.players.forEach(p => { const x = by[p.espn]; if (x) { const v = N.neutralValueOf(x[0], x[1]); if (isFinite(v)) { p.nil = v; n++; } } });
