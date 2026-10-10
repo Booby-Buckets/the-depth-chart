@@ -34,7 +34,7 @@
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js?v=11"></script>
   <script src="tdc-ratings.js?v=32"></script>
-  <link rel="stylesheet" href="tdc-sheets.css?v=6"/><link rel="stylesheet" href="tdc-hero.css?v=4"/><script src="tdc-shotchart.js?v=30"></script>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/><link rel="stylesheet" href="tdc-hero.css?v=4"/><script src="tdc-shotchart.js?v=31"></script>
   <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-portalfit.js?v=needs11"></script>
   <script src="tdc-chemistry.js?v=8"></script>
@@ -1878,7 +1878,7 @@ async function _fetchPlayerShots(p){
   const espn=p&&p.espn_id; if(!espn) return [];
   const season=p.season_year||2026;
   try{
-    const r=await fetch(`${SB}/rest/v1/shots?espn_id=eq.${espn}&season_year=eq.${season}&select=x,y,made,sv,dist&limit=1500`,{headers:tdcH()});
+    const r=await fetch(`${SB}/rest/v1/shots?espn_id=eq.${espn}&season_year=eq.${season}&select=x,y,made,sv,dist,game_id,team_id&limit=1500`,{headers:tdcH()});
     return r.ok ? await r.json() : [];
   }catch(e){ return []; }
 }
@@ -1946,12 +1946,18 @@ async function _fillTeamShotDist(rows1,rows2,c1,c2,name1,name2){
   if(h1) h1.innerHTML=build(rows1,c1,name1);
   if(h2) h2.innerHTML=build(rows2,c2,name2);
 }
+// game rows for the shot charts' game picker
+async function _cmpGames(ids){
+  const out=[]; for(let i=0;i<ids.length;i+=150){
+    try{ const r=await fetch(`${SB}/rest/v1/games?id=in.(${ids.slice(i,i+150).join(',')})&select=id,date,home,away,home_id,away_id,home_score,away_score,neutral`,{headers:tdcH()}); if(r.ok) out.push(...await r.json()); }catch(e){} }
+  return out;
+}
 async function _renderShotCharts(p1,p2){
   const h1=document.getElementById('sc1'), h2=document.getElementById('sc2');
   if((!h1&&!h2) || !window.TDC_SHOTCHART) return;
   const [s1,s2]=await Promise.all([_fetchPlayerShots(p1),_fetchPlayerShots(p2)]);
-  if(h1) TDC_SHOTCHART.render(h1, s1, {subtitle:p1.name, mode:'hex'});
-  if(h2) TDC_SHOTCHART.render(h2, s2, {subtitle:p2.name, mode:'hex'});
+  if(h1) TDC_SHOTCHART.render(h1, s1, {subtitle:p1.name, mode:'hex', games:_cmpGames});
+  if(h2) TDC_SHOTCHART.render(h2, s2, {subtitle:p2.name, mode:'hex', games:_cmpGames});
 }
 // ── side-by-side shot-FLOW Sankey (reuses tdc-shotflow.js) ──
 async function _fetchPlayerShotsFlow(p){
@@ -2521,11 +2527,11 @@ async function _renderTeamShotCharts(s1,s2,y1,y2,t1,t2){
   const h1=document.getElementById('tsc1'), h2=document.getElementById('tsc2');
   if((!h1&&!h2)||!window.TDC_SHOTCHART) return;
   const f=async(s,y)=>{ if(!s||s.team_id==null) return null; try{
-    const r=await fetch(`${SB}/rest/v1/shots?team_id=eq.${s.team_id}&season_year=eq.${y}&select=x,y,made,sv,dist&limit=6000`,{headers:tdcH()});
+    const r=await fetch(`${SB}/rest/v1/shots?team_id=eq.${s.team_id}&season_year=eq.${y}&select=x,y,made,sv,dist,game_id,team_id&limit=6000`,{headers:tdcH()});
     return r.ok?await r.json():[]; }catch(e){ return []; } };
   const [a,b]=await Promise.all([f(s1,y1),f(s2,y2)]);
-  if(h1&&a) TDC_SHOTCHART.render(h1,a,{subtitle:t1.name,mode:'hex',kind:'team'});
-  if(h2&&b) TDC_SHOTCHART.render(h2,b,{subtitle:t2.name,mode:'hex',kind:'team'});
+  if(h1&&a) TDC_SHOTCHART.render(h1,a,{subtitle:t1.name,mode:'hex',kind:'team',games:_cmpGames});
+  if(h2&&b) TDC_SHOTCHART.render(h2,b,{subtitle:t2.name,mode:'hex',kind:'team',games:_cmpGames});
 }
 // ── Team DNA · four factors + efficiency (scripts/data/team_dna.json, keyed by season→full name) ──
 let _dnaPromise=null;

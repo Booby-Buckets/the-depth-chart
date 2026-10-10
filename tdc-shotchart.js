@@ -778,6 +778,12 @@
     opts=opts||{}; if(!el) return;
     shots=(shots||[]).filter(function(s){return s.x!=null&&s.y!=null;});
     el.setAttribute('data-sc-host','1'); el.classList.add('sc-host'); el._shots=shots; el._opts=opts;
+    // built-in game picker (opts.games = async fetcher of game rows by id): the host keeps the
+    // whole season, the chart draws one game when opts.gameId is set
+    var gp=gamePicker(el, shots, opts);
+    if(opts.gameId){ var gm=el._gmeta&&el._gmeta[String(opts.gameId)];
+      shots=shots.filter(function(s){ return String(s.game_id)===String(opts.gameId); });
+      opts=Object.assign({},opts,{subtitle:(opts.subtitle||'')+(gm?' \u00b7 '+gm.lbl:''), short:'This game', expected:null}); }
     useSeason(opts.season||(shots.length&&shots[0].season_year));
     if(!shots.length){
       var exp0=parseFloat(opts.expected);
@@ -798,7 +804,7 @@
       '<button class="'+(mode==='heat'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'heat\')">Heat</button>'+
       '<button class="'+(mode==='shots'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'shots\')">All shots</button></div>';
     var head=(opts.title?'<div class="sc-title">'+opts.title+'</div>':'')+(opts.subtitle?zHead(shots,opts):'')+
-      '<div class="sc-legend">'+toggle+'<span style="margin-left:auto;color:var(--text3);">'+shots.length+' field-goal attempts</span></div>';
+      '<div class="sc-legend">'+toggle+gp+'<span style="margin-left:auto;color:var(--text3);">'+shots.length+' field-goal attempts</span></div>';
     var body, extra='';
     if(mode==='zones'){
       // the lines go ON TOP of the tiles (court() draws floor + lines; split them)
@@ -895,6 +901,25 @@
       card.addEventListener('mouseleave',function(){ el.classList.remove('sc-hl','sc-hl-'+z); });
     });
   }
+  function gamePicker(el, all, opts){
+    if(!opts.games) return '';
+    var ids={}; all.forEach(function(s){ if(s.game_id!=null){ var k=String(s.game_id); (ids[k]=ids[k]||{m:0,a:0,t:{}}); ids[k].a++; if(s.made) ids[k].m++; ids[k].t[s.team_id]=(ids[k].t[s.team_id]||0)+1; } });
+    var keys=Object.keys(ids); if(keys.length<2) return '';
+    if(!el._gmeta&&!el._gload){ el._gload=true;
+      Promise.resolve(opts.games(keys)).then(function(rows){ var M={}, short=function(n){ try{ return (window.tdcShortSchool&&tdcShortSchool(n))||String(n||'').replace(/ \S+$/,''); }catch(e){ return n; } };
+        (rows||[]).forEach(function(g){ var b=ids[String(g.id)]; if(!b) return;
+          var tid=Object.keys(b.t).sort(function(x,y){ return b.t[y]-b.t[x]; })[0], home=String(g.home_id)===String(tid);
+          var us=home?g.home_score:g.away_score, them=home?g.away_score:g.home_score, d=g.date||'';
+          var dt=d?new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
+          M[String(g.id)]={d:d,lbl:dt+' '+(home||g.neutral?'vs ':'@ ')+short(home?g.away:g.home)+(us!=null&&them!=null?' ('+(us>them?'W':'L')+' '+us+'\u2013'+them+')':'')}; });
+        el._gmeta=M; el._gload=false; if(el._shots===all) render(el, all, el._opts); }).catch(function(){ el._gload=false; });
+      return ''; }
+    var M=el._gmeta||{};
+    var list=keys.map(function(k){ return {k:k,d:(M[k]&&M[k].d)||'',lbl:(M[k]&&M[k].lbl)||('Game '+k),m:ids[k].m,a:ids[k].a}; }).sort(function(a,b){ return a.d.localeCompare(b.d); });
+    return '<select class="sc-gsel" aria-label="Pick a game" onchange="TDC_SHOTCHART._g(this)"><option value="">All games ('+list.length+')</option>'+
+      list.map(function(g){ return '<option value="'+g.k+'"'+(String(opts.gameId)===g.k?' selected':'')+'>'+g.lbl+' \u00b7 '+g.m+'/'+g.a+'</option>'; }).join('')+'</select>';
+  }
+  function _g(sel){ var host=sel.closest('[data-sc-host]'); if(host&&host._shots) render(host, host._shots, Object.assign({},host._opts,{gameId:sel.value||null})); }
   function _m(btn, mode){ var host=btn.closest('[data-sc-host]'); if(host&&host._shots) render(host, host._shots, Object.assign({},host._opts,{mode:mode})); }
 
   if(!document.getElementById('sc-styles')){
@@ -921,6 +946,7 @@
       '.sc-modes{display:inline-flex;max-width:100%;overflow-x:auto;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:3px;gap:3px;}'+
       '.sc-modes button{white-space:nowrap;font-size:11.5px;font-weight:700;padding:5px 13px;border:none;border-radius:5px;background:none;color:var(--text3);cursor:pointer;transition:color .15s,background .15s;}'+
       '.sc-modes button:hover{color:var(--text);}'+
+      '.sc-gsel{font:600 12px Inter,system-ui,sans-serif;max-width:250px;padding:5px 8px;border:1px solid var(--border2);border-radius:7px;background:var(--bg2);color:var(--text);}'+
       '.sc-modes button.on{background:var(--accent);color:#fff;}'+
       '.sc-mk-legend{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:8px;}'+
       '.sc-mk-legend span{display:inline-flex;align-items:center;gap:6px;}'+
@@ -1061,5 +1087,5 @@
       '.sc-settled .sc-mark,.sc-settled .sc-cl,.sc-settled .sc-z,.sc-settled .sc-court-wrap,.sc-settled .sc-title,.sc-settled .sc-legend,.sc-settled .sc-heat,.sc-settled .sc-heat-legend,.sc-settled .sc-eff-legend{animation:none!important;}';
     document.head.appendChild(st);
   }
-  window.TDC_SHOTCHART={render:render,playerZoneTable:playerZoneTable,renderShift:renderShift,_m:_m,zone10:zone10,zone12:zone12,avgOf:avgOf,useSeason:useSeason};
+  window.TDC_SHOTCHART={render:render,_g:_g,playerZoneTable:playerZoneTable,renderShift:renderShift,_m:_m,zone10:zone10,zone12:zone12,avgOf:avgOf,useSeason:useSeason};
 })();
