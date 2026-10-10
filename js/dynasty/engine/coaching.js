@@ -13,12 +13,12 @@
 //      smaller program moving up (his job opens: the cascade), a top assistant getting his first head job (his
 //      program loses a staffer), a fired coach getting another chance, or a new name
 // Pure: works on the state object.
-import { power, record_ } from './season.js?v=71';
-import { powerFeatures } from './league.js?v=71';
-import { ncaaResult } from './postseason.js?v=71';
-import { makeRng, hashSeed } from './rng.js?v=71';
-import { DIFFS } from './program.js?v=71';
-import { news } from './injuries.js?v=71';
+import { power, record_ } from './season.js?v=73';
+import { powerFeatures } from './league.js?v=73';
+import { ncaaResult } from './postseason.js?v=73';
+import { makeRng, hashSeed } from './rng.js?v=73';
+import { DIFFS } from './program.js?v=73';
+import { news } from './injuries.js?v=73';
 
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 const BUMP = { Champion: 3, 'Runner-up': 2.3, 'Final Four': 2, 'Elite Eight': 1.2, 'Sweet 16': 0.6, 'Round of 32': 0.2 };

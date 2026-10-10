@@ -7,15 +7,15 @@
 //   players: { id: { id, name, team, pos, pos2, ht, yr, pillars, lvl, mpg, pot } },
 //   schedule:[ { id, d, h, a, n, c, r } ],             r = [homePts, awayPts, ot, poss] once played
 //   stats:   { id: season totals },  powerFit, history:[], userBox:{ gameId: box } }
-import { attributes, overall } from './ratings.js?v=71';
-import { makeRng } from './rng.js?v=71';
-import { initCoaches, ensureCoaches } from './coaching.js?v=71';
-import { initFacilities } from './facilities.js?v=71';
-import { initSchools, initPeople } from './people.js?v=71';
-import { fillLeague, buildSchedule } from './fill.js?v=71';
-import { makeClass, classSize } from './offseason.js?v=71';
-import { initRecruiting, isNewClass, catchUpClass, initPipelines } from './commits.js?v=71';
-import { initProgram, ensureStamina } from './program.js?v=71';
+import { attributes, overall } from './ratings.js?v=73';
+import { makeRng } from './rng.js?v=73';
+import { initCoaches, ensureCoaches } from './coaching.js?v=73';
+import { initFacilities } from './facilities.js?v=73';
+import { initSchools, initPeople } from './people.js?v=73';
+import { fillLeague, buildSchedule } from './fill.js?v=73';
+import { makeClass, classSize } from './offseason.js?v=73';
+import { initRecruiting, isNewClass, catchUpClass, initPipelines } from './commits.js?v=73';
+import { initProgram, ensureStamina } from './program.js?v=73';
 
 export const YR = { 'FR': 1, 'FR.': 1, 'RS FR.': 1, 'SO': 2, 'SO.': 2, 'RS SO.': 2, 'JR': 3, 'JR.': 3, 'RS JR.': 3, 'SR': 4, 'SR.': 4, 'RS SR.': 4, 'GR': 5, 'GR.': 5, '5TH': 5 };
 export const YR_LABEL = ['', 'Fr', 'So', 'Jr', 'Sr', 'Gr'];

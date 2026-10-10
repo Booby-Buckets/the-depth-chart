@@ -3,10 +3,10 @@
 // in between — and a CRAWL that walks the season a day at a time (league-wide), stopping before the user's
 // games so they can watch or sim them. The cursor (state.cal) is saved with the dynasty.
 // UI-side only: drives the engine's simNext / nextDate; never touches storage itself (ctx.autosave does).
-import { simNext } from '../engine/flow.js?v=71';
-import { nextDate, power, lineFor } from '../engine/season.js?v=71';
-import { cutWeeks, STAGE_LABEL } from '../engine/commits.js?v=71';
-import { isBig } from '../engine/visits.js?v=71';
+import { simNext } from '../engine/flow.js?v=73';
+import { nextDate, power, lineFor } from '../engine/season.js?v=73';
+import { cutWeeks, STAGE_LABEL } from '../engine/commits.js?v=73';
+import { isBig } from '../engine/visits.js?v=73';
 
 const MON = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];

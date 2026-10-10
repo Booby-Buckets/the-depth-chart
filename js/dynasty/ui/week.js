@@ -1,9 +1,9 @@
 // "This week" (Oct 2026, owner: "you need week to week tasks, not just tasks to do"): the home screen opens with a
 // checklist rebuilt every week from the save — what needs doing now, why, and a button straight to it. The old home
 // panel (next game, sims, results, news, top 10) follows underneath.
-import { HOURS, AREAS, OFF, DEF, fitOf } from '../engine/program.js?v=71';
-import { classNeed, commitsOf, cutWeeks, hoursBudget, hoursUsed, planHours, rankOf, SUMMER, STAGE_LABEL, battleOf } from '../engine/commits.js?v=71';
-import { visitsLeft, upcomingHomeGames } from '../engine/visits.js?v=71';
+import { HOURS, AREAS, OFF, DEF, fitOf } from '../engine/program.js?v=73';
+import { classNeed, commitsOf, cutWeeks, hoursBudget, hoursUsed, planHours, rankOf, SUMMER, STAGE_LABEL, battleOf } from '../engine/commits.js?v=73';
+import { visitsLeft, upcomingHomeGames } from '../engine/visits.js?v=73';
 
 const KIND = { must: ['Must', 'must'], rec: ['Recommended', 'rec'], done: ['Done', 'done'] };
 

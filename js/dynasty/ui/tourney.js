@@ -1,10 +1,12 @@
 // Tournaments tab (NCAA / NIT / CBI / conference tournaments / early-season events / bracketology) and the Awards
 // tab (national + every conference, coaches). Rules live in engine/postseason.js, engine/mte.js, engine/awards.js.
-import { projectField, ctFormat } from '../engine/postseason.js?v=71';
-import { mteFinish } from '../engine/mte.js?v=71';
-import { confLabel } from '../engine/awards.js?v=71';
+import { projectField, ctFormat } from '../engine/postseason.js?v=73';
+import { mteFinish } from '../engine/mte.js?v=73';
+import { confLabel } from '../engine/awards.js?v=73';
 
 let view = null, ctSel = null, evSel = null, awConf = null, region = 0;
+// phones show one round at a time (round chips above the bracket); null = the current round
+let brRd = null;
 
 function bracketKit(ctx) {
   const S = ctx.get(), { esc, tm } = ctx;
@@ -29,7 +31,16 @@ function bracketKit(ctx) {
       if (!part) return [i, rd];
       const n = rd.length / part[1]; return n >= 1 ? [i, rd.slice(part[0] * n, (part[0] + 1) * n)] : null;
     }).filter(Boolean);
-    return `<div class="dy-br">${cols.map(([i, rd]) => `<div class="col"><div class="rh">${roundName(br, i + 1)}</div><div class="gms">${rd.map(s => gameTxt(s, seedOf)).join('')}</div></div>`).join('')}</div>`;
+    // the current round: the first with a game not yet played (else the last) — where a phone opens
+    const live = s => s && !s.team && s.game && !((S.schedule.find(x => x.id === s.game) || {}).r);
+    // a decided bracket's last column is just the champion: on a phone that's a banner, not a round to page to
+    const champ = cols.length > 1 && roundName(br, cols[cols.length - 1][0] + 1) === 'Champion' ? cols[cols.length - 1][1][0] : null;
+    const nR = champ ? cols.length - 1 : cols.length;
+    let cur = cols.findIndex(([, rd]) => rd.some(live)); if (cur < 0 || cur >= nR) cur = nR - 1;
+    const on = brRd != null && brRd < nR ? brRd : cur;
+    const mine = rd => rd.some(s => s && (s.team === S.user || (s.h && s.h.team === S.user) || (s.a && s.a.team === S.user)));
+    return `${champ ? `<div class="dy-brc">🏆 <span class="dim">Champion</span> ${tm(champ.team, champ.team === S.user ? 'me' : '')}</div>` : ''}<div class="dy-brr">${cols.slice(0, nR).map(([i, rd], k) => `<button class="${k === on ? 'on' : ''} ${mine(rd) ? 'me' : ''}" data-brd="${k}">${roundName(br, i + 1)}</button>`).join('')}</div>
+      <div class="dy-br">${cols.map(([i, rd], k) => `<div class="col ${k === on ? 'cur' : ''}"><div class="rh">${roundName(br, i + 1)}</div><div class="gms">${rd.map(s => gameTxt(s, seedOf)).join('')}</div></div>`).join('')}</div>`;
   };
   return { gameTxt, bracket };
 }
@@ -68,16 +79,17 @@ export function tournamentsView(ctx) {
   } else if (view === 'bracketology') {
     const B = projectField(S);
     html += `<div class="sec"><h2>Bracketology</h2><span class="n">If the season ended today: conference leaders take the automatic bids, the rest by power rating · FF = First Four play-in</span></div>
-      <div class="sheet-wrap"><table class="sheet dense tn-bk"><thead><tr><th>Seed</th><th class="l" colspan="6">Teams</th></tr></thead><tbody>
+      <div class="sheet-wrap"><table class="sheet dense tn-bk" data-fit-keep><thead><tr><th>Seed</th><th class="l" colspan="6">Teams</th></tr></thead><tbody>
       ${B.lines.map(ln => `<tr><td><b>${ln.seed}</b></td>${ln.teams.map(x => `<td class="l ${x.team === S.user ? 'me' : ''}">${tm(x.team)}${x.auto ? ' <span class="dim" title="Automatic bid (leads its conference)">AQ</span>' : ''}${x.ff ? ' <span class="dim" title="First Four play-in">FF</span>' : ''}</td>`).join('')}${'<td></td>'.repeat(6 - ln.teams.length)}</tr>`).join('')}
       </tbody></table></div>
       <div class="pg-kv"><div><span>Last four in</span><b class="tn-l">${B.lastIn.map(t => esc(short(t))).join(', ')}</b></div><div><span>First four out</span><b class="tn-l">${B.firstOut.map(t => esc(short(t))).join(', ')}</b></div>
       <div><span>${esc(short(S.user))}</span><b>${(() => { const ln = B.lines.find(l => l.teams.some(x => x.team === S.user)); return ln ? `${ln.seed} seed` : B.firstOut.includes(S.user) ? 'First four out' : 'Out'; })()}</b></div></div>`;
   }
   $('#dyBody').innerHTML = html;
-  document.querySelectorAll('[data-tn]').forEach(b => b.onclick = () => { view = b.dataset.tn; tournamentsView(ctx); });
-  const cs = $('#ctSel'); if (cs) cs.onchange = e => { ctSel = e.target.value; tournamentsView(ctx); };
-  document.querySelectorAll('[data-rg]').forEach(b => b.onclick = () => { region = +b.dataset.rg; tournamentsView(ctx); });
+  document.querySelectorAll('[data-tn]').forEach(b => b.onclick = () => { view = b.dataset.tn; brRd = null; tournamentsView(ctx); });
+  const cs = $('#ctSel'); if (cs) cs.onchange = e => { ctSel = e.target.value; brRd = null; tournamentsView(ctx); };
+  document.querySelectorAll('[data-rg]').forEach(b => b.onclick = () => { region = +b.dataset.rg; brRd = null; tournamentsView(ctx); });
+  document.querySelectorAll('[data-brd]').forEach(b => b.onclick = () => { brRd = +b.dataset.brd; tournamentsView(ctx); });
   const es = $('#evSel'); if (es) es.onchange = e => { evSel = e.target.value; tournamentsView(ctx); };
   document.querySelectorAll('[data-ev]').forEach(b => b.onclick = () => { evSel = b.dataset.ev; tournamentsView(ctx); });
 }

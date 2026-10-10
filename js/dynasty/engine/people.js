@@ -11,7 +11,7 @@
 //   p.country an international player's home country; t.intl (0-1) = a school's international access (closest major
 //             international airport + city size, data/dynasty-geo.json) — what an international recruit weighs
 //             instead of distance from home.
-import { makeRng, hashSeed } from './rng.js?v=71';
+import { makeRng, hashSeed } from './rng.js?v=73';
 
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 export const NCAA_MIN = 22;
