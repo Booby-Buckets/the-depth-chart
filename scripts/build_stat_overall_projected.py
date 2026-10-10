@@ -1315,7 +1315,11 @@ for short, roster in roster_by_team.items():
                              fta=_n(b["fta"]),ftm=_n(b["ftm"]),oreb=_n(b["oreb"]),dreb=_n(b["dreb"]),
                              ast=_n(b["apg"]),stl=_n(b["stl"]),blk=_n(b["blk"]),tov=_n(b["tovs"]))
                 _,owa_demo,_=ti_value(demo_pg,last_mpg*max(gp_demo,1),games=max(gp_demo,1))
-                owa=_n(r["a"]["owa"])+(owa-owa_demo)
+                # the drift (stored - mine) is a SEASON total earned over last year's minutes, so it
+                # follows the minutes down: carried whole, a transfer projected for under a minute a
+                # game kept ~1 win on ~20 minutes and graded 95 (Dontrez Williams, Oct 2026). Never
+                # scaled UP — a bigger role doesn't multiply a formula gap.
+                owa=owa+(_n(r["a"]["owa"])-owa_demo)*min(1.0,mn/max(last_min,1))
                 if e in SD_TI and last_min>0:   # shot difficulty, per 2026 minute, carried to projected minutes
                     owa+=OWA_B*SD_TI[e]*(mn/last_min)*mn/(mn+REG_MP)
             if EFF_W>0:   # shooting efficiency of the PROJECTED line vs the league (same term as the reference)
