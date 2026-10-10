@@ -806,9 +806,17 @@ async function loadShotChart(row){
   }catch(e){}
   if(tid==null){ host.innerHTML='<div style="padding:40px;text-align:center;color:var(--text3);font-size:12px;">Shot-location data unavailable for this team.</div>'; return; }
   try{
-    const shots=await fetch(SB_URL+'/rest/v1/shots?team_id=eq.'+tid+'&season_year=eq.'+SY+'&select=x,y,made,sv,dist&limit=6000',{headers:tdcH()}).then(r=>r.ok?r.json():[]);
+    const shots=await fetch(SB_URL+'/rest/v1/shots?team_id=eq.'+tid+'&season_year=eq.'+SY+'&select=x,y,made,sv,dist,game_id,team_id,espn_id&limit=6000',{headers:tdcH()}).then(r=>r.ok?r.json():[]);
     if(!shots.length){ host.innerHTML='<div style="padding:40px;text-align:center;color:var(--text3);font-size:12px;">No shot-location data on file.</div>'; return; }
-    TDC_SHOTCHART.render(host, shots, {subtitle:row.full+' · '+SYL(), kind:'team'});
+    // names for the by-player zone sheet (who shoots from where)
+    const names={};
+    try{ const ids=[...new Set(shots.map(r=>r.espn_id).filter(x=>x!=null))];
+      if(ids.length){ const nr=await fetch(SB_URL+'/rest/v1/player_history?espn_id=in.('+ids.join(',')+')&season_year=eq.'+SY+'&select=espn_id,name',{headers:H}).then(r=>r.ok?r.json():[]);
+        (nr||[]).forEach(r=>{ names[String(r.espn_id)]=r.name; }); } }catch(e){}
+    // game picker: their shots in any single game
+    const games=async ids=>{ const out=[]; for(let i=0;i<ids.length;i+=150){
+      try{ const r=await fetch(SB_URL+'/rest/v1/games?id=in.('+ids.slice(i,i+150).join(',')+')&select=id,date,home,away,home_id,away_id,home_score,away_score,neutral',{headers:H}); if(r.ok) out.push(...await r.json()); }catch(e){} } return out; };
+    TDC_SHOTCHART.render(host, shots, {subtitle:row.full+' · '+SYL(), kind:'team', names, games});
   }catch(e){ host.innerHTML='<div style="padding:40px;text-align:center;color:var(--text3);font-size:12px;">Could not load shot chart.</div>'; }
 }
 
