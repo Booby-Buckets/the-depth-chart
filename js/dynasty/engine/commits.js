@@ -11,11 +11,11 @@
 //   • A SUMMER — real recruiting starts long before November, so each new class gets a few simulated summer weeks:
 //     offers go out (the user's staff included), the clearest leads commit early, and the user arrives with work to do.
 // Rosters: 16 scholarships (the service academies carry more). Pure; deterministic per seed.
-import { makeRng, hashSeed } from './rng.js?v=56';
-import { profile, factors, utility, aiOffer, aiRel, relationship } from './recruit.js?v=56';
-import { effort, DIFFS } from './program.js?v=56';
-import { admitP } from './people.js?v=56';
-import { news as push } from './injuries.js?v=56';
+import { makeRng, hashSeed } from './rng.js?v=57';
+import { profile, factors, utility, aiOffer, aiRel, relationship, miles, HOME_W, XY } from './recruit.js?v=57';
+import { effort, DIFFS } from './program.js?v=57';
+import { admitP } from './people.js?v=57';
+import { news as push } from './injuries.js?v=57';
 
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 export const MILITARY = /^(Army|Navy|Air Force)\b/;
@@ -104,6 +104,34 @@ function aiOffers(state, rng, includeUser) {
   }
 }
 
+// ── PIPELINES (EA-style): states a program keeps landing players from. A pipeline multiplies the weekly interest a
+// school earns with recruits from that state (up to +30% at 100), grows with every signing there and fades a little
+// every year. Seeded at league start: the home state strong, neighbours moderate, one or two recruiting hotbeds as
+// the program's history (more for big programs).
+export const pipeTier = v => (v >= 70 ? 'Elite' : v >= 45 ? 'Strong' : v >= 20 ? 'Growing' : null);
+export function initPipelines(state) {
+  const rng = rngFor(state, 'pipes'), ks = Object.keys(HOME_W), ws = ks.map(k => HOME_W[k] ** 2);   // history: mostly the real hotbeds
+  state.pipes = {};
+  for (const T of Object.values(state.teams)) {
+    const P = state.pipes[T.name] = {}, pr = T.prestige || 30;
+    if (T.state && XY[T.state]) {
+      P[T.state] = Math.round(45 + pr * 0.3);
+      for (const k of Object.keys(XY).filter(k => k !== T.state).sort((a, c) => miles(a, T.state) - miles(c, T.state)).slice(0, 3)) if (miles(k, T.state) < 450) P[k] = Math.round(16 + pr * 0.14);
+    }
+    for (let i = 0, n = pr >= 75 ? 3 : pr >= 55 ? 2 : 1; i < n; i++) { const k = ks[rng.pick(ws)]; P[k] = Math.max(P[k] || 0, Math.round(20 + rng.next() * 25 + pr * 0.15)); }
+  }
+}
+export const pipeOf = (state, team, r) => (r && r.home && state.pipes && state.pipes[team] ? state.pipes[team][r.home] || 0 : 0);
+const pipeK = (state, team, r) => 1 + 0.3 * pipeOf(state, team, r) / 100;
+/** after signing day: each signee builds his school's pipeline in his state; every pipeline fades 8% a year */
+export function updatePipelines(state, signees) {
+  if (!state.pipes) initPipelines(state);
+  for (const P of Object.values(state.pipes)) for (const k in P) { P[k] = Math.round(P[k] * 0.92); if (P[k] < 5) delete P[k]; }
+  for (const p of signees) if (p.team && p.home && p.home !== 'INTL') { const P = state.pipes[p.team] = state.pipes[p.team] || {}; P[p.home] = Math.min(100, (P[p.home] || 0) + 12 + (p.stars >= 4 ? 6 : 0)); }
+}
+/** a program's pipelines, strongest first: [[state, value, tier]] */
+export const pipelinesOf = (state, team) => Object.entries((state.pipes || {})[team] || {}).filter(([, v]) => pipeTier(v)).sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, v, pipeTier(v)]);
+
 // ── the weekly interest race ──
 const match = u => clamp((u / 3.6) ** 2, 0.35, 2.2);
 function aiHours(state, team) {   // an AI program's weekly hours per recruit
@@ -142,7 +170,7 @@ export function classRanks(state) {
 function weekGain(state, r, team, hours, rng) {
   const user = team === state.user;
   const f = factors(state, team, r, user ? r.offer || 0 : aiOffer(state, team, r), user ? relationship(state, r, 0) : aiRel(state, team));
-  return { g: hours * match(utility(r, f)) * (0.85 + 0.3 * rng.next()), f };
+  return { g: hours * match(utility(r, f)) * pipeK(state, team, r) * (0.85 + 0.3 * rng.next()), f };
 }
 
 /** one recruiting week for the whole class (summer weeks pass date = null) */
@@ -309,6 +337,7 @@ export function gradesFor(state, r, team) {
 export function initRecruiting(state) {
   const R = cls(state); if (!R.length) return;
   const rng = rngFor(state, 'init');
+  if (!state.pipes) initPipelines(state);
   for (const r of R) setup(state, r, rng);
   state.rweek = 0; state.rplan = {}; state.earlySigned = false;
   for (let i = 0; i < SUMMER; i++) recruitWeek(state, null);

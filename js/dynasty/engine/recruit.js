@@ -8,26 +8,26 @@
 //   brand  brand: prestige, the conference, NIL clout
 //   nil    NIL: what the program offers against his asking price
 // The user's odds come from how the user's school stacks up against the best rival bidding for him. Pure.
-import { makeRng, hashSeed } from './rng.js?v=56';
-import { effOvr } from './league.js?v=56';
-import { power } from './season.js?v=56';
-import { facOverall } from './facilities.js?v=56';
-import { personalize } from './people.js?v=56';
-import { tv } from './legacy.js?v=56';
+import { makeRng, hashSeed } from './rng.js?v=57';
+import { effOvr } from './league.js?v=57';
+import { power } from './season.js?v=57';
+import { facOverall } from './facilities.js?v=57';
+import { personalize } from './people.js?v=57';
+import { tv } from './legacy.js?v=57';
 
 export const FACTORS = [['prox', 'Close to home'], ['pt', 'Playing time'], ['rel', 'Relationships'], ['draft', 'Draft path'], ['team', 'Winning now'], ['brand', 'Brand'], ['nil', 'NIL money'], ['acad', 'Academics']];
 const BASE_W = { prox: 0.18, pt: 0.19, rel: 0.14, draft: 0.09, team: 0.12, brand: 0.09, nil: 0.19, acad: 0.03 };
 const U_SCALE = 7;                              // utility points per unit of weighted factor (sets how decisive a gap is)
 
 // state centroids (lat, lon) — distance is all proximity needs
-const XY = { AL: [32.8, -86.8], AK: [61.4, -152.3], AZ: [34.2, -111.7], AR: [34.9, -92.4], CA: [36.8, -119.4], CO: [39.0, -105.5], CT: [41.6, -72.7], DE: [39.0, -75.5], DC: [38.9, -77.0],
+export const XY = { AL: [32.8, -86.8], AK: [61.4, -152.3], AZ: [34.2, -111.7], AR: [34.9, -92.4], CA: [36.8, -119.4], CO: [39.0, -105.5], CT: [41.6, -72.7], DE: [39.0, -75.5], DC: [38.9, -77.0],
   FL: [28.6, -82.4], GA: [32.7, -83.4], HI: [20.8, -156.3], ID: [44.4, -114.6], IL: [40.0, -89.2], IN: [39.9, -86.3], IA: [42.1, -93.5], KS: [38.5, -98.4], KY: [37.5, -85.3],
   LA: [31.1, -92.0], ME: [45.4, -69.2], MD: [39.0, -76.8], MA: [42.3, -71.8], MI: [44.3, -85.4], MN: [46.3, -94.3], MS: [32.7, -89.7], MO: [38.4, -92.5], MT: [47.0, -109.6],
   NE: [41.5, -99.8], NV: [39.3, -116.6], NH: [43.7, -71.6], NJ: [40.2, -74.7], NM: [34.4, -106.1], NY: [42.9, -75.5], NC: [35.6, -79.4], ND: [47.5, -100.5], OH: [40.3, -82.8],
   OK: [35.6, -97.5], OR: [43.9, -120.6], PA: [40.9, -77.8], RI: [41.7, -71.5], SC: [33.9, -80.9], SD: [44.4, -100.2], TN: [35.9, -86.4], TX: [31.5, -99.3], UT: [39.3, -111.7],
   VT: [44.1, -72.7], VA: [37.5, -78.9], WA: [47.4, -120.5], WV: [38.6, -80.6], WI: [44.6, -89.9], WY: [43.0, -107.6] };
 // where D-I players come from (real talent production, roughly) + international
-const HOME_W = { TX: 9, CA: 9, FL: 7, GA: 6, NY: 5, NC: 5, IL: 4, MD: 4, NJ: 4, PA: 4, OH: 4, VA: 4, IN: 3, MI: 3, TN: 3, LA: 3, AL: 2.5, MO: 2.5, MN: 2, WA: 2, AZ: 2, KY: 2, SC: 2,
+export const HOME_W = { TX: 9, CA: 9, FL: 7, GA: 6, NY: 5, NC: 5, IL: 4, MD: 4, NJ: 4, PA: 4, OH: 4, VA: 4, IN: 3, MI: 3, TN: 3, LA: 3, AL: 2.5, MO: 2.5, MN: 2, WA: 2, AZ: 2, KY: 2, SC: 2,
   MS: 2, WI: 1.5, MA: 1.5, CT: 1.5, OK: 1.5, KS: 1.2, CO: 1.2, NV: 1, AR: 1, IA: 1, OR: 1, UT: 1, DC: 1.5, NE: 0.6, WV: 0.5, NM: 0.5, DE: 0.5, ID: 0.4, RI: 0.4, NH: 0.3, ME: 0.3,
   HI: 0.3, MT: 0.3, SD: 0.3, ND: 0.3, VT: 0.2, WY: 0.2, AK: 0.2, INTL: 11 };   // ~10% of a class from abroad
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));

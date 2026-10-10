@@ -1,12 +1,12 @@
 // The dynasty's phase machine: regular season -> conference tournaments -> NCAA -> done (-> offseason).
 // Pure. The UI calls simNext / simTo; each simulated day is followed by afterDay, which schedules the next
 // postseason round or moves the phase on.
-import { simDay, nextDate, touch } from './season.js?v=56';
-import { startConferenceTournaments, advance } from './postseason.js?v=56';
-import { computeAwards } from './awards.js?v=56';
-import { programWeek } from './program.js?v=56';
-import { landOdds } from './offseason.js?v=56';
-import { recruitWeek, isNewClass } from './commits.js?v=56';
+import { simDay, nextDate, touch } from './season.js?v=57';
+import { startConferenceTournaments, advance } from './postseason.js?v=57';
+import { computeAwards } from './awards.js?v=57';
+import { programWeek } from './program.js?v=57';
+import { landOdds } from './offseason.js?v=57';
+import { recruitWeek, isNewClass } from './commits.js?v=57';
 // the recruiting board's week-to-week arrows: your odds on the recruits you're working (targets, visits, NIL offers)
 function trends(state) {
   if (!state.user || !state.rclass) return;

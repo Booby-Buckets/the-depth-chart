@@ -7,11 +7,11 @@
 //   team.prog  = { staff:{OC,DC,REC,DEV,GM}, budget, hours:{practice,recruiting,nil,development}, focus:[p1,p2],
 //                  off, def (scheme keys), nil:{fund, wk}, acc:{practice,recruiting,nil,development, weeks} }
 //   player.fam = { o:{scheme: 0-100}, d:{scheme: 0-100} }   — familiarity follows the player (transfers keep it)
-import { makeRng, hashSeed } from './rng.js?v=56';
-import { attributes } from './ratings.js?v=56';
-import { news } from './injuries.js?v=56';
-import { tv } from './legacy.js?v=56';
-import { tiredness } from './health.js?v=56';
+import { makeRng, hashSeed } from './rng.js?v=57';
+import { attributes } from './ratings.js?v=57';
+import { news } from './injuries.js?v=57';
+import { tv } from './legacy.js?v=57';
+import { tiredness } from './health.js?v=57';
 
 export const DIFFS = {
   rookie: { label: 'Rookie', blurb: 'Your staff handles what you leave alone, recruits like you, boosters are patient and the job is safe.', recruit: 0.6, jobK: 0.5, nilK: 1.25, need: 0.85, aiPlan: 0.6, scandal: 0 },

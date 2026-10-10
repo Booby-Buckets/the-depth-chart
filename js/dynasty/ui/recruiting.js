@@ -1,13 +1,13 @@
 // In-season Recruiting tab, EA College Football 25 style (Oct 2026): offers, a weekly hours budget spent on actions,
 // recruits narrowing their lists (Top 8 / 5 / 3), commitments that can flip, signings. Rules: engine/commits.js
 // (the race), engine/visits.js (official visits at home games), engine/recruit.js (what each recruit values, NIL).
-import { scoutView, scoutSD } from '../engine/offseason.js?v=56';
-import { moneyButtons, ensureMoneyCss } from './money.js?v=56';
-import { acadGrade, admitP, admitLabel } from '../engine/people.js?v=56';
-import { priorities, negotiate, acceptCounter, FACTORS, committedNIL, profile } from '../engine/recruit.js?v=56';
-import { officialMax, visitsLeft, visitsFor, upcomingHomeGames, scheduleOfficial, cancelVisit } from '../engine/visits.js?v=56';
+import { scoutView, scoutSD } from '../engine/offseason.js?v=57';
+import { moneyButtons, ensureMoneyCss } from './money.js?v=57';
+import { acadGrade, admitP, admitLabel } from '../engine/people.js?v=57';
+import { priorities, negotiate, acceptCounter, FACTORS, committedNIL, profile } from '../engine/recruit.js?v=57';
+import { officialMax, visitsLeft, visitsFor, upcomingHomeGames, scheduleOfficial, cancelVisit } from '../engine/visits.js?v=57';
 import { STAGE_LABEL, ACTIONS, HOURS_CAP, USER_OFFERS_MAX, SUMMER, cutWeeks, classNeed, commitsOf, hoursBudget, hoursUsed, planHours,
-  offerRecruit, withdrawOffer, toggleAction, userChance, gradesFor, rankOf, passesDB, dbLabel, grade, scoutedPct, revealed, needs, groupOf, classRanks } from '../engine/commits.js?v=56';
+  offerRecruit, withdrawOffer, toggleAction, userChance, gradesFor, rankOf, passesDB, dbLabel, grade, scoutedPct, revealed, needs, groupOf, classRanks, pipeOf, pipeTier, pipelinesOf } from '../engine/commits.js?v=57';
 
 let sel = null, q = '', pos = '', minStars = 3, onlyOpen = true, pickVisit = false, msg = '', rv = 'board', needOnly = false;
 const CSS = `
@@ -50,6 +50,8 @@ tr.rc-sel td{background:color-mix(in srgb,var(--accent,#c9a227) 10%,transparent)
 .rc-sc{display:inline-block;width:46px;height:6px;border-radius:3px;background:var(--bg3,#eee);vertical-align:middle;overflow:hidden}.rc-sc i{display:block;height:100%;background:#1b6fb0}
 .rc-need{display:inline-flex;gap:4px}.rc-need span{font-size:11px;font-weight:800;padding:2px 6px;border-radius:4px;background:hsla(0,70%,48%,.14)}.rc-need span.ok{background:var(--bg3,#eee);color:var(--text3)}
 .rc-dl{font-size:11px;font-weight:700}
+.rc-pipe{font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px;background:hsla(140,55%,40%,.18);color:var(--green,#1a8c3a);white-space:nowrap}
+.rc-pipes{display:flex;gap:5px;flex-wrap:wrap;margin:-4px 0 10px;font-size:12px;align-items:center}
 `;
 
 export function recruitingView(ctx) {
@@ -72,6 +74,8 @@ export function recruitingView(ctx) {
   const scoutTag = r => { const x = revealed(r); return x === 'gem' ? ' <span class="rc-gem">💎 Gem</span>' : x === 'bust' ? ' <span class="rc-bust">⚠ Bust risk</span>' : x === 'solid' ? ' <span class="dim" style="font-size:10px">✓ scouted</span>' : ''; };
   const scBar = r => revealed(r) ? '' : `<span class="rc-sc" title="Scouted ${scoutedPct(r)}% — at 100% your staff knows if he's a gem or a bust"><i style="width:${scoutedPct(r)}%"></i></span>`;
   const NEED = needs(S, U), GL = { G: 'Guard', W: 'Wing', B: 'Big' };
+  const pipe = r => { const v = pipeOf(S, U, r), t = pipeTier(v); return t ? ` <span class="rc-pipe" title="Your ${t.toLowerCase()} pipeline in ${r.home === 'INTL' ? 'international recruiting' : r.home}: +${Math.round(30 * v / 100)}% interest every week">${t} pipeline</span>` : ''; };
+  const PL = pipelinesOf(S, U);
   const quick = r => { const p = plan[r.id] || {}; return `<span class="rc-q">${[['dm', 'DM'], ['call', 'Call'], ['scout', 'Scout']].map(([k, l]) => `<button class="${p[k] ? 'on' : ''}" data-act="${esc(r.id)}|${k}" ${k === 'scout' && revealed(r) ? 'disabled' : ''}>${l}</button>`).join('')}</span>`; };
   const mine = R.filter(r => r.list.includes(U) || r.cutUser || r.signed === U).sort((a, b) => (b.signed === U || b.commit === U) - (a.signed === U || a.commit === U) || userChance(S, b) - userChance(S, a));
   if (!sel && mine.length) sel = mine[0].id;
@@ -105,7 +109,7 @@ export function recruitingView(ctx) {
     const V = visitsFor(S, r.id), off = V.find(x => x.type === 'official'), home = upcomingHomeGames(S);
     const inOpen = !r.list.includes(U) && !r.cutUser && !r.signed && r.stage === 'open';
     return `<div class="rc-box"><h3>${esc(r.name)}</h3>
-      <div class="dim" style="font-size:12px;margin:2px 0 8px">${stars(r.stars)} #${r.rank} · ${esc(r.pos || '')} · ${r.ht ? `${Math.floor(r.ht / 12)}-${r.ht % 12}` : ''} · ${esc(r.home === 'INTL' ? (r.country || 'International') : r.home || '')}
+      <div class="dim" style="font-size:12px;margin:2px 0 8px">${pipe(r)} ${stars(r.stars)} #${r.rank} · ${esc(r.pos || '')} · ${r.ht ? `${Math.floor(r.ht / 12)}-${r.ht % 12}` : ''} · ${esc(r.home === 'INTL' ? (r.country || 'International') : r.home || '')}
         · OVR <b>${v.ovr}</b> (±${v.sd}) · ceiling <b>${v.grade}</b>${scoutTag(r)} ${revealed(r) ? '' : `· scouted ${scoutedPct(r)}% ${scBar(r)}`} · academics ${acadGrade(r.acad ?? 60)} (${admitLabel(admitP(S, U, r, false))}) · asks ${m$(r.ask)}</div>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${stage(r)}${nxt ? `<span class="dim" style="font-size:11.5px">cuts to a Top ${nxt} in ${Math.max(1, cutWeeks[nextCut[0]] - w)} week${cutWeeks[nextCut[0]] - w === 1 ? '' : 's'}</span>` : ''}
         ${inOpen ? `<button class="btn pg-sm" data-offer="${esc(r.id)}">Offer a scholarship</button>` : r.list.includes(U) && !r.signed ? `<button class="btn ghost pg-sm" data-pull="${esc(r.id)}">Pull offer</button>` : ''}</div>
@@ -129,7 +133,7 @@ export function recruitingView(ctx) {
   const finds = R.filter(r => !r.list.includes(U) && !r.signed && !r.cutUser && (!onlyOpen || (r.stage === 'open' && !r.commit)) && r.stars >= minStars && (!pos || r.pos === pos) && (!needOnly || NEED[groupOf(r.pos)] > 0) && (!q || r.name.toLowerCase().includes(q))).slice(0, 120);
   const findRow = r => { const v = scoutView(S, r, r.vs || 0), ld = leader(r);
     return `<tr><td style="white-space:nowrap"><button class="btn ghost pg-sm" data-offer="${esc(r.id)}" ${r.stage !== 'open' ? 'disabled' : ''}>Offer</button> <span class="rc-q"><button class="${(plan[r.id] || {}).scout ? 'on' : ''}" data-act="${esc(r.id)}|scout" ${revealed(r) ? 'disabled' : ''}>Scout</button></span></td><td class="l"><a href="#" data-sel="${esc(r.id)}"><b>${esc(r.name)}</b></a> ${stars(r.stars)}${scoutTag(r)} ${scBar(r)}</td><td>${r.rank}</td><td>${esc(r.pos || '')}</td>
-      <td>${r.ht ? `${Math.floor(r.ht / 12)}-${r.ht % 12}` : ''}</td><td><b>${v.ovr}</b></td><td>${v.grade}</td><td class="l dim">${esc(v.tags.join(' · '))}</td><td>${esc(r.home === 'INTL' ? (r.country || 'Intl') : r.home || '')}</td>
+      <td>${r.ht ? `${Math.floor(r.ht / 12)}-${r.ht % 12}` : ''}</td><td><b>${v.ovr}</b></td><td>${v.grade}</td><td class="l dim">${esc(v.tags.join(' · '))}</td><td style="white-space:nowrap">${esc(r.home === 'INTL' ? (r.country || 'Intl') : r.home || '')}${pipe(r)}</td>
       <td class="${admitP(S, U, r, false) < 0.5 ? 'dn' : ''}">${admitLabel(admitP(S, U, r, false))}</td><td>${r.list.length}</td><td class="l">${stage(r)} ${ld ? esc(short(ld)) : ''}</td><td>${m$(r.ask)}</td></tr>`; };
 
   $('#dyBody').innerHTML = sub + `<div class="sec"><h2>Recruiting — class of ${S.year + 1}</h2><span class="n">Recruits only consider schools that offer them, narrow their lists on a schedule, commit to the school that pulls clear — and can flip until they sign.</span></div>
@@ -139,6 +143,7 @@ export function recruitingView(ctx) {
       <div><span>Official visits</span><b>${visitsLeft(S)} / ${officialMax(S)}</b></div><div><span>NIL promised</span><b>${m$(committedNIL(S))}</b></div>
       <div><span>Needs next year</span><span class="rc-need">${Object.entries(NEED).map(([k, n]) => `<span class="${n ? '' : 'ok'}">${n} ${GL[k]}${n === 1 ? '' : 's'}</span>`).join('')}</span></div>
       <div><span>Week</span><b>${wk ? wk : 'Summer'}</b></div></div>
+    <div class="rc-pipes"><b>Your pipelines</b>${PL.length ? PL.map(([k, v, t]) => `<span class="rc-pipe" title="+${Math.round(30 * v / 100)}% interest with recruits from here">${k === 'INTL' ? 'International' : k} · ${t}</span>`).join('') : '<span class="dim">none yet — every signing builds one in his home state</span>'}</div>
     <div class="pg-d" style="margin:-4px 0 10px">Hours you don't assign, your staff spends for you (${{ rookie: 'all of them', pro: 'half', aa: 'a quarter', hof: 'none' }[S.diff || 'pro']} on this difficulty). Scouting accuracy ±${scoutSD(S, 0).toFixed(1)}.</div>
     <div class="rc-cols"><div><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Your board</th><th>Pos</th><th>OVR</th><th class="l">Stage</th><th>You</th><th class="l">Leader</th><th title="Your chance he signs with you if signing day were today">Chance</th><th title="Your hours on him this week (staff = your staff covers him)">Hrs</th></tr></thead>
       <tbody>${mine.map(boardRow).join('') || '<tr><td colspan="8" class="dim l">No offers out — find recruits below.</td></tr>'}</tbody></table></div></div>

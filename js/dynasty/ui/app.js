@@ -1,39 +1,39 @@
 // Dynasty — the page. Engine (pure) + browser saves + rendering. One league in memory (S); every action
 // mutates it through the engine, re-renders, and autosaves.
-import { C } from '../engine/constants.js?v=56';
-import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=56';
-import { overall } from '../engine/ratings.js?v=56';
-import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=56';
-import { simNext, simTo, afterDay } from '../engine/flow.js?v=56';
-import { postResult } from '../engine/postseason.js?v=56';
-import { TYPES as INJ } from '../engine/injuries.js?v=56';
-import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain, pushRecruit, PUSHES } from '../engine/offseason.js?v=56';
-import { mood, moodCtx, letter, talk, talksFor } from '../engine/morale.js?v=56';
-import { ROT } from '../engine/health.js?v=56';
-import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=56';
-import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=56';
-import { lines as pbpLines } from './pbp.js?v=56';
-import { gameSteps, newCtl } from '../engine/game.js?v=56';
-import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=56';
-import { tireAt } from '../engine/program.js?v=56';
-import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=56';
-import { recruitingView } from './recruiting.js?v=56';
-import { ensureMoneyCss } from './money.js?v=56';
-import { weekBox, openTasks, WEEK_CSS } from './week.js?v=56';
+import { C } from '../engine/constants.js?v=57';
+import { createLeague, hydrate, dehydrate, YR_LABEL, effOvr } from '../engine/league.js?v=57';
+import { overall } from '../engine/ratings.js?v=57';
+import { prepared, playGame, record, gameSeed, nextDate, power, poll, standings, record_, lineFor, touch } from '../engine/season.js?v=57';
+import { simNext, simTo, afterDay } from '../engine/flow.js?v=57';
+import { postResult } from '../engine/postseason.js?v=57';
+import { TYPES as INJ } from '../engine/injuries.js?v=57';
+import { beginOffseason, processDepartures, resolvePortal, resolveRecruiting, startNextSeason, openSpots, landOdds, SCHOLARSHIPS, scoutView, tagsOf, retainAsk, retain, pushRecruit, PUSHES } from '../engine/offseason.js?v=57';
+import { mood, moodCtx, letter, talk, talksFor } from '../engine/morale.js?v=57';
+import { ROT } from '../engine/health.js?v=57';
+import { saveSlot, loadSlot, listSlots, removeSlot } from './store.js?v=57';
+import { signedIn, cloudList, cloudPut, cloudGet, cloudDel } from './cloud.js?v=57';
+import { lines as pbpLines } from './pbp.js?v=57';
+import { gameSteps, newCtl } from '../engine/game.js?v=57';
+import { calendarView, isCrawling, stopCrawl } from './calendar.js?v=57';
+import { tireAt } from '../engine/program.js?v=57';
+import { negotiate, priorities, profile, pursuit } from '../engine/recruit.js?v=57';
+import { recruitingView } from './recruiting.js?v=57';
+import { ensureMoneyCss } from './money.js?v=57';
+import { weekBox, openTasks, WEEK_CSS } from './week.js?v=57';
 const ensureWeekCss = () => { if (!document.getElementById('wkCss')) { const s = document.createElement('style'); s.id = 'wkCss'; s.textContent = WEEK_CSS; document.head.appendChild(s); } };
-import { isNewClass, userChance } from '../engine/commits.js?v=56';
-import { portalView } from './portal.js?v=56';
-import { tournamentsView, awardsView } from './tourney.js?v=56';
-import { scheduleStep } from './sched.js?v=56';
-import { carouselStep, staffStep } from './carousel.js?v=56';
-import { coachesView } from './coaches.js?v=56';
-import { legacyView } from './legacy.js?v=56';
-import { margins } from '../engine/history.js?v=56';
-import { facilitiesRankHtml, bindFacilitiesRank } from './facilities.js?v=56';
-import { durability, durTag, acadGrade, admitP, admitLabel, initSchools } from '../engine/people.js?v=56';
-import { initFacilities } from '../engine/facilities.js?v=56';
-import { inviteInfo, decide as realignDecide } from '../engine/realign.js?v=56';
-import { programView, diffPicker } from './program.js?v=56';
+import { isNewClass, userChance } from '../engine/commits.js?v=57';
+import { portalView } from './portal.js?v=57';
+import { tournamentsView, awardsView } from './tourney.js?v=57';
+import { scheduleStep } from './sched.js?v=57';
+import { carouselStep, staffStep } from './carousel.js?v=57';
+import { coachesView } from './coaches.js?v=57';
+import { legacyView } from './legacy.js?v=57';
+import { margins } from '../engine/history.js?v=57';
+import { facilitiesRankHtml, bindFacilitiesRank } from './facilities.js?v=57';
+import { durability, durTag, acadGrade, admitP, admitLabel, initSchools } from '../engine/people.js?v=57';
+import { initFacilities } from '../engine/facilities.js?v=57';
+import { inviteInfo, decide as realignDecide } from '../engine/realign.js?v=57';
+import { programView, diffPicker } from './program.js?v=57';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -686,7 +686,14 @@ function offseason() {
         ${yours.concat(live).map(row).join('') || '<tr><td colspan="5" class="l dim">No commits — your spots go to the best unsigned players and walk-ons.</td></tr>'}</tbody></table></div>
       <div class="dy-btns"><button class="btn" id="oNext">Sign the class →</button></div>`;
     $('#dyBody').innerHTML = html;
-    $('#oNext').onclick = () => run(() => resolveRecruiting(S));
+    $('#oNext').onclick = () => {
+      // capture the races before signing day resolves them, then reveal the announcements one at a time
+      const fin = r => (r.list || []).slice().sort((a, b) => (r.int[b] || 0) - (r.int[a] || 0)).slice(0, 3);
+      const pre = live.slice().sort((a, b) => a.rank - b.rank).map(r => ({ id: r.id, name: r.name, stars: r.stars, pos: r.pos, rank: r.rank, fin: fin(r), ch: Math.round(100 * userChance(S, r)) }));
+      const locked = yours.map(r => ({ id: r.id, name: r.name, stars: r.stars, pos: r.pos, rank: r.rank, early: r.signed === U }));
+      resolveRecruiting(S); touch(S); autosave();
+      sdShow = { pre, locked, i: 0 }; render();
+    };
     return;
   }
   if (step === 'recruiting') {
@@ -737,6 +744,8 @@ function offseason() {
     };
     return;
   }
+  // signing day as an event (Oct 2026): your commits sign, then each undecided recruit announces — finalists first
+  if (sdShow && step === 'ready') { signingReveal(html); return; }
   // signing day results -> next season
   const sg = O.signed || [];
   const roster = S.teams[U].players.map(id => S.players[id]).filter(Boolean).sort((a, b) => ovrOf(b) - ovrOf(a));
@@ -750,6 +759,31 @@ function offseason() {
     <div class="dy-btns"><button class="btn" id="oNext">Build your schedule →</button></div>`;
   $('#dyBody').innerHTML = html;
   $('#oNext').onclick = () => { O.step = 'schedule'; autosave(); render(); };
+}
+
+let sdShow = null, sdT = null;
+function signingReveal(head) {
+  const O = S.off, U = S.user, D = sdShow, res = Object.fromEntries((O.signed || []).map(x => [x.id, x]));
+  const to = id => { const x = res[id]; return x ? (x.won ? U : x.to) : null; };
+  const done = D.i >= D.pre.length;
+  const card = (x, k) => { const shown = k < D.i, now = k === D.i && !done, w = to(x.id);
+    return `<div class="sd-card ${shown ? (w === U ? 'won' : 'lost') : now ? 'now' : ''}"><div class="sd-nm"><b>${esc(x.name)}</b> <span class="dim">${'★'.repeat(x.stars)} · ${esc(x.pos || '')} · #${x.rank}</span></div>
+      <div class="sd-fin">${x.fin.map(t => `<span class="${shown && w === t ? 'pick' : shown ? 'out' : ''}">${tm(t, t === U ? 'me' : '')}</span>`).join('')}</div>
+      <div class="sd-res">${shown ? (w ? `Signs with <b>${w === U ? 'you' : esc(short(w))}</b>${w === U ? ' 🎉' : ''}` : 'Goes the junior-college route') : now ? '<span class="sd-dots">Announcing…</span>' : `<span class="dim">your chance ${x.ch}%</span>`}</div></div>`; };
+  const won = D.pre.slice(0, D.i).filter(x => to(x.id) === U).length;
+  $('#dyBody').innerHTML = head + `<div class="sec"><h2>Signing day</h2><span class="n">${D.locked.length} of your commits sign · ${D.pre.length} undecided recruit${D.pre.length === 1 ? '' : 's'} you were in on announce</span></div>
+    ${D.locked.length ? `<div class="sd-locked">${D.locked.map(x => `<span>✓ <b>${esc(x.name)}</b> ${'★'.repeat(x.stars)} ${x.early ? '<span class="dim">(signed early)</span>' : ''}</span>`).join('')}</div>` : ''}
+    <div class="sd-grid">${D.pre.map(card).join('') || '<div class="dim">No undecided recruits had you on their list.</div>'}</div>
+    <div class="dy-btns">${done ? `<span><b>${D.locked.length + won}</b> signed with you${O.classRank ? ` · class rank <b>#${O.classRank}</b>` : ''}</span><button class="btn" id="sdOn">See your class →</button>` : '<button class="btn ghost" id="sdAll">Reveal all</button>'}</div>
+    <style>.sd-locked{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 14px}.sd-locked>span{border:1px solid var(--green,#1a8c3a);border-radius:8px;padding:5px 9px;font-size:13px}
+    .sd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}.sd-card{border:1px solid var(--border);border-radius:12px;padding:12px;transition:all .3s}
+    .sd-card.now{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent)}.sd-card.won{border-color:var(--green,#1a8c3a);background:color-mix(in srgb,var(--green,#1a8c3a) 9%,transparent)}.sd-card.lost{opacity:.75}
+    .sd-fin{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0;font-size:12.5px}.sd-fin span.out{opacity:.35}.sd-fin span.pick{font-weight:800;text-decoration:underline}.sd-res{font-size:14px}
+    .sd-dots{animation:sdp 1s infinite}@keyframes sdp{50%{opacity:.3}}</style>`;
+  clearTimeout(sdT);
+  if (!done) sdT = setTimeout(() => { if (sdShow === D) { D.i++; render(); } }, D.i === 0 ? 900 : 1500);
+  const a = document.getElementById('sdAll'); if (a) a.onclick = () => { D.i = D.pre.length; render(); };
+  const o = document.getElementById('sdOn'); if (o) o.onclick = () => { sdShow = null; render(); };
 }
 
 // the draft (engine/draft.js): where the early entrants went + the first round

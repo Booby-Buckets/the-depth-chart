@@ -7,15 +7,15 @@
 //   players: { id: { id, name, team, pos, pos2, ht, yr, pillars, lvl, mpg, pot } },
 //   schedule:[ { id, d, h, a, n, c, r } ],             r = [homePts, awayPts, ot, poss] once played
 //   stats:   { id: season totals },  powerFit, history:[], userBox:{ gameId: box } }
-import { attributes, overall } from './ratings.js?v=56';
-import { makeRng } from './rng.js?v=56';
-import { initCoaches, ensureCoaches } from './coaching.js?v=56';
-import { initFacilities } from './facilities.js?v=56';
-import { initSchools, initPeople } from './people.js?v=56';
-import { fillLeague, buildSchedule } from './fill.js?v=56';
-import { makeClass, classSize } from './offseason.js?v=56';
-import { initRecruiting, isNewClass, catchUpClass } from './commits.js?v=56';
-import { initProgram, ensureStamina } from './program.js?v=56';
+import { attributes, overall } from './ratings.js?v=57';
+import { makeRng } from './rng.js?v=57';
+import { initCoaches, ensureCoaches } from './coaching.js?v=57';
+import { initFacilities } from './facilities.js?v=57';
+import { initSchools, initPeople } from './people.js?v=57';
+import { fillLeague, buildSchedule } from './fill.js?v=57';
+import { makeClass, classSize } from './offseason.js?v=57';
+import { initRecruiting, isNewClass, catchUpClass, initPipelines } from './commits.js?v=57';
+import { initProgram, ensureStamina } from './program.js?v=57';
 
 export const YR = { 'FR': 1, 'FR.': 1, 'RS FR.': 1, 'SO': 2, 'SO.': 2, 'RS SO.': 2, 'JR': 3, 'JR.': 3, 'RS JR.': 3, 'SR': 4, 'SR.': 4, 'RS SR.': 4, 'GR': 5, 'GR.': 5, '5TH': 5 };
 export const YR_LABEL = ['', 'Fr', 'So', 'Jr', 'Sr', 'Gr'];
@@ -149,6 +149,7 @@ export function hydrate(state) {
   if (!state.diff || Object.values(state.teams).some(t => !t.prog)) initProgram(state, state.diff || 'pro');   // saves from before programs
   ensureStamina(state);
   if (!state.rclass && state.phase !== 'offseason') { state.visits = state.visits || []; state.rclass = makeClass(state, classSize(state)); }   // saves from before visits
+  if (!state.pipes) initPipelines(state);                                    // saves from before pipelines
   if (state.rclass && state.rclass.length && !isNewClass(state.rclass)) catchUpClass(state);   // saves from before commitments: play the race up to today
   for (const p of Object.values(state.players)) p.attr = attributes(p, state.maps);
   for (const p of Object.values(state.ext.players)) p.attr = attributes(p, state.maps);

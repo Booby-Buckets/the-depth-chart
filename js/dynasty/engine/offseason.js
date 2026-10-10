@@ -5,29 +5,29 @@
 //
 // Calibrated to the snapshot: freshmen enter at a median OVR ~59 (top 1% ~77); players gain ~+5 Fr->So,
 // ~+3 So->Jr, ~+1.5 after; teams lose ~4 upperclassmen a year; rosters carry 16 scholarships (the service academies 20, commits.rosterMax).
-import { overall, attributes } from './ratings.js?v=56';
-import { makeRng, hashSeed } from './rng.js?v=56';
-import { record_, power, touch } from './season.js?v=56';
-import { ncaaResult, postResult } from './postseason.js?v=56';
-import { effOvr } from './league.js?v=56';
-import { evaluateCoaches, runCarousel } from './coaching.js?v=56';
-import { healAll } from './injuries.js?v=56';
-import { profile, userOdds, pickSchool, notePro, factors, utility, relationship, aiSign } from './recruit.js?v=56';
-import { openPortal, portalDay, PORTAL_DAYS } from './portal.js?v=56';
-import { realignWindow, applyMoves, applyRevenue } from './realign.js?v=56';
-import { makeSchedule } from './schedule.js?v=56';
-import { runDraft } from './draft.js?v=56';
-import { compactAwards } from './awards.js?v=56';
-import { recordSeason, breakouts } from './history.js?v=56';
-import { violation, moodCtx } from './morale.js?v=56';
-import { tv, award } from './legacy.js?v=56';
-import { offseasonHealth } from './health.js?v=56';
-import { facilitiesSeason, retainMult } from './facilities.js?v=56';
-import { admitP, admissible, NCAA_MIN } from './people.js?v=56';
-import { rosterMax, isNewClass, signClass, initRecruiting } from './commits.js?v=56';
+import { overall, attributes } from './ratings.js?v=57';
+import { makeRng, hashSeed } from './rng.js?v=57';
+import { record_, power, touch } from './season.js?v=57';
+import { ncaaResult, postResult } from './postseason.js?v=57';
+import { effOvr } from './league.js?v=57';
+import { evaluateCoaches, runCarousel } from './coaching.js?v=57';
+import { healAll } from './injuries.js?v=57';
+import { profile, userOdds, pickSchool, notePro, factors, utility, relationship, aiSign } from './recruit.js?v=57';
+import { openPortal, portalDay, PORTAL_DAYS } from './portal.js?v=57';
+import { realignWindow, applyMoves, applyRevenue } from './realign.js?v=57';
+import { makeSchedule } from './schedule.js?v=57';
+import { runDraft } from './draft.js?v=57';
+import { compactAwards } from './awards.js?v=57';
+import { recordSeason, breakouts } from './history.js?v=57';
+import { violation, moodCtx } from './morale.js?v=57';
+import { tv, award } from './legacy.js?v=57';
+import { offseasonHealth } from './health.js?v=57';
+import { facilitiesSeason, retainMult } from './facilities.js?v=57';
+import { admitP, admissible, NCAA_MIN } from './people.js?v=57';
+import { rosterMax, isNewClass, signClass, initRecruiting, updatePipelines } from './commits.js?v=57';
 // the weight room, nutrition and sports science help players grow (EA CFB26: facilities boost progression)
 const facDev = T => (T && T.fac ? Math.max(0.95, Math.min(1.05, 1 + ((T.fac.practice + T.fac.medical) / 2 - 50) / 900)) : 1);
-import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina, openStaffMarket, closeStaffMarket } from './program.js?v=56';
+import { DIFFS, devMult, focusBonus, recruitPoints, nilRetention, nilOffer, newSeasonProgram, staminaOf, ensureStamina, openStaffMarket, closeStaffMarket } from './program.js?v=57';
 
 export const SCHOLARSHIPS = 16;   // the usual roster; commits.rosterMax has the per-program number
 const PIL = ['SCO', 'SHT', 'FIN', 'PLY', 'SEC', 'REB', 'DEF'];
@@ -337,6 +337,7 @@ export function resolveRecruiting(state) {
   const walk = pool.filter(r => admissible(state, U, profile(state, r), false));
   while (U && openSpots(state, U) && walk.length) take(walk.shift(), U);
   state.off.signed = signed;
+  updatePipelines(state, Object.values(state.players).filter(p => p.fresh && p.team));   // signees build pipelines (commits.js)
   // the class: rank programs by the stars they signed (sum of stars squared); a top class adds to your legacy
   const cls = {}; for (const p of Object.values(state.players)) if (p.fresh && p.team && p.stars) cls[p.team] = (cls[p.team] || 0) + p.stars * p.stars;
   const crk = Object.keys(cls).sort((a, b) => cls[b] - cls[a]).indexOf(U) + 1;
