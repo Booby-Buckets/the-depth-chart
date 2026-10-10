@@ -113,7 +113,10 @@ def main():
         cur_ids = [p["id"] for p in roster if p["depth_order"]]
         pv = prev.get(short) or {}
         base = {b["id"]: b for b in pv.get("base") or []}
-        ours = cur_ids == pv.get("proposed") or (base and cur_ids == [i for i, _ in sorted(((b["id"], b["depth"]) for b in base.values() if b["depth"]), key=lambda t: t[1])])
+        # ours = the DB still holds the untouched baseline or ANY chart this script proposed (a run that proposed but
+        # couldn't write must not make the last applied chart look like an owner edit)
+        seen = [pv.get("proposed")] + list(pv.get("history") or [])
+        ours = cur_ids in [x for x in seen if x] or (base and cur_ids == [i for i, _ in sorted(((b["id"], b["depth"]) for b in base.values() if b["depth"]), key=lambda t: t[1])])
         if base and ours:
             # the DB holds our last proposal (or the untouched baseline): blend from the saved baseline
             for p in roster:
@@ -190,7 +193,8 @@ def main():
                        "scrim_mpg": round(p["sm"] / p["sw"], 1) if p["sw"] > 0 else None, "w": round(p.get("ww", 0.0), 3),
                        "scrim_gp": p["gp"], "scrim_gs": p["gs"], "dnp": p["dnp"]} for i, p in enumerate(new, 1)],
             "moves": moves, "flags": flags, "unmatched": sorted(unmatched),
-            "base": list(base.values()), "proposed": [p["id"] for p in new]}
+            "base": list(base.values()), "proposed": [p["id"] for p in new],
+            "history": ([x for x in [pv.get("proposed")] + list(pv.get("history") or []) if x] if ours else [])[:8]}
         if moves and not owner_after:
             vals = ", ".join(f"({p['id']}, {i})" for i, p in enumerate(new, 1))
             sql.append(f"-- {short}: {Rw:.2f} reality, known {known:.2f}, weight {a:.2f}; starters "
