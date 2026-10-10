@@ -635,6 +635,41 @@ try:
     print(f"scrimmages: {len(SCRIM)} player lines weighted by the Reality Meter",file=sys.stderr)
 except Exception as _e:
     print(f"warn: no scrimmage weights ({_e})",file=sys.stderr)
+# REAL 2026-27 GAMES (owner, Oct 2026: "update ratings after every scrimmage and game, scrimmages count less").
+# The nightly results job (ingest_results_2027.py) writes every final's box score to box_scores (season 2027,
+# team = ESPN full name). Each real game is one full game of evidence (a scrimmage is <= its Reality share),
+# and real games are NOT held to SCRIM_CAP: the season line takes REAL_PRIOR games to reach half weight
+# (last season ~ REAL_PRIOR games of evidence about this one), minutes REAL_MIN_PRIOR, up to REAL_CAP.
+# REAL_SEASON / REAL_TO let a test replay an old season's opening weeks.
+REAL_SEASON=int(os.environ.get("REAL_SEASON","2027")); REAL_TO=os.environ.get("REAL_TO")
+REAL_PRIOR=float(os.environ.get("REAL_PRIOR","10")); REAL_MIN_PRIOR=float(os.environ.get("REAL_MIN_PRIOR","4"))
+REAL_CAP=float(os.environ.get("REAL_CAP","0.9"))
+REAL={}; REAL_E={}
+try:
+    # three-day windows: a whole-season box_scores scan times out (HTTP 500), and so does season_year + date=eq
+    # (a bad plan); season_year + a date RANGE is fast
+    import datetime as _dt
+    _d0=_dt.date(REAL_SEASON-1,10,25); _d1=min(_dt.date.today(), _dt.date(REAL_SEASON,4,10))
+    if REAL_TO: _d1=min(_d1,_dt.date.fromisoformat(REAL_TO))
+    _rows=[]
+    while _d0<=_d1:
+        _de=min(_d0+_dt.timedelta(days=3),_d1+_dt.timedelta(days=1))
+        _rows+=sb_get(f"box_scores?select=game_id,espn_id,team,player,date,min,pts,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb,ast,tov,stl,blk"
+                      f"&season_year=eq.{REAL_SEASON}&date=gte.{_d0.isoformat()}&date=lt.{_de.isoformat()}&order=game_id.asc,espn_id.asc")
+        _d0=_de
+    for _q in _rows:
+        _m=float(_q.get("min") or 0)
+        if _m<=0: continue
+        _a=REAL.setdefault((_q.get("team"),_snk(_q.get("player"))),{"g":0,"min":0.0})
+        _a["g"]+=1; _a["min"]+=_m
+        for _k in ("pts","fgm","fga","tpm","tpa","ftm","fta","oreb","dreb","ast","tov","stl","blk"):
+            _a[_k]=_a.get(_k,0.0)+float(_q.get(_k) or 0)
+        if _q.get("espn_id"): REAL_E[int(_q["espn_id"])]=_a
+    print(f"real games: {len(REAL)} player lines from {REAL_SEASON} box scores"+(f" through {REAL_TO}" if REAL_TO else ""),file=sys.stderr)
+except Exception as _e:
+    print(f"warn: no real-game box scores ({_e})",file=sys.stderr)
+def real_of(full,name,e=None):
+    return (REAL_E.get(int(e)) if e is not None and pd.notna(e) else None) or REAL.get((full,_snk(name)))
 # ROLE evidence (rotation): each game-like scrimmage is a look at the coach's real rotation. A player's
 # projected minutes are pulled toward his reality-weighted scrimmage minutes with weight RW/(RW+SCRIM_ROT_PRIOR)
 # (RW = sum of reality/100 over his team's scrimmages), capped at SCRIM_ROT_CAP; the team is re-balanced to 200
@@ -667,7 +702,14 @@ try:
 except Exception as _e:
     print(f"warn: no scrimmage depth minutes ({_e})",file=sys.stderr)
 def scrim_minutes(full,name,cur):
-    """projected minutes after the scrimmage rotation nudge"""
+    """projected minutes after the scrimmage rotation nudge, then the real-game minutes"""
+    cur=_scrim_minutes(full,name,cur)
+    rg=real_of(full,name)
+    if rg and rg["g"]>0:
+        w=min(REAL_CAP, rg["g"]/(rg["g"]+REAL_MIN_PRIOR))
+        cur=max(0.1, min(MPG_MAX, (1-w)*cur + w*rg["min"]/rg["g"]))
+    return cur
+def _scrim_minutes(full,name,cur):
     if SCRIM_ROT_CAP<=0: return cur
     sd=SCRIM_DEPTH.get((full,_snk(name)))
     if sd: return max(0.1, min(MPG_MAX, (1-sd[0])*cur + sd[0]*sd[1]))
@@ -677,12 +719,24 @@ def scrim_minutes(full,name,cur):
     w=min(SCRIM_ROT_CAP, rw/(rw+SCRIM_ROT_PRIOR))
     return max(0.1, min(MPG_MAX, (1-w)*cur + w*(rm/rw)))
 
-def scrim_blend(full,name,prior_games):
-    """(weight, per-40 getter) for this player's scrimmage evidence, or (0, None)"""
+def scrim_blend(full,name,prior_games,e=None):
+    """(weight, per-40 getter) for this player's in-season evidence — real games at full weight (up to REAL_CAP),
+    scrimmages Reality-weighted and capped at SCRIM_CAP — or (0, None)"""
     a=SCRIM.get((full,_snk(name)))
-    if not a or a["w"]<=0: return 0.0,None
-    w=min(SCRIM_CAP, a["w"]/(a["w"]+min(SCRIM_PRIOR,max(float(prior_games or 0),4.0))))
-    return w,(lambda k: (a[SCRIM_MAP[k]]/a["m_"+SCRIM_MAP[k]]*40.0) if a.get("m_"+SCRIM_MAP.get(k,""),0)>0 else None)
+    ws=min(SCRIM_CAP, a["w"]/(a["w"]+min(SCRIM_PRIOR,max(float(prior_games or 0),4.0)))) if (a and a["w"]>0) else 0.0
+    rg=real_of(full,name,e)
+    wr=min(REAL_CAP, rg["g"]/(rg["g"]+min(REAL_PRIOR,max(float(prior_games or 0),4.0)))) if (rg and rg["g"]>0 and rg["min"]>0) else 0.0
+    if ws<=0 and wr<=0: return 0.0,None
+    s40=(lambda k: (a[SCRIM_MAP[k]]/a["m_"+SCRIM_MAP[k]]*40.0) if (ws>0 and a.get("m_"+SCRIM_MAP.get(k,""),0)>0) else None)
+    r40=(lambda k: (rg[SCRIM_MAP[k]]/rg["min"]*40.0) if (wr>0 and SCRIM_MAP[k] in rg) else None)
+    w=wr+(1-wr)*ws
+    def get(k):
+        rv,sv=r40(k),s40(k)
+        if rv is None and sv is None: return None
+        if rv is None: return sv
+        if sv is None or ws<=0: return rv
+        return (wr*rv+(1-wr)*ws*sv)/w
+    return w,get
 
 def shoot_proj(kind,e,last,jump,usg_ratio):
     m=SHOOT[kind]; mk,ak={"fg":("fgm","fga"),"tp":("tpm","tpa"),"ft":("ftm","fta")}[kind]
@@ -1202,7 +1256,7 @@ for short, roster in roster_by_team.items():
         developing = dm>=1.04
         last_min=_n(r["a"]["min"] if r["a"] is not None else 0) or last_mpg*G_PROJ   # real minutes last year (for the dev-hold + guards)
         # per-40 last-year rates
-        _sw,_s40=scrim_blend(full,p.name,_n(b["gp"]) or 25)
+        _sw,_s40=scrim_blend(full,p.name,_n(b["gp"]) or 25,e)
         r["_scrim_w"]=round(_sw,3)
         def p40(k):
             v=_n(b[k])*40.0/max(last_mpg,1)
@@ -1227,6 +1281,10 @@ for short, roster in roster_by_team.items():
             tp_p=shoot_proj("tp",e,tp,0.0,usg_ratio)
             ft_p=shoot_proj("ft",e,ft,0.0,usg_ratio)
             fg_p=min(72,max(30,fg_p)); tp_p=min(48,max(20,tp_p)); ft_p=min(95,max(45,ft_p))
+            _rg=real_of(full,p.name,e)
+            if _rg and _rg["g"]>0:   # this season's real makes, against the model's own pseudo-attempts
+                _bl=lambda pp,kind,mk,ak: (pp*SHOOT[kind]["K"]+100.0*_rg.get(mk,0.0))/(SHOOT[kind]["K"]+_rg.get(ak,0.0))
+                fg_p=_bl(fg_p,"fg","fgm","fga"); tp_p=_bl(tp_p,"tp","tpm","tpa"); ft_p=_bl(ft_p,"ft","ftm","fta")
             # per-game projected line
             sc=pm/40.0
             fga=fga40*sc; tpa=tpa40*sc; fta=fta40*sc
@@ -1758,6 +1816,31 @@ for _sh,_fm in FRESH_FIT.items():
         _f["ovr"]=fr_ovr(_pr[0],_n(_f.get("mpg"),0)) if _pr[1]!="editor" else int(round(_pr[0]))
         _f["src"]=_pr[1]
         if _pr[2]: _f["rank"]=_pr[2]
+# NEWCOMERS IN SEASON: a freshman / no-box newcomer's OVR is his prior (editor or recruiting) until he plays. Each
+# real game moves it toward the SAME valuation the returners get, run on his actual line: rates scaled to his
+# projected minutes, efficiency vs the league, usage estimated from the box (shots + FT trips + turnovers per 40
+# against ~69 team possessions), defense at the league's median rate (box defense needs team data). Half weight
+# at REAL_PRIOR_NEW games. Scrimmages never move a newcomer's OVR (owner: they count less).
+REAL_PRIOR_NEW=float(os.environ.get("REAL_PRIOR_NEW","6"))
+_DWA40_MED=float((d26["dwa"]/d26["mp40"].clip(lower=0.1)).median())
+_nrg=0
+for _sh,_fm in FRESH_FIT.items():
+    _full=S2F.get(_sh.lower()) or _sh
+    for _nm,_f in _fm.items():
+        _rg=real_of(_full,_nm)
+        if not _rg or _rg["g"]<=0 or _rg["min"]<=0 or _f.get("ovr") is None: continue
+        _amp=_rg["min"]/_rg["g"]; _pm=max(1.0,_n(_f.get("mpg"),_amp)); _k=_pm/max(_amp,1.0)
+        _pg={x:_rg.get(x,0.0)/_rg["g"]*_k for x in ("pts","fga","fgm","fta","ftm","oreb","dreb","ast","stl","blk")}
+        _pg["tov"]=_rg.get("tov",0.0)/_rg["g"]*_k; _pg["mpg"]=_pm
+        _ti,_owa,_mn=ti_value(_pg,_pm*G_PROJ)
+        if EFF_W>0: _owa+=EFF_W*OWA_B*(_pg["pts"]-LG_TS*2.0*(_pg["fga"]+0.44*_pg["fta"]))*G_PROJ*_mn/(_mn+REG_MP)
+        _u=100.0*(_rg.get("fga",0)+0.44*_rg.get("fta",0)+_rg.get("tov",0))/(_rg["min"]/40.0)/69.0
+        _wa=(_owa*min(USG_HI,max(USG_LO,(_u/USG_REF)**USG_POW))+DWA_W*_DWA40_MED*_mn/40.0)*sos_of(_full)
+        _ff=ROLE_FLOOR*min(1.0,_rg["min"]/ROLE_FLOOR_MIN)
+        _stat=to_grade((_wa/max(_mn/40.0,0.1))*(_ff+(1.0-_ff)*math.sqrt(min(max(_mn/P90,0),1.3))))
+        _wf=min(REAL_CAP,_rg["g"]/(_rg["g"]+REAL_PRIOR_NEW))
+        _f["ovr_prior"]=_f["ovr"]; _f["ovr"]=int(round((1-_wf)*_f["ovr"]+_wf*_stat)); _f["real_g"]=_rg["g"]; _nrg+=1
+print(f"real games: {_nrg} newcomer OVRs moved by their games",file=sys.stderr)
 # newcomers' scoring rate leans on scrimmage evidence harder than a returner's (no D-I sample to
 # outweigh it: SCRIM_PRIOR_NEW games), still capped at SCRIM_CAP. rpg/apg/... follow in
 # build_team_projected_box.py, which rebuilds the full line around this ppg.
