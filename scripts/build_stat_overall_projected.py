@@ -1920,6 +1920,44 @@ for _sh,_fm in FRESH_FIT.items():
 # at REAL_PRIOR_NEW games. Scrimmages never move a newcomer's OVR (owner: they count less).
 REAL_PRIOR_NEW=float(os.environ.get("REAL_PRIOR_NEW","6"))
 _DWA40_MED=float((d26["dwa"]/d26["mp40"].clip(lower=0.1)).median())
+# NEWCOMER STAT VALUE (sv): his PROJECTED line (the freshman model's per-40 rates at his fitted minutes and
+# points) valued exactly like a returner's — owned Wins Added per 40 x role, on the demonstrated-grade scale
+# (to_grade). It is what the NIL price reads for a player with no college line (patch_nil_grades.py), so
+# no overall — editor OVR, recruiting-band prior — prices anyone (owner rule, Oct 2026).
+def _sv_of(full, r40, mpg, ppg):
+    if not r40 or not mpg or mpg<=0: return None
+    k=mpg/40.0; _pg={"pts":r40.get("pts",0)*k,"fga":r40.get("fga",0)*k,"fta":r40.get("fta",0)*k,
+        "oreb":r40.get("oreb",0)*k,"dreb":r40.get("dreb",0)*k,"ast":r40.get("ast",0)*k,"stl":r40.get("stl",0)*k,
+        "blk":r40.get("blk",0)*k,"tov":r40.get("tov",0)*k}
+    if ppg is not None and _pg["pts"]>0:                 # the team fit's points (and the editor's usage) set his volume
+        _v=ppg/_pg["pts"]
+        for x in ("pts","fga","fta","tov"): _pg[x]*=_v
+    _pg["fgm"]=_pg["fga"]*(r40.get("fg_pct") or 45.0)/100.0; _pg["ftm"]=_pg["fta"]*(r40.get("ft_pct") or 70.0)/100.0; _pg["mpg"]=mpg
+    _ti,_owa,_mn=ti_value(_pg,mpg*G_PROJ)
+    if EFF_W>0: _owa+=EFF_W*OWA_B*(_pg["pts"]-LG_TS*2.0*(_pg["fga"]+0.44*_pg["fta"]))*G_PROJ*_mn/(_mn+REG_MP)
+    _u=100.0*(_pg["fga"]+0.44*_pg["fta"]+_pg["tov"])/(mpg/40.0)/69.0
+    _wa=(_owa*min(USG_HI,max(USG_LO,(_u/USG_REF)**USG_POW))+DWA_W*_DWA40_MED*_mn/40.0)*sos_of(full)
+    _ff=ROLE_FLOOR*min(1.0,_mn/ROLE_FLOOR_MIN)
+    _SV_WA[0]=_wa                                      # season Wins Added at these minutes (fresh_fit pwa)
+    return to_grade((_wa/max(_mn/40.0,0.1))*(_ff+(1.0-_ff)*math.sqrt(min(max(_mn/P90,0),1.3))))
+_SV_WA=[None]
+_nsv=0
+for _sh,_fm in FRESH_FIT.items():
+    _full=S2F.get(_sh.lower()) or _sh
+    for _nm,_f in _fm.items():
+        _sv=_sv_of(_full,_f.get("r40"),_n(_f.get("mpg"),0),_f.get("ppg"))
+        if _sv is not None: _f["sv"]=int(_sv); _f["pwa"]=round(_SV_WA[0],2); _nsv+=1   # pwa: projected Wins Added (Moneyball)
+        # POTENTIAL for a ranked recruit: the same valuation at the minutes recruits of his rank historically
+        # play (freshman_model mpg_by_rank) when the depth chart has him below it — the NIL market pays for the
+        # role he is expected to grow into, not a preseason depth slot (Cameron Williams #4, 7 mpg on the chart)
+        _rk=_f.get("rank"); _g=_f.get("grp")
+        if _sv is not None and _rk and FR_MODEL and _g in (FR_MODEL.get("mpg_by_rank") or {}):
+            _a,_b=FR_MODEL["mpg_by_rank"][_g]; _mt=max(4.0,min(34.0,_a+_b*math.log(float(_rk))))
+            _m0=_n(_f.get("mpg"),0)
+            if _mt>_m0+0.5 and _m0>0:
+                _svp=_sv_of(_full,_f.get("r40"),_mt,(_f.get("ppg") or 0)*_mt/_m0)
+                if _svp is not None: _f["svp"]=int(max(_sv,_svp)); _f["mpg_pot"]=round(_mt,1)
+print(f"newcomer stat values: {_nsv}",file=sys.stderr)
 _nrg=0
 for _sh,_fm in FRESH_FIT.items():
     _full=S2F.get(_sh.lower()) or _sh
@@ -1937,6 +1975,7 @@ for _sh,_fm in FRESH_FIT.items():
         _stat=to_grade((_wa/max(_mn/40.0,0.1))*(_ff+(1.0-_ff)*math.sqrt(min(max(_mn/P90,0),1.3))))
         _wf=min(REAL_CAP,_rg["g"]/(_rg["g"]+REAL_PRIOR_NEW))
         _f["ovr_prior"]=_f["ovr"]; _f["ovr"]=int(round((1-_wf)*_f["ovr"]+_wf*_stat)); _f["real_g"]=_rg["g"]; _nrg+=1
+        if _f.get("sv") is not None: _f["sv"]=int(round((1-_wf)*_f["sv"]+_wf*_stat))   # his real games move the stat value the same way
 print(f"real games: {_nrg} newcomer OVRs moved by their games",file=sys.stderr)
 # newcomers' scoring rate leans on scrimmage evidence harder than a returner's (no D-I sample to
 # outweigh it: SCRIM_PRIOR_NEW games), still capped at SCRIM_CAP. rpg/apg/... follow in

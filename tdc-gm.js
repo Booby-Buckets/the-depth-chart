@@ -29,7 +29,7 @@
     var R=window.TDC_RATINGS, N=window.TDC_NIL;
     var waits=['pedigreeReady','defenseReady','adjustReady','injuryReady','programsReady'].map(function(k){ return (N&&N[k])?N[k].catch(function(){}):null; });
     return Promise.all([R.prepare(), R.get(),
-      fetch('nil-data.json?v=gradesync16').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}),
+      fetch('nil-data.json?v=gradesync17').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}),
       fetch('scripts/data/coach_rotation.json?v=1').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;})].concat(waits))
     .then(function(a){
       D=a[1]; ROT=a[3]||{}; var nd=a[2]||{teams:{}};
@@ -45,8 +45,13 @@
     var n=NIL[nk(team,row.name)], N=window.TDC_NIL;
     var ovr=(n&&n.grade!=null)?+n.grade:(row.tdc_grade!=null?+row.tdc_grade:null);
     var cost=(n&&N&&N.neutralValueOf)?N.neutralValueOf(n):0.4;
+    // q = the PRODUCTION key every roster decision uses (who starts, who the auto-fill and target list rank first):
+    // his NIL basis (last season · career · projected line, all stats — patch_nil_grades.py), else per-40
+    // production quality. The OVR is shown, never used (owner rule, Oct 2026).
+    var q=(n&&n.ng!=null&&isFinite(+n.ng))?+n.ng:null;
+    if(q==null){ try{ if(window.TDCProjGrade&&TDCProjGrade.statQual) q=TDCProjGrade.statQual(Object.assign({},row,{team:team})); }catch(e){} }
     return {key:nk(team,row.name), name:row.name, team:team, row:row, pos:pos5((n&&n.pos)||row.position||''), cls:(row.yr||row.class_year||'').replace(/\./g,''),
-      ovr:ovr, cost:isFinite(cost)?cost:0.4};
+      ovr:ovr, q:(q!=null&&isFinite(q))?Math.round(q):null, cost:isFinite(cost)?cost:0.4};
   }
 
   // ── engine ──────────────────────────────────────────────────────────────
@@ -61,9 +66,9 @@
     var R=window.TDC_RATINGS, team=S.mode==='program'?S.team:'Fantasy';
     var rows=list.map(function(p,i){ return Object.assign({},p.row,{team:team, depth_order:i+1}); });
     // a real season needs a 10-man rotation: empty rotation spots are played by REPLACEMENT-level
-    // bodies (a 70-grade walk-on, no stat line), so a thin roster can't hand its starters 38 minutes
+    // bodies (a replacement-level walk-on, no stat line — tdc-ratings REPL_BPM), so a thin roster can't hand its starters 38 minutes
     // and rate like a contender — and every real bench signing beats the replacement it displaces.
-    for(var k=rows.length;k<10;k++) rows.push({name:'Replacement '+(k+1), team:team, depth_order:k+1, tdc_grade:70, yr:'Sr.', mpg:0, ppg:0, espn_id:null});
+    for(var k=rows.length;k<10;k++) rows.push({name:'Replacement '+(k+1), team:team, depth_order:k+1, yr:'Sr.', mpg:0, ppg:0, espn_id:null, _repl:true});
     var mins=minutesFor(rows.length);
     return R.rateRoster(team, rows, S.mode==='program'?{minutes:mins, baseMw:BASE?BASE.mw:null}:{minutes:mins, noProgram:true});
   }
@@ -88,14 +93,14 @@
     return out;
   }
   function weakest(list){ var sp=spots(list), w=null;
-    POS5.forEach(function(s){ var p=sp[s]; var v=p?p.ovr:-1; if(w==null||v<w.v) w={pos:s,v:v,p:p}; }); return w; }
-  function insertSigning(list,p){   // a better player at his spot starts; otherwise he joins the bench by OVR
+    POS5.forEach(function(s){ var p=sp[s]; var v=p?(p.q!=null?p.q:-1):-1; if(w==null||v<w.v) w={pos:s,v:v,p:p}; }); return w; }
+  function insertSigning(list,p){   // a more productive player at his spot starts; otherwise he joins the bench by production (q)
     var L=list.slice(), sp=spots(L), cur=sp[p.pos];
-    if(!cur || (p.ovr||0)>(cur.ovr||0)){
+    if(!cur || (p.q||0)>(cur.q||0)){
       if(cur){ var at=L.indexOf(cur); L[at]=p; L.splice(Math.min(5,L.length),0,cur); }   // he takes the spot; the old starter is the 6th man
       else L.splice(Math.min(L.length,4),0,p);                                            // an open spot: he joins the five (5th starter → 6th)
       return L; }
-    var at2=5; while(at2<L.length && (L[at2].ovr||0)>=(p.ovr||0)) at2++; L.splice(at2,0,p); return L;
+    var at2=5; while(at2<L.length && (L[at2].q||0)>=(p.q||0)) at2++; L.splice(at2,0,p); return L;
   }
   function winsSum(list){ if(!WINS) return null; return list.reduce(function(a,p){ var w=WINS(p.key); return a+(w!=null&&w>0?w:0); },0); }
   // goal = finish inside the top N: the rating the Nth team carries is the bar (excluding this program)
@@ -131,7 +136,7 @@
       (function(){ if(!TCURVE||rt==null) return null; var ex=TCURVE(rt), v=ex-cost;
         return ['Rosters this good cost', fM(ex), v>=0?'c3':(v<-ex*0.25?'c1':'c2'), (v>=0?'you pay '+fM(v)+' less':'you pay '+fM(-v)+' more')+' than the market']; })(),
       (function(){ var g=goalRow(rt,rk); return ['Goal: '+g.lbl, g.v, g.cls, g.note]; })(),
-      ['Weakest spot', wk&&wk.p?wk.pos:(wk?wk.pos:'—'), wk&&wk.p?hc(wk.v):'c0', wk&&wk.p?(esc(wk.p.name)+' · '+wk.v+' OVR'):'empty'],
+      ['Weakest spot', wk&&wk.p?wk.pos:(wk?wk.pos:'—'), wk&&wk.p?hc(wk.v):'c0', wk&&wk.p?(esc(wk.p.name)+(wk.p.ovr!=null?' · '+wk.p.ovr+' OVR':'')):'empty'],
       ['Roster', S.roster.length+' / '+MAX_ROSTER, '', S.cut.length?(S.cut.length+' cut'):'']
     ];
     host.innerHTML=
@@ -164,7 +169,7 @@
   }
   function courtHTML(){
     var sp=spots(S.roster), wk=weakest(S.roster);
-    return POS5.map(function(s){ var p=sp[s], need=!p||(wk&&wk.pos===s&&(p.ovr||0)<80);
+    return POS5.map(function(s){ var p=sp[s], need=!p||(wk&&wk.pos===s&&(p.q||0)<80);
       return '<div class="gm-spot'+(need?' need':'')+(p&&p._new?' new':'')+'" style="left:'+SPOT[s][0]+';top:'+SPOT[s][1]+'">'+
         '<div class="p">'+s+(need?' · NEED':'')+(p&&p._new?' · SIGNED':'')+'</div>'+
         (p?'<div class="nm">'+esc(p.name)+'</div><div class="m">'+esc(p.cls||'')+(p.team!==S.team?' · from '+esc(p.team):'')+'</div><div class="g">'+(p.ovr!=null?p.ovr:'—')+'</div>'
@@ -186,15 +191,15 @@
     var on={}; S.roster.concat(S.cut).forEach(function(p){ on[p.key]=1; });
     var wk=weakest(S.roster), pos=S.tpos==='need'?(wk?wk.pos:null):(S.tpos==='all'?null:S.tpos);
     var room=(S.budget||0)-spend(S.roster), max=S.tmax==='room'?room:(S.tmax?+S.tmax:null), q=S.tq.trim().toLowerCase();
-    var cand=POOL.filter(function(p){ return !on[p.key] && (S.mode!=='program'||p.team!==S.team) && p.ovr!=null && p.ovr>=60 &&
+    var cand=POOL.filter(function(p){ return !on[p.key] && (S.mode!=='program'||p.team!==S.team) && p.q!=null && p.q>=60 &&
       (!pos||p.pos===pos) && (max==null||p.cost<=max) && (!q||p.name.toLowerCase().indexOf(q)>=0||p.team.toLowerCase().indexOf(q)>=0); });
-    cand.sort(function(a,b){ return (b.ovr-a.ovr)||(a.cost-b.cost); });
+    cand.sort(function(a,b){ return (b.q-a.q)||(a.cost-b.cost); });
     cand=cand.slice(0,q?40:Math.max(40,S.tlimit*2));
     var cur=shown(S.roster);
     var scored=cand.map(function(p){ var after=shown(insertSigning(S.roster,Object.assign({},p))); return {p:p, d:(after!=null&&cur!=null)?after-cur:(after!=null?after:null), after:after}; });
     var rated=cur!=null;
     if(rated) scored.sort(function(a,b){ return (b.d==null?-99:b.d)-(a.d==null?-99:a.d); });
-    else scored.sort(function(a,b){ return (b.p.ovr-a.p.ovr)||(a.p.cost-b.p.cost); });
+    else scored.sort(function(a,b){ return (b.p.q-a.p.q)||(a.p.cost-b.p.cost); });
     var note=document.getElementById('gmTgtNote'); if(note) note.textContent=rated?((pos?('best fits at '+pos):'best fits')+' · ranked by what they add'):'sign five players to see what each one adds';
     var shownList=scored.slice(0,S.tlimit);
     if(!shownList.length){ el.innerHTML='<div class="gm-empty">No players match these filters.</div>'; return; }
@@ -238,13 +243,13 @@
       var pick=null;
       if(S.roster.length<5){
         var share=(room()-MIN_COST*(target-5))/Math.max(1,5-S.roster.length)*1.25;   // the five split what's left after reserving the bench
-        var c=POOL.filter(function(p){ return !on[p.key] && p.ovr!=null && open.indexOf(p.pos)>=0 && p.cost<=Math.min(cap,share); })
-          .sort(function(a,b){ return (b.ovr-a.ovr)||(a.cost-b.cost); });
+        var c=POOL.filter(function(p){ return !on[p.key] && p.q!=null && open.indexOf(p.pos)>=0 && p.cost<=Math.min(cap,share); })
+          .sort(function(a,b){ return (b.q-a.q)||(a.cost-b.cost); });
         pick=c[0]||null;
       } else {
         var cur=shown(S.roster);
-        var c2=POOL.filter(function(p){ return !on[p.key] && p.ovr!=null && p.ovr>=66 && p.cost<=cap; })
-          .sort(function(a,b){ return (b.ovr-a.ovr)||(a.cost-b.cost); }).slice(0,70);
+        var c2=POOL.filter(function(p){ return !on[p.key] && p.q!=null && p.q>=66 && p.cost<=cap; })
+          .sort(function(a,b){ return (b.q-a.q)||(a.cost-b.cost); }).slice(0,70);
         var best=null;
         c2.forEach(function(p){ var a=shown(insertSigning(S.roster,Object.assign({},p))); if(a==null||cur==null) return;
           var val=(a-cur)/Math.max(0.25,p.cost); if(!best||val>best.v) best={p:p,v:val}; });

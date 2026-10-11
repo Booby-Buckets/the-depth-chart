@@ -86,7 +86,9 @@ window.TDC_NIL = {
   N.gradeBase = function(g){ if(g==null||!isFinite(+g)) return 0; var x=Math.max(0,Math.min(1,(+g-N.MODEL.grade_floor)/N.MODEL.grade_span)); return Math.pow(x,N.MODEL.curve); };
   N.minFactor = function(mp){ mp=+mp||0; return Math.max(0.40, Math.pow(Math.min(Math.max(mp,0),30)/30,0.5)); };
   // projected role: a grade-implied minutes FLOOR so a breakout returner isn't valued on last year's bench minutes
-  N.estMpg    = function(mpg,grade){ var mp=+mpg||0, g=+grade||72; var ge=g>=90?28:g>=82?25:g>=76?21:g>=70?17:12; return Math.max(mp,ge); };
+  // minutes as projected (the NIL basis nm = the bigger of last season's real and the projected minutes) — the old
+  // grade-implied minutes floor is gone: an overall moves no number (owner rule, Oct 2026)
+  N.estMpg    = function(mpg){ return +mpg||0; };
   N.youthMult = function(cls){ var c=(''+(cls||'')).toLowerCase(); if(c.indexOf('so')>=0)return 1.22; if(c.indexOf('fr')>=0)return 1.05; if(c.indexOf('jr')>=0)return 1.02; if(c.indexOf('sr')>=0||c.indexOf('gr')>=0)return 0.90; return 1.0; };
   // positional pricing: our grades are already position-relative, so real deals show no
   // center premium in grade-space — only a whisper of a big bump (PF 1.06 / C 1.08).
@@ -240,12 +242,13 @@ window.TDC_NIL = {
     if(r.timeline==='day-to-day') return 0.97;
     return 1; };
   // ── ELITE-FRESHMAN DRAFT BOOST — a projected lottery-pick freshman commands more NIL than his
-  //    college-production value (the collective bets on the draft). No pedigree data for the incoming
-  //    class, so we use the freshman GRADE (the owner's recruit assessment) as the prospect signal.
+  //    college-production value (the collective bets on the draft).
   //    Freshmen only (no prior college line); scales with grade above the onset. ──
-  N.DRAFT_MAX = 0.55; N.DRAFT_ONSET = 83;
-  N.draftBoost = function(grade,ppg){ if(ppg!=null&&ppg!=='') return 1;
-    return 1 + N.DRAFT_MAX*Math.max(0,Math.min(1,((+grade||0)-N.DRAFT_ONSET)/11)); };
+  // Signal = his 247 composite RANK (nil-data rk, from fresh_fit), not an overall: full boost at #1, fading to
+  // none by #12 (the old grade 83-94 window — the recruiting-band grade of a #12 recruit was ~83).
+  N.DRAFT_MAX = 0.55; N.DRAFT_ONSET_RANK = 12;
+  N.draftBoost = function(rank,ppg){ if(ppg!=null&&ppg!=='') return 1; var r=+rank; if(!(r>0)) return 1;
+    return 1 + N.DRAFT_MAX*Math.max(0,Math.min(1,Math.log(N.DRAFT_ONSET_RANK/r)/Math.log(N.DRAFT_ONSET_RANK))); };
   // ── PROGRAM NIL MARKET — programs pay differently (blue-bloods spend up; some spend below market;
   //    market size varies). Owner-set per-program multiplier + a conference-aware floor so a scholarship
   //    high-major player isn't priced near zero. From nil-programs.json. Keyed by team (rows carry team). ──
@@ -285,7 +288,7 @@ window.TDC_NIL = {
     var g=N.nilGradeOf(p), m=N.nilMpgOf(p);
     var mv=N.gradeValueNeutral(g,m,prem,p.cls,p.pos,p.wa);
     mv=isFinite(+mv)?+mv:(isFinite(v)?v:0);
-    mv=mv*N.draftBoost(g,p.ppg)*N.defMultOf(p)*N.mktMult(p.ppg)*N.proMult(p.ht,p.pos)*N.injuryMultOf(p)*N.adjMultOf(p.name)*N.progMultOf(team);
+    mv=mv*N.draftBoost(p.rk,p.ppg)*N.defMultOf(p)*N.mktMult(p.ppg)*N.proMult(p.ht,p.pos)*N.injuryMultOf(p)*N.adjMultOf(p.name)*N.progMultOf(team);
     return Math.max(N.progFloorOf(conf), mv); };   // × draft × defense × mkt × pro × injury × adjust × program, then conf floor
   N.tierBudget  = function(t){ return N.TIER_BUDGET[+((''+t).replace(/\D/g,''))] || null; };
   N.fmt         = function(m){ if(m==null||!isFinite(m)) return '—'; return m>=1 ? ('$'+(+m).toFixed(2)+'M') : ('$'+Math.round(m*1000)+'K'); };

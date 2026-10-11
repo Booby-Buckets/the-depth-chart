@@ -136,6 +136,30 @@ for tn, t in nil.get("teams", {}).items():
         p["ngw"] = [round(w_last / (w_last + w_car + w_pot), 2), round(w_car / (w_last + w_car + w_pot), 2), round(w_pot / (w_last + w_car + w_pot), 2)]
         p["lm"] = round(lm, 1); p["hist"] = h[-4:]
         nb += 1
+# ── NEWCOMERS (no college line): the NIL basis is his STAT VALUE — the projected line from the freshman model
+#    (247 rank / level / position, build_freshman_model.py) valued in owned Wins Added like a returner
+#    (fresh_fit sv, build_stat_overall_projected.py) — never the editor OVR or a recruiting-band grade
+#    (owner, Oct 2026: "coaches paying don't look at our grades"). rk = his 247 rank, the draft-upside signal.
+try: FFIT = json.load(open(os.path.join(D, "fresh_fit.json")))
+except Exception: FFIT = {}
+nf = 0
+for tn, t in nil.get("teams", {}).items():
+    ft = FFIT.get(tn) or {}
+    for p in t.get("players", []):
+        if p.get("walkon"): continue
+        f = ft.get(p.get("name"))
+        if not f: continue
+        if f.get("rank"): p["rk"] = int(f["rank"])
+        if p.get("ng") is not None: continue              # a returner already has his last season / career basis
+        if f.get("sv") is None: continue
+        # a ranked recruit buried on a preseason depth chart is priced at the role recruits of his rank
+        # historically play (svp / mpg_pot) — the market pays for the expected role
+        sv = f.get("svp") if f.get("svp") is not None else f["sv"]
+        mp = f.get("mpg_pot") if f.get("svp") is not None else (f.get("mpg") or p.get("mpg") or 0)
+        p["ng"] = int(sv); p["nm"] = round(float(mp), 1)
+        p["ngp"] = float(sv); p["ngw"] = [0.0, 0.0, 1.0]   # all projection: no last season / career yet
+        nf += 1
+print(f"NIL basis from the stat value for {nf} newcomers")
 json.dump(nil, open(path, "w"), separators=(",", ":"))
 print(f"repointed {patched} returners to stat_overall; {fr_patched} freshmen to editor OVR; kept {kept}; NIL basis for {nb}")
 # spot check

@@ -163,6 +163,7 @@
   function cls(yr){ yr=((yr||'')+'').toLowerCase();
     return yr.includes('fr')?'FR':yr.includes('so')?'SO':yr.includes('jr')?'JR':'SR'; }
   const CLS_BUMP={FR:0.5,SO:0.2,JR:0.1,SR:0};
+  const REPL_BPM=-4.5;   // replacement level (GM Mode's empty rotation spots): a walk-on's BPM, not an overall
 
   async function fetchPaged(url,pageSize){
     const out=[]; let off=0; pageSize=pageSize||1000;
@@ -424,7 +425,7 @@
         // at his projected minutes (TDCProjGrade.frBpm, build_freshman_model.py) — not his overall
         if(!isFinite(projBpm)){
           let fb=NaN; try{ fb=(window.TDCProjGrade&&TDCProjGrade.frBpm)?TDCProjGrade.frBpm(p, min):NaN; }catch(e){}
-          projBpm=(isFinite(fb)?fb:-1.5)+frEdit;
+          projBpm=p._repl?REPL_BPM:((isFinite(fb)?fb:-1.5)+frEdit);   // GM Mode's empty rotation spot = a replacement-level body
           if(isFinite(projBpm)&&projBpm>0&&levelDisc>0) projBpm*=(1-levelDisc);
         }
         return {projBpm,min,luckEfg,hasSg:!!sg,

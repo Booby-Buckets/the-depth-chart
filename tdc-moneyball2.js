@@ -1,14 +1,14 @@
 /* Moneyball (Oct 2026 rebuild) — one idea: WINS PER DOLLAR.
    Every player: COST = open-market NIL value (tdc-nil.js neutralValueOf, the figure on his player page)
-                 WINS = projected 2026-27 wins added from his OVERALL × projected minutes: 0.004774·(OVR−65)·MPG
-                        (fit to projected Wins Added on power-conference rotation players, r=.94). Using the
-                        overall keeps wins level-adjusted and consistent with every grade on the site.
+                 WINS = his projected 2026-27 Wins Added (stat_overall_projected proj_wa — level-adjusted for
+                        the schedule he'll face; a newcomer's from his projected line, fresh_fit pwa). Never the
+                        overall (owner rule, Oct 2026: an OVR is display only).
    GOING RATE  = total cost ÷ total wins across rotation players (one league-wide number).
    VALUE       = wins × going rate − cost.  Bargain ≥ +25% of cost · Overpriced ≤ −25%.
    Tabs: Players (bargain board + the one chart) · Programs (roster cost, wins, value + cost to build a
    team) · GM Mode (tdc-gm.js, given the same wins + going rate). */
 (function(){
-  var FRESH_K=0.004774, FRESH_O=65, MPG_CAP=38, ROT_MIN=10;
+  var MPG_CAP=38, ROT_MIN=10;
   var MB=null, RATE=null, CURVE=null, TCURVE=null, PL={sort:'value',dir:-1,q:'',pos:'all',conf:'all',cls:'all',verd:'all',price:'all',limit:50},
       PG={sort:'value',dir:-1,q:'',conf:'all',limit:50,sel:null};
   function $(id){ return document.getElementById(id); }
@@ -36,9 +36,9 @@
     var N=window.TDC_NIL, R=window.TDC_RATINGS;
     var waits=['pedigreeReady','defenseReady','adjustReady','injuryReady','programsReady'].map(function(k){ return (N&&N[k])?N[k].catch(function(){}):null; });
     return Promise.all([
-      fetch('nil-data.json?v=gradesync16').then(function(r){return r.json();}),
+      fetch('nil-data.json?v=gradesync17').then(function(r){return r.json();}),
       fetch('scripts/data/stat_overall_projected.json?v=93').then(function(r){return r.json();}),
-      fetch('scripts/data/fresh_fit.json?v=35').then(function(r){return r.ok?r.json():{};}).catch(function(){return {};}),
+      fetch('scripts/data/fresh_fit.json?v=38').then(function(r){return r.ok?r.json():{};}).catch(function(){return {};}),
       R.get()].concat(waits)).then(function(a){
       var nil=a[0], SOP=(a[1]&&a[1].players)||{}, FF=a[2]||{}, D=a[3]||{teams:[]};
       var rat={}; (D.teams||[]).forEach(function(t){ rat[t.team]=t; });
@@ -49,12 +49,13 @@
         (T.players||[]).forEach(function(p){
           if(p.walkon) return;
           var pr=p.espn_id!=null?SOP[String(p.espn_id)]:null, wins, mpg, ovr=(pr&&pr.ovr!=null)?pr.ovr:p.grade;
-          // WINS = overall × projected minutes (0.004774·(OVR−65)·MPG). The overall already carries the
-          // level-of-competition and usage adjustments, so a low-major's box-score Wins Added can't
-          // out-rank an All-American here (raw proj_wa × sos still put 74-OVR mid-majors in the top 10).
+          // WINS = projected Wins Added: the build's level-adjusted projection (proj_wa already carries the
+          // strength of schedule once — the old "× sos" double-count is what pushed mid-majors up), or for a
+          // newcomer the same valuation of his projected line (fresh_fit pwa). No overall involved.
           var ff=(FF[short]||{})[p.name];
           mpg=Math.min(MPG_CAP, (pr&&+pr.mpg)||(ff&&ff.mpg)||+p.mpg||0);
-          wins=Math.max(-0.3, FRESH_K*((+ovr||FRESH_O)-FRESH_O)*mpg);
+          var pw=(pr&&pr.proj_wa!=null&&isFinite(+pr.proj_wa))?+pr.proj_wa:((ff&&ff.pwa!=null&&isFinite(+ff.pwa))?+ff.pwa:null);
+          wins=Math.max(-0.3, pw!=null?pw:0);
           var cost=(N&&N.neutralValueOf)?N.neutralValueOf(p):(+p.value||0);
           if(!isFinite(cost)) cost=0;
           players.push({name:p.name, team:short, full:full, conf:info.conf||p.conf||'', espn:p.espn_id, pos:(N&&N.POS5)?N.POS5(p.pos||''):(p.pos||''),
@@ -122,7 +123,7 @@
     var best=rot.slice().sort(function(a,b){return b.value-a.value;})[0];
     var confs=Array.from(new Set(rot.map(function(p){return p.conf;}).filter(Boolean))).sort();
     $('playersBody').innerHTML=
-      '<div class="explain"><div><b>Cost</b>What he would command on the open NIL market. The same number as his player page.</div><div><b>Wins</b>Wins he is projected to add in 2026-27: his overall × his projected minutes.</div><div><b>Value</b>What the 30 players closest to him (NIL grade and minutes, in his kind of conference) usually cost, minus what he costs. Positive = you get him for less than the market charges for his quality.</div></div>'+
+      '<div class="explain"><div><b>Cost</b>What he would command on the open NIL market. The same number as his player page.</div><div><b>Wins</b>Wins he is projected to add in 2026-27: his projected stat line valued in Wins Added, adjusted for the schedule he will face.</div><div><b>Value</b>What the 30 players closest to him (NIL grade and minutes, in his kind of conference) usually cost, minus what he costs. Positive = you get him for less than the market charges for his quality.</div></div>'+
       band([{v:fM(CURVE(80,25))+' · '+fM(CURVE(90,32)),l:'Market price',s:'power conference: an 80 OVR, 25-min player · a 90 OVR star'},{v:rot.length.toLocaleString(),l:'Rotation players',s:'10+ projected minutes'},
             {v:nb,l:'Bargains',s:'costs 20%+ under players like him'},{v:no,l:'Overpriced',s:'costs 25%+ over players like him'}])+
       secH('What he costs vs what players like him cost','each dot is a player in your filter · hover for details')+
