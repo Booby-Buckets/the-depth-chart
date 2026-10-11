@@ -23,6 +23,15 @@ MIN_MIN, MIN_ATT = 300, 15
 DIMS = ["ftV", "ftE", "rimV", "rimE", "midV", "midE", "tV", "tE"]
 
 
+def quality(ra, rm, ma, mm, ta, tm, lg):
+    """SHOT QUALITY = points per shot if every attempt went in at the season's D-I rate for its zone (where he
+    shoots); SHOT-MAKING = actual points per shot minus that (how well he converts). None under 30 FGA."""
+    fga = ra + ma + ta
+    if fga < 30: return None, None
+    x = (ra * 2 * lg[0] + ma * 2 * lg[1] + ta * 3 * lg[2]) / fga
+    return round(x, 3), round((2 * (rm + mm) + 3 * tm) / fga - x, 3)
+
+
 def get(q):
     out = []
     for off in range(0, 20000, 1000):
@@ -42,6 +51,7 @@ def main():
         poss = tot[1] or 1
         avg = {"ftV": 100 * tot[2] / poss, "ftE": tot[3] / max(1, tot[2]), "rimV": 100 * tot[4] / poss, "rimE": tot[5] / max(1, tot[4]),
                "midV": 100 * tot[6] / poss, "midE": tot[7] / max(1, tot[6]), "tV": 100 * tot[8] / poss, "tE": tot[9] / max(1, tot[8])}
+        LGR = (tot[5] / max(1, tot[4]), tot[7] / max(1, tot[6]), tot[9] / max(1, tot[8]))   # D-I make rates by zone
         cur = []
         for pid, r in pl.items():
             mn, ps, fta, ftm, ra, rm, ma, mm, ta, tm = r
@@ -58,15 +68,16 @@ def main():
             w = sum(x[1] for x in xs) or 1
             m = sum(x[0] * x[1] for x in xs) / w
             sd[d] = math.sqrt(sum(x[1] * (x[0] - m) ** 2 for x in xs) / w) or 1e-6
-        seasons[y] = {"avg": {d: round(avg[d], 4) for d in DIMS}, "sd": {d: round(sd[d], 4) for d in DIMS}, "n": len(cur)}
+        seasons[y] = {"avg": {d: round(avg[d], 4) for d in DIMS}, "sd": {d: round(sd[d], 4) for d in DIMS}, "n": len(cur),
+                      "xpps": quality(tot[4], tot[5], tot[6], tot[7], tot[8], tot[9], LGR)[0]}
         for pid, r, v, p100, ts in cur:
             rel = [(round(v[d] - avg[d], 3 if d.endswith("E") else 2) if v[d] is not None else None) for d in DIMS]   # small file: 0.1% / 0.01 per 100 is plenty
             rows.append([pid, y, P["names"].get(pid), names.get(P["team"].get(pid), ""), P["pos"].get(pid, ""), int(r[0]), round(p100, 1),
-                         round(ts, 3) if ts else None] + rel)
+                         round(ts, 3) if ts else None] + rel + list(quality(*r[4:10], LGR)))
         print(f"{y}: {len(cur)} player-seasons, league FT {avg['ftV']:.1f}/100 {avg['ftE']:.3f} · rim {avg['rimV']:.1f} {avg['rimE']:.3f} · mid {avg['midV']:.1f} {avg['midE']:.3f} · 3P {avg['tV']:.1f} {avg['tE']:.3f}")
     team_pool()
     out = {"built": __import__("datetime").datetime.utcnow().isoformat() + "Z", "min_minutes": MIN_MIN, "min_attempts": MIN_ATT, "dims": DIMS,
-           "cols": ["espn_id", "season", "name", "team", "pos", "min", "pts100", "ts"] + DIMS, "seasons": seasons, "rows": rows}
+           "cols": ["espn_id", "season", "name", "team", "pos", "min", "pts100", "ts"] + DIMS + ["xpps", "smk"], "seasons": seasons, "rows": rows}
     json.dump(out, open(os.path.join(D, "twin_pool.json"), "w"), separators=(",", ":"))
     print(f"twin pool: {len(rows)} player-seasons -> twin_pool.json ({os.path.getsize(os.path.join(D, 'twin_pool.json')) / 1e6:.1f} MB)")
 
@@ -81,6 +92,8 @@ def team_pool():
             P = json.load(open(f)); y = P["season"]
             ts = get(f"team_seasons?season_year=eq.{y}&select=team_id,team,conference&order=team_id")
             names = {str(t["team_id"]): t["team"] for t in ts}; confs = {str(t["team_id"]): t.get("conference") or "" for t in ts}
+            T = [sum(a[i] for a in P[side].values()) for i in range(10)]
+            LGR = (T[5] / max(1, T[4]), T[7] / max(1, T[6]), T[9] / max(1, T[8]))
             cur = []
             for t, a in P[side].items():
                 if t not in names: continue
@@ -90,18 +103,19 @@ def team_pool():
                 v = {"ftV": fta * k, "ftE": ftm / fta if fta else None, "rimV": ra * k, "rimE": rm / ra if ra else None,
                      "midV": ma * k, "midE": mm / ma if ma else None, "tV": ta * k, "tE": tm / ta if ta else None}
                 pts = ftm + 2 * (rm + mm) + 3 * tm; tsa = 2 * (ra + ma + ta + 0.44 * fta)
-                cur.append((t, poss, v, pts * k, pts / tsa if tsa else None))
+                cur.append((t, poss, v, pts * k, pts / tsa if tsa else None, quality(ra, rm, ma, mm, ta, tm, LGR)))
             if not cur: continue
             avg, sd = {}, {}
             for d in DIMS:
                 xs = [c[2][d] for c in cur if c[2][d] is not None]
                 avg[d] = sum(xs) / len(xs); sd[d] = math.sqrt(sum((x - avg[d]) ** 2 for x in xs) / len(xs)) or 1e-6
-            seasons[y] = {"avg": {d: round(avg[d], 4) for d in DIMS}, "sd": {d: round(sd[d], 4) for d in DIMS}, "n": len(cur)}
-            for t, poss, v, p100, tsv in cur:
+            seasons[y] = {"avg": {d: round(avg[d], 4) for d in DIMS}, "sd": {d: round(sd[d], 4) for d in DIMS}, "n": len(cur),
+                          "xpps": quality(T[4], T[5], T[6], T[7], T[8], T[9], LGR)[0]}
+            for t, poss, v, p100, tsv, q in cur:
                 rel = [(round(v[d] - avg[d], 3 if d.endswith("E") else 2) if v[d] is not None else None) for d in DIMS]
-                rows.append([t, y, names[t], confs.get(t, ""), "", poss, round(p100, 1), round(tsv, 3) if tsv else None] + rel)
+                rows.append([t, y, names[t], confs.get(t, ""), "", poss, round(p100, 1), round(tsv, 3) if tsv else None] + rel + list(q))
         out = {"built": __import__("datetime").datetime.utcnow().isoformat() + "Z", "kind": "team", "side": side, "dims": DIMS,
-               "cols": ["espn_id", "season", "name", "team", "pos", "min", "pts100", "ts"] + DIMS, "seasons": seasons, "rows": rows}
+               "cols": ["espn_id", "season", "name", "team", "pos", "min", "pts100", "ts"] + DIMS + ["xpps", "smk"], "seasons": seasons, "rows": rows}
         json.dump(out, open(os.path.join(D, fname), "w"), separators=(",", ":"))
         print(f"team {side} twin pool: {len(rows)} team-seasons -> {fname}")
 

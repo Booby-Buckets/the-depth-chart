@@ -10,7 +10,7 @@
  * (how often, not good or bad); efficiency is gold above the D-I average, blue below (validated palette).
  */
 (function () {
-  var URLS = { player: 'scripts/data/shot_aftermath/twin_pool.json?v=1', team: 'scripts/data/shot_aftermath/team_twin_pool.json?v=2', teamdef: 'scripts/data/shot_aftermath/team_def_twin_pool.json?v=1' };
+  var URLS = { player: 'scripts/data/shot_aftermath/twin_pool.json?v=2', team: 'scripts/data/shot_aftermath/team_twin_pool.json?v=3', teamdef: 'scripts/data/shot_aftermath/team_def_twin_pool.json?v=2' };
   var POOLS = {}, PS = {}, POOL = null, KIND = 'player';
   var Z = [['FT', 'ftV', 'ftE'], ['Rim', 'rimV', 'rimE'], ['Mid', 'midV', 'midE'], ['3P', 'tV', 'tE']];
   var C = null;   // column index (same layout in both pools: a team row keeps its id / name / conference / possessions in the player slots)
@@ -86,8 +86,23 @@
         body += '<div class="tw-rl">' + k[0] + '</div><div class="tw-tr"><div class="tw-mid"></div>' + bar + '</div><div class="tw-lg">' + (isE ? (100 * avg[d]).toFixed(1) + '%' : avg[d].toFixed(1)) + '</div>';
       });
     });
+    // SHOT QUALITY: expected points per shot from where the shots come from (D-I make rate by zone), and
+    // SHOT-MAKING: actual points per shot minus that. Gold = more points than D-I, blue = fewer.
+    if (C.xpps != null) {
+      var xq = r[C.xpps], mk = r[C.smk], lx = S.xpps;
+      body += '<div class="tw-zt"><span></span><span><span>BELOW AVG</span><b>Shot quality</b><span>ABOVE AVG</span></span><span style="text-align:right">D-I AVG</span></div>';
+      [['QUAL', xq == null || lx == null ? null : xq - lx, xq == null ? '' : xq.toFixed(3) + ' (' + (xq - lx >= 0 ? '+' : '') + (xq - lx).toFixed(3) + ')', 0.12, lx != null ? lx.toFixed(3) : '—'],
+       ['MAKE', mk, mk == null ? '' : (mk >= 0 ? '+' : '') + mk.toFixed(3) + ' / shot', 0.25, '0.000']].forEach(function (q) {
+        var bar;
+        if (q[1] == null) bar = '<span style="left:52%;color:var(--text3)">too few shots</span>';
+        else { var x = Math.max(-1, Math.min(1, q[1] / q[3])), w = Math.abs(x) * 50, l = x < 0 ? 50 - w : 50;
+          bar = '<i style="left:' + l + '%;width:' + Math.max(w, 0.6) + '%;background:' + (q[1] >= 0 ? 'var(--tw-pos)' : 'var(--tw-neg)') + '"></i><span style="' + (x < 0 ? 'left:52%' : 'right:52%') + '">' + q[2] + '</span>'; }
+        body += '<div class="tw-rl">' + q[0] + '</div><div class="tw-tr"><div class="tw-mid"></div>' + bar + '</div><div class="tw-lg">' + q[4] + '</div>';
+      });
+    }
     return '<div class="tw-card">' + head + '<div class="tw-zone">' + body + '</div><div class="tw-foot">Volume is ' + (KIND === 'teamdef' ? 'opponent ' : '') + 'attempts per 100 possessions' + (KIND !== 'player' ? '' : ' on the floor') + '; efficiency is FG% (FT% for free throws), against that season’s D-I average.</div></div>';
   }
+  function qCell(v) { if (v == null) return '<td>—</td>'; return '<td class="' + (v >= 0 ? 'pos' : 'neg') + '">' + (v >= 0 ? '+' : '') + v.toFixed(3) + '</td>'; }
   function fmtRel(v, isE) { if (v == null) return '<td>—</td>'; var t = isE ? (v >= 0 ? '+' : '') + (100 * v).toFixed(1) + '%' : (v >= 0 ? '+' : '') + v.toFixed(1); return '<td class="' + (isE ? (v >= 0 ? 'pos' : 'neg') : '') + '">' + t + '</td>'; }
 
   function render(host, o) {
@@ -108,9 +123,10 @@
         var h = '<div class="tw-top"><span>' + (isT ? (kind === 'teamdef' ? 'What opponents shot against them in <b>' + sl(r[1]) + '</b>, and the closest defensive team-seasons in any year since 2009-10.' : 'Their <b>' + sl(r[1]) + '</b> shot profile and the closest team-seasons in any year since 2009-10.') : 'His <b>' + sl(r[1]) + '</b> shot profile and the closest player-seasons in any year since 2009-10.') + '</span><span style="display:flex;gap:8px;align-items:center">' + sideBtns + sel + '</span></div>' +
           '<div class="tw-pair">' + card(r, 'Selected') + (t ? card(t.r, '#' + (pick + 1) + ' twin · ' + t.match.toFixed(1) + ' match') : '<div class="tw-card tw-empty">No close match.</div>') + '</div>';
         h += '<div class="sheet-wrap tw-tbl" style="max-height:none;margin-top:14px;"><table class="sheet dense"><thead><tr><th class="l">#</th><th class="l">' + (isT ? 'Team season' : 'Player season') + '</th><th>Match</th>' +
-          Z.map(function (z) { return '<th>' + z[0] + ' vol</th><th>' + z[0] + ' eff</th>'; }).join('') + '</tr></thead><tbody>' +
+          Z.map(function (z) { return '<th>' + z[0] + ' vol</th><th>' + z[0] + ' eff</th>'; }).join('') + (C.xpps != null ? '<th>Shot quality</th><th>Shot-making</th>' : '') + '</tr></thead><tbody>' +
           M.map(function (m, i) { var x = m.r; return '<tr data-i="' + i + '" class="' + (i === pick ? 'sel' : '') + '"><td class="l">' + (i + 1) + '</td><td class="l"><b>' + esc(isT ? short(x[2]) : (x[2] || '—')) + '</b> <span class="small">· ' + esc(isT ? (x[3] || '') : short(x[3])) + ' · ' + sl(x[1]) + '</span></td><td><b>' + m.match.toFixed(1) + '</b></td>' +
-            Z.map(function (z) { return fmtRel(x[C[z[1]]], false) + fmtRel(x[C[z[2]]], true); }).join('') + '</tr>'; }).join('') + '</tbody></table></div>' +
+            Z.map(function (z) { return fmtRel(x[C[z[1]]], false) + fmtRel(x[C[z[2]]], true); }).join('') +
+            (C.xpps != null ? qCell(x[C.xpps] != null && POOL.seasons[x[1]].xpps != null ? x[C.xpps] - POOL.seasons[x[1]].xpps : null) + qCell(x[C.smk]) : '') + '</tr>'; }).join('') + '</tbody></table></div>' +
           '<div class="tw-foot">Pick a row to put that ' + who + '-season beside ' + (isT ? 'them' : 'him') + '. Similarity weights all eight dimensions equally after standardising each by its season’s spread; two player-seasons must share at least six of them (an efficiency needs 15+ attempts). Every D-I player-season with 300+ minutes since 2009-10, from ESPN play-by-play.</div>';
         host.innerHTML = h;
         var s = host.querySelector('#twSeason'); if (s) s.onchange = function () { render(host, Object.assign({}, o, { season: +s.value })); };
