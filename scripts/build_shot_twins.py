@@ -64,10 +64,54 @@ def main():
             rows.append([pid, y, P["names"].get(pid), names.get(P["team"].get(pid), ""), P["pos"].get(pid, ""), int(r[0]), round(p100, 1),
                          round(ts, 3) if ts else None] + rel)
         print(f"{y}: {len(cur)} player-seasons, league FT {avg['ftV']:.1f}/100 {avg['ftE']:.3f} · rim {avg['rimV']:.1f} {avg['rimE']:.3f} · mid {avg['midV']:.1f} {avg['midE']:.3f} · 3P {avg['tV']:.1f} {avg['tE']:.3f}")
+    team_pool()
     out = {"built": __import__("datetime").datetime.utcnow().isoformat() + "Z", "min_minutes": MIN_MIN, "min_attempts": MIN_ATT, "dims": DIMS,
            "cols": ["espn_id", "season", "name", "team", "pos", "min", "pts100", "ts"] + DIMS, "seasons": seasons, "rows": rows}
     json.dump(out, open(os.path.join(D, "twin_pool.json"), "w"), separators=(",", ":"))
     print(f"twin pool: {len(rows)} player-seasons -> twin_pool.json ({os.path.getsize(os.path.join(D, 'twin_pool.json')) / 1e6:.1f} MB)")
+
+
+def team_pool():
+    """the same eight dimensions for every TEAM-season: its players' attempts and makes summed (a player is filed
+    under his last team of the season) over the team's offensive possessions (poss_<y>.json)."""
+    seasons, rows = {}, []
+    for f in sorted(glob.glob(os.path.join(D, "prof_*.json"))):
+        P = json.load(open(f)); y = P["season"]
+        try: PO = json.load(open(os.path.join(D, f"poss_{y}.json")))
+        except Exception: continue
+        ts = get(f"team_seasons?season_year=eq.{y}&select=team_id,team,conference&order=team_id")
+        names = {str(t["team_id"]): t["team"] for t in ts}; confs = {str(t["team_id"]): t.get("conference") or "" for t in ts}
+        tot = {}
+        for pid, r in P["players"].items():
+            t = P["team"].get(pid)
+            if not t: continue
+            a = tot.setdefault(t, [0] * 10)
+            for i in range(2, 10): a[i] += r[i]
+        cur = []
+        for t, a in tot.items():
+            T = PO["teams"].get(t)
+            if not T or t not in names: continue
+            poss = sum(v[0] for v in T["off"]["st"].values())
+            if poss < 500: continue
+            fta, ftm, ra, rm, ma, mm, ta, tm = a[2:]
+            k = 100.0 / poss
+            v = {"ftV": fta * k, "ftE": ftm / fta if fta else None, "rimV": ra * k, "rimE": rm / ra if ra else None,
+                 "midV": ma * k, "midE": mm / ma if ma else None, "tV": ta * k, "tE": tm / ta if ta else None}
+            pts = ftm + 2 * (rm + mm) + 3 * tm; tsa = 2 * (ra + ma + ta + 0.44 * fta)
+            cur.append((t, poss, v, pts * k, pts / tsa if tsa else None))
+        if not cur: continue
+        avg, sd = {}, {}
+        for d in DIMS:
+            xs = [c[2][d] for c in cur if c[2][d] is not None]
+            avg[d] = sum(xs) / len(xs); sd[d] = math.sqrt(sum((x - avg[d]) ** 2 for x in xs) / len(xs)) or 1e-6
+        seasons[y] = {"avg": {d: round(avg[d], 4) for d in DIMS}, "sd": {d: round(sd[d], 4) for d in DIMS}, "n": len(cur)}
+        for t, poss, v, p100, tsv in cur:
+            rel = [(round(v[d] - avg[d], 3 if d.endswith("E") else 2) if v[d] is not None else None) for d in DIMS]
+            rows.append([t, y, names[t], confs.get(t, ""), "", poss, round(p100, 1), round(tsv, 3) if tsv else None] + rel)
+    out = {"built": __import__("datetime").datetime.utcnow().isoformat() + "Z", "kind": "team", "dims": DIMS,
+           "cols": ["espn_id", "season", "name", "team", "pos", "min", "pts100", "ts"] + DIMS, "seasons": seasons, "rows": rows}
+    json.dump(out, open(os.path.join(D, "team_twin_pool.json"), "w"), separators=(",", ":"))
+    print(f"team twin pool: {len(rows)} team-seasons -> team_twin_pool.json ({os.path.getsize(os.path.join(D, 'team_twin_pool.json')) / 1e6:.1f} MB)")
 
 
 if __name__ == "__main__":
