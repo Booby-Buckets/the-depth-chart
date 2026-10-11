@@ -138,6 +138,7 @@
     <span class="wy-seg gold" id="wyMode"></span>
     <span class="wy-seg" id="wyMetric"></span>
     <input id="wySearch" placeholder="Search player…" style="display:none">
+    <a id="wyShift" href="statshift.html" style="margin-left:auto;font-size:12.5px;font-weight:700;color:var(--text3);text-decoration:none">Stat Line Shift →</a>
   </div>
   <div class="wy-ctl"><span class="wy-seg" id="wyView"></span><label class="wy-note" style="margin:0;display:flex;gap:6px;align-items:center"><input type="checkbox" id="wySmall"> Show small samples</label><label class="wy-note" style="margin:0;display:flex;gap:6px;align-items:center" title="Sets the team's own free-throw shooting and the opponent's 3-point and free-throw shooting to the D-I average: the part of a rating that is mostly luck"><input type="checkbox" id="wyLuck"> Luck adjusted</label></div>
   <div class="wy-note" id="wyNote"></div>
@@ -229,6 +230,7 @@ function render(){
   $('#wyTbl').innerHTML='<thead><tr>'+head+'</tr></thead><tbody>'+(rows.join('')||'<tr><td class="l" colspan="20">No players or units with enough possessions.</td></tr>')+'</tbody>';
   $('#wyTbl').querySelectorAll('th[data-s]').forEach(function(th){ if(th.dataset.s===SORT) th.classList.add('sorted');
     th.onclick=function(){ if(SORT===th.dataset.s) DESC=!DESC; else { SORT=th.dataset.s; DESC=true; } render(); }; });
+  $('#wyShift').href='statshift.html'+(TEAM?'?team='+encodeURIComponent(TEAM):'');
   $('#wySub').innerHTML=SCOPE==='team'?esc(TEAM||'')+' · '+(MODE==='wowy'?'every player on and off the floor':MODE+'-man units with the most possessions')+'. Rebuilt from NCAA play-by-play substitutions; garbage time removed.':'Every D-I player with 500+ on-court possessions. Sort by any column.';
 }
 function setSeason(s){
