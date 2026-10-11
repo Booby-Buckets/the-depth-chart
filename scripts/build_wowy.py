@@ -1,0 +1,360 @@
+#!/usr/bin/env python3
+"""
+build_wowy.py — WOWY lineups (Oct 2026, owner: "build this", from databallr's WOWY Lineups page).
+
+Same source and game matching as build_onoff.py (NCAA play-by-play, the only feed that logs
+substitutions; cached in scripts/data/pbp_cache), but every stint carries a full box for both
+sides, so each player and each 2/3/4/5-man unit gets the four factors on and off the floor:
+
+  ORtg / DRtg / Net (per 100), TS%, eFG%, TOV%, ORB%, FT rate — and the same for the opponent
+  (opp TS%, opp eFG%, opp TOV%) plus DRB% — with minutes and possessions.
+
+Possessions = FGA − ORB + TOV + 0.44·FTA. Points and made free throws come from score changes
+(one feed never logs made FTs), shots from the event text. Blocks are NOT extra shots (the miss is
+already logged — build_onoff.py counted both, which is why it needed POSS_CAL 0.90).
+
+Low-leverage removed (the default, like databallr's "Med/High"): second-half play with the margin
+20+ inside 10:00, 15+ inside 5:00 or 12+ inside 2:00 is kept out of every number.
+
+RAPM: ridge regression on the stints (offense and defense columns per player, rows weighted by
+possessions), so each player's number accounts for who he played with and against.
+
+Output: scripts/data/wowy_<season>.json  { league, players:[...], units:{team:{2:[],3:[],4:[],5:[]}} }
+
+Usage:
+  python3 -u scripts/build_wowy.py --season 2026 --limit 40 --verbose   # check on 40 games
+  python3 -u scripts/build_wowy.py --season 2026                        # full season
+"""
+import json, os, re, sys, time, argparse
+from collections import defaultdict
+from itertools import combinations
+sys.path.insert(0, os.path.dirname(__file__))
+import build_onoff as B
+
+DATADIR = B.DATADIR
+CACHE = os.path.join(DATADIR, "wowy_cache")
+F = ("pts", "fga", "fgm", "tpm", "fta", "ftm", "orb", "drb", "tov", "ast", "stl", "blk")
+MIN_UNIT_POSS = {2: 80, 3: 60, 4: 45, 5: 30}
+TOP_UNITS = 15
+
+def blank(): return dict.fromkeys(F, 0)
+
+import unicodedata
+def nn(s):
+    """name key: repair UTF-8 read as Latin-1 ("BukumiroviÄ\x87"), drop accents, then build_onoff's norm"""
+    s = str(s or "")
+    try:
+        if any(ord(c) > 127 for c in s): s = s.encode("latin-1").decode("utf-8")
+    except Exception: pass
+    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
+    return B.norm(s)
+
+def cached_json(name, fn):
+    os.makedirs(CACHE, exist_ok=True)
+    fp = os.path.join(CACHE, name)
+    if os.path.exists(fp):
+        try: return json.load(open(fp))
+        except Exception: pass
+    v = fn()
+    if v: json.dump(v, open(fp, "w"))
+    return v
+
+def secs_of(clock):
+    m = re.match(r"^(\d+):(\d+)", str(clock or ""))
+    return int(m.group(1)) * 60 + int(m.group(2)) if m else None
+
+def low_leverage(per, secs, margin):
+    if per != 2 or secs is None: return False
+    m = abs(margin)
+    return (secs <= 600 and m >= 20) or (secs <= 300 and m >= 15) or (secs <= 120 and m >= 12)
+
+SUB2 = re.compile(r"^Subbing (in|out) for (.+)$")
+THREE = re.compile(r"three point|3 pointer|3-pt|3pt", re.I)
+def kind(desc):
+    d = desc.lower()
+    if "subbing" in d: return "sub"
+    if "free throw" in d: return "ftmiss" if "miss" in d else "ft"
+    if "turnover" in d or "shot clock" in d: return "tov"
+    if "offensive rebound" in d: return "orb"
+    if "defensive rebound" in d: return "drb"
+    if d.startswith("assist by"): return "ast"
+    if d.startswith("steal by") or "steals)" in d: return "stl"
+    if d.startswith("block by") or " blocks" in d: return "blk"
+    if re.search(r"\b(makes|misses|missed|good)\b", d) or re.match(r"^(jumper|2 pointer|3 pointer|layup|slam dunk|tip in|hook shot|dunk) by", d):
+        return "fga"
+    return None
+
+def process_game(nid, og):
+    """→ list of stints [{H:[ids],A:[ids],secs,low,h:{box},a:{box}}], team names, names map"""
+    pbp = B.pbp_json(nid)
+    if not pbp or not pbp.get("periods"): return None, "no-pbp"
+    teams = pbp.get("teams", [])
+    if len(teams) != 2: return None, "teams"
+    box = cached_json(f"box_{og['id']}.json", lambda: B.sb_get(f"box_scores?game_id=eq.{og['id']}&select=player,espn_id,team,starter,min"))
+    if not box: return None, "no-box"
+    bteams = list({b["team"] for b in box if b.get("team")})
+    if len(bteams) < 2: return None, "box-teams<2"
+    tov = B._tov
+    h_team = max(bteams, key=lambda bt: (tov(bt, og["home"]), -tov(bt, og["away"])))
+    a_team = max([bt for bt in bteams if bt != h_team], key=lambda bt: tov(bt, og["away"]))
+    def side_map(bteam):
+        rows = [b for b in box if b["team"] == bteam and b.get("espn_id") is not None]
+        n2e = {nn(b["player"]): str(b["espn_id"]) for b in rows}
+        last = defaultdict(list)
+        for b in rows: last[nn(b["player"]).split(" ")[-1]].append(str(b["espn_id"]))
+        for k, v in last.items():
+            if len(v) == 1: n2e.setdefault("~" + k, v[0])   # unique surname on the roster: a fallback key
+        st = [b for b in rows if b.get("starter")]
+        if len(st) != 5:
+            rows.sort(key=lambda b: -B._minf(b.get("min"))); st = rows[:5]
+        return n2e, [str(b["espn_id"]) for b in st][:5]
+    ncaa_home = next((t for t in teams if t.get("isHome")), teams[0])
+    box_home = max([h_team, a_team], key=lambda bt: tov(ncaa_home["nameShort"], bt) + tov(ncaa_home.get("nameFull", ""), bt))
+    box_away = a_team if box_home == h_team else h_team
+    hn2e, hstart = side_map(box_home); an2e, astart = side_map(box_away)
+    if len(hstart) != 5 or len(astart) != 5: return None, "starters"
+    on = {"H": set(hstart), "A": set(astart)}; n2e = {"H": hn2e, "A": an2e}
+    stints = []; cur = {"secs": 0.0, "low": {False: [blank(), blank(), 0.0], True: [blank(), blank(), 0.0]}}
+    bad = 0
+
+    def close():
+        for low in (False, True):
+            h, a, s = cur["low"][low]
+            if s <= 0 and not any(h.values()) and not any(a.values()): continue
+            stints.append({"H": sorted(on["H"]), "A": sorted(on["A"]), "secs": round(s, 1), "low": low, "h": dict(h), "a": dict(a)})
+        cur["low"] = {False: [blank(), blank(), 0.0], True: [blank(), blank(), 0.0]}
+
+    for per in pbp["periods"]:
+        pn = int(per.get("periodNumber") or 1)
+        prev_h = prev_a = None; prev_sig = None; last_secs = 1200 if pn <= 2 else 300
+        last_miss = None   # (side, dead_ball) of the last missed shot: decides who an unlabelled rebound belongs to
+        for pl in per.get("playbyplayStats", []):
+            desc = pl.get("eventDescription", "") or ""
+            try: hs = int(pl.get("homeScore") or 0); as_ = int(pl.get("visitorScore") or 0)
+            except Exception: hs = as_ = 0
+            s = secs_of(pl.get("clock"))
+            low = low_leverage(pn, s, hs - as_)
+            bucket = cur["low"][low]
+            if s is not None and s <= last_secs:
+                bucket[2] += last_secs - s; last_secs = s
+            m = SUB2.match(desc)
+            if m:
+                close()
+                # "Subbing in for Bethune-Cookman-Quentin Heady": the team name can hold hyphens too, so try every
+                # split until the left part is one of the two teams (build_onoff's regex cut at the first hyphen)
+                io, rest = m.group(1), m.group(2)
+                side = player = None
+                parts = rest.split("-")
+                for cut in range(1, len(parts)):
+                    tm = "-".join(parts[:cut])
+                    for t in teams:
+                        if B.norm(tm) in (B.norm(t["nameShort"]), B.norm(t.get("nameFull", ""))):
+                            side = "H" if t["isHome"] else "A"; player = "-".join(parts[cut:]); break
+                    if side: break
+                if side is None: bad += 1; continue
+                pk = nn(player)
+                eid = n2e[side].get(pk) or n2e[side].get("~" + (pk.split(" ")[-1] if pk else ""))
+                if eid is None: bad += 1; continue
+                (on[side].add if io == "in" else on[side].discard)(eid)
+                prev_h, prev_a = hs, as_
+                continue
+            side = "H" if pl.get("isHome") else "A"
+            box_s = bucket[0] if side == "H" else bucket[1]
+            k = kind(desc)
+            # points and made FTs ride the score; a FG make's own points are subtracted so the rest is FTs
+            dh = (hs - prev_h) if prev_h is not None else 0
+            da = (as_ - prev_a) if prev_a is not None else 0
+            prev_h, prev_a = hs, as_
+            if "assists)" in desc.lower(): box_s["ast"] += 1
+            dl = desc.lower(); sig = re.sub(r"\s+", "", re.sub(r"\(.*?\)", "", dl))
+            dup = bool(sig) and sig == prev_sig
+            prev_sig = sig
+            fg_pts = {"H": 0, "A": 0}
+            if not dup and k == "fga":
+                made = not re.search(r"miss", dl)
+                d_side = dh if side == "H" else da
+                is3 = bool(THREE.search(desc)) or (made and d_side >= 3)
+                box_s["fga"] += 1
+                last_miss = None if made else (side, False)
+                if made:
+                    box_s["fgm"] += 1; box_s["tpm"] += 1 if is3 else 0
+                    fg_pts[side] = 3 if is3 else 2
+            elif not dup and k in ("orb", "drb"):
+                # one feed labels EVERY rebound "defensive rebound", so the label can't be trusted: a rebound by the
+                # side that missed is offensive. The "team rebound" between two free throws is not a rebound at all.
+                if last_miss is not None:
+                    if not last_miss[1]:
+                        box_s["orb" if last_miss[0] == side else "drb"] += 1
+                    last_miss = None
+                else:
+                    box_s[k] += 1
+            elif not dup and k in ("tov", "stl", "blk"):
+                box_s[k] += 1
+            elif not dup and k == "ast":
+                box_s["ast"] += 1
+            elif not dup and k == "ftmiss":
+                box_s["fta"] += 1
+                last_miss = (side, bool(re.search(r"\b(1 of 2|1 of 3|2 of 3)\b", dl)))
+            for sd, d in (("H", dh), ("A", da)):
+                if d > 0:
+                    bx = bucket[0] if sd == "H" else bucket[1]
+                    bx["pts"] += d
+                    ft = max(0, d - fg_pts[sd])
+                    bx["ftm"] += ft; bx["fta"] += ft
+    close()
+    # the same partial-feed guard as build_onoff: a complete game has ~55-80 possessions a side
+    tot = {"H": blank(), "A": blank()}
+    for st in stints:
+        for f in F: tot["H"][f] += st["h"][f]; tot["A"][f] += st["a"][f]
+    for sd in ("H", "A"):
+        p = poss(tot[sd])
+        if p < 45 or p > 110: return None, "bad-poss"
+        o = 100 * tot[sd]["pts"] / p
+        if o < 55 or o > 150: return None, "bad-ortg"
+    if bad > 8: return None, "bad-subs"   # lineups we can't follow would credit the wrong players
+    names = {str(b["espn_id"]): b["player"] for b in box if b.get("espn_id") is not None}
+    return {"stints": stints, "teamH": box_home, "teamA": box_away, "names": names, "bad": bad}, "ok"
+
+def poss(b): return max(0.0, b["fga"] - b["orb"] + b["tov"] + 0.44 * b["fta"])
+
+def rates(o, d, secs):
+    """four factors for a unit: o = its own box, d = the opponent's box while it was on"""
+    po, pd = poss(o), poss(d)
+    def pct(n, den): return round(100 * n / den, 1) if den > 0 else None
+    def ts(b): return pct(b["pts"], 2 * (b["fga"] + 0.44 * b["fta"]))
+    def efg(b): return pct(b["fgm"] + 0.5 * b["tpm"], b["fga"])
+    out = {"min": round(secs / 60, 1), "poss": round((po + pd) / 2),
+           "o": pct(o["pts"], po), "d": pct(d["pts"], pd),
+           "ts": ts(o), "efg": efg(o), "tov": pct(o["tov"], po), "orb": pct(o["orb"], o["orb"] + d["drb"]),
+           "ftr": pct(o["fta"], o["fga"]), "ast": pct(o["ast"], o["fgm"]),
+           "ots": ts(d), "oefg": efg(d), "otov": pct(d["tov"], pd), "drb": pct(d["drb"], d["drb"] + o["orb"])}
+    out["net"] = round(out["o"] - out["d"], 1) if out["o"] is not None and out["d"] is not None else None
+    return out
+
+def add(dst, src):
+    for f in F: dst[f] += src[f]
+
+def run(season, limit=0, verbose=False):
+    games_fp = os.path.join(CACHE, f"games_{season}.json")
+    gmap = {}
+    if os.path.exists(games_fp):
+        try: gmap = json.load(open(games_fp))
+        except Exception: gmap = {}
+    if not gmap:   # nid -> our game, by day (scoreboards are the slow, rate-limited part — kept once)
+        for d in B.season_dates(season):
+            sb = B.scoreboard(d)
+            if not sb: continue
+            our = B.our_games_on(d)
+            for ncaa in sb or []:
+                og = B.match_our_game(our or [], ncaa)
+                if og: gmap[ncaa["nid"]] = og
+            time.sleep(0.05)
+            if verbose: print(d, len(gmap), flush=True)
+        os.makedirs(CACHE, exist_ok=True); json.dump(gmap, open(games_fp, "w"))
+    print(f"season {season}: {len(gmap)} matched games", flush=True)
+    P = defaultdict(lambda: {"team": None, "name": None, "games": 0, "on_o": blank(), "on_d": blank(), "on_s": 0.0, "tm_o": blank(), "tm_d": blank(), "tm_s": 0.0})
+    U = {n: defaultdict(lambda: {"o": blank(), "d": blank(), "s": 0.0, "team": None}) for n in (2, 3, 4, 5)}
+    STINTS = []; names = {}; fails = defaultdict(int); done = 0
+    for i, (nid, og) in enumerate(gmap.items()):
+        if limit and done >= limit: break
+        res, why = process_game(nid, og)
+        if res is None: fails[why] += 1; continue
+        done += 1; names.update(res["names"])
+        seen = set(); gt = {"H": [blank(), blank(), 0.0], "A": [blank(), blank(), 0.0]}
+        for st in res["stints"]:
+            if st["low"]: continue
+            for sd, own, opp, team in (("H", st["h"], st["a"], res["teamH"]), ("A", st["a"], st["h"], res["teamA"])):
+                add(gt[sd][0], own); add(gt[sd][1], opp); gt[sd][2] += st["secs"]
+                ids = st[sd]
+                for e in ids:
+                    p = P[e]; p["team"] = team; add(p["on_o"], own); add(p["on_d"], opp); p["on_s"] += st["secs"]; seen.add((e, sd))
+                if len(ids) == 5:
+                    for n in (2, 3, 4, 5):
+                        for c in combinations(ids, n):
+                            u = U[n][c]; u["team"] = team; add(u["o"], own); add(u["d"], opp); u["s"] += st["secs"]
+            if len(st["H"]) == 5 and len(st["A"]) == 5:
+                STINTS.append((tuple(st["H"]), tuple(st["A"]), poss(st["h"]), st["h"]["pts"], poss(st["a"]), st["a"]["pts"]))
+        for e, sd in seen:   # team totals for the games he played (off-court = team − on-court)
+            p = P[e]; p["games"] += 1; add(p["tm_o"], gt[sd][0]); add(p["tm_d"], gt[sd][1]); p["tm_s"] += gt[sd][2]
+        if done % 250 == 0: print(f"  {done} games", flush=True)
+    print(f"processed {done}; failures {dict(fails)}", flush=True)
+
+    # league: every full-strength stint, both sides
+    tot_o = blank(); tot_d = blank()
+    for c, u in U[5].items(): add(tot_o, u["o"]); add(tot_d, u["d"])
+    league = rates(tot_o, tot_d, 0)
+    print(f"[league] ORtg {league['o']}  TS {league['ts']}  TOV {league['tov']}  ORB {league['orb']}", flush=True)
+    if not league["o"] or not (90 <= league["o"] <= 120):
+        print("*** SANITY FAIL: league ORtg implausible — not writing ***"); return
+
+    rapm = ridge(STINTS, league["o"]) if STINTS else {}
+    players = []
+    for e, p in P.items():
+        if p["on_s"] < 60 * 30: continue   # 30+ minutes
+        on = rates(p["on_o"], p["on_d"], p["on_s"])
+        off_o = {f: p["tm_o"][f] - p["on_o"][f] for f in F}; off_d = {f: p["tm_d"][f] - p["on_d"][f] for f in F}
+        off = rates(off_o, off_d, max(0.0, p["tm_s"] - p["on_s"])) if p["tm_s"] - p["on_s"] >= 60 * 20 else None
+        r = rapm.get(e)
+        players.append({"id": e, "name": names.get(e) or p.get("name"), "team": p["team"], "g": p["games"], "on": on, "off": off,
+                        "rapm": r})
+    units = defaultdict(dict)
+    for n in (2, 3, 4, 5):
+        byteam = defaultdict(list)
+        for c, u in U[n].items():
+            r = rates(u["o"], u["d"], u["s"])
+            if r["poss"] < MIN_UNIT_POSS[n]: continue
+            byteam[u["team"]].append({"ids": list(c), "r": r})
+        for t, arr in byteam.items():
+            arr.sort(key=lambda x: -x["r"]["poss"])
+            units[t][str(n)] = arr[:TOP_UNITS]
+    # two files: players (the WOWY tab + league leaders, loads with the page) and units (2/3/4/5-man, loaded on demand)
+    out = {"season": season, "built": time.strftime("%Y-%m-%d"), "low_leverage_removed": True, "games": done,
+           "league": league, "players": players}
+    uo = {"season": season, "names": {e: names.get(e) for e in {i for t in units.values() for n in t.values() for u in n for i in u["ids"]}}, "units": units}
+    json.dump(uo, open(os.path.join(DATADIR, f"wowy_units_{season}.json"), "w"), separators=(",", ":"))
+    fp = os.path.join(DATADIR, f"wowy_{season}.json")
+    json.dump(out, open(fp, "w"), separators=(",", ":"))
+    print(f"wrote {fp}: {len(players)} players, {sum(len(v) for t in units.values() for v in t.values())} units, {os.path.getsize(fp)//1024} KB")
+    if verbose:
+        for p in sorted(players, key=lambda x: -(x["on"]["poss"]))[:8]:
+            print(f"  {p['name'][:22]:22} {p['team'][:16]:16} on {p['on']['net']:>6} off {(p['off'] or {}).get('net')} rapm {p['rapm']}")
+
+def ridge(stints, avg, lam=None):
+    """offense + defense RAPM per 100. Each stint gives two rows (home offense vs away defense and back),
+    weighted by possessions; ridge shrinks every player toward zero (= league average)."""
+    try:
+        import numpy as np
+        from scipy.sparse import csr_matrix
+        from scipy.sparse.linalg import lsqr
+    except Exception:
+        print("numpy/scipy missing — RAPM skipped"); return {}
+    idx = {}
+    for h, a, *_ in stints:
+        for e in h + a:
+            if e not in idx: idx[e] = len(idx)
+    n = len(idx); rows, cols, vals, y, w = [], [], [], [], []
+    r = 0
+    for h, a, hp, hpts, ap, apts in stints:
+        for off, de, p, pts in ((h, a, hp, hpts), (a, h, ap, apts)):
+            if p <= 0.5: continue
+            sw = p ** 0.5
+            for e in off: rows.append(r); cols.append(idx[e]); vals.append(sw)
+            for e in de: rows.append(r); cols.append(n + idx[e]); vals.append(sw)
+            y.append(sw * (100 * pts / p - avg)); r += 1
+    X = csr_matrix((vals, (rows, cols)), shape=(r, 2 * n))
+    lam = lam or float(os.environ.get("RAPM_LAMBDA", "1500"))
+    sol = lsqr(X, np.array(y), damp=lam ** 0.5)[0]
+    out = {}
+    for e, i in idx.items():
+        o, d = float(sol[i]), -float(sol[n + i])   # defense: allowing fewer points is positive
+        out[e] = {"o": round(o, 1), "d": round(d, 1), "net": round(o + d, 1)}
+    print(f"[rapm] {r} rows, {n} players, lambda {lam}", flush=True)
+    return out
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--season", type=int, required=True)
+    ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--verbose", action="store_true")
+    a = ap.parse_args()
+    run(a.season, a.limit, a.verbose)

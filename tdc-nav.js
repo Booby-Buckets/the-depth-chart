@@ -45,7 +45,7 @@
       ['crunch.html',                   'Crunch-Time Takeovers'],
       ['shot-aftermath.html',           'Shot Aftermath'],
       ['plays.html',                    'Play Finder'],
-      ['onoff.html',                    'On / Off'],
+      ['wowy.html',                     'WOWY Lineups / On-Off'],
     ]],
     ['Postseason', [
       ['tournaments.html',     'Tournaments'],
