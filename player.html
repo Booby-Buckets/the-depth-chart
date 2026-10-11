@@ -22,8 +22,8 @@
   <script src="tdc-histguard.js?v=2"></script>
   <script src="tdc-glossary.js?v=13"></script>
   <script src="tdc-leaderboard.js?v=2"></script>
-  <script src="tdc-portalfit.js?v=needs11"></script>
-  <script src="tdc-projgrade.js?v=base54"></script>
+  <script src="tdc-portalfit.js?v=needs12"></script>
+  <script src="tdc-projgrade.js?v=base57"></script>
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-teamname.js?v=1"></script>
   <script src="tdc-owned-seasons.js?v=8"></script>
@@ -1012,7 +1012,7 @@ body{background:transparent!important;}
   <script src="tdc-engine.js?v=d1conf1"></script>
   <script src="tdc-impact.js?v=1"></script>
   <script src="tdc-heat.js?v=2s"></script>
-  <script src="bigboard-engine.js?v=22"></script>
+  <script src="bigboard-engine.js?v=26"></script>
   <style>
     .dna-sub-seg{display:inline-flex;gap:4px;background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:4px;flex-wrap:wrap;}
     .dna-sub-seg button{font:800 12px/1 'Inter',sans-serif;letter-spacing:.02em;color:var(--text3);background:transparent;border:none;border-radius:7px;padding:8px 15px;cursor:pointer;transition:all .14s;}
@@ -3039,10 +3039,15 @@ function projLine(p){
     ['fg_pct','tp_pct','ft_pct'].forEach(function(k){o[k]=(parseFloat(p[k])||0)+bump;});
     return o;
   }
-  // incoming freshman / no sample — estimate from grade + position
-  var g=parseFloat(p.tdc_grade)||72, sc=Math.max(0.4,Math.min(1.9,0.4+(g-70)*0.045));
+  // incoming freshman / no sample — what first-year players of his rank / position produced (tdc-proj.js
+  // frStatBase, per 32 min), at the minutes recruits like him play; never his overall (owner rule, Oct 2026)
+  if(typeof frStatBase==='function'){ try{ var fb=frStatBase(p), m=(typeof frMpgGuess==='function')?frMpgGuess(p):18, k=m/32;
+    cnt.forEach(function(k2){ var v=(k2==='mpg')?m:(fb[k2]!=null?fb[k2]*k:null); if(v!=null) o[k2]=v; });
+    o.fgm=(o.fga||0)*fb.fg_pct/100; o.tpm=(o.tpa||0)*fb.tp_pct/100;
+    ['fg_pct','tp_pct','ft_pct'].forEach(function(k2){o[k2]=fb[k2];});
+    return o; }catch(e){} }
   var b=FROSH_BASE[_impPgrp(p.position)];
-  cnt.forEach(function(k){o[k]=b[k]*sc;});
+  cnt.forEach(function(k){o[k]=b[k];});
   ['fg_pct','tp_pct','ft_pct'].forEach(function(k){o[k]=b[k];});
   return o;
 }
@@ -5408,7 +5413,7 @@ async function renderPortalFit(){
   const host=document.getElementById('portalfitContent'); if(!host||!window.TDCPortalFit) return;
   host.innerHTML='<div style="padding:44px;text-align:center;color:var(--text3);">Loading portal fits…</div>';
   try{
-    if(!window._pfTeamNeeds) window._pfTeamNeeds=await fetch('scripts/data/team_needs.json?v=9').then(r=>r.json());
+    if(!window._pfTeamNeeds) window._pfTeamNeeds=await fetch('scripts/data/team_needs.json?v=12').then(r=>r.json());
     if(!window._pfCoachProfs){ const cp=await fetch('scripts/data/coach_profiles.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]);
       window._pfCoachProfs={}; (Array.isArray(cp)?cp:[]).forEach(p=>{ if(p.coach_slug) window._pfCoachProfs[p.coach_slug]=p; }); }
   }catch(e){ host.innerHTML='<div style="padding:44px;text-align:center;color:var(--text3);">Portal fit data unavailable.</div>'; return; }
@@ -5437,7 +5442,7 @@ function _pfReport(r){
   const spotRows=[
     ['Position evaluated', esc(pos)+(r.offNatural?` <span class="dim">(off his natural ${esc(TDCPortalFit.pos(player))} · ${r.posPen} pt penalty)</span>`:'')],
     ['Who\'s there now', _pfSpot(r)],
-    ['Best grade at the slot', r.posBest!=null?Math.round(r.posBest):'—'],
+    ['Best grade at the slot', r.posBestOvr!=null?Math.round(r.posBestOvr):(r.posBest!=null?Math.round(r.posBest):'—')],
     ['His grade there', (r.effGrade!=null?Math.round(r.effGrade):'—')+(r.offNatural?' <span class="dim">(position-adjusted)</span>':'')],
     ['Upgrade', `<b>${r.upgrade>0?'+':''}${r.upgrade}</b> vs their best`],
     ['Projected role', `<b>${esc(r.role||'—')}</b>`],
@@ -6662,7 +6667,7 @@ async function renderNilPlayer(){
   }
   else {  // team not tiered / player not on roster — compute live from the same model
     grade=parseFloat(player&&player.tdc_grade)||null;
-    mpg=(player&&+player.mpg>0?+player.mpg:(grade>=88?28:grade>=82?24:grade>=76?20:15));
+    mpg=(player&&+player.mpg>0?+player.mpg:((typeof frMpgGuess==='function')?frMpgGuess(player):18));   // not from the overall
     prem=N.marketPremium(N.htIn(player&&player.height),+(player&&player.ppg)||0,conf,pos,null);
     walkon=(grade!=null&&N.gradeBase(grade)<=0.003);
     value=(grade==null)?null:N.gradeValue(grade,mpg,nilTier,prem,cls,pos);
@@ -6855,7 +6860,7 @@ async function renderScheme(){
   const isTransfer=!!(player.hometown&&(''+player.hometown).trim());
   const isFresh=!(hist.length) || !(pf(demo.ppg)>0);
   const demoMpg=pf(demo.mpg);
-  const projMpg=(typeof proj!=='undefined'&&proj&&pf(proj.mpg)>0)?pf(proj.mpg):(demoMpg>0?demoMpg:(parseInt(player.tdc_grade)>=85?26:20));
+  const projMpg=(typeof proj!=='undefined'&&proj&&pf(proj.mpg)>0)?pf(proj.mpg):(demoMpg>0?demoMpg:((typeof frMpgGuess==='function')?frMpgGuess(player):20));   // not from the overall
   const isBig=/^(C|PF|F)/.test((player.position||'').toUpperCase());
   host.innerHTML='<div class="rk-sub" style="padding:30px 0;text-align:center;">Projecting across systems…</div>';
   // resolve his OLD system (transfers, for the demonstrated fallback), then his OWN system

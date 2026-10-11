@@ -18,6 +18,10 @@
   // The OVR shown everywhere (badges, cards, Lineup OVR) = the PROJECTED overall — the same
   // number as the player card and the rest of the site — not the raw tdc_grade. Using raw for
   // the Lineup OVR while the badges showed projected is why the panel read ~4 pts too low.
+  // PRODUCTION quality for every lineup decision and spread (TDCProjGrade.statQual — per-40 production of the
+  // projected line, 75 ± 6). Owner rule (Oct 2026): the overall (dispGrade) is shown, never used.
+  function prodQ(p){ var q=NaN; try{ if(window.TDCProjGrade&&TDCProjGrade.statQual) q=TDCProjGrade.statQual(p); }catch(e){}
+    return isFinite(q)?q:74; }
   function dispGrade(p){
     if(!p) return NaN;
     if(p._projGrade!=null && !isNaN(parseFloat(p._projGrade))) return Math.round(parseFloat(p._projGrade));
@@ -76,8 +80,9 @@
       Playmaking:nz(S('apg'),7,19), Rebounding:nz(S('rpg'),15,38),
       'Perimeter D':nz(S('stl'),2,7), 'Rim Protect':nz(anchor*22+second*11+S('blk')*2,10,68) };
     var grades=ps.map(dispGrade).filter(function(g){return !isNaN(g);});
-    var rating=grades.length?Math.round(grades.reduce(function(a,b){return a+b;},0)/grades.length):null;
-    return {overall:overall,synRaw:synRaw,dims:dims,rating:rating,shooters:spacers,count:ps.length,best:best,worst:worst,starters:ps};
+    var rating=grades.length?Math.round(grades.reduce(function(a,b){return a+b;},0)/grades.length):null;   // display ("Lineup OVR")
+    var prod=ps.reduce(function(t,p){return t+prodQ(p);},0)/ps.length;                                      // what the matchup math uses
+    return {overall:overall,synRaw:synRaw,dims:dims,rating:rating,prod:prod,shooters:spacers,count:ps.length,best:best,worst:worst,starters:ps};
   }
 
   // pick a starting five from a roster and slot them PG..C by position
@@ -204,14 +209,14 @@
   }
   // the highest-value five the roster can field — talent + fit, from the top rotation
   function bestLineup(rows){
-    var R=(rows||[]).filter(function(p){ return p&&num(p,'mpg')>=1&&p.name&&!isNaN(parseFloat(p.tdc_grade)); });
+    var R=(rows||[]).filter(function(p){ return p&&num(p,'mpg')>=1&&p.name; });
     if(R.length<5) return null;
     R.sort(function(a,b){return num(b,'mpg')-num(a,'mpg');});
     var pool=R.slice(0,9), best=null;
     var pick=function(arr,k,start,cur,cb){ if(cur.length===k){cb(cur);return;} for(var i=start;i<arr.length;i++){cur.push(arr[i]);pick(arr,k,i+1,cur,cb);cur.pop();} };
     pick(pool,5,0,[],function(five){
       var sum=0,cnt=0; for(var i=0;i<5;i++)for(var j=i+1;j<5;j++){sum+=pairSynergy(five[i],five[j]).score;cnt++;}
-      var syn=sum/cnt, rating=five.reduce(function(t,p){var gg=dispGrade(p);return t+(isNaN(gg)?0:gg);},0)/5, score=rating*0.6+syn*0.4;
+      var syn=sum/cnt, rating=five.reduce(function(t,p){var gg=dispGrade(p);return t+(isNaN(gg)?0:gg);},0)/5, prod=five.reduce(function(t,p){return t+prodQ(p);},0)/5, score=prod*0.6+syn*0.4;
       if(!best||score>best.score) best={five:five.slice(),syn:spreadSyn(Math.round(syn)),rating:Math.round(rating),score:score};
     });
     return best;
@@ -229,8 +234,8 @@
     var winsB=rows.filter(function(r){return r.edge==='B';}).length;
     // matchup power = talent (rating) + fit (synergy) + how many battles you win
     var sA=(anA.synRaw!=null?anA.synRaw:anA.overall), sB=(anB.synRaw!=null?anB.synRaw:anB.overall);
-    var powerA=(anA.rating||70)*0.62 + sA*0.28 + winsA*2.0;
-    var powerB=(anB.rating||70)*0.62 + sB*0.28 + winsB*2.0;
+    var powerA=(anA.prod!=null?anA.prod:74)*0.62 + sA*0.28 + winsA*2.0;   // production, not the overall
+    var powerB=(anB.prod!=null?anB.prod:74)*0.62 + sB*0.28 + winsB*2.0;
     var spread=Math.round((powerA-powerB)*1.15*10)/10;   // projected points, lineup-only read
     var favA=spread>=0;
     // 0-100 tug-of-war: team A's share of the bar (>50 when A is stronger)
@@ -296,10 +301,10 @@
       return '<div class="mu-pos">'
         +'<div class="mu-pos-side'+(aWin?' win':'')+'" style="text-align:right;">'
           +'<span class="mu-pos-nm">'+esc(an)+'</span>'
-          +'<span class="mu-pos-g" style="color:'+(aWin?cA:'var(--text3)')+'">'+(r.ga||'—')+'</span></div>'
+          +'<span class="mu-pos-g" style="color:'+(aWin?cA:'var(--text3)')+'">'+(r.da!=null?r.da:'—')+'</span></div>'
         +'<div class="mu-pos-l">'+r.pos+'</div>'
         +'<div class="mu-pos-side'+(bWin?' win':'')+'">'
-          +'<span class="mu-pos-g" style="color:'+(bWin?cB:'var(--text3)')+'">'+(r.gb||'—')+'</span>'
+          +'<span class="mu-pos-g" style="color:'+(bWin?cB:'var(--text3)')+'">'+(r.db!=null?r.db:'—')+'</span>'
           +'<span class="mu-pos-nm">'+esc(bn)+'</span></div>'
         +'</div>';
     }).join('');
@@ -330,8 +335,9 @@
     var byPos=function(s,pos){ for(var i=0;i<s.length;i++) if(s[i].pos===pos&&s[i].p) return s[i].p; return null; };
     return ['PG','SG','SF','PF','C'].map(function(pos){
       var a=byPos(sA,pos), b=byPos(sB,pos);
-      var ga=a?(parseFloat(a.tdc_grade)||0):0, gb=b?(parseFloat(b.tdc_grade)||0):0, diff=ga-gb;
-      return {pos:pos, a:a, b:b, ga:ga, gb:gb, diff:diff, edge:Math.abs(diff)<2?0:(diff>0?'A':'B'), mag:Math.abs(diff)};
+      var ga=a?prodQ(a):0, gb=b?prodQ(b):0, diff=ga-gb;   // production edge at the spot
+      var da=a?dispGrade(a):NaN, db=b?dispGrade(b):NaN;   // shown
+      return {pos:pos, a:a, b:b, ga:ga, gb:gb, da:(isNaN(da)?null:da), db:(isNaN(db)?null:db), diff:diff, edge:Math.abs(diff)<2?0:(diff>0?'A':'B'), mag:Math.abs(diff)};
     });
   }
 

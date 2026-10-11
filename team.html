@@ -15,7 +15,7 @@
   <script src="tdc-nilchart.js?v=1"></script>
   <script src="tdc-gate.js?v=4"></script>
   <script src="tdc-pos.js"></script>
-  <script src="tdc-awards.js?v=24"></script>
+  <script src="tdc-awards.js?v=25"></script>
   <script src="tdc-proj.js?v=hg5"></script>
   <script src="tdc-freshman.js?v=pub30"></script>
   <script src="tdc-injury.js?v=5"></script>
@@ -24,7 +24,7 @@
   <script src="tdc-schedule.js?v=38"></script>
   <script src="tdc-scrim.js?v=19"></script>
   <script src="tdc-preview.js?v=40s"></script>
-  <script src="tdc-projgrade.js?v=base54"></script>
+  <script src="tdc-projgrade.js?v=base57"></script>
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-pool.js?v=5"></script>
@@ -1628,6 +1628,9 @@ function gc(g){return {"A+":"gAp","A":"gA","A-":"gAm","B+":"gBp","B":"gB","B-":"
 // from the shared tdc-projgrade.js model), else the demonstrated/enriched grade
 // (freshmen keep their editor OVR). Same number the player page shows.
 function _gdisp(p){ if(!p) return ''; return (p._projGrade!=null&&!isNaN(p._projGrade))?p._projGrade:(p.tdc_grade!=null?p.tdc_grade:''); }
+// PRODUCTION quality (TDCProjGrade.statQual — per-40 production of the projected line, 75 ± 6) for every lineup
+// decision, minute split and score on this page. _gdisp (the overall) is DISPLAY only (owner rule, Oct 2026).
+function _prodQ(p){ try{ if(window.TDCProjGrade&&TDCProjGrade.statQual){ const q=TDCProjGrade.statQual(p); if(isFinite(q)) return q; } }catch(e){} return 74; }
 
 // Brightened team variant for the LIGHT-mode hero wash: dark team colors (navy) laid
 // over white read muddy-grey, so lift lightness to ~60% and floor saturation (mirrors
@@ -3372,7 +3375,7 @@ function calcCustomAnalytics(){
   const starters = POS_KEYS.map(pos => (customDepth[pos]||[])[0]).filter(Boolean);
   if(!starters.length) return null;
 
-  let weightedGrade=0, totalMins=0, overload=0, offScore=0;
+  let weightedGrade=0, weightedQ=0, totalMins=0, overload=0, offScore=0;
   starters.forEach(p => {
     const pos = customPos[p.name] || p.position || 'G';
     const fit = calcPositionFit(p, pos);
@@ -3384,6 +3387,7 @@ function calcCustomAnalytics(){
     const mpgBase = parseFloat(p.mpg)||22;
     const mpg = customMpg[p.name] !== undefined ? customMpg[p.name] : mpgBase;
     weightedGrade += effGrade * mpg;
+    weightedQ += Math.max(40, Math.min(99, _prodQ(p) + fit.adjGrade)) * mpg;   // production, for the power estimate
     totalMins += mpg;
     // Wear/foul risk is grounded in a sustainable starter load: 34 MPG is a full-time starter,
     // and every minute past that is "overload". Bigs (PF/C) also pick up foul exposure once run
@@ -3415,7 +3419,9 @@ function calcCustomAnalytics(){
   // Projected Power Rating from the lineup's minutes-weighted starter OVR — calibrated across
   // 99 teams (r=0.75): PowerRating ≈ -92.9 + 1.38 × starterOVR. Reacts live to swaps + minutes,
   // so adding a star visibly swings the team's projected strength & national rank.
-  const projPower = Math.round((-92.9 + 1.38*avgGrade)*10)/10;
+  // (Oct 2026: driven by the starters' PRODUCTION quality, same 75 ± 6 scale — the overall is display only)
+  const avgQ = totalMins>0 ? weightedQ/totalMins : 74;
+  const projPower = Math.round((-92.9 + 1.38*avgQ)*10)/10;
   return {
     avgGrade: Math.round(avgGrade*10)/10,
     projPower: projPower,
@@ -3672,7 +3678,7 @@ function renderMinsBudget(){
 function _effGrade(p, pos){
   // numeric projected OVR for returners (_gdisp), falling back to the raw grade —
   // NOT gradeToNum(), which only maps letter grades and would flatten everyone to 70
-  const g=parseFloat(_gdisp(p))||parseFloat(p.tdc_grade)||70;
+  const g=_prodQ(p);   // production, not the overall
   const fit=calcPositionFit(p, customPos[p.name]||pos);
   return Math.max(40, Math.min(99, g + (fit.adjGrade||0)));
 }
@@ -3696,7 +3702,7 @@ function _rbSegColor(i){ return ['var(--tc,#2c6ef2)',
 // _effGrade(), this ignores the customPos override so we can measure a player at
 // any spot during assignment — e.g. what a natural SG would be worth at SF.
 function _effAtPos(p, pos){
-  const g=parseFloat(_gdisp(p))||parseFloat(p.tdc_grade)||70;
+  const g=_prodQ(p);   // production, not the overall
   const fit=calcPositionFit(p, pos);
   return Math.max(40, Math.min(99, g + (fit.adjGrade||0)));
 }
@@ -4544,7 +4550,7 @@ function _rosterSupply(){
   var proj=[]; try{ proj=buildCustomProjections()||[]; }catch(e){}
   var ps=proj.filter(p=>p&&p.name).slice(0,10);   // rotation
   if(!ps.length) return null;
-  var g=p=>parseFloat(p.tdc_grade)||0, ht=p=>(_htIn(p.height)||78), num=(p,k)=>parseFloat(p[k])||0;
+  var g=p=>_prodQ(p), ht=p=>(_htIn(p.height)||78), num=(p,k)=>parseFloat(p[k])||0;   // production quality, not the overall
   var byG=[...ps].sort((a,b)=>g(b)-g(a)), top8=byG.slice(0,8);
   // tempo: guard/wing share of the top 8 (shorter, quicker = up-tempo friendly)
   var gw=top8.filter(p=>{var h=ht(p),pos=(p.position||'').toUpperCase();return pos==='PG'||pos==='SG'||pos==='SF'||h<=79;}).length;
@@ -4773,7 +4779,7 @@ function applyRoleToProjection(proj, roleKey, grade, naturalPos, assignedPos){
     if(mods[k]!=null&&result[k]!=null) result[k]=r1t(parseFloat(result[k])*mods[k]);
   });
   if(roleKey==='first_option'){
-    const g=parseFloat(grade)||70;
+    const g=_prodQ(proj);   // his production quality sets the first-option ceiling, not his overall
     if(g<78){ result.fg_pct=r1t(Math.max(30,(parseFloat(result.fg_pct)||42)-2.5)); result.tp_pct=r1t(Math.max(18,(parseFloat(result.tp_pct)||33)-1.5)); }
     const cap=g>=90?30:g>=85?25:g>=80?21:g>=75?17:g>=70?13:10;
     result.ppg=r1t(Math.min(cap,parseFloat(result.ppg)||0));
@@ -5793,7 +5799,7 @@ function analyzeWeaknesses(proj){
   const hts=starters.map(p=>_inches(p.height)).filter(Boolean);
   const avgHt=hts.length?hts.reduce((s,v)=>s+v,0)/hts.length:77;
   const maxHt=hts.length?Math.max(...hts):77;
-  const benchQ=rot.slice(5).filter(p=>(parseFloat(p.tdc_grade)||0)>=78).length;
+  const benchQ=rot.slice(5).filter(p=>_prodQ(p)>=78).length;
   const upper=rot.filter(p=>/jr|sr|gr|r-jr|r-sr/i.test(p.class_year||p.yr||'')).length;
   const topShare=adv.ppg?Math.max(...starters.map(p=>parseFloat(p.ppg)||0))/adv.ppg*100:0;
   const scores={
@@ -5850,8 +5856,8 @@ const FIX_FILTERS={
   ft:{test:p=>(parseFloat(p.ft_pct)||0)>=80&&(parseFloat(p.fta)||0)>=2.5,rank:p=>parseFloat(p.ft_pct)||0},
   defense:{test:p=>((parseFloat(p.stl)||0)+(parseFloat(p.blk)||0))>=2,rank:p=>(parseFloat(p.stl)||0)+(parseFloat(p.blk)||0)},
   size:{test:p=>(_inches(p.height)||0)>=81,rank:p=>_inches(p.height)||0},
-  depth:{test:p=>(parseFloat(p.tdc_grade)||0)>=80,rank:p=>parseFloat(p.tdc_grade)||0},
-  experience:{test:p=>/jr|sr|gr/i.test(p.class_year||p.yr||'')&&(parseFloat(p.tdc_grade)||0)>=78,rank:p=>parseFloat(p.tdc_grade)||0},
+  depth:{test:p=>_prodQ(p)>=80,rank:p=>_prodQ(p)},
+  experience:{test:p=>/jr|sr|gr/i.test(p.class_year||p.yr||'')&&_prodQ(p)>=78,rank:p=>_prodQ(p)},
   balance:{test:p=>(parseFloat(p.ppg)||0)>=13,rank:p=>parseFloat(p.ppg)||0},
 };
 const FIX_SLOT={shooting:'SG',rim:'C',rebounding:'PF',playmaking:'PG',security:'PG',ft:'SG',defense:'SF',size:'C',depth:'SF',experience:'SF',balance:'SG'};
@@ -7877,6 +7883,11 @@ async function computeSeasonAwards(rows, yr){
   const players=(rows||[]).filter(r=>r.name && (parseFloat(r.gp)||0)>0);
   // same canonical grade the roster cards and the player hero show (statistical overall)
   const grade=p=>(p._projGrade!=null?parseFloat(p._projGrade):parseFloat(p.tdc_grade))||0, ppg=p=>parseFloat(p.ppg)||0, mpg=p=>parseFloat(p.mpg)||0;
+  // SELECTION is on that season's PRODUCTION (owner rule, Oct 2026: the overall is display only):
+  // per-game production = pts + ½ reb + 0.7 ast + stl + blk − tov; the shown grades stay labels.
+  const _n=(p,k)=>parseFloat(p&&p[k])||0;
+  const prodPG=p=>p?(_n(p,'ppg')+0.5*_n(p,'rpg')+0.7*_n(p,'apg')+_n(p,'stl')+_n(p,'blk')-_n(p,'tovs')):0;
+  const prodQ40=p=>{ const m=_n(p,'mpg'); if(!(m>0)) return 0; const x=(prodPG(p)*40/m*m+20.9*20)/(m+20); return 75.4+3.1*(x-20.9); };   // statQual's scale
   if(!players.length || !players.some(p=>grade(p))){ body.innerHTML='<div class="empty-note" style="padding:6px 2px;">Not enough data for awards this season.</div>'; return; }
   const nt=s=>(s||'').toLowerCase().trim();
   const tmatch=(a,b)=>{a=nt(a);b=nt(b);return !!a&&!!b&&(a===b||a.startsWith(b)||b.startsWith(a));};
@@ -7887,7 +7898,7 @@ async function computeSeasonAwards(rows, yr){
   if(prevFetched){
     const ids=players.map(p=>p.espn_id).filter(Boolean);
     if(ids.length){
-      const pr=await fetch(`${SB_URL}/rest/v1/player_history?espn_id=in.(${ids.join(',')})&season_year=eq.${yr-1}&select=espn_id,team,tdc_grade,ppg`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+      const pr=await fetch(`${SB_URL}/rest/v1/player_history?espn_id=in.(${ids.join(',')})&season_year=eq.${yr-1}&select=espn_id,team,tdc_grade,ppg,rpg,apg,stl,blk,tovs,mpg`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
       // prior-season grade on the same canonical scale (statistical overall), so
       // "Most Improved 73 → 79" compares like with like
       let _hl=false; try{ if(window.TDCProjGrade&&TDCProjGrade.loadHist){ await TDCProjGrade.loadHist(); _hl=true; } }catch(e){}
@@ -7901,14 +7912,14 @@ async function computeSeasonAwards(rows, yr){
   const isNew=p=> prevFetched ? !onTeamLastYr(p) : /fr/i.test(p.yr||'');
   const best=(arr,score)=>arr.length?[...arr].sort((a,b)=>score(b)-score(a))[0]:null;
 
-  const poy=best(players, p=>grade(p)*10+ppg(p));
-  const newcomer=best(players.filter(isNew), p=>grade(p)*10+ppg(p));
-  const returners=players.filter(p=>{const q=pv(p); return q&&tmatch(q.team,thisTeam)&&parseFloat(q.tdc_grade);});
-  const dgr=p=>grade(p)-(parseFloat(pv(p).tdc_grade)||0);
+  const poy=best(players, p=>prodPG(p));
+  const newcomer=best(players.filter(isNew), p=>prodPG(p));
+  const returners=players.filter(p=>{const q=pv(p); return q&&tmatch(q.team,thisTeam)&&_n(q,'mpg')>0;});
+  const dgr=p=>prodPG(p)-prodPG(pv(p));   // change in per-game production
   const improved=best(returners, dgr);
-  const disappoint=best(returners.filter(p=>(parseFloat(pv(p).tdc_grade)||0)>=72 && mpg(p)>=6), p=>-dgr(p));
+  const disappoint=best(returners.filter(p=>prodPG(pv(p))>=8 && mpg(p)>=6), p=>-dgr(p));
   const clsB=p=>{const y=nt(p.yr); return y.includes('fr')?5:y.includes('so')?3:y.includes('jr')?1:y.includes('sr')?-3:0;};
-  const prospect=best(players, p=>grade(p)+clsB(p)+ppg(p)*0.05);
+  const prospect=best(players.filter(p=>mpg(p)>=8), p=>prodQ40(p)+clsB(p));
 
   // Offensive / Defensive POY — from per-game production (rotation players only)
   const sv=(p,k)=>parseFloat(p[k])||0;

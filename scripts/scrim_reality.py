@@ -99,12 +99,13 @@ def competitive(m, pred):
     return clip(1 - max(0, abs(m) - max(12, exp + 10)) / 25)
 
 
-# WHO WAS MISSING: a projected-rotation player who sat is worth WA_A x max(OVR - WA_C, 0) x mpg/40 Wins Added
-# (fit on 2,186 projected returners, r=.95 — works for freshmen too, from their editor/fit OVR and minutes) and
+# WHO WAS MISSING: a projected-rotation player who sat is worth his projected season Wins Added (the build's
+# level-adjusted proj_wa for a returner, fresh_fit pwa — his projected line valued the same way — for a newcomer;
+# never an overall, owner rule Oct 2026) and
 # PTS_PER_WA points of margin per game (34 pts per win over 31 games, less the part his minutes' replacement makes
 # back). The line a scrimmage is judged against uses both teams' lineup-adjusted strength, and a side's Reality
 # drops with its OPPONENT's availability: UNC's stats against a USC missing three of its top eight are not a full game.
-WA_C, WA_A, PTS_PER_WA, MISS_CAP = 67.0, 0.24, 0.85, 12.0
+PTS_PER_WA, MISS_CAP = 0.85, 12.0
 OPP_AVAIL_FLOOR = 0.6     # side score x (OPP_AVAIL_FLOOR + (1 - OPP_AVAIL_FLOOR) x opponent availability)
 
 
@@ -132,19 +133,19 @@ def main():
         return out
 
     def value_of(full):
-        """{roster name: (OVR, projected mpg)} — the returner projection, else the newcomer fit"""
+        """{roster name: projected season Wins Added} — the returner projection, else the newcomer's projected line"""
         t = T.get(full); short = t and t["team"]; out = {}
         if not short: return out
         for p in get(f"players?select=name,espn_id&team=eq.{urllib.parse.quote(short)}"):
             s_ = SOP.get(str(p["espn_id"])) if p.get("espn_id") else None
             f = (FRESH.get(short) or {}).get(p["name"])
-            src = s_ if (s_ and s_.get("ovr") is not None) else f
-            if src and src.get("ovr") is not None: out[p["name"]] = (float(src["ovr"]), float(src.get("mpg") or 0))
+            w = (s_ or {}).get("proj_wa") if (s_ and s_.get("proj_wa") is not None) else (f or {}).get("pwa")
+            if w is not None: out[p["name"]] = float(w)
         return out
 
     def miss_pts(full, names):
         v = value_of(full)
-        wa = sum(WA_A * max(v[n][0] - WA_C, 0) * v[n][1] / 40 for n in names if n in v)
+        wa = sum(max(v[n], 0.0) for n in names if n in v)
         return round(min(MISS_CAP, PTS_PER_WA * wa), 1)
 
     def side(box, full, margin, pred):

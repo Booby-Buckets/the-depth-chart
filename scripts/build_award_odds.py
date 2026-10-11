@@ -390,8 +390,9 @@ BOX = {
     "roy":   ["ppg", "rpg", "apg", "spg", "bpg", "ts", "mpg", "played", "winpct", "crank"],
     "sixth": ["ppg", "rpg", "apg", "ts", "mpg", "played", "winpct", "crank"],
 }
-# "owned" variant = the same box set + the site's statistical overall (stat_overall_history, 2010+)
-VARIANTS = {"box": lambda a: BOX[a], "owned": lambda a: BOX[a] + ["ovr"]}
+# Box features only. The "owned" variant (box + the site's overall) is retired: owner rule (Oct 2026) — an overall
+# is display only, so no award probability may be driven by it.
+VARIANTS = {"box": lambda a: BOX[a]}
 AWARD_NAME = {"npoy": "National Player of the Year", "poy": "Conference Player of the Year",
               "dpoy": "Conference Defensive Player of the Year", "roy": "Conference Freshman of the Year",
               "sixth": "Conference Sixth Man of the Year"}
@@ -585,10 +586,19 @@ def fresh_line(p, prof, fit, FRB):
     ovr = fnum(prof.get("ovr"), None) if prof.get("ovr") not in (None, "") else None
     grade = ovr if ovr is not None else (fnum(p.get("tdc_grade"), 0) or 70)
     pos = p.get("position") if p.get("position") in ("PG", "SG", "SF", "PF", "C") else "SG"
-    tier = "92+" if grade >= 92 else "85-91" if grade >= 85 else "75-84" if grade >= 75 else "below75"
-    b = dict(FRB[tier][pos])
+    # base line = the freshman model's per-40 rates for him (fresh_fit r40: 247 rank / level / position), per 32
+    # minutes — never a grade tier (owner rule, Oct 2026). The grade tier stays only as a no-model fallback.
+    r40 = (fit or {}).get("r40")
+    if r40:
+        k32 = 32 / 40
+        b = {"ppg": r40.get("pts", 0) * k32, "rpg": (r40.get("oreb", 0) + r40.get("dreb", 0)) * k32, "apg": r40.get("ast", 0) * k32,
+             "dreb": r40.get("dreb", 0) * k32, "stl": r40.get("stl", 0) * k32, "blk": r40.get("blk", 0) * k32,
+             "fg_pct": r40.get("fg_pct", 45), "tp_pct": r40.get("tp_pct", 33), "ft_pct": r40.get("ft_pct", 70)}
+    else:
+        b = dict(FRB["75-84"][pos])
     b["fg_pct"] = clip(b["fg_pct"], 30, 70); b["tp_pct"] = clip(b["tp_pct"], 0, 48); b["ft_pct"] = clip(b["ft_pct"], 45, 95)
-    role = prof.get("role") or ("star" if grade >= 90 else "starter" if grade >= 82 else "rotation" if grade >= 74 else "bench")
+    _rk = fnum((fit or {}).get("rank"), 0)
+    role = prof.get("role") or ("star" if 0 < _rk <= 10 else "starter" if 0 < _rk <= 50 else "rotation")   # by 247 rank, not grade
     mpg, usg = FR_ROLE.get(role, FR_ROLE["starter"])
     sc = mpg / 32
     b["apg"] = min(b["apg"] * sc, 6.0) / sc; b["ppg"] = min(b["ppg"] * sc * usg, 22) / (sc * usg)

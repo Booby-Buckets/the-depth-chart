@@ -23,8 +23,8 @@
   <title>Portal Fit — The Depth Chart</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
-  <script src="tdc-projgrade.js?v=base54"></script>
-  <script src="tdc-portalfit.js?v=needs11"></script>
+  <script src="tdc-projgrade.js?v=base57"></script>
+  <script src="tdc-portalfit.js?v=needs12"></script>
   <style>
     :root{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--green:#5ab875;--amber:#d4a24a;--red:#e07070;}
     *{margin:0;padding:0;box-sizing:border-box;}
@@ -208,7 +208,7 @@ const whyTd=r=>`<td class="l dim why" title="${escA(r.why)}">${r.why||''}</td>`;
 
 async function boot(){
   const [tn,cp]=await Promise.all([
-    fetch('scripts/data/team_needs.json?v=9').then(r=>r.json()),
+    fetch('scripts/data/team_needs.json?v=12').then(r=>r.json()),
     fetch('scripts/data/coach_profiles.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[])
   ]);
   TEAMS=tn.teams||[];
@@ -258,8 +258,8 @@ async function ensurePool(){
 }
 function teamHeaderHtml(t){
   const POSK=['PG','SG','SF','PF','C'];
-  const cells=POSK.map(p=>{ const b=t.pos&&t.pos[p]&&t.pos[p].best; const weak=(b==null)||b<76;
-    return `<div class="tn-pos${weak?' weak':''}"><div class="p">${p}</div><div class="g">${b!=null?b:'—'}</div></div>`; }).join('');
+  const cells=POSK.map(p=>{ const b=t.pos&&t.pos[p]&&t.pos[p].best, bo=t.pos&&t.pos[p]&&t.pos[p].bestOvr; const weak=(b==null)||b<76;
+    return `<div class="tn-pos${weak?' weak':''}"><div class="p">${p}</div><div class="g">${bo!=null?bo:(b!=null?Math.round(b):'—')}</div></div>`; }).join('');
   return `<div class="phero" style="align-items:flex-start;">
     <div class="pmono">${initials(t.full||t.team)}</div>
     <div style="flex:1;min-width:0;"><div class="pname">${t.full||t.team}</div>
@@ -286,7 +286,7 @@ async function renderTeam(){
     <td class="l nm"><a href="player.html?espn=${r.espn_id||''}&name=${encodeURIComponent(r.player)}">${r.player}</a></td>${fitTds(r)}
     <td class="l dim">${r.playerPos}</td><td>${r.playerGrade}</td><td class="l dim">${r.playerTeam||''}</td><td class="l dim">${r.playerArch||''}</td>
     <td class="l dim">${r.playerPos}${r.offNatural?` (from ${r.naturalPos})`:''}</td>
-    <td class="l dim">${r.slid?'covered by others':(r.starter||'—')} (${r.posBest})</td>
+    <td class="l dim">${r.slid?'covered by others':(r.starter||'—')} (${r.posBestOvr!=null?r.posBestOvr:Math.round(r.posBest)})</td>
     <td${r.upgrade>0?'':' class="dim"'}>${r.upgrade>0?'+'+r.upgrade:'—'}</td>
     <td class="l">${r.role}</td>
     <td class="l dim">${(r.cur&&((+r.cur.ppg||0)>0||(+r.cur.rpg||0)>0||(+r.cur.apg||0)>0))?projLineStr(r.cur):'—'}</td>${projCells(r.cur, r.proj)}${whyTd(r)}
@@ -310,7 +310,7 @@ function renderPlayerFits(){
     <td class="l dim">${r.conf||''}</td><td class="dim">${r.rank||'—'}</td>
     <td class="l dim">${r.coach||'n/a'}</td><td class="l dim">${r.coach&&r.archetype?r.archetype:''}</td>
     <td class="l dim">${r.playerPos}${r.offNatural?` (from ${r.naturalPos})`:''}</td>
-    <td class="l dim">${r.slid?'covered by others':(r.starter||'—')} (${r.posBest})</td>
+    <td class="l dim">${r.slid?'covered by others':(r.starter||'—')} (${r.posBestOvr!=null?r.posBestOvr:Math.round(r.posBest)})</td>
     <td${r.upgrade>0?'':' class="dim"'}>${r.upgrade>0?'+'+r.upgrade:'—'}</td>
     <td class="l">${r.role}</td>${projCells(cur, r.proj)}${whyTd(r)}
   </tr>`).join('');

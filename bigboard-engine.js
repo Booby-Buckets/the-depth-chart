@@ -180,11 +180,16 @@
   function scoreProspect(p,dist,teamMap,ageOvr,nTeams){
     var s=p._s, grp=pgrp(p.position), ht=htIn(p.height), ci=classInfo(p);
     var age=ageEst(p,ageOvr);   // needed by youth/size-upside below, not just the final curve
-    // Grade anchor: use the canonical v5 projected grade (level-adjusted + dev),
-    // stamped by compute() for the projected season, so the board's grade term
-    // matches the OVR shown everywhere else on the site. Falls back to the raw
-    // scouting grade for historical seasons.
-    var g=isFinite(p._projGrade)?p._projGrade:parseFloat(p.tdc_grade), hasG=isFinite(g);
+    // College-value anchor = PRODUCTION quality (TDCProjGrade.statQual: per-40 production of his projected line /
+    // last season / freshman-model line, 75 ± 6) — not the overall, which is display only (owner rule, Oct 2026).
+    // Read off the SAME line the board scores (s: the season's line — the canonical projection for 2026-27), so a
+    // historical board uses that season, with TDCProjGrade.statQual's formula and scale.
+    var _m=num(s.mpg), g=NaN;
+    // the projected season: projected Wins Added per 40 (level-adjusted) via TDCProjGrade.statQual
+    if(isFinite(p._sq)) g=p._sq;   // stamped in compute() for the projected boards
+    if(!isFinite(g)&&_m>0){ var _x=(num(s.ppg)+0.5*num(s.rpg)+0.7*num(s.apg)+num(s.stl)+num(s.blk)-num(s.tovs))*40/_m;
+      _x=(_x*_m+20.9*20)/(_m+20); g=Math.max(55,Math.min(97,75.4+3.1*(_x-20.9))); }
+    var hasG=isFinite(g);
     var ppgP=pctOf(dist,'ppg',s.ppg),apgP=pctOf(dist,'apg',s.apg),rpgP=pctOf(dist,'rpg',s.rpg),
         stlP=pctOf(dist,'stl',s.stl),blkP=pctOf(dist,'blk',s.blk),mpgP=pctOf(dist,'mpg',s.mpg),
         fgP=pctOf(dist,'fg_pct',s.fg_pct),tpP=pctOf(dist,'tp_pct',s.tp_pct),ftP=pctOf(dist,'ft_pct',s.ft_pct),
@@ -272,6 +277,10 @@
       // readiness is a claim about college production, so it is worth what the competition was
       ready=clamp(.32*production+.18*tsP+.20*expS+.10*(.5*ftP+.5*ballSec)+.06*scN+.14*lvl);
       pot=clamp(.24*youth+.22*athl+.18*(.62*sizeUpside+.38*defTools)+.14*tjN+.12*scN+.10*gradeNorm);
+      // RECRUITING PEDIGREE (a freshman's 247 composite rank — outside scouting, not our overall): NBA boards
+      // draft one-and-done upside on it. #1 → 100, #4 → 65, #12 → 38, #50+ → ~0; a fifth of his upside.
+      var _fr=null; try{ _fr=(window.TDCProjGrade&&TDCProjGrade.freshRowOf)?TDCProjGrade.freshRowOf(p):null; }catch(e){}
+      if(_fr&&+_fr.rank>0) pot=clamp(.80*pot+.20*clamp(100-25*Math.log(+_fr.rank)));
       draft=clamp(.32*gradeNorm+.11*ppgP+.07*usgP+.09*scN+.19*trans+.17*lvl+.05*sizeScore);
     }
     // Draft-board weighting: the NBA drafts on UPSIDE + TRANSLATABLE TOOLS, not college
@@ -371,7 +380,8 @@
     // Stamp the canonical v5 projected grade for the forward-looking boards so the grade
     // anchor matches the OVR shown on player/team/index pages.
     if((season==='2627'||season==='2728') && window.TDCProjGrade && typeof window.TDCProjGrade.gradeSolo==='function'){
-      pool.forEach(function(p){ var gv=window.TDCProjGrade.gradeSolo(p); if(isFinite(gv)) p._projGrade=gv; });
+      pool.forEach(function(p){ var gv=window.TDCProjGrade.gradeSolo(p); if(isFinite(gv)) p._projGrade=gv;   // display
+        if(TDCProjGrade.statQual){ var q=TDCProjGrade.statQual(p); if(isFinite(q)) p._sq=q; } });   // the board's college-value term
     }
     pool.forEach(function(p){p._s=basisOf(p,season,projById,projReady);});
     var dist=buildDist(pool);

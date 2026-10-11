@@ -753,28 +753,32 @@
     var f = _FRESH_ROW[_fk(p.team, p.name)]; return (f && f.ppg != null && f.rpg != null) ? f : null; };
   // ready = EVERY input of gradeSolo (stat overalls + archetype bonus + gp shrink). A page that graded
   // after only the stat files had landed showed 95 for a player whose page (bonus loaded) said 96.
-  // ── STAT QUALITY — who earns minutes / shots, from production only ────────────────────────────
-  // Owner rule (Oct 2026): an overall is display only; no minutes, shot share or stat may follow it.
-  // Coaches play producers, so the live engines rank and size roles by per-40 production
-  // (pts + ½ reb + 0.7 ast + stl + blk − tov), small-minute samples shrunk toward the rotation mean,
-  // read off: his projected line (the build) → his last season → the freshman model (fresh_fit r40).
-  // Put on the same 75 ± 6 scale the minutes code's thresholds were tuned on (rotation mean 20.6,
-  // sd 2.6 per 40 in stat_overall_projected), so the rotation logic keeps its shape.
-  var SQ_MEAN = 20.6, SQ_K = 2.3, SQ_SHRINK = 8;
+  // ── STAT QUALITY — who earns minutes / shots / a spot, from production only ─────────────────────────
+  // Owner rule (Oct 2026): an overall is display only; no minutes, shot share, fit or ranking may follow it.
+  // The measure is PROJECTED WINS ADDED PER 40 — the build's level-adjusted valuation of his projected line
+  // (stat_overall_projected proj_wa for a returner / transfer, fresh_fit pwa for a newcomer), shrunk 20 minutes
+  // toward the rotation mean. Level-adjusted matters: raw per-40 box production put McNeese / Boston U /
+  // Lindenwood sophomores atop the Big Board and is exactly the low-major inflation the projections fix.
+  // On the 75 ± 6 scale the minutes / fit code was tuned on (rotation mean 0.072 WA/40, sd 0.022 after shrink).
+  // Only a player the build never valued falls back to raw per-40 box production.
+  var SQW_MEAN = 0.072, SQW_K = 272.7, SQ_SHRINK = 20, G_SEASON = 31;
+  var SQ_MEAN = 20.9, SQ_K = 3.1;     // raw per-40 production fallback (pts + ½ reb + 0.7 ast + stl + blk − tov)
   function _p40(L, m){ if(!L || !(m > 0)) return null;
     var reb = (L.rpg != null && L.rpg !== '') ? _num(L.rpg) : _num(L.oreb) + _num(L.dreb);
     var x = (_num(L.ppg) + 0.5 * reb + 0.7 * _num(L.apg) + _num(L.stl) + _num(L.blk) - _num(L.tovs)) * 40 / m;
     return (x * m + SQ_MEAN * SQ_SHRINK) / (m + SQ_SHRINK); }
+  function _qW(wa, m){ if(wa == null || !isFinite(+wa) || !(m > 0)) return null;
+    var w40 = (+wa) / (m * G_SEASON / 40); w40 = (w40 * m + SQW_MEAN * SQ_SHRINK) / (m + SQ_SHRINK);
+    return Math.max(55, Math.min(97, 75.4 + SQW_K * (w40 - SQW_MEAN))); }
   function statQual(p){
     if(!p) return 75;
-    var x = null, r = (p.espn_id != null && _SO_PROJ_ROW) ? _SO_PROJ_ROW['' + p.espn_id] : null;
+    var r = (p.espn_id != null && _SO_PROJ_ROW) ? _SO_PROJ_ROW['' + p.espn_id] : null, q;
+    if(r){ q = _qW(r.proj_wa, _num(r.mpg)); if(q != null) return q; }
+    var f = _FRESH_ROW[_fk(p.team, p.name)];
+    if(f){ q = _qW(f.pwa, _num(f.mpg)); if(q != null) return q; }
+    var x = null;
     if(r && _num(r.mpg) > 0) x = _p40(r, _num(r.mpg));
     if(x == null && _num(p.mpg) >= 6 && _num(p.ppg) > 0) x = _p40(p, _num(p.mpg));
-    if(x == null){
-      var f = _FRESH_ROW[_fk(p.team, p.name)], q = f && f.r40;
-      if(!q && typeof window.frStatBase === 'function'){ try{ var b = window.frStatBase(p); q = { pts: b.ppg * 1.25, oreb: b.oreb * 1.25, dreb: b.dreb * 1.25, ast: b.apg * 1.25, stl: b.stl * 1.25, blk: b.blk * 1.25, tov: b.tovs * 1.25 }; }catch(e){} }
-      if(q) x = q.pts + 0.5 * (_num(q.oreb) + _num(q.dreb)) + 0.7 * _num(q.ast) + _num(q.stl) + _num(q.blk) - _num(q.tov);
-    }
     if(x == null) return 74;
     return Math.max(55, Math.min(97, 75.4 + SQ_K * (x - SQ_MEAN)));
   }
@@ -804,6 +808,7 @@
   }
   window.TDCProjGrade.frBpm = frBpm;
   window.TDCProjGrade.statQual = statQual;
+  window.TDCProjGrade.freshRowOf = function(p){ return p ? (_FRESH_ROW[_fk(p.team, p.name)] || null) : null; };   // the build's newcomer row (rank, r40, pwa…)
   window.TDCProjGrade.buildMin = buildMin;
   window.TDCProjGrade.ready = Promise.all([
     _loadSO('scripts/data/stat_overall.json?v=12').then(function(m){ if(m) setStatOverall(m, null); }),

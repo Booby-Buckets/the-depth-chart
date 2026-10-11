@@ -5,8 +5,9 @@
      - 2 All-Freshman teams (5 each)
    Nationally: 3 All-America teams (5 each).
 
-   Selection order is a deterministic score (projected BPM via the lag model,
-   TDC grade, projected production), so recomputes agree with each other.
+   Selection order is a deterministic STAT score (projected Wins Added, the projected
+   line, projected BPM, team success) — never the overall, which is display only —
+   so recomputes agree with each other.
    Results are read from the award_projections table when it exists (single
    source of truth); otherwise computed and cached in localStorage for 24h.
 
@@ -26,7 +27,7 @@
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
   const SEASON=2027, LS_KEY='tdc_awards_v6_'+SEASON, TTL=24*3600*1000;
-  const GVER=10;   // grade version — bump to invalidate any cached/published blob with old grades
+  const GVER=11;   // grade version — bump to invalidate any cached/published blob with old grades
 
   function cls(yr){ yr=((yr||'')+'').toLowerCase();
     if(yr.includes('fr')) return 'FR';
@@ -34,6 +35,7 @@
     if(yr.includes('jr')) return 'JR';
     return 'SR'; }
   const CLS_BUMP={FR:0.5,SO:0.2,JR:0.1,SR:0};
+  const WA_K=6.6;   // ballot points per projected win (a 5-win star ≈ the old 90-OVR term)
 
   async function fetchPaged(url, pageSize){
     const out=[]; let off=0; pageSize=pageSize||1000;
@@ -54,7 +56,7 @@
       fetch(SB+'/rest/v1/teams?select=name,conf,conference&limit=500',{headers:H}).then(r=>r.json()),
       fetchPaged(SB+'/rest/v1/players?name=neq.%E2%80%94&select=name,team,espn_id,position,yr,class_year,tdc_grade,ppg,rpg,apg,stl,blk,mpg,is_injured,hometown&order=id.asc'),
       fetchPaged(SB+'/rest/v1/player_advanced?season_year=eq.2026&espn_id=not.is.null&select=espn_id,ti40&order=espn_id.asc'),
-      fetch('scripts/data/stat_overall_projected.json?v=93').then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch('scripts/data/stat_overall_projected.json?v=94').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch(SB+'/rest/v1/predictive_ratings?season=eq.'+SEASON+'&select=data&limit=1',{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]),
     ]);
     const confOf={}; (teams||[]).forEach(t=>{ confOf[t.name]=t.conf||t.conference||''; });
@@ -90,36 +92,42 @@
       // GRADE = the canonical projected OVR shown everywhere (gradeSolo: stat overall for returners/transfers,
       // projected newcomer OVR for freshmen). The sheet's tdc_grade is only a last resort — it is blank for
       // new transfers, which used to drop Malik Reneau (projected 90) off every ballot.
+      // DISPLAY grade only (shown on the ballot). Owner rule (Oct 2026): an overall picks nobody — every
+      // ballot below is ranked on projected STATS: Wins Added (the build's level-adjusted projection, or a
+      // newcomer's projected line valued the same way), the projected line, and projected BPM.
       let grade=null;
       if(window.TDCProjGrade&&TDCProjGrade.gradeSolo){ try{ const gs=TDCProjGrade.gradeSolo(p); if(gs!=null&&isFinite(gs)) grade=Math.round(gs); }catch(e){} }
       if(grade==null&&p.espn_id!=null&&ovrById[p.espn_id]!=null) grade=ovrById[p.espn_id];
       if(grade==null) grade=freshOvr(p);
-      if(grade==null){ const rg=parseFloat(p.tdc_grade); if(isFinite(rg)) grade=rg; }
-      if(grade==null||grade<72) return;
       const conf=confOf[p.team]||'';
       const c=cls(p.yr||p.class_year);
       const adv=p.espn_id!=null?advById[p.espn_id]:null;
       const ti=adv?parseFloat(adv.ti40):NaN;
-      const projBpm=isFinite(ti)?((ti-10)*0.5+(CLS_BUMP[c]||0)):(grade-77)*0.55-0.6;
-      const projDbpm=(grade-80)*0.15;
       // STATS = the 2026-27 projected line (same file as the player page), not last season's box score
       const pr=(p.espn_id!=null&&proj&&proj.players)?proj.players[String(p.espn_id)]:null;
       const fit=(!pr&&window.TDCFresh&&TDCFresh.fitFor)?TDCFresh.fitFor(p):null;
+      const L=pr||fit;
+      if(!L) return;                                     // the build never projected him: no stat line to vote on
       const n=v=>parseFloat(v)||0;
-      let prod, stocks, mpg;
-      if(pr){ prod=n(pr.ppg)*0.9+n(pr.rpg)*0.5+n(pr.apg)*0.7; stocks=n(pr.stl)+n(pr.blk); mpg=n(pr.mpg); }
-      else if(fit){ prod=n(fit.ppg)*0.9+Math.max(0,grade-68)*0.15; stocks=Math.max(0,grade-75)*0.06; mpg=n(fit.mpg); }
-      else { prod=Math.max(0,grade-68)*0.45; stocks=Math.max(0,grade-75)*0.06; mpg=n(p.mpg)||20; }
-      // a projected bench player can't crowd the ballot
-      if(mpg<10&&grade<80) return;
+      const mpg=n(L.mpg);
+      const wa=pr?n(pr.proj_wa):n(fit.pwa);              // projected Wins Added (season)
+      const prod=n(L.ppg)*0.9+n(L.rpg)*0.5+n(L.apg)*0.7, stocks=n(L.stl)+n(L.blk);
+      let projBpm=isFinite(ti)?((ti-10)*0.5+(CLS_BUMP[c]||0)):NaN;
+      if(!isFinite(projBpm)){ try{ projBpm=(window.TDCProjGrade&&TDCProjGrade.frBpm)?TDCProjGrade.frBpm(p,mpg):NaN; }catch(e){} }
+      if(!isFinite(projBpm)) projBpm=0;
+      // defense: owned Defensive Wins Added where the build projected it, else the league's typical rate at his minutes
+      const dwa=(pr&&pr.dwa!=null&&isFinite(+pr.dwa))?+pr.dwa:0.87*mpg/30;
+      // a projected bench player or a non-contributor can't crowd the ballot
+      if(mpg<10||wa<0.4) return;
       cand.push({
         name:p.name, team:p.team, conf, pos:p.position||'', yr:p.yr||p.class_year||'', grade, espn_id:p.espn_id,
         isFr:c==='FR',
-        // the projected OVR leads; projected production second; last season's impact only a nudge
-        score:+(2.2*(grade-75)+0.55*prod+0.3*projBpm+2.2*TEAM_W*teamZ(p.team,conf)).toFixed(2),
-        scoreNat:+(2.2*(grade-75)+0.55*prod+0.3*projBpm+2.2*TEAM_W_NAT*teamZNat(p.team)).toFixed(2),
-        def:+(2.4*projDbpm+1.5*stocks+0.4*(grade-78)).toFixed(2),
-        rook:+(grade+0.3*prod).toFixed(2),
+        // projected Wins Added leads (WA_K points per win ≈ the old OVR term's spread), then the projected line,
+        // then projected BPM, then team success
+        score:+(WA_K*wa+0.55*prod+0.3*projBpm+2.2*TEAM_W*teamZ(p.team,conf)).toFixed(2),
+        scoreNat:+(WA_K*wa+0.55*prod+0.3*projBpm+2.2*TEAM_W_NAT*teamZNat(p.team)).toFixed(2),
+        def:+(9.0*dwa+1.5*stocks).toFixed(2),
+        rook:+(WA_K*wa+0.3*prod).toFixed(2),
       });
     });
 

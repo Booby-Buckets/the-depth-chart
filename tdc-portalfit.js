@@ -182,7 +182,12 @@
   // keeping his best-fitting spot. forcePos locks it to one position (reverse-view
   // position filter); returns null if he can't play that spot.
   function scoreTeam(player, team, prof, weights, forcePos){
-    var W=weights||DEF_W, pg=parseFloat(player.tdc_grade)||70;
+    // pg = his PRODUCTION quality (TDCProjGrade.statQual: per-40 production of his projected line / last season /
+    // freshman-model line, 75 ± 6) — the same measure team_needs.json uses for each team's best at the spot, so the
+    // upgrade is production vs production. Never the overall (owner rule, Oct 2026).
+    var W=weights||DEF_W, pg=NaN;
+    try{ if(window.TDCProjGrade&&TDCProjGrade.statQual) pg=TDCProjGrade.statQual(player); }catch(e){}
+    if(!isFinite(pg)) pg=74;
     var elig=positionsFor(player), sb=coachSmallBall(prof), natural=elig[0].pos;
     var cands=forcePos?elig.filter(function(e){return e.pos===forcePos;}):elig;
     if(!cands.length) return null;
@@ -201,7 +206,7 @@
     // No player listed at this exact spot doesn't mean it's empty — an adjacent
     // guard/wing/big slides over (with a small out-of-position penalty). Falling
     // back to a phantom low baseline would fake a huge "upgrade" on loaded teams.
-    var posBest=slotD.best, slid=false;
+    var posBest=slotD.best, slid=false, posBestOvr=(slotD.bestOvr!=null?slotD.bestOvr:null);   // bestOvr: display only
     if(posBest==null){
       var ADJ={PG:['SG'],SG:['PG','SF'],SF:['SG','PF'],PF:['SF','C'],C:['PF']}[pp]||[];
       var b=0; ADJ.forEach(function(a){ var v=team.pos&&team.pos[a]&&team.pos[a].best; if(v!=null) b=Math.max(b,v-4); });
@@ -264,8 +269,8 @@
             :                                 'an established alpha is ahead of him for touches';
     var facs=[
       {w:W.need, v:need,
-        hi:(upgrade>=3?'would be their best '+pp+' (their best now is a '+Math.round(posBest)+')':'fills a thin '+pp+' spot'),
-        lo:(upgrade>=-1?'a lateral move at '+pp+' — no real upgrade':'they’re already better at '+pp+(posBest!=null?' ('+Math.round(posBest)+')':''))},
+        hi:(upgrade>=3?'would be their most productive '+pp+(posBestOvr!=null?' (their best now is a '+Math.round(posBestOvr)+')':''):'fills a thin '+pp+' spot'),
+        lo:(upgrade>=-1?'a lateral move at '+pp+' — no real upgrade':'they’re already more productive at '+pp+(posBestOvr!=null?' ('+Math.round(posBestOvr)+')':''))},
       {w:W.team, v:teamSuccess,
         hi:(rank<=25?'a genuine top-25 contender':rank<=45?'a solid, winning program':'would lift a middling team'),
         lo:(rank>=70?'a rebuilding team (#'+rank+') that won’t contend soon':'limited team upside — not a contender yet')},
@@ -294,7 +299,7 @@
     return {team:team.team, full:team.full, conf:team.conf, rank:team.rank, rating:team.rating,
       coach:team.coach, coach_slug:team.coach_slug, archetype:team.archetype,
       playerPos:pp, offNatural:!isNatural, posPen:Math.round(posPen*10)/10,
-      posBest:Math.round(posBest*10)/10, starter:slotD.starter, starterGrade:slotD.starterGrade, topReserve:slotD.topReserve||null,
+      posBest:Math.round(posBest*10)/10, posBestOvr:posBestOvr, starter:slotD.starter, starterGrade:slotD.starterGrade, topReserve:slotD.topReserve||null,
       slid:slid, upgrade:Math.round(upgrade*10)/10, effGrade:Math.round(eff*10)/10,
       need:Math.round(need), teamSuccess:Math.round(teamSuccess), playerSuccess:Math.round(playerSuccess),
       coachFit:cf.fit, overall:overall, role:role, why:why, proj:proj,

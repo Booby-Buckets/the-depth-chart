@@ -143,6 +143,30 @@ def grade(p):
             base=g + devbpm*_BR
     return round(base + _vers_of(p))         # + versatility bump, on top (matches the live display)
 
+# ── STAT QUALITY (mirror of tdc-projgrade.js statQual) — the "who is better at this spot" number for the
+# portal upgrade math. Owner rule (Oct 2026): an overall is display only, so the bar a transfer has to clear
+# is his projected WINS ADDED PER 40 (level-adjusted: stat_overall_projected proj_wa, newcomers fresh_fit pwa),
+# shrunk 20 minutes toward the rotation mean, on the 75 ± 6 scale. Keep the constants in sync with the JS.
+SQW_MEAN, SQW_K, SQ_SHRINK, G_SEASON = 0.072, 272.7, 20.0, 31.0
+try: _FF=json.load(open(os.path.join(D,"fresh_fit.json")))
+except Exception: _FF={}
+def _f(v):
+    try: return float(v or 0)
+    except (TypeError, ValueError): return 0.0
+def _qw(wa, m):
+    if wa is None or m<=0: return None
+    w=float(wa)/(m*G_SEASON/40.0); w=(w*m+SQW_MEAN*SQ_SHRINK)/(m+SQ_SHRINK)
+    return max(55.0,min(97.0,75.4+SQW_K*(w-SQW_MEAN)))
+def stat_q(p):
+    e=p.get('espn_id'); r=_SOP.get(str(e)) if e is not None else None
+    if r:
+        q=_qw(r.get('proj_wa'),_f(r.get('mpg')))
+        if q is not None: return q
+    f=(_FF.get(p.get('team')) or {}).get(p.get('name')) or {}
+    q=_qw(f.get('pwa'),_f(f.get('mpg')))
+    if q is not None: return q
+    return 74.0 if p.get('name') else None
+
 def main():
     print("fetching players (projected rosters)…")
     players=get_all("players?select=id,name,team,position,height,class_year,yr,tdc_grade,depth_order,ppg,apg,tp_pct,mpg,usage_pct,is_injured,espn_id")
@@ -226,7 +250,7 @@ def main():
     def pos_profile(roster):
         cols=defaultdict(list)
         for p in roster:
-            g=grade(p)
+            g=stat_q(p)                       # production — the upgrade-math bar (never the overall)
             if g is None: continue
             cols[slot(p.get('position'), htin(p.get('height')))].append((g,p))
         posdata={}
@@ -252,7 +276,8 @@ def main():
                 posdata[pos]={'best':round(lst[0][0],1),
                     'second':round(lst[1][0],1) if len(lst)>1 else None,
                     'depth':len([x for x in lst if x[0]>=62]),
-                    'starter':(st.get('name') if real else None),'starterGrade':(round(st_g,1) if real else None),
+                    'bestOvr':grade(lst[0][1]),   # display only
+                    'starter':(st.get('name') if real else None),'starterGrade':(grade(st) if real else None),   # display only
                     'starterDepth':sd,'topReserve':(None if real else st.get('name'))}
             else:
                 posdata[pos]={'best':None,'second':None,'depth':0,'starter':None,'starterGrade':None}
