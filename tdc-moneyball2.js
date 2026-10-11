@@ -36,9 +36,9 @@
     var N=window.TDC_NIL, R=window.TDC_RATINGS;
     var waits=['pedigreeReady','defenseReady','adjustReady','injuryReady','programsReady'].map(function(k){ return (N&&N[k])?N[k].catch(function(){}):null; });
     return Promise.all([
-      fetch('nil-data.json?v=gradesync17').then(function(r){return r.json();}),
+      fetch('nil-data.json?v=gradesync18').then(function(r){return r.json();}),
       fetch('scripts/data/stat_overall_projected.json?v=93').then(function(r){return r.json();}),
-      fetch('scripts/data/fresh_fit.json?v=38').then(function(r){return r.ok?r.json():{};}).catch(function(){return {};}),
+      fetch('scripts/data/fresh_fit.json?v=39').then(function(r){return r.ok?r.json():{};}).catch(function(){return {};}),
       R.get()].concat(waits)).then(function(a){
       var nil=a[0], SOP=(a[1]&&a[1].players)||{}, FF=a[2]||{}, D=a[3]||{teams:[]};
       var rat={}; (D.teams||[]).forEach(function(t){ rat[t.team]=t; });

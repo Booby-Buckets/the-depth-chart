@@ -1112,11 +1112,9 @@ FR_UNRANKED=float(os.environ.get("FR_UNRANKED","63.0")); FR_MIN_W=float(os.envir
 # typical D-I newcomer (owner, Oct 2026: ungraded = ~70), not as an unranked true freshman (63)
 NEWC_UNKNOWN=float(os.environ.get("NEWC_UNKNOWN","70.0"))
 def _is_fr(yr): return bool(re.match(r"\s*(r-?|rs-?)?fr", str(yr or "").lower()))
+# The freshman editor no longer sets an overall (owner, Oct 2026): an OVR saved by the old slider is ignored and
+# the displayed newcomer OVR comes from his 247 rank / sheet prior x projected role like everyone else's.
 EDITOR_OVR={}
-for _k,_v in OWNER_BLOB.items():
-    if _k.startswith("tdc_fr:") and isinstance(_v,dict) and _v.get("ovr") not in (None,""):
-        try: _,_ft,_fn=_k.split(":",2); EDITOR_OVR[(_ft.strip(),_fn.strip().lower())]=float(_v["ovr"])
-        except Exception: pass
 def fr_rank_grade(rk):
     x=math.log(max(1,rk)); pts=[(math.log(r),g) for r,g in FR_RANK_T]
     if x<=pts[0][0]: return pts[0][1]
@@ -1957,6 +1955,14 @@ for _sh,_fm in FRESH_FIT.items():
             if _mt>_m0+0.5 and _m0>0:
                 _svp=_sv_of(_full,_f.get("r40"),_mt,(_f.get("ppg") or 0)*_mt/_m0)
                 if _svp is not None: _f["svp"]=int(max(_sv,_svp)); _f["mpg_pot"]=round(_mt,1)
+# THE DISPLAYED NEWCOMER OVR IS HIS STAT VALUE (owner, Oct 2026: the editor no longer sets an overall, and TDC
+# ratings are stat-driven): his projected line valued like a returner's. The recruiting-band prior stays as
+# ovr_prior (it read every unranked international pro as a flat 63). Real games then move both the same way.
+for _sh,_fm in FRESH_FIT.items():
+    for _nm,_f in _fm.items():
+        if _f.get("sv") is not None:
+            if _f.get("ovr") is not None: _f["ovr_prior"]=_f["ovr"]
+            _f["ovr"]=int(_f["sv"]); _f["src"]="stat"
 print(f"newcomer stat values: {_nsv}",file=sys.stderr)
 _nrg=0
 for _sh,_fm in FRESH_FIT.items():
@@ -1974,7 +1980,7 @@ for _sh,_fm in FRESH_FIT.items():
         _ff=ROLE_FLOOR*min(1.0,_rg["min"]/ROLE_FLOOR_MIN)
         _stat=to_grade((_wa/max(_mn/40.0,0.1))*(_ff+(1.0-_ff)*math.sqrt(min(max(_mn/P90,0),1.3))))
         _wf=min(REAL_CAP,_rg["g"]/(_rg["g"]+REAL_PRIOR_NEW))
-        _f["ovr_prior"]=_f["ovr"]; _f["ovr"]=int(round((1-_wf)*_f["ovr"]+_wf*_stat)); _f["real_g"]=_rg["g"]; _nrg+=1
+        _f["ovr"]=int(round((1-_wf)*_f["ovr"]+_wf*_stat)); _f["real_g"]=_rg["g"]; _nrg+=1
         if _f.get("sv") is not None: _f["sv"]=int(round((1-_wf)*_f["sv"]+_wf*_stat))   # his real games move the stat value the same way
 print(f"real games: {_nrg} newcomer OVRs moved by their games",file=sys.stderr)
 # newcomers' scoring rate leans on scrimmage evidence harder than a returner's (no D-I sample to

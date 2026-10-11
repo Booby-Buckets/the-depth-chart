@@ -64,6 +64,8 @@ def fetch_conf_map():
         print("warn: conf map fetch failed —", e); return {}
 CONF = fetch_conf_map()
 
+try: _FFG = json.load(open(os.path.join(D, "fresh_fit.json")))
+except Exception: _FFG = {}
 path = os.path.join(ROOT, "nil-data.json")
 nil = json.load(open(path))
 patched = fr_patched = kept = 0
@@ -77,13 +79,13 @@ for tn, t in nil.get("teams", {}).items():
             if p.get("grade") != lg:
                 p["grade"] = int(lg); patched += 1
             continue
-        # not a rated returner → try the freshman editor OVR (the live grade for profiled freshmen)
-        fr = FR.get("tdc_fr:%s:%s" % (tn, p.get("name")))
-        fov = ov(fr) if fr else None
-        if fov is not None and int(round(float(fov))) != p.get("grade"):
-            p["grade"] = int(round(float(fov))); fr_patched += 1
+        # not a rated returner → his displayed grade is the build's newcomer OVR (fresh_fit; the editor no longer
+        # sets one — owner, Oct 2026)
+        ff = (_FFG.get(tn) or {}).get(p.get("name")) or {}
+        if ff.get("ovr") is not None and int(ff["ovr"]) != p.get("grade"):
+            p["grade"] = int(ff["ovr"]); fr_patched += 1
         else:
-            kept += 1   # unprofiled freshman → keep (already matches the DB tdc_grade the site uses)
+            kept += 1
 
 # ── NIL PRICE BASIS (Oct 2026, owner: "focused on the player from last year + his career + potential, not just
 #    what he is being projected") ─────────────────────────────────────────────────────────────────────────────
@@ -150,7 +152,7 @@ for tn, t in nil.get("teams", {}).items():
         f = ft.get(p.get("name"))
         if not f: continue
         if f.get("rank"): p["rk"] = int(f["rank"])
-        if p.get("ng") is not None: continue              # a returner already has his last season / career basis
+        if p.get("ngl") is not None: continue             # a returner already has his last season / career basis (re-price newcomers every run)
         if f.get("sv") is None: continue
         # a ranked recruit buried on a preseason depth chart is priced at the role recruits of his rank
         # historically play (svp / mpg_pot) — the market pays for the expected role
@@ -161,7 +163,7 @@ for tn, t in nil.get("teams", {}).items():
         nf += 1
 print(f"NIL basis from the stat value for {nf} newcomers")
 json.dump(nil, open(path, "w"), separators=(",", ":"))
-print(f"repointed {patched} returners to stat_overall; {fr_patched} freshmen to editor OVR; kept {kept}; NIL basis for {nb}")
+print(f"repointed {patched} returners to stat_overall; {fr_patched} newcomers to the build OVR; kept {kept}; NIL basis for {nb}")
 # spot check
 for tn, t in nil["teams"].items():
     for p in t.get("players", []):

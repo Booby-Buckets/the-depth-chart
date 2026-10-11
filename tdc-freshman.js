@@ -9,7 +9,7 @@
  *   isOwner()            -> bool
  *   isFreshman(player)   -> bool (no real college stats)
  *   load(onReady)        -> Promise; pulls the owner's blob once
- *   profileFor(player)   -> saved {ovr,archetype,role,sliders} | null
+ *   profileFor(player)   -> saved {archetype,role,mpg,usg,sliders} | null (any old saved ovr is dropped)
  *   line(player, prof)   -> full projected stat line (with _frOvr/_frProfiled)
  *   archetypeOf(player)  -> default archetype string
  *   openEditor(player, onSaved)  -> opens the modal
@@ -233,15 +233,15 @@
   var _blob=null, _loaded=false, _loading=null, _fit=null;
   // per-team fitted {mpg, ppg} for no-box players, from the projection build (small file)
   function loadFit(){ if(_fit) return Promise.resolve(_fit);
-    return fetch('scripts/data/fresh_fit.json?v=38').then(function(r){ return r.ok?r.json():{}; }).then(function(j){ _fit=j||{}; return _fit; }).catch(function(){ _fit={}; return _fit; }); }
+    return fetch('scripts/data/fresh_fit.json?v=39').then(function(r){ return r.ok?r.json():{}; }).then(function(j){ _fit=j||{}; return _fit; }).catch(function(){ _fit={}; return _fit; }); }
   function rawProfileFor(p){ var k=frKey(p); if(_blob&&typeof _blob==='object') return _blob[k]||null;
     try{ var s=localStorage.getItem(k); return s?JSON.parse(s):null; }catch(e){ return null; } }
   // the saved profile + his preseason-scrimmage trend (fresh_fit scrim_ovr, build_scrim_trends.py: Reality-
   // weighted, capped ±4): the editor OVR is the prior, the scrimmages are evidence on top. Every page reads
   // this; the EDITOR edits rawProfileFor so a save never bakes the scrimmage adjustment in.
-  function profileFor(p){ var r=rawProfileFor(p); if(!r||r.ovr==null||r.ovr==='') return r;
-    var f=_fit&&p&&_fit[p.team]&&_fit[p.team][p.name], a=(f&&isFinite(+f.scrim_ovr))?+f.scrim_ovr:0;
-    return a?Object.assign({},r,{ovr:Math.min(99,Math.round(+r.ovr+a)),ovr_base:r.ovr,scrim_ovr:a}):r; }
+  // An OVR saved by the old editor slider is IGNORED (owner, Oct 2026: the editor no longer sets an overall) — the
+  // displayed freshman OVR is the build's (fresh_fit ovr, which already carries his scrimmage trend).
+  function profileFor(p){ var r=rawProfileFor(p); if(!r||r.ovr==null) return r; var c=Object.assign({},r); delete c.ovr; return c; }
   // every owner write here (freshman minutes / OVR, injuries) feeds the projection build, which only ran on the
   // schedule or a depth-chart save, so an editor change sat unused for hours (Amosov: 22.5 mpg saved, page kept
   // 0.5). A successful write now starts the rebuild job too; debounced so a burst of edits is one run.
@@ -336,7 +336,6 @@
     var sliders=FR_SLIDERS.map(function(kv){var k=kv[0],lbl=kv[1];return '<div class="fr-sl"><div class="fr-sl-top"><span>'+lbl+'</span><b id="frv-'+k+'">'+d.sliders[k]+'</b></div><input type="range" min="0" max="100" step="5" value="'+d.sliders[k]+'" class="fr-range" oninput="document.getElementById(\'frv-'+k+'\').textContent=this.value;TDCFresh._setSlider(\''+k+'\',this.value)"/></div>';}).join('');
     m.innerHTML='<div class="fr-modal"><div class="fr-head"><div><div class="fr-eyebrow">Freshman Projection</div><div class="fr-name">'+p.name+'</div><div class="fr-sub">'+(p.position||'')+' · '+(p.class_year||p.yr||'Fr.')+' · '+(p.team||'')+'</div></div><button class="fr-x" onclick="TDCFresh._close()">×</button></div>'+
       '<div class="fr-body">'+
-        '<div class="fr-field"><label>Overall (OVR) — the display rating; it does not change his stat line</label><div class="fr-ovr-row"><b class="fr-ovr-v" id="frOvrV">'+d.ovr+'</b><input type="range" min="55" max="99" step="1" value="'+d.ovr+'" class="fr-range" oninput="document.getElementById(\'frOvrV\').textContent=this.value;TDCFresh._setOvr(this.value)"/></div></div>'+
         '<div class="fr-field"><label>Archetype — how he plays</label><select class="fr-select" onchange="TDCFresh._set(\'archetype\',this.value)">'+archOpts+'</select></div>'+
         '<div class="fr-field"><label>Role — how big a part he is</label><div class="fr-roles">'+roleBtns+'</div></div>'+
         '<div class="fr-field"><label>Minutes per game</label><div class="fr-ovr-row">'+
@@ -360,10 +359,10 @@
   function openEditor(p, opts){
     opts=opts||{}; if(typeof opts==='function') opts={onSaved:opts};
     _p=p; _onSaved=opts.onSaved||null; _transform=opts.transform||null;
-    var g=Math.round(parseFloat(p.tdc_grade)||75);
-    _d=rawProfileFor(p)||{ archetype:archetypeOf(p), role:(g>=90?'star':g>=82?'starter':g>=74?'rotation':'bench'), sliders:{} };
+    var _f=_fit&&_fit[p.team]&&_fit[p.team][p.name], _rk=(_f&&+_f.rank)||0;   // default role by 247 rank, not an overall
+    _d=rawProfileFor(p)||{ archetype:archetypeOf(p), role:(_rk>0&&_rk<=10?'star':_rk>0&&_rk<=50?'starter':'rotation'), sliders:{} };
+    delete _d.ovr;   // the editor no longer sets an overall (owner, Oct 2026): saving drops any old one
     _d.sliders=migrateSliders(_d.sliders||{}); FR_SLIDERS.forEach(function(kv){ if(_d.sliders[kv[0]]==null) _d.sliders[kv[0]]=50; });
-    if(_d.ovr==null) _d.ovr=g;
     render();
   }
 
@@ -419,7 +418,6 @@
           return; } }
       render(); },
     _setSlider:function(k,v){ _d.sliders[k]=+v; preview(); },
-    _setOvr:function(v){ _d.ovr=+v; preview(); },
     _close:close,
     _reset:function(){ var p=_p, cb=_onSaved; saveProfile(p,null).then(function(){ close(); cb&&cb(); }); },
     _save:function(){

@@ -583,7 +583,7 @@ def fresh_line(p, prof, fit, FRB):
     """Python port of tdc-freshman.js line() for the PUBLIC view (no owner archetype/sliders):
     grade-tier base -> role minutes -> team fit (fresh_fit.json) -> minutes/usage overrides."""
     prof = prof or {}
-    ovr = fnum(prof.get("ovr"), None) if prof.get("ovr") not in (None, "") else None
+    ovr = None   # the editor no longer sets an overall (owner, Oct 2026)
     grade = ovr if ovr is not None else (fnum(p.get("tdc_grade"), 0) or 70)
     pos = p.get("position") if p.get("position") in ("PG", "SG", "SF", "PF", "C") else "SG"
     # base line = the freshman model's per-40 rates for him (fresh_fit r40: 247 rank / level / position), per 32
