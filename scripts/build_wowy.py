@@ -80,7 +80,8 @@ def kind(desc):
     if d.startswith("assist by"): return "ast"
     if d.startswith("steal by") or "steals)" in d: return "stl"
     if d.startswith("block by") or " blocks" in d: return "blk"
-    if re.search(r"\b(makes|misses|missed|good)\b", d) or re.match(r"^(jumper|2 pointer|3 pointer|layup|slam dunk|tip in|hook shot|dunk) by", d):
+    # no leading \b on the verb: "Jah Shortmisses three point…" runs the name into it
+    if re.search(r"(makes|misses|missed|good)\b", d) or re.match(r"^(jumper|2 pointer|3 pointer|layup|slam dunk|tip in|hook shot|dunk) by", d):
         return "fga"
     return None
 
@@ -144,6 +145,10 @@ def process_game(nid, og):
     hn2e, hstart = side_map(box_home); an2e, astart = side_map(box_away)
     if len(hstart) != 5 or len(astart) != 5: return None, "starters"
     on = {"H": set(hstart), "A": set(astart)}; n2e = {"H": hn2e, "A": an2e}
+    # half of 2024-25 logs substitutions only as "<Team> lineup change (four names)" — never all five, so who is on the
+    # floor can't be followed. Those games would credit the starters with every minute: skip them (CBBD covers that season)
+    if sum(1 for per in pbp["periods"] for pl in per.get("playbyplayStats", []) if (pl.get("eventDescription") or "").startswith("Subbing")) < 20:
+        return None, "no-subs"
     # one play-by-play format says "Jumper MISSED by …" with no 2 or 3: fill those from ESPN by period, clock and team
     amb = any("MISSED by" in (pl.get("eventDescription") or "") for per in pbp["periods"] for pl in per.get("playbyplayStats", []))
     EM, eteam = (espn_misses(og["id"]) if amb else ([], {}))
@@ -173,6 +178,7 @@ def process_game(nid, og):
         pn = int(per.get("periodNumber") or 1)
         prev_h = prev_a = None; prev_sig = None; last_secs = 1200 if pn <= 2 else 300
         last_miss = None   # (side, dead_ball) of the last missed shot: decides who an unlabelled rebound belongs to
+        last_shot = None   # (side, clock) of the last missed field goal: a block line right after it is the same shot
         pend = {"H": [], "A": []}   # made field goals whose points the score hasn't shown yet: [box, value or None]
         def credit(bucket, dh, da):
             """the score moved: first pay any made field goal still owed (the feed often updates the score a line
@@ -235,6 +241,7 @@ def process_game(nid, og):
                 made = not re.search(r"miss", dl)
                 box_s["fga"] += 1
                 last_miss = None if made else (side, False)
+                last_shot = None if made else (side, s)
                 if made:
                     box_s["fgm"] += 1
                     if THREE.search(desc): box_s["tpa"] += 1; box_s["tpm"] += 1; pend[side].append([box_s, 3])
@@ -250,13 +257,29 @@ def process_game(nid, og):
                 # side that missed is offensive. The "team rebound" between two free throws is not a rebound at all,
                 # and team (dead-ball) rebounds are left out like the box score does (they ran ORB +10%)
                 team_reb = bool(re.match(r"^team\b", dl) or re.search(r"'s team\b|\bteam$", dl))
+                if not team_reb:   # 2024-25 writes team rebounds as the nickname ("Tigers offensive rebound") or no name
+                    mm = re.match(r"^(.*?) (offensive|defensive) rebound", desc, re.I) or re.search(r"rebound by .*?'s (.+)$", desc, re.I)
+                    rn = nn(mm.group(1)) if mm else ""
+                    known = bool(rn) and any(rn in n2e[x] or ("~" + rn.split(" ")[-1]) in n2e[x] for x in ("H", "A"))
+                    nick = any(nn(t).endswith(" " + rn) or nn(t) == rn for t in (box_home, box_away)) if rn else True
+                    team_reb = (not known) and (not rn or nick or " " not in rn)
                 if last_miss is not None:
                     if not last_miss[1] and not team_reb:
                         box_s["orb" if last_miss[0] == side else "drb"] += 1
                     last_miss = None
                 elif not team_reb:
                     box_s[k] += 1
-            elif not dup and k in ("tov", "stl", "blk"):
+            elif not dup and k == "blk":
+                box_s["blk"] += 1
+                # 2024-25 writes a blocked shot ONLY as "X blocks Y's two point layup" (no miss line): then it is the
+                # shooter's missed attempt. 2025-26 also logs the miss itself, so only count it when no miss by the
+                # shooting side was just logged at this clock.
+                shooter = "A" if side == "H" else "H"
+                if not (last_shot and last_shot[0] == shooter and last_shot[1] == s):
+                    sbx = bucket[0] if shooter == "H" else bucket[1]
+                    sbx["fga"] += 1; sbx["tpa"] += 1 if THREE.search(desc) else 0
+                    last_miss = (shooter, False)
+            elif not dup and k in ("tov", "stl"):
                 box_s[k] += 1
             elif not dup and k == "ast":
                 box_s["ast"] += 1
