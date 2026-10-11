@@ -8,6 +8,8 @@ import json, pathlib, numpy as np
 from collections import defaultdict
 D=pathlib.Path(__file__).parent/"data"
 PD=json.load(open(D/"player_dna.json")); TD=json.load(open(D/"team_dna.json"))
+import sys; sys.path.insert(0,str(pathlib.Path(__file__).parent))
+from dna_carry import carry
 ALIAS={"Connecticut":"UConn Huskies","Brigham Young":"BYU Cougars","Louisiana State":"LSU Tigers",
  "Southern California":"USC Trojans","Texas Christian":"TCU Horned Frogs","Southern Methodist":"SMU Mustangs",
  "Virginia Commonwealth":"VCU Rams","Nevada-Las Vegas":"UNLV Rebels","Miami (FL)":"Miami Hurricanes"}
@@ -71,7 +73,8 @@ for y in sorted(int(s) for s in PD):
         for eid,p in plist:
             prior=PYm1.get(eid)  # prior-year fingerprint (preseason-known talent)
             if prior:
-                fp={k:prior.get(k) for k in FMET}; fp["mpg"]=prior.get("mpg") or p.get("mpg") or 0
+                fp=carry({k:prior.get(k) for k in FMET}, prior.get("grp") or p.get("grp"))   # expected next-season (dna_carry.py)
+                fp["mpg"]=prior.get("mpg") or p.get("mpg") or 0
             else:
                 g=float(p["tdc_grade"]) if p.get("tdc_grade") else 72
                 fp=fresh_fp(g,p["grp"]); fp["mpg"]=p.get("mpg") or 8

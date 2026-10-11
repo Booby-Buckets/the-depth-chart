@@ -10,6 +10,8 @@ D=pathlib.Path(__file__).parent/"data"
 SB="https://izlqhnxowdhtdofkwrho.supabase.co"; K="sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye"
 H={"apikey":K,"Authorization":"Bearer "+K}
 PD=json.load(open(D/"player_dna.json")); TD=json.load(open(D/"team_dna.json"))
+import sys as _sys; _sys.path.insert(0,str(pathlib.Path(__file__).parent))
+from dna_carry import carry
 # Projected 2026-27 per-player line (stats-derived OVR + projected minutes), keyed by espn_id.
 # Newcomers with no D1 Player DNA are fingerprinted from THIS (their projected stats), not from
 # the hand/display tdc_grade — a grade that disagrees with the projected line (e.g. a 90 on a
@@ -276,7 +278,7 @@ for team,roster in byteam.items():
         # the rankings; (3) fall back to the stats-derived OVR (then grade) only when there is no
         # usable projected line at all.
         if fp0:
-            fp=dict(fp0)
+            fp=carry(fp0, fp0.get("grp") or grp_)   # EXPECTED next-season fingerprint, not last season's raw one (dna_carry.py)
         else:
             fp=box_to_fp(p, grp_, tempo)
             if fp is None:
