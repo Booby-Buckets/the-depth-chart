@@ -569,13 +569,10 @@
     // touching the grade (which still fully reflects level).
     var mQuals = roster.map(function(p, i){
       if(quals[i] == null) return null;
-      var g = quals[i];   // resolved grade (tdc_grade, or stat-overall fallback for the ungraded)
-      var base = g - Math.min(_levelDisc(_originConf(p)), MIN_LEVEL_CAP);
+      // production, never the overall (statQual) — level-discounted (capped) for a step up
+      var base = statQual(p) - Math.min(_levelDisc(_originConf(p)), MIN_LEVEL_CAP);
       var mpg = parseFloat(p.mpg) || 0;
-      if(mpg >= 6){
-        var prod = (parseFloat(p.ppg) || 0) + 0.5 * (parseFloat(p.rpg) || 0);   // scoring + half of rebounds
-        base += Math.max(-2.5, Math.min(5, (prod - PROD_BASE) * PROD_K));        // over/under-producers vs a rotation baseline
-      } else {
+      if(mpg < 6){
         var yr = (p.yr || p.class_year || '').toString().toLowerCase();
         if(/fr/.test(yr)) base -= NEWCOMER_PEN;                                   // no college role → earns minutes over time
       }
@@ -590,16 +587,9 @@
     // can't disagree by 4 mpg. Rebuild the projection to move these.
     roster.forEach(function(p, i){
       if(!p || quals[i] == null) return;
-      // an owner-set "Minutes per game" in the freshman editor wins over everything, so the depth
-      // chart shows the minutes he typed rather than the roster-fitted default
-      var m = NaN;
-      if(window.TDCFresh && window.TDCFresh.profileFor){ try{ var pr = window.TDCFresh.profileFor(p); if(pr && pr.mpg != null && pr.mpg !== '') m = parseFloat(pr.mpg); }catch(e){} }
-      if(!isFinite(m)){
-        var row = (p.espn_id != null && _SO_PROJ_ROW) ? _SO_PROJ_ROW['' + p.espn_id] : null;
-        m = row ? parseFloat(row.proj_mpg != null ? row.proj_mpg : row.mpg) : NaN;
-      }
-      if(!isFinite(m) && window.TDCFresh && window.TDCFresh.fitFor){ try{ var f = window.TDCFresh.fitFor(p); if(f && f.mpg != null) m = parseFloat(f.mpg); }catch(e){} }
-      if(isFinite(m) && m >= 0) mins[i] = Math.round(m * 10) / 10;
+      // an owner-set "Minutes per game" in the freshman editor wins over everything (buildMin)
+      var m = buildMin(p);
+      if(isFinite(m)) mins[i] = Math.round(m * 10) / 10;
     });
     return roster.map(function(p, i){
       if(quals[i] == null) return { min: 0, grade: null, qual: null };
@@ -763,12 +753,49 @@
     var f = _FRESH_ROW[_fk(p.team, p.name)]; return (f && f.ppg != null && f.rpg != null) ? f : null; };
   // ready = EVERY input of gradeSolo (stat overalls + archetype bonus + gp shrink). A page that graded
   // after only the stat files had landed showed 95 for a player whose page (bonus loaded) said 96.
+  // ── STAT QUALITY — who earns minutes / shots, from production only ────────────────────────────
+  // Owner rule (Oct 2026): an overall is display only; no minutes, shot share or stat may follow it.
+  // Coaches play producers, so the live engines rank and size roles by per-40 production
+  // (pts + ½ reb + 0.7 ast + stl + blk − tov), small-minute samples shrunk toward the rotation mean,
+  // read off: his projected line (the build) → his last season → the freshman model (fresh_fit r40).
+  // Put on the same 75 ± 6 scale the minutes code's thresholds were tuned on (rotation mean 20.6,
+  // sd 2.6 per 40 in stat_overall_projected), so the rotation logic keeps its shape.
+  var SQ_MEAN = 20.6, SQ_K = 2.3, SQ_SHRINK = 8;
+  function _p40(L, m){ if(!L || !(m > 0)) return null;
+    var reb = (L.rpg != null && L.rpg !== '') ? _num(L.rpg) : _num(L.oreb) + _num(L.dreb);
+    var x = (_num(L.ppg) + 0.5 * reb + 0.7 * _num(L.apg) + _num(L.stl) + _num(L.blk) - _num(L.tovs)) * 40 / m;
+    return (x * m + SQ_MEAN * SQ_SHRINK) / (m + SQ_SHRINK); }
+  function statQual(p){
+    if(!p) return 75;
+    var x = null, r = (p.espn_id != null && _SO_PROJ_ROW) ? _SO_PROJ_ROW['' + p.espn_id] : null;
+    if(r && _num(r.mpg) > 0) x = _p40(r, _num(r.mpg));
+    if(x == null && _num(p.mpg) >= 6 && _num(p.ppg) > 0) x = _p40(p, _num(p.mpg));
+    if(x == null){
+      var f = _FRESH_ROW[_fk(p.team, p.name)], q = f && f.r40;
+      if(!q && typeof window.frStatBase === 'function'){ try{ var b = window.frStatBase(p); q = { pts: b.ppg * 1.25, oreb: b.oreb * 1.25, dreb: b.dreb * 1.25, ast: b.apg * 1.25, stl: b.stl * 1.25, blk: b.blk * 1.25, tov: b.tovs * 1.25 }; }catch(e){} }
+      if(q) x = q.pts + 0.5 * (_num(q.oreb) + _num(q.dreb)) + 0.7 * _num(q.ast) + _num(q.stl) + _num(q.blk) - _num(q.tov);
+    }
+    if(x == null) return 74;
+    return Math.max(55, Math.min(97, 75.4 + SQ_K * (x - SQ_MEAN)));
+  }
+  // the minutes the BUILD gave him (editor-set → stat_overall_projected → fresh_fit), or NaN
+  function buildMin(p){
+    if(!p) return NaN;
+    var m = NaN;
+    if(window.TDCFresh && window.TDCFresh.profileFor){ try{ var pr = window.TDCFresh.profileFor(p); if(pr && pr.mpg != null && pr.mpg !== '') m = parseFloat(pr.mpg); }catch(e){} }
+    if(!isFinite(m)){ var row = (p.espn_id != null && _SO_PROJ_ROW) ? _SO_PROJ_ROW['' + p.espn_id] : null;
+      m = row ? parseFloat(row.proj_mpg != null ? row.proj_mpg : row.mpg) : NaN; }
+    if(!isFinite(m)){ var f = _FRESH_ROW[_fk(p.team, p.name)]; if(f && f.mpg != null) m = parseFloat(f.mpg); }
+    return (isFinite(m) && m >= 0) ? m : NaN;
+  }
+  window.TDCProjGrade.statQual = statQual;
+  window.TDCProjGrade.buildMin = buildMin;
   window.TDCProjGrade.ready = Promise.all([
     _loadSO('scripts/data/stat_overall.json?v=12').then(function(m){ if(m) setStatOverall(m, null); }),
-    _loadProjRows('scripts/data/stat_overall_projected.json?v=93').then(function(m){ if(m) setStatOverall(null, m); }),
+    _loadProjRows('scripts/data/stat_overall_projected.json?v=94').then(function(m){ if(m) setStatOverall(null, m); }),
     _archP, _gpsP,
     // projected freshman / newcomer OVRs (build: recruiting rank or scouting prior x projected role)
-    fetch('scripts/data/fresh_fit.json?v=35').then(function(r){ return r.ok ? r.json() : {}; }).then(function(j){
+    fetch('scripts/data/fresh_fit.json?v=36').then(function(r){ return r.ok ? r.json() : {}; }).then(function(j){
       _FRESH = {}; _FRESH_ROW = {}; for(var t in (j||{})){ for(var n in j[t]){ var f = j[t][n]; if(f && f.ovr != null) _FRESH[_fk(t, n)] = f.ovr; if(f) _FRESH_ROW[_fk(t, n)] = f; } } }).catch(function(){})
   ]).then(function(){ return true; }).catch(function(){ return true; });   // history is lazy — see loadHist()
 })();

@@ -17,7 +17,7 @@
   <script src="auth.js?v=delacct1"></script>
   <script src="tdc-histguard.js?v=2"></script>
   <!-- canonical grade module: displayed OVRs = the coupled v5 grade shown site-wide -->
-  <script src="tdc-projgrade.js?v=base52"></script>
+  <script src="tdc-projgrade.js?v=base53"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=5"></script>
@@ -1000,70 +1000,6 @@ var PROJ_POS_BASE = {'PG':{ppg:10.5,rpg:3.2,apg:4.1,mpg:26,fg_pct:42,tp_pct:36,f
 //  7. Efficiency regression (more shots at higher volume = slight % drop)
 // ══════════════════════════════════════════════════════════
 
-// ── MINUTES MODEL v2 ─────────────────────────────────────
-// Now position-aware: slot = rank within a position group
-// Rotation depth is inferred from team quality and roster size
-// Returns target MPG
-function getTargetMpg(posSlot, globalSlot, rosterSize, teamGradeAvg, slotGrade, gradeDiff){
-  // Position slot 1 = starter at that position, 2 = first backup, etc.
-  // Global slot is the overall roster depth rank
-
-  // Starters: 27-34 MPG range
-  // First backup: 15-22 MPG
-  // Second backup: 8-14 MPG
-  // Deep bench: 3-8 MPG
-
-  // Base from position slot
-  let base;
-  if(posSlot===1){
-    // Starters — scale 27-34 by grade relative to team avg
-    const gradeNorm=Math.max(-1,Math.min(1,(slotGrade-teamGradeAvg)/15));
-    base=30.5+gradeNorm*3.5; // 27-34 range
-  } else if(posSlot===2){
-    // First backup: 13-22 MPG
-    const gradeNorm=Math.max(-1,Math.min(1,(slotGrade-teamGradeAvg)/15));
-    base=17.5+gradeNorm*4.5; // 13-22
-    // If close to starter in grade, gets more time
-    if(gradeDiff<=4) base=Math.min(base+4,22);
-    else if(gradeDiff<=8) base=Math.min(base+2,22);
-  } else if(posSlot===3){
-    base=10+Math.max(0,(slotGrade-65)/5);
-    base=Math.max(6,Math.min(14,base));
-  } else {
-    base=Math.max(2,8-(posSlot-3)*2);
-  }
-
-  // Rotation depth: teams with thin rosters play starters more
-  // rosterSize ≤8 = short bench, starters need more minutes
-  if(posSlot===1){
-    if(rosterSize<=7) base=Math.min(38,base+2.5);
-    else if(rosterSize<=8) base=Math.min(38,base+1.5);
-    else if(rosterSize>=11) base=Math.max(26,base-1.5);
-    else if(rosterSize>=13) base=Math.max(24,base-3);
-  }
-
-  return Math.max(1,Math.min(38,base));
-}
-
-// Determine how many players a team realistically plays (7-12 rotation)
-// Based on quality drop-off down the roster
-function inferRotationDepth(sorted){
-  const n=sorted.length;
-  if(n<=7) return n;
-  // Find the first significant grade cliff
-  let cutoff=n;
-  for(let i=2;i<n-1;i++){
-    const g1=parseFloat(sorted[i-1].tdc_grade)||70;
-    const g2=parseFloat(sorted[i].tdc_grade)||70;
-    const g3=parseFloat(sorted[i+1].tdc_grade)||70;
-    // Hard cliff: >8 pt drop AND next player is also lower
-    if((g1-g2)>=9&&g2<=68){cutoff=i;break;}
-    // Soft cliff: grade drops below 63 — end of useful rotation
-    if(g2<63&&i>=6){cutoff=i;break;}
-  }
-  return Math.max(7,Math.min(12,cutoff));
-}
-
 // ── FR_BASE — grade-tiered baseline stats per position ──────
 
 var FR_BASE = {
@@ -1677,7 +1613,7 @@ load();
 <script src="tdc-nil.js?v=cal7"></script>
 <script src="tdc-pos.js"></script>
 <script src="tdc-realstats.js?v=2"></script>
-<script src="tdc-proj.js?v=hg3"></script>
+<script src="tdc-proj.js?v=hg5"></script>
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=24"></script>
 </body>

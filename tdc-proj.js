@@ -8,19 +8,15 @@
 function r1t(v){ return v!=null ? Math.round((v+Number.EPSILON)*10)/10 : null; }
 // computePlayerMpg — mirrors buildTeamProjections MPG steps exactly
 // Used by player page; team page uses targetMpg directly from buildTeamProjections
-// Forward-looking grade that DRIVES the minute allocation — the SAME projected OVR
-// shown on the depth chart / player card / stats (role + pedigree adjusted), NOT the
-// demonstrated tdc_grade. Ranking by the demonstrated grade buried projected-up
-// starters: a former 5★ soph whose grade jumps 80→88 as the projected PG1 sorted ~7th
-// by his old 80 and got bench minutes, contradicting his OVR and the depth chart.
-// Priority: stamped editor/projected grade → computed projgrade → demonstrated grade.
-function _projGradeOf(r){
-  if(!r) return 70;
-  var v = (r._projGrade!=null && !isNaN(r._projGrade)) ? parseFloat(r._projGrade)
-        : (window.TDCProjGrade ? window.TDCProjGrade.ovr(r) : NaN);
-  if(!isFinite(v)) v = parseFloat(r.tdc_grade);
-  return isFinite(v) ? v : 70;
+// Who earns minutes and shots: STAT QUALITY (TDCProjGrade.statQual — per-40 production from his projected
+// line / last season / the freshman model, on a 75 ± 6 scale). Owner rule (Oct 2026): the overall is a
+// display number and moves no minutes or stats.
+function _sq(r){
+  if(!r) return 75;
+  try{ if(window.TDCProjGrade && TDCProjGrade.statQual) return TDCProjGrade.statQual(r); }catch(e){}
+  return 75;
 }
+function _projGradeOf(r){ return _sq(r); }
 const POS_MIN=0.28, POS_MAX=0.625, POS_FLOOR_MPG=3;
 function _hin(h){const m=/^(\d+)-(\d+)/.exec(String(h||''));return m?(+m[1])*12+(+m[2]):null;}
 function posGroup(position,height){
@@ -54,6 +50,8 @@ function posRebalance(items){
   return m;
 }
 function computePlayerMpg(p, teamRoster){
+  // ONE set of minutes: where the projection build gave him minutes, those stand (as in gradeRoster)
+  try{ if(window.TDCProjGrade && TDCProjGrade.buildMin){ const bm=TDCProjGrade.buildMin(p); if(isFinite(bm)) return bm; } }catch(e){}
   const pg = _projGradeOf;
   const base=(Array.isArray(teamRoster)?teamRoster:[]).filter(r=>r.name&&r.name!=='—');
   // Order by the AUTHORED depth chart (depth_order) so projected minutes match the depth
@@ -313,70 +311,6 @@ var PROJ_POS_BASE = {'PG':{ppg:10.5,rpg:3.2,apg:4.1,mpg:26,fg_pct:42,tp_pct:36,f
 //  7. Efficiency regression (more shots at higher volume = slight % drop)
 // ══════════════════════════════════════════════════════════
 
-// ── MINUTES MODEL v2 ─────────────────────────────────────
-// Now position-aware: slot = rank within a position group
-// Rotation depth is inferred from team quality and roster size
-// Returns target MPG
-function getTargetMpg(posSlot, globalSlot, rosterSize, teamGradeAvg, slotGrade, gradeDiff){
-  // Position slot 1 = starter at that position, 2 = first backup, etc.
-  // Global slot is the overall roster depth rank
-
-  // Starters: 27-34 MPG range
-  // First backup: 15-22 MPG
-  // Second backup: 8-14 MPG
-  // Deep bench: 3-8 MPG
-
-  // Base from position slot
-  let base;
-  if(posSlot===1){
-    // Starters — scale 27-34 by grade relative to team avg
-    const gradeNorm=Math.max(-1,Math.min(1,(slotGrade-teamGradeAvg)/15));
-    base=30.5+gradeNorm*3.5; // 27-34 range
-  } else if(posSlot===2){
-    // First backup: 13-22 MPG
-    const gradeNorm=Math.max(-1,Math.min(1,(slotGrade-teamGradeAvg)/15));
-    base=17.5+gradeNorm*4.5; // 13-22
-    // If close to starter in grade, gets more time
-    if(gradeDiff<=4) base=Math.min(base+4,22);
-    else if(gradeDiff<=8) base=Math.min(base+2,22);
-  } else if(posSlot===3){
-    base=10+Math.max(0,(slotGrade-65)/5);
-    base=Math.max(6,Math.min(14,base));
-  } else {
-    base=Math.max(2,8-(posSlot-3)*2);
-  }
-
-  // Rotation depth: teams with thin rosters play starters more
-  // rosterSize ≤8 = short bench, starters need more minutes
-  if(posSlot===1){
-    if(rosterSize<=7) base=Math.min(38,base+2.5);
-    else if(rosterSize<=8) base=Math.min(38,base+1.5);
-    else if(rosterSize>=11) base=Math.max(26,base-1.5);
-    else if(rosterSize>=13) base=Math.max(24,base-3);
-  }
-
-  return Math.max(1,Math.min(38,base));
-}
-
-// Determine how many players a team realistically plays (7-12 rotation)
-// Based on quality drop-off down the roster
-function inferRotationDepth(sorted){
-  const n=sorted.length;
-  if(n<=7) return n;
-  // Find the first significant grade cliff
-  let cutoff=n;
-  for(let i=2;i<n-1;i++){
-    const g1=parseFloat(sorted[i-1].tdc_grade)||70;
-    const g2=parseFloat(sorted[i].tdc_grade)||70;
-    const g3=parseFloat(sorted[i+1].tdc_grade)||70;
-    // Hard cliff: >8 pt drop AND next player is also lower
-    if((g1-g2)>=9&&g2<=68){cutoff=i;break;}
-    // Soft cliff: grade drops below 63 — end of useful rotation
-    if(g2<63&&i>=6){cutoff=i;break;}
-  }
-  return Math.max(7,Math.min(12,cutoff));
-}
-
 // ── FR_BASE — grade-tiered baseline stats per position ──────
 var FR_BASE = {
   '92+':{
@@ -483,10 +417,9 @@ function _projGroup(pos,height){
   return g==='G'?'G':g==='B'?'B':'W';
 }
 // Proven-player retention: the population lag model regresses everyone toward the
-// D1 mean, which unrealistically flattens/declines elite returners (a 93-grade
-// scorer is NOT going to shrink to the average). Scale the stability coefficient
-// up with grade so stars keep — and, via the class-growth curve, build on — their
-// production, while average/role players still regress normally.
+// D1 mean, which unrealistically flattens/declines elite producers. Scale the stability
+// coefficient up with PRODUCTION quality (_sq — per-40 production, not the overall) so proven
+// producers keep their numbers, while average/role players still regress normally.
 function _gradeHold(grade, maxB){
   const g=parseFloat(grade)||77;
   return Math.max(-0.04, Math.min(maxB, (g-77)/15*maxB));
@@ -526,11 +459,13 @@ function projectAdvanced(adv, cls, projMpg){
   const r1=v=>v==null?null:Math.round(v*10)/10;
   return {usg:r1(usg), ti40:r1(ti), ts:r1(ts), wa:wa};
 }
-// grade-based advanced estimate for freshmen / no-data players (labeled EST)
-function estimateAdvanced(grade, projMpg, fgaPerG){
+// advanced estimate for freshmen / no-data players (labeled EST): his projected shooting line and
+// production quality — never his overall
+function estimateAdvanced(p, projMpg, fgaPerG){
+  const fb=frStatBase(p||{}), q=_sq(p||{});
   const usg=Math.min(30,14+(fgaPerG||6)*0.9);
-  const ts=52.9+(grade-80)*0.15;
-  const ti=Math.max(2,(grade-70)*0.7+4);   // grade-based TI estimate (no box data)
+  const tsa=fb.fga+0.44*fb.fta, ts=tsa>0?100*fb.ppg/(2*tsa):52.9;
+  const ti=Math.max(2,(q-70)*0.7+4);
   const mp=(projMpg||0)*31, wa=Math.round((ti-5.0)*mp/40/69.87*10)/10;
   const r1=v=>Math.round(v*10)/10;
   return {usg:r1(usg), ti40:r1(ti), ts:r1(ts), wa:wa, _est:true};
@@ -783,9 +718,8 @@ function buildTeamProjections(players, conf){
 
   const roster = players
     .filter(p => p.name && p.name !== '—' && !_isOut(p))
-    // Rank by GRADE, not the scrambled depth_order (see computePlayerMpg) so minutes /
-    // usage track quality and stay consistent with the OVR and depth chart.
-    .sort((a,b) => ((parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0))||((a.depth_order||99)-(b.depth_order||99)));
+    // Rank by PRODUCTION (stat quality), never the overall
+    .sort((a,b) => (_sq(b)-_sq(a))||((a.depth_order||99)-(b.depth_order||99)));
 
   // ── USAGE VACANCY ─────────────────────────────────────────────────────────
   // Departures leave shots behind. Compare the roster's returning last-season
@@ -832,15 +766,15 @@ function buildTeamProjections(players, conf){
   const _apptRate = x => {
     const mp=parseFloat(x.mpg||0)||0, fg=parseFloat(x.fga||0)||0;
     if(mp>=6 && fg>0) return fg/mp;                       // demonstrated shots per minute
-    const g=parseFloat(x.tdc_grade)||70;                 // no stats → grade-based prior
-    return g>=92?0.40:g>=87?0.35:g>=80?0.30:g>=73?0.26:0.22;
+    const fb=frStatBase(x);                              // no stats → what first-year players like him shot
+    return fb.fga/FR_BASE_MPG;
   };
   const _usgOf = x => {
     const a=(window._advByEspn && x.espn_id!=null) ? window._advByEspn[x.espn_id] : null;
     return a ? parseFloat(a.usg_pct) : NaN;
   };
   const _allocRows = roster.map(x=>{
-    const g=parseFloat(x.tdc_grade)||70;
+    const g=_sq(x);
     const hw=(x.hometown&&(''+x.hometown).trim())||'';
     const isTr=!!(hw && hw.indexOf(',')<0);              // portal arrival (school in hometown)
     const m=_mpgOf(x);
@@ -852,13 +786,13 @@ function buildTeamProjections(players, conf){
     const rate=_apptRate(x)*_trDisc;
     return {name:x.name, m,
       demand: rate*m,                                     // shots wanted at projected minutes
-      gradeWeight: Math.pow(Math.max(1,g-55),1.7)*m,      // quality × minutes (pecking order)
+      gradeWeight: Math.pow(Math.max(1,g-55),1.7)*m,      // production quality × minutes (pecking order)
       naive: (parseFloat(x.fga||0)||0)*(m/Math.max(1,parseFloat(x.mpg||0)||m)) };
   });
   const _sumDemand=_allocRows.reduce((s,r)=>s+r.demand,0)||1;
   const _sumGW=_allocRows.reduce((s,r)=>s+r.gradeWeight,0)||1;
   const _budget=Math.max(56, Math.min(64, _sumDemand));   // a team takes ~56-64 FGA/game
-  const W_ROLE=0.40;                                       // how far grade-rank overrides raw appetite
+  const W_ROLE=0.40;                                       // how far the production pecking order overrides raw appetite
   const _shotAlloc={};
   _allocRows.forEach(r=>{
     const share=(r.demand/_sumDemand)*(1-W_ROLE)+(r.gradeWeight/_sumGW)*W_ROLE;
@@ -874,7 +808,7 @@ function buildTeamProjections(players, conf){
     const isSo   = yr.includes('so.')||yr.includes('r-so.');
     const isJr   = yr.includes('jr.')||yr.includes('r-jr.');
     const isSr   = yr.includes('sr.')||yr.includes('r-sr')||yr.includes('gr.');
-    const grade  = parseFloat(p.tdc_grade)||70;
+    const grade  = _sq(p);   // production quality (statQual) — NOT the overall; named grade for the old call sites
     const pos    = (p.position||'G').replace(/\d/g,'').trim();
     const posNorm= ['PG','SG','SF','PF','C'].includes(pos)?pos:pos==='CG'?'SG':'G';
     const isBig  = pos==='C'||pos==='PF';
@@ -1009,19 +943,8 @@ function buildTeamProjections(players, conf){
     const ctxMult = (isSr?srYr:1.0) * returnBoost * transferTrim;
     const projCls = _projCls(yr), projGrp = _projGroup(pos, p.height);
 
-    const gradeExpPpg = grade>=95?22:grade>=92?20:grade>=90?19:grade>=85?16:grade>=80?13:grade>=75?10:grade>=70?8:6;
-    const statsPer32  = pm.ppg*32;
-    const gapRatio    = gradeExpPpg>0 ? statsPer32/gradeExpPpg : 1;
-    // Raw gap: how far player is from their grade expectation
-    const gapMultRaw  = gapRatio<0.50?1.14:gapRatio<0.65?1.09:gapRatio<0.80?1.05
-                      : gapRatio<0.95?1.02:gapRatio>1.40?0.96:gapRatio>1.20?0.98:1.0;
-    // Upperclassmen have found their level — don't push them toward a grade ceiling they may never hit
-    // Fr/So: full gap adjustment (still developing)
-    // Jr: 40% of adjustment (mostly established)
-    // Sr/Gr: 15% of adjustment (this IS their level)
-    const gapMult = isSr ? 1.0+(gapMultRaw-1)*0.15
-                  : isJr ? 1.0+(gapMultRaw-1)*0.40
-                  : gapMultRaw;
+    // (the old pull toward what his GRADE "should" score is gone — an overall moves no stat)
+    const gapMult = 1.0;
 
     const rateGrowth = ctxMult * gapMult * trendMult;
     // data-derived per-40 projection for a stat: class/pos growth + shrinkage,
@@ -1277,6 +1200,26 @@ function buildTeamProjections(players, conf){
     }
   }
 
+  // ── ONE PROJECTION ───────────────────────────────────────
+  // Where the projection build projected this player for THIS team (stat_overall_projected for a
+  // returner / transfer, fresh_fit for a newcomer — TDCProjGrade.lineOf), its line is the line: it is
+  // stat-driven end to end (no overall moves it) and it is what the player page, team page and team
+  // totals already show. The live math above only stands for players the build hasn't seen yet
+  // (a just-added transfer). Before this, raw-engine pages (roles, scout, dossier…) read their own
+  // numbers — Braden Huff 20.6 ppg there vs 14.6 everywhere else.
+  if(typeof window!=='undefined' && window.TDCProjGrade && TDCProjGrade.lineOf){
+    const _K=['ppg','rpg','apg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs'];
+    projected.forEach(pp=>{
+      try{
+        if(pp._frProfiled) return;                         // the owner's freshman editor line already rules
+        const c=TDCProjGrade.lineOf(pp); if(!c) return;
+        if(c.team && pp.team && String(c.team).toLowerCase().indexOf(String(pp.team).toLowerCase())!==0) return;   // projected elsewhere
+        _K.forEach(k=>{ if(c[k]!=null&&c[k]!==''&&isFinite(+c[k])) pp[k]=+c[k]; });
+        pp._canon=true;
+      }catch(e){}
+    });
+  }
+
   return [...projected, ...injuredDnp];
 }
 
@@ -1313,19 +1256,6 @@ function frMpgGuess(p){
 }
 function getFrBase(p){ return frStatBase(p); }
 
-// ── GRADE → STAT EXPECTATION ──────────────────────────────
-// Maps a TDC grade to what a player at that grade "should" produce at starter minutes
-// Used to detect grade vs stats gap
-function gradeToStatExpectation(grade, pos){
-  const posKey = ['PG','SG','SF','PF','C'].includes(pos)?pos:'SG';
-  // Interpolate: grade 70 → low, grade 97 → elite
-  const t = Math.max(0, Math.min(1, (grade-60)/37)); // 0 at grade 60, 1 at grade 97
-  const elite = {PG:{ppg:19,rpg:4,apg:6},SG:{ppg:20,rpg:5,apg:3},SF:{ppg:19,rpg:7,apg:3},PF:{ppg:16,rpg:9,apg:2},C:{ppg:14,rpg:11,apg:1.5}};
-  const low   = {PG:{ppg:5,rpg:2,apg:1.5},SG:{ppg:5,rpg:2,apg:1},SF:{ppg:5,rpg:3,apg:1},PF:{ppg:4,rpg:4,apg:0.8},C:{ppg:4,rpg:5,apg:0.7}};
-  const e=elite[posKey], l=low[posKey];
-  return {ppg:l.ppg+t*(e.ppg-l.ppg), rpg:l.rpg+t*(e.rpg-l.rpg), apg:l.apg+t*(e.apg-l.apg)};
-}
-
 // ── YEAR PROGRESSION ─────────────────────────────────────
 // Returns stat growth multiplier based on class year transition
 // These are per-minute rate multipliers (not counting minutes change)
@@ -1347,144 +1277,6 @@ function efficiencyRegress(fgPct, fgaOld, fgaNew){
   const drop = (volumeIncrease-1)*4.0;
   return Math.max(fgPct-drop, fgPct*0.88);
 }
-
-function projectSinglePlayer(p, conf){
-  const yr=(p.yr||p.class_year||'').toLowerCase();
-  const isFr=yr.includes('fr.')||yr.includes('r-fr');
-  const isSo=yr.includes('so.')||yr.includes('r-so');
-  const isJr=yr.includes('jr.')||yr.includes('r-jr');
-  const isSr=yr.includes('sr.')||yr.includes('r-sr.')||yr.includes('gr.');
-  const pos=(p.position||'G').replace(/\d/g,'').trim();
-  const posKey=['PG','SG','SF','PF','C','CG'].includes(pos)?pos:'G';
-  const posNorm=posKey==='CG'?'SG':posKey;
-  const destMult=PROJ_CONF_MULT[conf]||0.85;
-  const grade=parseFloat(p.tdc_grade)||70;
-  const depth=p.depth_order||8;
-  const hasStats=p.ppg&&parseFloat(p.ppg)>0;
-  const isTransfer=p.hometown&&p.hometown.trim()!=='';
-  const s=k=>parseFloat(p[k])||0;
-
-  // ── Transfer conference factor (uses new canonical system) ──
-  let transferFactor=1.0;
-  if(isTransfer&&hasStats){
-    const originConf=getProjSchoolConf(p.hometown);
-    if(originConf) transferFactor=getProjTransFactor(originConf,conf,grade);
-  }
-
-  // ── FRESHMAN (no prior stats) ──
-  if(isFr&&!hasStats){
-    const base=frStatBase(p);
-    // _rawMpg assigned by buildTeamProjections based on slot
-    // Temporarily set to what a recruit of his rank usually plays; will be scaled by minutes
-    const mpgGuess = frMpgGuess(p);
-    const scale=mpgGuess/FR_BASE_MPG;
-    return {...p,_proj:true,_isFrosh:true,_transferFactor:1,_posNorm:posNorm,
-      _perMin:{ppg:base.ppg/FR_BASE_MPG,rpg:base.rpg/FR_BASE_MPG,apg:base.apg/FR_BASE_MPG,
-        stl:base.stl/FR_BASE_MPG,blk:base.blk/FR_BASE_MPG,oreb:base.oreb/FR_BASE_MPG,dreb:base.dreb/FR_BASE_MPG,tovs:base.tovs/FR_BASE_MPG},
-      _fgPct:base.fg_pct,_tpPct:base.tp_pct,_ftPct:base.ft_pct,
-      _rawMpg:mpgGuess,
-    };
-  }
-
-  // ── SENIOR — flat projection (only if they have stats) ──
-  if(isSr&&hasStats){
-    const mpg=s('mpg')||20;
-    return {...p,_proj:true,_isSr:true,_transferFactor:1,
-      _rawMpg:mpg,
-      ppg:r1t(s('ppg')),rpg:r1t(s('rpg')),apg:r1t(s('apg')),mpg:r1t(mpg),
-      fgm:r1t(s('fgm')),fga:r1t(s('fga')),fg_pct:r1t(s('fg_pct')),
-      tpm:r1t(s('tpm')),tpa:r1t(s('tpa')),tp_pct:r1t(s('tp_pct')),
-      ftm:r1t(s('ftm')),fta:r1t(s('fta')),ft_pct:r1t(s('ft_pct')),
-      oreb:r1t(s('oreb')),dreb:r1t(s('dreb')),stl:r1t(s('stl')),blk:r1t(s('blk')),tovs:r1t(s('tovs'))};
-  }
-  // No prior college stats — international, sat-out, no-stat transfer, etc.
-  // Use the first-year production estimate (same as freshman path)
-  if(!hasStats){
-    const base=frStatBase(p);
-    const mpgGuess = frMpgGuess(p);
-    return {...p,_proj:true,_isFrosh:true,_transferFactor:transferFactor,_posNorm:posNorm,
-      _perMin:{ppg:base.ppg/FR_BASE_MPG,rpg:base.rpg/FR_BASE_MPG,apg:base.apg/FR_BASE_MPG,
-        stl:base.stl/FR_BASE_MPG,blk:base.blk/FR_BASE_MPG,oreb:base.oreb/FR_BASE_MPG,dreb:base.dreb/FR_BASE_MPG,tovs:base.tovs/FR_BASE_MPG},
-      _fgPct:base.fg_pct,_tpPct:base.tp_pct,_ftPct:base.ft_pct,
-      _rawMpg:mpgGuess,
-    };
-  }
-
-  // (hasStats guaranteed here — no-stats case handled above)
-
-  // ── RETURNING PLAYER WITH STATS ──
-  const oldMpg=s('mpg')||1;
-
-  // Per-minute rates from last season (the cleanest signal)
-  const pm={
-    ppg:s('ppg')/oldMpg, rpg:s('rpg')/oldMpg, apg:s('apg')/oldMpg,
-    fgm:s('fgm')/oldMpg, fga:s('fga')/oldMpg,
-    tpm:s('tpm')/oldMpg, tpa:s('tpa')/oldMpg,
-    ftm:s('ftm')/oldMpg, fta:s('fta')/oldMpg,
-    oreb:s('oreb')/oldMpg, dreb:s('dreb')/oldMpg,
-    stl:s('stl')/oldMpg, blk:s('blk')/oldMpg, tovs:s('tovs')/oldMpg,
-  };
-
-  // Year progression — applied to per-minute rates
-  const yrMult=getYearProgMult(yr);
-
-  // Grade vs stats gap adjustment
-  // If grade >> what their stats suggest, pull stats upward
-  const gradeExp=gradeToStatExpectation(grade, posNorm);
-  const statsPpgPer32 = pm.ppg*32;
-  const gapRatio = gradeExp.ppg>0 ? statsPpgPer32/gradeExp.ppg : 1;
-  // If player's stats are below 65% of what grade expects → boost
-  // If stats are above 120% of what grade expects → mild cap
-  let gapMult=1.0;
-  if(gapRatio<0.50)       gapMult=1.18; // way understat'd — likely blocked by minutes
-  else if(gapRatio<0.65)  gapMult=1.12;
-  else if(gapRatio<0.80)  gapMult=1.06;
-  else if(gapRatio<0.95)  gapMult=1.02;
-  else if(gapRatio>1.40)  gapMult=0.97; // overstatted relative to grade
-  else if(gapRatio>1.20)  gapMult=0.99;
-
-  // Per-minute rate growth: year progression + grade gap only
-  // transferFactor does NOT suppress per-minute rates — a player's per-minute
-  // talent is what it is. Conference difficulty affects EFFICIENCY (%) not output per minute.
-  // Minutes are already being set correctly by the depth chart slot.
-  const rateGrowth=yrMult*gapMult;
-
-  // Old FGA for efficiency regression calc
-  const oldFga=s('fga');
-  const fgBase=s('fg_pct'), tpBase=s('tp_pct'), ftBase=s('ft_pct');
-
-  // Year-based efficiency improvement
-  const yearEffBoost=isFr?2.0:isSo?1.2:isJr?0.6:0.0;
-
-  // Volume regression — depth order change drives FGA estimate
-  // Will be refined when minutes are assigned, but get a directional estimate here
-  const depthFgaAdd=depth<=2?2.0:depth<=5?1.0:depth<=8?0:-(oldFga*0.1);
-  const newFgaEst=Math.max(1,oldFga+depthFgaAdd);
-  const volPenalty=oldFga>0?(newFgaEst/oldFga-1)*3.5:0;
-
-  // Conference penalty on percentages only
-  const transPctAdj=transferFactor<0.85?-4.5:transferFactor<0.95?-2.2:transferFactor>1.15?+1.8:transferFactor>1.05?+0.9:0;
-
-  const fgDelta=yearEffBoost-volPenalty+transPctAdj;
-  const fg_pct_proj=r1t(Math.max(27,Math.min(69,fgBase+fgDelta)));
-  const tpVolPenalty=oldFga>0?((newFgaEst/oldFga-1)*2.0):0;
-  const tpDelta=(isFr?1.5:isSo?0.8:isJr?0.4:0)-tpVolPenalty+transPctAdj*0.6;
-  const tp_pct_proj=r1t(Math.max(14,Math.min(54,tpBase+tpDelta)));
-  const ftDelta=isFr?1.5:isSo?1.0:isJr?0.5:0;
-  const ft_pct_proj=r1t(Math.max(45,Math.min(97,ftBase+ftDelta)));
-
-  // Store per-minute data + rates for minutes scaling in buildTeamProjections
-  return {...p,_proj:true,_isFrosh:false,_isSr:false,_transferFactor:transferFactor,
-    _rawMpg:oldMpg,
-    _pm:pm,
-    _rateGrowth:rateGrowth,
-    _fg_pct:fg_pct_proj,
-    _tp_pct:tp_pct_proj,
-    _ft_pct:ft_pct_proj,
-    _oldFga:oldFga,
-  };
-}
-
 
 // ── PREDICTION WALL SCALING ──────────────────────────────────────────────────
 // Scales player stats proportionally so team totals stay within realistic bounds.
