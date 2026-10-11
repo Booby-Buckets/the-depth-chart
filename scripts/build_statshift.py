@@ -16,6 +16,7 @@ and the seconds, over the stints A played WITH B. "Without" = A's total minus "w
 games B missed). Usage, +/- and per-possession rates are computed on the page.
 
 Output: scripts/data/statshift/<season>/index.json   {teams:[{team, file}], built, games}
+        scripts/data/statshift/<season>/players.json {espn_id: team file}   (the player page's lookup)
         scripts/data/statshift/<season>/<slug>.json  {team, F, players:[{id,name,all:[...]}], w:{A:{B:[...]}}}
   each [...] = 13 player fields + 13 team fields + 13 opponent fields + seconds (F order)
 
@@ -343,6 +344,7 @@ def run(season, limit=0, verbose=False):
                    "players": [{"id": a, "name": names.get(a, a), "all": rnd(ALL[(team, a)])} for a in ids], "w": w},
                   open(os.path.join(sd, f), "w"), separators=(",", ":"))
         idx.append({"team": team, "file": f})
+    json.dump({str(a): t["file"] for t in idx for a in byteam[t["team"]]}, open(os.path.join(sd, "players.json"), "w"), separators=(",", ":"))   # player page lookup
     json.dump({"season": season, "games": done, "built": time.strftime("%Y-%m-%d"), "teams": idx},
               open(os.path.join(sd, "index.json"), "w"), separators=(",", ":"))
     print(f"wrote {len(idx)} teams -> {sd}", flush=True)

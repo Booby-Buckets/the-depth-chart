@@ -11,6 +11,7 @@
   <script src="tdc-shotchart.js?v=31"></script>
   <script src="tdc-shotprofile.js?v=1s"></script>
   <script src="tdc-shotflow.js?v=12"></script>
+  <script src="tdc-statshift-player.js?v=1"></script>
   <script src="tdc-nil.js?v=cal8"></script>
   <script src="tdc-archetypes.js?v=7"></script>
   <script src="tdc-gate.js?v=4"></script>
@@ -4478,6 +4479,7 @@ function renderPage(){
           <div class="hgm-sec">On this player</div>
           <button class="hgm-item" id="tab-dossier" onclick="_grpPick('dossier')"><span class="hgm-t">Player Dossier</span><span class="hgm-d">Projected line + the real situational splits</span></button>
           <button class="hgm-item" id="tab-role" onclick="_grpPick('role')"><span class="hgm-t">Role &amp; Fit</span><span class="hgm-d">Archetype, style signals & how to attack him</span></button>
+          <button class="hgm-item" id="tab-statshift" onclick="_grpPick('statshift')"><span class="hgm-t">Stat Line Shift</span><span class="hgm-d">His line with each teammate on the floor, and theirs with him</span></button>
           <button class="hgm-item" id="tab-devpath" onclick="_grpPick('devpath')"><span class="hgm-t">Development</span><span class="hgm-d">His grade path, season by season</span></button>
           <button class="hgm-item" id="tab-scout" onclick="_grpPick('scout')"><span class="hgm-t">Scouting Report</span><span class="hgm-d">Archetype, comps & full breakdown</span></button>
           <button class="hgm-item" id="tab-scheme" onclick="_grpPick('scheme')"><span class="hgm-t">Scheme Lab</span><span class="hgm-d">How he fits different systems</span></button>
@@ -4563,6 +4565,10 @@ function renderPage(){
     <div class="tab-panel" id="panel-scheme"><div id="schemeContent"></div></div>
     <div class="tab-panel" id="panel-dossier"><div id="dossierContent"></div></div>
     <div class="tab-panel" id="panel-role"><div id="roleContent"></div></div>
+    <div class="tab-panel" id="panel-statshift">
+      <div class="sec-title" style="margin:0 0 14px;">Stat Line Shift <span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;margin-left:6px;">· with and without each teammate on the floor</span></div>
+      <div id="playerShiftHost"></div>
+    </div>
     <div class="tab-panel" id="panel-devpath"><div id="devpathContent"></div></div>
 
     <!-- PERCENTILES TAB -->
@@ -7040,7 +7046,7 @@ function _tabUrl(id, dflt){ try{ var u=new URL(location.href); if(!id||id===dflt
 function switchTab(t){
   if(t==='rankings') t='percentiles';   // the Rankings tab was removed (Sept 2026); old links land on Percentiles
   _tabUrl(t,'overview');
-  const tabs=['overview','playerdna','stats','trends','shotcharts','shotgenome','shotflow','scheme','dossier','role','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
+  const tabs=['overview','playerdna','stats','trends','shotcharts','shotgenome','shotflow','scheme','dossier','role','statshift','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
   const cur=tabs.map(x=>document.getElementById('panel-'+x)).find(el=>el&&el.classList.contains('active'));
   function activate(id){
     tabs.forEach(x=>{
@@ -7065,6 +7071,7 @@ function switchTab(t){
     if(id==='scheme' && !window._schemeLoaded){ window._schemeLoaded=true; setTimeout(renderScheme,40); }
     if(id==='dossier' && !window._dossierLoaded){ window._dossierLoaded=true; setTimeout(renderDossier,40); }
     if(id==='role' && !window._roleLoaded){ window._roleLoaded=true; setTimeout(renderRole,40); }
+    if(id==='statshift' && !window._shiftLoaded){ window._shiftLoaded=true; if(window.TDC_SHIFT) TDC_SHIFT.renderPlayer(document.getElementById('playerShiftHost'), {espn:player&&player.espn_id, name:player&&player.name}); }
     if(id==='devpath' && !window._devpathLoaded){ window._devpathLoaded=true; setTimeout(renderDevpath,40); }
     if(id==='nil' && !window._nilLoaded){ window._nilLoaded=true; setTimeout(renderNilPlayer,40); }
     if(id==='betting' && !window._bettingLoaded){ window._bettingLoaded=true; setTimeout(renderBetting,40); }
@@ -7094,13 +7101,14 @@ var TAB_GATE = {
   shotcharts:  { tier:'pro', label:'shot charts', blurb:'Shot-location charts, the shot genome and his season-by-season shot profile. Included with Pro — $8.99/mo.' },
   shotgenome:  { tier:'pro', label:'the Shot Genome', blurb:'Look quality, shot-making, creation and self-creation — every number with its national percentile, season by season. Included with Pro — $8.99/mo.' },
   shotflow:    { tier:'pro', label:'shot flow', blurb:'How this player’s shots are created and finished — zone, shot type, result and who assisted. Included with Pro — $8.99/mo.' },
+  statshift:   { tier:'pro', label:'Stat Line Shift', blurb:'His own line with and without each teammate on the floor, and every teammate\u2019s line with and without him, from play-by-play lineups. Included with Pro \u2014 $8.99/mo.' },
   role:        { tier:'pro', label:'Role & Fit', blurb:'His archetype and style signals, year-over-year development path, shot profile and the "how to attack him" reads. Included with Pro — $8.99/mo.' },
   devpath:     { tier:'pro', label:'his development path', blurb:'His TDC grade season by season — first graded year to career peak to now, with every jump and transfer marked. Included with Pro — $8.99/mo.' },
   dossier:     { tier:'pro', label:'the Player Dossier', blurb:'The complete file — projected line plus how his efficiency, turnovers and role move with pace, pressure, opponent archetype and the clutch. Included with Pro — $8.99/mo.' },
   scheme:      { tier:'pro', label:'Scheme Lab', blurb:'How this player fits different systems and lineups. Included with Pro — $8.99/mo.' },
   portalfit:   { tier:'pro', label:'Portal Fit', blurb:'Which programs this player best fits, ranked by need, production and coach fit. Included with Pro — $8.99/mo.' }
 };
-var _TABS = ['overview','playerdna','stats','trends','shotcharts','shotgenome','shotflow','scheme','dossier','role','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
+var _TABS = ['overview','playerdna','stats','trends','shotcharts','shotgenome','shotflow','scheme','dossier','role','statshift','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
 function _lockPanel(pnl, g){
   if(!pnl || pnl.__locked) return; pnl.__locked = true;
   pnl.innerHTML = '';
