@@ -33,7 +33,7 @@ import build_onoff as B
 
 DATADIR = B.DATADIR
 CACHE = os.path.join(DATADIR, "wowy_cache")
-F = ("pts", "fga", "fgm", "tpm", "fta", "ftm", "orb", "drb", "tov", "ast", "stl", "blk")
+F = ("pts", "fga", "fgm", "tpa", "tpm", "fta", "ftm", "orb", "drb", "tov", "ast", "stl", "blk")
 MIN_UNIT_POSS = {2: 80, 3: 60, 4: 45, 5: 30}
 TOP_UNITS = 15
 
@@ -84,6 +84,36 @@ def kind(desc):
         return "fga"
     return None
 
+ESPN_CACHE = os.path.join(DATADIR, "espn_pbp_cache")
+def espn_misses(gid):
+    """missed field goals in ESPN's play-by-play for the same game (our game ids ARE ESPN ids):
+    [{per, secs, team_id, is3}] — ESPN marks every shot 2 or 3 (pointsAttempted)"""
+    import gzip
+    os.makedirs(ESPN_CACHE, exist_ok=True)
+    fp = os.path.join(ESPN_CACHE, f"{gid}.json.gz")
+    d = None
+    if os.path.exists(fp):
+        try: d = json.load(gzip.open(fp))
+        except Exception: d = None
+    if d is None:
+        d = B.http(f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/summary?event={gid}")
+        if d and d.get("plays"):
+            try: json.dump(d, gzip.open(fp, "wt"))
+            except Exception: pass
+        time.sleep(0.15)
+    out, teams = [], {}
+    for c in (((d or {}).get("header") or {}).get("competitions") or [{}])[0].get("competitors", []):
+        t = c.get("team") or {}; teams[str(t.get("id"))] = " ".join(filter(None, [t.get("location"), t.get("name"), t.get("displayName"), t.get("shortDisplayName")]))
+    for pl in (d or {}).get("plays") or []:
+        if not pl.get("shootingPlay") or pl.get("scoringPlay"): continue
+        if "free throw" in (pl.get("text") or "").lower(): continue
+        pa = pl.get("pointsAttempted")
+        if pa not in (2, 3): continue
+        out.append({"per": (pl.get("period") or {}).get("number") or 1, "secs": secs_of((pl.get("clock") or {}).get("displayValue")),
+                    "team": str((pl.get("team") or {}).get("id")), "is3": pa == 3, "used": False})
+    return out, teams
+
+TWO = re.compile(r"two point|2 pointer|layup|dunk|tip|hook|alley|putback", re.I)
 def process_game(nid, og):
     """→ list of stints [{H:[ids],A:[ids],secs,low,h:{box},a:{box}}], team names, names map"""
     pbp = B.pbp_json(nid)
@@ -114,6 +144,21 @@ def process_game(nid, og):
     hn2e, hstart = side_map(box_home); an2e, astart = side_map(box_away)
     if len(hstart) != 5 or len(astart) != 5: return None, "starters"
     on = {"H": set(hstart), "A": set(astart)}; n2e = {"H": hn2e, "A": an2e}
+    # one play-by-play format says "Jumper MISSED by …" with no 2 or 3: fill those from ESPN by period, clock and team
+    amb = any("MISSED by" in (pl.get("eventDescription") or "") for per in pbp["periods"] for pl in per.get("playbyplayStats", []))
+    EM, eteam = (espn_misses(og["id"]) if amb else ([], {}))
+    side_team = {}
+    if EM:
+        for tid, nm in eteam.items():
+            side_team[tid] = "H" if tov(nm, box_home) >= tov(nm, box_away) else "A"
+    def miss_is3(pn, s, side):
+        best = None
+        for m in EM:
+            if m["used"] or m["per"] != pn or side_team.get(m["team"]) != side or m["secs"] is None or s is None: continue
+            dd = abs(m["secs"] - s)
+            if dd <= 4 and (best is None or dd < best[0]): best = (dd, m)
+        if best: best[1]["used"] = True; return 1.0 if best[1]["is3"] else 0.0
+        return 0.45   # no ESPN match: about the share of missed jumpers that are threes
     stints = []; cur = {"secs": 0.0, "low": {False: [blank(), blank(), 0.0], True: [blank(), blank(), 0.0]}}
     bad = 0
 
@@ -128,6 +173,22 @@ def process_game(nid, og):
         pn = int(per.get("periodNumber") or 1)
         prev_h = prev_a = None; prev_sig = None; last_secs = 1200 if pn <= 2 else 300
         last_miss = None   # (side, dead_ball) of the last missed shot: decides who an unlabelled rebound belongs to
+        pend = {"H": [], "A": []}   # made field goals whose points the score hasn't shown yet: [box, value or None]
+        def credit(bucket, dh, da):
+            """the score moved: first pay any made field goal still owed (the feed often updates the score a line
+            late — on the next foul, rebound or substitution), the rest is made free throws"""
+            for sd, d in (("H", dh), ("A", da)):
+                if d <= 0: continue
+                bx = bucket[0] if sd == "H" else bucket[1]
+                bx["pts"] += d
+                while d > 0 and pend[sd]:
+                    fbox, val = pend[sd][0]
+                    if val is None:   # a made "Jumper" with no 2 or 3 in the text: the score says which
+                        val = 3 if d >= 3 else 2
+                        fbox["tpa"] += 1 if val == 3 else 0; fbox["tpm"] += 1 if val == 3 else 0
+                    if d >= val: d -= val; pend[sd].pop(0)
+                    else: pend[sd][0] = [fbox, val - d]; d = 0
+                if d > 0: bx["ftm"] += d; bx["fta"] += d
         for pl in per.get("playbyplayStats", []):
             desc = pl.get("eventDescription", "") or ""
             try: hs = int(pl.get("homeScore") or 0); as_ = int(pl.get("visitorScore") or 0)
@@ -137,8 +198,14 @@ def process_game(nid, og):
             bucket = cur["low"][low]
             if s is not None and s <= last_secs:
                 bucket[2] += last_secs - s; last_secs = s
+            # credit points only when the score passes its high-water mark: a scorer's correction (down, then back up)
+            # was being counted twice — that was the +7% of made free throws vs the box score
+            dh = (hs - prev_h) if prev_h is not None else 0
+            da = (as_ - prev_a) if prev_a is not None else 0
+            prev_h = hs if prev_h is None else max(prev_h, hs); prev_a = as_ if prev_a is None else max(prev_a, as_)
             m = SUB2.match(desc)
             if m:
+                credit(bucket, dh, da)   # points that arrive on a substitution line belong to the five before it
                 close()
                 # "Subbing in for Bethune-Cookman-Quentin Heady": the team name can hold hyphens too, so try every
                 # split until the left part is one of the two teams (build_onoff's regex cut at the first hyphen)
@@ -156,37 +223,38 @@ def process_game(nid, og):
                 eid = n2e[side].get(pk) or n2e[side].get("~" + (pk.split(" ")[-1] if pk else ""))
                 if eid is None: bad += 1; continue
                 (on[side].add if io == "in" else on[side].discard)(eid)
-                prev_h, prev_a = hs, as_
                 continue
             side = "H" if pl.get("isHome") else "A"
             box_s = bucket[0] if side == "H" else bucket[1]
             k = kind(desc)
-            # points and made FTs ride the score; a FG make's own points are subtracted so the rest is FTs
-            dh = (hs - prev_h) if prev_h is not None else 0
-            da = (as_ - prev_a) if prev_a is not None else 0
-            prev_h, prev_a = hs, as_
             if "assists)" in desc.lower(): box_s["ast"] += 1
             dl = desc.lower(); sig = re.sub(r"\s+", "", re.sub(r"\(.*?\)", "", dl))
             dup = bool(sig) and sig == prev_sig
             prev_sig = sig
-            fg_pts = {"H": 0, "A": 0}
             if not dup and k == "fga":
                 made = not re.search(r"miss", dl)
-                d_side = dh if side == "H" else da
-                is3 = bool(THREE.search(desc)) or (made and d_side >= 3)
                 box_s["fga"] += 1
                 last_miss = None if made else (side, False)
                 if made:
-                    box_s["fgm"] += 1; box_s["tpm"] += 1 if is3 else 0
-                    fg_pts[side] = 3 if is3 else 2
+                    box_s["fgm"] += 1
+                    if THREE.search(desc): box_s["tpa"] += 1; box_s["tpm"] += 1; pend[side].append([box_s, 3])
+                    elif TWO.search(desc): pend[side].append([box_s, 2])
+                    else: pend[side].append([box_s, None])
+                else:
+                    if THREE.search(desc): p3 = 1.0
+                    elif TWO.search(desc): p3 = 0.0
+                    else: p3 = miss_is3(pn, s, side) if amb else 0.0
+                    box_s["tpa"] += p3
             elif not dup and k in ("orb", "drb"):
                 # one feed labels EVERY rebound "defensive rebound", so the label can't be trusted: a rebound by the
-                # side that missed is offensive. The "team rebound" between two free throws is not a rebound at all.
+                # side that missed is offensive. The "team rebound" between two free throws is not a rebound at all,
+                # and team (dead-ball) rebounds are left out like the box score does (they ran ORB +10%)
+                team_reb = bool(re.match(r"^team\b", dl) or re.search(r"'s team\b|\bteam$", dl))
                 if last_miss is not None:
-                    if not last_miss[1]:
+                    if not last_miss[1] and not team_reb:
                         box_s["orb" if last_miss[0] == side else "drb"] += 1
                     last_miss = None
-                else:
+                elif not team_reb:
                     box_s[k] += 1
             elif not dup and k in ("tov", "stl", "blk"):
                 box_s[k] += 1
@@ -195,12 +263,7 @@ def process_game(nid, og):
             elif not dup and k == "ftmiss":
                 box_s["fta"] += 1
                 last_miss = (side, bool(re.search(r"\b(1 of 2|1 of 3|2 of 3)\b", dl)))
-            for sd, d in (("H", dh), ("A", da)):
-                if d > 0:
-                    bx = bucket[0] if sd == "H" else bucket[1]
-                    bx["pts"] += d
-                    ft = max(0, d - fg_pts[sd])
-                    bx["ftm"] += ft; bx["fta"] += ft
+            credit(bucket, dh, da)
     close()
     # the same partial-feed guard as build_onoff: a complete game has ~55-80 possessions a side
     tot = {"H": blank(), "A": blank()}
@@ -215,9 +278,137 @@ def process_game(nid, og):
     names = {str(b["espn_id"]): b["player"] for b in box if b.get("espn_id") is not None}
     return {"stints": stints, "teamH": box_home, "teamA": box_away, "names": names, "bad": bad}, "ok"
 
+# ── CBBD source (2023-24): every play carries the ten players on the floor, so stints come straight from it ──
+CBBD_API = "https://api.collegebasketballdata.com"
+CBBD_CACHE = os.path.join(DATADIR, "cbbd_cache")
+def cbbd_day(d, key):
+    """all plays for one day (not only shots), cached gz — one API call per day, ~150 a season"""
+    import gzip, urllib.parse
+    os.makedirs(CBBD_CACHE, exist_ok=True)
+    fp = os.path.join(CBBD_CACHE, f"playsall_{d}.json.gz")
+    if os.path.exists(fp):
+        try: return json.load(gzip.open(fp))
+        except Exception: pass
+    if not key: return None
+    url = CBBD_API + "/plays/date?" + urllib.parse.urlencode({"date": d})
+    for a in range(4):
+        try:
+            req = urllib.request.Request(url, headers={"Authorization": "Bearer " + key, "Accept": "application/json"})
+            with urllib.request.urlopen(req, timeout=300) as r:
+                v = json.loads(r.read().decode()); print(f"  {d}: {len(v)} plays (calls left {r.headers.get('X-CallLimit-Remaining')})", flush=True)
+                json.dump(v, gzip.open(fp, "wt")); time.sleep(0.6); return v
+        except Exception as e:
+            print("  retry", d, e, flush=True); time.sleep(3 * (a + 1))
+    return None
+
+def process_cbbd_game(plays, gid):
+    """one game's CBBD plays → the same {stints, teamH, teamA, names} process_game returns"""
+    box = cached_json(f"box_{gid}.json", lambda: B.sb_get(f"box_scores?game_id=eq.{gid}&select=player,espn_id,team,starter,min"))
+    if not box: return None, "no-box"
+    bteams = list({b["team"] for b in box if b.get("team")})
+    if len(bteams) < 2: return None, "box-teams<2"
+    p0 = plays[0]
+    home = p0["team"] if p0.get("isHomeTeam") else p0["opponent"]; away = p0["opponent"] if p0.get("isHomeTeam") else p0["team"]
+    box_home = max(bteams, key=lambda bt: (B._tov(bt, home), -B._tov(bt, away)))
+    box_away = next(bt for bt in bteams if bt != box_home)
+    def keys(team):
+        rows = [b for b in box if b["team"] == team and b.get("espn_id") is not None]
+        m = {nn(b["player"]): str(b["espn_id"]) for b in rows}
+        last = defaultdict(list)
+        for b in rows: last[nn(b["player"]).split(" ")[-1]].append(str(b["espn_id"]))
+        for k, v in last.items():
+            if len(v) == 1: m.setdefault("~" + k, v[0])
+        return m
+    km = {"H": keys(box_home), "A": keys(box_away)}
+    cid = {}
+    def eid(pl, sd):
+        k = (pl.get("id"), sd)
+        if k not in cid:
+            n = nn(pl.get("name")); cid[k] = km[sd].get(n) or km[sd].get("~" + (n.split(" ")[-1] if n else ""))
+        return cid[k]
+    plays = sorted(plays, key=lambda p: (p.get("period") or 1, -(p.get("secondsRemaining") or 0), p.get("id") or 0))
+    stints = []; cur = None; bad = 0; last_secs = {}; last_miss = None
+    def flush():
+        if cur and (cur["secs"] > 0 or any(cur["h"].values()) or any(cur["a"].values())): stints.append(cur)
+    prev = {"H": None, "A": None}
+    for pl in plays:
+        fl = pl.get("onFloor") or []
+        hsd = {True: "H", False: "A"}[bool(pl.get("isHomeTeam"))]
+        tname = pl.get("team")
+        H, A = [], []
+        for x in fl:
+            sd = hsd if x.get("team") == tname else ("A" if hsd == "H" else "H")
+            e = eid(x, sd)
+            (H if sd == "H" else A).append(e)
+        # CBBD's on-floor lists are noisy (9, 11, even 13 names). Repair a side against its previous five: too few →
+        # top up with the previous five's missing men; too many → keep who was already on, then newcomers, to five
+        for sd in ("H", "A"):
+            L = [e for e in (H if sd == "H" else A) if e is not None]
+            L = list(dict.fromkeys(L))
+            pv = prev[sd]
+            if len(L) != 5 and pv:
+                if len(L) < 5: L += [e for e in pv if e not in L][:5 - len(L)]
+                else: L = ([e for e in L if e in pv] + [e for e in L if e not in pv])[:5]
+            if sd == "H": H = L
+            else: A = L
+        if None in H or None in A or len(H) != 5 or len(A) != 5: bad += 1; continue
+        prev["H"], prev["A"] = list(H), list(A)
+        per = pl.get("period") or 1; secs = pl.get("secondsRemaining")
+        low = low_leverage(per, secs, (pl.get("homeScore") or 0) - (pl.get("awayScore") or 0))
+        key = (tuple(sorted(H)), tuple(sorted(A)), low)
+        if cur is None or cur["key"] != key:
+            flush(); cur = {"key": key, "H": list(key[0]), "A": list(key[1]), "secs": 0.0, "low": low, "h": blank(), "a": blank()}
+        ls = last_secs.get(per, 1200 if per <= 2 else 300)
+        if secs is not None and secs <= ls: cur["secs"] += ls - secs; last_secs[per] = secs
+        bx = cur["h"] if hsd == "H" else cur["a"]
+        t = (pl.get("playType") or ""); tl = t.lower(); made = bool(pl.get("scoringPlay"))
+        team_play = not (pl.get("participants") or [])
+        if t in ("JumpShot", "LayUpShot", "DunkShot", "TipShot") or (pl.get("shootingPlay") and "free" not in tl):
+            si = pl.get("shotInfo") or {}
+            is3 = si.get("range") == "three_pointer" or pl.get("scoreValue") == 3
+            bx["fga"] += 1; bx["tpa"] += 1 if is3 else 0
+            if made: bx["fgm"] += 1; bx["tpm"] += 1 if is3 else 0; bx["pts"] += 3 if is3 else 2; last_miss = None
+            else: last_miss = hsd
+            if si.get("assisted"): bx["ast"] += 1
+        elif "freethrow" in tl.replace(" ", ""):
+            bx["fta"] += 1
+            if made: bx["ftm"] += 1; bx["pts"] += 1
+            else: last_miss = hsd
+        elif "offensive rebound" in tl and not team_play: bx["orb"] += 1
+        elif "defensive rebound" in tl and not team_play: bx["drb"] += 1
+        elif "turnover" in tl: bx["tov"] += 1
+        elif tl == "steal": bx["stl"] += 1
+        elif "block" in tl: bx["blk"] += 1
+    flush()
+    for st in stints: st.pop("key", None); st["secs"] = round(st["secs"], 1)
+    if bad > max(15, 0.06 * len(plays)): return None, "bad-onfloor"   # lineups we can't follow
+    tot = {"H": blank(), "A": blank()}
+    for st in stints:
+        for f in F: tot["H"][f] += st["h"][f]; tot["A"][f] += st["a"][f]
+    for sd in ("H", "A"):
+        pp = poss(tot[sd])
+        if pp < 45 or pp > 110: return None, "bad-poss"
+    names = {str(b["espn_id"]): b["player"] for b in box if b.get("espn_id") is not None}
+    return {"stints": stints, "teamH": box_home, "teamA": box_away, "names": names, "bad": bad}, "ok"
+
+def cbbd_games(season):
+    """→ [(gid, plays)] for the season from the CBBD day files (pulls missing days with CBBD_KEY)"""
+    key = (os.environ.get("CBBD_KEY") or "").strip()
+    days = sorted({r["date"] for r in B.sb_get(f"games?select=date&season_year=eq.{season}&order=date&limit=10000")})
+    out = []
+    missing = 0
+    for d in days:
+        v = cbbd_day(d, key)
+        if v is None: missing += 1; continue
+        g = defaultdict(list)
+        for pl in v: g[str(pl.get("gameSourceId") or pl.get("gameId"))].append(pl)
+        out.extend(g.items())
+    if missing: print(f"*** {missing} of {len(days)} days have no CBBD plays — set CBBD_KEY to pull them ***", flush=True)
+    return out
+
 def poss(b): return max(0.0, b["fga"] - b["orb"] + b["tov"] + 0.44 * b["fta"])
 
-def rates(o, d, secs):
+def rates(o, d, secs, lg=None):
     """four factors for a unit: o = its own box, d = the opponent's box while it was on"""
     po, pd = poss(o), poss(d)
     def pct(n, den): return round(100 * n / den, 1) if den > 0 else None
@@ -229,12 +420,24 @@ def rates(o, d, secs):
            "ftr": pct(o["fta"], o["fga"]), "ast": pct(o["ast"], o["fgm"]),
            "ots": ts(d), "oefg": efg(d), "otov": pct(d["tov"], pd), "drb": pct(d["drb"], d["drb"] + o["orb"])}
     out["net"] = round(out["o"] - out["d"], 1) if out["o"] is not None and out["d"] is not None else None
+    out.update({"tp": pct(o["tpm"], o["tpa"]), "tpar": pct(o["tpa"], o["fga"]), "ftp": pct(o["ftm"], o["fta"]), "otp": pct(d["tpm"], d["tpa"])})
+    if lg:   # luck adjusted: own FT%, and the opponent's 3P% and FT%, set to the D-I average (what a unit controls stays)
+        L3, LF = lg["tp3"], lg["ft"]
+        op = o["pts"] - (o["ftm"] - o["fta"] * LF)
+        dp = d["pts"] - (d["ftm"] - d["fta"] * LF) - 3 * (d["tpm"] - d["tpa"] * L3)
+        out["ol"] = pct(op, po); out["dl"] = pct(dp, pd)
+        out["netl"] = round(out["ol"] - out["dl"], 1) if out["ol"] is not None and out["dl"] is not None else None
     return out
 
 def add(dst, src):
     for f in F: dst[f] += src[f]
 
-def run(season, limit=0, verbose=False):
+def run(season, limit=0, verbose=False, source="ncaa"):
+    if source == "cbbd":
+        games = cbbd_games(season)
+        print(f"season {season}: {len(games)} CBBD games", flush=True)
+        work = [(gid, (lambda gid=gid, pl=pl: process_cbbd_game(pl, gid))) for gid, pl in games]
+        return aggregate(season, work, limit, verbose)
     games_fp = os.path.join(CACHE, f"games_{season}.json")
     gmap = {}
     if os.path.exists(games_fp):
@@ -252,12 +455,16 @@ def run(season, limit=0, verbose=False):
             if verbose: print(d, len(gmap), flush=True)
         os.makedirs(CACHE, exist_ok=True); json.dump(gmap, open(games_fp, "w"))
     print(f"season {season}: {len(gmap)} matched games", flush=True)
+    work = [(nid, (lambda nid=nid, og=og: process_game(nid, og))) for nid, og in gmap.items()]
+    return aggregate(season, work, limit, verbose)
+
+def aggregate(season, work, limit, verbose):
     P = defaultdict(lambda: {"team": None, "name": None, "games": 0, "on_o": blank(), "on_d": blank(), "on_s": 0.0, "tm_o": blank(), "tm_d": blank(), "tm_s": 0.0})
     U = {n: defaultdict(lambda: {"o": blank(), "d": blank(), "s": 0.0, "team": None}) for n in (2, 3, 4, 5)}
     STINTS = []; names = {}; fails = defaultdict(int); done = 0
-    for i, (nid, og) in enumerate(gmap.items()):
+    for i, (nid, fn) in enumerate(work):
         if limit and done >= limit: break
-        res, why = process_game(nid, og)
+        res, why = fn()
         if res is None: fails[why] += 1; continue
         done += 1; names.update(res["names"])
         seen = set(); gt = {"H": [blank(), blank(), 0.0], "A": [blank(), blank(), 0.0]}
@@ -283,7 +490,9 @@ def run(season, limit=0, verbose=False):
     tot_o = blank(); tot_d = blank()
     for c, u in U[5].items(): add(tot_o, u["o"]); add(tot_d, u["d"])
     league = rates(tot_o, tot_d, 0)
-    print(f"[league] ORtg {league['o']}  TS {league['ts']}  TOV {league['tov']}  ORB {league['orb']}", flush=True)
+    LG = {"tp3": tot_o["tpm"] / max(1, tot_o["tpa"]), "ft": tot_o["ftm"] / max(1, tot_o["fta"])}
+    league.update({"tp3_raw": round(LG["tp3"], 4), "ft_raw": round(LG["ft"], 4)})
+    print(f"[league] ORtg {league['o']}  TS {league['ts']}  TOV {league['tov']}  ORB {league['orb']}  3P% {league['tp']}  3PAr {league['tpar']}  FT% {league['ftp']}", flush=True)
     if not league["o"] or not (90 <= league["o"] <= 120):
         print("*** SANITY FAIL: league ORtg implausible — not writing ***"); return
 
@@ -291,9 +500,9 @@ def run(season, limit=0, verbose=False):
     players = []
     for e, p in P.items():
         if p["on_s"] < 60 * 30: continue   # 30+ minutes
-        on = rates(p["on_o"], p["on_d"], p["on_s"])
+        on = rates(p["on_o"], p["on_d"], p["on_s"], LG)
         off_o = {f: p["tm_o"][f] - p["on_o"][f] for f in F}; off_d = {f: p["tm_d"][f] - p["on_d"][f] for f in F}
-        off = rates(off_o, off_d, max(0.0, p["tm_s"] - p["on_s"])) if p["tm_s"] - p["on_s"] >= 60 * 20 else None
+        off = rates(off_o, off_d, max(0.0, p["tm_s"] - p["on_s"]), LG) if p["tm_s"] - p["on_s"] >= 60 * 20 else None
         r = rapm.get(e)
         players.append({"id": e, "name": names.get(e) or p.get("name"), "team": p["team"], "g": p["games"], "on": on, "off": off,
                         "rapm": r})
@@ -301,7 +510,7 @@ def run(season, limit=0, verbose=False):
     for n in (2, 3, 4, 5):
         byteam = defaultdict(list)
         for c, u in U[n].items():
-            r = rates(u["o"], u["d"], u["s"])
+            r = rates(u["o"], u["d"], u["s"], LG)
             if r["poss"] < MIN_UNIT_POSS[n]: continue
             byteam[u["team"]].append({"ids": list(c), "r": r})
         for t, arr in byteam.items():
@@ -356,5 +565,6 @@ if __name__ == "__main__":
     ap.add_argument("--season", type=int, required=True)
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--verbose", action="store_true")
+    ap.add_argument("--source", default="ncaa", choices=["ncaa", "cbbd"], help="cbbd = CollegeBasketballData on-floor plays (2023-24); needs CBBD_KEY to pull")
     a = ap.parse_args()
-    run(a.season, a.limit, a.verbose)
+    run(a.season, a.limit, a.verbose, a.source)

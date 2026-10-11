@@ -1,0 +1,51 @@
+name: Build WOWY lineups
+
+# WOWY Lineups (wowy.html) for one season, built by scripts/build_wowy.py.
+#   source ncaa — NCAA play-by-play with substitutions (2024-25 and 2025-26)
+#   source cbbd — CollegeBasketballData plays, which carry the ten players on the floor (2023-24 — the only
+#                 older season that has lineup data outside stats.ncaa.org). Needs the CBBD_KEY secret
+#                 (free key at collegebasketballdata.com/key): about 150 API calls, one per game day.
+# Commits scripts/data/wowy_<season>.json + wowy_units_<season>.json, which triggers a Vercel deploy.
+# Run from the Actions tab, or: gh workflow run build-wowy.yml -f season=2024 -f source=cbbd
+
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "Season (end year): 2024 = 2023-24"
+        required: true
+        default: "2024"
+      source:
+        description: "ncaa or cbbd"
+        required: true
+        default: "cbbd"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-wowy
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install numpy scipy
+      - name: Build
+        env:
+          CBBD_KEY: ${{ secrets.CBBD_KEY }}
+        run: python3 -u scripts/build_wowy.py --season "${{ inputs.season }}" --source "${{ inputs.source }}"
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add scripts/data/wowy_${{ inputs.season }}.json scripts/data/wowy_units_${{ inputs.season }}.json
+          git diff --cached --quiet && { echo "nothing to commit"; exit 0; }
+          git commit -m "Auto: WOWY lineups ${{ inputs.season }} (${{ inputs.source }}) [skip ci]"
+          for i in 1 2 3; do git pull --rebase && git push && break; sleep 5; done

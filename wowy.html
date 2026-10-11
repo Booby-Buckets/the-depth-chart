@@ -134,12 +134,12 @@
   <div class="wy-tabs"><button class="on" data-scope="team">Team</button><button data-scope="league">League leaders</button></div>
   <div class="wy-ctl">
     <select id="wyTeam" aria-label="Team"></select>
-    <select id="wySeason" aria-label="Season"><option value="2026">2025-26</option><option value="2025">2024-25</option></select>
+    <select id="wySeason" aria-label="Season"><option value="2026">2025-26</option><option value="2025">2024-25</option><option value="2024">2023-24</option></select>
     <span class="wy-seg gold" id="wyMode"></span>
     <span class="wy-seg" id="wyMetric"></span>
     <input id="wySearch" placeholder="Search player…" style="display:none">
   </div>
-  <div class="wy-ctl"><span class="wy-seg" id="wyView"></span><label class="wy-note" style="margin:0;display:flex;gap:6px;align-items:center"><input type="checkbox" id="wySmall"> Show small samples</label></div>
+  <div class="wy-ctl"><span class="wy-seg" id="wyView"></span><label class="wy-note" style="margin:0;display:flex;gap:6px;align-items:center"><input type="checkbox" id="wySmall"> Show small samples</label><label class="wy-note" style="margin:0;display:flex;gap:6px;align-items:center" title="Sets the team's own free-throw shooting and the opponent's 3-point and free-throw shooting to the D-I average: the part of a rating that is mostly luck"><input type="checkbox" id="wyLuck"> Luck adjusted</label></div>
   <div class="wy-note" id="wyNote"></div>
   <div class="sheet-wrap" style="max-height:none"><table class="sheet dense wy-tbl" id="wyTbl"></table></div>
   <div class="wy-key"><b class="g">Green = good</b><b class="r">Red = bad</b><span>The small number under a raw stat is the gap to the D-I average. ON-OFF is the team on the floor with him minus without him.</span></div>
@@ -154,22 +154,24 @@ var logo=function(t){ try{ var c=window.tdcTeamColor&&tdcTeamColor(t); return c&
 // stat: key, label, higher is better?, scale of a meaningful gap (for shading)
 var S={ min:['min','Min',null], poss:['poss','Poss',null],
   net:['net','Net',1,8], o:['o','Off',1,5], d:['d','Def',-1,5],
-  ts:['ts','TS%',1,3], efg:['efg','eFG%',1,3], tov:['tov','TOV%',-1,2], orb:['orb','ORB%',1,4], ftr:['ftr','FT rate',1,6], ast:['ast','AST%',1,6],
+  ts:['ts','TS%',1,3], efg:['efg','eFG%',1,3], tp:['tp','3P%',1,3], tpar:['tpar','3PA rate',1,6], ftp:['ftp','FT%',1,4], otp:['otp','Opp 3P%',-1,3], tov:['tov','TOV%',-1,2], orb:['orb','ORB%',1,4], ftr:['ftr','FT rate',1,6], ast:['ast','AST%',1,6],
   ots:['ots','Opp TS%',-1,3], oefg:['oefg','Opp eFG%',-1,3], otov:['otov','Opp TOV%',1,2], drb:['drb','DRB%',1,4] };
-var VIEWS={ overview:['net','o','d'], offense:['o','ts','efg','tov','orb','ftr','ast'], defense:['d','ots','oefg','otov','drb'],
-  expanded:['net','o','d','ts','tov','orb','ots','otov','drb'] };
+var VIEWS={ overview:['net','o','d'], offense:['o','ts','efg','tp','tpar','tov','orb','ftr','ftp','ast'], defense:['d','ots','oefg','otp','otov','drb'],
+  expanded:['net','o','d','ts','tp','tov','orb','ots','otp','otov','drb'] };
+// luck adjusted (the "Luck" toggle): the unit's own FT% and the opponent's 3P% and FT% set to the D-I average
+var LUCK=false; function K(k){ return LUCK?({o:'ol',d:'dl',net:'netl'}[k]||k):k; }
 var MODES=[['wowy','WOWY'],['2','2 Man'],['3','3 Man'],['4','4 Man'],['5','5 Man']];
 function seg(host,list,cur,on){ host.innerHTML=list.map(function(x){ return '<button class="'+(x[0]===cur?'on':'')+'" data-k="'+x[0]+'">'+x[1]+'</button>'; }).join('');
   host.querySelectorAll('button').forEach(function(b){ b.onclick=function(){ on(b.dataset.k); }; }); }
 function load(season){
   if(DATA[season]) return Promise.resolve(DATA[season]);
-  return fetch('scripts/data/wowy_'+season+'.json?v=2').then(function(r){ return r.ok?r.json():null; }).then(function(j){ DATA[season]=j; return j; });
+  return fetch('scripts/data/wowy_'+season+'.json?v=3').then(function(r){ return r.ok?r.json():null; }).then(function(j){ DATA[season]=j; return j; });
 }
 // 2/3/4/5-man units live in their own file (4 MB raw) and load the first time a unit tab opens
 var UNITS={};
 function loadUnits(season){
   if(UNITS[season]) return Promise.resolve(UNITS[season]);
-  return fetch('scripts/data/wowy_units_'+season+'.json?v=2').then(function(r){ return r.ok?r.json():null; }).then(function(j){ UNITS[season]=j||{units:{},names:{}}; return UNITS[season]; });
+  return fetch('scripts/data/wowy_units_'+season+'.json?v=3').then(function(r){ return r.ok?r.json():null; }).then(function(j){ UNITS[season]=j||{units:{},names:{}}; return UNITS[season]; });
 }
 // heat for a value vs the league average (raw cells) or for an on-off gap
 function cls(k,gap){ var s=S[k]; if(!s||s[2]==null||gap==null) return ''; var g=gap*s[2]/s[3];
@@ -178,7 +180,7 @@ function f1(v){ return v==null?'—':(+v).toFixed(1); }
 function sg(v){ return v==null?'—':(v>0?'+':'')+(+v).toFixed(1); }
 function teams(D){ var t={}; D.players.forEach(function(p){ if(p.team) t[p.team]=1; }); return Object.keys(t).sort(); }
 function render(){
-  var D=DATA[SEASON]; if(!D){ $('#wyTbl').innerHTML='<tbody><tr><td class="l">No data for this season yet.</td></tr></tbody>'; return; }
+  var D=DATA[SEASON]; if(!D){ $('#wyTbl').innerHTML='<tbody><tr><td class="l">'+(SEASON==='2024'?'2023-24 lineups come from CollegeBasketballData and are being built.':'This season is still being built.')+'</td></tr></tbody>'; return; }
   var L=D.league, small=$('#wySmall').checked;
   seg($('#wyMode'), SCOPE==='league'?[['wowy','Players']]:MODES, SCOPE==='league'?'wowy':MODE, function(k){ MODE=k; SORT=null; render(); });
   var showMetric=(MODE==='wowy');
@@ -186,7 +188,7 @@ function render(){
   seg($('#wyMetric'),[['onoff','On-off'],['rapm','RAPM']],METRIC,function(k){ METRIC=k; SORT=null; render(); });
   seg($('#wyView'),[['overview','Overview'],['offense','Offense'],['defense','Defense'],['expanded','Expanded']],VIEW,function(k){ VIEW=k; render(); });
   $('#wyTeam').style.display=SCOPE==='team'?'':'none'; $('#wySearch').style.display=SCOPE==='league'?'':'none';
-  $('#wyNote').textContent=(D.games? D.games.toLocaleString()+' games · ':'')+'low-leverage (garbage) time removed · built '+(D.built||'');
+  $('#wyNote').textContent=(D.games? D.games.toLocaleString()+' games · ':'')+'low-leverage (garbage) time removed'+(LUCK?' · luck adjusted: own FT% and opponent 3P% / FT% at the D-I average':'')+' · built '+(D.built||'');
   var cols=VIEWS[VIEW], head, rows;
   if(MODE==='wowy'||SCOPE==='league'){
     // league leaders: 500+ on-court possessions, and ranking by on-off needs a real off-court sample too (a starter whose
@@ -195,10 +197,10 @@ function render(){
     if(SCOPE==='league'){ var q=($('#wySearch').value||'').toLowerCase().trim(); if(q) list=list.filter(function(p){ return (p.name||'').toLowerCase().indexOf(q)>=0 || (p.team||'').toLowerCase().indexOf(q)>=0; }); }
     if(!small && SCOPE==='team') list=list.filter(function(p){ return p.on.poss>=100 || p.on.min>=60; });
     var rap=(METRIC==='rapm');
-    var oo=function(p,k){ return (p.off&&p.on[k]!=null&&p.off[k]!=null)?p.on[k]-p.off[k]:null; };
+    var oo=function(p,k){ k=K(k); return (p.off&&p.on[k]!=null&&p.off[k]!=null)?p.on[k]-p.off[k]:null; };
     var key=SORT|| (rap?'rapm':'oo_net');
     var val=function(p){ if(key==='name') return p.name; if(key==='min') return p.on.min; if(key==='rapm') return p.rapm?p.rapm.net:-99; if(key==='rapm_o') return p.rapm?p.rapm.o:-99; if(key==='rapm_d') return p.rapm?p.rapm.d:-99;
-      if(key.indexOf('oo_')===0){ var v=oo(p,key.slice(3)); return v==null?-999:v*(S[key.slice(3)][2]||1); } return p.on[key]==null?-999:p.on[key]; };
+      if(key.indexOf('oo_')===0){ var v=oo(p,key.slice(3)); return v==null?-999:v*(S[key.slice(3)][2]||1); } var kk=K(key); return p.on[kk]==null?-999:p.on[kk]; };
     list.sort(function(a,b){ var x=val(a),y=val(b); return typeof x==='string'?(DESC?y.localeCompare(x):x.localeCompare(y)):(DESC?y-x:x-y); });
     head='<th class="l" data-s="name">Player</th>'+(SCOPE==='league'?'<th class="l">Team</th>':'')+'<th data-s="min">Min</th>'+
       (rap?'<th data-s="rapm" title="Regularized adjusted plus-minus: points per 100 possessions better than average, accounting for teammates and opponents">RAPM</th><th data-s="rapm_o">O-RAPM</th><th data-s="rapm_d">D-RAPM</th>':'')+
@@ -208,7 +210,7 @@ function render(){
         (SCOPE==='league'?'<td class="l nm">'+(lg?'<img src="'+lg+'" alt="">':'')+esc((window.tdcShortSchool?tdcShortSchool(p.team):p.team))+'</td>':'')+
         '<td>'+Math.round(p.on.min)+'</td>'+
         (rap?(p.rapm?'<td class="oo '+cls('net',p.rapm.net)+'">'+sg(p.rapm.net)+'</td><td class="'+cls('o',p.rapm.o)+'">'+sg(p.rapm.o)+'</td><td class="'+cls('o',p.rapm.d)+'">'+sg(p.rapm.d)+'</td>':'<td>—</td><td>—</td><td>—</td>'):'')+
-        cols.map(function(k){ var v=p.on[k], lgv=L[k], gap=(v!=null&&lgv!=null&&k!=='net')?v-lgv:(k==='net'?v:null), d=oo(p,k);
+        cols.map(function(k){ var v=p.on[K(k)], lgv=L[k], gap=(v!=null&&lgv!=null&&k!=='net')?v-lgv:(k==='net'?v:null), d=oo(p,k);
           var raw='<td class="'+cls(k,gap)+'">'+f1(v)+(gap!=null&&k!=='net'?'<span class="rl '+((gap*S[k][2])>0?'up':'dn')+'">'+sg(gap)+'</span>':'')+'</td>';
           return raw+(rap?'':'<td class="oo '+cls(k,d)+'">'+sg(d)+'</td>'); }).join('')+'</tr>'; });
   } else {
@@ -217,11 +219,11 @@ function render(){
     var U=((UD.units||{})[TEAM]||{})[MODE]||[], nm=UD.names||{};
     if(!small) U=U.filter(function(u){ return u.r.poss>=({2:100,3:80,4:60,5:40})[MODE]; });
     var k2=SORT||'poss';
-    U=U.slice().sort(function(a,b){ var x=a.r[k2],y=b.r[k2]; x=x==null?-999:x; y=y==null?-999:y; var sgn=(S[k2]&&S[k2][2]===-1)?-1:1; return DESC?(y-x)*(k2==='poss'||k2==='min'?1:sgn):(x-y)*(k2==='poss'||k2==='min'?1:sgn); });
+    U=U.slice().sort(function(a,b){ var x=a.r[K(k2)],y=b.r[K(k2)]; x=x==null?-999:x; y=y==null?-999:y; var sgn=(S[k2]&&S[k2][2]===-1)?-1:1; return DESC?(y-x)*(k2==='poss'||k2==='min'?1:sgn):(x-y)*(k2==='poss'||k2==='min'?1:sgn); });
     var short=function(n){ n=String(n||''); var p=n.split(' '); return p.length>1?p[0][0]+'. '+p.slice(1).join(' '):n; };
     head='<th class="l">Unit</th><th data-s="min">Min</th><th data-s="poss">Poss</th>'+cols.map(function(k){ return '<th data-s="'+k+'">'+S[k][1]+'</th>'; }).join('');
     rows=U.map(function(u){ return '<tr><td class="l unit">'+u.ids.map(function(i){ return '<span>'+esc(short(nm[i]||i))+'</span>'; }).join(' · ')+'</td><td>'+Math.round(u.r.min)+'</td><td>'+u.r.poss+'</td>'+
-      cols.map(function(k){ var v=u.r[k], lgv=L[k], gap=(v!=null&&lgv!=null&&k!=='net')?v-lgv:(k==='net'?v:null);
+      cols.map(function(k){ var v=u.r[K(k)], lgv=L[k], gap=(v!=null&&lgv!=null&&k!=='net')?v-lgv:(k==='net'?v:null);
         return '<td class="'+cls(k,gap)+'">'+f1(v)+(gap!=null&&k!=='net'?'<span class="rl '+((gap*S[k][2])>0?'up':'dn')+'">'+sg(gap)+'</span>':'')+'</td>'; }).join('')+'</tr>'; });
   }
   $('#wyTbl').innerHTML='<thead><tr>'+head+'</tr></thead><tbody>'+(rows.join('')||'<tr><td class="l" colspan="20">No players or units with enough possessions.</td></tr>')+'</tbody>';
@@ -245,6 +247,7 @@ $('#wySeason').value=SEASON;
 $('#wyTeam').onchange=function(e){ TEAM=e.target.value; SORT=null; render(); };
 $('#wySeason').onchange=function(e){ setSeason(e.target.value); };
 $('#wySmall').onchange=render; $('#wySearch').oninput=render;
+$('#wyLuck').onchange=function(e){ LUCK=e.target.checked; render(); };
 document.querySelectorAll('[data-scope]').forEach(function(b){ b.onclick=function(){ SCOPE=b.dataset.scope; document.querySelectorAll('[data-scope]').forEach(function(x){ x.classList.toggle('on',x===b); }); if(SCOPE==='league'){ MODE='wowy'; METRIC='rapm'; } SORT=null; render(); }; });
 setSeason(SEASON);
 })();
