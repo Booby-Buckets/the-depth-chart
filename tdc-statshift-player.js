@@ -1,5 +1,6 @@
 /* tdc-statshift-player.js — the player page's Stat Line Shift tab (statshift.html for one player).
  *
+ *   TDC_SHIFT.renderTeam(host, {team})   team page: every player's line without -> with a picked teammate
  *   TDC_SHIFT.renderPlayer(host, {espn, name})
  *     "His line with each teammate": his own line without -> with each teammate on the floor
  *     "Teammates with him":          each teammate's line without -> with him on the floor
@@ -123,5 +124,68 @@
       draw();
     });
   }
-  window.TDC_SHIFT = { renderPlayer: renderPlayer };
+  // the team's file for a season: exact name, else the first team whose name starts with / contains it ("Duke")
+  function teamFile(season, name) {
+    return get(season + '/index.json').then(function (X) {
+      if (!X || !name) return null;
+      var n = String(name).toLowerCase(), T = X.teams;
+      var t = T.find(function (x) { return x.team.toLowerCase() === n; }) || T.find(function (x) { return x.team.toLowerCase().indexOf(n + ' ') === 0; }) ||
+              T.find(function (x) { return x.team.toLowerCase().indexOf(n) >= 0; });
+      return t ? t.file : null;
+    });
+  }
+
+  function renderTeam(host, o) {
+    if (!host) return;
+    css();
+    var names = [].concat(o && o.team || []).filter(Boolean);
+    host.innerHTML = '<div class="ssp-note">Loading lineups…</div>';
+    var st = { sort: 'mw', desc: true, small: false, mate: null };
+    var find = function (y) { var i = 0, next = function () { return i < names.length ? teamFile(y, names[i++]).then(function (f) { return f || next(); }) : Promise.resolve(null); }; return next(); };
+    Promise.all(SEASONS.map(function (y) { return find(y).then(function (f) { return f ? { season: y, file: f } : null; }); })).then(function (a) {
+      var list = a.filter(Boolean);
+      if (!list.length) { host.innerHTML = '<div class="ssp-note">No play-by-play lineup data for this team yet (2024-25 and 2025-26 D-I games with substitution logs).</div>'; return; }
+      st.season = list[0].season;
+      var draw = function () {
+        var cur = list.find(function (x) { return x.season === st.season; });
+        get(st.season + '/' + cur.file).then(function (D) {
+          if (!D || !D.players.length) { host.innerHTML = '<div class="ssp-note">Couldn\'t load the lineup file.</div>'; return; }
+          var byId = {}; D.players.forEach(function (p) { byId[p.id] = p; });
+          if (!st.mate || !byId[st.mate]) st.mate = D.players[0].id;
+          var M = byId[st.mate], mid = st.mate, first = String(M.name).split(' ')[0];
+          var rows = D.players.filter(function (p) { return p.id !== mid; }).map(function (p) {
+            var w = (D.w[p.id] || {})[mid] || p.all.map(function () { return 0; }), wo = sub(p.all, w), r = { p: p, mw: w[3 * N] / 60, mo: wo[3 * N] / 60, s: {} };
+            COLS.forEach(function (k) { var x = S[k][1](wo), y = S[k][1](w); r.s[k] = [x, y, (x != null && y != null) ? y - x : null]; });
+            return r;
+          }).filter(function (r) { return st.small || (r.mw >= 15 && r.mo >= 15); });
+          var key = st.sort;
+          var val = function (r) { if (key === 'mw') return r.mw; var s = r.s[key]; return s && s[2] != null ? s[2] : -1e9; };
+          rows.sort(function (a, b) { return st.desc ? val(b) - val(a) : val(a) - val(b); });
+          var head = '<th class="l" data-s="mw">Player<span class="sm">min w/o → min w/ ' + esc(first) + '</span></th>' + COLS.map(function (k) { return '<th data-s="' + k + '">' + S[k][0] + '</th>'; }).join('');
+          var body = rows.map(function (r) {
+            return '<tr class="' + ((r.mw < 40 || r.mo < 40) ? 'thin' : '') + '"><td class="l nm"><a href="player.html?espn=' + esc(r.p.id) + '">' + esc(r.p.name) + '</a><span class="sm">' + Math.round(r.mo) + ' w/o → ' + Math.round(r.mw) + ' w/</span></td>' +
+              COLS.map(function (k) { var s = r.s[k], dir = S[k][2];
+                return '<td class="sh ' + heat(k, s[2]) + '"><span class="ab"><span class="o">' + f1(s[0]) + '</span> → ' + f1(s[1]) + '</span><span class="dl ' + (s[2] == null ? '' : (!dir ? 'n' : (s[2] * dir > 0 ? 'up' : 'dn'))) + '">' + sg(s[2]) + '</span></td>'; }).join('') + '</tr>';
+          }).join('');
+          host.innerHTML =
+            '<div class="ssp-ctl">' +
+              (list.length > 1 ? '<select id="sspSeason" aria-label="Season">' + list.map(function (x) { return '<option value="' + x.season + '"' + (x.season === st.season ? ' selected' : '') + '>' + sl(x.season) + '</option>'; }).join('') + '</select>' : '<span class="ssp-note" style="margin:0">' + sl(st.season) + '</span>') +
+              '<select id="sspMate" aria-label="Teammate">' + D.players.map(function (p) { return '<option value="' + esc(p.id) + '"' + (p.id === mid ? ' selected' : '') + '>With / without ' + esc(p.name) + ' (' + Math.round(p.all[3 * N] / 60) + ' min)</option>'; }).join('') + '</select>' +
+              '<label class="ssp-note" style="margin:0;display:flex;gap:6px;align-items:center"><input type="checkbox" id="sspSmall"' + (st.small ? ' checked' : '') + '> Small samples</label>' +
+              '<a href="statshift.html?team=' + encodeURIComponent(D.team) + '&with=' + encodeURIComponent(mid) + (st.season !== 2026 ? '&season=' + st.season : '') + '">Open in Stat Line Shift →</a>' +
+            '</div>' +
+            '<div class="ssp-note">How every player\'s own line changes with <b>' + esc(M.name) + '</b> on the floor vs off it. Per 70 possessions; each cell reads without → with. Green = better with him, red = worse; usage and +/- aren\'t shaded. "Without" includes games he missed. Garbage time removed.</div>' +
+            '<div class="sheet-wrap" style="max-height:none"><table class="sheet dense ssp-tbl"><thead><tr>' + head + '</tr></thead><tbody>' +
+              (body || '<tr><td class="l" colspan="9">No teammate with 15+ minutes on both sides. Tick "Small samples".</td></tr>') + '</tbody></table></div>';
+          var se = host.querySelector('#sspSeason'); if (se) se.onchange = function () { st.season = +se.value; st.mate = null; draw(); };
+          host.querySelector('#sspMate').onchange = function (e) { st.mate = e.target.value; draw(); };
+          host.querySelector('#sspSmall').onchange = function (e) { st.small = e.target.checked; draw(); };
+          host.querySelectorAll('.ssp-tbl th[data-s]').forEach(function (th) { if (th.dataset.s === key) th.classList.add('sorted');
+            th.onclick = function () { if (st.sort === th.dataset.s) st.desc = !st.desc; else { st.sort = th.dataset.s; st.desc = true; } draw(); }; });
+        });
+      };
+      draw();
+    });
+  }
+  window.TDC_SHIFT = { renderPlayer: renderPlayer, renderTeam: renderTeam };
 })();

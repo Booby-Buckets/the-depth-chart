@@ -9,6 +9,7 @@
   <script src="team-colors.js?v=11"></script>
   <script src="tdc-shotchart.js?v=31"></script>
   <script src="tdc-aftermath.js?v=1"></script>
+  <script src="tdc-statshift-player.js?v=2"></script>
   <script src="tdc-lineups.js?v=17s"></script>
   <script src="tdc-lineup-history.js?v=4"></script>
   <script src="tdc-shotflow.js?v=12"></script>
@@ -1346,6 +1347,7 @@
       <div class="hero-grp-menu" style="min-width:252px;">
         <button class="hgm-item" onclick="_tgPick('dna',this)"><span class="hgm-t">Team DNA</span><span class="hgm-d">Four factors & winning engine</span></button>
         <button class="hgm-item" onclick="_tgPick('onoff',this)"><span class="hgm-t">On/Off</span><span class="hgm-d">Impact with each player on vs off</span></button>
+        <button class="hgm-item" onclick="_tgPick('statshift',this)"><span class="hgm-t">Stat Line Shift</span><span class="hgm-d">Every player's line with vs without a teammate</span></button>
         <button class="hgm-item" id="projTabBtn" onclick="_tgPick('projections',this)"><span class="hgm-t">2026-27 Projections</span><span class="hgm-d">Next season's projected line</span></button>
       </div>
     </div>
@@ -1552,6 +1554,9 @@
     </div>
     <div class="panel" id="panel-poss">
       <div class="dA-card"><div id="teamAfterHost"><div style="padding:24px;color:var(--text3);">Loading possessions…</div></div></div>
+    </div>
+    <div class="panel" id="panel-statshift">
+      <div class="dA-card"><div id="teamShiftHost"><div style="padding:24px;color:var(--text3);">Loading lineups…</div></div></div>
     </div>
     <div class="panel" id="panel-shotq">
       <div id="teamShotQHost"><div style="padding:24px;color:var(--text3);">Loading shot quality…</div></div>
@@ -6274,6 +6279,7 @@ function switchTab(id, btn){
   if(id==='dna'){ renderTeamDNA(); }
   if(id==='shots'){ _dnaCSS(); if(!window._teamShotInit){ window._teamShotInit=true; _initTeamShot(); } }
   if(id==='onoff'){ renderOnOff(); }
+  if(id==='statshift' && !window._shiftLoaded){ window._shiftLoaded=true; (async()=>{ const full=await _resolveGamesKey().catch(()=>null); if(window.TDC_SHIFT) TDC_SHIFT.renderTeam(document.getElementById('teamShiftHost'), {team:[full, teamMascot(), teamT&&teamT.name]}); })(); }
   if(id==='shotq'){ _dnaCSS(); renderShotQuality(); }
   if(id==='poss'){ _dnaCSS(); (async()=>{ const tid=await _teamEspnId().catch(()=>null); if(window.TDC_AFTER) TDC_AFTER.renderTeam(document.getElementById('teamAfterHost'), {teamId:tid, name:(teamT&&teamT.name)||''}); })(); }
   // The right sidebar (coach/depth/recruit grades, offseason additions, roster
@@ -6318,6 +6324,7 @@ var TAB_GATE = {
   poss:        { tier:'pro', label:'Possessions', blurb:'How every possession starts and scores (after makes, rebounds and turnovers), how fast they shoot, and what each shot earns after the miss — offense and defense vs D-I. Included with Pro — $8.99/mo.' },
   shotq:       { tier:'pro', label:'Shot Quality', blurb:'Look quality (the eFG% your shot selection earns), shot-making above or below it, creation, the shot diet on both ends and every player\'s numbers. Included with Pro — $8.99/mo.' },
   dna:         { tier:'pro', label:'Team DNA', blurb:'The team’s statistical identity — four factors, shot quality and the winning engine. Included with Pro — $8.99/mo.' },
+  statshift:   { tier:'pro', label:'Stat Line Shift', blurb:'How every player\u2019s own line (usage, points, assists, rebounds, TS%, 3P%, +/-) changes with each teammate on the floor vs off it, from play-by-play lineups. Included with Pro \u2014 $8.99/mo.' },
   onoff:       { tier:'pro', label:'On/Off', blurb:'How the team performs with each player on vs off the floor. Included with Pro — $8.99/mo.' },
   projections: { tier:'pro', label:'2026-27 projections', blurb:'Cohesion-adjusted minutes and scoring projections for next season. Included with Pro — $8.99/mo.' },
   report:      { tier:'pro', label:'the Roster Report', blurb:'The AI scouting breakdown — starters, bench, second unit and coaching fit. Included with Pro — $8.99/mo.' },
