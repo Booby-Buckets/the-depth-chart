@@ -1,5 +1,6 @@
 /* tdc-statshift-player.js — the player page's Stat Line Shift tab (statshift.html for one player).
  *
+ *   TDC_SHIFT.compare(host, [{espn,name,season},…], wrap)  compare page: together vs apart, or each one's top teammates
  *   TDC_SHIFT.renderTeam(host, {team})   team page: every player's line without -> with a picked teammate
  *   TDC_SHIFT.renderPlayer(host, {espn, name})
  *     "His line with each teammate": his own line without -> with each teammate on the floor
@@ -55,7 +56,8 @@
       '.ssp-tbl td.sh{white-space:nowrap;text-align:center}.ssp-tbl td .ab{display:block;font-weight:700;color:var(--text)}.ssp-tbl td .o{color:var(--text3);font-weight:600}' +
       '.ssp-tbl td .dl{display:block;font-size:10.5px;font-weight:800;margin-top:1px}' +
       '.ssp-tbl td .dl.up{color:var(--green,#1f8a45)}.ssp-tbl td .dl.dn{color:var(--red,#c0392b)}.ssp-tbl td .dl.n{color:var(--text3)}' +
-      '.ssp-tbl tr.thin td{opacity:.5}';
+      '.ssp-tbl tr.thin td{opacity:.5}' +
+      '.ssp-pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:900px){.ssp-pair{grid-template-columns:1fr}}';
     document.head.appendChild(s);
   }
 
@@ -187,5 +189,57 @@
       draw();
     });
   }
-  window.TDC_SHIFT = { renderPlayer: renderPlayer, renderTeam: renderTeam };
+  // compare page: two players. Teammates in a season we have -> each one's line without -> with the other.
+  // Otherwise -> side by side, each player's line with his five most-played teammates. Hides `wrap` when neither has data.
+  function compare(host, ps, wrap) {
+    if (!host) return;
+    css();
+    var hide = function () { if (wrap) wrap.style.display = 'none'; host.innerHTML = ''; };
+    ps = (ps || []).map(function (p) { return { id: String(p && p.espn || ''), name: (p && p.name) || '', season: p && p.season ? +p.season : null }; });
+    if (!ps.length || !ps.some(function (p) { return p.id; })) return hide();
+    Promise.all(SEASONS.map(function (y) { return get(y + '/players.json'); })).then(function (maps) {
+      var at = function (p, y) { var m = maps[SEASONS.indexOf(y)]; return p.id && m && m[p.id] ? m[p.id] : null; };
+      var pick = function (p) { var ys = SEASONS.filter(function (y) { return at(p, y) && (!p.season || p.season === y); }); return ys[0] || null; };
+      var together = ps.length === 2 && SEASONS.find(function (y) { var f = at(ps[0], y); return f && f === at(ps[1], y) && (!ps[0].season || ps[0].season === y) && (!ps[1].season || ps[1].season === y); });
+      var cell = function (k, s) { var dir = S[k][2];
+        return '<td class="sh ' + heat(k, s[2]) + '"><span class="ab"><span class="o">' + f1(s[0]) + '</span> → ' + f1(s[1]) + '</span><span class="dl ' + (s[2] == null ? '' : (!dir ? 'n' : (s[2] * dir > 0 ? 'up' : 'dn'))) + '">' + sg(s[2]) + '</span></td>'; };
+      var split = function (base, w) { w = w || base.map(function () { return 0; }); var wo = sub(base, w), s = {};
+        COLS.forEach(function (k) { var a = S[k][1](wo), b = S[k][1](w); s[k] = [a, b, (a != null && b != null) ? b - a : null]; });
+        return { s: s, mw: w[3 * N] / 60, mo: wo[3 * N] / 60 }; };
+      var head = function (lbl) { return '<thead><tr><th class="l">' + lbl + '<span class="sm">min w/o → min w/</span></th>' + COLS.map(function (k) { return '<th>' + S[k][0] + '</th>'; }).join('') + '</tr></thead>'; };
+      var row = function (label, r, href) { return '<tr class="' + ((r.mw < 40 || r.mo < 40) ? 'thin' : '') + '"><td class="l nm">' + (href ? '<a href="' + href + '">' + label + '</a>' : label) + '<span class="sm">' + Math.round(r.mo) + ' w/o → ' + Math.round(r.mw) + ' w/</span></td>' + COLS.map(function (k) { return cell(k, r.s[k]); }).join('') + '</tr>'; };
+      var foot = '<div class="ssp-note" style="margin-top:8px">Per 70 possessions; each cell reads without → with. Green = better with him on the floor, red = worse; usage and +/- aren\'t shaded. "Without" includes games the other player missed. Garbage time removed.</div>';
+      if (together) {
+        return get(together + '/' + at(ps[0], together)).then(function (D) {
+          var A = D && D.players.find(function (x) { return x.id === ps[0].id; }), B = D && D.players.find(function (x) { return x.id === ps[1].id; });
+          if (!A || !B) return hide();
+          var ra = split(A.all, (D.w[A.id] || {})[B.id]), rb = split(B.all, (D.w[B.id] || {})[A.id]);
+          host.innerHTML = '<div class="ssp-note">Teammates at ' + esc(D.team) + ' in ' + sl(together) + ': <b>' + Math.round(ra.mw) + ' minutes</b> on the floor together. How each one\'s own line changes with the other on the floor.' +
+            ' <a href="statshift.html?team=' + encodeURIComponent(D.team) + '&with=' + encodeURIComponent(B.id) + (together !== 2026 ? '&season=' + together : '') + '" style="font-weight:700;color:var(--text3)">Open in Stat Line Shift →</a></div>' +
+            '<div class="sheet-wrap" style="max-height:none"><table class="sheet dense ssp-tbl">' + head('Player') + '<tbody>' +
+            row(esc(A.name) + ' <span class="sm" style="display:inline">with ' + esc(B.name.split(' ').slice(-1)[0]) + '</span>', ra) +
+            row(esc(B.name) + ' <span class="sm" style="display:inline">with ' + esc(A.name.split(' ').slice(-1)[0]) + '</span>', rb) +
+            '</tbody></table></div>' + foot;
+          if (wrap) wrap.style.display = '';
+        });
+      }
+      Promise.all(ps.map(function (p) { var y = pick(p); return y ? get(y + '/' + at(p, y)).then(function (D) { return D ? { p: p, y: y, D: D } : null; }) : Promise.resolve(null); })).then(function (got) {
+        if (!got.some(Boolean)) return hide();
+        var col = function (g, p) {
+          if (!g) return '<div class="ssp-note">No play-by-play lineup data for ' + esc(p.name || 'this player') + ' (2024-25 and 2025-26 only).</div>';
+          var D = g.D, me = D.players.find(function (x) { return x.id === g.p.id; });
+          if (!me) return '<div class="ssp-note">Under 10 minutes in ' + sl(g.y) + '.</div>';
+          var mates = D.players.filter(function (x) { return x.id !== me.id; }).map(function (x) { var r = split(me.all, (D.w[me.id] || {})[x.id]); r.x = x; return r; })
+            .filter(function (r) { return r.mw >= 15 && r.mo >= 15; }).sort(function (a, b) { return b.mw - a.mw; }).slice(0, 5);
+          return '<div class="ssp-note" style="margin-bottom:6px"><b>' + esc(me.name) + '</b> · ' + esc(D.team) + ' · ' + sl(g.y) + ' · <a href="player.html?espn=' + esc(me.id) + '&tab=statshift" style="font-weight:700;color:var(--text3)">all teammates →</a></div>' +
+            '<div class="sheet-wrap" style="max-height:none"><table class="sheet dense ssp-tbl">' + head('His line with') + '<tbody>' +
+            (mates.map(function (r) { return row(esc(r.x.name), r, 'player.html?espn=' + esc(r.x.id)); }).join('') || '<tr><td class="l" colspan="9">No teammate with 15+ minutes on both sides.</td></tr>') + '</tbody></table></div>';
+        };
+        host.innerHTML = '<div class="ssp-note">Not teammates in a season we have lineups for, so here is each player\'s own line with his five most-played teammates on the floor vs off it.</div>' +
+          '<div class="ssp-pair">' + ps.map(function (p, i) { return '<div>' + col(got[i], p) + '</div>'; }).join('') + '</div>' + foot;
+        if (wrap) wrap.style.display = '';
+      });
+    });
+  }
+  window.TDC_SHIFT = { renderPlayer: renderPlayer, renderTeam: renderTeam, compare: compare };
 })();

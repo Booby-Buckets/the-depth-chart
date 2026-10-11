@@ -36,6 +36,7 @@
   <script src="tdc-ratings.js?v=35"></script>
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/><link rel="stylesheet" href="tdc-hero.css?v=4"/><script src="tdc-shotchart.js?v=31"></script>
   <script src="tdc-shotflow.js?v=12"></script>
+  <script src="tdc-statshift-player.js?v=3"></script>
   <script src="tdc-portalfit.js?v=needs12"></script>
   <script src="tdc-chemistry.js?v=9"></script>
   <script src="tdc-lineup-history.js?v=4"></script>
@@ -1541,6 +1542,11 @@ function renderPlayers(){
       <div class="chem-reasons">${chem.reasons.map(r=>`<div class="chem-r"><span class="chem-dot" style="background:${r.good?'#2bb673':'#e06552'};"></span>${r.t}</div>`).join('')}</div>
     </div>`:''}
 
+    <div id="cmpShiftSec" style="display:none;">
+      <div class="compare-section-head">Stat Line Shift <span style="font-weight:500;color:var(--text3);font-size:11px;">with vs without each other, from play-by-play lineups</span></div>
+      <div id="cmpShift"></div>
+    </div>
+
     ${(p1.espn_id||p2.espn_id)?`
     <div class="compare-section-head">Shot Charts${(p1._isHistory||p2._isHistory)?'':' · 2025-26'}</div>
     <div class="scc-grid">
@@ -1612,6 +1618,7 @@ function renderPlayers(){
   _renderShotFlows(p1,p2);
   _fillShotGenome(p1,p2);
   _fillShotProfiles(p1,p2,c1,c2);
+  if(window.TDC_SHIFT){ const _ys=p=>p&&p._isHistory?(+(p.season_year||p.season)||undefined):undefined; TDC_SHIFT.compare(document.getElementById('cmpShift'), [{espn:p1.espn_id,name:p1.name,season:_ys(p1)},{espn:p2.espn_id,name:p2.name,season:_ys(p2)}], document.getElementById('cmpShiftSec')); }
   const labels=P_AXES.map(a=>a.l);
   const d1=P_AXES.map(a=>a.f(p1)), d2=P_AXES.map(a=>a.f(p2));
   // each player benchmarks against All-Americans at HIS position group
