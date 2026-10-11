@@ -52,7 +52,8 @@ const tt = (p) => (p.type && p.type.text) || '';
 const isFG = (p) => p.shootingPlay && !/FreeThrow|Free Throw/i.test(tt(p) + ' ' + (p.text || ''));
 const isFT = (p) => p.shootingPlay && /FreeThrow|Free Throw/i.test(tt(p) + ' ' + (p.text || ''));
 const isReb = (p) => /Rebound/i.test(tt(p));
-const isTO = (p) => /Turnover/i.test(tt(p));
+// before 2014 ESPN files every foul under the type "Foul Turnover" ("Foul on X"): only a real turnover hands the ball over
+const isTO = (p) => /Turnover/i.test(tt(p)) && !/^\s*Foul on/i.test(p.text || '');
 
 // rim = layups / dunks / tips or any two within 4 ft; short mid 5-14 ft; long mid 15+ ft inside the arc
 function zoneOf(p) {
@@ -170,3 +171,14 @@ async function season(y) {
 const args = process.argv.slice(2).map(Number).filter(Boolean);
 const ys = args.length === 2 ? Array.from({ length: args[1] - args[0] + 1 }, (_, i) => args[0] + i) : args;
 for (const y of ys) await season(y);
+// index of every built season (the page's season picker): coverage + how much of it has shot distances
+const idx = [];
+for (const f of fs.readdirSync(OUT)) {
+  const m = /^(\d{4})\.json$/.exec(f); if (!m) continue;
+  const d = JSON.parse(fs.readFileSync(path.join(OUT, f), 'utf8'));
+  const z = {}; for (const T of Object.values(d.data)) for (const P of Object.values(T)) for (const [k, c] of Object.entries(P)) z[k] = (z[k] || 0) + c[0];
+  const tot = Object.values(z).reduce((a, b) => a + b, 0);
+  idx.push({ season: d.season, games: d.games, missing: d.missing, league_ppp: d.league_ppp, attempts: tot, no_distance_share: tot ? +((z.mid || 0) / tot).toFixed(3) : 0 });
+}
+idx.sort((a, b) => a.season - b.season);
+fs.writeFileSync(path.join(OUT, 'index.json'), JSON.stringify({ built: new Date().toISOString(), seasons: idx }, null, 1));

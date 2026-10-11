@@ -88,7 +88,7 @@
   <script src="tdc-pwa.js?v=2" defer></script>
 </head>
 <body>
-<script src="tdc-nav.js?v=68"></script>
+<script src="tdc-nav.js?v=69"></script>
 <div class="page">
   <div class="hero"><div>
     <div class="eyebrow">D-I · Shot aftermath</div>
@@ -123,7 +123,7 @@
 <script>
 (function(){
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/', K='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
-  const SEASONS=[2026,2025];
+  let SEASONS=[2026,2025], COVER={};   // replaced by scripts/data/shot_aftermath/index.json
   const ZN={rim:'Rim',short:'Short mid',long:'Long mid',three:'Three',mid:'Mid (no dist.)'}, ZONES_ALL=['rim','short','long','three','mid'];
   let ZONES=ZONES_ALL;
   const S={season:2026,conf:'',team:'',pos:'',tab:'all'};
@@ -199,7 +199,8 @@
     const totAtt=ZONES.reduce((a,z)=>a+(st[z]?st[z].att:0),0);
     const who=S.team?((NAMES[S.team]||{}).name||'This team'):(S.conf?S.conf:'D-I');
     const posL={G:'Guards',F:'Forwards',C:'Centers'}[S.pos]||'All positions';
-    document.getElementById('sample').innerHTML=`<b>${seasonLbl(S.season)}</b> · ${esc(who)} · ${posL} · <b>${nf(totAtt)}</b> first-chance attempts · league ${p3(lg)} points per possession · ${nf(D.games)} games`;
+    const _cv=(D.games+D.missing)?D.missing/(D.games+D.missing):0;
+    document.getElementById('sample').innerHTML=(_cv>0.15?`<span style="color:var(--pos);font-weight:700">ESPN has no play-by-play for ${Math.round(100*_cv)}% of this season's D-I games (mostly low-majors), so it is a partial sample. </span>`:'')+`<b>${seasonLbl(S.season)}</b> · ${esc(who)} · ${posL} · <b>${nf(totAtt)}</b> first-chance attempts · league ${p3(lg)} points per possession · ${nf(D.games)} games`;
     const thin=z=>st[z]&&st[z].att<150;
     const R=(key,tipf)=>ZONES.map(z=>({label:ZN[z], v:st[z]?st[z][key]:null, ref:ref[z]?ref[z][key]:null, thin:thin(z),
       tip:st[z]?`<b>${ZN[z]}</b> · ${nf(st[z].att)} attempts<br>${tipf(st[z],ref[z])}`:''}));
@@ -272,7 +273,8 @@
 
   // ── filters + load ──────────────────────────────────────────────────────
   const fS=document.getElementById('fSeason'), fC=document.getElementById('fConf'), fT=document.getElementById('fTeam'), fP=document.getElementById('fPos');
-  fS.innerHTML=SEASONS.map(y=>`<option value="${y}">${seasonLbl(y)}</option>`).join('');
+  const fillSeasons=()=>{ fS.innerHTML=SEASONS.map(y=>`<option value="${y}">${seasonLbl(y)}</option>`).join(''); fS.value=S.season; };
+  fillSeasons();
   function fillTeams(){
     const ids=Object.keys(D.data).filter(t=>NAMES[t]&&(!S.conf||NAMES[t].conf===S.conf)).sort((a,b)=>NAMES[a].name.localeCompare(NAMES[b].name));
     fT.innerHTML='<option value="">All teams</option>'+ids.map(t=>`<option value="${t}">${esc(NAMES[t].name)}</option>`).join('');
@@ -302,6 +304,9 @@
   fT.onchange=()=>{ S.team=fT.value; render(); };
   fP.onchange=()=>{ S.pos=fP.value; render(); };
   document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{ S.tab=b.getAttribute('data-t'); document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x===b)); render(); });
+  fetch('scripts/data/shot_aftermath/index.json?v=1').then(r=>r.ok?r.json():null).then(ix=>{
+    if(ix&&ix.seasons&&ix.seasons.length){ SEASONS=ix.seasons.map(x=>x.season).sort((a,b)=>b-a); ix.seasons.forEach(x=>COVER[x.season]=x); fillSeasons(); }
+  }).catch(()=>{});
   load(S.season).catch(()=>{ document.getElementById('view').innerHTML='<div class="empty">Could not load the shot data.</div>'; });
 })();
 </script>
