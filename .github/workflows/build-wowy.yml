@@ -37,6 +37,12 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install numpy scipy
+      # keep the CBBD day files between runs: a rebuild then costs no API calls (the monthly quota is 1,000)
+      - uses: actions/cache@v4
+        with:
+          path: scripts/data/cbbd_cache
+          key: cbbd-plays-${{ inputs.season }}-v1
+          restore-keys: cbbd-plays-${{ inputs.season }}-
       - name: Build
         env:
           CBBD_KEY: ${{ secrets.CBBD_KEY }}
@@ -47,7 +53,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add scripts/data/wowy_${{ inputs.season }}.json scripts/data/wowy_units_${{ inputs.season }}.json scripts/data/wowy_index.json scripts/data/wowy_pairs_*.json
+          git add scripts/data/wowy_${{ inputs.season }}.json scripts/data/wowy_units_${{ inputs.season }}.json scripts/data/wowy_index.json scripts/data/wowy_pairs_*.json scripts/data/wowy_stints/${{ inputs.season }}
           git diff --cached --quiet && { echo "nothing to commit"; exit 0; }
           git commit -m "Auto: WOWY lineups ${{ inputs.season }} (${{ inputs.source }}) [skip ci]"
           for i in 1 2 3; do git pull --rebase && git push && break; sleep 5; done

@@ -38,6 +38,8 @@ MIN_UNIT_POSS = {2: 80, 3: 60, 4: 45, 5: 30}
 TOP_UNITS = 15
 
 def blank(): return dict.fromkeys(F, 0)
+SF = ("pts", "fga", "fgm", "tpa", "tpm", "fta", "ftm", "orb", "drb", "tov")   # the fields the page needs per lineup
+def slug(team): return re.sub(r"[^a-z0-9]+", "-", str(team or "").lower()).strip("-")
 
 import unicodedata
 def nn(s):
@@ -491,6 +493,7 @@ def aggregate(season, work, limit, verbose):
     P = defaultdict(lambda: {"team": None, "name": None, "games": 0, "on_o": blank(), "on_d": blank(), "on_s": 0.0, "tm_o": blank(), "tm_d": blank(), "tm_s": 0.0})
     U = {n: defaultdict(lambda: {"o": blank(), "d": blank(), "s": 0.0, "team": None}) for n in (2, 3, 4, 5)}
     STINTS = []; names = {}; fails = defaultdict(int); done = 0
+    TST = defaultdict(lambda: {"ids": {}, "rows": {}})   # per team: season totals of every five-man lineup, for the page's custom WOWY
     for i, (nid, fn) in enumerate(work):
         if limit and done >= limit: break
         res, why = fn()
@@ -500,6 +503,11 @@ def aggregate(season, work, limit, verbose):
         for st in res["stints"]:
             if st["low"]: continue
             for sd, own, opp, team in (("H", st["h"], st["a"], res["teamH"]), ("A", st["a"], st["h"], res["teamA"])):
+                if len(st[sd]) == 5:
+                    T = TST[team]
+                    ix = tuple(sorted(T["ids"].setdefault(e, len(T["ids"])) for e in st[sd]))
+                    row = T["rows"].setdefault(ix, [0.0, blank(), blank()])
+                    row[0] += st["secs"]; add(row[1], own); add(row[2], opp)
                 add(gt[sd][0], own); add(gt[sd][1], opp); gt[sd][2] += st["secs"]
                 ids = st[sd]
                 for e in ids:
@@ -550,6 +558,14 @@ def aggregate(season, work, limit, verbose):
            "league": league, "players": players}
     uo = {"season": season, "names": {e: names.get(e) for e in {i for t in units.values() for n in t.values() for u in n for i in u["ids"]}}, "units": units}
     json.dump(uo, open(os.path.join(DATADIR, f"wowy_units_{season}.json"), "w"), separators=(",", ":"))
+    # per-team stint files: any with/without combination of a team's players is summed from these in the browser
+    sd_dir = os.path.join(DATADIR, "wowy_stints", str(season)); os.makedirs(sd_dir, exist_ok=True)
+    for team, T in TST.items():
+        ids = sorted(T["ids"], key=T["ids"].get)
+        rows = [[list(k), round(v[0]), [round(v[1][f], 1) for f in SF], [round(v[2][f], 1) for f in SF]] for k, v in T["rows"].items()]
+        json.dump({"team": team, "season": season, "fields": list(SF), "ids": ids, "names": [names.get(e) for e in ids], "rows": rows},
+                  open(os.path.join(sd_dir, slug(team) + ".json"), "w"), separators=(",", ":"))
+    print(f"wrote {len(TST)} team stint files to {sd_dir}", flush=True)
     fp = os.path.join(DATADIR, f"wowy_{season}.json")
     json.dump(out, open(fp, "w"), separators=(",", ":"))
     print(f"wrote {fp}: {len(players)} players, {sum(len(v) for t in units.values() for v in t.values())} units, {os.path.getsize(fp)//1024} KB")

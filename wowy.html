@@ -83,6 +83,16 @@
   .wy-tbl td .rl{display:block;font-size:11px;font-weight:700;margin-top:1px}
   .wy-tbl td .rl.up{color:var(--green,#1f8a45)}.wy-tbl td .rl.dn{color:var(--red,#c0392b)}
   .wy-tbl td.oo{font-weight:800}
+  .wy-tbl td .tpx{display:block;font-size:10.5px;font-weight:600;color:var(--text3);margin-top:1px;white-space:nowrap}
+  .wy-pick{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px}
+  .wy-pick button{border:1px solid var(--border2);background:var(--bg);color:var(--text2);border-radius:999px;padding:5px 11px;font:600 12.5px Inter,system-ui,sans-serif;cursor:pointer}
+  .wy-pick button.on{background:var(--accent);border-color:var(--accent);color:#1a1814;font-weight:800}
+  .wy-pick button small{color:var(--text3);font-weight:600;margin-left:4px}.wy-pick button.on small{color:#1a1814}
+  .wy-cust{border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin:0 0 16px;background:var(--bg2)}
+  .wy-cust h3{margin:0 0 4px;font:800 13px Inter,system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text2)}
+  .wy-cust .wy-note{margin:0 0 8px}
+  .wy-ctbl td.l{white-space:normal;min-width:150px}.wy-ctbl td.l b.on{color:var(--green,#1f8a45)}.wy-ctbl td.l b.off{color:var(--text3);text-decoration:line-through}
+  .wy-ctbl tr.oorow td{font-weight:800;border-top:2px solid var(--border2)}
   .wy-tbl tr.small td{opacity:.5}
   .wy-tbl td.unit{white-space:normal;min-width:240px;font-weight:600}.wy-tbl td.unit span{white-space:nowrap}
   .wy-key{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--text3);margin:10px 0 0}
@@ -142,6 +152,7 @@
   </div>
   <div class="wy-ctl"><span class="wy-seg" id="wyView"></span><label class="wy-note" style="margin:0;display:flex;gap:6px;align-items:center"><input type="checkbox" id="wySmall"> Show small samples</label><label class="wy-note" style="margin:0;display:flex;gap:6px;align-items:center" title="Sets the team's own free-throw shooting and the opponent's 3-point and free-throw shooting to the D-I average: the part of a rating that is mostly luck"><input type="checkbox" id="wyLuck"> Luck adjusted</label></div>
   <div class="wy-note" id="wyNote"></div>
+  <div class="wy-cust" id="wyCustom" style="display:none"></div>
   <div class="sheet-wrap" style="max-height:none"><table class="sheet dense wy-tbl" id="wyTbl"></table></div>
   <div class="wy-key"><b class="g">Green = good</b><b class="r">Red = bad</b><span>The small number under a raw stat is the gap to the D-I average. ON-OFF is the team on the floor with him minus without him.</span></div>
 </div>
@@ -177,9 +188,65 @@ function loadUnits(season){
 // heat for a value vs the league average (raw cells) or for an on-off gap
 function cls(k,gap){ var s=S[k]; if(!s||s[2]==null||gap==null) return ''; var g=gap*s[2]/s[3];
   return g>=1.5?'c4':g>=0.5?'c3':g<=-1.5?'c0':g<=-0.5?'c1':'c2'; }
+// the shooting behind a rating (databallr's idea): the unit's 3P% under offense, the opponent's under defense
+function tpx(k,r){ if(k==='o'&&r.tp!=null) return '<span class="tpx">3P '+(+r.tp).toFixed(1)+'%</span>'; if(k==='d'&&r.otp!=null) return '<span class="tpx">opp 3P '+(+r.otp).toFixed(1)+'%</span>'; return ''; }
 function f1(v){ return v==null?'—':(+v).toFixed(1); }
 function sg(v){ return v==null?'—':(v>0?'+':'')+(+v).toFixed(1); }
 function teams(D){ var t={}; D.players.forEach(function(p){ if(p.team) t[p.team]=1; }); return Object.keys(t).sort(); }
+// ── custom WOWY (databallr's player picker): pick up to three players and see the team in every on/off combination,
+// summed from the season's five-man lineups (scripts/data/wowy_stints/<season>/<team>.json, build_wowy.py)
+var PICK=[], LUS={};
+function slugOf(t){ return String(t||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
+function loadLU(season,team){ var k=season+'|'+team; if(LUS[k]!==undefined) return Promise.resolve(LUS[k]);
+  return fetch('scripts/data/wowy_stints/'+season+'/'+slugOf(team)+'.json?v=1').then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; }).then(function(j){ LUS[k]=j; return j; }); }
+function crates(o,d,secs,L){   // the same formulas as build_wowy.py rates()
+  var po=Math.max(0,o.fga-o.orb+o.tov+0.44*o.fta), pd=Math.max(0,d.fga-d.orb+d.tov+0.44*d.fta);
+  var pct=function(n,den){ return den>0?100*n/den:null; }, ts=function(b){ return pct(b.pts,2*(b.fga+0.44*b.fta)); };
+  var r={min:secs/60,poss:Math.round((po+pd)/2),o:pct(o.pts,po),d:pct(d.pts,pd),ts:ts(o),efg:pct(o.fgm+0.5*o.tpm,o.fga),tov:pct(o.tov,po),orb:pct(o.orb,o.orb+d.drb),
+    ftr:pct(o.fta,o.fga),ots:ts(d),oefg:pct(d.fgm+0.5*d.tpm,d.fga),otov:pct(d.tov,pd),drb:pct(d.drb,d.drb+o.orb),tp:pct(o.tpm,o.tpa),tpar:pct(o.tpa,o.fga),ftp:pct(o.ftm,o.fta),otp:pct(d.tpm,d.tpa)};
+  r.net=(r.o!=null&&r.d!=null)?r.o-r.d:null;
+  if(L&&L.tp3_raw){ var op=o.pts-(o.ftm-o.fta*L.ft_raw), dp=d.pts-(d.ftm-d.fta*L.ft_raw)-3*(d.tpm-d.tpa*L.tp3_raw); r.ol=pct(op,po); r.dl=pct(dp,pd); r.netl=(r.ol!=null&&r.dl!=null)?r.ol-r.dl:null; }
+  return r; }
+function renderCustom(D){
+  var box=$('#wyCustom');
+  if(SCOPE!=='team'||MODE!=='wowy'){ box.style.display='none'; return; }
+  box.style.display='';
+  var roster=D.players.filter(function(p){ return p.team===TEAM; }).sort(function(a,b){ return b.on.min-a.on.min; });
+  var nameOf={}; roster.forEach(function(p){ nameOf[p.id]=p.name; });
+  PICK=PICK.filter(function(id){ return nameOf[id]; });
+  var last=function(n){ n=String(n||''); var q=n.split(' '); return q.length>1?q.slice(1).join(' '):n; };
+  var chips='<div class="wy-pick">'+roster.map(function(p){ return '<button class="'+(PICK.indexOf(p.id)>=0?'on':'')+'" data-pk="'+esc(p.id)+'">'+esc(p.name)+'<small>'+Math.round(p.on.min)+'m</small></button>'; }).join('')+'</div>';
+  var head='<h3>With or without</h3><div class="wy-note">Pick up to three players: the table shows '+esc(TEAM)+' in every on/off combination of them. The small line under each rating is the 3-point shooting behind it.</div>';
+  if(!PICK.length){ box.innerHTML=head+chips; bindPick(); return; }
+  box.innerHTML=head+chips+'<div class="wy-note">Loading lineups…</div>'; bindPick();
+  loadLU(SEASON,TEAM).then(function(LU){
+    if(!LU){ box.innerHTML=head+chips+'<div class="wy-note">No lineup file for this team and season yet.</div>'; bindPick(); return; }
+    var F=LU.fields, idx=PICK.map(function(id){ return LU.ids.indexOf(String(id)); }), k=PICK.length, L=D.league;
+    var combos=[]; for(var m=(1<<k)-1;m>=0;m--) combos.push(m);   // all on first, all off last
+    var sum=function(mask){ var o={},d={},secs=0; F.forEach(function(f){ o[f]=0; d[f]=0; });
+      LU.rows.forEach(function(r){ var ok=true; for(var j=0;j<k;j++){ var has=idx[j]>=0 && r[0].indexOf(idx[j])>=0; if(has!==!!(mask&(1<<(k-1-j)))){ ok=false; break; } }
+        if(!ok) return; secs+=r[1]; F.forEach(function(f,i){ o[f]+=r[2][i]; d[f]+=r[3][i]; }); });
+      return crates(o,d,secs,L); };
+    var cols=['o','d','net','ts','tov','orb','ots','drb'];
+    var cell=function(k2,r){ var v=r[K(k2)], lgv=L[k2], gap=(v!=null&&lgv!=null&&k2!=='net')?v-lgv:(k2==='net'?v:null);
+      return '<td class="'+(r.poss>=40?cls(k2,gap):'')+'">'+f1(v)+tpx(k2,r)+'</td>'; };
+    var rowsR=combos.map(function(m){ var r=sum(m);
+      var lab=PICK.map(function(id,j){ var on=!!(m&(1<<(k-1-j))); return '<b class="'+(on?'on':'off')+'">'+esc(last(nameOf[id]))+'</b>'; }).join(' · ');
+      return {lab:lab,r:r}; });
+    var html='<div class="sheet-wrap" style="max-height:none"><table class="sheet dense wy-tbl wy-ctbl" data-fit-keep><thead><tr><th class="l">On the floor</th><th>Min</th><th>Poss</th>'+cols.map(function(c){ return '<th>'+S[c][1]+'</th>'; }).join('')+'</tr></thead><tbody>'+
+      rowsR.map(function(x){ return '<tr class="'+(x.r.poss<40?'small':'')+'"><td class="l">'+x.lab+'</td><td>'+Math.round(x.r.min)+'</td><td>'+x.r.poss+'</td>'+cols.map(function(c){ return cell(c,x.r); }).join('')+'</tr>'; }).join('');
+    if(k===1){ var a=rowsR[0].r, b=rowsR[1].r;
+      html+='<tr class="oorow"><td class="l">On − off</td><td></td><td></td>'+cols.map(function(c){ var x=a[K(c)], y=b[K(c)], d=(x!=null&&y!=null)?x-y:null; return '<td class="'+cls(c,d)+'">'+sg(d)+'</td>'; }).join('')+'</tr>'; }
+    html+='</tbody></table></div><div class="wy-note" style="margin-top:6px">Green name = on the floor, struck through = off. Rows under 40 possessions are faded.</div>';
+    box.innerHTML=head+chips+html; bindPick();
+  });
+}
+function bindPick(){ document.querySelectorAll('[data-pk]').forEach(function(b){ b.onclick=function(){ var id=b.dataset.pk, i=PICK.indexOf(id);
+  if(i>=0) PICK.splice(i,1); else { PICK.push(id); if(PICK.length>3) PICK.shift(); }
+  syncUrl(); renderCustom(DATA[SEASON]); }; }); }
+// the view lives in the URL, so a with/without query can be shared
+function syncUrl(){ try{ var u=new URL(location.href); u.searchParams.set('team',TEAM||''); u.searchParams.set('season',SEASON);
+  if(PICK.length) u.searchParams.set('p',PICK.join(',')); else u.searchParams.delete('p'); history.replaceState(null,'',u); }catch(e){} }
 function render(){
   var D=DATA[SEASON]; if(!D){ $('#wyTbl').innerHTML='<tbody><tr><td class="l">'+'This season is still being built.'+'</td></tr></tbody>'; return; }
   var L=D.league, small=$('#wySmall').checked;
@@ -212,7 +279,7 @@ function render(){
         '<td>'+Math.round(p.on.min)+'</td>'+
         (rap?(p.rapm?'<td class="oo '+cls('net',p.rapm.net)+'">'+sg(p.rapm.net)+'</td><td class="'+cls('o',p.rapm.o)+'">'+sg(p.rapm.o)+'</td><td class="'+cls('o',p.rapm.d)+'">'+sg(p.rapm.d)+'</td>':'<td>—</td><td>—</td><td>—</td>'):'')+
         cols.map(function(k){ var v=p.on[K(k)], lgv=L[k], gap=(v!=null&&lgv!=null&&k!=='net')?v-lgv:(k==='net'?v:null), d=oo(p,k);
-          var raw='<td class="'+cls(k,gap)+'">'+f1(v)+(gap!=null&&k!=='net'?'<span class="rl '+((gap*S[k][2])>0?'up':'dn')+'">'+sg(gap)+'</span>':'')+'</td>';
+          var raw='<td class="'+cls(k,gap)+'">'+f1(v)+(gap!=null&&k!=='net'?'<span class="rl '+((gap*S[k][2])>0?'up':'dn')+'">'+sg(gap)+'</span>':'')+tpx(k,p.on)+'</td>';
           return raw+(rap?'':'<td class="oo '+cls(k,d)+'">'+sg(d)+'</td>'); }).join('')+'</tr>'; });
   } else {
     var UD=UNITS[SEASON];
@@ -225,8 +292,9 @@ function render(){
     head='<th class="l">Unit</th><th data-s="min">Min</th><th data-s="poss">Poss</th>'+cols.map(function(k){ return '<th data-s="'+k+'">'+S[k][1]+'</th>'; }).join('');
     rows=U.map(function(u){ return '<tr><td class="l unit">'+u.ids.map(function(i){ return '<span>'+esc(short(nm[i]||i))+'</span>'; }).join(' · ')+'</td><td>'+Math.round(u.r.min)+'</td><td>'+u.r.poss+'</td>'+
       cols.map(function(k){ var v=u.r[K(k)], lgv=L[k], gap=(v!=null&&lgv!=null&&k!=='net')?v-lgv:(k==='net'?v:null);
-        return '<td class="'+cls(k,gap)+'">'+f1(v)+(gap!=null&&k!=='net'?'<span class="rl '+((gap*S[k][2])>0?'up':'dn')+'">'+sg(gap)+'</span>':'')+'</td>'; }).join('')+'</tr>'; });
+        return '<td class="'+cls(k,gap)+'">'+f1(v)+(gap!=null&&k!=='net'?'<span class="rl '+((gap*S[k][2])>0?'up':'dn')+'">'+sg(gap)+'</span>':'')+tpx(k,u.r)+'</td>'; }).join('')+'</tr>'; });
   }
+  renderCustom(D);
   $('#wyTbl').innerHTML='<thead><tr>'+head+'</tr></thead><tbody>'+(rows.join('')||'<tr><td class="l" colspan="20">No players or units with enough possessions.</td></tr>')+'</tbody>';
   $('#wyTbl').querySelectorAll('th[data-s]').forEach(function(th){ if(th.dataset.s===SORT) th.classList.add('sorted');
     th.onclick=function(){ if(SORT===th.dataset.s) DESC=!DESC; else { SORT=th.dataset.s; DESC=true; } render(); }; });
@@ -245,8 +313,9 @@ function setSeason(s){
 var qp=new URLSearchParams(location.search);
 TEAM=qp.get('team')||(function(){ try{ return localStorage.getItem('tdc_coach_team'); }catch(e){ return null; } })();
 if(qp.get('season')) SEASON=qp.get('season');
+if(qp.get('p')) PICK=qp.get('p').split(',').filter(Boolean).slice(0,3);
 $('#wySeason').value=SEASON;
-$('#wyTeam').onchange=function(e){ TEAM=e.target.value; SORT=null; render(); };
+$('#wyTeam').onchange=function(e){ TEAM=e.target.value; SORT=null; PICK=[]; syncUrl(); render(); };
 $('#wySeason').onchange=function(e){ setSeason(e.target.value); };
 $('#wySmall').onchange=render; $('#wySearch').oninput=render;
 $('#wyLuck').onchange=function(e){ LUCK=e.target.checked; render(); };
