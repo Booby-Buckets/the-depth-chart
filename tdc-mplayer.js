@@ -10,6 +10,7 @@
     { key: 'overview', label: 'Overview', tabs: ['overview'] },
     { key: 'stats', label: 'Stats', tabs: ['stats'] },
     { key: 'dna', label: 'DNA', tabs: ['playerdna'] },
+    { key: 'onoff', label: 'On/Off', tabs: ['onoff'] },
     { key: 'shots', label: 'Shots', tabs: ['shotcharts', 'shotgenome', 'shotflow', 'percentiles'] },
     { key: 'scouting', label: 'Scouting', tabs: ['mscout', 'scout', 'dossier', 'role', 'devpath', 'scheme', 'portalfit'] },
     { key: 'nil', label: 'NIL', tabs: ['nil'] },
@@ -197,7 +198,7 @@
     });
   }
 
-  var TAB_ICON = {"overview": "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z", "stats": "M5 20V11M12 20V5M19 20v-7M3 20h18", "shots": "M12 3a9 9 0 100 18 9 9 0 000-18zM12 8a4 4 0 100 8 4 4 0 000-8zM12 11.5v1", "dna": "M7 3c0 6 10 6 10 12s-10 6-10 6M17 3c0 6-10 6-10 12M8 7h8M8 17h8", "scouting": "M9 4h6v3H9zM7 5H5v16h14V5h-2M8 12h8M8 16h5", "nil": "M12 3v18M16 7.5c0-1.9-1.8-3-4-3s-4 1.1-4 3 1.8 2.6 4 3 4 1.1 4 3-1.8 3-4 3-4-1.1-4-3", "betting": "M4 7h16v3a2 2 0 000 4v3H4v-3a2 2 0 000-4zM14 7v10", "buzz": "M4 10v4h3l6 4V6L7 10zM17 9a4 4 0 010 6"};
+  var TAB_ICON = {"overview": "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z", "stats": "M5 20V11M12 20V5M19 20v-7M3 20h18", "shots": "M12 3a9 9 0 100 18 9 9 0 000-18zM12 8a4 4 0 100 8 4 4 0 000-8zM12 11.5v1", "dna": "M7 3c0 6 10 6 10 12s-10 6-10 6M17 3c0 6-10 6-10 12M8 7h8M8 17h8", "onoff": "M8 5a7 7 0 100 14M16 5a7 7 0 110 14M8 5v14M16 5v14", "scouting": "M9 4h6v3H9zM7 5H5v16h14V5h-2M8 12h8M8 16h5", "nil": "M12 3v18M16 7.5c0-1.9-1.8-3-4-3s-4 1.1-4 3 1.8 2.6 4 3 4 1.1 4 3-1.8 3-4 3-4-1.1-4-3", "betting": "M4 7h16v3a2 2 0 000 4v3H4v-3a2 2 0 000-4zM14 7v10", "buzz": "M4 10v4h3l6 4V6L7 10zM17 9a4 4 0 010 6"};
   function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function ovrBucket(g) { g = parseFloat(g); if (isNaN(g)) return ''; return g >= 85 ? 'mp-c4' : g >= 80 ? 'mp-c3' : g >= 75 ? 'mp-c2' : g >= 70 ? 'mp-c1' : 'mp-c0'; }

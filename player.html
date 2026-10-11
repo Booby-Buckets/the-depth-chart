@@ -11,6 +11,7 @@
   <script src="tdc-shotchart.js?v=31"></script>
   <script src="tdc-aftermath.js?v=4"></script>
   <script src="tdc-twin.js?v=4"></script>
+  <script src="tdc-wowy-player.js?v=1"></script>
   <script src="tdc-shotprofile.js?v=1s"></script>
   <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-statshift-player.js?v=2"></script>
@@ -4464,6 +4465,7 @@ function renderPage(){
       <button class="tab-btn" id="tab-stats" onclick="switchTab('stats')">Stats</button>
       <button class="tab-btn" id="tab-trends" onclick="switchTab('trends')">Trends</button>
       <button class="tab-btn" id="tab-playerdna" onclick="switchTab('playerdna')">Player DNA</button>
+      <button class="tab-btn" id="tab-onoff" onclick="switchTab('onoff')">On/Off</button>
       <div class="tab-grp" data-grp="stats">
         <button class="tab-grp-btn" onclick="_grpToggle(this,event)">Shots<span class="tab-grp-car">▾</span></button>
         <div class="tab-grp-menu tab-grp-mega">
@@ -4569,6 +4571,10 @@ function renderPage(){
     <div class="tab-panel" id="panel-twin">
       <div class="sec-title" style="margin:0 0 14px;">Shot Profile Twin <span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;margin-left:6px;">· volume and efficiency by zone vs D-I, and the closest player-seasons in any year</span></div>
       <div id="playerTwinHost"></div>
+    </div>
+    <div class="tab-panel" id="panel-onoff">
+      <div class="sec-title" style="margin:0 0 14px;">On / Off &amp; WOWY <span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;margin-left:6px;">· his team with him on the floor and without him, his RAPM, and every two-man unit</span></div>
+      <div id="playerWowyHost"></div>
     </div>
     <div class="tab-panel" id="panel-aftermath">
       <div class="sec-title" style="margin:0 0 14px;">After the Shot <span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;margin-left:6px;">· every first-chance attempt, and what followed it</span></div>
@@ -7058,7 +7064,7 @@ function _tabUrl(id, dflt){ try{ var u=new URL(location.href); if(!id||id===dflt
 function switchTab(t){
   if(t==='rankings') t='percentiles';   // the Rankings tab was removed (Sept 2026); old links land on Percentiles
   _tabUrl(t,'overview');
-  const tabs=['overview','playerdna','stats','trends','shotcharts','shotgenome','shotflow','twin','aftermath','scheme','dossier','role','statshift','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
+  const tabs=['overview','playerdna','stats','trends','shotcharts','shotgenome','shotflow','twin','aftermath','onoff','scheme','dossier','role','statshift','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
   const cur=tabs.map(x=>document.getElementById('panel-'+x)).find(el=>el&&el.classList.contains('active'));
   function activate(id){
     tabs.forEach(x=>{
@@ -7085,6 +7091,7 @@ function switchTab(t){
     if(id==='scheme' && !window._schemeLoaded){ window._schemeLoaded=true; setTimeout(renderScheme,40); }
     if(id==='dossier' && !window._dossierLoaded){ window._dossierLoaded=true; setTimeout(renderDossier,40); }
     if(id==='role' && !window._roleLoaded){ window._roleLoaded=true; setTimeout(renderRole,40); }
+    if(id==='onoff' && !window._wowyLoaded){ window._wowyLoaded=true; if(window.TDC_WOWYP) TDC_WOWYP.render(document.getElementById('playerWowyHost'), {espn:player&&player.espn_id}); }
     if(id==='statshift' && !window._shiftLoaded){ window._shiftLoaded=true; if(window.TDC_SHIFT) TDC_SHIFT.renderPlayer(document.getElementById('playerShiftHost'), {espn:player&&player.espn_id, name:player&&player.name}); }
     if(id==='devpath' && !window._devpathLoaded){ window._devpathLoaded=true; setTimeout(renderDevpath,40); }
     if(id==='nil' && !window._nilLoaded){ window._nilLoaded=true; setTimeout(renderNilPlayer,40); }
@@ -7117,6 +7124,7 @@ var TAB_GATE = {
   twin:        { tier:'pro', label:'shot profile twin', blurb:'His free-throw, rim, midrange and three-point volume and efficiency against D-I, and the closest player-seasons in any year since 2009-10. Included with Pro — $8.99/mo.' },
   aftermath:   { tier:'pro', label:'after the shot', blurb:'Points per attempt with the second chances his misses produced, and what opponents score after his misses — by zone, vs D-I players at his position. Included with Pro — $8.99/mo.' },
   shotflow:    { tier:'pro', label:'shot flow', blurb:'How this player’s shots are created and finished — zone, shot type, result and who assisted. Included with Pro — $8.99/mo.' },
+  onoff:       { tier:'pro', label:'On/Off & WOWY', blurb:'His team with him on the floor and without him (net rating and the four factors, luck-adjusted too), his RAPM and D-I rank, and every two-man unit. Included with Pro \u2014 $8.99/mo.' },
   statshift:   { tier:'pro', label:'Stat Line Shift', blurb:'His own line with and without each teammate on the floor, and every teammate\u2019s line with and without him, from play-by-play lineups. Included with Pro \u2014 $8.99/mo.' },
   role:        { tier:'pro', label:'Role & Fit', blurb:'His archetype and style signals, year-over-year development path, shot profile and the "how to attack him" reads. Included with Pro — $8.99/mo.' },
   devpath:     { tier:'pro', label:'his development path', blurb:'His TDC grade season by season — first graded year to career peak to now, with every jump and transfer marked. Included with Pro — $8.99/mo.' },
@@ -7124,7 +7132,7 @@ var TAB_GATE = {
   scheme:      { tier:'pro', label:'Scheme Lab', blurb:'How this player fits different systems and lineups. Included with Pro — $8.99/mo.' },
   portalfit:   { tier:'pro', label:'Portal Fit', blurb:'Which programs this player best fits, ranked by need, production and coach fit. Included with Pro — $8.99/mo.' }
 };
-var _TABS = ['overview','playerdna','stats','trends','shotcharts','shotgenome','shotflow','twin','aftermath','scheme','dossier','role','statshift','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
+var _TABS = ['overview','playerdna','stats','trends','shotcharts','shotgenome','shotflow','twin','aftermath','onoff','scheme','dossier','role','statshift','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
 function _lockPanel(pnl, g){
   if(!pnl || pnl.__locked) return; pnl.__locked = true;
   pnl.innerHTML = '';
@@ -7895,7 +7903,7 @@ init();
   <script src="tdc-tour.js?v=24"></script>
 <script src="tdc-sheets.js?v=2"></script>
 <script src="tdc-liveplayer.js?v=3"></script>
-<script src="tdc-mplayer.js?v=14"></script>
+<script src="tdc-mplayer.js?v=15"></script>
 <script src="tdc-trends.js?v=5"></script>
 </body>
 </html>
