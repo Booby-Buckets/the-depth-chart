@@ -46,6 +46,7 @@
       ['shot-aftermath.html',           'Shot Aftermath'],
       ['plays.html',                    'Play Finder'],
       ['wowy.html',                     'WOWY Lineups / On-Off'],
+      ['statshift.html',                'Stat Line Shift'],
     ]],
     ['Postseason', [
       ['tournaments.html',     'Tournaments'],
