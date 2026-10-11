@@ -417,7 +417,13 @@ def process_cbbd_game(plays, gid):
 def cbbd_games(season):
     """→ [(gid, plays)] for the season from the CBBD day files (pulls missing days with CBBD_KEY)"""
     key = (os.environ.get("CBBD_KEY") or "").strip()
-    days = sorted({r["date"] for r in B.sb_get(f"games?select=date&season_year=eq.{season}&order=date&limit=10000")})
+    days, off = set(), 0
+    while True:   # PostgREST caps a response at 1,000 rows: page (stable order) or only the first week comes back
+        rows = B.sb_get(f"games?select=id,date&season_year=eq.{season}&order=id&limit=1000&offset={off}")
+        days |= {r["date"] for r in rows}; off += 1000
+        if len(rows) < 1000: break
+    days = sorted(days)
+    print(f"  {len(days)} game days", flush=True)
     out = []
     missing = 0
     for d in days:
