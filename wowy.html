@@ -166,13 +166,13 @@ function seg(host,list,cur,on){ host.innerHTML=list.map(function(x){ return '<bu
   host.querySelectorAll('button').forEach(function(b){ b.onclick=function(){ on(b.dataset.k); }; }); }
 function load(season){
   if(DATA[season]) return Promise.resolve(DATA[season]);
-  return fetch('scripts/data/wowy_'+season+'.json?v=4').then(function(r){ return r.ok?r.json():null; }).then(function(j){ DATA[season]=j; return j; });
+  return fetch('scripts/data/wowy_'+season+'.json?v=5').then(function(r){ return r.ok?r.json():null; }).then(function(j){ DATA[season]=j; return j; });
 }
 // 2/3/4/5-man units live in their own file (4 MB raw) and load the first time a unit tab opens
 var UNITS={};
 function loadUnits(season){
   if(UNITS[season]) return Promise.resolve(UNITS[season]);
-  return fetch('scripts/data/wowy_units_'+season+'.json?v=4').then(function(r){ return r.ok?r.json():null; }).then(function(j){ UNITS[season]=j||{units:{},names:{}}; return UNITS[season]; });
+  return fetch('scripts/data/wowy_units_'+season+'.json?v=5').then(function(r){ return r.ok?r.json():null; }).then(function(j){ UNITS[season]=j||{units:{},names:{}}; return UNITS[season]; });
 }
 // heat for a value vs the league average (raw cells) or for an on-off gap
 function cls(k,gap){ var s=S[k]; if(!s||s[2]==null||gap==null) return ''; var g=gap*s[2]/s[3];
@@ -181,7 +181,7 @@ function f1(v){ return v==null?'—':(+v).toFixed(1); }
 function sg(v){ return v==null?'—':(v>0?'+':'')+(+v).toFixed(1); }
 function teams(D){ var t={}; D.players.forEach(function(p){ if(p.team) t[p.team]=1; }); return Object.keys(t).sort(); }
 function render(){
-  var D=DATA[SEASON]; if(!D){ $('#wyTbl').innerHTML='<tbody><tr><td class="l">'+(SEASON==='2024'?'2023-24 lineups come from CollegeBasketballData and are being built.':'This season is still being built.')+'</td></tr></tbody>'; return; }
+  var D=DATA[SEASON]; if(!D){ $('#wyTbl').innerHTML='<tbody><tr><td class="l">'+'This season is still being built.'+'</td></tr></tbody>'; return; }
   var L=D.league, small=$('#wySmall').checked;
   seg($('#wyMode'), SCOPE==='league'?[['wowy','Players']]:MODES, SCOPE==='league'?'wowy':MODE, function(k){ MODE=k; SORT=null; render(); });
   var showMetric=(MODE==='wowy');
@@ -189,7 +189,7 @@ function render(){
   seg($('#wyMetric'),[['onoff','On-off'],['rapm','RAPM']],METRIC,function(k){ METRIC=k; SORT=null; render(); });
   seg($('#wyView'),[['overview','Overview'],['offense','Offense'],['defense','Defense'],['expanded','Expanded']],VIEW,function(k){ VIEW=k; render(); });
   $('#wyTeam').style.display=SCOPE==='team'?'':'none'; $('#wySearch').style.display=SCOPE==='league'?'':'none';
-  $('#wyNote').textContent=(D.games? D.games.toLocaleString()+' games · ':'')+'low-leverage (garbage) time removed'+(LUCK?' · luck adjusted: own FT% and opponent 3P% / FT% at the D-I average':'')+' · built '+(D.built||'')+(SEASON==='2025'?' · about half of 2024-25: the other half of games never logs who checked in (a CollegeBasketballData key completes it)':'');
+  $('#wyNote').textContent=(D.games? D.games.toLocaleString()+' games · ':'')+'low-leverage (garbage) time removed'+(LUCK?' · luck adjusted: own FT% and opponent 3P% / FT% at the D-I average':'')+' · built '+(D.built||'')+(SEASON==='2024'||SEASON==='2025'?' · lineups from CollegeBasketballData':'');
   var cols=VIEWS[VIEW], head, rows;
   if(MODE==='wowy'||SCOPE==='league'){
     // league leaders: 500+ on-court possessions, and ranking by on-off needs a real off-court sample too (a starter whose
