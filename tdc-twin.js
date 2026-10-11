@@ -10,7 +10,7 @@
  * (how often, not good or bad); efficiency is gold above the D-I average, blue below (validated palette).
  */
 (function () {
-  var URLS = { player: 'scripts/data/shot_aftermath/twin_pool.json?v=1', team: 'scripts/data/shot_aftermath/team_twin_pool.json?v=1' };
+  var URLS = { player: 'scripts/data/shot_aftermath/twin_pool.json?v=1', team: 'scripts/data/shot_aftermath/team_twin_pool.json?v=2', teamdef: 'scripts/data/shot_aftermath/team_def_twin_pool.json?v=1' };
   var POOLS = {}, PS = {}, POOL = null, KIND = 'player';
   var Z = [['FT', 'ftV', 'ftE'], ['Rim', 'rimV', 'rimE'], ['Mid', 'midV', 'midE'], ['3P', 'tV', 'tE']];
   var C = null;   // column index (same layout in both pools: a team row keeps its id / name / conference / possessions in the player slots)
@@ -44,7 +44,8 @@
       '.tw-tbl td.pos{color:var(--tw-pos);} .tw-tbl td.neg{color:var(--tw-neg);} .tw-tbl tr.sel td{background:var(--bg2);} .tw-tbl tbody tr{cursor:pointer;}' +
       '.tw-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px;font-size:13px;color:var(--text2);}' +
       '.tw-top select{font:600 12.5px Inter,system-ui,sans-serif;padding:5px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--bg2);color:var(--text);}' +
-      '.tw-empty{padding:22px;text-align:center;color:var(--text3);font-size:13px;}';
+      '.tw-empty{padding:22px;text-align:center;color:var(--text3);font-size:13px;}' +
+      '.tw-side{display:inline-flex;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:3px;gap:3px;}.tw-side button{font:700 12px Inter,system-ui,sans-serif;padding:5px 11px;border:0;border-radius:5px;background:none;color:var(--text3);cursor:pointer;}.tw-side button.on{background:var(--text);color:var(--bg);}';
     document.head.appendChild(s);
   }
   function rowsOf(espn) { return POOL.rows.filter(function (r) { return String(r[0]) === String(espn); }).sort(function (a, b) { return b[1] - a[1]; }); }
@@ -62,12 +63,12 @@
   // one player-season's profile card
   function card(r, badge) {
     var S = POOL.seasons[r[1]], avg = S.avg, sdv = S.sd;
-    var T = KIND === 'team';
+    var T = KIND !== 'player', DEF = KIND === 'teamdef';
     var head = '<div class="tw-hd"><div class="tw-nm">' + (T ? '<a href="team.html?team=' + encodeURIComponent(short(r[2])) + '">' + esc(short(r[2])) + '</a>' :
         '<a href="player.html?espn=' + esc(r[0]) + '&name=' + encodeURIComponent(r[2] || '') + '">' + esc(r[2] || '—') + '</a>') + '</div>' +
       '<div class="tw-meta">' + (T ? esc(r[3] || '') + ' · ' + sl(r[1]) : esc(short(r[3])) + ' · ' + sl(r[1]) + (r[4] ? ' · ' + ({ G: 'guard', F: 'forward', C: 'center' }[r[4]] || '') : '')) + '</div></div>' +
-      '<div class="tw-chips">' + (badge ? '<span class="tw-chip m">' + badge + '</span>' : '') + '<span class="tw-chip">' + r[C.pts100] + ' pts / 100 poss</span>' +
-      (r[C.ts] != null ? '<span class="tw-chip">TS% ' + (100 * r[C.ts]).toFixed(1) + '</span>' : '') + '<span class="tw-chip">' + Number(r[C.min]).toLocaleString() + (T ? ' possessions' : ' min') + '</span></div>';
+      '<div class="tw-chips">' + (badge ? '<span class="tw-chip m">' + badge + '</span>' : '') + '<span class="tw-chip">' + r[C.pts100] + ' pts / 100 poss' + (DEF ? ' allowed' : '') + '</span>' +
+      (r[C.ts] != null ? '<span class="tw-chip">' + (DEF ? 'Opp. ' : '') + 'TS% ' + (100 * r[C.ts]).toFixed(1) + '</span>' : '') + '<span class="tw-chip">' + Number(r[C.min]).toLocaleString() + (T ? (DEF ? ' possessions faced' : ' possessions') : ' min') + '</span></div>';
     var body = '';
     Z.forEach(function (z) {
       body += '<div class="tw-zt"><span></span><span><span>BELOW AVG</span><b>' + z[0] + '</b><span>ABOVE AVG</span></span><span style="text-align:right">D-I AVG</span></div>';
@@ -85,44 +86,47 @@
         body += '<div class="tw-rl">' + k[0] + '</div><div class="tw-tr"><div class="tw-mid"></div>' + bar + '</div><div class="tw-lg">' + (isE ? (100 * avg[d]).toFixed(1) + '%' : avg[d].toFixed(1)) + '</div>';
       });
     });
-    return '<div class="tw-card">' + head + '<div class="tw-zone">' + body + '</div><div class="tw-foot">Volume is attempts per 100 possessions' + (KIND === 'team' ? '' : ' on the floor') + '; efficiency is FG% (FT% for free throws), against that season’s D-I average.</div></div>';
+    return '<div class="tw-card">' + head + '<div class="tw-zone">' + body + '</div><div class="tw-foot">Volume is ' + (KIND === 'teamdef' ? 'opponent ' : '') + 'attempts per 100 possessions' + (KIND !== 'player' ? '' : ' on the floor') + '; efficiency is FG% (FT% for free throws), against that season’s D-I average.</div></div>';
   }
   function fmtRel(v, isE) { if (v == null) return '<td>—</td>'; var t = isE ? (v >= 0 ? '+' : '') + (100 * v).toFixed(1) + '%' : (v >= 0 ? '+' : '') + v.toFixed(1); return '<td class="' + (isE ? (v >= 0 ? 'pos' : 'neg') : '') + '">' + t + '</td>'; }
 
   function render(host, o) {
     if (!host) return; css(); o = o || {}; host.classList.add('twin');
-    var kind = o.teamId != null ? 'team' : 'player', who = kind === 'team' ? 'team' : 'player';
+    var kind = o.teamId != null ? (o.side === 'def' ? 'teamdef' : 'team') : 'player', isT = kind !== 'player', who = isT ? 'team' : 'player';
     host.innerHTML = '<div class="tw-empty">Loading every ' + who + '-season since 2009-10…</div>';
     load(kind).then(function () {
       if (!POOL) { host.innerHTML = '<div class="tw-empty">Shot profiles are not available.</div>'; return; }
-      var mine = rowsOf(kind === 'team' ? o.teamId : o.espn);
-      if (!mine.length) { host.innerHTML = '<div class="tw-empty">' + (kind === 'team' ? 'No D-I play-by-play for this team.' : 'No D-I season with 300+ minutes for him yet.') + '</div>'; return; }
+      var mine = rowsOf(isT ? o.teamId : o.espn);
+      if (!mine.length) { host.innerHTML = '<div class="tw-empty">' + (isT ? 'No D-I play-by-play for this team.' : 'No D-I season with 300+ minutes for him yet.') + '</div>'; return; }
       var r = (o.season && mine.find(function (x) { return x[1] === o.season; })) || mine[0];
       var M = matches(r, 12), pick = 0;
-      var draw = function () {
+      var myPool = POOL, myC = C, myKind = kind;
+      var draw = function () { POOL = myPool; C = myC; KIND = myKind;
         var t = M[pick];
-        var sel = mine.length > 1 ? '<select id="twSeason">' + mine.map(function (x) { return '<option value="' + x[1] + '"' + (x === r ? ' selected' : '') + '>' + sl(x[1]) + (kind === 'team' ? '' : ' · ' + esc(short(x[3]))) + '</option>'; }).join('') + '</select>' : '';
-        var h = '<div class="tw-top"><span>' + (kind === 'team' ? 'Their' : 'His') + ' <b>' + sl(r[1]) + '</b> shot profile and the closest ' + who + '-seasons in any year since 2009-10.</span>' + sel + '</div>' +
+        var sel = mine.length > 1 ? '<select id="twSeason">' + mine.map(function (x) { return '<option value="' + x[1] + '"' + (x === r ? ' selected' : '') + '>' + sl(x[1]) + (isT ? '' : ' · ' + esc(short(x[3]))) + '</option>'; }).join('') + '</select>' : '';
+        var sideBtns = isT ? '<span class="tw-side">' + [['off', 'Offense'], ['def', 'Defense']].map(function (b) { return '<button type="button" data-side="' + b[0] + '" class="' + ((o.side === 'def') === (b[0] === 'def') ? 'on' : '') + '">' + b[1] + '</button>'; }).join('') + '</span>' : '';
+        var h = '<div class="tw-top"><span>' + (isT ? (kind === 'teamdef' ? 'What opponents shot against them in <b>' + sl(r[1]) + '</b>, and the closest defensive team-seasons in any year since 2009-10.' : 'Their <b>' + sl(r[1]) + '</b> shot profile and the closest team-seasons in any year since 2009-10.') : 'His <b>' + sl(r[1]) + '</b> shot profile and the closest player-seasons in any year since 2009-10.') + '</span><span style="display:flex;gap:8px;align-items:center">' + sideBtns + sel + '</span></div>' +
           '<div class="tw-pair">' + card(r, 'Selected') + (t ? card(t.r, '#' + (pick + 1) + ' twin · ' + t.match.toFixed(1) + ' match') : '<div class="tw-card tw-empty">No close match.</div>') + '</div>';
-        h += '<div class="sheet-wrap tw-tbl" style="max-height:none;margin-top:14px;"><table class="sheet dense"><thead><tr><th class="l">#</th><th class="l">' + (kind === 'team' ? 'Team season' : 'Player season') + '</th><th>Match</th>' +
+        h += '<div class="sheet-wrap tw-tbl" style="max-height:none;margin-top:14px;"><table class="sheet dense"><thead><tr><th class="l">#</th><th class="l">' + (isT ? 'Team season' : 'Player season') + '</th><th>Match</th>' +
           Z.map(function (z) { return '<th>' + z[0] + ' vol</th><th>' + z[0] + ' eff</th>'; }).join('') + '</tr></thead><tbody>' +
-          M.map(function (m, i) { var x = m.r; return '<tr data-i="' + i + '" class="' + (i === pick ? 'sel' : '') + '"><td class="l">' + (i + 1) + '</td><td class="l"><b>' + esc(kind === 'team' ? short(x[2]) : (x[2] || '—')) + '</b> <span class="small">· ' + esc(kind === 'team' ? (x[3] || '') : short(x[3])) + ' · ' + sl(x[1]) + '</span></td><td><b>' + m.match.toFixed(1) + '</b></td>' +
+          M.map(function (m, i) { var x = m.r; return '<tr data-i="' + i + '" class="' + (i === pick ? 'sel' : '') + '"><td class="l">' + (i + 1) + '</td><td class="l"><b>' + esc(isT ? short(x[2]) : (x[2] || '—')) + '</b> <span class="small">· ' + esc(isT ? (x[3] || '') : short(x[3])) + ' · ' + sl(x[1]) + '</span></td><td><b>' + m.match.toFixed(1) + '</b></td>' +
             Z.map(function (z) { return fmtRel(x[C[z[1]]], false) + fmtRel(x[C[z[2]]], true); }).join('') + '</tr>'; }).join('') + '</tbody></table></div>' +
-          '<div class="tw-foot">Pick a row to put that ' + who + '-season beside ' + (kind === 'team' ? 'them' : 'him') + '. Similarity weights all eight dimensions equally after standardising each by its season’s spread; two player-seasons must share at least six of them (an efficiency needs 15+ attempts). Every D-I player-season with 300+ minutes since 2009-10, from ESPN play-by-play.</div>';
+          '<div class="tw-foot">Pick a row to put that ' + who + '-season beside ' + (isT ? 'them' : 'him') + '. Similarity weights all eight dimensions equally after standardising each by its season’s spread; two player-seasons must share at least six of them (an efficiency needs 15+ attempts). Every D-I player-season with 300+ minutes since 2009-10, from ESPN play-by-play.</div>';
         host.innerHTML = h;
         var s = host.querySelector('#twSeason'); if (s) s.onchange = function () { render(host, Object.assign({}, o, { season: +s.value })); };
         host.querySelectorAll('.tw-tbl tbody tr').forEach(function (tr) { tr.onclick = function () { pick = +tr.getAttribute('data-i'); draw(); }; });
+        host.querySelectorAll('.tw-side button').forEach(function (b) { b.onclick = function () { render(host, Object.assign({}, o, { side: b.getAttribute('data-side'), season: r[1] })); }; });
       };
       draw();
     });
   }
   function compare(host, list, kind) {
-    if (!host) return; css(); host.classList.add('twin'); kind = kind || 'player';
+    if (!host) return Promise.resolve(); css(); host.classList.add('twin'); kind = kind || 'player';
     host.innerHTML = '<div class="tw-empty">Loading shot profiles…</div>';
-    load(kind).then(function () {
+    return load(kind).then(function () {   // returned: callers chain a second compare so the shared pool state never interleaves
       if (!POOL) { host.innerHTML = ''; return; }
-      var rs = (list || []).map(function (p) { var m = rowsOf(p && (kind === 'team' ? p.teamId : p.espn)); return (p && p.season && m.find(function (x) { return x[1] === p.season; })) || m[0] || null; });
-      if (!rs.some(Boolean)) { host.innerHTML = '<div class="tw-empty">' + (kind === 'team' ? 'No D-I play-by-play for these teams.' : 'No D-I seasons with 300+ minutes for these players.') + '</div>'; return; }
+      var rs = (list || []).map(function (p) { var m = rowsOf(p && (kind !== 'player' ? p.teamId : p.espn)); return (p && p.season && m.find(function (x) { return x[1] === p.season; })) || m[0] || null; });
+      if (!rs.some(Boolean)) { host.innerHTML = '<div class="tw-empty">' + (kind !== 'player' ? 'No D-I play-by-play for these teams.' : 'No D-I seasons with 300+ minutes for these players.') + '</div>'; return; }
       var both = rs[0] && rs[1] ? dist(rs[0], rs[1]) : null;
       host.innerHTML = (both != null ? '<div class="tw-top"><span>Shot-profile match: <b>' + Math.max(0, 100 - 10 * both).toFixed(1) + '</b> (100 = identical, relative to each season’s D-I average)</span></div>' : '') +
         '<div class="tw-pair">' + rs.map(function (r) { return r ? card(r) : '<div class="tw-card tw-empty">No data.</div>'; }).join('') + '</div>';

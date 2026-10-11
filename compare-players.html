@@ -34,7 +34,7 @@
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js?v=11"></script>
   <script src="tdc-ratings.js?v=35"></script>
-  <link rel="stylesheet" href="tdc-sheets.css?v=6"/><link rel="stylesheet" href="tdc-hero.css?v=4"/><script src="tdc-shotchart.js?v=31"></script><script src="tdc-twin.js?v=4"></script>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/><link rel="stylesheet" href="tdc-hero.css?v=4"/><script src="tdc-shotchart.js?v=31"></script><script src="tdc-twin.js?v=5"></script>
   <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-statshift-player.js?v=3"></script>
   <script src="tdc-portalfit.js?v=needs12"></script>
@@ -2818,8 +2818,10 @@ async function renderTeams(){
     </div>`:''}
 
     ${(s1&&s1.team_id)||(s2&&s2.team_id)?`
-    <div class="compare-section-head">Team Shot Profile · volume &amp; efficiency by zone vs D-I</div>
-    <div id="cmpTeamTwin"></div>`:''}
+    <div class="compare-section-head">Team Shot Profile · offense · volume &amp; efficiency by zone vs D-I</div>
+    <div id="cmpTeamTwin"></div>
+    <div class="compare-section-head">Team Shot Profile · defense · what opponents shot vs D-I</div>
+    <div id="cmpTeamTwinDef"></div>`:''}
 
     <div id="tdnaSection" style="display:none;">
       <div class="compare-section-head">Team DNA · Four Factors &amp; Efficiency${sameYear?` — ${yl1}`:''}</div>
@@ -2901,7 +2903,8 @@ async function renderTeams(){
   sheetify(sec); fillCmpBand();
   setTimeout(async()=>{
     _renderTeamShotCharts(s1,s2,y1,y2,t1,t2);
-    if(window.TDC_TWIN) TDC_TWIN.compare(document.getElementById('cmpTeamTwin'), [{teamId:s1&&s1.team_id,season:+y1||undefined},{teamId:s2&&s2.team_id,season:+y2||undefined}], 'team');
+    if(window.TDC_TWIN){ const _tl=[{teamId:s1&&s1.team_id,season:+y1||undefined},{teamId:s2&&s2.team_id,season:+y2||undefined}];
+      TDC_TWIN.compare(document.getElementById('cmpTeamTwin'), _tl, 'team').then(()=>TDC_TWIN.compare(document.getElementById('cmpTeamTwinDef'), _tl, 'teamdef')); }
     _fillTeamDNA(s1,s2,y1,y2);
     _fillTeamGenome(s1,s2,y1,y2);
     _fillPosBattle(t1,t2,c1,c2);

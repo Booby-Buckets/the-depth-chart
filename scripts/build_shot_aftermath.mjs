@@ -196,9 +196,24 @@ function profiles(s, runs, plays, X) {
   }
   for (const p of plays) {
     if (!isFG(p)) continue;
+    const z = zoneOf(p), k = z === 'rim' ? 4 : z === 'three' ? 8 : 6;
+    // TEAM totals by the shooting team (offense) and its opponent (defense) — every attempt, credited player or not
+    const tid = String(p.team.id), opp = Object.keys(teamPoss).find((t) => t !== tid);
+    const TO = (X.toff[tid] = X.toff[tid] || [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]); TO[k]++; if (p.scoringPlay) TO[k + 1]++;
+    if (opp) { const TD = (X.tdef[opp] = X.tdef[opp] || [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]); TD[k]++; if (p.scoringPlay) TD[k + 1]++; }
     const id = p.participants && p.participants[0] && p.participants[0].athlete && String(p.participants[0].athlete.id); if (!id || !X.prof[id]) continue;
-    const z = zoneOf(p), k = z === 'rim' ? 4 : z === 'three' ? 8 : 6, r = X.prof[id];
+    const r = X.prof[id];
     r[k]++; if (p.scoringPlay) r[k + 1]++;
+  }
+  // team free throws (offense) and free throws allowed (defense) from the box, plus possessions both ways
+  const tids = Object.keys(teamPoss);
+  for (const t of box) {
+    const tid = String(t.team && t.team.id), opp = tids.find((x) => x !== tid);
+    let fta = 0, ftm = 0;
+    for (const st of t.statistics || []) { const iF = (st.labels || []).indexOf('FT');
+      for (const a of st.athletes || []) { if (!a.stats || !a.stats.length) continue; const ft = String(a.stats[iF] || '0-0').split('-'); fta += +ft[1] || 0; ftm += +ft[0] || 0; } }
+    const TO = (X.toff[tid] = X.toff[tid] || [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]); TO[1] += teamPoss[tid] || 0; TO[2] += fta; TO[3] += ftm; TO[0] += 1;
+    if (opp) { const TD = (X.tdef[opp] = X.tdef[opp] || [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]); TD[1] += teamPoss[tid] || 0; TD[2] += fta; TD[3] += ftm; TD[0] += 1; }
   }
 }
 
@@ -266,7 +281,7 @@ async function season(y) {
   const d1 = new Set(ts.map((t) => String(t.team_id)));
   const games = (await sb(`games?season_year=eq.${y}&status=eq.STATUS_FINAL&select=id,home_id,away_id&order=id.asc`))
     .filter((g) => d1.has(String(g.home_id)) && d1.has(String(g.away_id)));   // D-I vs D-I only
-  const acc = {}, lg = { pts: 0, poss: 0 }, X = { players: {}, ppos: {}, poss: {}, sit: {}, prof: {}, pname: {}, pteam: {}, lg: { st: {}, tm: {}, sit: {} } };
+  const acc = {}, lg = { pts: 0, poss: 0 }, X = { players: {}, ppos: {}, poss: {}, sit: {}, prof: {}, pname: {}, pteam: {}, toff: {}, tdef: {}, lg: { st: {}, tm: {}, sit: {} } };
   let done = 0, empty = 0;
   const q = games.slice();
   async function worker() {
@@ -306,6 +321,8 @@ async function season(y) {
   fs.writeFileSync(path.join(OUT, `prof_${y}.json`), JSON.stringify({ season: y, built: out.built, cols: ['min', 'poss', 'fta', 'ftm', 'rimA', 'rimM', 'midA', 'midM', 'threeA', 'threeM'],
     players: prof, names: Object.fromEntries(Object.keys(prof).map((id) => [id, X.pname[id]])), team: Object.fromEntries(Object.keys(prof).map((id) => [id, X.pteam[id]])),
     pos: Object.fromEntries(Object.keys(prof).filter((id) => X.ppos[id]).map((id) => [id, X.ppos[id]])) }));
+  // team shot profiles, offense and defense: [games, possessions, fta, ftm, rimA, rimM, midA, midM, 3A, 3M]
+  fs.writeFileSync(path.join(OUT, `tprof_${y}.json`), JSON.stringify({ season: y, built: out.built, cols: ['games', 'poss', 'fta', 'ftm', 'rimA', 'rimM', 'midA', 'midM', 'threeA', 'threeM'], off: X.toff, def: X.tdef }));
   fs.writeFileSync(path.join(OUT, `players_${y}.json`), JSON.stringify({ season: y, built: out.built, league_ppp: out.league_ppp, cols: out.cols, pos: X.ppos, data: X.players }));
   const all = Object.values(acc).flatMap((T) => Object.values(T).flatMap((P) => Object.values(P)));
   const att = all.reduce((a, c) => a + c[0], 0);
