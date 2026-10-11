@@ -1,0 +1,127 @@
+/* tdc-twin.js — Shot Profile Twin: a player-season's free-throw, rim, midrange and three-point VOLUME (attempts per 100
+ * possessions on the floor) and EFFICIENCY, each against that season's D-I average, and the closest player-seasons in
+ * any year (scripts/build_shot_twins.py -> scripts/data/shot_aftermath/twin_pool.json).
+ *
+ *   TDC_TWIN.render(host, {espn, season})              his profile, his #1 twin beside it, and the closest matches
+ *   TDC_TWIN.compare(host, [{espn,season},{espn,season}])  two players' profiles side by side (compare page)
+ *
+ * Matching: every dimension is standardised by its season's spread; the distance is the root-mean-square gap over the
+ * dimensions both seasons have (at least six of the eight); match = 100 − 10 × distance. Bars: volume is neutral grey
+ * (how often, not good or bad); efficiency is gold above the D-I average, blue below (validated palette).
+ */
+(function () {
+  var URL_ = 'scripts/data/shot_aftermath/twin_pool.json?v=1', POOL = null, P_ = null;
+  var Z = [['FT', 'ftV', 'ftE'], ['Rim', 'rimV', 'rimE'], ['Mid', 'midV', 'midE'], ['3P', 'tV', 'tE']];
+  var C = null;   // column index
+  function load() { return P_ || (P_ = fetch(URL_).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+    POOL = j; if (j) { C = {}; j.cols.forEach(function (c, i) { C[c] = i; }); } return j; }).catch(function () { return null; })); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function sl(y) { return (y - 1) + '–' + String(y).slice(2); }
+  function short(t) { try { return (window.TDCTeamName && TDCTeamName.short) ? TDCTeamName.short(t) : t; } catch (e) { return t; } }
+  function css() {
+    if (document.getElementById('twin-css')) return;
+    var s = document.createElement('style'); s.id = 'twin-css';
+    s.textContent =
+      '.twin{--tw-vol:#8A867A;--tw-pos:#B07D17;--tw-neg:#2F7FC1;}[data-theme="dark"] .twin{--tw-vol:#6D7486;--tw-pos:#B8862A;--tw-neg:#3A8BCB;}' +
+      '.tw-pair{display:grid;grid-template-columns:1fr 1fr;gap:18px;}@media(max-width:900px){.tw-pair{grid-template-columns:1fr;}}' +
+      '.tw-card{border:1px solid var(--border2);border-radius:12px;padding:14px 16px 10px;background:var(--bg);}' +
+      '.tw-hd{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px;}' +
+      '.tw-nm{font-size:19px;font-weight:800;color:var(--text);} .tw-nm a{color:inherit;text-decoration:none;} .tw-nm a:hover{text-decoration:underline;}' +
+      '.tw-meta{font-size:12px;color:var(--text3);} .tw-chips{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 6px;}' +
+      '.tw-chip{font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:6px;border:1px solid var(--border2);color:var(--text2);font-variant-numeric:tabular-nums;}' +
+      '.tw-chip.m{border-color:var(--tw-pos);color:var(--text);}' +
+      '.tw-zone{display:grid;grid-template-columns:38px 1fr 54px;align-items:center;column-gap:8px;}' +
+      '.tw-zt{grid-column:1 / span 3;display:grid;grid-template-columns:38px 1fr 54px;column-gap:8px;margin:10px 0 2px;font-size:10.5px;font-weight:800;letter-spacing:.08em;color:var(--text3);}' +
+      '.tw-zt b{font-size:13px;color:var(--text);text-align:center;letter-spacing:.04em;} .tw-zt span{display:flex;justify-content:space-between;}' +
+      '.tw-rl{font-size:10.5px;font-weight:800;letter-spacing:.08em;color:var(--text3);}' +
+      '.tw-tr{position:relative;height:22px;background:var(--bg2);border-radius:4px;margin:2px 0;}' +
+      '.tw-tr i{position:absolute;top:3px;bottom:3px;border-radius:3px;} .tw-mid{position:absolute;top:0;bottom:0;left:50%;width:1px;background:var(--text3);}' +
+      '.tw-tr span{position:absolute;top:0;line-height:22px;font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;font-variant-numeric:tabular-nums;}' +
+      '.tw-lg{font-size:11.5px;color:var(--text3);text-align:right;font-variant-numeric:tabular-nums;}' +
+      '.tw-foot{display:none;}' +   // owner rule: no explanatory footnotes under charts
+      '.tw-tbl td.pos{color:var(--tw-pos);} .tw-tbl td.neg{color:var(--tw-neg);} .tw-tbl tr.sel td{background:var(--bg2);} .tw-tbl tbody tr{cursor:pointer;}' +
+      '.tw-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px;font-size:13px;color:var(--text2);}' +
+      '.tw-top select{font:600 12.5px Inter,system-ui,sans-serif;padding:5px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--bg2);color:var(--text);}' +
+      '.tw-empty{padding:22px;text-align:center;color:var(--text3);font-size:13px;}';
+    document.head.appendChild(s);
+  }
+  function rowsOf(espn) { return POOL.rows.filter(function (r) { return String(r[0]) === String(espn); }).sort(function (a, b) { return b[1] - a[1]; }); }
+  function zOf(r, d) { var v = r[C[d]], sd = POOL.seasons[r[1]].sd[d]; return v == null ? null : v / sd; }
+  function dist(a, b) {
+    var s = 0, n = 0; POOL.dims.forEach(function (d) { var x = zOf(a, d), y = zOf(b, d); if (x != null && y != null) { s += (x - y) * (x - y); n++; } });
+    return n >= 6 ? Math.sqrt(s / n) : null;
+  }
+  function matches(r, k) {
+    var out = [];
+    POOL.rows.forEach(function (o) { if (o === r) return; var d = dist(r, o); if (d != null) out.push([d, o]); });
+    out.sort(function (a, b) { return a[0] - b[0]; });
+    return out.slice(0, k || 12).map(function (x) { return { r: x[1], match: Math.max(0, 100 - 10 * x[0]) }; });
+  }
+  // one player-season's profile card
+  function card(r, badge) {
+    var S = POOL.seasons[r[1]], avg = S.avg, sdv = S.sd;
+    var head = '<div class="tw-hd"><div class="tw-nm"><a href="player.html?espn=' + esc(r[0]) + '&name=' + encodeURIComponent(r[2] || '') + '">' + esc(r[2] || '—') + '</a></div>' +
+      '<div class="tw-meta">' + esc(short(r[3])) + ' · ' + sl(r[1]) + (r[4] ? ' · ' + ({ G: 'guard', F: 'forward', C: 'center' }[r[4]] || '') : '') + '</div></div>' +
+      '<div class="tw-chips">' + (badge ? '<span class="tw-chip m">' + badge + '</span>' : '') + '<span class="tw-chip">' + r[C.pts100] + ' pts / 100 poss</span>' +
+      (r[C.ts] != null ? '<span class="tw-chip">TS% ' + (100 * r[C.ts]).toFixed(1) + '</span>' : '') + '<span class="tw-chip">' + r[C.min] + ' min</span></div>';
+    var body = '';
+    Z.forEach(function (z) {
+      body += '<div class="tw-zt"><span></span><span><span>BELOW AVG</span><b>' + z[0] + '</b><span>ABOVE AVG</span></span><span style="text-align:right">D-I AVG</span></div>';
+      [['VOL', z[1]], ['EFF', z[2]]].forEach(function (k) {
+        var d = k[1], rel = r[C[d]], isE = k[0] === 'EFF';
+        var bar = '';
+        if (rel == null) bar = '<span style="left:52%;color:var(--text3)">too few attempts</span>';
+        else {
+          var x = Math.max(-1, Math.min(1, rel / (2.5 * sdv[d]))), w = Math.abs(x) * 50, l = x < 0 ? 50 - w : 50;
+          var col = isE ? (rel >= 0 ? 'var(--tw-pos)' : 'var(--tw-neg)') : 'var(--tw-vol)';
+          var raw = Math.max(0, avg[d] + rel), txt = isE ? (100 * raw).toFixed(1) + '% (' + (rel >= 0 ? '+' : '') + (100 * rel).toFixed(1) + ')' : raw.toFixed(1) + ' (' + (rel >= 0 ? '+' : '') + rel.toFixed(1) + ')';
+          bar = '<i style="left:' + l + '%;width:' + Math.max(w, 0.6) + '%;background:' + col + '"></i>' +
+            '<span style="' + (x < 0 ? 'left:52%' : 'right:52%') + '">' + txt + '</span>';
+        }
+        body += '<div class="tw-rl">' + k[0] + '</div><div class="tw-tr"><div class="tw-mid"></div>' + bar + '</div><div class="tw-lg">' + (isE ? (100 * avg[d]).toFixed(1) + '%' : avg[d].toFixed(1)) + '</div>';
+      });
+    });
+    return '<div class="tw-card">' + head + '<div class="tw-zone">' + body + '</div><div class="tw-foot">Volume is attempts per 100 possessions on the floor; efficiency is FG% (FT% for free throws). Relative values compare him with that season’s D-I average.</div></div>';
+  }
+  function fmtRel(v, isE) { if (v == null) return '<td>—</td>'; var t = isE ? (v >= 0 ? '+' : '') + (100 * v).toFixed(1) + '%' : (v >= 0 ? '+' : '') + v.toFixed(1); return '<td class="' + (isE ? (v >= 0 ? 'pos' : 'neg') : '') + '">' + t + '</td>'; }
+
+  function render(host, o) {
+    if (!host) return; css(); o = o || {}; host.classList.add('twin');
+    host.innerHTML = '<div class="tw-empty">Loading every player-season since 2009-10…</div>';
+    load().then(function () {
+      if (!POOL) { host.innerHTML = '<div class="tw-empty">Shot profiles are not available.</div>'; return; }
+      var mine = rowsOf(o.espn);
+      if (!mine.length) { host.innerHTML = '<div class="tw-empty">No D-I season with 300+ minutes for him yet.</div>'; return; }
+      var r = (o.season && mine.find(function (x) { return x[1] === o.season; })) || mine[0];
+      var M = matches(r, 12), pick = 0;
+      var draw = function () {
+        var t = M[pick];
+        var sel = mine.length > 1 ? '<select id="twSeason">' + mine.map(function (x) { return '<option value="' + x[1] + '"' + (x === r ? ' selected' : '') + '>' + sl(x[1]) + ' · ' + esc(short(x[3])) + '</option>'; }).join('') + '</select>' : '';
+        var h = '<div class="tw-top"><span>His <b>' + sl(r[1]) + '</b> shot profile and the closest player-seasons in any year since 2009-10.</span>' + sel + '</div>' +
+          '<div class="tw-pair">' + card(r, 'Selected') + (t ? card(t.r, '#' + (pick + 1) + ' twin · ' + t.match.toFixed(1) + ' match') : '<div class="tw-card tw-empty">No close match.</div>') + '</div>';
+        h += '<div class="sheet-wrap tw-tbl" style="max-height:none;margin-top:14px;"><table class="sheet dense"><thead><tr><th class="l">#</th><th class="l">Player season</th><th>Match</th>' +
+          Z.map(function (z) { return '<th>' + z[0] + ' vol</th><th>' + z[0] + ' eff</th>'; }).join('') + '</tr></thead><tbody>' +
+          M.map(function (m, i) { var x = m.r; return '<tr data-i="' + i + '" class="' + (i === pick ? 'sel' : '') + '"><td class="l">' + (i + 1) + '</td><td class="l"><b>' + esc(x[2] || '—') + '</b> <span class="small">· ' + esc(short(x[3])) + ' · ' + sl(x[1]) + '</span></td><td><b>' + m.match.toFixed(1) + '</b></td>' +
+            Z.map(function (z) { return fmtRel(x[C[z[1]]], false) + fmtRel(x[C[z[2]]], true); }).join('') + '</tr>'; }).join('') + '</tbody></table></div>' +
+          '<div class="tw-foot">Pick a row to put that player-season beside him. Similarity weights all eight dimensions equally after standardising each by its season’s spread; two player-seasons must share at least six of them (an efficiency needs 15+ attempts). Every D-I player-season with 300+ minutes since 2009-10, from ESPN play-by-play.</div>';
+        host.innerHTML = h;
+        var s = host.querySelector('#twSeason'); if (s) s.onchange = function () { render(host, Object.assign({}, o, { season: +s.value })); };
+        host.querySelectorAll('.tw-tbl tbody tr').forEach(function (tr) { tr.onclick = function () { pick = +tr.getAttribute('data-i'); draw(); }; });
+      };
+      draw();
+    });
+  }
+  function compare(host, list) {
+    if (!host) return; css(); host.classList.add('twin');
+    host.innerHTML = '<div class="tw-empty">Loading shot profiles…</div>';
+    load().then(function () {
+      if (!POOL) { host.innerHTML = ''; return; }
+      var rs = (list || []).map(function (p) { var m = rowsOf(p && p.espn); return (p && p.season && m.find(function (x) { return x[1] === p.season; })) || m[0] || null; });
+      if (!rs.some(Boolean)) { host.innerHTML = '<div class="tw-empty">No D-I seasons with 300+ minutes for these players.</div>'; return; }
+      var both = rs[0] && rs[1] ? dist(rs[0], rs[1]) : null;
+      host.innerHTML = (both != null ? '<div class="tw-top"><span>Shot-profile match: <b>' + Math.max(0, 100 - 10 * both).toFixed(1) + '</b> (100 = identical, relative to each season’s D-I average)</span></div>' : '') +
+        '<div class="tw-pair">' + rs.map(function (r) { return r ? card(r) : '<div class="tw-card tw-empty">No D-I season with 300+ minutes.</div>'; }).join('') + '</div>';
+    });
+  }
+  window.TDC_TWIN = { render: render, compare: compare, load: load };
+})();

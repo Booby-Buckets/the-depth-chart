@@ -168,6 +168,96 @@ function parse(s, acc, lg, X) {
     const b = TBUCKET(d);
     add2(O.off.tm, b, r.pts); add2(D.def.tm, b, r.pts); add2(X.lg.tm, b, r.pts);
   });
+  situations(s, runs, ids, X);
+  profiles(s, runs, plays, X);
+}
+
+// ── 6. SHOT PROFILES (Shot Profile Twin): every player's free throws and rim / mid / three attempts and makes for
+// the game (ALL attempts, not just first chances), his minutes, and the possessions his team had while he played
+// (team possessions × his share of the game's minutes — the play log has no reliable on-floor record for every
+// game, so this is the minutes share, not the stint count). Cols: min, poss, fta, ftm, rimA, rimM, midA, midM, 3A, 3M.
+function profiles(s, runs, plays, X) {
+  const box = (s.boxscore && s.boxscore.players) || [];
+  const maxPer = plays.reduce((m, p) => Math.max(m, (p.period && p.period.number) || 1), 2), gameMin = 40 + 5 * Math.max(0, maxPer - 2);
+  const teamPoss = {}; runs.forEach((r) => { teamPoss[r.team] = (teamPoss[r.team] || 0) + 1; });
+  const rowOf = (id) => (X.prof[id] = X.prof[id] || [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  for (const t of box) {
+    const tid = String(t.team && t.team.id);
+    for (const st of t.statistics || []) {
+      const L = st.labels || [], iM = L.indexOf('MIN'), iF = L.indexOf('FT');
+      for (const a of st.athletes || []) {
+        const id = a.athlete && a.athlete.id && String(a.athlete.id); if (!id || !a.stats || !a.stats.length) continue;
+        const m = parseFloat(a.stats[iM]) || 0; if (m <= 0) continue;
+        const ft = String(a.stats[iF] || '0-0').split('-');
+        const r = rowOf(id); r[0] += m; r[1] += (teamPoss[tid] || 0) * m / gameMin; r[2] += +ft[1] || 0; r[3] += +ft[0] || 0;
+        X.pname[id] = a.athlete.displayName || X.pname[id]; X.pteam[id] = tid;
+      }
+    }
+  }
+  for (const p of plays) {
+    if (!isFG(p)) continue;
+    const id = p.participants && p.participants[0] && p.participants[0].athlete && String(p.participants[0].athlete.id); if (!id || !X.prof[id]) continue;
+    const z = zoneOf(p), k = z === 'rim' ? 4 : z === 'three' ? 8 : 6, r = X.prof[id];
+    r[k]++; if (p.scoringPlay) r[k + 1]++;
+  }
+}
+
+// ── 5. SITUATIONS: the game state each possession started in (team pages + situations.html) ───────────────
+// For every possession: was it the first one out of the offense's own timeout (ATO) or a media timeout, the
+// first 4:00 of a half, the last 4:00 of a game within 5, a 10+ lead or deficit, the answer to an opponent's
+// 8-0 run, and whether the defense had put it in the bonus (7th team foul = one-and-one, 10th = double; fouls
+// reset each half, overtime counts with the second half). Plus each team's 8-0 runs made / allowed, its fouls
+// and how much of the half was left when it put the opponent in the bonus.
+const isFoul = (p) => /Foul/i.test(tt(p)) && (!/Turnover/i.test(tt(p)) || /^\s*Foul on/i.test(p.text || ''));
+const isTeamTO = (p) => /TimeOut|Timeout/i.test(tt(p)) && !/Official|TV/i.test(tt(p)) && p.team && p.team.id;
+const isTVTO = (p) => /Official|TV/i.test(tt(p)) && /TimeOut|Timeout/i.test(tt(p));
+function situations(s, runs, ids, X) {
+  const comp = s.header && s.header.competitions && s.header.competitions[0]; if (!comp || ids.length !== 2) return;
+  const home = String((comp.competitors.find((c) => c.homeAway === 'home') || {}).team.id);
+  const all = s.plays || [], at = new Map(all.map((p, i) => [p, i]));
+  const SIT = (t) => (X.sit[t] = X.sit[t] || { off: {}, def: {}, g: 0, run8: 0, run8a: 0, fouls: 0, bonusAt: [] });
+  ids.forEach((t) => { SIT(t).g++; });
+  // walk every play once: team fouls by half, the score, unanswered-point streaks, bonus moments
+  const fouls = {}; let half = 0, st = { team: null, pts: 0, counted: false }, lastH = 0, lastA = 0;
+  const state = new Array(all.length);
+  all.forEach((p, i) => {
+    const per = (p.period && p.period.number) || 1, h = per <= 1 ? 1 : 2;
+    if (h !== half) { half = h; ids.forEach((t) => { fouls[t] = 0; }); }
+    if (isFoul(p) && p.team && p.team.id) {
+      const t = String(p.team.id); fouls[t] = (fouls[t] || 0) + 1;
+      if (fouls[t] === 7) SIT(t).bonusAt.push(per <= 2 ? (clk(p) || 0) : 0);
+      SIT(t).fouls++;
+    }
+    const hs = +p.homeScore || 0, as = +p.awayScore || 0;
+    if (hs > lastH || as > lastA) {
+      const sc = hs > lastH ? home : ids.find((t) => t !== home), pts = (hs - lastH) + (as - lastA);
+      if (st.team === sc) st.pts += pts; else st = { team: sc, pts: pts, counted: false };
+      if (st.pts >= 8 && !st.counted) { st.counted = true; SIT(sc).run8++; SIT(ids.find((t) => t !== sc)).run8a++; }
+      lastH = hs; lastA = as;
+    }
+    state[i] = { fouls: Object.assign({}, fouls), hs, as, streak: { team: st.team, pts: st.pts } };
+  });
+  runs.forEach((r, ri) => {
+    const def = ids.find((t) => t !== r.team); if (!def) return;
+    const prev = ri > 0 && runs[ri - 1].per === r.per ? runs[ri - 1] : null;
+    const firstI = at.get(r.ev[0].p), act = r.ev.find((e) => isFG(e.p) || isFT(e.p) || isTO(e.p)), actI = act ? at.get(act.p) : firstI;
+    const prevI = prev ? at.get(prev.ev[prev.ev.length - 1].p) : -1;
+    if (firstI == null || actI == null) return;
+    const before = state[Math.max(0, (prevI >= 0 ? prevI : firstI - 1))] || state[firstI];
+    const keys = [];
+    let ato = false, tv = false;
+    for (let i = prevI + 1; i < actI; i++) { const p = all[i]; if (isTeamTO(p) && String(p.team.id) === r.team) ato = true; else if (isTVTO(p)) tv = true; }
+    if (ato) keys.push('ato'); else if (tv) keys.push('tvto');
+    const p0 = r.ev[0].p, per = r.per, c0 = clk(prev ? prev.ev[prev.ev.length - 1].p : p0);
+    const offScore = r.team === home ? before.hs : before.as, defScore = r.team === home ? before.as : before.hs, mg = offScore - defScore;
+    if (per <= 2 && c0 != null && c0 >= 960) keys.push(per === 1 ? 'start1' : 'start2');
+    if (per >= 2 && c0 != null && c0 <= 240 && Math.abs(mg) <= 5) keys.push('close');
+    if (mg >= 10) keys.push('lead10'); else if (mg <= -10) keys.push('trail10');
+    if (before.streak && before.streak.team === def && before.streak.pts >= 8) keys.push('afterrun');
+    const df = (state[actI] && state[actI].fouls[def]) || 0;
+    keys.push(df >= 10 ? 'bonus2' : df >= 7 ? 'bonus1' : 'nobonus');
+    keys.forEach((k) => { add2(SIT(r.team).off, k, r.pts); add2(SIT(def).def, k, r.pts); add2(X.lg.sit, k, r.pts); });
+  });
 }
 
 async function season(y) {
@@ -176,7 +266,7 @@ async function season(y) {
   const d1 = new Set(ts.map((t) => String(t.team_id)));
   const games = (await sb(`games?season_year=eq.${y}&status=eq.STATUS_FINAL&select=id,home_id,away_id&order=id.asc`))
     .filter((g) => d1.has(String(g.home_id)) && d1.has(String(g.away_id)));   // D-I vs D-I only
-  const acc = {}, lg = { pts: 0, poss: 0 }, X = { players: {}, ppos: {}, poss: {}, lg: { st: {}, tm: {} } };
+  const acc = {}, lg = { pts: 0, poss: 0 }, X = { players: {}, ppos: {}, poss: {}, sit: {}, prof: {}, pname: {}, pteam: {}, lg: { st: {}, tm: {}, sit: {} } };
   let done = 0, empty = 0;
   const q = games.slice();
   async function worker() {
@@ -202,6 +292,20 @@ async function season(y) {
   fs.writeFileSync(path.join(OUT, `poss_${y}.json`), JSON.stringify({ season: y, built: out.built, league_ppp: out.league_ppp, league: X.lg, teams: X.poss,
     starts: { fg: 'after a made field goal', ft: 'after made free throws', dr: 'after a defensive rebound', to: 'after a turnover', oth: 'other (period start, dead balls)' },
     times: { tr: '0-10 s', early: '11-20 s', half: '21-30 s', late: '31+ s' } }));
+  // league runs / fouls per game for the situations baselines
+  const sv = Object.values(X.sit), gsum = sv.reduce((a, t) => a + t.g, 0) || 1;
+  X.lg.run8 = sv.reduce((a, t) => a + t.run8, 0) / gsum; X.lg.fouls = sv.reduce((a, t) => a + t.fouls, 0) / gsum;
+  const ba = sv.flatMap((t) => t.bonusAt); X.lg.bonusAt = ba.length ? ba.reduce((a, b) => a + b, 0) / ba.length : null;
+  X.lg.bonusHalves = ba.length / Math.max(1, gsum * 2);
+  for (const t of sv) { t.bonusN = t.bonusAt.length; t.bonusAt = t.bonusAt.length ? +(t.bonusAt.reduce((a, b) => a + b, 0) / t.bonusAt.length).toFixed(1) : null; }
+  fs.writeFileSync(path.join(OUT, `sit_${y}.json`), JSON.stringify({ season: y, built: out.built, league_ppp: out.league_ppp, league: { sit: X.lg.sit, run8: +X.lg.run8.toFixed(3), fouls: +X.lg.fouls.toFixed(2), bonusAt: X.lg.bonusAt != null ? +X.lg.bonusAt.toFixed(1) : null, bonusHalves: +X.lg.bonusHalves.toFixed(3) }, teams: X.sit,
+    keys: { ato: 'out of their own timeout', tvto: 'out of a media timeout', start1: 'first 4:00 of the game', start2: 'first 4:00 of the second half', close: 'last 4:00, within 5', lead10: 'leading by 10+', trail10: 'trailing by 10+', afterrun: 'right after an opponent 8-0 run', nobonus: 'opponent not in the bonus', bonus1: 'in the one-and-one', bonus2: 'in the double bonus' } }));
+  // shot profiles: every player with 100+ minutes (rounded to keep the file small)
+  const prof = {};
+  for (const [id, r] of Object.entries(X.prof)) if (r[0] >= 100) prof[id] = r.map((v, i) => (i <= 1 ? Math.round(v) : v));
+  fs.writeFileSync(path.join(OUT, `prof_${y}.json`), JSON.stringify({ season: y, built: out.built, cols: ['min', 'poss', 'fta', 'ftm', 'rimA', 'rimM', 'midA', 'midM', 'threeA', 'threeM'],
+    players: prof, names: Object.fromEntries(Object.keys(prof).map((id) => [id, X.pname[id]])), team: Object.fromEntries(Object.keys(prof).map((id) => [id, X.pteam[id]])),
+    pos: Object.fromEntries(Object.keys(prof).filter((id) => X.ppos[id]).map((id) => [id, X.ppos[id]])) }));
   fs.writeFileSync(path.join(OUT, `players_${y}.json`), JSON.stringify({ season: y, built: out.built, league_ppp: out.league_ppp, cols: out.cols, pos: X.ppos, data: X.players }));
   const all = Object.values(acc).flatMap((T) => Object.values(T).flatMap((P) => Object.values(P)));
   const att = all.reduce((a, c) => a + c[0], 0);

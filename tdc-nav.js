@@ -44,6 +44,7 @@
       ['shot-genome.html',              'Shot Genome'],
       ['crunch.html',                   'Crunch-Time Takeovers'],
       ['shot-aftermath.html',           'Shot Aftermath'],
+      ['game-situations.html',          'Game Situations'],
       ['plays.html',                    'Play Finder'],
       ['wowy.html',                     'WOWY Lineups / On-Off'],
       ['statshift.html',                'Stat Line Shift'],

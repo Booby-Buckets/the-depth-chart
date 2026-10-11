@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="tdc-loading.js?v=4"></script>
+  <link rel="stylesheet" href="tdc-a11y.css?v=3">
+  <script src="tdc-a11y.js?v=2" defer></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Game Situations — The Depth Chart</title>
+  <meta name="description" content="Every D-I team's points per possession out of timeouts, at the start of halves, late and close, after runs and in the bonus — offense and defense, from every play-by-play.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Depth Chart">
+  <meta property="og:title" content="Game Situations — The Depth Chart">
+  <meta property="og:description" content="Who is best out of timeouts, late and close, coming out of halftime and in the bonus — every D-I team, offense and defense.">
+  <meta property="og:url" content="https://www.thedepthchartcbb.com/game-situations.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <script src="tdc-theme.js?v=5"></script>
+  <script src="auth.js?v=delacct1"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="team-colors.js?v=11"></script>
+  <script src="tdc-teamname.js?v=1"></script>
+  <script src="tdc-aftermath.js?v=4"></script>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;}
+    [data-theme="dark"]{--bg:#0A0E18;--bg2:#111726;--bg3:#1A2133;--border:#232B3E;--border2:#34405A;--text:#EEF1F7;--text2:#AEB6C8;--text3:#7A849A;--accent:#E6D5A8;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html,body{background:var(--bg);}
+    body{color:var(--text);font-family:'Inter',system-ui,sans-serif;font-weight:500;min-height:100vh;}
+    .page{padding:30px 0 60px;}
+    .eyebrow{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--text2);margin-bottom:6px;}
+    h1{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:44px;letter-spacing:-.02em;line-height:1.05;}
+    .lede{font-size:17px;color:var(--text2);margin:8px 0 18px;max-width:820px;line-height:1.45;}
+    .filters{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;border-top:1px solid var(--border2);padding-top:16px;}
+    @media(max-width:860px){.filters{grid-template-columns:1fr 1fr;}}
+    .filters label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700;color:var(--text2);}
+    .filters select{font:600 15px Inter,system-ui,sans-serif;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg2);color:var(--text);min-width:0;}
+    .sample{font-size:13px;color:var(--text3);margin:12px 0 18px;} .sample b{color:var(--text2);}
+    h2{font-family:'Playfair Display',Georgia,serif;font-size:24px;font-weight:800;margin:26px 0 6px;}
+    .sub{font-size:14px;color:var(--text2);line-height:1.5;margin-bottom:14px;max-width:900px;}
+    .sheet th{cursor:pointer;} .sheet td a{color:var(--text);text-decoration:none;font-weight:700;} .sheet td a:hover{text-decoration:underline;}
+    .sheet td.lgc img{width:18px;height:18px;object-fit:contain;vertical-align:middle;margin:-2px 6px 0 0;}
+    .empty{padding:26px;text-align:center;color:var(--text3);border:1px dashed var(--border2);border-radius:12px;font-size:13px;}
+    .note{font-size:13px;color:var(--text2);line-height:1.6;margin:14px 0 0;padding-top:10px;border-top:1px solid var(--border2);}
+    @media(max-width:640px){ h1{font-size:32px;} .lede{font-size:15px;} }
+  </style>
+  <link rel="stylesheet" href="tdc-skin.css?v=14"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+  <link rel="stylesheet" href="tdc-column.css?v=4"/>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script src="tdc-pwa.js?v=2" defer></script>
+</head>
+<body>
+<script src="tdc-nav.js?v=71"></script>
+<div class="page aft">
+  <div class="eyebrow">D-I · Game situations</div>
+  <h1>Who wins the moments?</h1>
+  <div class="lede">Points per possession out of timeouts, at the start of each half, late and close, after an opponent run and in the bonus. Every D-I team, on offense and defense, from every play-by-play.</div>
+  <div class="filters">
+    <label>Season<select id="fSeason"></select></label>
+    <label>Situation<select id="fKey"></select></label>
+    <label>Side<select id="fSide"><option value="off">Offense</option><option value="def">Defense</option></select></label>
+    <label>Conference<select id="fConf"><option value="">All conferences</option></select></label>
+  </div>
+  <div class="sample" id="sample">Loading every possession…</div>
+  <div id="charts"></div>
+  <h2 id="tblH">Every team</h2>
+  <div class="sub" id="tblSub"></div>
+  <div id="tbl"><div class="empty">Loading…</div></div>
+  <div class="note" id="note"></div>
+</div>
+<script>
+(function(){
+  const SB='https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/', K='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+  const KEYS=[['ato','Out of their own timeout'],['tvto','Out of a media timeout'],['start1','First 4:00 of the game'],['start2','First 4:00 of the second half'],['close','Late & close (last 4:00, within 5)'],['lead10','Leading by 10+'],['trail10','Trailing by 10+'],['afterrun','Right after an opponent 8-0 run'],['nobonus','Opponent not in the bonus'],['bonus1','In the one-and-one'],['bonus2','In the double bonus']];
+  const S={season:2026,key:'ato',side:'off',conf:'',sort:'v',asc:false};
+  const CACHE={}; let D=null, NM={};
+  const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const p3=v=>(v==null||!isFinite(v))?'—':v.toFixed(3), f3=v=>(v==null||!isFinite(v))?'—':(v>=0?'+':'')+v.toFixed(3), nf=v=>(+v||0).toLocaleString();
+  const sl=y=>(y-1)+'–'+String(y).slice(2);
+  const ppp=a=>a&&a[0]?a[1]/a[0]:null;
+  const MIN=25;   // possessions before a team is ranked on a situation
+  function rows(){
+    const out=[];
+    for(const t in D.teams){ const nm=NM[t]; if(!nm) continue; if(S.conf&&nm.conf!==S.conf) continue;
+      const T=D.teams[t], a=T[S.side][S.key], o=T.off[S.key], d=T.def[S.key];
+      out.push({id:t, name:nm.name, conf:nm.conf, n:a?a[0]:0, v:(a&&a[0]>=MIN)?ppp(a):null, off:ppp(o), offN:o?o[0]:0, def:ppp(d), defN:d?d[0]:0, g:T.g}); }
+    return out;
+  }
+  function render(){
+    if(!D) return;
+    const lg=D.league_ppp, base=ppp(D.league.sit[S.key]), lab=KEYS.find(k=>k[0]===S.key)[1], better=S.side==='off'?'more is better':'less is better';
+    const R=rows(), ranked=R.filter(r=>r.v!=null).sort((a,b)=>S.side==='off'?b.v-a.v:a.v-b.v);
+    document.getElementById('sample').innerHTML=`<b>${sl(S.season)}</b> · ${esc(lab)} · ${S.side==='off'?'offense':'defense'} · D-I <b>${p3(base)}</b> points per possession (league overall ${p3(lg)}) · teams with ${MIN}+ such possessions`;
+    const bar=(list,title)=>TDC_AFTER.chart(title, `${S.side==='off'?'Points':'Opponent points'} per possession · ${better}`,
+      list.map(r=>({label:r.name, v:r.v, ref:base, tip:`<b>${esc(r.name)}</b><br>${nf(r.n)} possessions · <b>${p3(r.v)}</b> PPP · D-I ${p3(base)}`})),
+      {diverge:true, base:base, fmt:p3, axfmt:p3, zeroLabel:'D-I '+p3(base), lw:118, color:v=>v>base?'var(--aft-pos)':'var(--aft-neg)'});   // gold = more scoring than D-I, blue = less (as on the team page)
+    document.getElementById('charts').innerHTML=ranked.length?`<div class="aft-charts">${bar(ranked.slice(0,12),'The best')}${bar(ranked.slice(-12).reverse(),'The worst')}</div>`:'<div class="empty">Not enough possessions for this filter.</div>';
+    // table
+    document.getElementById('tblSub').innerHTML=`${esc(lab)}: offense and defense side by side, with each team's possessions in that situation. Sorted by the column you pick.`;
+    const sorted=R.slice().sort((a,b)=>{ const x=a[S.sort], y=b[S.sort]; if(x==null&&y==null) return 0; if(x==null) return 1; if(y==null) return -1;
+      return (typeof x==='string'?x.localeCompare(y):(x-y))*(S.asc?1:-1); });
+    const th=(k,l,c)=>`<th class="${c||''}" data-k="${k}">${l}${S.sort===k?(S.asc?' ▲':' ▼'):''}</th>`;
+    const logo=n=>{ try{ const c=window.tdcTeamColor&&tdcTeamColor(n); return c&&c.logo?`<img src="${esc(c.logo)}" alt="">`:''; }catch(e){ return ''; } };
+    document.getElementById('tbl').innerHTML=`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th>${th('name','Team','l')}${th('conf','Conf','l')}${th('offN','Off. poss')}${th('off','Off. PPP')}${th('defN','Def. poss')}${th('def','Opp. PPP')}</tr></thead><tbody>${
+      sorted.map((r,i)=>`<tr><td class="l">${i+1}</td><td class="l lgc">${logo(r.name)}<a href="team.html?team=${encodeURIComponent(r.name)}">${esc(r.name)}</a></td><td class="l">${esc(r.conf)}</td><td>${nf(r.offN)}</td><td${r.offN<MIN?' class="small"':''}>${p3(r.off)}</td><td>${nf(r.defN)}</td><td${r.defN<MIN?' class="small"':''}>${p3(r.def)}</td></tr>`).join('')}</tbody></table></div>`;
+    document.querySelectorAll('#tbl th[data-k]').forEach(h=>h.onclick=()=>{ const k=h.getAttribute('data-k'); if(S.sort===k) S.asc=!S.asc; else { S.sort=k; S.asc=(k==='name'||k==='conf'||k==='def'); } render(); });
+    document.getElementById('note').innerHTML=`Possessions are rebuilt from ESPN play-by-play of every D-I vs D-I game in ${sl(S.season)}; a possession's points are everything the team scored on it, free throws included. "Out of a timeout" is the first possession after a timeout taken once the ball changed hands and before the first shot, free-throw trip or turnover. Late &amp; close is the last 4:00 of the second half or overtime within 5. The bonus counts the defense's team fouls in the half. Small samples are noisy: a team needs ${MIN}+ possessions in a situation to be ranked. The team page's Possessions tab has every situation for one team. Descriptive, not a prediction.`;
+  }
+  const fS=document.getElementById('fSeason'), fK=document.getElementById('fKey'), fSd=document.getElementById('fSide'), fC=document.getElementById('fConf');
+  fK.innerHTML=KEYS.map(k=>`<option value="${k[0]}">${esc(k[1])}</option>`).join('');
+  async function load(y){
+    if(!CACHE[y]){
+      const [d,ts]=await Promise.all([
+        fetch(`scripts/data/shot_aftermath/sit_${y}.json?v=1`).then(r=>r.ok?r.json():null),
+        fetch(SB+`team_seasons?season_year=eq.${y}&select=team_id,team,conference&limit=1000`,{headers:{apikey:K,Authorization:'Bearer '+K}}).then(r=>r.ok?r.json():[]).catch(()=>[])]);
+      const nm={}; (ts||[]).forEach(t=>{ if(t.team_id!=null){ let n=(window.TDCTeamName&&TDCTeamName.short)?TDCTeamName.short(t.team):t.team; if(n==='Bowling') n='Bowling Green'; nm[String(t.team_id)]={name:n,full:t.team,conf:t.conference||''}; } });
+      const cnt={}; Object.values(nm).forEach(x=>cnt[x.name]=(cnt[x.name]||0)+1); Object.values(nm).forEach(x=>{ if(cnt[x.name]>1) x.name=x.full; });
+      CACHE[y]={d,nm};
+    }
+    D=CACHE[y].d; NM=CACHE[y].nm;
+    if(!D){ document.getElementById('charts').innerHTML='<div class="empty">This season has not been built yet.</div>'; document.getElementById('tbl').innerHTML=''; return; }
+    const confs=[...new Set(Object.keys(D.teams).map(t=>(NM[t]||{}).conf).filter(Boolean))].sort();
+    fC.innerHTML='<option value="">All conferences</option>'+confs.map(c=>`<option>${esc(c)}</option>`).join(''); if(confs.indexOf(S.conf)<0) S.conf=''; fC.value=S.conf;
+    render();
+  }
+  fetch('scripts/data/shot_aftermath/index.json?v=2').then(r=>r.ok?r.json():null).then(ix=>{
+    const ys=(ix&&ix.seasons?ix.seasons.map(s=>s.season):[2026]).sort((a,b)=>b-a);
+    fS.innerHTML=ys.map(y=>`<option value="${y}">${sl(y)}</option>`).join(''); fS.value=S.season; }).catch(()=>{});
+  fS.onchange=()=>{ S.season=+fS.value; load(S.season); };
+  fK.onchange=()=>{ S.key=fK.value; render(); };
+  fSd.onchange=()=>{ S.side=fSd.value; S.sort='v'; S.asc=S.side==='def'; render(); };
+  fC.onchange=()=>{ S.conf=fC.value; render(); };
+  if(window.TDC_AFTER) TDC_AFTER.css();
+  load(S.season);
+})();
+</script>
+<script src="tdc-version.js?v=2"></script>
+<script src="tdc-sheets.js?v=2"></script>
+</body>
+</html>

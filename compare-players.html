@@ -34,7 +34,7 @@
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js?v=11"></script>
   <script src="tdc-ratings.js?v=35"></script>
-  <link rel="stylesheet" href="tdc-sheets.css?v=6"/><link rel="stylesheet" href="tdc-hero.css?v=4"/><script src="tdc-shotchart.js?v=31"></script>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/><link rel="stylesheet" href="tdc-hero.css?v=4"/><script src="tdc-shotchart.js?v=31"></script><script src="tdc-twin.js?v=2"></script>
   <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-statshift-player.js?v=3"></script>
   <script src="tdc-portalfit.js?v=needs12"></script>
@@ -404,7 +404,7 @@ body{background:transparent!important;}
   <link rel="stylesheet" href="tdc-column.css?v=4"/>
 </head>
 <body data-anim-auto class="hqsite">
-<script src="tdc-nav.js?v=70"></script>
+<script src="tdc-nav.js?v=71"></script>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
 <script>
 // Premium gate check
@@ -1555,6 +1555,10 @@ function renderPlayers(){
     </div>`:''}
 
     ${(p1.espn_id||p2.espn_id)?`
+    <div class="compare-section-head">Shot Profile · volume &amp; efficiency by zone vs D-I</div>
+    <div id="cmpTwin"></div>`:''}
+
+    ${(p1.espn_id||p2.espn_id)?`
     <div class="compare-section-head">Shot Flow${(p1._isHistory||p2._isHistory)?'':' · 2025-26'}</div>
     <div class="scc-grid">
       <div class="scc-col"><div class="scc-lbl" style="color:${c1};border-bottom-color:${c1};">${p1.name}</div><div id="sf1" class="scc-host"></div></div>
@@ -1615,6 +1619,7 @@ function renderPlayers(){
   sheetify(sec); fillCmpBand();
   fillSimCards(p1,p2);
   _renderShotCharts(p1,p2);
+  if(window.TDC_TWIN){ const _sy=p=>p&&p._isHistory?(+(p.season_year||p.season)||undefined):undefined; TDC_TWIN.compare(document.getElementById('cmpTwin'), [{espn:p1.espn_id,season:_sy(p1)},{espn:p2.espn_id,season:_sy(p2)}]); }
   _renderShotFlows(p1,p2);
   _fillShotGenome(p1,p2);
   _fillShotProfiles(p1,p2,c1,c2);

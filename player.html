@@ -9,7 +9,8 @@
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js?v=11"></script>
   <script src="tdc-shotchart.js?v=31"></script>
-  <script src="tdc-aftermath.js?v=1"></script>
+  <script src="tdc-aftermath.js?v=4"></script>
+  <script src="tdc-twin.js?v=2"></script>
   <script src="tdc-shotprofile.js?v=1s"></script>
   <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-statshift-player.js?v=2"></script>
@@ -1092,7 +1093,7 @@ body{background:transparent!important;}
   <link rel="stylesheet" href="tdc-player-a.css?v=10"/>
 </head>
 <body data-anim-auto>
-<script src="tdc-nav.js?v=70"></script>
+<script src="tdc-nav.js?v=71"></script>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
 
 <!-- ═══ AMBIENT LAYER ═══════════════════════════════════════ -->
@@ -4470,6 +4471,7 @@ function renderPage(){
             <button class="hgm-item" id="tab-shotcharts" onclick="_grpPick('shotcharts')"><span class="hgm-t">Shot Charts</span><span class="hgm-d">Shot locations, genome & season profile</span></button>
             <button class="hgm-item" id="tab-shotgenome" onclick="_grpPick('shotgenome')"><span class="hgm-t">Shot Genome</span><span class="hgm-d">Look quality, shot-making, creation — every season</span></button>
             <button class="hgm-item" id="tab-shotflow" onclick="_grpPick('shotflow')"><span class="hgm-t">Shot Flow</span><span class="hgm-d">How his shots are created and finished</span></button>
+            <button class="hgm-item" id="tab-twin" onclick="_grpPick('twin')"><span class="hgm-t">Shot Profile Twin</span><span class="hgm-d">His FT / rim / mid / three volume and efficiency, and his closest matches since 2009-10</span></button>
             <button class="hgm-item" id="tab-aftermath" onclick="_grpPick('aftermath')"><span class="hgm-t">After the Shot</span><span class="hgm-d">Points per attempt with second chances, and what his misses give back</span></button>
             <button class="hgm-item" id="tab-percentiles" onclick="_grpPick('percentiles')"><span class="hgm-t">Percentiles</span><span class="hgm-d">Percentile vs every peer</span></button>
           </div>
@@ -4564,6 +4566,10 @@ function renderPage(){
       </div></div>
     </div>
     <div class="tab-panel" id="panel-shotgenome"><div id="playerGenomeHost"></div></div>
+    <div class="tab-panel" id="panel-twin">
+      <div class="sec-title" style="margin:0 0 14px;">Shot Profile Twin <span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;margin-left:6px;">· volume and efficiency by zone vs D-I, and the closest player-seasons in any year</span></div>
+      <div id="playerTwinHost"></div>
+    </div>
     <div class="tab-panel" id="panel-aftermath">
       <div class="sec-title" style="margin:0 0 14px;">After the Shot <span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;margin-left:6px;">· every first-chance attempt, and what followed it</span></div>
       <div id="playerAfterHost"></div>
@@ -7052,7 +7058,7 @@ function _tabUrl(id, dflt){ try{ var u=new URL(location.href); if(!id||id===dflt
 function switchTab(t){
   if(t==='rankings') t='percentiles';   // the Rankings tab was removed (Sept 2026); old links land on Percentiles
   _tabUrl(t,'overview');
-  const tabs=['overview','playerdna','stats','trends','shotcharts','shotgenome','shotflow','aftermath','scheme','dossier','role','statshift','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
+  const tabs=['overview','playerdna','stats','trends','shotcharts','shotgenome','shotflow','twin','aftermath','scheme','dossier','role','statshift','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
   const cur=tabs.map(x=>document.getElementById('panel-'+x)).find(el=>el&&el.classList.contains('active'));
   function activate(id){
     tabs.forEach(x=>{
@@ -7074,6 +7080,7 @@ function switchTab(t){
     if(id==='playerdna'){ setTimeout(function(){ growBarsIn(document.getElementById('panel-playerdna')); }, 80); }
     if(id==='shotgenome' && !window._pgLoaded){ window._pgLoaded=true; renderPlayerGenome(); }
     if(id==='shotflow' && !window._shotFlowLoaded){ window._shotFlowLoaded=true; _initShotFlowSeasons(); }
+    if(id==='twin' && !window._twinLoaded){ window._twinLoaded=true; if(window.TDC_TWIN) TDC_TWIN.render(document.getElementById('playerTwinHost'), {espn:player&&player.espn_id}); }
     if(id==='aftermath' && !window._afterLoaded){ window._afterLoaded=true; if(window.TDC_AFTER) TDC_AFTER.renderPlayer(document.getElementById('playerAfterHost'), {espn:player&&player.espn_id, name:player&&player.name}); }
     if(id==='scheme' && !window._schemeLoaded){ window._schemeLoaded=true; setTimeout(renderScheme,40); }
     if(id==='dossier' && !window._dossierLoaded){ window._dossierLoaded=true; setTimeout(renderDossier,40); }
@@ -7107,6 +7114,7 @@ var TAB_GATE = {
   scout:       { tier:'premium', label:'the scouting report', blurb:'Archetype, comparable players and the full scouting breakdown. Included with Premium — $4.99/mo.' },
   shotcharts:  { tier:'pro', label:'shot charts', blurb:'Shot-location charts, the shot genome and his season-by-season shot profile. Included with Pro — $8.99/mo.' },
   shotgenome:  { tier:'pro', label:'the Shot Genome', blurb:'Look quality, shot-making, creation and self-creation — every number with its national percentile, season by season. Included with Pro — $8.99/mo.' },
+  twin:        { tier:'pro', label:'shot profile twin', blurb:'His free-throw, rim, midrange and three-point volume and efficiency against D-I, and the closest player-seasons in any year since 2009-10. Included with Pro — $8.99/mo.' },
   aftermath:   { tier:'pro', label:'after the shot', blurb:'Points per attempt with the second chances his misses produced, and what opponents score after his misses — by zone, vs D-I players at his position. Included with Pro — $8.99/mo.' },
   shotflow:    { tier:'pro', label:'shot flow', blurb:'How this player’s shots are created and finished — zone, shot type, result and who assisted. Included with Pro — $8.99/mo.' },
   statshift:   { tier:'pro', label:'Stat Line Shift', blurb:'His own line with and without each teammate on the floor, and every teammate\u2019s line with and without him, from play-by-play lineups. Included with Pro \u2014 $8.99/mo.' },
@@ -7116,7 +7124,7 @@ var TAB_GATE = {
   scheme:      { tier:'pro', label:'Scheme Lab', blurb:'How this player fits different systems and lineups. Included with Pro — $8.99/mo.' },
   portalfit:   { tier:'pro', label:'Portal Fit', blurb:'Which programs this player best fits, ranked by need, production and coach fit. Included with Pro — $8.99/mo.' }
 };
-var _TABS = ['overview','playerdna','stats','trends','shotcharts','shotgenome','shotflow','aftermath','scheme','dossier','role','statshift','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
+var _TABS = ['overview','playerdna','stats','trends','shotcharts','shotgenome','shotflow','twin','aftermath','scheme','dossier','role','statshift','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
 function _lockPanel(pnl, g){
   if(!pnl || pnl.__locked) return; pnl.__locked = true;
   pnl.innerHTML = '';

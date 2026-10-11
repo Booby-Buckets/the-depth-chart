@@ -41,7 +41,7 @@
       '.aft-axl,.aft-zl{position:relative;height:17px;margin-left:var(--aft-lw,78px);font-size:11px;color:var(--text3);}.aft-zl{font-size:11.5px;margin-bottom:3px;}' +
       '.aft-axl span,.aft-zl span{position:absolute;white-space:nowrap;}' +
       '.aft-key{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text2);margin:0 0 12px;}.aft-key i{display:inline-block;width:2px;height:13px;background:var(--text);vertical-align:-2px;margin-right:6px;opacity:.75;}' +
-      '.aft-note{font-size:12.5px;color:var(--text2);line-height:1.55;margin:12px 0 0;}.aft-note b{color:var(--text);}' +
+      '.aft-note{display:none;}' +   // owner rule (Sept 2026): no explanatory footnotes under charts (tdc-skin.css)
       '.aft-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;}' +
       '.aft-top select{font:600 12.5px Inter,system-ui,sans-serif;padding:5px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--bg2);color:var(--text);}' +
       '.aft-sub{font-size:13px;color:var(--text2);}.aft-sub b{color:var(--text);}' +
@@ -115,11 +115,11 @@
     host.innerHTML = '<div class="aft-empty">Loading every possession…</div>';
     seasonsList().then(function (seasons) {
       var y = o.season && seasons.indexOf(o.season) >= 0 ? o.season : seasons[0];
-      return Promise.all([get('poss_' + y + '.json'), get(y + '.json')]).then(function (r) { drawTeam(host, o, y, seasons, r[0], r[1]); });
+      return Promise.all([get('poss_' + y + '.json'), get(y + '.json'), get('sit_' + y + '.json')]).then(function (r) { drawTeam(host, o, y, seasons, r[0], r[1], r[2]); });
     });
   }
   function ppp(a) { return a && a[0] ? a[1] / a[0] : null; }
-  function drawTeam(host, o, y, seasons, P, S) {
+  function drawTeam(host, o, y, seasons, P, S, SIT) {
     var tid = String(o.teamId || '');
     var T = P && P.teams && P.teams[tid];
     var top = '<div class="aft-top"><div class="aft-sub">' + esc(o.name || 'This team') + ' · <b>' + sl(y) + '</b>' + (T ? ' · ' + nf(sumN(T.off.st)) + ' offensive possessions' : '') + '</div>' + seasonSel('aftTeamSeason', seasons, y) + '</div>';
@@ -169,10 +169,48 @@
       '</div>';
     h += table(['Shot', 'Attempts', 'FG%', 'Offense gets the miss back', 'Second-chance pts / miss', 'Opp. PPP after the make', 'Opp. PPP after the def. rebound', 'Net / attempt'],
       Z.filter(function (z) { return st[z]; }).map(function (z) { var s = st[z]; return [ZN[z], nf(s.att), pc(s.mk), pc(s.orf), p3(s.scPM), p3(s.pM), p3(s.pD), '<b>' + p3(s.net) + '</b>']; }));
+    h += situationsHtml(SIT, tid, lg);
     h += '<div class="aft-note">From ESPN play-by-play of every D-I vs D-I game; possessions are rebuilt from the play log. Faded bars are small samples. League average: ' + p3(lg) + ' points per possession.</div>';
     host.innerHTML = top + h; wire();
     function wire() { var s = document.getElementById('aftTeamSeason'); if (s) s.onchange = function () { renderTeam(host, Object.assign({}, o, { season: +s.value })); }; }
   }
+  // ── game situations: timeouts, half starts, late & close, margin, runs, fouls & bonus ──
+  var SK = ['ato', 'tvto', 'start1', 'start2', 'close', 'lead10', 'trail10', 'afterrun'];
+  var SL = { ato: 'Own timeout', tvto: 'Media timeout', start1: 'Game start', start2: '2nd-half start', close: 'Late & close', lead10: 'Up 10+', trail10: 'Down 10+', afterrun: 'After an 8-0' };
+  var SD = { ato: 'first possession out of their own timeout', tvto: 'first possession out of a media timeout', start1: 'first 4:00 of the game', start2: 'first 4:00 of the second half',
+    close: 'last 4:00 of the second half or OT, within 5', lead10: 'leading by 10 or more', trail10: 'trailing by 10 or more', afterrun: 'right after the opponent scored 8+ straight' };
+  var BK = ['nobonus', 'bonus1', 'bonus2'], BL = { nobonus: 'No bonus', bonus1: 'One-and-one', bonus2: 'Double bonus' };
+  function situationsHtml(SIT, tid, lg) {
+    var T = SIT && SIT.teams && SIT.teams[tid]; if (!T) return '';
+    var L = SIT.league, col = function (v) { return v > lg ? 'var(--aft-pos)' : 'var(--aft-neg)'; };
+    var opt = { diverge: true, base: lg, fmt: p3, axfmt: p3, zeroLabel: 'League ' + p3(lg), lw: 104, color: col };
+    var rows = function (side, keys, lab, desc) { return keys.map(function (k) { var a = T[side][k], v = ppp(a), ref = ppp(L.sit[k]);
+      return { label: (side === 'def' && k === 'ato') ? 'Their timeout' : lab[k], v: a && a[0] >= 8 ? v : null, ref: ref, thin: n(a) < 30,
+        tip: '<b>' + (desc ? desc[k] : lab[k]) + '</b><br>' + nf(n(a)) + ' possessions · <b>' + p3(v) + '</b> PPP · D-I ' + p3(ref) }; }); };
+    var h = '<div class="dA-sec" style="margin:26px 0 6px"><span>Game situations</span><span class="dA-cap">points per possession by the moment it started in</span></div>' + KEY +
+      '<div class="aft-charts">' +
+      chart('Offense', 'Points per possession · more is better', rows('off', SK, SL, SD), opt) +
+      chart('Defense', 'Opponent points per possession · less is better', rows('def', SK, SL, SD), opt) + '</div>';
+    var g = Math.max(1, T.g), run = T.run8 / g, runA = T.run8a / g;
+    h += '<div class="dA-sec" style="margin:26px 0 6px"><span>Runs, fouls &amp; the bonus</span><span class="dA-cap">per game · the bonus is the 7th team foul of a half</span></div>' + KEY +
+      '<div class="aft-charts">' +
+      chart('8-0 runs', 'Runs of 8+ unanswered points per game', [
+        { label: 'They go on', v: run, ref: L.run8, tip: '<b>' + nf(T.run8) + '</b> runs of 8-0 or better in ' + nf(T.g) + ' games · D-I ' + L.run8.toFixed(2) + ' per game' },
+        { label: 'They allow', v: runA, ref: L.run8, tip: '<b>' + nf(T.run8a) + '</b> opponent 8-0 runs in ' + nf(T.g) + ' games · D-I ' + L.run8.toFixed(2) + ' per game' }],
+        { fmt: function (v) { return v.toFixed(2); }, axfmt: function (v) { return v.toFixed(1); }, zeroLabel: '0', lw: 92, color: function () { return 'var(--aft-pos)'; } }) +
+      chart('Fouls', 'Team fouls per game, and minutes left in the half when they put the opponent in the bonus', [
+        { label: 'Fouls / game', v: T.fouls / g, ref: L.fouls, tip: '<b>' + (T.fouls / g).toFixed(1) + '</b> team fouls per game · D-I ' + L.fouls.toFixed(1) },
+        { label: 'Bonus at', v: T.bonusAt != null ? T.bonusAt / 60 : null, ref: L.bonusAt != null ? L.bonusAt / 60 : null,
+          tip: 'Opponent reached the bonus in <b>' + nf(T.bonusN) + '</b> of ' + nf(T.g * 2) + ' halves, on average with <b>' + (T.bonusAt != null ? mmss(T.bonusAt) : '—') + '</b> left · D-I ' + (L.bonusAt != null ? mmss(L.bonusAt) : '—') }],
+        { fmt: function (v) { return v.toFixed(1); }, axfmt: function (v) { return v.toFixed(0); }, zeroLabel: '0', lw: 92, color: function () { return 'var(--aft-pos)'; } }) +
+      chart('Offense in the bonus', 'Points per possession by the opponent’s team fouls', rows('off', BK, BL), opt) +
+      chart('Defense in the bonus', 'Opponent points per possession by their team fouls', rows('def', BK, BL), opt) + '</div>';
+    h += table(['Situation', 'Off. possessions', 'Off. PPP', 'Def. possessions', 'Opp. PPP', 'D-I PPP'],
+      SK.concat(BK).map(function (k) { var lab = k === 'ato' ? 'Own timeout (off.) / their timeout (def.)' : (SL[k] || BL[k]); return [lab, nf(n(T.off[k])), '<b>' + p3(ppp(T.off[k])) + '</b>', nf(n(T.def[k])), '<b>' + p3(ppp(T.def[k])) + '</b>', p3(ppp(L.sit[k]))]; }));
+    h += '<div class="aft-note">A possession counts as "out of a timeout" when the timeout came after the ball changed hands and before the first shot, free-throw trip or turnover. Late &amp; close is the last 4:00 of the second half or overtime with the margin at 5 or less. The bonus counts team fouls in the half (overtime carries the second half). Situations overlap: a late, close possession out of a timeout counts in all three.</div>';
+    return h;
+  }
+  function mmss(sec) { sec = Math.round(sec); return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); }
   function n(a) { return a ? a[0] : 0; }
   function sumN(o) { var s = 0; for (var k in o) s += o[k][0]; return s; }
 
