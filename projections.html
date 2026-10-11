@@ -1379,17 +1379,13 @@ function buildTeamProjections(players, conf){
     // reading 8 OREB/G). Regress these to a grade/position baseline instead.
     const tinySample = !hasCareerStats && hasCurrentStats && (parseFloat(p.mpg||0)||0) < 6;
     if((!hasCareerStats && !hasCurrentStats) || tinySample){
-      const fb   = getFrBase(grade, posNorm);
-      const effMpg = newMpg < 12 ? Math.min(13, newMpg*1.35)
-                   : newMpg < 20 ? Math.min(22, newMpg*(grade>=87?1.15:1.08))
-                   : newMpg;
-      const scale  = effMpg/FR_BASE_MPG;
-      // FGA rate: more bullish for elite recruits — they earn real looks from day 1
-      const fgaRate = grade>=92 ? 0.42 : grade>=87 ? 0.37 : grade>=78 ? 0.31 : 0.27;
-      const fga     = r1(newMpg*fgaRate);
+      const fb   = frStatBase(p);                 // real first-year production — never his grade (tdc-proj.js)
+      const scale  = newMpg/FR_BASE_MPG;
+      const fga     = r1(fb.fga*scale);
+      const tpa_fr  = r1(fb.tpa*scale);
       const fgm_fr  = r1(fga*(fb.fg_pct/100));
-      const tpm_fr  = r1(fga*0.42*(fb.tp_pct/100));
-      const fta_fr  = r1(newMpg*0.10);
+      const tpm_fr  = r1(tpa_fr*(fb.tp_pct/100));
+      const fta_fr  = r1(fb.fta*scale);
       const ftm_fr  = r1(fta_fr*(fb.ft_pct/100));
       // PPG derived from components — consistent with rest of model
       const ppg_fr  = r1(fgm_fr*2 + tpm_fr + ftm_fr);
@@ -1397,7 +1393,7 @@ function buildTeamProjections(players, conf){
         ppg: ppg_fr, rpg: r1((fb.oreb+fb.dreb)*scale), apg: r1(fb.apg*scale),
         mpg: r1(newMpg),
         fgm: fgm_fr, fga, fg_pct: fb.fg_pct,
-        tpm: tpm_fr, tpa: r1(fga*0.42), tp_pct: fb.tp_pct,
+        tpm: tpm_fr, tpa: tpa_fr, tp_pct: fb.tp_pct,
         fta: fta_fr, ftm: ftm_fr, ft_pct: fb.ft_pct,
         oreb: r1(fb.oreb*scale), dreb: r1(fb.dreb*scale),
         stl: r1(fb.stl*scale), blk: r1(fb.blk*scale), tovs: r1(fb.tovs*scale),
@@ -1658,11 +1654,7 @@ function buildTeamProjections(players, conf){
 // Reference MPG used in the baseline (starters = ~32 MPG)
 var FR_BASE_MPG = 32;
 
-function getFrBase(grade, pos){
-  const tier = grade>=92?'92+':grade>=85?'85-91':grade>=75?'75-84':'below75';
-  const posKey = ['PG','SG','SF','PF','C'].includes(pos)?pos:'SG';
-  return FR_BASE[tier][posKey];
-}
+// newcomer baselines: frStatBase / frMpgGuess in tdc-proj.js (stat-based, never the grade)
 
 // ── GRADE → STAT EXPECTATION ──────────────────────────────
 // Maps a TDC grade to what a player at that grade "should" produce at starter minutes
@@ -1724,10 +1716,10 @@ function projectSinglePlayer(p, conf){
 
   // ── FRESHMAN (no prior stats) ──
   if(isFr&&!hasStats){
-    const base=getFrBase(grade,posNorm);
+    const base=frStatBase(p);
     // _rawMpg assigned by buildTeamProjections based on slot
     // Temporarily set to a grade-appropriate starter estimate; will be scaled by minutes
-    const mpgGuess = grade>=90?30:grade>=85?26:grade>=75?18:10;
+    const mpgGuess = frMpgGuess(p);
     const scale=mpgGuess/FR_BASE_MPG;
     return {...p,_proj:true,_isFrosh:true,_transferFactor:1,_posNorm:posNorm,
       _perMin:{ppg:base.ppg/FR_BASE_MPG,rpg:base.rpg/FR_BASE_MPG,apg:base.apg/FR_BASE_MPG,
@@ -1751,8 +1743,8 @@ function projectSinglePlayer(p, conf){
   // No prior college stats — international, sat-out, no-stat transfer, etc.
   // Use grade-based estimate (same as freshman path)
   if(!hasStats){
-    const base=getFrBase(grade,posNorm);
-    const mpgGuess = grade>=90?30:grade>=85?26:grade>=75?18:10;
+    const base=frStatBase(p);
+    const mpgGuess = frMpgGuess(p);
     return {...p,_proj:true,_isFrosh:true,_transferFactor:transferFactor,_posNorm:posNorm,
       _perMin:{ppg:base.ppg/FR_BASE_MPG,rpg:base.rpg/FR_BASE_MPG,apg:base.apg/FR_BASE_MPG,
         stl:base.stl/FR_BASE_MPG,blk:base.blk/FR_BASE_MPG,oreb:base.oreb/FR_BASE_MPG,dreb:base.dreb/FR_BASE_MPG,tovs:base.tovs/FR_BASE_MPG},
@@ -2375,8 +2367,8 @@ init();
 <script src="tdc-nil.js?v=cal7"></script>
 <script src="tdc-pos.js"></script>
 <script src="bigboard-engine.js?v=22"></script>   <!-- shared fallback line for players the published projection misses -->
-<script src="tdc-freshman.js?v=pub28"></script>   <!-- freshmen take their line from the editor, same as the board -->
-<script src="tdc-proj.js?v=hg1"></script>
+<script src="tdc-freshman.js?v=pub29"></script>   <!-- freshmen take their line from the editor, same as the board -->
+<script src="tdc-proj.js?v=hg3"></script>
 
 <script>
 /* ── Particle system ──────────────────────────────────────── */

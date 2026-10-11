@@ -97,7 +97,7 @@
     line.oreb*=m('rebounding',0.4); line.dreb*=m('rebounding',0.4);
     // Ready to play — how much of his ceiling shows up as a freshman. Low = high
     // potential but raw (size/intangibles); scales production & efficiency down,
-    // and raises turnovers. 50 = the standard OVR-implied line.
+    // and raises turnovers. 50 = the neutral line for his rank / position.
     var rd=(sl&&sl.ready!=null)?sl.ready:50, pm=1+((rd-50)/50)*0.22;
     ['ppg','rpg','apg','stl','blk','oreb','dreb'].forEach(function(k){ line[k]*=pm; });
     line.fg_pct+=((rd-50)/50)*4; line.tp_pct+=((rd-50)/50)*3; line.ft_pct+=((rd-50)/50)*2; line.tovs*=1-((rd-50)/50)*0.20;
@@ -105,11 +105,10 @@
   function line(p,profile){
     var B=FRB();
     var ovr=(profile&&profile.ovr!=null&&profile.ovr!=='')?parseFloat(profile.ovr):null;
-    var _fo=(_fit&&_fit[p.team]&&_fit[p.team][p.name]&&_fit[p.team][p.name].ovr);
-    var grade=(ovr!=null?ovr:(_fo!=null?+_fo:parseFloat(p.tdc_grade)))||70;   // projected newcomer OVR before the sheet grade
     var pos=['PG','SG','SF','PF','C'].indexOf(p.position)>=0?p.position:(p.position==='CG'?'SG':'SG');
-    var tier=grade>=92?'92+':grade>=85?'85-91':grade>=75?'75-84':'below75';
-    var base=Object.assign({}, (B[tier]&&B[tier][pos])||(B['75-84']&&B['75-84']['SG'])||FR_BASE_FALLBACK['75-84']['SG']);
+    // his baseline is what real first-year players of his 247 rank / position (or unranked, at his level)
+    // produced — tdc-proj.js frStatBase. The OVR is display only: it moves no stat (owner rule, Oct 2026).
+    var base=Object.assign({}, (typeof frStatBase==='function')?frStatBase(p):((B['75-84']&&B['75-84']['SG'])||FR_BASE_FALLBACK['75-84']['SG']));
     var base0=Object.assign({}, base);   // the same line with NO archetype and NO sliders — the anchor the team fit scales (see below)
     // the custom PLAY STYLE (archetype + slider tendencies) is OWNER-ONLY: the public
     // sees the projected OVR + a generic line, and a stat-derived archetype elsewhere.
@@ -118,7 +117,8 @@
       if(profile&&profile.sliders) applySliders(base,profile.sliders,{guard:(pos==='PG'||pos==='SG'),size:c01((ht(p.height)-72)/12)});
     }
     base.fg_pct=Math.max(30,Math.min(70,base.fg_pct)); base.tp_pct=Math.max(0,Math.min(48,base.tp_pct)); base.ft_pct=Math.max(45,Math.min(95,base.ft_pct));
-    var role=(profile&&profile.role)||(grade>=90?'star':grade>=82?'starter':grade>=74?'rotation':'bench');
+    var _rk=(_fit&&_fit[p.team]&&_fit[p.team][p.name]&&+_fit[p.team][p.name].rank)||0;
+    var role=(profile&&profile.role)||(_rk>0&&_rk<=10?'star':_rk>0&&_rk<=50?'starter':'rotation');
     var R=FR_ROLE[role]||FR_ROLE.starter, mpg=R.mpg, scale=mpg/32, usg=R.usg, fga=Math.max(2,mpg*0.30*usg);
     // Realistic freshman ceilings — even an elite recruit on star minutes won't post
     // huge counting stats his first year, so cap each category to a believable max.
@@ -146,7 +146,11 @@
       // the old 0.4-1.6 clamp also stopped a star freshman from ever reaching the points his own
       // team projection allots him (Tyran Stokes: 13.1 shown where the team line budgets 17.7),
       // so the player page and the team total disagreed. The fit is our own build — let it land.
-      var km=Math.max(0.4,Math.min(1.8,fit.mpg/L.mpg)), kp=Math.max(0.35,Math.min(2.6,(fit.ppg||0)/Math.max(0.1,ppg0)));
+      // the build already folded the editor's usage / Scoring slider into fit.ppg (so team totals use them);
+      // fit.ppg0 is the same fit WITHOUT them — anchor on it wherever this line re-applies those edits below
+      var _uSet=profile&&profile.usg!=null&&profile.usg!=='', _reapply=_uSet||(isOwner()&&profile&&profile.sliders);
+      var fPts=(_reapply&&fit.ppg0!=null)?fit.ppg0:fit.ppg;
+      var km=Math.max(0.4,Math.min(1.8,fit.mpg/L.mpg)), kp=Math.max(0.35,Math.min(2.6,(fPts||0)/Math.max(0.1,ppg0)));
       ['rpg','apg','oreb','dreb','stl','blk','tovs'].forEach(function(k){ L[k]*=km; });
       ['ppg','fga','fgm','tpa','tpm','fta','ftm'].forEach(function(k){ L[k]*=kp; });
       L.mpg=fit.mpg; fitted=true;
@@ -229,7 +233,7 @@
   var _blob=null, _loaded=false, _loading=null, _fit=null;
   // per-team fitted {mpg, ppg} for no-box players, from the projection build (small file)
   function loadFit(){ if(_fit) return Promise.resolve(_fit);
-    return fetch('scripts/data/fresh_fit.json?v=35').then(function(r){ return r.ok?r.json():{}; }).then(function(j){ _fit=j||{}; return _fit; }).catch(function(){ _fit={}; return _fit; }); }
+    return fetch('scripts/data/fresh_fit.json?v=36').then(function(r){ return r.ok?r.json():{}; }).then(function(j){ _fit=j||{}; return _fit; }).catch(function(){ _fit={}; return _fit; }); }
   function rawProfileFor(p){ var k=frKey(p); if(_blob&&typeof _blob==='object') return _blob[k]||null;
     try{ var s=localStorage.getItem(k); return s?JSON.parse(s):null; }catch(e){ return null; } }
   // the saved profile + his preseason-scrimmage trend (fresh_fit scrim_ovr, build_scrim_trends.py: Reality-
@@ -332,7 +336,7 @@
     var sliders=FR_SLIDERS.map(function(kv){var k=kv[0],lbl=kv[1];return '<div class="fr-sl"><div class="fr-sl-top"><span>'+lbl+'</span><b id="frv-'+k+'">'+d.sliders[k]+'</b></div><input type="range" min="0" max="100" step="5" value="'+d.sliders[k]+'" class="fr-range" oninput="document.getElementById(\'frv-'+k+'\').textContent=this.value;TDCFresh._setSlider(\''+k+'\',this.value)"/></div>';}).join('');
     m.innerHTML='<div class="fr-modal"><div class="fr-head"><div><div class="fr-eyebrow">Freshman Projection</div><div class="fr-name">'+p.name+'</div><div class="fr-sub">'+(p.position||'')+' · '+(p.class_year||p.yr||'Fr.')+' · '+(p.team||'')+'</div></div><button class="fr-x" onclick="TDCFresh._close()">×</button></div>'+
       '<div class="fr-body">'+
-        '<div class="fr-field"><label>Overall (OVR) — how good you think he is</label><div class="fr-ovr-row"><b class="fr-ovr-v" id="frOvrV">'+d.ovr+'</b><input type="range" min="55" max="99" step="1" value="'+d.ovr+'" class="fr-range" oninput="document.getElementById(\'frOvrV\').textContent=this.value;TDCFresh._setOvr(this.value)"/></div></div>'+
+        '<div class="fr-field"><label>Overall (OVR) — the display rating; it does not change his stat line</label><div class="fr-ovr-row"><b class="fr-ovr-v" id="frOvrV">'+d.ovr+'</b><input type="range" min="55" max="99" step="1" value="'+d.ovr+'" class="fr-range" oninput="document.getElementById(\'frOvrV\').textContent=this.value;TDCFresh._setOvr(this.value)"/></div></div>'+
         '<div class="fr-field"><label>Archetype — how he plays</label><select class="fr-select" onchange="TDCFresh._set(\'archetype\',this.value)">'+archOpts+'</select></div>'+
         '<div class="fr-field"><label>Role — how big a part he is</label><div class="fr-roles">'+roleBtns+'</div></div>'+
         '<div class="fr-field"><label>Minutes per game</label><div class="fr-ovr-row">'+
@@ -398,6 +402,7 @@
   function setKey(k,v){ _blob=_blob||{}; if(v==null){ delete _blob[k]; } else { _blob[k]=v; } return pushBlob(); }
 
   window.TDCFresh={
+    fitFor:function(p){ return (_fit&&p&&_fit[p.team]&&_fit[p.team][p.name])||null; },
     isOwner:isOwner, isFreshman:isFreshman, load:load, profileFor:profileFor, rawProfileFor:rawProfileFor, line:line, archetypeOf:archetypeOf, openEditor:openEditor, estBPM:estBPM, ratingOverrides:ratingOverrides,
     getKey:getKey, setKey:setKey, fitFor:function(p){ return (_fit&&p&&_fit[p.team]&&_fit[p.team][p.name])||null; },
     _set:function(k,v){ if(k==='archetype')_d.archetype=v; else if(k==='role')_d.role=v;

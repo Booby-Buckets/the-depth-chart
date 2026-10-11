@@ -1136,22 +1136,56 @@ def fr_prior(short,name,sheet,yr=None):
     FR_PRIOR[key]=v; return v[0]
 def fr_exp_mpg(t): return min(32.0,max(4.0,0.75*t-37.5))   # minutes a freshman of that talent usually plays (from the rank bands)
 def fr_ovr(t,mpg): return int(round(min(99,max(55,t+FR_MIN_W*max(-8.0,min(8.0,mpg-fr_exp_mpg(t)))))))
-def _fresh_est(grade,depth,starter,position):
+# FRESHMAN / NO-BOX NEWCOMER SHOT RATE — from real first seasons, NOT his grade (owner rule, Oct 2026: overalls
+# are a display number and drive no stat). freshman_model.json (build_freshman_model.py) fits every 247 recruit's
+# first D-I season by position group: per-40 rate = a + b*ln(rank); an unranked newcomer gets the measured mean of
+# unranked first-year players at his conference level. The freshman editor moves it: a hand-set usage converts to
+# shots through the model's shot/possession mix, else the Scoring slider (50 = neutral) scales it +/-30%.
+try: FR_MODEL=json.load(open(os.path.join(D,"freshman_model.json")))
+except Exception: FR_MODEL=None
+FR_LEVEL={}
+try:
+    for _t in sb_get("team_seasons?select=team,tier,season_year&season_year=eq.%d&order=team"%CUR):
+        _ti=_t.get("tier")
+        if _ti: FR_LEVEL[_t["team"]]={1:"power",2:"high",3:"mid"}.get(int(_ti),"low")
+except Exception as _e: print("warn: no team tiers for the freshman model",_e,file=sys.stderr)
+EDITOR_FR={}
+for _k,_v in OWNER_BLOB.items():
+    if _k.startswith("tdc_fr:") and isinstance(_v,dict):
+        try: _,_ft,_fn=_k.split(":",2); EDITOR_FR[(_ft.strip(),_fn.strip().lower())]=_v
+        except Exception: pass
+FR_RATES={}; FR_EDIT_K={}
+def _fr_rates(short,name,position,height):
+    """expected per-40 line for a newcomer with no D-I box line, or None without the model"""
+    if not FR_MODEL: return None
+    g=pos_group(position,height); rk=_R247.get(_nk(name))
+    if rk and g in FR_MODEL["ranked"]:
+        r=FR_MODEL["ranked"][g]; return {k:v[0]+v[1]*math.log(max(1,rk)) for k,v in r.items() if k!="n"}
+    full=S2F.get(str(short).lower()) or short
+    U=FR_MODEL["unranked"].get(g,{})
+    return {k:v for k,v in (U.get(FR_LEVEL.get(full,"mid")) or U.get("mid") or {}).items() if k not in ("n","mpg")}
+def _fresh_est(short,name,depth,starter,position,height=None):
     pm=proj_mpg(depth,0,str(starter).lower() in ("true","t","1"))
     # a deep-bench newcomer still gets a sliver of the 200 (he used to be dropped under 5 mpg and showed blank)
     pm=max(pm,1.0)
-    base=POS_FGA40.get(_pos(position),12.5)
-    g=_n(grade,0) or 74.0
-    # Shot RATE (per-40) must scale with ROLE, not just grade+position — a real bench
-    # returner shoots ~0-14th-%ile per 40, so a 15th-man freshman should too, not read
-    # mid-pack. Two multipliers, both low for low-role players:
-    #   grade scale — steeper, with a low floor (a 58 defers, an 88 dominates the ball)
-    #   depth scale — end-of-bench guys defer even when they're on the floor
-    gs=max(0.30,min(1.30,0.40+(g-58.0)/30.0*0.90))
+    rt=_fr_rates(short,name,position,height) or {}
+    if rt: FR_RATES[(short,str(name).strip())]=rt
+    base=rt.get("fga") or POS_FGA40.get(_pos(position),12.5)*0.85
+    base0=base
+    ed=EDITOR_FR.get((short,str(name).strip().lower())) or {}
+    u=_n(ed.get("usg"),0)
+    if u>0 and rt.get("fga"):   # hand-set usage: possessions used per 40 x his share of them that are shots
+        poss=rt["fga"]+0.44*rt.get("fta",0)+rt.get("tov",0)
+        base=u/100.0*68.0*rt["fga"]/max(poss,1.0)
+    else:
+        sc=_n((ed.get("sliders") or {}).get("scoring"),50)
+        base*=max(0.70,min(1.30,1.0+0.006*(sc-50)))
+    # the model is fit on freshmen who EARNED 8+ mpg; end-of-bench guys defer even when they're on the floor
     try: d=int(depth) if depth is not None and not pd.isna(depth) else 8
     except Exception: d=8
-    ds=1.0 if d<=3 else 0.90 if d<=5 else 0.72 if d<=8 else 0.55 if d<=11 else 0.42
-    f40=base*gs*ds
+    ds=1.0 if d<=5 else 0.90 if d<=8 else 0.75 if d<=11 else 0.60
+    FR_EDIT_K[(short,str(name).strip())]=base/max(base0,0.1)   # the editor's share of the line (fresh_fit ppg0 = without it)
+    f40=base*ds
     return pm,f40,f40*pm/40.0
 
 
@@ -1508,7 +1542,7 @@ for short, roster in roster_by_team.items():
             _nm=str(getattr(_p,"name","") or "").strip()
             if not _nm or _nm.lower() in ("name","—"): continue
             _fp=fr_prior(short,_nm,getattr(_p,"tdc_grade",None),getattr(_p,"yr",None) or getattr(_p,"class_year",None))
-            _est=_fresh_est(_fp,_p.depth_order,_p.starter,_p.position)
+            _est=_fresh_est(short,_nm,_p.depth_order,_p.starter,_p.position,getattr(_p,"height",None))
             if _est: _fresh.append(_est+(_nm,_fp,(int(_p.depth_order) if pd.notna(_p.depth_order) else None)))
         # QUALITY NUDGE (mirrors tdc-proj.js's starter grade nudge, widened to the top 9): the
         # depth slot sets the role, the grade moves minutes inside it, +/-25% at 10 OVR from the
@@ -1802,7 +1836,8 @@ for r in pl.itertuples():
     if e is not None and str(e) in out: continue          # already a returner/transfer
     nm=str(getattr(r,"name","") or "").strip()
     if not nm or nm.lower() in ("name","—"): continue      # placeholder rows
-    est=_fresh_est(fr_prior(r.team,nm,getattr(r,"tdc_grade",None),getattr(r,"yr",None) or getattr(r,"class_year",None)),r.depth_order,r.starter,r.position)
+    fr_prior(r.team,nm,getattr(r,"tdc_grade",None),getattr(r,"yr",None) or getattr(r,"class_year",None))   # display OVR only
+    est=_fresh_est(r.team,nm,r.depth_order,r.starter,r.position,getattr(r,"height",None))
     if not est: continue
     pm,f40,fga=est
     roster_full.setdefault(r.team,[]).append(
@@ -1847,7 +1882,8 @@ for _sh,_g in pl[pl.espn_id.isna()].groupby("team"):
     for _p in _g.itertuples():
         _nm=str(getattr(_p,"name","") or "").strip()
         if not _nm or _nm.lower() in ("name","—") or _nm.rstrip(".").lower() in ("fr","so","jr","sr","r-fr","r-so","r-jr","r-sr","rs","gr"): continue
-        _e=_fresh_est(fr_prior(_sh,_nm,getattr(_p,"tdc_grade",None),getattr(_p,"yr",None) or getattr(_p,"class_year",None)),_p.depth_order,_p.starter,_p.position)
+        fr_prior(_sh,_nm,getattr(_p,"tdc_grade",None),getattr(_p,"yr",None) or getattr(_p,"class_year",None))   # display OVR only
+        _e=_fresh_est(_sh,_nm,_p.depth_order,_p.starter,_p.position,getattr(_p,"height",None))
         if _e: _ests.append((_nm,_e))
     if len(_ests)<5: continue
     _m=[e[0] for _,e in _ests]
@@ -1870,6 +1906,10 @@ for _sh,_fm in FRESH_FIT.items():
         _f["ovr"]=fr_ovr(_pr[0],_n(_f.get("mpg"),0)) if _pr[1]!="editor" else int(round(_pr[0]))
         _f["src"]=_pr[1]
         if _pr[2]: _f["rank"]=_pr[2]
+        _rt=FR_RATES.get((_sh,_nm))
+        if _rt: _f["r40"]={k:round(v,2) for k,v in _rt.items()}   # model per-40 line (tdc-proj.js frStatBase)
+        _k=FR_EDIT_K.get((_sh,_nm),1.0)
+        if abs(_k-1.0)>0.005 and _f.get("ppg") is not None: _f["ppg0"]=round(_f["ppg"]/_k,1)
 # NEWCOMERS IN SEASON: a freshman / no-box newcomer's OVR is his prior (editor or recruiting) until he plays. Each
 # real game moves it toward the SAME valuation the returners get, run on his actual line: rates scaled to his
 # projected minutes, efficiency vs the league, usage estimated from the box (shots + FT trips + turnovers per 40

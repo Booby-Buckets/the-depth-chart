@@ -927,17 +927,13 @@ function buildTeamProjections(players, conf){
           }
         }
       }catch(e){}
-      const fb   = getFrBase(grade, posNorm);
-      const effMpg = newMpg < 12 ? Math.min(13, newMpg*1.35)
-                   : newMpg < 20 ? Math.min(22, newMpg*(grade>=87?1.15:1.08))
-                   : newMpg;
-      const scale  = effMpg/FR_BASE_MPG;
-      // FGA rate: more bullish for elite recruits — they earn real looks from day 1
-      const fgaRate = grade>=92 ? 0.42 : grade>=87 ? 0.37 : grade>=78 ? 0.31 : 0.27;
-      const fga     = r1(newMpg*fgaRate);
+      const fb   = frStatBase(p);                 // real first-year production — never his grade
+      const scale  = newMpg/FR_BASE_MPG;
+      const fga     = r1(fb.fga*scale);
+      const tpa_fr  = r1(fb.tpa*scale);
       const fgm_fr  = r1(fga*(fb.fg_pct/100));
-      const tpm_fr  = r1(fga*0.42*(fb.tp_pct/100));
-      const fta_fr  = r1(newMpg*0.10);
+      const tpm_fr  = r1(tpa_fr*(fb.tp_pct/100));
+      const fta_fr  = r1(fb.fta*scale);
       const ftm_fr  = r1(fta_fr*(fb.ft_pct/100));
       // PPG derived from components — consistent with rest of model
       const ppg_fr  = r1(fgm_fr*2 + tpm_fr + ftm_fr);
@@ -945,7 +941,7 @@ function buildTeamProjections(players, conf){
         ppg: ppg_fr, rpg: r1((fb.oreb+fb.dreb)*scale), apg: r1(fb.apg*scale),
         mpg: r1(newMpg),
         fgm: fgm_fr, fga, fg_pct: fb.fg_pct,
-        tpm: tpm_fr, tpa: r1(fga*0.42), tp_pct: fb.tp_pct,
+        tpm: tpm_fr, tpa: tpa_fr, tp_pct: fb.tp_pct,
         fta: fta_fr, ftm: ftm_fr, ft_pct: fb.ft_pct,
         oreb: r1(fb.oreb*scale), dreb: r1(fb.dreb*scale),
         stl: r1(fb.stl*scale), blk: r1(fb.blk*scale), tovs: r1(fb.tovs*scale),
@@ -1287,11 +1283,35 @@ function buildTeamProjections(players, conf){
 // Reference MPG used in the baseline (starters = ~32 MPG)
 var FR_BASE_MPG = 32;
 
-function getFrBase(grade, pos){
-  const tier = grade>=92?'92+':grade>=85?'85-91':grade>=75?'75-84':'below75';
-  const posKey = ['PG','SG','SF','PF','C'].includes(pos)?pos:'SG';
-  return FR_BASE[tier][posKey];
+// ── STAT BASELINE for a player with no college line ─────────────────────
+// Owner rule (Oct 2026): an overall is a display number and drives no stat. A freshman / no-box
+// newcomer's line comes from what real first-year players produced (build_freshman_model.py): the
+// projection build writes each one's per-40 rates (by 247 rank + position, or unranked at his
+// conference level) into fresh_fit.json as r40; without it, the unranked mid-major first-year mean.
+// Returned per FR_BASE_MPG (32) minutes, in FR_BASE's shape, plus shot attempts.
+var FR_MODEL_UNR={G:{pts:13.01,oreb:1.08,dreb:3.73,ast:3.0,stl:1.39,blk:0.3,tov:2.48,fga:10.9,tpa:4.86,fta:3.37,fg_pct:41.31,tp_pct:34.48,ft_pct:73.43},W:{pts:13.05,oreb:2.74,dreb:5.46,ast:1.67,stl:1.13,blk:0.93,tov:2.36,fga:10.23,tpa:2.53,fta:3.96,fg_pct:47.87,tp_pct:32.69,ft_pct:64.92},B:{pts:12.52,oreb:3.15,dreb:5.85,ast:1.32,stl:0.84,blk:1.68,tov:2.41,fga:9.5,tpa:1.55,fta:4.02,fg_pct:50.77,tp_pct:32.58,ft_pct:63.08}};
+var FR_MPG_RANK={G:[32.162,-2.506],W:[30.471,-2.727],B:[28.551,-2.591]};   // typical freshman mpg = a + b*ln(247 rank)
+// own copy of the G/W/B split: some pages define a different global posGroup ('guard'/'wing'/'big')
+function _frGrp(p){
+  const pos=String((p&&p.position)||'').toUpperCase().replace(/\s|\d/g,'').split('/')[0], _m=/^(\d+)-(\d+)/.exec(String((p&&p.height)||'')), h=_m?(+_m[1])*12+(+_m[2]):null;
+  if(pos==='C'||pos==='PF') return 'B';
+  if(pos==='PG'||pos==='SG'||pos==='G'||pos==='CG') return 'G';
+  if(pos==='SF'||pos==='F'||pos==='GF'||pos==='FG') return (h&&h>=81)?'B':'W';
+  if(h) return h>=81?'B':(h<=75?'G':'W');
+  return 'W';
 }
+function _frFit(p){ try{ return (typeof window!=='undefined'&&window.TDCFresh&&TDCFresh.fitFor)?TDCFresh.fitFor(p):null; }catch(e){ return null; } }
+function frStatBase(p){
+  const f=_frFit(p), r=(f&&f.r40)||FR_MODEL_UNR[_frGrp(p)]||FR_MODEL_UNR.W, k=FR_BASE_MPG/40;
+  return {ppg:r.pts*k, rpg:(r.oreb+r.dreb)*k, apg:r.ast*k, stl:r.stl*k, blk:r.blk*k, oreb:r.oreb*k, dreb:r.dreb*k, tovs:r.tov*k,
+    fga:r.fga*k, tpa:r.tpa*k, fta:r.fta*k, fg_pct:r.fg_pct, tp_pct:r.tp_pct, ft_pct:r.ft_pct};
+}
+// the minutes a newcomer usually plays before the roster decides (ranked: by his 247 rank; else 15)
+function frMpgGuess(p){
+  const f=_frFit(p), rk=f&&+f.rank, c=FR_MPG_RANK[_frGrp(p)];
+  return (rk>0&&c)?Math.max(8,Math.min(32,c[0]+c[1]*Math.log(rk))):15;
+}
+function getFrBase(p){ return frStatBase(p); }
 
 // ── GRADE → STAT EXPECTATION ──────────────────────────────
 // Maps a TDC grade to what a player at that grade "should" produce at starter minutes
@@ -1353,10 +1373,10 @@ function projectSinglePlayer(p, conf){
 
   // ── FRESHMAN (no prior stats) ──
   if(isFr&&!hasStats){
-    const base=getFrBase(grade,posNorm);
+    const base=frStatBase(p);
     // _rawMpg assigned by buildTeamProjections based on slot
-    // Temporarily set to a grade-appropriate starter estimate; will be scaled by minutes
-    const mpgGuess = grade>=90?30:grade>=85?26:grade>=75?18:10;
+    // Temporarily set to what a recruit of his rank usually plays; will be scaled by minutes
+    const mpgGuess = frMpgGuess(p);
     const scale=mpgGuess/FR_BASE_MPG;
     return {...p,_proj:true,_isFrosh:true,_transferFactor:1,_posNorm:posNorm,
       _perMin:{ppg:base.ppg/FR_BASE_MPG,rpg:base.rpg/FR_BASE_MPG,apg:base.apg/FR_BASE_MPG,
@@ -1378,10 +1398,10 @@ function projectSinglePlayer(p, conf){
       oreb:r1t(s('oreb')),dreb:r1t(s('dreb')),stl:r1t(s('stl')),blk:r1t(s('blk')),tovs:r1t(s('tovs'))};
   }
   // No prior college stats — international, sat-out, no-stat transfer, etc.
-  // Use grade-based estimate (same as freshman path)
+  // Use the first-year production estimate (same as freshman path)
   if(!hasStats){
-    const base=getFrBase(grade,posNorm);
-    const mpgGuess = grade>=90?30:grade>=85?26:grade>=75?18:10;
+    const base=frStatBase(p);
+    const mpgGuess = frMpgGuess(p);
     return {...p,_proj:true,_isFrosh:true,_transferFactor:transferFactor,_posNorm:posNorm,
       _perMin:{ppg:base.ppg/FR_BASE_MPG,rpg:base.rpg/FR_BASE_MPG,apg:base.apg/FR_BASE_MPG,
         stl:base.stl/FR_BASE_MPG,blk:base.blk/FR_BASE_MPG,oreb:base.oreb/FR_BASE_MPG,dreb:base.dreb/FR_BASE_MPG,tovs:base.tovs/FR_BASE_MPG},
