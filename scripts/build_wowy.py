@@ -424,14 +424,14 @@ def cbbd_games(season):
         if len(rows) < 1000: break
     days = sorted(days)
     print(f"  {len(days)} game days", flush=True)
-    out = []
+    # merge across days: a late game's plays straddle two UTC day files, which made it two half-games
+    g = defaultdict(dict)
     missing = 0
     for d in days:
         v = cbbd_day(d, key)
         if v is None: missing += 1; continue
-        g = defaultdict(list)
-        for pl in v: g[str(pl.get("gameSourceId") or pl.get("gameId"))].append(pl)
-        out.extend(g.items())
+        for pl in v: g[str(pl.get("gameSourceId") or pl.get("gameId"))][pl.get("id")] = pl
+    out = [(gid, list(pls.values())) for gid, pls in g.items()]
     if missing: print(f"*** {missing} of {len(days)} days have no CBBD plays — set CBBD_KEY to pull them ***", flush=True)
     return out
 
