@@ -237,12 +237,13 @@
       (tc.logo ? '<img class="mp-wm" src="' + tc.logo + '" alt="" aria-hidden="true" onerror="this.remove()">' : '') +
       '<div class="mp-eye">' + (tc.logo ? '<img src="' + tc.logo + '" alt="" onerror="this.remove()">' : '') +
       '<span><a href="' + href + '">' + esc(p.team || '—') + '</a>' + (td && td.conf ? ' · ' + esc(td.conf) : '') + '</span></div>' +
-      '<h1 class="mp-name">' + esc(p.name) + '</h1><div class="mpb-meta">' + meta.join(' · ') + '</div>' +
+      '<h1 class="mp-name">' + esc(p.name) + '</h1><div class="mpb-meta">' + meta.join(' · ') + '</div><div class="mpb-fol" id="mpFollow"></div>' +
       '<div class="mpb-ovr" id="mpOvr"><b>—</b><span>OVR</span><em id="mpOvrD"></em></div></div>' +
       '<div class="mpb-sub"><b id="mpLineLbl">D-I rank</b><span class="mp-selhost"></span></div>' +
       '<div class="mp-line" id="mpLine"></div><div class="mpb-chips" id="mpChips"></div>');
     hero.setAttribute('data-type-keep', '');   // tdc-mobile.js snaps text sizes; the band sets its own
     hs.insertBefore(hero, hs.firstChild);
+    try { if (window.TDCFollow) document.getElementById('mpFollow').appendChild(TDCFollow.button('player', { espn_id: p.espn_id || null, name: p.name, team: p.team })); } catch (e) {}
     var upd = debounce(renderLine, 80);
     watch(document.getElementById('heroGrade'), upd);
     watch(document.getElementById('paProj'), upd);

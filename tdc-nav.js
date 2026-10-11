@@ -28,6 +28,7 @@
       ['predict.html',         'Projections'],
     ]],
     ['Players', [
+      ['following.html',       '★ Following'],
       ['player-rankings.html', 'Player Rankings'],
       ['roster.html',          'Player Projected Stats'],
       ['transfers.html',       'Transfer Portal'],
@@ -106,6 +107,7 @@
       '.tdn-actions{display:flex;align-items:center;gap:20px;}',
       '.tdn-actions a{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;transition:color .15s;}',
       '.tdn-actions a:hover{color:var(--text);}',
+      '.tdn-fol{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--accent,#a8843c)!important;text-decoration:none;margin-right:14px;white-space:nowrap}.tdn-fol[aria-current]{text-decoration:underline;text-underline-offset:4px}',
       '.tdn-signin{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bg)!important;background:var(--text);border:none;padding:6px 16px;cursor:pointer;text-decoration:none;display:inline-block;transition:opacity .15s;}',
       '.tdn-signin:hover{opacity:.85;}',
       '.tdn-wrap .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:border-color .15s,color .15s;}',
@@ -141,6 +143,7 @@
       '.tdn-signout{padding:4px 7px;font-size:10px;letter-spacing:.02em;}',
       '.tdn-logo{font-size:15px;}',
       '.tdn-signin{padding:5px 8px;font-size:10px;letter-spacing:.02em;}',
+      '.tdn-fol{margin-right:4px;font-size:0!important;display:inline-block;width:20px;overflow:hidden;line-height:1}.tdn-fol::first-letter{font-size:18px}',
       '.tdn-actions{gap:8px;}',
       '.tdn-actions a{font-size:10px;}',
       '.tdn-wrap .theme-toggle{width:28px;height:28px;font-size:13px;}',
@@ -190,6 +193,7 @@
     '<div class="tdn-col"><div class="tdn-top">' +
       '<a class="tdn-logo" href="index.html">The <span>Depth</span> Chart</a>' +
       '<div class="tdn-actions">' +   // (Football link removed from the top bar, owner Oct 2026)
+      '<a class="tdn-fol" href="following.html" title="Players and teams you follow"' + (here === 'following.html' ? ' aria-current="page"' : '') + '>★ Following</a>' +
       '<div class="tdn-actions" id="navActions">' +
         '<button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle dark mode">' + themeGlyph + '</button>' +
         '<a href="signin.html" style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;">Sign In</a>' +

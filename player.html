@@ -12,6 +12,7 @@
   <script src="tdc-aftermath.js?v=4"></script>
   <script src="tdc-twin.js?v=6"></script>
   <script src="tdc-wowy-player.js?v=1"></script>
+  <script src="tdc-follow.js?v=1"></script>
   <script src="tdc-shotprofile.js?v=1s"></script>
   <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-statshift-player.js?v=2"></script>
@@ -1094,7 +1095,7 @@ body{background:transparent!important;}
   <link rel="stylesheet" href="tdc-player-a.css?v=10"/>
 </head>
 <body data-anim-auto>
-<script src="tdc-nav.js?v=71"></script>
+<script src="tdc-nav.js?v=73"></script>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
 
 <!-- ═══ AMBIENT LAYER ═══════════════════════════════════════ -->
@@ -4374,7 +4375,12 @@ function _paFillRanks(){
     if(r&&r.rank) set('paRankTeam','<b>#'+r.rank+'</b>'+(window.tdcShortSchool?tdcShortSchool(p.team||''):(p.team||''))+' team rank');
   }).catch(function(){});
 }
+function _paFollowBtn(){
+  try{ var h=document.getElementById('paFollow'); if(!h||!window.TDCFollow||!player) return; h.innerHTML='';
+    h.appendChild(TDCFollow.button('player',{espn_id:player.espn_id||null,name:player.name,team:player.team})); }catch(e){}
+}
 function renderPage(){
+  setTimeout(_paFollowBtn,0);   // ☆ Follow (tdc-follow.js): the player then shows on following.html
   setTimeout(_paFillRanks,0);   // hero ranks + projection card refresh once the grade maps / ratings resolve
   const p=player;
   _applyInjury();   // owner-only: set proj injury flags before scouting/overview read them
@@ -4422,7 +4428,7 @@ function renderPage(){
               var onRoster=(p.depth_order!=null||p.is_addition!=null||p.starter!=null);
               return (onRoster&&ly===2025)?'<span class="pa-sep">·</span><span class="pa-from" title="No 2025-26 season on file: sat out, redshirted or did not play">Sat out 2025-26</span>':''; })()}
         </div>
-        <h1 class="pa-name">${p.name}</h1>
+        <h1 class="pa-name">${p.name}<span id="paFollow" class="pa-follow"></span></h1>
         <div class="pc-bio">
           <div><b>Pos</b><span class="pa-pos">${p.position2 ? `${p.position||'—'} / ${p.position2}` : (p.position||'—')}</span></div>
           ${yr?`<div><b>Class</b>${yr}</div>`:''}
@@ -7903,7 +7909,7 @@ init();
   <script src="tdc-tour.js?v=24"></script>
 <script src="tdc-sheets.js?v=2"></script>
 <script src="tdc-liveplayer.js?v=3"></script>
-<script src="tdc-mplayer.js?v=15"></script>
+<script src="tdc-mplayer.js?v=16"></script>
 <script src="tdc-trends.js?v=5"></script>
 </body>
 </html>
