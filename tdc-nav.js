@@ -43,6 +43,7 @@
       ['analytics.html',                'Advanced Stats'],
       ['shot-genome.html',              'Shot Genome'],
       ['crunch.html',                   'Crunch-Time Takeovers'],
+      ['shot-aftermath.html',           'Shot Aftermath'],
       ['plays.html',                    'Play Finder'],
       ['onoff.html',                    'On / Off'],
     ]],

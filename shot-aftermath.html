@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="tdc-loading.js?v=4"></script>   <!-- first, so it sees every request -->
+  <link rel="stylesheet" href="tdc-a11y.css?v=3">
+  <script src="tdc-a11y.js?v=2" defer></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Shot Aftermath — The Depth Chart</title>
+  <meta name="description" content="What happens after the shot in college basketball: points per attempt by shot zone, second-chance points after misses, and what the opponent scores next, from every D-I play-by-play.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Depth Chart">
+  <meta property="og:title" content="Shot Aftermath — The Depth Chart">
+  <meta property="og:description" content="Points per attempt by shot zone, second chances after misses, and the opponent's next possession, from every D-I play-by-play.">
+  <meta property="og:url" content="https://www.thedepthchartcbb.com/shot-aftermath.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <script src="tdc-theme.js?v=5"></script>
+  <script src="auth.js?v=delacct1"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="team-colors.js?v=11"></script>
+  <script src="tdc-teamname.js?v=1"></script>
+  <style>
+    /* bar colours validated (dataviz validate_palette.js): gold = scoring / a cost to you, blue = a benefit */
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;
+      --pos:#B07D17;--neg:#2F7FC1;--grid:#DEDACF;}
+    [data-theme="dark"]{--bg:#0A0E18;--bg2:#111726;--bg3:#1A2133;--border:#232B3E;--border2:#34405A;--text:#EEF1F7;--text2:#AEB6C8;--text3:#7A849A;--accent:#E6D5A8;
+      --pos:#B8862A;--neg:#3A8BCB;--grid:#2A3348;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html,body{background:var(--bg);}
+    body{color:var(--text);font-family:'Inter',system-ui,sans-serif;font-weight:500;min-height:100vh;}
+    .page{padding:30px 0 60px;}
+    .eyebrow{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--text2);margin-bottom:6px;}
+    .hero{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;}
+    h1{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:44px;letter-spacing:-.02em;line-height:1.05;}
+    .lede{font-size:17px;color:var(--text2);margin:8px 0 18px;max-width:820px;line-height:1.45;}
+    .btn{font:700 13px Inter,system-ui,sans-serif;padding:9px 14px;border:1px solid var(--border2);border-radius:8px;background:var(--bg2);color:var(--text);cursor:pointer;}
+    .btn:hover{border-color:var(--text3);}
+    .filters{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;border-top:1px solid var(--border2);padding-top:16px;}
+    @media(max-width:860px){.filters{grid-template-columns:1fr 1fr;}}
+    .filters label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700;color:var(--text2);}
+    .filters select{font:600 15px Inter,system-ui,sans-serif;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg2);color:var(--text);min-width:0;}
+    .sample{font-size:13px;color:var(--text3);margin:12px 0 4px;}
+    .sample b{color:var(--text2);}
+    .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border2);margin:14px 0 22px;overflow-x:auto;}
+    .tabs button{font:700 14px Inter,system-ui,sans-serif;padding:12px 14px;border:0;background:none;color:var(--text3);cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent;margin-bottom:-1px;}
+    .tabs button.on{color:var(--text);border-bottom-color:var(--accent);}
+    h2{font-family:'Playfair Display',Georgia,serif;font-size:24px;font-weight:800;margin:6px 0 6px;}
+    .sub{font-size:14px;color:var(--text2);line-height:1.5;margin-bottom:18px;max-width:900px;}
+    .charts{display:grid;grid-template-columns:1fr 1fr;gap:30px 48px;margin-bottom:12px;}
+    @media(max-width:860px){.charts{grid-template-columns:1fr;}}
+    .ch h3{font-size:19px;font-weight:800;margin-bottom:3px;}
+    .ch .cs{font-size:13px;color:var(--text3);margin-bottom:12px;}
+    .bars{position:relative;}
+    .br{display:grid;grid-template-columns:78px 1fr;align-items:center;height:40px;}
+    .br .lb{font-size:13px;font-weight:700;color:var(--text2);text-align:right;padding-right:10px;}
+    .br .tr{position:relative;height:100%;cursor:default;}
+    .br .bar{position:absolute;top:10px;height:20px;border-radius:0 4px 4px 0;}
+    .br .bar.n{border-radius:4px 0 0 4px;}
+    .br .val{position:absolute;top:10px;line-height:20px;font-size:14px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap;background:var(--bg);padding:0 3px;border-radius:3px;z-index:1;}
+    .br .ref{position:absolute;top:5px;height:30px;width:2px;background:var(--text);border-radius:1px;opacity:.75;}
+    .br.thin .bar{opacity:.45;}
+    .zero{position:absolute;top:0;bottom:0;width:1px;background:var(--text3);}
+    .axl{position:relative;height:18px;margin-left:78px;font-size:11px;color:var(--text3);}
+    .axl span{position:absolute;transform:translateX(-50%);white-space:nowrap;}
+    .zl{font-size:12px;color:var(--text3);margin:0 0 4px 78px;position:relative;height:16px;}
+    .zl span{position:absolute;transform:translateX(-50%);white-space:nowrap;}
+    .note{font-size:13px;color:var(--text2);line-height:1.6;margin:14px 0 26px;padding-top:10px;border-top:1px solid var(--border2);}
+    .key{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text2);margin:-6px 0 14px;}
+    .key i{display:inline-block;width:2px;height:13px;background:var(--text);vertical-align:-2px;margin-right:6px;opacity:.75;}
+    .key em{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:6px;font-style:normal;}
+    .sec{margin:30px 0 8px;}
+    details{border-top:1px solid var(--border2);padding:14px 0;}
+    summary{font-size:16px;font-weight:800;cursor:pointer;}
+    .defs p{font-size:14px;color:var(--text2);line-height:1.6;margin:10px 0;} .defs b{color:var(--text);}
+    td.small,td .small{color:var(--text3);}
+    .tip{position:fixed;z-index:50;pointer-events:none;background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:8px 10px;font-size:12.5px;line-height:1.45;color:var(--text2);box-shadow:0 6px 18px rgba(0,0,0,.18);max-width:260px;display:none;}
+    .tip b{color:var(--text);}
+    .ib{position:relative;height:9px;border-radius:0 3px 3px 0;background:var(--pos);display:inline-block;vertical-align:middle;margin-left:8px;}
+    .empty{padding:26px;text-align:center;color:var(--text3);border:1px dashed var(--border2);border-radius:12px;font-size:13px;}
+    @media(max-width:640px){ h1{font-size:32px;} .lede{font-size:15px;} .br{grid-template-columns:64px 1fr;} .axl,.zl{margin-left:64px;} .br .val{font-size:12.5px;} }
+  </style>
+  <link rel="stylesheet" href="tdc-skin.css?v=14"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+  <link rel="stylesheet" href="tdc-column.css?v=4"/>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script src="tdc-pwa.js?v=2" defer></script>
+</head>
+<body>
+<script src="tdc-nav.js?v=68"></script>
+<div class="page">
+  <div class="hero"><div>
+    <div class="eyebrow">D-I · Shot aftermath</div>
+    <h1>What happens after the shot?</h1></div>
+    <button class="btn" id="csvBtn" type="button">Export CSV</button>
+  </div>
+  <div class="lede">Start with what the shots score. Then see what missed shots recover through second chances, and what they give back on the other end.</div>
+  <div class="filters">
+    <label>Season<select id="fSeason"></select></label>
+    <label>Conference<select id="fConf"><option value="">All conferences</option></select></label>
+    <label>Shooting team<select id="fTeam"><option value="">All teams</option></select></label>
+    <label>Shooter position<select id="fPos"><option value="">All positions</option><option value="G">Guards</option><option value="F">Forwards</option><option value="C">Centers</option></select></label>
+  </div>
+  <div class="sample" id="sample">Loading every D-I play-by-play…</div>
+  <div class="tabs" id="tabs">
+    <button data-t="all" class="on">All attempts</button><button data-t="miss">After a miss</button><button data-t="dr">After a defensive rebound</button><button data-t="out">All shot outcomes</button>
+  </div>
+  <div id="view"><div class="empty">Loading…</div></div>
+  <details class="defs" id="defs">
+    <summary>Definitions and calculation</summary>
+    <p><b>Possessions</b> are rebuilt from ESPN play-by-play: every shot, free throw, rebound and turnover belongs to the team with the ball, and a possession is a run of those events by one team. Its points are that team's points inside the run, free throws included.</p>
+    <p><b>First chance:</b> a field-goal attempt before the shooting team's first offensive rebound of the possession (one per possession). <b>Second-chance points</b> are everything the shooting team scored later in that same possession after the miss, including free throws.</p>
+    <p><b>Opponent PPP</b> is the opponent's points on the very next possession: after a make (a dead-ball inbound, an and-one free throw stays with the shot's possession), or after the defensive rebound of a miss. <b>League PPP</b> is the season's points per possession across every D-I game.</p>
+    <p><b>Opponent cost</b> per attempt = make% × (opponent PPP after makes − league PPP) + miss% × defensive-rebound share × (opponent PPP after defensive rebounds − league PPP). Negative is a benefit: the opponent scored less than an average possession. It covers only the immediate next possession, not the one after a second chance.</p>
+    <p><b>Own scoring</b> per attempt = 2 or 3 × make% + miss% × second-chance points per miss. Made-field-goal points exclude the and-one free throw. <b>Scoring minus cost</b> is partial accounting, not a net rating or a shot-quality model.</p>
+    <p><b>Shot zones:</b> rim = layups, dunks, tip-ins and any two inside 4 feet; short midrange 5–14 feet; long midrange 15+ feet inside the arc; three = any three-point attempt. Distance comes from the play text, else the shot coordinates. A two-point jumper with neither (most of 2024–25's play-by-play) gets its own <b>Mid (no dist.)</b> row instead of being dropped.</p>
+    <p><b>Position</b> is ESPN's roster position for that game (guard, forward, center). <b>Team</b> is the shooting team. Only D-I vs D-I games. Small samples are unadjusted; rows under 150 attempts are greyed. The vertical tick on each bar is the D-I average when a filter is on.</p>
+    <p id="srcLine"></p>
+  </details>
+</div>
+<div class="tip" id="tip"></div>
+<script>
+(function(){
+  const SB='https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/', K='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+  const SEASONS=[2026,2025];
+  const ZN={rim:'Rim',short:'Short mid',long:'Long mid',three:'Three',mid:'Mid (no dist.)'}, ZONES_ALL=['rim','short','long','three','mid'];
+  let ZONES=ZONES_ALL;
+  const S={season:2026,conf:'',team:'',pos:'',tab:'all'};
+  const CACHE={}; let D=null, NAMES={};
+  const seasonLbl=y=>(y-1)+'–'+String(y).slice(2);
+  const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const f3=v=>(v==null||!isFinite(v))?'—':(v>=0?'+':'')+v.toFixed(3), p3=v=>(v==null||!isFinite(v))?'—':v.toFixed(3),
+        pc=v=>(v==null||!isFinite(v))?'—':(100*v).toFixed(1)+'%', nf=v=>(+v||0).toLocaleString();
+
+  // ── aggregate the counts behind a filter ──────────────────────────────────
+  function sum(filter){
+    const z={}; ZONES_ALL.forEach(k=>z[k]=new Array(11).fill(0));
+    for(const t in D.data){
+      if(filter.team && t!==filter.team) continue;
+      if(filter.conf && (NAMES[t]||{}).conf!==filter.conf) continue;
+      for(const g in D.data[t]){
+        if(filter.pos && g!==filter.pos) continue;
+        for(const k in D.data[t][g]) if(z[k]) D.data[t][g][k].forEach((v,i)=>z[k][i]+=v);
+      }
+    }
+    return z;
+  }
+  function stats(c, lg){
+    const [att,made,mPts,miss,mOR,mDR,sc,oMP,oMN,oDP,oDN]=c;
+    if(!att) return null;
+    const mk=made/att, ms=miss/att, pM=oMN?oMP/oMN:null, pD=oDN?oDP/oDN:null, drf=miss?mDR/miss:0, orf=miss?mOR/miss:0;
+    const madePA=mPts/att, scPM=miss?sc/miss:0, scPA=sc/att, own=madePA+scPA;
+    const missCost=(pD!=null)?drf*(pD-lg):0, mkCost=(pM!=null)?(pM-lg):0;
+    const cost=mk*mkCost+ms*missCost;
+    return {att,made,miss,mOR,mDR,mk,ms,orf,drf,pM,pD,oMN,oDN,madePA,scPM,scPA,own,cost,net:own-cost,missCost,netMiss:scPM-missCost,other:miss?1-orf-drf:0};
+  }
+
+  // ── a horizontal bar chart (one series; diverging around a baseline when asked) ──
+  function chart(title, subtitle, rows, o){
+    o=o||{};
+    const vals=rows.flatMap(r=>[r.v,r.ref]).filter(v=>v!=null&&isFinite(v));
+    const base=o.base||0;
+    let lo=o.diverge?Math.min(base,...vals):0, hi=Math.max(base,...vals);
+    if(o.diverge){ const m=Math.max(Math.abs(lo-base),Math.abs(hi-base))*1.25||0.05; lo=base-m; hi=base+m; } else hi=hi*1.3||1;
+    const X=v=>100*(v-lo)/(hi-lo);
+    const zx=X(base);
+    const fmt=o.fmt||f3;
+    const body=rows.map(r=>{
+      if(r.v==null||!isFinite(r.v)) return `<div class="br"><div class="lb">${esc(r.label)}</div><div class="tr"><span class="val" style="left:${zx+1}%">—</span></div></div>`;
+      const x=X(r.v), neg=r.v<base, l=Math.min(x,zx), w=Math.abs(x-zx);
+      const col=o.color?o.color(r.v):(neg?'var(--neg)':'var(--pos)');
+      // a long negative bar would push its label into the row name: put it just right of the zero line instead
+      const lab=neg?(x<20?`left:${zx+1}%`:`right:${100-x+1}%`):`left:${x+1}%`;
+      const ref=(r.ref!=null&&isFinite(r.ref))?`<i class="ref" style="left:calc(${X(r.ref)}% - 1px)"></i>`:'';
+      return `<div class="br${r.thin?' thin':''}"><div class="lb">${esc(r.label)}</div><div class="tr" data-tip="${esc(r.tip||'')}">`+
+        `<i class="bar${neg?' n':''}" style="left:${l}%;width:${Math.max(w,0.4)}%;background:${col}"></i>${ref}<span class="val" style="${lab}">${fmt(r.v)}</span></div></div>`;
+    }).join('');
+    const ax=[lo,base,hi].filter((v,i,a)=>a.indexOf(v)===i).map(v=>{ const xp=X(v), tf=xp<=1?'translateX(0)':xp>=99?'translateX(-100%)':'translateX(-50%)';
+      return `<span style="left:${xp}%;transform:${tf}">${o.axfmt?o.axfmt(v):fmt(v)}</span>`; }).join('');
+    return `<div class="ch"><h3>${esc(title)}</h3><div class="cs">${subtitle}</div>`+
+      `<div class="zl"><span style="left:${zx}%">${esc(o.zeroLabel||'Zero points')}</span></div>`+
+      `<div class="bars"><div class="zero" style="left:calc(78px + (100% - 78px) * ${zx/100})"></div>${body}</div><div class="axl">${ax}</div></div>`;
+  }
+  function table(head, rows, opts){
+    opts=opts||{};
+    return `<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr>${head.map((h,i)=>`<th class="${i?'':'l'}">${h}</th>`).join('')}</tr></thead><tbody>${
+      rows.map(r=>`<tr>${r.cells.map((c,i)=>`<td class="${i?'':'l'}${r.thin?' small':''}">${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  }
+
+  // ── views ─────────────────────────────────────────────────────────────────
+  function render(){
+    if(!D) return;
+    const lg=D.league_ppp, filtered=!!(S.team||S.conf||S.pos);
+    const cur=sum(S), base=filtered?sum({}):null;
+    const _all=sum({}), _tot=ZONES_ALL.reduce((a,z)=>a+_all[z][0],0);
+    ZONES=ZONES_ALL.filter(z=>z==='mid'?_all[z][0]>=0.02*_tot:_all[z][0]>0);   // the no-distance row only when it is a real share of the season
+    const st={}, ref={}; ZONES.forEach(z=>{ st[z]=stats(cur[z],lg); ref[z]=base?stats(base[z],lg):null; });
+    const totAtt=ZONES.reduce((a,z)=>a+(st[z]?st[z].att:0),0);
+    const who=S.team?((NAMES[S.team]||{}).name||'This team'):(S.conf?S.conf:'D-I');
+    const posL={G:'Guards',F:'Forwards',C:'Centers'}[S.pos]||'All positions';
+    document.getElementById('sample').innerHTML=`<b>${seasonLbl(S.season)}</b> · ${esc(who)} · ${posL} · <b>${nf(totAtt)}</b> first-chance attempts · league ${p3(lg)} points per possession · ${nf(D.games)} games`;
+    const thin=z=>st[z]&&st[z].att<150;
+    const R=(key,tipf)=>ZONES.map(z=>({label:ZN[z], v:st[z]?st[z][key]:null, ref:ref[z]?ref[z][key]:null, thin:thin(z),
+      tip:st[z]?`<b>${ZN[z]}</b> · ${nf(st[z].att)} attempts<br>${tipf(st[z],ref[z])}`:''}));
+    const refT=(r,k,f)=>r?`<br>D-I average: ${(f||f3)(r[k])}`:'';
+    const keyHtml=filtered?`<div class="key"><span><i></i>D-I average</span></div>`:'';
+    const v=document.getElementById('view');
+    if(!totAtt){ v.innerHTML='<div class="empty">No first-chance attempts for this filter.</div>'; return; }
+    let h='';
+    if(S.tab==='all'){
+      h+=`<h2>What do you gain and give back?</h2><div class="sub">Per first-chance attempt, makes and misses together. Own scoring is made baskets plus the points recovered through second chances.</div>${keyHtml}<div class="charts">`+
+        chart('Own scoring','Made FGs + second chances · more is better', R('own',(s,r)=>`Made FG ${p3(s.madePA)} + second chances ${p3(s.scPA)} = <b>${p3(s.own)}</b> per attempt${refT(r,'own',p3)}`), {fmt:p3})+
+        chart('Second-chance scoring','Points per attempt · included in own scoring', R('scPA',(s,r)=>`${pc(s.ms)} missed · ${pc(s.orf)} of misses rebounded by the offense · <b>${p3(s.scPM)}</b> per miss${refT(r,'scPA',p3)}`), {fmt:p3})+
+        chart('Opponent cost','Opponent scoring above an average possession · less is better', R('cost',(s,r)=>`After makes: ${p3(s.pM)} PPP · after defensive rebounds: ${p3(s.pD)} PPP · league ${p3(lg)}${refT(r,'cost')}`), {diverge:true, zeroLabel:'Average possession'})+
+        chart('Scoring minus cost','Own scoring − opponent cost · more is better', R('net',(s,r)=>`${p3(s.own)} − (${f3(s.cost)}) = <b>${p3(s.net)}</b>${refT(r,'net',p3)}`), {fmt:p3})+
+        `</div><div class="note">Every rim row includes blocked shots. Opponent cost counts the opponent's scoring above the season's D-I average on its very next possession, weighted by how often a make or a defensive rebound happens; it leaves out the possession after a second chance. Charts use their own scales; compare the printed values.</div>`;
+      h+=`<h2 class="sec">Make rates and opponent scoring</h2>`+table(['Shot','Attempts','FG%','Made points / attempt','Immediate cost / attempt'],
+        ZONES.filter(z=>st[z]).map(z=>({thin:thin(z),cells:[ZN[z],nf(st[z].att),pc(st[z].mk),p3(st[z].madePA),f3(st[z].cost)]})));
+      h+=`<h2 class="sec">Net value across all attempts</h2><div class="sub">Points per attempt · made-FG points + second chances − opponent cost</div>`+table(['Shot','Made FG','Second chances','Opponent cost','Estimated net'],
+        ZONES.filter(z=>st[z]).map(z=>({thin:thin(z),cells:[ZN[z],p3(st[z].madePA),p3(st[z].scPA),f3(st[z].cost),'<b>'+p3(st[z].net)+'</b>']})));
+      h+=`<details open><summary>Opponent scoring after each shot result</summary><div style="margin-top:12px">`+table(['Shot','After make PPP','Possessions','After defensive rebound PPP','Possessions'],
+        ZONES.filter(z=>st[z]).map(z=>({thin:thin(z),cells:[ZN[z],p3(st[z].pM),nf(st[z].oMN),p3(st[z].pD),nf(st[z].oDN)]})))+`</div></details>`;
+    } else if(S.tab==='miss'){
+      h+=`<h2>What does a miss recover, and what does it give back?</h2><div class="sub">Per missed first-chance attempt. A miss either comes back to the offense (an offensive rebound, including team rebounds) or goes to the defense.</div>${keyHtml}<div class="charts">`+
+        chart('Offense keeps the ball','Share of misses the shooting team gets back', R('orf',(s,r)=>`${nf(s.mOR)} of ${nf(s.miss)} misses${refT(r,'orf',pc)}`), {fmt:pc, zeroLabel:'0%'})+
+        chart('Second-chance points','Points per miss, after the offensive rebound branch', R('scPM',(s,r)=>`<b>${p3(s.scPM)}</b> per miss${refT(r,'scPM',p3)}`), {fmt:p3})+
+        chart('Cost of the miss','Opponent scoring above average after the defensive rebound, per miss · less is better', R('missCost',(s,r)=>`${pc(s.drf)} of misses rebounded by the defense · then ${p3(s.pD)} PPP vs league ${p3(lg)}${refT(r,'missCost')}`), {diverge:true, zeroLabel:'Average possession'})+
+        chart('Recovered minus cost','Second-chance points − cost of the miss · more is better', R('netMiss',(s,r)=>`${p3(s.scPM)} − (${f3(s.missCost)}) = <b>${f3(s.netMiss)}</b>${refT(r,'netMiss')}`), {fmt:f3})+
+        `</div><div class="note">A miss that never produces a rebound (a foul on the shot, the ball out of bounds to the defense, the end of a period) sits in neither branch.</div>`;
+      h+=`<h2 class="sec">Every missed first-chance attempt</h2>`+table(['Shot','Misses','Offense rebounds','Second-chance pts / miss','Defense rebounds','Opponent PPP after','Cost / miss','Net / miss'],
+        ZONES.filter(z=>st[z]).map(z=>{ const s=st[z]; return {thin:thin(z),cells:[ZN[z],nf(s.miss),pc(s.orf),p3(s.scPM),pc(s.drf),p3(s.pD),f3(s.missCost),'<b>'+f3(s.netMiss)+'</b>']}; }));
+    } else if(S.tab==='dr'){
+      const R2=ZONES.map(z=>({label:ZN[z], v:st[z]&&st[z].pD!=null?st[z].pD-st[z].pM:null, ref:ref[z]&&ref[z].pD!=null?ref[z].pD-ref[z].pM:null, thin:thin(z),
+        tip:st[z]?`<b>${ZN[z]}</b><br>After a defensive rebound ${p3(st[z].pD)} PPP vs after a make ${p3(st[z].pM)} PPP`:''}));
+      h+=`<h2>What does the opponent do with it?</h2><div class="sub">The opponent's next possession, in points per possession, after a defensive rebound of a first-chance miss and after a make. League average is ${p3(lg)}.</div>${keyHtml}<div class="charts">`+
+        chart('After a defensive rebound','Opponent points per possession · less is better', R('pD',(s,r)=>`${nf(s.oDN)} possessions · <b>${p3(s.pD)}</b> PPP${refT(r,'pD',p3)}`), {diverge:true, base:lg, zeroLabel:'League '+p3(lg), fmt:p3, axfmt:p3, color:v=>v>lg?'var(--pos)':'var(--neg)'})+
+        chart('After a make','Opponent points per possession · less is better', R('pM',(s,r)=>`${nf(s.oMN)} possessions · <b>${p3(s.pM)}</b> PPP${refT(r,'pM',p3)}`), {diverge:true, base:lg, zeroLabel:'League '+p3(lg), fmt:p3, axfmt:p3, color:v=>v>lg?'var(--pos)':'var(--neg)'})+
+        chart('Rebound vs make','Opponent PPP after a defensive rebound − after a make · positive = the miss hurts more', R2, {diverge:true, zeroLabel:'No difference'})+
+        `</div><div class="note">${(()=>{ const g=ZONES.filter(z=>st[z]&&st[z].pD!=null&&st[z].pM!=null).map(z=>[z,st[z].pD-st[z].pM]).sort((a,b)=>b[1]-a[1]);
+          if(!g.length) return '';
+          return `A make hands the opponent a dead-ball inbound; a defensive rebound lets it run. Here the gap is largest after a <b>${ZN[g[0][0]].toLowerCase()}</b> miss (${f3(g[0][1])} points) and smallest after a <b>${ZN[g[g.length-1][0]].toLowerCase()}</b> miss (${f3(g[g.length-1][1])}).`; })()}</div>`;
+      h+=`<h2 class="sec">The opponent's next possession</h2>`+table(['Shot','After a make','Possessions','vs league','After a defensive rebound','Possessions','vs league'],
+        ZONES.filter(z=>st[z]).map(z=>{ const s=st[z]; return {thin:thin(z),cells:[ZN[z],p3(s.pM),nf(s.oMN),f3(s.pM-lg),p3(s.pD),nf(s.oDN),f3(s.pD-lg)]}; }));
+    } else {
+      const bar=(x,max)=>`<span class="ib" style="width:${Math.max(1,Math.round(60*x/max))}px"></span>`;
+      h+=`<h2>Where does every shot end up?</h2><div class="sub">Each first-chance attempt by its outcome: a make, a miss the offense gets back, a miss the defense rebounds, or a miss with no rebound.</div>`;
+      h+=table(['Shot','Attempts','Make','Miss · offense rebound','Miss · defense rebound','Miss · no rebound','Points / attempt'],
+        ZONES.filter(z=>st[z]).map(z=>{ const s=st[z]; return {thin:thin(z),cells:[ZN[z],nf(s.att),pc(s.mk)+bar(s.mk,1),pc(s.ms*s.orf)+bar(s.ms*s.orf,1),pc(s.ms*s.drf)+bar(s.ms*s.drf,1),pc(s.ms*s.other)+bar(s.ms*s.other,1),'<b>'+p3(s.own)+'</b>']}; }));
+      h+=`<div class="note">Points per attempt here is own scoring: made-field-goal points plus the second-chance points the misses recovered.</div>`;
+    }
+    v.innerHTML=h;
+  }
+
+  // ── CSV ───────────────────────────────────────────────────────────────────
+  document.getElementById('csvBtn').onclick=()=>{
+    if(!D) return;
+    const lg=D.league_ppp, cur=sum(S);
+    const rows=[['season','conference','team','position','zone','attempts','fg_pct','made_pts_per_att','second_chance_pts_per_att','second_chance_pts_per_miss','offense_rebound_share','defense_rebound_share','opp_ppp_after_make','opp_ppp_after_def_rebound','league_ppp','opponent_cost_per_att','net_per_att']];
+    ZONES.forEach(z=>{ const s=stats(cur[z],lg); if(!s) return;
+      rows.push([seasonLbl(S.season),S.conf||'All',S.team?(NAMES[S.team]||{}).name:'All',S.pos||'All',ZN[z],s.att,s.mk.toFixed(4),s.madePA.toFixed(4),s.scPA.toFixed(4),s.scPM.toFixed(4),s.orf.toFixed(4),s.drf.toFixed(4),s.pM!=null?s.pM.toFixed(4):'',s.pD!=null?s.pD.toFixed(4):'',lg,s.cost.toFixed(4),s.net.toFixed(4)]); });
+    const csv=rows.map(r=>r.map(x=>/[",]/.test(String(x))?'"'+String(x).replace(/"/g,'""')+'"':x).join(',')).join('\n');
+    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download=`shot-aftermath-${S.season}${S.team?'-'+((NAMES[S.team]||{}).name||S.team).replace(/\W+/g,'-'):''}.csv`; a.click();
+  };
+
+  // ── tooltip ──────────────────────────────────────────────────────────────
+  const tip=document.getElementById('tip');
+  document.addEventListener('mousemove',e=>{ const t=e.target.closest&&e.target.closest('[data-tip]');
+    if(!t||!t.getAttribute('data-tip')){ tip.style.display='none'; return; }
+    tip.innerHTML=t.getAttribute('data-tip'); tip.style.display='block';
+    const w=tip.offsetWidth; tip.style.left=Math.min(innerWidth-w-10,e.clientX+14)+'px'; tip.style.top=(e.clientY+14)+'px'; });
+
+  // ── filters + load ──────────────────────────────────────────────────────
+  const fS=document.getElementById('fSeason'), fC=document.getElementById('fConf'), fT=document.getElementById('fTeam'), fP=document.getElementById('fPos');
+  fS.innerHTML=SEASONS.map(y=>`<option value="${y}">${seasonLbl(y)}</option>`).join('');
+  function fillTeams(){
+    const ids=Object.keys(D.data).filter(t=>NAMES[t]&&(!S.conf||NAMES[t].conf===S.conf)).sort((a,b)=>NAMES[a].name.localeCompare(NAMES[b].name));
+    fT.innerHTML='<option value="">All teams</option>'+ids.map(t=>`<option value="${t}">${esc(NAMES[t].name)}</option>`).join('');
+    if(S.team&&ids.indexOf(S.team)<0) S.team=''; fT.value=S.team;
+    const confs=[...new Set(Object.keys(D.data).map(t=>(NAMES[t]||{}).conf).filter(Boolean))].sort();
+    fC.innerHTML='<option value="">All conferences</option>'+confs.map(c=>`<option>${esc(c)}</option>`).join(''); fC.value=S.conf;
+  }
+  async function load(y){
+    if(!CACHE[y]){
+      const [d,ts]=await Promise.all([
+        fetch(`scripts/data/shot_aftermath/${y}.json?v=1`).then(r=>r.ok?r.json():null),
+        fetch(SB+`team_seasons?season_year=eq.${y}&select=team_id,team,conference&limit=1000`,{headers:{apikey:K,Authorization:'Bearer '+K}}).then(r=>r.ok?r.json():[]).catch(()=>[])]);
+      const nm={}; (ts||[]).forEach(t=>{ if(t.team_id!=null){ let n=(window.TDCTeamName&&TDCTeamName.short)?TDCTeamName.short(t.team):t.team;
+          if(n==='Bowling') n='Bowling Green';
+          nm[String(t.team_id)]={name:n,full:t.team,conf:t.conference||''}; } });
+      // two schools that shorten to the same name (Miami FL / Miami OH) keep their full names
+      const cnt={}; Object.values(nm).forEach(x=>cnt[x.name]=(cnt[x.name]||0)+1); Object.values(nm).forEach(x=>{ if(cnt[x.name]>1) x.name=x.full; });
+      CACHE[y]={d,nm};
+    }
+    D=CACHE[y].d; NAMES=CACHE[y].nm;
+    if(!D){ document.getElementById('view').innerHTML='<div class="empty">This season has not been built yet.</div>'; document.getElementById('sample').textContent=''; return; }
+    document.getElementById('srcLine').innerHTML=`Source: ESPN play-by-play, ${nf(D.games)} D-I vs D-I games in ${seasonLbl(y)} (${nf(D.missing)} games had no play-by-play), ${nf(D.possessions)} possessions. Built ${new Date(D.built).toLocaleDateString()}. Descriptive research, not shot-selection advice.`;
+    fillTeams(); render();
+  }
+  fS.onchange=()=>{ S.season=+fS.value; load(S.season); };
+  fC.onchange=()=>{ S.conf=fC.value; fillTeams(); render(); };
+  fT.onchange=()=>{ S.team=fT.value; render(); };
+  fP.onchange=()=>{ S.pos=fP.value; render(); };
+  document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{ S.tab=b.getAttribute('data-t'); document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x===b)); render(); });
+  load(S.season).catch(()=>{ document.getElementById('view').innerHTML='<div class="empty">Could not load the shot data.</div>'; });
+})();
+</script>
+<script src="tdc-version.js?v=2"></script>
+<script src="tdc-sheets.js?v=2"></script>
+</body>
+</html>
