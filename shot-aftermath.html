@@ -285,7 +285,7 @@
   async function load(y){
     if(!CACHE[y]){
       const [d,ts]=await Promise.all([
-        fetch(`scripts/data/shot_aftermath/${y}.json?v=1`).then(r=>r.ok?r.json():null),
+        fetch(`scripts/data/shot_aftermath/${y}.json?v=2`).then(r=>r.ok?r.json():null),
         fetch(SB+`team_seasons?season_year=eq.${y}&select=team_id,team,conference&limit=1000`,{headers:{apikey:K,Authorization:'Bearer '+K}}).then(r=>r.ok?r.json():[]).catch(()=>[])]);
       const nm={}; (ts||[]).forEach(t=>{ if(t.team_id!=null){ let n=(window.TDCTeamName&&TDCTeamName.short)?TDCTeamName.short(t.team):t.team;
           if(n==='Bowling') n='Bowling Green';
@@ -304,7 +304,7 @@
   fT.onchange=()=>{ S.team=fT.value; render(); };
   fP.onchange=()=>{ S.pos=fP.value; render(); };
   document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{ S.tab=b.getAttribute('data-t'); document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x===b)); render(); });
-  fetch('scripts/data/shot_aftermath/index.json?v=1').then(r=>r.ok?r.json():null).then(ix=>{
+  fetch('scripts/data/shot_aftermath/index.json?v=2').then(r=>r.ok?r.json():null).then(ix=>{
     if(ix&&ix.seasons&&ix.seasons.length){ SEASONS=ix.seasons.map(x=>x.season).sort((a,b)=>b-a); ix.seasons.forEach(x=>COVER[x.season]=x); fillSeasons(); }
   }).catch(()=>{});
   load(S.season).catch(()=>{ document.getElementById('view').innerHTML='<div class="empty">Could not load the shot data.</div>'; });

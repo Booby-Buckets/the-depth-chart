@@ -34,8 +34,12 @@ const ZONES = ['rim', 'short', 'long', 'three', 'mid'];   // mid = a two-point j
 async function sb(q) {
   const out = [];
   for (let off = 0; ; off += 1000) {
-    const r = await fetch(SB + q + `&limit=1000&offset=${off}`, { headers: H });
-    const d = await r.json();
+    let d = null;
+    for (let t = 0; t < 6 && d == null; t++) {          // a DNS / network blip shouldn't kill a 30-minute run
+      try { const r = await fetch(SB + q + `&limit=1000&offset=${off}`, { headers: H }); if (r.ok) d = await r.json(); } catch {}
+      if (d == null) await new Promise((s) => setTimeout(s, 2000 * (t + 1)));
+    }
+    if (d == null) throw new Error('Supabase unreachable: ' + q);
     out.push(...d);
     if (d.length < 1000) return out;
   }
@@ -81,7 +85,12 @@ function posMap(s) {
   return out;
 }
 
-function parse(s, acc, lg) {
+const clk = (p) => { const v = String((p.clock && p.clock.displayValue) || '').trim(); const m = /^(\d+):(\d+(?:\.\d+)?)$/.exec(v); if (m) return +m[1] * 60 + +m[2]; const n = parseFloat(v); return isFinite(n) ? n : null; };
+// seconds from the moment a team gets the ball to its first shot / free-throw trip / turnover
+const TBUCKET = (d) => d <= 10 ? 'tr' : d <= 20 ? 'early' : d <= 30 ? 'half' : 'late';
+const add2 = (o, k, pts) => { const a = (o[k] = o[k] || [0, 0]); a[0]++; a[1] += pts; };
+
+function parse(s, acc, lg, X) {
   const plays = (s.plays || []).filter((p) => p.team && p.team.id);
   const pos = posMap(s);
   // 1. the team with the ball on each possession event
@@ -107,12 +116,16 @@ function parse(s, acc, lg) {
     const oppNext = next && next.team !== r.team && next.per === r.per ? next : null;
     for (let i = 0; i < r.ev.length; i++) {
       const e = r.ev[i];
-      if (isReb(e.p)) break;                       // an offensive rebound ends the first chance
+      if (isReb(e.p)) { if (i === 0) continue; break; }   // the defensive rebound that STARTED the possession is not a second chance; a later (offensive) rebound ends the first chance
       if (!isFG(e.p)) continue;
       const z = zoneOf(e.p); if (!z) continue;
       const ath = e.p.participants && e.p.participants[0] && e.p.participants[0].athlete && String(e.p.participants[0].athlete.id);
       const g = (ath && pos[ath]) || 'U';
       const T = (acc[r.team] = acc[r.team] || {}), Pz = (T[g] = T[g] || {}), c = (Pz[z] = Pz[z] || new Array(11).fill(0));
+      // the same counts for the shooter himself (player pages); written back after the branch logic below
+      const pc = ath ? (((X.players[ath] = X.players[ath] || {})[z]) || (X.players[ath][z] = new Array(11).fill(0))) : null;
+      if (ath && g !== 'U') X.ppos[ath] = g;
+      const c0 = c.slice();
       c[0]++;
       if (e.p.scoringPlay) {
         c[1]++; c[2] += +e.p.scoreValue || 0;
@@ -130,8 +143,30 @@ function parse(s, acc, lg) {
           c[5]++; c[9] += oppNext.pts; c[10]++;     // defensive rebound: the opponent's possession it started
         }
       }
+      if (pc) c.forEach((v, k) => { pc[k] += v - c0[k]; });
       break;                                       // one first-chance attempt per possession
     }
+  });
+  // 4. how each possession started, and how fast it got its first shot / FT trip / turnover — for the offense
+  //    (the team with the ball) and the defense (its opponent)
+  const ids = ((s.header && s.header.competitions && s.header.competitions[0] && s.header.competitions[0].competitors) || []).map((c) => String(c.team && c.team.id));
+  runs.forEach((r, ri) => {
+    const prev = ri > 0 && runs[ri - 1].per === r.per ? runs[ri - 1] : null;
+    const def = ids.find((t) => t !== r.team) || (prev && prev.team !== r.team ? prev.team : null);
+    if (!def) return;
+    const first = r.ev[0].p, last = prev && prev.ev[prev.ev.length - 1].p;
+    const st = isReb(first) ? 'dr' : !prev ? 'oth' : isTO(last) ? 'to' : (last.scoringPlay && isFG(last)) ? 'fg' : (last.scoringPlay && isFT(last)) ? 'ft' : 'oth';
+    const O = (X.poss[r.team] = X.poss[r.team] || { off: { st: {}, tm: {} }, def: { st: {}, tm: {} } });
+    const D = (X.poss[def] = X.poss[def] || { off: { st: {}, tm: {} }, def: { st: {}, tm: {} } });
+    add2(O.off.st, st, r.pts); add2(D.def.st, st, r.pts); add2(X.lg.st, st, r.pts);
+    const start = isReb(first) ? clk(first) : prev ? clk(last) : (r.per <= 2 ? 1200 : 300);
+    const act = r.ev.find((e) => isFG(e.p) || isFT(e.p) || isTO(e.p));
+    const t1 = act ? clk(act.p) : null;
+    if (start == null || t1 == null) return;
+    const d = start - t1;
+    if (d < 0 || d > 60) return;                   // clock noise / a missing event
+    const b = TBUCKET(d);
+    add2(O.off.tm, b, r.pts); add2(D.def.tm, b, r.pts); add2(X.lg.tm, b, r.pts);
   });
 }
 
@@ -141,7 +176,7 @@ async function season(y) {
   const d1 = new Set(ts.map((t) => String(t.team_id)));
   const games = (await sb(`games?season_year=eq.${y}&status=eq.STATUS_FINAL&select=id,home_id,away_id&order=id.asc`))
     .filter((g) => d1.has(String(g.home_id)) && d1.has(String(g.away_id)));   // D-I vs D-I only
-  const acc = {}, lg = { pts: 0, poss: 0 };
+  const acc = {}, lg = { pts: 0, poss: 0 }, X = { players: {}, ppos: {}, poss: {}, lg: { st: {}, tm: {} } };
   let done = 0, empty = 0;
   const q = games.slice();
   async function worker() {
@@ -150,7 +185,7 @@ async function season(y) {
       const s = await espn(g.id);
       done++;
       if (!s || !(s.plays || []).length) { empty++; continue; }
-      try { parse(s, acc, lg); } catch (e) { empty++; }
+      try { parse(s, acc, lg, X); } catch (e) { empty++; }
       if (done % 500 === 0) process.stdout.write(`  ${y}: ${done}/${games.length} games\n`);
     }
   }
@@ -163,6 +198,11 @@ async function season(y) {
     cols: ['att', 'made', 'madePts', 'miss', 'missOR', 'missDR', 'scPts', 'oppMakePts', 'oppMakeN', 'oppDRPts', 'oppDRN'],
     zones: ZONES, data: acc };
   fs.writeFileSync(path.join(OUT, `${y}.json`), JSON.stringify(out));
+  // per-team possession starts + timing (team pages) and per-player first-chance shot counts (player pages)
+  fs.writeFileSync(path.join(OUT, `poss_${y}.json`), JSON.stringify({ season: y, built: out.built, league_ppp: out.league_ppp, league: X.lg, teams: X.poss,
+    starts: { fg: 'after a made field goal', ft: 'after made free throws', dr: 'after a defensive rebound', to: 'after a turnover', oth: 'other (period start, dead balls)' },
+    times: { tr: '0-10 s', early: '11-20 s', half: '21-30 s', late: '31+ s' } }));
+  fs.writeFileSync(path.join(OUT, `players_${y}.json`), JSON.stringify({ season: y, built: out.built, league_ppp: out.league_ppp, cols: out.cols, pos: X.ppos, data: X.players }));
   const all = Object.values(acc).flatMap((T) => Object.values(T).flatMap((P) => Object.values(P)));
   const att = all.reduce((a, c) => a + c[0], 0);
   console.log(`shot_aftermath ${y}: ${games.length} games (${empty} without play-by-play), ${lg.poss.toLocaleString()} possessions, league PPP ${out.league_ppp}, ${att.toLocaleString()} first-chance attempts, ${Math.round((Date.now() - t0) / 1000)}s`);

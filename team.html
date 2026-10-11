@@ -8,6 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="team-colors.js?v=11"></script>
   <script src="tdc-shotchart.js?v=31"></script>
+  <script src="tdc-aftermath.js?v=1"></script>
   <script src="tdc-lineups.js?v=17s"></script>
   <script src="tdc-lineup-history.js?v=4"></script>
   <script src="tdc-shotflow.js?v=12"></script>
@@ -1353,6 +1354,7 @@
       <div class="hero-grp-menu" style="min-width:252px;">
         <button class="hgm-item" onclick="_tgPick('shots',this)"><span class="hgm-t">Shot Charts</span><span class="hgm-d">Where the team shoots from, by season</span></button>
         <button class="hgm-item" onclick="_tgPick('shotq',this)"><span class="hgm-t">Shot Quality</span><span class="hgm-d">Look quality, shot-making &amp; creation</span></button>
+        <button class="hgm-item" onclick="_tgPick('poss',this)"><span class="hgm-t">Possessions</span><span class="hgm-d">How possessions start, when they shoot, what each shot earns</span></button>
       </div>
     </div>
     <button class="hero-tab" onclick="switchTab('schedule',this)">Schedule</button>
@@ -1547,6 +1549,9 @@
         <div class="dA-sec"><span>Shot flow</span><span class="dA-cap">where · how · who creates the makes</span></div>
         <div id="teamShotFlowHost" style="margin-top:10px;"></div>
       </div>
+    </div>
+    <div class="panel" id="panel-poss">
+      <div class="dA-card"><div id="teamAfterHost"><div style="padding:24px;color:var(--text3);">Loading possessions…</div></div></div>
     </div>
     <div class="panel" id="panel-shotq">
       <div id="teamShotQHost"><div style="padding:24px;color:var(--text3);">Loading shot quality…</div></div>
@@ -6270,6 +6275,7 @@ function switchTab(id, btn){
   if(id==='shots'){ _dnaCSS(); if(!window._teamShotInit){ window._teamShotInit=true; _initTeamShot(); } }
   if(id==='onoff'){ renderOnOff(); }
   if(id==='shotq'){ _dnaCSS(); renderShotQuality(); }
+  if(id==='poss'){ _dnaCSS(); (async()=>{ const tid=await _teamEspnId().catch(()=>null); if(window.TDC_AFTER) TDC_AFTER.renderTeam(document.getElementById('teamAfterHost'), {teamId:tid, name:(teamT&&teamT.name)||''}); })(); }
   // The right sidebar (coach/depth/recruit grades, offseason additions, roster
   // turnover) is 2026-27 depth-chart context — show it only on the Depth Chart tab.
   const sideCol = document.querySelector('.side-col');
@@ -6309,6 +6315,7 @@ var TAB_GATE = {
   betting:     { tier:'premium', label:'the betting board', blurb:'See every rotation player’s prop lines and over rates in one board. Included with Premium — $4.99/mo.' },
   losses:      { tier:'premium', label:'offseason losses', blurb:'See who this team lost and the impact. Included with Premium — $4.99/mo.' },
   shots:       { tier:'pro', label:'Shot Charts', blurb:'Every tracked attempt on a half court — zones, signature spots, hexbin, heat — plus the shot flow. Included with Pro — $8.99/mo.' },
+  poss:        { tier:'pro', label:'Possessions', blurb:'How every possession starts and scores (after makes, rebounds and turnovers), how fast they shoot, and what each shot earns after the miss — offense and defense vs D-I. Included with Pro — $8.99/mo.' },
   shotq:       { tier:'pro', label:'Shot Quality', blurb:'Look quality (the eFG% your shot selection earns), shot-making above or below it, creation, the shot diet on both ends and every player\'s numbers. Included with Pro — $8.99/mo.' },
   dna:         { tier:'pro', label:'Team DNA', blurb:'The team’s statistical identity — four factors, shot quality and the winning engine. Included with Pro — $8.99/mo.' },
   onoff:       { tier:'pro', label:'On/Off', blurb:'How the team performs with each player on vs off the floor. Included with Pro — $8.99/mo.' },
