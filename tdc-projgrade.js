@@ -788,6 +788,21 @@
     if(!isFinite(m)){ var f = _FRESH_ROW[_fk(p.team, p.name)]; if(f && f.mpg != null) m = parseFloat(f.mpg); }
     return (isFinite(m) && m >= 0) ? m : NaN;
   }
+  // FIRST-YEAR OWNED BPM for a newcomer with no D-I line — the team rating's currency (tdc-ratings estBpm),
+  // fit on every first D-I season 2013-26 (build_freshman_model.py): ranked = a + b*ln(247 rank) +
+  // c*(mpg-20); unranked = his conference level's mean at 20 mpg + a minutes slope. Minutes carry how
+  // good the coach found him (and undo fitting only players who earned 8+ mpg). Never his overall.
+  var FR_BPM = {"ranked":{"G":[7.3329,-1.367,0.1349],"W":[9.4439,-1.7053,0.0835],"B":[9.9389,-1.6695,0.1362]},"unranked":{"G":{"power":1.958,"high":-0.203,"mid":-2.13,"low":-3.772},"W":{"power":2.671,"high":1.163,"mid":-1.398,"low":-3.115},"B":{"power":4.221,"high":1.648,"mid":-0.586,"low":-2.494}},"uslope":{"G":0.1859,"W":0.1872,"B":0.2457}};
+  function frBpm(p, mpg){
+    if(!p) return NaN;
+    var f = _FRESH_ROW[_fk(p.team, p.name)] || {};
+    var g = (f.grp === 'G' || f.grp === 'W' || f.grp === 'B') ? f.grp : posGroup(p.position, p.height);
+    var m = isFinite(+mpg) ? Math.max(0, Math.min(36, +mpg)) : (isFinite(+f.mpg) ? +f.mpg : 15), rk = +f.rank;
+    if(rk > 0){ var c = FR_BPM.ranked[g]; return c[0] + c[1] * Math.log(rk) + c[2] * (m - 20); }
+    var u = FR_BPM.unranked[g], lv = (f.lv && u[f.lv] != null) ? f.lv : 'mid';
+    return u[lv] + FR_BPM.uslope[g] * (m - 20);
+  }
+  window.TDCProjGrade.frBpm = frBpm;
   window.TDCProjGrade.statQual = statQual;
   window.TDCProjGrade.buildMin = buildMin;
   window.TDCProjGrade.ready = Promise.all([
@@ -795,7 +810,7 @@
     _loadProjRows('scripts/data/stat_overall_projected.json?v=94').then(function(m){ if(m) setStatOverall(null, m); }),
     _archP, _gpsP,
     // projected freshman / newcomer OVRs (build: recruiting rank or scouting prior x projected role)
-    fetch('scripts/data/fresh_fit.json?v=36').then(function(r){ return r.ok ? r.json() : {}; }).then(function(j){
+    fetch('scripts/data/fresh_fit.json?v=37').then(function(r){ return r.ok ? r.json() : {}; }).then(function(j){
       _FRESH = {}; _FRESH_ROW = {}; for(var t in (j||{})){ for(var n in j[t]){ var f = j[t][n]; if(f && f.ovr != null) _FRESH[_fk(t, n)] = f.ovr; if(f) _FRESH_ROW[_fk(t, n)] = f; } } }).catch(function(){})
   ]).then(function(){ return true; }).catch(function(){ return true; });   // history is lazy — see loadHist()
 })();

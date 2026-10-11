@@ -233,7 +233,7 @@
   var _blob=null, _loaded=false, _loading=null, _fit=null;
   // per-team fitted {mpg, ppg} for no-box players, from the projection build (small file)
   function loadFit(){ if(_fit) return Promise.resolve(_fit);
-    return fetch('scripts/data/fresh_fit.json?v=36').then(function(r){ return r.ok?r.json():{}; }).then(function(j){ _fit=j||{}; return _fit; }).catch(function(){ _fit={}; return _fit; }); }
+    return fetch('scripts/data/fresh_fit.json?v=37').then(function(r){ return r.ok?r.json():{}; }).then(function(j){ _fit=j||{}; return _fit; }).catch(function(){ _fit={}; return _fit; }); }
   function rawProfileFor(p){ var k=frKey(p); if(_blob&&typeof _blob==='object') return _blob[k]||null;
     try{ var s=localStorage.getItem(k); return s?JSON.parse(s):null; }catch(e){ return null; } }
   // the saved profile + his preseason-scrimmage trend (fresh_fit scrim_ovr, build_scrim_trends.py: Reality-
@@ -387,7 +387,9 @@
   function ratingOverrides(){ var out={byEspn:{},byNameTeam:{}};
     if(_blob&&typeof _blob==='object') Object.keys(_blob).forEach(function(k){
       var pr=_blob[k]; if(!pr||pr._bpm==null) return;
-      var val={bpm:pr._bpm, min:pr._min};
+      // bpm0 = the same player with NO play-style edits: the rating takes only the edits' difference
+      // (bpm - bpm0) on top of the first-year model (TDCProjGrade.frBpm) — the editor's OVR never counts
+      var val={bpm:pr._bpm, bpm0:(pr._bpm0!=null?pr._bpm0:null), min:pr._min};
       var rest=k.replace(/^tdc_fr:/,''), i=rest.indexOf(':'); if(i<0) return;
       out.byNameTeam[(rest.slice(0,i)+'|'+rest.slice(i+1)).toLowerCase()]=val;
       if(pr._espn) out.byEspn[pr._espn]=val;
@@ -425,7 +427,7 @@
       if(btn){ btn.textContent='Saving…'; btn.disabled=true; }
       // Store the projected line's stat-derived BPM + minutes so the rankings value
       // him by his projected STATS (not his OVR), same currency as returners.
-      try{ var L=line(p,_d); _d._bpm=Math.round(estBPM(L)*100)/100; _d._min=parseFloat(L.mpg)||null; _d._usg=parseFloat(L.usg)||null; if(p.espn_id!=null&&p.espn_id!=='') _d._espn=p.espn_id; }catch(e){}
+      try{ var L=line(p,_d); _d._bpm=Math.round(estBPM(L)*100)/100; try{ var L0=line(p,{mpg:_d.mpg,role:_d.role}); _d._bpm0=Math.round(estBPM(L0)*100)/100; }catch(e0){} _d._min=parseFloat(L.mpg)||null; _d._usg=parseFloat(L.usg)||null; if(p.espn_id!=null&&p.espn_id!=='') _d._espn=p.espn_id; }catch(e){}
       saveProfile(p,_d).then(function(res){
         var ok=!!(res&&res.ok);
         if(!ok){

@@ -77,6 +77,23 @@ def level_of(team, ts_by):
     return "power" if tier == 1 else "high" if tier == 2 else "mid" if tier == 3 else "low" if tier else "mid"
 
 
+# OWNED BPM — the exact model tdc-ratings.js prices every returner with (estBpm: player_advanced box rates +
+# his team's owned Power Rating). Fitting newcomers on the same scale means a freshman and a returner are
+# valued in one currency in the team rating, and no overall is involved.
+BPM_B0, BPM_MU, BPM_K, BPM_SRS = -5.17252, -0.5627, 1.0590, 0.31069
+BPM_FEATS = ['ts_pct', 'efg_pct', 'tp_pct', 'ft_pct', 'pts40', 'reb40', 'ast40', 'usg_pct', 'ast_pct', 'tov_pct', 'orb_pct', 'drb_pct', 'stl_pct', 'blk_pct', 'ti40']
+BPM_COEF = [0.32314, 1.29670, 2.03894, 0.99409, 0.21218, 0.13564, -2.82989, -0.39381, 0.64736, -0.07035, -0.13910, 0.02546, 0.42890, 0.09517, 0.47585]
+
+
+def est_bpm(r, srs):
+    s = BPM_B0 + BPM_SRS * (srs or 0.0)
+    for f, c in zip(BPM_FEATS, BPM_COEF):
+        v = r.get(f)
+        if v is None: return None
+        s += c * float(v)
+    return BPM_MU + (s - BPM_MU) * BPM_K
+
+
 def main():
     R = json.load(open(os.path.join(D, "recruiting_247.json")))["classes"]
     ph = get("player_history?select=espn_id,name,season_year,team,yr,position,height,mpg,gp,ppg,oreb,dreb,apg,stl,blk,tovs,fga,tpa,fta,fg_pct,tp_pct,ft_pct&season_year=gte.2008&order=id")
@@ -84,6 +101,12 @@ def main():
     ts_by = {}
     for t in ts:
         ts_by.setdefault(t["team"], t)
+    srs_of = {(t["team"], t["season_year"]): t.get("srs") for t in get("team_seasons?select=season_year,team,srs&order=team_id,season_year")}
+    adv = {}
+    for r in get("player_advanced?select=espn_id,season_year,team," + ",".join(BPM_FEATS) + "&season_year=gte.2013&order=espn_id,season_year"):
+        b = est_bpm(r, srs_of.get((r["team"], r["season_year"])))
+        if b is not None and r.get("espn_id"): adv[(int(r["espn_id"]), r["season_year"])] = b
+    bpm_of = lambda r: adv.get((int(r["espn_id"]), r["season_year"])) if r.get("espn_id") else None
     # first D-I season per player
     first = {}
     for r in ph:
@@ -123,10 +146,26 @@ def main():
             if len(xs) < 40: continue
             b, a = np.polyfit(xs, ys, 1, w=np.sqrt(ws))
             out["ranked"][g][k] = [round(float(a), 4), round(float(b), 4)]
+        # first-year owned BPM by rank (the team rating's currency)
+        bb = [(math.log(rk), bpm_of(r), r["mpg"]) for rk, r in ranked
+              if group(r.get("position"), htin(r.get("height"))) == g and bpm_of(r) is not None]
+        # a + b*ln(rank) + c*(mpg - 20): his minutes say how good the coach found him (and undo the
+        # survivorship of fitting only players who earned 8+ mpg); the projection supplies the minutes
+        if len(bb) >= 40:
+            X = np.array([[1.0, x, m - 20.0] for x, _, m in bb]); w = np.sqrt([m for _, _, m in bb])
+            co = np.linalg.lstsq(X * w[:, None], np.array([y for _, y, _ in bb]) * w, rcond=None)[0]
+            out["ranked"][g]["bpm"] = [round(float(co[0]), 4), round(float(co[1]), 4), round(float(co[2]), 4)]
         xs = [math.log(rk) for rk, v, m in rows]; ys = [m for rk, v, m in rows]
         b, a = np.polyfit(xs, ys, 1)
         out["mpg_by_rank"][g] = [round(float(a), 3), round(float(b), 3)]
         out["unranked"][g] = {}
+        # unranked: level means at 20 mpg + one minutes slope per position group
+        ub = [(bpm_of(r), r["mpg"], level_of(r["team"], ts_by)) for r in unranked
+              if group(r.get("position"), htin(r.get("height"))) == g and bpm_of(r) is not None]
+        LV = ("power", "high", "mid", "low")
+        X = np.array([[1.0 if lv == l else 0.0 for l in LV] + [m - 20.0] for _, m, lv in ub]); w = np.sqrt([m for _, m, _ in ub])
+        uco = np.linalg.lstsq(X * w[:, None], np.array([y for y, _, _ in ub]) * w, rcond=None)[0]
+        out["unranked_bpm_mpg"] = out.get("unranked_bpm_mpg", {}); out["unranked_bpm_mpg"][g] = round(float(uco[-1]), 4)
         for lv in ("power", "high", "mid", "low"):
             rs = [(per40(r), r["mpg"]) for r in unranked if group(r.get("position"), htin(r.get("height"))) == g and level_of(r["team"], ts_by) == lv]
             rs = [x for x in rs if x[0]]
@@ -137,6 +176,9 @@ def main():
                 vv = [(v[k], m * (v[att] * m / 40.0 if att else 1.0)) for v, m in rs
                       if v.get(k) is not None and (not att or (v.get(att) or 0) * m / 40.0 >= 0.5)]
                 if vv: ent[k] = round(sum(a * m for a, m in vv) / sum(m for _, m in vv), 3)
+            bb = [(bpm_of(r), r["mpg"]) for r in unranked if group(r.get("position"), htin(r.get("height"))) == g
+                  and level_of(r["team"], ts_by) == lv and bpm_of(r) is not None]
+            if len(bb) >= 25: ent["bpm"] = round(float(uco[LV.index(lv)]), 3)   # at 20 mpg
             out["unranked"][g][lv] = ent
     json.dump(out, open(os.path.join(D, "freshman_model.json"), "w"), indent=1)
     print(f"ranked freshmen {len(ranked)}, unranked {len(unranked)}")
@@ -146,6 +188,9 @@ def main():
             f = lambda k, rk: r[k][0] + r[k][1] * math.log(rk)
             print(f"  {g}: n={r['n']}  pts/40 #1 {f('pts', 1):.1f}  #25 {f('pts', 25):.1f}  #100 {f('pts', 100):.1f}  #300 {f('pts', 300):.1f}"
                   f" | unranked: " + ", ".join(f"{lv} {out['unranked'][g][lv]['pts']:.1f}" for lv in out['unranked'][g]))
+            if "bpm" in r:
+                print(f"     BPM@20mpg #1 {f('bpm', 1):+.1f}  #25 {f('bpm', 25):+.1f}  #100 {f('bpm', 100):+.1f}  #300 {f('bpm', 300):+.1f}  per mpg {r['bpm'][2]:+.3f} (unranked {out['unranked_bpm_mpg'][g]:+.3f})"
+                      f" | unranked: " + ", ".join(f"{lv} {out['unranked'][g][lv].get('bpm', float('nan')):+.1f}" for lv in out['unranked'][g]))
 
 
 if __name__ == "__main__":

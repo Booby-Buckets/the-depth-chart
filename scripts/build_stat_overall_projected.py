@@ -1154,16 +1154,17 @@ for _k,_v in OWNER_BLOB.items():
     if _k.startswith("tdc_fr:") and isinstance(_v,dict):
         try: _,_ft,_fn=_k.split(":",2); EDITOR_FR[(_ft.strip(),_fn.strip().lower())]=_v
         except Exception: pass
-FR_RATES={}; FR_EDIT_K={}
+FR_RATES={}; FR_EDIT_K={}; FR_META={}
 def _fr_rates(short,name,position,height):
     """expected per-40 line for a newcomer with no D-I box line, or None without the model"""
     if not FR_MODEL: return None
     g=pos_group(position,height); rk=_R247.get(_nk(name))
-    if rk and g in FR_MODEL["ranked"]:
-        r=FR_MODEL["ranked"][g]; return {k:v[0]+v[1]*math.log(max(1,rk)) for k,v in r.items() if k!="n"}
     full=S2F.get(str(short).lower()) or short
+    FR_META[(short,str(name).strip())]=(g,FR_LEVEL.get(full,"mid"))   # fresh_fit grp/lv -> tdc-projgrade frBpm
+    if rk and g in FR_MODEL["ranked"]:
+        r=FR_MODEL["ranked"][g]; return {k:v[0]+v[1]*math.log(max(1,rk)) for k,v in r.items() if k not in ("n","bpm")}
     U=FR_MODEL["unranked"].get(g,{})
-    return {k:v for k,v in (U.get(FR_LEVEL.get(full,"mid")) or U.get("mid") or {}).items() if k not in ("n","mpg")}
+    return {k:v for k,v in (U.get(FR_LEVEL.get(full,"mid")) or U.get("mid") or {}).items() if k not in ("n","mpg","bpm")}
 def _fresh_est(short,name,depth,starter,position,height=None):
     pm=proj_mpg(depth,0,str(starter).lower() in ("true","t","1"))
     # a deep-bench newcomer still gets a sliver of the 200 (he used to be dropped under 5 mpg and showed blank)
@@ -1906,6 +1907,8 @@ for _sh,_fm in FRESH_FIT.items():
         _f["ovr"]=fr_ovr(_pr[0],_n(_f.get("mpg"),0)) if _pr[1]!="editor" else int(round(_pr[0]))
         _f["src"]=_pr[1]
         if _pr[2]: _f["rank"]=_pr[2]
+        _mt=FR_META.get((_sh,_nm))
+        if _mt: _f["grp"],_f["lv"]=_mt
         _rt=FR_RATES.get((_sh,_nm))
         if _rt: _f["r40"]={k:round(v,2) for k,v in _rt.items()}   # model per-40 line (tdc-proj.js frStatBase)
         _k=FR_EDIT_K.get((_sh,_nm),1.0)

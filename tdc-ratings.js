@@ -3,7 +3,9 @@
    Rating pipeline (2026-27):
      1. Every rostered player gets a projected BPM: last season's bbref BPM
         through the measured lag model (0.635 + 0.785·bpm) with a class bump,
-        or a grade proxy when no bbref row exists (freshmen, no-stat players).
+        or, with no D-I line (freshmen, newcomers), the first-year owned BPM of
+        players of his 247 rank / conference level at his projected minutes
+        (TDCProjGrade.frBpm). No overall enters the rating (owner rule, Oct 2026).
         Players marked out for the season are excluded.
      2. Projected minutes come from the SAME depth-chart-calibrated model as the
         team/player pages (TDCProjGrade.gradeRoster) — each player weighted by his
@@ -247,7 +249,7 @@
       fetch('scripts/data/shot_genome_players.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('data/continuity.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('scripts/data/level_adj.json').then(r=>r.ok?r.json():null).catch(()=>null),
-      fetch('scripts/data/team_eff.json?v=13').then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch('scripts/data/team_eff.json?v=14').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('scripts/data/scrim_trends_2027.json?v=6').then(r=>r.ok?r.json():null).catch(()=>null),
     ]);
     // PRESEASON SCRIMMAGES (build_scrim_trends.py): each team's Reality-weighted result vs our line,
@@ -356,11 +358,7 @@
         try{ const gr=TDCProjGrade.gradeRoster(roster); projMin=roster.map((p,i)=>(gr[i]&&isFinite(gr[i].min))?gr[i].min:null); }catch(e){}
       }
       let entries=roster.map((p,i)=>{
-        // no grade yet → the same number the site shows for him (editor OVR, stat overall, or 70 =
-        // a typical newcomer for an ungraded freshman/transfer, owner's call) — and he now keeps the
-        // minutes the build gave him instead of being dropped from the rotation
-        let grade=parseFloat(p.tdc_grade);
-        if(!isFinite(grade)){ let gs=null; try{ gs=(window.TDCProjGrade&&TDCProjGrade.gradeSolo)?TDCProjGrade.gradeSolo(p):null; }catch(e){} grade=(gs!=null&&isFinite(gs))?+gs:70; }
+        // (Oct 2026: no overall enters the rating — a player with no D-I line is valued by the first-year model)
         const c=cls(p.yr||p.class_year);
         const adv=p.espn_id!=null?advById[p.espn_id]:null;
         // TRANSFER: his 2025-26 team differs from his 2026-27 program, so the team-defense/
@@ -378,7 +376,7 @@
           deluck=Math.max(-SHOT_CAP, Math.min(SHOT_CAP, SHOT_REGRESS*SHOT_K*luckEfg));
           bpm=bpm-deluck;
         }
-        let projBpm=isFinite(bpm)?(0.635+0.785*bpm+(CLS_BUMP[c]||0)):((grade-77)*0.55-0.6);
+        let projBpm=isFinite(bpm)?(0.635+0.785*bpm+(CLS_BUMP[c]||0)):NaN;   // no D-I line → first-year model below, once his minutes are known
         // LEVEL-OF-COMPETITION discount: production earned against a weaker schedule doesn't
         // fully translate when a transfer steps UP a level. Regress projected BPM by the size
         // of the jump from his old team's Power Rating to his new team's (capped; no boost for
@@ -409,16 +407,26 @@
         const hasStats=(parseFloat(p.ppg)||0)>0;
         let min=(projMin&&projMin[i]!=null)?projMin[i]
                  :(hasStats?Math.max(4,(parseFloat(p.mpg)||8)*(isTr?0.95:1))
-                          :(grade>=92?26:grade>=88?22:grade>=82?15:grade>=78?10:6));
+                          :(()=>{ let bm=NaN; try{ bm=(window.TDCProjGrade&&TDCProjGrade.buildMin)?TDCProjGrade.buildMin(p):NaN; }catch(e){} return isFinite(bm)?bm:10; })());
         // a transfer's role at a new school is uncertain — cap his projected minutes bump
         if(!opts.minutes && isXfer && isFinite(min)){ const lm=parseFloat(p.mpg); if(isFinite(lm)) min=Math.min(min, lm+10); }
         // Owner's freshman projection: value him by his PROJECTED STATS (a BPM
         // computed from the projected box score) and projected minutes — the same
         // currency as returners — rather than the grade/OVR fallback.
+        let frEdit=0;
         if(_ovr){ const ov=(p.espn_id!=null&&_ovr.byEspn&&_ovr.byEspn[p.espn_id])?_ovr.byEspn[p.espn_id]
                     :(_ovr.byNameTeam&&_ovr.byNameTeam[((p.team||'')+'|'+(p.name||'')).toLowerCase()]);
-          if(ov){ if(ov.bpm!=null&&!isNaN(+ov.bpm)) projBpm=+ov.bpm;
-                  if(ov.min!=null&&!isNaN(+ov.min)) min=Math.max(4,+ov.min); } }
+          if(ov){ if(ov.min!=null&&!isNaN(+ov.min)) min=Math.max(4,+ov.min);
+                  // a returner's real BPM stands; a newcomer gets the editor's play-style EDITS on top of
+                  // the first-year model (bpm - bpm0, same estBPM scale) — never the editor's OVR
+                  if(!isFinite(projBpm)&&ov.bpm!=null&&ov.bpm0!=null&&isFinite(+ov.bpm-ov.bpm0)) frEdit=+ov.bpm-ov.bpm0; } }
+        // NEWCOMER (no D-I line): what first-year players of his rank / level produced, in owned BPM
+        // at his projected minutes (TDCProjGrade.frBpm, build_freshman_model.py) — not his overall
+        if(!isFinite(projBpm)){
+          let fb=NaN; try{ fb=(window.TDCProjGrade&&TDCProjGrade.frBpm)?TDCProjGrade.frBpm(p, min):NaN; }catch(e){}
+          projBpm=(isFinite(fb)?fb:-1.5)+frEdit;
+          if(isFinite(projBpm)&&projBpm>0&&levelDisc>0) projBpm*=(1-levelDisc);
+        }
         return {projBpm,min,luckEfg,hasSg:!!sg,
           usg:adv?adv.usg:NaN, pts40:adv?adv.pts40:NaN, ast:adv?adv.ast:NaN, stl:adv?adv.stl:NaN, blk:adv?adv.blk:NaN};
       });

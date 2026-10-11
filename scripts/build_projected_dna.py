@@ -2,7 +2,7 @@
 """build_projected_dna.py — apply the calibrated roster->team DNA model to the
 2026-27 rosters (players table) to produce each team's PROJECTED DNA + win-path,
 merged into team_dna.json under "2027" (projected:true). Returners/transfers use
-their Player DNA; freshmen get a fingerprint estimated from grade (per position
+their Player DNA; freshmen get a fingerprint built from the freshman model's projected line (per position
 group); tempo comes from the coach's pace profile."""
 import json, urllib.request, urllib.parse, pathlib, numpy as np
 from collections import defaultdict
@@ -72,6 +72,9 @@ for g in "GWB":
         xs=[float(p["tdc_grade"]) for p in pool if p.get(mt) is not None]; ys=[p[mt] for p in pool if p.get(mt) is not None]
         if len(xs)>20: FR[g][mt]=np.polyfit(xs,ys,1)
         else: FR[g][mt]=(0,float(np.mean(ys)) if ys else 0)
+# the neutral point for fresh_fp: the pool's mean grade, so the fallback fingerprint is the position
+# group's AVERAGE rotation player — a constant, never an individual's overall
+FR_NEUTRAL=float(np.mean([float(p["tdc_grade"]) for p in PD["2026"]["players"].values() if (p["mpg"] or 0)>=10 and p.get("tdc_grade")]))
 def fresh_fp(grade,group):
     fp={}
     for mt in FMET: a,b=FR[group][mt]; fp[mt]=a*grade+b
@@ -132,6 +135,20 @@ def box_to_fp(p, grp_, tempo):
     return {'efg':efg,'ts':ts,'tpa_rate':tpa_rate,'ftr':ftr,'tov_pct':tov_pct,'ast_pct':ast_pct,
             'orb_pct':orb_pct,'drb_pct':drb_pct,'stl_pct':stl_pct,'blk_pct':blk_pct,
             'bpm':obpm+dbpm,'obpm':obpm,'dbpm':dbpm,'usg':usg}
+# FIRST-YEAR BPM from history (build_freshman_model.py: every first D-I season 2013-26, by 247 rank /
+# conference level / position, at his projected minutes). box_to_fp's box regression has no team or
+# recruiting signal, so it read a top-5 recruit like a mid-major role player (Arkansas +20 -> +9 net);
+# the newcomer's fingerprint keeps the box line's shape but takes this BPM level (same as tdc-projgrade frBpm).
+try: _FRM=json.load(open(D/"freshman_model.json"))
+except Exception: _FRM=None
+def fresh_bpm(fr, grp_):
+    if not _FRM or not fr: return None
+    g=fr.get("grp") if fr.get("grp") in ("G","W","B") else (grp_ if grp_ in ("G","W","B") else "W")
+    m=max(0.0,min(36.0,float(fr.get("mpg") or 15.0))); rk=fr.get("rank")
+    if rk:
+        a,b,c=_FRM["ranked"][g]["bpm"]; return a+b*np.log(float(rk))+c*(m-20.0)
+    U=_FRM["unranked"][g]; lv=fr.get("lv") if fr.get("lv") in U else "mid"
+    return U[lv]["bpm"]+_FRM["unranked_bpm_mpg"][g]*(m-20.0)
 # player_dna lookup by espn_id (most recent season)
 def fp_by_espn(eid):
     for s in ["2026","2025","2024","2023"]:
@@ -205,16 +222,15 @@ except Exception: FRESH={}
 _FRK=("mpg","ppg","rpg","apg","stl","blk","oreb","dreb","tovs","fga","fgm","fta","ftm","tpa","tpm")
 _nfill=0
 for p in rows:
-    # ONLY players the loop below would otherwise drop: no stats, no grade, no projected OVR. A graded
-    # freshman keeps his grade fingerprint (filling him too moved established teams ~2 pts/100).
+    # every player with no D-I box line: his fingerprint is built from the freshman model's projected
+    # line (fresh_fit — 247 rank / level / position, build_freshman_model.py), NEVER from his grade
+    # (owner rule, Oct 2026: overalls are display only). A graded freshman used to keep a grade fingerprint.
     if p.get("ppg") not in (None,"") or p.get("fga") not in (None,""): continue
-    if p.get("tdc_grade") not in (None,""): continue
     if p.get("espn_id") not in (None,"") and str(p["espn_id"]) in SOP: continue
     fr=(FRESH.get(p.get("team")) or {}).get(p.get("name"))
     if not fr: continue
     for k in _FRK:
         if fr.get(k) is not None and p.get(k) in (None,""): p[k]=fr[k]
-    if fr.get("ovr") is not None: p["_fresh_ovr"]=fr["ovr"]
     _nfill+=1
 print(f"filled {_nfill} stat-less sheet players from fresh_fit.json")
 byteam=defaultdict(list)
@@ -269,9 +285,9 @@ for team,roster in byteam.items():
         # only used when a player has no projected line at all (a true unknown). A rotation player
         # whose grade never synced (Sheet->Supabase gap) still keeps their real Player-DNA
         # fingerprint. Skip only when there is NEITHER DNA, NOR a projected OVR, NOR a grade.
-        proj_ovr=(sp.get("ovr") if sp else p.get("_fresh_ovr"))
-        q=(float(proj_ovr) if proj_ovr not in (None,"")
-           else (float(g) if g not in (None,"") else None))
+        # no overall is used here: a newcomer with no usable line gets his position group's NEUTRAL
+        # newcomer fingerprint (the group mean), never one scaled by his grade
+        q=FR_NEUTRAL
         tempo=team_tempo(team)
         # Fingerprint priority: (1) real D1 Player DNA for returners/transfers; (2) for players
         # who NEVER played D1, build it from their hand-entered projected line so stat edits move
@@ -284,6 +300,10 @@ for team,roster in byteam.items():
             if fp is None:
                 if q is None: continue
                 fp=fresh_fp(q, grp_)
+            _fb=fresh_bpm((FRESH.get(team) or {}).get(p.get("name")), grp_) if not sp else None
+            if _fb is not None and fp.get("bpm") is not None:
+                _sh=_fb-fp["bpm"]; fp["bpm"]=_fb
+                fp["obpm"]=(fp.get("obpm") or 0)+0.5*_sh; fp["dbpm"]=(fp.get("dbpm") or 0)+0.5*_sh
         # Minutes: PROJECTED mpg LEADS — this is the 2026-27 projected DNA, so a player's weight
         # in the roster's efficiency must reflect his projected role, not last year's. Weighting by
         # recorded mpg buried transfer-starters (e.g. Bethea, 7.9 at Miami -> 29 as Pitt's SF) and
@@ -292,8 +312,8 @@ for team,roster in byteam.items():
         mp=sp.get("proj_mpg") if (sp and sp.get("proj_mpg") not in (None,"")) else None
         if mp in (None,""): mp=p.get("mpg")
         if mp in (None,""):
-            qq=q if q is not None else 77
-            mp=(26 if qq>=92 else 22 if qq>=88 else 16 if qq>=82 else 12 if qq>=78 else 9 if qq>=72 else 6)
+            _fr=(FRESH.get(team) or {}).get(p.get("name")) or {}
+            mp=_fr.get("mpg") if _fr.get("mpg") is not None else 9.0   # the build's minutes, else a bench role
         fp["mpg"]=float(mp)
         R.append(fp)
     F=rfeat(R, minn=5)   # projection is more permissive than the historical fit (6)
