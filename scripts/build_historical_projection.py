@@ -10,6 +10,7 @@ D=pathlib.Path(__file__).parent/"data"
 PD=json.load(open(D/"player_dna.json")); TD=json.load(open(D/"team_dna.json"))
 import sys; sys.path.insert(0,str(pathlib.Path(__file__).parent))
 from dna_carry import carry
+from level_translate import translate   # a transfer's fingerprint at his new league (level_translate.py)
 ALIAS={"Connecticut":"UConn Huskies","Brigham Young":"BYU Cougars","Louisiana State":"LSU Tigers",
  "Southern California":"USC Trojans","Texas Christian":"TCU Horned Frogs","Southern Methodist":"SMU Mustangs",
  "Virginia Commonwealth":"VCU Rams","Nevada-Las Vegas":"UNLV Rebels","Miami (FL)":"Miami Hurricanes"}
@@ -75,6 +76,8 @@ for y in sorted(int(s) for s in PD):
             if prior:
                 fp=carry({k:prior.get(k) for k in FMET}, prior.get("grp") or p.get("grp"))   # expected next-season (dna_carry.py)
                 fp["mpg"]=prior.get("mpg") or p.get("mpg") or 0
+                if prior.get("school") and prior.get("school")!=sch:   # a mover: his profile at the new team's league level
+                    translate(fp, TD, y-1, espn_key(prior["school"], TD.get(prev,{}).get("teams",{})), ek)
             else:
                 g=float(p["tdc_grade"]) if p.get("tdc_grade") else 72
                 fp=fresh_fp(g,p["grp"]); fp["mpg"]=p.get("mpg") or 8

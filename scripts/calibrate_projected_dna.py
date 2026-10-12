@@ -236,13 +236,17 @@ print(f'scale offsets O {offO:+.2f} D {offD:+.2f} over {len(common)} programs; c
 ROT = json.load(open(os.path.join(HERE, 'data', 'coach_rotation.json')))
 def _norm(x): return re.sub(r"[^a-z0-9&' ]", ' ', x.lower().replace('-', ' ')).replace('  ', ' ').strip()
 def cur_coach(full):
+    """the CURRENT head coach's slug. A team whose new coach has never been a D-I head coach is in coach_rotation with
+    slug None: that means NO coach history, not last season's coach. (Bug fixed Oct 12 2026: 22 teams were carrying
+    the departed coach's last two seasons — Saint Mary's ran on Randy Bennett's defense, UNC on Hubert Davis', NC State
+    on Will Wade's, Butler on Thad Matta's.) Only a program missing from coach_rotation falls back to last season."""
     fl = _norm(full); best = None
     for short, r in ROT.items():
-        if short.startswith('_') or not isinstance(r, dict) or not r.get('slug'): continue
+        if short.startswith('_') or not isinstance(r, dict): continue
         sl = _norm(short)
         if fl == sl or (fl.startswith(sl + ' ') and not _MARK.search(fl[len(sl) + 1:])):
-            if best is None or len(sl) > len(best[0]): best = (sl, r['slug'])
-    return best[1] if best else COACH_AT.get((int(LAST), full))   # fallback: last season's coach
+            if best is None or len(sl) > len(best[0]): best = (sl, r.get('slug'))
+    return best[1] if best else COACH_AT.get((int(LAST), full))   # not in coach_rotation at all: last season's coach
 # ── OWNER WEIGHTS (Sept 29 2026, final): "offense .85 and defense .70 and .30 of the coaches" ──────────
 # Each side = ROSTER share x the roster projection (first put on the real-results scale by a roster-only
 # fit, so a share means a share) + the rest x the coach's last two actual seasons (averaged). Replaces the

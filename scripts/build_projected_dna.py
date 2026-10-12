@@ -12,6 +12,7 @@ H={"apikey":K,"Authorization":"Bearer "+K}
 PD=json.load(open(D/"player_dna.json")); TD=json.load(open(D/"team_dna.json"))
 import sys as _sys; _sys.path.insert(0,str(pathlib.Path(__file__).parent))
 from dna_carry import carry
+from level_translate import translate   # a transfer's fingerprint at his new league (level_translate.py)
 # Projected 2026-27 per-player line (stats-derived OVR + projected minutes), keyed by espn_id.
 # Newcomers with no D1 Player DNA are fingerprinted from THIS (their projected stats), not from
 # the hand/display tdc_grade — a grade that disagrees with the projected line (e.g. a 90 on a
@@ -153,7 +154,7 @@ def fresh_bpm(fr, grp_):
 def fp_by_espn(eid):
     for s in ["2026","2025","2024","2023"]:
         p=PD.get(s,{}).get("players",{}).get(str(eid))
-        if p: return p
+        if p: p["_season"]=int(s); return p   # the season this fingerprint is from (its league, for level_translate)
     return None
 # coach pace per team: the REAL tempo (possessions/40, team_dna) of the teams the current coach
 # ran over the last PACE_YEARS seasons, recency-weighted, shrunk a little toward the D-I mean.
@@ -295,6 +296,9 @@ for team,roster in byteam.items():
         # usable projected line at all.
         if fp0:
             fp=carry(fp0, fp0.get("grp") or grp_)   # EXPECTED next-season fingerprint, not last season's raw one (dna_carry.py)
+            if fp0.get("school"):   # a transfer: translate his profile from last season's league to this team's
+                _fs=fp0.get("_season") or 2026
+                translate(fp, TD, _fs, espn_key(fp0["school"], TD.get(str(_fs),{}).get("teams",{})), SHORT2FULL.get(team.lower()) or espn_key(team, teams26))
         else:
             fp=box_to_fp(p, grp_, tempo)
             if fp is None:
