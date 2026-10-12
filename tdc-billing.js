@@ -80,9 +80,10 @@ window.TDC_BILLING = (function () {
       '<div class="kv"><span style="display:inline-flex;align-items:center">Plan <b style="margin-left:5px">' + esc(label) + '</b>' + badge + '</span>' + (when ? '<span>Renews <b>' + esc(when) + '</b></span>' : '') + '</div>' +
       '<div class="row"><button class="b primary manage" data-label="Manage subscription" onclick="TDC_BILLING.manage()">Manage subscription</button>' +
       '<button class="b manage" data-label="Switch plan" onclick="TDC_BILLING.manage()">Switch plan</button>' +
-      '<button class="b danger manage" data-label="Cancel" onclick="TDC_BILLING.manage()">Cancel</button></div>' +
+      '<button class="b danger manage" data-label="Cancel" onclick="TDC_BILLING.manage()">Cancel</button>' +
+      '<a class="b" href="refund.html#request">Request a refund</a></div>' +
       '<div class="msg"></div>' +
-      '<div class="note">Opens Stripe’s secure billing portal: cancel any time (you keep access to the end of the period), switch Premium ⇄ Pro or monthly ⇄ yearly, update your card, and download invoices.' + (plan === 'coach' ? ' Coach’s Tier is invoiced directly — email us for changes.' : '') + '</div></div>';
+      '<div class="note">Opens Stripe’s secure billing portal: cancel any time (you keep access to the end of the period), switch Premium ⇄ Pro or monthly ⇄ yearly, update your card, and download invoices. First purchases can be refunded within 14 days — <a href="refund.html" style="color:inherit;text-decoration:underline;">refund policy</a>.' + (plan === 'coach' ? ' Coach’s Tier is invoiced directly — email us for changes.' : '') + '</div></div>';
   }
   return { manage: manage, panel: panel, link: link, LINKS: LINKS };
 })();
