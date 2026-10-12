@@ -23,9 +23,8 @@
   var SHOTS = [['shots', 'Shot charts'], ['shotq', 'Shot quality']];
   var SUBS = { stats: STATS, shots: SHOTS };
   var COACH = [['customize', 'Lineup Lab', 'Lineups, minutes, live projections'], ['report', 'Roster report', 'Scouting breakdown of the roster']];
-  var TOOLS = [['scout.html', 'Opponent scouting', 'Scout any opponent'], ['self-scout.html', 'Self-scout', 'Your own tendencies'],
-    ['matchup.html', 'Matchup predictor', 'Project any game'], ['offense.html', 'Offensive profile', 'Scheme and shot diet'],
-    ['defense.html', 'Defensive profile', 'Coverages and rim protection'], ['moneyball.html', 'Moneyball', 'Roster value'],
+  var TOOLS = [['team-report.html', 'Team Report', 'Every chart on one page'],
+    ['matchup.html', 'Matchup predictor', 'Project any game'], ['moneyball.html', 'Moneyball', 'Roster value'],
     ['roster-dev.html', 'Roster development', "Who's trending up"]];
 
   var CSS = [

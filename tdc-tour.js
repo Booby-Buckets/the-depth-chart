@@ -285,26 +285,7 @@
       { sel:'#grid', t:'The hubs', d:'Flagship tools first, deeper dives folded underneath each one. "Open →" launches the tool with your team loaded.' }
     ],
 
-    'scout.html': [
-      { sel:'#selMe', t:'Opponent Scouting Report', d:'Pick your team and the opponent. The season switcher scouts any past season too — useful for a rematch.' },
-      { sel:'#scoutStyle', t:'Their identity', html:'How the opponent plays, each number as a national percentile:' + bl(G.tempo, G.ff, G.ortg) },
-      { sel:'#scoutScorers', t:'Their personnel', d:'Who scores and how: each player\'s projected line, his usage (the share of the offense that runs through him), his shot diet and where he is vulnerable defensively.' },
-      { sel:'#scoutShotHost', t:'Where they shoot from', d:'The team shot chart: the spots they live on and the spots they avoid. The zone strip shows how far above or below the national average they shoot from each area.' },
-      { sel:'#scoutShotProfile', t:'Shot profile', d:'The share of their shots at the rim, from mid-range and from three, and how efficient they are from each — where their points actually come from.' },
-      { sel:'#scoutAttack', t:'Attack & neutralize', d:'The prep cards. "Attack" lists what the numbers say they are weak at — turnovers under pressure, defending the three, rebounding. "Neutralize" lists what they do best. They are observations for your staff to turn into a plan, not a play call.' },
-      { sel:'#scoutGuardPlan', t:'Guarding their scorers', d:'For each of their main scorers: how he gets his points and which of your players project best against that style.' },
-      { sel:'#scoutSituational', t:'Situations', d:'How they behave in close games, when they get out in transition, when the pace slows, in foul trouble — the situational identifiers built from twenty seasons of play-by-play.' },
-      { sel:'#scoutMarch', t:'March profile', d:'Whether their statistical profile is the kind that holds up in the tournament or the kind that falls early.' },
-      { sel:'#keyMatchups', t:'Key matchups', d:'Player-on-player at each spot: the projected edge, and why.' }
-    ],
 
-    'self-scout.html': [
-      { sel:'#sel', t:'Self-Scout', d:'Pick your program. This is your own team seen the way an opposing analyst would see it.' },
-      { sel:'#ssZoneHost', t:'Where you score', d:'Your projected shot zones — the share of your offense at the rim, from mid-range and from three, and how efficient each is. This is what an opponent will try to take away.' },
-      { sel:'#ssRotHost', t:'Rotation', d:'Projected minutes and roles for every player, and where the rotation gets thin — the first place foul trouble or an injury hurts.' },
-      { sel:'#ssLineupHost', t:'Lineups', d:'Your best five-man units by projected net rating, and the combinations to avoid.' },
-      { sel:'#ssTeamSit', t:'Exposures', d:'The situations and matchups that expose you — pace, pressure, size — found before an opponent finds them.' }
-    ],
 
     'matchup.html': [
       { sel:'#selA', t:'Projected Game Plan', d:'Pick both teams. The season switcher runs past matchups with the real rosters of that year.' },
@@ -330,15 +311,7 @@
       { sel:'#out', t:'The autopsy', html:'A four-factor review of one game:' + bl(G.ff, 'Which factors you won and lost, against what the two teams usually do — the difference between "we shot badly" and "we got worse shots than usual".', 'What it says about the next game.') }
     ],
 
-    'offense.html': [
-      { sel:'#sel', t:'Offensive Profile', d:'Pick any program.' },
-      { sel:'#out', t:'The profile', html:bl('<b>Coach identity</b> — how his offenses have played, historically.', '<b>Projected offensive DNA</b> — ' + G.ortg, 'Shot diet by zone (rim, mid-range, three) and by type (catch-and-shoot, off the dribble), and who carries each piece of it.') }
-    ],
 
-    'defense.html': [
-      { sel:'#sel', t:'Defensive Profile', d:'Pick any program.' },
-      { sel:'#out', t:'The profile', html:bl('<b>Projected defensive four factors</b> — opponents\' shooting, turnovers forced, defensive rebounding, fouls.', '<b>Rim protection</b> — who protects the rim (blocks, opponent finishing with him on the floor).', '<b>Who can be attacked</b> — the defenders opponents have scored on most efficiently.') }
-    ],
 
     'roles.html': [
       { sel:'#sel', t:'Personnel Book', d:'Pick any program.' },
