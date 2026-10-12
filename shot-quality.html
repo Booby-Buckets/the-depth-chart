@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="tdc-loading.js?v=4"></script>
+  <link rel="stylesheet" href="tdc-a11y.css?v=3">
+  <script src="tdc-a11y.js?v=2" defer></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Shot Quality — The Depth Chart</title>
+  <meta name="description" content="Shot quality and shot-making for every D-I player and team since 2009-10: the points per shot a shot diet should score, and how much better or worse they actually converted.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Depth Chart">
+  <meta property="og:title" content="Shot Quality — The Depth Chart">
+  <meta property="og:description" content="Who gets the best looks and who makes the most of them: shot quality and shot-making for every D-I player and team since 2009-10.">
+  <meta property="og:url" content="https://www.thedepthchartcbb.com/shot-quality.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <script src="tdc-theme.js?v=5"></script>
+  <script src="auth.js?v=delacct1"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="team-colors.js?v=11"></script>
+  <script src="tdc-teamname.js?v=1"></script>
+  <style>
+    /* dots: gold = above D-I on both, blue = below on both, grey = mixed (validated gold/blue pair) */
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--pos:#B07D17;--neg:#2F7FC1;--mix:#A9A496;--grid:#E3DFD4;}
+    [data-theme="dark"]{--bg:#0A0E18;--bg2:#111726;--bg3:#1A2133;--border:#232B3E;--border2:#34405A;--text:#EEF1F7;--text2:#AEB6C8;--text3:#7A849A;--accent:#E6D5A8;--pos:#B8862A;--neg:#3A8BCB;--mix:#5B6478;--grid:#1E2638;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html,body{background:var(--bg);}
+    body{color:var(--text);font-family:'Inter',system-ui,sans-serif;font-weight:500;min-height:100vh;}
+    .page{padding:30px 0 60px;}
+    .eyebrow{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--text2);margin-bottom:6px;}
+    h1{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:44px;letter-spacing:-.02em;line-height:1.05;margin-bottom:18px;}
+    .filters{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;border-top:1px solid var(--border2);padding-top:16px;}
+    @media(max-width:960px){.filters{grid-template-columns:1fr 1fr;}}
+    .filters label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700;color:var(--text2);}
+    .filters select{font:600 15px Inter,system-ui,sans-serif;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg2);color:var(--text);min-width:0;}
+    .sample{font-size:13px;color:var(--text3);margin:12px 0 14px;} .sample b{color:var(--text2);}
+    .wrap{position:relative;}
+    svg.sq{width:100%;height:auto;display:block;}
+    svg.sq text{font-family:Inter,system-ui,sans-serif;}
+    .key{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text2);margin:6px 0 4px;} .key i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:6px;vertical-align:-1px;}
+    .tip{position:fixed;z-index:50;pointer-events:none;background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:8px 10px;font-size:12.5px;line-height:1.45;color:var(--text2);box-shadow:0 6px 18px rgba(0,0,0,.18);max-width:260px;display:none;} .tip b{color:var(--text);}
+    h2{font-family:'Playfair Display',Georgia,serif;font-size:24px;font-weight:800;margin:28px 0 10px;}
+    .sheet th{cursor:pointer;} .sheet td a{color:var(--text);text-decoration:none;font-weight:700;} .sheet td a:hover{text-decoration:underline;}
+    .sheet td.pos{color:var(--pos);} .sheet td.neg{color:var(--neg);}
+    .empty{padding:26px;text-align:center;color:var(--text3);border:1px dashed var(--border2);border-radius:12px;font-size:13px;}
+    @media(max-width:640px){ h1{font-size:32px;} }
+  </style>
+  <link rel="stylesheet" href="tdc-skin.css?v=14"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+  <link rel="stylesheet" href="tdc-column.css?v=4"/>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script src="tdc-pwa.js?v=2" defer></script>
+</head>
+<body>
+<script src="tdc-nav.js?v=72"></script>
+<div class="page">
+  <div class="eyebrow">D-I · Shot quality</div>
+  <h1>Who gets the best looks, and who makes them?</h1>
+  <div class="filters">
+    <label>View<select id="fView"><option value="player">Players</option><option value="team">Team offense</option><option value="teamdef">Team defense</option></select></label>
+    <label>Season<select id="fSeason"></select></label>
+    <label>Conference<select id="fConf"><option value="">All conferences</option></select></label>
+    <label id="lPos">Position<select id="fPos"><option value="">All positions</option><option value="G">Guards</option><option value="F">Forwards</option><option value="C">Centers</option></select></label>
+    <label id="lMin">Minimum minutes<select id="fMin"><option value="300">300+</option><option value="500" selected>500+</option><option value="800">800+</option></select></label>
+  </div>
+  <div class="sample" id="sample">Loading every shot since 2009-10…</div>
+  <div class="key" id="key"></div>
+  <div class="wrap" id="chart"><div class="empty">Loading…</div></div>
+  <h2 id="tblH">Leaderboard</h2>
+  <div id="tbl"></div>
+</div>
+<div class="tip" id="tip"></div>
+<script>
+(function(){
+  const URLS={player:'scripts/data/shot_aftermath/twin_pool.json?v=2', team:'scripts/data/shot_aftermath/team_twin_pool.json?v=3', teamdef:'scripts/data/shot_aftermath/team_def_twin_pool.json?v=2'};
+  const S={view:'player',season:2026,conf:'',pos:'',min:500,sort:'smk',asc:false};
+  const POOLS={}; let TEAMCONF={};
+  const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const sl=y=>(y-1)+'–'+String(y).slice(2);
+  const sh=t=>{ try{ return (window.TDCTeamName&&TDCTeamName.short)?TDCTeamName.short(t):t; }catch(e){ return t; } };
+  const sg=(v,d)=>v==null?'—':(v>=0?'+':'')+v.toFixed(d==null?3:d);
+  const load=k=>POOLS[k]||(POOLS[k]=fetch(URLS[k]).then(r=>r.ok?r.json():null).catch(()=>null));
+  function rows(P){
+    const C={}; P.cols.forEach((c,i)=>C[c]=i);
+    const lx=(P.seasons[S.season]||{}).xpps, isT=S.view!=='player', out=[];
+    P.rows.forEach(r=>{
+      if(r[1]!==S.season||r[C.xpps]==null) return;
+      const conf=isT?r[3]:(TEAMCONF[r[3]]||'');
+      if(S.conf&&conf!==S.conf) return;
+      if(!isT&&S.pos&&r[4]!==S.pos) return;
+      if(!isT&&r[C.min]<S.min) return;
+      const q=r[C.xpps]-lx, m=r[C.smk];
+      out.push({id:r[0], name:isT?sh(r[2]):r[2], team:isT?'':sh(r[3]), conf, pos:r[4], min:r[C.min], q, x:r[C.xpps], m, pps:r[C.xpps]+m, p100:r[C.pts100], ts:r[C.ts]});
+    });
+    return {list:out, lx};
+  }
+  const dotCol=d=>(S.view==='teamdef'?(-d.q>=0&&-d.m>=0):(d.q>=0&&d.m>=0))?'var(--pos)':(S.view==='teamdef'?(-d.q<0&&-d.m<0):(d.q<0&&d.m<0))?'var(--neg)':'var(--mix)';
+  function chart(list, lx){
+    if(!list.length){ document.getElementById('chart').innerHTML='<div class="empty">No one matches these filters.</div>'; return; }
+    const W=1100,H=560,L=64,R=24,T=24,B=48, qs=list.map(d=>d.q), ms=list.map(d=>d.m);
+    const ext=a=>Math.max(...a.map(Math.abs))*1.08||0.05;   // everyone fits: no dot pinned to an edge
+    const qm=ext(qs), mm=ext(ms);
+    const X=v=>L+(Math.max(-qm,Math.min(qm,v))+qm)/(2*qm)*(W-L-R), Y=v=>T+(1-(Math.max(-mm,Math.min(mm,v))+mm)/(2*mm))*(H-T-B);
+    const def=S.view==='teamdef';
+    const big=list.length<=400, r0=big?6:3.4;
+    let g=`<rect x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}" fill="none" stroke="var(--grid)"/>`+
+      `<line x1="${X(0)}" x2="${X(0)}" y1="${T}" y2="${H-B}" stroke="var(--text3)" stroke-width="1"/><line x1="${L}" x2="${W-R}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--text3)" stroke-width="1"/>`;
+    const ql=def?['Tough looks forced, opponents make','Good looks allowed, opponents make','Tough looks forced, opponents miss','Good looks allowed, opponents miss']:['Tough looks, makes them','Good looks, makes them','Tough looks, misses','Good looks, misses'];
+    g+=`<text x="${L+8}" y="${T+16}" font-size="12" font-weight="700" fill="var(--text3)">${ql[0]}</text><text x="${W-R-8}" y="${T+16}" font-size="12" font-weight="700" fill="var(--text3)" text-anchor="end">${ql[1]}</text>`+
+       `<text x="${L+8}" y="${H-B-8}" font-size="12" font-weight="700" fill="var(--text3)">${ql[2]}</text><text x="${W-R-8}" y="${H-B-8}" font-size="12" font-weight="700" fill="var(--text3)" text-anchor="end">${ql[3]}</text>`;
+    [-qm/2,0,qm/2].forEach(v=>{ g+=`<text x="${X(v)}" y="${H-B+18}" font-size="11" fill="var(--text3)" text-anchor="middle">${sg(v)}</text>`; });
+    [-mm/2,0,mm/2].forEach(v=>{ g+=`<text x="${L-8}" y="${Y(v)+4}" font-size="11" fill="var(--text3)" text-anchor="end">${sg(v)}</text>`; });
+    g+=`<text x="${(L+W-R)/2}" y="${H-8}" font-size="12.5" font-weight="700" fill="var(--text2)" text-anchor="middle">${def?'Shot quality allowed':'Shot quality'} vs D-I (expected points per shot from where the shots come from) →</text>`+
+       `<text transform="translate(16,${(T+H-B)/2}) rotate(-90)" font-size="12.5" font-weight="700" fill="var(--text2)" text-anchor="middle">${def?'Opponent shot-making':'Shot-making'} (points per shot above expected) →</text>`;
+    // label the standouts: the most extreme on each axis
+    const lab=new Set(); [...list].sort((a,b)=>b.m-a.m).slice(0,4).forEach(d=>lab.add(d)); [...list].sort((a,b)=>b.q-a.q).slice(0,3).forEach(d=>lab.add(d)); [...list].sort((a,b)=>a.m-b.m).slice(0,2).forEach(d=>lab.add(d));
+    list.forEach((d,i)=>{ g+=`<circle data-i="${i}" cx="${X(d.q).toFixed(1)}" cy="${Y(d.m).toFixed(1)}" r="${r0}" fill="${dotCol(d)}" fill-opacity="${big?0.85:0.6}" stroke="var(--bg)" stroke-width="${big?1.5:0.6}"/>`; });
+    // name the standouts, skipping any label that would overlap one already placed (or a quadrant caption)
+    const placed=[[L+4,T+4,250,16],[W-R-250,T+4,250,16],[L+4,H-B-20,250,16],[W-R-250,H-B-20,250,16]];
+    lab.forEach(d=>{ const x=X(d.q), y=Y(d.m), right=x>W-220, w=d.name.length*6.6+6, bx=right?x-9-w:x+9, by=y-8;
+      if(placed.some(p=>bx<p[0]+p[2]&&bx+w>p[0]&&by<p[1]+p[3]&&by+14>p[1])) return;
+      placed.push([bx,by,w,14]);
+      g+=`<text x="${x+(right?-9:9)}" y="${y+4}" font-size="11.5" font-weight="700" fill="var(--text)" text-anchor="${right?'end':'start'}" paint-order="stroke" stroke="var(--bg)" stroke-width="3">${esc(d.name)}</text>`; });
+    const host=document.getElementById('chart');
+    host.innerHTML=`<svg class="sq" viewBox="0 0 ${W} ${H}" role="img" aria-label="Shot quality vs shot-making">${g}</svg>`;
+    const tip=document.getElementById('tip');
+    host.querySelectorAll('circle').forEach(c=>{ c.onmousemove=e=>{ const d=list[+c.getAttribute('data-i')];
+      tip.innerHTML=`<b>${esc(d.name)}</b>${d.team?' · '+esc(d.team):''} · ${sl(S.season)}<br>Shot quality <b>${d.x.toFixed(3)}</b> (${sg(d.q)} vs D-I ${lx.toFixed(3)})<br>Shot-making <b>${sg(d.m)}</b> per shot · ${d.pps.toFixed(3)} actual points per shot`;
+      tip.style.display='block'; tip.style.left=Math.min(innerWidth-tip.offsetWidth-10,e.clientX+14)+'px'; tip.style.top=(e.clientY+14)+'px'; };
+      c.onmouseleave=()=>{ tip.style.display='none'; }; });
+  }
+  function table(list){
+    const isT=S.view!=='player', def=S.view==='teamdef';
+    const s=list.slice().sort((a,b)=>{ const x=a[S.sort], y=b[S.sort]; if(typeof x==='string') return x.localeCompare(y)*(S.asc?1:-1); return ((x==null?-9:x)-(y==null?-9:y))*(S.asc?1:-1); });
+    const th=(k,l,c)=>`<th class="${c||''}" data-k="${k}">${l}${S.sort===k?(S.asc?' ▲':' ▼'):''}</th>`;
+    const cls=v=>v==null?'':(def?(v<=0?'pos':'neg'):(v>=0?'pos':'neg'));
+    const link=d=>isT?`<a href="team.html?team=${encodeURIComponent(d.name)}">${esc(d.name)}</a>`:`<a href="player.html?espn=${esc(d.id)}&name=${encodeURIComponent(d.name||'')}">${esc(d.name)}</a>`;
+    document.getElementById('tbl').innerHTML=`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th>${th('name',isT?'Team':'Player','l')}${isT?'':th('team','Team','l')}${th('conf','Conf','l')}${isT?th('min','Possessions'):th('min','Min')}${th('x',def?'Shot quality allowed':'Shot quality')}${th('q','vs D-I')}${th('m',def?'Opp. shot-making':'Shot-making')}${th('pps',def?'Opp. pts / shot':'Pts / shot')}${th('p100',def?'Pts / 100 allowed':'Pts / 100')}</tr></thead><tbody>${
+      s.slice(0,300).map((d,i)=>`<tr><td class="l">${i+1}</td><td class="l">${link(d)}</td>${isT?'':`<td class="l">${esc(d.team)}</td>`}<td class="l">${esc(d.conf)}</td><td>${(+d.min).toLocaleString()}</td><td>${d.x.toFixed(3)}</td><td class="${cls(d.q)}">${sg(d.q)}</td><td class="${cls(d.m)}"><b>${sg(d.m)}</b></td><td>${d.pps.toFixed(3)}</td><td>${d.p100}</td></tr>`).join('')}</tbody></table></div>`;
+    document.querySelectorAll('#tbl th[data-k]').forEach(h=>h.onclick=()=>{ const k=h.getAttribute('data-k'); if(S.sort===k) S.asc=!S.asc; else { S.sort=k; S.asc=(k==='name'||k==='team'||k==='conf')||(def&&(k==='m'||k==='q'||k==='x'||k==='pps'||k==='p100')); } render(); });
+  }
+  async function render(){
+    const P=await load(S.view); if(!P){ document.getElementById('chart').innerHTML='<div class="empty">Could not load the data.</div>'; return; }
+    if(S.view==='player'&&!Object.keys(TEAMCONF).length){ const T=await load('team'); if(T){ const C={}; T.cols.forEach((c,i)=>C[c]=i); T.rows.forEach(r=>{ TEAMCONF[r[2]]=r[3]; }); } }
+    const ys=Object.keys(P.seasons).map(Number).sort((a,b)=>b-a), fS=document.getElementById('fSeason');
+    if(fS.options.length!==ys.length){ fS.innerHTML=ys.map(y=>`<option value="${y}">${sl(y)}</option>`).join(''); }
+    fS.value=S.season;
+    const {list,lx}=rows(P);
+    const confs=[...new Set(P.rows.filter(r=>r[1]===S.season).map(r=>S.view==='player'?(TEAMCONF[r[3]]||''):r[3]).filter(Boolean))].sort();
+    const fC=document.getElementById('fConf'); fC.innerHTML='<option value="">All conferences</option>'+confs.map(c=>`<option>${esc(c)}</option>`).join(''); fC.value=S.conf;
+    document.getElementById('lPos').style.display=document.getElementById('lMin').style.display=S.view==='player'?'':'none';
+    const what=S.view==='player'?'players':S.view==='team'?'team offenses':'team defenses';
+    document.getElementById('sample').innerHTML=`<b>${sl(S.season)}</b> · ${list.length.toLocaleString()} ${what} · D-I shot quality <b>${lx!=null?lx.toFixed(3):'—'}</b> points per shot (rim, midrange and three at the D-I make rate)`;
+    document.getElementById('key').innerHTML=S.view==='teamdef'
+      ?`<span><i style="background:var(--pos)"></i>Forces tough looks and opponents miss</span><span><i style="background:var(--neg)"></i>Allows good looks and opponents make</span><span><i style="background:var(--mix)"></i>Mixed</span>`
+      :`<span><i style="background:var(--pos)"></i>Good looks and makes them</span><span><i style="background:var(--neg)"></i>Tough looks and misses</span><span><i style="background:var(--mix)"></i>Mixed</span>`;
+    document.getElementById('tblH').textContent=S.view==='player'?'Every player':S.view==='team'?'Every team offense':'Every team defense';
+    chart(list,lx); table(list);
+  }
+  const bind=(id,k,num)=>{ document.getElementById(id).onchange=e=>{ S[k]=num?+e.target.value:e.target.value; if(k==='view'){ S.conf=''; S.sort='m'; S.asc=S.view==='teamdef'; } render(); }; };
+  bind('fView','view'); bind('fSeason','season',true); bind('fConf','conf'); bind('fPos','pos'); bind('fMin','min',true);
+  S.sort='m';
+  render();
+})();
+</script>
+<script src="tdc-version.js?v=2"></script>
+<script src="tdc-sheets.js?v=2"></script>
+</body>
+</html>

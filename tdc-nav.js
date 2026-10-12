@@ -46,6 +46,7 @@
       ['crunch.html',                   'Crunch-Time Takeovers'],
       ['shot-aftermath.html',           'Shot Aftermath'],
       ['game-situations.html',          'Game Situations'],
+      ['shot-quality.html',             'Shot Quality'],
       ['plays.html',                    'Play Finder'],
       ['wowy.html',                     'WOWY Lineups / On-Off'],
       ['statshift.html',                'Stat Line Shift'],
