@@ -38,7 +38,7 @@
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  const SEASON=2027, LS_KEY='tdc_ratings_v23_'+SEASON, TTL=24*3600*1000;
+  const SEASON=2027, LS_KEY='tdc_ratings_v24_'+SEASON, TTL=24*3600*1000;
   // in-season form: once 2026-27 games are played, each team's rating drifts
   // toward how it's ACTUALLY performing vs our own lines. surprise = actual
   // margin - expected margin, each game clipped to ±FORM_CLIP; form = sum(surprise)/(n + FORM_PRIOR)
@@ -300,6 +300,16 @@
     // rosters (scaled by the value each player brings) and leaves modest mid-major teams alone.
     // Above the high-major line (top 7 leagues: Big 12…Pac-12) the gap is 0 → power teams untouched.
     const CONF_STR=(levelData&&levelData.conf_strength)||{}, TEAM_CONF=(levelData&&levelData.team_conf)||{};
+    // LEAGUE STRENGTH (owner, Oct 12 2026: "try and build the league strength adjustment"). Our roster projections read
+    // box scores at face value, so teams from strong leagues beat them (+1.0 pts/100, top 20% of leagues) and weak-league
+    // teams fall short (−0.6). On the 80/20 blend, leave-one-season-out 2008-26 (5,019 team-seasons): net MAE 3.312 ->
+    // 3.275, better in 16 of 19 seasons, with the league's 5-season average Power Rating (level_adj.json, the same file
+    // the player projection's competition discount uses). It REPLACES the long-run level / faded league terms (with it
+    // they add nothing: 3.277). Per point of league strength above the D-I average, applied to every projected team.
+    const LEAGUE_K=0.0796;
+    const _lgV=Object.keys(TEAM_CONF).map(t=>CONF_STR[TEAM_CONF[t]]).filter(v=>isFinite(v));
+    const LEAGUE_MEAN=_lgV.length?_lgV.reduce((a,b)=>a+b,0)/_lgV.length:0;
+    const leagueAdjOf=full=>{ const c=TEAM_CONF[full], v=(c!=null)?CONF_STR[c]:null; return (v!=null&&isFinite(v))?+(LEAGUE_K*(v-LEAGUE_MEAN)).toFixed(2):0; };
     const LEVEL_HM=19.5, LEVEL_BPM_K=0.05, LEVEL_BPM_MAX=0.45;   // high-major line; per-SRS-gap haircut; cap
     // proven-elite exception: a mid-major whose OWN schedule-adjusted prior clears this line has
     // earned its level (SRS already adjusts for schedule) — taper its discount toward FLOOR so an
@@ -515,12 +525,13 @@
       // (strength-of-competition now regresses the roster BPM per-player above, so no flat team tax)
       const scrimAdj=(!opts.noProgram&&scrimOf[full]&&isFinite(+scrimOf[full].adj))?+scrimOf[full].adj:0;
       const prog=(prior!=null)?programOf(full, PROG_YRS):null;
-      const progAdj=opts.noProgram?0:progAdjOf(full);
+      const progAdj=0;                                         // long-run level terms retired: the league term replaces them
+      const leagueAdj=opts.noProgram?0:leagueAdjOf(full);
       const rating=(((prog!=null)?((1-PROG_W)*rosterRating+PROG_W*prog)
-                                 :rosterRating) + cAdj + contAdj + progAdj) - scePen + scrimAdj;
+                                 :rosterRating) + cAdj + contAdj + progAdj + leagueAdj) - scePen + scrimAdj;
       (opts.scratch?(_scratch.length=0,_scratch):rows).push({team:short, full, conf:confOf[short]||'', rating:+rating.toFixed(2), coachAdj:cAdj,
         contAdj:contAdj, continuity:cont, scrimAdj:scrimAdj||0,
-        roster:+rosterRating.toFixed(2), prior:prior!=null?+prior.toFixed(1):null, program:prog!=null?+prog.toFixed(1):null, progAdj:progAdj, projected:true,
+        roster:+rosterRating.toFixed(2), prior:prior!=null?+prior.toFixed(1):null, program:prog!=null?+prog.toFixed(1):null, progAdj:progAdj, leagueAdj:leagueAdj, projected:true,
         scePen:scePen||0, levelDisc:+levelDisc.toFixed(3), shotLuck:shotLuck, hcaOff:hcaOf[full]!=null?hcaOf[full]:0,
         mw:+mw.toFixed(3), entries:opts.detail?roster.map((p,i)=>({name:p.name, min:entries[i].min, projBpm:entries[i].projBpm})):undefined});
       return opts.scratch?_scratch[0]:rows[rows.length-1];
