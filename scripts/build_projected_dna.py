@@ -340,6 +340,12 @@ for team,roster in byteam.items():
 # on offense while its adjusted net is mid-pack). Rebuild o/d from net + a damped
 # run-and-gun level around a realistic baseline so ORtg - DRtg == net for every
 # consumer of the projected DNA (homepage, team/offense/defense/matchup pages…).
+# keep the models' RAW outputs: the calibration (calibrate_projected_dna.py) learned on raw historical projections
+# (build_historical_projection.py never reconciles), and the 50/50 split below credits half of a net-vs-(o-d) gap to
+# DEFENSE — a weak raw offense with a good BPM net made Saint Mary's (raw DRtg 104.8, average) the #1 defense.
+for t in proj.values():
+    for k in ("ORtg","DRtg","net"):
+        if k in t: t[k+"_raw"]=t[k]
 _pool=[t for t in proj.values() if all(k in t for k in ("ORtg","DRtg","net"))]
 if _pool:
     _mid=sum((t["ORtg"]+t["DRtg"])/2 for t in _pool)/len(_pool)

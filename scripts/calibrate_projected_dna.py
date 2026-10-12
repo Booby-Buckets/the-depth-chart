@@ -226,7 +226,8 @@ for (side, h), (c, r, n) in M.items():
 P27 = TD[PROJ]['teams']
 for t in P27.values():                                  # keep the roster numbers; always calibrate from them
     for k in ('ORtg', 'DRtg', 'net'):
-        if f'{k}_roster' not in t and t.get(k) is not None: t[f'{k}_roster'] = t[k]
+        # the RAW model outputs (before build_projected_dna's display reconcile), like the history it learned on
+        if f'{k}_roster' not in t and t.get(f'{k}_raw', t.get(k)) is not None: t[f'{k}_roster'] = t.get(f'{k}_raw', t[k])
 common = [k for k in P27 if k in HP.get(LAST, {}) and P27[k].get('ORtg_roster') is not None]
 if len(common) < 40: raise SystemExit(f'only {len(common)} programs overlap the historical projection — refusing to write')
 offO = float(np.mean([P27[k]['ORtg_roster'] - HP[LAST][k]['ORtg'] for k in common]))

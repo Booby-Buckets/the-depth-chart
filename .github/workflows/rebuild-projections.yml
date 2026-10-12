@@ -57,7 +57,9 @@ jobs:
       # Supabase first (self-contained, anon key, stdlib only). Without this build_projected_dna.py
       # crashes on a missing file, which is why every prior run failed.
       - name: Build player DNA (roster fingerprints)
-        run: python3 scripts/build_player_dna.py
+        # 2023-26: the 2026-27 build falls back to a player's last season played (sat out 2025-26: Myles Che, Jazz Gardner);
+        # with 2026 only those players were rebuilt as unknown newcomers (Saint Mary's offense 106.7 -> 99.0, Oct 12 2026)
+        run: python3 scripts/build_player_dna.py 2023 2024 2025 2026
 
       - name: Rebuild projected DNA from live rosters
         run: python3 scripts/build_projected_dna.py

@@ -31,6 +31,10 @@ def _fit():
     """{grp: {stat: (slope, intercept)}} from same-school returners in consecutive seasons"""
     global _FIT
     if _FIT is not None: return _FIT
+    import sys
+    if FIT_FILE.exists() and "--write" not in sys.argv:   # the saved all-seasons fit always wins: CI's player_dna holds only
+        _FIT = {g: {k: tuple(v) for k, v in d.items()} for g, d in json.load(open(FIT_FILE))["fit"].items()}   # a few seasons
+        return _FIT
     PD = json.load(open(_D / "player_dna.json"))
     ss = sorted(s for s in PD if s.isdigit())
     xs = {g: {k: [] for k in STATS} for g in "GWB"}; ys = {g: {k: [] for k in STATS} for g in "GWB"}
