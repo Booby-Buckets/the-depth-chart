@@ -18,7 +18,7 @@ Pipeline:
 
 Read-only vs the DB. Writes scripts/data/stat_overall_projected.json.
 """
-import sys, json, os, math, re
+import sys, json, os, math, re, time
 import numpy as np, pandas as pd
 import urllib.request
 from scipy.stats import norm
@@ -197,7 +197,12 @@ def sb_get(path):
     out,off=[],0
     while True:
         url=f"{SB}/rest/v1/{path}"+("&" if "?" in path else "?")+f"limit=1000&offset={off}{order}"
-        ch=json.load(urllib.request.urlopen(urllib.request.Request(url,headers=H))); out+=ch
+        for _try in range(4):   # a transient 500 / statement timeout must not throw away a whole pull
+            try: ch=json.load(urllib.request.urlopen(urllib.request.Request(url,headers=H),timeout=60)); break
+            except Exception:
+                if _try==3: raise
+                time.sleep(1.5*(_try+1))
+        out+=ch
         if len(ch)<1000: break
         off+=1000
     return out
@@ -642,21 +647,29 @@ except Exception as _e:
 # (last season ~ REAL_PRIOR games of evidence about this one), minutes REAL_MIN_PRIOR, up to REAL_CAP.
 # REAL_SEASON / REAL_TO let a test replay an old season's opening weeks.
 REAL_SEASON=int(os.environ.get("REAL_SEASON","2027")); REAL_TO=os.environ.get("REAL_TO")
-REAL_PRIOR=float(os.environ.get("REAL_PRIOR","10")); REAL_MIN_PRIOR=float(os.environ.get("REAL_MIN_PRIOR","4"))
-REAL_CAP=float(os.environ.get("REAL_CAP","0.9"))
+# Owner, Oct 12 2026: "make the real game projections move less as well" (future averages should change after real
+# games, but not swing a stat a lot). Was 10 / 4 / 0.9 with a 4-game floor: 10 games = half weight, a thin-history
+# player's first few games swung him hard. Now rates 25 games to half weight (8-game floor), minutes 15, cap 0.75.
+# Replay of 2025-26 through Dec 15 (~10 games), players 10+ mpg, change vs no real games (median / p90 / max):
+#   PPG old .7 / 2.5 / 9.0 -> .4 / 1.4 / 5.5;  MPG 1.3 / 6.1 / 20.5 -> .7 / 3.3 / 11.8;  RPG .3 / 1.1 / 6.8 -> .2 / .6 / 4.1
+REAL_PRIOR=float(os.environ.get("REAL_PRIOR","25")); REAL_MIN_PRIOR=float(os.environ.get("REAL_MIN_PRIOR","15"))
+REAL_CAP=float(os.environ.get("REAL_CAP","0.75")); REAL_FLOOR=float(os.environ.get("REAL_FLOOR","8"))
+# in-season shooting: this season's makes against REAL_SHOOT_K pseudo-attempts at the projected % (the fitted model's
+# own K - 75 for FG - let ~8 games of shots outweigh the projection). Separate from SHOOT, which is fitted.
+REAL_SHOOT_K={"fg":250.0,"tp":800.0,"ft":250.0}
 REAL={}; REAL_E={}
 try:
-    # three-day windows: a whole-season box_scores scan times out (HTTP 500), and so does season_year + date=eq
-    # (a bad plan); season_year + a date RANGE is fast
+    # By GAME ID, 30 games a request: the anon role's ~3 s statement timeout cancels most date-window pulls once a
+    # season is busy (season_year + a 3-day range over ~4,000 rows: 13 of 18 windows of Nov-Dec 2025 timed out, and
+    # one failure dropped EVERY real game - the build ran on as if none were played). Game ids come from `games`.
     import datetime as _dt
     _d0=_dt.date(REAL_SEASON-1,10,25); _d1=min(_dt.date.today(), _dt.date(REAL_SEASON,4,10))
     if REAL_TO: _d1=min(_d1,_dt.date.fromisoformat(REAL_TO))
+    _gids=[x["id"] for x in sb_get(f"games?select=id&season_year=eq.{REAL_SEASON}&status=eq.STATUS_FINAL&date=gte.{_d0.isoformat()}&date=lte.{_d1.isoformat()}&order=id.asc")]
     _rows=[]
-    while _d0<=_d1:
-        _de=min(_d0+_dt.timedelta(days=3),_d1+_dt.timedelta(days=1))
+    for _i in range(0,len(_gids),30):
         _rows+=sb_get(f"box_scores?select=game_id,espn_id,team,player,date,min,pts,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb,ast,tov,stl,blk"
-                      f"&season_year=eq.{REAL_SEASON}&date=gte.{_d0.isoformat()}&date=lt.{_de.isoformat()}&order=game_id.asc,espn_id.asc")
-        _d0=_de
+                      f"&game_id=in.({','.join(map(str,_gids[_i:_i+30]))})&order=game_id.asc,espn_id.asc")
     for _q in _rows:
         _m=float(_q.get("min") or 0)
         if _m<=0: continue
@@ -725,7 +738,7 @@ def scrim_blend(full,name,prior_games,e=None):
     a=SCRIM.get((full,_snk(name)))
     ws=min(SCRIM_CAP, a["w"]/(a["w"]+min(SCRIM_PRIOR,max(float(prior_games or 0),4.0)))) if (a and a["w"]>0) else 0.0
     rg=real_of(full,name,e)
-    wr=min(REAL_CAP, rg["g"]/(rg["g"]+min(REAL_PRIOR,max(float(prior_games or 0),4.0)))) if (rg and rg["g"]>0 and rg["min"]>0) else 0.0
+    wr=min(REAL_CAP, rg["g"]/(rg["g"]+min(REAL_PRIOR,max(float(prior_games or 0),REAL_FLOOR)))) if (rg and rg["g"]>0 and rg["min"]>0) else 0.0
     if ws<=0 and wr<=0: return 0.0,None
     s40=(lambda k: (a[SCRIM_MAP[k]]/a["m_"+SCRIM_MAP[k]]*40.0) if (ws>0 and a.get("m_"+SCRIM_MAP.get(k,""),0)>0) else None)
     r40=(lambda k: (rg[SCRIM_MAP[k]]/rg["min"]*40.0) if (wr>0 and SCRIM_MAP[k] in rg) else None)
@@ -1366,7 +1379,7 @@ for short, roster in roster_by_team.items():
             fg_p=min(72,max(30,fg_p)); tp_p=min(48,max(20,tp_p)); ft_p=min(95,max(45,ft_p))
             _rg=real_of(full,p.name,e)
             if _rg and _rg["g"]>0:   # this season's real makes, against the model's own pseudo-attempts
-                _bl=lambda pp,kind,mk,ak: (pp*SHOOT[kind]["K"]+100.0*_rg.get(mk,0.0))/(SHOOT[kind]["K"]+_rg.get(ak,0.0))
+                _bl=lambda pp,kind,mk,ak: (pp*REAL_SHOOT_K[kind]+100.0*_rg.get(mk,0.0))/(REAL_SHOOT_K[kind]+_rg.get(ak,0.0))
                 fg_p=_bl(fg_p,"fg","fgm","fga"); tp_p=_bl(tp_p,"tp","tpm","tpa"); ft_p=_bl(ft_p,"ft","ftm","fta")
             # per-game projected line
             sc=pm/40.0
@@ -1916,7 +1929,7 @@ for _sh,_fm in FRESH_FIT.items():
 # projected minutes, efficiency vs the league, usage estimated from the box (shots + FT trips + turnovers per 40
 # against ~69 team possessions), defense at the league's median rate (box defense needs team data). Half weight
 # at REAL_PRIOR_NEW games. Scrimmages never move a newcomer's OVR (owner: they count less).
-REAL_PRIOR_NEW=float(os.environ.get("REAL_PRIOR_NEW","6"))
+REAL_PRIOR_NEW=float(os.environ.get("REAL_PRIOR_NEW","12"))   # was 6 (owner, Oct 12: real games move projections less)
 _DWA40_MED=float((d26["dwa"]/d26["mp40"].clip(lower=0.1)).median())
 # NEWCOMER STAT VALUE (sv): his PROJECTED line (the freshman model's per-40 rates at his fitted minutes and
 # points) valued exactly like a returner's — owned Wins Added per 40 x role, on the demonstrated-grade scale
