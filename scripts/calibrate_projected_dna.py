@@ -102,6 +102,11 @@ def hist(s_target, key, coach):
         s = str(int(s_target) - back)
         k = SEASONS_OF.get((coach, int(s))) if coach else key
         out += [adjdev(s, k, 0), adjdev(s, k, 1)] if k else [None, None]
+    if coach and all(v is None for v in out):
+        # a coach with no head-coaching seasons in the last two years (first job, or out of D-I): the PROGRAM's last two
+        # (owner backtest, Oct 12 2026, 542 such team-seasons: net MAE 3.842 roster-only -> 3.632; on top of the ratings'
+        # 20% program blend 3.630 -> 3.598, 12 of 19 seasons)
+        return hist(s_target, key, None)
     return out
 
 # ── returning minutes (continuity) ─────────────────────────────────────────────────────────
@@ -284,6 +289,7 @@ print(f"owner weights O {ROSTER_W[0]:.2f}/{1-ROSTER_W[0]:.2f}  D {ROSTER_W[1]:.2
 #   playmaker: the best last-season assist rate on the current roster (15+ mpg then), per 10 points above 25%;
 #     15 of 19 seasons better (losing or adding a real point guard)
 OVA_B, PLAY_B, OVA_K, OVA_BACK = 0.5569, 0.7464, 4.0, 6
+NEWC_O_T, NEWC_O_K, NEWC_D_T, NEWC_D_K = 4.0, 0.20, 4.0, 0.30
 _ores = {}
 for s_, teams_ in HP.items():
     if s_ not in mA: continue
@@ -318,7 +324,15 @@ for k, t in P27.items():
     t['continuity'] = round(c27 * 100, 1) if c27 is not None else None
     xo = feats(0, h, po, h1o, h2o, cm)
     xd = feats(1, h, pd, h1d, h2d, cm)
-    o = mA[LAST][0] + owner_dev(0, po, h1o, h2o); d = mA[LAST][1] + owner_dev(1, pd, h1d, h2d)
+    od, dd = owner_dev(0, po, h1o, h2o), owner_dev(1, pd, h1d, h2d)
+    # NEW-COACH EXTREMES (owner, Oct 12 2026 — NC State's #1 offense, Saint Mary's #1 defense): projected top-10
+    # offenses under a new coach finished median 27th (same coach 13th); top-15 defenses 28th (17th). Pulling the part
+    # beyond +4 back 20% (offense) / beyond -4 back 30% (defense) improved those teams' MAE 3.613 -> 3.594 / 2.531 -> 2.497.
+    if cur_coach(k) != COACH_AT.get((int(LAST), k)):
+        if od > NEWC_O_T: od = NEWC_O_T + (od - NEWC_O_T) * (1 - NEWC_O_K)
+        if dd < -NEWC_D_T: dd = -NEWC_D_T + (dd + NEWC_D_T) * (1 - NEWC_D_K)
+        t['new_coach'] = True
+    o = mA[LAST][0] + od; d = mA[LAST][1] + dd
     _va = OVA_B * coach_va(cur_coach(k) if COACH_HIST else None); _pm = PLAY_B * playmaker(k)
     o += _va + _pm; t['o_coach'] = round(_va, 2); t['o_playmaker'] = round(_pm, 2)
     t['ORtg'] = round(o, 1); t['DRtg'] = round(d, 1); t['net'] = round(t['ORtg'] - t['DRtg'], 1)
