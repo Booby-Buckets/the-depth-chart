@@ -131,10 +131,10 @@
     ],
 
     'moneyball.html': [
-      { sel:'#mbTabs', t:'Moneyball', html:'One idea: <b>value for money</b>. Every player has a <b>cost</b> (his open-market NIL value), the <b>wins</b> he\'s projected to add, and what <b>players like him</b> usually cost; the difference is his <b>value</b>.' + bl('<b>Players</b> — the bargain board.', '<b>Programs</b> — every roster\'s cost, wins and value, and what a top-25 team costs.', '<b>GM Mode</b> — run a real program or build one from scratch.') },
-      { sel:'#plChart', t:'Costs vs players like him', d:'Each dot is a player: across is what players with his overall and role usually cost, up is what he costs. On the dashed line he is priced fairly; below it (green) he costs less than players like him — a bargain; above it (red) you pay extra for hype.', before:function(){ try{ showTab('players'); }catch(e){} } },
-      { sel:'#programsBody', t:'Programs', d:'Every roster\'s total cost, its projected wins and its value, plus what a roster in each band of the projected rankings typically costs. Click a program for its best and worst value.', before:function(){ try{ showTab('programs'); }catch(e){} } },
-      { sel:'#gmBody', t:'GM Mode', html:bl('<b>My program</b> — your team\'s real roster and NIL budget; cut, re-sign, reorder and sign targets.', '<b>Fantasy build</b> — an empty roster and a budget; Auto-fill builds one for you.', 'Pick a goal (top 25, top 10…) and the summary tells you whether the roster gets there, re-scored by the same engine as the national rankings.'), before:function(){ try{ showTab('gm'); }catch(e){} } }
+      { sel:'#mbTabs', t:'Moneyball', html:'One idea: find what the market misprices. ' + bl('<b>What the market pays for</b> — every D-I transfer since 2013: how strong a program each trait earned him, against his impact after the move.', '<b>2026-27 transfers</b> — this year\'s class scored the same way.', '<b>GM Mode</b> — build a roster rated by the rankings engine.') },
+      { sel:'#marketBody', t:'Market vs result', d:'Blue is the market\'s weight on a trait, gold is how much it shows up in the result. A verdict appears only when the gap holds in both eras and its 95% range clears zero.' },
+      { sel:'#classBody', t:'The transfer class', d:'Expected impact at the new school against a typical transfer to a program that strong. Positive is a pickup that profiles above its level.', before:function(){ try{ showTab('class'); }catch(e){} } },
+      { sel:'#gmBody', t:'GM Mode', html:bl('<b>My program</b> — your team\'s real roster and NIL budget; cut, re-sign, reorder and sign targets.', '<b>Fantasy build</b> — an empty roster and a budget.'), before:function(){ try{ showTab('gm'); }catch(e){} } },
     ],
 
     'portal.html': [

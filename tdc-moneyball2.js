@@ -260,15 +260,14 @@
       if(name==='gm'){ build().then(function(){ var w={}; MB.players.forEach(function(p){ w[p.team+'|'+(p.name||'').toLowerCase().trim()]=p.wins; });
           var cp=Object.keys(MB.teams).map(function(k){return MB.teams[k].cpw;}).filter(function(x){return x!=null&&isFinite(x);});
           window.TDC_GM.boot($('gmBody'),{projWins:projWins, rate:med(cp), teamCurve:function(r){ return TCURVE(r,true); }, winsOf:function(key){ return w[key]; }}); }); }
-      else build().then(function(){ if(name==='players') renderPlayers(); else renderPrograms(); }).catch(function(e){ $(name+'Body').innerHTML='<div class="loading">Could not load ('+esc(e&&e.message||e)+').</div>'; });
+      else if(name==='market'||name==='class') window.TDC_MBMARKET.render(name, $(name+'Body'), {q:INIT.get('q')||'', team:INIT.get('team')||''});   // Oct 2026: real market inefficiencies
     }
     try{ var sp=new URLSearchParams(location.search); sp.set('tab',name); if(name!=='gm'){ sp.delete('team'); sp.delete('gm'); } history.replaceState(null,'',location.pathname+'?'+sp.toString()); }catch(e){}
   }
   window.showTab=show;   // page tour hook
   document.getElementById('mbTabs').addEventListener('click',function(e){ var b=e.target.closest('.mb-tab'); if(b) show(b.dataset.tab); });
-  if(INIT.get('q')) PL.q=INIT.get('q');                                  // player page → his row on the board
-  if(INIT.get('team') && /^(ledger|values|programs)$/.test(INIT.get('tab')||'')) PG.sel=INIT.get('team');   // team page → its program
-  var t=INIT.get('tab'), MAP={players:'players',market:'players',programs:'programs',values:'programs',ledger:'programs',gm:'gm',office:'gm'};
-  show(MAP[t]||(INIT.get('team')?'gm':'players'));
+  // old tabs (the NIL-model Players / Programs boards) land on the transfer class, filtered to the player or program
+  var t=INIT.get('tab'), MAP={market:'market',class:'class',players:'class',programs:'class',values:'class',ledger:'class',gm:'gm',office:'gm'};
+  show(MAP[t]||(INIT.get('team')&&!t?'gm':'market'));
   window.TDC_MONEYBALL={data:function(){ return MB; }};   // read-only (checks / other pages)
 })();
