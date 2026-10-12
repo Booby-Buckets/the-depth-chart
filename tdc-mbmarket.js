@@ -10,7 +10,7 @@
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   var sn = function (t) { return g.tdcShortSchool ? g.tdcShortSchool(t) : t; };
   var _d = null;
-  function load() { return _d || (_d = fetch('data/market_inefficiency.json?v=2').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })); }
+  function load() { return _d || (_d = fetch('data/market_inefficiency.json?v=3').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })); }
   // validated pair (dataviz check): blue = what the market rewards, gold = what shows up in the result
   var C_MKT = 'var(--mi-mkt)', C_WIN = 'var(--mi-win)';
   function css() {
