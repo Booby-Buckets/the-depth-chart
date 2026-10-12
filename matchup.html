@@ -17,11 +17,11 @@
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=5"></script>
   <script src="auth.js?v=delacct1"></script>
-  <script src="tdc-gate.js?v=4" data-gate="coach" data-label="Projected Game Spread"></script>
+  <script src="tdc-gate.js?v=4" data-gate="coach" data-label="Matchup"></script>
   <script src="tdc-glossary.js?v=14"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Matchup Predictor — The Depth Chart</title>
+  <title>Matchup — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="team-colors.js?v=11"></script>
   <script src="tdc-ratings.js?v=37"></script>
@@ -200,11 +200,28 @@
     .arow .ts{text-align:right;font-variant-numeric:tabular-nums;}
     .arow .ts .v{font-family:'Playfair Display',serif;font-weight:800;font-size:19px;}
     .arow .ts .l{font-size:9px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
+    /* mirrored matchup sheets (Oct 2026 rebuild) */
+    .mx{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums;}
+    .mx th{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding:7px 8px;border-bottom:1px solid var(--border2);}
+    .mx td{padding:8px 8px;border-bottom:1px solid var(--border);}
+    .mx .lab{text-align:center;font-weight:700;color:var(--text);white-space:nowrap;}
+    .mx .va{text-align:right;font-weight:800;width:56px;} .mx .vb{text-align:left;font-weight:800;width:56px;}
+    .mx .ref{text-align:center;color:var(--text3);font-size:11.5px;width:64px;}
+    .mx .bl,.mx .br{width:30%;}
+    .bar2{height:9px;border-radius:5px;background:var(--bg3);position:relative;overflow:hidden;}
+    .bar2 i{position:absolute;top:0;bottom:0;border-radius:5px;}
+    .bl .bar2 i{right:0;} .br .bar2 i{left:0;}
+    .mx .pc{font-size:10.5px;color:var(--text3);font-weight:700;}
+    .mx .gap{text-align:center;font-weight:800;width:60px;}
+    .mxwrap{border:1px solid var(--border);border-radius:13px;background:var(--bg2);padding:4px 10px 6px;overflow-x:auto;}
+    .mxhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:22px 0 8px;}
+    .mxhead .t{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text);}
+    .mxhead .k{font-size:11px;color:var(--text3);}
+    @media(max-width:640px){.mx .bl,.mx .br{width:22%;} .mx td{padding:7px 4px;} .mx .ref{display:none;}}
   </style>
   <div class="page">
-    <div class="page-eyebrow">Matchups · 2026-27</div>
-    <h1 class="page-h1" data-anim>Projected Game Spread</h1>
-    <div class="sub" data-anim>Pick two teams and a venue for a full game projection: final score, win probability, position-by-position matchups and a side-by-side team comparison, from the same roster engine as the rankings. Games are on a neutral court unless you pick a home team.</div>
+    <div class="page-eyebrow">Scouting</div>
+    <h1 class="page-h1" data-anim>Matchup</h1>
 
     <div class="mtabs" role="tablist" data-anim>
       <button class="mtab-btn on" id="mt-predict" onclick="mtab('predict')">Game Prediction</button>
@@ -225,7 +242,6 @@
 
     <div id="out"><div class="loading">Loading ratings…</div></div>
 
-    <div class="note" data-anim>Model: each team is rated on the point-spread scale from its projected roster (projected BPM × minutes → SRS, blended with a regressed program anchor). Line = rating gap ± a home-court edge scaled to opponent strength; win % = Φ(margin / 11); projected score splits a ~145 total by the margin. Neutral-court by default; toggle a host for the home edge.</div>
     </div><!-- /tabPredict -->
 
     <div id="tabAdv" class="mtab-panel" style="display:none">
@@ -325,14 +341,11 @@ function cycleVenue(){ vi=(vi+1)%3; const a=poolRow(selKey.A), b=poolRow(selKey.
 function renderLine(){
   const a=poolRow(selKey.A), b=poolRow(selKey.B); if(!a||!b) return;
   const L=TDC_RATINGS.lineFor(a,b,venues[vi]);
+  try{ const u=new URL(location.href); u.searchParams.set('a',a.team); u.searchParams.set('b',b.team); u.searchParams.delete('team');
+    if(vi) u.searchParams.set('venue',venues[vi]); else u.searchParams.delete('venue'); history.replaceState(null,'',u.toString()); }catch(e){}
   const cA=teamColor(a), cB=teamColor(b);
   const favA=L.margin>=0, edge=Math.abs(a.rating-b.rating).toFixed(1);
   const hcTxt = vi===0?'Neutral court' : vi===1?`${sn(a.team)} hosts` : `${sn(b.team)} hosts`;
-  const fav = favA?a:b, dog = favA?b:a, favP = Math.max(L.probA,L.probB);
-  const conf = favP>=80?'a clear favorite':favP>=66?'favored':favP>=57?'a slight edge':'essentially a toss-up';
-  const takeaway = favP<55
-    ? `<b>${a.full}</b> and <b>${b.full}</b> project as a near coin-flip on a ${hcTxt.toLowerCase()} — a rating gap of just <b>${edge}</b>. Expect it to come down to the wire.`
-    : `<b>${fav.full}</b> is ${conf} over <b>${dog.full}</b>${vi===0?' on a neutral floor':', '+hcTxt.toLowerCase()} — a <b>${edge}-point</b> rating edge translating to a <b>${sn(fav.team)} ${Math.abs(L.margin).toFixed(1)}</b> line and a projected <b>${favA?L.scoreA:L.scoreB}–${favA?L.scoreB:L.scoreA}</b>.`;
   const wa=Math.round(L.probA), wb=100-wa;
   el('out').innerHTML=`
     <div class="board" style="--cA:${cA};--cB:${cB};">
@@ -358,12 +371,6 @@ function renderLine(){
       <div class="wplab"><span>${sn(a.team)} ${wa}%</span><span>${wb}% ${sn(b.team)}</span></div>
       <div class="wpbar"><div class="wa" data-fill style="width:${wa}%"></div><div class="wb" data-fill style="width:${wb}%"></div></div>
     </div>
-    <div class="keys">
-      <div class="key"><div class="kl">Point Spread</div><div class="kv">${L.spread}</div><div class="ks">${hcTxt}</div></div>
-      <div class="key"><div class="kl">Projected Score</div><div class="kv">${L.scoreA} – ${L.scoreB}</div><div class="ks">~${L.scoreA+L.scoreB} total points</div></div>
-      <div class="key"><div class="kl">Rating Edge</div><div class="kv">${favA?sn(a.team):sn(b.team)} +${edge}</div><div class="ks">${fav.full} the stronger roster</div></div>
-    </div>
-    <div class="takeaway">${takeaway}</div>
     <div id="gpPlan"></div>`;
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
   loadGamePlan(a,b,favA,L);
@@ -427,87 +434,106 @@ async function loadMatchupAdvantage(a,b,cA,cB,nA,nB){
   host.innerHTML=`<div class="gph">Matchup advantage <span>minutes-weighted trait percentile · ${(OBS()-1)+'-'+String(OBS()).slice(2)}</span></div><div class="ma-grid">${rows}</div>`;
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
 }
+// ── THE MATCHUP, mirrored: each side's offense against the other side's defense ──────────────
+// Everything here is a real number with its D-I reference — no prescriptions (inform, don't prescribe).
+let _TPROF={}, _POSS={};
+const _getJ=(u)=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null);
+async function _tid(row){ if(row._tid!==undefined) return row._tid;
+  let r=[]; try{ r=await fetch(`${SB}/rest/v1/team_seasons?team=eq.${encodeURIComponent(row.full)}&select=team_id&limit=1`,{headers:H}).then(x=>x.ok?x.json():[]); }catch(e){}
+  return (row._tid=r&&r[0]?String(r[0].team_id):null); }
+function _pct(vals, v, hi){ const xs=vals.filter(x=>x!=null&&isFinite(x)); if(!xs.length||v==null) return null;
+  const below=xs.filter(x=>hi?x<v:x>v).length, eq=xs.filter(x=>x===v).length; return Math.round(100*(below+eq/2)/xs.length); }
+function _bar(p, col, side){ if(p==null) return '<div class="bar2"></div>'; return `<div class="bar2"><i style="width:${Math.max(3,p)}%;background:${col}"></i></div>`; }
+function _colsApart(c1,c2){ const h=x=>{x=(x||'').replace('#','');if(x.length===3)x=x.split('').map(c=>c+c).join('');return [0,2,4].map(i=>parseInt(x.slice(i,i+2),16)||0);};
+  const a=h(c1),b=h(c2); return Math.sqrt(a.reduce((s,v,i)=>s+(v-b[i])*(v-b[i]),0))>90; }
+
+// one "when X has the ball" block: X's offense percentile (bar grows left) vs Y's defense percentile (bar grows right)
+function _ballBlock(off, def, teams, nO, nD, cO, cD){
+  const F=[['Efficiency · pts/100','ORtg',true,'DRtg',false],['Effective FG%','oeFG',true,'deFG',false],['Turnover %','oTOV',false,'dTOV',true],
+           ['Off. rebound % / Def. rebound %','oORB',true,'dDRB',true],['Free-throw rate','oFTr',true,'dFTr',false]];
+  const all=Object.values(teams);
+  const rows=F.map(([lab,ok,ohi,dk,dhi])=>{ const ov=off[ok], dv=def[dk]; if(ov==null||dv==null) return '';
+    const op=_pct(all.map(t=>t[ok]),ov,ohi), dp=_pct(all.map(t=>t[dk]),dv,dhi), g=(op!=null&&dp!=null)?op-dp:null;
+    const gc=g==null?'var(--text3)':g>=10?cO:g<=-10?cD:'var(--text3)';
+    return `<tr><td class="va">${(+ov).toFixed(1)}</td><td class="bl">${_bar(op,cO)}<div class="pc" style="text-align:right">${op!=null?op+'th':''}</div></td><td class="lab">${lab}</td><td class="br">${_bar(dp,cD)}<div class="pc">${dp!=null?dp+'th':''}</div></td><td class="vb">${(+dv).toFixed(1)}</td><td class="gap" style="color:${gc}" title="${esc(nO)} offense percentile minus ${esc(nD)} defense percentile">${g==null?'—':(g>0?'+':'')+g}</td></tr>`; }).join('');
+  return `<table class="mx"><thead><tr><th style="text-align:right">${esc(nO)}</th><th style="text-align:right">offense pct</th><th>Four factors</th><th style="text-align:left">defense pct</th><th style="text-align:left">${esc(nD)}</th><th title="Offense percentile minus defense percentile">Gap</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+// shot zones: what X takes (per 100 possessions, FG%) vs what Y allows — from the play log (tprof_<y>.json)
+function _zoneBlock(P, tO, tD, nO, nD, cO, cD){
+  const o=P.off[tO], d=P.def[tD]; if(!o||!d) return '';
+  const sum=side=>{ const T=new Array(10).fill(0); Object.values(P[side]).forEach(a=>a.forEach((v,i)=>T[i]+=v)); return T; };
+  const L=sum('off');
+  const Z=[['Free throws',2,3],['At the rim',4,5],['Mid-range',6,7],['Threes',8,9]];
+  const per=(a,i)=>a[1]?100*a[i]/a[1]:null, acc=(a,i,j)=>a[i]?100*a[j]/a[i]:null;
+  const row=(lab,vO,vD,ref,fmt,unit)=>{ if(vO==null||vD==null) return '';
+    const dO=vO-ref, dD=vD-ref; const s=x=>(x>=0?'+':'')+x.toFixed(fmt);
+    return `<tr><td class="va">${vO.toFixed(fmt)}${unit}</td><td class="bl"><div class="pc" style="text-align:right">${s(dO)} vs D-I</div></td><td class="lab">${lab}</td><td class="br"><div class="pc">${s(dD)} vs D-I</div></td><td class="vb">${vD.toFixed(fmt)}${unit}</td><td class="ref">${ref.toFixed(fmt)}${unit}</td></tr>`; };
+  const rows=Z.map(([lab,i,j])=>row(lab+' · att / 100',per(o,i),per(d,i),per(L,i),1,'')+row(lab+(i===2?' · FT%':' · FG%'),acc(o,i,j),acc(d,i,j),acc(L,i,j),1,'%')).join('');
+  return `<table class="mx"><thead><tr><th style="text-align:right">${esc(nO)} takes</th><th></th><th>Shot zones</th><th></th><th style="text-align:left">${esc(nD)} allows</th><th>D-I</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+// possessions: X's points per possession by how it started / how fast it shot vs what Y allows
+function _possBlock(P, tO, tD, nO, nD, cO, cD){
+  const o=P.teams[tO]&&P.teams[tO].off, d=P.teams[tD]&&P.teams[tD].def; if(!o||!d) return '';
+  const pp=a=>a&&a[0]?a[1]/a[0]:null;
+  const R=[['After a defensive rebound','st','dr'],['After a turnover','st','to'],['After a made field goal','st','fg'],['After made free throws','st','ft'],
+           ['Shot in 0-10 seconds','tm','tr'],['Shot in 11-20 seconds','tm','early'],['Shot in 21-30 seconds','tm','half'],['Shot after 30 seconds','tm','late']];
+  const rows=R.map(([lab,g,k])=>{ const vO=pp(o[g][k]), vD=pp(d[g][k]), ref=pp(P.league[g][k]); if(vO==null||vD==null) return '';
+    const s=x=>(x>=0?'+':'')+x.toFixed(2);
+    return `<tr><td class="va">${vO.toFixed(2)}</td><td class="bl"><div class="pc" style="text-align:right;color:${vO>=ref?cO:'var(--text3)'}">${s(vO-ref)} · ${o[g][k][0]} poss</div></td><td class="lab">${lab}</td><td class="br"><div class="pc" style="color:${vD<=ref?cD:'var(--text3)'}">${s(vD-ref)} · ${d[g][k][0]} poss</div></td><td class="vb">${vD.toFixed(2)}</td><td class="ref">${ref.toFixed(2)}</td></tr>`; }).join('');
+  return `<table class="mx"><thead><tr><th style="text-align:right">${esc(nO)} scores</th><th></th><th>Points per possession</th><th></th><th style="text-align:left">${esc(nD)} allows</th><th>D-I</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
 async function loadGamePlan(a,b,favA,L){
   const host=el('gpPlan'); if(!host) return;
-  host.innerHTML='<div class="loading" style="padding:40px">Projecting both rotations…</div>';
+  const gen=(window._gpGen=(window._gpGen||0)+1);
+  host.innerHTML='<div class="loading" style="padding:40px">Building the matchup…</div>';
   if(!DNA){ try{ DNA=await fetch('scripts/data/team_dna.json',{cache:'no-cache'}).then(r=>r.ok?r.json():{}); }catch(e){ DNA={}; } }
-  const [pa,pb]=await Promise.all([projTeamLines(a),projTeamLines(b)]);
-  const cA=teamColor(a), cB=teamColor(b), nA=sn(a.team), nB=sn(b.team);
-  // ── key matchups (bucket guards/wings/bigs so PG↔SG mislabels don't leave gaps) ──
-  const bkt=pos=>{ const p=(pos||'').toUpperCase(); if(p==='C'||p==='PF'||p==='FC'||p==='CF') return 'B'; if(p==='SF'||p==='F'||p==='GF'||p==='FG') return 'W'; return 'G'; };
-  const grp=list=>{ const G={G:[],W:[],B:[]}; list.forEach(p=>G[bkt(p.pos)].push(p)); Object.values(G).forEach(a=>a.sort((x,y)=>y.mpg-x.mpg)); return G; };
-  const gA=grp(pa), gB=grp(pb);
-  const slots=[['G',0,'Lead guard'],['G',1,'Guard'],['W',0,'Wing'],['B',0,'Forward'],['B',1,'Center']];
-  const kmRows=slots.map(([bk,ix,lab])=>{ const m=gA[bk][ix], o=gB[bk][ix]; if(!m&&!o) return '';
-    const diff=(m&&o)?(m.ovr-o.ovr):null;
-    // one line per slot: each side's player, OVR and points in their own columns; the edge
-    // (A's OVR minus B's) is shaded by tdcSheetHeat and the side with a 3+ edge is bold
-    const side=(pl,edge)=>pl?`<td class="l nm"${edge?' style="font-weight:800"':''}>${esc(pl.name)}</td><td>${pl.ovr}</td><td>${pl.ppg.toFixed(1)}</td>`:'<td class="l dim">—</td><td></td><td></td>';
-    const edgeTxt = diff==null?'—':(diff>0?'+'+diff:diff);
-    return `<tr><td class="l dim">${lab}</td>${side(m,diff!=null&&diff>=3)}<td class="big">${edgeTxt}</td>${side(o,diff!=null&&diff<=-3)}</tr>`; }).filter(Boolean).join('');
-  // ── tale of the tape (team_dna pct, projected 2027) ──
-  const dz=t=>(DNA&&DNA[DNAK()]&&DNA[DNAK()].teams&&DNA[DNAK()].teams[t.full])||null;
-  const da=dz(a), db=dz(b); let tapeHtml='';
-  if(da&&da.pct&&db&&db.pct){ const F=[['net','Overall'],['ORtg','Offense'],['DRtg','Defense'],['oeFG','Shooting'],['oTOV','Ball security',true],['oORB','Off. rebounding']];
-    const rowT=([k,lab,inv])=>{ const va=da.pct[k], vb=db.pct[k]; if(va==null||vb==null) return '';
-      const aBetter=va>=vb; return `<tr><td class="l nm">${lab}</td><td${aBetter?' class="strong"':''}>${Math.round(va)}ᵖᶜ</td><td${!aBetter?' class="strong"':''}>${Math.round(vb)}ᵖᶜ</td></tr>`; };
-    tapeHtml=`<div class="gph">Tale of the tape <span>ᴾᶜ = national percentile · higher is better · the better side is bold</span></div><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Metric</th><th>${esc(nA)}</th><th>${esc(nB)}</th></tr></thead><tbody>${F.map(rowT).join('')}</tbody></table></div>`;
+  const Y=OBS(), YL=(Y-1)+'-'+String(Y).slice(2);
+  if(!_TPROF[Y]) _TPROF[Y]=_getJ(`scripts/data/shot_aftermath/tprof_${Y}.json`);
+  if(!_POSS[Y]) _POSS[Y]=_getJ(`scripts/data/shot_aftermath/poss_${Y}.json`);
+  const [pa,pb,tA,tB,TP,PS]=await Promise.all([projTeamLines(a),projTeamLines(b),_tid(a),_tid(b),_TPROF[Y],_POSS[Y]]);
+  if(gen!==window._gpGen) return;
+  let cA=teamColor(a), cB=teamColor(b); if(!_colsApart(cA,cB)) cB='var(--text2)';
+  const nA=sn(a.team), nB=sn(b.team);
+  const S=DNA&&DNA[DNAK()], T=S&&S.teams, da=T&&T[a.full], db=T&&T[b.full];
+  const dnaLbl=PROJ()?'projected 2026-27':SYL();
+  const head=(t,k)=>`<div class="mxhead"><span class="t">${t}</span><span class="k">${k}</span></div>`;
+  let html='';
+  // 1 · four factors, both directions
+  if(da&&db){
+    html+=head(`When ${esc(nA)} has the ball`,`${dnaLbl} · D-I percentile, higher is better for that side`)+`<div class="mxwrap">${_ballBlock(da,db,T,nA,nB,cA,cB)}</div>`;
+    html+=head(`When ${esc(nB)} has the ball`,`${dnaLbl} · D-I percentile, higher is better for that side`)+`<div class="mxwrap">${_ballBlock(db,da,T,nB,nA,cB,cA)}</div>`;
   }
-  // ── tempo & style clash (projected possessions — data already lives in DNA.tempo) ──
-  let tempoHtml='';
+  // 2 · tempo (numbers only)
   if(da&&db&&da.tempo!=null&&db.tempo!=null){
-    const ta=da.tempo, tb=db.tempo;
-    const _tv=Object.values(DNA[DNAK()].teams).map(t=>t.tempo).filter(x=>x!=null);
-    const avg=_tv.length?_tv.reduce((s,x)=>s+x,0)/_tv.length:69;
-    const game=Math.round((ta*tb/avg)*10)/10;   // KenPom-style expected tempo
-    const desc=v=>v>=72?'up-tempo':v<=66?'grind-it-out':'balanced';
-    const gap=Math.abs(ta-tb);
-    const fast=ta>=tb?{t:ta,n:nA}:{t:tb,n:nB}, slow=ta>=tb?{t:tb,n:nB}:{t:ta,n:nA};
-    const read=gap<2
-      ? 'Both play at a similar pace — tempo won’t be the battleground; this one is decided in the halfcourt.'
-      : `<b>${esc(fast.n)}</b> want to run (${fast.t.toFixed(1)} poss); <b>${esc(slow.n)}</b> would rather grind (${slow.t.toFixed(1)}). It projects to ~${game} possessions — whoever imposes tempo tilts the math. The faster side has to score in transition before the defense sets; the slower side wants long possessions and a shortened game.`;
-    const lo=60,hi=78,px=v=>Math.max(2,Math.min(98,(v-lo)/(hi-lo)*100));
-    tempoHtml=`<div class="gph">Tempo &amp; style clash <span>${PROJ()?'projected':SYL()} possessions</span></div>`
-      +`<div class="tempo"><div class="tprow2"><span style="color:${cA}">${esc(nA)} · ${ta.toFixed(1)} (${desc(ta)})</span><span style="color:${cB}">${esc(nB)} · ${tb.toFixed(1)} (${desc(tb)})</span></div>`
-      +`<div class="tempobar"><i class="tbdot" style="left:${px(ta)}%;background:${cA}"></i><i class="tbdot" style="left:${px(tb)}%;background:${cB}"></i><i class="tbgame" style="left:${px(game)}%"></i></div>`
-      +`<div class="tempolbl"><span>60 slow</span><span><b>projected ~${game}</b> poss</span><span>fast 78</span></div>`
-      +`<div class="temporead">${read}</div></div>`;
+    const tv=Object.values(T).map(t=>t.tempo).filter(x=>x!=null), avg=tv.length?tv.reduce((s,x)=>s+x,0)/tv.length:69;
+    const game=Math.round((da.tempo*db.tempo/avg)*10)/10, lo=60,hi=78,px=v=>Math.max(2,Math.min(98,(v-lo)/(hi-lo)*100));
+    html+=head('Pace',`${dnaLbl} possessions per 40 · D-I average ${avg.toFixed(1)}`)
+      +`<div class="tempo"><div class="tprow2"><span style="color:${cA}">${esc(nA)} · ${da.tempo.toFixed(1)}</span><span style="color:${cB}">${esc(nB)} · ${db.tempo.toFixed(1)}</span></div>`
+      +`<div class="tempobar"><i class="tbdot" style="left:${px(da.tempo)}%;background:${cA}"></i><i class="tbdot" style="left:${px(db.tempo)}%;background:${cB}"></i><i class="tbgame" style="left:${px(game)}%"></i></div>`
+      +`<div class="tempolbl"><span>60</span><span>this game projects to <b>~${game}</b> possessions</span><span>78</span></div></div>`;
   }
-  // ── the decisive edge — the single biggest four-factor gap, framed as the pivot ──
-  let decisiveHtml='';
-  if(da&&da.pct&&db&&db.pct){
-    const FAC=[
-      ['oeFG','shot quality',(w,l)=>`${w} generate the cleaner looks — ${l} have to chase them off the line and contest without fouling.`],
-      ['oORB','the offensive glass',(w,l)=>`${w} will get second chances — ${l} must gang-rebound and end possessions with one stop.`],
-      ['oTOV','ball security',(w,l)=>`${w} take care of it — ${l} have to manufacture live-ball turnovers to keep pace.`],
-      ['DRtg','the defensive end',(w,l)=>`${w} get stops — ${l} will have to score in the halfcourt against a set defense.`],
-      ['ORtg','firepower',(w,l)=>`${w} can simply outscore — ${l} need to drag it into a rock fight at a lower number.`],
-    ];
-    let best=null;
-    FAC.forEach(([k,lab,msg])=>{ const va=da.pct[k], vb=db.pct[k]; if(va==null||vb==null) return;
-      const g=Math.abs(va-vb); if(!best||g>best.g) best={k,lab,msg,g,va,vb,aWins:va>=vb}; });
-    if(best && best.g>=12){
-      const W=best.aWins?{n:nA,c:cA,v:best.va}:{n:nB,c:cB,v:best.vb};
-      const L=best.aWins?{n:nB,c:cB,v:best.vb}:{n:nA,c:cA,v:best.va};
-      decisiveHtml=`<div class="decisive"><div class="dec-k">The game turns on ${best.lab}</div>`
-        +`<div class="dec-b">${best.msg(`<b style="color:${W.c}">${esc(W.n)}</b>`,`<b style="color:${L.c}">${esc(L.n)}</b>`)} <span class="dec-pc">${Math.round(W.v)}ᵖᶜ vs ${Math.round(L.v)}ᵖᶜ</span></div></div>`;
-    }
+  // 3 · shot zones and 4 · possessions — last completed season's play-by-play
+  if(TP&&tA&&tB&&TP.off[tA]&&TP.off[tB]){
+    html+=head('Shot zones',`${YL} play-by-play · what one side takes against what the other allows`)
+      +`<div class="mxwrap">${_zoneBlock(TP,tA,tB,nA,nB,cA,cB)}</div><div class="mxwrap" style="margin-top:10px">${_zoneBlock(TP,tB,tA,nB,nA,cB,cA)}</div>`;
   }
-  // ── how each team wins ──
-  function winPath(mine,theirs,nm){
-    if(!mine||!mine.pct||!theirs||!theirs.pct) return '';
-    const p=mine.pct, tp=theirs.pct; const bits=[];
-    if(p.ORtg>=66&&tp.DRtg<50) bits.push('lean on the offense — their defense is a soft spot');
-    if(p.DRtg>=66&&tp.ORtg<55) bits.push('win it on the defensive end and make them grind');
-    if(p.oORB>=66&&tp.dDRB<50) bits.push('crash the offensive glass for extra possessions');
-    if((mine.tempo||68)>=71&&(theirs.tempo||68)<=67) bits.push('push the pace into a track meet they don\'t want');
-    if((mine.tempo||68)<=67&&(theirs.tempo||68)>=71) bits.push('slow it down and shorten the game');
-    if(!bits.length) bits.push('control the margins — rebounding and ball security decide a game this even');
-    return `<div class="wpcard"><div class="wpt">${esc(nm)} win the game by…</div><div class="wpb">${bits.slice(0,3).map(x=>x.charAt(0).toUpperCase()+x.slice(1)).join('. ')}.</div></div>`;
+  if(PS&&tA&&tB&&PS.teams[tA]&&PS.teams[tB]){
+    html+=head('Possessions',`${YL} play-by-play · points per possession by how it started and how fast they shot`)
+      +`<div class="mxwrap">${_possBlock(PS,tA,tB,nA,nB,cA,cB)}</div><div class="mxwrap" style="margin-top:10px">${_possBlock(PS,tB,tA,nB,nA,cB,cA)}</div>`;
   }
-  const wins=(da&&db)?`<div class="gph">How each team wins</div><div class="wpgrid">${winPath(da,db,nA)}${winPath(db,da,nB)}</div>`:'';
-
-  host.innerHTML=`${decisiveHtml}${kmRows?`<div class="gph">Key matchups <span>${PROJ()?'projected starter':SYL()+' rotation'} · OVR edge</span></div><div class="sheet-wrap"><table class="sheet dense km-sheet"><thead><tr><th class="l">Pos</th><th class="l">${esc(nA)}</th><th data-heat="1">OVR</th><th data-heat="1">Pts</th><th data-heat="1" title="${esc(nA)} OVR minus ${esc(nB)} OVR">Edge</th><th class="l">${esc(nB)}</th><th data-heat="1">OVR</th><th data-heat="1">Pts</th></tr></thead><tbody>${kmRows}</tbody></table></div>`:''}<div id="maHost"></div>${tapeHtml}${tempoHtml}${wins}`;
+  // 5 · the projected rotations, side by side (no invented "edge")
+  const bkt=pos=>{ const p=(pos||'').toUpperCase(); if(p==='C'||p==='PF'||p==='FC'||p==='CF') return 'B'; if(p==='SF'||p==='F'||p==='GF'||p==='FG') return 'W'; return 'G'; };
+  const grp=list=>{ const G={G:[],W:[],B:[]}; list.forEach(p=>G[bkt(p.pos)].push(p)); Object.values(G).forEach(x=>x.sort((m,n)=>n.mpg-m.mpg)); return G; };
+  const gA=grp(pa), gB=grp(pb);
+  const slots=[['G',0,'Guard'],['G',1,'Guard'],['W',0,'Wing'],['B',0,'Big'],['B',1,'Big']];
+  const side=pl=>pl?`<td class="l nm">${esc(pl.name)}</td><td>${pl.mpg.toFixed(0)}</td><td>${pl.ppg.toFixed(1)}</td><td>${pl.rpg.toFixed(1)}</td><td>${pl.apg.toFixed(1)}</td>`:'<td class="l dim">—</td><td></td><td></td><td></td><td></td>';
+  const kmRows=slots.map(([bk,ix,lab])=>{ const m=gA[bk][ix], o=gB[bk][ix]; if(!m&&!o) return ''; return `<tr><td class="l dim">${lab}</td>${side(m)}${side(o)}</tr>`; }).filter(Boolean).join('');
+  if(kmRows) html+=head('Starting fives',`${PROJ()?'projected 2026-27 lines':SYL()+' lines'} · minutes, points, rebounds, assists`)
+    +`<div class="sheet-wrap"><table class="sheet dense km-sheet"><thead><tr><th class="l"></th><th class="l">${esc(nA)}</th><th data-heat="1">MIN</th><th data-heat="1">PTS</th><th data-heat="1">REB</th><th data-heat="1">AST</th><th class="l">${esc(nB)}</th><th data-heat="1">MIN</th><th data-heat="1">PTS</th><th data-heat="1">REB</th><th data-heat="1">AST</th></tr></thead><tbody>${kmRows}</tbody></table></div>`;
+  html+='<div id="maHost"></div>';
+  if(!html.replace('<div id="maHost"></div>','')) html='<div class="loading" style="padding:30px">No team profiles on file for this pairing.</div><div id="maHost"></div>';
+  host.innerHTML=html;
   if(window.tdcSheetHeat) host.querySelectorAll('table.km-sheet').forEach(t=>tdcSheetHeat(t));
   loadMatchupAdvantage(a,b,cA,cB,nA,nB);
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
@@ -520,10 +546,17 @@ async function loadGamePlan(a,b,favA,L){
   D=await TDC_RATINGS.get();
   D.teams=(D.teams||[]).filter(t=>t.projected!==false && t.rating!=null).sort((a,b)=>(a.rank||999)-(b.rank||999));
   wireCombo('A'); wireCombo('B');
-  // default: top two teams
+  // default: top two teams — or ?a= / ?b= (short or full name; ?team= fills A) and ?venue=home|away
   selKey.A=0; selKey.B=Math.min(1,D.teams.length-1);
+  const _q=new URLSearchParams(location.search);
+  const _find=v=>{ v=(v||'').toLowerCase().trim(); if(!v) return null; const i=D.teams.findIndex(t=>t.full.toLowerCase()===v||t.team.toLowerCase()===v); return i>=0?i:null; };
+  const qa=_find(_q.get('a')||_q.get('team')), qb=_find(_q.get('b'));
+  if(qa!=null){ selKey.A=qa; if(qb==null&&selKey.B===qa) selKey.B=qa===0?1:0; }
+  if(qb!=null) selKey.B=qb;
+  const qv=(_q.get('venue')||'').toLowerCase(); vi=qv==='home'?1:qv==='away'?2:0;
   el('selA').value=labelOf(poolRow(selKey.A)); el('selB').value=labelOf(poolRow(selKey.B));
-  const sy=parseInt(new URLSearchParams(location.search).get('season')||'',10);
+  if(vi){ vi=(vi+2)%3; cycleVenue(); }
+  const sy=parseInt(_q.get('season')||'',10);
   if(sy>=2014&&sy<=2026){ const ss=el('seasonSel'); if(ss) ss.value=String(sy); await setSeason(sy); return; }
   renderLine();
 })();
@@ -663,6 +696,6 @@ async function loadGamePlan(a,b,favA,L){
   </script>
   <script src="tdc-sheets.js?v=2"></script>
   <script src="tdc-version.js?v=2"></script>
-  <script src="tdc-tour.js?v=26"></script>
+  <script src="tdc-tour.js?v=27"></script>
 </body>
 </html>

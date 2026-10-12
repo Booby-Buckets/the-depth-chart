@@ -288,8 +288,8 @@
 
 
     'matchup.html': [
-      { sel:'#selA', t:'Projected Game Plan', d:'Pick both teams. The season switcher runs past matchups with the real rosters of that year.' },
-      { sel:'#tabPredict', t:'The projection', html:bl(G.spread, '<b>Attack / neutralize keys</b> — for each side, where the four-factor and personnel edges are.', 'A projected box score for every player in this specific game.'), before:function(){ try{ mtab('predict'); }catch(e){} } },
+      { sel:'#selA', t:'Matchup', d:'Pick both teams. The season switcher runs past matchups with the real rosters of that year.' },
+      { sel:'#tabPredict', t:'The projection', html:bl(G.spread, '<b>When each side has the ball</b> — its offense percentile against the other\'s defense, factor by factor, with the gap.', '<b>Shot zones and possessions</b> — what one side takes and scores against what the other allows, from last season\'s play-by-play.'), before:function(){ try{ mtab('predict'); }catch(e){} } },
       { sel:'#tabAdv', t:'Matchup advantage', d:'Player by player: where each man wins or loses his likely matchup, from his offensive profile against the defender\'s.', before:function(){ try{ mtab('adv'); }catch(e){} } }
     ],
 
