@@ -675,7 +675,7 @@ def real_of(full,name,e=None):
 # (RW = sum of reality/100 over his team's scrimmages), capped at SCRIM_ROT_CAP; the team is re-balanced to 200
 # afterwards. A DNP in a game-like scrimmage counts as 0 minutes at half weight, only for players projected
 # under 20 mpg (a projected starter sitting is rest/injury far more often than a demotion).
-SCRIM_ROT_CAP=float(os.environ.get("SCRIM_ROT_CAP","0.30")); SCRIM_ROT_PRIOR=float(os.environ.get("SCRIM_ROT_PRIOR","5"))
+SCRIM_ROT_CAP=float(os.environ.get("SCRIM_ROT_CAP","0.10")); SCRIM_ROT_PRIOR=float(os.environ.get("SCRIM_ROT_PRIOR","10"))   # was 0.30 / 5 (owner Oct 12: scrimmages were moving minutes far too much)
 SCRIM_ROLE={}; SCRIM_DNP={}
 try:
     for _r in json.load(open(os.path.join(D,"scrimmage_results_2027.json")))["results"].values():

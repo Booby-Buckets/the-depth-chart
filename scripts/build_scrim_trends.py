@@ -28,6 +28,10 @@ TEAM_PRIOR, TEAM_CAP = 10.0, 2.5
 OPP_K = 0.005            # each point of opponent rating trims (or adds) 0.5% to a player's expected output
 HCA = 3.0
 NEWC_OVR_K, NEWC_OVR_CAP = 0.45, 4.0   # newcomer OVR points per (shrunk) Game Score / 40 of trend
+# Owner, Oct 12 2026: "the scrimmages are doing way too much" (Burton: one blowout, 15 min, trend +2.7). A trend
+# now needs TREND_PRIOR real-game equivalents to reach half weight (was 1), and a stint's Game Score per 40 is
+# discounted by m/(m + TREND_MIN_K) before it counts, since per-40 from 15 minutes is mostly noise.
+TREND_PRIOR, TREND_MIN_K = 3.0, 12.0
 nk = lambda s: re.sub(r"[^a-z]", "", re.sub(r"\b(jr|sr|ii|iii|iv)\b\.?", "", (s or "").lower()))
 n = lambda v, d=0.0: float(v) if isinstance(v, (int, float)) else d
 
@@ -146,7 +150,7 @@ def main():
                 pace = {k2: rt[k2] * m * oppf for k2 in STAT}; pace["min"] = m; pace["gmsc"] = gmsc(pace)
                 exp = {"pts": pace["pts"], "reb": pace["reb"], "ast": pace["ast"], "gmsc": pace["gmsc"]}
                 gs = gmsc(q)
-                d40 = (gs - exp["gmsc"]) / m * 40 if m >= 4 else None
+                d40 = (gs - exp["gmsc"]) / m * 40 * m / (m + TREND_MIN_K) if m >= 4 else None
                 notes = []
                 if m - bmp >= 5: notes.append(f"+ Played {m:.0f} min, {m - bmp:.0f} more than projected ({bmp:.0f})")
                 elif bmp - m >= 5: notes.append(f"− Played {m:.0f} min, {bmp - m:.0f} fewer than projected ({bmp:.0f})")
@@ -185,10 +189,10 @@ def main():
         acc_w = acc = 0.0
         for e in sorted(P["games"], key=lambda e: e["date"]):
             if e.get("d40") is not None: acc_w += n(e.get("w")); acc += n(e.get("w")) * e["d40"]
-            e["trend_after"] = round(acc / (acc_w + 1.0), 1) if acc_w > 0 else 0.0
+            e["trend_after"] = round(acc / (acc_w + TREND_PRIOR), 1) if acc_w > 0 else 0.0
         ws = [(n(e.get("w")), e["d40"]) for e in P["games"] if e.get("d40") is not None]
         W = sum(w for w, _ in ws)
-        P["trend"] = round(sum(w * d for w, d in ws) / (W + 1.0), 1) if W > 0 else 0.0
+        P["trend"] = round(sum(w * d for w, d in ws) / (W + TREND_PRIOR), 1) if W > 0 else 0.0
         P["weight"] = round(W, 2)
         if base and fin:
             P["moved"] = {k: round(n(fin.get(k2)) - n(base.get(k2)), 1) for k, k2 in (("ovr", "ovr"), ("mpg", "mpg"), ("ppg", "ppg"), ("rpg", "rpg"), ("apg", "apg"))
@@ -203,7 +207,7 @@ def main():
     for k, P in out_f.items():
         t, nm = P["team"], P["name"]; row = (FF.get(t) or {}).get(nm)
         ws = [(n(e.get("w")), e["d40"]) for e in P["games"] if e.get("d40") is not None]; W = sum(w for w, _ in ws)
-        tr = sum(w * d for w, d in ws) / (W + 1.0) if W > 0 else 0.0
+        tr = sum(w * d for w, d in ws) / (W + TREND_PRIOR) if W > 0 else 0.0
         if row is not None:
             adj = round(max(-NEWC_OVR_CAP, min(NEWC_OVR_CAP, NEWC_OVR_K * tr)), 1)
             if row.get("ovr") is not None: row["ovr"] = int(round(min(99, row["ovr"] - n(row.get("scrim_ovr")) + adj)))

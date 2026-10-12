@@ -10,7 +10,8 @@ For every team with a scored scrimmage box (scrim_reality.py):
      game's flattened minutes would read as a demotion. Starting is scored separately (step 3).
   2. That scrimmage role is blended with the current projection, the blend weight growing with how game-like
      the scrimmages were (Reality Meter) and how little we know about the roster:
-         a = R / (R + PRIOR),  R = sum of reality/100,  PRIOR = 0.1 + 1.2 x known   (capped at A_CAP)
+         a = R / (R + PRIOR),  R = sum of reality/100,  PRIOR = 1.0 + 3.0 x known   (capped at A_CAP 0.5;
+         a player's minutes move at most MIN_W_CAP 0.10 toward his scrimmage minutes; starters' blowout minutes don't count)
      known = share of the projected minutes held by players who played for THIS team last season
      (a transfer with D-I data counts half). A Belmont-type roster rebuilt from the portal listens harder.
   3. Starters = the five best by (1-a)·[projected starter] + a·[share of scrimmages started], ties by the
@@ -35,7 +36,14 @@ import scrim_reality as sr
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "scripts" / "data"
-A_CAP = 0.85
+# Owner, Oct 12 2026: one blowout scrimmage cut Markus Burton 35.4 -> 29.4 mpg ("way too big a change"). The prior is
+# now PRIOR_BASE + PRIOR_KNOWN x known (was 0.1 + 1.2 x known), the order weight is capped at A_CAP (was 0.85), and
+# a player's minutes can move at most MIN_W_CAP of the way toward his scrimmage minutes, however many games.
+PRIOR_BASE, PRIOR_KNOWN = 1.0, 3.0
+A_CAP = 0.5
+MIN_W_CAP = 0.10
+SLOT_GAP = 2.5           # blended mpg a player must gain on the one above him to take his slot
+BLOWOUT = 20              # a starter's minutes in a 20+ point game are the coach resting him, not a role: no minutes evidence
 MIN_REALITY = 50          # an "Experimental"/"Practice-like" scrimmage says little about the real rotation
 nk = sr.nk
 
@@ -135,7 +143,7 @@ def main():
         curve = sorted((p["proj"] for p in roster), reverse=True)
         tot = sum(curve) or 1
         known = sum(p["proj"] * (1 if p["xfer"] is False and not p["is_addition"] else 0.5 if p["xfer"] is not None else 0) for p in roster) / tot
-        prior = 0.1 + 1.2 * known
+        prior = PRIOR_BASE + PRIOR_KNOWN * known
         Rw = sum(x["rw"] for x in games)
         a = min(A_CAP, Rw / (Rw + prior))
         cur_st = {p["k"] for p in roster if p["depth_order"] and p["depth_order"] <= 5}
@@ -164,7 +172,7 @@ def main():
                 # the roster's own curve stands in (fully past a 35-point margin)
                 f = max(0.0, min(1.0, 1 - (x["margin"] - 10) / 25))
                 raw = mins[k] * (k_top if k < 5 else k_bn)
-                mw = x["rw"] * x["rot"]
+                mw = 0.0 if (q.get("gs") and x["margin"] >= BLOWOUT) else x["rw"] * x["rot"]
                 p["sw"] += x["rw"]; p["mw"] += mw; p["sm"] += mw * (f * raw + (1 - f) * (curve[k] if k < len(curve) else 0.0))
                 p["ss"] += x["rw"] * (1.0 if q.get("gs") else 0.0); p["gp"] += 1; p["gs"] += 1 if q.get("gs") else 0
             for p in roster:
@@ -176,7 +184,7 @@ def main():
             if p["sw"] > 0:
                 s_s = p["ss"] / p["sw"]
                 ww = a * min(1.0, p["sw"] / Rw)                         # starts: sat-only evidence weighs half
-                wm = p["ww"] = a * min(1.0, p["mw"] / Rw)               # minutes: also scaled by how real the rotation was
+                wm = p["ww"] = min(MIN_W_CAP, a * min(1.0, p["mw"] / Rw))   # minutes: scaled by how real the rotation was, capped
                 p["bm"] = (1 - wm) * p["proj"] + (wm * p["sm"] / p["mw"] if p["mw"] > 0 else wm * p["proj"])
                 p["bs"] = (1 - ww) * (1.0 if p["k"] in cur_st else 0.0) + ww * s_s
             else:
@@ -188,8 +196,11 @@ def main():
         # starters by blended minutes: slots 1-5 set the build's starter minutes (the page seats PG..C by position,
         # not slot), so a new starter who played 15 scrimmage minutes is the 5th starter, not the 33-minute 1st
         old_st = [p for p in order_old if p["k"] in cur_st]
-        five = sorted(st, key=lambda p: -p["bm"])
-        bench = sorted([p for p in roster if p["k"] not in stk], key=lambda p: (-p["bm"], p["depth_order"] or 99))
+        # hysteresis: players within ~SLOT_GAP blended mpg keep their current order, so a light scrimmage weight
+        # can't reshuffle a bench whose projected minutes sit a minute apart (slot sets projected minutes)
+        slot = lambda p: (-round(p["bm"] / SLOT_GAP), p["depth_order"] or 99)
+        five = sorted(st, key=slot)
+        bench = sorted([p for p in roster if p["k"] not in stk], key=slot)
         new = five[:5] + bench
         dbd = {i: n for n, i in enumerate(cur_ids, 1)}
         moves = []
