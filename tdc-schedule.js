@@ -45,9 +45,11 @@
   // id → {date, home, away, hs, as}. A played game is a FIXED result in every simulated season.
   let RES = {};
   // In-season strength: the preseason rating is a prior worth K games; every result adds a performance
-  // (opponent's rating + the margin, net of the venue edge, capped at ±25 so one blowout can't run away).
-  // Uncertainty shrinks the same way — after K games it is TAU/√2.
-  const K_PRIOR = 10;
+  // (opponent's rating + the margin, net of the venue edge, capped at ±MARGIN_CAP so one blowout can't run away).
+  // Uncertainty shrinks the same way — after K games it is TAU/√2. The prior is the rating WITHOUT its in-season
+  // form (tdc-ratings applyForm already folded these same games in: counting them twice doubled the move).
+  // Owner, Oct 12 2026: real games move projections less (was K 10, cap ±25).
+  const K_PRIOR = 20, MARGIN_CAP = 15;
   let _rate = null;
   function buildRates(D) {
     if (_rate && _rate.D === D) return _rate;
@@ -59,11 +61,11 @@
         if (!me) return;
         const opR = op ? +op.rating : -14;
         const ven = x.neutral || !op ? 0 : side === 1 ? g.TDC_RATINGS.baseHca(opR) + (me.hcaOff || 0) : -(g.TDC_RATINGS.baseHca(+me.rating) + (op.hcaOff || 0));
-        const perf = opR + Math.max(-25, Math.min(25, mg - ven));
+        const perf = opR + Math.max(-MARGIN_CAP, Math.min(MARGIN_CAP, mg - ven));
         sum[me.full] = (sum[me.full] || 0) + perf; cnt[me.full] = (cnt[me.full] || 0) + 1;
       });
     });
-    D.teams.forEach(t => { const n = cnt[t.full] || 0; out.n[t.full] = n; out.r[t.full] = n ? (K_PRIOR * (+t.rating || 0) + sum[t.full]) / (K_PRIOR + n) : (+t.rating || 0); });
+    D.teams.forEach(t => { const n = cnt[t.full] || 0, pr = (+t.rating || 0) - (+t.form || 0); out.n[t.full] = n; out.r[t.full] = n ? (K_PRIOR * pr + sum[t.full]) / (K_PRIOR + n) : (+t.rating || 0); });
     return (_rate = out);
   }
   // a team's current strength + its uncertainty, for every simulation on the site

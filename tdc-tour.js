@@ -307,8 +307,9 @@
 
 
     'game-review.html': [
-      { sel:'#sel', t:'Game Review', d:'Pick the program and a game.' },
-      { sel:'#out', t:'The autopsy', html:'A four-factor review of one game:' + bl(G.ff, 'Which factors you won and lost, against what the two teams usually do — the difference between "we shot badly" and "we got worse shots than usual".', 'What it says about the next game.') }
+      { sel:'#sel', t:'Game Review', d:'Pick the program and a season.' },
+      { sel:'#log', t:'The game log', d:'Every game of the season with its margin; pick one (the latest opens first).' },
+      { sel:'#out', t:'The game', html:'One game, in numbers:' + bl('<b>Where the margin came from</b> — shooting, turnovers, offensive rebounds, free throws and possessions, each in points; they add up to the final margin.', '<b>Side by side</b> — the box numbers plus three-point and shot-quality context.', '<b>Game flow, rotation and shot charts</b> from the play-by-play.') }
     ],
 
 

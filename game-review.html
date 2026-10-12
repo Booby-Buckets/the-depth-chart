@@ -8,23 +8,26 @@
   <meta name="description" content="Advanced college basketball roster rankings, team & player analytics, NIL values, and 2026-27 projections for all of Division I.">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="The Depth Chart">
-  <meta property="og:title" content="Automatic Game Review — The Depth Chart">
+  <meta property="og:title" content="Game Review — The Depth Chart">
   <meta property="og:description" content="Advanced college basketball roster rankings, team & player analytics, NIL values, and 2026-27 projections for all of Division I.">
   <meta property="og:url" content="https://www.thedepthchartcbb.com/game-review.html">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Automatic Game Review — The Depth Chart">
+  <meta name="twitter:title" content="Game Review — The Depth Chart">
   <meta name="twitter:description" content="Advanced college basketball roster rankings, team & player analytics, NIL values, and 2026-27 projections for all of Division I.">
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=5"></script>
   <script src="tdc-glossary.js?v=14"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Automatic Game Review — The Depth Chart</title>
+  <title>Game Review — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="auth.js?v=delacct1"></script>
   <script src="tdc-gate.js?v=4" data-gate="coach" data-label="Game Review"></script>
   <script src="team-colors.js?v=11"></script>
-  <script src="tdc-ratings.js?v=37"></script>
+  <script src="tdc-ratings.js?v=38"></script>
+  <script src="tdc-teamlink.js?v=2"></script>
+  <script src="tdc-shotchart.js?v=31"></script>
+  <script src="tdc-gameflow.js?v=8"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=6"/>
   <script src="tdc-anim.js?v=6"></script>
   <style>
@@ -82,10 +85,38 @@
   <link rel="stylesheet" href="tdc-skin.css?v=14"/>
   <link rel="stylesheet" href="tdc-hq-list.css?v=4"/>  <!-- shared report-page header + nav-aligned column -->
   <link rel="stylesheet" href="tdc-hq-game.css?v=2"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
   <style>
     :root:not([data-theme="dark"]){background:var(--bg)!important;}
     :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
     :root:not([data-theme="dark"]) .nav-wrap{background:var(--bg)!important;}
+
+    /* Game Review (Oct 2026 rebuild) */
+    .gr-top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:14px 0 6px;}
+    .gr-top .combo{flex:1 1 320px;margin:0;}
+    .gr-top select{font:inherit;font-size:13px;font-weight:600;padding:9px 12px;border-radius:10px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);}
+    .gr-log{max-height:360px;overflow:auto;}
+    .gr-log tr{cursor:pointer;} .gr-log tr.on td{background:color-mix(in srgb,var(--accent) 14%,transparent)!important;}
+    .mbar{position:relative;height:10px;min-width:90px;background:var(--bg3);border-radius:5px;}
+    .mbar i{position:absolute;top:0;bottom:0;border-radius:5px;} .mbar b{position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--text3);}
+    .gr-sec{scroll-margin-top:60px;margin-top:28px;}
+    .gr-band{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;border:1px solid var(--border2);border-radius:16px;background:var(--bg2);padding:18px 20px;}
+    .gr-band .t{display:flex;align-items:center;gap:10px;font-family:'Playfair Display',serif;font-weight:800;font-size:20px;}
+    .gr-band .t.r{justify-content:flex-end;text-align:right;} .gr-band .t img{width:34px;height:34px;object-fit:contain;}
+    .gr-band .sc{font-family:'Playfair Display',serif;font-weight:800;font-size:40px;font-variant-numeric:tabular-nums;text-align:center;line-height:1;}
+    .gr-band .m{font-size:11.5px;color:var(--text3);text-align:center;margin-top:6px;} .gr-band .m a{color:var(--text2);}
+    .gr-band .dim{opacity:.5;}
+    @media(max-width:600px){.gr-band{grid-template-columns:1fr;text-align:center;} .gr-band .t,.gr-band .t.r{justify-content:center;}}
+    .swing{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums;}
+    .swing td{padding:9px 8px;border-bottom:1px solid var(--border);}
+    .swing .lab{font-weight:700;white-space:nowrap;width:30%;} .swing .v{width:70px;text-align:right;font-weight:800;}
+    .swing .bar{position:relative;height:14px;}
+    .swing .bar i{position:absolute;top:0;bottom:0;border-radius:4px;} .swing .bar b{position:absolute;left:50%;top:-4px;bottom:-4px;width:1px;background:var(--text3);}
+    .swing tr.tot td{border-top:2px solid var(--text);border-bottom:none;font-weight:800;}
+    .swing .why{font-size:11px;color:var(--text3);font-weight:500;}
+    .gr-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;} @media(max-width:860px){.gr-2{grid-template-columns:1fr;}}
+    .gr-lbl{font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin:0 0 8px;}
+    .gr-muted{padding:24px 10px;text-align:center;color:var(--text3);font-size:12.5px;}
   </style>
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
@@ -114,30 +145,39 @@
 <script src="tdc-nav.js?v=75"></script>
 <script src="tdc-coachlinks.js?v=24"></script>
 <div class="page">
-  <div class="eyebrow" data-anim>Game prep</div>
-  <h1 data-anim>Automatic Game Review</h1>
-  <div class="sub" data-anim>What decided a game. Pick a team and a game for a four-factor breakdown of shooting, turnovers, rebounding, free throws, three-point variance and shot quality, ranked by how many points each one swung.</div>
+  <div class="eyebrow" data-anim>Scouting</div>
+  <h1 data-anim>Game Review</h1>
 
-  <div class="combo" data-anim><input id="sel" class="search" placeholder="Search a team…" autocomplete="off"><div class="combo-list" id="list"></div></div>
-
+  <div class="gr-top" data-anim>
+    <div class="combo"><input id="sel" class="search" placeholder="Search a team…" autocomplete="off"><div class="combo-list" id="list"></div></div>
+    <select id="season" aria-label="Season"></select>
+  </div>
   <div id="log"></div>
   <div id="out"></div>
-
-  <div class="note" data-anim>Reads the box score for the selected game (four factors: effective FG%, turnovers, offensive-rebound %, free-throw rate), plus three-point variance vs the ~34.5% D-I average and — where shot-by-shot data exists — shot quality (expected eFG from where the shots came vs what actually went in). Point impacts are estimates from standard four-factor weighting, ranked to explain the final margin; the underlying box numbers are exact.</div>
 </div>
 
 <script>
 const SB_URL='https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
-const H=(window.tdcH?window.tdcH():{'apikey':KEY,'Authorization':'Bearer '+KEY});
+const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
+const tdch=()=>(window.tdcH?window.tdcH():H);
 const el=id=>document.getElementById(id);
-const esc=s=>(''+(s==null?'':s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
+const esc=s=>(''+(s==null?'':s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
 const sn=t=>(window.tdcShortSchool?window.tdcShortSchool(t):t);
+const get=(u,h)=>fetch(SB_URL+'/rest/v1/'+u,{headers:h||H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+const SEASONS=[2027,2026,2025,2024,2023,2022,2021,2020];
+const sl=y=>(y-1)+'-'+String(y).slice(2);
 
-let D=null, selKey=null, GAMES=[], EXP={rim:0.5615,mid:0.3848,three:0.341};
+let D=null, selKey=null, SEASON=2026, GAMES=[], COLORMAP={}, EXP={rim:0.5615,mid:0.3848,three:0.341}, _gen=0;
 const poolRow=k=>k!=null?D.teams[k]:null;
 const labelOf=r=>r?r.full:'';
+function _lum(hex){hex=(hex||'').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');if(hex.length<6)return .5;const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);return (0.299*r+0.587*g+0.114*b)/255;}
+function colorOf(full){ const c=COLORMAP[full]||COLORMAP[sn(full)]; const acc=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#A8843C';
+  if(!c) return null; const dark=document.documentElement.getAttribute('data-theme')==='dark', l=_lum(c); if(!dark&&l>0.72) return null; if(dark&&l<0.16) return null; return c; }
+function apart(c1,c2){ const h=x=>{x=(x||'').replace('#','');if(x.length===3)x=x.split('').map(c=>c+c).join('');return [0,2,4].map(i=>parseInt(x.slice(i,i+2),16)||0);};
+  const a=h(c1),b=h(c2); return Math.sqrt(a.reduce((s,v,i)=>s+(v-b[i])*(v-b[i]),0))>90; }
 
+// ── picker ──
 function comboMatches(q){
   const toks=(q||'').toLowerCase().trim().split(/\s+/).filter(Boolean);
   const ok=s=>{s=s.toLowerCase();return toks.every(t=>s.includes(t));};
@@ -148,11 +188,12 @@ function comboMatches(q){
 }
 function renderList(){
   const list=el('list'), m=comboMatches(el('sel').value);
-  list.innerHTML=m.length? m.map(e=>`<div class="combo-item" data-key="${e.key}"><span>${labelOf(e.r)}${e.r.conf?` <span class="cr">${e.r.conf}</span>`:''}</span><span class="cr">#${e.r.rank||'—'}</span></div>`).join('')
+  list.innerHTML=m.length? m.map(e=>`<div class="combo-item" data-key="${e.key}"><span>${(window.TDC_TEAM?TDC_TEAM.logoImg(e.r.full):'')}${esc(labelOf(e.r))}${e.r.conf?` <span class="cr">${esc(e.r.conf)}</span>`:''}</span><span class="cr">#${e.r.rank||'—'}</span></div>`).join('')
     : '<div class="combo-empty">No teams match</div>';
   list.style.display='block';
 }
-function pick(key){ selKey=+key; el('sel').value=labelOf(poolRow(+key)); el('list').style.display='none'; loadGames(); }
+function pick(key){ selKey=+key; el('sel').value=labelOf(poolRow(+key)); el('list').style.display='none'; syncUrl(null); loadGames(); }
+function syncUrl(gid){ const r=poolRow(selKey); if(!r) return; const q=new URLSearchParams(); q.set('team',r.team); if(SEASON!==2026) q.set('season',SEASON); if(gid) q.set('game',gid); history.replaceState(null,'','?'+q.toString()); }
 (function wire(){
   const inp=el('sel'), list=el('list');
   inp.addEventListener('focus',()=>{ inp.select(); renderList(); });
@@ -161,121 +202,132 @@ function pick(key){ selKey=+key; el('sel').value=labelOf(poolRow(+key)); el('lis
     if(e.key==='Escape'){ list.style.display='none'; inp.value=labelOf(poolRow(selKey)); inp.blur(); } });
   inp.addEventListener('blur',()=>setTimeout(()=>{ list.style.display='none'; inp.value=labelOf(poolRow(selKey)); },160));
   list.addEventListener('mousedown',e=>{ const it=e.target.closest('.combo-item'); if(it){ e.preventDefault(); pick(it.dataset.key); } });
+  const ss=el('season'); ss.innerHTML=SEASONS.map(y=>`<option value="${y}">${sl(y)}</option>`).join('');
+  ss.addEventListener('change',()=>{ SEASON=+ss.value; syncUrl(null); loadGames(); });
 })();
 
-const fmtDate=d=>{ const p=(d||'').split('-'); return p.length===3?`${+p[1]}/${+p[2]}`:d; };
+const fmtDate=d=>{ if(!d) return ''; const x=new Date(d+'T12:00:00'); return x.toLocaleDateString('en-US',{month:'short',day:'numeric'}); };
 
-async function loadGames(){
-  const row=poolRow(selKey); if(!row) return;
-  const me=row.full;
-  el('out').innerHTML=''; el('log').innerHTML='<div class="loading">Loading game log…</div>';
-  let g=[];
-  try{ g=await fetch(`${SB_URL}/rest/v1/games?or=(home.eq.${encodeURIComponent(me)},away.eq.${encodeURIComponent(me)})&season_year=eq.2026&home_score=not.is.null&select=id,home,away,home_score,away_score,date,neutral&order=date.desc&limit=45`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
-  GAMES=g;
-  if(!g.length){ el('log').innerHTML='<div class="muted">No completed 2025-26 games on file for this team.</div>'; return; }
-  const rowH=x=>{ const home=x.home===me; const my=home?x.home_score:x.away_score, opp=home?x.away_score:x.home_score, oppName=home?x.away:x.home;
-    const win=+my>+opp;
-    return `<div class="gitem" data-id="${x.id}"><div class="gd">${fmtDate(x.date)}</div><div class="wl ${win?'w':'l'}">${win?'W':'L'}</div>
-      <div class="go"><span class="at">${home?'vs':'@'}</span> ${esc(sn(oppName))}</div><div class="gs">${my}–${opp}</div></div>`; };
-  el('log').innerHTML=`<div class="sec-h">Game log — tap to break down</div><div class="glog">${g.map(rowH).join('')}</div>${window.TDC_COACHLINKS?TDC_COACHLINKS.bar(me):''}`;
-  el('log').querySelectorAll('.gitem').forEach(it=>it.addEventListener('click',()=>{
-    el('log').querySelectorAll('.gitem').forEach(x=>x.classList.remove('on')); it.classList.add('on');
-    review(+it.dataset.id, me);
-  }));
+// ── the season's game log as a sheet: click a row to review it ──
+async function loadGames(wantGid){
+  const row=poolRow(selKey); if(!row) return; const me=row.full, gen=++_gen;
+  el('out').innerHTML=''; el('log').innerHTML='<div class="gr-muted">Loading games…</div>';
+  const g=await get(`games?or=(home.eq.${encodeURIComponent(me)},away.eq.${encodeURIComponent(me)})&season_year=eq.${SEASON}&home_score=not.is.null&select=id,home,away,home_score,away_score,date,neutral&order=date.asc&limit=60`);
+  if(gen!==_gen) return;
+  GAMES=g||[];
+  if(!GAMES.length){ el('log').innerHTML=`<div class="gr-muted">No completed ${sl(SEASON)} games on file for ${esc(me)}.</div>`; return; }
+  const maxM=Math.max(10,...GAMES.map(x=>Math.abs(x.home_score-x.away_score)));
+  let w=0,l=0;
+  const rows=GAMES.map((x,i)=>{ const home=x.home===me, my=home?x.home_score:x.away_score, opp=home?x.away_score:x.home_score, m=my-opp, win=m>0; win?w++:l++;
+    const pc=Math.min(50,50*Math.abs(m)/maxM);
+    const bar=`<div class="mbar"><b></b><i style="${m>=0?`left:50%;width:${pc}%;background:var(--green)`:`right:50%;width:${pc}%;background:var(--red)`}"></i></div>`;
+    return `<tr data-id="${x.id}"><td class="rk">${i+1}</td><td class="l dim">${fmtDate(x.date)}</td><td class="l dim">${x.neutral?'N':home?'vs':'@'}</td><td class="l nm">${esc(sn(home?x.away:x.home))}</td><td class="l" style="font-weight:800;color:${win?'var(--green)':'var(--red)'}">${win?'W':'L'}</td><td>${my}–${opp}</td><td class="big">${m>0?'+':''}${m}</td><td style="width:34%">${bar}</td><td class="dim">${w}–${l}</td></tr>`; }).join('');
+  el('log').innerHTML=`<div class="sec-h">${sl(SEASON)} games <span class="hint">${w}–${l} · pick a game</span></div><div class="sheet-wrap gr-log"><table class="sheet dense"><thead><tr><th class="rk">#</th><th class="l">Date</th><th class="l"></th><th class="l">Opponent</th><th class="l"></th><th>Score</th><th>Margin</th><th class="l"></th><th>Record</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  el('log').querySelectorAll('tbody tr').forEach(tr=>tr.addEventListener("click",()=>openGame(tr.dataset.id)));
+  const start=wantGid&&GAMES.find(x=>String(x.id)===String(wantGid))?wantGid:GAMES[GAMES.length-1].id;
+  openGame(start);
+}
+function openGame(gid){
+  el('log').querySelectorAll('tbody tr').forEach(x=>x.classList.toggle('on',String(x.dataset.id)===String(gid)));
+  const tr=el('log').querySelector(`tr[data-id="${gid}"]`); if(tr) tr.scrollIntoView({block:'nearest'});
+  syncUrl(gid); review(gid, poolRow(selKey).full);
 }
 
 const N=v=>v==null?0:+v||0;
 function agg(box){ const t={}; box.forEach(b=>{ const s=t[b.team]||(t[b.team]={pts:0,fgm:0,fga:0,tpm:0,tpa:0,ftm:0,fta:0,oreb:0,dreb:0,tov:0});
   ['pts','fgm','fga','tpm','tpa','ftm','fta','oreb','dreb','tov'].forEach(k=>s[k]+=N(b[k])); }); return t; }
 function zoneOf(s){ if(s.sv===3) return 'three'; const st=(s.stype||'').toLowerCase(); return /layup|dunk|tip|alley|finger|slam/.test(st)?'rim':'mid'; }
-function expEfgOf(shots){ if(!shots.length) return null; let exp=0,fga=0; shots.forEach(s=>{ const z=zoneOf(s); const mk=EXP[z]; exp+= z==='three'?mk*1.5:mk; fga++; }); return fga?exp/fga:null; }
+function expEfgOf(shots){ if(!shots||!shots.length) return null; let e=0; shots.forEach(s=>{ const z=zoneOf(s); e+= z==='three'?EXP.three*1.5:EXP[z]; }); return e/shots.length; }
 
+// ── one game ──
 async function review(gid, me){
-  el('out').innerHTML='<div class="loading">Breaking down the game…</div>';
-  let box=[], shots=[];
-  try{ box=await fetch(`${SB_URL}/rest/v1/box_scores?game_id=eq.${gid}&select=team,pts,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb,tov`,{headers:H}).then(r=>r.ok?r.json():[]); }catch(e){}
-  try{ shots=await fetch(`${SB_URL}/rest/v1/shots?game_id=eq.${gid}&select=team_id,made,sv,stype&limit=800`,{headers:tdcH()}).then(r=>r.ok?r.json():[]); }catch(e){}
-  const t=agg(box); const teams=Object.keys(t);
-  if(teams.length!==2){ el('out').innerHTML='<div class="muted">No box score on file for this game.</div>'; return; }
-  const oppName=teams.find(x=>x!==me)||teams.find(x=>x!==teams[0]);
-  const A=t[me]||t[teams[0]], B=t[oppName]||t[teams[1]];
-  const nameA=me in t?me:teams[0], nameB=oppName;
-  const efg=x=>x.fga?(x.fgm+0.5*x.tpm)/x.fga:0;
-  const orebPct=(x,y)=>{ const d=x.oreb+y.dreb; return d?x.oreb/d:0; };
-  const tp=x=>x.tpa?x.tpm/x.tpa:0;
-  const won=A.pts>B.pts;
+  const gen=++_gen;
+  el('out').innerHTML='<div class="gr-muted">Loading the game…</div>';
+  const g=GAMES.find(x=>String(x.id)===String(gid))||{};
+  const [box, shots, tids]=await Promise.all([
+    get(`box_scores?game_id=eq.${gid}&select=team,pts,fgm,fga,tpm,tpa,ftm,fta,oreb,dreb,tov`),
+    get(`shots?game_id=eq.${gid}&select=x,y,made,sv,dist,stype,team_id,espn_id,game_id&limit=900`, tdch()),
+    get(`team_seasons?team=in.(${[g.home,g.away].filter(Boolean).map(t=>'"'+t.replace(/"/g,'')+'"').join(',')})&select=team,team_id&limit=4`)]);
+  if(gen!==_gen) return;
+  const t=agg(box||[]); const names=Object.keys(t);
+  if(names.length!==2){ el('out').innerHTML=`<div class="gr-muted">No box score on file for this game. <a href="game.html?id=${gid}">Open the game page →</a></div>`; return; }
+  const nameA=me in t?me:names[0], nameB=names.find(x=>x!==nameA);
+  const A=t[nameA], B=t[nameB];
+  let cA=colorOf(nameA)||'#B07D17', cB=colorOf(nameB)||'#2F7FC1'; if(!apart(cA,cB)) cB='#8A867A';
+  const nA=sn(nameA), nB=sn(nameB), margin=A.pts-B.pts;
+  const tid={}; (tids||[]).forEach(r=>tid[r.team]=String(r.team_id));
+  const shotsA=(shots||[]).filter(s=>String(s.team_id)===tid[nameA]), shotsB=(shots||[]).filter(s=>String(s.team_id)===tid[nameB]);
 
-  // ── the four factors DECOMPOSE the margin (no overlap), ranked by point impact ──
-  const F=[];
-  const eA=efg(A), eB=efg(B), avgFga=(A.fga+B.fga)/2;
-  F.push({imp:(eA-eB)*avgFga*2, h:won?'Shot it better from the field':'Out-shot from the field',
-    b:`${(eA*100).toFixed(1)}% eFG to ${(eB*100).toFixed(1)}% — a ${Math.abs((eA-eB)*100).toFixed(1)}-point efficiency gap per shot.`});
-  const oA=orebPct(A,B), oB=orebPct(B,A);
-  F.push({imp:(oA-oB)*((A.fga-A.fgm)+(B.fga-B.fgm))*0.28, h: oA>=oB?'Owned the offensive glass':'Lost the offensive glass',
-    b:`${(oA*100).toFixed(0)}% of their own misses to ${(oB*100).toFixed(0)}% — ${A.oreb} offensive boards to ${B.oreb}, worth extra possessions.`});
-  F.push({imp:(B.tov-A.tov)*0.95, h: A.tov<=B.tov?'Cleaner with the ball':'Lost the turnover battle',
-    b:`${A.tov} giveaways to ${B.tov} — a ${Math.abs(A.tov-B.tov)}-turnover swing, ~a point apiece.`});
-  F.push({imp:(A.ftm-B.ftm), h: A.ftm>=B.ftm?'Won the free-throw line':'Lost the free-throw line',
-    b:`${A.ftm} made free throws to ${B.ftm} (${A.fta} attempts to ${B.fta}).`});
+  // EXACT decomposition of the margin (sums to the final score, no fitted weights):
+  //   points = 2·eFG·FGA + FTM, and FGA = possessions − TOV − 0.44·FTA + OREB, so
+  //   margin = 2·ΔeFG·avgFGA (shooting) − 2·ē·ΔTOV (turnovers) + 2·ē·ΔOREB (off. rebounds)
+  //          + (ΔFTM − 2·ē·0.44·ΔFTA) (free throws, net of the shots they replace) + 2·ē·Δposs (possessions)
+  const efg=x=>x.fga?(x.fgm+0.5*x.tpm)/x.fga:0, orp=(x,y)=>{ const d=x.oreb+y.dreb; return d?x.oreb/d:0; }, tp=x=>x.tpa?x.tpm/x.tpa:0;
+  const eA=efg(A), eB=efg(B), oA=orp(A,B), oB=orp(B,A), eM=(eA+eB)/2;
+  const possOf=x=>x.fga-x.oreb+x.tov+0.44*x.fta;
+  const F=[
+    {lab:'Shooting (eFG%)', imp:2*(eA-eB)*(A.fga+B.fga)/2, why:`${(100*eA).toFixed(1)}% to ${(100*eB).toFixed(1)}% on ${A.fga} and ${B.fga} shots`},
+    {lab:'Turnovers', imp:-2*eM*(A.tov-B.tov), why:`${A.tov} to ${B.tov} · each one is a shot not taken`},
+    {lab:'Offensive rebounds', imp:2*eM*(A.oreb-B.oreb), why:`${A.oreb} to ${B.oreb} · ${(100*oA).toFixed(0)}% to ${(100*oB).toFixed(0)}% of their misses`},
+    {lab:'Free throws', imp:(A.ftm-B.ftm)-2*eM*0.44*(A.fta-B.fta), why:`${A.ftm}/${A.fta} to ${B.ftm}/${B.fta} · net of the shots they replace`},
+    {lab:'Possessions', imp:2*eM*(possOf(A)-possOf(B)), why:`${possOf(A).toFixed(1)} to ${possOf(B).toFixed(1)} (estimated)`},
+  ];
+  const mx=Math.max(4,Math.abs(margin),...F.map(f=>Math.abs(f.imp)));
+  const bar=v=>{ const p=Math.min(50,50*Math.abs(v)/mx); return `<div class="bar"><b></b><i style="${v>=0?`left:50%;width:${p}%;background:${cA}`:`right:50%;width:${p}%;background:${cB}`}"></i></div>`; };
+  const swing=`<table class="swing"><tbody>${F.map(f=>`<tr><td class="lab">${f.lab}<div class="why">${f.why}</div></td><td>${bar(f.imp)}</td><td class="v" style="color:${Math.abs(f.imp)<0.05?'var(--text3)':f.imp>=0?cA:cB}">${Math.abs(f.imp)<0.05?'0.0':(f.imp>=0?'+':'')+f.imp.toFixed(1)}</td></tr>`).join('')}
+    <tr class="tot"><td class="lab">Final margin</td><td>${bar(margin)}</td><td class="v">${margin>0?'+':''}${margin}</td></tr></tbody></table>`;
 
-  // ── context (explanatory, NOT additive): where the shooting gap came from ──
-  const luckA=(tp(A)-EXP.three)*A.tpa*3, luckB=(tp(B)-EXP.three)*B.tpa*3, ctx=[];
-  if(luckB>4) ctx.push(`Opponent ran hot from three — ${(tp(B)*100).toFixed(0)}% on ${B.tpa} attempts vs a ${(EXP.three*100).toFixed(0)}% norm, ~${luckB.toFixed(0)} points of variance in their favor.`);
-  else if(luckA>4) ctx.push(`Caught fire from three — ${(tp(A)*100).toFixed(0)}% on ${A.tpa} attempts vs ${(EXP.three*100).toFixed(0)}% expected, ~${luckA.toFixed(0)} points above par.`);
-  else if(luckA<-4) ctx.push(`Cold from three — ${(tp(A)*100).toFixed(0)}% on ${A.tpa} attempts vs a ${(EXP.three*100).toFixed(0)}% norm, ~${(-luckA).toFixed(0)} points left out there.`);
-  if(shots.length>40){
-    const byId={}; shots.forEach(s=>{ (byId[s.team_id]=byId[s.team_id]||[]).push(s); });
-    const ids=Object.keys(byId);
-    if(ids.length===2){
-      const idA = Math.abs(byId[ids[0]].length-A.fga) <= Math.abs(byId[ids[1]].length-A.fga) ? ids[0]:ids[1];
-      const xqA=expEfgOf(byId[idA]);
-      if(xqA!=null){ const sq=(eA-xqA)*A.fga*2;
-        ctx.push(`Shot quality: their looks profiled at ${(xqA*100).toFixed(0)}% eFG and they shot ${(eA*100).toFixed(0)}% — ${Math.abs(sq)<3?'right on the shot-making their looks deserved.':(sq<0?`~${(-sq).toFixed(0)} points of makeable shots left on the rim (a cold night, not just the defense).`:`~${sq.toFixed(0)} points of shot-making over their looks.`)}`);
-      }
-    }
+  // context rows (explanatory, not additive): three-point variance and shot quality
+  const ctx=[];
+  const par3=x=>(tp(x)-EXP.three)*x.tpa*3;
+  ctx.push(['3-point shooting vs D-I rate', `${A.tpm}/${A.tpa} (${(100*tp(A)).toFixed(0)}%)`, `${(par3(A)>=0?'+':'')+par3(A).toFixed(1)} pts`, `${B.tpm}/${B.tpa} (${(100*tp(B)).toFixed(0)}%)`, `${(par3(B)>=0?'+':'')+par3(B).toFixed(1)} pts`]);
+  const xA=expEfgOf(shotsA.length>=25?shotsA:null), xB=expEfgOf(shotsB.length>=25?shotsB:null);
+  if(xA!=null&&xB!=null) ctx.push(['Shot quality → shot-making', `${(100*xA).toFixed(1)}% exp. eFG`, `${((eA-xA)*A.fga*2>=0?'+':'')+((eA-xA)*A.fga*2).toFixed(1)} pts`, `${(100*xB).toFixed(1)}% exp. eFG`, `${((eB-xB)*B.fga*2>=0?'+':'')+((eB-xB)*B.fga*2).toFixed(1)} pts`]);
+  const poss=x=>x.fga-x.oreb+x.tov+0.44*x.fta, pA=poss(A), pB=poss(B);
+  const BX=[['Points',A.pts,B.pts],['Possessions (est.)',pA.toFixed(0),pB.toFixed(0)],['Points per possession',(A.pts/pA).toFixed(2),(B.pts/pB).toFixed(2)],
+    ['FG',`${A.fgm}/${A.fga}`,`${B.fgm}/${B.fga}`],['eFG%',(100*eA).toFixed(1),(100*eB).toFixed(1)],['3P',`${A.tpm}/${A.tpa}`,`${B.tpm}/${B.tpa}`],
+    ['FT',`${A.ftm}/${A.fta}`,`${B.ftm}/${B.fta}`],['Off. rebounds',A.oreb,B.oreb],['Def. rebounds',A.dreb,B.dreb],['Turnovers',A.tov,B.tov]];
+  const boxT=`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l"></th><th>${esc(nA)}</th><th>${esc(nB)}</th></tr></thead><tbody>${BX.map(r=>`<tr><td class="l nm">${r[0]}</td><td class="big">${r[1]}</td><td class="big">${r[2]}</td></tr>`).join('')}</tbody></table></div>`;
+  const ctxT=`<div class="sheet-wrap" style="margin-top:12px"><table class="sheet dense"><thead><tr><th class="l">Context · not part of the sum</th><th>${esc(nA)}</th><th>vs par</th><th>${esc(nB)}</th><th>vs par</th></tr></thead><tbody>${ctx.map(r=>`<tr><td class="l nm">${r[0]}</td><td>${r[1]}</td><td class="big">${r[2]}</td><td>${r[3]}</td><td class="big">${r[4]}</td></tr>`).join('')}</tbody></table></div>`;
+
+  const logo=n=>window.TDC_TEAM&&TDC_TEAM.logo?TDC_TEAM.logo(n):'';
+  const site=g.neutral?'Neutral site':(g.home===nameA?`at ${esc(nA)}`:`at ${esc(nB)}`);
+  const won=margin>0;
+  el('out').innerHTML=`
+    <section class="gr-sec"><div class="gr-band">
+      <div class="t${won?'':' dim'}">${logo(nameA)?`<img src="${logo(nameA)}" alt="">`:''}${esc(nA)}</div>
+      <div><div class="sc"><span${won?'':' class="dim"'}>${A.pts}</span> – <span${won?' class="dim"':''}>${B.pts}</span></div><div class="m">${fmtDate(g.date)} · ${site} · <a href="game.html?id=${gid}">box score</a></div></div>
+      <div class="t r${won?' dim':''}">${esc(nB)}${logo(nameB)?`<img src="${logo(nameB)}" alt="">`:''}</div>
+    </div></section>
+    <section class="gr-sec"><div class="sec-h">Where the margin came from <span class="hint">points each factor was worth — they add up to the final margin · bars toward ${esc(nA)} (right) or ${esc(nB)} (left)</span></div>${swing}</section>
+    <section class="gr-sec"><div class="sec-h">Side by side <span class="hint">the box numbers</span></div><div class="gr-2"><div>${boxT}</div><div>${ctxT}</div></div></section>
+    <section class="gr-sec"><div class="sec-h">Game flow &amp; rotation <span class="hint">ESPN play-by-play</span></div><div id="grFlow"><div class="gr-muted">Loading play-by-play…</div></div></section>
+    <section class="gr-sec"><div class="sec-h">Shot charts <span class="hint">this game</span></div><div class="gr-2"><div><div class="gr-lbl">${esc(nA)}</div><div id="grShotA"></div></div><div><div class="gr-lbl">${esc(nB)}</div><div id="grShotB"></div></div></div></section>`;
+  if(window.TDC_GAMEFLOW) TDC_GAMEFLOW.mount(el('grFlow'), gid); else el('grFlow').innerHTML='';
+  if(window.TDC_SHOTCHART){
+    TDC_SHOTCHART.render(el('grShotA'), shotsA, {subtitle:nA, kind:'team', season:SEASON, color:cA});
+    TDC_SHOTCHART.render(el('grShotB'), shotsB, {subtitle:nB, kind:'team', season:SEASON, color:cB});
   }
-
-  // calibrate the rough four-factor weights so the impacts decompose the ACTUAL margin
-  const margin=A.pts-B.pts;
-  const rawSum=F.reduce((s,f)=>s+f.imp,0);
-  if(Math.abs(rawSum)>2 && (rawSum>0)===(margin>0)){ const sc=margin/rawSum; F.forEach(f=>f.imp*=sc); }
-  // rank by |impact|; frame from A's perspective
-  F.sort((a,b)=>Math.abs(b.imp)-Math.abs(a.imp));
-  const top=F.filter(f=>Math.abs(f.imp)>=1.0).slice(0,5);
-  const decided = won
-    ? `<b>${esc(sn(nameA))}</b> won by <b>${margin}</b>. What decided it, biggest factor first:`
-    : `<b>${esc(sn(nameA))}</b> lost by <b>${-margin}</b>. What lost it, biggest factor first:`;
-  const fcard=(f,i)=>{ const hurt=f.imp<0; const cls=hurt?'hurt':'help'; const col=hurt?'var(--red)':'var(--green)';
-    return `<div class="fcard ${cls}" style="--fk:${col}"><div class="fnum">${i+1}</div>
-      <div class="ftext"><div class="fh">${esc(f.h)}</div><div class="fb">${f.b}</div></div>
-      <div class="fimp"><div class="fv">${f.imp>=0?'+':''}${f.imp.toFixed(0)}</div><div class="fl">~pts</div></div></div>`; };
-
-  el('out').innerHTML=`<div class="sec-h">Game review</div>
-    <div class="rvhead">
-      <div class="rvscore">
-        <span class="tm ${won?'':'dim'}">${esc(sn(nameA))}</span><span class="sc ${won?'':'dim'}">${A.pts}</span>
-        <span class="dim" style="font-size:13px;">—</span>
-        <span class="sc ${won?'dim':''}">${B.pts}</span><span class="tm ${won?'dim':''}">${esc(sn(nameB))}</span>
-      </div>
-      <div class="rvverdict">${decided}</div>
-    </div>
-    ${top.map(fcard).join('')}
-    ${ctx.length?`<div class="sec-h">The story behind it</div><div class="ctx">${ctx.map(c=>`<div class="ctxrow">${esc(c)}</div>`).join('')}</div>`:''}`;
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
 }
 
 (async function(){
-  try{ const sg=await fetch('scripts/data/shot_genome_teams.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null);
+  try{ const arr=await fetch('scripts/data/team_colors.json').then(r=>r.ok?r.json():[]);
+    (arr||[]).forEach(e=>{ if(e&&e.c1){ if(e.location) COLORMAP[e.location]=e.c1; if(e.display) COLORMAP[e.display]=e.c1; } });
+  }catch(e){}
+  try{ const sg=await fetch('scripts/data/shot_genome_teams.json').then(r=>r.ok?r.json():null);
     const zm=sg&&sg.meta&&sg.meta.zone_make; if(zm){ EXP.rim=zm.rim||EXP.rim; EXP.mid=zm.mid||EXP.mid; EXP.three=((zm.atb3||.335)*3+(zm.corner3||.359))/4; }
   }catch(e){}
   D=await TDC_RATINGS.get();
-  D.teams=(D.teams||[]).filter(t=>t.projected!==false&&t.rating!=null).sort((a,b)=>(a.rank||999)-(b.rank||999));
+  D.teams=(D.teams||[]).filter(t=>t.rating!=null).sort((a,b)=>(a.rank||999)-(b.rank||999));
   const qs=new URLSearchParams(location.search);
+  const ys=+qs.get('season'); if(SEASONS.indexOf(ys)>=0){ SEASON=ys; } el('season').value=String(SEASON);
   const want=(qs.get('team')||'').toLowerCase();
-  if(want){ const i=D.teams.findIndex(t=>t.full.toLowerCase()===want||t.team.toLowerCase()===want); if(i>=0){ selKey=i; el('sel').value=labelOf(poolRow(i)); loadGames(); } }
+  if(want){ const i=D.teams.findIndex(t=>t.full.toLowerCase()===want||t.team.toLowerCase()===want); if(i>=0){ selKey=i; el('sel').value=labelOf(poolRow(i)); loadGames(qs.get('game')); } }
 })();
 </script>
+  <script src="tdc-sheets.js?v=2"></script>
   <script src="tdc-version.js?v=2"></script>
-  <script src="tdc-tour.js?v=27"></script>
+  <script src="tdc-tour.js?v=28"></script>
 </body>
 </html>

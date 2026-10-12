@@ -38,13 +38,13 @@
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  const SEASON=2027, LS_KEY='tdc_ratings_v21_'+SEASON, TTL=24*3600*1000;
+  const SEASON=2027, LS_KEY='tdc_ratings_v22_'+SEASON, TTL=24*3600*1000;
   // in-season form: once 2026-27 games are played, each team's rating drifts
   // toward how it's ACTUALLY performing vs our own lines. surprise = actual
-  // margin - expected margin; form = sum(surprise)/(n + FORM_PRIOR) capped at
-  // ±FORM_CAP — a hot team gains up to +3, a cold one loses up to -3, and it
-  // takes a sustained run (not two lucky games) to move much.
-  const FORM_PRIOR=10, FORM_CAP=3;
+  // margin - expected margin, each game clipped to ±FORM_CLIP; form = sum(surprise)/(n + FORM_PRIOR)
+  // capped at ±FORM_CAP — it takes a sustained run (not two lucky games) to move much. Owner, Oct 12 2026:
+  // real games should move projections less (was prior 10, cap 3, no clip).
+  const FORM_PRIOR=20, FORM_CAP=2, FORM_CLIP=15;
   const CAL_A=-0.3, CAL_B=4.16;            // BPM→SRS (recal 2026-08: was 11.75/2.355 — intercept too high + slope too shallow bunched 24 teams ≥20.3; now ~6, matching historical spread; avg-BPM roster → ~0)
   // OWNED BPM. Each returner enters the projection on the Box Plus/Minus scale.
   // A regression of bbref BPM onto OUR OWN box-derived rates (player_advanced) PLUS the
@@ -231,7 +231,7 @@
       const h=byFull[g.home], a=byFull[g.away];
       if(!h||!a||g.home_score==null||g.away_score==null) return;
       const hc=g.neutral?0:baseHca(a.rating)+(h.hcaOff||0);
-      const surprise=(g.home_score-g.away_score)-(h.rating-a.rating+hc);
+      const surprise=Math.max(-FORM_CLIP,Math.min(FORM_CLIP,(g.home_score-g.away_score)-(h.rating-a.rating+hc)));
       (acc[g.home]=acc[g.home]||{s:0,n:0}); acc[g.home].s+=surprise; acc[g.home].n++;
       (acc[g.away]=acc[g.away]||{s:0,n:0}); acc[g.away].s-=surprise; acc[g.away].n++;
     });
