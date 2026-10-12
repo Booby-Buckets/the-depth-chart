@@ -32,7 +32,7 @@
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-pool.js?v=5"></script>
-  <script src="tdc-glossary.js?v=13"></script>
+  <script src="tdc-glossary.js?v=14"></script>
   <style>
     .nil-card{border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:132px;background:var(--bg2);}
     .nil-lbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
@@ -2267,6 +2267,18 @@ function _ribHTML(cells){ return cells.filter(c=>c&&c.v!=null&&c.v!==''&&c.v!=='
   return `<div class="hrb ${c.cls||''}${tone}${tip?' has-tip':''}"${tip?` title="${tip.replace(/"/g,'&quot;')}"`:''}><div class="hrb-v">${c.badge?`<span class="hrb-seedbadge ${c.badgeCls||''}">${c.badge}</span>`:''}${c.v}</div><div class="hrb-l">${c.l}</div>${c.s?`<div class="hrb-s">${c.s}</div>`:''}</div>`;
 }).join(''); }
 
+// program & coach terms of the 2026-27 rating (build_program_prior.py): new head coach + long-run program pull
+let _ppP=null;
+function _progPrior(){ return _ppP||(_ppP=fetch('scripts/data/program_prior_2027.json?v=2').then(r=>r.ok?r.json():null).catch(()=>null)); }
+function _coachProgCell(rr, pp){
+  const pe=pp&&rr&&pp.teams&&pp.teams[rr.full]; if(!pe) return null;
+  const adj=(rr.progAdj!=null&&isFinite(rr.progAdj))?+rr.progAdj:+pe.adj;
+  if(!pe.new&&Math.abs(adj)<0.3) return null;
+  const c=pp.coef||{}, coachPart=pe.new?(c.new||0)+(pe.newJob?(c.newJob||0):0):0, lvl=adj-coachPart;
+  const sg=x=>(x>=0?'+':'')+x.toFixed(1);
+  const s=pe.new?`${pe.coach}${pe.newJob?'':' · first head job'}${Math.abs(lvl)>=0.3?` · program ${sg(lvl)}`:''}`:'long-run program + league';
+  return {v:sg(adj), l:pe.new?'New coach':'Program pull', tip:'coachprog', s, col:adj<0?'var(--amber)':''};
+}
 let _heroBarGen=0;
 async function renderHeroBar(yr, teamObj){
   const mEl=document.getElementById('heroMetrics'), rEl=document.getElementById('heroRibbon'), gEl=document.getElementById('heroGrades');
@@ -2298,6 +2310,7 @@ async function renderHeroBar(yr, teamObj){
     if(seedCell) seedCell.tip='projseed';
     // projected record from the schedule simulation (null until the slate is announced)
     const sp=await _schedProjection(rr&&rr.full);
+    const pp=await _progPrior();
     if(stale()||_rosterSeason<2027) return;
     const spW=sp?Math.round(sp.expW):null;
     const recCell=sp?{v:`${spW}–${sp.n-spW}`,l:'Proj record',
@@ -2315,6 +2328,7 @@ async function renderHeroBar(yr, teamObj){
       (rr&&rr.shotLuck!=null&&Math.abs(rr.shotLuck)>=2)
         ? {v:(rr.shotLuck>0?'+':'')+rr.shotLuck, l:'Shot luck', tip:'shotluck',
            col:rr.shotLuck>0?'var(--amber)':'var(--tc-readable)'} : null,
+      _coachProgCell(rr, pp),
       // continuity: share of last year's minutes returning (a projection factor)
       (rr&&rr.continuity!=null)
         ? {v:Math.round(rr.continuity)+'%', l:'Continuity', tip:'continuity',

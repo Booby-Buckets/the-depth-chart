@@ -76,6 +76,11 @@
              "their looks last season, in eFG points. Shooting over your shot quality is " +
              "only partly repeatable, so the projection regresses a hot number back down " +
              "(and bumps a cold one up) — a positive value is a regression caution.",
+    coachprog: "Coaching change and program pull, from our 20-season preseason backtest. A first-year " +
+             "head coach has historically cost about 1 point of Power Rating (slightly less if he has " +
+             "run a D-I program before). Outside the top 100, programs that are usually better than " +
+             "last season — and teams in strong leagues — tend to bounce back, so they get a lift " +
+             "(and chronic low-majors a dock).",
     continuity: "The share of last season's minutes that return on this year's roster. " +
              "High-continuity teams tend to over-perform their raw talent (chemistry and " +
              "system familiarity), so the projection gives them a small bump; heavily " +
