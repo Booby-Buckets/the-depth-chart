@@ -205,7 +205,10 @@
     const me0 = rowOf(team); if (!me0) return null;
     // current strength (preseason prior + results so far) and its shrinking uncertainty
     const me = Object.assign({}, me0, { rating: rateOf(team, me0) }), tauMe = tauOf(team);
-    const FLOOR = { team: '?', full: '?', rating: -14, hcaOff: 0 };     // unrated (non-D-I) opponents
+    // unrated (non-D-I) opponents. −14 over-projected bad teams by ~0.9 wins (they beat non-D-I schools less often
+    // than that implies); −8 removes the bias top to bottom (scratchpad backtest_wl2.py, 4,801 team-seasons 2012-26:
+    // expected-wins MAE 3.12 -> 3.09, bottom-quarter miss −0.87 -> −0.04, top quarter −0.10 -> +0.01). Owner, Oct 12 2026.
+    const FLOOR = { team: '?', full: '?', rating: -8, hcaOff: 0 };
     const rated = n => { const r = rowOf(n); return r ? Object.assign({}, r, { rating: rateOf(n, r), _tau: tauOf(n) }) : null; };
 
     // my slate: listed games + hand-added ones, date order. A game in the results file is a fixed result;
@@ -321,8 +324,12 @@
       r.label = oppLabel;
       r.spread = margin >= 0 ? `${sn(team)} −${margin.toFixed(1)}` : `${r.oppName ? sn(r.oppName) : 'Opp'} −${(-margin).toFixed(1)}`;
     });
+    // GAME-BY-GAME PICKS (owner, Oct 12 2026): the record if every game goes to the side we favor. Runs extreme by design —
+    // a top-10 team picked this way averages ~33 wins vs ~28 real (scratchpad backtest_wl.py); expW stays the honest number.
+    const left = rows.filter(r => !r.final);
+    const pickW = playedW + left.filter(r => r.margin > 0).length, pickCW = playedCW + left.filter(r => r.g.conf && r.margin > 0).length;
     // rows = the games still to play (what the schedule table projects); played = the results already in
-    return { team, me, rows: rows.filter(r => !r.final), played: done, playedW, playedL: done.length - playedW, playedCW, playedCL: playedCN - playedCW,
+    return { team, me, rows: left, played: done, pickW, pickL: n - pickW, pickCW, pickCL: confN - pickCW, playedW, playedL: done.length - playedW, playedCW, playedCL: playedCN - playedCW,
       counted: new Set(done.map(r => String(r.g.id))), sims: SIMS, tau: tauMe, sigma: SIGMA, n, confN, expW, expCW, modeW, lo: pct(0.1), hi: pct(0.9), W, CW, league: myLg,
       p20: pAtLeast(20), p25: pAtLeast(25), pHalf: sorted.filter(w => w * 2 >= n).length / sorted.length, model: _model, hist };
   }
@@ -353,7 +360,7 @@
   }
   const CSS = `
   .tsp{font-family:'Inter',system-ui,sans-serif;}
-  .tsp-sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 12px;}
+  .tsp-sum{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 12px;}
   .tsp-tile{border:1px solid var(--border);border-radius:9px;padding:9px 12px 8px;background:var(--bg2);min-width:0;}
   .tsp-tile .k{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:3px;white-space:nowrap;}
   .tsp-tile .v{font-family:'Playfair Display',serif;font-weight:800;font-size:21px;line-height:1;color:var(--text);white-space:nowrap;}
@@ -381,6 +388,24 @@
   [data-theme="dark"] .tsp-table tr.w td.tsp-sc{color:#6fbf7e;} [data-theme="dark"] .tsp-table tr.x td.tsp-sc{color:#e07a7a;}
   @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .tsp-table tr.w td.tsp-sc{color:#6fbf7e;}:root:not([data-theme="light"]) .tsp-table tr.x td.tsp-sc{color:#e07a7a;}}
   .tsp-table tbody tr.sec td{background:var(--bg2);color:var(--text3);font-size:9.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;text-align:left;}
+  .tsp-wi{position:relative;border:1px solid var(--border);border-radius:9px;background:var(--bg2);padding:10px 12px 8px;margin:0 0 12px;}
+  .tsp-wi-h{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:12px;color:var(--text2);}
+  .tsp-wi-h>b{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
+  .tsp-wi-c b{color:var(--text);font-weight:800;} .tsp-wi-c .dim{color:var(--text3);}
+  .tsp-wi-ctl{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;}
+  .tsp-wi-ctl button{min-width:26px;height:24px;border:1px solid var(--border2);border-radius:6px;background:var(--bg);color:var(--text);font:700 12px Inter,sans-serif;cursor:pointer;}
+  .tsp-wi-ctl button.rs{padding:0 8px;font-size:10.5px;color:var(--text3);}
+  .tsp-wi-svg{display:block;width:100%;height:150px;margin-top:6px;overflow:visible;}
+  .tsp-wi-svg .gl{stroke:var(--border);stroke-width:1;} .tsp-wi-svg .tk{font:600 9.5px Inter,sans-serif;fill:var(--text3);text-anchor:end;}
+  .tsp-wi-svg .ln{fill:none;stroke:var(--accent,#c8a24a);stroke-width:2;vector-effect:non-scaling-stroke;}
+  .tsp-wi-svg .bl{fill:none;stroke:var(--text3);stroke-width:1.5;stroke-dasharray:4 3;vector-effect:non-scaling-stroke;}
+  .tsp-wi-svg .fp{fill:var(--accent,#c8a24a);stroke:var(--bg2);stroke-width:2;}
+  .tsp-wi-svg .cx{stroke:var(--text3);stroke-width:1;vector-effect:non-scaling-stroke;}
+  .tsp-wi-tip{position:absolute;top:34px;z-index:5;width:160px;padding:6px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--bg);font-size:11px;color:var(--text2);pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.12);}
+  .tsp-wi-tip b{color:var(--text);}
+  .tsp-wi-n{font-size:10.5px;color:var(--text3);line-height:1.45;margin-top:4px;}
+  .tsp-table .tsp-pkb{min-width:26px;height:22px;border:1px solid var(--border2);border-radius:5px;background:var(--bg);color:#2e8b57;font:800 11px Inter,sans-serif;cursor:pointer;}
+  .tsp-table .tsp-pkb.lw{color:#c75d5d;} .tsp-table .tsp-pkb.on{border-color:var(--accent,#c8a24a);box-shadow:0 0 0 1px var(--accent,#c8a24a) inset;}
   .tsp-note{font-size:11px;color:var(--text3);line-height:1.5;margin:10px 2px 0;}
   .tsp-note b{color:var(--text2);}
   /* every column but Opponent hugs its content; the opponent takes the spare width (it used to land on Date and
@@ -457,7 +482,7 @@
         <td class="c tsp-q">${quad(x.rank, x.site) ? 'Q' + quad(x.rank, x.site) : ''}</td>
         <td class="tsp-pr"></td>
         <td class="tsp-p"></td>
-        <td class="tsp-line">${x.rec}</td></tr>`;
+        <td class="tsp-line">${x.rec}</td>${opts.whatIf ? '<td class="tsp-pk"></td>' : ''}</tr>`;
     });
     R.rows.forEach(r => {
       const d = dParts(r.g.date);
@@ -481,7 +506,7 @@
         <td class="c tsp-q" title="NET-style quadrant: opponent rank ${rk || '—'} ${r.venue === 'H' ? 'at home' : r.venue === 'A' ? 'on the road' : 'on a neutral floor'}">${q ? 'Q' + q : ''}</td>
         <td class="tsp-pr">${r.opp && isFinite(r.opp.rating) ? sg(r.opp.rating) : ''}</td>
         <td class="tsp-p" title="${Math.round(r.p0 * 100)}% on the line alone · ${pc}% across simulated seasons">${pc}%</td>
-        <td class="tsp-line">${r.margin >= 0 ? '−' : '+'}${Math.abs(r.margin).toFixed(1)}</td></tr>`;
+        <td class="tsp-line">${r.margin >= 0 ? '−' : '+'}${Math.abs(r.margin).toFixed(1)}</td>${opts.whatIf ? `<td class="c tsp-pk"><button type="button" class="tsp-pkb" data-i="${R.rows.indexOf(r)}" title="our pick — click to flip this result and see where the ranking goes" onclick="event.stopPropagation()">${r.margin > 0 ? 'W' : 'L'}</button></td>` : ''}</tr>`;
     });
     const W = Math.round(R.expW), L = R.n - W, cw = Math.round(R.expCW), cl = R.confN - cw;
     // the projection already counts every game in the results file; add only played games it doesn't know yet
@@ -491,19 +516,130 @@
     const m = R.model || {};
     const sum = `<div class="tsp-sum">
       <div class="tsp-tile" title="likely range ${pw + R.lo}–${pl + R.n - R.lo} to ${pw + R.hi}–${pl + R.n - R.hi} (10th–90th pct of ${R.sims.toLocaleString()} simulated seasons)"><div class="k">Projected record</div><div class="v">${pw + W}–${pl + L}</div><div class="s">${(pw + R.expW).toFixed(1)} expected wins${sw + sl ? ` · ${sw}–${sl} so far` : ''}</div></div>
+      <div class="tsp-tile" title="the record if the side we favor wins every game — runs high for good teams and low for bad ones (favorites lose some); the projected record is the honest expectation"><div class="k">Game-by-game</div><div class="v">${pw + R.pickW}–${pl + R.pickL}</div><div class="s">if every favorite wins${R.confN ? ` · ${R.pickCW}–${R.pickCL} conf` : ''}</div></div>
       <div class="tsp-tile"><div class="k">Conference</div><div class="v">${R.confN ? `${cw}–${cl}` : '—'}</div><div class="s">${R.confN ? `${R.expCW.toFixed(1)} of ${R.confN} league games` : 'no league games listed yet'}</div></div>
       <div class="tsp-tile"><div class="k">20+ wins</div><div class="v">${Math.round(R.p20 * 100)}%</div><div class="s">25+ ${Math.round(R.p25 * 100)}% · .500+ ${Math.round(R.pHalf * 100)}%</div></div>
     </div>`;
     const note = `<div class="tsp-note"><b>Line</b> = projected margin (− favored, + underdog), built from the ratings, the host's measured home edge, and rest: back-to-backs cost ${sg(m.rest && m.rest.b2b || 0)} pts, 8+ days off ${sg(m.rest && m.rest.r8 || 0)}, a season opener ${sg(m.rest && m.rest.opener || 0)} (${(m.n || 0).toLocaleString()} games since ${m.firstSeason || 2008}; road trips and win streaks measure ≈ 0). Hover a Site badge for that game's breakdown. <b>Win %</b> is the share of ${R.sims.toLocaleString()} simulated seasons, each drawing every team's true strength ±${R.tau} around its projection.</div>`;
     host.innerHTML = `<div class="tsp">${sum}<div class="sheet-wrap tsp-wrap"><table class="sheet dense tsp-table"><thead><tr>
-      <th class="l">Date</th><th title="opponent's rank">Rk</th><th class="l">Opponent</th><th class="c" title="projected score">Score</th><th class="c" title="H home · A away · N neutral">Site</th><th class="c" title="NET-style quadrant">Quad</th><th title="opponent's projected Power Rating">Opp PRtg</th><th data-heat="1" title="win probability across the simulated seasons">Win %</th><th data-heat="-1" title="projected margin: − favored, + underdog">Line</th>
+      <th class="l">Date</th><th title="opponent's rank">Rk</th><th class="l">Opponent</th><th class="c" title="projected score">Score</th><th class="c" title="H home · A away · N neutral">Site</th><th class="c" title="NET-style quadrant">Quad</th><th title="opponent's projected Power Rating">Opp PRtg</th><th data-heat="1" title="win probability across the simulated seasons">Win %</th><th data-heat="-1" title="projected margin: − favored, + underdog">Line</th>${opts.whatIf ? '<th class="c" title="our game-by-game pick — click one to flip it">Pick</th>' : ''}
     </tr></thead><tbody>${rows}</tbody></table></div>${note}</div>`;
     shade(host);
+    if (opts.whatIf) whatIf(host, R, pw, pl);
+  }
+
+  // ── what-if rankings (owner, Oct 12 2026) ──────────────────────────────────────────────────────────
+  // The Power Rating barely moves when a team plays to projection, so the rank line is flat as projected; flip a
+  // game (or set a record) and every team's rating is re-solved with the REAL in-season formula
+  // (TDC_RATINGS.applyForm: preseason = 8 games + opponent/venue-adjusted margins) after each of this team's games.
+  // Unflipped games enter at their projected margin (they add weight, not movement); a flipped game enters at the
+  // average margin of that outcome given our line: E[M | M>0] = m + σφ(m/σ)/(1−Φ(m/σ)), mirrored for a loss.
+  const _dens = x => Math.exp(-x * x / 2) / Math.sqrt(2 * Math.PI);
+  function flipMargin(m, sig) {
+    const z = m / sig, P = phi(z);
+    return m > 0 ? m - sig * _dens(z) / Math.max(1e-9, P) : m + sig * _dens(z) / Math.max(1e-9, 1 - P);
+  }
+  async function rankPath(R, flips) {
+    const D = await g.TDC_RATINGS.get(), SIG = g.TDC_RATINGS.SIGMA || 11, team = R.team;
+    const base = D.teams.map(t => ({ full: t.full, rating: t.preRating != null ? +t.preRating : +t.rating || 0, hcaOff: t.hcaOff || 0 }));
+    const cur = {}; D.teams.forEach(t => { cur[t.full] = +t.rating || 0; });
+    const pre = {}; base.forEach(t => { pre[t.full] = t; });
+    const games = [];
+    Object.values(RES).forEach(x => { if (pre[x.home] && pre[x.away]) games.push({ date: x.date, home: x.home, away: x.away, home_score: x.hs, away_score: x.as, neutral: x.neutral }); });
+    const flipBy = {}; R.rows.forEach((r, i) => { if (flips.has(i) && r.g && r.g.id != null) flipBy[String(r.g.id)] = r; });
+    allGames().forEach(x => {
+      if (RES[x.id] || !pre[x.home] || !pre[x.away]) return;
+      const hc = x.neutral ? 0 : g.TDC_RATINGS.baseHca(pre[x.away].rating) + (pre[x.home].hcaOff || 0);
+      let m = cur[x.home] - cur[x.away] + hc;                        // at projection: no residual, no movement
+      const f = flipBy[String(x.id)];
+      if (f) { const mm = flipMargin(f.margin, SIG); m = x.home === team ? mm : -mm; }
+      games.push({ date: x.date, home: x.home, away: x.away, home_score: m, away_score: 0, neutral: x.neutral, id: x.id });
+    });
+    games.sort((a, b) => a.date.localeCompare(b.date));
+    const solveTo = d => {
+      const rows = base.map(t => Object.assign({}, t));
+      g.TDC_RATINGS.applyForm(rows, games.filter(x => x.date <= d));
+      rows.sort((a, b) => b.rating - a.rating);
+      const i = rows.findIndex(t => t.full === team); return { rank: i + 1, rating: rows[i] ? rows[i].rating : null };
+    };
+    let w = R.playedW || 0, l = R.playedL || 0;
+    const pts = [Object.assign({ date: null, w, l, label: 'Now' }, solveTo(new Date().toISOString().slice(0, 10)))];   // results so far only
+    R.rows.forEach((r, i) => {
+      if (r.bracket || r.pool || !r.oppName) return;
+      const won = (r.margin > 0) !== flips.has(i); won ? w++ : l++;
+      pts.push(Object.assign({ date: r.g.date, w, l, i, won, flipped: flips.has(i), label: (g.tdcShortSchool || (x => x))(r.oppName) }, solveTo(r.g.date)));
+    });
+    return pts;
+  }
+  function whatIf(host, R, pw, pl) {
+    const box = document.createElement('div'); box.className = 'tsp-wi';
+    host.querySelector('.tsp-sum').after(box);
+    const flips = new Set(), base0 = { v: null };
+    const picks = R.rows.map(r => r.margin > 0);
+    const totW = () => pw + (R.playedW || 0) + R.rows.reduce((a, r, i) => a + ((picks[i] !== flips.has(i)) ? 1 : 0), 0);
+    const N = pw + pl + R.n;
+    const setTarget = target => {          // flip the closest games first: they're the likeliest to go the other way
+      flips.clear(); const k = totW(); if (target === k) return;
+      const want = target > k;            // need more wins: flip projected losses, nearest the line first
+      R.rows.map((r, i) => ({ i, m: r.margin })).filter(o => !(R.rows[o.i].bracket || R.rows[o.i].pool || !R.rows[o.i].oppName) && (want ? o.m <= 0 : o.m > 0))
+        .sort((a, b) => Math.abs(a.m) - Math.abs(b.m)).slice(0, Math.abs(target - k)).forEach(o => flips.add(o.i));
+    };
+    let seq = 0;
+    async function draw() {
+      const my = ++seq;
+      host.querySelectorAll('.tsp-pkb').forEach(b => { const i = +b.dataset.i, won = picks[i] !== flips.has(i);
+        b.textContent = won ? 'W' : 'L'; b.classList.toggle('on', flips.has(i)); b.classList.toggle('lw', !won); });
+      box.innerHTML = `<div class="tsp-wi-h"><b>Projected ranking</b><span class="tsp-wi-c">computing…</span></div>`;
+      let pts; try { pts = await rankPath(R, flips); } catch (e) { box.innerHTML = ''; console.warn('what-if', e); return; }
+      if (my !== seq) return;
+      if (!flips.size) base0.v = pts;
+      const B = base0.v || pts, last = pts[pts.length - 1], w = totW();
+      box.innerHTML = `<div class="tsp-wi-h"><b>Projected ranking</b>
+          <span class="tsp-wi-c">Now <b>#${pts[0].rank}</b> → finishes <b>#${last.rank}</b> at <b>${w}–${N - w}</b>${flips.size ? ` <span class="dim">(as projected: #${B[B.length - 1].rank})</span>` : ' · as projected'}</span>
+          <span class="tsp-wi-ctl"><button type="button" data-d="-1" aria-label="one fewer win">−</button><span title="final record — flips the closest games first">${w}–${N - w}</span><button type="button" data-d="1" aria-label="one more win">+</button>${flips.size ? '<button type="button" class="rs">Reset</button>' : ''}</span></div>
+        ${chart(pts, B)}
+        <div class="tsp-wi-n">Our pick in every game keeps the rank flat — that's what playing to projection means. Click a <b>Pick</b> to flip a result, or step the record; each flipped game counts at the typical margin of that upset, and every team's rating is re-solved the way it will be in-season.</div>`;
+      box.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { const t = Math.max(0, Math.min(N, totW() + +b.dataset.d)); setTarget(t); draw(); });
+      const rs = box.querySelector('.rs'); if (rs) rs.onclick = () => { flips.clear(); draw(); };
+      wireTip(box, pts);
+    }
+    host.querySelectorAll('.tsp-pkb').forEach(b => b.onclick = e => { e.stopPropagation(); const i = +b.dataset.i; flips.has(i) ? flips.delete(i) : flips.add(i); draw(); });
+    draw();
+  }
+  function chart(pts, B) {
+    const W = 720, H = 150, pl = 34, pr = 10, pt = 10, pb = 20, n = pts.length;
+    const ranks = pts.map(p => p.rank).concat(B.map(p => p.rank));
+    let lo = Math.max(1, Math.min.apply(null, ranks) - 3), hi = Math.max.apply(null, ranks) + 3;
+    const x = i => pl + (n > 1 ? i * (W - pl - pr) / (n - 1) : 0), y = r => pt + (r - lo) * (H - pt - pb) / Math.max(1, hi - lo);
+    const path = a => a.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.rank).toFixed(1)}`).join('');
+    const ticks = []; const step = Math.max(1, Math.ceil((hi - lo) / 4)); for (let r = lo; r <= hi; r += step) ticks.push(r);
+    return `<svg class="tsp-wi-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="projected rank after each game">
+      ${ticks.map(r => `<line x1="${pl}" x2="${W - pr}" y1="${y(r)}" y2="${y(r)}" class="gl"/><text x="${pl - 6}" y="${y(r) + 3}" class="tk">#${r}</text>`).join('')}
+      ${B !== pts ? `<path d="${path(B)}" class="bl"/>` : ''}
+      <path d="${path(pts)}" class="ln"/>
+      ${pts.map((p, i) => p.flipped ? `<circle cx="${x(i)}" cy="${y(p.rank)}" r="4" class="fp"/>` : '').join('')}
+      <line class="cx" x1="0" x2="0" y1="${pt}" y2="${H - pb}" style="display:none"/>
+      <rect class="hit" x="${pl}" y="0" width="${W - pl - pr}" height="${H}" fill="transparent"/>
+    </svg><div class="tsp-wi-tip" style="display:none"></div>`;
+  }
+  function wireTip(box, pts) {
+    const svg = box.querySelector('svg'), tip = box.querySelector('.tsp-wi-tip'), cx = svg && svg.querySelector('.cx');
+    if (!svg) return;
+    const n = pts.length;
+    svg.addEventListener('mousemove', e => {
+      const bb = svg.getBoundingClientRect(), fx = (e.clientX - bb.left) / bb.width * 720;
+      const i = Math.max(0, Math.min(n - 1, Math.round((fx - 34) / ((720 - 44) / Math.max(1, n - 1)))));
+      const p = pts[i], px = 34 + (n > 1 ? i * (720 - 44) / (n - 1) : 0);
+      cx.setAttribute('x1', px); cx.setAttribute('x2', px); cx.style.display = '';
+      tip.style.display = ''; tip.style.left = Math.min(bb.width - 170, Math.max(0, px / 720 * bb.width - 80)) + 'px';
+      tip.innerHTML = p.date ? `<b>#${p.rank}</b> after ${p.won ? 'W' : 'L'} vs ${p.label}${p.flipped ? ' <i>(flipped)</i>' : ''}<br>${p.w}–${p.l} · ${p.date.slice(5).replace('-', '/')}` : `<b>#${p.rank}</b> today · ${p.w}–${p.l}`;
+    });
+    svg.addEventListener('mouseleave', () => { tip.style.display = 'none'; cx.style.display = 'none'; });
   }
 
   // every rated team's projected record for the rankings table — lighter sims, cached in
   // localStorage until the ratings or the schedule file change
-  const LS_ALL = 'tdc_projrec_v12';
+  const LS_ALL = 'tdc_projrec_v13';
   async function projectAll(opts) {
     opts = opts || {};
     await load();
@@ -515,7 +651,7 @@
     for (const t of D.teams) {
       const R = await project(t.full, { sims: opts.sims || 600 });
       if (R) recs[t.full] = { w: Math.round(R.expW), l: R.n - Math.round(R.expW), cw: Math.round(R.expCW), cl: R.confN - Math.round(R.expCW),
-        n: R.n, confN: R.confN, lo: R.lo, hi: R.hi, p20: +R.p20.toFixed(2),
+        n: R.n, confN: R.confN, lo: R.lo, hi: R.hi, p20: +R.p20.toFixed(2), kw: R.pickW, kl: R.pickL, kcw: R.pickCW, kcl: R.pickCL,
         // the record so far (every result incl. games that just went final)
         pw: R.playedW || 0, pl: R.playedL || 0, pcw: R.playedCW || 0, pcl: R.playedCL || 0 };
     }
@@ -547,7 +683,7 @@
         <td class="tsp-pr">${x.oppSrs != null ? sg(x.oppSrs) : ''}</td>
         <td class="tsp-line" title="expected margin from the two Power Ratings + venue">${exp != null ? sg(exp) : ''}</td>
         <td class="tsp-pm" title="actual margin vs expected">${diff != null ? sg(diff) : ''}</td>
-        <td class="tsp-line">${x.rec}</td></tr>`;
+        <td class="tsp-line">${x.rec}</td>${opts.whatIf ? '<td class="tsp-pk"></td>' : ''}</tr>`;
     });
     host.innerHTML = `<div class="tsp"><div class="sheet-wrap tsp-wrap"><table class="sheet dense tsp-table"><thead><tr>
       <th class="l">Date</th><th title="opponent's rank">Rk</th><th class="l">Opponent</th><th class="c">Result</th><th class="c" title="H home · A away · N neutral">Site</th><th class="c" title="NET-style quadrant">Quad</th><th title="opponent's Power Rating that season">Opp PRtg</th><th title="expected margin (Power Ratings + venue)">Exp</th><th data-heat="1" title="actual margin minus expected">+/−</th><th>Record</th>

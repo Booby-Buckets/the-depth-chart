@@ -8,7 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="team-colors.js?v=11"></script>
   <script src="tdc-ratings.js?v=43"></script>
-  <script src="tdc-schedule.js?v=40"></script>
+  <script src="tdc-schedule.js?v=42"></script>
   <script src="tdc-glossary.js?v=14"></script>
   <script src="tdc-freshman.js?v=pub31"></script>
   <script src="tdc-injury.js?v=5"></script>
@@ -1447,6 +1447,7 @@
       <th class="l">Team</th>
       <th class="l">Conf</th>
       <th class="c sort" data-sort="wins" data-col="wl" title="Win–Loss record. Once the 2026-27 season starts it is the real record (games count the moment they go final); before that, the expected record from simulating the announced schedule 600 times. Hover a team for the projected final record and range.">W-L<span class="ar"></span></th>
+      <th class="c sort" data-sort="picks" data-col="wl" title="Game-by-game picks: the final record if the side we favor wins every game (includes games already played). Runs high for good teams and low for bad ones, since favorites lose some; W-L is the honest expectation.">Picks<span class="ar"></span></th>
       <th class="sort" data-sort="srs" title="Power Rating — how many points better than an average Division I team this team is, on a neutral court and adjusted for who they played. A +18 team would beat an average team by about 18. The gap between two teams' Power Ratings is the projected point spread.">Rating<span class="ar"></span></th>
       <th class="sort" data-sort="ortg" title="Offensive Rating — points scored per 100 possessions, adjusted for opponent and pace (from the Team DNA engine). Higher = better offense. Sort by this to find the best offenses.">ORtg<span class="ar"></span></th>
       <th class="sort" data-sort="drtg" title="Defensive Rating — points allowed per 100 possessions, adjusted for opponent and pace (from the Team DNA engine). LOWER = better defense. Sort by this to find the best defenses.">DRtg<span class="ar"></span></th>
@@ -1980,6 +1981,7 @@ function statVal(t, key){
   if(key==='srs')    return t.srs ?? t.margin ?? -999;
   if(key==='margin') return t.margin ?? -999;
   if(key==='wins')   return t.wins ?? 0;
+  if(key==='picks')  return (t.projRec&&t.projRec.kw!=null) ? t.projRec.kw : -1;
   if(key==='winpct') return t.winpct ?? 0;
   const v = t[key]; return (v==null || isNaN(v)) ? -999 : v;
 }
@@ -2046,6 +2048,7 @@ function applyRankColumns(){
 const RANK_COLS = [
   // key, cell text, heat (1 = higher is better, -1 = lower is better, 0 = none), optional data-col
   ['wins',   t => t.gp||t.projRec ? `${t.wins}–${t.losses}` : '—', 0, 'wl'],
+  ['picks',  t => t.projRec&&t.projRec.kw!=null ? `${t.projRec.kw}–${t.projRec.kl}` : '—', 0, 'wl'],
   ['srs',    t => { const v=(window._useSrs&&t.srs!=null)?t.srs:t.margin; return v==null?'—':(v>0?'+':'')+(+v).toFixed(1); }, 1],
   ['ortg',   t => t.ortg!=null?t.ortg.toFixed(1):'—', 1],
   ['drtg',   t => t.drtg!=null?t.drtg.toFixed(1):'—', -1],
@@ -2112,7 +2115,7 @@ function renderRows(data, srt, favTeam){
       + `<td class="l dim"><a class="ix-conf" href="conference.html?conf=${encodeURIComponent(t.confName||'')}${curSeason===2027?'':'&season='+curSeason}" title="${q(t.confName||'')} standings, tournament &amp; all-conference teams">${confAbbr(t.confName)}</a></td>`;
     RANK_COLS.forEach(([k,f,dir,col])=>{
       if(col && !RC[col]) return;
-      const cls=[k==='wins'?'c':'', k==='srs'?'big':'', dir&&heat[k]?heat[k](_heatVal(t,k)):''].filter(Boolean).join(' ');
+      const cls=[(k==='wins'||k==='picks')?'c':'', k==='srs'?'big':'', dir&&heat[k]?heat[k](_heatVal(t,k)):''].filter(Boolean).join(' ');
       row += `<td${cls?` class="${cls}"`:''}${k==='wins'?rec:''}>${f(t)}</td>`;
     });
     html += row + '</tr>';
