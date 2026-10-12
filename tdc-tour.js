@@ -134,7 +134,7 @@
       { sel:'#mbTabs', t:'Moneyball', html:'One idea: find what the market misprices. ' + bl('<b>What the market pays for</b> — every D-I transfer since 2013: how strong a program each trait earned him, against his impact after the move.', '<b>2026-27 transfers</b> — this year\'s class scored the same way.', '<b>GM Mode</b> — build a roster rated by the rankings engine.') },
       { sel:'#marketBody', t:'Market vs result', d:'Blue is the market\'s weight on a trait, gold is how much it shows up in the result. A verdict appears only when the gap holds in both eras and its 95% range clears zero.' },
       { sel:'#classBody', t:'The transfer class', d:'Expected impact at the new school against a typical transfer to a program that strong. Positive is a pickup that profiles above its level.', before:function(){ try{ showTab('class'); }catch(e){} } },
-      { sel:'#gmBody', t:'GM Mode', html:bl('<b>My program</b> — your team\'s real roster and NIL budget; cut, re-sign, reorder and sign targets.', '<b>Fantasy build</b> — an empty roster and a budget.'), before:function(){ try{ showTab('gm'); }catch(e){} } },
+      { sel:'#gmBody', t:'GM Mode', html:bl('<b>Roster value</b> — each player\'s worth in rating points over a replacement-level player, his cost per point and his surplus at the league price of a point.', '<b>Path to the goal</b> — dead-money cuts, then the signings that buy the most rating per dollar.', '<b>The frontier</b> — every target\'s cost against the rating he adds; the gold line is the best you can do at each price.'), before:function(){ try{ showTab('gm'); }catch(e){} } },
     ],
 
     'portal.html': [

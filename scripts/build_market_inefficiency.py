@@ -189,6 +189,24 @@ def main():
     for r in cur[:8]: print("  under-rewarded", r["name"], r["from"], "->", r["to"], r["exp_bpm"], r["gap"])
     for r in cur[-5:]: print("  over-rewarded ", r["name"], r["from"], "->", r["to"], r["exp_bpm"], r["gap"])
 
+    # ── market blind-spot index for every 2025-26 player (GM Mode): the significant, era-stable gaps as weights on his
+    # standardized traits — positive = a profile the transfer market has historically under-paid for. Percentile vs D-I.
+    W = {r["k"]: r["gap"] for r in rows if r["sig"] and r["stable"]}
+    allx = {}
+    for (e, y) in list(P.keys()):
+        if y != 2026: continue
+        x = traits(e, 2026)
+        if x and all(x.get(k) is not None for k in W): allx[e] = x
+    if allx and W:
+        mu = {k: np.mean([x[k] for x in allx.values()]) for k in W}; sd = {k: np.std([x[k] for x in allx.values()]) or 1 for k in W}
+        raw = {e: sum(W[k] * (x[k] - mu[k]) / sd[k] for k in W) for e, x in allx.items()}
+        vals = sorted(raw.values())
+        idx = {str(e): int(round(100 * np.searchsorted(vals, v, side="right") / len(vals))) for e, v in raw.items()}   # espn -> percentile
+        json.dump({"built": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"), "season": 2026,
+                   "weights": {k: round(v, 3) for k, v in W.items()}, "labels": {k: l for k, l in TRAITS if k in W}, "players": idx},
+                  open(os.path.join(ROOT, "data", "market_index_2026.json"), "w"), separators=(",", ":"))
+        print(f"blind-spot index: {len(idx)} players · weights {W}")
+
     json.dump({"built": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
                "n_moves": len(both), "seasons": [min(m["y"] for m in both), max(m["y"] for m in both)],
                "r2": {"market": round(A["r2d"], 3), "wins": round(A["r2o"], 3)},
