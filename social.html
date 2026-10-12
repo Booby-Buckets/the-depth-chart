@@ -182,6 +182,7 @@
     $('plList').innerHTML=html.join('');
     return out;
   }
+  async function dna(){ if(!D.dna){ var r=await fetch('scripts/data/team_dna.json'); var j=await r.json(); D.dna=(j['2027']&&j['2027'].teams)||{}; } return D.dna; }
   async function bigBoard(){
     if(D.board) return D.board;
     status('Building the Big Board…');
@@ -257,18 +258,21 @@
   // ── Ranked list ──
   var LIST_SRC={ teams:'Team rankings', board:'NBA Big Board', ppg:'Leaders · points', rpg:'Leaders · rebounds', apg:'Leaders · assists', stl:'Leaders · steals', blk:'Leaders · blocks', ovr:'Leaders · projected OVR', blank:'Blank list' };
   T.list={
-    defaults:function(){ return { src:'teams', conf:'', n:25, title:'Preseason Top 25', subtitle:SEASON+' · Power Rankings', showVal:false, rows:[] }; },
+    defaults:function(){ return { src:'teams', conf:'', n:25, title:'Preseason Top 25', subtitle:SEASON+' · Power Rankings', showVal:true, showSub:true, valLabel:'PWR', val2Label:'NET', rows:[] }; },
     load:async function(d){
       var n=Math.max(1,Math.min(60,+d.n||25)), conf=d.conf;
       if(d.src==='teams'){
-        var rs=(await ratings()).filter(function(t){ return !conf||confName(t.conf)===conf; }).slice(0,n);
-        d.rows=rs.map(function(t){ return { name:school(t.full||t.team), team:t.team, val:(t.rating>=0?'+':'')+(+t.rating).toFixed(1) }; });
+        var rs=(await ratings()).filter(function(t){ return !conf||confName(t.conf)===conf; }).slice(0,n), dn={};
+        try{ dn=await dna(); }catch(e){}
+        var sg=function(v){ return v==null||!isFinite(+v)?'':((+v>=0?'+':'')+(+v).toFixed(1)); };
+        d.rows=rs.map(function(t){ var x=dn[t.full]||dn[t.team]||{}; return { name:school(t.full||t.team), team:t.team, sub:confName(t.conf), val:sg(t.rating), val2:sg(x.net) }; });
         d.title=conf?conf+' Preseason Rankings':'Preseason Top '+n; d.subtitle=SEASON+' · Power Rankings';
+        d.showVal=true; d.showSub=!conf; d.valLabel='PWR'; d.val2Label='NET';
       } else if(d.src==='board'){
         var bb=await bigBoard(); await players();
         d.rows=bb.filter(function(p){ return !conf||confName((D.ratings||[]).reduce(function(a,t){ return t.team===p.team?t.conf:a; },''))===conf; }).slice(0,n)
-          .map(function(p){ return { name:p.name, team:p.team, espn:p.espn_id||null, val:p.posLabel||p.position||'' }; });
-        d.title='Preseason NBA Draft Big Board'; d.subtitle='Top '+n;
+          .map(function(p){ return { name:p.name, team:p.team, espn:p.espn_id||null, sub:school(p.team), val:p.posLabel||p.position||'', val2:'' }; });
+        d.title='Preseason NBA Draft Big Board'; d.subtitle='Top '+n; d.valLabel='POS'; d.val2Label=''; d.showSub=false;
       } else if(d.src==='blank'){
         d.rows=[]; for(var i=0;i<n;i++) d.rows.push({ name:'', team:'', val:'' });
       } else {
@@ -278,9 +282,10 @@
           if(stat!=='ovr'&&!(+L.mpg>=15)) return; var v=stat==='ovr'?TDCProjGrade.gradeSolo(p):+L[stat]; if(v==null||!isFinite(v)) return; rows.push({ p:p, v:v }); });
         rows.sort(function(a,b){ return b.v-a.v; });
         d.rows=rows.filter(function(r){ var k=r.p.espn_id||r.p.name; if(seen[k]) return false; seen[k]=1; return true; }).slice(0,n)
-          .map(function(r){ return { name:r.p.name, team:r.p.team, espn:r.p.espn_id||null, val:stat==='ovr'?String(Math.round(r.v)):r.v.toFixed(1) }; });
+          .map(function(r){ return { name:r.p.name, team:r.p.team, espn:r.p.espn_id||null, sub:[school(r.p.team),r.p.position].filter(Boolean).join(' · '), val:stat==='ovr'?String(Math.round(r.v)):r.v.toFixed(1), val2:'' }; });
         var lbl={ ppg:'Points per game', rpg:'Rebounds per game', apg:'Assists per game', stl:'Steals per game', blk:'Blocks per game', ovr:'Top players' }[stat];
-        d.title=(conf?conf+' ':'')+lbl; d.subtitle=SEASON+' projections'; d.showVal=true;
+        d.title=(conf?conf+' ':'')+lbl; d.subtitle=SEASON+' projections'; d.showVal=true; d.showSub=true;
+        d.valLabel={ ppg:'PPG', rpg:'RPG', apg:'APG', stl:'STL', blk:'BLK', ovr:'OVR' }[stat]; d.val2Label='';
       }
     },
     editor:function(d){
@@ -292,8 +297,11 @@
         '<div class="hint">Loading replaces the rows below. After that, edit anything.</div>'+
         '<h3>Text</h3><label class="f">Title</label><input data-k="title" value="'+esc(d.title)+'">'+
         '<label class="f">Subtitle</label><input data-k="subtitle" value="'+esc(d.subtitle)+'">'+
-        '<label class="chk"><input type="checkbox" data-k="showVal"'+(d.showVal?' checked':'')+'> Show the value column</label>'+
-        '<h3>Rows ('+d.rows.length+')</h3>'+rowsEditor(d.rows,'rows',true)+
+        '<label class="chk"><input type="checkbox" data-k="showVal"'+(d.showVal?' checked':'')+'> Show value columns</label>'+
+        '<div class="two"><div><label class="f">Column 1 label</label><input data-k="valLabel" value="'+esc(d.valLabel||'')+'" placeholder="e.g. PWR"></div>'+
+        '<div><label class="f">Column 2 label</label><input data-k="val2Label" value="'+esc(d.val2Label||'')+'" placeholder="e.g. NET (blank = off)"></div></div>'+
+        '<label class="chk"><input type="checkbox" data-k="showSub"'+(d.showSub?' checked':'')+'> Small line under each name (conference / school)</label>'+
+        '<h3>Rows ('+d.rows.length+')</h3>'+rowsEditor(d.rows,'rows',true,!!d.val2Label)+
         '<div class="btns"><button class="b sm" data-act="add" data-path="rows">+ Add row</button><button class="b sm" data-act="clear" data-path="rows">Clear</button></div>';
     },
     draw:async function(d,W,H,u,pad){
@@ -303,19 +311,36 @@
       await preload(rows);
       var land=W>H*1.2, n=rows.length;
       var cols=n<=(land?7:12)?1:(n<=(land?24:40)?2:3);
-      var perCol=Math.ceil(n/cols), gap=36*u, colW=(W-pad*2-gap*(cols-1))/cols;
-      var rh=Math.min((fTop-y0-14*u)/perCol,(cols===1?96:84)*u), fs=Math.min(rh*.44,(cols===1?32:24)*u);
-      var ms=Math.min(rh*.76,fs*2.3);
-      for(var c=1;c<cols;c++){ ctx.fillStyle=P.line; ctx.fillRect(pad+c*(colW+gap)-gap/2,y0,Math.max(1,u),perCol*rh); }
+      var perCol=Math.ceil(n/cols), gap=40*u, colW=(W-pad*2-gap*(cols-1))/cols;
+      var v1=d.showVal&&rows.some(function(r){ return r.val; }), v2=d.showVal&&!!d.val2Label&&rows.some(function(r){ return r.val2; });
+      var lh=(v1&&(d.valLabel||(v2&&d.val2Label)))?30*u:0;
+      // rows fill the space between the header and the footer; type grows with them, within a cap
+      var note=v1&&d.valLabel==='PWR';
+      var rh=Math.min((fTop-y0-lh-(note?34:12)*u)/perCol,(cols===1?120:110)*u), fs=Math.min(rh*.38,(cols===1?40:(cols===2?27:21))*u);
+      var sub=d.showSub&&rows.some(function(r){ return r.sub; }) && rh>fs*1.9;
+      var ms=Math.min(rh*.7,fs*(sub?2.2:2));
+      var vf=fs*.8, vW=Math.max(width('+00.0',700,vf),width(d.valLabel||'',700,13*u))+14*u;
+      var ry0=y0+lh;
+      for(var c=0;c<cols;c++){
+        var cx=pad+c*(colW+gap), rxc=cx+colW-4*u;
+        if(c>0){ ctx.fillStyle=P.line; ctx.fillRect(cx-gap/2,y0,Math.max(1,u),lh+perCol*rh); }
+        if(lh){ if(v2) txt((d.val2Label||'').toUpperCase(),rxc,y0+lh*.45,{ w:800,px:13*u,c:P.mut,al:'right',ls:1.5*u });
+          if(v1) txt((d.valLabel||'').toUpperCase(),rxc-(v2?vW:0),y0+lh*.45,{ w:800,px:13*u,c:P.mut,al:'right',ls:1.5*u }); }
+      }
       for(var i=0;i<n;i++){
-        var r=rows[i], c2=Math.floor(i/perCol), k=i%perCol, x=pad+c2*(colW+gap), mid=y0+k*rh+rh/2;
-        var rkW=width('00',800,fs)+6*u;
+        var r=rows[i], c2=Math.floor(i/perCol), k=i%perCol, x=pad+c2*(colW+gap), top=ry0+k*rh, mid=top+rh/2;
+        if(k%2===0){ ctx.fillStyle=P.alt; ctx.fillRect(x,top,colW,rh); }
+        var rkW=width('00',800,fs)+8*u;
         txt(String(i+1),x+rkW,mid,{ w:800,px:fs,c:P.text2,al:'right' });
         await mark(r,x+rkW+12*u,mid-ms/2,ms);
-        var nx=x+rkW+24*u+ms, rx=x+colW-4*u, vw=0;
-        if(d.showVal&&r.val){ txt(r.val,rx,mid,{ w:700,px:fs*.9,c:P.mut,al:'right' }); vw=width(r.val,700,fs*.9)+14*u; }
-        txt(r.name,nx,mid,{ w:500,px:fs,max:rx-vw-nx });
+        var nx=x+rkW+22*u+ms, rx=x+colW-4*u, used=0;
+        if(v2){ if(r.val2) txt(r.val2,rx,mid,{ w:600,px:vf,c:P.mut,al:'right' }); used+=vW; }
+        if(v1){ if(r.val) txt(r.val,rx-used,mid,{ w:700,px:vf,c:P.text,al:'right' }); used+=vW; }
+        var nmax=rx-used-nx-(used?6*u:0);
+        if(sub&&r.sub){ txt(r.name,nx,mid-fs*.3,{ w:600,px:fs,max:nmax }); txt(r.sub,nx,mid+fs*.56,{ w:500,px:fs*.56,c:P.mut,max:nmax }); }
+        else txt(r.name,nx,mid,{ w:600,px:fs,max:nmax });
       }
+      if(note) txt('PWR = POWER RATING (POINTS BETTER THAN AN AVERAGE D-I TEAM)'+(v2&&d.val2Label==='NET'?'  ·  NET = PROJECTED NET EFFICIENCY PER 100 POSSESSIONS':''),W/2,fTop-12*u,{ w:600,px:11*u,c:P.mut,al:'center',ls:1*u,max:W-pad*2 });
       return d.title+' ('+SEASON+')\n\n'+rows.slice(0,5).map(function(r,i){ return (i+1)+'. '+r.name+(r.team&&r.team!==r.name?' ('+school(r.team)+')':''); }).join('\n')+'\n\nFull list → '+SITE+'\n\n#CollegeBasketball #CBB';
     }
   };
@@ -482,12 +507,13 @@
   // ── shared editor bits ──
   var CONFS=[];
   function confOpts(sel,req){ return (req?'':'<option value="">All of D-I</option>')+CONFS.map(function(c){ return '<option'+(c===sel?' selected':'')+'>'+esc(c)+'</option>'; }).join(''); }
-  function rowsEditor(rows,path,withVal){
+  function rowsEditor(rows,path,withVal,withVal2){
     return '<div class="rows">'+rows.map(function(r,i){
-      return '<div class="row'+(withVal?'':' nov')+'"><span class="n">'+(i+1)+'</span>'+
+      return '<div class="row'+(withVal?'':' nov')+'"'+(withVal2?' style="grid-template-columns:24px minmax(0,1.3fr) minmax(0,.9fr) 54px 54px 20px 20px 20px"':'')+'><span class="n">'+(i+1)+'</span>'+
         '<input data-p="'+path+'.'+i+'.name" list="plList" value="'+esc(r.name)+'" placeholder="Name">'+
         '<input data-p="'+path+'.'+i+'.team" list="tmList" value="'+esc(r.team)+'" placeholder="Team">'+
         (withVal?'<input data-p="'+path+'.'+i+'.val" value="'+esc(r.val)+'" placeholder="Value">':'')+
+        (withVal2?'<input data-p="'+path+'.'+i+'.val2" value="'+esc(r.val2)+'" placeholder="Value 2">':'')+
         '<button data-act="up" data-path="'+path+'" data-i="'+i+'" title="Move up">↑</button><button data-act="down" data-path="'+path+'" data-i="'+i+'" title="Move down">↓</button><button data-act="del" data-path="'+path+'" data-i="'+i+'" title="Remove">✕</button></div>';
     }).join('')+'</div>';
   }
@@ -506,7 +532,8 @@
     else return;
     save(); later();
   });
-  $('editor').addEventListener('change',function(e){ if(e.target.type==='checkbox'||e.target.tagName==='SELECT'){ save(); render(); } });
+  $('editor').addEventListener('change',function(e){ if(e.target.type==='checkbox'||e.target.tagName==='SELECT'){ save(); render(); }
+    if(e.target.dataset.k==='val2Label'){ paintEditor(); } });
   $('editor').addEventListener('click',async function(e){
     var b=e.target.closest('button[data-act]'); if(!b) return; var d=doc(), act=b.dataset.act, arr=b.dataset.path?getPath(d,b.dataset.path):null, i=+b.dataset.i;
     if(act==='load'){ b.disabled=true; try{ await T[S.tpl].load(d); save(); paintEditor(); await render(); status('Loaded. Edit anything below.'); }catch(err){ status(err.message,true); } b.disabled=false; return; }
