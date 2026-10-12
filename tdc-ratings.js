@@ -38,7 +38,7 @@
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  const SEASON=2027, LS_KEY='tdc_ratings_v25_'+SEASON, TTL=24*3600*1000;
+  const SEASON=2027, LS_KEY='tdc_ratings_v26_'+SEASON, TTL=24*3600*1000;
   // in-season form: once 2026-27 games are played, each team's rating drifts
   // toward how it's ACTUALLY performing vs our own lines. surprise = actual
   // margin - expected margin, each game clipped to ±FORM_CLIP; form = sum(surprise)/(n + FORM_PRIOR)
@@ -257,7 +257,7 @@
   function _injOut(p){ try{ return !!(g.TDCInjury && g.TDCInjury.isOut(p)); }catch(e){ return false; } }
   async function compute(){
     if(g.TDCFresh && g.TDCFresh.load){ try{ await g.TDCFresh.load(); }catch(e){} }
-    let [teams, players, bb, ts, hcaData, coachData, sgData, contData, levelData, effData, scrimData, progData]=await Promise.all([
+    let [teams, players, bb, ts, hcaData, coachData, sgData, contData, levelData, effData, scrimData, progData, eraData]=await Promise.all([
       fetch(SB+'/rest/v1/teams?select=name,conf,conference,head_coach,coach&limit=500',{headers:H}).then(r=>r.json()),
       fetchPaged(SB+'/rest/v1/players?name=neq.%E2%80%94&select=name,team,espn_id,yr,class_year,tdc_grade,mpg,ppg,rpg,depth_order,is_injured,hometown&order=id.asc'),
       fetchPaged(SB+'/rest/v1/player_advanced?season_year=eq.2026&espn_id=not.is.null&select=espn_id,team,ts_pct,efg_pct,tp_pct,ft_pct,pts40,reb40,ast40,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,stl_pct,blk_pct,ti40&order=espn_id.asc'),
@@ -270,6 +270,7 @@
       fetch('scripts/data/team_eff.json?v=14').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('scripts/data/scrim_trends_2027.json?v=6').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('scripts/data/program_prior_2027.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch('scripts/data/program_era_2027.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null),
     ]);
     const ppOf=(progData&&progData.teams)||{};
     // Long-run level + league terms only, REFIT at PROG_W 0.20 (owner, Oct 12 2026): on the 80/20 blend the first-year
@@ -365,9 +366,14 @@
     tsAll.forEach(t=>{ if(t.srs==null) return; const v=parseFloat(t.srs), y=+t.season_year;
       (y===2026?srsOf:y===2025?srs25:srs24)[t.team]=v; });
     // program history composite (seasons -1/-2/-3; a missing year falls back to the newer one)
+    // ERA (owner, Oct 12 2026, option D): a season coached by someone other than the current coach counts half
+    // (program_era_2027.json from calibrate_projected_dna.py). The total weight is kept, only its split moves.
+    const ERA=(eraData&&eraData.teams)||{};
     function programOf(full, W){ const p1=srsOf[full]; if(!isFinite(p1)) return null;
       const p2=isFinite(srs25[full])?srs25[full]:p1, p3=isFinite(srs24[full])?srs24[full]:p2;
-      return W[0]*p1+W[1]*p2+W[2]*p3; }
+      const e=ERA[full], m=e?e.map(x=>x?1:0.5):[1,1,1];
+      const wt=W[0]+W[1]+W[2], we=W[0]*m[0]+W[1]*m[1]+W[2]*m[2];
+      return (W[0]*m[0]*p1+W[1]*m[1]*p2+W[2]*m[2]*p3)*wt/we; }
     // Owned BPM per returner. Needs his 2026 team's owned Power Rating (srs) as the
     // team-adjustment term — player_advanced.team matches team_seasons.team exactly.
     // bpm  = owned BPM incl. his 2025-26 team's SRS context; bpm0 = context-neutral

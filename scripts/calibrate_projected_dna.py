@@ -355,6 +355,15 @@ TD[PROJ].setdefault('meta', {})['calibration'] = {
     'models': {f"{'OD'[s]}{h}": {'coef': [round(x, 4) for x in M[(s, h)][0]], 'loso_r': round(M[(s, h)][1], 3)} for s in (0, 1) for h in (0, 1, 2)},
     'offsets': [round(offO, 2), round(offD, 2)], 'centre': [round(mA[LAST][0], 2), round(mA[LAST][1], 2)]}
 json.dump(TD, open(DNA_P, 'w'), separators=(',', ':'))
+# PROGRAM-HISTORY ERA (owner, Oct 12 2026: option D) — for the ratings' 20% program history (tdc-ratings.js programOf):
+# which of the last three seasons were coached by the CURRENT coach. Seasons under another coach count half
+# (backtest: net MAE 3.261 = today's 3.261, better in 12 of 19 seasons; Louisville's 2023-24 Payne season).
+_era = {}
+for k in P27:
+    c = cur_coach(k)
+    _era[k] = [1 if (c and COACH_AT.get((int(LAST) - b, k)) == c) else 0 for b in (0, 1, 2)]
+json.dump({'note': 'per team: [last season, -1, -2] coached by the current coach (1) or not (0)', 'teams': _era},
+          open(os.path.join(HERE, 'data', 'program_era_2027.json'), 'w'), separators=(',', ':'))
 top = sorted(pool, key=lambda t: -t['net'])[:5]
 names = {id(v): k for k, v in P27.items()}
 print('calibrated', len(pool), 'teams (history used: 2 yrs %d, 1 yr %d, none %d)' % (used[2], used[1], used[0]))
