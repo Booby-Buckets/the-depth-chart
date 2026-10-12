@@ -38,7 +38,7 @@
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  const SEASON=2027, LS_KEY='tdc_ratings_v19_'+SEASON, TTL=24*3600*1000;
+  const SEASON=2027, LS_KEY='tdc_ratings_v20_'+SEASON, TTL=24*3600*1000;
   // in-season form: once 2026-27 games are played, each team's rating drifts
   // toward how it's ACTUALLY performing vs our own lines. surprise = actual
   // margin - expected margin; form = sum(surprise)/(n + FORM_PRIOR) capped at
@@ -69,7 +69,15 @@
     }
     return BPM_MU+(s-BPM_MU)*BPM_K;
   }
-  const BLEND_ROSTER=0.90, ANCHOR=0.70;    // roster weight; prior-SRS regression
+  const BLEND_ROSTER=0.90, ANCHOR=0.70;    // (pre-Oct 2026 blend, kept for reference — superseded by PROG_W below)
+  // PROGRAM HISTORY (Oct 2026, scripts/backtest_preseason.py). Replaying 2016-2026 preseasons out-of-sample, a
+  // program's last 3 Power Ratings predicted its final rating better than a roster signal alone (RMSE 4.71 vs 5.90),
+  // and the two together beat either (4.18). The fit gave program history ~2/3 of the weight against a box-score
+  // roster proxy; our roster rating is richer than that proxy, so it keeps half. PROG_YRS = the relative weights of
+  // seasons -1/-2/-3 (fit .34/.19/.14). The old 0.90·roster + 0.07·prior also squeezed the scale (Duke ~19 vs a
+  // real top team's ~23); weights that sum to 1 put ratings back on the actual Power Rating spread.
+  const PROG_W=0.50, PROG_YRS=[0.50,0.29,0.21];
+  const CARRY_YRS=[0.59,0.17,0.15];        // rosterless teams: program-only fit on the same backtest
   // Projected box/DNA efficiency blend: the roster rating (minute-weighted BPM) and the projected net
   // efficiency (team_eff.json, from the projected box) are two lenses on team strength (corr ~0.90).
   // Blend EFF_W of the box lens in so the projected stats explicitly move the ranking. net→SRS scale
@@ -240,11 +248,11 @@
   function _injOut(p){ try{ return !!(g.TDCInjury && g.TDCInjury.isOut(p)); }catch(e){ return false; } }
   async function compute(){
     if(g.TDCFresh && g.TDCFresh.load){ try{ await g.TDCFresh.load(); }catch(e){} }
-    const [teams, players, bb, ts, hcaData, coachData, sgData, contData, levelData, effData, scrimData]=await Promise.all([
+    let [teams, players, bb, ts, hcaData, coachData, sgData, contData, levelData, effData, scrimData]=await Promise.all([
       fetch(SB+'/rest/v1/teams?select=name,conf,conference,head_coach,coach&limit=500',{headers:H}).then(r=>r.json()),
       fetchPaged(SB+'/rest/v1/players?name=neq.%E2%80%94&select=name,team,espn_id,yr,class_year,tdc_grade,mpg,ppg,rpg,depth_order,is_injured,hometown&order=id.asc'),
       fetchPaged(SB+'/rest/v1/player_advanced?season_year=eq.2026&espn_id=not.is.null&select=espn_id,team,ts_pct,efg_pct,tp_pct,ft_pct,pts40,reb40,ast40,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,stl_pct,blk_pct,ti40&order=espn_id.asc'),
-      fetch(SB+'/rest/v1/team_seasons?season_year=eq.2026&select=team,conference,srs,tier&limit=1000',{headers:H}).then(r=>r.json()),
+      fetch(SB+'/rest/v1/team_seasons?season_year=in.(2024,2025,2026)&select=season_year,team,conference,srs,tier&order=season_year.desc,team.asc&limit=2000',{headers:H}).then(r=>r.json()),
       fetch('scripts/data/team_hca.json?v=c1').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('data/coach-careers.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('scripts/data/shot_genome_players.json').then(r=>r.ok?r.json():null).catch(()=>null),
@@ -312,8 +320,15 @@
     const sgByEspn={}; ((sgData&&sgData.players)||[]).forEach(p=>{
       if(p.espn_id!=null && p.lq!=null && p.efg!=null && (p.fga||0)>=SHOT_MINFGA)
         sgByEspn[p.espn_id]={luck:p.efg-p.lq, fga:p.fga}; });
-    const tsRows=(ts||[]);
-    const srsOf={}; (ts||[]).forEach(t=>{ if(t.srs!=null) srsOf[t.team]=parseFloat(t.srs); });
+    const tsAll=(ts||[]); ts=tsAll.filter(t=>+t.season_year===2026);
+    const tsRows=ts;
+    const srsOf={}, srs25={}, srs24={};
+    tsAll.forEach(t=>{ if(t.srs==null) return; const v=parseFloat(t.srs), y=+t.season_year;
+      (y===2026?srsOf:y===2025?srs25:srs24)[t.team]=v; });
+    // program history composite (seasons -1/-2/-3; a missing year falls back to the newer one)
+    function programOf(full, W){ const p1=srsOf[full]; if(!isFinite(p1)) return null;
+      const p2=isFinite(srs25[full])?srs25[full]:p1, p3=isFinite(srs24[full])?srs24[full]:p2;
+      return W[0]*p1+W[1]*p2+W[2]*p3; }
     // Owned BPM per returner. Needs his 2026 team's owned Power Rating (srs) as the
     // team-adjustment term — player_advanced.team matches team_seasons.team exactly.
     // bpm  = owned BPM incl. his 2025-26 team's SRS context; bpm0 = context-neutral
@@ -478,11 +493,12 @@
       }
       // (strength-of-competition now regresses the roster BPM per-player above, so no flat team tax)
       const scrimAdj=(!opts.noProgram&&scrimOf[full]&&isFinite(+scrimOf[full].adj))?+scrimOf[full].adj:0;
-      const rating=(((prior!=null)?(BLEND_ROSTER*rosterRating+(1-BLEND_ROSTER)*(ANCHOR*prior))
+      const prog=(prior!=null)?programOf(full, PROG_YRS):null;
+      const rating=(((prog!=null)?((1-PROG_W)*rosterRating+PROG_W*prog)
                                  :rosterRating) + cAdj + contAdj) - scePen + scrimAdj;
       (opts.scratch?(_scratch.length=0,_scratch):rows).push({team:short, full, conf:confOf[short]||'', rating:+rating.toFixed(2), coachAdj:cAdj,
         contAdj:contAdj, continuity:cont, scrimAdj:scrimAdj||0,
-        roster:+rosterRating.toFixed(2), prior:prior!=null?+prior.toFixed(1):null, projected:true,
+        roster:+rosterRating.toFixed(2), prior:prior!=null?+prior.toFixed(1):null, program:prog!=null?+prog.toFixed(1):null, projected:true,
         scePen:scePen||0, levelDisc:+levelDisc.toFixed(3), shotLuck:shotLuck, hcaOff:hcaOf[full]!=null?hcaOf[full]:0,
         mw:+mw.toFixed(3), entries:opts.detail?roster.map((p,i)=>({name:p.name, min:entries[i].min, projBpm:entries[i].projBpm})):undefined});
       return opts.scratch?_scratch[0]:rows[rows.length-1];
@@ -495,7 +511,7 @@
       // no conference = not a D1 program (e.g. Centenary, in team_seasons only
       // because a D1 opponent's result created a row) — keep them out of the field
       if(covered.has(t.team)||t.srs==null||!t.conference) return;
-      rows.push({team:t.team, full:t.team, conf:t.conference||'', rating:+(CARRY*parseFloat(t.srs)).toFixed(2),
+      rows.push({team:t.team, full:t.team, conf:t.conference||'', rating:+(programOf(t.team, CARRY_YRS)).toFixed(2),
         roster:null, prior:+parseFloat(t.srs).toFixed(1), projected:false,
         hcaOff:hcaOf[t.team]!=null?hcaOf[t.team]:0});
     });
@@ -509,7 +525,7 @@
       r.allPlay=+(s/(rows.length-1)*100).toFixed(1); });
     rows.forEach((r,i)=>r.rank=i+1);
     return {season:SEASON, generated:new Date().toISOString(),
-      model:{calA:CAL_A,calB:CAL_B,blendRoster:BLEND_ROSTER,anchor:ANCHOR,homeAdv:HOME_ADV,sigma:SIGMA,
+      model:{calA:CAL_A,calB:CAL_B,progW:PROG_W,progYrs:PROG_YRS,homeAdv:HOME_ADV,sigma:SIGMA,
         coachW:COACH_W,coachK:COACH_K,coachCap:COACH_CAP,shotK:SHOT_K,shotRegress:SHOT_REGRESS,shotCap:SHOT_CAP,contBase:CONT_BASE,contK:CONT_K,contCap:CONT_CAP,
         hcaBase:hcaData?{base:hcaData.base,capMin:hcaData.capMin,centered:!!hcaData.centered,d1Mean:hcaData.d1Mean}:null},
       teams:rows};

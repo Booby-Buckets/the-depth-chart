@@ -93,7 +93,7 @@
           +kk('Home edge','+'+(model.homeAdv||3.7))
           +kk('Sigma',(model.sigma||11).toFixed(1))
           +kk('Teams',teams.length)
-          +kk('Roster wt',Math.round((model.blendRoster||.9)*100)+'%')
+          +kk('Roster wt',Math.round((model.progW!=null?1-model.progW:(model.blendRoster||.9))*100)+'%')
         +'</div>'
         +card('Title contenders','projected net', leaderRows(contenders,_p1), 'contenders')
         +card('Biggest movers','preseason → now', moverRows(movers))
