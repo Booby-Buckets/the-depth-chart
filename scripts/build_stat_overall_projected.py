@@ -688,6 +688,19 @@ def real_of(full,name,e=None):
 # (RW = sum of reality/100 over his team's scrimmages), capped at SCRIM_ROT_CAP; the team is re-balanced to 200
 # afterwards. A DNP in a game-like scrimmage counts as 0 minutes at half weight, only for players projected
 # under 20 mpg (a projected starter sitting is rest/injury far more often than a demotion).
+# HARD CEILING (owner, Oct 12 2026): whatever the depth slots, the 200-minute rebalance and the rotation cut do,
+# scrimmages may move a player's projected minutes at most SCRIM_MPG_CAP from the no-scrimmage build (the
+# workflow's BASE run, read from SCRIM_BASE_DIR). The rebalance turned 10% nudges into -5.4 / +5.1 mpg for fringe
+# players (Brayden Shorter, Cam Miles), and their OVRs swung 13-15.
+SCRIM_MPG_CAP=float(os.environ.get("SCRIM_MPG_CAP","2.0")); SCRIM_BASE_DIR=os.environ.get("SCRIM_BASE_DIR")
+SCRIM_BASE_MPG={}; SCRIM_BASE_FR={}
+if SCRIM_BASE_DIR and os.environ.get("SCRIM_ROT_CAP")!="0":
+    try:
+        SCRIM_BASE_MPG={k:v.get("mpg") for k,v in json.load(open(os.path.join(SCRIM_BASE_DIR,"stat_overall_projected.json")))["players"].items()}
+        SCRIM_BASE_FR={(t,n):(f or {}).get("mpg") for t,d in json.load(open(os.path.join(SCRIM_BASE_DIR,"fresh_fit.json"))).items() for n,f in d.items()}
+        print(f"scrimmage minutes ceiling: ±{SCRIM_MPG_CAP} mpg vs the base build ({len(SCRIM_BASE_MPG)} returners)",file=sys.stderr)
+    except Exception as _e:
+        print(f"warn: no base build for the scrimmage minutes ceiling ({_e})",file=sys.stderr)
 SCRIM_ROT_CAP=float(os.environ.get("SCRIM_ROT_CAP","0.10")); SCRIM_ROT_PRIOR=float(os.environ.get("SCRIM_ROT_PRIOR","10"))   # was 0.30 / 5 (owner Oct 12: scrimmages were moving minutes far too much)
 SCRIM_ROLE={}; SCRIM_DNP={}
 try:
@@ -1753,6 +1766,23 @@ for short, roster in roster_by_team.items():
             _bt=min(max(_E+max(0.0,REF_MIN-_rsum),BENCH_EXTRA[0]),max(BENCH_EXTRA[0],REF_MIN+BENCH_EXTRA[1]-_rsum))
             _bw=[1.0/(k+1) for k in range(len(_benI))]; _bs=sum(_bw)
             for k,i in enumerate(_benI): _cur[i]=max(0.1,_bt*_bw[k]/_bs)
+        # the scrimmage minutes ceiling vs the base build; what the clamp frees or takes goes back to the unclamped
+        # rotation so the rotation (5+ min) still plays 200
+        if SCRIM_BASE_MPG or SCRIM_BASE_FR:
+            _bm=[(SCRIM_BASE_MPG.get(str(x["e"])) if k=="r" else SCRIM_BASE_FR.get((short,x))) for k,x in _rot]
+            _lim=[None if (b is None or _fixed[i]) else (max(0.1,b-SCRIM_MPG_CAP),min(_caps[i],b+SCRIM_MPG_CAP)) for i,b in enumerate(_bm)]
+            _tot0=sum(_cur)   # the team keeps exactly its minutes; only players past the ceiling change, and what they
+            for _it in range(6):   # give up or take is spread over the unclamped rotation
+                _cl=set(); _hit=False
+                for i,L in enumerate(_lim):
+                    if L is None: continue
+                    if _cur[i]<L[0]-1e-6 or _cur[i]>L[1]+1e-6: _cur[i]=min(L[1],max(L[0],_cur[i])); _hit=True
+                    if _cur[i]<=L[0]+1e-6 or _cur[i]>=L[1]-1e-6: _cl.add(i)
+                if not _hit and _it == 0: break      # nothing past the ceiling: leave the team exactly as built
+                _free=[i for i in range(len(_cur)) if i not in _cl and not _fixed[i] and _cur[i]>=ROT_MIN]
+                _g=_tot0-sum(_cur); _w=sum(_cur[i] for i in _free)
+                if abs(_g)<0.05 or _w<=0: break
+                for i in _free: _cur[i]=max(0.1,min(_caps[i],_cur[i]*(1.0+_g/_w)))
         if any(abs(c-m)>0.05 for c,m in zip(_cur,_m0)):
             for (k,x),m0,m1 in zip(_rot,_m0,_cur):
                 if abs(m1-m0)<0.05 or m0<=0: continue

@@ -93,7 +93,8 @@ jobs:
           python3 scripts/fill_box_from_boxscores.py --write || echo "fill_box_from_boxscores failed — building with the last fill"
           # BASE run with the preseason scrimmages switched off, so the Trends tab can show exactly what they moved
           SCRIM_CAP=0 SCRIM_ROT_CAP=0 SOP_OUT_DIR="$RUNNER_TEMP/scrimbase" python3 scripts/build_stat_overall_projected.py > /dev/null
-          python3 scripts/build_stat_overall_projected.py
+          # the real build: scrimmages may move anyone's minutes at most SCRIM_MPG_CAP (2.0) from that base run
+          SCRIM_BASE_DIR="$RUNNER_TEMP/scrimbase" python3 scripts/build_stat_overall_projected.py
           # NIL grades follow the new ratings (in season they move after every game day)
           python3 scripts/patch_nil_grades.py || echo "patch_nil_grades failed — NIL keeps the last grades"
 
