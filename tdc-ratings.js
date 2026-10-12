@@ -268,7 +268,7 @@
     const ppOf=(progData&&progData.teams)||{};
     const progAdjOf=full=>(ppOf[full]&&isFinite(+ppOf[full].adj))?+ppOf[full].adj:0;
     // PRESEASON SCRIMMAGES (build_scrim_trends.py): each team's Reality-weighted result vs our line,
-    // shrunk toward 0 (10-game prior) and capped ±2.5 — a game-like blowout loss moves a team a little.
+    // each game clipped to ±12 vs the line, shrunk toward 0 (20-game prior) and capped ±1.5 (owner, Oct 12: one scrimmage moves ~0.5 at most).
     const scrimOf=((scrimData&&scrimData.teams)||{});
     // Projected team efficiency (build_projected_dna.py → team_eff.json "2027"), keyed by FULL name:
     // {o,d,net}. Its NET is the box/DNA lens on team strength; blended into the roster rating so the

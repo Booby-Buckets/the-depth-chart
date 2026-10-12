@@ -250,12 +250,12 @@
       var G = TM.games, nG = G.length;
       var html = '<div class="tr-hd"><div><div class="tr-l">Preseason trend</div><div class="tr-big" style="color:' + col + '">' + (adj > 0 ? '▲ ' : adj < 0 ? '▼ ' : '') + sg(adj, 2) + '</div></div>' +
         '<div><div class="tr-t">' + word + '</div><div class="tr-s">Rating points added to ' + esc(team) + '’s 2026-27 power rating from ' + nG + ' scrimmage' + (nG > 1 ? 's' : '') +
-        ': each result against our line, weighted by its Reality Meter and shrunk toward zero (a full season of evidence still outweighs October), capped at ±2.5.</div></div></div>';
-      // ── rating trend after each scrimmage (same Σ reality·(actual − line) / (Σ reality + 10), capped ±2.5 as the builder) ──
+        ': each result against our line (counted up to 12 points either way), weighted by its Reality Meter and shrunk hard toward zero, since a full season of evidence outweighs October. Capped at ±1.5.</div></div></div>';
+      // ── rating trend after each scrimmage (same Σ reality·clip(actual − line, ±12) / (Σ reality + 20), capped ±1.5 as the builder) ──
       var Gs = G.slice().sort(function (a, b) { return a.date.localeCompare(b.date); }), rn = 0, rd = 0;
       var built = Gs.every(function (e) { return e.adj_after != null; });
-      Gs.forEach(function (e) { rn += (e.reality || 0) / 100 * (e.resid || 0); rd += (e.reality || 0) / 100;
-        if (!built) e.adj_after = Math.max(-2.5, Math.min(2.5, rn / (rd + 10))); });
+      Gs.forEach(function (e) { rn += (e.reality || 0) / 100 * Math.max(-12, Math.min(12, e.resid || 0)); rd += (e.reality || 0) / 100;
+        if (!built) e.adj_after = Math.max(-1.5, Math.min(1.5, rn / (rd + 20))); });
       if (!built && Gs.length) { var k = Gs[Gs.length - 1].adj_after ? adj / Gs[Gs.length - 1].adj_after : 1; Gs.forEach(function (e) { e.adj_after *= k; }); }   // end on the published number
       var ml = function (v) { return v == null ? '—' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1); };
       var md = function (date) { var d = new Date(date + 'T12:00:00'); return (d.getMonth() + 1) + '/' + d.getDate(); };

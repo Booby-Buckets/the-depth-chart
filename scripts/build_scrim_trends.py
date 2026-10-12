@@ -24,7 +24,10 @@ D = ROOT / "scripts" / "data"
 SB = "https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1"
 KEY = re.search(r"sb_publishable_[A-Za-z0-9_-]+", (ROOT / "player.html").read_text()).group(0)
 H = {"apikey": KEY, "Authorization": "Bearer " + KEY}
-TEAM_PRIOR, TEAM_CAP = 10.0, 2.5
+# Owner, Oct 12 2026: one blowout scrimmage moved Indiana's rating +1.19 - too much. Each game's result vs our line
+# counts at most RESID_CAP points either way (an exhibition blowout is mostly bench minutes), the shrink needs
+# TEAM_PRIOR real games of evidence (was 10) and the total is capped at TEAM_CAP (was 2.5). One game now moves <= ~0.5.
+TEAM_PRIOR, TEAM_CAP, RESID_CAP = 20.0, 1.5, 12.0
 OPP_K = 0.005            # each point of opponent rating trims (or adds) 0.5% to a player's expected output
 HCA = 3.0
 NEWC_OVR_K, NEWC_OVR_CAP = 0.45, 4.0   # newcomer OVR points per (shrunk) Game Score / 40 of trend
@@ -217,11 +220,12 @@ def main():
     try: PBOX = json.load(open(D / "team_projected_box.json"))
     except Exception: PBOX = {}
     for full, X in teams.items():
-        num = sum((x["reality"] or 0) / 100 * x["resid"] for x in X["games"]); den = sum((x["reality"] or 0) / 100 for x in X["games"])
+        rc = lambda x: max(-RESID_CAP, min(RESID_CAP, x["resid"]))
+        num = sum((x["reality"] or 0) / 100 * rc(x) for x in X["games"]); den = sum((x["reality"] or 0) / 100 for x in X["games"])
         X["adj"] = round(max(-TEAM_CAP, min(TEAM_CAP, num / (den + TEAM_PRIOR))), 2)
         rn = rd = 0.0   # the rating trend as it stood after each scrimmage (the Trends chart)
         for x in sorted(X["games"], key=lambda x: x["date"]):
-            rn += (x["reality"] or 0) / 100 * x["resid"]; rd += (x["reality"] or 0) / 100
+            rn += (x["reality"] or 0) / 100 * rc(x); rd += (x["reality"] or 0) / 100
             x["adj_after"] = round(max(-TEAM_CAP, min(TEAM_CAP, rn / (rd + TEAM_PRIOR))), 2)
         # team box vs projection: Reality-weighted scrimmage team line next to the projected per-game line
         tg = [(max(0.05, (x["reality"] or 0) / 100), x["tot"]) for x in X["games"] if x.get("tot")]
