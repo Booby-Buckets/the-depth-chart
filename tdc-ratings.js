@@ -38,7 +38,7 @@
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  const SEASON=2027, LS_KEY='tdc_ratings_v22_'+SEASON, TTL=24*3600*1000;
+  const SEASON=2027, LS_KEY='tdc_ratings_v23_'+SEASON, TTL=24*3600*1000;
   // in-season form: once 2026-27 games are played, each team's rating drifts
   // toward how it's ACTUALLY performing vs our own lines. surprise = actual
   // margin - expected margin, each game clipped to ±FORM_CLIP; form = sum(surprise)/(n + FORM_PRIOR)
@@ -76,7 +76,11 @@
   // roster proxy; our roster rating is richer than that proxy, so it keeps half. PROG_YRS = the relative weights of
   // seasons -1/-2/-3 (fit .34/.19/.14). The old 0.90·roster + 0.07·prior also squeezed the scale (Duke ~19 vs a
   // real top team's ~23); weights that sum to 1 put ratings back on the actual Power Rating spread.
-  const PROG_W=0.50, PROG_YRS=[0.50,0.29,0.21];
+  // OWNER (Oct 12 2026): "do 20%". Re-tested ON TOP of our own projection (which already carries the coach's last two
+  // seasons): program weight 0 -> MAE 3.495, .10 3.421, .20 3.374, .30 3.356, .50 3.401 (net, 5,019 team-seasons
+  // 2008-26, leave-one-season-out) — the .50 above came from a backtest against a crude roster proxy with no history in
+  // it, so it double-counted history. With this week's offense terms, 20% scores 3.312 vs 3.365 at 50%.
+  const PROG_W=0.20, PROG_YRS=[0.50,0.29,0.21];
   const CARRY_YRS=[0.59,0.17,0.15];        // rosterless teams: program-only fit on the same backtest
   // PROGRAM & COACH terms (build_program_prior.py → program_prior_2027.json .adj), corrections the same backtest found
   // on top of the blend: a first-year head coach costs ~1.0 (a little back if he's run a D-I program before), and below
@@ -96,7 +100,9 @@
   // what his roster's talent predicted), shrunk by how many seasons back it and capped
   // so a 2-year sample can't swing a projection. Applied only to rostered teams:
   // carryover teams are rated off their own actual SRS, which already embeds coaching.
-  const COACH_W=0.60, COACH_K=5, COACH_CAP=3.0;
+  // COACH_W 0.60 -> 0.15 (owner, Oct 12 2026): at 20% program history the coach-record term fits ~0.16 and adds ~nothing
+  // (MAE 3.312 -> 3.310); the offense projection now carries the coach's value-added itself (calibrate_projected_dna.py).
+  const COACH_W=0.15, COACH_K=5, COACH_CAP=3.0;
   // Shot-making de-luck (Shot Genome). A returner's BPM is partly propped up by
   // shooting ABOVE the quality of his looks (his eFG − his Look Quality). Shot-making
   // over-expectation is only ~half repeatable, so we shave the transient part off his
@@ -266,7 +272,16 @@
       fetch('scripts/data/program_prior_2027.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null),
     ]);
     const ppOf=(progData&&progData.teams)||{};
-    const progAdjOf=full=>(ppOf[full]&&isFinite(+ppOf[full].adj))?+ppOf[full].adj:0;
+    // Long-run level + league terms only, REFIT at PROG_W 0.20 (owner, Oct 12 2026): on the 80/20 blend the first-year
+    // coach terms add nothing (MAE +0.002 — the coach-following history already prices a new coach) and the level terms
+    // are small: per point ABOVE the D-I average (raw Power Rating ~ 10.84 + 0.859·net), faded above the top-100 line
+    // exactly as build_program_prior.py fades them. The old .adj applied them to RAW ratings (avg +10.8), which handed
+    // every below-top-100 program a built-in lift (Oregon +1.90 -> ~+0.1 now). MAE 3.312 -> 3.303.
+    const P10_K=0.053, CONFL_K=0.064, PR_MEAN=10.84;
+    const progAdjOf=full=>{ const q=ppOf[full]; if(!q) return 0;
+      const lw=(+q.p10>0)?(+q.p10L||0)/(+q.p10):((+q.conf>0)?(+q.confL||0)/(+q.conf):0);
+      if(!(lw>0)) return 0;
+      return +(lw*(P10_K*((+q.p10||PR_MEAN)-PR_MEAN)+CONFL_K*((+q.conf||PR_MEAN)-PR_MEAN))).toFixed(2); };
     // PRESEASON SCRIMMAGES (build_scrim_trends.py): each team's Reality-weighted result vs our line,
     // each game clipped to ±12 vs the line, shrunk toward 0 (20-game prior) and capped ±1.5 (owner, Oct 12: one scrimmage moves ~0.5 at most).
     const scrimOf=((scrimData&&scrimData.teams)||{});
