@@ -30,7 +30,7 @@ ALIAS={
  "Connecticut":"UConn Huskies","St. John's (NY)":"St. John's Red Storm",
  "Pittsburgh":"Pitt Panthers","Southern California":"USC Trojans",
  "Louisiana State":"LSU Tigers","North Carolina State":"NC State Wolfpack",
- "Brigham Young":"BYU Cougars","Central Florida":"UCF Knights",
+ "Brigham Young":"BYU Cougars","Mississippi":"Ole Miss Rebels","Hawaii":"Hawai'i Rainbow Warriors","Central Florida":"UCF Knights",
  "Texas Christian":"TCU Horned Frogs","Virginia Commonwealth":"VCU Rams",
  "Massachusetts":"UMass Minutemen","Miami (FL)":"Miami Hurricanes",
  "Miami (OH)":"Miami (OH) RedHawks","Southern Methodist":"SMU Mustangs",
@@ -66,17 +66,15 @@ def load(name, table, select):
 
 def build_crosswalk(schools, espn_names):
     """school (bbref) -> ESPN team name."""
-    espn=list(espn_names)
+    from school_xwalk import prefix_pick
+    by_n={_norm(e):e for e in espn_names}; en=list(by_n); sn=[_norm(s) for s in schools]
     xw={}
     for school in schools:
         if school in ALIAS and ALIAS[school] in espn_names: xw[school]=ALIAS[school]; continue
-        ns=_norm(school)
-        # exact-prefix: ESPN "Duke Blue Devils" startswith "Duke "
-        cand=[e for e in espn if _norm(e)==ns or _norm(e).startswith(ns+" ")]
-        if cand: xw[school]=min(cand,key=len); continue
-        # loose: ESPN words start with school words
-        cand=[e for e in espn if _norm(e).startswith(ns)]
-        if cand: xw[school]=min(cand,key=len)
+        # prefix match ("Duke" -> "Duke Blue Devils"), but a name a LONGER school also prefixes is that school's
+        # ("Alabama A&M Bulldogs" is Alabama A&M's, never Alabama's) — see school_xwalk.py
+        hit=prefix_pick(_norm(school), en, sn, loose=True)
+        if hit: xw[school]=by_n[hit]
     return xw
 
 def pctl_maps(profiles, keys):

@@ -33,7 +33,7 @@ D=os.path.join(os.path.dirname(__file__),"data")
 ALIAS={
  "Connecticut":"UConn Huskies","St. John's (NY)":"St. John's Red Storm","Pittsburgh":"Pitt Panthers",
  "Southern California":"USC Trojans","Louisiana State":"LSU Tigers","North Carolina State":"NC State Wolfpack",
- "Brigham Young":"BYU Cougars","Central Florida":"UCF Knights","Texas Christian":"TCU Horned Frogs",
+ "Brigham Young":"BYU Cougars","Mississippi":"Ole Miss Rebels","Hawaii":"Hawai'i Rainbow Warriors","Central Florida":"UCF Knights","Texas Christian":"TCU Horned Frogs",
  "Virginia Commonwealth":"VCU Rams","Massachusetts":"UMass Minutemen","Miami (FL)":"Miami Hurricanes",
  "Miami (OH)":"Miami (OH) RedHawks","Southern Methodist":"SMU Mustangs","Albany (NY)":"UAlbany Great Danes",
  "Appalachian State":"App State Mountaineers","Central Connecticut State":"Central Connecticut Blue Devils",
@@ -66,14 +66,12 @@ def pull_team_seasons():
     return rows
 
 def crosswalk(schools, espn_names):
-    espn=list(espn_names); xw={}
+    from school_xwalk import prefix_pick   # longest-school-wins prefix match (Alabama vs Alabama A&M)
+    by_n={_norm(e):e for e in espn_names}; en=list(by_n); sn=[_norm(s) for s in schools]; xw={}
     for school in schools:
         if school in ALIAS and ALIAS[school] in espn_names: xw[school]=ALIAS[school]; continue
-        ns=_norm(school)
-        cand=[e for e in espn if _norm(e)==ns or _norm(e).startswith(ns+" ")]
-        if cand: xw[school]=min(cand,key=len); continue
-        cand=[e for e in espn if _norm(e).startswith(ns)]
-        if cand: xw[school]=min(cand,key=len)
+        hit=prefix_pick(_norm(school), en, sn, loose=True)
+        if hit: xw[school]=by_n[hit]
     return xw
 
 def pctl(vals):

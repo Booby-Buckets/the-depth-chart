@@ -15,6 +15,9 @@ Resolving once at build time means the page can join on an exact string.
 Usage:  python3 scripts/build_conf_coaches.py [--check]
 """
 import json, os, re, sys, glob
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from school_xwalk import prefix_pick
+SCHOOLS_N = []   # every coach_seasons school, normalised (set in main) — the longer rivals prefix_pick rules out
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, 'scripts', 'data')
@@ -124,17 +127,18 @@ def resolve(school, rows):
         exact = [r for r in rows if norm(r['team']) == n]
         if exact:
             return exact[0]
-        # "team name starts with school name" strips the mascot
-        pre = [r for r in rows if norm(r['team']).startswith(n + ' ')]
-        if pre:                            # e.g. "Charleston" -> Cougars / Southern
-            pre.sort(key=lambda r: len(r['team']))
-            return pre[0]
+        # "team name starts with school name" strips the mascot — but a name a LONGER school also prefixes is that
+        # school's ("Alabama A&M Bulldogs" is never Alabama's; school_xwalk.py)
+        hit = prefix_pick(n, [norm(r['team']) for r in rows], SCHOOLS_N)
+        if hit:
+            return next(r for r in rows if norm(r['team']) == hit)
     return None
 
 
 def main():
     check = '--check' in sys.argv
     seasons = json.load(open(os.path.join(DATA, 'coach_seasons.json')))
+    SCHOOLS_N[:] = sorted({norm(s['school']) for s in seasons if s.get('school')})
     profiles = json.load(open(os.path.join(DATA, 'coach_profiles.json')))
     if isinstance(profiles, dict):
         profiles = list(profiles.values())
