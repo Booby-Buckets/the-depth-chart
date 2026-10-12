@@ -89,9 +89,13 @@
     <div class="panel">
       <h3>Graphic</h3>
       <div class="seg" id="tplSeg">
+        <button data-v="quad">Contender quadrant</button>
+        <button data-v="genome">Shot Genome</button>
+        <button data-v="money">Moneyball</button>
+        <button data-v="crunch">Crunch time</button>
+        <button data-v="pcard">Player chart</button>
         <button data-v="list" class="on">Ranked list</button>
         <button data-v="allconf">All-Conference</button>
-        <button data-v="player">Player card</button>
         <button data-v="matchup">Matchup</button>
       </div>
 
@@ -159,7 +163,7 @@
   // ── persisted state: each template keeps its own editable document ──
   var LS='tdc_social_v2';
   var S=(function(){ try{ return JSON.parse(localStorage.getItem(LS)||'null'); }catch(e){ return null; } })() || {};
-  S.tpl=S.tpl||'list'; S.size=S.size||'igp'; S.theme=S.theme||'light'; S.shots=!!S.shots; S.handle=S.handle||'';
+  S.tpl=(S.tpl&&S.tpl!=='player')?S.tpl:'list'; S.size=S.size||'igp'; S.theme=S.theme||'light'; S.shots=!!S.shots; S.handle=S.handle||'';
   S.docs=S.docs||{};
   function save(){ try{ localStorage.setItem(LS,JSON.stringify(S)); }catch(e){} }
 
@@ -409,57 +413,293 @@
     }
   };
 
-  // ── Player card ──
-  T.player={
-    defaults:function(){ return { q:'', name:'', team:'', espn:null, meta:'', ovr:'', arch:'', label:SEASON+' Projection', stats:[['PPG',''],['RPG',''],['APG',''],['FG%',''],['3P%',''],['MPG','']] }; },
-    load:async function(d){
-      await players(); var m=(d.q||'').split(' — '), p=findPlayer(m[0],m[1]);
-      if(!p) throw new Error('Pick a player from the list.');
-      var L=TDCProjGrade.lineOf(p)||{}, ovr=TDCProjGrade.gradeSolo(p), arch=null; try{ arch=TDC_ARCH.of(p.espn_id,p.name); }catch(e){}
-      var f=function(v){ return v!=null&&isFinite(+v)?(+v).toFixed(1):''; };
-      Object.assign(d,{ name:p.name, team:p.team, espn:p.espn_id||null, meta:[school(p.team),p.position,p.class_year,p.height].filter(Boolean).join(' · '),
-        ovr:ovr!=null?String(ovr):'', arch:arch&&arch.name||'', stats:[['PPG',f(L.ppg)],['RPG',f(L.rpg)],['APG',f(L.apg)],['FG%',f(L.fg_pct)],['3P%',f(L.tp_pct)],['MPG',f(L.mpg)]] });
-    },
+  // ════════════════ charts: original data, drawn as clean shareable graphics ════════════════
+  var J={};   // fetched data files, by path
+  async function json(path){ if(!J[path]){ var r=await fetch(path); if(!r.ok) throw new Error('Couldn’t load '+path); J[path]=await r.json(); } return J[path]; }
+  function confOfFull(full){ var t=(D.ratings||[]).find(function(x){ return x.full===full||x.team===full; }); return t?confName(t.conf):''; }
+  function niceTicks(lo,hi,n){ var span=hi-lo, step=Math.pow(10,Math.floor(Math.log10(span/n))), e=span/n/step; step*=e>=5?10:e>=2?5:e>=1?2:1;
+    var out=[]; for(var v=Math.ceil(lo/step)*step; v<=hi+1e-9; v+=step) out.push(+v.toFixed(6)); return out; }
+  function pctColor(p){ // red (low) → grey (mid) → green (high), like the site's sheet scale
+    var lo=[200,70,60], mid=[150,150,150], hi=[40,150,80], a=p<50?lo:hi, b=mid, t=Math.abs(p-50)/50;
+    return 'rgb('+[0,1,2].map(function(i){ return Math.round(b[i]+(a[i]-b[i])*t); }).join(',')+')'; }
+  function fieldsEditor(rows,path,fields){
+    var cols=fields.map(function(f){ return f.w||'minmax(0,1fr)'; }).join(' ');
+    return '<div class="rows">'+rows.map(function(r,i){
+      return '<div class="row" style="grid-template-columns:22px '+cols+' 20px 20px 20px"><span class="n">'+(i+1)+'</span>'+
+        fields.map(function(f){ return '<input data-p="'+path+'.'+i+'.'+f.k+'"'+(f.list?' list="'+f.list+'"':'')+' value="'+esc(r[f.k])+'" placeholder="'+f.ph+'">'; }).join('')+
+        '<button data-act="up" data-path="'+path+'" data-i="'+i+'">↑</button><button data-act="down" data-path="'+path+'" data-i="'+i+'">↓</button><button data-act="del" data-path="'+path+'" data-i="'+i+'">✕</button></div>';
+    }).join('')+'</div>';
+  }
+  function textEditor(d){ return '<h3>Text</h3><label class="f">Title</label><input data-k="title" value="'+esc(d.title)+'">'+
+    '<label class="f">Subtitle</label><input data-k="subtitle" value="'+esc(d.subtitle)+'">'+
+    '<label class="f">Footnote</label><input data-k="note" value="'+esc(d.note||'')+'">'; }
+  function noteLine(W,u,pad,fTop,note){ if(note) txt(note,W/2,fTop-12*u,{ w:600,px:12*u,c:P.mut,al:'center',max:W-pad*2 }); return note?30*u:0; }
+
+  // scatter with logo / headshot dots, median guides, corner labels and de-overlapped name labels
+  async function scatter(W,H,u,pad,y0,fTop,o){
+    var pts=o.pts; await preload(pts);
+    var L=pad+56*u, R=W-pad-8*u, Tp=y0+16*u, B=fTop-70*u;
+    var xs=pts.map(function(p){ return p.x; }), ys=pts.map(function(p){ return p.y; });
+    var x0=o.xmin!=null?o.xmin:Math.min.apply(null,xs), x1=o.xmax!=null?o.xmax:Math.max.apply(null,xs), y0d=o.ymin!=null?o.ymin:Math.min.apply(null,ys), y1d=o.ymax!=null?o.ymax:Math.max.apply(null,ys);
+    var px=(x1-x0)*.07||1, py=(y1d-y0d)*.07||1; if(o.xmin==null){ x0-=px; x1+=px; } if(o.ymin==null){ y0d-=py; y1d+=py; }
+    var X=function(v){ return L+(R-L)*(v-x0)/(x1-x0); }, Y=function(v){ var t=(v-y0d)/(y1d-y0d); return o.yInvert?Tp+(B-Tp)*t:B-(B-Tp)*t; };
+    // grid + ticks
+    ctx.lineWidth=Math.max(1,u);
+    niceTicks(x0,x1,6).forEach(function(v){ var x=X(v); ctx.strokeStyle=P.line; ctx.globalAlpha=.6; ctx.beginPath(); ctx.moveTo(x,Tp); ctx.lineTo(x,B); ctx.stroke(); ctx.globalAlpha=1;
+      txt(o.fmtX?o.fmtX(v):v,x,B+18*u,{ w:600,px:14*u,c:P.mut,al:'center' }); });
+    niceTicks(y0d,y1d,6).forEach(function(v){ var y=Y(v); ctx.strokeStyle=P.line; ctx.globalAlpha=.6; ctx.beginPath(); ctx.moveTo(L,y); ctx.lineTo(R,y); ctx.stroke(); ctx.globalAlpha=1;
+      txt(o.fmtY?o.fmtY(v):v,L-10*u,y,{ w:600,px:14*u,c:P.mut,al:'right' }); });
+    txt(o.xLabel,(L+R)/2,B+46*u,{ w:800,px:15*u,c:P.text2,al:'center',ls:1.5*u });
+    ctx.save(); ctx.translate(pad+10*u,(Tp+B)/2); ctx.rotate(-Math.PI/2); txt(o.yLabel,0,0,{ w:800,px:15*u,c:P.text2,al:'center',ls:1.5*u }); ctx.restore();
+    // median guides
+    var med=function(a){ var s=a.slice().sort(function(p,q){ return p-q; }); return s[Math.floor(s.length/2)]; };
+    var mx=o.midX!=null?o.midX:med(xs), my=o.midY!=null?o.midY:med(ys);
+    ctx.save(); ctx.setLineDash([6*u,6*u]); ctx.strokeStyle=P.acc; ctx.lineWidth=Math.max(1.2,1.5*u);
+    ctx.beginPath(); ctx.moveTo(X(mx),Tp); ctx.lineTo(X(mx),B); ctx.moveTo(L,Y(my)); ctx.lineTo(R,Y(my)); ctx.stroke(); ctx.restore();
+    // dots: lowest-priority first so the stars sit on top
+    var s=o.dot||Math.max(26*u,Math.min(54*u,(R-L)/Math.sqrt(pts.length)/3.2));
+    var order=pts.slice().sort(function(a,b){ return (a.pri||0)-(b.pri||0); });
+    for(var i=0;i<order.length;i++){ var p=order[i]; await mark(p,X(p.x)-s/2,Y(p.y)-s/2,s); }
+    // corner labels on top of the dots, each on a small background chip: [top-left, top-right, bottom-left, bottom-right]
+    var cl=o.corners||[], cp=12*u, cfs=14*u;
+    [[0,L+cp,Tp+cp,'left','top'],[1,R-cp,Tp+cp,'right','top'],[2,L+cp,B-cp,'left','bottom'],[3,R-cp,B-cp,'right','bottom']].forEach(function(c){
+      var t=cl[c[0]]; if(!t) return; t=t.toUpperCase(); var w=width(t,800,cfs)+cfs*.15*t.length*.1+14*u, h=cfs+10*u;
+      var bx=c[3]==='left'?c[1]-7*u:c[1]-w+7*u, by=c[4]==='top'?c[2]-5*u:c[2]-h+5*u;
+      ctx.save(); ctx.globalAlpha=.9; ctx.fillStyle=P.bg; ctx.fillRect(bx,by,w,h); ctx.restore();
+      txt(t,c[1],c[2],{ w:800,px:cfs,c:P.acc,ls:1.5*u,al:c[3],bl:c[4] }); });
+    // labels for the top points, skipping any that would collide
+    var boxes=[], lf=13*u;
+    pts.filter(function(p){ return p.lab; }).sort(function(a,b){ return (b.pri||0)-(a.pri||0); }).forEach(function(p){
+      var w=width(p.lab,700,lf)+8*u, h=lf+6*u, cx=X(p.x), ty=Y(p.y)+s/2+3*u;
+      var bx={ x:cx-w/2, y:ty, w:w, h:h };
+      if(bx.x<L||bx.x+bx.w>R||bx.y+bx.h>B) return;
+      if(boxes.some(function(q){ return !(bx.x+bx.w<q.x||q.x+q.w<bx.x||bx.y+bx.h<q.y||q.y+q.h<bx.y); })) return;
+      boxes.push(bx); ctx.save(); ctx.globalAlpha=.85; ctx.fillStyle=P.bg; ctx.fillRect(bx.x,bx.y,bx.w,bx.h); ctx.restore();
+      txt(p.lab,cx,ty+h/2,{ w:700,px:lf,c:P.text,al:'center' });
+    });
+  }
+
+  // horizontal bars (diverging when values go negative), one row per item
+  async function hbars(W,H,u,pad,y0,fTop,rows,o){
+    rows=rows.filter(function(r){ return r.name&&isFinite(parseFloat(r.val)); }); await preload(rows.filter(function(r){ return r.team; }));
+    var n=rows.length; if(!n){ txt('No rows',W/2,(y0+fTop)/2,{ px:26*u,c:P.mut,al:'center' }); return; }
+    var vals=rows.map(function(r){ return parseFloat(r.val); }), mx=Math.max.apply(null,vals.map(Math.abs))||1, neg=vals.some(function(v){ return v<0; });
+    var rh=Math.min((fTop-y0-(o.legend?36*u:8*u))/n,150*u), fs=Math.min(rh*.3,30*u), ms=rows.some(function(r){ return r.team; })?Math.min(rh*.62,fs*2):0;
+    var labW=Math.min((W-pad*2)*.42, Math.max.apply(null,rows.map(function(r){ return width(r.name,700,fs); }))+ms+24*u);
+    var vw=width('-00.0',800,fs*.92)+14*u, bx0=pad+labW, bx1=W-pad-vw, zero=neg?(bx0+vw+bx1)/2:bx0, half=neg?(bx1-bx0-vw)/2:(bx1-bx0);   // room for the value label on either side
+    if(o.legend){ txt(o.legend[0].toUpperCase(),neg?zero-12*u:bx0,y0+12*u,{ w:800,px:13*u,c:P.mut,al:neg?'right':'left',ls:1.5*u }); if(neg) txt(o.legend[1].toUpperCase(),zero+12*u,y0+12*u,{ w:800,px:13*u,c:P.mut,ls:1.5*u }); }
+    var ry=y0+(o.legend?36*u:8*u);
+    ctx.fillStyle=P.line; ctx.fillRect(zero,ry,Math.max(1,1.5*u),n*rh);
+    for(var i=0;i<n;i++){ var r=rows[i], v=vals[i], top=ry+i*rh, mid=top+rh/2;
+      if(ms) await mark(r,pad,mid-ms/2,ms);
+      var lx=pad+(ms?ms+12*u:0);
+      if(r.sub&&rh>fs*2){ txt(r.name,lx,mid-fs*.32,{ w:700,px:fs,max:labW-(lx-pad)-10*u }); txt(r.sub,lx,mid+fs*.58,{ w:500,px:fs*.6,c:P.mut,max:labW-(lx-pad)-10*u }); }
+      else txt(r.name,lx,mid,{ w:700,px:fs,max:labW-(lx-pad)-10*u });
+      var len=half*Math.abs(v)/mx, bh=Math.min(rh*.5,40*u), col=o.color?o.color(v,r):(v>=0?'#2E8B57':'#C0504D');
+      ctx.fillStyle=col; if(v>=0) ctx.fillRect(zero,mid-bh/2,len,bh); else ctx.fillRect(zero-len,mid-bh/2,len,bh);
+      var lbl=r.label||((v>0&&o.plus?'+':'')+v.toFixed(o.dec==null?1:o.dec)+(o.suffix||''));
+      if(v>=0) txt(lbl,zero+len+8*u,mid,{ w:800,px:fs*.92,c:P.text }); else txt(lbl,zero-len-8*u,mid,{ w:800,px:fs*.92,c:P.text,al:'right' });
+    }
+  }
+
+  // ── Contender quadrant: offense vs defense, every team as its logo ──
+  T.quad={
+    defaults:function(){ return { src:'proj', conf:'', n:40, title:'Who’s Built Like a Contender?', subtitle:SEASON+' projected offense vs. defense', note:'Points per 100 possessions · lines = group median', labels:12 }; },
+    load:async function(d){ d.title=d.title||this.defaults().title; },
     editor:function(d){
-      var h='<h3>Data</h3><label class="f">Player</label><input data-k="q" list="plList" value="'+esc(d.q)+'" placeholder="Start typing a name…">'+
-        '<div class="btns"><button class="b sm primary" data-act="load">Load player</button></div>'+
-        '<h3>Text</h3><label class="f">Label</label><input data-k="label" value="'+esc(d.label)+'">'+
-        '<div class="two"><div><label class="f">Name</label><input data-k="name" value="'+esc(d.name)+'"></div><div><label class="f">Team (logo)</label><input data-k="team" list="tmList" value="'+esc(d.team)+'"></div></div>'+
-        '<label class="f">Details line</label><input data-k="meta" value="'+esc(d.meta)+'">'+
-        '<div class="two"><div><label class="f">OVR</label><input data-k="ovr" value="'+esc(d.ovr)+'"></div><div><label class="f">Archetype</label><input data-k="arch" value="'+esc(d.arch)+'"></div></div>'+
-        '<h3>Stats</h3><div class="rows">';
-      d.stats.forEach(function(s,i){ h+='<div class="row" style="grid-template-columns:1fr 1fr"><input data-p="stats.'+i+'.0" value="'+esc(s[0])+'"><input data-p="stats.'+i+'.1" value="'+esc(s[1])+'"></div>'; });
-      return h+'</div>';
+      return '<h3>Data</h3><div class="two"><div><label class="f">Season</label><select data-k="src"><option value="proj"'+(d.src==='proj'?' selected':'')+'>2026-27 projected</option><option value="last"'+(d.src==='last'?' selected':'')+'>2025-26 actual</option></select></div>'+
+        '<div><label class="f">Teams (top N)</label><input data-k="n" type="number" min="5" max="120" value="'+d.n+'"></div></div>'+
+        '<label class="f">Conference</label><select data-k="conf">'+confOpts(d.conf)+'</select>'+
+        '<label class="f">Name labels (top N)</label><input data-k="labels" type="number" min="0" max="60" value="'+d.labels+'">'+textEditor(d);
     },
     draw:async function(d,W,H,u,pad){
-      bg(W,H); if(!d.name){ txt('Load a player on the left',W/2,H/2,{ px:30*u,c:P.mut,al:'center' }); return ''; }
-      var land=W>H*1.2, fTop=foot(W,H,u,pad), tc=tcol(d.team);
+      bg(W,H); var rs=await ratings(), pts=[];
+      if(d.src==='last'){
+        var q=await json('scripts/data/chart_quadrant.json');
+        q.filter(function(t){ return !d.conf||confOfFull(t.team)===d.conf; }).sort(function(a,b){ return b.net-a.net; }).slice(0,+d.n||40)
+          .forEach(function(t,i){ pts.push({ x:t.ortg, y:t.drtg, team:t.team, lab:school(t.team), pri:100-i }); });
+      } else {
+        var dn=await dna();
+        rs.filter(function(t){ return !d.conf||confName(t.conf)===d.conf; }).slice(0,+d.n||40)
+          .forEach(function(t,i){ var x=dn[t.full]||dn[t.team]; if(x&&x.ORtg!=null) pts.push({ x:x.ORtg, y:x.DRtg, team:t.team, lab:school(t.full||t.team), pri:100-i }); });
+      }
+      pts.forEach(function(p,i){ if(i>=(+d.labels||0)) p.lab=''; });
+      var y0=head(W,u,pad,d.title,d.subtitle), fTop=foot(W,H,u,pad); fTop-=noteLine(W,u,pad,fTop,d.note);
+      if(!pts.length){ txt('No teams for that filter',W/2,H/2,{ px:26*u,c:P.mut,al:'center' }); return ''; }
+      await scatter(W,H,u,pad,y0,fTop,{ pts:pts, xLabel:'OFFENSE →  (POINTS SCORED / 100)', yLabel:'DEFENSE →  (POINTS ALLOWED / 100, BETTER = UP)', yInvert:true,
+        corners:['Defense-first','Elite both ends','Below median both ends','Offense-first'] });
+      var both=pts.filter(function(p){ return p.x>pts.map(function(q){ return q.x; }).sort(function(a,b){ return a-b; })[Math.floor(pts.length/2)]; });
+      return d.title+'\n\n'+d.subtitle+'. Top-right = elite on both ends.\n\n'+SITE+'\n\n#CollegeBasketball #CBB #Analytics';
+    }
+  };
+
+  // ── Shot Genome: Shot-Making (SM+) vs Creation, our own shot-quality stats ──
+  T.genome={
+    defaults:function(){ return { conf:'', n:30, minFga:200, labels:14, title:'The Shot Genome', subtitle:'Who makes tough shots, and who creates them · 2025-26', note:'Shot-making = points over expected per 100 shots · Creation = expected points created for teammates · competition-adjusted' }; },
+    load:async function(d){},
+    editor:function(d){
+      return '<h3>Data</h3><div class="two"><div><label class="f">Players</label><input data-k="n" type="number" min="6" max="80" value="'+d.n+'"></div>'+
+        '<div><label class="f">Min. shots</label><input data-k="minFga" type="number" min="50" max="600" value="'+d.minFga+'"></div></div>'+
+        '<label class="f">Conference</label><select data-k="conf">'+confOpts(d.conf)+'</select>'+
+        '<div class="hint">Shows the best shot-makers, the best creators and the best at both (a third each).</div>'+
+        '<label class="f">Name labels (top N)</label><input data-k="labels" type="number" min="0" max="60" value="'+d.labels+'">'+textEditor(d);
+    },
+    draw:async function(d,W,H,u,pad){
+      bg(W,H); await ratings(); var g=await json('scripts/data/shot_genome_players.json');
+      var pool=g.players.filter(function(p){ return p.smAdj!=null&&p.crAdj!=null&&(p.fga||0)>=(+d.minFga||0)&&(!d.conf||confOfFull(p.team)===d.conf); });
+      var z=function(k){ var v=pool.map(function(p){ return p[k]; }), m=v.reduce(function(a,b){ return a+b; },0)/(v.length||1), sd=Math.sqrt(v.reduce(function(a,b){ return a+(b-m)*(b-m); },0)/(v.length||1))||1; return function(p){ return (p[k]-m)/sd; }; };
+      var zs=z('smAdj'), zc=z('crAdj'), k=Math.max(2,Math.round((+d.n||30)/3)), pick={}, out=[];
+      [function(p){ return zs(p); },function(p){ return zc(p); },function(p){ return Math.min(zs(p),zc(p)); }].forEach(function(f){
+        pool.slice().sort(function(a,b){ return f(b)-f(a); }).filter(function(p){ return !pick[p.espn_id]; }).slice(0,k).forEach(function(p){ pick[p.espn_id]=1; out.push(p); }); });
+      out.forEach(function(p){ p._s=Math.max(zs(p),zc(p))+Math.min(zs(p),zc(p)); });
+      var lab=out.slice().sort(function(a,b){ return b._s-a._s; }).slice(0,+d.labels||0).map(function(p){ return p.espn_id; });
+      var pts=out.map(function(p){ return { x:p.crAdj, y:p.smAdj, team:p.team, espn:p.espn_id, lab:lab.indexOf(p.espn_id)>-1?p.name:'', pri:p._s }; });
+      var y0=head(W,u,pad,d.title,d.subtitle), fTop=foot(W,H,u,pad); fTop-=noteLine(W,u,pad,fTop,d.note);
+      if(!pts.length){ txt('No players for that filter',W/2,H/2,{ px:26*u,c:P.mut,al:'center' }); return ''; }
+      await scatter(W,H,u,pad,y0,fTop,{ pts:pts, fmtY:function(v){ return (v>0?'+':'')+v; }, xLabel:'CREATION →  (EXPECTED POINTS CREATED)', yLabel:'SHOT-MAKING →  (PTS OVER EXPECTED / 100 SHOTS)',
+        corners:['Pure shot-makers','Do-it-all','','Playmakers'] });
+      var top=out.slice().sort(function(a,b){ return b._s-a._s; }).slice(0,4).map(function(p){ return p.name; });
+      return d.title+' — '+d.subtitle+'\n\nBest at both: '+top.join(', ')+'\n\nOur own shot-quality stats, built from 700K+ shots → '+SITE+'\n\n#CollegeBasketball #CBB #Analytics';
+    }
+  };
+
+  // ── Moneyball: what the transfer market misprices, and the best-value moves ──
+  T.money={
+    defaults:function(){ return { mode:'traits', n:12, title:'What the Transfer Portal Gets Wrong', subtitle:'4,858 transfers, 2013–2026', note:'Bar = how much a trait drives winning minus how much it drives a player’s market', rows:[] }; },
+    load:async function(d){
+      var m=await json('data/market_inefficiency.json'), n=+d.n||12;
+      if(d.mode==='traits'){
+        d.rows=m.traits.filter(function(t){ return t.sig!==false; }).sort(function(a,b){ return b.gap-a.gap; }).map(function(t){ return { name:t.label, team:'', val:(t.gap*100).toFixed(1) }; });
+        d.title='What the Transfer Portal Gets Wrong'; d.subtitle=m.n_moves.toLocaleString()+' transfers, '+m.seasons[0]+'–'+m.seasons[1];
+        d.note='Bar = how much a trait drives winning minus how much it drives a player’s market (×100)';
+      } else {
+        var c=m.class2027.slice().sort(function(a,b){ return d.mode==='under'?b.gap-a.gap:a.gap-b.gap; }).slice(0,n);
+        d.rows=c.map(function(p){ return { name:p.name, team:p.to, espn:p.espn||null, sub:school(p.from)+' → '+school(p.to), val:p.gap.toFixed(1) }; });
+        d.title=d.mode==='under'?'The Portal’s Best-Value Moves':'The Portal’s Riskiest Bets'; d.subtitle=SEASON+' transfer class';
+        d.note='Projected BPM vs. a typical transfer into the same spot';
+      }
+    },
+    editor:function(d){
+      return '<h3>Data</h3><div class="two"><div><label class="f">Chart</label><select data-k="mode"><option value="traits"'+(d.mode==='traits'?' selected':'')+'>What the market misprices</option><option value="under"'+(d.mode==='under'?' selected':'')+'>Best-value transfers</option><option value="over"'+(d.mode==='over'?' selected':'')+'>Riskiest transfers</option></select></div>'+
+        '<div><label class="f">How many</label><input data-k="n" type="number" min="3" max="20" value="'+d.n+'"></div></div>'+
+        '<div class="btns"><button class="b sm primary" data-act="load">Load / refresh data</button></div>'+textEditor(d)+
+        '<h3>Bars ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',[{k:'name',ph:'Label',w:'minmax(0,1.4fr)'},{k:'team',ph:'Team',list:'tmList'},{k:'val',ph:'Value',w:'60px'}])+
+        '<div class="btns"><button class="b sm" data-act="add" data-path="rows">+ Add bar</button></div>';
+    },
+    draw:async function(d,W,H,u,pad){
+      bg(W,H); var y0=head(W,u,pad,d.title,d.subtitle), fTop=foot(W,H,u,pad); fTop-=noteLine(W,u,pad,fTop,d.note);
+      var traits=d.mode==='traits';
+      await hbars(W,H,u,pad,y0,fTop,d.rows,{ plus:true, suffix:traits?'':'', dec:1, legend:traits?['← Overpaid','Undervalued →']:null });
+      return d.title+' — '+d.subtitle+'\n\n'+d.rows.slice(0,3).map(function(r){ return r.name+' '+(+r.val>0?'+':'')+r.val; }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #TransferPortal #CBB';
+    }
+  };
+
+  // ── Crunch time: who takes over late in close games (dumbbell: rest-of-game share → crunch share) ──
+  T.crunch={
+    defaults:function(){ return { dir:'up', who:'ret', min:50, n:12, title:'Crunch-Time Takeovers', subtitle:'Shot share in the final 4:00 of close games vs. the rest of the game · 2025-26', note:'Close = within 5 points · share of team shots while on the floor', rows:[] }; },
+    load:async function(d){
+      var c=await json('scripts/data/crunch_time_2026.json');
+      var ps=c.players.filter(function(p){ return p.jump!=null&&p.c_team>=(+d.min||50)&&(d.who==='all'||p.now); })
+        .sort(function(a,b){ return d.dir==='up'?b.jump-a.jump:a.jump-b.jump; }).slice(0,+d.n||12);
+      d.rows=ps.map(function(p){ return { name:p.name, team:p.now||p.team, espn:p.espn_id||null, sub:school(p.team)+(p.now&&school(p.now)!==school(p.team)?' → '+school(p.now):''), val:String(p.r_share), val2:String(p.c_share) }; });
+      d.title=d.dir==='up'?'Crunch-Time Takeovers':'Who Disappears in Crunch Time';
+    },
+    editor:function(d){
+      return '<h3>Data</h3><div class="two"><div><label class="f">Show</label><select data-k="dir"><option value="up"'+(d.dir==='up'?' selected':'')+'>Biggest takeovers</option><option value="down"'+(d.dir==='down'?' selected':'')+'>Biggest drop-offs</option></select></div>'+
+        '<div><label class="f">Players</label><select data-k="who"><option value="ret"'+(d.who==='ret'?' selected':'')+'>Back in 2026-27</option><option value="all"'+(d.who==='all'?' selected':'')+'>Everyone</option></select></div></div>'+
+        '<div class="two"><div><label class="f">How many</label><input data-k="n" type="number" min="3" max="20" value="'+d.n+'"></div><div><label class="f">Min. crunch team shots</label><input data-k="min" type="number" min="10" max="200" value="'+d.min+'"></div></div>'+
+        '<div class="btns"><button class="b sm primary" data-act="load">Load / refresh data</button></div>'+textEditor(d)+
+        '<h3>Rows ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',[{k:'name',ph:'Player',list:'plList',w:'minmax(0,1.3fr)'},{k:'team',ph:'Team',list:'tmList'},{k:'val',ph:'Rest %',w:'52px'},{k:'val2',ph:'Crunch %',w:'52px'}]);
+    },
+    draw:async function(d,W,H,u,pad){
+      bg(W,H); var y0=head(W,u,pad,d.title,d.subtitle), fTop=foot(W,H,u,pad); fTop-=noteLine(W,u,pad,fTop,d.note);
+      var rows=d.rows.filter(function(r){ return r.name&&isFinite(+r.val)&&isFinite(+r.val2); }); await preload(rows);
+      var n=rows.length; if(!n){ txt('Load data on the left',W/2,H/2,{ px:26*u,c:P.mut,al:'center' }); return ''; }
+      var lg=34*u, rh=Math.min((fTop-y0-lg-8*u)/n,100*u), fs=Math.min(rh*.32,25*u), ms=Math.min(rh*.66,fs*2.2);
+      var labW=Math.min((W-pad*2)*.4,Math.max.apply(null,rows.map(function(r){ return width(r.name,700,fs); }))+ms+24*u);
+      var ax0=pad+labW+10*u, ax1=W-pad-10*u, mx=Math.max(60,Math.max.apply(null,rows.map(function(r){ return Math.max(+r.val,+r.val2); })));
+      var X=function(v){ return ax0+(ax1-ax0)*v/mx; }, ry=y0+lg;
+      // legend + axis ticks
+      var gc='#9AA0AA', cc=P.acc==='#E6D5A8'?'#E6B04A':'#C8102E';
+      ctx.fillStyle=gc; ctx.beginPath(); ctx.arc(ax0+6*u,y0+12*u,6*u,0,7); ctx.fill(); txt('REST OF GAME',ax0+18*u,y0+12*u,{ w:800,px:13*u,c:P.mut,ls:1.5*u });
+      var lx=ax0+30*u+width('REST OF GAME',800,13*u)+20*u; ctx.fillStyle=cc; ctx.beginPath(); ctx.arc(lx,y0+12*u,6*u,0,7); ctx.fill(); txt('CRUNCH TIME',lx+12*u,y0+12*u,{ w:800,px:13*u,c:P.mut,ls:1.5*u });
+      [0,20,40,60,80,100].filter(function(v){ return v<=mx; }).forEach(function(v){ var x=X(v); ctx.fillStyle=P.line; ctx.fillRect(x,ry,Math.max(1,u),n*rh); txt(v+'%',x,ry+n*rh+14*u,{ w:600,px:13*u,c:P.mut,al:'center' }); });
+      for(var i=0;i<n;i++){ var r=rows[i], top=ry+i*rh, mid=top+rh/2, a=+r.val, b=+r.val2;
+        if(i%2===0){ ctx.fillStyle=P.alt; ctx.fillRect(pad,top,W-pad*2,rh); }
+        await mark(r,pad,mid-ms/2,ms); var tx=pad+ms+12*u;
+        if(r.sub&&rh>fs*2){ txt(r.name,tx,mid-fs*.32,{ w:700,px:fs,max:labW-ms-16*u }); txt(r.sub,tx,mid+fs*.6,{ w:500,px:fs*.58,c:P.mut,max:labW-ms-16*u }); }
+        else txt(r.name,tx,mid,{ w:700,px:fs,max:labW-ms-16*u });
+        ctx.strokeStyle=P.line; ctx.lineWidth=Math.max(3,5*u); ctx.beginPath(); ctx.moveTo(X(a),mid); ctx.lineTo(X(b),mid); ctx.stroke();
+        var rr=Math.max(6,8*u); ctx.fillStyle=gc; ctx.beginPath(); ctx.arc(X(a),mid,rr,0,7); ctx.fill(); ctx.fillStyle=cc; ctx.beginPath(); ctx.arc(X(b),mid,rr,0,7); ctx.fill();
+        var right=b>=a; txt(Math.round(b)+'%',X(b)+(right?14:-14)*u,mid,{ w:800,px:fs*.86,c:P.text,al:right?'left':'right' });
+      }
+      return d.title+' — '+d.subtitle+'\n\n'+rows.slice(0,3).map(function(r){ return r.name+': '+Math.round(+r.val)+'% → '+Math.round(+r.val2)+'%'; }).join('\n')+'\n\nBuilt from every play-by-play of the season → '+SITE+'\n\n#CollegeBasketball #CBB';
+    }
+  };
+
+  // ── Player chart card: percentile bars across our projected + original stats ──
+  var PCT_POOL=null;
+  async function pctPool(){
+    if(PCT_POOL) return PCT_POOL; var ps=await players(), seen={}, rows=[];
+    ps.forEach(function(p){ var k=p.espn_id||(p.name+'|'+p.team); if(seen[k]) return; seen[k]=1; var L=TDCProjGrade.lineOf(p); if(L&&+L.mpg>=15) rows.push(L); });
+    var g={}; try{ (await json('scripts/data/shot_genome_players.json')).players.forEach(function(x){ g[x.espn_id]=x; }); }catch(e){}
+    var ts=function(L){ var a=2*((+L.fga||0)+.44*(+L.fta||0)); return a>0?100*(+L.ppg||0)/a:null; };
+    var M=[ ['Scoring','ppg',function(L){ return +L.ppg; },'PPG'], ['Efficiency (TS%)','ts',ts,'%'], ['3-pt shooting','tp',function(L){ return +L.tpa>=1.5?+L.tp_pct:null; },'%'],
+      ['Rebounding','rpg',function(L){ return +L.rpg; },'RPG'], ['Playmaking','apg',function(L){ return +L.apg; },'APG'], ['Ball security (AST/TO)','tov',function(L){ return L.tovs!=null&&+L.apg>0?(+L.apg)/Math.max(.3,+L.tovs):null; },'AST/TO'],
+      ['Steals','stl',function(L){ return +L.stl; },'SPG'], ['Blocks','blk',function(L){ return +L.blk; },'BPG'], ['Wins Added','wa',function(L){ return L.proj_wa!=null?+L.proj_wa:null; },'WA'] ];
+    var dist={}; M.forEach(function(m){ dist[m[1]]=rows.map(m[2]).filter(function(v){ return v!=null&&isFinite(v); }).sort(function(a,b){ return a-b; }); });
+    PCT_POOL={ M:M, dist:dist, genome:g, ts:ts }; return PCT_POOL;
+  }
+  function pctOf(arr,v){ if(!arr.length||v==null||!isFinite(v)) return null; var lo=0, hi=arr.length; while(lo<hi){ var m=(lo+hi)>>1; if(arr[m]<v) lo=m+1; else hi=m; } return Math.round(100*lo/arr.length); }
+  T.pcard={
+    defaults:function(){ return { q:'', name:'', team:'', espn:null, meta:'', label:SEASON+' projection · percentile vs. rotation players', bars:[] }; },
+    load:async function(d){
+      await players(); var m=(d.q||'').split(' — '), p=findPlayer(m[0],m[1]); if(!p) throw new Error('Pick a player from the list.');
+      var L=TDCProjGrade.lineOf(p); if(!L) throw new Error('No projection for '+p.name+'.');
+      var pp=await pctPool(), bars=[];
+      pp.M.forEach(function(mm){ var v=mm[2](L), pc=pctOf(pp.dist[mm[1]],v); if(pc==null) return;
+        var raw=mm[1]==='tov'?(+v).toFixed(1)+' AST/TO':(mm[1]==='ts'||mm[1]==='tp'?(+v).toFixed(1)+'%':(+v).toFixed(1)+' '+mm[3]);
+        bars.push({ name:mm[0], val:String(pc), raw:raw.trim() }); });
+      var gx=pp.genome[p.espn_id];
+      if(gx&&gx.smPct!=null) bars.push({ name:'Shot-making (SM+)', val:String(gx.smPct), raw:(gx.smAdj>0?'+':'')+(+gx.smAdj).toFixed(1)+' /100' });
+      if(gx&&gx.crPct!=null) bars.push({ name:'Creation', val:String(gx.crPct), raw:'' });
+      Object.assign(d,{ name:p.name, team:p.team, espn:p.espn_id||null, meta:[school(p.team),p.position,p.class_year,p.height].filter(Boolean).join(' · '), bars:bars });
+    },
+    editor:function(d){
+      return '<h3>Data</h3><label class="f">Player</label><input data-k="q" list="plList" value="'+esc(d.q)+'" placeholder="Start typing a name…">'+
+        '<div class="btns"><button class="b sm primary" data-act="load">Load player</button></div>'+
+        '<div class="hint">Percentiles vs. every projected rotation player (15+ mpg). Shot-making / Creation are from last season’s shot data.</div>'+
+        '<h3>Text</h3><div class="two"><div><label class="f">Name</label><input data-k="name" value="'+esc(d.name)+'"></div><div><label class="f">Team (logo)</label><input data-k="team" list="tmList" value="'+esc(d.team)+'"></div></div>'+
+        '<label class="f">Details line</label><input data-k="meta" value="'+esc(d.meta)+'"><label class="f">Label</label><input data-k="label" value="'+esc(d.label)+'">'+
+        '<h3>Bars ('+d.bars.length+')</h3>'+fieldsEditor(d.bars,'bars',[{k:'name',ph:'Label',w:'minmax(0,1.3fr)'},{k:'val',ph:'Pctl',w:'48px'},{k:'raw',ph:'Raw value'}])+
+        '<div class="btns"><button class="b sm" data-act="add" data-path="bars">+ Add bar</button></div>';
+    },
+    draw:async function(d,W,H,u,pad){
+      bg(W,H); if(!d.name){ txt('Load a player on the left',W/2,H/2,{ px:28*u,c:P.mut,al:'center' }); return ''; }
+      var fTop=foot(W,H,u,pad), land=W>H*1.2, tc=tcol(d.team);
       ctx.fillStyle=tc; ctx.fillRect(0,0,W,Math.max(8,10*u));
-      var sh=(S.shots&&d.espn)?await img(shotUrl(d.espn)):null, lg=await img(logoUrl(d.team));
-      // portrait block: big headshot (or logo) on a soft team-colour panel
-      var bx=pad, by=pad+20*u, bw=land?W*.36:W-pad*2, bh=land?fTop-by-20*u:(fTop-by)*.48;
-      ctx.save(); ctx.fillStyle=P.chip; ctx.fillRect(bx,by,bw,bh); ctx.globalAlpha=.18; ctx.fillStyle=tc; ctx.fillRect(bx,by,bw,bh); ctx.restore();
-      if(sh){ ctx.save(); ctx.beginPath(); ctx.rect(bx,by,bw,bh); ctx.clip(); var w=Math.min(bw*1.05,bh*1.35), h2=w*(sh.height/sh.width); ctx.drawImage(sh,bx+(bw-w)/2,by+bh-h2,w,h2); ctx.restore();
-        if(lg) drawFit(lg,bx+16*u,by+16*u,70*u); }
-      else if(lg){ var s=Math.min(bw,bh)*.6; drawFit(lg,bx+(bw-s)/2,by+(bh-s)/2,s); }
-      // right/bottom text block; k scales it up in landscape, and it is centred in the space it gets
-      var k=land?1.3:1, x=land?bx+bw+56*u:pad, mw=W-x-pad;
-      var st=d.stats.filter(function(s){ return s[0]; }), cols=3, rowsN=Math.ceil(st.length/cols), ch=(land?120:104)*u;
-      var blockH=24*u*k+72*u*k+46*u*k+(d.ovr?110*u*k:0)+rowsN*ch;
-      var top=land?by:by+bh+28*u, room=(land?by+bh:fTop-16*u)-top, y=top+Math.max(0,(room-blockH)/2);
-      txt((d.label||'').toUpperCase(),x,y+10*u,{ w:700,px:17*u*k,c:P.mut,ls:2.5*u });
-      y+=24*u*k; var np=txt(d.name,x,y+36*u*k,{ w:900,px:66*u*k,max:mw }); y+=72*u*k;
-      txt(d.meta,x,y+14*u*k,{ w:500,px:23*u*k,c:P.text2,max:mw }); y+=46*u*k;
-      if(d.ovr){ var bh2=80*u*k, ow=width(d.ovr,900,54*u*k)+40*u*k; ctx.fillStyle=tc; ctx.fillRect(x,y,ow,bh2);
-        txt('OVR',x+ow/2,y+14*u*k,{ w:800,px:11*u*k,c:'rgba(255,255,255,.85)',al:'center',ls:2*u });
-        txt(d.ovr,x+ow/2,y+bh2*.58,{ w:900,px:50*u*k,c:'#fff',al:'center' });
-        if(d.arch){ txt('ARCHETYPE',x+ow+22*u,y+bh2*.3,{ w:700,px:13*u*k,c:P.mut,ls:2*u }); txt(d.arch,x+ow+22*u,y+bh2*.7,{ w:700,px:28*u*k,max:mw-ow-22*u }); }
-        y+=110*u*k; }
-      var cw=mw/cols;
-      st.forEach(function(s,i){ var cx=x+(i%cols)*cw, cy=y+Math.floor(i/cols)*ch;
-        ctx.fillStyle=P.line; ctx.fillRect(cx,cy,cw-14*u,Math.max(1,u));
-        txt(s[1]||'—',cx,cy+ch*.45,{ w:800,px:ch*.4 }); txt(s[0],cx,cy+ch*.8,{ w:700,px:14*u*k,c:P.mut,ls:2*u }); });
-      return d.name+' ('+school(d.team)+') — '+(d.label||'')+'\n\n'+(d.ovr?d.ovr+' OVR'+(d.arch?' · '+d.arch:'')+'\n':'')+st.slice(0,3).map(function(s){ return s[1]+' '+s[0]; }).join(' / ')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB';
+      // header: headshot (or logo) + name + details
+      var hs=land?120*u:150*u, hy=pad+16*u, r={ team:d.team, espn:d.espn };
+      await preload([r]); await mark(r,pad,hy,hs);
+      var hx=pad+hs+28*u;
+      txt((d.label||'').toUpperCase(),hx,hy+hs*.2,{ w:700,px:15*u,c:P.mut,ls:1.5*u,max:W-hx-pad });
+      var np=txt(d.name,hx,hy+hs*.52,{ w:900,px:(land?56:64)*u,max:W-hx-pad });
+      txt(d.meta,hx,hy+hs*.86,{ w:500,px:22*u,c:P.text2,max:W-hx-pad });
+      var y0=hy+hs+30*u; ctx.fillStyle=P.line; ctx.fillRect(pad,y0-14*u,W-pad*2,Math.max(1,1.5*u));
+      var bars=d.bars.filter(function(b){ return b.name&&isFinite(+b.val); }), n=bars.length; if(!n) return '';
+      var rh=Math.min((fTop-y0-10*u)/n,90*u), fs=Math.min(rh*.34,24*u), labW=Math.max.apply(null,bars.map(function(b){ return width(b.name,700,fs); }))+24*u;
+      var rawW=Math.max.apply(null,bars.map(function(b){ return width(b.raw||'',600,fs*.85); }))+16*u;
+      var bx0=pad+labW, bx1=W-pad-rawW, bh=Math.min(rh*.5,30*u), dot=bh*1.25;
+      for(var i=0;i<n;i++){ var b=bars[i], pc=Math.max(0,Math.min(100,+b.val)), mid=y0+i*rh+rh/2;
+        txt(b.name,pad,mid,{ w:700,px:fs,max:labW-12*u });
+        ctx.fillStyle=P.chip; ctx.fillRect(bx0,mid-bh/2,bx1-bx0-dot/2,bh);
+        var bw=(bx1-bx0-dot/2)*pc/100, col=pctColor(pc); ctx.fillStyle=col; ctx.fillRect(bx0,mid-bh/2,bw,bh);
+        ctx.beginPath(); ctx.arc(bx0+bw,mid,dot/2+2*u,0,7); ctx.fillStyle=P.bg; ctx.fill(); ctx.beginPath(); ctx.arc(bx0+bw,mid,dot/2,0,7); ctx.fillStyle=col; ctx.fill();
+        txt(String(Math.round(pc)),bx0+bw,mid,{ w:800,px:dot*.5,c:'#fff',al:'center' });
+        if(b.raw) txt(b.raw,W-pad,mid,{ w:600,px:fs*.85,c:P.mut,al:'right' });
+      }
+      var top=bars.slice().sort(function(a,b){ return b.val-a.val; }).slice(0,3);
+      return d.name+' ('+school(d.team)+') — percentile profile\n\n'+top.map(function(b){ return b.name+': '+b.val+'th pct'; }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB';
     }
   };
 
@@ -532,8 +772,10 @@
     else return;
     save(); later();
   });
-  $('editor').addEventListener('change',function(e){ if(e.target.type==='checkbox'||e.target.tagName==='SELECT'){ save(); render(); }
-    if(e.target.dataset.k==='val2Label'){ paintEditor(); } });
+  $('editor').addEventListener('change',function(e){ var el=e.target; if(el.dataset.k) doc()[el.dataset.k]=el.type==='checkbox'?el.checked:el.value;
+    if(el.type==='checkbox'||el.tagName==='SELECT'){ save(); render(); }
+    if(e.target.dataset.k==='val2Label'){ paintEditor(); }
+    var ks=AUTO[S.tpl]; if(ks&&ks.indexOf(e.target.dataset.k)>-1){ (async function(){ try{ await T[S.tpl].load(doc()); save(); paintEditor(); render(); }catch(err){ status(err.message,true); } })(); } });
   $('editor').addEventListener('click',async function(e){
     var b=e.target.closest('button[data-act]'); if(!b) return; var d=doc(), act=b.dataset.act, arr=b.dataset.path?getPath(d,b.dataset.path):null, i=+b.dataset.i;
     if(act==='load'){ b.disabled=true; try{ await T[S.tpl].load(d); save(); paintEditor(); await render(); status('Loaded. Edit anything below.'); }catch(err){ status(err.message,true); } b.disabled=false; return; }
@@ -568,7 +810,9 @@
   // ── controls ──
   function syncControls(){ [].forEach.call($('tplSeg').children,function(x){ x.classList.toggle('on',x.dataset.v===S.tpl); });
     $('size').value=S.size; $('theme').value=S.theme; $('shots').checked=S.shots; $('handle').value=S.handle; }
-  $('tplSeg').addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b) return; S.tpl=b.dataset.v; save(); syncControls(); paintEditor(); render();
+  var AUTO={ money:['mode','n'], crunch:['dir','who','n','min'] };   // charts whose rows come from a load
+  async function autoLoad(){ var d=doc(); if(AUTO[S.tpl]&&d.rows&&!d.rows.length){ try{ await T[S.tpl].load(d); save(); paintEditor(); }catch(e){ status(e.message,true); } } }
+  $('tplSeg').addEventListener('click',async function(e){ var b=e.target.closest('button'); if(!b) return; S.tpl=b.dataset.v; save(); syncControls(); paintEditor(); await autoLoad(); render();
     if(S.tpl!=='matchup') players().catch(function(){}); });
   $('size').onchange=function(){ S.size=this.value; save(); render(); };
   $('theme').onchange=function(){ S.theme=this.value; save(); render(); };
@@ -600,6 +844,7 @@
     paintEditor();
     // first visit: fill the list with real data so there's something to edit
     if(S.tpl==='list'&&!d.rows.length){ try{ await T.list.load(d); save(); paintEditor(); }catch(e){} }
+    await autoLoad();
     render();
     players().then(function(){ if(S.shots){ backfillEspn(); render(); } }).catch(function(){});
   })();
