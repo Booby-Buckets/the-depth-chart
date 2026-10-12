@@ -11,6 +11,7 @@ PD=json.load(open(D/"player_dna.json")); TD=json.load(open(D/"team_dna.json"))
 import sys; sys.path.insert(0,str(pathlib.Path(__file__).parent))
 from dna_carry import carry
 from level_translate import translate   # a transfer's fingerprint at his new league (level_translate.py)
+import usage_budget                      # the roster shares one usage budget; efficiency moves with role (usage_budget.py)
 ALIAS={"Connecticut":"UConn Huskies","Brigham Young":"BYU Cougars","Louisiana State":"LSU Tigers",
  "Southern California":"USC Trojans","Texas Christian":"TCU Horned Frogs","Southern Methodist":"SMU Mustangs",
  "Virginia Commonwealth":"VCU Rams","Nevada-Las Vegas":"UNLV Rebels","Miami (FL)":"Miami Hurricanes"}
@@ -82,6 +83,7 @@ for y in sorted(int(s) for s in PD):
                 g=float(p["tdc_grade"]) if p.get("tdc_grade") else 72
                 fp=fresh_fp(g,p["grp"]); fp["mpg"]=p.get("mpg") or 8
             R.append(fp)
+        usage_budget.apply(R)   # same as the live build: stacked rosters share possessions, efficiency follows role
         F=rfeat(R)
         if not F: continue
         pj={t:round(float(c[0]+sum(c[i+1]*F[fe[i]] for i in range(len(fe)))),1) for t,(fe,c) in COEF.items()}

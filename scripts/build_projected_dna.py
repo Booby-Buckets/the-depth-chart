@@ -13,6 +13,7 @@ PD=json.load(open(D/"player_dna.json")); TD=json.load(open(D/"team_dna.json"))
 import sys as _sys; _sys.path.insert(0,str(pathlib.Path(__file__).parent))
 from dna_carry import carry
 from level_translate import translate   # a transfer's fingerprint at his new league (level_translate.py)
+import usage_budget                      # the roster shares one usage budget; efficiency moves with role (usage_budget.py)
 # Projected 2026-27 per-player line (stats-derived OVR + projected minutes), keyed by espn_id.
 # Newcomers with no D1 Player DNA are fingerprinted from THIS (their projected stats), not from
 # the hand/display tdc_grade — a grade that disagrees with the projected line (e.g. a 90 on a
@@ -320,6 +321,10 @@ for team,roster in byteam.items():
             mp=_fr.get("mpg") if _fr.get("mpg") is not None else 9.0   # the build's minutes, else a bench role
         fp["mpg"]=float(mp)
         R.append(fp)
+    # ROLE-AWARE (owner, Oct 12 2026, "the fuller fix"): the rotation shares one usage budget at its PROJECTED minutes;
+    # each player's efficiency moves with his forced usage change. Backtest (historical projections rebuilt the same
+    # way, owner formula LOSO, 5,048 team-seasons): offense MAE 3.059 -> 3.033, net 3.471 -> 3.435, 16 of 19 seasons.
+    usage_budget.apply(R)
     F=rfeat(R, minn=5)   # projection is more permissive than the historical fit (6)
     # a roster of mostly unlinked newcomers can have <5 players projected at 8+ mpg (their minutes
     # are spread thin) and would get NO projected DNA -> the rating falls back to pure roster BPM
