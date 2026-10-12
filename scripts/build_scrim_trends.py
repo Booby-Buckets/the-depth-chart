@@ -219,6 +219,10 @@ def main():
     for full, X in teams.items():
         num = sum((x["reality"] or 0) / 100 * x["resid"] for x in X["games"]); den = sum((x["reality"] or 0) / 100 for x in X["games"])
         X["adj"] = round(max(-TEAM_CAP, min(TEAM_CAP, num / (den + TEAM_PRIOR))), 2)
+        rn = rd = 0.0   # the rating trend as it stood after each scrimmage (the Trends chart)
+        for x in sorted(X["games"], key=lambda x: x["date"]):
+            rn += (x["reality"] or 0) / 100 * x["resid"]; rd += (x["reality"] or 0) / 100
+            x["adj_after"] = round(max(-TEAM_CAP, min(TEAM_CAP, rn / (rd + TEAM_PRIOR))), 2)
         # team box vs projection: Reality-weighted scrimmage team line next to the projected per-game line
         tg = [(max(0.05, (x["reality"] or 0) / 100), x["tot"]) for x in X["games"] if x.get("tot")]
         if tg:

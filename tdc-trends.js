@@ -85,6 +85,52 @@
     document.head.appendChild(st);
   }
 
+  // ── the trend chart: one line from 0 (entering the preseason) through the value after each scrimmage, on labelled
+  // bands; drawn at the host's real width so text stays ~11px on a phone. pts: [{lab, sub, y, tip}]
+  function trendChart(host, pts, bands, dec, minM, title) {
+    var VW = Math.max(320, Math.min(980, host.clientWidth || 720)), narrow = VW < 520, VH = narrow ? 160 : 180, L = 38, R = narrow ? 18 : 104, Tp = 14, Bt = 40;
+    var M = Math.max(minM, Math.max.apply(null, pts.map(function (q) { return Math.abs(q.y); })) * 1.15 + (minM / 10));
+    var X = function (i) { return pts.length === 1 ? L : L + i * (VW - L - R) / (pts.length - 1); };
+    var Y = function (v) { return Tp + (M - v) * (VH - Tp - Bt) / (2 * M); };
+    var hi = bands[1][0];   // the "slightly" threshold colours the dots
+    var dotCol = function (v) { return v >= hi ? 'var(--green,#1a8c3a)' : v <= -hi ? 'var(--red,#cc2200)' : 'var(--text2)'; };
+    var svg = '<svg class="trc-svg" viewBox="0 0 ' + VW + ' ' + VH + '" role="img" aria-label="' + esc(title) + ': ' + pts.map(function (q) { return q.lab + ' ' + sg(q.y, dec); }).join(', ') + '">';
+    bands.concat([[0, 'Steady']]).concat(bands.map(function (b) { return [-b[0], b[2]]; })).forEach(function (gl) {
+      var y = Y(gl[0]);
+      svg += '<line x1="' + L + '" x2="' + (VW - R + 8) + '" y1="' + y + '" y2="' + y + '" class="' + (gl[0] === 0 ? 'trc-zero' : 'trc-grid') + '"/>' +
+        '<text x="' + (L - 8) + '" y="' + (y + 4) + '" class="trc-ax" text-anchor="end">' + (gl[0] ? sg(gl[0], gl[0] % 1 ? 1 : 0) : '0') + '</text>' +
+        (narrow ? '' : '<text x="' + (VW - R + 14) + '" y="' + (y + 4) + '" class="trc-band">' + gl[1] + '</text>');
+    });
+    svg += '<polyline class="trc-line" points="' + pts.map(function (q, i) { return X(i).toFixed(1) + ',' + Y(q.y).toFixed(1); }).join(' ') + '"/>';
+    pts.forEach(function (q, i) {
+      svg += '<circle cx="' + X(i) + '" cy="' + Y(q.y) + '" r="5.5" class="trc-dot" style="fill:' + dotCol(q.y) + '"/>' +
+        '<text x="' + X(i) + '" y="' + (VH - Bt + 18) + '" class="trc-x" text-anchor="middle">' + esc(q.lab) + '</text>' +
+        '<circle cx="' + X(i) + '" cy="' + Y(q.y) + '" r="16" class="trc-hit" data-i="' + i + '" tabindex="0"/>';
+    });
+    var last = pts[pts.length - 1];
+    svg += '<text x="' + X(pts.length - 1) + '" y="' + (Y(last.y) - 12) + '" class="trc-lbl" text-anchor="' + (pts.length > 1 ? 'middle' : 'start') + '">' + sg(last.y, dec) + '</text></svg>';
+    return '<div class="trc"><div class="tr-sec" style="margin-top:4px">' + esc(title) + '</div>' + svg + '<div class="trc-tip" hidden></div></div>';
+  }
+  function wireChart(host, pts) {
+    var tip = host.querySelector('.trc-tip'), wrap = host.querySelector('.trc'); if (!tip || !wrap) return;
+    host.querySelectorAll('.trc-hit').forEach(function (c) {
+      var q = pts[+c.dataset.i];
+      var show = function () { var bx = c.getBoundingClientRect(), wb = wrap.getBoundingClientRect();
+        tip.innerHTML = q.tip; tip.hidden = false;
+        tip.style.left = Math.min(wb.width - 230, Math.max(0, bx.left - wb.left - 100)) + 'px'; tip.style.top = (bx.top - wb.top - tip.offsetHeight - 6) + 'px'; };
+      c.addEventListener('mouseenter', show); c.addEventListener('focus', show);
+      c.addEventListener('mouseleave', function () { tip.hidden = true; }); c.addEventListener('blur', function () { tip.hidden = true; });
+    });
+  }
+  // a sheet row that expands its detail row (game logs)
+  function wireRows(host) {
+    host.querySelectorAll('tr.trl-g').forEach(function (r) {
+      var tog = function () { var d = host.querySelector('tr.trl-det[data-d="' + r.dataset.g + '"]'); if (!d) return; d.hidden = !d.hidden; r.classList.toggle('open', !d.hidden); r.setAttribute('aria-expanded', String(!d.hidden)); };
+      r.onclick = function (ev) { if (ev.target.closest('a')) return; tog(); };
+      r.onkeydown = function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); tog(); } };
+    });
+  }
+
   function render(host, who) {
     if (!host) return Promise.resolve();
     css(); tlCss();
@@ -117,29 +163,10 @@
         (nG > 1 ? ' that count as <b>' : ' that counts as <b>') + W.toFixed(2) + ' real game' + (W === 1 ? '' : 's') + '</b> — each weighted by its Reality Meter and his share of a normal night’s minutes.</div></div></div>';
 
       // ── 1. the trend chart: his trend after each scrimmage, starting from 0 entering the preseason ──
-      var pts = [{ lab: 'Pre', sub: 'Entering the preseason', y: 0, e: null }].concat(games.map(function (e) {
-        return { lab: md(e.date), sub: (e.site === 'A' ? '@ ' : 'vs ') + short(e.opp) + ' · ' + e.res, y: e.trend_after || 0, e: e }; }));
-      // drawn at the host's real width so text stays 11px on a phone; band labels only when there's room
-      var VW = Math.max(320, Math.min(980, host.clientWidth || 720)), narrow = VW < 520, VH = narrow ? 160 : 180, L = 34, R = narrow ? 18 : 104, Tp = 14, Bt = 40, M = Math.max(3.6, Math.ceil(Math.max.apply(null, pts.map(function (q) { return Math.abs(q.y); })) + 0.6));
-      var X = function (i) { return pts.length === 1 ? L : L + i * (VW - L - R) / (pts.length - 1); };
-      var Y = function (v) { return Tp + (M - v) * (VH - Tp - Bt) / (2 * M); };
-      var dotCol = function (v) { return v >= 1 ? 'var(--green,#1a8c3a)' : v <= -1 ? 'var(--red,#cc2200)' : 'var(--text2)'; };
-      var svg = '<svg class="trc-svg" viewBox="0 0 ' + VW + ' ' + VH + '" role="img" aria-label="Preseason trend after each scrimmage: ' + pts.map(function (q) { return q.lab + ' ' + sg(q.y); }).join(', ') + '">';
-      [[3, 'Trending up'], [1, 'Slightly up'], [0, 'Steady'], [-1, 'Slightly down'], [-3, 'Trending down']].forEach(function (gl) {
-        var y = Y(gl[0]);
-        svg += '<line x1="' + L + '" x2="' + (VW - R + 8) + '" y1="' + y + '" y2="' + y + '" class="' + (gl[0] === 0 ? 'trc-zero' : 'trc-grid') + '"/>' +
-          '<text x="' + (L - 8) + '" y="' + (y + 4) + '" class="trc-ax" text-anchor="end">' + (gl[0] > 0 ? '+' : gl[0] < 0 ? '−' : '') + Math.abs(gl[0]) + '</text>' +
-          (narrow ? '' : '<text x="' + (VW - R + 14) + '" y="' + (y + 4) + '" class="trc-band">' + gl[1] + '</text>');
-      });
-      svg += '<polyline class="trc-line" points="' + pts.map(function (q, i) { return X(i).toFixed(1) + ',' + Y(q.y).toFixed(1); }).join(' ') + '"/>';
-      pts.forEach(function (q, i) {
-        svg += '<circle cx="' + X(i) + '" cy="' + Y(q.y) + '" r="5.5" class="trc-dot" style="fill:' + dotCol(q.y) + '"/>' +
-          '<text x="' + X(i) + '" y="' + (VH - Bt + 18) + '" class="trc-x" text-anchor="middle">' + esc(q.lab) + '</text>' +
-          '<circle cx="' + X(i) + '" cy="' + Y(q.y) + '" r="16" class="trc-hit" data-i="' + i + '"/>';
-      });
-      var last = pts[pts.length - 1];
-      svg += '<text x="' + (X(pts.length - 1) + (pts.length > 1 ? 0 : 10)) + '" y="' + (Y(last.y) - 12) + '" class="trc-lbl" text-anchor="' + (pts.length > 1 ? 'middle' : 'start') + '">' + sg(last.y) + '</text></svg>';
-      html += '<div class="trc"><div class="tr-sec" style="margin-top:4px">Trend after each scrimmage</div>' + svg + '<div class="trc-tip" hidden></div></div>';
+      var pts = [{ lab: 'Pre', y: 0, tip: '<b>Entering the preseason</b><br>Trend: <b>0.0</b>' }].concat(games.map(function (e) {
+        return { lab: md(e.date), y: e.trend_after || 0, tip: '<b>' + (e.site === 'A' ? '@ ' : 'vs ') + esc(short(e.opp)) + ' · ' + esc(e.res) + '</b><br>Trend after: <b>' + sg(e.trend_after) + '</b><br>' +
+          e.min + ' min · ' + e.pts + ' pts · vs proj ' + sg(e.d40) + ' GmSc/40 · counts ' + (+e.w).toFixed(2) }; }));
+      html += trendChart(host, pts, [[3, 'Trending up', 'Trending down'], [1, 'Slightly up', 'Slightly down']], 1, 3.6, 'Trend after each scrimmage');
 
       // ── 2. the game log: projection → each scrimmage (expandable) → his projection now ──
       var cols = [['min', 'MIN', 0], ['pts', 'PTS', 1], ['reb', 'REB', 1], ['ast', 'AST', 1], ['stl', 'STL', 1], ['blk', 'BLK', 1], ['tov', 'TO', 1], ['fg', 'FG', 0], ['tp', '3PT', 0], ['ft', 'FT', 0], ['gmsc', 'GmSc', 1]];
@@ -198,30 +225,15 @@
         (TM && TM.adj ? '; ' + esc(short(teamFull)) + '’s team rating moved <b style="color:' + (TM.adj > 0 ? 'var(--green,#1a8c3a)' : 'var(--red,#cc2200)') + '">' + sg(TM.adj, 2) + '</b>' : '') +
         '. Scrimmages are unofficial: they never count in his record or season stats.</div>';
       host.innerHTML = html;
-      // expand a game row
-      host.querySelectorAll('tr.trl-g').forEach(function (r) {
-        var tog = function () { var d = host.querySelector('tr.trl-det[data-d="' + r.dataset.g + '"]'); if (!d) return; d.hidden = !d.hidden; r.classList.toggle('open', !d.hidden); r.setAttribute('aria-expanded', String(!d.hidden)); };
-        r.onclick = function (ev) { if (ev.target.closest('a')) return; tog(); };
-        r.onkeydown = function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); tog(); } };
-      });
+      wireRows(host); wireChart(host, pts);
       if (games.length === 1) { var r0 = host.querySelector('tr.trl-g'); if (r0) r0.click(); }   // one game: show its detail
-      // chart hover
-      var tip = host.querySelector('.trc-tip'), wrap = host.querySelector('.trc');
-      host.querySelectorAll('.trc-hit').forEach(function (c) {
-        var q = pts[+c.dataset.i];
-        var show = function () { var bx = c.getBoundingClientRect(), wb = wrap.getBoundingClientRect();
-          tip.innerHTML = '<b>' + esc(q.sub) + '</b><br>Trend after: <b>' + sg(q.y) + '</b>' + (q.e ? '<br>' + q.e.min + ' min · ' + q.e.pts + ' pts · vs proj ' + sg(q.e.d40) + ' GmSc/40 · counts ' + (+q.e.w).toFixed(2) : '');
-          tip.hidden = false; tip.style.left = Math.min(wb.width - 230, Math.max(0, bx.left - wb.left - 100)) + 'px'; tip.style.top = (bx.top - wb.top - tip.offsetHeight - 6) + 'px'; };
-        c.addEventListener('mouseenter', show); c.addEventListener('focus', show);
-        c.addEventListener('mouseleave', function () { tip.hidden = true; }); c.addEventListener('blur', function () { tip.hidden = true; });
-      });
     });
   }
 
   // ── TEAM TRENDS: results vs our line, team box vs projection, risers & fallers, rotation watch ──
   function renderTeam(host, team) {
     if (!host) return Promise.resolve();
-    css();
+    css(); tlCss();
     host.innerHTML = '<div class="tr-empty">Loading preseason trends…</div>';
     return load().then(function (D) {
       var T = D.T || {}, full = null, TM = null;
@@ -239,20 +251,58 @@
       var html = '<div class="tr-hd"><div><div class="tr-l">Preseason trend</div><div class="tr-big" style="color:' + col + '">' + (adj > 0 ? '▲ ' : adj < 0 ? '▼ ' : '') + sg(adj, 2) + '</div></div>' +
         '<div><div class="tr-t">' + word + '</div><div class="tr-s">Rating points added to ' + esc(team) + '’s 2026-27 power rating from ' + nG + ' scrimmage' + (nG > 1 ? 's' : '') +
         ': each result against our line, weighted by its Reality Meter and shrunk toward zero (a full season of evidence still outweighs October), capped at ±2.5.</div></div></div>';
-      // results vs our line
+      // ── rating trend after each scrimmage (same Σ reality·(actual − line) / (Σ reality + 10), capped ±2.5 as the builder) ──
+      var Gs = G.slice().sort(function (a, b) { return a.date.localeCompare(b.date); }), rn = 0, rd = 0;
+      var built = Gs.every(function (e) { return e.adj_after != null; });
+      Gs.forEach(function (e) { rn += (e.reality || 0) / 100 * (e.resid || 0); rd += (e.reality || 0) / 100;
+        if (!built) e.adj_after = Math.max(-2.5, Math.min(2.5, rn / (rd + 10))); });
+      if (!built && Gs.length) { var k = Gs[Gs.length - 1].adj_after ? adj / Gs[Gs.length - 1].adj_after : 1; Gs.forEach(function (e) { e.adj_after *= k; }); }   // end on the published number
       var ml = function (v) { return v == null ? '—' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1); };
-      html += '<div class="tr-sec">Results vs our line</div><div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">Date</th><th class="l">Opponent</th><th class="c">Result</th><th title="Our projected margin going in">Our line</th><th>Actual</th><th title="Actual margin minus our line">vs line</th><th>Reality</th><th class="l">Starters</th></tr></thead><tbody>' +
-        G.map(function (e) {
-          var d = new Date(e.date + 'T12:00:00'), lg = logo(e.opp), w = e.actual > 0;
-          var lastN = function (n) { var w = String(n).replace(/,/g, '').split(/\s+/).filter(function (x) { return !/^(jr|sr|ii|iii|iv|v)\.?$/i.test(x); }); return w[w.length - 1] || n; };
-          var gs = e.gs && e.gs.length ? e.gs.map(function (n) { var proj = (e.proj_gs || []).map(function (x) { return x.toLowerCase(); }).indexOf(n.toLowerCase()) >= 0; return proj ? esc(lastN(n)) : '<b style="color:var(--green,#1a8c3a)" title="not a projected starter">' + esc(lastN(n)) + '</b>'; }).join(', ') : '<span class="dim">—</span>';
-          return '<tr style="cursor:pointer" onclick="location.href=\'scrimmage.html?id=' + encodeURIComponent(e.id) + '\'"><td class="l dim">' + (d.getMonth() + 1) + '/' + d.getDate() + '</td>' +
-            '<td class="l nm">' + (lg ? '<img class="tr-lg" src="' + lg + '" alt="">' : '') + (e.site === 'A' ? '@ ' : e.site === 'N' ? 'vs ' : '') + esc(short(e.opp)) + '</td>' +
-            '<td class="c ' + (w ? 'c4' : 'c0') + '">' + (w ? 'W' : 'L') + ' by ' + Math.abs(e.actual) + '</td><td class="dim">' + ml(e.pred) + '</td><td>' + ml(e.actual) + '</td>' +
-            '<td class="' + cls(e.resid, 2) + '">' + ml(e.resid) + '</td>' +
-            '<td>' + (e.reality != null ? e.reality + '<span class="tr-mb"><i style="width:' + e.reality + '%;background:' + rmCol(e.reality) + '"></i></span>' : '—') + '</td>' +
-            '<td class="l" style="white-space:normal;font-size:11.5px">' + gs + '</td></tr>';
-        }).join('') + '</tbody></table></div><div class="tr-s" style="margin-top:6px;">Starters in <b style="color:var(--green,#1a8c3a)">green</b> weren’t in our projected starting five.</div>';
+      var md = function (date) { var d = new Date(date + 'T12:00:00'); return (d.getMonth() + 1) + '/' + d.getDate(); };
+      var vsTxt = function (e) { return (e.site === 'A' ? '@ ' : 'vs ') + esc(short(e.opp)); };
+      var pts = [{ lab: 'Pre', y: 0, tip: '<b>Entering the preseason</b><br>Rating trend: <b>0.00</b>' }].concat(Gs.map(function (e) {
+        return { lab: md(e.date), y: e.adj_after, tip: '<b>' + vsTxt(e) + ' · ' + (e.actual > 0 ? 'W' : 'L') + ' by ' + Math.abs(e.actual) + '</b><br>Our line ' + ml(e.pred) + ' · vs line <b>' + ml(e.resid) + '</b> · Reality ' + e.reality + '<br>Rating trend after: <b>' + sg(e.adj_after, 2) + '</b>' }; }));
+      html += trendChart(host, pts, [[1, 'Trending up', 'Trending down'], [0.3, 'Slightly up', 'Slightly down']], 2, 1.4, 'Rating trend after each scrimmage');
+      // ── game log: preseason → each scrimmage (expandable) → rating trend now ──
+      var lastN = function (n) { var w = String(n).replace(/,/g, '').split(/\s+/).filter(function (x) { return !/^(jr|sr|ii|iii|iv|v)\.?$/i.test(x); }); return w[w.length - 1] || n; };
+      var NC = 6, PB = (TM.box && TM.box.proj) || {};
+      var body = '<tr class="trl-proj"><td class="l nm">Entering the preseason<span class="trl-sub">our 2026-27 power rating, before any scrimmage</span></td><td></td><td></td><td></td><td></td><td class="trl-tr">0.00</td></tr>';
+      Gs.forEach(function (e, gi) {
+        var lg = logo(e.opp), w = e.actual > 0;
+        var rmw = e.reality >= 75 ? 'Game-like' : e.reality >= 55 ? 'Mostly real' : e.reality >= 35 ? 'Experimental' : 'Practice-like';
+        body += '<tr class="trl-g" data-g="' + gi + '" tabindex="0" aria-expanded="false" title="Show starters and the team line"><td class="l nm"><span class="trl-car">▸</span>' + (lg ? '<img class="tr-lg" src="' + lg + '" alt="">' : '') + md(e.date) + ' ' + vsTxt(e) +
+          '<span class="trl-sub"><b style="color:' + (w ? 'var(--green,#1a8c3a)' : 'var(--red,#cc2200)') + '">' + (w ? 'W' : 'L') + ' by ' + Math.abs(e.actual) + '</b> · ' + rmw + (e.site === 'N' ? ' · neutral' : '') + '</span></td>' +
+          '<td class="dim">' + ml(e.pred) + '</td><td>' + ml(e.actual) + '</td><td class="' + cls(e.resid, 2) + '">' + ml(e.resid) + '</td>' +
+          '<td>' + (e.reality != null ? e.reality + '<span class="tr-mb"><i style="width:' + e.reality + '%;background:' + rmCol(e.reality) + '"></i></span>' : '—') + '</td>' +
+          '<td class="trl-tr">' + sg(e.adj_after, 2) + '</td></tr>';
+        // detail: starters vs our projected five, who the opponent was missing, the team line vs the projected per-game line
+        var projGs = (e.proj_gs || []).map(function (x) { return x.toLowerCase(); });
+        var st = e.gs && e.gs.length ? e.gs.map(function (n) { return projGs.indexOf(n.toLowerCase()) >= 0 ? esc(n) : '<b style="color:var(--green,#1a8c3a)" title="not in our projected starting five">' + esc(n) + '</b>'; }).join(', ') : 'not listed in the box';
+        var benched = (e.proj_gs || []).filter(function (n) { return (e.gs || []).map(function (x) { return x.toLowerCase(); }).indexOf(n.toLowerCase()) < 0; });
+        var t = e.tot, tl = '';
+        if (t) {
+          var pc = function (m, a) { return t[a] ? (100 * t[m] / t[a]).toFixed(1) : '—'; };
+          var bc = [['PTS', t.pts, PB.ppg, 1], ['FG%', pc('fgm', 'fga'), PB.fg_pct, 1], ['3P%', pc('tpm', 'tpa'), PB.tp_pct, 1], ['3PA', t.tpa, PB.tpa, 0], ['FT%', pc('ftm', 'fta'), PB.ft_pct, 1], ['REB', t.reb, PB.rpg, 1], ['AST', t.ast, PB.apg, 1], ['TO', t.tov, PB.tov, -1], ['STL', t.stl, PB.stl, 1], ['BLK', t.blk, PB.blk, 1]];
+          tl = '<table class="sheet dense trl-d"><thead><tr><th class="l"></th>' + bc.map(function (c) { return '<th>' + c[0] + '</th>'; }).join('') + '</tr></thead><tbody>' +
+            '<tr class="act"><td class="l">This game</td>' + bc.map(function (c) { return '<td>' + (c[1] == null ? '—' : c[1]) + '</td>'; }).join('') + '</tr>' +
+            '<tr><td class="l dim">Projected per game</td>' + bc.map(function (c) { return '<td class="dim">' + (c[2] == null ? '—' : (+c[2]).toFixed(1)) + '</td>'; }).join('') + '</tr>' +
+            '<tr class="vs"><td class="l">Difference</td>' + bc.map(function (c) { var a = parseFloat(c[1]), b = c[2]; if (!isFinite(a) || b == null) return '<td>—</td>'; var d = a - b; return '<td class="' + (c[3] ? cls(d * c[3], c[0].indexOf('%') > 0 ? 1.5 : 1) : '') + '">' + sg(d) + '</td>'; }).join('') + '</tr></tbody></table>';
+        }
+        body += '<tr class="trl-det" data-d="' + gi + '" hidden><td colspan="' + NC + '"><div class="trl-dbox">' +
+          '<div class="tr-s" style="max-width:none;margin:0 0 8px"><b style="color:var(--text2)">Starters:</b> ' + st + (benched.length ? ' <span style="color:var(--text3)">· projected starters who didn’t start: ' + benched.map(function (n) { return esc(lastN(n)); }).join(', ') + '</span>' : '') +
+          ((e.opp_missing || []).length ? '<br><b style="color:var(--text2)">' + esc(short(e.opp)) + ' played without</b> ' + e.opp_missing.map(esc).join(', ') + (e.opp_miss_pts ? ' (≈' + (+e.opp_miss_pts).toFixed(1) + ' pts, already taken off our line)' : '') : '') + '</div>' +
+          (tl ? '<div class="trl-dscroll">' + tl + '</div>' : '') +
+          '<div class="tl-foot"><span>Counts <b>' + ((e.reality || 0) / 100).toFixed(2) + '</b> of a real game toward the rating</span><span>Rating trend after <b>' + sg(e.adj_after, 2) + '</b></span><a href="scrimmage.html?id=' + encodeURIComponent(e.id) + '">Box score →</a></div></div></td></tr>';
+      });
+      body += '<tr class="trl-proj trl-now"><td class="l nm">Rating trend now<span class="trl-sub">after ' + nG + ' scrimmage' + (nG > 1 ? 's' : '') + ' · added to the 2026-27 power rating</span></td><td></td><td></td><td></td><td></td><td class="trl-tr" style="color:' + col + '">' + sg(adj, 2) + '</td></tr>';
+      var playedIds = {}; Gs.forEach(function (e) { playedIds[e.id] = 1; });
+      var today = new Date().toISOString().slice(0, 10);
+      mine.filter(function (x) { return !playedIds[x.id] && x.date >= today; }).forEach(function (x) { var opp = x.home === full ? x.away : x.home, lg = logo(opp);
+        body += '<tr class="trl-up"><td class="l" colspan="' + NC + '">' + (lg ? '<img class="tr-lg" src="' + lg + '" alt="">' : '') + 'Next · ' + md(x.date) + ' ' + (x.home === full ? 'vs ' : '@ ') + esc(short(opp)) +
+          ' <span class="trl-sub" style="display:inline">· ' + (x.neutral ? 'Neutral' : x.home === full ? 'Home' : 'Away') + (x.time ? ' · ' + esc(x.time) : '') + '</span></td></tr>'; });
+      html += '<div class="tr-sec">Game log</div><div class="sheet-wrap" style="max-height:none"><table class="sheet dense trl"><thead><tr><th class="l">Game</th>' +
+        '<th title="Our projected margin going in (after any players the opponent was missing)">Our line</th><th>Actual</th><th title="Actual margin minus our line">vs line</th><th>Reality</th><th title="Rating points the scrimmages have added so far">Rating trend</th></tr></thead><tbody>' + body + '</tbody></table></div>' +
+        '<div class="tr-s" style="margin-top:6px;">Click a game for starters and the team line. Starters in <b style="color:var(--green,#1a8c3a)">green</b> weren’t in our projected starting five.</div>';
       // team box vs projection
       var B = TM.box;
       if (B && B.scrim) {
@@ -291,6 +341,8 @@
         ' — their lines can’t count toward a projection until they’re added to the ' + esc(team) + ' roster.</div>';
       html += '<div class="tr-s" style="margin-top:14px;">Scrimmages are unofficial: they never count in the record or season stats. How far they move ratings, minutes and player projections is set by each game’s Reality Meter.</div>';
       host.innerHTML = html;
+      wireRows(host); wireChart(host, pts);
+      if (Gs.length === 1) { var r0 = host.querySelector('tr.trl-g'); if (r0) r0.click(); }
     });
   }
   g.TDCTrends = { load: load, render: render, renderTeam: renderTeam };
