@@ -40,17 +40,29 @@ norm=lambda s:re.sub(r"[^a-z0-9]","",(s or "").lower())
 def il(s):
     p=re.sub(r"[^a-z ]"," ",(s or "").lower()).split()
     return (p[0][0]+"|"+p[-1]) if len(p)>=2 else None
+# the first-initial key only proposes candidates; the first names must AGREE — same name, a known nickname (Mike =
+# Michael) or one a prefix of the other. Oct 12 2026: "Dustin Ford" (Akron) matched Dana Ford's career by initial.
+NICK={"mike": "michael", "will": "william", "bill": "william", "charlie": "charles", "matt": "matthew", "nick": "nicholas",
+        "tony": "anthony", "jimmy": "james", "jim": "james", "rob": "robert", "bobby": "robert", "tom": "thomas",
+        "tommy": "thomas", "joe": "joseph", "danny": "daniel", "dave": "david", "chris": "christopher", "alex": "alexander",
+        "ben": "benjamin", "sam": "samuel", "zach": "zachary", "jake": "jacob", "josh": "joshua", "andy": "andrew",
+        "steve": "steven", "greg": "gregory", "jon": "jonathan", "johnny": "john", "pat": "patrick", "eddie": "edward"}
+def first_ok(a,b):
+    fa=(re.sub(r"[^a-z ]"," ",(a or "").lower()).split() or [""])[0]; fb=(re.sub(r"[^a-z ]"," ",(b or "").lower()).split() or [""])[0]
+    na,nb=NICK.get(fa,fa),NICK.get(fb,fb)
+    return bool(fa and fb) and (na==nb or (min(len(fa),len(fb))>=3 and (fa.startswith(fb) or fb.startswith(fa))))
 
 print("Pulling teams, coach seasons, player history...",file=sys.stderr)
 teams=get("teams?select=name,head_coach,coach")
 seas=json.load(open(os.path.join(D,"coach_seasons.json")))
 # sheet spellings / nicknames that the scrape writes differently
-NAME_FIX={"pennyhardaway":"anfernee hardaway","ericmussleman":"eric musselman","markmasden":"mark madsen","philmarteli":"phil martelli"}
+NAME_FIX={"pennyhardaway":"anfernee hardaway","ericmussleman":"eric musselman","markmasden":"mark madsen","philmarteli":"phil martelli",
+          "mikebyington":"mark byington"}   # the sheet's "Mike Byington" (Vanderbilt) is Mark Byington
 clean=lambda s: re.sub(r"\b(jr|sr|ii|iii|iv)\b\.?","",(s or "").lower()).strip()
-byName={}; byIL=defaultdict(set); lastYr={}
+byName={}; byIL=defaultdict(set); lastYr={}; nameOf={}
 for s in seas:
     if s.get("coach") and s.get("coach_slug"):
-        sl=s["coach_slug"]; lastYr[sl]=max(lastYr.get(sl,0),s.get("season_year",0))
+        sl=s["coach_slug"]; lastYr[sl]=max(lastYr.get(sl,0),s.get("season_year",0)); nameOf[sl]=s["coach"]
         byName.setdefault(norm(clean(s["coach"])),set()).add(sl)
         k=il(clean(s["coach"]))
         if k: byIL[k].add(sl)
@@ -61,7 +73,7 @@ def resolve(hc):
     q=norm(clean(hc)); q=norm(NAME_FIX.get(q,q))
     cands=byName.get(q)
     if not cands:
-        k=il(clean(hc)); cands=byIL.get(k) if k else None
+        k=il(clean(hc)); cands={sl for sl in (byIL.get(k) or ()) if first_ok(hc,nameOf.get(sl))} if k else None
         if not cands:
             import difflib
             m=difflib.get_close_matches(q,list(byName.keys()),n=1,cutoff=0.88)

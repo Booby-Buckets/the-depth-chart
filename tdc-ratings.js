@@ -38,7 +38,7 @@
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  const SEASON=2027, LS_KEY='tdc_ratings_v24_'+SEASON, TTL=24*3600*1000;
+  const SEASON=2027, LS_KEY='tdc_ratings_v25_'+SEASON, TTL=24*3600*1000;
   // in-season form: once 2026-27 games are played, each team's rating drifts
   // toward how it's ACTUALLY performing vs our own lines. surprise = actual
   // margin - expected margin, each game clipped to ±FORM_CLIP; form = sum(surprise)/(n + FORM_PRIOR)
@@ -332,15 +332,23 @@
     const cn=s=>(''+(s||'')).toLowerCase().replace(/[.'`]/g,'').replace(/\s+/g,' ').trim();
     // first-initial+last key so a sheet hire's nickname (Mike) still matches the career
     // record (Michael) when the last name is unique — mirrors the projection/coach-panel bridge.
+    const _NICK={mike:'michael',will:'william',bill:'william',charlie:'charles',matt:'matthew',nick:'nicholas',tony:'anthony',jimmy:'james',jim:'james',
+      rob:'robert',bobby:'robert',tom:'thomas',tommy:'thomas',joe:'joseph',danny:'daniel',dave:'david',chris:'christopher',alex:'alexander',ben:'benjamin',
+      sam:'samuel',zach:'zachary',jake:'jacob',josh:'joshua',andy:'andrew',steve:'steven',greg:'gregory',jon:'jonathan',johnny:'john',pat:'patrick',eddie:'edward'};
+    const _first=s=>((''+(s||'')).toLowerCase().replace(/[^a-z ]/g,' ').split(/\s+/).filter(Boolean)[0]||'');
+    const _firstOk=(a,b)=>{ const fa=_first(a), fb=_first(b); if(!fa||!fb) return false; const na=_NICK[fa]||fa, nb=_NICK[fb]||fb;
+      return na===nb || (Math.min(fa.length,fb.length)>=3 && (fa.startsWith(fb)||fb.startsWith(fa))); };
     const _il=s=>{ const p=(''+(s||'')).toLowerCase().replace(/[^a-z ]/g,' ').split(/\s+/).filter(Boolean); return p.length>=2?(p[0][0]+'|'+p[p.length-1]):null; };
     const liftByCoach={}, liftByIL={};
     Object.keys(coachData||{}).forEach(k=>{ const c=coachData[k];
-      if(c&&c.n&&c.lf!=null){ const rec={lf:+c.lf, n:+c.ln||0}; liftByCoach[cn(c.n)]=rec;
+      if(c&&c.n&&c.lf!=null){ const rec={lf:+c.lf, n:+c.ln||0, nm:c.n}; liftByCoach[cn(c.n)]=rec;
         const il=_il(c.n); if(il){ (liftByIL[il]=liftByIL[il]||[]).push(rec); } } });
     const coachAdjOf={};
     (teams||[]).forEach(t=>{
-      let rec=liftByCoach[cn(t.head_coach||t.coach)];
-      if(!rec){ const il=_il(t.head_coach||t.coach), a=il&&liftByIL[il]; if(a&&a.length===1) rec=a[0]; }
+      const _hc=({'mike byington':'mark byington'})[cn(t.head_coach||t.coach)]||(t.head_coach||t.coach);   // sheet misspellings
+      let rec=liftByCoach[cn(_hc)];
+      // the initial key only proposes; first names must agree (same, nickname, or prefix) — "Dustin Ford" isn't Dana Ford
+      if(!rec){ const il=_il(_hc), a=il&&liftByIL[il]; if(a&&a.length===1&&_firstOk(_hc,a[0].nm)) rec=a[0]; }
       if(!rec||!rec.n) return;
       const shrunk=rec.lf*(rec.n/(rec.n+COACH_K));          // 3 seasons counts ~3/8
       let cadj=COACH_W*shrunk;
