@@ -46,12 +46,13 @@ def norm(s): return re.sub(r"[^a-z ]", "", (s or "").lower().replace("-", " ")).
 
 
 def cache(name, q):
-    p = os.path.join("/tmp", "bt_" + name + ".json")
-    if os.path.exists(p): return json.load(open(p))
+    p = os.path.join("/tmp", "bt_" + name + ".json")   # dev cache, refreshed daily
+    if os.path.exists(p) and __import__("time").time() - os.path.getmtime(p) < 86400: return json.load(open(p))
     r = get(q); json.dump(r, open(p, "w")); return r
 
 
-def main():
+def build_rows():
+    """every team-season with its preseason signals + rolling-origin model predictions (pr_*) and coach residual (cf)"""
     ts = cache("ts", "team_seasons?select=season_year,team,srs,conference&order=season_year,team")
     pa = cache("pa", "player_advanced?select=espn_id,season_year,team,name,min,g,owa,dwa&espn_id=not.is.null&order=season_year,espn_id,team")
     SRS = {(r["season_year"], r["team"]): r["srs"] for r in ts if r["srs"] is not None}
@@ -76,16 +77,22 @@ def main():
     # coaches: SR school names -> team_seasons full names
     CS = json.load(open(os.path.join(D, "coach_seasons.json")))
     fulls = sorted({r["team"] for r in ts})
+    # SR school -> ESPN full name: known divergent names first, else the ESPN name the school prefixes — and an
+    # ESPN name belongs to the LONGEST school that prefixes it ("Alabama A&M Bulldogs" is Alabama A&M's, not Alabama's)
+    from build_coach_profiles import ALIAS
+    ALIAS = dict(ALIAS, **{"Mississippi": "Ole Miss Rebels", "Hawaii": "Hawai'i Rainbow Warriors",
+                           "Southeastern Louisiana": "SE Louisiana Lions", "St. Thomas": "St. Thomas-Minnesota Tommies"})
+    base = lambda s: re.sub(r"\s*\([^)]+\)", "", s).strip()
+    schools = sorted({r["school"] for r in CS})
+    own = {}
+    for f in fulls:
+        m = [sc for sc in schools if sc not in ALIAS and (f == base(sc) or f.startswith(base(sc) + " "))]
+        if m: own.setdefault(max(m, key=lambda sc: len(base(sc))), set()).add(f)
     def match(school):
-        par = re.search(r"\(([^)]+)\)", school); base = re.sub(r"\s*\([^)]+\)", "", school).strip()
-        c = [t for t in fulls if t == base or t.startswith(base + " ")]
-        if not c: return None
-        if par:
-            w = [t for t in c if f"({par.group(1)})" in t]
-            if w: return w[0]
-        n = [t for t in c if "(" not in t] or c
-        return sorted(n, key=lambda t: (len(t.split()), len(t)))[0]
-    smap = {s: match(s) for s in {r["school"] for r in CS}}
+        if school in ALIAS: return ALIAS[school] if ALIAS[school] in fulls else None
+        c = sorted(own.get(school, ()), key=len)
+        return c[0] if c else None
+    smap = {s: match(s) for s in schools}
     coach_of = {(r["season_year"], smap[r["school"]]): r["coach_slug"] for r in CS if smap.get(r["school"])}
 
     rows = []
@@ -144,6 +151,11 @@ def main():
         for r in rows:
             if r["y"] == y and "cf" in r: r["pr_+coach"] = b[0] + b[1] * r["pr_roster+program"] + b[2] * r["cf"]
 
+    return rows, ts, coach_of, smap
+
+
+def main():
+    rows, ts, coach_of, smap = build_rows()
     test = [r for r in rows if TEST0 + 3 <= r["y"] <= TEST1]
     def score(key, sub):
         e = np.array([r["srs"] - r[key] for r in sub]); return math.sqrt((e ** 2).mean()), abs(e).mean()

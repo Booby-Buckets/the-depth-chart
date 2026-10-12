@@ -38,7 +38,7 @@
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  const SEASON=2027, LS_KEY='tdc_ratings_v20_'+SEASON, TTL=24*3600*1000;
+  const SEASON=2027, LS_KEY='tdc_ratings_v21_'+SEASON, TTL=24*3600*1000;
   // in-season form: once 2026-27 games are played, each team's rating drifts
   // toward how it's ACTUALLY performing vs our own lines. surprise = actual
   // margin - expected margin; form = sum(surprise)/(n + FORM_PRIOR) capped at
@@ -78,6 +78,9 @@
   // real top team's ~23); weights that sum to 1 put ratings back on the actual Power Rating spread.
   const PROG_W=0.50, PROG_YRS=[0.50,0.29,0.21];
   const CARRY_YRS=[0.59,0.17,0.15];        // rosterless teams: program-only fit on the same backtest
+  // PROGRAM & COACH terms (build_program_prior.py → program_prior_2027.json .adj), corrections the same backtest found
+  // on top of the blend: a first-year head coach costs ~1.0 (a little back if he's run a D-I program before), and below
+  // the top-100 a program's long-run level (4-10 seasons back) and its league's strength pull it (fades out by +10).
   // Projected box/DNA efficiency blend: the roster rating (minute-weighted BPM) and the projected net
   // efficiency (team_eff.json, from the projected box) are two lenses on team strength (corr ~0.90).
   // Blend EFF_W of the box lens in so the projected stats explicitly move the ranking. net→SRS scale
@@ -248,7 +251,7 @@
   function _injOut(p){ try{ return !!(g.TDCInjury && g.TDCInjury.isOut(p)); }catch(e){ return false; } }
   async function compute(){
     if(g.TDCFresh && g.TDCFresh.load){ try{ await g.TDCFresh.load(); }catch(e){} }
-    let [teams, players, bb, ts, hcaData, coachData, sgData, contData, levelData, effData, scrimData]=await Promise.all([
+    let [teams, players, bb, ts, hcaData, coachData, sgData, contData, levelData, effData, scrimData, progData]=await Promise.all([
       fetch(SB+'/rest/v1/teams?select=name,conf,conference,head_coach,coach&limit=500',{headers:H}).then(r=>r.json()),
       fetchPaged(SB+'/rest/v1/players?name=neq.%E2%80%94&select=name,team,espn_id,yr,class_year,tdc_grade,mpg,ppg,rpg,depth_order,is_injured,hometown&order=id.asc'),
       fetchPaged(SB+'/rest/v1/player_advanced?season_year=eq.2026&espn_id=not.is.null&select=espn_id,team,ts_pct,efg_pct,tp_pct,ft_pct,pts40,reb40,ast40,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,stl_pct,blk_pct,ti40&order=espn_id.asc'),
@@ -260,7 +263,10 @@
       fetch('scripts/data/level_adj.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('scripts/data/team_eff.json?v=14').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('scripts/data/scrim_trends_2027.json?v=6').then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch('scripts/data/program_prior_2027.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null),
     ]);
+    const ppOf=(progData&&progData.teams)||{};
+    const progAdjOf=full=>(ppOf[full]&&isFinite(+ppOf[full].adj))?+ppOf[full].adj:0;
     // PRESEASON SCRIMMAGES (build_scrim_trends.py): each team's Reality-weighted result vs our line,
     // shrunk toward 0 (10-game prior) and capped ±2.5 — a game-like blowout loss moves a team a little.
     const scrimOf=((scrimData&&scrimData.teams)||{});
@@ -494,11 +500,12 @@
       // (strength-of-competition now regresses the roster BPM per-player above, so no flat team tax)
       const scrimAdj=(!opts.noProgram&&scrimOf[full]&&isFinite(+scrimOf[full].adj))?+scrimOf[full].adj:0;
       const prog=(prior!=null)?programOf(full, PROG_YRS):null;
+      const progAdj=opts.noProgram?0:progAdjOf(full);
       const rating=(((prog!=null)?((1-PROG_W)*rosterRating+PROG_W*prog)
-                                 :rosterRating) + cAdj + contAdj) - scePen + scrimAdj;
+                                 :rosterRating) + cAdj + contAdj + progAdj) - scePen + scrimAdj;
       (opts.scratch?(_scratch.length=0,_scratch):rows).push({team:short, full, conf:confOf[short]||'', rating:+rating.toFixed(2), coachAdj:cAdj,
         contAdj:contAdj, continuity:cont, scrimAdj:scrimAdj||0,
-        roster:+rosterRating.toFixed(2), prior:prior!=null?+prior.toFixed(1):null, program:prog!=null?+prog.toFixed(1):null, projected:true,
+        roster:+rosterRating.toFixed(2), prior:prior!=null?+prior.toFixed(1):null, program:prog!=null?+prog.toFixed(1):null, progAdj:progAdj, projected:true,
         scePen:scePen||0, levelDisc:+levelDisc.toFixed(3), shotLuck:shotLuck, hcaOff:hcaOf[full]!=null?hcaOf[full]:0,
         mw:+mw.toFixed(3), entries:opts.detail?roster.map((p,i)=>({name:p.name, min:entries[i].min, projBpm:entries[i].projBpm})):undefined});
       return opts.scratch?_scratch[0]:rows[rows.length-1];
@@ -511,7 +518,7 @@
       // no conference = not a D1 program (e.g. Centenary, in team_seasons only
       // because a D1 opponent's result created a row) — keep them out of the field
       if(covered.has(t.team)||t.srs==null||!t.conference) return;
-      rows.push({team:t.team, full:t.team, conf:t.conference||'', rating:+(programOf(t.team, CARRY_YRS)).toFixed(2),
+      rows.push({team:t.team, full:t.team, conf:t.conference||'', rating:+(programOf(t.team, CARRY_YRS)+progAdjOf(t.team)).toFixed(2), progAdj:progAdjOf(t.team),
         roster:null, prior:+parseFloat(t.srs).toFixed(1), projected:false,
         hcaOff:hcaOf[t.team]!=null?hcaOf[t.team]:0});
     });
