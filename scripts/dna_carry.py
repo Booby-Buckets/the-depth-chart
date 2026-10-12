@@ -20,6 +20,11 @@ _D = pathlib.Path(__file__).parent / "data"
 STATS = ["efg", "ts", "tpa_rate", "ftr", "tov_pct", "ast_pct", "orb_pct", "drb_pct", "stl_pct", "blk_pct", "bpm", "obpm", "dbpm", "usg"]
 MIN_MPG = 12.0
 _FIT = None
+# player_dna.json is gitignored (50 MB); CI rebuilds it with ONLY the current season, so there are no consecutive
+# seasons to fit from and every stat came back unfitted: carry() silently did nothing, the projection fell back to
+# raw one-year fingerprints and the calibration guard refused to write (Oct 11-12 2026 rebuilds all failed).
+# A local fit (all seasons) is saved here and used whenever the live fit can't be made.
+FIT_FILE = _D / "dna_carry_fit.json"
 
 
 def _fit():
@@ -47,6 +52,10 @@ def _fit():
             if len(xs[g][k]) >= 200:
                 sl, ic = np.polyfit(xs[g][k], ys[g][k], 1)
                 _FIT[g][k] = (float(min(1.0, max(0.0, sl))), float(ic))
+    if not all(_FIT[g] for g in "GWB"):
+        if not FIT_FILE.exists():
+            raise SystemExit("dna_carry: can't fit (player_dna.json has under 2 seasons) and no saved fit in " + FIT_FILE.name)
+        _FIT = {g: {k: tuple(v) for k, v in d.items()} for g, d in json.load(open(FIT_FILE))["fit"].items()}
     return _FIT
 
 
@@ -61,5 +70,11 @@ def carry(fp, grp=None):
 
 
 if __name__ == "__main__":
-    for g, d in _fit().items():
+    import sys
+    F = _fit()
+    for g, d in F.items():
         print(g, {k: round(v[0], 2) for k, v in d.items()})
+    if "--write" in sys.argv:   # run locally (all seasons) after a player_dna rebuild; commit the file
+        json.dump({"note": "per position group, next season = slope * this season + intercept (same-school returners, 12+ mpg both seasons)",
+                   "fit": F}, open(FIT_FILE, "w"), indent=1)
+        print("wrote", FIT_FILE.name)
