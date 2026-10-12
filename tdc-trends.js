@@ -18,7 +18,7 @@
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   var sg = function (v, d) { if (v == null || !isFinite(v)) return '—'; var x = (+v).toFixed(d == null ? 1 : d); return (v > 0 ? '+' : v < 0 ? '−' : '') + x.replace('-', ''); };
   var logo = function (full) { try { var c = g.tdcTeamColor && g.tdcTeamColor(full); return (c && c.logo) || ''; } catch (e) { return ''; } };
-  var short = function (full) { var s = String(full || '').replace(/ [A-Z][a-z]+$/, ''); try { return (g.tdcShortSchool && g.tdcShortSchool(s)) || s; } catch (e) { return s; } };
+  var short = function (full) { var s = String(full || '').replace(/ [A-Z][a-z]+$/, ''); try { return (g.tdcShortSchool && (g.tdcShortSchool(full) || g.tdcShortSchool(s))) || s; } catch (e) { return s; } };
   var cls = function (d, k) { if (d == null || !isFinite(d)) return ''; k = k || 1; return d >= 3 * k ? 'c4' : d >= 1 * k ? 'c3' : d <= -3 * k ? 'c0' : d <= -1 * k ? 'c1' : 'c2'; };
   var rmCol = function (v) { return v >= 75 ? 'var(--green,#1a8c3a)' : v >= 55 ? '#9bbf3a' : v >= 35 ? '#d9a33a' : 'var(--red,#cc2200)'; };
   function css() {
@@ -36,6 +36,21 @@
       '.tr-n{font-size:12.5px;line-height:1.6;color:var(--text2);}.tr-n.p b{color:var(--green,#1a8c3a);}.tr-n.m b{color:var(--red,#cc2200);}' +
       '.tr-mb{display:inline-block;width:40px;height:6px;border-radius:3px;background:var(--bg3);margin-left:6px;vertical-align:1px;overflow:hidden;}.tr-mb i{display:block;height:100%;}' +
       'td img.tr-lg{width:16px!important;height:16px!important;object-fit:contain;vertical-align:middle;margin:-2px 6px 0 0;}' +
+      '.trc{position:relative;margin:0 0 6px;}.trc-svg{width:100%;height:auto;display:block;overflow:visible;}' +
+      '.trc-grid{stroke:var(--border);stroke-width:1;stroke-dasharray:2 4;}.trc-zero{stroke:var(--border2);stroke-width:1.5;}' +
+      '.trc-ax,.trc-x{font:600 11px Inter,system-ui,sans-serif;fill:var(--text3);font-variant-numeric:tabular-nums;}.trc-band{font:600 10.5px Inter,system-ui,sans-serif;fill:var(--text3);}' +
+      '.trc-line{fill:none;stroke:var(--text2);stroke-width:2;stroke-linejoin:round;stroke-linecap:round;}' +
+      '.trc-dot{stroke:var(--bg);stroke-width:2;}.trc-hit{fill:transparent;cursor:pointer;outline:none;}.trc-lbl{font:800 13px Inter,system-ui,sans-serif;fill:var(--text);font-variant-numeric:tabular-nums;}' +
+      '.trc-tip{position:absolute;z-index:5;width:230px;padding:8px 10px;border-radius:8px;background:var(--bg2);border:1px solid var(--border2);box-shadow:0 6px 20px rgba(0,0,0,.18);font-size:12px;line-height:1.5;color:var(--text2);pointer-events:none;}.trc-tip b{color:var(--text);}' +
+      'table.trl{width:100%;}table.trl td.nm{white-space:normal;min-width:170px;}.trl-sub{display:block;font-size:11px;font-weight:600;color:var(--text3);margin-top:1px;white-space:normal;}' +
+      '.trl-dscroll{overflow-x:auto;}table.trl-d{width:100%;}' +
+      'table.trl tr.trl-g{cursor:pointer;}table.trl tr.trl-g:hover td,table.trl tr.trl-g.open td{background-color:var(--bg3);}' +
+      '.trl-car{display:inline-block;width:12px;color:var(--text3);transition:transform .15s;}tr.trl-g.open .trl-car{transform:rotate(90deg);}' +
+      'table.trl tr.trl-proj td{color:var(--text2);}table.trl tr.trl-now td{border-top:2px solid var(--border2);font-weight:700;color:var(--text);}' +
+      '.trl-dl{display:block;font-size:10.5px;font-weight:800;}.trl-tr{font-weight:800;}table.trl tr.trl-up td{color:var(--text3);}' +
+      'table.trl tr.trl-det>td{padding:0!important;background:var(--bg2);}.trl-dbox{padding:10px 12px 12px;white-space:normal;}' +
+      'table.trl-d{margin:0 0 4px;}table.trl-d tr.act td{font-weight:800;}table.trl-d tr.vs td{border-top:2px solid var(--border2);}' +
+      '.tl-foot a{margin-left:auto;font-weight:700;color:var(--text2);text-decoration:none;}.tl-foot a:hover{color:var(--text);}' +
       '.tr-empty{padding:34px;text-align:center;color:var(--text3);border:1px dashed var(--border2);border-radius:12px;line-height:1.7;}';
     document.head.appendChild(st);
   }
@@ -83,44 +98,75 @@
       var played = {}; (P && P.games || []).forEach(function (e) { played[e.id] = 1; });
       var today = new Date().toISOString().slice(0, 10);
       var upcoming = D.S.filter(function (x) { return teamFull && (x.home === teamFull || x.away === teamFull) && !played[x.id] && x.date >= today; }).sort(function (a, b) { return a.date.localeCompare(b.date); });
-      var MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-      var stamp = function (date, cls, r) { var d = new Date(date + 'T12:00:00'); return '<div class="tl-stamp ' + cls + '"><div class="m">' + MON[d.getMonth()] + '</div><div class="d">' + d.getDate() + '</div>' + (r ? '<div class="r">' + r + '</div>' : '') + '</div>'; };
-      var upNode = function (x) { var opp = x.home === teamFull ? x.away : x.home, lg = logo(opp);
-        return '<div class="tl-node">' + stamp(x.date, 'up', 'NEXT') + '<div class="tl-card ghost"><div class="tl-h">' + (lg ? '<img src="' + lg + '" alt="">' : '') + (x.home === teamFull ? 'vs ' : '@ ') + esc(short(opp)) +
-          ' <span class="tl-pill">' + (x.neutral ? 'Neutral' : x.home === teamFull ? 'Home' : 'Away') + '</span>' + (x.time ? ' <span class="tl-pill">' + esc(x.time) + '</span>' : '') + '</div><div class="tl-sub">Upcoming scrimmage — his line lands here once the box score posts.</div></div></div>'; };
+      var md = function (date) { var d = new Date(date + 'T12:00:00'); return (d.getMonth() + 1) + '/' + d.getDate(); };
+      var upRow = function (x, n) { var opp = x.home === teamFull ? x.away : x.home, lg = logo(opp);
+        return '<tr class="trl-up"><td class="l" colspan="' + n + '">' + (lg ? '<img class="tr-lg" src="' + lg + '" alt="">' : '') + 'Next · ' + md(x.date) + ' ' + (x.home === teamFull ? 'vs ' : '@ ') + esc(short(opp)) +
+          ' <span class="trl-sub" style="display:inline">· ' + (x.neutral ? 'Neutral' : x.home === teamFull ? 'Home' : 'Away') + (x.time ? ' · ' + esc(x.time) : '') + ' · his line lands here once it’s played</span></td></tr>'; };
       if (!P || !P.games || !P.games.length) {
         host.innerHTML = '<div class="tr-empty" style="margin-bottom:18px;"><b>No scrimmage box score for ' + esc(who.name || 'this player') + ' yet.</b><br>Preseason trends come from scrimmages and exhibitions, weighted by how game-like each one was (the Reality Meter).</div>' +
-          (upcoming.length ? '<div class="tl">' + upcoming.map(upNode).join('') + '</div>' : '');
+          (upcoming.length ? '<div class="sheet-wrap" style="max-height:none"><table class="sheet dense trl"><tbody>' + upcoming.map(function (x) { return upRow(x, 2); }).join('') + '</tbody></table></div>' : '');
         return;
       }
       var tr = P.trend || 0, mv = P.moved || {}, b = P.base || {}, nw = P.now || {};
       var col = tr >= 1 ? 'var(--green,#1a8c3a)' : tr <= -1 ? 'var(--red,#cc2200)' : 'var(--text)';
       var word = tr >= 3 ? 'Trending up' : tr >= 1 ? 'Slightly up' : tr <= -3 ? 'Trending down' : tr <= -1 ? 'Slightly down' : 'Steady';
       var nG = P.games.length, W = P.weight || 0;
-      var KV = [['ovr', 'OVR', 0], ['mpg', 'MIN', 1], ['ppg', 'PTS', 1], ['rpg', 'REB', 1], ['apg', 'AST', 1]].filter(function (x) { return b[x[0]] != null; });
-      var kv = function (src, withDelta) { return '<div class="tl-kv">' + KV.map(function (x) { var d = mv[x[0]];
-        return '<div><div class="k">' + x[1] + '</div><div class="v">' + (+src[x[0]]).toFixed(x[2]) + (withDelta && d ? '<span class="dl" style="color:' + (d > 0 ? 'var(--green,#1a8c3a)' : 'var(--red,#cc2200)') + '">' + sg(d, x[2]) + '</span>' : '') + '</div></div>'; }).join('') + '</div>'; };
+      var games = P.games.slice().sort(function (a, b2) { return a.date.localeCompare(b2.date); });
       var html = '<div class="tr-hd"><div><div class="tr-l">Preseason trend</div><div class="tr-big" style="color:' + col + '">' + (tr > 0 ? '▲ ' : tr < 0 ? '▼ ' : '') + sg(tr) + '</div></div>' +
         '<div><div class="tr-t">' + word + '</div><div class="tr-s">How his scrimmages compared with what we projected for him (Game Score per 40 minutes), from ' + nG + ' scrimmage' + (nG > 1 ? 's' : '') +
         (nG > 1 ? ' that count as <b>' : ' that counts as <b>') + W.toFixed(2) + ' real game' + (W === 1 ? '' : 's') + '</b> — each weighted by its Reality Meter and his share of a normal night’s minutes.</div></div></div>';
-      html += '<div class="tl">';
-      // 1. entering the preseason
-      html += '<div class="tl-node">' + '<div class="tl-stamp s"><div class="m">PRE</div><div class="d">◆</div><div class="r">SEASON</div></div>' +
-        '<div class="tl-card"><div class="tl-h">Entering the preseason <span class="tl-pill">our projection</span></div>' + kv(b, false) +
-        '<div class="tl-sub">His 2026-27 projection before any scrimmage counted.</div></div></div>';
-      // 2. each scrimmage
-      var games = P.games.slice().sort(function (a, b2) { return a.date.localeCompare(b2.date); });
+
+      // ── 1. the trend chart: his trend after each scrimmage, starting from 0 entering the preseason ──
+      var pts = [{ lab: 'Pre', sub: 'Entering the preseason', y: 0, e: null }].concat(games.map(function (e) {
+        return { lab: md(e.date), sub: (e.site === 'A' ? '@ ' : 'vs ') + short(e.opp) + ' · ' + e.res, y: e.trend_after || 0, e: e }; }));
+      // drawn at the host's real width so text stays 11px on a phone; band labels only when there's room
+      var VW = Math.max(320, Math.min(980, host.clientWidth || 720)), narrow = VW < 520, VH = narrow ? 160 : 180, L = 34, R = narrow ? 18 : 104, Tp = 14, Bt = 40, M = Math.max(3.6, Math.ceil(Math.max.apply(null, pts.map(function (q) { return Math.abs(q.y); })) + 0.6));
+      var X = function (i) { return pts.length === 1 ? L : L + i * (VW - L - R) / (pts.length - 1); };
+      var Y = function (v) { return Tp + (M - v) * (VH - Tp - Bt) / (2 * M); };
+      var dotCol = function (v) { return v >= 1 ? 'var(--green,#1a8c3a)' : v <= -1 ? 'var(--red,#cc2200)' : 'var(--text2)'; };
+      var svg = '<svg class="trc-svg" viewBox="0 0 ' + VW + ' ' + VH + '" role="img" aria-label="Preseason trend after each scrimmage: ' + pts.map(function (q) { return q.lab + ' ' + sg(q.y); }).join(', ') + '">';
+      [[3, 'Trending up'], [1, 'Slightly up'], [0, 'Steady'], [-1, 'Slightly down'], [-3, 'Trending down']].forEach(function (gl) {
+        var y = Y(gl[0]);
+        svg += '<line x1="' + L + '" x2="' + (VW - R + 8) + '" y1="' + y + '" y2="' + y + '" class="' + (gl[0] === 0 ? 'trc-zero' : 'trc-grid') + '"/>' +
+          '<text x="' + (L - 8) + '" y="' + (y + 4) + '" class="trc-ax" text-anchor="end">' + (gl[0] > 0 ? '+' : gl[0] < 0 ? '−' : '') + Math.abs(gl[0]) + '</text>' +
+          (narrow ? '' : '<text x="' + (VW - R + 14) + '" y="' + (y + 4) + '" class="trc-band">' + gl[1] + '</text>');
+      });
+      svg += '<polyline class="trc-line" points="' + pts.map(function (q, i) { return X(i).toFixed(1) + ',' + Y(q.y).toFixed(1); }).join(' ') + '"/>';
+      pts.forEach(function (q, i) {
+        svg += '<circle cx="' + X(i) + '" cy="' + Y(q.y) + '" r="5.5" class="trc-dot" style="fill:' + dotCol(q.y) + '"/>' +
+          '<text x="' + X(i) + '" y="' + (VH - Bt + 18) + '" class="trc-x" text-anchor="middle">' + esc(q.lab) + '</text>' +
+          '<circle cx="' + X(i) + '" cy="' + Y(q.y) + '" r="16" class="trc-hit" data-i="' + i + '"/>';
+      });
+      var last = pts[pts.length - 1];
+      svg += '<text x="' + (X(pts.length - 1) + (pts.length > 1 ? 0 : 10)) + '" y="' + (Y(last.y) - 12) + '" class="trc-lbl" text-anchor="' + (pts.length > 1 ? 'middle' : 'start') + '">' + sg(last.y) + '</text></svg>';
+      html += '<div class="trc"><div class="tr-sec" style="margin-top:4px">Trend after each scrimmage</div>' + svg + '<div class="trc-tip" hidden></div></div>';
+
+      // ── 2. the game log: projection → each scrimmage (expandable) → his projection now ──
       var cols = [['min', 'MIN', 0], ['pts', 'PTS', 1], ['reb', 'REB', 1], ['ast', 'AST', 1], ['stl', 'STL', 1], ['blk', 'BLK', 1], ['tov', 'TO', 1], ['fg', 'FG', 0], ['tp', '3PT', 0], ['ft', 'FT', 0], ['gmsc', 'GmSc', 1]];
-      var cell = function (L, k, dec, isAct) {
-        if (k === 'fg' || k === 'tp' || k === 'ft') { var mk = { fg: ['fgm', 'fga'], tp: ['tpm', 'tpa'], ft: ['ftm', 'fta'] }[k], a = L[mk[0]], t = L[mk[1]];
+      var lcols = cols.filter(function (c) { return ['stl', 'blk', 'ft'].indexOf(c[0]) < 0; });   // the log row; the detail shows all
+      var NC = lcols.length + 4;
+      var cell = function (L2, k, dec, isAct) {
+        if (k === 'fg' || k === 'tp' || k === 'ft') { var mk = { fg: ['fgm', 'fga'], tp: ['tpm', 'tpa'], ft: ['ftm', 'fta'] }[k], a = L2[mk[0]], t = L2[mk[1]];
           if (a == null || t == null) return '—'; return isAct ? a + '-' + t : (+a).toFixed(1) + '-' + (+t).toFixed(1); }
-        var v = L[k]; if (v == null) return '—'; return isAct && k !== 'gmsc' ? String(v) : (+v).toFixed(dec);
+        var v = L2[k]; if (v == null) return '—'; return isAct && k !== 'gmsc' ? String(v) : (+v).toFixed(dec);
       };
-      games.forEach(function (e) {
-        var w = e.res.charAt(0) === 'W', lg = logo(e.opp), Pj = e.proj || null, Pc = e.pace || null;
+      var KVc = { min: 'mpg', pts: 'ppg', reb: 'rpg', ast: 'apg' };
+      var projRow = function (src, label, sub, withDelta, trendCell) {
+        return '<tr class="trl-proj"><td class="l nm">' + label + '<span class="trl-sub">' + sub + '</span></td>' + lcols.map(function (c) {
+          var k2 = KVc[c[0]]; if (!k2 || src[k2] == null) return '<td></td>';
+          var d = mv[k2]; return '<td>' + (+src[k2]).toFixed(1) + (withDelta && d ? '<span class="trl-dl" style="color:' + (d > 0 ? 'var(--green,#1a8c3a)' : 'var(--red,#cc2200)') + '">' + sg(d) + '</span>' : '') + '</td>';
+        }).join('') + '<td></td><td></td>' + trendCell + '</tr>'; };
+      var body = projRow(b, 'Entering the preseason', 'our 2026-27 projection' + (b.ovr != null ? ' · OVR ' + b.ovr : ''), false, '<td class="trl-tr">0.0</td>');
+      games.forEach(function (e, gi) {
+        var lg = logo(e.opp), Pj = e.proj || null, Pc = e.pace || null, w = e.res.charAt(0) === 'W';
         var act = { min: e.min, pts: e.pts, reb: e.reb, ast: e.ast, stl: e.stl, blk: e.blk, tov: e.tov, fgm: e.fgm, fga: e.fga, tpm: e.tpm, tpa: e.tpa, ftm: e.ftm, fta: e.fta, gmsc: e.gmsc };
-        var rmc = e.reality != null ? rmCol(e.reality) : 'var(--text3)';
         var rmw = e.reality >= 75 ? 'Game-like' : e.reality >= 55 ? 'Mostly real' : e.reality >= 35 ? 'Experimental' : 'Practice-like';
+        body += '<tr class="trl-g" data-g="' + gi + '" tabindex="0" aria-expanded="false" title="Show projected vs actual"><td class="l nm"><span class="trl-car">▸</span>' + (lg ? '<img class="tr-lg" src="' + lg + '" alt="">' : '') +
+          md(e.date) + ' ' + (e.site === 'A' ? '@ ' : 'vs ') + esc(short(e.opp)) +
+          '<span class="trl-sub"><b style="color:' + (w ? 'var(--green,#1a8c3a)' : 'var(--red,#cc2200)') + '">' + esc(e.res) + '</b> · ' + (e.gs ? 'Started' : 'Bench') + (e.reality != null ? ' · Reality ' + e.reality + ' (' + rmw + ')' : '') + '</span></td>' +
+          lcols.map(function (c) { return '<td>' + cell(act, c[0], c[2], true) + '</td>'; }).join('') +
+          '<td class="' + cls(e.d40, 2) + '">' + sg(e.d40) + '</td><td>' + (e.w != null ? (+e.w).toFixed(2) : '—') + '</td><td class="trl-tr">' + sg(e.trend_after) + '</td></tr>';
+        // detail: the projection for this game, the same at his minutes, actual, and the difference
         var tbl = '';
         if (Pj && Pc) {
           var diffCell = function (c) { var k = c[0];
@@ -128,35 +174,47 @@
             if (k === 'min') { var dm = (act.min || 0) - Pj.min; return '<td class="' + cls(dm, 3) + '">' + sg(dm, 0) + '</td>'; }
             var d2 = (act[k] || 0) - Pc[k]; if (k === 'tov') d2 = -d2;
             return '<td class="' + cls(d2, k === 'gmsc' || k === 'pts' ? 1.5 : 0.8) + '">' + sg(k === 'tov' ? -d2 : d2) + '</td>'; };
-          tbl = '<div class="sheet-wrap" style="max-height:none;margin-top:4px;"><table class="sheet dense"><thead><tr><th class="l"></th>' + cols.map(function (c) { return '<th>' + c[1] + '</th>'; }).join('') + '</tr></thead><tbody>' +
+          tbl = '<table class="sheet dense trl-d"><thead><tr><th class="l"></th>' + cols.map(function (c) { return '<th>' + c[1] + '</th>'; }).join('') + '</tr></thead><tbody>' +
             '<tr><td class="l dim" title="His 2026-27 projection for one game, at his projected minutes, adjusted for this opponent">Projected for this game</td>' + cols.map(function (c) { return '<td class="dim">' + cell(Pj, c[0], c[2]) + '</td>'; }).join('') + '</tr>' +
-            '<tr><td class="l dim" title="The same projection scaled to the minutes he actually played — the fair yardstick">Projected at ' + Math.round(e.min || 0) + ' min</td>' + cols.map(function (c) { return '<td class="dim">' + (c[0] === 'min' ? Math.round(e.min || 0) : cell(Pc, c[0], c[2])) + '</td>'; }).join('') + '</tr>' +
+            '<tr><td class="l dim" title="The same projection scaled to the minutes he actually played: the fair yardstick">Projected at ' + Math.round(e.min || 0) + ' min</td>' + cols.map(function (c) { return '<td class="dim">' + (c[0] === 'min' ? Math.round(e.min || 0) : cell(Pc, c[0], c[2])) + '</td>'; }).join('') + '</tr>' +
             '<tr class="act"><td class="l">Actual</td>' + cols.map(function (c) { return '<td>' + cell(act, c[0], c[2], true) + '</td>'; }).join('') + '</tr>' +
-            '<tr class="vs"><td class="l" title="Actual minus the projection at his minutes (minutes: actual minus projected)">vs projection</td>' + cols.map(diffCell).join('') + '</tr>' +
-            '</tbody></table></div>';
+            '<tr class="vs"><td class="l" title="Actual minus the projection at his minutes (minutes: actual minus projected)">vs projection</td>' + cols.map(diffCell).join('') + '</tr></tbody></table>';
         }
         var notes = (e.notes || []).map(function (nn) { var p = nn.charAt(0) === '+'; return '<span class="tl-chip ' + (p ? 'p' : 'm') + '"><b>' + (p ? '+' : '−') + '</b>' + esc(nn.slice(2)) + '</span>'; }).join('');
         var oa = e.opp_adj;
-        html += '<div class="tl-node">' + stamp(e.date, w ? 'w' : 'l', e.res) +
-          '<div class="tl-card"><div class="tl-h">' + (lg ? '<img src="' + lg + '" alt="">' : '') + (e.site === 'A' ? '@ ' : 'vs ') + esc(short(e.opp)) +
-          (e.reality != null ? ' <span class="tl-pill rm" style="background:' + rmc + '">Reality ' + e.reality + ' · ' + rmw + '</span>' : '') +
-          (e.gs ? ' <span class="tl-pill">Started</span>' : ' <span class="tl-pill">Bench</span>') +
-          ' <a class="tl-pill" style="margin-left:auto;text-decoration:none" href="scrimmage.html?id=' + encodeURIComponent(e.id) + '">Box score →</a></div>' +
-          tbl + (notes ? '<div class="tl-chips">' + notes + '</div>' : '<div class="tl-chips"><span class="tl-chip">Right about what we projected.</span></div>') +
-          '<div class="tl-foot"><span>Counts as <b>' + (e.w != null ? (+e.w).toFixed(2) : '—') + '</b> of a real game</span>' +
-          '<span>vs projection <b style="color:' + (e.d40 > 0 ? 'var(--green,#1a8c3a)' : e.d40 < 0 ? 'var(--red,#cc2200)' : 'inherit') + '">' + sg(e.d40) + '</b> Game Score / 40</span>' +
-          '<span>Trend after this game <b>' + sg(e.trend_after) + '</b></span>' +
-          (oa != null && Math.abs(oa) >= 1 ? '<span>Opponent adjustment <b>' + sg(oa) + '%</b> (' + esc(short(e.opp)) + ' rated ' + sg(e.opp_rating) + ')</span>' : '') + '</span></div></div></div>';
+        body += '<tr class="trl-det" data-d="' + gi + '" hidden><td colspan="' + NC + '"><div class="trl-dbox"><div class="trl-dscroll">' + tbl + '</div>' +
+          '<div class="tl-chips">' + (notes || '<span class="tl-chip">Right about what we projected.</span>') + '</div>' +
+          '<div class="tl-foot"><span>Counts as <b>' + (e.w != null ? (+e.w).toFixed(2) : '—') + '</b> of a real game</span><span>vs projection <b>' + sg(e.d40) + '</b> Game Score / 40</span>' +
+          (oa != null && Math.abs(oa) >= 1 ? '<span>Opponent adjustment <b>' + sg(oa) + '%</b> (' + esc(short(e.opp)) + ' rated ' + sg(e.opp_rating) + ')</span>' : '') +
+          '<a href="scrimmage.html?id=' + encodeURIComponent(e.id) + '">Box score →</a></div></div></td></tr>';
       });
-      // 3. now
-      html += '<div class="tl-node"><div class="tl-stamp ' + (tr >= 1 ? 'w' : tr <= -1 ? 'l' : 's') + '"><div class="m">NOW</div><div class="d">' + (tr > 0 ? '▲' : tr < 0 ? '▼' : '●') + '</div><div class="r">' + sg(tr) + '</div></div>' +
-        '<div class="tl-card"><div class="tl-h">His projection now <span class="tl-pill">after ' + nG + ' scrimmage' + (nG > 1 ? 's' : '') + '</span></div>' + kv(nw, true) +
-        '<div class="tl-sub">Change = what the scrimmages moved: his per-minute rates (capped at 15%), his minutes toward his scrimmage role' + (P.moved && b.ovr != null ? '' : '') + ', and for a newcomer his OVR (±4).' +
-        (TM && TM.adj ? ' ' + esc(short(teamFull)) + '’s team rating moved <b style="color:' + (TM.adj > 0 ? 'var(--green,#1a8c3a)' : 'var(--red,#cc2200)') + '">' + sg(TM.adj, 2) + '</b>.' : '') + '</div></div></div>';
-      // 4. upcoming
-      html += upcoming.map(upNode).join('');
-      html += '</div><div class="tr-s" style="margin-top:6px;">Scrimmages are unofficial: they never count in his record or season stats. “Projected for this game” is his 2026-27 projection for one game at his projected minutes, adjusted for the opponent; “Projected at N min” scales it to the minutes he actually played, which is what his production is judged against.</div>';
+      body += projRow(nw, 'His projection now', 'after ' + nG + ' scrimmage' + (nG > 1 ? 's' : '') + (nw.ovr != null ? ' · OVR ' + nw.ovr + (mv.ovr ? ' (' + sg(mv.ovr, 0) + ')' : '') : ''), true,
+        '<td class="trl-tr" style="color:' + col + '">' + sg(tr) + '</td>').replace('trl-proj', 'trl-proj trl-now');
+      body += upcoming.map(function (x) { return upRow(x, NC); }).join('');
+      html += '<div class="tr-sec">Game log</div><div class="sheet-wrap" style="max-height:none"><table class="sheet dense trl"><thead><tr><th class="l">Game</th>' +
+        lcols.map(function (c) { return '<th>' + c[1] + '</th>'; }).join('') +
+        '<th title="Game Score per 40 minutes vs what we projected for him">vs proj</th><th title="How many real games this scrimmage counts as (Reality Meter × his share of a normal night’s minutes)">Counts</th><th>Trend</th></tr></thead><tbody>' + body + '</tbody></table></div>';
+      html += '<div class="tr-s" style="margin-top:8px;">Click a game for projected vs actual. The projection row\'s change is what the scrimmages moved: his per-minute rates (capped at 15%) and, lightly, his minutes' +
+        (TM && TM.adj ? '; ' + esc(short(teamFull)) + '’s team rating moved <b style="color:' + (TM.adj > 0 ? 'var(--green,#1a8c3a)' : 'var(--red,#cc2200)') + '">' + sg(TM.adj, 2) + '</b>' : '') +
+        '. Scrimmages are unofficial: they never count in his record or season stats.</div>';
       host.innerHTML = html;
+      // expand a game row
+      host.querySelectorAll('tr.trl-g').forEach(function (r) {
+        var tog = function () { var d = host.querySelector('tr.trl-det[data-d="' + r.dataset.g + '"]'); if (!d) return; d.hidden = !d.hidden; r.classList.toggle('open', !d.hidden); r.setAttribute('aria-expanded', String(!d.hidden)); };
+        r.onclick = function (ev) { if (ev.target.closest('a')) return; tog(); };
+        r.onkeydown = function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); tog(); } };
+      });
+      if (games.length === 1) { var r0 = host.querySelector('tr.trl-g'); if (r0) r0.click(); }   // one game: show its detail
+      // chart hover
+      var tip = host.querySelector('.trc-tip'), wrap = host.querySelector('.trc');
+      host.querySelectorAll('.trc-hit').forEach(function (c) {
+        var q = pts[+c.dataset.i];
+        var show = function () { var bx = c.getBoundingClientRect(), wb = wrap.getBoundingClientRect();
+          tip.innerHTML = '<b>' + esc(q.sub) + '</b><br>Trend after: <b>' + sg(q.y) + '</b>' + (q.e ? '<br>' + q.e.min + ' min · ' + q.e.pts + ' pts · vs proj ' + sg(q.e.d40) + ' GmSc/40 · counts ' + (+q.e.w).toFixed(2) : '');
+          tip.hidden = false; tip.style.left = Math.min(wb.width - 230, Math.max(0, bx.left - wb.left - 100)) + 'px'; tip.style.top = (bx.top - wb.top - tip.offsetHeight - 6) + 'px'; };
+        c.addEventListener('mouseenter', show); c.addEventListener('focus', show);
+        c.addEventListener('mouseleave', function () { tip.hidden = true; }); c.addEventListener('blur', function () { tip.hidden = true; });
+      });
     });
   }
 
