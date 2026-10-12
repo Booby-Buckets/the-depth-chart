@@ -28,6 +28,10 @@
     var s = document.createElement('style'); s.id = 'aft-css';
     s.textContent =
       '.aft{--aft-pos:#B07D17;--aft-neg:#2F7FC1;}[data-theme="dark"] .aft{--aft-pos:#B8862A;--aft-neg:#3A8BCB;}' +
+      // section headers — self-contained so the module renders the same on any page (team page also defines these)
+      '.aft .dA-sec{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:2px solid var(--text);padding-bottom:8px;margin-bottom:6px;}' +
+      '.aft .dA-sec span:first-child{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text);}' +
+      '.aft .dA-cap{font-size:11px;color:var(--text3);font-weight:500;letter-spacing:0;text-transform:none;}' +
       '.aft-charts{display:grid;grid-template-columns:1fr 1fr;gap:26px 44px;}@media(max-width:860px){.aft-charts{grid-template-columns:1fr;}}' +
       '.aft-ch h3{font-size:17px;font-weight:800;margin:0 0 3px;color:var(--text);}.aft-ch .cs{font-size:12.5px;color:var(--text3);margin-bottom:10px;}' +
       '.aft-br{display:grid;grid-template-columns:var(--aft-lw,78px) 1fr;align-items:center;height:38px;}' +

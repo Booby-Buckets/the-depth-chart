@@ -8,6 +8,7 @@ window.TDC_COACHLINKS = (function () {
   // [hub label, [[href, name], …]] — grouped so the bar reads cleanly as it grows
   var GROUPS = [
     ['Scouting', [
+      ['team-report.html',     'Team Report'],
       ['scout.html',           'Scouting Report'],
       ['offense.html',         'Offense'],
       ['defense.html',         'Defense'],
