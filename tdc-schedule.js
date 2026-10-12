@@ -44,28 +44,16 @@
   // ── results so far (scripts/data/results_2027.json, written by the nightly ingest) ─────────────────
   // id → {date, home, away, hs, as}. A played game is a FIXED result in every simulated season.
   let RES = {};
-  // In-season strength: the preseason rating is a prior worth K games; every result adds a performance
-  // (opponent's rating + the margin, net of the venue edge, capped at ±MARGIN_CAP so one blowout can't run away).
-  // Uncertainty shrinks the same way — after K games it is TAU/√2. The prior is the rating WITHOUT its in-season
-  // form (tdc-ratings applyForm already folded these same games in: counting them twice doubled the move).
-  // Owner, Oct 12 2026: real games move projections less (was K 10, cap ±25).
-  const K_PRIOR = 20, MARGIN_CAP = 15;
+  // In-season strength comes from tdc-ratings (applyForm): the preseason rating counts as ADJ_K = 8 games and every
+  // result is opponent- and venue-adjusted (owner, Oct 12 2026 — backtest_fade.py beat the old K 20 / ±15 blend here).
+  // So the rating is used as-is; this only counts each team's played games so uncertainty shrinks: TAU·√(K/(K+n)).
+  const K_PRIOR = 8;
   let _rate = null;
   function buildRates(D) {
     if (_rate && _rate.D === D) return _rate;
-    const row = n => D.teams.find(t => t.full === n), out = { D, r: {}, n: {} };
-    const sum = {}, cnt = {};
-    Object.values(RES).forEach(x => {
-      const H = row(x.home), A = row(x.away);
-      [[H, A, x.hs - x.as, 1], [A, H, x.as - x.hs, -1]].forEach(([me, op, mg, side]) => {
-        if (!me) return;
-        const opR = op ? +op.rating : -14;
-        const ven = x.neutral || !op ? 0 : side === 1 ? g.TDC_RATINGS.baseHca(opR) + (me.hcaOff || 0) : -(g.TDC_RATINGS.baseHca(+me.rating) + (op.hcaOff || 0));
-        const perf = opR + Math.max(-MARGIN_CAP, Math.min(MARGIN_CAP, mg - ven));
-        sum[me.full] = (sum[me.full] || 0) + perf; cnt[me.full] = (cnt[me.full] || 0) + 1;
-      });
-    });
-    D.teams.forEach(t => { const n = cnt[t.full] || 0, pr = (+t.rating || 0) - (+t.form || 0); out.n[t.full] = n; out.r[t.full] = n ? (K_PRIOR * pr + sum[t.full]) / (K_PRIOR + n) : (+t.rating || 0); });
+    const out = { D, r: {}, n: {} }, cnt = {};
+    Object.values(RES).forEach(x => { cnt[x.home] = (cnt[x.home] || 0) + 1; cnt[x.away] = (cnt[x.away] || 0) + 1; });
+    D.teams.forEach(t => { out.n[t.full] = Math.max(cnt[t.full] || 0, +t.formGp || 0); out.r[t.full] = +t.rating || 0; });
     return (_rate = out);
   }
   // a team's current strength + its uncertainty, for every simulation on the site

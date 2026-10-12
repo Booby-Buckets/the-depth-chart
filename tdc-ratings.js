@@ -38,13 +38,13 @@
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
   const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  const SEASON=2027, LS_KEY='tdc_ratings_v26_'+SEASON, TTL=24*3600*1000;
-  // in-season form: once 2026-27 games are played, each team's rating drifts
-  // toward how it's ACTUALLY performing vs our own lines. surprise = actual
-  // margin - expected margin, each game clipped to ±FORM_CLIP; form = sum(surprise)/(n + FORM_PRIOR)
-  // capped at ±FORM_CAP — it takes a sustained run (not two lucky games) to move much. Owner, Oct 12 2026:
-  // real games should move projections less (was prior 10, cap 3, no clip).
-  const FORM_PRIOR=20, FORM_CAP=2, FORM_CLIP=15;
+  const SEASON=2027, LS_KEY='tdc_ratings_v27_'+SEASON, TTL=24*3600*1000;
+  // IN-SEASON RATING (owner, Oct 12 2026 — backtest_fade.py, 69,014 games 2008-26, each week predicting the next):
+  // once 2026-27 games are played, each team's rating is its opponent- and venue-adjusted margin over the games so far,
+  // with our preseason rating counted as ADJ_K games of evidence that never fully fades. Next-week margin error:
+  // old capped form (prior 20, cap ±2) 8.87 · KenPom-style fade to 0 by Jan 20 8.92 / Feb 15 8.88 · results only 9.30 ·
+  // preseason = 8 games 8.75 (best in every month, 18 of 19 seasons; Feb 8.73 -> 8.54). Capping margins at ±20 hurt.
+  const ADJ_K=8;
   const CAL_A=-0.3, CAL_B=4.16;            // BPM→SRS (recal 2026-08: was 11.75/2.355 — intercept too high + slope too shallow bunched 24 teams ≥20.3; now ~6, matching historical spread; avg-BPM roster → ~0)
   // OWNED BPM. Each returner enters the projection on the Box Plus/Minus scale.
   // A regression of bbref BPM onto OUR OWN box-derived rates (player_advanced) PLUS the
@@ -227,26 +227,27 @@
     return pool.sort((a,b)=>(a.team.split(/\s+/).length-b.team.split(/\s+/).length)||(a.team.length-b.team.length))[0].team;
   }
 
-  // nudge ratings by how each team is performing vs our own expectations.
-  // games: [{home, away, home_score, away_score, neutral}] (finals only).
-  // mutates rows: r.form (±FORM_CAP), r.formGp, and folds form into r.rating.
+  // in-season rating (see ADJ_K). games: [{home, away, home_score, away_score, neutral}] (finals only).
+  // Solves  rating_i = (ADJ_K·preseason_i + Σ (opp rating + margin − venue edge)) / (ADJ_K + games_i)  for every team
+  // at once (Gauss-Seidel; strictly diagonally dominant so it converges). The venue edge uses the PRESEASON ratings so
+  // the system stays linear. Mutates rows: r.preRating, r.form (= rating − preRating), r.formGp, r.rating.
   function applyForm(rows, games){
-    const byFull={}; rows.forEach(r=>{ byFull[r.full]=r; });
-    const acc={};
+    const idx={}; rows.forEach((r,i)=>{ idx[r.full]=i; });
+    const P=rows.map(r=>+r.rating||0), R=P.slice(), adj=rows.map(()=>[]);
     (games||[]).forEach(g=>{
-      const h=byFull[g.home], a=byFull[g.away];
-      if(!h||!a||g.home_score==null||g.away_score==null) return;
-      const hc=g.neutral?0:baseHca(a.rating)+(h.hcaOff||0);
-      const surprise=Math.max(-FORM_CLIP,Math.min(FORM_CLIP,(g.home_score-g.away_score)-(h.rating-a.rating+hc)));
-      (acc[g.home]=acc[g.home]||{s:0,n:0}); acc[g.home].s+=surprise; acc[g.home].n++;
-      (acc[g.away]=acc[g.away]||{s:0,n:0}); acc[g.away].s-=surprise; acc[g.away].n++;
+      const hi=idx[g.home], ai=idx[g.away];
+      if(hi==null||ai==null||g.home_score==null||g.away_score==null) return;
+      const hc=g.neutral?0:baseHca(P[ai])+(rows[hi].hcaOff||0), m=(g.home_score-g.away_score)-hc;
+      adj[hi].push([ai, m]); adj[ai].push([hi, -m]);
     });
-    rows.forEach(r=>{
-      const f=acc[r.full];
-      r.formGp=f?f.n:0;
-      r.form=f?+Math.max(-FORM_CAP,Math.min(FORM_CAP,f.s/(f.n+FORM_PRIOR))).toFixed(2):0;
-      if(r.form) r.rating=+(r.rating+r.form).toFixed(2);
-    });
+    for(let it=0; it<200; it++){
+      let mx=0;
+      for(let i=0;i<R.length;i++){ const a=adj[i]; if(!a.length) continue;
+        let num=ADJ_K*P[i]; for(let k=0;k<a.length;k++) num+=R[a[k][0]]+a[k][1];
+        const v=num/(ADJ_K+a.length); mx=Math.max(mx, Math.abs(v-R[i])); R[i]=v; }
+      if(mx<1e-4) break;
+    }
+    rows.forEach((r,i)=>{ r.preRating=+P[i].toFixed(2); r.formGp=adj[i].length; r.form=+(R[i]-P[i]).toFixed(2); r.rating=+R[i].toFixed(2); });
   }
 
   // Owner's freshman projection overrides {byEspn/byNameTeam: {bpm, min}}, applied
