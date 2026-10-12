@@ -198,7 +198,11 @@ def main():
         old_st = [p for p in order_old if p["k"] in cur_st]
         # hysteresis: players within ~SLOT_GAP blended mpg keep their current order, so a light scrimmage weight
         # can't reshuffle a bench whose projected minutes sit a minute apart (slot sets projected minutes)
-        slot = lambda p: (-round(p["bm"] / SLOT_GAP), p["depth_order"] or 99)
+        # value = the minutes his CURRENT slot carries on the roster curve + only what the scrimmages changed (bm - proj),
+        # so a slot changes because of the scrimmage, never to "fix" an old order-vs-projection mismatch (Jadis Jones
+        # was 10th at 10.2 mpg with 7th-9th projected lower: sorting by blended minutes handed him 7th-man minutes, +9)
+        slotmin = lambda p: (curve[p["depth_order"] - 1] if p["depth_order"] and p["depth_order"] <= len(curve) else p["proj"])
+        slot = lambda p: (-round((slotmin(p) + p["bm"] - p["proj"]) / SLOT_GAP), p["depth_order"] or 99)
         five = sorted(st, key=slot)
         bench = sorted([p for p in roster if p["k"] not in stk], key=slot)
         new = five[:5] + bench
