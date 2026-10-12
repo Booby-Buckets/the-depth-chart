@@ -2854,7 +2854,9 @@ async function init(){
       let _cf=player;
       try{ const _ls=(typeof _ovrSeasons==='function'?_ovrSeasons():[])[0];
         if(_ls && +_ls.season_year>=2025 && parseFloat(_ls.mpg)>8 && parseFloat(_ls.ppg)>0) _cf=_ls; }catch(e){}
-      if((!proj || !(parseFloat(proj.mpg)>2)) && parseFloat(_cf.mpg)>8 && parseFloat(_cf.ppg)>0){
+      // Owner rule (Oct 2026): show what we actually project. A small projected role shows the small line (with a role
+      // note in the hero); last season's line is carried forward ONLY when there is no projection at all.
+      if(!proj && parseFloat(_cf.mpg)>8 && parseFloat(_cf.ppg)>0){
         const _dm=parseFloat(_cf.mpg)||1, _pm=Math.min(_dm*0.95, 32), _sc=_pm/_dm;   // ~usual minutes, capped
         const _F=k=>{ const v=parseFloat(_cf[k]); return isFinite(v)?Math.round(v*_sc*10)/10:null; };
         proj=Object.assign({}, player, {
@@ -4305,11 +4307,13 @@ function _paProjHTML(){
   var f=function(v){ v=parseFloat(v); return isFinite(v)?v.toFixed(1):'—'; };
   var pct=function(v){ v=parseFloat(v); if(!isFinite(v)) return null; if(v<=1) v*=100; return v; };
   var seasons=_ovrSeasons(), sel=window._paSel;
-  var useProj=(typeof proj!=='undefined' && proj && !proj._injured && !proj._dnp && parseFloat(proj.ppg)>0);
+  var useProj=(typeof proj!=='undefined' && proj && !proj._injured && !proj._dnp && parseFloat(proj.mpg)>0);
   var src, prev, isProj=false;
   if(sel && sel!=='proj'){ var i=seasons.findIndex(function(x){ return String(x.season_year)===String(sel); });
     src=i>=0?seasons[i]:null; prev=i>=0?seasons[i+1]:null; }
-  if(!src){ if(useProj){ src=proj; prev=seasons[0]; isProj=true; } else { src=seasons[0]; prev=seasons[1]; } }
+  // the projection compares with his last REAL season — one with 5+ games, so a 1-game cameo (Elijah Moore at Utah) isn't the baseline
+  var realPrev=function(list){ return list.find(function(x){ return (+x.gp||0)>=5; })||list[0]; };
+  if(!src){ if(useProj){ src=proj; prev=realPrev(seasons); isProj=true; } else { src=seasons[0]; prev=seasons[1]; } }
   if(!src) return '<div class="pc-none">No stat line yet</div>';
   var pr=(isProj && player && player.espn_id!=null && window.TDCProjGrade && TDCProjGrade.projRowOf)?TDCProjGrade.projRowOf(player.espn_id):null;
   var usgOf=function(r,proje){ if(!r) return null; if(proje) return pr&&pr.usg!=null?+pr.usg:null;
@@ -4334,7 +4338,14 @@ function _paProjHTML(){
 function _paCarryHTML(){
   try{
     var sel=window._paSel; if(sel && sel!=='proj') return '';
-    if(typeof proj==='undefined' || !proj || !proj._carryFwd) return '';
+    if(typeof proj==='undefined' || !proj) return '';
+    if(!proj._carryFwd){   // a real projection in a small role: say so, but the numbers ARE the projection
+      var pm0=parseFloat(proj.mpg); if(!(isFinite(pm0)&&pm0<8)) return '';
+      var d0=parseInt(player&&player.depth_order,10), tm0=player&&player.team?((window.tdcShortSchool&&tdcShortSchool(player.team))||player.team):'his team';
+      var ord0=function(n){ var s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); };
+      return '<div class="pa-carry-in"><b>Small projected role.</b> '+(pm0<1?'Under a minute':pm0.toFixed(1)+' minutes')+' a game'+
+        (isFinite(d0)?(', '+ord0(d0)+' on '+tm0+'\u2019s depth chart'):'')+' \u2014 these are his projected 2026-27 numbers in that role.</div>';
+    }
     var pr=(player && player.espn_id!=null && window.TDCProjGrade && TDCProjGrade.projRowOf)?TDCProjGrade.projRowOf(player.espn_id):null;
     var pm=pr&&pr.mpg!=null?parseFloat(pr.mpg):null;
     var d=parseInt(player&&player.depth_order,10), tm=player&&player.team?((window.tdcShortSchool&&tdcShortSchool(player.team))||player.team):'his team';
