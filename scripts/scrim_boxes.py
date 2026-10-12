@@ -18,7 +18,7 @@ player_history; scrim_reality.py weights them and the projection build blends th
     python3 scripts/scrim_boxes.py --force    # refetch every played game
     python3 scripts/scrim_boxes.py --dry      # report, don't write
 """
-import json, re, sys, datetime, time
+import html, json, re, sys, datetime, time
 from html.parser import HTMLParser
 from pathlib import Path
 import requests
@@ -87,6 +87,39 @@ def find_box(site, opp_words):
             hit = sum(1 for w in ow if w in sw)
             if hit and hit >= min(2, len(ow)): out.append(site + path); break
     return out
+
+
+_SCHED = {}
+def sched_text(site):
+    """a team's schedule page as plain text (cached per run)"""
+    if site not in _SCHED:
+        h = get(f"{site}/sports/mens-basketball/schedule/{SEASON}") or ""
+        h = re.sub(r"<script.*?</script>|<style.*?</style>", " ", h, flags=re.S)
+        _SCHED[site] = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", h)))
+    return _SCHED[site]
+
+
+MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+DATE_RE = re.compile(r"\b(%s)\.? (\d{1,2})\b" % "|".join(MON))
+def sched_entry(site, date, opp_words):
+    """what the schedule page says about the game on `date` vs this opponent when there's no box-score link:
+    ('score', mine, theirs) from a "W, 94-61" result, ('canceled', None, None), or None. A game's text sits
+    between the previous game's date and its own (opponent, venue, result, then "Oct 7 (Wed) 7:00")."""
+    t = sched_text(site)
+    if not t: return None
+    d = datetime.date.fromisoformat(date); want = (MON[d.month - 1], d.day)
+    marks = [m for m in DATE_RE.finditer(t)]
+    for i, m in enumerate(marks):
+        if (m.group(1), int(m.group(2))) != want: continue
+        seg = t[(marks[i - 1].end() + 20) if i else max(0, m.start() - 400): m.start()]
+        sw = words(seg)
+        if not any(sum(1 for w in ow if w in sw) >= min(2, len(ow)) for ow in opp_words): continue
+        if re.search(r"\b(cancell?ed|postponed)\b", seg, re.I): return ("canceled", None, None)
+        r = re.search(r"\b([WL])\s*,?\s*(\d{2,3})\s*-\s*(\d{2,3})\b", seg)
+        if r:
+            a, b = int(r.group(2)), int(r.group(3))
+            return ("score", max(a, b), min(a, b)) if r.group(1) == "W" else ("score", min(a, b), max(a, b))
+    return None
 
 
 def split(v):
@@ -158,14 +191,14 @@ def note_of(box_home, box_away, home, away):
 
 def main():
     force, dry = "--force" in sys.argv, "--dry" in sys.argv
-    games = json.loads(GAMES.read_text())["games"]
+    G = json.loads(GAMES.read_text()); games = G["games"]
     res = json.loads(RES.read_text())
     sites = json.loads(SITES.read_text())
     today = datetime.date.today().isoformat()
     todo = [g for g in games if g["date"] <= today and (force or "box" not in res["results"].get(g["id"], {}))
             and not (res["results"].get(g["id"], {}).get("manual") and not force)]
     print(f"{len(todo)} played scrimmages without a box score")
-    got = 0
+    got = 0; canceled = []
     for g in todo:
         url = None
         for me, opp in ((g["home"], g["away"]), (g["away"], g["home"])):
@@ -174,7 +207,24 @@ def main():
             c = find_box(site, school(opp, sites))
             if c: url = sorted(c)[-1]; break
         if not url:
-            print(f"  -- {g['date']} {g['away']} at {g['home']}: no box score found"); continue
+            # no box-score link: the schedule page may still carry the final score (WMT sites, recap-only games)
+            # or say the game was canceled
+            found = None
+            for me, opp in ((g["home"], g["away"]), (g["away"], g["home"])):
+                site = (sites.get(me) or {}).get("site")
+                e = sched_entry(site, g["date"], school(opp, sites)) if site else None
+                if e: found = (me, site, e); break
+            if found and found[2][0] == "canceled":
+                canceled.append(g); print(f"  xx {g['date']} {g['away']} at {g['home']}: canceled ({found[1]})"); continue
+            rec = res["results"].get(g["id"], {})
+            if found and found[2][0] == "score" and rec.get("hs") is None:
+                me, site, (_, mine, theirs) = found
+                hs, as_ = (mine, theirs) if me == g["home"] else (theirs, mine)
+                rec.update({"hs": hs, "as": as_, "src": f"{site}/sports/mens-basketball/schedule/{SEASON}",
+                            "auto_note": "Final score from the schedule page; no box score posted"})
+                res["results"][g["id"]] = rec; got += 1
+                print(f"  ok {g['date']} {g['away']} {as_} at {g['home']} {hs}  (score only, from {site})"); continue
+            print(f"  -- {g['date']} {g['away']} at {g['home']}: no box score found" + (" (score already in)" if rec.get("hs") is not None else "")); continue
         h = get(url); B = parse_box(h) if h else None
         if not B:
             print(f"  !! {url}: could not parse"); continue
@@ -191,7 +241,13 @@ def main():
         print(f"  ok {g['date']} {g['away']} {ab['score']} at {g['home']} {hb['score']}  ({len(hb['players'])}+{len(ab['players'])} players)")
     if got and not dry:
         RES.write_text(json.dumps(res, indent=1))
-        print(f"wrote {got} box score(s) to {RES.name}")
+        print(f"wrote {got} result(s) to {RES.name}")
+    if canceled and not dry:   # off the list every page reads, kept on record under "canceled"
+        ids = {g["id"] for g in canceled}
+        G["games"] = [g for g in games if g["id"] not in ids]
+        G["canceled"] = (G.get("canceled") or []) + [dict(g, canceled=datetime.date.today().isoformat()) for g in canceled]
+        GAMES.write_text(json.dumps(G, indent=1, ensure_ascii=False))
+        print(f"moved {len(canceled)} canceled game(s) out of {GAMES.name}")
 
 
 if __name__ == "__main__":
