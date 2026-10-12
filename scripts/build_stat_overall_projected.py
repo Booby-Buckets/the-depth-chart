@@ -612,7 +612,10 @@ CAREER_SHOT=_cr.dropna(subset=["espn_id"]).groupby("espn_id")[["fgm","fga","tpm"
 # Level jump (new team Power Rating − old, transfers, ±15) and usage only move FG% — for 3P/FT those terms were
 # role-selection artifacts, not causes.
 SHOOT={"fg":dict(K=75,prior=45.0,c=17.531,eb=0.4961,last=0.1746,mix=-7.216,jump=-0.0304,u=0.321),
-       "tp":dict(K=800,prior=34.5,c=15.328,eb=0.4974,last=0.0051,mix=6.071,jump=0.0,u=0.0),
+       # 3P adds career FT% (owner backtest, Oct 12 2026): FT shooting is the best tell for a thin or changing 3P
+       # record. Leave-one-season-out 2012-25: 3P MAE 4.169 -> 4.135, better in 14 of 14 seasons. ft = coef on the
+       # career FT% shrunk toward 71% with 150 pseudo-attempts (FT_EB_K / FT_EB_PRIOR).
+       "tp":dict(K=800,prior=34.5,c=4.281,eb=0.3914,last=-0.001,mix=6.4922,jump=0.0,u=0.0,ft=0.1994),
        "ft":dict(K=150,prior=71.0,c=6.465,eb=0.7319,last=0.1469,mix=13.638,jump=0.0,u=0.0)}
 # PRESEASON SCRIMMAGES (owner, Oct 2026): weighted by the Reality Meter (scrim_reality.py). Each box line
 # carries w = real-game equivalents (<=1 x reality x share of his projected minutes). A returner's
@@ -764,13 +767,34 @@ def scrim_blend(full,name,prior_games,e=None):
         return (wr*rv+(1-wr)*ws*sv)/w
     return w,get
 
+FT_EB_K, FT_EB_PRIOR = 150.0, 71.0
+# FG adds SHOT CREATION (owner backtest, Oct 12 2026), from last season's shot genome (shot_genome_players.json):
+# a high unassisted share means harder shots (lower next FG%), good shot locations (look quality) a higher one, and
+# shot-making above the look regresses. Fit on the current model's residual, 2020-25 (6,099 pairs); LOSO MAE
+# 3.416 -> 3.339, transfers -4%. Players with no genome row (freshmen, low volume) are unchanged.
+FG_CREATE=dict(self=-0.8262, lq=0.1103, sm=-0.0588)      # per (self%-50)/20, per lq point above 50, per sm point
+SG_LAST={}
+try:
+    for _p in json.load(open(os.path.join(D,"shot_genome_players.json")))["players"]:
+        if _p.get("selfPct") is not None and (_p.get("makes") or 0)>=25 and _p.get("espn_id") is not None:
+            SG_LAST[int(_p["espn_id"])]=(float(_p["selfPct"]),_p.get("lq"),_p.get("sm"))
+    print(f"shot creation: {len(SG_LAST)} players with last season's genome",file=sys.stderr)
+except Exception as _e:
+    print(f"warn: no shot genome for the FG creation terms ({_e})",file=sys.stderr)
 def shoot_proj(kind,e,last,jump,usg_ratio):
     m=SHOOT[kind]; mk,ak={"fg":("fgm","fga"),"tp":("tpm","tpa"),"ft":("ftm","fta")}[kind]
     c=CAREER_SHOT.get(e) or {}; cm=c.get(mk,0.0); ca=c.get(ak,0.0)
     eb=100.0*(cm+m["K"]*m["prior"]/100.0)/(ca+m["K"])
     mix=(c.get("tpa",0.0)/c["fga"]) if c.get("fga",0)>0 else 0.35
-    return (m["c"]+m["eb"]*eb+m["last"]*last+m["mix"]*mix+m["jump"]*jump
+    v=(m["c"]+m["eb"]*eb+m["last"]*last+m["mix"]*mix+m["jump"]*jump
             +m["u"]*math.log(max(0.5,min(1.6,usg_ratio))))
+    if m.get("ft"):
+        v+=m["ft"]*100.0*(c.get("ftm",0.0)+FT_EB_K*FT_EB_PRIOR/100.0)/(c.get("fta",0.0)+FT_EB_K)
+    if kind=="fg" and e is not None and pd.notna(e):
+        g_=SG_LAST.get(int(e))
+        if g_:
+            v+=FG_CREATE["self"]*(g_[0]-50.0)/20.0+FG_CREATE["lq"]*((g_[1] if g_[1] is not None else 50.0)-50.0)+FG_CREATE["sm"]*(g_[2] or 0.0)
+    return v
 for df in (adv,pl,box): df["espn_id"]=pd.to_numeric(df["espn_id"],errors="coerce").astype("Int64")
 # ONE ESPN ID, TWO ROSTERS (Oct 2026): the roster autofill matched by name, so a namesake on another roster
 # borrowed a real player's espn_id — Jayden Reid (5-10 guard, Northwestern -> Memphis) also sat on Quinnipiac as a

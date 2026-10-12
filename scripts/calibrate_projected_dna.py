@@ -272,6 +272,36 @@ for s_ in np.unique(_S):
             _pn[i] += v if side == 0 else -v; _yn[i] += r[yc] if side == 0 else -r[yc]
 print(f"owner weights O {ROSTER_W[0]:.2f}/{1-ROSTER_W[0]:.2f}  D {ROSTER_W[1]:.2f}/{1-ROSTER_W[1]:.2f}: net r {np.corrcoef(_pn, _yn)[0,1]:.3f}  MAE {np.mean(abs(_pn - _yn)):.2f}")
 
+# ── OFFENSE ADD-ONS (owner, Oct 12 2026: "build all four"; backtest 2008-26, leave-one-season-out, 5,048 team-seasons,
+# extra terms on the owner formula's residual: offense MAE 3.074 -> 3.019) ─────────────────────────────────────────
+#   coach value-added: how much his PRIOR teams' offenses beat their own roster projection (actual − scaled roster
+#     projection, his last OVA_BACK seasons at any school, shrunk n/(n+OVA_K)); 14 of 19 seasons better
+#   playmaker: the best last-season assist rate on the current roster (15+ mpg then), per 10 points above 25%;
+#     15 of 19 seasons better (losing or adding a real point guard)
+OVA_B, PLAY_B, OVA_K, OVA_BACK = 0.5569, 0.7464, 4.0, 6
+_ores = {}
+for s_, teams_ in HP.items():
+    if s_ not in mA: continue
+    for k_, v_ in teams_.items():
+        yo_ = adjdev(s_, k_, 0); co_ = COACH_AT.get((int(s_), k_))
+        if yo_ is not None and co_: _ores[(co_, int(s_))] = yo_ - (SCALE[0][0] + SCALE[0][1] * (v_['ORtg'] - mP[s_][0]))
+def coach_va(coach):
+    if not coach: return 0.0
+    v = [_ores[(coach, y_)] for y_ in range(int(PROJ) - OVA_BACK, int(PROJ)) if (coach, y_) in _ores]
+    return (sum(v) / len(v)) * len(v) / (len(v) + OVA_K) if v else 0.0
+try:
+    _PDL = json.load(open(os.path.join(HERE, 'data', 'player_dna.json'))).get(LAST, {}).get('players', {})
+except Exception:
+    _PDL = {}
+def playmaker(k):
+    best = None
+    for p_ in _ROSTER.get(k, ()):
+        q = _PDL.get(str(p_))
+        if q and (q.get('mpg') or 0) >= 15 and q.get('ast_pct') is not None:
+            best = q['ast_pct'] if best is None else max(best, q['ast_pct'])
+    return (best - 25.0) / 10.0 if best is not None else 0.0
+print(f"offense add-ons: coach value-added for {sum(1 for c_, y_ in _ores if y_ >= int(PROJ) - OVA_BACK)} coach-seasons, playmakers from {len(_PDL)} {LAST} fingerprints")
+
 used = {0: 0, 1: 0, 2: 0}
 for k, t in P27.items():
     if t.get('ORtg_roster') is None or t.get('DRtg_roster') is None: continue
@@ -284,6 +314,8 @@ for k, t in P27.items():
     xo = feats(0, h, po, h1o, h2o, cm)
     xd = feats(1, h, pd, h1d, h2d, cm)
     o = mA[LAST][0] + owner_dev(0, po, h1o, h2o); d = mA[LAST][1] + owner_dev(1, pd, h1d, h2d)
+    _va = OVA_B * coach_va(cur_coach(k) if COACH_HIST else None); _pm = PLAY_B * playmaker(k)
+    o += _va + _pm; t['o_coach'] = round(_va, 2); t['o_playmaker'] = round(_pm, 2)
     t['ORtg'] = round(o, 1); t['DRtg'] = round(d, 1); t['net'] = round(t['ORtg'] - t['DRtg'], 1)
     t['calib'] = h; used[h] += 1
 
