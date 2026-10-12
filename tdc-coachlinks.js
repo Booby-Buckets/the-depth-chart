@@ -12,7 +12,6 @@ window.TDC_COACHLINKS = (function () {
       ['offense.html',         'Offense'],
       ['defense.html',         'Defense'],
       ['game-review.html',     'Game Review'],
-      ['game-breakdown.html',  'Game Breakdown'],
     ]],
     ['Self-Scout', [
       ['self-scout.html',     'Self-Scout Report'],
@@ -22,7 +21,6 @@ window.TDC_COACHLINKS = (function () {
     ]],
     ['Personnel', [
       ['dossier.html',        'Player Dossier'],
-      ['predictive-profile.html', 'Predictive Profile'],
       ['roles.html',         'Roles & Fit'],
       ['matchup-advantage.html', 'Matchup Advantage'],
       ['roster-dev.html',    'Development'],

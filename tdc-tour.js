@@ -278,7 +278,7 @@
     ],
 
     'coach-tier.html': [
-      { sel:'#marketingHero', t:"Coach's Tier", html:'The tools built for a staff. Everything here <b>informs</b> — it surfaces what the numbers say so you can apply your own system; it never tells you how to coach.' + bl('<b>Scouting</b> — the opponent.', '<b>Self-Scout</b> — your own team as an analyst sees it.', '<b>Player Intelligence</b> — every player graded, projected and fitted.', '<b>Game Prep</b> — turning the numbers into a plan.', '<b>Betting Edge</b> — the same data pointed at the market.') },
+      { sel:'#marketingHero', t:'Scouting & Game Prep', html:'The tools built for a staff. Everything here <b>informs</b> — it surfaces what the numbers say so you can apply your own system; it never tells you how to coach.' + bl('<b>Scouting</b> — the opponent.', '<b>Self-Scout</b> — your own team as an analyst sees it.', '<b>Player Intelligence</b> — every player graded, projected and fitted.', '<b>Game Prep</b> — turning the numbers into a plan.', '<b>Betting Edge</b> — the same data pointed at the market.') },
       { sel:'#ccPick', t:'Pick your program', d:'Set the team you represent once. Every tool below opens with it already selected, and the command center fills with your schedule.' },
       { sel:'#ccSchedCard', t:'Command center', d:'Your next games, each with a one-click scouting report on that opponent.' },
       { sel:'#filters', t:'Find a tool', d:'Filter the hubs by need — an opponent tonight, your rotation, a player you are evaluating, a plan for the week.' },
@@ -318,21 +318,12 @@
       { sel:'#out', t:'The dossier', html:'Everything a coach would want on one player:' + bl('<b>Projected line</b> — points, rebounds, assists, minutes for the coming season.', '<b>Situational identifiers</b> — pace sensitivity (better fast or slow?), pressure vulnerability (turnovers when pressed), foul risk, rotation volatility, matchup advantage. Built from twenty seasons of play-by-play.', '<b>Splits</b> — home/away, vs top teams, close games.', '<b>Form & availability</b> — recent trend and injury status.', '<b>Shot creation</b> — how he gets his shots: catch-and-shoot, off the dribble, at the rim.') }
     ],
 
-    'predictive-profile.html': [
-      { sel:'#sel', t:'Predictive Profile', d:'Pick any player.' },
-      { sel:'#out', t:'The scouting book', d:'How to use him and how to attack him. Each identifier is a prediction, not a summary: whether he thrives when the game speeds up, whether pressure creates turnovers, whether he is likely to foul, how stable his minutes are, and which kind of defender gives him trouble.' }
-    ],
 
     'lineups.html': [
       { sel:'#sel', t:'Lineup Recommender', d:'Pick the program and season.' },
       { sel:'#out', t:'The units', d:'Five-man units built from the projected rotation, ranked by the net rating (points per 100 possessions, scored minus allowed) each one projects to. Balance matters as much as talent: a unit with no spacing or no rim protection is marked down even if its five OVRs are high.' }
     ],
 
-    'game-breakdown.html': [
-      { sel:'#sel', t:'Game Breakdown', d:'Pick the program, then a game from its schedule.' },
-      { sel:'#games', t:'The games', d:'Every game on the slate; click one.' },
-      { sel:'#out', t:'The breakdown', html:bl('<b>Scoring flow</b> — the margin possession by possession, so you can see when the game was decided.', '<b>Runs</b> — the stretches that swung it and who was on the floor.', '<b>Top performers</b> — each player\'s line and his impact in that game.') }
-    ],
 
     'game-review.html': [
       { sel:'#sel', t:'Game Review', d:'Pick the program and a game.' },

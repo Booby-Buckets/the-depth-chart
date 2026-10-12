@@ -12,7 +12,7 @@
     { key: 'stats', label: 'Analytics', tabs: ['dna', 'onoff', 'projections'] },
     { key: 'shots', label: 'Shots', tabs: ['shots', 'shotq'] },
     { key: 'schedule', label: 'Schedule', tabs: ['schedule'] },
-    { key: 'coach', label: "Coach's Tier", tabs: ['mcoach', 'customize', 'report'] },
+    { key: 'coach', label: 'Scouting', tabs: ['mcoach', 'customize', 'report'] },
     { key: 'lineups', label: 'Lineups', tabs: ['lineups'] },
     { key: 'preview', label: 'Preview', tabs: ['preview'] },
     { key: 'nil', label: 'NIL', tabs: ['nil'] },
