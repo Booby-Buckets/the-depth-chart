@@ -39,13 +39,36 @@ function planFromPrice(unit_amount: number | null | undefined, interval: string 
   const yearly = interval === 'year'
   return unit_amount >= (yearly ? 8000 : 700) ? 'pro' : 'premium'
 }
+const stripePost = (path: string, form: Record<string, string>) => fetch(`https://api.stripe.com/v1/${path}`, {
+  method: 'POST', headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+  body: new URLSearchParams(form) }).then(r => r.json())
+// EXACT email match only. The admin users endpoint may ignore the ?email= filter and return the
+// first page of all users, so never fall back to users[0] — that would grant/revoke a stranger's plan.
 async function userIdByEmail(email: string): Promise<string | null> {
   if (!email) return null
   const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`,
     { headers: { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}` } })
   const d = await r.json()
-  const u = (d?.users || []).find((x: any) => (x.email || '').toLowerCase() === email.toLowerCase()) || d?.users?.[0]
+  const u = (d?.users || []).find((x: any) => (x.email || '').toLowerCase() === email.toLowerCase())
   return u?.id || null
+}
+// Account link that survives a different payment email: checkout stamps the Stripe customer with
+// metadata.tdc_user_id. Lifecycle events resolve the user from that, then from the subscription's
+// own checkout session (client_reference_id), and only last by email.
+const refUser = (ref: string | null | undefined) => { const r = ref || ''; const i = r.indexOf('__'); return (i > -1 ? r.slice(0, i) : r) || null }
+async function userIdForSubscription(sub: any): Promise<{ userId: string | null, email: string }> {
+  let email = ''
+  try {
+    const c = await stripeGet(`customers/${sub.customer}`)
+    email = c?.email || ''
+    if (c?.metadata?.tdc_user_id) return { userId: c.metadata.tdc_user_id, email }
+  } catch (_) { /* fall through */ }
+  try {
+    const cs = await stripeGet(`checkout/sessions?subscription=${encodeURIComponent(sub.id)}&limit=1`)
+    const uid = refUser(cs?.data?.[0]?.client_reference_id)
+    if (uid) { stripePost(`customers/${sub.customer}`, { 'metadata[tdc_user_id]': uid }).catch(() => {}); return { userId: uid, email } }
+  } catch (_) { /* fall through */ }
+  return { userId: await userIdByEmail(email), email }
 }
 async function setPlan(userId: string, plan: string, expiresIso: string | null) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`, {
@@ -118,7 +141,7 @@ serve(async (req) => {
         }
       )
       const userData = await userRes.json()
-      userId = userData?.users?.[0]?.id
+      userId = (userData?.users || []).find((x: any) => (x.email || '').toLowerCase() === email.toLowerCase())?.id || null
     }
 
     if (!userId) {
@@ -150,6 +173,12 @@ serve(async (req) => {
       return new Response('Failed to update profile', { status: 500 })
     }
 
+    // Tie the Stripe customer to this account so the portal + cancellations find it even when
+    // the payment email differs from the sign-in email.
+    if (STRIPE_SECRET_KEY && session.customer) {
+      try { await stripePost(`customers/${session.customer}`, { 'metadata[tdc_user_id]': userId }) } catch (e) { console.warn('customer metadata stamp failed', e) }
+    }
+
     console.log(`✅ Upgraded ${email || userId} to ${plan} until ${expiry.toISOString()}`)
   }
 
@@ -157,9 +186,7 @@ serve(async (req) => {
   if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
     const sub = event.data.object
     if (!STRIPE_SECRET_KEY) { console.warn('subscription event ignored: STRIPE_SECRET_KEY not set'); return new Response(JSON.stringify({ received: true, ignored: true }), { headers: { 'Content-Type': 'application/json' } }) }
-    let email = ''
-    try { const c = await stripeGet(`customers/${sub.customer}`); email = c?.email || '' } catch (_) { /* fall through */ }
-    const userId = await userIdByEmail(email)
+    const { userId, email } = await userIdForSubscription(sub)
     if (!userId) { console.error('subscription event: no user for', sub.customer, email); return new Response('User not found', { status: 404 }) }
     const periodEnd = sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null
     const dead = event.type === 'customer.subscription.deleted' || ['canceled', 'unpaid', 'incomplete_expired'].includes(sub.status)

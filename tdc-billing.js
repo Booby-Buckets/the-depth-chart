@@ -16,6 +16,13 @@ window.TDC_BILLING = (function () {
   var LINKS = { monthly: 'https://buy.stripe.com/8x25kF67o36U0ticUn33W00', yearly: 'https://buy.stripe.com/14AdRbeDUgXKcc0g6z33W01',
                 pro_monthly: 'https://buy.stripe.com/eVq3cx7bs6j67VK9Ib33W02', pro_yearly: 'https://buy.stripe.com/3cI00l8fwdLydg48E733W03' };
   function sess() { try { return JSON.parse(localStorage.getItem('tdc_session') || 'null'); } catch (e) { return null; } }
+  // Payment link stamped with this account (client_reference_id "<userId>__<planKey>") so the plan
+  // lands on the right account even if the member pays with a different email.
+  function link(planKey) {
+    var base = LINKS[planKey] || LINKS.monthly, s = sess(), u = s && s.user;
+    if (!u || !u.id) return 'pricing.html';
+    return base + '?prefilled_email=' + encodeURIComponent(u.email || '') + '&client_reference_id=' + encodeURIComponent(u.id + '__' + planKey);
+  }
   function esc(s) { return ('' + (s == null ? '' : s)).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function css() {
     if (document.getElementById('tdc-billing-css')) return;
@@ -47,7 +54,7 @@ window.TDC_BILLING = (function () {
       var r = await fetch(SB + '/functions/v1/stripe-portal', { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + s.access_token, 'Content-Type': 'application/json' }, body: JSON.stringify({ return_url: ret }) });
       var d = null; try { d = await r.json(); } catch (e) {}
       if (r.ok && d && d.url) { location.href = d.url; return; }
-      if (r.status === 404 && d && d.error === 'no_customer') { fail('We can’t find a Stripe subscription under ' + esc(s.user && s.user.email || 'this email') + '. If you paid with a different email, tell us and we’ll link it.'); return; }
+      if (r.status === 404 && d && d.error === 'no_customer') { fail('We couldn’t find a Stripe purchase linked to this account. If you paid with a different email, <a href="' + SUPPORT + '%20(link%20my%20payment)&body=' + encodeURIComponent('Account email: ' + (s.user && s.user.email || '') + '\nEmail I paid with: ') + '" style="color:var(--accent);font-weight:700;">send us that email</a> and we’ll link it the same day.'); return; }
       // function not deployed / not configured → fallbacks
       if (PORTAL_LOGIN) { location.href = PORTAL_LOGIN; return; }
       fail('Plan changes aren’t self-serve yet — email us and we’ll cancel or switch it the same day. <a href="' + SUPPORT + '" style="color:var(--accent);font-weight:700;">Email support →</a>');
@@ -66,17 +73,16 @@ window.TDC_BILLING = (function () {
     var badge = (window.TDC_BADGE ? TDC_BADGE.html(p, { size: '18px', ml: '6px' }) : '');
     if (!paid) {
       return '<div class="tdcb"><div class="h">Subscription</div><div class="kv"><span>Plan <b>Free</b></span></div>' +
-        '<div class="row"><a class="b primary" href="' + LINKS.monthly + '">Go Premium · $4.99/mo</a><a class="b" href="' + LINKS.pro_monthly + '">Go Pro · $8.99/mo</a><a class="b" href="pricing.html">Compare plans</a></div>' +
-        '<div class="note">Pay with the email on this account so access unlocks automatically.</div></div>';
+        '<div class="row"><a class="b primary" href="' + link('monthly') + '">Go Premium · $4.99/mo</a><a class="b" href="' + link('pro_monthly') + '">Go Pro · $8.99/mo</a><a class="b" href="pricing.html">Compare plans</a></div>' +
+        '<div class="note">Access unlocks on this account automatically, whatever email you pay with.</div></div>';
     }
-    var alt = plan === 'premium' ? '<a class="b" href="' + LINKS.pro_monthly + '">Upgrade to Pro</a>' : '';
     return '<div class="tdcb"><div class="h">Subscription</div>' +
       '<div class="kv"><span style="display:inline-flex;align-items:center">Plan <b style="margin-left:5px">' + esc(label) + '</b>' + badge + '</span>' + (when ? '<span>Renews <b>' + esc(when) + '</b></span>' : '') + '</div>' +
       '<div class="row"><button class="b primary manage" data-label="Manage subscription" onclick="TDC_BILLING.manage()">Manage subscription</button>' +
-      '<button class="b manage" data-label="Switch plan" onclick="TDC_BILLING.manage()">Switch plan</button>' + alt +
+      '<button class="b manage" data-label="Switch plan" onclick="TDC_BILLING.manage()">Switch plan</button>' +
       '<button class="b danger manage" data-label="Cancel" onclick="TDC_BILLING.manage()">Cancel</button></div>' +
       '<div class="msg"></div>' +
       '<div class="note">Opens Stripe’s secure billing portal: cancel any time (you keep access to the end of the period), switch Premium ⇄ Pro or monthly ⇄ yearly, update your card, and download invoices.' + (plan === 'coach' ? ' Coach’s Tier is invoiced directly — email us for changes.' : '') + '</div></div>';
   }
-  return { manage: manage, panel: panel, LINKS: LINKS };
+  return { manage: manage, panel: panel, link: link, LINKS: LINKS };
 })();
