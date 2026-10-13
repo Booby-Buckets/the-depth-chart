@@ -986,8 +986,13 @@
     ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r); ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath(); }
   function chip(t,x,y,u,o){ o=o||{}; var px=o.px||15*u, w=width(t,800,px)+px*.9, h=px*1.55; ctx.fillStyle=o.bg||'#fff'; rrect(o.right?x-w:x,y,w,h,4*u); ctx.fill();
     txt(t,(o.right?x-w:x)+w/2,y+h/2+.5,{ w:800,px:px,c:o.c||'#111',al:'center' }); }
+  // DEPTH CHART v2 (owner, Oct 13 2026): "more of a list" like a Field-of-68 conference-rankings graphic, no ESPN
+  // headshots — slot box · tile · name bar rows on a team-colour field, and the owner's OWN photo down the right side
+  // (uploaded here, stored with the doc, zoom + focus sliders). No photo = the list runs full width.
+  var MID_OPTS=[['cls','Class'],['ht','Height'],['num','Jersey #'],['ppg','Projected PPG'],['logo','Team logo'],['none','Nothing']];
   T.depth={
-    defaults:function(){ return { team:'', eyebrow:'', title:'Depth Chart', subtitle:SEASON+' projected starting five', benchLabel:'Bench', benchN:9, showNum:true, starters:[], bench:[] }; },
+    defaults:function(){ return { team:'', eyebrow:'', title:'Depth Chart', subtitle:'', benchLabel:'Bench', benchN:7, mid:'cls', showNote:true,
+      photo:'', zoom:100, fx:50, fy:30, starters:[], bench:[] }; },
     load:async function(d){
       if(!d.team) throw new Error('Pick a team first.'); var ps=await players(), rs=await ratings();
       var row=rs.find(function(t){ return onTeam(t.team,d.team); });
@@ -995,90 +1000,85 @@
       var seen={}, R=ps.filter(function(p){ if(!p.name||p.name==='—'||!onTeam(p.team,d.team)||out(p)) return false; var k=p.espn_id||p.name; if(seen[k]) return false; seen[k]=1; return true; });
       if(!R.length) throw new Error('No roster found for '+d.team+'.');
       R.sort(function(a,b){ var da=a.depth_order!=null?+a.depth_order:999, db=b.depth_order!=null?+b.depth_order:999; return da-db||(+b.mpg||0)-(+a.mpg||0); });
-      var mk=function(p,slot){ var h=String(p.hometown||'').trim(); return { pos:slot||String(p.position||'').toUpperCase(), name:p.name, team:p.team, espn:p.espn_id||null,
-        cls:clsShort(p.class_year||p.yr), num:p.jersey_number!=null&&p.jersey_number!==''?String(p.jersey_number):'', note:h&&!/^(injured|out)$/i.test(h)&&logoUrl(h)?'From '+school(h):'' }; };   // transfers only: a D-I school we can resolve (not a high school / D2 tag)
-      // the owner's top five, seated PG → C by position (then height)
+      var mk=function(p,slot){ var h=String(p.hometown||'').trim(), L=null; try{ L=TDCProjGrade.lineOf(p); }catch(e){}
+        return { pos:slot||'', name:p.name, team:p.team, espn:p.espn_id||null, cls:clsShort(p.class_year||p.yr), ht:String(p.height||''),
+          num:p.jersey_number!=null&&p.jersey_number!==''?String(p.jersey_number):'', ppg:L&&isFinite(+L.ppg)?(+L.ppg).toFixed(1):'',
+          note:h&&!/^(injured|out)$/i.test(h)&&logoUrl(h)?'From '+school(h):'' }; };   // transfers only: a D-I school we can resolve
       var five=R.slice(0,5).sort(function(a,b){ return posRank(a)-posRank(b)||(htIn(a.height)||0)-(htIn(b.height)||0); });
       d.starters=five.map(function(p,i){ return mk(p,SLOTS[i]); });
-      d.bench=R.slice(5,17).map(function(p){ return mk(p); });
-      d.eyebrow=row?(row.full||school(row.team)):school(d.team); d.title='Depth Chart'; d.subtitle=SEASON+' projected starting five';
+      d.bench=R.slice(5,17).map(function(p,i){ return mk(p,String(i+6)); });
+      d.eyebrow=(row?school(row.full||row.team):school(d.team))+' '+SEASON; d.title='Depth Chart'; d.subtitle=''; if(!d.mid) d.mid='cls';
     },
     editor:function(d){
       return '<h3>Data</h3><label class="f">Team</label><input data-k="team" list="tmList" value="'+esc(d.team||'')+'" placeholder="Pick a team">'+
         '<div class="btns"><button class="b sm primary" data-act="load">Load roster</button></div>'+
-        '<div class="hint">Uses your depth chart order (the top five start, seated PG → C); injured / out players are skipped. Edit anything after loading.</div>'+
-        '<div class="two"><div><label class="f">Bench players shown</label><input data-k="benchN" type="number" min="0" max="12" value="'+d.benchN+'"></div>'+
-        '<div><label class="chk" style="margin-top:28px"><input type="checkbox" data-k="showNum"'+(d.showNum?' checked':'')+'> Jersey numbers</label></div></div>'+
-        '<h3>Text</h3><label class="f">Top line</label><input data-k="eyebrow" value="'+esc(d.eyebrow||'')+'">'+
-        '<label class="f">Title</label><input data-k="title" value="'+esc(d.title)+'">'+
-        '<label class="f">Starting five label</label><input data-k="subtitle" value="'+esc(d.subtitle)+'">'+
+        '<div class="hint">Your depth chart order: the top five start (seated PG → C), then the bench as 6th, 7th…; injured / out players are skipped.</div>'+
+        '<div class="two"><div><label class="f">Middle tile shows</label><select data-k="mid">'+MID_OPTS.map(function(o){ return '<option value="'+o[0]+'"'+(d.mid===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')+'</select></div>'+
+        '<div><label class="f">Bench players shown</label><input data-k="benchN" type="number" min="0" max="12" value="'+d.benchN+'"></div></div>'+
+        '<label class="chk"><input type="checkbox" data-k="showNote"'+(d.showNote?' checked':'')+'> Small note in the name bar (e.g. “From Davidson”)</label>'+
+        '<h3>Photo</h3><input type="file" accept="image/*" data-photo="1">'+
+        (d.photo?'<div class="two"><div><label class="f">Zoom ('+d.zoom+'%)</label><input type="range" data-k="zoom" min="100" max="300" value="'+d.zoom+'"></div>'+
+          '<div><label class="f">Left ↔ right</label><input type="range" data-k="fx" min="0" max="100" value="'+d.fx+'"></div></div>'+
+          '<label class="f">Up ↕ down</label><input type="range" data-k="fy" min="0" max="100" value="'+d.fy+'">'+
+          '<div class="btns"><button class="b sm" data-act="nophoto">Remove photo</button></div>'
+          :'<div class="hint">Optional: a coach or player photo fills the right side. Without one, the list runs full width.</div>')+
+        '<h3>Text</h3><div class="two"><div><label class="f">Top line</label><input data-k="eyebrow" value="'+esc(d.eyebrow||'')+'"></div>'+
+        '<div><label class="f">Big line</label><input data-k="title" value="'+esc(d.title)+'"></div></div>'+
+        '<label class="f">Small line (optional)</label><input data-k="subtitle" value="'+esc(d.subtitle||'')+'">'+
         '<label class="f">Bench label</label><input data-k="benchLabel" value="'+esc(d.benchLabel||'')+'">'+
-        '<h3>Starting five</h3>'+fieldsEditor(d.starters,'starters',[{k:'pos',ph:'Pos',w:'44px'},{k:'name',ph:'Player',list:'plList',w:'minmax(0,1.4fr)'},{k:'cls',ph:'Yr',w:'50px'},{k:'num',ph:'#',w:'38px'}])+
-        '<h3>Bench ('+d.bench.length+')</h3>'+fieldsEditor(d.bench,'bench',[{k:'name',ph:'Player',list:'plList',w:'minmax(0,1.3fr)'},{k:'cls',ph:'Yr',w:'50px'},{k:'note',ph:'Note (e.g. From Gonzaga)'}])+
+        '<h3>Starting five</h3>'+fieldsEditor(d.starters,'starters',[{k:'pos',ph:'Slot',w:'44px'},{k:'name',ph:'Player',list:'plList',w:'minmax(0,1.4fr)'},{k:'cls',ph:'Yr',w:'50px'},{k:'note',ph:'Note'}])+
+        '<h3>Bench ('+d.bench.length+')</h3>'+fieldsEditor(d.bench,'bench',[{k:'pos',ph:'Slot',w:'44px'},{k:'name',ph:'Player',list:'plList',w:'minmax(0,1.3fr)'},{k:'cls',ph:'Yr',w:'50px'},{k:'note',ph:'Note'}])+
         '<div class="btns"><button class="b sm" data-act="add" data-path="bench">+ Add bench player</button></div>';
     },
     draw:async function(d,W,H,u,pad){
-      var team=d.team||'', tc=teamDark(team), ta=teamAcc(team), dark=P.bg!==THEMES.light.bg;
+      var team=d.team||'', tc=teamDark(team), ta=teamAcc(team), mid=d.mid||'cls';
+      if(lum(ta)<.07) ta=mixHex(ta,'#ffffff',.55);                          // a near-black second colour can't carry the big line
+      P=Object.assign({},THEMES.dark,{ bg:tc, line:'rgba(255,255,255,.16)', mut:'rgba(255,255,255,.62)', text:'#fff', text2:'rgba(255,255,255,.85)' });
       bg(W,H);
-      // grid paper
-      ctx.save(); ctx.strokeStyle=P.line; ctx.globalAlpha=dark?.35:.45; ctx.lineWidth=Math.max(1,u*.8); var gs=36*u;
-      for(var gx=gs;gx<W;gx+=gs){ ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,H); ctx.stroke(); }
-      for(var gy=gs;gy<H;gy+=gs){ ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(W,gy); ctx.stroke(); } ctx.restore();
-      if(!d.starters.length){ txt('Pick a team and load the roster on the left',W/2,H/2,{ px:28*u,c:P.mut,al:'center' }); return ''; }
-      var land=W>H*1.2, fTop=foot(W,H,u,pad);
-      // team band: top line + giant condensed title, logo on the right
-      var bandH=(land?190:Math.min(260,H*.19/u))*u; ctx.fillStyle=tc; ctx.fillRect(0,0,W,bandH);
-      ctx.fillStyle=ta; ctx.fillRect(0,bandH-6*u,W,6*u);
-      var lg=await img(logoUrl(team)), ls=bandH*.52;
-      if(lg){ ctx.save(); ctx.globalAlpha=.14; drawFit(lg,W-ls*1.9,bandH*.5-ls*.95,ls*1.9); ctx.restore(); }
-      txt(String(d.eyebrow||'').toUpperCase(),W/2,bandH*.18,{ w:800,px:22*u,c:'rgba(255,255,255,.88)',al:'center',ls:6*u,max:W-pad*2 });
-      txt(String(d.title||'').toUpperCase(),W/2,bandH*.64,{ px:Math.min(bandH*.56,150*u),serif:'anton',c:'#fff',al:'center',ls:2*u,max:W-pad*2 });
-      // STARTING FIVE label in the team colour
-      var y=bandH+(land?40:52)*u;
-      txt(String(d.subtitle||'').toUpperCase(),W/2,y,{ px:(land?34:42)*u,serif:'anton',c:dark?ta:tc,al:'center',ls:1.5*u,max:W-pad*2 });
-      var st=d.starters.filter(function(r){ return r.name; }).slice(0,5), bn=d.bench.filter(function(r){ return r.name; }).slice(0,Math.max(0,+d.benchN||0));
-      var cols=land?5:3, brows=Math.ceil(bn.length/cols);
-      // vertical budget: starters block, then the bench band + rows
-      var top=y+34*u, room=fTop-top-14*u, gap=14*u, cw=(W-pad*2-gap*(st.length-1))/Math.max(1,st.length);
-      // size the starter cards so the bench rows land at a target height, then let the bench fill whatever is left
-      var benchFixed=bn.length?(10+44+12)*u+brows*(land?78:100)*u:0;
-      var ch=Math.min(cw*1.3,(room-benchFixed)/1.67), over=ch*.32, nameH=ch*.35;
-      var cardTop=top+over;
-      await Promise.all(st.concat(bn).map(function(r){ return r.espn?img(shotUrl(r.espn)):null; }));
-      for(var i=0;i<st.length;i++){ var r=st[i], x=pad+i*(cw+gap), rad=16*u, sh=r.espn?await img(shotUrl(r.espn)):null;
-        ctx.fillStyle=tc; rrect(x,cardTop,cw,ch,rad); ctx.fill();
-        ctx.save(); var gr=ctx.createLinearGradient(0,cardTop,0,cardTop+ch); gr.addColorStop(0,'rgba(255,255,255,.10)'); gr.addColorStop(1,'rgba(0,0,0,.18)'); ctx.fillStyle=gr; rrect(x,cardTop,cw,ch,rad); ctx.fill(); ctx.restore();
-        if(sh){ ctx.save(); rrect(x,cardTop,cw,ch,rad); ctx.rect(x,cardTop-over,cw,over+rad); ctx.clip('nonzero');
-          var ih=ch*1.4, iw=ih*(sh.width/sh.height); ctx.drawImage(sh,x+(cw-iw)/2,cardTop+ch-ih,iw,ih); ctx.restore(); }   // the head clears the card top
-        else if(lg){ ctx.save(); ctx.globalAlpha=.9; drawFit(lg,x+cw*.2,cardTop+ch*.18,cw*.6); ctx.restore(); }
-        if(r.pos) chip(String(r.pos).toUpperCase(),x+8*u,cardTop+8*u,u,{ bg:'#fff', c:tc, px:15*u });
-        if(r.cls) chip(r.cls,x+cw-8*u,cardTop+8*u,u,{ bg:ta, c:lum(ta)>.35?'#111':'#fff', px:13*u, right:true });
-        var nm=splitName(r.name), ny=cardTop+ch+nameH*.26;
-        txt((nm[0]+(d.showNum&&r.num?'  #'+r.num:'')).toUpperCase(),x+cw/2,ny,{ w:700,px:Math.min(17*u,cw*.1),c:P.text2,al:'center',ls:1.2*u,max:cw-4*u });
-        txt(nm[1].toUpperCase(),x+cw/2,ny+nameH*.48,{ px:Math.min(nameH*.52,cw*.24),serif:'anton',c:P.text,al:'center',max:cw-4*u });
-      }
-      if(bn.length){
-        var by=cardTop+ch+nameH+10*u, bh=44*u;
-        ctx.fillStyle=tc; ctx.fillRect(pad,by,W-pad*2,bh); ctx.fillStyle=ta; ctx.fillRect(pad,by+bh-4*u,W-pad*2,4*u);
-        txt(String(d.benchLabel||'Bench').toUpperCase(),W/2,by+bh/2-1*u,{ px:28*u,serif:'anton',c:'#fff',al:'center',ls:3*u });
-        var gy0=by+bh+12*u, bgap=12*u, bw=(W-pad*2-bgap*(cols-1))/cols, rh=Math.min(140*u,(fTop-10*u-gy0)/Math.max(1,brows)), bch=rh-10*u;
-        for(var j=0;j<bn.length;j++){ var b=bn[j], cx=pad+(j%cols)*(bw+bgap), cy=gy0+Math.floor(j/cols)*rh, sh2=b.espn?await img(shotUrl(b.espn)):null;
-          ctx.save(); ctx.fillStyle=dark?mixHex(tc,'#000000',.25):mixHex(tc,'#ffffff',.86); rrect(cx,cy,bw,bch,10*u); ctx.fill(); ctx.restore();
-          var hw=bch*1.05;
-          if(sh2){ ctx.save(); rrect(cx,cy,bw,bch,10*u); ctx.clip(); ctx.fillStyle=tc; ctx.fillRect(cx,cy,hw,bch);
-            var ih2=bch*1.18, iw2=ih2*(sh2.width/sh2.height); ctx.drawImage(sh2,cx+(hw-iw2)/2,cy+bch-ih2+2*u,iw2,ih2); ctx.restore(); }
-          else { ctx.save(); rrect(cx,cy,hw,bch,10*u); ctx.fillStyle=tc; ctx.fill(); ctx.restore(); if(lg) drawFit(lg,cx+hw*.15,cy+bch*.15,hw*.7); }
-          var tx=cx+hw+10*u, tw=bw-hw-16*u, n2=splitName(b.name);
-          if(b.cls) chip(b.cls,cx+bw-6*u,cy+6*u,u,{ bg:tc, c:'#fff', px:11*u, right:true });
-          var fz=Math.min(bch*.17,14*u), lz=Math.min(bch*.36,30*u), hasNote=b.note&&bch>70*u;
-          var ty=cy+bch*(hasNote?.27:.34);
-          txt((n2[0]+(d.showNum&&b.num?'  #'+b.num:'')).toUpperCase(),tx,ty,{ w:700,px:fz,c:dark?'#E8ECF4':P.text2,ls:1*u,max:tw-(b.cls?40*u:0) });
-          txt(n2[1].toUpperCase(),tx,ty+fz*.6+lz*.62,{ px:lz,serif:'anton',c:dark?'#fff':tc,max:tw });
-          if(hasNote) txt(b.note,tx,cy+bch*.86,{ w:600,px:Math.min(12*u,bch*.13),c:P.mut,max:tw });
-        }
-      }
-      var sc=school(team);
-      return sc+' '+(d.subtitle||'projected starting five').toLowerCase()+':\n\n'+st.map(function(r){ return (r.pos?r.pos+' ':'')+r.name; }).join('\n')+
+      // texture: fine dot grid, darker toward the bottom
+      ctx.save(); ctx.fillStyle='rgba(255,255,255,.05)'; var gs=10*u; for(var gx=gs/2;gx<W;gx+=gs) for(var gy=gs/2;gy<H;gy+=gs){ ctx.fillRect(gx,gy,1.2*u,1.2*u); }
+      var vg=ctx.createLinearGradient(0,0,0,H); vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,.35)'); ctx.fillStyle=vg; ctx.fillRect(0,0,W,H); ctx.restore();
+      var land=W>H*1.2, fTop=foot(W,H,u,pad), ph=d.photo?await img(d.photo):null;
+      var listR=ph?W*(land?.5:.54):W-pad;
+      // the photo: cover-fit into the right side, zoom + focus, fading into the field on its left edge
+      if(ph){ var px0=W*(land?.44:.48), pw=W-px0, phh=fTop-6*u, z=Math.max(1,(+d.zoom||100)/100);
+        var sc=Math.max(pw/ph.width,phh/ph.height)*z, iw=ph.width*sc, ih=ph.height*sc;
+        var ix=px0-(iw-pw)*((+d.fx||0)/100), iy=-(ih-phh)*((+d.fy||0)/100);
+        ctx.save(); ctx.beginPath(); ctx.rect(px0,0,pw,phh); ctx.clip(); ctx.drawImage(ph,ix,iy,iw,ih);
+        var fg=ctx.createLinearGradient(px0,0,px0+pw*.32,0); fg.addColorStop(0,tc); fg.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=fg; ctx.fillRect(px0,0,pw*.32,phh);
+        var bgd=ctx.createLinearGradient(0,phh-90*u,0,phh); bgd.addColorStop(0,'rgba(0,0,0,0)'); bgd.addColorStop(1,tc); ctx.fillStyle=bgd; ctx.fillRect(px0,phh-90*u,pw,90*u); ctx.restore(); }
+      // title: white top line, giant accent line
+      var tw=listR-pad, y=pad+(land?40:56)*u;
+      var e=txt(String(d.eyebrow||'').toUpperCase(),pad,y,{ px:(land?62:80)*u,serif:'anton',c:'#fff',max:tw,ls:.5*u });
+      y+=e*.55+(land?44:62)*u;
+      var t=txt(String(d.title||'').toUpperCase(),pad,y,{ px:(land?92:124)*u,serif:'anton',c:ta,max:tw,ls:.5*u });
+      y+=t*.62;
+      if(d.subtitle){ y+=24*u; txt(String(d.subtitle).toUpperCase(),pad,y,{ w:700,px:18*u,c:P.mut,ls:2.5*u,max:tw }); y+=8*u; }
+      y+=(land?22:34)*u;
+      var st=d.starters.filter(function(r){ return r.name; }), bn=d.bench.filter(function(r){ return r.name; }).slice(0,Math.max(0,+d.benchN||0));
+      if(!st.length){ txt('Pick a team and load the roster on the left',pad,(y+fTop)/2,{ px:24*u,c:P.mut,max:tw }); return ''; }
+      var n=st.length+bn.length, lblH=bn.length?(land?30:40)*u:0, gap=Math.max(5*u,8*u);
+      var rh=Math.min(78*u,(fTop-18*u-y-lblH)/n-gap); var fs=rh*.56;
+      var lg=mid==='logo'?await img(logoUrl(team)):null;
+      var row=function(r,yy){
+        var bw=rh*1.08, mw=mid==='none'?0:(mid==='logo'?rh*1.7:rh*1.5), x=pad;
+        ctx.fillStyle='#fff'; ctx.fillRect(x,yy,bw,rh); txt(String(r.pos||'').toUpperCase(),x+bw/2,yy+rh/2+1,{ px:fs*(String(r.pos||'').length>2?.8:1),serif:'anton',c:'#0d0d0d',al:'center',max:bw-6*u });
+        x+=bw+gap*.8;
+        if(mw){ ctx.fillStyle=ta; ctx.fillRect(x,yy,mw,rh);
+          if(mid==='logo'){ if(lg) drawFit(lg,x+mw*.15,yy+rh*.08,Math.min(mw*.7,rh*.84)); }
+          else { var mv=r[mid]||''; txt(String(mv).toUpperCase(),x+mw/2,yy+rh/2+1,{ px:fs*.82,serif:'anton',c:lum(ta)>.4?'#111':'#fff',al:'center',max:mw-8*u }); }
+          x+=mw+gap*.8; }
+        var nw=listR-x; ctx.save(); ctx.fillStyle='rgba(0,0,0,.22)'; ctx.fillRect(x,yy,nw,rh); ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineWidth=Math.max(1.5,2*u); ctx.strokeRect(x+1*u,yy+1*u,nw-2*u,rh-2*u); ctx.restore();
+        var note=d.showNote&&r.note?String(r.note):'', nwid=note?Math.min(width(note,600,fs*.36)+4*u,nw*.38):0;
+        txt(String(r.name||'').toUpperCase(),x+16*u,yy+rh/2+1,{ px:rh*.5,serif:'anton',c:'#fff',max:nw-32*u-(nwid?nwid+10*u:0),ls:.5*u });
+        if(note) txt(note,x+nw-14*u,yy+rh/2,{ w:600,px:fs*.36,c:'rgba(255,255,255,.7)',al:'right',max:nwid });
+      };
+      var yy=y; st.forEach(function(r){ row(r,yy); yy+=rh+gap; });
+      if(bn.length){ var ly=yy+lblH*.42; txt(String(d.benchLabel||'Bench').toUpperCase(),pad,ly,{ px:lblH*.62,serif:'anton',c:ta,ls:2*u });
+        var lx=pad+width(String(d.benchLabel||'Bench').toUpperCase(),400,lblH*.62,'anton')+16*u; ctx.fillStyle='rgba(255,255,255,.3)'; ctx.fillRect(lx,ly,listR-lx,Math.max(1,1.5*u));
+        yy+=lblH; bn.forEach(function(r){ row(r,yy); yy+=rh+gap; }); }
+      var sc2=school(team);
+      return sc2+' '+(d.title||'depth chart').toLowerCase()+':\n\n'+st.map(function(r){ return (r.pos?r.pos+' ':'')+r.name; }).join('\n')+
         (bn.length?'\n\nOff the bench: '+bn.slice(0,6).map(function(r){ return r.name; }).join(', '):'')+'\n\nFull depth chart → '+SITE+'\n\n#CollegeBasketball #CBB';
     }
   };
@@ -1157,6 +1157,11 @@
     else return;
     save(); later();
   });
+  // a photo for the depth chart: downscaled to ≤1600px JPEG so it fits in this browser's saved state
+  $('editor').addEventListener('change',function(e){ var el=e.target; if(!el.dataset.photo||!el.files||!el.files[0]) return; e.stopImmediatePropagation();
+    var fr=new FileReader(); fr.onload=function(){ var im=new Image(); im.onload=function(){ var k=Math.min(1,1600/Math.max(im.width,im.height)), c=document.createElement('canvas');
+      c.width=Math.round(im.width*k); c.height=Math.round(im.height*k); c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+      var d=doc(); d.photo=c.toDataURL('image/jpeg',.86); d.zoom=100; d.fx=50; d.fy=30; save(); paintEditor(); render(); }; im.src=fr.result; }; fr.readAsDataURL(el.files[0]); },true);
   $('editor').addEventListener('change',function(e){ var el=e.target; if(el.dataset.k) doc()[el.dataset.k]=el.type==='checkbox'?el.checked:el.value;
     if(el.type==='checkbox'||el.tagName==='SELECT'){ save(); render(); }
     if(e.target.dataset.k==='val2Label'){ paintEditor(); }
@@ -1169,6 +1174,7 @@
     if(act==='del'){ arr.splice(i,1); }
     if(act==='add'){ arr.push({ name:'', team:'', val:'' }); }
     if(act==='clear'){ arr.length=0; }
+    if(act==='nophoto'){ d.photo=''; }
     if(act==='addaward'){ d.awards.push({ label:'Award', name:'', team:'' }); }
     save(); paintEditor(); render();
   });
