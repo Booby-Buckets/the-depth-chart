@@ -904,6 +904,38 @@ function pastRoster(row,yr){
   }).catch(function(){ if(!stale()){ le.innerHTML='<div class="hx-empty">Could not load the roster.</div>'; se.innerHTML=''; } });
 }
 
+// The starting five exactly as team.html's depth sheet seats it (mirror of the _five block in renderHistoricRoster):
+// the owner's healthy depth 1-5 keep their jobs; an open spot (a starter is out) goes to the bench player among the
+// next few in depth order whose position fits best (SKIP per man passed over); then the five are arranged into
+// PG/SG/SF/PF/C minimising the squared out-of-position distance (+0.25 when not his exact listed spot).
+// `list` = [{p,...}] in depth order, healthy players only. Returns the five, each with .slot set.
+function seatFive(list){
+  var SL=['PG','SG','SF','PF','C'], IDX={PG:0,SG:1,SF:2,PF:3,C:4};
+  var rsls=function(x){ x=(''+(x||'')).toUpperCase().trim();
+    if(x==='PG')return ['PG']; if(x==='SG')return ['SG']; if(x==='G'||x==='CG')return ['PG','SG'];
+    if(x==='SF')return ['SF']; if(x==='GF')return ['SG','SF']; if(x==='F')return ['SF','PF'];
+    if(x==='PF')return ['PF']; if(x==='C')return ['C']; return []; };
+  var oop=function(p,sl){ var L=rsls(p.position).concat(rsls(p.position2)); if(!L.length) return 0; return Math.min.apply(null,L.map(function(s){ return Math.abs(IDX[s]-IDX[sl]); })); };
+  var cost=function(x,sl){ var d=oop(x.p,sl); return d*d+((''+(x.p.position||'')).toUpperCase()===sl?0:0.25); };
+  var arrange=function(five){ var best=null, bestC=1e9, a=five.slice();
+    var perm=function(k){ if(k===a.length){ var c=a.reduce(function(t,x,i){ return t+cost(x,SL[i]); },0); if(c<bestC){ bestC=c; best=a.slice(); } return; }
+      for(var i=k;i<a.length;i++){ var t=a[k]; a[k]=a[i]; a[i]=t; perm(k+1); t=a[k]; a[k]=a[i]; a[i]=t; } };
+    perm(0); return { five:best||five, c:bestC }; };
+  var dOf=function(x){ var d=parseFloat(x.p.depth_order); return isFinite(d)?d:999; };
+  var ord=list.slice().sort(function(a,b){ return dOf(a)-dOf(b); });
+  if(ord.length<=5){ var r0=ord.length===5?arrange(ord).five:ord; return r0.map(function(x,i){ x.slot=ord.length===5?SL[i]:null; return x; }); }
+  var kept=ord.filter(function(x){ return dOf(x)<=5; }), bench=ord.filter(function(x){ return dOf(x)>5; }), open=5-kept.length, SKIP=0.6, five;
+  if(open<=0) five=arrange(ord.slice(0,5)).five;
+  else if(bench.length>=open){
+    var pool=bench.slice(0,open+2), bestF=null, bestT=1e9;
+    var pick=function(start,chosen){ if(chosen.length===open){ var r=arrange(kept.concat(chosen)), skip=chosen.reduce(function(t,x){ return t+pool.indexOf(x); },0)-(open*(open-1))/2;
+        var tot=r.c+SKIP*skip; if(tot<bestT){ bestT=tot; bestF=r.five; } return; }
+      for(var i=start;i<pool.length;i++) pick(i+1,chosen.concat([pool[i]])); };
+    pick(0,[]); five=bestF;
+  } else five=arrange(ord.slice(0,5)).five;
+  return five.map(function(x,i){ x.slot=SL[i]; return x; });
+}
+
 // ── roster (Oct 2026 redesign, mockup C): the starting five across the page, the bench as a sheet, and how the
 // roster was built (each player's path + last year's OVR → this year's). One players fetch; lines are the build's
 // reconciled projection (TDCProjGrade.lineOf, the team page's depth sheet source); OVR = gradeSolo.
@@ -929,10 +961,12 @@ function loadRoster(row){
         });
         if(!arr.length){ fe.innerHTML='<div class="hx-empty">No roster on file for this program yet.</div>'; return; }
         var healthy=arr.filter(function(x){ return !x.out; });
-        var five=healthy.slice(0,5), bench=healthy.slice(5).filter(function(x){ return x.mpg==null||x.mpg>=0.5; }), hurt=arr.filter(function(x){ return x.out; });
+        var five=seatFive(healthy), inFive=five.map(function(x){ return x.p; });
+        var bench=healthy.filter(function(x){ return inFive.indexOf(x.p)<0; }).filter(function(x){ return x.mpg==null||x.mpg>=0.5; }), hurt=arr.filter(function(x){ return x.out; });
         var hc=function(o){ return o==null?'':o>=85?'c4':o>=80?'c3':o>=75?'c2':o>=70?'c1':'c0'; };
         fe.innerHTML=five.map(function(x){ var p=x.p, L=x.L;
-          return '<div><div class="pos">'+esc(p.position||'')+(p.yr||p.class_year?' · '+esc(p.yr||p.class_year):'')+'</div><div class="ovr">'+(x.ov==null?'—':x.ov)+'</div><div class="nm">'+link(p)+'</div>'+
+          var pl=x.slot||p.position||'', ownPos=(p.position||'').toUpperCase();
+          return '<div><div class="pos">'+esc(pl)+(x.slot&&ownPos&&ownPos!==x.slot?' <span title="Listed '+esc(ownPos)+'" style="opacity:.6">('+esc(ownPos)+')</span>':'')+(p.yr||p.class_year?' · '+esc(p.yr||p.class_year):'')+'</div><div class="ovr">'+(x.ov==null?'—':x.ov)+'</div><div class="nm">'+link(p)+'</div>'+
             '<div class="ln">'+(L.ppg!=null?f1(L.ppg)+' pts · '+f1(L.rpg)+' reb · '+f1(L.apg)+' ast · '+Math.round(x.mpg||0)+' min':'<span class="dim">no projected line yet</span>')+'</div></div>'; }).join('');
         le.innerHTML='<div class="sheet-wrap"><table class="sheet dense hq-bench" data-fit-keep><thead><tr><th class="l">Slot</th><th>OVR</th><th class="l">Player</th><th class="l" title="projected minutes">Min</th><th>Pts</th><th class="hq-hide-ph">Reb</th></tr></thead><tbody>'+
           bench.map(function(x,i){ return '<tr><td class="l dim">'+ord(i+6)+'</td><td class="'+hc(x.ov)+'"><b>'+(x.ov==null?'—':x.ov)+'</b></td><td class="l nm">'+link(x.p)+'</td><td class="l"><span class="hq-bar"><i style="width:'+Math.min(100,(x.mpg||0)/40*100)+'%"></i></span>'+f1(x.mpg)+'</td><td>'+f1(x.L.ppg)+'</td><td class="hq-hide-ph">'+f1(x.L.rpg)+'</td></tr>'; }).join('')+
