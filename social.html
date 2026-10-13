@@ -98,6 +98,7 @@
         <button data-v="onoff">On/Off swings</button>
         <button data-v="after">Shot value</button>
         <button data-v="confodds">Conference odds</button>
+        <button data-v="nil">NIL value</button>
         <button data-v="list" class="on">Ranked list</button>
         <button data-v="allconf">All-Conference</button>
         <button data-v="matchup">Matchup</button>
@@ -458,8 +459,12 @@
     // median guides
     var med=function(a){ var s=a.slice().sort(function(p,q){ return p-q; }); return s[Math.floor(s.length/2)]; };
     var mx=o.midX!=null?o.midX:med(xs), my=o.midY!=null?o.midY:med(ys);
-    ctx.save(); ctx.setLineDash([6*u,6*u]); ctx.strokeStyle=P.acc; ctx.lineWidth=Math.max(1.2,1.5*u);
-    ctx.beginPath(); ctx.moveTo(X(mx),Tp); ctx.lineTo(X(mx),B); ctx.moveTo(L,Y(my)); ctx.lineTo(R,Y(my)); ctx.stroke(); ctx.restore();
+    if(!o.noMed){ ctx.save(); ctx.setLineDash([6*u,6*u]); ctx.strokeStyle=P.acc; ctx.lineWidth=Math.max(1.2,1.5*u);
+      ctx.beginPath(); ctx.moveTo(X(mx),Tp); ctx.lineTo(X(mx),B); ctx.moveTo(L,Y(my)); ctx.lineTo(R,Y(my)); ctx.stroke(); ctx.restore(); }
+    if(o.line){ var k=o.line.k, b0=o.line.b||0, fy=function(x){ return k*x+b0; };   // y = k·x + b across the visible window
+      ctx.save(); ctx.beginPath(); ctx.rect(L,Tp,R-L,B-Tp); ctx.clip(); ctx.setLineDash([8*u,6*u]); ctx.strokeStyle=P.acc; ctx.lineWidth=Math.max(1.5,2*u);
+      ctx.beginPath(); ctx.moveTo(X(x0),Y(fy(x0))); ctx.lineTo(X(x1),Y(fy(x1))); ctx.stroke(); ctx.restore();
+      if(o.line.label){ var lx2=k>0?Math.min(x1,(y1d-b0)/k):x1; lx2=x0+(lx2-x0)*.94; txt(o.line.label.toUpperCase(),X(lx2),Y(fy(lx2))-12*u,{ w:800,px:13*u,c:P.acc,al:'right',ls:1.2*u }); } }
     // dots: lowest-priority first so the stars sit on top
     var s=o.dot||Math.max(26*u,Math.min(54*u,(R-L)/Math.sqrt(pts.length)/3.2));
     var order=pts.slice().sort(function(a,b){ return (a.pri||0)-(b.pri||0); });
@@ -845,6 +850,70 @@
     }
   };
 
+  // ── NIL: our market value estimate vs. what a player (or roster) actually produces ──
+  function nilPool(j,d){ var all=[]; Object.keys(j.teams).forEach(function(t){ (j.teams[t].players||[]).forEach(function(p){ if(+p.mpg>=(+d.minMpg||20)&&+p.value>0&&p.wa!=null&&(!d.conf||confName(p.conf)===d.conf)) all.push(p); }); });
+    // a transfer can sit on two rosters in the NIL file: keep one row per player (the higher-minutes one)
+    var by={}; all.forEach(function(p){ var key=p.espn_id||p.name; if(!by[key]||(+p.mpg)>(+by[key].mpg)) by[key]=p; }); all=Object.keys(by).map(function(x){ return by[x]; });
+    var n=all.length||1, mx=all.reduce(function(a,p){ return a+(+p.wa); },0)/n, my=all.reduce(function(a,p){ return a+(+p.value); },0)/n;
+    var sxy=all.reduce(function(a,p){ return a+(p.wa-mx)*(p.value-my); },0), sxx=all.reduce(function(a,p){ return a+(p.wa-mx)*(p.wa-mx); },0)||1;
+    var k=sxy/sxx, b=my-k*mx; all.forEach(function(p){ p._gap=(k*p.wa+b)-p.value; }); return { all:all, k:k, b:b }; }
+  T.nil={
+    defaults:function(){ return { mode:'players', conf:'', n:40, labels:12, minMpg:20, title:'Who’s Worth the Money?', subtitle:SEASON+' projected NIL value vs. projected production', note:'NIL = our market-value estimate ($M) · production = projected Wins Added · line = going rate', rows:[] }; },
+    load:async function(d){
+      var j=await json('nil-data.json'); await ratings();
+      if(d.mode==='bargain'||d.mode==='pricey'){
+        var all=nilPool(j,d).all;
+        all.sort(function(a,b){ return d.mode==='bargain'?b._gap-a._gap:a._gap-b._gap; });
+        d.rows=all.slice(0,+d.n>20?12:(+d.n||12)).map(function(p){ return { name:p.name, team:p.team, espn:p.espn_id||null, sub:school(p.team)+' · $'+(+p.value).toFixed(2)+'M · '+(+p.wa).toFixed(1)+' WA', val:p._gap.toFixed(2) }; });
+        d.title=d.mode==='bargain'?'The Best NIL Bargains':'The Priciest NIL Bets'; d.subtitle=SEASON+' · projected production minus price';
+        d.note='$M of production above (or below) his estimated NIL value, at the going rate per Win Added';
+      } else if(d.mode==='teams'){
+        d.title='Who’s Spending Over Budget?'; d.subtitle=SEASON+' · roster NIL value vs. estimated budget'; d.note='NIL = our market-value estimate ($M) · budget estimated from program tier';
+      } else {
+        d.title='Who’s Worth the Money?'; d.subtitle=SEASON+' projected NIL value vs. projected production'; d.note='NIL = our market-value estimate ($M) · production = projected Wins Added · line = going rate';
+      }
+    },
+    editor:function(d){
+      var rowsUI=(d.mode==='bargain'||d.mode==='pricey');
+      return '<h3>Data</h3><label class="f">Chart</label><select data-k="mode">'+
+        [['players','Players: NIL value vs. production (scatter)'],['teams','Rosters: NIL value vs. budget (scatter)'],['bargain','Best bargains (bars)'],['pricey','Priciest bets (bars)']].map(function(m){ return '<option value="'+m[0]+'"'+(d.mode===m[0]?' selected':'')+'>'+m[1]+'</option>'; }).join('')+'</select>'+
+        '<div class="two"><div><label class="f">How many</label><input data-k="n" type="number" min="5" max="120" value="'+d.n+'"></div><div><label class="f">Min. projected mpg</label><input data-k="minMpg" type="number" min="5" max="35" value="'+d.minMpg+'"></div></div>'+
+        '<label class="f">Conference</label><select data-k="conf">'+confOpts(d.conf)+'</select>'+
+        (rowsUI?'<div class="btns"><button class="b sm primary" data-act="load">Load / refresh data</button></div>':(d.mode==='players'?'<div class="hint">Plots the top earners plus the top producers (half each).</div>':'')+'<label class="f">Name labels (top N)</label><input data-k="labels" type="number" min="0" max="60" value="'+d.labels+'">')+
+        textEditor(d)+(rowsUI?'<h3>Rows ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',[{k:'name',ph:'Player',list:'plList',w:'minmax(0,1.3fr)'},{k:'team',ph:'Team',list:'tmList'},{k:'val',ph:'$M',w:'56px'}]):'');
+    },
+    draw:async function(d,W,H,u,pad){
+      bg(W,H); var y0=head(W,u,pad,d.title,d.subtitle), fTop=foot(W,H,u,pad); fTop-=noteLine(W,u,pad,fTop,d.note);
+      if(d.mode==='bargain'||d.mode==='pricey'){
+        await hbars(W,H,u,pad,y0,fTop,d.rows,{ plus:true, dec:2, color:function(v){ return v>=0?'#2E8B57':'#C0504D'; } });
+        return d.title+' ('+d.subtitle+')\n\n'+d.rows.slice(0,3).map(function(r){ return r.name+' ('+school(r.team)+') '+(+r.val>0?'+':'')+'$'+Math.abs(+r.val).toFixed(2)+'M'; }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #NIL #CBB';
+      }
+      var j=await json('nil-data.json'), pts=[], k;
+      if(d.mode==='teams'){
+        var ts=(D.ratings||[]).filter(function(t){ return !d.conf||confName(t.conf)===d.conf; }).slice(0,+d.n||40);
+        ts.forEach(function(t,i){ var x=j.teams[t.team]; if(x&&x.budget!=null&&x.value!=null) pts.push({ x:+x.budget, y:+x.value, team:t.team, lab:school(t.full||t.team), pri:Math.abs(x.value-x.budget) }); });
+        k=1;
+      } else {
+        var F=nilPool(j,d), all=F.all; k=F.k; var b=F.b;
+        var half=Math.ceil((+d.n||40)/2), seen={}, sel=[];
+        all.slice().sort(function(a,b2){ return b2.value-a.value; }).slice(0,half).concat(all.slice().sort(function(a,b2){ return b2.wa-a.wa; }).slice(0,half))
+          .forEach(function(p){ var key=p.espn_id||p.name; if(!seen[key]){ seen[key]=1; sel.push(p); } });
+        sel.forEach(function(p){ pts.push({ x:+p.wa, y:+p.value, team:p.team, espn:p.espn_id||null, lab:p.name, pri:Math.abs(p._gap), g:p._gap }); });
+      }
+      if(!pts.length){ txt('No data for that filter',W/2,H/2,{ px:26*u,c:P.mut,al:'center' }); return ''; }
+      var nl=+d.labels||0, lab=d.mode==='teams'?pts.slice().sort(function(a,b){ return b.pri-a.pri; }).slice(0,nl)
+        :pts.slice().sort(function(a,b){ return b.g-a.g; }).slice(0,Math.ceil(nl/2)).concat(pts.slice().sort(function(a,b){ return a.g-b.g; }).slice(0,Math.floor(nl/2)));   // half bargains, half overpays
+      pts.forEach(function(p){ if(lab.indexOf(p)<0) p.lab=''; });
+      var money=function(v){ return '$'+(+v).toFixed(v<10?1:0)+'M'; };
+      if(d.mode==='teams') await scatter(W,H,u,pad,y0,fTop,{ pts:pts, noMed:true, line:{ k:1, label:'On budget' }, fmtX:money, fmtY:money,
+          xLabel:'ESTIMATED NIL BUDGET →  ($M, BY PROGRAM TIER)', yLabel:'ROSTER’S NIL VALUE →  ($M)', corners:['Over budget','','','Under budget'] });
+      else await scatter(W,H,u,pad,y0,fTop,{ pts:pts, noMed:true, line:{ k:k, b:b, label:'Going rate' }, fmtY:money,
+          xLabel:'PRODUCTION →  (PROJECTED WINS ADDED)', yLabel:'NIL VALUE →  ($M)', corners:['Paid on reputation','','','Bargains'] });
+      var ex=pts.slice().sort(function(a,b){ return b.pri-a.pri; }).slice(0,3).map(function(p){ return school(p.team)===p.lab?p.lab:(p.lab||school(p.team)); });
+      return d.title+' — '+d.subtitle+'\n\nBiggest gaps from the going rate: '+ex.join(', ')+'\n\nOur NIL model → '+SITE+'\n\n#CollegeBasketball #NIL #CBB';
+    }
+  };
+
   // ── Matchup ──
   T.matchup={
     defaults:function(){ return { a:'', b:'', venue:'neutral', title:'Game Projection', subtitle:SEASON, nameA:'', nameB:'', scoreA:'', scoreB:'', spread:'', pa:'' }; },
@@ -903,7 +972,12 @@
   function setPath(o,p,v){ var ks=p.split('.'), last=ks.pop(), t=ks.reduce(function(a,k){ return a[k]; },o); t[last]=v; }
   function doc(){ var t=S.tpl; if(!S.docs[t]) S.docs[t]=T[t].defaults(); return S.docs[t]; }
 
-  function paintEditor(){ $('editor').innerHTML=T[S.tpl].editor(doc()); }
+  // charts with editable rows keep a snapshot from their last load; say how old it is
+  function stamp(d){ if(d&&Array.isArray(d.rows)) d.loadedAt=new Date().toISOString().slice(0,10); }
+  function paintEditor(){ var d=doc(), h=T[S.tpl].editor(d);
+    if(d.loadedAt&&Array.isArray(d.rows)&&d.rows.length){ var age=Math.round((Date.now()-new Date(d.loadedAt+'T12:00:00'))/864e5);
+      h+='<div class="hint" style="margin-top:10px">Rows last loaded '+(age<=0?'today':age===1?'yesterday':age+' days ago')+'. Load again to pick up the site’s latest numbers (replaces your row edits).</div>'; }
+    $('editor').innerHTML=h; }
   $('editor').addEventListener('input',function(e){
     var el=e.target, d=doc();
     if(el.dataset.k){ d[el.dataset.k]=el.type==='checkbox'?el.checked:el.value; }
@@ -917,10 +991,10 @@
   $('editor').addEventListener('change',function(e){ var el=e.target; if(el.dataset.k) doc()[el.dataset.k]=el.type==='checkbox'?el.checked:el.value;
     if(el.type==='checkbox'||el.tagName==='SELECT'){ save(); render(); }
     if(e.target.dataset.k==='val2Label'){ paintEditor(); }
-    var ks=AUTO[S.tpl]; if(ks&&ks.indexOf(e.target.dataset.k)>-1){ (async function(){ try{ await T[S.tpl].load(doc()); save(); paintEditor(); render(); }catch(err){ status(err.message,true); } })(); } });
+    var ks=AUTO[S.tpl]; if(ks&&ks.indexOf(e.target.dataset.k)>-1){ (async function(){ try{ await T[S.tpl].load(doc()); stamp(doc()); save(); paintEditor(); render(); }catch(err){ status(err.message,true); } })(); } });
   $('editor').addEventListener('click',async function(e){
     var b=e.target.closest('button[data-act]'); if(!b) return; var d=doc(), act=b.dataset.act, arr=b.dataset.path?getPath(d,b.dataset.path):null, i=+b.dataset.i;
-    if(act==='load'){ b.disabled=true; try{ await T[S.tpl].load(d); save(); paintEditor(); await render(); status('Loaded. Edit anything below.'); }catch(err){ status(err.message,true); } b.disabled=false; return; }
+    if(act==='load'){ b.disabled=true; try{ await T[S.tpl].load(d); stamp(d); save(); paintEditor(); await render(); status('Loaded. Edit anything below.'); }catch(err){ status(err.message,true); } b.disabled=false; return; }
     if(act==='up'&&i>0){ var t=arr[i-1]; arr[i-1]=arr[i]; arr[i]=t; }
     if(act==='down'&&i<arr.length-1){ var t2=arr[i+1]; arr[i+1]=arr[i]; arr[i]=t2; }
     if(act==='del'){ arr.splice(i,1); }
@@ -952,8 +1026,8 @@
   // ── controls ──
   function syncControls(){ [].forEach.call($('tplSeg').children,function(x){ x.classList.toggle('on',x.dataset.v===S.tpl); });
     $('size').value=S.size; $('theme').value=S.theme; $('shots').checked=S.shots; $('handle').value=S.handle; }
-  var AUTO={ money:['mode','n'], crunch:['dir','who','n','min'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf'], after:['season','team'], confodds:['conf','n'] };   // charts whose rows come from a load
-  async function autoLoad(){ var d=doc(); if(AUTO[S.tpl]&&d.rows&&!d.rows.length){ try{ await T[S.tpl].load(d); save(); paintEditor(); }catch(e){ status(e.message,true); } } }
+  var AUTO={ money:['mode','n'], crunch:['dir','who','n','min'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf'], after:['season','team'], confodds:['conf','n'], nil:['mode','n','minMpg','conf'] };   // charts whose rows come from a load
+  async function autoLoad(){ var d=doc(); if(AUTO[S.tpl]&&d.rows&&!d.rows.length){ try{ await T[S.tpl].load(d); stamp(d); save(); paintEditor(); }catch(e){ status(e.message,true); } } }
   $('tplSeg').addEventListener('click',async function(e){ var b=e.target.closest('button'); if(!b) return; S.tpl=b.dataset.v; save(); syncControls(); paintEditor(); await autoLoad(); render();
     if(S.tpl!=='matchup') players().catch(function(){}); });
   $('size').onchange=function(){ S.size=this.value; save(); render(); };
