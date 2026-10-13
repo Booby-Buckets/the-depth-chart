@@ -94,6 +94,10 @@
         <button data-v="money">Moneyball</button>
         <button data-v="crunch">Crunch time</button>
         <button data-v="pcard">Player chart</button>
+        <button data-v="odds">POY odds</button>
+        <button data-v="onoff">On/Off swings</button>
+        <button data-v="after">Shot value</button>
+        <button data-v="confodds">Conference odds</button>
         <button data-v="list" class="on">Ranked list</button>
         <button data-v="allconf">All-Conference</button>
         <button data-v="matchup">Matchup</button>
@@ -703,6 +707,144 @@
     }
   };
 
+  // two bars per row (e.g. regular-season title % vs tournament %), shared scale
+  async function dualBars(W,H,u,pad,y0,fTop,rows,o){
+    rows=rows.filter(function(r){ return r.name&&(isFinite(parseFloat(r.val))||isFinite(parseFloat(r.val2))); }); await preload(rows.filter(function(r){ return r.team; }));
+    var n=rows.length; if(!n){ txt('No rows',W/2,(y0+fTop)/2,{ px:26*u,c:P.mut,al:'center' }); return; }
+    var c1=P.text, c2=P.acc, lg=34*u;
+    var mx=o.max||Math.max.apply(null,rows.map(function(r){ return Math.max(parseFloat(r.val)||0,parseFloat(r.val2)||0); }))||1;
+    var rh=Math.min((fTop-y0-lg-8*u)/n,220*u), fs=Math.min(rh*.3,(n<=6?32:26)*u), ms=rows.some(function(r){ return r.team; })?Math.min(rh*.64,fs*2.2):0;
+    var labW=Math.min((W-pad*2)*.4,Math.max.apply(null,rows.map(function(r){ return width(r.name,700,fs); }))+ms+24*u);
+    var vw=width(o.fmt?o.fmt(mx):'100%',800,fs*.8)+12*u, bx0=pad+labW, bx1=W-pad-vw, X=function(v){ return (bx1-bx0)*Math.max(0,v)/mx; };
+    // legend
+    var lx=bx0; [[c1,o.l1],[c2,o.l2]].forEach(function(l){ if(!l[1]) return; ctx.fillStyle=l[0]; ctx.fillRect(lx,y0+6*u,14*u,14*u); txt(l[1].toUpperCase(),lx+20*u,y0+13*u,{ w:800,px:13*u,c:P.mut,ls:1.5*u }); lx+=width(l[1].toUpperCase(),800,13*u)+20*u+40*u; });
+    var ry=y0+lg, fmt=o.fmt||function(v){ return Math.round(v)+'%'; };
+    for(var i=0;i<n;i++){ var r=rows[i], top=ry+i*rh, mid=top+rh/2, a=parseFloat(r.val), b=parseFloat(r.val2);
+      if(i%2===0){ ctx.fillStyle=P.alt; ctx.fillRect(pad,top,W-pad*2,rh); }
+      if(ms) await mark(r,pad+4*u,mid-ms/2,ms);
+      var tx=pad+(ms?ms+16*u:4*u), tm=labW-(tx-pad)-10*u;
+      if(r.sub&&rh>fs*2){ txt(r.name,tx,mid-fs*.32,{ w:700,px:fs,max:tm }); txt(r.sub,tx,mid+fs*.6,{ w:500,px:fs*.58,c:P.mut,max:tm }); }
+      else txt(r.name,tx,mid,{ w:700,px:fs,max:tm });
+      var bh=Math.min(rh*.26,(n<=6?40:22)*u), g=4*u;
+      if(isFinite(a)){ ctx.fillStyle=c1; ctx.fillRect(bx0,mid-bh-g/2,Math.max(2*u,X(a)),bh); txt(fmt(a),bx0+X(a)+8*u,mid-bh/2-g/2,{ w:800,px:fs*.72,c:P.text }); }
+      if(isFinite(b)){ ctx.fillStyle=c2; ctx.fillRect(bx0,mid+g/2,Math.max(2*u,X(b)),bh); txt(fmt(b),bx0+X(b)+8*u,mid+bh/2+g/2,{ w:800,px:fs*.72,c:P.text2 }); }
+    }
+  }
+  var SCRIPTS={};
+  function needScript(src){ return SCRIPTS[src]||(SCRIPTS[src]=new Promise(function(res,rej){ var s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=function(){ rej(new Error('Couldn’t load '+src)); }; document.head.appendChild(s); })); }
+  function confCode(display){ var t=(D.ratings||[]).find(function(x){ return confName(x.conf)===display; }); return t?t.conf:display; }
+
+  // ── Award odds: National / conference Player of the Year (and any other award the sim publishes) ──
+  T.odds={
+    defaults:function(){ return { scope:'national', award:'poy', n:10, title:'National Player of the Year Odds', subtitle:SEASON+' preseason', note:'', rows:[] }; },
+    load:async function(d){
+      var o=await json('scripts/data/award_odds.json'), list, n=+d.n||10, sims=o.sims?(+o.sims).toLocaleString()+' simulated seasons':'simulated seasons';
+      if(d.scope==='national'){ list=o.national||[]; d.title='National Player of the Year Odds'; }
+      else { await ratings(); var c=(o.conferences||{})[confCode(d.scope)]; if(!c) throw new Error('No odds for '+d.scope+'.');
+        list=c[d.award]||c.poy||[]; var an={ poy:'Player of the Year', dpoy:'Defensive Player of the Year', roy:'Freshman of the Year', sixth:'Sixth Man of the Year' }[d.award]||'Player of the Year';
+        d.title=(c.label||d.scope)+' '+an+' Odds'; }
+      d.rows=list.slice(0,n).map(function(p){ return { name:p.name, team:p.team, espn:p.espn_id||null, sub:[school(p.team),p.pos,p.ppg!=null?(+p.ppg).toFixed(1)+' ppg':null].filter(Boolean).join(' · '), val:(p.p*100).toFixed(1) }; });
+      d.subtitle=SEASON+' preseason · '+sims+(d.scope!=='national'?' · top '+d.rows.length:''); d.note='Chance to win, from our award model (validated on 19 past national races)';
+    },
+    editor:function(d){
+      return '<h3>Data</h3><div class="two"><div><label class="f">Race</label><select data-k="scope"><option value="national"'+(d.scope==='national'?' selected':'')+'>National POY</option>'+CONFS.map(function(c){ return '<option'+(d.scope===c?' selected':'')+'>'+esc(c)+'</option>'; }).join('')+'</select></div>'+
+        '<div><label class="f">How many</label><input data-k="n" type="number" min="3" max="20" value="'+d.n+'"></div></div>'+
+        (d.scope!=='national'?'<label class="f">Award</label><select data-k="award"><option value="poy"'+(d.award==='poy'?' selected':'')+'>Player of the Year</option><option value="dpoy"'+(d.award==='dpoy'?' selected':'')+'>Defensive POY</option><option value="roy"'+(d.award==='roy'?' selected':'')+'>Freshman of the Year</option><option value="sixth"'+(d.award==='sixth'?' selected':'')+'>Sixth Man</option></select>':'')+
+        '<div class="btns"><button class="b sm primary" data-act="load">Load / refresh data</button></div>'+textEditor(d)+
+        '<h3>Rows ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',[{k:'name',ph:'Player',list:'plList',w:'minmax(0,1.3fr)'},{k:'team',ph:'Team',list:'tmList'},{k:'val',ph:'%',w:'52px'}]);
+    },
+    draw:async function(d,W,H,u,pad){
+      bg(W,H); var y0=head(W,u,pad,d.title,d.subtitle), fTop=foot(W,H,u,pad); fTop-=noteLine(W,u,pad,fTop,d.note);
+      await hbars(W,H,u,pad,y0,fTop,d.rows,{ dec:1, suffix:'%', color:function(){ return P.acc==='#E6D5A8'?'#C9A85C':'#A8843C'; } });
+      return d.title+' ('+d.subtitle+')\n\n'+d.rows.slice(0,5).map(function(r,i){ return (i+1)+'. '+r.name+' ('+school(r.team)+') '+r.val+'%'; }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB';
+    }
+  };
+
+  // ── On/Off: how much better (or worse) a team is with a player on the floor ──
+  T.onoff={
+    defaults:function(){ return { metric:'rapm', season:'2026', dir:'up', conf:'', n:12, minOn:400, title:'Biggest On/Off Swings', subtitle:'Team net rating per 100 possessions, him on vs. off the floor · 2025-26', note:'Garbage time removed · min. 400 on-court minutes', rows:[] }; },
+    load:async function(d){
+      await ratings(); var w=await json('scripts/data/wowy_'+d.season+'.json'), n=+d.n||12, mo=+d.minOn||400;
+      var adj=d.metric!=='raw', sg=function(v){ return (v>0?'+':'')+(+v).toFixed(1); };
+      var ps=w.players.filter(function(p){ return p.on&&p.off&&p.on.min>=mo&&(adj?p.rapm:p.off.min>=Math.max(120,mo*.3))&&(!d.conf||confOfFull(p.team)===d.conf); })
+        .map(function(p){ return { p:p, sw:adj?p.rapm.net:p.on.net-p.off.net }; }).sort(function(a,b){ return d.dir==='up'?b.sw-a.sw:a.sw-b.sw; }).slice(0,n);
+      d.rows=ps.map(function(x){ var p=x.p; return { name:p.name, team:p.team, espn:p.id||null,
+        sub:school(p.team)+(adj?' · off '+sg(p.rapm.o)+' / def '+sg(p.rapm.d):' · on '+sg(p.on.net)+' / off '+sg(p.off.net)), val:x.sw.toFixed(1) }; });
+      var yr=(+d.season-1)+'-'+String(d.season).slice(2);
+      if(adj){ d.title=d.dir==='up'?'Who Moves the Needle Most':'Biggest Negative Impact'; d.subtitle='Adjusted plus-minus per 100 possessions · '+yr;
+        d.note='Controls for teammates and opponents (RAPM) · garbage time removed · min. '+mo+' minutes'; }
+      else { d.title=d.dir==='up'?'Biggest On/Off Swings':'Teams Better Without Him'; d.subtitle='Team net rating per 100 possessions, him on vs. off the floor · '+yr;
+        d.note='Raw on/off · garbage time removed · min. '+mo+' on-court minutes'; }
+    },
+    editor:function(d){
+      return '<h3>Data</h3><label class="f">Measure</label><select data-k="metric"><option value="rapm"'+(d.metric!=='raw'?' selected':'')+'>Adjusted impact (RAPM)</option><option value="raw"'+(d.metric==='raw'?' selected':'')+'>Raw on/off swing</option></select>'+
+        '<div class="two"><div><label class="f">Season</label><select data-k="season"><option value="2026"'+(d.season==='2026'?' selected':'')+'>2025-26</option><option value="2025"'+(d.season==='2025'?' selected':'')+'>2024-25</option><option value="2024"'+(d.season==='2024'?' selected':'')+'>2023-24</option></select></div>'+
+        '<div><label class="f">Show</label><select data-k="dir"><option value="up"'+(d.dir==='up'?' selected':'')+'>Biggest positive swings</option><option value="down"'+(d.dir==='down'?' selected':'')+'>Biggest negative swings</option></select></div></div>'+
+        '<div class="two"><div><label class="f">How many</label><input data-k="n" type="number" min="3" max="20" value="'+d.n+'"></div><div><label class="f">Min. on-court minutes</label><input data-k="minOn" type="number" min="100" max="1200" value="'+d.minOn+'"></div></div>'+
+        '<label class="f">Conference</label><select data-k="conf">'+confOpts(d.conf)+'</select>'+
+        '<div class="btns"><button class="b sm primary" data-act="load">Load / refresh data</button></div>'+textEditor(d)+
+        '<h3>Rows ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',[{k:'name',ph:'Player',list:'plList',w:'minmax(0,1.3fr)'},{k:'team',ph:'Team',list:'tmList'},{k:'val',ph:'Swing',w:'56px'}]);
+    },
+    draw:async function(d,W,H,u,pad){
+      bg(W,H); var y0=head(W,u,pad,d.title,d.subtitle), fTop=foot(W,H,u,pad); fTop-=noteLine(W,u,pad,fTop,d.note);
+      await hbars(W,H,u,pad,y0,fTop,d.rows,{ plus:true, dec:1 });
+      return d.title+' — '+d.subtitle+'\n\n'+d.rows.slice(0,3).map(function(r){ return r.name+' ('+school(r.team)+') '+(+r.val>0?'+':'')+r.val; }).join('\n')+'\n\nBuilt from every lineup of the season → '+SITE+'\n\n#CollegeBasketball #CBB #Analytics';
+    }
+  };
+
+  // ── Shot Aftermath: what each shot is really worth — own points (incl. second chances) vs. the opponent's next trip ──
+  var ZONE_LBL={ rim:'At the rim', short:'Short 2 (paint)', long:'Long 2', three:'3-pointers', mid:'Other 2s' };
+  T.after={
+    defaults:function(){ return { season:'2026', team:'', title:'What a Shot Is Really Worth', subtitle:'Every D-I shot, 2025-26', note:'Points per shot include second chances off offensive rebounds · opponent PPP = their very next possession', rows:[] }; },
+    load:async function(d){
+      var a=await json('scripts/data/shot_aftermath/'+d.season+'.json'), C=a.cols, ix=function(k){ return C.indexOf(k); }, tot={}, tid=null;
+      if(d.team){ var lg=logoUrl(d.team), m=lg&&lg.match(/\/(\d+)\.png/); tid=m?m[1]:null; if(!tid) throw new Error('Unknown team: '+d.team); if(!a.data[tid]) throw new Error('No shot data for '+d.team+'.'); }
+      Object.keys(a.data).forEach(function(id){ if(tid&&id!==tid) return; var byPos=a.data[id];
+        Object.keys(byPos).forEach(function(pos){ var z=byPos[pos]; Object.keys(z).forEach(function(zn){ var v=z[zn]; tot[zn]=tot[zn]||C.map(function(){ return 0; }); v.forEach(function(x,i){ tot[zn][i]+=x; }); }); }); });
+      var all=Object.keys(tot).reduce(function(s,k){ return s+tot[k][ix('att')]; },0);
+      d.rows=['rim','short','long','three','mid'].filter(function(z){ return tot[z]&&tot[z][ix('att')]>all*.04; }).map(function(z){ var t=tot[z], att=t[ix('att')];
+        var own=(t[ix('madePts')]+t[ix('scPts')])/att, oppN=t[ix('oppMakeN')]+t[ix('oppDRN')], opp=oppN?(t[ix('oppMakePts')]+t[ix('oppDRPts')])/oppN:null;
+        return { name:ZONE_LBL[z]||z, team:'', sub:Math.round(100*att/all)+'% of shots · '+Math.round(100*t[ix('made')]/att)+'% made', val:own.toFixed(2), val2:opp!=null?opp.toFixed(2):'' }; });
+      var yr=(+d.season-1)+'-'+String(d.season).slice(2);
+      d.title=d.team?school(d.team)+': What Each Shot Is Worth':'What a Shot Is Really Worth'; d.subtitle=(d.team?'Every '+school(d.team)+' shot, ':'Every D-I shot, ')+yr;
+    },
+    editor:function(d){
+      return '<h3>Data</h3><div class="two"><div><label class="f">Season</label><select data-k="season">'+['2026','2025','2024','2023','2022'].map(function(y){ return '<option value="'+y+'"'+(d.season===y?' selected':'')+'>'+(y-1)+'-'+y.slice(2)+'</option>'; }).join('')+'</select></div>'+
+        '<div><label class="f">Team (blank = all D-I)</label><input data-k="team" list="tmList" value="'+esc(d.team)+'"></div></div>'+
+        '<div class="btns"><button class="b sm primary" data-act="load">Load / refresh data</button></div>'+textEditor(d)+
+        '<h3>Rows ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',[{k:'name',ph:'Shot',w:'minmax(0,1.3fr)'},{k:'val',ph:'Pts/shot',w:'60px'},{k:'val2',ph:'Opp PPP',w:'60px'}]);
+    },
+    draw:async function(d,W,H,u,pad){
+      bg(W,H); var y0=head(W,u,pad,d.title,d.subtitle), fTop=foot(W,H,u,pad); fTop-=noteLine(W,u,pad,fTop,d.note);
+      await dualBars(W,H,u,pad,y0,fTop,d.rows,{ l1:'Points per shot', l2:'Opponent’s next trip (PPP)', fmt:function(v){ return (+v).toFixed(2); }, max:1.5 });
+      return d.title+' — '+d.subtitle+'\n\n'+d.rows.map(function(r){ return r.name+': '+r.val+' pts/shot, opp next trip '+r.val2; }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB #Analytics';
+    }
+  };
+
+  // ── Conference odds: regular-season title vs. tournament title (the automatic bid), from the season sim ──
+  T.confodds={
+    defaults:function(){ return { conf:'ACC', n:10, title:'ACC Title Odds', subtitle:SEASON+' · 2,000 simulated seasons', note:'Regular season = outright or shared title · tournament = wins the conference tournament (automatic bid)', rows:[] }; },
+    load:async function(d){
+      status('Simulating the season…');
+      await needScript('tdc-schedule.js?v=43'); await needScript('tdc-conftourney.js?v=5'); await ratings();
+      var R=await TDCConfT.project(confCode(d.conf),{ sims:2000 }); if(!R) throw new Error('Couldn’t simulate '+d.conf+'.');
+      var ts=R.teams.slice().sort(function(a,b){ return (b.champ+b.title)-(a.champ+a.title); }).slice(0,+d.n||10);
+      d.rows=ts.map(function(t){ return { name:school(t.team), team:t.team, sub:'Proj. '+t.cw.toFixed(1)+'-'+t.cl.toFixed(1)+' in conference', val:(t.title*100).toFixed(1), val2:(t.champ*100).toFixed(1) }; });
+      d.title=d.conf+' Title Odds'; d.subtitle=SEASON+' · '+(R.sims||2000).toLocaleString()+' simulated seasons'; status('');
+    },
+    editor:function(d){
+      return '<h3>Data</h3><div class="two"><div><label class="f">Conference</label><select data-k="conf">'+confOpts(d.conf,true)+'</select></div>'+
+        '<div><label class="f">Teams</label><input data-k="n" type="number" min="3" max="20" value="'+d.n+'"></div></div>'+
+        '<div class="btns"><button class="b sm primary" data-act="load">Simulate / refresh</button></div><div class="hint">Runs the same season + bracket simulation as the conference pages (a few seconds).</div>'+textEditor(d)+
+        '<h3>Rows ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',[{k:'name',ph:'Team',w:'minmax(0,1.2fr)'},{k:'team',ph:'Logo',list:'tmList'},{k:'val',ph:'Reg %',w:'52px'},{k:'val2',ph:'Tourn %',w:'52px'}]);
+    },
+    draw:async function(d,W,H,u,pad){
+      bg(W,H); var y0=head(W,u,pad,d.title,d.subtitle), fTop=foot(W,H,u,pad); fTop-=noteLine(W,u,pad,fTop,d.note);
+      await dualBars(W,H,u,pad,y0,fTop,d.rows,{ l1:'Regular-season title', l2:'Tournament title', fmt:function(v){ return (+v<1&&+v>0?'<1':Math.round(+v))+'%'; } });
+      return d.title+' ('+d.subtitle+')\n\n'+d.rows.slice(0,4).map(function(r){ return r.name+': '+Math.round(+r.val)+'% reg season · '+Math.round(+r.val2)+'% tournament'; }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB';
+    }
+  };
+
   // ── Matchup ──
   T.matchup={
     defaults:function(){ return { a:'', b:'', venue:'neutral', title:'Game Projection', subtitle:SEASON, nameA:'', nameB:'', scoreA:'', scoreB:'', spread:'', pa:'' }; },
@@ -810,7 +952,7 @@
   // ── controls ──
   function syncControls(){ [].forEach.call($('tplSeg').children,function(x){ x.classList.toggle('on',x.dataset.v===S.tpl); });
     $('size').value=S.size; $('theme').value=S.theme; $('shots').checked=S.shots; $('handle').value=S.handle; }
-  var AUTO={ money:['mode','n'], crunch:['dir','who','n','min'] };   // charts whose rows come from a load
+  var AUTO={ money:['mode','n'], crunch:['dir','who','n','min'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf'], after:['season','team'], confodds:['conf','n'] };   // charts whose rows come from a load
   async function autoLoad(){ var d=doc(); if(AUTO[S.tpl]&&d.rows&&!d.rows.length){ try{ await T[S.tpl].load(d); save(); paintEditor(); }catch(e){ status(e.message,true); } } }
   $('tplSeg').addEventListener('click',async function(e){ var b=e.target.closest('button'); if(!b) return; S.tpl=b.dataset.v; save(); syncControls(); paintEditor(); await autoLoad(); render();
     if(S.tpl!=='matchup') players().catch(function(){}); });
