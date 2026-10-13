@@ -4339,6 +4339,9 @@ function _paCarryHTML(){
   try{
     var sel=window._paSel; if(sel && sel!=='proj') return '';
     if(typeof proj==='undefined' || !proj) return '';
+    // an injured player's small (or zero) role is explained by the injury tag — no role disclaimer
+    if(proj._injured || proj._injOut) return '';
+    try{ if(window.TDCInjury && TDCInjury.get && player && TDCInjury.get(player)) return ''; }catch(e){}
     if(!proj._carryFwd){   // a real projection in a small role: say so, but the numbers ARE the projection
       var pm0=parseFloat(proj.mpg); if(!(isFinite(pm0)&&pm0<8)) return '';
       var d0=parseInt(player&&player.depth_order,10), tm0=player&&player.team?((window.tdcShortSchool&&tdcShortSchool(player.team))||player.team):'his team';
