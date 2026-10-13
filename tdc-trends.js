@@ -88,7 +88,7 @@
   // ── the trend chart: one line from 0 (entering the preseason) through the value after each scrimmage, on labelled
   // bands; drawn at the host's real width so text stays ~11px on a phone. pts: [{lab, sub, y, tip}]
   function trendChart(host, pts, bands, dec, minM, title) {
-    var VW = Math.max(320, Math.min(980, host.clientWidth || 720)), narrow = VW < 520, VH = narrow ? 160 : 180, L = 38, R = narrow ? 18 : 104, Tp = 14, Bt = 40;
+    var VW = Math.max(320, Math.min(980, host.clientWidth || 720)), narrow = VW < 520, VH = narrow ? 160 : 180, L = 38, R = narrow ? 18 : 30, Tp = 14, Bt = 40;
     var M = Math.max(minM, Math.max.apply(null, pts.map(function (q) { return Math.abs(q.y); })) * 1.15 + (minM / 10));
     var X = function (i) { return pts.length === 1 ? L : L + i * (VW - L - R) / (pts.length - 1); };
     var Y = function (v) { return Tp + (M - v) * (VH - Tp - Bt) / (2 * M); };
@@ -97,9 +97,8 @@
     var svg = '<svg class="trc-svg" viewBox="0 0 ' + VW + ' ' + VH + '" role="img" aria-label="' + esc(title) + ': ' + pts.map(function (q) { return q.lab + ' ' + sg(q.y, dec); }).join(', ') + '">';
     bands.concat([[0, 'Steady']]).concat(bands.map(function (b) { return [-b[0], b[2]]; })).forEach(function (gl) {
       var y = Y(gl[0]);
-      svg += '<line x1="' + L + '" x2="' + (VW - R + 8) + '" y1="' + y + '" y2="' + y + '" class="' + (gl[0] === 0 ? 'trc-zero' : 'trc-grid') + '"/>' +
-        '<text x="' + (L - 8) + '" y="' + (y + 4) + '" class="trc-ax" text-anchor="end">' + (gl[0] ? sg(gl[0], gl[0] % 1 ? 1 : 0) : '0') + '</text>' +
-        (narrow ? '' : '<text x="' + (VW - R + 14) + '" y="' + (y + 4) + '" class="trc-band">' + gl[1] + '</text>');
+      svg += '<line x1="' + L + '" x2="' + (VW - R) + '" y1="' + y + '" y2="' + y + '" class="' + (gl[0] === 0 ? 'trc-zero' : 'trc-grid') + '"/>' +
+        '<text x="' + (L - 8) + '" y="' + (y + 4) + '" class="trc-ax" text-anchor="end">' + (gl[0] ? sg(gl[0], gl[0] % 1 ? 1 : 0) : '0') + '</text>';
     });
     svg += '<polyline class="trc-line" points="' + pts.map(function (q, i) { return X(i).toFixed(1) + ',' + Y(q.y).toFixed(1); }).join(' ') + '"/>';
     pts.forEach(function (q, i) {
