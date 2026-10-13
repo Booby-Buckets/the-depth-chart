@@ -6,7 +6,7 @@
   <script src="tdc-loading.js?v=4"></script>   <!-- first, so it sees every request -->
   <script src="auth.js?v=delacct1"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
-  <script src="team-colors.js?v=11"></script>
+  <script src="team-colors.js?v=12"></script>
   <script src="tdc-shotchart.js?v=31"></script>
   <script src="tdc-aftermath.js?v=5"></script>
   <script src="tdc-teamname.js?v=1"></script>
@@ -1687,9 +1687,16 @@ async function loadTeam(name){
     if(!Array.isArray(teams) || !teams.length){
       try{
         const all = await fetch(`${SB_URL}/rest/v1/teams?select=name`,{headers:H}).then(r=>r.ok?r.json():[]);
-        const plain = (Array.isArray(all)?all:[]).map(x=>x.name).filter(Boolean)
-          .sort((a,b)=>b.length-a.length)          // prefer "North Carolina A&T" over "North Carolina"
-          .find(n=> name===n || name.startsWith(n+' '));
+        const list = (Array.isArray(all)?all:[]).map(x=>x.name).filter(Boolean);
+        // 1) the site's one name resolver: the plain name whose logo is the same school's ("Pennsylvania
+        //    Quakers" → Penn, "Florida Atlantic Owls" → FAU, "NC State Wolfpack" → NC-State) — a prefix
+        //    match alone gave FAU Florida's roster and Maryland Eastern Shore Maryland's
+        const lg = n => { try{ const c=window.tdcTeamColor&&tdcTeamColor(n); return c&&c.logo||null; }catch(e){ return null; } };
+        const want = lg(name);
+        const byLogo = want ? list.filter(n=>lg(n)===want) : [];
+        // 2) else longest-prefix ("North Carolina A&T" before "North Carolina")
+        const plain = byLogo.length===1 ? byLogo[0]
+          : list.slice().sort((a,b)=>b.length-a.length).find(n=> name===n || name.startsWith(n+' '));
         if(plain && plain!==name){
           name = plain;
           teams = await fetch(`${SB_URL}/rest/v1/teams?name=eq.${encodeURIComponent(name)}&select=*&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]);
