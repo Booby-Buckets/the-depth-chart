@@ -1093,7 +1093,8 @@
     var ov=null; try{ ov=TDCProjGrade.gradeSolo(p); }catch(e){}
     return { name:p.name, team:p.team, espn:p.espn_id||null, pos:String(p.position||'').toUpperCase(), cls:clsNice(p.class_year||p.yr), ht:htFmt(p.height),
       // Last Team = where he played last season: a transfer's old school, a returner's own school; blank for a true freshman
-      from:h&&!/^(injured|out)$/i.test(h)&&logoUrl(h)?school(h):(clsNice(p.class_year||p.yr)==='Fr.'?'':school(p.team)),
+      // (a newcomer whose listed old school isn't D-I — "(D2)", a prep school — stays blank rather than borrowing this team)
+      from:h&&!/^(injured|out)$/i.test(h)?(logoUrl(h)?school(h):''):(clsNice(p.class_year||p.yr)==='Fr.'?'':school(p.team)),
       ppg:f1(L&&L.ppg), rpg:f1(L&&L.rpg), apg:f1(L&&L.apg), mpg:f1(L&&L.mpg),
       fg:L&&+L.fga>=1.5?f1(L.fg_pct):'', tp:L&&+L.tpa>=1?f1(L.tp_pct):'', stl:f1(L&&L.stl), blk:f1(L&&L.blk), ovr:ov!=null&&isFinite(ov)?String(Math.round(ov)):'' }; }
   T.table={
