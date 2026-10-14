@@ -979,7 +979,10 @@
   // [headshot] · G/F/C + name · class · last school's logo (transfers) · projected PPG RPG APG MPG, the stat cells shaded
   // red → green by percentile among D-I rotation players (the site's sheet heat).
   function grpOf(p){ var x=String(p||'').toUpperCase(); return /C/.test(x)&&!/^(G|SG|PG)$/.test(x)?'C':/F/.test(x)?'F':/G/.test(x)?'G':x.slice(0,1); }
-  function clsNice(c){ c=clsShort(c); var m=c.match(/^(R-)?(FR|SO|JR|SR|GR)$/); return m?(m[1]||'')+m[2][0]+m[2][1].toLowerCase()+'.':c; }
+  function clsNice(c){ var raw=String(c||'').toUpperCase();
+    if(/5TH|FIFTH|GRAD|\bGR\b|6TH/.test(raw)) return 'Gr.';                      // "Redshirt 5th", "Graduate", "5th Yr"
+    if(/^RED\s*SHIRT|^RS[-\s]?|^R\.?S\.?\s/.test(raw)){ var b=clsNice(raw.replace(/^RED\s*SHIRT|^RS[-\s]?|^R\.?S\.?\s/,'').trim()); return /^R-|^Gr/.test(b)?b:'R-'+b; }
+    c=clsShort(raw.replace(/FRESHMAN/,'FR').replace(/SOPHOMORE/,'SO').replace(/JUNIOR/,'JR').replace(/SENIOR/,'SR')); var m=c.match(/^(R-)?(FR|SO|JR|SR|GR)$/); return m?(m[1]||'')+m[2][0]+m[2][1].toLowerCase()+'.':c; }
   function hexRgb(h){ h=String(h||'').replace('#',''); if(h.length===3) h=h.replace(/./g,'$&$&'); var n=parseInt(h,16); return isNaN(n)?[20,30,60]:[n>>16&255,n>>8&255,n&255]; }
   function lum(h){ var c=hexRgb(h).map(function(v){ v/=255; return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4); }); return .2126*c[0]+.7152*c[1]+.0722*c[2]; }
   function shade(h,t){ var x=hexRgb(h); return 'rgb('+x.map(function(v){ return Math.round(t<0?v*(1+t):v+(255-v)*t); }).join(',')+')'; }
@@ -1084,11 +1087,21 @@
   // ── TABLE (owner, Oct 14 2026): the plain spreadsheet graphic — "keeps it simple, and easy to do". A coloured title bar,
   // a grey header row, then # · Player · any mix of columns (school / last-team logos, pos, class, height, projected stats),
   // black grid lines, condensed type. Loads from a team's roster, stat leaders, transfers or the Big Board; every cell editable.
-  var TCOLS=[['team','School','logo'],['pos','Pos'],['cls','Yr'],['ht','Height'],['mpg','MPG','n'],['ppg','PPG','n'],['rpg','RPG','n'],['apg','APG','n'],['fg','FG%','n'],['tp','3P%','n'],['ts','TS%','n'],['ft','FT%','n'],
+  var TCOLS=[['team','School','logo'],['pos','Pos'],['cls','Yr'],['ht','Height'],['mpg','MPG','n'],['ppg','PPG','n'],['rpg','RPG','n'],['apg','APG','n'],['fg','FG%','n'],['tp','3P%','n'],['ts','TS%','n'],['ft','FT%','n'],['usg','USG%','n'],
     ['stl','SPG','n'],['blk','BPG','n'],['ovr','OVR','n'],['from','Last Team','logo']];
-  var TSRC={ roster:'Team roster (depth order)', ppg:'Leaders · points', rpg:'Leaders · rebounds', apg:'Leaders · assists', ovr:'Leaders · projected OVR', xfer:'Top transfers (by projected PPG)', board:'NBA Big Board', blank:'Blank table' };
+  var TSRC={ roster:'Team roster (depth order)', ppg:'Leaders · points', rpg:'Leaders · rebounds', apg:'Leaders · assists', ovr:'Leaders · projected OVR', usg:'Leaders · usage rate (20+ mpg)', xfer:'Top transfers (by projected PPG)', board:'NBA Big Board', blank:'Blank table' };
   var TBAR={ yellow:['#FFE94A','#111'], team:null, black:['#111','#fff'], white:['#fff','#111'] };
   function htFmt(h){ var m=String(h||'').match(/(\d+)\D+(\d+)/); return m?m[1]+"'"+m[2]+'"':String(h||''); }
+  // projected USG% for every rostered player, exactly as the team page computes it: his plays (FGA + 0.44·FTA + TO)
+  // share of his projected roster's plays per minute, x5 (owner, Oct 14 2026)
+  var USG_MAP=null;
+  function usgMap(){ if(USG_MAP) return USG_MAP; USG_MAP={}; var by={}, n=function(v){ return parseFloat(v)||0; };
+    (D.players||[]).forEach(function(p){ var h=String(p.hometown||'').trim().toLowerCase(); if(!p.name||p.is_injured||h==='injured'||h==='out') return;
+      var L=null; try{ L=TDCProjGrade.lineOf(p); }catch(e){} if(!L||!(n(L.mpg)>0)) return; var k=p.espn_id||p.name; (by[p.team]=by[p.team]||{})[k]={ L:L, key:k }; });
+    Object.keys(by).forEach(function(t){ var arr=Object.values(by[t]), pl=function(L){ return n(L.fga)+.44*n(L.fta)+n(L.tovs); };
+      var tp=arr.reduce(function(a,x){ return a+pl(x.L); },0), tm=arr.reduce(function(a,x){ return a+n(x.L.mpg); },0); if(!(tp>0)||tm<150) return;
+      arr.forEach(function(x){ var m=n(x.L.mpg); if(m>=3) USG_MAP[x.key]=Math.round(1000*pl(x.L)*(tm/5)/(m*tp))/10; }); });
+    return USG_MAP; }
   function tRow(p){ var L=null; try{ L=TDCProjGrade.lineOf(p); }catch(e){} var h=String(p.hometown||'').trim(), f1=function(v){ return v!=null&&v!==''&&isFinite(+v)?(+v).toFixed(1):''; };
     var ov=null; try{ ov=TDCProjGrade.gradeSolo(p); }catch(e){}
     return { name:p.name, team:p.team, espn:p.espn_id||null, pos:String(p.position||'').toUpperCase(), cls:clsNice(p.class_year||p.yr), ht:htFmt(p.height),
@@ -1103,6 +1116,7 @@
       // 3P% / FT% need some volume of their own (a center's 0.1 threes a game stays a dash)
       fg:L&&+L.mpg>=5&&+L.fga>0?f1(L.fg_pct):'', tp:L&&+L.mpg>=5&&+L.tpa>=.5?f1(L.tp_pct):'', stl:f1(L&&L.stl), blk:f1(L&&L.blk),
       // true shooting: points per shooting possession (FGA + 0.44·FTA), the one-number efficiency
+      usg:(function(){ var u=usgMap()[p.espn_id||p.name]; return u!=null?u.toFixed(1):''; })(),
       ts:L&&+L.mpg>=5&&(+L.fga+.44*(+L.fta||0))>0?f1(100*(+L.ppg)/(2*((+L.fga)+.44*(+L.fta||0)))):'', ft:L&&+L.mpg>=5&&+L.fta>=.5?f1(L.ft_pct):'', ovr:ov!=null&&isFinite(ov)?String(Math.round(ov)):'' }; }
   T.table={
     defaults:function(){ return { src:'ppg', team:'', conf:'', n:15, title:'', bar:'yellow', heat:false, cols:['team','pos','cls','ht','ppg','rpg','apg'], rows:[] }; },
@@ -1123,10 +1137,11 @@
       } else if(d.src==='blank'){ d.rows=[]; for(var i=0;i<n;i++) d.rows.push({ name:'', team:'' }); }
       else {
         var key=d.src==='xfer'?'ppg':d.src, pool=ps.filter(function(p){ return inScope(p)&&!out(p)&&uniq(p); }).map(tRow)
-          .filter(function(r){ return d.src==='xfer'?(!!r.from&&!onTeam(r.from,r.team)):(d.src==='ovr'||+r.mpg>=15); }).filter(function(r){ return r[key]!==''&&isFinite(+r[key]); });
+          .filter(function(r){ return d.src==='xfer'?(!!r.from&&!onTeam(r.from,r.team)):d.src==='usg'?+r.mpg>=20:(d.src==='ovr'||+r.mpg>=15); }).filter(function(r){ return r[key]!==''&&isFinite(+r[key]); });
         pool.sort(function(a,b){ return +b[key]-(+a[key]); }); d.rows=pool.slice(0,n);
-        d.title={ ppg:'Top '+tag+'Scorers', rpg:'Top '+tag+'Rebounders', apg:'Top '+tag+'Passers', ovr:'Top '+tag+'Players', xfer:'Top '+tag+'Transfers' }[d.src]+' · '+SEASON+' Projections';
+        d.title={ ppg:'Top '+tag+'Scorers', rpg:'Top '+tag+'Rebounders', apg:'Top '+tag+'Passers', ovr:'Top '+tag+'Players', usg:tag+'Usage Leaders', xfer:'Top '+tag+'Transfers' }[d.src]+' · '+SEASON+' Projections';
         if(d.src==='xfer'&&d.cols.indexOf('from')<0) d.cols=d.cols.concat(['from']);
+        if(d.src==='usg'&&d.cols.indexOf('usg')<0) d.cols=TCOLS.map(function(x){ return x[0]; }).filter(function(k){ return k==='usg'||d.cols.indexOf(k)>-1; });
       }
     },
     editor:function(d){
