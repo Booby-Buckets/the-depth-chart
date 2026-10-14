@@ -1084,8 +1084,8 @@
   // ── TABLE (owner, Oct 14 2026): the plain spreadsheet graphic — "keeps it simple, and easy to do". A coloured title bar,
   // a grey header row, then # · Player · any mix of columns (school / last-team logos, pos, class, height, projected stats),
   // black grid lines, condensed type. Loads from a team's roster, stat leaders, transfers or the Big Board; every cell editable.
-  var TCOLS=[['team','School','logo'],['pos','Pos'],['cls','Yr'],['ht','Height'],['ppg','PPG','n'],['rpg','RPG','n'],['apg','APG','n'],['fg','FG%','n'],['tp','3P%','n'],['ts','TS%','n'],['ft','FT%','n'],
-    ['stl','SPG','n'],['blk','BPG','n'],['mpg','MPG','n'],['ovr','OVR','n'],['from','Last Team','logo']];
+  var TCOLS=[['team','School','logo'],['pos','Pos'],['cls','Yr'],['ht','Height'],['mpg','MPG','n'],['ppg','PPG','n'],['rpg','RPG','n'],['apg','APG','n'],['fg','FG%','n'],['tp','3P%','n'],['ts','TS%','n'],['ft','FT%','n'],
+    ['stl','SPG','n'],['blk','BPG','n'],['ovr','OVR','n'],['from','Last Team','logo']];
   var TSRC={ roster:'Team roster (depth order)', ppg:'Leaders · points', rpg:'Leaders · rebounds', apg:'Leaders · assists', ovr:'Leaders · projected OVR', xfer:'Top transfers (by projected PPG)', board:'NBA Big Board', blank:'Blank table' };
   var TBAR={ yellow:['#FFE94A','#111'], team:null, black:['#111','#fff'], white:['#fff','#111'] };
   function htFmt(h){ var m=String(h||'').match(/(\d+)\D+(\d+)/); return m?m[1]+"'"+m[2]+'"':String(h||''); }
@@ -1149,7 +1149,7 @@
       var n=Math.max(1,rows.length), rh=Math.min(74*u,(fTop-12*u-y-th-hh)/n);
       // widths: # · Player (the rest) · logo cols · narrow cols · stat cols; stats shrink first if the name gets tight
       var wOf=function(c){ return c[2]==='logo'?(c[0]==='from'?118:104)*u:c[0]==='ht'?96*u:c[2]==='n'?88*u:78*u; };
-      var rk=56*u, fixed=cols.reduce(function(a,c){ return a+wOf(c); },0), k=Math.min(1,(tw-rk-300*u)/Math.max(1,fixed)), nameW=tw-rk-fixed*k;
+      var rk=50*u, fixed=cols.reduce(function(a,c){ return a+wOf(c); },0), k=Math.min(1,(tw-rk-280*u)/Math.max(1,fixed)), nameW=tw-rk-fixed*k;
       var xs=[x0,x0+rk,x0+rk+nameW]; cols.forEach(function(c){ xs.push(xs[xs.length-1]+wOf(c)*k); });
       ctx.fillStyle=barBg; ctx.fillRect(x0,y,tw,th);
       // the team's logo at both ends of the title bar when the table is about one team (owner, Oct 14 2026)
@@ -1157,13 +1157,13 @@
       if(tlg){ drawFit(tlg,x0+14*u,y+(th-ts)/2,ts); drawFit(tlg,x1-14*u-ts,y+(th-ts)/2,ts); }
       txt(d.title||'',(x0+x1)/2,y+th/2,{ w:800,px:th*.5,serif:'cond',c:barFg,al:'center',max:tw-tpad*2 });
       var hy=y+th; ctx.fillStyle='#D9D9D9'; ctx.fillRect(x0,hy,tw,hh);
-      var hfs=hh*.5; txt('Player',(xs[1]+xs[2])/2,hy+hh/2,{ w:600,px:hfs,serif:'cond',c:'#111',al:'center' });
+      var hfs=Math.min(hh*.5,k<1?hh*.44:hh); txt('Player',(xs[1]+xs[2])/2,hy+hh/2,{ w:600,px:hfs,serif:'cond',c:'#111',al:'center' });
       cols.forEach(function(c,i){ txt(c[1],(xs[i+2]+xs[i+3])/2,hy+hh/2,{ w:600,px:hfs,serif:'cond',c:'#111',al:'center',max:xs[i+3]-xs[i+2]-6*u }); });
       var ry0=hy+hh, pool=d.heat?await pctPool():null;
       if(pool&&!pool.dist.mpg){ var ms=[], fgs=[]; (D.players||[]).forEach(function(p){ var L=TDCProjGrade.lineOf(p); if(L&&+L.mpg>=15){ ms.push(+L.mpg); if(isFinite(+L.fg_pct)&&+L.fga>=3) fgs.push(+L.fg_pct); } });
         pool.dist.mpg=ms.sort(function(a,b){ return a-b; }); pool.dist.fg=fgs.sort(function(a,b){ return a-b; }); }
       await Promise.all(rows.map(function(r){ return Promise.all([img(logoUrl(r.team)),r.from?img(logoUrl(r.from)):null]); }));
-      var fs=Math.min(rh*.5,38*u);
+      var fs=Math.min(rh*.5,38*u), nW=cols.filter(function(c){ return c[2]==='n'; }).map(function(c){ return wOf(c)*k; }), vfs=Math.min(fs*.86,(nW.length?Math.min.apply(null,nW):999)*.3);
       for(var i=0;i<rows.length;i++){ var r=rows[i], top=ry0+i*rh, mid=top+rh/2;
         ctx.fillStyle=i%2?'#F4F4F4':'#FFFFFF'; ctx.fillRect(x0,top,tw,rh);
         txt(String(i+1),(xs[0]+xs[1])/2,mid,{ w:600,px:fs*.8,serif:'cond',c:'#111',al:'center' });
@@ -1171,7 +1171,7 @@
         for(var j=0;j<cols.length;j++){ var c=cols[j], cx0=xs[j+2], cw=xs[j+3]-cx0, v=r[c[0]];
           if(c[2]==='logo'){ var lg=await img(logoUrl(v||(c[0]==='team'?r.team:''))); if(lg&&(v||c[0]==='team')){ var sz=Math.min(cw*.62,rh*.74); drawFit(lg,cx0+(cw-sz)/2,top+(rh-sz)/2,sz); } continue; }
           if(c[2]==='n'&&pool&&v!==''&&v!=null&&+r.mpg>=10&&pool.dist[c[0]]){ var pc=pctOf(pool.dist[c[0]],+v); if(pc!=null){ var a=Math.min(.55,Math.abs(pc-50)/50*.6); ctx.fillStyle=pc>=50?'rgba(46,160,90,'+a+')':'rgba(215,70,60,'+a+')'; ctx.fillRect(cx0,top,cw,rh); } }
-          if(v!==''&&v!=null) txt(String(v),cx0+cw/2,mid,{ w:600,px:fs*(c[2]==='n'?.86:.9),serif:'cond',c:'#111',al:'center',max:cw-8*u });
+          if(v!==''&&v!=null) txt(String(v),cx0+cw/2,mid,{ w:600,px:c[2]==='n'?vfs:Math.min(fs*.9,cw*.3),serif:'cond',c:'#111',al:'center',max:cw-12*u });
         }
       }
       // grid: dark lines like a printed sheet, a heavier frame
