@@ -3,7 +3,8 @@
    Reorders the current roster (drag, or the ↑ ↓ buttons on touch), saves players.depth_order
    through the owner-only set_depth_chart() function (scripts/depth_chart_editor.sql), then
    starts the rebuild job so the player pages and rankings pick up the new minutes.
-   The team page's own projection reads depth_order live, so it changes on the reload.
+   The ORDER shows on the reload; the stat lines (minutes, points, every page) come from the rebuild,
+   which takes ~5 minutes to run and deploy, so the numbers change only after that.
    The sheet sync keeps a website-edited team's order (sheet_sync.gs, depth_set_at).
 ============================================================ */
 (function(){
@@ -114,7 +115,7 @@
       .then(function(n){
         status('Saved ' + n + ' players. Starting the projection rebuild…');
         return rebuild().then(function(ok){
-          status(ok ? '✓ Saved. This page reloads now; player pages and rankings update in about 2 minutes, then republish ratings.'
+          status(ok ? '✓ Saved. The new order shows on reload; the stat lines update in about 5–8 minutes, after the rebuild finishes and deploys.'
                     : '✓ Saved. The rebuild job did not start: run it from the owner console. Reloading…', 'ok');
           setTimeout(function(){ location.reload(); }, 2200);
         });

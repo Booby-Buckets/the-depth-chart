@@ -64,6 +64,95 @@ BIG_ESPN = {str(r["espn_id"]) for r in _pl if r.get("espn_id") and _isbig(r)}
 BIG_NAME = {(r["team"], (r.get("name") or "").strip().lower()) for r in _pl if _isbig(r)}
 BIG_MIN = 72.0   # a team plays two bigs: ~72 of its 200 minutes go to the frontcourt
 fresh = json.load(open(D / "fresh_fit.json"))
+# THE FRESHMAN EDITOR'S PLAYSTYLE (owner, Oct 2026): every page shows this build's newcomer line, but it only
+# carried the editor's minutes / usage / Scoring slider (via the stat build's fit) — rebounds, assists, steals,
+# blocks, shot mix and percentages were the league shape no matter what the archetype or sliders said, so a
+# saved playstyle never showed up. Each edited newcomer's shape is now moved by the same archetype + slider
+# math as the editor preview (tdc-freshman.js FR_ARCH / applySliders / the shot-mix block). Points stay the
+# fit's. A newcomer with no saved profile (or every slider at 50 and no archetype) keeps the league shape.
+OWNER_ID = "c5784cf4-dd77-4429-b0e6-578a0c1c5c8f"
+try:
+    _blob = (sb(f"profiles?id=eq.{OWNER_ID}&select=freshman_projections") or [{}])[0].get("freshman_projections") or {}
+except Exception as _e:
+    print("warn: no owner blob, newcomer playstyles skipped", _e, file=sys.stderr); _blob = {}
+FR_PROF = {}
+for _k, _v in _blob.items():
+    if _k.startswith("tdc_fr:") and isinstance(_v, dict):
+        _, _ft, _fn = _k.split(":", 2); FR_PROF[(_ft.strip(), _fn.strip().lower())] = _v
+PL_BY_NAME = {(r["team"], (r.get("name") or "").strip().lower()): r for r in _pl}
+FR_ARCH = {
+    'Lead Guard': {'apg': 1.22, 'ppg': 1.05, 'tovs': 1.1}, 'Floor General': {'apg': 1.32, 'ppg': 0.85, 'tovs': 1.15, 'tp_pct': 2, 'stl': 1.15},
+    'Combo Guard': {'ppg': 1.05, 'apg': 1.02}, 'Scoring Guard': {'ppg': 1.22, 'apg': 0.82, 'tp_pct': 2},
+    'Sharpshooter': {'ppg': 1.05, 'tp_pct': 6, 'ft_pct': 4, 'apg': 0.75, 'rpg': 0.85, 'blk': 0.5}, '3&D Guard': {'tp_pct': 5, 'stl': 1.4, 'ppg': 0.9, 'apg': 0.9},
+    'On-Ball Stopper': {'stl': 1.5, 'ppg': 0.85, 'apg': 1.05}, 'Point Forward': {'apg': 1.3, 'ppg': 1.0, 'rpg': 1.1},
+    '3&D Wing': {'tp_pct': 5, 'stl': 1.35, 'ppg': 0.95, 'rpg': 1.05}, 'Movement Shooter': {'ppg': 1.1, 'tp_pct': 6, 'ft_pct': 4, 'apg': 0.75},
+    'Wing Scorer': {'ppg': 1.25, 'tp_pct': 1, 'apg': 0.88}, 'Wing Stopper': {'stl': 1.4, 'blk': 1.2, 'ppg': 0.85},
+    'Slasher': {'ppg': 1.15, 'fg_pct': 2, 'tp_pct': -3, 'apg': 0.9, 'oreb': 1.15}, 'Connector Wing': {'apg': 1.15, 'tp_pct': 2, 'ppg': 0.95},
+    'Rim Runner': {'fg_pct': 6, 'ppg': 0.95, 'blk': 1.3, 'oreb': 1.5, 'dreb': 1.1, 'tp_pct': -15, 'apg': 0.6}, 'Stretch Big': {'tp_pct': 9, 'ppg': 1.05, 'blk': 0.85, 'oreb': 0.8},
+    'Rim Protector': {'blk': 1.9, 'rpg': 1.2, 'dreb': 1.15, 'ppg': 0.85, 'fg_pct': 3}, 'Two-Way Big': {'blk': 1.5, 'fg_pct': 4, 'rpg': 1.15, 'ppg': 0.95},
+    'Post Scorer': {'ppg': 1.25, 'fg_pct': 3, 'rpg': 1.1, 'tp_pct': -8, 'blk': 0.9}, 'Glass Cleaner': {'rpg': 1.35, 'oreb': 1.5, 'dreb': 1.25, 'ppg': 0.9, 'blk': 1.1},
+    'Interior Big': {'rpg': 1.1, 'fg_pct': 3, 'blk': 1.1, 'tp_pct': -10},
+}
+def _ht(h):
+    try: a, b = str(h).replace("'", "-").split("-")[:2]; return int(a) * 12 + int(b)
+    except Exception: return 0
+
+def newcomer_line(short, nm, x, t=None):
+    """a newcomer's per-game line at his fitted minutes + points: the league shape (rebounds/blocks at a big's or
+    a guard's rate; attempts per point from his team's returners and the league), then his saved playstyle"""
+    m, pp = float(x.get("mpg") or 0), float(x.get("ppg") or 0)
+    big = (short, nm.strip().lower()) in BIG_NAME; R = BIGR if big else NBR
+    d = {"mpg": m, "ppg": pp, "apg": m * LG["apg"], "stl": m * LG["stl"], "tov": m * LG["tov"],
+         "oreb": m * R["oreb"], "dreb": m * R["dreb"], "blk": m * R["blk"], "rpg": m * R["rpg"]}
+    for k in ("fga", "fgm", "tpa", "tpm", "fta", "ftm"):
+        d[k] = pp * ((0.5 * t[k] / max(t["ppg"], 1) + 0.5 * LGP[k]) if t else LGP[k])
+    prof = FR_PROF.get((short, nm.strip().lower()))
+    sl = dict((prof or {}).get("sliders") or {})
+    if sl.get("defense") is not None: sl.setdefault("steals", sl["defense"]); sl.setdefault("blocks", sl["defense"])
+    arch = FR_ARCH.get((prof or {}).get("archetype") or "")
+    if not prof or m <= 0 or (not arch and all(float(v) == 50 for v in sl.values())): return d
+    pr = PL_BY_NAME.get((short, nm.strip().lower())) or {}
+    pos = (pr.get("position") or "").upper(); guard = 1 if pos in ("PG", "SG") else 0
+    size = max(0.0, min(1.0, (_ht(pr.get("height")) - 72) / 12.0))
+    # the editor works on a per-32 base line; run its math on this line's per-32 shape and keep the ratios
+    k32 = 32.0 / m
+    fg0 = 100 * d["fgm"] / d["fga"] if d["fga"] else 45.0; tp0 = 100 * d["tpm"] / d["tpa"] if d["tpa"] else 33.0
+    ft0 = 100 * d["ftm"] / d["fta"] if d["fta"] else 70.0
+    b = {"apg": d["apg"] * k32, "stl": d["stl"] * k32, "blk": d["blk"] * k32, "tovs": d["tov"] * k32,
+         "oreb": d["oreb"] * k32, "dreb": d["dreb"] * k32, "fg_pct": fg0, "tp_pct": tp0, "ft_pct": ft0}
+    b["rpg"] = b["oreb"] + b["dreb"]; b0 = dict(b)
+    for k, v in (arch or {}).items():
+        if k == "ppg": continue
+        b[k] = b[k] + v if k.endswith("_pct") else b[k] * v
+    s = lambda k: float(sl.get(k, 50)); mm = lambda k, r: 1 + ((s(k) - 50) / 50) * r; aa = lambda k, r: ((s(k) - 50) / 50) * r
+    b["tp_pct"] += aa("three", 11); b["fg_pct"] += aa("mid", 4) + aa("paint", 6); b["oreb"] *= mm("paint", 0.35)
+    b["ft_pct"] += aa("ft", 12)
+    b["apg"] = max(0.1, b["apg"] * mm("playmaking", 0.7) + aa("playmaking", 2.2 + 1.4 * guard)); b["tovs"] *= mm("playmaking", 0.20)
+    b["oreb"] *= mm("athleticism", 0.45); b["blk"] *= mm("athleticism", 0.4); b["stl"] *= mm("athleticism", 0.25); b["dreb"] *= mm("athleticism", 0.14)
+    st, bl = s("steals"), s("blocks")
+    b["stl"] = max(0.05, b["stl"] * (1 + ((st - 50) / 50) * 0.6) + ((st - 50) / 50) * 0.9)
+    b["blk"] = max(0.02, b["blk"] * (1 + ((bl - 50) / 50) * 0.6) + ((bl - 50) / 50) * (0.5 + 1.4 * size))
+    b["rpg"] = max(0.3, b["rpg"] * mm("rebounding", 0.5) + aa("rebounding", 1.2 + 2.0 * size))
+    b["oreb"] *= mm("rebounding", 0.4); b["dreb"] *= mm("rebounding", 0.4)
+    rd = s("ready"); pm = 1 + ((rd - 50) / 50) * 0.22
+    for k in ("rpg", "apg", "stl", "blk", "oreb", "dreb"): b[k] *= pm
+    b["fg_pct"] += ((rd - 50) / 50) * 4; b["tp_pct"] += ((rd - 50) / 50) * 3; b["ft_pct"] += ((rd - 50) / 50) * 2
+    b["tovs"] *= 1 - ((rd - 50) / 50) * 0.20
+    b["fg_pct"] = max(30, min(70, b["fg_pct"])); b["tp_pct"] = max(0, min(48, b["tp_pct"])); b["ft_pct"] = max(45, min(95, b["ft_pct"]))
+    for k, dk in (("apg", "apg"), ("stl", "stl"), ("blk", "blk"), ("tovs", "tov")): d[dk] *= b[k] / max(b0[k], 1e-6)
+    # the editor sets rebounds as a total; split it in the oreb/dreb mix the sliders left
+    od = b["oreb"] + b["dreb"]
+    if od > 0: d["oreb"] = b["rpg"] / k32 * b["oreb"] / od; d["dreb"] = b["rpg"] / k32 * b["dreb"] / od; d["rpg"] = d["oreb"] + d["dreb"]
+    # shot mix: 3PT raises his 3-point share, Paint lowers it and draws more free throws (relative to his base
+    # mix), then attempts are re-solved so his makes still add up to the fit's points
+    tau = (d["tpa"] / d["fga"] if d["fga"] else 0.42) * max(0.10, min(0.72, 0.42 + aa("three", 0.18) - aa("paint", 0.10))) / 0.42
+    phi = (d["fta"] / d["fga"] if d["fga"] else 0.28) * max(0.12, min(0.55, 0.28 + aa("paint", 0.10) + aa("ft", 0.04))) / 0.28
+    fg, tp, ft = b["fg_pct"] / 100, b["tp_pct"] / 100, b["ft_pct"] / 100
+    pps = 2 * fg + tau * tp + phi * ft
+    if pp > 0 and pps > 0.2:
+        d["fga"] = pp / pps; d["tpa"] = d["fga"] * tau; d["fta"] = d["fga"] * phi
+        d["fgm"] = d["fga"] * fg; d["tpm"] = d["tpa"] * tp; d["ftm"] = d["fta"] * ft
+    return d
 pace = json.load(open(D / "team_pace_eff.json"))
 # Rebounds are a TEAM resource (misses x rebound rates), not a sum of last year's individual rates
 # — a guard-heavy roster's guards rebound more than they did next to a big, and a roster whose
@@ -143,9 +232,10 @@ for full, t in by.items():
         # rebounds and blocks at a big's or a guard's rate by their listed position (the fit doesn't
         # know positions — a guard-only returning core would otherwise hand its freshman bigs a
         # guard's rebounding)
-        for k in ("apg", "stl", "tov"): line[k] += f_mpg * LG[k]
-        for k in ("rpg", "oreb", "dreb", "blk"): line[k] += f_big * BIGR[k] + (f_mpg - f_big) * NBR[k]
-        for k in ("fga", "fgm", "tpa", "tpm", "fta", "ftm"): line[k] += f_ppg * (0.5 * t[k] / max(t["ppg"], 1) + 0.5 * LGP[k])
+        for nm, x in fr.items():
+            d = newcomer_line(short, nm, x, t)
+            for k in ("apg", "stl", "tov", "oreb", "dreb", "blk", "fga", "fgm", "tpa", "tpm", "fta", "ftm"): line[k] += d[k]
+            line["rpg"] += d["rpg"]
         line["ppg"] += f_ppg; line["mpg"] += f_mpg
     # A SHORT roster (unlinked players, freshmen the fit doesn't know) can't read as the worst team
     # of all time. Points land on the team's projected ORtg x tempo; the other counting stats are
@@ -206,12 +296,7 @@ for full, (line, t, short, fr) in LINES.items():
         if v0.get("team") != full: continue
         v = raw(v0); pls.append(("r", e, {k: float(v.get("tovs" if k == "tov" else k) or 0) for k in PK}))
     for nm, x in fr.items():
-        m, pp = float(x.get("mpg") or 0), float(x.get("ppg") or 0)
-        big = (short, nm.strip().lower()) in BIG_NAME
-        d = {"mpg": m, "ppg": pp, "apg": m * LG["apg"], "stl": m * LG["stl"], "tov": m * LG["tov"],
-             "oreb": m * (BIGR if big else NBR)["oreb"], "dreb": m * (BIGR if big else NBR)["dreb"], "blk": m * (BIGR if big else NBR)["blk"]}
-        for k in ("fga", "fgm", "tpa", "tpm", "fta", "ftm"): d[k] = pp * (0.5 * t[k] / max(t["ppg"], 1) + 0.5 * LGP[k])
-        pls.append(("f", nm, d))
+        pls.append(("f", nm, newcomer_line(short, nm, x, t)))
     if not pls: continue
     tot_m = sum(d["mpg"] for _, _, d in pls) or 1.0
     for k in PK:
@@ -248,12 +333,12 @@ _filled = 0
 for short, rows in fresh.items():
     for nm, x in rows.items():
         if x.get("rpg") is not None or x.get("ppg") is None: continue
-        m = float(x.get("mpg") or 0); pts = float(x.get("ppg") or 0)
-        big = (short, nm.strip().lower()) in BIG_NAME; R = BIGR if big else NBR
-        x["apg"] = round(m * LG["apg"], 1); x["stl"] = round(m * LG["stl"], 1); x["tovs"] = round(m * LG["tov"], 1)
-        x["oreb"] = round(m * R["oreb"], 1); x["dreb"] = round(m * R["dreb"], 1); x["rpg"] = round(m * R["rpg"], 1); x["blk"] = round(m * R["blk"], 1)
-        for k in ("fga", "fgm", "tpa", "tpm", "fta", "ftm"): x[k] = round(pts * LGP[k], 1)
-        x["fg_pct"] = round(100 * LGP["fgm"] / LGP["fga"], 1); x["tp_pct"] = round(100 * LGP["tpm"] / LGP["tpa"], 1); x["ft_pct"] = round(100 * LGP["ftm"] / LGP["fta"], 1)
+        d = newcomer_line(short, nm, x)
+        for k in ("apg", "stl", "oreb", "dreb", "blk", "fga", "fgm", "tpa", "tpm", "fta", "ftm"): x[k] = round(d[k], 1)
+        x["tovs"] = round(d["tov"], 1); x["rpg"] = round(d["rpg"], 1)
+        x["fg_pct"] = round(100 * d["fgm"] / d["fga"], 1) if d["fga"] else None
+        x["tp_pct"] = round(100 * d["tpm"] / d["tpa"], 1) if d["tpa"] else None
+        x["ft_pct"] = round(100 * d["ftm"] / d["fta"], 1) if d["fta"] else None
         _filled += 1
 if _filled: print(f"  filled full lines for {_filled} newcomers on teams without a team line")
 json.dump(_PROJ_DOC, open(D / "stat_overall_projected.json", "w"), separators=(",", ":"))

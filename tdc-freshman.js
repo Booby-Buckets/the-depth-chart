@@ -450,8 +450,8 @@
         if(window.TDC_RATINGS && isOwner()){
           if(msg) msg.textContent='✓ Saved · updating rankings…';
           TDC_RATINGS.rebuild(ratingOverrides()).then(function(){
-            if(msg) msg.textContent='✓ Saved · rankings updated · team pages refresh in ~3 min'; setTimeout(close, 1400);
-          }).catch(function(){ if(msg) msg.textContent='✓ Saved (rankings will update on next load)'; setTimeout(close, 900); });
+            if(msg) msg.textContent='✓ Saved · his stat line on every page updates in ~5–8 min (after the rebuild deploys)'; setTimeout(close, 1400);
+          }).catch(function(){ if(msg) msg.textContent='✓ Saved · his stat line updates in ~5–8 min (after the rebuild deploys)'; setTimeout(close, 900); });
         } else { setTimeout(close, 750); }
       });
     }
