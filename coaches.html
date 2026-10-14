@@ -243,6 +243,59 @@ function leaderboardsHtml(){
   }).join('')+'</div>';
 }
 
+// ── shot discipline leaderboard (scripts/build_coach_shots.py → coach_shots.json) ──
+// Career number = shot-weighted mean of each season's D-I percentile, so 2012 and 2026 compare fairly.
+var SD={min:3,sort:'disc',asc:false,q:''}, _sdData=null;
+function _sdCareer(rs,k){ var w=0,t=0; rs.forEach(function(r){ var P=r.P[k]; if(P==null) return; w+=r.fga; t+=r.fga*P; }); return w?t/w:null; }
+function _sdRows(){
+  var bySlug={}; PROF.forEach(function(p){ bySlug[p.coach_slug]=p; });
+  return Object.keys(_sdData.coaches).map(function(slug){
+    var rs=_sdData.coaches[slug], p=bySlug[slug]; if(!rs.length) return null;
+    var sch={}; rs.forEach(function(r){ (sch[r.school]=sch[r.school]||[]).push(r); });
+    var names=Object.keys(sch), per=names.map(function(n){ return _sdCareer(sch[n],'disc'); }).filter(function(v){ return v!=null; });
+    var fga=0,dw=0,pw=0; rs.forEach(function(r){ fga+=r.fga; dw+=r.fga*r.disc; pw+=r.fga*r.pps; });
+    return {slug:slug, coach:p?p.coach:rs[0].school, school:rs[0].school, n:rs.length, schools:names.length,
+      first:rs[rs.length-1].y, last:rs[0].y, discRaw:dw/fga, ppsRaw:pw/fga,
+      disc:_sdCareer(rs,'disc'), pps:_sdCareer(rs,'pps'), off:_sdCareer(rs,'off'), great:_sdCareer(rs,'great'), bad:_sdCareer(rs,'bad'),
+      toCost:_sdCareer(rs,'toCostG'), rimPlus:_sdCareer(rs,'rimPlusG'),
+      spread:per.length>1?Math.max.apply(null,per)-Math.min.apply(null,per):null};
+  }).filter(Boolean);
+}
+async function renderShotLb(){
+  var host=document.getElementById('sdlb'); if(!host) return;
+  if(!_sdData){ try{ _sdData=await fetch('scripts/data/coach_shots.json?v=1',{cache:'no-cache'}).then(function(r){ return r.ok?r.json():null; }); }catch(e){} }
+  host=document.getElementById('sdlb'); if(!host) return;   // render() may have replaced it while loading
+  if(!_sdData){ host.innerHTML='<div class="loading">Could not load shot discipline data.</div>'; return; }
+  var q=SD.q.toLowerCase();
+  var rows=_sdRows().filter(function(r){ return r.n>=SD.min&&(!q||r.coach.toLowerCase().indexOf(q)>=0||r.school.toLowerCase().indexOf(q)>=0); });
+  rows.sort(function(a,b){ var x=a[SD.sort], y=b[SD.sort];
+    if(typeof x==='string') return x.localeCompare(y)*(SD.asc?1:-1);
+    return ((x==null?-1e9:x)-(y==null?-1e9:y))*(SD.asc?1:-1); });
+  var b=function(P){ return P==null?'':P>=80?'c4':P>=60?'c3':P>=40?'c2':P>=20?'c1':'c0'; };
+  var n0=function(v){ return v==null?'—':Math.round(v); };
+  var sl=function(y){ return (y-1)+'–'+String(y).slice(2); };
+  var th=function(k,l,c,t){ return '<th class="'+(c||'')+'" data-k="'+k+'" style="cursor:pointer"'+(t?' title="'+t+'"':'')+'>'+l+(SD.sort===k?(SD.asc?' ▲':' ▼'):'')+'</th>'; };
+  var ctl='<div class="filters" style="margin-bottom:10px">'+[3,5,8].map(function(m){ return '<span class="pill '+(SD.min===m?'on':'')+'" onclick="SD.min='+m+';renderShotLb()">'+m+'+ seasons</span>'; }).join('')+
+    '<input class="csearch" id="sdq" placeholder="Search coach or school…" value="'+SD.q.replace(/"/g,'&quot;')+'"></div>';
+  host.innerHTML=ctl+'<div class="sheet-wrap"><table class="sheet dense freeze2" style="--c1:44px;--c2:170px"><thead><tr><th class="rk">#</th>'+
+    th('coach','Coach','l')+th('school','Latest school','l')+th('n','Seasons')+th('schools','Schools')+
+    th('discRaw','Disciplined','', 'Share of his teams\' shots at the rim, threes or proven mastery shots')+th('disc','Pctl','', 'Disciplined share, D-I percentile (career, shot-weighted)')+
+    th('ppsRaw','Pts / shot')+th('pps','Pctl')+th('off','Off-script','', 'Percentile: fewer mid-range and pull-up shots by players without a green light is better')+
+    th('great','Great looks','', 'Percentile, 2019-20 on')+th('bad','Bad shots','', 'Percentile, 2019-20 on: fewer is better')+
+    th('toCost','TO cost','', 'Percentile, 2019-20 on: cheaper is better')+th('rimPlus','Rim finishing','', 'Percentile: points vs the D-I rim rate')+
+    th('spread','Travels','', 'Gap between his best and worst school in discipline percentile: small = it travels')+'</tr></thead><tbody>'+
+    rows.map(function(r,i){ return '<tr><td class="rk">'+(i+1)+'</td><td class="l nm"><a href="coach.html?slug='+encodeURIComponent(r.slug)+'">'+r.coach+'</a></td>'+
+      '<td class="l dim">'+r.school+'</td><td title="'+sl(r.first)+' to '+sl(r.last)+'">'+r.n+'</td><td>'+r.schools+'</td>'+
+      '<td>'+(100*r.discRaw).toFixed(1)+'%</td><td class="'+b(r.disc)+'"><b>'+n0(r.disc)+'</b></td>'+
+      '<td>'+r.ppsRaw.toFixed(3)+'</td><td class="'+b(r.pps)+'">'+n0(r.pps)+'</td><td class="'+b(r.off)+'">'+n0(r.off)+'</td>'+
+      '<td class="'+b(r.great)+'">'+n0(r.great)+'</td><td class="'+b(r.bad)+'">'+n0(r.bad)+'</td><td class="'+b(r.toCost)+'">'+n0(r.toCost)+'</td><td class="'+b(r.rimPlus)+'">'+n0(r.rimPlus)+'</td>'+
+      '<td>'+(r.spread==null?'—':Math.round(r.spread))+'</td></tr>'; }).join('')+'</tbody></table></div>'+
+    '<div style="font-size:12px;color:var(--text3);margin-top:8px">'+rows.length+' coaches · percentiles are vs D-I teams in the same season, weighted by shots · <a href="mastery.html" style="color:var(--accent)">how a shot earns the green light</a></div>';
+  host.querySelectorAll('th[data-k]').forEach(function(h){ h.onclick=function(){ var k=h.getAttribute('data-k');
+    if(SD.sort===k) SD.asc=!SD.asc; else { SD.sort=k; SD.asc=(k==='coach'||k==='school'||k==='spread'); } renderShotLb(); }; });
+  var qi=document.getElementById('sdq'); if(qi){ qi.oninput=function(){ SD.q=qi.value; renderShotLb(); }; if(SD.q){ qi.focus(); qi.setSelectionRange(SD.q.length,SD.q.length); } }
+}
+
 // ── coach cards ──
 function cardBars(p){
   return '<div class="bars">'+BARS.map(function(b){
@@ -270,11 +323,14 @@ function render(){
     gradeRankHtml()+
     '<div class="sec-t">Style Leaderboards <span style="color:var(--text3);font-weight:600;letter-spacing:0;text-transform:none;">20-year careers, 4+ seasons</span></div>'+
     leaderboardsHtml()+
+    '<div class="sec-t">Shot Discipline <span style="color:var(--text3);font-weight:600;letter-spacing:0;text-transform:none;">rim shots, threes and proven mastery shots vs everything else · career percentile vs D-I, 2011-12 on</span></div>'+
+    '<div id="sdlb"><div class="loading">Loading…</div></div>'+
     '<div class="sec-t">Every Coach <span style="color:var(--text3);font-weight:600;letter-spacing:0;text-transform:none;">'+filtered.length+' shown</span></div>'+
     '<div class="filters">'+arches.map(a=>'<span class="pill '+(a===curArch?'on':'')+'" onclick="setArch(\''+a+'\')">'+a+'</span>').join('')+
     '<input class="csearch" placeholder="Search coach or school…" oninput="setQ(this.value)" value="'+curQ.replace(/"/g,'&quot;')+'"></div>'+
     '<div class="cgrid">'+filtered.map(coachCard).join('')+'</div>';
   if(window.tdcSheetHeat) document.querySelectorAll('#content table.crank-t').forEach(t=>tdcSheetHeat(t));
+  renderShotLb();
   var s=document.querySelector('.csearch'); if(s&&curQ){s.focus();s.setSelectionRange(curQ.length,curQ.length);}
 }
 function setArch(a){curArch=a;render();}
