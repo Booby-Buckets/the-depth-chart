@@ -146,6 +146,7 @@
       <div id="editor"></div>
 
       <h3>Branding</h3>
+      <label class="chk" style="margin-bottom:6px"><input type="checkbox" id="brandLogo"> Our logo in the top left</label>
       <label class="f" for="handle">Handle shown on graphics</label>
       <input id="handle" placeholder="@yourhandle">
 
@@ -191,7 +192,7 @@
   // ── persisted state: each template keeps its own editable document ──
   var LS='tdc_social_v2';
   var S=(function(){ try{ return JSON.parse(localStorage.getItem(LS)||'null'); }catch(e){ return null; } })() || {};
-  S.tpl=(S.tpl&&S.tpl!=='player')?S.tpl:'list'; S.size=S.size||'igp'; S.theme=S.theme||'light'; S.shots=!!S.shots; S.handle=S.handle||'';
+  S.tpl=(S.tpl&&S.tpl!=='player')?S.tpl:'list'; S.size=S.size||'igp'; S.theme=S.theme||'light'; S.shots=!!S.shots; S.handle=S.handle||''; if(S.brandLogo==null) S.brandLogo=true;
   S.docs=S.docs||{};
   function save(){ try{ localStorage.setItem(LS,JSON.stringify(S)); }catch(e){} }
 
@@ -267,9 +268,14 @@
   function preload(rows){ return Promise.all(rows.map(function(r){ return Promise.all([img(logoUrl(r.team)),(S.shots&&r.espn)?img(shotUrl(r.espn)):null]); })); }
   function bg(W,H){ ctx.fillStyle=P.bg; ctx.fillRect(0,0,W,H); }
   // centred title + subtitle + rule; returns content top
+  // our mark (favicon.svg: three gold bars on a dark rounded square), top left of every graphic (owner, Oct 14 2026)
+  function brandMark(x,y,s){ var k=s/32; ctx.save(); ctx.fillStyle='#141416';
+    var rr=function(x0,y0,w,h,r){ ctx.beginPath(); ctx.moveTo(x0+r,y0); ctx.arcTo(x0+w,y0,x0+w,y0+h,r); ctx.arcTo(x0+w,y0+h,x0,y0+h,r); ctx.arcTo(x0,y0+h,x0,y0,r); ctx.arcTo(x0,y0,x0+w,y0,r); ctx.closePath(); ctx.fill(); };
+    rr(x,y,s,s,6*k); ctx.fillStyle='#E6D5A8'; [[6.5,17.5,8],[13.7,11.5,14],[20.9,6.5,19]].forEach(function(b){ rr(x+b[0]*k,y+b[1]*k,4.6*k,b[2]*k,1.1*k); }); ctx.restore(); }
+  function brandSize(u){ return 58*u; }
   function head(W,u,pad,title,subtitle){
-    var y=pad+34*u;
-    var tp=txt((title||'').toUpperCase(),W/2,y,{ w:900,px:54*u,al:'center',max:W-pad*2,ls:.5*u });
+    var y=pad+34*u, bw=S.brandLogo!==false?brandSize(u)+16*u:0;
+    var tp=txt((title||'').toUpperCase(),W/2,y,{ w:900,px:54*u,al:'center',max:W-pad*2-bw*2,ls:.5*u });
     y+=tp*.5+26*u;
     if(subtitle){ txt(subtitle.toUpperCase(),W/2,y,{ w:600,px:21*u,c:P.mut,al:'center',ls:2.5*u,max:W-pad*2 }); y+=30*u; }
     ctx.fillStyle=P.line; ctx.fillRect(pad,y,W-pad*2,Math.max(1,1.5*u));
@@ -991,6 +997,7 @@
   var DSTATS_DEF=['ppg','rpg','apg','fg','mpg'];
   function dstats(d){ var on=d.cols||DSTATS_DEF; return DSTATS_ALL.filter(function(x){ return on.indexOf(x[0])>-1; }); }
   T.depth={
+    ownBrand:true,
     defaults:function(){ return { team:'', title1:'', title2:'', lab1:'Projected Starting Lineup', lab2:'Projected Bench', benchN:8, heat:true, shots:true, cols:DSTATS_DEF.slice(), starters:[], bench:[] }; },
     load:async function(d){
       if(!d.team) throw new Error('Pick a team first.'); var ps=await players(), rs=await ratings();
@@ -1042,9 +1049,11 @@
       var vg2=ctx.createLinearGradient(0,0,W,0); vg2.addColorStop(0,'rgba(0,0,0,.25)'); vg2.addColorStop(.6,'rgba(0,0,0,0)'); ctx.fillStyle=vg2; ctx.fillRect(0,0,W,bh);
       ctx.fillStyle='rgba(255,255,255,.85)'; ctx.fillRect(0,bh-4*u,W,4*u);
       if(lg) drawFit(lg,W-pad*.6-ls,(bh-ls)/2,ls);
-      var tl=[d.title1,d.title2].filter(Boolean).map(function(x){ return String(x).toUpperCase(); }), tmax=W-pad*1.4-ls-24*u;
+      var bs=S.brandLogo!==false?Math.min(brandSize(u)*1.1,bh*.3):0; if(bs) brandMark(pad*.6,pad*.45,bs);
+      var tx0=pad*.6+(bs?bs+20*u:0);
+      var tl=[d.title1,d.title2].filter(Boolean).map(function(x){ return String(x).toUpperCase(); }), tmax=W-pad*.6-tx0-ls-24*u;
       var tp=Math.min(bh*(tl.length>1?.4:.62),132*u);
-      tl.forEach(function(t,i){ txt(t,pad*.6,bh/2+(i-(tl.length-1)/2)*tp*.98+tp*.04,{ w:800,px:tp*1.12,serif:'cond',c:'#fff',max:tmax,ls:.5*u }); });
+      tl.forEach(function(t,i){ txt(t,tx0,bh/2+(i-(tl.length-1)/2)*tp*.98+tp*.04,{ w:800,px:tp*1.12,serif:'cond',c:'#fff',max:tmax,ls:.5*u }); });
       // table geometry
       var DS=dstats(d), shots=d.shots!==false, nR=st.length+bn.length, hdr=(land?40:50)*u, y0=bh+6*u;
       var rh=Math.min(92*u,(fTop-6*u-y0-hdr*(bn.length?2:1))/nR);
@@ -1119,6 +1128,7 @@
       usg:(function(){ var u=usgMap()[p.espn_id||p.name]; return u!=null?u.toFixed(1):''; })(),
       ts:L&&+L.mpg>=5&&(+L.fga+.44*(+L.fta||0))>0?f1(100*(+L.ppg)/(2*((+L.fga)+.44*(+L.fta||0)))):'', ft:L&&+L.mpg>=5&&+L.fta>=.5?f1(L.ft_pct):'', ovr:ov!=null&&isFinite(ov)?String(Math.round(ov)):'' }; }
   T.table={
+    ownBrand:true,
     defaults:function(){ return { src:'ppg', team:'', conf:'', n:15, title:'', bar:'yellow', heat:false, cols:['team','pos','cls','ht','ppg','rpg','apg'], rows:[] }; },
     load:async function(d){
       var ps=await players(), rs=await ratings(), n=Math.max(1,Math.min(30,+d.n||15)), confOf={}; rs.forEach(function(t){ confOf[t.team]=confName(t.conf); });
@@ -1177,8 +1187,9 @@
       var xs=[x0,x0+rk,x0+rk+nameW]; cols.forEach(function(c){ xs.push(xs[xs.length-1]+wOf(c)*k); });
       ctx.fillStyle=barBg; ctx.fillRect(x0,y,tw,th);
       // the team's logo at both ends of the title bar when the table is about one team (owner, Oct 14 2026)
-      var tlg=(d.team&&d.logo!==false)?await img(logoUrl(d.team)):null, ts=th*.8, tpad=tlg?ts+28*u:15*u;
-      if(tlg){ drawFit(tlg,x0+14*u,y+(th-ts)/2,ts); drawFit(tlg,x1-14*u-ts,y+(th-ts)/2,ts); }
+      var tlg=(d.team&&d.logo!==false)?await img(logoUrl(d.team)):null, ts=th*.8, our=S.brandLogo!==false, tpad=(tlg||our)?ts+28*u:15*u;
+      if(our) brandMark(x0+14*u,y+(th-ts)/2,ts);
+      if(tlg){ if(!our) drawFit(tlg,x0+14*u,y+(th-ts)/2,ts); drawFit(tlg,x1-14*u-ts,y+(th-ts)/2,ts); }
       txt(d.title||'',(x0+x1)/2,y+th/2,{ w:800,px:th*.5,serif:'cond',c:barFg,al:'center',max:tw-tpad*2 });
       var hy=y+th; ctx.fillStyle='#D9D9D9'; ctx.fillRect(x0,hy,tw,hh);
       var hfs=Math.min(hh*.5,k<1?hh*.44:hh); txt('Player',(xs[1]+xs[2])/2,hy+hh/2,{ w:600,px:hfs,serif:'cond',c:'#111',al:'center' });
@@ -1313,6 +1324,7 @@
       var u=Math.min(W,H)/1080, pad=Math.round(56*u);
       await Promise.all(['800 40px "Playfair Display"','800 40px "Barlow Condensed"','700 40px Barlow','600 40px Barlow','900 20px Inter','800 20px Inter','700 20px Inter','600 20px Inter','500 20px Inter'].map(function(f){ return document.fonts.load(f).catch(function(){}); }));
       var cap=await T[S.tpl].draw(doc(),W,H,u,pad);
+      if(S.brandLogo!==false&&!T[S.tpl].ownBrand) brandMark(pad*.45,pad*.45,brandSize(u));
       cv.width=W; cv.height=H; cv.getContext('2d').drawImage(off,0,0);
       $('caption').value=cap||'';
     }catch(e){ console.error(e); status(e.message||'Couldn’t draw that graphic.',true); }
@@ -1321,7 +1333,7 @@
 
   // ── controls ──
   function syncControls(){ [].forEach.call($('tplSeg').children,function(x){ x.classList.toggle('on',x.dataset.v===S.tpl); });
-    $('size').value=S.size; $('theme').value=S.theme; $('shots').checked=S.shots; $('handle').value=S.handle; }
+    $('size').value=S.size; $('theme').value=S.theme; $('shots').checked=S.shots; $('handle').value=S.handle; $('brandLogo').checked=S.brandLogo!==false; }
   var AUTO={ depth:['team'], table:['src','team','conf','n','mix'], money:['mode','n','conf','team'], crunch:['dir','who','n','min','conf','team'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf','team'], after:['season','team','conf'], confodds:['conf','n'], nil:['mode','n','minMpg','conf','team'] };   // charts whose rows come from a load
   async function autoLoad(){ var d=doc(); if(AUTO[S.tpl]&&d.rows&&!d.rows.length){ try{ await T[S.tpl].load(d); stamp(d); save(); paintEditor(); }catch(e){ status(e.message,true); } } }
   $('tplSeg').addEventListener('click',async function(e){ var b=e.target.closest('button'); if(!b) return; S.tpl=b.dataset.v; save(); syncControls(); paintEditor(); await autoLoad(); render();
@@ -1329,6 +1341,7 @@
   $('size').onchange=function(){ S.size=this.value; save(); render(); };
   $('theme').onchange=function(){ S.theme=this.value; save(); render(); };
   $('shots').onchange=async function(){ S.shots=this.checked; save(); if(S.shots){ await players(); backfillEspn(); } render(); };
+  $('brandLogo').onchange=function(){ S.brandLogo=this.checked; save(); render(); };
   $('handle').oninput=function(){ S.handle=this.value; save(); later(); };
   // rows typed or loaded before players were available get their espn ids once the pool lands
   function backfillEspn(){ Object.keys(S.docs).forEach(function(k){ var d=S.docs[k];
