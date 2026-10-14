@@ -892,11 +892,18 @@ if _miss:
         for _i in range(0,len(_ids),60):
             for _b in sb_get(f"box_scores?select=espn_id,team,season_year,game_id&espn_id=in.({','.join(map(str,_ids[_i:_i+60]))})&season_year=gte.{CUR-3}&season_year=lt.{CUR}&order=espn_id.asc,game_id.asc"):
                 if _b["season_year"]==_best[_b["espn_id"]]["season_year"] and _b.get("team"): _teams.setdefault(_b["espn_id"],_b["team"])
+        # his usage IN THAT SEASON: with no 2025-26 advanced row the usage-ratio step fell back to the league
+        # reference (21%), so a sat-out low-major star kept his old shot volume — George Kimble III, EKU 2024-25
+        # 32.9% usage, projected 11.3 FGA in 23.6 Auburn minutes (owner, Oct 14 2026)
+        _fusg={}
+        for _i in range(0,len(_ids),150):
+            for _a in sb_get(f"player_advanced?select=espn_id,season_year,usg_pct&espn_id=in.({','.join(map(str,_ids[_i:_i+150]))})&season_year=gte.{CUR-3}&season_year=lt.{CUR}&order=espn_id.asc,season_year.asc"):
+                if _a.get("usg_pct") is not None and _a["season_year"]==_best[_a["espn_id"]]["season_year"]: _fusg[_a["espn_id"]]=float(_a["usg_pct"])
         _add=[]
         for _e,_r in _best.items():
             _row={c:_r.get(c) for c in box.columns}; _row["espn_id"]=_e; _add.append(_row)
             _cred=SAT_CRED.get(_r["season_year"],0.7)*min(1.0,float(_r["gp"])/FILL_FULL_GP)
-            FILL[str(_e)]={**_r,"last_team":_teams.get(_e),"cred":round(_cred,3),"src":"sat_out","season":_r["season_year"]}
+            FILL[str(_e)]={**_r,"last_team":_teams.get(_e),"cred":round(_cred,3),"src":"sat_out","season":_r["season_year"],"usg_pct":_fusg.get(_e)}
         _df=pd.DataFrame(_add).set_index("espn_id")
         box=pd.concat([box,_df])
         for _c in box.columns: box[_c]=pd.to_numeric(box[_c],errors="coerce")
@@ -1322,7 +1329,7 @@ for short, roster in roster_by_team.items():
         _shots=_n(b["fga"])+0.44*_n(b["fta"])
         _eff=(_n(b["ppg"])/(2.0*_shots)) if _shots>=2 else None
         R.append(dict(e=e,p=p,b=b,a=a,last_mpg=last_mpg,pm=pm,xfer=_xfer,eff=_eff,trust=_trust,xstar=_xstar,
-                      last_usg=_n(a["usg_pct"] if a is not None else None,USG_REF) or USG_REF,
+                      last_usg=_n(a["usg_pct"] if a is not None else (FILL.get(str(e)) or {}).get("usg_pct"),USG_REF) or USG_REF,
                       demo=demo_ovr.get(e,72)))
     if not R: continue
     # THE DEPTH CHART'S STARTERS START. The owner's depth 1-5 are the starting five, so a bench
