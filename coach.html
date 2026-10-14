@@ -441,6 +441,7 @@ function render(p, ss, pg){
       '<div class="plist"><h3>Top Developers</h3><div class="sub">biggest grade climb while under him</div>'+(dv||'<div class="sub" style="padding:14px 18px;">Not enough multi-season players.</div>')+'</div></div>';
   }
   html+='<div id="shotfp"></div>';     // shot fingerprint by season (located-shot archive)
+  html+='<div id="shotdisc"></div>';   // shot discipline by season (Mastery Shots + Hunt Great, 2011-12 on)
   html+='<div id="rosterfit"></div>';  // current-roster fit (fetched per-coach)
   html+='<div id="rundown"></div>';   // season-by-season rundown (lazily fetched per-coach)
   document.getElementById('content').innerHTML=html;
@@ -546,6 +547,47 @@ async function renderShotFingerprint(p, ss){
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(host);
 }
 
+// ── Shot discipline: does he get good shots wherever he goes? (scripts/build_coach_shots.py) ──
+// Percentiles are vs that season's D-I teams, so 2012 and 2026 compare despite the three-point era.
+async function renderShotDiscipline(p){
+  var host=document.getElementById('shotdisc'); if(!host) return;
+  var d=null; try{ d=await fetch('scripts/data/coach_shots.json?v=1',{cache:'no-cache'}).then(r=>r.ok?r.json():null); }catch(e){}
+  var rows=d&&d.coaches[p.coach_slug]; if(!rows||!rows.length) return;
+  var e=function(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); };
+  var pc=function(v){ return v==null?'—':(100*v).toFixed(1)+'%'; }, f2=function(v){ return v==null?'—':v.toFixed(2); };
+  var sg=function(v){ return v==null?'—':(v>=0?'+':'')+v.toFixed(2); };
+  var sl=function(y){ return (y-1)+'–'+String(y).slice(2); };
+  var bucket=function(P){ return P==null?'':P>=80?'c4':P>=60?'c3':P>=40?'c2':P>=20?'c1':'c0'; };
+  var ord=function(n){ var s=['th','st','nd','rd'],v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); };
+  // career = shot-weighted mean of season percentiles
+  var career=function(rs,k){ var w=0,t=0; rs.forEach(function(r){ var P=r.P[k]; if(P==null) return; w+=r.fga; t+=r.fga*P; }); return w?t/w:null; };
+  var disc=career(rows,'disc'), great=career(rows,'great'), pps=career(rows,'pps');
+  // national rank among coaches with 3+ seasons in the archive
+  var pool=Object.keys(d.coaches).map(function(k){ var r=d.coaches[k]; return {k:k,n:r.length,v:career(r,'disc')}; }).filter(function(x){ return x.n>=3&&x.v!=null; }).sort(function(a,b){ return b.v-a.v; });
+  var rk=pool.findIndex(function(x){ return x.k===p.coach_slug; });
+  // by school: does it travel?
+  var bySch={}; rows.forEach(function(r){ (bySch[r.school]=bySch[r.school]||[]).push(r); });
+  var schools=Object.keys(bySch).sort(function(a,b){ return bySch[b][0].y-bySch[a][0].y; });
+  var last=(p.coach||'').split(' ').slice(-1)[0];
+  var verdict=disc>=80?'among the most disciplined shot diets in D-I':disc>=60?'a disciplined shot diet':disc>=40?'a middle-of-the-pack shot diet':disc>=20?'a loose shot diet':'one of the loosest shot diets in D-I';
+  var lede=last+"'s teams have <b>"+verdict+'</b>: <b>'+ord(Math.round(disc))+'</b> percentile across '+rows.length+' season'+(rows.length===1?'':'s')+' since 2011-12'+
+    (rk>=0?' ('+ord(rk+1)+' of '+pool.length+' coaches with 3+ seasons)':'')+'.';
+  if(schools.length>1) lede+=' By school: '+schools.map(function(sc){ return e(sc)+' <b>'+ord(Math.round(career(bySch[sc],'disc')))+'</b>'; }).join(' · ')+
+    (Math.max.apply(null,schools.map(function(sc){ return career(bySch[sc],'disc'); }))-Math.min.apply(null,schools.map(function(sc){ return career(bySch[sc],'disc'); }))<=20?' — it travels.':' — it changed with the job.');
+  // green lights are rare (~2% of team-seasons): mention them only when he had some
+  var gl=rows.filter(function(r){ return r.green>0; });
+  if(gl.length) lede+=' Green-light mastery shots (a player proven at 1.1+ points per shot on mid-range or pull-ups) in '+gl.length+' season'+(gl.length===1?'':'s')+', up to <b>'+pc(Math.max.apply(null,gl.map(function(r){ return r.green; })))+'</b> of the team\'s shots.';
+  if(great!=null) lede+=' Great-look share since 2019-20: <b>'+ord(Math.round(great))+'</b> percentile.';
+  var th='<thead><tr><th class="l">Season</th><th class="l">Team</th><th>W-L</th><th>FGA</th><th>Pts / shot</th><th title="Share of shots at the rim, threes, or a player\'s proven mastery shot">Disciplined</th><th title="Mid-range and pull-up shots by players without a green light">Off-script</th><th title="Rim attempts or green-light shots (2019-20 on)">Great looks</th><th title="Unproven tough twos and pull-up threes (2019-20 on)">Bad shots</th><th>TO cost / game</th><th>Rim pts vs D-I</th></tr></thead>';
+  var body=rows.map(function(r){ var P=r.P;
+    return '<tr><td class="l">'+sl(r.y)+'</td><td class="l"><a href="hunt-great.html?team='+encodeURIComponent(r.team)+'" style="color:var(--text);font-weight:700;text-decoration:none">'+e(r.school)+'</a></td><td>'+(r.w!=null?r.w+'-'+r.l:'—')+'</td><td>'+r.fga.toLocaleString()+'</td>'+
+      '<td class="'+bucket(P.pps)+'"><b>'+r.pps.toFixed(3)+'</b></td><td class="'+bucket(P.disc)+'">'+pc(r.disc)+'</td><td class="'+bucket(P.off)+'">'+pc(r.off)+'</td>'+
+      '<td class="'+bucket(P.great)+'">'+pc(r.great)+'</td><td class="'+bucket(P.bad)+'">'+pc(r.bad)+'</td><td class="'+bucket(P.toCost)+'">'+f2(r.toCostG)+'</td><td class="'+bucket(P.rimPlus)+'">'+sg(r.rimPlusG)+'</td></tr>'; }).join('');
+  host.innerHTML='<div class="sec-t">Shot Discipline <span>rim shots, threes and proven mastery shots vs everything else · shaded by D-I percentile that season</span></div>'+
+    '<div style="font-size:13px;color:var(--text2);line-height:1.55;margin:0 0 12px;">'+lede+' <a href="mastery.html" style="color:var(--accent)">How it works</a></div>'+
+    '<div class="sheet-wrap"><table class="sheet dense">'+th+'<tbody>'+body+'</tbody></table></div>';
+}
+
 async function init(){
   var slug=new URLSearchParams(location.search).get('slug');
   if(!slug){ document.getElementById('content').innerHTML='<div class="loading">No coach specified. <a href="coaches.html" style="color:var(--accent)">Back to the Coaching Lab</a>.</div>'; return; }
@@ -562,6 +604,7 @@ async function init(){
     document.title=p.coach+' — The Depth Chart';
     render(p, ss, pages[slug]);
     renderShotFingerprint(p, ss);
+    renderShotDiscipline(p);
     renderFit(p);
     renderRundown(slug);
   }catch(e){ document.getElementById('content').innerHTML='<div class="loading">Could not load coach data. '+e.message+'</div>'; }
