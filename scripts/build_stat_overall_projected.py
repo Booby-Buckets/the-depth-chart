@@ -902,6 +902,15 @@ if _miss:
         for _c in box.columns: box[_c]=pd.to_numeric(box[_c],errors="coerce")
         print("sat-out fill: %d players projected from 2024-25 / 2023-24 (no 2025-26 line)"%len(_add),file=sys.stderr)
 
+# ── ASSIST TAIL (owner, Oct 14 2026: "7 assists is a very very high bar") ────────────────────────────────
+# A rate model over-shoots the top: returners whose last-season assist rate x their next-season minutes said 6-8 apg
+# averaged ~0.45 fewer (20,566 returner pairs 2012-26; 5-6 -> x0.94, 6-7 -> x0.93, 7-8 -> x0.94), and our 2026-27 line
+# had 3 players at 8+ apg vs ~1 a season in real life. Keep 83% of the projection above 4 apg (fit on those pairs;
+# MAE above the knee 0.796 -> 0.780). Not a career cap: a first-time lead guard can still project high.
+AST_KNEE, AST_KEEP = 4.0, 0.83
+def ast_tail(a):
+    return a if a is None or a <= AST_KNEE else AST_KNEE + AST_KEEP * (a - AST_KNEE)
+
 # ── CAREER BLEND (short seasons) ─────────────────────────────────────────────────────
 # A season cut short (injury, a mid-year move) used to be read like a full one: Jaland Lowe's 9-game
 # 2025-26 at Kentucky (67) set his whole projection, not his 31-game 2024-25 at Pitt (86). Fit on
@@ -1435,7 +1444,7 @@ for short, roster in roster_by_team.items():
                 _k=_pts/pts
                 fga*=_k; tpa*=_k; fta*=_k; fgm*=_k; tpm*=_k; ftm*=_k; pts=_pts
             pg=dict(mpg=pm,pts=pts,fga=fga,fgm=fgm,tpa=tpa,tpm=tpm,fta=fta,ftm=ftm,
-                    oreb=oreb40*sc,dreb=dreb40*sc,ast=ast40*sc,stl=stl40*sc,blk=blk40*sc,tov=tov40*sc)
+                    oreb=oreb40*sc,dreb=dreb40*sc,ast=ast_tail(ast40*sc),stl=stl40*sc,blk=blk40*sc,tov=tov40*sc)
             rpg=pg["oreb"]+pg["dreb"]
             # value it
             ti40,owa,mn=ti_value(pg,pm*G_PROJ)

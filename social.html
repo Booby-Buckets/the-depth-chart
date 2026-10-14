@@ -1000,7 +1000,7 @@
       var mk=function(p){ var h=String(p.hometown||'').trim(), L=null; try{ L=TDCProjGrade.lineOf(p); }catch(e){}
         return { pos:grpOf(p.position), name:p.name, team:p.team, espn:p.espn_id||null, cls:clsNice(p.class_year||p.yr),
           from:h&&!/^(injured|out)$/i.test(h)&&logoUrl(h)?school(h):'', ppg:f1(L&&L.ppg), rpg:f1(L&&L.rpg), apg:f1(L&&L.apg), mpg:f1(L&&L.mpg),
-          fg:L&&+L.fga>=1.5?f1(L.fg_pct):'', tp:L&&+L.tpa>=1?f1(L.tp_pct):'', stl:f1(L&&L.stl), blk:f1(L&&L.blk) }; };
+          fg:L&&+L.mpg>=5&&+L.fga>0?f1(L.fg_pct):'', tp:L&&+L.mpg>=5&&+L.tpa>=.5?f1(L.tp_pct):'', stl:f1(L&&L.stl), blk:f1(L&&L.blk) }; };
       var five=R.slice(0,5).sort(function(a,b){ return posRank(a)-posRank(b)||(htIn(a.height)||0)-(htIn(b.height)||0); });
       d.starters=five.map(mk); d.bench=R.slice(5,17).map(mk);
       var full=row?(row.full||row.team):d.team, sc=school(full), masc=String(full).slice(sc.length).trim();
@@ -1099,9 +1099,11 @@
         if(h&&!/^(injured|out)$/i.test(h)){ if(logoUrl(h)) return school(h); if(/\(|\bd-?(ii|iii|2|3)\b|juco|naia|jc\b|cc\b|college of/i.test(h)) return ''; }
         return fr?'':school(p.team); })(),
       ppg:f1(L&&L.ppg), rpg:f1(L&&L.rpg), apg:f1(L&&L.apg), mpg:f1(L&&L.mpg),
-      fg:L&&+L.fga>=1.5?f1(L.fg_pct):'', tp:L&&+L.tpa>=1?f1(L.tp_pct):'', stl:f1(L&&L.stl), blk:f1(L&&L.blk),
+      // shooting shows for anyone in the rotation (5+ projected mpg) who shoots at all — owner: Dortch's 7 mpg should show;
+      // 3P% / FT% need some volume of their own (a center's 0.1 threes a game stays a dash)
+      fg:L&&+L.mpg>=5&&+L.fga>0?f1(L.fg_pct):'', tp:L&&+L.mpg>=5&&+L.tpa>=.5?f1(L.tp_pct):'', stl:f1(L&&L.stl), blk:f1(L&&L.blk),
       // true shooting: points per shooting possession (FGA + 0.44·FTA), the one-number efficiency
-      ts:L&&(+L.fga+.44*(+L.fta||0))>=2?f1(100*(+L.ppg)/(2*((+L.fga)+.44*(+L.fta||0)))):'', ft:L&&+L.fta>=.8?f1(L.ft_pct):'', ovr:ov!=null&&isFinite(ov)?String(Math.round(ov)):'' }; }
+      ts:L&&+L.mpg>=5&&(+L.fga+.44*(+L.fta||0))>0?f1(100*(+L.ppg)/(2*((+L.fga)+.44*(+L.fta||0)))):'', ft:L&&+L.mpg>=5&&+L.fta>=.5?f1(L.ft_pct):'', ovr:ov!=null&&isFinite(ov)?String(Math.round(ov)):'' }; }
   T.table={
     defaults:function(){ return { src:'ppg', team:'', conf:'', n:15, title:'', bar:'yellow', heat:false, cols:['team','pos','cls','ht','ppg','rpg','apg'], rows:[] }; },
     load:async function(d){
