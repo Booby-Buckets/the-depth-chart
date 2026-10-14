@@ -1248,10 +1248,36 @@ def _fresh_est(short,name,depth,starter,position,height=None):
     # a deep-bench newcomer still gets a sliver of the 200 (he used to be dropped under 5 mpg and showed blank)
     pm=max(pm,1.0)
     rt=_fr_rates(short,name,position,height) or {}
+    ed=EDITOR_FR.get((short,str(name).strip().lower())) or {}
+    # THE EDITOR'S OTHER SLIDERS (owner, Oct 14 2026: Jordan Smith's rebounding / playmaking edits never reached his line or
+    # OVR — only "scoring" was read). Mirror tdc-freshman.js applySliders on the per-40 rates: each lever's multiplier plus
+    # its raw per-game term converted to per-40 at his projected minutes. Shooting %s stay with the shooting model.
+    _sl=ed.get("sliders") or {}
+    if rt and _sl:
+        _d=lambda k: ((_n(_sl.get(k),50))-50.0)/50.0
+        _ht=None
+        try:
+            _hm=re.match(r"(\d+)\D+(\d+)",str(height or "")); _ht=int(_hm.group(1))*12+int(_hm.group(2)) if _hm else None
+        except Exception: _ht=None
+        _size=max(0.0,min(1.0,((_ht or 76)-72)/12.0)); _guard=1.0 if _pos(position) in ("PG","SG","G") else 0.0
+        _p40=40.0/max(pm,10.0)
+        rt=dict(rt)
+        _reb=rt.get("oreb",0)+rt.get("dreb",0)
+        if _reb>0:
+            _nreb=max(0.3*_p40,_reb*(1+_d("rebounding")*0.5)+_d("rebounding")*(1.2+2.0*_size)*_p40)
+            rt["oreb"]*=_nreb/_reb; rt["dreb"]*=_nreb/_reb
+        if "ast" in rt: rt["ast"]=max(0.1*_p40,rt["ast"]*(1+_d("playmaking")*0.7)+_d("playmaking")*(2.2+1.4*_guard)*_p40)
+        if "tov" in rt: rt["tov"]*=1+_d("playmaking")*0.20
+        _st=_sl.get("steals",_sl.get("defense",50)); _bk=_sl.get("blocks",_sl.get("defense",50))
+        _ds=(_n(_st,50)-50.0)/50.0; _db=(_n(_bk,50)-50.0)/50.0
+        if "stl" in rt: rt["stl"]=max(0.05*_p40,rt["stl"]*(1+_ds*0.6)+_ds*0.9*_p40)
+        if "blk" in rt: rt["blk"]=max(0.02*_p40,rt["blk"]*(1+_db*0.6)+_db*(0.5+1.4*_size)*_p40)
+        _a=_d("athleticism")
+        for _k,_r in (("oreb",0.45),("blk",0.4),("stl",0.25),("dreb",0.14)):
+            if _k in rt: rt[_k]*=1+_a*_r
     if rt: FR_RATES[(short,str(name).strip())]=rt
     base=rt.get("fga") or POS_FGA40.get(_pos(position),12.5)*0.85
     base0=base
-    ed=EDITOR_FR.get((short,str(name).strip().lower())) or {}
     u=_n(ed.get("usg"),0)
     if u>0 and rt.get("fga"):   # hand-set usage: possessions used per 40 x his share of them that are shots
         poss=rt["fga"]+0.44*rt.get("fta",0)+rt.get("tov",0)
