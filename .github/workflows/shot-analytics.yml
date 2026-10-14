@@ -1,0 +1,60 @@
+name: Rebuild shot analytics
+
+# Mastery Shots (mastery.html), Hunt Great (hunt-great.html) and coach shot discipline (coach.html / coaches.html)
+# for the season in progress, from ESPN play-by-play of every final D-I game:
+#   scripts/build_mastery.mjs           -> scripts/data/mastery/<season>.json
+#   scripts/build_possession_value.mjs  -> scripts/data/possession_value/<season>.json  (needs the mastery file)
+#   scripts/build_coach_shots.py        -> scripts/data/coach_shots.json               (every season on file)
+# A season isn't built until 200 D-I games are final (MIN_GAMES), so an opening-week file never becomes the
+# pages' default season. Runs after the overnight results ingest; commits only when something changed.
+# Rebuild any season by hand: gh workflow run shot-analytics.yml -f season=2026
+
+on:
+  schedule:
+    - cron: '0 9 * 11,12,1,2,3,4 *'   # ~5:00 ET, Nov–Apr: after the 1:15 am results sweep
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "Season (end year): 2027 = 2026-27. Blank = the current season."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: shot-analytics
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Season
+        id: season
+        run: |
+          S="${{ github.event.inputs.season }}"
+          if [ -z "$S" ]; then Y=$(date -u +%Y); M=$(date -u +%-m); if [ "$M" -ge 7 ]; then S=$((Y+1)); else S=$Y; fi; fi
+          echo "season=$S" >> "$GITHUB_OUTPUT"; echo "Building season $S"
+      - name: Mastery Shots
+        run: node scripts/build_mastery.mjs ${{ steps.season.outputs.season }}
+      - name: Hunt Great (possession value)
+        run: node scripts/build_possession_value.mjs ${{ steps.season.outputs.season }}
+      - name: Coach shot discipline
+        run: python3 -u scripts/build_coach_shots.py
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/data/mastery scripts/data/possession_value scripts/data/coach_shots.json
+          if git diff --cached --quiet; then echo "Nothing new."; exit 0; fi
+          git commit -m "Auto: shot analytics ${{ steps.season.outputs.season }} $(date -u +%Y-%m-%d) [skip ci]"
+          for i in 1 2 3; do git pull --rebase -q && git push && break; sleep 5; done

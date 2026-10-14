@@ -62,3 +62,25 @@ export function grade(fam, g) {
   if (g && (g.jump2 || g[fam])) return 'great';
   return 'bad';
 }
+
+// D-I teams for a season: [{team_id, team, conference, tier}]. team_seasons only gains a season's rows after it
+// ends, so a season in progress (2026-27) falls back to the latest season that has them, with conferences taken
+// from scripts/data/conf_members_<y>.json (realignment) when that file exists.
+export async function d1Teams(sb, y, dataDir) {
+  const rows = await sb(`team_seasons?season_year=eq.${y}&select=team_id,team,conference,tier&order=team_id.asc`);
+  if (rows.length) return rows;
+  const prev = await sb(`team_seasons?season_year=eq.${y - 1}&select=team_id,team,conference,tier&order=team_id.asc`);
+  try {
+    const fs = await import('node:fs'), path = await import('node:path');
+    const m = JSON.parse(fs.readFileSync(path.join(dataDir, `conf_members_${y}.json`), 'utf8'));
+    // league abbreviation -> the spelling team_seasons uses (most of each league didn't move), so filters don't split
+    const votes = {};
+    for (const r of prev) { const c = m.teams[r.team]; if (c && r.conference) (votes[c] = votes[c] || {})[r.conference] = ((votes[c] || {})[r.conference] || 0) + 1; }
+    const name = (c) => votes[c] ? Object.entries(votes[c]).sort((a, b) => b[1] - a[1])[0][0] : (m.conferences[c] || null);
+    for (const r of prev) { const c = m.teams[r.team]; if (c && name(c)) r.conference = name(c); }
+  } catch {}
+  console.log(`  ${y}: no team_seasons rows yet — using ${y - 1}'s ${prev.length} D-I teams`);
+  return prev;
+}
+// a season is built only once enough games are final, so an opening-week file never becomes the pages' default season
+export const MIN_GAMES = +(process.env.MIN_GAMES || 200);

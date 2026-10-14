@@ -25,7 +25,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { FAM, isFG, family } from './lib_shotfamily.mjs';
+import { FAM, isFG, family, d1Teams, MIN_GAMES } from './lib_shotfamily.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SB = 'https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/', KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
@@ -96,10 +96,11 @@ function parse(s, X) {
 
 async function season(y) {
   const t0 = Date.now();
-  const ts = await sb(`team_seasons?season_year=eq.${y}&select=team_id,team,conference,tier&order=team_id.asc`);
+  const ts = await d1Teams(sb, y, path.join(HERE, 'data'));
   const d1 = new Set(ts.map((t) => String(t.team_id)));
   const games = (await sb(`games?season_year=eq.${y}&status=eq.STATUS_FINAL&select=id,home_id,away_id&order=id.asc`))
     .filter((g) => d1.has(String(g.home_id)) && d1.has(String(g.away_id)));
+  if (games.length < MIN_GAMES) { console.log(`${y}: only ${games.length} D-I games final — waiting for ${MIN_GAMES} before building`); return; }
   const X = { p: {}, t: {}, lg: blank() };
   let done = 0, empty = 0;
   const q = games.slice();
@@ -138,4 +139,6 @@ const args = process.argv.slice(2).map(Number).filter(Boolean);
 const ys = args.length === 2 && args[1] - args[0] > 1 ? Array.from({ length: args[1] - args[0] + 1 }, (_, i) => args[0] + i) : args.length ? args : [2026];
 for (const y of ys) await season(y);
 const idx = fs.readdirSync(OUT).map((f) => /^(\d{4})\.json$/.exec(f)).filter(Boolean).map((m) => +m[1]).sort((a, b) => b - a);
-fs.writeFileSync(path.join(OUT, 'index.json'), JSON.stringify({ built: new Date().toISOString(), seasons: idx }));
+// rewrite the index only when the season list changes, so a night with nothing new commits nothing
+let had = null; try { had = JSON.parse(fs.readFileSync(path.join(OUT, 'index.json'), 'utf8')).seasons; } catch {}
+if (JSON.stringify(had) !== JSON.stringify(idx)) fs.writeFileSync(path.join(OUT, 'index.json'), JSON.stringify({ built: new Date().toISOString(), seasons: idx }));

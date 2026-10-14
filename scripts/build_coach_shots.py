@@ -169,6 +169,29 @@ def main():
         print(f"  {y}: {len(ms)} teams" + (" + possession value" if pv else ""))
 
     cs = json.load(open(os.path.join(D, "coach_seasons.json")))
+    # A season in progress isn't in team_seasons (only finished seasons are) or coach_seasons (scraped from
+    # Sports-Reference): take its teams from the mastery file and its coaches from teams.head_coach (this season).
+    cs_last = max(r["season_year"] for r in cs)
+    for y in seasons:
+        if not any(r["season_year"] == y for r in ts):
+            m = json.load(open(os.path.join(D, "mastery", f"{y}.json")))
+            for tid, t in m["teams"].items():
+                r = {"team": t[0], "team_id": int(tid), "season_year": y, "srs": None}
+                ts.append(r)
+                for k in keys(r["team"]): ts_by_key[(k, y)].append(r)
+                by_full[(norm(r["team"]), y)] = r
+    slug_of = {}
+    for r in sorted(cs, key=lambda r: r["season_year"]): slug_of[r["coach"]] = r["coach_slug"]
+    live = [y for y in seasons if y > cs_last]
+    if live:
+        hc = get_all("teams?select=name,head_coach&head_coach=not.is.null&order=name.asc")
+        for y in live:
+            n = 0
+            for t in hc:
+                slug = slug_of.get(t["head_coach"])
+                if not slug: continue        # a first-year head coach has no coach page yet
+                cs.append({"season_year": y, "school": t["name"], "coach": t["head_coach"], "coach_slug": slug, "srs": None, "wins": None, "losses": None}); n += 1
+            print(f"  {y}: {n} coaches from teams.head_coach (season not in coach_seasons yet)")
     out, miss = defaultdict(list), 0
     R = lambda x, d=3: None if x is None else round(x, d)
     for s in cs:
@@ -192,8 +215,17 @@ def main():
             vals = sorted(v[k] for v in ms.values() if v.get(k) is not None)
             if vals: m[k] = round(vals[len(vals) // 2], 3)
         med[y] = m
-    json.dump({"built": __import__("datetime").datetime.now().isoformat(timespec="seconds"), "seasons": sorted(seasons, reverse=True), "median": med, "coaches": out},
-              open(os.path.join(D, "coach_shots.json"), "w"), separators=(",", ":"))
+    body = {"seasons": sorted(seasons, reverse=True), "median": {str(k): v for k, v in med.items()}, "coaches": out}
+    dst = os.path.join(D, "coach_shots.json")
+    try:
+        old = json.load(open(dst)); old.pop("built", None)
+    except Exception:
+        old = None
+    # rewrite only when something changed, so a quiet night commits nothing
+    if json.loads(json.dumps(body)) != old:
+        json.dump(dict(built=__import__("datetime").datetime.now().isoformat(timespec="seconds"), **body), open(dst, "w"), separators=(",", ":"))
+    else:
+        print("coach_shots.json unchanged")
     n = sum(len(v) for v in out.values())
     print(f"coach_shots.json: {len(out)} coaches, {n} coach-seasons ({miss} coach-seasons unmatched)")
     for slug in ("josh-schertz-1", "mark-few-1", "bill-self-1"):
