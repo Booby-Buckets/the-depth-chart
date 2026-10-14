@@ -106,6 +106,7 @@
     .chip.beta{color:var(--amber);background:color-mix(in srgb,var(--amber) 18%,transparent);}
     .chip.soon{color:var(--text3);background:var(--bg3);}
     .chip.star{color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,transparent);}
+    .chip.new{color:var(--text);background:var(--bg3);}
     .tool .arr{font-size:13px;color:var(--text3);opacity:0;transition:opacity .15s;margin-top:2px;}
     a.tool:hover .arr{opacity:1;}
     .noresults{padding:50px 0;text-align:center;color:var(--text3);font-size:13.5px;}
@@ -272,6 +273,9 @@ const HUBS = [
     {h:'matchup.html', n:'Matchup', d:"Two teams and a venue: the line and win probability, then each side's offense against the other's defense — four factors, shot zones, points per possession — pace, the starting fives and trait matchups.", deep:true,
       how:['Pick both teams and the venue (home / away / neutral); a past season replays the matchup with that year\'s teams.','Read <b>When A has the ball</b> and <b>When B has the ball</b>: each factor puts one side\'s offense percentile against the other\'s defense percentile, with the gap.','Then shot zones and possessions (last season\'s play-by-play), pace and the starting fives.'],
       look:['The biggest gaps in the four-factor tables — colored toward the side they favor.']},
+    {h:'hunt-great.html', n:'Hunt Great', d:'Every shot graded great, average or bad by when it came in the possession, plus what turnovers and missed rim attempts cost — any team, against D-I.', s:'new', deep:true,
+      how:['Pick your team on this page and the tool opens on it: its shot-clock grid, turnover and rim costs, and every player\'s shot grades.','Then use the D-I tables to rank any opponent: <b>Teams · shot clock</b> (who hunts great looks) and <b>Teams · turnovers &amp; rim</b> (whose mistakes are costly).'],
+      look:['An opponent that lives on <b>late bad shots</b> — the clock is on your side if you make them play long.','A high <b>stolen share</b> of turnovers: those are the ones opponents turn into 1.26 points.']},
     {h:'shot-genome.html', n:'Shot Charts & Genome', d:'Hex shot charts + look-quality / shot-making / creation.',
       how:['The quadrant plots every player with enough tracked shots: Look Quality (how good his shots are) vs Shot-Making (how much he beats them).','Filter by team / position / minimum shots; click through to a player’s shot chart.'],
       look:['Top-left = makes tough shots (creators); bottom-right = wastes good looks.']},
@@ -289,6 +293,9 @@ const HUBS = [
     {h:'predict.html', n:'Projected Ratings & Schedule', d:'Your projection + game-by-game odds.', deep:true,
       how:['Pick your team; read the projected rating and record, then every game with a win probability and spread.'],
       look:['The games sitting between 40% and 60% — the season swings on those.']},
+    {h:'mastery.html', n:'Mastery Shots', d:'Points per shot by shot type against the 1.1 bar: who on a roster has earned the green light on mid-range jumpers, floaters, post moves and pull-up threes.', s:'new', deep:true,
+      how:['Pick your team on this page and the leaderboard opens on your roster; switch the shot type (mid-range, floaters, post, pull-ups, threes).','<b>Span</b> combines up to three seasons — a green light has to hold up over time.','<b>Teams</b> view: shot discipline — how much of the offense is rim shots, threes and proven mastery shots vs off-script ones.'],
+      look:['<b>Green light</b> = 1.1+ points per shot on enough attempts (55% on a two, 36.7% on a three).','<b>Off-script</b> share: the shots no one on the roster has proven they can make.']},
     {h:'onoff.html', n:'On/Off & WOWY', d:'Who actually moves the needle when they play.',
       how:['Search a player or team; read on-court vs off-court net rating and the with-or-without-you split.'],
       look:['A big on/off with a modest box score = the glue guy to protect.']},
@@ -313,7 +320,7 @@ const HUBS = [
       how:['Filter to your team or conference; sort any skill column.'],
       look:['Where your rotation ranks by position against the league.']},
     {h:'matchup.html#adv', n:'Matchup Advantage', d:'Where a player wins (or loses) his matchup.',
-      how:['Open the Matchup page's Player Advantages tab and pick a player to see his splits by opponent archetype.'],
+      how:['Open the Matchup page\'s Player Advantages tab and pick a player to see his splits by opponent archetype.'],
       look:['Archetypes he feasts on vs the ones that shut him down.']},
     {n:'Recruit Fit Scores', d:'How a recruit projects into your system.', s:'soon'},
   ]},
@@ -355,7 +362,7 @@ clrEl.addEventListener('click',()=>{ qEl.value=''; query=''; clrEl.style.display
 let _tid=0;
 function toolRow(t, hc){
   const soon=t.s==='soon';
-  const chip = t.s==='beta'?'<span class="chip beta">Beta</span>' : t.s==='soon'?'<span class="chip soon">Soon</span>' : t.s==='star'?'<span class="chip star">★ Start</span>' : '';
+  const chip = t.s==='beta'?'<span class="chip beta">Beta</span>' : t.s==='soon'?'<span class="chip soon">Soon</span>' : t.s==='star'?'<span class="chip star">★ Start</span>' : t.s==='new'?'<span class="chip new">New</span>' : '';
   const q = (window.MY_TEAM && t.h && t.h.indexOf('.html')>=0) ? ((t.h.indexOf('?')>=0?'&':'?')+'team='+encodeURIComponent(window.MY_TEAM)) : '';
   const id='t'+(++_tid);
   const text=(t.n+' '+t.d+' '+(t.how||[]).join(' ')+' '+(t.look||[]).join(' ')).replace(/<[^>]+>/g,'').toLowerCase();
@@ -470,6 +477,8 @@ function renderCommandCenter(row){
   const schedCard=`<div class="cell" id="ccSchedCard"><div class="cv">TBD</div><div class="cl">Schedule</div><div class="cd">2026-27 slate not released yet</div></div>`;
   const LAUNCH=[
     ['🔍','team-report.html','Team Report','identity · shots · possessions · rotation'],
+    ['🎯','hunt-great.html','Hunt Great','shot-clock shot grades + turnover cost'],
+    ['🟢','mastery.html','Mastery Shots','who has the green light, vs 1.1'],
     ['🧠','roles.html','Personnel Book','role &amp; fit · how to use each man'],
     ['📈','dossier.html','Player Dossier','projected line + full splits'],
     ['💰','moneyball.html','Moneyball','roster value in Wins Added'],

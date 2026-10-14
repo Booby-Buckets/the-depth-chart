@@ -20,8 +20,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="team-colors.js?v=12"></script>
   <script src="tdc-teamname.js?v=1"></script>
-  <script src="tdc-mastery.js?v=1"></script>
-  <script src="tdc-huntgreat.js?v=1"></script>
+  <script src="tdc-mastery.js?v=2"></script>
+  <script src="tdc-huntgreat.js?v=2"></script>
   <style>
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;}
     [data-theme="dark"]{--bg:#0A0E18;--bg2:#111726;--bg3:#1A2133;--border:#232B3E;--border2:#34405A;--text:#EEF1F7;--text2:#AEB6C8;--text3:#7A849A;--accent:#E6D5A8;}
@@ -60,6 +60,7 @@
   <div class="eyebrow">D-I · Possession value</div>
   <h1>Hunt great. Protect the defense.</h1>
   <p class="rule">Every D-I shot graded by when it came and what it was. <b>Great</b> is a rim attempt or a shot the shooter has a <a href="mastery.html">green light</a> on. <b>Average</b> is a three he hasn't proven. <b>Bad</b> is a tough two or pull-up three he hasn't proven. A great look early should go up; an average or bad one early should wait. Turnovers and missed rim attempts are priced by what they cost the offense and what the opponent scores next.</p>
+  <div id="spotWrap" style="display:none"><h2 id="spotH"></h2><div id="spot"></div></div>
   <div class="facts" id="facts"></div>
 
   <h2 id="gridH">D-I shot clock</h2>
@@ -152,6 +153,12 @@
   }
   const bind=(id,k,num)=>{ document.getElementById(id).onchange=e=>{ S[k]=num?+e.target.value:e.target.value; if(k==='view'){ [S.sort,S.asc]=DEF[S.view]; } render(); }; };
   bind('fView','view'); bind('fSeason','season',true); bind('fConf','conf'); bind('fPos','pos'); bind('fMin','min',true);
+  // ?team= (the coaching hub adds it once a coach picks a team): that team's panel first, then D-I
+  let teamQ=null; try{ teamQ=new URLSearchParams(location.search).get('team'); }catch(e){}
+  if(teamQ) H.seasons().then(ys=>ys.length&&M.load(ys[0])).then(ms=>{ const id=ms&&M.findTeam(ms,teamQ); if(!id) return;
+    document.getElementById('spotWrap').style.display='';
+    document.getElementById('spotH').textContent=sh(ms.teams[id][0]);
+    H.renderTeam(document.getElementById('spot'),{teamId:id}); });
   H.seasons().then(ys=>{ if(!ys.length) return; S.season=ys[0];
     document.getElementById('fSeason').innerHTML=ys.map(y=>`<option value="${y}">${M.sl(y)}</option>`).join('');
     render(); });

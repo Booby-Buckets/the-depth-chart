@@ -20,7 +20,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="team-colors.js?v=12"></script>
   <script src="tdc-teamname.js?v=1"></script>
-  <script src="tdc-mastery.js?v=1"></script>
+  <script src="tdc-mastery.js?v=2"></script>
   <style>
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;}
     [data-theme="dark"]{--bg:#0A0E18;--bg2:#111726;--bg3:#1A2133;--border:#232B3E;--border2:#34405A;--text:#EEF1F7;--text2:#AEB6C8;--text3:#7A849A;--accent:#E6D5A8;}
@@ -75,7 +75,8 @@
 <script>
 (function(){
   const M=window.TDC_MASTERY;
-  const S={view:'player',shot:'jump2',season:null,span:1,conf:'',pos:'',show:'all',sort:'rel',asc:false};
+  const S={view:'player',shot:'jump2',season:null,span:1,conf:'',pos:'',show:'all',sort:'rel',asc:false,team:null,teamQ:null};
+  try{ S.teamQ=new URLSearchParams(location.search).get('team'); }catch(e){}
   const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const sh=t=>{ try{ return (window.TDCTeamName&&TDCTeamName.short)?TDCTeamName.short(t):t; }catch(e){ return t; } };
   const p2=v=>v==null||!isFinite(v)?'—':v.toFixed(2), sg=v=>v==null||!isFinite(v)?'—':(v>=0?'+':'')+v.toFixed(2), pc=v=>v==null||!isFinite(v)?'—':(100*v).toFixed(1);
@@ -119,17 +120,19 @@
     const P=players(files), L=league(files), o=M.SHOTS[S.shot], lg=M.sum(L.flat,S.shot,{fta:L.fta,ftm:L.ftm});
     const list=[];
     Object.values(P).forEach(p=>{
+      if(S.team&&String(p.teamId)!==S.team) return;
       if(S.conf&&p.conf!==S.conf) return;
       if(S.pos&&p.pos!==S.pos) return;
       const s=M.sum(p.c,S.shot,{fta:p.fta,ftm:p.ftm});
-      if(s.att<o.floor/2) return;
+      if(S.team?!s.att:s.att<o.floor/2) return;   // one roster: everyone who took the shot
       const st=M.status(s.pps,s.att,o.floor);
       if(S.show==='green'&&st!=='green') return;
       list.push({id:p.id,name:p.name,team:sh(p.team),conf:p.conf,pos:p.pos,att:s.att,fg:s.fg,pps:s.pps,rel:M.rel(s,lg.pps,o.k),vs:s.pps-M.BAR,over:(s.pps-M.BAR)*s.den,astp:s.astp,st,stOrd:{green:3,close:2,small:1}[st]||0});
     });
     sortList(list);
     const nG=list.filter(d=>d.st==='green').length;
-    document.getElementById('sample').innerHTML=`<b>${o.label}</b> · ${spanLabel()} · D-I <b>${p2(lg.pps)}</b> points per shot · <b>${nG}</b> green light${nG===1?'':'s'} (1.1+ on ${o.floor}+ attempts) · ${list.length.toLocaleString()} players with ${Math.ceil(o.floor/2)}+ attempts${PARTIAL}`;
+    document.getElementById('sample').innerHTML=`<b>${o.label}</b> · ${spanLabel()} · D-I <b>${p2(lg.pps)}</b> points per shot · <b>${nG}</b> green light${nG===1?'':'s'} (1.1+ on ${o.floor}+ attempts) · ${S.team?`${esc(teamName())}: ${list.length} player${list.length===1?'':'s'} · <a href="#" id="allDI">show all of D-I</a>`:`${list.length.toLocaleString()} players with ${Math.ceil(o.floor/2)}+ attempts`}${PARTIAL}`;
+    const ad=document.getElementById('allDI'); if(ad) ad.onclick=e=>{ e.preventDefault(); S.team=null; S.teamQ=null; try{ const u=new URL(location.href); u.searchParams.delete('team'); history.replaceState(null,'',u); }catch(_){} render(); };
     const th=(k,l,c,t)=>`<th class="${c||''}" data-k="${k}"${t?` title="${esc(t)}"`:''}>${l}${S.sort===k?(S.asc?' ▲':' ▼'):''}</th>`;
     const link=d=>`<a href="player.html?espn=${esc(d.id)}&name=${encodeURIComponent(d.name||'')}&tab=mastery">${esc(d.name)}</a>`;
     document.getElementById('tbl').innerHTML=list.length?`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th>${th('name','Player','l')}${th('team','Team','l')}${th('conf','Conf','l')}${th('pos','Pos','l')}${th('att','Att')}${th('fg',o.ft?'TS%':'FG%')}${th('pps','Pts / shot')}${th('rel','Reliable','', 'Points per shot pulled toward the D-I average until the sample is big enough to trust')}${th('vs','vs 1.1')}${th('over','Pts over 1.1','', 'Points scored above 1.1 per shot across all his attempts: rewards volume')}${th('astp','Assisted','', 'Share of his makes that were assisted (the feed names an assister on makes only)')}${th('stOrd','Status','l')}</tr></thead><tbody>${
@@ -175,6 +178,8 @@
       if(S.sort===k) S.asc=!S.asc; else { S.sort=k; S.asc=['name','team','conf','pos','off','lost'].includes(k); }
       render(); });
   }
+  let TEAMS={};
+  const teamName=()=>((TEAMS[S.team]||[S.teamQ||''])[0]);
   const spanLabel=()=>{ const ys=spanYears(); return ys.length>1?`${M.sl(ys[ys.length-1])} to ${M.sl(ys[0])}`:M.sl(S.season); };
   // seasons where ESPN lacks play-by-play for 15%+ of games: say so rather than present a partial sample as complete
   let PARTIAL='';
@@ -184,6 +189,7 @@
     const ys=spanYears(), files=(await Promise.all(ys.map(M.load))).filter(Boolean);
     if(!files.length){ document.getElementById('tbl').innerHTML='<div class="empty">Could not load the data.</div>'; return; }
     const cur=files.find(d=>d.season===S.season)||files[0];
+    if(S.teamQ&&!S.team) S.team=M.findTeam(cur,S.teamQ);
     document.getElementById('ladH').textContent='What every shot is worth in D-I · '+M.sl(cur.season);
     document.getElementById('ladder').innerHTML=M.ladder(cur);
     // shot options: tagged shot types only where the feed tags them
@@ -191,6 +197,7 @@
     const opts=M.ORDER.filter(k=>!M.SHOTS[k].tagged||tags);
     if(!opts.includes(S.shot)) S.shot='jump2';
     fS.innerHTML=opts.map(k=>`<option value="${k}">${M.SHOTS[k].label}</option>`).join(''); fS.value=S.shot;
+    TEAMS=cur.teams;
     const confs=[...new Set(Object.values(cur.teams).map(t=>t[1]).filter(Boolean))].sort();
     const fC=document.getElementById('fConf'); fC.innerHTML='<option value="">All conferences</option>'+confs.map(c=>`<option>${esc(c)}</option>`).join(''); fC.value=S.conf;
     const isP=S.view==='player';

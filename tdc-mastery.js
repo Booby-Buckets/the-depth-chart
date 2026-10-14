@@ -184,5 +184,17 @@
     });
   }
 
-  window.TDC_MASTERY = { BAR: BAR, FAM: FAM, SHOTS: SHOTS, ORDER: ORDER, STATUS: STATUS, load: load, seasons: seasons, sum: sum, lgSum: lgSum, leagueOf: leagueOf, rel: rel, status: status, heat: heat, hasTags: hasTags, ladder: ladder, renderPlayer: renderPlayer, css: css, sl: sl };
+  // a ?team= value (full or short name, any of the site's spellings) -> team id in a season file's teams map
+  function findTeam(d, name) {
+    if (!d || !name) return null;
+    var norm = function (s) { return String(s || '').toLowerCase().replace(/\bst\.?\b/g, 'state').replace(/&/g, 'and').replace(/[^a-z0-9]/g, ''); };
+    var q = norm(name), ids = Object.keys(d.teams), hit = ids.filter(function (id) { return norm(d.teams[id][0]) === q; })[0];
+    if (hit) return hit;
+    // "Saint Louis" vs "Saint Louis Billikens": the longest team name that one starts with wins
+    var best = null, bl = 0;
+    ids.forEach(function (id) { var n = norm(d.teams[id][0]); if ((n.indexOf(q) === 0 || q.indexOf(n) === 0) && Math.min(n.length, q.length) > bl) { best = id; bl = Math.min(n.length, q.length); } });
+    return best;
+  }
+
+  window.TDC_MASTERY = { findTeam: findTeam, BAR: BAR, FAM: FAM, SHOTS: SHOTS, ORDER: ORDER, STATUS: STATUS, load: load, seasons: seasons, sum: sum, lgSum: lgSum, leagueOf: leagueOf, rel: rel, status: status, heat: heat, hasTags: hasTags, ladder: ladder, renderPlayer: renderPlayer, css: css, sl: sl };
 })();
