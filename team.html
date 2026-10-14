@@ -2920,6 +2920,18 @@ async function renderProjections(players, conf, color, rgb, gp, teamRow){
     ['ppg','rpg','apg','mpg','fgm','fga','tpm','tpa','ftm','fta','stl','blk','tovs','oreb','dreb','fg_pct','tp_pct','ft_pct']
       .forEach(k=>{ if(c[k]!=null) pp[k]=c[k]; });
     pp._projMin=c.mpg; });
+  // USG% and TS% from the PROJECTED LINE (owner, Oct 14 2026: Braeden Smith showed 16.7% usage next to 11 ppg / 8.7 FGA /
+  // 2.4 TO in 31 minutes). They used to be last season's advanced stats lag-adjusted — for a transfer stepping out of a
+  // 17-minute backup role that is a different player. Usage = his plays (FGA + 0.44·FTA + TO) per minute over the team's
+  // plays per team-minute (the standard formula, team totals = this projected roster); TS = PTS / (2·(FGA + 0.44·FTA)).
+  (function(){
+    const n=v=>parseFloat(v)||0, plays=p=>n(p.fga)+0.44*n(p.fta)+n(p.tovs);
+    const act=projected.filter(p=>!(p._injured||p._dnp)), tmPlays=act.reduce((a,p)=>a+plays(p),0), tmMin=act.reduce((a,p)=>a+n(p.mpg),0);
+    if(!(tmPlays>0&&tmMin>0)) return;
+    act.forEach(p=>{ const m=n(p.mpg); if(m<3||!p._projAdv) return;
+      p._projAdv.usg=Math.round(1000*plays(p)*(tmMin/5)/(m*tmPlays))/10;   // five men share the floor's plays
+      const tsa=n(p.fga)+0.44*n(p.fta); if(tsa>0) p._projAdv.ts=Math.round(1000*n(p.ppg)/(2*tsa))/10; });
+  })();
   // Expose projected stats by name for hover micro-cards
   window._projByName={};
   projected.forEach(pp=>{ window._projByName[(pp.name||'').toLowerCase().trim()]=pp; });
