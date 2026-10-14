@@ -1138,7 +1138,13 @@
       else {
         var key=d.src==='xfer'?'ppg':d.src, pool=ps.filter(function(p){ return inScope(p)&&!out(p)&&uniq(p); }).map(tRow)
           .filter(function(r){ return d.src==='xfer'?(!!r.from&&!onTeam(r.from,r.team)):d.src==='usg'?+r.mpg>=20:(d.src==='ovr'||+r.mpg>=15); }).filter(function(r){ return r[key]!==''&&isFinite(+r[key]); });
-        pool.sort(function(a,b){ return +b[key]-(+a[key]); }); d.rows=pool.slice(0,n);
+        pool.sort(function(a,b){ return +b[key]-(+a[key]); });
+        // MIX (owner, Oct 14 2026: "where did the major conference players go, it should be a mix"): half the list from the
+        // power conferences, half from everyone else, then ranked together — usage especially tilts to one-man low-major offenses
+        var PWR={ 'ACC':1, 'Big Ten':1, 'Big 12':1, 'SEC':1, 'Big East':1 };
+        if(d.mix&&!d.conf&&!d.team){ var hi=pool.filter(function(r){ return PWR[confOf[r.team]]; }), lo=pool.filter(function(r){ return !PWR[confOf[r.team]]; });
+          d.rows=hi.slice(0,Math.ceil(n/2)).concat(lo.slice(0,Math.floor(n/2))).sort(function(a,b){ return +b[key]-(+a[key]); }); }
+        else d.rows=pool.slice(0,n);
         d.title={ ppg:'Top '+tag+'Scorers', rpg:'Top '+tag+'Rebounders', apg:'Top '+tag+'Passers', ovr:'Top '+tag+'Players', usg:tag+'Usage Leaders', xfer:'Top '+tag+'Transfers' }[d.src]+' · '+SEASON+' Projections';
         if(d.src==='xfer'&&d.cols.indexOf('from')<0) d.cols=d.cols.concat(['from']);
         if(d.src==='usg'&&d.cols.indexOf('usg')<0) d.cols=TCOLS.map(function(x){ return x[0]; }).filter(function(k){ return k==='usg'||d.cols.indexOf(k)>-1; });
@@ -1148,6 +1154,7 @@
       var on=d.cols||[], F=[{k:'name',ph:'Player',list:'plList',w:'minmax(0,1.5fr)'}].concat(TCOLS.filter(function(c){ return on.indexOf(c[0])>-1; }).map(function(c){ return { k:c[0], ph:c[1], list:c[2]==='logo'?'tmList':null, w:c[2]==='logo'?'minmax(0,1fr)':'48px' }; }));
       return '<h3>Data</h3><div class="two"><div><label class="f">Start from</label><select data-k="src">'+Object.keys(TSRC).map(function(k){ return '<option value="'+k+'"'+(d.src===k?' selected':'')+'>'+TSRC[k]+'</option>'; }).join('')+'</select></div>'+
         '<div><label class="f">Rows</label><input data-k="n" type="number" min="1" max="30" value="'+d.n+'"></div></div>'+scopeUI(d,{ noConf:d.src==='roster' })+
+        (d.src!=='roster'&&d.src!=='blank'&&d.src!=='board'?'<label class="chk"><input type="checkbox" data-k="mix"'+(d.mix?' checked':'')+'> Mix: half power-conference players (ACC · Big Ten · Big 12 · SEC · Big East), half everyone else</label>':'')+
         '<div class="btns"><button class="b sm primary" data-act="load">Load / refresh data</button></div><div class="hint">Loading replaces the rows. Stats are our '+SEASON+' projections; “Last Team” shows a transfer’s previous school.</div>'+
         '<h3>Look</h3><label class="f">Title</label><input data-k="title" value="'+esc(d.title||'')+'">'+
         '<div class="two"><div><label class="f">Title bar</label><select data-k="bar">'+[['yellow','Yellow'],['team','Team colour'],['black','Black'],['white','White']].map(function(o){ return '<option value="'+o[0]+'"'+(d.bar===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')+'</select></div>'+
@@ -1315,7 +1322,7 @@
   // ── controls ──
   function syncControls(){ [].forEach.call($('tplSeg').children,function(x){ x.classList.toggle('on',x.dataset.v===S.tpl); });
     $('size').value=S.size; $('theme').value=S.theme; $('shots').checked=S.shots; $('handle').value=S.handle; }
-  var AUTO={ depth:['team'], table:['src','team','conf','n'], money:['mode','n','conf','team'], crunch:['dir','who','n','min','conf','team'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf','team'], after:['season','team','conf'], confodds:['conf','n'], nil:['mode','n','minMpg','conf','team'] };   // charts whose rows come from a load
+  var AUTO={ depth:['team'], table:['src','team','conf','n','mix'], money:['mode','n','conf','team'], crunch:['dir','who','n','min','conf','team'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf','team'], after:['season','team','conf'], confodds:['conf','n'], nil:['mode','n','minMpg','conf','team'] };   // charts whose rows come from a load
   async function autoLoad(){ var d=doc(); if(AUTO[S.tpl]&&d.rows&&!d.rows.length){ try{ await T[S.tpl].load(d); stamp(d); save(); paintEditor(); }catch(e){ status(e.message,true); } } }
   $('tplSeg').addEventListener('click',async function(e){ var b=e.target.closest('button'); if(!b) return; S.tpl=b.dataset.v; save(); syncControls(); paintEditor(); await autoLoad(); render();
     if(S.tpl!=='matchup') players().catch(function(){}); });
