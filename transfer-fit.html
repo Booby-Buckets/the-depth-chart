@@ -262,8 +262,8 @@ function shareReport(){
 
 // project once, then cache — show() re-runs on every destination change, and re-projecting
 // an already-projected grade would drift it down each time.
-function projInto(p){ if(p&&!p._projected&&window.TDCProjGrade&&TDCProjGrade.gradeSolo&&parseFloat(p.mpg)>0){
-  const g=TDCProjGrade.gradeSolo({id:p.id,espn_id:p.espn_id,tdc_grade:p.tdc_grade,yr:p.class_year||p.yr});
+function projInto(p){ if(p&&!p._projected&&window.TDCProjGrade&&TDCProjGrade.gradeSolo){
+  const g=TDCProjGrade.gradeSolo({id:p.id,espn_id:p.espn_id,name:p.name,team:p.team,tdc_grade:p.tdc_grade,yr:p.class_year||p.yr});
   if(g!=null&&!isNaN(g)) p.tdc_grade=''+g; p._projected=true; } return p; }
 const findTeam=nm=>TEAMS.find(t=>t.team===nm||t.full===nm||t.team===(nm||'').replace(/\s+(Blue Devils|Tigers|Wildcats|Bulldogs|Cardinals).*$/,''));
 
@@ -325,7 +325,7 @@ function normPos(x){ x=(''+(x||'')).toUpperCase().trim();
   if(['PG','SG','SF','PF','C'].includes(x))return x;
   if(x==='G')return 'SG'; if(x==='F')return 'PF'; if(x==='GF'||x==='SG/SF')return 'SF';
   if(x==='FC'||x==='CF')return 'C'; if(x==='PG/SG')return 'PG'; return x||'SF'; }
-function projOf(p){ const g=(window.TDCProjGrade&&TDCProjGrade.gradeSolo)?TDCProjGrade.gradeSolo({espn_id:p.espn_id,tdc_grade:p.tdc_grade,yr:p.class_year||p.yr}):null;
+function projOf(p){ const g=(window.TDCProjGrade&&TDCProjGrade.gradeSolo)?TDCProjGrade.gradeSolo({espn_id:p.espn_id,name:p.name,team:p.team,tdc_grade:p.tdc_grade,yr:p.class_year||p.yr}):null;
   return (g!=null&&!isNaN(g))?Math.round(g):(Math.round(parseFloat(p.tdc_grade))||70); }
 function archOf(espn,name){ return ((window.TDC_ARCH&&TDC_ARCH.of(espn,name))||{}).name||null; }
 async function destRoster(teamName){

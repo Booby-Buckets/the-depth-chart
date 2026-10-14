@@ -855,8 +855,8 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
       var pl=(res[0]||[]).filter(function(p){ return p.name&&p.name!=='\u2014'&&p.name!=='-'; });
       pl.forEach(function(p){
         var raw=parseFloat(p.tdc_grade), g=null;
-        if((+p.mpg||0)>0 && window.TDCProjGrade && TDCProjGrade.gradeSolo){
-          try{ g=TDCProjGrade.gradeSolo({id:p.id, espn_id:p.espn_id, tdc_grade:p.tdc_grade, yr:p.class_year||p.yr}); }catch(e){}
+        if(window.TDCProjGrade && TDCProjGrade.gradeSolo){
+          try{ g=TDCProjGrade.gradeSolo({id:p.id, espn_id:p.espn_id, name:p.name, team:p.team, tdc_grade:p.tdc_grade, yr:p.class_year||p.yr}); }catch(e){}
         }
         p._ovr=(g!=null&&isFinite(g))?Math.round(g):(isFinite(raw)?Math.round(raw):null);
         p._new=!!(p.is_addition || (p.hometown&&String(p.hometown).trim()) || /^(r-)?fr/i.test(String(p.class_year||p.yr||'')));

@@ -6168,9 +6168,11 @@ async function loadShotTrajectory(yrs){
   }catch(e){ host.innerHTML=''; }
 }
 function _projectedGrade(){
-  // A projected freshman's OVR is the editor profile's OVR (single source of truth).
-  if(window.TDCFresh && TDCFresh.isFreshman(player) && TDCFresh.profileFor(player) && proj && proj.tdc_grade!=null){
-    var fg=parseInt(proj.tdc_grade); if(!isNaN(fg)) return fg;
+  // A projected freshman's OVR is the editor profile's OVR when the profile carries one. It used to return
+  // proj.tdc_grade whenever ANY profile existed — the roster sheet's HAND grade (Jordan Smith: 94 here vs the
+  // statistical 82 on the depth chart, Oct 14 2026). Owner rule: a hand grade never sets an OVR.
+  if(window.TDCFresh && TDCFresh.isFreshman(player)){
+    var _fp=TDCFresh.profileFor(player); var fg=_fp&&_fp.ovr!=null?Math.round(parseFloat(_fp.ovr)):NaN; if(!isNaN(fg)) return fg;
   }
   // Projection model v5: the whole-roster rotation grade, stamped on `player` at load — the
   // SAME value the depth chart and rankings show. Identical everywhere by construction.
