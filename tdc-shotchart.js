@@ -794,12 +794,12 @@
           'No coordinates were logged for these games; located shots go back to 2019-20.')+
         '</div>'; return; }
     var mode=opts.mode||'zones';
+    if(mode==='spots') mode='zones';   // Hot & cold spots retired (owner, Oct 2026): old links / saved modes land on Zones
     var tcol=opts.color||((getComputedStyle(el).getPropertyValue('--tc')||'').trim())||null;
     if(tcol&&/^var\(/.test(tcol)) tcol=null;
     var courtOpts={color:tcol};
     var toggle='<div class="sc-modes">'+
       '<button class="'+(mode==='zones'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'zones\')">Zones</button>'+
-      '<button class="'+(mode==='spots'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'spots\')">Hot &amp; cold spots</button>'+
       '<button class="'+(mode==='hex'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'hex\')">Hexbin</button>'+
       '<button class="'+(mode==='heat'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'heat\')">Heat</button>'+
       '<button class="'+(mode==='shots'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'shots\')">All shots</button></div>';

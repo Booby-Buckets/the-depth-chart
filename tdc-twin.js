@@ -24,6 +24,8 @@
     if (document.getElementById('twin-css')) return;
     var s = document.createElement('style'); s.id = 'twin-css';
     s.textContent =
+      // volume unit: full on wide cards, short (and no +/- gap, the D-I AVG column is right there) on phones
+      '.twin .tw-tr small{font-size:inherit;font-weight:inherit;}.twin .tw-us{display:none;}@media(max-width:640px){.twin .tw-ul,.twin .tw-d{display:none;}.twin .tw-us{display:inline;}}' +
       '.twin{--tw-vol:#8A867A;--tw-pos:#B07D17;--tw-neg:#2F7FC1;}[data-theme="dark"] .twin{--tw-vol:#6D7486;--tw-pos:#B8862A;--tw-neg:#3A8BCB;}' +
       '.tw-pair{display:grid;grid-template-columns:1fr 1fr;gap:18px;}@media(max-width:900px){.tw-pair{grid-template-columns:1fr;}}' +
       '.tw-card{border:1px solid var(--border2);border-radius:12px;padding:14px 16px 10px;background:var(--bg);}' +
@@ -79,7 +81,7 @@
         else {
           var x = Math.max(-1, Math.min(1, rel / (2.5 * sdv[d]))), w = Math.abs(x) * 50, l = x < 0 ? 50 - w : 50;
           var col = isE ? (rel >= 0 ? 'var(--tw-pos)' : 'var(--tw-neg)') : 'var(--tw-vol)';
-          var raw = Math.max(0, avg[d] + rel), txt = isE ? (100 * raw).toFixed(1) + '% (' + (rel >= 0 ? '+' : '') + (100 * rel).toFixed(1) + ')' : raw.toFixed(1) + ' (' + (rel >= 0 ? '+' : '') + rel.toFixed(1) + ')';
+          var raw = Math.max(0, avg[d] + rel), txt = isE ? (100 * raw).toFixed(1) + '% (' + (rel >= 0 ? '+' : '') + (100 * rel).toFixed(1) + ')' : raw.toFixed(1) + '<small class="tw-ul"> / 100 poss</small><small class="tw-us">/100</small><small class="tw-d"> (' + (rel >= 0 ? '+' : '') + rel.toFixed(1) + ')</small>';   // the unit on the number: the footnote that says so is hidden by tdc-skin
           bar = '<i style="left:' + l + '%;width:' + Math.max(w, 0.6) + '%;background:' + col + '"></i>' +
             '<span style="' + (x < 0 ? 'left:52%' : 'right:52%') + '">' + txt + '</span>';
         }
@@ -123,7 +125,7 @@
         var h = '<div class="tw-top"><span>' + (isT ? (kind === 'teamdef' ? 'What opponents shot against them in <b>' + sl(r[1]) + '</b>, and the closest defensive team-seasons in any year since 2009-10.' : 'Their <b>' + sl(r[1]) + '</b> shot profile and the closest team-seasons in any year since 2009-10.') : 'His <b>' + sl(r[1]) + '</b> shot profile and the closest player-seasons in any year since 2009-10.') + '</span><span style="display:flex;gap:8px;align-items:center">' + sideBtns + sel + '</span></div>' +
           '<div class="tw-pair">' + card(r, 'Selected') + (t ? card(t.r, '#' + (pick + 1) + ' twin · ' + t.match.toFixed(1) + ' match') : '<div class="tw-card tw-empty">No close match.</div>') + '</div>';
         h += '<div class="sheet-wrap tw-tbl" style="max-height:none;margin-top:14px;"><table class="sheet dense"><thead><tr><th class="l">#</th><th class="l">' + (isT ? 'Team season' : 'Player season') + '</th><th>Match</th>' +
-          Z.map(function (z) { return '<th>' + z[0] + ' vol</th><th>' + z[0] + ' eff</th>'; }).join('') + (C.xpps != null ? '<th>Shot quality</th><th>Shot-making</th>' : '') + '</tr></thead><tbody>' +
+          Z.map(function (z) { return '<th title="' + z[0] + ' attempts per 100 possessions, vs the D-I average">' + z[0] + ' /100 poss</th><th title="' + z[0] + (z[0] === 'FT' ? ' FT%' : ' FG%') + ', vs the D-I average">' + z[0] + ' eff</th>'; }).join('') + (C.xpps != null ? '<th>Shot quality</th><th>Shot-making</th>' : '') + '</tr></thead><tbody>' +
           M.map(function (m, i) { var x = m.r; return '<tr data-i="' + i + '" class="' + (i === pick ? 'sel' : '') + '"><td class="l">' + (i + 1) + '</td><td class="l"><b>' + esc(isT ? short(x[2]) : (x[2] || '—')) + '</b> <span class="small">· ' + esc(isT ? (x[3] || '') : short(x[3])) + ' · ' + sl(x[1]) + '</span></td><td><b>' + m.match.toFixed(1) + '</b></td>' +
             Z.map(function (z) { return fmtRel(x[C[z[1]]], false) + fmtRel(x[C[z[2]]], true); }).join('') +
             (C.xpps != null ? qCell(x[C.xpps] != null && POOL.seasons[x[1]].xpps != null ? x[C.xpps] - POOL.seasons[x[1]].xpps : null) + qCell(x[C.smk]) : '') + '</tr>'; }).join('') + '</tbody></table></div>' +

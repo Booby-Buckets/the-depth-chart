@@ -8,10 +8,10 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js?v=12"></script>
-  <script src="tdc-shotchart.js?v=31"></script>
+  <script src="tdc-shotchart.js?v=32"></script>
   <script src="tdc-aftermath.js?v=5"></script>
   <script src="tdc-mastery.js?v=2"></script>
-  <script src="tdc-twin.js?v=6"></script>
+  <script src="tdc-twin.js?v=7"></script>
   <script src="tdc-wowy-player.js?v=1"></script>
   <script src="tdc-follow.js?v=1"></script>
   <script src="tdc-shotprofile.js?v=1s"></script>
@@ -264,28 +264,6 @@
     .sg-pctl{font-size:11px;font-weight:700;}
     .sg-desc{font-size:11.5px;color:var(--text2);margin-top:7px;line-height:1.45;}
     .sg-empty{color:var(--text3);font-size:13px;padding:8px 0 4px;}
-    /* player Scoring Consistency (Heat Index) card — sits below Shot Genome */
-    .heat-card{margin-top:14px;}
-    .hc-body{display:grid;grid-template-columns:216px 1fr;gap:28px;align-items:center;}
-    @media(max-width:680px){.hc-body{grid-template-columns:1fr;gap:20px;}}
-    .hc-num{font-family:'Playfair Display',serif;font-weight:800;font-size:44px;line-height:1;}
-    .hc-num sup{font-size:19px;font-weight:800;margin-left:1px;}
-    .hc-num-sub{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin:7px 0 13px;}
-    .heat-mini-track{height:8px;border-radius:5px;background:linear-gradient(90deg,rgba(90,169,255,.28),rgba(130,150,200,.14),rgba(224,145,58,.3));overflow:hidden;}
-    .heat-mini-fill{height:100%;border-radius:5px;opacity:.9;}
-    .heat-mini-scale{display:flex;justify-content:space-between;font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:5px;}
-    .hc-range-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:13px;}
-    .hc-range-lbl{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
-    .hc-range-ppg{font-family:'Share Tech Mono',monospace;font-size:12.5px;font-weight:700;color:var(--text2);}
-    .hc-track{position:relative;height:12px;border-radius:6px;background:var(--bg3,rgba(130,150,200,.14));}
-    .hc-span{position:absolute;top:0;bottom:0;border-radius:6px;opacity:.9;}
-    .hc-avg{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--text);transform:translateX(-1px);border-radius:2px;}
-    .hc-ends{position:relative;height:30px;margin-top:7px;}
-    .hc-end{position:absolute;transform:translateX(-50%);font-family:'Share Tech Mono',monospace;font-size:14px;font-weight:700;color:var(--text);white-space:nowrap;text-align:center;}
-    .hc-end small{display:block;font-family:inherit;font-size:8.5px;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-top:1px;}
-    .hc-ceil{left:auto;right:0;transform:none;text-align:right;}
-    .hc-ceil small{text-align:right;}
-    .hc-foot{font-size:11.5px;color:var(--text2);margin-top:15px;line-height:1.45;}
     .sg-link{font-size:11.5px;font-weight:700;color:var(--accent);text-decoration:none;}
     .sg-link:hover{text-decoration:underline;}
     .tab-panel.active{display:block;}
@@ -4563,7 +4541,6 @@ function renderPage(){
     <!-- SHOT CHARTS TAB -->
     <div class="tab-panel" id="panel-shotcharts">
       <div id="shotGenomeHost"></div>
-      <div id="heatIdxHost"></div>
       <div class="shot-analytics">
         <div class="sa-col">
           <div class="sec-title" style="margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
@@ -5948,44 +5925,6 @@ function _sgType(S,C){                     // S,C = percentiles (may be null)
   if(C!=null) return C>=80?'Elite Creator':C>=60?'Creator':'Secondary Passer';
   return null;
 }
-// ── Player Heat Index: game-to-game scoring consistency (near the game log) ──
-async function fillHeatIndex(){
-  var host=document.getElementById('heatIdxHost'); if(!host) return;
-  if(!window._heatIdx){
-    try{ window._heatIdx=await fetch('data/heat_index_players.json').then(r=>r.ok?r.json():{}); }catch(e){ window._heatIdx={}; }
-  }
-  var espn=window._playerEspn;
-  var h=espn?(window._heatIdx[espn]||window._heatIdx[''+espn]):null;
-  if(!h){ host.innerHTML=''; return; }
-  var p=h.pct;
-  var type=p>=82?'Boom or Bust':p>=62?'Streaky':p>=34?'Steady':'Metronome';
-  var col =p>=62?'#e0913a':p<=34?'#5AA9FF':'var(--text2)';
-  var read=p>=62?'Big swings from night to night — the ceiling can win a game on its own, but the floor is low.'
-          :p<=34?'Remarkably steady — you get essentially the same scoring line every time out.'
-          :'About league-average game-to-game scoring variance.';
-  var last=(player&&player.name?player.name.split(' ').slice(-1)[0]:'He');
-  var verdict=last+' is a '+type.toLowerCase()+' scorer — '+_ord(p)+' nationally in game-to-game scoring variance.';
-  var maxv=Math.max(h.hi,1);
-  var loP=(100*h.lo/maxv).toFixed(1), avgP=(100*h.ppg/maxv).toFixed(1);
-  var cTip='How steady a scorer is game to game. Low = a metronome who gives you the same line every night; high = a boom-or-bust scorer with a low floor and a high ceiling. Measured as the swing in his game-by-game points, ranked nationally.';
-  host.innerHTML='<div class="sg-card heat-card"><div class="sg-head">'
-    +'<div class="sg-title" title="'+cTip+'" style="cursor:help;">Scoring Consistency <small>2025-26</small></div>'
-    +'<span class="sg-type" style="background:'+col+';">'+type+'</span></div>'
-    +'<div class="sg-verdict">'+verdict+'</div>'
-    +'<div class="hc-body">'
-    +'<div class="hc-gauge"><div class="hc-num" style="color:'+col+';">'+p+'<sup>'+_ord(p).replace(/^\d+/,'')+'</sup></div>'
-      +'<div class="hc-num-sub">Heat Index percentile</div>'
-      +'<div class="heat-mini-track"><div class="heat-mini-fill" style="width:'+p+'%;background:'+col+';"></div></div>'
-      +'<div class="heat-mini-scale"><span>Steady</span><span>Streaky</span></div></div>'
-    +'<div class="hc-range"><div class="hc-range-top"><span class="hc-range-lbl">Game scoring range</span>'
-      +'<span class="hc-range-ppg">'+h.ppg+' ppg · '+h.gp+' games</span></div>'
-      +'<div class="hc-track"><div class="hc-span" style="left:'+loP+'%;right:0;background:'+col+';"></div>'
-      +'<div class="hc-avg" style="left:'+avgP+'%;"></div></div>'
-      +'<div class="hc-ends"><div class="hc-end" style="left:'+loP+'%;"><b>'+h.lo+'</b><small>Floor</small></div>'
-      +'<div class="hc-end hc-ceil"><b>'+h.hi+'</b><small>Ceiling</small></div></div>'
-      +'<div class="hc-foot">'+read+'</div></div>'
-    +'</div></div>';
-}
 async function ensureSgPlayers(){
   if(window._sgPlayers) return window._sgPlayers;
   try{ var d=await fetch('scripts/data/shot_genome_players.json').then(r=>r.ok?r.json():null);
@@ -6050,7 +5989,6 @@ async function loadShotGenome(){
     +'<div class="sg-verdict">'+verdict+'</div>'
     +'<div class="'+gcls+'">'+tiles.join('')+'</div>'
     +'<div style="margin-top:14px;"><a class="sg-link" href="shot-genome.html">Compare every player on the Maker vs Creator chart →</a></div></div>';
-  fillHeatIndex();   // scoring-consistency card sits directly below
 }
 // ── SHOT GENOME TAB: every genome stat for this player, with national percentiles, every season ──
 // Data: scripts/data/shot_genome_players[_YEAR].json (build_shot_genome.py). LQ = expected eFG of his shot diet;
