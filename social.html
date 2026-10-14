@@ -1092,7 +1092,9 @@
   function tRow(p){ var L=null; try{ L=TDCProjGrade.lineOf(p); }catch(e){} var h=String(p.hometown||'').trim(), f1=function(v){ return v!=null&&v!==''&&isFinite(+v)?(+v).toFixed(1):''; };
     var ov=null; try{ ov=TDCProjGrade.gradeSolo(p); }catch(e){}
     return { name:p.name, team:p.team, espn:p.espn_id||null, pos:String(p.position||'').toUpperCase(), cls:clsNice(p.class_year||p.yr), ht:htFmt(p.height),
-      from:h&&!/^(injured|out)$/i.test(h)&&logoUrl(h)?school(h):'', ppg:f1(L&&L.ppg), rpg:f1(L&&L.rpg), apg:f1(L&&L.apg), mpg:f1(L&&L.mpg),
+      // Last Team = where he played last season: a transfer's old school, a returner's own school; blank for a true freshman
+      from:h&&!/^(injured|out)$/i.test(h)&&logoUrl(h)?school(h):(clsNice(p.class_year||p.yr)==='Fr.'?'':school(p.team)),
+      ppg:f1(L&&L.ppg), rpg:f1(L&&L.rpg), apg:f1(L&&L.apg), mpg:f1(L&&L.mpg),
       fg:L&&+L.fga>=1.5?f1(L.fg_pct):'', tp:L&&+L.tpa>=1?f1(L.tp_pct):'', stl:f1(L&&L.stl), blk:f1(L&&L.blk), ovr:ov!=null&&isFinite(ov)?String(Math.round(ov)):'' }; }
   T.table={
     defaults:function(){ return { src:'ppg', team:'', conf:'', n:15, title:'', bar:'yellow', heat:false, cols:['team','pos','cls','ht','ppg','rpg','apg'], rows:[] }; },
@@ -1113,7 +1115,7 @@
       } else if(d.src==='blank'){ d.rows=[]; for(var i=0;i<n;i++) d.rows.push({ name:'', team:'' }); }
       else {
         var key=d.src==='xfer'?'ppg':d.src, pool=ps.filter(function(p){ return inScope(p)&&!out(p)&&uniq(p); }).map(tRow)
-          .filter(function(r){ return d.src==='xfer'?!!r.from:(d.src==='ovr'||+r.mpg>=15); }).filter(function(r){ return r[key]!==''&&isFinite(+r[key]); });
+          .filter(function(r){ return d.src==='xfer'?(!!r.from&&!onTeam(r.from,r.team)):(d.src==='ovr'||+r.mpg>=15); }).filter(function(r){ return r[key]!==''&&isFinite(+r[key]); });
         pool.sort(function(a,b){ return +b[key]-(+a[key]); }); d.rows=pool.slice(0,n);
         d.title={ ppg:'Top '+tag+'Scorers', rpg:'Top '+tag+'Rebounders', apg:'Top '+tag+'Passers', ovr:'Top '+tag+'Players', xfer:'Top '+tag+'Transfers' }[d.src]+' · '+SEASON+' Projections';
         if(d.src==='xfer'&&d.cols.indexOf('from')<0) d.cols=d.cols.concat(['from']);
