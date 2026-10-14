@@ -106,7 +106,7 @@ QUAL_NUDGE=float(os.environ.get("QUAL_NUDGE","0.25")); MPG_HARD_CAP=float(os.env
 # absolute ceiling on any projected line: the positional rebalance on a thin roster (few bigs or guards)
 # used to pour a whole spot's minutes onto one player (56 mpg). Nobody plays more than 38 a game.
 MPG_MAX=float(os.environ.get("MPG_MAX","36"))   # ~the real D-I ceiling (a 38-mpg line is a stacking artifact)
-TARGET_TEAM_USG=float(os.environ.get("TARGET_TEAM_USG","22.0")); USG_CAP=(9.0,34.0); MPG_XFER_BUMP=10.0
+TARGET_TEAM_USG=float(os.environ.get("TARGET_TEAM_USG","22.0")); XF_CHECK_KEEP=0.86; USG_CAP=(9.0,34.0); MPG_XFER_BUMP=10.0
 VAC_CONC=float(os.environ.get("VAC_CONC","2.0"))  # vacancy concentration: weight ∝ last_usg**VAC_CONC (focal points absorb more of a departed rotation, within the team cap)
 # PROJECTED USAGE — calibrated on 6,782 same-team returner seasons (player_advanced 2020-26,
 # 12+ mpg then 16+ mpg). Rows = share of last season's team usage load that departed; columns =
@@ -1370,7 +1370,11 @@ for short, roster in roster_by_team.items():
     # If the vacancy pushed the returners' minute-weighted usage over target, scale it back
     # (preserving who's higher-usage) — a gutted roster still can't field five 34%-usage guys.
     tmin=sum(r["pm"] for r in R) or 1
-    mw=sum(r["raw_usg"]*r["pm"] for r in R)/tmin
+    # transfers enter the check at their EXPECTED usage, not last season's: their keep-share (XF_KEEP, ~0.86 on average)
+    # is applied later in _project_one, and counting them in full made portal-heavy rosters look overloaded, so the cap
+    # trimmed everyone — returning stars included (USC x0.915: Arenas 29.2 -> 26.7). Owner backtest, Oct 14 2026: real
+    # power-conference 30%+ returners keep ~96% of their usage; this cap fired on 69 of 356 teams vs ~2% historically.
+    mw=sum(r["raw_usg"]*(XF_CHECK_KEEP if r["xfer"] else 1.0)*r["pm"] for r in R)/tmin
     scale=min(1.0, TARGET_TEAM_USG/mw) if mw>0 else 1.0
     for r in R:
         r["proj_usg"]=min(USG_CAP[1],r["usg_ceil"],max(USG_CAP[0],r["raw_usg"]*scale))
@@ -1687,10 +1691,22 @@ for short, roster in roster_by_team.items():
             _ptsK=1.0+(_ptsK-1.0)*TEAM_FIT
         TEAM_FIT_LOG[full]=dict(minK=round(_minK,3),ptsK=round(_ptsK,3),n=len(R),fresh=len(_fresh),sqz=round(_lam,2))
         if abs(_minK-1.0)>0.005 or abs(_ptsK-1.0)>0.005:
+            # STAR-PROTECTED points fit (owner, Oct 14 2026): a CUT to hit the team's projected points falls mostly on the
+            # supporting cast — a returning 30%-usage scorer keeps ~96% of his usage in real seasons, the role players and
+            # newcomers give up the shots. Weight w = 1 at <=22% usage down to 0.25 at 30%+; the team's total cut is unchanged
+            # (a solved for sum(u*m*(1+a*w)) = ptsK*sum(u*m)). A boost (ptsK>1) stays proportional.
+            _uk=lambda rr: rr.get("_usg_base",rr["proj_usg"])
+            _kk={}
+            if _ptsK<1.0:
+                _w=lambda rr: max(0.25,min(1.0,1.0-0.75*(_uk(rr)-22.0)/8.0))
+                _um=sum(_uk(rr)*rr["pm"] for rr in R) or 1.0; _uw=sum(_uk(rr)*rr["pm"]*_w(rr) for rr in R) or 1.0
+                _a=(_ptsK-1.0)*_um/_uw
+                for rr in R: _kk[id(rr)]=max(0.5,1.0+_a*_w(rr))
             for rr in R:
                 rr["pm"]=max(rr.get("_sqfl",depth_floor(_depR(rr))), rr["pm"]*_kmap.get(id(rr),_minK))
-                if "_usg_base" in rr: rr["_usg_base"]=max(USG_CAP[0],rr["_usg_base"]*_ptsK)   # transfer: rescale the base; _project_one re-applies the keep-share once
-                else: rr["proj_usg"]=min(USG_CAP[1],rr.get("usg_ceil",USG_CAP[1]),max(USG_CAP[0],rr["proj_usg"]*_ptsK))   # the team-points fit may not push anyone past his usage ceiling
+                _k=_kk.get(id(rr),_ptsK)
+                if "_usg_base" in rr: rr["_usg_base"]=max(USG_CAP[0],rr["_usg_base"]*_k)   # transfer: rescale the base; _project_one re-applies the keep-share once
+                else: rr["proj_usg"]=min(USG_CAP[1],rr.get("usg_ceil",USG_CAP[1]),max(USG_CAP[0],rr["proj_usg"]*_k))   # the team-points fit may not push anyone past his usage ceiling
             for rr in R: _project_one(rr)
         # the freshmen / no-box players get what's LEFT of the team: minutes to 200, points to the
         # team's projected scoring after the (fitted) returners — one fitted {mpg, ppg} per player,
