@@ -8,7 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="auth.js?v=delacct1"></script>
   <script src="tdc-theme.js?v=5"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800;900&family=Anton&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800;900&family=Barlow+Condensed:wght@700;800&family=Barlow:wght@600;700;800&display=swap" rel="stylesheet"/>
   <script src="team-colors.js?v=12"></script>
   <script src="tdc-injury.js?v=5"></script>
   <script src="tdc-freshman.js?v=pub31"></script>
@@ -244,7 +244,7 @@
   function logoUrl(team){ var c=window.tdcTeamColor&&tdcTeamColor(team); return c&&c.logo||null; }
   function shotUrl(espn){ return espn?'https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/'+espn+'.png':null; }
   function tcol(team){ var c=window.tdcTeamColor&&tdcTeamColor(team); return (c&&c.c1)||P.acc; }
-  function font(w,px,serif){ return (serif==='anton'?'400':w)+' '+Math.max(8,Math.round(px))+'px '+(serif==='anton'?'Anton, Impact, "Arial Narrow", sans-serif':serif?'"Playfair Display", Georgia, serif':'Inter, system-ui, sans-serif'); }
+  function font(w,px,serif){ return w+' '+Math.max(8,Math.round(px))+'px '+(serif==='cond'?'"Barlow Condensed", "Arial Narrow", sans-serif':serif==='barlow'?'Barlow, Inter, system-ui, sans-serif':serif?'"Playfair Display", Georgia, serif':'Inter, system-ui, sans-serif'); }
   function txt(t,x,y,o){ o=o||{}; t=String(t==null?'':t); ctx.save(); if('letterSpacing' in ctx) ctx.letterSpacing=(o.ls||0)+'px';
     var px=o.px||20; ctx.font=font(o.w||500,px,o.serif); if(o.max){ while(ctx.measureText(t).width>o.max && px>9){ px-=.5; ctx.font=font(o.w||500,px,o.serif); } }
     ctx.fillStyle=o.c||P.text; ctx.textAlign=o.al||'left'; ctx.textBaseline=o.bl||'middle'; ctx.fillText(t,x,y); ctx.restore(); return px; }
@@ -983,9 +983,11 @@
   function lum(h){ var c=hexRgb(h).map(function(v){ v/=255; return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4); }); return .2126*c[0]+.7152*c[1]+.0722*c[2]; }
   function shade(h,t){ var x=hexRgb(h); return 'rgb('+x.map(function(v){ return Math.round(t<0?v*(1+t):v+(255-v)*t); }).join(',')+')'; }
   function bandColor(team){ var c=window.tdcTeamColor&&tdcTeamColor(team)||{}, a=c.c1||'#13294B', b=c.c2||a, d=lum(a)<=lum(b)?a:b; return lum(d)>.3?shade(d,-.45):d; }
-  var DSTATS=[['ppg','PPG'],['rpg','RPG'],['apg','APG'],['mpg','MPG']];
+  var DSTATS_ALL=[['ppg','PPG'],['rpg','RPG'],['apg','APG'],['fg','FG%'],['tp','3P%'],['stl','SPG'],['blk','BPG'],['mpg','MPG']];
+  var DSTATS_DEF=['ppg','rpg','apg','fg','mpg'];
+  function dstats(d){ var on=d.cols||DSTATS_DEF; return DSTATS_ALL.filter(function(x){ return on.indexOf(x[0])>-1; }); }
   T.depth={
-    defaults:function(){ return { team:'', title1:'', title2:'', lab1:'Projected Starting Lineup', lab2:'Projected Bench', benchN:8, heat:true, starters:[], bench:[] }; },
+    defaults:function(){ return { team:'', title1:'', title2:'', lab1:'Projected Starting Lineup', lab2:'Projected Bench', benchN:8, heat:true, shots:true, cols:DSTATS_DEF.slice(), starters:[], bench:[] }; },
     load:async function(d){
       if(!d.team) throw new Error('Pick a team first.'); var ps=await players(), rs=await ratings();
       var row=rs.find(function(t){ return onTeam(t.team,d.team); });
@@ -996,20 +998,23 @@
       var f1=function(v){ return v!=null&&isFinite(+v)?(+v).toFixed(1):''; };
       var mk=function(p){ var h=String(p.hometown||'').trim(), L=null; try{ L=TDCProjGrade.lineOf(p); }catch(e){}
         return { pos:grpOf(p.position), name:p.name, team:p.team, espn:p.espn_id||null, cls:clsNice(p.class_year||p.yr),
-          from:h&&!/^(injured|out)$/i.test(h)&&logoUrl(h)?school(h):'', ppg:f1(L&&L.ppg), rpg:f1(L&&L.rpg), apg:f1(L&&L.apg), mpg:f1(L&&L.mpg) }; };
+          from:h&&!/^(injured|out)$/i.test(h)&&logoUrl(h)?school(h):'', ppg:f1(L&&L.ppg), rpg:f1(L&&L.rpg), apg:f1(L&&L.apg), mpg:f1(L&&L.mpg),
+          fg:L&&+L.fga>=1.5?f1(L.fg_pct):'', tp:L&&+L.tpa>=1?f1(L.tp_pct):'', stl:f1(L&&L.stl), blk:f1(L&&L.blk) }; };
       var five=R.slice(0,5).sort(function(a,b){ return posRank(a)-posRank(b)||(htIn(a.height)||0)-(htIn(b.height)||0); });
       d.starters=five.map(mk); d.bench=R.slice(5,17).map(mk);
       var full=row?(row.full||row.team):d.team, sc=school(full), masc=String(full).slice(sc.length).trim();
       d.title1=sc; d.title2=masc||'';
     },
     editor:function(d){
-      var F=[{k:'pos',ph:'Pos',w:'34px'},{k:'name',ph:'Player',list:'plList',w:'minmax(0,1.5fr)'},{k:'cls',ph:'Yr',w:'46px'},{k:'from',ph:'Logo: last school (blank = team)',list:'tmList',w:'minmax(0,1fr)'},
-        {k:'ppg',ph:'PPG',w:'42px'},{k:'rpg',ph:'RPG',w:'42px'},{k:'apg',ph:'APG',w:'42px'},{k:'mpg',ph:'MPG',w:'42px'}];
+      var F=[{k:'pos',ph:'Pos',w:'34px'},{k:'name',ph:'Player',list:'plList',w:'minmax(0,1.5fr)'},{k:'cls',ph:'Yr',w:'46px'},{k:'from',ph:'Logo: last school (blank = team)',list:'tmList',w:'minmax(0,1fr)'}]
+        .concat(dstats(d).map(function(x){ return { k:x[0], ph:x[1], w:'42px' }; }));
       return '<h3>Data</h3><label class="f">Team</label><input data-k="team" list="tmList" value="'+esc(d.team||'')+'" placeholder="Pick a team">'+
         '<div class="btns"><button class="b sm primary" data-act="load">Load roster</button></div>'+
         '<div class="hint">Your depth chart order (top five start), injured / out skipped. Stats = our '+SEASON+' projections; the logo column shows a transfer’s last school. Turn on “Player headshots” above for the photo column.</div>'+
         '<div class="two"><div><label class="f">Bench players shown</label><input data-k="benchN" type="number" min="0" max="12" value="'+d.benchN+'"></div>'+
         '<div><label class="chk" style="margin-top:28px"><input type="checkbox" data-k="heat"'+(d.heat!==false?' checked':'')+'> Colour the stats (red → green)</label></div></div>'+
+        '<label class="chk"><input type="checkbox" data-k="shots"'+(d.shots!==false?' checked':'')+'> Player headshots</label>'+
+        '<label class="f">Stat columns</label><div class="seg">'+DSTATS_ALL.map(function(x){ return '<button type="button" data-act="col" data-col="'+x[0]+'" class="'+((d.cols||DSTATS_DEF).indexOf(x[0])>-1?'on':'')+'">'+x[1]+'</button>'; }).join('')+'</div>'+
         '<h3>Text</h3><div class="two"><div><label class="f">Title line 1</label><input data-k="title1" value="'+esc(d.title1||'')+'"></div><div><label class="f">Title line 2</label><input data-k="title2" value="'+esc(d.title2||'')+'"></div></div>'+
         '<div class="two"><div><label class="f">Starters label</label><input data-k="lab1" value="'+esc(d.lab1||'')+'"></div><div><label class="f">Bench label</label><input data-k="lab2" value="'+esc(d.lab2||'')+'"></div></div>'+
         '<h3>Starters</h3>'+fieldsEditor(d.starters,'starters',F)+
@@ -1022,41 +1027,50 @@
       var st=d.starters.filter(function(r){ return r.name; }), bn=d.bench.filter(function(r){ return r.name; }).slice(0,Math.max(0,+d.benchN||0));
       if(!st.length){ txt('Pick a team and load the roster on the left',W/2,H/2,{ px:28*u,c:P.mut,al:'center' }); return ''; }
       var fTop=foot(W,H,u,pad), land=W>H*1.2, lg=await img(logoUrl(team));
-      // band: team colour with a diagonal light→dark gradient, two-line condensed title, logo on the right
-      var bh=(land?200:265)*u; var gr=ctx.createLinearGradient(0,0,W*.8,bh*1.6); gr.addColorStop(0,shade(band,.22)); gr.addColorStop(.55,band); gr.addColorStop(1,shade(band,-.35));
-      ctx.fillStyle=gr; ctx.fillRect(0,0,W,bh);
-      var ls=bh*.82; if(lg) drawFit(lg,W-pad*.6-ls,(bh-ls)/2,ls);
+      // band (owner: the gradient overlay is the header): deep team colour → near-black, a soft glow of the brand colour
+      // behind the logo, faint diagonal sheen streaks, and a thin accent line under it
+      var bh=(land?200:265)*u, ls=bh*.82, lcx=W-pad*.6-ls/2;
+      var gr=ctx.createLinearGradient(0,0,0,bh); gr.addColorStop(0,shade(band,.08)); gr.addColorStop(1,shade(band,-.55)); ctx.fillStyle=gr; ctx.fillRect(0,0,W,bh);
+      var gl=ctx.createRadialGradient(lcx,bh/2,0,lcx,bh/2,W*.55); gl.addColorStop(0,'rgba(255,255,255,.16)'); gl.addColorStop(.45,'rgba(255,255,255,.05)'); gl.addColorStop(1,'rgba(255,255,255,0)'); ctx.fillStyle=gl; ctx.fillRect(0,0,W,bh);
+      ctx.save(); ctx.beginPath(); ctx.rect(0,0,W,bh); ctx.clip(); ctx.translate(W*.5,bh/2); ctx.rotate(-Math.PI/7);
+      [[-.30,.05],[-.12,.035],[.08,.06],[.26,.03]].forEach(function(sx){ var g2=ctx.createLinearGradient(sx[0]*W-60*u,0,sx[0]*W+60*u,0); g2.addColorStop(0,'rgba(255,255,255,0)'); g2.addColorStop(.5,'rgba(255,255,255,'+sx[1]+')'); g2.addColorStop(1,'rgba(255,255,255,0)'); ctx.fillStyle=g2; ctx.fillRect(sx[0]*W-60*u,-W,120*u,W*2); });
+      ctx.restore();
+      var vg2=ctx.createLinearGradient(0,0,W,0); vg2.addColorStop(0,'rgba(0,0,0,.25)'); vg2.addColorStop(.6,'rgba(0,0,0,0)'); ctx.fillStyle=vg2; ctx.fillRect(0,0,W,bh);
+      ctx.fillStyle='rgba(255,255,255,.85)'; ctx.fillRect(0,bh-4*u,W,4*u);
+      if(lg) drawFit(lg,W-pad*.6-ls,(bh-ls)/2,ls);
       var tl=[d.title1,d.title2].filter(Boolean).map(function(x){ return String(x).toUpperCase(); }), tmax=W-pad*1.4-ls-24*u;
       var tp=Math.min(bh*(tl.length>1?.4:.62),132*u);
-      tl.forEach(function(t,i){ txt(t,pad*.6,bh/2+(i-(tl.length-1)/2)*tp*1.02+tp*.04,{ px:tp,serif:'anton',c:'#fff',max:tmax }); });
+      tl.forEach(function(t,i){ txt(t,pad*.6,bh/2+(i-(tl.length-1)/2)*tp*.98+tp*.04,{ w:800,px:tp*1.12,serif:'cond',c:'#fff',max:tmax,ls:.5*u }); });
       // table geometry
-      var shots=S.shots, nR=st.length+bn.length, hdr=(land?40:50)*u, y0=bh+6*u;
+      var DS=dstats(d), shots=d.shots!==false, nR=st.length+bn.length, hdr=(land?40:50)*u, y0=bh+6*u;
       var rh=Math.min(92*u,(fTop-6*u-y0-hdr*(bn.length?2:1))/nR);
-      var x0=0, xShot=shots?rh*1.12:0, statW=(land?120:96)*u, xStats=W-statW*4, logoW=rh*1.15, xLogo=xStats-logoW, clsW=rh*1.15, xCls=xLogo-clsW;
+      var x0=0, xShot=shots?rh*1.12:0, statW=Math.min((land?120:96)*u,(W*.46)/Math.max(1,DS.length)), xStats=W-statW*DS.length, logoW=rh*1.15, xLogo=xStats-logoW, clsW=rh*1.15, xCls=xLogo-clsW;
       var nfs=Math.min(rh*.42,40*u), pool=d.heat!==false?await pctPool():null, mpgs=pool?pool.dist.mpg||null:null;
-      if(pool&&!pool.dist.mpg){ var ms=[]; (D.players||[]).forEach(function(p){ var L=TDCProjGrade.lineOf(p); if(L&&+L.mpg>=15) ms.push(+L.mpg); }); pool.dist.mpg=ms.sort(function(a,b){ return a-b; }); mpgs=pool.dist.mpg; }
+      if(pool&&!pool.dist.mpg){ var ms=[], fs2=[]; (D.players||[]).forEach(function(p){ var L=TDCProjGrade.lineOf(p); if(L&&+L.mpg>=15){ ms.push(+L.mpg); if(isFinite(+L.fg_pct)&&+L.fga>=3) fs2.push(+L.fg_pct); } });
+        pool.dist.mpg=ms.sort(function(a,b){ return a-b; }); pool.dist.fg=fs2.sort(function(a,b){ return a-b; }); mpgs=pool.dist.mpg; }
       var heat=function(k,v){ if(!pool||v===''||v==null||!isFinite(+v)) return null; var p=pctOf(pool.dist[k]||[],+v); if(p==null) return null;
         var a=Math.min(.55,Math.abs(p-50)/50*.6); return p>=50?'rgba(46,160,90,'+a+')':'rgba(215,70,60,'+a+')'; };
       var section=function(y,label){ ctx.fillStyle='#111'; ctx.fillRect(0,y,W,hdr);
-        txt(label,(xShot+xCls)/2,y+hdr/2,{ w:800,px:hdr*.46,c:'#fff',al:'center',max:xCls-xShot-20*u });
-        DSTATS.forEach(function(sx,i){ txt(sx[1],xStats+statW*(i+.5),y+hdr/2,{ w:800,px:hdr*.4,c:'#fff',al:'center' }); }); return y+hdr; };
+        txt(label,(xShot+xCls)/2,y+hdr/2,{ w:700,px:hdr*.52,serif:'barlow',c:'#fff',al:'center',max:xCls-xShot-20*u });
+        DS.forEach(function(sx,i){ txt(sx[1],xStats+statW*(i+.5),y+hdr/2,{ w:700,px:hdr*.44,serif:'barlow',c:'#fff',al:'center' }); }); return y+hdr; };
       var rowsAt=async function(y,rows){
         for(var i=0;i<rows.length;i++){ var r=rows[i], ry=y+i*rh;
           ctx.fillStyle=i%2?'#F1F1F1':'#FFFFFF'; ctx.fillRect(0,ry,W,rh);
-          if(shots){ var sh=r.espn?await img(shotUrl(r.espn)):null; if(sh){ ctx.save(); ctx.beginPath(); ctx.rect(0,ry,xShot,rh); ctx.clip(); var ih=rh*1.05, iw=ih*sh.width/sh.height; ctx.drawImage(sh,(xShot-iw)/2,ry+rh-ih,iw,ih); ctx.restore(); } }
-          txt(String(r.pos||''),xShot+18*u,ry+rh/2,{ w:600,px:nfs*.72,c:'#222' });
-          txt(r.name,xShot+18*u+nfs*.9,ry+rh/2,{ w:800,px:nfs,c:'#111',max:xCls-xShot-30*u-nfs*.9 });
-          txt(r.cls||'',xCls+clsW/2,ry+rh/2,{ w:500,px:nfs*.78,c:'#222',al:'center',max:clsW-6*u });
+          if(shots){ var sh=r.espn?await img(shotUrl(r.espn)):null; if(sh){ ctx.save(); ctx.beginPath(); ctx.rect(0,ry,xShot,rh); ctx.clip(); var ih=rh*1.05, iw=ih*sh.width/sh.height; ctx.drawImage(sh,(xShot-iw)/2,ry+rh-ih,iw,ih); ctx.restore(); }
+            else if(lg){ ctx.save(); ctx.globalAlpha=.18; drawFit(lg,xShot*.18,ry+rh*.14,Math.min(xShot*.64,rh*.72)); ctx.restore(); } }
+          txt(String(r.pos||''),xShot+18*u,ry+rh/2,{ w:600,px:nfs*.76,serif:'barlow',c:'#222' });
+          txt(r.name,xShot+18*u+nfs*.9,ry+rh/2,{ w:700,px:nfs*1.06,serif:'barlow',c:'#111',max:xCls-xShot-30*u-nfs*.9 });
+          txt(r.cls||'',xCls+clsW/2,ry+rh/2,{ w:600,px:nfs*.8,serif:'barlow',c:'#222',al:'center',max:clsW-6*u });
           var lgo=await img(logoUrl(r.from||r.team||team)); if(lgo){ var s2=Math.min(logoW*.66,rh*.72); drawFit(lgo,xLogo+(logoW-s2)/2,ry+(rh-s2)/2,s2); }
           // shade only real rotation players (10+ projected minutes): a deep reserve's line is just small, not bad
           var rot=+r.mpg>=10;
-          DSTATS.forEach(function(sx,k){ var v=r[sx[0]], c=rot?heat(sx[0],v):null, cx=xStats+statW*k; if(c){ ctx.fillStyle=c; ctx.fillRect(cx,ry,statW,rh); }
-            if(v!==''&&v!=null) txt(String(v),cx+statW/2,ry+rh/2,{ w:700,px:Math.min(nfs*.72,rh*.34),c:'#111',al:'center' }); });
+          DS.forEach(function(sx,k){ var v=r[sx[0]], c=rot?heat(sx[0],v):null, cx=xStats+statW*k; if(c){ ctx.fillStyle=c; ctx.fillRect(cx,ry,statW,rh); }
+            if(v!==''&&v!=null) txt(String(v),cx+statW/2,ry+rh/2,{ w:700,px:Math.min(nfs*.8,rh*.36,statW*.3),serif:'barlow',c:'#111',al:'center' }); });
         }
         // grid lines
         ctx.fillStyle='#C9C9C9'; for(var j=0;j<=rows.length;j++) ctx.fillRect(xShot,y+j*rh-.5*u,W-xShot,Math.max(1,u));
         ctx.fillStyle='#111'; [xShot,xLogo,xStats].forEach(function(x){ if(x>0) ctx.fillRect(x-1.5*u,y,Math.max(2,3*u),rows.length*rh); });
-        ctx.fillStyle='#C9C9C9'; for(var k=1;k<4;k++) ctx.fillRect(xStats+statW*k,y,Math.max(1,u),rows.length*rh);
+        ctx.fillStyle='#C9C9C9'; for(var k=1;k<DS.length;k++) ctx.fillRect(xStats+statW*k,y,Math.max(1,u),rows.length*rh);
         return y+rows.length*rh; };
       await Promise.all(st.concat(bn).map(function(r){ return Promise.all([img(logoUrl(r.from||r.team||team)),shots&&r.espn?img(shotUrl(r.espn)):null]); }));
       var y=section(y0,String(d.lab1==null?'Projected Starting Lineup':d.lab1).trim()); y=await rowsAt(y,st);
@@ -1152,6 +1166,7 @@
     if(act==='del'){ arr.splice(i,1); }
     if(act==='add'){ arr.push({ name:'', team:'', val:'' }); }
     if(act==='clear'){ arr.length=0; }
+    if(act==='col'){ var cs=(d.cols||DSTATS_DEF).slice(), ci=cs.indexOf(b.dataset.col); if(ci>-1) cs.splice(ci,1); else cs.push(b.dataset.col); d.cols=DSTATS_ALL.map(function(x){ return x[0]; }).filter(function(k){ return cs.indexOf(k)>-1; }); }
     if(act==='addaward'){ d.awards.push({ label:'Award', name:'', team:'' }); }
     save(); paintEditor(); render();
   });
@@ -1167,7 +1182,7 @@
       // draw off-screen and swap the finished frame in, so a half-loaded graphic never shows (or exports)
       var off=document.createElement('canvas'); off.width=W; off.height=H; ctx=off.getContext('2d');
       var u=Math.min(W,H)/1080, pad=Math.round(56*u);
-      await Promise.all(['800 40px "Playfair Display"','400 40px Anton','900 20px Inter','800 20px Inter','700 20px Inter','600 20px Inter','500 20px Inter'].map(function(f){ return document.fonts.load(f).catch(function(){}); }));
+      await Promise.all(['800 40px "Playfair Display"','800 40px "Barlow Condensed"','700 40px Barlow','600 40px Barlow','900 20px Inter','800 20px Inter','700 20px Inter','600 20px Inter','500 20px Inter'].map(function(f){ return document.fonts.load(f).catch(function(){}); }));
       var cap=await T[S.tpl].draw(doc(),W,H,u,pad);
       cv.width=W; cv.height=H; cv.getContext('2d').drawImage(off,0,0);
       $('caption').value=cap||'';
