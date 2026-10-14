@@ -1127,6 +1127,7 @@
         '<h3>Look</h3><label class="f">Title</label><input data-k="title" value="'+esc(d.title||'')+'">'+
         '<div class="two"><div><label class="f">Title bar</label><select data-k="bar">'+[['yellow','Yellow'],['team','Team colour'],['black','Black'],['white','White']].map(function(o){ return '<option value="'+o[0]+'"'+(d.bar===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')+'</select></div>'+
         '<div><label class="chk" style="margin-top:28px"><input type="checkbox" data-k="heat"'+(d.heat?' checked':'')+'> Colour the stats</label></div></div>'+
+        '<label class="chk"><input type="checkbox" data-k="logo"'+(d.logo!==false?' checked':'')+'> Team logo in the title bar (when a team is picked)</label>'+
         '<label class="f">Columns</label><div class="seg">'+TCOLS.map(function(c){ return '<button type="button" data-act="tcol" data-col="'+c[0]+'" class="'+(on.indexOf(c[0])>-1?'on':'')+'">'+c[1]+'</button>'; }).join('')+'</div>'+
         '<h3>Rows ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',F)+
         '<div class="btns"><button class="b sm" data-act="add" data-path="rows">+ Add row</button><button class="b sm" data-act="clear" data-path="rows">Clear</button></div>';
@@ -1143,7 +1144,10 @@
       var rk=56*u, fixed=cols.reduce(function(a,c){ return a+wOf(c); },0), k=Math.min(1,(tw-rk-300*u)/Math.max(1,fixed)), nameW=tw-rk-fixed*k;
       var xs=[x0,x0+rk,x0+rk+nameW]; cols.forEach(function(c){ xs.push(xs[xs.length-1]+wOf(c)*k); });
       ctx.fillStyle=barBg; ctx.fillRect(x0,y,tw,th);
-      txt(d.title||'',(x0+x1)/2,y+th/2,{ w:800,px:th*.5,serif:'cond',c:barFg,al:'center',max:tw-30*u });
+      // the team's logo at both ends of the title bar when the table is about one team (owner, Oct 14 2026)
+      var tlg=(d.team&&d.logo!==false)?await img(logoUrl(d.team)):null, ts=th*.8, tpad=tlg?ts+28*u:15*u;
+      if(tlg){ drawFit(tlg,x0+14*u,y+(th-ts)/2,ts); drawFit(tlg,x1-14*u-ts,y+(th-ts)/2,ts); }
+      txt(d.title||'',(x0+x1)/2,y+th/2,{ w:800,px:th*.5,serif:'cond',c:barFg,al:'center',max:tw-tpad*2 });
       var hy=y+th; ctx.fillStyle='#D9D9D9'; ctx.fillRect(x0,hy,tw,hh);
       var hfs=hh*.5; txt('Player',(xs[1]+xs[2])/2,hy+hh/2,{ w:600,px:hfs,serif:'cond',c:'#111',al:'center' });
       cols.forEach(function(c,i){ txt(c[1],(xs[i+2]+xs[i+3])/2,hy+hh/2,{ w:600,px:hfs,serif:'cond',c:'#111',al:'center',max:xs[i+3]-xs[i+2]-6*u }); });
