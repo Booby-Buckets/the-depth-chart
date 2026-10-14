@@ -9,10 +9,11 @@ name: Scrimmage box scores
 
 on:
   schedule:
-    - cron: '0 0 * 10,11 *'    # 8 pm ET (EDT; 7 pm after Nov 1) — early games
-    - cron: '0 2 * 10,11 *'    # 10 pm ET — most games are final
-    - cron: '0 4 * 10,11 *'    # midnight ET — late / West Coast games
-    - cron: '0 13 * 10,11 *'   # ~9:00 ET — anything the schools posted overnight
+    # Off the top of the hour: GitHub starts :00 crons hours late at busy times (Oct 13-14: 3-5 h), and schools post
+    # box scores whenever they get to them (UConn-Syracuse went up mid-morning). Hourly 9 am ET - 1 am ET, plus
+    # the late-game window; once every played game has a box score each run is a quick no-op.
+    - cron: '17 13-23 * 10,11 *'   # ~9:17 am – 7:17 pm ET (EDT), hourly
+    - cron: '17 0-5 * 10,11 *'     # ~8:17 pm – 1:17 am ET, hourly: evening games as they finish
   workflow_dispatch: {}
 
 permissions:
