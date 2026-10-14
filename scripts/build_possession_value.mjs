@@ -147,11 +147,15 @@ async function season(y) {
     tcols: ['id', 'poss', 'pts', 'clock×18', 'toLive×2', 'toDead×2', 'rimMiss×2', 'otherMiss×2', 'made×2'],
     pcols: ['id', 'clock×18', 'toLive×2', 'toDead×2', 'rimMiss×2'],
     league: tRow('D-I', X.lg),
-    teams: Object.entries(X.t).filter(([id]) => d1.has(id)).map(([id, t]) => tRow(id, t)),
-    players: Object.entries(X.p).map(([id, p]) => [id, ...p.clock, ...p.toLive, ...p.toDead, ...p.rimMiss]),
+    // sorted by id: games finish in parallel, so insertion order varies run to run
+    teams: Object.entries(X.t).filter(([id]) => d1.has(id)).map(([id, t]) => tRow(id, t)).sort((a, b) => +a[0] - +b[0]),
+    players: Object.entries(X.p).map(([id, p]) => [id, ...p.clock, ...p.toLive, ...p.toDead, ...p.rimMiss]).sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)),
   };
   fs.mkdirSync(OUT, { recursive: true });
-  fs.writeFileSync(path.join(OUT, `${y}.json`), JSON.stringify(out));
+  const dst = path.join(OUT, `${y}.json`);
+  let same = false;
+  try { const old = JSON.parse(fs.readFileSync(dst, 'utf8')); same = JSON.stringify({ ...old, built: 0 }) === JSON.stringify({ ...out, built: 0 }); } catch {}
+  if (!same) fs.writeFileSync(dst, JSON.stringify(out));   // unchanged data keeps its file (and its built stamp): no empty commit
   const L = X.lg, ppp = (a) => (a[0] ? (a[1] / a[0]).toFixed(3) : '—');
   console.log(`${y}: ${games.length} games (${empty} without play-by-play), ${L.poss.toLocaleString()} possessions, PPP ${(L.pts / L.poss).toFixed(3)} · opp next PPP after live TO ${ppp(L.toLive)}, dead TO ${ppp(L.toDead)}, missed rim ${ppp(L.rimMiss)}, other miss ${ppp(L.otherMiss)}, made FG ${ppp(L.made)} · ${((Date.now() - t0) / 1000).toFixed(0)}s`);
 }

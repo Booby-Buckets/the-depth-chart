@@ -67,12 +67,12 @@ function parse(s, X) {
       for (const a of st.athletes || []) {
         const id = a.athlete && a.athlete.id && String(a.athlete.id); if (!id || !a.stats || !a.stats.length) continue;
         const m = parseFloat(a.stats[iM]) || 0; if (m <= 0) continue;
-        const P = (X.p[id] = X.p[id] || { n: '', t: '', pos: '', min: 0, gp: 0, fta: 0, ftm: 0, f: blank() });
+        const P = (X.p[id] = X.p[id] || { n: '', t: '', pos: '', nc: {}, pc: {}, tc: {}, min: 0, gp: 0, fta: 0, ftm: 0, f: blank() });
         const ft = String(a.stats[iF] || '0-0').split('-');
-        P.n = a.athlete.displayName || P.n; P.t = tid; P.min += m; P.gp += 1; P.fta += +ft[1] || 0; P.ftm += +ft[0] || 0;
+        if (a.athlete.displayName) P.nc[a.athlete.displayName] = (P.nc[a.athlete.displayName] || 0) + 1; P.tc[tid] = (P.tc[tid] || 0) + 1; P.min += m; P.gp += 1; P.fta += +ft[1] || 0; P.ftm += +ft[0] || 0;
         const ab = a.athlete.position && a.athlete.position.abbreviation;
         const g = /C/.test(ab || '') ? 'C' : /F/.test(ab || '') ? 'F' : /G/.test(ab || '') ? 'G' : '';
-        if (g) P.pos = g;
+        if (g) P.pc[g] = (P.pc[g] || 0) + 1;
         gameP.add(id);
         const T = (X.t[tid] = X.t[tid] || { gp: 0, fta: 0, ftm: 0, f: blank() });
         T.fta += +ft[1] || 0; T.ftm += +ft[0] || 0;
@@ -121,16 +121,22 @@ async function season(y) {
   const players = [];
   for (const [id, P] of Object.entries(X.p)) {
     if (!P.f.some((c) => c[0] > 0) && !P.fta) continue;
-    players.push([id, P.n, P.t, P.pos, Math.round(P.min), P.gp, P.fta, P.ftm, ...P.f.flat()]);
+    // the name / position he is listed under most often: games finish in parallel, so 'last one wins' would vary run to run
+    const top = (c) => Object.entries(c).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0];
+    players.push([id, (top(P.nc) || [''])[0], (top(P.tc) || [''])[0], (top(P.pc) || [''])[0], Math.round(P.min), P.gp, P.fta, P.ftm, ...P.f.flat()]);
   }
-  const tRows = Object.entries(X.t).filter(([id]) => teams[id]).map(([id, T]) => [id, T.gp, T.fta, T.ftm, ...T.f.flat()]);
+  players.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));   // stable order: games finish in parallel
+  const tRows = Object.entries(X.t).filter(([id]) => teams[id]).map(([id, T]) => [id, T.gp, T.fta, T.ftm, ...T.f.flat()]).sort((a, b) => +a[0] - +b[0]);
   const out = {
     season: y, built: new Date().toISOString(), games: games.length, missing: empty, fam: FAM,
     pcols: ['id', 'name', 'team', 'pos', 'min', 'gp', 'fta', 'ftm'], tcols: ['id', 'gp', 'fta', 'ftm'],
     league: X.lg, teams, players, teamRows: tRows,
   };
   fs.mkdirSync(OUT, { recursive: true });
-  fs.writeFileSync(path.join(OUT, `${y}.json`), JSON.stringify(out));
+  const dst = path.join(OUT, `${y}.json`);
+  let same = false;
+  try { const old = JSON.parse(fs.readFileSync(dst, 'utf8')); same = JSON.stringify({ ...old, built: 0 }) === JSON.stringify({ ...out, built: 0 }); } catch {}
+  if (!same) fs.writeFileSync(dst, JSON.stringify(out));   // unchanged data keeps its file (and its built stamp): no empty commit
   const fga = X.lg.reduce((a, c) => a + c[0], 0);
   console.log(`${y}: ${games.length} games (${empty} without play-by-play), ${fga.toLocaleString()} FGA, ${players.length} players, ${((Date.now() - t0) / 1000).toFixed(0)}s`);
 }
