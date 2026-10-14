@@ -69,6 +69,9 @@ def logo_colors(img):
     c2 = pref[0] if pref else {"rgb": (255, 255, 255)}
     return hexc(c1["rgb"]), hexc(c2["rgb"])
 
+# logos whose dominant colour isn't the brand colour (Florida's gator is green) -> real brand c1/c2, by ESPN logo id
+FIXED = {"57": ("#0021a5", "#fa4616")}
+
 def main():
     teams = json.load(open(TC))
     by_logo, done = {}, 0
@@ -80,6 +83,7 @@ def main():
             print("  skip", t.get("display"), e, file=sys.stderr); continue
         if not c1: continue
         t.setdefault("espn_c1", t.get("c1")); t.setdefault("espn_c2", t.get("c2"))
+        c1, c2 = FIXED.get(t["logo"].rsplit("/", 1)[-1].split(".")[0], (c1, c2))
         t["c1"], t["c2"] = c1, c2
         by_logo[t["logo"]] = (c1, c2); done += 1
     json.dump(teams, open(TC, "w"), indent=1)
