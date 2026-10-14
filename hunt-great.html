@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="tdc-loading.js?v=4"></script>
+  <link rel="stylesheet" href="tdc-a11y.css?v=3">
+  <script src="tdc-a11y.js?v=2" defer></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Hunt Great — The Depth Chart</title>
+  <meta name="description" content="Every D-I shot graded great, average or bad by when it came in the possession, plus what turnovers and missed rim attempts really cost: the offense that protects its defense.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Depth Chart">
+  <meta property="og:title" content="Hunt Great — The Depth Chart">
+  <meta property="og:description" content="Which D-I teams hunt great shots early, avoid bad ones late, and don't hand opponents easy points off turnovers.">
+  <meta property="og:url" content="https://www.thedepthchartcbb.com/hunt-great.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <script src="tdc-theme.js?v=5"></script>
+  <script src="auth.js?v=delacct1"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="team-colors.js?v=12"></script>
+  <script src="tdc-teamname.js?v=1"></script>
+  <script src="tdc-mastery.js?v=1"></script>
+  <script src="tdc-huntgreat.js?v=1"></script>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;}
+    [data-theme="dark"]{--bg:#0A0E18;--bg2:#111726;--bg3:#1A2133;--border:#232B3E;--border2:#34405A;--text:#EEF1F7;--text2:#AEB6C8;--text3:#7A849A;--accent:#E6D5A8;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html,body{background:var(--bg);}
+    body{color:var(--text);font-family:'Inter',system-ui,sans-serif;font-weight:500;min-height:100vh;}
+    .page{padding:30px 0 60px;}
+    .eyebrow{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--text2);margin-bottom:6px;}
+    h1{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:44px;letter-spacing:-.02em;line-height:1.05;margin-bottom:10px;}
+    .rule{font-size:15px;line-height:1.55;color:var(--text2);max-width:860px;margin-bottom:8px;}
+    .rule b{color:var(--text);}
+    h2{font-family:'Playfair Display',Georgia,serif;font-size:24px;font-weight:800;margin:30px 0 12px;}
+    .facts{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:2px solid var(--text);border-bottom:1px solid var(--border2);margin:18px 0 8px;}
+    .facts div{padding:12px 14px;border-right:1px solid var(--border);} .facts div:last-child{border-right:0;}
+    .facts b{display:block;font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text);}
+    .facts span{font-size:12.5px;color:var(--text2);line-height:1.35;display:block;margin-top:2px;}
+    @media(max-width:860px){.facts{grid-template-columns:1fr 1fr;} .facts div:nth-child(2){border-right:0;}}
+    .filters{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;border-top:1px solid var(--border2);padding-top:16px;}
+    @media(max-width:960px){.filters{grid-template-columns:1fr 1fr;} h1{font-size:32px;}}
+    .filters label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700;color:var(--text2);}
+    .filters select{font:600 15px Inter,system-ui,sans-serif;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg2);color:var(--text);min-width:0;}
+    .sample{font-size:13px;color:var(--text3);margin:12px 0 14px;line-height:1.5;} .sample b{color:var(--text2);}
+    .sheet th{cursor:pointer;} .sheet td a{color:var(--text);text-decoration:none;font-weight:700;} .sheet td a:hover{text-decoration:underline;}
+    .empty{padding:26px;text-align:center;color:var(--text3);border:1px dashed var(--border2);border-radius:12px;font-size:13px;}
+  </style>
+  <link rel="stylesheet" href="tdc-skin.css?v=14"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+  <link rel="stylesheet" href="tdc-column.css?v=4"/>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script src="tdc-pwa.js?v=2" defer></script>
+</head>
+<body>
+<script src="tdc-nav.js?v=77"></script>
+<div class="page">
+  <div class="eyebrow">D-I · Possession value</div>
+  <h1>Hunt great. Protect the defense.</h1>
+  <p class="rule">Every D-I shot graded by when it came and what it was. <b>Great</b> is a rim attempt or a shot the shooter has a <a href="mastery.html">green light</a> on. <b>Average</b> is a three he hasn't proven. <b>Bad</b> is a tough two or pull-up three he hasn't proven. A great look early should go up; an average or bad one early should wait. Turnovers and missed rim attempts are priced by what they cost the offense and what the opponent scores next.</p>
+  <div class="facts" id="facts"></div>
+
+  <h2 id="gridH">D-I shot clock</h2>
+  <div id="grid"><div class="empty">Loading…</div></div>
+
+  <h2 id="tblH">Teams</h2>
+  <div class="filters">
+    <label>View<select id="fView"><option value="tclock">Teams · shot clock</option><option value="tcost">Teams · turnovers &amp; rim</option><option value="pclock">Players · shot grades</option><option value="pcost">Players · turnovers &amp; rim</option></select></label>
+    <label>Season<select id="fSeason"></select></label>
+    <label>Conference<select id="fConf"><option value="">All conferences</option></select></label>
+    <label id="lPos">Position<select id="fPos"><option value="">All positions</option><option value="G">Guards</option><option value="F">Forwards</option><option value="C">Centers</option></select></label>
+    <label id="lMin">Minimum FGA<select id="fMin"><option value="100">100+</option><option value="200" selected>200+</option><option value="350">350+</option></select></label>
+  </div>
+  <div class="sample" id="sample"></div>
+  <div id="tbl"><div class="empty">Loading…</div></div>
+</div>
+<script>
+(function(){
+  const H=window.TDC_HUNT, M=window.TDC_MASTERY;
+  const S={view:'tclock',season:null,conf:'',pos:'',min:200,sort:'great',asc:false};
+  const DEF={tclock:['great',false],tcost:['toCostG',true],pclock:['badN',false],pcost:['toCost40',false]};
+  const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const sh=t=>{ try{ return (window.TDCTeamName&&TDCTeamName.short)?TDCTeamName.short(t):t; }catch(e){ return t; } };
+  const p2=v=>v==null||!isFinite(v)?'—':v.toFixed(2), pc=v=>v==null||!isFinite(v)?'—':(100*v).toFixed(1);
+  const heat=v=>v==null?'':M.heat(v-1.1);
+  // quintile shading within the column (the sheet kit's c0..c4), dir 1 = higher is better
+  function qcls(list,k,dir){ const v=list.map(d=>d[k]).filter(x=>x!=null&&isFinite(x)).sort((a,b)=>a-b); if(v.length<10) return ()=>'';
+    const q=[.2,.4,.6,.8].map(p=>v[Math.floor(p*(v.length-1))]);
+    return x=>{ if(x==null||!isFinite(x)) return ''; let b=q.filter(t=>x>t).length; if(dir<0) b=4-b; return 'c'+b; }; }
+
+  function th(k,l,c,t){ return `<th class="${c||''}" data-k="${k}"${t?` title="${esc(t)}"`:''}>${l}${S.sort===k?(S.asc?' ▲':' ▼'):''}</th>`; }
+  function sortList(list){ list.sort((a,b)=>{ const x=a[S.sort], y=b[S.sort]; if(typeof x==='string'||typeof y==='string') return String(x||'').localeCompare(String(y||''))*(S.asc?1:-1); return ((x==null?-1e9:x)-(y==null?-1e9:y))*(S.asc?1:-1); }); }
+  const tLink=d=>`<a href="team.html?team=${encodeURIComponent(d.full)}">${esc(d.name)}</a>`;
+  const pLink=d=>`<a href="player.html?espn=${esc(d.id)}&name=${encodeURIComponent(d.name||'')}&tab=mastery">${esc(d.name)}</a>`;
+
+  function teams(pv,c){
+    return pv.teams.map(r=>H.team(r,c)).filter(t=>t.meta&&t.clock.tot>=300).map(t=>Object.assign(t,{name:sh(t.meta[0]),full:t.meta[0],conf:t.meta[1]})).filter(t=>!S.conf||t.conf===S.conf);
+  }
+  function players(pv,c){
+    return pv.players.map(r=>H.player(r,c)).filter(p=>p.name&&p.fga>=S.min).map(p=>{ const t=c.teams[p.teamId]||['','']; return Object.assign(p,{team:sh(t[0]),conf:t[1]}); })
+      .filter(p=>(!S.conf||p.conf===S.conf)&&(!S.pos||p.pos===S.pos));
+  }
+
+  function render(){
+    Promise.all([H.load(S.season),M.load(S.season)]).then(([pv,ms])=>{
+      if(!pv){ document.getElementById('tbl').innerHTML='<div class="empty">Could not load the data.</div>'; return; }
+      const c=H.ctx(pv,ms), L=c.lgClock;
+      document.getElementById('facts').innerHTML=
+        `<div><b>${p2(L.by('early','great').pps)}</b><span>points per shot on early great looks · ${pc(L.by('early','great').share)}% of D-I shots</span></div>`+
+        `<div><b>${p2(L.by('late','bad').pps)}</b><span>points per shot on late bad ones · ${pc(L.by('late','bad').share)}% of shots</span></div>`+
+        `<div><b>${p2(H.rt(c.lg.toLive))}</b><span>opponent points on the next trip after a steal · ${p2(H.rt(c.lg.toDead))} after a dead-ball turnover</span></div>`+
+        `<div><b>${p2(H.rt(c.lg.rimMiss))}</b><span>opponent points after a missed rim attempt · ${p2(c.base)} after a made basket</span></div>`;
+      document.getElementById('gridH').textContent='D-I shot clock · '+M.sl(S.season);
+      document.getElementById('grid').innerHTML='<div class="hg">'+H.grid(L,null)+'</div>';
+      const confs=[...new Set(Object.values(c.teams).map(t=>t[1]).filter(Boolean))].sort();
+      const fC=document.getElementById('fConf'); fC.innerHTML='<option value="">All conferences</option>'+confs.map(x=>`<option>${esc(x)}</option>`).join(''); fC.value=S.conf;
+      const isP=S.view[0]==='p';
+      document.getElementById('lPos').style.display=document.getElementById('lMin').style.display=isP?'':'none';
+      document.getElementById('tblH').textContent={tclock:'Teams · who hunts great',tcost:'Teams · offense protects defense',pclock:'Players · shot grades',pcost:'Players · turnovers and rim finishing'}[S.view];
+      const part=pv.games&&pv.missing/pv.games>=0.15?` · <b>Partial sample:</b> ESPN has no play-by-play for ${Math.round(100*pv.missing/pv.games)}% of games`:'';
+      const T=document.getElementById('tbl'), smp=document.getElementById('sample');
+      if(S.view==='tclock'){
+        const list=teams(pv,c); sortList(list);
+        const q={great:qcls(list,'great',1),bad:qcls(list,'bad',-1),earlyGreat:qcls(list,'earlyGreat',1)};
+        smp.innerHTML=`${M.sl(S.season)} · ${list.length} teams · D-I: <b>${pc(L.by(null,'great').share)}%</b> great, <b>${pc(L.by(null,'bad').share)}%</b> bad, <b>${pc(L.by('early').share)}%</b> of shots in the first 7 seconds${part}`;
+        T.innerHTML=`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th>${th('name','Team','l')}${th('conf','Conf','l')}${th('ppp','Pts / poss')}${th('great','Great')}${th('bad','Bad')}${th('early','Early')}${th('earlyGreat','Early great','', 'Share of all shots that were great looks in the first 7 seconds')}${th('earlyPps','Early pts / shot')}${th('latePps','Late pts / shot')}${th('badPps','Bad pts / shot')}</tr></thead><tbody>${
+          list.map((d,i)=>`<tr><td class="l">${i+1}</td><td class="l">${tLink(d)}</td><td class="l">${esc(d.conf)}</td><td><b>${d.ppp.toFixed(3)}</b></td><td class="${q.great(d.great)}">${pc(d.great)}%</td><td class="${q.bad(d.bad)}">${pc(d.bad)}%</td><td>${pc(d.early)}%</td><td class="${q.earlyGreat(d.earlyGreat)}">${pc(d.earlyGreat)}%</td><td class="${heat(d.earlyPps)}">${p2(d.earlyPps)}</td><td class="${heat(d.latePps)}">${p2(d.latePps)}</td><td>${p2(d.badPps)}</td></tr>`).join('')}</tbody></table></div>`;
+      } else if(S.view==='tcost'){
+        const list=teams(pv,c); sortList(list);
+        const q={toCostG:qcls(list,'toCostG',-1),rimPlusG:qcls(list,'rimPlusG',1),livePct:qcls(list,'livePct',-1)};
+        smp.innerHTML=`${M.sl(S.season)} · ${list.length} teams · a turnover costs the points per possession you gave up plus what the opponent scores beyond its <b>${p2(c.base)}</b> after a made basket (D-I: +${p2(c.livePrem)} after a steal, ${c.deadPrem>=0?'+':''}${p2(c.deadPrem)} after a dead ball) · <b>Rim pts vs D-I</b> = points gained (+) or lost (−) finishing rim attempts against the D-I rate (${pc(c.lgRimFg)}%)${part}`;
+        T.innerHTML=`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th>${th('name','Team','l')}${th('conf','Conf','l')}${th('ppp','Pts / poss')}${th('to','TO / game')}${th('livePct','Stolen')}${th('oppAfterLive','Opp. after steal','', 'Opponent points on the possession after one of this team\'s live-ball turnovers')}${th('toCostG','TO cost / game')}${th('rimFg','Rim FG%')}${th('rimPlusG','Rim pts vs D-I / game')}${th('oppAfterRim','Opp. after rim miss')}</tr></thead><tbody>${
+          list.map((d,i)=>`<tr><td class="l">${i+1}</td><td class="l">${tLink(d)}</td><td class="l">${esc(d.conf)}</td><td><b>${d.ppp.toFixed(3)}</b></td><td>${p2(d.to)}</td><td class="${q.livePct(d.livePct)}">${pc(d.livePct)}%</td><td>${p2(d.oppAfterLive)}</td><td class="${q.toCostG(d.toCostG)}"><b>${p2(d.toCostG)}</b></td><td>${pc(d.rimFg)}</td><td class="${q.rimPlusG(d.rimPlusG)}">${d.rimPlusG==null?'—':(d.rimPlusG>=0?'+':'')+d.rimPlusG.toFixed(2)}</td><td>${p2(d.oppAfterRim)}</td></tr>`).join('')}</tbody></table></div>`;
+      } else if(S.view==='pclock'){
+        const list=players(pv,c); sortList(list);
+        const q={great:qcls(list,'great',1),bad:qcls(list,'bad',-1)};
+        smp.innerHTML=`${M.sl(S.season)} · ${list.length.toLocaleString()} players with ${S.min}+ FGA · grades use each shooter's own green lights, so a proven mid-range shooter's jumpers count as great${part}`;
+        T.innerHTML=`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th>${th('name','Player','l')}${th('team','Team','l')}${th('pos','Pos','l')}${th('fga','FGA')}${th('great','Great')}${th('avg','Average')}${th('bad','Bad')}${th('badN','Bad shots')}${th('earlyBad','Early bad','', 'Bad shots taken in the first 7 seconds of a possession')}${th('pps','Pts / shot')}${th('badPps','Bad pts / shot')}</tr></thead><tbody>${
+          list.slice(0,400).map((d,i)=>`<tr><td class="l">${i+1}</td><td class="l">${pLink(d)}</td><td class="l">${esc(d.team)}</td><td class="l">${esc(d.pos)}</td><td>${d.fga}</td><td class="${q.great(d.great)}">${pc(d.great)}%</td><td>${pc(d.avg)}%</td><td class="${q.bad(d.bad)}">${pc(d.bad)}%</td><td>${d.badN}</td><td>${d.earlyBad}</td><td class="${heat(d.pps)}"><b>${p2(d.pps)}</b></td><td>${p2(d.badPps)}</td></tr>`).join('')}</tbody></table></div>`;
+      } else {
+        const list=players(pv,c); sortList(list);
+        smp.innerHTML=`${M.sl(S.season)} · ${list.length.toLocaleString()} players with ${S.min}+ FGA · <b>TO cost</b> = his live-ball and dead-ball turnovers priced at D-I rates (${p2(c.ppp+c.livePrem)} and ${p2(c.ppp+c.deadPrem)} points each) · <b>Rim pts vs D-I</b> = points gained (+) or lost (−) on his rim attempts against the D-I finishing rate${part}`;
+        T.innerHTML=`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th>${th('name','Player','l')}${th('team','Team','l')}${th('pos','Pos','l')}${th('min','Min')}${th('live','Stolen TO')}${th('dead','Dead-ball TO')}${th('liveShare','Stolen share')}${th('toCost','TO cost')}${th('toCost40','TO cost / 40')}${th('rimAtt','Rim att')}${th('rimFg','Rim FG%')}${th('rimPlus','Rim pts vs D-I')}</tr></thead><tbody>${
+          list.slice(0,400).map((d,i)=>`<tr><td class="l">${i+1}</td><td class="l">${pLink(d)}</td><td class="l">${esc(d.team)}</td><td class="l">${esc(d.pos)}</td><td>${d.min}</td><td>${d.live}</td><td>${d.dead}</td><td>${pc(d.liveShare)}%</td><td>${p2(d.toCost)}</td><td><b>${p2(d.toCost40)}</b></td><td>${d.rimAtt}</td><td>${pc(d.rimFg)}</td><td>${d.rimPlus==null?'—':(d.rimPlus>=0?'+':'')+d.rimPlus.toFixed(1)}</td></tr>`).join('')}</tbody></table></div>`;
+      }
+      document.querySelectorAll('#tbl th[data-k]').forEach(h=>h.onclick=()=>{ const k=h.getAttribute('data-k');
+        if(S.sort===k) S.asc=!S.asc; else { S.sort=k; S.asc=['name','team','conf','pos'].includes(k); }
+        render(); });
+    });
+  }
+  const bind=(id,k,num)=>{ document.getElementById(id).onchange=e=>{ S[k]=num?+e.target.value:e.target.value; if(k==='view'){ [S.sort,S.asc]=DEF[S.view]; } render(); }; };
+  bind('fView','view'); bind('fSeason','season',true); bind('fConf','conf'); bind('fPos','pos'); bind('fMin','min',true);
+  H.seasons().then(ys=>{ if(!ys.length) return; S.season=ys[0];
+    document.getElementById('fSeason').innerHTML=ys.map(y=>`<option value="${y}">${M.sl(y)}</option>`).join('');
+    render(); });
+})();
+</script>
+<script src="tdc-version.js?v=2"></script>
+<script src="tdc-sheets.js?v=2"></script>
+</body>
+</html>

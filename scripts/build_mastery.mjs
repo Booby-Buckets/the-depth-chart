@@ -25,13 +25,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { FAM, isFG, family } from './lib_shotfamily.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SB = 'https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/', KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 const H = { apikey: KEY, Authorization: 'Bearer ' + KEY };
 const SUM = 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/summary?event=';
 const OUT = path.join(HERE, 'data', 'mastery');
-const FAM = ['rim', 'float', 'post', 'pull2', 'short', 'long', 'mid', 'pull3', 'three'];
 const FI = Object.fromEntries(FAM.map((f, i) => [f, i]));
 
 async function sb(q) {
@@ -53,27 +53,6 @@ async function espn(id, tries = 3) {
     await new Promise((s) => setTimeout(s, 800 * (t + 1)));
   }
   return null;
-}
-
-const tt = (p) => (p.type && p.type.text) || '';
-const isFG = (p) => p.shootingPlay && !/FreeThrow|Free Throw/i.test(tt(p) + ' ' + (p.text || ''));
-
-function family(p) {
-  const t = (p.text || '').toLowerCase(), ty = tt(p);
-  const three = (+p.pointsAttempted || +p.scoreValue || 0) === 3 || /three point/.test(t);
-  const pull = /pull-?up|step ?back/.test(t);
-  if (three) return pull ? 'pull3' : 'three';
-  if (/floating|floater|runner/.test(t)) return 'float';
-  if (/LayUp|Dunk|Tip/i.test(ty) || /layup|dunk|tip/.test(t)) return 'rim';
-  if (/hook|turnaround|fade/.test(t)) return 'post';
-  if (pull) return 'pull2';
-  let d = null;
-  const m = /(\d+)-foot/.exec(t);
-  if (m) d = +m[1];
-  else if (p.coordinate && isFinite(p.coordinate.x) && isFinite(p.coordinate.y) && !(p.coordinate.x === 25 && p.coordinate.y === 0) && p.coordinate.y >= 0 && p.coordinate.y < 47)
-    d = Math.hypot(p.coordinate.x - 25, p.coordinate.y);
-  if (d == null) return 'mid';
-  return d <= 4 ? 'rim' : d <= 14 ? 'short' : 'long';
 }
 
 const blank = () => FAM.map(() => [0, 0, 0]);

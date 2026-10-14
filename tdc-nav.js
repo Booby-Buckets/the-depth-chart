@@ -48,6 +48,7 @@
       ['game-situations.html',          'Game Situations'],
       ['shot-quality.html',             'Shot Quality'],
       ['mastery.html',                  'Mastery Shots'],
+      ['hunt-great.html',               'Hunt Great'],
       ['plays.html',                    'Play Finder'],
       ['wowy.html',                     'WOWY Lineups / On-Off'],
       ['statshift.html',                'Stat Line Shift'],
