@@ -309,7 +309,7 @@
     .side-col{padding:32px 32px 64px;min-width:0;}
     .panel{display:none;}.panel.active{display:block;width:100%;box-sizing:border-box;animation:panelIn .28s cubic-bezier(.22,1,.36,1) forwards;}
     @keyframes panelIn{from,to{opacity:1;transform:none;}}
-    #customizeContent{width:100%;max-width:100%;overflow-x:hidden;box-sizing:border-box;}
+    #customizeContent{width:100%;max-width:100%;overflow-x:hidden;overflow-x:clip;box-sizing:border-box;}   /* clip, not hidden: hidden makes it a scroll box and the board rail could not stick */
     /* Customize sub-tabs (keep the lower charts from all showing at once) */
     .cz-subtabs{display:flex;gap:6px;flex-wrap:wrap;padding:16px 0 14px;margin:0 0 20px;border-bottom:1px solid var(--border);max-width:100%;}
     .cz-subtab{font:600 11.5px 'Inter',system-ui,sans-serif;letter-spacing:.02em;padding:5px 11px;border:1px solid var(--border2);background:var(--bg);cursor:pointer;color:var(--text2);border-radius:999px;white-space:nowrap;}
@@ -763,6 +763,87 @@
     .cz-norm{background:none;border:1px solid var(--border2);border-radius:999px;padding:3px 11px;font:700 11px 'Inter',system-ui,sans-serif;color:var(--text2);cursor:pointer;margin-left:10px;}
     .cz-norm:hover{border-color:var(--text);color:var(--text);}
     .cz-norm.warn{border-color:#d9a13a;color:#d9a13a;background:color-mix(in srgb,#d9a13a 10%,transparent);}
+    /* ── lineup board (Oct 2026): one draggable sheet + sticky team rail ── */
+    .cz-dc-head .lb-hint{font-size:11px;color:var(--text3);font-weight:600;}
+    .cz-dc-head .cz-rot{margin-left:auto;}
+    #customizeContent.cz-on-lineup > .cz-strength-head,#customizeContent.cz-on-lineup > .lineup-analytics{display:none;}
+    .lb-layout{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:22px;align-items:start;margin:8px 0 30px;}
+    .lb-main{min-width:0;grid-column:1;grid-row:1;} .lb-rail{grid-column:2;grid-row:1;}
+    .lb-sheet{width:100%;table-layout:fixed;}
+    .lb-sheet col,.lb-sheet th{white-space:nowrap;}
+    .lb-sheet col.lbc-pos{width:46px;}
+    .lb-sheet col.lbc-ovr{width:52px;}
+    .lb-sheet col.lbc-min{width:150px;}
+    .lb-sheet col.lbc-st{width:68px;}
+    .lb-sheet td{vertical-align:middle;}
+    .lb-sheet td.lb-slot{font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--text3);}
+    .lb-sheet tr.lb-start td.lb-slot{color:var(--text);}
+    .lb-row[data-n]{cursor:grab;user-select:none;-webkit-user-select:none;touch-action:pan-y;}
+    .lb-row[data-n]:hover td{background:color-mix(in srgb,var(--accent) 7%,transparent);}
+    .lb-nmw{display:flex;align-items:center;gap:7px;min-width:0;overflow:hidden;}
+    .lb-grip{color:var(--text3);opacity:.45;font-size:12px;flex-shrink:0;}
+    .lb-row:hover .lb-grip{opacity:1;}
+    .lb-nm{background:none;border:0;padding:0;font:600 13px 'Inter',system-ui,sans-serif;color:var(--text);cursor:inherit;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;}
+    .lb-start .lb-nm{font-weight:800;}
+    .lb-nm:hover{text-decoration:underline;}
+    .lb-fit{font-size:10px;font-weight:700;white-space:nowrap;flex-shrink:0;}
+    .lb-fit.fit-great{color:#2e8b57;} .lb-fit.fit-ok{color:#b07000;} .lb-fit.fit-bad,.lb-fit.fit-poor{color:#c0392b;}
+    .lb-sheet td.lb-ovr{font-weight:800;font-variant-numeric:tabular-nums;}
+    .lb-min .dc-step{margin:0;gap:5px;}
+    .lb-bar{position:relative;display:inline-flex;align-items:center;justify-content:flex-end;width:72px;height:18px;border-radius:3px;background:color-mix(in srgb,var(--text) 7%,transparent);overflow:hidden;}
+    .lb-bar > span{position:absolute;left:0;top:0;bottom:0;background:color-mix(in srgb,var(--tc-readable,var(--accent)) 38%,transparent);}
+    .lb-bar b{position:relative;padding-right:5px;font:800 11.5px 'Inter',system-ui,sans-serif;font-variant-numeric:tabular-nums;color:var(--text);}
+    .lb-st{font-variant-numeric:tabular-nums;white-space:nowrap;}
+    .lb-st i,.lb-line .lb-d{font-style:normal;font-size:10px;font-weight:800;}
+    .lb-st i{margin-left:4px;}
+    .lb-st i.up,.lb-line .lb-d.up{color:#1a8c3a;} .lb-st i.dn,.lb-line .lb-d.dn{color:#c0392b;}
+    .lb-out td{opacity:.55;} .lb-out:hover td{opacity:1;}
+    .lb-sheet tr.lb-sec td{text-align:left;font-size:10px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--text2);background:var(--bg2)!important;padding:7px 10px;border-top:2px solid var(--border2);}
+    .lb-sheet tr.lb-sec td span{text-transform:none;letter-spacing:0;font-weight:600;color:var(--text3);margin-left:8px;}
+    .lb-sheet tr.lb-sec-out td{border-top-style:dashed;}
+    .lb-add{background:none;border:0;padding:2px 6px;font:700 11.5px 'Inter',system-ui,sans-serif;color:var(--text3);cursor:pointer;}
+    .lb-add:hover{color:var(--text);}
+    .lb-sheet tr.lb-addrow td{text-align:left;font-size:11px;color:var(--text3);padding:8px 10px;}
+    .lb-dragging td{opacity:.3;}
+    .lb-sheet tr.lb-over td{background:color-mix(in srgb,var(--accent) 16%,transparent)!important;box-shadow:inset 0 2px 0 var(--accent),inset 0 -2px 0 var(--accent);}
+    .lb-ghost{position:fixed;z-index:100030;pointer-events:none;background:var(--text);color:var(--bg);font:700 12.5px 'Inter',system-ui,sans-serif;padding:7px 12px;border-radius:6px;box-shadow:0 6px 20px rgba(0,0,0,.25);white-space:nowrap;}
+    body.lb-busy,body.lb-busy *{cursor:grabbing!important;user-select:none!important;}
+    .lb-rail{position:sticky;top:100px;max-height:calc(100vh - 112px);overflow:auto;}
+    .lb-rail-h{font-size:10px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);margin:0 0 8px;}
+    .lb-rail-h span{text-transform:none;letter-spacing:0;font-weight:600;margin-left:6px;}
+    .lb-rail .lineup-analytics{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:0;margin:0 0 18px;border:1px solid var(--border);border-bottom:0;}
+    .lb-rail .analytics-cell{padding:10px 12px;border-left:0;border-bottom:1px solid var(--border);}
+    .lb-rail .analytics-cell:nth-child(odd){border-right:1px solid var(--border);}
+    .lb-rail .analytics-val{font-size:22px;}
+    .lb-rail .analytics-label{font-size:9.5px;white-space:normal;}
+    .lb-line{width:100%;}
+    .lb-line td{padding:6px 10px;}
+    .lb-rail-foot{margin-top:12px;}
+    .lb-rail-empty{font-size:12px;color:var(--text3);padding:12px;border:1px dashed var(--border2);border-radius:6px;}
+    .lb-rail-foot .cz-meter{margin:0;}
+    /* narrower screens: the rail becomes a compact strength strip pinned above the board */
+    @media(max-width:1180px){ .lb-layout{display:block;} .lb-rail{top:90px;z-index:5;max-height:none;overflow:visible;background:var(--bg);padding:6px 0;margin-bottom:10px;}
+      .lb-rail .lb-rail-h,.lb-rail .lb-line,.lb-rail .sheet-wrap,.lb-rail-foot{display:none;}
+      .lb-rail .lineup-analytics{grid-template-columns:repeat(6,minmax(0,1fr));margin:0;border-bottom:1px solid var(--border);}
+      .lb-rail .analytics-cell,.lb-rail .analytics-cell:nth-child(odd){border-right:1px solid var(--border);padding:6px 8px;} .lb-rail .analytics-cell:last-child{border-right:0;}
+      .lb-rail .analytics-val{font-size:17px;} .lb-rail .analytics-label{font-size:8.5px;margin-top:3px;} }
+    @media(max-width:700px){
+      .lb-sheet col.lbc-pos{width:30px;} .lb-sheet col.lbc-ovr{width:32px;} .lb-sheet col.lbc-min{width:78px;} .lb-sheet col.lbc-st{width:38px;} .lb-sheet col.lbc-x{width:0;}
+      .lb-sheet th:nth-child(n+7),.lb-sheet td.lb-st:nth-child(n+7){padding:0!important;border:0!important;font-size:0!important;overflow:hidden;}
+      .lb-sheet td.lb-slot,.lb-sheet th:first-child{padding-left:5px!important;padding-right:0!important;}
+      .lb-sheet td.lb-ovr,.lb-sheet td.lb-min,.lb-sheet th:nth-child(3),.lb-sheet th:nth-child(4){padding-left:1px!important;padding-right:1px!important;}
+      .lb-sheet td.lb-name{padding-left:4px!important;padding-right:2px!important;}
+      .lb-sheet .lb-nm .lb-first{display:none;} .lb-sheet .lb-nm .lb-ini{display:inline;}
+      .lb-grip{display:none;}
+      .lb-min .dc-step{gap:2px;} .lb-min .dc-step button{width:22px;height:22px;}
+      .lb-bar{width:24px;background:none;justify-content:center;} .lb-bar > span{display:none;} .lb-bar b{padding:0;}
+      .lb-st i{display:none;}
+      .lb-rail{top:80px;}
+      .lb-rail .lineup-analytics{grid-template-columns:repeat(3,minmax(0,1fr));}
+      .lb-rail .analytics-cell:nth-child(3),.lb-rail .analytics-cell:nth-child(4),.lb-rail .analytics-cell:nth-child(5){display:none;}
+      .lb-rail .analytics-cell:nth-child(6){border-right:0;}
+      .cz-dc-head .lb-hint{display:none;} }
+    .lb-nm .lb-ini{display:none;}
     .cz-meter{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--text3);font-variant-numeric:tabular-nums;}
     .cz-meter b{color:var(--text);font-weight:800;}
     .cz-meter.off b{color:#b07000;}
@@ -1102,7 +1183,7 @@
   .page-body{grid-template-columns:1fr!important;min-width:0!important;}
   /* min-width:0 lets the grid item shrink below its content so wide tables
      scroll inside their own overflow-x container instead of widening the page */
-  .main-col{padding:12px 12px 40px!important;border-right:none!important;min-width:0!important;overflow-x:hidden!important;}
+  .main-col{padding:12px 12px 40px!important;border-right:none!important;min-width:0!important;overflow-x:hidden!important;overflow-x:clip!important;}   /* clip: hidden made it a scroll box, which broke position:sticky inside (Lineup Lab strip) */
   .main-col .panel,#depthContent,.starters-grid{min-width:0!important;}
   .side-col{display:none!important;}
 
@@ -1238,7 +1319,7 @@
   <!-- Dense "spreadsheet" reskin — matches the index cover. (A line here used to force
        data-theme="dark" after tdc-theme.js had applied the saved theme, so light-mode visitors got
        a dark first paint that flipped to light a moment later. tdc-theme.js owns the theme.) -->
-  <link rel="stylesheet" href="tdc-dense.css?v=39"/>
+  <link rel="stylesheet" href="tdc-dense.css?v=40"/>
   <link rel="stylesheet" href="tdc-team-dense.css?v=23"/>
   <!-- 2026 clean skin (loaded last so it wins): neutral bases + translucent depth -->
   <link rel="stylesheet" href="tdc-skin.css?v=14"/>
@@ -4703,67 +4784,159 @@ function renderCoachPanel(){
     synHtml+'</div>';
 }
 
+// ── LINEUP BOARD (Oct 2026 redesign; owner: "hard to use … I want to drag and drop easy and see how
+// stats are affected without clicking out"). One sheet: the starting five (PG→C), the bench by minutes,
+// then the players out of the rotation. Every row is draggable as a whole (pointer events, 5px threshold
+// so the −/+ steppers still click; long-press on touch so the page still scrolls). Dropping a player on
+// another SWAPS their spots and their minutes ("put him where he is"); dropping on the out-of-rotation
+// bar sits him (his minutes go to his position-mates). Each row carries his live projected line with the
+// change from the default lineup, and a sticky rail keeps team strength + the team line in view.
+function _lbEffGrade(p,pos){
+  const fit=calcPositionFit(p, customPos[p.name]||pos);
+  const pg=parseFloat(_gdisp(p)), n=parseFloat(p.tdc_grade);
+  const base=isFinite(pg)?pg:(!isNaN(n)?n:(gradeToNum(p.tdc_grade)||70));
+  return { g:p.tdc_grade?Math.max(40,Math.min(99,Math.round(base+fit.adjGrade))):null, fit };
+}
+// phones show "B. Smith" (the full name wraps to nothing in a 6-column row)
+function _lbNameHtml(nm){ const w=String(nm||'').trim().split(/\s+/); if(w.length<2) return _sqAttr(nm);
+  const f=w[0], rest=w.slice(1).join(' '); return `<span class="lb-first">${_sqAttr(f)} </span><span class="lb-ini">${_sqAttr(f[0])}. </span>${_sqAttr(rest)}`; }
+function _lbOvrCls(g){ return g==null?'':g>=88?'c4':g>=80?'c3':g>=72?'c2':g>=65?'c1':'c0'; }
+function _lbProjMaps(){
+  const cur={}, base={};
+  try{ (buildCustomProjections()||[]).forEach(r=>{ if(r&&r.name) cur[r.name]=r; }); }catch(e){}
+  (_baseCustomProj||[]).forEach(r=>{ if(r&&r.name) base[r.name]=r; });
+  return {cur,base};
+}
+const _LB_STATS=[['ppg','PTS',1],['rpg','REB',1],['apg','AST',1],['fg_pct','FG%',0],['tp_pct','3P%',0]];
+function _lbStatCells(name,M){
+  const r=M.cur[name]||{}, b=M.base[name];
+  return _LB_STATS.map(([k,lbl,cnt])=>{
+    const v=parseFloat(r[k]); if(!isFinite(v)||(!cnt&&!(parseFloat(r[k==='fg_pct'?'fga':'tpa'])>0.2))) return `<td class="r lb-st dim">—</td>`;
+    let d='';
+    if(b&&cnt){ const dv=Math.round((v-(parseFloat(b[k])||0))*10)/10; if(Math.abs(dv)>=0.3) d=`<i class="${dv>0?'up':'dn'}">${dv>0?'+':''}${dv}</i>`; }
+    return `<td class="r lb-st">${v.toFixed(1)}${d}</td>`;
+  }).join('');
+}
+function _lbRow(p,pos,idx,kind,M){
+  const {g,fit}=_lbEffGrade(p,pos), m=Math.round(_curMpgOf(p)), n=_sqAttr(p.name);
+  const fitTag=fit.fitLabel!=='Natural'?`<span class="lb-fit ${fit.fitClass}"${fit.reason?` title="${_sqAttr(fit.reason)}"`:''}>${fit.fitLabel}</span>`:'';
+  return `<tr class="lb-row lb-${kind}" data-pos="${pos}" data-idx="${idx}" data-n="${n}">
+    <td class="l lb-slot">${pos}</td>
+    <td class="l lb-name"><div class="lb-nmw"><span class="lb-grip" aria-hidden="true">⠿</span><button type="button" class="lb-nm" data-n="${n}">${_lbNameHtml(p.name)}</button>${fitTag}</div></td>
+    <td class="c lb-ovr ${_lbOvrCls(g)}">${g==null?'—':g}</td>
+    <td class="lb-min"><span class="dc-step" data-n="${n}"><button type="button" data-step="-1" aria-label="Fewer minutes">−</button><span class="lb-bar"><span style="width:${Math.min(100,m/40*100)}%"></span><b>${m}</b></span><button type="button" data-step="1" aria-label="More minutes">+</button></span></td>
+    ${_lbStatCells(p.name,M)}
+  </tr>`;
+}
+function _lbBoardHtml(){
+  const M=_lbProjMaps(), starters=[], bench=[], out=[];
+  POS_KEYS.forEach(pos=>{ (customDepth[pos]||[]).forEach((p,i)=>{ if(!p||!p.name) return;
+    if(i===0) return; (_curMpgOf(p)>=ROT_MIN?bench:out).push({p,pos,i}); }); });
+  bench.sort((a,b)=>_curMpgOf(b.p)-_curMpgOf(a.p));
+  out.sort((a,b)=>(parseFloat(_gdisp(b.p))||0)-(parseFloat(_gdisp(a.p))||0));
+  const head=`<thead><tr><th class="l lb-slot">Pos</th><th class="l">Player</th><th class="c">OVR</th><th class="lb-min">Min</th>${_LB_STATS.map(s=>`<th class="r">${s[1]}</th>`).join('')}</tr></thead>`;
+  const sec=(t,cls,extra)=>`<tr class="lb-sec ${cls||''}"${extra||''}><td colspan="${4+_LB_STATS.length}">${t}</td></tr>`;
+  let body=sec('Starting five','lb-sec-start');
+  POS_KEYS.forEach(pos=>{ const p=(customDepth[pos]||[])[0];
+    body+=p&&p.name?_lbRow(p,pos,0,'start',M)
+      :`<tr class="lb-row lb-empty" data-pos="${pos}" data-idx="0"><td class="l lb-slot">${pos}</td><td class="l" colspan="${3+_LB_STATS.length}"><button type="button" class="lb-add" onclick="openSwapModal('${pos}',0)">+ Add a starter at ${pos}</button></td></tr>`; });
+  body+=sec(`Bench <span>${bench.length} in the rotation</span>`,'lb-sec-bench');
+  bench.forEach(x=>{ body+=_lbRow(x.p,x.pos,x.i,'bench',M); });
+  body+=sec(`Out of rotation <span>drop a player here to sit him</span>`,'lb-sec-out lb-drop-out',' data-drop="out"');
+  out.forEach(x=>{ body+=_lbRow(x.p,x.pos,x.i,'out',M); });
+  body+=`<tr class="lb-addrow"><td colspan="${4+_LB_STATS.length}">Add a player: ${POS_KEYS.map(pos=>`<button type="button" class="lb-add" onclick="openSwapModal('${pos}',${(customDepth[pos]||[]).length})">+ ${pos}</button>`).join('')}</td></tr>`;
+  const cols=`<colgroup><col class="lbc-pos"><col><col class="lbc-ovr"><col class="lbc-min">${_LB_STATS.map((s,i)=>`<col class="lbc-st${i>=2?' lbc-x':''}">`).join('')}</colgroup>`;
+  return `<div class="sheet-wrap lb-wrap"><table class="sheet dense lb-sheet" id="lbSheet">${cols}${head}<tbody>${body}</tbody></table></div>`;
+}
+// the rail: team strength (same numbers as the top bar) + the team's projected line vs the default lineup
+function _lbRailHtml(analytics){
+  const M=_lbProjMaps();
+  const tot=o=>{ const s={ppg:0,rpg:0,apg:0,stl:0,blk:0,tovs:0,fgm:0,fga:0,tpm:0,tpa:0,mpg:0};
+    Object.values(o).forEach(r=>{ if(!r||!(parseFloat(r.mpg)>0)) return; Object.keys(s).forEach(k=>{ s[k]+=parseFloat(r[k])||0; }); });
+    s.fg=s.fga>0?100*s.fgm/s.fga:null; s.tp=s.tpa>0?100*s.tpm/s.tpa:null; return s; };
+  const c=tot(M.cur), b=tot(M.base);
+  if(!(c.mpg>0)) return `<div class="lb-rail-in"><div class="lb-rail-h">Team strength</div><div class="lb-rail-empty">Add players to see the team's projected strength and stat line.</div></div>`;
+  const rows=[['Rebounds','rpg',1],['Assists','apg',1],['Steals','stl',1],['Blocks','blk',1],['Turnovers','tovs',1,true],['FG%','fg',0],['3P%','tp',0]];
+  const line=rows.map(([l,k,cnt,inv])=>{ const v=c[k], bv=b[k]; if(v==null) return '';
+    const d=bv!=null?Math.round((v-bv)*10)/10:0, good=inv?d<0:d>0;
+    return `<tr><td class="l">${l}</td><td class="r"><b>${v.toFixed(1)}</b></td><td class="r lb-d ${Math.abs(d)<0.1?'':good?'up':'dn'}">${Math.abs(d)<0.1?'—':(d>0?'+':'')+d}</td></tr>`; }).join('');
+  return `<div class="lb-rail-in">
+    <div class="lb-rail-h">Team strength</div>
+    ${renderAnalyticsBar(analytics, baseAnalytics)}
+    <div class="lb-rail-h">Team line <span>vs default lineup</span></div>
+    <div class="sheet-wrap"><table class="sheet dense lb-line"><tbody>${line}</tbody></table></div>
+    <div class="lb-rail-foot">${_czMinutesMeter()}</div>
+  </div>`;
+}
+// ── board drag controller (delegated on #customizeContent, bound once) ──
+let _lbDrag=null;
+function _lbRowAt(x,y){ const el=document.elementFromPoint(x,y); return el&&el.closest?el.closest('#lbSheet .lb-row[data-n], #lbSheet .lb-empty, #lbSheet [data-drop="out"]'):null; }
+function _lbStart(d){
+  d.active=true; d.row.classList.add('lb-dragging'); document.body.classList.add('lb-busy');
+  const g=document.createElement('div'); g.className='lb-ghost'; g.textContent=d.row.dataset.n; document.body.appendChild(g); d.ghost=g;
+  if(navigator.vibrate&&d.touch) try{ navigator.vibrate(12); }catch(e){}
+}
+function _lbMove(d,x,y){
+  if(d.ghost){ d.ghost.style.left=(x+14)+'px'; d.ghost.style.top=(y+10)+'px'; }
+  const t=_lbRowAt(x,y);
+  if(d.over&&d.over!==t) d.over.classList.remove('lb-over');
+  d.over=(t&&t!==d.row)?t:null; if(d.over) d.over.classList.add('lb-over');
+  // auto-scroll near the window edges while dragging
+  const vh=window.innerHeight; if(y<70) window.scrollBy(0,-12); else if(y>vh-70) window.scrollBy(0,12);
+}
+function _lbEnd(d,commit){
+  document.body.classList.remove('lb-busy');
+  if(d.ghost) d.ghost.remove(); d.row.classList.remove('lb-dragging'); if(d.over) d.over.classList.remove('lb-over');
+  if(commit&&d.over) _lbDrop(d.row,d.over);
+}
+function _lbDrop(fromRow,toRow){
+  const fp=fromRow.dataset.pos, fi=+fromRow.dataset.idx, fn=fromRow.dataset.n;
+  if(toRow.dataset.drop==='out'){ _czSetMinutes(fn,0); _czRefresh(true); return; }
+  const tp=toRow.dataset.pos, ti=+toRow.dataset.idx, A=(customDepth[fp]||[])[fi]; if(!A||A.name!==fn) return;
+  if(toRow.classList.contains('lb-empty')){   // empty starter slot: he moves in, his minutes come with him
+    customDepth[fp].splice(fi,1); if(!customDepth[tp]) customDepth[tp]=[]; customDepth[tp].unshift(A);
+    if(customPos[A.name]) customPos[A.name]=tp; _czRefresh(true); return; }
+  const B=(customDepth[tp]||[])[ti]; if(!B||B===A) return;
+  const ma=Math.round(_curMpgOf(A)), mb=Math.round(_curMpgOf(B));
+  customDepth[fp][fi]=B; customDepth[tp][ti]=A;
+  if(fp!==tp){ if(customPos[A.name]) customPos[A.name]=tp; if(customPos[B.name]) customPos[B.name]=fp; }
+  customMpg[A.name]=mb; customMpg[B.name]=ma;
+  _czRefresh(true);
+  _czToast(`${A.name} ⇄ ${B.name}`);
+}
+function _lbBind(root){
+  if(!root||root._lbBound) return; root._lbBound=true;
+  root.addEventListener('click',e=>{
+    const st=e.target.closest('#lbSheet .dc-step button[data-step]');
+    if(st){ stepMpg(st.parentNode.dataset.n,null,+st.dataset.step); return; }
+    if(root._lbJustDragged){ root._lbJustDragged=false; return; }
+    const row=e.target.closest('#lbSheet .lb-row[data-n]');
+    if(row&&!e.target.closest('button:not(.lb-nm),a,input,select')) openPlayerEditor(row.dataset.n);
+  });
+  root.addEventListener('pointerdown',e=>{
+    const row=e.target.closest('#lbSheet .lb-row[data-n]'); if(!row||e.button>0) return;
+    if(e.target.closest('.dc-step,.lb-add')) return;
+    const d={row,x0:e.clientX,y0:e.clientY,id:e.pointerId,touch:e.pointerType!=='mouse',active:false};
+    _lbDrag=d;
+    if(d.touch) d.timer=setTimeout(()=>{ if(_lbDrag===d){ _lbStart(d); _lbMove(d,d.x0,d.y0); } },260);
+  });
+  window.addEventListener('pointermove',e=>{ const d=_lbDrag; if(!d||e.pointerId!==d.id) return;
+    const far=Math.hypot(e.clientX-d.x0,e.clientY-d.y0)>5;
+    if(!d.active){ if(!far) return; if(d.touch){ clearTimeout(d.timer); _lbDrag=null; return; } _lbStart(d); }
+    e.preventDefault(); _lbMove(d,e.clientX,e.clientY); },{passive:false});
+  // while a touch drag is live the page must not scroll under the finger
+  window.addEventListener('touchmove',e=>{ if(_lbDrag&&_lbDrag.active) e.preventDefault(); },{passive:false});
+  const up=(e,commit)=>{ const d=_lbDrag; if(!d||e.pointerId!==d.id) return; clearTimeout(d.timer); _lbDrag=null;
+    if(d.active){ root._lbJustDragged=true; setTimeout(()=>{ root._lbJustDragged=false; },0); _lbEnd(d,commit); } };
+  window.addEventListener('pointerup',e=>up(e,true));
+  window.addEventListener('pointercancel',e=>up(e,false));
+  window.addEventListener('keydown',e=>{ if(e.key==='Escape'&&_lbDrag&&_lbDrag.active){ const d=_lbDrag; _lbDrag=null; _lbEnd(d,false); } });
+}
 function rebuildCustomizeUI(){
   const el=document.getElementById('customizeContent');
   if(!el) return;
   const color=teamColor_g, rgb=teamRgb_g;
   const analytics=calcCustomAnalytics();
-
-  // Depth chart as a spreadsheet grid (owner pick, Sept 2026): a row per depth slot
-  // (Starter, 2nd, 3rd ...), a column per position, minutes totals in the last row.
-  // Each cell keeps the mechanics: ⠿ handle drags, − / + minutes, click opens the editor.
-  const _dcCell=(pos,p,rowIdx)=>{
-    const assignedPos = customPos[p.name]||pos;
-    const fit = calcPositionFit(p, assignedPos);
-    const rawGrade = p.tdc_grade||'';
-    // projected OVR as the base (matches the rest of the site), demonstrated fallback
-    const baseGrade = (()=>{ const pg=parseFloat(_gdisp(p)); if(isFinite(pg)) return pg; const n=parseFloat(rawGrade); if(!isNaN(n)) return n; return gradeToNum(rawGrade)||70; })();
-    const effGrade  = Math.max(40,Math.min(99,Math.round(baseGrade+fit.adjGrade)));
-    const mpgCur  = Math.round(_curMpgOf(p));
-    const isDark2=document.documentElement.getAttribute('data-theme')==='dark';
-    const eGradeColor = isDark2
-      ?(effGrade>=90?'#f0c040':effGrade>=83?'#d4a020':effGrade>=76?'#b07818':effGrade>=68?'#8a5c10':'#6a4010')
-      :(effGrade>=90?'#0a3fd4':effGrade>=83?'#2c6ef2':effGrade>=76?'#4a84f4':effGrade>=68?'#7aaaf8':'#aac4fa');
-    const fitTooltip  = fit.reason ? ` title="${_sqAttr(fit.reason)}"` : '';
-    const nAttr=_sqAttr(p.name);
-    return `<div class="dc-player-row dcx${rowIdx===0?' is-starter':''}${mpgCur<ROT_MIN?' dnp':''}"
-        data-n="${nAttr}" title="Edit ${nAttr}" onclick="_dcRowClick(event,this)"
-        data-pos="${pos}" data-row="${rowIdx}"
-        ondragover="onDcDragOver(event,'${pos}',${rowIdx})"
-        ondrop="onDcDrop(event,'${pos}',${rowIdx})"
-        ondragleave="onDcDragLeave(event,'${pos}',${rowIdx})">
-      <div class="dcx-top">
-        <span class="dc-row-drag" draggable="true" title="Drag to reorder" ondragstart="onDcDragStart(event,'${pos}',${rowIdx})">⠿</span>
-        <button type="button" class="dc-row-name" data-n="${nAttr}" onclick="openPlayerEditor(this.dataset.n)">${p.name}</button>
-        <span class="dc-row-grade" style="color:${eGradeColor};">${p.tdc_grade ? effGrade : '—'}</span>
-      </div>
-      <div class="dcx-sub">
-        ${fit.fitLabel!=='Natural'?`<span class="dcx-fit ${fit.fitClass}"${fitTooltip}>${fit.fitLabel}</span>`:''}
-        <button type="button" class="dcx-edit" data-n="${nAttr}" onclick="openPlayerEditor(this.dataset.n)">Edit</button>
-        <span class="dc-step" data-n="${nAttr}">
-          <button type="button" onclick="stepMpg(this.parentNode.dataset.n,null,-1)" aria-label="Fewer minutes">−</button>
-          <span class="dc-step-v">${mpgCur}</span>
-          <button type="button" onclick="stepMpg(this.parentNode.dataset.n,null,1)" aria-label="More minutes">+</button>
-        </span>
-      </div>
-    </div>`;
-  };
-  const _dcDepth=Math.max(...POS_KEYS.map(pos=>(customDepth[pos]||[]).length))+1;   // +1 = the "+ Add" row
-  const _dcLbl=i=>i===0?'Starter':(i+1)+(i===1?'nd':i===2?'rd':'th');
-  let _dcRows='';
-  for(let i=0;i<_dcDepth;i++){
-    _dcRows+=`<tr class="${i===0?'dcx-start':''}"><td class="l dcx-lbl">${_dcLbl(i)}</td>`+POS_KEYS.map(pos=>{
-      const players=customDepth[pos]||[];
-      if(i<players.length) return `<td class="l dcx-td">${_dcCell(pos,players[i],i)}</td>`;
-      if(i===players.length) return `<td class="l dcx-td dcx-addtd" ondragover="onColDragOver(event,'${pos}')" ondrop="onColDrop(event,'${pos}')"><button type="button" class="dcx-add" onclick="openSwapModal('${pos}',${i})">+ Add ${pos}</button></td>`;
-      return `<td class="dcx-td" ondragover="onColDragOver(event,'${pos}')" ondrop="onColDrop(event,'${pos}')"></td>`;
-    }).join('')+`</tr>`;
-  }
-  const _dcTot=POS_KEYS.map(pos=>{ const cm=Math.round(_colMins(pos)); return `<td class="l dcx-tot${cm>POS_MIN_CAP?' over':''}"><b>${cm}</b> / ${POS_MIN_CAP} min</td>`; }).join('');
-  const dcSheetHtml=`<div class="sheet-wrap cz-dc-wrap"><table class="sheet cz-dc-sheet">
-    <thead><tr><th class="l dcx-lbl"></th>${POS_KEYS.map(pos=>`<th class="l">${pos}</th>`).join('')}</tr></thead>
-    <tbody>${_dcRows}<tr class="dcx-totrow"><td class="l dcx-lbl">Minutes</td>${_dcTot}</tr></tbody>
-  </table></div>`;
 
   el.innerHTML=`
     <div class="cz-strength-head">Projected team strength</div>
@@ -4777,8 +4950,11 @@ function rebuildCustomizeUI(){
     </div>
     <div class="cz-subpanel" data-sub="lineup">
       ${_czModeBar()}
-      <div class="cz-dc-head"><span class="sec-head" style="margin:0;padding:0;border:0;">Depth chart</span>${_czRotControl()}${_czMinutesMeter()}<button type="button" class="cz-norm${(()=>{ const t=_czTeamMins(); return (Math.abs(t-MAX_TEAM_MINS)>2||POS_KEYS.some(pos=>_colMins(pos)>POS_MIN_CAP+0.5))?' warn':''; })()}" onclick="czNormalizeMinutes()">Normalize minutes</button></div>
-      ${dcSheetHtml}
+      <div class="cz-dc-head"><span class="sec-head" style="margin:0;padding:0;border:0;">Depth chart</span><span class="lb-hint">Drag a player onto another to swap them</span>${_czRotControl()}<button type="button" class="cz-norm${(()=>{ const t=_czTeamMins(); return (Math.abs(t-MAX_TEAM_MINS)>2||POS_KEYS.some(pos=>_colMins(pos)>POS_MIN_CAP+0.5))?' warn':''; })()}" onclick="czNormalizeMinutes()">Normalize minutes</button></div>
+      <div class="lb-layout">
+        <aside class="lb-rail">${_lbRailHtml(analytics)}</aside>
+        <div class="lb-main">${_lbBoardHtml()}</div>
+      </div>
       <div class="sec-head" style="margin-bottom:12px;">How this lineup wins</div>
       ${_labWinPanel()}
       <div class="sec-head" style="margin-bottom:16px;">Squad</div>
@@ -4802,6 +4978,7 @@ function rebuildCustomizeUI(){
       ${renderCustomProjectionsTable()}
     </div>`;
   switchCustomizeSubtab(window._custSub||'lineup');
+  _lbBind(el);
   fillCzOnoff();
 }
 // Sub-tabs keep the busy Customize tab from dumping every chart at once — one
@@ -4811,6 +4988,7 @@ function switchCustomizeSubtab(name){
   window._custSub=name;
   const root=document.getElementById('customizeContent'); if(!root) return;
   root.querySelectorAll('.cz-subtab').forEach(b=>b.classList.toggle('active', b.dataset.sub===name));
+  root.classList.toggle('cz-on-lineup', name==='lineup');   // the board's rail carries team strength there
   root.querySelectorAll('.cz-subpanel').forEach(p=>{ p.style.display=(p.dataset.sub===name)?'block':'none'; });
 }
 
