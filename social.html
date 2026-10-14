@@ -1163,15 +1163,15 @@
       if(pool&&!pool.dist.mpg){ var ms=[], fgs=[]; (D.players||[]).forEach(function(p){ var L=TDCProjGrade.lineOf(p); if(L&&+L.mpg>=15){ ms.push(+L.mpg); if(isFinite(+L.fg_pct)&&+L.fga>=3) fgs.push(+L.fg_pct); } });
         pool.dist.mpg=ms.sort(function(a,b){ return a-b; }); pool.dist.fg=fgs.sort(function(a,b){ return a-b; }); }
       await Promise.all(rows.map(function(r){ return Promise.all([img(logoUrl(r.team)),r.from?img(logoUrl(r.from)):null]); }));
-      var fs=Math.min(rh*.5,38*u), nW=cols.filter(function(c){ return c[2]==='n'; }).map(function(c){ return wOf(c)*k; }), vfs=Math.min(fs*.86,(nW.length?Math.min.apply(null,nW):999)*.3);
+      var fs=Math.min(rh*.5,38*u), nW=cols.filter(function(c){ return c[2]==='n'; }).map(function(c){ return wOf(c)*k; }), vfs=Math.min(fs*.86,(nW.length?Math.min.apply(null,nW):999)*.46);
       for(var i=0;i<rows.length;i++){ var r=rows[i], top=ry0+i*rh, mid=top+rh/2;
         ctx.fillStyle=i%2?'#F4F4F4':'#FFFFFF'; ctx.fillRect(x0,top,tw,rh);
         txt(String(i+1),(xs[0]+xs[1])/2,mid,{ w:600,px:fs*.8,serif:'cond',c:'#111',al:'center' });
-        txt(r.name,(xs[1]+xs[2])/2,mid,{ w:600,px:fs,serif:'cond',c:'#111',al:'center',max:nameW-16*u });
+        txt(r.name,(xs[1]+xs[2])/2,mid,{ w:600,px:k<1?fs*.88:fs,serif:'cond',c:'#111',al:'center',max:nameW-16*u });
         for(var j=0;j<cols.length;j++){ var c=cols[j], cx0=xs[j+2], cw=xs[j+3]-cx0, v=r[c[0]];
           if(c[2]==='logo'){ var lg=await img(logoUrl(v||(c[0]==='team'?r.team:''))); if(lg&&(v||c[0]==='team')){ var sz=Math.min(cw*.62,rh*.74); drawFit(lg,cx0+(cw-sz)/2,top+(rh-sz)/2,sz); } continue; }
           if(c[2]==='n'&&pool&&v!==''&&v!=null&&+r.mpg>=10&&pool.dist[c[0]]){ var pc=pctOf(pool.dist[c[0]],+v); if(pc!=null){ var a=Math.min(.55,Math.abs(pc-50)/50*.6); ctx.fillStyle=pc>=50?'rgba(46,160,90,'+a+')':'rgba(215,70,60,'+a+')'; ctx.fillRect(cx0,top,cw,rh); } }
-          if(v!==''&&v!=null) txt(String(v),cx0+cw/2,mid,{ w:600,px:c[2]==='n'?vfs:Math.min(fs*.9,cw*.3),serif:'cond',c:'#111',al:'center',max:cw-12*u });
+          if(v!==''&&v!=null) txt(String(v),cx0+cw/2,mid,{ w:600,px:c[2]==='n'?vfs:Math.min(fs*.9,cw*.42),serif:'cond',c:'#111',al:'center',max:cw-12*u });
         }
       }
       // grid: dark lines like a printed sheet, a heavier frame
