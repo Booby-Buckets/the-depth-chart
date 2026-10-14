@@ -92,6 +92,9 @@
     <div id="content"><div class="loading">Loading box score…</div></div>
   </div>
 
+<script src="team-colors.js?v=12"></script>
+<script src="tdc-teamname.js?v=1"></script>
+<script src="tdc-gamehead.js?v=1"></script>
 <script src="tdc-live.js?v=2"></script>
 <script src="tdc-livegame.js?v=4"></script>
 <script src="tdc-shotchart.js?v=31"></script>
@@ -205,7 +208,6 @@ async function load(afterLive){
       as_=byTeam[away].reduce((s,p)=>s+N(p.pts),0); hs=home?byTeam[home].reduce((s,p)=>s+N(p.pts),0):0;
       date=bA[0].date;
     }
-    const homeWin=N(hs)>N(as_);
     document.title=`${away} at ${home} — Box Score`;
     // season SRS map → team game ratings (0-10), same scale as the player scores
     let SRS={};
@@ -215,13 +217,15 @@ async function load(afterLive){
     }
     const tr=teamRatings(g,SRS);
     const ratePill=v=>v!=null?`<span class="gh-rate" style="background:${ratingColor(v)};" title="Team game rating (0-10): ${ratingWord(v)}">${v.toFixed(1)}</span>`:'';
-    const header=`<div class="gh">
-      <div class="gh-meta">${fmtD(date)}${loc?' · '+loc:''}${g&&g.conf_game?' · Conference':''}</div>
-      <div class="gh-score">
-        <div class="gh-team ${homeWin?'lose':'win'}"><span class="nm">${away}</span><span class="pts">${N(as_)}</span>${tr?ratePill(tr.away):''}${!homeWin?'<span class="gh-win-tag">Win</span>':''}</div>
-        <span class="gh-at">@</span>
-        <div class="gh-team ${homeWin?'win':'lose'}"><span class="nm">${home}</span><span class="pts">${N(hs)}</span>${tr?ratePill(tr.home):''}${homeWin?'<span class="gh-win-tag">Win</span>':''}</div>
-      </div></div>`;
+    // team-colour scoreboard band (tdc-gamehead.js); the game rating pill rides under each name
+    const shortNm=t=>{ try{ return (window.TDCTeamName&&TDCTeamName.short)?TDCTeamName.short(t):t; }catch(e){ return t; } };
+    const bandSide=(t,pts,rate)=>{ const c=window.TDC_GAMEHEAD?TDC_GAMEHEAD.team(t):{};
+      return { name:shortNm(t), href:'team.html?team='+encodeURIComponent(t), logo:c.logo, color:c.color,
+        sub:rate!=null?'Game rating '+ratePill(rate):'', pts:N(pts) }; };
+    const header=`<h1 class="sr-only">${away} at ${home}</h1>`+(window.TDC_GAMEHEAD?TDC_GAMEHEAD.html({
+        away:bandSide(away,as_,tr?tr.away:null), home:bandSide(home,hs,tr?tr.home:null), status:'Final',
+        meta:`<span>${fmtD(date)}</span>${loc?`<span>${loc}</span>`:''}${g&&g.conf_game?'<span>Conference game</span>':''}` })
+      :`<div class="gh-meta">${fmtD(date)}</div>`);
     // player of the game = highest Game Score across both teams
     let potg=null,bestGs=-1e9;
     bA.forEach(p=>{const gs=gameScore(p); if(gs>bestGs){bestGs=gs;potg=p;}});

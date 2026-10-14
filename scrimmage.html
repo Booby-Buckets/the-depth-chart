@@ -85,6 +85,7 @@
   <div class="page" id="app"><div class="empty">Loading the box score…</div></div>
 
 <script src="tdc-scrim.js?v=19"></script>
+<script src="tdc-gamehead.js?v=1"></script>
 <script>
 (function(){
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co', KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
@@ -169,10 +170,10 @@
     const P=TDCScrim.price(g,byFull,S.eff);
     const has=res.hs!=null&&res.as!=null;
     const teamLink=full=>{ const t=byFull[full]; return t?`team.html?team=${encodeURIComponent(t.team)}&tab=schedule`:null; };
-    const side=(full,cls,sc,win)=>{ const L=teamLink(full), lg=logoOf(full,byFull), t=byFull[full];
-      const name=L?`<a href="${L}">${esc(shortOf(full,byFull))}</a>`:`<b>${esc(shortOf(full,byFull))}</b>`;
-      return `<div class="side ${cls}">${cls==='home'?'':(lg?`<img src="${lg}" alt="">`:'')}<div>${name}<div class="sub">${t&&t.rank?'#'+t.rank+' in our rankings':(t?'':'non-D-I')}</div></div>${cls==='home'?(lg?`<img src="${lg}" alt="">`:''):''}</div>`; };
-    const aWin=has&&res.as>res.hs;
+    // one side of the team-colour band (tdc-gamehead.js)
+    const band=(full,pts)=>{ const t=byFull[full], c=TDC_GAMEHEAD.team((t&&t.team)||full), c2=TDC_GAMEHEAD.team(full);
+      return { name:shortOf(full,byFull), href:teamLink(full), logo:logoOf(full,byFull), color:c.color||c2.color,
+        sub:t&&t.rank?'#'+t.rank+' in our rankings':(t?'':'non-D-I'), pts:has?pts:null }; };
     let read='';
     if(P){ const fav=P.m>=0?g.home:g.away, sp=Math.abs(P.m);
       read=`Our line: <b>${esc(shortOf(fav,byFull))} −${(Math.round(sp*2)/2).toFixed(1)}</b> (${Math.round(Math.max(P.probH,100-P.probH))}% to win)`;
@@ -181,9 +182,10 @@
     const [rh,ra]=await Promise.all([roster(byFull[g.home]&&byFull[g.home].team), roster(byFull[g.away]&&byFull[g.away].team)]);
     $app.innerHTML=`
       <div><span class="chip">Preseason scrimmage · unofficial</span></div>
-      <h1>${esc(aS)} ${g.neutral?'vs':'at'} ${esc(hS)}</h1>
-      <div class="meta">${dd}${g.time?' · '+esc(g.time):''}${g.tv?' · '+esc(g.tv):''} · ${g.neutral?'Neutral site':esc(hS)+' home floor'}</div>
-      <div class="board">${side(g.away,'away')}<div class="score">${has?`<span class="${aWin?'':'l'}">${res.as}</span> – <span class="${aWin?'l':''}">${res.hs}</span>`:'—'}<small>${has?'Final · unofficial':'Not played yet'}</small></div>${side(g.home,'home')}</div>
+      <h1 class="sr-only">${esc(aS)} ${g.neutral?'vs':'at'} ${esc(hS)}</h1>
+      ${TDC_GAMEHEAD.html({ away:band(g.away,res.as), home:band(g.home,res.hs),
+        status:has?'Final':'Not played yet', statusSub:has?'Unofficial':'',
+        meta:`<span>${dd}${g.time?' · '+esc(g.time):''}</span><span>${g.neutral?'Neutral site':esc(hS)+' home floor'}</span>${g.tv?`<span>${esc(g.tv)}</span>`:''}` })}
       ${read?`<p class="read">${read}</p>`:''}
       ${res.note?`<p class="read">${esc(res.note)}</p>`:''}
       ${meter(res.reality,g,byFull)}
