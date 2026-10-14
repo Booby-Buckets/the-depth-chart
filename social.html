@@ -1084,7 +1084,7 @@
   // ── TABLE (owner, Oct 14 2026): the plain spreadsheet graphic — "keeps it simple, and easy to do". A coloured title bar,
   // a grey header row, then # · Player · any mix of columns (school / last-team logos, pos, class, height, projected stats),
   // black grid lines, condensed type. Loads from a team's roster, stat leaders, transfers or the Big Board; every cell editable.
-  var TCOLS=[['team','School','logo'],['pos','Pos'],['cls','Yr'],['ht','Height'],['ppg','PPG','n'],['rpg','RPG','n'],['apg','APG','n'],['fg','FG%','n'],['tp','3P%','n'],
+  var TCOLS=[['team','School','logo'],['pos','Pos'],['cls','Yr'],['ht','Height'],['ppg','PPG','n'],['rpg','RPG','n'],['apg','APG','n'],['fg','FG%','n'],['tp','3P%','n'],['ts','TS%','n'],['ft','FT%','n'],
     ['stl','SPG','n'],['blk','BPG','n'],['mpg','MPG','n'],['ovr','OVR','n'],['from','Last Team','logo']];
   var TSRC={ roster:'Team roster (depth order)', ppg:'Leaders · points', rpg:'Leaders · rebounds', apg:'Leaders · assists', ovr:'Leaders · projected OVR', xfer:'Top transfers (by projected PPG)', board:'NBA Big Board', blank:'Blank table' };
   var TBAR={ yellow:['#FFE94A','#111'], team:null, black:['#111','#fff'], white:['#fff','#111'] };
@@ -1099,7 +1099,9 @@
         if(h&&!/^(injured|out)$/i.test(h)){ if(logoUrl(h)) return school(h); if(/\(|\bd-?(ii|iii|2|3)\b|juco|naia|jc\b|cc\b|college of/i.test(h)) return ''; }
         return fr?'':school(p.team); })(),
       ppg:f1(L&&L.ppg), rpg:f1(L&&L.rpg), apg:f1(L&&L.apg), mpg:f1(L&&L.mpg),
-      fg:L&&+L.fga>=1.5?f1(L.fg_pct):'', tp:L&&+L.tpa>=1?f1(L.tp_pct):'', stl:f1(L&&L.stl), blk:f1(L&&L.blk), ovr:ov!=null&&isFinite(ov)?String(Math.round(ov)):'' }; }
+      fg:L&&+L.fga>=1.5?f1(L.fg_pct):'', tp:L&&+L.tpa>=1?f1(L.tp_pct):'', stl:f1(L&&L.stl), blk:f1(L&&L.blk),
+      // true shooting: points per shooting possession (FGA + 0.44·FTA), the one-number efficiency
+      ts:L&&(+L.fga+.44*(+L.fta||0))>=2?f1(100*(+L.ppg)/(2*((+L.fga)+.44*(+L.fta||0)))):'', ft:L&&+L.fta>=.8?f1(L.ft_pct):'', ovr:ov!=null&&isFinite(ov)?String(Math.round(ov)):'' }; }
   T.table={
     defaults:function(){ return { src:'ppg', team:'', conf:'', n:15, title:'', bar:'yellow', heat:false, cols:['team','pos','cls','ht','ppg','rpg','apg'], rows:[] }; },
     load:async function(d){
