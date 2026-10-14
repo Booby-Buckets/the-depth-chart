@@ -867,6 +867,20 @@ if os.path.exists(_fp):
         for _r in _add: CAREER_SEASONS[_r["espn_id"]]=CAREER_SEASONS.get(_r["espn_id"],0)+1
     print("box fill: %d season lines recovered (%d added to the pool)"%(len(FILL),len(_add)),file=sys.stderr)
 
+# A filled line (box fill above, sat-out fill below) has no 2025-26 player_advanced row, so the usage-ratio step
+# used the league reference (21%) as his last usage and a low-major high-volume scorer kept his old shot volume:
+# George Kimble III (EKU 2024-25, 15 FGA / 32.9% usage, entered from the roster sheet) projected 11.3 FGA in 23.6
+# Auburn minutes = 30% usage (owner, Oct 14 2026). Estimate usage from the line itself: his plays (FGA + 0.44·FTA
+# + TO) over a typical team's ~79 plays per 40 x 5 — the same formula the team page uses (Kimble -> 33.6%).
+FILL_TEAM_PLAYS40=79.0
+def fill_usg(r):
+    try:
+        m=float(r.get("mpg") or 0); pl=float(r.get("fga") or 0)+0.44*float(r.get("fta") or 0)+float(r.get("tovs") or 0)
+    except (TypeError,ValueError): return None
+    return round(100.0*pl*40.0/(m*FILL_TEAM_PLAYS40),1) if m>=5 and pl>0 else None
+for _e,_r in FILL.items():
+    if _r.get("usg_pct") is None: _r["usg_pct"]=fill_usg(_r)
+
 # ── SAT-OUT FILL ─────────────────────────────────────────────────────────────────────
 # A rostered player with no 2025-26 line who played a real role before it (injury, redshirt, a sit-out
 # transfer: Jalen Haynes, George Mason 2024-25 -> Dayton) used to drop out of the projection and show up
@@ -903,7 +917,7 @@ if _miss:
         for _e,_r in _best.items():
             _row={c:_r.get(c) for c in box.columns}; _row["espn_id"]=_e; _add.append(_row)
             _cred=SAT_CRED.get(_r["season_year"],0.7)*min(1.0,float(_r["gp"])/FILL_FULL_GP)
-            FILL[str(_e)]={**_r,"last_team":_teams.get(_e),"cred":round(_cred,3),"src":"sat_out","season":_r["season_year"],"usg_pct":_fusg.get(_e)}
+            FILL[str(_e)]={**_r,"last_team":_teams.get(_e),"cred":round(_cred,3),"src":"sat_out","season":_r["season_year"],"usg_pct":_fusg.get(_e) or fill_usg(_r)}
         _df=pd.DataFrame(_add).set_index("espn_id")
         box=pd.concat([box,_df])
         for _c in box.columns: box[_c]=pd.to_numeric(box[_c],errors="coerce")
