@@ -47,6 +47,7 @@
       ['shot-aftermath.html',           'Shot Aftermath'],
       ['game-situations.html',          'Game Situations'],
       ['shot-quality.html',             'Shot Quality'],
+      ['mastery.html',                  'Mastery Shots'],
       ['plays.html',                    'Play Finder'],
       ['wowy.html',                     'WOWY Lineups / On-Off'],
       ['statshift.html',                'Stat Line Shift'],

@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="tdc-loading.js?v=4"></script>
+  <link rel="stylesheet" href="tdc-a11y.css?v=3">
+  <script src="tdc-a11y.js?v=2" defer></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mastery Shots — The Depth Chart</title>
+  <meta name="description" content="Points per shot against the 1.1 bar: which D-I players have earned the green light on mid-range jumpers, floaters, post moves and pull-up threes, and which teams keep their shots inside what they do well.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Depth Chart">
+  <meta property="og:title" content="Mastery Shots — The Depth Chart">
+  <meta property="og:description" content="Who has the green light? Points per shot by shot type for every D-I player and team, measured against the 1.1 bar.">
+  <meta property="og:url" content="https://www.thedepthchartcbb.com/mastery.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <script src="tdc-theme.js?v=5"></script>
+  <script src="auth.js?v=delacct1"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="team-colors.js?v=12"></script>
+  <script src="tdc-teamname.js?v=1"></script>
+  <script src="tdc-mastery.js?v=1"></script>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;}
+    [data-theme="dark"]{--bg:#0A0E18;--bg2:#111726;--bg3:#1A2133;--border:#232B3E;--border2:#34405A;--text:#EEF1F7;--text2:#AEB6C8;--text3:#7A849A;--accent:#E6D5A8;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html,body{background:var(--bg);}
+    body{color:var(--text);font-family:'Inter',system-ui,sans-serif;font-weight:500;min-height:100vh;}
+    .page{padding:30px 0 60px;}
+    .eyebrow{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--text2);margin-bottom:6px;}
+    h1{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:44px;letter-spacing:-.02em;line-height:1.05;margin-bottom:10px;}
+    .rule{font-size:15px;line-height:1.55;color:var(--text2);max-width:820px;margin-bottom:22px;}
+    .rule b{color:var(--text);}
+    h2{font-family:'Playfair Display',Georgia,serif;font-size:24px;font-weight:800;margin:30px 0 12px;}
+    .filters{display:grid;grid-template-columns:repeat(7,1fr);gap:12px;border-top:1px solid var(--border2);padding-top:16px;}
+    @media(max-width:1100px){.filters{grid-template-columns:repeat(4,1fr);}}
+    @media(max-width:640px){.filters{grid-template-columns:1fr 1fr;} h1{font-size:32px;}}
+    .filters label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700;color:var(--text2);}
+    .filters select{font:600 15px Inter,system-ui,sans-serif;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg2);color:var(--text);min-width:0;}
+    .sample{font-size:13px;color:var(--text3);margin:12px 0 14px;} .sample b{color:var(--text2);}
+    .sheet th{cursor:pointer;} .sheet td a{color:var(--text);text-decoration:none;font-weight:700;} .sheet td a:hover{text-decoration:underline;}
+    .empty{padding:26px;text-align:center;color:var(--text3);border:1px dashed var(--border2);border-radius:12px;font-size:13px;}
+  </style>
+  <link rel="stylesheet" href="tdc-skin.css?v=14"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+  <link rel="stylesheet" href="tdc-column.css?v=4"/>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script src="tdc-pwa.js?v=2" defer></script>
+</head>
+<body>
+<script src="tdc-nav.js?v=76"></script>
+<div class="page">
+  <div class="eyebrow">D-I · Points per shot</div>
+  <h1>Who has the green light?</h1>
+  <p class="rule">Rim shots, free throws and catch-and-shoot threes are the efficient shots. Anything else is a <b>mastery shot</b>: a player earns the green light on it once he shows he makes it at <b>1.1 points per shot</b> or better, which is 55% on a two or 36.7% on a three. The rule is Saint Louis coach Josh Schertz's.</p>
+
+  <h2 id="ladH">What every shot is worth in D-I</h2>
+  <div id="ladder"><div class="empty">Loading…</div></div>
+
+  <h2 id="tblH">Green lights</h2>
+  <div class="filters">
+    <label>View<select id="fView"><option value="player">Players</option><option value="team">Teams</option></select></label>
+    <label id="lShot">Shot<select id="fShot"></select></label>
+    <label>Season<select id="fSeason"></select></label>
+    <label>Span<select id="fSpan"><option value="1">This season</option><option value="2">Last 2 seasons</option><option value="3">Last 3 seasons</option></select></label>
+    <label>Conference<select id="fConf"><option value="">All conferences</option></select></label>
+    <label id="lPos">Position<select id="fPos"><option value="">All positions</option><option value="G">Guards</option><option value="F">Forwards</option><option value="C">Centers</option></select></label>
+    <label id="lShow">Show<select id="fShow"><option value="all">Enough attempts</option><option value="green">Green lights only</option></select></label>
+  </div>
+  <div class="sample" id="sample"></div>
+  <div id="tbl"><div class="empty">Loading…</div></div>
+</div>
+<script>
+(function(){
+  const M=window.TDC_MASTERY;
+  const S={view:'player',shot:'jump2',season:null,span:1,conf:'',pos:'',show:'all',sort:'rel',asc:false};
+  const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const sh=t=>{ try{ return (window.TDCTeamName&&TDCTeamName.short)?TDCTeamName.short(t):t; }catch(e){ return t; } };
+  const p2=v=>v==null||!isFinite(v)?'—':v.toFixed(2), sg=v=>v==null||!isFinite(v)?'—':(v>=0?'+':'')+v.toFixed(2), pc=v=>v==null||!isFinite(v)?'—':(100*v).toFixed(1);
+  let YS=[];
+  // only the seasons the span covers that were built
+  const spanYears=()=>YS.filter(y=>y<=S.season&&y>S.season-S.span);
+
+  // one record per player over the span: counts summed, team/pos from his latest season in it
+  function players(files){
+    const P={}, C0=files[0].pcols.length;
+    files.forEach(d=>d.players.forEach(r=>{
+      const id=String(r[0]); let p=P[id];
+      if(!p){ p=P[id]={id,name:r[1],teamId:r[2],team:(d.teams[r[2]]||[''])[0],conf:(d.teams[r[2]]||['',''])[1],pos:r[3],y:d.season,min:0,fta:0,ftm:0,c:r.slice(C0).map(()=>0),seasons:[]}; }
+      if(d.season>p.y){ p.y=d.season; p.teamId=r[2]; p.team=(d.teams[r[2]]||[''])[0]; p.conf=(d.teams[r[2]]||['',''])[1]; p.pos=r[3]||p.pos; p.name=r[1]; }
+      p.min+=r[4]; p.fta+=r[6]; p.ftm+=r[7]; r.slice(C0).forEach((v,i)=>p.c[i]+=v);
+      p.seasons.push({y:d.season, teamId:r[2], c:r.slice(C0)});
+    }));
+    return P;
+  }
+  function league(files){
+    let flat=null,fta=0,ftm=0;
+    files.forEach(d=>{ const L=M.leagueOf(d); if(!flat) flat=L.flat.slice(); else L.flat.forEach((v,i)=>flat[i]+=v); fta+=L.fta; ftm+=L.ftm; });
+    return {flat,fta,ftm};
+  }
+  // is this player's tough 2 / pull-up 3 inside what he has proven? (a green light on the family or the broader shot)
+  function greens(p){
+    const g={}; ['jump2','float','post','pull2','pull3','three'].forEach(k=>{ const s=M.sum(p.c,k); g[k]=M.status(s.pps,s.att,M.SHOTS[k].floor)==='green'; });
+    return g;
+  }
+  const FAMS=M.FAM, SV=f=>(f==='three'||f==='pull3')?3:2;
+  function famGreen(f,g){
+    if(f==='rim'||f==='three') return 'eff';
+    if(f==='pull3') return g.pull3?'green':'off';   // off the dribble needs its own proof: a good catch-and-shoot 3P% doesn't carry over
+    if(f==='float') return (g.float||g.jump2)?'green':'off';
+    if(f==='post') return (g.post||g.jump2)?'green':'off';
+    if(f==='pull2') return (g.pull2||g.jump2)?'green':'off';
+    return g.jump2?'green':'off';
+  }
+
+  function playerTable(files){
+    const P=players(files), L=league(files), o=M.SHOTS[S.shot], lg=M.sum(L.flat,S.shot,{fta:L.fta,ftm:L.ftm});
+    const list=[];
+    Object.values(P).forEach(p=>{
+      if(S.conf&&p.conf!==S.conf) return;
+      if(S.pos&&p.pos!==S.pos) return;
+      const s=M.sum(p.c,S.shot,{fta:p.fta,ftm:p.ftm});
+      if(s.att<o.floor/2) return;
+      const st=M.status(s.pps,s.att,o.floor);
+      if(S.show==='green'&&st!=='green') return;
+      list.push({id:p.id,name:p.name,team:sh(p.team),conf:p.conf,pos:p.pos,att:s.att,fg:s.fg,pps:s.pps,rel:M.rel(s,lg.pps,o.k),vs:s.pps-M.BAR,over:(s.pps-M.BAR)*s.den,astp:s.astp,st,stOrd:{green:3,close:2,small:1}[st]||0});
+    });
+    sortList(list);
+    const nG=list.filter(d=>d.st==='green').length;
+    document.getElementById('sample').innerHTML=`<b>${o.label}</b> · ${spanLabel()} · D-I <b>${p2(lg.pps)}</b> points per shot · <b>${nG}</b> green light${nG===1?'':'s'} (1.1+ on ${o.floor}+ attempts) · ${list.length.toLocaleString()} players with ${Math.ceil(o.floor/2)}+ attempts${PARTIAL}`;
+    const th=(k,l,c,t)=>`<th class="${c||''}" data-k="${k}"${t?` title="${esc(t)}"`:''}>${l}${S.sort===k?(S.asc?' ▲':' ▼'):''}</th>`;
+    const link=d=>`<a href="player.html?espn=${esc(d.id)}&name=${encodeURIComponent(d.name||'')}&tab=mastery">${esc(d.name)}</a>`;
+    document.getElementById('tbl').innerHTML=list.length?`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th>${th('name','Player','l')}${th('team','Team','l')}${th('conf','Conf','l')}${th('pos','Pos','l')}${th('att','Att')}${th('fg',o.ft?'TS%':'FG%')}${th('pps','Pts / shot')}${th('rel','Reliable','', 'Points per shot pulled toward the D-I average until the sample is big enough to trust')}${th('vs','vs 1.1')}${th('over','Pts over 1.1','', 'Points scored above 1.1 per shot across all his attempts: rewards volume')}${th('astp','Assisted','', 'Share of his makes that were assisted (the feed names an assister on makes only)')}${th('stOrd','Status','l')}</tr></thead><tbody>${
+      list.slice(0,400).map((d,i)=>`<tr><td class="l">${i+1}</td><td class="l">${link(d)}</td><td class="l">${esc(d.team)}</td><td class="l">${esc(d.conf)}</td><td class="l">${esc(d.pos)}</td><td>${d.att}</td><td>${o.ft?pc(d.pps/2):pc(d.fg)}</td><td><b>${p2(d.pps)}</b></td><td>${p2(d.rel)}</td><td class="${M.heat(d.vs)}">${sg(d.vs)}</td><td>${sg(d.over).replace(/\.(\d)\d$/,'.$1')}</td><td>${d.astp==null?'—':Math.round(100*d.astp)+'%'}</td><td class="l">${M.STATUS[d.st]||''}</td></tr>`).join('')}</tbody></table></div>`
+      :'<div class="empty">No one matches these filters.</div>';
+    wireSort();
+  }
+
+  // Teams: how much of the offense lives inside the efficient shots + its players' proven mastery shots
+  function teamTable(files){
+    const P=players(files), L=league(files), latest=files[0], T={};
+    Object.values(P).forEach(p=>{
+      const g=greens(p);
+      p.seasons.forEach(s=>{
+        const t=(T[s.teamId]=T[s.teamId]||{att:0,pts:0,eff:0,effPts:0,green:0,greenPts:0,off:0,offPts:0,rim:0,three:0});
+        FAMS.forEach((f,i)=>{ const a=s.c[i*3], m=s.c[i*3+1], pts=m*SV(f), k=famGreen(f,g);
+          t.att+=a; t.pts+=pts; t[k]+=a; t[k+'Pts']+=pts; if(f==='rim') t.rim+=a; if(f==='three') t.three+=a; });
+      });
+    });
+    const list=[];
+    Object.entries(T).forEach(([id,t])=>{
+      const meta=(latest.teams[id]||files.map(d=>d.teams[id]).find(Boolean)); if(!meta||t.att<300) return;
+      if(S.conf&&meta[1]!==S.conf) return;
+      list.push({id,name:sh(meta[0]),full:meta[0],conf:meta[1],att:t.att,pps:t.pts/t.att,disc:(t.eff+t.green)/t.att,green:t.green/t.att,off:t.off/t.att,offPps:t.off?t.offPts/t.off:null,greenPps:t.green?t.greenPts/t.green:null,rim:t.rim/t.att,three:t.three/t.att,
+        lost:t.off?(t.off*(M.BAR)-t.offPts)/(t.att/100):null});
+    });
+    sortList(list);
+    const lgAll=M.sum(L.flat,'all');
+    document.getElementById('sample').innerHTML=`${spanLabel()} · ${list.length} teams · <b>Disciplined</b> = share of shots at the rim, catch-and-shoot threes, or a player's proven mastery shot · <b>Off-script</b> = mid-range and pull-up shots by players without a green light on them · D-I <b>${p2(lgAll.pps)}</b> points per shot${PARTIAL}`;
+    const th=(k,l,c,t)=>`<th class="${c||''}" data-k="${k}"${t?` title="${esc(t)}"`:''}>${l}${S.sort===k?(S.asc?' ▲':' ▼'):''}</th>`;
+    document.getElementById('tbl').innerHTML=list.length?`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th>${th('name','Team','l')}${th('conf','Conf','l')}${th('att','FGA')}${th('pps','Pts / shot')}${th('disc','Disciplined')}${th('rim','Rim')}${th('three','Threes')}${th('green','Green-light')}${th('greenPps','Pts / shot','', 'Points per shot on green-light mastery shots')}${th('off','Off-script')}${th('offPps','Pts / shot','', 'Points per shot on off-script shots')}${th('lost','Pts lost / 100','', 'Points per 100 shots given up by taking off-script shots instead of 1.1 shots')}</tr></thead><tbody>${
+      list.map((d,i)=>`<tr><td class="l">${i+1}</td><td class="l"><a href="team.html?team=${encodeURIComponent(d.full)}">${esc(d.name)}</a></td><td class="l">${esc(d.conf)}</td><td>${d.att.toLocaleString()}</td><td><b>${p2(d.pps)}</b></td><td>${pc(d.disc)}%</td><td>${pc(d.rim)}%</td><td>${pc(d.three)}%</td><td>${pc(d.green)}%</td><td>${p2(d.greenPps)}</td><td>${pc(d.off)}%</td><td>${p2(d.offPps)}</td><td>${d.lost==null?'—':d.lost.toFixed(1)}</td></tr>`).join('')}</tbody></table></div>`
+      :'<div class="empty">No teams match these filters.</div>';
+    wireSort();
+  }
+
+  function sortList(list){
+    list.sort((a,b)=>{ const x=a[S.sort], y=b[S.sort]; if(typeof x==='string'||typeof y==='string') return String(x||'').localeCompare(String(y||''))*(S.asc?1:-1); return ((x==null?-1e9:x)-(y==null?-1e9:y))*(S.asc?1:-1); });
+  }
+  function wireSort(){
+    document.querySelectorAll('#tbl th[data-k]').forEach(h=>h.onclick=()=>{ const k=h.getAttribute('data-k');
+      // text sorts A→Z; off-script share and points lost read best when low; everything else high first
+      if(S.sort===k) S.asc=!S.asc; else { S.sort=k; S.asc=['name','team','conf','pos','off','lost'].includes(k); }
+      render(); });
+  }
+  const spanLabel=()=>{ const ys=spanYears(); return ys.length>1?`${M.sl(ys[ys.length-1])} to ${M.sl(ys[0])}`:M.sl(S.season); };
+  // seasons where ESPN lacks play-by-play for 15%+ of games: say so rather than present a partial sample as complete
+  let PARTIAL='';
+  const partialNote=files=>{ const p=files.filter(d=>d.games&&d.missing/d.games>=0.15).map(d=>`${M.sl(d.season)} (${Math.round(100*d.missing/d.games)}% of games)`); return p.length?` · <b>Partial sample:</b> ESPN has no play-by-play for ${p.join(', ')}`:''; };
+
+  async function render(){
+    const ys=spanYears(), files=(await Promise.all(ys.map(M.load))).filter(Boolean);
+    if(!files.length){ document.getElementById('tbl').innerHTML='<div class="empty">Could not load the data.</div>'; return; }
+    const cur=files.find(d=>d.season===S.season)||files[0];
+    document.getElementById('ladH').textContent='What every shot is worth in D-I · '+M.sl(cur.season);
+    document.getElementById('ladder').innerHTML=M.ladder(cur);
+    // shot options: tagged shot types only where the feed tags them
+    const tags=files.some(M.hasTags), fS=document.getElementById('fShot');
+    const opts=M.ORDER.filter(k=>!M.SHOTS[k].tagged||tags);
+    if(!opts.includes(S.shot)) S.shot='jump2';
+    fS.innerHTML=opts.map(k=>`<option value="${k}">${M.SHOTS[k].label}</option>`).join(''); fS.value=S.shot;
+    const confs=[...new Set(Object.values(cur.teams).map(t=>t[1]).filter(Boolean))].sort();
+    const fC=document.getElementById('fConf'); fC.innerHTML='<option value="">All conferences</option>'+confs.map(c=>`<option>${esc(c)}</option>`).join(''); fC.value=S.conf;
+    const isP=S.view==='player';
+    ['lShot','lPos','lShow'].forEach(id=>document.getElementById(id).style.display=isP?'':'none');
+    document.getElementById('tblH').textContent=isP?'Green lights · '+M.SHOTS[S.shot].label:'Shot discipline by team';
+    PARTIAL=partialNote(files);
+    if(isP) playerTable(files); else teamTable(files);
+  }
+  const bind=(id,k,num)=>{ document.getElementById(id).onchange=e=>{ S[k]=num?+e.target.value:e.target.value;
+    if(k==='view'){ S.sort=S.view==='player'?'rel':'disc'; S.asc=false; }
+    if(k==='shot'){ S.sort='rel'; S.asc=false; }
+    render(); }; };
+  bind('fView','view'); bind('fShot','shot'); bind('fSeason','season',true); bind('fSpan','span',true); bind('fConf','conf'); bind('fPos','pos'); bind('fShow','show');
+  M.seasons().then(ys=>{ YS=ys; S.season=ys[0];
+    document.getElementById('fSeason').innerHTML=ys.map(y=>`<option value="${y}">${M.sl(y)}</option>`).join('');
+    render(); });
+})();
+</script>
+<script src="tdc-version.js?v=2"></script>
+<script src="tdc-sheets.js?v=2"></script>
+</body>
+</html>
