@@ -403,13 +403,16 @@
       var h='<h3>Data</h3><label class="f">Conference</label><select data-k="conf">'+confOpts(d.conf,true)+'</select>'+
         '<div class="btns"><button class="b sm primary" data-act="load">Load projected picks</button></div>'+
         '<div class="hint">Fills the three teams + POY / DPOY / Freshman / top draft pick from the awards engine. Newcomer, Sixth Man and Coach are yours to fill.</div>'+
-        '<h3>Text</h3><label class="f">Title</label><input data-k="title" value="'+esc(d.title)+'">'+
+        '<h3>Text</h3>'+styleSel(d)+'<label class="f">Title</label><input data-k="title" value="'+esc(d.title)+'">'+
         '<label class="f">Subtitle</label><input data-k="subtitle" value="'+esc(d.subtitle)+'">'+
+        '<label class="f">Data source line</label><input data-k="src" value="'+esc(d.src||'')+'" placeholder="The Depth Chart awards engine · projected lines">'+
+        '<label class="chk"><input type="checkbox" data-k="heat"'+(d.heat!==false?' checked':'')+'> Colour the stats</label>'+shotsChk(d)+
+        '<label class="f">Team stat columns</label><div class="seg">'+DSTATS_ALL.map(function(x){ return '<button type="button" data-act="acol" data-col="'+x[0]+'" class="'+((d.tcols||['ppg','rpg','apg']).indexOf(x[0])>-1?'on':'')+'">'+x[1]+'</button>'; }).join('')+'</div>'+
         '<h3>Awards</h3><div class="rows">';
       d.awards.forEach(function(a,i){ h+='<div class="row" style="grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) minmax(0,1fr) 22px">'+
         '<input data-p="awards.'+i+'.label" value="'+esc(a.label)+'"><input data-p="awards.'+i+'.name" list="plList" value="'+esc(a.name)+'" placeholder="Name">'+
         '<input data-p="awards.'+i+'.team" list="tmList" value="'+esc(a.team)+'" placeholder="Team"><button data-act="del" data-path="awards" data-i="'+i+'" title="Remove">✕</button></div>'; });
-      h+='</div><div class="btns"><button class="b sm" data-act="addaward">+ Add award</button></div>'+lookUI(d,{ rows:false, srcLabel:'Footnote' });
+      h+='</div><div class="btns"><button class="b sm" data-act="addaward">+ Add award</button></div>'+lookUI(d,{ ramp:true, legend:true });
       ['First Team','Second Team','Third Team'].forEach(function(lbl,ti){ h+='<div class="grp">'+lbl+'</div>'+rowsEditor(d.teams[ti],'teams.'+ti,false); });
       return h;
     },
@@ -485,6 +488,7 @@
   function textEditor(d){ return '<h3>Text</h3><label class="f">Title</label><input data-k="title" value="'+esc(d.title)+'">'+
     '<label class="f">Subtitle</label><input data-k="subtitle" value="'+esc(d.subtitle)+'">'+
     '<label class="f">Footnote</label><input data-k="note" value="'+esc(d.note||'')+'">'+lookUI(d,{ rows:false, srcLabel:'Footnote' }); }
+  function noteFoot(W,H,u,pad,d){ var f=foot(W,H,u,pad); return f-noteLine(W,u,pad,f,d.note); }
   function noteLine(W,u,pad,fTop,note){ if(!note||LK.hideSrc) return 0; txt(String(note).toUpperCase(),pad,fTop-17*u,{ w:600,px:13*u,c:P.mut,ls:1.2*u,max:W-pad*2 }); return 36*u; }
 
   // scatter with logo / headshot dots, median guides, corner labels and de-overlapped name labels
@@ -746,22 +750,19 @@
         '<div class="btns"><button class="b sm primary" data-act="load">Load player</button></div>'+
         '<div class="hint">Percentiles vs. every projected rotation player (15+ mpg). Shot-making / Creation are from last season’s shot data.</div>'+
         '<h3>Text</h3><div class="two"><div><label class="f">Name</label><input data-k="name" value="'+esc(d.name)+'"></div><div><label class="f">Team (logo)</label><input data-k="team" list="tmList" value="'+esc(d.team)+'"></div></div>'+
-        '<label class="f">Details line</label><input data-k="meta" value="'+esc(d.meta)+'"><label class="f">Label</label><input data-k="label" value="'+esc(d.label)+'">'+
+        '<label class="f">Details line</label><input data-k="meta" value="'+esc(d.meta)+'"><label class="f">Label</label><input data-k="label" value="'+esc(d.label)+'">'+'<label class="f">Footnote</label><input data-k="note" value="'+esc(d.note||'')+'">'+lookUI(d,{ rows:false, srcLabel:'Footnote' })+
         '<h3>Bars ('+d.bars.length+')</h3>'+fieldsEditor(d.bars,'bars',[{k:'name',ph:'Label',w:'minmax(0,1.3fr)'},{k:'val',ph:'Pctl',w:'48px'},{k:'raw',ph:'Raw value'}])+
         '<div class="btns"><button class="b sm" data-act="add" data-path="bars">+ Add bar</button></div>';
     },
     draw:async function(d,W,H,u,pad){
       bg(W,H); if(!d.name){ txt('Load a player on the left',W/2,H/2,{ px:28*u,c:P.mut,al:'center' }); return ''; }
-      var fTop=foot(W,H,u,pad), land=W>H*1.2, tc=tcol(d.team);
-      ctx.fillStyle=tc; ctx.fillRect(0,0,W,Math.max(8,10*u));
-      // header: headshot (or logo) + name + details
-      var hs=land?120*u:150*u, hy=pad+16*u, r={ team:d.team, espn:d.espn };
-      await preload([r]); await mark(r,pad,hy,hs);
-      var hx=pad+hs+28*u;
-      txt((d.label||'').toUpperCase(),hx,hy+hs*.2,{ w:700,px:15*u,c:P.mut,ls:1.5*u,max:W-hx-pad });
-      var np=txt(d.name,hx,hy+hs*.52,{ w:900,px:(land?56:64)*u,max:W-hx-pad });
-      txt(d.meta,hx,hy+hs*.86,{ w:500,px:22*u,c:P.text2,max:W-hx-pad });
-      var y0=hy+hs+30*u; ctx.fillStyle=P.line; ctx.fillRect(pad,y0-14*u,W-pad*2,Math.max(1,1.5*u));
+      var land=W>H*1.2, fTop=noteFoot(W,H,u,pad,d);
+      // sheet header (Oct 15 2026): the name as the big title, then headshot + details + what the bars measure
+      var y1=sheetHead(W,H,u,pad,d.name,''), hs=(land?84:104)*u, r={ team:d.team, espn:d.espn };
+      await preload([r]); await mark(r,pad,y1,hs);
+      txt(d.meta,pad+hs+22*u,y1+hs*.38,{ w:700,px:26*u,serif:'barlow',c:P.text,max:W-pad*2-hs-22*u });
+      txt((d.label||'').toUpperCase(),pad+hs+22*u,y1+hs*.72,{ w:700,px:15*u,serif:'barlow',c:P.mut,ls:1.3*u,max:W-pad*2-hs-22*u });
+      var y0=y1+hs+28*u;
       var bars=d.bars.filter(function(b){ return b.name&&isFinite(+b.val); }), n=bars.length; if(!n) return '';
       var rh=Math.min((fTop-y0-10*u)/n,90*u), fs=Math.min(rh*.34,24*u), labW=Math.max.apply(null,bars.map(function(b){ return width(b.name,700,fs); }))+24*u;
       var rawW=Math.max.apply(null,bars.map(function(b){ return width(b.raw||'',600,fs*.85); }))+16*u;
@@ -769,7 +770,7 @@
       for(var i=0;i<n;i++){ var b=bars[i], pc=Math.max(0,Math.min(100,+b.val)), mid=y0+i*rh+rh/2;
         txt(b.name,pad,mid,{ w:700,px:fs,max:labW-12*u });
         ctx.fillStyle=P.chip; ctx.fillRect(bx0,mid-bh/2,bx1-bx0-dot/2,bh);
-        var bw=(bx1-bx0-dot/2)*pc/100, col=pctColor(pc); ctx.fillStyle=col; ctx.fillRect(bx0,mid-bh/2,bw,bh);
+        var bw=(bx1-bx0-dot/2)*pc/100, rc=rampOf(HEAT_RAMP), col=rc?rgbS(ramp(rc,pc/100)):pctColor(pc); ctx.fillStyle=col; ctx.fillRect(bx0,mid-bh/2,bw,bh);
         ctx.beginPath(); ctx.arc(bx0+bw,mid,dot/2+2*u,0,7); ctx.fillStyle=P.bg; ctx.fill(); ctx.beginPath(); ctx.arc(bx0+bw,mid,dot/2,0,7); ctx.fillStyle=col; ctx.fill();
         txt(String(Math.round(pc)),bx0+bw,mid,{ w:800,px:dot*.5,c:'#fff',al:'center' });
         if(b.raw) txt(b.raw,W-pad,mid,{ w:600,px:fs*.85,c:P.mut,al:'right' });
@@ -1040,11 +1041,13 @@
         '<div><label class="chk" style="margin-top:28px"><input type="checkbox" data-k="heat"'+(d.heat!==false?' checked':'')+'> Colour the stats (red → green)</label></div></div>'+
         '<label class="chk"><input type="checkbox" data-k="shots"'+(d.shots!==false?' checked':'')+'> Player headshots</label>'+
         '<label class="f">Stat columns</label><div class="seg">'+DSTATS_ALL.map(function(x){ return '<button type="button" data-act="col" data-col="'+x[0]+'" class="'+((d.cols||DSTATS_DEF).indexOf(x[0])>-1?'on':'')+'">'+x[1]+'</button>'; }).join('')+'</div>'+
-        '<h3>Text</h3><div class="two"><div><label class="f">Title line 1</label><input data-k="title1" value="'+esc(d.title1||'')+'"></div><div><label class="f">Title line 2</label><input data-k="title2" value="'+esc(d.title2||'')+'"></div></div>'+
+        '<h3>Text</h3>'+styleSel(d)+'<label class="f">Subtitle (sheet style)</label><input data-k="subtitle" value="'+esc(d.subtitle||'')+'" placeholder="'+SEASON+' projected depth chart">'+
+        '<label class="f">Data source line (sheet style)</label><input data-k="src" value="'+esc(d.src||'')+'">'+
+        '<div class="two"><div><label class="f">Title line 1</label><input data-k="title1" value="'+esc(d.title1||'')+'"></div><div><label class="f">Title line 2</label><input data-k="title2" value="'+esc(d.title2||'')+'"></div></div>'+
         '<div class="two"><div><label class="f">Starters label</label><input data-k="lab1" value="'+esc(d.lab1||'')+'"></div><div><label class="f">Bench label</label><input data-k="lab2" value="'+esc(d.lab2||'')+'"></div></div>'+
         '<h3>Starters</h3>'+fieldsEditor(d.starters,'starters',F)+
         '<h3>Bench ('+d.bench.length+')</h3>'+fieldsEditor(d.bench,'bench',F)+
-        '<div class="btns"><button class="b sm" data-act="add" data-path="bench">+ Add bench player</button></div>';
+        '<div class="btns"><button class="b sm" data-act="add" data-path="bench">+ Add bench player</button></div>'+lookUI(d,{ ramp:true, legend:true });
     },
     draw:async function(d,W,H,u,pad){
       var team=d.team||'', band=bandColor(team);
@@ -1180,13 +1183,14 @@
         '<div><label class="f">Rows</label><input data-k="n" type="number" min="1" max="30" value="'+d.n+'"></div></div>'+scopeUI(d,{ noConf:d.src==='roster' })+
         (d.src!=='roster'&&d.src!=='blank'&&d.src!=='board'?'<label class="chk"><input type="checkbox" data-k="mix"'+(d.mix?' checked':'')+'> Mix: half power-conference players (ACC · Big Ten · Big 12 · SEC · Big East), half everyone else</label>':'')+
         '<div class="btns"><button class="b sm primary" data-act="load">Load / refresh data</button></div><div class="hint">Loading replaces the rows. Stats are our '+SEASON+' projections; “Last Team” shows a transfer’s previous school.</div>'+
-        '<h3>Look</h3><label class="f">Title</label><input data-k="title" value="'+esc(d.title||'')+'">'+
+        '<h3>Text</h3>'+styleSel(d)+'<label class="f">Title</label><input data-k="title" value="'+esc(d.title||'')+'">'+
+        '<label class="f">Subtitle (sheet style)</label><input data-k="subtitle" value="'+esc(d.subtitle||'')+'">'+'<label class="f">Data source line (sheet style)</label><input data-k="srcLine" value="'+esc(d.srcLine||'')+'" placeholder="The Depth Chart projections">'+shotsChk(d)+
         '<div class="two"><div><label class="f">Title bar</label><select data-k="bar">'+[['yellow','Yellow'],['team','Team colour'],['black','Black'],['white','White']].map(function(o){ return '<option value="'+o[0]+'"'+(d.bar===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')+'</select></div>'+
         '<div><label class="chk" style="margin-top:28px"><input type="checkbox" data-k="heat"'+(d.heat?' checked':'')+'> Colour the stats</label></div></div>'+
         '<label class="chk"><input type="checkbox" data-k="logo"'+(d.logo!==false?' checked':'')+'> Team logo in the title bar (when a team is picked)</label>'+
         '<label class="f">Columns</label><div class="seg">'+TCOLS.map(function(c){ return '<button type="button" data-act="tcol" data-col="'+c[0]+'" class="'+(on.indexOf(c[0])>-1?'on':'')+'">'+c[1]+'</button>'; }).join('')+'</div>'+
         '<h3>Rows ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',F)+
-        '<div class="btns"><button class="b sm" data-act="add" data-path="rows">+ Add row</button><button class="b sm" data-act="clear" data-path="rows">Clear</button></div>';
+        '<div class="btns"><button class="b sm" data-act="add" data-path="rows">+ Add row</button><button class="b sm" data-act="clear" data-path="rows">Clear</button></div>'+lookUI(d,{ ramp:true, legend:true });
     },
     draw:async function(d,W,H,u,pad){
       bg(W,H); var fTop=foot(W,H,u,pad), rows=d.rows.filter(function(r){ return r.name; });
@@ -1612,6 +1616,107 @@
     }
   };
 
+  // ── general sheet table (Oct 15 2026): the rankTable look for any rows + any columns, in labelled sections
+  // (All-Conference teams, depth chart starters / bench, the Table template). o = { sections:[{label,rows}], cols:
+  // [{k,lab,type:'num'|'text'|'logo',w}], dist:{k:sorted values}, shots, logo (team logo column), sub (key of a small
+  // line under the name), tag (superscript key), x0/x1 (a column of the frame), noHeader }
+  async function sheetTable(W,H,u,pad,y0,fTop,o){
+    var secs=o.sections.map(function(s){ return { label:s.label, rows:s.rows.filter(function(r){ return r&&r.name; }) }; }).filter(function(s){ return s.rows.length; });
+    var all=[].concat.apply([],secs.map(function(s){ return s.rows; })), n=all.length, x0=o.x0!=null?o.x0:pad, x1=o.x1!=null?o.x1:W-pad, tw=x1-x0;
+    if(!n){ txt('Load data on the left',(x0+x1)/2,(y0+fTop)/2,{ px:26*u,c:P.mut,al:'center' }); return; }
+    var shots=!!o.shots, logos=o.logo!==false&&!LK.hideLogos, rk=o.rank!==false&&!LK.hideRank, k=F(), stops=rampOf(HEAT_RAMP);
+    await Promise.all(all.map(function(r){ return Promise.all([logos?img(logoUrl(r.team)):null,shots&&r.espn?img(shotUrl(r.espn)):null].concat(o.cols.filter(function(c){ return c.type==='logo'; }).map(function(c){ return r[c.k]?img(logoUrl(r[c.k])):null; }))); }));
+    var hh=o.noHeader?0:34*u, sb=secs.some(function(s){ return s.label; })?Math.min(40*u,(fTop-y0)*.06):0;
+    var rh=Math.min(100*u,(fTop-y0-hh-sb*secs.length)/n), ms=rh*.74;
+    var fixed=0, nNum=0; o.cols.forEach(function(c){ if(c.type==='num') nNum++; else fixed+=c.type==='logo'?Math.max(rh*1.05,60*u):(c.w||80)*u; });
+    var cellW=nNum?Math.max(58*u,Math.min(118*u,(tw-(o.nameMin||300)*u-fixed-(rk?44*u:0)-(logos?ms:0)-(shots?ms:0))/nNum)):0;
+    var xs=[x1]; for(var i=o.cols.length-1;i>=0;i--){ var c=o.cols[i]; xs.unshift(xs[0]-(c.type==='num'?cellW:c.type==='logo'?Math.max(rh*1.05,60*u):(c.w||80)*u)); }
+    var rkW=rk?44*u:0, xLogo=x0+rkW, xShot=xLogo+(logos?ms+8*u:0), xName=xShot+(shots?ms+14*u:0), nmax=xs[0]-xName-10*u;
+    if(hh) o.cols.forEach(function(c,i){ txt(labOf(c.k,c.lab).toUpperCase(),(xs[i]+xs[i+1])/2,y0+hh*.5,{ w:700,px:14*u,serif:'barlow',c:P.text2,al:'center',ls:1*u,max:xs[i+1]-xs[i]-4*u }); });
+    var y=y0+hh, num=0;
+    for(var si=0;si<secs.length;si++){ var S2=secs[si];
+      if(sb){ rrect(x0,y+3*u,tw,sb-6*u,5*u); ctx.fillStyle=S.theme==='dark'?'#EEF1F7':'#15130F'; ctx.fill();
+        txt(String(S2.label||'').toUpperCase(),x0+14*u,y+sb/2,{ w:800,px:sb*.5,serif:'cond',c:S.theme==='dark'?'#0B0F19':'#FFFFFF',ls:1*u,max:tw-28*u }); y+=sb; }
+      for(var j=0;j<S2.rows.length;j++){ var r=S2.rows[j], top=y, mid=top+rh/2; num++;
+        ctx.fillStyle=P.line; if(j) ctx.fillRect(x0,top,tw,Math.max(1,u));
+        if(rk) txt(String(o.restart?j+1:num),x0+rkW*.4,mid,{ w:800,px:rh*.3,serif:'cond',c:P.mut,al:'center' });
+        var lg=logos?await img(logoUrl(r.team)):null; if(lg) drawFit(lg,xLogo,mid-ms*.42,ms*.84);
+        if(shots){ var sh=r.espn?await img(shotUrl(r.espn)):null; if(sh) drawShot(sh,xShot,mid-ms/2,ms,null);
+          else { ctx.save(); ctx.beginPath(); ctx.arc(xShot+ms/2,mid,ms/2,0,7); ctx.fillStyle=P.chip; ctx.fill(); ctx.restore(); var l2=await img(logoUrl(r.team)); if(l2){ ctx.save(); ctx.globalAlpha=.5; drawFit(l2,xShot+ms*.2,mid-ms*.3,ms*.6); ctx.restore(); } } }
+        var sub=o.sub&&r[o.sub]&&rh>=58*u, nfs=Math.min(rh*(sub?.32:.42),34*u)*k;
+        var fpx=txt(r.name,xName,sub?mid-nfs*.32:mid,{ w:700,px:nfs,serif:'barlow',c:P.text,max:nmax-(o.tag&&r[o.tag]?width(r[o.tag],700,nfs*.5,'barlow')+8*u:0) });
+        if(o.tag&&r[o.tag]) txt(r[o.tag],xName+width(r.name,700,fpx,'barlow')+6*u,(sub?mid-nfs*.32:mid)-fpx*.34,{ w:700,px:nfs*.5,serif:'barlow',c:P.mut });
+        if(sub) txt(r[o.sub],xName,mid+nfs*.56,{ w:600,px:nfs*.56,serif:'barlow',c:P.mut,max:nmax });
+        for(var ci=0;ci<o.cols.length;ci++){ var c2=o.cols[ci], v=r[c2.k], cx=xs[ci], cw=xs[ci+1]-xs[ci];
+          if(c2.type==='logo'){ var l3=v?await img(logoUrl(v)):null; if(l3){ var s3=Math.min(cw*.7,rh*.66); drawFit(l3,cx+(cw-s3)/2,mid-s3/2,s3); } continue; }
+          if(v===''||v==null){ txt(c2.type==='num'?'—':'',cx+cw/2,mid,{ w:600,px:rh*.3,serif:'cond',c:P.mut,al:'center' }); continue; }
+          var pc=c2.type==='num'&&o.dist&&o.dist[c2.k]&&stops&&r.heat!==false?pctQ(o.dist[c2.k],v):null, col=pc==null?null:ramp(stops,pc/100);
+          if(col){ rrect(cx+3*u,top+3*u,cw-6*u,rh-6*u,5*u); ctx.fillStyle=rgbS(col); ctx.fill(); }
+          txt(String(v),cx+cw/2,mid,{ w:c2.type==='num'?700:600,px:Math.min(rh*(c2.type==='num'?.36:.3),32*u)*k,serif:c2.type==='num'?'cond':'barlow',c:col?inkOn(col):P.text,al:'center',max:cw-10*u }); }
+        y+=rh; }
+      ctx.fillStyle=P.line; ctx.fillRect(x0,y,tw,Math.max(1,u)); }
+  }
+  // projected stat distributions for the heat (vs. D-I rotation players), as sorted arrays
+  async function statDist(){ var pp=await pctPool();
+    if(!pp.dist.mpg){ var ms=[], fgs=[], fts=[]; (D.players||[]).forEach(function(p){ var L=TDCProjGrade.lineOf(p); if(L&&+L.mpg>=15){ ms.push(+L.mpg); if(isFinite(+L.fg_pct)&&+L.fga>=3) fgs.push(+L.fg_pct); if(isFinite(+L.ft_pct)&&+L.fta>=1.5) fts.push(+L.ft_pct); } });
+      pp.dist.mpg=ms.sort(function(a,b){ return a-b; }); pp.dist.fg=fgs.sort(function(a,b){ return a-b; }); pp.dist.ft=fts.sort(function(a,b){ return a-b; }); }
+    return pp.dist; }
+  // a player row's projected numbers, looked up by name + team when the doc was saved without them
+  function withLine(r){ if(!r||!r.name||r.ppg!=null) return r; var p=findPlayer(r.name,r.team); if(!p) return r; var t=tRow(p); ['pos','cls','ht','ppg','rpg','apg','mpg','fg','tp','ts','ft','stl','blk','ovr','usg'].forEach(function(k){ if(r[k]==null) r[k]=t[k]; }); return r; }
+  // ── the older templates in the sheet format (owner, Oct 15 2026: "make all our graphics the new format"). Each keeps
+  // its previous look as Style → Classic.
+  function styleSel(d){ return '<label class="f">Style</label><select data-k="style"><option value="">Sheet (new format)</option><option value="classic"'+(d.style==='classic'?' selected':'')+'>Classic</option></select>'; }
+  T.allconf.drawClassic=T.allconf.draw;
+  T.allconf.draw=async function(d,W,H,u,pad){
+    if(d.style==='classic') return T.allconf.drawClassic(d,W,H,u,pad);
+    bg(W,H); try{ await players(); }catch(e){}
+    var land=W>H*1.2, dist=(d.heat!==false)?await statDist():null, cols=(d.tcols||['ppg','rpg','apg']);
+    var y0=sheetHead(W,H,u,pad,d.title,d.subtitle), fTop=sheetFoot(W,H,u,pad,d.src||'The Depth Chart awards engine · '+SEASON+' projected lines'+(dist?' · colours = percentile vs. D-I rotation players':''),dist&&rampOf(HEAT_RAMP)?rampLegend(u,rampOf(HEAT_RAMP),'PERCENTILE','Low','High'):null);
+    var aw=d.awards.filter(function(a){ return a.label&&a.name; }); await preload(aw);
+    // award cards: team-tinted, headshot, award, name, school
+    var y=y0;
+    if(aw.length){ var ac=Math.min(aw.length,land?4:2), ar=Math.ceil(aw.length/ac), gap=12*u, cw=(W-pad*2-gap*(ac-1))/ac, ch=Math.min((land?88:84)*u,(fTop-y0)*(land?.3:.2)/ar), dark=S.theme==='dark';
+      for(var i=0;i<aw.length;i++){ var a=aw[i], cx=pad+(i%ac)*(cw+gap), cy=y0+Math.floor(i/ac)*(ch+gap), tc=tcol(a.team);
+        rrect(cx,cy,cw,ch,12*u); ctx.fillStyle=dark?mixHex(tc,[11,15,25],.72):mixHex(tc,[255,255,255],.82); ctx.fill();
+        var hs=ch*.74; await mark(Object.assign({},a,{ espn:a.espn }),cx+12*u,cy+(ch-hs)/2,hs);
+        var tx=cx+hs+26*u, tm=cw-(tx-cx)-12*u;
+        txt(a.label.toUpperCase(),tx,cy+ch*.25,{ w:700,px:Math.min(ch*.15,14*u),serif:'barlow',c:P.text2,ls:1.2*u,max:tm });
+        txt(a.name,tx,cy+ch*.53,{ w:800,px:Math.min(ch*.3,30*u)*F(),serif:'cond',c:P.text,max:tm });
+        txt(school(a.team),tx,cy+ch*.8,{ w:600,px:Math.min(ch*.16,16*u),serif:'barlow',c:P.mut,max:tm }); }
+      y=y0+ar*ch+(ar-1)*gap+10*u; }
+    var C=cols.map(function(k){ var x=DSTATS_ALL.find(function(z){ return z[0]===k; }); return { k:k, lab:x?x[1]:k.toUpperCase(), type:'num' }; });
+    var teams=[0,1,2].map(function(t){ return (d.teams[t]||[]).filter(function(r){ return r&&r.name; }).map(function(r){ withLine(r); r.sub=school(r.team); return r; }); }), labs=['First Team','Second Team','Third Team'];
+    var shots=S.shots||d.shots!==false;
+    if(land){ var g2=24*u, w3=(W-pad*2-2*g2)/3;
+      for(var t=0;t<3;t++) await sheetTable(W,H,u,pad,y,fTop,{ x0:pad+t*(w3+g2), x1:pad+t*(w3+g2)+w3, sections:[{ label:labs[t], rows:teams[t] }], cols:C.slice(0,1), dist:dist, shots:shots, logo:false, rank:false, sub:'sub', nameMin:140 }); }
+    else await sheetTable(W,H,u,pad,y,fTop,{ sections:teams.map(function(r,t){ return { label:labs[t], rows:r }; }), cols:[{ k:'pos', lab:'Pos', type:'text', w:56 },{ k:'cls', lab:'Yr', type:'text', w:56 }].concat(C), dist:dist, shots:shots, logo:true, rank:false, sub:'sub' });
+    var f=function(t){ return teams[t].map(function(r){ return r.name; }).join(', '); };
+    return d.title+' ('+SEASON+')\n\n'+aw.slice(0,3).map(function(a){ return a.label+': '+a.name; }).join('\n')+'\n\n1st: '+f(0)+'\n2nd: '+f(1)+'\n3rd: '+f(2)+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB';
+  };
+  T.table.drawClassic=T.table.draw;
+  T.table.draw=async function(d,W,H,u,pad){
+    if(d.style==='classic') return T.table.drawClassic(d,W,H,u,pad);
+    bg(W,H); try{ await players(); }catch(e){}
+    var dist=d.heat?await statDist():null, on=d.cols||[], logo=on.indexOf('team')>-1;
+    var y0=sheetHead(W,H,u,pad,d.title,d.subtitle||''), fTop=sheetFoot(W,H,u,pad,d.srcLine||'The Depth Chart '+SEASON+' projections'+(dist?' · colours = percentile vs. D-I rotation players':''),dist&&rampOf(HEAT_RAMP)?rampLegend(u,rampOf(HEAT_RAMP),'PERCENTILE','Low','High'):null);
+    var C=TCOLS.filter(function(c){ return on.indexOf(c[0])>-1&&c[0]!=='team'; }).map(function(c){ return { k:c[0], lab:c[1], type:c[2]==='logo'?'logo':c[2]==='n'?'num':'text', w:c[0]==='ht'?76:c[0]==='pos'?62:58 }; });
+    var rows=d.rows.filter(function(r){ return r.name; }).map(function(r){ r.heat=+r.mpg>=10||r.mpg==null||r.mpg===''; return r; });
+    await sheetTable(W,H,u,pad,y0,fTop,{ sections:[{ rows:rows }], cols:C, dist:dist, shots:d.shots!==false, logo:logo });
+    return (d.title||'')+'\n\n'+rows.slice(0,5).map(function(r,i){ return (i+1)+'. '+r.name+(r.team?' ('+school(r.team)+')':''); }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB';
+  };
+  T.depth.drawClassic=T.depth.draw;
+  T.depth.draw=async function(d,W,H,u,pad){
+    if(d.style==='classic') return T.depth.drawClassic(d,W,H,u,pad);
+    bg(W,H); try{ await players(); }catch(e){}
+    var st=d.starters.filter(function(r){ return r.name; }), bn=d.bench.filter(function(r){ return r.name; }).slice(0,Math.max(0,+d.benchN||0));
+    if(!st.length){ txt('Pick a team and load the roster on the left',W/2,H/2,{ px:28*u,c:P.mut,al:'center' }); return ''; }
+    var dist=d.heat!==false?await statDist():null, title=[d.title1,d.title2].filter(Boolean).join(' ');
+    var y0=sheetHead(W,H,u,pad,title,d.subtitle||SEASON+' projected depth chart'), fTop=sheetFoot(W,H,u,pad,d.src||'The Depth Chart '+SEASON+' projections · logo = last school'+(dist?' · colours = percentile vs. D-I rotation players (10+ mpg shaded)':''),dist&&rampOf(HEAT_RAMP)?rampLegend(u,rampOf(HEAT_RAMP),'PERCENTILE','Low','High'):null);
+    var mk=function(r){ r.heat=+r.mpg>=10; return r; };
+    var C=[{ k:'pos', lab:'Pos', type:'text', w:52 },{ k:'cls', lab:'Yr', type:'text', w:58 },{ k:'from', lab:'Last', type:'logo' }].concat(dstats(d).map(function(x){ return { k:x[0], lab:x[1], type:'num' }; }));
+    await sheetTable(W,H,u,pad,y0,fTop,{ sections:[{ label:d.lab1==null?'Projected Starting Lineup':d.lab1, rows:st.map(mk) },{ label:d.lab2==null?'Projected Bench':d.lab2, rows:bn.map(mk) }], cols:C, dist:dist, shots:d.shots!==false, logo:false, rank:false });
+    return title+' — '+(d.lab1||'projected starting lineup').toLowerCase()+':\n\n'+st.map(function(r){ return r.pos+' '+r.name+(r.ppg?' ('+r.ppg+' ppg)':''); }).join('\n')+(bn.length?'\n\nBench: '+bn.slice(0,8).map(function(r){ return r.name; }).join(', '):'')+'\n\nProjections → '+SITE+'\n\n#CollegeBasketball #CBB';
+  };
   // ── Matchup ──
   T.matchup={
     defaults:function(){ return { a:'', b:'', venue:'neutral', title:'Game Projection', subtitle:SEASON, nameA:'', nameB:'', scoreA:'', scoreB:'', spread:'', pa:'' }; },
@@ -1705,6 +1810,7 @@
     // column toggles on the sheet graphics, kept in their list's order
     if(act==='lcol'||act==='hcol'||act==='mcol'){ var L0=act==='lcol'?LCOLS:act==='hcol'?HCOLS:TMCOLS, c3=(d.cols||[]).slice(), i3=c3.indexOf(b.dataset.col); if(i3>-1) c3.splice(i3,1); else c3.push(b.dataset.col); d.cols=L0.map(function(x){ return x[0]; }).filter(function(k){ return c3.indexOf(k)>-1; }); }
     if(act==='tcreset'){ d.tcolor=''; }
+    if(act==='acol'){ var a4=(d.tcols||['ppg','rpg','apg']).slice(), i4=a4.indexOf(b.dataset.col); if(i4>-1) a4.splice(i4,1); else a4.push(b.dataset.col); d.tcols=DSTATS_ALL.map(function(x){ return x[0]; }).filter(function(k){ return a4.indexOf(k)>-1; }); }
     if(act==='addaward'){ d.awards.push({ label:'Award', name:'', team:'' }); }
     save(); paintEditor(); render();
   });
