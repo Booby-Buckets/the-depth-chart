@@ -38,7 +38,9 @@ TDC_POSTS.add('scrimplayers', {
             _ov: ov, _pts: +x.pts, _d: g.date,
             val: d.dir === 'down' ? String(x.pts) : (ov != null ? H.fmt(ov, 1, true) : ''),
             pts: String(x.pts), min: String(min), reb: String(x.reb != null ? x.reb : (+x.oreb || 0) + (+x.dreb || 0)), ast: String(x.ast || 0),
+            stl: String(x.stl || 0), blk: String(x.blk || 0), tov: String(x.tov || 0),
             fg: (x.fgm != null && x.fga != null) ? x.fgm + '-' + x.fga : '',
+            tp: (x.tpm != null && x.tpa != null) ? x.tpm + '-' + x.tpa : '',
             proj: L && +L.mpg > 0 ? H.fmt((+L.ppg) / (+L.mpg) * min, 1) : '',
             real: realSide != null ? String(realSide) : '' });
         });
@@ -53,8 +55,10 @@ TDC_POSTS.add('scrimplayers', {
       subtitle: H.SEASON + ' preseason scrimmages & exhibitions · unofficial' + (up ? ' · points over our projection' : ''),
       lead: up ? 'Vs our line' : 'Points',
       src: 'The Depth Chart · school-reported scrimmage box scores · vs our line = points minus his projected points at those minutes · Reality Meter 0-100 (his team\'s side) · not in records or ratings',
-      cols: up ? [{ k: 'pts', lab: 'Pts' }, { k: 'proj', lab: 'Our line', nodist: true }, { k: 'min', lab: 'Min', nodist: true }, { k: 'fg', lab: 'FG', nodist: true }, { k: 'real', lab: 'Reality' }]
-               : [{ k: 'min', lab: 'Min', nodist: true }, { k: 'reb', lab: 'Reb' }, { k: 'ast', lab: 'Ast' }, { k: 'fg', lab: 'FG', nodist: true }, { k: 'real', lab: 'Reality' }],
+      // the full box line (owner, Oct 2026: "add rebounds and assists and other things"); counting stats heat against these rows
+      cols: (up ? [{ k: 'pts', lab: 'Pts' }, { k: 'proj', lab: 'Our line', nodist: true }] : [])
+        .concat([{ k: 'reb', lab: 'Reb' }, { k: 'ast', lab: 'Ast' }, { k: 'stl', lab: 'Stl' }, { k: 'blk', lab: 'Blk' },
+          { k: 'fg', lab: 'FG', nodist: true }, { k: 'tp', lab: '3P', nodist: true }, { k: 'min', lab: 'Min', nodist: true }, { k: 'real', lab: 'Reality' }]),
       rows: rows.slice(0, n), players: true
     };
   }
