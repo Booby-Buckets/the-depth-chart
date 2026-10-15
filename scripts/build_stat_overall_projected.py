@@ -2154,7 +2154,31 @@ for _sh,_fm in FRESH_FIT.items():
             # usually play (svp), not the 0.7 mpg a stacked depth chart leaves him — "Duke is really good, he isn't a 55"
             # (owner, Oct 15 2026). Minutes stay the depth chart's; only the displayed overall changes (OVR is display-only).
             _f["ovr"]=int(max(_f["sv"],_f.get("svp") or 0)); _f["src"]="stat"
-print(f"newcomer stat values: {_nsv}",file=sys.stderr)
+# ...but a BURIED recruit can't rate far above the players his coach plays ahead of him (owner, Oct 15 2026: "if Cam
+# was a 90 he'd obviously play more — a 90 is top-15 in the country"). The depth chart is evidence too: the lift his rank
+# gives him (svp over sv) is capped at the mean of the two nearest non-newcomers above him on the depth chart + 2.
+BURIED_MARGIN=float(os.environ.get("BURIED_MARGIN","2"))
+_DEP={}
+for _r in pl.itertuples():
+    _do=getattr(_r,"depth_order",None)
+    if _do is not None and not pd.isna(_do): _DEP.setdefault(_r.team,[]).append((int(_do),str(_r.name).strip(),getattr(_r,"espn_id",None)))
+_ncap=0
+for _sh,_fm in FRESH_FIT.items():
+    _rows=sorted(_DEP.get(_sh,[])); _new={str(n).strip() for n in _fm}
+    for _nm,_f in _fm.items():
+        if _f.get("sv") is None or (_f.get("ovr") or 0)<=_f["sv"]: continue      # only the rank-minutes lift is capped
+        _me=next((d for d,n,e in _rows if n==str(_nm).strip()),None)
+        if _me is None: continue
+        _above=[]
+        for d,n,e in sorted(_rows,reverse=True):
+            if d>=_me or n in _new or e is None or pd.isna(e): continue
+            _o=(out.get(str(int(e))) or {}).get("ovr")
+            if _o is not None: _above.append(_o)
+            if len(_above)==2: break
+        if not _above: continue
+        _cap=int(round(sum(_above)/len(_above)+BURIED_MARGIN))
+        if _f["ovr"]>_cap: _f["ovr"]=max(_f["sv"],_cap); _f["buried_cap"]=_cap; _ncap+=1
+print(f"newcomer stat values: {_nsv} (buried recruits capped by the depth chart above them: {_ncap})",file=sys.stderr)
 _nrg=0
 for _sh,_fm in FRESH_FIT.items():
     _full=S2F.get(_sh.lower()) or _sh
