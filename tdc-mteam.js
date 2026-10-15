@@ -37,7 +37,8 @@
     '.mt-logo img{width:36px;height:36px;object-fit:contain}',
     '.mt-id{flex:1;min-width:0}',
     '.mt-eye{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.78);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    '.mt-eye a{color:inherit;text-decoration:none}',
+    // the coach's name links to his coach page: underline it so it reads as a link (owner, Oct 14 2026: "there is no link")
+    '.mt-eye a{color:#fff;text-decoration:underline;text-decoration-color:rgba(255,255,255,.55);text-underline-offset:2px}',
     '.mt-name{margin:4px 0 8px;font-family:"Playfair Display",Georgia,serif;font-size:28px;font-weight:800;line-height:1.05;color:#fff}',
     '.mt-ctl{display:flex;gap:6px;flex-wrap:wrap}',
     '.mt-sel,.mt-fol{font:700 13px Inter,system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.35);border-radius:6px;padding:5px 8px;max-width:100%}',
@@ -172,13 +173,19 @@
     var wrap = document.querySelector('.page-body'); if (!wrap) return false;
     var tc = (window.tdcTeamColor && window.tdcTeamColor(name)) || {};
     var conf = document.getElementById('heroConf'), coach = document.getElementById('heroCoach');
-    var eye = [];
-    if (conf && conf.textContent.trim()) eye.push(conf.innerHTML.trim());
-    if (coach && coach.textContent.trim()) eye.push(coach.innerHTML.replace(/^\s*HC:\s*/i, '').trim());
+    var eyeHtml = function () { var eye = [];
+      if (conf && conf.textContent.trim()) eye.push(conf.innerHTML.trim());
+      if (coach && coach.textContent.trim()) eye.push('HC ' + coach.innerHTML.replace(/^\s*HC:\s*/i, '').trim());
+      return eye.join(' · '); };
+    var eye = [eyeHtml()];
     var hero = el('div', 'mt-hero',
       (tc.logo ? '<span class="mt-logo"><img src="' + tc.logo + '" alt="" onerror="this.parentNode.remove()"></span>' : '') +
       '<div class="mt-id"><div class="mt-eye">' + eye.join(' · ') + '</div><h1 class="mt-name">' + esc(name) + '</h1><div class="mt-ctl"></div></div>' +
       '<div class="mt-cell"><span>RTG</span><b id="mtRtg">—</b></div>');
+    // the coach line arrives AFTER the hero is built (coach index fetch): keep the eyebrow in step so his name is a link
+    // (owner, Oct 14 2026: "there is no link on the St. Louis team page")
+    var _eyeEl = hero.querySelector('.mt-eye'), _eyeSync = function () { var h = eyeHtml(); if (_eyeEl && _eyeEl.innerHTML !== h) _eyeEl.innerHTML = h; };
+    [conf, coach].forEach(function (n) { if (n) new MutationObserver(_eyeSync).observe(n, { childList: true, subtree: true, characterData: true }); });
     var season = el('div', 'mt-season'); season.id = 'mtSeason';
     var sub = el('div', 'mt-sub'); sub.id = 'mtSub';
     wrap.parentNode.insertBefore(hero, wrap);

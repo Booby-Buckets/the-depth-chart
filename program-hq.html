@@ -316,6 +316,7 @@
        then a sheet. C: the starting five across the page, the bench, and how the roster was built. */
     .hx-pills{ display:block; }
     .hx-meta{ font-size:13.5px; font-weight:500; opacity:.92; } .hx-meta b{ font-weight:800; }
+    .hx-coach{ color:inherit; font-weight:700; text-decoration:underline; text-decoration-color:rgba(255,255,255,.55); text-underline-offset:3px; }
     .hq-sec{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin:28px 0 10px; padding-bottom:6px; border-bottom:2px solid var(--text); }
     .hq-sec h2{ font:800 22px 'Playfair Display',Georgia,serif; letter-spacing:-.01em; color:var(--text); }
     .hq-sec .sub{ font-size:12px; color:var(--text3); text-align:right; }
@@ -465,6 +466,16 @@ function fmtR(r){ return r==null?'—':(r>0?'+':'')+(+r).toFixed(1); }
 function recStr(w,l){ return (w==null?0:w)+'–'+(l==null?0:l); }
 function seasonLabel(y){ return (+y===2027)?'2026-27 · Projected':((y-1)+'-'+(''+y).slice(2)); }
 function logoFor(full){ try{ if(window.TDC_TEAM&&TDC_TEAM.logo) return TDC_TEAM.logo(full); }catch(e){} return null; }
+// coach name -> his coach page (owner, Oct 14 2026: Schertz wasn't linked here). Namesakes resolve to the one who
+// coached this school; else the most recent.
+var COACH_SLUG=null;
+function coachSlugs(){ if(COACH_SLUG) return Promise.resolve(COACH_SLUG);
+  return fetch('scripts/data/coach_profiles.json').then(function(r){return r.ok?r.json():[];}).catch(function(){return [];}).then(function(L){
+    COACH_SLUG={}; (L||[]).forEach(function(p){ if(!p.coach||!p.coach_slug) return; var k=p.coach.toLowerCase().replace(/[^a-z]/g,''); (COACH_SLUG[k]=COACH_SLUG[k]||[]).push(p); }); return COACH_SLUG; }); }
+function coachLink(name,school){ if(!name) return ''; var L=COACH_SLUG&&COACH_SLUG[name.toLowerCase().replace(/[^a-z]/g,'')];
+  if(!L||!L.length) return esc(name); var sc=(school||'').toLowerCase(), hit=L.filter(function(p){ return sc&&(p.schools||'').toLowerCase().split(/,\s*/).some(function(x){ return x&&(sc.indexOf(x)===0||x.indexOf(sc)===0); }); })[0]
+    ||L.slice().sort(function(a,b){ return (b.last_year||0)-(a.last_year||0); })[0];
+  return '<a class="hx-coach" href="coach.html?slug='+encodeURIComponent(hit.coach_slug)+'">'+esc(name)+'</a>'; }
 function coachOf(row){ if(!row) return ''; return COACH[(row.team||'').toLowerCase().trim()]||COACH[(row.full||'').toLowerCase().trim()]||''; }
 
 function lum(hex){ hex=(hex||'').replace('#',''); if(hex.length===3) hex=hex.split('').map(function(x){return x+x;}).join(''); var n=parseInt(hex,16); if(isNaN(n)) return 128; return 0.299*((n>>16)&255)+0.587*((n>>8)&255)+0.114*(n&255); }
@@ -657,7 +668,7 @@ function projHero(row){
   var inConf=POOL.filter(function(t){return t.conf===row.conf;}).sort(function(a,b){return (a.rank||999)-(b.rank||999);});
   var cr=inConf.findIndex(function(t){return t.full===row.full;})+1;
   byId('hxKick').textContent=(row.conf||'')+' · 2026-27 projected';
-  var meta=function(rec){ return '<span class="hx-meta">'+[coach?'Coach '+esc(coach):'', rec, (cr?ord(cr)+' in the '+esc(row.conf||'conference'):''), fmtR(row.rating)+' power'].filter(Boolean).join(' · ')+'</span>'; };
+  var meta=function(rec){ return '<span class="hx-meta">'+[coach?'Coach '+coachLink(coach,row.team||row.full):'', rec, (cr?ord(cr)+' in the '+esc(row.conf||'conference'):''), fmtR(row.rating)+' power'].filter(Boolean).join(' · ')+'</span>'; };
   byId('hxPills').innerHTML=meta('');
   var _rk=byId('hxRank'); if(_rk){ _rk.innerHTML = row.rank ? ('<div class="n"><small>#</small>'+row.rank+'</div><div class="lbl">National</div>') : ''; }
   // projected record from the announced schedule (tdc-schedule.js; cached simulation of every team)
@@ -1082,7 +1093,8 @@ function loadBuzz(row){
   i.addEventListener('blur',function(){ setTimeout(function(){ byId('pickList').style.display='none'; },160); });
   fetch(SB+'/rest/v1/teams?select=name,head_coach&head_coach=not.is.null',{headers:H})
     .then(function(r){return r.ok?r.json():[];})
-    .then(function(rows){ rows.forEach(function(r){ COACH[(r.name||'').toLowerCase().trim()]=r.head_coach; }); if(MY&&rowOf(MY)&&document.body.classList.contains('hqOn')&&+HQ_SEASON===2027){ var row=rowOf(MY); if(row) projHero(row); } })
+    .then(function(rows){ rows.forEach(function(r){ COACH[(r.name||'').toLowerCase().trim()]=r.head_coach; }); return coachSlugs(); })
+    .then(function(){ if(MY&&rowOf(MY)&&document.body.classList.contains('hqOn')&&+HQ_SEASON===2027){ var row=rowOf(MY); if(row) projHero(row); } })
     .catch(function(){});
   Promise.all([TDC_RATINGS.get(), (window.TDC_TEAM&&TDC_TEAM.ready)||Promise.resolve()]).then(function(r){
     var D=r[0];
