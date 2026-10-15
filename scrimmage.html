@@ -153,24 +153,24 @@
     const boxless=X('home').boxless||X('away').boxless;
     const rows=[];
     if(!boxless){
-      rows.push(`<tr><td class="l"><b>Full game</b> <span class="dim">· 10%</span><div class="rm-ref">200 (40 minutes)</div></td>${both(s=>td(P(s).format,X(s).min!=null?X(s).min+' team minutes':'—','score '+P(s).format))}<td class="l dim">200 (40 minutes)</td></tr>`);
-      rows.push(`<tr><td class="l"><b>Rotation</b> <span class="dim">· 30%</span><div class="rm-ref">${am!=null?`Top 5 ~${Math.round(100*expTop5(am))}% · ~${expN5(am)} play 5+ at a ${am}-point margin`:'Top 5 ~70% · ~10 play 5+'}</div></td>${both(s=>td(P(s).rotation,X(s).top5!=null?`Top 5 played ${Math.round(100*X(s).top5)}% of minutes · ${X(s).n5} played 5+`:'—','score '+P(s).rotation))}<td class="l dim">${am!=null?`Top 5 ~${Math.round(100*expTop5(am))}% · ~${expN5(am)} play 5+ at a ${am}-point margin`:'Top 5 ~70% · ~10 play 5+'}</td></tr>`);
-      rows.push(`<tr><td class="l"><b>Who played</b> <span class="dim">· 25%</span><div class="rm-ref">The projected rotation plays and starts</div></td>${both(s=>{ const x=X(s), mp=(R.miss_pts||{})[s];
+      rows.push(`<tr><td class="l"><b>Full game</b><div class="rm-ref">200 (40 minutes)</div></td>${both(s=>td(P(s).format,X(s).min!=null?X(s).min+' team minutes':'—','score '+P(s).format))}<td class="l dim">200 (40 minutes)</td></tr>`);
+      rows.push(`<tr><td class="l"><b>Rotation</b><div class="rm-ref">${am!=null?`Top 5 ~${Math.round(100*expTop5(am))}% · ~${expN5(am)} play 5+ at a ${am}-point margin`:'Top 5 ~70% · ~10 play 5+'}</div></td>${both(s=>td(P(s).rotation,X(s).top5!=null?`Top 5 played ${Math.round(100*X(s).top5)}% of minutes · ${X(s).n5} played 5+`:'—','score '+P(s).rotation))}<td class="l dim">${am!=null?`Top 5 ~${Math.round(100*expTop5(am))}% · ~${expN5(am)} play 5+ at a ${am}-point margin`:'Top 5 ~70% · ~10 play 5+'}</td></tr>`);
+      rows.push(`<tr><td class="l"><b>Who played</b><div class="rm-ref">The projected rotation plays and starts</div></td>${both(s=>{ const x=X(s), mp=(R.miss_pts||{})[s];
         return td(P(s).availability,x.missing&&x.missing.length?'Without '+x.missing.map(esc).join(', ')+(mp>0?` <span class="dim">(~${mp.toFixed(1)} pts a game)</span>`:''):'Projected rotation played','score '+P(s).availability); })}<td class="l dim">The projected rotation plays and starts</td></tr>`);
-      rows.push(`<tr><td class="l"><b>Pace</b> <span class="dim">· 5%</span><div class="rm-ref">60–80 possessions</div></td>${both(s=>td(P(s).pace,X(s).pace!=null?Math.round(X(s).pace)+' possessions'+(X(s).pace>80?' <span class="dim">(fast)</span>':X(s).pace<60?' <span class="dim">(slow)</span>':''):'—','score '+P(s).pace))}<td class="l dim">60–80 possessions</td></tr>`);
+      rows.push(`<tr><td class="l"><b>Pace</b><div class="rm-ref">60–80 possessions</div></td>${both(s=>td(P(s).pace,X(s).pace!=null?Math.round(X(s).pace)+' possessions'+(X(s).pace>80?' <span class="dim">(fast)</span>':X(s).pace<60?' <span class="dim">(slow)</span>':''):'—','score '+P(s).pace))}<td class="l dim">60–80 possessions</td></tr>`);
     }
     // the result is one fact for the game: scored from blowout-beyond-the-line (20%) and line fit (10%)
     const rs=['away','home'].map(s=>[P(s).competitive,P(s).plausible]).flat().filter(v=>v!=null), rsc=rs.length?Math.round(rs.reduce((a,b)=>a+b,0)/rs.length):null;
-    rows.push(`<tr><td class="l"><b>Result vs our line</b> <span class="dim">· 30%</span><div class="rm-ref">Within ~10 points of our line</div></td><td class="l ${rsc==null?'dim':rmCls(rsc)}" colspan="2">${margin!=null?by(margin)+' · our line '+by(R.pred):'—'}</td><td class="l dim">Within ~10 points of our line</td></tr>`);
+    rows.push(`<tr><td class="l"><b>Result vs our line</b><div class="rm-ref">Within ~10 points of our line</div></td><td class="l ${rsc==null?'dim':rmCls(rsc)}" colspan="2">${margin!=null?by(margin)+' · our line '+by(R.pred):'—'}</td><td class="l dim">Within ~10 points of our line</td></tr>`);
     // opponents missing players: the other side's lines count less; our line re-priced for who actually played
     const notes=[];
     ['away','home'].forEach(s=>{ const o=s==='home'?'away':'home', oa=X(o).opp_avail; if(oa!=null&&oa<1) notes.push(`${nm(s==='home'?g.away:g.home)}'s lines count ${Math.round((1-oa)*100)}% less`); });
     const adj=(R.pred!=null&&R.pred_full!=null&&Math.abs(R.pred-R.pred_full)>=0.3)?`Our line is for the lineups that played (${by(R.pred_full)} at full strength).`:'';
     const pct=Math.round(R.score);
-    return `<div class="rm"><div><div class="rm-l">Reality Meter</div><div class="rm-n" style="color:${rmCol(R.score)}">${R.score}</div></div>
+    return `<div class="rm">
         <div style="flex:1"><div class="rm-t">${esc(R.label)}</div><div class="rm-bar"><i style="width:${R.score}%;background:${rmCol(R.score)}"></i></div>
         <div class="rm-sum">Counts as about <b>${pct}%</b> of a real game toward each player's 2026-27 projection (less for anyone who played short minutes).</div></div></div>
-      <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense rm-tbl"><thead><tr><th class="l">What we checked</th><th class="l">${nm(g.away)} · ${X('away').score!=null?X('away').score:'—'}</th><th class="l">${nm(g.home)} · ${X('home').score!=null?X('home').score:'—'}</th><th class="l">A real game</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
+      <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense rm-tbl"><thead><tr><th class="l">What we checked</th><th class="l">${nm(g.away)}</th><th class="l">${nm(g.home)}</th><th class="l">A real game</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
       ${notes.length||adj?`<p class="rm-why">${[notes.length?'Against a short-handed opponent '+notes.join(' and ')+'.':'',adj].filter(Boolean).join(' ')}</p>`:''}`;
   }
 
