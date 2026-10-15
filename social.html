@@ -723,7 +723,7 @@
       var n=rows.length; if(!n){ txt('Load data on the left',W/2,H/2,{ px:26*u,c:P.mut,al:'center' }); return ''; }
       var lg=34*u, rh=Math.min((fTop-y0-lg-8*u)/n,100*u), fs=Math.min(rh*.32,25*u), ms=Math.min(rh*.66,fs*2.2);
       var labW=Math.min((W-pad*2)*.4,Math.max.apply(null,rows.map(function(r){ return width(r.name,700,fs); }))+ms+24*u);
-      var ax0=pad+labW+10*u, ax1=W-pad-10*u, mx=Math.max(60,Math.max.apply(null,rows.map(function(r){ return Math.max(+r.val,+r.val2); })));
+      var ax0=pad+labW+10*u, ax1=W-pad-10*u-width('88%',800,fs*.86)-width('+88',700,fs*.72)-30*u, mx=Math.max(60,Math.max.apply(null,rows.map(function(r){ return Math.max(+r.val,+r.val2); })));
       var X=function(v){ return ax0+(ax1-ax0)*v/mx; }, ry=y0+lg;
       // legend + axis ticks
       var gc='#9AA0AA', cc=P.acc==='#E6D5A8'?'#E6B04A':'#C8102E';
@@ -737,7 +737,10 @@
         else txt(r.name,tx,mid,{ w:700,px:fs,max:labW-ms-16*u });
         ctx.strokeStyle=P.line; ctx.lineWidth=Math.max(3,5*u); ctx.beginPath(); ctx.moveTo(X(a),mid); ctx.lineTo(X(b),mid); ctx.stroke();
         var rr=Math.max(6,8*u); ctx.fillStyle=gc; ctx.beginPath(); ctx.arc(X(a),mid,rr,0,7); ctx.fill(); ctx.fillStyle=cc; ctx.beginPath(); ctx.arc(X(b),mid,rr,0,7); ctx.fill();
-        var right=b>=a; txt(Math.round(b)+'%',X(b)+(right?14:-14)*u,mid,{ w:800,px:fs*.86,c:P.text,al:right?'left':'right' });
+        // the jump (crunch − rest) beside the share: the list is ranked by it, so the order reads at a glance
+        var right=b>=a, lbl=Math.round(b)+'%', jx=X(b)+(right?14:-14)*u, jd=Math.round(b)-Math.round(a), js=(jd>0?'+':jd<0?'−':'±')+Math.abs(jd);
+        txt(lbl,jx,mid,{ w:800,px:fs*.86,c:P.text,al:right?'left':'right' });
+        var lw=width(lbl,800,fs*.86); txt(js,right?jx+lw+8*u:jx-lw-8*u,mid,{ w:700,px:fs*.72,c:jd>=0?cc:P.mut,al:right?'left':'right' });
       }
       return d.title+' — '+d.subtitle+'\n\n'+rows.slice(0,3).map(function(r){ return r.name+': '+Math.round(+r.val)+'% → '+Math.round(+r.val2)+'%'; }).join('\n')+'\n\nBuilt from every play-by-play of the season → '+SITE+'\n\n#CollegeBasketball #CBB';
     }
