@@ -1075,10 +1075,7 @@
       var f1=function(v){ return v!=null&&isFinite(+v)?(+v).toFixed(1):''; };
       var mk=function(p){ var h=String(p.hometown||'').trim(), L=null; try{ L=TDCProjGrade.lineOf(p); }catch(e){}
         return { pos:grpOf(p.position), name:p.name, team:p.team, espn:p.espn_id||null, cls:clsNice(p.class_year||p.yr),
-          // LAST team (owner, Oct 15 2026): a transfer's previous school, the SAME team for a returner (Houston's chart shows
-          // Houston for anyone who played there last year), blank only for a freshman / newcomer with no college minutes
-          from:(h&&!/^(injured|out)$/i.test(h)&&logoUrl(h))?school(h):(L&&L.xfer_from&&logoUrl(L.xfer_from))?school(L.xfer_from)
-            :((+p.mpg>0||(L&&+L.last_mpg>0))&&!(L&&L._xfer))?p.team:'', ppg:f1(L&&L.ppg), rpg:f1(L&&L.rpg), apg:f1(L&&L.apg), mpg:f1(L&&L.mpg),
+          from:lastTeam(p,L), ppg:f1(L&&L.ppg), rpg:f1(L&&L.rpg), apg:f1(L&&L.apg), mpg:f1(L&&L.mpg),
           fg:L&&+L.mpg>=5&&+L.fga>0?f1(L.fg_pct):'', tp:L&&+L.mpg>=5&&+L.tpa>=.5?f1(L.tp_pct):'', stl:f1(L&&L.stl), blk:f1(L&&L.blk) }; };
       var five=R.slice(0,5).sort(function(a,b){ return posRank(a)-posRank(b)||(htIn(a.height)||0)-(htIn(b.height)||0); });
       d.starters=five.map(mk); d.bench=R.slice(5,17).map(mk);
@@ -1186,15 +1183,23 @@
       var tp=arr.reduce(function(a,x){ return a+pl(x.L); },0), tm=arr.reduce(function(a,x){ return a+n(x.L.mpg); },0); if(!(tp>0)||tm<150) return;
       arr.forEach(function(x){ var m=n(x.L.mpg); if(m>=3) USG_MAP[x.key]=Math.round(1000*pl(x.L)*(tm/5)/(m*tp))/10; }); });
     return USG_MAP; }
+  // LAST TEAM (one rule for the Table and Depth chart graphics): where he was last season — a transfer's old school (the
+  // sheet's hometown column, else the projection's xfer_from), a returner's own school, blank for a true freshman.
+  // The hometown column can also hold just a high school / hometown (Luke Devine: "Campolindo"); only an explicit non-D-I
+  // tag — "(D2)", JUCO, NAIA… — means he came from outside D-I and stays blank. A redshirt freshman (Tommy Ahneman,
+  // R-Fr.) was on the team last year, so he gets his own school.
+  function lastTeam(p,L){ var h=String(p.hometown||'').trim(), fr=clsNice(p.class_year||p.yr)==='Fr.';
+    // (Yoro Diallo "(D2)": Winthrop 2024-25, a D-II school last season -> blank, even though his projection carries the Winthrop minutes)
+    if(h&&!/^(injured|out)$/i.test(h)){ if(logoUrl(h)) return school(h); if(/\(|\bd-?(ii|iii|2|3)\b|juco|naia|jc\b|cc\b|college of/i.test(h)) return ''; }
+    if(L&&L.xfer_from&&logoUrl(L.xfer_from)) return school(L.xfer_from);
+    return fr?'':school(p.team); }
   function tRow(p){ var L=null; try{ L=TDCProjGrade.lineOf(p); }catch(e){} var h=String(p.hometown||'').trim(), f1=function(v){ return v!=null&&v!==''&&isFinite(+v)?(+v).toFixed(1):''; };
     var ov=null; try{ ov=TDCProjGrade.gradeSolo(p); }catch(e){}
     return { name:p.name, team:p.team, espn:p.espn_id||null, pos:String(p.position||'').toUpperCase(), cls:clsNice(p.class_year||p.yr), ht:htFmt(p.height),
       // Last Team = where he played last season: a transfer's old school, a returner's own school; blank for a true freshman
       // The sheet's hometown column holds either a transfer's old school or just a high school / hometown (Luke Devine:
       // "Campolindo"). Only an explicit non-D-I tag — "(D2)", JUCO, NAIA… — means he came from outside D-I and stays blank.
-      from:(function(){ var fr=clsNice(p.class_year||p.yr)==='Fr.';
-        if(h&&!/^(injured|out)$/i.test(h)){ if(logoUrl(h)) return school(h); if(/\(|\bd-?(ii|iii|2|3)\b|juco|naia|jc\b|cc\b|college of/i.test(h)) return ''; }
-        return fr?'':school(p.team); })(),
+      from:lastTeam(p,L),
       ppg:f1(L&&L.ppg), rpg:f1(L&&L.rpg), apg:f1(L&&L.apg), mpg:f1(L&&L.mpg),
       // shooting shows for anyone in the rotation (5+ projected mpg) who shoots at all — owner: Dortch's 7 mpg should show;
       // 3P% / FT% need some volume of their own (a center's 0.1 threes a game stays a dash)
@@ -2029,7 +2034,7 @@
   // LOAD_VER: bump whenever a chart's or post's loader changes what it puts in the rows (columns, order, maths). A saved
   // graphic loaded under an older version reloads on open — unless its rows were hand-edited — so a fix reaches the
   // owner without clicking "Load / refresh data" (Oct 2026: the scrimmage scoreboard kept the old Margin rows).
-  var LOAD_VER='2026-10-15i';
+  var LOAD_VER='2026-10-15l';
   function stamp(d){ if(d&&(Array.isArray(d.rows)||Array.isArray(d.starters))){ d.loadedAt=new Date().toISOString().slice(0,10); d._lv=LOAD_VER; d._edited=false; } }
   function paintEditor(){ var d=doc(), h=T[S.tpl].editor(d);
     if(d.loadedAt&&Array.isArray(d.rows)&&d.rows.length){ var age=Math.round((Date.now()-new Date(d.loadedAt+'T12:00:00'))/864e5);
