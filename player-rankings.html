@@ -43,6 +43,7 @@
     .page-sub{font-size:13.5px;color:var(--text2);max-width:720px;line-height:1.55;margin-bottom:22px;}
     .pr-bar{display:flex;flex-direction:column;gap:10px;padding:16px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:16px;}
     .pr-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+    .pr-sel{font:700 12.5px 'Inter',system-ui,sans-serif;background:var(--bg);border:1px solid var(--border2);color:var(--text);padding:6px 12px;border-radius:999px;cursor:pointer;}
     .pr-lab{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);width:92px;flex:none;}
     .chip{font:600 11.5px 'Inter',system-ui,sans-serif;letter-spacing:.02em;background:var(--bg);border:1px solid var(--border2);color:var(--text2);padding:5px 11px;border-radius:999px;cursor:pointer;}
     .chip:hover{color:var(--text);border-color:var(--text3);}
@@ -97,9 +98,10 @@
 <div class="page">
   <div class="page-eyebrow">Players · Rankings</div>
   <h1 class="page-h1">Player Rankings</h1>
-  <p class="page-sub">Every Division I player ranked for 2026-27. Choose a group, such as a position, a class, transfers or a playing style, then rank it by projected overall or by any projected stat.</p>
+  <p class="page-sub" id="prSub">Every Division I player ranked for 2026-27. Choose a group, such as a position, a class, transfers or a playing style, then rank it by projected overall or by any projected stat.</p>
 
   <div class="pr-bar">
+    <div class="pr-row" id="seaRow"><span class="pr-lab">Season</span><select class="pr-sel" id="prSeason" aria-label="Season"></select></div>
     <div class="pr-row" id="grpRow"><span class="pr-lab">Group</span></div>
     <div class="pr-row" id="subRow"></div>
     <div class="pr-row" id="byRow"><span class="pr-lab">Rank by</span></div>
@@ -118,7 +120,7 @@
     </table>
   </div>
   <button type="button" class="chip pr-more" id="prMore" style="display:none">Show 100 more</button>
-  <p class="pr-legend">OVR is the projected 2026-27 overall shown across the site. Stats are each player's projected 2026-27 line; players with no projection yet show last season's. Shading compares every player in the rotation (10+ projected minutes): green is the top fifth of Division I, red the bottom fifth. Stat lists only include rotation players, and percentage lists need real volume (5 FGA, 2 3PA or 2 FTA a game). In Movers, Change is the projected 2026-27 overall minus last season's grade; Movers compares each player's projected overall with last season's grade. NIL is the projected open-market value; Board is the NBA Big Board rank.</p>
+  <p class="pr-legend" id="prLegend">OVR is the projected 2026-27 overall shown across the site. Stats are each player's projected 2026-27 line; players with no projection yet show last season's. Shading compares every player in the rotation (10+ projected minutes): green is the top fifth of Division I, red the bottom fifth. Stat lists only include rotation players, and percentage lists need real volume (5 FGA, 2 3PA or 2 FTA a game). In Movers, Change is the projected 2026-27 overall minus last season's grade; Movers compares each player's projected overall with last season's grade. NIL is the projected open-market value; Board is the NBA Big Board rank.</p>
 </div>
 
 <script>
@@ -168,9 +170,18 @@
   ];
   const ROT_MPG=10;
 
-  let ALL=[], CUTS={}, CONFS=[], state={g:'all', v:'', by:'ovr', c:'', dir:1, n:PAGE, q:''};
+  let ALL=[], CUTS={}, CONFS=[], state={g:'all', v:'', by:'ovr', c:'', dir:1, n:PAGE, q:'', s:'proj'};
+  // seasons: the projected 2026-27 view, then every season with stat lines + a stat overall (2009-10 on)
+  const SEASONS=['proj'].concat(Array.from({length:2026-2010+1},(_,i)=>String(2026-i)));
+  const sl=y=>(+y-1)+'-'+String(y).slice(2);
+  const PAST=()=>state.s!=='proj';
+  // projection-only views and columns step aside for a past season
+  const PROJ_ONLY_G=['type','role'], PROJ_ONLY_S=['usg','wa','nil','bb'];
+  const statsNow=()=>PAST()?STATS.filter(s=>!PROJ_ONLY_S.includes(s.k)):STATS;
+  const groupsNow=()=>PAST()?GROUPS.filter(g=>!PROJ_ONLY_G.includes(g.k)):GROUPS;
   let FAV='';   // the viewer's favorite team (set at sign-up / on the profile)
-  try{ const u=new URLSearchParams(location.search); ['g','v','by','c'].forEach(k=>{ if(u.get(k)) state[k]=u.get(k); }); }catch(e){}
+  try{ const u=new URLSearchParams(location.search); ['g','v','by','c','s'].forEach(k=>{ if(u.get(k)) state[k]=u.get(k); }); }catch(e){}
+  if(!SEASONS.includes(state.s)) state.s='proj';
 
   // team logo via the shared resolver (team-colors.js), sized through ESPN's resizer like the rankings table
   const _logoCache={};
@@ -203,6 +214,97 @@
   }
   async function load(){
     await loadFav();
+    document.getElementById('prBody').innerHTML='<tr><td class="pr-empty" colspan="20">Loading…</td></tr>';
+    CUTS={};
+    if(PAST()) await loadSeason(+state.s); else await loadProjected();
+    CONFS=Object.entries(ALL.reduce((m,p)=>{ if(p._conf) m[p._conf]=(m[p._conf]||0)+1; return m; },{})).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+    if(state.c&&!CONFS.includes(state.c)) state.c='';
+    const roles=[...new Set(ALL.map(p=>p._arch).filter(Boolean))].sort();
+    GROUPS.find(g=>g.k==='role').subs=roles.map(r=>[r,r]);
+    if(!groupsNow().some(g=>g.k===state.g)) { state.g='all'; state.v=''; }
+    if(!statsNow().some(s=>s.k===state.by)) state.by='ovr';
+    // heat cut points over the national rotation, so a top-100 list isn't graded against itself
+    const rot=ALL.filter(p=>(num(p.mpg)||0)>=ROT_MPG);
+    statsNow().forEach(s=>{ if(!s.heat) return;
+      const v=(s.all?ALL:rot).filter(p=>!s.q||s.q(p)).map(p=>val(p,s.k)).filter(x=>x!=null).sort((a,b)=>a-b);
+      if(v.length>20) CUTS[s.k]=[.2,.4,.6,.8].map(q=>v[Math.floor(q*(v.length-1))]); });
+    words();
+    paintControls(); render();
+    if(!PAST()) loadBoard();
+  }
+  // ── a past season: player_history's real stat lines + that season's stat overall (2009-10 on) ──
+  let _hist=null;
+  // Sports-Reference school names (player_history / bbref_seasons) -> ESPN full names (team_seasons); the same table
+  // scripts/build_coach_profiles.py uses ('Connecticut' -> 'UConn Huskies')
+  const SR_ALIAS={"Connecticut":"UConn Huskies","St. John's (NY)":"St. John's Red Storm","Pittsburgh":"Pitt Panthers","Southern California":"USC Trojans","Louisiana State":"LSU Tigers","North Carolina State":"NC State Wolfpack","Brigham Young":"BYU Cougars","Mississippi":"Ole Miss Rebels","Hawaii":"Hawai'i Rainbow Warriors","Central Florida":"UCF Knights","Texas Christian":"TCU Horned Frogs","Virginia Commonwealth":"VCU Rams","Massachusetts":"UMass Minutemen","Miami (FL)":"Miami Hurricanes","Miami (OH)":"Miami (OH) RedHawks","Southern Methodist":"SMU Mustangs","Albany (NY)":"UAlbany Great Danes","Appalachian State":"App State Mountaineers","Central Connecticut State":"Central Connecticut Blue Devils","College of Charleston":"Charleston Cougars","FDU":"Fairleigh Dickinson Knights","IU Indy":"IU Indianapolis Jaguars","Illinois-Chicago":"UIC Flames","Louisiana-Monroe":"UL Monroe Warhawks","Loyola (IL)":"Loyola Chicago Ramblers","Loyola (MD)":"Loyola Maryland Greyhounds","Maryland-Baltimore County":"UMBC Retrievers","Maryland-Eastern Shore":"Maryland Eastern Shore Hawks","Massachusetts-Lowell":"UMass Lowell River Hawks","Nevada-Las Vegas":"UNLV Rebels","Nicholls State":"Nicholls Colonels","Queens (NC)":"Queens University Royals","Saint Francis (PA)":"Saint Francis Red Wolves","San Jose State":"San José State Spartans","Southeastern Louisiana":"SE Louisiana Lions","Southern Mississippi":"Southern Miss Golden Eagles","St. Francis (NY)":"St. Francis Brooklyn Terriers","Texas-Rio Grande Valley":"UT Rio Grande Valley Vaqueros"};
+  const nkey=s=>String(s||'').toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b\.?/g,'').replace(/[^a-z]/g,'');
+  async function loadSeason(y){
+    let [rows, ts, hist, bref] = await Promise.all([
+      (async()=>{ const out=[]; for(let off=0; off<20000; off+=1000){
+        const r=await fetch(`${SB}/rest/v1/player_history?season_year=eq.${y}&select=id,name,team,position,height,yr,ppg,rpg,apg,mpg,fgm,fga,fg_pct,tpm,tpa,tp_pct,ftm,fta,ft_pct,stl,blk,tovs,gp,espn_id,sat_out&order=id&offset=${off}&limit=1000`,{headers:H});
+        const b=r.ok?await r.json():[]; out.push(...b); if(b.length<1000) break; } return out; })(),
+      // this season's conferences, with the neighbouring seasons as a fallback: some older team_seasons rows carry
+      // no conference (2011-12 Buffalo, Davidson, Denver…)
+      // one request per season: three seasons together pass the 1,000-row page and drop the last teams alphabetically
+      Promise.all([y,y-1,y+1].map(yy=>fetch(`${SB}/rest/v1/team_seasons?season_year=eq.${yy}&select=team,conference,season_year&order=team`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]))).then(a=>a.flat()),
+      _hist||fetch('scripts/data/stat_overall_history.json?v=12').then(r=>r.ok?r.json():{}).catch(()=>({})),
+      (async()=>{ const out=[]; for(let off=0; off<20000; off+=1000){
+        const r=await fetch(`${SB}/rest/v1/bbref_seasons?season_year=eq.${y}&select=school,player,class&order=bbref_id&offset=${off}&limit=1000`,{headers:H}).catch(()=>null);
+        const b=r&&r.ok?await r.json():[]; out.push(...b); if(b.length<1000) break; } return out; })(),
+    ]);
+    // class: bbref by school + name
+    const clsOf={}; (bref||[]).forEach(b=>{ if(b.class) clsOf[nkey(b.school)+'|'+nkey(b.player)]=b.class; });
+    const CLS={FR:'Fr.',SO:'So.',JR:'Jr.',SR:'Sr.',GR:'Gr.'};
+    _hist=hist;
+    if(window.TDCProjGrade&&TDCProjGrade.ready){ try{ await TDCProjGrade.ready; }catch(e){} }
+    // that season's overall: the history file through 2024-25, the demonstrated grade for 2025-26
+    const ovrOf=(e,yy)=>{ if(e==null) return null; if(yy<=2025){ const h=_hist[String(yy)]; return h&&h[String(e)]!=null?+h[String(e)]:null; }
+      if(yy===2026&&window.TDCProjGrade&&TDCProjGrade.statOvr){ const v=TDCProjGrade.statOvr({espn_id:e,season_year:2026}); return v!=null&&isFinite(+v)?+v:null; } return null; };
+    // that season's conference: player_history uses school names, team_seasons full names ('Alabama' vs
+    // 'Alabama Crimson Tide' / 'Alabama State Hornets') — the full name that starts with the school and
+    // whose leftover is just a mascot (not 'State …', 'A&M …')
+    const MARK=/^(state|st|a&m|a&t|christian|baptist|southern|international|tech|wesleyan|central|northern|southeastern|northwestern|southwestern)\b/i;
+    const confOf={}, short=c=>({'Atlantic Coast Conference':'ACC','Big 12 Conference':'B12','Big East Conference':'BE','Big Ten Conference':'B10','Southeastern Conference':'SEC',
+      'Pac-12 Conference':'P12','Atlantic 10 Conference':'A10','American Athletic Conference':'AAC','American Conference':'AAC','Mountain West Conference':'MWC',
+      'West Coast Conference':'WCC','Missouri Valley Conference':'MVC'}[c]||String(c||'').replace(/ Conference$/,''));
+    // one row per team: this season's conference, else last season's, else next season's
+    const pick={}; [y,y-1,y+1].forEach(yy=>ts.forEach(r=>{ if(r.season_year!==yy) return; const k=String(r.team||'').toLowerCase();
+      if(!pick[k]) pick[k]={team:r.team,conference:r.conference}; else if(!pick[k].conference&&r.conference) pick[k].conference=r.conference; }));
+    ts=Object.values(pick);
+    const byFull={}; ts.forEach(r=>{ byFull[String(r.team||'').toLowerCase()]=r; });
+    const confFor=team=>{ if(team in confOf) return confOf[team]; const t=String(team||'').toLowerCase();
+      if(SR_ALIAS[team]&&byFull[SR_ALIAS[team].toLowerCase()]) return (confOf[team]=short(byFull[SR_ALIAS[team].toLowerCase()].conference));
+      let best=null; ts.forEach(r=>{ const f=String(r.team||'').toLowerCase(); if(f===t){ best=r; return; }
+        if(f.startsWith(t+' ')){ const rest=f.slice(t.length+1); if(MARK.test(rest)) return; if(!best||f.length<String(best.team).length) best=r; } });
+      if(best) best._used=true;
+      return (confOf[team]=best?short(best.conference):''); };
+    const fullOf={};   // school -> the team_seasons full name it matched (for the nearest-season fallback below)
+    ALL=rows.filter(p=>p.name&&!p.sat_out&&(num(p.mpg)>0||num(p.ppg)>0)).map(p=>{
+      const o={...p}; o._hasLine=true;
+      if(!o.yr){ const c=clsOf[nkey(p.team)+'|'+nkey(p.name)]; if(c) o.yr=CLS[String(c).toUpperCase()]||c; }
+      o._ovr=ovrOf(p.espn_id,y);
+      o._prev=ovrOf(p.espn_id,y-1);
+      o._dOvr=(o._prev!=null&&o._ovr!=null)?Math.round(o._ovr)-Math.round(o._prev):null;
+      o._conf=confFor(p.team); o._arch='';
+      if(!o._conf){ const t=String(p.team||'').toLowerCase(), f=SR_ALIAS[p.team]?SR_ALIAS[p.team].toLowerCase():null;
+        const hit=(f&&byFull[f])||ts.find(r=>String(r.team||'').toLowerCase().startsWith(t+' '));
+        if(hit) fullOf[p.team]=hit.team; }
+      o._team=(window.tdcShortSchool&&tdcShortSchool(p.team))||p.team;
+      o._logo=logoOf(p.team);
+      return o;
+    });
+    // some older team_seasons rows have no conference for a run of years (2011-12 Buffalo, Davidson…):
+    // take each such team's nearest season that has one
+    const miss=[...new Set(Object.values(fullOf))];
+    if(miss.length){ try{
+      const q=miss.map(n=>'"'+String(n).replace(/"/g,'')+'"').join(',');
+      const rr=await fetch(`${SB}/rest/v1/team_seasons?team=in.(${encodeURIComponent(q)})&conference=not.is.null&select=team,conference,season_year&order=season_year`,{headers:H}).then(r=>r.ok?r.json():[]);
+      const near={}; rr.forEach(r=>{ const d=Math.abs(r.season_year-y), c=near[r.team]; if(!c||d<c.d) near[r.team]={d,conf:short(r.conference)}; });
+      ALL.forEach(o=>{ if(!o._conf&&fullOf[o.team]&&near[fullOf[o.team]]) o._conf=near[fullOf[o.team]].conf; });
+    }catch(e){} }
+  }
+  // ── 2026-27: the live roster, projected lines and projected overall ──
+  async function loadProjected(){
     if(window.TDCFresh&&TDCFresh.load){ try{ await TDCFresh.load(); }catch(e){} }
     const [raw, teams, proj] = await Promise.all([
       pull(),
@@ -256,16 +358,6 @@
         ALL.forEach(p=>{ const h=byTeam[p.team+'|'+String(p.name).toLowerCase().trim()]; if(h&&!h.r.walkon){ const v=N.neutralValueOf(h.r,h.tier); if(v>0) p.nil=v; } });
       }
     }catch(e){}
-    CONFS=Object.entries(ALL.reduce((m,p)=>{ if(p._conf) m[p._conf]=(m[p._conf]||0)+1; return m; },{})).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
-    const roles=[...new Set(ALL.map(p=>p._arch).filter(Boolean))].sort();
-    GROUPS.find(g=>g.k==='role').subs=roles.map(r=>[r,r]);
-    // heat cut points over the national rotation, so a top-100 list isn't graded against itself
-    const rot=ALL.filter(p=>(num(p.mpg)||0)>=ROT_MPG);
-    STATS.forEach(s=>{ if(!s.heat) return;
-      const v=(s.all?ALL:rot).filter(p=>!s.q||s.q(p)).map(p=>val(p,s.k)).filter(x=>x!=null).sort((a,b)=>a-b);
-      if(v.length>20) CUTS[s.k]=[.2,.4,.6,.8].map(q=>v[Math.floor(q*(v.length-1))]); });
-    paintControls(); render();
-    loadBoard();
   }
   // Big Board ranks come from the shared engine (same pool, projections and overrides as the Big
   // Board page and the player pages), filled in once computed so the table isn't held up by it
@@ -283,14 +375,27 @@
     }catch(e){}
   }
 
+  // page copy for the season on screen
+  function words(){
+    const y=state.s;
+    document.getElementById('prSub').textContent=PAST()
+      ? `Every Division I player from ${sl(y)}, ranked by that season's overall or any stat from his real line. Choose a group, such as a position or a class, then rank it.`
+      : 'Every Division I player ranked for 2026-27. Choose a group, such as a position, a class, transfers or a playing style, then rank it by projected overall or by any projected stat.';
+    document.getElementById('prLegend').textContent=PAST()
+      ? `OVR is each player's ${sl(y)} statistical overall, the grade shown on his player page for that season. Stats are his real ${sl(y)} per-game line. Shading compares every rotation player that season (10+ minutes a game): green is the top fifth of Division I, red the bottom fifth. Percentage lists need real volume (5 FGA, 2 3PA or 2 FTA a game). Movers compares his ${sl(y)} overall with the season before.`
+      : "OVR is the projected 2026-27 overall shown across the site. Stats are each player's projected 2026-27 line; players with no projection yet show last season's. Shading compares every player in the rotation (10+ projected minutes): green is the top fifth of Division I, red the bottom fifth. Stat lists only include rotation players, and percentage lists need real volume (5 FGA, 2 3PA or 2 FTA a game). In Movers, Change is the projected 2026-27 overall minus last season's grade. NIL is the projected open-market value; Board is the NBA Big Board rank.";
+  }
   function heatCls(s,v){ const c=CUTS[s.k]; if(!c||v==null) return ''; let b=c.filter(x=>v>x).length; if(s.heat<0) b=4-b; return 'c'+b; }
   function fmt(s,v){ if(v==null) return '—'; if(s.f) return s.f(v); return s.pct?(+v).toFixed(1)+(s.k==='usg'?'':'%'):(+v).toFixed(1); }
 
   function chip(label,on,data){ return `<button type="button" class="chip${on?' on':''}" ${data}>${esc(label)}</button>`; }
   function paintControls(){
     const favShort=FAV?((window.tdcShortSchool&&tdcShortSchool(FAV))||FAV):'';
-    document.getElementById('grpRow').innerHTML='<span class="pr-lab">Group</span>'+GROUPS.filter(g=>!g.hidden||(g.k==='mine'&&FAV)).map(g=>chip(g.k==='mine'?('My team: '+favShort):g.l,state.g===g.k,`data-g="${g.k}"`)).join('');
-    const G=GROUPS.find(g=>g.k===state.g)||GROUPS[0], sub=document.getElementById('subRow');
+    const sel=document.getElementById('prSeason');
+    if(!sel.options.length) sel.innerHTML=SEASONS.map(y=>`<option value="${y}">${y==='proj'?'2026-27 · projected':sl(y)}</option>`).join('');
+    sel.value=state.s;
+    document.getElementById('grpRow').innerHTML='<span class="pr-lab">Group</span>'+groupsNow().filter(g=>!g.hidden||(g.k==='mine'&&FAV)).map(g=>chip(g.k==='mine'?('My team: '+favShort):g.l,state.g===g.k,`data-g="${g.k}"`)).join('');
+    const G=groupsNow().find(g=>g.k===state.g)||GROUPS[0], sub=document.getElementById('subRow');
     if(G.subs&&G.subs.length){
       if(!G.subs.some(s=>s[0]===state.v)) state.v=G.subs[0][0];
       sub.style.display=''; sub.innerHTML='<span class="pr-lab">'+esc(G.l)+'</span>'+G.subs.map(s=>chip(s[1],state.v===s[0],`data-v="${esc(s[0])}"`)).join('');
@@ -298,12 +403,12 @@
     // Movers are ranked by the change in grade, so the rank-by row steps aside for them
     const byRow=document.getElementById('byRow');
     byRow.style.display=state.g==='move'?'none':'';
-    byRow.innerHTML='<span class="pr-lab">Rank by</span>'+STATS.map(s=>chip(s.l,state.by===s.k,`data-by="${s.k}"`)).join('');
+    byRow.innerHTML='<span class="pr-lab">Rank by</span>'+statsNow().map(s=>chip(s.l,state.by===s.k,`data-by="${s.k}"`)).join('');
     const CL={B10:'Big Ten',B12:'Big 12',BE:'Big East',P12:'Pac-12',A10:'A-10'};
     document.getElementById('confRow').innerHTML='<span class="pr-lab">Conference</span>'+chip('All',!state.c,'data-c=""')+CONFS.map(c=>chip(CL[c]||c,state.c===c,`data-c="${esc(c)}"`)).join('');
   }
   function listFor(){
-    const G=GROUPS.find(g=>g.k===state.g)||GROUPS[0], S=STATS.find(s=>s.k===state.by)||STATS[0];
+    const G=groupsNow().find(g=>g.k===state.g)||GROUPS[0], S=statsNow().find(s=>s.k===state.by)||STATS[0];
     let L=ALL.filter(p=>(!G.of||(G.subs?G.of(p)===state.v:!!G.of(p))) && (!state.c||p._conf===state.c));
     if(G.k==='move'){
       // risers / fallers: players who played last season and project into a real role this one
@@ -331,32 +436,32 @@
     const isMove=G.k==='move', byL=S.k==='bb'?'Big Board rank':S.k==='nil'?'NIL value':S.l.toLowerCase();
     document.getElementById('listTitle').textContent=isMove||S.k==='ovr'?who:`${who}: ${byL} leaders`;
     document.getElementById('listNote').textContent=isMove
-      ? `${L.length.toLocaleString()} players · projected 2026-27 overall against his 2025-26 grade · projected for 10+ minutes`
-      : `${L.length.toLocaleString()} ranked`+(S.k==='ovr'?' by projected 2026-27 overall':` by ${S.k==='bb'?'Big Board rank':'projected '+byL}`+(S.k==='tovs'?' (fewest first)':''))+((S.k!=='ovr'&&!S.all)?' · rotation players only':'');
+      ? (PAST()?`${L.length.toLocaleString()} players · ${sl(state.s)} overall against ${sl(+state.s-1)} · 10+ minutes a game`:`${L.length.toLocaleString()} players · projected 2026-27 overall against his 2025-26 grade · projected for 10+ minutes`)
+      : `${L.length.toLocaleString()} ranked`+(S.k==='ovr'?(PAST()?` by ${sl(state.s)} overall`:' by projected 2026-27 overall'):` by ${S.k==='bb'?'Big Board rank':(PAST()?sl(state.s)+' '+byL:'projected '+byL)}`+(S.k==='tovs'?' (fewest first)':''))+((S.k!=='ovr'&&!S.all)?' · rotation players only':'');
     const cols=[
-      ['rk','RK','rk'],['nm','Player','l'],...(isMove?[['mv','Change','']]:[]),['tm','Team','l'],['cf','Conf','l dim'],['ps','Pos','l dim'],['yr','Class','l dim'],['ar','Style','l dim'],
+      ['rk','RK','rk'],['nm','Player','l'],...(isMove?[['mv','Change','']]:[]),['tm','Team','l'],['cf','Conf','l dim'],['ps','Pos','l dim'],['yr','Class','l dim'],...(PAST()?[]:[['ar','Style','l dim']]),
     ];
-    const mvTip='Projected 2026-27 overall minus his 2025-26 grade';
+    const mvTip=PAST()?`${sl(state.s)} overall minus his ${sl(+state.s-1)} overall`:'Projected 2026-27 overall minus his 2025-26 grade';
     document.getElementById('prHead').innerHTML=cols.map(c=>`<th class="${c[2]}"${c[0]==='mv'?` title="${mvTip}"`:''}>${c[1]}</th>`).join('')
-      +STATS.map(s=>{ const on=!isMove&&s.k===S.k, best=(s.heat<0)?'▲':'▼', worst=(s.heat<0)?'▼':'▲';
+      +statsNow().map(s=>{ const on=!isMove&&s.k===S.k, best=(s.heat<0)?'▲':'▼', worst=(s.heat<0)?'▼':'▲';
         return `<th class="${isMove?'':'sort'}${on?' on':''}" data-sort="${s.k}"${s.tip?` title="${esc(s.tip)}"`:''}>${s.h}<span class="ar">${on?(state.dir>0?best:worst):''}</span></th>`; }).join('');
     const body=shown.map(({p,rk})=>{
       const link=`player.html?${p.espn_id?('espn='+p.espn_id+'&'):''}name=${encodeURIComponent(p.name)}`;
       // the Movers lists show the grade change; the other lists have no movement column
-      const mv=isMove?`<td class="${p._dOvr>0?'up':'dn'}" title="${p._prev} last season → ${Math.round(p._ovr)} projected">${p._dOvr>0?'+':''}${p._dOvr}</td>`:'';
+      const mv=isMove?`<td class="${p._dOvr>0?'up':'dn'}" title="${p._prev} ${PAST()?sl(+state.s-1):'last season'} → ${Math.round(p._ovr)} ${PAST()?sl(state.s):'projected'}">${p._dOvr>0?'+':''}${p._dOvr}</td>`:'';
       return `<tr${FAV&&p.team===FAV&&G.k!=='mine'?' class="fav" title="Your team"':''}><td class="rk">${rk}</td><td class="l nm"><a href="${link}">${esc(p.name)}</a></td>${mv}`
         +`<td class="l tm"><a href="team.html?team=${encodeURIComponent(p.team)}">${p._logo?`<img src="${p._logo}" alt="" loading="lazy" onerror="this.remove()">`:'<i></i>'}<span>${esc(p._team)}</span></a></td>`
-        +`<td class="l dim">${esc(p._conf)}</td><td class="l dim">${esc(p.position||'')}</td><td class="l dim">${esc(p.yr||p.class_year||'')}</td><td class="l dim">${esc(p._arch)}</td>`
-        +STATS.map(s=>{ const v=val(p,s.k); const cls=[s.k===S.k||s.k==='ovr'?'big':'', s.heat?heatCls(s,v):''].filter(Boolean).join(' ');
+        +`<td class="l dim">${esc(p._conf)}</td><td class="l dim">${esc(p.position||'')}</td><td class="l dim">${esc(p.yr||p.class_year||'')}</td>${PAST()?'':`<td class="l dim">${esc(p._arch)}</td>`}`
+        +statsNow().map(s=>{ const v=val(p,s.k); const cls=[s.k===S.k||s.k==='ovr'?'big':'', s.heat?heatCls(s,v):''].filter(Boolean).join(' ');
           return `<td${cls?` class="${cls}"`:''}>${fmt(s,v)}</td>`; }).join('')+'</tr>';
     }).join('');
-    document.getElementById('prBody').innerHTML=body||`<tr><td class="pr-empty" colspan="${cols.length+STATS.length}">No players in this list.</td></tr>`;
+    document.getElementById('prBody').innerHTML=body||`<tr><td class="pr-empty" colspan="${cols.length+statsNow().length}">No players in this list.</td></tr>`;
     // the Big Board column fills in once the shared engine has run
     if(S.k==='bb' && !ALL.some(p=>p.bb!=null)) document.getElementById('listNote').textContent='Computing the Big Board…';
     const more=document.getElementById('prMore');
     const total=q?ranked.filter(x=>(x.p.name+' '+x.p.team).toLowerCase().includes(q)).length:ranked.length;
     more.style.display=total>state.n?'':'none';
-    try{ const u=new URLSearchParams(); if(state.g!=='all') u.set('g',state.g); if(state.v) u.set('v',state.v); if(state.by!=='ovr') u.set('by',state.by); if(state.c) u.set('c',state.c);
+    try{ const u=new URLSearchParams(); if(state.g!=='all') u.set('g',state.g); if(state.v) u.set('v',state.v); if(state.by!=='ovr') u.set('by',state.by); if(state.c) u.set('c',state.c); if(PAST()) u.set('s',state.s);
       history.replaceState(null,'',location.pathname+(u.toString()?'?'+u:'')); }catch(e){}
   }
 
@@ -375,6 +480,8 @@
     if(state.by===k) state.dir=-state.dir; else { state.by=k; state.dir=1; }
     state.n=PAGE; paintControls(); render();
   });
+  document.getElementById('prSeason').addEventListener('change',e=>{ state.s=e.target.value; state.n=PAGE; state.dir=1;
+    load().catch(err=>{ document.getElementById('prBody').innerHTML=`<tr><td class="pr-empty" colspan="20">Could not load players. ${esc(err&&err.message||err)}</td></tr>`; }); });
   document.getElementById('prMore').addEventListener('click',()=>{ state.n+=PAGE; render(); });
   document.getElementById('prSearch').addEventListener('input',e=>{ state.q=e.target.value; state.n=PAGE; render(); });
   paintControls();
