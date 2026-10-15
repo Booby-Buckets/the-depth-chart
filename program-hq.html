@@ -380,6 +380,7 @@
   <script src="tdc-pwa.js?v=2" defer></script>
   <link rel="stylesheet" href="tdc-column.css?v=4"/>
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+  <script src="tdc-coachlink.js?v=1"></script>
 </head>
 <body data-anim-auto>
   <div class="hq-word" id="hqWord" aria-hidden="true"></div>
@@ -810,7 +811,7 @@ function pastHero(row,tr){
   var yr=HQ_SEASON;
   byId('hxKick').textContent='⬡ Season Archive · '+seasonLabel(yr);
   var _rk=byId('hxRank'); if(_rk) _rk.innerHTML='';
-  coachIn(row.full,yr).then(function(c){ if(c && MY===row.full && +HQ_SEASON===yr) byId('hxKick').textContent='⬡ Season Archive · '+seasonLabel(yr)+' · Coach '+c; });
+  coachIn(row.full,yr).then(function(c){ if(c && MY===row.full && +HQ_SEASON===yr) byId('hxKick').innerHTML='⬡ Season Archive · '+esc(seasonLabel(yr))+' · Coach '+(window.TDCCoach?TDCCoach.html(c,row.full):esc(c)); });
   if(!tr){ byId('hxPills').innerHTML='<span class="hx-meta">no '+seasonLabel(HQ_SEASON)+' season on file</span>'; return; }
   byId('hxPills').innerHTML='<span class="hx-meta">'+['<b>'+recStr(tr.wins,tr.losses)+'</b>'+(tr.conf_wins!=null?' ('+recStr(tr.conf_wins,tr.conf_losses)+' conf)':''),
     tr.ncaa_seed?'#'+tr.ncaa_seed+' seed':'', tr.ncaa_result?esc(tr.ncaa_result):'', esc(tr.conference||'')].filter(Boolean).join(' · ')+'</span>';

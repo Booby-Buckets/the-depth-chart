@@ -135,6 +135,7 @@
   <link rel="stylesheet" href="tdc-hq-site.css?v=24"/>
   <link rel="stylesheet" href="tdc-column.css?v=4"/>
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+  <script src="tdc-coachlink.js?v=1"></script>
 </head>
 <body data-anim-auto class="hqsite">
 <script src="tdc-nav.js?v=78"></script>
@@ -306,7 +307,7 @@ function cardBars(p){
 function coachCard(p){
   var res=resumeStr(p);
   return '<div class="ccard" onclick="openCoach(\''+p.coach_slug+'\')">'+
-    '<div class="top"><div style="display:flex;align-items:center;gap:11px;min-width:0;">'+_logoImg(lastSchool(p),30)+'<div style="min-width:0;"><div class="nm">'+p.coach+'</div><div class="school">'+lastSchool(p)+' · '+p.seasons+' seasons</div></div></div>'+
+    '<div class="top"><div style="display:flex;align-items:center;gap:11px;min-width:0;">'+_logoImg(lastSchool(p),30)+'<div style="min-width:0;"><div class="nm"><a class="tdc-coach" href="coach.html?slug='+encodeURIComponent(p.coach_slug)+'" onclick="event.stopPropagation()">'+p.coach+'</a></div><div class="school">'+lastSchool(p)+' · '+p.seasons+' seasons</div></div></div>'+
     (p.grade!=null?'<div class="cgrade" title="TDC Coach Grade"><span class="cg-n">'+p.grade+'</span><span class="cg-r">#'+p.rank+'</span></div>':'<span class="arch">'+p.archetype+'</span>')+'</div>'+
     (p.grade!=null?'<div class="archline">'+p.archetype+'</div>':'')+
     '<div class="rec"><b>'+p.wins+'-'+p.losses+'</b> ('+(p.win_pct*100).toFixed(0)+'%)'+(p.avg_srs!=null?' · SRS '+(p.avg_srs>=0?'+':'')+p.avg_srs.toFixed(1):'')+(res?' · '+res:'')+'</div>'+
@@ -366,7 +367,7 @@ function openCoachModal(slug){
     '<span class="sc">'+s.school+'</span><span class="wl">'+(s.wins!=null?s.wins+'-'+s.losses:'—')+'</span>'+
     '<span class="srs" style="color:'+(s.srs>=0?'#1f9d57':'#cf5a4e')+'">'+(s.srs!=null?(s.srs>=0?'+':'')+s.srs.toFixed(1):'')+'</span></div>';}).join('');
   document.getElementById('msheet').innerHTML=
-    '<div class="mhead"><div><div class="nm">'+p.coach+'</div>'+
+    '<div class="mhead"><div><div class="nm"><a class="tdc-coach" href="coach.html?slug='+encodeURIComponent(p.coach_slug)+'">'+p.coach+'</a></div>'+
       '<div class="meta">'+p.schools+' · '+seasonLbl(p.first_year)+' to '+seasonLbl(p.last_year)+'</div>'+
       '<span class="arch">'+p.archetype+'</span></div>'+
       '<button class="mclose" onclick="closeModal()">✕</button></div>'+

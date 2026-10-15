@@ -110,6 +110,7 @@
   <link rel="stylesheet" href="tdc-hq-site.css?v=24"/>
   <link rel="stylesheet" href="tdc-column.css?v=4"/>
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+  <script src="tdc-coachlink.js?v=1"></script>
 </head>
 <body data-anim-auto class="hqsite">
   <script src="tdc-nav.js?v=78"></script>
@@ -263,7 +264,7 @@ function teamHeaderHtml(t){
   return `<div class="phero" style="align-items:flex-start;">
     <div class="pmono">${initials(t.full||t.team)}</div>
     <div style="flex:1;min-width:0;"><div class="pname">${t.full||t.team}</div>
-      <div class="pmeta">${t.conf||''}${t.rank?' · #'+t.rank+' projected':''}${t.coach?' · '+t.coach+(t.archetype?' ('+t.archetype+')':''):''}</div>
+      <div class="pmeta">${t.conf||''}${t.rank?' · #'+t.rank+' projected':''}${t.coach?' · '+(window.TDCCoach?TDCCoach.html(t.coach,t.team):t.coach)+(t.archetype?' ('+t.archetype+')':''):''}</div>
       <div class="tneeds">${cells}</div>
       <div style="font-size:10.5px;color:var(--text3);margin-top:6px;">Best grade at each spot · red = a hole to fill</div></div>
     <a href="team.html?team=${encodeURIComponent(t.team)}" style="font-size:12px;font-weight:800;color:var(--accent);white-space:nowrap;">Team page →</a>
@@ -308,7 +309,7 @@ function renderPlayerFits(){
     <td class="rk">${i+1}</td>
     <td class="l nm"><a href="team.html?team=${encodeURIComponent(r.team)}">${r.full||r.team}</a></td>${fitTds(r)}
     <td class="l dim">${r.conf||''}</td><td class="dim">${r.rank||'—'}</td>
-    <td class="l dim">${r.coach||'n/a'}</td><td class="l dim">${r.coach&&r.archetype?r.archetype:''}</td>
+    <td class="l dim">${r.coach?(window.TDCCoach?TDCCoach.html(r.coach,r.team):r.coach):'n/a'}</td><td class="l dim">${r.coach&&r.archetype?r.archetype:''}</td>
     <td class="l dim">${r.playerPos}${r.offNatural?` (from ${r.naturalPos})`:''}</td>
     <td class="l dim">${r.slid?'covered by others':(r.starter||'—')} (${r.posBestOvr!=null?r.posBestOvr:Math.round(r.posBest)})</td>
     <td${r.upgrade>0?'':' class="dim"'}>${r.upgrade>0?'+'+r.upgrade:'—'}</td>

@@ -203,7 +203,7 @@
   function coachHtml(coach){
     if(!coach||!coach.name) return '';
     return '<div class="chm-coachbar"><div class="chm-coachbar-l">Head Coach</div>'
-      +'<div class="chm-coachbar-n">'+esc(coach.name)+'</div>'
+      +'<div class="chm-coachbar-n">'+(window.TDCCoach?TDCCoach.html(coach.name,coach.team||''):esc(coach.name))+'</div>'
       +(coach.archetype?'<div class="chm-coachbar-a">'+esc(coach.archetype)+(coach.pace?' &middot; '+Math.round(coach.pace)+' poss/gm':'')+'</div>':'')
       +'</div>';
   }

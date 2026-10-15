@@ -1072,6 +1072,7 @@ body{background:transparent!important;}
   <link rel="stylesheet" href="tdc-nil-view.css?v=1"/>
   <link rel="stylesheet" href="tdc-column.css?v=4"/>
   <link rel="stylesheet" href="tdc-player-a.css?v=10"/>
+  <script src="tdc-coachlink.js?v=1"></script>
 </head>
 <body data-anim-auto>
 <script src="tdc-nav.js?v=78"></script>
@@ -5478,7 +5479,7 @@ function _pfReport(r){
   host.innerHTML=`<div class="pf-report">
     <div class="pf-rh">
       <div><div class="pf-rt">Portal Report — ${esc(player.name)} → ${esc(r.full||r.team)}</div>
-        <div class="pf-rs">${esc(r.conf||'')}${r.rank?' · #'+r.rank:''}${r.coach?' · '+esc(r.coach):''}${r.archetype?' · '+esc(r.archetype):''}</div></div>
+        <div class="pf-rs">${esc(r.conf||'')}${r.rank?' · #'+r.rank:''}${r.coach?' · '+(window.TDCCoach?TDCCoach.html(r.coach,r.team):esc(r.coach)):''}${r.archetype?' · '+esc(r.archetype):''}</div></div>
       <div class="pf-rov"><div class="v" style="color:${heat(r.overall)}">${r.overall}</div><div class="l">Overall fit</div></div>
       <button class="pf-rx" id="pfReportClose" title="Close">✕</button>
     </div>
@@ -5504,7 +5505,7 @@ function _pfReport(r){
         </tbody></table></div>
       </div>
       <div>
-        <div class="pf-rlab">System fit${r.coach?' · '+esc(r.coach):''}</div>
+        <div class="pf-rlab">System fit${r.coach?' · '+(window.TDCCoach?TDCCoach.html(r.coach,r.team):esc(r.coach)):''}</div>
         <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">Signal</th><th>Δ</th></tr></thead><tbody>${coach}</tbody></table></div>
       </div>
     </div>
@@ -5549,7 +5550,7 @@ function _pfPaint(){
         <td class="l nm"><a href="team.html?team=${encodeURIComponent(r.team)}">${esc(r.full||r.team)}</a></td>
         <td class="l dim">${esc(r.conf||'')}</td>
         <td class="dim">${r.rank!=null?'#'+r.rank:'—'}</td>
-        <td class="l">${esc(r.coach||'—')}</td>
+        <td class="l">${r.coach&&window.TDCCoach?TDCCoach.html(r.coach,r.team):esc(r.coach||'—')}</td>
         <td class="l dim">${esc(r.archetype||'')}</td>
         ${sc(r.overall)}${sc(r.need)}${sc(r.teamSuccess)}${sc(r.playerSuccess)}${sc(r.coachFit)}
         <td class="l">${esc(r.playerPos||ppos)}: ${_pfSpot(r)}${r.role?' · '+esc(r.role):''}</td>
@@ -6968,7 +6969,7 @@ async function renderScheme(){
   if(fp.length){
     const rows=fp.map(r=>`<tr><td class="l nm">${r.l}</td><td class="l dim">${r.sub}</td><td class="v">${r.v}</td><td class="dim">${r.lg}</td><td>${r.sc!=null?`×${r.sc.toFixed(2)}`:sgn(r.fgb,1,' FG%')}</td><td class="l strong">${r.tag}</td></tr>`).join('');
     const strong=fp.filter(r=>r.sc!=null?Math.abs(r.sc-1)>=0.08:Math.abs(r.fgb||0)>=1.5);
-    const who=(ownScales.coach?`<b>${esc(ownScales.coach)}</b>'s`:`<b>${esc(player.team)}</b>'s`)+(C.archetype?` <b>${esc(C.archetype)}</b>`:'')+' system';
+    const who=(ownScales.coach?`<b>${window.TDCCoach?TDCCoach.html(ownScales.coach,player.team):esc(ownScales.coach)}</b>'s`:`<b>${esc(player.team)}</b>'s`)+(C.archetype?` <b>${esc(C.archetype)}</b>`:'')+' system';
     const fpRead=strong.length?`${who} leans on ${strong.map(r=>`<b>${r.tag.toLowerCase()}</b> ${r.l.toLowerCase()}`).join(', ')} — those are the levers that move his line below.`:`${who} sits near the league median on every lever — his line here is close to his neutral line.`;
     fpHtml=secH('His system’s fingerprint',`${esc(player.team)} · the real 2025-26 numbers behind the scales`)+
       `<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Lever</th><th class="l">Measure</th><th>${esc(player.team)}</th><th>League</th><th>Scale</th><th class="l">Read</th></tr></thead><tbody>${rows}</tbody></table></div>`+readBox(fpRead);

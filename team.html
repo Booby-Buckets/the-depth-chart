@@ -1350,6 +1350,7 @@
   .hero-grp-mega .hgm-grid{grid-template-columns:1fr 1fr!important;}
 }
 </style>
+  <script src="tdc-coachlink.js?v=1"></script>
 </head>
 <body data-anim-auto>
 <script src="tdc-nav.js?v=78"></script>
@@ -2193,7 +2194,7 @@ async function updateHeroCoach(teamObj, school, year){
   if(c && c.slug){
     el.innerHTML = 'HC: <a class="hero-coach-link" href="coach.html?slug='+encodeURIComponent(c.slug)+'">'+c.coach+'</a>';
   } else if(c){
-    el.textContent = 'HC: '+c.coach;
+    el.innerHTML = 'HC: '+(window.TDCCoach?TDCCoach.html(c.coach,school,'hero-coach-link'):c.coach);
   }
 }
 
@@ -2218,7 +2219,7 @@ function renderHero(t, color, rgb){
   document.getElementById('heroName').textContent = t.name;
   document.getElementById('heroNick').textContent = t.nickname || '';
   document.getElementById('heroRecord').textContent = t.record || '';
-  document.getElementById('heroCoach').textContent = t.coach || t.head_coach ? `HC: ${t.coach||t.head_coach}` : '';
+  document.getElementById('heroCoach').innerHTML = t.coach || t.head_coach ? 'HC: '+(window.TDCCoach?TDCCoach.html(t.coach||t.head_coach,t.name,'hero-coach-link'):(t.coach||t.head_coach)) : '';
   updateHeroCoach(t, t.name, (typeof _rosterSeason!=='undefined'&&_rosterSeason)||2027);
   updateHeroRank((typeof _rosterSeason!=='undefined'&&_rosterSeason)||2027, t);   // async; owns the badge
   document.querySelectorAll('.side-card-head').forEach(el => {
@@ -4462,7 +4463,7 @@ function _coachCourtNode(prof){
   const init=((prof.coach||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('')).toUpperCase();
   return `<div class="sq-coach" style="left:50%;top:91%;">
     <div class="sq-coach-ava">${init||'HC'}</div>
-    <div class="sq-coach-lbl">${prof.coach}${prof.archetype?' · '+prof.archetype:''}</div>
+    <div class="sq-coach-lbl">${prof.coach_slug?`<a class="tdc-coach" href="coach.html?slug=${encodeURIComponent(prof.coach_slug)}">${prof.coach}</a>`:prof.coach}${prof.archetype?' · '+prof.archetype:''}</div>
   </div>`;
 }
 function _coachLines(starters, prof){

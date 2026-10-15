@@ -402,6 +402,7 @@ body{background:transparent!important;}
   <script src="tdc-pwa.js?v=2" defer></script>
   <link rel="stylesheet" href="tdc-hq-site.css?v=24"/>
   <link rel="stylesheet" href="tdc-column.css?v=4"/>
+  <script src="tdc-coachlink.js?v=1"></script>
 </head>
 <body data-anim-auto class="hqsite">
 <script src="tdc-nav.js?v=78"></script>
@@ -1725,7 +1726,7 @@ async function _fillCoachFit(p1,p2,c1,c2){
     const col=fit>=72?'#1a8c3a':fit>=52?'#C8A020':'#cc5533';
     let rHtml=(res.reasons||[]).slice(0,4).map(r=>`<div class="cf-reason"><span class="cf-dot" style="background:${(r.d>0)?'#1a8c3a':(r.d<0?'#cc5533':'#8a867a')}"></span>${r.t||''}</div>`).join('');
     if(!rHtml) rHtml=`<div class="cf-reason" style="color:var(--text3);">${fit>=70?'A clean schematic match — no friction points.':fit>=50?'A neutral fit — no strong push or pull from this system.':'Some schematic friction with how this staff plays.'}</div>`;
-    el.innerHTML=`<div class="cf-head"><div class="cf-coach">${cn||prof.coach}</div><div class="cf-arch">${prof.archetype||''}</div></div>`
+    el.innerHTML=`<div class="cf-head"><div class="cf-coach">${window.TDCCoach?TDCCoach.html(cn||prof.coach,''):(cn||prof.coach)}</div><div class="cf-arch">${prof.archetype||''}</div></div>`
       +`<div class="cf-score" style="color:${col};">${fit}<span class="cf-scorel">/100 fit</span></div>${rHtml}`;
   };
   side(p1,'cfit1'); side(p2,'cfit2');
