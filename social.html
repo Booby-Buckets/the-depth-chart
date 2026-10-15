@@ -1627,12 +1627,17 @@
       // let an 18%-opponent-3P stretch lead); a graphic saved before this switches over once
       if(!d._adj){ if(d.metric==='net'||d.metric==='def') d.metric='netl'; if(!(+d.minPoss<200)) d.minPoss=120; d._adj=1; }
       var w=await json('scripts/data/wowy_units_'+(d.season||'2026')+'.json'); await ratings(); var M=UMET[d.metric]||UMET.def, n=Math.max(1,Math.min(12,+d.n||8)), out=[];
+      // one team picked (owner, Oct 2026): a 100+ floor left Notre Dame with 2 lineups, so the floor drops to the
+      // n-th most-played unit's possessions — enough to fill the graphic — but never below 50 (noise below that)
+      var minP=+d.minPoss||0;
+      if(d.team){ var ps=[]; Object.keys(w.units).forEach(function(t){ if(onTeam(t,d.team)) (w.units[t]['5']||[]).forEach(function(x){ if(x.r) ps.push(x.r.poss); }); });
+        ps.sort(function(a,b){ return b-a; }); if(ps.length&&(ps[n-1]==null||ps[n-1]<minP)) minP=Math.max(50,Math.min(minP,ps[Math.min(n,ps.length)-1])); }
       Object.keys(w.units).forEach(function(t){ if(!onTeam(t,d.team)||(d.conf&&confOfFull(t)!==d.conf)) return;
-        (w.units[t]['5']||[]).forEach(function(x){ if(x.r&&x.r.poss>=(+d.minPoss||0)) out.push({ team:t, ids:x.ids, r:x.r }); }); });
+        (w.units[t]['5']||[]).forEach(function(x){ if(x.r&&x.r.poss>=minP) out.push({ team:t, ids:x.ids, r:x.r }); }); });
       var key=d.metric==='def'?'d':d.metric==='off'?'o':d.metric==='netl'?'netl':'net'; out.sort(function(a,b){ return d.metric==='def'?a.r[key]-b.r[key]:b.r[key]-a.r[key]; });
       d.rows=out.slice(0,n).map(function(x){ var o={ team:x.team, name:school(x.team), val:((key==='net'||key==='netl')&&x.r[key]>0?'+':'')+(+x.r[key]).toFixed(1), poss:String(x.r.poss) };
         x.ids.forEach(function(id,i){ o['n'+i]=w.names[id]||''; o['e'+i]=id; }); return o; });
-      scopeTitle(d,M[0],M[1]+' · five-man units, '+(+d.minPoss||0)+'+ possessions · '+seasonLbl(d.season)); d.lead=M[2];
+      scopeTitle(d,M[0],M[1]+' · five-man units, '+minP+'+ possessions · '+seasonLbl(d.season)); d.lead=M[2];
       d.src='Five-man stints rebuilt from play-by-play substitutions · badge = possessions played together'; },
     editor:function(d){
       return '<h3>Data</h3><div class="two"><div><label class="f">Rank by</label><select data-k="metric">'+Object.keys(UMET).map(function(k){ return '<option value="'+k+'"'+(d.metric===k?' selected':'')+'>'+UMET[k][0]+'</option>'; }).join('')+'</select></div>'+
