@@ -52,6 +52,7 @@ TDC_POSTS.add('scrimplayers', {
             stl: String(x.stl || 0), blk: String(x.blk || 0), tov: String(x.tov || 0), tpm: String(+x.tpm || 0),
             fg: (x.fgm != null && x.fga != null) ? x.fgm + '-' + x.fga : '',
             tp: (x.tpm != null && x.tpa != null) ? x.tpm + '-' + x.tpa : '',
+            ft: (x.ftm != null && x.fta != null) ? x.ftm + '-' + x.fta : '', oreb: String(+x.oreb || 0), pf: String(x.pf != null ? x.pf : ''),
             proj: ex != null ? H.fmt(ex, 1) : '',
             real: realSide != null ? String(realSide) : '' });
         });
@@ -71,7 +72,8 @@ TDC_POSTS.add('scrimplayers', {
       cols: (up ? [{ k: sk, lab: st.lab }, { k: 'proj', lab: 'Our line', nodist: true }] : [])
         .concat([{ k: 'pts', lab: 'Pts' }, { k: 'reb', lab: 'Reb' }, { k: 'ast', lab: 'Ast' }, { k: 'stl', lab: 'Stl' }, { k: 'blk', lab: 'Blk' }]
           .filter(function (c) { return c.k !== sk; }))   // already the lead (Most) or the first column (Beat our line)
-        .concat([{ k: 'fg', lab: 'FG', nodist: true }].concat(sk === 'tpm' ? [] : [{ k: 'tp', lab: '3P', nodist: true }]), [{ k: 'min', lab: 'Min', nodist: true }, { k: 'real', lab: 'Reality' }]),
+        .concat([{ k: 'fg', lab: 'FG', nodist: true }].concat(sk === 'tpm' ? [] : [{ k: 'tp', lab: '3P', nodist: true }]), [{ k: 'ft', lab: 'FT', nodist: true, off: true }, { k: 'oreb', lab: 'OReb', off: true }, { k: 'tov', lab: 'TOV', inv: true, off: true }, { k: 'pf', lab: 'PF', inv: true, off: true },
+          { k: 'min', lab: 'Min', nodist: true }, { k: 'real', lab: 'Reality' }]),
       rows: rows.slice(0, n), players: true
     };
   }

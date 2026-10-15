@@ -22,7 +22,7 @@
   <script src="tdc-pool.js?v=5"></script>
   <script src="tdc-histguard.js?v=2"></script>
   <script src="tdc-proj.js?v=hg5"></script>
-  <script src="social-posts.js?v=7"></script>
+  <script src="social-posts.js?v=8"></script>
   <script src="bigboard-engine.js?v=26"></script>
   <style>
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--accent-soft:rgba(168,132,60,.13);--green:#1a8c3a;--red:#cc2200;}
@@ -1855,6 +1855,8 @@
     lineOf:function(p){ try{ return TDCProjGrade.lineOf(p); }catch(e){ return null; } }, gradeSolo:function(p){ try{ return TDCProjGrade.gradeSolo(p); }catch(e){ return null; } },
     fmt:function(v,dec,plus){ if(v==null||v===''||!isFinite(+v)) return ''; var s=(+v).toFixed(dec==null?1:dec); return (plus&&+v>0?'+':'')+s; } }; }
   var _postsReady=null; function postsReady(){ return _postsReady||(_postsReady=TDC_POSTS.loadAll(needScript)); }
+  // a post's columns the owner has switched on (d.colOn[k] beats the post's default; off:true columns start hidden)
+  function postCols(d){ var on=d.colOn||{}; return (d.cols||[]).filter(function(c){ return on[c.k]!=null?!!on[c.k]:!c.off; }); }
   T.posts={
     ownBrand:true,
     defaults:function(){ return { key:'shotzones', n:10, team:'', conf:'', season:'2026', shots:true, title:'', subtitle:'', lead:'', src:'', cols:[], dist:{}, rows:[] }; },
@@ -1881,14 +1883,16 @@
         (o.dir?'<label class="f">Show</label><select data-k="dir"><option value="up"'+(d.dir!=='down'?' selected':'')+'>'+esc(o.upLabel||'Most / best first')+'</option><option value="down"'+(d.dir==='down'?' selected':'')+'>'+esc(o.downLabel||'Least / worst first')+'</option></select>':'')+
         (o.team||o.conf?scopeUI(d,{ noConf:o.conf===false }):'')+
         '<div class="btns"><button class="b sm primary" data-act="load">Load / refresh data</button></div>'+shotsChk(d)+
+        // add / remove stat columns (owner, Oct 2026); kept across reloads
+        ((d.cols||[]).length?'<label class="f">Columns</label><div class="seg">'+(d.cols||[]).map(function(c){ var vis=postCols(d).indexOf(c)>-1; return '<button type="button" data-act="pcol" data-col="'+esc(c.k)+'" class="'+(vis?'on':'')+'">'+esc(c.lab)+'</button>'; }).join('')+'</div>':'')+
         '<h3>Text</h3><label class="f">Title</label><input data-k="title" value="'+esc(d.title)+'"><label class="f">Subtitle</label><input data-k="subtitle" value="'+esc(d.subtitle)+'">'+
         '<div class="two"><div><label class="f">Lead column label</label><input data-k="lead" value="'+esc(d.lead||'')+'"></div><div><label class="f">Data source line</label><input data-k="src" value="'+esc(d.src||'')+'"></div></div>'+
         '<h3>Rows ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',fields)+'<div class="btns"><button class="b sm" data-act="add" data-path="rows">+ Add row</button><button class="b sm" data-act="clear" data-path="rows">Clear</button></div>'+
         lookUI(d,{ ramp:true, legend:true, lead:true, cols:(d.cols||[]).map(function(c){ return [c.k,c.lab]; }) });
     },
     draw:async function(d,W,H,u,pad){
-      bg(W,H); var y0=sheetHead(W,H,u,pad,d.title,d.subtitle), fTop=sheetFoot(W,H,u,pad,d.src,(d.cols||[]).length&&rampOf(HEAT_RAMP)?rampLegend(u,rampOf(HEAT_RAMP),'RANK','Low','High'):null);
-      await rankTable(d,W,H,u,pad,y0,fTop,{ amber:!!d.lead, leadLabel:d.lead||'', stops:HEAT_RAMP, cols:(d.cols||[]).map(function(c){ return { k:c.k, lab:c.lab, inv:!!c.inv }; }) });
+      bg(W,H); var y0=sheetHead(W,H,u,pad,d.title,d.subtitle), fTop=sheetFoot(W,H,u,pad,d.src,postCols(d).length&&rampOf(HEAT_RAMP)?rampLegend(u,rampOf(HEAT_RAMP),'RANK','Low','High'):null);
+      await rankTable(d,W,H,u,pad,y0,fTop,{ amber:!!d.lead, leadLabel:d.lead||'', stops:HEAT_RAMP, cols:postCols(d).map(function(c){ return { k:c.k, lab:c.lab, inv:!!c.inv }; }) });
       return (d.title||'')+'\n\n'+d.rows.slice(0,5).map(function(r,i){ return (i+1)+'. '+r.name+(r.team&&school(r.team)!==r.name?' ('+school(r.team)+')':'')+(r.val?' '+r.val+' '+(d.lead||''):''); }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB';
     }
   };
@@ -1955,7 +1959,7 @@
   // LOAD_VER: bump whenever a chart's or post's loader changes what it puts in the rows (columns, order, maths). A saved
   // graphic loaded under an older version reloads on open — unless its rows were hand-edited — so a fix reaches the
   // owner without clicking "Load / refresh data" (Oct 2026: the scrimmage scoreboard kept the old Margin rows).
-  var LOAD_VER='2026-10-15f';
+  var LOAD_VER='2026-10-15g';
   function stamp(d){ if(d&&Array.isArray(d.rows)){ d.loadedAt=new Date().toISOString().slice(0,10); d._lv=LOAD_VER; d._edited=false; } }
   function paintEditor(){ var d=doc(), h=T[S.tpl].editor(d);
     if(d.loadedAt&&Array.isArray(d.rows)&&d.rows.length){ var age=Math.round((Date.now()-new Date(d.loadedAt+'T12:00:00'))/864e5);
@@ -1990,6 +1994,7 @@
     if(act==='col'){ var cs=(d.cols||DSTATS_DEF).slice(), ci=cs.indexOf(b.dataset.col); if(ci>-1) cs.splice(ci,1); else cs.push(b.dataset.col); d.cols=DSTATS_ALL.map(function(x){ return x[0]; }).filter(function(k){ return cs.indexOf(k)>-1; }); }
     // column toggles on the sheet graphics, kept in their list's order
     if(act==='lcol'||act==='hcol'||act==='mcol'){ var L0=act==='lcol'?LCOLS:act==='hcol'?HCOLS:TMCOLS, c3=(d.cols||[]).slice(), i3=c3.indexOf(b.dataset.col); if(i3>-1) c3.splice(i3,1); else c3.push(b.dataset.col); d.cols=L0.map(function(x){ return x[0]; }).filter(function(k){ return c3.indexOf(k)>-1; }); }
+    if(act==='pcol'){ var pc=(d.cols||[]).filter(function(c){ return c.k===b.dataset.col; })[0]; if(pc){ d.colOn=d.colOn||{}; d.colOn[pc.k]=postCols(d).indexOf(pc)<0; } }
     if(act==='tcreset'){ d.tcolor=''; }
     if(act==='acol'){ var a4=(d.tcols||['ppg','rpg','apg']).slice(), i4=a4.indexOf(b.dataset.col); if(i4>-1) a4.splice(i4,1); else a4.push(b.dataset.col); d.tcols=DSTATS_ALL.map(function(x){ return x[0]; }).filter(function(k){ return a4.indexOf(k)>-1; }); }
     if(act==='addaward'){ d.awards.push({ label:'Award', name:'', team:'' }); }
