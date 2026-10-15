@@ -22,7 +22,7 @@
   <script src="tdc-pool.js?v=5"></script>
   <script src="tdc-histguard.js?v=2"></script>
   <script src="tdc-proj.js?v=hg5"></script>
-  <script src="social-posts.js?v=2"></script>
+  <script src="social-posts.js?v=3"></script>
   <script src="bigboard-engine.js?v=26"></script>
   <style>
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--accent-soft:rgba(168,132,60,.13);--green:#1a8c3a;--red:#cc2200;}
@@ -1863,7 +1863,8 @@
       var r=await P0.load(d,postHelpers()); if(!r) throw new Error('No data for that filter.');
       d.title=r.title||P0.label; d.subtitle=r.subtitle||''; d.lead=r.lead||''; d.src=r.src||''; d.cols=r.cols||[];
       d.rows=(r.rows||[]).map(function(x){ return Object.assign({},x,{ val:x.val==null?'':String(x.val) }); });
-      d.dist={}; (d.cols||[]).forEach(function(c){ var pool=(r.dist&&r.dist[c.k])||d.rows.map(function(x){ return x[c.k]; }); d.dist[c.k]=quant(pool.map(function(v){ return parseFloat(v); })); });
+      d.dist={}; (d.cols||[]).forEach(function(c){ if(c.nodist){ d.dist[c.k]=[]; return; }   // nodist: a plain column, no heat (minutes, 8-13 FG)
+        var pool=(r.dist&&r.dist[c.k])||d.rows.map(function(x){ return x[c.k]; }); d.dist[c.k]=quant(pool.map(function(v){ return parseFloat(v); })); });
       if(r.players!=null) d.shots=!!r.players; },
     editor:function(d){
       var L=(window.TDC_POSTS?TDC_POSTS.list():[]), P0=window.TDC_POSTS&&TDC_POSTS.get(d.key), o=(P0&&P0.opts)||{}, groups={};
@@ -1952,7 +1953,7 @@
   // LOAD_VER: bump whenever a chart's or post's loader changes what it puts in the rows (columns, order, maths). A saved
   // graphic loaded under an older version reloads on open — unless its rows were hand-edited — so a fix reaches the
   // owner without clicking "Load / refresh data" (Oct 2026: the scrimmage scoreboard kept the old Margin rows).
-  var LOAD_VER='2026-10-15a';
+  var LOAD_VER='2026-10-15b';
   function stamp(d){ if(d&&Array.isArray(d.rows)){ d.loadedAt=new Date().toISOString().slice(0,10); d._lv=LOAD_VER; d._edited=false; } }
   function paintEditor(){ var d=doc(), h=T[S.tpl].editor(d);
     if(d.loadedAt&&Array.isArray(d.rows)&&d.rows.length){ var age=Math.round((Date.now()-new Date(d.loadedAt+'T12:00:00'))/864e5);
