@@ -30,48 +30,59 @@
     *{margin:0;padding:0;box-sizing:border-box;}
     html,body{background:var(--bg);}
     body{color:var(--text);font-family:'Inter',system-ui,sans-serif;font-weight:500;min-height:100vh;}
-    .page{padding:30px 0 60px;}
-    .eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
-    h1{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:34px;letter-spacing:-.02em;margin-bottom:12px;}
-    .daybar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;}
-    .daybar button,.daybar input{font:700 13px 'Inter',system-ui,sans-serif;background:var(--bg2);border:1px solid var(--border2);color:var(--text);padding:7px 12px;border-radius:8px;cursor:pointer;}
-    .daybar .lbl{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:20px;margin:0 6px;}
-    .daybar .today{margin-left:4px;}
-    .sub{font-size:12.5px;color:var(--text3);margin-bottom:20px;}
-    .sec{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:26px 0 10px;padding-bottom:8px;border-bottom:1px solid var(--border2);}
-    .sec h2{font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:800;}
+    .page{padding:26px 0 60px;}
+    .eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+    h1{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:34px;letter-spacing:-.02em;margin-bottom:14px;}
+    /* date strip: a week of days around the chosen one, like the big scoreboards */
+    .dates{display:flex;align-items:stretch;border-top:1px solid var(--border2);border-bottom:1px solid var(--border2);margin-bottom:8px;}
+    .dates .arw{background:none;border:none;border-right:1px solid var(--border);width:38px;font-size:20px;color:var(--text2);cursor:pointer;flex-shrink:0;}
+    .dates .arw.r{border-right:none;border-left:1px solid var(--border);}
+    .dates .arw:hover{background:var(--bg2);color:var(--text);}
+    .dates .days{flex:1;display:flex;overflow-x:auto;scrollbar-width:none;}
+    .dates .days::-webkit-scrollbar{display:none;}
+    .dates .d{flex:1 0 92px;text-align:center;padding:9px 6px 8px;text-decoration:none;color:var(--text2);border-bottom:3px solid transparent;}
+    .dates .d b{display:block;font-size:11px;font-weight:800;letter-spacing:.1em;}
+    .dates .d span{display:block;font-size:12.5px;font-weight:600;margin-top:2px;}
+    .dates .d:hover{background:var(--bg2);color:var(--text);}
+    .dates .d.on{color:var(--text);border-bottom-color:var(--accent);}
+    .dates .cal{position:relative;width:44px;flex-shrink:0;border-left:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--text2);}
+    .dates .cal input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;}
+    .sub{font-size:12.5px;color:var(--text3);margin-bottom:18px;}
+    .sec{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:24px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--text);}
+    .sec h2{font-size:13px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;}
     .sec .n{font-size:12px;color:var(--text3);}
-    .td-tbl td.mu{white-space:nowrap;}
-    .td-tbl td.mu img{width:18px;height:18px;object-fit:contain;vertical-align:middle;margin:-2px 6px 0 0;}
-    .td-tbl td.mu a{color:var(--text);text-decoration:none;font-weight:700;} .td-tbl td.mu a:hover{color:var(--accent);text-decoration:underline;}
-    .td-tbl td.mu .at{color:var(--text3);font-weight:600;margin:0 7px;}
-    .td-tbl td.mu .rk{font-size:10.5px;color:var(--text3);font-weight:700;margin-right:3px;}
-    .td-tbl td.st{white-space:nowrap;font-weight:700;}
-    .td-tbl td.st.live{color:var(--red);}
-    .td-tbl td.st.live::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--red);margin-right:6px;vertical-align:1px;animation:tdpulse 1.6s infinite;}
-    @keyframes tdpulse{50%{opacity:.25}}
-    .td-tbl td.sc{font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;}
-    .td-tbl td.sc .w{color:var(--green);} .td-tbl td.sc .l{color:var(--text3);font-weight:600;}
-    .td-tbl td.note{font-size:11.5px;color:var(--text3);white-space:normal;min-width:220px;}
-    .td-tbl tr.go{cursor:pointer;}
     .chip{display:inline-block;padding:0 6px;border:1px dashed var(--border2);border-radius:4px;font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-left:6px;vertical-align:1px;}
+    /* game cards */
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px;}
+    .gc{display:flex;flex-direction:column;border:1px solid var(--border2);border-radius:10px;background:var(--bg);overflow:hidden;cursor:pointer;transition:border-color .15s,box-shadow .15s;}
+    .gc:hover{border-color:var(--text3);box-shadow:0 4px 14px rgba(0,0,0,.07);}
+    .gc-top{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px 4px;font-size:11.5px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;}
+    .gc-top .tv{color:var(--text3);font-weight:600;text-transform:none;letter-spacing:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:55%;}
+    .gc-top .live{color:var(--red);} .gc-top .live::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--red);margin-right:6px;vertical-align:1px;animation:tdpulse 1.6s infinite;}
+    @keyframes tdpulse{50%{opacity:.25}}
+    .gc-t{display:flex;align-items:center;gap:10px;padding:6px 14px;}
+    .gc-t img{width:28px;height:28px;object-fit:contain;flex-shrink:0;}
+    .gc-t .nmw{min-width:0;flex:1;}
+    .gc-t .nm{font-size:16px;font-weight:700;color:var(--text);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;}
+    .gc-t a.nm:hover{text-decoration:underline;}
+    .gc-t .rk{font-size:11px;font-weight:700;color:var(--text3);margin-right:5px;}
+    .gc-t .ex{font-size:11px;color:var(--text3);font-weight:500;margin-top:1px;}
+    .gc-t .sc{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;min-width:40px;text-align:right;}
+    .gc-t .sc.pj{font-size:14px;font-weight:600;color:var(--text3);}
+    .gc-t.lose .nm,.gc-t.lose .sc{color:var(--text3);} .gc-t.lose .sc{font-weight:600;}
+    .gc-t.win .sc::after{content:'◂';font-size:11px;color:var(--text);margin-left:3px;vertical-align:4px;}
+    .gc-ft{margin-top:auto;border-top:1px solid var(--border);padding:8px 14px 10px;display:flex;justify-content:space-between;gap:10px;align-items:baseline;font-size:12px;color:var(--text2);background:var(--bg2);}
+    .gc-ft .ln b{color:var(--text);}
+    .gc-ft .go{font-weight:700;color:var(--accent);white-space:nowrap;text-decoration:none;}
+    .gc-note{padding:2px 14px 10px;font-size:11.5px;color:var(--text3);line-height:1.45;}
     .empty{padding:26px;text-align:center;color:var(--text3);border:1px dashed var(--border2);border-radius:12px;font-size:13px;}
     @media(max-width:640px){
-      h1{font-size:28px;}
-      .daybar .lbl{order:-1;flex:1 0 100%;margin:0 0 4px;font-size:18px;}
-      .daybar input{flex:1;min-width:0;}
-      .sec{flex-wrap:wrap;} .sec h2{font-size:20px;} .sec .n{flex:1 0 100%;}
-      .td-tbl td.mu .tm{display:block;line-height:1.7;} .td-tbl td.mu .at{display:none;}
-      /* long names ("College of Biblical Studies") wrap instead of pushing Score / Our line off the screen */
-      .td-tbl td.mu{white-space:normal!important;} .td-tbl td.mu .tm{line-height:1.25;padding:2px 0 2px 20px;text-indent:-20px;}
-      .td-tbl{width:100%!important;}
-      .td-tbl td.st,.td-tbl th:first-child{font-size:11.5px!important;padding-left:5px!important;padding-right:3px!important;width:1%;}
-      .td-tbl td.mu .tm.h::before{content:'@ ';color:var(--text3);font-weight:600;}
-      .td-tbl td.mu .tm.h.n::before{content:'vs ';}
-      .td-tbl th.tv,.td-tbl td.tv,.td-tbl th.nt,.td-tbl td.note{display:none;}
-      .td-tbl td.ln{white-space:normal!important;min-width:0;max-width:84px;line-height:1.3;} .td-tbl th.wph,.td-tbl td.wp{display:none;} .td-tbl .pj{display:none;} .td-tbl td.st{font-size:12px;}
-      .td-tbl td.ln .sp{display:block!important;}
-      .td-tbl th,.td-tbl td{padding-left:6px!important;padding-right:6px!important;}
+      h1{font-size:26px;margin-bottom:10px;}
+      .grid{grid-template-columns:minmax(0,1fr);gap:10px;}
+      .dates .d{flex:0 0 74px;padding:8px 4px 7px;} .dates .d span{font-size:11.5px;}
+      .dates .arw{width:30px;}
+      .gc-t .nm{font-size:15px;} .gc-t .sc{font-size:21px;} .gc-t img{width:24px;height:24px;}
+      .sec{flex-wrap:wrap;} .sec .n{flex:1 0 100%;}
     }
   </style>
   <link rel="stylesheet" href="tdc-skin.css?v=14"/>
@@ -84,15 +95,9 @@
 <body>
 <script src="tdc-nav.js?v=78"></script>
 <div class="page">
-  <div class="eyebrow">Scores · every game, scrimmages included</div>
-  <h1>Today's Games</h1>
-  <div class="daybar">
-    <button type="button" id="prev" aria-label="Previous day">‹</button>
-    <span class="lbl" id="dayLbl"></span>
-    <button type="button" id="next" aria-label="Next day">›</button>
-    <input type="date" id="pick" aria-label="Pick a day"/>
-    <button type="button" class="today" id="goToday">Today</button>
-  </div>
+  <div class="eyebrow">Scoreboard · men's college basketball</div>
+  <h1 id="ttl">Today's Games</h1>
+  <div class="dates"><button type="button" class="arw" id="prev" aria-label="Previous day">‹</button><div class="days" id="days"></div><button type="button" class="arw r" id="next" aria-label="Next day">›</button><label class="cal" title="Pick a day">📅<input type="date" id="pick" aria-label="Pick a day"/></label></div>
   <div class="sub" id="sub">Loading the slate…</div>
   <div id="scrimSec"></div>
   <div id="gameSec"></div>
@@ -107,19 +112,34 @@
   // tdc-live.js reads ?livedate=YYYYMMDD at load, so another day is a reload with both params
   const go=d=>{ location.href='today.html'+(d===TODAY?'':'?date='+d+'&livedate='+d.replace(/-/g,'')); };
   const nice=d=>new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
-  document.getElementById('dayLbl').textContent=(DAY===TODAY?'Today · ':'')+nice(DAY);
+  const url=d=>'today.html'+(d===TODAY?'':'?date='+d+'&livedate='+d.replace(/-/g,''));
+  document.getElementById('ttl').textContent=DAY===TODAY?"Today's Games":nice(DAY);
+  // a week of days centred on the chosen one
+  document.getElementById('days').innerHTML=[-3,-2,-1,0,1,2,3].map(k=>{ const d=shift(DAY,k), x=new Date(d+'T12:00:00');
+    const wd=d===TODAY?'TODAY':x.toLocaleDateString('en-US',{weekday:'short'}).toUpperCase();
+    return `<a class="d${k===0?' on':''}" href="${url(d)}"><b>${wd}</b><span>${x.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span></a>`; }).join('');
+  { const dz=document.getElementById('days'), on=dz.querySelector('.d.on');   // phones: open centred on the chosen day
+    if(on) dz.scrollLeft=Math.max(0,on.offsetLeft-dz.offsetLeft-(dz.clientWidth-on.offsetWidth)/2); }
   const pk=document.getElementById('pick'); pk.value=DAY; pk.onchange=()=>pk.value&&go(pk.value);
   document.getElementById('prev').onclick=()=>go(shift(DAY,-1));
   document.getElementById('next').onclick=()=>go(shift(DAY,1));
-  document.getElementById('goToday').onclick=()=>go(TODAY);
   if(DAY!==TODAY) document.title=nice(DAY)+' — Games — The Depth Chart';
 
   let BY={}, SCR=null, BOARD=null;
   const short=full=>{ const t=BY[full]; const s=(t&&t.team)||String(full||'').replace(/ \S+$/,''); try{ return (window.tdcShortSchool&&tdcShortSchool(s))||s; }catch(e){ return s; } };
   const logo=full=>{ try{ const t=BY[full]; const c=window.tdcTeamColor&&(tdcTeamColor((t&&t.team)||full)||tdcTeamColor(full)); return (c&&c.logo)||''; }catch(e){ return ''; } };
-  // eager: the scrimmage table is a handful of rows and a lazy logo there showed blank; the long game list stays lazy
-  const teamA=(full,lg,lazy)=>{ const t=BY[full], img=lg||logo(full);
-    return (img?`<img src="${esc(img)}" alt=""${lazy?' loading="lazy"':''} onerror="this.style.visibility='hidden'">`:'')+(t?`<a href="team.html?team=${encodeURIComponent(t.team)}" onclick="event.stopPropagation()">${esc(short(full))}</a>`:`<b>${esc(short(full))}</b>`); };
+  // one game card. t = {full, logo, rank, score, proj}; state 'pre' | 'in' | 'post'
+  const nameA=(full)=>{ const t=BY[full]; return t?`<a class="nm" href="team.html?team=${encodeURIComponent(t.team)}" onclick="event.stopPropagation()">${esc(short(full))}</a>`:`<span class="nm">${esc(short(full))}</span>`; };
+  const teamRow=(t,state,win,lose)=>{ const img=t.logo||logo(t.full), r=t.rank||(BY[t.full]&&BY[t.full].rank);
+    const sc=state==='pre'?(t.proj!=null?`<span class="sc pj">${t.proj}</span>`:'<span class="sc"></span>'):`<span class="sc">${t.score==null?'':t.score}</span>`;
+    return `<div class="gc-t${win?' win':''}${lose?' lose':''}">${img?`<img src="${esc(img)}" alt="" onerror="this.style.visibility='hidden'">`:'<span style="width:28px"></span>'}`+
+      `<div class="nmw"><div style="display:flex;align-items:baseline;min-width:0">${r&&r<=25?`<span class="rk">${r}</span>`:''}${nameA(t.full)}</div>${t.ex?`<div class="ex">${t.ex}</div>`:''}</div>${sc}</div>`; };
+  const card=o=>{ const fin=o.state==='post', hw=fin&&o.home.score>o.away.score, aw=fin&&o.away.score>o.home.score;
+    return `<div class="gc"${o.gid?` data-gid="${esc(o.gid)}"`:''} onclick="location.href='${o.href.replace(/'/g,'%27')}'">`+
+      `<div class="gc-top"><span class="${o.state==='in'?'live':''}">${o.status}</span><span class="tv">${esc(o.tv||'')}</span></div>`+
+      teamRow(o.away,o.state,aw,hw)+teamRow(o.home,o.state,hw,aw)+
+      (o.note?`<div class="gc-note">${esc(o.note)}</div>`:'')+
+      `<div class="gc-ft"><span class="ln">${o.line||''}</span><a class="go" href="${o.href}" onclick="event.stopPropagation()">${fin?'Box score':o.state==='in'?'Live':'Preview'} ›</a></div></div>`; };
   const sg=v=>(v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(1);
   const lineTxt=(home,away,m)=>m==null?'—':Math.abs(m)<0.25?'Pick':`${esc(short(m>0?home:away))} <span class="sp">−${Math.abs(m).toFixed(1)}</span>`;
   const pairKey=(a,b)=>[a,b].sort().join('|');
@@ -132,27 +152,20 @@
     const list=SCR.games.filter(x=>x.date===DAY).sort((a,b)=>mins(a.time)-mins(b.time));
     if(!list.length){ el.innerHTML=''; return; }
     const live={}; ((BOARD&&BOARD.games)||[]).forEach(g=>{ live[pairKey(g.home.name,g.away.name)]=g; });
-    const rows=list.map(x=>{
+    const cards=list.map(x=>{
       const res=SCR.results[x.id], played=res&&res.hs!=null&&res.as!=null, lv=live[pairKey(x.home,x.away)];
       const P=window.TDCScrim?TDCScrim.price(x,BY,SCR.eff):null;
-      let st=esc(x.time||'TBA'), sc='—', cls='';
-      if(played){ st='Final'; const hw=res.hs>res.as;
-        sc=`<span class="${hw?'l':'w'}">${res.as}</span>–<span class="${hw?'w':'l'}">${res.hs}</span>`; }
-      else if(lv&&lv.state!=='pre'&&lv.home.score!=null){ st=esc(lv.state==='post'?'Final':lv.detail); cls=lv.state==='in'?' live':'';
-        const hm=lv.home.name===x.home; const hs=hm?lv.home.score:lv.away.score, as=hm?lv.away.score:lv.home.score; sc=`${as}–${hs}`; }
-      else if(P&&P.tot!=null) sc=`<span class="l"><span class="pj">proj </span>${Math.round((P.tot-P.m)/2)}–${Math.round((P.tot+P.m)/2)}</span>`;
+      let state='pre', status=esc(x.time?x.time+' ET':'TBA'), hs=null, as=null;
+      if(played){ state='post'; status='Final'; hs=res.hs; as=res.as; }
+      else if(lv&&lv.state!=='pre'&&lv.home.score!=null){ state=lv.state==='post'?'post':'in'; status=esc(lv.state==='post'?'Final':lv.detail);
+        const hm=lv.home.name===x.home; hs=hm?lv.home.score:lv.away.score; as=hm?lv.away.score:lv.home.score; }
+      const pj=(!played&&P&&P.tot!=null)?{h:Math.round((P.tot+P.m)/2),a:Math.round((P.tot-P.m)/2)}:null;
       const href=played?'scrimmage.html?id='+encodeURIComponent(x.id):'preview.html?team='+encodeURIComponent(x.home)+'&opp='+encodeURIComponent(x.away)+'&date='+x.date;
       const fav=P?(P.probH>=50?P.probH:100-P.probH):null;
-      return `<tr class="go" onclick="location.href='${href.replace(/'/g,'%27')}'" title="${played?'open the box score':'open the game preview'}">
-        <td class="l st${cls}">${st}</td>
-        <td class="l mu"><span class="tm">${teamA(x.away)}</span><span class="at">${x.neutral?'vs':'@'}</span><span class="tm h${x.neutral?' n':''}">${teamA(x.home)}</span></td>
-        <td class="c sc">${sc}</td>
-        <td class="l ln">${played?'':lineTxt(x.home,x.away,P&&P.m)}</td>
-        <td class="wp">${played||fav==null?'':Math.round(fav)+'%'}</td>
-        <td class="l dim tv">${esc(x.tv||'')}</td>
-        <td class="l note">${esc((res&&(res.note||res.auto_note))||'')}</td></tr>`; }).join('');
-    el.innerHTML=`<div class="sec"><h2>Scrimmages &amp; exhibitions <span class="chip">Unofficial</span></h2><span class="n">${list.length} game${list.length===1?'':'s'} · not counted in records, stats or ratings</span></div>
-      <div class="sheet-wrap" style="max-height:none"><table class="sheet dense td-tbl"><thead><tr><th class="l">Time</th><th class="l">Matchup</th><th class="c">Score</th><th class="l">Our line</th><th class="wph">Fav win %</th><th class="l tv">TV</th><th class="l nt">Top performers</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      const line=played?'<span class="chip" style="margin:0">Scrimmage · unofficial</span>':(P?`Our line <b>${lineTxt(x.home,x.away,P.m)}</b>${fav!=null?' · '+Math.round(fav)+'%':''} <span class="chip">Scrimmage</span>`:'<span class="chip" style="margin:0">Scrimmage</span>');
+      return card({state,status,tv:x.tv,href,line,note:(res&&(res.note||res.auto_note))||'',
+        away:{full:x.away,score:as,proj:pj&&pj.a,ex:x.neutral?'Neutral site':''},home:{full:x.home,score:hs,proj:pj&&pj.h}}); }).join('');
+    el.innerHTML=`<div class="sec"><h2>Scrimmages &amp; exhibitions <span class="chip">Unofficial</span></h2><span class="n">${list.length} game${list.length===1?'':'s'} · not counted in records, stats or ratings</span></div><div class="grid">${cards}</div>`;
   }
 
   // ── games: ESPN's scoreboard for the day (live + finals), else our 2026-27 schedule ──
@@ -171,28 +184,22 @@
     const time=g=>{ if(g.state==='in') return esc(g.detail||'Live'); if(g.state==='post') return esc(g.detail||'Final');
       if(fromSched||!g.date||g.timeValid===false) return 'TBA';
       return new Date(g.date).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'})+' ET'; };
-    const rk=s=>s.rank?`<span class="rk">${s.rank}</span>`:'';
-    const rows=games.map(g=>{
-      const final=g.state==='post', hs=g.home.score, as=g.away.score, hw=hs>as;
-      const sc=(g.state!=='pre'&&hs!=null)?`<span class="${final&&!hw?'w':final?'l':''}">${as}</span>–<span class="${final&&hw?'w':final?'l':''}">${hs}</span>`:'—';
+    const cards=games.map(g=>{
       const href=fromSched?'preview.html?team='+encodeURIComponent(g.home.name)+'&opp='+encodeURIComponent(g.away.name)+'&date='+DAY:'game.html?id='+encodeURIComponent(g.id);
-      return `<tr class="go" data-gid="${esc(g.id)}" onclick="location.href='${href.replace(/'/g,'%27')}'">
-        <td class="l st${g.state==='in'?' live':''}">${time(g)}</td>
-        <td class="l mu"><span class="tm">${rk(g.away)}${teamA(g.away.name,g.away.logo,true)}</span><span class="at">${g.neutral?'vs':'@'}</span><span class="tm h${g.neutral?' n':''}">${rk(g.home)}${teamA(g.home.name,g.home.logo,true)}</span></td>
-        <td class="c sc">${sc}</td><td class="l ln">…</td><td class="wp"></td><td class="l dim tv">${esc(g.tv||'')}</td></tr>`; }).join('');
-    el.innerHTML=`<div class="sec"><h2>Games</h2><span class="n">${games.length} game${games.length===1?'':'s'}${fromSched?' · from the announced schedule':''}</span></div>
-      <div class="sheet-wrap" style="max-height:none"><table class="sheet dense td-tbl"><thead><tr><th class="l">Time</th><th class="l">Matchup</th><th class="c">Score</th><th class="l">Our line</th><th class="wph">Fav win %</th><th class="l tv">TV</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      return card({gid:g.id,state:g.state,status:time(g),tv:g.tv,href,line:'<span class="lnv">…</span>',
+        away:{full:g.away.name,logo:g.away.logo,rank:g.away.rank,score:g.away.score,ex:g.neutral?'Neutral site':''},
+        home:{full:g.home.name,logo:g.home.logo,rank:g.home.rank,score:g.home.score}}); }).join('');
+    el.innerHTML=`<div class="sec"><h2>Games</h2><span class="n">${games.length} game${games.length===1?'':'s'}${fromSched?' · from the announced schedule':''}</span></div><div class="grid">${cards}</div>`;
     // our pregame line for each (tdc-schedule pricing; same as the game page)
     games.forEach(async g=>{
-      const tr=el.querySelector(`tr[data-gid="${CSS.escape(g.id)}"]`); if(!tr) return;
+      const cd=el.querySelector(`.gc[data-gid="${CSS.escape(g.id)}"]`); if(!cd) return;
       let l=null; try{ l=window.TDC_LIVE?await TDC_LIVE.pregame(g):null; }catch(e){}
-      tr.querySelector('.ln').innerHTML=l?lineTxt(g.home.name,g.away.name,l.margin):'—';
-      tr.querySelector('.wp').textContent=l&&l.p!=null?Math.round(100*Math.max(l.p,1-l.p))+'%':'';
+      cd.querySelector('.ln').innerHTML=l?`Our line <b>${lineTxt(g.home.name,g.away.name,l.margin)}</b>${l.p!=null?' · '+Math.round(100*Math.max(l.p,1-l.p))+'%':''}`:'';
     });
   }
 
   function summary(){
-    const s=((SCR&&SCR.games)||[]).filter(x=>x.date===DAY).length, n=document.querySelectorAll('#gameSec tbody tr').length;
+    const s=((SCR&&SCR.games)||[]).filter(x=>x.date===DAY).length, n=document.querySelectorAll('#gameSec .gc').length;
     const live=((BOARD&&BOARD.games)||[]).filter(g=>g.state==='in').length;
     const parts=[n?`${n} game${n===1?'':'s'}`:'',s?`${s} scrimmage${s===1?'':'s'}`:'',live?`${live} live now`:''].filter(Boolean);
     document.getElementById('sub').textContent=(parts.length?parts.join(' · '):'Nothing scheduled')+(DAY===TODAY?' · scores update automatically':'');
@@ -211,6 +218,6 @@
 </script>
 <script src="tdc-version.js?v=2"></script>
 <script src="tdc-sheets.js?v=2"></script>
-  <script src="tdc-tour.js?v=30"></script>
+  <script src="tdc-tour.js?v=31"></script>
 </body>
 </html>

@@ -373,7 +373,7 @@
     ],
 
     'today.html': [
-      { sel:'.daybar', t:'Pick a day', d:'The arrows step a day at a time, the calendar jumps to any date, and Today brings you back. Everything below re-loads for the day you pick.' },
+      { sel:'.dates', t:'Pick a day', d:'The week strip jumps to any day around this one, the arrows step a day at a time and the calendar jumps to any date. Everything below re-loads for the day you pick.' },
       { sel:'#scrimSec', t:'Scrimmages & exhibitions', d:'Preseason games, including the "secret" scrimmages. They are unofficial: they never count in a team\'s record. Click one for its box score and its Reality Meter (how game-like it was, which sets how much it moves our projections).' },
       { sel:'#gameSec', t:'Games', html:'Every Division-I game that day: live scores while they are on, finals after. Before tip-off you see our line.' + bl(G.spread) }
     ],
