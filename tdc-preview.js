@@ -200,7 +200,7 @@
     #gpCmp table.gp-t th:first-child,#gpCmp table.gp-t td:first-child{width:31%}
     #gpCmp table.gp-t small{display:none}
   }`;
-  function ensureCss() { if (document.getElementById('gp-css')) return; const s = document.createElement('style'); s.id = 'gp-css'; s.textContent = CSS + CSS_PHONE; document.head.appendChild(s); }
+  function ensureCss() { if (document.getElementById('gp-css')) return; const s = document.createElement('style'); s.id = 'gp-css'; s.textContent = CSS + CSS_PHONE + '.gp-read{font-size:13.5px;color:var(--text2);line-height:1.5;margin:8px 0 14px;}.gp-read b{color:var(--text);}'; document.head.appendChild(s); }
 
   const teamHref = n => `team.html?team=${encodeURIComponent(sn(n))}`;
   const playerHref = (p, team) => `player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(sn(team))}`;
@@ -280,7 +280,18 @@
     const d = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
     const pc = Math.round(row.p * 100);
     const side = (x, right) => `<div class="gp-side${right ? ' r' : ''}">${logo(x.n) ? `<img src="${logo(x.n)}" alt="">` : ''}<div><div class="gp-nm">${row.oppName || x.n === team ? `<a href="${teamHref(x.n)}">${sn(x.n)}</a>` : x.n}</div><div class="gp-sub">${x.r ? `<b>#${x.r.rank}</b> · ${sg(x.r.rating)} · ${x.r.conf || ''}` : 'unrated'}</div></div></div>`;
-    const hero = `<div class="gp-hero">${side(L, false)}<div class="gp-mid"><div class="gp-when">${d}${row.venue === 'N' ? ' · Neutral' : ''}${row.event ? ' · ' + row.event : ''}</div><div class="gp-score">${L.sc}–${Rt.sc}</div><div class="gp-odds"><b>${sn(team)}</b> ${pc}% to win · line ${row.margin >= 0 ? '−' : '+'}${Math.abs(row.margin).toFixed(1)}</div></div>${side(Rt, true)}</div>`;
+    // the game pages' team-colour band (tdc-gamehead.js) when it's loaded: away left, home right (a neutral site keeps
+    // this team left), projected scores in the score slots, a plain read line under it
+    const favN = row.margin >= 0 ? team : oppName, line = Math.abs(row.margin).toFixed(1);
+    const bandSide = x => { const c = g.TDC_GAMEHEAD.team(x.n);
+      return { name: sn(x.n), href: x.n === team || row.oppName ? teamHref(x.n) : null, logo: logo(x.n) || c.logo, color: c.color,
+        sub: x.r ? `#${x.r.rank} in our rankings${x.r.conf ? ' · ' + x.r.conf : ''}` : 'not in our rankings', pts: x.sc }; };
+    const me = { n: team, sc: row.scoreMe, r: RA }, them = { n: oppName, sc: row.scoreOpp, r: RB };
+    const band = g.TDC_GAMEHEAD ? g.TDC_GAMEHEAD.html({ away: bandSide(row.venue === 'H' ? them : me), home: bandSide(row.venue === 'H' ? me : them),
+        status: 'Projected', statusSub: row.event ? 'Scrimmage' : '',
+        meta: `<span>${d}</span><span>${row.venue === 'N' ? 'Neutral site' : sn(row.venue === 'H' ? team : oppName) + ' home floor'}</span>${row.event ? '<span>' + row.event + '</span>' : ''}` }) +
+      `<p class="gp-read">Our line: <b>${sn(favN)} −${line}</b> (${Math.max(pc, 100 - pc)}% to win) · projected score ${Math.max(row.scoreMe, row.scoreOpp)}–${Math.min(row.scoreMe, row.scoreOpp)}${row.total ? ', total ' + row.total.toFixed(1) : ''}.</p>` : '';
+    const hero = band || `<div class="gp-hero">${side(L, false)}<div class="gp-mid"><div class="gp-when">${d}${row.venue === 'N' ? ' · Neutral' : ''}${row.event ? ' · ' + row.event : ''}</div><div class="gp-score">${L.sc}–${Rt.sc}</div><div class="gp-odds"><b>${sn(team)}</b> ${pc}% to win · line ${row.margin >= 0 ? '−' : '+'}${Math.abs(row.margin).toFixed(1)}</div></div>${side(Rt, true)}</div>`;
     const strip = `<div class="gp-strip">
       <div class="gp-tile"><div class="k">Win prob</div><div class="v">${pc}%</div><div class="s">${sn(team)} · ${Math.round(row.p0 * 100)}% on the line alone</div></div>
       <div class="gp-tile"><div class="k">Line</div><div class="v">${row.margin >= 0 ? sn(team) + ' −' + row.margin.toFixed(1) : sn(oppName) + ' −' + (-row.margin).toFixed(1)}</div><div class="s">projected margin</div></div>

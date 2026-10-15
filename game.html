@@ -60,6 +60,9 @@
     .potg-callout .nm{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;}
     .potg-callout .ln{font-size:12.5px;color:var(--text2);font-variant-numeric:tabular-nums;}
     .potg-callout a{text-decoration:none;color:inherit;}
+    .potg-callout .potg-key{margin-left:auto;font-size:11.5px;color:var(--text3);text-align:right;}
+    @media(max-width:640px){.potg-callout{flex-wrap:wrap;}.potg-callout .potg-key{margin-left:0;flex:1 0 100%;text-align:left;}}
+    .gm-read{font-size:13.5px;color:var(--text2);line-height:1.5;margin:8px 0 0;} .gm-read b{color:var(--text);}
     .potg-callout a:hover .nm{color:var(--accent);}
     @media(max-width:620px){.wrap{padding:18px 12px 60px;}}
   </style>
@@ -109,6 +112,7 @@ function toggleTheme(){const d=document.documentElement.getAttribute('data-theme
 const qs=new URLSearchParams(location.search);
 const gid=qs.get('id');
 const N=v=>v==null?0:v;
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmtD=d=>{try{return new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});}catch(e){return d;}};
 
 // John Hollinger's Game Score — single-number box-score rating
@@ -221,11 +225,24 @@ async function load(afterLive){
     const shortNm=t=>{ try{ return (window.TDCTeamName&&TDCTeamName.short)?TDCTeamName.short(t):t; }catch(e){ return t; } };
     const bandSide=(t,pts,rate)=>{ const c=window.TDC_GAMEHEAD?TDC_GAMEHEAD.team(t):{};
       return { name:shortNm(t), href:'team.html?team='+encodeURIComponent(t), logo:c.logo, color:c.color,
-        sub:rate!=null?'Game rating '+ratePill(rate):'', pts:N(pts) }; };
+        sub:rate!=null?'Game rating '+ratePill(rate)+' '+ratingWord(rate):'', pts:N(pts) }; };
     const header=`<h1 class="sr-only">${away} at ${home}</h1>`+(window.TDC_GAMEHEAD?TDC_GAMEHEAD.html({
         away:bandSide(away,as_,tr?tr.away:null), home:bandSide(home,hs,tr?tr.home:null), status:'Final',
         meta:`<span>${fmtD(date)}</span>${loc?`<span>${loc}</span>`:''}${g&&g.conf_game?'<span>Conference game</span>':''}` })
       :`<div class="gh-meta">${fmtD(date)}</div>`);
+    // the read under the band: what was expected vs what happened. 2026-27 games use our pregame line (same as
+    // the scrimmage page); any season gets the season power ratings the team game rating is measured against.
+    const read=await (async()=>{
+      const mg=N(hs)-N(as_), res=`<b>${esc(shortNm(mg>=0?home:away))} by ${Math.abs(mg)}</b>`;
+      if(g&&g.season_year>=2027&&window.TDC_LIVE&&TDC_LIVE.pregame){ try{
+        const l=await TDC_LIVE.pregame({id:String(gid),date:g.date,home:{name:home},away:{name:away},neutral:!!g.neutral});
+        if(l&&l.margin!=null){ const d=mg-l.margin, fav=l.margin>=0?home:away;
+          return `Our line: <b>${esc(shortNm(fav))} −${Math.abs(l.margin).toFixed(1)}</b>${l.p!=null?` (${Math.round(100*Math.max(l.p,1-l.p))}% to win)`:''} · Result: ${res}, ${Math.abs(d).toFixed(1)} points ${(l.margin>=0?d:-d)>=0?'better':'worse'} than our line for the favorite.`; }
+      }catch(e){} }
+      const sH=SRS[home], sA=SRS[away]; if(sH==null||sA==null) return '';
+      const exp=sH-sA, over=mg-exp;
+      return `Season power ratings had <b>${esc(shortNm(exp>=0?home:away))} by ${Math.abs(exp).toFixed(1)}</b> · Result: ${res}, so ${esc(shortNm(over>=0?home:away))} played ${Math.abs(over).toFixed(1)} points better than expected. That gap is each team's game rating (6.3 = exactly as expected).`;
+    })();
     // player of the game = highest Game Score across both teams
     let potg=null,bestGs=-1e9;
     bA.forEach(p=>{const gs=gameScore(p); if(gs>bestGs){bestGs=gs;potg=p;}});
@@ -234,12 +251,13 @@ async function load(afterLive){
       <span class="crown">👑</span>
       <div><div class="lbl">Player of the Game</div>
         <a href="player.html?espn=${potg.espn_id}&name=${encodeURIComponent(potg.player)}"><span class="nm">${potg.player}</span></a>
-        <span class="ln"> — ${statline(potg)} · ${potg.team}</span></div></div>`:'';
+        <span class="ln"> — ${statline(potg)} · ${potg.team}</span></div>
+      <span class="potg-key" title="RTG is the box-score Game Score on a 0-10 scale">Player RTG: 5 ≈ an average game · 6.5 strong · 8+ great</span></div>`:'';
     // away team first, then home
     const order=[away,home].filter(t=>byTeam[t]);
     Object.keys(byTeam).forEach(t=>{ if(!order.includes(t)) order.push(t); });
     const trFor=t=>tr?(t===home?tr.home:t===away?tr.away:null):null;
-    c.innerHTML=header+callout+order.map(t=>tableFor(t,byTeam[t],potgId,trFor(t))).join('');
+    c.innerHTML=header+(read?`<p class="gm-read">${read}</p>`:'')+callout+order.map(t=>tableFor(t,byTeam[t],potgId,trFor(t))).join('');
     shadeBoxes(c);
     // game flow + rotation (ESPN play-by-play; hides itself when ESPN has no PBP)
     if(window.TDC_GAMEFLOW){ const gf=document.createElement('div'); gf.id='gfHost'; c.appendChild(gf); TDC_GAMEFLOW.mount(gf,gid); }
