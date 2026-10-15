@@ -309,7 +309,7 @@
   var T={};
 
   // ── Ranked list ──
-  var LIST_SRC={ teams:'Team rankings', board:'NBA Big Board', ppg:'Leaders · points', rpg:'Leaders · rebounds', apg:'Leaders · assists', stl:'Leaders · steals', blk:'Leaders · blocks', ovr:'Leaders · projected OVR', blank:'Blank list' };
+  var LIST_SRC={ teams:'Team rankings', stat:'Player leaders · any stat', board:'NBA Big Board', blank:'Blank list' };
   T.list={
     defaults:function(){ return { src:'teams', conf:'', n:25, title:'Preseason Top 25', subtitle:SEASON+' · Power Rankings', showVal:true, showSub:true, valLabel:'PWR', val2Label:'NET', rows:[] }; },
     load:async function(d){
@@ -328,6 +328,14 @@
         d.title=(d.team?school(d.team)+': ':'')+'Preseason NBA Draft Big Board'; d.subtitle=(d.team?'Draft prospects':'Top '+n)+(conf&&!d.team?' · '+conf:''); d.valLabel='POS'; d.val2Label=''; d.showSub=false;
       } else if(d.src==='blank'){
         d.rows=[]; for(var i=0;i<n;i++) d.rows.push({ name:'', team:'', val:'' });
+      } else if(d.src==='stat'||{ppg:1,rpg:1,apg:1,stl:1,blk:1,ovr:1}[d.src]){
+        // any stat, projected or 2025-26 actual (owner, Oct 14 2026: "add all stats to graphics")
+        if(d.src!=='stat'){ d.stat=d.src; d.src='stat'; } if(!d.stat) d.stat='ppg';
+        var act=String(d.season)==='2026', SP=await statPool(d.season), X=HS[d.stat]||HS.ppg, inv=!!X[6]; await ratings(); var cf={}; D.ratings.forEach(function(t){ cf[t.team]=confName(t.conf); });
+        var P2=SP.rows.filter(function(r){ return (!conf||(cf[r.team]||confOfFull(r.team))===conf)&&onTeam(r.team,d.team)&&(d.stat==='ovr'||d.team||r._mpg>=15)&&r[d.stat]!==''&&r[d.stat]!=null&&isFinite(+r[d.stat]); })
+          .sort(function(a,b){ return inv?(+a[d.stat])-(+b[d.stat]):(+b[d.stat])-(+a[d.stat]); }).slice(0,n);
+        d.rows=P2.map(function(r){ return { name:r.name, team:r.team, espn:r.espn||null, sub:[school(r.team),r.pos].filter(Boolean).join(' · '), val:String(r[d.stat]), val2:'' }; });
+        d.title=(d.team?school(d.team)+': ':conf?conf+': ':'')+X[3]; d.subtitle=X[4]+' · '+(act?'2025-26':SEASON+' projections'); d.showVal=true; d.showSub=true; d.valLabel=X[1]; d.val2Label='';
       } else {
         var ps=await players(); await ratings(); var confOf={}; D.ratings.forEach(function(t){ confOf[t.team]=t.conf; });
         var stat=d.src, rows=[], seen={};
@@ -343,8 +351,10 @@
     },
     editor:function(d){
       return '<h3>Data</h3><div class="two"><div><label class="f">Start from</label><select data-k="src">'+
-        Object.keys(LIST_SRC).map(function(k){ return '<option value="'+k+'"'+(d.src===k?' selected':'')+'>'+LIST_SRC[k]+'</option>'; }).join('')+'</select></div>'+
+        Object.keys(LIST_SRC).map(function(k){ return '<option value="'+k+'"'+(d.src===k||(k==='stat'&&!LIST_SRC[d.src])?' selected':'')+'>'+LIST_SRC[k]+'</option>'; }).join('')+'</select></div>'+
         '<div><label class="f">How many</label><input data-k="n" type="number" min="1" max="60" value="'+d.n+'"></div></div>'+
+        (d.src==='stat'||!LIST_SRC[d.src]?'<div class="two"><div><label class="f">Season</label><select data-k="season"><option value="2027"'+(String(d.season)!=='2026'?' selected':'')+'>2026-27 projected</option><option value="2026"'+(String(d.season)==='2026'?' selected':'')+'>2025-26 actual</option></select></div>'+
+          '<div><label class="f">Stat</label><select data-k="stat">'+hStats(d.season).map(function(x){ return '<option value="'+x[0]+'"'+(d.stat===x[0]?' selected':'')+'>'+x[2]+' ('+x[1]+')</option>'; }).join('')+'</select></div></div>':'')+
         (d.src==='teams'||d.src==='blank'?'<label class="f">Conference</label><select data-k="conf">'+confOpts(d.conf)+'</select>':scopeUI(d))+
         '<div class="btns"><button class="b sm primary" data-act="load">Load / refresh data</button></div>'+
         '<div class="hint">Loading replaces the rows below. After that, edit anything.</div>'+
@@ -1130,8 +1140,12 @@
   // a grey header row, then # · Player · any mix of columns (school / last-team logos, pos, class, height, projected stats),
   // black grid lines, condensed type. Loads from a team's roster, stat leaders, transfers or the Big Board; every cell editable.
   var TCOLS=[['team','School','logo'],['pos','Pos'],['cls','Yr'],['ht','Height'],['mpg','MPG','n'],['ppg','PPG','n'],['rpg','RPG','n'],['apg','APG','n'],['fg','FG%','n'],['tp','3P%','n'],['ts','TS%','n'],['ft','FT%','n'],['usg','USG%','n'],
-    ['stl','SPG','n'],['blk','BPG','n'],['ovr','OVR','n'],['from','Last Team','logo']];
-  var TSRC={ roster:'Team roster (depth order)', ppg:'Leaders · points', rpg:'Leaders · rebounds', apg:'Leaders · assists', ovr:'Leaders · projected OVR', usg:'Leaders · usage rate (20+ mpg)', xfer:'Top transfers (by projected PPG)', board:'NBA Big Board', blank:'Blank table' };
+    ['stl','SPG','n'],['blk','BPG','n'],['ovr','OVR','n'],['wa','WA','n'],['owa','OWA','n'],['dwa','DWA','n'],['ti40','TI/40','n'],['efg','eFG%','n'],
+    ['astp','AST%','n'],['tovp','TOV%','n'],['orbp','ORB%','n'],['drbp','DRB%','n'],['trbp','TRB%','n'],['stlp','STL%','n'],['blkp','BLK%','n'],
+    ['pts40','PTS/40','n'],['reb40','REB/40','n'],['ast40','AST/40','n'],['from','Last Team','logo']];
+  var TSRC={ roster:'Team roster (depth order)', stat:'Leaders · any stat', xfer:'Top transfers (by projected PPG)', board:'NBA Big Board', blank:'Blank table' };
+  // old saved sources → the any-stat leaders
+  var TSRC_OLD={ ppg:1, rpg:1, apg:1, ovr:1, usg:1 };
   var TBAR={ yellow:['#FFE94A','#111'], team:null, black:['#111','#fff'], white:['#fff','#111'] };
   function htFmt(h){ var m=String(h||'').match(/(\d+)\D+(\d+)/); return m?m[1]+"'"+m[2]+'"':String(h||''); }
   // projected USG% for every rostered player, exactly as the team page computes it: his plays (FGA + 0.44·FTA + TO)
@@ -1159,11 +1173,16 @@
       fg:L&&+L.mpg>=5&&+L.fga>0?f1(L.fg_pct):'', tp:L&&+L.mpg>=5&&+L.tpa>=.5?f1(L.tp_pct):'', stl:f1(L&&L.stl), blk:f1(L&&L.blk),
       // true shooting: points per shooting possession (FGA + 0.44·FTA), the one-number efficiency
       usg:(function(){ var u=usgMap()[p.espn_id||p.name]; return u!=null?u.toFixed(1):''; })(),
-      ts:L&&+L.mpg>=5&&(+L.fga+.44*(+L.fta||0))>0?f1(100*(+L.ppg)/(2*((+L.fga)+.44*(+L.fta||0)))):'', ft:L&&+L.mpg>=5&&+L.fta>=.5?f1(L.ft_pct):'', ovr:ov!=null&&isFinite(ov)?String(Math.round(ov)):'' }; }
+      ts:L&&+L.mpg>=5&&(+L.fga+.44*(+L.fta||0))>0?f1(100*(+L.ppg)/(2*((+L.fga)+.44*(+L.fta||0)))):'', ft:L&&+L.mpg>=5&&+L.fta>=.5?f1(L.ft_pct):'', ovr:ov!=null&&isFinite(ov)?String(Math.round(ov)):'',
+      // projected advanced (owner, Oct 14 2026: "we need to be able to add all stats to graphics")
+      wa:L&&L.proj_wa!=null?f1(L.proj_wa):(L&&L.pwa!=null?f1(L.pwa):''), ti40:f1(L&&L.ti40), dwa:f1(L&&L.dwa),
+      pts40:L&&+L.mpg>0?f1(40*L.ppg/L.mpg):'', reb40:L&&+L.mpg>0?f1(40*L.rpg/L.mpg):'', ast40:L&&+L.mpg>0?f1(40*L.apg/L.mpg):'' }; }
   T.table={
     ownBrand:true,
-    defaults:function(){ return { src:'ppg', team:'', conf:'', n:15, title:'', bar:'yellow', heat:false, cols:['team','pos','cls','ht','ppg','rpg','apg'], rows:[] }; },
+    defaults:function(){ return { src:'stat', stat:'ppg', season:'2027', team:'', conf:'', n:15, title:'', bar:'yellow', heat:false, cols:['team','pos','cls','ht','ppg','rpg','apg'], rows:[] }; },
     load:async function(d){
+      if(TSRC_OLD[d.src]){ d.stat=d.src; d.src='stat'; } if(!d.stat) d.stat='ppg';
+      var act=String(d.season)==='2026', SP=await statPool(d.season); d._dist=SP.dist;
       var ps=await players(), rs=await ratings(), n=Math.max(1,Math.min(30,+d.n||15)), confOf={}; rs.forEach(function(t){ confOf[t.team]=confName(t.conf); });
       var seen={}, uniq=function(p){ var k=p.espn_id||p.name+'|'+p.team; if(!p.name||p.name==='—'||seen[k]) return false; seen[k]=1; return true; };
       var inScope=function(p){ return (!d.conf||confOf[p.team]===d.conf)&&onTeam(p.team,d.team); };
@@ -1174,10 +1193,26 @@
         var R=ps.filter(function(p){ return onTeam(p.team,d.team)&&!out(p)&&uniq(p); });
         R.sort(function(a,b){ var da=a.depth_order!=null?+a.depth_order:999, db=b.depth_order!=null?+b.depth_order:999; return da-db||(+b.mpg||0)-(+a.mpg||0); });
         d.rows=R.slice(0,n).map(tRow); d.title=school(d.team)+' '+SEASON+' Roster';
+        // 2025-26 actual: the 2026-27 roster with each player's REAL 2025-26 stats (blank for freshmen); Last Team = where he played
+        if(act){ var A={}; SP.rows.forEach(function(r){ if(r.espn) A[r.espn]=r; }); d.rows=d.rows.map(function(r){ var a=r.espn&&A[r.espn], o={ name:r.name, team:r.team, espn:r.espn, pos:r.pos, cls:r.cls, ht:r.ht, from:a?school(a.team):'' };
+            HSTATS.forEach(function(x){ o[x[0]]=a?(a[x[0]]==null?'':a[x[0]]):''; }); return o; });
+          d.title=school(d.team)+' '+SEASON+' Roster · 2025-26 Stats'; if(d.cols.indexOf('from')<0) d.cols=d.cols.concat(['from']); }
       } else if(d.src==='board'){
         var bb=await bigBoard(); d.rows=bb.filter(function(p){ return inScope(p); }).slice(0,n).map(function(p){ var q=findPlayer(p.name,p.team); return q?tRow(q):{ name:p.name, team:p.team, pos:p.posLabel||p.position||'' }; });
         d.title='Top '+tag+'NBA Draft Prospects';
       } else if(d.src==='blank'){ d.rows=[]; for(var i=0;i<n;i++) d.rows.push({ name:'', team:'' }); }
+      else if(d.src==='stat'){
+        var X=HS[d.stat]||HS.ppg, inv=!!X[6], cmp=function(a,b){ return inv?(+a[d.stat])-(+b[d.stat]):(+b[d.stat])-(+a[d.stat]); };
+        var cOf=function(t){ return confOf[t]||confOfFull(t); }, minM=d.stat==='usg'?20:15;
+        var P2=SP.rows.filter(function(r){ return (!d.conf||cOf(r.team)===d.conf)&&onTeam(r.team,d.team)&&(d.stat==='ovr'||d.team||r._mpg>=minM)&&r[d.stat]!==''&&r[d.stat]!=null&&isFinite(+r[d.stat]); }).sort(cmp);
+        var PW={ 'ACC':1, 'Big Ten':1, 'Big 12':1, 'SEC':1, 'Big East':1 };
+        if(d.mix&&!d.conf&&!d.team){ var h2=P2.filter(function(r){ return PW[cOf(r.team)]; }), l2=P2.filter(function(r){ return !PW[cOf(r.team)]; }); d.rows=h2.slice(0,Math.ceil(n/2)).concat(l2.slice(0,Math.floor(n/2))).sort(cmp); }
+        else d.rows=P2.slice(0,n);
+        d.rows=d.rows.map(function(r){ return Object.assign({},r); });
+        d.title=(tag?tag.trim()+': ':'')+X[3]+' · '+(act?'2025-26':SEASON+' Projections');
+        // the ranked stat always shows, right after the bio columns
+        if(d.cols.indexOf(d.stat)<0){ var cs=d.cols.concat([d.stat]); d.cols=TCOLS.map(function(x){ return x[0]; }).filter(function(k){ return cs.indexOf(k)>-1; }); }
+      }
       else {
         var key=d.src==='xfer'?'ppg':d.src, pool=ps.filter(function(p){ return inScope(p)&&!out(p)&&uniq(p); }).map(tRow)
           .filter(function(r){ return d.src==='xfer'?(!!r.from&&!onTeam(r.from,r.team)):d.src==='usg'?+r.mpg>=20:(d.src==='ovr'||+r.mpg>=15); }).filter(function(r){ return r[key]!==''&&isFinite(+r[key]); });
@@ -1196,9 +1231,12 @@
     editor:function(d){
       var on=d.cols||[], F=[{k:'name',ph:'Player',list:'plList',w:'minmax(0,1.5fr)'}].concat(TCOLS.filter(function(c){ return on.indexOf(c[0])>-1; }).map(function(c){ return { k:c[0], ph:c[1], list:c[2]==='logo'?'tmList':null, w:c[2]==='logo'?'minmax(0,1fr)':'48px' }; }));
       return '<h3>Data</h3><div class="two"><div><label class="f">Start from</label><select data-k="src">'+Object.keys(TSRC).map(function(k){ return '<option value="'+k+'"'+(d.src===k?' selected':'')+'>'+TSRC[k]+'</option>'; }).join('')+'</select></div>'+
-        '<div><label class="f">Rows</label><input data-k="n" type="number" min="1" max="30" value="'+d.n+'"></div></div>'+scopeUI(d,{ noConf:d.src==='roster' })+
+        '<div><label class="f">Rows</label><input data-k="n" type="number" min="1" max="30" value="'+d.n+'"></div></div>'+
+        (d.src==='stat'||d.src==='roster'?'<div class="two"><div><label class="f">Season</label><select data-k="season"><option value="2027"'+(String(d.season)!=='2026'?' selected':'')+'>2026-27 projected</option><option value="2026"'+(String(d.season)==='2026'?' selected':'')+'>2025-26 actual</option></select></div>'+
+          (d.src==='stat'?'<div><label class="f">Rank by</label><select data-k="stat">'+hStats(d.season).map(function(x){ return '<option value="'+x[0]+'"'+(d.stat===x[0]?' selected':'')+'>'+x[2]+' ('+x[1]+')</option>'; }).join('')+'</select></div>':'<div></div>')+'</div>':'')+
+        scopeUI(d,{ noConf:d.src==='roster' })+
         (d.src!=='roster'&&d.src!=='blank'&&d.src!=='board'?'<label class="chk"><input type="checkbox" data-k="mix"'+(d.mix?' checked':'')+'> Mix: half power-conference players (ACC · Big Ten · Big 12 · SEC · Big East), half everyone else</label>':'')+
-        '<div class="btns"><button class="b sm primary" data-act="load">Load / refresh data</button></div><div class="hint">Loading replaces the rows. Stats are our '+SEASON+' projections; “Last Team” shows a transfer’s previous school.</div>'+
+        '<div class="btns"><button class="b sm primary" data-act="load">Load / refresh data</button></div><div class="hint">Loading replaces the rows. '+(String(d.season)==='2026'?'Stats are real 2025-26 numbers; rate stats (AST%, TOV%, rebound/steal/block %), eFG% and OWA exist only here.':'Stats are our '+SEASON+' projections; “Last Team” shows a transfer’s previous school. Switch Season to 2025-26 actual for rate stats.')+'</div>'+
         '<h3>Text</h3>'+styleSel(d)+'<label class="f">Title</label><input data-k="title" value="'+esc(d.title||'')+'">'+
         '<label class="f">Subtitle (sheet style)</label><input data-k="subtitle" value="'+esc(d.subtitle||'')+'">'+'<label class="f">Data source line (sheet style)</label><input data-k="srcLine" value="'+esc(d.srcLine||'')+'" placeholder="The Depth Chart projections">'+shotsChk(d)+
         '<div class="two"><div><label class="f">Title bar</label><select data-k="bar">'+[['yellow','Yellow'],['team','Team colour'],['black','Black'],['white','White']].map(function(o){ return '<option value="'+o[0]+'"'+(d.bar===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')+'</select></div>'+
@@ -1239,7 +1277,8 @@
         txt(r.name,(xs[1]+xs[2])/2,mid,{ w:600,px:k<1?fs*.88:fs,serif:'cond',c:'#111',al:'center',max:nameW-16*u });
         for(var j=0;j<cols.length;j++){ var c=cols[j], cx0=xs[j+2], cw=xs[j+3]-cx0, v=r[c[0]];
           if(c[2]==='logo'){ var lg=await img(logoUrl(v||(c[0]==='team'?r.team:''))); if(lg&&(v||c[0]==='team')){ var sz=Math.min(cw*.62,rh*.74); drawFit(lg,cx0+(cw-sz)/2,top+(rh-sz)/2,sz); } continue; }
-          if(c[2]==='n'&&pool&&v!==''&&v!=null&&+r.mpg>=10&&pool.dist[c[0]]){ var pc=pctOf(pool.dist[c[0]],+v); if(pc!=null){ var a=Math.min(.55,Math.abs(pc-50)/50*.6); ctx.fillStyle=pc>=50?'rgba(46,160,90,'+a+')':'rgba(215,70,60,'+a+')'; ctx.fillRect(cx0,top,cw,rh); } }
+          var dd=(d._dist&&d._dist[c[0]]&&d._dist[c[0]].length)?d._dist[c[0]]:(pool&&pool.dist[c[0]]);
+          if(c[2]==='n'&&d.heat&&v!==''&&v!=null&&+r.mpg>=10&&dd){ var pc=pctOf(dd,+v); if(pc!=null&&HS[c[0]]&&HS[c[0]][6]) pc=100-pc; if(pc!=null){ var a=Math.min(.55,Math.abs(pc-50)/50*.6); ctx.fillStyle=pc>=50?'rgba(46,160,90,'+a+')':'rgba(215,70,60,'+a+')'; ctx.fillRect(cx0,top,cw,rh); } }
           if(v!==''&&v!=null) txt(String(v),cx0+cw/2,mid,{ w:600,px:c[2]==='n'?vfs:Math.min(fs*.9,cw*.42),serif:'cond',c:'#111',al:'center',max:cw-12*u });
           else if(c[2]==='n') txt('\u2014',cx0+cw/2,mid,{ w:600,px:vfs,serif:'cond',c:'#9A9A9A',al:'center' });   // too few shots / no projection: a dash, not a hole
         }
@@ -1526,6 +1565,16 @@
         usg:f1(x.usg_pct), astp:f1(x.ast_pct), tovp:f1(x.tov_pct), orbp:f1(x.orb_pct), drbp:f1(x.drb_pct), trbp:f1(x.trb_pct), stlp:f1(x.stl_pct), blkp:f1(x.blk_pct),
         pts40:f1(x.pts40), reb40:f1(x.reb40), ast40:f1(x.ast40), ti40:f1(x.ti40), owa:f1(x.owa), dwa:f1(x.dwa), wa:w&&w.wa!=null?f1(w.wa):'', _mpg:mpg }; });
     return _adv26; }
+  // ONE player-stat pool for every graphic that ranks players by a stat: '2027' = projected lines (tRow), '2026' = the
+  // real 2025-26 season (player_advanced + our WA), each row carrying every HSTATS key. dist = percentiles vs 15+ mpg.
+  var _sp={};
+  async function statPool(season){ var k=String(season)==='2026'?'2026':'2027'; if(_sp[k]) return _sp[k]; var rows=[];
+    if(k==='2026'){ var ps=await players(), by={}; ps.forEach(function(p){ if(p.espn_id) by[p.espn_id]=p; });
+      (await adv26()).forEach(function(r){ var q=by[r.espn], o=Object.assign({},r); o.pos=q?String(q.position||'').toUpperCase():''; o.ht=q?htFmt(q.height):''; o.cls=''; o.from=''; o.tag=''; rows.push(o); }); }
+    else { var ps2=await players(), seen={}; ps2.forEach(function(p){ var kk=p.espn_id||p.name+'|'+p.team, h=String(p.hometown||'').trim().toLowerCase(); if(!p.name||p.name==='—'||seen[kk]||p.is_injured||h==='injured'||h==='out') return; seen[kk]=1;
+        var r=tRow(p); r.tag=r.cls||''; r._mpg=+r.mpg||0; rows.push(r); }); }
+    var dist={}, rot=rows.filter(function(r){ return r._mpg>=15; }); HSTATS.forEach(function(x){ dist[x[0]]=quant(rot.map(function(r){ return r[x[0]]; })); });
+    return (_sp[k]={ rows:rows, dist:dist }); }
   T.heat={
     ownBrand:true,
     defaults:function(){ return { metric:'wa', season:'2027', n:10, conf:'', team:'', mix:false, shots:true, cols:['ppg','rpg','apg','ts'], title:'', subtitle:'', lead:'', src:'', dist:{}, rows:[] }; },
@@ -1533,14 +1582,8 @@
       var avail=hStats(d.season).map(function(x){ return x[0]; }); if(avail.indexOf(d.metric)<0) d.metric='wa';
       d.cols=(d.cols||[]).filter(function(k){ return avail.indexOf(k)>-1; }); if(!d.cols.length) d.cols=['ppg','rpg','apg','ts'];
       var M=HLEAD[d.metric], inv=HS[d.metric][6]; rs.forEach(function(t){ confOf[t.team]=confName(t.conf); });
-      var cOf=function(t){ return confOf[t]||confOfFull(t); }, pool=[];
-      if(act){ (await adv26()).forEach(function(r){ if(r._mpg>=15) pool.push(Object.assign({},r)); }); }
-      else { var ps=await players(), seen={}; ps.forEach(function(p){ var k=p.espn_id||p.name+'|'+p.team, h=String(p.hometown||'').trim().toLowerCase(); if(!p.name||p.name==='—'||seen[k]||p.is_injured||h==='injured'||h==='out') return; seen[k]=1;
-          var r=tRow(p), L=null; try{ L=TDCProjGrade.lineOf(p); }catch(e){} var m=+r.mpg, f1=function(v){ return v!=null&&v!==''&&isFinite(+v)?(+v).toFixed(1):''; };
-          r.wa=waOf(p); r.tag=r.cls||''; r.ti40=f1(L&&L.ti40); r.dwa=f1(L&&L.dwa);
-          r.pts40=m>0?f1(40*r.ppg/m):''; r.reb40=m>0?f1(40*r.rpg/m):''; r.ast40=m>0?f1(40*r.apg/m):'';
-          if(m>=15) pool.push(r); }); }
-      d.dist={}; HCOLS.forEach(function(c){ d.dist[c[0]]=quant(pool.map(function(r){ return r[c[0]]; })); });
+      var cOf=function(t){ return confOf[t]||confOfFull(t); }, SP=await statPool(d.season), pool=SP.rows.filter(function(r){ return r._mpg>=15; });
+      d.dist=SP.dist;
       var sc=pool.filter(function(r){ return (!d.conf||cOf(r.team)===d.conf)&&onTeam(r.team,d.team)&&r[d.metric]!==''&&r[d.metric]!=null; }).sort(function(a,b){ return inv?(+a[d.metric])-(+b[d.metric]):(+b[d.metric])-(+a[d.metric]); });
       var PWR={ 'ACC':1, 'Big Ten':1, 'Big 12':1, 'SEC':1, 'Big East':1 }, cmp=function(a,b){ return inv?(+a[d.metric])-(+b[d.metric]):(+b[d.metric])-(+a[d.metric]); };
       if(d.mix&&!d.conf&&!d.team){ var hi=sc.filter(function(r){ return PWR[cOf(r.team)]; }), lo=sc.filter(function(r){ return !PWR[cOf(r.team)]; }); sc=hi.slice(0,Math.ceil(n/2)).concat(lo.slice(0,Math.floor(n/2))).sort(cmp); }
@@ -1729,7 +1772,7 @@
         for(var ci=0;ci<o.cols.length;ci++){ var c2=o.cols[ci], v=r[c2.k], cx=xs[ci], cw=xs[ci+1]-xs[ci];
           if(c2.type==='logo'){ var l3=v?await img(logoUrl(v)):null; if(l3){ var s3=Math.min(cw*.7,rh*.66); drawFit(l3,cx+(cw-s3)/2,mid-s3/2,s3); } continue; }
           if(v===''||v==null){ txt(c2.type==='num'?'—':'',cx+cw/2,mid,{ w:600,px:rh*.3,serif:'cond',c:P.mut,al:'center' }); continue; }
-          var pc=c2.type==='num'&&o.dist&&o.dist[c2.k]&&stops&&r.heat!==false?pctQ(o.dist[c2.k],v):null, col=pc==null?null:ramp(stops,pc/100);
+          var pc=c2.type==='num'&&o.dist&&o.dist[c2.k]&&stops&&r.heat!==false?pctQ(o.dist[c2.k],v):null; if(pc!=null&&c2.inv) pc=100-pc; var col=pc==null?null:ramp(stops,pc/100);
           if(col){ rrect(cx+3*u,top+3*u,cw-6*u,rh-6*u,5*u); ctx.fillStyle=rgbS(col); ctx.fill(); }
           txt(String(v),cx+cw/2,mid,{ w:c2.type==='num'?700:600,px:Math.min(rh*(c2.type==='num'?.36:.3),32*u)*k,serif:c2.type==='num'?'cond':'barlow',c:col?inkOn(col):P.text,al:'center',max:cw-10*u }); }
         y+=rh; }
@@ -1776,9 +1819,10 @@
   T.table.draw=async function(d,W,H,u,pad){
     if(d.style==='classic') return T.table.drawClassic(d,W,H,u,pad);
     bg(W,H); try{ await players(); }catch(e){}
-    var dist=d.heat?await statDist():null, on=d.cols||[], logo=on.indexOf('team')>-1;
+    // the season's own percentiles (d._dist, every HSTATS key) over the projected defaults
+    var dist=d.heat?Object.assign({},await statDist(),d._dist||{}):null, on=d.cols||[], logo=on.indexOf('team')>-1;
     var y0=sheetHead(W,H,u,pad,d.title,d.subtitle||''), fTop=sheetFoot(W,H,u,pad,d.srcLine||'The Depth Chart '+SEASON+' projections'+(dist?' · colours = percentile vs. D-I rotation players':''),dist&&rampOf(HEAT_RAMP)?rampLegend(u,rampOf(HEAT_RAMP),'PERCENTILE','Low','High'):null);
-    var C=TCOLS.filter(function(c){ return on.indexOf(c[0])>-1&&c[0]!=='team'; }).map(function(c){ return { k:c[0], lab:c[1], type:c[2]==='logo'?'logo':c[2]==='n'?'num':'text', w:c[0]==='ht'?76:c[0]==='pos'?62:58 }; });
+    var C=TCOLS.filter(function(c){ return on.indexOf(c[0])>-1&&c[0]!=='team'; }).map(function(c){ return { k:c[0], lab:c[1], type:c[2]==='logo'?'logo':c[2]==='n'?'num':'text', inv:!!(HS[c[0]]&&HS[c[0]][6]), w:c[0]==='ht'?76:c[0]==='pos'?62:58 }; });
     var rows=d.rows.filter(function(r){ return r.name; }).map(function(r){ r.heat=+r.mpg>=10||r.mpg==null||r.mpg===''; return r; });
     await sheetTable(W,H,u,pad,y0,fTop,{ sections:[{ rows:rows }], cols:C, dist:dist, shots:d.shots!==false, logo:logo });
     return (d.title||'')+'\n\n'+rows.slice(0,5).map(function(r,i){ return (i+1)+'. '+r.name+(r.team?' ('+school(r.team)+')':''); }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB';
@@ -1991,7 +2035,7 @@
   document.addEventListener('toggle',function(e){ var el=e.target; if(el.classList&&el.classList.contains('sec')&&el.dataset.sec&&el.closest('#editor')){ (S.fold=S.fold||{})[el.dataset.sec]=el.open; save(); } },true);
   function syncControls(){ paintLib();
     $('size').value=S.size; $('theme').value=S.theme; $('shots').checked=S.shots; $('handle').value=S.handle; $('brandLogo').checked=S.brandLogo!==false; }
-  var AUTO={ posts:['key','team','conf','n','season','dir'], cards:['metric','season','who','minFga','n','conf','team','mix'], leaders:['metric','season','who','minFga','n','conf','team','mix'], heat:['metric','season','n','conf','team','mix'], lineups:['metric','season','minPoss','n','conf','team'], teams:['sort','n','conf'], depth:['team'], table:['src','team','conf','n','mix'], money:['mode','n','conf','team'], crunch:['dir','who','n','min','conf','team','sort'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf','team'], after:['season','team','conf'], confodds:['conf','n'], nil:['mode','n','minMpg','conf','team'] };   // charts whose rows come from a load
+  var AUTO={ list:['src','stat','season'], posts:['key','team','conf','n','season','dir'], cards:['metric','season','who','minFga','n','conf','team','mix'], leaders:['metric','season','who','minFga','n','conf','team','mix'], heat:['metric','season','n','conf','team','mix'], lineups:['metric','season','minPoss','n','conf','team'], teams:['sort','n','conf'], depth:['team'], table:['src','stat','season','team','conf','n','mix'], money:['mode','n','conf','team'], crunch:['dir','who','n','min','conf','team','sort'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf','team'], after:['season','team','conf'], confodds:['conf','n'], nil:['mode','n','minMpg','conf','team'] };   // charts whose rows come from a load
   async function autoLoad(){ var d=doc(); if(AUTO[S.tpl]&&d.rows&&!d.rows.length){ try{ await T[S.tpl].load(d); stamp(d); save(); paintEditor(); }catch(e){ status(e.message,true); } } }
   $('tplSeg').addEventListener('click',async function(e){ var b=e.target.closest('button[data-v]'); if(!b) return; S.tpl=b.dataset.v;
     // a data post picked from the library: point the Posts doc at it and load it fresh
