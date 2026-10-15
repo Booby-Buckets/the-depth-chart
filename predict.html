@@ -83,6 +83,7 @@
   <link rel="stylesheet" href="tdc-hq-site.css?v=24"/>
   <link rel="stylesheet" href="tdc-column.css?v=4"/>
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+  <script src="tdc-coachlink.js?v=1"></script>
 </head>
 <body data-anim-auto class="hqsite">
   <script src="tdc-nav.js?v=78"></script>
@@ -122,8 +123,8 @@
     </div>
     <div class="sheet-wrap">
       <table class="sheet dense freeze2" id="rankTbl">
-        <thead><tr><th class="rk">#</th><th class="l">Team</th><th class="l">Conf</th><th class="l" title="Carryover = no synced roster yet, so the team keeps an adjusted 2025-26 rating">Basis</th><th data-heat="1">Rating</th><th data-heat="1">Roster Proj</th><th data-heat="1" title="Program history: the last three seasons' Power Ratings, weighted 50/29/21 — half of every projected rating">Program</th><th title="Coaching change and program pull: a first-year head coach costs ~1 point; outside the top 100, long-run program level and league strength pull a team toward them">Coach / prog.</th><th data-heat="1">All-Play %</th></tr></thead>
-        <tbody id="tbody"><tr><td colspan="9" class="loading">Building ratings…</td></tr></tbody>
+        <thead><tr><th class="rk">#</th><th class="l">Team</th><th class="l">Conf</th><th class="l">Coach</th><th class="l" title="Carryover = no synced roster yet, so the team keeps an adjusted 2025-26 rating">Basis</th><th data-heat="1">Rating</th><th data-heat="1">Roster Proj</th><th data-heat="1" title="Program history: the last three seasons' Power Ratings, weighted 50/29/21 — half of every projected rating">Program</th><th title="Coaching change and program pull: a first-year head coach costs ~1 point; outside the top 100, long-run program level and league strength pull a team toward them">Coach / prog.</th><th data-heat="1">All-Play %</th></tr></thead>
+        <tbody id="tbody"><tr><td colspan="10" class="loading">Building ratings…</td></tr></tbody>
       </table>
     </div>
     <div class="note"><b>Reading it:</b> Rating is points better than an average D1 team on a neutral floor — a +25 team is a 10-point favorite over a +15 team. All-Play % answers "if this team played everyone, how often does it win?" Ratings are built from 2026-27 projections, not last season's stats; the ’25-26 SRS column is shown only as the anchor.</div>
@@ -183,13 +184,14 @@ function renderTable(){
     <tr><td class="rk">${r.rank}</td>
       <td class="l nm"><a href="team.html?team=${encodeURIComponent(r.team)}">${r.full}</a></td>
       <td class="l dim">${r.conf||'—'}</td>
+      <td class="l">${(PP[r.full]&&PP[r.full].coach)?(window.TDCCoach?TDCCoach.html(PP[r.full].coach,r.full):PP[r.full].coach):'—'}</td>
       <td class="l dim">${r.projected?'':'carryover'}</td>
       <td class="big">${r.rating>=0?'+':''}${r.rating.toFixed(1)}</td>
       <td>${r.roster!=null?(r.roster>=0?'+':'')+r.roster.toFixed(1):'—'}</td>
       <td>${(r.program!=null?r.program:r.prior)!=null?((r.program!=null?r.program:r.prior)>=0?'+':'')+(r.program!=null?r.program:r.prior).toFixed(1):'—'}</td>
       <td class="dim"${(PP[r.full]&&PP[r.full].new)?` title="New head coach: ${PP[r.full].coach}${PP[r.full].newJob?' (has run a D-I program)':' (first head job)'}"`:''}>${r.progAdj?(r.progAdj>=0?'+':'')+r.progAdj.toFixed(1):'—'}${(PP[r.full]&&PP[r.full].new)?' <span style="font-size:10px;color:var(--text3)">new HC</span>':''}</td>
       <td>${r.allPlay.toFixed(1)}%</td></tr>`).join('')
-    ||'<tr><td colspan="9" class="loading">No teams match</td></tr>';
+    ||'<tr><td colspan="10" class="loading">No teams match</td></tr>';
   if(window.tdcSheetHeat) tdcSheetHeat(document.getElementById('rankTbl'));
 }
 function renderPills(){
@@ -309,7 +311,7 @@ async function runSweep(){
   if(window.tdcSheetHeat) tdcSheetHeat(document.getElementById('sweepTbl'));
 }
 TDC_RATINGS.get().then(d=>{ D=d; renderPills(); renderTable(); fillSelects(); renderLine(); })
-  .catch(e=>{ document.getElementById('tbody').innerHTML='<tr><td colspan="9" class="loading">Could not build ratings.</td></tr>'; });
+  .catch(e=>{ document.getElementById('tbody').innerHTML='<tr><td colspan="10" class="loading">Could not build ratings.</td></tr>'; });
 </script>
   <script src="tdc-sheets.js?v=2"></script>
   <script src="tdc-version.js?v=2"></script>
