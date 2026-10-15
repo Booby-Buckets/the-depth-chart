@@ -2086,7 +2086,7 @@ _DWA40_MED=float((d26["dwa"]/d26["mp40"].clip(lower=0.1)).median())
 # points) valued exactly like a returner's — owned Wins Added per 40 x role, on the demonstrated-grade scale
 # (to_grade). It is what the NIL price reads for a player with no college line (patch_nil_grades.py), so
 # no overall — editor OVR, recruiting-band prior — prices anyone (owner rule, Oct 2026).
-def _sv_of(full, r40, mpg, ppg):
+def _sv_of(full, r40, mpg, ppg, cred=None):
     if not r40 or not mpg or mpg<=0: return None
     k=mpg/40.0; _pg={"pts":r40.get("pts",0)*k,"fga":r40.get("fga",0)*k,"fta":r40.get("fta",0)*k,
         "oreb":r40.get("oreb",0)*k,"dreb":r40.get("dreb",0)*k,"ast":r40.get("ast",0)*k,"stl":r40.get("stl",0)*k,
@@ -2105,15 +2105,26 @@ def _sv_of(full, r40, mpg, ppg):
     # in the country — because the editor's line was valued at face value per minute). A returner's per-40 value is
     # shrunk toward the median rotation player by his real minutes (cred = min / (min + 400)); a projected line gets
     # the same shrink as if it were NEW_EVID_MIN minutes of evidence. Only the rating: pwa (season WA) stays the line's.
-    _w40=_wa/max(_mn/40.0,0.1); _w40=MU40+NEW_CRED*(_w40-MU40)
+    _w40=_wa/max(_mn/40.0,0.1); _w40=MU40+(NEW_CRED if cred is None else cred)*(_w40-MU40)
     return to_grade(_w40*(_ff+(1.0-_ff)*math.sqrt(min(max(_mn/P90,0),1.3))))
 _SV_WA=[None]
 NEW_EVID_MIN=float(os.environ.get("NEW_EVID_MIN","300")); NEW_CRED=NEW_EVID_MIN/(NEW_EVID_MIN+400.0)   # 300 -> keeps 43% of a guess's distance from the median
+# ...softer for a HIGHLY RANKED recruit (owner, Oct 15 2026: keep Stokes and the top freshmen near where they were; keep
+# the full shrink for unranked / editor lines like Ahneman). The kept share climbs from NEW_CRED at rank RANK_SPAN to
+# RANK_CRED_TOP at #1 on a log scale: #1 ~0.92, #10 ~0.69, #25 ~0.61, #50 ~0.54, #150+ = NEW_CRED. Rank decides for
+# editor lines too (Stokes' line is an editor line; Ahneman, #124, still keeps ~45%).
+RANK_CRED_TOP=float(os.environ.get("RANK_CRED_TOP","0.92")); RANK_SPAN=float(os.environ.get("RANK_SPAN","150"))
+def _cred_of(f):
+    rk=f.get("rank")
+    try: rk=float(rk)
+    except (TypeError,ValueError): rk=None
+    if not rk or rk<1: return NEW_CRED
+    return NEW_CRED+(RANK_CRED_TOP-NEW_CRED)*max(0.0,1.0-math.log(rk)/math.log(RANK_SPAN))
 _nsv=0
 for _sh,_fm in FRESH_FIT.items():
     _full=S2F.get(_sh.lower()) or _sh
     for _nm,_f in _fm.items():
-        _sv=_sv_of(_full,_f.get("r40"),_n(_f.get("mpg"),0),_f.get("ppg"))
+        _sv=_sv_of(_full,_f.get("r40"),_n(_f.get("mpg"),0),_f.get("ppg"),_cred_of(_f))
         if _sv is not None: _f["sv"]=int(_sv); _f["pwa"]=round(_SV_WA[0],2); _nsv+=1   # pwa: projected Wins Added (Moneyball)
         # POTENTIAL for a ranked recruit: the same valuation at the minutes recruits of his rank historically
         # play (freshman_model mpg_by_rank) when the depth chart has him below it — the NIL market pays for the
@@ -2129,7 +2140,7 @@ for _sh,_fm in FRESH_FIT.items():
                 # scale his fitted points up to the rank minutes only when there is a real sample of them: at 0.7 mpg the
                 # fitted ppg is a rounded 0.2 and x36 it cut Cameron Williams' scoring ~40% (he rated below #22 Howard,
                 # owner Oct 15 2026). Under 6 mpg he is valued at his model scoring rate.
-                _svp=_sv_of(_full,_f.get("r40"),_mt,((_f.get("ppg") or 0)*_mt/_m0) if _m0>=6 else None)
+                _svp=_sv_of(_full,_f.get("r40"),_mt,((_f.get("ppg") or 0)*_mt/_m0) if _m0>=6 else None,_cred_of(_f))
                 if _svp is not None: _f["svp"]=int(max(_sv,_svp)); _f["mpg_pot"]=round(_mt,1)
 # THE EDITOR'S LINE (owner, Oct 15 2026): a profile saved with _line (the exact line the editor showed) sets that
 # newcomer's points and per-40 rates, so his OVR values what the editor showed — not the generic freshman shape.
@@ -2143,10 +2154,10 @@ for _sh,_fm in FRESH_FIT.items():
                    "stl":_n(_el.get("stl"))*_k40,"blk":_n(_el.get("blk"))*_k40,"tov":_n(_el.get("tovs"))*_k40,"fga":_n(_el.get("fga"))*_k40,
                    "tpa":_n(_el.get("tpa"))*_k40,"fta":_n(_el.get("fta"))*_k40,"fg_pct":_n(_el.get("fg_pct")),"tp_pct":_n(_el.get("tp_pct")),"ft_pct":_n(_el.get("ft_pct"))}
         _f["ppg"]=round(_n(_el.get("ppg"))*_m/_n(_el["mpg"],1),1); _f["editor_line"]=1; _ned+=1
-        _sv=_sv_of(S2F.get(_sh.lower()) or _sh,_f["r40"],_m,_f["ppg"])
+        _sv=_sv_of(S2F.get(_sh.lower()) or _sh,_f["r40"],_m,_f["ppg"],_cred_of(_f))
         if _sv is not None: _f["sv"]=int(_sv)
         if _sv is not None and _f.get("mpg_pot"):
-            _svp=_sv_of(S2F.get(_sh.lower()) or _sh,_f["r40"],_f["mpg_pot"],None)
+            _svp=_sv_of(S2F.get(_sh.lower()) or _sh,_f["r40"],_f["mpg_pot"],None,_cred_of(_f))
             _f["svp"]=int(max(_sv,_svp)) if _svp is not None else _f.get("svp")
 print(f"editor lines: {_ned} newcomers valued on the line the editor showed",file=sys.stderr)
 # THE DISPLAYED NEWCOMER OVR IS HIS STAT VALUE (owner, Oct 2026: the editor no longer sets an overall, and TDC
