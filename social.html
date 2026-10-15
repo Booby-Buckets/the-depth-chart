@@ -276,7 +276,11 @@
   // headshot in a circle (ESPN shots are transparent PNGs, cropped to the face/shoulders)
   function drawShot(im,x,y,s,ring){
     ctx.save(); ctx.beginPath(); ctx.arc(x+s/2,y+s/2,s/2,0,Math.PI*2); ctx.closePath(); ctx.fillStyle=P.chip; ctx.fill(); ctx.clip();
-    var w=s*1.35, h=w*(im.height/im.width); ctx.drawImage(im,x+(s-w)/2,y+s*.04,w,h); ctx.restore();
+    // ESPN headshots are landscape head-and-shoulders crops (350x254): 1.35x the circle frames them. School roster photos
+    // are tall portraits (2:3, 4:5) with the head in the top half — at 1.35x the face filled the whole circle (owner: "some
+    // are too big"). A portrait is framed by its head instead: ~0.95x the circle wide, head a little below the top.
+    var por=im.height>im.width*1.1, w=s*(por?.95:1.35), h=w*(im.height/im.width), yo=por?(s*.10-h*.05):s*.04;
+    ctx.drawImage(im,x+(s-w)/2,y+yo,w,h); ctx.restore();
     if(ring){ ctx.save(); ctx.beginPath(); ctx.arc(x+s/2,y+s/2,s/2-1,0,Math.PI*2); ctx.lineWidth=Math.max(1.5,s*.04); ctx.strokeStyle=ring; ctx.stroke(); ctx.restore(); }
   }
   // HEADSHOTS (owner, Oct 2026: "something for the players that do not have headshots" + "scrape team roster pages"):
