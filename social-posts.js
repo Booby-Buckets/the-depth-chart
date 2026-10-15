@@ -5,7 +5,8 @@
  *   TDC_POSTS.add('shotzones', {
  *     group: 'Shooting', label: 'Team hot zones',
  *     opts: { team: true, conf: false, n: 8, season: true,         // which filters the editor shows (+ default rows)
- *             seasonList: [['2027','2026-27 projected'],['2026','2025-26']], dir: true, upLabel, downLabel, teamRequired },
+ *             seasonList: [['2027','2026-27 projected'],['2026','2025-26']], dir: true, upLabel, downLabel, teamRequired,
+ *             stats: [[value,label],...], statsLabel },   // stats = a stat picker; the choice arrives as d.pstat
  *     load: async function(d, H){ ... return {
  *       title, subtitle, lead,              // lead = the amber lead column's label ('' = no lead column)
  *       src,                                // the "Data:" footer line
@@ -29,6 +30,6 @@
     // every post file; loaded on first use of the Posts graphic
     FILES: ['shotzones','statshift','duos','passing','portal','continuity','freshmen','breakouts','archetypes','coaching',
             'schedules','bracket','teamdna','programs','size','betting','plays','scrimmages','scrimplayers'],
-    loadAll: function(need){ return Promise.all(g.TDC_POSTS.FILES.map(function(f){ return need('js/posts/'+f+'.js?v=5').catch(function(){ return null; }); })); }
+    loadAll: function(need){ return Promise.all(g.TDC_POSTS.FILES.map(function(f){ return need('js/posts/'+f+'.js?v=6').catch(function(){ return null; }); })); }
   };
 })(window);

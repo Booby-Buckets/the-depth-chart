@@ -22,7 +22,7 @@
   <script src="tdc-pool.js?v=5"></script>
   <script src="tdc-histguard.js?v=2"></script>
   <script src="tdc-proj.js?v=hg5"></script>
-  <script src="social-posts.js?v=5"></script>
+  <script src="social-posts.js?v=6"></script>
   <script src="bigboard-engine.js?v=26"></script>
   <style>
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--accent-soft:rgba(168,132,60,.13);--green:#1a8c3a;--red:#cc2200;}
@@ -1876,6 +1876,8 @@
         (P0&&P0.note?'<div class="hint">'+esc(P0.note)+'</div>':'')+
         '<div class="two"><div><label class="f">Rows</label><input data-k="n" type="number" min="1" max="20" value="'+d.n+'"></div>'+
         (o.season?'<div><label class="f">Season</label><select data-k="season">'+(o.seasonList||MSEASONS.slice(0,o.seasons||3)).map(function(s2){ return '<option value="'+s2[0]+'"'+(String(d.season)===s2[0]?' selected':'')+'>'+s2[1]+'</option>'; }).join('')+'</select></div>':'<div></div>')+'</div>'+
+        // opts.stats = [[value,label],...]: a post-defined stat picker (d.pstat), e.g. which stat "vs our line" ranks by
+        (o.stats?'<label class="f">'+esc(o.statsLabel||'Stat')+'</label><select data-k="pstat">'+o.stats.map(function(s2){ return '<option value="'+s2[0]+'"'+((d.pstat||o.stats[0][0])===s2[0]?' selected':'')+'>'+esc(s2[1])+'</option>'; }).join('')+'</select>':'')+
         (o.dir?'<label class="f">Show</label><select data-k="dir"><option value="up"'+(d.dir!=='down'?' selected':'')+'>'+esc(o.upLabel||'Most / best first')+'</option><option value="down"'+(d.dir==='down'?' selected':'')+'>'+esc(o.downLabel||'Least / worst first')+'</option></select>':'')+
         (o.team||o.conf?scopeUI(d,{ noConf:o.conf===false }):'')+
         '<div class="btns"><button class="b sm primary" data-act="load">Load / refresh data</button></div>'+shotsChk(d)+
@@ -1953,7 +1955,7 @@
   // LOAD_VER: bump whenever a chart's or post's loader changes what it puts in the rows (columns, order, maths). A saved
   // graphic loaded under an older version reloads on open — unless its rows were hand-edited — so a fix reaches the
   // owner without clicking "Load / refresh data" (Oct 2026: the scrimmage scoreboard kept the old Margin rows).
-  var LOAD_VER='2026-10-15d';
+  var LOAD_VER='2026-10-15e';
   function stamp(d){ if(d&&Array.isArray(d.rows)){ d.loadedAt=new Date().toISOString().slice(0,10); d._lv=LOAD_VER; d._edited=false; } }
   function paintEditor(){ var d=doc(), h=T[S.tpl].editor(d);
     if(d.loadedAt&&Array.isArray(d.rows)&&d.rows.length){ var age=Math.round((Date.now()-new Date(d.loadedAt+'T12:00:00'))/864e5);
@@ -2049,7 +2051,7 @@
   document.addEventListener('toggle',function(e){ var el=e.target; if(el.classList&&el.classList.contains('sec')&&el.dataset.sec&&el.closest('#editor')){ (S.fold=S.fold||{})[el.dataset.sec]=el.open; save(); } },true);
   function syncControls(){ paintLib();
     $('size').value=S.size; $('theme').value=S.theme; $('shots').checked=S.shots; $('handle').value=S.handle; $('brandLogo').checked=S.brandLogo!==false; }
-  var AUTO={ list:['src','stat','season'], posts:['key','team','conf','n','season','dir'], cards:['metric','season','who','minFga','n','conf','team','mix'], leaders:['metric','season','who','minFga','n','conf','team','mix'], heat:['metric','season','n','conf','team','mix'], lineups:['metric','season','minPoss','n','conf','team'], teams:['sort','n','conf'], depth:['team'], table:['src','stat','season','team','conf','n','mix'], money:['mode','n','conf','team'], crunch:['dir','who','n','min','conf','team','sort'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf','team'], after:['season','team','conf'], confodds:['conf','n'], nil:['mode','n','minMpg','conf','team'] };   // charts whose rows come from a load
+  var AUTO={ list:['src','stat','season'], posts:['key','team','conf','n','season','dir','pstat'], cards:['metric','season','who','minFga','n','conf','team','mix'], leaders:['metric','season','who','minFga','n','conf','team','mix'], heat:['metric','season','n','conf','team','mix'], lineups:['metric','season','minPoss','n','conf','team'], teams:['sort','n','conf'], depth:['team'], table:['src','stat','season','team','conf','n','mix'], money:['mode','n','conf','team'], crunch:['dir','who','n','min','conf','team','sort'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf','team'], after:['season','team','conf'], confodds:['conf','n'], nil:['mode','n','minMpg','conf','team'] };   // charts whose rows come from a load
   async function autoLoad(){ var d=doc(); if(AUTO[S.tpl]&&d.rows&&(!d.rows.length||(d._lv!==LOAD_VER&&!d._edited))){ try{ await T[S.tpl].load(d); stamp(d); save(); paintEditor(); }catch(e){ status(e.message,true); } } }
   $('tplSeg').addEventListener('click',async function(e){ var b=e.target.closest('button[data-v]'); if(!b) return; S.tpl=b.dataset.v;
     // a data post picked from the library: point the Posts doc at it and load it fresh
