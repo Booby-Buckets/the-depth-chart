@@ -19,6 +19,8 @@ school, and a User-Agent that names the site. St. Bonaventure disallows us -> le
 
     python3 scripts/scrape_school_rosters.py            # all teams
     python3 scripts/scrape_school_rosters.py Duke Iowa  # just these
+    python3 scripts/scrape_school_rosters.py --photos   # headshots only -> data/school_photos_2027.json (Social Studio
+                                                        #   uses them for players with no ESPN headshot)
 """
 import concurrent.futures as cf
 import html as H
@@ -26,6 +28,7 @@ import json
 import os
 import re
 import sys
+import urllib.parse
 import urllib.request
 import urllib.robotparser
 
@@ -34,6 +37,31 @@ SITES = os.path.join(HERE, 'data', 'school_sites.json')
 OUT = os.path.join(HERE, 'data', 'school_rosters_2027.json')
 UA = 'Mozilla/5.0 (compatible; TheDepthChartRosters/1.0; +https://www.thedepthchartcbb.com)'
 SEASON = '2026-27'
+PHOTOS_OUT = os.path.join(HERE, 'data', 'school_photos_2027.json')
+
+
+def photo_url(u, domain=None):
+    """A player headshot URL the browser can draw on a canvas and export (CORS). SIDEARM images (/images/... on the
+    school's domain) redirect through hosts that don't all send CORS on the first hop, so they go straight to SIDEARM's
+    own resize service (Access-Control-Allow-Origin: *, 300px JPEG). WMT imgproxy URLs already send CORS. School logos
+    used as 'no photo' placeholders are dropped."""
+    if not u or not isinstance(u, str):
+        return None
+    u = H.unescape(u.strip())
+    if re.search(r'logo|silhouette|placeholder|default[-_]?(player|headshot)|no[-_]?image', u, re.I):
+        return None
+    if u.startswith('//'):
+        u = 'https:' + u
+    elif u.startswith('/'):
+        if not domain:
+            return u                      # resolved against the school's domain in scrape()
+        u = f'https://{domain}{u}'
+    if not u.startswith('http'):
+        return None
+    if '/images/' in u and 'imgproxy' not in u and 'sidearmdev.com' not in u:
+        base = u.split('?')[0]
+        return 'https://images.sidearmdev.com/resize?url=' + urllib.parse.quote(base, safe='') + '&width=300&type=jpeg'
+    return u
 
 
 def fetch(url, timeout=45):
@@ -180,8 +208,17 @@ def parse_wmt_json(h):
                     'pos': po.get('name') or po.get('abbreviation'), 'cls': clean_cls(cl.get('name')),
                     'ht': f"{ft}-{inch or 0}" if ft else None, 'wt': x.get('weight') or pl.get('weight'),
                     'hometown': pl.get('hometown'), 'high_school': pl.get('high_school'),
-                    'prev_school': pl.get('previous_school') or ''})
+                    'prev_school': pl.get('previous_school') or '', 'photo': wmt_photo(x.get('photo') or pl.get('master_photo'))})
     return out, want
+
+
+def wmt_photo(ph):
+    """the smallest imgproxy size from a WMT photo record (srcset's first entry), else its url"""
+    if not isinstance(ph, dict):
+        return None
+    ss = ph.get('srcset')
+    u = ss.split(',')[0].strip().split(' ')[0] if isinstance(ss, str) and ss.strip() else ph.get('url')
+    return photo_url(u)
 
 
 def norm_season(s):
@@ -223,7 +260,8 @@ def parse_sidearm_json(h):
                     'cls': clean_cls(x.get('academicYearShort') or x.get('academicYearLong')),
                     'ht': f"{ft}-{inch or 0}" if ft else None, 'wt': x.get('weight'),
                     'hometown': x.get('hometown'), 'high_school': x.get('highSchool'),
-                    'prev_school': x.get('previousSchool') or ''})
+                    'prev_school': x.get('previousSchool') or '',
+                    'photo': photo_url((x.get('image') or {}).get('absoluteUrl') or (x.get('image') or {}).get('url')) if isinstance(x.get('image'), dict) else None})
     return out, season
 
 
@@ -249,8 +287,20 @@ def parse_sidearm_next(h):
         out.append({'name': text(name.group(1)), 'jersey': f.get('Jersey Number'), 'pos': f.get('Position'),
                     'cls': clean_cls(f.get('Academic Year') or f.get('Class')), 'ht': clean_ht(f.get('Height')),
                     'wt': clean_wt(f.get('Weight')), 'hometown': f.get('Hometown'),
-                    'high_school': f.get('High School'), 'prev_school': prev})
+                    'high_school': f.get('High School'), 'prev_school': prev, 'photo': card_img(c)})
     return out
+
+
+def card_img(c, domain=None):
+    """first real <img> in a roster card (data-src for lazy-loaded images)"""
+    for m in re.finditer(r'<img[^>]+>', c):
+        t = m.group(0)
+        u = re.search(r'data-src="([^"]+)"', t) or re.search(r'\ssrc="([^"]+)"', t)
+        if u and not u.group(1).startswith('data:'):
+            pu = photo_url(u.group(1), domain)
+            if pu:
+                return pu
+    return None
 
 
 def span(c, cls):
@@ -271,7 +321,7 @@ def parse_sidearm_legacy(h):
                     'pos': re.sub(r'\s+\d.*$', '', pos).strip(), 'cls': clean_cls(span(c, 'sidearm-roster-player-academic-year')),
                     'ht': clean_ht(span(c, 'sidearm-roster-player-height')), 'wt': clean_wt(span(c, 'sidearm-roster-player-weight')),
                     'hometown': span(c, 'sidearm-roster-player-hometown'), 'high_school': span(c, 'sidearm-roster-player-highschool'),
-                    'prev_school': span(c, 'sidearm-roster-player-previous-school')})
+                    'prev_school': span(c, 'sidearm-roster-player-previous-school'), 'photo': card_img(c)})
     return out
 
 
@@ -417,6 +467,9 @@ def scrape(team, site):
                 seen.add(k)
                 uniq.append(p)
         rec['players'] = uniq
+        for p in uniq:                    # card images are often site-relative
+            if p.get('photo') and p['photo'].startswith('/'):
+                p['photo'] = photo_url(p['photo'], d)
         rec['season'] = norm_season(rec['season']) or rec['season']
         if rec['season'] and rec['season'] != SEASON:
             # the school hasn't posted the new roster yet — last season's list is NOT a 2026-27 roster
@@ -435,13 +488,26 @@ def scrape(team, site):
 
 def main():
     sites = json.load(open(SITES))
-    only = set(sys.argv[1:])
+    photos = '--photos' in sys.argv          # headshots only -> school_photos_2027.json; rosters file untouched
+    only = set(a for a in sys.argv[1:] if not a.startswith('--'))
     todo = [(t, s) for t, s in sites.items() if (not only or t in only) and not s.get('manual')]
     prev = {}
     if only and os.path.exists(OUT):
         prev = {r['team']: r for r in json.load(open(OUT))}
     with cf.ThreadPoolExecutor(12) as ex:        # 12 DIFFERENT domains at once, one request each
         res = list(ex.map(lambda ts: scrape(*ts), todo))
+    if photos:
+        # {our team: {player name: photo url}} for the current roster only (a stale page = last season's photos: skipped)
+        P = json.load(open(PHOTOS_OUT)) if (only and os.path.exists(PHOTOS_OUT)) else {}
+        for r in res:
+            if r.get('stale') or r.get('incomplete'):
+                continue
+            got = {p['name']: p['photo'] for p in r['players'] if p.get('photo')}
+            if got:
+                P[r['team']] = got
+        json.dump(P, open(PHOTOS_OUT, 'w'), indent=0, ensure_ascii=False, sort_keys=True)
+        print(f"photos: {sum(len(v) for v in P.values())} players on {len(P)} teams -> {PHOTOS_OUT}")
+        return
     for r in res:
         prev[r['team']] = r
     out = sorted(prev.values(), key=lambda r: r['team'])

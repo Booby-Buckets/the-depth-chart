@@ -279,14 +279,32 @@
     var w=s*1.35, h=w*(im.height/im.width); ctx.drawImage(im,x+(s-w)/2,y+s*.04,w,h); ctx.restore();
     if(ring){ ctx.save(); ctx.beginPath(); ctx.arc(x+s/2,y+s/2,s/2-1,0,Math.PI*2); ctx.lineWidth=Math.max(1.5,s*.04); ctx.strokeStyle=ring; ctx.stroke(); ctx.restore(); }
   }
+  // HEADSHOTS (owner, Oct 2026: "something for the players that do not have headshots" + "scrape team roster pages"):
+  // ESPN by espn id first, else the school's own roster photo (scripts/data/school_photos_2027.json, built by
+  // scrape_school_rosters.py --photos; CORS-safe URLs), else null -> drawNoShot() initials badge where a photo column is drawn
+  var SPH=null;
+  function schoolPhotos(){ return SPH||(SPH=fetch('scripts/data/school_photos_2027.json?v=1').then(function(r){ return r.ok?r.json():{}; }).then(function(P){
+      var o={}; Object.keys(P).forEach(function(t){ var m={}; Object.keys(P[t]).forEach(function(n){ m[pnk(n)]=P[t][n]; }); o[tkey(t)]=m; }); return o; }).catch(function(){ return {}; })); }
+  function pnk(n){ return String(n||'').toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b\.?/g,'').replace(/[^a-z]/g,''); }
+  async function shotFor(espn,name,team){
+    var im=espn?await img(shotUrl(espn)):null; if(im||!name) return im;
+    var SP=await schoolPhotos(), m=team?SP[tkey(team)]:null, u=m&&m[pnk(name)];
+    if(!u&&!team){ var k=pnk(name), hits=Object.keys(SP).filter(function(t){ return SP[t][k]; }); if(hits.length===1) u=SP[hits[0]][k]; }
+    return u?await img(u):null; }
+  function initials(n){ var w=String(n||'').replace(/\b(Jr|Sr|II|III|IV)\b\.?/g,'').trim().split(/\s+/).filter(Boolean); return ((w[0]||'')[0]||'')+((w.length>1?w[w.length-1]:'')[0]||''); }
+  // no photo anywhere: a team-coloured ring with the player's initials, so the photo column never reads as a hole
+  function drawNoShot(x,y,s,name,team){ var tc=tcol(team);
+    ctx.save(); ctx.beginPath(); ctx.arc(x+s/2,y+s/2,s/2,0,Math.PI*2); ctx.fillStyle=P.chip; ctx.fill();
+    ctx.lineWidth=Math.max(1.5,s*.05); ctx.strokeStyle=tc; ctx.beginPath(); ctx.arc(x+s/2,y+s/2,s/2-ctx.lineWidth/2,0,Math.PI*2); ctx.stroke(); ctx.restore();
+    txt(initials(name).toUpperCase(),x+s/2,y+s/2,{ w:800,px:s*.36,serif:'cond',c:tc,al:'center' }); }
   // the mark for a row: headshot (with a small logo badge) when on + available, else the team logo
   async function mark(row,x,y,s){
-    var lg=await img(logoUrl(row.team)), sh=(S.shots&&row.espn)?await img(shotUrl(row.espn)):null;
+    var lg=await img(logoUrl(row.team)), sh=S.shots?await shotFor(row.espn,row.name,row.team):null;
     if(sh){ drawShot(sh,x,y,s,tcol(row.team)); if(lg){ var b=s*.42; ctx.save(); ctx.beginPath(); ctx.arc(x+s-b*.42,y+s-b*.42,b*.55,0,Math.PI*2); ctx.fillStyle=P.bg; ctx.fill(); ctx.restore(); drawFit(lg,x+s-b*.42-b*.42,y+s-b*.42-b*.42,b*.84); } }
     else drawFit(lg,x,y,s);
   }
   // start every logo/headshot download at once; mark() then resolves from the cache
-  function preload(rows){ return Promise.all(rows.map(function(r){ return Promise.all([img(logoUrl(r.team)),(S.shots&&r.espn)?img(shotUrl(r.espn)):null]); })); }
+  function preload(rows){ return Promise.all(rows.map(function(r){ return Promise.all([img(logoUrl(r.team)),S.shots?shotFor(r.espn,r.name,r.team):null]); })); }
   function bg(W,H){ ctx.fillStyle=P.bg; ctx.fillRect(0,0,W,H); }
   // centred title + subtitle + rule; returns content top
   // our mark (favicon.svg: three gold bars on a dark rounded square), top left of every graphic (owner, Oct 14 2026)
@@ -1115,7 +1133,7 @@
       var rowsAt=async function(y,rows){
         for(var i=0;i<rows.length;i++){ var r=rows[i], ry=y+i*rh;
           ctx.fillStyle=i%2?'#F1F1F1':'#FFFFFF'; ctx.fillRect(0,ry,W,rh);
-          if(shots){ var sh=r.espn?await img(shotUrl(r.espn)):null; if(sh){ ctx.save(); ctx.beginPath(); ctx.rect(0,ry,xShot,rh); ctx.clip(); var ih=rh*1.05, iw=ih*sh.width/sh.height; ctx.drawImage(sh,(xShot-iw)/2,ry+rh-ih,iw,ih); ctx.restore(); }
+          if(shots){ var sh=await shotFor(r.espn,r.name,r.team||team); if(sh){ ctx.save(); ctx.beginPath(); ctx.rect(0,ry,xShot,rh); ctx.clip(); var ih=rh*1.05, iw=ih*sh.width/sh.height; ctx.drawImage(sh,(xShot-iw)/2,ry+rh-ih,iw,ih); ctx.restore(); }
             else if(lg){ ctx.save(); ctx.globalAlpha=.18; drawFit(lg,xShot*.18,ry+rh*.14,Math.min(xShot*.64,rh*.72)); ctx.restore(); } }
           txt(String(r.pos||''),xShot+18*u,ry+rh/2,{ w:600,px:nfs*.76,serif:'barlow',c:'#222' });
           txt(r.name,xShot+18*u+nfs*.9,ry+rh/2,{ w:700,px:nfs*1.06,serif:'barlow',c:'#111',max:xCls-xShot-30*u-nfs*.9 });
@@ -1131,7 +1149,7 @@
         ctx.fillStyle='#111'; [xShot,xLogo,xStats].forEach(function(x){ if(x>0) ctx.fillRect(x-1.5*u,y,Math.max(2,3*u),rows.length*rh); });
         ctx.fillStyle='#C9C9C9'; for(var k=1;k<DS.length;k++) ctx.fillRect(xStats+statW*k,y,Math.max(1,u),rows.length*rh);
         return y+rows.length*rh; };
-      await Promise.all(st.concat(bn).map(function(r){ return Promise.all([img(logoUrl(r.from||r.team||team)),shots&&r.espn?img(shotUrl(r.espn)):null]); }));
+      await Promise.all(st.concat(bn).map(function(r){ return Promise.all([img(logoUrl(r.from||r.team||team)),shots?shotFor(r.espn,r.name,r.from||r.team||team):null]); }));
       var y=section(y0,String(d.lab1==null?'Projected Starting Lineup':d.lab1).trim()); y=await rowsAt(y,st);
       if(bn.length){ y=section(y,String(d.lab2==null?'Projected Bench':d.lab2).trim()); y=await rowsAt(y,bn); }
       return [d.title1,d.title2].filter(Boolean).join(' ')+' — '+(d.lab1||'projected starting lineup').toLowerCase()+':\n\n'+st.map(function(r){ return r.pos+' '+r.name+(r.ppg?' ('+r.ppg+' ppg)':''); }).join('\n')+
@@ -1428,7 +1446,7 @@
     draw:async function(d,W,H,u,pad){
       bg(W,H); var y0=sheetHead(W,H,u,pad,d.title,d.subtitle), fTop=sheetFoot(W,H,u,pad,d.src), rows=d.rows.filter(function(r){ return r.name; });
       if(!rows.length){ txt('Load data on the left',W/2,(y0+fTop)/2,{ px:28*u,c:P.mut,al:'center' }); return ''; }
-      var shots=d.shots!==false; await Promise.all(rows.map(function(r){ return Promise.all([img(logoUrl(r.team)),shots&&r.espn?img(shotUrl(r.espn)):null]); }));
+      var shots=d.shots!==false; await Promise.all(rows.map(function(r){ return Promise.all([img(logoUrl(r.team)),shots?shotFor(r.espn,r.name,r.from||r.team||team):null]); }));
       var n=rows.length, gap=16*u, aw=W-pad*2, ah=fTop-y0-8*u, best=null;
       for(var c=(+d.gcols||1);c<=(+d.gcols||n);c++){ var rr0=Math.ceil(n/c), cw0=(aw-gap*(c-1))/c, ch0=(ah-gap*(rr0-1))/rr0, s=Math.min(cw0,ch0*.78); if(!best||s>best.s+.5) best={ c:c, r:rr0, s:s }; }
       var cw=(aw-gap*(best.c-1))/best.c, ch=Math.min((ah-gap*(best.r-1))/best.r,cw/.62), gy=y0+(ah-(ch*best.r+gap*(best.r-1)))/2, dark=S.theme==='dark';
@@ -1436,7 +1454,7 @@
         // the last row centres when it isn't full
         var inRow=Math.min(best.c,n-Math.floor(i/best.c)*best.c); if(inRow<best.c) cx+=(best.c-inRow)*(cw+gap)/2;
         ctx.save(); rrect(cx,cy,cw,ch,16*u); var tn=(d.tint==null||d.tint===''?60:+d.tint)/100; ctx.fillStyle=dark?mixHex(tc,[11,15,25],1-.5*tn):mixHex(tc,[255,255,255],1-.33*tn); ctx.fill(); ctx.clip();
-        var lg=await img(logoUrl(r.team)), sh=shots&&r.espn?await img(shotUrl(r.espn)):null, ls=Math.min(cw,ch)*.2;
+        var lg=await img(logoUrl(r.team)), sh=shots?await shotFor(r.espn,r.name,r.team):null, ls=Math.min(cw,ch)*.2;
         var photoB=cy+ch*.55;
         if(sh) shotIn(sh,cx,cy+ch*.06,cw,photoB-cy-ch*.06);
         else if(lg){ ctx.globalAlpha=.9; drawFit(lg,cx+cw*.22,cy+ch*.1,Math.min(cw*.56,ch*.4)); ctx.globalAlpha=1; }
@@ -1459,7 +1477,7 @@
   async function rankTable(d,W,H,u,pad,y0,fTop,o){
     var rows=d.rows.filter(function(r){ return r.name; }), n=rows.length;
     if(!n){ txt('Load data on the left',W/2,(y0+fTop)/2,{ px:28*u,c:P.mut,al:'center' }); return; }
-    var shots=d.shots!==false; await Promise.all(rows.map(function(r){ return Promise.all([img(logoUrl(r.team)),shots&&r.espn?img(shotUrl(r.espn)):null]); }));
+    var shots=d.shots!==false; await Promise.all(rows.map(function(r){ return Promise.all([img(logoUrl(r.team)),shots?shotFor(r.espn,r.name,r.from||r.team||team):null]); }));
     var cols=o.cols, hh=40*u, rh=Math.min(104*u,(fTop-y0-hh)/n), ms=rh*.72, k=F(), stops=rampOf(o.stops), amber=LK.leadStyle?LK.leadStyle==='amber':o.amber, logos=!LK.hideLogos, rk=!LK.hideRank, cellW=Math.min(132*u,(W-pad*2-470*u)/(cols.length+1.15)), leadW=Math.min(150*u,cellW*1.15);
     var xR=W-pad, xCells=xR-cellW*cols.length, xLead=xCells-leadW-10*u, rkW=rk?46*u:0, xLogo=pad+rkW, xShot=xLogo+(logos?ms+8*u:0), xName=xShot+(shots?ms+16*u:0);
     var hy=y0+hh*.5; txt(String(o.leadLabel||'').toUpperCase(),xLead+leadW/2,hy,{ w:700,px:15*u,serif:'barlow',c:P.text2,al:'center',ls:1*u,max:leadW-6*u });
@@ -1469,7 +1487,7 @@
       ctx.fillStyle=P.line; ctx.fillRect(pad,top,W-pad*2,Math.max(1,u));
       if(rk) txt(String(i+1),pad+rkW*.4,mid,{ w:800,px:rh*.3,serif:'cond',c:P.mut,al:'center' });
       var lg=logos?await img(logoUrl(r.team)):null; if(lg) drawFit(lg,xLogo,mid-ms*.42,ms*.84);
-      if(shots){ var sh=r.espn?await img(shotUrl(r.espn)):null; if(sh) drawShot(sh,xShot,mid-ms/2,ms,null); }
+      if(shots){ var sh=await shotFor(r.espn,r.name,r.team); if(sh) drawShot(sh,xShot,mid-ms/2,ms,null); else drawNoShot(xShot,mid-ms/2,ms,r.name,r.team); }
       var nmax=xLead-xName-14*u, nfs=Math.min(rh*.3,34*u)*k, nw=Math.min(nmax,width(r.name,700,nfs,'barlow'));
       var fpx=txt(r.name,xName,mid,{ w:700,px:nfs,serif:'barlow',c:P.text,max:nmax-(r.tag?width(r.tag,700,nfs*.5,'barlow')+8*u:0) });
       if(r.tag){ var tw2=width(r.name,700,fpx,'barlow'); txt(r.tag,xName+Math.min(tw2,nw)+6*u,mid-fpx*.34,{ w:700,px:nfs*.5,serif:'barlow',c:P.mut }); }
@@ -1658,7 +1676,7 @@
       bg(W,H); var y0=sheetHead(W,H,u,pad,d.title,d.subtitle), fTop=sheetFoot(W,H,u,pad,d.src), rows=d.rows.filter(function(r){ return r.team; }), n=rows.length;
       if(!n){ txt('Load data on the left',W/2,(y0+fTop)/2,{ px:28*u,c:P.mut,al:'center' }); return ''; }
       var shots=d.shots!==false, dark=S.theme==='dark';
-      await Promise.all(rows.map(function(r){ return Promise.all([img(logoUrl(r.team))].concat([0,1,2,3,4].map(function(i){ return shots&&r['e'+i]?img(shotUrl(r['e'+i])):null; }))); }));
+      await Promise.all(rows.map(function(r){ return Promise.all([img(logoUrl(r.team))].concat([0,1,2,3,4].map(function(i){ return shots?shotFor(r['e'+i],r['n'+i],r.team):null; }))); }));
       var hh=30*u, rh=Math.min(150*u,(fTop-y0-hh)/n), cardW=Math.min(170*u,(W-pad*2)*.17), rkW=40*u, ls=rh*.6, x5=pad+rkW+ls+18*u, x5e=W-pad-cardW-20*u, ss=Math.min((x5e-x5)/5*.86,rh*.6), slot=Math.min((x5e-x5)/5,ss*1.9);
       // wide sizes: the five stay together beside the value card, and the spare room names the school
       var spare=(x5e-x5)-slot*5, xNm=x5, nmW=spare>200*u?spare-24*u:0; x5+=nmW?spare:spare/2;
@@ -1669,7 +1687,7 @@
         if(!LK.hideRank) txt(String(i+1),pad+rkW*.45,mid,{ w:800,px:rh*.26,serif:'cond',c:P.mut,al:'center' });
         var lg=LK.hideLogos?null:await img(logoUrl(r.team)); if(lg) drawFit(lg,pad+rkW,mid-ls/2,ls);
         if(nmW) txt(r.name||school(r.team),xNm,mid,{ w:700,px:Math.min(rh*.3,30*u)*F(),serif:'barlow',c:P.text,max:nmW });
-        for(var k=0;k<5;k++){ var nm=r['n'+k]||'', id=r['e'+k], sx=x5+slot*k+(slot-ss)/2, sy=top+rh*.08, sh=shots&&id?await img(shotUrl(id)):null;
+        for(var k=0;k<5;k++){ var nm=r['n'+k]||'', id=r['e'+k], sx=x5+slot*k+(slot-ss)/2, sy=top+rh*.08, sh=shots?await shotFor(id,nm,r.team):null;
           if(sh) drawShot(sh,sx,sy,ss,tc); else { ctx.save(); ctx.beginPath(); ctx.arc(sx+ss/2,sy+ss/2,ss/2,0,Math.PI*2); ctx.fillStyle=P.chip; ctx.fill(); ctx.restore(); txt(lastName(nm).slice(0,1),sx+ss/2,sy+ss/2,{ w:800,px:ss*.4,serif:'cond',c:P.mut,al:'center' }); }
           if(!d.hideNames) txt(lastName(nm),sx+ss/2,sy+ss+rh*.12,{ w:700,px:Math.min(rh*.12,18*u)*F(),serif:'barlow',c:P.text2,al:'center',max:slot-6*u }); }
         // value card + possessions badge
@@ -1755,7 +1773,7 @@
     var all=[].concat.apply([],secs.map(function(s){ return s.rows; })), n=all.length, x0=o.x0!=null?o.x0:pad, x1=o.x1!=null?o.x1:W-pad, tw=x1-x0;
     if(!n){ txt('Load data on the left',(x0+x1)/2,(y0+fTop)/2,{ px:26*u,c:P.mut,al:'center' }); return; }
     var shots=!!o.shots, logos=o.logo!==false&&!LK.hideLogos, rk=o.rank!==false&&!LK.hideRank, k=F(), stops=rampOf(HEAT_RAMP);
-    await Promise.all(all.map(function(r){ return Promise.all([logos?img(logoUrl(r.team)):null,shots&&r.espn?img(shotUrl(r.espn)):null].concat(o.cols.filter(function(c){ return c.type==='logo'; }).map(function(c){ return r[c.k]?img(logoUrl(r[c.k])):null; }))); }));
+    await Promise.all(all.map(function(r){ return Promise.all([logos?img(logoUrl(r.team)):null,shots?shotFor(r.espn,r.name,r.team):null].concat(o.cols.filter(function(c){ return c.type==='logo'; }).map(function(c){ return r[c.k]?img(logoUrl(r[c.k])):null; }))); }));
     var hh=o.noHeader?0:34*u, sb=secs.some(function(s){ return s.label; })?Math.min(40*u,(fTop-y0)*.06):0;
     var rh=Math.min(100*u,(fTop-y0-hh-sb*secs.length)/n), ms=rh*.74;
     var fixed=0, nNum=0; o.cols.forEach(function(c){ if(c.type==='num') nNum++; else fixed+=c.type==='logo'?Math.max(rh*1.05,60*u):(c.w||80)*u; });
@@ -1771,7 +1789,7 @@
         ctx.fillStyle=P.line; if(j) ctx.fillRect(x0,top,tw,Math.max(1,u));
         if(rk) txt(String(o.restart?j+1:num),x0+rkW*.4,mid,{ w:800,px:rh*.3,serif:'cond',c:P.mut,al:'center' });
         var lg=logos?await img(logoUrl(r.team)):null; if(lg) drawFit(lg,xLogo,mid-ms*.42,ms*.84);
-        if(shots){ var sh=r.espn?await img(shotUrl(r.espn)):null; if(sh) drawShot(sh,xShot,mid-ms/2,ms,null);
+        if(shots){ var sh=await shotFor(r.espn,r.name,r.team); if(sh) drawShot(sh,xShot,mid-ms/2,ms,null);
           else { ctx.save(); ctx.beginPath(); ctx.arc(xShot+ms/2,mid,ms/2,0,7); ctx.fillStyle=P.chip; ctx.fill(); ctx.restore(); var l2=await img(logoUrl(r.team)); if(l2){ ctx.save(); ctx.globalAlpha=.5; drawFit(l2,xShot+ms*.2,mid-ms*.3,ms*.6); ctx.restore(); } } }
         var sub=o.sub&&r[o.sub]&&rh>=58*u, nfs=Math.min(rh*(sub?.32:.42),34*u)*k;
         var fpx=txt(r.name,xName,sub?mid-nfs*.32:mid,{ w:700,px:nfs,serif:'barlow',c:P.text,max:nmax-(o.tag&&r[o.tag]?width(r[o.tag],700,nfs*.5,'barlow')+8*u:0) });
