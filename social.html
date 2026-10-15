@@ -1476,29 +1476,87 @@
     }
   };
 
-  // ── 3. HEAT TABLE: projected 2026-27 leaders, the lead stat in an amber column, the rest red → green by percentile
-  var HLEAD={ wa:['Wins Added','WA','Projected Wins Added leaders','Wins a player adds over a replacement-level sub'], ppg:['Points','PPG','Projected scoring leaders','Points per game'],
-    rpg:['Rebounds','RPG','Projected rebounding leaders','Rebounds per game'], apg:['Assists','APG','Projected assist leaders','Assists per game'] };
-  var HCOLS=[['ppg','PPG'],['rpg','RPG'],['apg','APG'],['ts','TS%'],['usg','USG%'],['tp','3P%'],['ft','FT%'],['stl','SPG'],['blk','BPG'],['mpg','MPG'],['wa','WA']];
+  // ── 3. HEAT TABLE: leaders in ANY stat, the lead stat in an amber column, the rest red → green by percentile.
+  // Two seasons (owner, Oct 14 2026: "why can't I have every advanced stat"): 2026-27 PROJECTED (the projected line)
+  // or 2025-26 ACTUAL (player_advanced: rates, per-40s, TDC Impact, OWA/DWA + our Wins Added).
+  // [key, short label, menu name, title phrase, subtitle, seasons ('p' projected / 'a' actual), lower-is-better]
+  var HSTATS=[
+    ['wa','WA','Wins Added','Wins Added leaders','Wins a player adds over a replacement-level sub','pa'],
+    ['owa','OWA','Offensive Wins Added','Offensive Wins Added leaders','Wins added on offense','a'],
+    ['dwa','DWA','Defensive Wins Added','Defensive Wins Added leaders','Wins added on defense (team-defense heavy)','pa'],
+    ['ti40','TI/40','TDC Impact per 40','The most impactful players','TDC Impact: all-in box-score value per 40 minutes','pa'],
+    ['ovr','OVR','Overall rating','The highest-rated players','The Depth Chart overall','p'],
+    ['ppg','PPG','Points','Scoring leaders','Points per game','pa'],
+    ['rpg','RPG','Rebounds','Rebounding leaders','Rebounds per game','pa'],
+    ['apg','APG','Assists','Assist leaders','Assists per game','pa'],
+    ['stl','SPG','Steals','Steals leaders','Steals per game','p'],
+    ['blk','BPG','Blocks','Shot-blocking leaders','Blocks per game','p'],
+    ['mpg','MPG','Minutes','The heaviest workloads','Minutes per game','pa'],
+    ['ts','TS%','True shooting %','The most efficient scorers','True shooting: points per shooting possession','pa'],
+    ['efg','eFG%','Effective FG %','Effective field goal leaders','FG% with threes worth 1.5 makes','a'],
+    ['fg','FG%','Field goal %','Field goal % leaders','Field goal percentage','pa'],
+    ['tp','3P%','Three-point %','The best three-point shooters','Three-point percentage','pa'],
+    ['ft','FT%','Free throw %','The best free-throw shooters','Free throw percentage','pa'],
+    ['usg','USG%','Usage %','The highest-usage players','Share of team plays used while on the floor','pa'],
+    ['astp','AST%','Assist %','The best playmakers','Share of teammates’ baskets he assisted on the floor','a'],
+    ['tovp','TOV%','Turnover %','The best ball security','Turnovers per 100 plays used (lower is better)','a',1],
+    ['orbp','ORB%','Offensive rebound %','The best offensive rebounders','Share of available offensive rebounds','a'],
+    ['drbp','DRB%','Defensive rebound %','The best defensive rebounders','Share of available defensive rebounds','a'],
+    ['trbp','TRB%','Total rebound %','The best rebounders','Share of all available rebounds','a'],
+    ['stlp','STL%','Steal %','The best ball hawks','Opponent possessions ending in his steal','a'],
+    ['blkp','BLK%','Block %','The best rim protectors','Opponent two-point tries he blocked','a'],
+    ['pts40','PTS/40','Points per 40','The best scorers per minute','Points per 40 minutes','pa'],
+    ['reb40','REB/40','Rebounds per 40','The best rebounders per minute','Rebounds per 40 minutes','pa'],
+    ['ast40','AST/40','Assists per 40','The best passers per minute','Assists per 40 minutes','pa']
+  ];
+  var HS={}; HSTATS.forEach(function(x){ HS[x[0]]=x; });
+  function hStats(season){ var f=String(season)==='2026'?'a':'p'; return HSTATS.filter(function(x){ return x[5].indexOf(f)>-1; }); }
+  var HLEAD={}; HSTATS.forEach(function(x){ HLEAD[x[0]]=[x[2],x[1],x[3],x[4]]; });
+  var HCOLS=HSTATS.map(function(x){ return [x[0],x[1]]; });
   function waOf(p){ var L=null; try{ L=TDCProjGrade.lineOf(p); }catch(e){} var v=L&&(L.proj_wa!=null?L.proj_wa:L.pwa); return v!=null&&isFinite(+v)?(+v).toFixed(1):''; }
+  var _adv26=null;
+  async function adv26(){ if(_adv26) return _adv26; var out=[], cols='espn_id,name,team,g,min,ppg,rpg,apg,ts_pct,efg_pct,fg_pct,tp_pct,ft_pct,pts40,reb40,ast40,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,trb_pct,stl_pct,blk_pct,ti40,owa,dwa';
+    for(var o=0;;o+=1000){ var r=await fetch(SB+'/rest/v1/player_advanced?season_year=eq.2026&select='+cols+'&order=espn_id.asc&limit=1000&offset='+o,{ headers:{ apikey:KEY } }); if(!r.ok) throw new Error('Couldn’t load 2025-26 advanced stats');
+      var a=await r.json(); out=out.concat(a); if(a.length<1000) break; }
+    var so={}; try{ so=(await json('scripts/data/stat_overall.json')).players||{}; }catch(e){}
+    var f1=function(v,m){ return v!=null&&v!==''&&isFinite(+v)?(+v*(m||1)).toFixed(1):''; };
+    _adv26=out.filter(function(x){ return x.g>=10&&x.min>0; }).map(function(x){ var mpg=x.min/x.g, w=so[String(x.espn_id)];
+      return { name:x.name, team:x.team, espn:x.espn_id, tag:'', mpg:f1(mpg), ppg:f1(x.ppg), rpg:f1(x.rpg), apg:f1(x.apg),
+        ts:f1(x.ts_pct,100), efg:f1(x.efg_pct,100), fg:f1(x.fg_pct,100), tp:+x.tp_pct>0?f1(x.tp_pct,100):'', ft:+x.ft_pct>0?f1(x.ft_pct,100):'',
+        usg:f1(x.usg_pct), astp:f1(x.ast_pct), tovp:f1(x.tov_pct), orbp:f1(x.orb_pct), drbp:f1(x.drb_pct), trbp:f1(x.trb_pct), stlp:f1(x.stl_pct), blkp:f1(x.blk_pct),
+        pts40:f1(x.pts40), reb40:f1(x.reb40), ast40:f1(x.ast40), ti40:f1(x.ti40), owa:f1(x.owa), dwa:f1(x.dwa), wa:w&&w.wa!=null?f1(w.wa):'', _mpg:mpg }; });
+    return _adv26; }
   T.heat={
     ownBrand:true,
-    defaults:function(){ return { metric:'wa', n:10, conf:'', team:'', mix:false, shots:true, cols:['ppg','rpg','apg','ts'], title:'', subtitle:'', lead:'', src:'', dist:{}, rows:[] }; },
-    load:async function(d){ var ps=await players(), rs=await ratings(), confOf={}, n=Math.max(1,Math.min(15,+d.n||10)), M=HLEAD[d.metric]||HLEAD.wa; rs.forEach(function(t){ confOf[t.team]=confName(t.conf); });
-      var seen={}, pool=[]; ps.forEach(function(p){ var k=p.espn_id||p.name+'|'+p.team, h=String(p.hometown||'').trim().toLowerCase(); if(!p.name||p.name==='—'||seen[k]||p.is_injured||h==='injured'||h==='out') return; seen[k]=1;
-        var r=tRow(p); r.wa=waOf(p); r.tag=r.cls||''; if(+r.mpg>=15) pool.push(r); });
+    defaults:function(){ return { metric:'wa', season:'2027', n:10, conf:'', team:'', mix:false, shots:true, cols:['ppg','rpg','apg','ts'], title:'', subtitle:'', lead:'', src:'', dist:{}, rows:[] }; },
+    load:async function(d){ var rs=await ratings(), confOf={}, n=Math.max(1,Math.min(15,+d.n||10)), act=String(d.season)==='2026';
+      var avail=hStats(d.season).map(function(x){ return x[0]; }); if(avail.indexOf(d.metric)<0) d.metric='wa';
+      d.cols=(d.cols||[]).filter(function(k){ return avail.indexOf(k)>-1; }); if(!d.cols.length) d.cols=['ppg','rpg','apg','ts'];
+      var M=HLEAD[d.metric], inv=HS[d.metric][6]; rs.forEach(function(t){ confOf[t.team]=confName(t.conf); });
+      var cOf=function(t){ return confOf[t]||confOfFull(t); }, pool=[];
+      if(act){ (await adv26()).forEach(function(r){ if(r._mpg>=15) pool.push(Object.assign({},r)); }); }
+      else { var ps=await players(), seen={}; ps.forEach(function(p){ var k=p.espn_id||p.name+'|'+p.team, h=String(p.hometown||'').trim().toLowerCase(); if(!p.name||p.name==='—'||seen[k]||p.is_injured||h==='injured'||h==='out') return; seen[k]=1;
+          var r=tRow(p), L=null; try{ L=TDCProjGrade.lineOf(p); }catch(e){} var m=+r.mpg, f1=function(v){ return v!=null&&v!==''&&isFinite(+v)?(+v).toFixed(1):''; };
+          r.wa=waOf(p); r.tag=r.cls||''; r.ti40=f1(L&&L.ti40); r.dwa=f1(L&&L.dwa);
+          r.pts40=m>0?f1(40*r.ppg/m):''; r.reb40=m>0?f1(40*r.rpg/m):''; r.ast40=m>0?f1(40*r.apg/m):'';
+          if(m>=15) pool.push(r); }); }
       d.dist={}; HCOLS.forEach(function(c){ d.dist[c[0]]=quant(pool.map(function(r){ return r[c[0]]; })); });
-      var sc=pool.filter(function(r){ return (!d.conf||confOf[r.team]===d.conf)&&onTeam(r.team,d.team)&&r[d.metric]!==''; }).sort(function(a,b){ return +b[d.metric]-(+a[d.metric]); });
-      var PWR={ 'ACC':1, 'Big Ten':1, 'Big 12':1, 'SEC':1, 'Big East':1 };
-      if(d.mix&&!d.conf&&!d.team){ var hi=sc.filter(function(r){ return PWR[confOf[r.team]]; }), lo=sc.filter(function(r){ return !PWR[confOf[r.team]]; }); sc=hi.slice(0,Math.ceil(n/2)).concat(lo.slice(0,Math.floor(n/2))).sort(function(a,b){ return +b[d.metric]-(+a[d.metric]); }); }
-      d.rows=sc.slice(0,n).map(function(r){ var o={ name:r.name, team:r.team, espn:r.espn, tag:r.tag, val:r[d.metric] }; HCOLS.forEach(function(c){ o[c[0]]=r[c[0]]; }); return o; });
-      scopeTitle(d,M[2],M[3]+' · '+SEASON+' projections'); d.lead=M[1]; d.src='The Depth Chart '+SEASON+' projections · colours = percentile vs. D-I rotation players (15+ mpg)'; },
-    editor:function(d){ var on=d.cols||[];
-      return '<h3>Data</h3><div class="two"><div><label class="f">Lead stat (amber)</label><select data-k="metric">'+Object.keys(HLEAD).map(function(k){ return '<option value="'+k+'"'+(d.metric===k?' selected':'')+'>'+HLEAD[k][0]+'</option>'; }).join('')+'</select></div>'+
-        '<div><label class="f">Rows</label><input data-k="n" type="number" min="1" max="15" value="'+d.n+'"></div></div>'+scopeUI(d)+
+      var sc=pool.filter(function(r){ return (!d.conf||cOf(r.team)===d.conf)&&onTeam(r.team,d.team)&&r[d.metric]!==''&&r[d.metric]!=null; }).sort(function(a,b){ return inv?(+a[d.metric])-(+b[d.metric]):(+b[d.metric])-(+a[d.metric]); });
+      var PWR={ 'ACC':1, 'Big Ten':1, 'Big 12':1, 'SEC':1, 'Big East':1 }, cmp=function(a,b){ return inv?(+a[d.metric])-(+b[d.metric]):(+b[d.metric])-(+a[d.metric]); };
+      if(d.mix&&!d.conf&&!d.team){ var hi=sc.filter(function(r){ return PWR[cOf(r.team)]; }), lo=sc.filter(function(r){ return !PWR[cOf(r.team)]; }); sc=hi.slice(0,Math.ceil(n/2)).concat(lo.slice(0,Math.floor(n/2))).sort(cmp); }
+      d.rows=sc.slice(0,n).map(function(r){ var o={ name:r.name, team:r.team, espn:r.espn, tag:r.tag, val:r[d.metric], _v:+r[d.metric]*(inv?-1:1) }; HCOLS.forEach(function(c){ o[c[0]]=r[c[0]]; }); return o; });
+      var lbl=act?'2025-26':SEASON+' projected';
+      scopeTitle(d,act?M[2]:'Projected '+M[2].charAt(0).toLowerCase()+M[2].slice(1),M[3]+' · '+lbl); d.lead=M[1];
+      d.src='The Depth Chart · '+(act?'2025-26 D-I box scores':SEASON+' projections')+' · colours = percentile vs. D-I rotation players (15+ mpg)'; },
+    editor:function(d){ var on=d.cols||[], av=hStats(d.season);
+      return '<h3>Data</h3><div class="two"><div><label class="f">Season</label><select data-k="season"><option value="2027"'+(String(d.season)!=='2026'?' selected':'')+'>2026-27 projected</option><option value="2026"'+(String(d.season)==='2026'?' selected':'')+'>2025-26 actual</option></select></div>'+
+        '<div><label class="f">Rows</label><input data-k="n" type="number" min="1" max="15" value="'+d.n+'"></div></div>'+
+        '<label class="f">Lead stat (amber)</label><select data-k="metric">'+av.map(function(x){ return '<option value="'+x[0]+'"'+(d.metric===x[0]?' selected':'')+'>'+x[2]+' ('+x[1]+')</option>'; }).join('')+'</select>'+
+        (String(d.season)!=='2026'?'<div class="hint">Rate stats (AST%, TOV%, rebound/steal/block %), eFG% and OWA exist for real seasons only: switch Season to 2025-26 actual.</div>':'')+
+        scopeUI(d)+
         '<label class="chk"><input type="checkbox" data-k="mix"'+(d.mix?' checked':'')+'> Mix: half power-conference players, half everyone else</label>'+
         '<div class="btns"><button class="b sm primary" data-act="load">Load / refresh data</button></div>'+shotsChk(d)+
-        '<label class="f">Heat columns</label><div class="seg">'+HCOLS.map(function(c){ return '<button type="button" data-act="hcol" data-col="'+c[0]+'" class="'+(on.indexOf(c[0])>-1?'on':'')+'">'+c[1]+'</button>'; }).join('')+'</div>'+
+        '<label class="f">Heat columns</label><div class="seg">'+av.map(function(x){ return '<button type="button" data-act="hcol" data-col="'+x[0]+'" class="'+(on.indexOf(x[0])>-1?'on':'')+'">'+x[1]+'</button>'; }).join('')+'</div>'+
         '<h3>Text</h3><label class="f">Title</label><input data-k="title" value="'+esc(d.title)+'"><label class="f">Subtitle</label><input data-k="subtitle" value="'+esc(d.subtitle)+'">'+
         '<div class="two"><div><label class="f">Lead column label</label><input data-k="lead" value="'+esc(d.lead||'')+'"></div><div><label class="f">Data source line</label><input data-k="src" value="'+esc(d.src||'')+'"></div></div>'+
         '<h3>Rows ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',[{k:'name',ph:'Player',list:'plList',w:'minmax(0,1.3fr)'},{k:'tag',ph:'Yr',w:'36px'},{k:'val',ph:'Lead',w:'46px'}].concat(HCOLS.filter(function(c){ return on.indexOf(c[0])>-1; }).map(function(c){ return { k:c[0], ph:c[1], w:'46px' }; })))+'<div class="btns"><button class="b sm" data-act="add" data-path="rows">+ Add row</button><button class="b sm" data-act="clear" data-path="rows">Clear</button></div>'+
@@ -1506,8 +1564,8 @@
     },
     draw:async function(d,W,H,u,pad){
       bg(W,H); var y0=sheetHead(W,H,u,pad,d.title,d.subtitle), fTop=sheetFoot(W,H,u,pad,d.src,rampOf(HEAT_RAMP)?rampLegend(u,rampOf(HEAT_RAMP),'PERCENTILE','Low','High'):null);
-      await rankTable(d,W,H,u,pad,y0,fTop,{ amber:true, leadLabel:d.lead||'', stops:HEAT_RAMP, cols:HCOLS.filter(function(c){ return (d.cols||[]).indexOf(c[0])>-1; }).map(function(c){ return { k:c[0], lab:c[1] }; }) });
-      return (d.title||'')+' ('+SEASON+')\n\n'+d.rows.slice(0,5).map(function(r,i){ return (i+1)+'. '+r.name+' ('+school(r.team)+') '+r.val+' '+(d.lead||''); }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB';
+      await rankTable(d,W,H,u,pad,y0,fTop,{ amber:true, leadLabel:d.lead||'', stops:HEAT_RAMP, cols:HCOLS.filter(function(c){ return (d.cols||[]).indexOf(c[0])>-1; }).map(function(c){ return { k:c[0], lab:c[1], inv:!!HS[c[0]][6] }; }) });
+      return (d.title||'')+' ('+(String(d.season)==='2026'?'2025-26':SEASON)+')\n\n'+d.rows.slice(0,5).map(function(r,i){ return (i+1)+'. '+r.name+' ('+school(r.team)+') '+r.val+' '+(d.lead||''); }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB';
     }
   };
 
@@ -1933,7 +1991,7 @@
   document.addEventListener('toggle',function(e){ var el=e.target; if(el.classList&&el.classList.contains('sec')&&el.dataset.sec&&el.closest('#editor')){ (S.fold=S.fold||{})[el.dataset.sec]=el.open; save(); } },true);
   function syncControls(){ paintLib();
     $('size').value=S.size; $('theme').value=S.theme; $('shots').checked=S.shots; $('handle').value=S.handle; $('brandLogo').checked=S.brandLogo!==false; }
-  var AUTO={ posts:['key','team','conf','n','season','dir'], cards:['metric','season','who','minFga','n','conf','team','mix'], leaders:['metric','season','who','minFga','n','conf','team','mix'], heat:['metric','n','conf','team','mix'], lineups:['metric','season','minPoss','n','conf','team'], teams:['sort','n','conf'], depth:['team'], table:['src','team','conf','n','mix'], money:['mode','n','conf','team'], crunch:['dir','who','n','min','conf','team','sort'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf','team'], after:['season','team','conf'], confodds:['conf','n'], nil:['mode','n','minMpg','conf','team'] };   // charts whose rows come from a load
+  var AUTO={ posts:['key','team','conf','n','season','dir'], cards:['metric','season','who','minFga','n','conf','team','mix'], leaders:['metric','season','who','minFga','n','conf','team','mix'], heat:['metric','season','n','conf','team','mix'], lineups:['metric','season','minPoss','n','conf','team'], teams:['sort','n','conf'], depth:['team'], table:['src','team','conf','n','mix'], money:['mode','n','conf','team'], crunch:['dir','who','n','min','conf','team','sort'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf','team'], after:['season','team','conf'], confodds:['conf','n'], nil:['mode','n','minMpg','conf','team'] };   // charts whose rows come from a load
   async function autoLoad(){ var d=doc(); if(AUTO[S.tpl]&&d.rows&&!d.rows.length){ try{ await T[S.tpl].load(d); stamp(d); save(); paintEditor(); }catch(e){ status(e.message,true); } } }
   $('tplSeg').addEventListener('click',async function(e){ var b=e.target.closest('button[data-v]'); if(!b) return; S.tpl=b.dataset.v;
     // a data post picked from the library: point the Posts doc at it and load it fresh
