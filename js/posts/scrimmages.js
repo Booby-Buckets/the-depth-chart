@@ -3,7 +3,7 @@
 TDC_POSTS.add('scrimmages', {
   group: 'Preseason', label: 'Scrimmage & exhibition results',
   note: 'Unofficial preseason scrimmages with a reported final, ranked by how far each team beat our line (margin minus projected margin). Row = the winner (or your picked team / conference). Reality = how game-like it looked (0-100, Reality Meter).',
-  opts: { conf: true, team: true },
+  opts: { conf: true, team: true, tier: true },
   load: async function (d, H) {
     var S = await H.json('scripts/data/scrimmages_2027.json'), R = await H.json('scripts/data/scrimmage_results_2027.json'), rs = await H.ratings();
     var n = Math.max(1, Math.min(20, +d.n || 10)), res = R.results || {};
@@ -20,9 +20,10 @@ TDC_POSTS.add('scrimmages', {
       };
       var inScope = function (x) { if (!x) return false;
         if (d.team && !(H.onTeam(x.team, d.team) || H.onTeam(x.full, d.team))) return false;
-        if (d.conf && H.confName(x.conf) !== d.conf) return false; return true; };
+        if (d.conf && H.confName(x.conf) !== d.conf) return false;
+        if (d.tier && H.tierOf(x.conf) !== d.tier) return false; return true; };   // tier: high / mid / low major
       var sH = side(true), sA = side(false), pick;
-      if (d.team || d.conf) pick = inScope(h) ? sH : inScope(a) ? sA : null;
+      if (d.team || d.conf || d.tier) pick = inScope(h) && inScope(a) ? (r.hs >= r.as ? sH : sA) : inScope(h) ? sH : inScope(a) ? sA : null;   // both in scope: the winner
       else pick = r.hs >= r.as ? sH : sA;
       if (!pick) return;
       var re = r.reality || {}, p0 = re.pred_full != null ? re.pred_full : re.pred;   // pred_full = the line before who-sat adjustments
@@ -41,7 +42,7 @@ TDC_POSTS.add('scrimmages', {
     // biggest beat of our line first; games we had no line for go last, newest first
     rows.sort(function (a, b) { if ((a._ov == null) !== (b._ov == null)) return a._ov == null ? 1 : -1;
       if (a._ov != null && b._ov !== a._ov) return b._ov - a._ov; return a._d < b._d ? 1 : a._d > b._d ? -1 : 0; });
-    var scope = d.team ? H.school(d.team) + ' ' : d.conf ? d.conf + ' ' : '';
+    var scope = d.team ? H.school(d.team) + ' ' : d.conf ? d.conf + ' ' : d.tier ? { H: 'High-major ', M: 'Mid-major ', L: 'Low-major ' }[d.tier] : '';
     return {
       title: d.team ? scope + 'in the preseason' : (scope + 'Scrimmage scoreboard').replace(/^\s+/, ''),
       subtitle: H.SEASON + ' preseason scrimmages & exhibitions · unofficial',

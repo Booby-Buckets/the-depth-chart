@@ -5,7 +5,7 @@
 TDC_POSTS.add('scrimplayers', {
   group: 'Preseason', label: 'Scrimmage standouts (players)',
   note: 'Player lines from unofficial preseason scrimmages, ranked by how far he beat our full-game projection in the picked stat. "Most" = the raw total. 10+ minutes only.',
-  opts: { conf: true, team: true, dir: true, upLabel: 'Beat our line', downLabel: 'Most (raw total)',
+  opts: { conf: true, team: true, tier: true, dir: true, upLabel: 'Beat our line', downLabel: 'Most (raw total)',
     statsLabel: 'Stat', stats: [['pts', 'Points'], ['reb', 'Rebounds'], ['ast', 'Assists'], ['stl', 'Steals'], ['blk', 'Blocks'], ['tpm', '3-pointers made']] },
   load: async function (d, H) {
     // the stat "vs our line" ranks by (owner, Oct 2026: "changeable so I can see who over shot their projections for different stats"):
@@ -39,6 +39,7 @@ TDC_POSTS.add('scrimplayers', {
         var me = rowOf(meFull), op = rowOf(opFull); if (!me) return;   // only D-I teams we rate (the opponent may be anyone)
         if (d.team && !(H.onTeam(me.team, d.team) || H.onTeam(me.full, d.team))) return;
         if (d.conf && H.confName(me.conf) !== d.conf) return;
+        if (d.tier && H.tierOf(me.conf) !== d.tier) return;   // high / mid / low major
         var tag = (g.neutral ? 'vs ' : isHome ? 'vs ' : 'at ') + H.school(op ? op.team : opFull) + ' · ' + when;
         B.players.forEach(function (x) {
           var min = +x.min || 0; if (min < 10 || x.pts == null) return;
@@ -60,7 +61,7 @@ TDC_POSTS.add('scrimplayers', {
     });
     if (d.dir === 'down') rows.sort(function (a, b) { return b._bv - a._bv || (b._ov || 0) - (a._ov || 0); });
     else rows.sort(function (a, b) { if ((a._ov == null) !== (b._ov == null)) return a._ov == null ? 1 : -1; return (b._ov || 0) - (a._ov || 0) || b._bv - a._bv; });
-    var scope = d.team ? H.school(d.team) + ': ' : d.conf ? d.conf + ': ' : '';
+    var scope = d.team ? H.school(d.team) + ': ' : d.conf ? d.conf + ': ' : d.tier ? { H: 'High-major ', M: 'Mid-major ', L: 'Low-major ' }[d.tier].replace(/ $/, '') + ': ' : '';
     var up = d.dir !== 'down';
     return {
       title: scope + (up ? (sk === 'pts' ? 'Scrimmage standouts' : 'Scrimmage standouts: ' + st.word) : 'Scrimmage leaders: ' + st.word),
