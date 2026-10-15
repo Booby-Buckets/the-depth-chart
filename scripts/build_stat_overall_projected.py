@@ -2196,6 +2196,16 @@ for _sh,_fm in FRESH_FIT.items():
         _cap=int(round(sum(_above)/len(_above)+BURIED_MARGIN))
         if _f["ovr"]>_cap: _f["ovr"]=max(_f["sv"],_cap); _f["buried_cap"]=_cap; _ncap+=1
 print(f"newcomer stat values: {_nsv} (buried recruits capped by the depth chart above them: {_ncap})",file=sys.stderr)
+# NO NEWCOMER ABOVE THE BEST PROVEN PLAYER (owner, Oct 15 2026: Stokes rated 97, above every returner, on a projected
+# line). A newcomer's preseason OVR is capped FR_CAP_GAP below the best returner's projected OVR (rotation players); his
+# real games below can still lift it. Display only: sv / svp (what NIL prices) are untouched.
+FR_CAP_GAP=float(os.environ.get("FR_CAP_GAP","3"))
+_best=max([v.get("ovr") or 0 for v in out.values() if _n(v.get("mpg"),0)>=10] or [96])
+FR_CAP=int(os.environ.get("FR_CAP") or round(_best-FR_CAP_GAP)); _nfc=0
+for _sh,_fm in FRESH_FIT.items():
+    for _nm,_f in _fm.items():
+        if (_f.get("ovr") or 0)>FR_CAP: _f["ovr_uncapped"]=_f["ovr"]; _f["ovr"]=FR_CAP; _nfc+=1
+print(f"newcomer OVR cap: {FR_CAP} (best returner {_best} - {FR_CAP_GAP:g}); capped {_nfc}",file=sys.stderr)
 _nrg=0
 for _sh,_fm in FRESH_FIT.items():
     _full=S2F.get(_sh.lower()) or _sh
