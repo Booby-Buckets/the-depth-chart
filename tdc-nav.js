@@ -108,12 +108,12 @@
       '.tdn-top>*{min-width:0;}',
       '@media(max-width:640px){#navActions a[href="profile.html"] span{display:none!important;}#navActions a[href="profile.html"] img,#navActions a[href="profile.html"]>div{width:28px!important;height:28px!important;}.tdn-logo em{margin-left:5px;padding:2px 5px;}}',
       '.tdn-actions{display:flex;align-items:center;gap:20px;}',
-      '.tdn-actions a{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;transition:color .15s;}',
+      '.tdn-actions a{font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);text-decoration:none;transition:color .15s;}',
       '.tdn-actions a:hover{color:var(--text);}',
-      '.tdn-fol{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--accent,#a8843c)!important;text-decoration:none;margin-right:14px;white-space:nowrap}.tdn-fol[aria-current]{text-decoration:underline;text-underline-offset:4px}',
-      '.tdn-signin{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bg)!important;background:var(--text);border:none;padding:6px 16px;cursor:pointer;text-decoration:none;display:inline-block;transition:opacity .15s;}',
+      '.tdn-fol{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--accent,#a8843c)!important;text-decoration:none;margin-right:14px;white-space:nowrap}.tdn-fol[aria-current]{text-decoration:underline;text-underline-offset:4px}',
+      '.tdn-signin{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bg)!important;background:var(--text);border:none;padding:5px 12px;cursor:pointer;text-decoration:none;display:inline-block;transition:opacity .15s;}',
       '.tdn-signin:hover{opacity:.85;}',
-      '.tdn-wrap .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:border-color .15s,color .15s;}',
+      '.tdn-wrap .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:12px;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:border-color .15s,color .15s;}',
       '.tdn-wrap .theme-toggle:hover{border-color:var(--accent);color:var(--text);}',
       '.tdn-rowwrap{border-top:1px solid var(--border);}',
       '.tdn-row{display:flex;flex-wrap:wrap;align-items:stretch;gap:2px;position:relative;}',
@@ -139,7 +139,7 @@
       '.tdn-menu a{display:block;font-size:12.5px;font-weight:600;letter-spacing:.01em;text-transform:none;color:var(--text2);text-decoration:none;padding:8px 12px;border-radius:4px;white-space:nowrap;transition:background .13s,color .13s;}',
       '.tdn-menu a:hover{background:var(--bg3);color:var(--text);}',
       '.tdn-menu a.active{color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent);}',
-      '.tdn-signout{font-family:inherit;background:none;border:1px solid var(--border2);border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);padding:5px 10px;white-space:nowrap;transition:color .15s,border-color .15s;}',
+      '.tdn-signout{font-family:inherit;background:none;border:1px solid var(--border2);border-radius:4px;cursor:pointer;font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);padding:4px 9px;white-space:nowrap;transition:color .15s,border-color .15s;}',
       '.tdn-signout:hover{color:var(--text);border-color:var(--text3);}',
       '@media(max-width:900px){',
       '.tdn-top{height:44px;}',
@@ -199,7 +199,7 @@
       '<a class="tdn-fol" href="following.html" title="Players and teams you follow"' + (here === 'following.html' ? ' aria-current="page"' : '') + '>★ Following</a>' +
       '<div class="tdn-actions" id="navActions">' +
         '<button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle dark mode">' + themeGlyph + '</button>' +
-        '<a href="signin.html" style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;">Sign In</a>' +
+        '<a href="signin.html" style="font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-decoration:none;">Sign In</a>' +
         '<a href="pricing.html" class="tdn-signin">Subscribe</a>' +
       '</div></div>' +
     '</div></div>' +
@@ -227,6 +227,13 @@
     // remove any legacy inline nav so only the grouped bar remains
     var old = document.querySelectorAll('.nav-wrap'); old.forEach(function (n) { n.parentNode && n.parentNode.removeChild(n); });
     if (document.querySelector('.tdn-wrap') !== wrap) document.body.insertBefore(wrap, document.body.firstChild);
+    // scores strip above the bar (tdc-ticker.js): scrolls away, the bar stays pinned
+    if (!window.TDC_NO_TICKER && !document.querySelector('.tdt')) {
+      var tk = document.createElement('div'); tk.className = 'tdt'; tk.setAttribute('aria-label', 'Scores');
+      document.body.insertBefore(tk, wrap);
+      var go = function () { if (window.TDC_TICKER) TDC_TICKER.mount(tk); };
+      if (window.TDC_TICKER) go(); else { var ts = document.createElement('script'); ts.src = 'tdc-ticker.js?v=1'; ts.onload = go; ts.onerror = function () { tk.remove(); }; document.head.appendChild(ts); }
+    }
     wireMenus();
     upgradeAuth();
     watchActions();
