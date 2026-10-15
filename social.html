@@ -8,7 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="auth.js?v=delacct1"></script>
   <script src="tdc-theme.js?v=5"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800;900&family=Barlow+Condensed:wght@700;800&family=Barlow:wght@600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800;900&family=Barlow+Condensed:wght@700;800&family=Barlow:wght@500;600;700;800;900&display=swap" rel="stylesheet"/>
   <script src="team-colors.js?v=12"></script>
   <script src="tdc-injury.js?v=5"></script>
   <script src="tdc-freshman.js?v=pub33"></script>
@@ -251,7 +251,7 @@
   function logoUrl(team){ var c=window.tdcTeamColor&&tdcTeamColor(team); return c&&c.logo||null; }
   function shotUrl(espn){ return espn?'https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/'+espn+'.png':null; }
   function tcol(team){ var c=window.tdcTeamColor&&tdcTeamColor(team); return (c&&c.c1)||P.acc; }
-  function font(w,px,serif){ return w+' '+Math.max(8,Math.round(px))+'px '+(serif==='cond'?'"Barlow Condensed", "Arial Narrow", sans-serif':serif==='barlow'?'Barlow, Inter, system-ui, sans-serif':serif?'"Playfair Display", Georgia, serif':'Inter, system-ui, sans-serif'); }
+  function font(w,px,serif){ return w+' '+Math.max(8,Math.round(px))+'px '+(serif==='cond'?'"Barlow Condensed", "Arial Narrow", sans-serif':serif==='barlow'?'Barlow, Inter, system-ui, sans-serif':serif?'"Playfair Display", Georgia, serif':'Barlow, Inter, system-ui, sans-serif'); }   // Barlow everywhere = the sheet look (Oct 14 2026)
   function txt(t,x,y,o){ o=o||{}; t=String(t==null?'':t); ctx.save(); if('letterSpacing' in ctx) ctx.letterSpacing=(o.ls||0)+'px';
     var px=o.px||20; ctx.font=font(o.w||500,px,o.serif); if(o.max){ while(ctx.measureText(t).width>o.max && px>9){ px-=.5; ctx.font=font(o.w||500,px,o.serif); } }
     ctx.fillStyle=o.c||P.text; ctx.textAlign=o.al||'left'; ctx.textBaseline=o.bl||'middle'; ctx.fillText(t,x,y); ctx.restore(); return px; }
@@ -278,14 +278,8 @@
     var rr=function(x0,y0,w,h,r){ ctx.beginPath(); ctx.moveTo(x0+r,y0); ctx.arcTo(x0+w,y0,x0+w,y0+h,r); ctx.arcTo(x0+w,y0+h,x0,y0+h,r); ctx.arcTo(x0,y0+h,x0,y0,r); ctx.arcTo(x0,y0,x0+w,y0,r); ctx.closePath(); ctx.fill(); };
     rr(x,y,s,s,6*k); ctx.fillStyle='#E6D5A8'; [[6.5,17.5,8],[13.7,11.5,14],[20.9,6.5,19]].forEach(function(b){ rr(x+b[0]*k,y+b[1]*k,4.6*k,b[2]*k,1.1*k); }); ctx.restore(); }
   function brandSize(u){ return 58*u; }
-  function head(W,u,pad,title,subtitle){
-    var y=pad+34*u, bw=S.brandLogo!==false?brandSize(u)+16*u:0;
-    var tp=txt((title||'').toUpperCase(),W/2,y,{ w:900,px:54*u,al:'center',max:W-pad*2-bw*2,ls:.5*u });
-    y+=tp*.5+26*u;
-    if(subtitle){ txt(subtitle.toUpperCase(),W/2,y,{ w:600,px:21*u,c:P.mut,al:'center',ls:2.5*u,max:W-pad*2 }); y+=30*u; }
-    ctx.fillStyle=P.line; ctx.fillRect(pad,y,W-pad*2,Math.max(1,1.5*u));
-    return y+22*u;
-  }
+  // every chart now opens with the sheet title (owner, Oct 14 2026: conform the older graphics to the sheet format)
+  function head(W,u,pad,title,subtitle){ return sheetHead(W,ctx.canvas.height,u,pad,title,subtitle); }
   // slim brand footer; returns its top
   function foot(W,H,u,pad){
     var y=H-pad*.75, sz=24*u;
@@ -345,7 +339,7 @@
         '<div><label class="f">Column 2 label</label><input data-k="val2Label" value="'+esc(d.val2Label||'')+'" placeholder="e.g. NET (blank = off)"></div></div>'+
         '<label class="chk"><input type="checkbox" data-k="showSub"'+(d.showSub?' checked':'')+'> Small line under each name (conference / school)</label>'+
         '<h3>Rows ('+d.rows.length+')</h3>'+rowsEditor(d.rows,'rows',true,!!d.val2Label)+
-        '<div class="btns"><button class="b sm" data-act="add" data-path="rows">+ Add row</button><button class="b sm" data-act="clear" data-path="rows">Clear</button></div>';
+        '<div class="btns"><button class="b sm" data-act="add" data-path="rows">+ Add row</button><button class="b sm" data-act="clear" data-path="rows">Clear</button></div>'+lookUI(d,{ rows:false, srcLabel:'Footnote' });
     },
     draw:async function(d,W,H,u,pad){
       bg(W,H);
@@ -415,7 +409,7 @@
       d.awards.forEach(function(a,i){ h+='<div class="row" style="grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) minmax(0,1fr) 22px">'+
         '<input data-p="awards.'+i+'.label" value="'+esc(a.label)+'"><input data-p="awards.'+i+'.name" list="plList" value="'+esc(a.name)+'" placeholder="Name">'+
         '<input data-p="awards.'+i+'.team" list="tmList" value="'+esc(a.team)+'" placeholder="Team"><button data-act="del" data-path="awards" data-i="'+i+'" title="Remove">✕</button></div>'; });
-      h+='</div><div class="btns"><button class="b sm" data-act="addaward">+ Add award</button></div>';
+      h+='</div><div class="btns"><button class="b sm" data-act="addaward">+ Add award</button></div>'+lookUI(d,{ rows:false, srcLabel:'Footnote' });
       ['First Team','Second Team','Third Team'].forEach(function(lbl,ti){ h+='<div class="grp">'+lbl+'</div>'+rowsEditor(d.teams[ti],'teams.'+ti,false); });
       return h;
     },
@@ -490,8 +484,8 @@
   }
   function textEditor(d){ return '<h3>Text</h3><label class="f">Title</label><input data-k="title" value="'+esc(d.title)+'">'+
     '<label class="f">Subtitle</label><input data-k="subtitle" value="'+esc(d.subtitle)+'">'+
-    '<label class="f">Footnote</label><input data-k="note" value="'+esc(d.note||'')+'">'; }
-  function noteLine(W,u,pad,fTop,note){ if(note) txt(note,W/2,fTop-12*u,{ w:600,px:12*u,c:P.mut,al:'center',max:W-pad*2 }); return note?30*u:0; }
+    '<label class="f">Footnote</label><input data-k="note" value="'+esc(d.note||'')+'">'+lookUI(d,{ rows:false, srcLabel:'Footnote' }); }
+  function noteLine(W,u,pad,fTop,note){ if(!note||LK.hideSrc) return 0; txt(String(note).toUpperCase(),pad,fTop-17*u,{ w:600,px:13*u,c:P.mut,ls:1.2*u,max:W-pad*2 }); return 36*u; }
 
   // scatter with logo / headshot dots, median guides, corner labels and de-overlapped name labels
   async function scatter(W,H,u,pad,y0,fTop,o){
@@ -1263,17 +1257,35 @@
       words.forEach(function(w){ var tt=cur?cur+' '+w:w; if(cur&&ctx.measureText(tt).width>maxW){ out.push(cur); cur=w; } else cur=tt; }); if(cur) out.push(cur);
       if(out.length<=lines&&out.every(function(l){ return ctx.measureText(l).width<=maxW; })) break; }
     return { lines:out, px:px }; }
-  // big left title (two lines max), our mark top right, small muted subtitle; returns content top
+  // big left title (two lines max), our mark top right, small muted subtitle; returns content top. Reads the Look
+  // options of the doc being drawn (LK): title size / colour / line count, subtitle on or off.
   function sheetHead(W,H,u,pad,title,sub){
-    var bs=S.brandLogo!==false?brandSize(u)*1.1:0, maxW=W-pad*2-(bs?bs+28*u:0), y=pad*.85;
-    if(bs) brandMark(W-pad-bs,y+4*u,bs);
-    var r=wrapTitle(String(title||'').toUpperCase(),maxW,(W>H*1.2?78:82)*u,2), lh=r.px*.96;
-    r.lines.forEach(function(l,i){ txt(l,pad,y+lh*(i+.5),{ w:800,px:r.px,serif:'cond',c:P.text }); });
+    var bs=S.brandLogo!==false?brandSize(u)*1.1:0, maxW=W-pad*2-(bs?bs+28*u:0), y=pad*.85, ts=(+LK.tscale||100)/100;
+    if(bs){ brandMark(W-pad-bs,y+4*u,bs); BRANDED=true; }
+    var r=wrapTitle(String(title||'').toUpperCase(),maxW,(W>H*1.2?78:82)*u*ts,+LK.tlines||2), lh=r.px*.96;
+    r.lines.forEach(function(l,i){ txt(l,pad,y+lh*(i+.5),{ w:800,px:r.px,serif:'cond',c:LK.tcolor||P.text }); });
     y+=lh*r.lines.length+4*u;
-    if(sub){ txt(sub,pad,y+16*u,{ w:600,px:25*u,serif:'barlow',c:P.mut,max:maxW }); y+=36*u; }
+    if(sub&&!LK.hideSub){ var sp=25*u*Math.max(.8,Math.min(1.25,ts)); txt(sub,pad,y+sp*.64,{ w:600,px:sp,serif:'barlow',c:P.mut,max:maxW }); y+=sp*1.44; }
     return y+18*u; }
+  var LK={}, BRANDED=false;
+  var RAMPS={ pct:['Purple → yellow',null], heat:['Red → green',null], blue:['Blue',[[232,240,252],[130,175,232],[28,78,168]]], gold:['Gold',[[255,244,214],[248,200,90],[214,128,10]]], mono:['Grey',[[238,238,238],[170,170,170],[70,70,70]]] };
+  function rampOf(def){ var k=LK.ramp; if(k==='none') return null; return k==='pct'?PCT_RAMP:k==='heat'?HEAT_RAMP:(RAMPS[k]&&RAMPS[k][1])||def; }
+  function F(){ return (+LK.fscale||100)/100; }
+  // the Look panel every sheet graphic (and the older charts) share — everything here only changes the drawing
+  function lookUI(d,o){ o=o||{}; d.lab=d.lab||{};
+    var rng=function(k,lab,lo,hi,def){ return '<div><label class="f">'+lab+' <span style="color:var(--text3)">'+(d[k]||def)+'%</span></label><input type="range" data-k="'+k+'" min="'+lo+'" max="'+hi+'" step="5" value="'+(d[k]||def)+'" style="padding:0"></div>'; };
+    var chk=function(k,lab){ return '<label class="chk"><input type="checkbox" data-k="'+k+'"'+(d[k]?'':' checked')+' data-neg="1"> '+lab+'</label>'; };
+    var h='<h3>Look</h3><div class="two">'+rng('tscale','Title size',60,140,100)+(o.rows===false?'':rng('fscale','Row text size',70,140,100))+'</div>'+
+      '<div class="two"><div><label class="f">Title lines</label><select data-k="tlines"><option value="1"'+(+d.tlines===1?' selected':'')+'>One</option><option value="2"'+(+d.tlines!==1&&+d.tlines!==3?' selected':'')+'>Up to two</option><option value="3"'+(+d.tlines===3?' selected':'')+'>Up to three</option></select></div>'+
+      '<div><label class="f">Title colour</label><div style="display:flex;gap:6px"><input type="color" data-k="tcolor" value="'+(d.tcolor||'#15130f')+'" style="padding:2px;height:34px"><button class="b sm" data-act="tcreset" type="button">Default</button></div></div></div>'+
+      (o.ramp?'<label class="f">Cell colours</label><select data-k="ramp"><option value="">Default</option>'+Object.keys(RAMPS).map(function(k){ return '<option value="'+k+'"'+(d.ramp===k?' selected':'')+'>'+RAMPS[k][0]+'</option>'; }).join('')+'<option value="none"'+(d.ramp==='none'?' selected':'')+'>No colour</option></select>':'')+
+      (o.lead?'<label class="f">Lead column</label><select data-k="leadStyle"><option value="">Default</option><option value="amber"'+(d.leadStyle==='amber'?' selected':'')+'>Amber bar</option><option value="plain"'+(d.leadStyle==='plain'?' selected':'')+'>Plain number</option></select>':'')+
+      '<div class="two" style="column-gap:14px">'+chk('hideSub','Subtitle')+chk('hideSrc',o.srcLabel||'Data source line')+(o.legend?chk('hideLegend','Colour legend'):'')+(o.rows===false?'':chk('hideRank','Rank numbers')+chk('hideLogos','Team logos'))+'</div>';
+    if(o.cols&&o.cols.length) h+='<label class="f">Column labels</label><div class="two">'+o.cols.map(function(c){ return '<input data-p="lab.'+c[0]+'" value="'+esc(d.lab[c[0]]||'')+'" placeholder="'+esc(c[1])+'">'; }).join('')+'</div>';
+    return h; }
+  function labOf(k,def){ return (LK.lab&&LK.lab[k])||def; }
   // footer: "Data: …" over the brand line; an optional legend on the right of the same line
-  function sheetFoot(W,H,u,pad,src,legend){ var f=foot(W,H,u,pad), y=f-17*u, s2=src?'DATA: '+String(src).toUpperCase():'', sw=s2?width(s2,600,13*u)+s2.length*1.2*u:0, up=0;
+  function sheetFoot(W,H,u,pad,src,legend){ if(LK.hideSrc) src=''; if(LK.hideLegend) legend=null; var f=foot(W,H,u,pad), y=f-17*u, s2=src?'DATA: '+String(src).toUpperCase():'', sw=s2?width(s2,600,13*u)+s2.length*1.2*u:0, up=0;
     if(legend){ up=sw>W-pad*2-300*u?24*u:0; legend(W-pad,y-up); }
     if(s2) txt(s2,pad,y,{ w:600,px:13*u,c:P.mut,ls:1.2*u,max:W-pad*2-(up||!legend?0:300*u) });
     return f-36*u-up; }
@@ -1347,31 +1359,33 @@
         '<div class="two"><div><label class="f">Big number unit</label><input data-k="unit" value="'+esc(d.unit||'')+'"></div><div><label class="f">Pill label</label><input data-k="pill" value="'+esc(d.pill||'')+'"></div></div>'+
         '<label class="f">Data source line</label><input data-k="src" value="'+esc(d.src||'')+'">'+
         '<h3>Cards ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',[{k:'name',ph:'Player',list:'plList',w:'minmax(0,1.3fr)'},{k:'team',ph:'Team',list:'tmList'},{k:'val',ph:'Big',w:'50px'},{k:'val2',ph:'Pill',w:'50px'}])+
-        '<div class="btns"><button class="b sm" data-act="add" data-path="rows">+ Add card</button></div>';
+        '<div class="btns"><button class="b sm" data-act="add" data-path="rows">+ Add card</button><button class="b sm" data-act="clear" data-path="rows">Clear</button></div>'+
+        lookUI(d)+'<div class="two">'+'<div><label class="f">Card colour strength <span style="color:var(--text3)">'+(d.tint||60)+'%</span></label><input type="range" data-k="tint" min="0" max="100" step="5" value="'+(d.tint||60)+'" style="padding:0"></div>'+
+        '<div><label class="f">Cards per row</label><select data-k="gcols"><option value="">Auto</option>'+[2,3,4,5,6].map(function(c){ return '<option'+(+d.gcols===c?' selected':'')+'>'+c+'</option>'; }).join('')+'</select></div></div>';
     },
     draw:async function(d,W,H,u,pad){
       bg(W,H); var y0=sheetHead(W,H,u,pad,d.title,d.subtitle), fTop=sheetFoot(W,H,u,pad,d.src), rows=d.rows.filter(function(r){ return r.name; });
       if(!rows.length){ txt('Load data on the left',W/2,(y0+fTop)/2,{ px:28*u,c:P.mut,al:'center' }); return ''; }
       var shots=d.shots!==false; await Promise.all(rows.map(function(r){ return Promise.all([img(logoUrl(r.team)),shots&&r.espn?img(shotUrl(r.espn)):null]); }));
       var n=rows.length, gap=16*u, aw=W-pad*2, ah=fTop-y0-8*u, best=null;
-      for(var c=1;c<=n;c++){ var rr0=Math.ceil(n/c), cw0=(aw-gap*(c-1))/c, ch0=(ah-gap*(rr0-1))/rr0, s=Math.min(cw0,ch0*.78); if(!best||s>best.s+.5) best={ c:c, r:rr0, s:s }; }
+      for(var c=(+d.gcols||1);c<=(+d.gcols||n);c++){ var rr0=Math.ceil(n/c), cw0=(aw-gap*(c-1))/c, ch0=(ah-gap*(rr0-1))/rr0, s=Math.min(cw0,ch0*.78); if(!best||s>best.s+.5) best={ c:c, r:rr0, s:s }; }
       var cw=(aw-gap*(best.c-1))/best.c, ch=Math.min((ah-gap*(best.r-1))/best.r,cw/.62), gy=y0+(ah-(ch*best.r+gap*(best.r-1)))/2, dark=S.theme==='dark';
       for(var i=0;i<n;i++){ var r=rows[i], cx=pad+(i%best.c)*(cw+gap), cy=gy+Math.floor(i/best.c)*(ch+gap), tc=tcol(r.team);
         // the last row centres when it isn't full
         var inRow=Math.min(best.c,n-Math.floor(i/best.c)*best.c); if(inRow<best.c) cx+=(best.c-inRow)*(cw+gap)/2;
-        ctx.save(); rrect(cx,cy,cw,ch,16*u); ctx.fillStyle=dark?mixHex(tc,[11,15,25],.72):mixHex(tc,[255,255,255],.8); ctx.fill(); ctx.clip();
+        ctx.save(); rrect(cx,cy,cw,ch,16*u); var tn=(d.tint==null||d.tint===''?60:+d.tint)/100; ctx.fillStyle=dark?mixHex(tc,[11,15,25],1-.5*tn):mixHex(tc,[255,255,255],1-.33*tn); ctx.fill(); ctx.clip();
         var lg=await img(logoUrl(r.team)), sh=shots&&r.espn?await img(shotUrl(r.espn)):null, ls=Math.min(cw,ch)*.2;
         var photoB=cy+ch*.55;
         if(sh) shotIn(sh,cx,cy+ch*.06,cw,photoB-cy-ch*.06);
         else if(lg){ ctx.globalAlpha=.9; drawFit(lg,cx+cw*.22,cy+ch*.1,Math.min(cw*.56,ch*.4)); ctx.globalAlpha=1; }
-        if(lg&&sh) drawFit(lg,cx+10*u,cy+10*u,ls);
-        txt(String(i+1),cx+cw-12*u,cy+16*u,{ w:800,px:Math.min(22*u,ch*.06),serif:'cond',c:P.text2,al:'right',bl:'top' });
+        if(lg&&sh&&!LK.hideLogos) drawFit(lg,cx+10*u,cy+10*u,ls);
+        if(!LK.hideRank) txt(String(i+1),cx+cw-12*u,cy+16*u,{ w:800,px:Math.min(22*u,ch*.06),serif:'cond',c:P.text2,al:'right',bl:'top' });
         ctx.fillStyle=dark?'rgba(0,0,0,.28)':'rgba(255,255,255,.55)'; ctx.fillRect(cx,photoB,cw,ch-(photoB-cy));
         ctx.restore();
-        var nfs=Math.min(ch*.085,cw*.15);
+        var nfs=Math.min(ch*.085,cw*.15)*F();
         txt(lastName(r.name),cx+cw/2,photoB+ch*.075,{ w:800,px:nfs,serif:'cond',c:P.text,al:'center',max:cw-16*u,ls:.5*u });
-        txt((r.val||'')+(r.val?d.unit||'':''),cx+cw/2,photoB+ch*.2,{ w:800,px:Math.min(ch*.17,cw*.3),serif:'cond',c:P.text,al:'center',max:cw-14*u });
-        if(r.val2){ var pt=r.val2+(d.pill?' '+d.pill:''), pfs=Math.min(ch*.045,cw*.075), pw=Math.min(cw-16*u,width(pt,700,pfs,'barlow')+22*u), ph=pfs*1.9, py=cy+ch-ph-ch*.05;
+        txt((r.val||'')+(r.val?d.unit||'':''),cx+cw/2,photoB+ch*.2,{ w:800,px:Math.min(ch*.17,cw*.3)*F(),serif:'cond',c:P.text,al:'center',max:cw-14*u });
+        if(r.val2){ var pt=r.val2+(d.pill?' '+d.pill:''), pfs=Math.min(ch*.045,cw*.075)*F(), pw=Math.min(cw-16*u,width(pt,700,pfs,'barlow')+22*u), ph=pfs*1.9, py=cy+ch-ph-ch*.05;
           rrect(cx+(cw-pw)/2,py,pw,ph,ph/2); ctx.fillStyle=dark?'rgba(255,255,255,.12)':'rgba(0,0,0,.08)'; ctx.fill();
           txt(pt,cx+cw/2,py+ph/2,{ w:700,px:pfs,serif:'barlow',c:P.text2,al:'center',max:pw-12*u }); }
       }
@@ -1384,29 +1398,29 @@
     var rows=d.rows.filter(function(r){ return r.name; }), n=rows.length;
     if(!n){ txt('Load data on the left',W/2,(y0+fTop)/2,{ px:28*u,c:P.mut,al:'center' }); return; }
     var shots=d.shots!==false; await Promise.all(rows.map(function(r){ return Promise.all([img(logoUrl(r.team)),shots&&r.espn?img(shotUrl(r.espn)):null]); }));
-    var cols=o.cols, hh=40*u, rh=Math.min(104*u,(fTop-y0-hh)/n), ms=rh*.72, cellW=Math.min(132*u,(W-pad*2-470*u)/(cols.length+1.15)), leadW=Math.min(150*u,cellW*1.15);
-    var xR=W-pad, xCells=xR-cellW*cols.length, xLead=xCells-leadW-10*u, rkW=46*u, xLogo=pad+rkW, xShot=xLogo+ms+8*u, xName=xShot+(shots?ms+16*u:0);
-    var hy=y0+hh*.5; txt(o.leadLabel.toUpperCase(),xLead+leadW/2,hy,{ w:700,px:15*u,serif:'barlow',c:P.text2,al:'center',ls:1*u,max:leadW-6*u });
-    cols.forEach(function(c,i){ txt(c.lab.toUpperCase(),xCells+cellW*(i+.5),hy,{ w:700,px:15*u,serif:'barlow',c:P.text2,al:'center',ls:1*u,max:cellW-6*u }); });
+    var cols=o.cols, hh=40*u, rh=Math.min(104*u,(fTop-y0-hh)/n), ms=rh*.72, k=F(), stops=rampOf(o.stops), amber=LK.leadStyle?LK.leadStyle==='amber':o.amber, logos=!LK.hideLogos, rk=!LK.hideRank, cellW=Math.min(132*u,(W-pad*2-470*u)/(cols.length+1.15)), leadW=Math.min(150*u,cellW*1.15);
+    var xR=W-pad, xCells=xR-cellW*cols.length, xLead=xCells-leadW-10*u, rkW=rk?46*u:0, xLogo=pad+rkW, xShot=xLogo+(logos?ms+8*u:0), xName=xShot+(shots?ms+16*u:0);
+    var hy=y0+hh*.5; txt(String(o.leadLabel||'').toUpperCase(),xLead+leadW/2,hy,{ w:700,px:15*u,serif:'barlow',c:P.text2,al:'center',ls:1*u,max:leadW-6*u });
+    cols.forEach(function(c,i){ txt(labOf(c.k,c.lab).toUpperCase(),xCells+cellW*(i+.5),hy,{ w:700,px:15*u,serif:'barlow',c:P.text2,al:'center',ls:1*u,max:cellW-6*u }); });
     var ry0=y0+hh, vals=rows.map(function(r){ return parseFloat(r.val); }).filter(isFinite), vmax=Math.max.apply(null,vals.concat([0])), vmin=Math.min.apply(null,vals.concat([vmax]));
     for(var i=0;i<n;i++){ var r=rows[i], top=ry0+i*rh, mid=top+rh/2;
       ctx.fillStyle=P.line; ctx.fillRect(pad,top,W-pad*2,Math.max(1,u));
-      txt(String(i+1),pad+rkW*.4,mid,{ w:800,px:rh*.3,serif:'cond',c:P.mut,al:'center' });
-      var lg=await img(logoUrl(r.team)); if(lg) drawFit(lg,xLogo,mid-ms*.42,ms*.84);
+      if(rk) txt(String(i+1),pad+rkW*.4,mid,{ w:800,px:rh*.3,serif:'cond',c:P.mut,al:'center' });
+      var lg=logos?await img(logoUrl(r.team)):null; if(lg) drawFit(lg,xLogo,mid-ms*.42,ms*.84);
       if(shots){ var sh=r.espn?await img(shotUrl(r.espn)):null; if(sh) drawShot(sh,xShot,mid-ms/2,ms,null); }
-      var nmax=xLead-xName-14*u, nfs=Math.min(rh*.3,34*u), nw=Math.min(nmax,width(r.name,700,nfs,'barlow'));
+      var nmax=xLead-xName-14*u, nfs=Math.min(rh*.3,34*u)*k, nw=Math.min(nmax,width(r.name,700,nfs,'barlow'));
       var fpx=txt(r.name,xName,mid,{ w:700,px:nfs,serif:'barlow',c:P.text,max:nmax-(r.tag?width(r.tag,700,nfs*.5,'barlow')+8*u:0) });
       if(r.tag){ var tw2=width(r.name,700,fpx,'barlow'); txt(r.tag,xName+Math.min(tw2,nw)+6*u,mid-fpx*.34,{ w:700,px:nfs*.5,serif:'barlow',c:P.mut }); }
       // lead column: plain big number, or an amber cell graded by value
-      if(o.amber){ var t=vmax>vmin?(parseFloat(r.val)-vmin)/(vmax-vmin):1, ac=ramp(AMBER_RAMP,isFinite(t)?.15+.85*t:0);
+      if(amber){ var t=vmax>vmin?(parseFloat(r.val)-vmin)/(vmax-vmin):1, ac=ramp(AMBER_RAMP,isFinite(t)?.15+.85*t:0);
         var g=ctx.createLinearGradient(xLead,0,xLead+leadW,0); g.addColorStop(0,rgbS(ramp(AMBER_RAMP,0))); g.addColorStop(1,rgbS(ac));
         rrect(xLead,top+4*u,leadW,rh-8*u,6*u); ctx.fillStyle=g; ctx.fill(); }
-      txt(r.val||'',xLead+leadW/2,mid,{ w:800,px:Math.min(rh*.46,48*u),serif:'cond',c:o.amber?'#2A1A00':P.text,al:'center',max:leadW-10*u });
+      txt(r.val||'',xLead+leadW/2,mid,{ w:800,px:Math.min(rh*.46,48*u)*k,serif:'cond',c:amber?'#2A1A00':P.text,al:'center',max:leadW-10*u });
       for(var j=0;j<cols.length;j++){ var c=cols[j], v=r[c.k], cx=xCells+cellW*j, pc=pctQ((d.dist||{})[c.k],v);
         if(v===''||v==null){ txt('—',cx+cellW/2,mid,{ w:600,px:rh*.3,serif:'cond',c:P.mut,al:'center' }); continue; }
-        var col=pc==null?null:ramp(o.stops,pc/100);
+        var col=pc==null||!stops?null:ramp(stops,pc/100);
         if(col){ rrect(cx+4*u,top+4*u,cellW-8*u,rh-8*u,6*u); ctx.fillStyle=rgbS(col); ctx.fill(); }
-        txt(String(v),cx+cellW/2,mid,{ w:700,px:Math.min(rh*.34,34*u),serif:'cond',c:col?inkOn(col):P.text,al:'center',max:cellW-14*u }); }
+        txt(String(v),cx+cellW/2,mid,{ w:700,px:Math.min(rh*.34,34*u)*k,serif:'cond',c:col?inkOn(col):P.text,al:'center',max:cellW-14*u }); }
     }
     ctx.fillStyle=P.line; ctx.fillRect(pad,ry0+n*rh,W-pad*2,Math.max(1,u));
   }
@@ -1432,10 +1446,11 @@
         '<label class="f">Percentile columns</label><div class="seg">'+LCOLS.map(function(c){ return '<button type="button" data-act="lcol" data-col="'+c[0]+'" class="'+(on.indexOf(c[0])>-1?'on':'')+'">'+c[1]+'</button>'; }).join('')+'</div>'+
         '<h3>Text</h3><label class="f">Title</label><input data-k="title" value="'+esc(d.title)+'"><label class="f">Subtitle</label><input data-k="subtitle" value="'+esc(d.subtitle)+'">'+
         '<div class="two"><div><label class="f">Lead column label</label><input data-k="lead" value="'+esc(d.lead||'')+'"></div><div><label class="f">Data source line</label><input data-k="src" value="'+esc(d.src||'')+'"></div></div>'+
-        '<h3>Rows ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',[{k:'name',ph:'Player',list:'plList',w:'minmax(0,1.3fr)'},{k:'tag',ph:'Tag',w:'36px'},{k:'val',ph:'Lead',w:'46px'}].concat(LCOLS.filter(function(c){ return on.indexOf(c[0])>-1; }).map(function(c){ return { k:c[0], ph:c[1], w:'46px' }; })));
+        '<h3>Rows ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',[{k:'name',ph:'Player',list:'plList',w:'minmax(0,1.3fr)'},{k:'tag',ph:'Tag',w:'36px'},{k:'val',ph:'Lead',w:'46px'}].concat(LCOLS.filter(function(c){ return on.indexOf(c[0])>-1; }).map(function(c){ return { k:c[0], ph:c[1], w:'46px' }; })))+'<div class="btns"><button class="b sm" data-act="add" data-path="rows">+ Add row</button><button class="b sm" data-act="clear" data-path="rows">Clear</button></div>'+
+        lookUI(d,{ ramp:true, legend:true, lead:true, cols:LCOLS.filter(function(c){ return on.indexOf(c[0])>-1; }) });
     },
     draw:async function(d,W,H,u,pad){
-      bg(W,H); var y0=sheetHead(W,H,u,pad,d.title,d.subtitle), fTop=sheetFoot(W,H,u,pad,d.src,rampLegend(u,PCT_RAMP,'PERCENTILE','Low','High'));
+      bg(W,H); var y0=sheetHead(W,H,u,pad,d.title,d.subtitle), fTop=sheetFoot(W,H,u,pad,d.src,rampOf(PCT_RAMP)?rampLegend(u,rampOf(PCT_RAMP),'PERCENTILE','Low','High'):null);
       await rankTable(d,W,H,u,pad,y0,fTop,{ leadLabel:d.lead||'', stops:PCT_RAMP, cols:LCOLS.filter(function(c){ return (d.cols||[]).indexOf(c[0])>-1; }).map(function(c){ return { k:c[0], lab:c[1] }; }) });
       return (d.title||'')+' ('+seasonLbl(d.season)+')\n\n'+d.rows.slice(0,5).map(function(r,i){ return (i+1)+'. '+r.name+' — '+r.val; }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB #Analytics';
     }
@@ -1466,10 +1481,11 @@
         '<label class="f">Heat columns</label><div class="seg">'+HCOLS.map(function(c){ return '<button type="button" data-act="hcol" data-col="'+c[0]+'" class="'+(on.indexOf(c[0])>-1?'on':'')+'">'+c[1]+'</button>'; }).join('')+'</div>'+
         '<h3>Text</h3><label class="f">Title</label><input data-k="title" value="'+esc(d.title)+'"><label class="f">Subtitle</label><input data-k="subtitle" value="'+esc(d.subtitle)+'">'+
         '<div class="two"><div><label class="f">Lead column label</label><input data-k="lead" value="'+esc(d.lead||'')+'"></div><div><label class="f">Data source line</label><input data-k="src" value="'+esc(d.src||'')+'"></div></div>'+
-        '<h3>Rows ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',[{k:'name',ph:'Player',list:'plList',w:'minmax(0,1.3fr)'},{k:'tag',ph:'Yr',w:'36px'},{k:'val',ph:'Lead',w:'46px'}].concat(HCOLS.filter(function(c){ return on.indexOf(c[0])>-1; }).map(function(c){ return { k:c[0], ph:c[1], w:'46px' }; })));
+        '<h3>Rows ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',[{k:'name',ph:'Player',list:'plList',w:'minmax(0,1.3fr)'},{k:'tag',ph:'Yr',w:'36px'},{k:'val',ph:'Lead',w:'46px'}].concat(HCOLS.filter(function(c){ return on.indexOf(c[0])>-1; }).map(function(c){ return { k:c[0], ph:c[1], w:'46px' }; })))+'<div class="btns"><button class="b sm" data-act="add" data-path="rows">+ Add row</button><button class="b sm" data-act="clear" data-path="rows">Clear</button></div>'+
+        lookUI(d,{ ramp:true, legend:true, lead:true, cols:HCOLS.filter(function(c){ return on.indexOf(c[0])>-1; }) });
     },
     draw:async function(d,W,H,u,pad){
-      bg(W,H); var y0=sheetHead(W,H,u,pad,d.title,d.subtitle), fTop=sheetFoot(W,H,u,pad,d.src,rampLegend(u,HEAT_RAMP,'PERCENTILE','Low','High'));
+      bg(W,H); var y0=sheetHead(W,H,u,pad,d.title,d.subtitle), fTop=sheetFoot(W,H,u,pad,d.src,rampOf(HEAT_RAMP)?rampLegend(u,rampOf(HEAT_RAMP),'PERCENTILE','Low','High'):null);
       await rankTable(d,W,H,u,pad,y0,fTop,{ amber:true, leadLabel:d.lead||'', stops:HEAT_RAMP, cols:HCOLS.filter(function(c){ return (d.cols||[]).indexOf(c[0])>-1; }).map(function(c){ return { k:c[0], lab:c[1] }; }) });
       return (d.title||'')+' ('+SEASON+')\n\n'+d.rows.slice(0,5).map(function(r,i){ return (i+1)+'. '+r.name+' ('+school(r.team)+') '+r.val+' '+(d.lead||''); }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB';
     }
@@ -1498,8 +1514,11 @@
         '<div class="btns"><button class="b sm primary" data-act="load">Load / refresh data</button></div>'+shotsChk(d)+
         '<h3>Text</h3><label class="f">Title</label><input data-k="title" value="'+esc(d.title)+'"><label class="f">Subtitle</label><input data-k="subtitle" value="'+esc(d.subtitle)+'">'+
         '<div class="two"><div><label class="f">Value label</label><input data-k="lead" value="'+esc(d.lead||'')+'"></div><div><label class="f">Data source line</label><input data-k="src" value="'+esc(d.src||'')+'"></div></div>'+
-        '<h3>Lineups ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',[{k:'team',ph:'Team',list:'tmList',w:'minmax(0,1fr)'},{k:'val',ph:'Value',w:'52px'},{k:'poss',ph:'Poss',w:'52px'}])+
-        '<div class="hint">The five players come from the data; reload to change them.</div>';
+        '<h3>Lineups ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',[{k:'team',ph:'Team',list:'tmList',w:'minmax(0,1fr)'},{k:'val',ph:'Value',w:'48px'},{k:'poss',ph:'Poss',w:'48px'}])+
+        '<div class="hint">Swap any of the five below: type a name (the headshot follows).</div>'+
+        d.rows.map(function(r,i){ return '<div class="grp">'+(i+1)+'. '+esc(school(r.team)||'Lineup')+'</div><div class="two" style="grid-template-columns:repeat(5,minmax(0,1fr))">'+[0,1,2,3,4].map(function(k){ return '<input data-p="rows.'+i+'.n'+k+'" list="plList" value="'+esc(r['n'+k]||'')+'" placeholder="Player '+(k+1)+'">'; }).join('')+'</div>'; }).join('')+'<div class="btns"><button class="b sm" data-act="add" data-path="rows">+ Add row</button><button class="b sm" data-act="clear" data-path="rows">Clear</button></div>'+
+        lookUI(d)+'<label class="chk"><input type="checkbox" data-k="hideBadge"'+(d.hideBadge?'':' checked')+' data-neg="1"> Possessions badge</label>'+
+        '<label class="chk"><input type="checkbox" data-k="hideNames"'+(d.hideNames?'':' checked')+' data-neg="1"> Names under the headshots</label>';
     },
     draw:async function(d,W,H,u,pad){
       bg(W,H); var y0=sheetHead(W,H,u,pad,d.title,d.subtitle), fTop=sheetFoot(W,H,u,pad,d.src), rows=d.rows.filter(function(r){ return r.team; }), n=rows.length;
@@ -1513,17 +1532,17 @@
       txt((d.lead||'').toUpperCase(),W-pad-cardW/2,y0+hh*.45,{ w:700,px:15*u,serif:'barlow',c:P.text2,al:'center',ls:1*u });
       for(var i=0;i<n;i++){ var r=rows[i], top=y0+hh+i*rh, mid=top+rh/2, tc=tcol(r.team);
         if(i%2===0){ ctx.fillStyle=P.alt; ctx.fillRect(pad,top,W-pad*2,rh); }
-        txt(String(i+1),pad+rkW*.45,mid,{ w:800,px:rh*.26,serif:'cond',c:P.mut,al:'center' });
-        var lg=await img(logoUrl(r.team)); if(lg) drawFit(lg,pad+rkW,mid-ls/2,ls);
-        if(nmW) txt(r.name||school(r.team),xNm,mid,{ w:700,px:Math.min(rh*.3,30*u),serif:'barlow',c:P.text,max:nmW });
+        if(!LK.hideRank) txt(String(i+1),pad+rkW*.45,mid,{ w:800,px:rh*.26,serif:'cond',c:P.mut,al:'center' });
+        var lg=LK.hideLogos?null:await img(logoUrl(r.team)); if(lg) drawFit(lg,pad+rkW,mid-ls/2,ls);
+        if(nmW) txt(r.name||school(r.team),xNm,mid,{ w:700,px:Math.min(rh*.3,30*u)*F(),serif:'barlow',c:P.text,max:nmW });
         for(var k=0;k<5;k++){ var nm=r['n'+k]||'', id=r['e'+k], sx=x5+slot*k+(slot-ss)/2, sy=top+rh*.08, sh=shots&&id?await img(shotUrl(id)):null;
           if(sh) drawShot(sh,sx,sy,ss,tc); else { ctx.save(); ctx.beginPath(); ctx.arc(sx+ss/2,sy+ss/2,ss/2,0,Math.PI*2); ctx.fillStyle=P.chip; ctx.fill(); ctx.restore(); txt(lastName(nm).slice(0,1),sx+ss/2,sy+ss/2,{ w:800,px:ss*.4,serif:'cond',c:P.mut,al:'center' }); }
-          txt(lastName(nm),sx+ss/2,sy+ss+rh*.12,{ w:700,px:Math.min(rh*.12,18*u),serif:'barlow',c:P.text2,al:'center',max:slot-6*u }); }
+          if(!d.hideNames) txt(lastName(nm),sx+ss/2,sy+ss+rh*.12,{ w:700,px:Math.min(rh*.12,18*u)*F(),serif:'barlow',c:P.text2,al:'center',max:slot-6*u }); }
         // value card + possessions badge
         var cx=W-pad-cardW, ch=rh*.62, cy=mid-ch/2+rh*.04;
         rrect(cx,cy,cardW,ch,10*u); ctx.fillStyle=dark?'#1A2133':'#FFFFFF'; ctx.fill(); ctx.lineWidth=Math.max(1,1.5*u); ctx.strokeStyle=P.line; ctx.stroke();
-        txt(r.val||'',cx+cardW/2,cy+ch/2,{ w:800,px:ch*.56,serif:'cond',c:P.text,al:'center',max:cardW-20*u });
-        if(r.poss){ var bf=Math.min(rh*.13,18*u), bw=width(r.poss,800,bf,'barlow')+16*u, bh2=bf*1.6; rrect(cx+cardW-bw*.75,cy-bh2*.45,bw,bh2,bh2/2); ctx.fillStyle='#D93A2F'; ctx.fill();
+        txt(r.val||'',cx+cardW/2,cy+ch/2,{ w:800,px:ch*.56*Math.min(1.15,F()),serif:'cond',c:P.text,al:'center',max:cardW-20*u });
+        if(r.poss&&!d.hideBadge){ var bf=Math.min(rh*.13,18*u), bw=width(r.poss,800,bf,'barlow')+16*u, bh2=bf*1.6; rrect(cx+cardW-bw*.75,cy-bh2*.45,bw,bh2,bh2/2); ctx.fillStyle='#D93A2F'; ctx.fill();
           txt(r.poss,cx+cardW-bw*.75+bw/2,cy-bh2*.45+bh2/2,{ w:800,px:bf,serif:'barlow',c:'#fff',al:'center' }); }
       }
       return (d.title||'')+' ('+seasonLbl(d.season)+')\n\n'+rows.slice(0,5).map(function(r,i){ return (i+1)+'. '+school(r.team)+': '+[0,1,2,3,4].map(function(k){ return lastName(r['n'+k]); }).join(', ')+' — '+r.val; }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB';
@@ -1541,7 +1560,7 @@
   var TMCOLS=[['value','Roster value','m'],['budget','Budget','m'],['gap','vs. budget','pm'],['pwr','Power','r'],['ff','Final Fours',''],['titles','Titles','trophy']];
   T.teams={
     ownBrand:true,
-    defaults:function(){ return { sort:'value', n:12, conf:'', cols:['value','budget','gap','pwr','titles'], title:'', subtitle:'', src:'', dist:{}, rows:[] }; },
+    defaults:function(){ return { sort:'value', n:12, conf:'', cols:['value','budget','gap','pwr'], title:'', subtitle:'', src:'', dist:{}, rows:[] }; },
     load:async function(d){ var j=await json('nil-data.json'), rs=await ratings(), tt=await titles(), n=Math.max(1,Math.min(25,+d.n||12)), all=[];
       Object.keys(j.teams).forEach(function(k){ var x=j.teams[k], rt=rs.find(function(t){ return onTeam(t.team,k)||onTeam(t.full,k); }); if(!rt||x.value==null) return;
         all.push({ team:rt.team, name:school(rt.full||rt.team), conf:confName(rt.conf), value:+x.value, budget:+x.budget, gap:+x.value-(+x.budget), pwr:+rt.rating, ff:tt.f[tkey(rt.full||rt.team)]||tt.f[tkey(k)]||0, titles:tt.t[tkey(rt.full||rt.team)]||tt.t[tkey(k)]||0 }); });
@@ -1551,7 +1570,9 @@
       var m=function(v){ return '$'+(+v).toFixed(1)+'M'; };
       d.rows=sc.map(function(r){ return { team:r.team, name:r.name, value:m(r.value), budget:m(r.budget), gap:(r.gap>=0?'+':'−')+'$'+Math.abs(r.gap).toFixed(1)+'M', pwr:(r.pwr>=0?'+':'')+r.pwr.toFixed(1), ff:String(r.ff), titles:String(r.titles) }; });
       d.title=(d.conf?d.conf+': ':'')+{ value:'The most valuable rosters', gap:'Rosters worth the most over budget', pwr:'Projected power ratings', titles:'Title programs, and what they’re paying' }[key];
-      d.subtitle='+ NIL budget, '+SEASON+' power rating and NCAA titles since 2007'; d.src='TDC NIL model (roster value vs. spending-tier budget) · power = pts better than an avg D-I team · NCAA titles 2007–26'; },
+      // owner, Oct 14 2026: no titles on the roster-value table (kept as a column toggle, and for the "Titles" ranking)
+      if(key!=='titles') d.cols=(d.cols||[]).filter(function(c){ return c!=='titles'&&c!=='ff'; }); else if(d.cols.indexOf('titles')<0) d.cols=d.cols.concat(['titles']);
+      d.subtitle=key==='titles'?'+ NIL roster value, budget and '+SEASON+' power rating · NCAA titles since 2007':'+ NIL budget and '+SEASON+' power rating'; d.src='TDC NIL model (roster value vs. spending-tier budget) · power = pts better than an avg D-I team'+(key==='titles'?' · NCAA titles 2007–26':''); },
     editor:function(d){ var on=d.cols||[];
       return '<h3>Data</h3><div class="two"><div><label class="f">Rank by</label><select data-k="sort"><option value="value"'+(d.sort==='value'?' selected':'')+'>Roster value</option><option value="gap"'+(d.sort==='gap'?' selected':'')+'>Value over budget</option><option value="pwr"'+(d.sort==='pwr'?' selected':'')+'>Power rating</option><option value="titles"'+(d.sort==='titles'?' selected':'')+'>Titles</option></select></div>'+
         '<div><label class="f">Teams</label><input data-k="n" type="number" min="1" max="25" value="'+d.n+'"></div></div>'+
@@ -1560,30 +1581,31 @@
         '<label class="f">Columns</label><div class="seg">'+TMCOLS.map(function(c){ return '<button type="button" data-act="mcol" data-col="'+c[0]+'" class="'+(on.indexOf(c[0])>-1?'on':'')+'">'+c[1]+'</button>'; }).join('')+'</div>'+
         '<h3>Text</h3><label class="f">Title</label><input data-k="title" value="'+esc(d.title)+'"><label class="f">Subtitle</label><input data-k="subtitle" value="'+esc(d.subtitle)+'">'+
         '<label class="f">Data source line</label><input data-k="src" value="'+esc(d.src||'')+'">'+
-        '<h3>Teams ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',[{k:'team',ph:'Team',list:'tmList',w:'minmax(0,1fr)'}].concat(TMCOLS.filter(function(c){ return on.indexOf(c[0])>-1; }).map(function(c){ return { k:c[0], ph:c[1], w:'54px' }; })));
+        '<h3>Teams ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',[{k:'team',ph:'Team',list:'tmList',w:'minmax(0,1fr)'}].concat(TMCOLS.filter(function(c){ return on.indexOf(c[0])>-1; }).map(function(c){ return { k:c[0], ph:c[1], w:'54px' }; })))+'<div class="btns"><button class="b sm" data-act="add" data-path="rows">+ Add row</button><button class="b sm" data-act="clear" data-path="rows">Clear</button></div>'+
+        lookUI(d,{ ramp:true, legend:true, cols:TMCOLS.filter(function(c){ return on.indexOf(c[0])>-1; }) });
     },
     draw:async function(d,W,H,u,pad){
-      bg(W,H); var y0=sheetHead(W,H,u,pad,d.title,d.subtitle), fTop=sheetFoot(W,H,u,pad,d.src,rampLegend(u,HEAT_RAMP,'IN THIS TABLE','Low','High')), rows=d.rows.filter(function(r){ return r.team; }), n=rows.length;
+      bg(W,H); var y0=sheetHead(W,H,u,pad,d.title,d.subtitle), fTop=sheetFoot(W,H,u,pad,d.src,rampOf(HEAT_RAMP)?rampLegend(u,rampOf(HEAT_RAMP),'IN THIS TABLE','Low','High'):null), rows=d.rows.filter(function(r){ return r.team; }), n=rows.length;
       if(!n){ txt('Load data on the left',W/2,(y0+fTop)/2,{ px:28*u,c:P.mut,al:'center' }); return ''; }
       await Promise.all(rows.map(function(r){ return img(logoUrl(r.team)); }));
       var cols=TMCOLS.filter(function(c){ return (d.cols||[]).indexOf(c[0])>-1; }), hh=40*u, rh=Math.min(90*u,(fTop-y0-hh)/n), ls=rh*.66, rkW=40*u;
       var cw=function(c){ return (c[2]==='trophy'?200:c[0]==='ff'?110:c[2]==='r'?110:136)*u; }, tot=cols.reduce(function(a,c){ return a+cw(c); },0), k=Math.min(1,(W-pad*2-rkW-ls-260*u)/tot);
       var xs=[W-pad]; for(var i=cols.length-1;i>=0;i--) xs.unshift(xs[0]-cw(cols[i])*k);
-      cols.forEach(function(c,i){ txt(c[1].toUpperCase(),(xs[i]+xs[i+1])/2,y0+hh*.5,{ w:700,px:15*u,serif:'barlow',c:P.text2,al:'center',ls:1*u,max:xs[i+1]-xs[i]-6*u }); });
+      cols.forEach(function(c,i){ txt(labOf(c[0],c[1]).toUpperCase(),(xs[i]+xs[i+1])/2,y0+hh*.5,{ w:700,px:15*u,serif:'barlow',c:P.text2,al:'center',ls:1*u,max:xs[i+1]-xs[i]-6*u }); });
       var ry0=y0+hh, gold=S.theme==='dark'?'#E6C25A':'#C99A1E';
       for(var r0=0;r0<n;r0++){ var r=rows[r0], top=ry0+r0*rh, mid=top+rh/2;
         ctx.fillStyle=P.line; ctx.fillRect(pad,top,W-pad*2,Math.max(1,u));
-        txt(String(r0+1),pad+rkW*.4,mid,{ w:800,px:rh*.3,serif:'cond',c:P.mut,al:'center' });
-        var lg=await img(logoUrl(r.team)); if(lg) drawFit(lg,pad+rkW,mid-ls/2,ls);
-        txt(r.name||school(r.team),pad+rkW+ls+16*u,mid,{ w:700,px:Math.min(rh*.36,34*u),serif:'barlow',c:P.text,max:xs[0]-(pad+rkW+ls+30*u) });
+        if(!LK.hideRank) txt(String(r0+1),pad+rkW*.4,mid,{ w:800,px:rh*.3,serif:'cond',c:P.mut,al:'center' });
+        var lg=LK.hideLogos?null:await img(logoUrl(r.team)); if(lg) drawFit(lg,pad+rkW,mid-ls/2,ls);
+        txt(r.name||school(r.team),pad+rkW+(lg?ls+16*u:0),mid,{ w:700,px:Math.min(rh*.36,34*u)*F(),serif:'barlow',c:P.text,max:xs[0]-(pad+rkW+ls+30*u) });
         for(var j=0;j<cols.length;j++){ var c=cols[j], v=r[c[0]], x=xs[j], w=xs[j+1]-xs[j];
           if(c[2]==='trophy'){ var nt=parseInt(v,10)||0, ts=Math.min(rh*.56,w/4.6);
             if(!nt){ txt('—',x+w/2,mid,{ w:600,px:rh*.3,serif:'cond',c:P.mut,al:'center' }); continue; }
             var show=Math.min(nt,4), x1=x+(w-(show*ts*.86+(nt>4?ts*1.2:0)))/2; for(var q=0;q<show;q++) trophy(x1+q*ts*.86,mid-ts/2,ts,gold);
             if(nt>4) txt('×'+nt,x1+show*ts*.86+ts*.15,mid,{ w:800,px:rh*.3,serif:'cond',c:gold }); continue; }
-          var num=parseFloat(String(v||'').replace(/[^0-9.\-]/g,''))*(/^−/.test(v||'')?-1:1), pc=d.dist&&d.dist[c[0]]?pctQ(d.dist[c[0]],num):null, col=pc==null?null:ramp(HEAT_RAMP,pc/100);
+          var num=parseFloat(String(v||'').replace(/[^0-9.\-]/g,''))*(/^−/.test(v||'')?-1:1), pc=d.dist&&d.dist[c[0]]?pctQ(d.dist[c[0]],num):null, col=pc==null||!rampOf(HEAT_RAMP)?null:ramp(rampOf(HEAT_RAMP),pc/100);
           if(col){ rrect(x+4*u,top+4*u,w-8*u,rh-8*u,6*u); ctx.fillStyle=rgbS(col); ctx.fill(); }
-          txt(v==null||v===''?'—':String(v),x+w/2,mid,{ w:700,px:Math.min(rh*.34,32*u),serif:'cond',c:col?inkOn(col):P.text,al:'center',max:w-12*u }); }
+          txt(v==null||v===''?'—':String(v),x+w/2,mid,{ w:700,px:Math.min(rh*.34,32*u)*F(),serif:'cond',c:col?inkOn(col):P.text,al:'center',max:w-12*u }); }
       }
       ctx.fillStyle=P.line; ctx.fillRect(pad,ry0+n*rh,W-pad*2,Math.max(1,u));
       return (d.title||'')+' ('+SEASON+')\n\n'+rows.slice(0,5).map(function(r,i){ return (i+1)+'. '+(r.name||school(r.team))+' '+(r.value||''); }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB #NIL';
@@ -1606,7 +1628,7 @@
         '<div class="btns"><button class="b sm primary" data-act="load">Load projection</button></div>'+
         '<h3>Text</h3><label class="f">Title</label><input data-k="title" value="'+esc(d.title)+'"><label class="f">Subtitle</label><input data-k="subtitle" value="'+esc(d.subtitle)+'">'+
         '<div class="two"><div><label class="f">Score A</label><input data-k="scoreA" value="'+esc(d.scoreA)+'"></div><div><label class="f">Score B</label><input data-k="scoreB" value="'+esc(d.scoreB)+'"></div></div>'+
-        '<div class="two"><div><label class="f">Line</label><input data-k="spread" value="'+esc(d.spread)+'"></div><div><label class="f">Team A win %</label><input data-k="pa" value="'+esc(d.pa)+'"></div></div>';
+        '<div class="two"><div><label class="f">Line</label><input data-k="spread" value="'+esc(d.spread)+'"></div><div><label class="f">Team A win %</label><input data-k="pa" value="'+esc(d.pa)+'"></div></div>'+lookUI(d,{ rows:false, srcLabel:'Footnote' });
     },
     draw:async function(d,W,H,u,pad){
       bg(W,H); if(!d.nameA){ txt('Load a matchup on the left',W/2,H/2,{ px:30*u,c:P.mut,al:'center' }); return ''; }
@@ -1656,15 +1678,17 @@
     $('editor').innerHTML=h; }
   $('editor').addEventListener('input',function(e){
     var el=e.target, d=doc();
-    if(el.dataset.k){ d[el.dataset.k]=el.type==='checkbox'?el.checked:el.value; }
+    if(el.dataset.k){ d[el.dataset.k]=el.type==='checkbox'?(el.dataset.neg?!el.checked:el.checked):el.value;
+      if(el.type==='range'){ var sp=el.previousElementSibling&&el.previousElementSibling.querySelector('span'); if(sp) sp.textContent=el.value+'%'; } }
     else if(el.dataset.p){ setPath(d,el.dataset.p,el.value);
       // a renamed player row re-resolves its headshot by name (+team)
+      var mn=el.dataset.p.match(/^rows\.(\d+)\.n(\d)$/); if(mn){ var rr2=d.rows[+mn[1]], pp=findPlayer(el.value,rr2&&rr2.team)||findPlayer(el.value); if(rr2) rr2['e'+mn[2]]=pp&&pp.espn_id?String(pp.espn_id):''; }
       var m=el.dataset.p.match(/^(.*)\.(\d+)\.(name|team)$/);
       if(m){ var r=getPath(d,m[1]+'.'+m[2]); if(r&&typeof r==='object'&&!Array.isArray(r)){ var p=findPlayer(r.name,r.team); r.espn=p?p.espn_id:null; } } }
     else return;
     save(); later();
   });
-  $('editor').addEventListener('change',function(e){ var el=e.target; if(el.dataset.k) doc()[el.dataset.k]=el.type==='checkbox'?el.checked:el.value;
+  $('editor').addEventListener('change',function(e){ var el=e.target; if(el.dataset.k) doc()[el.dataset.k]=el.type==='checkbox'?(el.dataset.neg?!el.checked:el.checked):el.value;
     if(el.type==='checkbox'||el.tagName==='SELECT'){ save(); render(); }
     if(e.target.dataset.k==='val2Label'){ paintEditor(); }
     var ks=AUTO[S.tpl]; if(ks&&ks.indexOf(e.target.dataset.k)>-1){ (async function(){ try{ await T[S.tpl].load(doc()); stamp(doc()); save(); paintEditor(); render(); }catch(err){ status(err.message,true); } })(); } });
@@ -1680,6 +1704,7 @@
     if(act==='col'){ var cs=(d.cols||DSTATS_DEF).slice(), ci=cs.indexOf(b.dataset.col); if(ci>-1) cs.splice(ci,1); else cs.push(b.dataset.col); d.cols=DSTATS_ALL.map(function(x){ return x[0]; }).filter(function(k){ return cs.indexOf(k)>-1; }); }
     // column toggles on the sheet graphics, kept in their list's order
     if(act==='lcol'||act==='hcol'||act==='mcol'){ var L0=act==='lcol'?LCOLS:act==='hcol'?HCOLS:TMCOLS, c3=(d.cols||[]).slice(), i3=c3.indexOf(b.dataset.col); if(i3>-1) c3.splice(i3,1); else c3.push(b.dataset.col); d.cols=L0.map(function(x){ return x[0]; }).filter(function(k){ return c3.indexOf(k)>-1; }); }
+    if(act==='tcreset'){ d.tcolor=''; }
     if(act==='addaward'){ d.awards.push({ label:'Award', name:'', team:'' }); }
     save(); paintEditor(); render();
   });
@@ -1695,9 +1720,10 @@
       // draw off-screen and swap the finished frame in, so a half-loaded graphic never shows (or exports)
       var off=document.createElement('canvas'); off.width=W; off.height=H; ctx=off.getContext('2d');
       var u=Math.min(W,H)/1080, pad=Math.round(56*u);
-      await Promise.all(['800 40px "Playfair Display"','800 40px "Barlow Condensed"','700 40px Barlow','600 40px Barlow','900 20px Inter','800 20px Inter','700 20px Inter','600 20px Inter','500 20px Inter'].map(function(f){ return document.fonts.load(f).catch(function(){}); }));
+      await Promise.all(['800 40px "Playfair Display"','800 40px "Barlow Condensed"','900 40px Barlow','800 40px Barlow','700 40px Barlow','600 40px Barlow','500 40px Barlow','900 20px Inter','800 20px Inter','700 20px Inter','600 20px Inter','500 20px Inter'].map(function(f){ return document.fonts.load(f).catch(function(){}); }));
+      LK=doc(); BRANDED=false;
       var cap=await T[S.tpl].draw(doc(),W,H,u,pad);
-      if(S.brandLogo!==false&&!T[S.tpl].ownBrand) brandMark(pad*.45,pad*.45,brandSize(u));
+      if(S.brandLogo!==false&&!T[S.tpl].ownBrand&&!BRANDED) brandMark(W-pad*.45-brandSize(u),pad*.45,brandSize(u));   // top right, as on the sheet titles
       cv.width=W; cv.height=H; cv.getContext('2d').drawImage(off,0,0);
       $('caption').value=cap||'';
     }catch(e){ console.error(e); status(e.message||'Couldn’t draw that graphic.',true); }
