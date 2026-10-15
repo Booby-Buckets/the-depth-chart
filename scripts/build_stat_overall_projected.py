@@ -1082,6 +1082,8 @@ d26["wa"]=(d26["owa"].fillna(0)*d26["usg_mult"]+DWA_W*(d26["dwa"].fillna(0)+d26[
 if FOUL_W>0:   # demonstrated excess-foul dock (matches build_stat_overall.py's 2026 reference)
     d26["wa"]=d26["wa"]-d26.apply(lambda r: foul_pen(r["espn_id"], r["min"] if pd.notna(r["min"]) else 0), axis=1)
 per40=d26["wa"]/d26["mp40"].clip(lower=0.1)
+WA_CARRY=0.4
+WA_DEMO={str(int(e)):float(w) for e,w in zip(d26["espn_id"],d26["wa"]) if pd.notna(w)}   # last season's Wins Added (WA_CARRY)
 MU40=per40.median(); P90=d26["min"].quantile(0.90); cred=d26["min"]/(d26["min"]+400.0)
 _ff=ROLE_FLOOR*(d26["min"]/ROLE_FLOOR_MIN).clip(0,1)   # floor earned by sample (matches build_stat_overall.py)
 d26["C"]=(MU40+cred*(per40-MU40))*(_ff+(1.0-_ff)*np.sqrt((d26["min"]/P90).clip(0,1.3)))
@@ -1622,6 +1624,13 @@ for short, roster in roster_by_team.items():
             # and a year away both lower it. The LINE itself is never touched — it is what he did.
             _cred=_fi["cred"] if _fi.get("cred") is not None else min(1.0,float(_fi["gp"])/FILL_FULL_GP)
             if _cred<1.0: ovr=int(round(FILL_NEUTRAL+(ovr-FILL_NEUTRAL)*_cred)); _shortfill=1
+        # WINS ADDED CARRYOVER (owner, Oct 14 2026: "wins added isn't adding up to last year's"). The projected line
+        # regresses elite efficiency toward the mean, so a star's WA fell ~20% at the SAME minutes (Sandfort 7.0 -> 4.7)
+        # while real returners (same team, +/-3 mpg, 2016-26) keep ~95% at the top and slope 0.79 year to year; ours was
+        # 0.80 / 0.70. Anchor WA_CARRY of the way back to last season's WA scaled to the new minutes. Returners only —
+        # star transfers really do lose production (history-team-mislabels / XSTAR). Display WA only; OVR is untouched.
+        if not xfer and last_min>=400 and str(e) in WA_DEMO and last_mpg>0:
+            wa_line+=WA_CARRY*(WA_DEMO[str(e)]*min(1.25,pm/last_mpg)-wa_line)
         out[str(e)]={
             "_shortfill":_shortfill,
             "ovr":ovr,"demo_ovr":int(r["demo"]),"proj_mpg":round(pm,1),"last_mpg":round(last_mpg,1),
