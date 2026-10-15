@@ -2,7 +2,7 @@
  * (+ the Reality Meter from scrim_reality.py) in scripts/data/scrimmage_results_2027.json. Unofficial: never in records/ratings. */
 TDC_POSTS.add('scrimmages', {
   group: 'Preseason', label: 'Scrimmage & exhibition results',
-  note: 'Unofficial preseason scrimmages with a reported final, newest first. Row = the winner (or your picked team / conference). Reality = how game-like it looked (0-100, Reality Meter).',
+  note: 'Unofficial preseason scrimmages with a reported final, ranked by how far each team beat our line (margin minus projected margin). Row = the winner (or your picked team / conference). Reality = how game-like it looked (0-100, Reality Meter).',
   opts: { conf: true, team: true },
   load: async function (d, H) {
     var S = await H.json('scripts/data/scrimmages_2027.json'), R = await H.json('scripts/data/scrimmage_results_2027.json'), rs = await H.ratings();
@@ -29,20 +29,22 @@ TDC_POSTS.add('scrimmages', {
       var pred = p0 != null ? (pick.home ? p0 : -p0) : null;
       var dt = new Date(g.date + 'T12:00:00Z'), when = MO[dt.getUTCMonth()] + ' ' + dt.getUTCDate();
       var opShort = pick.op ? pick.op.team : pick.opName;
-      var m = pick.pf - pick.pa;
+      var m = pick.pf - pick.pa, ov = pred != null ? m - pred : null;   // margin over our line: the lead number
       rows.push({ name: H.school(pick.me ? (pick.me.full || pick.me.team) : pick.meName), team: pick.me ? pick.me.team : pick.meName,
         tag: (g.neutral ? 'vs ' : pick.home ? 'vs ' : 'at ') + H.school(opShort) + ' · ' + when,
-        val: (m > 0 ? '+' : '') + m, _d: g.date + (g.time || ''), _m: m,
+        val: ov != null ? H.fmt(ov, 1, true) : '', _d: g.date + (g.time || ''), _m: m, _ov: ov,
         score: (m > 0 ? 'W ' : m < 0 ? 'L ' : 'T ') + pick.pf + '-' + pick.pa,
         line: pred != null ? H.fmt(pred, 1, true) : '',
         real: re.score != null ? String(re.score) : '' });
     });
-    rows.sort(function (a, b) { return a._d < b._d ? 1 : a._d > b._d ? -1 : b._m - a._m; });
+    // biggest beat of our line first; games we had no line for go last, newest first
+    rows.sort(function (a, b) { if ((a._ov == null) !== (b._ov == null)) return a._ov == null ? 1 : -1;
+      if (a._ov != null && b._ov !== a._ov) return b._ov - a._ov; return a._d < b._d ? 1 : a._d > b._d ? -1 : 0; });
     var scope = d.team ? H.school(d.team) + ' ' : d.conf ? d.conf + ' ' : '';
     return {
       title: d.team ? scope + 'in the preseason' : (scope + 'Scrimmage scoreboard').replace(/^\s+/, ''),
       subtitle: H.SEASON + ' preseason scrimmages & exhibitions · unofficial',
-      lead: 'Margin', src: 'The Depth Chart · school-reported scrimmage finals · our line = projected margin · Reality Meter 0-100 · not in records or ratings',
+      lead: 'Vs our line', src: 'The Depth Chart · school-reported scrimmage finals · vs our line = final margin minus our projected margin · Reality Meter 0-100 · not in records or ratings',
       cols: [{ k: 'score', lab: 'Final' }, { k: 'line', lab: 'Our line' }, { k: 'real', lab: 'Reality' }],
       rows: rows.slice(0, n), players: false
     };
