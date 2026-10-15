@@ -668,12 +668,12 @@
     defaults:function(){ return { dir:'up', who:'ret', min:50, n:12, title:'Crunch-Time Takeovers', subtitle:'Shot share in the final 4:00 of close games vs. the rest of the game · 2025-26', note:'Close = within 5 points · share of team shots while on the floor', rows:[] }; },
     load:async function(d){
       var c=await json('scripts/data/crunch_time_2026.json'); await ratings(); await players();
-      var tm=function(p){ return nowTeam(p.espn_id)||p.now||p.team; };
+      var tm=function(p){ return nowTeam(p.espn_id)||p.now||''; };   // gone from college -> no 2026-27 team
       // owner, Oct 14 2026: a long list used to fill with players whose share went DOWN, and wasn't ordered by who gets
       // the ball. Takeovers = only players whose share rises, ranked by their crunch-time share (who the team goes to);
       // drop-offs = only players whose share falls, ranked by how much. "Sort by jump" keeps the old order on request.
       // one team: its whole 2026-27 roster (up or down), ranked by crunch-time share
-      var ps=c.players.filter(function(p){ return p.jump!=null&&(d.team?true:(d.dir==='up'?p.jump>0:p.jump<0))&&p.c_team>=(+d.min||50)&&(d.who==='all'||p.now)&&(!d.conf||confOfFull(tm(p))===d.conf)&&(!d.team||onTeam(tm(p),d.team)); })
+      var ps=c.players.filter(function(p){ return p.jump!=null&&(d.team?true:(d.dir==='up'?p.jump>0:p.jump<0))&&p.c_team>=(+d.min||50)&&(d.who==='all'||tm(p))&&(!d.conf||confOfFull(tm(p))===d.conf)&&(!d.team||onTeam(tm(p),d.team)); })
         .sort(function(a,b){ return (d.dir==='up'||d.team)?(d.sort==='jump'?b.jump-a.jump:b.c_share-a.c_share||b.jump-a.jump):a.jump-b.jump; }).slice(0,+d.n||12);
       // logo = the school he played for in 2025-26 (where these numbers happened); the small line says where he is now
       d.rows=ps.map(function(p){ var now=tm(p); return { name:p.name, team:p.team, espn:p.espn_id||null, sub:moved(p.team,now)||school(p.team), val:String(p.r_share), val2:String(p.c_share) }; });
@@ -838,7 +838,8 @@
     defaults:function(){ return { metric:'rapm', season:'2026', dir:'up', conf:'', n:12, minOn:400, title:'Biggest On/Off Swings', subtitle:'Team net rating per 100 possessions, him on vs. off the floor · 2025-26', note:'Garbage time removed · min. 400 on-court minutes', rows:[] }; },
     load:async function(d){
       await ratings(); await players(); var w=await json('scripts/data/wowy_'+d.season+'.json'), n=+d.n||12, mo=+d.minOn||400;
-      var cur=d.season==='2026', tmOf=function(p){ return (cur&&nowTeam(p.id))||p.team; };   // last season: the 2026-27 roster
+      // last season: the 2026-27 roster — a player on no 2026-27 roster (graduated / gone pro) belongs to no team now
+      var cur=d.season==='2026', tmOf=function(p){ return cur?(nowTeam(p.id)||''):p.team; };
       var adj=d.metric!=='raw', sg=function(v){ return (v>0?'+':'')+(+v).toFixed(1); };
       var ps=w.players.filter(function(p){ return p.on&&p.off&&p.on.min>=mo&&(adj?p.rapm:p.off.min>=Math.max(120,mo*.3))&&(!d.conf||confOfFull(tmOf(p))===d.conf)&&onTeam(tmOf(p),d.team); })
         .map(function(p){ return { p:p, sw:adj?p.rapm.net:p.on.net-p.off.net }; }).sort(function(a,b){ return d.dir==='up'?b.sw-a.sw:a.sw-b.sw; }).slice(0,n);
