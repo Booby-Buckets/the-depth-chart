@@ -258,6 +258,7 @@ body{background:transparent!important;}
         <div class="mp"><b>Trajectory</b> — "is he getting better?" is one of the biggest questions on a real board, so the change in his grade from one season to the next is scored directly. A riser is worth more than a flat producer with the same line.</div>
         <div class="mp"><b>Self-creation</b> — the share of his makes he generated himself (Shot Genome), because the league pays for players who can get their own shot rather than only finish someone else's.</div>
         <div class="mp"><b>Versatility</b> — a listed second position plus real two-way activity: the "can he guard more than one spot" bet teams make on wings.</div>
+        <div class="mp"><b>Real draft boards</b> — on the 2027 board, each player's average pick across current first-round mocks (Yardbarker, SI, CBS, NBA Draft Room) counts for 60% of his rank, our model for 40%. A player left off every mock counts as about pick 55, so a college-production favourite can still reach the first/second-round line, but not the top.</div>
         <div class="mp" id="basisNote"></div>
         <div class="mp">The <b>Mock Draft</b> is a separate tool — it takes this board and fills a pick-by-pick order. <a href="mock-draft.html">See the Mock Draft →</a> (rebuild in progress).</div>
       </div>
@@ -281,7 +282,7 @@ body{background:transparent!important;}
 <script src="tdc-freshman.js?v=pub34"></script>   <!-- the Big Board ranks freshmen off the owner's projected line -->
 <script src="tdc-projgrade.js?v=base57"></script>
 <script src="tdc-proj.js?v=hg5"></script>
-<script src="bigboard-engine.js?v=26"></script>
+<script src="bigboard-engine.js?v=29"></script>
 <script>
 const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
@@ -431,7 +432,7 @@ function setSeason(s){
 // ── boot ──
 async function load(){
   try{
-    try{ draftOverrides=await fetch('draft-overrides.json?v=3',{cache:'no-cache'}).then(function(r){return r.ok?r.json():{};}); }catch(e){ draftOverrides={}; }
+    try{ draftOverrides=await fetch('draft-overrides.json?v=5',{cache:'no-cache'}).then(function(r){return r.ok?r.json():{};}); }catch(e){ draftOverrides={}; }
     var tr=await fetch(SB+'/rest/v1/teams?select=*',{headers:H});
     (await tr.json()).forEach(function(t){teamMap[t.name]=t;teamColors[t.name]=t.color||'#888';});
     // the SAME shared pool the player page uses — one fetch, one set of columns, one board

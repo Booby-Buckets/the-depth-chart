@@ -325,6 +325,42 @@
     return isFinite(g)||hasStats;
   }
 
+  // REAL DRAFT BOARDS (owner, Oct 2026: "Jake Wilkins isn't mocked in first rounds anywhere" — he was our #1). The model
+  // alone reads college production, so a productive 20-year-old at Cal out-ranked the consensus #1 (Tyran Stokes, whose
+  // conservative freshman projection kept his college-value term at 64). draft-overrides.json mocks_<year> holds real
+  // first-round mocks; each player's average pick (missing from a mock = pick 40) becomes a 0-100 consensus score and the
+  // board blends it 60/40 with the model, both on the same scale (model: board #1 = 100, #60 = 0). Not mocked anywhere
+  // = pick 55 (consensus -35): a model favourite lands around the first/second-round line, never the top. A list entry may
+  // carry its school as "Name|School" for namesakes (two Cameron Williamses: Duke and Kent State).
+  var CONS_W=0.60, MISS_PICK=40, NONE_PICK=55;
+  function nameKey(n){ return (''+(n||'')).toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b\.?/g,'').replace(/[^a-z]/g,''); }
+  function applyConsensus(pool, M){
+    if(!M || !M.lists) return;
+    var lists=Object.keys(M.lists).map(function(k){ return M.lists[k]; }).filter(function(l){ return l && l.length; });
+    if(!lists.length) return;
+    var alias={}; Object.keys(M.alias||{}).forEach(function(k){ alias[nameKey(k)]=nameKey(M.alias[k]); });
+    // our pool, keyed by full name and by first initial + last name (Matt / Matthew Able)
+    var byKey={}, byInit={};
+    pool.forEach(function(p){ var nm=(''+(p.name||'')).trim(); (byKey[nameKey(nm)]=byKey[nameKey(nm)]||[]).push(p);
+      var w=nm.replace(/\b(Jr|Sr|II|III|IV)\b\.?/g,'').trim().split(/\s+/); if(w.length>1){ var ik=(w[0][0]+w[w.length-1]).toLowerCase().replace(/[^a-z]/g,''); (byInit[ik]=byInit[ik]||[]).push(p); } });
+    var find=function(n0){ var parts=(''+n0).split('|'), n=parts[0], sch=parts[1]?nameKey(parts[1]):null, k=nameKey(n); k=alias[k]||k;
+      if(byKey[k]){ var L=byKey[k]; if(L.length===1&&!sch) return L[0];
+        var hit=sch?L.filter(function(p){ return nameKey(p.team).indexOf(sch)===0||sch.indexOf(nameKey(p.team))===0; }):[]; return hit.length===1?hit[0]:(L.length===1?L[0]:null); }
+      var w=(''+n).replace(/\b(Jr|Sr|II|III|IV)\b\.?/g,'').trim().split(/\s+/); if(w.length<2) return null;
+      var c=byInit[(w[0][0]+w[w.length-1]).toLowerCase().replace(/[^a-z]/g,'')]; return c&&c.length===1?c[0]:null; };
+    var picks={};   // player id -> [pick per list]
+    lists.forEach(function(l,li){ l.forEach(function(n,i){ var p=find(n); if(!p) return; (picks[p.id]=picks[p.id]||lists.map(function(){ return MISS_PICK; }))[li]=Math.min(picks[p.id][li],i+1); }); });
+    var bl=pool.map(function(p){ return p._sc.blended; }).sort(function(a,b){ return b-a; });
+    var hi=bl[0], lo=bl[Math.min(bl.length-1,59)], span=(hi>lo)?(hi-lo):1;
+    pool.forEach(function(p){
+      var a=picks[p.id], avg=a?a.reduce(function(s,v){ return s+v; },0)/a.length:null;
+      var modelN=Math.max(-20,(p._sc.blended-lo)/span*100);   // floor: a buried depth-chart spot (Cameron Williams, 0.7 mpg) can't sink a mocked lottery pick
+      var consN=100-((avg!=null?avg:NONE_PICK)-1)*2.5;   // pick 1 -> 100, 15 -> 65, 30 -> 27.5, 40 -> 2.5, none -> -35
+      p._sc.model=p._sc.blended; p._sc.modelN=modelN; p._sc.consN=consN; p._mock=avg!=null?Math.round(avg*10)/10:null;
+      p._mockN=a?a.filter(function(v){ return v<MISS_PICK; }).length:0;
+      p._sc.blended=(1-CONS_W)*modelN+CONS_W*consN;
+    });
+  }
   function compute(players,teamMap,opts){
     opts=opts||{};
     var season=opts.season||'2526', projById=opts.projById||{}, projReady=!!opts.projReady;
@@ -388,6 +424,7 @@
     buildPoolRank(teamMap);
     var _nT=Object.keys(teamMap||{}).length||115;
     pool.forEach(function(p){p._sc=scoreProspect(p,dist,teamMap,ageOvr,_nT);});
+    applyConsensus(pool, ov['mocks_'+draftYear]);
     pool.sort(function(a,b){return b._sc.blended-a._sc.blended || (parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0);});
     var hi=pool.length?pool[0]._sc.blended:100;
     var loIdx=Math.min(pool.length-1,59);
@@ -494,7 +531,7 @@
   function overrides(){
     if(_ovP) return _ovP;
     _ovP=(typeof fetch==='function')
-      ? fetch('draft-overrides.json?v=3',{cache:'no-cache'}).then(function(r){ return r.ok?r.json():{}; }).catch(function(){ return {}; })
+      ? fetch('draft-overrides.json?v=5',{cache:'no-cache'}).then(function(r){ return r.ok?r.json():{}; }).catch(function(){ return {}; })
       : Promise.resolve({});
     return _ovP;
   }
