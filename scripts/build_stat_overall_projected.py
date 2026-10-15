@@ -2101,8 +2101,14 @@ def _sv_of(full, r40, mpg, ppg):
     _wa=(_owa*min(USG_HI,max(USG_LO,(_u/USG_REF)**USG_POW))+DWA_W*_DWA40_MED*_mn/40.0)*sos_of(full)
     _ff=ROLE_FLOOR*min(1.0,_mn/ROLE_FLOOR_MIN)
     _SV_WA[0]=_wa                                      # season Wins Added at these minutes (fresh_fit pwa)
-    return to_grade((_wa/max(_mn/40.0,0.1))*(_ff+(1.0-_ff)*math.sqrt(min(max(_mn/P90,0),1.3))))
+    # A NEWCOMER'S LINE IS A GUESS (owner, Oct 15 2026: Tommy Ahneman, R-Fr., 6.0 / 3.5 in 15.5 mpg rated 86 — top 50
+    # in the country — because the editor's line was valued at face value per minute). A returner's per-40 value is
+    # shrunk toward the median rotation player by his real minutes (cred = min / (min + 400)); a projected line gets
+    # the same shrink as if it were NEW_EVID_MIN minutes of evidence. Only the rating: pwa (season WA) stays the line's.
+    _w40=_wa/max(_mn/40.0,0.1); _w40=MU40+NEW_CRED*(_w40-MU40)
+    return to_grade(_w40*(_ff+(1.0-_ff)*math.sqrt(min(max(_mn/P90,0),1.3))))
 _SV_WA=[None]
+NEW_EVID_MIN=float(os.environ.get("NEW_EVID_MIN","300")); NEW_CRED=NEW_EVID_MIN/(NEW_EVID_MIN+400.0)   # 300 -> keeps 43% of a guess's distance from the median
 _nsv=0
 for _sh,_fm in FRESH_FIT.items():
     _full=S2F.get(_sh.lower()) or _sh
