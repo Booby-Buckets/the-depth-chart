@@ -2120,8 +2120,29 @@ for _sh,_fm in FRESH_FIT.items():
         if _sv is not None and _mt:
             _m0=_n(_f.get("mpg"),0)
             if _mt>_m0+0.5 and _m0>0:
-                _svp=_sv_of(_full,_f.get("r40"),_mt,(_f.get("ppg") or 0)*_mt/_m0)
+                # scale his fitted points up to the rank minutes only when there is a real sample of them: at 0.7 mpg the
+                # fitted ppg is a rounded 0.2 and x36 it cut Cameron Williams' scoring ~40% (he rated below #22 Howard,
+                # owner Oct 15 2026). Under 6 mpg he is valued at his model scoring rate.
+                _svp=_sv_of(_full,_f.get("r40"),_mt,((_f.get("ppg") or 0)*_mt/_m0) if _m0>=6 else None)
                 if _svp is not None: _f["svp"]=int(max(_sv,_svp)); _f["mpg_pot"]=round(_mt,1)
+# THE EDITOR'S LINE (owner, Oct 15 2026): a profile saved with _line (the exact line the editor showed) sets that
+# newcomer's points and per-40 rates, so his OVR values what the editor showed — not the generic freshman shape.
+_ned=0
+for _sh,_fm in FRESH_FIT.items():
+    for _nm,_f in _fm.items():
+        _el=(EDITOR_FR.get((_sh,str(_nm).strip().lower())) or {}).get("_line")
+        if not _el or not (_n(_el.get("mpg"),0)>0): continue
+        _m=_n(_f.get("mpg"),0) or _n(_el["mpg"],0); _k40=40.0/_n(_el["mpg"],1)
+        _f["r40"]={"pts":_n(_el.get("ppg"))*_k40,"oreb":_n(_el.get("oreb"))*_k40,"dreb":_n(_el.get("dreb"))*_k40,"ast":_n(_el.get("apg"))*_k40,
+                   "stl":_n(_el.get("stl"))*_k40,"blk":_n(_el.get("blk"))*_k40,"tov":_n(_el.get("tovs"))*_k40,"fga":_n(_el.get("fga"))*_k40,
+                   "tpa":_n(_el.get("tpa"))*_k40,"fta":_n(_el.get("fta"))*_k40,"fg_pct":_n(_el.get("fg_pct")),"tp_pct":_n(_el.get("tp_pct")),"ft_pct":_n(_el.get("ft_pct"))}
+        _f["ppg"]=round(_n(_el.get("ppg"))*_m/_n(_el["mpg"],1),1); _f["editor_line"]=1; _ned+=1
+        _sv=_sv_of(S2F.get(_sh.lower()) or _sh,_f["r40"],_m,_f["ppg"])
+        if _sv is not None: _f["sv"]=int(_sv)
+        if _sv is not None and _f.get("mpg_pot"):
+            _svp=_sv_of(S2F.get(_sh.lower()) or _sh,_f["r40"],_f["mpg_pot"],None)
+            _f["svp"]=int(max(_sv,_svp)) if _svp is not None else _f.get("svp")
+print(f"editor lines: {_ned} newcomers valued on the line the editor showed",file=sys.stderr)
 # THE DISPLAYED NEWCOMER OVR IS HIS STAT VALUE (owner, Oct 2026: the editor no longer sets an overall, and TDC
 # ratings are stat-driven): his projected line valued like a returner's. The recruiting-band prior stays as
 # ovr_prior (it read every unranked international pro as a flat 63). Real games then move both the same way.

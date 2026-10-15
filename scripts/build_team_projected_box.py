@@ -107,6 +107,19 @@ def newcomer_line(short, nm, x, t=None):
     for k in ("fga", "fgm", "tpa", "tpm", "fta", "ftm"):
         d[k] = pp * ((0.5 * t[k] / max(t["ppg"], 1) + 0.5 * LGP[k]) if t else LGP[k])
     prof = FR_PROF.get((short, nm.strip().lower()))
+    # THE EDITOR'S LINE IS THE LINE (owner, Oct 15 2026: "the edit playstyle needs to be the thing updating"). A profile
+    # saved since then carries _line — exactly what the editor showed. Use it as-is (per-minute rates held if his fitted
+    # minutes moved and he has no explicit minutes); the reconcile below holds it fixed and the rest of the roster absorbs
+    # the team totals.
+    el = (prof or {}).get("_line")
+    if el and float(el.get("mpg") or 0) > 0:
+        km = 1.0 if (prof.get("mpg") not in (None, "") or m <= 0) else m / float(el["mpg"])
+        g = lambda k: float(el.get(k) or 0) * km
+        e = {"mpg": float(el["mpg"]) * km, "ppg": g("ppg"), "apg": g("apg"), "stl": g("stl"), "tov": g("tovs"), "oreb": g("oreb"),
+             "dreb": g("dreb"), "blk": g("blk"), "fga": g("fga"), "fgm": g("fgm"), "tpa": g("tpa"), "tpm": g("tpm"), "fta": g("fta"), "ftm": g("ftm")}
+        if e["oreb"] + e["dreb"] <= 0: e["dreb"] = g("rpg") * 0.75; e["oreb"] = g("rpg") * 0.25
+        e["rpg"] = e["oreb"] + e["dreb"]; e["_fixed"] = True
+        return e
     sl = dict((prof or {}).get("sliders") or {})
     if sl.get("defense") is not None: sl.setdefault("steals", sl["defense"]); sl.setdefault("blocks", sl["defense"])
     arch = FR_ARCH.get((prof or {}).get("archetype") or "")
@@ -300,8 +313,12 @@ for full, (line, t, short, fr) in LINES.items():
     if not pls: continue
     tot_m = sum(d["mpg"] for _, _, d in pls) or 1.0
     for k in PK:
-        S = sum(d[k] for _, _, d in pls)
-        for _, _, d in pls: d[k] = d[k] * line[k] / S if S > 0 else line[k] * d["mpg"] / tot_m
+        # an editor-set line (_fixed) keeps its numbers; everyone else absorbs the rest of the team total
+        F = sum(d[k] for _, _, d in pls if d.get("_fixed")); S = sum(d[k] for _, _, d in pls if not d.get("_fixed"))
+        tgt = max(line[k] - F, 0.3 * S)
+        for _, _, d in pls:
+            if d.get("_fixed"): continue
+            d[k] = d[k] * tgt / S if S > 0 else line[k] * d["mpg"] / tot_m
     agg = {k: 0.0 for k in PK}
     for kind, key, d in pls:
         r = {k: round(d[k], 1) for k in PK}

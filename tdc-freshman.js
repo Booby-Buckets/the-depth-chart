@@ -284,8 +284,27 @@
           if(migrated) pushBlob();
         }
         _loaded=true;
+        if(owner) setTimeout(backfillLines, 2500);
       }).catch(function(e){ _blob=_blob||{}; _loaded=true; }).then(function(){ onReady&&onReady(); });
     return _loading;
+  }
+  // ONE-TIME BACKFILL (owner, Oct 15 2026): profiles saved before the editor stored its line (_line) get it computed with
+  // the editor's own math — the line you see when you open the editor — so the projection build publishes it. Runs on an
+  // owner page load that has the freshman model (frStatBase), saves once, and kicks the rebuild like any save.
+  var _bfDone=false;
+  function backfillLines(){
+    if(_bfDone||!isOwner()||typeof frStatBase!=='function'||!_blob) return; _bfDone=true;
+    var keys=Object.keys(_blob).filter(function(k){ var v=_blob[k]; return k.indexOf('tdc_fr:')===0&&v&&typeof v==='object'&&!v._line&&(v.sliders||v.archetype||v.usg!=null||v.mpg!=null); });
+    if(!keys.length) return;
+    var want={}; keys.forEach(function(k){ var parts=k.split(':'); want[parts[1]+'|'+parts.slice(2).join(':')]=k; });
+    var teams=Array.from(new Set(keys.map(function(k){ return k.split(':')[1]; })));
+    fetch(SB+'/rest/v1/players?select=name,team,position,height,class_year,yr,espn_id,tdc_grade,depth_order,ppg&team=in.('+teams.map(function(t){ return '"'+t.replace(/"/g,'')+'"'; }).join(',')+')',{headers:{apikey:KEY}})
+      .then(function(r){ return r.ok?r.json():[]; }).then(function(rows){ var n=0;
+        (rows||[]).forEach(function(p){ var k=want[p.team+'|'+p.name]; if(!k) return; var d=_blob[k];
+          try{ var L=line(p,d); var o={}; ['mpg','ppg','rpg','apg','stl','blk','tovs','oreb','dreb','fga','fgm','tpa','tpm','fta','ftm','fg_pct','tp_pct','ft_pct'].forEach(function(f){ var v=parseFloat(L[f]); if(isFinite(v)) o[f]=Math.round(v*100)/100; });
+            if(o.mpg>0){ d._line=o; n++; } }catch(e){} });
+        if(n){ console.log('TDCFresh: stored the editor line for '+n+' saved playstyles'); pushBlob(); }
+      }).catch(function(){});
   }
 
   // ── editor modal ──
@@ -425,7 +444,10 @@
       if(btn){ btn.textContent='Saving…'; btn.disabled=true; }
       // Store the projected line's stat-derived BPM + minutes so the rankings value
       // him by his projected STATS (not his OVR), same currency as returners.
-      try{ var L=line(p,_d); _d._bpm=Math.round(estBPM(L)*100)/100; try{ var L0=line(p,{mpg:_d.mpg,role:_d.role}); _d._bpm0=Math.round(estBPM(L0)*100)/100; }catch(e0){} _d._min=parseFloat(L.mpg)||null; _d._usg=parseFloat(L.usg)||null; if(p.espn_id!=null&&p.espn_id!=='') _d._espn=p.espn_id; }catch(e){}
+      try{ var L=line(p,_d); _d._bpm=Math.round(estBPM(L)*100)/100; try{ var L0=line(p,{mpg:_d.mpg,role:_d.role}); _d._bpm0=Math.round(estBPM(L0)*100)/100; }catch(e0){} _d._min=parseFloat(L.mpg)||null; _d._usg=parseFloat(L.usg)||null;
+        // the exact line this editor shows — the projection build now publishes it as his line and values his OVR on it
+        // (owner, Oct 15 2026: "the edit playstyle needs to be the thing updating")
+        _d._line={}; ['mpg','ppg','rpg','apg','stl','blk','tovs','oreb','dreb','fga','fgm','tpa','tpm','fta','ftm','fg_pct','tp_pct','ft_pct'].forEach(function(k){ var v=parseFloat(L[k]); if(isFinite(v)) _d._line[k]=Math.round(v*100)/100; }); if(p.espn_id!=null&&p.espn_id!=='') _d._espn=p.espn_id; }catch(e){}
       saveProfile(p,_d).then(function(res){
         var ok=!!(res&&res.ok);
         if(!ok){
