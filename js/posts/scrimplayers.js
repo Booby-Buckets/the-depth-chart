@@ -1,10 +1,10 @@
 /* Post: 2026-27 preseason scrimmage / exhibition PLAYER lines — the box scores in scripts/data/scrimmage_results_2027.json
  * (school-reported), measured against each player's projected line. "Vs our line" = his total in the picked stat (d.pstat:
- * pts/reb/ast/stl/blk/3PM) minus what his projection (TDCProjGrade.lineOf, per minute) expects at the minutes he played. Unofficial: these games never
+ * pts/reb/ast/stl/blk/3PM) minus his full-game projection (TDCProjGrade.lineOf per-game line). Unofficial: these games never
  * move records or ratings, and only lightly (Reality-weighted, scrim_reality.py) a player projection. */
 TDC_POSTS.add('scrimplayers', {
   group: 'Preseason', label: 'Scrimmage standouts (players)',
-  note: 'Player lines from unofficial preseason scrimmages, ranked by how far he beat our projection in the picked stat at the minutes he played. "Most" = the raw total. 10+ minutes only.',
+  note: 'Player lines from unofficial preseason scrimmages, ranked by how far he beat our full-game projection in the picked stat. "Most" = the raw total. 10+ minutes only.',
   opts: { conf: true, team: true, dir: true, upLabel: 'Beat our line', downLabel: 'Most (raw total)',
     statsLabel: 'Stat', stats: [['pts', 'Points'], ['reb', 'Rebounds'], ['ast', 'Assists'], ['stl', 'Steals'], ['blk', 'Blocks'], ['tpm', '3-pointers made']] },
   load: async function (d, H) {
@@ -43,7 +43,8 @@ TDC_POSTS.add('scrimplayers', {
         B.players.forEach(function (x) {
           var min = +x.min || 0; if (min < 10 || x.pts == null) return;
           var p = findP(me, x.rn || x.name), L = p ? H.lineOf(p) : null, ov = null, ex = null, bv = st.box(x);
-          if (L && +L.mpg > 0 && L[st.pj] != null) { ex = (+L[st.pj]) / (+L.mpg) * min; ov = bv - ex; }
+          // owner, Oct 2026: measured against the FULL-GAME projection, not one scaled to his scrimmage minutes
+          if (L && L[st.pj] != null) { ex = +L[st.pj]; ov = bv - ex; }
           rows.push({ name: p ? p.name : (x.rn || x.name), team: me.team, espn: p && p.espn_id ? String(p.espn_id) : '', tag: tag,
             _ov: ov, _bv: bv, _d: g.date,
             val: d.dir === 'down' ? String(bv) : (ov != null ? H.fmt(ov, 1, true) : ''),
@@ -64,7 +65,7 @@ TDC_POSTS.add('scrimplayers', {
       title: scope + (up ? (sk === 'pts' ? 'Scrimmage standouts' : 'Scrimmage standouts: ' + st.word) : 'Scrimmage leaders: ' + st.word),
       subtitle: H.SEASON + ' preseason scrimmages & exhibitions · unofficial' + (up ? ' · ' + st.word + ' over our projection' : ''),
       lead: up ? 'Vs our line' : st.lab,
-      src: 'The Depth Chart · school-reported scrimmage box scores · vs our line = his ' + st.word + ' minus his projected ' + st.word + ' at those minutes · Reality Meter 0-100 (his team\'s side) · not in records or ratings',
+      src: 'The Depth Chart · school-reported scrimmage box scores · vs our line = his ' + st.word + ' minus his projected ' + st.word + ' per game · Reality Meter 0-100 (his team\'s side) · not in records or ratings',
       // the full box line (owner, Oct 2026: "add rebounds and assists and other things"); counting stats heat against these rows
       // the picked stat (+ our line for it) leads; the rest of the box follows (3PM lives in the 3P made-attempted column)
       cols: (up ? [{ k: sk, lab: st.lab }, { k: 'proj', lab: 'Our line', nodist: true }] : [])
