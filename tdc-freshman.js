@@ -298,11 +298,12 @@
     if(!keys.length) return;
     var want={}; keys.forEach(function(k){ var parts=k.split(':'); want[parts[1]+'|'+parts.slice(2).join(':')]=k; });
     var teams=Array.from(new Set(keys.map(function(k){ return k.split(':')[1]; })));
-    fetch(SB+'/rest/v1/players?select=name,team,position,height,class_year,yr,espn_id,tdc_grade,depth_order,ppg&team=in.('+teams.map(function(t){ return '"'+t.replace(/"/g,'')+'"'; }).join(',')+')',{headers:{apikey:KEY}})
+    // encoded: an unescaped '&' (Texas A&M) cut the filter, the request 400'd and no profile was ever backfilled
+    fetch(SB+'/rest/v1/players?select=name,team,position,height,class_year,yr,espn_id,tdc_grade,depth_order,ppg&team=in.('+encodeURIComponent(teams.map(function(t){ return '"'+t.replace(/"/g,'')+'"'; }).join(','))+')',{headers:{apikey:KEY}})
       .then(function(r){ return r.ok?r.json():[]; }).then(function(rows){ var n=0;
         (rows||[]).forEach(function(p){ var k=want[p.team+'|'+p.name]; if(!k) return; var d=_blob[k];
           try{ var L=line(p,d); var o={}; ['mpg','ppg','rpg','apg','stl','blk','tovs','oreb','dreb','fga','fgm','tpa','tpm','fta','ftm','fg_pct','tp_pct','ft_pct'].forEach(function(f){ var v=parseFloat(L[f]); if(isFinite(v)) o[f]=Math.round(v*100)/100; });
-            if(o.mpg>0){ d._line=o; n++; } }catch(e){} });
+            if(o.mpg>0){ d._line=o; n++; } }catch(e){ console.warn('TDCFresh: line failed for '+k, e); } });
         if(n){ console.log('TDCFresh: stored the editor line for '+n+' saved playstyles'); pushBlob(); }
       }).catch(function(){});
   }

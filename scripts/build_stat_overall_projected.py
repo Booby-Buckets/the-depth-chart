@@ -2150,14 +2150,17 @@ for _sh,_fm in FRESH_FIT.items():
         _el=(EDITOR_FR.get((_sh,str(_nm).strip().lower())) or {}).get("_line")
         if not _el or not (_n(_el.get("mpg"),0)>0): continue
         _m=_n(_f.get("mpg"),0) or _n(_el["mpg"],0); _k40=40.0/_n(_el["mpg"],1)
-        _f["r40"]={"pts":_n(_el.get("ppg"))*_k40,"oreb":_n(_el.get("oreb"))*_k40,"dreb":_n(_el.get("dreb"))*_k40,"ast":_n(_el.get("apg"))*_k40,
+        # NOT written over r40: the editor builds its preview from r40 (tdc-proj frStatBase), so overwriting it with the
+        # edited line re-applied the sliders on every save. The edited rates go in r40e, used only for his value.
+        _r40e={"pts":_n(_el.get("ppg"))*_k40,"oreb":_n(_el.get("oreb"))*_k40,"dreb":_n(_el.get("dreb"))*_k40,"ast":_n(_el.get("apg"))*_k40,
                    "stl":_n(_el.get("stl"))*_k40,"blk":_n(_el.get("blk"))*_k40,"tov":_n(_el.get("tovs"))*_k40,"fga":_n(_el.get("fga"))*_k40,
                    "tpa":_n(_el.get("tpa"))*_k40,"fta":_n(_el.get("fta"))*_k40,"fg_pct":_n(_el.get("fg_pct")),"tp_pct":_n(_el.get("tp_pct")),"ft_pct":_n(_el.get("ft_pct"))}
+        _f["r40e"]=_r40e
         _f["ppg"]=round(_n(_el.get("ppg"))*_m/_n(_el["mpg"],1),1); _f["editor_line"]=1; _ned+=1
-        _sv=_sv_of(S2F.get(_sh.lower()) or _sh,_f["r40"],_m,_f["ppg"],_cred_of(_f))
+        _sv=_sv_of(S2F.get(_sh.lower()) or _sh,_r40e,_m,_f["ppg"],_cred_of(_f))
         if _sv is not None: _f["sv"]=int(_sv)
         if _sv is not None and _f.get("mpg_pot"):
-            _svp=_sv_of(S2F.get(_sh.lower()) or _sh,_f["r40"],_f["mpg_pot"],None,_cred_of(_f))
+            _svp=_sv_of(S2F.get(_sh.lower()) or _sh,_r40e,_f["mpg_pot"],None,_cred_of(_f))
             _f["svp"]=int(max(_sv,_svp)) if _svp is not None else _f.get("svp")
 print(f"editor lines: {_ned} newcomers valued on the line the editor showed",file=sys.stderr)
 # THE DISPLAYED NEWCOMER OVR IS HIS STAT VALUE (owner, Oct 2026: the editor no longer sets an overall, and TDC

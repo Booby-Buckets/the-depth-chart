@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800;900&family=Barlow+Condensed:wght@700;800&family=Barlow:wght@500;600;700;800;900&display=swap" rel="stylesheet"/>
   <script src="team-colors.js?v=12"></script>
   <script src="tdc-injury.js?v=5"></script>
-  <script src="tdc-freshman.js?v=pub33"></script>
+  <script src="tdc-freshman.js?v=pub34"></script>
   <script src="tdc-projgrade.js?v=base57"></script>
   <script src="tdc-ratings.js?v=43"></script>
   <script src="tdc-archetypes.js?v=7"></script>
@@ -1408,7 +1408,7 @@
     var xR=W-pad, xCells=xR-cellW*cols.length, xLead=xCells-leadW-10*u, rkW=rk?46*u:0, xLogo=pad+rkW, xShot=xLogo+(logos?ms+8*u:0), xName=xShot+(shots?ms+16*u:0);
     var hy=y0+hh*.5; txt(String(o.leadLabel||'').toUpperCase(),xLead+leadW/2,hy,{ w:700,px:15*u,serif:'barlow',c:P.text2,al:'center',ls:1*u,max:leadW-6*u });
     cols.forEach(function(c,i){ txt(labOf(c.k,c.lab).toUpperCase(),xCells+cellW*(i+.5),hy,{ w:700,px:15*u,serif:'barlow',c:P.text2,al:'center',ls:1*u,max:cellW-6*u }); });
-    var ry0=y0+hh, vals=rows.map(function(r){ return parseFloat(r.val); }).filter(isFinite), vmax=Math.max.apply(null,vals.concat([0])), vmin=Math.min.apply(null,vals.concat([vmax]));
+    var ry0=y0+hh, lv=function(r){ return (r._v!=null&&isFinite(+r._v))?+r._v:parseFloat(r.val); }, vals=rows.map(lv).filter(isFinite), vmax=Math.max.apply(null,vals.concat([0])), vmin=Math.min.apply(null,vals.concat([vmax]));
     for(var i=0;i<n;i++){ var r=rows[i], top=ry0+i*rh, mid=top+rh/2;
       ctx.fillStyle=P.line; ctx.fillRect(pad,top,W-pad*2,Math.max(1,u));
       if(rk) txt(String(i+1),pad+rkW*.4,mid,{ w:800,px:rh*.3,serif:'cond',c:P.mut,al:'center' });
@@ -1418,11 +1418,11 @@
       var fpx=txt(r.name,xName,mid,{ w:700,px:nfs,serif:'barlow',c:P.text,max:nmax-(r.tag?width(r.tag,700,nfs*.5,'barlow')+8*u:0) });
       if(r.tag){ var tw2=width(r.name,700,fpx,'barlow'); txt(r.tag,xName+Math.min(tw2,nw)+6*u,mid-fpx*.34,{ w:700,px:nfs*.5,serif:'barlow',c:P.mut }); }
       // lead column: plain big number, or an amber cell graded by value
-      if(amber){ var t=vmax>vmin?(parseFloat(r.val)-vmin)/(vmax-vmin):1, ac=ramp(AMBER_RAMP,isFinite(t)?.15+.85*t:0);
+      if(amber){ var t=vmax>vmin?(lv(r)-vmin)/(vmax-vmin):1, ac=ramp(AMBER_RAMP,isFinite(t)?.15+.85*t:0);
         var g=ctx.createLinearGradient(xLead,0,xLead+leadW,0); g.addColorStop(0,rgbS(ramp(AMBER_RAMP,0))); g.addColorStop(1,rgbS(ac));
         rrect(xLead,top+4*u,leadW,rh-8*u,6*u); ctx.fillStyle=g; ctx.fill(); }
       txt(r.val||'',xLead+leadW/2,mid,{ w:800,px:Math.min(rh*.46,48*u)*k,serif:'cond',c:amber?'#2A1A00':P.text,al:'center',max:leadW-10*u });
-      for(var j=0;j<cols.length;j++){ var c=cols[j], v=r[c.k], cx=xCells+cellW*j, pc=pctQ((d.dist||{})[c.k],v);
+      for(var j=0;j<cols.length;j++){ var c=cols[j], v=r[c.k], cx=xCells+cellW*j, pc=pctQ((d.dist||{})[c.k],v); if(c.inv&&pc!=null) pc=100-pc;   // inv: lower is better (DRtg, TOV%)
         if(v===''||v==null){ txt('—',cx+cellW/2,mid,{ w:600,px:rh*.3,serif:'cond',c:P.mut,al:'center' }); continue; }
         var col=pc==null||!stops?null:ramp(stops,pc/100);
         if(col){ rrect(cx+4*u,top+4*u,cellW-8*u,rh-8*u,6*u); ctx.fillStyle=rgbS(col); ctx.fill(); }
@@ -1750,7 +1750,7 @@
       return '<h3>Data</h3><label class="f">Post</label><select data-k="key">'+sel+'</select>'+
         (P0&&P0.note?'<div class="hint">'+esc(P0.note)+'</div>':'')+
         '<div class="two"><div><label class="f">Rows</label><input data-k="n" type="number" min="1" max="20" value="'+d.n+'"></div>'+
-        (o.season?'<div><label class="f">Season</label><select data-k="season">'+MSEASONS.slice(0,o.seasons||3).map(function(s2){ return '<option value="'+s2[0]+'"'+(String(d.season)===s2[0]?' selected':'')+'>'+s2[1]+'</option>'; }).join('')+'</select></div>':'<div></div>')+'</div>'+
+        (o.season?'<div><label class="f">Season</label><select data-k="season">'+(o.seasonList||MSEASONS.slice(0,o.seasons||3)).map(function(s2){ return '<option value="'+s2[0]+'"'+(String(d.season)===s2[0]?' selected':'')+'>'+s2[1]+'</option>'; }).join('')+'</select></div>':'<div></div>')+'</div>'+
         (o.dir?'<label class="f">Show</label><select data-k="dir"><option value="up"'+(d.dir!=='down'?' selected':'')+'>'+esc(o.upLabel||'Most / best first')+'</option><option value="down"'+(d.dir==='down'?' selected':'')+'>'+esc(o.downLabel||'Least / worst first')+'</option></select>':'')+
         (o.team||o.conf?scopeUI(d,{ noConf:o.conf===false }):'')+
         '<div class="btns"><button class="b sm primary" data-act="load">Load / refresh data</button></div>'+shotsChk(d)+
@@ -1761,7 +1761,7 @@
     },
     draw:async function(d,W,H,u,pad){
       bg(W,H); var y0=sheetHead(W,H,u,pad,d.title,d.subtitle), fTop=sheetFoot(W,H,u,pad,d.src,(d.cols||[]).length&&rampOf(HEAT_RAMP)?rampLegend(u,rampOf(HEAT_RAMP),'RANK','Low','High'):null);
-      await rankTable(d,W,H,u,pad,y0,fTop,{ amber:!!d.lead, leadLabel:d.lead||'', stops:HEAT_RAMP, cols:(d.cols||[]).map(function(c){ return { k:c.k, lab:c.lab }; }) });
+      await rankTable(d,W,H,u,pad,y0,fTop,{ amber:!!d.lead, leadLabel:d.lead||'', stops:HEAT_RAMP, cols:(d.cols||[]).map(function(c){ return { k:c.k, lab:c.lab, inv:!!c.inv }; }) });
       return (d.title||'')+'\n\n'+d.rows.slice(0,5).map(function(r,i){ return (i+1)+'. '+r.name+(r.team&&school(r.team)!==r.name?' ('+school(r.team)+')':'')+(r.val?' '+r.val+' '+(d.lead||''):''); }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB';
     }
   };
