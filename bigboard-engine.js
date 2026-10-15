@@ -177,9 +177,11 @@
     var lo=0,hi=arr.length;while(lo<hi){var m=(lo+hi)>>1;if(arr[m]<v)lo=m+1;else hi=m;}
     var p=Math.round(lo/arr.length*100);return inv?100-p:p;}
 
-  function scoreProspect(p,dist,teamMap,ageOvr,nTeams){
+  function scoreProspect(p,dist,teamMap,ageOvr,nTeams,fwd){
     var s=p._s, grp=pgrp(p.position), ht=htIn(p.height), ci=classInfo(p);
-    var age=ageEst(p,ageOvr);   // needed by youth/size-upside below, not just the final curve
+    // fwd = the 2028 board: he is a year older on draft night, and pedigree / upside carry more of a
+    // way-too-early board (see compute)
+    var age=ageEst(p,ageOvr)+(fwd?1:0);   // needed by youth/size-upside below, not just the final curve
     // College-value anchor = PRODUCTION quality (TDCProjGrade.statQual: per-40 production of his projected line /
     // last season / freshman-model line, 75 ± 6) — not the overall, which is display only (owner rule, Oct 2026).
     // Read off the SAME line the board scores (s: the season's line — the canonical projection for 2026-27), so a
@@ -281,6 +283,8 @@
       // draft one-and-done upside on it. #1 → 100, #4 → 65, #12 → 38, #50+ → ~0; a fifth of his upside.
       var _fr=null; try{ _fr=(window.TDCProjGrade&&TDCProjGrade.freshRowOf)?TDCProjGrade.freshRowOf(p):null; }catch(e){}
       if(_fr&&+_fr.rank>0) pot=clamp(.80*pot+.20*clamp(100-25*Math.log(+_fr.rank)));
+      // the 2028 board leans on it harder: two years out, a real board is mostly pedigree + tools
+      if(fwd && p._ped!=null) pot=clamp(.62*pot+.38*p._ped);
       draft=clamp(.32*gradeNorm+.11*ppgP+.07*usgP+.09*scN+.19*trans+.17*lvl+.05*sizeScore);
     }
     // Draft-board weighting: the NBA drafts on UPSIDE + TRANSLATABLE TOOLS, not college
@@ -288,7 +292,7 @@
     // term (a productive senior shouldn't out-rank a toolsy young wing the way a college
     // performance board would). Rebuilt from .36/.30/.20/.14 (trans/pot/ready/draft).
     // Upside and translatable tools lead; college readiness is the smallest term, as on a real board
-    var lensScore=clamp(.35*pot+.33*trans+.22*draft+.10*ready);
+    var lensScore=fwd ? clamp(.44*pot+.30*trans+.17*draft+.09*ready) : clamp(.35*pot+.33*trans+.22*draft+.10*ready);
     // DRAFT AGE CURVE: NBA drafts on runway, so value slides with age. An elite
     // young player stays top-of-board while an equally good 23-24yo caps out
     // mid-board (they can still rise, just not to the top). When a real age is
@@ -299,7 +303,9 @@
     // prospect from 20 onward; a redshirt year counts against you, it does not reset the clock.
     var effLvl=age<=19?0:age<=20?1:age<=21?2:3;
     var classBoost=[9,4,-2,-6][effLvl];
-    var agePen=Math.max(0,age-19.5)*1.8;   // 20→0.9, 21→2.7, 22→4.5, 23→6.3 (with the class term,
+    // the 2028 board fades age harder: an upperclassman who is a top-10 talent goes in 2027, so one still in school
+    // two drafts out is a later pick on a real early board (22 on draft night: -7.5 here vs -4.5)
+    var agePen=Math.max(0,age-19.5)*(fwd?3.0:1.8);   // 20→0.9, 21→2.7, 22→4.5, 23→6.3 (with the class term,
                                            // a 23-year-old carries about -12, which is a late-second
                                            // round fade, not off the board)
     // Production/grade anchors it but no longer DOMINATES — the scouting lenses (upside/
@@ -311,7 +317,7 @@
     // there is no volume to check — which floated deep-bench freshmen into the top 100. What the
     // college season says about a player is faded out below a real rotation role.
     var oppPen=(1-Math.min(1,num(s.mpg)/12))*9;
-    var blended=.34*gradeNorm+.66*lensScore+classBoost-agePen-(noSample?0:emptyCal*0.08)-oppPen;
+    var blended=(fwd?.26:.34)*gradeNorm+(fwd?.74:.66)*lensScore+classBoost-agePen-(noSample?0:emptyCal*0.08)-oppPen;
     return {trans:trans,ready:ready,pot:pot,draft:draft,overall:clamp(blended),blended:blended,grp:grp,sizeScore:sizeScore,gradeNorm:gradeNorm,noSample:noSample,age:age,
             athl:(typeof athl!=='undefined'?athl:null),shoot:(typeof shooting!=='undefined'?shooting:null),
             lvl:(typeof lvl!=='undefined'?lvl:null),empty:(noSample?0:emptyCal),opp:Math.round(oppPen*10)/10};
@@ -338,6 +344,10 @@
     if(!M || !M.lists) return;
     var lists=Object.keys(M.lists).map(function(k){ return M.lists[k]; }).filter(function(l){ return l && l.length; });
     if(!lists.length) return;
+    // per-set knobs (mocks_2028 is one 60-deep source full of high-schoolers): weight = share of the blend; none = the
+    // pick an unlisted player is treated as; strict = exact names only (the initial + surname fallback turned the
+    // high-schooler Malachi Jordan into Bethune-Cookman's Mari Jordan)
+    var W=(M.weight!=null&&isFinite(+M.weight))?+M.weight:CONS_W, NONE=(M.none!=null&&isFinite(+M.none))?+M.none:NONE_PICK, strict=!!M.strict;
     var alias={}; Object.keys(M.alias||{}).forEach(function(k){ alias[nameKey(k)]=nameKey(M.alias[k]); });
     // our pool, keyed by full name and by first initial + last name (Matt / Matthew Able)
     var byKey={}, byInit={};
@@ -346,8 +356,11 @@
     var find=function(n0){ var parts=(''+n0).split('|'), n=parts[0], sch=parts[1]?nameKey(parts[1]):null, k=nameKey(n); k=alias[k]||k;
       if(byKey[k]){ var L=byKey[k]; if(L.length===1&&!sch) return L[0];
         var hit=sch?L.filter(function(p){ return nameKey(p.team).indexOf(sch)===0||sch.indexOf(nameKey(p.team))===0; }):[]; return hit.length===1?hit[0]:(L.length===1?L[0]:null); }
+      if(strict) return null;
       var w=(''+n).replace(/\b(Jr|Sr|II|III|IV)\b\.?/g,'').trim().split(/\s+/); if(w.length<2) return null;
-      var c=byInit[(w[0][0]+w[w.length-1]).toLowerCase().replace(/[^a-z]/g,'')]; return c&&c.length===1?c[0]:null; };
+      var c=byInit[(w[0][0]+w[w.length-1]).toLowerCase().replace(/[^a-z]/g,'')];
+      if(c&&sch) c=c.filter(function(p){ return nameKey(p.team).indexOf(sch)===0||sch.indexOf(nameKey(p.team))===0; });
+      return c&&c.length===1?c[0]:null; };
     var picks={};   // player id -> [pick per list]
     lists.forEach(function(l,li){ l.forEach(function(n,i){ var p=find(n); if(!p) return; (picks[p.id]=picks[p.id]||lists.map(function(){ return MISS_PICK; }))[li]=Math.min(picks[p.id][li],i+1); }); });
     var bl=pool.map(function(p){ return p._sc.blended; }).sort(function(a,b){ return b-a; });
@@ -357,11 +370,66 @@
       // the model can only drag a mocked player so far (-20) when he has a real role; a projected bench line (<15 mpg) gets no
       // floor — owner, Oct 2026: Cameron Williams at 0.7 mpg "won't be proven enough" to be drafted this year, mocks or not
       var rawN=(p._sc.blended-lo)/span*100, modelN=num((p._s||{}).mpg)>=15?Math.max(-20,rawN):Math.max(-100,rawN);
-      var consN=100-((avg!=null?avg:NONE_PICK)-1)*2.5;   // pick 1 -> 100, 15 -> 65, 30 -> 27.5, 40 -> 2.5, none -> -35
+      var consN=100-(Math.min(avg!=null?avg:NONE,NONE)-1)*2.5;   // a deep list's late picks never score below unlisted   // pick 1 -> 100, 15 -> 65, 30 -> 27.5, 40 -> 2.5, none -> -35
       p._sc.model=p._sc.blended; p._sc.modelN=modelN; p._sc.consN=consN; p._mock=avg!=null?Math.round(avg*10)/10:null;
       p._mockN=a?a.filter(function(v){ return v<MISS_PICK; }).length:0;
-      p._sc.blended=(1-CONS_W)*modelN+CONS_W*consN;
+      p._sc.blended=(1-W)*modelN+W*consN;
     });
+  }
+  // ── 2028 BOARD INPUTS ─────────────────────────────────────────────────────────────────────
+  // The 2028 board used to score everyone off his 2026-27 projected line, so the polished juniors
+  // led it and Duke's Cameron Williams (a top-5 recruit buried at 0.7 projected mpg) sat at #332.
+  // A real way-too-early board ranks young upside and pedigree; these supply both.
+  //
+  // PEDIGREE (0-100) — the build's DERIVED recruit prior (fr_pedigree_<yr>.json "prior": the grade a
+  // recruit of his standing projects to; never the 247 rank itself, which stays private), else the
+  // newcomer row's ovr_prior (internationals / anyone the class file lacks). 70 -> 0, 88 -> 100.
+  // Only young players carry it: a senior former five-star has had his chance, and the class file
+  // is keyed by name (a Kent State senior Cameron Williams must not inherit Duke's).
+  var _pedP=null, _pedBy=null;
+  function loadPed(){
+    if(_pedP) return _pedP;
+    _pedP=(typeof fetch==='function')
+      ? fetch('scripts/data/fr_pedigree_2027.json').then(function(r){ return r.ok?r.json():null; })
+          .then(function(j){ _pedBy=j||{}; return _pedBy; }).catch(function(){ _pedBy={}; return _pedBy; })
+      : Promise.resolve({});
+    return _pedP;
+  }
+  function freshRow(p){ try{ return (global.TDCProjGrade&&global.TDCProjGrade.freshRowOf)?global.TDCProjGrade.freshRowOf(p):null; }catch(e){ return null; } }
+  function pedRow(p,ageOvr){
+    var ck=classKey(p); if(ck!=='fr'&&ck!=='so') return null;
+    if(ageEst(p,ageOvr)>20.5) return null;
+    return (_pedBy&&_pedBy[nameKey(p.name)])||null;
+  }
+  function pedigreeOf(p,ageOvr){
+    var pr=pedRow(p,ageOvr), prior=pr?num(pr.prior):NaN;
+    if(!(prior>0) && ageEst(p,ageOvr)<=20){ var f=freshRow(p); if(f&&num(f.ovr_prior)>0) prior=num(f.ovr_prior); }
+    return prior>0 ? clamp((prior-70)/18*100) : null;
+  }
+  // NEXT SEASON'S LINE. The 2028 draft is judged on 2027-28, not on this year's role. Each returner
+  // takes a development step (per-40 production: Fr->So +8%, So->Jr +4%, Jr->Sr +2%), a freshman's
+  // minutes move most of the way toward what recruits of his standing play (fresh_fit mpg_pot / the
+  // pedigree file's minutes by position group), and a small sample is faded toward his model rates
+  // (fresh_fit r40 / pedigree r40) — 0.7 minutes a night says nothing about what he does in 25.
+  var R40K={ppg:'pts',oreb:'oreb',dreb:'dreb',apg:'ast',stl:'stl',blk:'blk',tovs:'tov',fga:'fga',tpa:'tpa',fta:'fta'};
+  function nextYearLine(p,s){
+    var ck=classKey(p), dev={fr:1.08,so:1.04,jr:1.02}[ck]; if(!dev) return s;
+    var m=num(s.mpg), f=freshRow(p), pd=pedRow(p,null), g=(f&&/^[GWB]$/.test(f.grp))?f.grp:pgrp(p.position);
+    var pr40=(f&&f.r40)||(pd&&pd.r40&&pd.r40[g])||null;
+    var potM=num(f&&f.mpg_pot)||num(pd&&pd.mpg&&pd.mpg[g])||0;
+    var m2=(ck==='fr'&&potM>m)?(.4*m+.6*potM):m;
+    var w=pr40?Math.min(1,m/24):1;
+    if(m<=0 && !pr40) return s;
+    var o=Object.assign({},s); o._dev=1; o._m0=m;
+    Object.keys(R40K).forEach(function(k){
+      var own=m>0?num(s[k])*40/m:0, mod=pr40?num(pr40[R40K[k]]):own;
+      o[k]=Math.round((w*own+(1-w)*mod)*dev*m2/40*10)/10; });
+    o.rpg=Math.round((o.oreb+o.dreb)*10)/10;
+    ['fg_pct','tp_pct','ft_pct'].forEach(function(k){ if(pr40&&pr40[k]!=null) o[k]=Math.round((w*num(s[k])+(1-w)*num(pr40[k]))*10)/10; });
+    o.fgm=Math.round(o.fga*num(o.fg_pct)/100*10)/10; o.tpm=Math.round(o.tpa*num(o.tp_pct)/100*10)/10; o.ftm=Math.round(o.fta*num(o.ft_pct)/100*10)/10;
+    o.mpg=Math.round(m2*10)/10;
+    if(m2>m+1||w<1){ o.usg=null; o.usg_pct=null; o.usage_pct=null; o.proj_usg=null; }   // re-estimated from the new line
+    return o;
   }
   function compute(players,teamMap,opts){
     opts=opts||{};
@@ -422,10 +490,11 @@
         if(TDCProjGrade.statQual){ var q=TDCProjGrade.statQual(p); if(isFinite(q)) p._sq=q; } });   // the board's college-value term
     }
     pool.forEach(function(p){p._s=basisOf(p,season,projById,projReady);});
+    if(season==='2728') pool.forEach(function(p){ p._ped=pedigreeOf(p,ageOvr); p._s=nextYearLine(p,p._s); });
     var dist=buildDist(pool);
     buildPoolRank(teamMap);
     var _nT=Object.keys(teamMap||{}).length||115;
-    pool.forEach(function(p){p._sc=scoreProspect(p,dist,teamMap,ageOvr,_nT);});
+    pool.forEach(function(p){p._sc=scoreProspect(p,dist,teamMap,ageOvr,_nT,season==='2728');});
     applyConsensus(pool, ov['mocks_'+draftYear]);
     pool.sort(function(a,b){return b._sc.blended-a._sc.blended || (parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0);});
     var hi=pool.length?pool[0]._sc.blended:100;
@@ -533,7 +602,7 @@
   function overrides(){
     if(_ovP) return _ovP;
     _ovP=(typeof fetch==='function')
-      ? fetch('draft-overrides.json?v=5',{cache:'no-cache'}).then(function(r){ return r.ok?r.json():{}; }).catch(function(){ return {}; })
+      ? fetch('draft-overrides.json?v=6',{cache:'no-cache'}).then(function(r){ return r.ok?r.json():{}; }).catch(function(){ return {}; })
       : Promise.resolve({});
     return _ovP;
   }
@@ -541,7 +610,7 @@
     opts=opts||{};
     var pool=(players||[]).map(sane);
     var projP=opts.projById?Promise.resolve(opts.projById):buildProjById(pool, teamMap);
-    return Promise.all([projP, opts.overrides?Promise.resolve(opts.overrides):overrides(), loadGenome(), liveRanks(),
+    return Promise.all([projP, opts.overrides?Promise.resolve(opts.overrides):overrides(), loadGenome(), liveRanks(), loadPed(),
       (global.TDCProjGrade&&global.TDCProjGrade.loadHist)?global.TDCProjGrade.loadHist():null]).then(function(r){
       var proj=r[0]||{}, ov=r[1]||{}, ready=Object.keys(proj).length>0;
       return compute(pool, teamMap, {season:opts.season||(ready?'2627':'2526'), projById:proj, projReady:ready, overrides:ov});
@@ -557,5 +626,5 @@
     if(((ov&&ov.returning)||[]).some(function(n){ return (''+n).trim()===nm; })) return 2028;
     var y=eligibleFrom(p, ov); return y!=null?y:null;
   }
-  global.TDC_BIGBOARD={board:board, eligibleFrom:eligibleFrom, nextDraftOf:nextDraftOf, compute:compute, liveRanks:liveRanks, buildProjById:buildProjById, sane:sane, overrides:overrides, pgrp:pgrp, posLabel:posLabel, classKey:classKey, fallbackLine:projPlayer};
+  global.TDC_BIGBOARD={board:board, eligibleFrom:eligibleFrom, nextDraftOf:nextDraftOf, compute:compute, liveRanks:liveRanks, loadPed:loadPed, buildProjById:buildProjById, sane:sane, overrides:overrides, pgrp:pgrp, posLabel:posLabel, classKey:classKey, fallbackLine:projPlayer};
 })(typeof window!=='undefined'?window:this);

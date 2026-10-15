@@ -282,7 +282,7 @@ body{background:transparent!important;}
 <script src="tdc-freshman.js?v=pub34"></script>   <!-- the Big Board ranks freshmen off the owner's projected line -->
 <script src="tdc-projgrade.js?v=base57"></script>
 <script src="tdc-proj.js?v=hg5"></script>
-<script src="bigboard-engine.js?v=30"></script>
+<script src="bigboard-engine.js?v=31"></script>
 <script>
 const SB  = 'https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
@@ -432,7 +432,7 @@ function setSeason(s){
 // ── boot ──
 async function load(){
   try{
-    try{ draftOverrides=await fetch('draft-overrides.json?v=5',{cache:'no-cache'}).then(function(r){return r.ok?r.json():{};}); }catch(e){ draftOverrides={}; }
+    try{ draftOverrides=await fetch('draft-overrides.json?v=6',{cache:'no-cache'}).then(function(r){return r.ok?r.json():{};}); }catch(e){ draftOverrides={}; }
     var tr=await fetch(SB+'/rest/v1/teams?select=*',{headers:H});
     (await tr.json()).forEach(function(t){teamMap[t.name]=t;teamColors[t.name]=t.color||'#888';});
     // the SAME shared pool the player page uses — one fetch, one set of columns, one board
@@ -443,6 +443,7 @@ async function load(){
     try{ if(window.TDCFresh&&TDCFresh.load) await TDCFresh.load(); }catch(e){}
     try{ if(window.TDCProjGrade&&TDCProjGrade.ready) await TDCProjGrade.ready; }catch(e){}
     try{ await TDC_BIGBOARD.liveRanks(); }catch(e){}   // team strength reads the live projected rank
+    try{ await TDC_BIGBOARD.loadPed(); }catch(e){}     // the 2028 board's recruiting pedigree
     buildBoard();
     document.getElementById('loadHint').style.display='none';
     renderBoard();
