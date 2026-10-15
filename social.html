@@ -1501,8 +1501,12 @@
     netl:['Best lineups by adjusted net','Net rating with opponents’ 3-point shooting pulled to average','Adj Net'] };   // owner, Oct 15 2026: BC's +30.2 rode opponents shooting 18% from three
   T.lineups={
     ownBrand:true,
-    defaults:function(){ return { metric:'def', season:'2026', minPoss:250, n:8, conf:'', team:'', shots:true, title:'', subtitle:'', lead:'', src:'', rows:[] }; },
-    load:async function(d){ var w=await json('scripts/data/wowy_units_'+(d.season||'2026')+'.json'); await ratings(); var M=UMET[d.metric]||UMET.def, n=Math.max(1,Math.min(12,+d.n||8)), out=[];
+    defaults:function(){ return { metric:'netl', season:'2026', minPoss:120, n:8, _adj:1, conf:'', team:'', shots:true, title:'', subtitle:'', lead:'', src:'', rows:[] }; },
+    load:async function(d){
+      // owner, Oct 15 2026: luck-adjusted net at 120+ possessions is the default (200+ left one lineup per team, and raw net
+      // let an 18%-opponent-3P stretch lead); a graphic saved before this switches over once
+      if(!d._adj){ if(d.metric==='net'||d.metric==='def') d.metric='netl'; if(!(+d.minPoss<200)) d.minPoss=120; d._adj=1; }
+      var w=await json('scripts/data/wowy_units_'+(d.season||'2026')+'.json'); await ratings(); var M=UMET[d.metric]||UMET.def, n=Math.max(1,Math.min(12,+d.n||8)), out=[];
       Object.keys(w.units).forEach(function(t){ if(!onTeam(t,d.team)||(d.conf&&confOfFull(t)!==d.conf)) return;
         (w.units[t]['5']||[]).forEach(function(x){ if(x.r&&x.r.poss>=(+d.minPoss||0)) out.push({ team:t, ids:x.ids, r:x.r }); }); });
       var key=d.metric==='def'?'d':d.metric==='off'?'o':d.metric==='netl'?'netl':'net'; out.sort(function(a,b){ return d.metric==='def'?a.r[key]-b.r[key]:b.r[key]-a.r[key]; });
