@@ -1184,7 +1184,12 @@ import re as _re, unicodedata as _ud
 def _nk(s):
     s=_ud.normalize("NFKD",str(s or "")).encode("ascii","ignore").decode().lower()
     return _re.sub(r"[^a-z]","",_re.sub(r"\b(jr|sr|ii|iii|iv)\b\.?","",s))
-try: _R247={_nk(r["name"]):r["rank"] for r in json.load(open(os.path.join(D,"recruiting_247.json")))["classes"].get(str(CUR),[])}
+# this year's class (CUR) plus last year's (CUR-1): a redshirt freshman who never played still has only his recruit
+# pedigree (Tommy Ahneman, 2025 class, owner Oct 15 2026). The newer class wins a name collision.
+try:
+    _CL=json.load(open(os.path.join(D,"recruiting_247.json")))["classes"]
+    _R247={_nk(r["name"]):r["rank"] for y in (str(CUR-1),str(CUR)) for r in _CL.get(y,[])}
+except Exception: _R247={}
 except Exception: _R247={}
 FR_RANK_T=((3,88.2),(8,84.5),(18,81.2),(38,76.6),(75,72.9),(125,70.8),(175,67.9),(250,67.1),(350,67.1))   # rank-band mean freshman grade
 FR_UNRANKED=float(os.environ.get("FR_UNRANKED","63.0")); FR_MIN_W=float(os.environ.get("FR_MIN_W","0.4"))
@@ -1209,6 +1214,7 @@ def fr_prior(short,name,sheet,yr=None):
     rk=_R247.get(_nk(name))
     if ed is not None: v=(ed,"editor",rk)
     elif rk: v=(fr_rank_grade(rk),"247",rk)
+    elif PED.get(_nk(name)): v=(PED[_nk(name)]["prior"],"247",None)   # CI: the derived pedigree (no rank)
     elif _n(sheet,0)>0: v=(float(sheet),"sheet",None)
     else: v=((FR_UNRANKED if (yr is None or _is_fr(yr)) else NEWC_UNKNOWN),"baseline",None)
     FR_PRIOR[key]=v; return v[0]
@@ -1233,10 +1239,29 @@ for _k,_v in OWNER_BLOB.items():
         try: _,_ft,_fn=_k.split(":",2); EDITOR_FR[(_ft.strip(),_fn.strip().lower())]=_v
         except Exception: pass
 FR_RATES={}; FR_EDIT_K={}; FR_META={}
+# FRESHMAN PEDIGREE (owner, Oct 15 2026: Duke's #4 Cameron Williams / #22 Bryson Howard showed 55). recruiting_247.json is
+# gitignored by design (247's rankings are never served), so the CI rebuild had NO ranks: every 2026-27 freshman got the
+# unranked prior, unranked rates and no potential. Where the private file exists we write a DERIVED file — per recruit his
+# prior grade, his model per-40 rates for each position group and the minutes recruits at his level play — never the rank
+# (the site already serves the same derived numbers as fresh_fit ovr_prior / r40). CI reads it when the raw file is absent.
+PED_P=os.path.join(D,"fr_pedigree_%d.json"%(CUR+1)); PED={}
+if _R247 and FR_MODEL:
+    for _k,_rk in _R247.items():
+        _lr=math.log(max(1,_rk))
+        PED[_k]={"prior":round(fr_rank_grade(_rk),1),
+                 "r40":{g:{k:round(v[0]+v[1]*_lr,3) for k,v in r.items() if k not in ("n","bpm")} for g,r in FR_MODEL["ranked"].items()},
+                 "mpg":{g:round(max(4.0,min(34.0,ab[0]+ab[1]*_lr)),1) for g,ab in (FR_MODEL.get("mpg_by_rank") or {}).items()}}
+    json.dump(PED,open(PED_P,"w"),separators=(",",":"),sort_keys=True)
+elif os.path.exists(PED_P):
+    PED=json.load(open(PED_P))
+print("freshman pedigree: %d recruits (%s)"%(len(PED),"247 file" if _R247 else "derived file"),file=sys.stderr)
 def _fr_rates(short,name,position,height):
     """expected per-40 line for a newcomer with no D-I box line, or None without the model"""
     if not FR_MODEL: return None
-    g=pos_group(position,height); rk=_R247.get(_nk(name))
+    g=pos_group(position,height); rk=_R247.get(_nk(name)); pd_=PED.get(_nk(name))
+    if not rk and pd_ and g in (pd_.get("r40") or {}):
+        full=S2F.get(str(short).lower()) or short
+        FR_META[(short,str(name).strip())]=(g,FR_LEVEL.get(full,"mid")); return dict(pd_["r40"][g])
     full=S2F.get(str(short).lower()) or short
     FR_META[(short,str(name).strip())]=(g,FR_LEVEL.get(full,"mid"))   # fresh_fit grp/lv -> tdc-projgrade frBpm
     if rk and g in FR_MODEL["ranked"]:
@@ -2087,9 +2112,12 @@ for _sh,_fm in FRESH_FIT.items():
         # POTENTIAL for a ranked recruit: the same valuation at the minutes recruits of his rank historically
         # play (freshman_model mpg_by_rank) when the depth chart has him below it — the NIL market pays for the
         # role he is expected to grow into, not a preseason depth slot (Cameron Williams #4, 7 mpg on the chart)
-        _rk=_f.get("rank"); _g=_f.get("grp")
-        if _sv is not None and _rk and FR_MODEL and _g in (FR_MODEL.get("mpg_by_rank") or {}):
+        _rk=_f.get("rank"); _g=_f.get("grp"); _pd=PED.get(_nk(_nm))
+        _mt=None
+        if _rk and FR_MODEL and _g in (FR_MODEL.get("mpg_by_rank") or {}):
             _a,_b=FR_MODEL["mpg_by_rank"][_g]; _mt=max(4.0,min(34.0,_a+_b*math.log(float(_rk))))
+        elif _pd and _g in (_pd.get("mpg") or {}): _mt=_pd["mpg"][_g]
+        if _sv is not None and _mt:
             _m0=_n(_f.get("mpg"),0)
             if _mt>_m0+0.5 and _m0>0:
                 _svp=_sv_of(_full,_f.get("r40"),_mt,(_f.get("ppg") or 0)*_mt/_m0)
@@ -2101,7 +2129,10 @@ for _sh,_fm in FRESH_FIT.items():
     for _nm,_f in _fm.items():
         if _f.get("sv") is not None:
             if _f.get("ovr") is not None: _f["ovr_prior"]=_f["ovr"]
-            _f["ovr"]=int(_f["sv"]); _f["src"]="stat"
+            # a RANKED recruit buried on a deep roster: his OVR is his line valued at the minutes recruits of his rank
+            # usually play (svp), not the 0.7 mpg a stacked depth chart leaves him — "Duke is really good, he isn't a 55"
+            # (owner, Oct 15 2026). Minutes stay the depth chart's; only the displayed overall changes (OVR is display-only).
+            _f["ovr"]=int(max(_f["sv"],_f.get("svp") or 0)); _f["src"]="stat"
 print(f"newcomer stat values: {_nsv}",file=sys.stderr)
 _nrg=0
 for _sh,_fm in FRESH_FIT.items():

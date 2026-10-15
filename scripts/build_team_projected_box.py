@@ -306,7 +306,9 @@ for full, (line, t, short, fr) in LINES.items():
     for kind, key, d in pls:
         r = {k: round(d[k], 1) for k in PK}
         r["rpg"] = round(r["oreb"] + r["dreb"], 1)
-        pct = lambda a, b: round(100 * r[a] / r[b], 1) if r[b] > 0 else None
+        # percentages from the UNROUNDED makes / attempts: a low-volume player's 0.5 / 1.5 rounded first could only read
+        # 33.3% or 38.5%, which swallowed the editor's shooting sliders (Tommy Ahneman, owner Oct 15 2026)
+        pct = lambda a, b: round(100 * d[a] / d[b], 1) if d[b] > 0 else None
         for k in PK: agg[k] += r[k]
         agg["rpg"] = agg.get("rpg", 0.0) + r["rpg"]
         if kind == "r":
