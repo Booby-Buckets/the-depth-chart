@@ -1075,7 +1075,10 @@
       var f1=function(v){ return v!=null&&isFinite(+v)?(+v).toFixed(1):''; };
       var mk=function(p){ var h=String(p.hometown||'').trim(), L=null; try{ L=TDCProjGrade.lineOf(p); }catch(e){}
         return { pos:grpOf(p.position), name:p.name, team:p.team, espn:p.espn_id||null, cls:clsNice(p.class_year||p.yr),
-          from:h&&!/^(injured|out)$/i.test(h)&&logoUrl(h)?school(h):'', ppg:f1(L&&L.ppg), rpg:f1(L&&L.rpg), apg:f1(L&&L.apg), mpg:f1(L&&L.mpg),
+          // LAST team (owner, Oct 15 2026): a transfer's previous school, the SAME team for a returner (Houston's chart shows
+          // Houston for anyone who played there last year), blank only for a freshman / newcomer with no college minutes
+          from:(h&&!/^(injured|out)$/i.test(h)&&logoUrl(h))?school(h):(L&&L.xfer_from&&logoUrl(L.xfer_from))?school(L.xfer_from)
+            :((+p.mpg>0||(L&&+L.last_mpg>0))&&!(L&&L._xfer))?p.team:'', ppg:f1(L&&L.ppg), rpg:f1(L&&L.rpg), apg:f1(L&&L.apg), mpg:f1(L&&L.mpg),
           fg:L&&+L.mpg>=5&&+L.fga>0?f1(L.fg_pct):'', tp:L&&+L.mpg>=5&&+L.tpa>=.5?f1(L.tp_pct):'', stl:f1(L&&L.stl), blk:f1(L&&L.blk) }; };
       var five=R.slice(0,5).sort(function(a,b){ return posRank(a)-posRank(b)||(htIn(a.height)||0)-(htIn(b.height)||0); });
       d.starters=five.map(mk); d.bench=R.slice(5,17).map(mk);
@@ -2026,8 +2029,8 @@
   // LOAD_VER: bump whenever a chart's or post's loader changes what it puts in the rows (columns, order, maths). A saved
   // graphic loaded under an older version reloads on open — unless its rows were hand-edited — so a fix reaches the
   // owner without clicking "Load / refresh data" (Oct 2026: the scrimmage scoreboard kept the old Margin rows).
-  var LOAD_VER='2026-10-15h';
-  function stamp(d){ if(d&&Array.isArray(d.rows)){ d.loadedAt=new Date().toISOString().slice(0,10); d._lv=LOAD_VER; d._edited=false; } }
+  var LOAD_VER='2026-10-15i';
+  function stamp(d){ if(d&&(Array.isArray(d.rows)||Array.isArray(d.starters))){ d.loadedAt=new Date().toISOString().slice(0,10); d._lv=LOAD_VER; d._edited=false; } }
   function paintEditor(){ var d=doc(), h=T[S.tpl].editor(d);
     if(d.loadedAt&&Array.isArray(d.rows)&&d.rows.length){ var age=Math.round((Date.now()-new Date(d.loadedAt+'T12:00:00'))/864e5);
       h+='<div class="hint" style="margin-top:10px">Rows last loaded '+(age<=0?'today':age===1?'yesterday':age+' days ago')+'. Load again to pick up the site’s latest numbers (replaces your row edits).</div>'; }
@@ -2036,7 +2039,7 @@
     var el=e.target, d=doc();
     if(el.dataset.k){ d[el.dataset.k]=el.type==='checkbox'?(el.dataset.neg?!el.checked:el.checked):el.value;
       if(el.type==='range'){ var sp=el.previousElementSibling&&el.previousElementSibling.querySelector('span'); if(sp) sp.textContent=el.value+'%'; } }
-    else if(el.dataset.p){ setPath(d,el.dataset.p,el.value); if(/^rows\./.test(el.dataset.p)) d._edited=true;
+    else if(el.dataset.p){ setPath(d,el.dataset.p,el.value); if(/^(rows|starters|bench)\./.test(el.dataset.p)) d._edited=true;
       // a renamed player row re-resolves its headshot by name (+team)
       var mn=el.dataset.p.match(/^rows\.(\d+)\.n(\d)$/); if(mn){ var rr2=d.rows[+mn[1]], pp=findPlayer(el.value,rr2&&rr2.team)||findPlayer(el.value); if(rr2) rr2['e'+mn[2]]=pp&&pp.espn_id?String(pp.espn_id):''; }
       var m=el.dataset.p.match(/^(.*)\.(\d+)\.(name|team)$/);
@@ -2050,7 +2053,7 @@
     var ks=AUTO[S.tpl]; if(ks&&ks.indexOf(e.target.dataset.k)>-1){ (async function(){ try{ await T[S.tpl].load(doc()); stamp(doc()); save(); paintEditor(); paintLib(); render(); }catch(err){ status(err.message,true); } })(); } });
   $('editor').addEventListener('click',async function(e){
     var b=e.target.closest('button[data-act]'); if(!b) return; var d=doc(), act=b.dataset.act, arr=b.dataset.path?getPath(d,b.dataset.path):null, i=+b.dataset.i;
-    if(act!=='load'&&b.dataset.path==='rows') d._edited=true;
+    if(act!=='load'&&/^(rows|starters|bench)$/.test(b.dataset.path||'')) d._edited=true;
     if(act==='load'){ b.disabled=true; try{ await T[S.tpl].load(d); stamp(d); save(); paintEditor(); await render(); status('Loaded. Edit anything below.'); }catch(err){ status(err.message,true); } b.disabled=false; return; }
     if(act==='up'&&i>0){ var t=arr[i-1]; arr[i-1]=arr[i]; arr[i]=t; }
     if(act==='down'&&i<arr.length-1){ var t2=arr[i+1]; arr[i+1]=arr[i]; arr[i]=t2; }
@@ -2124,7 +2127,8 @@
   function syncControls(){ paintLib();
     $('size').value=S.size; $('theme').value=S.theme; $('shots').checked=S.shots; $('handle').value=S.handle; $('brandLogo').checked=S.brandLogo!==false; }
   var AUTO={ list:['src','stat','season'], posts:['key','team','conf','n','season','dir','pstat','tier'], cards:['metric','season','who','minFga','n','conf','team','mix'], leaders:['metric','season','who','minFga','n','conf','team','mix'], heat:['metric','season','n','conf','team','mix'], lineups:['metric','season','minPoss','n','conf','team'], teams:['sort','n','conf'], depth:['team'], table:['src','stat','season','team','conf','n','mix'], money:['mode','n','conf','team'], crunch:['dir','who','n','min','conf','team','sort'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf','team'], after:['season','team','conf'], confodds:['conf','n'], nil:['mode','n','minMpg','conf','team'] };   // charts whose rows come from a load
-  async function autoLoad(){ var d=doc(); if(AUTO[S.tpl]&&d.rows&&(!d.rows.length||(d._lv!==LOAD_VER&&!d._edited))){ try{ await T[S.tpl].load(d); stamp(d); save(); paintEditor(); }catch(e){ status(e.message,true); } } }
+  async function autoLoad(){ var d=doc(), R=d.rows||d.starters;   // depth charts keep their players in starters / bench
+    if(AUTO[S.tpl]&&R&&(!R.length||(d._lv!==LOAD_VER&&!d._edited))&&(R.length||!d.starters||d.team)){ try{ await T[S.tpl].load(d); stamp(d); save(); paintEditor(); }catch(e){ status(e.message,true); } } }
   $('tplSeg').addEventListener('click',async function(e){ var b=e.target.closest('button[data-v]'); if(!b) return; S.tpl=b.dataset.v;
     // a data post picked from the library: point the Posts doc at it and load it fresh
     if(b.dataset.post){ var dp=doc(); if(dp.key!==b.dataset.post){ dp.key=b.dataset.post; dp.rows=[]; dp.title=''; dp.cols=[]; } }
