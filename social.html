@@ -1507,13 +1507,15 @@
       var shots=d.shots!==false, dark=S.theme==='dark';
       await Promise.all(rows.map(function(r){ return Promise.all([img(logoUrl(r.team))].concat([0,1,2,3,4].map(function(i){ return shots&&r['e'+i]?img(shotUrl(r['e'+i])):null; }))); }));
       var hh=30*u, rh=Math.min(150*u,(fTop-y0-hh)/n), cardW=Math.min(170*u,(W-pad*2)*.17), rkW=40*u, ls=rh*.6, x5=pad+rkW+ls+18*u, x5e=W-pad-cardW-20*u, ss=Math.min((x5e-x5)/5*.86,rh*.6), slot=Math.min((x5e-x5)/5,ss*1.9);
-      x5+=((x5e-x5)-slot*5)/2;   // wide sizes: keep the five together, centred, not spread edge to edge
+      // wide sizes: the five stay together beside the value card, and the spare room names the school
+      var spare=(x5e-x5)-slot*5, xNm=x5, nmW=spare>200*u?spare-24*u:0; x5+=nmW?spare:spare/2;
       txt('LINEUP',x5+slot*2.5,y0+hh*.45,{ w:700,px:15*u,serif:'barlow',c:P.text2,al:'center',ls:1*u });
       txt((d.lead||'').toUpperCase(),W-pad-cardW/2,y0+hh*.45,{ w:700,px:15*u,serif:'barlow',c:P.text2,al:'center',ls:1*u });
       for(var i=0;i<n;i++){ var r=rows[i], top=y0+hh+i*rh, mid=top+rh/2, tc=tcol(r.team);
         if(i%2===0){ ctx.fillStyle=P.alt; ctx.fillRect(pad,top,W-pad*2,rh); }
         txt(String(i+1),pad+rkW*.45,mid,{ w:800,px:rh*.26,serif:'cond',c:P.mut,al:'center' });
         var lg=await img(logoUrl(r.team)); if(lg) drawFit(lg,pad+rkW,mid-ls/2,ls);
+        if(nmW) txt(r.name||school(r.team),xNm,mid,{ w:700,px:Math.min(rh*.3,30*u),serif:'barlow',c:P.text,max:nmW });
         for(var k=0;k<5;k++){ var nm=r['n'+k]||'', id=r['e'+k], sx=x5+slot*k+(slot-ss)/2, sy=top+rh*.08, sh=shots&&id?await img(shotUrl(id)):null;
           if(sh) drawShot(sh,sx,sy,ss,tc); else { ctx.save(); ctx.beginPath(); ctx.arc(sx+ss/2,sy+ss/2,ss/2,0,Math.PI*2); ctx.fillStyle=P.chip; ctx.fill(); ctx.restore(); txt(lastName(nm).slice(0,1),sx+ss/2,sy+ss/2,{ w:800,px:ss*.4,serif:'cond',c:P.mut,al:'center' }); }
           txt(lastName(nm),sx+ss/2,sy+ss+rh*.12,{ w:700,px:Math.min(rh*.12,18*u),serif:'barlow',c:P.text2,al:'center',max:slot-6*u }); }
