@@ -354,7 +354,9 @@
     var hi=bl[0], lo=bl[Math.min(bl.length-1,59)], span=(hi>lo)?(hi-lo):1;
     pool.forEach(function(p){
       var a=picks[p.id], avg=a?a.reduce(function(s,v){ return s+v; },0)/a.length:null;
-      var modelN=Math.max(-20,(p._sc.blended-lo)/span*100);   // floor: a buried depth-chart spot (Cameron Williams, 0.7 mpg) can't sink a mocked lottery pick
+      // the model can only drag a mocked player so far (-20) when he has a real role; a projected bench line (<15 mpg) gets no
+      // floor — owner, Oct 2026: Cameron Williams at 0.7 mpg "won't be proven enough" to be drafted this year, mocks or not
+      var rawN=(p._sc.blended-lo)/span*100, modelN=num((p._s||{}).mpg)>=15?Math.max(-20,rawN):Math.max(-100,rawN);
       var consN=100-((avg!=null?avg:NONE_PICK)-1)*2.5;   // pick 1 -> 100, 15 -> 65, 30 -> 27.5, 40 -> 2.5, none -> -35
       p._sc.model=p._sc.blended; p._sc.modelN=modelN; p._sc.consN=consN; p._mock=avg!=null?Math.round(avg*10)/10:null;
       p._mockN=a?a.filter(function(v){ return v<MISS_PICK; }).length:0;
