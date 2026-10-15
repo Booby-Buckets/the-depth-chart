@@ -455,6 +455,11 @@
   // three ways ("Villanova Wildcats", "Villanova", the sheet short name) — tkey() folds them to one key.
   function tkey(t){ return String(school(t)||t||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
   function onTeam(t,sel){ return !sel||tkey(t)===tkey(sel); }
+  // THIS season's school for a player (players table, 2026-27 rosters). Last-season charts (crunch time, on/off, the
+  // genome) filtered by a team should show THAT team's 2026-27 roster — each man's numbers from wherever he played —
+  // not whoever wore the jersey last year (owner, Oct 14 2026).
+  function nowTeam(espn){ var p=espn!=null?D.byEspn[espn]:null; return p?p.team:null; }
+  function moved(prev,now){ return now&&prev&&tkey(prev)!==tkey(now)?school(prev)+' \u2192 '+school(now):''; }
   function scopeUI(d,o){ o=o||{};
     return '<div class="two">'+(o.noConf?'':'<div><label class="f">Conference</label><select data-k="conf">'+confOpts(d.conf)+'</select></div>')+
       '<div><label class="f">'+(o.hl?'Highlight a team':'Team')+'</label><input data-k="team" list="tmList" value="'+esc(d.team||'')+'" placeholder="'+(o.hl?'None':'All teams')+'"></div></div>'+
@@ -611,9 +616,11 @@
       out.forEach(function(p){ p._s=Math.max(zs(p),zc(p))+Math.min(zs(p),zc(p)); });
       var lab=out.slice().sort(function(a,b){ return b._s-a._s; }).slice(0,+d.labels||0).map(function(p){ return p.espn_id; });
       var pts=out.map(function(p){ return { x:p.crAdj, y:p.smAdj, team:p.team, espn:p.espn_id, lab:lab.indexOf(p.espn_id)>-1?p.name:'', pri:p._s, name:p.name }; });
-      if(d.team){ var all=g.players.filter(function(p){ return p.smAdj!=null&&p.crAdj!=null&&(p.fga||0)>=(+d.minFga||0)&&onTeam(p.team,d.team)&&!pick[p.espn_id]; });
+      if(d.team){ await players(); var all=g.players.filter(function(p){ return p.smAdj!=null&&p.crAdj!=null&&(p.fga||0)>=(+d.minFga||0)&&onTeam(nowTeam(p.espn_id)||p.team,d.team)&&!pick[p.espn_id]; });
+        pts.forEach(function(q){ if(nowTeam(q.espn)&&!onTeam(nowTeam(q.espn),d.team)&&onTeam(q.team,d.team)) q._left=1; });   // left the team: not highlighted
         all.forEach(function(p){ pts.push({ x:p.crAdj, y:p.smAdj, team:p.team, espn:p.espn_id, name:p.name, pri:0 }); });
-        highlight(pts,d.team,null,function(p){ return p.name; }); }
+        var _hl=pts.filter(function(q){ return !q._left&&onTeam(nowTeam(q.espn)||q.team,d.team); });
+        _hl.forEach(function(q){ q.hl=1; q.lab=q.name; }); }
       var y0=head(W,u,pad,d.title,d.subtitle), fTop=foot(W,H,u,pad); fTop-=noteLine(W,u,pad,fTop,d.note);
       if(!pts.length){ txt('No players for that filter',W/2,H/2,{ px:26*u,c:P.mut,al:'center' }); return ''; }
       await scatter(W,H,u,pad,y0,fTop,{ pts:pts, fmtY:function(v){ return (v>0?'+':'')+v; }, xLabel:'CREATION →  (EXPECTED POINTS CREATED)', yLabel:'SHOT-MAKING →  (PTS OVER EXPECTED / 100 SHOTS)',
@@ -660,18 +667,24 @@
   T.crunch={
     defaults:function(){ return { dir:'up', who:'ret', min:50, n:12, title:'Crunch-Time Takeovers', subtitle:'Shot share in the final 4:00 of close games vs. the rest of the game · 2025-26', note:'Close = within 5 points · share of team shots while on the floor', rows:[] }; },
     load:async function(d){
-      var c=await json('scripts/data/crunch_time_2026.json'); await ratings();
-      var tm=function(p){ return p.now||p.team; };
-      var ps=c.players.filter(function(p){ return p.jump!=null&&p.c_team>=(+d.min||50)&&(d.who==='all'||p.now)&&(!d.conf||confOfFull(tm(p))===d.conf)&&(!d.team||onTeam(tm(p),d.team)||onTeam(p.team,d.team)); })
-        .sort(function(a,b){ return d.dir==='up'?b.jump-a.jump:a.jump-b.jump; }).slice(0,+d.n||12);
-      d.rows=ps.map(function(p){ return { name:p.name, team:p.now||p.team, espn:p.espn_id||null, sub:school(p.team)+(p.now&&school(p.now)!==school(p.team)?' → '+school(p.now):''), val:String(p.r_share), val2:String(p.c_share) }; });
+      var c=await json('scripts/data/crunch_time_2026.json'); await ratings(); await players();
+      var tm=function(p){ return nowTeam(p.espn_id)||p.now||p.team; };
+      // owner, Oct 14 2026: a long list used to fill with players whose share went DOWN, and wasn't ordered by who gets
+      // the ball. Takeovers = only players whose share rises, ranked by their crunch-time share (who the team goes to);
+      // drop-offs = only players whose share falls, ranked by how much. "Sort by jump" keeps the old order on request.
+      // one team: its whole 2026-27 roster (up or down), ranked by crunch-time share
+      var ps=c.players.filter(function(p){ return p.jump!=null&&(d.team?true:(d.dir==='up'?p.jump>0:p.jump<0))&&p.c_team>=(+d.min||50)&&(d.who==='all'||p.now)&&(!d.conf||confOfFull(tm(p))===d.conf)&&(!d.team||onTeam(tm(p),d.team)); })
+        .sort(function(a,b){ return (d.dir==='up'||d.team)?(d.sort==='jump'?b.jump-a.jump:b.c_share-a.c_share||b.jump-a.jump):a.jump-b.jump; }).slice(0,+d.n||12);
+      // logo = the school he played for in 2025-26 (where these numbers happened); the small line says where he is now
+      d.rows=ps.map(function(p){ var now=tm(p); return { name:p.name, team:p.team, espn:p.espn_id||null, sub:moved(p.team,now)||school(p.team), val:String(p.r_share), val2:String(p.c_share) }; });
       scopeTitle(d,d.dir==='up'?'Crunch-Time Takeovers':'Who Disappears in Crunch Time','Shot share in the final 4:00 of close games vs. the rest of the game · 2025-26');
     },
     editor:function(d){
       return '<h3>Data</h3><div class="two"><div><label class="f">Show</label><select data-k="dir"><option value="up"'+(d.dir==='up'?' selected':'')+'>Biggest takeovers</option><option value="down"'+(d.dir==='down'?' selected':'')+'>Biggest drop-offs</option></select></div>'+
+        (d.dir==='up'?'<div><label class="f">Order</label><select data-k="sort"><option value="share"'+(d.sort!=='jump'?' selected':'')+'>Most crunch-time shots</option><option value="jump"'+(d.sort==='jump'?' selected':'')+'>Biggest jump</option></select></div>':'')+
         '<div><label class="f">Players</label><select data-k="who"><option value="ret"'+(d.who==='ret'?' selected':'')+'>Back in 2026-27</option><option value="all"'+(d.who==='all'?' selected':'')+'>Everyone</option></select></div></div>'+
         '<div class="two"><div><label class="f">How many</label><input data-k="n" type="number" min="3" max="20" value="'+d.n+'"></div><div><label class="f">Min. crunch team shots</label><input data-k="min" type="number" min="10" max="200" value="'+d.min+'"></div></div>'+
-        scopeUI(d,{ hint:'Team / conference = where he plays in 2026-27 (a team also matches last season’s school). For a single team, lower the min. shots.' })+
+        scopeUI(d,{ hint:'Team / conference = his 2026-27 school; his 2025-26 numbers and logo come from wherever he played. For a single team, lower the min. shots.' })+
         '<div class="btns"><button class="b sm primary" data-act="load">Load / refresh data</button></div>'+textEditor(d)+
         '<h3>Rows ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',[{k:'name',ph:'Player',list:'plList',w:'minmax(0,1.3fr)'},{k:'team',ph:'Team',list:'tmList'},{k:'val',ph:'Rest %',w:'52px'},{k:'val2',ph:'Crunch %',w:'52px'}]);
     },
@@ -824,12 +837,13 @@
   T.onoff={
     defaults:function(){ return { metric:'rapm', season:'2026', dir:'up', conf:'', n:12, minOn:400, title:'Biggest On/Off Swings', subtitle:'Team net rating per 100 possessions, him on vs. off the floor · 2025-26', note:'Garbage time removed · min. 400 on-court minutes', rows:[] }; },
     load:async function(d){
-      await ratings(); var w=await json('scripts/data/wowy_'+d.season+'.json'), n=+d.n||12, mo=+d.minOn||400;
+      await ratings(); await players(); var w=await json('scripts/data/wowy_'+d.season+'.json'), n=+d.n||12, mo=+d.minOn||400;
+      var cur=d.season==='2026', tmOf=function(p){ return (cur&&nowTeam(p.id))||p.team; };   // last season: the 2026-27 roster
       var adj=d.metric!=='raw', sg=function(v){ return (v>0?'+':'')+(+v).toFixed(1); };
-      var ps=w.players.filter(function(p){ return p.on&&p.off&&p.on.min>=mo&&(adj?p.rapm:p.off.min>=Math.max(120,mo*.3))&&(!d.conf||confOfFull(p.team)===d.conf)&&onTeam(p.team,d.team); })
+      var ps=w.players.filter(function(p){ return p.on&&p.off&&p.on.min>=mo&&(adj?p.rapm:p.off.min>=Math.max(120,mo*.3))&&(!d.conf||confOfFull(tmOf(p))===d.conf)&&onTeam(tmOf(p),d.team); })
         .map(function(p){ return { p:p, sw:adj?p.rapm.net:p.on.net-p.off.net }; }).sort(function(a,b){ return d.dir==='up'?b.sw-a.sw:a.sw-b.sw; }).slice(0,n);
       d.rows=ps.map(function(x){ var p=x.p; return { name:p.name, team:p.team, espn:p.id||null,
-        sub:school(p.team)+(adj?' · off '+sg(p.rapm.o)+' / def '+sg(p.rapm.d):' · on '+sg(p.on.net)+' / off '+sg(p.off.net)), val:x.sw.toFixed(1) }; });
+        sub:(moved(p.team,cur?tmOf(p):null)||school(p.team))+(adj?' · off '+sg(p.rapm.o)+' / def '+sg(p.rapm.d):' · on '+sg(p.on.net)+' / off '+sg(p.off.net)), val:x.sw.toFixed(1) }; });
       var yr=(+d.season-1)+'-'+String(d.season).slice(2);
       if(adj){ scopeTitle(d,d.dir==='up'?'Who Moves the Needle Most':'Biggest Negative Impact','Adjusted plus-minus per 100 possessions · '+yr);
         d.note='Controls for teammates and opponents (RAPM) · garbage time removed · min. '+mo+' minutes'; }
@@ -1334,7 +1348,7 @@
   // ── controls ──
   function syncControls(){ [].forEach.call($('tplSeg').children,function(x){ x.classList.toggle('on',x.dataset.v===S.tpl); });
     $('size').value=S.size; $('theme').value=S.theme; $('shots').checked=S.shots; $('handle').value=S.handle; $('brandLogo').checked=S.brandLogo!==false; }
-  var AUTO={ depth:['team'], table:['src','team','conf','n','mix'], money:['mode','n','conf','team'], crunch:['dir','who','n','min','conf','team'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf','team'], after:['season','team','conf'], confodds:['conf','n'], nil:['mode','n','minMpg','conf','team'] };   // charts whose rows come from a load
+  var AUTO={ depth:['team'], table:['src','team','conf','n','mix'], money:['mode','n','conf','team'], crunch:['dir','who','n','min','conf','team','sort'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf','team'], after:['season','team','conf'], confodds:['conf','n'], nil:['mode','n','minMpg','conf','team'] };   // charts whose rows come from a load
   async function autoLoad(){ var d=doc(); if(AUTO[S.tpl]&&d.rows&&!d.rows.length){ try{ await T[S.tpl].load(d); stamp(d); save(); paintEditor(); }catch(e){ status(e.message,true); } } }
   $('tplSeg').addEventListener('click',async function(e){ var b=e.target.closest('button'); if(!b) return; S.tpl=b.dataset.v; save(); syncControls(); paintEditor(); await autoLoad(); render();
     if(S.tpl!=='matchup') players().catch(function(){}); });
