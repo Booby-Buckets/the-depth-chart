@@ -24,6 +24,7 @@ TDC_POSTS.add('scrimplayers', {
       var dt = new Date(g.date + 'T12:00:00Z'), when = MO[dt.getUTCMonth()] + ' ' + dt.getUTCDate(), real = r.reality && r.reality.score;
       ['home', 'away'].forEach(function (side) {
         var B = r.box[side]; if (!B || !B.players) return;
+        var sd = r.reality && r.reality[side], realSide = sd && sd.score != null ? sd.score : real;   // his team's own side score, not the game average
         var isHome = side === 'home', meFull = B.team || (isHome ? g.home : g.away), opFull = isHome ? g.away : g.home;
         var me = rowOf(meFull), op = rowOf(opFull); if (!me) return;   // only D-I teams we rate (the opponent may be anyone)
         if (d.team && !(H.onTeam(me.team, d.team) || H.onTeam(me.full, d.team))) return;
@@ -39,7 +40,7 @@ TDC_POSTS.add('scrimplayers', {
             pts: String(x.pts), min: String(min), reb: String(x.reb != null ? x.reb : (+x.oreb || 0) + (+x.dreb || 0)), ast: String(x.ast || 0),
             fg: (x.fgm != null && x.fga != null) ? x.fgm + '-' + x.fga : '',
             proj: L && +L.mpg > 0 ? H.fmt((+L.ppg) / (+L.mpg) * min, 1) : '',
-            real: real != null ? String(real) : '' });
+            real: realSide != null ? String(realSide) : '' });
         });
       });
     });
@@ -51,7 +52,7 @@ TDC_POSTS.add('scrimplayers', {
       title: scope + (up ? 'Scrimmage standouts' : 'Scrimmage top scorers'),
       subtitle: H.SEASON + ' preseason scrimmages & exhibitions · unofficial' + (up ? ' · points over our projection' : ''),
       lead: up ? 'Vs our line' : 'Points',
-      src: 'The Depth Chart · school-reported scrimmage box scores · vs our line = points minus his projected points at those minutes · Reality Meter 0-100 · not in records or ratings',
+      src: 'The Depth Chart · school-reported scrimmage box scores · vs our line = points minus his projected points at those minutes · Reality Meter 0-100 (his team\'s side) · not in records or ratings',
       cols: up ? [{ k: 'pts', lab: 'Pts' }, { k: 'proj', lab: 'Our line', nodist: true }, { k: 'min', lab: 'Min', nodist: true }, { k: 'fg', lab: 'FG', nodist: true }, { k: 'real', lab: 'Reality' }]
                : [{ k: 'min', lab: 'Min', nodist: true }, { k: 'reb', lab: 'Reb' }, { k: 'ast', lab: 'Ast' }, { k: 'fg', lab: 'FG', nodist: true }, { k: 'real', lab: 'Reality' }],
       rows: rows.slice(0, n), players: true

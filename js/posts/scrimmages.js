@@ -35,7 +35,8 @@ TDC_POSTS.add('scrimmages', {
         val: ov != null ? H.fmt(ov, 1, true) : '', _d: g.date + (g.time || ''), _m: m, _ov: ov,
         score: (m > 0 ? 'W ' : m < 0 ? 'L ' : 'T ') + pick.pf + '-' + pick.pa,
         line: pred != null ? H.fmt(pred, 1, true) : '',
-        real: re.score != null ? String(re.score) : '' });
+        // the picked team's OWN side score (owner, Oct 2026): the game average hid e.g. Ohio State 82 / Cincinnati 40 as 61
+        real: (function () { var sd = re[pick.home ? 'home' : 'away'], v = sd && sd.score != null ? sd.score : re.score; return v != null ? String(v) : ''; })() });
     });
     // biggest beat of our line first; games we had no line for go last, newest first
     rows.sort(function (a, b) { if ((a._ov == null) !== (b._ov == null)) return a._ov == null ? 1 : -1;
@@ -44,7 +45,7 @@ TDC_POSTS.add('scrimmages', {
     return {
       title: d.team ? scope + 'in the preseason' : (scope + 'Scrimmage scoreboard').replace(/^\s+/, ''),
       subtitle: H.SEASON + ' preseason scrimmages & exhibitions · unofficial',
-      lead: 'Vs our line', src: 'The Depth Chart · school-reported scrimmage finals · vs our line = final margin minus our projected margin · Reality Meter 0-100 · not in records or ratings',
+      lead: 'Vs our line', src: 'The Depth Chart · school-reported scrimmage finals · vs our line = final margin minus our projected margin · Reality Meter 0-100 (this team\'s side) · not in records or ratings',
       cols: [{ k: 'score', lab: 'Final' }, { k: 'line', lab: 'Our line' }, { k: 'real', lab: 'Reality' }],
       rows: rows.slice(0, n), players: false
     };
