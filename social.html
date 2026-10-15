@@ -1092,7 +1092,7 @@
         '<div><label class="chk" style="margin-top:28px"><input type="checkbox" data-k="heat"'+(d.heat!==false?' checked':'')+'> Colour the stats (red → green)</label></div></div>'+
         '<label class="chk"><input type="checkbox" data-k="shots"'+(d.shots!==false?' checked':'')+'> Player headshots</label>'+
         '<label class="f">Stat columns</label><div class="seg">'+DSTATS_ALL.map(function(x){ return '<button type="button" data-act="col" data-col="'+x[0]+'" class="'+((d.cols||DSTATS_DEF).indexOf(x[0])>-1?'on':'')+'">'+x[1]+'</button>'; }).join('')+'</div>'+
-        '<h3>Text</h3>'+styleSel(d)+'<label class="f">Subtitle (sheet style)</label><input data-k="subtitle" value="'+esc(d.subtitle||'')+'" placeholder="'+SEASON+' projected depth chart">'+
+        '<h3>Text</h3>'+'<label class="f">Style</label><select data-k="style"><option value="">Lineup (new)</option><option value="sheet"'+(d.style==='sheet'?' selected':'')+'>Sheet</option><option value="classic"'+(d.style==='classic'?' selected':'')+'>Classic</option></select>'+'<label class="f">Subtitle</label><input data-k="subtitle" value="'+esc(d.subtitle||'')+'" placeholder="'+SEASON+' projected depth chart">'+
         '<label class="f">Data source line (sheet style)</label><input data-k="src" value="'+esc(d.src||'')+'">'+
         '<div class="two"><div><label class="f">Title line 1</label><input data-k="title1" value="'+esc(d.title1||'')+'"></div><div><label class="f">Title line 2</label><input data-k="title2" value="'+esc(d.title2||'')+'"></div></div>'+
         '<div class="two"><div><label class="f">Starters label</label><input data-k="lab1" value="'+esc(d.lab1||'')+'"></div><div><label class="f">Bench label</label><input data-k="lab2" value="'+esc(d.lab2||'')+'"></div></div>'+
@@ -1858,8 +1858,46 @@
     return (d.title||'')+'\n\n'+rows.slice(0,5).map(function(r,i){ return (i+1)+'. '+r.name+(r.team?' ('+school(r.team)+')':''); }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB';
   };
   T.depth.drawClassic=T.depth.draw;
+  // LINEUP style (owner, Oct 15 2026: "make the projected depth chart look more like" the best-lineups graphic) — now the
+  // default: banded rows, circle headshots in a team-colour ring, the lead stat (first stat column, PPG by default) in a
+  // white rounded card, the rest plain. Sheet / Classic stay under Style.
+  T.depth.drawLineup=async function(d,W,H,u,pad){
+    bg(W,H); try{ await players(); }catch(e){}
+    var st=d.starters.filter(function(r){ return r.name; }), bn=d.bench.filter(function(r){ return r.name; }).slice(0,Math.max(0,+d.benchN||0));
+    if(!st.length){ txt('Pick a team and load the roster on the left',W/2,H/2,{ px:28*u,c:P.mut,al:'center' }); return ''; }
+    var title=[d.title1,d.title2].filter(Boolean).join(' '), team=d.team||'', tc=tcol(team), dark=S.theme==='dark', shots=d.shots!==false;
+    var y0=sheetHead(W,H,u,pad,title,d.subtitle||SEASON+' projected depth chart'), fTop=sheetFoot(W,H,u,pad,d.src||'The Depth Chart '+SEASON+' projections · logo = last school',null);
+    var DS=dstats(d), lead=DS[0], rest=DS.slice(1), all=st.concat(bn);
+    await Promise.all(all.map(function(r){ return Promise.all([r.from?img(logoUrl(r.from)):null,shots?shotFor(r.espn,r.name,r.team||team):null]); }));
+    var hh=30*u, sec=Math.min(36*u,(fTop-y0)*.05), nSec=bn.length?2:1, rh=Math.min(104*u,(fTop-y0-hh-sec*nSec)/all.length), ss=rh*.74, k=F();
+    var sw=rest.length?Math.min(76*u,(W*.3)/rest.length):0, xRest=W-pad-sw*rest.length, cardW=lead?Math.min(124*u,W*.115):0, xCard=xRest-cardW-(rest.length?16*u:0);
+    var lw=Math.max(rh*.7,44*u), xLast=xCard-lw-10*u, xYr=xLast-60*u, xPos=xYr-46*u, rkW=40*u, xShot=pad+rkW, xName=xShot+(shots?ss+16*u:0), nmax=xPos-xName-10*u;
+    var hdr=function(t,cx){ txt(t,cx,y0+hh*.45,{ w:700,px:14*u,serif:'barlow',c:P.text2,al:'center',ls:1*u }); };
+    hdr('POS',xPos+23*u); hdr('YR',xYr+30*u); hdr('LAST',xLast+lw/2); if(lead) hdr(lead[1],xCard+cardW/2); rest.forEach(function(x,i){ hdr(x[1],xRest+sw*(i+.5)); });
+    var y=y0+hh, num=0;
+    var section=function(label){ if(!label) return; txt(String(label).toUpperCase(),pad,y+sec*.55,{ w:800,px:sec*.5,serif:'cond',c:P.text,ls:1*u,max:W-pad*2 });
+      ctx.fillStyle=P.line; ctx.fillRect(pad,y+sec-2*u,W-pad*2,Math.max(1,1.5*u)); y+=sec; };
+    var rowsAt=async function(rows){
+      for(var i=0;i<rows.length;i++){ var r=rows[i], top=y, mid=top+rh/2; num++;
+        if(i%2===0){ ctx.fillStyle=P.alt; ctx.fillRect(pad,top,W-pad*2,rh); }
+        if(!LK.hideRank) txt(String(num),pad+rkW*.45,mid,{ w:800,px:rh*.28,serif:'cond',c:P.mut,al:'center' });
+        if(shots){ var sh=await shotFor(r.espn,r.name,r.team||team); if(sh) drawShot(sh,xShot,mid-ss/2,ss,tc); else drawNoShot(xShot,mid-ss/2,ss,r.name,team); }
+        txt(r.name,xName,mid,{ w:700,px:Math.min(rh*.32,34*u)*k,serif:'barlow',c:P.text,max:nmax });
+        txt(String(r.pos||''),xPos+23*u,mid,{ w:700,px:Math.min(rh*.26,24*u),serif:'barlow',c:P.text2,al:'center' });
+        txt(String(r.cls||''),xYr+30*u,mid,{ w:600,px:Math.min(rh*.26,24*u),serif:'barlow',c:P.text2,al:'center',max:60*u });
+        var lg=r.from?await img(logoUrl(r.from)):null; if(lg){ var s2=Math.min(lw*.8,rh*.62); drawFit(lg,xLast+(lw-s2)/2,mid-s2/2,s2); }
+        if(lead){ var ch=rh*.66, cy=mid-ch/2, v=r[lead[0]];
+          rrect(xCard,cy,cardW,ch,10*u); ctx.fillStyle=dark?'#1A2133':'#FFFFFF'; ctx.fill(); ctx.lineWidth=Math.max(1,1.5*u); ctx.strokeStyle=P.line; ctx.stroke();
+          txt(v===''||v==null?'—':String(v),xCard+cardW/2,cy+ch/2,{ w:800,px:ch*.54*Math.min(1.15,k),serif:'cond',c:v===''||v==null?P.mut:P.text,al:'center',max:cardW-16*u }); }
+        rest.forEach(function(x,j){ var v2=r[x[0]]; txt(v2===''||v2==null?'—':String(v2),xRest+sw*(j+.5),mid,{ w:700,px:Math.min(rh*.34,30*u)*k,serif:'cond',c:v2===''||v2==null?P.mut:P.text,al:'center',max:sw-8*u }); });
+        y+=rh; } };
+    section(d.lab1==null?'Projected Starting Lineup':d.lab1); await rowsAt(st);
+    if(bn.length){ section(d.lab2==null?'Projected Bench':d.lab2); await rowsAt(bn); }
+    return title+' — '+(d.lab1||'projected starting lineup').toLowerCase()+':\n\n'+st.map(function(r){ return r.pos+' '+r.name+(r.ppg?' ('+r.ppg+' ppg)':''); }).join('\n')+(bn.length?'\n\nBench: '+bn.slice(0,8).map(function(r){ return r.name; }).join(', '):'')+'\n\nProjections → '+SITE+'\n\n#CollegeBasketball #CBB';
+  };
   T.depth.draw=async function(d,W,H,u,pad){
     if(d.style==='classic') return T.depth.drawClassic(d,W,H,u,pad);
+    if(d.style!=='sheet') return T.depth.drawLineup(d,W,H,u,pad);
     bg(W,H); try{ await players(); }catch(e){}
     var st=d.starters.filter(function(r){ return r.name; }), bn=d.bench.filter(function(r){ return r.name; }).slice(0,Math.max(0,+d.benchN||0));
     if(!st.length){ txt('Pick a team and load the roster on the left',W/2,H/2,{ px:28*u,c:P.mut,al:'center' }); return ''; }
