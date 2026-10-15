@@ -59,6 +59,8 @@
     .rm-bar{flex:1;max-width:340px;height:8px;border-radius:4px;background:var(--bg3);overflow:hidden;}
     .rm-bar i{display:block;height:100%;border-radius:4px;}
     .rm-why{font-size:12px;color:var(--text3);line-height:1.6;margin:0 0 8px;}
+    .rm-sum{font-size:13px;color:var(--text2);margin-top:6px;line-height:1.45;} .rm-sum b{color:var(--text);}
+    .rm-tbl{width:100%!important;table-layout:fixed;} .rm-tbl th,.rm-tbl td{white-space:normal!important;line-height:1.35;vertical-align:top;} .rm-tbl th:nth-child(1){width:19%;} .rm-tbl th:nth-child(2),.rm-tbl th:nth-child(3){width:30%;} .rm-tbl th:nth-child(4){width:21%;} .rm-ref{display:none;font-size:11px;color:var(--text3);font-weight:500;margin-top:3px;} @media(max-width:640px){.rm-tbl th:nth-child(4),.rm-tbl td:nth-child(4){display:none;} .rm-ref{display:block;} .rm-tbl th:nth-child(1){width:30%;} .rm-tbl th:nth-child(2),.rm-tbl th:nth-child(3){width:35%;} .rm-tbl th,.rm-tbl td{font-size:12px!important;}} .rm-why{margin-top:8px;}
     td .mb{display:inline-block;width:46px;height:6px;border-radius:3px;background:var(--bg3);margin-left:7px;vertical-align:1px;overflow:hidden;}
     td .mb i{display:block;height:100%;background:var(--text3);}
     .empty{padding:30px;text-align:center;color:var(--text3);border:1px dashed var(--border2);border-radius:12px;}
@@ -131,30 +133,45 @@
   }
 
   // Reality Meter (scripts/scrim_reality.py): how much each side looked like a real game, from the box
-  const RM_PARTS=[['format','Format','Team minutes vs a full 40-minute game (200)'],['rotation','Rotation','Minutes concentrated like a real rotation (top 5 ≈ 70%, ~10 players) vs spread out to experiment'],
-    ['availability','Availability','Share of our projected rotation that played, and projected starters who started'],['competitive','Competitive','Garbage time: big margins mean bench run-outs'],
-    ['pace','Pace','Possessions per 40 inside the normal 60–80'],['plausible','Line fit','How close the result landed to our line']];
   const rmCls=v=>v>=80?'c4':v>=65?'c3':v>=50?'c2':v>=35?'c1':'c0';
   const rmCol=v=>v>=75?'var(--green)':v>=55?'#9bbf3a':v>=35?'#d9a33a':'var(--red)';
-  function meter(R,g,byFull){
+  // a real game's top-5 minute share and 5+ minute players at a given final margin (Nov 2025 D-I box scores,
+  // the same table scripts/scrim_reality.py scores against)
+  const TOP5=[[5,.727],[15,.707],[25,.654],[35,.623],[45,.575]];
+  const expTop5=m=>{ m=Math.abs(m); if(m<=5) return TOP5[0][1]; if(m>=45) return TOP5[4][1];
+    for(let i=1;i<TOP5.length;i++){ const [x1,y1]=TOP5[i-1],[x2,y2]=TOP5[i]; if(m<=x2) return y1+(y2-y1)*(m-x1)/(x2-x1); } return .65; };
+  const expN5=m=>Math.round(9+Math.min(Math.abs(m),40)/40*2);
+  // Reality Meter: a verdict, then one row per check: what each team's box showed, shaded by how game-like it
+  // was, next to what a real game with this margin looks like. Weights are the meter's (scrim_reality.py).
+  function meter(R,g,byFull,res){
     if(!R||R.score==null) return '';
-    const row=(s,full)=>{ const x=R[s]; if(!x) return ''; const P=x.parts||{};
-      return `<tr><td class="l nm">${esc(shortOf(full,byFull))}</td><td class="${rmCls(x.score)} strong">${x.score}<span class="mb"><i style="width:${x.score}%;background:${rmCol(x.score)}"></i></span></td><td class="l dim">${esc(x.label)}</td>`+
-        RM_PARTS.map(([k])=>P[k]!=null?`<td class="${rmCls(P[k])}">${P[k]}</td>`:'<td class="dim">—</td>').join('')+
-        `<td class="dim">${x.top5!=null?Math.round(x.top5*100)+'%':'—'}</td><td class="dim">${x.n5!=null?x.n5:'—'}</td><td class="l dim" style="white-space:normal">${x.boxless?'final score only':(x.missing&&x.missing.length?x.missing.map(esc).join(', '):'—')}</td></tr>`; };
+    const nm=full=>esc(shortOf(full,byFull)), X=s=>R[s]||{}, P=s=>(R[s]||{}).parts||{};
+    const margin=(res&&res.hs!=null&&res.as!=null)?res.hs-res.as:null, am=margin==null?null:Math.abs(margin);
+    const by=v=>v==null?'—':Math.abs(v)<0.25?'even':(v>0?nm(g.home):nm(g.away))+' by '+Math.abs(v).toFixed(Number.isInteger(v)?0:1);
+    const td=(sc,txt,tip)=>`<td class="l ${sc==null?'dim':rmCls(sc)}"${tip?` title="${esc(tip)}"`:''}>${txt}</td>`;
+    const both=fn=>['away','home'].map(fn).join('');
+    const boxless=X('home').boxless||X('away').boxless;
+    const rows=[];
+    if(!boxless){
+      rows.push(`<tr><td class="l"><b>Full game</b> <span class="dim">· 10%</span><div class="rm-ref">200 (40 minutes)</div></td>${both(s=>td(P(s).format,X(s).min!=null?X(s).min+' team minutes':'—','score '+P(s).format))}<td class="l dim">200 (40 minutes)</td></tr>`);
+      rows.push(`<tr><td class="l"><b>Rotation</b> <span class="dim">· 30%</span><div class="rm-ref">${am!=null?`Top 5 ~${Math.round(100*expTop5(am))}% · ~${expN5(am)} play 5+ at a ${am}-point margin`:'Top 5 ~70% · ~10 play 5+'}</div></td>${both(s=>td(P(s).rotation,X(s).top5!=null?`Top 5 played ${Math.round(100*X(s).top5)}% of minutes · ${X(s).n5} played 5+`:'—','score '+P(s).rotation))}<td class="l dim">${am!=null?`Top 5 ~${Math.round(100*expTop5(am))}% · ~${expN5(am)} play 5+ at a ${am}-point margin`:'Top 5 ~70% · ~10 play 5+'}</td></tr>`);
+      rows.push(`<tr><td class="l"><b>Who played</b> <span class="dim">· 25%</span><div class="rm-ref">The projected rotation plays and starts</div></td>${both(s=>{ const x=X(s), mp=(R.miss_pts||{})[s];
+        return td(P(s).availability,x.missing&&x.missing.length?'Without '+x.missing.map(esc).join(', ')+(mp>0?` <span class="dim">(~${mp.toFixed(1)} pts a game)</span>`:''):'Projected rotation played','score '+P(s).availability); })}<td class="l dim">The projected rotation plays and starts</td></tr>`);
+      rows.push(`<tr><td class="l"><b>Pace</b> <span class="dim">· 5%</span><div class="rm-ref">60–80 possessions</div></td>${both(s=>td(P(s).pace,X(s).pace!=null?Math.round(X(s).pace)+' possessions'+(X(s).pace>80?' <span class="dim">(fast)</span>':X(s).pace<60?' <span class="dim">(slow)</span>':''):'—','score '+P(s).pace))}<td class="l dim">60–80 possessions</td></tr>`);
+    }
+    // the result is one fact for the game: scored from blowout-beyond-the-line (20%) and line fit (10%)
+    const rs=['away','home'].map(s=>[P(s).competitive,P(s).plausible]).flat().filter(v=>v!=null), rsc=rs.length?Math.round(rs.reduce((a,b)=>a+b,0)/rs.length):null;
+    rows.push(`<tr><td class="l"><b>Result vs our line</b> <span class="dim">· 30%</span><div class="rm-ref">Within ~10 points of our line</div></td><td class="l ${rsc==null?'dim':rmCls(rsc)}" colspan="2">${margin!=null?by(margin)+' · our line '+by(R.pred):'—'}</td><td class="l dim">Within ~10 points of our line</td></tr>`);
+    // opponents missing players: the other side's lines count less; our line re-priced for who actually played
+    const notes=[];
+    ['away','home'].forEach(s=>{ const o=s==='home'?'away':'home', oa=X(o).opp_avail; if(oa!=null&&oa<1) notes.push(`${nm(s==='home'?g.away:g.home)}'s lines count ${Math.round((1-oa)*100)}% less`); });
+    const adj=(R.pred!=null&&R.pred_full!=null&&Math.abs(R.pred-R.pred_full)>=0.3)?`Our line is for the lineups that played (${by(R.pred_full)} at full strength).`:'';
+    const pct=Math.round(R.score);
     return `<div class="rm"><div><div class="rm-l">Reality Meter</div><div class="rm-n" style="color:${rmCol(R.score)}">${R.score}</div></div>
-        <div style="flex:1"><div class="rm-t">${esc(R.label)}</div><div class="rm-bar"><i style="width:${R.score}%;background:${rmCol(R.score)}"></i></div></div></div>
-      <p class="rm-why">How much this looked like a real game, read from the box score. The higher it is, the more these lines count toward the players' 2026-27 projections.</p>
-      ${(()=>{ const M=R.miss_pts||{}, lines=[];
-        [['away',g.away],['home',g.home]].forEach(([sd,full])=>{ const o=sd==='home'?'away':'home', x=R[sd]||{};
-          if(!(M[sd]>0&&x.missing&&x.missing.length)) return;
-          const oa=R[o]&&R[o].opp_avail, of=shortOf(o==='home'?g.home:g.away,byFull);
-          lines.push(`<b>${esc(shortOf(full,byFull))}</b> played without ${x.missing.map(esc).join(', ')} (worth about ${M[sd].toFixed(1)} points a game)`+(oa&&oa<1?`, so ${esc(of)}'s lines count ${Math.round((1-oa)*100)}% less`:''));
-        });
-        return lines.length?`<p class="rm-why"><b>Short-handed:</b> ${lines.join('. ')}. Our line for the lineups that actually played was ${R.pred!=null?(R.pred>0?esc(shortOf(g.home,byFull))+' by '+Math.abs(R.pred).toFixed(1):R.pred<0?esc(shortOf(g.away,byFull))+' by '+Math.abs(R.pred).toFixed(1):'even'):'—'}${R.pred_full!=null?` (${R.pred_full>0?esc(shortOf(g.home,byFull))+' by '+Math.abs(R.pred_full).toFixed(1):esc(shortOf(g.away,byFull))+' by '+Math.abs(R.pred_full).toFixed(1)} at full strength)`:''}.</p>`:''; })()}
-      <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">Team</th><th>Reality</th><th class="l">Read</th>`+
-      RM_PARTS.map(([k,l,t])=>`<th title="${esc(t)}">${l}</th>`).join('')+
-      `<th title="Share of minutes played by the top 5">Top-5 min</th><th title="Players with 5+ minutes">5+ min</th><th class="l" title="Projected rotation players (10+ mpg) with no minutes">Projected rotation sat</th></tr></thead><tbody>${row('away',g.away)}${row('home',g.home)}</tbody></table></div>`;
+        <div style="flex:1"><div class="rm-t">${esc(R.label)}</div><div class="rm-bar"><i style="width:${R.score}%;background:${rmCol(R.score)}"></i></div>
+        <div class="rm-sum">Counts as about <b>${pct}%</b> of a real game toward each player's 2026-27 projection (less for anyone who played short minutes).</div></div></div>
+      <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense rm-tbl"><thead><tr><th class="l">What we checked</th><th class="l">${nm(g.away)} · ${X('away').score!=null?X('away').score:'—'}</th><th class="l">${nm(g.home)} · ${X('home').score!=null?X('home').score:'—'}</th><th class="l">A real game</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
+      ${notes.length||adj?`<p class="rm-why">${[notes.length?'Against a short-handed opponent '+notes.join(' and ')+'.':'',adj].filter(Boolean).join(' ')}</p>`:''}`;
   }
 
   async function main(){
@@ -188,7 +205,7 @@
         meta:`<span>${dd}${g.time?' · '+esc(g.time):''}</span><span>${g.neutral?'Neutral site':esc(hS)+' home floor'}</span>${g.tv?`<span>${esc(g.tv)}</span>`:''}` })}
       ${read?`<p class="read">${read}</p>`:''}
       ${res.note?`<p class="read">${esc(res.note)}</p>`:''}
-      ${meter(res.reality,g,byFull)}
+      ${meter(res.reality,g,byFull,res)}
       ${box?teamBlock('away',box.away,g.away,byFull[g.away]&&byFull[g.away].team,ra,byFull)+teamBlock('home',box.home,g.home,byFull[g.home]&&byFull[g.home].team,rh,byFull)
            :`<div class="empty" style="margin-top:20px;">${has?'Only the final score is in for this one; no box score has posted.':'This scrimmage hasn’t been played yet. Its box score lands here once it’s out.'}</div>`}
       <div class="note">Unofficial preseason scrimmage: not counted in either team's record, season stats or ratings. How far it moves anything is set by the Reality Meter: a fully game-like scrimmage counts as one real game toward each player's projected rates (capped 15%), minutes (rotation), a newcomer's OVR (±4) and the team's rating (±2.5). Each player's Trends tab shows exactly what moved. * = started. "Did not play" lists everyone on our 2026-27 roster with no minutes in the box score.${res.src?` <a href="${esc(res.src)}" target="_blank" rel="noopener">Source box score</a>.`:''}</div>`;
