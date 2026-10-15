@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Crunch-time shot share for every high-major (ACC / Big Ten / Big 12 / SEC / Big East) player.
+// Crunch-time shot share for every D-I player (owner, Oct 2026: was high-majors only — a Gonzaga / Penn / Winthrop
+// transfer had no crunch line). `--hm` keeps the old ACC / Big Ten / Big 12 / SEC / Big East scope.
 //
 // Crunch time = a shot taken with the margin at five or fewer (score before the shot) and under
 // 4:00 left in the second half, or at any point in overtime. A player's crunch share is his FGA
@@ -10,13 +11,14 @@
 // game page uses), run here in a stub DOM. ESPN summaries are cached gzipped in
 // scripts/data/espn_pbp_cache/ (git-ignored), so reruns are offline.
 //
-//   node scripts/build_crunch_time.mjs [season=2026]
+//   node scripts/build_crunch_time.mjs [season=2026] [--hm]
 // writes scripts/data/crunch_time_<season>.json
 import fs from 'node:fs'; import path from 'node:path'; import zlib from 'node:zlib'; import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)), ROOT = path.dirname(HERE);
-const SEASON = +(process.argv[2] || 2026);
+const ARGS = process.argv.slice(2), HM_ONLY = ARGS.includes('--hm');
+const SEASON = +(ARGS.find(a => /^\d{4}$/.test(a)) || 2026);
 const SB = 'https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1', KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 const H = { apikey: KEY, Authorization: 'Bearer ' + KEY };
 const HM = ['Atlantic Coast Conference', 'Big Ten Conference', 'Big 12 Conference', 'Southeastern Conference', 'Big East Conference'];
@@ -31,7 +33,13 @@ const GF = ctx.window.TDC_GAMEFLOW;
 
 async function sb(q) {   // paginated, stable order (see supabase-pagination-order memory)
   const out = []; for (let o = 0; ; o += 1000) {
-    const r = await fetch(`${SB}/${q}&limit=1000&offset=${o}`, { headers: H }).then(r => r.json());
+    let r = null;
+    for (let t = 0; t < 6 && !Array.isArray(r); t++) {   // the REST API times out now and then: retry with backoff
+      try { r = await fetch(`${SB}/${q}&limit=1000&offset=${o}`, { headers: H, signal: AbortSignal.timeout(90000) }).then(x => x.json()); }
+      catch (e) { r = null; }
+      if (!Array.isArray(r)) await new Promise(res => setTimeout(res, 3000 * (t + 1)));
+    }
+    if (!Array.isArray(r)) throw new Error('supabase failed: ' + q);
     out.push(...r); if (r.length < 1000) return out; }
 }
 async function summary(id) {
@@ -48,8 +56,9 @@ async function summary(id) {
 }
 
 const ts = await sb(`team_seasons?season_year=eq.${SEASON}&select=team,team_id,conference&order=team_id`);
-const HMT = new Map(ts.filter(t => HM.includes(t.conference)).map(t => [String(t.team_id), t]));
-console.log('high-major teams', HMT.size);
+// every D-I team (a conference row = D-I; non-D-I opponents only appear as the other side of a game)
+const HMT = new Map(ts.filter(t => HM_ONLY ? HM.includes(t.conference) : !!t.conference).map(t => [String(t.team_id), t]));
+console.log(HM_ONLY ? 'high-major teams' : 'D-I teams', HMT.size);
 const games = (await sb(`games?season_year=eq.${SEASON}&status=eq.STATUS_FINAL&select=id,home_id,away_id&order=id`))
   .filter(g => HMT.has(String(g.home_id)) || HMT.has(String(g.away_id)));
 console.log('games', games.length);
@@ -85,11 +94,12 @@ const roster = await sb(`players?select=espn_id,name,team&espn_id=not.is.null&or
 const now = new Map(roster.map(r => [String(r.espn_id), r.team]));
 const rows = Object.entries(acc).map(([id, a]) => {
   const cs = a.c[1] ? a.c[0] / a.c[1] : null, rs = a.r[1] ? a.r[0] / a.r[1] : null;
-  return { espn_id: +id, name: a.name, team: a.team, team_id: +a.team_id, now: now.get(id) || null,
+  const cf = (HMT.get(a.team_id) || {}).conference || null;
+  return { espn_id: +id, name: a.name, team: a.team, team_id: +a.team_id, conf: cf, hm: HM.includes(cf), now: now.get(id) || null,
     c_fga: a.c[0], c_team: a.c[1], r_fga: a.r[0], r_team: a.r[1], c_games: a.cg,
     c_share: cs == null ? null : +(cs * 100).toFixed(1), r_share: rs == null ? null : +(rs * 100).toFixed(1),
     jump: cs == null || rs == null ? null : +((cs - rs) * 100).toFixed(1) };
 }).filter(r => r.r_team >= 200).sort((a, b) => (b.jump ?? -99) - (a.jump ?? -99));
-fs.writeFileSync(OUT, JSON.stringify({ season: SEASON, built: new Date().toISOString().slice(0, 10), games: games.length, no_pbp: noPbp,
+fs.writeFileSync(OUT, JSON.stringify({ season: SEASON, scope: HM_ONLY ? 'high-major' : 'D-I', built: new Date().toISOString().slice(0, 10), games: games.length, no_pbp: noPbp,
   def: 'margin <= 5 before the shot, under 4:00 of the 2nd half or any OT; share = his FGA / team FGA while on the floor', players: rows }));
 console.log('wrote', OUT, rows.length, 'players');

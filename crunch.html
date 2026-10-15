@@ -7,11 +7,11 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Crunch-Time Takeovers — The Depth Chart</title>
-  <meta name="description" content="Which high-major returners take over late in close games: each player's share of his team's shots in crunch time vs the rest of the game, from every 2025-26 play-by-play.">
+  <meta name="description" content="Which returners take over late in close games: each player's share of his team's shots in crunch time vs the rest of the game, from every 2025-26 play-by-play.">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="The Depth Chart">
   <meta property="og:title" content="Crunch-Time Takeovers — The Depth Chart">
-  <meta property="og:description" content="Who takes over late in close games: crunch-time shot share vs the rest of the game for every high-major returner.">
+  <meta property="og:description" content="Who takes over late in close games: crunch-time shot share vs the rest of the game for every D-I returner.">
   <meta property="og:url" content="https://www.thedepthchartcbb.com/crunch.html">
   <meta name="twitter:card" content="summary">
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
@@ -83,11 +83,12 @@
   <div class="ctl">
     <div class="seg" id="dirSeg"><button data-v="up" class="on">Takeovers</button><button data-v="down">Fade-outs</button></div>
     <div class="seg" id="whoSeg"><button data-v="ret" class="on">Returners</button><button data-v="all">Everyone in 2025–26</button></div>
+    <div class="seg" id="lvlSeg"><button data-v="all" class="on">All D-I</button><button data-v="hm">High-majors</button></div>
     <label>Min. crunch-time team shots on floor <input type="range" id="minN" min="15" max="80" step="5" value="50"><b id="minV">50</b></label>
   </div>
-  <div id="board"><div class="empty">Loading every 2025–26 high-major play-by-play…</div></div>
+  <div id="board"><div class="empty">Loading every 2025–26 D-I play-by-play…</div></div>
   <div class="foot" id="foot"></div>
-  <div class="sec"><h2>Every high-major player</h2><span class="n" id="tblN"></span></div>
+  <div class="sec"><h2>Every player</h2><span class="n" id="tblN"></span></div>
   <div id="tbl"></div>
 </div>
 <script>
@@ -96,9 +97,10 @@
   const logo=t=>{ try{ const c=window.tdcTeamColor&&tdcTeamColor(t); return (c&&c.logo)||''; }catch(e){ return ''; } };
   const school=t=>{ try{ return (window.tdcShortSchool&&tdcShortSchool(t))||t; }catch(e){ return t; } };
   const same=(a,b)=>{ const n=x=>String(x||'').toLowerCase().replace(/[^a-z]/g,''); a=n(school(a)); b=n(school(b)); return !!a&&!!b&&(a===b||a.indexOf(b)===0||b.indexOf(a)===0); };
-  const S={dir:'up',who:'ret',min:50,sort:'jump',asc:false};
+  const S={dir:'up',who:'ret',lvl:'all',min:50,sort:'jump',asc:false};
   let D=null;
-  function pool(){ return D.players.filter(p=>p.jump!=null&&p.c_team>=S.min&&(S.who==='all'||p.now)); }
+  // every D-I team since Oct 2026 (was ACC / Big Ten / Big 12 / SEC / Big East only); "High-majors" = where he played in 2025-26
+  function pool(){ return D.players.filter(p=>p.jump!=null&&p.c_team>=S.min&&(S.who==='all'||p.now)&&(S.lvl==='all'||p.hm!==false)); }
   const PX=(v,lo,hi)=>4+(v-lo)/(hi-lo)*92;      // % across the track, 4% gutters so end dots/labels fit
   function ticks(lo,hi){ let g=''; for(let v=Math.ceil(lo/10)*10; v<=hi; v+=10) g+=`<i class="tk" style="left:${PX(v,lo,hi)}%"></i>`; return g; }
   function dumbbell(p,lo,hi){
@@ -118,8 +120,9 @@
   }
   function render(){
     const L=pool().sort((a,b)=>S.dir==='up'?b.jump-a.jump:a.jump-b.jump).slice(0,10);
-    document.getElementById('eyebrow').textContent=(S.who==='ret'?'2026–27 high-major returners':'2025–26 high-major players');
-    document.getElementById('lede').innerHTML=`<b>${S.who==='ret'?'High-major returners':'High-major players'}</b> with the biggest ${S.dir==='up'?'increase':'drop'} in <b>on-floor crunch-time shot share</b> in 2025–26`;
+    const lv=S.lvl==='hm'?'high-major':'D-I', Lv=S.lvl==='hm'?'High-major':'D-I';
+    document.getElementById('eyebrow').textContent=(S.who==='ret'?'2026–27 '+lv+' returners':'2025–26 '+lv+' players');
+    document.getElementById('lede').innerHTML=`<b>${S.who==='ret'?Lv+' returners':Lv+' players'}</b> with the biggest ${S.dir==='up'?'increase':'drop'} in <b>on-floor crunch-time shot share</b> in 2025–26`;
     if(!L.length){ document.getElementById('board').innerHTML='<div class="empty">Nobody clears that minimum.</div>'; return; }
     let lo=Math.min(...L.map(p=>Math.min(p.r_share,p.c_share))), hi=Math.max(...L.map(p=>Math.max(p.r_share,p.c_share)));
     lo=Math.max(0,Math.floor((lo-4)/10)*10); hi=Math.ceil((hi+4)/10)*10;
@@ -139,10 +142,10 @@
     t.querySelectorAll('th[data-k]').forEach(h=>h.onclick=()=>{ const kk=h.getAttribute('data-k'); if(S.sort===kk) S.asc=!S.asc; else { S.sort=kk; S.asc=(kk==='name'||kk==='team'||kk==='now'); } renderTable(); });
   }
   const seg=(id,key)=>document.querySelectorAll('#'+id+' button').forEach(b=>b.onclick=()=>{ S[key]=b.getAttribute('data-v'); document.querySelectorAll('#'+id+' button').forEach(x=>x.classList.toggle('on',x===b)); render(); });
-  seg('dirSeg','dir'); seg('whoSeg','who');
+  seg('dirSeg','dir'); seg('whoSeg','who'); seg('lvlSeg','lvl');
   const mn=document.getElementById('minN'); mn.oninput=()=>{ S.min=+mn.value; document.getElementById('minV').textContent=mn.value; render(); };
-  fetch('scripts/data/crunch_time_2026.json?v=1').then(r=>r.json()).then(j=>{ D=j;
-    document.getElementById('foot').innerHTML=`Crunch time is defined as shots taken with a <b>margin of five points or fewer</b>, with <b>under 4:00 left in the second half</b> or at <b>any point in overtime</b>. Jumps are measured as a player's crunch-time share of his team's field-goal attempts while on the floor, minus his share the rest of the game, in percentage points. Only players who were at a high-major program (ACC, Big Ten, Big 12, SEC or Big East) in 2025–26 are included; "Returners" are on a 2026–27 roster we track, with the logo of his 2026–27 team and "at" marking where a transfer played in 2025–26. Built from ${j.games.toLocaleString()} games of ESPN play-by-play; who was on the floor is rebuilt from the substitution log.`;
+  fetch('scripts/data/crunch_time_2026.json?v=2').then(r=>r.json()).then(j=>{ D=j;
+    document.getElementById('foot').innerHTML=`Crunch time is defined as shots taken with a <b>margin of five points or fewer</b>, with <b>under 4:00 left in the second half</b> or at <b>any point in overtime</b>. Jumps are measured as a player's crunch-time share of his team's field-goal attempts while on the floor, minus his share the rest of the game, in percentage points. Every D-I team is included ("High-majors" narrows to players who were at an ACC, Big Ten, Big 12, SEC or Big East program in 2025–26); "Returners" are on a 2026–27 roster we track, with the logo of his 2026–27 team and "at" marking where a transfer played in 2025–26. Built from ${j.games.toLocaleString()} games of ESPN play-by-play; who was on the floor is rebuilt from the substitution log.`;
     render(); }).catch(()=>{ document.getElementById('board').innerHTML='<div class="empty">Could not load the crunch-time data.</div>'; });
 })();
 </script>
