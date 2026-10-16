@@ -33,7 +33,7 @@
   <script src="tdc-lineup-history.js?v=4"></script>
   <script src="tdc-teamname.js?v=1"></script>
   <script src="tdc-shotchart.js?v=33"></script>
-  <script src="tdc-aftermath.js?v=5"></script>
+  <script src="tdc-dnasheet.js?v=1"></script>
   <script src="tdc-twin.js?v=7"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=6"/>
   <script src="tdc-anim.js?v=6"></script>
@@ -42,7 +42,7 @@
     [data-theme="dark"]{--bg:#141416;--bg2:#1D1D20;--bg3:#28282C;--border:#2E2E34;--border2:#45454D;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--green:#5ab875;--amber:#d8b05a;--red:#e07070;}
     *{margin:0;padding:0;box-sizing:border-box;}
     body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
-    .page{max-width:900px;margin:0 auto;padding:30px 22px 90px;}
+    .page{max-width:1240px;margin:0 auto;padding:30px 22px 90px;}
     .eyebrow{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;display:flex;align-items:center;gap:8px;}
     .eyebrow .lock{font-size:10px;color:var(--text3);border:1px solid var(--border2);border-radius:20px;padding:2px 8px;letter-spacing:.06em;}
     h1{font-family:'Playfair Display',serif;font-size:34px;font-weight:800;letter-spacing:-.01em;margin-bottom:4px;}
@@ -56,6 +56,11 @@
     .combo-empty{padding:12px;font-size:12px;color:var(--text3);}
     .loading{padding:60px;text-align:center;color:var(--text3);}
     .muted{font-size:12.5px;color:var(--text3);line-height:1.7;padding:22px 20px;text-align:center;}
+.tr-dhead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+    .tr-chips{display:flex;gap:6px;flex-wrap:wrap;}
+    .tr-chip{font-size:12px;font-weight:600;color:var(--text2);border:1px solid var(--border2);border-radius:4px;padding:3px 8px;font-variant-numeric:tabular-nums;}
+    .tr-chip b{color:var(--text);font-weight:800;}
+    .tr-vs{font:inherit;font-size:12.5px;font-weight:600;padding:6px 8px;border:1px solid var(--border2);border-radius:4px;background:var(--bg);color:var(--text);max-width:220px;}
     .sec-h{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin:26px 0 12px;display:flex;align-items:center;gap:10px;}
     .sec-h .hint{font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px;}
     .sec-h::after{content:'';flex:1;height:1px;background:var(--border);}
@@ -162,7 +167,7 @@
     <select id="season" aria-label="Season"></select>
   </div>
   <nav class="tr-jump" id="jump" style="display:none">
-    <a href="#tr-id">Identity</a><a href="#tr-shots">Shot charts</a><a href="#tr-poss">Possessions</a><a href="#tr-twin">Shot profile</a><a href="#tr-rot">Rotation</a><a href="#tr-people">Personnel</a>
+    <a href="#tr-id">Team DNA</a><a href="#tr-shots">Shot charts</a><a href="#tr-twin">Shot profile</a><a href="#tr-rot">Rotation</a><a href="#tr-people">Personnel</a>
   </nav>
 
   <div id="out"><div class="tr-muted" style="padding:60px 20px;">Pick a team above — your own or an opponent.</div></div>
@@ -174,6 +179,8 @@ const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
 const el=id=>document.getElementById(id);
 const esc=s=>(''+(s==null?'':s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+const sn=x=>window.tdcShortSchool?tdcShortSchool(x):x;
+function trVs(v){ const r=poolRow(selKey); if(v&&r) location.href='matchup.html?a='+encodeURIComponent(r.team)+'&b='+encodeURIComponent(v); }
 const F=(v,d)=>v==null||!isFinite(+v)?'—':(+v).toFixed(d==null?1:d);
 const SEASONS=[2026,2025,2024,2023,2022,2021,2020];
 const sl=y=>(y-1)+'-'+String(y).slice(2);
@@ -215,51 +222,14 @@ function syncUrl(){ const r=poolRow(selKey); if(!r) return; const q=new URLSearc
   ss.addEventListener('change',()=>{ SEASON=+ss.value; syncUrl(); loadTeam(); });
 })();
 
-// ── 1. IDENTITY: four factors at both ends, D-I percentile bars, season arc ──
-// [label, offense key, offense higher-is-better, defense key, defense higher-is-better, format]
-const FACTORS=[
-  ['Efficiency (pts / 100)', 'ORtg', true, 'DRtg', false, 1],
-  ['Effective FG%', 'oeFG', true, 'deFG', false, 1],
-  ['Turnover %', 'oTOV', false, 'dTOV', true, 1],
-  ['Off. rebound % · Def. rebound %', 'oORB', true, 'dDRB', true, 1],
-  ['Free-throw rate', 'oFTr', true, 'dFTr', false, 1],
-];
-function pctOf(teams, key, val, hi){   // D-I percentile, oriented so higher = better for this team
-  const xs=teams.map(t=>t[key]).filter(v=>v!=null&&isFinite(v)); if(!xs.length||val==null) return null;
-  const below=xs.filter(v=>hi?v<val:v>val).length, eq=xs.filter(v=>v===val).length;
-  return Math.round(100*(below+eq/2)/xs.length);
-}
-function pbar(p){ if(p==null) return '<span class="dim">—</span>'; const col=p>=67?'var(--green)':p<=33?'var(--red)':'var(--text3)';
-  return `<div class="pb"><div class="t"><div class="f" style="width:${Math.max(3,p)}%;background:${col}"></div></div><span class="n" style="color:${col}">${p}</span></div>`; }
-function identity(row, y){
-  const S=DNA&&DNA[String(y)], T=S&&S.teams; const t=T&&T[row.full];
-  if(!t) return `<div class="tr-muted">No ${sl(y)} team profile for ${esc(row.full)}.</div>`;
-  const all=Object.values(T);
-  const adj=t.adjO!=null&&t.adjD!=null;
-  const O=adj?t.adjO:t.ORtg, Dd=adj?t.adjD:t.DRtg, net=adj?t.adjNet:t.net;
-  const kpi=(k,v,s,col)=>`<div class="tr-kpi"><div class="k">${k}</div><div class="v"${col?` style="color:${col}"`:''}>${v}</div><div class="s">${s}</div></div>`;
-  const netP=pctOf(all, adj?'adjNet':'net', net, true);
-  const luck=t.luck!=null?t.luck:null;
-  const kpis=`<div class="tr-kpis">`
-    +kpi('Record', `${t.w}–${t.l}`, `${sl(y)}`)
-    +kpi('Net rating', (net>=0?'+':'')+F(net), `${adj?'schedule-adjusted · ':''}${netP!=null?netP+'th pct':''}`)
-    +kpi('Tempo', F(t.tempo), 'possessions per 40')
-    +kpi('Wins vs expected', luck==null?'—':(luck>=0?'+':'')+F(luck), t.exp_wins!=null?`expected ${F(t.exp_wins)} wins from margins`:'')
-    +kpi('Game-to-game swing', F(t.margin_sd), 'SD of scoring margin')
-    +`</div>`;
-  const rows=FACTORS.map(([lab,ok,ohi,dk,dhi,d])=>{
-    const ov=ok==='ORtg'?O:t[ok], dv=dk==='DRtg'?Dd:t[dk];
-    const op=ok==='ORtg'?pctOf(all, adj?'adjO':'ORtg', ov, ohi):pctOf(all, ok, ov, ohi);
-    const dp=dk==='DRtg'?pctOf(all, adj?'adjD':'DRtg', dv, dhi):pctOf(all, dk, dv, dhi);
-    return `<tr><td class="l nm">${lab}</td><td class="big">${F(ov,d)}</td><td>${pbar(op)}</td><td class="big">${F(dv,d)}</td><td>${pbar(dp)}</td></tr>`; }).join('');
-  const ff=`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Factor</th><th>Offense</th><th class="l" title="D-I percentile — higher is better for this team">Off. pct</th><th>Defense</th><th class="l" title="D-I percentile — higher is better for this team">Def. pct</th></tr></thead><tbody>${rows}</tbody></table></div>`;
-  let arc='';
-  const ev=t.evolution;
-  if(ev){ const seg=[['nonconf','Non-conference'],['conf','Conference'],['last10','Last 10 games']].filter(s=>ev[s[0]]);
-    arc=`<div class="tr-lbl" style="margin-top:16px">How the season moved</div><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Stretch</th><th>W–L</th><th data-heat="1">Net</th><th data-heat="1">Off. eFG%</th><th data-heat="-1">Def. eFG%</th></tr></thead><tbody>`
-      +seg.map(([k,l])=>{ const e=ev[k]; return `<tr><td class="l nm">${l}</td><td>${e.w}–${e.l}</td><td class="big">${(e.net>=0?'+':'')+F(e.net)}</td><td>${F(e.oeFG)}</td><td>${F(e.deFG)}</td></tr>`; }).join('')
-      +`</tbody></table></div>`; }
-  return kpis+`<div class="tr-lbl">Four factors · vs D-I</div>`+ff+arc;
+// ── 1. TEAM DNA: chips + the shared sheet (tdc-dnasheet.js, owner's pick "A · The Sheet", Oct 2026) ──
+function dnaHead(row, y){
+  const S=DNA&&DNA[String(y)], t=S&&S.teams&&S.teams[row.full]; if(!t) return '';
+  const adj=t.adjNet!=null, net=adj?t.adjNet:t.net, sg=v=>(v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(1);
+  const chip=h=>`<span class="tr-chip">${h}</span>`;
+  const opts=(D&&D.teams||[]).filter(r=>r.full!==row.full).map(r=>`<option value="${esc(r.team)}">${esc(sn(r.team))}</option>`).join('');
+  return `<div class="tr-dhead"><div class="tr-chips">${t.w!=null?chip(`Record <b>${t.w}–${t.l}</b>${t.exp_wins!=null?` · expected ${F(t.exp_wins)}`:''}`):''}${net!=null?chip(`Net <b>${sg(net)}</b>${adj?' · schedule-adjusted':''}`):''}${t.tempo!=null?chip(`Tempo <b>${F(t.tempo)}</b>`):''}${t.margin_sd!=null?chip(`Game-to-game swing <b>±${F(t.margin_sd)}</b>`):''}</div>
+    <select class="tr-vs" aria-label="Scout a matchup" onchange="trVs(this.value)"><option value="">Matchup vs…</option>${opts}</select></div>`;
 }
 
 // ── 2. SHOT CHARTS: what they take, and what they allow ──
@@ -306,16 +276,14 @@ async function loadTeam(){
   const sec=(id,title,hint,body)=>`<section class="tr-sec" id="${id}"><div class="sec-h">${title}${hint?` <span class="hint">${hint}</span>`:''}</div>${body}</section>`;
   el('out').innerHTML=`<div style="--tc:${tc}">
     <div class="idbar" style="--tc:${tc}">${logo?`<img class="badge" style="object-fit:contain;padding:7px;background:var(--bg3)" src="${logo}" alt="">`:`<div class="badge">${esc(ini)}</div>`}<div><div class="onm"><a href="${window.TDC_TEAM?TDC_TEAM.link(row.full):'team.html?team='+encodeURIComponent(row.team)}" style="color:inherit;text-decoration:none">${esc(row.full)}</a></div><div class="omet"><b>${esc(row.conf||'')}</b> · ${sl(y)} report${proj}</div></div></div>
-    ${sec('tr-id','Identity',sl(y)+' · percentile vs D-I, higher is better for this team',identity(row,y))}
+    ${sec('tr-id','Team DNA',sl(y)+' and '+sl(y-1)+' · every stat ranked against D-I',dnaHead(row,y)+'<div id="trDna"><div class="tr-muted">Loading…</div></div>')}
     ${sec('tr-shots','Shot charts',sl(y),`<div class="tr-2"><div><div class="tr-lbl">Their shots</div><div id="trShotO"><div class="tr-muted">Loading shots…</div></div></div><div><div class="tr-lbl">What they allow</div><div id="trShotD"><div class="tr-muted">Loading opponent shots…</div></div></div></div>`)}
-    ${sec('tr-poss','Possessions','how possessions start, when they shoot, what each shot earns · situations','<div id="trPoss"></div>')}
     ${sec('tr-twin','Shot profile','volume and accuracy by zone vs D-I · closest team-seasons since 2009-10','<div id="trTwin"></div>')}
     ${sec('tr-rot','Rotation','starting fives, minutes and the five-man lineups','<div id="trRot"></div>')}
     ${sec('tr-people','Personnel',sl(y)+' · shaded within the roster','<div id="trPeople"><div class="tr-muted">Loading players…</div></div>')}
   </div>`;
-  if(window.tdcSheetHeat) el('out').querySelectorAll('#tr-id table.sheet').forEach(t=>tdcSheetHeat(t));
   shots(row, y, tid, gen);
-  if(window.TDC_AFTER) TDC_AFTER.renderTeam(el('trPoss'), {teamId:tid, name:row.full, season:y});
+  if(window.TDC_DNASHEET) TDC_DNASHEET.team(el('trDna'), {key:row.full, season:String(y), name:sn(row.team)});
   if(window.TDC_TWIN&&tid) TDC_TWIN.render(el('trTwin'), {teamId:tid, season:y});   // the card carries its own Offense / Defense switch
   if(window.TDCLineupHist) TDCLineupHist.render(el('trRot'), row.full, {season:y});
   personnel(row, y, gen);
