@@ -164,8 +164,8 @@
       var nG = P.games.length, W = P.weight || 0;
       var games = P.games.slice().sort(function (a, b2) { return a.date.localeCompare(b2.date); });
       var html = '<div class="tr-hd"><div><div class="tr-l">Preseason trend</div><div class="tr-big" style="color:' + col + '">' + (tr > 0 ? '▲ ' : tr < 0 ? '▼ ' : '') + sg(tr) + '</div></div>' +
-        '<div><div class="tr-t">' + word + '</div><div class="tr-s">How his scrimmages compared with what we projected for him (Game Score per 40 minutes), from ' + nG + ' scrimmage' + (nG > 1 ? 's' : '') +
-        (nG > 1 ? ' that count as <b>' : ' that counts as <b>') + W.toFixed(2) + ' real game' + (W === 1 ? '' : 's') + '</b> — each weighted by its Reality Meter and his share of a normal night’s minutes.</div></div></div>';
+        '<div><div class="tr-t">' + word + ' <span style="font-weight:600;color:var(--text3);font-size:.8em">· ' + sg(tr) + ' Game Score per 40 min vs our projection</span></div><div class="tr-s">' + sg(tr) + ' means his scrimmages ran ' + Math.abs(tr).toFixed(1) + ' Game Score points per 40 minutes ' + (tr >= 0 ? 'above' : 'below') + ' what we projected for him, averaged over ' + nG + ' scrimmage' + (nG > 1 ? 's' : '') +
+        (nG > 1 ? ' that count as <b>' : ' that counts as <b>') + W.toFixed(2) + ' real game' + (W === 1 ? '' : 's') + '</b> (each weighted by its Reality Meter and his share of a normal night’s minutes) and pulled toward 0 as if he had one more average game. ±1 is a small move, ±3 a real one.</div></div></div>';
 
       // ── 1. the trend chart: his trend after each scrimmage, starting from 0 entering the preseason ──
       var pts = [{ lab: 'Pre', y: 0, tip: '<b>Entering the preseason</b><br>Trend: <b>0.0</b>' }].concat(games.map(function (e) {
@@ -174,13 +174,16 @@
       html += trendChart(host, pts, [[3, 'Trending up', 'Trending down'], [1, 'Slightly up', 'Slightly down']], 1, 3.6, 'Trend after each scrimmage');
 
       // ── 2. the game log: projection → each scrimmage (expandable) → his projection now ──
-      var cols = [['min', 'MIN', 0], ['pts', 'PTS', 1], ['reb', 'REB', 1], ['ast', 'AST', 1], ['stl', 'STL', 1], ['blk', 'BLK', 1], ['tov', 'TO', 1], ['fg', 'FG', 0], ['tp', '3PT', 0], ['ft', 'FT', 0], ['gmsc', 'GmSc', 1]];
+      // RTG = the box-score 0-10 game rating (game.html playerRating: 5 + 0.135 x Game Score, 2-10), not raw Game Score
+      // (owner, Oct 2026: "the gamescore should be the number 0-10.0 like it is in the box score")
+      var cols = [['min', 'MIN', 0], ['pts', 'PTS', 1], ['reb', 'REB', 1], ['ast', 'AST', 1], ['stl', 'STL', 1], ['blk', 'BLK', 1], ['tov', 'TO', 1], ['fg', 'FG', 0], ['tp', '3PT', 0], ['ft', 'FT', 0], ['gmsc', 'RTG', 1]];
+      var rtg = function (g) { return g == null || !isFinite(+g) ? null : Math.max(2, Math.min(10, Math.round((5 + 0.135 * g) * 10) / 10)); };
       var lcols = cols.filter(function (c) { return ['stl', 'blk', 'ft'].indexOf(c[0]) < 0; });   // the log row; the detail shows all
       var NC = lcols.length + 4;
       var cell = function (L2, k, dec, isAct) {
         if (k === 'fg' || k === 'tp' || k === 'ft') { var mk = { fg: ['fgm', 'fga'], tp: ['tpm', 'tpa'], ft: ['ftm', 'fta'] }[k], a = L2[mk[0]], t = L2[mk[1]];
           if (a == null || t == null) return '—'; return isAct ? a + '-' + t : (+a).toFixed(1) + '-' + (+t).toFixed(1); }
-        var v = L2[k]; if (v == null) return '—'; return isAct && k !== 'gmsc' ? String(v) : (+v).toFixed(dec);
+        var v = k === 'gmsc' ? rtg(L2[k]) : L2[k]; if (v == null) return '—'; return isAct && k !== 'gmsc' ? String(v) : (+v).toFixed(dec);
       };
       var KVc = { min: 'mpg', pts: 'ppg', reb: 'rpg', ast: 'apg' };
       var projRow = function (src, label, sub, withDelta, trendCell) {
@@ -204,8 +207,8 @@
           var diffCell = function (c) { var k = c[0];
             if (k === 'fg' || k === 'tp' || k === 'ft') { var mk = { fg: ['fgm', 'fga'], tp: ['tpm', 'tpa'], ft: ['ftm', 'fta'] }[k]; var d = (act[mk[0]] || 0) - Pc[mk[0]]; return '<td class="' + cls(d, 0.8) + '">' + sg(d) + ' made</td>'; }
             if (k === 'min') { var dm = (act.min || 0) - Pj.min; return '<td class="' + cls(dm, 3) + '">' + sg(dm, 0) + '</td>'; }
-            var d2 = (act[k] || 0) - Pc[k]; if (k === 'tov') d2 = -d2;
-            return '<td class="' + cls(d2, k === 'gmsc' || k === 'pts' ? 1.5 : 0.8) + '">' + sg(k === 'tov' ? -d2 : d2) + '</td>'; };
+            var d2 = k === 'gmsc' ? (rtg(act.gmsc) || 0) - (rtg(Pc.gmsc) || 0) : (act[k] || 0) - Pc[k]; if (k === 'tov') d2 = -d2;
+            return '<td class="' + cls(d2, k === 'pts' ? 1.5 : k === 'gmsc' ? 0.4 : 0.8) + '">' + sg(k === 'tov' ? -d2 : d2) + '</td>'; };
           tbl = '<table class="sheet dense trl-d"><thead><tr><th class="l"></th>' + cols.map(function (c) { return '<th>' + c[1] + '</th>'; }).join('') + '</tr></thead><tbody>' +
             '<tr><td class="l dim" title="His 2026-27 projection for one game, at his projected minutes, adjusted for this opponent">Projected for this game</td>' + cols.map(function (c) { return '<td class="dim">' + cell(Pj, c[0], c[2]) + '</td>'; }).join('') + '</tr>' +
             '<tr><td class="l dim" title="The same projection scaled to the minutes he actually played: the fair yardstick">Projected at ' + Math.round(e.min || 0) + ' min</td>' + cols.map(function (c) { return '<td class="dim">' + (c[0] === 'min' ? Math.round(e.min || 0) : cell(Pc, c[0], c[2])) + '</td>'; }).join('') + '</tr>' +
