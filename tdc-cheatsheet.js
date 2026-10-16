@@ -170,11 +170,47 @@
     $('csWorst').innerHTML = worst.map(playRow).join('');
   }
 
-  // ── every game: away ring · two-colour win bar · home ring · our spread card · total · book (or fair ML) ──
-  function tcol(full) { var t = S.byFull[full]; var c = window.tdcTeamColor && (tdcTeamColor((t && t.team) || full) || tdcTeamColor(full)); return (c && (c.c1 || c.primary)) || '#8A867A'; }
-  function side(full, cls) {
+  // ── every game: the SPORTSBOOK BOARD (owner pick, Oct 16 2026, after the split-bar rows made it "hard to tell who
+  //    is playing who"): each game is a two-line ticket, away over home, with boxed Spread / Total / Moneyline cells.
+  //    No book yet → our numbers in the boxes (our favorite's boxes tinted). Book posted → the book's number is the big
+  //    one, ours sits under it, and the side our model likes by a real margin gets the green "value" box.
+  function sp(v) { return Math.abs(v) < 0.25 ? 'PK' : (v < 0 ? '−' : '+') + (Math.round(Math.abs(v) * 2) / 2).toFixed(1); }   // v = this team's line
+  function impl(o) { return o == null ? null : o > 0 ? 100 / (o + 100) : -o / (-o + 100); }
+  function teamLine(full) {
     var t = S.byFull[full];
-    return '<a class="sl-tm ' + (cls || '') + '" href="' + teamHref(full) + '">' + ring(full) + '<span class="sl-tw"><span class="sl-tn">' + esc(short(full)) + '</span><span class="sl-sub">' + (t && t.rank ? '#' + t.rank : '') + '</span></span></a>';
+    return '<a class="bk-tm" href="' + teamHref(full) + '">' + ring(full) + (t && t.rank ? '<span class="bk-rk">' + t.rank + '</span>' : '') + '<span class="bk-n">' + esc(short(full)) + '</span></a>';
+  }
+  function box(main, sub, cls) { return '<div class="bk-c ' + (cls || '') + '"><b>' + main + '</b><i>' + sub + '</i></div>'; }
+  function ticket(r) {
+    var mk = r.mk, hasSp = mk && mk.spread != null, hasTot = mk && mk.total != null && r.tot != null, hasMl = mk && mk.mlH != null;
+    var side1 = function (isHome) {
+      var full = isHome ? r.home : r.away, me = isHome ? r.m : -r.m, p = isHome ? r.probH : r.probA, fav = me > 0;
+      // spread
+      var spC;
+      if (hasSp) { var bk = isHome ? mk.spread : -mk.spread, ed = me - bk;   // our margin for this side minus the book's
+        spC = box(sp(-bk), 'ours ' + sp(-me), ed >= 1.5 ? 'val' : ''); }
+      else spC = box(sp(-me), Math.round(p) + '%', fav ? 'fav' : '');
+      // total: away row = over, home row = under
+      var totC;
+      if (hasTot) { var te = r.tot - mk.total, over = !isHome;
+        totC = box((over ? 'O ' : 'U ') + mk.total, 'ours ' + Math.round(r.tot), (over ? te >= 2 : te <= -2) ? 'val' : ''); }
+      else totC = box((isHome ? 'U ' : 'O ') + (r.tot != null ? Math.round(r.tot) : '—'), 'total', '');
+      // moneyline
+      var mlC;
+      if (hasMl) { var bo = isHome ? mk.mlH : mk.mlA;
+        mlC = box(bookMl(bo), 'fair ' + mlTxt(p), impl(bo) != null && p / 100 - impl(bo) >= 0.03 ? 'val' : ''); }
+      else mlC = box(mlTxt(p), 'fair', fav ? 'fav' : '');
+      return '<div class="bk-tr">' + teamLine(full) + spC + totC + mlC + '</div>';
+    };
+    var tag = '';
+    if (r.exh) tag = '<a href="scrimmage.html?id=' + encodeURIComponent(r.g.id) + '" class="bk-tag warn">Scrimmage →</a>';
+    else if (r.spEdge != null && Math.abs(r.spEdge) >= 3) tag = '<span class="bk-tag good">Edge ' + Math.abs(r.spEdge).toFixed(1) + '</span>';
+    else if ((S.byFull[r.fav].rank || 400) <= 60 && r.dogP >= 30 && Math.abs(r.m) >= 2.5) tag = '<span class="bk-tag warn">Upset watch</span>';
+    else if (r.both <= 40) tag = '<span class="bk-tag">Marquee</span>';
+    return '<div class="bk-g"><div class="bk-hd"><b>' + esc(short(r.away)) + (r.neutral ? ' vs ' : ' @ ') + esc(short(r.home)) + '</b>' +
+      '<span>' + tag + (r.neutral ? 'Neutral site' : 'At ' + esc(short(r.home))) + (r.conf ? ' · conference' : '') + '</span></div>' +
+      '<div class="bk-cols"><span>' + (mk ? 'Book · ours' : 'Our line') + '</span><span>Spread</span><span>Total</span><span>Moneyline</span></div>' +
+      side1(false) + side1(true) + '</div>';
   }
   function renderLines(rows) {
     var q = S.q.toLowerCase();
@@ -187,27 +223,10 @@
     }).sort(function (a, b) { return (a.both + a.quality) - (b.both + b.quality); });
     var hasMk = rows.some(function (r) { return r.mk; });
     var lim = S.showAll ? view.length : Math.min(view.length, 40);
-    var head = '<div class="sl-colh"><span>#</span><span>Matchup · win chance</span><span class="c">Our spread</span><span class="c sl-x">Total</span><span class="c sl-x">' + (hasMk ? 'Book' : 'Fair ML') + '</span></div>';
-    var body = view.slice(0, lim).map(function (r, i) {
-      var fav = r.m >= 0 ? r.home : r.away, a = Math.abs(r.m);
-      var big = a < 0.25 ? 'PK' : '−' + (Math.round(a * 2) / 2).toFixed(1);
-      var badge = r.spEdge != null && Math.abs(r.spEdge) >= 1.5 ? (r.spEdge > 0 ? '+' : '−') + Math.abs(r.spEdge).toFixed(1) : '';
-      var crd = r.exh ? card(big, 'scrimmage →', '', '', 'scrimmage.html?id=' + encodeURIComponent(r.g.id)) : card(big, esc(short(fav)), badge, '');
-      var last;
-      if (r.mk && r.mk.spread != null) { var bf = fav === r.home ? r.mk.spread : -r.mk.spread; last = (Math.abs(bf) < 0.25 ? 'PK' : (bf >= 0 ? '−' : '+') + Math.abs(bf).toFixed(1)) + '<i>book · ' + (r.mk.total != null ? r.mk.total : '—') + '</i>'; }
-      else last = mlTxt(r.favP) + '<i>' + esc(short(fav)) + '</i>';
-      // one matchup cell (owner, Oct 16 2026: "hard to tell who is playing who"): away @ home side by side,
-      // each team's win chance under its own name on one two-colour bar
-      return '<div class="sl-row sl-game"><div class="sl-rk">' + (i + 1) + '</div>' +
-        '<div class="sl-mu">' + side(r.away) + '<span class="sl-vs">' + (r.neutral ? 'vs' : '@') + '</span>' + side(r.home) +
-        '<div class="sl-split"><div class="sl-p"><span><em class="sl-pn">' + esc(short(r.away)) + ' </em>' + Math.round(r.probA) + '%</span><span>' + Math.round(r.probH) + '%<em class="sl-pn"> ' + esc(short(r.home)) + '</em></span></div>' +
-        '<div class="sl-b"><i style="width:' + r.probA + '%;background:' + tcol(r.away) + '"></i><i style="width:' + r.probH + '%;background:' + tcol(r.home) + '"></i></div></div></div>' + crd +
-        '<div class="sl-num sl-x">' + (r.tot != null ? Math.round(r.tot) : '—') + '<i>o/u</i></div><div class="sl-num sl-x">' + last + '</div></div>';
-    }).join('');
-    $('slRows').innerHTML = view.length ? head + body : '<div class="sl-empty">No games match.</div>';
+    $('slRows').innerHTML = view.length ? '<div class="bk-grid">' + view.slice(0, lim).map(ticket).join('') + '</div>' : '<div class="sl-empty">No games match.</div>';
     $('linesMore').style.display = view.length > 40 ? '' : 'none';
     $('linesMore').textContent = S.showAll ? 'Show fewer' : 'Show all ' + view.length + ' games';
-    $('linesHint').textContent = view.length + ' of ' + rows.length + (hasMk ? ' · red badge = points we differ from the book' : ' · book lines post about a week out');
+    $('linesHint').textContent = view.length + ' of ' + rows.length + (hasMk ? ' · green box = our model likes that side' : ' · book lines post about a week out');
   }
 
   // ── slate chooser ──────────────────────────────────────────────────────────
