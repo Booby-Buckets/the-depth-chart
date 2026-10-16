@@ -37,10 +37,13 @@ from build_odds_history import api_get, consensus_line, norm   # shared helpers
 
 DATA = os.path.join(HERE, "data")
 LIVE = os.path.join(DATA, "odds_live.json")
+FUTURES = os.path.join(DATA, "odds_futures.json")
 ARCHIVE = os.path.join(DATA, "odds_archive.jsonl")
 
 API_BASE = "https://api.the-odds-api.com/v4"
 SPORT = "basketball_ncaab"
+# outright futures (the Betting Lab's Futures tab). 1 credit per market per region per call.
+FUTURE_SPORTS = {"title": "basketball_ncaab_championship_winner"}
 
 
 def fetch_board(key, markets, regions):
@@ -67,6 +70,58 @@ def board_to_games(events, snap_ts):
             "snapshot": snap_ts,
         })
     return games
+
+
+def fetch_futures(key, regions):
+    """Consensus outright prices per market: {market: {"teams": [{name, norm, price, books}]}}.
+    price = median American odds across books. A market the API doesn't list right now (404 /
+    422 off-season) is skipped, never fatal."""
+    out, used_total, rem = {}, 0, None
+    for mk, sport in FUTURE_SPORTS.items():
+        url = "%s/sports/%s/odds?apiKey=%s&regions=%s&markets=outrights&oddsFormat=american" % (
+            API_BASE, sport, urllib.parse.quote(key), regions)
+        try:
+            body, rem, used = api_get(url)
+        except Exception as e:
+            print("Futures %s: not available (%s)" % (mk, e), flush=True)
+            continue
+        used_total += int(used or 0)
+        prices = {}
+        for ev in body or []:
+            for bk in ev.get("bookmakers", []):
+                for m in bk.get("markets", []):
+                    if m.get("key") != "outrights":
+                        continue
+                    for o in m.get("outcomes", []):
+                        if o.get("name") and o.get("price") is not None:
+                            prices.setdefault(o["name"], []).append(float(o["price"]))
+        teams = []
+        for name, ps in prices.items():
+            ps.sort()
+            mid = ps[len(ps) // 2] if len(ps) % 2 else (ps[len(ps) // 2 - 1] + ps[len(ps) // 2]) / 2
+            teams.append({"name": name, "norm": norm(name), "price": int(round(mid)), "books": len(ps)})
+        implied = lambda o: 100.0 / (o + 100) if o > 0 else -o / (-o + 100.0)
+        teams.sort(key=lambda t: -implied(t["price"]))   # favorites first
+        if teams:
+            out[mk] = {"teams": teams}
+    return out, used_total, rem
+
+
+def write_if_changed(path, payload, stamp_key="generated"):
+    """Write JSON only when the content (ignoring the timestamp) changed, so an idle board doesn't
+    commit + redeploy the site twice a day."""
+    try:
+        with open(path) as f:
+            old = json.load(f)
+    except Exception:
+        old = None
+    strip = lambda d: {k: v for k, v in (d or {}).items() if k != stamp_key}
+    if old is not None and strip(old) == strip(payload):
+        print("%s unchanged — not rewritten." % os.path.relpath(path, HERE), flush=True)
+        return False
+    with open(path, "w") as f:
+        json.dump(payload, f, separators=(",", ":"))
+    return True
 
 
 def main():
@@ -107,10 +162,17 @@ def main():
 
     os.makedirs(DATA, exist_ok=True)
     # 1) live board (overwrite) — the site's Best Bets feed
-    with open(LIVE, "w") as f:
-        json.dump({"generated": snap_ts, "sport": "NCAAB", "markets": markets,
-                   "count": len(games), "games": games}, f, separators=(",", ":"))
-    print("Wrote %s (%d games)." % (os.path.relpath(LIVE, HERE), len(games)), flush=True)
+    if write_if_changed(LIVE, {"generated": snap_ts, "sport": "NCAAB", "markets": markets,
+                               "count": len(games), "games": games}):
+        print("Wrote %s (%d games)." % (os.path.relpath(LIVE, HERE), len(games)), flush=True)
+
+    # 1b) futures (title odds …) — the Lab's Futures tab compares our simulated odds to these
+    if "--no-futures" not in args:
+        fut, fused, frem = fetch_futures(key, regions)
+        print("Futures: %s · credits used: %s · remaining: %s"
+              % (", ".join("%s %d teams" % (k, len(v["teams"])) for k, v in fut.items()) or "none listed", fused, frem), flush=True)
+        if fut and write_if_changed(FUTURES, {"generated": snap_ts, "sport": "NCAAB", "markets": fut}):
+            print("Wrote %s." % os.path.relpath(FUTURES, HERE), flush=True)
 
     # 2) forward archive (append) — only when there are games to record
     if games:

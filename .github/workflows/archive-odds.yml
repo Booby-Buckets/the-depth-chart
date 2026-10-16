@@ -53,9 +53,11 @@ jobs:
           # stage only files that exist — odds files are absent until the first live run
           [ -f scripts/data/odds_live.json ] && git add scripts/data/odds_live.json || true
           [ -f scripts/data/odds_archive.jsonl ] && git add scripts/data/odds_archive.jsonl || true
+          [ -f scripts/data/odds_futures.json ] && git add scripts/data/odds_futures.json || true
           if git diff --cached --quiet; then
             echo "No odds changes."
           else
             git commit -m "Auto: archive live odds board [skip ci]"
+            git pull --rebase --autostash || true
             git push
           fi

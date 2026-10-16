@@ -40,7 +40,6 @@
     ]],
     ['Analytics', [
       ['betting.html',                  'Betting Lab'],
-      ['cheatsheet.html',               'Betting Cheat Sheet'],
       ['analytics.html',                'Advanced Stats'],
       ['shot-genome.html',              'Shot Genome'],
       ['crunch.html',                   'Crunch-Time Takeovers'],

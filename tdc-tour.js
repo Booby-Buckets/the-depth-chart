@@ -125,9 +125,13 @@
     ],
 
     'betting.html': [
-      { sel:'#sharpGrid', t:'Betting Lab', html:'The site\'s own twenty seasons of data, pointed at the betting market.' + bl('<b>ATS</b> — against the spread: did the team beat the number, not just win.', '<b>O/U</b> — over/under: did the two teams combine for more or fewer points than the total.', '<b>Sharp trends</b> — situations where teams have historically beaten the number more often than chance.') },
-      { sel:'#playerCard', t:'Player props', d:'Search a player for his projected prop lines (points, rebounds, assists) and the edge the model sees against a typical book line. The hit-rate is how often he actually cleared similar numbers in his own game logs.' },
-      { sel:'#mlOut', t:'Matchup line', html:'Pick two teams:' + bl(G.spread, 'Home / neutral changes the home-court advantage baked into the line.') }
+      { sel:'#blTabs', t:'Betting Lab', html:'Everything you can bet on, priced by our model. One tab per market:' + bl('<b>Games</b> and <b>Props</b> — the slate and the prop board.', '<b>Futures</b>, <b>Conferences</b>, <b>Win totals</b>, <b>Awards</b> — our odds from 2,000 simulated seasons.', '<b>Trends</b> and <b>Tools</b> — real closing-line records, a matchup calculator and a prop explorer.') },
+      { sel:'.cs-slate', t:'Pick a game day', d:'The Games tab re-runs for the slate you pick: the night in six tiles, best and worst bets, then every game.', before:function(){ try{ TDC_BL.show('games'); }catch(e){} } },
+      { sel:'#gameLines', t:'Game lines', html:'Every game with our number.' + bl(G.spread, '<b>Fair ML</b> — our win % as a moneyline with no vig. If the book pays more than this, the bet has value.', 'Book spread, total and the edge fill in when books post.') },
+      { sel:'#boardPills', t:'Prop board', html:bl('<b>Bounce-back Overs</b> — last season ran well below his career pace per minute; players drift back toward their norm.', '<b>Regression Unders</b> — last season ran well above it.', '<b>Value Movers</b> — the biggest gaps between our projection and his career norm.'), before:function(){ try{ TDC_BL.show('props'); }catch(e){} } },
+      { sel:'#futPills', t:'Futures', html:'Title, Final Four, make the field, No. 1 seed and the NIT.' + bl('<b>Our %</b> — share of 2,000 simulated seasons (regular season, conference tournaments, the committee, March).', '<b>Fair odds</b> — that chance as a price, no vig.', '<b>Edge</b> — our % minus the book’s, once the feed has book futures.'), before:function(){ try{ TDC_BL.show('futures'); }catch(e){} } },
+      { sel:'#wtTbl', t:'Win totals', d:'Every team’s regular-season win line with the over and under chance and a fair price for each side.', before:function(){ try{ TDC_BL.show('wins'); }catch(e){} } },
+      { sel:'#teamTbl', t:'Trends', html:bl('<b>ATS</b> — against the spread: did the team beat the closing number, not just win.', '<b>Over%</b> — how often its games went over the closing total.'), before:function(){ try{ TDC_BL.show('trends'); }catch(e){} } }
     ],
 
     'moneyball.html': [
@@ -337,17 +341,6 @@
     'predict.html': [
       { sel:'#q', t:'Projected Ratings & Schedule', html:'Find a team.' + bl(G.power, '<b>Game-by-game odds</b> — the projected line and win probability for every game.', '<b>Simulated season</b> — the season played thousands of times, giving a range of records rather than one number.') },
       { sel:'#sweepPanel', t:'Conference sweep', d:'Every team in a league projected side by side — the projected standings.' }
-    ],
-
-    'cheatsheet.html': [
-      { sel:'.cs-slate', t:'Pick a game day', d:'Every game day on the 2026-27 schedule. The whole page (picks, lines, eye-catchers) re-runs for the slate you choose.' },
-      { sel:'#csEyes', t:'What catches the eye', d:'The night in six tiles: the best matchup, the likeliest upset, the biggest mismatch, the highest and lowest projected totals, and the top play.' },
-      { sel:'#bestBets', t:'Best bets', d:'Plays with evidence behind them: player props where a backtested pattern and our projection agree, and (once books post) games where our line is 3+ points off the market.' },
-      { sel:'#worstBets', t:'Worst bets', d:'The traps: overs on players coming off career years (they went over well under half the time in our backtest), and teams the market has kept overrating against the spread.' },
-      { sel:'#gameLines', t:'Game lines', d:'Every game on the slate with our spread, total and win odds. Book lines and the edge fill in automatically when they post.' },
-      { sel:'#statPills', t:'Player prop board', d:'The full prop board. Pick the market: points, rebounds, assists, threes.' },
-      { sel:'#boardPills', t:'The board', html:bl('<b>Bounce-back Overs</b> — last season ran well below his career pace per minute; players drift back toward their norm.', '<b>Regression Unders</b> — last season ran well above it.', '<b>Value Movers</b> — the biggest gaps between our projection and his career norm.') + 'The header shows how often each board hit over the last two seasons. Sortable, with a conference filter.' },
-      { sel:'#teamAnglesSec', t:'Team angles', d:'ATS (against the spread) and over/under trends from five seasons of real closing lines — situations where teams have beaten the number more often than chance.' }
     ],
 
     'conferences.html': [

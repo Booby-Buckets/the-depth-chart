@@ -30,6 +30,9 @@
     var x = new Date(d + 'T12:00:00');
     return x.toLocaleDateString('en-US', long ? { weekday: 'long', month: 'long', day: 'numeric' } : { weekday: 'short', month: 'short', day: 'numeric' });
   }
+  // fair American moneyline for a win % (0-100), no vig — same math as the Lab's futures (tdc-betlab.js)
+  function mlTxt(p) { if (window.TDC_BL) return TDC_BL.fairTxt(p / 100); return '—'; }
+  function bookMl(o) { return o == null ? '—' : (o > 0 ? '+' : '−') + Math.abs(Math.round(o)); }
   function half(x) { return Math.round(x - 0.5) + 0.5; }
   function spreadTxt(m, home, away) { if (m == null) return '—'; var a = Math.abs(m); if (a < 0.25) return 'Pick’em'; return (m >= 0 ? short(home) : short(away)) + ' −' + (Math.round(a * 2) / 2).toFixed(1); }
 
@@ -49,8 +52,8 @@
     if (!S.oddsMap) { S.oddsMap = {}; S.odds.games.forEach(function (g) { S.oddsMap[g.home_norm + '|' + g.away_norm] = g; }); }
     var h = S.byFull[home], a = S.byFull[away];
     var keys = [[oNorm(home), oNorm(away)], [oNorm(h && h.team), oNorm(a && a.team)]];
-    for (var i = 0; i < keys.length; i++) { var g = S.oddsMap[keys[i][0] + '|' + keys[i][1]]; if (g) return { spread: g.spread == null ? null : -g.spread, total: g.total, flip: false }; }
-    for (i = 0; i < keys.length; i++) { g = S.oddsMap[keys[i][1] + '|' + keys[i][0]]; if (g) return { spread: g.spread == null ? null : g.spread, total: g.total, flip: true }; }
+    for (var i = 0; i < keys.length; i++) { var g = S.oddsMap[keys[i][0] + '|' + keys[i][1]]; if (g) return { spread: g.spread == null ? null : -g.spread, total: g.total, mlH: g.ml_home, mlA: g.ml_away, flip: false }; }
+    for (i = 0; i < keys.length; i++) { g = S.oddsMap[keys[i][1] + '|' + keys[i][0]]; if (g) return { spread: g.spread == null ? null : g.spread, total: g.total, mlH: g.ml_away, mlA: g.ml_home, flip: true }; }
     return null;
   }
 
@@ -223,7 +226,7 @@
       if (S.filter === 'conf') return r.conf;
       return true;
     }).sort(function (a, b) { return (a.both + a.quality) - (b.both + b.quality); });
-    var hasMk = rows.some(function (r) { return r.mk; });
+    var hasMk = rows.some(function (r) { return r.mk; }), hasMl = rows.some(function (r) { return r.mk && r.mk.mlH != null; });
     var lim = S.showAll ? view.length : Math.min(view.length, 40);
     var body = view.slice(0, lim).map(function (r, i) {
       var tag = '';
@@ -238,13 +241,15 @@
         '<td class="l"><b>' + spreadTxt(r.m, r.home, r.away) + '</b></td>' +
         '<td>' + (r.tot != null ? Math.round(r.tot) : '—') + '</td>' +
         '<td class="cs-wpc"><span class="dim">' + Math.round(r.probA) + '</span>' + bar + '<span class="dim">' + Math.round(r.probH) + '</span></td>' +
+        '<td class="dim cs-ml">' + mlTxt(r.probA) + ' / ' + mlTxt(r.probH) + '</td>' +
+        (hasMl ? '<td class="dim cs-ml">' + (r.mk && r.mk.mlA != null ? bookMl(r.mk.mlA) + ' / ' + bookMl(r.mk.mlH) : '—') + '</td>' : '') +
         (hasMk ? '<td class="l dim">' + (r.mk ? spreadTxt(r.mk.spread, r.home, r.away) : '—') + '</td><td class="dim">' + (r.mk && r.mk.total != null ? r.mk.total : '—') + '</td>' +
           '<td class="big">' + (r.spEdge != null ? (r.spEdge > 0 ? '+' : '') + r.spEdge : '—') + '</td>' : '') +
         '<td class="l">' + tag + '</td></tr>';
     }).join('');
-    var head = '<tr><th class="rk">#</th><th class="l">Matchup</th><th class="l">Our spread</th><th>Total</th><th title="Away win % · bar · home win %">Win %</th>' +
+    var head = '<tr><th class="rk">#</th><th class="l">Matchup</th><th class="l">Our spread</th><th>Total</th><th title="Away win % · bar · home win %">Win %</th><th title="Fair moneyline from our win %, no vig (away / home)">Fair ML</th>' + (hasMl ? '<th title="Consensus book moneyline (away / home)">Book ML</th>' : '') +
       (hasMk ? '<th class="l">Book spread</th><th>Book total</th><th title="Our margin minus the book’s, for the home side">Edge</th>' : '') + '<th class="l"></th></tr>';
-    $('linesTbl').innerHTML = '<thead>' + head + '</thead><tbody>' + (body || '<tr><td colspan="9" class="empty">No games match.</td></tr>') + '</tbody>';
+    $('linesTbl').innerHTML = '<thead>' + head + '</thead><tbody>' + (body || '<tr><td colspan="11" class="empty">No games match.</td></tr>') + '</tbody>';
     $('linesMore').style.display = view.length > 40 ? '' : 'none';
     $('linesMore').textContent = S.showAll ? 'Show fewer' : 'Show all ' + view.length + ' games';
     $('linesHint').textContent = view.length + ' games · ' + (hasMk ? 'model vs the market' : 'book lines appear here once they post');
