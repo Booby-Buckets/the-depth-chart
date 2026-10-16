@@ -4397,6 +4397,14 @@ function renderPage(){
 
   applyTeamTheme(color);
 
+  // school roster photo lookup: {short team: {name: url}} keyed loosely (suffixes, punctuation) like Social Studio's
+  let _SPH=null;
+  const _sphName=n=>String(n||'').toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b\.?/g,'').replace(/[^a-z]/g,'');
+  const _sphTeam=t=>String((window.tdcShortSchool?tdcShortSchool(t):t)||t||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  async function _tdcSchoolPhoto(p){
+    if(!_SPH) _SPH=fetch('scripts/data/school_photos_2027.json?v=1').then(r=>r.ok?r.json():{}).then(J=>{ const o={};
+      Object.keys(J).forEach(t=>{ const m={}; Object.keys(J[t]).forEach(n=>{ m[_sphName(n)]=J[t][n]; }); o[_sphTeam(t)]=m; }); return o; }).catch(()=>({}));
+    const S=await _SPH, m=S[_sphTeam(p.team)]; return (m&&m[_sphName(p.name)])||null; }
   // headshot: prefer photo_url, else derive the ESPN headshot from espn_id — but
   // ONLY for the owner (window.tdcShowPhotos); the public sees the initial placeholder.
   const _headshot = (window.tdcShowPhotos&&window.tdcShowPhotos()) ? (p.photo_url || (p.espn_id ? `https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/${p.espn_id}.png` : '')) : '';
@@ -4668,6 +4676,17 @@ function renderPage(){
     <div class="tab-panel" id="panel-betting"><div id="bettingContent"></div></div>
     <div class="tab-panel" id="panel-buzz"><div id="buzzContent"></div></div>
     <div class="tab-panel" id="panel-portalfit"><div id="portalfitContent"></div></div>`;
+  // NO ESPN HEADSHOT (owner, Oct 16 2026): the school's own roster photo (scripts/data/school_photos_2027.json, from
+  // scrape_school_rosters.py --photos, the same file Social Studio uses) when the player has no ESPN id or ESPN 404s.
+  // Owner-only like every headshot (tdcShowPhotos).
+  if(window.tdcShowPhotos&&window.tdcShowPhotos()) (async()=>{
+    const box=document.querySelector('#heroSection .pc-id'); if(!box) return;
+    const u=await _tdcSchoolPhoto(p); if(!u) return;
+    const put=()=>{ if(box.querySelector('.pa-photo')) return; const d=document.createElement('div'); d.className='pc-shot';
+      const im=document.createElement('img'); im.className='pa-photo'; im.alt=p.name||''; im.onerror=()=>d.remove(); im.src=u; d.appendChild(im); box.insertBefore(d,box.firstChild); };
+    const ex=box.querySelector('.pa-photo');
+    if(!ex) put(); else if(ex.complete&&!ex.naturalWidth) setTimeout(put,0); else ex.addEventListener('error',()=>setTimeout(put,0));
+  })();
 
   try{ _mountSeasonCtl(); }catch(e){ console.warn('season ctl', e); }
   // Draw radar after DOM is ready
