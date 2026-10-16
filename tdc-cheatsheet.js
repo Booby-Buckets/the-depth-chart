@@ -113,33 +113,51 @@
     return href ? '<a class="sl-card" href="' + href + '">' + inner + '</a>' : '<div class="sl-card">' + inner + '</div>';
   }
   function oppTxt(c) { return c.opp ? (c.opp.at + ' ' + esc(short(c.opp.opp))) : ''; }
-  function playRow(o, i) {
-    return '<div class="sl-row sl-play ' + (o.tone || '') + '" title="' + esc(o.why.replace(/<[^>]+>/g, '')) + '"><div class="sl-rk">' + (i + 1) + '</div>' + ring(o.team) +
-      '<div class="sl-who"><div class="sl-tn">' + o.title + '</div><div class="sl-sub">' + o.sub + '</div></div>' + card(o.pick, o.pickLab, o.stat, o.tone === 'bad' ? '' : 'g') + '</div>';
+  // BET SLIPS (owner pick, Oct 16 2026): one slip per best bet — kicker + confidence dots, who, the pick in a big
+  // box (edge or hit rate on the right), one line of why, the evidence underneath. Fades are red slips.
+  function dots(n) { n = Math.max(1, Math.min(5, n)); return '<span class="bs-dots" title="confidence ' + n + ' of 5">' + '●'.repeat(n) + '<s>' + '●'.repeat(5 - n) + '</s></span>'; }
+  function slip(o, i) {
+    return '<div class="bs ' + (o.tone === 'bad' ? 'bad' : '') + '"><div class="bs-top"><span class="bs-k">' + (o.tone === 'bad' ? 'Fade' : 'Best bet ' + (i + 1)) + ' · ' + o.kind + '</span>' + dots(o.conf) + '</div>' +
+      '<div class="bs-who">' + ring(o.team) + '<div class="bs-w"><b>' + o.title + '</b><small>' + o.sub + '</small></div></div>' +
+      '<div class="bs-pick"><b>' + o.pick + '</b><span>' + o.right + '</span></div>' +
+      '<div class="bs-why">' + o.why + '</div><div class="bs-ft"><span>' + o.ft1 + '</span><span>' + o.ft2 + '</span></div></div>';
   }
+  var KIND = { pts: 'Points', reb: 'Rebounds', ast: 'Assists', tpm: 'Threes', pra: 'Pts + reb + ast' };
   function propPlay(c, tone) {
-    var pct = Math.round((tone === 'bad' ? 1 - c.rate : c.rate) * 100);
+    var pct = Math.round((tone === 'bad' ? 1 - c.rate : c.rate) * 100), off = Math.round(Math.abs(c.ratio - 1) * 100);
     var why = tone === 'bad'
-      ? 'Coming off a career year: last season ran ' + Math.round((c.ratio - 1) * 100) + '% above his earlier pace per minute. Players like him went over only ' + pct + '% of the time.'
-      : (c.side === 'over' ? 'Last season ran ' + Math.round((1 - c.ratio) * 100) + '% below his career pace per minute; down years like that went over ' + pct + '% of the time, and our projection agrees.'
-        : 'Last season ran ' + Math.round((c.ratio - 1) * 100) + '% above his career pace per minute; spikes like that went under ' + pct + '% of the time, and our projection agrees.');
-    return { tone: tone, team: c.team, why: why,
-      title: '<a href="player.html?espn=' + c.id + '&tab=betting">' + esc(c.name) + '</a>',
-      sub: esc(short(c.team)) + ' ' + oppTxt(c) + ' · ' + STAT_NAME[c.s] + ' · ' + (tone === 'bad' ? 'career-year trap' : c.side === 'over' ? 'bounce-back' : 'regression'),
-      pick: (c.side === 'over' ? 'O ' : 'U ') + c.line, pickLab: (tone === 'bad' ? 'fade · ' : '') + STAT_ABBR[c.s] + (tone === 'bad' ? ' over hit' : ' · backtest'), stat: pct + '%' };
+      ? 'Coming off a career year (' + off + '% above his earlier pace per minute). Players like him went over only ' + pct + '% of the time.'
+      : (c.side === 'over' ? 'Last season ran ' + off + '% below his career pace per minute. Down years like that went over ' + pct + '% of the time' + (c.proj != null ? ', and our projection (' + (+c.proj).toFixed(1) + ') agrees.' : '.')
+        : 'Last season ran ' + off + '% above his career pace per minute. Spikes like that went under ' + pct + '% of the time' + (c.proj != null ? ', and our projection (' + (+c.proj).toFixed(1) + ') agrees.' : '.'));
+    var conf = tone === 'bad' ? (pct <= 42 ? 4 : pct <= 45 ? 3 : 2)
+      : (c.rate >= 0.63 ? 4 : c.rate >= 0.60 ? 3 : c.rate >= 0.57 ? 2 : 1) + (c.strength >= 0.6 ? 1 : 0);
+    return { tone: tone, team: c.team, kind: KIND[c.s], conf: conf, why: why,
+      title: '<a href="player.html?espn=' + c.id + '&tab=betting">' + esc(c.name) + '</a>', sub: esc(short(c.team)) + ' ' + oppTxt(c),
+      pick: (tone === 'bad' ? 'Avoid over ' : c.side === 'over' ? 'Over ' : 'Under ') + c.line + ' ' + STAT_ABBR[c.s], right: pct + '%',
+      ft1: 'Backtest ' + pct + '%' + (tone === 'bad' ? ' over' : '') + (c.n ? ' · ' + c.n + ' picks' : ''), ft2: tone === 'bad' ? 'Career-year trap' : c.side === 'over' ? 'Bounce-back' : 'Regression' };
   }
+  function edgeConf(e) { e = Math.abs(e); return e >= 6 ? 5 : e >= 4.5 ? 4 : e >= 3 ? 3 : 2; }
   function gamePlay(r) {
     var side = r.spEdge > 0 ? r.home : r.away, mk = r.mk;
     var bookSide = side === r.home ? mk.spread : -mk.spread;
-    var num = bookSide >= 0 ? '−' + Math.abs(bookSide).toFixed(1) : '+' + Math.abs(bookSide).toFixed(1);
-    return { tone: '', team: side, why: 'Our line ' + spreadTxt(r.m, r.home, r.away) + ', the book ' + spreadTxt(mk.spread, r.home, r.away) + ': a ' + Math.abs(r.spEdge).toFixed(1) + '-point gap toward ' + short(side) + '.',
-      title: '<a href="' + teamHref(side) + '">' + esc(short(side)) + '</a>', sub: esc(short(r.away)) + (r.neutral ? ' vs ' : ' @ ') + esc(short(r.home)) + ' · spread · our line ' + spreadTxt(r.m, r.home, r.away),
-      pick: num, pickLab: 'spread · edge', stat: '+' + Math.abs(r.spEdge).toFixed(1) };
+    var num = Math.abs(bookSide) < 0.25 ? 'PK' : (bookSide >= 0 ? '−' : '+') + Math.abs(bookSide).toFixed(1);
+    return { tone: '', team: side, kind: 'Spread', conf: edgeConf(r.spEdge),
+      why: 'Our line: ' + spreadTxt(r.m, r.home, r.away) + '. The book has ' + spreadTxt(mk.spread, r.home, r.away) + ', a ' + Math.abs(r.spEdge).toFixed(1) + '-point gap toward ' + esc(short(side)) + '.',
+      title: '<a href="' + teamHref(side) + '">' + esc(short(side)) + '</a>', sub: esc(short(r.away)) + (r.neutral ? ' vs ' : ' @ ') + esc(short(r.home)),
+      pick: esc(short(side)) + ' ' + num, right: '+' + Math.abs(r.spEdge).toFixed(1), ft1: 'Edge ' + Math.abs(r.spEdge).toFixed(1) + ' pts', ft2: 'Model vs market' };
+  }
+  function totalPlay(r) {
+    var over = r.toEdge > 0;
+    return { tone: '', team: r.home, kind: 'Total', conf: edgeConf(r.toEdge),
+      why: 'We project ' + Math.round(r.tot) + ' total points; the book is at ' + r.mk.total + '.',
+      title: esc(short(r.away)) + (r.neutral ? ' vs ' : ' @ ') + esc(short(r.home)), sub: r.neutral ? 'neutral site' : 'at ' + esc(short(r.home)),
+      pick: (over ? 'Over ' : 'Under ') + r.mk.total, right: '+' + Math.abs(r.toEdge).toFixed(1), ft1: 'Edge ' + Math.abs(r.toEdge).toFixed(1) + ' pts', ft2: 'Model vs market' };
   }
   function atsPlay(full, h, r) {
-    return { tone: 'bad', team: full, why: 'Covered only ' + Math.round(h.atsPct * 100) + '% of the time over five seasons of real closing lines (' + h.ats + ').',
-      title: '<a href="' + teamHref(full) + '">' + esc(short(full)) + '</a>', sub: esc(short(r.away)) + (r.neutral ? ' vs ' : ' @ ') + esc(short(r.home)) + ' · against the spread · ' + esc(h.ats),
-      pick: 'Fade', pickLab: 'ATS · 5-yr covers', stat: Math.round(h.atsPct * 100) + '%' };
+    return { tone: 'bad', team: full, kind: 'Against the spread', conf: h.atsPct <= 0.38 ? 4 : h.atsPct <= 0.41 ? 3 : 2,
+      why: 'Covered only ' + Math.round(h.atsPct * 100) + '% of the time over five seasons of real closing lines (' + esc(h.ats) + '). The market keeps overrating them.',
+      title: '<a href="' + teamHref(full) + '">' + esc(short(full)) + '</a>', sub: esc(short(r.away)) + (r.neutral ? ' vs ' : ' @ ') + esc(short(r.home)),
+      pick: 'Fade ' + esc(short(full)), right: Math.round(h.atsPct * 100) + '%', ft1: '5-yr ATS ' + esc(h.ats), ft2: 'Team trend' };
   }
   function renderEyes() {}   // the six tiles were retired with the redesign
 
@@ -153,21 +171,25 @@
     rows.filter(function (r) { return r.spEdge != null && Math.abs(r.spEdge) >= 3; })
       .sort(function (a, b) { return Math.abs(b.spEdge) - Math.abs(a.spEdge); }).slice(0, 3)
       .forEach(function (r) { best.push(gamePlay(r)); });
+    rows.filter(function (r) { return r.toEdge != null && Math.abs(r.toEdge) >= 4; })
+      .sort(function (a, b) { return Math.abs(b.toEdge) - Math.abs(a.toEdge); }).slice(0, 2)
+      .forEach(function (r) { best.push(totalPlay(r)); });
     var perStat = {};
     var agrees = function (c) { return c.proj == null || (c.side === 'over' ? c.proj >= c.line - 0.3 : c.proj <= c.line + 0.3); };
     props.filter(function (c) { return c.s !== 'tpm' && c.rate >= 0.55 && agrees(c); })
       .sort(function (a, b) { return b.score - a.score || b.ppg - a.ppg; })
       .forEach(function (c) { if (best.length >= 6 || used[c.id] || (perStat[c.s + c.side] || 0) >= 2) return; used[c.id] = 1; perStat[c.s + c.side] = (perStat[c.s + c.side] || 0) + 1; best.push(propPlay(c, 'good')); });
-    $('csBest').innerHTML = best.length ? best.map(playRow).join('') : none('No qualifying plays on this slate.');
+    best.sort(function (a, b) { return b.conf - a.conf; });
+    $('csBest').innerHTML = best.length ? '<div class="bs-grid">' + best.map(slip).join('') + '</div>' : none('No qualifying plays on this slate.');
     var worst = [], usedW = Object.assign({}, used);
     props.filter(function (c) { return c.side === 'under' && (c.s === 'pts' || c.s === 'pra') && c.ratio >= 1.35; })
       .sort(function (a, b) { return b.ppg - a.ppg; })
-      .forEach(function (c) { if (worst.length >= 4 || usedW[c.id]) return; usedW[c.id] = 1; worst.push(propPlay(Object.assign({}, c, { side: 'over' }), 'bad')); });
+      .forEach(function (c) { if (worst.length >= 2 || usedW[c.id]) return; usedW[c.id] = 1; worst.push(propPlay(Object.assign({}, c, { side: 'over' }), 'bad')); });
     var ats = [];
     rows.forEach(function (r) { [r.home, r.away].forEach(function (f) { var h = S.ats[f]; if (h && h.g >= 40 && h.atsPct <= 0.43) ats.push({ f: f, h: h, r: r }); }); });
-    ats.sort(function (a, b) { return a.h.atsPct - b.h.atsPct; }).slice(0, 2).forEach(function (x) { worst.push(atsPlay(x.f, x.h, x.r)); });
+    ats.sort(function (a, b) { return a.h.atsPct - b.h.atsPct; }).slice(0, 1).forEach(function (x) { worst.push(atsPlay(x.f, x.h, x.r)); });
     $('csWorstBar').style.display = worst.length ? '' : 'none';
-    $('csWorst').innerHTML = worst.map(playRow).join('');
+    $('csWorst').innerHTML = worst.length ? '<div class="bs-grid">' + worst.map(slip).join('') + '</div>' : '';
   }
 
   // ── every game: the SPORTSBOOK BOARD (owner pick, Oct 16 2026, after the split-bar rows made it "hard to tell who
