@@ -858,8 +858,17 @@
   }
 
   // hover tooltips + zone-card isolation
+  // ONE floating tooltip on <body> (owner, Oct 2026: the zone pop-up was "hidden in the chart"): inside .sc-court-wrap it was
+  // clipped by the court's overflow:hidden rounded frame near the sidelines. Fixed-positioned on top of every layer, kept
+  // inside the window, and flipped below the cursor when there's no room above.
+  function floatTip(){ var t=document.getElementById('scTipFloat');
+    if(!t){ t=document.createElement('div'); t.id='scTipFloat'; t.className='sc-tip'; document.body.appendChild(t); } return t; }
+  function placeTip(tip,e){ tip.style.left='0px'; tip.style.top='0px'; tip.style.transform='none';
+    var w=tip.offsetWidth, h=tip.offsetHeight, vw=window.innerWidth, m=8;
+    var x=Math.max(m,Math.min(vw-w-m,e.clientX-w/2)), y=e.clientY-h-14; if(y<m) y=e.clientY+20;
+    tip.style.left=x+'px'; tip.style.top=y+'px'; }
   function wire(el){
-    var wrap=el.querySelector('.sc-court-wrap'), tip=el.querySelector('.sc-tip');
+    var wrap=el.querySelector('.sc-court-wrap'), tip=wrap?floatTip():null;
     if(wrap&&tip){
       wrap.addEventListener('mousemove',function(e){
         var t=e.target.closest?e.target.closest('[data-tip],[data-t],[data-ztip]'):null;
@@ -879,8 +888,7 @@
         } else {
           tip.textContent=t.getAttribute('data-t'); tip.classList.remove('rich');
         }
-        tip.style.left=(e.clientX-r.left)+'px';
-        tip.style.top=(e.clientY-r.top-14)+'px';
+        placeTip(tip,e);
         tip.classList.add('on');
       });
       wrap.addEventListener('mouseleave',function(){ tip.classList.remove('on'); });
@@ -1005,7 +1013,8 @@
       '.sc-synth{opacity:.45;pointer-events:none;}'+
       '.sc-host.sc-hl .sc-mark{opacity:.07;}'+
       '.sc-host.sc-hl-rim .sc-zr,.sc-host.sc-hl-mid .sc-zm,.sc-host.sc-hl-three .sc-zt{opacity:1;}'+
-      '.sc-tip{position:absolute;pointer-events:none;background:var(--text);color:var(--bg);font-size:11px;font-weight:700;padding:5px 9px;border-radius:7px;transform:translate(-50%,-100%);opacity:0;transition:opacity .12s;white-space:nowrap;z-index:20;box-shadow:0 6px 18px rgba(0,0,0,.3);}'+
+      '.sc-tip{position:absolute;pointer-events:none;'+
+      '}#scTipFloat{position:fixed;z-index:100000;}.sc-tip{background:var(--text);color:var(--bg);font-size:11px;font-weight:700;padding:5px 9px;border-radius:7px;transform:translate(-50%,-100%);opacity:0;transition:opacity .12s;white-space:nowrap;z-index:20;box-shadow:0 6px 18px rgba(0,0,0,.3);}'+
       '.sc-tip.on{opacity:1;}'+
       // rich multi-line tooltip for hexes
       '.sc-tip.rich{white-space:normal;text-align:left;max-width:224px;display:flex;flex-direction:column;gap:2px;padding:9px 11px;line-height:1.35;background:var(--bg2);color:var(--text);border:1px solid var(--border2);border-radius:9px;box-shadow:0 12px 32px rgba(0,0,0,.45);}'+
