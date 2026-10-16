@@ -163,15 +163,22 @@
       var word = tr >= 3 ? 'Trending up' : tr >= 1 ? 'Slightly up' : tr <= -3 ? 'Trending down' : tr <= -1 ? 'Slightly down' : 'Steady';
       var nG = P.games.length, W = P.weight || 0;
       var games = P.games.slice().sort(function (a, b2) { return a.date.localeCompare(b2.date); });
-      var html = '<div class="tr-hd"><div><div class="tr-l">Preseason trend</div><div class="tr-big" style="color:' + col + '">' + (tr > 0 ? '▲ ' : tr < 0 ? '▼ ' : '') + sg(tr) + '</div></div>' +
-        '<div><div class="tr-t">' + word + ' <span style="font-weight:600;color:var(--text3);font-size:.8em">· ' + sg(tr) + ' Game Score per 40 min vs our projection</span></div><div class="tr-s">' + sg(tr) + ' means his scrimmages ran ' + Math.abs(tr).toFixed(1) + ' Game Score points per 40 minutes ' + (tr >= 0 ? 'above' : 'below') + ' what we projected for him, averaged over ' + nG + ' scrimmage' + (nG > 1 ? 's' : '') +
-        (nG > 1 ? ' that count as <b>' : ' that counts as <b>') + W.toFixed(2) + ' real game' + (W === 1 ? '' : 's') + '</b> (each weighted by its Reality Meter and his share of a normal night’s minutes) and pulled toward 0 as if he had one more average game. ±1 is a small move, ±3 a real one.</div></div></div>';
+      // PER GAME, not per 40 (owner, Oct 2026: "a more understandable metric like Power Rating"): the trend is built in Game
+      // Score per 40 minutes; shown x his projected minutes / 40 it reads as box-score points per game above/below projection,
+      // the same per-game points scale as Power Rating. The up/down words keep their per-40 cut-offs.
+      // minutes basis: the larger of his projected minutes and what he's playing in scrimmages (a bench player earning a
+      // bigger role — Jesse McCulloch, projected 11, playing 21 — shouldn't read as a tiny number)
+      var smin = games.length ? games.reduce(function (a, e) { return a + (+e.min || 0); }, 0) / games.length : 0;
+      var pmin = Math.max(+(b.mpg || nw.mpg || 0), smin) || 28, K = pmin / 40, pg = function (v) { return v == null ? v : v * K; };
+      var html = '<div class="tr-hd"><div><div class="tr-l">Preseason trend</div><div class="tr-big" style="color:' + col + '">' + (tr > 0 ? '▲ ' : tr < 0 ? '▼ ' : '') + sg(pg(tr)) + '</div><div class="tr-l" style="margin-top:2px">per game vs projection</div></div>' +
+        '<div><div class="tr-t">' + word + '</div><div class="tr-s">' + sg(pg(tr)) + ' means his scrimmages were worth about <b>' + Math.abs(pg(tr)).toFixed(1) + ' points per game ' + (tr >= 0 ? 'more' : 'less') + '</b> than we projected, at about ' + Math.round(pmin) + ' minutes a game. Points here are Game Score, one points-scale number for his whole box score (points, boards, assists, steals, blocks, shooting, turnovers). Averaged over ' + nG + ' scrimmage' + (nG > 1 ? 's' : '') +
+        (nG > 1 ? ' that count as <b>' : ' that counts as <b>') + W.toFixed(2) + ' real game' + (W === 1 ? '' : 's') + '</b> (each weighted by its Reality Meter and his share of a normal night’s minutes), pulled toward 0 as if he had one more average game.</div></div></div>';
 
       // ── 1. the trend chart: his trend after each scrimmage, starting from 0 entering the preseason ──
       var pts = [{ lab: 'Pre', y: 0, tip: '<b>Entering the preseason</b><br>Trend: <b>0.0</b>' }].concat(games.map(function (e) {
-        return { lab: md(e.date), y: e.trend_after || 0, tip: '<b>' + (e.site === 'A' ? '@ ' : 'vs ') + esc(short(e.opp)) + ' · ' + esc(e.res) + '</b><br>Trend after: <b>' + sg(e.trend_after) + '</b><br>' +
-          e.min + ' min · ' + e.pts + ' pts · vs proj ' + sg(e.d40) + ' GmSc/40 · counts ' + (+e.w).toFixed(2) }; }));
-      html += trendChart(host, pts, [[3, 'Trending up', 'Trending down'], [1, 'Slightly up', 'Slightly down']], 1, 3.6, 'Trend after each scrimmage');
+        return { lab: md(e.date), y: pg(e.trend_after || 0), tip: '<b>' + (e.site === 'A' ? '@ ' : 'vs ') + esc(short(e.opp)) + ' · ' + esc(e.res) + '</b><br>Trend after: <b>' + sg(pg(e.trend_after)) + '</b> per game<br>' +
+          e.min + ' min · ' + e.pts + ' pts · vs proj ' + sg(pg(e.d40)) + ' per game · counts ' + (+e.w).toFixed(2) }; }));
+      html += trendChart(host, pts, [[3 * K, 'Trending up', 'Trending down'], [1 * K, 'Slightly up', 'Slightly down']], 1, 3.6 * K, 'Trend after each scrimmage (per game vs projection)');
 
       // ── 2. the game log: projection → each scrimmage (expandable) → his projection now ──
       // RTG = the box-score 0-10 game rating (game.html playerRating: 5 + 0.135 x Game Score, 2-10), not raw Game Score
@@ -200,7 +207,7 @@
           md(e.date) + ' ' + (e.site === 'A' ? '@ ' : 'vs ') + esc(short(e.opp)) +
           '<span class="trl-sub"><b style="color:' + (w ? 'var(--green,#1a8c3a)' : 'var(--red,#cc2200)') + '">' + esc(e.res) + '</b> · ' + (e.gs ? 'Started' : 'Bench') + (e.reality != null ? ' · Reality ' + e.reality + ' (' + rmw + ')' : '') + '</span></td>' +
           lcols.map(function (c) { return '<td>' + cell(act, c[0], c[2], true) + '</td>'; }).join('') +
-          '<td class="' + cls(e.d40, 2) + '">' + sg(e.d40) + '</td><td>' + (e.w != null ? (+e.w).toFixed(2) : '—') + '</td><td class="trl-tr">' + sg(e.trend_after) + '</td></tr>';
+          '<td class="' + cls(e.d40, 2) + '">' + sg(pg(e.d40)) + '</td><td>' + (e.w != null ? (+e.w).toFixed(2) : '—') + '</td><td class="trl-tr">' + sg(pg(e.trend_after)) + '</td></tr>';
         // detail: the projection for this game, the same at his minutes, actual, and the difference
         var tbl = '';
         if (Pj && Pc) {
@@ -219,16 +226,16 @@
         var oa = e.opp_adj;
         body += '<tr class="trl-det" data-d="' + gi + '" hidden><td colspan="' + NC + '"><div class="trl-dbox"><div class="trl-dscroll">' + tbl + '</div>' +
           '<div class="tl-chips">' + (notes || '<span class="tl-chip">Right about what we projected.</span>') + '</div>' +
-          '<div class="tl-foot"><span>Counts as <b>' + (e.w != null ? (+e.w).toFixed(2) : '—') + '</b> of a real game</span><span>vs projection <b>' + sg(e.d40) + '</b> Game Score / 40</span>' +
+          '<div class="tl-foot"><span>Counts as <b>' + (e.w != null ? (+e.w).toFixed(2) : '—') + '</b> of a real game</span><span>vs projection <b>' + sg(pg(e.d40)) + '</b> per game</span>' +
           (oa != null && Math.abs(oa) >= 1 ? '<span>Opponent adjustment <b>' + sg(oa) + '%</b> (' + esc(short(e.opp)) + ' rated ' + sg(e.opp_rating) + ')</span>' : '') +
           '<a href="scrimmage.html?id=' + encodeURIComponent(e.id) + '">Box score →</a></div></div></td></tr>';
       });
       body += projRow(nw, 'His projection now', 'after ' + nG + ' scrimmage' + (nG > 1 ? 's' : '') + (nw.ovr != null ? ' · OVR ' + nw.ovr + (mv.ovr ? ' (' + sg(mv.ovr, 0) + ')' : '') : ''), true,
-        '<td class="trl-tr" style="color:' + col + '">' + sg(tr) + '</td>').replace('trl-proj', 'trl-proj trl-now');
+        '<td class="trl-tr" style="color:' + col + '">' + sg(pg(tr)) + '</td>').replace('trl-proj', 'trl-proj trl-now');
       body += upcoming.map(function (x) { return upRow(x, NC); }).join('');
       html += '<div class="tr-sec">Game log</div><div class="sheet-wrap" style="max-height:none"><table class="sheet dense trl"><thead><tr><th class="l">Game</th>' +
         lcols.map(function (c) { return '<th>' + c[1] + '</th>'; }).join('') +
-        '<th title="Game Score per 40 minutes vs what we projected for him">vs proj</th><th title="How many real games this scrimmage counts as (Reality Meter × his share of a normal night’s minutes)">Counts</th><th>Trend</th></tr></thead><tbody>' + body + '</tbody></table></div>';
+        '<th title="Box-score value (Game Score) per game vs what we projected for him, at his projected minutes">vs proj</th><th title="How many real games this scrimmage counts as (Reality Meter × his share of a normal night’s minutes)">Counts</th><th>Trend</th></tr></thead><tbody>' + body + '</tbody></table></div>';
       html += '<div class="tr-s" style="margin-top:8px;">Click a game for projected vs actual. The projection row\'s change is what the scrimmages moved: his per-minute rates (capped at 15%) and, lightly, his minutes' +
         (TM && TM.adj ? '; ' + esc(short(teamFull)) + '’s team rating moved <b style="color:' + (TM.adj > 0 ? 'var(--green,#1a8c3a)' : 'var(--red,#cc2200)') + '">' + sg(TM.adj, 2) + '</b>' : '') +
         '. Scrimmages are unofficial: they never count in his record or season stats.</div>';
@@ -433,12 +440,12 @@
       P.sort(function (a, b) { return (b.p.trend || 0) - (a.p.trend || 0); });
       if (P.length) {
         var link = function (x) { return x.ret ? 'player.html?espn=' + encodeURIComponent(x.key) + '&tab=trends' : 'player.html?name=' + encodeURIComponent(x.p.name) + '&team=' + encodeURIComponent(x.p.team) + '&tab=trends'; };
-        html += '<div class="tr-sec">Risers &amp; fallers</div><div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">Player</th><th title="Game Score per 40 vs his pre-scrimmage projection, Reality-weighted">Trend</th><th>OVR</th><th>MIN</th><th>PTS</th><th>REB</th><th title="Real-game equivalents his scrimmage lines count for">Counts</th><th class="l">Biggest note</th></tr></thead><tbody>' +
+        html += '<div class="tr-sec">Risers &amp; fallers</div><div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">Player</th><th title="Box-score value (Game Score) per game vs his pre-scrimmage projection, at his projected minutes, Reality-weighted">Trend</th><th>OVR</th><th>MIN</th><th>PTS</th><th>REB</th><th title="Real-game equivalents his scrimmage lines count for">Counts</th><th class="l">Biggest note</th></tr></thead><tbody>' +
           P.map(function (x) {
             var m = x.p.moved || {}, notes = [].concat.apply([], (x.p.games || []).map(function (e) { return e.notes || []; }));
             var top = notes.filter(function (n) { return n.indexOf('pts') >= 0 || n.indexOf('min') >= 0; })[0] || notes[0] || '';
             return '<tr style="cursor:pointer" onclick="location.href=\'' + link(x) + '\'"><td class="l nm">' + esc(x.p.name) + (x.ret ? '' : ' <span class="dim" style="font-size:10px">NEW</span>') + '</td>' +
-              '<td class="' + cls(x.p.trend, 1) + ' strong">' + sg(x.p.trend) + '</td>' +
+              '<td class="' + cls(x.p.trend, 1) + ' strong">' + sg(x.p.trend == null ? null : x.p.trend * (Math.max(+((x.p.base || {}).mpg || 0), (x.p.games || []).reduce(function (a, e) { return a + (+e.min || 0); }, 0) / Math.max(1, (x.p.games || []).length)) || 28) / 40) + '</td>' +   // per game, like the player tab
               '<td class="' + cls(m.ovr, 0.6) + '">' + sg(m.ovr, 0) + '</td><td class="' + cls(m.mpg, 0.8) + '">' + sg(m.mpg) + '</td>' +
               '<td class="' + cls(m.ppg, 0.4) + '">' + sg(m.ppg) + '</td><td class="' + cls(m.rpg, 0.3) + '">' + sg(m.rpg) + '</td>' +
               '<td class="dim">' + (x.p.weight != null ? (+x.p.weight).toFixed(2) + ' g' : '—') + '</td>' +

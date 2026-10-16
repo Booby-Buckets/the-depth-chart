@@ -1191,7 +1191,7 @@
   <link rel="stylesheet" href="tdc-dense.css?v=40"/>
   <link rel="stylesheet" href="tdc-hero.css?v=4"/>
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
-  <link rel="stylesheet" href="tdc-index-sheet.css?v=3"/>
+  <link rel="stylesheet" href="tdc-index-sheet.css?v=4"/>
   <!-- 2026 clean skin (loaded last so it wins): neutral bases + translucent depth; releases the dense dark-lock -->
   <link rel="stylesheet" href="tdc-skin.css?v=14"/>
   <link rel="stylesheet" href="tdc-grades.css?v=1">
@@ -2090,7 +2090,26 @@ function _rankLogo(t){
   const m=String(r.logo).match(/^https?:\/\/a\.espncdn\.com(\/i\/teamlogos\/[^?#]+)/);
   return m?`https://a.espncdn.com/combiner/i?img=${m[1]}&w=48&h=48`:r.logo;
 }
+// RANK MOVEMENT (owner, Oct 2026: "show where a team is dropping"): scripts/data/rank_history_2027.json holds one snapshot of
+// the published power rankings per day (scripts/snapshot_ranks.py, run after every projection rebuild). Each team shows how
+// far it has moved since the snapshot about a week back (or the oldest one we have), as a small ▲/▼ after its name.
+let RANK_MOVE=null;
+fetch('scripts/data/rank_history_2027.json?v=1',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(h=>{
+  if(!h||!h.days) return; const days=Object.keys(h.days).sort(); if(days.length<2) return;
+  const last=days[days.length-1], cut=new Date(last+'T12:00:00Z'); cut.setUTCDate(cut.getUTCDate()-7);
+  const base=days.filter(d=>d<=cut.toISOString().slice(0,10)).pop()||days[0]; if(base===last) return;
+  const prev={}; Object.keys(h.days[base]).forEach(k=>{ prev[k]=h.days[base][k][0]; });
+  RANK_MOVE={from:base, prev}; if(window._lastRows) renderRows(...window._lastRows);
+}).catch(()=>{});
+function _rankMove(t){
+  if(!RANK_MOVE||curSeason!==2027||t.rk==null) return '';
+  const was=RANK_MOVE.prev[t.name]; if(was==null) return '';
+  const d=was-t.rk; if(!d) return '';
+  const when=new Date(RANK_MOVE.from+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  return `<span class="ix-mv ${d>0?'up':'dn'}" title="${d>0?'Up':'Down'} ${Math.abs(d)} since ${when} (was #${was})">${d>0?'▲':'▼'}${Math.abs(d)}</span>`;
+}
 function renderRows(data, srt, favTeam){
+  window._lastRows=[data, srt, favTeam];
   applyRankColumns();
   const list=document.getElementById('rankingsList');
   if(!data.length){
@@ -2110,7 +2129,7 @@ function renderRows(data, srt, favTeam){
     const rec = P ? ` title="${t.actual?`${t.wins}–${t.losses} so far (${t.cw}–${t.cl} conf) · projected `:'Projected '}${P.w}–${P.l} (${P.lo}–${P.n-P.lo} to ${P.hi}–${P.n-P.hi}) · ${P.cw}–${P.cl} in conference · from ${P.n} announced games"` : '';
     let row = `<tr${isFav?' class="fav"':''}>`
       + `<td class="rk">${t.rk}</td>`
-      + `<td class="l nm"><a href="${href}" data-tn="${q(t.short||t.name)}">${logo?`<img src="${logo}" alt="" loading="lazy" onerror="this.remove()">`:'<i class="ix-nologo"></i>'}<span>${_shortNm(t.short||t.name)}</span></a>${carry}</td>`
+      + `<td class="l nm"><a href="${href}" data-tn="${q(t.short||t.name)}">${logo?`<img src="${logo}" alt="" loading="lazy" onerror="this.remove()">`:'<i class="ix-nologo"></i>'}<span>${_shortNm(t.short||t.name)}</span></a>${_rankMove(t)}${carry}</td>`
       + `<td class="l dim"><a class="ix-conf" href="conference.html?conf=${encodeURIComponent(t.confName||'')}${curSeason===2027?'':'&season='+curSeason}" title="${q(t.confName||'')} standings, tournament &amp; all-conference teams">${confAbbr(t.confName)}</a></td>`;
     RANK_COLS.forEach(([k,f,dir,col])=>{
       if(col && !RC[col]) return;

@@ -144,6 +144,22 @@ jobs:
           sleep 1
           PUPPETEER_MODULE="$RUNNER_TEMP/pp/node_modules/puppeteer/lib/esm/puppeteer/puppeteer.js" BASE=http://localhost:8765/ node scripts/headless_publish.mjs
 
+      # Rank history for the homepage's rising / falling arrows: snapshot the rankings just published (one per day)
+      - name: Snapshot power rankings
+        continue-on-error: true
+        run: |
+          python3 scripts/snapshot_ranks.py
+          git add scripts/data/rank_history_2027.json
+          if git diff --cached --quiet; then
+            echo "Rank snapshot unchanged."
+          else
+            git commit -m "Auto: power-ranking snapshot [skip ci]"
+            for i in 1 2 3 4 5; do
+              git pull --rebase -X theirs origin main && git push && break
+              sleep $((i*5))
+            done
+          fi
+
                 # Dynasty starts from the same rosters + projections: rebuild its snapshot and commit it when it changed
       # (the build is deterministic, so an unchanged roster commits nothing)
       - name: Rebuild Dynasty snapshot
