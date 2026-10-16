@@ -1654,6 +1654,8 @@
       <div id="teamShotQHost"><div style="padding:24px;color:var(--text3);">Loading shot quality…</div></div>
     </div>
     <div class="panel" id="panel-trends">
+      <div class="sec-head" style="margin-bottom:10px;">Trend line <span style="font-weight:500;color:var(--text3);text-transform:none;letter-spacing:0;font-size:12px">· every game rated on the Power Rating scale, plus the preseason daily rating</span></div>
+      <div id="teamTrendLine" style="margin-bottom:26px;"></div>
       <div class="sec-head">Preseason Trends <span class="sec-head-sub" style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· what the scrimmages said, weighted by how game-like each one was</span></div>
       <div id="teamTrendsHost"></div>
     </div>
@@ -6532,6 +6534,7 @@ function switchTab(id, btn){
   }
   if(id==='schedule') initSchedule();
   if(id==='lineups' && window.TDCLineupHist){ (async()=>{ const full=(await _resolveGamesKey().catch(()=>null))||teamMascot(); TDCLineupHist.render(document.getElementById('lineupHistHost'), full); })(); }
+  if(id==='trends' && window.TDCTeamTrend){ (async()=>{ const full=(await _resolveGamesKey().catch(()=>null))||teamMascot(); TDCTeamTrend.render(document.getElementById('teamTrendLine'), { full, short:(teamT&&teamT.name)||'', color:(typeof teamColor_g!=='undefined'&&teamColor_g)||null }); })(); }
   if(id==='trends' && window.TDCTrends) TDCTrends.renderTeam(document.getElementById('teamTrendsHost'), (teamT&&teamT.name)||(teamPlayers&&teamPlayers[0]&&teamPlayers[0].team)||'');
   if(id==='preview') initPreview();
   if(id==='report') renderRosterReport();
@@ -9989,5 +9992,6 @@ function renderProjNatlChart(projected, color, rgb){
   <script src="tdc-depth-editor.js?v=2"></script>
 <script src="tdc-mteam.js?v=24"></script>
 <script src="tdc-trends.js?v=15"></script>
+<script src="tdc-teamtrend.js?v=1"></script>
 </body>
 </html>
