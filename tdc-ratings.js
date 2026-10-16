@@ -268,7 +268,7 @@
       fetch('scripts/data/shot_genome_players.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('data/continuity.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('scripts/data/level_adj.json').then(r=>r.ok?r.json():null).catch(()=>null),
-      fetch('scripts/data/team_eff.json?v=14').then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch('scripts/data/team_eff.json?v=15').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('scripts/data/scrim_trends_2027.json?v=6').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('scripts/data/program_prior_2027.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('scripts/data/program_era_2027.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null),

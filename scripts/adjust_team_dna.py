@@ -28,7 +28,7 @@ def fetch_games(year):
     out=[]; page=0
     while True:
         url=(f"{SB}/rest/v1/games?select=home,away,home_score,away_score&season_year=eq.{year}"
-             f"&status=eq.STATUS_FINAL&limit=1000&offset={page*1000}")
+             f"&status=eq.STATUS_FINAL&order=id&limit=1000&offset={page*1000}")
         rows=get(url)
         out+=rows
         if len(rows)<1000: break

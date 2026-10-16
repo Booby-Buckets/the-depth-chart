@@ -24,7 +24,16 @@ def main():
         teams = blk.get("teams", {})
         out = {}
         for name, v in teams.items():
-            if isinstance(v, dict) and "ORtg" in v and "DRtg" in v:
+            if isinstance(v, dict) and "adjO" in v and "adjD" in v:
+                # Actual seasons: opponent-adjusted (adjust_team_dna.py) so the homepage agrees
+                # with Power Rating + the DNA tab. Raw margins flatter mid-majors in weak leagues.
+                out[name] = {
+                    "o": round(v["adjO"], 1),
+                    "d": round(v["adjD"], 1),
+                    "net": round(v.get("adjNet", v["adjO"] - v["adjD"]), 1),
+                }
+            elif isinstance(v, dict) and "ORtg" in v and "DRtg" in v:
+                # Projected season (no games yet) — raw is the only lens.
                 out[name] = {
                     "o": round(v["ORtg"], 1),
                     "d": round(v["DRtg"], 1),
