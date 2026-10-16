@@ -49,14 +49,28 @@
     .gh-team.lose .gh-rate{opacity:.9;}
     /* box tables — the site sheet (tdc-sheets.css); one table per team */
     .bs{margin-top:26px;}
+    /* stat strip under the band — the same flat ribbon as the team header and the game preview */
+    .gm-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1px solid var(--border);background:var(--bg);margin:12px 0 4px;}
+    .gm-strip .t{padding:14px 18px 13px;border-right:1px solid var(--border);min-width:0;}
+    .gm-strip .t:last-child{border-right:none;}
+    .gm-strip .v{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:24px;letter-spacing:-.01em;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;}
+    .gm-strip .k{font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-top:6px;white-space:nowrap;}
+    .gm-strip .s{font-size:11px;color:var(--text3);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    @media(max-width:760px){.gm-strip{grid-template-columns:repeat(3,minmax(0,1fr));}.gm-strip .t{border-bottom:1px solid var(--border);padding:9px 10px;}.gm-strip .v{font-size:18px;}.gm-strip .s{display:none;}}
+    /* game flow / rotation: a plain Playfair section title like every other section (the condensed poster title and the
+       repeated score above the chart came from the standalone crunch-time cards) */
+    html body .gf-top{border-bottom:none;padding-bottom:0;margin-bottom:10px;align-items:baseline;}
+    html body .gf-title{font-family:'Playfair Display',serif;font-size:18px;font-weight:800;text-transform:none;letter-spacing:0;font-stretch:normal;line-height:1.2;}
+    html body .gf-sc{display:none;}
+    html body .gf-meta{font-size:10px;letter-spacing:.1em;}
     .bs-team{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;margin-bottom:8px;}
     .sheet.bs-sheet tbody tr.totals td{border-top:2px solid var(--border2);}
     .sheet .potg-tag{font-size:9px;font-weight:800;letter-spacing:.06em;color:var(--text3);margin-left:6px;}
     .loading,.err{padding:50px;text-align:center;color:var(--text3);}
-    .potg-callout{display:flex;align-items:center;gap:10px;margin-top:14px;padding:10px 14px;border:1px solid color-mix(in srgb,#f5b301 45%,var(--border));background:color-mix(in srgb,#f5b301 9%,transparent);border-radius:8px;}
+    /* Player of the Game: a flat bordered row like the team header's stat strip (owner, Oct 16 2026: match the other pages) */
+    .potg-callout{display:flex;align-items:center;gap:14px;margin-top:10px;padding:12px 18px;border:1px solid var(--border);background:var(--bg);border-radius:0;}
     .potg-callout .crown{font-size:20px;}
-    .potg-callout .lbl{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#a36a00;}
-    [data-theme="dark"] .potg-callout .lbl{color:#f0b429;}
+    .potg-callout .lbl{font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:2px;}
     .potg-callout .nm{font-family:'Playfair Display',serif;font-weight:800;font-size:17px;}
     .potg-callout .ln{font-size:12.5px;color:var(--text2);font-variant-numeric:tabular-nums;}
     .potg-callout a{text-decoration:none;color:inherit;}
@@ -232,15 +246,16 @@ async function load(afterLive){
       :`<div class="gh-meta">${fmtD(date)}</div>`);
     // the read under the band: what was expected vs what happened. 2026-27 games use our pregame line (same as
     // the scrimmage page); any season gets the season power ratings the team game rating is measured against.
+    let expM=null, expLbl='';   // expected margin (home − away) for the strip: our pregame line (2026-27) or season power
     const read=await (async()=>{
       const mg=N(hs)-N(as_), res=`<b>${esc(shortNm(mg>=0?home:away))} by ${Math.abs(mg)}</b>`;
       if(g&&g.season_year>=2027&&window.TDC_LIVE&&TDC_LIVE.pregame){ try{
         const l=await TDC_LIVE.pregame({id:String(gid),date:g.date,home:{name:home},away:{name:away},neutral:!!g.neutral});
-        if(l&&l.margin!=null){ const d=mg-l.margin, fav=l.margin>=0?home:away;
+        if(l&&l.margin!=null){ const d=mg-l.margin, fav=l.margin>=0?home:away; expM=l.margin; expLbl='Our line';
           return `Our line: <b>${esc(shortNm(fav))} −${Math.abs(l.margin).toFixed(1)}</b>${l.p!=null?` (${Math.round(100*Math.max(l.p,1-l.p))}% to win)`:''} · Result: ${res}, ${Math.abs(d).toFixed(1)} points ${(l.margin>=0?d:-d)>=0?'better':'worse'} than our line for the favorite.`; }
       }catch(e){} }
       const sH=SRS[home], sA=SRS[away]; if(sH==null||sA==null) return '';
-      const exp=sH-sA, over=mg-exp;
+      const exp=sH-sA, over=mg-exp; expM=exp; expLbl='Power ratings';
       return `Season power ratings had <b>${esc(shortNm(exp>=0?home:away))} by ${Math.abs(exp).toFixed(1)}</b> · Result: ${res}, so ${esc(shortNm(over>=0?home:away))} played ${Math.abs(over).toFixed(1)} points better than expected. That gap is each team's game rating (6.3 = exactly as expected).`;
     })();
     // player of the game = highest Game Score across both teams
@@ -248,7 +263,6 @@ async function load(afterLive){
     bA.forEach(p=>{const gs=gameScore(p); if(gs>bestGs){bestGs=gs;potg=p;}});
     const potgId=potg?potg.espn_id:null;
     const callout=potg?`<div class="potg-callout">
-      <span class="crown">👑</span>
       <div><div class="lbl">Player of the Game</div>
         <a href="player.html?espn=${potg.espn_id}&name=${encodeURIComponent(potg.player)}"><span class="nm">${potg.player}</span></a>
         <span class="ln"> — ${statline(potg)} · ${potg.team}</span></div>
@@ -257,7 +271,19 @@ async function load(afterLive){
     const order=[away,home].filter(t=>byTeam[t]);
     Object.keys(byTeam).forEach(t=>{ if(!order.includes(t)) order.push(t); });
     const trFor=t=>tr?(t===home?tr.home:t===away?tr.away:null):null;
-    c.innerHTML=header+(read?`<p class="gm-read">${read}</p>`:'')+callout+order.map(t=>tableFor(t,byTeam[t],potgId,trFor(t))).join('');
+    // the strip: margin · expected · total · pace · site
+    const strip=(()=>{ const mg=N(hs)-N(as_), win=mg>=0?home:away;
+      const tm=t=>(byTeam[t]||[]).reduce((a,p)=>{ a.fga+=N(p.fga); a.fta+=N(p.fta); a.tov+=N(p.tov); a.oreb+=N(p.oreb); return a; },{fga:0,fta:0,tov:0,oreb:0});
+      const poss=t=>{ const x=tm(t); return x.fga+0.44*x.fta+x.tov-x.oreb; }, pa=poss(home), pb=poss(away), pace=(pa>0&&pb>0)?(pa+pb)/2:null;
+      const cell=(v,k,sub)=>`<div class="t"><div class="v">${v}</div><div class="k">${k}</div><div class="s">${sub||'&nbsp;'}</div></div>`;
+      const vsExp=expM!=null?mg-expM:null;
+      return `<div class="gm-strip">`+
+        cell(Math.abs(mg),'Margin',esc(shortNm(win))+' won')+
+        cell(expM!=null?'−'+Math.abs(expM).toFixed(1):'—','Expected',expM!=null?esc(shortNm(expM>=0?home:away))+' · '+expLbl:'no pregame rating')+
+        cell(vsExp!=null?Math.abs(vsExp).toFixed(1):'—','vs. expected',vsExp!=null?esc(shortNm(vsExp>=0?home:away))+' beat it':'&nbsp;')+
+        cell(N(hs)+N(as_),'Total points',pace?(N(hs)+N(as_)>0?((N(hs)+N(as_))/pace/2*100).toFixed(0)+' per 100 poss.':''):'')+
+        cell(pace?Math.round(pace):'—','Possessions',g&&g.neutral?'neutral site':esc(shortNm(home))+' home floor')+`</div>`; })();
+    c.innerHTML=header+strip+(read?`<p class="gm-read">${read}</p>`:'')+callout+order.map(t=>tableFor(t,byTeam[t],potgId,trFor(t))).join('');
     shadeBoxes(c);
     // game flow + rotation (ESPN play-by-play; hides itself when ESPN has no PBP)
     if(window.TDC_GAMEFLOW){ const gf=document.createElement('div'); gf.id='gfHost'; c.appendChild(gf); TDC_GAMEFLOW.mount(gf,gid); }
