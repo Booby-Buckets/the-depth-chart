@@ -63,6 +63,10 @@
     .rm-tbl{width:100%!important;table-layout:fixed;} .rm-tbl th,.rm-tbl td{white-space:normal!important;line-height:1.35;vertical-align:top;} .rm-tbl th:nth-child(1){width:19%;} .rm-tbl th:nth-child(2),.rm-tbl th:nth-child(3){width:30%;} .rm-tbl th:nth-child(4){width:21%;} .rm-ref{display:none;font-size:11px;color:var(--text3);font-weight:500;margin-top:3px;} @media(max-width:640px){.rm-tbl th:nth-child(4),.rm-tbl td:nth-child(4){display:none;} .rm-ref{display:block;} .rm-tbl th:nth-child(1){width:30%;} .rm-tbl th:nth-child(2),.rm-tbl th:nth-child(3){width:35%;} .rm-tbl th,.rm-tbl td{font-size:12px!important;}} .rm-why{margin-top:8px;}
     td .mb{display:inline-block;width:46px;height:6px;border-radius:3px;background:var(--bg3);margin-left:7px;vertical-align:1px;overflow:hidden;}
     td .mb i{display:block;height:100%;background:var(--text3);}
+    .ef-tbl{width:100%!important;max-width:720px;table-layout:fixed;} .ef-tbl th:first-child{width:38%;}
+    .ef-tbl td.sub{font-size:10px!important;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);background:var(--bg2)!important;}
+    .ef-tbl td.c3{font-weight:800;}
+    @media(max-width:640px){ .ef-tbl td .dim{display:block;font-size:10.5px;} .ef-tbl th:first-child{width:34%;} .ef-tbl td,.ef-tbl th{font-size:12px!important;} }
     .empty{padding:30px;text-align:center;color:var(--text3);border:1px dashed var(--border2);border-radius:12px;}
     @media (max-width:640px){ .board{grid-template-columns:1fr;text-align:center;} .side,.side.home{justify-content:center;text-align:center;flex-direction:column;} .score{text-align:center;} h1{font-size:26px;} }
   </style>
@@ -83,7 +87,7 @@
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
 </head>
 <body class="hqsite">
-  <script src="tdc-nav.js?v=78"></script>
+  <script src="tdc-nav.js?v=79"></script>
   <div class="page" id="app"><div class="empty">Loading the box score…</div></div>
 
 <script src="tdc-scrim.js?v=19"></script>
@@ -174,6 +178,55 @@
       ${notes.length||adj?`<p class="rm-why">${[notes.length?'Against a short-handed opponent '+notes.join(' and ')+'.':'',adj].filter(Boolean).join(' ')}</p>`:''}`;
   }
 
+  // FOUR FACTORS + EFFICIENCY (owner, Oct 16 2026: "what could we show from scrimmages for analytical data"):
+  // shooting splits, possessions, points per possession and the four factors for both teams, each next to the
+  // D-I average (team_pace_eff.json ffAvg). Box-score only, so it works for every game with a box.
+  // Possessions = FGA − OREB + TOV + 0.44·FTA, averaged over both teams (box-score estimate; Duke–Belmont: 74 vs 73 counted).
+  function teamNums(box){
+    const T=box.totals||{}, P=box.players||[], sum=k=>P.reduce((a,p)=>a+(+p[k]||0),0);
+    const n=k=>T[k]!=null?+T[k]:sum(k);
+    return { pts:n('pts'), fgm:n('fgm'), fga:n('fga'), tpm:n('tpm'), tpa:n('tpa'), ftm:n('ftm'), fta:n('fta'), tov:n('tov'), ast:n('ast'),
+      stl:n('stl'), blk:n('blk'), oreb:T.oreb!=null?+T.oreb:sum('oreb'), dreb:T.dreb!=null?+T.dreb:sum('dreb') };
+  }
+  function efficiency(box,g,byFull,ff){
+    if(!box||!box.home||!box.away) return '';
+    const A=teamNums(box.away), H=teamNums(box.home);
+    if(!A.fga||!H.fga) return '';
+    const poss=x=>x.fga-x.oreb+x.tov+0.44*x.fta, P=(poss(A)+poss(H))/2;
+    const pc=(m,a)=>a?m/a:null, fmt=(v,d)=>v==null?'—':(100*v).toFixed(d==null?0:d)+'%';
+    const two=x=>({m:x.fgm-x.tpm,a:x.fga-x.tpa});
+    const ma=(m,a)=>`<span class="dim">${m}-${a}</span>`;
+    // [label, away value, home value, display fn, higher is better?, D-I average (0-1 or raw), tooltip]
+    const rows=[
+      ['sec','Shooting'],
+      ['Field goals',pc(A.fgm,A.fga),pc(H.fgm,H.fga),(v,x)=>fmt(v)+' '+ma(x.fgm,x.fga),1,null],
+      ['2-pointers',pc(two(A).m,two(A).a),pc(two(H).m,two(H).a),(v,x)=>fmt(v)+' '+ma(two(x).m,two(x).a),1,null],
+      ['3-pointers',pc(A.tpm,A.tpa),pc(H.tpm,H.tpa),(v,x)=>fmt(v)+' '+ma(x.tpm,x.tpa),1,null],
+      ['Free throws',pc(A.ftm,A.fta),pc(H.ftm,H.fta),(v,x)=>fmt(v)+' '+ma(x.ftm,x.fta),1,null],
+      ['3-point rate',pc(A.tpa,A.fga),pc(H.tpa,H.fga),v=>fmt(v),0,null,'Share of shots taken from three'],
+      ['sec','Four factors'],
+      ['Effective FG%',pc(A.fgm+0.5*A.tpm,A.fga),pc(H.fgm+0.5*H.tpm,H.fga),v=>fmt(v,1),1,ff&&ff.oeFG/100,'FG% with threes worth 1.5 makes'],
+      ['Turnover rate',A.tov/P,H.tov/P,v=>fmt(v,1),-1,ff&&ff.oTOV/100,'Turnovers per possession'],
+      ['Off. rebound rate',pc(A.oreb,A.oreb+H.dreb),pc(H.oreb,H.oreb+A.dreb),v=>fmt(v,1),1,ff&&ff.oORB/100,'Share of its own misses a team rebounded (player rebounds; team rebounds not counted)'],
+      ['FT rate',pc(A.fta,A.fga),pc(H.fta,H.fga),v=>v==null?'—':v.toFixed(2),1,ff&&ff.oFTr/100,'Free-throw attempts per field-goal attempt'],
+      ['sec','Efficiency'],
+      ['Possessions',P,P,v=>Math.round(v),0,null,'FGA − OREB + TOV + 0.44 × FTA, averaged over both teams'],
+      ['Points per possession',A.pts/P,H.pts/P,v=>v.toFixed(2),1,null],
+      ['Assist rate',pc(A.ast,A.fgm),pc(H.ast,H.fgm),v=>fmt(v),1,null,'Share of made baskets that were assisted'],
+      ['Steal rate',A.stl/P,H.stl/P,v=>fmt(v,1),1,null,'Steals per opponent possession'],
+    ];
+    const body=rows.map(r=>{
+      if(r[0]==='sec') return `<tr data-noheat><td class="l sub" colspan="4">${r[1]}</td></tr>`;
+      const [lab,a,h,f,dir,avg,tip]=r, better=(x,y)=>dir&&x!=null&&y!=null&&Math.abs(x-y)>1e-9&&(dir>0?x>y:x<y);
+      const cell=(v,x,w)=>`<td class="${w?'c3':''}">${v==null?'—':f(v,x)}</td>`;
+      const avgTxt=avg==null?'':(lab==='FT rate'?avg.toFixed(2):(100*avg).toFixed(1)+'%');
+      return `<tr><td class="l"${tip?` title="${esc(tip)}"`:''}>${lab}</td>${cell(a,A,better(a,h))}${cell(h,H,better(h,a))}<td class="dim">${avgTxt}</td></tr>`;
+    }).join('');
+    const nm=full=>esc(shortOf(full,byFull));
+    return `<div class="sec"><h2>Efficiency</h2><span class="hint">shooting · four factors · per possession</span></div>
+      <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense ef-tbl"><thead><tr><th class="l">Stat</th><th>${nm(g.away)}</th><th>${nm(g.home)}</th><th title="Division I average, 2025-26">D-I avg</th></tr></thead><tbody>${body}</tbody></table></div>`;
+  }
+
   async function main(){
     if(!id){ $app.innerHTML='<div class="empty">No scrimmage selected.</div>'; return; }
     const [S,D]=await Promise.all([TDCScrim.load(), window.TDC_RATINGS?TDC_RATINGS.get().catch(()=>null):null]);
@@ -198,7 +251,7 @@
         read+=` · Result: <b>${esc(shortOf(actual>=0?g.home:g.away,byFull))} by ${Math.abs(actual)}</b>, ${Math.abs(diff).toFixed(1)} points ${beat>=0?'better':'worse'} than our line for the favorite.`; } }
     const [rh,ra]=await Promise.all([roster(byFull[g.home]&&byFull[g.home].team), roster(byFull[g.away]&&byFull[g.away].team)]);
     $app.innerHTML=`
-      <div><span class="chip">Preseason scrimmage · unofficial</span></div>
+      <div><a href="scrimmages.html" style="font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;margin-right:10px;">← All scrimmages</a><span class="chip">Preseason scrimmage · unofficial</span></div>
       <h1 class="sr-only">${esc(aS)} ${g.neutral?'vs':'at'} ${esc(hS)}</h1>
       ${TDC_GAMEHEAD.html({ away:band(g.away,res.as), home:band(g.home,res.hs),
         status:has?'Final':'Not played yet', statusSub:has?'Unofficial':'',
@@ -206,6 +259,7 @@
       ${read?`<p class="read">${read}</p>`:''}
       ${res.note?`<p class="read">${esc(res.note)}</p>`:''}
       ${meter(res.reality,g,byFull,res)}
+      ${efficiency(box,g,byFull,S.eff&&S.eff.ffAvg)}
       ${box?teamBlock('away',box.away,g.away,byFull[g.away]&&byFull[g.away].team,ra,byFull)+teamBlock('home',box.home,g.home,byFull[g.home]&&byFull[g.home].team,rh,byFull)
            :`<div class="empty" style="margin-top:20px;">${has?'Only the final score is in for this one; no box score has posted.':'This scrimmage hasn’t been played yet. Its box score lands here once it’s out.'}</div>`}
       <div class="note">Unofficial preseason scrimmage: not counted in either team's record, season stats or ratings. How far it moves anything is set by the Reality Meter: a fully game-like scrimmage counts as one real game toward each player's projected rates (capped 15%), minutes (rotation), a newcomer's OVR (±4) and the team's rating (±2.5). Each player's Trends tab shows exactly what moved. * = started. "Did not play" lists everyone on our 2026-27 roster with no minutes in the box score.${res.src?` <a href="${esc(res.src)}" target="_blank" rel="noopener">Source box score</a>.`:''}</div>`;

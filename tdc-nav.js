@@ -20,6 +20,7 @@
   var GROUPS = [
     ['Teams', [
       ['today.html',           "Today's Games"],
+      ['scrimmages.html',      'Scrimmages'],
       ['index.html',           'Team Rankings'],
       ['team.html',            'Teams'],
       ['team-stats.html',      'Team Stats'],
