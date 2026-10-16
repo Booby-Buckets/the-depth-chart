@@ -91,7 +91,7 @@
   function build(pbp,box,meta){
     if(!window.TDC_GAMEFLOW||!TDC_GAMEFLOW.fromSummary) return null;
     var d=summary(pbp,box,meta); if(!d) return null;
-    var res=TDC_GAMEFLOW.fromSummary(d,{panel:'lead',srcLabel:'the box score’s',noHead:true,
+    var res=TDC_GAMEFLOW.fromSummary(d,{panel:'lead',ours:true,srcLabel:'the box score’s',noHead:true,
       href:function(id){ var i=id.indexOf('|'); return meta.href?meta.href(id.slice(0,i),id.slice(i+1)):null; }});
     if(!res) return null;
     // a team's on-floor rebuild is trusted only if every player's minutes land within 6 of the box score

@@ -164,7 +164,7 @@
 
   // ── GAME FLOW ──
   function flowSvg(G,R,K,cw){
-    var W=Math.max(520,Math.min(1000,cw||1000)), Hh=W<700?300:360, padL=46, padR=14, top=22, bot=34, ih=Hh-top-bot, iw=W-padL-padR;
+    var W=Math.max(520,Math.min(1000,cw||1000)), Hh=W<700?300:360, padL=46, padR=14, top=G.ours?40:22, bot=34, ih=Hh-top-bot, iw=W-padL-padR;
     var sgn=K.up===G.home?1:-1;
     var maxAbs=10; R.flow.forEach(function(f){ maxAbs=Math.max(maxAbs,Math.abs(f[1])); });
     var Y=Math.ceil(maxAbs/10)*10;
@@ -190,6 +190,17 @@
       return '<circle cx="'+bx.toFixed(1)+'" cy="'+by.toFixed(1)+'" r="5" fill="'+css(col)+'" stroke="var(--bg,#fff)" stroke-width="1.5"/>'+
         '<text class="gf-call" x="'+tx.toFixed(1)+'" y="'+ty.toFixed(1)+'" text-anchor="'+anchor+'" fill="'+css(col)+'">'+esc(G.T[t].name)+' by '+best[1]+'</text>'; };
     g+=callout(K.up,K.cu,1)+callout(K.dn,K.cd,-1);
+    // G.ours: runs of 8+ unanswered points, bracketed and labelled along the top
+    if(G.ours){ var RU=[], cur=null, F=R.flow;
+      for(var i=1;i<F.length;i++){ var dd=F[i][1]-F[i-1][1]; if(!dd) continue; var tm=dd>0?G.home:G.away;
+        if(cur&&cur.t===tm){ cur.p+=Math.abs(dd); cur.e=F[i][0]; } else { if(cur&&cur.p>=8) RU.push(cur); cur={t:tm,p:Math.abs(dd),s:F[i-1][0],e:F[i][0]}; } }
+      if(cur&&cur.p>=8) RU.push(cur);
+      var placed=[];
+      RU.sort(function(a,b){ return b.p-a.p; }).forEach(function(r){ var a=x(r.s), b=Math.max(x(r.e),a+6), mid=(a+b)/2;
+        if(placed.some(function(q){ return Math.abs(q-mid)<74; })) return; placed.push(mid);
+        var col=css(r.t===K.up?K.cu:K.cd);
+        g+='<path d="M '+a.toFixed(1)+' 30 V 26 H '+b.toFixed(1)+' V 30" fill="none" stroke="'+col+'" stroke-width="1.5"/>'+
+          '<text class="gf-run" x="'+mid.toFixed(1)+'" y="20" text-anchor="middle" fill="'+col+'">'+r.p+'–0 '+esc(G.T[r.t].abbr||'')+'</text>'; }); }
     // team marks on the axis
     // between two gridlines so they never sit on a tick label
     var tmM=Math.floor(Y/20)*10+5;
@@ -269,10 +280,14 @@
 
   // ── ROTATION ──
   var PM=['#a8123e','#d81b50','#ec6f8c','#f6bccb','#e6e7ea','#c8daf0','#8db6e3','#4a86c8','#0f56a3'];
-  function pmColor(v){ var i=Math.round(Math.max(-10,Math.min(10,v))/2.5)+4; i=Math.max(0,Math.min(8,i)); return PM[i]; }
+  // G.ours (scrimmage.html): the site's own orange → grey → blue +/- scale
+  var PM_OURS=['#b8430f','#eb6834','#f39a72','#f8c9b3','#e6e7ea','#bcd5f3','#86b6ef','#3987e5','#1c5cab'];
+  var PAL=PM;
+  function pmColor(v){ var i=Math.round(Math.max(-10,Math.min(10,v))/2.5)+4; i=Math.max(0,Math.min(8,i)); return PAL[i]; }
   function pmText(v){ var i=Math.round(Math.max(-10,Math.min(10,v))/2.5)+4; return (i<=1||i>=7)?'#fff':'#1d1d22'; }
   function signed(v){ return v>0?'+'+v:v<0?'−'+Math.abs(v):'0'; }
   function rotationHtml(G,R,tid){
+    PAL=G.ours?PM_OURS:PM;
     var P=G.P, ids=Object.keys(R.stints).filter(function(id){ return P[id]&&P[id].team===tid; });
     var sec=function(id){ return R.stints[id].reduce(function(s,x){return s+(x.e-x.s);},0); };
     var pm=function(id){ return R.stints[id].reduce(function(s,x){return s+x.pm;},0); };
@@ -290,12 +305,18 @@
       var p=pm(id), sep=(ri>0&&P[ids[ri-1]].starter&&!P[id].starter)?' gr-sep':'';
       return '<div class="gr-row'+sep+'"><div class="gr-nm">'+pLink(G,id,esc(shortName(P[id].name)))+'</div><div class="gr-tl" style="grid-template-columns:'+colsTpl+'">'+segs+'</div>'+
         '<div class="gr-n">'+Math.round(sec(id)/60)+'</div><div class="gr-n b" style="color:'+(p>0?'var(--gf-pos)':p<0?'var(--gf-neg)':'inherit')+'">'+signed(p)+'</div></div>'; }).join('');
-    var legend='<div class="gr-leg"><b>Stint +/−</b><span>−10</span>'+PM.map(function(c){return '<i style="background:'+c+'"></i>';}).join('')+'<span>+10</span></div>';
+    var legend='<div class="gr-leg"><b>Stint +/−</b><span>−10</span>'+PAL.map(function(c){return '<i style="background:'+c+'"></i>';}).join('')+'<span>+10</span></div>';
     // five-man lineups
     var L=Object.keys(R.LU[tid]).map(function(k){ return R.LU[tid][k]; }).filter(function(x){ return x.ids.length===5&&x.sec>=30; })
       .sort(function(a,b){ return b.sec-a.sec; }).slice(0,12);
     var lut='';
-    if(L.length){
+    if(L.length&&G.ours){
+      lut='<div class="gf-cap">Five-man lineups</div><div class="sheet-wrap"><table class="sheet dense gr-lu"><thead><tr><th class="l">Lineup</th><th>Min</th><th>Score</th><th>+/−</th><th title="Margin per 40 minutes (lineups with 5+ minutes together)">Per 40</th><th>FG</th><th>3PT</th><th>Reb</th><th>Ast</th><th>Tov</th></tr></thead><tbody>'+
+        L.map(function(x){ var ord=x.ids.slice().sort(function(a,b){ return ids.indexOf(a)-ids.indexOf(b); }), d=x.pf-x.pa, p40=Math.round(d/(x.sec/2400));
+          return '<tr><td class="l gr-unit">'+ord.map(function(id){ return esc(P[id]?lastName(P[id].name):id); }).join(' · ')+'</td><td>'+mmss(x.sec)+'</td><td>'+x.pf+'–'+x.pa+'</td><td class="strong'+(d>=6?' c4':d>=2?' c3':d<=-6?' c0':d<=-2?' c1':'')+'">'+signed(d)+'</td><td class="dim">'+(x.sec>=300?signed(p40):'—')+'</td><td>'+x.fgm+'-'+x.fga+'</td><td>'+x.tpm+'-'+x.tpa+'</td><td>'+x.reb+'</td><td>'+x.ast+'</td><td>'+x.tov+'</td></tr>'; }).join('')+
+        '</tbody></table></div>';
+    }
+    else if(L.length){
       var nm=function(id){ return esc(P[id]?lastName(P[id].name):id); };
       lut='<div class="gf-cap">Five-man lineups</div><div class="sheet-wrap"><table class="sheet dense gr-lu"><thead><tr><th class="l" colspan="5">Lineup</th><th>Min</th><th>Score</th><th>+/−</th><th>FG</th><th>3PT</th><th>Reb</th><th>Ast</th><th>Tov</th></tr></thead><tbody>'+
         L.map(function(x){ var ord=x.ids.slice().sort(function(a,b){ return ids.indexOf(a)-ids.indexOf(b); });
@@ -429,7 +450,7 @@
       '.gr-per{position:relative;display:flex;justify-content:space-between;padding:0 8px;color:var(--text);border-left:1.5px solid var(--gf-rule);} .gr-per:first-child{border-left:0;} .gr-mid{position:absolute;left:50%;transform:translateX(-50%);color:var(--text3);font-weight:600;}'+
       '.gr-bar{position:absolute;top:7px;bottom:7px;font-style:normal;font-size:11.5px;font-weight:800;display:flex;align-items:center;justify-content:center;overflow:hidden;white-space:nowrap;font-variant-numeric:tabular-nums;}'+
       '@media(max-width:600px){.gr-row{grid-template-columns:86px 1fr 26px 30px;gap:5px;} .gr-nm{font-size:12px;} .gr-n{font-size:12px;} .gr-bar{font-size:0;} .gr-mid{display:none;} .gr-per{padding:0 3px;font-size:9px;}}'+
-      '.gr-lu td.l{font-weight:600;}'+
+      '.gr-lu td.l{font-weight:600;} .gr-lu td.gr-unit{white-space:normal;min-width:230px;} .gf-run{font-size:12px;font-weight:800;}'+
       '.gsc-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px;align-items:start;} .gsc-grid > *{min-width:0;} @media(max-width:760px){.gsc-grid{grid-template-columns:minmax(0,1fr);}}'+
       '.gsc .scz-name{font-size:18px;} .gsc .scz-tot{font-size:15px;} .gsc .sc-court-wrap{max-width:none;} .gsc .sc-legend{margin-bottom:6px;}'+
       '.gsc-tbls .scz-cap{margin-top:14px;} .gf-r.gf-tot{border-top:1px solid var(--border2);font-weight:800;}'+
