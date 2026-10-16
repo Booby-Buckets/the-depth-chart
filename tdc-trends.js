@@ -12,7 +12,8 @@
       fetch('scripts/data/scrim_trends_2027.json?v=6').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
       fetch('scripts/data/scrimmages_2027.json?v=7').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
       fetch('scripts/data/scrimmage_results_2027.json?v=10').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
-    ]).then(function (a) { return { T: a[0] || {}, S: (a[1] && a[1].games) || [], R: (a[2] && a[2].results) || {} }; });
+      fetch('scripts/data/scrimmage_pbp_2027.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+    ]).then(function (a) { return { T: a[0] || {}, S: (a[1] && a[1].games) || [], R: (a[2] && a[2].results) || {}, P: a[3] || {} }; });
     return _p;
   }
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
@@ -36,6 +37,11 @@
       '.tr-n{font-size:12.5px;line-height:1.6;color:var(--text2);}.tr-n.p b{color:var(--green,#1a8c3a);}.tr-n.m b{color:var(--red,#cc2200);}' +
       '.tr-mb{display:inline-block;width:40px;height:6px;border-radius:3px;background:var(--bg3);margin-left:6px;vertical-align:1px;overflow:hidden;}.tr-mb i{display:block;height:100%;}' +
       'td img.tr-lg{width:16px!important;height:16px!important;object-fit:contain;vertical-align:middle;margin:-2px 6px 0 0;}' +
+      '.tv-lg{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11px;font-weight:600;color:var(--text3);margin:6px 0 4px;}.tv-lg i{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:-1px;margin-right:5px;}' +
+      '.tv-h{font-weight:600;text-transform:none;letter-spacing:0;color:var(--text3);}' +
+      '.tv-flows{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}@media(max-width:600px){.tv-flows{grid-template-columns:1fr;}}' +
+      '.tv-flow{border:1px solid var(--border);border-radius:10px;padding:8px 10px 4px;background:var(--bg);}' +
+      '.tv-fh{display:flex;gap:10px;align-items:baseline;font-size:12.5px;margin-bottom:2px;}.tv-fh b{font-weight:800;}.tv-fh span{font-weight:800;}.tv-fh .dim{margin-left:auto;font-weight:600;color:var(--text3);font-size:11px;}' +
       '.trc{position:relative;margin:0 0 6px;}.trc-svg{width:100%;height:auto;display:block;overflow:visible;}' +
       '.trc-grid{stroke:var(--border);stroke-width:1;stroke-dasharray:2 4;}.trc-zero{stroke:var(--border2);stroke-width:1.5;}' +
       '.trc-ax,.trc-x{font:600 11px Inter,system-ui,sans-serif;fill:var(--text3);font-variant-numeric:tabular-nums;}.trc-band{font:600 10.5px Inter,system-ui,sans-serif;fill:var(--text3);}' +
@@ -230,6 +236,109 @@
   }
 
   // ── TEAM TRENDS: results vs our line, team box vs projection, risers & fallers, rotation watch ──
+  // ── team Trends visuals (owner, Oct 16 2026: "add more visual data"; picked all five from a prototype) ──
+  //    A results vs our line · E game flow · B minutes vs projection · C shot diet · D box vs projection bars.
+  //    SVGs are drawn at the host's real pixel width so labels stay legible on phones.
+  var SVGNS = 'style="overflow:visible;display:block;width:100%;height:auto"';
+  var GOOD = 'var(--green,#1a8c3a)', BAD = 'var(--red,#cc2200)';
+  function txt(x, y, t, o) { o = o || {}; return '<text x="' + x + '" y="' + y + '" font-size="' + (o.fs || 12) + '" font-weight="' + (o.fw || 600) + '" text-anchor="' + (o.a || 'start') + '" style="fill:' + (o.c || 'var(--text)') + ';font-family:Inter,sans-serif">' + t + '</text>'; }
+  function tcol(full) { try { var c = g.tdcTeamColor && g.tdcTeamColor(full); return (c && (c.c1 || c.primary)) || '#A8843C'; } catch (e) { return '#A8843C'; } }
+  function vA(W, Gs) {   // our line (hollow) → actual margin (solid), dot size = Reality
+    var lab = W < 520 ? 104 : 150, rowH = 44, H = Gs.length * rowH + 30;
+    var lim = Math.max(20, Math.ceil(Math.max.apply(null, Gs.map(function (e) { return Math.max(Math.abs(e.actual), Math.abs(e.pred)); })) / 10) * 10);
+    var x = function (v) { return lab + (Math.max(-lim, Math.min(lim, v)) + lim) / (2 * lim) * (W - lab - 14); };
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" ' + SVGNS + '>';
+    for (var v = -lim; v <= lim; v += 10) s += '<line x1="' + x(v) + '" x2="' + x(v) + '" y1="8" y2="' + (H - 22) + '" style="stroke:' + (v ? 'var(--border)' : 'var(--border2)') + '" stroke-width="' + (v ? 1 : 1.5) + '"' + (v ? ' stroke-dasharray="2 4"' : '') + '/>' + txt(x(v), H - 6, (v > 0 ? '+' : '') + v, { fs: 10.5, c: 'var(--text3)', a: 'middle' });
+    Gs.forEach(function (e, i) {
+      var y = 24 + i * rowH, a = e.actual, p = e.pred, good = a >= p, r = 4 + (e.reality || 0) / 14, c = good ? GOOD : BAD;
+      s += txt(0, y + 3, (e.site === 'H' ? 'vs ' : e.site === 'N' ? 'vs ' : '@ ') + esc(short(e.opp)), { fw: 700 }) + txt(0, y + 17, e.date.slice(5).replace('-', '/') + ' · counts ' + (e.reality || 0) + '%', { fs: 10, c: 'var(--text3)' }) +
+        '<line x1="' + x(p) + '" x2="' + x(a) + '" y1="' + y + '" y2="' + y + '" style="stroke:' + c + '" stroke-width="3" opacity=".45"/>' +
+        '<circle cx="' + x(p) + '" cy="' + y + '" r="5.5" style="fill:var(--bg);stroke:var(--text2)" stroke-width="2"/><circle cx="' + x(a) + '" cy="' + y + '" r="' + r + '" style="fill:' + c + '"/>' +
+        (function () { var right = good ? x(a) + 90 < W : x(a) - 90 < lab;   // keep the label inside the chart
+          return txt(x(a) + (right ? r + 5 : -r - 5), y - r - 3, (a > 0 ? 'W' : 'L') + ' ' + Math.abs(a) + ' · ' + (good ? '+' : '−') + Math.abs(a - p).toFixed(1), { fs: 11, fw: 800, c: c, a: right ? 'start' : 'end' }); })();
+    });
+    return s + '</svg><div class="tv-lg"><span><i style="background:var(--bg);border:2px solid var(--text2)"></i>our line</span><span><i style="background:' + GOOD + '"></i>beat our line</span><span><i style="background:' + BAD + '"></i>fell short</span><span>bigger dot = counted more</span></div>';
+  }
+  function flowPts(pl, me) {   // [minute, my lead] from the saved play-by-play lines "per|mm:ss|side|name|res|type|hs|as|flags"
+    var out = [[0, 0]];
+    (pl || []).forEach(function (l) { var f = l.split('|'), per = +f[0], c = (f[1] || '0:0').split(':'), mm = +c[0], ss = +c[1] || 0, hs = +f[6], as = +f[7];
+      if (!isFinite(hs) || !isFinite(as)) return; var t = per <= 2 ? (per - 1) * 20 + (20 - mm - ss / 60) : 40 + (per - 3) * 5 + (5 - mm - ss / 60);
+      out.push([t, me === 'h' ? hs - as : as - hs]); });
+    return out;
+  }
+  function vE(W, Gs, D, full) {   // lead chart per scrimmage (only games with play-by-play)
+    var col = tcol(short(full)), cards = '';
+    Gs.forEach(function (e) {
+      var pb = D.P[e.id], gm = D.S.filter(function (x) { return x.id === e.id; })[0]; if (!pb || !gm || !pb.plays || !pb.plays.length) return;
+      var pts = flowPts(pb.plays, gm.home === full ? 'h' : 'a'), end = pts[pts.length - 1][0] > 40 ? pts[pts.length - 1][0] : 40;
+      var cw = W < 600 ? W : (W - 12) / 2, H = 130, mx = Math.max(10, Math.max.apply(null, pts.map(function (q) { return Math.abs(q[1]); })));
+      var X = function (t) { return 4 + t / end * (cw - 8); }, Y = function (v) { return H / 2 - v / mx * (H / 2 - 12); };
+      var path = pts.map(function (q, i) { return (i ? 'L' : 'M') + X(q[0]).toFixed(1) + ' ' + Y(q[1]).toFixed(1); }).join(' ');
+      var big = pts.reduce(function (m, q) { return Math.max(m, q[1]); }, 0), fin = pts[pts.length - 1][1];
+      cards += '<div class="tv-flow"><div class="tv-fh"><b>' + (e.site === 'A' ? '@ ' : 'vs ') + esc(short(e.opp)) + '</b><span style="color:' + (fin >= 0 ? GOOD : BAD) + '">' + (fin >= 0 ? 'W' : 'L') + ' by ' + Math.abs(fin) + '</span><span class="dim">largest lead ' + big + '</span></div>' +
+        '<svg viewBox="0 0 ' + cw + ' ' + H + '" ' + SVGNS + '><line x1="' + X(20) + '" x2="' + X(20) + '" y1="4" y2="' + (H - 4) + '" style="stroke:var(--border)" stroke-dasharray="2 4"/><line x1="4" x2="' + (cw - 4) + '" y1="' + H / 2 + '" y2="' + H / 2 + '" style="stroke:var(--border2)"/>' +
+        '<path d="' + path + ' L ' + X(end) + ' ' + H / 2 + ' L 4 ' + H / 2 + ' Z" style="fill:' + col + '" opacity=".16"/><path d="' + path + '" fill="none" style="stroke:' + col + '" stroke-width="2"/>' +
+        txt(8, 14, '+' + mx, { fs: 10, c: 'var(--text3)' }) + txt(8, H - 4, '−' + mx, { fs: 10, c: 'var(--text3)' }) + txt(X(20) + 4, 14, 'half', { fs: 10, c: 'var(--text3)' }) + '</svg></div>';
+    });
+    return cards ? '<div class="tv-flows">' + cards + '</div>' : '';
+  }
+  function vB(W, Gs, D, T, full) {   // average scrimmage minutes vs projected minutes
+    var col = tcol(short(full)), pl = {}, proj = {};
+    ['players', 'fresh'].forEach(function (k) { var M = T[k] || {}; for (var key in M) { var x = M[key]; if (x.full === full && x.now && x.now.mpg != null) proj[nk(x.name)] = x.now.mpg; } });
+    Gs.forEach(function (e) { var r = D.R[e.id]; if (!r || !r.box) return; ['home', 'away'].forEach(function (sd) { var b = r.box[sd]; if (!b || b.team !== full) return;
+      (b.players || []).forEach(function (q) { var k = nk(q.rn || q.name), o = pl[k] = pl[k] || { name: q.rn || q.name, min: [], gs: 0 }; o.min.push(q.min || 0); if (q.gs) o.gs++; }); }); });
+    var rows = Object.keys(pl).map(function (k) { var o = pl[k]; o.avg = o.min.reduce(function (a, b) { return a + b; }, 0) / o.min.length; o.proj = proj[k] != null ? proj[k] : null; return o; })
+      .filter(function (o) { return o.avg > 0 || o.proj; }).sort(function (a, b) { return (b.proj || 0) - (a.proj || 0) || b.avg - a.avg; }).slice(0, 14);
+    if (!rows.length) return '';
+    var lab = W < 520 ? 118 : 180, rowH = 25, H = rows.length * rowH + 24, x = function (v) { return lab + Math.min(40, v) / 40 * (W - lab - (W < 520 ? 70 : 130)); };
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" ' + SVGNS + '>';
+    [10, 20, 30, 40].forEach(function (v) { s += '<line x1="' + x(v) + '" x2="' + x(v) + '" y1="2" y2="' + (H - 18) + '" style="stroke:var(--border)" stroke-dasharray="2 4"/>' + txt(x(v), H - 4, v, { fs: 10.5, c: 'var(--text3)', a: 'middle' }); });
+    rows.forEach(function (o, i) {
+      var y = 4 + i * rowH, more = o.proj != null && o.avg > o.proj + 2, less = o.proj != null && o.avg < o.proj - 2, c = more ? GOOD : less ? BAD : col;
+      var nm = W < 520 ? o.name.replace(/^(\S)\S*\s/, '$1. ') : o.name;
+      s += txt(0, y + 13, esc(nm) + (o.gs ? ' *' : ''), { fs: 12, fw: o.gs ? 800 : 600 }) +
+        '<rect x="' + x(0) + '" y="' + (y + 3) + '" width="' + Math.max(1, x(o.avg) - x(0)) + '" height="14" rx="3" style="fill:' + c + '" opacity="' + (more || less ? 0.8 : 0.55) + '"/>' +
+        (o.proj != null ? '<line x1="' + x(o.proj) + '" x2="' + x(o.proj) + '" y1="' + y + '" y2="' + (y + 20) + '" style="stroke:var(--text)" stroke-width="2.5"/>' : '') +
+        txt(x(Math.max(o.avg, o.proj || 0)) + 7, y + 14, Math.round(o.avg) + (o.proj != null ? ' / ' + Math.round(o.proj) : ''), { fs: 11, c: 'var(--text2)' });
+    });
+    return s + '</svg><div class="tv-lg"><span><i style="background:var(--text);width:3px;border-radius:1px"></i>projected minutes</span><span><i style="background:' + GOOD + '"></i>2+ above</span><span><i style="background:' + BAD + '"></i>2+ below</span><span>* started a scrimmage · labels: scrimmage / projected</span></div>';
+  }
+  function shotMix(plays, me) { var o = { rim: 0, mid: 0, three: 0 };
+    (plays || []).forEach(function (l) { var f = l.split('|'); if (f[2] !== me || (f[4] !== 'GOOD' && f[4] !== 'MISS')) return; var t = f[5];
+      if (t === '3PTR') o.three++; else if (t === 'LAYUP' || t === 'DUNK' || t === 'TIPIN') o.rim++; else if (t === 'JUMPER') o.mid++; });
+    return o; }
+  function vC(W, Gs, D, full) {   // rim / mid / three share per scrimmage vs the all-scrimmage average (same play-by-play classification)
+    var col = tcol(short(full)), rows = [], all = { rim: 0, mid: 0, three: 0 };
+    Object.keys(D.P || {}).forEach(function (id) { var pb = D.P[id]; ['h', 'a'].forEach(function (sd) { var m = shotMix(pb && pb.plays, sd); all.rim += m.rim; all.mid += m.mid; all.three += m.three; }); });
+    Gs.forEach(function (e) { var pb = D.P[e.id], gm = D.S.filter(function (x) { return x.id === e.id; })[0]; if (!pb || !gm) return;
+      var m = shotMix(pb.plays, gm.home === full ? 'h' : 'a'), n = m.rim + m.mid + m.three; if (n >= 20) rows.push({ lab: (e.site === 'A' ? '@ ' : 'vs ') + esc(short(e.opp)), m: m, n: n }); });
+    if (!rows.length) return '';
+    var na = all.rim + all.mid + all.three; rows.push({ lab: 'All scrimmages', m: all, n: na, avg: 1 });
+    var lab = W < 520 ? 104 : 150, rowH = 36, H = rows.length * rowH, w = W - lab - 4, s = '<svg viewBox="0 0 ' + W + ' ' + H + '" ' + SVGNS + '>';
+    rows.forEach(function (r, i) { var y = 4 + i * rowH, x = lab;
+      s += txt(0, y + 17, r.lab, { fw: r.avg ? 600 : 700, c: r.avg ? 'var(--text3)' : 'var(--text)' });
+      [['rim', col, 'Rim'], ['mid', 'var(--border2)', 'Mid'], ['three', 'var(--accent,#A8843C)', '3']].forEach(function (k) {
+        var ww = r.m[k[0]] / r.n * w, pc = Math.round(100 * r.m[k[0]] / r.n);
+        s += '<rect x="' + x + '" y="' + (y + 3) + '" width="' + ww + '" height="22" style="fill:' + k[1] + '" opacity="' + (r.avg ? 0.4 : 0.9) + '"/>' +
+          (ww > 46 ? txt(x + ww / 2, y + 18, k[2] + ' ' + pc + '%', { fs: 11, fw: 800, c: k[0] === 'mid' ? 'var(--text)' : '#fff', a: 'middle' }) : ww > 22 ? txt(x + ww / 2, y + 18, pc, { fs: 10.5, fw: 800, c: k[0] === 'mid' ? 'var(--text)' : '#fff', a: 'middle' }) : '');
+        x += ww; });
+    });
+    return s + '</svg><div class="tv-lg"><span>Rim = layups, dunks, tip-ins · Mid = 2-point jumpers · from each school’s play-by-play (no shot locations)</span></div>';
+  }
+  function vD(W, B) {   // scrimmage average minus projection, green = good direction
+    var keys = [['ppg', 'Points', 1, 1], ['fg_pct', 'FG%', 1, 1], ['tp_pct', '3P%', 1, 1], ['tpa', '3PA', 0, 1], ['ft_pct', 'FT%', 1, 1], ['rpg', 'Rebounds', 1, 1], ['apg', 'Assists', 1, 1], ['tov', 'Turnovers', -1, 1], ['stl', 'Steals', 1, 1], ['blk', 'Blocks', 1, 1]];
+    var rows = keys.filter(function (k) { return B.scrim[k[0]] != null && B.proj[k[0]] != null; }); if (!rows.length) return '';
+    var lab = W < 520 ? 120 : 200, rowH = 27, H = rows.length * rowH + 4, mid = lab + (W - lab) / 2, sc = ((W - lab) / 2 - 44) / 12;
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" ' + SVGNS + '><line x1="' + mid + '" x2="' + mid + '" y1="0" y2="' + H + '" style="stroke:var(--border2)" stroke-width="1.5"/>';
+    rows.forEach(function (k, i) { var y = 2 + i * rowH, a = +B.scrim[k[0]], p = +B.proj[k[0]], dd = a - p, d = Math.max(-12, Math.min(12, dd)), w = Math.abs(d) * sc;
+      var c = k[2] === 0 ? 'var(--text3)' : (dd * k[2] > 0 ? GOOD : BAD);
+      s += txt(0, y + 15, k[1], { fw: 700 }) + txt(W < 520 ? 66 : 96, y + 15, a.toFixed(1) + ' vs ' + p.toFixed(1), { fs: 10.5, c: 'var(--text3)' }) +
+        '<rect x="' + (d >= 0 ? mid : mid - w) + '" y="' + (y + 4) + '" width="' + Math.max(1, w) + '" height="15" rx="3" style="fill:' + c + '" opacity=".75"/>' +
+        txt(d >= 0 ? mid + w + 5 : mid - w - 5, y + 16, (dd > 0 ? '+' : dd < 0 ? '−' : '') + Math.abs(dd).toFixed(1), { fs: 11, fw: 800, c: c, a: d >= 0 ? 'start' : 'end' }); });
+    return s + '</svg><div class="tv-lg"><span>scrimmage average vs projected per game · right = more than projected · green = the good direction</span></div>';
+  }
+  var nk = function (s) { return String(s || '').toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b\.?/g, '').replace(/[^a-z]/g, ''); };
+
   function renderTeam(host, team) {
     if (!host) return Promise.resolve();
     css(); tlCss();
@@ -299,6 +408,12 @@
       mine.filter(function (x) { return !playedIds[x.id] && x.date >= today; }).forEach(function (x) { var opp = x.home === full ? x.away : x.home, lg = logo(opp);
         body += '<tr class="trl-up"><td class="l" colspan="' + NC + '">' + (lg ? '<img class="tr-lg" src="' + lg + '" alt="">' : '') + 'Next · ' + md(x.date) + ' ' + (x.home === full ? 'vs ' : '@ ') + esc(short(opp)) +
           ' <span class="trl-sub" style="display:inline">· ' + (x.neutral ? 'Neutral' : x.home === full ? 'Home' : 'Away') + (x.time ? ' · ' + esc(x.time) : '') + '</span></td></tr>'; });
+      var W = Math.max(300, Math.min(host.clientWidth || 900, 1100)), vis = '';
+      vis += '<div class="tr-sec">Results vs our line</div>' + vA(W, Gs);
+      var fl = vE(W, Gs, D, full); if (fl) vis += '<div class="tr-sec">Game flow</div>' + fl;
+      var mn = vB(W, Gs, D, T, full); if (mn) vis += '<div class="tr-sec">Who\u2019s getting minutes <span class="tv-h">· average scrimmage minutes vs our projection</span></div>' + mn;
+      var sd = vC(W, Gs, D, full); if (sd) vis += '<div class="tr-sec">Shot diet <span class="tv-h">· share of shots at the rim, midrange and three</span></div>' + sd;
+      html += vis;
       html += '<div class="tr-sec">Game log</div><div class="sheet-wrap" style="max-height:none"><table class="sheet dense trl"><thead><tr><th class="l">Game</th>' +
         '<th title="Our projected margin going in (after any players the opponent was missing)">Our line</th><th>Actual</th><th title="Actual margin minus our line">vs line</th><th>Reality</th><th title="Rating points the scrimmages have added so far">Rating trend</th></tr></thead><tbody>' + body + '</tbody></table></div>' +
         '<div class="tr-s" style="margin-top:6px;">Click a game for starters and the team line. Starters in <b style="color:var(--green,#1a8c3a)">green</b> weren’t in our projected starting five.</div>';
@@ -307,11 +422,7 @@
       if (B && B.scrim) {
         var cols = [['ppg', 'PTS', 1, 1], ['fg_pct', 'FG%', 1, 1], ['tp_pct', '3P%', 1, 1], ['ft_pct', 'FT%', 1, 1], ['tpa', '3PA', 1, 0], ['rpg', 'REB', 1, 1], ['apg', 'AST', 1, 1], ['tov', 'TO', 1, -1], ['stl', 'STL', 1, 1], ['blk', 'BLK', 1, 1]]
           .filter(function (c) { return B.scrim[c[0]] != null && B.proj && B.proj[c[0]] != null; });
-        if (cols.length) html += '<div class="tr-sec">Team box vs projection <span style="font-weight:600;text-transform:none;letter-spacing:0;color:var(--text3);">· Reality-weighted average of ' + B.n + ' scrimmage box score' + (B.n > 1 ? 's' : '') + ' next to the projected per-game line</span></div>' +
-          '<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l"></th>' + cols.map(function (c) { return '<th>' + c[1] + '</th>'; }).join('') + '</tr></thead><tbody>' +
-          '<tr><td class="l strong">Scrimmages</td>' + cols.map(function (c) { return '<td class="strong">' + (+B.scrim[c[0]]).toFixed(c[2]) + '</td>'; }).join('') + '</tr>' +
-          '<tr><td class="l dim">Projected</td>' + cols.map(function (c) { return '<td class="dim">' + (+B.proj[c[0]]).toFixed(c[2]) + '</td>'; }).join('') + '</tr>' +
-          '<tr><td class="l">Difference</td>' + cols.map(function (c) { var d = B.scrim[c[0]] - B.proj[c[0]]; return '<td class="' + (c[3] ? cls(d * c[3], c[0].indexOf('pct') > 0 ? 1.5 : 1) : '') + '">' + sg(d, c[2]) + '</td>'; }).join('') + '</tr></tbody></table></div>';
+        if (cols.length) html += '<div class="tr-sec">Team box vs projection <span class="tv-h">· Reality-weighted average of ' + B.n + ' scrimmage box score' + (B.n > 1 ? 's' : '') + ' vs the projected per-game line</span></div>' + vD(Math.max(300, Math.min(host.clientWidth || 900, 1100)), B);
       }
       // risers & fallers
       var P = [];
