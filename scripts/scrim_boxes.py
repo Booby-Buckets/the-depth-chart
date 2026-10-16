@@ -11,14 +11,27 @@ the linescore + both teams' player tables, and write them into scrimmage_results
 hs/as follow the LISTED home team in scrimmages_2027.json (also on neutral floors). A hand-entered
 result (from a PDF or screenshot the owner sends) is never overwritten unless --force.
 
+The same box page carries the full play-by-play (Nuxt payload `periodsWithPlays` on the new Sidearm
+layout, a "play-by-play" table per half on the classic one). It goes to scrimmage_pbp_2027.json
+(kept out of the results file, which every team page loads):
+
+    pbp[id] = {src, plays: ["per|clock|side|name|ACTION|TYPE|hs|as|flags", ...]}
+
+side h/a = the LISTED home/away, hs/as the running score after the play in the same order, name = the
+box-score name when the checkname ("SARR,DAME") matches one (else the checkname, or TEAM), flags p =
+in the paint, f = fastbreak. scrimmage.html (tdc-scrimflow.js) rebuilds game flow, rotations, +/- and
+five-man lineups from it. Hand-entered results are left alone; their PBP is still saved if the source
+is a Sidearm box page.
+
 Scrimmage stats never write to games / box_scores /
 player_history; scrim_reality.py weights them and the projection build blends them in lightly.
 
     python3 scripts/scrim_boxes.py            # fetch what's missing
     python3 scripts/scrim_boxes.py --force    # refetch every played game
     python3 scripts/scrim_boxes.py --dry      # report, don't write
+    python3 scripts/scrim_boxes.py --pbp      # (re)fetch the play-by-play of every box already in
 """
-import html, json, re, sys, datetime, time
+import html, json, re, sys, datetime, time, unicodedata
 from html.parser import HTMLParser
 from pathlib import Path
 import requests
@@ -26,6 +39,7 @@ import requests
 DATA = Path(__file__).parent / "data"
 GAMES = DATA / "scrimmages_2027.json"
 RES = DATA / "scrimmage_results_2027.json"
+PBP = DATA / "scrimmage_pbp_2027.json"
 SITES = DATA / "school_sites_2027.json"
 SEASON = "2026-27"
 S = requests.Session()
@@ -172,6 +186,109 @@ def parse_box(h):
     return out
 
 
+# ── play-by-play ─────────────────────────────────────────────────────────────
+def nuxt_data(h):
+    """the Nuxt devalue payload (flat array, values point at indices) → a resolver"""
+    m = re.search(r'<script[^>]*id="__NUXT_DATA__"[^>]*>(.*?)</script>', h, re.S)
+    if not m: return None
+    A = json.loads(m.group(1)); memo = {}
+    WRAP = ("Reactive", "ShallowReactive", "Ref", "ShallowRef", "EmptyRef", "EmptyShallowRef")
+    def r(i):
+        if i in memo: return memo[i]
+        v = A[i]
+        if isinstance(v, list):
+            if v and isinstance(v[0], str) and v[0] in WRAP: out = r(v[1]) if len(v) > 1 else None
+            elif v and isinstance(v[0], str) and v[0] in ("Set", "Map", "Date", "RegExp", "Error", "BigInt", "NaN", "Infinity", "-Infinity", "-0", "undefined", "null"): out = None
+            else:
+                out = []; memo[i] = out; out.extend(r(x) for x in v); return out
+        elif isinstance(v, dict):
+            out = {}; memo[i] = out
+            for k, x in v.items(): out[k] = r(x) if isinstance(x, int) and not isinstance(x, bool) else x
+            return out
+        else: out = v
+        memo[i] = out; return out
+    for i, v in enumerate(A):
+        if isinstance(v, dict) and "periodsWithPlays" in v: return r(i)
+    return None
+
+
+PLAY_RE = re.compile(r"^(GOOD|MISS|SUB|REBOUND|ASSIST|TURNOVER|STEAL|BLOCK|FOUL|TIMEOUT)\s*(\S*)\s+by\s+(.+?)\s*((?:\([^)]*\)\s*)*)$", re.I)
+def raw_plays(h):
+    """([(period, clock, sidearm_side 'h'/'a', checkname, action, type, home_score|None, away_score|None, flags)],
+    {'h': code, 'a': code}) — codes are the page's own team abbreviations ('DU', 'BEL')"""
+    g = nuxt_data(h)
+    if g and g.get("periodsWithPlays"):
+        out = []; codes = {"h": g.get("homeTeamId") or "", "a": g.get("visitingTeamId") or ""}
+        for P in g["periodsWithPlays"]:
+            n = int(P.get("number") or 1)
+            for p in P.get("plays") or []:
+                fl = ("p" if p.get("isInThePaint") else "") + ("f" if p.get("isAFastbreak") else "")
+                out.append((n, p.get("time") or "", "h" if p.get("isHomeTeam") else "a", (p.get("checkname") or "").strip(),
+                            (p.get("action") or "").upper(), (p.get("type") or "").upper(),
+                            num(p.get("homeScore")), num(p.get("visitingScore")), fl))
+        return out, codes
+    # classic layout: one table per period — time | away play | away score | · | home score | home play | ...
+    t = Tables(); t.feed(h)
+    pers = [x for x in t.tables if x and x[0] and x[0][0] == "Time Remaining" and len(x[0]) >= 6]
+    out = []; codes = {"h": pers[0][0][5], "a": pers[0][0][1]} if pers else {}
+    for n, tb in enumerate(pers, 1):
+        clock = ""
+        for r in tb[1:]:
+            if len(r) < 6: continue
+            if r[0] and r[0] != "--": clock = r[0]
+            side, txt = ("a", r[1]) if r[1] else ("h", r[5])
+            m = PLAY_RE.match(txt or "")
+            if not m: continue
+            fl = ("p" if "in the paint" in txt.lower() else "") + ("f" if "fastbreak" in txt.lower() else "")
+            sc = lambda v: num(re.sub(r"\s*\(.*", "", v or "").strip())
+            out.append((n, clock, side, m.group(3).strip(), m.group(1).upper(), m.group(2).upper(), sc(r[4]), sc(r[2]), fl))
+    return out, codes
+
+
+def _nk(s):
+    s = unicodedata.normalize("NFKD", s or "").encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z]", "", re.sub(r"\b(jr|sr|ii|iii|iv)\b\.?", "", s.lower()))
+
+
+def check_to_name(check, players):
+    """'SARR,DAME' / 'BOUMTJE BOUMTJE,JOAQ' → the box-score name ('Dame Sarr'), or None"""
+    if "," not in check: return None
+    last, first = (_nk(x) for x in check.split(",", 1))
+    if not last: return None
+    hits = [p["name"] for p in players if last in _nk(p["name"]) and _nk(p["name"]).startswith(first[:3])]
+    if len(hits) != 1: hits = [p["name"] for p in players if _nk(p["name"]).endswith(last) and _nk(p["name"]).startswith(first)] or hits
+    if len(hits) != 1: hits = [p["name"] for p in players if _nk(p["name"]) == first + last]   # "Jr., George Turkson"
+    return hits[0] if len(hits) == 1 else None
+
+
+def parse_pbp(h, box, hs_final=None, as_final=None):
+    """the box page's play-by-play in the listed home/away frame (see the module docstring), or None"""
+    raw, codes = raw_plays(h)
+    if len(raw) < 50 or not box: return None
+    hp, ap = box["home"]["players"], box["away"]["players"]
+    # which Sidearm side is our listed home? the side whose checknames match its box
+    votes = 0
+    for _, _, sd, ck, *_ in raw:
+        if ck == "TEAM": continue
+        inh, ina = check_to_name(ck, hp) is not None, check_to_name(ck, ap) is not None
+        if inh != ina: votes += (1 if inh == (sd == "h") else -1)
+    flip = votes < 0
+    plays, hs, as_ = [], 0, 0
+    for n, clock, sd, ck, act, typ, sh, sa, fl in raw:
+        side = {"h": "a", "a": "h"}[sd] if flip else sd
+        if flip: sh, sa = sa, sh
+        if act == "GOOD":   # the Nuxt payload carries 0-0 on plays that didn't score
+            if sh is not None: hs = sh
+            if sa is not None: as_ = sa
+        nm = ck if ck == "TEAM" else (check_to_name(ck, hp if side == "h" else ap) or ck)
+        plays.append([n, clock, side, nm.replace("|", " "), act, typ, hs, as_, fl])
+    # neutral-floor pages can label the score columns the other way round from the plays: trust the final
+    if plays and hs_final is not None and (plays[-1][6], plays[-1][7]) == (as_final, hs_final) != (hs_final, as_final):
+        for x in plays: x[6], x[7] = x[7], x[6]
+    codes = {"h": codes.get("a"), "a": codes.get("h")} if flip else codes
+    return {"codes": codes, "plays": ["|".join(str(v) for v in x) for x in plays]}
+
+
 def side_of(label, full, sites):
     """does a linescore label ('Michigan St.', 'UIW') belong to this team?"""
     lw = words(label)
@@ -190,9 +307,11 @@ def note_of(box_home, box_away, home, away):
 
 
 def main():
-    force, dry = "--force" in sys.argv, "--dry" in sys.argv
+    force, dry, repbp = "--force" in sys.argv, "--dry" in sys.argv, "--pbp" in sys.argv
     G = json.loads(GAMES.read_text()); games = G["games"]
     res = json.loads(RES.read_text())
+    pbp = json.loads(PBP.read_text()) if PBP.exists() else {}
+    pbp_new = 0
     sites = json.loads(SITES.read_text())
     today = datetime.date.today().isoformat()
     todo = [g for g in games if g["date"] <= today and (force or "box" not in res["results"].get(g["id"], {}))
@@ -238,7 +357,19 @@ def main():
                     "box": {"home": {"team": g["home"], **{k: hb[k] for k in ("players", "totals")}},
                             "away": {"team": g["away"], **{k: ab[k] for k in ("players", "totals")}}}})
         res["results"][g["id"]] = rec; got += 1
-        print(f"  ok {g['date']} {g['away']} {ab['score']} at {g['home']} {hb['score']}  ({len(hb['players'])}+{len(ab['players'])} players)")
+        pb = parse_pbp(h, rec["box"], rec["hs"], rec["as"])
+        if pb: pbp[g["id"]] = {"src": url, **pb}; pbp_new += 1
+        print(f"  ok {g['date']} {g['away']} {ab['score']} at {g['home']} {hb['score']}  ({len(hb['players'])}+{len(ab['players'])} players, {len(pb['plays']) if pb else 'no'} plays)")
+    # play-by-play for every Sidearm box already in (hand-entered results included: only the PBP file is written)
+    for gid, rec in res["results"].items():
+        src = rec.get("src") or ""
+        if "/boxscore/" not in src or not rec.get("box") or (gid in pbp and not repbp): continue
+        h = get(src); pb = parse_pbp(h, rec["box"], rec.get("hs"), rec.get("as")) if h else None
+        if pb: pbp[gid] = {"src": src, **pb}; pbp_new += 1
+        print(f"  pbp {gid}: {len(pb['plays']) if pb else 'none found'}")
+    if pbp_new and not dry:
+        PBP.write_text(json.dumps(dict(sorted(pbp.items())), indent=0, ensure_ascii=False))
+        print(f"wrote play-by-play for {pbp_new} game(s) to {PBP.name}")
     if got and not dry:
         RES.write_text(json.dumps(res, indent=1))
         print(f"wrote {got} result(s) to {RES.name}")
