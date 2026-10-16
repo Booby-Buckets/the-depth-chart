@@ -141,17 +141,19 @@
   .gp-when{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#E6D5A8;margin-bottom:8px;}
   .gp-odds{font-size:12.5px;color:rgba(255,255,255,.75);margin-top:8px;font-weight:600;}
   .gp-odds b{color:#fff;}
-  .gp-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:16px;}
-  .gp-tile{border:1px solid var(--border);border-radius:10px;padding:9px 12px 8px;background:var(--bg2);}
-  .gp-tile .k{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:3px;white-space:nowrap;}
-  .gp-tile .v{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;line-height:1;color:var(--text);}
-  .gp-tile .s{font-size:10.5px;color:var(--text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .gp-h{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text2);padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:12px 12px 0 0;border-bottom:none;margin-top:16px;display:flex;align-items:center;gap:10px;}
-  .gp-h::before{content:'';width:6px;height:6px;border-radius:2px;background:var(--accent);}
-  .gp-h span{margin-left:auto;font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3);}
-  .gp-wrap{border:1px solid var(--border);border-radius:0 0 12px 12px;overflow:auto;background:var(--bg);}
+  /* matches the team page (owner, Oct 16 2026: "it doesn't match the others"): the stat strip is the team header's flat
+     ribbon (value · LABEL · sub, cells split by rules), sections are a plain title over a square sheet */
+  .gp-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1px solid var(--border);background:var(--bg);margin:14px 0 6px;}
+  .gp-tile{padding:14px 18px 13px;border-right:1px solid var(--border);min-width:0;}
+  .gp-tile:last-child{border-right:none;}
+  .gp-tile .v{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:24px;letter-spacing:-.01em;line-height:1;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;}
+  .gp-tile .k{font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-top:6px;white-space:nowrap;}
+  .gp-tile .s{font-size:11px;font-weight:500;color:var(--text3);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .gp-h{font-family:'Playfair Display',serif;font-size:19px;font-weight:800;letter-spacing:-.01em;color:var(--text);padding:0 0 8px;margin-top:22px;display:flex;align-items:baseline;gap:10px;}
+  .gp-h span{margin-left:auto;font-family:'Inter',system-ui,sans-serif;font-size:11px;font-weight:600;letter-spacing:0;color:var(--text3);}
+  .gp-wrap{border:1px solid var(--border);border-radius:0;overflow:auto;background:var(--bg);}
   /* the tables are the site sheet (tdc-sheets.css .sheet.dense) — only the extras here */
-  .gp-wrap.sheet-wrap{border-radius:0 0 12px 12px;}
+  .gp-wrap.sheet-wrap{border-radius:0;}
   .gp-t small{font-size:10.5px;font-weight:600;color:var(--text3);margin-left:4px;}
   .gp-t tbody tr.sec td{background:var(--bg2);color:var(--text3);font-size:9.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;text-align:left;}
   .gp-t tfoot td{text-align:right;padding:6px 7px;font-weight:800;color:var(--text);background:var(--bg2);border-top:2px solid var(--border2);border-right:1px solid var(--border);white-space:nowrap;font-variant-numeric:tabular-nums;}
@@ -165,7 +167,7 @@
   .gp-note{font-size:11.5px;color:var(--text3);line-height:1.5;margin:10px 2px 0;}
   .gp-note b{color:var(--text2);}
   .gp-empty{padding:16px 14px;font-size:12.5px;color:var(--text3);}
-  @media(max-width:860px){.gp-strip{grid-template-columns:repeat(2,minmax(0,1fr));}.gp-hero{grid-template-columns:1fr;text-align:center;}.gp-side,.gp-side.r{flex-direction:column;text-align:center;}}`;
+  @media(max-width:860px){.gp-strip{grid-template-columns:repeat(2,minmax(0,1fr));}.gp-tile{border-bottom:1px solid var(--border);}.gp-hero{grid-template-columns:1fr;text-align:center;}.gp-side,.gp-side.r{flex-direction:column;text-align:center;}}`;
   // phones: one compact scoreboard row, the five tiles as one row of cells, no subtitles, and the
   // player tables cut to Player · Min · Pts · FG · Reb · Ast so they fit without scrolling
   const CSS_PHONE = `@media (max-width:640px){
@@ -178,7 +180,7 @@
     .gp-hero .gp-when{font-size:11px!important;letter-spacing:.04em!important}
     .gp-hero .gp-score{font-size:26px!important;line-height:1.1!important;margin:2px 0!important}
     .gp-hero .gp-odds{font-size:11px!important;line-height:1.3!important}
-    .gp-strip{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:0!important;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:12px 0 18px!important}
+    .gp-strip{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:0!important;border:1px solid var(--border);border-radius:0;overflow:hidden;margin:12px 0 18px!important}
     .gp-strip .gp-tile{border:0!important;border-right:1px solid var(--border)!important;border-bottom:1px solid var(--border)!important;border-radius:0!important;box-shadow:none!important;padding:7px 8px!important;background:var(--bg)!important;min-width:0}
     .gp-strip .gp-tile .s{display:none!important}
     .gp-strip .gp-tile .v{font-size:15px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -293,13 +295,13 @@
       `<p class="gp-read">Our line: <b>${sn(favN)} −${line}</b> (${Math.max(pc, 100 - pc)}% to win) · projected score ${Math.max(row.scoreMe, row.scoreOpp)}–${Math.min(row.scoreMe, row.scoreOpp)}${row.total ? ', total ' + row.total.toFixed(1) : ''}.</p>` : '';
     const hero = band || `<div class="gp-hero">${side(L, false)}<div class="gp-mid"><div class="gp-when">${d}${row.venue === 'N' ? ' · Neutral' : ''}${row.event ? ' · ' + row.event : ''}</div><div class="gp-score">${L.sc}–${Rt.sc}</div><div class="gp-odds"><b>${sn(team)}</b> ${pc}% to win · line ${row.margin >= 0 ? '−' : '+'}${Math.abs(row.margin).toFixed(1)}</div></div>${side(Rt, true)}</div>`;
     const strip = `<div class="gp-strip">
-      <div class="gp-tile"><div class="k">Win prob</div><div class="v">${pc}%</div><div class="s">${sn(team)} · ${Math.round(row.p0 * 100)}% on the line alone</div></div>
-      <div class="gp-tile"><div class="k">Line</div><div class="v">${row.margin >= 0 ? sn(team) + ' −' + row.margin.toFixed(1) : sn(oppName) + ' −' + (-row.margin).toFixed(1)}</div><div class="s">projected margin</div></div>
-      <div class="gp-tile"><div class="k">Total</div><div class="v">${row.total ? row.total.toFixed(1) : '—'}</div><div class="s">${row.pace ? row.pace + ' possessions' : 'league-average pace'}</div></div>
-      <div class="gp-tile"><div class="k">Site</div><div class="v">${row.venue === 'H' ? 'Home' : row.venue === 'A' ? 'Away' : 'Neutral'}</div><div class="s">${row.venuePts ? 'venue edge ' + sg(row.venuePts) : 'no venue edge'}</div></div>
-      <div class="gp-tile"><div class="k">Rest</div><div class="v">${row.mf.rest == null ? 'Opener' : row.mf.rest <= 1 ? 'B2B' : row.mf.rest + 'd'}</div><div class="s">${row.known ? 'vs ' + (row.of.rest == null ? 'opener' : row.of.rest <= 1 ? 'b2b' : row.of.rest + 'd') : 'opponent unknown'}${Math.abs(row.sit) >= 0.15 ? ' · ' + sg(row.sit) + ' pts' : ''}</div></div>
+      <div class="gp-tile"><div class="v">${pc}%</div><div class="k">Win prob</div><div class="s">${sn(team)} · ${Math.round(row.p0 * 100)}% on the line alone</div></div>
+      <div class="gp-tile"><div class="v">−${Math.abs(row.margin).toFixed(1)}</div><div class="k">Line</div><div class="s">${sn(row.margin >= 0 ? team : oppName)} favored</div></div>
+      <div class="gp-tile"><div class="v">${row.total ? row.total.toFixed(1) : '—'}</div><div class="k">Total</div><div class="s">${row.pace ? row.pace + ' possessions' : 'league-average pace'}</div></div>
+      <div class="gp-tile"><div class="v">${row.venue === 'H' ? 'Home' : row.venue === 'A' ? 'Away' : 'Neutral'}</div><div class="k">Site</div><div class="s">${row.venuePts ? 'venue edge ' + sg(row.venuePts) : 'no venue edge'}</div></div>
+      <div class="gp-tile"><div class="v">${row.mf.rest == null ? 'Opener' : row.mf.rest <= 1 ? 'B2B' : row.mf.rest + 'd'}</div><div class="k">Rest</div><div class="s">${row.known ? 'vs ' + (row.of.rest == null ? 'opener' : row.of.rest <= 1 ? 'b2b' : row.of.rest + 'd') : 'opponent unknown'}${Math.abs(row.sit) >= 0.15 ? ' · ' + sg(row.sit) + ' pts' : ''}</div></div>
     </div>`;
-    host.innerHTML = hero + `<div id="gpMatch" style="border-radius:12px;">${strip}<div class="gp-h">Matchup <span>projected 2026-27 profiles · D-I average for scale</span></div><div id="gpCmp">${cmpTable(team, oppName, EA, EB, RA, RB)}</div></div><div id="gpPlayers" style="border-radius:12px;"><div class="gp-h">Projected lines · this game</div><div class="gp-wrap"><div class="gp-empty">Loading rosters…</div></div></div>`;
+    host.innerHTML = hero + `<div id="gpMatch">${strip}<div class="gp-h">Matchup <span>projected 2026-27 profiles · D-I average for scale</span></div><div id="gpCmp">${cmpTable(team, oppName, EA, EB, RA, RB)}</div></div><div id="gpPlayers"><div class="gp-h">Projected lines · this game</div><div class="gp-wrap"><div class="gp-empty">Loading rosters…</div></div></div>`;
     // tiers: the headline (score, odds, line) is free; the matchup profile is Premium; the
     // per-player game projections are Pro (Coach's Tier and Betting Lab members included)
     const gate = () => { if (!g.TDCGate) return;
