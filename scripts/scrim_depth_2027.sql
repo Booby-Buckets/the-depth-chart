@@ -2,7 +2,7 @@
 -- rebuild-projections job (owner console) re-projects minutes and lines from the new charts.
 -- Each team's block stamps depth_set_at, so the sheet sync keeps the new order.
 begin;
--- Seattle: 0.60 reality, known 0.55, weight 0.19; starters Tyler Boston, Mason Williams, Junseok Yeo, Yuto Kawashima, Halvine Dzellat -> Tyler Boston, Mason Williams, Junseok Yeo, Yuto Kawashima, Halvine Dzellat
-update players p set depth_order = v.d, depth_set_at = now() from (values (79237, 1), (79240, 2), (79238, 3), (79244, 4), (79243, 5), (79239, 6), (79241, 7), (79242, 8), (79245, 9), (79246, 10), (79248, 11), (79235, 12), (79234, 13), (79247, 14), (79236, 15)) v(id, d)
- where p.id = v.id and p.team = 'Seattle';
+-- Wisconsin: 0.58 reality, known 0.58, weight 0.17; starters Owen Foxwell, Eian Elmer, Trey Autry, Nolan Winter, Austin Rapp -> Owen Foxwell, Eian Elmer, Trey Autry, Nolan Winter, Austin Rapp
+update players p set depth_order = v.d, depth_set_at = now() from (values (50102, 1), (50104, 2), (50103, 3), (50106, 4), (50105, 5), (50108, 6), (50107, 7), (50109, 8), (50110, 9), (50111, 10), (50114, 11), (94549, 12), (50112, 13), (50113, 14), (50115, 15)) v(id, d)
+ where p.id = v.id and p.team = 'Wisconsin';
 commit;
