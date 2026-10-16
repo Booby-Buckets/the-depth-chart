@@ -1,7 +1,7 @@
 /* tdc-cheatsheet.js — the Betting Cheat Sheet's SLATE layer: pick a game day, then
- *   • six eye-catchers (game of the night, upset alert, mismatch, shootout, rock fight, top play)
- *   • Best Bets / Worst Bets tickets
- *   • the full Game Lines sheet (our spread / total / win prob; market + edge once odds_live has the game)
+ *   • Tonight's plays / Fades rows (best and worst bets)
+ *   • every game as a banded row: win-chance bar, our spread card (badge = gap vs the book), total, book / fair ML
+ *   Look = the Social Studio lineup graphic (owner pick, Oct 16 2026): banded rows, logo rings, white value cards.
  * Inputs: schedule_2027.json (every listed game), TDC_RATINGS.get() (projected power ratings + lineFor),
  * team_pace_eff.json (projected tempo/efficiency → totals), odds_live.json (in-season book lines),
  * and the page's own prop data (window.CS_LOAD promises + the bounce/regression backtest).
@@ -105,118 +105,77 @@
     return out;
   }
 
-  // ── tickets ────────────────────────────────────────────────────────────────
+  // ── rows (owner, Oct 16 2026: the Social Studio "lineup" look — banded rows, logos in rings, the value in a
+  //    white card with a small badge; black section bars). Plays and fades are rows; the why is the hover title.
+  function ring(full) { var l = logo(full); return '<span class="sl-lg">' + (l ? '<img src="' + l + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">' : '') + '</span>'; }
+  function card(big, lab, badge, tone, href) {
+    var inner = '<b>' + big + '</b><s>' + lab + '</s>' + (badge ? '<span class="sl-bdg ' + (tone || '') + '">' + badge + '</span>' : '');
+    return href ? '<a class="sl-card" href="' + href + '">' + inner + '</a>' : '<div class="sl-card">' + inner + '</div>';
+  }
   function oppTxt(c) { return c.opp ? (c.opp.at + ' ' + esc(short(c.opp.opp))) : ''; }
-  function propTicket(c, tone) {
-    var pick = (c.side === 'over' ? 'Over ' : 'Under ') + c.line + ' ' + STAT_ABBR[c.s];
+  function playRow(o, i) {
+    return '<div class="sl-row sl-play ' + (o.tone || '') + '" title="' + esc(o.why.replace(/<[^>]+>/g, '')) + '"><div class="sl-rk">' + (i + 1) + '</div>' + ring(o.team) +
+      '<div class="sl-who"><div class="sl-tn">' + o.title + '</div><div class="sl-sub">' + o.sub + '</div></div>' + card(o.pick, o.pickLab, o.stat, o.tone === 'bad' ? '' : 'g') + '</div>';
+  }
+  function propPlay(c, tone) {
     var pct = Math.round((tone === 'bad' ? 1 - c.rate : c.rate) * 100);
     var why = tone === 'bad'
-      ? 'Coming off a career year: last season ran <b>' + Math.round((c.ratio - 1) * 100) + '% above</b> his earlier pace per minute. The public will want this over; players like him went over only <b>' + pct + '%</b> of the time.'
-      : (c.side === 'over'
-        ? 'Last season ran <b>' + Math.round((1 - c.ratio) * 100) + '% below</b> his career pace per minute. Down years like that bounced back over this kind of line <b>' + pct + '%</b> of the time, and our projection agrees.'
-        : 'Last season ran <b>' + Math.round((c.ratio - 1) * 100) + '% above</b> his career pace per minute. Spikes like that faded under this kind of line <b>' + pct + '%</b> of the time, and our projection agrees.');
-    return ticket({
-      tone: tone, kicker: 'Player prop · ' + STAT_NAME[c.s],
-      lead: logoImg(c.team, 'cs-tlg'), title: '<a href="player.html?espn=' + c.id + '&tab=betting">' + esc(c.name) + '</a>',
-      pick: (tone === 'bad' ? 'Avoid: ' : '') + pick, sub: esc(short(c.team)) + ' ' + oppTxt(c),
-      why: why, stat: pct + '%', statLab: tone === 'bad' ? 'over hit' : 'backtest', n: c.n,
-      foot: 'Last yr ' + (c.lastAvg != null ? c.lastAvg : '—') + ' · proj ' + (c.proj != null ? (+c.proj).toFixed(1) : '—') + (c.cleared != null ? (tone === 'bad' ? ' · his past games went over only ' + Math.round((1 - c.cleared) * 100) + '%' : ' · cleared ' + Math.round(c.cleared * 100) + '% of his games') : '')
-    });
+      ? 'Coming off a career year: last season ran ' + Math.round((c.ratio - 1) * 100) + '% above his earlier pace per minute. Players like him went over only ' + pct + '% of the time.'
+      : (c.side === 'over' ? 'Last season ran ' + Math.round((1 - c.ratio) * 100) + '% below his career pace per minute; down years like that went over ' + pct + '% of the time, and our projection agrees.'
+        : 'Last season ran ' + Math.round((c.ratio - 1) * 100) + '% above his career pace per minute; spikes like that went under ' + pct + '% of the time, and our projection agrees.');
+    return { tone: tone, team: c.team, why: why,
+      title: '<a href="player.html?espn=' + c.id + '&tab=betting">' + esc(c.name) + '</a>',
+      sub: esc(short(c.team)) + ' ' + oppTxt(c) + ' · ' + STAT_NAME[c.s] + ' · ' + (tone === 'bad' ? 'career-year trap' : c.side === 'over' ? 'bounce-back' : 'regression'),
+      pick: (c.side === 'over' ? 'O ' : 'U ') + c.line, pickLab: (tone === 'bad' ? 'fade · ' : '') + STAT_ABBR[c.s] + (tone === 'bad' ? ' over hit' : ' · backtest'), stat: pct + '%' };
   }
-  function gameTicket(r, tone) {
+  function gamePlay(r) {
     var side = r.spEdge > 0 ? r.home : r.away, mk = r.mk;
-    var bookSide = side === r.home ? mk.spread : -mk.spread;   // margin for our side by the book
+    var bookSide = side === r.home ? mk.spread : -mk.spread;
     var num = bookSide >= 0 ? '−' + Math.abs(bookSide).toFixed(1) : '+' + Math.abs(bookSide).toFixed(1);
-    return ticket({
-      tone: tone, kicker: 'Game · spread',
-      lead: logoImg(side, 'cs-tlg'), title: '<a href="' + teamHref(side) + '">' + esc(short(side)) + '</a>',
-      pick: esc(short(side)) + ' ' + num, sub: esc(short(r.away)) + (r.neutral ? ' vs ' : ' @ ') + esc(short(r.home)),
-      why: 'Our line: <b>' + spreadTxt(r.m, r.home, r.away) + '</b>. The book: <b>' + spreadTxt(mk.spread, r.home, r.away) + '</b>. That is a <b>' + Math.abs(r.spEdge).toFixed(1) + '-point</b> gap toward ' + esc(short(side)) + '.',
-      stat: (r.spEdge > 0 ? '+' : '+') + Math.abs(r.spEdge).toFixed(1), statLab: 'pt edge', n: null, foot: 'Model vs market · shop the best number'
-    });
+    return { tone: '', team: side, why: 'Our line ' + spreadTxt(r.m, r.home, r.away) + ', the book ' + spreadTxt(mk.spread, r.home, r.away) + ': a ' + Math.abs(r.spEdge).toFixed(1) + '-point gap toward ' + short(side) + '.',
+      title: '<a href="' + teamHref(side) + '">' + esc(short(side)) + '</a>', sub: esc(short(r.away)) + (r.neutral ? ' vs ' : ' @ ') + esc(short(r.home)) + ' · spread · our line ' + spreadTxt(r.m, r.home, r.away),
+      pick: num, pickLab: 'spread · edge', stat: '+' + Math.abs(r.spEdge).toFixed(1) };
   }
-  function atsTicket(full, h, r) {
-    return ticket({
-      tone: 'bad', kicker: 'Team trend · against the spread',
-      lead: logoImg(full, 'cs-tlg'), title: '<a href="' + teamHref(full) + '">' + esc(short(full)) + '</a>',
-      pick: 'Avoid: ' + esc(short(full)) + ' to cover', sub: esc(short(r.away)) + (r.neutral ? ' vs ' : ' @ ') + esc(short(r.home)),
-      why: 'Covered only <b>' + Math.round(h.atsPct * 100) + '%</b> of the time over five seasons of real closing lines (' + esc(h.ats) + '). The market has kept overrating them.',
-      stat: Math.round(h.atsPct * 100) + '%', statLab: 'covered', n: h.g, foot: 'Team trends drift: treat this as context'
-    });
+  function atsPlay(full, h, r) {
+    return { tone: 'bad', team: full, why: 'Covered only ' + Math.round(h.atsPct * 100) + '% of the time over five seasons of real closing lines (' + h.ats + ').',
+      title: '<a href="' + teamHref(full) + '">' + esc(short(full)) + '</a>', sub: esc(short(r.away)) + (r.neutral ? ' vs ' : ' @ ') + esc(short(r.home)) + ' · against the spread · ' + esc(h.ats),
+      pick: 'Fade', pickLab: 'ATS · 5-yr covers', stat: Math.round(h.atsPct * 100) + '%' };
   }
-  function ticket(o) {
-    return '<div class="cs-ticket ' + o.tone + '">' +
-      '<div class="cs-tk-top"><span class="cs-kick">' + o.kicker + '</span></div>' +
-      '<div class="cs-tk-main">' + o.lead + '<div class="cs-tk-body"><div class="cs-tk-name">' + o.title + '</div><div class="cs-tk-sub">' + o.sub + '</div></div>' +
-      '<div class="cs-tk-stat"><b>' + o.stat + '</b><span>' + o.statLab + (o.n ? ' · ' + o.n : '') + '</span></div></div>' +
-      '<div class="cs-tk-pick">' + o.pick + '</div>' +
-      '<div class="cs-tk-why">' + o.why + '</div>' +
-      '<div class="cs-tk-foot">' + o.foot + '</div></div>';
-  }
+  function renderEyes() {}   // the six tiles were retired with the redesign
 
-  // ── eye-catchers ───────────────────────────────────────────────────────────
-  function tile(o) {
-    return '<a class="cs-tile" href="' + (o.href || '#gameLines') + '"><div class="cs-tile-k">' + o.k + '</div>' +
-      '<div class="cs-tile-m">' + o.m + '</div><div class="cs-tile-v">' + o.v + '</div><div class="cs-tile-s">' + o.s + '</div></a>';
-  }
-  function mu(r) { return logoImg(r.away, 'cs-mlg') + '<span>' + esc(short(r.away)) + '</span><i>' + (r.neutral ? 'vs' : '@') + '</i>' + logoImg(r.home, 'cs-mlg') + '<span>' + esc(short(r.home)) + '</span>'; }
-  function renderEyes(rows, props) {
-    var host = $('csEyes'); if (!host) return;
-    if (!rows.length) { host.innerHTML = '<div class="cs-empty">No rated games on this date.</div>'; return; }
-    var by = function (f) { return rows.slice().sort(f)[0]; };
-    var gotn = by(function (a, b) { return (a.both - b.both) || (Math.abs(a.m) - Math.abs(b.m)); });
-    var upsetPool = rows.filter(function (r) { return (S.byFull[r.fav].rank || 400) <= 60 && Math.abs(r.m) >= 2.5; });
-    var upset = upsetPool.length ? upsetPool.sort(function (a, b) { return b.dogP - a.dogP; })[0] : null;
-    var misPool = rows.filter(function (r) { return r.both <= 200; });   // buy games vs bottom feeders aren't a story
-    var mis = (misPool.length ? misPool : rows).slice().sort(function (a, b) { return Math.abs(b.m) - Math.abs(a.m); })[0];
-    var tots = rows.filter(function (r) { return r.tot != null; });
-    var hi = tots.length ? tots.slice().sort(function (a, b) { return b.tot - a.tot; })[0] : null;
-    var lo = tots.length ? tots.slice().sort(function (a, b) { return a.tot - b.tot; })[0] : null;
-    var top = props.filter(function (c) { return c.s !== 'tpm' && (c.proj == null || (c.side === 'over' ? c.proj >= c.line - 0.3 : c.proj <= c.line + 0.3)); }).sort(function (a, b) { return b.score - a.score || b.ppg - a.ppg; })[0];
-    var h = [], used = {};
-    var tile1 = function (r, o) { if (!r || used[r.g.id]) return; used[r.g.id] = 1; h.push(tile(o)); };   // a small slate shouldn't show one game five times
-    h.push(tile({ k: 'Game of the night', m: mu(gotn), v: spreadTxt(gotn.m, gotn.home, gotn.away), s: (gotn.both <= 25 ? 'two top-25 teams' : 'best pairing on the slate') + (gotn.tot ? ' · total ' + Math.round(gotn.tot) : '') }));
-    used[gotn.g.id] = 1;
-    if (upset) tile1(upset, { k: 'Upset alert', m: mu(upset), v: Math.round(upset.dogP) + '%', s: esc(short(upset.dog)) + ' win chance as a ' + Math.abs(upset.m).toFixed(1) + '-pt dog' });
-    tile1(mis, { k: 'Biggest mismatch', m: mu(mis), v: spreadTxt(mis.m, mis.home, mis.away), s: Math.round(mis.favP) + '% for ' + esc(short(mis.fav)) });
-    if (hi) tile1(hi, { k: 'Shootout', m: mu(hi), v: Math.round(hi.tot), s: 'highest projected total' });
-    if (lo) tile1(lo, { k: 'Rock fight', m: mu(lo), v: Math.round(lo.tot), s: 'lowest projected total' });
-    if (top) h.push(tile({ k: 'Top play', href: '#bestBets', m: logoImg(top.team, 'cs-mlg') + '<span>' + esc(top.name) + '</span>', v: (top.side === 'over' ? 'O ' : 'U ') + top.line + ' ' + STAT_ABBR[top.s], s: Math.round(top.rate * 100) + '% in the backtest' }));
-    host.innerHTML = h.join('');
-  }
-
-  // ── best / worst ───────────────────────────────────────────────────────────
+  // ── plays / fades ──────────────────────────────────────────────────────────
   function renderBets(rows, props) {
+    var none = function (t) { return '<div class="sl-empty">' + t + '</div>'; };
     if (rows.length && rows.every(function (r) { return r.exh; })) {   // scrimmages have no betting markets
-      var msg = '<div class="cs-empty">Scrimmage day: these games are unofficial and books don\'t post lines or props on them. Our line for every game is in Game lines below, and results get logged as they come in.</div>';
-      $('csBest').innerHTML = msg; $('csWorst').innerHTML = msg; return;
+      $('csBest').innerHTML = none('Scrimmage day: unofficial games, no lines or props. Our number for each game is below.'); $('csWorst').innerHTML = ''; $('csWorstBar').style.display = 'none'; return;
     }
     var best = [], used = {};
-    // model vs market (in-season): biggest spread gaps
     rows.filter(function (r) { return r.spEdge != null && Math.abs(r.spEdge) >= 3; })
       .sort(function (a, b) { return Math.abs(b.spEdge) - Math.abs(a.spEdge); }).slice(0, 3)
-      .forEach(function (r) { best.push(gameTicket(r, 'good')); });
-    var perStat = {};   // a mix of markets, not six rebound unders
-    // the pattern AND our own projection must point the same way (a down-year bounce we also project)
+      .forEach(function (r) { best.push(gamePlay(r)); });
+    var perStat = {};
     var agrees = function (c) { return c.proj == null || (c.side === 'over' ? c.proj >= c.line - 0.3 : c.proj <= c.line + 0.3); };
     props.filter(function (c) { return c.s !== 'tpm' && c.rate >= 0.55 && agrees(c); })
       .sort(function (a, b) { return b.score - a.score || b.ppg - a.ppg; })
-      .forEach(function (c) { if (best.length >= 6 || used[c.id] || (perStat[c.s + c.side] || 0) >= 2) return; used[c.id] = 1; perStat[c.s + c.side] = (perStat[c.s + c.side] || 0) + 1; best.push(propTicket(c, 'good')); });
-    $('csBest').innerHTML = best.length ? best.join('') : '<div class="cs-empty">No qualifying plays on this slate.</div>';
-
-    var worst = [], usedW = Object.assign({}, used);   // nobody on both lists
-    // traps: the overs the public wants — big scorers coming off career years
+      .forEach(function (c) { if (best.length >= 6 || used[c.id] || (perStat[c.s + c.side] || 0) >= 2) return; used[c.id] = 1; perStat[c.s + c.side] = (perStat[c.s + c.side] || 0) + 1; best.push(propPlay(c, 'good')); });
+    $('csBest').innerHTML = best.length ? best.map(playRow).join('') : none('No qualifying plays on this slate.');
+    var worst = [], usedW = Object.assign({}, used);
     props.filter(function (c) { return c.side === 'under' && (c.s === 'pts' || c.s === 'pra') && c.ratio >= 1.35; })
       .sort(function (a, b) { return b.ppg - a.ppg; })
-      .forEach(function (c) { if (worst.length >= 4 || usedW[c.id]) return; usedW[c.id] = 1; var t = Object.assign({}, c, { side: 'over' }); worst.push(propTicket(t, 'bad')); });
-    // the slate's worst ATS teams (5-yr real lines)
+      .forEach(function (c) { if (worst.length >= 4 || usedW[c.id]) return; usedW[c.id] = 1; worst.push(propPlay(Object.assign({}, c, { side: 'over' }), 'bad')); });
     var ats = [];
     rows.forEach(function (r) { [r.home, r.away].forEach(function (f) { var h = S.ats[f]; if (h && h.g >= 40 && h.atsPct <= 0.43) ats.push({ f: f, h: h, r: r }); }); });
-    ats.sort(function (a, b) { return a.h.atsPct - b.h.atsPct; }).slice(0, 2).forEach(function (x) { worst.push(atsTicket(x.f, x.h, x.r)); });
-    $('csWorst').innerHTML = worst.length ? worst.join('') : '<div class="cs-empty">Nothing to fade on this slate.</div>';
+    ats.sort(function (a, b) { return a.h.atsPct - b.h.atsPct; }).slice(0, 2).forEach(function (x) { worst.push(atsPlay(x.f, x.h, x.r)); });
+    $('csWorstBar').style.display = worst.length ? '' : 'none';
+    $('csWorst').innerHTML = worst.map(playRow).join('');
   }
 
-  // ── game lines sheet ───────────────────────────────────────────────────────
+  // ── every game: away ring · two-colour win bar · home ring · our spread card · total · book (or fair ML) ──
+  function tcol(full) { var t = S.byFull[full]; var c = window.tdcTeamColor && (tdcTeamColor((t && t.team) || full) || tdcTeamColor(full)); return (c && (c.c1 || c.primary)) || '#8A867A'; }
+  function side(full, cls) {
+    var t = S.byFull[full];
+    return '<a class="sl-tm ' + (cls || '') + '" href="' + teamHref(full) + '">' + ring(full) + '<span class="sl-tw"><span class="sl-tn">' + esc(short(full)) + '</span><span class="sl-sub">' + (t && t.rank ? '#' + t.rank : '') + '</span></span></a>';
+  }
   function renderLines(rows) {
     var q = S.q.toLowerCase();
     var view = rows.filter(function (r) {
@@ -226,33 +185,27 @@
       if (S.filter === 'conf') return r.conf;
       return true;
     }).sort(function (a, b) { return (a.both + a.quality) - (b.both + b.quality); });
-    var hasMk = rows.some(function (r) { return r.mk; }), hasMl = rows.some(function (r) { return r.mk && r.mk.mlH != null; });
+    var hasMk = rows.some(function (r) { return r.mk; });
     var lim = S.showAll ? view.length : Math.min(view.length, 40);
+    var head = '<div class="sl-colh"><span>#</span><span>Away</span><span class="c">Win chance</span><span class="r">Home</span><span class="c">Our spread</span><span class="c sl-x">Total</span><span class="c sl-x">' + (hasMk ? 'Book' : 'Fair ML') + '</span></div>';
     var body = view.slice(0, lim).map(function (r, i) {
-      var tag = '';
-      if (r.exh) tag = '<a href="scrimmage.html?id=' + encodeURIComponent(r.g.id) + '" class="cs-tag warn" style="text-decoration:none" title="Preseason scrimmage: unofficial, no betting markets · open the game page">Scrimmage →</a>';
-      else if (r.spEdge != null && Math.abs(r.spEdge) >= 3) tag = '<span class="cs-tag good">Edge ' + Math.abs(r.spEdge).toFixed(1) + '</span>';
-      else if ((S.byFull[r.fav].rank || 400) <= 60 && r.dogP >= 30 && Math.abs(r.m) >= 2.5) tag = '<span class="cs-tag warn">Upset watch</span>';
-      else if (r.both <= 40) tag = '<span class="cs-tag">Marquee</span>';
-      else if (Math.abs(r.m) <= 1.5) tag = '<span class="cs-tag">Coin flip</span>';
-      var bar = '<div class="cs-wp"><span style="width:' + r.probA.toFixed(0) + '%"></span></div>';
-      return '<tr><td class="rk">' + (i + 1) + '</td>' +
-        '<td class="l nm cs-mu"><a href="' + teamHref(r.away) + '">' + logoImg(r.away, 'cs-xlg') + rk(r.away) + esc(short(r.away)) + '</a> <i>' + (r.neutral ? 'vs' : '@') + '</i> <a href="' + teamHref(r.home) + '">' + logoImg(r.home, 'cs-xlg') + rk(r.home) + esc(short(r.home)) + '</a></td>' +
-        '<td class="l"><b>' + spreadTxt(r.m, r.home, r.away) + '</b></td>' +
-        '<td>' + (r.tot != null ? Math.round(r.tot) : '—') + '</td>' +
-        '<td class="cs-wpc"><span class="dim">' + Math.round(r.probA) + '</span>' + bar + '<span class="dim">' + Math.round(r.probH) + '</span></td>' +
-        '<td class="dim cs-ml">' + mlTxt(r.probA) + ' / ' + mlTxt(r.probH) + '</td>' +
-        (hasMl ? '<td class="dim cs-ml">' + (r.mk && r.mk.mlA != null ? bookMl(r.mk.mlA) + ' / ' + bookMl(r.mk.mlH) : '—') + '</td>' : '') +
-        (hasMk ? '<td class="l dim">' + (r.mk ? spreadTxt(r.mk.spread, r.home, r.away) : '—') + '</td><td class="dim">' + (r.mk && r.mk.total != null ? r.mk.total : '—') + '</td>' +
-          '<td class="big">' + (r.spEdge != null ? (r.spEdge > 0 ? '+' : '') + r.spEdge : '—') + '</td>' : '') +
-        '<td class="l">' + tag + '</td></tr>';
+      var fav = r.m >= 0 ? r.home : r.away, a = Math.abs(r.m);
+      var big = a < 0.25 ? 'PK' : '−' + (Math.round(a * 2) / 2).toFixed(1);
+      var badge = r.spEdge != null && Math.abs(r.spEdge) >= 1.5 ? (r.spEdge > 0 ? '+' : '−') + Math.abs(r.spEdge).toFixed(1) : '';
+      var crd = r.exh ? card(big, 'scrimmage →', '', '', 'scrimmage.html?id=' + encodeURIComponent(r.g.id)) : card(big, esc(short(fav)), badge, '');
+      var last;
+      if (r.mk && r.mk.spread != null) { var bf = fav === r.home ? r.mk.spread : -r.mk.spread; last = (Math.abs(bf) < 0.25 ? 'PK' : (bf >= 0 ? '−' : '+') + Math.abs(bf).toFixed(1)) + '<i>book · ' + (r.mk.total != null ? r.mk.total : '—') + '</i>'; }
+      else last = mlTxt(r.favP) + '<i>' + esc(short(fav)) + '</i>';
+      return '<div class="sl-row sl-game"><div class="sl-rk">' + (i + 1) + '</div>' + side(r.away) +
+        '<div class="sl-split"><div class="sl-p"><span>' + Math.round(r.probA) + '%</span><span class="sl-at">' + (r.neutral ? 'vs' : '@') + '</span><span>' + Math.round(r.probH) + '%</span></div>' +
+        '<div class="sl-b"><i style="width:' + r.probA + '%;background:' + tcol(r.away) + '"></i><i style="width:' + r.probH + '%;background:' + tcol(r.home) + '"></i></div></div>' +
+        side(r.home, 'h') + crd +
+        '<div class="sl-num sl-x">' + (r.tot != null ? Math.round(r.tot) : '—') + '<i>o/u</i></div><div class="sl-num sl-x">' + last + '</div></div>';
     }).join('');
-    var head = '<tr><th class="rk">#</th><th class="l">Matchup</th><th class="l">Our spread</th><th>Total</th><th title="Away win % · bar · home win %">Win %</th><th title="Fair moneyline from our win %, no vig (away / home)">Fair ML</th>' + (hasMl ? '<th title="Consensus book moneyline (away / home)">Book ML</th>' : '') +
-      (hasMk ? '<th class="l">Book spread</th><th>Book total</th><th title="Our margin minus the book’s, for the home side">Edge</th>' : '') + '<th class="l"></th></tr>';
-    $('linesTbl').innerHTML = '<thead>' + head + '</thead><tbody>' + (body || '<tr><td colspan="11" class="empty">No games match.</td></tr>') + '</tbody>';
+    $('slRows').innerHTML = view.length ? head + body : '<div class="sl-empty">No games match.</div>';
     $('linesMore').style.display = view.length > 40 ? '' : 'none';
     $('linesMore').textContent = S.showAll ? 'Show fewer' : 'Show all ' + view.length + ' games';
-    $('linesHint').textContent = view.length + ' games · ' + (hasMk ? 'model vs the market' : 'book lines appear here once they post');
+    $('linesHint').textContent = view.length + ' of ' + rows.length + (hasMk ? ' · red badge = points we differ from the book' : ' · book lines post about a week out');
   }
 
   // ── slate chooser ──────────────────────────────────────────────────────────
@@ -261,12 +214,11 @@
     var near = S.dates.slice(Math.max(0, i - 2), Math.max(0, i - 2) + 8);
     $('csDates').innerHTML = near.map(function (d) {
       var gs = S.games.filter(function (g) { return g.date === d; }), n = gs.length, xe = gs.every(function (g) { return g.exh; });
-      return '<button class="' + (d === S.date ? 'on' : '') + '" data-d="' + d + '"><b>' + fmtDate(d) + '</b><span>' + (xe ? n + ' scrimmage' + (n > 1 ? 's' : '') : n + ' games') + '</span></button>';
+      return '<button class="' + (d === S.date ? 'on' : '') + '" data-d="' + d + '">' + fmtDate(d) + '<span>' + (xe ? n + ' scrimmage' + (n > 1 ? 's' : '') : n + ' games') + '</span></button>';
     }).join('');
-    var top = rows.filter(function (r) { return r.both <= 100; }).length;
+    var nx = rows.filter(function (r) { return r.exh; }).length, top = rows.filter(function (r) { return r.both <= 100; }).length;
     $('csSlateT').textContent = fmtDate(S.date, true);
-    var nx = rows.filter(function (r) { return r.exh; }).length;
-    $('csSlateS').textContent = (nx === rows.length && nx ? nx + ' preseason scrimmage' + (nx > 1 ? 's' : '') + ' · ' : rows.length + ' rated games · ' + (nx ? nx + ' scrimmages · ' : '')) + top + ' between top-100 teams' + (nx === rows.length && nx ? ' · unofficial, no betting markets' : rows.some(function (r) { return r.mk; }) ? ' · book lines in' : ' · book lines post about a week out');
+    $('csSlateS').textContent = (nx === rows.length && nx ? nx + ' preseason scrimmage' + (nx > 1 ? 's' : '') + ' · unofficial, no betting markets' : rows.length + ' rated games · ' + top + ' between top-100 teams' + (rows.some(function (r) { return r.mk; }) ? ' · book lines in' : ''));
     $('csPrev').disabled = i <= 0; $('csNext').disabled = i >= S.dates.length - 1;
   }
 
@@ -275,7 +227,7 @@
     var props = allExh ? [] : propCands(S.date, rows.filter(function (r) { return !r.exh; }));   // no props on scrimmages
     renderSlateBar(rows); renderEyes(rows, props); renderBets(rows, props); renderLines(rows);
   }
-  function setDate(d) { S.date = d; S.showAll = false; try { history.replaceState(null, '', '?date=' + d); } catch (e) {} render(); }
+  function setDate(d) { S.date = d; S.showAll = false; try { var u = new URL(location.href); u.searchParams.set('date', d); history.replaceState(null, '', u); } catch (e) {} render(); }
 
   function boot() {
     if (!window.TDC_RATINGS) return;
@@ -292,7 +244,7 @@
       var teams = (D && D.teams || []).filter(function (t) { return t.rating != null; }).sort(function (a, b) { return b.rating - a.rating; });
       teams.forEach(function (t, i) { if (t.rank == null) t.rank = i + 1; S.byFull[t.full] = t; });
       var tt = res[4]; if (tt && tt.teams) Object.keys(tt.teams).forEach(function (k) { if (tt.teams[k].history) S.ats[k] = tt.teams[k].history; });
-      if (!sch) { $('csEyes').innerHTML = '<div class="cs-empty">Schedule not available.</div>'; return; }
+      if (!sch) { $('slRows').innerHTML = '<div class="sl-empty">Schedule not available.</div>'; return; }
       var T = sch.teams;
       S.games = sch.games.map(function (a) { return { id: a[0], date: a[1], home: T[a[2]], away: T[a[3]], neutral: !!a[4], conf: !!a[5] }; });
       var X = res[7]; if (X && X.games) X.games.forEach(function (x) { S.games.push({ id: x.id, date: x.date, home: x.home, away: x.away, neutral: !!x.neutral, conf: false, exh: true }); });
@@ -303,7 +255,7 @@
       var today = new Date(); var iso = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
       S.date = (want && cnt[want]) ? want : (S.dates.find(function (d) { return d >= iso; }) || S.dates[S.dates.length - 1]);
       render();
-    }).catch(function (e) { console.warn('cheatsheet slate', e); $('csEyes').innerHTML = '<div class="cs-empty">Could not load the slate.</div>'; });
+    }).catch(function (e) { console.warn('cheatsheet slate', e); $('slRows').innerHTML = '<div class="sl-empty">Could not load the slate.</div>'; });
 
     document.addEventListener('click', function (e) {
       var b = e.target.closest && e.target.closest('#csDates button'); if (b) { setDate(b.dataset.d); return; }
