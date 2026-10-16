@@ -187,7 +187,7 @@
     }).sort(function (a, b) { return (a.both + a.quality) - (b.both + b.quality); });
     var hasMk = rows.some(function (r) { return r.mk; });
     var lim = S.showAll ? view.length : Math.min(view.length, 40);
-    var head = '<div class="sl-colh"><span>#</span><span>Away</span><span class="c">Win chance</span><span class="r">Home</span><span class="c">Our spread</span><span class="c sl-x">Total</span><span class="c sl-x">' + (hasMk ? 'Book' : 'Fair ML') + '</span></div>';
+    var head = '<div class="sl-colh"><span>#</span><span>Matchup · win chance</span><span class="c">Our spread</span><span class="c sl-x">Total</span><span class="c sl-x">' + (hasMk ? 'Book' : 'Fair ML') + '</span></div>';
     var body = view.slice(0, lim).map(function (r, i) {
       var fav = r.m >= 0 ? r.home : r.away, a = Math.abs(r.m);
       var big = a < 0.25 ? 'PK' : '−' + (Math.round(a * 2) / 2).toFixed(1);
@@ -196,10 +196,12 @@
       var last;
       if (r.mk && r.mk.spread != null) { var bf = fav === r.home ? r.mk.spread : -r.mk.spread; last = (Math.abs(bf) < 0.25 ? 'PK' : (bf >= 0 ? '−' : '+') + Math.abs(bf).toFixed(1)) + '<i>book · ' + (r.mk.total != null ? r.mk.total : '—') + '</i>'; }
       else last = mlTxt(r.favP) + '<i>' + esc(short(fav)) + '</i>';
-      return '<div class="sl-row sl-game"><div class="sl-rk">' + (i + 1) + '</div>' + side(r.away) +
-        '<div class="sl-split"><div class="sl-p"><span>' + Math.round(r.probA) + '%</span><span class="sl-at">' + (r.neutral ? 'vs' : '@') + '</span><span>' + Math.round(r.probH) + '%</span></div>' +
-        '<div class="sl-b"><i style="width:' + r.probA + '%;background:' + tcol(r.away) + '"></i><i style="width:' + r.probH + '%;background:' + tcol(r.home) + '"></i></div></div>' +
-        side(r.home, 'h') + crd +
+      // one matchup cell (owner, Oct 16 2026: "hard to tell who is playing who"): away @ home side by side,
+      // each team's win chance under its own name on one two-colour bar
+      return '<div class="sl-row sl-game"><div class="sl-rk">' + (i + 1) + '</div>' +
+        '<div class="sl-mu">' + side(r.away) + '<span class="sl-vs">' + (r.neutral ? 'vs' : '@') + '</span>' + side(r.home) +
+        '<div class="sl-split"><div class="sl-p"><span><em class="sl-pn">' + esc(short(r.away)) + ' </em>' + Math.round(r.probA) + '%</span><span>' + Math.round(r.probH) + '%<em class="sl-pn"> ' + esc(short(r.home)) + '</em></span></div>' +
+        '<div class="sl-b"><i style="width:' + r.probA + '%;background:' + tcol(r.away) + '"></i><i style="width:' + r.probH + '%;background:' + tcol(r.home) + '"></i></div></div></div>' + crd +
         '<div class="sl-num sl-x">' + (r.tot != null ? Math.round(r.tot) : '—') + '<i>o/u</i></div><div class="sl-num sl-x">' + last + '</div></div>';
     }).join('');
     $('slRows').innerHTML = view.length ? head + body : '<div class="sl-empty">No games match.</div>';
