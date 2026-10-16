@@ -63,7 +63,8 @@ TDC_POSTS.add('shotzones', {
     return {
       title: nm + ': Where the Points Come From',
       subtitle: 'Shot profile by zone vs the D-I average · ' + yr + (best && parseFloat(best.fgd) > 0 ? ' · hottest: ' + best.name.toLowerCase() : ''),
-      lead: 'Pts/shot', src: src, cols: cols, dist: dist, rows: rows, players: false
+      lead: 'Pts/shot', src: src, cols: cols, dist: dist, rows: rows, players: false,
+      court: +season >= 2022 ? { team: d.team, season: season } : null   // page 2: the real shot chart (located shots exist 2021-22 on)
     };
   }
 });
