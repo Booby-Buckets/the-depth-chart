@@ -6300,11 +6300,12 @@ async function renderShotQuality(season){
   var P = (D.p && D.p.players || []).filter(function(x){ return x.team_id===tid && x.fga; }).sort(function(a,b){ return b.fga-a.fga; });
   var rows = P.map(function(x){ return '<tr><td class="l"><a href="player.html?espn='+x.espn_id+'" style="color:inherit;text-decoration:none;font-weight:700;">'+_esc(x.name)+'</a></td><td>'+x.fga+'</td><td>'+f1(x.lq)+'</td><td>'+f1(x.efg)+'</td><td data-v="'+x.smAdj+'">'+sg(x.smAdj)+'</td><td>'+(x.smPct!=null?x.smPct:'—')+'</td><td>'+f1(x.selfPct)+'</td></tr>'; }).join('');
   host.innerHTML = '<div class="dA-card"><div class="dA-sec"><span>Shot quality</span><span class="dA-cap" style="display:flex;align-items:center;gap:10px;">'+T.gp+' games · '+O.n+' shots tracked '+sel+'</span></div>'+tiles+'</div>'
+    + '<div class="dA-card" style="margin-top:16px;"><div class="dA-sec"><span>Shot chart</span><span class="dA-cap">every tracked shot · '+((y-1)+'-'+String(y).slice(2))+'</span></div><div id="sqChartHost"><div style="padding:24px;color:var(--text3);">Loading shot chart…</div></div></div>'
     + '<div class="dA-card" style="margin-top:16px;"><div class="dA-sec"><span>Shot diet</span><span class="dA-cap">share of attempts · tick = D-I average · league makes: rim '+Math.round(100*(zm.rim||0))+'%, mid '+Math.round(100*(zm.mid||0))+'%, three '+Math.round(100*(zm.atb3||0))+'%</span></div><div class="sq-diets">'+diet('off','Offense')+diet('def','Defense (opponents)')+'</div></div>'
     + (P.length ? '<div class="dA-card" style="margin-top:16px;"><div class="dA-sec"><span>Players</span><span class="dA-cap">150+ attempts · LQ = expected eFG of his shots · SM+ = pts/100 above it (competition-adjusted)</span></div>'
       + '<div class="sheet-wrap"><table class="sheet dense" id="sqPlayers"><thead><tr><th class="l">Player</th><th data-heat="1">FGA</th><th data-heat="1">LQ</th><th data-heat="1">eFG%</th><th data-heat="1">SM+</th><th data-heat="1">SM pct</th><th>Self-created %</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>' : '')
     + _sqProjCard(y, T.team);
-  _sqWire();
+  _sqWire(); _sqShotChart(tid, y);
   var tb=document.getElementById('sqPlayers'); if(tb && window.tdcSheetHeat) tdcSheetHeat(tb);
 }
 function _sqProjCard(y, full){
@@ -6316,6 +6317,20 @@ function _sqProjCard(y, full){
     + '<div class="sq-tile"><div class="l">Shot-making</div><div class="v">'+((row.off.smAdj>0?'+':'')+(+row.off.smAdj).toFixed(1))+'</div><div class="s">'+(row.off.pct&&row.off.pct.smAdj!=null?row.off.pct.smAdj+'th pct':'')+'</div></div>'
     + (row.crAdjPg!=null?'<div class="sq-tile"><div class="l">Creation</div><div class="v">'+(+row.crAdjPg).toFixed(1)+'</div><div class="s">'+(row.crPct!=null?row.crPct+'th pct':'')+'</div></div>':'')
     + '</div></div>';
+}
+// the team's real shot chart inside the Shot Quality tab (same chart + query as the Shot Chart tab; `shots` is plan-gated → tdcH)
+async function _sqShotChart(tid, y){
+  var host=document.getElementById('sqChartHost'); if(!host) return;
+  if(!window.TDC_SHOTCHART){ host.innerHTML=''; return; }
+  window._sqShotCache=window._sqShotCache||{};
+  var k=tid+'|'+y, rows=window._sqShotCache[k];
+  if(!rows){
+    rows=await fetch(SB_URL+'/rest/v1/shots?team_id=eq.'+tid+'&season_year=eq.'+y+'&select=x,y,made,sv,dist,game_id&limit=8000',{headers:tdcH()}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
+    rows=window._sqShotCache[k]=Array.isArray(rows)?rows:[];
+  }
+  if(window._sqSeason!==y||!document.body.contains(host)) return;
+  if(rows.length<40){ host.innerHTML='<div style="padding:24px;text-align:center;color:var(--text3);font-size:13px;">'+(rows.length?'Too few tracked shot locations for a readable chart this season.':'No tracked shot locations for this season.')+'</div>'; return; }
+  TDC_SHOTCHART.render(host, rows, {subtitle:(teamT&&teamT.name)||'this team', kind:'team', season:y});
 }
 function _sqWire(){ var s=document.getElementById('sqSeason'); if(s) s.onchange=function(){ renderShotQuality(+this.value); }; }
 function _esc(t){ return String(t==null?'':t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
