@@ -27,6 +27,7 @@
       ['conferences.html',     'Conferences & Standings'],
       ['compare-players.html?mode=teams', 'Compare Teams'],
       ['predict.html',         'Projections'],
+      ['payroll.html',         'Payrolls'],
     ]],
     ['Players', [
       ['following.html',       '★ Following'],
