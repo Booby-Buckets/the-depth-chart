@@ -1987,17 +1987,34 @@
 
   // ── Schedule predictions: a team's whole 2026-27 slate, game by game (tdc-schedule.js — the same Monte Carlo as the team page) ──
   function mdy(s){ var m=String(s||'').match(/^(\d{4})-(\d\d)-(\d\d)/); if(!m) return String(s||''); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m[2]-1]+' '+(+m[3]); }
-  function schedRows(d){ var R=(d.rows||[]).filter(function(r){ return r.opp; }); return d.show==='conf'?R.filter(function(r){ return r.conf; }):d.show==='nonconf'?R.filter(function(r){ return !r.conf; }):R; }
+  // schedule options (owner, Oct 16 2026: "more customizability"): columns, filters, order, how many, styles, summary boxes
+  var SCOLS=[['date','Date'],['venue','Venue'],['line','Line'],['score','Proj. score'],['win','Win %']];
+  var SSUM=[['exp','Projected record'],['range','Likely range'],['pick','Pick every game'],['conf','League record']];
+  function sOpt(d,k,list){ return '<select data-k="'+k+'">'+list.map(function(x){ return '<option value="'+x[0]+'"'+(String(d[k]||'')===x[0]?' selected':'')+'>'+x[1]+'</option>'; }).join('')+'</select>'; }
+  function schedRows(d){ var R=(d.rows||[]).filter(function(r){ return r.opp; });
+    if(d.show==='conf') R=R.filter(function(r){ return r.conf; }); else if(d.show==='nonconf') R=R.filter(function(r){ return !r.conf; });
+    if(d.vf) R=R.filter(function(r){ return (r.v||'').charAt(0)===d.vf; });
+    if(d.month) R=R.filter(function(r){ return String(r.date||'').indexOf(d.month)===0; });
+    if(d.left) R=R.filter(function(r){ return !/^[WL] /.test(String(r.win||'')); });
+    var pw=function(r){ var p=parseFloat(r.win); return isFinite(p)&&!/^[WL] /.test(String(r.win))?p:null; };
+    if(d.sort&&d.sort!=='date'){ R=R.slice().sort(function(a,b){ var x=pw(a), y=pw(b); if(x==null) return 1; if(y==null) return -1;
+      return d.sort==='hard'?x-y:d.sort==='easy'?y-x:Math.abs(x-50)-Math.abs(y-50); }); }
+    var n=+d.limit||0; return n>0?R.slice(0,n):R; }
+  function schedCols(d){ return d.cols&&d.cols.length?d.cols:['date','venue','line','win']; }
+  function schedSum(d){ if(d.noSum||!d.sum) return []; var on=d.sumKeys||['exp','range','pick','conf'], L={ exp:'Projected record', range:'Likely range', pick:'Pick every game', conf:(d.sum.lg||'League')+' record' };
+    return on.filter(function(k){ return d.sum[k]; }).map(function(k){ return [L[k],d.sum[k]]; }); }
   // rows per page: page 1 also carries the summary band; +d.perPage overrides (e.g. split 31 games evenly)
-  function schedSplit(d,W,H,u,pad){ var R=schedRows(d), rh=Math.max(46*u,Math.min(64*u,H/21)), top=pad*.85+190*u, bot=pad*.75+110*u, band=118*u, hh=40*u;
+  function schedSplit(d,W,H,u,pad){ var R=schedRows(d), rh=Math.max(46*u,Math.min(64*u,H/21)), top=pad*.85+190*u, bot=pad*.75+110*u, band=schedSum(d).length?118*u:0, hh=40*u;
     var n1=Math.max(4,Math.floor((H-top-bot-band-hh)/rh)), nk=Math.max(4,Math.floor((H-top-bot-hh)/rh)), pp=+d.perPage||0, out=[], i=0;
     if(pp>0){ n1=Math.min(n1,pp); nk=Math.min(nk,pp); }
+    if(d.onePage){ n1=nk=Math.max(1,R.length); }
     // how many pages the games need, then spread them evenly so the last page isn't a few rows on an empty sheet
     var np=R.length<=n1?1:1+Math.ceil((R.length-n1)/nk), k1=np<2?R.length:Math.min(n1,Math.ceil(R.length/np)), per=np<2?0:Math.ceil((R.length-k1)/(np-1));
     out.push([0,k1]); i=k1; while(i<R.length){ out.push([i,Math.min(R.length,i+per)]); i+=per; }
+    if(d.onePage) rh=Math.min(rh,(H-top-bot-band-hh)/Math.max(1,R.length));
     return { R:R, pages:out, rh:rh }; }
   T.sched={
-    defaults:function(){ return { team:'', show:'all', perPage:'', title:'', subtitle:'', src:'', sum:null, rows:[] }; },
+    defaults:function(){ return { team:'', show:'all', vf:'', month:'', sort:'date', limit:'', perPage:'', cols:['date','venue','line','win'], lineFmt:'team', winStyle:'heat', marker:'gold', rankTag:true, title:'', subtitle:'', src:'', sum:null, rows:[] }; },
     pages:function(d,W,H,u,pad){ return schedSplit(d,W,H,u,pad).pages.length; },
     load:async function(d){
       if(!d.team){ status('Pick a team to load its schedule.'); return; }
@@ -2005,9 +2022,10 @@
       await needScript('tdc-schedule.js?v=43'); await TDCSched.load();
       var r=await TDCSched.project(tr.full); if(!r) throw new Error('No 2026-27 schedule on file for '+school(tr.full)+'.');
       var sn=function(x){ return school(x); }, V={ H:'Home', A:'Away', N:'Neutral' };
-      var row=function(x,done){ var o={ date:mdy(x.g.date), opp:x.oppName?sn(x.oppName):x.label, team:x.oppName||'', v:V[x.venue]||'', conf:x.g.conf?'1':'', ev:x.event?x.event.replace(/ · day.*/,''):'' };
-        if(done){ o.line=''; o.win=(x.final.won?'W ':'L ')+x.final.ms+'-'+x.final.os; }
-        else { o.line=x.spread||''; o.win=String(Math.round(x.p*100)); }
+      var row=function(x,done){ var o={ date:mdy(x.g.date), opp:x.oppName?sn(x.oppName):x.label, team:x.oppName||'', v:V[x.venue]||'', conf:x.g.conf?'1':'', ev:x.event?x.event.replace(/ · day.*/,''):'',
+          ork:x.opp&&x.opp.rank?String(x.opp.rank):'' };
+        if(done){ o.line=''; o.m=''; o.score=x.final.ms+'-'+x.final.os; o.win=(x.final.won?'W ':'L ')+x.final.ms+'-'+x.final.os; }
+        else { o.line=x.spread||''; o.m=String(x.margin); o.score=x.scoreMe+'-'+x.scoreOpp; o.win=String(Math.round(x.p*100)); }
         return o; };
       d.rows=(r.played||[]).map(function(x){ return row(x,true); }).concat(r.rows.map(function(x){ return row(x,false); }));
       var n=r.n, ew=r.expW;
@@ -2017,51 +2035,78 @@
       d.src='The Depth Chart schedule model · '+r.sims.toLocaleString()+' simulated seasons · announced '+SEASON+' schedule';
     },
     editor:function(d){
+      var cols=schedCols(d), sk=d.sumKeys||['exp','range','pick','conf'];
       return '<h3>Data</h3><label class="f">Team</label><input data-k="team" list="tmList" value="'+esc(d.team||'')+'" placeholder="Pick a team">'+
-        '<div class="two"><div><label class="f">Games</label><select data-k="show">'+[['all','Every game'],['conf','Conference only'],['nonconf','Non-conference only']].map(function(x){ return '<option value="'+x[0]+'"'+(d.show===x[0]?' selected':'')+'>'+x[1]+'</option>'; }).join('')+'</select></div>'+
-        '<div><label class="f">Games per page</label><input data-k="perPage" type="number" min="4" max="24" value="'+esc(d.perPage||'')+'" placeholder="Auto"></div></div>'+
-        '<div class="hint">Long schedules split across pages. Use the arrows under the preview to flip; Download saves every page.</div>'+
         '<div class="btns"><button class="b sm primary" data-act="load">Load / refresh data</button></div>'+
+        '<h3>Which games</h3><div class="two"><div><label class="f">Games</label>'+sOpt(d,'show',[['all','Every game'],['conf','Conference only'],['nonconf','Non-conference only']])+'</div>'+
+        '<div><label class="f">Venue</label>'+sOpt(d,'vf',[['','Any venue'],['H','Home'],['A','Away'],['N','Neutral']])+'</div></div>'+
+        '<div class="two"><div><label class="f">Month</label>'+sOpt(d,'month',[['','Whole season'],['Nov','November'],['Dec','December'],['Jan','January'],['Feb','February'],['Mar','March']])+'</div>'+
+        '<div><label class="f">Order</label>'+sOpt(d,'sort',[['date','By date'],['hard','Toughest first'],['easy','Easiest first'],['close','Closest games first']])+'</div></div>'+
+        '<div class="two"><div><label class="f">How many games</label><input data-k="limit" type="number" min="1" max="40" value="'+esc(d.limit||'')+'" placeholder="All"></div>'+
+        '<div><label class="f">Games per page</label><input data-k="perPage" type="number" min="4" max="24" value="'+esc(d.perPage||'')+'" placeholder="Auto"></div></div>'+
+        '<label class="chk"><input type="checkbox" data-k="left"'+(d.left?' checked':'')+'> Only games still to play</label>'+
+        '<label class="chk"><input type="checkbox" data-k="onePage"'+(d.onePage?' checked':'')+'> Fit everything on one page</label>'+
+        '<div class="hint">E.g. Order "Toughest first" + 10 games = a "10 toughest games" graphic. Long lists split across pages; flip with the arrows under the preview, Download saves every page.</div>'+
+        '<h3>Columns &amp; style</h3><label class="f">Columns</label><div class="seg">'+SCOLS.map(function(c){ return '<button type="button" data-act="scol" data-col="'+c[0]+'" class="'+(cols.indexOf(c[0])>-1?'on':'')+'">'+c[1]+'</button>'; }).join('')+'</div>'+
+        '<div class="two"><div><label class="f">Line shown as</label>'+sOpt(d,'lineFmt',[['team','Duke −7.5 (favourite named)'],['num','−7.5 / +3.0 (this team)']])+'</div>'+
+        '<div><label class="f">Win % cell</label>'+sOpt(d,'winStyle',[['heat','Red → green fill'],['bar','Bar in team colour'],['plain','Plain number']])+'</div></div>'+
+        '<div class="two"><div><label class="f">Conference games</label>'+sOpt(d,'marker',[['gold','Gold marker'],['team','Team-colour marker'],['none','No marker']])+'</div><div></div></div>'+
+        '<label class="chk"><input type="checkbox" data-k="rankTag"'+(d.rankTag!==false?' checked':'')+'> Opponent’s rank next to its name</label>'+
+        '<label class="chk"><input type="checkbox" data-k="noSum" data-neg="1"'+(d.noSum?'':' checked')+'> Season summary on page 1</label>'+
+        '<div class="seg">'+SSUM.map(function(c){ return '<button type="button" data-act="ssum" data-col="'+c[0]+'" class="'+(sk.indexOf(c[0])>-1?'on':'')+'">'+c[1]+'</button>'; }).join('')+'</div>'+
         '<h3>Text</h3><label class="f">Title</label><input data-k="title" value="'+esc(d.title)+'"><label class="f">Subtitle</label><input data-k="subtitle" value="'+esc(d.subtitle)+'"><label class="f">Data source line</label><input data-k="src" value="'+esc(d.src||'')+'">'+
         '<h3>Rows ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',[{k:'date',ph:'Date',w:'58px'},{k:'opp',ph:'Opponent',w:'minmax(0,1.3fr)'},{k:'v',ph:'Venue',w:'62px'},{k:'line',ph:'Line',w:'minmax(0,1fr)'},{k:'win',ph:'Win %',w:'48px'}])+
         '<div class="btns"><button class="b sm" data-act="add" data-path="rows">+ Add game</button></div>'+lookUI(d,{ rows:false });
     },
     draw:async function(d,W,H,u,pad){
       bg(W,H);
-      if(!d.rows.length){ var y00=sheetHead(W,H,u,pad,d.title||'Schedule predictions',d.subtitle||'Pick a team on the left'); txt('Pick a team and load its schedule',W/2,H/2,{ px:28*u,c:P.mut,al:'center' }); foot(W,H,u,pad); return ''; }
-      var sp=schedSplit(d,W,H,u,pad), pg=sp.pages[PG]||sp.pages[0], R=sp.R.slice(pg[0],pg[1]), rh=sp.rh;
+      if(!d.rows.length){ sheetHead(W,H,u,pad,d.title||'Schedule predictions',d.subtitle||'Pick a team on the left'); txt('Pick a team and load its schedule',W/2,H/2,{ px:28*u,c:P.mut,al:'center' }); foot(W,H,u,pad); return ''; }
+      var sp=schedSplit(d,W,H,u,pad), pg=sp.pages[PG]||sp.pages[0], R=sp.R.slice(pg[0],pg[1]), rh=sp.rh, cols=schedCols(d), tc=tcol(d.team), ws=d.winStyle||'heat';
       var y=sheetHead(W,H,u,pad,d.title+(PG?' (cont.)':''),PG?'':d.subtitle);
-      var fTop=sheetFoot(W,H,u,pad,d.src,rampLegend(u,HEAT_RAMP,'WIN %','0','100'));
-      // page 1: the season in four numbers
-      if(PG===0&&d.sum){ var S4=[['Projected record',d.sum.exp],['Likely range',d.sum.range],['Pick every game',d.sum.pick]].concat(d.sum.conf?[[(d.sum.lg||'League')+' record',d.sum.conf]]:[]);
-        var bw=(W-pad*2)/S4.length, bh=96*u;
+      var fTop=sheetFoot(W,H,u,pad,d.src,ws==='heat'&&cols.indexOf('win')>-1?rampLegend(u,HEAT_RAMP,'WIN %','0','100'):null);
+      // page 1: the season in up to four numbers
+      var S4=PG===0?schedSum(d):[];
+      if(S4.length){ var bw=(W-pad*2)/S4.length, bh=96*u;
         S4.forEach(function(s,i){ var x=pad+bw*i; ctx.fillStyle=P.chip; ctx.fillRect(x+(i?4*u:0),y,bw-(i?4*u:0)-(i<S4.length-1?4*u:0),bh);
           txt(s[0].toUpperCase(),x+bw/2,y+28*u,{ w:700,px:14*u,serif:'barlow',c:P.mut,al:'center',ls:1.4*u,max:bw-16*u });
           txt(s[1],x+bw/2,y+64*u,{ w:800,px:36*u,serif:'cond',c:P.text,al:'center',max:bw-16*u }); });
         y+=bh+22*u; }
-      // column grid
-      var x0=pad, xR=W-pad, cDate=x0+12*u, cLogo=x0+(W>H*1.2?120:104)*u, ls=rh*.62, cOpp=cLogo+ls+12*u, wWin=130*u, wLine=Math.min(260*u,(W-pad*2)*.26), wVen=110*u;
-      var xWin=xR-wWin, xLine=xWin-wLine-10*u, xVen=xLine-wVen;
-      var hy=y+18*u; [['DATE',cDate,'left'],['OPPONENT',cOpp,'left'],['VENUE',xVen+wVen/2,'center'],['OUR LINE',xLine+wLine/2,'center'],['WIN %',xWin+wWin/2,'center']].forEach(function(h){ txt(h[0],h[1],hy,{ w:700,px:15*u,serif:'barlow',c:P.text2,al:h[2],ls:1*u }); });
+      // column grid: date on the left, the chosen stat columns packed from the right edge
+      var x0=pad, xR=W-pad, hasDate=cols.indexOf('date')>-1, cDate=x0+12*u, cLogo=x0+(hasDate?(W>H*1.2?120:104)*u:12*u), ls=rh*.62, cOpp=cLogo+ls+12*u;
+      var WD={ venue:110*u, line:Math.min(250*u,(W-pad*2)*.24), score:140*u, win:130*u }, LB={ venue:'VENUE', line:'OUR LINE', score:'PROJ. SCORE', win:'WIN %' };
+      var right=['venue','line','score','win'].filter(function(k){ return cols.indexOf(k)>-1; }), X={}, xx=xR;
+      for(var j=right.length-1;j>=0;j--){ xx-=WD[right[j]]+(j<right.length-1?6*u:0); X[right[j]]=xx; }
+      var oppEnd=(right.length?X[right[0]]:xR)-10*u;
+      var hy=y+18*u; if(hasDate) txt('DATE',cDate,hy,{ w:700,px:15*u,serif:'barlow',c:P.text2,ls:1*u }); txt('OPPONENT',cOpp,hy,{ w:700,px:15*u,serif:'barlow',c:P.text2,ls:1*u });
+      right.forEach(function(k){ txt(LB[k],X[k]+WD[k]/2,hy,{ w:700,px:15*u,serif:'barlow',c:P.text2,al:'center',ls:1*u,max:WD[k]-4*u }); });
       y+=40*u; ctx.fillStyle=P.line; ctx.fillRect(pad,y-1,W-pad*2,Math.max(1,u));
       rh=Math.max(rh,Math.min(rh*1.3,(fTop-y-40*u)/Math.max(1,R.length)));   // short pages: taller rows, not a blank bottom
       await Promise.all(R.map(function(r){ return img(logoUrl(r.team)); }));
+      var mk=d.marker||'gold', mcol=mk==='team'?tc:P.acc, me=school(d.team);
       for(var i=0;i<R.length;i++){ var r=R[i], ry=y+i*rh, cy=ry+rh/2;
         if(i%2) { ctx.fillStyle=P.alt; ctx.fillRect(pad,ry,W-pad*2,rh); }
-        if(r.conf){ ctx.fillStyle=P.acc; ctx.fillRect(pad,ry+4*u,4*u,rh-8*u); }
-        txt(r.date,cDate,cy,{ w:600,px:19*u,serif:'barlow',c:P.text2 });
+        if(r.conf&&mk!=='none'){ ctx.fillStyle=mcol; ctx.fillRect(pad,ry+4*u,4*u,rh-8*u); }
+        if(hasDate) txt(r.date,cDate,cy,{ w:600,px:19*u,serif:'barlow',c:P.text2 });
         var lg=await img(logoUrl(r.team)); if(lg) drawFit(lg,cLogo,cy-ls/2,ls);
-        var nmax=xVen-cOpp-10*u; txt(r.opp,cOpp,r.ev?cy-9*u:cy,{ w:700,px:22*u,serif:'barlow',c:P.text,max:nmax });
+        var nmax=oppEnd-cOpp, rk=d.rankTag!==false&&r.ork?'#'+r.ork+' ':'', rkw=rk?width(rk,700,15*u,'barlow')+2*u:0;
+        if(rk) txt(rk,cOpp,r.ev?cy-9*u:cy,{ w:700,px:15*u,serif:'barlow',c:P.mut });
+        txt(r.opp,cOpp+rkw,r.ev?cy-9*u:cy,{ w:700,px:22*u,serif:'barlow',c:P.text,max:nmax-rkw });
         if(r.ev) txt(r.ev,cOpp,cy+13*u,{ w:500,px:14*u,serif:'barlow',c:P.mut,max:nmax });
-        txt(r.v,xVen+wVen/2,cy,{ w:600,px:17*u,serif:'barlow',c:P.mut,al:'center' });
-        txt(r.line,xLine+wLine/2,cy,{ w:600,px:19*u,serif:'barlow',c:P.text2,al:'center',max:wLine-8*u });
-        var wv=String(r.win||''), done=/^[WL] /.test(wv), p=parseFloat(wv);
-        if(done){ ctx.fillStyle=wv[0]==='W'?'rgba(44,152,88,.22)':'rgba(214,72,60,.22)'; ctx.fillRect(xWin+4*u,ry+5*u,wWin-8*u,rh-10*u); txt(wv,xWin+wWin/2,cy,{ w:800,px:19*u,serif:'barlow',c:P.text,al:'center',max:wWin-12*u }); }
-        else if(isFinite(p)){ var c=ramp(HEAT_RAMP,p/100); ctx.fillStyle=rgbS(c); ctx.fillRect(xWin+4*u,ry+5*u,wWin-8*u,rh-10*u); txt((p>99.4?'>99':p<0.5?'<1':Math.round(p))+'%',xWin+wWin/2,cy,{ w:800,px:22*u,serif:'barlow',c:inkOn(c),al:'center' }); }
+        if(X.venue!=null) txt(r.v,X.venue+WD.venue/2,cy,{ w:600,px:17*u,serif:'barlow',c:P.mut,al:'center' });
+        if(X.line!=null){ var lt=r.line; if(d.lineFmt==='num'&&r.m!==''&&r.m!=null&&isFinite(+r.m)){ var mm=+r.m; lt=(mm>=0?'−':'+')+Math.abs(mm).toFixed(1); }
+          txt(lt,X.line+WD.line/2,cy,{ w:600,px:19*u,serif:'barlow',c:P.text2,al:'center',max:WD.line-8*u }); }
+        if(X.score!=null) txt(r.score||'',X.score+WD.score/2,cy,{ w:600,px:19*u,serif:'barlow',c:P.text2,al:'center' });
+        if(X.win!=null){ var xw=X.win, wW=WD.win, wv=String(r.win||''), done=/^[WL] /.test(wv), p=parseFloat(wv), lbl=(p>99.4?'>99':p<0.5?'<1':Math.round(p))+'%';
+          if(done){ ctx.fillStyle=wv[0]==='W'?'rgba(44,152,88,.22)':'rgba(214,72,60,.22)'; ctx.fillRect(xw+4*u,ry+5*u,wW-8*u,rh-10*u); txt(wv,xw+wW/2,cy,{ w:800,px:19*u,serif:'barlow',c:P.text,al:'center',max:wW-12*u }); }
+          else if(isFinite(p)){
+            if(ws==='heat'){ var c=ramp(HEAT_RAMP,p/100); ctx.fillStyle=rgbS(c); ctx.fillRect(xw+4*u,ry+5*u,wW-8*u,rh-10*u); txt(lbl,xw+wW/2,cy,{ w:800,px:22*u,serif:'barlow',c:inkOn(c),al:'center' }); }
+            else if(ws==='bar'){ ctx.fillStyle=P.chip; ctx.fillRect(xw+4*u,ry+rh*.3,wW-8*u,rh*.4); ctx.fillStyle=tc; ctx.fillRect(xw+4*u,ry+rh*.3,(wW-8*u)*p/100,rh*.4);
+              txt(lbl,xw+wW-8*u,cy,{ w:800,px:17*u,serif:'barlow',c:p>78?'#fff':P.text,al:'right' }); }
+            else txt(lbl,xw+wW/2,cy,{ w:800,px:22*u,serif:'barlow',c:P.text,al:'center' }); } }
         ctx.fillStyle=P.line; ctx.fillRect(pad,ry+rh-1,W-pad*2,Math.max(1,u*.6)); }
-      if(sp.R.some(function(r){ return r.conf; })){ var ly=Math.min(fTop-10*u,y+R.length*rh+24*u); ctx.fillStyle=P.acc; ctx.fillRect(pad,ly-9*u,4*u,18*u); txt('Conference game',pad+12*u,ly,{ w:600,px:14*u,serif:'barlow',c:P.mut }); }
-      var nm=school(d.team);
-      return nm+' '+SEASON+': our projection for every game'+(d.sum?'\n\nProjected record: '+d.sum.exp+' (likely '+d.sum.range+')':'')+'\n\nToughest: '+sp.R.filter(function(r){ return isFinite(parseFloat(r.win)); }).sort(function(a,b){ return parseFloat(a.win)-parseFloat(b.win); }).slice(0,3).map(function(r){ return r.opp+' ('+r.win+'%)'; }).join(', ')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB';
+      if(mk!=='none'&&sp.R.some(function(r){ return r.conf; })){ var ly=Math.min(fTop-10*u,y+R.length*rh+24*u); ctx.fillStyle=mcol; ctx.fillRect(pad,ly-9*u,4*u,18*u); txt('Conference game',pad+12*u,ly,{ w:600,px:14*u,serif:'barlow',c:P.mut }); }
+      var S2=schedSum(d);
+      return me+' '+SEASON+': our projection, game by game'+(d.sum?'\n\nProjected record: '+d.sum.exp+' (likely '+d.sum.range+')':'')+'\n\nToughest: '+sp.R.filter(function(r){ return isFinite(parseFloat(r.win))&&!/^[WL] /.test(r.win); }).sort(function(a,b){ return parseFloat(a.win)-parseFloat(b.win); }).slice(0,3).map(function(r){ return r.opp+' ('+r.win+'%)'; }).join(', ')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB';
     }
   };
 
@@ -2207,7 +2252,7 @@
   // LOAD_VER: bump whenever a chart's or post's loader changes what it puts in the rows (columns, order, maths). A saved
   // graphic loaded under an older version reloads on open — unless its rows were hand-edited — so a fix reaches the
   // owner without clicking "Load / refresh data" (Oct 2026: the scrimmage scoreboard kept the old Margin rows).
-  var LOAD_VER='2026-10-16a';
+  var LOAD_VER='2026-10-16b';
   function stamp(d){ if(d&&(Array.isArray(d.rows)||Array.isArray(d.starters))){ d.loadedAt=new Date().toISOString().slice(0,10); d._lv=LOAD_VER; d._edited=false; } }
   function paintEditor(){ var d=doc(), h=T[S.tpl].editor(d);
     if(d.loadedAt&&Array.isArray(d.rows)&&d.rows.length){ var age=Math.round((Date.now()-new Date(d.loadedAt+'T12:00:00'))/864e5);
@@ -2242,6 +2287,8 @@
     if(act==='col'){ var cs=(d.cols||DSTATS_DEF).slice(), ci=cs.indexOf(b.dataset.col); if(ci>-1) cs.splice(ci,1); else cs.push(b.dataset.col); d.cols=DSTATS_ALL.map(function(x){ return x[0]; }).filter(function(k){ return cs.indexOf(k)>-1; }); }
     // column toggles on the sheet graphics, kept in their list's order
     if(act==='lcol'||act==='hcol'||act==='mcol'){ var L0=act==='lcol'?LCOLS:act==='hcol'?HCOLS:TMCOLS, c3=(d.cols||[]).slice(), i3=c3.indexOf(b.dataset.col); if(i3>-1) c3.splice(i3,1); else c3.push(b.dataset.col); d.cols=L0.map(function(x){ return x[0]; }).filter(function(k){ return c3.indexOf(k)>-1; }); }
+    if(act==='scol'){ var sc=(d.cols&&d.cols.length?d.cols:['date','venue','line','win']).slice(), si=sc.indexOf(b.dataset.col); if(si>-1) sc.splice(si,1); else sc.push(b.dataset.col); d.cols=SCOLS.map(function(x){ return x[0]; }).filter(function(k){ return sc.indexOf(k)>-1; }); }
+    if(act==='ssum'){ var sm=(d.sumKeys||['exp','range','pick','conf']).slice(), mi=sm.indexOf(b.dataset.col); if(mi>-1) sm.splice(mi,1); else sm.push(b.dataset.col); d.sumKeys=SSUM.map(function(x){ return x[0]; }).filter(function(k){ return sm.indexOf(k)>-1; }); }
     if(act==='pcol'){ var pc=(d.cols||[]).filter(function(c){ return c.k===b.dataset.col; })[0]; if(pc){ d.colOn=d.colOn||{}; d.colOn[pc.k]=postCols(d).indexOf(pc)<0; } }
     if(act==='tcreset'){ d.tcolor=''; }
     if(act==='acol'){ var a4=(d.tcols||['ppg','rpg','apg']).slice(), i4=a4.indexOf(b.dataset.col); if(i4>-1) a4.splice(i4,1); else a4.push(b.dataset.col); d.tcols=DSTATS_ALL.map(function(x){ return x[0]; }).filter(function(k){ return a4.indexOf(k)>-1; }); }
