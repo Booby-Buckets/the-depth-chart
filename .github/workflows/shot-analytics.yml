@@ -5,6 +5,10 @@ name: Rebuild shot analytics
 #   scripts/build_mastery.mjs           -> scripts/data/mastery/<season>.json
 #   scripts/build_possession_value.mjs  -> scripts/data/possession_value/<season>.json  (needs the mastery file)
 #   scripts/build_coach_shots.py        -> scripts/data/coach_shots.json               (every season on file)
+#   scripts/build_shot_aftermath.mjs    -> scripts/data/shot_aftermath/*_<season>.json  (After the Shot, possessions,
+#                                          situations, shot profiles; 2027+ only — earlier seasons are final)
+#   scripts/build_shot_quality.py       -> scripts/data/shot_quality/<season>.json + careers (Shot Quality v2;
+#                                          needs the aftermath + mastery files; waits for 1,500 D-I games)
 # A season isn't built until 200 D-I games are final (MIN_GAMES), so an opening-week file never becomes the
 # pages' default season. Runs after the overnight results ingest; commits only when something changed.
 # Rebuild any season by hand: gh workflow run shot-analytics.yml -f season=2026
@@ -29,7 +33,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 100
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -46,6 +50,12 @@ jobs:
           echo "season=$S" >> "$GITHUB_OUTPUT"; echo "Building season $S"
       - name: Mastery Shots
         run: node scripts/build_mastery.mjs ${{ steps.season.outputs.season }}
+      - name: After the Shot (shot aftermath)
+        if: steps.season.outputs.season >= 2027
+        run: node scripts/build_shot_aftermath.mjs ${{ steps.season.outputs.season }}
+      - name: Shot Quality v2
+        if: steps.season.outputs.season >= 2027
+        run: python3 -u scripts/build_shot_quality.py ${{ steps.season.outputs.season }}
       - name: Hunt Great (possession value)
         run: node scripts/build_possession_value.mjs ${{ steps.season.outputs.season }}
       - name: Coach shot discipline
@@ -54,7 +64,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add scripts/data/mastery scripts/data/possession_value scripts/data/coach_shots.json
+          git add scripts/data/mastery scripts/data/possession_value scripts/data/coach_shots.json scripts/data/shot_aftermath scripts/data/shot_quality
           if git diff --cached --quiet; then echo "Nothing new."; exit 0; fi
           git commit -m "Auto: shot analytics ${{ steps.season.outputs.season }} $(date -u +%Y-%m-%d) [skip ci]"
           for i in 1 2 3; do git pull --rebase -q && git push && break; sleep 5; done

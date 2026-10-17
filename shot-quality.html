@@ -83,7 +83,7 @@
     <label>Season<select id="fSeason"></select></label>
     <label>Conference<select id="fConf"><option value="">All conferences</option></select></label>
     <label id="lPos">Position<select id="fPos"><option value="">All positions</option><option value="G">Guards</option><option value="F">Forwards</option><option value="C">Centers</option></select></label>
-    <label id="lMin">Minimum minutes<select id="fMin"><option value="300">300+</option><option value="500" selected>500+</option><option value="800">800+</option></select></label>
+    <label id="lMin">Minimum minutes<select id="fMin"><option value="200">200+</option><option value="300">300+</option><option value="500" selected>500+</option><option value="800">800+</option></select></label>
     <label>Find<input id="fFind" type="search" list="dlFind" placeholder="Name or team" autocomplete="off"><datalist id="dlFind"></datalist></label>
   </div>
   <div class="sample" id="sample">Loading every shot since 2009-10…</div>
@@ -125,8 +125,8 @@
     const all=src.map(r=>isT()
       ?{id:r[0], key:(isDef()?'D':'T')+r[0], tid:r[0], name:sh(r[P.name]), full:r[P.name], team:'', conf:r[P.conf], pos:'', min:r[P.poss], shots:r[P.shots], x:r[P.x], q:r[P.qA], m:r[P.mS], raw:r[P.m], pps:r[P.pps], self:r[P.self], p100:r[P.pts100], g:r[P.g]}
       :{id:r[0], key:r[0], tid:r[P.team], name:r[P.name], team:sh(F.teamNames[r[P.team]]||''), conf:F.teamConf[r[P.team]]||'', pos:r[P.pos], min:r[P.min], shots:r[P.shots], x:r[P.x], q:r[P.qA], m:r[P.mS], raw:r[P.m], pps:r[P.pps], self:r[P.self], p100:r[P.pts100], g:r[P.g]});
-    // percentiles against the whole season (players 500+ min), so filters never move a player's rank
-    const pool=isT()?all:all.filter(d=>d.min>=500), Q=pool.map(d=>d.q).sort((a,b)=>a-b), M=pool.map(d=>d.m).sort((a,b)=>a-b);
+    // percentiles against the whole season (players 500+ min, scaled down while a season is in progress), so filters never move a player's rank
+    const pool=isT()?all:all.filter(d=>d.min>=poolMin()), Q=pool.map(d=>d.q).sort((a,b)=>a-b), M=pool.map(d=>d.m).sort((a,b)=>a-b);
     const pc=(A,v)=>{ let lo=0,hi=A.length; while(lo<hi){ const mid=(lo+hi)>>1; if(A[mid]<v) lo=mid+1; else hi=mid; } const p=Math.round(100*lo/A.length); return isDef()?100-p:p; };
     all.forEach(d=>{ d.qp=pc(Q,d.q); d.mp=pc(M,d.m); });
     POOL=all;
@@ -252,6 +252,9 @@
   function markRow(){ document.querySelectorAll('#tbl tbody tr').forEach(tr=>tr.classList.toggle('sel',tr.getAttribute('data-k')===S.sel)); }
   function syncURL(){ const p=new URLSearchParams(); if(S.view!=='player') p.set('view',S.view); p.set('season',S.season); if(S.sel) p.set('id',S.sel); history.replaceState(null,'',location.pathname+'?'+p.toString()); }
 
+  // a season in progress (F.live): the 500-minute floor scales with how much of a ~5,600-game D-I season is final
+  const poolMin=()=>F&&F.live?Math.max(200,Math.round(500*Math.min(1,(F.d1Games||0)/5600)/10)*10):500;
+
   // ---------- page
   async function render(){
     if(!S.season){ const I=await get(BASE+'index.json'+V); S.season=I&&I.seasons[0]||2026; }
@@ -260,6 +263,7 @@
     const I=await get(BASE+'index.json'+V), fS=document.getElementById('fSeason');
     if(I&&fS.options.length!==I.seasons.length) fS.innerHTML=I.seasons.map(y=>`<option value="${y}">${sl(y)}</option>`).join('');
     fS.value=S.season; document.getElementById('fView').value=S.view;
+    if(F.live&&S.min>poolMin()){ S.min=poolMin()>=300?300:200; document.getElementById('fMin').value=String(S.min); }
     build();
     const confs=[...new Set(POOL.map(d=>d.conf).filter(Boolean))].sort(), fC=document.getElementById('fConf');
     fC.innerHTML='<option value="">All conferences</option>'+confs.map(c=>`<option>${esc(c)}</option>`).join(''); fC.value=S.conf;

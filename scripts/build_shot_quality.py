@@ -18,6 +18,10 @@ Inputs (all already built): shot_aftermath/prof_<y>.json + tprof_<y>.json (zones
 mastery/<y>.json (shot families + assisted makes), Supabase games (schedule) + team_seasons (names, conferences).
 
     python3 scripts/build_shot_quality.py [season ...]   -> scripts/data/shot_quality/<y>.json, index.json, careers/<0-9>.json
+
+A season in progress (2026-27, nightly in shot-analytics.yml) is skipped until SQ_MIN_GAMES D-I games are final,
+so the page's season picker (index.json = the season files on disk) only offers it once teams clear TEAM_POSS and
+regulars clear MIN_MIN. Files whose data didn't change keep their bytes (and built stamp): a quiet night commits nothing.
 """
 import json, os, sys, glob, math, urllib.request, datetime
 
@@ -26,6 +30,7 @@ SA, MA, OUT = os.path.join(DATA, "shot_aftermath"), os.path.join(DATA, "mastery"
 SB = "https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/"; KEY = "sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye"
 H = {"apikey": KEY, "Authorization": "Bearer " + KEY}
 MIN_MIN, MIN_SHOTS, TEAM_POSS = 200, 40, 500
+SQ_MIN_GAMES = int(os.environ.get("SQ_MIN_GAMES", 1500))   # ~9 games a team: most teams past TEAM_POSS, starters past MIN_MIN
 FAM = ["rim", "float", "post", "pull2", "short", "long", "mid", "pull3", "three"]
 SV = {"pull3": 3, "three": 3}
 # display groups for the drill-down: the fine families above fold into these
@@ -62,12 +67,29 @@ def model(counts, fams, LG):
     return xp / shots, pts / shots, var / shots ** 2, shots, fga
 
 
+def put(path, obj):
+    """write JSON only when the data (not the built stamp) changed"""
+    try:
+        old = json.load(open(path))
+        if {**old, "built": 0} == {**obj, "built": 0}: return
+    except Exception:
+        pass
+    json.dump(obj, open(path, "w"), separators=(",", ":"))
+
+
 def season(y):
+    if not os.path.exists(os.path.join(SA, f"prof_{y}.json")):
+        print(f"{y}: no shot_aftermath/prof_{y}.json yet — skipped"); return
     prof = json.load(open(os.path.join(SA, f"prof_{y}.json")))
     tprof = json.load(open(os.path.join(SA, f"tprof_{y}.json")))
     mp = os.path.join(MA, f"{y}.json"); M = json.load(open(mp)) if os.path.exists(mp) else None
-    ts = get(f"team_seasons?season_year=eq.{y}&select=team_id,team,conference&order=team_id") or get(f"team_seasons?season_year=eq.{y - 1}&select=team_id,team,conference&order=team_id")
+    ts = get(f"team_seasons?season_year=eq.{y}&select=team_id,team,conference&order=team_id")
+    live = not ts   # season in progress: team_seasons only gains its rows after it ends
+    if live: ts = get(f"team_seasons?season_year=eq.{y - 1}&select=team_id,team,conference&order=team_id")
     names = {str(t["team_id"]): t["team"] for t in ts}; confs = {str(t["team_id"]): t.get("conference") or "" for t in ts}
+    if live and M:   # the mastery feed's teams carry this season's conferences (realignment, via d1Teams)
+        for tid, t in M["teams"].items():
+            if t[1]: confs[tid] = t[1]
     if M:
         for tid, t in M["teams"].items():
             names.setdefault(tid, t[0]); confs.setdefault(tid, t[1] or "")
@@ -142,6 +164,9 @@ def season(y):
 
     # ---- schedule adjustment: solve offense and defense together over every D-I vs D-I game
     games = get(f"games?season_year=eq.{y}&status=eq.STATUS_FINAL&select=id,home_id,away_id&order=id.asc")
+    d1g = sum(1 for g in games if str(g["home_id"]) in names and str(g["away_id"]) in names)
+    if d1g < SQ_MIN_GAMES:
+        print(f"{y}: only {d1g} D-I games final — waiting for {SQ_MIN_GAMES} before building"); return
     opp = {}
     for g in games:
         h, a = str(g["home_id"]), str(g["away_id"])
@@ -195,8 +220,9 @@ def season(y):
            "teamNames": {t: names[t] for t in sorted(set(p["team"] for p in P) | set(TO.get("off", {}))) if t in names},
            "teamConf": {t: confs.get(t, "") for t in sorted(set(p["team"] for p in P) | set(TO.get("off", {}))) if t in names},
            "games": len(games)}
+    if live: out.update(live=True, d1Games=d1g)   # season in progress: the page scales its minute floors to it
     os.makedirs(OUT, exist_ok=True)
-    json.dump(out, open(os.path.join(OUT, f"{y}.json"), "w"), separators=(",", ":"))
+    put(os.path.join(OUT, f"{y}.json"), out)
     print(f"{y}: {len(P)} players, {len(TO.get('off', {}))} teams, {len(games)} games · D-I quality {LX:.3f} pps {LPPS:.3f} · fams {fams} · player making sd(true) {math.sqrt(tauP):.3f}")
 
 
@@ -214,8 +240,8 @@ def careers():
     os.makedirs(os.path.join(OUT, "careers"), exist_ok=True)
     for k in "0123456789":
         part = {i: v for i, v in sorted(C.items()) if i[-1] == k}
-        json.dump({"cols": ["season", "team", "min", "shots", "q", "mS", "pps", "self"], "rows": part}, open(os.path.join(OUT, "careers", f"{k}.json"), "w"), separators=(",", ":"))
-    json.dump({"built": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "seasons": sorted(ys, reverse=True)}, open(os.path.join(OUT, "index.json"), "w"))
+        put(os.path.join(OUT, "careers", f"{k}.json"), {"cols": ["season", "team", "min", "shots", "q", "mS", "pps", "self"], "rows": part})
+    put(os.path.join(OUT, "index.json"), {"built": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "seasons": sorted(ys, reverse=True)})
     print(f"careers.json: {len(C)} ids · seasons {min(ys)}-{max(ys)}")
 
 

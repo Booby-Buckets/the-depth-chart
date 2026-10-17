@@ -19,10 +19,15 @@
  *   node scripts/build_shot_aftermath.mjs 2026            # one season (~6,000 games)
  *   node scripts/build_shot_aftermath.mjs 2025 2026
  * Writes scripts/data/shot_aftermath/<season>.json.
+ * A season in progress (2026-27) builds nightly in shot-analytics.yml: D-I teams come from d1Teams (team_seasons
+ * has no rows until a season ends), nothing is written until MIN_GAMES D-I games are final (so an opening-week
+ * file never becomes a page's default season), games are parsed in id order and a file whose data didn't change
+ * keeps its bytes (and built stamp), so a quiet night commits nothing.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { d1Teams, MIN_GAMES } from './lib_shotfamily.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SB = 'https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/', KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
@@ -275,23 +280,37 @@ function situations(s, runs, ids, X) {
   });
 }
 
+// write a season file only when its data changed (the built stamp alone doesn't count): a quiet night commits nothing
+function put(dst, text) {
+  try { const old = JSON.parse(fs.readFileSync(dst, 'utf8')); if (JSON.stringify({ ...old, built: 0 }) === JSON.stringify({ ...JSON.parse(text), built: 0 })) return; } catch {}
+  fs.writeFileSync(dst, text);
+}
+
 async function season(y) {
   const t0 = Date.now();
-  const ts = await sb(`team_seasons?season_year=eq.${y}&select=team_id&order=team_id.asc`);
+  const ts = await d1Teams(sb, y, path.join(HERE, 'data'));
   const d1 = new Set(ts.map((t) => String(t.team_id)));
   const games = (await sb(`games?season_year=eq.${y}&status=eq.STATUS_FINAL&select=id,home_id,away_id&order=id.asc`))
     .filter((g) => d1.has(String(g.home_id)) && d1.has(String(g.away_id)));   // D-I vs D-I only
+  if (games.length < MIN_GAMES) { console.log(`shot_aftermath ${y}: only ${games.length} D-I games final — waiting for ${MIN_GAMES} before building`); return; }
   const acc = {}, lg = { pts: 0, poss: 0 }, X = { players: {}, ppos: {}, poss: {}, sit: {}, prof: {}, pname: {}, pteam: {}, toff: {}, tdef: {}, lg: { st: {}, tm: {}, sit: {} } };
   let done = 0, empty = 0;
-  const q = games.slice();
-  async function worker() {
-    while (q.length) {
-      const g = q.shift();
-      const s = await espn(g.id);
-      done++;
-      if (!s || !(s.plays || []).length) { empty++; continue; }
-      try { parse(s, acc, lg, X); } catch (e) { empty++; }
+  // fetch 8 at a time but parse strictly in game-id order: key order and 'last one wins' names/teams then don't
+  // depend on which download finished first, so an unchanged season rebuilds byte-identical
+  const got = new Map(); let next = 0, ptr = 0;
+  const drain = () => {
+    while (got.has(ptr)) {
+      const s = got.get(ptr); got.delete(ptr); ptr++; done++;
+      if (!s || !(s.plays || []).length) empty++;
+      else try { parse(s, acc, lg, X); } catch (e) { empty++; }
       if (done % 500 === 0) process.stdout.write(`  ${y}: ${done}/${games.length} games\n`);
+    }
+  };
+  async function worker() {
+    while (next < games.length) {
+      const i = next++;
+      got.set(i, await espn(games[i].id));
+      drain();
     }
   }
   await Promise.all(Array.from({ length: 8 }, worker));
@@ -302,9 +321,9 @@ async function season(y) {
     league_ppp: lg.poss ? +(lg.pts / lg.poss).toFixed(4) : null, possessions: lg.poss,
     cols: ['att', 'made', 'madePts', 'miss', 'missOR', 'missDR', 'scPts', 'oppMakePts', 'oppMakeN', 'oppDRPts', 'oppDRN'],
     zones: ZONES, data: acc };
-  fs.writeFileSync(path.join(OUT, `${y}.json`), JSON.stringify(out));
+  put(path.join(OUT, `${y}.json`), JSON.stringify(out));
   // per-team possession starts + timing (team pages) and per-player first-chance shot counts (player pages)
-  fs.writeFileSync(path.join(OUT, `poss_${y}.json`), JSON.stringify({ season: y, built: out.built, league_ppp: out.league_ppp, league: X.lg, teams: X.poss,
+  put(path.join(OUT, `poss_${y}.json`), JSON.stringify({ season: y, built: out.built, league_ppp: out.league_ppp, league: X.lg, teams: X.poss,
     starts: { fg: 'after a made field goal', ft: 'after made free throws', dr: 'after a defensive rebound', to: 'after a turnover', oth: 'other (period start, dead balls)' },
     times: { tr: '0-10 s', early: '11-20 s', half: '21-30 s', late: '31+ s' } }));
   // league runs / fouls per game for the situations baselines
@@ -313,17 +332,17 @@ async function season(y) {
   const ba = sv.flatMap((t) => t.bonusAt); X.lg.bonusAt = ba.length ? ba.reduce((a, b) => a + b, 0) / ba.length : null;
   X.lg.bonusHalves = ba.length / Math.max(1, gsum * 2);
   for (const t of sv) { t.bonusN = t.bonusAt.length; t.bonusAt = t.bonusAt.length ? +(t.bonusAt.reduce((a, b) => a + b, 0) / t.bonusAt.length).toFixed(1) : null; }
-  fs.writeFileSync(path.join(OUT, `sit_${y}.json`), JSON.stringify({ season: y, built: out.built, league_ppp: out.league_ppp, league: { sit: X.lg.sit, run8: +X.lg.run8.toFixed(3), fouls: +X.lg.fouls.toFixed(2), bonusAt: X.lg.bonusAt != null ? +X.lg.bonusAt.toFixed(1) : null, bonusHalves: +X.lg.bonusHalves.toFixed(3) }, teams: X.sit,
+  put(path.join(OUT, `sit_${y}.json`), JSON.stringify({ season: y, built: out.built, league_ppp: out.league_ppp, league: { sit: X.lg.sit, run8: +X.lg.run8.toFixed(3), fouls: +X.lg.fouls.toFixed(2), bonusAt: X.lg.bonusAt != null ? +X.lg.bonusAt.toFixed(1) : null, bonusHalves: +X.lg.bonusHalves.toFixed(3) }, teams: X.sit,
     keys: { ato: 'out of their own timeout', tvto: 'out of a media timeout', start1: 'first 4:00 of the game', start2: 'first 4:00 of the second half', close: 'last 4:00, within 5', lead10: 'leading by 10+', trail10: 'trailing by 10+', afterrun: 'right after an opponent 8-0 run', nobonus: 'opponent not in the bonus', bonus1: 'in the one-and-one', bonus2: 'in the double bonus' } }));
   // shot profiles: every player with 100+ minutes (rounded to keep the file small)
   const prof = {};
   for (const [id, r] of Object.entries(X.prof)) if (r[0] >= 100) prof[id] = r.map((v, i) => (i <= 1 ? Math.round(v) : v));
-  fs.writeFileSync(path.join(OUT, `prof_${y}.json`), JSON.stringify({ season: y, built: out.built, cols: ['min', 'poss', 'fta', 'ftm', 'rimA', 'rimM', 'midA', 'midM', 'threeA', 'threeM'],
+  put(path.join(OUT, `prof_${y}.json`), JSON.stringify({ season: y, built: out.built, cols: ['min', 'poss', 'fta', 'ftm', 'rimA', 'rimM', 'midA', 'midM', 'threeA', 'threeM'],
     players: prof, names: Object.fromEntries(Object.keys(prof).map((id) => [id, X.pname[id]])), team: Object.fromEntries(Object.keys(prof).map((id) => [id, X.pteam[id]])),
     pos: Object.fromEntries(Object.keys(prof).filter((id) => X.ppos[id]).map((id) => [id, X.ppos[id]])) }));
   // team shot profiles, offense and defense: [games, possessions, fta, ftm, rimA, rimM, midA, midM, 3A, 3M]
-  fs.writeFileSync(path.join(OUT, `tprof_${y}.json`), JSON.stringify({ season: y, built: out.built, cols: ['games', 'poss', 'fta', 'ftm', 'rimA', 'rimM', 'midA', 'midM', 'threeA', 'threeM'], off: X.toff, def: X.tdef }));
-  fs.writeFileSync(path.join(OUT, `players_${y}.json`), JSON.stringify({ season: y, built: out.built, league_ppp: out.league_ppp, cols: out.cols, pos: X.ppos, data: X.players }));
+  put(path.join(OUT, `tprof_${y}.json`), JSON.stringify({ season: y, built: out.built, cols: ['games', 'poss', 'fta', 'ftm', 'rimA', 'rimM', 'midA', 'midM', 'threeA', 'threeM'], off: X.toff, def: X.tdef }));
+  put(path.join(OUT, `players_${y}.json`), JSON.stringify({ season: y, built: out.built, league_ppp: out.league_ppp, cols: out.cols, pos: X.ppos, data: X.players }));
   const all = Object.values(acc).flatMap((T) => Object.values(T).flatMap((P) => Object.values(P)));
   const att = all.reduce((a, c) => a + c[0], 0);
   console.log(`shot_aftermath ${y}: ${games.length} games (${empty} without play-by-play), ${lg.poss.toLocaleString()} possessions, league PPP ${out.league_ppp}, ${att.toLocaleString()} first-chance attempts, ${Math.round((Date.now() - t0) / 1000)}s`);
@@ -342,4 +361,6 @@ for (const f of fs.readdirSync(OUT)) {
   idx.push({ season: d.season, games: d.games, missing: d.missing, league_ppp: d.league_ppp, attempts: tot, no_distance_share: tot ? +((z.mid || 0) / tot).toFixed(3) : 0 });
 }
 idx.sort((a, b) => a.season - b.season);
-fs.writeFileSync(path.join(OUT, 'index.json'), JSON.stringify({ built: new Date().toISOString(), seasons: idx }, null, 1));
+// rewrite the index only when the season list changes, so a night with nothing new commits nothing
+let had = null; try { had = JSON.parse(fs.readFileSync(path.join(OUT, 'index.json'), 'utf8')).seasons; } catch {}
+if (JSON.stringify(had) !== JSON.stringify(idx)) fs.writeFileSync(path.join(OUT, 'index.json'), JSON.stringify({ built: new Date().toISOString(), seasons: idx }, null, 1));
