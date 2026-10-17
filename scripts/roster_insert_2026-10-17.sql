@@ -30,3 +30,110 @@ select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::tex
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
 where not exists (select 1 from players p where p.name = v.name and p.team = v.team);
+
+-- ── Colgate (Patriot, 14 players, coach Matt Langel) ──
+insert into teams (name, conference, conf, head_coach, coach)
+select 'Colgate', 'Patriot', 'Patriot', 'Matt Langel', 'Matt Langel'
+where not exists (select 1 from teams where name = 'Colgate');
+insert into players (name, team, position, class_year, yr, height, hometown,
+  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
+  v.espn_id::bigint, v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  ('Andrew Alekseyenko', 'Colgate', 'SF', 'So.', 'So.', '6-8', null, 5314481, 1, true, false, false, false),
+  ('Parker Jones', 'Colgate', 'SG', 'Sr.', 'Sr.', '6-7', null, 5176048, 2, true, false, false, false),
+  ('Sam Wright', 'Colgate', 'PF', 'Sr.', 'Sr.', '6-9', null, 5176049, 3, true, false, false, false),
+  ('Josh Ahayere', 'Colgate', 'SG', 'Jr.', 'Jr.', '6-3', null, 5242775, 4, true, false, true, false),
+  ('Cooper Wright', 'Colgate', 'SF', 'Sr.', 'Sr.', '6-5', null, 5176047, 5, true, false, false, false),
+  ('Ayomi Odetoyinbo', 'Colgate', 'PF', 'So.', 'So.', '6-10', null, 5314480, 6, false, false, false, false),
+  ('Blake Forrest', 'Colgate', 'PG', 'Jr.', 'Jr.', '5-11', null, 5242778, 7, false, false, false, false),
+  ('Ethan Brown', 'Colgate', 'PF', 'Jr.', 'Jr.', '6-10', null, 5263812, 8, false, false, true, false),
+  ('Cameron Brennan', 'Colgate', 'PF', 'Jr.', 'Jr.', '7-0', null, 5242777, 9, false, false, true, false),
+  ('Charlie Pugh', 'Colgate', 'SG', 'So.', 'So.', '6-4', null, 5314478, 10, false, false, false, false),
+  ('Jonathan Niv', 'Colgate', 'SG', 'So.', 'So.', '6-5', null, 5314479, 11, false, false, false, false),
+  ('Isaiah Skinn', 'Colgate', 'PG', 'So.', 'So.', '6-0', null, null, 12, false, true, false, false),
+  ('Jayden Harrington', 'Colgate', 'SG', 'Fr.', 'Fr.', '6-4', null, null, 13, false, true, false, false),
+  ('Kingston McKoy', 'Colgate', 'SG', 'Fr.', 'Fr.', '6-4', null, null, 14, false, true, false, false)
+) as v(name, team, position, class_year, yr, height,
+  hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
+where not exists (select 1 from players p where p.name = v.name and p.team = v.team);
+
+-- ── East Texas A&M (Southland, 15 players, coach Jaret von Rosenberg) ──
+insert into teams (name, conference, conf, head_coach, coach)
+select 'East Texas A&M', 'Southland', 'Southland', 'Jaret von Rosenberg', 'Jaret von Rosenberg'
+where not exists (select 1 from teams where name = 'East Texas A&M');
+insert into players (name, team, position, class_year, yr, height, hometown,
+  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
+  v.espn_id::bigint, v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  ('Alonzo Dodd', 'East Texas A&M', 'PG', 'Sr.', 'Sr.', '6-0', 'App State', 5108925, 1, true, true, false, false),
+  ('Evan Phelps', 'East Texas A&M', 'PG', 'Sr.', 'Sr.', '6-0', null, 5176688, 2, true, false, false, false),
+  ('Jaxson Ford', 'East Texas A&M', 'SF', 'Jr.', 'Jr.', '6-7', 'Sam Houston', 5242606, 3, true, true, false, false),
+  ('Chris Adlam', 'East Texas A&M', 'SG', 'So.', 'So.', '6-3', null, 5243120, 4, true, false, false, false),
+  ('Bo Aldridge', 'East Texas A&M', 'SF', 'Jr.', 'Jr.', '6-4', null, null, 5, true, true, false, false),
+  ('Kollin Tolbert', 'East Texas A&M', 'PG', 'Jr.', 'Jr.', '6-0', null, null, 6, false, true, false, false),
+  ('Amar Hot', 'East Texas A&M', 'PF', 'Fr.', 'Fr.', '6-9', null, null, 7, false, true, true, false),
+  ('Codrut Dinu', 'East Texas A&M', 'SF', 'Fr.', 'Fr.', '6-3', null, null, 8, false, true, true, false),
+  ('Gasper Škorjanc', 'East Texas A&M', 'PG', 'Fr.', 'Fr.', '6-2', null, null, 9, false, true, true, false),
+  ('Kamren Robinson', 'East Texas A&M', 'PG', 'Fr.', 'Fr.', '6-0', null, null, 10, false, true, false, false),
+  ('Marko Markovic', 'East Texas A&M', 'PF', 'Fr.', 'Fr.', '7-1', null, null, 11, false, true, true, false),
+  ('Maxime Carrio', 'East Texas A&M', 'SF', 'Fr.', 'Fr.', '6-4', null, null, 12, false, true, true, false),
+  ('Mohamed Diakite', 'East Texas A&M', 'PF', 'Fr.', 'Fr.', '6-9', null, null, 13, false, true, true, false),
+  ('Thomas Duchamp', 'East Texas A&M', 'SF', 'Fr.', 'Fr.', '6-6', null, null, 14, false, true, true, false),
+  ('Yvain Vidal', 'East Texas A&M', 'PF', 'Fr.', 'Fr.', '7-0', null, null, 15, false, true, true, false)
+) as v(name, team, position, class_year, yr, height,
+  hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
+where not exists (select 1 from players p where p.name = v.name and p.team = v.team);
+
+-- ── Maryland Eastern Shore (MEAC, 15 players, coach Cleo Hill Jr.) ──
+insert into teams (name, conference, conf, head_coach, coach)
+select 'Maryland Eastern Shore', 'MEAC', 'MEAC', 'Cleo Hill Jr.', 'Cleo Hill Jr.'
+where not exists (select 1 from teams where name = 'Maryland Eastern Shore');
+insert into players (name, team, position, class_year, yr, height, hometown,
+  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
+  v.espn_id::bigint, v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  ('Levi Beckwith', 'Maryland Eastern Shore', 'SF', 'So.', 'So.', '6-7', null, 5314177, 1, true, false, false, false),
+  ('Saadiq Moore', 'Maryland Eastern Shore', 'SG', 'Jr.', 'Jr.', '6-5', 'Weber State', 5241317, 2, true, true, false, false),
+  ('Lucius Gibson-Savadel', 'Maryland Eastern Shore', 'PF', 'Sr.', 'Sr.', '6-10', 'Sacred Heart', 5177281, 3, true, true, false, false),
+  ('Ebenezer Ogoh', 'Maryland Eastern Shore', 'C', 'Jr.', 'Jr.', '6-10', 'IU Indy', 5241664, 4, true, true, true, false),
+  ('Alvin Cole', 'Maryland Eastern Shore', 'SF', 'Sr.', 'Sr.', '6-7', null, null, 5, true, true, true, false),
+  ('Elson Berhanu', 'Maryland Eastern Shore', 'PF', 'Sr.', 'Sr.', '7-1', null, null, 6, false, true, false, false),
+  ('Emmanuel Johnson III', 'Maryland Eastern Shore', 'PG', 'Sr.', 'Sr.', '6-2', null, null, 7, false, true, false, false),
+  ('Gerlouis Tokody', 'Maryland Eastern Shore', 'SF', 'Sr.', 'Sr.', '6-6', null, null, 8, false, true, true, false),
+  ('Israel Hall', 'Maryland Eastern Shore', 'SG', 'Sr.', 'Sr.', '6-3', null, null, 9, false, true, false, false),
+  ('Bobby Gardner', 'Maryland Eastern Shore', 'PG', 'Jr.', 'Jr.', '6-1', null, null, 10, false, true, false, false),
+  ('Da''Shawn Hall-Johnson', 'Maryland Eastern Shore', 'SF', 'Jr.', 'Jr.', '6-7', null, null, 11, false, true, false, false),
+  ('Isaiah Griffin', 'Maryland Eastern Shore', 'PG', 'Jr.', 'Jr.', '6-0', null, null, 12, false, true, false, false),
+  ('Roman Cummings', 'Maryland Eastern Shore', 'PF', 'Jr.', 'Jr.', '6-9', null, null, 13, false, true, false, false),
+  ('Victor Ezeh', 'Maryland Eastern Shore', 'SG', 'Jr.', 'Jr.', '6-5', null, null, 14, false, true, true, false),
+  ('Souleymane Sylla', 'Maryland Eastern Shore', 'PF', 'So.', 'So.', '6-10', null, null, 15, false, true, true, false)
+) as v(name, team, position, class_year, yr, height,
+  hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
+where not exists (select 1 from players p where p.name = v.name and p.team = v.team);
+
+-- ── Wyoming (MWC, 15 players, coach Sundance Wicks) ──
+insert into teams (name, conference, conf, head_coach, coach)
+select 'Wyoming', 'MWC', 'MWC', 'Sundance Wicks', 'Sundance Wicks'
+where not exists (select 1 from teams where name = 'Wyoming');
+insert into players (name, team, position, class_year, yr, height, hometown,
+  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
+  v.espn_id::bigint, v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  ('Renars Sondors', 'Wyoming', 'PF', 'Jr.', 'Jr.', '6-9', 'UL Monroe', 5240758, 1, true, true, true, false),
+  ('Khaden Bennett', 'Wyoming', 'SG', 'Sr.', 'Sr.', '6-4', null, 5177137, 2, true, false, false, false),
+  ('Gavin Gores', 'Wyoming', 'PF', 'So.', 'So.', '6-10', null, 5313754, 3, true, false, false, false),
+  ('Uriyah Rojas', 'Wyoming', 'SG', 'Sr.', 'Sr.', '6-3', null, 5313751, 4, true, false, false, false),
+  ('Canin Jefferson', 'Wyoming', 'PG', 'Sr.', 'Sr.', '6-2', 'North Alabama', 5176200, 5, true, true, false, false),
+  ('Parker Gerrits', 'Wyoming', 'PG', 'Jr.', 'Jr.', '6-2', 'Washington State', 5117606, 6, false, true, false, false),
+  ('Mike Mora', 'Wyoming', 'SF', 'Jr.', 'Jr.', '6-6', null, null, 7, false, true, false, false),
+  ('Mattia De Martin', 'Wyoming', 'SG', 'So.', 'So.', '6-8', null, null, 8, false, true, true, false),
+  ('Nasir (Naz) Meyer', 'Wyoming', 'SG', 'So.', 'So.', '6-7', null, null, 9, false, true, false, false),
+  ('Chris Pohl', 'Wyoming', 'SF', 'Fr.', 'Fr.', '6-7', null, null, 10, false, true, false, false),
+  ('Kelan Gruver', 'Wyoming', 'SG', 'Fr.', 'Fr.', '6-3', null, null, 11, false, true, false, false),
+  ('Linus Ruf', 'Wyoming', 'C', 'Fr.', 'Fr.', '6-11', null, null, 12, false, true, true, false),
+  ('Madden Smiley', 'Wyoming', 'SG', 'Fr.', 'Fr.', '6-4', null, null, 13, false, true, false, false),
+  ('Micah Curtis', 'Wyoming', 'SF', 'R-Fr.', 'R-Fr.', '6-8', null, null, 14, false, true, false, false),
+  ('Neil Summers', 'Wyoming', 'PF', 'R-Fr.', 'R-Fr.', '6-9', null, null, 15, false, true, false, false)
+) as v(name, team, position, class_year, yr, height,
+  hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
+where not exists (select 1 from players p where p.name = v.name and p.team = v.team);
