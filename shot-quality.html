@@ -20,7 +20,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="team-colors.js?v=12"></script>
   <script src="tdc-teamname.js?v=1"></script>
-  <script src="tdc-shotchart.js?v=34"></script>
+  <script src="tdc-shotchart.js?v=35"></script>
   <style>
     /* dots + diverging bars: gold = better than D-I, blue = worse, grey = mixed (validated gold/blue pair) */
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--pos:#B07D17;--neg:#2F7FC1;--mix:#A9A496;--grid:#E3DFD4;--bar:#B9B3A5;}
@@ -67,13 +67,8 @@
     .stp{display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--text2);margin-top:6px;} .stp span+span{color:var(--text3);font-weight:600;}
     .stx{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text3);margin-top:1px;}
     .note{font-size:11.5px;color:var(--text3);margin-top:4px;line-height:1.45;}
-    .court{max-width:560px;} .court .sqn{font-weight:600;}
-    @media(max-width:640px){ .court .scz-lab{font-size:23px;} .court .scz-lab.sm{font-size:18px;} .court .scz-sub{font-size:15px;} .court .sqn{font-size:14px;} } /* dark theme: the ink is pale, so labels on deep tiles go dark */
-    :root[data-theme="dark"] .court .scz-lab.on,:root[data-theme="dark"] .court .scz-sub.on{fill:#0A0E18;}
-    @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .court .scz-lab.on,:root:not([data-theme="light"]) .court .scz-sub.on{fill:#0A0E18;}} .court .sc-court-wrap{max-width:none;}
-    .court .sqd-row{display:grid;grid-template-columns:118px 1fr;gap:10px;align-items:center;margin-top:8px;font-size:12px;font-weight:700;color:var(--text2);}
-    .court .sqd-bar{position:relative;height:18px;background:var(--bg2);border-radius:3px;} .court .sqd-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;}
-    .court .sqd-bar span{position:absolute;left:8px;top:1px;font-size:11.5px;color:var(--text);}
+    .court{max-width:640px;} .court .sc-court-wrap{max-width:none;} .court .sqn{font-weight:600;} .court .scz-diet{margin-top:4px;}
+    @media(max-width:640px){ .court .scz-lab{font-size:23px;} .court .scz-lab.sm{font-size:18px;} .court .scz-sub{font-size:15px;} .court .sqn{font-size:14px;} }
     .empty{padding:26px;text-align:center;color:var(--text3);border:1px dashed var(--border2);border-radius:12px;font-size:13px;}
     @media(max-width:640px){ h1{font-size:32px;} .hd .nm{font-size:21px;} .big2 .v{font-size:24px;} }
   </style>
@@ -232,46 +227,67 @@
     return `<div class="cap">From D-I average to ${def?'what opponents scored':'points per shot'}</div><svg viewBox="0 0 ${W} ${H}" width="100%">${g}</svg><div class="note">Raw points per shot. The shot-making number above also adjusts for schedule and sample size.</div>`;
   }
 
-  // ---------- half-court diet map (full breakdown): the house shot-chart court (tdc-shotchart.js kit), each shot
-  // family on the part of the floor it comes from, shaded by SHARE of shots like the team / player Zones chart
+  // ---------- half-court diet map (full breakdown): drawn exactly like the team / player Zones chart (tdc-shotchart.js
+  // kit: same court, house ink, floor-coloured seams, share shading, 'deeper shade' key, diet bars vs D-I), with each
+  // shot family on the part of the floor it's usually taken from
   let _cz=0;
   function court(d){
     const K=window.TDC_SHOTCHART&&TDC_SHOTCHART.kit&&TDC_SHOTCHART.kit(); if(!K) return '';
     const by={}; diet(d).forEach(r=>{ by[r.g]=r; });
-    const tagged=!!(by.float||by.post||by.pull2||by.pull3), def=isDef(), {px,py,W,H}=K, id='sqz'+(++_cz);
-    const maxS=Math.max(...Object.values(by).map(r=>r.share))||1;
-    const al=r=>r&&r.share>0?.07+.68*Math.pow(r.share/maxS,.8):0;   // capped so the court lines stay visible on the deepest tile
-    // the house ink as a CSS variable, so a theme toggle restyles the map without a redraw
-    const fill=r=>al(r)?`fill:rgba(var(--sc-ink-rgb),${al(r).toFixed(3)})`:'fill:transparent';
+    const tagged=!!(by.float||by.post||by.pull2||by.pull3), def=isDef(), {px,py,W,H}=K, id='sqz'+(++_cz), ink=K.inkRgb(null).join(',');
+    const fg=Object.values(by).filter(r=>r.g!=='ft');
+    // shade on a fixed scale (60% of shots = deepest), so an even three-way diet reads as mid-tone, not all maxed out
+    const al=r=>r&&r.share>0?.07+.85*Math.pow(Math.min(1,r.share/.6),.8):0;
+    const fill=r=>al(r)?`rgba(${ink},${al(r).toFixed(3)})`:'transparent';
     const nm={rim:'At the rim',float:'Floaters',post:'Post · hooks',pull2:'Pull-up 2s',j2:tagged?'Other 2-pt jumpers':'2-pt jumpers',pull3:'Pull-up 3s',three:tagged?'Catch-and-shoot 3s':'Threes'};
     const tip=k=>{ const r=by[k]; return r?`<title>${nm[k]} · ${(r.share*100).toFixed(0)}% of ${def?'shots allowed':'shots'} · ${r.pps!=null?r.pps.toFixed(2):'—'} pts/shot (D-I ${r.lgPps.toFixed(2)})</title>`:''; };
     const FULL=`M0 0H${W}V${H}H0Z`, ARC=K.arcPath()+' Z', rr=px(4), hx=px(K.HOOP_X), hy=py(K.HOOP_Y);
     const RA=`M${hx-rr} ${hy}a${rr} ${rr} 0 1 0 ${2*rr} 0a${rr} ${rr} 0 1 0 ${-2*rr} 0Z`;
     const lane=`M${px(19)} ${py(19)}H${px(31)}V${py(0)}H${px(19)}Z`, top=K.wedge(-K.ANG_TOP,K.ANG_TOP), CUT=13;
-    const reg=(k,dd,clip)=>by[k]?`<path class="scz-z" fill-rule="evenodd" d="${dd}" style="${fill(by[k])}"${clip?` clip-path="url(#${id}${clip})"`:''}>${tip(k)}</path>`:'';
+    const reg=(k,dd,clip)=>by[k]?`<path class="scz-z" fill-rule="evenodd" d="${dd}" fill="${fill(by[k])}"${clip?` clip-path="url(#${id}${clip})"`:''}>${tip(k)}</path>`:'';
     let t=`<defs><clipPath id="${id}in"><path clip-rule="evenodd" d="${ARC} ${lane}"/></clipPath><clipPath id="${id}out"><path clip-rule="evenodd" d="${FULL} ${ARC}"/></clipPath></defs>`;
     if(tagged){
       t+=reg('three',FULL+' '+top,'out')+reg('pull3',top,'out')+reg('j2',FULL+' '+top,'in')+reg('pull2',top,'in')+
          reg('post',`M${px(19)} ${py(CUT)}H${px(31)}V${py(0)}H${px(19)}Z ${RA}`)+reg('float',`M${px(19)} ${py(19)}H${px(31)}V${py(CUT)}H${px(19)}Z`);
+    } else t+=reg('three',FULL,'out')+reg('j2',ARC+' '+RA);
+    t+=reg('rim',RA);
+    // seams in the floor colour, so the slices read as tiles (as in zones12Svg)
+    if(tagged){
       const s1=Math.sin(K.ANG_TOP*Math.PI/180), c1=Math.cos(K.ANG_TOP*Math.PI/180), r0=(19-K.HOOP_Y)/c1;
       const ray=sd=>`<line x1="${px(K.HOOP_X+sd*r0*s1).toFixed(1)}" y1="${py(K.HOOP_Y+r0*c1).toFixed(1)}" x2="${px(K.HOOP_X+sd*60*s1).toFixed(1)}" y2="${py(K.HOOP_Y+60*c1).toFixed(1)}"/>`;
       t+=`<g class="scz-seam">${ray(-1)}${ray(1)}<line x1="${px(19)}" x2="${px(31)}" y1="${py(CUT)}" y2="${py(CUT)}"/></g>`;
-    } else t+=reg('three',FULL,'out')+reg('j2',ARC+' '+RA);
-    t+=reg('rim',RA);
-    // labels: share big, points per shot vs D-I under it (white on the deep tiles, like the Zones chart)
-    const at=tagged?{rim:[25,8.25],post:[25,11.7],float:[25,16.4],pull2:[25,21.5],j2:[12.6,15.5],pull3:[25,32.4],three:[7.6,27]}:{rim:[25,8.25],j2:[25,20.5],three:[25,32.4]};
-    let lb=''; const nw=innerWidth<=640, o1=nw?21:16, o0=nw?18:13, on2=nw?24:17;   // phones: the labels are bigger (CSS), so spread them
-    Object.entries(at).forEach(([k,a])=>{ const r=by[k]; if(!r) return; const x=px(a[0]).toFixed(1), y=py(a[1]), on=al(r)>.5?' on':'', few=r.att<12||r.pps==null;
-      const small=k==='post'||k==='rim';
-      lb+=`<text class="scz-lab${on}${small?' sm':''}" x="${x}" y="${y.toFixed(1)}" text-anchor="middle" dominant-baseline="central">${(r.share*100).toFixed(0)}%</text>`;
-      const inner=['pull2','float','post'].includes(k)&&tagged;   // the centre stack: on phones, numbers only
-      if(!(nw&&k==='post')) lb+=`<text class="scz-sub${on}" x="${x}" y="${(y+(small?o0:o1)).toFixed(1)}" text-anchor="middle" dominant-baseline="central">${few?'few':sg(r.pps-r.lgPps,2)}</text>`;
-      if(!small&&!(nw&&inner)) lb+=`<text class="scz-sub sqn${on}" x="${x}" y="${(y-on2).toFixed(1)}" text-anchor="middle" dominant-baseline="central">${nm[k]}</text>`; });
+    }
+    // labels as in the Zones chart: the big number (share of shots), a small line under it; the two wide zones
+    // are labelled on opposite wings so the court stays balanced
+    const at=tagged?{rim:[25,8.25],post:[25,11.4],float:[25,16.4],pull2:[25,22.4],j2:[11.6,16.2],pull3:[25,32.4],three:[43.6,26.6]}:{rim:[25,8.25],j2:[11.6,16.2],three:[43.6,26.6]};
+    const short={rim:'Rim',post:'Post'};
+    let lb=''; const nw=innerWidth<=640; if(nw) at.rim=[25,9.1];   // phones: lift the rim label clear of the hoop
+    Object.entries(at).forEach(([k,a])=>{ const r=by[k]; if(!r) return; const x=px(a[0]).toFixed(1), y=py(a[1]), on=al(r)>.62?' on':'', few=r.att<12||r.pps==null;
+      const val=few?'few':sg(r.pps-r.lgPps,2), inner=short[k]||(nw&&tagged&&(k==='pull2'||k==='float'));
+      // phones: the low-block band is one line tall
+      if(nw&&k==='post'){ lb+=`<text class="scz-sub${on}" x="${x}" y="${y.toFixed(1)}" text-anchor="middle" dominant-baseline="central"><tspan font-weight="800">${(r.share*100).toFixed(0)}%</tspan> Post · ${val}</text>`; return; }
+      lb+=`<text class="scz-lab${on}${short[k]?' sm':''}" x="${x}" y="${y.toFixed(1)}" text-anchor="middle" dominant-baseline="central">${(r.share*100).toFixed(0)}%</text>`;
+      lb+=`<text class="scz-sub${on}" x="${x}" y="${(y+(short[k]?(nw?17:13):(nw?20:16))).toFixed(1)}" text-anchor="middle" dominant-baseline="central">${short[k]?short[k]+' · ':''}${val}</text>`;
+      if(!inner) lb+=`<text class="scz-sub sqn${on}" x="${x}" y="${(y-(nw?23:17)).toFixed(1)}" text-anchor="middle" dominant-baseline="central">${nw&&tagged?({three:'C&amp;S 3s',j2:'Other 2s'}[k]||nm[k]):nm[k]}</text>`; });
     const cg=K.court(null,{}), cut=cg.indexOf('<g class="sc-lines"');
-    const ft=by.ft, row=(lab,r)=>`<div class="sqd-row"><span>${lab}</span><div class="sqd-bar"><i style="width:${(r.share/maxS*100).toFixed(1)}%;background:rgba(var(--sc-ink-rgb),${al(r).toFixed(3)})"></i><span>${(r.share*100).toFixed(0)}% · ${sg(r.pps-r.lgPps,2)} vs D-I</span></div></div>`;
-    return `<div class="court"><div class="cap">Shot diet map · ${sl(S.season)}</div><div class="sc-court-wrap scz-wrap"><svg class="sc-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Shot diet map">${cg.slice(0,cut)}${t}${cg.slice(cut)}${lb}</svg></div>`+
-      (ft?row('Free-throw trips',ft):'')+
-      `<div class="note">Big number = share of ${def?'shots allowed':'shots'} (deeper = more); under it, points per shot vs D-I on that type. Shot types sit where they're usually taken${tagged?' (pull-ups off the top, post shots on the low block)':''} — hover a zone for the details.</div></div>`;
+    // share-of-attempts bars, this player vs D-I (the Zones chart's diet block, by shot family group)
+    const SEG=tagged?[['rim','Rim'],['paint','Floaters · post'],['jump','2-pt jumpers'],['three','Threes']]:[['rim','Rim'],['jump','2-pt jumpers'],['three','Threes']];
+    const grpOf=g=>g==='rim'?'rim':(g==='float'||g==='post')?'paint':(g==='pull2'||g==='j2')?'jump':'three';
+    const mine={}, lg={}; let mt=0, lt=0;
+    fg.forEach(r=>{ mine[grpOf(r.g)]=(mine[grpOf(r.g)]||0)+r.att; mt+=r.att; });
+    Object.entries(F.league.groups).forEach(([g,v])=>{ if(!tagged&&!['rim','j2','three'].includes(g)) return; lg[grpOf(g)]=(lg[grpOf(g)]||0)+v[0]; lt+=v[0]; });
+    const cls=tagged?['s0','s1','s2','s3']:['s0','s2','s3'];
+    const drow=(lab,sub,v,tot,ref)=>`<div class="scz-drow${ref?' ref':''}"><div class="scz-dl"><b>${lab}</b>${sub?`<span>${sub}</span>`:''}</div><div class="scz-dbar">${SEG.map((b,i)=>{ const x=tot?(v[b[0]]||0)/tot:0;
+      return `<i class="scz-seg ${cls[i]}" style="flex:${Math.max(x,.0001).toFixed(4)}" title="${b[1]} ${Math.round(x*100)}%">${x>=.055?Math.round(x*100)+'%':''}</i>`; }).join('')}</div></div>`;
+    const dietB=`<div class="scz-diet"><div class="scz-cap">Share of field-goal attempts by shot type</div>`+
+      `<div class="scz-drow scz-dhead"><div class="scz-dl"></div><div class="scz-dbar">${SEG.map((b,i)=>`<i class="scz-seg ${cls[i]}" style="flex:1"><span class="lf">${b[1]}</span><span class="ls">${b[1].split(' ')[0]}</span></i>`).join('')}</div></div>`+
+      drow(isT()?(def?'Opponents':'This team'):'This player',`${mt.toLocaleString()} FGA`,mine,mt)+drow('D-I average',sl(S.season),lg,lt,true)+`</div>`;
+    const ft=by.ft;
+    return `<div class="court"><div class="cap">Shot diet map · ${sl(S.season)}</div>`+
+      `<div class="sc-mk-legend"><span><i class="scz-sw" style="background:rgba(${ink},.18)"></i><i class="scz-sw" style="background:rgba(${ink},.5)"></i><i class="scz-sw" style="background:rgba(${ink},.92)"></i>deeper shade = more of the shots</span><span style="margin-left:auto;color:var(--text3);font-size:10px;">share of shots · pts / shot vs D-I · hover a zone</span></div>`+
+      `<div class="sc-court-wrap scz-wrap"><svg class="sc-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Shot diet map">${cg.slice(0,cut)}${t}${cg.slice(cut)}${lb}</svg></div>`+dietB+
+      (ft?`<div class="note"><b>Free-throw trips:</b> ${(ft.share*100).toFixed(0)}% of ${def?'shots allowed':'shots'} (D-I ${(ft.lgShare*100).toFixed(0)}%), ${sg(ft.pps-ft.lgPps,2)} points per trip vs D-I. `:'<div class="note">')+
+      `Shot types sit where they're usually taken${tagged?' — pull-ups off the top, post shots on the low block':''}.</div></div>`;
   }
 
   // ---------- D-I trends: the league's shot diet and points per shot by season

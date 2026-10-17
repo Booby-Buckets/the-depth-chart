@@ -1097,6 +1097,6 @@
     document.head.appendChild(st);
   }
   // the court kit for pages that shade their own regions in the house style (shot-quality.html's diet map)
-  function kit(){ return {court:court, arcPath:arcPath, wedge:wedge, px:px, py:py, W:W, H:H, HOOP_X:HOOP_X, HOOP_Y:HOOP_Y, ANG_TOP:ANG_TOP}; }
+  function kit(){ return {court:court, arcPath:arcPath, wedge:wedge, inkRgb:inkRgb, px:px, py:py, W:W, H:H, HOOP_X:HOOP_X, HOOP_Y:HOOP_Y, ANG_TOP:ANG_TOP}; }
   window.TDC_SHOTCHART={kit:kit,render:render,_g:_g,playerZoneTable:playerZoneTable,renderShift:renderShift,_m:_m,zone10:zone10,zone12:zone12,avgOf:avgOf,useSeason:useSeason};
 })();
