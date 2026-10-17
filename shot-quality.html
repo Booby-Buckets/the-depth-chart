@@ -230,16 +230,19 @@
   // the selection's real tracked shots. `shots` is plan-gated by RLS, so reads carry the signed-in user's JWT (tdcH).
   const SBU='https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/', SHOTS={};
   async function shotRows(q){
-    const out=[];
+    const out=[]; out.err=null;
     for(let off=0;off<20000;off+=1000){   // paged with a stable order (an unordered page boundary drops rows)
-      const r=await fetch(SBU+q+'&order=id.asc&limit=1000&offset='+off,{headers:window.tdcH?tdcH():{}}).catch(()=>null);
-      if(!r||!r.ok) break; const d=await r.json(); out.push(...d); if(d.length<1000) break;
+      let r=null; try{ r=await fetch(SBU+q+'&order=id.asc&limit=1000&offset='+off,{headers:window.tdcH?tdcH():{}}); }catch(e){}
+      if(!r||!r.ok){ out.err=r?r.status+' '+(await r.text().catch(()=>'')).slice(0,120):'network'; console.warn('[shot-quality] shots read failed',out.err); break; }
+      const d=await r.json(); out.push(...d); if(d.length<1000) break;
     }
+    // the same request shape the player page uses, if the paged one failed
+    if(!out.length&&out.err){ try{ const r=await fetch(SBU+q+'&limit=5000',{headers:window.tdcH?tdcH():{}}); if(r.ok){ const d=await r.json(); out.push(...d); out.err=null; } }catch(e){} }
     return out;
   }
   function shotsFor(d){
     const k=d.key+'|'+S.season; if(SHOTS[k]) return SHOTS[k];
-    const sel='select=id,x,y,made,sv,dist,game_id', y=S.season;
+    const sel='select=x,y,made,sv,dist,game_id', y=S.season;
     return SHOTS[k]=(async()=>{
       if(!isT()) return shotRows(`shots?espn_id=eq.${d.id}&season_year=eq.${y}&${sel}`);
       if(!isDef()) return shotRows(`shots?team_id=eq.${d.tid}&season_year=eq.${y}&${sel}`);
@@ -255,8 +258,17 @@
     const rows=await shotsFor(d); if(S.sel!==d.key||!document.body.contains(host)) return;
     const nm=d.name+(isT()?(isDef()?' opponents':''):'');
     if(rows.length<40){
-      host.innerHTML=`<div class="empty">${S.season<2020?'Shot locations are tracked from 2019-20 on, so there’s no shot chart for this season.':
-        rows.length?`Only ${rows.length} of these shots have tracked locations — too few for a readable chart.`:'No tracked shot locations to show here. Shot charts are part of Premium — sign in to see them.'}</div>`;
+      // say WHICH case this is: signed out, no plan access, a failed read, or genuinely no tracked shots
+      const signed=(()=>{ try{ const h=window.tdcH&&tdcH(); return !!(h&&h.Authorization&&h.Authorization.indexOf('sb_publishable')<0); }catch(e){ return false; } })();
+      const paid=signed&&window.tdcHasCoachTier?await tdcHasCoachTier().catch(()=>false):false;
+      if(S.sel!==d.key||!document.body.contains(host)) return;
+      const msg=S.season<2020?'Shot locations are tracked from 2019-20 on, so there’s no shot chart for this season.'
+        :rows.err?`Couldn’t load the shot locations (${esc(rows.err)}).`
+        :!signed?'Sign in to see shot charts — they’re part of Pro.'
+        :!paid?'Shot charts are part of Pro.'
+        :rows.length?`Only ${rows.length} of these shots have tracked locations — too few for a readable chart.`
+        :`No tracked shot locations for ${esc(d.name)} in ${sl(S.season)}.`;
+      host.innerHTML=`<div class="empty">${msg}</div>`;
       return;
     }
     TDC_SHOTCHART.render(host, rows, isT()?{subtitle:nm, kind:'team', season:S.season}:{subtitle:nm, season:S.season, pos:d.pos});
