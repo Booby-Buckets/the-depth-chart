@@ -42,6 +42,7 @@ jobs:
           pip install --quiet requests
           # each step on its own: a failure in one must never stop the box scores already pulled from being committed
           python3 scripts/scrim_boxes.py || echo "::warning::scrim_boxes failed"
+          python3 scripts/scrim_wmt.py || echo "::warning::scrim_wmt failed"   # WMT-platform schools (Auburn, Georgia, Kentucky, LSU…): box scores from the public WMT stats API
           python3 scripts/scrim_tv.py || echo "::warning::scrim_tv failed"   # TV / stream for upcoming scrimmages, as schools post it
           python3 scripts/scrim_reality.py || echo "::warning::scrim_reality failed"   # Reality Meter + per-player weights
           python3 scripts/build_scrim_depth.py --apply || echo "::warning::build_scrim_depth failed"   # new depth charts, written to players (the SQL file stays as a record)
@@ -51,7 +52,7 @@ jobs:
         run: |
           git config user.name "tdc-scrim-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add scripts/data/ticker.json scripts/data/scrimmage_results_2027.json scripts/data/scrimmage_pbp_2027.json scripts/data/scrimmages_2027.json scripts/data/scrim_depth_2027.json scripts/scrim_depth_2027.sql
+          git add scripts/data/ticker.json scripts/data/scrimmage_results_2027.json scripts/data/scrimmage_pbp_2027.json scripts/data/scrimmages_2027.json scripts/data/wmt_teams_2027.json scripts/data/scrim_depth_2027.json scripts/scrim_depth_2027.sql
           if git diff --cached --quiet; then
             echo "No new box scores."
           else
