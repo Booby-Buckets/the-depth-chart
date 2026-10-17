@@ -552,11 +552,21 @@ pl =pd.DataFrame(sb_get("players?select=id,espn_id,name,depth_order,depth_set_at
 # already contain them (Givens read "15 min, 13 fewer than projected" against his scrimmage-earned start)
 if os.environ.get("SCRIM_ROT_CAP")=="0":
     try:
-        _sdb={b["id"]:b["depth"] for t in json.load(open(os.path.join(D,"scrim_depth_2027.json")))["teams"].values()
-              if t.get("applied") or t.get("proposed") for b in t.get("base") or []}
+        # ...but only while the team's CURRENT order is still the one the scrimmage build left: an owner edit made
+        # after it (Michigan, Oct 17: Gayle 15th -> 6th) is the truth, and restoring the stale base parked him at
+        # 0.5 mpg there, which the ±SCRIM_MPG_CAP ceiling then held the real run to
+        _cur={t:[int(i) for i in g.sort_values("depth_order")["id"]] for t,g in pl.dropna(subset=["depth_order"]).groupby("team")}
+        _tid={int(i):t for i,t in zip(pl["id"],pl["team"])}; _sdb={}; _skip=[]
+        for _t in json.load(open(os.path.join(D,"scrim_depth_2027.json")))["teams"].values():
+            if not (_t.get("applied") or _t.get("proposed")): continue
+            _ids={b["id"] for b in _t.get("base") or []}
+            _tm=next((_tid.get(i) for i in _ids if _tid.get(i)),None); _now=_cur.get(_tm)
+            if _now is not None and [i for i in _now if i in _ids]!=[i for i in (_t.get("proposed") or []) if i in _ids]:
+                _skip.append(_t.get("full")); continue
+            _sdb.update({b["id"]:b["depth"] for b in _t.get("base") or []})
         _hit=pl["id"].map(lambda i: i in _sdb)
         pl.loc[_hit,"depth_order"]=pl.loc[_hit,"id"].map(_sdb)
-        print(f"base run: {int(_hit.sum())} players back on their pre-scrimmage depth",file=sys.stderr)
+        print(f"base run: {int(_hit.sum())} players back on their pre-scrimmage depth"+(f" (owner-reordered since, kept: {', '.join(_skip)})" if _skip else ""),file=sys.stderr)
     except Exception as _e:
         print(f"warn: no scrimmage depth baseline ({_e})",file=sys.stderr)
 # OUT FOR THE SEASON (owner rule, Oct 2026): the owner's injury report (profiles.freshman_projections,
