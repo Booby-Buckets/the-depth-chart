@@ -20,6 +20,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="team-colors.js?v=12"></script>
   <script src="tdc-teamname.js?v=1"></script>
+  <script src="tdc-shotchart.js?v=34"></script>
   <style>
     /* dots + diverging bars: gold = better than D-I, blue = worse, grey = mixed (validated gold/blue pair) */
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--pos:#B07D17;--neg:#2F7FC1;--mix:#A9A496;--grid:#E3DFD4;--bar:#B9B3A5;}
@@ -63,6 +64,16 @@
     .sheet td.dim{color:var(--text3);}
     .sheet td .lg{width:16px;height:16px;object-fit:contain;vertical-align:-3px;margin-right:6px;}
     #tbl .sheet tbody tr{cursor:pointer;} #tbl .sheet tbody tr.sel td{box-shadow:inset 0 2px 0 var(--accent),inset 0 -2px 0 var(--accent);}
+    .stp{display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--text2);margin-top:6px;} .stp span+span{color:var(--text3);font-weight:600;}
+    .stx{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text3);margin-top:1px;}
+    .note{font-size:11.5px;color:var(--text3);margin-top:4px;line-height:1.45;}
+    .court{max-width:560px;} .court .sqn{font-weight:600;}
+    @media(max-width:640px){ .court .scz-lab{font-size:23px;} .court .scz-lab.sm{font-size:18px;} .court .scz-sub{font-size:15px;} .court .sqn{font-size:14px;} } /* dark theme: the ink is pale, so labels on deep tiles go dark */
+    :root[data-theme="dark"] .court .scz-lab.on,:root[data-theme="dark"] .court .scz-sub.on{fill:#0A0E18;}
+    @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .court .scz-lab.on,:root:not([data-theme="light"]) .court .scz-sub.on{fill:#0A0E18;}} .court .sc-court-wrap{max-width:none;}
+    .court .sqd-row{display:grid;grid-template-columns:118px 1fr;gap:10px;align-items:center;margin-top:8px;font-size:12px;font-weight:700;color:var(--text2);}
+    .court .sqd-bar{position:relative;height:18px;background:var(--bg2);border-radius:3px;} .court .sqd-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;}
+    .court .sqd-bar span{position:absolute;left:8px;top:1px;font-size:11.5px;color:var(--text);}
     .empty{padding:26px;text-align:center;color:var(--text3);border:1px dashed var(--border2);border-radius:12px;font-size:13px;}
     @media(max-width:640px){ h1{font-size:32px;} .hd .nm{font-size:21px;} .big2 .v{font-size:24px;} }
   </style>
@@ -95,11 +106,13 @@
   <div id="detail" hidden></div>
   <h2 id="tblH">Leaderboard</h2>
   <div id="tbl"></div>
+  <h2>How D-I shoots, 2009-10 to now</h2>
+  <div id="trends"><div class="empty">Loading…</div></div>
 </div>
 <div class="tip" id="tip"></div>
 <script>
 (function(){
-  const BASE='scripts/data/shot_quality/', V='?v=1';
+  const BASE='scripts/data/shot_quality/', V='?v=2';
   const qs=new URLSearchParams(location.search);
   const S={view:['player','off','def'].includes(qs.get('view'))?qs.get('view'):'player',season:+qs.get('season')||0,conf:'',pos:'',min:500,sort:'m',asc:false,sel:qs.get('id')||null};
   if(S.view==='def') S.asc=true;
@@ -182,11 +195,117 @@
   function diet(d){
     const tot=d.g.reduce((s,c,i)=>s+(c?(F.groups[i]==='ft'?.44*c[0]:c[0]):0),0)||1;
     return F.groups.map((g,i)=>{ const c=d.g[i]; if(!c||!LG[g]) return null; const shn=g==='ft'?.44*c[0]:c[0], pts=g==='ft'?c[1]:c[1]*(GV[g]||2);
-      return {g,lab:GL[g],att:c[0],made:c[1],share:shn/tot,lgShare:LG[g].share,pps:shn?pts/shn:null,lgPps:LG[g].pps,pct:c[0]?c[1]/c[0]:null,add:shn?(pts-shn*LG[g].pps)/tot*100:0}; })
+      return {g,lab:GL[g],att:c[0],made:c[1],share:shn/tot,lgShare:LG[g].share,pps:shn?pts/shn:null,lgPps:LG[g].pps,pct:c[0]?c[1]/c[0]:null,add:shn?(pts-shn*LG[g].pps)/tot*100:0,mk:shn?(pts-shn*LG[g].pps)/tot:0}; })
       .filter(r=>r&&(r.att>0||r.lgShare>.03));
   }
   const heat=(v,lg,n)=>{ if(v==null||n<12) return 'dim'; let x=v-lg; if(isDef()) x=-x; return x<-.15?'c0':x<-.05?'c1':x<.05?'c2':x<.15?'c3':'c4'; };
   const href=d=>isT()?`team.html?team=${encodeURIComponent(d.full)}`:`player.html?espn=${encodeURIComponent(d.id)}&name=${encodeURIComponent(d.name||'')}`;
+  // ---------- percentile strips (drawer): every qualifying player / team as a faint dot, the selection solid
+  function strips(d){
+    const pool=isT()?POOL:POOL.filter(x=>x.min>=poolMin()), def=isDef(), W=330, H=30;
+    const one=(k,lab,p)=>{ const mx=Math.max(...pool.map(x=>Math.abs(x[k])))*1.05||.05, X=v=>7+(v+mx)/(2*mx)*(W-14);
+      let g=`<line x1="${X(0)}" x2="${X(0)}" y1="1" y2="${H-1}" stroke="var(--text3)" stroke-dasharray="2 2"/>`;
+      pool.forEach((x,i)=>{ if(x!==d) g+=`<circle cx="${X(x[k]).toFixed(1)}" cy="${(5+((i*7919)%97)/97*(H-10)).toFixed(1)}" r="1.7" fill="var(--text3)" fill-opacity=".35"/>`; });
+      g+=`<circle cx="${X(d[k]).toFixed(1)}" cy="${H/2}" r="6" fill="${good(d[k])?'var(--pos)':'var(--neg)'}" stroke="var(--text)" stroke-width="1.5"/>`;
+      return `<div class="stp"><span>${lab}</span><span>${p}th pctile</span></div><svg viewBox="0 0 ${W} ${H}" width="100%">${g}</svg>`; };
+    return `<div class="cap">Rank among ${pool.length.toLocaleString()} ${isT()?'teams':'players'}</div>`+one('q',def?'Quality allowed':'Shot quality',d.qp)+one('m',def?'Opp. shot-making':'Shot-making',d.mp)+
+      `<div class="stx"><span>${def?'← better':'← worse'}</span><span>D-I avg</span><span>${def?'worse →':'better →'}</span></div>`;
+  }
+
+  // ---------- points waterfall (drawer): D-I average → the looks → making by shot type → actual points per shot
+  function waterfall(d){
+    const def=isDef(), lp=F.league.pps, dq=d.x-F.league.x, raw=d.pps-d.x;
+    const mk=diet(d).sort((a,b)=>Math.abs(b.mk)-Math.abs(a.mk)).slice(0,3), rest=raw-mk.reduce((s,r)=>s+r.mk,0);
+    const steps=[{lab:'D-I average',tot:lp},{lab:def?'Looks allowed':'Shot diet (looks)',dl:dq}].concat(mk.map(r=>({lab:'Making · '+r.lab,dl:r.mk})));
+    if(Math.abs(rest)>=.0005) steps.push({lab:'Making · all else',dl:rest});
+    steps.push({lab:def?'Opp. points / shot':'Points per shot',tot:d.pps,end:true});
+    let cum=0; steps.forEach(s=>{ if(s.tot!=null){ s.a=0; s.b=s.tot; cum=s.tot; } else { s.a=cum; s.b=cum+s.dl; cum=s.b; } });
+    const vals=steps.flatMap(s=>s.tot!=null?[s.b]:[s.a,s.b]), lo0=Math.min(...vals), hi0=Math.max(...vals), pad=Math.max(.02,(hi0-lo0)*.18), lo=lo0-pad, hi=hi0+pad;
+    const W=330, Lb=128, rh=22, H=steps.length*rh+18, X=v=>Lb+(v-lo)/(hi-lo)*(W-Lb-40);
+    let g='';
+    steps.forEach((s,i)=>{ const y=i*rh+3, a=s.tot!=null?lo:s.a, b=s.b, x0=Math.min(X(a),X(b)), w=Math.max(1.5,Math.abs(X(b)-X(a)));
+      const col=s.tot!=null?(s.end?'var(--accent)':'var(--bar)'):(good(s.dl)?'var(--pos)':'var(--neg)');
+      g+=`<text x="0" y="${y+14}" font-size="11.5" font-weight="${s.tot!=null?800:600}" fill="var(--text2)">${esc(s.lab)}</text><rect x="${x0.toFixed(1)}" y="${y+3}" width="${w.toFixed(1)}" height="14" fill="${col}"/>`+
+         `<text x="${(Math.max(X(a),X(b))+4).toFixed(1)}" y="${y+14}" font-size="11" font-weight="700" fill="var(--text)">${s.tot!=null?s.tot.toFixed(3):sg(s.dl)}</text>`;
+      if(i<steps.length-1) g+=`<line x1="${X(b).toFixed(1)}" x2="${X(b).toFixed(1)}" y1="${y+17}" y2="${y+rh+3}" stroke="var(--text3)" stroke-dasharray="2 2"/>`; });
+    g+=`<text x="${Lb}" y="${H-2}" font-size="10" fill="var(--text3)">axis starts at ${lo.toFixed(2)} pts / shot</text>`;
+    return `<div class="cap">From D-I average to ${def?'what opponents scored':'points per shot'}</div><svg viewBox="0 0 ${W} ${H}" width="100%">${g}</svg><div class="note">Raw points per shot. The shot-making number above also adjusts for schedule and sample size.</div>`;
+  }
+
+  // ---------- half-court diet map (full breakdown): the house shot-chart court (tdc-shotchart.js kit), each shot
+  // family on the part of the floor it comes from, shaded by SHARE of shots like the team / player Zones chart
+  let _cz=0;
+  function court(d){
+    const K=window.TDC_SHOTCHART&&TDC_SHOTCHART.kit&&TDC_SHOTCHART.kit(); if(!K) return '';
+    const by={}; diet(d).forEach(r=>{ by[r.g]=r; });
+    const tagged=!!(by.float||by.post||by.pull2||by.pull3), def=isDef(), {px,py,W,H}=K, id='sqz'+(++_cz);
+    const maxS=Math.max(...Object.values(by).map(r=>r.share))||1;
+    const al=r=>r&&r.share>0?.07+.68*Math.pow(r.share/maxS,.8):0;   // capped so the court lines stay visible on the deepest tile
+    // the house ink as a CSS variable, so a theme toggle restyles the map without a redraw
+    const fill=r=>al(r)?`fill:rgba(var(--sc-ink-rgb),${al(r).toFixed(3)})`:'fill:transparent';
+    const nm={rim:'At the rim',float:'Floaters',post:'Post · hooks',pull2:'Pull-up 2s',j2:tagged?'Other 2-pt jumpers':'2-pt jumpers',pull3:'Pull-up 3s',three:tagged?'Catch-and-shoot 3s':'Threes'};
+    const tip=k=>{ const r=by[k]; return r?`<title>${nm[k]} · ${(r.share*100).toFixed(0)}% of ${def?'shots allowed':'shots'} · ${r.pps!=null?r.pps.toFixed(2):'—'} pts/shot (D-I ${r.lgPps.toFixed(2)})</title>`:''; };
+    const FULL=`M0 0H${W}V${H}H0Z`, ARC=K.arcPath()+' Z', rr=px(4), hx=px(K.HOOP_X), hy=py(K.HOOP_Y);
+    const RA=`M${hx-rr} ${hy}a${rr} ${rr} 0 1 0 ${2*rr} 0a${rr} ${rr} 0 1 0 ${-2*rr} 0Z`;
+    const lane=`M${px(19)} ${py(19)}H${px(31)}V${py(0)}H${px(19)}Z`, top=K.wedge(-K.ANG_TOP,K.ANG_TOP), CUT=13;
+    const reg=(k,dd,clip)=>by[k]?`<path class="scz-z" fill-rule="evenodd" d="${dd}" style="${fill(by[k])}"${clip?` clip-path="url(#${id}${clip})"`:''}>${tip(k)}</path>`:'';
+    let t=`<defs><clipPath id="${id}in"><path clip-rule="evenodd" d="${ARC} ${lane}"/></clipPath><clipPath id="${id}out"><path clip-rule="evenodd" d="${FULL} ${ARC}"/></clipPath></defs>`;
+    if(tagged){
+      t+=reg('three',FULL+' '+top,'out')+reg('pull3',top,'out')+reg('j2',FULL+' '+top,'in')+reg('pull2',top,'in')+
+         reg('post',`M${px(19)} ${py(CUT)}H${px(31)}V${py(0)}H${px(19)}Z ${RA}`)+reg('float',`M${px(19)} ${py(19)}H${px(31)}V${py(CUT)}H${px(19)}Z`);
+      const s1=Math.sin(K.ANG_TOP*Math.PI/180), c1=Math.cos(K.ANG_TOP*Math.PI/180), r0=(19-K.HOOP_Y)/c1;
+      const ray=sd=>`<line x1="${px(K.HOOP_X+sd*r0*s1).toFixed(1)}" y1="${py(K.HOOP_Y+r0*c1).toFixed(1)}" x2="${px(K.HOOP_X+sd*60*s1).toFixed(1)}" y2="${py(K.HOOP_Y+60*c1).toFixed(1)}"/>`;
+      t+=`<g class="scz-seam">${ray(-1)}${ray(1)}<line x1="${px(19)}" x2="${px(31)}" y1="${py(CUT)}" y2="${py(CUT)}"/></g>`;
+    } else t+=reg('three',FULL,'out')+reg('j2',ARC+' '+RA);
+    t+=reg('rim',RA);
+    // labels: share big, points per shot vs D-I under it (white on the deep tiles, like the Zones chart)
+    const at=tagged?{rim:[25,8.25],post:[25,11.7],float:[25,16.4],pull2:[25,21.5],j2:[12.6,15.5],pull3:[25,32.4],three:[7.6,27]}:{rim:[25,8.25],j2:[25,20.5],three:[25,32.4]};
+    let lb=''; const nw=innerWidth<=640, o1=nw?21:16, o0=nw?18:13, on2=nw?24:17;   // phones: the labels are bigger (CSS), so spread them
+    Object.entries(at).forEach(([k,a])=>{ const r=by[k]; if(!r) return; const x=px(a[0]).toFixed(1), y=py(a[1]), on=al(r)>.5?' on':'', few=r.att<12||r.pps==null;
+      const small=k==='post'||k==='rim';
+      lb+=`<text class="scz-lab${on}${small?' sm':''}" x="${x}" y="${y.toFixed(1)}" text-anchor="middle" dominant-baseline="central">${(r.share*100).toFixed(0)}%</text>`;
+      const inner=['pull2','float','post'].includes(k)&&tagged;   // the centre stack: on phones, numbers only
+      if(!(nw&&k==='post')) lb+=`<text class="scz-sub${on}" x="${x}" y="${(y+(small?o0:o1)).toFixed(1)}" text-anchor="middle" dominant-baseline="central">${few?'few':sg(r.pps-r.lgPps,2)}</text>`;
+      if(!small&&!(nw&&inner)) lb+=`<text class="scz-sub sqn${on}" x="${x}" y="${(y-on2).toFixed(1)}" text-anchor="middle" dominant-baseline="central">${nm[k]}</text>`; });
+    const cg=K.court(null,{}), cut=cg.indexOf('<g class="sc-lines"');
+    const ft=by.ft, row=(lab,r)=>`<div class="sqd-row"><span>${lab}</span><div class="sqd-bar"><i style="width:${(r.share/maxS*100).toFixed(1)}%;background:rgba(var(--sc-ink-rgb),${al(r).toFixed(3)})"></i><span>${(r.share*100).toFixed(0)}% · ${sg(r.pps-r.lgPps,2)} vs D-I</span></div></div>`;
+    return `<div class="court"><div class="cap">Shot diet map · ${sl(S.season)}</div><div class="sc-court-wrap scz-wrap"><svg class="sc-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Shot diet map">${cg.slice(0,cut)}${t}${cg.slice(cut)}${lb}</svg></div>`+
+      (ft?row('Free-throw trips',ft):'')+
+      `<div class="note">Big number = share of ${def?'shots allowed':'shots'} (deeper = more); under it, points per shot vs D-I on that type. Shot types sit where they're usually taken${tagged?' (pull-ups off the top, post shots on the low block)':''} — hover a zone for the details.</div></div>`;
+  }
+
+  // ---------- D-I trends: the league's shot diet and points per shot by season
+  function trends(I){
+    const host=document.getElementById('trends'); if(!host) return;
+    if(!I||!I.league){ host.innerHTML=''; return; }
+    const ys=Object.keys(I.league).map(Number).sort((a,b)=>a-b);
+    const D=ys.map(y=>{ const L=I.league[y], tot=L.rim[0]+L.j2[0]+L.three[0]+.44*L.ft[0]; return {y,rim:L.rim[0]/tot,j2:L.j2[0]/tot,three:L.three[0]/tot,ft:.44*L.ft[0]/tot,pps:L.pps}; });
+    const SER=[['rim','At the rim','var(--pos)'],['three','Threes','var(--neg)'],['j2','2-pt jumpers','var(--text3)'],['ft','FT trips','var(--text)']];
+    const narrow=(host.clientWidth||900)<620, W=560, H=narrow?300:280, L=40, R=124, T=14, B=30, fs=narrow?13:12;
+    const X=y=>L+(y-ys[0])/(ys[ys.length-1]-ys[0]||1)*(W-L-R);
+    const axisX=()=>ys.filter((y,i)=>(i%(narrow?4:3)===0&&ys.length-1-i>=(narrow?3:2))||y===ys[ys.length-1]).map(y=>`<text x="${X(y)}" y="${H-10}" font-size="${fs-1}" fill="var(--text3)" text-anchor="middle">${yy(y)}</text>`).join('')+
+      (ys.includes(S.season)?`<line x1="${X(S.season)}" x2="${X(S.season)}" y1="${T}" y2="${H-B}" stroke="var(--accent)" stroke-dasharray="3 3"/>`:'');
+    // panel 1: share of shots
+    const mx=Math.max(...D.flatMap(o=>SER.map(s=>o[s[0]])))*1.1, Y1=v=>T+(1-v/mx)*(H-T-B);
+    let g=`<rect x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}" fill="none" stroke="var(--grid)"/>`;
+    [0,.1,.2,.3,.4].filter(v=>v<=mx).forEach(v=>{ g+=`<line x1="${L}" x2="${W-R}" y1="${Y1(v)}" y2="${Y1(v)}" stroke="var(--grid)"/><text x="${L-6}" y="${Y1(v)+4}" font-size="${fs-1}" fill="var(--text3)" text-anchor="end">${v*100}%</text>`; });
+    g+=axisX();
+    const ends=SER.map(s=>({s,y:Y1(D[D.length-1][s[0]])})).sort((a,b)=>a.y-b.y); for(let i=1;i<ends.length;i++) if(ends[i].y-ends[i-1].y<fs+2) ends[i].y=ends[i-1].y+fs+2;
+    SER.forEach(s=>{ g+=`<polyline fill="none" stroke="${s[2]}" stroke-width="2.5" points="${D.map(o=>X(o.y).toFixed(1)+','+Y1(o[s[0]]).toFixed(1)).join(' ')}"/>`; });
+    ends.forEach(e=>{ const o=D[D.length-1]; g+=`<text x="${W-R+6}" y="${e.y+4}" font-size="${fs-.5}" font-weight="700" fill="${e.s[2]}">${e.s[1]} ${(o[e.s[0]]*100).toFixed(0)}%</text>`; });
+    // panel 2: D-I points per shot
+    const p0=Math.min(...D.map(o=>o.pps))-.01, p1=Math.max(...D.map(o=>o.pps))+.01, Y2=v=>T+(1-(v-p0)/(p1-p0))*(H-T-B);
+    let h=`<rect x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}" fill="none" stroke="var(--grid)"/>`;
+    [p0+.01,(p0+p1)/2,p1-.01].forEach(v=>{ h+=`<line x1="${L}" x2="${W-R}" y1="${Y2(v)}" y2="${Y2(v)}" stroke="var(--grid)"/><text x="${L-6}" y="${Y2(v)+4}" font-size="${fs-1}" fill="var(--text3)" text-anchor="end">${v.toFixed(2)}</text>`; });
+    h+=axisX()+`<polyline fill="none" stroke="var(--accent)" stroke-width="2.5" points="${D.map(o=>X(o.y).toFixed(1)+','+Y2(o.pps).toFixed(1)).join(' ')}"/>`;
+    const lo=D.reduce((a,b)=>b.pps<a.pps?b:a), hi=D.reduce((a,b)=>b.pps>a.pps?b:a);
+    D.forEach(o=>{ const last=o===D[D.length-1], k=o===lo||o===hi||last; h+=`<circle cx="${X(o.y)}" cy="${Y2(o.pps)}" r="${k?4.5:3}" fill="${k?'var(--accent)':'var(--bg)'}" stroke="var(--accent)" stroke-width="1.5"/>`;
+      if(k&&!last) h+=`<text x="${X(o.y)}" y="${Y2(o.pps)+(o===lo?17:-9)}" font-size="${fs-.5}" font-weight="700" fill="var(--text)" text-anchor="middle" paint-order="stroke" stroke="var(--bg)" stroke-width="3">${o.pps.toFixed(3)}</text>`; });
+    h+=`<text x="${W-R+6}" y="${Y2(D[D.length-1].pps)+4}" font-size="${fs-.5}" font-weight="700" fill="var(--accent)">${D[D.length-1].pps.toFixed(3)}</text>`;
+    host.innerHTML=`<div class="grid2"><div><div class="cap">Share of D-I shots, by type</div><svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Share of D-I shots by type, by season">${g}</svg></div>`+
+      `<div><div class="cap">D-I points per shot (free-throw trips count as shots)</div><svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="D-I points per shot by season">${h}</svg></div></div>`+
+      `<div class="note">Every D-I vs D-I shot in ESPN play-by-play; 2-pt jumpers include floaters, post shots and pull-ups. 2009-10 and 2010-11 cover about half the games. Dashed line = the season you're viewing.</div>`;
+  }
   function header(d){
     const who=isT()?`${esc(d.conf)} · ${sl(S.season)} · ${Math.round(d.shots).toLocaleString()} shots${isDef()?' allowed':''}`:`${esc(d.team)} · ${esc(d.pos)} · ${d.min.toLocaleString()} min · ${sl(S.season)} · ${Math.round(d.shots)} shots`;
     return `<div class="hd"><img src="${logo(d.tid)}" alt="" onerror="this.style.visibility='hidden'"><div style="min-width:0"><div class="nm"><a href="${href(d)}">${esc(d.name)}${isT()?(isDef()?' defense':' offense'):''}</a></div><div class="who">${who}</div></div></div>`;
@@ -200,6 +319,7 @@
     rows.forEach((r,i)=>{ const y=3+i*rh; g+=`<text x="0" y="${y+15}" font-size="12" font-weight="600" fill="var(--text2)">${r.lab}</text><rect x="${Math.min(X(0),X(r.add)).toFixed(1)}" y="${y+4}" width="${Math.abs(X(r.add)-X(0)).toFixed(1)}" height="14" fill="${good(r.add)?'var(--pos)':'var(--neg)'}"/><text x="${(r.add>=0?X(r.add)+4:X(r.add)-4).toFixed(1)}" y="${y+15}" font-size="11" font-weight="700" fill="var(--text)" text-anchor="${r.add>=0?'start':'end'}">${sg(r.add,1)}</text>`; });
     el.className='drawer';
     el.innerHTML=header(d)+`<div class="big2"><div><div class="k">${def?'Quality allowed':'Shot quality'}</div><div class="v">${sg(d.q)}</div><div class="p">${d.qp}th pctile · ${d.x.toFixed(3)} pts/shot</div></div><div><div class="k">${def?'Opp. shot-making':'Shot-making'}</div><div class="v" style="color:${good(d.m)?'var(--pos)':'var(--neg)'}">${sg(d.m)}</div><div class="p">${d.mp}th pctile · raw ${sg(d.raw)}</div></div></div>
+      ${strips(d)}${waterfall(d)}
       <div class="cap">${def?'Points allowed':'Points'} vs D-I per 100 shots, by shot type</div><svg viewBox="0 0 ${W} ${H}" width="100%">${g}</svg>
       <a class="more" href="#detail">Full breakdown and career ↓</a>`;
   }
@@ -209,7 +329,7 @@
     const def=isDef(), rows=diet(d), mx=Math.max(...rows.map(r=>Math.max(r.share,r.lgShare)));
     const t1=`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">${def?'Shots allowed':'Shot type'}</th><th class="l">Share of shots</th><th>Att</th><th>${def?'Opp. FG%':'FG%'}</th><th>Pts / shot</th><th>D-I</th><th>Pts vs D-I / 100</th></tr></thead><tbody>${rows.map(r=>`<tr><td class="l"><b>${r.lab}</b></td><td class="l"><div class="cb"><i style="width:${(r.share/mx*100).toFixed(1)}%"></i><b style="left:${(r.lgShare/mx*100).toFixed(1)}%"></b></div><span class="cbl">${(r.share*100).toFixed(0)}% · D-I ${(r.lgShare*100).toFixed(0)}%</span></td><td>${r.att.toLocaleString()}</td><td>${r.pct!=null?(r.pct*100).toFixed(1):'—'}</td><td class="${heat(r.pps,r.lgPps,r.att)}"><b>${r.pps!=null?r.pps.toFixed(2):'—'}</b></td><td class="dim">${r.lgPps.toFixed(2)}</td><td class="${heat(r.add/10,0,r.att)}">${sg(r.add,1)}</td></tr>`).join('')}</tbody></table></div>`;
     el.hidden=false;
-    el.innerHTML=`<h2>${esc(d.name)}${isT()?(def?' defense':' offense'):''} · where the points come from</h2><div class="cap">Shot diet · ${sl(S.season)}</div>${t1}<div id="carHost"><div class="cap">Career</div><div class="empty">Loading every season…</div></div>`;
+    el.innerHTML=`<h2>${esc(d.name)}${isT()?(def?' defense':' offense'):''} · where the points come from</h2>${court(d)}<div class="cap">Shot diet · ${sl(S.season)}</div>${t1}<div id="carHost"><div class="cap">Career</div><div class="empty">Loading every season…</div></div>`;
     const car=await career(d.key); if(S.sel!==d.key) return;
     const host=document.getElementById('carHost'); if(!host) return;
     if(!car.length){ host.innerHTML=''; return; }
@@ -275,7 +395,7 @@
       ?`<span><i style="background:var(--pos)"></i>Forces tough looks and opponents miss</span><span><i style="background:var(--neg)"></i>Allows good looks and opponents make</span><span><i style="background:var(--mix)"></i>Mixed</span>`
       :`<span><i style="background:var(--pos)"></i>Good looks and makes them</span><span><i style="background:var(--neg)"></i>Tough looks and misses</span><span><i style="background:var(--mix)"></i>Mixed</span>`;
     document.getElementById('tblH').textContent=S.view==='player'?'Every player':S.view==='off'?'Every team offense':'Every team defense';
-    table(); select(S.sel&&POOL.some(d=>d.key===S.sel)?S.sel:null,false);
+    table(); select(S.sel&&POOL.some(d=>d.key===S.sel)?S.sel:null,false); trends(I);
   }
   const bind=(id,k,num)=>{ document.getElementById(id).onchange=e=>{ S[k]=num?+e.target.value:e.target.value;
     if(k==='view'){ S.conf=''; S.sort='m'; S.asc=S.view==='def'; S.sel=null; }

@@ -227,9 +227,13 @@ def season(y):
 
 
 def careers():
-    C = {}; ys = []
+    C = {}; ys = []; LGS = {}
     for f in sorted(glob.glob(os.path.join(OUT, "[0-9]*.json"))):
         S = json.load(open(f)); y = S["season"]; ys.append(y); I = {c: i for i, c in enumerate(S["pcols"])}
+        # the D-I shot diet by season (the page's trends chart): [att, made] for rim / 2-pt jumpers (+ floaters, post,
+        # pull-ups) / threes (+ pull-up 3s) / free throws, plus points per shot
+        G = S["league"]["groups"]; add = lambda ks: [sum(G[k][0] for k in ks if k in G), sum(G[k][1] for k in ks if k in G)]
+        LGS[str(y)] = {"pps": S["league"]["pps"], "rim": add(["rim"]), "j2": add(["float", "post", "pull2", "j2"]), "three": add(["pull3", "three"]), "ft": S["league"]["ft"]}
         for r in S["players"]:
             C.setdefault(r[0], []).append([y, r[I["team"]], r[I["min"]], r[I["shots"]], r[I["qA"]], r[I["mS"]], r[I["pps"]], r[I["self"]]])
         for side, rows in S["teams"].items():
@@ -241,7 +245,7 @@ def careers():
     for k in "0123456789":
         part = {i: v for i, v in sorted(C.items()) if i[-1] == k}
         put(os.path.join(OUT, "careers", f"{k}.json"), {"cols": ["season", "team", "min", "shots", "q", "mS", "pps", "self"], "rows": part})
-    put(os.path.join(OUT, "index.json"), {"built": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "seasons": sorted(ys, reverse=True)})
+    put(os.path.join(OUT, "index.json"), {"built": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "seasons": sorted(ys, reverse=True), "league": LGS})
     print(f"careers.json: {len(C)} ids · seasons {min(ys)}-{max(ys)}")
 
 
