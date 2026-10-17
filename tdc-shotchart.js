@@ -347,7 +347,20 @@
   }
   function z12Totals(shots){ var Z={}; Object.keys(Z12).forEach(function(k){ Z[k]={m:0,a:0}; });
     shots.forEach(function(s){ var k=zone12(s); Z[k].a++; if(s.made) Z[k].m++; }); return Z; }
-  function zones12Svg(shots, ink){
+  // ── LOOK QUALITY: how good a look each zone is = the D-I make rate there × the shot's value (expected points per
+  //    attempt), against the D-I average attempt. Green = a better look than average, red = worse. ──
+  var THREES12={c3l:1,c3r:1,w3l:1,t3:1,w3r:1};
+  function xpOf(k12){ return avgOf(Z12[k12].ref)*(THREES12[k12]?3:2); }
+  function lookBase(){   // D-I expected points per field-goal attempt, from the season's zone reference
+    if(REF){ var m=0,a=0; Object.keys(REF).forEach(function(k){ var r=REF[k]; if(r&&r.a){ a+=r.a; m+=r.m*(/3/.test(k)?3:2); } }); if(a) return m/a; }
+    return 1.0;
+  }
+  function lookCol(xp, base, minA){ var d=xp-base;
+    if(Math.abs(d)<0.04) return 'rgba(140,140,150,'+(minA!=null&&minA>0.3?0.55:0.22)+')';   // within 0.04 pts of average: neutral
+    var al=Math.min(0.9,(minA==null?0.16:minA)+0.74*Math.min(1,Math.abs(d)/0.22));
+    return (d>=0?'rgba(31,157,87,':'rgba(199,77,63,')+al.toFixed(3)+')'; }
+  function lookDark(xp, base){ return Math.abs(xp-base)>=0.04&&Math.abs(xp-base)/0.22>0.55; }
+  function zones12Svg(shots, ink, look){
     var Z=z12Totals(shots), N=shots.length||1, maxA=0;
     Object.keys(Z).forEach(function(k){ if(Z[k].a>maxA) maxA=Z[k].a; });
     var id='zz'+(++_zid), g='<defs>', cyCut=py(CORNER_Y-0.4);
@@ -358,6 +371,8 @@
     g+='<clipPath id="'+id+'lo"><rect x="0" y="'+cyCut+'" width="'+W+'" height="'+(H-cyCut)+'"/></clipPath></defs>';
     var alphaOf=function(k){ var a=Z[k].a; return a?0.07+0.85*Math.pow(a/maxA,0.8):0; };
     var fill=function(k){ var al=alphaOf(k); return al?'rgba('+ink.join(',')+','+al.toFixed(3)+')':'transparent'; };
+    var LB=lookBase();
+    if(look) fill=function(k){ return lookCol(xpOf(k),LB); };
     var tip=function(k){ var z=Z[k], av=avgOf(Z12[k].ref);
       return Z12[k].n+' · '+Math.round(z.a/N*100)+'% of shots|'+(z.a?Math.round(z.m/z.a*100):0)+'|'+z.m+'/'+z.a+'|'+Math.round(av*100)+'|'+(z.a?((z.m/z.a-av>=0?'+':'')+Math.round((z.m/z.a-av)*100)):'—'); };
     var reg=function(k,d,clip,clip2){ var el='<path class="sc-zone scz-z" data-zk="'+k+'" data-ztip="'+tip(k)+'" d="'+d+'" fill="'+fill(k)+'"'+(clip2?' clip-path="url(#'+id+clip2+')"':'')+'/>';
@@ -390,11 +405,34 @@
     // labels: made-att, FG% under it (returned separately so they sit above the court lines)
     var tiles=g; g='';
     Object.keys(Z12).forEach(function(k){ var z=Z[k], at=Z12[k].lab, x=px(at[0]), y=py(at[1]);
-      var dark=alphaOf(k)>0.5, cls='scz-lab'+(dark?' on':''), big=z.a?(z.m+'–'+z.a):'–';
+      var dark=look?lookDark(xpOf(k),LB):alphaOf(k)>0.5, cls='scz-lab'+(dark?' on':''), big=look?(Math.round(z.a/N*100)+'%'):(z.a?(z.m+'–'+z.a):'–');
       if(Z12[k].rot){ g+='<text class="'+cls+' sm" transform="translate('+x.toFixed(1)+' '+y.toFixed(1)+') rotate('+Z12[k].rot+')" text-anchor="middle" dominant-baseline="central">'+big+'</text>'; return; }
       g+='<text class="'+cls+'" x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" text-anchor="middle" dominant-baseline="central">'+big+'</text>';
-      if(z.a>=5) g+='<text class="scz-sub'+(dark?' on':'')+'" x="'+x.toFixed(1)+'" y="'+(y+16).toFixed(1)+'" text-anchor="middle" dominant-baseline="central">'+Math.round(z.m/z.a*100)+'%</text>'; });
+      if(look) g+='<text class="scz-sub'+(dark?' on':'')+'" x="'+x.toFixed(1)+'" y="'+(y+16).toFixed(1)+'" text-anchor="middle" dominant-baseline="central">'+xpOf(k).toFixed(2)+' pts</text>';
+      else if(z.a>=5) g+='<text class="scz-sub'+(dark?' on':'')+'" x="'+x.toFixed(1)+'" y="'+(y+16).toFixed(1)+'" text-anchor="middle" dominant-baseline="central">'+Math.round(z.m/z.a*100)+'%</text>'; });
     return {tiles:tiles, labels:g};
+  }
+  // ── the good-to-bad ladder: the diet laid out from the best looks to the worst, this chart vs D-I ──
+  var TIERS=[['rim','At the rim',['rim']],['c3','Corner 3',['c3l','c3r']],['a3','Above-the-break 3',['w3l','t3','w3r']],['paint','Paint',['paint']],['mid','Midrange',['midl','midc','midr']]];
+  function tierXp(t){ var m=0,a=0,v=t[0]==='c3'||t[0]==='a3'?3:2;
+    if(REF){ t[2].forEach(function(k){ if(REF[k]){ m+=REF[k].m; a+=REF[k].a; } }); if(a) return m/a*v; }
+    var s=0; t[2].forEach(function(k){ s+=ZMETA[k].avg; }); return s/t[2].length*v; }
+  function lookLadder(shots, opts){
+    var N=shots.length||1, base=lookBase(), cnt={};
+    shots.forEach(function(s){ var z=zone10(s); TIERS.forEach(function(t){ if(t[2].indexOf(z)>=0) cnt[t[0]]=(cnt[t[0]]||0)+1; }); });
+    var tiers=TIERS.map(function(t){ return {k:t[0],n:t[1],xp:tierXp(t),me:(cnt[t[0]]||0)/N,
+      ref:REF?(function(){ var a=0,tot=0; Object.keys(REF).forEach(function(k){ if(REF[k]) tot+=REF[k].a; }); t[2].forEach(function(k){ if(REF[k]) a+=REF[k].a; }); return tot?a/tot:0; })():null}; })
+      .sort(function(a,b){ return b.xp-a.xp; });
+    var xme=tiers.reduce(function(s,t){ return s+t.me*t.xp; },0), xref=tiers.reduce(function(s,t){ return s+(t.ref||0)*t.xp; },0);
+    var row=function(lab,sub,key,cls){ return '<div class="scz-drow'+(cls?' '+cls:'')+'"><div class="scz-dl"><b>'+lab+'</b><span>'+sub+'</span></div><div class="scz-dbar">'+
+      tiers.map(function(t){ var v=t[key]||0, dk=lookDark(t.xp,base);
+        return '<i class="scz-seg" style="flex:'+Math.max(v,0.0001).toFixed(4)+';background:'+lookCol(t.xp,base,0.3)+';color:'+(dk?'#fff':'var(--text)')+'" title="'+t.n+' '+Math.round(v*100)+'% · '+t.xp.toFixed(2)+' pts per shot">'+(v>=(window.innerWidth<600?0.12:0.07)?Math.round(v*100)+'%':'')+'</i>'; }).join('')+'</div></div>'; };
+    var V=voice(opts||{});
+    return '<div class="scz-diet"><div class="scz-cap">From the best looks to the worst</div>'+
+      '<div class="scz-drow scz-dhead"><div class="scz-dl"></div><div class="scz-dbar" style="justify-content:space-between;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);align-items:center;"><span>◀ Best looks</span><span>Worst looks ▶</span></div></div>'+
+      row((opts&&opts.short)||(opts&&opts.subtitle)||'This chart', xme.toFixed(2)+' expected pts / shot','me')+
+      (REF?row('D-I average', xref.toFixed(2)+' pts / shot','ref','ref'):'')+
+      '<div class="sc-eff-cap" style="margin-top:6px;">'+tiers.map(function(t){ return '<span style="display:inline-block;margin-right:12px;"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;margin-right:5px;background:'+lookCol(t.xp,base,0.3)+'"></i>'+t.n+' '+t.xp.toFixed(2)+'</span>'; }).join('')+'</div></div>';
   }
   // ── shot-diet bars: share of FGA by restricted area / paint / midrange / three ──
   var DIET=[['rim','Restricted area'],['paint','Paint'],['mid','Midrange'],['three','Three']];
@@ -800,6 +838,7 @@
     var courtOpts={color:tcol};
     var toggle='<div class="sc-modes">'+
       '<button class="'+(mode==='zones'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'zones\')">Zones</button>'+
+      '<button class="'+(mode==='look'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'look\')">Look quality</button>'+
       '<button class="'+(mode==='hex'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'hex\')">Hexbin</button>'+
       '<button class="'+(mode==='heat'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'heat\')">Heat</button>'+
       '<button class="'+(mode==='shots'?'on':'')+'" onclick="TDC_SHOTCHART._m(this,\'shots\')">All shots</button></div>';
@@ -813,6 +852,13 @@
         '<span style="margin-left:auto;color:var(--text3);font-size:10px;">made\u2013attempts \u00b7 FG% \u00b7 hover a zone for D-I</span></div>'+
         '<div class="sc-court-wrap scz-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+cg.slice(0,cut)+zz.tiles+cg.slice(cut)+zz.labels+'</svg><div class="sc-tip"></div></div>';
       extra=dietBlock(shots,opts)+splitTables(shots)+distBlock(shots,opts)+(opts.names?playerZoneTable(shots,opts.names):'');
+    } else if(mode==='look'){
+      var lc=court(null,courtOpts), lcut=lc.indexOf('<g class="sc-lines"'), lz=zones12Svg(shots,inkRgb(tcol),true), LB0=lookBase();
+      body='<div class="sc-mk-legend"><span><i class="scz-sw" style="background:'+lookCol(LB0+0.22,LB0)+'"></i><i class="scz-sw" style="background:'+lookCol(LB0+0.06,LB0)+'"></i>better look than D-I average</span>'+
+        '<span><i class="scz-sw" style="background:'+lookCol(LB0,LB0)+'"></i>about average</span><span><i class="scz-sw" style="background:'+lookCol(LB0-0.06,LB0)+'"></i><i class="scz-sw" style="background:'+lookCol(LB0-0.22,LB0)+'"></i>worse look</span>'+
+        '<span style="margin-left:auto;color:var(--text3);font-size:10px;">share of shots · expected pts per shot there</span></div>'+
+        '<div class="sc-court-wrap scz-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+lc.slice(0,lcut)+lz.tiles+lc.slice(lcut)+lz.labels+'</svg><div class="sc-tip"></div></div>';
+      extra=lookLadder(shots,opts);
     } else if(mode==='spots'){
       var so={};
       var sg=spotsSvg(shots,so);
