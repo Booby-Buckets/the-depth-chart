@@ -17,7 +17,7 @@
   <script src="tdc-lineups.js?v=17s"></script>
   <script src="tdc-lineup-history.js?v=4"></script>
   <script src="tdc-shotflow.js?v=12"></script>
-  <script src="tdc-nil.js?v=cal10"></script>
+  <script src="tdc-nil.js?v=pay1"></script>
   <script src="tdc-nilchart.js?v=1"></script>
   <script src="tdc-gate.js?v=4"></script>
   <script src="tdc-pos.js"></script>
@@ -7519,9 +7519,16 @@ async function renderNil(){
   const _tcol=(()=>{ try{ const cs=getComputedStyle(document.documentElement); return cs.getPropertyValue('--tc-readable').trim()||cs.getPropertyValue('--tc').trim()||col; }catch(e){ return col; } })();
   const _esc=s=>(''+(s==null?'':s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
   const _ord=n=>{ const v=n%100; return (v>=11&&v<=13)?'th':(['th','st','nd','rd'][n%10]||'th'); };
-  const _verdictTxt=deal
+  // PAYROLL (Oct 2026): worth vs spending power (EADA finances + the roster it built) vs estimated payroll — TDC_NIL.payroll
+  if(_NN&&_NN.budgetsReady){ try{ await _NN.budgetsReady; }catch(e){} }
+  const _PR=(_NN&&_NN.payroll)?_NN.payroll(d.players,tT.name,d.tier):null, _PV=_PR?_NN.payVerdict(_PR):null;
+  if(_PR&&!window._nilPayBoard){ window._nilPayBoard=Object.keys(_nilData.teams).map(tk=>_NN.payroll(_nilData.teams[tk].players,tk,_nilData.teams[tk].tier)).filter(o=>o.worth>0); }
+  const _payRank=k=>{ const B=(window._nilPayBoard||[]).slice().sort((a,b)=>b[k]-a[k]); const i=B.findIndex(o=>o.team===tT.name); return i<0?'':'#'+(i+1)+' of '+B.length; };
+  const _verdictTxt=_PR
+    ? `<b style="color:${_PV.vsWorthTag==='under'?'var(--green)':_PV.vsWorthTag==='over'?'var(--red)':'var(--text)'}">${_PV.vsWorth}.</b> We estimate ${_esc(tT.name)} is paying about ${fmt(_PR.payroll)} for a roster worth ${fmt(_PR.worth)} on the open market, against ${fmt(_PR.power)} of spending power: ${_PV.vsPower.toLowerCase()}.`
+    : (deal
     ? `<b style="color:var(--green)">Getting value.</b> The roster is worth ${fmt(Math.abs(nDiff))} more on the open market than the program's ${fmt(d.budget)} NIL budget.`
-    : `<b style="color:var(--red)">Paying a premium.</b> The program's ${fmt(d.budget)} budget is ${fmt(Math.abs(nDiff))} more than the roster is worth on the open market.`;
+    : `<b style="color:var(--red)">Paying a premium.</b> The program's ${fmt(d.budget)} budget is ${fmt(Math.abs(nDiff))} more than the roster is worth on the open market.`);
   // number line: every D-I roster's value (middle half shaded), this roster's model and market
   // value as markers and the budget as a tick; all values in the readout, none on the line
   let _scale='';
@@ -7529,11 +7536,12 @@ async function renderNil(){
     const vs=_tb.map(x=>x.val).sort((a,b)=>a-b), q=f=>vs[Math.floor(f*(vs.length-1))];
     const hi=Math.max(q(0.97),nVal,_rosterMarket||0,d.budget)*1.06, X=v=>Math.max(0,Math.min(100,v/hi*100));
     const r=(l,v,n,me)=>`<tr${me?' class="me"':''}><td class="l nm">${l}</td><td class="big">${v}</td><td class="l dim">${n}</td></tr>`;
-    _scale=`<div class="sec-title nv-sec">Worth vs budget, against every D-I roster</div>
+    _scale=`<div class="sec-title nv-sec">Worth, payroll and spending power, against every D-I roster</div>
       <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense nil-cmp"><thead><tr><th class="l">Measure</th><th>Value</th><th class="l"></th></tr></thead><tbody>
       ${r('Roster value',fmt(nVal),'open market, player by player',true)}
       ${_rosterMarket>0?r('Market value',fmt(_rosterMarket),'positional market curves'):''}
-      ${r('NIL budget',fmt(d.budget),'Tier '+d.tier)}
+      ${_PR?r('Spending power',fmt(_PR.power),_payRank('power')+' · what the program can spend'):r('NIL budget',fmt(d.budget),'Tier '+d.tier)}
+      ${_PR?r('Est. payroll',fmt(_PR.payroll),_payRank('payroll')+' · '+Math.round(_PV.ratio*100)+'% of worth, '+Math.round(_PV.used*100)+'% of spending power'):''}
       ${r('Median D-I roster',fmt(q(.5)),'every rostered program')}
       ${r('Middle half of D-I rosters',fmt(q(.25))+'–'+fmt(q(.75)),'25th to 75th percentile')}
       </tbody></table></div>`;
@@ -7546,15 +7554,20 @@ async function renderNil(){
         <div class="nv-copy"><div class="nv-read">What ${_esc(tT.name)}'s roster is worth on the open market, priced player by player.</div><div class="nv-verdict">${_verdictTxt}</div></div>
       </div>
       <dl class="nv-in">
-        <div><dt>NIL budget</dt><dd>${fmt(d.budget)}</dd></div>
+        ${_PR?`<div><dt title="What the program can put toward a 2026-27 roster: its basketball spending and athletics revenue (U.S. Dept. of Education EADA filings), blended with the roster it assembled">Spending power</dt><dd>${fmt(_PR.power)}</dd></div><div><dt title="What we estimate it is paying this roster">Est. payroll</dt><dd>${fmt(_PR.payroll)}</dd></div>`:`<div><dt>NIL budget</dt><dd>${fmt(d.budget)}</dd></div>`}
         <div><dt>Market value</dt><dd>${fmt(_rosterMarket)}</dd></div>
         <div><dt>Cost per net point</dt><dd>$${Math.round(d.implied_rate*1000)}K <span style="color:var(--text3);font-weight:600;font-size:12px;">market $${Math.round(mkt*1000)}K</span></dd></div>
-        ${hasOverrides?`<div><dt>Projected spend</dt><dd>${fmt(nProjSpend)} <span style="color:var(--text3);font-weight:600;font-size:12px;">${spendGap>0?'+':'−'}${fmt(Math.abs(spendGap))} vs model</span></dd></div>`:''}
+        ${hasOverrides&&!_PR?`<div><dt>Projected spend</dt><dd>${fmt(nProjSpend)} <span style="color:var(--text3);font-weight:600;font-size:12px;">${spendGap>0?'+':'−'}${fmt(Math.abs(spendGap))} vs model</span></dd></div>`:''}
       </dl>
     </div>
     <div id="nilLeague"></div>
     <div id="nilRosterChart"></div>
     ${_scale}
+    ${_PR&&_PR.players.length?`<div class="sec-title nv-sec">Estimated salaries</div>
+      <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">Player</th><th class="l" title="How he joined: transfers are bought on the open market (paid at a premium), returners re-sign a little under, freshmen at worth">Acquired</th><th title="Open-market worth">Worth</th><th title="Estimated 2026-27 pay">Est. salary</th><th title="Share of the payroll">Share</th></tr></thead><tbody>
+      ${_PR.players.map(x=>`<tr><td class="l nm">${_esc(x.name)}</td><td class="l dim">${x.acq==='transfer'?'Transfer':x.acq==='freshman'?'Freshman':'Returner'}</td><td>${fmt(x.worth)}</td><td class="big">${fmt(x.salary)}</td><td class="dim">${Math.round(x.salary/_PR.payroll*100)}%</td></tr>`).join('')}
+      </tbody></table></div>
+      <div class="nlc-foot">Estimates, not reported contracts. Payroll = the program's spending power and the roster's open-market worth combined; it is split by each player's worth, with transfers at a premium and returners a little under.</div>`:''}
     <div class="sec-title nv-sec">Roster</div>
   <div class="sheet-wrap"><table class="sheet dense freeze2" id="nilSheet" style="--c1:36px;--c2:180px;"><thead><tr><th class="rk">#</th><th class="l">Player</th><th class="l" title="Class / eligibility">Yr</th><th class="l" title="The position the market prices him at (his natural one, if he plays out of position)">Pos</th>${_anyInj?'<th class="l" title="Out for the 2026-27 season (injury report)">Status</th>':''}<th data-heat="1">Grade</th><th data-heat="1" title="Projected minutes per game">MPG</th><th data-heat="1" title="Last season's demonstrated production — points per game">PPG</th><th data-heat="1" title="Last season's rebounds per game">RPG</th><th data-heat="1" title="Last season's assists per game">APG</th><th data-heat="1" title="Wins Added — the owned on-court production value (offensive + defensive) the Model is built on. Last season.">WA</th><th data-heat="1" title="Production model estimate: grade × projected minutes × market premium. Tier-neutral — the player's open-market worth, not his program's spending tier.">Model Value</th><th data-heat="1" title="Positional market curve for this player's grade & slot — set by the owner, independent of minutes">Market Value</th><th title="This player's Market Value as a share of the roster's total market value">% Roster</th><th class="l" title="TIER-FAIR: strips team spending, then compares his production to the market price for his grade & slot. UNDERRATED = produces 30%+ above his market price (slept on). OVERRATED = market prices him 30%+ above production. Only real rotation pieces are judged.">Verdict</th></tr></thead><tbody>`;
   const _rosterList=(typeof teamPlayers!=='undefined'&&teamPlayers||[]);

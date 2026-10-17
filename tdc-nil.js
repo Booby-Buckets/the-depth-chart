@@ -379,4 +379,45 @@ window.TDC_NIL = {
   N.markLabel = function(tag){ return tag==='underrated'?'UNDERRATED':tag==='overrated'?'OVERRATED':tag==='fair'?'FAIR VALUE':''; };
   // green = value/underrated, amber = overrated (matches the Δ coloring already on the pages)
   N.markColor = function(tag){ return tag==='underrated'?'var(--green)':tag==='overrated'?'var(--amber)':'var(--text3)'; };
+
+  // ── PAYROLL & SPENDING POWER (owner, Oct 2026: "calculate NIL numbers and team salaries and spending") ──────────
+  // Three numbers per program:
+  //   WORTH          = the roster at open-market prices (sum of neutralValueOf) — what it would cost to assemble.
+  //   SPENDING POWER = what the program can put toward a 2026-27 roster. scripts/data/nil_budgets.json `fin` is the
+  //                    financial read (EADA 2024-25 basketball spend + athletics revenue, conference-scaled; see
+  //                    build_nil_budgets.py), blended 35% with the roster it actually assembled (collective money
+  //                    doesn't show in 2024-25 accounts): fin^0.5 x worth^0.5 x K (D-I total ~$1.45B, top ~$27M).
+  //   EST. PAYROLL   = what it's likely paying this roster: power^0.7 x worth^0.3 (within 0.45-1.35 x worth), split by
+  //                    how each player was acquired — portal transfers at a premium (bought on the open market),
+  //                    returners a little under (re-signed), freshmen at worth.
+  N.BUDGETS = {}; N.PAY = { BLEND: 0.5, K: 1.05, PE: 0.7, ACQ: { transfer: 1.12, returner: 0.90, freshman: 1.0 }, LO: 0.45, HI: 1.35 };
+  N.budgetsReady = fetch('scripts/data/nil_budgets.json?v=1').then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(j){ if (j && j.teams) N.BUDGETS = j.teams; return N.BUDGETS; }).catch(function(){ return N.BUDGETS; });
+  N.budgetRow = function(team){ return N.BUDGETS[team] || null; };
+  N.spendPower = function(team, worth){
+    var b = N.BUDGETS[team], fin = b && b.fin, w = Math.max(0.05, +worth || 0);
+    if (!(fin > 0)) return w * 0.75;
+    return Math.pow(fin, 1 - N.PAY.BLEND) * Math.pow(w, N.PAY.BLEND) * N.PAY.K; };
+  N.acqOf = function(p){
+    if (N.originOf && N.originOf(p)) return 'transfer';
+    var c = String(p.cls || p.class_year || '').toLowerCase();
+    if ((/^fr/.test(c) || /fresh/.test(c)) && (p.ppg == null || p.ppg === '')) return 'freshman';
+    return 'returner'; };
+  // rows = a team's nil-data players; returns {worth, power, payroll, factor, players:[{name, worth, salary, acq}]}
+  N.payroll = function(rows, team, tier){
+    var L = (rows || []).filter(function(p){ return !p.walkon; }).map(function(p){
+      return { p: p, name: p.name, worth: N.neutralValueOf ? N.neutralValueOf(p, tier) : (+p.value || 0), acq: N.acqOf(p) }; })
+      .filter(function(x){ return x.worth > 0; });
+    var worth = L.reduce(function(a, x){ return a + x.worth; }, 0), power = N.spendPower(team, worth);
+    var factor = worth > 0 ? Math.max(N.PAY.LO, Math.min(N.PAY.HI, Math.pow(power / worth, N.PAY.PE))) : 1, pay = worth * factor;   // = power^PE x worth^(1-PE)
+    var raw = L.reduce(function(a, x){ return a + x.worth * N.PAY.ACQ[x.acq]; }, 0) || 1;
+    L.forEach(function(x){ x.salary = pay * x.worth * N.PAY.ACQ[x.acq] / raw; });
+    L.sort(function(a, b){ return b.salary - a.salary; });
+    return { team: team, worth: worth, power: power, payroll: pay, factor: factor, players: L }; };
+  // plain-English reads of the three numbers
+  N.payVerdict = function(o){
+    var r = o.payroll / Math.max(0.01, o.worth), u = o.payroll / Math.max(0.01, o.power);
+    return { vsWorth: r >= 1.08 ? 'Paying above market' : r <= 0.85 ? 'Bargain roster' : 'Near market',
+      vsWorthTag: r >= 1.08 ? 'over' : r <= 0.85 ? 'under' : 'fair', ratio: r,
+      vsPower: u >= 1.08 ? 'Stretched past its means' : u <= 0.9 ? 'Room left to spend' : 'Spending to its means', vsPowerTag: u >= 1.08 ? 'over' : u <= 0.9 ? 'under' : 'fair', used: u }; };
 })();
