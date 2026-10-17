@@ -417,6 +417,24 @@
   function tierXp(t){ var m=0,a=0,v=t[0]==='c3'||t[0]==='a3'?3:2;
     if(REF){ t[2].forEach(function(k){ if(REF[k]){ m+=REF[k].m; a+=REF[k].a; } }); if(a) return m/a*v; }
     var s=0; t[2].forEach(function(k){ s+=ZMETA[k].avg; }); return s/t[2].length*v; }
+  // plain-English explainer for the Look quality view, with this season's D-I numbers worked through
+  function lookExplain(shots, opts){
+    var base=lookBase(), V=voice(opts||{}), yr=REF_YEAR?' ('+(REF_YEAR-1)+'–'+String(REF_YEAR).slice(2)+' D-I)':'';
+    // the same zones and numbers the court shows (xpOf), so the worked example matches the labels exactly
+    var row=function(n,k12){ var p=avgOf(Z12[k12].ref), v=THREES12[k12]?3:2;
+      return '<tr><td style="padding:2px 12px 2px 0;">'+n+'</td><td style="padding:2px 8px;text-align:right;">'+(p*100).toFixed(1)+'%</td><td style="padding:2px 8px;color:var(--text3);">× '+v+'</td><td style="padding:2px 0 2px 8px;text-align:right;"><b>= '+xpOf(k12).toFixed(2)+'</b></td></tr>'; };
+    var t3p=avgOf('t3');
+    return '<div class="sc-explain"><b>How good a look is, in points.</b> A shot only counts when it goes in, so a look is worth '+
+      '<b>how often the average D-I player makes it × what it’s worth</b> — the points one attempt from there produces on average'+yr+':'+
+      '<table style="margin:7px 0 6px;font-size:12.5px;border-collapse:collapse;font-variant-numeric:tabular-nums;">'+
+        row('Layup / dunk at the rim','ra')+row('Corner 3','c3l')+row('Wing 3','w3l')+row('Top-of-the-key 3','t3')+
+        row('Paint (non-rim)','paint')+row('Midrange jumper','mbl')+'</table>'+
+      'So a three isn’t worth 3 points — it’s worth 3 only when it goes in. The average D-I player makes about '+Math.round(t3p*100)+'% of threes from the top of the key, '+
+      'so each one is worth '+(t3p*100).toFixed(1)+'% × 3 = <b>'+xpOf('t3').toFixed(2)+'</b> points: over 100 of them, about '+Math.round(t3p*300)+' points. '+
+      'The average D-I shot is worth <b>'+base.toFixed(2)+'</b>: <span style="color:#1f9d57;font-weight:800;">green</span> zones beat it, '+
+      '<span style="color:#c74d3f;font-weight:800;">red</span> ones fall short, grey is about even. These grade the <i>looks</i>, not '+V.poss+' shooting — '+
+      'how well '+V.subj+' actually '+V.makes+' them is in the FG% tiles and the Zones view.</div>';
+  }
   function lookLadder(shots, opts){
     var N=shots.length||1, base=lookBase(), cnt={};
     shots.forEach(function(s){ var z=zone10(s); TIERS.forEach(function(t){ if(t[2].indexOf(z)>=0) cnt[t[0]]=(cnt[t[0]]||0)+1; }); });
@@ -854,7 +872,7 @@
       extra=dietBlock(shots,opts)+splitTables(shots)+distBlock(shots,opts)+(opts.names?playerZoneTable(shots,opts.names):'');
     } else if(mode==='look'){
       var lc=court(null,courtOpts), lcut=lc.indexOf('<g class="sc-lines"'), lz=zones12Svg(shots,inkRgb(tcol),true), LB0=lookBase();
-      body='<div class="sc-mk-legend"><span><i class="scz-sw" style="background:'+lookCol(LB0+0.22,LB0)+'"></i><i class="scz-sw" style="background:'+lookCol(LB0+0.06,LB0)+'"></i>better look than D-I average</span>'+
+      body=lookExplain(shots,opts)+'<div class="sc-mk-legend"><span><i class="scz-sw" style="background:'+lookCol(LB0+0.22,LB0)+'"></i><i class="scz-sw" style="background:'+lookCol(LB0+0.06,LB0)+'"></i>better look than D-I average</span>'+
         '<span><i class="scz-sw" style="background:'+lookCol(LB0,LB0)+'"></i>about average</span><span><i class="scz-sw" style="background:'+lookCol(LB0-0.06,LB0)+'"></i><i class="scz-sw" style="background:'+lookCol(LB0-0.22,LB0)+'"></i>worse look</span>'+
         '<span style="margin-left:auto;color:var(--text3);font-size:10px;">share of shots · expected pts per shot there</span></div>'+
         '<div class="sc-court-wrap scz-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+lc.slice(0,lcut)+lz.tiles+lc.slice(lcut)+lz.labels+'</svg><div class="sc-tip"></div></div>';
