@@ -404,11 +404,13 @@
       '<g clip-path="url(#'+id+'in)">'+seam(-ANG_TOP,midR0,30)+seam(ANG_TOP,midR0,30)+seam(-ANG_CB,4,30)+seam(ANG_CB,4,30)+'</g></g>';
     // labels: made-att, FG% under it (returned separately so they sit above the court lines)
     var tiles=g; g='';
-    Object.keys(Z12).forEach(function(k){ var z=Z[k], at=Z12[k].lab, x=px(at[0]), y=py(at[1]);
+    Object.keys(Z12).forEach(function(k){ var z=Z[k], at=Z12[k].lab, x=px(at[0]), y=py(at[1])-(look&&!Z12[k].rot&&window.innerWidth>=600?(k==='ra'?22:8):0);   // three lines: lift them (the rim's clear of the hoop)
       var dark=look?lookDark(xpOf(k),LB):alphaOf(k)>0.5, cls='scz-lab'+(dark?' on':''), big=look?(Math.round(z.a/N*100)+'%'):(z.a?(z.m+'–'+z.a):'–');
       if(Z12[k].rot){ g+='<text class="'+cls+' sm" transform="translate('+x.toFixed(1)+' '+y.toFixed(1)+') rotate('+Z12[k].rot+')" text-anchor="middle" dominant-baseline="central">'+big+'</text>'; return; }
       g+='<text class="'+cls+'" x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" text-anchor="middle" dominant-baseline="central">'+big+'</text>';
-      if(look) g+='<text class="scz-sub'+(dark?' on':'')+'" x="'+x.toFixed(1)+'" y="'+(y+16).toFixed(1)+'" text-anchor="middle" dominant-baseline="central">'+xpOf(k).toFixed(2)+' pts</text>';
+      if(look){ var wide=window.innerWidth>=600, hit=z.a>=5?Math.round(z.m/z.a*100)+'%':'—';
+        g+='<text class="scz-sub'+(dark?' on':'')+'" x="'+x.toFixed(1)+'" y="'+(y+16).toFixed(1)+'" text-anchor="middle" dominant-baseline="central">'+(wide?'look '+xpOf(k).toFixed(2):xpOf(k).toFixed(2)+' · '+hit)+'</text>';
+        if(wide) g+='<text class="scz-sub'+(dark?' on':'')+'" x="'+x.toFixed(1)+'" y="'+(y+30).toFixed(1)+'" text-anchor="middle" dominant-baseline="central" style="font-weight:800">hit '+hit+'</text>'; }
       else if(z.a>=5) g+='<text class="scz-sub'+(dark?' on':'')+'" x="'+x.toFixed(1)+'" y="'+(y+16).toFixed(1)+'" text-anchor="middle" dominant-baseline="central">'+Math.round(z.m/z.a*100)+'%</text>'; });
     return {tiles:tiles, labels:g};
   }
@@ -435,20 +437,44 @@
       '<span style="color:#c74d3f;font-weight:800;">red</span> ones fall short, grey is about even. These grade the <i>looks</i>, not '+V.poss+' shooting — '+
       'how well '+V.subj+' actually '+V.makes+' them is in the FG% tiles and the Zones view.</div>';
   }
+  // ── the looks vs what they made of them, zone by zone (sheet kit) ──
+  var LZ=[['At the rim',['ra']],['Corner 3',['c3l','c3r']],['Wing 3',['w3l','w3r']],['Top-of-the-key 3',['t3']],['Paint (non-rim)',['paint']],
+          ['Midrange · top of the key',['mt']],['Midrange · wings',['mwl','mwr']],['Midrange · baseline',['mbl','mbr']]];
+  function lookTable(shots, opts){
+    var Z=z12Totals(shots), N=shots.length||1, V=voice(opts||{}), xa=0, aa=0;
+    var rows=LZ.map(function(r){ var a=0,m=0,xs=0,ref=0,v=THREES12[r[1][0]]?3:2;
+      r[1].forEach(function(k){ a+=Z[k].a; m+=Z[k].m; xs+=xpOf(k)*Z[k].a; ref+=avgOf(Z12[k].ref); });
+      var look=a?xs/a:xpOf(r[1][0]), dI=ref/r[1].length, fg=a?m/a:null, pps=a?m*v/a:null;
+      xa+=xs; aa+=m*v; return {n:r[0],a:a,share:a/N,dI:dI,look:look,fg:fg,pps:pps,d:pps==null?null:pps-look}; })
+      .sort(function(a,b){ return b.look-a.look; });
+    var base=lookBase(), sh=function(d,a){ if(d==null||a<10) return ' dim'; return d>=0.15?' c4':d>=0.05?' c3':d<=-0.15?' c0':d<=-0.05?' c1':''; };
+    var sw=function(xp){ return '<i style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;margin-right:6px;background:'+lookCol(xp,base,0.3)+'"></i>'; };
+    // the comparison columns first (phones show only the leading columns until expanded)
+    var tr=rows.map(function(r){ return '<tr><td class="l nm">'+sw(r.look)+r.n+'</td><td><b>'+r.look.toFixed(2)+'</b></td>'+
+      '<td class="strong">'+(r.fg!=null?Math.round(r.fg*100)+'%':'—')+'</td><td class="strong'+sh(r.d,r.a)+'">'+(r.pps!=null?r.pps.toFixed(2):'—')+'</td><td class="'+sh(r.d,r.a).trim()+'">'+(r.d!=null?(Math.abs(r.d)<0.005?'0.00':(r.d>=0?'+':'−')+Math.abs(r.d).toFixed(2)):'—')+'</td>'+
+      '<td>'+r.a+'</td><td>'+Math.round(r.share*100)+'%</td><td class="dim">'+Math.round(r.dI*100)+'%</td></tr>'; }).join('');
+    var xe=xa/N, ac=aa/N, dd=ac-xe;
+    tr+='<tr class="scz-total"><td class="l nm">All shots</td><td><b>'+xe.toFixed(2)+'</b></td><td class="strong">'+Math.round(shots.filter(function(s){return s.made;}).length/N*100)+'%</td><td class="strong'+sh(dd,99)+'">'+ac.toFixed(2)+'</td><td class="'+sh(dd,99).trim()+'">'+(dd>=0?'+':'−')+Math.abs(dd).toFixed(2)+'</td><td>'+shots.length+'</td><td>100%</td><td class="dim"></td></tr>';
+    return '<div class="scz-cap" style="margin-top:16px;">The look vs what '+V.subj+' made of it</div>'+
+      '<div class="sheet-wrap sc-sheet"><table class="sheet dense"><thead><tr><th class="l">Zone (best look first)</th><th title="D-I makes × shot value: points the average attempt produces">Look</th><th>'+(V.subj==='he'?'His':'Their')+' FG%</th><th title="Their FG% × shot value">Pts / shot</th><th title="Points per shot minus the look: positive = they made more of these looks than an average D-I shooter">vs look</th><th>FGA</th><th>Share</th><th title="How often the average D-I player makes it">D-I makes</th></tr></thead><tbody>'+tr+'</tbody></table></div>'+
+      '<div class="sc-eff-cap" style="margin-top:6px;">'+V.Subj+' took looks worth <b>'+xe.toFixed(2)+'</b> points per shot and turned them into <b>'+ac.toFixed(2)+'</b> — '+
+      (Math.abs(dd)<0.02?'about what the average D-I shooter would.':dd>0?'<b>'+dd.toFixed(2)+'</b> more per shot than the average D-I shooter would on the same looks.':'<b>'+Math.abs(dd).toFixed(2)+'</b> less per shot than the average D-I shooter would on the same looks.')+'</div>';
+  }
   function lookLadder(shots, opts){
     var N=shots.length||1, base=lookBase(), cnt={};
     shots.forEach(function(s){ var z=zone10(s); TIERS.forEach(function(t){ if(t[2].indexOf(z)>=0) cnt[t[0]]=(cnt[t[0]]||0)+1; }); });
     var tiers=TIERS.map(function(t){ return {k:t[0],n:t[1],xp:tierXp(t),me:(cnt[t[0]]||0)/N,
       ref:REF?(function(){ var a=0,tot=0; Object.keys(REF).forEach(function(k){ if(REF[k]) tot+=REF[k].a; }); t[2].forEach(function(k){ if(REF[k]) a+=REF[k].a; }); return tot?a/tot:0; })():null}; })
       .sort(function(a,b){ return b.xp-a.xp; });
-    var xme=tiers.reduce(function(s,t){ return s+t.me*t.xp; },0), xref=tiers.reduce(function(s,t){ return s+(t.ref||0)*t.xp; },0);
+    var made=0; shots.forEach(function(s){ if(s.made) made+=(s.sv===3?3:2); });
+    var act=made/N, xme=tiers.reduce(function(s,t){ return s+t.me*t.xp; },0), xref=tiers.reduce(function(s,t){ return s+(t.ref||0)*t.xp; },0);
     var row=function(lab,sub,key,cls){ return '<div class="scz-drow'+(cls?' '+cls:'')+'"><div class="scz-dl"><b>'+lab+'</b><span>'+sub+'</span></div><div class="scz-dbar">'+
       tiers.map(function(t){ var v=t[key]||0, dk=lookDark(t.xp,base);
         return '<i class="scz-seg" style="flex:'+Math.max(v,0.0001).toFixed(4)+';background:'+lookCol(t.xp,base,0.3)+';color:'+(dk?'#fff':'var(--text)')+'" title="'+t.n+' '+Math.round(v*100)+'% · '+t.xp.toFixed(2)+' pts per shot">'+(v>=(window.innerWidth<600?0.12:0.07)?Math.round(v*100)+'%':'')+'</i>'; }).join('')+'</div></div>'; };
     var V=voice(opts||{});
     return '<div class="scz-diet"><div class="scz-cap">From the best looks to the worst</div>'+
       '<div class="scz-drow scz-dhead"><div class="scz-dl"></div><div class="scz-dbar" style="justify-content:space-between;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);align-items:center;"><span>◀ Best looks</span><span>Worst looks ▶</span></div></div>'+
-      row((opts&&opts.short)||(opts&&opts.subtitle)||'This chart', xme.toFixed(2)+' expected pts / shot','me')+
+      row((opts&&opts.short)||(opts&&opts.subtitle)||'This chart', xme.toFixed(2)+' look · '+act.toFixed(2)+' actual pts / shot','me')+
       (REF?row('D-I average', xref.toFixed(2)+' pts / shot','ref','ref'):'')+
       '<div class="sc-eff-cap" style="margin-top:6px;">'+tiers.map(function(t){ return '<span style="display:inline-block;margin-right:12px;"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;margin-right:5px;background:'+lookCol(t.xp,base,0.3)+'"></i>'+t.n+' '+t.xp.toFixed(2)+'</span>'; }).join('')+'</div></div>';
   }
@@ -876,7 +902,7 @@
         '<span><i class="scz-sw" style="background:'+lookCol(LB0,LB0)+'"></i>about average</span><span><i class="scz-sw" style="background:'+lookCol(LB0-0.06,LB0)+'"></i><i class="scz-sw" style="background:'+lookCol(LB0-0.22,LB0)+'"></i>worse look</span>'+
         '<span style="margin-left:auto;color:var(--text3);font-size:10px;">share of shots · expected pts per shot there</span></div>'+
         '<div class="sc-court-wrap scz-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+lc.slice(0,lcut)+lz.tiles+lc.slice(lcut)+lz.labels+'</svg><div class="sc-tip"></div></div>';
-      extra=lookLadder(shots,opts);
+      extra=lookTable(shots,opts)+lookLadder(shots,opts);
     } else if(mode==='spots'){
       var so={};
       var sg=spotsSvg(shots,so);
