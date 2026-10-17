@@ -77,6 +77,7 @@
   // "Opening night" divider: the daily Power Rating line and the scrimmages (hollow bars vs that day's rating).
   function logoOf(t) { try { var c = g.tdcTeamColor && g.tdcTeamColor(t); return c && c.logo; } catch (e) { return null; } }
   function draw(host, st, data, opt) {
+    opt._expLab = null;
     var S = STATS[opt.stat] || STATS.perf, inv = opt.stat === 'pa', all = data.games.filter(function (p) { return S.f(p) != null; });
     var a = Math.max(1, Math.min(all.length, opt.start || 1)), b = Math.max(a, Math.min(all.length, opt.end || all.length));
     var G = all.slice(a - 1, b), D = data.days, SC = data.scrims.filter(function (p) { return S.f(p) != null; });
@@ -94,7 +95,8 @@
       var step = m > 30 ? 20 : m > 14 ? 10 : 5;
       for (var t = -Math.floor(m / step) * step; t <= m; t += step) s += '<line x1="' + x0 + '" x2="' + (W - pr) + '" y1="' + Y(t) + '" y2="' + Y(t) + '" class="tt-grid' + (t === 0 ? ' z' : '') + '"/>' +
         '<text x="' + (x0 - 6) + '" y="' + (Y(t) + 4) + '" class="tt-ax" text-anchor="end">' + (t > 0 ? '+' : '') + t + '</text>';
-      s += '<text x="' + (x0 + 4) + '" y="' + (Y(0) - 6) + '" class="tt-ax">' + (opt.stat === 'perf' && D.length ? 'expected (daily Power Rating)' : 'expected (season avg ' + (S.sign ? sg(mean) : mean.toFixed(1)) + ')') + '</text>';
+      // the 0 line's meaning lives in the legend (owner, Oct 2026: the label sat on top of the first bars)
+      opt._expLab = (opt.stat === 'perf' && D.length ? 'expected (daily Power Rating)' : 'expected (season avg ' + (S.sign ? sg(mean) : mean.toFixed(1)) + ')');
       var bw = Math.max(3, cw * 0.62);
       G.forEach(function (p, i) { var d = dev[i], y0 = Y(0), y1 = Y(d), lg = logoOf(p.opp);
         var tip = esc(md(p.date) + ' · ' + (p.venue === 'A' ? '@ ' : p.venue === 'N' ? 'vs ' : 'vs ') + shortNm(p.opp) + (p.venue === 'N' ? ' (neutral)' : '') + ' · ' + (p.win ? 'W ' : 'L ') + p.pf + '–' + p.pa + ' · ' + S.lab + ' ' + (S.sign ? sg(S.f(p)) : S.f(p)) + ' · ' + sg(d) + ' vs expected');
@@ -135,7 +137,7 @@
     return s + foot;
   }
   function legend(opt) {
-    return '<div class="tt-lg"><span><i class="k b up"></i>beat expectation</span><span><i class="k b dn"></i>fell short</span><span><i class="k ln" style="background:' + (opt.color || 'var(--text)') + '"></i>5-game form</span>' +
+    return '<div class="tt-lg">' + (opt._expLab ? '<span><i class="k ln zero"></i>0 line = ' + esc(opt._expLab) + '</span>' : '') + '<span><i class="k b up"></i>beat expectation</span><span><i class="k b dn"></i>fell short</span><span><i class="k ln" style="background:' + (opt.color || 'var(--text)') + '"></i>5-game form</span>' +
       (opt.season === 2027 ? '<span><i class="k b hol"></i>scrimmage</span>' : '') + '<span>Click a bar for the box score</span></div>';
   }
   function render(host, o) {
@@ -176,7 +178,7 @@
       '.tt-bar.sc{fill:none!important;stroke-width:2;opacity:1;}.tt-bar.sc.up{stroke:var(--tt-up);}.tt-bar.sc.dn{stroke:var(--tt-dn);}' +
       '.tt-form{fill:none;stroke-width:3.5;stroke-linecap:round;}.tt-wl{font:800 9.5px Inter,system-ui,sans-serif;}.tt-wl.w{fill:var(--tt-up);}.tt-wl.l{fill:var(--tt-dn);}' +
       '.tt-pre{fill:var(--bg2);stroke:var(--border);}.tt-open{stroke:var(--text3);stroke-width:1.5;stroke-dasharray:4 4;}.tt-ax.b{font-weight:800;fill:var(--text2);letter-spacing:.04em;}' +
-      '.tt-lg .k.b{width:10px;height:10px;border-radius:2px;}.tt-lg .k.b.up{background:var(--tt-up);}.tt-lg .k.b.dn{background:var(--tt-dn);}.tt-lg .k.b.hol{border:2px solid var(--text3);width:7px;height:7px;}' +
+      '.tt-lg .k.ln.zero{background:var(--text3);height:2px;}.tt-lg .k.b{width:10px;height:10px;border-radius:2px;}.tt-lg .k.b.up{background:var(--tt-up);}.tt-lg .k.b.dn{background:var(--tt-dn);}.tt-lg .k.b.hol{border:2px solid var(--text3);width:7px;height:7px;}' +
       '.tt-dot{cursor:pointer;}.tt-dot.w{fill:var(--tt-w);}.tt-dot.l{fill:var(--tt-l);}.tt-dot.sc{fill:none!important;stroke-width:2;}.tt-dot.sc.w{stroke:var(--tt-up);}.tt-dot.sc.l{stroke:var(--tt-dn);}' +
       '.tt-dot:hover{stroke:var(--text);stroke-width:1.5;}' +
       '.tt-foot{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;margin-top:6px;font-size:12px;color:var(--text2);}.tt-foot b{color:var(--text);font-variant-numeric:tabular-nums;}' +
