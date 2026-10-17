@@ -2,7 +2,10 @@
 -- rebuild-projections job (owner console) re-projects minutes and lines from the new charts.
 -- Each team's block stamps depth_set_at, so the sheet sync keeps the new order.
 begin;
--- Michigan: 1.61 reality, known 0.55, weight 0.38; starters Elliot Cadeau, Brandon McCoy Jr., Trey Mckenney, JP Estrella, Moustapha Thiam -> Elliot Cadeau, Brandon McCoy Jr., Trey Mckenney, JP Estrella, Moustapha Thiam
-update players p set depth_order = v.d, depth_set_at = now() from (values (49988, 1), (49989, 2), (49990, 3), (49991, 4), (49992, 5), (93076, 6), (49994, 7), (49995, 8), (49996, 9), (50001, 10), (64203, 11), (49998, 12), (49999, 13), (49997, 14), (50000, 15), (93077, 16), (93078, 17)) v(id, d)
- where p.id = v.id and p.team = 'Michigan';
+-- TCU: 0.77 reality, known 0.69, weight 0.20; starters Brock Harding, Gavin Sykes, Micah Robinson, Xavier Edmonds, Luke Bamgboye -> Brock Harding, Gavin Sykes, Micah Robinson, Xavier Edmonds, Luke Bamgboye
+update players p set depth_order = v.d, depth_set_at = now() from (values (50377, 1), (50378, 2), (50380, 3), (50381, 4), (50384, 5), (50382, 6), (50385, 7), (50379, 8), (50383, 9), (50386, 10), (50387, 11), (50388, 12), (50389, 13), (93532, 14), (93518, 15)) v(id, d)
+ where p.id = v.id and p.team = 'TCU';
+-- Wyoming: 0.89 reality, known 0.65, weight 0.23; starters Renars Sondors, Khaden Bennett, Gavin Gores, Uriyah Rojas, Canin Jefferson -> Khaden Bennett, Renars Sondors, Gavin Gores, Uriyah Rojas, Canin Jefferson
+update players p set depth_order = v.d, depth_set_at = now() from (values (94611, 1), (94610, 2), (94612, 3), (94613, 4), (94614, 5), (94615, 6), (94616, 7), (94618, 8), (94617, 9), (94619, 10), (94621, 11), (94620, 12), (94622, 13), (94623, 14), (94624, 15)) v(id, d)
+ where p.id = v.id and p.team = 'Wyoming';
 commit;
