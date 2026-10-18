@@ -75,6 +75,14 @@
   // bar; one team-colour 5-game line. Expected = the team's daily Power Rating on the game date (2026-27, from the rank
   // snapshots) for Game Power Rating, else the season average of the stat. 2026-27 adds a PRESEASON panel left of an
   // "Opening night" divider: the daily Power Rating line and the scrimmages (hollow bars vs that day's rating).
+  // the team colour as a line/fill that stays visible: dark navies/blacks are lifted on the dark theme
+  function readable(c) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(String(c || '').trim()); if (!m) return c || 'var(--accent)';
+    var r = parseInt(m[1].slice(0, 2), 16), gg = parseInt(m[1].slice(2, 4), 16), b = parseInt(m[1].slice(4, 6), 16), l = (0.2126 * r + 0.7152 * gg + 0.0722 * b) / 255;
+    var dark = document.documentElement.getAttribute('data-theme') === 'dark' || (!document.documentElement.getAttribute('data-theme') && g.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+    if (dark && l < 0.35) { var f = 0.5; r += (255 - r) * f; gg += (255 - gg) * f; b += (255 - b) * f; }
+    return 'rgb(' + Math.round(r) + ',' + Math.round(gg) + ',' + Math.round(b) + ')';
+  }
   function logoOf(t) { try { var c = g.tdcTeamColor && g.tdcTeamColor(t); return c && c.logo; } catch (e) { return null; } }
   function draw(host, st, data, opt) {
     opt._expLab = null;
@@ -82,12 +90,13 @@
     var a = Math.max(1, Math.min(all.length, opt.start || 1)), b = Math.max(a, Math.min(all.length, opt.end || all.length));
     var G = all.slice(a - 1, b), D = data.days, SC = data.scrims.filter(function (p) { return S.f(p) != null; });
     var pre = opt.season === 2027 && (D.length || SC.length);
+    opt._games = G.length > 0 || opt.season !== 2027;
     if (!G.length && !pre) return '<div class="tt-empty">No games found for this season.</div>';
     var dayRating = function (date) { var r = null; D.forEach(function (d) { if (d.date <= date) r = d.rating; }); return r != null ? r : (D[0] ? D[0].rating : null); };
     var gv = G.map(S.f), mean = gv.length ? gv.reduce(function (x, y) { return x + y; }, 0) / gv.length : 0;
     var expOf = function (p) { return opt.stat === 'perf' && D.length ? dayRating(p.date) : mean; };
     var dev = G.map(function (p) { var d = S.f(p) - expOf(p); return inv ? -d : d; });   // + = better than expected (fewer points allowed counts as better)
-    var W = Math.max(320, Math.min(host.clientWidth || 900, 1100)), Hh = Math.round(Math.min(380, Math.max(260, W * 0.36))), pt = 14, pb = 58, pr = 10, pl = 38;
+    var W = Math.max(320, Math.min(host.clientWidth || 900, 1100)), Hh = Math.round(Math.min(380, Math.max(260, W * 0.36))), pt = 14, pb = G.length ? 58 : 6, pr = 10, pl = G.length ? 38 : 4;
     var preW = pre ? (G.length ? Math.max(120, Math.min(260, W * 0.22)) : W - pl - pr - 4) : 0, x0 = pl + preW + (pre ? 18 : 0), cw = G.length ? (W - x0 - pr) / G.length : 0;
     var m = Math.max(8, Math.max.apply(null, dev.map(Math.abs).concat([1])) * 1.12), Y = function (d) { return pt + (Hh - pt - pb) * (0.5 - d / (2 * m)); }, X = function (i) { return x0 + cw * (i + 0.5); };
     var s = '<svg class="tt-svg" viewBox="0 0 ' + W + ' ' + Hh + '" width="100%" role="img" aria-label="' + esc(S.lab) + ' vs expectation">';
@@ -106,26 +115,52 @@
       var r5 = dev.map(function (x, i) { var w = dev.slice(Math.max(0, i - 4), i + 1); return w.reduce(function (u, v) { return u + v; }, 0) / w.length; });
       if (G.length >= 2) s += '<path d="' + smooth(r5.map(function (x, i) { return [X(i), Y(x)]; })) + '" class="tt-form" style="stroke:' + (opt.color || 'var(--text)') + '"/>';
     }
-    // preseason panel: daily Power Rating (own scale) + scrimmages as hollow bars vs that day's rating
+    // PRESEASON panel (redesigned Oct 18 2026 — owner: "does not look good"): two strips on ONE date axis. Top: the daily
+    // Power Rating line with its values and rank. Bottom: each scrimmage as a bar from a zero line = how it went vs that
+    // day's rating, score + opponent logo inside the panel. Separate y scales (a rating moves tenths, a scrimmage ±10).
     if (pre) {
-      var px0 = pl, px1 = pl + preW, rs = D.map(function (d) { return d.rating; }), rlo = Math.min.apply(null, rs.concat([99])), rhi = Math.max.apply(null, rs.concat([-99]));
-      if (!D.length) { rlo = 0; rhi = 1; } var rp = Math.max(2, (rhi - rlo) * 0.5); rlo -= rp; rhi += rp;
-      var dts = D.map(function (d) { return d.date; }).concat(SC.map(function (p) { return p.date; })).sort(), dt0 = +new Date(dts[0] + 'T12:00:00'), dt1 = +new Date(dts[dts.length - 1] + 'T12:00:00'); if (dt1 - dt0 < 864e5 * 4) { dt0 -= 864e5 * 2; dt1 += 864e5 * 2; }
-      var PX = function (d) { return px0 + 8 + (preW - 16) * ((+new Date(d + 'T12:00:00') - dt0) / Math.max(1, dt1 - dt0)); }, PY = function (v) { return pt + 34 + (Hh - pt - pb - 34) * (1 - (v - rlo) / Math.max(1e-6, rhi - rlo)); };
-      s += '<rect x="' + px0 + '" y="' + pt + '" width="' + preW + '" height="' + (Hh - pt - pb + 2) + '" rx="8" class="tt-pre"/><text x="' + (px0 + 8) + '" y="' + (pt + 13) + '" class="tt-ax b">PRESEASON · daily Power Rating</text>';
-      if (D.length >= 2) s += '<path d="' + smooth(D.map(function (d) { return [PX(d.date), PY(d.rating)]; })) + '" class="tt-days" style="stroke:' + (opt.color || 'var(--accent)') + '"/>';
-      // the dashed "expected" line; its note sits in the panel's header row (owner: it was covered by the scrimmage bar)
-      else if (D.length === 1) s += '<line x1="' + (px0 + 8) + '" x2="' + (px1 - 8) + '" y1="' + PY(D[0].rating) + '" y2="' + PY(D[0].rating) + '" class="tt-open"/>';
-      s += '<text x="' + (px0 + 8) + '" y="' + (pt + 28) + '" class="tt-ax">' + (D.length < 2 ? 'dashed = expected (Power Rating) · the line grows one point a day' : 'bars = scrimmage vs that day’s rating') + '</text>';
-      if (D.length) { var dl = D[D.length - 1]; s += '<circle cx="' + PX(dl.date) + '" cy="' + PY(dl.rating) + '" r="4.5" style="fill:' + (opt.color || 'var(--accent)') + '"/><text x="' + Math.min(px1 - 6, PX(dl.date) + 7) + '" y="' + (PY(dl.rating) - 8) + '" class="tt-ax b" text-anchor="' + (PX(dl.date) > px1 - 60 ? 'end' : 'start') + '">' + sg(dl.rating) + ' · #' + dl.rank + '</text>'; }
-      // scrimmage bars on their own scale: the biggest one reaches ~40% of the panel height from that day's rating
-      var scMax = Math.max(10, Math.max.apply(null, SC.map(function (p) { var e = dayRating(p.date); return e == null ? 0 : Math.abs(S.f(p) - e); }).concat([0]))), scK = (Hh - pt - pb - 34) * 0.36 / scMax;
-      SC.forEach(function (p) { if (opt.stat !== 'perf') return; var e = dayRating(p.date); if (e == null) return; var d = S.f(p) - e, y0 = PY(e), y1 = y0 - d * scK;
-        s += '<rect class="tt-bar sc ' + (d >= 0 ? 'up' : 'dn') + '" x="' + (PX(p.date) - 5) + '" y="' + Math.min(y0, y1) + '" width="10" height="' + Math.max(1, Math.abs(y1 - y0)) + '" rx="2" data-tip="' + esc(md(p.date) + ' scrimmage · ' + (p.venue === 'A' ? '@ ' : 'vs ') + shortNm(p.opp) + ' · ' + (p.win ? 'W ' : 'L ') + p.pf + '–' + p.pa + ' · ' + sg(S.f(p)) + ' (' + sg(d) + ' vs that day’s rating)') + '" data-href="scrimmage.html?id=' + encodeURIComponent(p.id) + '"/>';
-        var lg2 = logoOf(p.opp), bx = PX(p.date); s += '<text x="' + bx + '" y="' + (Math.min(y0, y1) - 5) + '" text-anchor="middle" class="tt-wl ' + (p.win ? 'w' : 'l') + '">' + (p.win ? 'W ' : 'L ') + p.pf + '–' + p.pa + '</text>';
-        if (lg2) s += '<image href="' + lg2 + '" x="' + (bx - 11) + '" y="' + (Hh - pb + 20) + '" width="22" height="22" opacity=".9"/>'; });   // under the panel, like the game logos
+      var px0 = pl, px1 = pl + preW, pb0 = Hh - pb + 2, col = readable(opt.color), sc0 = opt.stat === 'perf' ? SC : [];
+      s += '<rect x="' + px0 + '" y="' + pt + '" width="' + preW + '" height="' + (pb0 - pt) + '" rx="8" class="tt-pre"/><text x="' + (px0 + 10) + '" y="' + (pt + 16) + '" class="tt-ax b">PRESEASON · daily Power Rating</text>';
+      if (D.length >= 2) { var d0r = D[0], d1r = D[D.length - 1], dr = d0r.rank - d1r.rank;
+        s += '<text x="' + (px1 - 10) + '" y="' + (pt + 16) + '" text-anchor="end" class="tt-ax b">#' + d0r.rank + ' → #' + d1r.rank + (dr ? ' <tspan class="' + (dr > 0 ? 'tt-upt' : 'tt-dnt') + '">' + (dr > 0 ? '▲' : '▼') + Math.abs(dr) + '</tspan>' : '') + '</text>'; }
+      // the shared date axis: first snapshot / scrimmage → last, a day of air either side, at least a week wide
+      var dts = D.map(function (d) { return d.date; }).concat(sc0.map(function (p) { return p.date; })).sort(), DAY = 864e5, tOf = function (d) { return +new Date(d + 'T12:00:00'); };
+      var dt0 = tOf(dts[0]) - DAY, dt1 = tOf(dts[dts.length - 1]) + DAY; if (dt1 - dt0 < 7 * DAY) dt1 = dt0 + 7 * DAY;
+      var ix0 = px0 + 44, ix1 = px1 - 14, PX = function (d) { return ix0 + (ix1 - ix0) * ((tOf(d) - dt0) / (dt1 - dt0)); };
+      var axY = pb0 - 12, top = pt + 30, hasS = sc0.length > 0, rB = hasS ? top + (axY - 18 - top) * 0.46 : axY - 20;
+      // date ticks, spaced so labels never touch
+      var nd = Math.round((dt1 - dt0) / DAY), every = Math.max(1, Math.ceil(nd / Math.max(2, Math.floor((ix1 - ix0) / 54))));
+      for (var k = 1; k < nd; k += every) { var tx = ix0 + (ix1 - ix0) * (k / nd), dd = new Date(dt0 + k * DAY);
+        s += '<line x1="' + tx + '" x2="' + tx + '" y1="' + top + '" y2="' + (axY - 10) + '" class="tt-grid v"/><text x="' + tx + '" y="' + axY + '" text-anchor="middle" class="tt-ax">' + dd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '</text>'; }
+      // top strip: the rating line on its own nice scale
+      if (D.length) {
+        var rs = D.map(function (d) { return d.rating; }), lo = Math.min.apply(null, rs), hi = Math.max.apply(null, rs), span = Math.max(0.6, (hi - lo) * 1.6), mid = (lo + hi) / 2;
+        lo = mid - span / 2; hi = mid + span / 2;
+        var stp = [0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10].find(function (x) { return span / x <= 4; }) || 10, RY = function (v) { return rB - (rB - top - 8) * ((v - lo) / (hi - lo)); };
+        for (var tv = Math.ceil(lo / stp) * stp; tv <= hi + 1e-9; tv += stp) s += '<line x1="' + ix0 + '" x2="' + ix1 + '" y1="' + RY(tv) + '" y2="' + RY(tv) + '" class="tt-grid"/><text x="' + (ix0 - 6) + '" y="' + (RY(tv) + 4) + '" text-anchor="end" class="tt-ax">' + sg(tv, stp < 1 ? (stp < 0.5 ? 1 : 1) : 0) + '</text>';
+        var P = D.map(function (d) { return [PX(d.date), RY(d.rating)]; });
+        if (P.length >= 2) s += '<path d="' + smooth(P) + '" class="tt-days" style="stroke:' + col + '"/>';
+        // nothing was snapshotted before the first day: say so, rather than leave the strip looking broken
+        if (P[0][0] - ix0 > 130) s += '<text x="' + (P[0][0] - 10) + '" y="' + (P[0][1] + 4) + '" text-anchor="end" class="tt-ax" style="font-style:italic">daily tracking starts ' + md(D[0].date) + ' ·</text>';
+        var dp = Math.abs(D[D.length - 1].rating - D[0].rating) < 0.5 ? 2 : 1;   // a small move needs the second decimal to show
+        D.forEach(function (d, n) { var last = n === D.length - 1;
+          s += '<circle cx="' + P[n][0] + '" cy="' + P[n][1] + '" r="' + (last ? 5 : 3.5) + '" style="fill:' + col + '" class="tt-pt" data-tip="' + esc(md(d.date) + ' · Power Rating ' + sg(d.rating, dp) + ' · #' + d.rank) + '"/>'; });
+        var lt = D[D.length - 1], lx = P[P.length - 1][0], right = lx > ix1 - 90;
+        s += '<text x="' + (right ? lx - 9 : lx + 9) + '" y="' + (P[P.length - 1][1] - 9) + '" text-anchor="' + (right ? 'end' : 'start') + '" class="tt-ax b" style="font-size:12px">' + sg(lt.rating, dp) + ' · #' + lt.rank + '</text>';
+      } else s += '<text x="' + ((ix0 + ix1) / 2) + '" y="' + ((top + rB) / 2) + '" text-anchor="middle" class="tt-ax">Daily ratings start with the first snapshot</text>';
+      // bottom strip: scrimmages vs that day's rating
+      if (hasS) {
+        var sT = rB + 26, sB = axY - 16, base = (sT + sB) / 2, scMax = Math.max(10, Math.max.apply(null, sc0.map(function (p) { var e = dayRating(p.date); return e == null ? 0 : Math.abs(S.f(p) - e); }))) * 1.1, sK = (sB - sT) / 2 / scMax;
+        s += '<text x="' + (px0 + 10) + '" y="' + (sT - 8) + '" class="tt-ax b">SCRIMMAGES · vs that day’s rating</text>' +
+          '<line x1="' + ix0 + '" x2="' + ix1 + '" y1="' + base + '" y2="' + base + '" class="tt-grid z"/><text x="' + (ix0 - 6) + '" y="' + (base + 4) + '" text-anchor="end" class="tt-ax">0</text>';
+        var bw2 = Math.min(18, Math.max(8, (ix1 - ix0) / Math.max(8, nd) * 0.7)), byDate = {};
+        sc0.forEach(function (p) { var e = dayRating(p.date); if (e == null) return; var d = S.f(p) - e, n = (byDate[p.date] = (byDate[p.date] || 0) + 1) - 1;
+          var bx = PX(p.date) + (n ? (n % 2 ? 1 : -1) * Math.ceil(n / 2) * (bw2 + 4) : 0), y1 = base - d * sK, up = d >= 0, lg2 = logoOf(p.opp);
+          s += '<rect class="tt-bar ' + (up ? 'up' : 'dn') + '" x="' + (bx - bw2 / 2) + '" y="' + Math.min(base, y1) + '" width="' + bw2 + '" height="' + Math.max(1.5, Math.abs(y1 - base)) + '" rx="2" data-tip="' + esc(md(p.date) + ' scrimmage · ' + (p.venue === 'A' ? '@ ' : 'vs ') + shortNm(p.opp) + ' · ' + (p.win ? 'W ' : 'L ') + p.pf + '–' + p.pa + ' · game rating ' + sg(S.f(p)) + ' (' + sg(d) + ' vs that day’s rating)') + '" data-href="scrimmage.html?id=' + encodeURIComponent(p.id) + '"/>';
+          s += '<text x="' + bx + '" y="' + (up ? y1 - 5 : y1 + 13) + '" text-anchor="middle" class="tt-wl ' + (p.win ? 'w' : 'l') + '">' + (p.win ? 'W ' : 'L ') + p.pf + '–' + p.pa + '</text>';
+          if (lg2) s += '<image href="' + lg2 + '" x="' + (bx - 9) + '" y="' + (up ? base + 4 : base - 22) + '" width="18" height="18"/>'; });
+      }
       if (G.length) s += '<line x1="' + (px1 + 9) + '" x2="' + (px1 + 9) + '" y1="' + pt + '" y2="' + (Hh - pb + 2) + '" class="tt-open"/><text x="' + (px1 + 13) + '" y="' + (pt + 10) + '" class="tt-ax b">Opening night →</text>';
-      else s += '<text x="' + (px1 + 12) + '" y="' + ((Hh - pb) / 2) + '" class="tt-ax">Games appear here from opening night →</text>';
     }
     s += '</svg>';
     var beat = dev.filter(function (d) { return d > 0; }).length, r5n = dev.length ? dev.slice(-5).reduce(function (u, v) { return u + v; }, 0) / Math.min(5, dev.length) : null;
@@ -133,12 +168,13 @@
     var foot = '<div class="tt-foot">' + (all.length < 2 ? '' : '<label>Games <input type="number" class="tt-a" min="1" max="' + all.length + '" value="' + a + '"> to <input type="number" class="tt-b" min="1" max="' + all.length + '" value="' + b + '"> of ' + all.length + '</label>') +
       (G.length ? '<span>Beat expectation in <b>' + beat + ' of ' + G.length + '</b></span><span>' + (inv ? 'Fewest' : 'Best') + ' <b>' + (S.sign ? sg(inv ? worst : best) : (inv ? worst : best)) + '</b></span><span>' + (inv ? 'Most' : 'Worst') + ' <b>' + (S.sign ? sg(inv ? best : worst) : (inv ? best : worst)) + '</b></span>' +
         '<span>Last ' + Math.min(5, G.length) + ' <b style="color:' + (r5n >= 0 ? 'var(--tt-up)' : 'var(--tt-dn)') + '">' + sg(r5n) + '</b> vs expected</span>' : '') +
-      (D.length ? '<span>Preseason Power Rating <b>' + sg(D[0].rating) + '</b>' + (D.length > 1 ? ' → <b>' + sg(D[D.length - 1].rating) + '</b>' : '') + ' (#' + D[D.length - 1].rank + ')</span>' : '') + '</div>';
+      (D.length ? '<span>Preseason Power Rating <b>' + sg(D[0].rating, Math.abs(D[D.length - 1].rating - D[0].rating) < 0.5 ? 2 : 1) + '</b>' + (D.length > 1 ? ' → <b>' + sg(D[D.length - 1].rating, Math.abs(D[D.length - 1].rating - D[0].rating) < 0.5 ? 2 : 1) + '</b>' : '') + ' (#' + D[D.length - 1].rank + ')</span>' : '') + '</div>';
     return s + foot;
   }
   function legend(opt) {
+    if (!opt._games) return '<div class="tt-lg"><span><i class="k b up"></i>scrimmage beat that day’s rating</span><span><i class="k b dn"></i>fell short</span><span>Hover a point or bar for details · click a bar for the box score</span></div>';
     return '<div class="tt-lg">' + (opt._expLab ? '<span><i class="k ln zero"></i>0 line = ' + esc(opt._expLab) + '</span>' : '') + '<span><i class="k b up"></i>beat expectation</span><span><i class="k b dn"></i>fell short</span><span><i class="k ln" style="background:' + (opt.color || 'var(--text)') + '"></i>5-game form</span>' +
-      (opt.season === 2027 ? '<span><i class="k b hol"></i>scrimmage</span>' : '') + '<span>Click a bar for the box score</span></div>';
+      (opt.season === 2027 ? '<span>Preseason: scrimmages in the panel on the left</span>' : '') + '<span>Click a bar for the box score</span></div>';
   }
   function render(host, o) {
     if (!host || !o || !o.full) return;
@@ -177,7 +213,7 @@
       '.tt-bar{cursor:pointer;}.tt-bar.up{fill:var(--tt-up);opacity:.82;}.tt-bar.dn{fill:var(--tt-dn);opacity:.78;}.tt-bar:hover{opacity:1;}' +
       '.tt-bar.sc{fill:none!important;stroke-width:2;opacity:1;}.tt-bar.sc.up{stroke:var(--tt-up);}.tt-bar.sc.dn{stroke:var(--tt-dn);}' +
       '.tt-form{fill:none;stroke-width:3.5;stroke-linecap:round;}.tt-wl{font:800 9.5px Inter,system-ui,sans-serif;}.tt-wl.w{fill:var(--tt-up);}.tt-wl.l{fill:var(--tt-dn);}' +
-      '.tt-pre{fill:var(--bg2);stroke:var(--border);}.tt-open{stroke:var(--text3);stroke-width:1.5;stroke-dasharray:4 4;}.tt-ax.b{font-weight:800;fill:var(--text2);letter-spacing:.04em;}' +
+      '.tt-pre{fill:var(--bg2);stroke:var(--border);}.tt-upt{fill:var(--tt-up);}.tt-dnt{fill:var(--tt-dn);}.tt-pt{cursor:default;stroke:var(--bg2);stroke-width:2;}.tt-open{stroke:var(--text3);stroke-width:1.5;stroke-dasharray:4 4;}.tt-ax.b{font-weight:800;fill:var(--text2);letter-spacing:.04em;}' +
       '.tt-lg .k.ln.zero{background:var(--text3);height:2px;}.tt-lg .k.b{width:10px;height:10px;border-radius:2px;}.tt-lg .k.b.up{background:var(--tt-up);}.tt-lg .k.b.dn{background:var(--tt-dn);}.tt-lg .k.b.hol{border:2px solid var(--text3);width:7px;height:7px;}' +
       '.tt-dot{cursor:pointer;}.tt-dot.w{fill:var(--tt-w);}.tt-dot.l{fill:var(--tt-l);}.tt-dot.sc{fill:none!important;stroke-width:2;}.tt-dot.sc.w{stroke:var(--tt-up);}.tt-dot.sc.l{stroke:var(--tt-dn);}' +
       '.tt-dot:hover{stroke:var(--text);stroke-width:1.5;}' +
