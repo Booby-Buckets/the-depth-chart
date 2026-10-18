@@ -14,6 +14,10 @@ Usage:
   python3 scripts/scrape_shots.py --seasons 2025 2026   # specific seasons
   python3 scripts/scrape_shots.py --team-id 130 --season 2026 --sample
         # scrape only one team's games -> data/sample_shots.json (no upload; for testing)
+  python3 scripts/scrape_shots.py --days 3 [--season 2027] [--dry]
+        # NIGHTLY (results.yml): every final game of the season played in the last N days, re-scraped and upserted.
+        # No checkpoint file (CI has none): the upsert on the ESPN play id is idempotent, so a game whose feed was
+        # incomplete last night simply fills in tonight. --dry fetches + counts without uploading.
 """
 import json, os, re, sys, time, urllib.request
 from collections import defaultdict
@@ -35,7 +39,7 @@ def _key():
     except Exception:
         raise SystemExit("Set SUPABASE_SERVICE_KEY (service key) to run this script.")
 
-KEY=_key()
+KEY=os.environ.get("SUPABASE_SERVICE_KEY") or ("sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye" if "--dry" in sys.argv else _key())
 HDR={"apikey":KEY,"Authorization":"Bearer "+KEY}
 UA="Mozilla/5.0"
 SUMMARY="https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/summary?event=%s"
@@ -67,13 +71,14 @@ def sb_get(path):
     req=urllib.request.Request(SB+"/rest/v1/"+path,headers=HDR)
     with urllib.request.urlopen(req,timeout=40) as r: return json.load(r)
 
-def games_for(seasons, team_id=None):
+def games_for(seasons, team_id=None, since=None):
     out=[]
     for y in seasons:
         # order=id matters: Range paging without a stable sort lets PostgREST return
         # a different row order per page, which silently skips and repeats games
         q="games?select=id,season_year,home_id,away_id&home_score=not.is.null&order=id&season_year=eq.%d"%y
         if team_id: q+="&or=(home_id.eq.%d,away_id.eq.%d)"%(team_id,team_id)
+        if since: q+="&date=gte.%s"%since
         frm=0
         while True:
             req=urllib.request.Request(SB+"/rest/v1/"+q,headers={**HDR,"Range-Unit":"items","Range":"%d-%d"%(frm,frm+999)})
@@ -178,6 +183,8 @@ def main():
     # gentler pacing avoids ESPN rate-limiting on long historical re-scrapes
     if "--delay" in args: DELAY=float(args[args.index("--delay")+1])
 
+    if "--days" in args:
+        return nightly(int(args[args.index("--days")+1]), season, "--dry" in args)
     games=games_for(seasons, team_id)
     print("games to consider: %d  (delay %.2fs)" % (len(games), DELAY))
 
@@ -226,5 +233,29 @@ def main():
         if (i+1)%200==0:
             el=time.time()-t0; print("  %d/%d games  %d shots  %d misses  %.0fs  (~%.1f games/s)"%(i+1,len(todo),n_shots,misses,el,(i+1)/max(1,el)),flush=True)
     print("DONE: %d shots uploaded, %d fetch-misses left to retry on next run"%(n_shots,misses))
+
+def nightly(days, season=None, dry=False):
+    """Recent final games of the current season -> shots (idempotent upsert). A no-op off-season."""
+    import datetime
+    today=datetime.date.today()
+    if season is None: season=today.year+1 if today.month>=7 else today.year     # 2026-27 = 2027
+    since=(today-datetime.timedelta(days=days)).isoformat()
+    games=games_for([season], since=since)
+    print("season %d: %d final games since %s%s" % (season, len(games), since, " (dry run)" if dry else ""))
+    buf=[]; n=0; miss=0; nocoord=0
+    for g in games:
+        data=fetch(SUMMARY % g["id"])
+        if data is None: miss+=1; continue
+        rows=parse_shots(data,g["id"],g["season_year"])
+        if not rows: nocoord+=1
+        buf+=rows; time.sleep(DELAY)
+        if len(buf)>=800 and not dry:
+            if not upload(buf): raise SystemExit("upload failed")
+            n+=len(buf); buf=[]
+    if buf and not dry:
+        if not upload(buf): raise SystemExit("upload failed")
+    n+=len(buf)
+    print("%s %d shots from %d games (%d without coordinates yet, %d fetch failures -> retried next run)"
+          % ("would upload" if dry else "upserted", n, len(games), nocoord, miss))
 
 if __name__=="__main__": main()

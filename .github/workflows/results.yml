@@ -2,7 +2,8 @@ name: Ingest game results
 
 # Every finished 2026-27 D-I game → scripts/data/results_2027.json (committed, so Vercel redeploys and every
 # projection on the site starts from the real record) and, when the SUPABASE_SERVICE_KEY secret is set, the
-# `games` scores + `box_scores` player lines (fantasy stats, player pages).
+# `games` scores + `box_scores` player lines (fantasy stats, player pages), and on the three daily sweeps the
+# `shots` x/y locations for the last 3 days of final games (scrape_shots.py --days 3).
 # Off-season runs exit in seconds (the season window is Nov 1 – Apr 6). In season it runs every 20 minutes
 # during game hours; a run with nothing new commits nothing (so no redeploy).
 
@@ -51,6 +52,15 @@ jobs:
           if [ "$D" = "all" ]; then python3 scripts/ingest_results_2027.py --all
           else python3 scripts/ingest_results_2027.py --days "${D:-2}"; fi
           python3 scripts/build_ticker.py || echo "::warning::build_ticker failed"   # the scores strip on every page
+      # shot locations (x/y) for the shot charts: every final game of the last 3 days, re-scraped and upserted (idempotent),
+      # on the three daily sweeps only — not the every-20-minute game-hour runs. Off-season: 0 games, a few seconds.
+      - name: Shot locations (recent games)
+        if: github.event_name == 'workflow_dispatch' || github.event.schedule == '30 3 * * *' || github.event.schedule == '15 6 * * *' || github.event.schedule == '0 17 * * *'
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_SERVICE_KEY" ]; then echo "No service key — skipping shots."; exit 0; fi
+          python3 -u scripts/scrape_shots.py --days 3 || echo "::warning::shot-location scrape failed (retries next sweep)"
       - name: Commit if changed
         run: |
           git config user.name "tdc-results-bot"
