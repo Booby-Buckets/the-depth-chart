@@ -76,8 +76,11 @@ def roster_name(name, roster):
         # compare both the raw first names and their nickname expansions: "Alex" -> "alexander" misses
         # "Alexandros", but raw "alex" is its prefix; "Neo" is a prefix of "Neoklis"
         f0s = {nk(w[0]), NICK.get(nk(w[0]), nk(w[0]))} - {""}
+        # initials: "TJ Simpkins" on our roster is "Tajuan Simpkins" in the box (first letters agree, same last name)
+        ini = lambda x: bool(re.fullmatch(r"[A-Z]{2}", x.replace(".", "")))
         def _fm(rn):
-            r0 = nk(rn.replace(".", "").split()[0]); fs = {r0, NICK.get(r0, r0)} - {""}
+            raw0 = rn.replace(".", "").split()[0]; r0 = nk(raw0); fs = {r0, NICK.get(r0, r0)} - {""}
+            if (ini(raw0) or ini(w[0])) and r0[:1] and r0[:1] == nk(w[0])[:1]: return True
             return any(f.startswith(g) or g.startswith(f) for f in fs for g in f0s if min(len(f), len(g)) >= 3)
         c = [r for r in roster if r.replace(".", "").split() and nk(r.replace(".", "").split()[-1]) == nk(w[-1]) and _fm(r)]
         if len(c) == 1: return c[0]
