@@ -293,11 +293,14 @@
   // scrape_school_rosters.py --photos; CORS-safe URLs), else null -> drawNoShot() initials badge where a photo column is drawn
   var SPH=null;
   function schoolPhotos(){ return SPH||(SPH=fetch('scripts/data/school_photos_2027.json?v=1').then(function(r){ return r.ok?r.json():{}; }).then(function(P){
-      var o={}; Object.keys(P).forEach(function(t){ var m={}; Object.keys(P[t]).forEach(function(n){ m[pnk(n)]=P[t][n]; }); o[tkey(t)]=m; }); return o; }).catch(function(){ return {}; })); }
+      var o={}; Object.keys(P).forEach(function(t){ var m={}, L={}; Object.keys(P[t]).forEach(function(n){ m[pnk(n)]=P[t][n]; var w=lfn(n); if(w) (L[w.l]=L[w.l]||[]).push({f:w.f,u:P[t][n]}); }); Object.defineProperty(m,'_last',{value:L}); o[tkey(t)]=m; }); return o; }).catch(function(){ return {}; })); }
   function pnk(n){ return String(n||'').toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b\.?/g,'').replace(/[^a-z]/g,''); }
+  // last name + first initial: the school's roster spelling can differ from ours ("Marcis" vs "Marcus" Ponder)
+  function lfn(n){ var w=String(n||'').replace(/\b(Jr|Sr|II|III|IV)\b\.?/gi,'').trim().split(/\s+/).filter(Boolean); return w.length>1?{l:pnk(w[w.length-1]),f:pnk(w[0]).charAt(0)}:null; }
   async function shotFor(espn,name,team){
     var im=espn?await img(shotUrl(espn)):null; if(im||!name) return im;
     var SP=await schoolPhotos(), m=team?SP[tkey(team)]:null, u=m&&m[pnk(name)];
+    if(!u&&m&&m._last){ var w=lfn(name), c=w?(m._last[w.l]||[]).filter(function(x){ return x.f===w.f; }):[]; if(c.length===1) u=c[0].u; }
     if(!u&&!team){ var k=pnk(name), hits=Object.keys(SP).filter(function(t){ return SP[t][k]; }); if(hits.length===1) u=SP[hits[0]][k]; }
     return u?await img(u):null; }
   function initials(n){ var w=String(n||'').replace(/\b(Jr|Sr|II|III|IV)\b\.?/g,'').trim().split(/\s+/).filter(Boolean); return ((w[0]||'')[0]||'')+((w.length>1?w[w.length-1]:'')[0]||''); }
