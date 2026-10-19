@@ -52,6 +52,7 @@
     .note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:22px;}
     .sheet td.l a{color:var(--text);text-decoration:none;} .sheet td.l a:hover{color:var(--accent);}
     tr.tot td{font-weight:800;border-top:2px solid var(--border2);}
+    .sheet .potg-tag{font-size:9px;font-weight:800;letter-spacing:.06em;color:var(--text3);margin-left:6px;}
     .rm{display:flex;align-items:center;gap:16px;margin:16px 0 8px;}
     .rm-n{font-family:'Playfair Display',serif;font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;}
     .rm-l{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
@@ -117,9 +118,15 @@
     try{ const r=await fetch(`${SB}/rest/v1/players?team=eq.${encodeURIComponent(short)}&select=name,espn_id,position,yr,class_year,depth_order&order=depth_order.asc.nullslast`,{headers:H}); return r.ok?await r.json():[]; }catch(e){ return []; }
   }
   const f2=(m,a)=>(m==null||a==null)?'—':m+'-'+a;
+  // Game Score + the 0-10 RTG, exactly as the game recaps (game.html gameScore/playerRating) — same colours via the sheet heat
+  const N0=x=>+x||0;
+  const gameScore=p=>N0(p.pts)+0.4*N0(p.fgm)-0.7*N0(p.fga)-0.4*(N0(p.fta)-N0(p.ftm))+0.7*N0(p.oreb)+0.3*N0(p.dreb)+N0(p.stl)+0.7*N0(p.ast)+0.7*N0(p.blk)-0.4*N0(p.pf)-N0(p.tov);
+  const playerRating=p=>Math.max(2,Math.min(10,Math.round((5+0.135*gameScore(p))*10)/10));
+  const pctV=(m,a)=>N0(a)>0?(N0(m)/N0(a)*100).toFixed(1):'';
   const v=x=>x==null?'—':x;
 
-  function teamBlock(side, box, full, short, ros, byFull, pm){
+  function teamBlock(side, box, full, short, ros, byFull, pm, ext){
+    ext=ext||{};
     const lg=logoOf(full,byFull);
     const byKey={}; ros.forEach(p=>{ byKey[nk(p.name)]=p; });
     const bk=p=>nk(p.rn||p.name);   // the box name as our roster spells it (nicknames, initials, misspellings)
@@ -128,18 +135,19 @@
     const inBox=new Set((box.players||[]).map(bk));
     const link=p=>{ const r=byKey[bk(p)]; return r&&r.espn_id?`player.html?espn=${r.espn_id}`:(r?`player.html?name=${encodeURIComponent(r.name)}&team=${encodeURIComponent(short||'')}`:null); };
     const rows=played.slice().sort((a,b)=>(b.gs-a.gs)||((b.min||0)-(a.min||0))).map(p=>{ const r=byKey[bk(p)], L=link(p);
-      return `<tr><td class="l nm">${L?`<a href="${L}">${esc(p.name)}</a>`:esc(p.name)}${p.gs?' <span class="dim" title="Started">*</span>':''}</td>
-        <td class="l dim">${esc((r&&r.position)||'')}</td><td>${v(p.min)}</td><td class="strong">${v(p.pts)}</td>
+      const rt=p.min!=null&&p.min>0&&p.pts!=null?playerRating(p):null;
+      return `<tr><td class="l nm">${L?`<a href="${L}">${esc(p.name)}</a>`:esc(p.name)}${p.gs?' <span class="dim" title="Started">*</span>':''}${ext.potg===p?'<span class="potg-tag" title="Player of the Game: highest Game Score on either team">POTG</span>':''}</td>
+        <td class="l dim">${esc((r&&r.position)||'')}</td><td class="strong">${rt!=null?rt.toFixed(1):'—'}</td><td>${v(p.min)}</td><td class="strong">${v(p.pts)}</td>
         <td>${v(p.reb)}</td><td class="dim">${p.oreb!=null&&p.dreb!=null?p.oreb+'-'+p.dreb:'—'}</td><td>${v(p.ast)}</td>
         <td>${v(p.stl)}</td><td>${v(p.blk)}</td><td>${v(p.tov)}</td><td class="dim">${v(p.pf)}</td>
-        <td>${f2(p.fgm,p.fga)}</td><td>${f2(p.tpm,p.tpa)}</td><td>${f2(p.ftm,p.fta)}</td>${pm?pmCell(pm[p.name]):''}<td class="dim">${p.w!=null?Math.round(100*p.w)+'%':'—'}</td></tr>`; }).join('');
+        <td data-v="${pctV(p.fgm,p.fga)}">${f2(p.fgm,p.fga)}</td><td data-v="${pctV(p.tpm,p.tpa)}">${f2(p.tpm,p.tpa)}</td><td data-v="${pctV(p.ftm,p.fta)}">${f2(p.ftm,p.fta)}</td>${pm?pmCell(pm[p.name]):''}<td class="dim">${p.w!=null?Math.round(100*p.w)+'%':'—'}</td></tr>`; }).join('');
     const T=box.totals;
-    const tot=T?`<tr class="tot"><td class="l">Team</td><td></td><td>${played.reduce((s,p)=>s+(p.min||0),0)||'—'}</td><td>${v(T.pts)}</td><td>${v(T.reb)}</td><td></td><td>${v(T.ast)}</td><td>${v(T.stl)}</td><td>${v(T.blk)}</td><td>${v(T.tov)}</td><td></td><td>${f2(T.fgm,T.fga)}</td><td>${f2(T.tpm,T.tpa)}</td><td>${f2(T.ftm,T.fta)}</td>${pm?'<td></td>':''}<td></td></tr>`:'';
+    const tot=T?`<tr class="tot"><td class="l">Team</td><td></td><td title="Team game rating (0-10): the result vs our line, same scale as the game recaps">${ext.trtg!=null?ext.trtg.toFixed(1):''}</td><td>${played.reduce((s,p)=>s+(p.min||0),0)||'—'}</td><td>${v(T.pts)}</td><td>${v(T.reb)}</td><td></td><td>${v(T.ast)}</td><td>${v(T.stl)}</td><td>${v(T.blk)}</td><td>${v(T.tov)}</td><td></td><td>${f2(T.fgm,T.fga)}</td><td>${f2(T.tpm,T.tpa)}</td><td>${f2(T.ftm,T.fta)}</td>${pm?'<td></td>':''}<td></td></tr>`:'';
     // who didn't play: everyone on our 2026-27 roster with no minutes in the box (0-minute rows included)
     const dnp=ros.filter(p=>!inBox.has(nk(p.name))).map(p=>p.name).concat(zero.map(p=>p.rn||p.name));
     const extra=played.filter(p=>ros.length&&!byKey[bk(p)]).map(p=>p.name);
     return `<div class="sec">${lg?`<img src="${lg}" alt="">`:''}<h2>${esc(shortOf(full,byFull))}</h2><span class="hint">${played.length} played${ros.length?' · '+dnp.length+' did not play':''}</span></div>
-      <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">Player</th><th class="l">Pos</th><th>MIN</th><th>PTS</th><th>REB</th><th title="Offensive-defensive rebounds">O-D</th><th>AST</th><th>STL</th><th>BLK</th><th>TO</th><th>PF</th><th>FG</th><th>3PT</th><th>FT</th>${pm?'<th title="Score margin while he was on the floor (rebuilt from the play-by-play)">+/−</th>':''}<th title="How much this line counts toward his 2026-27 projection, in real games (Reality Meter × his share of a normal night's minutes): 100% = one full real game">Counts (% of a game)</th></tr></thead><tbody>${rows}${tot}</tbody></table></div>
+      <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense sc-box"><thead><tr><th class="l">Player</th><th class="l">Pos</th><th data-heat="1" title="0-10 game rating from the box score (Game Score): 5 ≈ an average game · 6.5 strong · 8+ great — same scale as the game recaps and player pages">RTG</th><th>MIN</th><th data-heat="1">PTS</th><th data-heat="1">REB</th><th title="Offensive-defensive rebounds">O-D</th><th data-heat="1">AST</th><th data-heat="1">STL</th><th data-heat="1">BLK</th><th data-heat="-1">TO</th><th data-heat="-1">PF</th><th data-heat="1" title="Field goals made-attempted, shaded by FG%">FG</th><th data-heat="1" title="Threes made-attempted, shaded by 3P%">3PT</th><th data-heat="1" title="Free throws made-attempted, shaded by FT%">FT</th>${pm?'<th title="Score margin while he was on the floor (rebuilt from the play-by-play)">+/−</th>':''}<th title="How much this line counts toward his 2026-27 projection, in real games (Reality Meter × his share of a normal night's minutes): 100% = one full real game">Counts (% of a game)</th></tr></thead><tbody>${rows}</tbody><tfoot>${tot}</tfoot></table></div>
       <div class="dnp"><b>Did not play:</b> ${ros.length?(dnp.length?dnp.map(esc).join(', '):'<span class="none">everyone on the roster played</span>'):`<span class="none">we don’t have ${esc(shortOf(full,byFull))}’s 2026-27 roster yet, so we can’t list who sat</span>`}</div>
       ${extra.length?`<div class="dnp"><b>Played, not on our roster:</b> ${extra.map(esc).join(', ')}</div>`:''}`;
   }
@@ -298,6 +306,10 @@
         ['h','a'].forEach(s=>{ if(!FL.ok[s]) return; PM[s]={}; Object.keys(pm).forEach(k=>{ if(k.slice(0,2)===s+'|') PM[s][k.slice(2)]=pm[k]; }); });
         SP=TDC_SCRIMFLOW.shotSplit(pb); }
     }catch(e){ console.error(e); FL=null; } }
+    // player of the game (highest Game Score, either team) and each team's 0-10 rating from the result vs our line (game recap formula)
+    const BX={potg:null,th:null,ta:null};
+    if(box){ let best=-1e9; ['home','away'].forEach(k=>((box[k]&&box[k].players)||[]).forEach(p=>{ if(!(p.min>0)||p.pts==null) return; const gs=gameScore(p); if(gs>best){ best=gs; BX.potg=p; } }));
+      const R0=res.reality||{}; if(has&&R0.pred!=null){ const rate=x=>Math.max(2,Math.min(10,Math.round((6.3+x*0.22)*10)/10)), d=(res.hs-res.as)-R0.pred; BX.th=rate(d); BX.ta=rate(-d); } }
     $app.innerHTML=`
       <div><a href="scrimmages.html" style="font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;margin-right:10px;">← All scrimmages</a><span class="chip">Preseason scrimmage · unofficial</span></div>
       <h1 class="sr-only">${esc(aS)} ${g.neutral?'vs':'at'} ${esc(hS)}</h1>
@@ -310,7 +322,7 @@
       ${efficiency(box,g,byFull,S.eff&&S.eff.ffAvg)}
       ${FL?`<div class="sec"><h2>Game flow</h2><span class="hint">scoring margin · from the play-by-play</span></div><section class="gf-card sc-gf" id="scFlow"></section>
         <div class="sec"><h2>How each trip ended</h2><span class="hint">every possession, by what ended it</span></div>${TDC_SCRIMFLOW.possessionsHtml(pb,names)}`:''}
-      ${box?teamBlock('away',box.away,g.away,byFull[g.away]&&byFull[g.away].team,ra,byFull,PM.a)+teamBlock('home',box.home,g.home,byFull[g.home]&&byFull[g.home].team,rh,byFull,PM.h)
+      ${box?teamBlock('away',box.away,g.away,byFull[g.away]&&byFull[g.away].team,ra,byFull,PM.a,{potg:BX.potg,trtg:BX.ta})+teamBlock('home',box.home,g.home,byFull[g.home]&&byFull[g.home].team,rh,byFull,PM.h,{potg:BX.potg,trtg:BX.th})
            :`<div class="empty" style="margin-top:20px;">${has?'Only the final score is in for this one; no box score has posted.':'This scrimmage hasn’t been played yet. Its box score lands here once it’s out.'}</div>`}
       ${proj?`<div class="sec"><h2>Vs our projection</h2><span class="hint">minutes and Game Score against our pre-scrimmage projection · * started</span></div>${proj}`:''}
       ${FL?shotProfile(SP,FL.ok,g,byFull,box):''}
@@ -318,6 +330,8 @@
       ${FL&&FL.G.rotTeams.length?`<div class="sec"><h2>Rotation</h2><span class="hint">stints by half, coloured by +/− · five-man lineups</span></div><section class="gf-card sc-gf" id="scRot"></section>`:''}
       ${FL&&FL.G.rotTeams.length<2?`<p class="note">${['h','a'].filter(s=>!FL.ok[s]).map(s=>esc(shortOf(s==='h'?g.home:g.away,byFull))).join(' and ')}: the play-by-play's names don't match the box score, so no rotation, +/− or player shot rows.</p>`:''}
       <div class="note">Unofficial preseason scrimmage: not counted in either team's record, season stats or ratings. How far it moves anything is set by the Reality Meter: a fully game-like scrimmage counts as one real game toward each player's projected rates (capped 15%), minutes (rotation), a newcomer's OVR (±4) and the team's rating (±2.5). Each player's Trends tab shows exactly what moved. * = started. "Did not play" lists everyone on our 2026-27 roster with no minutes in the box score.${res.src?` <a href="${esc(res.src)}" target="_blank" rel="noopener">Source box score</a>.`:''}</div>`;
+    const shade=()=>document.querySelectorAll('table.sc-box').forEach(t=>window.tdcSheetHeat&&tdcSheetHeat(t));
+    if(window.tdcSheetHeat) shade(); else addEventListener('load',shade);
     if(FL){ const f=document.getElementById('scFlow'), r=document.getElementById('scRot');
       try{ if(f) TDC_GAMEFLOW.renderFlow(f,FL.G,FL.R); if(r) TDC_GAMEFLOW.renderRotation(r,FL.G,FL.R); }catch(e){ console.error(e); } }
   }
