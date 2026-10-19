@@ -284,7 +284,7 @@
     var nwid=width(name,700,nfs,'barlow');
     if(!tag){ return txt(name,x,y,{ w:700,px:nfs,serif:'barlow',c:P.text,max:nmax }); }
     var tpx=nfs*.5, rest=nmax-Math.min(nwid,nmax)-6*u;
-    if(width(tag,700,tpx,'barlow')<=rest){ var f=txt(name,x,y,{ w:700,px:nfs,serif:'barlow',c:P.text,max:nmax }); txt(tag,x+width(name,700,f,'barlow')+6*u,y-f*.34,{ w:700,px:tpx,serif:'barlow',c:P.mut }); return f; }
+    if(twoLine!==2&&width(tag,700,tpx,'barlow')<=rest){ var f=txt(name,x,y,{ w:700,px:nfs,serif:'barlow',c:P.text,max:nmax }); txt(tag,x+width(name,700,f,'barlow')+6*u,y-f*.34,{ w:700,px:tpx,serif:'barlow',c:P.mut }); return f; }
     if(twoLine){ var f2=txt(name,x,y-nfs*.26,{ w:700,px:nfs,serif:'barlow',c:P.text,max:nmax }); txt(tag,x,y+nfs*.5,{ w:700,px:tpx,serif:'barlow',c:P.mut,max:nmax }); return f2; }
     var f3=txt(name,x,y,{ w:700,px:nfs,serif:'barlow',c:P.text,max:nmax }), t=String(tag), r2=nmax-width(name,700,f3,'barlow')-6*u;
     while(t.length>3&&width(t,700,tpx,'barlow')>r2) t=t.slice(0,-2).replace(/\s*…?$/,'')+'…';
@@ -1517,13 +1517,15 @@
     var hy=y0+hh*.5; txt(String(o.leadLabel||'').toUpperCase(),xLead+leadW/2,hy,{ w:700,px:15*u,serif:'barlow',c:P.text2,al:'center',ls:1*u,max:leadW-6*u });
     cols.forEach(function(c,i){ txt(labOf(c.k,c.lab).toUpperCase(),xCells+cellW*(i+.5),hy,{ w:700,px:15*u,serif:'barlow',c:P.text2,al:'center',ls:1*u,max:cellW-6*u }); });
     var ry0=y0+hh, lv=function(r){ return (r._v!=null&&isFinite(+r._v))?+r._v:parseFloat(r.val); }, vals=rows.map(lv).filter(isFinite), vmax=Math.max.apply(null,vals.concat([0])), vmin=Math.min.apply(null,vals.concat([vmax]));
+    // one layout for every row (owner): if any note has to wrap under its name, every note goes under
+    var nmax0=xLead-xName-14*u, nfs0=Math.min(rh*.3,34*u)*k, under=rh>=56*u&&rows.slice(0,n).some(function(r){ return r.tag&&width(r.tag,700,nfs0*.5,'barlow')>nmax0-Math.min(nmax0,width(r.name,700,nfs0,'barlow'))-6*u; });
     for(var i=0;i<n;i++){ var r=rows[i], top=ry0+i*rh, mid=top+rh/2;
       ctx.fillStyle=P.line; ctx.fillRect(pad,top,W-pad*2,Math.max(1,u));
       if(rk) txt(String(i+1),pad+rkW*.4,mid,{ w:800,px:rh*.3,serif:'cond',c:P.mut,al:'center' });
       var lg=logos?await img(logoUrl(r.team)):null; if(lg) drawFit(lg,xLogo,mid-ms*.42,ms*.84);
       if(shots){ var sh=await shotFor(r.espn,r.name,r.team); if(sh) drawShot(sh,xShot,mid-ms/2,ms,null); else drawNoShot(xShot,mid-ms/2,ms,r.name,r.team); }
       var nmax=xLead-xName-14*u, nfs=Math.min(rh*.3,34*u)*k, nw=Math.min(nmax,width(r.name,700,nfs,'barlow'));
-      var fpx=nameTag(r.name,r.tag,xName,mid,nfs,nmax,u,rh>=56*u);
+      var fpx=nameTag(r.name,r.tag,xName,mid,nfs,nmax,u,under?2:rh>=56*u);
       // lead column: plain big number, or an amber cell graded by value
       if(amber){ var t=vmax>vmin?(lv(r)-vmin)/(vmax-vmin):1, ac=ramp(AMBER_RAMP,isFinite(t)?.15+.85*t:0);
         var g=ctx.createLinearGradient(xLead,0,xLead+leadW,0); g.addColorStop(0,rgbS(ramp(AMBER_RAMP,0))); g.addColorStop(1,rgbS(ac));
