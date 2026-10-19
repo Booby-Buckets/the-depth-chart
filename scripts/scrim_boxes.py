@@ -136,6 +136,24 @@ def sched_entry(site, date, opp_words):
     return None
 
 
+def sched_dates(site, opp_words):
+    """every date a team's schedule page lists this opponent on: each mention of the opponent's name is tied to the
+    nearest date on the page (Sidearm prints a game's date right before or right after its opponent)."""
+    t = sched_text(site)
+    if not t: return set()
+    marks = [(m.start(), m.group(1), int(m.group(2))) for m in DATE_RE.finditer(t)]
+    if not marks: return set()
+    out = set()
+    for ow in opp_words:
+        if not ow: continue
+        for m in re.finditer(r"\b" + r"\W+".join(re.escape(w) for w in ow) + r"\b", t, re.I):
+            pos, mon, day = min(marks, key=lambda k: abs(k[0] - m.start()))
+            mi = MON.index(mon) + 1
+            out.add(datetime.date(SEASON_START + (mi < 7), mi, day).isoformat())
+    return out
+SEASON_START = int(SEASON[:4])
+
+
 def split(v):
     m = re.match(r"\s*(\d+)\s*-\s*(\d+)", v or "")
     return (int(m.group(1)), int(m.group(2))) if m else (None, None)
@@ -317,7 +335,7 @@ def main():
     todo = [g for g in games if g["date"] <= today and (force or "box" not in res["results"].get(g["id"], {}))
             and not (res["results"].get(g["id"], {}).get("manual") and not force)]
     print(f"{len(todo)} played scrimmages without a box score")
-    got = 0; canceled = []
+    got = 0; canceled = []; moved = []
     for g in todo:
         url = None
         for me, opp in ((g["home"], g["away"]), (g["away"], g["home"])):
@@ -343,6 +361,17 @@ def main():
                             "auto_note": "Final score from the schedule page; no box score posted"})
                 res["results"][g["id"]] = rec; got += 1
                 print(f"  ok {g['date']} {g['away']} {as_} at {g['home']} {hs}  (score only, from {site})"); continue
+            # moved? both schools' pages list the game on one other date and neither lists ours -> take their date
+            if rec.get("hs") is None:
+                per = []   # each page's dates for this matchup; a city named like the team ("Dayton, OH") can add a stray one,
+                for me, opp in ((g["home"], g["away"]), (g["away"], g["home"])):   # so two pages must agree
+                    site = (sites.get(me) or {}).get("site")
+                    ds = {d for d in sched_dates(site, school(opp, sites)) if f"{SEASON_START}-10-01" <= d <= f"{SEASON_START}-11-15"} if site else set()
+                    if ds: per.append(ds)
+                seen = set.intersection(*per) if per else set()
+                if seen and g["date"] not in seen and len(seen) == 1:
+                    new = seen.pop(); moved.append((g, new))
+                    print(f"  >> {g['date']} {g['away']} at {g['home']}: schedule pages list it on {new} — moving it"); continue
             print(f"  -- {g['date']} {g['away']} at {g['home']}: no box score found" + (" (score already in)" if rec.get("hs") is not None else "")); continue
         h = get(url); B = parse_box(h) if h else None
         if not B:
@@ -373,6 +402,10 @@ def main():
     if got and not dry:
         RES.write_text(json.dumps(res, indent=1))
         print(f"wrote {got} result(s) to {RES.name}")
+    if moved and not dry:   # rescheduled: same id (pages key on it), new date
+        for g, d in moved: g["date"] = d
+        GAMES.write_text(json.dumps(G, indent=1, ensure_ascii=False))
+        print(f"moved {len(moved)} rescheduled game(s) in {GAMES.name}")
     if canceled and not dry:   # off the list every page reads, kept on record under "canceled"
         ids = {g["id"] for g in canceled}
         G["games"] = [g for g in games if g["id"] not in ids]
