@@ -30,7 +30,7 @@
     list: function(){ return ORDER.map(function(k){ return R[k]; }); },
     // every post file; loaded on first use of the Posts graphic
     FILES: ['shotzones','statshift','duos','passing','portal','continuity','freshmen','breakouts','archetypes','coaching',
-            'schedules','bracket','teamdna','teamranks','programs','size','betting','plays','scrimmages','scrimplayers','payrolls'],
-    loadAll: function(need){ return Promise.all(g.TDC_POSTS.FILES.map(function(f){ return need('js/posts/'+f+'.js?v=11').catch(function(){ return null; }); })); }
+            'schedules','bracket','teamdna','teamranks','programs','size','betting','plays','scrimmages','scrimplayers','scrimrtg','payrolls'],
+    loadAll: function(need){ return Promise.all(g.TDC_POSTS.FILES.map(function(f){ return need('js/posts/'+f+'.js?v=13').catch(function(){ return null; }); })); }
   };
 })(window);
