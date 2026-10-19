@@ -13,7 +13,7 @@
                              (tdc-live.js) and the live test fixtures. A cached live score is a
                              wrong score, and caching every 20s poll would bloat the runtime cache.
 */
-const CACHE = 'tdc-v428';
+const CACHE = 'tdc-v429';
 const CORE = ['index.html', 'offline.html', 'favicon.svg',
               'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
@@ -41,6 +41,7 @@ self.addEventListener('fetch', (e) => {
   // Live scores: straight to the network, no cache read or write (let the browser handle it)
   if (/(^|\.)espn\.com$/.test(url.hostname) && url.pathname.includes('/apis/')) return;
   if (sameOrigin && /\/scripts\/data\/live-fixture/.test(url.pathname)) return;
+  if (sameOrigin && url.pathname.startsWith('/_vercel/')) return;   // Vercel Analytics: never cached
 
   // HTML / navigations -> network-first
   if (sameOrigin && isHTML(req, url)) {

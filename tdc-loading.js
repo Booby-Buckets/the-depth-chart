@@ -171,3 +171,12 @@
 
   window.TDCLoading = { busy: busy, count: function () { return inflight; }, hold: hold };
 })();
+
+// Vercel Web Analytics (Oct 2026): page views for the Vercel dashboard. Loaded from here and from tdc-pwa.js
+// (between them every public page); the flag keeps it to one load. Skipped off the live site.
+(function () {
+  if (window.__tdcVA || !/thedepthchartcbb\.com$|vercel\.app$/.test(location.hostname)) return; window.__tdcVA = true;
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  var s = document.createElement('script'); s.defer = true; s.src = '/_vercel/insights/script.js';
+  (document.head || document.documentElement).appendChild(s);
+})();
