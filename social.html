@@ -277,6 +277,19 @@
     var px=o.px||20; ctx.font=font(o.w||500,px,o.serif); if(o.max){ while(ctx.measureText(t).width>o.max && px>9){ px-=.5; ctx.font=font(o.w||500,px,o.serif); } }
     ctx.fillStyle=o.c||P.text; ctx.textAlign=o.al||'left'; ctx.textBaseline=o.bl||'middle'; ctx.fillText(t,x,y); ctx.restore(); return px; }
   function width(t,w,px,serif){ ctx.font=font(w,px,serif); return ctx.measureText(String(t)).width; }
+  // a row's name + its small grey note (opponent, scrimmage count, class…): the NAME keeps its size (owner, Oct 2026:
+  // "none of the names shrunk by who they played"); the note sits beside it when it fits, else on a line under it
+  // (or, with no room for a second line, shrinks/ellipsises beside it). Returns the name's font size.
+  function nameTag(name,tag,x,y,nfs,nmax,u,twoLine){
+    var nwid=width(name,700,nfs,'barlow');
+    if(!tag){ return txt(name,x,y,{ w:700,px:nfs,serif:'barlow',c:P.text,max:nmax }); }
+    var tpx=nfs*.5, rest=nmax-Math.min(nwid,nmax)-6*u;
+    if(width(tag,700,tpx,'barlow')<=rest){ var f=txt(name,x,y,{ w:700,px:nfs,serif:'barlow',c:P.text,max:nmax }); txt(tag,x+width(name,700,f,'barlow')+6*u,y-f*.34,{ w:700,px:tpx,serif:'barlow',c:P.mut }); return f; }
+    if(twoLine){ var f2=txt(name,x,y-nfs*.26,{ w:700,px:nfs,serif:'barlow',c:P.text,max:nmax }); txt(tag,x,y+nfs*.5,{ w:700,px:tpx,serif:'barlow',c:P.mut,max:nmax }); return f2; }
+    var f3=txt(name,x,y,{ w:700,px:nfs,serif:'barlow',c:P.text,max:nmax }), t=String(tag), r2=nmax-width(name,700,f3,'barlow')-6*u;
+    while(t.length>3&&width(t,700,tpx,'barlow')>r2) t=t.slice(0,-2).replace(/\s*…?$/,'')+'…';
+    if(r2>20*u) txt(t,x+width(name,700,f3,'barlow')+6*u,y-f3*.34,{ w:700,px:tpx,serif:'barlow',c:P.mut });
+    return f3; }
   function drawFit(im,x,y,s){ if(!im) return; var r=Math.min(s/im.width,s/im.height); ctx.drawImage(im,x+(s-im.width*r)/2,y+(s-im.height*r)/2,im.width*r,im.height*r); }
   // headshot in a circle (ESPN shots are transparent PNGs, cropped to the face/shoulders)
   function drawShot(im,x,y,s,ring){
@@ -1510,8 +1523,7 @@
       var lg=logos?await img(logoUrl(r.team)):null; if(lg) drawFit(lg,xLogo,mid-ms*.42,ms*.84);
       if(shots){ var sh=await shotFor(r.espn,r.name,r.team); if(sh) drawShot(sh,xShot,mid-ms/2,ms,null); else drawNoShot(xShot,mid-ms/2,ms,r.name,r.team); }
       var nmax=xLead-xName-14*u, nfs=Math.min(rh*.3,34*u)*k, nw=Math.min(nmax,width(r.name,700,nfs,'barlow'));
-      var fpx=txt(r.name,xName,mid,{ w:700,px:nfs,serif:'barlow',c:P.text,max:nmax-(r.tag?width(r.tag,700,nfs*.5,'barlow')+8*u:0) });
-      if(r.tag){ var tw2=width(r.name,700,fpx,'barlow'); txt(r.tag,xName+Math.min(tw2,nw)+6*u,mid-fpx*.34,{ w:700,px:nfs*.5,serif:'barlow',c:P.mut }); }
+      var fpx=nameTag(r.name,r.tag,xName,mid,nfs,nmax,u,rh>=56*u);
       // lead column: plain big number, or an amber cell graded by value
       if(amber){ var t=vmax>vmin?(lv(r)-vmin)/(vmax-vmin):1, ac=ramp(AMBER_RAMP,isFinite(t)?.15+.85*t:0);
         var g=ctx.createLinearGradient(xLead,0,xLead+leadW,0); g.addColorStop(0,rgbS(ramp(AMBER_RAMP,0))); g.addColorStop(1,rgbS(ac));
@@ -1813,8 +1825,7 @@
         if(shots){ var sh=await shotFor(r.espn,r.name,r.team); if(sh) drawShot(sh,xShot,mid-ms/2,ms,null);
           else { ctx.save(); ctx.beginPath(); ctx.arc(xShot+ms/2,mid,ms/2,0,7); ctx.fillStyle=P.chip; ctx.fill(); ctx.restore(); var l2=await img(logoUrl(r.team)); if(l2){ ctx.save(); ctx.globalAlpha=.5; drawFit(l2,xShot+ms*.2,mid-ms*.3,ms*.6); ctx.restore(); } } }
         var sub=o.sub&&r[o.sub]&&rh>=58*u, nfs=Math.min(rh*(sub?.32:.42),34*u)*k;
-        var fpx=txt(r.name,xName,sub?mid-nfs*.32:mid,{ w:700,px:nfs,serif:'barlow',c:P.text,max:nmax-(o.tag&&r[o.tag]?width(r[o.tag],700,nfs*.5,'barlow')+8*u:0) });
-        if(o.tag&&r[o.tag]) txt(r[o.tag],xName+width(r.name,700,fpx,'barlow')+6*u,(sub?mid-nfs*.32:mid)-fpx*.34,{ w:700,px:nfs*.5,serif:'barlow',c:P.mut });
+        var fpx=nameTag(r.name,o.tag?r[o.tag]:'',xName,sub?mid-nfs*.32:mid,nfs,nmax,u,false);
         if(sub) txt(r[o.sub],xName,mid+nfs*.56,{ w:600,px:nfs*.56,serif:'barlow',c:P.mut,max:nmax });
         for(var ci=0;ci<o.cols.length;ci++){ var c2=o.cols[ci], v=r[c2.k], cx=xs[ci], cw=xs[ci+1]-xs[ci];
           if(c2.type==='logo'){ var l3=v?await img(logoUrl(v)):null; if(l3){ var s3=Math.min(cw*.7,rh*.66); drawFit(l3,cx+(cw-s3)/2,mid-s3/2,s3); } continue; }
