@@ -18,7 +18,10 @@ window.TDC_BILLING = (function () {
   function sess() { try { return JSON.parse(localStorage.getItem('tdc_session') || 'null'); } catch (e) { return null; } }
   // Payment link stamped with this account (client_reference_id "<userId>__<planKey>") so the plan
   // lands on the right account even if the member pays with a different email.
+  // purchases paused site-wide (auth.js TDC_SALES_PAUSED; owner exempt) — and paused if auth.js didn't load
+  function paused() { return window.tdcSalesPaused ? window.tdcSalesPaused() : true; }
   function link(planKey) {
+    if (paused()) return 'pricing.html';
     var base = LINKS[planKey] || LINKS.monthly, s = sess(), u = s && s.user;
     if (!u || !u.id) return 'pricing.html';
     return base + '?prefilled_email=' + encodeURIComponent(u.email || '') + '&client_reference_id=' + encodeURIComponent(u.id + '__' + planKey);
@@ -73,8 +76,9 @@ window.TDC_BILLING = (function () {
     var badge = (window.TDC_BADGE ? TDC_BADGE.html(p, { size: '18px', ml: '6px' }) : '');
     if (!paid) {
       return '<div class="tdcb"><div class="h">Subscription</div><div class="kv"><span>Plan <b>Free</b></span></div>' +
+        (paused() ? '<div class="note" style="margin-top:12px">Premium and Pro subscriptions are coming soon — sign-ups are paused while we finish checkout. <a href="pricing.html" style="color:inherit">See what’s included</a>.</div></div>' :
         '<div class="row"><a class="b primary" href="' + link('monthly') + '">Go Premium · $4.99/mo</a><a class="b" href="' + link('pro_monthly') + '">Go Pro · $8.99/mo</a><a class="b" href="pricing.html">Compare plans</a></div>' +
-        '<div class="note">Access unlocks on this account automatically, whatever email you pay with.</div></div>';
+        '<div class="note">Access unlocks on this account automatically, whatever email you pay with.</div></div>');
     }
     return '<div class="tdcb"><div class="h">Subscription</div>' +
       '<div class="kv"><span style="display:inline-flex;align-items:center">Plan <b style="margin-left:5px">' + esc(label) + '</b>' + badge + '</span>' + (when ? '<span>Renews <b>' + esc(when) + '</b></span>' : '') + '</div>' +

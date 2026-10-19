@@ -13,7 +13,7 @@
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Explore — The Depth Chart">
   <meta name="twitter:description" content="Every tool on the site, in one place — a map of The Depth Chart.">
-  <script src="auth.js?v=delacct1"></script>
+  <script src="auth.js?v=sales1"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=5"></script>
@@ -361,6 +361,8 @@ function lock(g){ return g&&g!=='free'?`<span class="xp-lock ${g}">${g==='coach'
 const AUDN={fan:'fans',coach:'coaches',market:'NIL & portal',bet:'bettors'};
 let _tid=0;
 function tool(it){
+  // owner-only pages (auth.js TDC_OWNER_ONLY: Dynasty, Fantasy) don't appear for anyone else yet
+  if(window.TDC_OWNER_ONLY && !(window.tdcIsOwner&&tdcIsOwner()) && TDC_OWNER_ONLY.includes(String(it.href||'').split('?')[0])) return '';
   const text=[it.t,it.d,...(it.how||[]),...(it.look||[]),it.tip||''].join(' ').replace(/<[^>]+>/g,'').toLowerCase();
   const id='t'+(++_tid);
   return `<tr class="tool-row" data-id="${id}" data-aud="${(it.aud||[]).join(' ')}" data-q="${esc(text)}" onclick="toggleTool('${id}')">

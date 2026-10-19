@@ -93,6 +93,24 @@ window.TDC_PAYWALL_ENABLED = false;
     catch (e) { return false; }
   };
 
+  // ── SALES SWITCH (owner, Oct 18 2026: "subscriptions suspended until checkout works") ──
+  // true = nobody can buy a plan: pricing / account / billing buttons say "coming soon" and no Stripe link opens.
+  // The owner is exempt so checkout can still be tested. Flip to false to reopen sales everywhere.
+  window.TDC_SALES_PAUSED = true;
+  window.tdcSalesPaused = function () { return !!window.TDC_SALES_PAUSED && !window.tdcIsOwner(); };
+
+  // ── OWNER-ONLY pages (owner, Oct 18 2026: "lock the dynasty and fantasy modes for everyone but my account") ──
+  // The pages themselves redirect non-owners to coming-soon.html; this hides every link to them (nav menus, the
+  // Explore page, tiles) for everyone else. Remove a page from the list to open it to the public.
+  window.TDC_OWNER_ONLY = ['dynasty.html', 'league.html'];
+  try {
+    if (!window.tdcIsOwner()) {
+      var _oo = document.createElement('style');
+      _oo.textContent = window.TDC_OWNER_ONLY.map(function (p) { return 'a[href^="' + p + '"],a[href^="/' + p + '"]'; }).join(',') + '{display:none!important;}';
+      (document.head || document.documentElement).appendChild(_oo);
+    }
+  } catch (e) {}
+
   // Owner's live access token, but ONLY when the signed-in user is the owner — else null.
   // Shared caches (predictive_ratings, team_projections, award_projections) use this so
   // their writes carry the owner's JWT and pass owner-only RLS. Non-owners get null and

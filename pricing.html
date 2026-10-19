@@ -14,7 +14,7 @@
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Pricing — The Depth Chart">
   <meta name="twitter:description" content="Advanced college basketball roster rankings, team & player analytics, NIL values, and 2026-27 projections for all of Division I.">
-  <script src="auth.js?v=delacct1"></script>
+  <script src="auth.js?v=sales1"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=5"></script>
@@ -193,7 +193,7 @@ body{background:transparent!important;}
 </head>
 <body data-anim-auto>
 <script src="tdc-badge.js?v=1"></script>
-<script src="tdc-billing.js?v=3"></script>
+<script src="tdc-billing.js?v=4"></script>
 <script src="tdc-nav.js?v=80"></script>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
 
@@ -566,7 +566,10 @@ loadTeams();
 checkAuth();
 </script>
 <script>
+// purchases paused site-wide (auth.js TDC_SALES_PAUSED; the owner can still test checkout)
+const salesPaused=()=>window.tdcSalesPaused?tdcSalesPaused():true;
 function startCheckout(plan){
+  if(salesPaused()){ pausedNotice(); return; }
   if(!currentUser){
     showAuth('signin');
     return;
@@ -590,6 +593,23 @@ function startCheckout(plan){
     + '?prefilled_email=' + encodeURIComponent(currentUser.email)
     + '&client_reference_id=' + encodeURIComponent(currentUser.id + '__' + plan);
 }
+
+function pausedNotice(){
+  const b=document.getElementById('salesPaused'); if(b){ b.scrollIntoView({behavior:'smooth',block:'center'}); b.style.outline='2px solid var(--accent,#c9a227)'; setTimeout(()=>b.style.outline='',1400); }
+}
+// while sales are paused: a banner up top, and every buy button says so instead of opening Stripe
+function applySalesPause(){
+  if(!salesPaused()) return;
+  const sub=document.querySelector('.page-sub');
+  if(sub && !document.getElementById('salesPaused')){
+    const d=document.createElement('div'); d.id='salesPaused';
+    d.style.cssText='margin:14px 0 22px;padding:14px 18px;border:1px solid var(--border2,#c6c0b2);border-radius:10px;background:var(--bg2,#f1efea);font-size:14px;line-height:1.5;color:var(--text,#1a1814);';
+    d.innerHTML='<b>Subscriptions are coming soon.</b> Premium and Pro sign-ups are paused while we finish checkout — nothing can be purchased right now. Free accounts keep everything that’s free.';
+    sub.insertAdjacentElement('afterend', d);
+  }
+  document.querySelectorAll('[onclick^="startCheckout("]').forEach(b=>{ b.textContent='Coming soon'; b.style.opacity='.55'; b.style.cursor='not-allowed'; b.setAttribute('aria-disabled','true'); });
+}
+document.addEventListener('DOMContentLoaded', applySalesPause); if(document.readyState!=='loading') applySalesPause();
 
 // Coach's Tier is custom-priced (per team / fan community) — no fixed Stripe link.
 // The button opens an email inquiry instead of a checkout.
