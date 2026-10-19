@@ -263,6 +263,9 @@
     for(const raw of lines){
       const l=raw.trimEnd(); let m;
       if(!l.trim()){ flush(); continue; }
+      // team-feed blocks (tdc-feed.js): charts render live there, so link to the team feed; videos open their source
+      if((m=/^::chart\s+(trend|shots|look)\b/i.exec(l.trim()))){ flush(); out.push(`<p><a href="team.html?team=${encodeURIComponent(T||'')}&tab=feed">📊 See this chart live in the ${esc(T||'team')} feed →</a></p>`); continue; }
+      if((m=/^::video\s+(https:\/\/\S+)$/i.exec(l.trim()))){ flush(); out.push(`<p><a href="${m[1]}" target="_blank" rel="noopener nofollow ugc">▶ Watch the video ↗</a></p>`); continue; }
       if((m=/^(#{2,3})\s+(.+)$/.exec(l))){ flush(); out.push(`<h${m[1].length}>${inline(m[2])}</h${m[1].length}>`); continue; }
       if(/^(-{3,}|\*{3,})$/.test(l.trim())){ flush(); out.push('<hr>'); continue; }
       if((m=/^!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)$/.exec(l.trim()))){ flush(); out.push(`<figure><img src="${m[2]}" alt="${m[1]}" loading="lazy">${m[1]?`<figcaption>${m[1]}</figcaption>`:''}</figure>`); continue; }

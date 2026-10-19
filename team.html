@@ -1449,6 +1449,7 @@
       </div>
     </div>
     <button class="hero-tab" onclick="switchTab('schedule',this)">Schedule</button>
+    <button class="hero-tab" onclick="switchTab('feed',this)">Feed</button>
     <div class="hero-grp" data-grp="coach">
       <button class="hero-grp-btn" onclick="_tgToggle(this,event)">Scouting <span class="hero-grp-car">▾</span></button>
       <div class="hero-grp-menu hero-grp-mega">
@@ -1652,6 +1653,9 @@
     </div>
     <div class="panel" id="panel-shotq">
       <div id="teamShotQHost"><div style="padding:24px;color:var(--text3);">Loading shot quality…</div></div>
+    </div>
+    <div class="panel" id="panel-feed">
+      <div id="teamFeedHost"></div>
     </div>
     <div class="panel" id="panel-trends">
       <div class="sec-head" style="margin-bottom:10px;">Trend line <span style="font-weight:500;color:var(--text3);text-transform:none;letter-spacing:0;font-size:12px">· each game vs what we expected, on the Power Rating scale, plus the preseason daily rating</span></div>
@@ -6552,6 +6556,9 @@ function switchTab(id, btn){
   if(id==='trends' && window.TDCTeamTrend){ (async()=>{ const full=(await _resolveGamesKey().catch(()=>null))||teamMascot(); TDCTeamTrend.render(document.getElementById('teamTrendLine'), { full, short:(teamT&&teamT.name)||'', color:(typeof teamColor_g!=='undefined'&&teamColor_g)||null }); })(); }
   if(id==='trends' && window.TDCTrends) TDCTrends.renderTeam(document.getElementById('teamTrendsHost'), (teamT&&teamT.name)||(teamPlayers&&teamPlayers[0]&&teamPlayers[0].team)||'');
   if(id==='preview') initPreview();
+  // the team feed: posts, articles, forum threads (tdc-feed.js on the fan-site tables)
+  if(id==='feed' && window.TDCFeed && !window._feedInit){ window._feedInit=true; (async()=>{ const full=(await _resolveGamesKey().catch(()=>null))||teamMascot(); const tid=await _teamEspnId().catch(()=>null);
+    TDCFeed.render(document.getElementById('teamFeedHost'), { team:(teamT&&teamT.name)||'', full, tid, color:(typeof teamColor_g!=='undefined'&&teamColor_g)||null }); })(); }
   if(id==='report') renderRosterReport();
   if(id==='nil') renderNil();
   if(id==='betting') renderTeamBetting();
@@ -9854,8 +9861,9 @@ function renderProjNatlChart(projected, color, rgb){
   <script src="tdc-dnasheet.js?v=1"></script>
   <script src="tdc-liveplayer.js?v=3"></script>
   <script src="tdc-depth-editor.js?v=2"></script>
-<script src="tdc-mteam.js?v=24"></script>
+<script src="tdc-mteam.js?v=25"></script>
 <script src="tdc-trends.js?v=15"></script>
 <script src="tdc-teamtrend.js?v=9"></script>
+<script src="tdc-feed.js?v=1"></script>
 </body>
 </html>
