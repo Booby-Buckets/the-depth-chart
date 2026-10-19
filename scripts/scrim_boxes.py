@@ -99,8 +99,15 @@ def find_box(site, opp_words):
         sw = slug.split("-")
         for ow in opp_words:
             hit = sum(1 for w in ow if w in sw)
-            if hit and hit >= min(2, len(ow)): out.append(site + path); break
+            if hit and hit >= min(2, len(ow)):
+                # a longer school name that fits the slug better is a different opponent: "uc-san-diego-exhibition"
+                # is UC San Diego, not San Diego (Oct 2026: USC's UCSD box landed on San Diego's game)
+                if any(len(f) > len(ow) and set(ow) < set(f) and all(w in sw for w in f) for f in ALL_FORMS): break
+                out.append(site + path); break
     return out
+
+
+ALL_FORMS = []   # every school's name forms (filled in main) — find_box uses it to reject a slug that names a longer school
 
 
 _SCHED = {}
@@ -331,6 +338,7 @@ def main():
     pbp = json.loads(PBP.read_text()) if PBP.exists() else {}
     pbp_new = 0
     sites = json.loads(SITES.read_text())
+    ALL_FORMS[:] = [f for t in sites for f in school(t, sites)]
     today = datetime.date.today().isoformat()
     todo = [g for g in games if g["date"] <= today and (force or "box" not in res["results"].get(g["id"], {}))
             and not (res["results"].get(g["id"], {}).get("manual") and not force)]
