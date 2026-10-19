@@ -1,11 +1,11 @@
 /* Post: best game ratings (RTG) across the 2026-27 preseason scrimmages — scripts/data/scrimmage_results_2027.json.
  * RTG = the game recaps' 0-10 box-score rating (game.html playerRating: 5 + 0.135 x Hollinger Game Score, clamped 2-10;
  * scrimmage.html shows the same column). "Average" = his mean RTG over every scrimmage he played 10+ minutes in
- * (d.pstat = minimum scrimmages); "Best single game" = one row per game line. Unofficial games, display only. */
+ * (d.pstat = minimum scrimmages); "Best single game" = one row per game line. d.pcls = class filter (our roster's class_year). Unofficial games, display only. */
 TDC_POSTS.add('scrimrtg', {
   group: 'Preseason', label: 'Scrimmage RTG leaders',
   note: 'Players with the best box-score game rating (RTG, 0-10: 5 ≈ an average game, 6.5 strong, 8+ great) in unofficial preseason scrimmages. Average = across every scrimmage he played 10+ minutes; or the best single games.',
-  opts: { conf: true, team: true, tier: true, dir: true, upLabel: 'Average RTG', downLabel: 'Best single game',
+  opts: { conf: true, team: true, tier: true, cls: true, dir: true, upLabel: 'Average RTG', downLabel: 'Best single game',
     statsLabel: 'Minimum scrimmages', stats: [['1', '1+'], ['2', '2+'], ['3', '3+']] },
   load: async function (d, H) {
     var N = function (x) { return +x || 0; };
@@ -24,6 +24,11 @@ TDC_POSTS.add('scrimrtg', {
     var findP = function (rt, name) { var k = nk(name), L = rt ? (byTeam[rt.team] || []) : [];
       return L.find(function (p) { return nk(p.name) === k; }) || null; };
     var MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    // our roster's class_year -> Fr / RFr / So / Jr / Sr / Gr ("R-Sr." counts as Sr.; unknown = no class)
+    var clsOf = function (p) { var c = String((p && (p.class_year || p.yr)) || '').toLowerCase().replace(/[^a-z0-9-]/g, '');
+      if (/^(r-?fr|rf|rs$)/.test(c)) return 'RFr'; c = c.replace(/^r-?/, '');
+      return /^fr|^1st/.test(c) ? 'Fr' : /^so|^2nd/.test(c) ? 'So' : /^jr|^3rd/.test(c) ? 'Jr' : /^sr|^4th/.test(c) ? 'Sr' : /^gr|^5th/.test(c) ? 'Gr' : ''; };
+    var inScope2 = true;
     var lines = [];   // every 10+ minute player line, with its rating
     (S.games || []).forEach(function (g) {
       var r = res[g.id]; if (g.canceled || !r || !r.box) return;
@@ -38,8 +43,9 @@ TDC_POSTS.add('scrimrtg', {
         B.players.forEach(function (x) {
           if ((+x.min || 0) < 10 || x.pts == null) return;
           var p = findP(me, x.rn || x.name);
+          if (d.pcls && clsOf(p) !== d.pcls) inScope2 = false; else inScope2 = inScope;
           lines.push({ key: me.team + '|' + nk(p ? p.name : (x.rn || x.name)), name: p ? p.name : (x.rn || x.name), team: me.team,
-            espn: p && p.espn_id ? String(p.espn_id) : '', inScope: inScope, opp: opp, when: when, date: g.date, r: rtg(x), x: x,
+            espn: p && p.espn_id ? String(p.espn_id) : '', inScope: inScope2, opp: opp, when: when, date: g.date, r: rtg(x), x: x,
             res: (r.hs != null && r.as != null) ? ((isHome ? r.hs > r.as : r.as > r.hs) ? 'W ' : 'L ') + (isHome ? r.hs + '-' + r.as : r.as + '-' + r.hs) : '' });
         });
       });
@@ -74,9 +80,10 @@ TDC_POSTS.add('scrimrtg', {
     var dist = {};
     ['best', 'pts', 'reb', 'ast', 'stl', 'blk', 'tov'].forEach(function (k) { dist[k] = rows.map(function (r) { return +r[k]; }).filter(function (v) { return isFinite(v); }); });
     rows = rows.filter(function (r) { return r.inScope; });
+    var CLS = { Fr: 'Freshmen', RFr: 'Redshirt freshmen', So: 'Sophomores', Jr: 'Juniors', Sr: 'Seniors', Gr: 'Grad students' };
     var scope = d.team ? H.school(d.team) + ': ' : d.conf ? d.conf + ': ' : d.tier ? { H: 'High-major', M: 'Mid-major', L: 'Low-major' }[d.tier] + ': ' : '';
     return {
-      title: scope + (single ? 'Best scrimmage games' : 'Scrimmage RTG leaders'),
+      title: scope + (d.pcls ? CLS[d.pcls] + ': ' : '') + (single ? 'Best scrimmage games' : 'Scrimmage RTG leaders'),
       subtitle: H.SEASON + ' preseason scrimmages · unofficial · ' + (single ? 'single-game rating' : 'average game rating' + (minG > 1 ? ', ' + minG + '+ scrimmages' : '')),
       lead: 'RTG',
       src: 'The Depth Chart · school-reported scrimmage box scores · RTG = 0-10 box-score game rating (Game Score), 5 ≈ average, 8+ great · colours vs every D-I player in scrimmages · 10+ minutes · not in records or ratings',
