@@ -295,7 +295,7 @@
     'matchup.html': [
       { sel:'#selA', t:'Matchup', d:'Pick both teams. The season switcher runs past matchups with the real rosters of that year.' },
       { sel:'#tabPredict', t:'The projection', html:bl(G.spread, '<b>When each side has the ball</b> — its offense percentile against the other\'s defense, factor by factor, with the gap.', '<b>Shot zones and possessions</b> — what one side takes and scores against what the other allows, from last season\'s play-by-play.'), before:function(){ try{ mtab('predict'); }catch(e){} } },
-      { sel:'#tabAdv', t:'Matchup advantage', d:'Player by player: where each man wins or loses his likely matchup, from his offensive profile against the defender\'s.', before:function(){ try{ mtab('adv'); }catch(e){} } }
+      { sel:'#tabAdv', t:'Matchup advantage', d:'Who gains and who struggles in this game: each rotation player\'s shooting against defenses like tonight\'s opponent (edge vs his season mark), on a chart and by style of defense.', before:function(){ try{ mtab('adv'); }catch(e){} } }
     ],
 
     'dossier.html': [
