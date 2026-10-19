@@ -20,6 +20,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="team-colors.js?v=12"></script>
   <script src="tdc-teamname.js?v=1"></script>
+  <script src="tdc-teamshotprofile.js?v=1"></script>
   <script src="tdc-shotchart.js?v=33"></script>
   <style>
     /* dots + diverging bars: gold = better than D-I, blue = worse, grey = mixed (validated gold/blue pair) */
@@ -84,7 +85,7 @@
   <div class="eyebrow">D-I · Shot quality</div>
   <h1>Who gets the best looks, and who makes them?</h1>
   <div class="filters">
-    <label>View<select id="fView"><option value="player">Players</option><option value="off">Team offense</option><option value="def">Team defense</option></select></label>
+    <label>View<select id="fView"><option value="player">Players</option><option value="off">Team offense</option><option value="def">Team defense</option><option value="prof">Team profiles</option></select></label>
     <label>Season<select id="fSeason"></select></label>
     <label>Conference<select id="fConf"><option value="">All conferences</option></select></label>
     <label id="lPos">Position<select id="fPos"><option value="">All positions</option><option value="G">Guards</option><option value="F">Forwards</option><option value="C">Centers</option></select></label>
@@ -98,6 +99,7 @@
     <div id="drawer" class="drawer empty">Click any dot or row to see where the points come from.</div>
   </div>
   <div id="detail" hidden></div>
+  <div id="profAll" hidden></div>
   <h2 id="tblH">Leaderboard</h2>
   <div id="tbl"></div>
   <h2>How D-I shoots, 2009-10 to now</h2>
@@ -108,7 +110,7 @@
 (function(){
   const BASE='scripts/data/shot_quality/', V='?v=2';
   const qs=new URLSearchParams(location.search);
-  const S={view:['player','off','def'].includes(qs.get('view'))?qs.get('view'):'player',season:+qs.get('season')||0,conf:'',pos:'',min:500,sort:'m',asc:false,sel:qs.get('id')||null};
+  const S={view:['player','off','def','prof'].includes(qs.get('view'))?qs.get('view'):'player',season:+qs.get('season')||0,conf:'',pos:'',min:500,sort:'m',asc:false,sel:qs.get('id')||null};
   if(S.view==='def') S.asc=true;
   const FILES={}, CAR={};
   const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -377,7 +379,28 @@
   const poolMin=()=>F&&F.live?Math.max(200,Math.round(500*Math.min(1,(F.d1Games||0)/5600)/10)*10):500;
 
   // ---------- page
+  // "Team profiles": every team's shooting / rebounding / pace numbers for one stat group (tdc-teamshotprofile.js)
+  async function renderProf(){
+    const P=window.TDC_TEAMSHOTPROFILE; if(!P) return;
+    const ys=await P.seasons(); if(!ys.includes(S.season)) S.season=ys[0];
+    document.getElementById('fView').value='prof';
+    const fS=document.getElementById('fSeason'); fS.innerHTML=ys.map(y=>`<option value="${y}">${sl(y)}</option>`).join(''); fS.value=S.season;
+    const D=await P.load(S.season);
+    const confs=D?[...new Set(D.teams.map(t=>t[2]).filter(Boolean))].sort():[], fC=document.getElementById('fConf');
+    fC.innerHTML='<option value="">All conferences</option>'+confs.map(c=>`<option>${esc(c)}</option>`).join(''); fC.value=S.conf;
+    ['lPos','lMin'].forEach(id=>document.getElementById(id).style.display='none');
+    document.getElementById('fFind').closest('label').style.display='none';
+    document.querySelector('.stage').style.display='none'; document.getElementById('key').innerHTML=''; document.getElementById('detail').hidden=true;
+    document.getElementById('tblH').style.display='none'; document.getElementById('tbl').innerHTML='';
+    document.getElementById('sample').innerHTML=`<b>${sl(S.season)}</b> · every D-I team on offense or defense · attempts per 100 possessions, make rates, shot mix, second chances and pace, ranked against D-I`;
+    const host=document.getElementById('profAll'); host.hidden=false;
+    P.renderAll(host,{season:S.season,conf:S.conf});
+    const p=new URLSearchParams(); p.set('view','prof'); p.set('season',S.season); history.replaceState(null,'',location.pathname+'?'+p.toString());
+  }
   async function render(){
+    if(S.view==='prof') return renderProf();
+    document.querySelector('.stage').style.display=''; document.getElementById('profAll').hidden=true; document.getElementById('tblH').style.display='';
+    document.getElementById('fFind').closest('label').style.display='';
     if(!S.season){ const I=await get(BASE+'index.json'+V); S.season=I&&I.seasons[0]||2026; }
     F=await season(S.season);
     if(!F){ document.getElementById('chart').innerHTML='<div class="empty">Could not load the data.</div>'; return; }

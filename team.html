@@ -13,6 +13,7 @@
   <script src="tdc-huntgreat.js?v=2"></script>
   <script src="tdc-teamname.js?v=1"></script>
   <script src="tdc-twin.js?v=7"></script>
+  <script src="tdc-teamshotprofile.js?v=1"></script>
   <script src="tdc-statshift-player.js?v=2"></script>
   <script src="tdc-lineups.js?v=17s"></script>
   <script src="tdc-lineup-history.js?v=4"></script>
@@ -1442,6 +1443,7 @@
       <button class="hero-grp-btn" onclick="_tgToggle(this,event)">Shots<span class="hero-grp-car">▾</span></button>
       <div class="hero-grp-menu" style="min-width:252px;">
         <button class="hgm-item" onclick="_tgPick('shots',this)"><span class="hgm-t">Shot Charts</span><span class="hgm-d">Where the team shoots from, by season</span></button>
+        <button class="hgm-item" onclick="_tgPick('shotprof',this)"><span class="hgm-t">Shot Profile</span><span class="hgm-d">Every shooting, rebounding and pace stat, offense and defense, ranked vs D-I and adjusted for schedule</span></button>
         <button class="hgm-item" onclick="_tgPick('shotq',this)"><span class="hgm-t">Shot Quality</span><span class="hgm-d">Look quality, shot-making &amp; creation</span></button>
         <button class="hgm-item" onclick="_tgPick('twin',this)"><span class="hgm-t">Shot Profile Twin</span><span class="hgm-d">FT / rim / mid / three volume and efficiency, and the closest team-seasons since 2009-10</span></button>
         <button class="hgm-item" onclick="_tgPick('poss',this)"><span class="hgm-t">Possessions</span><span class="hgm-d">How possessions start, when they shoot, what each shot earns</span></button>
@@ -1650,6 +1652,9 @@
     </div>
     <div class="panel" id="panel-statshift">
       <div class="dA-card"><div id="teamShiftHost"><div style="padding:24px;color:var(--text3);">Loading lineups…</div></div></div>
+    </div>
+    <div class="panel" id="panel-shotprof">
+      <div class="dA-card"><div class="dA-sec"><span>Shot profile</span><span class="dA-cap">offense and defense vs D-I · every number ranked</span></div><div id="teamShotProfHost"><div style="padding:24px;color:var(--text3);">Loading shot profile…</div></div></div>
     </div>
     <div class="panel" id="panel-shotq">
       <div id="teamShotQHost"><div style="padding:24px;color:var(--text3);">Loading shot quality…</div></div>
@@ -6527,6 +6532,7 @@ function switchTab(id, btn){
   if(id==='onoff'){ renderOnOff(); }
   if(id==='statshift' && !window._shiftLoaded){ window._shiftLoaded=true; (async()=>{ const full=await _resolveGamesKey().catch(()=>null); if(window.TDC_SHIFT) TDC_SHIFT.renderTeam(document.getElementById('teamShiftHost'), {team:[full, teamMascot(), teamT&&teamT.name]}); })(); }
   if(id==='shotq'){ _dnaCSS(); renderShotQuality(); }
+  if(id==='shotprof'){ _dnaCSS(); (async()=>{ const tid=await _teamEspnId().catch(()=>null); if(window.TDC_TEAMSHOTPROFILE) TDC_TEAMSHOTPROFILE.renderTeam(document.getElementById('teamShotProfHost'), {teamId:tid}); })(); }
   if(id==='twin'){ _dnaCSS(); (async()=>{ const tid=await _teamEspnId().catch(()=>null); if(window.TDC_TWIN) TDC_TWIN.render(document.getElementById('teamTwinHost'), {teamId:tid}); })(); }
   if(id==='hunt'){ _dnaCSS(); (async()=>{ const tid=await _teamEspnId().catch(()=>null); if(window.TDC_HUNT) TDC_HUNT.renderTeam(document.getElementById('teamHuntHost'), {teamId:tid}); })(); }
   if(id==='poss'){ _dnaCSS(); (async()=>{ const tid=await _teamEspnId().catch(()=>null); if(window.TDC_AFTER) TDC_AFTER.renderTeam(document.getElementById('teamAfterHost'), {teamId:tid, name:(teamT&&teamT.name)||''}); })(); }
@@ -6576,6 +6582,7 @@ var TAB_GATE = {
   twin:        { tier:'pro', label:'Shot Profile Twin', blurb:'The team’s free-throw, rim, midrange and three-point volume and efficiency against D-I, and the closest team-seasons in any year since 2009-10. Included with Pro — $8.99/mo.' },
   hunt:        { tier:'pro', label:'Hunt Great & Mastery', blurb:'Every shot graded great, average or bad by shot clock, each player\'s green lights (1.1+ points per shot), and what turnovers and missed rim attempts cost per game, vs D-I. Included with Pro — $8.99/mo.' },
   poss:        { tier:'pro', label:'Possessions', blurb:'How every possession starts and scores (after makes, rebounds and turnovers), how fast they shoot, and what each shot earns after the miss — offense and defense vs D-I. Included with Pro — $8.99/mo.' },
+  shotprof:    { tier:'pro', label:'Shot Profile', blurb:'Every shooting, free-throw, second-chance and pace number on offense and defense — attempts per 100, make rates, shot mix, shot distance — each ranked against D-I and adjusted for schedule. Included with Pro — $8.99/mo.' },
   shotq:       { tier:'pro', label:'Shot Quality', blurb:'Look quality (the eFG% your shot selection earns), shot-making above or below it, creation, the shot diet on both ends and every player\'s numbers. Included with Pro — $8.99/mo.' },
   dna:         { tier:'pro', label:'Team DNA', blurb:'Every team stat on one sheet — four factors, shot zones, possessions and situations, ranked against D-I. Included with Pro — $8.99/mo.' },
   statshift:   { tier:'pro', label:'Stat Line Shift', blurb:'How every player\u2019s own line (usage, points, assists, rebounds, TS%, 3P%, +/-) changes with each teammate on the floor vs off it, from play-by-play lineups. Included with Pro \u2014 $8.99/mo.' },
@@ -9861,7 +9868,7 @@ function renderProjNatlChart(projected, color, rgb){
   <script src="tdc-dnasheet.js?v=1"></script>
   <script src="tdc-liveplayer.js?v=3"></script>
   <script src="tdc-depth-editor.js?v=2"></script>
-<script src="tdc-mteam.js?v=25"></script>
+<script src="tdc-mteam.js?v=26"></script>
 <script src="tdc-trends.js?v=15"></script>
 <script src="tdc-teamtrend.js?v=9"></script>
 <script src="tdc-feed.js?v=1"></script>

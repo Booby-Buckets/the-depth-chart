@@ -116,6 +116,16 @@ function parse(s, acc, lg, X) {
     lg.pts += r.pts; lg.poss += 1;
   }
   // 3. first-chance attempts and what followed
+  const gids = ((s.header && s.header.competitions && s.header.competitions[0] && s.header.competitions[0].competitors) || []).map((c) => String(c.team && c.team.id));
+  // second chances by team, offense and defense: [first-chance misses, offensive rebounds kept, second-chance points]
+  const scAdd = (team, kept, pts) => {
+    const opp = gids.find((t) => t !== team);
+    for (const [t, side] of [[team, 'off'], [opp, 'def']]) {
+      if (!t) continue;
+      const a = ((X.sc[t] = X.sc[t] || { off: [0, 0, 0], def: [0, 0, 0] })[side]);
+      a[0]++; a[1] += kept; a[2] += pts;
+    }
+  };
   runs.forEach((r, ri) => {
     const next = runs[ri + 1];
     const oppNext = next && next.team !== r.team && next.per === r.per ? next : null;
@@ -144,9 +154,11 @@ function parse(s, acc, lg, X) {
           // the shooting team kept the ball: everything it scored later in this possession is second-chance value
           c[4]++;
           c[6] += rest.reduce((a, x) => a + (x.p.scoringPlay && (isFG(x.p) || isFT(x.p)) ? (+x.p.scoreValue || 0) : 0), 0);
+          scAdd(r.team, 1, c[6] - c0[6]);
         } else if (oppNext && isReb(oppNext.ev[0].p)) {
           c[5]++; c[9] += oppNext.pts; c[10]++;     // defensive rebound: the opponent's possession it started
-        }
+          scAdd(r.team, 0, 0);
+        } else scAdd(r.team, 0, 0);
       }
       if (pc) c.forEach((v, k) => { pc[k] += v - c0[k]; });
       break;                                       // one first-chance attempt per possession
@@ -293,7 +305,7 @@ async function season(y) {
   const games = (await sb(`games?season_year=eq.${y}&status=eq.STATUS_FINAL&select=id,home_id,away_id&order=id.asc`))
     .filter((g) => d1.has(String(g.home_id)) && d1.has(String(g.away_id)));   // D-I vs D-I only
   if (games.length < MIN_GAMES) { console.log(`shot_aftermath ${y}: only ${games.length} D-I games final — waiting for ${MIN_GAMES} before building`); return; }
-  const acc = {}, lg = { pts: 0, poss: 0 }, X = { players: {}, ppos: {}, poss: {}, sit: {}, prof: {}, pname: {}, pteam: {}, toff: {}, tdef: {}, lg: { st: {}, tm: {}, sit: {} } };
+  const acc = {}, lg = { pts: 0, poss: 0 }, X = { players: {}, ppos: {}, poss: {}, sit: {}, prof: {}, pname: {}, pteam: {}, toff: {}, tdef: {}, sc: {}, lg: { st: {}, tm: {}, sit: {} } };
   let done = 0, empty = 0;
   // fetch 8 at a time but parse strictly in game-id order: key order and 'last one wins' names/teams then don't
   // depend on which download finished first, so an unchanged season rebuilds byte-identical
@@ -342,6 +354,8 @@ async function season(y) {
     pos: Object.fromEntries(Object.keys(prof).filter((id) => X.ppos[id]).map((id) => [id, X.ppos[id]])) }));
   // team shot profiles, offense and defense: [games, possessions, fta, ftm, rimA, rimM, midA, midM, 3A, 3M]
   put(path.join(OUT, `tprof_${y}.json`), JSON.stringify({ season: y, built: out.built, cols: ['games', 'poss', 'fta', 'ftm', 'rimA', 'rimM', 'midA', 'midM', 'threeA', 'threeM'], off: X.toff, def: X.tdef }));
+  // second chances per team (team shot profile): offense and defense [first-chance misses, offensive rebounds, second-chance points]
+  put(path.join(OUT, `sc_${y}.json`), JSON.stringify({ season: y, built: out.built, cols: ['miss', 'oreb', 'scPts'], teams: Object.fromEntries(Object.keys(X.sc).sort().map((t) => [t, X.sc[t]])) }));
   put(path.join(OUT, `players_${y}.json`), JSON.stringify({ season: y, built: out.built, league_ppp: out.league_ppp, cols: out.cols, pos: X.ppos, data: X.players }));
   const all = Object.values(acc).flatMap((T) => Object.values(T).flatMap((P) => Object.values(P)));
   const att = all.reduce((a, c) => a + c[0], 0);

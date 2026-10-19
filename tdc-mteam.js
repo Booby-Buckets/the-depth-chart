@@ -10,7 +10,7 @@
     // same order as the desktop tab row (owner, Oct 2026)
     { key: 'depth', label: 'Depth chart', tabs: ['depth'] },
     { key: 'stats', label: 'Analytics', tabs: ['dna', 'onoff', 'projections'] },
-    { key: 'shots', label: 'Shots', tabs: ['shots', 'shotq'] },
+    { key: 'shots', label: 'Shots', tabs: ['shots', 'shotprof', 'shotq'] },
     { key: 'schedule', label: 'Schedule', tabs: ['schedule'] },
     { key: 'feed', label: 'Feed', tabs: ['feed'] },
     { key: 'coach', label: 'Scouting', tabs: ['mcoach', 'customize', 'report'] },
@@ -21,7 +21,7 @@
     { key: 'conf', label: 'Conference', link: true }
   ];
   var STATS = [['dna', 'DNA'], ['onoff', 'On/Off'], ['projections', 'Projections']];
-  var SHOTS = [['shots', 'Shot charts'], ['shotq', 'Shot quality']];
+  var SHOTS = [['shots', 'Shot charts'], ['shotprof', 'Shot profile'], ['shotq', 'Shot quality']];
   var SUBS = { stats: STATS, shots: SHOTS };
   var COACH = [['customize', 'Lineup Lab', 'Lineups, minutes, live projections'], ['report', 'Roster report', 'Scouting breakdown of the roster']];
   var TOOLS = [['team-report.html', 'Team Report', 'Every chart on one page'],
