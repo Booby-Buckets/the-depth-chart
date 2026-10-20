@@ -13,6 +13,7 @@
   <script src="team-colors.js?v=12"></script>
   <script src="tdc-ratings.js?v=43"></script>
   <script src="tdc-badge.js?v=1"></script>
+  <script src="tdc-billing.js?v=6"></script>
   <style>
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--green:#1a8c3a;--red:#cc2200;--tc:#A8843C;}
     [data-theme="dark"]{--bg:#0A0E18;--bg2:#141a28;--bg3:#1d2436;--border:#232b3d;--border2:#354060;--text:#F1EFEA;--text2:#B4B0A8;--text3:#807C74;--accent:#E6D5A8;--green:#5ab875;--red:#e07070;}
@@ -84,6 +85,25 @@
     @keyframes fall{to{transform:translateY(105vh) rotate(720deg);opacity:.2;}}
     .msg{font-size:13px;font-weight:600;padding:10px 14px;border-radius:10px;display:none;margin-bottom:14px;} .msg.show{display:block;} .msg.error{background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red);}
     .gate{padding:60px 20px;text-align:center;color:var(--text3);} .gate a{color:var(--accent);font-weight:700;}
+    /* subscribe step */
+    .pl-seg{display:inline-flex;border:1px solid var(--border2);border-radius:999px;overflow:hidden;margin:14px 0 4px}
+    .pl-seg button{font:inherit;font-size:12px;font-weight:800;letter-spacing:.03em;padding:8px 16px;border:0;background:var(--bg);color:var(--text2);cursor:pointer}
+    .pl-seg button.on{background:var(--tc);color:#fff}
+    .pl-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
+    @media(max-width:640px){.pl-grid{grid-template-columns:minmax(0,1fr)}}
+    .pl{border:1px solid var(--border2);border-radius:14px;padding:18px;background:var(--bg);display:flex;flex-direction:column;position:relative}
+    .pl.feat{border:2px solid var(--tc)}
+    .pl-tag{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)}
+    .pl.feat .pl-tag{color:var(--tc)}
+    .pl-n{font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:800;margin-top:2px}
+    .pl-p{font-size:30px;font-weight:800;margin-top:6px;font-variant-numeric:tabular-nums}.pl-p span{font-size:13px;font-weight:600;color:var(--text3)}
+    .pl-alt{font-size:12px;color:var(--text3);font-weight:600;margin-bottom:10px}
+    .pl ul{list-style:none;margin:0 0 16px;padding:0;flex:1}
+    .pl li{font-size:13px;color:var(--text2);padding:6px 0 6px 22px;border-bottom:1px solid var(--border);position:relative}
+    .pl li:last-child{border-bottom:0}
+    .pl li::before{content:'✓';position:absolute;left:2px;color:var(--tc);font-weight:800}
+    .pl-go{width:100%}
+    .pl-note{font-size:11.5px;color:var(--text3);margin-top:12px;text-align:center}
   </style>
 </head>
 <body>
@@ -119,11 +139,11 @@ const LAUNCH={
   coach:  ()=>[{h:'coach-tier.html',ic:'📋',t:'Scouting & Game Prep',d:'Scouting, self-scout, personnel'},{h:'moneyball.html',ic:'🧩',t:'Moneyball',d:'Roster-building as math'}]
 };
 let TEAMS=[], PROFILE=null, state={step:0, username:'', avatarFile:null, avatarUrl:null, team:null, teamFull:null, interests:new Set(), userOk:false};
-const STEPS=['Your name','Your team','What you’re here for','Ready'];
+const STEPS=['Your name','Your team','What you’re here for','Go Premium','Ready'];
 
 function paintSteps(){ $('steps').innerHTML=STEPS.map((s,i)=>`<div class="step ${i<state.step?'done':i===state.step?'on':''}"><i></i></div>`).join('')+`<span class="n">Step ${Math.min(state.step+1,STEPS.length)} of ${STEPS.length} · ${STEPS[Math.min(state.step,STEPS.length-1)]}</span>`; }
 function setTC(hex){ document.documentElement.style.setProperty('--tc',hex||'var(--accent)'); }
-function go(n){ state.step=n; paintSteps(); window.scrollTo({top:0,behavior:'smooth'}); [step1,step2,step3,step4][n](); }
+function go(n){ state.step=n; paintSteps(); window.scrollTo({top:0,behavior:'smooth'}); [step1,step2,step3,stepPlan,step4][n](); }
 
 async function init(){
   if(!S||!S.access_token||!S.user){ $('stage').innerHTML='<div class="gate">Create an account or sign in first — <a href="pricing.html">go to sign in</a>.</div>'; $('steps').innerHTML=''; return; }
@@ -242,9 +262,35 @@ function step3(){
   </div>`;
 }
 function toggleInt(k){ if(state.interests.has(k)) state.interests.delete(k); else state.interests.add(k); document.querySelector(`.chip[data-k="${k}"]`).classList.toggle('on'); }
-function finish(){ try{ localStorage.setItem('tdc_interests',JSON.stringify([...state.interests])); localStorage.setItem('tdc_onboarded','1'); }catch(e){} go(3); }
+function finish(){ try{ localStorage.setItem('tdc_interests',JSON.stringify([...state.interests])); localStorage.setItem('tdc_onboarded','1'); }catch(e){} go(showPlanStep()?3:4); }
 
-// ── Step 4: done ──
+// ── Step 4: subscribe (owner, Oct 2026: "a prompt that asks you to subscribe and the benefits") ──
+// skipped for members who already pay (or when sales are paused); "Maybe later" carries on free
+function showPlanStep(){ const plan=String((PROFILE&&PROFILE.plan)||'free').toLowerCase();
+  if(['premium','pro','coach'].includes(plan)) return false;
+  return !(window.tdcSalesPaused&&tdcSalesPaused()) && !!window.TDC_BILLING; }
+let planYearly=false;
+function stepPlan(){
+  const P=[{k:'monthly',ky:'yearly',n:'Premium',pm:'$4.99',py:'$50',save:'save $10',tag:'Most popular',
+      f:['Full team depth charts and projected minutes','Every player’s projected stats and grades','NIL valuations for players and teams','Betting props board and trends','Compare any players or teams','Offseason additions and key losses']},
+    {k:'pro_monthly',ky:'pro_yearly',n:'Pro',pm:'$8.99',py:'$89.99',save:'save $18',tag:'Everything',
+      f:['Everything in Premium','Shot charts, shot quality and shot flow','Advanced team analytics: DNA, possessions, on/off','Lineup Lab: build lineups and set minutes','Freshman projections and the Coaching Lab']}];
+  $('stage').innerHTML=`<div class="card">
+    <div class="eyebrow">One more thing</div>
+    <h1>Get the full Depth Chart${state.team?' for '+esc(state.team):''}.</h1>
+    <div class="sub">Free gets you rankings, rosters and the basics. Members unlock the projections, depth charts and analytics the site is built on — and the 2026-27 season is about to tip.</div>
+    <div class="pl-seg"><button class="${planYearly?'':'on'}" onclick="planYearly=false;stepPlan()">Monthly</button><button class="${planYearly?'on':''}" onclick="planYearly=true;stepPlan()">Yearly · 2 months free</button></div>
+    <div class="pl-grid">${P.map((p,i)=>`<div class="pl ${i===0?'feat':''}"><div class="pl-tag">${p.tag}</div><div class="pl-n">${p.n}</div>
+      <div class="pl-p">${planYearly?p.py:p.pm}<span>/${planYearly?'year':'month'}</span></div><div class="pl-alt">${planYearly?p.save+' vs monthly':'or '+p.py+'/year · '+p.save}</div>
+      <ul>${p.f.map(x=>`<li>${x}</li>`).join('')}</ul>
+      <button class="btn ${i===0?'primary':''} pl-go" onclick="planGo('${planYearly?p.ky:p.k}',this)">Get ${p.n}</button></div>`).join('')}</div>
+    <div class="pl-note">Cancel any time from your Account page · first purchases refundable within 14 days · secure checkout by Stripe</div>
+    <div class="foot"><button class="skip" onclick="go(4)">Maybe later — continue free</button><a class="skip" href="pricing.html" style="text-decoration:none">Compare all plans</a></div>
+  </div>`;
+}
+function planGo(k,b){ b.disabled=true; b.textContent='Opening checkout…'; Promise.resolve(TDC_BILLING.checkout(k)).then(ok=>{ if(!ok){ b.disabled=false; b.textContent=b.textContent.replace('Opening checkout…','Get plan'); stepPlan(); } }); }
+
+// ── Step 5: done ──
 function step4(){
   const picks=[...state.interests]; if(!picks.length) picks.push(state.team?'team':'rank','players');
   const links=[]; picks.forEach(k=>{ (LAUNCH[k]?LAUNCH[k](state.team):[]).forEach(l=>{ if(!links.some(x=>x.h===l.h)) links.push(l); }); });
