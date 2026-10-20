@@ -54,7 +54,7 @@ FF = json.load(open(os.path.join(D, "fresh_fit.json")))
 DR = json.load(open(os.path.join(ROOT, "draft-overrides.json")))
 LAD = json.load(open(os.path.join(D, "ovr_display_scale.json")))["ladder"]
 PED = json.load(open(os.path.join(D, "fr_pedigree_2027.json")))
-PL = get("players?select=name,team,espn_id&name=neq.%E2%80%94&order=id.asc")
+PL = get("players?select=name,team,espn_id,depth_order,is_injured&name=neq.%E2%80%94&order=id.asc")
 PR = get(f"predictive_ratings?select=data&season=eq.{SEASON}")[0]["data"]["teams"]
 H = get(f"player_history?select=espn_id,season_year,team,ppg,mpg&season_year=gte.{CUR-2}&espn_id=not.is.null&order=id.asc")
 
@@ -89,6 +89,21 @@ for h in H:
 name_of = {}
 for p in PL:
     if p.get("espn_id") is not None: name_of.setdefault(str(p["espn_id"]), p["name"])
+
+# END OF THE BENCH = 55 (owner, Oct 20 2026: "16-18 don't need to be higher than a 55 unless they are hurt — those are
+# always walk-ons"). Roster spot = place on the team's depth chart counting healthy players only; an injured player
+# (players.is_injured) is never pinned, whatever spot he sits in.
+BENCH_SPOT = 16
+_inj = lambda p: str(p.get("is_injured")).lower() in ("true", "t", "1")
+_byteam = collections.defaultdict(list)
+for p in PL:
+    if p.get("depth_order") is not None and not _inj(p): _byteam[p.get("team")].append(p)
+deep_espn, deep_fresh = set(), set()
+for t, ps in _byteam.items():
+    for i, p in enumerate(sorted(ps, key=lambda p: f(p["depth_order"]))):
+        if i + 1 >= BENCH_SPOT:
+            if p.get("espn_id") is not None: deep_espn.add(str(p["espn_id"]))
+            deep_fresh.add(fk(t, p["name"]))
 
 rows = []
 for e, p in SO.items():
@@ -166,6 +181,9 @@ def ovr(s):
 # the floor (55) by role: full value at 15+ minutes, about half the distance above 55 for a 2-minute player. A ranked
 # recruit's role is the minutes recruits of his rank usually play (mpg_pot), so a buried top recruit keeps his number.
 def ovr_of(r):
+    # (a deep-spot player the projection still gives 8+ minutes is on a depth chart nobody has ordered — Ivy sheets
+    # in sheet order — so the projection's re-rank wins there)
+    if r["mpg"] < 8 and r["key"][1] in (deep_espn if r["key"][0] == "espn" else deep_fresh): return 55
     role = min(1.0, max(r["mpg"], r.get("mpg_pot") or 0.0) / 15.0)
     v = 55 + (ovr(r["s"]) - 55) * (0.4 + 0.6 * role)
     return int(round(max(55, min(99, v))))
