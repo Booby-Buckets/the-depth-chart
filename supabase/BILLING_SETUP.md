@@ -26,6 +26,14 @@ Supabase → Edge Functions → Secrets → add `STRIPE_SECRET_KEY` = that key.
   `customer.subscription.updated` and `customer.subscription.deleted`
   (keep `checkout.session.completed`).
 
+## 4. One subscription per customer (Oct 2026 — a member bought the same plan 6 times)
+The site now refuses to open checkout for an account that already has a paid plan (it opens Manage subscription
+instead) and warns before a second checkout within 45 minutes. Stripe's own setting is the backstop for anyone
+who reaches a payment link directly:
+**Stripe Dashboard → Settings → Payments → Checkout and Payment Links → Subscriptions → "Limit customers to one
+subscription"** → turn it on. Stripe then recognises a returning customer by email and sends them to the customer
+portal instead of charging again. (Requires the customer portal from step 3.)
+
 ## What happens after
 - Cancel in the portal → Stripe fires `customer.subscription.updated` with
   `cancel_at_period_end` (plan kept, `sub_expires_at` = period end), then

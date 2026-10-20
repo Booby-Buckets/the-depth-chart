@@ -26,6 +26,34 @@ window.TDC_BILLING = (function () {
     if (!u || !u.id) return 'pricing.html';
     return base + '?prefilled_email=' + encodeURIComponent(u.email || '') + '&client_reference_id=' + encodeURIComponent(u.id + '__' + planKey);
   }
+  // ONE CHECKOUT PER MEMBER (owner, Oct 2026: a member bought the same plan 6 times). Every buy button goes
+  // through checkout(): a member whose plan is already paid is sent to the billing portal instead of Stripe
+  // Checkout, and a checkout started in the last 45 minutes (payment may still be landing — the plan can take a
+  // minute to unlock) asks before opening a second one. Stripe's own "limit customers to one subscription"
+  // setting is the server-side backstop (see supabase/BILLING_SETUP.md).
+  var PENDING_KEY = 'tdc_checkout_pending', PENDING_MIN = 45;
+  async function freshPlan(s) {
+    try {
+      var r = await fetch(SB + '/rest/v1/profiles?id=eq.' + encodeURIComponent(s.user.id) + '&select=plan', { headers: { apikey: KEY, Authorization: 'Bearer ' + s.access_token } });
+      var d = r.ok ? await r.json() : null; return d && d[0] ? String(d[0].plan || 'free').toLowerCase() : null;
+    } catch (e) { return null; }
+  }
+  async function checkout(planKey) {
+    if (paused()) { location.href = 'pricing.html'; return false; }
+    var s = sess(); if (!s || !s.user || !s.access_token) { location.href = 'pricing.html'; return false; }
+    var plan = await freshPlan(s);
+    if (plan === 'premium' || plan === 'pro' || plan === 'coach') {
+      alert('You already have ' + (plan === 'coach' ? "Coach's Tier" : plan.charAt(0).toUpperCase() + plan.slice(1)) + ' on this account. To switch plans or billing period, use Manage subscription — no second purchase needed.');
+      manage(); return false;
+    }
+    var pend = null; try { pend = JSON.parse(localStorage.getItem(PENDING_KEY) || 'null'); } catch (e) {}
+    if (pend && pend.uid === s.user.id && Date.now() - pend.at < PENDING_MIN * 60000) {
+      var mins = Math.max(1, Math.round((Date.now() - pend.at) / 60000));
+      if (!confirm('You opened checkout ' + mins + ' minute' + (mins > 1 ? 's' : '') + ' ago. If you finished paying, your plan can take a minute to unlock — check your email for a Stripe receipt and refresh this page instead of paying again.\n\nOpen checkout anyway?')) return false;
+    }
+    try { localStorage.setItem(PENDING_KEY, JSON.stringify({ uid: s.user.id, plan: planKey, at: Date.now() })); } catch (e) {}
+    location.href = link(planKey); return true;
+  }
   function esc(s) { return ('' + (s == null ? '' : s)).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function css() {
     if (document.getElementById('tdc-billing-css')) return;
@@ -77,7 +105,7 @@ window.TDC_BILLING = (function () {
     if (!paid) {
       return '<div class="tdcb"><div class="h">Subscription</div><div class="kv"><span>Plan <b>Free</b></span></div>' +
         (paused() ? '<div class="note" style="margin-top:12px">Premium and Pro subscriptions are coming soon — sign-ups are paused while we finish checkout. <a href="pricing.html" style="color:inherit">See what’s included</a>.</div></div>' :
-        '<div class="row"><a class="b primary" href="' + link('monthly') + '">Go Premium · $4.99/mo</a><a class="b" href="' + link('pro_monthly') + '">Go Pro · $8.99/mo</a><a class="b" href="pricing.html">Compare plans</a></div>' +
+        '<div class="row"><a class="b primary" href="pricing.html" onclick="TDC_BILLING.checkout(\'monthly\');return false;">Go Premium · $4.99/mo</a><a class="b" href="pricing.html" onclick="TDC_BILLING.checkout(\'pro_monthly\');return false;">Go Pro · $8.99/mo</a><a class="b" href="pricing.html">Compare plans</a></div>' +
         '<div class="note">Access unlocks on this account automatically, whatever email you pay with.</div></div>');
     }
     return '<div class="tdcb"><div class="h">Subscription</div>' +
@@ -89,5 +117,5 @@ window.TDC_BILLING = (function () {
       '<div class="msg"></div>' +
       '<div class="note">Opens Stripe’s secure billing portal: cancel any time (you keep access to the end of the period), switch Premium ⇄ Pro or monthly ⇄ yearly, update your card, and download invoices. First purchases can be refunded within 14 days — <a href="refund.html" style="color:inherit;text-decoration:underline;">refund policy</a>.' + (plan === 'coach' ? ' Coach’s Tier is invoiced directly — email us for changes.' : '') + '</div></div>';
   }
-  return { manage: manage, panel: panel, link: link, LINKS: LINKS };
+  return { manage: manage, panel: panel, link: link, checkout: checkout, LINKS: LINKS };
 })();
