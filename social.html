@@ -2211,41 +2211,114 @@
     var aL=Math.atan2(-(CORNY-HOOPY),CX-25), aR=Math.atan2(-(CORNY-HOOPY),25-CX);   // three-point line: corners + arc
     ctx.beginPath(); ctx.moveTo(X(CX),Y(0)); ctx.lineTo(X(CX),Y(CORNY)); ctx.arc(X(25),Y(HOOPY),R3*s,aL,aR,false); ctx.lineTo(X(50-CX),Y(0)); ctx.stroke();
     ctx.restore(); return h; }
-  async function drawShotPage(team,season,side,W,H,u,pad,title,sub,src){
-    var yr=(+season-1)+'-'+String(season).slice(2), data=await teamShots(team,season), shots=side==='def'?data.def:data.off, nm=school(team);
-    var y0=sheetHead(W,H,u,pad,title||(nm+(side==='def'?': what they allow':': where the shots come from')),sub||(yr+' · '+(side==='def'?'opponents’ shots':'every '+nm+' shot')+' · '+shots.length.toLocaleString()+' attempts'));
-    var fTop=sheetFoot(W,H,u,pad,src||('ESPN shot locations, '+yr+' · hexes sized by volume, coloured by FG% vs the D-I average for that spot'),rampLegend(u,HEAT_RAMP,side==='def'?'OPP FG% VS D-I':'FG% VS D-I',side==='def'?'Hot':'Cold',side==='def'?'Cold':'Hot'));
+  // ── more shot-chart styles (owner, Oct 20 2026: "add the multiple different shot charts"): the site's 12-zone chart,
+  // a heat map, every shot as a make/miss dot and "where the shots moved" vs the season before — plus single players.
+  var ANG_TOP=22.5, ANG_CB=Math.atan2(25-CX,CORNY-HOOPY)*180/Math.PI;
+  var Z12={ ra:'Restricted area', paint:'Paint', mt:'Top mid-range', mwl:'Left wing mid', mwr:'Right wing mid', mbl:'Left baseline mid', mbr:'Right baseline mid', c3l:'Left corner 3', c3r:'Right corner 3', w3l:'Left wing 3', w3r:'Right wing 3', t3:'Top of the key 3' };
+  var Z12AT={ ra:[25,7.2], paint:[25,14.6], mt:[25,22.5], mwl:[11.8,18.5], mwr:[38.2,18.5], mbl:[9.5,7.5], mbr:[40.5,7.5], c3l:[1.7,6], c3r:[48.3,6], w3l:[6.5,27.5], w3r:[43.5,27.5], t3:[25,31.5] };
+  function z12(fx,fy,sv,dist){ var dx=fx-25, dy=fy-HOOPY, d=dist!=null&&dist>=0?dist:Math.hypot(dx,dy), ang=Math.atan2(Math.abs(dx),dy)*180/Math.PI;
+    if(sv===3){ if(fy<=CORNY-.4) return dx<0?'c3l':'c3r'; return ang<ANG_TOP?'t3':(dx<0?'w3l':'w3r'); }
+    if(d<=4) return 'ra'; if(fx>=19&&fx<=31&&fy<=19) return 'paint'; if(ang<ANG_TOP) return 'mt'; if(ang<ANG_CB) return dx<0?'mwl':'mwr'; return dx<0?'mbl':'mbr'; }
+  function isThreeAt(fx,fy){ return (fy<=CORNY&&(fx<CX||fx>50-CX))||(fy>CORNY&&Math.hypot(fx-25,fy-HOOPY)>R3); }
+  function shotFxy(s){ return [s.x==null?25:+s.x,(s.y==null?0:+s.y)+HOOPY]; }
+  function courtLines(x0,y0,w){ var s=w/50, h=YTOP*s, X=function(fx){ return x0+fx*s; }, Y=function(fy){ return y0+(YTOP-fy)*s; }, lw=Math.max(1.4,s*.16);
+    ctx.save(); ctx.beginPath(); ctx.rect(x0,y0,w,h); ctx.clip(); ctx.strokeStyle=P.mut; ctx.lineWidth=lw; ctx.globalAlpha=.8;
+    ctx.strokeRect(x0+lw/2,y0+lw/2,w-lw,h-lw); ctx.strokeRect(X(19),Y(19),12*s,19*s);
+    ctx.beginPath(); ctx.arc(X(25),Y(19),6*s,Math.PI,2*Math.PI); ctx.stroke(); ctx.beginPath(); ctx.moveTo(X(22),Y(4)); ctx.lineTo(X(28),Y(4)); ctx.stroke();
+    ctx.beginPath(); ctx.arc(X(25),Y(HOOPY),.75*s,0,2*Math.PI); ctx.stroke(); ctx.beginPath(); ctx.arc(X(25),Y(HOOPY),4*s,Math.PI,2*Math.PI); ctx.stroke();
+    var aL=Math.atan2(-(CORNY-HOOPY),CX-25), aR=Math.atan2(-(CORNY-HOOPY),25-CX);
+    ctx.beginPath(); ctx.moveTo(X(CX),Y(0)); ctx.lineTo(X(CX),Y(CORNY)); ctx.arc(X(25),Y(HOOPY),R3*s,aL,aR,false); ctx.lineTo(X(50-CX),Y(0)); ctx.stroke(); ctx.restore(); return h; }
+  // shot density on a 0.5 ft grid, Gaussian-smoothed (sigma ~1.5 ft), as a share of all shots
+  function density(shots){ var G=0.5, nx=100, ny=Math.ceil(YTOP/G), a=new Float32Array(nx*ny), sg=1.5, R=Math.ceil(3*sg/G), n=0;
+    shots.forEach(function(sh){ var p=shotFxy(sh); if(p[1]>YTOP||p[0]<0||p[0]>50) return; n++; var ci=Math.floor(p[0]/G), cj=Math.floor(p[1]/G);
+      for(var i=Math.max(0,ci-R);i<=Math.min(nx-1,ci+R);i++) for(var j=Math.max(0,cj-R);j<=Math.min(ny-1,cj+R);j++){ var dx=(i+.5)*G-p[0], dy=(j+.5)*G-p[1]; a[j*nx+i]+=Math.exp(-(dx*dx+dy*dy)/(2*sg*sg)); } });
+    if(n) for(var k=0;k<a.length;k++) a[k]/=n; return { a:a, nx:nx, ny:ny, G:G, n:n }; }
+  function paintGrid(x0,y0,w,D,colorOf){ var s=w/50; for(var j=0;j<D.ny;j++) for(var i=0;i<D.nx;i++){ var c=colorOf(D.a[j*D.nx+i],i,j); if(!c) continue; ctx.fillStyle=c;
+      ctx.fillRect(x0+i*D.G*s,y0+(YTOP-(j+1)*D.G)*s,D.G*s+.6,D.G*s+.6); } }
+  function teamInk(team){ var c=window.tdcTeamColor&&tdcTeamColor(team)||{}, a=c.c1||'#2d5fa8', b=c.c2||a, pick=lum(a)>.06||lum(b)<=.06?a:b; return S.theme==='dark'&&lum(pick)<.12?shade(pick,.45):pick; }
+  function drawCourt2(x0,y0,w,shots,o){ var s=w/50, h=YTOP*s, X=function(fx){ return x0+fx*s; }, Y=function(fy){ return y0+(YTOP-fy)*s; };
+    ctx.save(); ctx.fillStyle=P.chip; ctx.fillRect(x0,y0,w,h); ctx.beginPath(); ctx.rect(x0,y0,w,h); ctx.clip();
+    if(o.style==='zones'){ var Z={}, n=0; shots.forEach(function(sh){ var p=shotFxy(sh); if(p[1]>YTOP) return; var z=z12(p[0],p[1],+sh.sv,sh.dist), q=Z[z]||(Z[z]={ a:0, m:0 }); q.a++; if(sh.made) q.m++; n++; });
+      var mxs=Math.max.apply(null,Object.keys(Z).map(function(k){ return Z[k].a/n; }).concat([.01])), ink=hexRgb(teamInk(o.team)), base=S.theme==='dark'?[22,28,43]:[236,234,228];
+      var D={ a:null, nx:200, ny:Math.ceil(YTOP/.25), G:.25 };
+      paintGrid(x0,y0,w,{ a:{ length:0 }, nx:D.nx, ny:D.ny, G:D.G },function(v,i,j){ var fx=(i+.5)*D.G, fy=(j+.5)*D.G, z=z12(fx,fy,isThreeAt(fx,fy)?3:2), q=Z[z]; var t=q?.12+.88*(q.a/n)/mxs:0;
+        return 'rgb('+base.map(function(b,k){ return Math.round(b+(ink[k]-b)*t*.85); }).join(',')+')'; });
+      ctx.restore();
+      // zone borders: the 3-pt line is drawn; add the rays + paint box edges the zones use
+      ctx.save(); ctx.beginPath(); ctx.rect(x0,y0,w,h); ctx.clip(); ctx.strokeStyle=S.theme==='dark'?'rgba(255,255,255,.55)':'rgba(255,255,255,.9)'; ctx.lineWidth=Math.max(1.5,s*.14);
+      [ANG_TOP,ANG_CB].forEach(function(a){ [-1,1].forEach(function(sg){ var r=a*Math.PI/180; ctx.beginPath(); ctx.moveTo(X(25+sg*4*Math.sin(r)),Y(HOOPY+4*Math.cos(r))); ctx.lineTo(X(25+sg*60*Math.sin(r)),Y(HOOPY+60*Math.cos(r))); ctx.stroke(); }); });
+      ctx.restore(); courtLines(x0,y0,w);
+      Object.keys(Z).forEach(function(z){ var q=Z[z], at=Z12AT[z]; if(!at||q.a<3) return; var cx=X(at[0]), cy=Y(at[1]), small=/^c3/.test(z), t=(q.a/n)/mxs, dark=t>.55&&lum('#'+ink.map(function(v){ return ('0'+v.toString(16)).slice(-2); }).join(''))<.35;
+        var fc=dark?'#FFFFFF':P.text, f1=Math.min(s*(small?.95:1.25),30*F()), f2=f1*.62;
+        txt(Math.round(100*q.m/q.a)+'%',cx,cy-f2*.45,{ w:800,px:f1,serif:'cond',c:fc,al:'center' }); txt(q.m+'-'+q.a,cx,cy+f1*.62,{ w:600,px:f2,serif:'barlow',c:dark?'rgba(255,255,255,.85)':P.text2,al:'center' }); });
+      return h; }
+    if(o.style==='heat'){ var D2=density(shots), mx=0; for(var k=0;k<D2.a.length;k++) if(D2.a[k]>mx) mx=D2.a[k];
+      var cap=mx*.55, FIRE=[[255,236,180],[255,186,84],[238,104,44],[176,28,32]];   // capped so the rim doesn't wash out everything else
+      paintGrid(x0,y0,w,D2,function(v){ var t=Math.min(1,v/cap); if(t<.06) return null; var c=ramp(FIRE,t); return 'rgba('+c.join(',')+','+Math.min(.92,.25+t*.8).toFixed(2)+')'; });
+      ctx.restore(); courtLines(x0,y0,w); return h; }
+    if(o.style==='dots'){ var r=Math.max(2,s*.42); ctx.lineWidth=Math.max(1.2,s*.12);
+      shots.forEach(function(sh){ if(sh.made) return; var p=shotFxy(sh); if(p[1]>YTOP) return; var cx=X(p[0]), cy=Y(p[1]); ctx.strokeStyle='rgba(205,70,60,.55)'; ctx.beginPath(); ctx.moveTo(cx-r*.7,cy-r*.7); ctx.lineTo(cx+r*.7,cy+r*.7); ctx.moveTo(cx+r*.7,cy-r*.7); ctx.lineTo(cx-r*.7,cy+r*.7); ctx.stroke(); });
+      shots.forEach(function(sh){ if(!sh.made) return; var p=shotFxy(sh); if(p[1]>YTOP) return; ctx.beginPath(); ctx.arc(X(p[0]),Y(p[1]),r,0,7); ctx.fillStyle='rgba(40,150,85,.78)'; ctx.fill(); });
+      ctx.restore(); courtLines(x0,y0,w); return h; }
+    if(o.style==='shift'){ var A=density(shots), B=density(o.prev||[]), md=0, df=new Float32Array(A.a.length); for(var k2=0;k2<df.length;k2++){ df[k2]=A.a[k2]-B.a[k2]; if(Math.abs(df[k2])>md) md=Math.abs(df[k2]); }
+      var cp=md*.6, MORE=[214,108,40], LESS=[46,104,186];
+      paintGrid(x0,y0,w,{ a:df, nx:A.nx, ny:A.ny, G:A.G },function(v){ var t=Math.min(1,Math.abs(v)/cp); if(t<.08) return null; return 'rgba('+(v>0?MORE:LESS).join(',')+','+(t*.85).toFixed(2)+')'; });
+      ctx.restore(); courtLines(x0,y0,w); return h; }
+    ctx.restore(); return drawCourt(x0,y0,w,shots,o.defense); }
+  // the shots for a team (offense / defense) or a player, any season
+  async function playerShots(espn,season){ var k='p'+espn+'|'+season; if(SHOTS[k]) return SHOTS[k];
+    var off=await sbGet('shots?espn_id=eq.'+espn+'&season_year=eq.'+season+'&select=x,y,made,sv,dist&limit=4000'), res={ off:off||[], def:[] }; if(res.off.length) SHOTS[k]=res; return res; }
+  async function shotsFor(d,season){ if(d.who==='player'){ await players(); var m=String(d.player||'').split(' — '), p=findPlayer(m[0],m[1]); if(!p||!p.espn_id) throw new Error('Pick a player with an ESPN id from the list.'); return playerShots(p.espn_id,season); }
+    return teamShots(d.team,season); }
+  function zoneSummary12(shots){ var Z={}, n=shots.length; shots.forEach(function(s){ var p=shotFxy(s), z=z12(p[0],p[1],+s.sv,s.dist), o=Z[z]||(Z[z]={ a:0, m:0 }); o.a++; if(s.made) o.m++; }); return { Z:Z, n:n }; }
+  var SSTYLE=[['zones','Zones (12 spots, FG% + volume)'],['hex','Hexes (FG% vs D-I)'],['heat','Heat map (where they shoot)'],['dots','Every shot (makes + misses)'],['shift','Where the shots moved (vs last season)']];
+  async function drawShotPage(d,season,side,W,H,u,pad){
+    var style=d.style||'zones', yr=(+season-1)+'-'+String(season).slice(2), pyr=(+season-2)+'-'+String(+season-1).slice(2), data=await shotsFor(d,season), shots=side==='def'?data.def:data.off;
+    var nm=d.who==='player'?String(d.player||'').split(' — ')[0]:school(d.team), tm=d.who==='player'?(String(d.player||'').split(' — ')[1]||''):d.team;
+    var prev=null; if(style==='shift'){ try{ var pd=await shotsFor(d,String(+season-1)); prev=side==='def'?pd.def:pd.off; }catch(e){ prev=[]; } }
+    var T0={ zones:side==='def'?': what they allow':': where the shots come from', hex:side==='def'?': what they allow':': shot chart', heat:side==='def'?': where opponents shoot':': shot heat map', dots:side==='def'?': every shot they allowed':': every shot', shift:': where the shots moved' }[style];
+    var sub=style==='shift'?(yr+' vs '+pyr+' · share of '+(side==='def'?'opponents’ ':'')+'shots by spot'):(yr+' · '+(side==='def'?'opponents’ shots':(d.who==='player'?'every shot':'every '+nm+' shot'))+' · '+shots.length.toLocaleString()+' attempts');
+    var y0=sheetHead(W,H,u,pad,d.title||(nm+T0),d.subtitle||sub);
+    var SRC={ zones:'shaded by share of shots · big number = FG% · made-att', hex:'hexes sized by volume, coloured by FG% vs the D-I average for that spot', heat:'darker = more shots from that spot', dots:'green dot = make · red × = miss', shift:'orange = more of the shots than '+pyr+' · blue = fewer' }[style];
+    var LEG=style==='hex'?rampLegend(u,HEAT_RAMP,side==='def'?'OPP FG% VS D-I':'FG% VS D-I',side==='def'?'Hot':'Cold',side==='def'?'Cold':'Hot'):style==='heat'?rampLegend(u,[[255,236,180],[255,186,84],[238,104,44],[176,28,32]],'SHOTS','Few','Most'):style==='shift'?rampLegend(u,[[46,104,186],[200,200,200],[214,108,40]],'VS '+pyr,'Fewer','More'):null;
+    var fTop=sheetFoot(W,H,u,pad,d.src||('ESPN shot locations, '+yr+' · '+SRC),LEG);
     if(!shots.length){ txt(window.tdcOwnerToken&&tdcOwnerToken()?'No located shots for '+nm+' in '+yr:'Sign in to load shot charts (shot data is members-only)',W/2,(y0+fTop)/2,{ px:26*u,c:P.mut,al:'center' }); return; }
     var land=W>H*1.2, Z=zoneSummary(shots), tw=land?(W-pad*2)*.36:W-pad*2, cw=land?Math.min((W-pad*2)-tw-36*u,(fTop-y0)*50/YTOP):Math.min(W-pad*2,(fTop-y0-Z.length*48*u-70*u)*50/YTOP);
     var ch=cw*YTOP/50, cx=land?pad:(W-cw)/2;
-    drawCourt(cx,y0,cw,shots,side==='def');
-    // the zone table: share of shots, FG%, gap to D-I
+    drawCourt2(cx,y0,cw,shots,{ style:style, defense:side==='def', team:tm||d.team, prev:prev });
+    // the zone table: share of shots, FG%, gap to D-I (or, for the shift, last season's share -> this season's)
     var tx=land?pad+cw+36*u:pad, ty=land?y0:y0+ch+24*u, rw=land?tw:W-pad*2, rh2=land?Math.min(64*u,ch/(Z.length+1)):44*u;
-    var cols=[['SHOTS',.55],['FG%',.72],['VS D-I',.9]];
+    var PZ=style==='shift'&&prev&&prev.length?zoneSummary(prev):null, pz={}; (PZ||[]).forEach(function(z){ pz[z.z]=z; });
+    var cols=PZ?[[pyr,.55],[yr,.72],['CHANGE',.9]]:[['SHOTS',.55],['FG%',.72],['VS D-I',.9]];
     txt('ZONE',tx,ty+rh2*.5,{ w:700,px:15*u,serif:'barlow',c:P.text2,ls:1*u }); cols.forEach(function(c){ txt(c[0],tx+rw*c[1],ty+rh2*.5,{ w:700,px:15*u,serif:'barlow',c:P.text2,al:'center',ls:1*u }); });
     Z.forEach(function(z,i){ var yy=ty+rh2*(i+1), cy=yy+rh2/2; if(i%2===0){ ctx.fillStyle=P.alt; ctx.fillRect(tx,yy,rw,rh2); }
       txt(z.lbl,tx+8*u,cy,{ w:700,px:19*u,serif:'barlow',c:P.text,max:rw*.42 });
+      if(PZ){ var was=pz[z.z]?pz[z.z].share:0, ch2=z.share-was, c0=ramp([[46,104,186],[220,220,220],[214,108,40]],.5+ch2/.16);
+        txt(Math.round(was*100)+'%',tx+rw*.55,cy,{ w:600,px:19*u,serif:'barlow',c:P.text2,al:'center' }); txt(Math.round(z.share*100)+'%',tx+rw*.72,cy,{ w:600,px:19*u,serif:'barlow',c:P.text2,al:'center' });
+        ctx.fillStyle=rgbS(c0); ctx.fillRect(tx+rw*.82,yy+4*u,rw*.16,rh2-8*u); txt((ch2>=0?'+':'−')+Math.abs(ch2*100).toFixed(1),tx+rw*.9,cy,{ w:800,px:19*u,serif:'barlow',c:inkOn(c0),al:'center' }); return; }
       txt(Math.round(z.share*100)+'%',tx+rw*.55,cy,{ w:600,px:19*u,serif:'barlow',c:P.text2,al:'center' });
       txt((z.fg*100).toFixed(1)+'%',tx+rw*.72,cy,{ w:600,px:19*u,serif:'barlow',c:P.text2,al:'center' });
       var dd=side==='def'?-z.d:z.d, c=ramp(HEAT_RAMP,.5+dd/.16); ctx.fillStyle=rgbS(c); ctx.fillRect(tx+rw*.82,yy+4*u,rw*.16,rh2-8*u);
       txt((z.d>=0?'+':'−')+Math.abs(z.d*100).toFixed(1),tx+rw*.9,cy,{ w:800,px:19*u,serif:'barlow',c:inkOn(c),al:'center' }); });
     return Z; }
   T.shotchart={
-    defaults:function(){ return { team:'', season:'2026', side:'both', title:'', subtitle:'', src:'' }; },
-    pages:function(d){ return d.side==='both'?2:1; },
-    load:async function(d){ if(!d.team){ status('Pick a team to load its shots.'); return; } await teamShots(d.team,d.season); d.title=''; d.subtitle=''; },
+    defaults:function(){ return { who:'team', team:'', player:'', season:'2026', side:'both', style:'zones', title:'', subtitle:'', src:'' }; },
+    pages:function(d){ return d.who!=='player'&&d.side==='both'?2:1; },
+    load:async function(d){ if(d.who==='player'?!d.player:!d.team){ status(d.who==='player'?'Pick a player to load his shots.':'Pick a team to load its shots.'); return; } await shotsFor(d,d.season); d.title=''; d.subtitle=''; },
     editor:function(d){
-      return '<h3>Data</h3><label class="f">Team</label><input data-k="team" list="tmList" value="'+esc(d.team||'')+'" placeholder="Pick a team">'+
+      return '<h3>Data</h3><div class="two"><div><label class="f">Chart for</label><select data-k="who"><option value="team"'+(d.who!=='player'?' selected':'')+'>A team</option><option value="player"'+(d.who==='player'?' selected':'')+'>A player</option></select></div>'+
+        '<div><label class="f">Style</label><select data-k="style">'+SSTYLE.map(function(x){ return '<option value="'+x[0]+'"'+((d.style||'zones')===x[0]?' selected':'')+'>'+x[1]+'</option>'; }).join('')+'</select></div></div>'+
+        (d.who==='player'?'<label class="f">Player</label><input data-k="player" list="plList" value="'+esc(d.player||'')+'" placeholder="Start typing a name…">':'<label class="f">Team</label><input data-k="team" list="tmList" value="'+esc(d.team||'')+'" placeholder="Pick a team">')+
         '<div class="two"><div><label class="f">Season</label><select data-k="season">'+['2026','2025','2024','2023','2022'].map(function(y){ return '<option value="'+y+'"'+(String(d.season)===y?' selected':'')+'>'+(y-1)+'-'+y.slice(2)+'</option>'; }).join('')+'</select></div>'+
-        '<div><label class="f">Show</label><select data-k="side">'+[['both','Offense + defense (2 pages)'],['off','Their shots'],['def','What they allow']].map(function(x){ return '<option value="'+x[0]+'"'+(d.side===x[0]?' selected':'')+'>'+x[1]+'</option>'; }).join('')+'</select></div></div>'+
-        '<div class="hint">Real shot locations (members-only data, so you need to be signed in). Hexes are sized by how often they shoot from that spot and coloured by FG% against the D-I average there.</div>'+
+        (d.who==='player'?'':'<div><label class="f">Show</label><select data-k="side">'+[['both','Offense + defense (2 pages)'],['off','Their shots'],['def','What they allow']].map(function(x){ return '<option value="'+x[0]+'"'+(d.side===x[0]?' selected':'')+'>'+x[1]+'</option>'; }).join('')+'</select></div>')+'</div>'+
+        '<div class="hint">Real shot locations (members-only data, so you need to be signed in). Zones = the site’s 12-spot chart; Hexes = FG% vs D-I; Heat = where the shots come from; Every shot = makes and misses; Where the shots moved = this season vs the one before.</div>'+
         '<div class="btns"><button class="b sm primary" data-act="load">Load shots</button></div>'+
         '<h3>Text</h3><label class="f">Title (blank = automatic)</label><input data-k="title" value="'+esc(d.title)+'"><label class="f">Subtitle</label><input data-k="subtitle" value="'+esc(d.subtitle)+'">'+lookUI(d,{ rows:false });
     },
     draw:async function(d,W,H,u,pad){ bg(W,H);
-      if(!d.team){ sheetHead(W,H,u,pad,'Team shot chart','Pick a team on the left'); foot(W,H,u,pad); return ''; }
-      var side=d.side==='both'?(PG?'def':'off'):d.side, Z=await drawShotPage(d.team,d.season,side,W,H,u,pad,d.title,d.subtitle)||[];
-      var best=Z.slice().sort(function(a,b){ return b.d-a.d; })[0], nm=school(d.team);
+      if(d.who==='player'?!d.player:!d.team){ sheetHead(W,H,u,pad,d.who==='player'?'Player shot chart':'Team shot chart',d.who==='player'?'Pick a player on the left':'Pick a team on the left'); foot(W,H,u,pad); return ''; }
+      var side=d.who==='player'?'off':d.side==='both'?(PG?'def':'off'):d.side, Z=await drawShotPage(d,d.season,side,W,H,u,pad)||[];
+      var best=Z.slice().sort(function(a,b){ return b.d-a.d; })[0], nm=d.who==='player'?String(d.player).split(' — ')[0]:school(d.team);
       return nm+(side==='def'?': the shots they allow':': where the shots come from')+' ('+(d.season-1)+'-'+String(d.season).slice(2)+')'+(best?'\n\n'+(side==='def'?'Where opponents shoot best: ':'Hottest spot: ')+best.lbl.toLowerCase()+' ('+(best.fg*100).toFixed(1)+'%, '+(best.d>=0?'+':'')+(best.d*100).toFixed(1)+' vs D-I)':'')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB'; }
   };
 
@@ -2500,7 +2573,7 @@
   document.addEventListener('toggle',function(e){ var el=e.target; if(el.classList&&el.classList.contains('sec')&&el.dataset.sec&&el.closest('#editor')){ (S.fold=S.fold||{})[el.dataset.sec]=el.open; save(); } },true);
   function syncControls(){ paintLib();
     $('size').value=S.size; $('theme').value=S.theme; $('shots').checked=S.shots; $('handle').value=S.handle; $('brandLogo').checked=S.brandLogo!==false; }
-  var AUTO={ rgrid:['team','n'], sched:['team'], shotchart:['team','season'], list:['src','stat','season'], posts:['key','team','conf','n','season','dir','pstat','tier','pcls'], cards:['metric','season','who','minFga','n','conf','team','mix'], leaders:['metric','season','who','minFga','n','conf','team','mix'], heat:['metric','season','n','conf','team','mix'], lineups:['metric','season','minPoss','n','conf','team'], teams:['sort','n','conf'], depth:['team'], table:['src','stat','season','team','conf','n','mix'], money:['mode','n','conf','team'], crunch:['dir','who','n','min','conf','team','sort'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf','team'], after:['season','team','conf'], confodds:['conf','n'], nil:['mode','n','minMpg','conf','team'] };   // charts whose rows come from a load
+  var AUTO={ rgrid:['team','n'], sched:['team'], shotchart:['team','player','who','season','style'], list:['src','stat','season'], posts:['key','team','conf','n','season','dir','pstat','tier','pcls'], cards:['metric','season','who','minFga','n','conf','team','mix'], leaders:['metric','season','who','minFga','n','conf','team','mix'], heat:['metric','season','n','conf','team','mix'], lineups:['metric','season','minPoss','n','conf','team'], teams:['sort','n','conf'], depth:['team'], table:['src','stat','season','team','conf','n','mix'], money:['mode','n','conf','team'], crunch:['dir','who','n','min','conf','team','sort'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf','team'], after:['season','team','conf'], confodds:['conf','n'], nil:['mode','n','minMpg','conf','team'] };   // charts whose rows come from a load
   async function autoLoad(){ var d=doc(), R=d.rows||d.starters;   // depth charts keep their players in starters / bench
     if(AUTO[S.tpl]&&R&&(!R.length||(d._lv!==LOAD_VER&&!d._edited))&&(R.length||!d.starters||d.team)){ try{ await T[S.tpl].load(d); stamp(d); save(); paintEditor(); }catch(e){ status(e.message,true); } } }
   $('tplSeg').addEventListener('click',async function(e){ var b=e.target.closest('button[data-v]'); if(!b) return; S.tpl=b.dataset.v; S.page=0;
