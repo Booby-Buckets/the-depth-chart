@@ -585,6 +585,13 @@ for _k,_v in OWNER_BLOB.items():
     if _k.startswith("tdc_fr:") and isinstance(_v,dict) and _v.get("mpg") not in (None,""):
         try: _,_ft,_fn=_k.split(":",2); FIXED_MIN[(_ft.strip(),_fn.strip().lower())]=min(float(_v["mpg"]),40.0)
         except Exception: pass
+# ...and minutes the owner asked for on ANY player (returners and transfers too; owner, Oct 20 2026: "give Dortch more
+# minutes and take some from Duncomb") — scripts/data/minutes_overrides_<season>.json {team: {name: mpg}}
+try:
+    for _ft,_pl in json.load(open(os.path.join(D,"minutes_overrides_%d.json"%(CUR+1)))).items():
+        if _ft.startswith("_") or not isinstance(_pl,dict): continue
+        for _fn,_mv in _pl.items(): FIXED_MIN[(_ft.strip(),_fn.strip().lower())]=min(float(_mv),40.0)
+except FileNotFoundError: pass
 def _owner_out():
     blob=OWNER_BLOB
     out=set()
@@ -1973,9 +1980,10 @@ for short, roster in roster_by_team.items():
                 _kk=_fx/_f["mpg"]; _f["mpg"]=round(_fx,1); _f["ppg"]=round(_f.get("ppg",0)*_kk,1)
                 if _f.get("pos_min"): _f["pos_min"]={c:round(v*_kk,1) for c,v in _f["pos_min"].items()}
         _rot=[("r",rr) for rr in _Rk if str(rr["e"]) in out]+[("f",nm) for nm in list(FRESH_FIT.get(short,{}).keys())]
-        _fixed=[k=="f" and (short,x.strip().lower()) in FIXED_MIN for k,x in _rot]
+        _fkey=lambda k,x: (short,(x["p"].name if k=="r" else x).strip().lower())
+        _fixed=[_fkey(k,x) in FIXED_MIN for k,x in _rot]
         _m0=[(out[str(x["e"])]["mpg"] if k=="r" else FRESH_FIT[short][x]["mpg"]) or 0.0 for k,x in _rot]
-        _cur=list(_m0)
+        _cur=[FIXED_MIN[_fkey(k,x)] if (k=="r" and _fixed[i]) else _m0[i] for i,(k,x) in enumerate(_rot)]   # a returner's fixed minutes
         # scrimmage rotation evidence (Reality-weighted) nudges minutes BEFORE the team is balanced to 200
         for i,(k,x) in enumerate(_rot):
             if _fixed[i]: continue
