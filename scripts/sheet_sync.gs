@@ -341,7 +341,7 @@ function syncToSupabase() {
   var MIN_EXPECTED = 800;
   if (totalPlayers >= MIN_EXPECTED && skippedTabs === 0) {
     cleanTeams.forEach(function (t) {
-      sbDelete('/rest/v1/players?team=eq.' + encodeURIComponent(t) + '&updated_at=lt.' + encodeURIComponent(SYNC_START));
+      sbDelete('/rest/v1/players?team=eq.' + encodeURIComponent(t) + '&updated_at=lt.' + encodeURIComponent(SYNC_START) + '&site_added_at=is.null');   // players added on the website (depth chart editor) stay
     });
     Logger.log('Departed-player cleanup ran for ' + cleanTeams.length + ' of ' + totalTeams + ' teams (synced ' + totalPlayers + ' players).');
   } else {

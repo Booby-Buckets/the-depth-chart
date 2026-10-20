@@ -88,7 +88,7 @@ function syncMoreConferences() {
         insertLosses(team);
         var res = insertPlayers(team);
         if (res.bad === 0) {
-          sbDelete('/rest/v1/players?team=eq.' + encodeURIComponent(team.name) + '&updated_at=lt.' + encodeURIComponent(start));
+          sbDelete('/rest/v1/players?team=eq.' + encodeURIComponent(team.name) + '&updated_at=lt.' + encodeURIComponent(start) + '&site_added_at=is.null');   // website-added players stay
         } else {
           kept.push(team.name);
           Logger.log('⚠️ ' + team.name + ': ' + real + ' parsed, ' + res.saved + ' saved, ' + res.bad + ' failed — existing roster KEPT.');
