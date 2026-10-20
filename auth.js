@@ -96,7 +96,7 @@ window.TDC_PAYWALL_ENABLED = false;
   // ── SALES SWITCH (owner, Oct 18 2026: "subscriptions suspended until checkout works") ──
   // true = nobody can buy a plan: pricing / account / billing buttons say "coming soon" and no Stripe link opens.
   // The owner is exempt so checkout can still be tested. Flip to false to reopen sales everywhere.
-  window.TDC_SALES_PAUSED = true;
+  window.TDC_SALES_PAUSED = false;   // reopened Oct 19 2026 (one-checkout-per-member guard + webhook v14 in place)
   window.tdcSalesPaused = function () { return !!window.TDC_SALES_PAUSED && !window.tdcIsOwner(); };
 
   // ── OWNER-ONLY pages (owner, Oct 18 2026: "lock the dynasty and fantasy modes for everyone but my account") ──
