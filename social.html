@@ -2455,12 +2455,22 @@
               A.cn=pr.rows.filter(isConf).length; A.cw=ew(wi.rating,isConf); B.cw=ew(wo.rating,isConf);
               A.tn=pr.rows.filter(isTop).length; A.tw=ew(wi.rating,isTop); B.tw=ew(wo.rating,isTop); } }catch(e){ console.warn('sched',e); }
           var sg=function(v,dec){ return (v>=0?'+':'\u2212')+Math.abs(v).toFixed(dec==null?1:dec); }, pc=function(v){ return v==null?'':v.toFixed(0)+'%'; };
-          d.cmp=[{ lab:'Power rating', wo:sg(B.rating), wi:sg(A.rating), ch:sg(A.rating-B.rating), up:A.rating>=B.rating },
+          // ADJUSTED OFFENSE / DEFENSE (owner, Oct 20 2026: "add AdjO and AdjD"): the team's projected ORtg / DRtg (team_dna
+          // 2027, with him on the roster). Without him: the rating change, put per 100 possessions at the team's tempo, split
+          // between the two ends by his own offensive vs defensive Wins Added (proj_wa vs dwa; 60/40 when unknown).
+          var adj=null; try{ var DN=await dna(), dt=DN[tr.full]||DN[p.team]; if(dt&&dt.ORtg!=null&&dt.DRtg!=null){
+            var d100=(A.rating-B.rating)*100/(+dt.tempo||68.5), twa=+(L.proj_wa!=null?L.proj_wa:L.pwa), dwa=+L.dwa, offSh=isFinite(twa)&&twa>0&&isFinite(dwa)?Math.max(0,Math.min(1,(twa-dwa)/twa)):.6;
+            var oW=+dt.ORtg, dW=+dt.DRtg, oB=oW-d100*offSh, dB=dW+d100*(1-offSh);
+            var all=Object.keys(DN).map(function(k){ return DN[k]; }).filter(function(x){ return x!==dt&&x.ORtg!=null&&x.DRtg!=null; });
+            var oR=function(v){ return 1+all.filter(function(x){ return x.ORtg>v; }).length; }, dR=function(v){ return 1+all.filter(function(x){ return x.DRtg<v; }).length; };
+            adj=[{ lab:'AdjO (pts / 100 poss)', wo:oB.toFixed(1)+'  #'+oR(oB), wi:oW.toFixed(1)+'  #'+oR(oW), ch:sg(oW-oB), up:oW>=oB },
+              { lab:'AdjD (allowed / 100 poss)', wo:dB.toFixed(1)+'  #'+dR(dB), wi:dW.toFixed(1)+'  #'+dR(dW), ch:sg(dW-dB), up:dW<=dB }]; } }catch(e){ console.warn('adj',e); }
+          d.cmp=[{ lab:'Power rating', wo:sg(B.rating), wi:sg(A.rating), ch:sg(A.rating-B.rating), up:A.rating>=B.rating }].concat(adj||[]).concat([
             { lab:'National rank', wo:'#'+B.rank, wi:'#'+A.rank, ch:B.rank===A.rank?'\u2014':(B.rank>A.rank?'\u2191 ':'\u2193 ')+Math.abs(B.rank-A.rank), up:A.rank<=B.rank },
             { lab:cf+' rank', wo:'#'+B.crank, wi:'#'+A.crank, ch:B.crank===A.crank?'\u2014':(B.crank>A.crank?'\u2191 ':'\u2193 ')+Math.abs(B.crank-A.crank), up:A.crank<=B.crank },
             { lab:'Projected wins', wo:B.w!=null?B.w.toFixed(1):'', wi:A.w!=null?A.w.toFixed(1):'', ch:A.w!=null&&B.w!=null?sg(A.w-B.w):'', up:(A.w||0)>=(B.w||0) },
             { lab:cf+' wins'+(A.cn?' (of '+A.cn+')':''), wo:B.cw!=null?B.cw.toFixed(1):'', wi:A.cw!=null?A.cw.toFixed(1):'', ch:A.cw!=null&&B.cw!=null?sg(A.cw-B.cw):'', up:(A.cw||0)>=(B.cw||0) },
-            { lab:'Wins vs. top-50 teams'+(A.tn?' (of '+A.tn+')':''), wo:B.tw!=null?B.tw.toFixed(1):'', wi:A.tw!=null?A.tw.toFixed(1):'', ch:A.tw!=null&&B.tw!=null?sg(A.tw-B.tw):'', up:(A.tw||0)>=(B.tw||0) }].filter(function(r){ return r.wo&&r.wi; }); } }
+            { lab:'Wins vs. top-50 teams'+(A.tn?' (of '+A.tn+')':''), wo:B.tw!=null?B.tw.toFixed(1):'', wi:A.tw!=null?A.tw.toFixed(1):'', ch:A.tw!=null&&B.tw!=null?sg(A.tw-B.tw):'', up:(A.tw||0)>=(B.tw||0) }]).filter(function(r){ return r.wo&&r.wi; }); } }
       catch(e){ console.warn('with/without',e); }
       d.tiles=[{ val:tr.rank?'#'+tr.rank:'', lab:'in our '+SEASON+' rankings' },{ val:tr.rating!=null?((+tr.rating>=0?'+':'')+(+tr.rating).toFixed(1)):'', lab:'power rating' },
         { val:share!=null?share.toFixed(1)+'%':'', lab:'of '+school(p.team)+' shots'+(srank?(srank===1?' (team high)':' ('+srank+(srank===2?'nd':srank===3?'rd':'th')+' on the team)'):'') },
