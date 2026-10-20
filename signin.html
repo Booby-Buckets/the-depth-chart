@@ -403,7 +403,11 @@ async function handleOAuthReturn(){
     }, true);
     const p = await fetch(`${SB_URL}/rest/v1/profiles?id=eq.${user.id}&select=username`, { headers:{ apikey:SB_KEY, Authorization:`Bearer ${access}` } })
       .then(x => x.ok ? x.json() : []).catch(() => []);
-    finish(access, !(p[0] && p[0].username));
+    // A first Google sign-in IS a sign-up: the database fills a username from the email address, so
+    // "no username" can't spot it. Treat an account created in the last 10 minutes as new → the
+    // welcome wizard (username prefilled, team, interests) — owner, Oct 19 2026.
+    const fresh = user.created_at && (Date.now() - Date.parse(user.created_at)) < 10 * 60 * 1000;
+    finish(access, fresh || !(p[0] && p[0].username));
   } catch(e){ showMsg('oauthMsg', 'Google sign-in did not complete (' + e.message + '). Try again.', 'error'); }
   return true;
 }
