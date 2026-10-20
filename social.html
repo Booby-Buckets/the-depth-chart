@@ -2432,7 +2432,7 @@
   // Kansas and the fit"). Any player on his new roster: last season's line vs our projection there, what the team looks
   // like with him (rank, power rating, his shot share, the starting five) and the Portal Fit scorecard for the move —
   // scored against the roster WITHOUT him (team_needs already counts him at his slot).
-  var MOVE_V='adj3';   // bump when the Transfer move's loaded data changes shape, so saved graphics reload themselves
+  var MOVE_V='adj4';   // bump when the Transfer move's loaded data changes shape, so saved graphics reload themselves
   T.move={
     ownBrand:true,
     defaults:function(){ return { q:'', name:'', team:'', espn:null, from:'', ovr:'', role:'', title:'', subtitle:'', lines:[], tiles:[], five:[], fit:null, shots:true }; },
@@ -2502,7 +2502,9 @@
         .sort(function(a,b){ var da=a.depth_order!=null?+a.depth_order:999, db=b.depth_order!=null?+b.depth_order:999; return da-db||(+b.mpg||0)-(+a.mpg||0); });
       // what if: he takes his own depth slot from his real team (a starter there starts here)
       if(WI){ var dep0=(D.players||[]).filter(function(q){ return onTeam(q.team,p.team)&&!out(q); }).sort(function(a,b){ return (a.depth_order!=null?+a.depth_order:999)-(b.depth_order!=null?+b.depth_order:999); }).indexOf(p); R.splice(Math.max(0,Math.min(dep0<0?5:dep0,R.length)),0,p); }
-      d.five=R.slice(0,5).map(function(q){ var o=null; try{ o=Math.round(TDCProjGrade.gradeSolo(q)); }catch(e){} return { name:q.name, team:WI&&q===p?TM:q.team, espn:q.espn_id||null, pos:String(q.position||'').toUpperCase(), ovr:o!=null&&isFinite(o)?String(o):'', me:q===p||q.name===p.name?1:0 }; });
+      var fv=function(q){ var o=null; try{ o=Math.round(TDCProjGrade.gradeSolo(q)); }catch(e){} return { name:q.name, team:WI&&q===p?TM:q.team, espn:q.espn_id||null, pos:String(q.position||'').toUpperCase(), ovr:o!=null&&isFinite(o)?String(o):'', me:q===p||q.name===p.name?1:0 }; };
+      // the whole roster (healthy, depth order) so the owner can pick any five in the editor (owner: "I need to be able to change the starting 5")
+      d.pool=R.map(fv); d.five=d.pool.slice(0,5).map(function(x){ return Object.assign({},x); });
       var dep=R.indexOf(p)+1, pos=String(p.position||'').toUpperCase();
       d.role=(dep>0&&dep<=5?'Projected starter':'Projected rotation')+(pos?' · '+pos:'')+' · '+f1(L.mpg)+' min';
       // Portal Fit: the move scored against the roster WITHOUT him
@@ -2590,7 +2592,12 @@
         '<div class="two"><div><label class="f">Overall</label><input data-k="ovr" value="'+esc(d.ovr||'')+'"></div><div><label class="f">Role line</label><input data-k="role" value="'+esc(d.role||'')+'"></div></div>'+
         '<h3>Lines</h3>'+fieldsEditor(d.lines||[],'lines',[{k:'name',ph:'Label',w:'minmax(0,1.4fr)'},{k:'mpg',ph:'MPG',w:'44px'},{k:'ppg',ph:'PPG',w:'44px'},{k:'rpg',ph:'RPG',w:'44px'},{k:'apg',ph:'APG',w:'44px'},{k:'fg',ph:'FG%',w:'44px'},{k:'ts',ph:'TS%',w:'44px'}])+
         '<h3>Team tiles</h3>'+fieldsEditor(d.tiles||[],'tiles',[{k:'val',ph:'Value',w:'70px'},{k:'lab',ph:'Label',w:'minmax(0,1fr)'}])+'<div class="btns"><button class="b sm" data-act="add" data-path="tiles">+ Add tile</button></div>'+
-        '<h3>Starting five</h3>'+fieldsEditor(d.five||[],'five',[{k:'name',ph:'Player',list:'plList',w:'minmax(0,1.4fr)'},{k:'pos',ph:'Pos',w:'44px'},{k:'ovr',ph:'OVR',w:'44px'}])+
+        '<h3>Starting five</h3>'+(d.pool&&d.pool.length?'<div class="hint">Pick any five from the roster; position, overall and headshot follow. Pos / OVR stay editable.</div>'+
+          '<div class="rows">'+[0,1,2,3,4].map(function(i){ var r=(d.five||[])[i]||{};
+            return '<div class="row" style="grid-template-columns:22px minmax(0,1.4fr) 44px 44px"><span class="n">'+(i+1)+'</span><select data-five="'+i+'"><option value="">—</option>'+
+              d.pool.map(function(x,j){ return '<option value="'+j+'"'+(x.name===r.name?' selected':'')+'>'+esc(x.name)+(x.pos?' · '+esc(x.pos):'')+(x.ovr?' · '+esc(x.ovr):'')+'</option>'; }).join('')+'</select>'+
+              '<input data-p="five.'+i+'.pos" value="'+esc(r.pos||'')+'" placeholder="Pos"><input data-p="five.'+i+'.ovr" value="'+esc(r.ovr||'')+'" placeholder="OVR"></div>'; }).join('')+'</div>'
+          :fieldsEditor(d.five||[],'five',[{k:'name',ph:'Player',list:'plList',w:'minmax(0,1.4fr)'},{k:'pos',ph:'Pos',w:'44px'},{k:'ovr',ph:'OVR',w:'44px'}]))+
         (d.cmp?'<h3>With vs without him</h3>'+fieldsEditor(d.cmp,'cmp',[{k:'lab',ph:'Metric',w:'minmax(0,1.3fr)'},{k:'wo',ph:'Without',w:'64px'},{k:'wi',ph:'With',w:'64px'},{k:'ch',ph:'Change',w:'64px'}]):'')+
         (d.fit?'<h3>Fit scores</h3>'+fieldsEditor(d.fit.reads||[],'fit.reads',[{k:'l',ph:'Factor',w:'minmax(0,1fr)'},{k:'v',ph:'0-100',w:'48px'},{k:'txt',ph:'Read',w:'minmax(0,1.6fr)'}])+'<label class="f">Overall fit</label><input data-p="fit.overall" value="'+esc(d.fit.overall)+'"><label class="f">Summary</label><input data-p="fit.why" value="'+esc(d.fit.why||'')+'">':'')+
         lookUI(d,{ ramp:true, legend:true });
@@ -2821,7 +2828,10 @@
     else return;
     save(); later();
   });
-  $('editor').addEventListener('change',function(e){ var el=e.target; if(el.dataset.k) doc()[el.dataset.k]=el.type==='checkbox'?(el.dataset.neg?!el.checked:el.checked):el.value;
+  $('editor').addEventListener('change',function(e){ var el=e.target;
+    // Transfer move: a starting-five pick from the roster dropdown copies the whole player (name, team, headshot id, pos, OVR)
+    if(el.dataset.five!=null){ var d5=doc(), i5=+el.dataset.five, pk=d5.pool&&d5.pool[+el.value]; d5.five=d5.five||[];
+      if(pk) d5.five[i5]=Object.assign({},pk); else d5.five[i5]={ name:'', pos:'', ovr:'' }; save(); paintEditor(); render(); return; } if(el.dataset.k) doc()[el.dataset.k]=el.type==='checkbox'?(el.dataset.neg?!el.checked:el.checked):el.value;
     if(el.type==='checkbox'||el.tagName==='SELECT'){ save(); render(); }
     if(e.target.dataset.k==='val2Label'){ paintEditor(); }
     var ks=AUTO[S.tpl]; if(ks&&ks.indexOf(e.target.dataset.k)>-1){ (async function(){ try{ await T[S.tpl].load(doc()); stamp(doc()); save(); paintEditor(); paintLib(); render(); }catch(err){ status(err.message,true); } })(); } });
