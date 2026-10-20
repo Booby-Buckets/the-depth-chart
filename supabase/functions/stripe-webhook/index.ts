@@ -32,7 +32,22 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET')!
 const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY') || ''     // optional: enables Phase 2
 const SUPABASE_URL = 'https://izlqhnxowdhtdofkwrho.supabase.co'
-const SUPABASE_SERVICE_KEY = Deno.env.get('NEW_SERVICE_KEY')!
+// Database key: Supabase's own built-ins first (kept current when keys rotate), the hand-set
+// NEW_SERVICE_KEY last. Oct 20 2026: the May-era NEW_SERVICE_KEY stopped being accepted
+// ("Unregistered API key"), so paid checkouts found the account but could not save the plan.
+function serviceKey(): string {
+  try {
+    const sk = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') || '{}')
+    const v = sk.default || Object.values(sk)[0]
+    if (typeof v === 'string' && v) return v
+  } catch (_) { /* not set or not JSON */ }
+  return Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('NEW_SERVICE_KEY') || ''
+}
+const SUPABASE_SERVICE_KEY = serviceKey()
+// new-style sb_secret_ keys go in apikey only (they aren't JWTs); legacy service_role JWTs also as Bearer
+const SB_AUTH: Record<string, string> = SUPABASE_SERVICE_KEY.startsWith('sb_')
+  ? { apikey: SUPABASE_SERVICE_KEY }
+  : { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}` }
 
 const stripeGet = (path: string) => fetch(`https://api.stripe.com/v1/${path}`, { headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` } }).then(r => r.json())
 // Tier from what was actually paid: Premium is $4.99 / $50, Pro is $8.99 / $89.99 — anything
@@ -50,7 +65,7 @@ const stripePost = (path: string, form: Record<string, string>) => fetch(`https:
 async function userIdByEmail(email: string): Promise<string | null> {
   if (!email) return null
   const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`,
-    { headers: { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}` } })
+    { headers: { ...SB_AUTH } })
   const d = await r.json()
   const u = (d?.users || []).find((x: any) => (x.email || '').toLowerCase() === email.toLowerCase())
   return u?.id || null
@@ -98,7 +113,7 @@ async function bestLivePlan(userId: string, email: string, extraCustomer?: strin
 async function setPlan(userId: string, plan: string, expiresIso: string | null) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`, {
     method: 'PATCH',
-    headers: { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+    headers: { ...SB_AUTH, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
     body: JSON.stringify(expiresIso ? { plan, sub_expires_at: expiresIso } : { plan }),
   })
   if (!res.ok) throw new Error(await res.text())
@@ -160,8 +175,7 @@ serve(async (req) => {
         `${SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`,
         {
           headers: {
-            'apikey': SUPABASE_SERVICE_KEY,
-            'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+            ...SB_AUTH,
           }
         }
       )
@@ -180,8 +194,7 @@ serve(async (req) => {
       {
         method: 'PATCH',
         headers: {
-          'apikey': SUPABASE_SERVICE_KEY,
-          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+          ...SB_AUTH,
           'Content-Type': 'application/json',
           'Prefer': 'return=minimal'
         },
