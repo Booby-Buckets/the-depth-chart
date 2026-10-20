@@ -803,25 +803,66 @@
     var dist={}; M.forEach(function(m){ dist[m[1]]=rows.map(m[2]).filter(function(v){ return v!=null&&isFinite(v); }).sort(function(a,b){ return a-b; }); });
     PCT_POOL={ M:M, dist:dist, genome:g, ts:ts }; return PCT_POOL;
   }
+  // ── Player chart stats (owner, Oct 20 2026: "add more stats to the player percent chart"). Projected 2026-27 stats are
+  // ranked vs. every projected rotation player (15+ mpg); "last" ones are last season's shot data (mastery families vs.
+  // 150+ FGA players, Shot Genome's own percentiles).
+  var PGRP=['Scoring','Shooting','Playmaking & usage','Rebounding & defense','Last season’s shots','Overall'];
+  var f1=function(v){ return (+v).toFixed(1); };
+  var PMET=[
+    { k:'ppg', grp:'Scoring', lab:'Scoring', f:function(c){ return { v:+c.L.ppg, raw:f1(c.L.ppg)+' PPG' }; } },
+    { k:'mpg', grp:'Scoring', lab:'Minutes', f:function(c){ return { v:+c.L.mpg, raw:f1(c.L.mpg)+' MPG' }; } },
+    { k:'ftr', grp:'Scoring', lab:'Getting to the line', f:function(c){ return +c.L.fga>=3?{ v:100*(+c.L.fta||0)/(+c.L.fga), raw:f1(100*(+c.L.fta||0)/(+c.L.fga))+' FTA / 100 FGA' }:null; } },
+    { k:'ts', grp:'Shooting', lab:'Efficiency (TS%)', f:function(c){ var a=2*((+c.L.fga||0)+.44*(+c.L.fta||0)); return a>0?{ v:100*(+c.L.ppg||0)/a, raw:f1(100*(+c.L.ppg||0)/a)+'%' }:null; } },
+    { k:'fg', grp:'Shooting', lab:'Field goals (FG%)', f:function(c){ return +c.L.fga>=3?{ v:+c.L.fg_pct, raw:f1(c.L.fg_pct)+'%' }:null; } },
+    { k:'tp', grp:'Shooting', lab:'3-pt shooting', f:function(c){ return +c.L.tpa>=1.5?{ v:+c.L.tp_pct, raw:f1(c.L.tp_pct)+'%' }:null; } },
+    { k:'tpa', grp:'Shooting', lab:'3-pt volume', f:function(c){ return { v:+c.L.tpa||0, raw:f1(+c.L.tpa||0)+' 3PA' }; } },
+    { k:'ft', grp:'Shooting', lab:'Free throws (FT%)', f:function(c){ return +c.L.fta>=1.5?{ v:+c.L.ft_pct, raw:f1(c.L.ft_pct)+'%' }:null; } },
+    { k:'apg', grp:'Playmaking & usage', lab:'Playmaking', f:function(c){ return { v:+c.L.apg, raw:f1(c.L.apg)+' APG' }; } },
+    { k:'tov', grp:'Playmaking & usage', lab:'Ball security (AST/TO)', f:function(c){ return c.L.tovs!=null&&+c.L.apg>0?{ v:(+c.L.apg)/Math.max(.3,+c.L.tovs), raw:f1((+c.L.apg)/Math.max(.3,+c.L.tovs))+' AST/TO' }:null; } },
+    { k:'usg', grp:'Playmaking & usage', lab:'Usage rate', f:function(c){ var v=usgMap()[c.p.espn_id||c.p.name]; return v!=null?{ v:v, raw:f1(v)+'%' }:null; } },
+    { k:'rpg', grp:'Rebounding & defense', lab:'Rebounding', f:function(c){ return { v:+c.L.rpg, raw:f1(c.L.rpg)+' RPG' }; } },
+    { k:'oreb', grp:'Rebounding & defense', lab:'Offensive rebounding', f:function(c){ return c.L.oreb!=null?{ v:+c.L.oreb, raw:f1(c.L.oreb)+' ORPG' }:null; } },
+    { k:'dreb', grp:'Rebounding & defense', lab:'Defensive rebounding', f:function(c){ return c.L.dreb!=null?{ v:+c.L.dreb, raw:f1(c.L.dreb)+' DRPG' }:null; } },
+    { k:'stl', grp:'Rebounding & defense', lab:'Steals', f:function(c){ return { v:+c.L.stl, raw:f1(c.L.stl)+' SPG' }; } },
+    { k:'blk', grp:'Rebounding & defense', lab:'Blocks', f:function(c){ return { v:+c.L.blk, raw:f1(c.L.blk)+' BPG' }; } },
+    { k:'rimfg', grp:'Last season’s shots', last:1, lab:'Finishing at the rim', f:function(c){ return c.ms&&c.ms.rimfg!=null?{ v:c.ms.rimfg, raw:f1(c.ms.rimfg)+'% at rim' }:null; } },
+    { k:'rimsh', grp:'Last season’s shots', last:1, lab:'Rim attempts', f:function(c){ return c.ms&&c.ms.rimsh!=null?{ v:c.ms.rimsh, raw:f1(c.ms.rimsh)+'% of shots' }:null; } },
+    { k:'unp', grp:'Last season’s shots', last:1, lab:'Self-created buckets', f:function(c){ return c.ms&&c.ms.unp!=null?{ v:c.ms.unp, raw:f1(c.ms.unp)+'% unassisted' }:null; } },
+    { k:'pps', grp:'Last season’s shots', last:1, lab:'Points per shot', f:function(c){ return c.ms&&c.ms.pps!=null?{ v:c.ms.pps, raw:(+c.ms.pps).toFixed(2)+' pts' }:null; } },
+    { k:'sm', grp:'Last season’s shots', last:1, lab:'Shot-making (SM+)', f:function(c){ return c.g&&c.g.smPct!=null?{ v:c.g.smAdj, pct:c.g.smPct, raw:(c.g.smAdj>0?'+':'')+f1(c.g.smAdj)+' /100' }:null; } },
+    { k:'cr', grp:'Last season’s shots', last:1, lab:'Creation', f:function(c){ return c.g&&c.g.crPct!=null?{ v:c.g.crAdj, pct:c.g.crPct, raw:'' }:null; } },
+    { k:'wa', grp:'Overall', lab:'Wins Added', f:function(c){ var v=c.L.proj_wa!=null?c.L.proj_wa:c.L.pwa; return v!=null?{ v:+v, raw:f1(v)+' WA' }:null; } }
+  ];
+  // default: the original eleven + usage, FT%, rim finishing and self-created buckets
+  var PMET_DEF=['ppg','ts','tp','ft','rpg','apg','tov','usg','stl','blk','rimfg','unp','sm','cr','wa'];
+  var PC_POOL=null;
+  async function pcardPool(){ if(PC_POOL) return PC_POOL;
+    var ps=await players(), seen={}, rows=[], dist={}, ms={}, msD={};
+    ps.forEach(function(p){ var k=p.espn_id||(p.name+'|'+p.team); if(seen[k]) return; seen[k]=1; var L=TDCProjGrade.lineOf(p); if(L&&+L.mpg>=15) rows.push({ L:L, p:p }); });
+    var mr=[]; try{ mr=(await mastery('2026')).filter(function(r){ return r.att>=150; }); }catch(e){}
+    (await mastery('2026').catch(function(){ return []; })).forEach(function(r){ ms[r.espn]=r; });
+    var g={}; try{ (await json('scripts/data/shot_genome_players.json')).players.forEach(function(x){ g[x.espn_id]=x; }); }catch(e){}
+    PMET.forEach(function(mm){ var vals=mm.last?mr.map(function(r){ var x=mm.f({ ms:r }); return x&&x.v; }):rows.map(function(r){ var x=mm.f({ L:r.L, p:r.p }); return x&&x.v; });
+      dist[mm.k]=vals.filter(function(v){ return v!=null&&isFinite(v); }).sort(function(a,b){ return a-b; }); });
+    PC_POOL={ dist:dist, ms:ms, genome:g }; return PC_POOL; }
   function pctOf(arr,v){ if(!arr.length||v==null||!isFinite(v)) return null; var lo=0, hi=arr.length; while(lo<hi){ var m=(lo+hi)>>1; if(arr[m]<v) lo=m+1; else hi=m; } return Math.round(100*lo/arr.length); }
   T.pcard={
     defaults:function(){ return { q:'', name:'', team:'', espn:null, meta:'', label:SEASON+' projection · percentile vs. rotation players', bars:[] }; },
     load:async function(d){
       await players(); var m=(d.q||'').split(' — '), p=findPlayer(m[0],m[1]); if(!p) throw new Error('Pick a player from the list.');
       var L=TDCProjGrade.lineOf(p); if(!L) throw new Error('No projection for '+p.name+'.');
-      var pp=await pctPool(), bars=[];
-      pp.M.forEach(function(mm){ var v=mm[2](L), pc=pctOf(pp.dist[mm[1]],v); if(pc==null) return;
-        var raw=mm[1]==='tov'?(+v).toFixed(1)+' AST/TO':(mm[1]==='ts'||mm[1]==='tp'?(+v).toFixed(1)+'%':(+v).toFixed(1)+' '+mm[3]);
-        bars.push({ name:mm[0], val:String(pc), raw:raw.trim() }); });
-      var gx=pp.genome[p.espn_id];
-      if(gx&&gx.smPct!=null) bars.push({ name:'Shot-making (SM+)', val:String(gx.smPct), raw:(gx.smAdj>0?'+':'')+(+gx.smAdj).toFixed(1)+' /100' });
-      if(gx&&gx.crPct!=null) bars.push({ name:'Creation', val:String(gx.crPct), raw:'' });
-      Object.assign(d,{ name:p.name, team:p.team, espn:p.espn_id||null, meta:[school(p.team),p.position,p.class_year,p.height].filter(Boolean).join(' · '), bars:bars });
+      var pp=await pcardPool(), on=d.mets||PMET_DEF, bars=[];
+      PMET.forEach(function(mm){ if(on.indexOf(mm.k)<0) return; var x=mm.f({ L:L, p:p, ms:pp.ms[String(p.espn_id)], g:pp.genome[p.espn_id] }); if(!x||x.v==null||!isFinite(x.v)) return;
+        var pc=x.pct!=null?x.pct:pctOf(pp.dist[mm.k]||[],x.v); if(pc==null) return; bars.push({ name:mm.lab, val:String(pc), raw:x.raw||'' }); });
+      Object.assign(d,{ q:d.q, name:p.name, team:p.team, espn:p.espn_id||null, meta:[school(p.team),p.position,p.class_year,p.height].filter(Boolean).join(' · '), bars:bars });
+      if(on.some(function(k){ return (PMET.find(function(x){ return x.k===k; })||{}).last; })&&!d.note) d.note='Rim / self-created / points-per-shot / shot-making = last season (2025-26) shot data';
     },
     editor:function(d){
       return '<h3>Data</h3><label class="f">Player</label><input data-k="q" list="plList" value="'+esc(d.q)+'" placeholder="Start typing a name…">'+
         '<div class="btns"><button class="b sm primary" data-act="load">Load player</button></div>'+
-        '<div class="hint">Percentiles vs. every projected rotation player (15+ mpg). Shot-making / Creation are from last season’s shot data.</div>'+
+        '<div class="hint">Percentiles vs. every projected rotation player (15+ mpg). Rim, self-created, points per shot, shot-making and creation are last season’s shot data (vs. players with 150+ shots).</div>'+
+        '<label class="f">Stats on the chart (click to add / remove, in this order)</label>'+PGRP.map(function(g){ return '<div class="grp" style="margin-top:8px">'+g+'</div><div class="seg">'+PMET.filter(function(x){ return x.grp===g; }).map(function(x){ return '<button type="button" data-act="pmet" data-col="'+x.k+'" class="'+((d.mets||PMET_DEF).indexOf(x.k)>-1?'on':'')+'">'+x.lab+'</button>'; }).join('')+'</div>'; }).join('')+
+        '<div class="btns"><button class="b sm" data-act="pmetall" type="button">All stats</button><button class="b sm" data-act="pmetdef" type="button">Default set</button></div>'+
         '<h3>Text</h3><div class="two"><div><label class="f">Name</label><input data-k="name" value="'+esc(d.name)+'"></div><div><label class="f">Team (logo)</label><input data-k="team" list="tmList" value="'+esc(d.team)+'"></div></div>'+
         '<label class="f">Details line</label><input data-k="meta" value="'+esc(d.meta)+'"><label class="f">Label</label><input data-k="label" value="'+esc(d.label)+'">'+'<label class="f">Footnote</label><input data-k="note" value="'+esc(d.note||'')+'">'+lookUI(d,{ rows:false, srcLabel:'Footnote' })+
         '<h3>Bars ('+d.bars.length+')</h3>'+fieldsEditor(d.bars,'bars',[{k:'name',ph:'Label',w:'minmax(0,1.3fr)'},{k:'val',ph:'Pctl',w:'48px'},{k:'raw',ph:'Raw value'}])+
@@ -2242,6 +2283,7 @@
         '<div><label class="f">Per row</label><select data-k="gcols"><option value="">Auto</option>'+[2,3,4,5,6].map(function(c){ return '<option'+(+d.gcols===c?' selected':'')+'>'+c+'</option>'; }).join('')+'</select></div></div>'+
         '<div class="btns"><button class="b sm primary" data-act="load">Load / refresh data</button></div>'+shotsChk(d)+
         '<label class="chk"><input type="checkbox" data-k="ovr"'+(d.ovr!==false?' checked':'')+'> Player overall (opposite the logo)</label>'+
+        '<label class="f">Look</label><select data-k="look">'+[['cards','Cards (light, team band)'],['clean','Clean (team colour, circles)'],['dark','Dark']].map(function(x){ return '<option value="'+x[0]+'"'+((d.look||'cards')===x[0]?' selected':'')+'>'+x[1]+'</option>'; }).join('')+'</select>'+
         '<label class="f">Names</label><select data-k="nstyle"><option value="thin"'+(!d.nstyle||d.nstyle==='thin'?' selected':'')+'>Thin (Booker)</option><option value="light"'+(d.nstyle==='light'?' selected':'')+'>Extra thin</option><option value="bold"'+(d.nstyle==='bold'?' selected':'')+'>Bold condensed (BOOKER)</option></select>'+
         '<label class="f">Background</label><select data-k="bgc"><option value=""'+(!d.bgc?' selected':'')+'>Auto (primary, or the dark team colour when the primary is light)</option><option value="primary"'+(d.bgc==='primary'?' selected':'')+'>Team primary colour</option><option value="dark"'+(d.bgc==='dark'?' selected':'')+'>Dark team colour</option></select>'+
         '<label class="chk"><input type="checkbox" data-k="pstats"'+(d.pstats?' checked':'')+'> Player stat line under each name</label>'+
@@ -2253,52 +2295,69 @@
         '<div class="btns"><button class="b sm" data-act="add" data-path="rows">+ Add player</button></div>';
     },
     draw:async function(d,W,H,u,pad){
-      var base=window.tdcTeamColor&&tdcTeamColor(d.team)||{}, c1=base.c1||'#1d2b47', field=d.bgc==='dark'||(d.bgc!=='primary'&&lum(c1)>.42)?bandColor(d.team):c1, ink=lum(field)>.55?'#14110C':'#FFFFFF';
-      ctx.fillStyle=field; ctx.fillRect(0,0,W,H);
-      var rows=(d.rows||[]).filter(function(r){ return r.name; });
-      txt(String(d.title||'Roster grid').toUpperCase(),W/2,pad*1.15,{ w:800,px:(W>H*1.2?64:72)*u,serif:'cond',c:ink,al:'center',max:W-pad*2,ls:1*u });
-      if(!rows.length){ txt('Pick a team on the left',W/2,H/2,{ px:30*u,c:ink,al:'center' }); return ''; }
-      var shots=d.shots!==false, st=(d.stats||['ppg','rpg','apg']).slice(0,3), lab={}; RG_STATS.forEach(function(s){ lab[s[0]]=s[1]; });
+      // three looks (owner, Oct 20: the first version read "messy and cheap"): every look keeps ONE logo (in the header),
+      // puts the overall in the name row, and shows every photo the same way
+      var look=d.look||'cards', base=window.tdcTeamColor&&tdcTeamColor(d.team)||{}, c1=base.c1||'#1d2b47', dk=bandColor(d.team), tcol0=lum(c1)>.42?dk:c1;
+      var rows=(d.rows||[]).filter(function(r){ return r.name; }), shots=d.shots!==false, n=rows.length;
       var lg=await img(logoUrl(d.team)); await Promise.all(rows.map(function(r){ return shots?shotFor(r.espn,r.name,r.team):null; }));
-      // grid: the column count that gives the biggest circles, unless the owner picked one
-      var y0=pad*1.15+60*u, foot=128*u, aw=W-pad*2, ah=H-y0-foot-pad*.5, n=rows.length, best=null;
-      for(var c=(+d.gcols||2);c<=(+d.gcols||6);c++){ var rr=Math.ceil(n/c), cw=aw/c, ch=ah/rr, s=Math.min(cw*.8,ch*.68); if(!best||s>best.s+.5) best={ c:c, r:rr, s:s, cw:cw, ch:ch }; }
-      var R0=best.s/2, nameFs=Math.min(best.s*.2,40*u), statFs=Math.min(best.s*.12,22*u), badge=Math.max(34*u,R0*.5);
-      var circ=mixHex(field,[255,255,255],.2);
+      var TH={ cards:{ bg:'#F3F1EC', card:'#FFFFFF', tile:mixHex(tcol0,[255,255,255],.86), ink:'#15130F', mut:'#7A756B', line:'#E2DED5', acc:tcol0 },
+               clean:{ bg:tcol0, card:null, tile:mixHex(tcol0,[255,255,255],.14), ink:'#FFFFFF', mut:'rgba(255,255,255,.72)', line:'rgba(255,255,255,.22)', acc:'#FFFFFF' },
+               dark:{ bg:'#0E1015', card:'#171A21', tile:mixHex(tcol0,[23,26,33],.55), ink:'#F2F3F5', mut:'#8B92A0', line:'#262A33', acc:lum(c1)>.12?c1:mixHex(c1,[255,255,255],.45) } }[look]||{};
+      ctx.fillStyle=TH.bg; ctx.fillRect(0,0,W,H);
+      // header: cards = a team-colour band; clean / dark = title on the field. One logo, beside the title.
+      var hh=look==='cards'?pad*2.6:pad*2.2, tfs=(W>H*1.2?56:64)*u, title=String(d.title||'Roster').toUpperCase();
+      if(look==='cards'){ ctx.fillStyle=tcol0; ctx.fillRect(0,0,W,hh); }
+      var hInk=look==='cards'?'#FFFFFF':TH.ink, tw0=width(title,800,tfs,'cond')+title.length*1*u, ls=Math.min(hh*.62,88*u), gx=(W-(tw0+(lg?ls+20*u:0)))/2;
+      if(lg){ if(look!=='dark'){ ctx.beginPath(); ctx.arc(gx+ls/2,hh/2,ls/2,0,Math.PI*2); ctx.fillStyle='#FFFFFF'; ctx.fill(); drawFit(lg,gx+ls*.16,hh/2-ls*.34,ls*.68); } else drawFit(lg,gx,hh/2-ls/2,ls); }
+      txt(title,gx+(lg?ls+20*u:0),hh/2,{ w:800,px:tfs,serif:'cond',c:hInk,ls:1*u,max:W-pad*2-(lg?ls+20*u:0) });
+      if(!n){ txt('Pick a team on the left',W/2,H/2,{ px:30*u,c:TH.ink,al:'center' }); return ''; }
+      // footer: the team's projected numbers, plain (big value over a small label, hairline dividers)
+      var TS=(d.tstats||[]).filter(function(x){ return x&&(x.val||x.lab); }), fh=TS.length?118*u:60*u, fy0=H-fh-pad*.35;
+      // grid
+      var gap=look==='clean'?10*u:18*u, top=hh+(look==='cards'?pad*.55:pad*.2), aw=W-pad*2, ah=fy0-top-pad*.35, best=null;
+      for(var c=(+d.gcols||2);c<=(+d.gcols||6);c++){ var rr=Math.ceil(n/c), cw=(aw-gap*(c-1))/c, ch=(ah-gap*(rr-1))/rr, sc=Math.min(cw,ch/1.22); if(!best||sc>best.sc+.5) best={ c:c, r:rr, cw:cw, ch:Math.min(ch,cw*1.3), sc:sc }; }
+      var cw=best.cw, ch=best.ch, gh=best.r*ch+(best.r-1)*gap, gy=top+(ah-gh)/2, nameFs=Math.min(ch*(look==='clean'?.1:.085),cw*.13,34*u), ovFs=nameFs*1.18;
       for(var i=0;i<n;i++){ var r=rows[i], col=i%best.c, row=Math.floor(i/best.c), inRow=Math.min(best.c,n-row*best.c);
-        var blk=2*R0+nameFs*1.9+(d.pstats?statFs*1.4:0), cx=pad+(col+.5)*best.cw+(best.c-inRow)*best.cw/2, top=y0+row*best.ch, cy=top+Math.max(badge*.3,(best.ch-blk)/2)+R0;   // each player's block centred in its cell
-        // circle + headshot clipped to it
-        ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R0,0,Math.PI*2); ctx.fillStyle=circ; ctx.fill(); ctx.clip();
-        var sh=shots?await shotFor(r.espn,r.name,r.team):null;
-        // ESPN cutouts sit on the circle; a school's rectangular photo is cropped to fill it (top-anchored on the head)
-        if(sh&&/espncdn/.test(sh.src||'')) shotIn(sh,cx-R0,cy-R0*.92,R0*2,R0*1.92);
-        // no ESPN cut-out yet: the school photo as a smaller medallion inside the circle (owner: a full-circle crop read too big)
-        else if(sh){ var mr=R0*.74; ctx.save(); ctx.beginPath(); ctx.arc(cx,cy+R0*.06,mr,0,Math.PI*2); ctx.clip(); var sc=Math.max(2*mr/sh.width,2*mr/sh.height), iw=sh.width*sc, ih=sh.height*sc; ctx.drawImage(sh,cx-iw/2,cy+R0*.06-mr-Math.max(0,(ih-2*mr)*.12),iw,ih); ctx.restore(); } else if(lg){ ctx.globalAlpha=.35; drawFit(lg,cx-R0*.55,cy-R0*.55,R0*1.1); ctx.globalAlpha=1; }
-        ctx.restore();
-        // logo top-right, overall top-left (opposite the logo)
-        // logo on a white disc (a same-colour logo vanishes on its own team colour), mirroring the OVR badge
-        if(lg){ var lb=badge*1.3, lx=cx+R0*.74, ly=cy-R0*.7; ctx.beginPath(); ctx.arc(lx,ly,lb/2,0,Math.PI*2); ctx.fillStyle='#FFFFFF'; ctx.fill(); ctx.lineWidth=Math.max(2,3*u); ctx.strokeStyle=field; ctx.stroke(); drawFit(lg,lx-lb*.36,ly-lb*.36,lb*.72); }
-        if(d.ovr!==false&&r.ovr){ var bx=cx-R0*.78, by=cy-R0*.74; ctx.beginPath(); ctx.arc(bx,by,badge/2,0,Math.PI*2); ctx.fillStyle='#FFFFFF'; ctx.fill();
-          ctx.lineWidth=Math.max(2,3*u); ctx.strokeStyle=field; ctx.stroke();
-          txt(String(r.ovr),bx,by-badge*.06,{ w:800,px:badge*.5,serif:'cond',c:'#14110C',al:'center' });
-          txt('OVR',bx,by+badge*.27,{ w:700,px:badge*.18,serif:'barlow',c:'#55504A',al:'center',ls:.5*u }); }
-        var ny=cy+R0+nameFs*.95;
-        // names: thin by default (owner, Oct 20: "skinnier"), like the Kalshi reference; bold condensed on request
-        var nsty=d.nstyle||'thin', w0=String(r.name||'').trim().split(/\s+/).filter(function(x){ return !/^(jr\.?|sr\.?|ii|iii|iv|v)$/i.test(x); }), nm=nsty==='bold'?lastName(r.name):(w0.length?w0[w0.length-1]:r.name);
-        txt(nm,cx,ny,nsty==='bold'?{ w:800,px:nameFs,serif:'cond',c:ink,al:'center',max:best.cw-12*u }:{ w:nsty==='light'?500:600,px:nameFs*.9,serif:'barlow',c:ink,al:'center',max:best.cw-12*u });
-        var line=st.map(function(k){ var v=r[k]; return v!==''&&v!=null?v+' '+lab[k]:''; }).filter(Boolean).join('  ·  ');
-        if(line&&d.pstats) txt(line,cx,ny+nameFs*.85,{ w:700,px:statFs,serif:'barlow',c:ink,al:'center',max:best.cw-10*u }); }
-      // footer: the team's projected numbers in one strip (left), brand (right)
-      var fy=H-pad*.55-foot*.5, TS=(d.tstats||[]).filter(function(x){ return x&&(x.val||x.lab); });
-      if(TS.length){ var bw2=width('The Depth Chart',800,26*u,true)+brandSize(u)+40*u, sw=W-pad*2-bw2, tw=sw/TS.length, th=86*u, sy=fy-th/2;
-        rrect(pad,sy,sw,th,14*u); ctx.fillStyle=lum(field)>.55?'rgba(0,0,0,.10)':'rgba(255,255,255,.13)'; ctx.fill(); ctx.lineWidth=Math.max(1,u); ctx.strokeStyle=lum(field)>.55?'rgba(0,0,0,.16)':'rgba(255,255,255,.26)'; ctx.stroke();
-        TS.forEach(function(x,k){ var tx=pad+tw*(k+.5);
-          if(k){ ctx.fillStyle=lum(field)>.55?'rgba(0,0,0,.14)':'rgba(255,255,255,.22)'; ctx.fillRect(pad+tw*k,sy+16*u,Math.max(1,u),th-32*u); }
-          txt(String(x.val||'—'),tx,sy+th*.42,{ w:800,px:Math.min(40*u,tw*.32),serif:'cond',c:ink,al:'center',max:tw-12*u });
-          txt(String(x.lab||'').toUpperCase(),tx,sy+th*.76,{ w:700,px:Math.min(14*u,tw*.11),serif:'barlow',c:ink,al:'center',ls:1.1*u,max:tw-10*u }); }); }
-      var bs=brandSize(u)*.95; brandMark(W-pad-bs,fy-bs/2,bs);
-      ctx.save(); ctx.font=font(800,26*u,true); ctx.textBaseline='middle'; ctx.textAlign='right'; ctx.fillStyle=ink; ctx.fillText('The Depth Chart',W-pad-bs-14*u,fy); ctx.restore();
-      return school(d.team)+' '+SEASON+((d.tstats||[]).length?' · '+(d.tstats||[]).map(function(x){ return x.val+' '+x.lab; }).join(' · '):'')+'\n\n'+rows.slice(0,5).map(function(r){ return r.name+(r.ovr?' ('+r.ovr+' OVR)':''); }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB';
+        var x=pad+col*(cw+gap)+(best.c-inRow)*(cw+gap)/2, y=gy+row*(ch+gap), sh=shots?await shotFor(r.espn,r.name,r.team):null, espn=sh&&/espncdn/.test(sh.src||'');
+        var nameH=ch*.2, photoH=ch-nameH;
+        if(look==='clean'){
+          // a circle per player (Kalshi-style), photo inside; name + overall under it
+          var R=Math.min(cw*.42,photoH*.48), cx=x+cw/2, cy=y+photoH/2;
+          ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.fillStyle=TH.tile; ctx.fill(); ctx.clip();
+          if(espn) shotIn(sh,cx-R,cy-R*.9,R*2,R*1.9); else if(sh){ var s0=Math.max(2*R/sh.width,2*R/sh.height); ctx.drawImage(sh,cx-sh.width*s0/2,cy-R,sh.width*s0,sh.height*s0); } else if(lg){ ctx.globalAlpha=.3; drawFit(lg,cx-R*.5,cy-R*.5,R); ctx.globalAlpha=1; }
+          ctx.restore();
+        } else {
+          // a card: photo tile on top (rectangular photos fit it naturally), name + overall in the row below
+          ctx.save(); rrect(x,y,cw,ch,14*u); ctx.fillStyle=TH.card; ctx.fill(); if(look==='cards'){ ctx.lineWidth=Math.max(1,u); ctx.strokeStyle=TH.line; ctx.stroke(); } ctx.clip();
+          var px0=x+6*u, py0=y+6*u, pw=cw-12*u, ph=photoH-6*u;
+          rrect(px0,py0,pw,ph,10*u); ctx.fillStyle=TH.tile; ctx.fill(); ctx.save(); rrect(px0,py0,pw,ph,10*u); ctx.clip();
+          if(espn) shotIn(sh,px0,py0+ph*.06,pw,ph*.94);
+          else if(sh){ var s1=Math.max(pw/sh.width,ph/sh.height); ctx.drawImage(sh,px0+(pw-sh.width*s1)/2,py0-Math.max(0,(sh.height*s1-ph)*.15),sh.width*s1,sh.height*s1); }
+          else if(lg){ ctx.globalAlpha=.25; drawFit(lg,px0+pw*.25,py0+ph*.2,Math.min(pw,ph)*.5); ctx.globalAlpha=1; }
+          ctx.restore(); ctx.restore();
+        }
+        // name row: last name (thin) and the overall
+        var ny=y+photoH+nameH*.52, nm=String(r.name||'').trim().split(/\s+/).filter(function(w){ return !/^(jr\.?|sr\.?|ii|iii|iv|v)$/i.test(w); }).pop()||r.name;
+        if(look==='clean'){
+          txt(nm,x+cw/2,ny-nameFs*.25,{ w:600,px:nameFs,serif:'barlow',c:TH.ink,al:'center',max:cw-8*u });
+          if(d.ovr!==false&&r.ovr) txt(r.ovr+' OVR',x+cw/2,ny+nameFs*.85,{ w:700,px:nameFs*.62,serif:'barlow',c:TH.mut,al:'center',ls:1*u });
+        } else {
+          var ovw=d.ovr!==false&&r.ovr?width(r.ovr,800,ovFs,'cond')+8*u:0;
+          txt(nm,x+14*u,ny,{ w:600,px:nameFs,serif:'barlow',c:TH.ink,max:cw-28*u-ovw });
+          if(ovw){ txt(r.ovr,x+cw-14*u,ny,{ w:800,px:ovFs,serif:'cond',c:TH.acc,al:'right' }); }
+        }
+      }
+      // footer
+      if(TS.length){ var fy=fy0+fh*.42, tw=(W-pad*2-150*u)/TS.length;
+        if(look==='cards'){ ctx.fillStyle=tcol0; ctx.fillRect(0,fy0-pad*.1,W,H-fy0+pad*.1); }
+        var fInk=look==='cards'?'#FFFFFF':TH.ink, fMut=look==='cards'?'rgba(255,255,255,.75)':TH.mut, fLine=look==='cards'?'rgba(255,255,255,.25)':TH.line;
+        TS.forEach(function(s2,k){ var tx=pad+tw*(k+.5);
+          if(k){ ctx.fillStyle=fLine; ctx.fillRect(pad+tw*k,fy-26*u,Math.max(1,u),52*u); }
+          txt(String(s2.val||'—'),tx,fy-6*u,{ w:800,px:Math.min(44*u,tw*.34),serif:'cond',c:fInk,al:'center',max:tw-10*u });
+          txt(String(s2.lab||'').toUpperCase(),tx,fy+26*u,{ w:700,px:Math.min(16*u,tw*.12),serif:'barlow',c:fMut,al:'center',ls:1.3*u,max:tw-8*u }); });
+        var bs=brandSize(u)*.8; brandMark(W-pad-bs,fy-bs/2,bs); }
+      else { var bs2=brandSize(u)*.8; brandMark(W-pad-bs2,H-pad*.4-bs2,bs2); }
+      return school(d.team)+' '+SEASON+(TS.length?' · '+TS.map(function(x){ return x.val+' '+x.lab; }).join(' · '):'')+'\n\n'+rows.slice(0,5).map(function(r){ return r.name+(r.ovr?' ('+r.ovr+' OVR)':''); }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB';
     }
   };
 
@@ -2404,6 +2463,9 @@
     if(act==='ssum'){ var sm=(d.sumKeys||['exp','range','pick','conf']).slice(), mi=sm.indexOf(b.dataset.col); if(mi>-1) sm.splice(mi,1); else sm.push(b.dataset.col); d.sumKeys=SSUM.map(function(x){ return x[0]; }).filter(function(k){ return sm.indexOf(k)>-1; }); }
     if(act==='pcol'){ var pc=(d.cols||[]).filter(function(c){ return c.k===b.dataset.col; })[0]; if(pc){ d.colOn=d.colOn||{}; d.colOn[pc.k]=postCols(d).indexOf(pc)<0; } }
     if(act==='tcreset'){ d.tcolor=''; }
+    if(act==='pmet'||act==='pmetall'||act==='pmetdef'){ var pm=(d.mets||PMET_DEF).slice();
+      if(act==='pmet'){ var pi=pm.indexOf(b.dataset.col); if(pi>-1) pm.splice(pi,1); else pm.push(b.dataset.col); } d.mets=act==='pmetall'?PMET.map(function(x){ return x.k; }):act==='pmetdef'?PMET_DEF.slice():PMET.map(function(x){ return x.k; }).filter(function(k){ return pm.indexOf(k)>-1; });
+      if(d.name){ try{ await T.pcard.load(d); }catch(err){ status(err.message,true); } } }
     if(act==='acol'){ var a4=(d.tcols||['ppg','rpg','apg']).slice(), i4=a4.indexOf(b.dataset.col); if(i4>-1) a4.splice(i4,1); else a4.push(b.dataset.col); d.tcols=DSTATS_ALL.map(function(x){ return x[0]; }).filter(function(k){ return a4.indexOf(k)>-1; }); }
     if(act==='addaward'){ d.awards.push({ label:'Award', name:'', team:'' }); }
     save(); paintEditor(); render();
