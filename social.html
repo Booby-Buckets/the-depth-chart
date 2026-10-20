@@ -2214,7 +2214,7 @@
   var RG_STATS=[['ppg','PTS'],['rpg','REB'],['apg','AST'],['mpg','MIN'],['fg','FG%'],['tp','3P%'],['ts','TS%'],['stl','STL'],['blk','BLK']];
   T.rgrid={
     ownBrand:true,
-    defaults:function(){ return { team:'', n:12, gcols:'', stats:['ppg','rpg','apg'], ovr:true, shots:true, title:'', pillBig:'', pillLab:'', pillSub:'', rows:[] }; },
+    defaults:function(){ return { team:'', n:12, gcols:'', stats:['ppg','rpg','apg'], pstats:false, ovr:true, shots:true, title:'', tstats:[], rows:[] }; },
     load:async function(d){
       if(!d.team){ status('Pick a team for its roster.'); return; }
       var ps=await players(), rs=await ratings(), n=Math.max(3,Math.min(18,+d.n||12));
@@ -2225,10 +2225,15 @@
       d.rows=R.slice(0,n).map(function(p){ var r=tRow(p); return { name:r.name, team:r.team, espn:r.espn, ovr:r.ovr, ppg:r.ppg, rpg:r.rpg, apg:r.apg, mpg:r.mpg, fg:r.fg, tp:r.tp, ts:r.ts, stl:r.stl, blk:r.blk }; });
       var tr=rs.find(function(t){ return onTeam(t.team,d.team); });
       d.title=SEASON.replace('20','').replace('-20','-')+' '+(tr?String(tr.full||tr.team).toUpperCase():school(d.team).toUpperCase());
-      // the team pill: projected record from the schedule model when it loads, else our rank
-      d.pillBig=tr&&tr.rank?'#'+tr.rank:''; d.pillLab='IN OUR RANKINGS'; d.pillSub='The Depth Chart '+SEASON+' projection';
+      // the team strip (owner, Oct 20: "basic team projected stats" instead of player stats): projected record + rank +
+      // the projected team box line (team_projected_box.json, the same numbers as the team page)
+      var rec='', box=null;
       try{ await needScript('tdc-schedule.js?v=43'); await TDCSched.load(); var pr=tr&&await TDCSched.project(tr.full,{ sims:800 });
-        if(pr&&pr.n){ d.pillBig=Math.round(pr.expW)+'-'+Math.round(pr.n-pr.expW); d.pillLab='PROJECTED RECORD'; d.pillSub=(tr.rank?'#'+tr.rank+' in our rankings · ':'')+'The Depth Chart model'; } }catch(e){}
+        if(pr&&pr.n) rec=Math.round(pr.expW)+'-'+Math.round(pr.n-pr.expW); }catch(e){}
+      try{ var B=await json('scripts/data/team_projected_box.json'); box=tr&&(B[tr.full]||B[tr.team])||null; }catch(e){}
+      var f1=function(v){ return v!=null&&isFinite(+v)?(+v).toFixed(1):''; };
+      d.tstats=[{ lab:'Proj. record', val:rec }, { lab:'Our rank', val:tr&&tr.rank?'#'+tr.rank:'' }, { lab:'PPG', val:f1(box&&box.ppg) }, { lab:'RPG', val:f1(box&&box.rpg) },
+        { lab:'APG', val:f1(box&&box.apg) }, { lab:'3P%', val:f1(box&&box.tp_pct) }].filter(function(x){ return x.val; });
     },
     editor:function(d){
       var st=d.stats||['ppg','rpg','apg'];
@@ -2237,12 +2242,13 @@
         '<div><label class="f">Per row</label><select data-k="gcols"><option value="">Auto</option>'+[2,3,4,5,6].map(function(c){ return '<option'+(+d.gcols===c?' selected':'')+'>'+c+'</option>'; }).join('')+'</select></div></div>'+
         '<div class="btns"><button class="b sm primary" data-act="load">Load / refresh data</button></div>'+shotsChk(d)+
         '<label class="chk"><input type="checkbox" data-k="ovr"'+(d.ovr!==false?' checked':'')+'> Player overall (opposite the logo)</label>'+
+        '<label class="f">Names</label><select data-k="nstyle"><option value="thin"'+(!d.nstyle||d.nstyle==='thin'?' selected':'')+'>Thin (Booker)</option><option value="light"'+(d.nstyle==='light'?' selected':'')+'>Extra thin</option><option value="bold"'+(d.nstyle==='bold'?' selected':'')+'>Bold condensed (BOOKER)</option></select>'+
         '<label class="f">Background</label><select data-k="bgc"><option value=""'+(!d.bgc?' selected':'')+'>Auto (primary, or the dark team colour when the primary is light)</option><option value="primary"'+(d.bgc==='primary'?' selected':'')+'>Team primary colour</option><option value="dark"'+(d.bgc==='dark'?' selected':'')+'>Dark team colour</option></select>'+
-        '<label class="f">Stats under each name (pick up to 3)</label><div class="seg">'+RG_STATS.map(function(s){ return '<button type="button" data-act="rgst" data-col="'+s[0]+'" class="'+(st.indexOf(s[0])>-1?'on':'')+'">'+s[1]+'</button>'; }).join('')+'</div>'+
+        '<label class="chk"><input type="checkbox" data-k="pstats"'+(d.pstats?' checked':'')+'> Player stat line under each name</label>'+
+        (d.pstats?'<label class="f">Stats under each name (pick up to 3)</label><div class="seg">'+RG_STATS.map(function(s){ return '<button type="button" data-act="rgst" data-col="'+s[0]+'" class="'+(st.indexOf(s[0])>-1?'on':'')+'">'+s[1]+'</button>'; }).join('')+'</div>':'')+
         '<div class="hint">Projected 2026-27 lines, the same numbers as the team page.</div>'+
         '<h3>Text</h3><label class="f">Title</label><input data-k="title" value="'+esc(d.title)+'">'+
-        '<div class="two"><div><label class="f">Pill number</label><input data-k="pillBig" value="'+esc(d.pillBig||'')+'"></div><div><label class="f">Pill label</label><input data-k="pillLab" value="'+esc(d.pillLab||'')+'"></div></div>'+
-        '<label class="f">Pill small line</label><input data-k="pillSub" value="'+esc(d.pillSub||'')+'">'+
+        '<h3>Team stats ('+(d.tstats||[]).length+')</h3>'+fieldsEditor(d.tstats||[],'tstats',[{k:'lab',ph:'Label',w:'minmax(0,1fr)'},{k:'val',ph:'Value',w:'80px'}])+'<div class="btns"><button class="b sm" data-act="add" data-path="tstats">+ Add stat</button></div>'+
         '<h3>Players ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',[{k:'name',ph:'Player',list:'plList',w:'minmax(0,1.4fr)'},{k:'ovr',ph:'OVR',w:'46px'},{k:'ppg',ph:'PTS',w:'46px'},{k:'rpg',ph:'REB',w:'46px'},{k:'apg',ph:'AST',w:'46px'}])+
         '<div class="btns"><button class="b sm" data-act="add" data-path="rows">+ Add player</button></div>';
     },
@@ -2255,41 +2261,44 @@
       var shots=d.shots!==false, st=(d.stats||['ppg','rpg','apg']).slice(0,3), lab={}; RG_STATS.forEach(function(s){ lab[s[0]]=s[1]; });
       var lg=await img(logoUrl(d.team)); await Promise.all(rows.map(function(r){ return shots?shotFor(r.espn,r.name,r.team):null; }));
       // grid: the column count that gives the biggest circles, unless the owner picked one
-      var y0=pad*1.15+60*u, foot=96*u, aw=W-pad*2, ah=H-y0-foot-pad*.5, n=rows.length, best=null;
+      var y0=pad*1.15+60*u, foot=128*u, aw=W-pad*2, ah=H-y0-foot-pad*.5, n=rows.length, best=null;
       for(var c=(+d.gcols||2);c<=(+d.gcols||6);c++){ var rr=Math.ceil(n/c), cw=aw/c, ch=ah/rr, s=Math.min(cw*.8,ch*.68); if(!best||s>best.s+.5) best={ c:c, r:rr, s:s, cw:cw, ch:ch }; }
       var R0=best.s/2, nameFs=Math.min(best.s*.2,40*u), statFs=Math.min(best.s*.12,22*u), badge=Math.max(34*u,R0*.5);
       var circ=mixHex(field,[255,255,255],.2);
       for(var i=0;i<n;i++){ var r=rows[i], col=i%best.c, row=Math.floor(i/best.c), inRow=Math.min(best.c,n-row*best.c);
-        var blk=2*R0+nameFs*1.9+statFs*1.4, cx=pad+(col+.5)*best.cw+(best.c-inRow)*best.cw/2, top=y0+row*best.ch, cy=top+Math.max(badge*.3,(best.ch-blk)/2)+R0;   // each player's block centred in its cell
+        var blk=2*R0+nameFs*1.9+(d.pstats?statFs*1.4:0), cx=pad+(col+.5)*best.cw+(best.c-inRow)*best.cw/2, top=y0+row*best.ch, cy=top+Math.max(badge*.3,(best.ch-blk)/2)+R0;   // each player's block centred in its cell
         // circle + headshot clipped to it
         ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R0,0,Math.PI*2); ctx.fillStyle=circ; ctx.fill(); ctx.clip();
         var sh=shots?await shotFor(r.espn,r.name,r.team):null;
         // ESPN cutouts sit on the circle; a school's rectangular photo is cropped to fill it (top-anchored on the head)
         if(sh&&/espncdn/.test(sh.src||'')) shotIn(sh,cx-R0,cy-R0*.92,R0*2,R0*1.92);
-        else if(sh){ var sc=Math.max(2*R0/sh.width,2*R0/sh.height), iw=sh.width*sc, ih=sh.height*sc; ctx.drawImage(sh,cx-iw/2,cy-R0-Math.max(0,(ih-2*R0)*.12),iw,ih); } else if(lg){ ctx.globalAlpha=.35; drawFit(lg,cx-R0*.55,cy-R0*.55,R0*1.1); ctx.globalAlpha=1; }
+        // no ESPN cut-out yet: the school photo as a smaller medallion inside the circle (owner: a full-circle crop read too big)
+        else if(sh){ var mr=R0*.74; ctx.save(); ctx.beginPath(); ctx.arc(cx,cy+R0*.06,mr,0,Math.PI*2); ctx.clip(); var sc=Math.max(2*mr/sh.width,2*mr/sh.height), iw=sh.width*sc, ih=sh.height*sc; ctx.drawImage(sh,cx-iw/2,cy+R0*.06-mr-Math.max(0,(ih-2*mr)*.12),iw,ih); ctx.restore(); } else if(lg){ ctx.globalAlpha=.35; drawFit(lg,cx-R0*.55,cy-R0*.55,R0*1.1); ctx.globalAlpha=1; }
         ctx.restore();
         // logo top-right, overall top-left (opposite the logo)
         // logo on a white disc (a same-colour logo vanishes on its own team colour), mirroring the OVR badge
-        if(lg){ var lx=cx+R0*.78, ly=cy-R0*.74; ctx.beginPath(); ctx.arc(lx,ly,badge/2,0,Math.PI*2); ctx.fillStyle='#FFFFFF'; ctx.fill(); ctx.lineWidth=Math.max(2,3*u); ctx.strokeStyle=field; ctx.stroke(); drawFit(lg,lx-badge*.34,ly-badge*.34,badge*.68); }
+        if(lg){ var lb=badge*1.3, lx=cx+R0*.74, ly=cy-R0*.7; ctx.beginPath(); ctx.arc(lx,ly,lb/2,0,Math.PI*2); ctx.fillStyle='#FFFFFF'; ctx.fill(); ctx.lineWidth=Math.max(2,3*u); ctx.strokeStyle=field; ctx.stroke(); drawFit(lg,lx-lb*.36,ly-lb*.36,lb*.72); }
         if(d.ovr!==false&&r.ovr){ var bx=cx-R0*.78, by=cy-R0*.74; ctx.beginPath(); ctx.arc(bx,by,badge/2,0,Math.PI*2); ctx.fillStyle='#FFFFFF'; ctx.fill();
           ctx.lineWidth=Math.max(2,3*u); ctx.strokeStyle=field; ctx.stroke();
           txt(String(r.ovr),bx,by-badge*.06,{ w:800,px:badge*.5,serif:'cond',c:'#14110C',al:'center' });
           txt('OVR',bx,by+badge*.27,{ w:700,px:badge*.18,serif:'barlow',c:'#55504A',al:'center',ls:.5*u }); }
         var ny=cy+R0+nameFs*.95;
-        txt(lastName(r.name),cx,ny,{ w:800,px:nameFs,serif:'cond',c:ink,al:'center',max:best.cw-12*u });
+        // names: thin by default (owner, Oct 20: "skinnier"), like the Kalshi reference; bold condensed on request
+        var nsty=d.nstyle||'thin', w0=String(r.name||'').trim().split(/\s+/).filter(function(x){ return !/^(jr\.?|sr\.?|ii|iii|iv|v)$/i.test(x); }), nm=nsty==='bold'?lastName(r.name):(w0.length?w0[w0.length-1]:r.name);
+        txt(nm,cx,ny,nsty==='bold'?{ w:800,px:nameFs,serif:'cond',c:ink,al:'center',max:best.cw-12*u }:{ w:nsty==='light'?500:600,px:nameFs*.9,serif:'barlow',c:ink,al:'center',max:best.cw-12*u });
         var line=st.map(function(k){ var v=r[k]; return v!==''&&v!=null?v+' '+lab[k]:''; }).filter(Boolean).join('  ·  ');
-        if(line) txt(line,cx,ny+nameFs*.85,{ w:700,px:statFs,serif:'barlow',c:ink,al:'center',max:best.cw-10*u }); }
-      // footer: team pill (left), brand (right)
-      var fy=H-pad*.55-foot*.5;
-      if(d.pillBig){ var bigFs=46*u, labFs=17*u, w1=width(d.pillBig,800,bigFs,'cond'), w2=Math.max(width(d.pillLab||'',800,labFs,'barlow')+(d.pillLab||'').length*1.2*u,width(d.pillSub||'',600,12*u,'barlow')), pw=w1+w2+64*u, ph=70*u;
-        rrect(pad,fy-ph/2,pw,ph,12*u); ctx.fillStyle=lum(c1)>.55?'rgba(0,0,0,.10)':'rgba(255,255,255,.14)'; ctx.fill(); ctx.lineWidth=Math.max(1,u); ctx.strokeStyle=lum(c1)>.55?'rgba(0,0,0,.18)':'rgba(255,255,255,.28)'; ctx.stroke();
-        ctx.beginPath(); ctx.arc(pad+18*u,fy,5*u,0,Math.PI*2); ctx.fillStyle='#3CC487'; ctx.fill();
-        txt(d.pillBig,pad+32*u,fy,{ w:800,px:bigFs,serif:'cond',c:ink });
-        txt(d.pillLab||'',pad+44*u+w1,fy-9*u,{ w:800,px:labFs,serif:'barlow',c:ink,ls:1.2*u });
-        if(d.pillSub) txt(d.pillSub,pad+44*u+w1,fy+12*u,{ w:600,px:13.5*u,serif:'barlow',c:ink }); }
+        if(line&&d.pstats) txt(line,cx,ny+nameFs*.85,{ w:700,px:statFs,serif:'barlow',c:ink,al:'center',max:best.cw-10*u }); }
+      // footer: the team's projected numbers in one strip (left), brand (right)
+      var fy=H-pad*.55-foot*.5, TS=(d.tstats||[]).filter(function(x){ return x&&(x.val||x.lab); });
+      if(TS.length){ var bw2=width('The Depth Chart',800,26*u,true)+brandSize(u)+40*u, sw=W-pad*2-bw2, tw=sw/TS.length, th=86*u, sy=fy-th/2;
+        rrect(pad,sy,sw,th,14*u); ctx.fillStyle=lum(field)>.55?'rgba(0,0,0,.10)':'rgba(255,255,255,.13)'; ctx.fill(); ctx.lineWidth=Math.max(1,u); ctx.strokeStyle=lum(field)>.55?'rgba(0,0,0,.16)':'rgba(255,255,255,.26)'; ctx.stroke();
+        TS.forEach(function(x,k){ var tx=pad+tw*(k+.5);
+          if(k){ ctx.fillStyle=lum(field)>.55?'rgba(0,0,0,.14)':'rgba(255,255,255,.22)'; ctx.fillRect(pad+tw*k,sy+16*u,Math.max(1,u),th-32*u); }
+          txt(String(x.val||'—'),tx,sy+th*.42,{ w:800,px:Math.min(40*u,tw*.32),serif:'cond',c:ink,al:'center',max:tw-12*u });
+          txt(String(x.lab||'').toUpperCase(),tx,sy+th*.76,{ w:700,px:Math.min(14*u,tw*.11),serif:'barlow',c:ink,al:'center',ls:1.1*u,max:tw-10*u }); }); }
       var bs=brandSize(u)*.95; brandMark(W-pad-bs,fy-bs/2,bs);
       ctx.save(); ctx.font=font(800,26*u,true); ctx.textBaseline='middle'; ctx.textAlign='right'; ctx.fillStyle=ink; ctx.fillText('The Depth Chart',W-pad-bs-14*u,fy); ctx.restore();
-      return school(d.team)+' '+SEASON+(d.pillBig?' · '+d.pillBig+' '+(d.pillLab||'').toLowerCase():'')+'\n\n'+rows.slice(0,5).map(function(r){ return r.name+(r.ovr?' ('+r.ovr+' OVR)':''); }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB';
+      return school(d.team)+' '+SEASON+((d.tstats||[]).length?' · '+(d.tstats||[]).map(function(x){ return x.val+' '+x.lab; }).join(' · '):'')+'\n\n'+rows.slice(0,5).map(function(r){ return r.name+(r.ovr?' ('+r.ovr+' OVR)':''); }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB';
     }
   };
 
@@ -2355,7 +2364,7 @@
   // LOAD_VER: bump whenever a chart's or post's loader changes what it puts in the rows (columns, order, maths). A saved
   // graphic loaded under an older version reloads on open — unless its rows were hand-edited — so a fix reaches the
   // owner without clicking "Load / refresh data" (Oct 2026: the scrimmage scoreboard kept the old Margin rows).
-  var LOAD_VER='2026-10-19d';
+  var LOAD_VER='2026-10-20r';
   function stamp(d){ if(d&&(Array.isArray(d.rows)||Array.isArray(d.starters))){ d.loadedAt=new Date().toISOString().slice(0,10); d._lv=LOAD_VER; d._edited=false; } }
   function paintEditor(){ var d=doc(), h=T[S.tpl].editor(d);
     if(d.loadedAt&&Array.isArray(d.rows)&&d.rows.length){ var age=Math.round((Date.now()-new Date(d.loadedAt+'T12:00:00'))/864e5);
