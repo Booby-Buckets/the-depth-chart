@@ -2424,7 +2424,13 @@
       var tsOf=function(x){ var a=2*((+x.fga||0)+.44*(+x.fta||0)); return a>0?f1(100*(+x.ppg||0)/a):''; };
       var row=function(lab,team,x,proj){ return { name:lab, team:team, mpg:f1(x.mpg), ppg:f1(x.ppg), rpg:f1(x.rpg), apg:f1(x.apg), fg:f1(x.fg_pct), ts:tsOf(x), ft:f1(x.ft_pct), heat:true, proj:proj?1:0 }; };
       d.lines=[]; if(H0) d.lines.push(row(((+H0.season_year-1)+'-'+String(H0.season_year).slice(2))+' '+school(H0.team),H0.team,H0,false));
-      d.lines.push(row(SEASON+' '+school(TM)+(WI?' (what if)':' (proj.)'),TM,L,true));
+      // what if he STAYED (owner: "he would average closer to what he was"): last season's line at that school, grown by
+      // the normal year-over-year change for his class and production tier (dev_curves.json rate_mult); minutes as last year
+      var stay=WI&&H0&&onTeam(H0.team,TM);
+      if(stay){ try{ var DC=await json('scripts/data/dev_curves.json'), cl=String(p.class_year||'').toLowerCase().replace(/[^a-z]/g,'').replace(/^r/,'').slice(0,2), tier=+H0.ppg>=15?'high':+H0.ppg>=8?'mid':'low';
+          var mu=((DC.rate_mult||{})[cl]||{})[tier]||1, Ls=Object.assign({},H0); ['ppg','rpg','apg','stl','blk','tovs','fga','fgm','fta','ftm','tpa','tpm','oreb','dreb'].forEach(function(k){ if(Ls[k]!=null&&isFinite(+Ls[k])) Ls[k]=+Ls[k]*mu; });
+          L=Object.assign({},L,Ls,{ mpg:H0.mpg, proj_wa:L.proj_wa, dwa:L.dwa }); }catch(e){ console.warn('stay line',e); } }
+      d.lines.push(row(SEASON+' '+school(TM)+(stay?' (if he stayed)':WI?' (what if)':' (proj.)'),TM,L,true));
       // his share of the team's shots + where it ranks on the roster
       var share=null, srank=null; try{ var SO=await json('scripts/data/stat_overall_projected.json'), TL=WI?[]:(SO.teams&&(SO.teams[p.team]||SO.teams[school(p.team)])||[]);
         var me=TL.find(function(x){ return String(x.espn)===String(p.espn_id)||x.name===p.name; }); if(me){ share=me.share; srank=1+TL.filter(function(x){ return x.share>me.share; }).length; } }catch(e){}
@@ -2462,7 +2468,10 @@
           var cf=confName(tr.conf), cfield=field.filter(function(t){ return confName(t.conf)===cf; });
           var stat=function(x){ return { rating:x, rank:1+field.filter(function(t){ return t.rating>x; }).length, crank:1+cfield.filter(function(t){ return t.rating>x; }).length,
             allPlay:100*TDC_RATINGS.winPctVsField(x,field), vs25:r25!=null?100*TDC_RATINGS.phi((x-r25)/SG):null }; };
-          var A=stat(wi.rating), B=stat(wo.rating);
+          // anchor on the PUBLISHED rating (owner, Oct 20 2026: the scratch re-rate put Notre Dame at #87 vs #70 on our
+          // rankings): the team as it is = its published rating, the other side = that plus / minus his rating change
+          var dR=wi.rating-wo.rating, pub=tr.rating!=null&&isFinite(+tr.rating)?+tr.rating:null;
+          var A=stat(pub==null?wi.rating:WI?pub+dR:pub), B=stat(pub==null?wo.rating:WI?pub:pub-dR);
           // projected record at each rating: the schedule sim, with this team's row set to that rating for the run
           try{ await needScript('tdc-schedule.js?v=43'); await TDCSched.load(); var DD=await TDC_RATINGS.get(), row=DD.teams.find(function(t){ return onTeam(t.team,TM); }), keep=row&&row.rating;
             // the sim reads its own copy of the ratings, so shift each game's projected margin by the rating change instead
@@ -2471,10 +2480,10 @@
             if(pr&&pr.rows&&pr.rows.length){ var sd=Math.sqrt(Math.pow(pr.sigma||SG,2)+Math.pow(pr.tau||0,2)), base=keep;
               var ew=function(x,only){ return pr.rows.reduce(function(acc,g){ if(only&&!only(g)) return acc; return acc+(g.final?(g.final.won?1:0):TDC_RATINGS.phi(((+g.margin||0)+(x-base))/sd)); },0); };
               var isConf=function(g){ return g.g&&g.g.conf; }, isTop=function(g){ return g.opp&&g.opp.rank!=null&&g.opp.rank<=50; };
-              var n0=pr.rows.length, wA=ew(wi.rating), wB=ew(wo.rating); A.rec=Math.round(wA)+'-'+(n0-Math.round(wA)); A.w=wA; B.rec=Math.round(wB)+'-'+(n0-Math.round(wB)); B.w=wB;
+              var n0=pr.rows.length, wA=ew(A.rating), wB=ew(B.rating); A.rec=Math.round(wA)+'-'+(n0-Math.round(wA)); A.w=wA; B.rec=Math.round(wB)+'-'+(n0-Math.round(wB)); B.w=wB;
               // conference wins and wins against top-50 opponents (owner, Oct 20: in place of the All-Play / top-25 odds rows)
-              A.cn=pr.rows.filter(isConf).length; A.cw=ew(wi.rating,isConf); B.cw=ew(wo.rating,isConf);
-              A.tn=pr.rows.filter(isTop).length; A.tw=ew(wi.rating,isTop); B.tw=ew(wo.rating,isTop); } }catch(e){ console.warn('sched',e); }
+              A.cn=pr.rows.filter(isConf).length; A.cw=ew(A.rating,isConf); B.cw=ew(B.rating,isConf);
+              A.tn=pr.rows.filter(isTop).length; A.tw=ew(A.rating,isTop); B.tw=ew(B.rating,isTop); } }catch(e){ console.warn('sched',e); }
           var sg=function(v,dec){ return (v>=0?'+':'\u2212')+Math.abs(v).toFixed(dec==null?1:dec); }, pc=function(v){ return v==null?'':v.toFixed(0)+'%'; };
           // ADJUSTED OFFENSE / DEFENSE (owner, Oct 20 2026: "add AdjO and AdjD"): the team's projected ORtg / DRtg (team_dna
           // 2027, with him on the roster). Without him: the rating change, put per 100 possessions at the team's tempo, split
