@@ -34,6 +34,12 @@ who reaches a payment link directly:
 subscription"** → turn it on. Stripe then recognises a returning customer by email and sends them to the customer
 portal instead of charging again. (Requires the customer portal from step 3.)
 
+## 5. Send customers back to the site after paying
+Stripe → **Payment Links** → open each of the 4 links (Premium monthly/yearly, Pro monthly/yearly) → **After payment** →
+"Don't show confirmation page" → **Redirect customers to your website** →
+`https://www.thedepthchartcbb.com/account.html?checkout=success` → Save. The site shows "Payment received — unlocking your
+plan…" and confirms when the plan is on (tdc-billing.js returnBanner).
+
 ## What happens after
 - Cancel in the portal → Stripe fires `customer.subscription.updated` with
   `cancel_at_period_end` (plan kept, `sub_expires_at` = period end), then
