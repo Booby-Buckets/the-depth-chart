@@ -315,7 +315,30 @@
     var SP=await schoolPhotos(), m=team?SP[tkey(team)]:null, u=m&&m[pnk(name)];
     if(!u&&m&&m._last){ var w=lfn(name), c=w?(m._last[w.l]||[]).filter(function(x){ return x.f===w.f; }):[]; if(c.length===1) u=c[0].u; }
     if(!u&&!team){ var k=pnk(name), hits=Object.keys(SP).filter(function(t){ return SP[t][k]; }); if(hits.length===1) u=SP[hits[0]][k]; }
-    return u?await img(u):null; }
+    return u?cutBg(await img(u),u):null; }
+  // BACKGROUND CUT-OUT for school roster photos (owner, Oct 20 2026: "the Stokes picture still looks bad — can we cut
+  // out their backgrounds"). ESPN headshots are already transparent; school photos sit on a studio backdrop (white /
+  // grey / a flat colour). Flood-fill from the top + side edges (not the bottom: a white shirt or jersey runs off it)
+  // over pixels close to the backdrop colour, then feather the edge so hair doesn't look clipped. A busy or
+  // non-uniform backdrop (arena, gradient) is left alone. Needs a CORS-clean image; any failure keeps the original.
+  var CUT={};
+  function cutBg(im,key){ if(!im) return null; if(CUT[key]) return CUT[key];
+    try{ var w=im.naturalWidth||im.width, h=im.naturalHeight||im.height, c=document.createElement('canvas'); c.width=w; c.height=h; var x=c.getContext('2d'); x.drawImage(im,0,0);
+      var D=x.getImageData(0,0,w,h), a=D.data, smp=[], at=function(i,j){ return (j*w+i)*4; };
+      for(var i=0;i<w;i+=2) smp.push(at(i,0),at(i,1)); for(var j=0;j<h*.6;j+=2) smp.push(at(0,j),at(w-1,j),at(1,j),at(w-2,j));
+      var bg=[0,1,2].map(function(k){ var v=smp.map(function(o){ return a[o+k]; }).sort(function(p,q){ return p-q; }); return v[v.length>>1]; });
+      var dist=function(o){ var r=a[o]-bg[0], g=a[o+1]-bg[1], b=a[o+2]-bg[2]; return Math.sqrt(r*r+g*g+b*b); };
+      if(smp.filter(function(o){ return dist(o)<30; }).length<smp.length*.7){ CUT[key]=im; return im; }   // busy backdrop: leave it
+      var T=42, seen=new Uint8Array(w*h), st=[];
+      var push=function(i,j){ var k=j*w+i; if(i<0||j<0||i>=w||j>=h||seen[k]) return; if(dist(k*4)<T){ seen[k]=1; st.push(k); } };
+      for(i=0;i<w;i++) push(i,0); for(j=0;j<h*.85;j++){ push(0,j); push(w-1,j); }
+      while(st.length){ var k=st.pop(), ci=k%w, cj=(k-ci)/w; push(ci+1,cj); push(ci-1,cj); push(ci,cj+1); push(ci,cj-1); }
+      var gone=0; for(k=0;k<w*h;k++) if(seen[k]){ a[k*4+3]=0; gone++; }
+      if(gone>w*h*.8||gone<w*h*.05){ CUT[key]=im; return im; }
+      // feather: an edge pixel near the backdrop colour keeps only part of its opacity
+      for(j=1;j<h-1;j++) for(i=1;i<w-1;i++){ k=j*w+i; if(seen[k]) continue; if(seen[k-1]||seen[k+1]||seen[k-w]||seen[k+w]){ var dd=dist(k*4); if(dd<T*2.2) a[k*4+3]=Math.round(255*Math.max(.15,(dd-T)/(T*1.2))); } }
+      x.putImageData(D,0,0); CUT[key]=c; return c; }
+    catch(e){ CUT[key]=im; return im; } }
   function initials(n){ var w=String(n||'').replace(/\b(Jr|Sr|II|III|IV)\b\.?/g,'').trim().split(/\s+/).filter(Boolean); return ((w[0]||'')[0]||'')+((w.length>1?w[w.length-1]:'')[0]||''); }
   // no photo anywhere: a team-coloured ring with the player's initials, so the photo column never reads as a hole
   function drawNoShot(x,y,s,name,team){ var tc=tcol(team);
@@ -2409,15 +2432,18 @@
       var tl=(d.tiles||[]).filter(function(t){ return t.val; }), tg=12*u, tw=(W-pad*2-tg*(tl.length-1))/Math.max(1,tl.length), th=Math.min(96*u,avail*.15);
       tl.forEach(function(t,i){ var tx=pad+i*(tw+tg); rrect(tx,y,tw,th,10*u); ctx.fillStyle=P.alt; ctx.fill(); ctx.strokeStyle=P.line; ctx.lineWidth=Math.max(1,u); ctx.stroke();
         txt(t.val,tx+tw/2,y+th*.4,{ w:800,px:th*.42*k,serif:'cond',c:P.text,al:'center',max:tw-12*u }); txt(t.lab,tx+tw/2,y+th*.78,{ w:600,px:Math.min(15*u,th*.16),serif:'barlow',c:P.mut,al:'center',max:tw-12*u }); });
-      y+=th+14*u;
+      y+=th+28*u;
       var five=(d.five||[]).filter(function(r){ return r.name; }), fs=Math.min(avail*.13,(W-pad*2)/5*.5), slot=(W-pad*2)/Math.max(1,five.length);
       await Promise.all(five.map(function(r){ return d.shots!==false?shotFor(r.espn,r.name,r.team):null; }));
       for(var i=0;i<five.length;i++){ var r=five[i], sx=pad+slot*i+(slot-fs)/2, im=d.shots!==false?await shotFor(r.espn,r.name,r.team):null;
         if(im) drawShot(im,sx,y,fs,r.me?P.acc:null); else drawNoShot(sx,y,fs,r.name,r.team);
         if(r.me){ ctx.save(); ctx.beginPath(); ctx.arc(sx+fs/2,y+fs/2,fs/2+3*u,0,7); ctx.lineWidth=4*u; ctx.strokeStyle=P.acc; ctx.stroke(); ctx.restore(); }
+        // the team's logo on each circle (owner, Oct 20 2026), a small badge at the lower right
+        var bl=await img(logoUrl(r.team||d.team)); if(bl){ var bs=fs*.36, bx=sx+fs-bs*.78, by=y+fs-bs*.82; ctx.save(); ctx.beginPath(); ctx.arc(bx+bs/2,by+bs/2,bs/2,0,7); ctx.fillStyle=P.bg; ctx.fill();
+          ctx.lineWidth=Math.max(1,1.5*u); ctx.strokeStyle=P.line; ctx.stroke(); ctx.restore(); drawFit(bl,bx+bs*.14,by+bs*.14,bs*.72); }
         txt(lastName(r.name),sx+fs/2,y+fs+16*u,{ w:r.me?800:700,px:Math.min(18*u,slot*.12)*k,serif:'barlow',c:r.me?P.acc:P.text,al:'center',max:slot-8*u });
         txt([r.pos,r.ovr?r.ovr+' OVR':''].filter(Boolean).join(' · '),sx+fs/2,y+fs+36*u,{ w:600,px:Math.min(14*u,slot*.1),serif:'barlow',c:P.mut,al:'center',max:slot-8*u }); }
-      y+=fs+72*u;
+      y+=fs+92*u;
       // 3. the fit
       if(d.fit&&d.fit.reads&&d.fit.reads.length){ y=sec('The fit',y);
         var fr=d.fit.reads, bh=Math.min((fTop-y-10*u)/(fr.length+(d.fit.why?1:0)),58*u), ov=+d.fit.overall, oc=ramp(HEAT_RAMP,Math.max(0,Math.min(1,(ov-35)/50))), ow=130*u;
