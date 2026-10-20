@@ -2432,7 +2432,7 @@
   // Kansas and the fit"). Any player on his new roster: last season's line vs our projection there, what the team looks
   // like with him (rank, power rating, his shot share, the starting five) and the Portal Fit scorecard for the move —
   // scored against the roster WITHOUT him (team_needs already counts him at his slot).
-  var MOVE_V='adj2';   // bump when the Transfer move's loaded data changes shape, so saved graphics reload themselves
+  var MOVE_V='adj3';   // bump when the Transfer move's loaded data changes shape, so saved graphics reload themselves
   T.move={
     ownBrand:true,
     defaults:function(){ return { q:'', name:'', team:'', espn:null, from:'', ovr:'', role:'', title:'', subtitle:'', lines:[], tiles:[], five:[], fit:null, shots:true }; },
@@ -2449,19 +2449,16 @@
       var row=function(lab,team,x,proj){ return { name:lab, team:team, mpg:f1(x.mpg), ppg:f1(x.ppg), rpg:f1(x.rpg), apg:f1(x.apg), fg:f1(x.fg_pct), ts:tsOf(x), ft:f1(x.ft_pct), heat:true, proj:proj?1:0 }; };
       d.lines=[]; if(H0) d.lines.push(row(((+H0.season_year-1)+'-'+String(H0.season_year).slice(2))+' '+school(H0.team),H0.team,H0,false));
       // what if he STAYED (owner, Oct 20 2026: "too vanilla — this is almost a totally different roster, project it that
-      // way"): not last year's line x a growth factor but his ROLE on the new roster, by the projection's own rules
-      // (build_stat_overall_projected.py): career per-40 rates (recent seasons and real minutes weigh most, so a 10-game
-      // year is not the whole story) grown by his class/tier dev curve; minutes = his healthy-season minutes plus a bump
-      // for the rotation minutes that left (max +2.5, 35 a game at most); usage moved by the calibrated vacated-usage grid (USG_DMEAN) for the share of
-      // last season's usage load that is gone, never below his career usage; shooting = career makes/attempts, 3P%
-      // trusted by sample. Volume follows usage at the build's elasticities (shots .90, assists .55, turnovers .95).
+      // way"): not last year's line x a growth factor but his ROLE on the new roster: career per-40 rates (recent seasons
+      // and real minutes weigh most, so a 10-game year is not the whole story) grown by his class/tier dev curve, his
+      // healthy-season minutes, then the new roster's projected stat budget shared with the teammates who are there now
+      // (below). Shooting = career makes/attempts, 3P% trusted by sample.
       var stay=WI&&H0&&onTeam(H0.team,TM), why=null;
       if(stay){ try{
           var DC=await json('scripts/data/dev_curves.json'), cl=String(p.class_year||'').toLowerCase().replace(/[^a-z]/g,'').replace(/^r/,'').slice(0,2), tier=+H0.ppg>=15?'high':+H0.ppg>=8?'mid':'low';
           var mu=((DC.rate_mult||{})[cl]||{})[tier]||1;
           var car=(await sbGet('player_history?espn_id=eq.'+p.espn_id+'&select=*&order=season_year.desc&limit=3')).filter(function(x){ return +x.mpg>0&&+x.gp>0; });
-          var ids=car.map(function(x){ return x.season_year; }), adv=await sbGet('player_advanced?espn_id=eq.'+p.espn_id+'&select=season_year,min,usg_pct');
-          var w=function(x,i){ return (+x.gp*+x.mpg)*[1,.7,.5][i]; }, W0=0, R40={}, K=['ppg','rpg','apg','stl','blk','tovs','fga','fgm','fta','ftm','tpa','tpm','oreb','dreb'];
+                    var w=function(x,i){ return (+x.gp*+x.mpg)*[1,.7,.5][i]; }, W0=0, R40={}, K=['ppg','rpg','apg','stl','blk','tovs','fga','fgm','fta','ftm','tpa','tpm','oreb','dreb'];
           car.forEach(function(x,i){ var wi=w(x,i); W0+=wi; K.forEach(function(k){ if(x[k]!=null&&isFinite(+x[k])) R40[k]=(R40[k]||0)+wi*40*(+x[k])/(+x.mpg); }); });
           K.forEach(function(k){ if(R40[k]!=null) R40[k]/=W0; });
           // made shots come from the percentages when the row has none
@@ -2469,32 +2466,31 @@
           var pctOf=function(m,a2,pc){ att.a=0; att.m=0; att(m,a2,pc); return att.a>0?100*att.m/att.a:null; };
           var fgP=pctOf('fgm','fga','fg_pct'), ftP=pctOf('ftm','fta','ft_pct'), tpP=pctOf('tpm','tpa','tp_pct'), tpN=att.a, tk=tpN/(tpN+36);
           if(tpP!=null) tpP=tk*tpP+(1-tk)*33.5;
-          // usage: career (minutes-weighted) and the share of last season's usage load that left
-          var uW=0,uS=0; adv.filter(function(x){ return ids.indexOf(x.season_year)>=0&&x.usg_pct!=null; }).forEach(function(x){ uW+=+x.min; uS+=(+x.min)*(+x.usg_pct); });
-          var uC=uW?uS/uW:null, vfrac=null, goneMp=0;
-          var last=await sbGet('player_history?team=eq.'+encodeURIComponent(H0.team)+'&season_year=eq.'+H0.season_year+'&select=espn_id,name,mpg,gp');
-          var keep={}; (D.players||[]).forEach(function(q){ if(onTeam(q.team,TM)&&q.espn_id) keep[String(q.espn_id)]=1; }); keep[String(p.espn_id)]=1;
-          var lid=last.filter(function(x){ return x.espn_id; }).map(function(x){ return x.espn_id; });
-          if(lid.length){ var la=await sbGet('player_advanced?espn_id=in.('+lid.join(',')+')&season_year=eq.'+H0.season_year+'&select=espn_id,min,usg_pct'), tot=0, gone=0;
-            la.forEach(function(x){ if(+x.min<150) return; var l=(x.usg_pct!=null?+x.usg_pct:20)*(+x.min); tot+=l; if(!keep[String(x.espn_id)]) gone+=l; });
-            last.forEach(function(x){ if(!keep[String(x.espn_id)]&&+x.mpg>=12) goneMp+=+x.mpg; });
-            if(tot>0) vfrac=Math.min(1,gone/tot); }
-          var GU=[15,22.5,27,32], GV=[.12,.35,.55,.83], DM=[[0.3,-0.1,-1.0,-1.9],[1.2,0.5,-0.1,-2.1],[1.9,1.2,0.0,-1.9],[2.9,1.1,0.4,-3.1]];
-          var seg=function(x,xs){ x=Math.min(Math.max(x,xs[0]),xs[xs.length-1]); for(var k=0;k<xs.length-1;k++) if(x<=xs[k+1]) return [k,(x-xs[k])/(xs[k+1]-xs[k])]; return [xs.length-2,1]; };
-          var cell=function(u2,v2){ var I=seg(u2,GU), J=seg(v2,GV), i=I[0], fu=I[1], j=J[0], fv=J[1]; var A=DM[j][i]*(1-fu)+DM[j][i+1]*fu, B=DM[j+1][i]*(1-fu)+DM[j+1][i+1]*fu; return A*(1-fv)+B*fv; };
-          // the grid's drop for a high-usage player is mostly a one-season fluke regressing; his career usage already did that
-          var uLast=null; adv.forEach(function(x){ if(x.season_year===H0.season_year) uLast=+x.usg_pct; });
-          var uNew=uC!=null&&vfrac!=null?Math.min(34,Math.max(uC,(uLast!=null?uLast:uC)+cell(uLast!=null?uLast:uC,vfrac))):uC, ur=uC&&uNew?uNew/uC:1;
-          // minutes: his healthy seasons (10+ games), plus the departed-rotation bump, never past the D-I ceiling
-          var hm=car.filter(function(x){ return +x.gp>=10; }), mp=hm.length?hm.reduce(function(s,x,i){ return s+(+x.mpg)*[1,.7,.5][i]; },0)/hm.reduce(function(s,x,i){ return s+[1,.7,.5][i]; },0):+H0.mpg;
-          mp=Math.min(35,mp+Math.min(2.5,.025*goneMp));
-          var el={ fga:.9, fgm:.9, fta:.9, ftm:.9, tpa:.9, tpm:.9, ppg:.9, apg:.55, tovs:.95 }, Ls={ mpg:mp };
-          K.forEach(function(k){ if(R40[k]!=null) Ls[k]=R40[k]*mu*mp/40*Math.pow(ur,el[k]||0); });
-          // points rebuilt from the shooting so the line and the percentages agree; FG% pays the usage-efficiency toll
-          if(fgP!=null) Ls.fg_pct=fgP*(1-.06*(ur-1)); if(ftP!=null) Ls.ft_pct=ftP; if(tpP!=null) Ls.tp_pct=tpP;
+          // minutes: his healthy seasons (15+ games; a short, injury-hit year is a minutes restriction, not his role)
+          var hm=car.filter(function(x){ return +x.gp>=15; }); if(!hm.length) hm=car;
+          var mp=Math.min(35,hm.reduce(function(s2,x,i){ return s2+(+x.mpg)*[1,.7,.5][i]; },0)/hm.reduce(function(s2,x,i){ return s2+[1,.7,.5][i]; },0));
+          // WHO IS THERE NOW (owner: "we need to account for who is there now, that is the point"): the team's projected
+          // 2026-27 roster without him already spends the whole budget — its shots, free throws, assists, rebounds and
+          // turnovers. He joins at his own rate and the budget is SHARED by rate x minutes: his teammates give up minutes
+          // to make room (to 200), and each stat goes to whoever produces it — a second point guard (Braeden Smith's 6
+          // assists) takes ball-handling from him, a volume big (Duncomb) takes rebounds and free throws, scorers take
+          // shots. Steals and blocks are his own (rate x minutes). Points rebuilt from the shots at his career percentages.
+          var mates=[], seenM={}; (D.players||[]).forEach(function(q){ if(!q.name||!onTeam(q.team,TM)||q===p||(p.espn_id&&String(q.espn_id)===String(p.espn_id))) return;
+            var h=String(q.hometown||'').trim().toLowerCase(); if(q.is_injured||h==='injured'||h==='out') return;
+            var k=q.espn_id||q.name; if(seenM[k]) return; seenM[k]=1; var Lq=null; try{ Lq=TDCProjGrade.lineOf(q); }catch(e){} if(Lq&&+Lq.mpg>0) mates.push({ n:q.name, L:Lq }); });
+          var tmMin=mates.reduce(function(s2,m2){ return s2+(+m2.L.mpg); },0), squeeze=tmMin>0?Math.max(0,200-mp)/tmMin:1;
+          var SH=['fga','fta','tpa','tovs','apg','oreb','dreb'], Ls={ mpg:mp }, share={};
+          K.forEach(function(k){ if(R40[k]!=null) Ls[k]=R40[k]*mu*mp/40; });
+          if(mates.length&&tmMin>=120) SH.forEach(function(k){ if(Ls[k]==null) return;
+            var pool=mates.reduce(function(s2,m2){ return s2+(+m2.L[k]||0); },0), rest=pool*squeeze;
+            if(pool>0){ Ls[k]=pool*Ls[k]/(Ls[k]+rest); share[k]=Ls[k]/pool; } });
+          Ls.rpg=(Ls.oreb||0)+(Ls.dreb||0);
+          if(fgP!=null) Ls.fg_pct=fgP; if(ftP!=null) Ls.ft_pct=ftP; if(tpP!=null) Ls.tp_pct=tpP;
           if(Ls.fga&&Ls.fg_pct!=null){ Ls.fgm=Ls.fga*Ls.fg_pct/100; Ls.tpm=(Ls.tpa||0)*(Ls.tp_pct||0)/100; Ls.ftm=(Ls.fta||0)*(Ls.ft_pct||0)/100; Ls.ppg=2*Ls.fgm+Ls.tpm+Ls.ftm; }
+          // who gives the most up to make room for him (shots + assists, at their squeezed minutes)
+          var cost=mates.map(function(m2){ var before=(+m2.L.fga||0)+(+m2.L.apg||0), after=0; SH.filter(function(k){ return k==='fga'||k==='apg'; }).forEach(function(k){ var pool=mates.reduce(function(s2,m3){ return s2+(+m3.L[k]||0); },0); if(pool>0) after+=(+m2.L[k]||0)*squeeze*(pool-(Ls[k]||0))/(pool*squeeze); }); return { n:m2.n, d:before-after }; }).sort(function(x,y){ return y.d-x.d; });
           L=Object.assign({},L,Ls,{ proj_wa:L.proj_wa, dwa:L.dwa });
-          why={ mpg:mp, usg0:uC, usg1:uNew, vac:vfrac, seasons:car.length };
+          why={ mpg:mp, share:share, mates:mates.length, cost:cost.slice(0,3) };
         }catch(e){ console.warn('stay line',e); } }
       d.lines.push(row(SEASON+' '+school(TM)+(stay?' (if he stayed)':WI?' (what if)':' (proj.)'),TM,L,true));
       // his share of the team's shots + where it ranks on the roster
