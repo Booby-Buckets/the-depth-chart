@@ -1196,13 +1196,81 @@ import re as _re, unicodedata as _ud
 def _nk(s):
     s=_ud.normalize("NFKD",str(s or "")).encode("ascii","ignore").decode().lower()
     return _re.sub(r"[^a-z]","",_re.sub(r"\b(jr|sr|ii|iii|iv)\b\.?","",s))
-# this year's class (CUR) plus last year's (CUR-1): a redshirt freshman who never played still has only his recruit
-# pedigree (Tommy Ahneman, 2025 class, owner Oct 15 2026). The newer class wins a name collision.
-try:
-    _CL=json.load(open(os.path.join(D,"recruiting_247.json")))["classes"]
-    _R247={_nk(r["name"]):r["rank"] for y in (str(CUR-1),str(CUR)) for r in _CL.get(y,[])}
-except Exception: _R247={}
-except Exception: _R247={}
+# RECRUITING PEDIGREE FOR EVERY PLAYER WITHOUT A D-I LINE (owner, Oct 20 2026: "update recruiting pedigree for multiple
+# years" — Duke's redshirt freshman Sebastian Wilkins, the 2025 class's #47, showed 55: his roster name is misspelt
+# "Sebatian" and only the two newest classes were searched). Every ROSTER player is matched to the 247 classes his year
+# makes plausible (Fr = this class, R-Fr/So = last, Jr = two back, Sr = three, Gr = four; +-1 for reclassing/prep years),
+# exact name first, then a single-letter typo when exactly ONE recruit in those classes fits. Keyed by the roster's own
+# spelling, so the derived CI file (fr_pedigree_<y>.json) matches the same players. Redshirts / walk-ons / injured
+# returners with no box line get their pedigree like a freshman does (Tommy Ahneman, 2025 class, Oct 15 2026).
+try: _CL=json.load(open(os.path.join(D,"recruiting_247.json")))["classes"]
+except Exception: _CL={}
+def _lev1(a,b):
+    """edit distance <= 1 (one letter missing, extra or swapped)"""
+    if a==b: return True
+    la,lb=len(a),len(b)
+    if abs(la-lb)>1: return False
+    if la==lb: return sum(x!=y for x,y in zip(a,b))<=1 or any(a[:i]+a[i+1]+a[i]+a[i+2:]==b for i in range(la-1))
+    if la>lb: a,b,la,lb=b,a,lb,la
+    i=0
+    while i<la and a[i]==b[i]: i+=1
+    return a[i:]==b[i+1:]
+def _cls_years(yr):
+    y=str(yr or "").lower().replace(".","").strip(); red=bool(re.match(r"(r-?|rs-?)",y)); base=None
+    for k,off in (("fr",0),("so",1),("jr",2),("sr",3),("gr",4)):
+        if k in y: base=CUR-off-(1 if red else 0); break
+    if base is None: return [CUR,CUR-1]
+    return [x for x in (base,base-1,base+1) if str(x) in _CL] or [CUR,CUR-1]
+_R247={}
+def _toks(s):
+    s=_ud.normalize("NFKD",str(s or "")).encode("ascii","ignore").decode().lower()
+    w=_re.sub(r"[^a-z ]","",_re.sub(r"\b(jr|sr|ii|iii|iv)\b\.?","",s.replace("-"," ").replace("'",""))).split()
+    return (w[0],w[-1]) if len(w)>=2 else None
+def _swap1(a,b): return len(a)==len(b) and sum(x!=y for x,y in zip(a,b))==2 and any(a[:i]+a[i+1]+a[i]+a[i+2:]==b for i in range(len(a)-1))
+def _dbl(a,b): return len(a)==len(b)+1 and any(a[:i]+a[i+1:]==b and a[i]==a[i-1] for i in range(1,len(a)))   # a tripled/doubled letter
+def _typo(r,c):
+    """a roster spelling vs a 247 spelling: a slip in the FIRST name (Sebatian/Sebastian), or in the last name only a swapped
+    pair (Bryd/Byrd) or an extra repeated letter (Mannning). A changed / added letter in a surname is a different family
+    (Johnson vs Johnston, Braeden vs Braden Smith across classes), so it never matches."""
+    if not r or not c: return False
+    (rf,rl),(cf,cl)=r,c
+    if rl==cl: return rf!=cf and len(rf)>=4 and rf[0]==cf[0] and _lev1(rf,cf)
+    if rf==cf: return _swap1(rl,cl) or _dbl(rl,cl) or _dbl(cl,rl)
+    return False
+if _CL:
+    _BYY={y:{_nk(r["name"]):(r["rank"],_toks(r["name"])) for r in v} for y,v in _CL.items() if v}
+    _hit={"exact":0,"typo":0,"namesake":0}; _amb=set(); _taken=set(); _src={}
+    _rows=list(pl.itertuples())
+    for _r in _rows:   # pass 1: exact names, so a recruit already on a roster can't also be someone's "typo"
+        _k=_nk(_r.name)
+        for _yy in _cls_years(getattr(_r,"yr",None) or getattr(_r,"class_year",None)):
+            if _k in _BYY.get(str(_yy),{}): _taken.add((str(_yy),_k)); break
+    for _r in _rows:
+        _k=_nk(_r.name); _ys=[str(x) for x in _cls_years(getattr(_r,"yr",None) or getattr(_r,"class_year",None))]
+        _ey=next((y for y in _ys if _k in _BYY.get(y,{})),None); _rk=_BYY[_ey][_k][0] if _ey else None
+        if _rk: _hit["exact"]+=1; _src[_k]=(_k,int(_ey))
+        else:
+            _rt=_toks(_r.name)
+            _c={(y,nk) for y in _ys for nk,(rk,tk) in _BYY.get(y,{}).items() if (y,nk) not in _taken and _typo(_rt,tk)}
+            if len(_c)==1:
+                _yy,_nn=_c.pop(); _rk=_BYY[_yy][_nn][0]; _hit["typo"]+=1; _src[_k]=(_nn,int(_yy))
+                print("pedigree: '%s' (%s) = %s class #%d (spelling slip)"%(_r.name,_r.team,_yy,_rk),file=sys.stderr)
+        if not _rk: continue
+        if _k in _R247 and _R247[_k]!=_rk: _amb.add(_k)   # two roster players share a name but not a recruit: trust neither
+        _R247[_k]=_rk
+    for _k in _amb: _R247.pop(_k,None)
+    # NAMESAKE GUARD: a ranked recruit almost always plays D-I. A roster player with NO D-I record whose matched recruit's
+    # name has box-score seasons (at any school) is a different person who shares the name (a walk-on "Jeremiah Johnson"
+    # is not the 2023 class's) — drop the match. Players with an ESPN id are that person already, so they keep it.
+    try:
+        _hn={_nk(h["name"]) for h in sb_get(f"player_history?select=espn_id,name&season_year=gte.{CUR-5}&order=espn_id.asc,season_year.asc")}
+        _noid={_nk(r.name) for r in _rows if not (isinstance(r.espn_id,(int,float)) and r.espn_id==r.espn_id and r.espn_id>0)}
+        # only the OLDER classes added here (<= CUR-2): this and last year's classes keep their old exact-name behaviour, or a
+        # top freshman with a common name (Duke's #4 Cameron Williams vs Portland's) would lose his pedigree
+        for _k in [k for k in list(_R247) if k in _noid and _src.get(k,(k,CUR))[1]<=CUR-2 and (_src[k][0] in _hn or k in _hn)]:
+            _R247.pop(_k,None); _hit["namesake"]+=1
+    except Exception as _e: print("warn: namesake guard skipped:",_e,file=sys.stderr)
+    print("pedigree matched: %d exact, %d spelling slips, %d ambiguous + %d namesakes dropped (classes %s)"%(_hit["exact"],_hit["typo"],len(_amb),_hit["namesake"],",".join(sorted(_BYY))),file=sys.stderr)
 FR_RANK_T=((3,88.2),(8,84.5),(18,81.2),(38,76.6),(75,72.9),(125,70.8),(175,67.9),(250,67.1),(350,67.1))   # rank-band mean freshman grade
 FR_UNRANKED=float(os.environ.get("FR_UNRANKED","63.0")); FR_MIN_W=float(os.environ.get("FR_MIN_W","0.4"))
 # an UPPERCLASS newcomer with no D-I data and no grade (JUCO / D-II / NAIA / international transfer) counts as a
@@ -2178,9 +2246,13 @@ for _sh,_fm in FRESH_FIT.items():
         _f["ppg"]=round(_n(_el.get("ppg"))*_m/_n(_el["mpg"],1),1); _f["editor_line"]=1; _ned+=1
         _sv=_sv_of(S2F.get(_sh.lower()) or _sh,_r40e,_m,_f["ppg"],_cred_of(_f))
         if _sv is not None: _f["sv"]=int(_sv)
-        if _sv is not None and _f.get("mpg_pot"):
+        # an editor line saved at a few minutes is a rounded scrap (0.6 pts in 0.6 mpg = 40 pts/40): its RATES are noise, so
+        # the rank-minutes potential keeps the model rates (svp from the first pass) unless the line has 6+ minutes behind
+        # it (owner, Oct 20 2026: Bryson Howard 98 / Davion Adkins 99 NIL grades from 2-minute editor lines)
+        if _sv is not None and _f.get("mpg_pot") and _n(_el["mpg"],0)>=6:
             _svp=_sv_of(S2F.get(_sh.lower()) or _sh,_r40e,_f["mpg_pot"],None,_cred_of(_f))
             _f["svp"]=int(max(_sv,_svp)) if _svp is not None else _f.get("svp")
+        elif _f.get("svp") is not None and _sv is not None: _f["svp"]=int(max(_sv,_f["svp"]))
 print(f"editor lines: {_ned} newcomers valued on the line the editor showed",file=sys.stderr)
 # THE DISPLAYED NEWCOMER OVR IS HIS STAT VALUE (owner, Oct 2026: the editor no longer sets an overall, and TDC
 # ratings are stat-driven): his projected line valued like a returner's. The recruiting-band prior stays as
