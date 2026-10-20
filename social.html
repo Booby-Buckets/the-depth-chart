@@ -704,12 +704,17 @@
       return '<h3>Data</h3><div class="two"><div><label class="f">Players</label><input data-k="n" type="number" min="6" max="80" value="'+d.n+'"></div>'+
         '<div><label class="f">Min. shots</label><input data-k="minFga" type="number" min="50" max="600" value="'+d.minFga+'"></div></div>'+
         scopeUI(d,{ hl:true })+
+        '<label class="chk"><input type="checkbox" data-k="ret"'+(d.ret?' checked':'')+'> Returning players only (on a 2026-27 roster; logo = his 2026-27 team)</label>'+
         '<div class="hint">Shows the best shot-makers, the best creators and the best at both (a third each). A highlighted team’s players are ringed and named, on top of the field.</div>'+
         '<label class="f">Name labels (top N)</label><input data-k="labels" type="number" min="0" max="60" value="'+d.labels+'">'+textEditor(d);
     },
     draw:async function(d,W,H,u,pad){
       bg(W,H); await ratings(); var g=await json('scripts/data/shot_genome_players.json');
-      var pool=g.players.filter(function(p){ return p.smAdj!=null&&p.crAdj!=null&&(p.fga||0)>=(+d.minFga||0)&&(!d.conf||confOfFull(p.team)===d.conf); });
+      // returning only (owner, Oct 20 2026): last season's shot data for players on a 2026-27 roster, shown with (and
+      // filtered by the league of) their 2026-27 team, so transfers wear their new logo
+      if(d.ret) await players();
+      var gp=d.ret?g.players.filter(function(p){ return nowTeam(p.espn_id); }).map(function(p){ return Object.assign({},p,{ team:nowTeam(p.espn_id) }); }):g.players;
+      var pool=gp.filter(function(p){ return p.smAdj!=null&&p.crAdj!=null&&(p.fga||0)>=(+d.minFga||0)&&(!d.conf||confOfFull(p.team)===d.conf); });
       var z=function(k){ var v=pool.map(function(p){ return p[k]; }), m=v.reduce(function(a,b){ return a+b; },0)/(v.length||1), sd=Math.sqrt(v.reduce(function(a,b){ return a+(b-m)*(b-m); },0)/(v.length||1))||1; return function(p){ return (p[k]-m)/sd; }; };
       var zs=z('smAdj'), zc=z('crAdj'), k=Math.max(2,Math.round((+d.n||30)/3)), pick={}, out=[];
       [function(p){ return zs(p); },function(p){ return zc(p); },function(p){ return Math.min(zs(p),zc(p)); }].forEach(function(f){
@@ -717,17 +722,17 @@
       out.forEach(function(p){ p._s=Math.max(zs(p),zc(p))+Math.min(zs(p),zc(p)); });
       var lab=out.slice().sort(function(a,b){ return b._s-a._s; }).slice(0,+d.labels||0).map(function(p){ return p.espn_id; });
       var pts=out.map(function(p){ return { x:p.crAdj, y:p.smAdj, team:p.team, espn:p.espn_id, lab:lab.indexOf(p.espn_id)>-1?p.name:'', pri:p._s, name:p.name }; });
-      if(d.team){ await players(); var all=g.players.filter(function(p){ return p.smAdj!=null&&p.crAdj!=null&&(p.fga||0)>=(+d.minFga||0)&&onTeam(nowTeam(p.espn_id)||p.team,d.team)&&!pick[p.espn_id]; });
+      if(d.team){ await players(); var all=gp.filter(function(p){ return p.smAdj!=null&&p.crAdj!=null&&(p.fga||0)>=(+d.minFga||0)&&onTeam(nowTeam(p.espn_id)||p.team,d.team)&&!pick[p.espn_id]; });
         pts.forEach(function(q){ if(nowTeam(q.espn)&&!onTeam(nowTeam(q.espn),d.team)&&onTeam(q.team,d.team)) q._left=1; });   // left the team: not highlighted
         all.forEach(function(p){ pts.push({ x:p.crAdj, y:p.smAdj, team:p.team, espn:p.espn_id, name:p.name, pri:0 }); });
         var _hl=pts.filter(function(q){ return !q._left&&onTeam(nowTeam(q.espn)||q.team,d.team); });
         _hl.forEach(function(q){ q.hl=1; q.lab=q.name; }); }
-      var y0=head(W,u,pad,d.title,d.subtitle), fTop=foot(W,H,u,pad); fTop-=noteLine(W,u,pad,fTop,d.note);
+      var y0=head(W,u,pad,d.title,d.subtitle+(d.ret&&!/return|back in/i.test(d.subtitle||'')?' · players back in '+SEASON:'')), fTop=foot(W,H,u,pad); fTop-=noteLine(W,u,pad,fTop,d.note);
       if(!pts.length){ txt('No players for that filter',W/2,H/2,{ px:26*u,c:P.mut,al:'center' }); return ''; }
       await scatter(W,H,u,pad,y0,fTop,{ pts:pts, fmtY:function(v){ return (v>0?'+':'')+v; }, xLabel:'CREATION →  (EXPECTED POINTS CREATED)', yLabel:'SHOT-MAKING →  (PTS OVER EXPECTED / 100 SHOTS)',
         corners:['Pure shot-makers','Do-it-all','','Playmakers'] });
       var top=out.slice().sort(function(a,b){ return b._s-a._s; }).slice(0,4).map(function(p){ return p.name; });
-      return d.title+' — '+d.subtitle+'\n\nBest at both: '+top.join(', ')+'\n\nOur own shot-quality stats, built from 700K+ shots → '+SITE+'\n\n#CollegeBasketball #CBB #Analytics';
+      return d.title+' — '+d.subtitle+(d.ret?' · players back in '+SEASON:'')+'\n\nBest at both: '+top.join(', ')+'\n\nOur own shot-quality stats, built from 700K+ shots → '+SITE+'\n\n#CollegeBasketball #CBB #Analytics';
     }
   };
 
