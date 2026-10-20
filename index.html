@@ -1468,9 +1468,9 @@
       <th class="sort" data-sort="bpg">BPG<span class="ar"></span></th>
       <th class="sort" data-sort="topg">TOV<span class="ar"></span></th>
       <th class="sort" data-sort="shotluck" data-col="shotluck" title="Shot Luck (2026-27) — how far this team's returning players shot ABOVE (or below) the quality of their looks last season, in eFG points. Over-shooting your looks is only partly repeatable, so the projection regresses a hot number down (a positive value is a regression caution) and bumps a cold one up.">Luck<span class="ar"></span></th>
-      <th class="sort" data-sort="sglq" data-col="sglq" title="Look Quality (2025-26) — the eFG% a league-average shooter would post on this team's shot diet. How good the LOOKS this team generates are, independent of whether they made them.">LookQ<span class="ar"></span></th>
-      <th class="sort" data-sort="sgsm" data-col="sgsm" title="Shot-Making (2025-26) — points this team added over an average shooter given its shot diet, per 100 shots, adjusted for competition. Pure finishing skill.">Sh-Make<span class="ar"></span></th>
-      <th class="sort" data-sort="sgcr" data-col="sgcr" title="Creation (2025-26) — expected points this team's passing generates per game, each assist valued by the quality of the look it created. A corner-3 dime beats a long-two dime.">Create<span class="ar"></span></th>
+      <th class="sort" data-sort="sglq" data-col="sglq" title="Look Quality (projected 2026-27; actual when viewing 2025-26; — = not enough returning shot data to project) — the eFG% a league-average shooter would post on this team's shot diet. How good the LOOKS this team generates are, independent of whether they made them.">LookQ<span class="ar"></span></th>
+      <th class="sort" data-sort="sgsm" data-col="sgsm" title="Shot-Making (projected 2026-27; actual when viewing 2025-26; — = can't project yet) — points this team added over an average shooter given its shot diet, per 100 shots, adjusted for competition. Pure finishing skill.">Sh-Make<span class="ar"></span></th>
+      <th class="sort" data-sort="sgcr" data-col="sgcr" title="Creation (projected 2026-27; actual when viewing 2025-26; — = can't project yet) — expected points this team's passing generates per game, each assist valued by the quality of the look it created. A corner-3 dime beats a long-two dime.">Create<span class="ar"></span></th>
     </tr></thead>
     <tbody id="rankingsList"><tr><td class="ix-msg" colspan="25">Loading rankings…</td></tr></tbody>
   </table>
@@ -1869,7 +1869,8 @@ async function loadProjectedSeason(){
         projected:r.projected, allPlay:r.allPlay,
         shotluck:(r.shotLuck!=null?r.shotLuck:null),   // returners' shot-making luck (2026-27 only)
         ...(function(){ const e=effLc[(r.full||'').toLowerCase().trim()]; return e?{ortg:e.o,drtg:e.d,net:(e.net!=null?e.net:+(e.o-e.d).toFixed(1))}:{ortg:null,drtg:null,net:null}; })(),
-        ...(function(){ const k=(r.full||'').toLowerCase().trim(); const sg=sgProjBy[k]||sgBy[k];
+        // 2026-27 view: the PROJECTED genome only (owner, Oct 20 2026: a team we can't project shows "—", not last season's numbers)
+        ...(function(){ const k=(r.full||'').toLowerCase().trim(); const sg=sgProjBy[k];
           return sg?{ sglq:(sg.off?sg.off.lq:null), sgsm:(sg.off?sg.off.smAdj:null), sgcr:(sg.crAdjPg!=null?sg.crAdjPg:null) }
                   :{ sglq:null, sgsm:null, sgcr:null }; })(),
       };
