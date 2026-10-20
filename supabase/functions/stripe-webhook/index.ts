@@ -19,7 +19,10 @@
 //   • customer.subscription.updated  → plan re-derived from the PAID price (Premium ⇄ Pro
 //     switches made in the Customer Portal), sub_expires_at = current period end; a
 //     subscription set to cancel at period end keeps its plan until then.
-//   • customer.subscription.deleted  → plan = 'free'.
+//   • customer.subscription.deleted  → plan = the best subscription this ACCOUNT still has live (every Stripe
+//     customer tied to it by metadata.tdc_user_id or email — Payment Links make a new customer per purchase),
+//     'free' only when none is left. (Oct 2026: cancelling a member's duplicate subscriptions must not
+//     downgrade the one they kept.)
 //   • checkout.session.completed     → when the secret key is present the paid price is
 //     verified server-side (line_items) and overrides the client-stamped planKey, closing
 //     the "pay Premium, stamp Pro" hole. Without the key it behaves exactly as before.
@@ -69,6 +72,28 @@ async function userIdForSubscription(sub: any): Promise<{ userId: string | null,
     if (uid) { stripePost(`customers/${sub.customer}`, { 'metadata[tdc_user_id]': uid }).catch(() => {}); return { userId: uid, email } }
   } catch (_) { /* fall through */ }
   return { userId: await userIdByEmail(email), email }
+}
+// Every live subscription this account has, across all of its Stripe customers → the best plan + latest period end.
+const LIVE = ['active', 'trialing', 'past_due']
+async function bestLivePlan(userId: string, email: string, extraCustomer?: string): Promise<{ plan: 'premium' | 'pro' | null, periodEnd: string | null, n: number }> {
+  const custs = new Set<string>()
+  if (extraCustomer) custs.add(extraCustomer)
+  try { const r = await stripeGet(`customers/search?query=${encodeURIComponent(`metadata['tdc_user_id']:'${userId}'`)}&limit=100`); (r?.data || []).forEach((c: any) => custs.add(c.id)) } catch (_) { /* search may be unavailable */ }
+  if (email) { try { const r = await stripeGet(`customers?email=${encodeURIComponent(email)}&limit=100`); (r?.data || []).forEach((c: any) => custs.add(c.id)) } catch (_) { /* ignore */ } }
+  let best: 'premium' | 'pro' | null = null, end = 0, n = 0
+  for (const c of custs) {
+    let subs: any[] = []
+    try { subs = (await stripeGet(`subscriptions?customer=${c}&status=all&limit=100`))?.data || [] } catch (_) { continue }
+    for (const sub of subs) {
+      if (!LIVE.includes(sub.status)) continue
+      const price = sub.items?.data?.[0]?.price, plan = planFromPrice(price?.unit_amount, price?.recurring?.interval)
+      if (!plan) continue
+      n++
+      if (best !== 'pro' && (plan === 'pro' || !best)) best = plan
+      end = Math.max(end, sub.current_period_end || 0)
+    }
+  }
+  return { plan: best, periodEnd: end ? new Date(end * 1000).toISOString() : null, n }
 }
 async function setPlan(userId: string, plan: string, expiresIso: string | null) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`, {
@@ -188,15 +213,15 @@ serve(async (req) => {
     if (!STRIPE_SECRET_KEY) { console.warn('subscription event ignored: STRIPE_SECRET_KEY not set'); return new Response(JSON.stringify({ received: true, ignored: true }), { headers: { 'Content-Type': 'application/json' } }) }
     const { userId, email } = await userIdForSubscription(sub)
     if (!userId) { console.error('subscription event: no user for', sub.customer, email); return new Response('User not found', { status: 404 }) }
-    const periodEnd = sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null
-    const dead = event.type === 'customer.subscription.deleted' || ['canceled', 'unpaid', 'incomplete_expired'].includes(sub.status)
-    if (dead) {
-      await setPlan(userId, 'free', new Date().toISOString())
-      console.log(`⛔ ${email} → free (${event.type}, ${sub.status})`)
+    // the account's plan = its best LIVE subscription across every Stripe customer it has, so cancelling one of
+    // several (duplicates bought by mistake) never downgrades the one it keeps; free only when nothing is live
+    const live = await bestLivePlan(userId, email, sub.customer)
+    if (live.plan) {
+      await setPlan(userId, live.plan, live.periodEnd)
+      console.log(`🔁 ${email} → ${live.plan} until ${live.periodEnd} (${live.n} live subscription${live.n === 1 ? '' : 's'}; ${event.type} ${sub.id} ${sub.status}${sub.cancel_at_period_end ? ', cancels at period end' : ''})`)
     } else {
-      const item = sub.items?.data?.[0]?.price
-      const plan = planFromPrice(item?.unit_amount, item?.recurring?.interval)
-      if (plan) { await setPlan(userId, plan, periodEnd); console.log(`🔁 ${email} → ${plan} until ${periodEnd}${sub.cancel_at_period_end ? ' (cancels at period end)' : ''}`) }
+      await setPlan(userId, 'free', new Date().toISOString())
+      console.log(`⛔ ${email} → free (no live subscription left; ${event.type}, ${sub.status})`)
     }
   }
 
