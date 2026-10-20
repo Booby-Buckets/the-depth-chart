@@ -22,7 +22,7 @@
   <script src="tdc-pool.js?v=5"></script>
   <script src="tdc-histguard.js?v=2"></script>
   <script src="tdc-proj.js?v=hg5"></script>
-  <script src="social-posts.js?v=14"></script>
+  <script src="social-posts.js?v=15"></script>
   <script src="bigboard-engine.js?v=31"></script>
   <style>
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--accent-soft:rgba(168,132,60,.13);--green:#1a8c3a;--red:#cc2200;}
@@ -1552,9 +1552,12 @@
   async function rankTable(d,W,H,u,pad,y0,fTop,o){
     var rows=d.rows.filter(function(r){ return r.name; }), n=rows.length;
     if(!n){ txt('Load data on the left',W/2,(y0+fTop)/2,{ px:28*u,c:P.mut,al:'center' }); return; }
-    var shots=d.shots!==false; await Promise.all(rows.map(function(r){ return Promise.all([img(logoUrl(r.team)),shots?shotFor(r.espn,r.name,r.from||r.team||team):null]); }));
+    var shots=d.shots!==false; await Promise.all(rows.map(function(r){ return Promise.all([img(logoUrl(r.team)),shots?shotFor(r.espn,r.name,r.from||r.team||team):null].concat((r.pair||[]).map(function(q){ return shots?shotFor(q.espn,q.name,r.team):null; }))); }));
+    // a two-player row (pairings, passer -> scorer; owner, Oct 20 2026: "headshots for both players") gets two
+    // overlapping headshots, so the photo column is wider
+    var duo=rows.some(function(r){ return r.pair&&r.pair.length===2; });
     var cols=o.cols, hh=40*u, rh=Math.min(104*u,(fTop-y0-hh)/n), ms=rh*.72, k=F(), stops=rampOf(o.stops), amber=LK.leadStyle?LK.leadStyle==='amber':o.amber, logos=!LK.hideLogos, rk=!LK.hideRank, cellW=Math.min(132*u,(W-pad*2-470*u)/(cols.length+1.15)), leadW=Math.min(150*u,cellW*1.15);
-    var xR=W-pad, xCells=xR-cellW*cols.length, xLead=xCells-leadW-10*u, rkW=rk?46*u:0, xLogo=pad+rkW, xShot=xLogo+(logos?ms+8*u:0), xName=xShot+(shots?ms+16*u:0);
+    var xR=W-pad, xCells=xR-cellW*cols.length, xLead=xCells-leadW-10*u, rkW=rk?46*u:0, xLogo=pad+rkW, xShot=xLogo+(logos?ms+8*u:0), xName=xShot+(shots?(duo?ms*1.62:ms)+16*u:0);
     var hy=y0+hh*.5; txt(String(o.leadLabel||'').toUpperCase(),xLead+leadW/2,hy,{ w:700,px:15*u,serif:'barlow',c:P.text2,al:'center',ls:1*u,max:leadW-6*u });
     cols.forEach(function(c,i){ txt(labOf(c.k,c.lab).toUpperCase(),xCells+cellW*(i+.5),hy,{ w:700,px:15*u,serif:'barlow',c:P.text2,al:'center',ls:1*u,max:cellW-6*u }); });
     var ry0=y0+hh, lv=function(r){ return (r._v!=null&&isFinite(+r._v))?+r._v:parseFloat(r.val); }, vals=rows.map(lv).filter(isFinite), vmax=Math.max.apply(null,vals.concat([0])), vmin=Math.min.apply(null,vals.concat([vmax]));
@@ -1564,7 +1567,11 @@
       ctx.fillStyle=P.line; ctx.fillRect(pad,top,W-pad*2,Math.max(1,u));
       if(rk) txt(String(i+1),pad+rkW*.4,mid,{ w:800,px:rh*.3,serif:'cond',c:P.mut,al:'center' });
       var lg=logos?await img(logoUrl(r.team)):null; if(lg) drawFit(lg,xLogo,mid-ms*.42,ms*.84);
-      if(shots){ var sh=await shotFor(r.espn,r.name,r.team); if(sh) drawShot(sh,xShot,mid-ms/2,ms,null); else drawNoShot(xShot,mid-ms/2,ms,r.name,r.team); }
+      if(shots&&r.pair&&r.pair.length===2){ var ds=ms*.92;   // the second circle is ringed in the page colour so the two read apart
+        for(var q=0;q<2;q++){ var pq=r.pair[q], qx=xShot+q*ms*.7, qi=await shotFor(pq.espn,pq.name,r.team);
+          if(qi) drawShot(qi,qx,mid-ds/2,ds,null); else drawNoShot(qx,mid-ds/2,ds,pq.name,r.team);
+          if(q){ ctx.save(); ctx.beginPath(); ctx.arc(qx+ds/2,mid,ds/2+Math.max(1,ds*.03),0,Math.PI*2); ctx.lineWidth=Math.max(2,ds*.06); ctx.strokeStyle=P.bg; ctx.stroke(); ctx.restore(); } } }
+      else if(shots){ var sh=await shotFor(r.espn,r.name,r.team); if(sh) drawShot(sh,xShot,mid-ms/2,ms,null); else drawNoShot(xShot,mid-ms/2,ms,r.name,r.team); }
       var nmax=xLead-xName-14*u, nfs=Math.min(rh*.3,34*u)*k, nw=Math.min(nmax,width(r.name,700,nfs,'barlow'));
       var fpx=nameTag(r.name,r.tag,xName,mid,nfs,nmax,u,under?2:rh>=56*u);
       // lead column: plain big number, or an amber cell graded by value
@@ -2024,6 +2031,7 @@
         (o.tier?'<label class="f">Level</label><select data-k="tier">'+[['','All of D-I'],['H','High major'],['M','Mid major'],['L','Low major']].map(function(t){ return '<option value="'+t[0]+'"'+((d.tier||'')===t[0]?' selected':'')+'>'+t[1]+'</option>'; }).join('')+'</select>':'')+
         (o.dir?'<label class="f">Show</label><select data-k="dir"><option value="up"'+(d.dir!=='down'?' selected':'')+'>'+esc(o.upLabel||'Most / best first')+'</option><option value="down"'+(d.dir==='down'?' selected':'')+'>'+esc(o.downLabel||'Least / worst first')+'</option></select>':'')+
         (o.team||o.conf?scopeUI(d,{ noConf:o.conf===false }):'')+
+        (o.returning?'<label class="chk"><input type="checkbox" data-k="ret"'+(d.ret?' checked':'')+'> Returning players only (both still on the team in 2026-27)</label>':'')+
         '<div class="btns"><button class="b sm primary" data-act="load">Load / refresh data</button></div>'+shotsChk(d)+
         (d.court?'<label class="chk"><input type="checkbox" data-k="noCourt" data-neg="1"'+(d.noCourt?'':' checked')+'> Add the real shot chart as page 2</label>':'')+
         // add / remove stat columns (owner, Oct 2026); kept across reloads
@@ -2679,7 +2687,7 @@
   document.addEventListener('toggle',function(e){ var el=e.target; if(el.classList&&el.classList.contains('sec')&&el.dataset.sec&&el.closest('#editor')){ (S.fold=S.fold||{})[el.dataset.sec]=el.open; save(); } },true);
   function syncControls(){ paintLib();
     $('size').value=S.size; $('theme').value=S.theme; $('shots').checked=S.shots; $('handle').value=S.handle; $('brandLogo').checked=S.brandLogo!==false; }
-  var AUTO={ rgrid:['team','n'], sched:['team'], shotchart:['team','player','who','season','style'], list:['src','stat','season'], posts:['key','team','conf','n','season','dir','pstat','tier','pcls'], cards:['metric','season','who','minFga','n','conf','team','mix'], leaders:['metric','season','who','minFga','n','conf','team','mix'], heat:['metric','season','n','conf','team','mix'], lineups:['metric','season','minPoss','n','conf','team'], teams:['sort','n','conf'], depth:['team'], table:['src','stat','season','team','conf','n','mix'], money:['mode','n','conf','team'], crunch:['dir','who','n','min','conf','team','sort'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf','team'], after:['season','team','conf'], confodds:['conf','n'], nil:['mode','n','minMpg','conf','team'] };   // charts whose rows come from a load
+  var AUTO={ rgrid:['team','n'], sched:['team'], shotchart:['team','player','who','season','style'], list:['src','stat','season'], posts:['key','team','conf','n','season','dir','pstat','tier','pcls','ret'], cards:['metric','season','who','minFga','n','conf','team','mix'], leaders:['metric','season','who','minFga','n','conf','team','mix'], heat:['metric','season','n','conf','team','mix'], lineups:['metric','season','minPoss','n','conf','team'], teams:['sort','n','conf'], depth:['team'], table:['src','stat','season','team','conf','n','mix'], money:['mode','n','conf','team'], crunch:['dir','who','n','min','conf','team','sort'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf','team'], after:['season','team','conf'], confodds:['conf','n'], nil:['mode','n','minMpg','conf','team'] };   // charts whose rows come from a load
   async function autoLoad(){ var d=doc(), R=d.rows||d.starters;   // depth charts keep their players in starters / bench
     if(AUTO[S.tpl]&&R&&(!R.length||(d._lv!==LOAD_VER&&!d._edited))&&(R.length||!d.starters||d.team)){ try{ await T[S.tpl].load(d); stamp(d); save(); paintEditor(); }catch(e){ status(e.message,true); } } }
   $('tplSeg').addEventListener('click',async function(e){ var b=e.target.closest('button[data-v]'); if(!b) return; S.tpl=b.dataset.v; S.page=0;
