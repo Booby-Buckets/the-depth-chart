@@ -84,6 +84,8 @@
     .ma-msg{grid-column:1/-1;font-size:12px;font-weight:600;}
     .ma-msg.ok{color:var(--green);} .ma-msg.err{color:var(--red);}
     @media(max-width:700px){.ma-row{grid-template-columns:1fr 1fr;}.ma-who{grid-column:1/-1;}}
+    .btn.ma-del{border-color:var(--red,#d9534f);color:var(--red,#d9534f);background:transparent}
+    .btn.ma-del:hover{background:var(--red,#d9534f);color:#fff}
   </style>
   <!-- new-UI theme layer: navy+blue dark palette (matches index/player); light-mode guard keeps the toggle readable -->
   <link rel="stylesheet" href="tdc-dense.css?v=40"/>
@@ -126,7 +128,7 @@
 
       <div class="card primary" id="memberAccess">
         <h2>🎟️ Member access</h2>
-        <div class="desc">Give anyone access without a code or payment. Search by <b>username or email</b>, pick a plan and how long, and hit <b>Save</b> — it applies instantly. Set <b>Free</b> to take access away. (Paying Stripe members: changing their plan here doesn't touch their Stripe subscription.)</div>
+        <div class="desc">Give anyone access without a code or payment. Search by <b>username or email</b>, pick a plan and how long, and hit <b>Save</b> — it applies instantly. Set <b>Free</b> to take access away. <b>Delete</b> removes the account entirely (test accounts, spam) so the email can sign up again. (Paying Stripe members: changing their plan here doesn't touch their Stripe subscription.)</div>
         <form class="ma-search" onsubmit="event.preventDefault();findAccounts();">
           <input class="ma-in" id="maQ" placeholder="Username or email (blank = newest 50)" autocomplete="off">
           <button class="btn" type="submit" id="maBtn">Search</button>
@@ -510,6 +512,7 @@ function scaleNilMarket(btn){
           +'<select class="ma-in" id="maPlan'+i+'">'+opts+'</select>'
           +'<select class="ma-in" id="maLen'+i+'"><option value="">No expiry</option><option value="1">1 month</option><option value="3">3 months</option><option value="12">1 year</option></select>'
           +'<button class="btn" type="button" onclick="savePlan('+i+',\''+a.id+'\')">Save</button>'
+          +(a.email&&a.email.toLowerCase()==='blee4824@gmail.com'?'':'<button class="btn ma-del" type="button" onclick="delAccount('+i+',\''+a.id+'\',\''+maEsc(a.username||a.email||'').replace(/'/g,'')+'\')">Delete</button>')
           +'<div class="ma-msg" id="maMsg'+i+'"></div>'
           +'</div>';
       }).join('');
@@ -522,6 +525,15 @@ function scaleNilMarket(btn){
       var a={plan:r.plan,sub_expires_at:r.expires};
       var pill=document.getElementById('maPill'+i); pill.textContent=maPlanLabel(a); pill.className='ma-pill'+(r.plan!=='free'?' paid':'');
       m.className='ma-msg ok'; m.textContent='✓ Saved — '+maPlanLabel(a)+'. They see it on their next page load.';
+    }).catch(function(e){ m.className='ma-msg err'; m.textContent='✗ '+e.message; });
+  }
+  // Delete an account (test accounts, spam): tdcAdminDeleteAccount = scripts/delete_accounts.sql admin_delete_account
+  // (owner JWT re-checked server-side; the owner account can never be deleted). Stripe subscriptions are NOT cancelled.
+  function delAccount(i,id,label){
+    if(!window.tdcAdminDeleteAccount){ alert('auth.js not loaded'); return; }
+    var m=document.getElementById('maMsg'+i);
+    tdcAdminDeleteAccount(id,label).then(function(ok){
+      if(ok){ var row=document.querySelector('.ma-row[data-id="'+id+'"]'); if(row){ row.style.opacity='.4'; row.querySelectorAll('button,select').forEach(function(b){ b.disabled=true; }); } m.className='ma-msg ok'; m.textContent='✓ Deleted. They can sign up again with the same email.'; }
     }).catch(function(e){ m.className='ma-msg err'; m.textContent='✗ '+e.message; });
   }
   // ?q= prefill (the owner "Set access" button on a profile links here)
