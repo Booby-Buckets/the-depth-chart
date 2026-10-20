@@ -40,9 +40,14 @@
     out.push({ id: 'one', hk: ['one'], cat: 'champ', title: 'Who will earn a No. 1 seed?', sub: 'Selection Sunday · four teams win', icon: 'trophy',
       outcomes: T.filter(function (t) { return t.seed && t.seed[1] >= 0.005; }).sort(function (a, b) { return b.seed[1] - a.seed[1]; }).slice(0, 30)
         .map(function (t) { return { label: BL().short(t.team), team: t.team, p: t.seed[1] }; }) });
-    // bubble questions: teams closest to a coin flip to make the field
-    T.filter(function (t) { return t.ncaa > 0.25 && t.ncaa < 0.75; }).sort(function (a, b) { return Math.abs(a.ncaa - 0.5) - Math.abs(b.ncaa - 0.5); }).slice(0, 6).forEach(function (t) {
-      out.push({ id: 'bub-' + t.team, hk: ['ncaa'], cat: 'champ', title: 'Will ' + BL().short(t.team) + ' make the NCAA tournament?', sub: 'Bubble watch · Selection Sunday', icon: t.team, binary: true,
+    // bubble questions: real at-large bubbles only. A one-bid-league team's "make the field" is just "win the
+    // conference tournament" (owner, Oct 20: McNeese at 50% was exactly that), so the at-large path has to carry
+    // most of the chance: P(field) − P(auto bid) ≥ 70% of P(field).
+    var aq = {}; Object.keys(res.CT).forEach(function (c) { var C = res.CT[c]; (C && C.teams || []).forEach(function (x) { aq[x.team] = x.champ || 0; }); });
+    T.filter(function (t) { var a = aq[t.team] || 0; return t.ncaa > 0.25 && t.ncaa < 0.8 && (t.ncaa - a) >= 0.7 * t.ncaa; })
+      .sort(function (a, b) { return Math.abs(a.ncaa - 0.5) - Math.abs(b.ncaa - 0.5); }).slice(0, 8).forEach(function (t) {
+      var a = aq[t.team] || 0;
+      out.push({ id: 'bub-' + t.team, hk: ['ncaa'], cat: 'champ', title: 'Will ' + BL().short(t.team) + ' make the NCAA tournament?', sub: 'Bubble watch · ' + Math.round((t.ncaa - a) * 100) + '% at-large, ' + Math.round(a * 100) + '% auto bid', icon: t.team, binary: true,
         outcomes: [{ label: 'Makes the field', team: t.team, p: t.ncaa }] });
     });
     return out;
