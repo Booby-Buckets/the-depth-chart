@@ -2312,6 +2312,17 @@ for _sh,_fm in FRESH_FIT.items():
     for _nm,_f in _fm.items():
         if (_f.get("ovr") or 0)>FR_CAP: _f["ovr_uncapped"]=_f["ovr"]; _f["ovr"]=FR_CAP; _nfc+=1
 print(f"newcomer OVR cap: {FR_CAP} (best returner {_best} - {FR_CAP_GAP:g}); capped {_nfc}",file=sys.stderr)
+# NEWCOMER TRIM (owner, Oct 20 2026: "the rankings are putting players too high, slim it down about 8-10%" — for players
+# with no D-I stats only): the preseason OVR of a freshman / redshirt / unlinked newcomer is scaled by NEWC_TRIM (0.91 =
+# -9%), never below the 55 floor. Display only — sv / svp (NIL value) are untouched — and it runs BEFORE real games below,
+# so his actual D-I games still pull the number to what he shows.
+NEWC_TRIM=float(os.environ.get("NEWC_TRIM","0.91")); _ntr=0
+for _sh,_fm in FRESH_FIT.items():
+    for _nm,_f in _fm.items():
+        if _f.get("ovr") is None: continue
+        _t=int(max(FLOOR,round(_f["ovr"]*NEWC_TRIM)))
+        if _t!=_f["ovr"]: _f["ovr_pretrim"]=_f["ovr"]; _f["ovr"]=_t; _ntr+=1
+print(f"newcomer trim x{NEWC_TRIM:g}: {_ntr} newcomer OVRs lowered",file=sys.stderr)
 _nrg=0
 for _sh,_fm in FRESH_FIT.items():
     _full=S2F.get(_sh.lower()) or _sh
