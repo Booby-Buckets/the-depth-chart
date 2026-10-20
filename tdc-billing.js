@@ -122,7 +122,7 @@ window.TDC_BILLING = (function () {
   // (up to ~90 s) for the webhook to unlock the plan, so a member never thinks it failed and pays again.
   function returnBanner() {
     var q; try { q = new URLSearchParams(location.search); } catch (e) { return; }
-    if (q.get('checkout') !== 'success') return;
+    if (!/^success/i.test(q.get('checkout') || '')) return;   // tolerant of a stray trailing '.' pasted into Stripe
     try { var u = new URL(location.href); u.searchParams.delete('checkout'); history.replaceState(history.state, '', u.toString()); } catch (e) {}
     var b = document.createElement('div');
     b.style.cssText = 'position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:9999;max-width:min(560px,calc(100vw - 24px));background:var(--bg,#fff);color:var(--text,#111);border:1px solid var(--border2,#ccc);border-left:4px solid var(--accent,#A8843C);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.18);padding:14px 16px;font:600 14px/1.45 Inter,system-ui,sans-serif';
