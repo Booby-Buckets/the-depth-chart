@@ -1191,7 +1191,7 @@
   <link rel="stylesheet" href="tdc-dense.css?v=40"/>
   <link rel="stylesheet" href="tdc-hero.css?v=4"/>
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
-  <link rel="stylesheet" href="tdc-index-sheet.css?v=5"/>
+  <link rel="stylesheet" href="tdc-index-sheet.css?v=6"/>
   <!-- 2026 clean skin (loaded last so it wins): neutral bases + translucent depth; releases the dense dark-lock -->
   <link rel="stylesheet" href="tdc-skin.css?v=14"/>
   <link rel="stylesheet" href="tdc-grades.css?v=1">
@@ -2140,6 +2140,20 @@ function _rankHeat(){
   });
   return out;
 }
+// NATIONAL RANK beside every stat (owner, Oct 2026: "numbers on ORtg and DRtg and others to show where they are ranked"),
+// KenPom style: a small number after the value, ranked over every team this season (not just the filtered view), in the
+// column's own direction (DRtg / OPP / TOV: lower = better). Power rating is left out — it is the RK column.
+function _rankOrd(){
+  const out={}, teams=window.allTeams||allTeams||[];
+  RANK_COLS.forEach(([k,,dir])=>{
+    if(!dir||k==='srs') return;
+    const vals=teams.map(t=>_heatVal(t,k)).filter(v=>v!=null).sort((a,b)=>dir>0?b-a:a-b);
+    if(vals.length<5) return;
+    out[k]=v=>{ if(v==null||!isFinite(v)) return null; let lo=0, hi=vals.length;   // first index at least as good as v
+      while(lo<hi){ const m=(lo+hi)>>1; if(dir>0?vals[m]>v:vals[m]<v) lo=m+1; else hi=m; } return lo+1; };
+  });
+  return out;
+}
 function _rankLogo(t){
   const f=window.tdcTeamColor; if(!f) return '';
   const r=f(t.short||t.name)||f(t.name); if(!r||!r.logo) return '';
@@ -2173,7 +2187,7 @@ function renderRows(data, srt, favTeam){
     return;
   }
   const RC = window._rankCols || {};
-  const heat = _rankHeat();
+  const heat = _rankHeat(), ord = _rankOrd();
   const q = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
   let html='';
   data.forEach(t=>{
@@ -2190,7 +2204,8 @@ function renderRows(data, srt, favTeam){
     RANK_COLS.forEach(([k,f,dir,col])=>{
       if(col && !RC[col]) return;
       const cls=[k==='wins'?'c':'', k==='srs'?'big':'', dir&&heat[k]?heat[k](_heatVal(t,k)):''].filter(Boolean).join(' ');
-      row += `<td${cls?` class="${cls}"`:''}${k==='wins'?rec:''}>${f(t)}</td>`;
+      const rk = ord[k] ? ord[k](_heatVal(t,k)) : null;
+      row += `<td${cls?` class="${cls}"`:''}${k==='wins'?rec:''}>${f(t)}${rk!=null?`<span class="ix-rk" title="#${rk} in D-I">${rk}</span>`:''}</td>`;
     });
     html += row + '</tr>';
   });
