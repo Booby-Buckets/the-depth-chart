@@ -14,7 +14,7 @@ window.TDC_BILLING = (function () {
   var PORTAL_LOGIN = '';
   var SUPPORT = 'mailto:thedepthchartcbb@gmail.com?subject=Subscription%20change';
   var LINKS = { monthly: 'https://buy.stripe.com/bJe7sN1R89vi3Fu2fJ33W04', yearly: 'https://buy.stripe.com/14AdRbeDUgXKcc0g6z33W01',
-                pro_monthly: 'https://buy.stripe.com/eVq3cx7bs6j67VK9Ib33W02', pro_yearly: 'https://buy.stripe.com/3cI00l8fwdLydg48E733W03' };
+                pro_monthly: 'https://buy.stripe.com/eVq3cx7bs6j67VK9Ib33W02', pro_yearly: 'https://buy.stripe.com/9B67sN53k36Udg407B33W08' };
   function sess() { try { return JSON.parse(localStorage.getItem('tdc_session') || 'null'); } catch (e) { return null; } }
   // Payment link stamped with this account (client_reference_id "<userId>__<planKey>") so the plan
   // lands on the right account even if the member pays with a different email.
