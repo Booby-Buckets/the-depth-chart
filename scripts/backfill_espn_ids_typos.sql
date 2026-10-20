@@ -224,6 +224,9 @@ begin
 
   -- 4) TYPOS + NICKNAMES (see the header): same school (roster or prior) and a name within a typo / nickname,
   --    one candidate only, last two seasons of history, id not already on a roster
+  --    Joined on the school key (a hash join, not every player against every history row — the first version
+  --    timed out in the Supabase SQL editor): each player brings his roster key, his prior-school key and
+  --    those keys + the state tags history adds ("miami" -> "miamifl"), then only same-school pairs test names.
   with ps as (
     select p.id, tdc_name_key(p.name) as nk, tdc_school_key(p.team) as k1,
            case when coalesce(p.hometown,'') <> '' then tdc_school_key(p.hometown) end as k2
@@ -232,6 +235,12 @@ begin
       and coalesce(p.yr,'')         not ilike 'fr%'
       and coalesce(p.class_year,'') not ilike 'fr%'
       and coalesce(p.name,'') not in ('', '—', '-')
+  ), pk as (
+    select distinct ps.id, ps.nk, k.key || s.sfx as key
+    from ps
+    cross join lateral (values (ps.k1), (ps.k2)) as k(key)
+    cross join (values (''), ('fl'), ('oh'), ('ny'), ('md'), ('il'), ('pa'), ('ca'), ('la')) as s(sfx)
+    where k.key is not null and length(k.key) >= 3
   ), hs as (
     select distinct on (espn_id) espn_id, tdc_name_key(name) as nk, tdc_school_key(team) as hk
     from player_history
@@ -239,12 +248,12 @@ begin
       and season_year >= (select max(season_year) - 1 from player_history)
     order by espn_id, season_year desc
   ), cand as (
-    select ps.id, min(hs.espn_id) as espn_id
-    from ps
-    join hs on (tdc_school_ok(hs.hk, ps.k1) or tdc_school_ok(hs.hk, ps.k2))
-           and tdc_name_ok(ps.nk, hs.nk)
-    where not exists (select 1 from players q where q.espn_id = hs.espn_id)
-    group by ps.id
+    select pk.id, min(hs.espn_id) as espn_id
+    from pk
+    join hs on hs.hk = pk.key
+    where tdc_name_ok(pk.nk, hs.nk)
+      and not exists (select 1 from players q where q.espn_id = hs.espn_id)
+    group by pk.id
     having count(distinct hs.espn_id) = 1
   )
   update players p
