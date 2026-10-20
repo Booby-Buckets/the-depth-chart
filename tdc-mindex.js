@@ -28,7 +28,10 @@
     'body.mi .mi-st{display:flex;justify-content:space-between;align-items:baseline;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin:0 0 6px}',
     '.mi-st a{font-size:12px;letter-spacing:0;text-transform:none;font-weight:700;color:var(--accent);text-decoration:none}',
     'body.mi .table-section{padding-top:18px!important}',
-    'body.mi .mi-st.mi-rk{margin:0 0 6px}'
+    'body.mi .mi-st.mi-rk{margin:0 0 6px}',
+    '.mi-lv{grid-column:1 / -1;display:flex;gap:2px;padding:2px;border:1px solid var(--border2);border-radius:8px;background:var(--bg2)}',
+    '.mi-lv button{flex:1;font:700 12px Inter,system-ui,sans-serif;color:var(--text3);background:none;border:0;border-radius:6px;padding:7px 2px;white-space:nowrap}',
+    '.mi-lv button.on{color:#fff;background:#121C33}'
   ].join('\n');
 
   function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
@@ -69,8 +72,19 @@
       document.getElementById('miCount').textContent = m ? m[1] : '—';
     });
 
-    // one row of controls: conference · sort · search
+    // one row of controls: level switch, then conference · sort · search
     var ctl = el('div', 'mi-ctl');
+    var lvSrc = document.getElementById('levelSw');
+    if (lvSrc) {
+      var lv = el('div', 'mi-lv'); lv.setAttribute('role', 'group'); lv.setAttribute('aria-label', 'Conference level');
+      var LBL = { '': 'All', high: 'High', midlow: 'Mid + low', low: 'Low' };
+      watch(lvSrc, function () {
+        lv.innerHTML = [].slice.call(lvSrc.querySelectorAll('button')).map(function (b) {
+          return '<button class="' + (b.classList.contains('on') ? 'on' : '') + '" data-lv="' + b.dataset.lv + '">' + esc(LBL[b.dataset.lv] || b.textContent) + '</button>'; }).join('');
+      }, true);
+      lv.addEventListener('click', function (e) { var b = e.target.closest('button'); if (b && window.setLevel) window.setLevel(b.dataset.lv); });
+      ctl.appendChild(lv);
+    }
     var conf = document.createElement('select'); conf.className = 'mi-sel'; conf.setAttribute('aria-label', 'Conference');
     var pills = document.getElementById('filterPills');
     function syncConf() {

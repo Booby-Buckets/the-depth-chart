@@ -1191,7 +1191,7 @@
   <link rel="stylesheet" href="tdc-dense.css?v=40"/>
   <link rel="stylesheet" href="tdc-hero.css?v=4"/>
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
-  <link rel="stylesheet" href="tdc-index-sheet.css?v=4"/>
+  <link rel="stylesheet" href="tdc-index-sheet.css?v=5"/>
   <!-- 2026 clean skin (loaded last so it wins): neutral bases + translucent depth; releases the dense dark-lock -->
   <link rel="stylesheet" href="tdc-skin.css?v=14"/>
   <link rel="stylesheet" href="tdc-grades.css?v=1">
@@ -1336,6 +1336,9 @@
   </div>
   <div class="filter-controls">
     <label class="f-lab f-lead"><span>Season</span><select class="filter-select" id="seasonSel" onchange="onSeason(this.value)"></select></label>
+    <div class="f-lab"><span>Level</span><div class="ix-level" id="levelSw" role="group" aria-label="Conference level">
+      <button class="on" data-lv="" onclick="setLevel('')">All</button><button data-lv="high" onclick="setLevel('high')" title="SEC, Big 12, Big Ten, Big East, ACC">High major</button><button data-lv="midlow" onclick="setLevel('midlow')" title="Every league outside the five high-major conferences">Mid + low major</button><button data-lv="low" onclick="setLevel('low')" title="Every league outside the high majors and the Pac-12, Mountain West, A-10, American, MVC and WCC">Low major</button>
+    </div></div>
     <label class="f-lab"><span>Sort</span><select class="filter-select" id="sortSel" onchange="setSort(this.value,false)">
       <option value="srs">Power Rating</option>
       <option value="ortg">Best Offense (ORtg)</option>
@@ -1524,6 +1527,26 @@ function fillHeroBand(label){
 }
 
 let confFilter = '';
+// CONFERENCE LEVEL switch (owner, Oct 20 2026): high major = the five power leagues; mid major = the next tier
+// (Pac-12, Mountain West, A-10, American, MVC, WCC — the 2026-27 leagues averaging above ~0 Power Rating);
+// low major = everyone else. Before the 2024-25 realignment the old Pac-12 counts as high major.
+let levelFilter = (()=>{ const v=new URLSearchParams(location.search).get('level')||''; return ['high','midlow','low'].includes(v)?v:''; })();
+document.querySelectorAll('#levelSw button').forEach(b=>b.classList.toggle('on',b.dataset.lv===levelFilter));
+const LV_HIGH=new Set(['SEC','B12','BIG-12','BIG 12','B10','BIG TEN','BE','BIG-EAST','BIG EAST','ACC']);
+const LV_MID=new Set(['PAC-12','P12','MWC','A10','AAC','MVC','WCC']);
+function levelOf(t){ const c=String(t.conf||'').toUpperCase();
+  if(LV_HIGH.has(c)) return 'high';
+  if((c==='P12'||c==='PAC-12')&&curSeason<=2024) return 'high';
+  return LV_MID.has(c)?'mid':'low'; }
+function inLevel(t){ if(!levelFilter) return true; const l=levelOf(t);
+  return levelFilter==='high'?l==='high':levelFilter==='low'?l==='low':l!=='high'; }
+function setLevel(lv){
+  levelFilter=lv;
+  try{ const u=new URL(location.href); if(lv) u.searchParams.set('level',lv); else u.searchParams.delete('level'); history.replaceState(null,'',u); }catch(e){}
+  document.querySelectorAll('#levelSw button').forEach(b=>b.classList.toggle('on',b.dataset.lv===lv));
+  if(confFilter && !allTeams.some(t=>t.conf===confFilter&&inLevel(t))) confFilter='';
+  renderConfPills(); applyFilters(true); renderShowcase();
+}
 
 function nilRange(tier){
   const map={
@@ -1576,7 +1599,7 @@ const CONF_PRIORITY=['ACC','B10','B12','BE','SEC','AAC','MWC','A10','WCC','MVC',
 function renderConfPills(){
   const pills=document.getElementById('filterPills'); if(!pills) return;
   const map={};
-  allTeams.forEach(t=>{ if(!t.conf) return; (map[t.conf]=map[t.conf]||{code:t.conf,name:t.confName,n:0}).n++; });
+  allTeams.forEach(t=>{ if(!t.conf||!inLevel(t)) return; (map[t.conf]=map[t.conf]||{code:t.conf,name:t.confName,n:0}).n++; });
   const list=Object.keys(map).map(k=>map[k]).sort((a,b)=>{
     const pa=CONF_PRIORITY.indexOf(a.code), pb=CONF_PRIORITY.indexOf(b.code);
     if(pa!==-1||pb!==-1){ if(pa===-1) return 1; if(pb===-1) return -1; return pa-pb; }
@@ -1686,6 +1709,10 @@ async function renderShowcase(){
           ? `Projected ${confName||'this conference'} rosters aren't loaded yet — most mid-major lineups fill in closer to the season.`
           : `No ${confName||'conference'} players in the top-grade pool for ${yLbl}.`;
       }
+    } else if(levelFilter){
+      // the conference level switch scopes the strip too (low major shows low-major players)
+      ps = base.filter(p=>{ const c=schoolConf(p.school); return c&&inLevel({conf:c}); }).slice(0,8);
+      if(!ps.length) emptyMsg=`No ${levelFilter==='high'?'high-major':levelFilter==='low'?'low-major':'mid- or low-major'} players in the top-grade pool for ${yLbl}.`;
     } else {
       ps = base.slice(0,8);
     }
@@ -2009,6 +2036,7 @@ function applyFilters(animated){
 
   let data = allTeams.filter(t=>{
     if(confFilter && t.conf!==confFilter) return false;
+    if(!inLevel(t)) return false;
     if(search && !t.name.toLowerCase().includes(search)) return false;
     return true;
   });
@@ -2020,6 +2048,8 @@ function applyFilters(animated){
     return (statVal(a,srt)-statVal(b,srt))*curSortDir || ((b.srs??b.margin)-(a.srs??a.margin));
   });
 
+  // rank within the chosen level (by Power Rating), national rank beside it
+  if(levelFilter){ allTeams.filter(inLevel).slice().sort((a,b)=>(b.srs??b.margin??-999)-(a.srs??a.margin??-999)).forEach((t,i)=>{ t._lrk=i+1; }); }
   document.getElementById('filterCount').innerHTML =
     `<strong>${data.length}</strong> of ${allTeams.length} teams`;
 
@@ -2128,7 +2158,7 @@ function renderRows(data, srt, favTeam){
     const P=t.projRec;
     const rec = P ? ` title="${t.actual?`${t.wins}–${t.losses} so far (${t.cw}–${t.cl} conf) · projected `:'Projected '}${P.w}–${P.l} (${P.lo}–${P.n-P.lo} to ${P.hi}–${P.n-P.hi}) · ${P.cw}–${P.cl} in conference · from ${P.n} announced games"` : '';
     let row = `<tr${isFav?' class="fav"':''}>`
-      + `<td class="rk">${t.rk}</td>`
+      + `<td class="rk">${levelFilter&&t._lrk?`${t._lrk}<small class="ix-nat" title="National rank">${t.rk}</small>`:t.rk}</td>`
       + `<td class="l nm"><a href="${href}" data-tn="${q(t.short||t.name)}">${logo?`<img src="${logo}" alt="" loading="lazy" onerror="this.remove()">`:'<i class="ix-nologo"></i>'}<span>${_shortNm(t.short||t.name)}</span></a>${_rankMove(t)}${carry}</td>`
       + `<td class="l dim"><a class="ix-conf" href="conference.html?conf=${encodeURIComponent(t.confName||'')}${curSeason===2027?'':'&season='+curSeason}" title="${q(t.confName||'')} standings, tournament &amp; all-conference teams">${confAbbr(t.confName)}</a></td>`;
     RANK_COLS.forEach(([k,f,dir,col])=>{
@@ -2785,6 +2815,6 @@ function toggleTheme(){
   </script>
 
   <script src="tdc-tour.js?v=31"></script>
-<script src="tdc-mindex.js?v=2"></script>
+<script src="tdc-mindex.js?v=3"></script>
 </body>
 </html>
