@@ -2448,15 +2448,19 @@
             // (sd = game noise + rating uncertainty, as the sim uses), from the published rating to each roster's
             var pr=row&&await TDCSched.project(row.full,{ sims:600 });
             if(pr&&pr.rows&&pr.rows.length){ var sd=Math.sqrt(Math.pow(pr.sigma||SG,2)+Math.pow(pr.tau||0,2)), base=keep;
-              var ew=function(x){ return pr.rows.reduce(function(acc,g){ return acc+(g.final?(g.final.won?1:0):TDC_RATINGS.phi(((+g.margin||0)+(x-base))/sd)); },0); };
-              var n0=pr.rows.length, wA=ew(wi.rating), wB=ew(wo.rating); A.rec=Math.round(wA)+'-'+(n0-Math.round(wA)); A.w=wA; B.rec=Math.round(wB)+'-'+(n0-Math.round(wB)); B.w=wB; } }catch(e){ console.warn('sched',e); }
+              var ew=function(x,only){ return pr.rows.reduce(function(acc,g){ if(only&&!only(g)) return acc; return acc+(g.final?(g.final.won?1:0):TDC_RATINGS.phi(((+g.margin||0)+(x-base))/sd)); },0); };
+              var isConf=function(g){ return g.g&&g.g.conf; }, isTop=function(g){ return g.opp&&g.opp.rank!=null&&g.opp.rank<=50; };
+              var n0=pr.rows.length, wA=ew(wi.rating), wB=ew(wo.rating); A.rec=Math.round(wA)+'-'+(n0-Math.round(wA)); A.w=wA; B.rec=Math.round(wB)+'-'+(n0-Math.round(wB)); B.w=wB;
+              // conference wins and wins against top-50 opponents (owner, Oct 20: in place of the All-Play / top-25 odds rows)
+              A.cn=pr.rows.filter(isConf).length; A.cw=ew(wi.rating,isConf); B.cw=ew(wo.rating,isConf);
+              A.tn=pr.rows.filter(isTop).length; A.tw=ew(wi.rating,isTop); B.tw=ew(wo.rating,isTop); } }catch(e){ console.warn('sched',e); }
           var sg=function(v,dec){ return (v>=0?'+':'\u2212')+Math.abs(v).toFixed(dec==null?1:dec); }, pc=function(v){ return v==null?'':v.toFixed(0)+'%'; };
           d.cmp=[{ lab:'Power rating', wo:sg(B.rating), wi:sg(A.rating), ch:sg(A.rating-B.rating), up:A.rating>=B.rating },
             { lab:'National rank', wo:'#'+B.rank, wi:'#'+A.rank, ch:B.rank===A.rank?'\u2014':(B.rank>A.rank?'\u2191 ':'\u2193 ')+Math.abs(B.rank-A.rank), up:A.rank<=B.rank },
             { lab:cf+' rank', wo:'#'+B.crank, wi:'#'+A.crank, ch:B.crank===A.crank?'\u2014':(B.crank>A.crank?'\u2191 ':'\u2193 ')+Math.abs(B.crank-A.crank), up:A.crank<=B.crank },
             { lab:'Projected wins', wo:B.w!=null?B.w.toFixed(1):'', wi:A.w!=null?A.w.toFixed(1):'', ch:A.w!=null&&B.w!=null?sg(A.w-B.w):'', up:(A.w||0)>=(B.w||0) },
-            { lab:'Beats a random D-I team', wo:pc(B.allPlay), wi:pc(A.allPlay), ch:sg(A.allPlay-B.allPlay,0)+' pts', up:A.allPlay>=B.allPlay },
-            { lab:'Beats a top-25 team (neutral)', wo:pc(B.vs25), wi:pc(A.vs25), ch:A.vs25!=null?sg(A.vs25-B.vs25,0)+' pts':'', up:(A.vs25||0)>=(B.vs25||0) }].filter(function(r){ return r.wo&&r.wi; }); } }
+            { lab:cf+' wins'+(A.cn?' (of '+A.cn+')':''), wo:B.cw!=null?B.cw.toFixed(1):'', wi:A.cw!=null?A.cw.toFixed(1):'', ch:A.cw!=null&&B.cw!=null?sg(A.cw-B.cw):'', up:(A.cw||0)>=(B.cw||0) },
+            { lab:'Wins vs. top-50 teams'+(A.tn?' (of '+A.tn+')':''), wo:B.tw!=null?B.tw.toFixed(1):'', wi:A.tw!=null?A.tw.toFixed(1):'', ch:A.tw!=null&&B.tw!=null?sg(A.tw-B.tw):'', up:(A.tw||0)>=(B.tw||0) }].filter(function(r){ return r.wo&&r.wi; }); } }
       catch(e){ console.warn('with/without',e); }
       d.tiles=[{ val:tr.rank?'#'+tr.rank:'', lab:'in our '+SEASON+' rankings' },{ val:tr.rating!=null?((+tr.rating>=0?'+':'')+(+tr.rating).toFixed(1)):'', lab:'power rating' },
         { val:share!=null?share.toFixed(1)+'%':'', lab:'of '+school(p.team)+' shots'+(srank?(srank===1?' (team high)':' ('+srank+(srank===2?'nd':srank===3?'rd':'th')+' on the team)'):'') },
