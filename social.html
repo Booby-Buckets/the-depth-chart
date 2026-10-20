@@ -2208,6 +2208,91 @@
       return nm+(side==='def'?': the shots they allow':': where the shots come from')+' ('+(d.season-1)+'-'+String(d.season).slice(2)+')'+(best?'\n\n'+(side==='def'?'Where opponents shoot best: ':'Hottest spot: ')+best.lbl.toLowerCase()+' ('+(best.fg*100).toFixed(1)+'%, '+(best.d>=0?'+':'')+(best.d*100).toFixed(1)+' vs D-I)':'')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB'; }
   };
 
+  // ── Roster grid (owner, Oct 20 2026: the Kalshi "26-27 Phoenix Suns" headshot grid, plus a baseline stat line and
+  //    the player's overall opposite the logo). Team-colour field, circle headshots, logo top-right, OVR top-left,
+  //    last name + three projected stats under each, a team pill bottom-left ──
+  var RG_STATS=[['ppg','PTS'],['rpg','REB'],['apg','AST'],['mpg','MIN'],['fg','FG%'],['tp','3P%'],['ts','TS%'],['stl','STL'],['blk','BLK']];
+  T.rgrid={
+    ownBrand:true,
+    defaults:function(){ return { team:'', n:12, gcols:'', stats:['ppg','rpg','apg'], ovr:true, shots:true, title:'', pillBig:'', pillLab:'', pillSub:'', rows:[] }; },
+    load:async function(d){
+      if(!d.team){ status('Pick a team for its roster.'); return; }
+      var ps=await players(), rs=await ratings(), n=Math.max(3,Math.min(18,+d.n||12));
+      var out=function(p){ var h=String(p.hometown||'').trim().toLowerCase(); return p.is_injured||h==='injured'||h==='out'; };
+      var seen={}, R=ps.filter(function(p){ if(!p.name||p.name==='—'||!onTeam(p.team,d.team)||out(p)) return false; var k=p.espn_id||p.name; if(seen[k]) return false; seen[k]=1; return true; });
+      if(!R.length) throw new Error('No roster found for '+d.team+'.');
+      R.sort(function(a,b){ var da=a.depth_order!=null?+a.depth_order:999, db=b.depth_order!=null?+b.depth_order:999; return da-db||(+b.mpg||0)-(+a.mpg||0); });
+      d.rows=R.slice(0,n).map(function(p){ var r=tRow(p); return { name:r.name, team:r.team, espn:r.espn, ovr:r.ovr, ppg:r.ppg, rpg:r.rpg, apg:r.apg, mpg:r.mpg, fg:r.fg, tp:r.tp, ts:r.ts, stl:r.stl, blk:r.blk }; });
+      var tr=rs.find(function(t){ return onTeam(t.team,d.team); });
+      d.title=SEASON.replace('20','').replace('-20','-')+' '+(tr?String(tr.full||tr.team).toUpperCase():school(d.team).toUpperCase());
+      // the team pill: projected record from the schedule model when it loads, else our rank
+      d.pillBig=tr&&tr.rank?'#'+tr.rank:''; d.pillLab='IN OUR RANKINGS'; d.pillSub='The Depth Chart '+SEASON+' projection';
+      try{ await needScript('tdc-schedule.js?v=43'); await TDCSched.load(); var pr=tr&&await TDCSched.project(tr.full,{ sims:800 });
+        if(pr&&pr.n){ d.pillBig=Math.round(pr.expW)+'-'+Math.round(pr.n-pr.expW); d.pillLab='PROJECTED RECORD'; d.pillSub=(tr.rank?'#'+tr.rank+' in our rankings · ':'')+'The Depth Chart model'; } }catch(e){}
+    },
+    editor:function(d){
+      var st=d.stats||['ppg','rpg','apg'];
+      return '<h3>Data</h3><label class="f">Team</label><input data-k="team" list="tmList" value="'+esc(d.team||'')+'" placeholder="Pick a team">'+
+        '<div class="two"><div><label class="f">Players</label><input data-k="n" type="number" min="3" max="18" value="'+(d.n||12)+'"></div>'+
+        '<div><label class="f">Per row</label><select data-k="gcols"><option value="">Auto</option>'+[2,3,4,5,6].map(function(c){ return '<option'+(+d.gcols===c?' selected':'')+'>'+c+'</option>'; }).join('')+'</select></div></div>'+
+        '<div class="btns"><button class="b sm primary" data-act="load">Load / refresh data</button></div>'+shotsChk(d)+
+        '<label class="chk"><input type="checkbox" data-k="ovr"'+(d.ovr!==false?' checked':'')+'> Player overall (opposite the logo)</label>'+
+        '<label class="f">Background</label><select data-k="bgc"><option value=""'+(!d.bgc?' selected':'')+'>Auto (primary, or the dark team colour when the primary is light)</option><option value="primary"'+(d.bgc==='primary'?' selected':'')+'>Team primary colour</option><option value="dark"'+(d.bgc==='dark'?' selected':'')+'>Dark team colour</option></select>'+
+        '<label class="f">Stats under each name (pick up to 3)</label><div class="seg">'+RG_STATS.map(function(s){ return '<button type="button" data-act="rgst" data-col="'+s[0]+'" class="'+(st.indexOf(s[0])>-1?'on':'')+'">'+s[1]+'</button>'; }).join('')+'</div>'+
+        '<div class="hint">Projected 2026-27 lines, the same numbers as the team page.</div>'+
+        '<h3>Text</h3><label class="f">Title</label><input data-k="title" value="'+esc(d.title)+'">'+
+        '<div class="two"><div><label class="f">Pill number</label><input data-k="pillBig" value="'+esc(d.pillBig||'')+'"></div><div><label class="f">Pill label</label><input data-k="pillLab" value="'+esc(d.pillLab||'')+'"></div></div>'+
+        '<label class="f">Pill small line</label><input data-k="pillSub" value="'+esc(d.pillSub||'')+'">'+
+        '<h3>Players ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',[{k:'name',ph:'Player',list:'plList',w:'minmax(0,1.4fr)'},{k:'ovr',ph:'OVR',w:'46px'},{k:'ppg',ph:'PTS',w:'46px'},{k:'rpg',ph:'REB',w:'46px'},{k:'apg',ph:'AST',w:'46px'}])+
+        '<div class="btns"><button class="b sm" data-act="add" data-path="rows">+ Add player</button></div>';
+    },
+    draw:async function(d,W,H,u,pad){
+      var base=window.tdcTeamColor&&tdcTeamColor(d.team)||{}, c1=base.c1||'#1d2b47', field=d.bgc==='dark'||(d.bgc!=='primary'&&lum(c1)>.42)?bandColor(d.team):c1, ink=lum(field)>.55?'#14110C':'#FFFFFF';
+      ctx.fillStyle=field; ctx.fillRect(0,0,W,H);
+      var rows=(d.rows||[]).filter(function(r){ return r.name; });
+      txt(String(d.title||'Roster grid').toUpperCase(),W/2,pad*1.15,{ w:800,px:(W>H*1.2?64:72)*u,serif:'cond',c:ink,al:'center',max:W-pad*2,ls:1*u });
+      if(!rows.length){ txt('Pick a team on the left',W/2,H/2,{ px:30*u,c:ink,al:'center' }); return ''; }
+      var shots=d.shots!==false, st=(d.stats||['ppg','rpg','apg']).slice(0,3), lab={}; RG_STATS.forEach(function(s){ lab[s[0]]=s[1]; });
+      var lg=await img(logoUrl(d.team)); await Promise.all(rows.map(function(r){ return shots?shotFor(r.espn,r.name,r.team):null; }));
+      // grid: the column count that gives the biggest circles, unless the owner picked one
+      var y0=pad*1.15+60*u, foot=96*u, aw=W-pad*2, ah=H-y0-foot-pad*.5, n=rows.length, best=null;
+      for(var c=(+d.gcols||2);c<=(+d.gcols||6);c++){ var rr=Math.ceil(n/c), cw=aw/c, ch=ah/rr, s=Math.min(cw*.8,ch*.68); if(!best||s>best.s+.5) best={ c:c, r:rr, s:s, cw:cw, ch:ch }; }
+      var R0=best.s/2, nameFs=Math.min(best.s*.2,40*u), statFs=Math.min(best.s*.12,22*u), badge=Math.max(34*u,R0*.5);
+      var circ=mixHex(field,[255,255,255],.2);
+      for(var i=0;i<n;i++){ var r=rows[i], col=i%best.c, row=Math.floor(i/best.c), inRow=Math.min(best.c,n-row*best.c);
+        var blk=2*R0+nameFs*1.9+statFs*1.4, cx=pad+(col+.5)*best.cw+(best.c-inRow)*best.cw/2, top=y0+row*best.ch, cy=top+Math.max(badge*.3,(best.ch-blk)/2)+R0;   // each player's block centred in its cell
+        // circle + headshot clipped to it
+        ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R0,0,Math.PI*2); ctx.fillStyle=circ; ctx.fill(); ctx.clip();
+        var sh=shots?await shotFor(r.espn,r.name,r.team):null;
+        // ESPN cutouts sit on the circle; a school's rectangular photo is cropped to fill it (top-anchored on the head)
+        if(sh&&/espncdn/.test(sh.src||'')) shotIn(sh,cx-R0,cy-R0*.92,R0*2,R0*1.92);
+        else if(sh){ var sc=Math.max(2*R0/sh.width,2*R0/sh.height), iw=sh.width*sc, ih=sh.height*sc; ctx.drawImage(sh,cx-iw/2,cy-R0-Math.max(0,(ih-2*R0)*.12),iw,ih); } else if(lg){ ctx.globalAlpha=.35; drawFit(lg,cx-R0*.55,cy-R0*.55,R0*1.1); ctx.globalAlpha=1; }
+        ctx.restore();
+        // logo top-right, overall top-left (opposite the logo)
+        // logo on a white disc (a same-colour logo vanishes on its own team colour), mirroring the OVR badge
+        if(lg){ var lx=cx+R0*.78, ly=cy-R0*.74; ctx.beginPath(); ctx.arc(lx,ly,badge/2,0,Math.PI*2); ctx.fillStyle='#FFFFFF'; ctx.fill(); ctx.lineWidth=Math.max(2,3*u); ctx.strokeStyle=field; ctx.stroke(); drawFit(lg,lx-badge*.34,ly-badge*.34,badge*.68); }
+        if(d.ovr!==false&&r.ovr){ var bx=cx-R0*.78, by=cy-R0*.74; ctx.beginPath(); ctx.arc(bx,by,badge/2,0,Math.PI*2); ctx.fillStyle='#FFFFFF'; ctx.fill();
+          ctx.lineWidth=Math.max(2,3*u); ctx.strokeStyle=field; ctx.stroke();
+          txt(String(r.ovr),bx,by-badge*.06,{ w:800,px:badge*.5,serif:'cond',c:'#14110C',al:'center' });
+          txt('OVR',bx,by+badge*.27,{ w:700,px:badge*.18,serif:'barlow',c:'#55504A',al:'center',ls:.5*u }); }
+        var ny=cy+R0+nameFs*.95;
+        txt(lastName(r.name),cx,ny,{ w:800,px:nameFs,serif:'cond',c:ink,al:'center',max:best.cw-12*u });
+        var line=st.map(function(k){ var v=r[k]; return v!==''&&v!=null?v+' '+lab[k]:''; }).filter(Boolean).join('  ·  ');
+        if(line) txt(line,cx,ny+nameFs*.85,{ w:700,px:statFs,serif:'barlow',c:ink,al:'center',max:best.cw-10*u }); }
+      // footer: team pill (left), brand (right)
+      var fy=H-pad*.55-foot*.5;
+      if(d.pillBig){ var bigFs=46*u, labFs=17*u, w1=width(d.pillBig,800,bigFs,'cond'), w2=Math.max(width(d.pillLab||'',800,labFs,'barlow')+(d.pillLab||'').length*1.2*u,width(d.pillSub||'',600,12*u,'barlow')), pw=w1+w2+64*u, ph=70*u;
+        rrect(pad,fy-ph/2,pw,ph,12*u); ctx.fillStyle=lum(c1)>.55?'rgba(0,0,0,.10)':'rgba(255,255,255,.14)'; ctx.fill(); ctx.lineWidth=Math.max(1,u); ctx.strokeStyle=lum(c1)>.55?'rgba(0,0,0,.18)':'rgba(255,255,255,.28)'; ctx.stroke();
+        ctx.beginPath(); ctx.arc(pad+18*u,fy,5*u,0,Math.PI*2); ctx.fillStyle='#3CC487'; ctx.fill();
+        txt(d.pillBig,pad+32*u,fy,{ w:800,px:bigFs,serif:'cond',c:ink });
+        txt(d.pillLab||'',pad+44*u+w1,fy-9*u,{ w:800,px:labFs,serif:'barlow',c:ink,ls:1.2*u });
+        if(d.pillSub) txt(d.pillSub,pad+44*u+w1,fy+12*u,{ w:600,px:13.5*u,serif:'barlow',c:ink }); }
+      var bs=brandSize(u)*.95; brandMark(W-pad-bs,fy-bs/2,bs);
+      ctx.save(); ctx.font=font(800,26*u,true); ctx.textBaseline='middle'; ctx.textAlign='right'; ctx.fillStyle=ink; ctx.fillText('The Depth Chart',W-pad-bs-14*u,fy); ctx.restore();
+      return school(d.team)+' '+SEASON+(d.pillBig?' · '+d.pillBig+' '+(d.pillLab||'').toLowerCase():'')+'\n\n'+rows.slice(0,5).map(function(r){ return r.name+(r.ovr?' ('+r.ovr+' OVR)':''); }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB';
+    }
+  };
+
   // ── Matchup ──
   T.matchup={
     defaults:function(){ return { a:'', b:'', venue:'neutral', title:'Game Projection', subtitle:SEASON, nameA:'', nameB:'', scoreA:'', scoreB:'', spread:'', pa:'' }; },
@@ -2305,6 +2390,7 @@
     if(act==='col'){ var cs=(d.cols||DSTATS_DEF).slice(), ci=cs.indexOf(b.dataset.col); if(ci>-1) cs.splice(ci,1); else cs.push(b.dataset.col); d.cols=DSTATS_ALL.map(function(x){ return x[0]; }).filter(function(k){ return cs.indexOf(k)>-1; }); }
     // column toggles on the sheet graphics, kept in their list's order
     if(act==='lcol'||act==='hcol'||act==='mcol'){ var L0=act==='lcol'?LCOLS:act==='hcol'?HCOLS:TMCOLS, c3=(d.cols||[]).slice(), i3=c3.indexOf(b.dataset.col); if(i3>-1) c3.splice(i3,1); else c3.push(b.dataset.col); d.cols=L0.map(function(x){ return x[0]; }).filter(function(k){ return c3.indexOf(k)>-1; }); }
+    if(act==='rgst'){ var rg=(d.stats||['ppg','rpg','apg']).slice(), ri=rg.indexOf(b.dataset.col); if(ri>-1) rg.splice(ri,1); else { rg.push(b.dataset.col); if(rg.length>3) rg.shift(); } d.stats=RG_STATS.map(function(x){ return x[0]; }).filter(function(k){ return rg.indexOf(k)>-1; }); }
     if(act==='scol'){ var sc=(d.cols&&d.cols.length?d.cols:['date','venue','line','win']).slice(), si=sc.indexOf(b.dataset.col); if(si>-1) sc.splice(si,1); else sc.push(b.dataset.col); d.cols=SCOLS.map(function(x){ return x[0]; }).filter(function(k){ return sc.indexOf(k)>-1; }); }
     if(act==='ssum'){ var sm=(d.sumKeys||['exp','range','pick','conf']).slice(), mi=sm.indexOf(b.dataset.col); if(mi>-1) sm.splice(mi,1); else sm.push(b.dataset.col); d.sumKeys=SSUM.map(function(x){ return x[0]; }).filter(function(k){ return sm.indexOf(k)>-1; }); }
     if(act==='pcol'){ var pc=(d.cols||[]).filter(function(c){ return c.k===b.dataset.col; })[0]; if(pc){ d.colOn=d.colOn||{}; d.colOn[pc.k]=postCols(d).indexOf(pc)<0; } }
@@ -2349,7 +2435,7 @@
     ['Simple tables',[['table','Table','The go-to: roster or stat leaders, yellow lead column'],['list','Ranked list','Numbered list with a value'],['heat','Heat table','Leaders with percentile colours'],['teams','Team table','Team rankings sheet'],['allconf','All-Conference','Projected all-league teams']]],
     ['Charts',[['quad','Contender quadrant','Offense vs defense, every team plotted'],['genome','Shot Genome','Shot quality vs shot-making'],['money','Moneyball','What the transfer market misprices'],['crunch','Crunch time','Who takes over late in games'],['pcard','Player chart','One player\u2019s percentile profile'],['leaders','Percentile leaders','Top players by one stat'],['cards','Card grid','Player cards in a grid'],['onoff','On/Off swings','Biggest on/off impact'],['after','Shot value','What each shot zone is worth'],['nil','NIL value','Market value leaders']]],
     ['Odds',[['odds','POY odds','Award race odds'],['confodds','Conference odds','Title odds by league']]],
-    ['Team pages',[['sched','Schedule predictions','Every game: our line + win odds (multi-page)'],['shotchart','Shot chart','A team\u2019s real shot chart, offense + defense'],['depth','Depth chart','A team\u2019s roster sheet'],['lineups','Lineups','Best five-man lineups'],['matchup','Matchup','Two teams side by side']]]
+    ['Team pages',[['rgrid','Roster grid','Headshot grid: overall, logo and a stat line per player'],['sched','Schedule predictions','Every game: our line + win odds (multi-page)'],['shotchart','Shot chart','A team\u2019s real shot chart, offense + defense'],['depth','Depth chart','A team\u2019s roster sheet'],['lineups','Lineups','Best five-man lineups'],['matchup','Matchup','Two teams side by side']]]
   ];
   function curPostKey(){ var d=S.docs.posts; return d&&d.key; }
   function paintLib(){ var q=(($('libQ')||{}).value||'').trim().toLowerCase(), h='';
@@ -2377,7 +2463,7 @@
   document.addEventListener('toggle',function(e){ var el=e.target; if(el.classList&&el.classList.contains('sec')&&el.dataset.sec&&el.closest('#editor')){ (S.fold=S.fold||{})[el.dataset.sec]=el.open; save(); } },true);
   function syncControls(){ paintLib();
     $('size').value=S.size; $('theme').value=S.theme; $('shots').checked=S.shots; $('handle').value=S.handle; $('brandLogo').checked=S.brandLogo!==false; }
-  var AUTO={ sched:['team'], shotchart:['team','season'], list:['src','stat','season'], posts:['key','team','conf','n','season','dir','pstat','tier','pcls'], cards:['metric','season','who','minFga','n','conf','team','mix'], leaders:['metric','season','who','minFga','n','conf','team','mix'], heat:['metric','season','n','conf','team','mix'], lineups:['metric','season','minPoss','n','conf','team'], teams:['sort','n','conf'], depth:['team'], table:['src','stat','season','team','conf','n','mix'], money:['mode','n','conf','team'], crunch:['dir','who','n','min','conf','team','sort'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf','team'], after:['season','team','conf'], confodds:['conf','n'], nil:['mode','n','minMpg','conf','team'] };   // charts whose rows come from a load
+  var AUTO={ rgrid:['team','n'], sched:['team'], shotchart:['team','season'], list:['src','stat','season'], posts:['key','team','conf','n','season','dir','pstat','tier','pcls'], cards:['metric','season','who','minFga','n','conf','team','mix'], leaders:['metric','season','who','minFga','n','conf','team','mix'], heat:['metric','season','n','conf','team','mix'], lineups:['metric','season','minPoss','n','conf','team'], teams:['sort','n','conf'], depth:['team'], table:['src','stat','season','team','conf','n','mix'], money:['mode','n','conf','team'], crunch:['dir','who','n','min','conf','team','sort'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf','team'], after:['season','team','conf'], confodds:['conf','n'], nil:['mode','n','minMpg','conf','team'] };   // charts whose rows come from a load
   async function autoLoad(){ var d=doc(), R=d.rows||d.starters;   // depth charts keep their players in starters / bench
     if(AUTO[S.tpl]&&R&&(!R.length||(d._lv!==LOAD_VER&&!d._edited))&&(R.length||!d.starters||d.team)){ try{ await T[S.tpl].load(d); stamp(d); save(); paintEditor(); }catch(e){ status(e.message,true); } } }
   $('tplSeg').addEventListener('click',async function(e){ var b=e.target.closest('button[data-v]'); if(!b) return; S.tpl=b.dataset.v; S.page=0;
