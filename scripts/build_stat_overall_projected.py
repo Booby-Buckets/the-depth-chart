@@ -2207,9 +2207,13 @@ def _sv_of(full, r40, mpg, ppg, cred=None):
     # in the country — because the editor's line was valued at face value per minute). A returner's per-40 value is
     # shrunk toward the median rotation player by his real minutes (cred = min / (min + 400)); a projected line gets
     # the same shrink as if it were NEW_EVID_MIN minutes of evidence. Only the rating: pwa (season WA) stays the line's.
-    _w40=_wa/max(_mn/40.0,0.1); _w40=MU40+(NEW_CRED if cred is None else cred)*(_w40-MU40)
-    return to_grade(_w40*(_ff+(1.0-_ff)*math.sqrt(min(max(_mn/P90,0),1.3))))
-_SV_WA=[None]
+    # TWO numbers (owner, Oct 20 2026: "changing the overall must not change any analytical data"): the RETURN value is the
+    # line valued at face value — sv / svp, what NIL prices — exactly as before the shrink; the shrunk one goes to
+    # _SV_D[0] and is used ONLY for the displayed overall (svd / svpd -> ovr).
+    _role=(_ff+(1.0-_ff)*math.sqrt(min(max(_mn/P90,0),1.3))); _w40=_wa/max(_mn/40.0,0.1)
+    _SV_D[0]=to_grade((MU40+(NEW_CRED if cred is None else cred)*(_w40-MU40))*_role)
+    return to_grade(_w40*_role)
+_SV_WA=[None]; _SV_D=[None]
 NEW_EVID_MIN=float(os.environ.get("NEW_EVID_MIN","300")); NEW_CRED=NEW_EVID_MIN/(NEW_EVID_MIN+400.0)   # 300 -> keeps 43% of a guess's distance from the median
 # ...softer for a HIGHLY RANKED recruit (owner, Oct 15 2026: keep Stokes and the top freshmen near where they were; keep
 # the full shrink for unranked / editor lines like Ahneman). The kept share climbs from NEW_CRED at rank RANK_SPAN to
@@ -2231,7 +2235,7 @@ for _sh,_fm in FRESH_FIT.items():
     _full=S2F.get(_sh.lower()) or _sh
     for _nm,_f in _fm.items():
         _sv=_sv_of(_full,_f.get("r40"),_n(_f.get("mpg"),0),_f.get("ppg"),_cred_of(_f,_nm))
-        if _sv is not None: _f["sv"]=int(_sv); _f["pwa"]=round(_SV_WA[0],2); _nsv+=1   # pwa: projected Wins Added (Moneyball)
+        if _sv is not None: _f["sv"]=int(_sv); _f["svd"]=int(_SV_D[0]); _f["pwa"]=round(_SV_WA[0],2); _nsv+=1   # pwa: projected Wins Added (Moneyball)
         # POTENTIAL for a ranked recruit: the same valuation at the minutes recruits of his rank historically
         # play (freshman_model mpg_by_rank) when the depth chart has him below it — the NIL market pays for the
         # role he is expected to grow into, not a preseason depth slot (Cameron Williams #4, 7 mpg on the chart)
@@ -2247,7 +2251,7 @@ for _sh,_fm in FRESH_FIT.items():
                 # fitted ppg is a rounded 0.2 and x36 it cut Cameron Williams' scoring ~40% (he rated below #22 Howard,
                 # owner Oct 15 2026). Under 6 mpg he is valued at his model scoring rate.
                 _svp=_sv_of(_full,_f.get("r40"),_mt,((_f.get("ppg") or 0)*_mt/_m0) if _m0>=6 else None,_cred_of(_f,_nm))
-                if _svp is not None: _f["svp"]=int(max(_sv,_svp)); _f["mpg_pot"]=round(_mt,1)
+                if _svp is not None: _f["svp"]=int(max(_sv,_svp)); _f["svpd"]=int(max(_f["svd"],_SV_D[0])); _f["mpg_pot"]=round(_mt,1)
 # THE EDITOR'S LINE (owner, Oct 15 2026): a profile saved with _line (the exact line the editor showed) sets that
 # newcomer's points and per-40 rates, so his OVR values what the editor showed — not the generic freshman shape.
 _ned=0
@@ -2264,14 +2268,15 @@ for _sh,_fm in FRESH_FIT.items():
         _f["r40e"]=_r40e
         _f["ppg"]=round(_n(_el.get("ppg"))*_m/_n(_el["mpg"],1),1); _f["editor_line"]=1; _ned+=1
         _sv=_sv_of(S2F.get(_sh.lower()) or _sh,_r40e,_m,_f["ppg"],_cred_of(_f,_nm))
-        if _sv is not None: _f["sv"]=int(_sv)
+        if _sv is not None: _f["sv"]=int(_sv); _f["svd"]=int(_SV_D[0])
         # an editor line saved at a few minutes is a rounded scrap (0.6 pts in 0.6 mpg = 40 pts/40): its RATES are noise, so
         # the rank-minutes potential keeps the model rates (svp from the first pass) unless the line has 6+ minutes behind
         # it (owner, Oct 20 2026: Bryson Howard 98 / Davion Adkins 99 NIL grades from 2-minute editor lines)
         if _sv is not None and _f.get("mpg_pot") and _n(_el["mpg"],0)>=6:
             _svp=_sv_of(S2F.get(_sh.lower()) or _sh,_r40e,_f["mpg_pot"],None,_cred_of(_f,_nm))
-            _f["svp"]=int(max(_sv,_svp)) if _svp is not None else _f.get("svp")
-        elif _f.get("svp") is not None and _sv is not None: _f["svp"]=int(max(_sv,_f["svp"]))
+            if _svp is not None: _f["svp"]=int(max(_sv,_svp)); _f["svpd"]=int(max(_f["svd"],_SV_D[0]))
+        elif _f.get("svp") is not None and _sv is not None:
+            _f["svp"]=int(max(_sv,_f["svp"])); _f["svpd"]=int(max(_f["svd"],_f.get("svpd") or 0))
 print(f"editor lines: {_ned} newcomers valued on the line the editor showed",file=sys.stderr)
 # THE DISPLAYED NEWCOMER OVR IS HIS STAT VALUE (owner, Oct 2026: the editor no longer sets an overall, and TDC
 # ratings are stat-driven): his projected line valued like a returner's. The recruiting-band prior stays as
@@ -2283,7 +2288,7 @@ for _sh,_fm in FRESH_FIT.items():
             # a RANKED recruit buried on a deep roster: his OVR is his line valued at the minutes recruits of his rank
             # usually play (svp), not the 0.7 mpg a stacked depth chart leaves him — "Duke is really good, he isn't a 55"
             # (owner, Oct 15 2026). Minutes stay the depth chart's; only the displayed overall changes (OVR is display-only).
-            _f["ovr"]=int(max(_f["sv"],_f.get("svp") or 0)); _f["src"]="stat"
+            _f["ovr"]=int(max(_f.get("svd",_f["sv"]),_f.get("svpd") or 0)); _f["src"]="stat"
 # ...but a BURIED recruit can't rate far above the players his coach plays ahead of him (owner, Oct 15 2026: "if Cam
 # was a 90 he'd obviously play more — a 90 is top-15 in the country"). The depth chart is evidence too: the lift his rank
 # gives him (svp over sv) is capped at the mean of the two nearest non-newcomers above him on the depth chart + 2.
@@ -2296,7 +2301,7 @@ _ncap=0
 for _sh,_fm in FRESH_FIT.items():
     _rows=sorted(_DEP.get(_sh,[])); _new={str(n).strip() for n in _fm}
     for _nm,_f in _fm.items():
-        if _f.get("sv") is None or (_f.get("ovr") or 0)<=_f["sv"]: continue      # only the rank-minutes lift is capped
+        if _f.get("sv") is None or (_f.get("ovr") or 0)<=_f.get("svd",_f["sv"]): continue      # only the rank-minutes lift is capped
         _me=next((d for d,n,e in _rows if n==str(_nm).strip()),None)
         if _me is None: continue
         _above=[]
@@ -2307,7 +2312,7 @@ for _sh,_fm in FRESH_FIT.items():
             if len(_above)==2: break
         if not _above: continue
         _cap=int(round(sum(_above)/len(_above)+BURIED_MARGIN))
-        if _f["ovr"]>_cap: _f["ovr"]=max(_f["sv"],_cap); _f["buried_cap"]=_cap; _ncap+=1
+        if _f["ovr"]>_cap: _f["ovr"]=max(_f.get("svd",_f["sv"]),_cap); _f["buried_cap"]=_cap; _ncap+=1
 print(f"newcomer stat values: {_nsv} (buried recruits capped by the depth chart above them: {_ncap})",file=sys.stderr)
 # NO NEWCOMER ABOVE THE BEST PROVEN PLAYER (owner, Oct 15 2026: Stokes rated 97, above every returner, on a projected
 # line). A newcomer's preseason OVR is capped FR_CAP_GAP below the best returner's projected OVR (rotation players); his
