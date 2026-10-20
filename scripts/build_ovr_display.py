@@ -20,7 +20,7 @@ players gets the rating at percentile p of the last five seasons' rotation playe
 (ovr_display_scale.json, from build_stat_overall.py) — so a top player lands where real top players have landed
 (about 95-97), not an automatic 99.
 
-Reads: stat_overall_projected.json, fresh_fit.json, draft-overrides.json, ovr_display_scale.json; Supabase (anon,
+Reads: stat_overall_projected.json, fresh_fit.json, fr_pedigree_2027.json, draft-overrides.json, ovr_display_scale.json; Supabase (anon,
 read-only): players, predictive_ratings, player_history. Writes scripts/data/ovr_display_2027.json:
   {"season":2027, "espn":{espn_id: ovr}, "fresh":{"team|name": ovr}, "demo":{espn_id: 2025-26 ovr}}   (fresh keys like _fk)
 """
@@ -53,6 +53,7 @@ SO = json.load(open(os.path.join(D, "stat_overall_projected.json")))["players"]
 FF = json.load(open(os.path.join(D, "fresh_fit.json")))
 DR = json.load(open(os.path.join(ROOT, "draft-overrides.json")))
 LAD = json.load(open(os.path.join(D, "ovr_display_scale.json")))["ladder"]
+PED = json.load(open(os.path.join(D, "fr_pedigree_2027.json")))
 PL = get("players?select=name,team,espn_id&name=neq.%E2%80%94&order=id.asc")
 PR = get(f"predictive_ratings?select=data&season=eq.{SEASON}")[0]["data"]["teams"]
 H = get(f"player_history?select=espn_id,season_year,team,ppg,mpg&season_year=gte.{CUR-2}&espn_id=not.is.null&order=id.asc")
@@ -100,8 +101,11 @@ for t, d in FF.items():
         if not isinstance(x, dict): continue
         m = f(x.get("mpg"))
         if m <= 0: continue
+        # the minutes a newcomer's rank usually earns protect a buried RANKED recruit only — scaled by his recruiting
+        # pedigree (fr_pedigree_2027.json 'ped', 0-1; full at .5+), so an unranked freshman walk-on gets none of it
+        _ped = f((PED.get(nk(n)) or {}).get("ped"))
         rows.append({"key": ("fresh", fk(t, n)), "name": n, "team": t, "mpg": m, "ppg": f(x.get("ppg")), "wa": f(x.get("pwa")),
-                     "sample": 0.0, "new": True, "peak": 0.0})
+                     "sample": 0.0, "new": True, "peak": 0.0, "mpg_pot": f(x.get("mpg_pot")) * min(1.0, _ped / 0.5)})
 
 for r in rows:
     r["w40"] = r["wa"] / max(r["mpg"] * G / 40.0, 1.0)
@@ -110,10 +114,15 @@ for r in rows:
     r["pts"] = r["ppg"] * (1 + 0.06 * r["clvl"])
 rot = [r for r in rows if r["mpg"] >= 15]
 mu40 = statistics.median(r["w40"] for r in rot)
+# small samples shrink toward REPLACEMENT level (the 20th percentile of rotation players), not the median: a walk-on with
+# two minutes a game is a replacement player until he shows otherwise (owner, Oct 20 2026: walk-on overalls too high).
+# A ranked recruit's role counts at the minutes recruits of his rank usually play (mpg_pot).
+rep40 = sorted(r["w40"] for r in rot)[len(rot) // 5]
 for r in rows:
-    r["qA"] = (r["w40"] * r["mpg"] + mu40 * 20) / (r["mpg"] + 20)
+    _rm = max(r["mpg"], r.get("mpg_pot") or 0.0)
+    r["qA"] = (r["w40"] * _rm + rep40 * 20) / (_rm + 20)
     c = .45 if r["new"] else r["sample"] / (r["sample"] + 400)
-    r["qB"] = mu40 + c * (r["w40"] - mu40)
+    r["qB"] = rep40 + c * (r["w40"] - rep40)
 
 def zf(vals):
     s = sorted(vals)
@@ -132,6 +141,11 @@ for r in rows:
             "peak": zk(r["peak"]) if r["peak"] > 0 else -0.5,
             "pro": (2.6 - 2.6 * min(1, (pk - 1) / 45)) if pk is not None and pk < 45 else 0.0,
             "lvl": max(-1.5, min(1.0, r["clvl"])), "team": max(-1.5, min(1.5, r["tlvl"]))}
+    # TEAM / LEAGUE CREDIT FOLLOWS THE ROLE (owner, Oct 20 2026: "the walk-on overalls are too high" — a 2-minute player
+    # at Texas A&M rated 77 off his team's strength). Full credit at 20+ minutes, none for a walk-on; a ranked recruit
+    # buried on a deep roster counts at the minutes recruits of his rank usually play (mpg_pot), as the site does.
+    _role = min(1.0, max(r["mpg"], r.get("mpg_pot") or 0.0) / 20.0)
+    feat["lvl"] *= _role; feat["team"] *= _role
     r["s"] = sum(W[k] * feat[k] for k in W)
 
 # the order -> the fixed scale: percentile among this season's rotation players -> the same percentile of the ladder
@@ -145,15 +159,24 @@ def ovr(s):
     q = min(max((lo + .5) / (len(srot) + 1), 0.0), 1.0) * 1000
     i = int(q); fr = q - i
     v = LAD[min(i, 1000)] + (LAD[min(i + 1, 1000)] - LAD[min(i, 1000)]) * fr
+    return v
+
+# A WALK-ON IS RATED AS ONE (owner, Oct 20 2026: "the walk-on overalls are too high"). The order above ranks a 2-minute
+# player among rotation players, so a deep-bench player at a strong program landed at 72-77. The rating is pulled toward
+# the floor (55) by role: full value at 15+ minutes, about half the distance above 55 for a 2-minute player. A ranked
+# recruit's role is the minutes recruits of his rank usually play (mpg_pot), so a buried top recruit keeps his number.
+def ovr_of(r):
+    role = min(1.0, max(r["mpg"], r.get("mpg_pot") or 0.0) / 15.0)
+    v = 55 + (ovr(r["s"]) - 55) * (0.4 + 0.6 * role)
     return int(round(max(55, min(99, v))))
 
 out = {"season": SEASON, "weights": W, "espn": {}, "fresh": {},
        # last season's demonstrated overall on the same fixed scale (players' 2025-26 view), from build_stat_overall.py
        "demo": json.load(open(os.path.join(D, "ovr_display_hist.json"))).get(str(CUR), {})}
 for r in rows:
-    out[r["key"][0]][r["key"][1]] = ovr(r["s"])
+    out[r["key"][0]][r["key"][1]] = ovr_of(r)
 json.dump(out, open(os.path.join(D, "ovr_display_%d.json" % SEASON), "w"), separators=(",", ":"), sort_keys=True)
-vals = [ovr(r["s"]) for r in rot]
+vals = [ovr_of(r) for r in rot]
 top = sorted(rows, key=lambda r: -r["s"])[:10]
 print(f"display overall {SEASON}: {len(rows)} players · 95+ {sum(v >= 95 for v in vals)} · 90+ {sum(v >= 90 for v in vals)} · "
-      f"top: " + ", ".join(f"{r['name']} {ovr(r['s'])}" for r in top))
+      f"top: " + ", ".join(f"{r['name']} {ovr_of(r)}" for r in top))
