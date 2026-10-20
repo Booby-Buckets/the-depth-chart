@@ -10,7 +10,7 @@ in the Overall Model Lab:
   impact  .20  projected per-40 Wins Added (shrunk 20 min toward the median) + season Wins Added
   talent  .15  per-40 Wins Added trusted by his DEMONSTRATED minutes (min/(min+400); newcomers .45)
   scoring .05  projected points, nudged by the strength of his league
-  peak    .10  best scoring season with 20+ mpg in the last three seasons
+  peak    .10  best scoring season with 20+ mpg in the last three seasons, adjusted for the league it came in
   prospect.10  average spot in current NBA mock drafts (draft-overrides.json; 2028 board at 60% weight)
   league  .20  his conference's average power rating
   team    .40  his team's power rating
@@ -55,7 +55,7 @@ DR = json.load(open(os.path.join(ROOT, "draft-overrides.json")))
 LAD = json.load(open(os.path.join(D, "ovr_display_scale.json")))["ladder"]
 PL = get("players?select=name,team,espn_id&name=neq.%E2%80%94&order=id.asc")
 PR = get(f"predictive_ratings?select=data&season=eq.{SEASON}")[0]["data"]["teams"]
-H = get(f"player_history?select=espn_id,season_year,ppg,mpg&season_year=gte.{CUR-2}&espn_id=not.is.null&order=id.asc")
+H = get(f"player_history?select=espn_id,season_year,team,ppg,mpg&season_year=gte.{CUR-2}&espn_id=not.is.null&order=id.asc")
 
 # league / team strength
 rating = {}; conf = {}
@@ -75,10 +75,15 @@ for yr, miss, wt in (("mocks_%d" % SEASON, 40, 1.0), ("mocks_%d" % (SEASON + 1),
         for l in lists: picks[nm].append((l.index(nm) + 1 if nm in l else miss, wt))
 pro = {k: sum(p * w for p, w in v) / sum(w for p, w in v) for k, v in picks.items()}
 
-# track record: best scoring season with 20+ mpg in the last three seasons
+# track record: best scoring season with 20+ mpg in the last three seasons, LEVEL-ADJUSTED by the league he did it in
+# (owner, Oct 20 2026: Logan Duncomb's 18.3 ppg at Winthrop counted like an ACC 18.3) — 2.5% per point of that
+# conference's average power rating vs the median league, kept within 0.6-1.2
+PEAK_LVL = 0.025
 peak = collections.defaultdict(float)
 for h in H:
-    if f(h.get("mpg")) >= 20: peak[str(h["espn_id"])] = max(peak[str(h["espn_id"])], f(h.get("ppg")))
+    if f(h.get("mpg")) >= 20:
+        _cg = cmean.get(conf.get(h.get("team")), cmed) - cmed
+        peak[str(h["espn_id"])] = max(peak[str(h["espn_id"])], f(h.get("ppg")) * max(0.6, min(1.2, 1 + PEAK_LVL * _cg)))
 
 name_of = {}
 for p in PL:
