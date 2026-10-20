@@ -1092,7 +1092,11 @@ d26["wa"]=(d26["owa"].fillna(0)*d26["usg_mult"]+DWA_W*(d26["dwa"].fillna(0)+d26[
 if FOUL_W>0:   # demonstrated excess-foul dock (matches build_stat_overall.py's 2026 reference)
     d26["wa"]=d26["wa"]-d26.apply(lambda r: foul_pen(r["espn_id"], r["min"] if pd.notna(r["min"]) else 0), axis=1)
 per40=d26["wa"]/d26["mp40"].clip(lower=0.1)
-WA_CARRY=0.4
+# WA_CARRY OFF (Oct 20 2026): a blind replay of 2025-26 (727 same-school returners projected from 2024-25) scored the
+# projected-line WA r=0.735 / MAE 0.90 / 64% of the real top-5% in the projected top-10% with NO carryover, and every
+# carryover weight made it worse (0.2: .729/.91/58%; 0.4: .713/.95/58%). The full build already projects returners to
+# grow x1.21 vs x1.17 historically, so there is no under-projection to anchor against. Set >0 only to re-test.
+WA_CARRY=float(os.environ.get("WA_CARRY","0"))
 WA_DEMO={str(int(e)):float(w) for e,w in zip(d26["espn_id"],d26["wa"]) if pd.notna(w)}   # last season's Wins Added (WA_CARRY)
 MU40=per40.median(); P90=d26["min"].quantile(0.90); cred=d26["min"]/(d26["min"]+400.0)
 _ff=ROLE_FLOOR*(d26["min"]/ROLE_FLOOR_MIN).clip(0,1)   # floor earned by sample (matches build_stat_overall.py)
@@ -1722,7 +1726,7 @@ for short, roster in roster_by_team.items():
         # while real returners (same team, +/-3 mpg, 2016-26) keep ~95% at the top and slope 0.79 year to year; ours was
         # 0.80 / 0.70. Anchor WA_CARRY of the way back to last season's WA scaled to the new minutes. Returners only —
         # star transfers really do lose production (history-team-mislabels / XSTAR). Display WA only; OVR is untouched.
-        if not xfer and last_min>=400 and str(e) in WA_DEMO and last_mpg>0:
+        if WA_CARRY>0 and not xfer and last_min>=400 and str(e) in WA_DEMO and last_mpg>0:
             wa_line+=WA_CARRY*(WA_DEMO[str(e)]*min(1.25,pm/last_mpg)-wa_line)
         out[str(e)]={
             "_shortfill":_shortfill,
