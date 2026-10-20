@@ -18,7 +18,7 @@
   <script src="tdc-lineups.js?v=17s"></script>
   <script src="tdc-lineup-history.js?v=4"></script>
   <script src="tdc-shotflow.js?v=12"></script>
-  <script src="tdc-nil.js?v=pay1"></script>
+  <script src="tdc-nil.js?v=pay2"></script>
   <script src="tdc-nilchart.js?v=1"></script>
   <script src="tdc-gate.js?v=4"></script>
   <script src="tdc-pos.js"></script>
@@ -7468,8 +7468,14 @@ async function _nilMarketPublish(btn){
 }
 // ── NIL charts (Oct 2026) ─────────────────────────────────────────────────────────────────────────
 // LEAGUE: every roster's open-market worth as a stack of team logos (shared with Moneyball: tdc-nilchart.js)
-function _nilLeagueChart(host, board, me, myVal, myConf, tcol, fmt){
-  if(window.TDC_NILCHART) TDC_NILCHART.league(host, board, {me:me, myVal:myVal, myConf:myConf, tcol:tcol, fmt:fmt});
+function _nilLeagueChart(host, board, me, myVal, myConf, tcol, fmt, myTier){
+  if(!window.TDC_NILCHART) return;
+  // roster COST: each roster's open-market worth scaled by its program's pay level (TDC_NIL.payScale, from the spending
+  // tier) — the blue-blood budgets pay more for the same players, so the top runs higher and the bottom lower
+  const ps=(window.TDC_NIL&&TDC_NIL.payScale)?TDC_NIL.payScale:()=>1;
+  const cost=board.map(x=>Object.assign({},x,{val:x.val*ps(x.tier)}));
+  TDC_NILCHART.league(host, cost, {me:me, myVal:myVal!=null?myVal*ps(myTier):myVal, myConf:myConf, tcol:tcol, fmt:fmt,
+    title:'What every roster costs', foot:'Each roster\u2019s open-market player worth, scaled by what its program spends (its NIL budget tier). Player values above are open-market worth.'});
 }
 // ROSTER: each player's open-market worth, biggest first, with his market price as a tick
 function _nilRosterChart(host, d, tcol, fmt, bmOf){
@@ -7541,7 +7547,7 @@ async function renderNil(){
   if(!window._nilTeamBoard && _NN && _NN.neutralValueOf){
     window._nilTeamBoard=Object.keys(_nilData.teams).map(tk=>{ const t=_nilData.teams[tk]; let v=0,wa=0;
       (t.players||[]).forEach(p=>{ if(p.walkon) return; v+=_NN.neutralValueOf(p,t.tier); if(p.wa!=null&&isFinite(+p.wa)&&+p.wa>0) wa+=+p.wa; });
-      return {team:tk, val:v, wa:wa, conf:(t.players&&t.players[0]&&t.players[0].conf)||''};
+      return {team:tk, val:v, wa:wa, tier:t.tier, conf:(t.players&&t.players[0]&&t.players[0].conf)||''};
     }).filter(x=>x.val>0).sort((a,b)=>b.val-a.val);
   }
   const _tb=window._nilTeamBoard||[];
@@ -7697,7 +7703,7 @@ async function renderNil(){
     <a href="moneyball.html?tab=programs&team=${encodeURIComponent(tT.name)}" style="display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:800;letter-spacing:.02em;color:var(--accent);border:1px solid var(--border2);border-radius:22px;padding:9px 18px;text-decoration:none;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)'">📊 This program on The Ledger →</a>
   </div>`;
   host.innerHTML=html;
-  try{ _nilLeagueChart(document.getElementById('nilLeague'), window._nilTeamBoard||[], tT.name, nVal, (d.players&&d.players[0]&&d.players[0].conf)||'', _tcol, fmt); }catch(e){ console.warn('nil league chart',e); }
+  try{ _nilLeagueChart(document.getElementById('nilLeague'), window._nilTeamBoard||[], tT.name, nVal, (d.players&&d.players[0]&&d.players[0].conf)||'', _tcol, fmt, d.tier); }catch(e){ console.warn('nil league chart',e); }
   try{ _nilRosterChart(document.getElementById('nilRosterChart'), d, _tcol, fmt, _bmOf); }catch(e){ console.warn('nil roster chart',e); }
   if(window.tdcSheetHeat) tdcSheetHeat(document.getElementById('nilSheet'));
 }

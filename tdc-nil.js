@@ -290,6 +290,11 @@ window.TDC_NIL = {
     mv=isFinite(+mv)?+mv:(isFinite(v)?v:0);
     mv=mv*N.draftBoost(p.rk,p.ppg)*N.defMultOf(p)*N.mktMult(p.ppg)*N.proMult(p.ht,p.pos)*N.injuryMultOf(p)*N.adjMultOf(p.name)*N.progMultOf(team);
     return Math.max(N.progFloorOf(conf), mv); };   // × draft × defense × mkt × pro × injury × adjust × program, then conf floor
+  // PROGRAM PAY SCALE (owner, Oct 20 2026: "the top is not high enough and the bottom isn't low enough"): rich programs
+  // pay more for the same player. Roster COST = open-market worth x sqrt(program budget / a typical high-major's $12.8M),
+  // so a tier-2 roster costs ~1.5x its worth and a tier-7 one ~0.45x. Player values stay open-market; only roster totals.
+  N.PAY_REF = 12.8;
+  N.payScale = function(tier){ var b = N.TIER_BUDGET[N.tierNum(tier)]; return b ? Math.sqrt(b / N.PAY_REF) : 1; };
   N.tierBudget  = function(t){ return N.TIER_BUDGET[+((''+t).replace(/\D/g,''))] || null; };
   N.fmt         = function(m){ if(m==null||!isFinite(m)) return '—'; return m>=1 ? ('$'+(+m).toFixed(2)+'M') : ('$'+Math.round(m*1000)+'K'); };
 })();
