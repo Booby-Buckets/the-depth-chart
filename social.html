@@ -184,6 +184,8 @@
           <label class="chk"><input type="checkbox" id="brandLogo"> Our logo in the top left</label>
           <label class="f" for="handle">Handle shown on graphics</label>
           <input id="handle" placeholder="@yourhandle">
+          <label class="f" for="hidePl">Hidden players <span style="color:var(--text3);font-weight:500">kept off every graphic (e.g. not cleared yet)</span></label>
+          <input id="hidePl" placeholder="Robbie Avila, …">
           <label class="f" for="caption">Caption</label>
           <textarea id="caption"></textarea>
           <div class="btns"><button class="b sm" id="copyBtn">Copy caption</button></div>
@@ -558,6 +560,12 @@
   // THIS season's school for a player (players table, 2026-27 rosters). Last-season charts (crunch time, on/off, the
   // genome) filtered by a team should show THAT team's 2026-27 roster — each man's numbers from wherever he played —
   // not whoever wore the jersey last year (owner, Oct 14 2026).
+  // Hidden players (owner, Oct 20 2026: "remove Robbie Avila until he is cleared"): names in the Publish box, plus anyone
+  // marked injured / out on our roster, never appear on a graphic. Matched loosely by name (case, punctuation, Jr.).
+  function hk(n){ return String(n||'').toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b\.?/g,'').replace(/[^a-z]/g,''); }
+  function isHidden(name,espn){ var H=String(S.hide||'').split(/[,;\n]/).map(hk).filter(Boolean); if(H.length&&H.indexOf(hk(name))>-1) return true;
+    var p=espn!=null?D.byEspn[espn]:null; if(p){ var h=String(p.hometown||'').trim().toLowerCase(); if(p.is_injured||h==='injured'||h==='out') return true; if(H.length&&H.indexOf(hk(p.name))>-1) return true; } return false; }
+  function rowHidden(r){ return !!r&&(isHidden(r.name,r.espn)||(r.pair||[]).some(function(q){ return isHidden(q.name,q.espn); })); }
   function nowTeam(espn){ var p=espn!=null?D.byEspn[espn]:null; return p?p.team:null; }
   function moved(prev,now){ return now&&prev&&tkey(prev)!==tkey(now)?school(prev)+' \u2192 '+school(now):''; }
   function scopeUI(d,o){ o=o||{};
@@ -714,7 +722,7 @@
       // filtered by the league of) their 2026-27 team, so transfers wear their new logo
       if(d.ret) await players();
       var gp=d.ret?g.players.filter(function(p){ return nowTeam(p.espn_id); }).map(function(p){ return Object.assign({},p,{ team:nowTeam(p.espn_id) }); }):g.players;
-      var pool=gp.filter(function(p){ return p.smAdj!=null&&p.crAdj!=null&&(p.fga||0)>=(+d.minFga||0)&&(!d.conf||confOfFull(p.team)===d.conf); });
+      var pool=gp.filter(function(p){ return !isHidden(p.name,p.espn_id)&&p.smAdj!=null&&p.crAdj!=null&&(p.fga||0)>=(+d.minFga||0)&&(!d.conf||confOfFull(p.team)===d.conf); });
       var z=function(k){ var v=pool.map(function(p){ return p[k]; }), m=v.reduce(function(a,b){ return a+b; },0)/(v.length||1), sd=Math.sqrt(v.reduce(function(a,b){ return a+(b-m)*(b-m); },0)/(v.length||1))||1; return function(p){ return (p[k]-m)/sd; }; };
       var zs=z('smAdj'), zc=z('crAdj'), k=Math.max(2,Math.round((+d.n||30)/3)), pick={}, out=[];
       [function(p){ return zs(p); },function(p){ return zc(p); },function(p){ return Math.min(zs(p),zc(p)); }].forEach(function(f){
@@ -722,7 +730,7 @@
       out.forEach(function(p){ p._s=Math.max(zs(p),zc(p))+Math.min(zs(p),zc(p)); });
       var lab=out.slice().sort(function(a,b){ return b._s-a._s; }).slice(0,+d.labels||0).map(function(p){ return p.espn_id; });
       var pts=out.map(function(p){ return { x:p.crAdj, y:p.smAdj, team:p.team, espn:p.espn_id, lab:lab.indexOf(p.espn_id)>-1?p.name:'', pri:p._s, name:p.name }; });
-      if(d.team){ await players(); var all=gp.filter(function(p){ return p.smAdj!=null&&p.crAdj!=null&&(p.fga||0)>=(+d.minFga||0)&&onTeam(nowTeam(p.espn_id)||p.team,d.team)&&!pick[p.espn_id]; });
+      if(d.team){ await players(); var all=gp.filter(function(p){ return !isHidden(p.name,p.espn_id)&&p.smAdj!=null&&p.crAdj!=null&&(p.fga||0)>=(+d.minFga||0)&&onTeam(nowTeam(p.espn_id)||p.team,d.team)&&!pick[p.espn_id]; });
         pts.forEach(function(q){ if(nowTeam(q.espn)&&!onTeam(nowTeam(q.espn),d.team)&&onTeam(q.team,d.team)) q._left=1; });   // left the team: not highlighted
         all.forEach(function(p){ pts.push({ x:p.crAdj, y:p.smAdj, team:p.team, espn:p.espn_id, name:p.name, pri:0 }); });
         var _hl=pts.filter(function(q){ return !q._left&&onTeam(nowTeam(q.espn)||q.team,d.team); });
@@ -2110,7 +2118,7 @@
     draw:async function(d,W,H,u,pad){
       if(PG===1&&d.court){ bg(W,H); await drawShotPage(d.court.team,d.court.season,'off',W,H,u,pad,school(d.court.team)+': the shot chart'); return (d.title||'')+' (page 2: the shot chart)\n\n'+SITE+'\n\n#CollegeBasketball #CBB'; }
       bg(W,H); var y0=sheetHead(W,H,u,pad,d.title,d.subtitle), fTop=sheetFoot(W,H,u,pad,d.src,postCols(d).length&&rampOf(HEAT_RAMP)?rampLegend(u,rampOf(HEAT_RAMP),'RANK','Low','High'):null);
-      await rankTable(d,W,H,u,pad,y0,fTop,{ amber:!!d.lead, leadLabel:d.lead||'', stops:HEAT_RAMP, cols:postCols(d).map(function(c){ return { k:c.k, lab:c.lab, inv:!!c.inv }; }) });
+      await rankTable(Object.assign({},d,{ rows:(d.rows||[]).filter(function(r){ return !rowHidden(r); }) }),W,H,u,pad,y0,fTop,{ amber:!!d.lead, leadLabel:d.lead||'', stops:HEAT_RAMP, cols:postCols(d).map(function(c){ return { k:c.k, lab:c.lab, inv:!!c.inv }; }) });
       return (d.title||'')+'\n\n'+d.rows.slice(0,5).map(function(r,i){ return (i+1)+'. '+r.name+(r.team&&school(r.team)!==r.name?' ('+school(r.team)+')':'')+(r.val?' '+r.val+' '+(d.lead||''):''); }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB';
     }
   };
@@ -2608,7 +2616,7 @@
       // circle photo per player with the name and "88 OVR" under it, the team's projected numbers in a plain strip
       var base=window.tdcTeamColor&&tdcTeamColor(d.team)||{}, c1=base.c1||'#1d2b47', field=lum(c1)>.42?bandColor(d.team):c1;
       var ink='#FFFFFF', mut='rgba(255,255,255,.72)', line='rgba(255,255,255,.22)', tile=mixHex(field,[255,255,255],.14);
-      var rows=(d.rows||[]).filter(function(r){ return r.name; }), shots=d.shots!==false, n=rows.length;
+      var rows=(d.rows||[]).filter(function(r){ return r.name&&!rowHidden(r); }), shots=d.shots!==false, n=rows.length;
       var lg=await img(logoUrl(d.team)); await Promise.all(rows.map(function(r){ return shots?shotFor(r.espn,r.name,r.team):null; }));
       ctx.fillStyle=field; ctx.fillRect(0,0,W,H);
       var hh=pad*2.2, tfs=(W>H*1.2?56:64)*u, title=String(d.title||'Roster').toUpperCase(), tw0=width(title,800,tfs,'cond')+title.length*1*u, ls=Math.min(hh*.62,88*u), gx=(W-(tw0+(lg?ls+20*u:0)))/2;
@@ -2815,7 +2823,7 @@
     ed.innerHTML=''; ed.appendChild(out); }
   document.addEventListener('toggle',function(e){ var el=e.target; if(el.classList&&el.classList.contains('sec')&&el.dataset.sec&&el.closest('#editor')){ (S.fold=S.fold||{})[el.dataset.sec]=el.open; save(); } },true);
   function syncControls(){ paintLib();
-    $('size').value=S.size; $('theme').value=S.theme; $('shots').checked=S.shots; $('handle').value=S.handle; $('brandLogo').checked=S.brandLogo!==false; }
+    $('size').value=S.size; $('theme').value=S.theme; $('shots').checked=S.shots; $('handle').value=S.handle; $('hidePl').value=S.hide||''; $('brandLogo').checked=S.brandLogo!==false; }
   var AUTO={ pcard:['span'], rgrid:['team','n'], sched:['team'], shotchart:['team','player','who','season','style'], list:['src','stat','season'], posts:['key','team','conf','n','season','dir','pstat','tier','pcls','ret'], cards:['metric','season','who','minFga','n','conf','team','mix'], leaders:['metric','season','who','minFga','n','conf','team','mix'], heat:['metric','season','n','conf','team','mix'], lineups:['metric','season','minPoss','n','conf','team'], teams:['sort','n','conf'], depth:['team'], table:['src','stat','season','team','conf','n','mix'], money:['mode','n','conf','team'], crunch:['dir','who','n','min','conf','team','sort'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf','team'], after:['season','team','conf'], confodds:['conf','n'], nil:['mode','n','minMpg','conf','team'] };   // charts whose rows come from a load
   async function autoLoad(){ var d=doc(), R=d.rows||d.starters;   // depth charts keep their players in starters / bench
     // Transfer move: a graphic loaded by an older version (before the with/without table, AdjO/AdjD…) reloads itself once
@@ -2835,6 +2843,7 @@
   $('shots').onchange=async function(){ S.shots=this.checked; save(); if(S.shots){ await players(); backfillEspn(); } render(); };
   $('brandLogo').onchange=function(){ S.brandLogo=this.checked; save(); render(); };
   $('handle').oninput=function(){ S.handle=this.value; save(); later(); };
+  $('hidePl').oninput=function(){ S.hide=this.value; save(); later(); };
   // rows typed or loaded before players were available get their espn ids once the pool lands
   function backfillEspn(){ Object.keys(S.docs).forEach(function(k){ var d=S.docs[k];
     [].concat(d.rows||[],d.awards||[],d.starters||[],d.bench||[],[].concat.apply([],d.teams||[])).forEach(function(r){ if(r&&r.name&&!r.espn){ var p=findPlayer(r.name,r.team); if(p) r.espn=p.espn_id; } }); }); save(); }
