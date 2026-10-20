@@ -2316,13 +2316,16 @@ print(f"newcomer OVR cap: {FR_CAP} (best returner {_best} - {FR_CAP_GAP:g}); cap
 # with no D-I stats only): the preseason OVR of a freshman / redshirt / unlinked newcomer is scaled by NEWC_TRIM (0.91 =
 # -9%), never below the 55 floor. Display only — sv / svp (NIL value) are untouched — and it runs BEFORE real games below,
 # so his actual D-I games still pull the number to what he shows.
-NEWC_TRIM=float(os.environ.get("NEWC_TRIM","0.91")); _ntr=0
+# Players the owner has PROJECTED in the freshman editor are left exactly as projected (owner, Oct 20 2026: "don't change
+# players I have already projected" — Stokes, the No. 1 player, had fallen to 79 under Rippey).
+NEWC_TRIM=float(os.environ.get("NEWC_TRIM","0.91")); _ntr=0; _nex=0
 for _sh,_fm in FRESH_FIT.items():
     for _nm,_f in _fm.items():
         if _f.get("ovr") is None: continue
+        if (_sh,str(_nm).strip().lower()) in EDITOR_FR: _nex+=1; continue
         _t=int(max(FLOOR,round(_f["ovr"]*NEWC_TRIM)))
         if _t!=_f["ovr"]: _f["ovr_pretrim"]=_f["ovr"]; _f["ovr"]=_t; _ntr+=1
-print(f"newcomer trim x{NEWC_TRIM:g}: {_ntr} newcomer OVRs lowered",file=sys.stderr)
+print(f"newcomer trim x{NEWC_TRIM:g}: {_ntr} newcomer OVRs lowered, {_nex} owner-projected left as projected",file=sys.stderr)
 _nrg=0
 for _sh,_fm in FRESH_FIT.items():
     _full=S2F.get(_sh.lower()) or _sh
