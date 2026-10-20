@@ -2400,6 +2400,7 @@
   // Kansas and the fit"). Any player on his new roster: last season's line vs our projection there, what the team looks
   // like with him (rank, power rating, his shot share, the starting five) and the Portal Fit scorecard for the move —
   // scored against the roster WITHOUT him (team_needs already counts him at his slot).
+  var MOVE_V='adj1';   // bump when the Transfer move's loaded data changes shape, so saved graphics reload themselves
   T.move={
     ownBrand:true,
     defaults:function(){ return { q:'', name:'', team:'', espn:null, from:'', ovr:'', role:'', title:'', subtitle:'', lines:[], tiles:[], five:[], fit:null, shots:true }; },
@@ -2482,7 +2483,7 @@
         { val:fit&&fit.upgrade!=null?(fit.upgrade>0?'+':'')+Math.round(fit.upgrade):'', lab:'production vs their next-best '+(fit&&fit.pos||pos) }].filter(function(x){ return x.val; });
       if(share!=null) d.role+=' · '+share.toFixed(1)+'% of shots';
       Object.assign(d,{ name:p.name, team:p.team, espn:p.espn_id||null, from:from, ovr:ovr!=null&&isFinite(ovr)?String(ovr):'' });
-      d.title=p.name+(from?': '+school(from)+' → '+school(p.team):' at '+school(p.team)); d.subtitle='How we project him, and '+school(p.team)+' with vs. without him · '+SEASON;
+      d._mv=MOVE_V; d.title=p.name+(from?': '+school(from)+' → '+school(p.team):' at '+school(p.team)); d.subtitle='How we project him, and '+school(p.team)+' with vs. without him · '+SEASON;
     },
     editor:function(d){
       return '<h3>Data</h3><label class="f">Player (on his new team)</label><input data-k="q" list="plList" value="'+esc(d.q||'')+'" placeholder="Start typing a name…">'+
@@ -2817,6 +2818,9 @@
     $('size').value=S.size; $('theme').value=S.theme; $('shots').checked=S.shots; $('handle').value=S.handle; $('brandLogo').checked=S.brandLogo!==false; }
   var AUTO={ pcard:['span'], rgrid:['team','n'], sched:['team'], shotchart:['team','player','who','season','style'], list:['src','stat','season'], posts:['key','team','conf','n','season','dir','pstat','tier','pcls','ret'], cards:['metric','season','who','minFga','n','conf','team','mix'], leaders:['metric','season','who','minFga','n','conf','team','mix'], heat:['metric','season','n','conf','team','mix'], lineups:['metric','season','minPoss','n','conf','team'], teams:['sort','n','conf'], depth:['team'], table:['src','stat','season','team','conf','n','mix'], money:['mode','n','conf','team'], crunch:['dir','who','n','min','conf','team','sort'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf','team'], after:['season','team','conf'], confodds:['conf','n'], nil:['mode','n','minMpg','conf','team'] };   // charts whose rows come from a load
   async function autoLoad(){ var d=doc(), R=d.rows||d.starters;   // depth charts keep their players in starters / bench
+    // Transfer move: a graphic loaded by an older version (before the with/without table, AdjO/AdjD…) reloads itself once
+    // so the owner sees the current layout without pressing Load again (owner, Oct 20 2026: "it's not showing up")
+    if(S.tpl==='move'&&d.q&&d._mv!==MOVE_V&&!d._edited){ try{ status('Updating the graphic…'); await T.move.load(d); save(); paintEditor(); status(''); }catch(e){ status(e.message,true); } return; }
     if(AUTO[S.tpl]&&R&&(!R.length||(d._lv!==LOAD_VER&&!d._edited))&&(R.length||!d.starters||d.team)){ try{ await T[S.tpl].load(d); stamp(d); save(); paintEditor(); }catch(e){ status(e.message,true); } } }
   $('tplSeg').addEventListener('click',async function(e){ var b=e.target.closest('button[data-v]'); if(!b) return; S.tpl=b.dataset.v; S.page=0;
     // a data post picked from the library: point the Posts doc at it and load it fresh
