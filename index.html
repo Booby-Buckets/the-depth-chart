@@ -1869,10 +1869,10 @@ async function loadProjectedSeason(){
         projected:r.projected, allPlay:r.allPlay,
         shotluck:(r.shotLuck!=null?r.shotLuck:null),   // returners' shot-making luck (2026-27 only)
         ...(function(){ const e=effLc[(r.full||'').toLowerCase().trim()]; return e?{ortg:e.o,drtg:e.d,net:(e.net!=null?e.net:+(e.o-e.d).toFixed(1))}:{ortg:null,drtg:null,net:null}; })(),
-        // 2026-27 view: the PROJECTED genome only (owner, Oct 20 2026: a team we can't project shows "—", not last season's numbers)
-        ...(function(){ const k=(r.full||'').toLowerCase().trim(); const sg=sgProjBy[k];
-          return sg?{ sglq:(sg.off?sg.off.lq:null), sgsm:(sg.off?sg.off.smAdj:null), sgcr:(sg.crAdjPg!=null?sg.crAdjPg:null) }
-                  :{ sglq:null, sgsm:null, sgcr:null }; })(),
+        // 2026-27 view: NO Look Quality / Shot-Making / Creation (owner, Oct 20 2026: "if we can't project each team I don't
+        // want to project some and not others" — only ~95 teams have enough returning shot data). All null, so the three
+        // columns auto-hide here; they return when real 2026-27 shot data exists. The 2025-26 view still shows actuals.
+        sglq:null, sgsm:null, sgcr:null,
       };
     });
     window._useSrs = true;
