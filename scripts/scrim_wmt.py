@@ -93,8 +93,22 @@ def main():
             if nm: by_ncaa.setdefault(norm(nm), full)
     in_scrims = {t for g in games for t in (g["home"], g["away"])}
     today = datetime.date.today().isoformat()
-    todo = [g for g in games if g["date"] <= today and (force or not R.get(g["id"], {}).get("box"))]
-    print(f"{len(todo)} played scrimmages without a box score; {len(wmap)} WMT teams known")
+    # a WMT box we already have is pulled again when it looks short: the feed can post a player's line after the
+    # final (Oct 2026: Purdue's Enzo Shahrvin, 13 min / 4 pts, was missing from the first pull, so his page and
+    # the depth chart said he did not play). Short = a side's players add up to fewer points than its score,
+    # or under 195 minutes in a full game.
+    def short(rec):
+        if not rec.get("wmt") or rec.get("partial"): return False
+        for sd, score in (("home", rec.get("hs")), ("away", rec.get("as"))):
+            b = (rec.get("box") or {}).get(sd) or {}
+            if b.get("partial"): continue
+            pl = b.get("players") or []
+            if not pl: continue
+            if score is not None and sum(q.get("pts") or 0 for q in pl) < score: return True
+            if sum(q.get("min") or 0 for q in pl) < 195: return True
+        return False
+    todo = [g for g in games if g["date"] <= today and (force or not R.get(g["id"], {}).get("box") or short(R.get(g["id"], {})))]
+    print(f"{len(todo)} played scrimmages without a full box score; {len(wmap)} WMT teams known")
 
     def learn(tid):
         """add a WMT team we scrimmage to the map from its name"""

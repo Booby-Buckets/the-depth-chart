@@ -165,6 +165,10 @@ def main():
         # the projected rotation: everyone projected for 8+ minutes (at least 7 players)
         rot7 = [x for x in srt if x[1] >= 8] if sum(1 for x in srt if x[1] >= 8) >= 7 else srt[:7]
         played = {nk(p["name"]) for p in ps}
+        # and each box name's roster spelling, so a misspelled roster name ("Sharhrvin" for the box's "Shahrvin")
+        # still counts as having played (Oct 2026: Purdue's Enzo Shahrvin showed as a DNP)
+        names = [n for n, _ in pj]
+        played |= {nk(r) for r in (roster_name(p["name"], names) for p in ps) if r}
         last = {nk(p["name"].split()[-1]) for p in ps}
         here = lambda n: nk(n) in played or nk(n.split()[-1]) in last
         avail = None
