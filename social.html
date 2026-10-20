@@ -345,7 +345,8 @@
   function initials(n){ var w=String(n||'').replace(/\b(Jr|Sr|II|III|IV)\b\.?/g,'').trim().split(/\s+/).filter(Boolean); return ((w[0]||'')[0]||'')+((w.length>1?w[w.length-1]:'')[0]||''); }
   // no photo anywhere: a team-coloured ring with the player's initials, so the photo column never reads as a hole
   function drawNoShot(x,y,s,name,team){ var tc=tcol(team);
-    if(name&&NO_PHOTO[pnk(name)]){ ctx.save(); ctx.beginPath(); ctx.arc(x+s/2,y+s/2,s/2,0,Math.PI*2); ctx.fillStyle=P.chip; ctx.fill(); ctx.restore(); return; }   // blank by request: a plain circle
+    if(name&&NO_PHOTO[pnk(name)]){ ctx.save(); ctx.beginPath(); ctx.arc(x+s/2,y+s/2,s/2,0,Math.PI*2); ctx.fillStyle=P.chip; ctx.fill(); ctx.restore();   // by request: a plain circle with his initials, no ring
+      txt(initials(name).toUpperCase(),x+s/2,y+s/2,{ w:800,px:s*.36,serif:'cond',c:P.mut,al:'center' }); return; }
     ctx.save(); ctx.beginPath(); ctx.arc(x+s/2,y+s/2,s/2,0,Math.PI*2); ctx.fillStyle=P.chip; ctx.fill();
     ctx.lineWidth=Math.max(1.5,s*.05); ctx.strokeStyle=tc; ctx.beginPath(); ctx.arc(x+s/2,y+s/2,s/2-ctx.lineWidth/2,0,Math.PI*2); ctx.stroke(); ctx.restore();
     txt(initials(name).toUpperCase(),x+s/2,y+s/2,{ w:800,px:s*.36,serif:'cond',c:tc,al:'center' }); }
