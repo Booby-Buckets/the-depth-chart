@@ -1635,7 +1635,30 @@ async function renderShowcase(){
   if(lbl) lbl.innerHTML=`Top ${confName?confName+' ':''}Players <span id="scTeamSeason">· ${yLbl}</span>`;
   // A generous top-grade pool for the season, cached so conference switches don't refetch.
   window._scPoolCache = window._scPoolCache || {};
-  let pool = window._scPoolCache[curSeason];
+  // With a conference or level picked, pull THOSE teams' rosters (chunked: 1,000-row cap) instead of the national
+  // top-800 by sheet grade — low-major players mostly have no sheet grade at all (their OVR is the statistical
+  // model's, via gradeSolo below), so the national pool had none of them (owner, Oct 20 2026).
+  const scopeTeams = (levelFilter||confFilter) ? allTeams.filter(t=>inLevel(t)&&(!confFilter||t.conf===confFilter)).map(t=>t.short).filter(Boolean) : null;
+  const poolKey = curSeason+'|'+(scopeTeams?(levelFilter+'|'+confFilter):'all');
+  let pool = window._scPoolCache[poolKey];
+  if(!pool && scopeTeams && scopeTeams.length){
+    const inList=list=>'('+list.map(n=>'"'+String(n).replace(/"/g,'')+'"').join(',')+')';
+    const chunks=[]; for(let i=0;i<scopeTeams.length;i+=50) chunks.push(scopeTeams.slice(i,i+50));
+    try{
+      const parts=await Promise.all(chunks.map(c=>{
+        const tq='team=in.'+encodeURIComponent(inList(c));
+        const url=curSeason===2027
+          ? `${SB_URL}/rest/v1/players?${tq}&name=neq.%E2%80%94&is_injured=not.is.true&select=id,name,team,tdc_grade,espn_id,mpg,depth_order,ppg,rpg,apg,tovs,yr,class_year,starter,ft_pct,tp_pct,tpa&limit=1000`
+          : `${SB_URL}/rest/v1/player_history?season_year=eq.${curSeason}&${tq}&tdc_grade=not.is.null&select=name,team,tdc_grade,espn_id,height,position,mpg,ppg,rpg,apg,tovs,yr,ft_pct,tp_pct,tpa&limit=1000`;
+        return fetch(url,{headers:HEADERS}).then(r=>r.ok?r.json():[]).catch(()=>[]); }));
+      const raw=[].concat.apply([],parts);
+      if(raw.length) pool=raw.map(p=>curSeason===2027
+        ? {id:p.id,player:p.name,school:p.team,tdc_grade:p.tdc_grade,espn_id:p.espn_id,pergame:{games:99,mp_per_g:p.mpg||99},mpg:p.mpg,depth_order:p.depth_order,ppg:p.ppg,rpg:p.rpg,apg:p.apg,tovs:p.tovs,yr:p.yr,class_year:p.class_year,starter:p.starter,ft_pct:p.ft_pct,tp_pct:p.tp_pct,tpa:p.tpa}
+        : {player:p.name,school:p.team,tdc_grade:p.tdc_grade,espn_id:p.espn_id,height:p.height,pos:p.position,pergame:{games:99,mp_per_g:p.mpg||99},mpg:p.mpg,ppg:p.ppg,rpg:p.rpg,apg:p.apg,tovs:p.tovs,yr:p.yr,class_year:p.yr,ft_pct:p.ft_pct,tp_pct:p.tp_pct,tpa:p.tpa});
+    }catch(e){}
+    if(pool) window._scPoolCache[poolKey]=pool;
+  }
+  if(!pool) pool = window._scPoolCache[curSeason+'|all'];
   if(!pool){
     for(let a=0;a<4 && !pool;a++){
       if(a) await new Promise(r=>setTimeout(r,500));
@@ -1657,7 +1680,7 @@ async function renderShowcase(){
         }
       }catch(e){}
     }
-    if(pool) window._scPoolCache[curSeason]=pool;
+    if(pool) window._scPoolCache[curSeason+'|all']=pool;
   }
   // Owner's freshman editor OVRs are the single source of truth — override the
   // grade so the strip's OVR + ranking match the editor / player page.
@@ -1697,6 +1720,8 @@ async function renderShowcase(){
   }
   if(blk && Array.isArray(pool) && pool.length){
     // require real playing time so a low-minute fluke grade can't headline
+    // graded players only (a roster pull includes players with no sheet grade the model couldn't grade either)
+    pool = pool.filter(p=>isFinite(parseFloat(p.tdc_grade))).sort((a,b)=>parseFloat(b.tdc_grade)-parseFloat(a.tdc_grade));
     const qual = pool.filter(p=>{ const pg=p.pergame||{}; return (parseFloat(pg.games)||0)>=5 && (parseFloat(pg.mp_per_g)||0)>=10; });
     const base = qual.length>=6 ? qual : pool;
     let ps=[], emptyMsg='';
