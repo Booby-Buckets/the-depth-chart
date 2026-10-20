@@ -6281,7 +6281,6 @@ async function renderShotQuality(season){
   var host = document.getElementById('teamShotQHost'); if(!host) return;
   var y = season || window._sqSeason || 2026; window._sqSeason = y;
   host.innerHTML = '<div style="padding:24px;color:var(--text3);">Loading shot quality…</div>';
-  if(window._sgProj===undefined){ try{ var spd=await fetch('scripts/data/shot_genome_projected.json?v=1').then(r=>r.ok?r.json():null); window._sgProj=(spd&&spd['2027'])||{}; }catch(e){ window._sgProj={}; } }
   var tid = await _teamEspnId(), D = await _sqLoad(y);
   var sel = '<select id="sqSeason" class="dna-mu-sel" style="min-width:0;padding:5px 8px;font-size:12px;">'+[2026,2025,2024,2023,2022,2021,2020].map(function(v){return '<option value="'+v+'"'+(v===y?' selected':'')+'>'+((v-1)+'-'+String(v).slice(2))+'</option>';}).join('')+'</select>';
   var T = D.t && D.t.teams ? D.t.teams.find(function(x){ return x.team_id===tid; }) : null;
@@ -6317,16 +6316,10 @@ async function renderShotQuality(season){
   _sqWire(); _sqShotChart(tid, y);
   var tb=document.getElementById('sqPlayers'); if(tb && window.tdcSheetHeat) tdcSheetHeat(tb);
 }
-function _sqProjCard(y, full){
-  if(y!==2026 || !window._sgProj) return '';
-  var row = window._sgProj[full];
-  if(!row || !row.off) return '';
-  return '<div class="dA-card" style="margin-top:16px;"><div class="dA-sec"><span>2026-27 projection (offense)</span><span class="dA-cap">from returning players\' 2025-26 shots, weighted by projected minutes</span></div><div class="sq-tiles">'
-    + '<div class="sq-tile"><div class="l">Look quality</div><div class="v">'+(+row.off.lq).toFixed(1)+'%</div><div class="s">'+(row.off.pct&&row.off.pct.lq!=null?row.off.pct.lq+'th pct':'')+'</div></div>'
-    + '<div class="sq-tile"><div class="l">Shot-making</div><div class="v">'+((row.off.smAdj>0?'+':'')+(+row.off.smAdj).toFixed(1))+'</div><div class="s">'+(row.off.pct&&row.off.pct.smAdj!=null?row.off.pct.smAdj+'th pct':'')+'</div></div>'
-    + (row.crAdjPg!=null?'<div class="sq-tile"><div class="l">Creation</div><div class="v">'+(+row.crAdjPg).toFixed(1)+'</div><div class="s">'+(row.crPct!=null?row.crPct+'th pct':'')+'</div></div>':'')
-    + '</div></div>';
-}
+// The 2026-27 projected shot-genome card is OFF (owner, Oct 20 2026): only ~95 teams have enough returning shot data to
+// project, and the rule is "if we can't project each team, don't project some and not others" (the rankings dropped
+// these columns too). Real 2026-27 numbers come from the season's own shots once games are played.
+function _sqProjCard(){ return ''; }
 // the team's real shot chart inside the Shot Quality tab (same chart + query as the Shot Chart tab; `shots` is plan-gated → tdcH)
 async function _sqShotChart(tid, y){
   var host=document.getElementById('sqChartHost'); if(!host) return;
