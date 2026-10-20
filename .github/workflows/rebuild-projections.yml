@@ -105,6 +105,12 @@ jobs:
         continue-on-error: true
         run: python3 scripts/build_scrim_trends.py --base "$RUNNER_TEMP/scrimbase"
 
+      # The overall fans SEE for 2026-27 (owner's "eye test v2" order on the fixed all-seasons scale). Display only:
+      # nothing analytical reads ovr_display_2027.json.
+      - name: Rebuild displayed overalls (ovr_display_2027.json)
+        continue-on-error: true
+        run: python3 scripts/build_ovr_display.py
+
       # the per-game TEAM lines built from those player projections, plus the exact team_projections
       # rows the owner console's "Refresh team projections" button publishes (no SQL paste needed).
       # Exit 2 = a team outside D-I ranges was left out (printed above) — the rest still ship.
@@ -120,7 +126,7 @@ jobs:
         run: |
           git config user.name "tdc-proj-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add scripts/data/team_dna.json scripts/data/program_era_2027.json scripts/data/team_eff.json scripts/data/team_pace_eff.json scripts/data/development.json scripts/data/team_needs.json scripts/data/stat_overall_projected.json scripts/data/fresh_fit.json scripts/data/season_line_fill_2026.json scripts/data/scrim_trends_2027.json scripts/data/scrimmage_results_2027.json scripts/data/team_projected_box.json scripts/data/team_projections_rows.json data/portal_2027.json data/nil_origin.json nil-data.json
+          git add scripts/data/team_dna.json scripts/data/program_era_2027.json scripts/data/team_eff.json scripts/data/team_pace_eff.json scripts/data/development.json scripts/data/team_needs.json scripts/data/stat_overall_projected.json scripts/data/fresh_fit.json scripts/data/season_line_fill_2026.json scripts/data/scrim_trends_2027.json scripts/data/scrimmage_results_2027.json scripts/data/team_projected_box.json scripts/data/team_projections_rows.json scripts/data/ovr_display_2027.json data/portal_2027.json data/nil_origin.json nil-data.json
           if git diff --cached --quiet; then
             echo "No projection changes."
           else

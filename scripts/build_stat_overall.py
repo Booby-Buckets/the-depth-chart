@@ -301,6 +301,28 @@ allg=pd.concat(rows)
 print(f"Scored {len(allg)} player-seasons across {allg['season_year'].nunique()} seasons",file=sys.stderr)
 
 # ---- history CSV (all seasons) ----
+# ---- DISPLAY scale (owner, Oct 20 2026: "if Tanner is a 98, what are players years before him — I don't want 35 99s
+# over time"): the grades above are a PER-SEASON curve (every season has exactly one 99, ~7 at 95+), and analytics read
+# them (award odds, dev bands, NIL, the Big Board's trajectory) — they stay as they are. What fans SEE comes from one
+# fixed scale for every season: each player-season's raw value against ALL seasons pooled, probit like above up to a
+# knee, then a slower slope, so 95+ is ~4-5 a season and a 99 is an all-time season (Zion '19, Edey '24) every couple
+# of years. ovr_display_hist.json = {season: {espn_id: ovr}}; ovr_display_scale.json = the rotation-player ladder the
+# projected season (build_ovr_display.py) maps its order onto.
+DISP_KNEE=float(os.environ.get("DISP_KNEE","2.0")); DISP_TOP=float(os.environ.get("DISP_TOP","6.25"))
+_ok=allg.dropna(subset=["_c"]).copy()
+_pool=np.sort(_ok.loc[_ok["min"]>=REF_MIN,"_c"].values)
+_p=np.clip(np.searchsorted(_pool,_ok["_c"].values,side="right")/(len(_pool)+1),1e-6,1-1e-6); _z=norm.ppf(_p)
+_ok["disp"]=np.clip(np.round(np.where(_z<=DISP_KNEE,MU+SP*_z,MU+SP*DISP_KNEE+DISP_TOP*(_z-DISP_KNEE))),FLOOR,99).astype(int)
+_dh={}
+for e,y,v in zip(_ok["espn_id"],_ok["season_year"],_ok["disp"]):
+    if pd.notna(e): _dh.setdefault(str(int(y)),{})[str(int(e))]=int(v)
+json.dump(_dh,open(os.path.join(OUT,"ovr_display_hist.json"),"w"),separators=(",",":"))
+_rot=_ok[(_ok["season_year"]>=CUR-4)&(_ok["min"]/_ok["g"].clip(lower=1)>=15)&(_ok["g"]>=10)]["disp"].values
+json.dump({"seasons":[CUR-4,CUR],"knee":DISP_KNEE,"top":DISP_TOP,"n":int(len(_rot)),
+           "ladder":[int(np.quantile(_rot,q/1000.0)) for q in range(1001)]},open(os.path.join(OUT,"ovr_display_scale.json"),"w"))
+print(f"display scale: 99s={(_ok['disp']>=99).sum()} 95+/season={(_ok['disp']>=95).sum()/_ok['season_year'].nunique():.1f}",file=sys.stderr)
+if os.environ.get("STAT_DUMP_RAW"):   # experiments: the raw season value behind each grade (for a fixed all-seasons scale)
+    allg[["espn_id","season_year","team","min","_c","ovr"]].to_csv(os.path.join(OUT,"stat_overall_raw.csv"),index=False)
 hist=allg[["espn_id","season_year","team","ovr"]].dropna(subset=["espn_id"]).copy()
 hist["espn_id"]=hist["espn_id"].astype(int)
 hist.to_csv(os.path.join(OUT,"stat_overall_history.csv"),index=False)

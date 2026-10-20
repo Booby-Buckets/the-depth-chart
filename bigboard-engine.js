@@ -519,7 +519,7 @@
   function trajOf(p){
     try{
       if(!global.TDCProjGrade || !global.TDCProjGrade.statMaps || p.espn_id==null) return null;
-      var H=(global.TDCProjGrade.statMaps()||{}).hist; if(!H) return null;
+      var H=((global.TDCProjGrade.statMapsRaw||global.TDCProjGrade.statMaps)()||{}).hist; if(!H) return null;   // the statistical grades, not the display scale
       var yrs=Object.keys(H).map(Number).sort(function(a,b){return b-a;});
       var got=[];
       for(var i=0;i<yrs.length && got.length<2;i++){

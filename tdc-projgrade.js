@@ -243,8 +243,22 @@
   // season aren't in these maps and fall through to the legacy logic (editor OVR).
   var _SO_DEMO = {}, _SO_PROJ = {}, _SO_HIST = {};   // demonstrated(2026), projected(2026-27), historical {season:{espn:ovr}}
   var _SO_NOBOX = {};
-  function setStatOverall(demo, proj){ if(demo) _SO_DEMO = demo; if(proj) _SO_PROJ = proj; }
-  function setStatHist(h){ if(h) _SO_HIST = h; }
+  function setStatOverall(demo, proj){ if(demo) _SO_DEMO = demo; if(proj) _SO_PROJ = proj; if(typeof _remapDisp === 'function') _remapDisp(); }
+  function setStatHist(h){ if(h) _SO_HIST = h; _remapDisp(); }
+  // DISPLAY overalls (owner, Oct 20 2026). The maps above are the statistical grades — a per-season curve the analytics
+  // read (the Big Board's trajectory, via statMapsRaw). What the site SHOWS comes from:
+  //   ovr_display_hist.json  every past season on ONE fixed scale (a 99 is an all-time season, not "the best that year")
+  //   ovr_display_2027.json  the projected season (Eye test v2 order on that scale) + 2025-26 ("demo"), + newcomers ("fresh")
+  // _V_* = display where we have it, else the statistical grade.
+  var _D_HIST = null, _D_PROJ = null, _D_DEMO = null, _D_FRESH = null, _V_DEMO = _SO_DEMO, _V_PROJ = _SO_PROJ, _V_HIST = _SO_HIST;
+  function _remapDisp(){
+    _V_DEMO = _D_DEMO ? Object.assign({}, _SO_DEMO, _D_DEMO) : _SO_DEMO;
+    _V_PROJ = _D_PROJ ? Object.assign({}, _SO_PROJ, _D_PROJ) : _SO_PROJ;
+    if(_D_HIST){ var h = {}; Object.keys(_SO_HIST).concat(Object.keys(_D_HIST)).forEach(function(y){ h[y] = Object.assign({}, _SO_HIST[y] || {}, _D_HIST[y] || {}); }); _V_HIST = h; }
+    else _V_HIST = _SO_HIST;
+  }
+  var _dispP = fetch('scripts/data/ovr_display_2027.json?v=1').then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(j){ if(j){ _D_PROJ = j.espn || null; _D_DEMO = j.demo || null; _D_FRESH = j.fresh || null; _remapDisp(); } }).catch(function(){});
   // Historical grades (~280KB gz) are LAZY — only pages that actually show a past
   // season fetch them. loadHist() is idempotent; historical callers should await it
   // before gradeSolo. A past-season gradeSolo miss also kicks the load in the
@@ -252,9 +266,10 @@
   var _histLoaded = false, _histPromise = null;
   function loadHist(){
     if(_histPromise) return _histPromise;
-    _histPromise = fetch('scripts/data/stat_overall_history.json?v=12')
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(j){ if(j) setStatHist(j); _histLoaded = true; return true; })
+    _histPromise = Promise.all([
+        fetch('scripts/data/stat_overall_history.json?v=12').then(function(r){ return r.ok ? r.json() : null; }),
+        fetch('scripts/data/ovr_display_hist.json?v=1').then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; })])
+      .then(function(js){ if(js[1]) _D_HIST = js[1]; if(js[0]) setStatHist(js[0]); else _remapDisp(); _histLoaded = true; return true; })
       .catch(function(){ _histLoaded = true; return false; });
     return _histPromise;
   }
@@ -265,14 +280,14 @@
     var e = row && row.espn_id; if(e == null) return null;
     var k = '' + e;
     var sy = (row.season_year != null) ? parseInt(row.season_year, 10) : null;
-    if(sy && sy <= 2025){ if(!_histLoaded){ loadHist(); return null; } var hy = _SO_HIST['' + sy]; return (hy && hy[k] != null) ? hy[k] : null; }
-    if(sy === 2026) return (_SO_DEMO[k] != null) ? _SO_DEMO[k] : null;
-    if(_SO_PROJ[k] != null) return _SO_PROJ[k];
+    if(sy && sy <= 2025){ if(!_histLoaded){ loadHist(); return null; } var hy = _V_HIST['' + sy]; return (hy && hy[k] != null) ? hy[k] : null; }
+    if(sy === 2026) return (_V_DEMO[k] != null) ? _V_DEMO[k] : null;
+    if(_V_PROJ[k] != null) return _V_PROJ[k];
     // The projection build had no usable line for him (under 3 mpg / 3 games last season) and
     // projected him like a newcomer, from his sheet grade. Grading him off that same tiny sample
     // instead gave Jacob Furphy (2.4 mpg at UConn) a 60 next to an 8-ppg projected line.
     if(_SO_NOBOX[k]) return null;
-    if(_SO_DEMO[k] != null) return _SO_DEMO[k];
+    if(_V_DEMO[k] != null) return _V_DEMO[k];
     return null;
   }
   var MAXMIN = 34, TOTMIN = 200, ROT_BAND = 16, ROT_POWER = 2.2;
@@ -619,7 +634,7 @@
   // projected OVR for a player with no college stat line (freshman / unlinked newcomer), from fresh_fit.json
   var _FRESH = null;
   function _fk(t, n){ return String(t || '').trim().toLowerCase() + '|' + String(n || '').trim().toLowerCase(); }
-  function _freshOvrOf(row){ if(!_FRESH || !row) return null; var v = _FRESH[_fk(row.team, row.name)]; return (v != null && isFinite(+v)) ? +v : null; }
+  function _freshOvrOf(row){ if(!row) return null; var k = _fk(row.team, row.name), v = (_D_FRESH && _D_FRESH[k] != null) ? _D_FRESH[k] : (_FRESH ? _FRESH[k] : null); return (v != null && isFinite(+v)) ? +v : null; }
   window.TDCProjGrade_freshOvrOf = _freshOvrOf;
   function gradeSolo(row){
     if(!row) return null;
@@ -652,9 +667,9 @@
     if(!row) return null;
     // LIVE statistical overall: decompose as demonstrated → projected role/dev.
     var e = row && row.espn_id, k = e != null ? '' + e : null;
-    if(k && (_SO_DEMO[k] != null || _SO_PROJ[k] != null)){
-      var d = _SO_DEMO[k] != null ? _SO_DEMO[k] : _SO_PROJ[k];
-      var f = _SO_PROJ[k] != null ? _SO_PROJ[k] : _SO_DEMO[k];
+    if(k && (_V_DEMO[k] != null || _V_PROJ[k] != null)){   // display overalls, so final == gradeSolo
+      var d = _V_DEMO[k] != null ? _V_DEMO[k] : _V_PROJ[k];
+      var f = _V_PROJ[k] != null ? _V_PROJ[k] : _V_DEMO[k];
       // same hand-grade lift gradeSolo applies, so final == gradeSolo (hand_grade = players.tdc_grade
       // when the caller's tdc_grade is a past season's)
       var fb = _scoutBlend(f, row.hand_grade != null ? { tdc_grade: row.hand_grade } : row);
@@ -683,7 +698,8 @@
 
   window.TDCProjGrade = { projMin: projMin, grade: grade, ovr: ovr, K: K, setPedigree: setPedigree,
                           gradeRoster: gradeRoster, gradeSolo: gradeSolo, posGroup: posGroup, posRebalance: posRebalance, posFloors: posFloors, demoEff: demoEff, statOvr: _statOvrOf, explain: explain, projectMinutes: projectMinutes, setModel: setModel, setCoupled: setCoupled, setVersatility: setVersatility, setArchBonus: setArchBonus, setGpShrink: setGpShrink, setStatOverall: setStatOverall, setStatHist: setStatHist, loadHist: loadHist,
-                          statMaps: function(){ return { demo: _SO_DEMO, proj: _SO_PROJ, hist: _SO_HIST }; } };
+                          statMaps: function(){ return { demo: _V_DEMO, proj: _V_PROJ, hist: _V_HIST }; },   // DISPLAY overalls
+                          statMapsRaw: function(){ return { demo: _SO_DEMO, proj: _SO_PROJ, hist: _SO_HIST }; } };   // the statistical grades (analytics)
 
   // Self-load the derived pedigree coefficients (tiny, local file) so every page
   // picks them up with no per-page wiring. This resolves well before the slower
@@ -813,7 +829,7 @@
   window.TDCProjGrade.ready = Promise.all([
     _loadSO('scripts/data/stat_overall.json?v=12').then(function(m){ if(m) setStatOverall(m, null); }),
     _loadProjRows('scripts/data/stat_overall_projected.json?v=95').then(function(m){ if(m) setStatOverall(null, m); }),
-    _archP, _gpsP,
+    _archP, _gpsP, _dispP,
     // projected freshman / newcomer OVRs (build: recruiting rank or scouting prior x projected role)
     fetch('scripts/data/fresh_fit.json?v=39').then(function(r){ return r.ok ? r.json() : {}; }).then(function(j){
       _FRESH = {}; _FRESH_ROW = {}; for(var t in (j||{})){ for(var n in j[t]){ var f = j[t][n]; if(f && f.ovr != null) _FRESH[_fk(t, n)] = f.ovr; if(f) _FRESH_ROW[_fk(t, n)] = f; } } }).catch(function(){})
