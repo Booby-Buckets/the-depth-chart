@@ -147,6 +147,7 @@ _by_short = {}
 for r in _sb("players?select=id,espn_id,name,team&name=neq.%E2%80%94"):
     _by_short.setdefault(r.get('team') or '', []).append(r.get('espn_id') or r.get('name'))
 _last_key = {}                               # player -> team key he played for last season
+_KSHORT = {}                                 # team key -> the sheet's short team name (fresh_fit is keyed by it)
 for (k_, y_), d_ in _MINS.items():
     if y_ == int(LAST):
         for p_ in d_: _last_key[p_] = k_
@@ -160,7 +161,7 @@ for short, ps in _by_short.items():
             kk = _last_key.get(p_)
             if kk in TD[PROJ]['teams']: votes[kk] = votes.get(kk, 0) + 1
         k = max(votes, key=votes.get) if votes and max(votes.values()) >= 2 else k
-    if k: _ROSTER.setdefault(k, set()).update(ps)
+    if k: _ROSTER.setdefault(k, set()).update(ps); _KSHORT.setdefault(k, short)
 def cont_now(k):
     prev = _MINS.get((k, int(LAST)))
     if not prev or k not in _ROSTER: return None
@@ -311,6 +312,51 @@ def playmaker(k):
         if q and (q.get('mpg') or 0) >= 15 and q.get('ast_pct') is not None:
             best = q['ast_pct'] if best is None else max(best, q['ast_pct'])
     return (best - 25.0) / 10.0 if best is not None else 0.0
+# ROSTER OFFENSIVE WINS ADDED (owner, Oct 20 2026: "test the prior-season roster offensive Wins Added term on top of the
+# calibrated offense model, and add it if it still helps"). The roster's last-season offensive Wins Added per 1,000 minutes,
+# weighted by this season's minutes (players with no 100+ minute D-I season count 0), centred on the season's mean. On the
+# residual of everything above, leave-one-season-out 2012-26 (4,694 team-seasons): offense MAE 2.914 -> 2.876, better in 13
+# of 15 seasons (scripts/backtest_wa_split.py has the standalone test; the residual test lives in the session notes).
+# Torvik's own measure (minutes-weighted OBPM) helped less (2.899) and adds nothing on top of this.
+OWA_B = 1.529
+def _pa_last():
+    out, off = [], 0
+    while True:
+        url = f"{_SB}/rest/v1/player_advanced?season_year=eq.{LAST}&select=espn_id,team,min,owa&order=espn_id.asc,team.asc&limit=1000&offset={off}"
+        for a in range(5):
+            try:
+                ch = json.load(urllib.request.urlopen(urllib.request.Request(url, headers={"apikey": _KEY, "Authorization": "Bearer " + _KEY}), timeout=60)); break
+            except Exception:
+                if a == 4: raise
+        out += ch
+        if len(ch) < 1000: return out
+        off += 1000
+_OWA_RATE = {}
+for r_ in _pa_last():
+    if r_.get('espn_id') is None or not r_.get('min'): continue
+    d_ = _OWA_RATE.setdefault(str(r_['espn_id']), [0.0, 0.0]); d_[0] += r_['min']; d_[1] += r_.get('owa') or 0.0
+_OWA_RATE = {e: v[1] * 1000 / v[0] for e, v in _OWA_RATE.items() if v[0] >= 100}
+try: _SOP = json.load(open(os.path.join(HERE, 'data', 'stat_overall_projected.json'))).get('players', {})
+except Exception: _SOP = {}
+try: _FF = json.load(open(os.path.join(HERE, 'data', 'fresh_fit.json')))
+except Exception: _FF = {}
+def roster_owa(k):
+    """projected-minutes-weighted last-season offensive Wins Added per 1,000 minutes; None without a roster"""
+    ps = _ROSTER.get(k)
+    if not ps: return None
+    ff = _FF.get(_KSHORT.get(k, ''), {}) if isinstance(_FF, dict) else {}
+    tot = val = 0.0
+    for p_ in ps:
+        q = _SOP.get(str(p_)); m = (q or {}).get('mpg')
+        if m is None and isinstance(p_, str): m = (ff.get(p_) or {}).get('mpg')
+        m = float(m or 0)
+        if m <= 0: continue
+        tot += m; val += m * _OWA_RATE.get(str(p_), 0.0)
+    return val / tot if tot > 0 else None
+_RO = {k: roster_owa(k) for k in P27}
+_ro_vals = [v for v in _RO.values() if v is not None]
+_RO_MEAN = float(np.mean(_ro_vals)) if _ro_vals else 0.0
+print(f"roster offensive WA: {len(_ro_vals)} teams, mean {_RO_MEAN:.2f} per 1,000 min, {len(_OWA_RATE)} {LAST} players rated")
 print(f"offense add-ons: coach value-added for {sum(1 for c_, y_ in _ores if y_ >= int(PROJ) - OVA_BACK)} coach-seasons, playmakers from {len(_PDL)} {LAST} fingerprints")
 
 used = {0: 0, 1: 0, 2: 0}
@@ -334,7 +380,8 @@ for k, t in P27.items():
         t['new_coach'] = True
     o = mA[LAST][0] + od; d = mA[LAST][1] + dd
     _va = OVA_B * coach_va(cur_coach(k) if COACH_HIST else None); _pm = PLAY_B * playmaker(k)
-    o += _va + _pm; t['o_coach'] = round(_va, 2); t['o_playmaker'] = round(_pm, 2)
+    _ow = OWA_B * (_RO[k] - _RO_MEAN) if _RO.get(k) is not None else 0.0
+    o += _va + _pm + _ow; t['o_coach'] = round(_va, 2); t['o_playmaker'] = round(_pm, 2); t['o_owa'] = round(_ow, 2)
     t['ORtg'] = round(o, 1); t['DRtg'] = round(d, 1); t['net'] = round(t['ORtg'] - t['DRtg'], 1)
     t['calib'] = h; used[h] += 1
 
