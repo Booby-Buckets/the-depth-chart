@@ -1215,6 +1215,10 @@ def _lev1(a,b):
     i=0
     while i<la and a[i]==b[i]: i+=1
     return a[i:]==b[i+1:]
+def _has_id(x):
+    """an ESPN id in any dtype pandas hands us (float NaN, Int64 NA, numpy ints, strings)"""
+    try: return x is not None and not pd.isna(x) and float(x)>0
+    except Exception: return False
 def _cls_years(yr):
     y=str(yr or "").lower().replace(".","").strip(); red=bool(re.match(r"(r-?|rs-?)",y)); base=None
     for k,off in (("fr",0),("so",1),("jr",2),("sr",3),("gr",4)):
@@ -1239,7 +1243,7 @@ def _typo(r,c):
     return False
 if _CL:
     _BYY={y:{_nk(r["name"]):(r["rank"],_toks(r["name"])) for r in v} for y,v in _CL.items() if v}
-    _hit={"exact":0,"typo":0,"namesake":0}; _amb=set(); _taken=set(); _src={}
+    _hit={"exact":0,"typo":0,"namesake":0}; _amb=set(); _taken=set(); _src={}; _R247_noid={}; _src_keep={}
     _rows=list(pl.itertuples())
     for _r in _rows:   # pass 1: exact names, so a recruit already on a roster can't also be someone's "typo"
         _k=_nk(_r.name)
@@ -1256,18 +1260,26 @@ if _CL:
                 _yy,_nn=_c.pop(); _rk=_BYY[_yy][_nn][0]; _hit["typo"]+=1; _src[_k]=(_nn,int(_yy))
                 print("pedigree: '%s' (%s) = %s class #%d (spelling slip)"%(_r.name,_r.team,_yy,_rk),file=sys.stderr)
         if not _rk: continue
-        if _k in _R247 and _R247[_k]!=_rk: _amb.add(_k)   # two roster players share a name but not a recruit: trust neither
-        _R247[_k]=_rk
+        # Two roster players can share a name (Kansas' 2026 freshman Trent Perry vs UCLA's 2024 junior). Only a player with
+        # NO D-I line ever uses the pedigree, so the one without an ESPN id keeps the match; two id-less namesakes = trust neither.
+        _noid1=not _has_id(_r.espn_id)
+        if _k in _R247 and _R247[_k]!=_rk:
+            if _noid1 and not _R247_noid.get(_k): _R247[_k]=_rk; _R247_noid[_k]=True; _src_keep[_k]=_src[_k]
+            elif _noid1 and _R247_noid.get(_k): _amb.add(_k)
+            else: _src[_k]=_src_keep.get(_k,_src[_k])   # the id-holder's match never overrides the newcomer's
+            continue
+        if _k not in _R247: _src_keep[_k]=_src[_k]
+        _R247[_k]=_rk; _R247_noid[_k]=_noid1 or _R247_noid.get(_k,False)
     for _k in _amb: _R247.pop(_k,None)
     # NAMESAKE GUARD: a ranked recruit almost always plays D-I. A roster player with NO D-I record whose matched recruit's
     # name has box-score seasons (at any school) is a different person who shares the name (a walk-on "Jeremiah Johnson"
     # is not the 2023 class's) — drop the match. Players with an ESPN id are that person already, so they keep it.
     try:
         _hn={_nk(h["name"]) for h in sb_get(f"player_history?select=espn_id,name&season_year=gte.{CUR-5}&order=espn_id.asc,season_year.asc")}
-        _noid={_nk(r.name) for r in _rows if not (isinstance(r.espn_id,(int,float)) and r.espn_id==r.espn_id and r.espn_id>0)}
+        _noid={_nk(r.name) for r in _rows if not _has_id(r.espn_id)}
         # only the OLDER classes added here (<= CUR-2): this and last year's classes keep their old exact-name behaviour, or a
         # top freshman with a common name (Duke's #4 Cameron Williams vs Portland's) would lose his pedigree
-        for _k in [k for k in list(_R247) if k in _noid and _src.get(k,(k,CUR))[1]<=CUR-2 and (_src[k][0] in _hn or k in _hn)]:
+        for _k in [k for k in list(_R247) if k in _noid and _src_keep.get(k,(k,CUR))[1]<=CUR-2 and (_src_keep[k][0] in _hn or k in _hn)]:
             _R247.pop(_k,None); _hit["namesake"]+=1
     except Exception as _e: print("warn: namesake guard skipped:",_e,file=sys.stderr)
     print("pedigree matched: %d exact, %d spelling slips, %d ambiguous + %d namesakes dropped (classes %s)"%(_hit["exact"],_hit["typo"],len(_amb),_hit["namesake"],",".join(sorted(_BYY))),file=sys.stderr)
