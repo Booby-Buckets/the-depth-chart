@@ -206,15 +206,15 @@
     var more = m.outcomes.length > lim ? '<button class="mk-more" data-more="' + esc(m.id) + '">' + (open ? 'Show fewer' : '+ ' + (Math.min(20, m.outcomes.length) - lim) + ' more') + '</button>' : '';
     var bk = m.outcomes.some(function (o) { return o.book; }) ? '<span class="mk-bk">book prices in</span>' : '';
     var ch = chartFor(m, m.game ? 2 : m.binary ? 1 : 3, 340, 96);
-    return '<article class="mk-card' + (m.game ? ' mk-game' : '') + '"><header>' + icon(m) + '<div><h3>' + esc(m.title) + '</h3><div class="mk-sub">' + esc(m.sub || '') + '</div></div></header>' + (ch || '') +
+    return '<article class="mk-card' + (m.game ? ' mk-game' : '') + '" data-mid="' + esc(m.id) + '" tabindex="0" aria-label="Open ' + esc(m.title) + '"><header>' + icon(m) + '<div><h3>' + esc(m.title) + '</h3><div class="mk-sub">' + esc(m.sub || '') + '</div></div></header>' + (ch || '') +
       '<div class="mk-os">' + list.map(function (o, i) { return oRow(m, o, i); }).join('') + '</div>' +
-      '<footer>' + more + '<span class="mk-src">Model · ' + (m.game ? 'power ratings' : m.cat === 'awards' ? 'award model' : '2,000 sims') + '</span>' + bk + '</footer></article>';
+      '<footer>' + more + '<span class="mk-src">Our model · view only</span>' + bk + '</footer></article>';
   }
   function hero(m) {
     var top = m.outcomes.slice(0, 8), mx = top.length ? top[0].p : 1, ch = chartFor(m, 5, 460, 230);
-    return '<article class="mk-hero"><div class="mk-hl"><header>' + icon(m) + '<div><div class="mk-kick">Featured market</div><h3>' + esc(m.title) + '</h3><div class="mk-sub">' + esc(m.sub) + '</div></div></header>' +
+    return '<article class="mk-hero" data-mid="' + esc(m.id) + '"><div class="mk-hl"><header>' + icon(m) + '<div><div class="mk-kick">Featured market</div><h3>' + esc(m.title) + '</h3><div class="mk-sub">' + esc(m.sub) + '</div></div></header>' +
       '<div class="mk-os">' + top.slice(0, 5).map(function (o, i) { return oRow(m, o, i); }).join('') + '</div>' +
-      '<footer><button class="mk-more" data-cat-jump="champ">All championship markets</button><span class="mk-src">Model · 2,000 simulated seasons + tournaments</span></footer></div>' +
+      '<footer><button class="mk-more" data-cat-jump="champ">All championship markets</button><span class="mk-src">Our model · view only</span></footer></div>' +
       (ch ? '<div class="mk-hr"><div class="mk-kick">Price history · Yes ¢</div>' + ch + '</div></article>' :
       '<div class="mk-hr" aria-label="Chance to win the title"><div class="mk-kick">Chance to win it all</div>' +
       top.map(function (o) { var l = o.team ? BL().logo(o.team) : '';
@@ -237,6 +237,66 @@
     var c = $('mkCount'); if (c) c.textContent = ST.markets.length.toLocaleString() + ' markets';
   }
 
+  // ── market detail (owner, Oct 20: "when you click on the market … show the lines like a kalshi one") ──
+  // a big price chart of the top outcomes with a hover crosshair, range chips, then every outcome with its price
+  var DT = { m: null, range: 'all' };
+  function detailSeries(m, n) {
+    var ser = [];
+    m.outcomes.slice(0, n).forEach(function (o, i) { var pts = histOf(m, o, i).filter(function (p) { return p[0] < TODAY; }).concat([[TODAY, o.p]]);
+      if (DT.range !== 'all') { var cut = new Date(new Date(TODAY + 'T12:00:00') - (DT.range === '1w' ? 7 : 30) * 864e5).toISOString().slice(0, 10); pts = pts.filter(function (p) { return p[0] >= cut; }); }
+      if (pts.length >= 2) ser.push({ o: o, color: LINE_COL[i % LINE_COL.length], pts: pts }); });
+    ser.forEach(function (s) { s.o._col = s.color; s.o._chg = Math.round(s.o.p * 100) - Math.round(s.pts[0][1] * 100); s.o._since = s.pts[0][0]; });
+    return ser;
+  }
+  function bigChart(ser, W, H) {
+    var dates = Array.from(new Set([].concat.apply([], ser.map(function (s) { return s.pts.map(function (p) { return p[0]; }); })))).sort();
+    var mx = 0; ser.forEach(function (s) { s.pts.forEach(function (p) { mx = Math.max(mx, p[1]); }); });
+    var top = Math.min(100, Math.max(10, Math.ceil(mx * 100 * 1.12 / 5) * 5)), step = top > 50 ? 25 : top > 20 ? 10 : 5;
+    var small = W < 500, L = 6, Rp = small ? 128 : 150, T = 12, B = 24, X = function (d) { return L + dates.indexOf(d) / Math.max(1, dates.length - 1) * (W - L - Rp); }, Y = function (p) { return T + (1 - p * 100 / top) * (H - T - B); };
+    var g = '';
+    for (var v = 0; v <= top; v += step) g += '<line x1="' + L + '" x2="' + (W - Rp) + '" y1="' + Y(v / 100).toFixed(1) + '" y2="' + Y(v / 100).toFixed(1) + '" stroke="var(--border)"' + (v ? ' stroke-dasharray="2 3"' : '') + '/><text x="' + (W - Rp + 6) + '" y="' + (Y(v / 100) + 3.5).toFixed(1) + '" font-size="11" fill="var(--text3)">' + v + '¢</text>';
+    var ticks = dates.length <= 6 ? dates : [dates[0], dates[Math.floor(dates.length / 3)], dates[Math.floor(2 * dates.length / 3)], dates[dates.length - 1]];
+    g += ticks.map(function (d, i) { return '<text x="' + X(d).toFixed(1) + '" y="' + (H - 6) + '" font-size="11" fill="var(--text3)" text-anchor="' + (i === 0 ? 'start' : i === ticks.length - 1 ? 'end' : 'middle') + '">' + md(d) + '</text>'; }).join('');
+    // end labels: name + price at the last point, nudged apart so they don't overlap
+    var ends = ser.map(function (s) { var l = s.pts[s.pts.length - 1]; return { s: s, y: Y(l[1]), x: X(l[0]) }; }).sort(function (a, b) { return a.y - b.y; });
+    for (var i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 15) ends[i].y = ends[i - 1].y + 15;
+    var lines = ser.map(function (s) { return '<path d="' + s.pts.map(function (p, i) { return (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1); }).join(' ') + '" fill="none" stroke="' + s.color + '" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>'; }).join('');
+    var lab = ends.map(function (e) { var last = e.s.pts[e.s.pts.length - 1]; return '<circle cx="' + e.x.toFixed(1) + '" cy="' + Y(last[1]).toFixed(1) + '" r="3.5" fill="' + e.s.color + '"/><text x="' + (W - Rp + 31) + '" y="' + (e.y + 4).toFixed(1) + '" font-size="11.5" font-weight="700" fill="' + e.s.color + '">' + esc(String(e.s.o.label).slice(0, small ? 10 : 14)) + ' ' + yesC(last[1]) + '¢</text>'; }).join('');
+    DT.geo = { dates: dates, X: X, Y: Y, W: W, H: H, L: L, Rp: Rp, T: T, B: B, ser: ser };
+    return '<div class="mk-dch"><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Price history">' + g + lines + lab +
+      '<line class="mk-xh" x1="0" x2="0" y1="' + T + '" y2="' + (H - B) + '" stroke="var(--text3)" stroke-dasharray="3 3" visibility="hidden"/><rect class="mk-hit" x="' + L + '" y="0" width="' + (W - L - Rp) + '" height="' + H + '" fill="transparent"/></svg><div class="mk-tip" hidden></div></div>';
+  }
+  function hover(e) {
+    var G = DT.geo, svg = e.currentTarget.ownerSVGElement || e.currentTarget; if (!G || !G.dates.length) return;
+    var r = svg.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * G.W, best = 0, bd = 1e9;
+    G.dates.forEach(function (d, i) { var dx = Math.abs(G.X(d) - x); if (dx < bd) { bd = dx; best = i; } });
+    var d = G.dates[best], xh = svg.querySelector('.mk-xh'), tip = svg.parentNode.querySelector('.mk-tip');
+    xh.setAttribute('x1', G.X(d)); xh.setAttribute('x2', G.X(d)); xh.setAttribute('visibility', 'visible');
+    tip.innerHTML = '<b>' + md(d) + (d === TODAY ? ' · now' : '') + '</b>' + G.ser.map(function (s) { var p = s.pts.filter(function (q) { return q[0] === d; })[0];
+      return p ? '<div><i style="background:' + s.color + '"></i>' + esc(s.o.label) + '<span>' + yesC(p[1]) + '¢</span></div>' : ''; }).join('');
+    tip.hidden = false; var px = G.X(d) / G.W * r.width; tip.style.left = Math.min(r.width - 170, Math.max(0, px + 12)) + 'px';
+  }
+  function detail(id) {
+    var m = find(id); if (!m) return; DT.m = m; paintDetail(); $('mkDetail').hidden = false; document.body.classList.add('mk-open');
+  }
+  function paintDetail() {
+    var m = DT.m, n = m.game ? 2 : m.binary ? 1 : 6, ser = detailSeries(m, n), lead = m.outcomes[0];
+    var narrow = window.innerWidth < 640, chart = ser.length ? bigChart(ser, narrow ? 400 : 760, narrow ? 300 : 320) : '<div class="mk-nochart">Price lines fill in as each night’s prices are saved (we started saving them Oct 20, 2026). Today’s prices are below.</div>';
+    var list = m.outcomes.slice(0, 20);
+    $('mkDetail').innerHTML = '<div class="mk-dt"><button class="mk-x" data-close aria-label="Close">×</button>' +
+      '<header>' + icon(m) + '<div><h3>' + esc(m.title) + '</h3><div class="mk-sub">' + esc(m.sub || '') + '</div></div></header>' +
+      '<div class="mk-view">View only · you can’t bet here</div>' +
+      '<div class="mk-lead"><b>' + chance(lead.p) + '</b> ' + esc(m.binary ? 'chance' : lead.label + ' chance') + (lead._chg ? ' <span class="' + (lead._chg > 0 ? 'up' : 'dn') + '">' + (lead._chg > 0 ? '▲' : '▼') + Math.abs(lead._chg) + ' since ' + md(lead._since) + '</span>' : '') + '</div>' +
+      (ser.length ? '<div class="mk-rng">' + [['1w', '1W'], ['1m', '1M'], ['all', 'All']].map(function (r) { return '<button data-rng="' + r[0] + '" class="' + (DT.range === r[0] ? 'on' : '') + '">' + r[1] + '</button>'; }).join('') + '</div>' : '') +
+      chart +
+      '<div class="mk-os mk-dos">' + list.map(function (o, i) { return oRow(m, o, i); }).join('') + '</div>' +
+      '<p class="mk-fine">' + (m.game ? 'Priced from our power ratings (the same line as the Games tab), re-priced with each day’s saved ratings for the chart.' : m.cat === 'awards' ? 'Priced from our award model.' : 'Priced from 2,000 simulated seasons and tournaments; the chart uses the nightly saved prices.') +
+      ' These are our model’s prices written the way prediction markets show them, so you can see where our lines sit. Nothing here can be bought, sold or bet.</p></div>';
+    var hit = $('mkDetail').querySelector('.mk-hit');
+    if (hit) { hit.addEventListener('mousemove', hover); hit.addEventListener('mouseleave', function () { var d = $('mkDetail'); var t = d.querySelector('.mk-tip'), xh = d.querySelector('.mk-xh'); if (t) t.hidden = true; if (xh) xh.setAttribute('visibility', 'hidden'); }); }
+  }
+  function closeDetail() { var t = $('mkDetail'); if (t) t.hidden = true; if ($('mkTicket').hidden) document.body.classList.remove('mk-open'); }
+
   // ── the ticket ─────────────────────────────────────────────────────────────
   var TK = null;
   function find(id) { return (ST.markets || []).filter(function (m) { return m.id === id; })[0]; }
@@ -251,19 +311,19 @@
     var fairO = BL().fairTxt(p), b = o.book, bP = b ? (yes ? b.p : 1 - b.p) : null;
     var q = m.game ? 'Will ' + o.label + ' win?' : m.binary ? m.title : (m.cat === 'wins' ? m.title.replace('How many games will ', 'Will ').replace(' win?', ' win ' + o.label.replace('+ wins', ' or more games') + '?') : 'Will ' + o.label + ' ' + verb(m) + '?');
     $('mkTicket').innerHTML = '<div class="mk-tk"><button class="mk-x" data-close aria-label="Close">×</button>' +
-      '<div class="mk-kick">' + esc(m.title) + '</div><h3>' + esc(q) + '</h3>' +
+      '<div class="mk-view">Price check · view only, you can’t bet here</div><div class="mk-kick">' + esc(m.title) + '</div><h3>' + esc(q) + '</h3>' +
       '<div class="mk-side"><button data-side="yes" class="' + (yes ? 'on y' : '') + '">Yes ' + yesC(o.p) + '¢</button><button data-side="no" class="' + (!yes ? 'on n' : '') + '">No ' + (100 - yesC(o.p)) + '¢</button></div>' +
-      '<label class="mk-amt">Stake <span>$</span><input id="mkAmt" type="number" min="1" step="1" inputmode="decimal" value="' + amt + '"></label>' +
+      '<label class="mk-amt">Example amount <span>$</span><input id="mkAmt" type="number" min="1" step="1" inputmode="decimal" value="' + amt + '"></label>' +
       '<dl class="mk-dl"><div><dt>Contracts</dt><dd>' + n.toLocaleString() + ' at ' + c + '¢</dd></div>' +
-      '<div><dt>Pays if ' + (yes ? 'Yes' : 'No') + '</dt><dd><b>$' + pay.toLocaleString() + '</b> <span class="pos">+$' + profit.toFixed(2) + '</span></dd></div>' +
+      '<div><dt>Would return if ' + (yes ? 'Yes' : 'No') + '</dt><dd><b>$' + pay.toLocaleString() + '</b> <span class="pos">+$' + profit.toFixed(2) + '</span></dd></div>' +
       '<div><dt>Our chance</dt><dd>' + chance(p) + '</dd></div>' +
       '<div><dt>Fair odds</dt><dd>' + fairO + '</dd></div>' +
       (b ? '<div><dt>Books</dt><dd>' + BL().oddsTxt(yes ? b.price : null) + ' · ' + chance(bP) + ' <span class="' + (p - bP >= 0.01 ? 'pos' : p - bP <= -0.01 ? 'neg' : '') + '">' + (p - bP >= 0 ? '+' : '−') + Math.abs((p - bP) * 100).toFixed(1) + ' pts</span></dd></div>' : '') +
-      '</dl><p class="mk-fine">Prices are our model’s chances: Yes at 63¢ means we give it a 63% chance and a contract pays $1 if it happens. This is a pricing view, not an exchange; nothing is bought or sold here.</p></div>';
+      '</dl><p class="mk-fine">Prices are our model’s chances: Yes at 63¢ means we give it a 63% chance and a contract pays $1 if it happens. The numbers above show what an amount would return at our price, to compare with real markets. You can’t place a bet on The Depth Chart.</p></div>';
   }
   function verb(m) { return m.id === 'champ' ? 'win the national championship' : m.id === 'f4' ? 'make the Final Four' : m.id === 'one' ? 'earn a No. 1 seed' : m.id === 'npoy' ? 'win National Player of the Year' :
     /^conf-/.test(m.id) ? 'win the ' + m.sub.split(' · ')[0] + ' regular season' : /^ct-/.test(m.id) ? 'win the ' + m.sub.split(' · ')[0] + ' tournament' : 'win'; }
-  function close() { var t = $('mkTicket'); if (t) t.hidden = true; document.body.classList.remove('mk-open'); }
+  function close() { var t = $('mkTicket'); if (t) t.hidden = true; if ($('mkDetail').hidden) document.body.classList.remove('mk-open'); }
 
   function boot() {
     var cats = $('mkCats'); if (!cats) return;
@@ -272,12 +332,19 @@
     $('bl-markets').addEventListener('click', function (e) {
       var b = e.target.closest('.mk-y,.mk-n'); if (b) { ticket(b.dataset.m, b.dataset.i, b.dataset.side); return; }
       var mo = e.target.closest('[data-more]'); if (mo) { ST.open[mo.dataset.more] = !ST.open[mo.dataset.more]; render(); return; }
-      var cj = e.target.closest('[data-cat-jump]'); if (cj) { var t = cats.querySelector('[data-cat="' + cj.dataset.catJump + '"]'); if (t) t.click(); }
+      var cj = e.target.closest('[data-cat-jump]'); if (cj) { var t = cats.querySelector('[data-cat="' + cj.dataset.catJump + '"]'); if (t) t.click(); return; }
+      if (e.target.closest('#mkDetail,#mkTicket')) return;
+      var cd = e.target.closest('[data-mid]'); if (cd) detail(cd.dataset.mid);
     });
+    $('bl-markets').addEventListener('keydown', function (e) { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('.mk-card[data-mid]')) { e.preventDefault(); detail(e.target.dataset.mid); } });
+    var dt = $('mkDetail');
+    dt.addEventListener('click', function (e) { if (e.target.closest('[data-close]') || e.target === dt) { closeDetail(); return; }
+      var rg = e.target.closest('[data-rng]'); if (rg) { DT.range = rg.dataset.rng; paintDetail(); return; }
+      var b2 = e.target.closest('.mk-y,.mk-n'); if (b2) { e.stopPropagation(); ticket(b2.dataset.m, b2.dataset.i, b2.dataset.side); } });
     var tk = $('mkTicket');
     tk.addEventListener('click', function (e) { if (e.target.closest('[data-close]') || e.target === tk) { close(); return; } var sb = e.target.closest('.mk-side [data-side]'); if (sb) { TK.side = sb.dataset.side; paintTicket(); } });
     tk.addEventListener('input', function (e) { if (e.target.id === 'mkAmt') { TK.amt = e.target.value; var pos = e.target.selectionStart; paintTicket(); var i = $('mkAmt'); i.focus(); try { i.setSelectionRange(pos, pos); } catch (x) {} } });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+    document.addEventListener('keydown', function (e) { if (e.key !== 'Escape') return; if (!$('mkTicket').hidden) close(); else closeDetail(); });
   }
   window.TDC_MK = { render: render, load: load };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
