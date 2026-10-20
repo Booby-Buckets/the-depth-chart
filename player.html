@@ -1821,18 +1821,20 @@ function buildPctDashboard(srcRow, projectedFlag, label){
   var secs='';
   if(window.TDCHeat && _seasons.length){
     var _pcell=function(v,M){ if(v==null||v===''||isNaN(+v))return null; var p=_pdPct(+v,M.pk,M.inv); return (p==null||isNaN(p))?null:Math.round(p); };
-    var mkRow=function(r){ var d={_pct:{}, _season:_slSeasonLbl(r.season_year), _team:(r.team||''), gp:r.gp};
+    var mkRow=function(r){ var d={_pct:{}, _season:_slSeasonLbl(r.season_year), _team:(r.team||''), gp:r.gp, gs:r.gs};
       METRICS.forEach(function(M){ var v=M.g(r); d[M.l]=v; d._pct[M.l]=_pcell(v,M); }); return d; };
     var hrows=_seasons.map(mkRow);
     if(_seasons.length>1){ // GP-weighted career row
       var tg=0, ws={}; METRICS.forEach(function(M){ws[M.l]=0;});
       _seasons.forEach(function(r){ var g=+r.gp||0; tg+=g; METRICS.forEach(function(M){ var v=M.g(r); if(v!=null&&!isNaN(+v)) ws[M.l]+=(+v)*g; }); });
-      var cr={_total:true,_pct:{},gp:tg,_season:'Career',_team:_seasons.length+' seasons'};
+      var gsK=_seasons.filter(function(r){ return r.gs!=null&&r.gs!==''; });
+      var cr={_total:true,_pct:{},gp:tg,gs:gsK.length?gsK.reduce(function(a,r){ return a+(+r.gs||0); },0):null,_season:'Career',_team:_seasons.length+' seasons'};
       METRICS.forEach(function(M){ var v=tg?ws[M.l]/tg:null; cr[M.l]=v; cr._pct[M.l]=_pcell(v,M); });
       hrows.push(cr);
     }
     var cols=[{k:'_season',label:'Season',left:true,sticky:true},{k:'_team',label:'Team',left:true,sticky:true},
-              {k:'gp',label:'GP',center:true,fmt:function(v){return (v==null||isNaN(+v))?null:Math.round(+v);}}];
+              {k:'gp',label:'GP',center:true,fmt:function(v){return (v==null||isNaN(+v))?null:Math.round(+v);}},
+              {k:'gs',label:'GS',center:true,title:'Games started',fmt:function(v){return (v==null||v===''||isNaN(+v))?null:Math.round(+v);}}];
     METRICS.forEach(function(M){ cols.push({k:M.l,label:M.l,center:true,pctKey:true,fmt:M.f,title:M.ttl}); });
     secs=TDCHeat.table({cols:cols, rows:hrows, freezeWidths:'--c1:64px;--c2:150px'});
   }
@@ -1894,7 +1896,7 @@ function buildSeasonLedger(){
       _total:!!opts.total,
       _season: opts.total ? 'Career' : _slSeasonLbl(r.season_year),
       _team: opts.total ? (rows.length)+' seasons' : (r.team||''),
-      gp:r.gp, mpg:r.mpg, ppg:r.ppg, rpg:r.rpg, apg:r.apg,
+      gp:r.gp, gs:r.gs, mpg:r.mpg, ppg:r.ppg, rpg:r.rpg, apg:r.apg,
       ts_pct:ts, usg_pct:usg, ast_pct:astp, tov_pct:tovp, trb_pct:trbp,
       stl_pct:stlp, blk_pct:blkp, wa:wa, ti40:ti,
       _pct:{
@@ -1918,7 +1920,8 @@ function buildSeasonLedger(){
       keys.forEach(function(k){ var v=parseFloat(src[k]); if(!isNaN(v)) acc[k]+=v*g; });
       var w=(adv.wa!=null?parseFloat(adv.wa):parseFloat(r.wa)); if(!isNaN(w)) waSum+=w;
     });
-    var careerRow={season_year:'',team:'',gp:tg,_advanced:{}};
+    var gsKnown=rows.filter(function(r){ return r.gs!=null&&r.gs!==''; });
+    var careerRow={season_year:'',team:'',gp:tg,gs:gsKnown.length?gsKnown.reduce(function(a,r){ return a+(+r.gs||0); },0):null,_advanced:{}};
     keys.forEach(function(k){ var v=tg?acc[k]/tg:null; if(k==='mpg'||k==='ppg'||k==='rpg'||k==='apg') careerRow[k]=v; else careerRow._advanced[k]=v; });
     careerRow._advanced.wa=waSum;
     hrows.push(mk(careerRow,{total:true}));
@@ -1931,6 +1934,7 @@ function buildSeasonLedger(){
     {k:'_season',label:'Season',left:true,sticky:true},
     {k:'_team',label:'Team',left:true,sticky:true},
     {k:'gp',label:'GP',center:true,fmt:function(v){return (v==null||isNaN(+v))?null:Math.round(+v);}},
+    {k:'gs',label:'GS',center:true,title:'Games started',fmt:function(v){return (v==null||v===''||isNaN(+v))?null:Math.round(+v);}},
     {k:'mpg',label:'MPG',pctKey:true,fmt:num1},
     {k:'ppg',label:'PPG',pctKey:true,fmt:num1},
     {k:'rpg',label:'RPG',pctKey:true,fmt:num1},
@@ -2687,6 +2691,16 @@ async function init(){
 
     // (Historical hometown came from bbref_seasons — removed with the SR migration.
     // Current-roster hometown still comes from the players table via player.hometown.)
+
+    // ── GAMES STARTED per season (owner, Oct 20 2026): player_history has no GS column, so count the
+    // box-score starts (box_scores.starter). Only seasons the box scores actually cover get a number.
+    if(_espnId && careerHistory.length){
+      try{
+        const bx=await fetch(`${SB}/rest/v1/box_scores?espn_id=eq.${encodeURIComponent(_espnId)}&select=season_year,starter&limit=1000`,{headers:H}).then(r=>r.ok?r.json():[]);
+        const per={}; (bx||[]).forEach(g=>{ const y=+g.season_year; const o=per[y]||(per[y]={g:0,s:0}); o.g++; if(g.starter) o.s++; });
+        careerHistory.forEach(r=>{ const o=per[+r.season_year]; if((r.gs==null||r.gs==='')&&o&&o.g) r.gs=o.s; });
+      }catch(e){}
+    }
 
     // ── BUILD _careerHistoryMap for projectPlayer ─────────────────
     window._careerHistoryMap = {};
