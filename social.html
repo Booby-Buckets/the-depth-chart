@@ -2417,27 +2417,32 @@
       var L=TDCProjGrade.lineOf(p); if(!L) throw new Error('No 2026-27 projection for '+p.name+' yet (the nightly rebuild adds new players).');
       var hist=p.espn_id?await sbGet('player_history?espn_id=eq.'+p.espn_id+'&select=*&order=season_year.desc&limit=1'):[], H0=hist&&hist[0]||null;
       var from=H0&&!onTeam(H0.team,p.team)?H0.team:'', ovr=null; try{ ovr=Math.round(TDCProjGrade.gradeSolo(p)); }catch(e){}
-      var tr=rs.find(function(t){ return onTeam(t.team,p.team); })||{}, f1=function(v){ return v!=null&&v!==''&&isFinite(+v)?(+v).toFixed(1):''; };
+      // WHAT IF (owner, Oct 20 2026: "pick a team, like what if Burton stayed"): model him on any team's roster instead
+      var wt=(d.wteam||'').trim(), WI=!!(wt&&!onTeam(wt,p.team)), TM=WI?((rs.find(function(t){ return onTeam(t.team,wt)||onTeam(t.full,wt); })||{}).team||wt):p.team;
+      if(WI&&!rs.some(function(t){ return onTeam(t.team,TM); })) throw new Error('Unknown team: '+wt);
+      var tr=rs.find(function(t){ return onTeam(t.team,TM); })||{}, f1=function(v){ return v!=null&&v!==''&&isFinite(+v)?(+v).toFixed(1):''; };
       var tsOf=function(x){ var a=2*((+x.fga||0)+.44*(+x.fta||0)); return a>0?f1(100*(+x.ppg||0)/a):''; };
       var row=function(lab,team,x,proj){ return { name:lab, team:team, mpg:f1(x.mpg), ppg:f1(x.ppg), rpg:f1(x.rpg), apg:f1(x.apg), fg:f1(x.fg_pct), ts:tsOf(x), ft:f1(x.ft_pct), heat:true, proj:proj?1:0 }; };
       d.lines=[]; if(H0) d.lines.push(row(((+H0.season_year-1)+'-'+String(H0.season_year).slice(2))+' '+school(H0.team),H0.team,H0,false));
-      d.lines.push(row(SEASON+' '+school(p.team)+' (proj.)',p.team,L,true));
+      d.lines.push(row(SEASON+' '+school(TM)+(WI?' (what if)':' (proj.)'),TM,L,true));
       // his share of the team's shots + where it ranks on the roster
-      var share=null, srank=null; try{ var SO=await json('scripts/data/stat_overall_projected.json'), TL=SO.teams&&(SO.teams[p.team]||SO.teams[school(p.team)])||[];
+      var share=null, srank=null; try{ var SO=await json('scripts/data/stat_overall_projected.json'), TL=WI?[]:(SO.teams&&(SO.teams[p.team]||SO.teams[school(p.team)])||[]);
         var me=TL.find(function(x){ return String(x.espn)===String(p.espn_id)||x.name===p.name; }); if(me){ share=me.share; srank=1+TL.filter(function(x){ return x.share>me.share; }).length; } }catch(e){}
       // the starting five (depth order) with overalls
       var out=function(q){ var h=String(q.hometown||'').trim().toLowerCase(); return q.is_injured||h==='injured'||h==='out'; }, seen={};
-      var R=(D.players||[]).filter(function(q){ if(!q.name||!onTeam(q.team,p.team)||out(q)) return false; var k=q.espn_id||q.name; if(seen[k]) return false; seen[k]=1; return true; })
+      var R=(D.players||[]).filter(function(q){ if(!q.name||!onTeam(q.team,TM)||out(q)||(WI&&q===p)) return false; var k=q.espn_id||q.name; if(seen[k]) return false; seen[k]=1; return true; })
         .sort(function(a,b){ var da=a.depth_order!=null?+a.depth_order:999, db=b.depth_order!=null?+b.depth_order:999; return da-db||(+b.mpg||0)-(+a.mpg||0); });
-      d.five=R.slice(0,5).map(function(q){ var o=null; try{ o=Math.round(TDCProjGrade.gradeSolo(q)); }catch(e){} return { name:q.name, team:q.team, espn:q.espn_id||null, pos:String(q.position||'').toUpperCase(), ovr:o!=null&&isFinite(o)?String(o):'', me:q===p||q.name===p.name?1:0 }; });
+      // what if: he takes his own depth slot from his real team (a starter there starts here)
+      if(WI){ var dep0=(D.players||[]).filter(function(q){ return onTeam(q.team,p.team)&&!out(q); }).sort(function(a,b){ return (a.depth_order!=null?+a.depth_order:999)-(b.depth_order!=null?+b.depth_order:999); }).indexOf(p); R.splice(Math.max(0,Math.min(dep0<0?5:dep0,R.length)),0,p); }
+      d.five=R.slice(0,5).map(function(q){ var o=null; try{ o=Math.round(TDCProjGrade.gradeSolo(q)); }catch(e){} return { name:q.name, team:WI&&q===p?TM:q.team, espn:q.espn_id||null, pos:String(q.position||'').toUpperCase(), ovr:o!=null&&isFinite(o)?String(o):'', me:q===p||q.name===p.name?1:0 }; });
       var dep=R.indexOf(p)+1, pos=String(p.position||'').toUpperCase();
       d.role=(dep>0&&dep<=5?'Projected starter':'Projected rotation')+(pos?' · '+pos:'')+' · '+f1(L.mpg)+' min';
       // Portal Fit: the move scored against the roster WITHOUT him
       var fit=null;
       try{ await needScript('tdc-portalfit.js?v=needs12'); var TN=await json('scripts/data/team_needs.json'), cp=await json('scripts/data/coach_profiles.json'), CP={};
         (Array.isArray(cp)?cp:[]).forEach(function(x){ if(x.coach_slug) CP[x.coach_slug]=x; });
-        var t0=(TN.teams||[]).find(function(t){ return onTeam(t.team,p.team); });
-        if(t0){ var t1=JSON.parse(JSON.stringify(t0)); Object.keys(t1.pos||{}).forEach(function(k){ var s=t1.pos[k]; if(s.starter===p.name){ s.best=s.second; s.bestOvr=null; s.starter=null; s.starterGrade=null; s.depth=Math.max(0,(s.depth||1)-1); } });
+        var t0=(TN.teams||[]).find(function(t){ return onTeam(t.team,TM); });
+        if(t0){ var t1=JSON.parse(JSON.stringify(t0)); Object.keys(t1.pos||{}).forEach(function(k){ var s=t1.pos[k]; if(!WI&&s.starter===p.name){ s.best=s.second; s.bestOvr=null; s.starter=null; s.starterGrade=null; s.depth=Math.max(0,(s.depth||1)-1); } });
           var pl=Object.assign({},p,H0?{ ppg:H0.ppg, rpg:H0.rpg, apg:H0.apg, mpg:H0.mpg, fg_pct:H0.fg_pct, tp_pct:H0.tp_pct, ft_pct:H0.ft_pct, stl:H0.stl, blk:H0.blk, tovs:H0.tovs, fga:H0.fga, fta:H0.fta, tpa:H0.tpa, oreb:H0.oreb, dreb:H0.dreb }:{},{ tdc_grade:ovr });
           var r=TDCPortalFit.scoreTeam(pl,t1,t1.coach_slug?CP[t1.coach_slug]:null,TDCPortalFit.DEFAULT_WEIGHTS);
           if(r) fit={ overall:r.overall, why:r.why, coach:r.coach||t1.coach||'', upgrade:r.upgrade, pos:r.playerPos, reads:(r.reads||[]).map(function(x){ return { l:x.l==='Coach fit'&&(r.coach||t1.coach)?'Fit with '+(r.coach||t1.coach):x.l, v:x.v, txt:x.txt }; }) }; } }catch(e){ console.warn('fit',e); }
@@ -2447,17 +2452,19 @@
       // without-run carries baseMw so the box/DNA term moves with the BPM change), then rank, All-Play %, conference
       // rank, odds vs a top-25 team and a projected record from the schedule sim run at each rating.
       d.cmp=null;
-      try{ await TDC_RATINGS.prepare(); var sh0=(TDC_RATINGS.rosterTeams().find(function(t){ return onTeam(t,p.team); }))||p.team, R0=TDC_RATINGS.rosterOf(sh0);
+      try{ await TDC_RATINGS.prepare(); var sh0=(TDC_RATINGS.rosterTeams().find(function(t){ return onTeam(t,TM); }))||TM, R0=TDC_RATINGS.rosterOf(sh0);
         var isMe=function(q){ return (p.espn_id!=null&&q.espn_id!=null&&String(q.espn_id)===String(p.espn_id))||q.name===p.name; };
+        // what if: his own roster row (from his real team) joins the chosen team's roster
+        if(WI){ var shP=(TDC_RATINGS.rosterTeams().find(function(t){ return onTeam(t,p.team); }))||p.team, me0=TDC_RATINGS.rosterOf(shP).find(isMe); R0=R0.filter(function(q){ return !isMe(q); }); if(me0) R0=R0.concat([Object.assign({},me0,{ team:sh0 })]); }
         if(R0.length&&R0.some(isMe)){
           var wi=TDC_RATINGS.rateRoster(sh0,R0), wo=TDC_RATINGS.rateRoster(sh0,R0.filter(function(q){ return !isMe(q); }),{ baseMw:wi.mw });
-          var field=rs.filter(function(t){ return !onTeam(t.team,p.team)&&t.rating!=null; }), SG=TDC_RATINGS.SIGMA||11, top=field.slice().sort(function(a,b){ return b.rating-a.rating; }), r25=top[24]?top[24].rating:null;
+          var field=rs.filter(function(t){ return !onTeam(t.team,TM)&&t.rating!=null; }), SG=TDC_RATINGS.SIGMA||11, top=field.slice().sort(function(a,b){ return b.rating-a.rating; }), r25=top[24]?top[24].rating:null;
           var cf=confName(tr.conf), cfield=field.filter(function(t){ return confName(t.conf)===cf; });
           var stat=function(x){ return { rating:x, rank:1+field.filter(function(t){ return t.rating>x; }).length, crank:1+cfield.filter(function(t){ return t.rating>x; }).length,
             allPlay:100*TDC_RATINGS.winPctVsField(x,field), vs25:r25!=null?100*TDC_RATINGS.phi((x-r25)/SG):null }; };
           var A=stat(wi.rating), B=stat(wo.rating);
           // projected record at each rating: the schedule sim, with this team's row set to that rating for the run
-          try{ await needScript('tdc-schedule.js?v=43'); await TDCSched.load(); var DD=await TDC_RATINGS.get(), row=DD.teams.find(function(t){ return onTeam(t.team,p.team); }), keep=row&&row.rating;
+          try{ await needScript('tdc-schedule.js?v=43'); await TDCSched.load(); var DD=await TDC_RATINGS.get(), row=DD.teams.find(function(t){ return onTeam(t.team,TM); }), keep=row&&row.rating;
             // the sim reads its own copy of the ratings, so shift each game's projected margin by the rating change instead
             // (sd = game noise + rating uncertainty, as the sim uses), from the published rating to each roster's
             var pr=row&&await TDCSched.project(row.full,{ sims:600 });
@@ -2472,9 +2479,10 @@
           // ADJUSTED OFFENSE / DEFENSE (owner, Oct 20 2026: "add AdjO and AdjD"): the team's projected ORtg / DRtg (team_dna
           // 2027, with him on the roster). Without him: the rating change, put per 100 possessions at the team's tempo, split
           // between the two ends by his own offensive vs defensive Wins Added (proj_wa vs dwa; 60/40 when unknown).
-          var adj=null; try{ var DN=await dna(), dt=DN[tr.full]||DN[p.team]; if(dt&&dt.ORtg!=null&&dt.DRtg!=null){
+          var adj=null; try{ var DN=await dna(), dt=DN[tr.full]||DN[TM]; if(dt&&dt.ORtg!=null&&dt.DRtg!=null){
             var d100=(A.rating-B.rating)*100/(+dt.tempo||68.5), twa=+(L.proj_wa!=null?L.proj_wa:L.pwa), dwa=+L.dwa, offSh=isFinite(twa)&&twa>0&&isFinite(dwa)?Math.max(0,Math.min(1,(twa-dwa)/twa)):.6;
             var oW=+dt.ORtg, dW=+dt.DRtg, oB=oW-d100*offSh, dB=dW+d100*(1-offSh);
+            if(WI){ oB=+dt.ORtg; dB=+dt.DRtg; oW=oB+d100*offSh; dW=dB-d100*(1-offSh); }   // what if: the published DNA is the team without him
             var all=Object.keys(DN).map(function(k){ return DN[k]; }).filter(function(x){ return x!==dt&&x.ORtg!=null&&x.DRtg!=null; });
             var oR=function(v){ return 1+all.filter(function(x){ return x.ORtg>v; }).length; }, dR=function(v){ return 1+all.filter(function(x){ return x.DRtg<v; }).length; };
             adj=[{ lab:'AdjO (pts / 100 poss)', wo:oB.toFixed(1)+'  #'+oR(oB), wi:oW.toFixed(1)+'  #'+oR(oW), ch:sg(oW-oB), up:oW>=oB },
@@ -2487,14 +2495,17 @@
             { lab:'Wins vs. top-50 teams'+(A.tn?' (of '+A.tn+')':''), wo:B.tw!=null?B.tw.toFixed(1):'', wi:A.tw!=null?A.tw.toFixed(1):'', ch:A.tw!=null&&B.tw!=null?sg(A.tw-B.tw):'', up:(A.tw||0)>=(B.tw||0) }]).filter(function(r){ return r.wo&&r.wi; }); } }
       catch(e){ console.warn('with/without',e); }
       d.tiles=[{ val:tr.rank?'#'+tr.rank:'', lab:'in our '+SEASON+' rankings' },{ val:tr.rating!=null?((+tr.rating>=0?'+':'')+(+tr.rating).toFixed(1)):'', lab:'power rating' },
-        { val:share!=null?share.toFixed(1)+'%':'', lab:'of '+school(p.team)+' shots'+(srank?(srank===1?' (team high)':' ('+srank+(srank===2?'nd':srank===3?'rd':'th')+' on the team)'):'') },
+        { val:share!=null?share.toFixed(1)+'%':'', lab:'of '+school(TM)+' shots'+(srank?(srank===1?' (team high)':' ('+srank+(srank===2?'nd':srank===3?'rd':'th')+' on the team)'):'') },
         { val:fit&&fit.upgrade!=null?(fit.upgrade>0?'+':'')+Math.round(fit.upgrade):'', lab:'production vs their next-best '+(fit&&fit.pos||pos) }].filter(function(x){ return x.val; });
       if(share!=null) d.role+=' · '+share.toFixed(1)+'% of shots';
-      Object.assign(d,{ name:p.name, team:p.team, espn:p.espn_id||null, from:from, ovr:ovr!=null&&isFinite(ovr)?String(ovr):'' });
-      d._mv=MOVE_V; d.title=p.name+(from?': '+school(from)+' → '+school(p.team):' at '+school(p.team)); d.subtitle='How we project him, and '+school(p.team)+' with vs. without him · '+SEASON;
+      // what if: the graphic is about the chosen team (colours, logos, headers); a stay drops the old-school arrow
+      Object.assign(d,{ name:p.name, team:TM, espn:p.espn_id||null, from:WI&&from&&onTeam(from,TM)?'':from, ovr:ovr!=null&&isFinite(ovr)?String(ovr):'' });
+      d._mv=MOVE_V; d.title=WI?(p.name+(from&&onTeam(from,TM)?': what if he stayed at '+school(TM):': what if he played for '+school(TM))):p.name+(from?': '+school(from)+' → '+school(p.team):' at '+school(p.team));
+      d.subtitle=WI?school(TM)+' with vs. without him, if he were on their '+SEASON+' roster':'How we project him, and '+school(p.team)+' with vs. without him · '+SEASON;
     },
     editor:function(d){
       return '<h3>Data</h3><label class="f">Player (on his new team)</label><input data-k="q" list="plList" value="'+esc(d.q||'')+'" placeholder="Start typing a name…">'+
+        '<label class="f">What if he played for… <span style="color:var(--text3);font-weight:500">(blank = his real team)</span></label><input data-k="wteam" list="tmList" value="'+esc(d.wteam||'')+'" placeholder="e.g. his old team: what if he stayed?">'+
         '<div class="btns"><button class="b sm primary" data-act="load">Load player</button></div>'+
         '<div class="hint">Last season’s line vs our '+SEASON+' projection at his new school, the team with him (rank, power rating, his shot share, starting five) and the Portal Fit score for the move — scored as if he weren’t on the roster yet.</div>'+shotsChk(d)+
         '<h3>Text</h3><label class="f">Title</label><input data-k="title" value="'+esc(d.title||'')+'"><label class="f">Subtitle</label><input data-k="subtitle" value="'+esc(d.subtitle||'')+'">'+
