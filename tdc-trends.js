@@ -333,7 +333,7 @@
           (ww > 46 ? txt(x + ww / 2, y + 18, k[2] + ' ' + pc + '%', { fs: 11, fw: 800, c: k[0] === 'mid' ? 'var(--text)' : '#fff', a: 'middle' }) : ww > 22 ? txt(x + ww / 2, y + 18, pc, { fs: 10.5, fw: 800, c: k[0] === 'mid' ? 'var(--text)' : '#fff', a: 'middle' }) : '');
         x += ww; });
     });
-    return s + '</svg><div class="tv-lg"><span>Rim = layups, dunks, tip-ins · Mid = 2-point jumpers · from each school’s play-by-play (no shot locations)</span></div>';
+    return s + '</svg>';
   }
   function vD(W, B) {   // scrimmage average minus projection, green = good direction
     var keys = [['ppg', 'Points', 1, 1], ['fg_pct', 'FG%', 1, 1], ['tp_pct', '3P%', 1, 1], ['tpa', '3PA', 0, 1], ['ft_pct', 'FT%', 1, 1], ['rpg', 'Rebounds', 1, 1], ['apg', 'Assists', 1, 1], ['tov', 'Turnovers', -1, 1], ['stl', 'Steals', 1, 1], ['blk', 'Blocks', 1, 1]];
@@ -345,7 +345,7 @@
       s += txt(0, y + 15, k[1], { fw: 700 }) + txt(W < 520 ? 66 : 96, y + 15, a.toFixed(1) + ' vs ' + p.toFixed(1), { fs: 10.5, c: 'var(--text3)' }) +
         '<rect x="' + (d >= 0 ? mid : mid - w) + '" y="' + (y + 4) + '" width="' + Math.max(1, w) + '" height="15" rx="3" style="fill:' + c + '" opacity=".75"/>' +
         txt(d >= 0 ? mid + w + 5 : mid - w - 5, y + 16, (dd > 0 ? '+' : dd < 0 ? '−' : '') + Math.abs(dd).toFixed(1), { fs: 11, fw: 800, c: c, a: d >= 0 ? 'start' : 'end' }); });
-    return s + '</svg><div class="tv-lg"><span>scrimmage average vs projected per game · right = more than projected · green = the good direction</span></div>';
+    return s + '</svg>';
   }
   var nk = function (s) { return String(s || '').toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b\.?/g, '').replace(/[^a-z]/g, ''); };
 
@@ -367,8 +367,7 @@
       var word = adj >= 1 ? 'Trending up' : adj >= 0.3 ? 'Slightly up' : adj <= -1 ? 'Trending down' : adj <= -0.3 ? 'Slightly down' : 'Steady';
       var G = TM.games, nG = G.length;
       var html = '<div class="tr-hd"><div><div class="tr-l">Preseason trend</div><div class="tr-big" style="color:' + col + '">' + (adj > 0 ? '▲ ' : adj < 0 ? '▼ ' : '') + sg(adj, 2) + '</div></div>' +
-        '<div><div class="tr-t">' + word + '</div><div class="tr-s">Rating points added to ' + esc(team) + '’s 2026-27 power rating from ' + nG + ' scrimmage' + (nG > 1 ? 's' : '') +
-        ': each result against our line (counted up to 12 points either way), weighted by its Reality Meter and shrunk hard toward zero, since a full season of evidence outweighs October. Capped at ±1.5.</div></div></div>';
+        '<div><div class="tr-t">' + word + '</div><div class="tr-s">Power Rating points from ' + nG + ' scrimmage' + (nG > 1 ? 's' : '') + '</div></div></div>';
       // ── rating trend after each scrimmage (same Σ reality·clip(actual − line, ±12) / (Σ reality + 20), capped ±1.5 as the builder) ──
       var Gs = G.slice().sort(function (a, b) { return a.date.localeCompare(b.date); }), rn = 0, rd = 0;
       var built = Gs.every(function (e) { return e.adj_after != null; });
@@ -421,18 +420,18 @@
       var W = Math.max(300, Math.min(host.clientWidth || 900, 1100)), vis = '';
       vis += '<div class="tr-sec">Results vs our line</div>' + vA(W, Gs);
       var fl = vE(W, Gs, D, full); if (fl) vis += '<div class="tr-sec">Game flow</div>' + fl;
-      var mn = vB(W, Gs, D, T, full); if (mn) vis += '<div class="tr-sec">Who\u2019s getting minutes <span class="tv-h">· average scrimmage minutes vs our projection</span></div>' + mn;
-      var sd = vC(W, Gs, D, full); if (sd) vis += '<div class="tr-sec">Shot diet <span class="tv-h">· share of shots at the rim, midrange and three</span></div>' + sd;
+      var mn = vB(W, Gs, D, T, full); if (mn) vis += '<div class="tr-sec">Minutes vs projection</div>' + mn;
+      var sd = vC(W, Gs, D, full); if (sd) vis += '<div class="tr-sec">Shot diet</div>' + sd;
       html += vis;
       html += '<div class="tr-sec">Game log</div><div class="sheet-wrap" style="max-height:none"><table class="sheet dense trl"><thead><tr><th class="l">Game</th>' +
         '<th title="Our projected margin going in (after any players the opponent was missing)">Our line</th><th>Actual</th><th title="Actual margin minus our line">vs line</th><th>Reality</th><th title="Rating points the scrimmages have added so far">Rating trend</th></tr></thead><tbody>' + body + '</tbody></table></div>' +
-        '<div class="tr-s" style="margin-top:6px;">Click a game for starters and the team line. Starters in <b style="color:var(--green,#1a8c3a)">green</b> weren’t in our projected starting five.</div>';
+        '';
       // team box vs projection
       var B = TM.box;
       if (B && B.scrim) {
         var cols = [['ppg', 'PTS', 1, 1], ['fg_pct', 'FG%', 1, 1], ['tp_pct', '3P%', 1, 1], ['ft_pct', 'FT%', 1, 1], ['tpa', '3PA', 1, 0], ['rpg', 'REB', 1, 1], ['apg', 'AST', 1, 1], ['tov', 'TO', 1, -1], ['stl', 'STL', 1, 1], ['blk', 'BLK', 1, 1]]
           .filter(function (c) { return B.scrim[c[0]] != null && B.proj && B.proj[c[0]] != null; });
-        if (cols.length) html += '<div class="tr-sec">Team box vs projection <span class="tv-h">· Reality-weighted average of ' + B.n + ' scrimmage box score' + (B.n > 1 ? 's' : '') + ' vs the projected per-game line</span></div>' + vD(Math.max(300, Math.min(host.clientWidth || 900, 1100)), B);
+        if (cols.length) html += '<div class="tr-sec">Team box vs projection</div>' + vD(Math.max(300, Math.min(host.clientWidth || 900, 1100)), B);
       }
       // risers & fallers
       var P = [];
@@ -450,7 +449,7 @@
               '<td class="' + cls(m.ppg, 0.4) + '">' + sg(m.ppg) + '</td><td class="' + cls(m.rpg, 0.3) + '">' + sg(m.rpg) + '</td>' +
               '<td class="dim">' + (x.p.weight != null ? (+x.p.weight).toFixed(2) + ' g' : '—') + '</td>' +
               '<td class="l" style="white-space:normal;font-size:11.5px;color:' + (top.charAt(0) === '+' ? 'var(--green,#1a8c3a)' : top ? 'var(--red,#cc2200)' : 'inherit') + '">' + esc(top) + '</td></tr>';
-          }).join('') + '</tbody></table></div><div class="tr-s" style="margin-top:6px;">OVR / MIN / PTS / REB = how much the scrimmages moved his 2026-27 projection. Click a player for his full Trends tab.</div>';
+          }).join('') + '</tbody></table></div>';
       }
       // played but not on our roster
       var extra = {};
@@ -459,7 +458,6 @@
       var ex = Object.keys(extra).sort(function (a, b) { return extra[b] - extra[a]; });
       if (ex.length) html += '<div class="tr-sec">Played, but not on our roster</div><div class="tr-s">' + ex.map(function (n) { return '<b>' + esc(n) + '</b> (' + extra[n] + ' min)'; }).join(' · ') +
         ' — their lines can’t count toward a projection until they’re added to the ' + esc(team) + ' roster.</div>';
-      html += '<div class="tr-s" style="margin-top:14px;">Scrimmages are unofficial: they never count in the record or season stats. How far they move ratings, minutes and player projections is set by each game’s Reality Meter.</div>';
       host.innerHTML = html;
       wireRows(host); wireChart(host, pts);
       if (Gs.length === 1) { var r0 = host.querySelector('tr.trl-g'); if (r0) r0.click(); }

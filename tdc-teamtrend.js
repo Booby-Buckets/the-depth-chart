@@ -140,8 +140,6 @@
         for (var tv = Math.ceil(lo / stp) * stp; tv <= hi + 1e-9; tv += stp) s += '<line x1="' + ix0 + '" x2="' + ix1 + '" y1="' + RY(tv) + '" y2="' + RY(tv) + '" class="tt-grid"/><text x="' + (ix0 - 6) + '" y="' + (RY(tv) + 4) + '" text-anchor="end" class="tt-ax">' + sg(tv, stp < 1 ? (stp < 0.5 ? 1 : 1) : 0) + '</text>';
         var P = D.map(function (d) { return [PX(d.date), RY(d.rating)]; });
         if (P.length >= 2) s += '<path d="' + smooth(P) + '" class="tt-days" style="stroke:' + col + '"/>';
-        // nothing was snapshotted before the first day: say so, rather than leave the strip looking broken
-        if (P[0][0] - ix0 > 130) s += '<text x="' + (P[0][0] - 10) + '" y="' + (P[0][1] + 4) + '" text-anchor="end" class="tt-ax" style="font-style:italic">daily tracking starts ' + md(D[0].date) + ' ·</text>';
         var dp = Math.abs(D[D.length - 1].rating - D[0].rating) < 0.5 ? 2 : 1;   // a small move needs the second decimal to show
         D.forEach(function (d, n) { var last = n === D.length - 1;
           s += '<circle cx="' + P[n][0] + '" cy="' + P[n][1] + '" r="' + (last ? 5 : 3.5) + '" style="fill:' + col + '" class="tt-pt" data-tip="' + esc(md(d.date) + ' · Power Rating ' + sg(d.rating, dp) + ' · #' + d.rank) + '"/>'; });
@@ -157,7 +155,8 @@
         sc0.forEach(function (p) { var e = dayRating(p.date); if (e == null) return; var d = S.f(p) - e, n = (byDate[p.date] = (byDate[p.date] || 0) + 1) - 1;
           var bx = PX(p.date) + (n ? (n % 2 ? 1 : -1) * Math.ceil(n / 2) * (bw2 + 4) : 0), y1 = base - d * sK, up = d >= 0, lg2 = logoOf(p.opp);
           s += '<rect class="tt-bar ' + (up ? 'up' : 'dn') + '" x="' + (bx - bw2 / 2) + '" y="' + Math.min(base, y1) + '" width="' + bw2 + '" height="' + Math.max(1.5, Math.abs(y1 - base)) + '" rx="2" data-tip="' + esc(md(p.date) + ' scrimmage · ' + (p.venue === 'A' ? '@ ' : 'vs ') + shortNm(p.opp) + ' · ' + (p.win ? 'W ' : 'L ') + p.pf + '–' + p.pa + ' · game rating ' + sg(S.f(p)) + ' (' + sg(d) + ' vs that day’s rating)') + '" data-href="scrimmage.html?id=' + encodeURIComponent(p.id) + '"/>';
-          s += '<text x="' + bx + '" y="' + (up ? y1 - 5 : y1 + 13) + '" text-anchor="middle" class="tt-wl ' + (p.win ? 'w' : 'l') + '">' + (p.win ? 'W ' : 'L ') + p.pf + '–' + p.pa + '</text>';
+          // score beside the bar (owner, Oct 20: under a tall red bar it sat on the date row)
+          s += '<text x="' + (bx + bw2 / 2 + 5) + '" y="' + ((base + y1) / 2 + 4) + '" text-anchor="start" class="tt-wl ' + (p.win ? 'w' : 'l') + '">' + (p.win ? 'W ' : 'L ') + p.pf + '–' + p.pa + '</text>';
           if (lg2) s += '<image href="' + lg2 + '" x="' + (bx - 9) + '" y="' + (up ? base + 4 : base - 22) + '" width="18" height="18"/>'; });
       }
       if (G.length) s += '<line x1="' + (px1 + 9) + '" x2="' + (px1 + 9) + '" y1="' + pt + '" y2="' + (Hh - pb + 2) + '" class="tt-open"/><text x="' + (px1 + 13) + '" y="' + (pt + 10) + '" class="tt-ax b">Opening night →</text>';
@@ -168,13 +167,13 @@
     var foot = '<div class="tt-foot">' + (all.length < 2 ? '' : '<label>Games <input type="number" class="tt-a" min="1" max="' + all.length + '" value="' + a + '"> to <input type="number" class="tt-b" min="1" max="' + all.length + '" value="' + b + '"> of ' + all.length + '</label>') +
       (G.length ? '<span>Beat expectation in <b>' + beat + ' of ' + G.length + '</b></span><span>' + (inv ? 'Fewest' : 'Best') + ' <b>' + (S.sign ? sg(inv ? worst : best) : (inv ? worst : best)) + '</b></span><span>' + (inv ? 'Most' : 'Worst') + ' <b>' + (S.sign ? sg(inv ? best : worst) : (inv ? best : worst)) + '</b></span>' +
         '<span>Last ' + Math.min(5, G.length) + ' <b style="color:' + (r5n >= 0 ? 'var(--tt-up)' : 'var(--tt-dn)') + '">' + sg(r5n) + '</b> vs expected</span>' : '') +
-      (D.length ? '<span>Preseason Power Rating <b>' + sg(D[0].rating, Math.abs(D[D.length - 1].rating - D[0].rating) < 0.5 ? 2 : 1) + '</b>' + (D.length > 1 ? ' → <b>' + sg(D[D.length - 1].rating, Math.abs(D[D.length - 1].rating - D[0].rating) < 0.5 ? 2 : 1) + '</b>' : '') + ' (#' + D[D.length - 1].rank + ')</span>' : '') + '</div>';
+      '</div>';
     return s + foot;
   }
   function legend(opt) {
-    if (!opt._games) return '<div class="tt-lg"><span><i class="k b up"></i>scrimmage beat that day’s rating</span><span><i class="k b dn"></i>fell short</span><span>Hover a point or bar for details · click a bar for the box score</span></div>';
+    if (!opt._games) return '<div class="tt-lg"><span><i class="k b up"></i>beat that day’s rating</span><span><i class="k b dn"></i>fell short</span></div>';
     return '<div class="tt-lg">' + (opt._expLab ? '<span><i class="k ln zero"></i>0 line = ' + esc(opt._expLab) + '</span>' : '') + '<span><i class="k b up"></i>beat expectation</span><span><i class="k b dn"></i>fell short</span><span><i class="k ln" style="background:' + (opt.color || 'var(--text)') + '"></i>5-game form</span>' +
-      (opt.season === 2027 ? '<span>Preseason: scrimmages in the panel on the left</span>' : '') + '<span>Click a bar for the box score</span></div>';
+      '</div>';   // owner, Oct 20: too much text — no how-to lines in the legend
   }
   function render(host, o) {
     if (!host || !o || !o.full) return;
@@ -183,7 +182,7 @@
     host.innerHTML = '<div class="tt-wrap"><div class="tt-ctl"><label>Trend stat <select class="tt-stat">' + Object.keys(STATS).map(function (k) { return '<option value="' + k + '">' + STATS[k].lab + '</option>'; }).join('') + '</select></label>' +
       '<label>Season <select class="tt-season">' + seasons.map(function (y) { return '<option value="' + y + '">' + (y - 1) + '-' + String(y).slice(2) + '</option>'; }).join('') + '</select></label><span class="tt-note"></span></div><div class="tt-body"><div class="tt-empty">Loading…</div></div><div class="tt-tip"></div></div>';
     var body = host.querySelector('.tt-body'), tip = host.querySelector('.tt-tip'), data = null;
-    var paint = function () { if (!data) return; var S = STATS[opt.stat]; host.querySelector('.tt-note').textContent = S.note; body.innerHTML = draw(body, opt.stat, data, opt) + legend(opt); };
+    var paint = function () { if (!data) return; var S = STATS[opt.stat]; host.querySelector('.tt-note').textContent = ''; body.innerHTML = draw(body, opt.stat, data, opt) + legend(opt); };
     var go = function (season) { opt.season = season; opt.start = opt.end = null; host.querySelector('.tt-season').value = season; body.innerHTML = '<div class="tt-empty">Loading…</div>';
       load(o.full, season).then(function (d) { data = d; paint(); }); };
     host.querySelector('.tt-stat').addEventListener('change', function (e) { opt.stat = e.target.value; opt.start = opt.end = null; paint(); });
