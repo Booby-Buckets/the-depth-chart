@@ -1342,7 +1342,10 @@ if _R247 and FR_MODEL:
         _lr=math.log(max(1,_rk))
         PED[_k]={"prior":round(fr_rank_grade(_rk),1),
                  "r40":{g:{k:round(v[0]+v[1]*_lr,3) for k,v in r.items() if k not in ("n","bpm")} for g,r in FR_MODEL["ranked"].items()},
-                 "mpg":{g:round(max(4.0,min(34.0,ab[0]+ab[1]*_lr)),1) for g,ab in (FR_MODEL.get("mpg_by_rank") or {}).items()}}
+                 "mpg":{g:round(max(4.0,min(34.0,ab[0]+ab[1]*_lr)),1) for g,ab in (FR_MODEL.get("mpg_by_rank") or {}).items()},
+                 # pedigree strength 0-1 for the newcomer OVR shrink (_cred_of): 1 at #1, 0 at RANK_SPAN (150) and beyond.
+                 # Derived like prior, never the rank; without it CI shrank every top recruit fully (Stokes 87 vs 93 locally).
+                 "ped":round(max(0.0,1.0-_lr/math.log(float(os.environ.get("RANK_SPAN","150")))),2)}
     json.dump(PED,open(PED_P,"w"),separators=(",",":"),sort_keys=True)
 elif os.path.exists(PED_P):
     PED=json.load(open(PED_P))
@@ -2213,17 +2216,21 @@ NEW_EVID_MIN=float(os.environ.get("NEW_EVID_MIN","300")); NEW_CRED=NEW_EVID_MIN/
 # RANK_CRED_TOP at #1 on a log scale: #1 ~0.92, #10 ~0.69, #25 ~0.61, #50 ~0.54, #150+ = NEW_CRED. Rank decides for
 # editor lines too (Stokes' line is an editor line; Ahneman, #124, still keeps ~45%).
 RANK_CRED_TOP=float(os.environ.get("RANK_CRED_TOP","0.92")); RANK_SPAN=float(os.environ.get("RANK_SPAN","150"))
-def _cred_of(f):
+def _cred_of(f, nm=None):
     rk=f.get("rank")
     try: rk=float(rk)
     except (TypeError,ValueError): rk=None
-    if not rk or rk<1: return NEW_CRED
+    if not rk or rk<1:
+        # CI has no 247 file: the derived pedigree strength stands in for the rank
+        pd=(PED.get(_nk(nm)) or {}).get("ped") if nm else None
+        if pd is not None: return NEW_CRED+(RANK_CRED_TOP-NEW_CRED)*max(0.0,min(1.0,float(pd)))
+        return NEW_CRED
     return NEW_CRED+(RANK_CRED_TOP-NEW_CRED)*max(0.0,1.0-math.log(rk)/math.log(RANK_SPAN))
 _nsv=0
 for _sh,_fm in FRESH_FIT.items():
     _full=S2F.get(_sh.lower()) or _sh
     for _nm,_f in _fm.items():
-        _sv=_sv_of(_full,_f.get("r40"),_n(_f.get("mpg"),0),_f.get("ppg"),_cred_of(_f))
+        _sv=_sv_of(_full,_f.get("r40"),_n(_f.get("mpg"),0),_f.get("ppg"),_cred_of(_f,_nm))
         if _sv is not None: _f["sv"]=int(_sv); _f["pwa"]=round(_SV_WA[0],2); _nsv+=1   # pwa: projected Wins Added (Moneyball)
         # POTENTIAL for a ranked recruit: the same valuation at the minutes recruits of his rank historically
         # play (freshman_model mpg_by_rank) when the depth chart has him below it — the NIL market pays for the
@@ -2239,7 +2246,7 @@ for _sh,_fm in FRESH_FIT.items():
                 # scale his fitted points up to the rank minutes only when there is a real sample of them: at 0.7 mpg the
                 # fitted ppg is a rounded 0.2 and x36 it cut Cameron Williams' scoring ~40% (he rated below #22 Howard,
                 # owner Oct 15 2026). Under 6 mpg he is valued at his model scoring rate.
-                _svp=_sv_of(_full,_f.get("r40"),_mt,((_f.get("ppg") or 0)*_mt/_m0) if _m0>=6 else None,_cred_of(_f))
+                _svp=_sv_of(_full,_f.get("r40"),_mt,((_f.get("ppg") or 0)*_mt/_m0) if _m0>=6 else None,_cred_of(_f,_nm))
                 if _svp is not None: _f["svp"]=int(max(_sv,_svp)); _f["mpg_pot"]=round(_mt,1)
 # THE EDITOR'S LINE (owner, Oct 15 2026): a profile saved with _line (the exact line the editor showed) sets that
 # newcomer's points and per-40 rates, so his OVR values what the editor showed — not the generic freshman shape.
@@ -2256,13 +2263,13 @@ for _sh,_fm in FRESH_FIT.items():
                    "tpa":_n(_el.get("tpa"))*_k40,"fta":_n(_el.get("fta"))*_k40,"fg_pct":_n(_el.get("fg_pct")),"tp_pct":_n(_el.get("tp_pct")),"ft_pct":_n(_el.get("ft_pct"))}
         _f["r40e"]=_r40e
         _f["ppg"]=round(_n(_el.get("ppg"))*_m/_n(_el["mpg"],1),1); _f["editor_line"]=1; _ned+=1
-        _sv=_sv_of(S2F.get(_sh.lower()) or _sh,_r40e,_m,_f["ppg"],_cred_of(_f))
+        _sv=_sv_of(S2F.get(_sh.lower()) or _sh,_r40e,_m,_f["ppg"],_cred_of(_f,_nm))
         if _sv is not None: _f["sv"]=int(_sv)
         # an editor line saved at a few minutes is a rounded scrap (0.6 pts in 0.6 mpg = 40 pts/40): its RATES are noise, so
         # the rank-minutes potential keeps the model rates (svp from the first pass) unless the line has 6+ minutes behind
         # it (owner, Oct 20 2026: Bryson Howard 98 / Davion Adkins 99 NIL grades from 2-minute editor lines)
         if _sv is not None and _f.get("mpg_pot") and _n(_el["mpg"],0)>=6:
-            _svp=_sv_of(S2F.get(_sh.lower()) or _sh,_r40e,_f["mpg_pot"],None,_cred_of(_f))
+            _svp=_sv_of(S2F.get(_sh.lower()) or _sh,_r40e,_f["mpg_pot"],None,_cred_of(_f,_nm))
             _f["svp"]=int(max(_sv,_svp)) if _svp is not None else _f.get("svp")
         elif _f.get("svp") is not None and _sv is not None: _f["svp"]=int(max(_sv,_f["svp"]))
 print(f"editor lines: {_ned} newcomers valued on the line the editor showed",file=sys.stderr)
