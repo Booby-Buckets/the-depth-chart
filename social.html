@@ -310,7 +310,10 @@
   function pnk(n){ return String(n||'').toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b\.?/g,'').replace(/[^a-z]/g,''); }
   // last name + first initial: the school's roster spelling can differ from ours ("Marcis" vs "Marcus" Ponder)
   function lfn(n){ var w=String(n||'').replace(/\b(Jr|Sr|II|III|IV)\b\.?/gi,'').trim().split(/\s+/).filter(Boolean); return w.length>1?{l:pnk(w[w.length-1]),f:pnk(w[0]).charAt(0)}:null; }
+  // players whose only photo looks bad: no photo at all, the initials badge instead (owner, Oct 20 2026: "just make Stokes blank")
+  var NO_PHOTO={ tyranstokes:1 };
   async function shotFor(espn,name,team){
+    if(name&&NO_PHOTO[pnk(name)]) return null;
     var im=espn?await img(shotUrl(espn)):null; if(im||!name) return im;
     var SP=await schoolPhotos(), m=team?SP[tkey(team)]:null, u=m&&m[pnk(name)];
     if(!u&&m&&m._last){ var w=lfn(name), c=w?(m._last[w.l]||[]).filter(function(x){ return x.f===w.f; }):[]; if(c.length===1) u=c[0].u; }
@@ -342,6 +345,7 @@
   function initials(n){ var w=String(n||'').replace(/\b(Jr|Sr|II|III|IV)\b\.?/g,'').trim().split(/\s+/).filter(Boolean); return ((w[0]||'')[0]||'')+((w.length>1?w[w.length-1]:'')[0]||''); }
   // no photo anywhere: a team-coloured ring with the player's initials, so the photo column never reads as a hole
   function drawNoShot(x,y,s,name,team){ var tc=tcol(team);
+    if(name&&NO_PHOTO[pnk(name)]){ ctx.save(); ctx.beginPath(); ctx.arc(x+s/2,y+s/2,s/2,0,Math.PI*2); ctx.fillStyle=P.chip; ctx.fill(); ctx.restore(); return; }   // blank by request: a plain circle
     ctx.save(); ctx.beginPath(); ctx.arc(x+s/2,y+s/2,s/2,0,Math.PI*2); ctx.fillStyle=P.chip; ctx.fill();
     ctx.lineWidth=Math.max(1.5,s*.05); ctx.strokeStyle=tc; ctx.beginPath(); ctx.arc(x+s/2,y+s/2,s/2-ctx.lineWidth/2,0,Math.PI*2); ctx.stroke(); ctx.restore();
     txt(initials(name).toUpperCase(),x+s/2,y+s/2,{ w:800,px:s*.36,serif:'cond',c:tc,al:'center' }); }
