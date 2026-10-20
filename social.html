@@ -873,22 +873,55 @@
     PMET.forEach(function(mm){ var vals=mm.last?mr.map(function(r){ var x=mm.f({ ms:r }); return x&&x.v; }):rows.map(function(r){ var x=mm.f({ L:r.L, p:r.p }); return x&&x.v; });
       dist[mm.k]=vals.filter(function(v){ return v!=null&&isFinite(v); }).sort(function(a,b){ return a-b; }); });
     PC_POOL={ dist:dist, ms:ms, genome:g }; return PC_POOL; }
+  // ── Player chart seasons (owner, Oct 20 2026: "filter different years so I can show last year, career or projected").
+  // Last season / career come from player_history (per-game box lines, the same shape as a projected line) and are ranked
+  // against every 2025-26 rotation player (15+ mpg); Wins Added from player_advanced (owa + dwa).
+  var PH_COLS='espn_id,season_year,team,ppg,rpg,apg,mpg,fgm,fga,fg_pct,tpm,tpa,tp_pct,ftm,fta,ft_pct,oreb,dreb,stl,blk,tovs,gp';
+  async function phGet(q){ var out=[]; for(var o=0;;o+=1000){ var r=await fetch(SB+'/rest/v1/'+q+'&limit=1000&offset='+o,{ headers:{ apikey:KEY } }); if(!r.ok) throw new Error('Couldn’t load player history'); var a=await r.json(); out=out.concat(a); if(a.length<1000) break; } return out; }
+  // per-game line from history rows: one season as is; several = games-weighted, shooting % rebuilt from makes / attempts
+  function phLine(rows){ if(!rows.length) return null; if(rows.length===1) return Object.assign({},rows[0]);
+    var G=0, S={}, K=['ppg','rpg','apg','mpg','fgm','fga','tpm','tpa','ftm','fta','oreb','dreb','stl','blk','tovs'];
+    rows.forEach(function(r){ var g=+r.gp||0; G+=g; K.forEach(function(k){ S[k]=(S[k]||0)+g*(+r[k]||0); }); });
+    if(!G) return null; var L={ gp:G }; K.forEach(function(k){ L[k]=S[k]/G; });
+    L.fg_pct=L.fga>0?100*L.fgm/L.fga:null; L.tp_pct=L.tpa>0?100*L.tpm/L.tpa:null; L.ft_pct=L.fta>0?100*L.ftm/L.fta:null; return L; }
+  var PH_POOL=null;
+  async function phPool(){ if(PH_POOL) return PH_POOL;
+    var rows=await phGet('player_history?season_year=eq.2026&mpg=gte.15&gp=gte.10&select='+PH_COLS+'&order=id.asc');
+    var wa={}; try{ (await adv26()).forEach(function(x){ if(x.espn&&x.wa!=='') wa[x.espn]=+x.wa; }); }catch(e){}
+    var dist={}; PMET.forEach(function(mm){ if(mm.last) return; dist[mm.k]=rows.map(function(r){ var L=Object.assign({},r,{ proj_wa:wa[r.espn_id] }); var x=mm.f({ L:L, p:{ espn_id:r.espn_id } }); return x&&x.v; })
+      .filter(function(v){ return v!=null&&isFinite(v); }).sort(function(a,b){ return a-b; }); });
+    PH_POOL={ dist:dist }; return PH_POOL; }
+  async function phPlayer(espn){
+    var rows=(await phGet('player_history?espn_id=eq.'+espn+'&select='+PH_COLS+'&order=season_year.asc')).filter(function(r){ return +r.gp>0; });
+    var adv=[]; try{ adv=await phGet('player_advanced?espn_id=eq.'+espn+'&select=season_year,owa,dwa&order=season_year.asc'); }catch(e){}
+    var wa={}; adv.forEach(function(a){ wa[a.season_year]=(+a.owa||0)+(+a.dwa||0); });
+    return { rows:rows, wa:wa }; }
   function pctOf(arr,v){ if(!arr.length||v==null||!isFinite(v)) return null; var lo=0, hi=arr.length; while(lo<hi){ var m=(lo+hi)>>1; if(arr[m]<v) lo=m+1; else hi=m; } return Math.round(100*lo/arr.length); }
   T.pcard={
     defaults:function(){ return { q:'', name:'', team:'', espn:null, meta:'', label:SEASON+' projection · percentile vs. rotation players', bars:[] }; },
     load:async function(d){
       await players(); var m=(d.q||'').split(' — '), p=findPlayer(m[0],m[1]); if(!p) throw new Error('Pick a player from the list.');
-      var L=TDCProjGrade.lineOf(p); if(!L) throw new Error('No projection for '+p.name+'.');
+      var span=d.span||'proj', L=null, dist=null, lbl='';
+      if(span==='proj'){ L=TDCProjGrade.lineOf(p); if(!L) throw new Error('No projection for '+p.name+'.'); lbl=SEASON+' projection · percentile vs. rotation players'; }
+      else { if(!p.espn_id) throw new Error(p.name+' has no college games on file yet (a freshman?). Use the projection.');
+        var H0=await phPlayer(p.espn_id), hp=await phPool(); dist=hp.dist;
+        if(span==='last'){ var last=H0.rows.filter(function(r){ return +r.season_year===2026; }); L=phLine(last); if(!L) throw new Error('No 2025-26 games for '+p.name+'.');
+          L.proj_wa=H0.wa[2026]; lbl='2025-26 season'+(last[0]&&last[0].team&&!onTeam(last[0].team,p.team)?' at '+school(last[0].team):'')+' · percentile vs. 2025-26 rotation players'; }
+        else { L=phLine(H0.rows); if(!L) throw new Error('No college games on file for '+p.name+'.');
+          var ys=Object.keys(H0.wa); L.proj_wa=ys.length?ys.reduce(function(a,y){ return a+H0.wa[y]; },0)/ys.length:null;
+          lbl='Career · '+H0.rows.length+' season'+(H0.rows.length>1?'s':'')+', '+L.gp+' games · percentile vs. 2025-26 rotation players'; } }
       var pp=await pcardPool(), on=d.mets||PMET_DEF, bars=[];
       PMET.forEach(function(mm){ if(on.indexOf(mm.k)<0) return; var x=mm.f({ L:L, p:p, ms:pp.ms[String(p.espn_id)], g:pp.genome[p.espn_id] }); if(!x||x.v==null||!isFinite(x.v)) return;
-        var pc=x.pct!=null?x.pct:pctOf(pp.dist[mm.k]||[],x.v); if(pc==null) return; bars.push({ name:mm.lab, val:String(pc), raw:x.raw||'' }); });
+        var pc=x.pct!=null?x.pct:pctOf((!mm.last&&dist?dist:pp.dist)[mm.k]||[],x.v); if(pc==null) return; bars.push({ name:mm.lab+(mm.k==='wa'&&span==='career'?' (per season)':''), val:String(pc), raw:x.raw||'' }); });
+      d.label=lbl;
       Object.assign(d,{ q:d.q, name:p.name, team:p.team, espn:p.espn_id||null, meta:[school(p.team),p.position,p.class_year,p.height].filter(Boolean).join(' · '), bars:bars });
       if(on.some(function(k){ return (PMET.find(function(x){ return x.k===k; })||{}).last; })&&!d.note) d.note='Rim / self-created / points-per-shot / shot-making = last season (2025-26) shot data';
     },
     editor:function(d){
       return '<h3>Data</h3><label class="f">Player</label><input data-k="q" list="plList" value="'+esc(d.q)+'" placeholder="Start typing a name…">'+
+        '<label class="f">Season</label><select data-k="span">'+[['proj',SEASON+' projected'],['last','Last season (2025-26)'],['career','Career']].map(function(x){ return '<option value="'+x[0]+'"'+((d.span||'proj')===x[0]?' selected':'')+'>'+x[1]+'</option>'; }).join('')+'</select>'+
         '<div class="btns"><button class="b sm primary" data-act="load">Load player</button></div>'+
-        '<div class="hint">Percentiles vs. every projected rotation player (15+ mpg). Rim, self-created, points per shot, shot-making and creation are last season’s shot data (vs. players with 150+ shots).</div>'+
+        '<div class="hint">Projected: percentiles vs. every projected rotation player (15+ mpg). Last season / career: his real per-game line vs. every 2025-26 rotation player. Rim, self-created, points per shot, shot-making and creation are last season’s shot data (vs. players with 150+ shots).</div>'+
         '<label class="f">Stats on the chart (click to add / remove, in this order)</label>'+PGRP.map(function(g){ return '<div class="grp" style="margin-top:8px">'+g+'</div><div class="seg">'+PMET.filter(function(x){ return x.grp===g; }).map(function(x){ return '<button type="button" data-act="pmet" data-col="'+x.k+'" class="'+((d.mets||PMET_DEF).indexOf(x.k)>-1?'on':'')+'">'+x.lab+'</button>'; }).join('')+'</div>'; }).join('')+
         '<div class="btns"><button class="b sm" data-act="pmetall" type="button">All stats</button><button class="b sm" data-act="pmetdef" type="button">Default set</button></div>'+
         '<h3>Text</h3><div class="two"><div><label class="f">Name</label><input data-k="name" value="'+esc(d.name)+'"></div><div><label class="f">Team (logo)</label><input data-k="team" list="tmList" value="'+esc(d.team)+'"></div></div>'+
@@ -2765,7 +2798,7 @@
   document.addEventListener('toggle',function(e){ var el=e.target; if(el.classList&&el.classList.contains('sec')&&el.dataset.sec&&el.closest('#editor')){ (S.fold=S.fold||{})[el.dataset.sec]=el.open; save(); } },true);
   function syncControls(){ paintLib();
     $('size').value=S.size; $('theme').value=S.theme; $('shots').checked=S.shots; $('handle').value=S.handle; $('brandLogo').checked=S.brandLogo!==false; }
-  var AUTO={ rgrid:['team','n'], sched:['team'], shotchart:['team','player','who','season','style'], list:['src','stat','season'], posts:['key','team','conf','n','season','dir','pstat','tier','pcls','ret'], cards:['metric','season','who','minFga','n','conf','team','mix'], leaders:['metric','season','who','minFga','n','conf','team','mix'], heat:['metric','season','n','conf','team','mix'], lineups:['metric','season','minPoss','n','conf','team'], teams:['sort','n','conf'], depth:['team'], table:['src','stat','season','team','conf','n','mix'], money:['mode','n','conf','team'], crunch:['dir','who','n','min','conf','team','sort'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf','team'], after:['season','team','conf'], confodds:['conf','n'], nil:['mode','n','minMpg','conf','team'] };   // charts whose rows come from a load
+  var AUTO={ pcard:['span'], rgrid:['team','n'], sched:['team'], shotchart:['team','player','who','season','style'], list:['src','stat','season'], posts:['key','team','conf','n','season','dir','pstat','tier','pcls','ret'], cards:['metric','season','who','minFga','n','conf','team','mix'], leaders:['metric','season','who','minFga','n','conf','team','mix'], heat:['metric','season','n','conf','team','mix'], lineups:['metric','season','minPoss','n','conf','team'], teams:['sort','n','conf'], depth:['team'], table:['src','stat','season','team','conf','n','mix'], money:['mode','n','conf','team'], crunch:['dir','who','n','min','conf','team','sort'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf','team'], after:['season','team','conf'], confodds:['conf','n'], nil:['mode','n','minMpg','conf','team'] };   // charts whose rows come from a load
   async function autoLoad(){ var d=doc(), R=d.rows||d.starters;   // depth charts keep their players in starters / bench
     if(AUTO[S.tpl]&&R&&(!R.length||(d._lv!==LOAD_VER&&!d._edited))&&(R.length||!d.starters||d.team)){ try{ await T[S.tpl].load(d); stamp(d); save(); paintEditor(); }catch(e){ status(e.message,true); } } }
   $('tplSeg').addEventListener('click',async function(e){ var b=e.target.closest('button[data-v]'); if(!b) return; S.tpl=b.dataset.v; S.page=0;
