@@ -958,6 +958,7 @@ def cb_weight(gp):
         if gp<=g1: return w0+(w1-w0)*(gp-g0)/(g1-g0)
     return 1.0
 CAREER_BLEND={}
+CB_TEAM={}   # espn -> the school his blended line mostly comes from, when that's an earlier season elsewhere
 if os.environ.get("CAREER_BLEND","1")!="0":
     for _c in ("g","min","usg_pct","owa","dwa","ti40"): advByEspn[_c]=pd.to_numeric(advByEspn[_c],errors="coerce").astype(float)
     for _c in box.columns: box[_c]=pd.to_numeric(box[_c],errors="coerce").astype(float)
@@ -1005,6 +1006,10 @@ if os.environ.get("CAREER_BLEND","1")!="0":
                 if _pa_r.get(_k) is not None: advByEspn.at[_e,_k]=_w*_n(_a[_k])+(1-_w)*float(_pa_r[_k])
             advByEspn.at[_e,"min"]=_bmin; advByEspn.at[_e,"g"]=_g
         CAREER_BLEND[str(_e)]={"w":round(_w,2),"gp":_gp,"prior":_p["season_year"]}
+        # MOSTLY AN OLD SEASON AT ANOTHER SCHOOL (owner, Oct 20 2026: Jalen Jackson, 6 games at Butler, projected 19.8 ppg off
+        # his Purdue Fort Wayne line with no step-up discount because his latest team is Butler): when the line is mostly the
+        # prior season, its school is the one he is moving up FROM.
+        if _w<0.5 and _pa_r and _pa_r.get("team"): CB_TEAM[str(_e)]=_pa_r["team"]
     print("career blend: %d short seasons blended with a prior full season"%len(CAREER_BLEND),file=sys.stderr)
 
 BOX_IDS=set(int(x) for x in box.index)   # plain-int membership (Int64Index `in` is unreliable)
@@ -1026,6 +1031,15 @@ tcur["strength"]=W_TEAM*tcur["srs"]+(1.0-W_TEAM)*tcur["conf_srs"]
 top=tcur["strength"].quantile(SOS_REF_PCT)
 tcur["sos"]=(1.0-K_SOS*(1.0-tcur["strength"]/top)).clip(SOS_FLOOR,1.0)
 tconf=tcur.set_index("team")["conference"].to_dict()
+CONF_SRS=tcur.groupby("conference")["srs"].mean().to_dict()   # league strength, for the transfer scoring backstop
+# TRANSFER SCORING BACKSTOP (owner, Oct 20 2026: Duncomb / Jalen Jackson "projected too high as up-transfers"). Real 14+ ppg
+# scorers who changed schools 2014-2026 (n=446, player_history + team_seasons) kept
+#   ppg_next / ppg_last ~ 0.786 - 0.0094 x (team SRS jump) - 0.0064 x (conference average SRS jump)   (resid sd 0.25)
+# — Big South -> ACC or Horizon -> Big East keeps ~63%, not the 81-103% the usage model gave. A transfer's projected points
+# can't exceed his last ppg x (that keep + XF_KEEP_SLACK); attempts scale with them, so his value and overall follow.
+XF_KEEP_A=float(os.environ.get("XF_KEEP_A","0.786")); XF_KEEP_T=float(os.environ.get("XF_KEEP_T","-0.0094"))
+XF_KEEP_C=float(os.environ.get("XF_KEEP_C","-0.0064")); XF_KEEP_SLACK=float(os.environ.get("XF_KEEP_SLACK","0.08"))
+XF_KEEP_MIN_PPG=float(os.environ.get("XF_KEEP_MIN_PPG","12"))
 tsos=tcur.set_index("team")["sos"].to_dict()
 tsrs=tcur.set_index("team")["srs"].to_dict()      # raw TEAM QUALITY (point margin), not schedule
 def srs_of(full_team):
@@ -1455,7 +1469,7 @@ for short, roster in roster_by_team.items():
         # from the fill instead, and the owner's own is_addition flag is the transfer signal.
         # Without this he would read as a returner and collect no level discount at all.
         _fi=FILL.get(str(e))
-        _lt=str((a["team"] if a is not None else "") or (_fi or {}).get("last_team") or "").lower().strip()
+        _lt=str(CB_TEAM.get(str(e)) or (a["team"] if a is not None else "") or (_fi or {}).get("last_team") or "").lower().strip()
         _cf=str(full).lower().strip(); _cs=str(short).lower().strip()
         _ret=(bool(_lt) and (_lt==_cf or _lt.startswith(_cf+" "))) if _cf!=_cs else (bool(_lt) and _lt.startswith(_cs))
         # Where a last school is known it decides the question outright — it is a fact, not a
@@ -1492,7 +1506,7 @@ for short, roster in roster_by_team.items():
         # high-volume, low-percentage one. ppg / (2·(FGA+0.44·FTA)); None when he barely shot.
         _shots=_n(b["fga"])+0.44*_n(b["fta"])
         _eff=(_n(b["ppg"])/(2.0*_shots)) if _shots>=2 else None
-        R.append(dict(e=e,p=p,b=b,a=a,last_mpg=last_mpg,pm=pm,xfer=_xfer,eff=_eff,trust=_trust,xstar=_xstar,
+        R.append(dict(e=e,p=p,b=b,a=a,last_mpg=last_mpg,pm=pm,xfer=_xfer,cb_team=CB_TEAM.get(str(e)),eff=_eff,trust=_trust,xstar=_xstar,
                       last_usg=_n(a["usg_pct"] if a is not None else (FILL.get(str(e)) or {}).get("usg_pct"),USG_REF) or USG_REF,
                       demo=demo_ovr.get(e,72)))
     if not R: continue
@@ -1533,7 +1547,7 @@ for short, roster in roster_by_team.items():
         p,b,e=r["p"],r["b"],r["e"]; pos=_pos(p.position)
         last_mpg=r["last_mpg"]; pm=min(MPG_MAX,r["pm"])
         # transfer? computed once in the roster loop (r["xfer"]); needs the old team for the discounts
-        demo_team_full=(r["a"].team if r["a"] is not None else (FILL.get(str(r["e"]),{}) or {}).get("last_team"))
+        demo_team_full=r.get("cb_team") or (r["a"].team if r["a"] is not None else (FILL.get(str(r["e"]),{}) or {}).get("last_team"))
         xfer = r["xfer"]
         if xfer:
             # A transfer's role is uncertain, so cap minutes at last year + a bump — BUT never below
@@ -1618,6 +1632,14 @@ for short, roster in roster_by_team.items():
                 _pts=dev_rate(_st,"pts",p40("ppg"))*(usg_ratio/max(_typ,0.5))**USG_PTS_EL*sc
                 _k=_pts/pts
                 fga*=_k; tpa*=_k; fta*=_k; fgm*=_k; tpm*=_k; ftm*=_k; pts=_pts
+            if xfer and _n(b["ppg"])>=XF_KEEP_MIN_PPG and pts>0 and XF_KEEP_SLACK<1:
+                _so=srs_of(demo_team_full); _sn=srs_of(full)
+                _co=CONF_SRS.get(tconf.get(demo_team_full)); _cn=CONF_SRS.get(tconf.get(full))
+                if _so is not None and _sn is not None and _co is not None and _cn is not None and (_sn>_so or _cn>_co):
+                    _keep=XF_KEEP_A+XF_KEEP_T*max(0.0,_sn-_so)+XF_KEEP_C*max(0.0,_cn-_co)
+                    _cap=_n(b["ppg"])*min(1.0,_keep+XF_KEEP_SLACK)
+                    if pts>_cap:
+                        _k=_cap/pts; fga*=_k; tpa*=_k; fta*=_k; fgm*=_k; tpm*=_k; ftm*=_k; pts=_cap; r["_xfcap"]=round(_k,3)
             pg=dict(mpg=pm,pts=pts,fga=fga,fgm=fgm,tpa=tpa,tpm=tpm,fta=fta,ftm=ftm,
                     oreb=oreb40*sc,dreb=dreb40*sc,ast=ast_tail(ast40*sc),stl=stl40*sc,blk=blk40*sc,tov=tov40*sc)
             rpg=pg["oreb"]+pg["dreb"]
@@ -1755,6 +1777,7 @@ for short, roster in roster_by_team.items():
             if r.get("_xfup"): out[str(e)]["xfer_up"]=1     # meaningful step UP in level
             if demo_team_full: out[str(e)]["xfer_from"]=demo_team_full
             if r.get("_xfdisc") is not None: out[str(e)]["_xfdisc"]=round(r["_xfdisc"],3)
+            if r.get("_xfcap") is not None: out[str(e)]["_xfcap"]=r["_xfcap"]
             if r.get("_scrim_w"): out[str(e)]["scrim_w"]=r["_scrim_w"]   # Reality-weighted scrimmage share of his rates
             if r.get("eff") is not None: out[str(e)]["_ts"]=round(r["eff"],3)
             _dt=demo_team_full or ""
