@@ -117,5 +117,33 @@ window.TDC_BILLING = (function () {
       '<div class="msg"></div>' +
       '<div class="note">Opens Stripe’s secure billing portal: cancel any time (you keep access to the end of the period), switch Premium ⇄ Pro or monthly ⇄ yearly, update your card, and download invoices. First purchases can be refunded within 14 days — <a href="refund.html" style="color:inherit;text-decoration:underline;">refund policy</a>.' + (plan === 'coach' ? ' Coach’s Tier is invoiced directly — email us for changes.' : '') + '</div></div>';
   }
+  // RETURN FROM STRIPE: each Payment Link's "After payment" redirect points at
+  // https://www.thedepthchartcbb.com/account.html?checkout=success — this banner confirms the payment and waits
+  // (up to ~90 s) for the webhook to unlock the plan, so a member never thinks it failed and pays again.
+  function returnBanner() {
+    var q; try { q = new URLSearchParams(location.search); } catch (e) { return; }
+    if (q.get('checkout') !== 'success') return;
+    try { var u = new URL(location.href); u.searchParams.delete('checkout'); history.replaceState(history.state, '', u.toString()); } catch (e) {}
+    var b = document.createElement('div');
+    b.style.cssText = 'position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:9999;max-width:min(560px,calc(100vw - 24px));background:var(--bg,#fff);color:var(--text,#111);border:1px solid var(--border2,#ccc);border-left:4px solid var(--accent,#A8843C);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.18);padding:14px 16px;font:600 14px/1.45 Inter,system-ui,sans-serif';
+    var set = function (html) { b.innerHTML = html + '<button aria-label="Close" style="position:absolute;top:6px;right:8px;border:0;background:none;font-size:18px;cursor:pointer;color:inherit;opacity:.5" onclick="this.parentNode.remove()">×</button>'; };
+    set('<b>Payment received — thank you!</b><br><span style="font-weight:500">Unlocking your plan… this usually takes a few seconds.</span>');
+    document.body.appendChild(b);
+    var s = sess(); if (!s || !s.user || !s.access_token) { set('<b>Payment received — thank you!</b><br><span style="font-weight:500">Sign in with your account and your plan will be there.</span>'); return; }
+    var tries = 0;
+    (function poll() {
+      freshPlan(s).then(function (plan) {
+        if (plan === 'premium' || plan === 'pro' || plan === 'coach') {
+          try { localStorage.removeItem(PENDING_KEY); } catch (e) {}
+          var nm = plan === 'coach' ? "Coach's Tier" : plan.charAt(0).toUpperCase() + plan.slice(1);
+          set('<b>✓ You’re ' + nm + ' — everything is unlocked.</b><br><span style="font-weight:500">Your receipt is in your email. <a href="#" onclick="location.reload();return false" style="color:inherit;text-decoration:underline">Refresh this page</a> to see it.</span>');
+          return;
+        }
+        if (++tries < 30) { setTimeout(poll, 3000); return; }
+        set('<b>Payment received.</b><br><span style="font-weight:500">Your plan hasn’t unlocked yet — please don’t pay again. Refresh in a minute; if it still says Free, <a href="' + SUPPORT + '%20(payment%20not%20unlocked)&body=' + encodeURIComponent('Account email: ' + (s.user.email || '') + '\nEmail I paid with: ') + '" style="color:inherit;text-decoration:underline">email us</a> and we’ll fix it the same day.</span>');
+      });
+    })();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', returnBanner); else returnBanner();
   return { manage: manage, panel: panel, link: link, checkout: checkout, LINKS: LINKS };
 })();
