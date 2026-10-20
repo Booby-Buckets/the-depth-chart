@@ -1753,6 +1753,9 @@
         var r=tRow(p); r.tag=r.cls||''; r._mpg=+r.mpg||0; rows.push(r); }); }
     var dist={}, rot=rows.filter(function(r){ return r._mpg>=15; }); HSTATS.forEach(function(x){ dist[x[0]]=quant(rot.map(function(r){ return r[x[0]]; })); });
     return (_sp[k]={ rows:rows, dist:dist }); }
+  // Player rankings filters: position group and class (blank = everyone)
+  function prPosOk(r,g){ return !g||grpOf(r.pos)===g; }
+  function prClsOk(r,c){ if(!c) return true; var x=String(r.cls||'').replace(/^R-/,''); return x.indexOf(c)===0; }
   T.heat={
     ownBrand:true,
     defaults:function(){ return { metric:'wa', season:'2027', n:10, conf:'', team:'', mix:false, shots:true, cols:['ppg','rpg','apg','ts'], title:'', subtitle:'', lead:'', src:'', dist:{}, rows:[] }; },
@@ -1762,7 +1765,7 @@
       var M=HLEAD[d.metric], inv=HS[d.metric][6]; rs.forEach(function(t){ confOf[t.team]=confName(t.conf); });
       var cOf=function(t){ return confOf[t]||confOfFull(t); }, SP=await statPool(d.season), pool=SP.rows.filter(function(r){ return r._mpg>=15; });
       d.dist=SP.dist;
-      var sc=pool.filter(function(r){ return (!d.conf||cOf(r.team)===d.conf)&&onTeam(r.team,d.team)&&r[d.metric]!==''&&r[d.metric]!=null; }).sort(function(a,b){ return inv?(+a[d.metric])-(+b[d.metric]):(+b[d.metric])-(+a[d.metric]); });
+      var sc=pool.filter(function(r){ return (!d.conf||cOf(r.team)===d.conf)&&onTeam(r.team,d.team)&&r[d.metric]!==''&&r[d.metric]!=null&&prPosOk(r,d.pos)&&prClsOk(r,d.cls); }).sort(function(a,b){ return inv?(+a[d.metric])-(+b[d.metric]):(+b[d.metric])-(+a[d.metric]); });
       var PWR={ 'ACC':1, 'Big Ten':1, 'Big 12':1, 'SEC':1, 'Big East':1 }, cmp=function(a,b){ return inv?(+a[d.metric])-(+b[d.metric]):(+b[d.metric])-(+a[d.metric]); };
       if(d.mix&&!d.conf&&!d.team){ var hi=sc.filter(function(r){ return PWR[cOf(r.team)]; }), lo=sc.filter(function(r){ return !PWR[cOf(r.team)]; }); sc=hi.slice(0,Math.ceil(n/2)).concat(lo.slice(0,Math.floor(n/2))).sort(cmp); }
       d.rows=sc.slice(0,n).map(function(r){ var o={ name:r.name, team:r.team, espn:r.espn, tag:r.tag, val:r[d.metric], _v:+r[d.metric]*(inv?-1:1) }; HCOLS.forEach(function(c){ o[c[0]]=r[c[0]]; }); return o; });
@@ -1788,6 +1791,27 @@
       await rankTable(d,W,H,u,pad,y0,fTop,{ amber:true, leadLabel:d.lead||'', stops:HEAT_RAMP, cols:HCOLS.filter(function(c){ return (d.cols||[]).indexOf(c[0])>-1; }).map(function(c){ return { k:c[0], lab:c[1], inv:!!HS[c[0]][6] }; }) });
       return (d.title||'')+' ('+(String(d.season)==='2026'?'2025-26':SEASON)+')\n\n'+d.rows.slice(0,5).map(function(r,i){ return (i+1)+'. '+r.name+' ('+school(r.team)+') '+r.val+' '+(d.lead||''); }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB';
     }
+  };
+
+  // ── PLAYER RANKINGS (owner, Oct 20 2026: "a social graphic that ranks different players, like highest overall"):
+  // the heat table with the overall as its default lead stat, more rows, and position / class filters; the title
+  // names the group ("The 15 highest-rated freshman guards"). Any other stat can lead.
+  var PR_POS={ G:['guard','guards'], F:['forward','forwards'], C:['center','centers'] }, PR_CLS={ Fr:'freshman', So:'sophomore', Jr:'junior', Sr:'senior', Gr:'graduate' };
+  T.prank={
+    ownBrand:true,
+    defaults:function(){ return Object.assign(T.heat.defaults(),{ metric:'ovr', n:15, pos:'', cls:'', cols:['ppg','rpg','apg','ts'] }); },
+    load:async function(d){ await T.heat.load(d);
+      var who=(d.cls?PR_CLS[d.cls]+' ':'')+(d.pos?PR_POS[d.pos][1]:(d.cls?(d.cls==='Fr'?'freshmen':PR_CLS[d.cls]+'s'):'players'));
+      if(d.cls&&!d.pos) who=d.cls==='Fr'?'freshmen':PR_CLS[d.cls]+'s';
+      var lead={ ovr:'highest-rated', wa:'most valuable', ppg:'top-scoring', ti40:'most impactful' }[d.metric], n=d.rows.length, act=String(d.season)==='2026';
+      var where=d.team?school(d.team)+': ':d.conf?d.conf+': ':'';
+      d.title=where+(lead?'The '+n+' '+lead+' '+who:'Top '+n+' '+who+' · '+(HLEAD[d.metric]?HLEAD[d.metric][0]:''));
+      d.subtitle=(act?'2025-26 actual':SEASON+' projections')+(d.metric==='ovr'?' · The Depth Chart overall':' · '+(HLEAD[d.metric]?HLEAD[d.metric][3]:''));
+    },
+    editor:function(d){ var sel=function(k,opts){ return '<select data-k="'+k+'">'+opts.map(function(o){ return '<option value="'+o[0]+'"'+((d[k]||'')===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')+'</select>'; };
+      return T.heat.editor(d).replace('<h3>Data</h3>','<h3>Data</h3><div class="two"><div><label class="f">Position</label>'+sel('pos',[['','All positions'],['G','Guards'],['F','Forwards'],['C','Centers']])+'</div>'+
+        '<div><label class="f">Class</label>'+sel('cls',[['','All classes'],['Fr','Freshmen'],['So','Sophomores'],['Jr','Juniors'],['Sr','Seniors'],['Gr','Grad students']])+'</div></div>'); },
+    draw:function(d,W,H,u,pad){ return T.heat.draw(d,W,H,u,pad); }
   };
 
   // ── 4. LINEUPS: best five-man units (wowy_units_<season>.json, our play-by-play stints) — logo, five headshots, a value
@@ -2862,7 +2886,7 @@
   // ── controls ──
   // ── LIBRARY (Oct 2026 revamp): every template + every data post as its own entry, grouped and searchable ──
   var LIB=[
-    ['Simple tables',[['table','Table','The go-to: roster or stat leaders, yellow lead column'],['list','Ranked list','Numbered list with a value'],['heat','Heat table','Leaders with percentile colours'],['teams','Team table','Team rankings sheet'],['allconf','All-Conference','Projected all-league teams']]],
+    ['Simple tables',[['table','Table','The go-to: roster or stat leaders, yellow lead column'],['list','Ranked list','Numbered list with a value'],['prank','Player rankings','Rank players by overall or any stat; filter by position, class, conference'],['heat','Heat table','Leaders with percentile colours'],['teams','Team table','Team rankings sheet'],['allconf','All-Conference','Projected all-league teams']]],
     ['Charts',[['quad','Contender quadrant','Offense vs defense, every team plotted'],['genome','Shot Genome','Shot quality vs shot-making'],['money','Moneyball','What the transfer market misprices'],['crunch','Crunch time','Who takes over late in games'],['pcard','Player chart','One player\u2019s percentile profile'],['leaders','Percentile leaders','Top players by one stat'],['cards','Card grid','Player cards in a grid'],['onoff','On/Off swings','Biggest on/off impact'],['after','Shot value','What each shot zone is worth'],['nil','NIL value','Market value leaders']]],
     ['Odds',[['odds','POY odds','Award race odds'],['confodds','Conference odds','Title odds by league']]],
     ['Team pages',[['rgrid','Roster grid','Headshot grid: overall, logo and a stat line per player'],['sched','Schedule predictions','Every game: our line + win odds (multi-page)'],['shotchart','Shot chart','A team\u2019s real shot chart, offense + defense'],['move','Transfer move','A transfer at his new school: projection, team + fit'],['depth','Depth chart','A team\u2019s roster sheet'],['lineups','Lineups','Best five-man lineups'],['matchup','Matchup','Two teams side by side']]]
@@ -2893,7 +2917,7 @@
   document.addEventListener('toggle',function(e){ var el=e.target; if(el.classList&&el.classList.contains('sec')&&el.dataset.sec&&el.closest('#editor')){ (S.fold=S.fold||{})[el.dataset.sec]=el.open; save(); } },true);
   function syncControls(){ paintLib();
     $('size').value=S.size; $('theme').value=S.theme; $('shots').checked=S.shots; $('handle').value=S.handle; $('hidePl').value=S.hide||''; $('brandLogo').checked=S.brandLogo!==false; }
-  var AUTO={ pcard:['span'], rgrid:['team','n'], sched:['team'], shotchart:['team','player','who','season','style'], list:['src','stat','season'], posts:['key','team','conf','n','season','dir','pstat','tier','pcls','ret'], cards:['metric','season','who','minFga','n','conf','team','mix'], leaders:['metric','season','who','minFga','n','conf','team','mix'], heat:['metric','season','n','conf','team','mix'], lineups:['metric','season','minPoss','n','conf','team'], teams:['sort','n','conf'], depth:['team'], table:['src','stat','season','team','conf','n','mix'], money:['mode','n','conf','team'], crunch:['dir','who','n','min','conf','team','sort'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf','team'], after:['season','team','conf'], confodds:['conf','n'], nil:['mode','n','minMpg','conf','team'] };   // charts whose rows come from a load
+  var AUTO={ prank:['metric','season','n','conf','team','mix','pos','cls'], pcard:['span'], rgrid:['team','n'], sched:['team'], shotchart:['team','player','who','season','style'], list:['src','stat','season'], posts:['key','team','conf','n','season','dir','pstat','tier','pcls','ret'], cards:['metric','season','who','minFga','n','conf','team','mix'], leaders:['metric','season','who','minFga','n','conf','team','mix'], heat:['metric','season','n','conf','team','mix'], lineups:['metric','season','minPoss','n','conf','team'], teams:['sort','n','conf'], depth:['team'], table:['src','stat','season','team','conf','n','mix'], money:['mode','n','conf','team'], crunch:['dir','who','n','min','conf','team','sort'], odds:['scope','award','n'], onoff:['metric','season','dir','n','minOn','conf','team'], after:['season','team','conf'], confodds:['conf','n'], nil:['mode','n','minMpg','conf','team'] };   // charts whose rows come from a load
   async function autoLoad(){ var d=doc(), R=d.rows||d.starters;   // depth charts keep their players in starters / bench
     // Transfer move: a graphic loaded by an older version (before the with/without table, AdjO/AdjD…) reloads itself once
     // so the owner sees the current layout without pressing Load again (owner, Oct 20 2026: "it's not showing up")
