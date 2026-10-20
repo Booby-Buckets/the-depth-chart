@@ -5,6 +5,8 @@
  *   Win totals   every team's regular-season win line, over/under odds            (the same simulated seasons)
  *   Awards       National POY + each league's POY / DPOY / Freshman / Sixth Man    (award_odds.json)
  *
+ *   Markets      the same prices as prediction-market contracts (tdc-markets.js)
+ *
  * Every price is "fair": our probability turned into American odds with no vig. When the odds feed has a
  * book price (odds_futures.json, written by scripts/archive_live_odds.py) it sits beside ours, de-vigged,
  * with the edge = our % minus the book's %. The simulation (~4 s) runs once, the first time one of the
@@ -276,8 +278,8 @@
   }
 
   // ── tabs ───────────────────────────────────────────────────────────────────
-  var RENDER = { futures: renderFutures, conferences: renderConf, wins: renderWins, awards: renderAwards };
-  var TABS = ['games', 'props', 'futures', 'conferences', 'wins', 'awards', 'trends', 'tools'];
+  var RENDER = { futures: renderFutures, conferences: renderConf, wins: renderWins, awards: renderAwards, markets: function () { if (window.TDC_MK) TDC_MK.render(); } };
+  var TABS = ['games', 'markets', 'props', 'futures', 'conferences', 'wins', 'awards', 'trends', 'tools'];
   function show(tab, push) {
     if (TABS.indexOf(tab) < 0) tab = 'games';
     document.querySelectorAll('#blTabs [data-tab]').forEach(function (b) { var on = b.dataset.tab === tab; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
@@ -303,6 +305,8 @@
     var want = new URLSearchParams(location.search).get('tab') || (location.hash || '').replace('#', '');
     show(want || 'games', false);
   }
-  window.TDC_BL = { show: show, fair: fair, fairTxt: fairTxt, oddsTxt: oddsTxt };
+  // shared with tdc-markets.js (the Markets tab prices the same simulated seasons)
+  window.TDC_BL = { show: show, fair: fair, fairTxt: fairTxt, oddsTxt: oddsTxt, sim: runSim, ratings: loadRatings, book: loadBook,
+    rows: function () { return R.rows; }, logo: logo, short: short };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();
