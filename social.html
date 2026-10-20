@@ -830,7 +830,7 @@
     { k:'unp', grp:'Last season’s shots', last:1, lab:'Self-created buckets', f:function(c){ return c.ms&&c.ms.unp!=null?{ v:c.ms.unp, raw:f1(c.ms.unp)+'% unassisted' }:null; } },
     { k:'pps', grp:'Last season’s shots', last:1, lab:'Points per shot', f:function(c){ return c.ms&&c.ms.pps!=null?{ v:c.ms.pps, raw:(+c.ms.pps).toFixed(2)+' pts' }:null; } },
     { k:'sm', grp:'Last season’s shots', last:1, lab:'Shot-making (SM+)', f:function(c){ return c.g&&c.g.smPct!=null?{ v:c.g.smAdj, pct:c.g.smPct, raw:(c.g.smAdj>0?'+':'')+f1(c.g.smAdj)+' /100' }:null; } },
-    { k:'cr', grp:'Last season’s shots', last:1, lab:'Creation', f:function(c){ return c.g&&c.g.crPct!=null?{ v:c.g.crAdj, pct:c.g.crPct, raw:'' }:null; } },
+    { k:'cr', grp:'Last season’s shots', last:1, lab:'Creation', f:function(c){ return c.g&&c.g.crPct!=null?{ v:c.g.crAdj, pct:c.g.crPct, raw:Math.round(c.g.crAdj)+' pts created' }:null; } },   // the Shot Genome's Creation axis: expected points created for teammates
     { k:'wa', grp:'Overall', lab:'Wins Added', f:function(c){ var v=c.L.proj_wa!=null?c.L.proj_wa:c.L.pwa; return v!=null?{ v:+v, raw:f1(v)+' WA' }:null; } }
   ];
   // default: the original eleven + usage, FT%, rim finishing and self-created buckets
@@ -2252,10 +2252,9 @@
   // ── Roster grid (owner, Oct 20 2026: the Kalshi "26-27 Phoenix Suns" headshot grid, plus a baseline stat line and
   //    the player's overall opposite the logo). Team-colour field, circle headshots, logo top-right, OVR top-left,
   //    last name + three projected stats under each, a team pill bottom-left ──
-  var RG_STATS=[['ppg','PTS'],['rpg','REB'],['apg','AST'],['mpg','MIN'],['fg','FG%'],['tp','3P%'],['ts','TS%'],['stl','STL'],['blk','BLK']];
   T.rgrid={
     ownBrand:true,
-    defaults:function(){ return { team:'', n:12, gcols:'', stats:['ppg','rpg','apg'], pstats:false, ovr:true, shots:true, title:'', tstats:[], rows:[] }; },
+    defaults:function(){ return { team:'', n:12, gcols:'', ovr:true, shots:true, title:'', tstats:[], rows:[] }; },
     load:async function(d){
       if(!d.team){ status('Pick a team for its roster.'); return; }
       var ps=await players(), rs=await ratings(), n=Math.max(3,Math.min(18,+d.n||12));
@@ -2283,82 +2282,50 @@
         '<div><label class="f">Per row</label><select data-k="gcols"><option value="">Auto</option>'+[2,3,4,5,6].map(function(c){ return '<option'+(+d.gcols===c?' selected':'')+'>'+c+'</option>'; }).join('')+'</select></div></div>'+
         '<div class="btns"><button class="b sm primary" data-act="load">Load / refresh data</button></div>'+shotsChk(d)+
         '<label class="chk"><input type="checkbox" data-k="ovr"'+(d.ovr!==false?' checked':'')+'> Player overall (opposite the logo)</label>'+
-        '<label class="f">Look</label><select data-k="look">'+[['cards','Cards (light, team band)'],['clean','Clean (team colour, circles)'],['dark','Dark']].map(function(x){ return '<option value="'+x[0]+'"'+((d.look||'cards')===x[0]?' selected':'')+'>'+x[1]+'</option>'; }).join('')+'</select>'+
-        '<label class="f">Names</label><select data-k="nstyle"><option value="thin"'+(!d.nstyle||d.nstyle==='thin'?' selected':'')+'>Thin (Booker)</option><option value="light"'+(d.nstyle==='light'?' selected':'')+'>Extra thin</option><option value="bold"'+(d.nstyle==='bold'?' selected':'')+'>Bold condensed (BOOKER)</option></select>'+
-        '<label class="f">Background</label><select data-k="bgc"><option value=""'+(!d.bgc?' selected':'')+'>Auto (primary, or the dark team colour when the primary is light)</option><option value="primary"'+(d.bgc==='primary'?' selected':'')+'>Team primary colour</option><option value="dark"'+(d.bgc==='dark'?' selected':'')+'>Dark team colour</option></select>'+
-        '<label class="chk"><input type="checkbox" data-k="pstats"'+(d.pstats?' checked':'')+'> Player stat line under each name</label>'+
-        (d.pstats?'<label class="f">Stats under each name (pick up to 3)</label><div class="seg">'+RG_STATS.map(function(s){ return '<button type="button" data-act="rgst" data-col="'+s[0]+'" class="'+(st.indexOf(s[0])>-1?'on':'')+'">'+s[1]+'</button>'; }).join('')+'</div>':'')+
-        '<div class="hint">Projected 2026-27 lines, the same numbers as the team page.</div>'+
         '<h3>Text</h3><label class="f">Title</label><input data-k="title" value="'+esc(d.title)+'">'+
         '<h3>Team stats ('+(d.tstats||[]).length+')</h3>'+fieldsEditor(d.tstats||[],'tstats',[{k:'lab',ph:'Label',w:'minmax(0,1fr)'},{k:'val',ph:'Value',w:'80px'}])+'<div class="btns"><button class="b sm" data-act="add" data-path="tstats">+ Add stat</button></div>'+
         '<h3>Players ('+d.rows.length+')</h3>'+fieldsEditor(d.rows,'rows',[{k:'name',ph:'Player',list:'plList',w:'minmax(0,1.4fr)'},{k:'ovr',ph:'OVR',w:'46px'},{k:'ppg',ph:'PTS',w:'46px'},{k:'rpg',ph:'REB',w:'46px'},{k:'apg',ph:'AST',w:'46px'}])+
         '<div class="btns"><button class="b sm" data-act="add" data-path="rows">+ Add player</button></div>';
     },
     draw:async function(d,W,H,u,pad){
-      // three looks (owner, Oct 20: the first version read "messy and cheap"): every look keeps ONE logo (in the header),
-      // puts the overall in the name row, and shows every photo the same way
-      var look=d.look||'cards', base=window.tdcTeamColor&&tdcTeamColor(d.team)||{}, c1=base.c1||'#1d2b47', dk=bandColor(d.team), tcol0=lum(c1)>.42?dk:c1;
+      // the Clean look (owner's pick, Oct 20 2026, over Cards / Dark): team-colour field, one logo by the title, a
+      // circle photo per player with the name and "88 OVR" under it, the team's projected numbers in a plain strip
+      var base=window.tdcTeamColor&&tdcTeamColor(d.team)||{}, c1=base.c1||'#1d2b47', field=lum(c1)>.42?bandColor(d.team):c1;
+      var ink='#FFFFFF', mut='rgba(255,255,255,.72)', line='rgba(255,255,255,.22)', tile=mixHex(field,[255,255,255],.14);
       var rows=(d.rows||[]).filter(function(r){ return r.name; }), shots=d.shots!==false, n=rows.length;
       var lg=await img(logoUrl(d.team)); await Promise.all(rows.map(function(r){ return shots?shotFor(r.espn,r.name,r.team):null; }));
-      var TH={ cards:{ bg:'#F3F1EC', card:'#FFFFFF', tile:mixHex(tcol0,[255,255,255],.86), ink:'#15130F', mut:'#7A756B', line:'#E2DED5', acc:tcol0 },
-               clean:{ bg:tcol0, card:null, tile:mixHex(tcol0,[255,255,255],.14), ink:'#FFFFFF', mut:'rgba(255,255,255,.72)', line:'rgba(255,255,255,.22)', acc:'#FFFFFF' },
-               dark:{ bg:'#0E1015', card:'#171A21', tile:mixHex(tcol0,[23,26,33],.55), ink:'#F2F3F5', mut:'#8B92A0', line:'#262A33', acc:lum(c1)>.12?c1:mixHex(c1,[255,255,255],.45) } }[look]||{};
-      ctx.fillStyle=TH.bg; ctx.fillRect(0,0,W,H);
-      // header: cards = a team-colour band; clean / dark = title on the field. One logo, beside the title.
-      var hh=look==='cards'?pad*2.6:pad*2.2, tfs=(W>H*1.2?56:64)*u, title=String(d.title||'Roster').toUpperCase();
-      if(look==='cards'){ ctx.fillStyle=tcol0; ctx.fillRect(0,0,W,hh); }
-      var hInk=look==='cards'?'#FFFFFF':TH.ink, tw0=width(title,800,tfs,'cond')+title.length*1*u, ls=Math.min(hh*.62,88*u), gx=(W-(tw0+(lg?ls+20*u:0)))/2;
-      if(lg){ if(look!=='dark'){ ctx.beginPath(); ctx.arc(gx+ls/2,hh/2,ls/2,0,Math.PI*2); ctx.fillStyle='#FFFFFF'; ctx.fill(); drawFit(lg,gx+ls*.16,hh/2-ls*.34,ls*.68); } else drawFit(lg,gx,hh/2-ls/2,ls); }
-      txt(title,gx+(lg?ls+20*u:0),hh/2,{ w:800,px:tfs,serif:'cond',c:hInk,ls:1*u,max:W-pad*2-(lg?ls+20*u:0) });
-      if(!n){ txt('Pick a team on the left',W/2,H/2,{ px:30*u,c:TH.ink,al:'center' }); return ''; }
-      // footer: the team's projected numbers, plain (big value over a small label, hairline dividers)
+      ctx.fillStyle=field; ctx.fillRect(0,0,W,H);
+      var hh=pad*2.2, tfs=(W>H*1.2?56:64)*u, title=String(d.title||'Roster').toUpperCase(), tw0=width(title,800,tfs,'cond')+title.length*1*u, ls=Math.min(hh*.62,88*u), gx=(W-(tw0+(lg?ls+20*u:0)))/2;
+      if(lg){ ctx.beginPath(); ctx.arc(gx+ls/2,hh/2,ls/2,0,Math.PI*2); ctx.fillStyle='#FFFFFF'; ctx.fill(); drawFit(lg,gx+ls*.16,hh/2-ls*.34,ls*.68); }
+      txt(title,gx+(lg?ls+20*u:0),hh/2,{ w:800,px:tfs,serif:'cond',c:ink,ls:1*u,max:W-pad*2-(lg?ls+20*u:0) });
+      if(!n){ txt('Pick a team on the left',W/2,H/2,{ px:30*u,c:ink,al:'center' }); return ''; }
       var TS=(d.tstats||[]).filter(function(x){ return x&&(x.val||x.lab); }), fh=TS.length?118*u:60*u, fy0=H-fh-pad*.35;
-      // grid
-      var gap=look==='clean'?10*u:18*u, top=hh+(look==='cards'?pad*.55:pad*.2), aw=W-pad*2, ah=fy0-top-pad*.35, best=null;
-      for(var c=(+d.gcols||2);c<=(+d.gcols||6);c++){ var rr=Math.ceil(n/c), cw=(aw-gap*(c-1))/c, ch=(ah-gap*(rr-1))/rr, sc=Math.min(cw,ch/1.22); if(!best||sc>best.sc+.5) best={ c:c, r:rr, cw:cw, ch:Math.min(ch,cw*1.3), sc:sc }; }
-      var cw=best.cw, ch=best.ch, gh=best.r*ch+(best.r-1)*gap, gy=top+(ah-gh)/2, nameFs=Math.min(ch*(look==='clean'?.1:.085),cw*.13,34*u), ovFs=nameFs*1.18;
+      // grid: the column count with the biggest circles; rows share the height so the spacing stays even
+      var gap=10*u, top=hh+pad*.2, aw=W-pad*2, ah=fy0-top-pad*.35, best=null;
+      for(var c=(+d.gcols||2);c<=(+d.gcols||6);c++){ var rr=Math.ceil(n/c), cw=(aw-gap*(c-1))/c, ch=(ah-gap*(rr-1))/rr, sc=Math.min(cw,ch/1.22); if(!best||sc>best.sc+.5) best={ c:c, r:rr, cw:cw, ch:ch, sc:sc }; }
+      var cw=best.cw, ch=best.ch, R=Math.min(cw*.42,ch*.36), nameFs=Math.min(R*.36,34*u);
       for(var i=0;i<n;i++){ var r=rows[i], col=i%best.c, row=Math.floor(i/best.c), inRow=Math.min(best.c,n-row*best.c);
-        var x=pad+col*(cw+gap)+(best.c-inRow)*(cw+gap)/2, y=gy+row*(ch+gap), sh=shots?await shotFor(r.espn,r.name,r.team):null, espn=sh&&/espncdn/.test(sh.src||'');
-        var nameH=ch*.2, photoH=ch-nameH;
-        if(look==='clean'){
-          // a circle per player (Kalshi-style), photo inside; name + overall under it
-          var R=Math.min(cw*.42,photoH*.48), cx=x+cw/2, cy=y+photoH/2;
-          ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.fillStyle=TH.tile; ctx.fill(); ctx.clip();
-          if(espn) shotIn(sh,cx-R,cy-R*.9,R*2,R*1.9); else if(sh){ var s0=Math.max(2*R/sh.width,2*R/sh.height); ctx.drawImage(sh,cx-sh.width*s0/2,cy-R,sh.width*s0,sh.height*s0); } else if(lg){ ctx.globalAlpha=.3; drawFit(lg,cx-R*.5,cy-R*.5,R); ctx.globalAlpha=1; }
-          ctx.restore();
-        } else {
-          // a card: photo tile on top (rectangular photos fit it naturally), name + overall in the row below
-          ctx.save(); rrect(x,y,cw,ch,14*u); ctx.fillStyle=TH.card; ctx.fill(); if(look==='cards'){ ctx.lineWidth=Math.max(1,u); ctx.strokeStyle=TH.line; ctx.stroke(); } ctx.clip();
-          var px0=x+6*u, py0=y+6*u, pw=cw-12*u, ph=photoH-6*u;
-          rrect(px0,py0,pw,ph,10*u); ctx.fillStyle=TH.tile; ctx.fill(); ctx.save(); rrect(px0,py0,pw,ph,10*u); ctx.clip();
-          if(espn) shotIn(sh,px0,py0+ph*.06,pw,ph*.94);
-          else if(sh){ var s1=Math.max(pw/sh.width,ph/sh.height); ctx.drawImage(sh,px0+(pw-sh.width*s1)/2,py0-Math.max(0,(sh.height*s1-ph)*.15),sh.width*s1,sh.height*s1); }
-          else if(lg){ ctx.globalAlpha=.25; drawFit(lg,px0+pw*.25,py0+ph*.2,Math.min(pw,ph)*.5); ctx.globalAlpha=1; }
-          ctx.restore(); ctx.restore();
-        }
-        // name row: last name (thin) and the overall
-        var ny=y+photoH+nameH*.52, nm=String(r.name||'').trim().split(/\s+/).filter(function(w){ return !/^(jr\.?|sr\.?|ii|iii|iv|v)$/i.test(w); }).pop()||r.name;
-        if(look==='clean'){
-          txt(nm,x+cw/2,ny-nameFs*.25,{ w:600,px:nameFs,serif:'barlow',c:TH.ink,al:'center',max:cw-8*u });
-          if(d.ovr!==false&&r.ovr) txt(r.ovr+' OVR',x+cw/2,ny+nameFs*.85,{ w:700,px:nameFs*.62,serif:'barlow',c:TH.mut,al:'center',ls:1*u });
-        } else {
-          var ovw=d.ovr!==false&&r.ovr?width(r.ovr,800,ovFs,'cond')+8*u:0;
-          txt(nm,x+14*u,ny,{ w:600,px:nameFs,serif:'barlow',c:TH.ink,max:cw-28*u-ovw });
-          if(ovw){ txt(r.ovr,x+cw-14*u,ny,{ w:800,px:ovFs,serif:'cond',c:TH.acc,al:'right' }); }
-        }
+        var x=top+0, cx=pad+col*(cw+gap)+(best.c-inRow)*(cw+gap)/2+cw/2, blk=2*R+nameFs*2.6, cy=top+row*(ch+gap)+(ch-blk)/2+R;
+        var sh=shots?await shotFor(r.espn,r.name,r.team):null;
+        ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.fillStyle=tile; ctx.fill(); ctx.clip();
+        if(sh&&/espncdn/.test(sh.src||'')) shotIn(sh,cx-R,cy-R*.9,R*2,R*1.9);
+        else if(sh){ var s0=Math.max(2*R/sh.width,2*R/sh.height); ctx.drawImage(sh,cx-sh.width*s0/2,cy-R,sh.width*s0,sh.height*s0); }
+        else if(lg){ ctx.globalAlpha=.3; drawFit(lg,cx-R*.5,cy-R*.5,R); ctx.globalAlpha=1; }
+        ctx.restore();
+        var nm=String(r.name||'').trim().split(/\s+/).filter(function(w){ return !/^(jr\.?|sr\.?|ii|iii|iv|v)$/i.test(w); }).pop()||r.name, ny=cy+R+nameFs*1.05;
+        txt(nm,cx,ny,{ w:600,px:nameFs,serif:'barlow',c:ink,al:'center',max:cw-8*u });
+        if(d.ovr!==false&&r.ovr) txt(r.ovr+' OVR',cx,ny+nameFs*1.05,{ w:700,px:nameFs*.62,serif:'barlow',c:mut,al:'center',ls:1*u });
       }
-      // footer
       if(TS.length){ var fy=fy0+fh*.42, tw=(W-pad*2-150*u)/TS.length;
-        if(look==='cards'){ ctx.fillStyle=tcol0; ctx.fillRect(0,fy0-pad*.1,W,H-fy0+pad*.1); }
-        var fInk=look==='cards'?'#FFFFFF':TH.ink, fMut=look==='cards'?'rgba(255,255,255,.75)':TH.mut, fLine=look==='cards'?'rgba(255,255,255,.25)':TH.line;
         TS.forEach(function(s2,k){ var tx=pad+tw*(k+.5);
-          if(k){ ctx.fillStyle=fLine; ctx.fillRect(pad+tw*k,fy-26*u,Math.max(1,u),52*u); }
-          txt(String(s2.val||'—'),tx,fy-6*u,{ w:800,px:Math.min(44*u,tw*.34),serif:'cond',c:fInk,al:'center',max:tw-10*u });
-          txt(String(s2.lab||'').toUpperCase(),tx,fy+26*u,{ w:700,px:Math.min(16*u,tw*.12),serif:'barlow',c:fMut,al:'center',ls:1.3*u,max:tw-8*u }); });
+          if(k){ ctx.fillStyle=line; ctx.fillRect(pad+tw*k,fy-26*u,Math.max(1,u),52*u); }
+          txt(String(s2.val||'—'),tx,fy-6*u,{ w:800,px:Math.min(44*u,tw*.34),serif:'cond',c:ink,al:'center',max:tw-10*u });
+          txt(String(s2.lab||'').toUpperCase(),tx,fy+26*u,{ w:700,px:Math.min(16*u,tw*.12),serif:'barlow',c:mut,al:'center',ls:1.3*u,max:tw-8*u }); });
         var bs=brandSize(u)*.8; brandMark(W-pad-bs,fy-bs/2,bs); }
       else { var bs2=brandSize(u)*.8; brandMark(W-pad-bs2,H-pad*.4-bs2,bs2); }
       return school(d.team)+' '+SEASON+(TS.length?' · '+TS.map(function(x){ return x.val+' '+x.lab; }).join(' · '):'')+'\n\n'+rows.slice(0,5).map(function(r){ return r.name+(r.ovr?' ('+r.ovr+' OVR)':''); }).join('\n')+'\n\n'+SITE+'\n\n#CollegeBasketball #CBB';
     }
+
   };
 
   // ── Matchup ──
@@ -2458,7 +2425,6 @@
     if(act==='col'){ var cs=(d.cols||DSTATS_DEF).slice(), ci=cs.indexOf(b.dataset.col); if(ci>-1) cs.splice(ci,1); else cs.push(b.dataset.col); d.cols=DSTATS_ALL.map(function(x){ return x[0]; }).filter(function(k){ return cs.indexOf(k)>-1; }); }
     // column toggles on the sheet graphics, kept in their list's order
     if(act==='lcol'||act==='hcol'||act==='mcol'){ var L0=act==='lcol'?LCOLS:act==='hcol'?HCOLS:TMCOLS, c3=(d.cols||[]).slice(), i3=c3.indexOf(b.dataset.col); if(i3>-1) c3.splice(i3,1); else c3.push(b.dataset.col); d.cols=L0.map(function(x){ return x[0]; }).filter(function(k){ return c3.indexOf(k)>-1; }); }
-    if(act==='rgst'){ var rg=(d.stats||['ppg','rpg','apg']).slice(), ri=rg.indexOf(b.dataset.col); if(ri>-1) rg.splice(ri,1); else { rg.push(b.dataset.col); if(rg.length>3) rg.shift(); } d.stats=RG_STATS.map(function(x){ return x[0]; }).filter(function(k){ return rg.indexOf(k)>-1; }); }
     if(act==='scol'){ var sc=(d.cols&&d.cols.length?d.cols:['date','venue','line','win']).slice(), si=sc.indexOf(b.dataset.col); if(si>-1) sc.splice(si,1); else sc.push(b.dataset.col); d.cols=SCOLS.map(function(x){ return x[0]; }).filter(function(k){ return sc.indexOf(k)>-1; }); }
     if(act==='ssum'){ var sm=(d.sumKeys||['exp','range','pick','conf']).slice(), mi=sm.indexOf(b.dataset.col); if(mi>-1) sm.splice(mi,1); else sm.push(b.dataset.col); d.sumKeys=SSUM.map(function(x){ return x[0]; }).filter(function(k){ return sm.indexOf(k)>-1; }); }
     if(act==='pcol'){ var pc=(d.cols||[]).filter(function(c){ return c.k===b.dataset.col; })[0]; if(pc){ d.colOn=d.colOn||{}; d.colOn[pc.k]=postCols(d).indexOf(pc)<0; } }
