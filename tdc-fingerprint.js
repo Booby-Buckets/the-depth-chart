@@ -11,7 +11,7 @@
  * (the skills that separate players most first) and player strengths.
  */
 (function (g) {
-  var V = '3', SEASONS = [2026, 2025], cache = {};
+  var V = '4', SEASONS = [2026, 2025, 2024, 2023], cache = {};
   function load(y) {
     return cache[y] || (cache[y] = fetch('scripts/data/fingerprint/' + y + '.json?v=' + V)
       .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }));
@@ -50,6 +50,7 @@
     '.sheet.fp-tbl td.fp-g{text-align:left;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);background:var(--bg2)}' +
     '.fp-tbl tr.fp-sum td{font-weight:800}' +
     '.fp-tbl tr.fp-click{cursor:pointer}' +
+    '.fp-sl{display:inline-flex;align-items:center;gap:6px}.fp-sl input{width:90px;accent-color:var(--accent,#A8843C)}.fp-sl b{font-size:11px;min-width:20px;font-variant-numeric:tabular-nums}' +
     '.fp-tbl td.fp-viz{min-width:180px;width:34%}' +
     '.fp-track{position:relative;height:12px;border-radius:3px;background:var(--bg3,rgba(127,127,127,.12))}' +
     '.fp-fill{position:absolute;top:0;bottom:0;border-radius:3px}' +
@@ -202,5 +203,86 @@
       });
     });
   }
-  g.TDCFingerprint = { load: load, seasonsFor: seasonsFor, render: render, read: read, loadSplits: loadSplits, renderSplits: renderSplits, splitRows: splitRows, splitsRead: splitsRead, SEASONS: SEASONS };
+
+  // ── SKILL COMPS ─────────────────────────────────────────────────────────────────────────────────────────────
+  // Closest player-seasons across every fingerprint season, blending three distances in percentile space:
+  //   skills  the 15 skill percentiles, each weighted by how much that skill separates players (its impact spread)
+  //   impact  overall / offense / defense percentiles
+  //   role    position, possessions used, minutes, share of makes assisted, three-point rate (percentiles in-season)
+  // The owner slides the weights. A comp from an earlier season also shows what that player did the NEXT season,
+  // and the read averages it: where players with this fingerprint went.
+  var POSN = { G: 1, PG: 1, SG: 1.5, F: 3, SF: 2.5, PF: 3.5, C: 5, FC: 4, GF: 2 };
+  var rolePrep = {};
+  function prep(doc) {
+    if (rolePrep[doc.season]) return rolePrep[doc.season];
+    var q = Object.keys(doc.players).map(function (k) { return doc.players[k]; }).filter(function (r) { return r.q; });
+    var srt = function (f) { return q.map(f).filter(function (v) { return v != null && isFinite(v); }).sort(function (a, b) { return a - b; }); };
+    var S = { use: srt(function (r) { return r.use; }), mpg: srt(function (r) { return r.min / Math.max(1, r.g); }),
+      astd: srt(function (r) { return r.astd; }), tpar: srt(function (r) { return r.tpar; }) };
+    var pc = function (arr, v) { if (v == null || !arr.length) return 50; var lo = 0, hi = arr.length; while (lo < hi) { var m = (lo + hi) >> 1; if (arr[m] < v) lo = m + 1; else hi = m; } return 100 * lo / Math.max(1, arr.length - 1); };
+    var wsum = doc.skills.reduce(function (a, s) { return a + s.spread; }, 0);
+    return (rolePrep[doc.season] = { w: doc.skills.map(function (s) { return s.spread / wsum; }),
+      role: function (r) { return [((POSN[r.pos] || 3) - 1) * 25, pc(S.use, r.use), pc(S.mpg, r.min / Math.max(1, r.g)), pc(S.astd, r.astd), pc(S.tpar, r.tpar)]; } });
+  }
+  function comps(docs, espn, season, wts, n) {
+    var me = docs[season] && docs[season].players[String(espn)]; if (!me) return [];
+    var P0 = prep(docs[season]), myRole = P0.role(me);
+    var out = [];
+    Object.keys(docs).forEach(function (y) {
+      var d = docs[y], P = prep(d);
+      Object.keys(d.players).forEach(function (id) {
+        if (id === String(espn)) return;
+        var r = d.players[id]; if (!r.q) return;
+        var ds = 0; for (var i = 0; i < r.p.length; i++) ds += P0.w[i] * Math.abs(r.p[i] - me.p[i]);
+        var di = (Math.abs(r.tp - me.tp) + Math.abs(r.op - me.op) + Math.abs(r.dp - me.dp)) / 3;
+        var ro = P.role(r), dr = 0; for (var j = 0; j < 5; j++) dr += Math.abs(ro[j] - myRole[j]) / 5;
+        var W = wts[0] + wts[1] + wts[2] || 1, dist = (wts[0] * ds + wts[1] * di + wts[2] * dr) / W;
+        out.push({ id: id, y: +y, r: r, dist: dist });
+      });
+    });
+    out.sort(function (a, b) { return a.dist - b.dist; });
+    var seen = {}, top = [];
+    for (var k = 0; k < out.length && top.length < n; k++) { if (seen[out[k].id]) continue; seen[out[k].id] = 1; top.push(out[k]); }
+    top.forEach(function (c) { c.match = Math.max(0, Math.round(100 - 1.6 * c.dist)); var nx = docs[c.y + 1] && docs[c.y + 1].players[c.id]; c.next = nx && nx.q ? nx : null; });
+    return top;
+  }
+  function renderComps(host, espn, opt) {
+    opt = opt || {}; css();
+    if (!host) return Promise.resolve();
+    host.innerHTML = '<div class="dna-loading">Finding skill comps…</div>';
+    return Promise.all(SEASONS.map(load)).then(function (ds) {
+      var docs = {}; SEASONS.forEach(function (y, i) { if (ds[i]) docs[y] = ds[i]; });
+      var ys = SEASONS.filter(function (y) { return docs[y] && docs[y].players[String(espn)] && docs[y].players[String(espn)].q; });
+      if (!ys.length) { host.innerHTML = '<div class="dna-loading">Skill comps need a season with 250+ D-I minutes.</div>'; return; }
+      var st = { y: ys[0], w: [34, 33, 33] };
+      function draw() {
+        var wide = comps(docs, espn, st.y, st.w, 30), top = wide.slice(0, 10), me = docs[st.y].players[String(espn)];
+        var withNext = wide.filter(function (c) { return c.next; });   // the forecast reads the closest 30, not just the 10 shown
+        var avg = withNext.length ? withNext.reduce(function (a, c) { return a + (c.next.tot - c.r.tot); }, 0) / withNext.length : null;
+        var up = withNext.filter(function (c) { return c.next.tot > c.r.tot; }).length;
+        if (withNext.length < 3) avg = null;
+        var verdict = avg == null ? 'Closest skill fingerprints' : avg >= 1.5 ? 'Comps tend to take a step up' : avg <= -1.5 ? 'Comps tend to step back' : 'Comps tend to hold steady';
+        var sentence = 'Closest match: ' + top[0].r.n + ' (' + (top[0].y - 1) + '-' + String(top[0].y).slice(2) + ', ' + top[0].match + '% match).' +
+          (avg == null ? ' Too few of his closest comps have a following season in the data to say where this profile goes next.' : ' Of his 30 closest comps, ' + withNext.length + ' have a following season: '  + up + ' improved, and on average they moved ' + sgn(avg) + ' points per 100.');
+        var rows = top.map(function (c) {
+          var r = c.r, nx = c.next, ch = nx ? nx.tot - r.tot : null;
+          return '<tr><td class="l"><b>' + esc(r.n) + '</b></td><td>' + (c.y - 1) + '-' + String(c.y).slice(2) + '</td><td class="l dim">' + esc(r.t || '') + '</td><td class="dim">' + esc(r.pos || '') + '</td>' +
+            '<td class="' + (c.match >= 85 ? 'c4' : c.match >= 75 ? 'c3' : c.match >= 65 ? 'c2' : 'c1') + '"><b>' + c.match + '%</b></td><td>' + sgn(r.tot) + '</td>' +
+            '<td>' + (nx ? sgn(nx.tot) : '<span class="dim">—</span>') + '</td><td class="' + (ch == null ? '' : ch >= 2 ? 'c4' : ch >= 0.5 ? 'c3' : ch <= -2 ? 'c0' : ch <= -0.5 ? 'c1' : '') + '">' + (ch == null ? '' : sgn(ch)) + '</td>' +
+            '<td class="l dim">' + (nx && nx.t !== r.t ? 'moved to ' + esc(nx.t) : nx ? 'same school' : '') + '</td></tr>';
+        }).join('');
+        var sl = function (i, lab) { return '<label class="fp-sl"><span class="fp-lab">' + lab + '</span><input type="range" min="0" max="100" value="' + st.w[i] + '" data-fw="' + i + '"><b>' + st.w[i] + '</b></label>'; };
+        host.innerHTML = (opt.banner ? opt.banner(verdict, sentence) : '') +
+          '<div class="fp-bar">' + (ys.length > 1 ? '<span class="fp-lab">His season</span><select class="fp-sel" data-fc="y">' + ys.map(function (y) { return '<option value="' + y + '"' + (y === st.y ? ' selected' : '') + '>' + (y - 1) + '-' + String(y).slice(2) + '</option>'; }).join('') + '</select>' : '') +
+          sl(0, 'Skills') + sl(1, 'Impact') + sl(2, 'Role') + '</div>' +
+          '<div class="sheet-wrap" style="max-height:none"><table class="sheet dense fp-tbl"><thead><tr><th class="l">Player</th><th>Season</th><th class="l">School</th><th>Pos</th><th>Match</th><th title="Overall points per 100 that season">Pts/100</th><th title="The same player the following season">Next year</th><th>Change</th><th class="l"></th></tr></thead><tbody>' +
+          '<tr class="fp-sum"><td class="l">' + esc(me.n) + ' (him)</td><td>' + (st.y - 1) + '-' + String(st.y).slice(2) + '</td><td class="l dim">' + esc(me.t || '') + '</td><td class="dim">' + esc(me.pos || '') + '</td><td></td><td>' + sgn(me.tot) + '</td><td></td><td></td><td></td></tr>' +
+          rows + '</tbody></table></div>';
+        host.querySelectorAll('[data-fw]').forEach(function (el) { el.addEventListener('change', function () { st.w[+el.getAttribute('data-fw')] = +el.value; draw(); }); el.addEventListener('input', function () { el.nextElementSibling.textContent = el.value; }); });
+        var ysel = host.querySelector('[data-fc="y"]'); if (ysel) ysel.addEventListener('change', function () { st.y = +ysel.value; draw(); });
+      }
+      draw();
+    });
+  }
+  g.TDCFingerprint = { load: load, seasonsFor: seasonsFor, render: render, read: read, loadSplits: loadSplits, renderSplits: renderSplits, splitRows: splitRows, splitsRead: splitsRead, comps: comps, renderComps: renderComps, SEASONS: SEASONS };
 })(window);

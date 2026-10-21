@@ -5,7 +5,7 @@
 (function () {
   var SEASONS = [['2026', '2025-26'], ['2025', '2024-25']];
   async function doc(d, H) {
-    if (!window.TDCFingerprint) await H.needScript('tdc-fingerprint.js?v=4');
+    if (!window.TDCFingerprint) await H.needScript('tdc-fingerprint.js?v=5');
     var y = String(d.season || '2026'), D = await TDCFingerprint.load(+y);
     if (!D) throw new Error('No fingerprint for ' + y + ' yet.');
     return D;

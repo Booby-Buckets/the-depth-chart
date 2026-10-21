@@ -116,6 +116,10 @@
 <script src="tdc-livegame.js?v=4"></script>
 <script src="tdc-shotchart.js?v=33"></script>
 <script src="tdc-gameflow.js?v=11"></script>
+<script src="tdc-plays.js?v=1"></script>
+<script src="tdc-fingerprint.js?v=5"></script>
+<script src="tdc-credit.js?v=1"></script>
+<script src="tdc-recap.js?v=4"></script>
 <script>
 const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
 const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
@@ -283,7 +287,9 @@ async function load(afterLive){
         cell(vsExp!=null?Math.abs(vsExp).toFixed(1):'—','vs. expected',vsExp!=null?esc(shortNm(vsExp>=0?home:away))+' beat it':'&nbsp;')+
         cell(N(hs)+N(as_),'Total points',pace?(N(hs)+N(as_)>0?((N(hs)+N(as_))/pace/2*100).toFixed(0)+' per 100 poss.':''):'')+
         cell(pace?Math.round(pace):'—','Possessions',g&&g.neutral?'neutral site':esc(shortNm(home))+' home floor')+`</div>`; })();
-    c.innerHTML=header+strip+(read?`<p class="gm-read">${read}</p>`:'')+callout+order.map(t=>tableFor(t,byTeam[t],potgId,trFor(t))).join('');
+    c.innerHTML=header+strip+(read?`<p class="gm-read">${read}</p>`:'')+callout+'<div id="rcHost"></div>'+order.map(t=>tableFor(t,byTeam[t],potgId,trFor(t))).join('');
+    // our read of the game: where the edge came from, who beat his usual, the swing (tdc-recap.js; hides itself without PBP)
+    if(window.TDC_RECAP) TDC_RECAP.mount(document.getElementById('rcHost'),gid,{season:g&&g.season_year});
     shadeBoxes(c);
     // game flow + rotation (ESPN play-by-play; hides itself when ESPN has no PBP)
     if(window.TDC_GAMEFLOW){ const gf=document.createElement('div'); gf.id='gfHost'; c.appendChild(gf); TDC_GAMEFLOW.mount(gf,gid); }

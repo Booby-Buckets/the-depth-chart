@@ -106,6 +106,8 @@ def parse(s):
             if m > 0:
                 pid = str(a["athlete"]["id"]); mins[tid][pid] = m; names[pid] = a["athlete"].get("displayName")
                 if a.get("starter"): names.setdefault("_starters", {}).setdefault(tid, []).append(pid)
+                pos = ((a["athlete"].get("position") or {}).get("abbreviation") or "")
+                if pos: names.setdefault("_pos", {})[pid] = pos
     return teams, mins, names, s.get("plays") or []
 
 def tally(plays, teams, L, lineup=None):
@@ -115,6 +117,7 @@ def tally(plays, teams, L, lineup=None):
     other = {teams[0]: teams[1], teams[1]: teams[0]}
     rows = []          # (off_team, pid, skill, a, b, is_def)
     cnt = {t: defaultdict(float) for t in teams}
+    pc = defaultdict(lambda: defaultdict(float)); cnt["_p"] = pc     # per player: fga, fgm, astd (assisted makes), tpa, fta, tov
     last_miss = None   # ('fg'|'ft', team)
     last_foul = {}     # defending team -> (pid, clock)
     trip = None        # open FT trip
@@ -183,6 +186,7 @@ def tally(plays, teams, L, lineup=None):
             m = FT_OF.search(tx); k, n = (int(m.group(1)), int(m.group(2))) if m else (None, None)
             made = 1.0 if p.get("scoringPlay") else 0.0
             cnt[tid]["fta"] += 1; cnt[tid]["pts"] += made
+            if parts: pc[parts[0]]["fta"] += 1
             if "technical" in tl:   # a technical's shots are a bonus with no possession at stake
                 add((tid, parts[0] if parts else None, "ft", made - L["f"], 0.0, False)); continue
             if not trip:
@@ -199,6 +203,9 @@ def tally(plays, teams, L, lineup=None):
         if p.get("shootingPlay") and (p.get("pointsAttempted") or 0) in (2, 3):
             z = zone(p); sh = parts[0] if parts else None; pts = float(p["pointsAttempted"])
             cnt[tid]["fga"] += 1
+            if sh:
+                pc[sh]["fga"] += 1; pc[sh]["tpa"] += pts == 3
+                if p.get("scoringPlay"): pc[sh]["fgm"] += 1; pc[sh]["astd"] += (len(parts) > 1 and "assist" in tl)
             if p.get("scoringPlay"):
                 cnt[tid]["pts"] += pts; last_make = (tid, clock); last_miss = None
                 ast = parts[1] if (len(parts) > 1 and "assist" in tl) else None
@@ -225,6 +232,7 @@ def tally(plays, teams, L, lineup=None):
             continue
         if "Turnover" in ty:
             cnt[tid]["tov"] += 1; last_miss = None
+            if parts: pc[parts[0]]["tov"] += 1
             add((tid, parts[0] if parts else None, "tov", 0.0, -1.0, False))
             continue
         if ty == "Steal":
@@ -276,10 +284,14 @@ def main():
     lgO = sum(adjO.values()) / max(1, len(adjO)); lgD = sum(adjD.values()) / max(1, len(adjD))
 
     V = defaultdict(lambda: defaultdict(float))      # pid -> skill -> points
+    ST = defaultdict(lambda: defaultdict(float)); POS = {}
     P = defaultdict(float); M = defaultdict(float); TM = {}; NM = {}; GP = defaultdict(int)
     for teams, mins, names, plays in G:
         rows, cnt = tally(plays, teams, L)
         other = {teams[0]: teams[1], teams[1]: teams[0]}
+        for pid, c_ in cnt["_p"].items():
+            for k_, v_ in c_.items(): ST[pid][k_] += v_
+        POS.update(names.get("_pos") or {})
         for t in teams:
             o = other[t]
             B_off = B + ((adjD.get(o, lgD) - lgD) / 100.0 if o in d1 else 0.0)    # t's offense vs o's defense
@@ -304,7 +316,10 @@ def main():
     for pid, poss in P.items():
         if poss < 50 or TM.get(pid) not in d1: continue
         per = [round(100.0 * V[pid][k] / poss, 2) for k in keys]
-        players[pid] = {"n": NM.get(pid), "t": full.get(TM[pid]), "g": GP[pid], "min": round(M[pid]), "poss": round(poss), "v": per}
+        c_ = ST[pid]
+        players[pid] = {"n": NM.get(pid), "t": full.get(TM[pid]), "g": GP[pid], "min": round(M[pid]), "poss": round(poss), "v": per,
+                        "pos": POS.get(pid, ""), "use": round(100.0 * (c_["fga"] + 0.44 * c_["fta"] + c_["tov"]) / poss, 1),   # possessions used per 100
+                        "astd": round(c_["astd"] / c_["fgm"], 3) if c_["fgm"] else None, "tpar": round(c_["tpa"] / c_["fga"], 3) if c_["fga"] else None}
     pool = [p for p in players.values() if p["poss"] >= MIN_POSS]
     import bisect
     cols = list(zip(*[p["v"] for p in pool]))
