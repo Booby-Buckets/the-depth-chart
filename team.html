@@ -7501,7 +7501,7 @@ function _nilRosterChart(host, d, tcol, fmt, bmOf){
 }
 async function renderNil(){
   const host=document.getElementById('nilContent'); const tT=(typeof teamT!=='undefined')?teamT:null; if(!host||!tT) return;
-  if(!_nilData){ try{ _nilData=await fetch('nil-data.json?v=gradesync19').then(r=>r.json()); }catch(e){ host.innerHTML='<div style="padding:40px;color:var(--text3);">NIL data unavailable.</div>'; return; } }
+  if(!_nilData){ try{ _nilData=await fetch('nil-data.json?v=gradesync20').then(r=>r.json()); }catch(e){ host.innerHTML='<div style="padding:40px;color:var(--text3);">NIL data unavailable.</div>'; return; } }
   if(window.TDC_NIL&&TDC_NIL.dealsReady){ try{ await TDC_NIL.dealsReady; }catch(e){} }   // known real deals before pricing
   if(window.TDC_NIL&&TDC_NIL.pedigreeReady){ try{ await TDC_NIL.pedigreeReady; }catch(e){} }   // recruiting pedigree (folded into neutralValueOf)
   if(window.TDC_NIL&&TDC_NIL.defenseReady){ try{ await TDC_NIL.defenseReady; }catch(e){} }   // defensive/foul profile before pricing
@@ -7612,7 +7612,7 @@ async function renderNil(){
     const vd=(mktV!=null&&_NN&&_NN.marketVerdict)?_NN.marketVerdict(model,mktV,{grade:p.grade,mpg:p.mpg,tier:d.tier}):{tag:null};
     const vCell=vd.tag==='underrated'?'<td class="l"><span class="up">Underrated</span></td>':vd.tag==='overrated'?'<td class="l"><span class="dn">Overrated</span></td>':`<td class="l dim">${vd.tag==='fair'?'Fair':'—'}</td>`;
     const sal=_salBy[key];
-    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="rk">${_i+1}</td><td class="l nm"><a href="${href}">${_esc(p.name)}</a>${inj?' <span class="dim" style="font-size:10px">OUT</span>':''}</td><td class="l dim">${sal?(sal.acq==='transfer'?'Transfer':sal.acq==='freshman'?'Freshman':'Returner'):'—'}</td><td class="l dim">${_bm.pos||'—'}</td><td>${p.grade!=null?p.grade:'—'}</td><td>${Math.round(p.mpg||0)}</td>`
+    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="rk">${_i+1}</td><td class="l nm"><a href="${href}">${_esc(p.name)}</a>${inj?' <span class="dim" style="font-size:10px">OUT</span>':''}</td><td class="l dim">${sal?(sal.acq==='transfer'?'Transfer':sal.acq==='freshman'?'Freshman':'Returner'):'—'}</td><td class="l dim">${_bm.pos||'—'}</td><td>${(rp&&rp._projGrade!=null&&isFinite(rp._projGrade))?Math.round(rp._projGrade):(p.grade!=null?p.grade:'—')}</td><td>${Math.round(p.mpg||0)}</td>`
       +`<td class="l nv-w"><span class="nv-bar"><i style="width:${(w/_wMax*100).toFixed(1)}%;background:${_tcol}"></i></span><b>${fmt(w)}</b><em>${Math.round(w/_wTot*100)}%</em></td>`
       +(_PR?`<td>${sal?fmt(sal.salary):'—'}</td>`:'')+`<td class="dim"${inj?' style="text-decoration:line-through;"':''}>${mktV!=null?fmt(mktV):'—'}</td>${vCell}</tr>`; });
   html+=`</tbody></table></div>`;

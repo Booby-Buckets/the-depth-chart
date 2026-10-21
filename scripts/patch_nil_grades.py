@@ -152,14 +152,23 @@ for tn, t in nil.get("teams", {}).items():
         f = ft.get(p.get("name"))
         if not f: continue
         if f.get("rank"): p["rk"] = int(f["rank"])
-        if p.get("ngl") is not None: continue             # a returner already has his last season / career basis (re-price newcomers every run)
+        if p.get("ngl") is not None or p.get("lm") is not None: continue   # a returner already has his last season / career basis (re-price newcomers every run)
         if f.get("sv") is None: continue
-        # a ranked recruit buried on a preseason depth chart is priced at the role recruits of his rank
-        # historically play (svp / mpg_pot) — the market pays for the expected role
-        sv = f.get("svp") if f.get("svp") is not None else f["sv"]
-        mp = f.get("mpg_pot") if f.get("svp") is not None else (f.get("mpg") or p.get("mpg") or 0)
-        p["ng"] = int(sv); p["nm"] = round(float(mp), 1)
-        p["ngp"] = float(sv); p["ngw"] = [0.0, 0.0, 1.0]   # all projection: no last season / career yet
+        # PROJECTION + POTENTIAL, like a returner's last season + potential (owner, Oct 20 2026: "still projecting
+        # wrong for a lot of freshmen" — Duke's Cameron Williams, a 76 at 0.7 projected minutes, was priced as a 90 at
+        # 25 minutes, above Patrick Ngongba). ng = 60% his projected value at his projected minutes (sv) + 40% the
+        # value recruits of his rank reach at the role they usually earn (svp); nm = his projected minutes, but at
+        # least half that usual role — the market pays a ranked recruit for some of the role he is expected to grow into.
+        pm = float(f.get("mpg") or 0)
+        if f.get("svp") is not None:
+            ng = 0.6 * float(f["sv"]) + 0.4 * float(f["svp"])
+            mp = max(pm, 0.5 * float(f.get("mpg_pot") or 0))
+            w = [0.6, 0.0, 0.4]
+        else:
+            ng = float(f["sv"]); mp = pm or float(p.get("mpg") or 0); w = [1.0, 0.0, 0.0]
+        p["ng"] = int(round(ng)); p["nm"] = round(mp, 1)
+        p["ngl"] = None; p["ngp"] = float(f.get("svp") if f.get("svp") is not None else f["sv"]); p["ngw"] = w
+        if pm > 0: p["mpg"] = round(pm, 1)                # the board shows his projected minutes, not compute_nil's grade floor
         nf += 1
 print(f"NIL basis from the stat value for {nf} newcomers")
 json.dump(nil, open(path, "w"), separators=(",", ":"))
