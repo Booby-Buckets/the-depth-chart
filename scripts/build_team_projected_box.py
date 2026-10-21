@@ -79,6 +79,15 @@ FR_PROF = {}
 for _k, _v in _blob.items():
     if _k.startswith("tdc_fr:") and isinstance(_v, dict):
         _, _ft, _fn = _k.split(":", 2); FR_PROF[(_ft.strip(), _fn.strip().lower())] = _v
+# a null in minutes_overrides_<season>.json drops the editor's typed minutes (the depth chart sets them), as in
+# build_stat_overall_projected.py — UConn's Amosov kept 22.5 editor minutes from 11th on the chart (owner, Oct 20 2026)
+try:
+    for _ft, _pl0 in json.load(open(D / "minutes_overrides_2027.json")).items():
+        if _ft.startswith("_") or not isinstance(_pl0, dict): continue
+        for _fn, _mv in _pl0.items():
+            _kk = (_ft.strip(), _fn.strip().lower())
+            if _mv is None and _kk in FR_PROF: FR_PROF[_kk] = dict(FR_PROF[_kk], mpg=None)
+except FileNotFoundError: pass
 PL_BY_NAME = {(r["team"], (r.get("name") or "").strip().lower()): r for r in _pl}
 FR_ARCH = {
     'Lead Guard': {'apg': 1.22, 'ppg': 1.05, 'tovs': 1.1}, 'Floor General': {'apg': 1.32, 'ppg': 0.85, 'tovs': 1.15, 'tp_pct': 2, 'stl': 1.15},
