@@ -161,8 +161,13 @@ window.TDC_NIL = {
   // season's ppg), deliberately SIZE-FREE so it lowers low-scoring bigs without re-inflating them
   // the way the size premium did. Freshmen (ppg null) are neutral — recruiting hype carries them.
   N.MKT_PIVOT = 13; N.MKT_SLOPE = 0.026; N.MKT_LO = 0.78; N.MKT_HI = 1.18;
-  N.mktMult = function(ppg){ if(ppg==null||ppg===''||!isFinite(+ppg)) return 1;
-    return Math.max(N.MKT_LO, Math.min(N.MKT_HI, 1+N.MKT_SLOPE*((+ppg)-N.MKT_PIVOT))); };
+  N.mktMult = function(ppg,pos){ if(ppg==null||ppg===''||!isFinite(+ppg)) return 1;
+    var m=Math.max(N.MKT_LO, Math.min(N.MKT_HI, 1+N.MKT_SLOPE*((+ppg)-N.MKT_PIVOT)));
+    // centres aren't paid for scoring volume (rebounding, rim protection, size) — owner, Oct 20 2026: experienced backup
+    // bigs (Ivisic, Halaifonua, Carey, Handlogten) "would all get a little more": a centre takes half the low-scoring dock
+    var ps=(''+(pos||'')).toUpperCase().split('/')[0].trim();
+    if(m<1 && (ps==='C'||ps==='FC')) m=1-(1-m)*0.5;
+    return m; };
   // PRO / DRAFT UPSIDE — college NIL partly prices a player's pro ceiling (a collective bets on a
   // future star; a lottery pick is a bigger brand than an undersized senior). Proxy = height vs a
   // pro-VIABLE size for the position. DISCOUNT-ONLY (cap 1.0) so it never rewards size — it only
@@ -314,7 +319,7 @@ window.TDC_NIL = {
     var g=N.nilGradeOf(p), m=N.nilMpgOf(p);
     var mv=N.gradeValueNeutral(g,m,prem,p.cls,p.pos,p.wa);
     mv=isFinite(+mv)?+mv:(isFinite(v)?v:0);
-    mv=mv*N.unprovenMult(p)*N.draftBoost(p.rk,p.ppg)*N.defMultOf(p)*N.mktMult(p.ppg)*N.proMult(p.ht,p.pos)*N.injuryMultOf(p)*N.adjMultOf(p.name)*N.progMultOf(team);
+    mv=mv*N.unprovenMult(p)*N.draftBoost(p.rk,p.ppg)*N.defMultOf(p)*N.mktMult(p.ppg,p.pos)*N.proMult(p.ht,p.pos)*N.injuryMultOf(p)*N.adjMultOf(p.name)*N.progMultOf(team);
     return Math.max(N.floorOf(conf, p), mv); };   // × draft × defense × mkt × pro × injury × adjust × program, then the role-scaled conf floor
   // PROGRAM PAY SCALE (owner, Oct 20 2026: "the top is not high enough and the bottom isn't low enough"): rich programs
   // pay more for the same player. Roster COST = open-market worth x sqrt(program budget / a typical high-major's $12.8M),

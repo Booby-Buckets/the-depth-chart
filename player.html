@@ -17,7 +17,7 @@
   <script src="tdc-shotprofile.js?v=1s"></script>
   <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-statshift-player.js?v=2"></script>
-  <script src="tdc-nil.js?v=pay7"></script>
+  <script src="tdc-nil.js?v=pay8"></script>
   <script src="tdc-archetypes.js?v=7"></script>
   <script src="tdc-gate.js?v=4"></script>
   <script src="tdc-pos.js"></script>
@@ -6481,7 +6481,7 @@ function _nilLiveVal(N, p){
   if(typeof N.unprovenMult==='function') v*=N.unprovenMult(p);
   if(typeof N.draftBoost==='function') v*=N.draftBoost(p.rk, ppg);
   if(typeof N.defMultOf==='function'&&p.espn!=null) v*=N.defMultOf(p.espn);
-  if(typeof N.mktMult==='function') v*=N.mktMult(ppg);
+  if(typeof N.mktMult==='function') v*=N.mktMult(ppg, ps);
   if(typeof N.proMult==='function'&&ht!=null) v*=N.proMult(ht, ps);
   if(typeof N.adjMultOf==='function') v*=N.adjMultOf(p.name);
   if(typeof N.progMultOf==='function') v*=N.progMultOf(p.team);
@@ -6735,7 +6735,7 @@ async function renderNilPlayer(){
   const _wa=(row&&row.wa!=null&&isFinite(+row.wa))?+row.wa:null;   // owned production for the reality check (null = freshman/neutral)
   const _defM=(N.defMultOf)?N.defMultOf(player&&player.espn_id):1;   // defensive/foul dock (foul-prone / weak defender)
   const _ppgMkt=(row&&row.ppg!=null)?row.ppg:(player&&player.ppg!=null?player.ppg:null);   // last-yr scoring for marketability
-  const _mktM=(N.mktMult)?N.mktMult(_ppgMkt):1;   // marketability (scoring star-power, size-free)
+  const _mktM=(N.mktMult)?N.mktMult(_ppgMkt,pos):1;   // marketability (scoring star-power, size-free)
   const _proHt=(row&&row.ht!=null&&isFinite(+row.ht))?+row.ht:N.htIn(player&&player.height);
   const _proM=(N.proMult)?N.proMult(_proHt,pos):1;   // pro/draft upside (undersized-for-NBA dock)
   const _adj=(N.adjOf)?N.adjOf(player&&player.name):null;   // owner market adjustment (eligibility/market)
