@@ -253,6 +253,16 @@ window.TDC_NIL = {
   // Signal = his 247 composite RANK (nil-data rk, from fresh_fit), not an overall: full boost at #1, fading to
   // none by #12 (the old grade 83-94 window — the recruiting-band grade of a #12 recruit was ~83).
   N.DRAFT_MAX = 0.55; N.DRAFT_ONSET_RANK = 12;
+  // UNPROVEN NEWCOMERS (owner, Oct 20 2026: "how is Ahneman higher than Ivisic, Halaifonua... they are all older and have
+  // experience and minutes"): a player with no college line skips every stat-based dock (box-score coherence, scoring-volume
+  // market — together ~x0.6-0.7 for a typical experienced big), so "no evidence" priced as "no problems". A newcomer is
+  // discounted x0.60 at NIL grade 80 and below, easing to none at 88+ — elite prospects keep the hype price.
+  N.UNPROVEN_LO = 0.60; N.UNPROVEN_G0 = 80; N.UNPROVEN_G1 = 88;
+  // only for a newcomer projected into a real role (10+ mpg): a buried freshman is already priced down by the depth-chart
+  // blend in patch_nil_grades.py (92d574a0) and the role-scaled floor — no double discount
+  N.unprovenMult = function(p){ if(!p || p.walkon || p.ngl!=null || (p.ppg!=null && p.ppg!=='') || !(+p.mpg>=10)) return 1;
+    var g=N.nilGradeOf(p); if(g==null || !isFinite(+g)) return 1;
+    var x=Math.max(0, Math.min(1, (+g-N.UNPROVEN_G0)/(N.UNPROVEN_G1-N.UNPROVEN_G0))); return N.UNPROVEN_LO+(1-N.UNPROVEN_LO)*x; };
   N.draftBoost = function(rank,ppg){ if(ppg!=null&&ppg!=='') return 1; var r=+rank; if(!(r>0)) return 1;
     return 1 + N.DRAFT_MAX*Math.max(0,Math.min(1,Math.log(N.DRAFT_ONSET_RANK/r)/Math.log(N.DRAFT_ONSET_RANK))); };
   // ── PROGRAM NIL MARKET — programs pay differently (blue-bloods spend up; some spend below market;
@@ -304,7 +314,7 @@ window.TDC_NIL = {
     var g=N.nilGradeOf(p), m=N.nilMpgOf(p);
     var mv=N.gradeValueNeutral(g,m,prem,p.cls,p.pos,p.wa);
     mv=isFinite(+mv)?+mv:(isFinite(v)?v:0);
-    mv=mv*N.draftBoost(p.rk,p.ppg)*N.defMultOf(p)*N.mktMult(p.ppg)*N.proMult(p.ht,p.pos)*N.injuryMultOf(p)*N.adjMultOf(p.name)*N.progMultOf(team);
+    mv=mv*N.unprovenMult(p)*N.draftBoost(p.rk,p.ppg)*N.defMultOf(p)*N.mktMult(p.ppg)*N.proMult(p.ht,p.pos)*N.injuryMultOf(p)*N.adjMultOf(p.name)*N.progMultOf(team);
     return Math.max(N.floorOf(conf, p), mv); };   // × draft × defense × mkt × pro × injury × adjust × program, then the role-scaled conf floor
   // PROGRAM PAY SCALE (owner, Oct 20 2026: "the top is not high enough and the bottom isn't low enough"): rich programs
   // pay more for the same player. Roster COST = open-market worth x sqrt(program budget / a typical high-major's $12.8M),

@@ -17,7 +17,7 @@
   <script src="tdc-shotprofile.js?v=1s"></script>
   <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-statshift-player.js?v=2"></script>
-  <script src="tdc-nil.js?v=pay5"></script>
+  <script src="tdc-nil.js?v=pay7"></script>
   <script src="tdc-archetypes.js?v=7"></script>
   <script src="tdc-gate.js?v=4"></script>
   <script src="tdc-pos.js"></script>
@@ -6478,6 +6478,7 @@ function _nilLiveVal(N, p){
   var cls=p.cls||p.class_year||p.yr||'', ps=p.pos||'', ppg=(p.ppg!=null&&isFinite(+p.ppg))?+p.ppg:null;
   var wa=(p.wa!=null&&isFinite(+p.wa))?+p.wa:null, ht=(p.ht!=null&&isFinite(+p.ht))?+p.ht:null;
   var v=N.gradeValueNeutral(+g, (+mp>0?+mp:18), (+p.prem||1), cls, ps, wa);
+  if(typeof N.unprovenMult==='function') v*=N.unprovenMult(p);
   if(typeof N.draftBoost==='function') v*=N.draftBoost(p.rk, ppg);
   if(typeof N.defMultOf==='function'&&p.espn!=null) v*=N.defMultOf(p.espn);
   if(typeof N.mktMult==='function') v*=N.mktMult(ppg);
@@ -6745,7 +6746,7 @@ async function renderNilPlayer(){
   const _teamNm=(row&&row.team)||(player&&player.team);
   const _progM=(N.progMultOf)?N.progMultOf(_teamNm):1;   // program NIL market
   const _floorV=(N.floorOf)?N.floorOf(row&&row.conf, row):(N.progFloorOf)?N.progFloorOf(row&&row.conf):0;   // conference floor, scaled by projected role
-  let modelVal=N.gradeValueNeutral(grade,mpg,prem,cls,pos,_wa)*_draftM*_defM*_mktM*_proM*_injM*_adjM*_progM;   // grade-led open-market value (matches the board / team page)
+  let modelVal=N.gradeValueNeutral(grade,mpg,prem,cls,pos,_wa)*((N.unprovenMult&&row)?N.unprovenMult(row):1)*_draftM*_defM*_mktM*_proM*_injM*_adjM*_progM;   // grade-led open-market value (matches the board / team page)
   if(!walkon) modelVal=Math.max(_floorV, modelVal);
   const _tierModel=N.gradeValue(grade,mpg,nilTier,prem,cls,pos);   // tier-based, production only — ONLY for the tier-fair verdict (no pedigree)
   value=modelVal;   // headline is ALWAYS the model estimate — we never publish a reported real-deal salary
