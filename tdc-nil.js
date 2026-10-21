@@ -154,8 +154,11 @@ window.TDC_NIL = {
   N.BIGMIN_LO = 12; N.BIGMIN_HI = 22; N.BIGMIN_FLOOR = 0.80;
   N.bigMinFactor = function(pos, mpg){ var p=(''+(pos||'')).toUpperCase().split('/')[0].trim(); if(p!=='C'&&p!=='FC') return 1;
     var m=+mpg||0; return N.BIGMIN_FLOOR+(1-N.BIGMIN_FLOOR)*Math.max(0,Math.min(1,(m-N.BIGMIN_LO)/(N.BIGMIN_HI-N.BIGMIN_LO))); };
+  // centres' value (rim protection, screening, defensive rebounding) shows up thinly in box-score Wins Added, so a centre
+  // whose WA trails his grade takes half that dock (owner, Oct 20 2026: experienced backup bigs "still need more")
+  N.bigWaC = function(pos, c){ var ps=(''+(pos||'')).toUpperCase().split('/')[0].trim(); return (c<1 && (ps==='C'||ps==='FC')) ? 1-(1-c)*0.5 : c; };
   N.gradeValueNeutral = function(grade,mpg,prem,cls,pos,wa){ var b=N.neuGradeBase(grade); if(b<=0.002) return N.WALKON_VALUE;
-    return b*N.NEU_TOP*N.premAdj(prem)*N.neuMinFactor(N.estMpg(mpg,grade))*N.neuYouth(cls)*N.bigMult(pos,grade)*N.waCoherence(grade,wa)*N.bigMinFactor(pos,N.estMpg(mpg,grade)); };
+    return b*N.NEU_TOP*N.premAdj(prem)*N.neuMinFactor(N.estMpg(mpg,grade))*N.neuYouth(cls)*N.bigMult(pos,grade)*N.bigWaC(pos,N.waCoherence(grade,wa))*N.bigMinFactor(pos,N.estMpg(mpg,grade)); };
   // MARKETABILITY — NIL is a brand market, not just a talent market: a featured SCORER draws the
   // deals, a low-usage role player (however efficient) does not. Signal = scoring VOLUME (last
   // season's ppg), deliberately SIZE-FREE so it lowers low-scoring bigs without re-inflating them
