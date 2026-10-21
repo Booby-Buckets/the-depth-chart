@@ -31,6 +31,6 @@
     // every post file; loaded on first use of the Posts graphic
     FILES: ['shotzones','statshift','duos','passing','portal','continuity','freshmen','breakouts','archetypes','coaching',
             'schedules','bracket','teamdna','teamranks','programs','size','betting','plays','scrimmages','scrimplayers','scrimrtg','payrolls','fingerprint','gamerecap'],
-    loadAll: function(need){ return Promise.all(g.TDC_POSTS.FILES.map(function(f){ return need('js/posts/'+f+'.js?v=20').catch(function(){ return null; }); })); }
+    loadAll: function(need){ return Promise.all(g.TDC_POSTS.FILES.map(function(f){ return need('js/posts/'+f+'.js?v=21').catch(function(){ return null; }); })); }
   };
 })(window);

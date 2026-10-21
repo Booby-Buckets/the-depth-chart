@@ -79,8 +79,16 @@ def summary(gid):
 DIST = re.compile(r"(\d+)-foot")
 FT_OF = re.compile(r"free throw (\d) of (\d)", re.I)
 
-def zone(p):
-    if (p.get("pointsAttempted") or 0) == 3: return "three"
+def shot_value(p, tl, is_ft):
+    """2 or 3 for a field-goal attempt, else 0. Older feeds (2022-23) leave pointsAttempted at 0, so the value
+    comes from the text then ("Three Point Jumper")."""
+    if is_ft or not p.get("shootingPlay"): return 0
+    v = p.get("pointsAttempted") or 0
+    if v in (2, 3): return v
+    return 3 if "three point" in tl else 2
+
+def zone(p, pa=None):
+    if (pa or p.get("pointsAttempted") or 0) == 3: return "three"
     ty, tx = p["type"]["text"], p.get("text", "").lower()
     if ty == "TipShot" or "tip" in tx or "putback" in tx: return "put"
     if ty in ("DunkShot", "LayUpShot") or "layup" in tx or "dunk" in tx: return "rim"
@@ -200,8 +208,9 @@ def tally(plays, teams, L, lineup=None):
                 close_trip()
                 if last_miss_box[0]: last_miss, last_miss_box[0] = last_miss_box[0], None
             continue
-        if p.get("shootingPlay") and (p.get("pointsAttempted") or 0) in (2, 3):
-            z = zone(p); sh = parts[0] if parts else None; pts = float(p["pointsAttempted"])
+        pa = shot_value(p, tl, is_ft)
+        if pa:
+            z = zone(p, pa); sh = parts[0] if parts else None; pts = float(pa)
             cnt[tid]["fga"] += 1
             if sh:
                 pc[sh]["fga"] += 1; pc[sh]["tpa"] += pts == 3

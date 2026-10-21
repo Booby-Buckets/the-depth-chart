@@ -20,8 +20,8 @@
   var OFF = { rim: 1, put: 1, mid: 1, three: 1, ft: 1, self: 1, pass: 1, drawn: 1, tov: 1, oreb: 1 };
   var DIST = /(\d+)-foot/, FT_OF = /free throw (\d) of (\d)/i;
 
-  function zone(p) {
-    if ((p.pointsAttempted || 0) === 3) return 'three';
+  function zone(p, pa) {
+    if ((pa || p.pointsAttempted || 0) === 3) return 'three';
     var ty = p.type.text, tx = (p.text || '').toLowerCase();
     if (ty === 'TipShot' || tx.indexOf('tip') > -1 || tx.indexOf('putback') > -1) return 'put';
     if (ty === 'DunkShot' || ty === 'LayUpShot' || tx.indexOf('layup') > -1 || tx.indexOf('dunk') > -1) return 'rim';
@@ -82,8 +82,10 @@
         if (n != null && k >= n) { closeTrip(); if (missBox) { lastMiss = missBox; missBox = null; } }
         return;
       }
-      if (p.shootingPlay && (p.pointsAttempted === 2 || p.pointsAttempted === 3)) {
-        var z = zone(p), sh = parts[0] || null, pts = p.pointsAttempted;
+      // older feeds leave pointsAttempted at 0: then the value is in the text ("Three Point Jumper")
+      var pa = (!isFt && p.shootingPlay) ? ((p.pointsAttempted === 2 || p.pointsAttempted === 3) ? p.pointsAttempted : (tl.indexOf('three point') > -1 ? 3 : 2)) : 0;
+      if (pa) {
+        var z = zone(p, pa), sh = parts[0] || null, pts = pa;
         cnt[tid].fga++;
         if (p.scoringPlay) {
           cnt[tid].pts += pts; lastMake = tid + '#' + clock; lastMiss = null;
