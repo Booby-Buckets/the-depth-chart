@@ -17,7 +17,7 @@
   <script src="tdc-shotprofile.js?v=1s"></script>
   <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-statshift-player.js?v=2"></script>
-  <script src="tdc-nil.js?v=pay2"></script>
+  <script src="tdc-nil.js?v=pay4"></script>
   <script src="tdc-archetypes.js?v=7"></script>
   <script src="tdc-gate.js?v=4"></script>
   <script src="tdc-pos.js"></script>
@@ -6484,7 +6484,7 @@ function _nilLiveVal(N, p){
   if(typeof N.proMult==='function'&&ht!=null) v*=N.proMult(ht, ps);
   if(typeof N.adjMultOf==='function') v*=N.adjMultOf(p.name);
   if(typeof N.progMultOf==='function') v*=N.progMultOf(p.team);
-  if(typeof N.progFloorOf==='function') v=Math.max(N.progFloorOf(p.conf||''), v);
+  if(typeof N.floorOf==='function') v=Math.max(N.floorOf(p.conf||'', p), v); else if(typeof N.progFloorOf==='function') v=Math.max(N.progFloorOf(p.conf||''), v);
   return (isFinite(v)&&v>0)?v:null;
 }
 // Build the national NIL board once — all rotation players priced on the live model, sorted.
@@ -6718,7 +6718,7 @@ async function renderNilPlayer(){
   // season's real or the projected minutes (nil-data ng/nm, patch_nil_grades.py) — not the projection alone.
   // Only a player without that basis (a freshman, no college line) falls back to the projection below.
   const _nb=(row&&row.ng!=null&&isFinite(+row.ng))?row:null;
-  if(_nb){ grade=+_nb.ng; mpg=+_nb.nm; walkon=(N.gradeBase(grade)<=0.003); }
+  if(_nb){ grade=(N.nilGradeOf?+N.nilGradeOf(_nb):+_nb.ng); mpg=+_nb.nm; walkon=(N.gradeBase(grade)<=0.003); }
   if(!_nb) try{ if(window.TDCProjGrade&&TDCProjGrade.ready){ await TDCProjGrade.ready; }
     const _pr=(window.TDCProjGrade&&TDCProjGrade.projRowOf&&player&&player.espn_id!=null)?TDCProjGrade.projRowOf(player.espn_id):null;
     if(_pr&&_pr.mpg!=null&&isFinite(+_pr.mpg)&&+_pr.mpg>0) mpg=+_pr.mpg;
@@ -6744,7 +6744,7 @@ async function renderNilPlayer(){
   const _draftM=(N.draftBoost)?N.draftBoost(row&&row.rk,_ppgMkt):1;   // elite-freshman draft upside (247 rank, not the overall)
   const _teamNm=(row&&row.team)||(player&&player.team);
   const _progM=(N.progMultOf)?N.progMultOf(_teamNm):1;   // program NIL market
-  const _floorV=(N.progFloorOf)?N.progFloorOf(row&&row.conf):0;   // conference floor
+  const _floorV=(N.floorOf)?N.floorOf(row&&row.conf, row):(N.progFloorOf)?N.progFloorOf(row&&row.conf):0;   // conference floor, scaled by projected role
   let modelVal=N.gradeValueNeutral(grade,mpg,prem,cls,pos,_wa)*_draftM*_defM*_mktM*_proM*_injM*_adjM*_progM;   // grade-led open-market value (matches the board / team page)
   if(!walkon) modelVal=Math.max(_floorV, modelVal);
   const _tierModel=N.gradeValue(grade,mpg,nilTier,prem,cls,pos);   // tier-based, production only — ONLY for the tier-fair verdict (no pedigree)

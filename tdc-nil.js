@@ -272,7 +272,17 @@ window.TDC_NIL = {
   // publish a reported real-deal salary: baked "override" rows carry a hardcoded deal figure, so they
   // are recomputed from the model (grade × minutes × premium, tier-neutral) × recruiting pedigree —
   // the same as everyone else. Walk-ons keep their floor; the rest are rescaled off their tier.
-  N.nilGradeOf = function(p){ return (p&&p.ng!=null&&isFinite(+p.ng))?+p.ng:(p?p.grade:null); };
+  // a NEWCOMER's NIL basis is his projected stat value — but never above the overall he's shown at (owner, Oct 20 2026:
+  // Tommy Ahneman, R-Fr., NIL grade 85 off an editor line while his displayed overall is 80, priced above Logan Duncomb)
+  // ROLE-SCALED FLOOR (owner, Oct 20 2026: deep-bench players and low freshmen "did not get paid that much"): the
+  // conference minimum is for a rotation player; it scales down with projected minutes — full at 18+ mpg, 12% of it
+  // (~$48K in a $400K league) for a 0-4 mpg end-of-bench player. Uses the projected role, not the NIL minutes.
+  N.floorOf = function(conf, p){ var f=N.progFloorOf(conf); var m=p&&p.mpg!=null&&isFinite(+p.mpg)?+p.mpg:18;
+    return f*Math.max(0.12, Math.min(1, (m-4)/14)); };
+  N.nilGradeOf = function(p){ if(!p) return null; var ng=(p.ng!=null&&isFinite(+p.ng))?+p.ng:null, g=(p.grade!=null&&isFinite(+p.grade))?+p.grade:null;
+    if(ng==null) return g;
+    var newc = p.ngl==null && p.ppg==null;   // no last-season line: a newcomer priced on his projection
+    return (newc && g!=null) ? Math.min(ng, g) : ng; };
   N.nilMpgOf   = function(p){ return (p&&p.nm!=null&&isFinite(+p.nm))?+p.nm:(p?p.mpg:null); };
   N.neutralValueOf = function(p,tier){ if(!p) return 0;
     var dl=N.dealOf(p.name); if(dl!=null) return dl;      // (mechanism retained; nil-deals.json is empty by policy)
@@ -289,7 +299,7 @@ window.TDC_NIL = {
     var mv=N.gradeValueNeutral(g,m,prem,p.cls,p.pos,p.wa);
     mv=isFinite(+mv)?+mv:(isFinite(v)?v:0);
     mv=mv*N.draftBoost(p.rk,p.ppg)*N.defMultOf(p)*N.mktMult(p.ppg)*N.proMult(p.ht,p.pos)*N.injuryMultOf(p)*N.adjMultOf(p.name)*N.progMultOf(team);
-    return Math.max(N.progFloorOf(conf), mv); };   // × draft × defense × mkt × pro × injury × adjust × program, then conf floor
+    return Math.max(N.floorOf(conf, p), mv); };   // × draft × defense × mkt × pro × injury × adjust × program, then the role-scaled conf floor
   // PROGRAM PAY SCALE (owner, Oct 20 2026: "the top is not high enough and the bottom isn't low enough"): rich programs
   // pay more for the same player. Roster COST = open-market worth x sqrt(program budget / a typical high-major's $12.8M),
   // so a tier-2 roster costs ~1.5x its worth and a tier-7 one ~0.45x. Player values stay open-market; only roster totals.
