@@ -11,14 +11,27 @@
  * (the skills that separate players most first) and player strengths.
  */
 (function (g) {
-  var V = '5', SEASONS = [2026, 2025, 2024, 2023], cache = {};
+  var V = '7', SEASONS = [2026, 2025, 2024, 2023], SPLITS = [2026, 2025], cache = {};
+  // index.json (written by the builds) lists the seasons on file, so a season in progress appears once it is built
+  // and no page asks for a file that isn't there
+  var ready = fetch('scripts/data/fingerprint/index.json?t=' + Math.floor(Date.now() / 3.6e6))
+    .then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { if (j && j.seasons && j.seasons.length) { SEASONS = j.seasons; SPLITS = j.splits || []; } }).catch(function () {});
   function load(y) {
-    return cache[y] || (cache[y] = fetch('scripts/data/fingerprint/' + y + '.json?v=' + V)
-      .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }));
+    return ready.then(function () {
+      if (SEASONS.indexOf(+y) < 0) return null;
+      return cache[y] || (cache[y] = fetch('scripts/data/fingerprint/' + y + '.json?v=' + V)
+        .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }));
+    });
   }
+  // the seasons a player has a fingerprint for, newest first — except that a season where he is still short of the
+  // qualifying minutes (early in a season) goes after the latest season where he qualifies, so the default view is solid
   function seasonsFor(espn) {
-    return Promise.all(SEASONS.map(load)).then(function (ds) {
-      return SEASONS.filter(function (y, i) { return ds[i] && ds[i].players && ds[i].players[String(espn)]; });
+    return ready.then(function () { return Promise.all(SEASONS.map(load)); }).then(function (ds) {
+      var ys = SEASONS.filter(function (y, i) { return ds[i] && ds[i].players && ds[i].players[String(espn)]; });
+      var q = function (y) { return ds[SEASONS.indexOf(y)].players[String(espn)].q; };
+      var firstQ = ys.filter(q)[0];
+      if (firstQ && ys[0] !== firstQ) ys = [firstQ].concat(ys.filter(function (y) { return y !== firstQ; }));
+      return ys;
     });
   }
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
@@ -126,6 +139,7 @@
   // each side = [poss, off, def, total, 15 skills]; league[split] = the typical player's two sides (no poss)
   var scache = {};
   function loadSplits(y) {
+    if (SPLITS.indexOf(+y) < 0) return Promise.resolve(null);
     return scache[y] || (scache[y] = fetch('scripts/data/fingerprint/splits_' + y + '.json?v=' + V)
       .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }));
   }
@@ -250,7 +264,7 @@
     opt = opt || {}; css();
     if (!host) return Promise.resolve();
     host.innerHTML = '<div class="dna-loading">Finding skill comps…</div>';
-    return Promise.all(SEASONS.map(load)).then(function (ds) {
+    return ready.then(function () { return Promise.all(SEASONS.map(load)); }).then(function (ds) {
       var docs = {}; SEASONS.forEach(function (y, i) { if (ds[i]) docs[y] = ds[i]; });
       var ys = SEASONS.filter(function (y) { return docs[y] && docs[y].players[String(espn)] && docs[y].players[String(espn)].q; });
       if (!ys.length) { host.innerHTML = '<div class="dna-loading">Skill comps need a season with 250+ D-I minutes.</div>'; return; }

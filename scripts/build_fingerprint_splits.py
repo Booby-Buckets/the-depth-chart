@@ -31,7 +31,9 @@ OFF = F.OFF
 def main():
     y = int(sys.argv[1]) if len(sys.argv) > 1 else 2026
     t0 = time.time()
-    base = json.load(open(os.path.join(F.OUT, f"{y}.json")))
+    fp = os.path.join(F.OUT, f"{y}.json")
+    if not os.path.exists(fp): print(f"no fingerprint for {y} yet — splits skipped", file=sys.stderr); return
+    base = json.load(open(fp))
     B, L = base["B"], base["league"]
     ts = F.sb(f"team_seasons?season_year=eq.{y}&select=team,team_id,conference&order=team_id.asc")
     d1 = {str(t["team_id"]): t for t in ts if t.get("conference")}
@@ -40,10 +42,12 @@ def main():
     with ThreadPoolExecutor(8) as ex: S = list(ex.map(lambda g: F.summary(g["id"]), games))
     S = [s for s in S if s and s.get("plays")]
     full = {tid: t["team"] for tid, t in d1.items()}
-    adjO = {tid: dna[full[tid]]["adjO"] for tid in d1 if dna.get(full[tid], {}).get("adjO") is not None}
-    adjD = {tid: dna[full[tid]]["adjD"] for tid in d1 if dna.get(full[tid], {}).get("adjD") is not None}
+    rate = lambda t, k: (dna.get(full[t]) or {}).get("adj" + k[0]) if (dna.get(full[t]) or {}).get("adj" + k[0]) is not None else (dna.get(full[t]) or {}).get(k + "Rtg")
+    adjO = {tid: rate(tid, "O") for tid in d1 if rate(tid, "O") is not None}
+    adjD = {tid: rate(tid, "D") for tid in d1 if rate(tid, "D") is not None}
     lgO = sum(adjO.values()) / max(1, len(adjO)); lgD = sum(adjD.values()) / max(1, len(adjD))
-    net = sorted(((dna[full[t]].get("adjNet", -99), t) for t in d1 if full[t] in dna), reverse=True)
+    netOf = lambda t: (dna[full[t]].get("adjNet") if dna[full[t]].get("adjNet") is not None else dna[full[t]].get("net", -99))
+    net = sorted(((netOf(t), t) for t in d1 if full[t] in dna), reverse=True)
     top50 = {t for _, t in net[:50]}
 
     G = []
@@ -149,6 +153,7 @@ def main():
            "splits": [{"k": k, "a": a, "b": b} for k, a, b in SPLITS], "skills": KEYS,
            "cols": "poss, off, def, total, then the 15 skills (points per 100)", "league": league, "players": players}
     json.dump(doc, open(os.path.join(F.OUT, f"splits_{y}.json"), "w"), separators=(",", ":"))
+    F.write_index()
     print(f"splits {y}: {len(players)} players, {time.time() - t0:.0f}s", file=sys.stderr)
 
 if __name__ == "__main__":

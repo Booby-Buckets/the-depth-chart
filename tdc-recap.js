@@ -31,7 +31,7 @@
     // 2. players against their usual (the season fingerprint: total per 100 x tonight's possessions)
     var prev = docs.prev || fp;
     var pl = Object.keys(C.players).map(function (pid) {
-      var q = C.players[pid], r = prev.players[pid] || fp.players[pid], usual = r ? r.tot * q.poss / 100 : null;
+      var cur = fp.players[pid], q = C.players[pid], r = (cur && cur.q) ? cur : (prev.players[pid] || cur), usual = r ? r.tot * q.poss / 100 : null;
       return { pid: pid, name: C.names[pid], t: q.t, min: q.min, tot: q.tot, usual: usual, vs: usual == null ? null : q.tot - usual, sk: q.sk };
     }).filter(function (x) { return x.min > 0; });
     // 3. the swing: the winner's biggest win-probability gain inside six minutes of game time
@@ -97,10 +97,14 @@
     '.rc-swing{font-size:13px;color:var(--text2);line-height:1.5;margin:8px 0 0;padding:8px 12px;border-left:3px solid var(--accent,#A8843C);background:var(--bg2)}.rc-swing b{color:var(--text)}' +
     '@media(max-width:700px){.rc .rc-x{display:none}}' +
     '.rc-k{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accent,#A8843C);margin-right:6px}';
+  // fp = the game's own season (its B and league rates; "usual" when he qualifies), prev = the season before — a season
+  // in progress that isn't built yet falls back to the last finished one
   function docsFor(season) {
-    var y = Math.min(+season || 2026, 2026), L = window.TDCFingerprint;
+    var y = +season || 2026, L = window.TDCFingerprint;
     if (!L) return Promise.resolve(null);
-    return Promise.all([L.load(y), L.load(+season >= 2027 ? 2026 : y)]).then(function (x) { return x[0] ? { fp: x[0], prev: x[1] || x[0] } : null; });
+    return Promise.all([L.load(y), L.load(y - 1)]).then(function (x) {
+      var fp = x[0] || x[1]; return fp ? { fp: fp, prev: x[1] || fp } : null;
+    });
   }
   function mount(host, gid, opt) {
     opt = opt || {};

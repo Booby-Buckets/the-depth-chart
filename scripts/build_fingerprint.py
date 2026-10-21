@@ -30,7 +30,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.dirname(os.path.abspath(__file__)); D = os.path.join(HERE, "data")
-CACHE = os.path.join(D, "espn_pbp_cache"); OUT = os.path.join(D, "fingerprint")
+CACHE = os.path.join(D, "espn_pbp_cache"); OUT = os.environ.get("FP_OUT") or os.path.join(D, "fingerprint")   # FP_OUT / FP_LIMIT: dry runs
 SB = "https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/"
 KEY = re.search(r"sb_publishable_[A-Za-z0-9_-]+", open(os.path.join(HERE, "..", "player.html")).read()).group(0)
 SUM = "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/summary?event="
@@ -39,7 +39,8 @@ A_Z = {"rim": 0.40, "put": 0.10, "mid": 0.25, "three": 0.30}   # the passer's sh
 STEAL_SH, BLOCK_SH = 0.70, 0.50
 REB_SH = 0.70             # the rebounder's share of a rebound's value: box-outs and the shot's angle are team work (the rest of a
                           # defensive board goes to the five on the floor; the rest of an offensive one to nobody)
-MIN_POSS = 500            # percentile pool: ~250+ minutes
+MIN_POSS = 500            # percentile pool: ~250+ minutes (a season in progress scales it down — see qual_poss)
+MIN_GAMES = 200           # D-I games with play-by-play before a season is built at all
 SKILLS = [   # key, label, group
     ("rim", "Rim finishing", "Scoring"), ("put", "Putbacks", "Scoring"), ("mid", "Mid-range", "Scoring"),
     ("three", "Three-point shooting", "Scoring"), ("ft", "Free throws", "Scoring"),
@@ -250,6 +251,13 @@ def tally(plays, teams, L, lineup=None):
     close_trip()
     return (rows, cnt, ctxs) if lineup else (rows, cnt)
 
+def write_index():
+    """index.json = the seasons on file (fingerprint + splits), so the pages never ask for a season that isn't built"""
+    fs = os.listdir(OUT)
+    yrs = sorted((int(f[:4]) for f in fs if re.fullmatch(r"\d{4}\.json", f)), reverse=True)
+    spl = sorted((int(f[7:11]) for f in fs if re.fullmatch(r"splits_\d{4}\.json", f)), reverse=True)
+    json.dump({"seasons": yrs, "splits": spl}, open(os.path.join(OUT, "index.json"), "w"))
+
 def main():
     y = int(sys.argv[1]) if len(sys.argv) > 1 else 2026
     t0 = time.time()
@@ -258,9 +266,12 @@ def main():
     dna = (json.load(open(os.path.join(D, "team_dna.json"))).get(str(y)) or {}).get("teams") or {}
     games = [g for g in sb(f"games?season_year=eq.{y}&status=eq.STATUS_FINAL&select=id,home_id,away_id&order=id.asc")
              if str(g["home_id"]) in d1 or str(g["away_id"]) in d1]
+    if os.environ.get("FP_LIMIT"): games = games[:int(os.environ["FP_LIMIT"])]
     with ThreadPoolExecutor(8) as ex: S = list(ex.map(lambda g: summary(g["id"]), games))
     G = [x for x in (parse(s) for s in S if s and s.get("plays")) if x]
     print(f"{y}: {len(G)}/{len(games)} games with play-by-play", file=sys.stderr)
+    if len(G) < MIN_GAMES:   # an opening-week file would be all noise (and would become the pages' default season)
+        print(f"  fewer than {MIN_GAMES} games — {y} not built yet", file=sys.stderr); return
 
     # league constants from a first pass (counts are model-free)
     L0 = {"r": 0.3, "rf": 0.12, "f": 0.72}
@@ -288,8 +299,10 @@ def main():
 
     # schedule: each team's adjusted O and D (pts/100) vs the league average
     full = {tid: t["team"] for tid, t in d1.items()}
-    adjO = {tid: dna[full[tid]]["adjO"] for tid in d1 if full[tid] in dna and dna[full[tid]].get("adjO") is not None}
-    adjD = {tid: dna[full[tid]]["adjD"] for tid in d1 if full[tid] in dna and dna[full[tid]].get("adjD") is not None}
+    # opponent-adjusted ratings; a season in progress may only have our projected ORtg / DRtg yet
+    rate = lambda t, k: (dna.get(full[t]) or {}).get("adj" + k[0]) if (dna.get(full[t]) or {}).get("adj" + k[0]) is not None else (dna.get(full[t]) or {}).get(k + "Rtg")
+    adjO = {tid: rate(tid, "O") for tid in d1 if rate(tid, "O") is not None}
+    adjD = {tid: rate(tid, "D") for tid in d1 if rate(tid, "D") is not None}
     lgO = sum(adjO.values()) / max(1, len(adjO)); lgD = sum(adjD.values()) / max(1, len(adjD))
 
     V = defaultdict(lambda: defaultdict(float))      # pid -> skill -> points
@@ -329,7 +342,11 @@ def main():
         players[pid] = {"n": NM.get(pid), "t": full.get(TM[pid]), "g": GP[pid], "min": round(M[pid]), "poss": round(poss), "v": per,
                         "pos": POS.get(pid, ""), "use": round(100.0 * (c_["fga"] + 0.44 * c_["fta"] + c_["tov"]) / poss, 1),   # possessions used per 100
                         "astd": round(c_["astd"] / c_["fgm"], 3) if c_["fgm"] else None, "tpar": round(c_["tpa"] / c_["fga"], 3) if c_["fga"] else None}
-    pool = [p for p in players.values() if p["poss"] >= MIN_POSS]
+    # the percentile pool: MIN_POSS for a finished season; early in a season, the possessions of the 1,500th-most-used
+    # player (so there is always a real pool), never under 120
+    allposs = sorted((p["poss"] for p in players.values()), reverse=True)
+    qual_poss = MIN_POSS if (len(allposs) > 3000 and allposs[3000] >= MIN_POSS * 0.6) else max(120, min(MIN_POSS, allposs[min(1500, len(allposs) - 1)]))
+    pool = [p for p in players.values() if p["poss"] >= qual_poss]
     import bisect
     cols = list(zip(*[p["v"] for p in pool]))
     srt = [sorted(c) for c in cols]
@@ -341,15 +358,16 @@ def main():
         o = sum(p["v"][i] for i in range(len(keys)) if keys[i] in OFF); dd = sum(p["v"]) - o
         p["o"], p["d"], p["tot"] = round(o, 2), round(dd, 2), round(o + dd, 2)
         p["op"], p["dp"], p["tp"] = [round(100.0 * bisect.bisect_left(s, v) / max(1, len(s) - 1)) for s, v in zip(tots, (o, dd, o + dd))]
-        p["q"] = 1 if p["poss"] >= MIN_POSS else 0
+        p["q"] = 1 if p["poss"] >= qual_poss else 0
     q = lambda s, f: s[min(len(s) - 1, int(f * len(s)))]
     skills = [{"k": k, "label": lab, "group": g, "avg": round(avg[i], 2), "p10": round(q(srt[i], .1), 2), "p90": round(q(srt[i], .9), 2),
                "spread": round(q(srt[i], .9) - q(srt[i], .1), 2), "best": round(srt[i][-1], 2)} for i, (k, lab, g) in enumerate(SKILLS)]
     os.makedirs(OUT, exist_ok=True)
     doc = {"season": y, "built": time.strftime("%Y-%m-%d"), "B": round(B, 4), "league": {k: round(v, 4) for k, v in L.items()},
-           "min_poss": MIN_POSS, "pool": len(pool), "skills": skills,
+           "min_poss": qual_poss, "games": len(G), "pool": len(pool), "skills": skills,
            "totals": {k: round(sum(p[k] for p in pool) / len(pool), 2) for k in ("o", "d", "tot")}, "players": players}
     json.dump(doc, open(os.path.join(OUT, f"{y}.json"), "w"), separators=(",", ":"))
+    write_index()
     print(f"fingerprint {y}: {len(players)} players ({len(pool)} in the percentile pool), {time.time() - t0:.0f}s", file=sys.stderr)
 
 if __name__ == "__main__":
