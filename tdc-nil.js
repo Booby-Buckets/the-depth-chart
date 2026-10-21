@@ -148,8 +148,14 @@ window.TDC_NIL = {
     // low-major mis-classification; nil-data has since been rebuilt with the right conference factor, so
     // it double-counted — Big 12 returners averaged prem 2.33 vs SEC 1.57 and Murauskas priced at $7.1M.)
     return (p.prem!=null&&isFinite(+p.prem))?+p.prem:1; };
+  // LOW-MINUTE CENTERS (owner, Oct 20 2026: "lower it for low-minute centers but they should still be high"): a backup
+  // centre carries none of the stat docks a rotation player's line does, so he out-priced 30-mpg starters. Centres keep
+  // their full value at 22+ NIL minutes and taper to 80% of it at 12 and under — still well paid, just not a starter's price.
+  N.BIGMIN_LO = 12; N.BIGMIN_HI = 22; N.BIGMIN_FLOOR = 0.80;
+  N.bigMinFactor = function(pos, mpg){ var p=(''+(pos||'')).toUpperCase().split('/')[0].trim(); if(p!=='C'&&p!=='FC') return 1;
+    var m=+mpg||0; return N.BIGMIN_FLOOR+(1-N.BIGMIN_FLOOR)*Math.max(0,Math.min(1,(m-N.BIGMIN_LO)/(N.BIGMIN_HI-N.BIGMIN_LO))); };
   N.gradeValueNeutral = function(grade,mpg,prem,cls,pos,wa){ var b=N.neuGradeBase(grade); if(b<=0.002) return N.WALKON_VALUE;
-    return b*N.NEU_TOP*N.premAdj(prem)*N.neuMinFactor(N.estMpg(mpg,grade))*N.neuYouth(cls)*N.bigMult(pos,grade)*N.waCoherence(grade,wa); };
+    return b*N.NEU_TOP*N.premAdj(prem)*N.neuMinFactor(N.estMpg(mpg,grade))*N.neuYouth(cls)*N.bigMult(pos,grade)*N.waCoherence(grade,wa)*N.bigMinFactor(pos,N.estMpg(mpg,grade)); };
   // MARKETABILITY — NIL is a brand market, not just a talent market: a featured SCORER draws the
   // deals, a low-usage role player (however efficient) does not. Signal = scoring VOLUME (last
   // season's ppg), deliberately SIZE-FREE so it lowers low-scoring bigs without re-inflating them
