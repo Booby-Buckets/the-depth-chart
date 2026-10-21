@@ -22,7 +22,7 @@
   <script src="tdc-pool.js?v=5"></script>
   <script src="tdc-histguard.js?v=2"></script>
   <script src="tdc-proj.js?v=hg5"></script>
-  <script src="social-posts.js?v=15"></script>
+  <script src="social-posts.js?v=17"></script>
   <script src="bigboard-engine.js?v=32"></script>
   <style>
     :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;--accent-soft:rgba(168,132,60,.13);--green:#1a8c3a;--red:#cc2200;}
@@ -2086,7 +2086,7 @@
   };
   // ── POSTS (owner, Oct 15 2026): the 18 data posts from the "every chart we could post" list, one registry
   // (social-posts.js) + one file per post in js/posts/. Each load returns rows + columns; drawn with the shared sheet table.
-  function postHelpers(){ return { json:json, ratings:ratings, players:players, needScript:needScript, school:school, confName:confName, confOfFull:confOfFull,
+  function postHelpers(){ return { json:json, ratings:ratings, players:players, findPlayer:findPlayer, needScript:needScript, school:school, confName:confName, confOfFull:confOfFull,
     onTeam:onTeam, tkey:tkey, nowTeam:nowTeam, logoUrl:logoUrl, SEASON:SEASON,
     // conference level, same split as the NIL model (tdc-nil.js confClass): H = power five + Big East, M = A-10 / MWC / WCC /
     // American / MVC / C-USA / Sun Belt / MAC, L = everyone else
@@ -2125,6 +2125,8 @@
         // opts.stats = [[value,label],...]: a post-defined stat picker (d.pstat), e.g. which stat "vs our line" ranks by
         (o.stats?'<label class="f">'+esc(o.statsLabel||'Stat')+'</label><select data-k="pstat">'+o.stats.map(function(s2){ return '<option value="'+s2[0]+'"'+((d.pstat||o.stats[0][0])===s2[0]?' selected':'')+'>'+esc(s2[1])+'</option>'; }).join('')+'</select>':'')+
         // opts.cls: a class-year filter (d.pcls: Fr / RFr / So / Jr / Sr / Gr), e.g. the best freshman games
+        // opts.player: one player (d.player = 'Name — Team', from the roster list), e.g. a skill fingerprint
+        (o.player?(D.players?'':(players().then(function(){},function(){}),''))+'<label class="f">Player</label><input data-k="player" list="plList" value="'+esc(d.player||'')+'" placeholder="Start typing a name…">':'')+
         (o.cls?'<label class="f">Class</label><select data-k="pcls">'+[['','All classes'],['Fr','Freshmen'],['RFr','Redshirt freshmen'],['So','Sophomores'],['Jr','Juniors'],['Sr','Seniors'],['Gr','Grad students']].map(function(t){ return '<option value="'+t[0]+'"'+((d.pcls||'')===t[0]?' selected':'')+'>'+t[1]+'</option>'; }).join('')+'</select>':'')+
         (o.tier?'<label class="f">Level</label><select data-k="tier">'+[['','All of D-I'],['H','High major'],['M','Mid major'],['L','Low major']].map(function(t){ return '<option value="'+t[0]+'"'+((d.tier||'')===t[0]?' selected':'')+'>'+t[1]+'</option>'; }).join('')+'</select>':'')+
         (o.dir?'<label class="f">Show</label><select data-k="dir"><option value="up"'+(d.dir!=='down'?' selected':'')+'>'+esc(o.upLabel||'Most / best first')+'</option><option value="down"'+(d.dir==='down'?' selected':'')+'>'+esc(o.downLabel||'Least / worst first')+'</option></select>':'')+
@@ -2810,7 +2812,7 @@
   // LOAD_VER: bump whenever a chart's or post's loader changes what it puts in the rows (columns, order, maths). A saved
   // graphic loaded under an older version reloads on open — unless its rows were hand-edited — so a fix reaches the
   // owner without clicking "Load / refresh data" (Oct 2026: the scrimmage scoreboard kept the old Margin rows).
-  var LOAD_VER='2026-10-20r';
+  var LOAD_VER='2026-10-20s';
   function stamp(d){ if(d&&(Array.isArray(d.rows)||Array.isArray(d.starters))){ d.loadedAt=new Date().toISOString().slice(0,10); d._lv=LOAD_VER; d._edited=false; } }
   function paintEditor(){ var d=doc(), h=T[S.tpl].editor(d);
     if(d.loadedAt&&Array.isArray(d.rows)&&d.rows.length){ var age=Math.round((Date.now()-new Date(d.loadedAt+'T12:00:00'))/864e5);
