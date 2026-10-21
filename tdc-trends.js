@@ -29,6 +29,15 @@
       '.tr-big{font-family:"Playfair Display",serif;font-size:46px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;}' +
       '.tr-l{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:4px;}' +
       '.tr-t{font-size:16px;font-weight:800;}.tr-s{font-size:12.5px;color:var(--text3);line-height:1.55;max-width:640px;}' +
+      '.trt-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:2px 0 6px;}' +
+      '.trt-kpis>div{padding:11px 14px;border-right:1px solid var(--border);min-width:0;}.trt-kpis>div:last-child{border-right:0;}' +
+      '.trt-l{font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}' +
+      '.trt-v{font-family:"Playfair Display",serif;font-size:24px;font-weight:800;line-height:1.1;margin:3px 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}' +
+      '.trt-s{font-size:11px;font-weight:600;color:var(--text3);}' +
+      '.trt-mb{position:relative;display:inline-block;width:110px;height:9px;background:var(--bg2);border-radius:2px;vertical-align:middle;}.trt-mb i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;opacity:.8;}' +
+      '.trt-mb b{position:absolute;top:-3px;bottom:-3px;width:2.5px;margin-left:-1px;background:var(--text);border-radius:1px;}' +
+      '.trt-mn{margin-left:8px;font-size:12px;font-variant-numeric:tabular-nums;color:var(--text2);}' +
+      '@media(max-width:700px){.trt-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}.trt-kpis>div:nth-child(2){border-right:0;}.trt-kpis>div:nth-child(-n+2){border-bottom:1px solid var(--border);}.trt-v{font-size:20px;}.trt-mb{width:60px;}}' +
       '.tr-sec{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);margin:22px 0 8px;}' +
       '.tr-notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px;}' +
       '.tr-g{border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--bg2);}' +
@@ -54,7 +63,7 @@
       '.trl-car{display:inline-block;width:12px;color:var(--text3);transition:transform .15s;}tr.trl-g.open .trl-car{transform:rotate(90deg);}' +
       'table.trl tr.trl-proj td{color:var(--text2);}table.trl tr.trl-now td{border-top:2px solid var(--border2);font-weight:700;color:var(--text);}' +
       '.trl-dl{display:block;font-size:10.5px;font-weight:800;}.trl-tr{font-weight:800;}table.trl tr.trl-up td{color:var(--text3);}' +
-      'table.trl tr.trl-det>td{padding:0!important;background:var(--bg2);}.trl-dbox{padding:10px 12px 12px;white-space:normal;}' +
+      'table.trl tr.trl-det>td{padding:0!important;background:var(--bg2);}.trl-dbox{padding:10px 12px 12px;white-space:normal;text-align:left;}' +
       'table.trl-d{margin:0 0 4px;}table.trl-d tr.act td{font-weight:800;}table.trl-d tr.vs td{border-top:2px solid var(--border2);}' +
       '.tl-foot a{margin-left:auto;font-weight:700;color:var(--text2);text-decoration:none;}.tl-foot a:hover{color:var(--text);}' +
       '.tr-empty{padding:34px;text-align:center;color:var(--text3);border:1px dashed var(--border2);border-radius:12px;line-height:1.7;}';
@@ -363,12 +372,13 @@
           (mine.length ? '<br>Preseason: ' + mine.map(function (x) { var d = new Date(x.date + 'T12:00:00'); return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + (x.home === full ? 'vs ' + esc(short(x.away)) : '@ ' + esc(short(x.home))); }).join(' · ') : '') + '</div>';
         return;
       }
+      // ── LAYOUT (owner, Oct 20 2026: "too confusing, too much spread-out data"): one summary strip, ONE scrimmage log
+      // (each game opens to its starters, game flow, shot diet and team line), ONE player sheet (scrimmage minutes vs
+      // projection + who rose/fell), and the team box vs projection as a sheet. The trend-after-each-scrimmage and
+      // results-vs-line charts said what the log's columns say, so they are gone. ──
       var adj = TM.adj || 0, col = adj >= 0.3 ? 'var(--green,#1a8c3a)' : adj <= -0.3 ? 'var(--red,#cc2200)' : 'var(--text)';
       var word = adj >= 1 ? 'Trending up' : adj >= 0.3 ? 'Slightly up' : adj <= -1 ? 'Trending down' : adj <= -0.3 ? 'Slightly down' : 'Steady';
       var G = TM.games, nG = G.length;
-      var html = '<div class="tr-hd"><div><div class="tr-l">Preseason trend</div><div class="tr-big" style="color:' + col + '">' + (adj > 0 ? '▲ ' : adj < 0 ? '▼ ' : '') + sg(adj, 2) + '</div></div>' +
-        '<div><div class="tr-t">' + word + '</div><div class="tr-s">Power Rating points from ' + nG + ' scrimmage' + (nG > 1 ? 's' : '') + '</div></div></div>';
-      // ── rating trend after each scrimmage (same Σ reality·clip(actual − line, ±12) / (Σ reality + 20), capped ±1.5 as the builder) ──
       var Gs = G.slice().sort(function (a, b) { return a.date.localeCompare(b.date); }), rn = 0, rd = 0;
       var built = Gs.every(function (e) { return e.adj_after != null; });
       Gs.forEach(function (e) { rn += (e.reality || 0) / 100 * Math.max(-12, Math.min(12, e.resid || 0)); rd += (e.reality || 0) / 100;
@@ -377,22 +387,32 @@
       var ml = function (v) { return v == null ? '—' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1); };
       var md = function (date) { var d = new Date(date + 'T12:00:00'); return (d.getMonth() + 1) + '/' + d.getDate(); };
       var vsTxt = function (e) { return (e.site === 'A' ? '@ ' : 'vs ') + esc(short(e.opp)); };
-      var pts = [{ lab: 'Pre', y: 0, tip: '<b>Entering the preseason</b><br>Rating trend: <b>0.00</b>' }].concat(Gs.map(function (e) {
-        return { lab: md(e.date), y: e.adj_after, tip: '<b>' + vsTxt(e) + ' · ' + (e.actual > 0 ? 'W' : 'L') + ' by ' + Math.abs(e.actual) + '</b><br>Our line ' + ml(e.pred) + ' · vs line <b>' + ml(e.resid) + '</b> · Reality ' + e.reality + '<br>Rating trend after: <b>' + sg(e.adj_after, 2) + '</b>' }; }));
-      html += trendChart(host, pts, [[1, 'Trending up', 'Trending down'], [0.3, 'Slightly up', 'Slightly down']], 2, 1.4, 'Rating trend after each scrimmage');
-      // ── game log: preseason → each scrimmage (expandable) → rating trend now ──
       var lastN = function (n) { var w = String(n).replace(/,/g, '').split(/\s+/).filter(function (x) { return !/^(jr|sr|ii|iii|iv|v)\.?$/i.test(x); }); return w[w.length - 1] || n; };
-      var NC = 6, PB = (TM.box && TM.box.proj) || {};
-      var body = '<tr class="trl-proj"><td class="l nm">Entering the preseason<span class="trl-sub">our 2026-27 power rating, before any scrimmage</span></td><td></td><td></td><td></td><td></td><td class="trl-tr">0.00</td></tr>';
+      var playedIds = {}; Gs.forEach(function (e) { playedIds[e.id] = 1; });
+      var today = new Date().toISOString().slice(0, 10);
+      var nextG = mine.filter(function (x) { return !playedIds[x.id] && x.date >= today; });
+      // ── summary strip ──
+      var wins = Gs.filter(function (e) { return e.actual > 0; }).length;
+      var avgRes = Gs.length ? Gs.reduce(function (a, e) { return a + (e.resid || 0); }, 0) / Gs.length : null;
+      var kp = function (l, v, s, c) { return '<div><div class="trt-l">' + l + '</div><div class="trt-v"' + (c ? ' style="color:' + c + '"' : '') + '>' + v + '</div><div class="trt-s">' + s + '</div></div>'; };
+      var nx = nextG[0], nxOpp = nx ? (nx.home === full ? nx.away : nx.home) : null;
+      var html = '<div class="trt-kpis">' +
+        kp('Rating trend', (adj > 0 ? '▲ ' : adj < 0 ? '▼ ' : '') + sg(adj, 2), word + ' · added to the power rating', col) +
+        kp('Scrimmages', wins + '–' + (nG - wins), nG + ' played') +
+        kp('vs our line', ml(avgRes), 'average margin vs projection', avgRes == null ? null : avgRes >= 2 ? 'var(--green,#1a8c3a)' : avgRes <= -2 ? 'var(--red,#cc2200)' : null) +
+        kp('Next', nx ? md(nx.date) + ' ' + (nx.home === full ? 'vs ' : '@ ') + esc(short(nxOpp)) : '—', nx ? (nx.neutral ? 'Neutral' : nx.home === full ? 'Home' : 'Away') + (nx.time ? ' · ' + esc(nx.time) : '') : 'no more scrimmages listed') +
+        '</div><div class="trt-chart"></div>';
+      // ── the scrimmage log (rows open to the detail) ──
+      var NC = 6, PB = (TM.box && TM.box.proj) || {}, Wd = Math.max(280, Math.min((host.clientWidth || 900) - 40, 560));
+      var body = '';
       Gs.forEach(function (e, gi) {
         var lg = logo(e.opp), w = e.actual > 0;
         var rmw = e.reality >= 75 ? 'Game-like' : e.reality >= 55 ? 'Mostly real' : e.reality >= 35 ? 'Experimental' : 'Practice-like';
-        body += '<tr class="trl-g" data-g="' + gi + '" tabindex="0" aria-expanded="false" title="Show starters and the team line"><td class="l nm"><span class="trl-car">▸</span>' + (lg ? '<img class="tr-lg" src="' + lg + '" alt="">' : '') + md(e.date) + ' ' + vsTxt(e) +
-          '<span class="trl-sub"><b style="color:' + (w ? 'var(--green,#1a8c3a)' : 'var(--red,#cc2200)') + '">' + (w ? 'W' : 'L') + ' by ' + Math.abs(e.actual) + '</b> · ' + rmw + (e.site === 'N' ? ' · neutral' : '') + '</span></td>' +
-          '<td class="dim">' + ml(e.pred) + '</td><td>' + ml(e.actual) + '</td><td class="' + cls(e.resid, 2) + '">' + ml(e.resid) + '</td>' +
-          '<td>' + (e.reality != null ? e.reality + '<span class="tr-mb"><i style="width:' + e.reality + '%;background:' + rmCol(e.reality) + '"></i></span>' : '—') + '</td>' +
+        body += '<tr class="trl-g" data-g="' + gi + '" tabindex="0" aria-expanded="false" title="Open: starters, game flow, shot diet, team line"><td class="l nm"><span class="trl-car">▸</span>' + (lg ? '<img class="tr-lg" src="' + lg + '" alt="">' : '') + md(e.date) + ' ' + vsTxt(e) +
+          ' <b style="margin-left:6px;color:' + (w ? 'var(--green,#1a8c3a)' : 'var(--red,#cc2200)') + '">' + (w ? 'W' : 'L') + ' ' + Math.abs(e.actual) + '</b></td>' +
+          '<td class="dim">' + ml(e.pred) + '</td><td class="' + cls(e.resid, 2) + ' strong">' + ml(e.resid) + '</td>' +
+          '<td title="' + rmw + '">' + (e.reality != null ? e.reality + '<span class="tr-mb"><i style="width:' + e.reality + '%;background:' + rmCol(e.reality) + '"></i></span>' : '—') + '</td>' +
           '<td class="trl-tr">' + sg(e.adj_after, 2) + '</td></tr>';
-        // detail: starters vs our projected five, who the opponent was missing, the team line vs the projected per-game line
         var projGs = (e.proj_gs || []).map(function (x) { return x.toLowerCase(); });
         var st = e.gs && e.gs.length ? e.gs.map(function (n) { return projGs.indexOf(n.toLowerCase()) >= 0 ? esc(n) : '<b style="color:var(--green,#1a8c3a)" title="not in our projected starting five">' + esc(n) + '</b>'; }).join(', ') : 'not listed in the box';
         var benched = (e.proj_gs || []).filter(function (n) { return (e.gs || []).map(function (x) { return x.toLowerCase(); }).indexOf(n.toLowerCase()) < 0; });
@@ -402,64 +422,69 @@
           var bc = [['PTS', t.pts, PB.ppg, 1], ['FG%', pc('fgm', 'fga'), PB.fg_pct, 1], ['3P%', pc('tpm', 'tpa'), PB.tp_pct, 1], ['3PA', t.tpa, PB.tpa, 0], ['FT%', pc('ftm', 'fta'), PB.ft_pct, 1], ['REB', t.reb, PB.rpg, 1], ['AST', t.ast, PB.apg, 1], ['TO', t.tov, PB.tov, -1], ['STL', t.stl, PB.stl, 1], ['BLK', t.blk, PB.blk, 1]];
           tl = '<table class="sheet dense trl-d"><thead><tr><th class="l"></th>' + bc.map(function (c) { return '<th>' + c[0] + '</th>'; }).join('') + '</tr></thead><tbody>' +
             '<tr class="act"><td class="l">This game</td>' + bc.map(function (c) { return '<td>' + (c[1] == null ? '—' : c[1]) + '</td>'; }).join('') + '</tr>' +
-            '<tr><td class="l dim">Projected per game</td>' + bc.map(function (c) { return '<td class="dim">' + (c[2] == null ? '—' : (+c[2]).toFixed(1)) + '</td>'; }).join('') + '</tr>' +
+            '<tr><td class="l dim">Projected</td>' + bc.map(function (c) { return '<td class="dim">' + (c[2] == null ? '—' : (+c[2]).toFixed(1)) + '</td>'; }).join('') + '</tr>' +
             '<tr class="vs"><td class="l">Difference</td>' + bc.map(function (c) { var a = parseFloat(c[1]), b = c[2]; if (!isFinite(a) || b == null) return '<td>—</td>'; var d = a - b; return '<td class="' + (c[3] ? cls(d * c[3], c[0].indexOf('%') > 0 ? 1.5 : 1) : '') + '">' + sg(d) + '</td>'; }).join('') + '</tr></tbody></table>';
         }
+        var gm = D.S.filter(function (x) { return x.id === e.id; })[0], pbx = D.P[e.id], mix = (gm && pbx) ? shotMix(pbx.plays, gm.home === full ? 'h' : 'a') : null, mn = mix ? mix.rim + mix.mid + mix.three : 0;
+        var diet = mn >= 20 ? '<b style="color:var(--text2)">Shot diet:</b> rim ' + Math.round(100 * mix.rim / mn) + '% · mid ' + Math.round(100 * mix.mid / mn) + '% · three ' + Math.round(100 * mix.three / mn) + '%' : '';
         body += '<tr class="trl-det" data-d="' + gi + '" hidden><td colspan="' + NC + '"><div class="trl-dbox">' +
           '<div class="tr-s" style="max-width:none;margin:0 0 8px"><b style="color:var(--text2)">Starters:</b> ' + st + (benched.length ? ' <span style="color:var(--text3)">· projected starters who didn’t start: ' + benched.map(function (n) { return esc(lastN(n)); }).join(', ') + '</span>' : '') +
-          ((e.opp_missing || []).length ? '<br><b style="color:var(--text2)">' + esc(short(e.opp)) + ' played without</b> ' + e.opp_missing.map(esc).join(', ') + (e.opp_miss_pts ? ' (≈' + (+e.opp_miss_pts).toFixed(1) + ' pts, already taken off our line)' : '') : '') + '</div>' +
+          ((e.opp_missing || []).length ? '<br><b style="color:var(--text2)">' + esc(short(e.opp)) + ' played without</b> ' + e.opp_missing.map(esc).join(', ') + (e.opp_miss_pts ? ' (≈' + (+e.opp_miss_pts).toFixed(1) + ' pts, already taken off our line)' : '') : '') +
+          (diet ? '<br>' + diet : '') + '</div>' +
+          vE(Wd, [e], D, full) +
           (tl ? '<div class="trl-dscroll">' + tl + '</div>' : '') +
-          '<div class="tl-foot"><span>Counts <b>' + ((e.reality || 0) / 100).toFixed(2) + '</b> of a real game toward the rating</span><span>Rating trend after <b>' + sg(e.adj_after, 2) + '</b></span><a href="scrimmage.html?id=' + encodeURIComponent(e.id) + '">Box score →</a></div></div></td></tr>';
+          '<div class="tl-foot"><span>' + rmw + ' · counts <b>' + ((e.reality || 0) / 100).toFixed(2) + '</b> of a real game</span><a href="scrimmage.html?id=' + encodeURIComponent(e.id) + '">Box score →</a></div></div></td></tr>';
       });
-      body += '<tr class="trl-proj trl-now"><td class="l nm">Rating trend now<span class="trl-sub">after ' + nG + ' scrimmage' + (nG > 1 ? 's' : '') + ' · added to the 2026-27 power rating</span></td><td></td><td></td><td></td><td></td><td class="trl-tr" style="color:' + col + '">' + sg(adj, 2) + '</td></tr>';
-      var playedIds = {}; Gs.forEach(function (e) { playedIds[e.id] = 1; });
-      var today = new Date().toISOString().slice(0, 10);
-      mine.filter(function (x) { return !playedIds[x.id] && x.date >= today; }).forEach(function (x) { var opp = x.home === full ? x.away : x.home, lg = logo(opp);
+      nextG.forEach(function (x) { var opp = x.home === full ? x.away : x.home, lg = logo(opp);
         body += '<tr class="trl-up"><td class="l" colspan="' + NC + '">' + (lg ? '<img class="tr-lg" src="' + lg + '" alt="">' : '') + 'Next · ' + md(x.date) + ' ' + (x.home === full ? 'vs ' : '@ ') + esc(short(opp)) +
           ' <span class="trl-sub" style="display:inline">· ' + (x.neutral ? 'Neutral' : x.home === full ? 'Home' : 'Away') + (x.time ? ' · ' + esc(x.time) : '') + '</span></td></tr>'; });
-      var W = Math.max(300, Math.min(host.clientWidth || 900, 1100)), vis = '';
-      vis += '<div class="tr-sec">Results vs our line</div>' + vA(W, Gs);
-      var fl = vE(W, Gs, D, full); if (fl) vis += '<div class="tr-sec">Game flow</div>' + fl;
-      var mn = vB(W, Gs, D, T, full); if (mn) vis += '<div class="tr-sec">Minutes vs projection</div>' + mn;
-      var sd = vC(W, Gs, D, full); if (sd) vis += '<div class="tr-sec">Shot diet</div>' + sd;
-      html += vis;
-      html += '<div class="tr-sec">Game log</div><div class="sheet-wrap" style="max-height:none"><table class="sheet dense trl"><thead><tr><th class="l">Game</th>' +
-        '<th title="Our projected margin going in (after any players the opponent was missing)">Our line</th><th>Actual</th><th title="Actual margin minus our line">vs line</th><th>Reality</th><th title="Rating points the scrimmages have added so far">Rating trend</th></tr></thead><tbody>' + body + '</tbody></table></div>' +
-        '';
-      // team box vs projection
-      var B = TM.box;
-      if (B && B.scrim) {
-        var cols = [['ppg', 'PTS', 1, 1], ['fg_pct', 'FG%', 1, 1], ['tp_pct', '3P%', 1, 1], ['ft_pct', 'FT%', 1, 1], ['tpa', '3PA', 1, 0], ['rpg', 'REB', 1, 1], ['apg', 'AST', 1, 1], ['tov', 'TO', 1, -1], ['stl', 'STL', 1, 1], ['blk', 'BLK', 1, 1]]
-          .filter(function (c) { return B.scrim[c[0]] != null && B.proj && B.proj[c[0]] != null; });
-        if (cols.length) html += '<div class="tr-sec">Team box vs projection</div>' + vD(Math.max(300, Math.min(host.clientWidth || 900, 1100)), B);
-      }
-      // risers & fallers
+      html += '<div class="tr-sec">Scrimmages</div><div class="sheet-wrap" style="max-height:none"><table class="sheet dense trl"><thead><tr><th class="l">Game</th>' +
+        '<th title="Our projected margin going in">Our line</th><th title="Actual margin minus our line">vs line</th><th title="How game-like it was (Reality Meter) — how much it counts">Reality</th><th title="Rating points the scrimmages had added after this game">Rating trend</th></tr></thead><tbody>' + body + '</tbody></table></div>';
+      // ── players: scrimmage minutes vs projection + who rose / fell, one sheet ──
+      var mins = {};
+      Gs.forEach(function (e) { var r = D.R[e.id]; if (!r || !r.box) return; ['home', 'away'].forEach(function (sd) { var b = r.box[sd]; if (!b || b.team !== full) return;
+        (b.players || []).forEach(function (q) { var kk = nk(q.rn || q.name), o = mins[kk] = mins[kk] || { m: [], gs: 0 }; o.m.push(q.min || 0); if (q.gs) o.gs++; }); }); });
       var P = [];
       [['players', 1], ['fresh', 0]].forEach(function (k) { var M = T[k[0]] || {}; for (var key in M) if (M[key].full === full) P.push({ key: key, ret: k[1], p: M[key] }); });
       P.sort(function (a, b) { return (b.p.trend || 0) - (a.p.trend || 0); });
       if (P.length) {
         var link = function (x) { return x.ret ? 'player.html?espn=' + encodeURIComponent(x.key) + '&tab=trends' : 'player.html?name=' + encodeURIComponent(x.p.name) + '&team=' + encodeURIComponent(x.p.team) + '&tab=trends'; };
-        html += '<div class="tr-sec">Risers &amp; fallers</div><div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">Player</th><th title="Box-score value (Game Score) per game vs his pre-scrimmage projection, at his projected minutes, Reality-weighted">Trend</th><th>OVR</th><th>MIN</th><th>PTS</th><th>REB</th><th title="Real-game equivalents his scrimmage lines count for">Counts</th><th class="l">Biggest note</th></tr></thead><tbody>' +
+        html += '<div class="tr-sec">Players</div><div class="sheet-wrap" style="max-height:none;"><table class="sheet dense trt-pl"><thead><tr><th class="l">Player</th>' +
+          '<th class="l" title="Average scrimmage minutes (bar) vs his projected minutes (tick) · * started a scrimmage">Minutes · scrim / proj</th>' +
+          '<th title="Box-score value per game vs his pre-scrimmage projection, Reality-weighted">Trend</th><th title="Change in his overall">OVR</th><th title="Change in projected points">PTS</th><th title="Change in projected rebounds">REB</th><th class="l">Biggest note</th></tr></thead><tbody>' +
           P.map(function (x) {
             var m = x.p.moved || {}, notes = [].concat.apply([], (x.p.games || []).map(function (e) { return e.notes || []; }));
             var top = notes.filter(function (n) { return n.indexOf('pts') >= 0 || n.indexOf('min') >= 0; })[0] || notes[0] || '';
+            var mo = mins[nk(x.p.name)], avg = mo ? mo.m.reduce(function (a, b) { return a + b; }, 0) / mo.m.length : null, pj = x.p.now && x.p.now.mpg != null ? +x.p.now.mpg : null;
+            var mc = (avg != null && pj != null) ? (avg > pj + 2 ? 'var(--green,#1a8c3a)' : avg < pj - 2 ? 'var(--red,#cc2200)' : 'var(--text3)') : 'var(--text3)';
+            var bar = '<span class="trt-mb"><i style="width:' + (avg == null ? 0 : Math.min(100, avg / 40 * 100)).toFixed(1) + '%;background:' + mc + '"></i>' + (pj != null ? '<b style="left:' + Math.min(100, pj / 40 * 100).toFixed(1) + '%"></b>' : '') + '</span>' +
+              '<span class="trt-mn">' + (avg == null ? '—' : Math.round(avg)) + ' / ' + (pj == null ? '—' : Math.round(pj)) + (mo && mo.gs ? ' *' : '') + '</span>';
             return '<tr style="cursor:pointer" onclick="location.href=\'' + link(x) + '\'"><td class="l nm">' + esc(x.p.name) + (x.ret ? '' : ' <span class="dim" style="font-size:10px">NEW</span>') + '</td>' +
+              '<td class="l">' + bar + '</td>' +
               '<td class="' + cls(x.p.trend, 1) + ' strong">' + sg(x.p.trend == null ? null : x.p.trend * (Math.max(+((x.p.base || {}).mpg || 0), (x.p.games || []).reduce(function (a, e) { return a + (+e.min || 0); }, 0) / Math.max(1, (x.p.games || []).length)) || 28) / 40) + '</td>' +   // per game, like the player tab
-              '<td class="' + cls(m.ovr, 0.6) + '">' + sg(m.ovr, 0) + '</td><td class="' + cls(m.mpg, 0.8) + '">' + sg(m.mpg) + '</td>' +
+              '<td class="' + cls(m.ovr, 0.6) + '">' + sg(m.ovr, 0) + '</td>' +
               '<td class="' + cls(m.ppg, 0.4) + '">' + sg(m.ppg) + '</td><td class="' + cls(m.rpg, 0.3) + '">' + sg(m.rpg) + '</td>' +
-              '<td class="dim">' + (x.p.weight != null ? (+x.p.weight).toFixed(2) + ' g' : '—') + '</td>' +
-              '<td class="l" style="white-space:normal;font-size:11.5px;color:' + (top.charAt(0) === '+' ? 'var(--green,#1a8c3a)' : top ? 'var(--red,#cc2200)' : 'inherit') + '">' + esc(top) + '</td></tr>';
+              '<td class="l" style="white-space:normal;font-size:11.5px;color:' + (top.charAt(0) === '+' ? 'var(--green,#1a8c3a)' : top ? 'var(--red,#cc2200)' : 'inherit') + '">' + esc(top.replace(/^[+\-−] /, '')) + '</td></tr>';
           }).join('') + '</tbody></table></div>';
+      }
+      // ── team box vs projection, as a sheet ──
+      var B = TM.box;
+      if (B && B.scrim && B.proj) {
+        var bk = [['ppg', 'PTS', 1], ['fg_pct', 'FG%', 1], ['tp_pct', '3P%', 1], ['tpa', '3PA', 0], ['ft_pct', 'FT%', 1], ['rpg', 'REB', 1], ['apg', 'AST', 1], ['tov', 'TO', -1], ['stl', 'STL', 1], ['blk', 'BLK', 1]]
+          .filter(function (c) { return B.scrim[c[0]] != null && B.proj[c[0]] != null; });
+        if (bk.length) html += '<div class="tr-sec">Team box vs projection</div><div class="sheet-wrap" style="max-height:none"><table class="sheet dense trl-d"><thead><tr><th class="l"></th>' + bk.map(function (c) { return '<th>' + c[1] + '</th>'; }).join('') + '</tr></thead><tbody>' +
+          '<tr class="act"><td class="l">Scrimmage average</td>' + bk.map(function (c) { return '<td>' + (+B.scrim[c[0]]).toFixed(1) + '</td>'; }).join('') + '</tr>' +
+          '<tr><td class="l dim">Projected</td>' + bk.map(function (c) { return '<td class="dim">' + (+B.proj[c[0]]).toFixed(1) + '</td>'; }).join('') + '</tr>' +
+          '<tr class="vs"><td class="l">Difference</td>' + bk.map(function (c) { var d = B.scrim[c[0]] - B.proj[c[0]]; return '<td class="' + (c[2] ? cls(d * c[2], c[1].indexOf('%') > 0 ? 1.5 : 1) : '') + '">' + sg(d) + '</td>'; }).join('') + '</tr></tbody></table></div>';
       }
       // played but not on our roster
       var extra = {};
       TM.games.forEach(function (e) { var r = D.R[e.id]; if (!r || !r.box) return; ['home', 'away'].forEach(function (sd) { var b = r.box[sd]; if (!b || b.team !== full || b.partial) return;
         (b.players || []).forEach(function (q) { if (!q.rn && (q.min || 0) > 0) extra[q.name] = Math.max(extra[q.name] || 0, q.min); }); }); });
       var ex = Object.keys(extra).sort(function (a, b) { return extra[b] - extra[a]; });
-      if (ex.length) html += '<div class="tr-sec">Played, but not on our roster</div><div class="tr-s">' + ex.map(function (n) { return '<b>' + esc(n) + '</b> (' + extra[n] + ' min)'; }).join(' · ') +
-        ' — their lines can’t count toward a projection until they’re added to the ' + esc(team) + ' roster.</div>';
+      if (ex.length) html += '<div class="tr-s" style="max-width:none;margin-top:10px">Played but not on our ' + esc(team) + ' roster yet: ' + ex.map(function (n) { return '<b>' + esc(n) + '</b> (' + extra[n] + ' min)'; }).join(' · ') + '</div>';
       host.innerHTML = html;
-      wireRows(host); wireChart(host, pts);
+      wireRows(host);
       if (Gs.length === 1) { var r0 = host.querySelector('tr.trl-g'); if (r0) r0.click(); }
     });
   }

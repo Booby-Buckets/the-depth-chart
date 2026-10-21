@@ -63,6 +63,17 @@
     #nilContent .nv-pos i{position:relative;}
     #nilContent .nv-pos i span{position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:800;color:#fff;letter-spacing:.04em;}
     #nilContent .nil-cmp tr.me td{font-weight:800;}
+    #nilContent .nv-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:0;}
+    #nilContent .nv-kpis>div{display:block;padding:12px 14px;border-right:1px solid var(--border);min-width:0;} #nilContent .nv-kpis dt{display:block;font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin:0;} #nilContent .nv-kpis>div:last-child{border-right:0;}
+    #nilContent .nv-kpis dd{font-family:'Playfair Display',serif;font-size:26px;font-weight:800;margin:4px 0 2px;line-height:1.05;}
+    #nilContent .nv-kr{font-size:11px;font-weight:600;color:var(--text3);}
+    #nilContent .nv-w{min-width:190px;white-space:nowrap;} #nilContent .nv-w b{font-variant-numeric:tabular-nums;margin-left:8px;} #nilContent .nv-w em{font-style:normal;color:var(--text3);font-size:11px;margin-left:6px;}
+    #nilContent .nv-bar{display:inline-block;width:90px;height:9px;background:var(--bg2);border-radius:2px;vertical-align:middle;overflow:hidden;} #nilContent .nv-bar i{display:block;height:100%;border-radius:2px;}
+    #nilContent .nv-two{display:grid;grid-template-columns:1.25fr 1fr;gap:16px;align-items:start;}
+    #nilContent .nv-foot{font-size:11.5px;color:var(--text3);margin:16px 0 6px;} #nilContent .nv-foot a{color:var(--accent);font-weight:700;text-decoration:none;}
+    #nilContent details.nv-more{border-top:1px solid var(--border);padding:10px 0;margin-top:6px;} #nilContent details.nv-more summary{cursor:pointer;font-size:12px;font-weight:800;color:var(--text2);}
+    #nilContent .nv-mtxt{font-size:12px;line-height:1.6;color:var(--text3);max-width:860px;padding-top:8px;}
+    @media(max-width:760px){ #nilContent .nv-kpis{grid-template-columns:repeat(2,minmax(0,1fr));} #nilContent .nv-kpis>div:nth-child(2){border-right:0;} #nilContent .nv-kpis>div:nth-child(-n+2){border-bottom:1px solid var(--border);} #nilContent .nv-two{grid-template-columns:1fr;} #nilContent .nv-bar{width:54px;} #nilContent .nv-kpis dd{font-size:21px;} }
     #nilContent .nrc{display:flex;flex-direction:column;gap:5px;}
     #nilContent .nrc-row{display:grid;grid-template-columns:minmax(120px,190px) 1fr 92px;gap:10px;align-items:center;}
     #nilContent .nrc-nm{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} #nilContent .nrc-nm em{font-style:normal;font-weight:600;color:var(--text3);margin-left:6px;font-size:11.5px;}
@@ -1610,7 +1621,7 @@
       </div>
     </div>
     <div class="panel" id="panel-nil">
-      <div class="sec-head">NIL Roster Valuation <span style="font-size:10px;font-weight:600;color:var(--text3);margin-left:8px;">2026-27 projected · value = on-court production × market rate</span></div>
+      <div class="sec-head">NIL Value</div>
       <div id="nilContent"><div class="loading-state"><div class="loading-spinner"></div></div></div>
     </div>
     <div class="panel" id="panel-report">
@@ -1663,10 +1674,9 @@
       <div id="teamFeedHost"></div>
     </div>
     <div class="panel" id="panel-trends">
-      <div class="sec-head" style="margin-bottom:10px;">Trend line</div>
-      <div id="teamTrendLine" style="margin-bottom:26px;"></div>
-      <div class="sec-head">Preseason Trends</div>
+      <div class="sec-head" style="margin-bottom:10px;">Trends</div>
       <div id="teamTrendsHost"></div>
+      <div id="teamTrendLine" style="margin:14px 0 4px;"></div>
     </div>
     <div class="panel" id="panel-lineups">
       <div class="sec-head">Lineups <span class="sec-head-sub" style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· who actually started, how each five did, starters vs bench</span></div>
@@ -6553,7 +6563,9 @@ function switchTab(id, btn){
   if(id==='schedule') initSchedule();
   if(id==='lineups' && window.TDCLineupHist){ (async()=>{ const full=(await _resolveGamesKey().catch(()=>null))||teamMascot(); TDCLineupHist.render(document.getElementById('lineupHistHost'), full); })(); }
   if(id==='trends' && window.TDCTeamTrend){ (async()=>{ const full=(await _resolveGamesKey().catch(()=>null))||teamMascot(); TDCTeamTrend.render(document.getElementById('teamTrendLine'), { full, short:(teamT&&teamT.name)||'', color:(typeof teamColor_g!=='undefined'&&teamColor_g)||null }); })(); }
-  if(id==='trends' && window.TDCTrends) TDCTrends.renderTeam(document.getElementById('teamTrendsHost'), (teamT&&teamT.name)||(teamPlayers&&teamPlayers[0]&&teamPlayers[0].team)||'');
+  // the daily Power Rating chart sits right under the summary strip (renderTeam leaves a .trt-chart slot for it)
+  if(id==='trends'){ const ch0=document.getElementById('teamTrendLine'), pn=document.getElementById('panel-trends'); if(ch0&&pn&&ch0.parentNode!==pn) pn.appendChild(ch0); }
+  if(id==='trends' && window.TDCTrends) Promise.resolve(TDCTrends.renderTeam(document.getElementById('teamTrendsHost'), (teamT&&teamT.name)||(teamPlayers&&teamPlayers[0]&&teamPlayers[0].team)||'')).then(()=>{ const sl=document.querySelector('#teamTrendsHost .trt-chart'), ch=document.getElementById('teamTrendLine'); if(sl&&ch) sl.appendChild(ch); });
   if(id==='preview') initPreview();
   // the team feed: posts, articles, forum threads (tdc-feed.js on the fan-site tables)
   if(id==='feed' && window.TDCFeed && !window._feedInit){ window._feedInit=true; (async()=>{ const full=(await _resolveGamesKey().catch(()=>null))||teamMascot(); const tid=await _teamEspnId().catch(()=>null);
@@ -7557,147 +7569,106 @@ async function renderNil(){
     : (deal
     ? `<b style="color:var(--green)">Getting value.</b> The roster is worth ${fmt(Math.abs(nDiff))} more on the open market than the program's ${fmt(d.budget)} NIL budget.`
     : `<b style="color:var(--red)">Paying a premium.</b> The program's ${fmt(d.budget)} budget is ${fmt(Math.abs(nDiff))} more than the roster is worth on the open market.`);
-  // number line: every D-I roster's value (middle half shaded), this roster's model and market
-  // value as markers and the budget as a tick; all values in the readout, none on the line
-  let _scale='';
-  if(_tb.length>=8){
-    const vs=_tb.map(x=>x.val).sort((a,b)=>a-b), q=f=>vs[Math.floor(f*(vs.length-1))];
-    const hi=Math.max(q(0.97),nVal,_rosterMarket||0,d.budget)*1.06, X=v=>Math.max(0,Math.min(100,v/hi*100));
-    const r=(l,v,n,me)=>`<tr${me?' class="me"':''}><td class="l nm">${l}</td><td class="big">${v}</td><td class="l dim">${n}</td></tr>`;
-    _scale=`<div class="sec-title nv-sec">Worth, payroll and spending power, against every D-I roster</div>
-      <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense nil-cmp"><thead><tr><th class="l">Measure</th><th>Value</th><th class="l"></th></tr></thead><tbody>
-      ${r('Roster value',fmt(nVal),'open market, player by player',true)}
-      ${_rosterMarket>0?r('Market value',fmt(_rosterMarket),'positional market curves'):''}
-      ${_PR?r('Spending power',fmt(_PR.power),_payRank('power')+' · what the program can spend'):r('NIL budget',fmt(d.budget),'Tier '+d.tier)}
-      ${_PR?r('Est. payroll',fmt(_PR.payroll),_payRank('payroll')+' · '+Math.round(_PV.ratio*100)+'% of worth, '+Math.round(_PV.used*100)+'% of spending power'):''}
-      ${r('Median D-I roster',fmt(q(.5)),'every rostered program')}
-      ${r('Middle half of D-I rosters',fmt(q(.25))+'–'+fmt(q(.75)),'25th to 75th percentile')}
-      </tbody></table></div>`;
-  }
+  // ── LAYOUT (owner, Oct 20 2026: "too confusing, too much spread-out data") — one summary strip, ONE player sheet
+  // (worth bar + salary + market price + verdict; the three duplicate player lists merged), where the money sits,
+  // one D-I comparison sheet, then the owner tools + method notes folded away. Every dollar figure is one of three
+  // named numbers: Worth (open-market, player by player), Est. payroll, Spending power. ──
+  const _board=_tb, _natTot=_board.length;
+  let _natRank=1; _board.forEach(x=>{ if(x.val>nVal) _natRank++; });
+  const _myConf=(d.players&&d.players[0]&&d.players[0].conf)||'';
+  const _confB=_board.filter(x=>x.conf===_myConf); let _confRank=1; _confB.forEach(x=>{ if(x.val>nVal) _confRank++; });
+  const _confNm=({'BIG-12':'Big 12','Big-East':'Big East','PAC-12':'Pac-12','B10':'Big Ten'})[_myConf]||_myConf||'conference';
+  const _pct=(r,n)=>n>1?Math.round((1-(r-1)/(n-1))*100):50;
+  const _me=_board.find(x=>x.team===tT.name);
+  let _eff=null;
+  if(_me&&_me.wa>0){ const pool=_board.filter(x=>x.wa>0), myE=_me.wa/nVal; let er=1; pool.forEach(x=>{ if(x.wa/x.val>myE) er++; }); _eff={per:nVal/_me.wa, rank:er, tot:pool.length}; }
+  const _rk=s=>s?`<span class="nv-rk">${s}</span>`:'';
+  const _kpi=(lbl,val,sub,tip)=>`<div${tip?` title="${tip}"`:''}><dt>${lbl}</dt><dd>${val}</dd>${sub?`<div class="nv-kr">${sub}</div>`:''}</div>`;
   let html=`<div class="nilx">
     <div class="nv-head">
       <div class="nv-ey">2026-27 NIL · Tier ${d.tier}</div>
-      <div class="nv-row">
-        <div class="nv-big">${fmt(nVal)}</div>
-        <div class="nv-copy"><div class="nv-read">What ${_esc(tT.name)}'s roster is worth on the open market, priced player by player.</div><div class="nv-verdict">${_verdictTxt}</div></div>
-      </div>
-      <dl class="nv-in">
-        ${_PR?`<div><dt title="What the program can put toward a 2026-27 roster: its basketball spending and athletics revenue (U.S. Dept. of Education EADA filings), blended with the roster it assembled">Spending power</dt><dd>${fmt(_PR.power)}</dd></div><div><dt title="What we estimate it is paying this roster">Est. payroll</dt><dd>${fmt(_PR.payroll)}</dd></div>`:`<div><dt>NIL budget</dt><dd>${fmt(d.budget)}</dd></div>`}
-        <div><dt>Market value</dt><dd>${fmt(_rosterMarket)}</dd></div>
-        <div><dt>Cost per net point</dt><dd>$${Math.round(d.implied_rate*1000)}K <span style="color:var(--text3);font-weight:600;font-size:12px;">market $${Math.round(mkt*1000)}K</span></dd></div>
-        ${hasOverrides&&!_PR?`<div><dt>Projected spend</dt><dd>${fmt(nProjSpend)} <span style="color:var(--text3);font-weight:600;font-size:12px;">${spendGap>0?'+':'−'}${fmt(Math.abs(spendGap))} vs model</span></dd></div>`:''}
+      <div class="nv-verdict" style="margin:2px 0 14px;">${_verdictTxt}</div>
+      <dl class="nv-in nv-kpis">
+        ${_kpi('Roster worth',fmt(nVal),'#'+_natRank+' of '+_natTot+' · #'+_confRank+' '+_esc(_confNm),"Every player's open-market worth, added up")}
+        ${_PR?_kpi('Est. payroll',fmt(_PR.payroll),_payRank('payroll')+' · '+Math.round(_PV.ratio*100)+'% of worth','What we estimate the program pays this roster')
+             :_kpi('NIL budget',fmt(d.budget),'Tier '+d.tier,'')}
+        ${_PR?_kpi('Spending power',fmt(_PR.power),_payRank('power'),'What the program can spend: basketball spending + athletics revenue (EADA filings), blended with the roster it built'):''}
+        ${_eff?_kpi('Per Win Added',fmt(_eff.per),'#'+_eff.rank+' of '+_eff.tot+' in value','Roster worth divided by projected Wins Added — lower is more production per dollar'):''}
       </dl>
-    </div>
-    <div id="nilLeague"></div>
-    <div id="nilRosterChart"></div>
-    ${_scale}
-    ${_PR&&_PR.players.length?`<div class="sec-title nv-sec">Estimated salaries</div>
-      <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">Player</th><th class="l" title="How he joined: transfers are bought on the open market (paid at a premium), returners re-sign a little under, freshmen at worth">Acquired</th><th title="Open-market worth">Worth</th><th title="Estimated 2026-27 pay">Est. salary</th><th title="Share of the payroll">Share</th></tr></thead><tbody>
-      ${_PR.players.map(x=>`<tr><td class="l nm">${_esc(x.name)}</td><td class="l dim">${x.acq==='transfer'?'Transfer':x.acq==='freshman'?'Freshman':'Returner'}</td><td>${fmt(x.worth)}</td><td class="big">${fmt(x.salary)}</td><td class="dim">${Math.round(x.salary/_PR.payroll*100)}%</td></tr>`).join('')}
-      </tbody></table></div>
-      <div class="nlc-foot">Estimates, not reported contracts. Payroll = the program's spending power and the roster's open-market worth combined; it is split by each player's worth, with transfers at a premium and returners a little under.</div>`:''}
-    <div class="sec-title nv-sec">Roster</div>
-  <div class="sheet-wrap"><table class="sheet dense freeze2" id="nilSheet" style="--c1:36px;--c2:180px;"><thead><tr><th class="rk">#</th><th class="l">Player</th><th class="l" title="Class / eligibility">Yr</th><th class="l" title="The position the market prices him at (his natural one, if he plays out of position)">Pos</th>${_anyInj?'<th class="l" title="Out for the 2026-27 season (injury report)">Status</th>':''}<th data-heat="1">Grade</th><th data-heat="1" title="Projected minutes per game">MPG</th><th data-heat="1" title="Last season's demonstrated production — points per game">PPG</th><th data-heat="1" title="Last season's rebounds per game">RPG</th><th data-heat="1" title="Last season's assists per game">APG</th><th data-heat="1" title="Wins Added — the owned on-court production value (offensive + defensive) the Model is built on. Last season.">WA</th><th data-heat="1" title="Production model estimate: grade × projected minutes × market premium. Tier-neutral — the player's open-market worth, not his program's spending tier.">Model Value</th><th data-heat="1" title="Positional market curve for this player's grade & slot — set by the owner, independent of minutes">Market Value</th><th title="This player's Market Value as a share of the roster's total market value">% Roster</th><th class="l" title="TIER-FAIR: strips team spending, then compares his production to the market price for his grade & slot. UNDERRATED = produces 30%+ above his market price (slept on). OVERRATED = market prices him 30%+ above production. Only real rotation pieces are judged.">Verdict</th></tr></thead><tbody>`;
+    </div>`;
+  // ── the one player sheet ──
   const _rosterList=(typeof teamPlayers!=='undefined'&&teamPlayers||[]);
   const _injSet=new Set(_rosterList.filter(p=>p.is_injured).map(p=>(p.name||'').toLowerCase().trim()));
   const _byName={}; _rosterList.forEach(p=>{ _byName[(p.name||'').toLowerCase().trim()]=p; });
-  const _dv=v=>(v==null||!isFinite(+v))?'':` data-v="${+v}"`;
-  d.players.forEach((p,_i)=>{ const gr=(p.grade!=null?p.grade:'—');
-    const key=(p.name||'').toLowerCase().trim();
-    const inj=_injSet.has(key);
-    const rp=_byName[key];
+  const _salBy={}; if(_PR&&_PR.players) _PR.players.forEach(x=>{ _salBy[(x.name||'').toLowerCase().trim()]=x; });
+  const _rows=d.players.map(p=>({p, w:(_NN&&_NN.neutralValueOf)?_NN.neutralValueOf(p,d.tier):(p.proj!=null?p.proj:p.value)})).sort((a,b)=>b.w-a.w);
+  const _wMax=Math.max(...(_rows.map(r=>r.w)),0.001), _wTot=_rows.reduce((s,r)=>s+(r.w||0),0)||1;
+  html+=`<div class="sec-title nv-sec">Players</div>
+  <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense freeze2 nv-pl" id="nilSheet" style="--c1:30px;--c2:170px;"><thead><tr><th class="rk">#</th><th class="l">Player</th><th class="l" title="How he joined: transfers are bought on the open market (paid at a premium), returners re-sign a little under, freshmen at worth">Acq.</th><th class="l" title="The position the market prices him at">Pos</th><th data-heat="1" title="Overall">OVR</th><th data-heat="1" title="Projected minutes per game">MPG</th><th class="l nv-wh" title="Open-market worth: what he would command anywhere, priced on his projected production · share of the roster's worth">Worth</th>${_PR?'<th title="Estimated 2026-27 pay (an estimate, not a reported contract)">Est. salary</th>':''}<th title="What the market pays for his grade at his position, regardless of minutes">Market price</th><th class="l" title="Production vs the market price for his grade and position. Underrated = produces 30%+ above it; overrated = priced 30%+ above his production. Rotation players only.">Verdict</th></tr></thead><tbody>`;
+  _rows.forEach(({p,w},_i)=>{
+    const key=(p.name||'').toLowerCase().trim(), inj=_injSet.has(key), rp=_byName[key];
     const href=rp&&rp.espn_id?`player.html?espn=${rp.espn_id}&name=${encodeURIComponent(p.name)}`:`player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(tT.name||'')}`;
-    const nameCell=`<a href="${href}">${p.name}</a>`;
-    const model=p.proj!=null?p.proj:p.value;          // tier-based — feeds the tier-fair verdict
-    const modelShown=(window.TDC_NIL&&TDC_NIL.neutralValueOf)?TDC_NIL.neutralValueOf(p,d.tier):model;   // open-market — for display (real deals as-is)
-    const _bm=_bmOf(p);
-    const mktV=_bm.val;
-    const posC=_bm.pos||'—';   // shows the position the market prices him at (natural, if out of position)
-    const vd=(mktV!=null&&window.TDC_NIL&&TDC_NIL.marketVerdict)?TDC_NIL.marketVerdict(model,mktV,{grade:p.grade,mpg:p.mpg,tier:d.tier}):{tag:null};
-    const vCell=(vd.tag==='underrated'||vd.tag==='overrated')
-      ? `<td class="l strong">${vd.tag==='underrated'?'Underrated':'Overrated'}</td>`
-      : `<td class="l dim">${vd.tag==='fair'?'fair':'—'}</td>`;
-    const _n1=v=>(v==null||!isFinite(+v))?'—':(+v).toFixed(1);
-    const waCell=(p.wa!=null&&isFinite(+p.wa))?`${(+p.wa>0?'+':'')}${(+p.wa).toFixed(1)}`:'—';
-    const pctRoster=(_rosterMarket>0&&mktV!=null)?Math.round(mktV/_rosterMarket*100):null;
-    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="rk">${_i+1}</td><td class="l nm">${nameCell}</td><td class="l dim">${p.cls||'—'}</td><td class="l dim">${posC}</td>${_anyInj?`<td class="l dim">${inj?'Out 2026-27':''}</td>`:''}<td>${gr}</td><td>${Math.round(p.mpg)}</td><td>${_n1(p.ppg)}</td><td>${_n1(p.rpg)}</td><td>${_n1(p.apg)}</td><td>${waCell}</td><td${_dv(modelShown)}>${fmt(modelShown)}</td><td class="big"${inj?'':_dv(mktV)}${inj?' style="text-decoration:line-through;"':''}>${mktV!=null?fmt(mktV):'—'}</td><td class="dim">${pctRoster!=null?pctRoster+'%':'—'}</td>${vCell}</tr>`; });
+    const model=p.proj!=null?p.proj:p.value, _bm=_bmOf(p), mktV=_bm.val;
+    const vd=(mktV!=null&&_NN&&_NN.marketVerdict)?_NN.marketVerdict(model,mktV,{grade:p.grade,mpg:p.mpg,tier:d.tier}):{tag:null};
+    const vCell=vd.tag==='underrated'?'<td class="l"><span class="up">Underrated</span></td>':vd.tag==='overrated'?'<td class="l"><span class="dn">Overrated</span></td>':`<td class="l dim">${vd.tag==='fair'?'Fair':'—'}</td>`;
+    const sal=_salBy[key];
+    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="rk">${_i+1}</td><td class="l nm"><a href="${href}">${_esc(p.name)}</a>${inj?' <span class="dim" style="font-size:10px">OUT</span>':''}</td><td class="l dim">${sal?(sal.acq==='transfer'?'Transfer':sal.acq==='freshman'?'Freshman':'Returner'):'—'}</td><td class="l dim">${_bm.pos||'—'}</td><td>${p.grade!=null?p.grade:'—'}</td><td>${Math.round(p.mpg||0)}</td>`
+      +`<td class="l nv-w"><span class="nv-bar"><i style="width:${(w/_wMax*100).toFixed(1)}%;background:${_tcol}"></i></span><b>${fmt(w)}</b><em>${Math.round(w/_wTot*100)}%</em></td>`
+      +(_PR?`<td>${sal?fmt(sal.salary):'—'}</td>`:'')+`<td class="dim"${inj?' style="text-decoration:line-through;"':''}>${mktV!=null?fmt(mktV):'—'}</td>${vCell}</tr>`; });
   html+=`</tbody></table></div>`;
-  // ── roster insights: market $ by position (one stacked bar) + best value / biggest overpay ──
+  // ── where the money sits: one row, five positions ──
   (function(){
+    const P5=['PG','SG','SF','PF','C'], byPos={PG:0,SG:0,SF:0,PF:0,C:0};
     const rl=d.players.filter(p=>!p.walkon);
-    const byPos={PG:0,SG:0,SF:0,PF:0,C:0};
     rl.forEach(p=>{ const bm=_bmOf(p); if(bm.val!=null&&byPos[bm.pos]!=null) byPos[bm.pos]+=bm.val; });
     const tot=Object.values(byPos).reduce((a,b)=>a+b,0)||1;
-    const shades=[100,78,58,40,26];   // one hue, stepped, so positions read apart without a rainbow
-    const P5=['PG','SG','SF','PF','C'];
-    const bar=`<div class="nv-share nv-pos">${P5.map((pp,i)=>byPos[pp]>0?`<i style="width:${(byPos[pp]/tot*100).toFixed(2)}%;background:color-mix(in srgb,${_tcol} ${shades[i]}%,var(--bg3,#ddd))" title="${pp}: ${fmt(byPos[pp])}"><span>${pp}</span></i>`:'').join('')}</div>`;
-    const key=`<div class="nv-key">${P5.map((pp,i)=>`<span><i class="k-band" style="background:color-mix(in srgb,${_tcol} ${shades[i]}%,var(--bg3,#ddd))"></i>${pp} <b>${fmt(byPos[pp])}</b><em>${Math.round(byPos[pp]/tot*100)}%</em></span>`).join('')}</div>`;
-    const judged=rl.map(p=>{ const bm=_bmOf(p); const model=p.proj!=null?p.proj:p.value; const vd=(bm.val!=null&&window.TDC_NIL&&TDC_NIL.marketVerdict)?TDC_NIL.marketVerdict(model,bm.val,{grade:p.grade,mpg:p.mpg,tier:d.tier}):{tag:null}; return {p,bm,vd}; });
+    const judged=rl.map(p=>{ const bm=_bmOf(p), model=p.proj!=null?p.proj:p.value; const vd=(bm.val!=null&&_NN&&_NN.marketVerdict)?_NN.marketVerdict(model,bm.val,{grade:p.grade,mpg:p.mpg,tier:d.tier}):{tag:null}; return {p,bm,vd}; });
     const val=judged.filter(x=>x.vd.tag==='underrated').sort((a,b)=>b.vd.ratio-a.vd.ratio)[0];
     const over=judged.filter(x=>x.vd.tag==='overrated').sort((a,b)=>b.vd.ratio-a.vd.ratio)[0];
-    const line=(lbl,x,c,txt)=>x?`<div class="nv-track-read"><b style="color:${c}">${lbl}:</b> <b>${_esc(x.p.name)}</b> (${x.bm.pos}, ${x.p.grade} OVR, market ${fmt(x.bm.val)}) ${txt(x)}.</div>`:'';
-    const posSheet=`<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">Position</th><th>Market value</th><th>Share</th></tr></thead><tbody>${P5.map(pp=>`<tr><td class="l nm">${pp}</td><td class="big">${fmt(byPos[pp])}</td><td class="dim">${Math.round(byPos[pp]/tot*100)}%</td></tr>`).join('')}</tbody></table></div>`;
-    html+=`<div class="sec-title nv-sec">Where the money sits</div>${posSheet}
-      <div style="margin-top:14px;">
-        ${line('Best value',val,'var(--green)',x=>`produces about ${x.vd.ratio.toFixed(1)}× his market price`)||'<div class="nv-track-read">No standout values on this roster.</div>'}
-        ${line('Biggest overpay',over,'var(--amber,#c9962b)',x=>`is priced at about ${x.vd.ratio.toFixed(1)}× his production`)}
-      </div>`;
+    html+=`<div class="sec-title nv-sec">Where the money sits</div>
+      <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense nv-posr"><thead><tr><th class="l">Market price by position</th>${P5.map(pp=>`<th>${pp}</th>`).join('')}</tr></thead><tbody>
+      <tr><td class="l dim">Total</td>${P5.map(pp=>`<td class="big">${fmt(byPos[pp])}</td>`).join('')}</tr>
+      <tr><td class="l dim">Share</td>${P5.map(pp=>`<td class="dim">${Math.round(byPos[pp]/tot*100)}%</td>`).join('')}</tr>
+      ${val||over?`<tr><td class="l dim">Best value / overpay</td><td class="l" colspan="5" style="white-space:normal;">${val?`<span class="up">${_esc(val.p.name)}</span> produces ${val.vd.ratio.toFixed(1)}× his market price`:''}${val&&over?' · ':''}${over?`<span class="dn">${_esc(over.p.name)}</span> is priced at ${over.vd.ratio.toFixed(1)}× his production`:''}</td></tr>`:''}
+      </tbody></table></div>`;
   })();
-  // ── League context: national rank track, comparable rosters, roster bang-for-buck ──
-  (function(){
-    const board=_tb; if(board.length<4) return;
-    const myName=tT.name, myVal=nVal, myConf=(d.players&&d.players[0]&&d.players[0].conf)||'';
-    let natRank=1; board.forEach(x=>{ if(x.val>myVal) natRank++; });
-    const natTot=board.length, pctile=natTot>1?Math.round((1-(natRank-1)/(natTot-1))*100):50;
-    const confBoard=board.filter(x=>x.conf===myConf); let confRank=1; confBoard.forEach(x=>{ if(x.val>myVal) confRank++; });
-    const track=(pct,lo,hi,read)=>`<div class="nv-track-read" style="margin:0 0 14px;">${read}</div>`;   // (Oct 2026: slider dropped — the sentence carries it)
-    // comparables window — rosters nearest by total value, this team in place (unshaded: a ranked list)
-    const other=board.filter(x=>x.team!==myName);
-    let at=other.findIndex(x=>x.val<=myVal); if(at<0) at=other.length;
-    other.splice(at,0,{team:myName,val:myVal,_me:true,conf:myConf});
+  // ── against D-I: the three numbers ranked + the rosters either side ──
+  if(_natTot>=4){
+    const other=_board.filter(x=>x.team!==tT.name);
+    let at=other.findIndex(x=>x.val<=nVal); if(at<0) at=other.length;
+    other.splice(at,0,{team:tT.name,val:nVal,_me:true,conf:_myConf});
     let start=Math.max(0,at-3), end=Math.min(other.length,start+7); start=Math.max(0,end-7);
-    const cmpRows=other.slice(start,end).map(x=>`<tr${x._me?' class="me"':''}><td class="rk">${other.indexOf(x)+1}</td><td class="l nm">${x._me?_esc(x.team):`<a href="team.html?team=${encodeURIComponent(x.team)}">${_esc(x.team)}</a>`}</td><td class="l dim">${_esc(({'BIG-12':'B12','Big-East':'BE','PAC-12':'P12'})[x.conf]||x.conf||'')}</td><td class="big">${fmt(x.val)}</td></tr>`).join('');
-    const me=board.find(x=>x.team===myName); let effHtml='';
-    if(me&&me.wa>0){
-      const pool=board.filter(x=>x.wa>0), myEff=me.wa/myVal, perWin=myVal/me.wa;
-      let effRank=1; pool.forEach(x=>{ if(x.wa/x.val>myEff) effRank++; });
-      const effTot=pool.length, effPct=effTot>1?Math.round((1-(effRank-1)/(effTot-1))*100):50;
-      const tier=effPct>=80?['Efficient roster','var(--green)']:effPct>=55?['Solid value','var(--text)']:effPct>=30?['Rich','#e0913a']:['Top-heavy spend','#e07070'];
-      effHtml=`<div class="sec-title nv-sec">Bang for the buck</div>`
-        +track(effPct,'Less production per $','More production per $',`<b style="color:${tier[1]}">${tier[0]}.</b> ${fmt(perWin)} per Win Added (${fmt(myVal)} for +${me.wa.toFixed(1)} WA). #${effRank} of ${effTot} rosters in production per dollar, ${effPct}<sup>${_ord(effPct)}</sup> percentile.`);
-    }
-    html+=`<div class="sec-title nv-sec">How they stack up</div>`
-      +track(pctile,'Least valuable','Most valuable',`<b>${pctile}<sup>${_ord(pctile)}</sup> percentile.</b> #${natRank} of ${natTot} rosters nationally, #${confRank} of ${confBoard.length} in the ${_esc(({'BIG-12':'Big 12','Big-East':'Big East','PAC-12':'Pac-12','B10':'Big Ten'})[myConf]||myConf||'conference')}.`)
-      +`<div class="nilc-cmp-h" style="font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin:4px 0 8px;">Comparable rosters by NIL value</div>
-      <div class="sheet-wrap"><table class="sheet dense nil-cmp"><thead><tr><th class="rk">#</th><th class="l">Team</th><th class="l">Conf</th><th>Roster value</th></tr></thead><tbody>${cmpRows}</tbody></table></div>`
-      +effHtml+`</div>`;
-  })();
-  // ── owner-only market anchor editor ──
+    const cAb=c=>_esc(({'BIG-12':'B12','Big-East':'BE','PAC-12':'P12'})[c]||c||'');
+    html+=`<div class="sec-title nv-sec">Against D-I</div>
+      <div class="nv-two">
+      <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense nil-cmp"><thead><tr><th class="l">Measure</th><th>${_esc(tT.name)}</th><th>D-I rank</th></tr></thead><tbody>
+        <tr class="me"><td class="l nm">Roster worth</td><td class="big">${fmt(nVal)}</td><td>#${_natRank} <span class="dim">· ${_pct(_natRank,_natTot)}th pct</span></td></tr>
+        ${_PR?`<tr><td class="l nm">Est. payroll</td><td class="big">${fmt(_PR.payroll)}</td><td>${_payRank('payroll').replace(/ of \d+/,'')}</td></tr>
+        <tr><td class="l nm">Spending power</td><td class="big">${fmt(_PR.power)}</td><td>${_payRank('power').replace(/ of \d+/,'')}</td></tr>`:''}
+        ${_eff?`<tr><td class="l nm">Per Win Added</td><td class="big">${fmt(_eff.per)}</td><td>#${_eff.rank} <span class="dim">· ${_pct(_eff.rank,_eff.tot)}th pct</span></td></tr>`:''}
+      </tbody></table></div>
+      <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense nil-cmp"><thead><tr><th class="rk">#</th><th class="l">Closest rosters by worth</th><th class="l">Conf</th><th>Worth</th></tr></thead><tbody>
+        ${other.slice(start,end).map(x=>`<tr${x._me?' class="me"':''}><td class="rk">${other.indexOf(x)+1}</td><td class="l nm">${x._me?_esc(x.team):`<a href="team.html?team=${encodeURIComponent(x.team)}&tab=nil">${_esc(x.team)}</a>`}</td><td class="l dim">${cAb(x.conf)}</td><td class="big">${fmt(x.val)}</td></tr>`).join('')}
+      </tbody></table></div></div>`;
+  }
+  html+=`<div class="nv-foot">Estimates from projected production — not reported contracts. <a href="moneyball.html?team=${encodeURIComponent(tT.name)}">Moneyball front office →</a> · <a href="moneyball.html?tab=programs&team=${encodeURIComponent(tT.name)}">The Ledger →</a></div>`;
+  html+=`<details class="nv-more"><summary>How these numbers work</summary><div class="nv-mtxt"><b>Worth</b> is a player's open-market value: his projected production (minutes, scoring, size, level, age) priced on a curve calibrated to real deals. It is the same at any school — the program's money is shown separately. <b>Roster worth</b> adds up every player. <b>Est. payroll</b> splits what the program likely pays by each player's worth (transfers at a premium, returners a little under). <b>Spending power</b> is what the program can put toward a roster, from its basketball spending and athletics revenue (U.S. Dept. of Education EADA filings) blended with the roster it built. <b>Market price</b> is what the market pays for a player's grade at his position, regardless of minutes; the <b>verdict</b> compares his production to it.</div></details>`;
+  // ── owner-only market anchor editor (folded) ──
   if(typeof _isOwner==='function' && _isOwner()){
     const _P=['PG','SG','SF','PF','C'], _G=['90','80','70'];
     const _cell=(pos,g)=>{ const cv=(_curves[pos]&&_curves[pos][g]!=null)?_curves[pos][g]:''; return `<td style="padding:3px 4px;"><input type="number" step="0.05" min="0" value="${cv}" onchange="_nilMarketEdit('${pos}','${g}',this.value)" style="width:70px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);padding:4px 6px;font-family:var(--mono,monospace);font-size:12px;text-align:right;"/></td>`; };
-    const _rows=_P.map(pos=>`<tr><td style="text-align:left;font-weight:700;padding:3px 8px 3px 0;">${pos}</td>${_G.map(g=>_cell(pos,g)).join('')}</tr>`).join('');
-    html+=`<div style="margin-top:22px;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:var(--bg2);max-width:520px;">
-      <div style="font-weight:800;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--text2);margin-bottom:3px;">Market anchors <span style="font-weight:600;text-transform:none;letter-spacing:0;color:var(--text3);">· owner · $M by position &amp; grade</span></div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:10px;">Set the market price for a 90 / 80 / 70-grade player at each position; every player's Market Value interpolates on their position's curve. Changes preview instantly on this device.</div>
-      <table style="border-collapse:collapse;font-size:12px;"><thead><tr><th style="text-align:left;color:var(--text3);font-size:10px;padding:0 8px 4px 0;">POS</th>${_G.map(g=>`<th style="color:var(--text3);font-size:10px;font-weight:700;padding:0 4px 4px;">Grade ${g}</th>`).join('')}</tr></thead><tbody>${_rows}</tbody></table>
+    const _rowsA=_P.map(pos=>`<tr><td style="text-align:left;font-weight:700;padding:3px 8px 3px 0;">${pos}</td>${_G.map(g=>_cell(pos,g)).join('')}</tr>`).join('');
+    html+=`<details class="nv-more"${_mkOv?' open':''}><summary>Market anchors <span class="dim">· owner · $M by position &amp; grade</span></summary><div style="padding:10px 0 4px;">
+      <table style="border-collapse:collapse;font-size:12px;"><thead><tr><th style="text-align:left;color:var(--text3);font-size:10px;padding:0 8px 4px 0;">POS</th>${_G.map(g=>`<th style="color:var(--text3);font-size:10px;font-weight:700;padding:0 4px 4px;">Grade ${g}</th>`).join('')}</tr></thead><tbody>${_rowsA}</tbody></table>
       <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <button onclick="_nilMarketPublish(this)" style="font-size:11px;font-weight:800;padding:6px 14px;border:1px solid var(--green);border-radius:8px;background:var(--green);color:#fff;cursor:pointer;">Publish to site</button>
         <button onclick="_nilMarketExport()" style="font-size:11px;font-weight:700;padding:6px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);cursor:pointer;">Copy JSON</button>
         <button onclick="_nilMarketReset()" style="font-size:11px;font-weight:700;padding:6px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text3);cursor:pointer;">Reset to published</button>
         ${_mkOv?'<span style="font-size:10px;color:var(--amber);font-weight:700;">Unsaved local preview</span>':(_pub?'<span style="font-size:10px;color:var(--green);font-weight:700;">Live from site'+(_pub.meta&&_pub.meta.updated?' · '+_pub.meta.updated:'')+'</span>':'')}
-      </div>
-      <div style="font-size:10px;color:var(--text3);margin-top:8px;"><b>Publish to site</b> pushes these anchors live for every visitor instantly (owner-only). <b>Copy JSON</b> exports them to commit as the file default <code>scripts/data/nil_market_anchors.json</code>.</div>
-    </div>`;
+      </div></div></details>`;
   }
-  html+=`<div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:16px;max-width:860px;"><b>Model Value</b> is our production estimate — the player's <b>TDC grade</b> on a convex curve × projected minutes (role) × a size/scoring/conference premium × a youth bump; calibrated to real deals. It's <b>tier-neutral</b> — a player's open-market worth, the same whether he's at a blue-blood or a mid-major; the program's budget (what they can pay) is shown separately. <b>Roster Value</b> is the sum of those neutral values; <b>Budget vs Worth</b> flags a <b>DEAL</b> when the roster is worth more than the program's budget and a <b>PREMIUM</b> when they pay above its open-market value. <b>Market Value</b> is a different lens: a <b>positional market curve</b> (what a 90 / 80 / 70-grade player goes for at each position) read off by the player's grade &amp; slot — pricing talent and position regardless of minutes. <b>Verdict</b> is <b>tier-fair</b>: it strips team spending so talent (not the program) drives it, then compares production to the market price for the player's grade &amp; slot — <span style="color:var(--green);font-weight:700;">UNDERRATED</span> = slept on (produces above his market price), <span style="color:var(--amber);font-weight:700;">OVERRATED</span> = market pays above production.</div>`;
-  html+=`<div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-    <a href="moneyball.html?team=${encodeURIComponent(tT.name)}" style="display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:800;letter-spacing:.02em;color:#1a1206;background:var(--accent);border:1px solid var(--accent);border-radius:22px;padding:9px 18px;text-decoration:none;">⬡ Open in Moneyball · Front Office →</a>
-    <a href="moneyball.html?tab=programs&team=${encodeURIComponent(tT.name)}" style="display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:800;letter-spacing:.02em;color:var(--accent);border:1px solid var(--border2);border-radius:22px;padding:9px 18px;text-decoration:none;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)'">📊 This program on The Ledger →</a>
-  </div>`;
+  html+=`</div>`;
   host.innerHTML=html;
-  try{ _nilLeagueChart(document.getElementById('nilLeague'), window._nilTeamBoard||[], tT.name, nVal, (d.players&&d.players[0]&&d.players[0].conf)||'', _tcol, fmt, d.tier); }catch(e){ console.warn('nil league chart',e); }
-  try{ _nilRosterChart(document.getElementById('nilRosterChart'), d, _tcol, fmt, _bmOf); }catch(e){ console.warn('nil roster chart',e); }
   if(window.tdcSheetHeat) tdcSheetHeat(document.getElementById('nilSheet'));
 }
 
@@ -9868,7 +9839,7 @@ function renderProjNatlChart(projected, color, rgb){
   <script src="tdc-liveplayer.js?v=3"></script>
   <script src="tdc-depth-editor.js?v=3"></script>
 <script src="tdc-mteam.js?v=26"></script>
-<script src="tdc-trends.js?v=16"></script>
+<script src="tdc-trends.js?v=17"></script>
 <script src="tdc-teamtrend.js?v=10"></script>
 <script src="tdc-feed.js?v=1"></script>
 </body>
