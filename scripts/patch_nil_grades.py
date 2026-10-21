@@ -171,6 +171,26 @@ for tn, t in nil.get("teams", {}).items():
         if pm > 0: p["mpg"] = round(pm, 1)                # the board shows his projected minutes, not compute_nil's grade floor
         nf += 1
 print(f"NIL basis from the stat value for {nf} newcomers")
+# LAST SEASON'S MINUTES (lmin) ride along so the live model can read a short / injured season's Wins Added at a full-season
+# pace (tdc-nil.js waEff) — a 6-game season's total WA was docked like a full season of under-production (Rodney Rice).
+try:
+    LMIN = {}; off = 0
+    while True:
+        req = urllib.request.Request(SB + f"/rest/v1/player_advanced?season_year=eq.2026&select=espn_id,min&order=espn_id.asc&limit=1000&offset={off}",
+                                     headers={"apikey": KEY, "Authorization": "Bearer " + KEY})
+        rows = json.load(urllib.request.urlopen(req, timeout=60))
+        for r in rows:
+            if r.get("espn_id") is not None and r.get("min"): LMIN[str(r["espn_id"])] = LMIN.get(str(r["espn_id"]), 0) + int(r["min"])
+        if len(rows) < 1000: break
+        off += 1000
+    nl = 0
+    for t in nil.get("teams", {}).values():
+        for p in t.get("players", []):
+            e = p.get("espn_id")
+            if e is not None and str(e) in LMIN: p["lmin"] = LMIN[str(e)]; nl += 1
+    print(f"last-season minutes on {nl} rows")
+except Exception as e:
+    print("warn: last-season minutes fetch failed —", e)
 json.dump(nil, open(path, "w"), separators=(",", ":"))
 print(f"repointed {patched} returners to stat_overall; {fr_patched} newcomers to the build OVR; kept {kept}; NIL basis for {nb}")
 # spot check

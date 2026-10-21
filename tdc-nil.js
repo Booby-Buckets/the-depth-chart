@@ -136,6 +136,13 @@ window.TDC_NIL = {
   // Keyed on WA vs expected-for-grade; the 0.29/0.54 center (≈0.83 at expectation) is a compensation
   // constant that holds the returner AVERAGE and the ceiling (~$6M top) while production redistributes.
   // Freshmen have no track record → returns 1 (they stay grade/pedigree-priced; upside via youth/prospect).
+  // A SHORT SEASON's Wins Added is a total, so 6 games of a good player read as a full season of under-production (Rodney
+  // Rice 0.7 WA in 204 min, Markus Burton 10 games). Under WA_FULL_MIN last-season minutes (lmin, patch_nil_grades.py) the
+  // WA is read at a full-season pace at his NIL minutes and trusted in proportion to the sample; 600+ minutes is used as is.
+  N.WA_FULL_MIN = 600; N.SEASON_G = 31;
+  N.waEff = function(p, g, m){ var wa=p&&p.wa; if(wa==null||wa===''||!isFinite(+wa)) return wa; var lm=+(p&&p.lmin); if(!(lm>0) || lm>=N.WA_FULL_MIN) return +wa;
+    var full=(+wa)*Math.min(4, Math.max(1, ((+m||0)*N.SEASON_G)/lm)), e=N.expWA(g); if(e==null) return +wa;
+    var c=lm/N.WA_FULL_MIN; return c*full+(1-c)*e; };
   N.waCoherence = function(grade,wa){ if(wa==null||wa===''||!isFinite(+wa)) return 1; var e=N.expWA(grade); if(!e||e<=0) return 1;
     return Math.max(0.33, Math.min(1.29, 0.29+0.54*((+wa)/e))); };
   // corrected market premium: FRESHMEN have no scoring/pillar data, so their baked prem is just
@@ -320,7 +327,7 @@ window.TDC_NIL = {
     // priced on the NIL basis (last season · career · potential, and the bigger of last season's real or the
     // projected minutes — patch_nil_grades.py), not the projection alone; freshmen fall back to the projection
     var g=N.nilGradeOf(p), m=N.nilMpgOf(p);
-    var mv=N.gradeValueNeutral(g,m,prem,p.cls,p.pos,p.wa);
+    var mv=N.gradeValueNeutral(g,m,prem,p.cls,p.pos,N.waEff(p,g,m));
     mv=isFinite(+mv)?+mv:(isFinite(v)?v:0);
     mv=mv*N.unprovenMult(p)*N.draftBoost(p.rk,p.ppg)*N.defMultOf(p)*N.mktMult(p.ppg,p.pos)*N.proMult(p.ht,p.pos)*N.injuryMultOf(p)*N.adjMultOf(p.name)*N.progMultOf(team);
     return Math.max(N.floorOf(conf, p), mv); };   // × draft × defense × mkt × pro × injury × adjust × program, then the role-scaled conf floor
