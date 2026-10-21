@@ -116,10 +116,13 @@ def tally(plays, teams, L):
     last_foul = {}     # defending team -> (pid, clock)
     trip = None        # open FT trip
     last_make = None   # (team, clock) of the latest made FG, for and-ones
+    last_miss_box = [None]
     def close_trip():
         nonlocal trip
         if not trip: return
         t, sh, made, att, andone, missed_last = trip["t"], trip["pid"], trip["made"], trip["att"], trip["andone"], trip["miss_last"]
+        if trip["n"] is None: andone = trip["after_make"] and att == 1   # unlabelled feed: a lone FT after a make = and-one
+        if missed_last: last_miss_box[0] = ("ft", t)
         f = L["f"]
         b_tot = (0.0 if andone else -1.0) + (L["rf"] if missed_last else 0.0)
         rows.append((t, sh, "ft", made - f * att, 0.0, False))
@@ -136,11 +139,14 @@ def tally(plays, teams, L):
         is_ft = "free throw" in tl or "FreeThrow" in ty
         if trip and not (is_ft and tid == trip["t"]) and ty not in ("Substitution", "ShortTimeOut", "RegularTimeOut", "OfficialTVTimeOut", "Dead Ball Rebound"):
             close_trip()
+            if last_miss_box[0]: last_miss, last_miss_box[0] = last_miss_box[0], None
         if ty == "PersonalFoul" or (ty.endswith("Foul") and "technical" not in tl):
             if parts: last_foul[tid] = (parts[0], clock)
             continue
         if is_ft:
-            m = FT_OF.search(tx); k, n = (int(m.group(1)), int(m.group(2))) if m else (1, 1)
+            # "free throw 1 of 2" — some feeds just say "made Free Throw.": then a trip is the team's run of FTs,
+            # closed by the next real event
+            m = FT_OF.search(tx); k, n = (int(m.group(1)), int(m.group(2))) if m else (None, None)
             made = 1.0 if p.get("scoringPlay") else 0.0
             cnt[tid]["fta"] += 1; cnt[tid]["pts"] += made
             if "technical" in tl:   # a technical's shots are a bonus with no possession at stake
@@ -148,12 +154,13 @@ def tally(plays, teams, L):
             if not trip:
                 fl = last_foul.get(other[tid])
                 andone = (n == 1 and last_make == (tid, clock))
-                trip = {"t": tid, "pid": parts[0] if parts else None, "made": 0.0, "att": 0, "andone": andone,
-                        "miss_last": False, "fouler": fl[0] if fl else None}
-            trip["made"] += made; trip["att"] += 1; trip["miss_last"] = (made == 0 and k >= n)
-            if k >= n:
-                if made == 0: last_miss = ("ft", tid)
+                trip = {"t": tid, "pid": parts[0] if parts else None, "made": 0.0, "att": 0, "andone": andone, "n": n,
+                        "after_make": last_make == (tid, clock), "miss_last": False, "fouler": fl[0] if fl else None}
+            trip["made"] += made; trip["att"] += 1
+            trip["miss_last"] = (made == 0) if n is None else (made == 0 and k >= n)
+            if n is not None and k >= n:
                 close_trip()
+                if last_miss_box[0]: last_miss, last_miss_box[0] = last_miss_box[0], None
             continue
         if p.get("shootingPlay") and (p.get("pointsAttempted") or 0) in (2, 3):
             z = zone(p); sh = parts[0] if parts else None; pts = float(p["pointsAttempted"])

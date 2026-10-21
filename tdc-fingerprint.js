@@ -11,7 +11,7 @@
  * (the skills that separate players most first) and player strengths.
  */
 (function (g) {
-  var V = '1', SEASONS = [2026, 2025], cache = {};
+  var V = '2', SEASONS = [2026, 2025], cache = {};
   function load(y) {
     return cache[y] || (cache[y] = fetch('scripts/data/fingerprint/' + y + '.json?v=' + V)
       .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }));
