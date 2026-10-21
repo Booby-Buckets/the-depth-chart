@@ -254,10 +254,18 @@
   // during a rebuild() so a freshman's PROJECTED STATS (not his OVR) move the
   // canonical projected rankings — same stat-derived currency as returners.
   let _ovr=null, _CTX=null;
+  // scripts/data/minutes_overrides_2027.json: a null drops the freshman editor's typed minutes so the depth chart sets
+  // them — the same rule the projection builds follow (owner, Oct 20 2026: UConn's Amosov kept 22.5 editor minutes
+  // from 11th on the chart). Numeric overrides are already baked into the projected minutes this engine reads.
+  let _MINOV=null;
+  const _minOvReady=fetch('scripts/data/minutes_overrides_2027.json?v='+Math.floor(Date.now()/600000)).then(r=>r.ok?r.json():null).then(j=>{ _MINOV=j||{}; }).catch(()=>{ _MINOV={}; });
+  function _minDropped(p){ const t=_MINOV&&_MINOV[(p.team||'').trim()]; if(!t||typeof t!=='object') return false;
+    const n=(p.name||'').trim().toLowerCase(); return Object.keys(t).some(k=>k.trim().toLowerCase()===n&&t[k]===null); }
   // owner-entered injuries (tdc-injury.js, public-readable blob): "out" = off the season
   function _injOut(p){ try{ return !!(g.TDCInjury && g.TDCInjury.isOut(p)); }catch(e){ return false; } }
   async function compute(){
     if(g.TDCFresh && g.TDCFresh.load){ try{ await g.TDCFresh.load(); }catch(e){} }
+    await _minOvReady;
     let [teams, players, bb, ts, hcaData, coachData, sgData, contData, levelData, effData, scrimData, progData, eraData]=await Promise.all([
       fetch(SB+'/rest/v1/teams?select=name,conf,conference,head_coach,coach&limit=500',{headers:H}).then(r=>r.json()),
       fetchPaged(SB+'/rest/v1/players?name=neq.%E2%80%94&select=name,team,espn_id,yr,class_year,tdc_grade,mpg,ppg,rpg,depth_order,is_injured,hometown&order=id.asc'),
@@ -478,7 +486,7 @@
         let frEdit=0;
         if(_ovr){ const ov=(p.espn_id!=null&&_ovr.byEspn&&_ovr.byEspn[p.espn_id])?_ovr.byEspn[p.espn_id]
                     :(_ovr.byNameTeam&&_ovr.byNameTeam[((p.team||'')+'|'+(p.name||'')).toLowerCase()]);
-          if(ov){ if(ov.min!=null&&!isNaN(+ov.min)) min=Math.max(4,+ov.min);
+          if(ov){ if(ov.min!=null&&!isNaN(+ov.min)&&!_minDropped(p)) min=Math.max(4,+ov.min);
                   // a returner's real BPM stands; a newcomer gets the editor's play-style EDITS on top of
                   // the first-year model (bpm - bpm0, same estBPM scale) — never the editor's OVR
                   if(!isFinite(projBpm)&&ov.bpm!=null&&ov.bpm0!=null&&isFinite(+ov.bpm-ov.bpm0)) frEdit=+ov.bpm-ov.bpm0; } }
