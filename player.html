@@ -996,7 +996,7 @@ body{background:transparent!important;}
   <script src="tdc-engine.js?v=d1conf1"></script>
   <script src="tdc-impact.js?v=1"></script>
   <script src="tdc-heat.js?v=2s"></script>
-  <script src="tdc-fingerprint.js?v=3"></script>
+  <script src="tdc-fingerprint.js?v=4"></script>
   <script src="bigboard-engine.js?v=32"></script>
   <style>
     .dna-sub-seg{display:inline-flex;gap:4px;background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:4px;flex-wrap:wrap;}
@@ -1958,12 +1958,14 @@ function renderSeasonLedger(){ var h=document.getElementById('seasonLedgerHost')
 
 // ── PLAYER DNA SUB-TABS: Dashboard · Offense · Defense · 6-Factor ─────────
 function dnaSub(tab, btn){
-  var panels={dashboard:'dna-dashboard',fingerprint:'dna-fingerprint',offense:'dna-offense',defense:'dna-defense',sixfactor:'dna-sixfactor'};
+  var panels={dashboard:'dna-dashboard',fingerprint:'dna-fingerprint',splits:'dna-splits',offense:'dna-offense',defense:'dna-defense',sixfactor:'dna-sixfactor'};
   Object.keys(panels).forEach(function(k){ var p=document.getElementById(panels[k]); if(p) p.style.display=(k===tab)?'block':'none'; });
   var seg=document.getElementById('dnaSubSeg'); if(seg){ [].forEach.call(seg.querySelectorAll('button'),function(b){ b.classList.remove('on'); }); if(btn) btn.classList.add('on'); }
   if(tab==='offense' && !window._dnaOffLoaded){ window._dnaOffLoaded=true; loadOffenseView(); }
   if(tab==='defense' && !window._dnaDefLoaded){ window._dnaDefLoaded=true; loadDefenseView(); }
   if(tab==='sixfactor' && !window._dnaSixLoaded){ window._dnaSixLoaded=true; renderSixFactorExtra(); }
+  if(tab==='splits' && !window._dnaSpLoaded && window.TDCFingerprint){ window._dnaSpLoaded=true;
+    TDCFingerprint.renderSplits(document.getElementById('splitsHost'), window._playerEspn||(player&&player.espn_id), { banner:function(v,s){ return typeof _dnaReadBanner==='function'?_dnaReadBanner(v,s):''; } }); }
   if(tab==='fingerprint' && !window._dnaFpLoaded && window.TDCFingerprint){ window._dnaFpLoaded=true;
     TDCFingerprint.render(document.getElementById('fingerprintHost'), window._playerEspn||(player&&player.espn_id), { banner:function(v,s){ return typeof _dnaReadBanner==='function'?_dnaReadBanner(v,s):''; } }); }
   setTimeout(function(){ growBarsIn(document.getElementById(panels[tab])); },40);
@@ -4624,6 +4626,7 @@ function renderPage(){
       <div class="seg sm dna-sub-seg" id="dnaSubSeg" style="margin-bottom:22px;">
         <button class="on" onclick="dnaSub('dashboard',this)">Dashboard</button>
         <button onclick="dnaSub('fingerprint',this)">Fingerprint</button>
+        <button onclick="dnaSub('splits',this)">Splits</button>
         <button onclick="dnaSub('offense',this)">Offense</button>
         <button onclick="dnaSub('defense',this)">Defense</button>
         <button onclick="dnaSub('sixfactor',this)">6-Factor</button>
@@ -4634,6 +4637,9 @@ function renderPage(){
       </div>
       <div class="dna-sub-panel" id="dna-fingerprint" style="display:none;">
         <div id="fingerprintHost"><div class="dna-loading">Loading skill fingerprint…</div></div>
+      </div>
+      <div class="dna-sub-panel" id="dna-splits" style="display:none;">
+        <div id="splitsHost"><div class="dna-loading">Loading splits…</div></div>
       </div>
       <div class="dna-sub-panel" id="dna-offense" style="display:none;">
         <div id="offenseHost"><div class="dna-loading">Loading offense profile…</div></div>

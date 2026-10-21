@@ -11,7 +11,7 @@
  * (the skills that separate players most first) and player strengths.
  */
 (function (g) {
-  var V = '2', SEASONS = [2026, 2025], cache = {};
+  var V = '3', SEASONS = [2026, 2025], cache = {};
   function load(y) {
     return cache[y] || (cache[y] = fetch('scripts/data/fingerprint/' + y + '.json?v=' + V)
       .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }));
@@ -49,6 +49,7 @@
     '.fp-note{font-size:11px;color:var(--text3);font-weight:600}' +
     '.sheet.fp-tbl td.fp-g{text-align:left;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);background:var(--bg2)}' +
     '.fp-tbl tr.fp-sum td{font-weight:800}' +
+    '.fp-tbl tr.fp-click{cursor:pointer}' +
     '.fp-tbl td.fp-viz{min-width:180px;width:34%}' +
     '.fp-track{position:relative;height:12px;border-radius:3px;background:var(--bg3,rgba(127,127,127,.12))}' +
     '.fp-fill{position:absolute;top:0;bottom:0;border-radius:3px}' +
@@ -119,5 +120,87 @@
       draw();
     });
   }
-  g.TDCFingerprint = { load: load, seasonsFor: seasonsFor, render: render, read: read, SEASONS: SEASONS };
+
+  // ── SPLITS ("How he plays when…", scripts/build_fingerprint_splits.py) ─────────────────────────────────────
+  // each side = [poss, off, def, total, 15 skills]; league[split] = the typical player's two sides (no poss)
+  var scache = {};
+  function loadSplits(y) {
+    return scache[y] || (scache[y] = fetch('scripts/data/fingerprint/splits_' + y + '.json?v=' + V)
+      .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }));
+  }
+  var SPLIT_READ = {
+    close: ['Gets better when it is close and late', 'Fades when it is close and late'],
+    opp: ['Raises his game against top-50 teams', 'Drops off against top-50 teams'],
+    pace: ['Thrives when the game speeds up', 'Better when the game slows down'],
+    venue: ['Bigger home edge than most players', 'Travels better than most players']
+  };
+  var MIN_SIDE = { close: 60, opp: 250, pace: 250, venue: 250 };
+  function splitRows(sd, r) {
+    // per split: [A total, B total, change, typical change, vs typical]
+    return sd.splits.map(function (sp) {
+      var a = r[sp.k][0], b = r[sp.k][1], la = sd.league[sp.k][0], lb = sd.league[sp.k][1];
+      var ch = a[3] - b[3], ty = (la[2] - lb[2]);
+      return { sp: sp, a: a, b: b, ch: ch, ty: ty, vs: ch - ty, ok: a[0] >= MIN_SIDE[sp.k] && b[0] >= MIN_SIDE[sp.k] };
+    });
+  }
+  function splitsRead(rows) {
+    var sig = rows.filter(function (x) { return x.ok; }).sort(function (a, b) { return Math.abs(b.vs) - Math.abs(a.vs); });
+    if (!sig.length || Math.abs(sig[0].vs) < 1.5) return { verdict: 'Steady in every situation', sentence: 'No situation moves him more than about 1.5 points per 100 beyond what it does to a typical player.' };
+    var t = sig[0], w = SPLIT_READ[t.sp.k][t.vs > 0 ? 0 : 1];
+    var s = w + ' \u2014 ' + t.sp.a + ' ' + sgn(t.a[3]) + ', ' + t.sp.b.replace(/^vs /, 'vs ') + ' ' + sgn(t.b[3]) + ' points per 100 (a typical player moves ' + sgn(t.ty) + ').';
+    var t2 = sig[1];
+    if (t2 && Math.abs(t2.vs) >= 1.5) s += ' Also: ' + SPLIT_READ[t2.sp.k][t2.vs > 0 ? 0 : 1].toLowerCase() + ' (' + sgn(t2.vs) + ' beyond typical).';
+    return { verdict: w, sentence: s };
+  }
+  var vcls = function (v) { return v >= 3 ? 'c4' : v >= 1.5 ? 'c3' : v <= -3 ? 'c0' : v <= -1.5 ? 'c1' : ''; };
+  function renderSplits(host, espn, opt) {
+    opt = opt || {}; css();
+    if (!host) return Promise.resolve();
+    host.innerHTML = '<div class="dna-loading">Loading splits…</div>';
+    return seasonsFor(espn).then(function (ys) {
+      return Promise.all(ys.map(loadSplits)).then(function (sds) {
+        ys = ys.filter(function (y, i) { return sds[i] && sds[i].players[String(espn)]; });
+        if (!ys.length) { host.innerHTML = '<div class="dna-loading">No situation splits for this player yet (they need 250+ minutes in a 2024-25 or 2025-26 D-I season).</div>'; return; }
+        var st = { y: ys[0], sp: null };
+        function draw() {
+          Promise.all([loadSplits(st.y), load(st.y)]).then(function (x) {
+            var sd = x[0], doc = x[1], r = sd.players[String(espn)], rows = splitRows(sd, r), rd = splitsRead(rows);
+            if (!st.sp) { var big = rows.filter(function (z) { return z.ok; }).sort(function (a, b) { return Math.abs(b.vs) - Math.abs(a.vs); })[0]; st.sp = (big || rows[0]).sp.k; }
+            var cur = rows.find(function (z) { return z.sp.k === st.sp; });
+            var head = '<tr><th class="l">Situation</th><th class="l">Side</th><th>Poss</th><th title="Points per 100 possessions">Pts/100</th><th class="l">Other side</th><th>Poss</th><th>Pts/100</th><th title="This side minus the other side">Change</th><th title="How much the typical D-I player changes in the same situation">Typical</th><th title="His change beyond the typical player\'s">vs typical</th></tr>';
+            var body = rows.map(function (z) {
+              return '<tr' + (z.sp.k === st.sp ? ' style="outline:2px solid var(--accent);outline-offset:-2px"' : '') + ' data-sp="' + z.sp.k + '" class="fp-click"><td class="l"><b>' + esc({ close: 'Close and late', opp: 'Opponent', pace: 'Pace', venue: 'Venue' }[z.sp.k]) + '</b></td>' +
+                '<td class="l">' + esc(z.sp.a) + '</td><td class="dim">' + z.a[0] + '</td><td>' + sgn(z.a[3]) + '</td>' +
+                '<td class="l">' + esc(z.sp.b) + '</td><td class="dim">' + z.b[0] + '</td><td>' + sgn(z.b[3]) + '</td>' +
+                '<td><b>' + sgn(z.ch) + '</b></td><td class="dim">' + sgn(z.ty) + '</td><td class="' + (z.ok ? vcls(z.vs) : '') + '">' + (z.ok ? sgn(z.vs) : '<span class="dim" title="Small sample">' + sgn(z.vs) + '*</span>') + '</td></tr>';
+            }).join('');
+            // skill detail for the picked split
+            var la = sd.league[st.sp][0], lb = sd.league[st.sp][1], last = null, det = '';
+            var lab = function (i) { return doc.skills[i].label; };
+            var drow = function (name, a, b, ta, tb, strong) {
+              var ch = a - b, ty = ta - tb, vs = ch - ty;
+              return '<tr' + (strong ? ' class="fp-sum"' : '') + '><td class="l">' + esc(name) + '</td><td>' + sgn(a) + '</td><td>' + sgn(b) + '</td><td><b>' + sgn(ch) + '</b></td><td class="dim">' + sgn(ty) + '</td><td class="' + vcls(vs) + '">' + sgn(vs) + '</td></tr>';
+            };
+            det += drow('Overall', cur.a[3], cur.b[3], la[2], lb[2], 1) + drow('Offense', cur.a[1], cur.b[1], la[0], lb[0], 1) + drow('Defense', cur.a[2], cur.b[2], la[1], lb[1], 1);
+            for (var i = 0; i < doc.skills.length; i++) {
+              if (doc.skills[i].group !== last) { last = doc.skills[i].group; det += '<tr><td class="fp-g" colspan="6">' + esc(last) + '</td></tr>'; }
+              det += drow(lab(i), cur.a[4 + i], cur.b[4 + i], la[3 + i], lb[3 + i]);
+            }
+            var seasonSel = ys.length > 1 ? '<span class="fp-lab">Season</span><select class="fp-sel" data-fs="y">' + ys.map(function (y) { return '<option value="' + y + '"' + (y === st.y ? ' selected' : '') + '>' + (y - 1) + '-' + String(y).slice(2) + '</option>'; }).join('') + '</select>' : '<span class="fp-lab">' + (st.y - 1) + '-' + String(st.y).slice(2) + '</span>';
+            host.innerHTML = (opt.banner ? opt.banner(rd.verdict, rd.sentence) : '') +
+              '<div class="fp-bar">' + seasonSel + (st.y === 2025 ? '<span class="fp-note">Close-and-late uses only the ~25% of 2024-25 games that log substitutions</span>' : '') + '</div>' +
+              '<div class="sheet-wrap" style="max-height:none;margin-bottom:18px"><table class="sheet dense fp-tbl"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' +
+              '<div class="fp-bar"><span class="fp-lab">Skill by skill</span><select class="fp-sel" data-fs="sp">' + sd.splits.map(function (sp) { return '<option value="' + sp.k + '"' + (sp.k === st.sp ? ' selected' : '') + '>' + esc(sp.a) + ' vs ' + esc(sp.b.replace(/^vs /, '')) + '</option>'; }).join('') + '</select></div>' +
+              '<div class="sheet-wrap" style="max-height:none"><table class="sheet dense fp-tbl"><thead><tr><th class="l">Skill</th><th>' + esc(cur.sp.a) + '</th><th>' + esc(cur.sp.b) + '</th><th>Change</th><th>Typical</th><th>vs typical</th></tr></thead><tbody>' + det + '</tbody></table></div>';
+            host.querySelectorAll('[data-fs]').forEach(function (el) {
+              el.addEventListener('change', function () { if (el.getAttribute('data-fs') === 'y') { st.y = +el.value; st.sp = null; } else st.sp = el.value; draw(); });
+            });
+            host.querySelectorAll('tr[data-sp]').forEach(function (tr) { tr.addEventListener('click', function () { st.sp = tr.getAttribute('data-sp'); draw(); }); });
+          });
+        }
+        draw();
+      });
+    });
+  }
+  g.TDCFingerprint = { load: load, seasonsFor: seasonsFor, render: render, read: read, loadSplits: loadSplits, renderSplits: renderSplits, splitRows: splitRows, splitsRead: splitsRead, SEASONS: SEASONS };
 })(window);

@@ -105,10 +105,13 @@ def parse(s):
             except Exception: continue
             if m > 0:
                 pid = str(a["athlete"]["id"]); mins[tid][pid] = m; names[pid] = a["athlete"].get("displayName")
+                if a.get("starter"): names.setdefault("_starters", {}).setdefault(tid, []).append(pid)
     return teams, mins, names, s.get("plays") or []
 
-def tally(plays, teams, L):
-    """turn a game's plays into credit rows. L = league constants {r, rf, f}."""
+def tally(plays, teams, L, lineup=None):
+    """turn a game's plays into credit rows. L = league constants {r, rf, f}.
+    lineup = {team: [starter ids]} turns on floor tracking: then a third value comes back, ctxs[i] = the context of
+    rows[i] — (players on the floor for teams[0], for teams[1], close-and-late flag)."""
     other = {teams[0]: teams[1], teams[1]: teams[0]}
     rows = []          # (off_team, pid, skill, a, b, is_def)
     cnt = {t: defaultdict(float) for t in teams}
@@ -117,6 +120,20 @@ def tally(plays, teams, L):
     trip = None        # open FT trip
     last_make = None   # (team, clock) of the latest made FG, for and-ones
     last_miss_box = [None]
+    ctxs = [] if lineup else None
+    on = {t: list(lineup.get(t) or [])[:5] for t in teams} if lineup else None
+    seen = {}; state = {"clutch": False}
+    def add(row):
+        rows.append(row)
+        if ctxs is not None: ctxs.append((tuple(on[teams[0]]), tuple(on[teams[1]]), state["clutch"]))
+    def floor(t, pid, i):
+        """substitutions miss some swaps (halftime above all): a player who acts is on the floor; if that makes six,
+        the one who has gone longest without being seen leaves"""
+        seen[pid] = i
+        if pid in on[t]: return
+        on[t].append(pid)
+        if len(on[t]) > 5: on[t].remove(min((x for x in on[t] if x != pid), key=lambda x: seen.get(x, -1)))
+    hs = as_ = 0; home = None
     def close_trip():
         nonlocal trip
         if not trip: return
@@ -125,10 +142,10 @@ def tally(plays, teams, L):
         if missed_last: last_miss_box[0] = ("ft", t)
         f = L["f"]
         b_tot = (0.0 if andone else -1.0) + (L["rf"] if missed_last else 0.0)
-        rows.append((t, sh, "ft", made - f * att, 0.0, False))
-        rows.append((t, sh, "drawn", f * att, b_tot, False))
+        add((t, sh, "ft", made - f * att, 0.0, False))
+        add((t, sh, "drawn", f * att, b_tot, False))
         fl = trip.get("fouler")
-        if fl: rows.append((t, fl, "foul", -f * att, -b_tot, True))     # the fouler wears the foul part (defense sign)
+        if fl: add((t, fl, "foul", -f * att, -b_tot, True))     # the fouler wears the foul part (defense sign)
         trip = None
     for p in plays:
         ty = p["type"]["text"]; tx = (p.get("text") or ""); tl = tx.lower()
@@ -136,6 +153,23 @@ def tally(plays, teams, L):
         parts = [str(x["athlete"]["id"]) for x in p.get("participants") or [] if x.get("athlete")]
         clock = (p.get("period") or {}).get("number"), (p.get("clock") or {}).get("displayValue")
         if tid not in other: continue
+        if on is not None:
+            i = len(seen) + 1
+            per = (p.get("period") or {}).get("number") or 1
+            try: mm, ss = (p.get("clock") or {}).get("displayValue", "20:00").split(":"); left = int(mm) * 60 + float(ss)
+            except Exception: left = 1200
+            state["clutch"] = per >= 2 and left <= 300 and abs(hs - as_) <= 5
+            hs, as_ = p.get("homeScore", hs) or hs, p.get("awayScore", as_) or as_
+            if ty == "Substitution":
+                if parts:
+                    pid = parts[0]
+                    if "subbing out" in tl and pid in on[tid]: on[tid].remove(pid)
+                    elif "subbing in" in tl: seen[pid] = i; on[tid].append(pid) if pid not in on[tid] else None
+                    if len(on[tid]) > 5: on[tid].remove(min((x for x in on[tid] if x != pid), key=lambda x: seen.get(x, -1)))
+                continue
+            for k_, pid in enumerate(parts[:2]):
+                if ty == "Substitution": break
+                floor(tid if not (k_ == 0 and ty in ("Steal", "Block Shot")) else tid, pid, i) if (k_ == 0 or "assist" in tl) else None
         is_ft = "free throw" in tl or "FreeThrow" in ty
         if trip and not (is_ft and tid == trip["t"]) and ty not in ("Substitution", "ShortTimeOut", "RegularTimeOut", "OfficialTVTimeOut", "Dead Ball Rebound"):
             close_trip()
@@ -150,7 +184,7 @@ def tally(plays, teams, L):
             made = 1.0 if p.get("scoringPlay") else 0.0
             cnt[tid]["fta"] += 1; cnt[tid]["pts"] += made
             if "technical" in tl:   # a technical's shots are a bonus with no possession at stake
-                rows.append((tid, parts[0] if parts else None, "ft", made - L["f"], 0.0, False)); continue
+                add((tid, parts[0] if parts else None, "ft", made - L["f"], 0.0, False)); continue
             if not trip:
                 fl = last_foul.get(other[tid])
                 andone = (n == 1 and last_make == (tid, clock))
@@ -169,13 +203,13 @@ def tally(plays, teams, L):
                 cnt[tid]["pts"] += pts; last_make = (tid, clock); last_miss = None
                 ast = parts[1] if (len(parts) > 1 and "assist" in tl) else None
                 a = A_Z[z]
-                rows.append((tid, sh, z, (1 - a) * pts, -(1 - a), False))
-                rows.append((tid, ast, "pass", a * pts, -a, False) if ast else (tid, sh, "self", a * pts, -a, False))
+                add((tid, sh, z, (1 - a) * pts, -(1 - a), False))
+                add((tid, ast, "pass", a * pts, -a, False) if ast else (tid, sh, "self", a * pts, -a, False))
             else:
-                rows.append((tid, sh, z, 0.0, -(1 - L["r"]), False)); last_miss = ("fg", tid)
+                add((tid, sh, z, 0.0, -(1 - L["r"]), False)); last_miss = ("fg", tid)
             continue
         if ty == "Block Shot":
-            if parts: rows.append((other[tid], parts[0], "blk", 0.0, BLOCK_SH * (1 - L["r"]), True))
+            if parts: add((other[tid], parts[0], "blk", 0.0, BLOCK_SH * (1 - L["r"]), True))
             continue
         if "Rebound" in ty:
             if not last_miss: continue
@@ -183,21 +217,21 @@ def tally(plays, teams, L):
             r = L["r"] if kind == "fg" else L["rf"]
             pid = parts[0] if parts else None
             if tid == shot_t:
-                cnt[tid]["oreb"] += 1; rows.append((tid, pid, "oreb", 0.0, REB_SH * (1 - r), False))
-                rows.append((tid, None, "_oreb", 0.0, (1 - REB_SH) * (1 - r), False))
+                cnt[tid]["oreb"] += 1; add((tid, pid, "oreb", 0.0, REB_SH * (1 - r), False))
+                add((tid, None, "_oreb", 0.0, (1 - REB_SH) * (1 - r), False))
             else:
-                rows.append((shot_t, None, "_dreb", 0.0, -r, False))                  # the offense's loss
-                if pid: rows.append((shot_t, pid, "dreb", 0.0, REB_SH * r, True))             # the rebounder's carve-out
+                add((shot_t, None, "_dreb", 0.0, -r, False))                  # the offense's loss
+                if pid: add((shot_t, pid, "dreb", 0.0, REB_SH * r, True))             # the rebounder's carve-out
             continue
         if "Turnover" in ty:
             cnt[tid]["tov"] += 1; last_miss = None
-            rows.append((tid, parts[0] if parts else None, "tov", 0.0, -1.0, False))
+            add((tid, parts[0] if parts else None, "tov", 0.0, -1.0, False))
             continue
         if ty == "Steal":
-            if parts: rows.append((other[tid], parts[0], "stl", 0.0, STEAL_SH, True))
+            if parts: add((other[tid], parts[0], "stl", 0.0, STEAL_SH, True))
             continue
     close_trip()
-    return rows, cnt
+    return (rows, cnt, ctxs) if lineup else (rows, cnt)
 
 def main():
     y = int(sys.argv[1]) if len(sys.argv) > 1 else 2026
