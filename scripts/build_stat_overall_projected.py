@@ -590,7 +590,11 @@ for _k,_v in OWNER_BLOB.items():
 try:
     for _ft,_pl in json.load(open(os.path.join(D,"minutes_overrides_%d.json"%(CUR+1)))).items():
         if _ft.startswith("_") or not isinstance(_pl,dict): continue
-        for _fn,_mv in _pl.items(): FIXED_MIN[(_ft.strip(),_fn.strip().lower())]=min(float(_mv),40.0)
+        for _fn,_mv in _pl.items():
+            # null = drop the editor's typed minutes and let the depth chart decide (owner, Oct 20 2026: UConn's Amosov
+            # kept 22.5 editor minutes from 11th on the chart)
+            if _mv is None: FIXED_MIN.pop((_ft.strip(),_fn.strip().lower()),None)
+            else: FIXED_MIN[(_ft.strip(),_fn.strip().lower())]=min(float(_mv),40.0)
 except FileNotFoundError: pass
 def _owner_out():
     blob=OWNER_BLOB
