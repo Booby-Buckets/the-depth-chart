@@ -20,7 +20,6 @@ window.TDC_COACHLINKS = (function () {
       ['dossier.html',        'Player Dossier'],
       ['roles.html',         'Roles & Fit'],
       ['matchup-advantage.html', 'Matchup Advantage'],
-      ['roster-dev.html',    'Development'],
     ]],
   ];
   function ensureCss() {
