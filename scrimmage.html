@@ -94,12 +94,13 @@
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
 </head>
 <body class="hqsite">
-  <script src="tdc-nav.js?v=80"></script>
+  <script src="tdc-nav.js?v=81"></script>
   <div class="page" id="app"><div class="empty">Loading the box score…</div></div>
 
 <script src="tdc-scrim.js?v=19"></script>
 <script src="tdc-gamehead.js?v=1"></script>
-<script src="tdc-gameflow.js?v=11"></script>
+<script src="tdc-gameflow.js?v=12"></script>
+<script src="tdc-gametabs.js?v=4"></script>
 <script src="tdc-scrimflow.js?v=6"></script>
 <script>
 (function(){
@@ -310,35 +311,70 @@
     const BX={potg:null,th:null,ta:null};
     if(box){ let best=-1e9; ['home','away'].forEach(k=>((box[k]&&box[k].players)||[]).forEach(p=>{ if(!(p.min>0)||p.pts==null) return; const gs=gameScore(p); if(gs>best){ best=gs; BX.potg=p; } }));
       const R0=res.reality||{}; if(has&&R0.pred!=null){ const rate=x=>Math.max(2,Math.min(10,Math.round((6.3+x*0.22)*10)/10)), d=(res.hs-res.as)-R0.pred; BX.th=rate(d); BX.ta=rate(-d); } }
+    // ── layout (Oct 2026, owner: too much text) — band, stat strip, then labelled tabs (tdc-gametabs.js) ──
+    const GT=window.TDCGameTabs, R0=res.reality||{};
+    const nmS=full=>esc(shortOf(full,byFull));
+    const statLine=p=>[`${v(p.pts)} PTS`,`${v(p.reb)} REB`,`${v(p.ast)} AST`].concat(+p.stl>=2?[p.stl+' STL']:[]).concat(+p.blk>=2?[p.blk+' BLK']:[]).join(' · ');
+    const potgSide=BX.potg?(((box.home&&box.home.players)||[]).includes(BX.potg)?g.home:g.away):null;
+    const possOf=()=>{ if(!box||!box.home||!box.away) return null; const A=teamNums(box.away), Hh=teamNums(box.home); if(!A.fga||!Hh.fga) return null;
+      const q=x=>x.fga-x.oreb+x.tov+0.44*x.fta; return (q(A)+q(Hh))/2; };
+    const poss=possOf();
+    const cells=[];
+    if(has){ const actual=res.hs-res.as; cells.push({v:Math.abs(actual),k:'Margin',s:nmS(actual>=0?g.home:g.away)+' won'}); }
+    if(P){ const fav=P.m>=0?g.home:g.away; cells.push({v:'−'+(Math.round(Math.abs(P.m)*2)/2).toFixed(1),k:'Our line',s:nmS(fav)+' · '+Math.round(Math.max(P.probH,100-P.probH))+'% to win',tip:'Our pregame point spread for the favorite'}); }
+    if(has&&P){ const d=(res.hs-res.as)-P.m; cells.push({v:Math.abs(d).toFixed(1),k:'vs. our line',s:nmS(d>=0?g.home:g.away)+' beat it',tip:'How many points the result landed away from our line'}); }
+    if(has) cells.push({v:res.hs+res.as,k:'Total points',s:poss?Math.round((res.hs+res.as)/poss/2*100)+' per 100 poss.':''});
+    if(poss) cells.push({v:Math.round(poss),k:'Possessions',s:poss>80?'fast':poss<60?'slow':'normal pace'});
+    if(R0.score!=null) cells.push({v:Math.round(R0.score)+'%',k:'Counts as',s:'of a real game',tip:'Reality Meter: how much this scrimmage counts toward each player’s 2026-27 projection (100% = one full real game). See the “How much it counts” tab.'});
+    const sum=GT.kv([
+      ['Player of the game',BX.potg?`<b>${esc(BX.potg.rn||BX.potg.name)}</b> · ${nmS(potgSide)} · ${statLine(BX.potg)} · RTG ${playerRating(BX.potg).toFixed(1)}`:''],
+      ['Report',res.note?esc(res.note):''],
+      ['How much it counts',R0.score!=null?`<b>${esc(R0.label||'')}</b> · about ${Math.round(R0.score)}% of a real game toward each player’s projection`:''],
+      ['RTG scale',box?'0–10 from the box score · 5 average · 6.5 strong · 8+ great':''],
+    ])+(box?GT.leaders(['away','home'].map(k=>{ const full=k==='home'?g.home:g.away, ros=k==='home'?rh:ra, short=byFull[full]&&byFull[full].team, byKey={};
+        ros.forEach(p=>{ byKey[nk(p.name)]=p; });
+        return { name:shortOf(full,byFull), players:((box[k]&&box[k].players)||[]).map(p=>{ const r=byKey[nk(p.rn||p.name)];
+          return { name:p.rn||p.name, pts:p.pts, reb:p.reb, ast:p.ast, min:p.min,
+            href:r?(r.espn_id?`player.html?espn=${r.espn_id}`:`player.html?name=${encodeURIComponent(r.name)}&team=${encodeURIComponent(short||'')}`):null }; }) }; })):'')
+      +(FL?GT.moments(FL.G,FL.R):'')
+      +(proj?GT.head('Vs our projection','minutes and Game Score vs our pre-scrimmage projection · * started')+proj:'');
+    const boxes=box?teamBlock('away',box.away,g.away,byFull[g.away]&&byFull[g.away].team,ra,byFull,PM.a,{potg:BX.potg,trtg:BX.ta})+teamBlock('home',box.home,g.home,byFull[g.home]&&byFull[g.home].team,rh,byFull,PM.h,{potg:BX.potg,trtg:BX.th})+'<p class="note">* = started · RTG = 0–10 game rating · Counts = share of a real game this line adds to his projection.</p>':'';
+    const stats=(efficiency(box,g,byFull,S.eff&&S.eff.ffAvg)||'')+(FL?`<div class="sec"><h2>How each trip ended</h2><span class="hint">every possession, by what ended it</span></div>${TDC_SCRIMFLOW.possessionsHtml(pb,names)}`:'');
+    const rotOK=FL&&FL.G.rotTeams.length;
+    const nameGap=FL&&FL.G.rotTeams.length<2?`<p class="note">${['h','a'].filter(s=>!FL.ok[s]).map(s=>esc(shortOf(s==='h'?g.home:g.away,byFull))).join(' and ')}: the play-by-play’s names don’t match the box score, so no rotation, +/− or player shot rows.</p>`:'';
+    const counts=meter(res.reality,g,byFull,res)+(R0.score!=null?`<ul class="gt-list">
+        <li><b>Not official:</b> never counted in either team’s record, season stats or ratings.</li>
+        <li><b>What it moves:</b> player projected rates (capped 15%), minutes, a newcomer’s OVR (±4) and the team rating (±2.5).</li>
+        <li><b>How much:</b> a fully game-like scrimmage counts as one real game; this one counts ${Math.round(R0.score)}%.</li>
+        <li><b>Where to see it:</b> each player’s Trends tab shows exactly what moved.</li></ul>`:'');
     $app.innerHTML=`
       <div><a href="scrimmages.html" style="font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;margin-right:10px;">← All scrimmages</a><span class="chip">Preseason scrimmage · unofficial</span></div>
       <h1 class="sr-only">${esc(aS)} ${g.neutral?'vs':'at'} ${esc(hS)}</h1>
       ${TDC_GAMEHEAD.html({ away:band(g.away,res.as), home:band(g.home,res.hs),
         status:has?'Final':'Not played yet', statusSub:has?'Unofficial':'',
         meta:`<span>${dd}${g.time?' · '+esc(g.time):''}</span><span>${g.neutral?'Neutral site':esc(hS)+' home floor'}</span>${g.tv?`<span>${esc(g.tv)}</span>`:''}` })}
-      ${read?`<p class="read">${read}</p>`:''}
-      ${res.note?`<p class="read">${esc(res.note)}</p>`:''}
-      ${meter(res.reality,g,byFull,res)}
-      ${efficiency(box,g,byFull,S.eff&&S.eff.ffAvg)}
-      ${FL?`<div class="sec"><h2>Game flow</h2><span class="hint">scoring margin · from the play-by-play</span></div><section class="gf-card sc-gf" id="scFlow"></section>
-        <div class="sec"><h2>How each trip ended</h2><span class="hint">every possession, by what ended it</span></div>${TDC_SCRIMFLOW.possessionsHtml(pb,names)}`:''}
-      ${box?teamBlock('away',box.away,g.away,byFull[g.away]&&byFull[g.away].team,ra,byFull,PM.a,{potg:BX.potg,trtg:BX.ta})+teamBlock('home',box.home,g.home,byFull[g.home]&&byFull[g.home].team,rh,byFull,PM.h,{potg:BX.potg,trtg:BX.th})
-           :`<div class="empty" style="margin-top:20px;">${has?'Only the final score is in for this one; no box score has posted.':'This scrimmage hasn’t been played yet. Its box score lands here once it’s out.'}</div>`}
-      ${proj?`<div class="sec"><h2>Vs our projection</h2><span class="hint">minutes and Game Score against our pre-scrimmage projection · * started</span></div>${proj}`:''}
-      ${FL?shotProfile(SP,FL.ok,g,byFull,box):''}
-      ${FL&&FL.G.rotTeams.length?`<div class="sec"><h2>Starters vs bench</h2><span class="hint">score margin by how many starters were on the floor</span></div>${TDC_SCRIMFLOW.unitsHtml(FL,names)}`:''}
-      ${FL&&FL.G.rotTeams.length?`<div class="sec"><h2>Rotation</h2><span class="hint">stints by half, coloured by +/− · five-man lineups</span></div><section class="gf-card sc-gf" id="scRot"></section>`:''}
-      ${FL&&FL.G.rotTeams.length<2?`<p class="note">${['h','a'].filter(s=>!FL.ok[s]).map(s=>esc(shortOf(s==='h'?g.home:g.away,byFull))).join(' and ')}: the play-by-play's names don't match the box score, so no rotation, +/− or player shot rows.</p>`:''}
-      <div class="note">Unofficial preseason scrimmage: not counted in either team's record, season stats or ratings. How far it moves anything is set by the Reality Meter: a fully game-like scrimmage counts as one real game toward each player's projected rates (capped 15%), minutes (rotation), a newcomer's OVR (±4) and the team's rating (±2.5). Each player's Trends tab shows exactly what moved. * = started. "Did not play" lists everyone on our 2026-27 roster with no minutes in the box score.${res.src?` <a href="${esc(res.src)}" target="_blank" rel="noopener">Source box score</a>.`:''}</div>`;
+      ${cells.length?GT.strip(cells):''}
+      <div id="scTabs"></div>
+      ${box||res.note?'':`<div class="empty" style="margin-top:20px;">${has?'Only the final score is in for this one; no box score has posted.':'This scrimmage hasn’t been played yet. Its box score lands here once it’s out.'}</div>`}
+      ${res.src?`<p class="note"><a href="${esc(res.src)}" target="_blank" rel="noopener">Source box score</a></p>`:''}`;
     const shade=()=>document.querySelectorAll('table.sc-box').forEach(t=>window.tdcSheetHeat&&tdcSheetHeat(t));
-    if(window.tdcSheetHeat) shade(); else addEventListener('load',shade);
-    if(FL){ const f=document.getElementById('scFlow'), r=document.getElementById('scRot');
-      try{ if(f) TDC_GAMEFLOW.renderFlow(f,FL.G,FL.R); if(r) TDC_GAMEFLOW.renderRotation(r,FL.G,FL.R); }catch(e){ console.error(e); } }
+    const flowTab=FL?{id:'flow',label:'Game flow',onShow:el=>{ el.innerHTML='<section class="gf-card sc-gf"></section>'; TDC_GAMEFLOW.renderFlow(el.firstChild,FL.G,FL.R); }}:null;
+    const rotTab=rotOK?{id:'rotation',label:'Rotation',onShow:el=>{ el.innerHTML=GT.head('Starters vs bench','score margin by how many starters were on the floor')+TDC_SCRIMFLOW.unitsHtml(FL,names)+GT.head('Stints and lineups','coloured by +/−')+'<section class="gf-card sc-gf"></section>'+nameGap;
+      TDC_GAMEFLOW.renderRotation(el.querySelector('section'),FL.G,FL.R); }}:null;
+    if(box||res.note) GT.mount(document.getElementById('scTabs'),[
+      {id:'summary',label:'Summary',html:sum},
+      box?{id:'box',label:'Box score',html:boxes,onShow:shade}:null,
+      {id:'stats',label:'Team stats',html:stats},
+      flowTab,
+      {id:'shots',label:'Shots',html:FL?shotProfile(SP,FL.ok,g,byFull,box):''},
+      rotTab,
+      {id:'counts',label:'How much it counts',html:counts},
+    ]);
   }
   main().catch(e=>{ console.error(e); $app.innerHTML='<div class="empty">Could not load this box score.</div>'; });
 })();
 </script>
   <script src="tdc-sheets.js?v=2"></script>
-  <script src="tdc-tour.js?v=31"></script>
+  <script src="tdc-tour.js?v=32"></script>
 </body>
 </html>

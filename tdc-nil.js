@@ -436,10 +436,24 @@ window.TDC_NIL = {
   //   EST. PAYROLL   = what it's likely paying this roster: power^0.7 x worth^0.3 (within 0.45-1.35 x worth), split by
   //                    how each player was acquired — portal transfers at a premium (bought on the open market),
   //                    returners a little under (re-signed), freshmen at worth.
-  N.BUDGETS = {}; N.PAY = { BLEND: 0.5, K: 1.05, PE: 0.7, ACQ: { transfer: 1.12, returner: 0.90, freshman: 1.0 }, LO: 0.45, HI: 1.35 };
+  N.BUDGETS = {}; N.PAY = { BLEND: 0.5, K: 1.05, PE: 0.7, ACQ: { transfer: 1.12, returner: 0.90, freshman: 1.0 }, LO: 0.45, HI: 1.35, SPLIT_E: 0.8, SAL_CAP: 6.0 };
   N.budgetsReady = fetch('scripts/data/nil_budgets.json?v=1').then(function(r){ return r.ok ? r.json() : null; })
     .then(function(j){ if (j && j.teams) N.BUDGETS = j.teams; return N.BUDGETS; }).catch(function(){ return N.BUDGETS; });
   N.budgetRow = function(team){ return N.BUDGETS[team] || null; };
+  // HIGH-MAJOR SPENDING BANDS (owner, Oct 21 2026: "use this for our NIL numbers — pretty hard numbers"): reported
+  // 2026-27 roster-spending tiers for the 80 high-majors (scripts/data/nil_tiers_2027.json). CALIBRATION ONLY — the
+  // band itself is never shown. Our finance read had them squeezed (high-major avg $11.0M vs the reported $13.5M; only
+  // 25/79 inside their tier; UNC $10.6M vs $20M+). Each listed team's payroll is placed INSIDE its band by how its model
+  // payroll compares to the band midpoint (tanh), so teams in one tier keep the model's order instead of piling on an
+  // edge. Mid-majors stay on the model (the report covers high-majors only; scaling them 1.3x put Grand Canyon at $11.6M).
+  N.TIERS = { ranges: {}, teams: {} };
+  N.tiersReady = fetch('scripts/data/nil_tiers_2027.json?v=2').then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(j){ if (j && j.teams) N.TIERS = j; return N.TIERS; }).catch(function(){ return N.TIERS; });
+  N.bandOf = function(team){ var t = N.TIERS.teams[team]; return t ? N.TIERS.ranges[String(t)] || null : null; };
+  N.inBand = function(pay, band){ var lo = band[0], hi = band[1], mid = (lo + hi) / 2;
+    return lo + (hi - lo) * (0.5 + 0.5 * Math.tanh(2 * (pay / mid - 1))); };
+  // every page already awaits budgetsReady before pricing — make it cover the bands too
+  N.budgetsReady = Promise.all([N.budgetsReady, N.tiersReady]).then(function(){ return N.BUDGETS; });
   N.spendPower = function(team, worth){
     var b = N.BUDGETS[team], fin = b && b.fin, w = Math.max(0.05, +worth || 0);
     if (!(fin > 0)) return w * 0.75;
@@ -456,8 +470,18 @@ window.TDC_NIL = {
       .filter(function(x){ return x.worth > 0; });
     var worth = L.reduce(function(a, x){ return a + x.worth; }, 0), power = N.spendPower(team, worth);
     var factor = worth > 0 ? Math.max(N.PAY.LO, Math.min(N.PAY.HI, Math.pow(power / worth, N.PAY.PE))) : 1, pay = worth * factor;   // = power^PE x worth^(1-PE)
-    var raw = L.reduce(function(a, x){ return a + x.worth * N.PAY.ACQ[x.acq]; }, 0) || 1;
-    L.forEach(function(x){ x.salary = pay * x.worth * N.PAY.ACQ[x.acq] / raw; });
+    var band = N.bandOf(team);
+    if (band && worth > 0) { pay = N.inBand(pay, band); var fl = N.TIERS.floors && N.TIERS.floors[team]; if (fl) pay = Math.min(band[1], Math.max(pay, fl)); factor = pay / worth;
+      power = Math.max(pay, Math.min(power, band[1] * 1.08)); if (power < pay * 1.02) power = pay * 1.02; }
+    // split: flatter than worth (^SPLIT_E) and no one past SAL_CAP — the reported market tops out near $6M (bigs ~$5M,
+    // guards/wings ~$4M); a straight worth split of a $25M payroll put Momcilovic at $7.9M. Excess goes to the rest.
+    var wt = function(x){ return Math.pow(x.worth * N.PAY.ACQ[x.acq], N.PAY.SPLIT_E); };
+    var raw = L.reduce(function(a, x){ return a + wt(x); }, 0) || 1;
+    L.forEach(function(x){ x.salary = pay * wt(x) / raw; });
+    for (var it = 0; it < 4; it++) { var ex = 0, room = 0;
+      L.forEach(function(x){ if (x.salary > N.PAY.SAL_CAP) { ex += x.salary - N.PAY.SAL_CAP; x.salary = N.PAY.SAL_CAP; } else room += wt(x); });
+      if (ex <= 1e-6 || room <= 0) break;
+      L.forEach(function(x){ if (x.salary < N.PAY.SAL_CAP) x.salary += ex * wt(x) / room; }); }
     L.sort(function(a, b){ return b.salary - a.salary; });
     return { team: team, worth: worth, power: power, payroll: pay, factor: factor, players: L }; };
   // plain-English reads of the three numbers

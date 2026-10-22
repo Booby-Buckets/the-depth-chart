@@ -49,14 +49,7 @@
     .gh-team.lose .gh-rate{opacity:.9;}
     /* box tables — the site sheet (tdc-sheets.css); one table per team */
     .bs{margin-top:26px;}
-    /* stat strip under the band — the same flat ribbon as the team header and the game preview */
-    .gm-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1px solid var(--border);background:var(--bg);margin:12px 0 4px;}
-    .gm-strip .t{padding:14px 18px 13px;border-right:1px solid var(--border);min-width:0;}
-    .gm-strip .t:last-child{border-right:none;}
-    .gm-strip .v{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:24px;letter-spacing:-.01em;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;}
-    .gm-strip .k{font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-top:6px;white-space:nowrap;}
-    .gm-strip .s{font-size:11px;color:var(--text3);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    @media(max-width:760px){.gm-strip{grid-template-columns:repeat(3,minmax(0,1fr));}.gm-strip .t{border-bottom:1px solid var(--border);padding:9px 10px;}.gm-strip .v{font-size:18px;}.gm-strip .s{display:none;}}
+    /* stat strip + tabs: tdc-gametabs.js */
     /* game flow / rotation: a plain Playfair section title like every other section (the condensed poster title and the
        repeated score above the chart came from the standalone crunch-time cards) */
     html body .gf-top{border-bottom:none;padding-bottom:0;margin-bottom:10px;align-items:baseline;}
@@ -103,7 +96,7 @@
   <script src="tdc-pwa.js?v=3" defer></script>
 </head>
 <body data-anim-auto>
-  <script src="tdc-nav.js?v=80"></script>
+  <script src="tdc-nav.js?v=81"></script>
   <div class="wrap">
     <a class="back" id="backLink" href="#" onclick="history.length>1?history.back():(location.href='index.html');return false;">← Back</a>
     <div id="content"><div class="loading">Loading box score…</div></div>
@@ -115,9 +108,10 @@
 <script src="tdc-live.js?v=2"></script>
 <script src="tdc-livegame.js?v=4"></script>
 <script src="tdc-shotchart.js?v=33"></script>
-<script src="tdc-gameflow.js?v=11"></script>
+<script src="tdc-gameflow.js?v=12"></script>
+<script src="tdc-gametabs.js?v=4"></script>
 <script src="tdc-plays.js?v=1"></script>
-<script src="tdc-fingerprint.js?v=8"></script>
+<script src="tdc-fingerprint.js?v=10"></script>
 <script src="tdc-credit.js?v=2"></script>
 <script src="tdc-recap.js?v=5"></script>
 <script>
@@ -251,26 +245,23 @@ async function load(afterLive){
     // the read under the band: what was expected vs what happened. 2026-27 games use our pregame line (same as
     // the scrimmage page); any season gets the season power ratings the team game rating is measured against.
     let expM=null, expLbl='';   // expected margin (home − away) for the strip: our pregame line (2026-27) or season power
-    const read=await (async()=>{
+    const read=await (async()=>{   // [label, value] rows for the Summary tab
       const mg=N(hs)-N(as_), res=`<b>${esc(shortNm(mg>=0?home:away))} by ${Math.abs(mg)}</b>`;
       if(g&&g.season_year>=2027&&window.TDC_LIVE&&TDC_LIVE.pregame){ try{
         const l=await TDC_LIVE.pregame({id:String(gid),date:g.date,home:{name:home},away:{name:away},neutral:!!g.neutral});
         if(l&&l.margin!=null){ const d=mg-l.margin, fav=l.margin>=0?home:away; expM=l.margin; expLbl='Our line';
-          return `Our line: <b>${esc(shortNm(fav))} −${Math.abs(l.margin).toFixed(1)}</b>${l.p!=null?` (${Math.round(100*Math.max(l.p,1-l.p))}% to win)`:''} · Result: ${res}, ${Math.abs(d).toFixed(1)} points ${(l.margin>=0?d:-d)>=0?'better':'worse'} than our line for the favorite.`; }
+          return [['Our line',`<b>${esc(shortNm(fav))} −${Math.abs(l.margin).toFixed(1)}</b>${l.p!=null?` · ${Math.round(100*Math.max(l.p,1-l.p))}% to win`:''}`],
+                  ['Result',`${res} · ${Math.abs(d).toFixed(1)} points ${(l.margin>=0?d:-d)>=0?'better':'worse'} than our line for the favorite`]]; }
       }catch(e){} }
-      const sH=SRS[home], sA=SRS[away]; if(sH==null||sA==null) return '';
+      const sH=SRS[home], sA=SRS[away]; if(sH==null||sA==null) return [['Result',res]];
       const exp=sH-sA, over=mg-exp; expM=exp; expLbl='Power ratings';
-      return `Season power ratings had <b>${esc(shortNm(exp>=0?home:away))} by ${Math.abs(exp).toFixed(1)}</b> · Result: ${res}, so ${esc(shortNm(over>=0?home:away))} played ${Math.abs(over).toFixed(1)} points better than expected. That gap is each team's game rating (6.3 = exactly as expected).`;
+      return [['Expected',`<b>${esc(shortNm(exp>=0?home:away))} by ${Math.abs(exp).toFixed(1)}</b> · season power ratings`],
+              ['Result',`${res} · ${esc(shortNm(over>=0?home:away))} played ${Math.abs(over).toFixed(1)} points better than expected`]];
     })();
     // player of the game = highest Game Score across both teams
     let potg=null,bestGs=-1e9;
     bA.forEach(p=>{const gs=gameScore(p); if(gs>bestGs){bestGs=gs;potg=p;}});
     const potgId=potg?potg.espn_id:null;
-    const callout=potg?`<div class="potg-callout">
-      <div><div class="lbl">Player of the Game</div>
-        <a href="player.html?espn=${potg.espn_id}&name=${encodeURIComponent(potg.player)}"><span class="nm">${potg.player}</span></a>
-        <span class="ln"> — ${statline(potg)} · ${potg.team}</span></div>
-      <span class="potg-key" title="RTG is the box-score Game Score on a 0-10 scale">Player RTG: 5 ≈ an average game · 6.5 strong · 8+ great</span></div>`:'';
     // away team first, then home
     const order=[away,home].filter(t=>byTeam[t]);
     Object.keys(byTeam).forEach(t=>{ if(!order.includes(t)) order.push(t); });
@@ -279,26 +270,44 @@ async function load(afterLive){
     const strip=(()=>{ const mg=N(hs)-N(as_), win=mg>=0?home:away;
       const tm=t=>(byTeam[t]||[]).reduce((a,p)=>{ a.fga+=N(p.fga); a.fta+=N(p.fta); a.tov+=N(p.tov); a.oreb+=N(p.oreb); return a; },{fga:0,fta:0,tov:0,oreb:0});
       const poss=t=>{ const x=tm(t); return x.fga+0.44*x.fta+x.tov-x.oreb; }, pa=poss(home), pb=poss(away), pace=(pa>0&&pb>0)?(pa+pb)/2:null;
-      const cell=(v,k,sub)=>`<div class="t"><div class="v">${v}</div><div class="k">${k}</div><div class="s">${sub||'&nbsp;'}</div></div>`;
-      const vsExp=expM!=null?mg-expM:null;
-      return `<div class="gm-strip">`+
-        cell(Math.abs(mg),'Margin',esc(shortNm(win))+' won')+
-        cell(expM!=null?'−'+Math.abs(expM).toFixed(1):'—','Expected',expM!=null?esc(shortNm(expM>=0?home:away))+' · '+expLbl:'no pregame rating')+
-        cell(vsExp!=null?Math.abs(vsExp).toFixed(1):'—','vs. expected',vsExp!=null?esc(shortNm(vsExp>=0?home:away))+' beat it':'&nbsp;')+
-        cell(N(hs)+N(as_),'Total points',pace?(N(hs)+N(as_)>0?((N(hs)+N(as_))/pace/2*100).toFixed(0)+' per 100 poss.':''):'')+
-        cell(pace?Math.round(pace):'—','Possessions',g&&g.neutral?'neutral site':esc(shortNm(home))+' home floor')+`</div>`; })();
-    c.innerHTML=header+strip+(read?`<p class="gm-read">${read}</p>`:'')+callout+'<div id="rcHost"></div>'+order.map(t=>tableFor(t,byTeam[t],potgId,trFor(t))).join('');
+      const vsExp=expM!=null?mg-expM:null, T=window.TDCGameTabs;
+      return T.strip([
+        {v:Math.abs(mg),k:'Margin',s:esc(shortNm(win))+' won'},
+        {v:expM!=null?'−'+Math.abs(expM).toFixed(1):'—',k:'Expected',s:expM!=null?esc(shortNm(expM>=0?home:away))+' · '+expLbl:'no pregame rating'},
+        {v:vsExp!=null?Math.abs(vsExp).toFixed(1):'—',k:'vs. expected',s:vsExp!=null?esc(shortNm(vsExp>=0?home:away))+' beat it':'',tip:'How far the result landed from the expected margin. This gap sets each team’s game rating (6.3 = exactly as expected).'},
+        {v:N(hs)+N(as_),k:'Total points',s:pace?((N(hs)+N(as_))/pace/2*100).toFixed(0)+' per 100 poss.':''},
+        {v:pace?Math.round(pace):'—',k:'Possessions',s:g&&g.neutral?'neutral site':esc(shortNm(home))+' home floor'}]); })();
+    const GT=window.TDCGameTabs;
+    const summary=GT.kv((read||[]).concat([
+      ['Player of the game',potg?`<a href="player.html?espn=${potg.espn_id}&name=${encodeURIComponent(potg.player)}" style="text-decoration:none;"><b>${esc(potg.player)}</b></a> · ${esc(shortNm(potg.team))} · ${statline(potg)} · RTG ${playerRating(potg).toFixed(1)}`:''],
+      ['Rating scale',tr?'Team game rating: 6.3 = played exactly as expected · Player RTG: 5 average · 6.5 strong · 8+ great':'Player RTG: 5 average · 6.5 strong · 8+ great'],
+    ]))+GT.leaders(order.map(t=>({ name:shortNm(t), players:byTeam[t].map(p=>({ name:p.player, pts:p.pts, reb:p.reb, ast:p.ast, min:p.min,
+        href:p.espn_id?`player.html?espn=${p.espn_id}&name=${encodeURIComponent(p.player)}`:null })) })))+'<div id="gmMoments"></div>';
+    const boxes=order.map(t=>tableFor(t,byTeam[t],potgId,trFor(t))).join('');
+    c.innerHTML=header+strip+'<div id="gmTabs"></div>';
+    // play-by-play tabs draw on first open (the charts measure their width); they drop out when ESPN has no PBP
+    const gfP=window.TDC_GAMEFLOW?TDC_GAMEFLOW.load(gid).catch(()=>null):Promise.resolve(null);
+    const gfTab=(id,label,draw)=>({id,label,onShow:el=>{ el.innerHTML='<section class="gf-card"><div class="loading">Loading the play-by-play…</div></section>';
+      gfP.then(res=>{ if(!res){ el.innerHTML='<div class="loading">No play-by-play for this game.</div>'; return; } try{ draw(el.firstChild,res); }catch(e){ console.error(e); el.innerHTML='<div class="loading">Couldn’t draw this from the play-by-play.</div>'; } }); }});
+    const tabs=GT.mount(document.getElementById('gmTabs'),[
+      {id:'summary',label:'Summary',html:summary},
+      {id:'why',label:'Why it went that way',html:'<div id="rcHost"><div class="loading">Reading the play-by-play…</div></div>'},
+      {id:'box',label:'Box score',html:boxes,onShow:shadeBoxes},
+      gfTab('flow','Game flow',(el,r)=>TDC_GAMEFLOW.renderFlow(el,r.G,r.R)),
+      gfTab('shots','Shot chart',(el,r)=>TDC_GAMEFLOW.renderShots(el,r.G,r.R)),
+      gfTab('rotation','Rotation',(el,r)=>TDC_GAMEFLOW.renderRotation(el,r.G,r.R)),
+    ]);
+    gfP.then(res=>{ if(!res){ ['flow','shots','rotation'].forEach(t=>tabs.drop(t)); return; }
+      const m=document.getElementById('gmMoments'); if(m) try{ m.innerHTML=GT.moments(res.G,res.R,t=>shortNm((res.G.T[t]&&res.G.T[t].name)||t)); }catch(e){ console.error(e); } });
     // our read of the game: where the edge came from, who beat his usual, the swing (tdc-recap.js; hides itself without PBP)
-    if(window.TDC_RECAP) TDC_RECAP.mount(document.getElementById('rcHost'),gid,{season:g&&g.season_year});
-    shadeBoxes(c);
-    // game flow + rotation (ESPN play-by-play; hides itself when ESPN has no PBP)
-    if(window.TDC_GAMEFLOW){ const gf=document.createElement('div'); gf.id='gfHost'; c.appendChild(gf); TDC_GAMEFLOW.mount(gf,gid); }
+    if(window.TDC_RECAP) Promise.resolve(TDC_RECAP.mount(document.getElementById('rcHost'),gid,{season:g&&g.season_year})).then(R=>{ if(!R) tabs.drop('why'); });
+    else tabs.drop('why');
   }catch(e){ if(afterLive) return; if(window.TDCLiveGame){ goLive(c); return; } c.innerHTML='<div class="err">Could not load box score. '+e.message+'</div>'; }
 }
 load();
 </script>
   <script src="tdc-sheets.js?v=2"></script>
   <script src="tdc-version.js?v=2"></script>
-  <script src="tdc-tour.js?v=31"></script>
+  <script src="tdc-tour.js?v=32"></script>
 </body>
 </html>
