@@ -17,7 +17,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="auth.js?v=sales2"></script>
   <script src="tdc-theme.js?v=5"></script>
-  <script src="team-colors.js?v=12"></script>
+  <script src="team-colors.js?v=13"></script>
   <script src="tdc-teamname.js?v=1"></script>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <style>
@@ -80,7 +80,7 @@
   const $ = id => document.getElementById(id);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const short = t => { try { return (window.TDCTeamName && TDCTeamName.short) ? TDCTeamName.short(t) : t; } catch (e) { return t; } };
-  const logo = t => { try { const c = window.tdcTeamColor && (tdcTeamColor(t) || tdcTeamColor(short(t))); return c && c.logo; } catch (e) { return null; } };
+  const logo = t => { try { const c = window.tdcTeamColor && (tdcTeamColor(t) || tdcTeamColor(short(t))); return c && c.logo && (window.tdcLogoSmall ? tdcLogoSmall(c.logo) : c.logo); } catch (e) { return null; } };
   const tcell = t => `<td class="l tm"><a href="team.html?team=${encodeURIComponent(short(t))}">${logo(t) ? `<img src="${logo(t)}" alt="" loading="lazy">` : ''}<span>${esc(short(t))}</span></a></td>`;
   const pcell = (id, n) => `<td class="l"><a href="player.html?espn=${id}&name=${encodeURIComponent(n)}" style="color:var(--text);text-decoration:none"><b>${esc(n)}</b></a></td>`;
   const pct = v => v == null ? '—' : Math.round(100 * v) + '%';
