@@ -59,7 +59,33 @@
       '<div class="mid">' + esc(o.status || (played ? 'Final' : 'Not played')) + (o.statusSub ? '<small>' + esc(o.statusSub) + '</small>' : '') + '</div></div>' +
       (o.meta ? '<div class="ghb-meta">' + o.meta + '</div>' : '');
   }
+  // one team's band for the Scouting pages: logo + name + a sub line on the left, a few big numbers on the right
+  //   teamBand({name, href, logo, color, sub, stats:[[label, value], …]})
+  function teamBand(o) {
+    css();
+    if (!document.getElementById('gh-band1-css')) {
+      var s = document.createElement('style'); s.id = 'gh-band1-css';
+      s.textContent =
+        '.ghb1{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;border-radius:14px;color:#fff;padding:18px 24px;margin:6px 0 0;}' +
+        '.ghb1 .who1{display:flex;align-items:center;gap:16px;min-width:0;}' +
+        '.ghb1 img{width:58px;height:58px;object-fit:contain;flex-shrink:0;background:rgba(255,255,255,.94);border-radius:12px;padding:6px;}' +   // a light tile: a navy logo on a navy band would vanish
+        '.ghb1 .nm{font-family:"Playfair Display",Georgia,serif;font-size:30px;font-weight:800;line-height:1.05;color:#fff;text-decoration:none;}' +
+        '.ghb1 a.nm:hover{text-decoration:underline;}' +
+        '.ghb1 .sub{font-size:12.5px;font-weight:600;opacity:.85;margin-top:5px;}' +
+        '.ghb1 .st1{display:flex;gap:28px;}' +
+        '.ghb1 .st1 div{text-align:right;} .ghb1 .st1 b{display:block;font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1;}' +
+        '.ghb1 .st1 span{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.8;}' +
+        '@media(max-width:640px){.ghb1{padding:14px 16px;}.ghb1 img{width:42px;height:42px;padding:4px;border-radius:9px;}.ghb1 .nm{font-size:22px;}.ghb1 .st1{gap:18px;width:100%;}.ghb1 .st1 div{text-align:left;}.ghb1 .st1 b{font-size:20px;}}';
+      document.head.appendChild(s);
+    }
+    var nm = o.href ? '<a class="nm" href="' + esc(o.href) + '">' + esc(o.name) + '</a>' : '<span class="nm">' + esc(o.name) + '</span>';
+    return '<div class="ghb1" style="background:' + band(o.color) + '"><div class="who1">' +
+      (o.logo ? '<img src="' + esc(o.logo) + '" alt="" onerror="this.style.display=\'none\'">' : '') +
+      '<div>' + nm + (o.sub ? '<div class="sub">' + o.sub + '</div>' : '') + '</div></div>' +
+      ((o.stats || []).length ? '<div class="st1">' + o.stats.map(function (x) { return '<div><b>' + x[1] + '</b><span>' + esc(x[0]) + '</span></div>'; }).join('') + '</div>' : '') +
+      '</div>';
+  }
   // the colour + logo for a team name, from team-colors.js
   function team(name) { var c = window.tdcTeamColor && window.tdcTeamColor(name); return { color: c && c.c1, logo: c && c.logo }; }
-  window.TDC_GAMEHEAD = { html: html, team: team, band: band };
+  window.TDC_GAMEHEAD = { html: html, teamBand: teamBand, team: team, band: band };
 })();
