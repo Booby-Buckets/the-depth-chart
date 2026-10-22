@@ -234,7 +234,9 @@
       { sel:'#grid, .grid',   t:'Pick one', html:bl('<b>Guess the Player / College</b> — from a stat line or a career path.', '<b>Grade Guess</b> — guess a player\'s OVR from his line; teaches the grade scale fast.', '<b>Higher or Lower</b> and <b>Rank \'Em</b> — order players by a stat.', '<b>Hoop Grid</b> — the tic-tac-toe of teams and accolades.') }
     ],
     'game.html': [
-      { sel:'#content', t:'Box score', html:'One game in full.' + bl('The header has the final, the four factors for each side and the player of the game.', 'Each player\'s line, with his <b>game impact</b> — how much he swung the result, from his stats in that game.', 'Below: the flow of the game and the runs that decided it.') }
+      { sel:'.ghb', t:'The final', d:'Final score and each team\'s game rating (0-10): 6.3 means they played exactly as expected, higher means they beat it.' },
+      { sel:'.gm-strip', t:'The numbers', d:'Margin, what we expected, how far the result landed from it, total points and possessions.' },
+      { sel:'.gt-bar', t:'The tabs', html:bl('<b>Summary</b> — expected vs result and the player of the game.', '<b>Why it went that way</b> — which skills decided it, who beat his usual, and the swing.', '<b>Box score</b> — every player\'s line; RTG is a 0-10 game rating.', '<b>Game flow · Shot chart · Rotation</b> — from the play-by-play, when ESPN has it.') }
     ],
     'buzz.html': [
       { sel:'#q',     t:'The Wire',   d:'News and posts about players and programs, searchable.' },
@@ -380,10 +382,10 @@
     ],
 
     'scrimmage.html': [
-      { sel:'.board', t:'The final', d:'Unofficial preseason scrimmage or exhibition: it does not count in either team\'s record or season stats.' },
-      { sel:'.read', t:'Against our line', d:'What we projected before the game (the favorite and by how much) and how the result compared.' },
-      { sel:'.rm', t:'The Reality Meter', html:'How much this looked like a real game, read from the box score (0-100):' + bl('<b>Rotation</b> — were the minutes concentrated like a real game, or spread around to experiment?', '<b>Availability</b> — did the projected rotation play and start?', '<b>Competitive</b> — big margins mean garbage time.', '<b>Pace / line fit</b> — a normal number of possessions and a believable result.') + 'The higher it is, the more these lines count toward the players\' projections.' },
-      { sel:'.sheet-wrap', t:'The box score', d:'Each team\'s player lines. * = started. "Counts" is how many real games that line is worth toward his projection. Below each table: who on our roster did not play.' }
+      { sel:'.ghb', t:'The final', d:'Unofficial preseason scrimmage or exhibition: it does not count in either team\'s record or season stats.' },
+      { sel:'.gm-strip', t:'The numbers', d:'Margin, our pregame line, how far the result landed from it, total points, possessions, and how much this game counts toward the players\' projections.' },
+      { sel:'.gt-bar', t:'The tabs', html:bl('<b>Summary</b> — player of the game and how each player did against our projection.', '<b>Box score</b> — both teams\' lines and who did not play.', '<b>Team stats</b> — shooting, four factors and how each possession ended.', '<b>Game flow · Shots · Rotation</b> — from the play-by-play, when there is one.', '<b>How much it counts</b> — the Reality Meter.') },
+      { sel:'#gt-counts .rm, #gt-counts', t:'The Reality Meter', before:(function(id){ return function(){ var b=document.querySelector('.gt-tab[data-t="'+id+'"]'); if(b) b.click(); }; })('counts'), html:'How much this looked like a real game, read from the box score (0-100):' + bl('<b>Rotation</b> — were the minutes concentrated like a real game, or spread around to experiment?', '<b>Availability</b> — did the projected rotation play and start?', '<b>Competitive</b> — big margins mean garbage time.', '<b>Pace / line fit</b> — a normal number of possessions and a believable result.') + 'The higher it is, the more these lines count toward the players\' projections.' }
     ],
 
     'forum.html': [

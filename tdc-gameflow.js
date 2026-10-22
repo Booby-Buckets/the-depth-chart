@@ -461,5 +461,5 @@
   }
   // a game that isn't on ESPN (scrimmages: tdc-scrimflow.js builds an ESPN-shaped summary from Sidearm PBP)
   function fromSummary(d,extra){ var G=parse(d); if(!G) return null; if(extra) Object.keys(extra).forEach(function(k){ G[k]=extra[k]; }); return {G:G,R:crunch(G)}; }
-  window.TDC_GAMEFLOW={mount:mount,load:load,parse:parse,crunch:crunch,fromSummary:fromSummary,renderFlow:renderFlow,renderRotation:renderRotation};
+  window.TDC_GAMEFLOW={mount:mount,load:load,parse:parse,crunch:crunch,fromSummary:fromSummary,renderFlow:renderFlow,renderRotation:renderRotation,renderShots:renderShots};
 })();
