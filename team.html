@@ -18,6 +18,7 @@
   <script src="tdc-lineups.js?v=17s"></script>
   <script src="tdc-lineup-history.js?v=4"></script>
   <script src="tdc-shotflow.js?v=12"></script>
+  <script src="tdc-assistweb.js?v=4"></script>
   <script src="tdc-nil.js?v=pay10"></script>
   <script src="tdc-nilchart.js?v=1"></script>
   <script src="tdc-gate.js?v=4"></script>
@@ -1366,7 +1367,7 @@
   <script src="tdc-coachlink.js?v=1"></script>
 </head>
 <body data-anim-auto>
-<script src="tdc-nav.js?v=80"></script>
+<script src="tdc-nav.js?v=81"></script>
 <div class="tdc-bg" aria-hidden="true">
   <div class="tdc-mesh"></div>
   <div class="tdc-blob b1"></div>
@@ -1650,6 +1651,10 @@
       <div class="dA-card" style="margin-top:16px;">
         <div class="dA-sec"><span>Shot flow</span><span class="dA-cap">where · how · who creates the makes</span></div>
         <div id="teamShotFlowHost" style="margin-top:10px;"></div>
+      </div>
+      <div class="dA-card" style="margin-top:16px;">
+        <div class="dA-sec"><span>Assist web</span><span class="dA-cap">who passes to whom · <a href="passing.html" style="color:inherit">every team</a></span></div>
+        <div id="teamAssistWebHost" style="margin-top:10px;"></div>
       </div>
     </div>
     <div class="panel" id="panel-twin">
@@ -6243,7 +6248,15 @@ async function loadTeamShift(){
     TDC_SHOTCHART.renderShift(host, cur.rows, rows, {name:(teamT&&teamT.name)||'This team', cur:_seasonLbl3(cur.season), base:_seasonLbl3(base)});
   }catch(e){ host.innerHTML='<div style="padding:24px;text-align:center;color:var(--text3);">Could not load the comparison season.</div>'; }
 }
+// assist web (tdc-assistweb.js, play-by-play): its own season list, newest first; matched to the team by ESPN id
+async function _initTeamAssistWeb(y){
+  var host=document.getElementById('teamAssistWebHost'); if(!host||!window.TDC_ASSISTWEB) return;
+  var ys=await TDC_ASSISTWEB.index(), tid=await _teamEspnId(); y=y||ys[0];
+  var doc=await TDC_ASSISTWEB.load(y); var key=doc&&TDC_ASSISTWEB.keyFor(doc,tid,teamT&&teamT.name);
+  TDC_ASSISTWEB.render(host, doc, key, { seasons:ys, onSeason:_initTeamAssistWeb });
+}
 function _initTeamShot(){
+  try{ _initTeamAssistWeb(); }catch(e){}
   var sel=document.getElementById('teamShotSeason'); if(!sel) return;
   // ESPN shot locations exist back to 2013-14 (thin before 2024-25) — offer every season; empty ones say so
   var yrs=[]; for(var y=2026;y>=2014;y--) yrs.push(y);

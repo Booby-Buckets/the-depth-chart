@@ -122,7 +122,7 @@ def parse(s):
 def tally(plays, teams, L, lineup=None):
     """turn a game's plays into credit rows. L = league constants {r, rf, f}.
     lineup = {team: [starter ids]} turns on floor tracking: then a third value comes back, ctxs[i] = the context of
-    rows[i] — (players on the floor for teams[0], for teams[1], close-and-late flag)."""
+    rows[i] — (players on the floor for teams[0], for teams[1], close-and-late flag, period)."""
     other = {teams[0]: teams[1], teams[1]: teams[0]}
     rows = []          # (off_team, pid, skill, a, b, is_def)
     cnt = {t: defaultdict(float) for t in teams}
@@ -134,10 +134,10 @@ def tally(plays, teams, L, lineup=None):
     last_miss_box = [None]
     ctxs = [] if lineup else None
     on = {t: list(lineup.get(t) or [])[:5] for t in teams} if lineup else None
-    seen = {}; state = {"clutch": False}
+    seen = {}; state = {"clutch": False, "per": 1}
     def add(row):
         rows.append(row)
-        if ctxs is not None: ctxs.append((tuple(on[teams[0]]), tuple(on[teams[1]]), state["clutch"]))
+        if ctxs is not None: ctxs.append((tuple(on[teams[0]]), tuple(on[teams[1]]), state["clutch"], state["per"]))
     def floor(t, pid, i):
         """substitutions miss some swaps (halftime above all): a player who acts is on the floor; if that makes six,
         the one who has gone longest without being seen leaves"""
@@ -171,6 +171,7 @@ def tally(plays, teams, L, lineup=None):
             try: mm, ss = (p.get("clock") or {}).get("displayValue", "20:00").split(":"); left = int(mm) * 60 + float(ss)
             except Exception: left = 1200
             state["clutch"] = per >= 2 and left <= 300 and abs(hs - as_) <= 5
+            state["per"] = per
             hs, as_ = p.get("homeScore", hs) or hs, p.get("awayScore", as_) or as_
             if ty == "Substitution":
                 if parts:
@@ -306,7 +307,7 @@ def main():
     lgO = sum(adjO.values()) / max(1, len(adjO)); lgD = sum(adjD.values()) / max(1, len(adjD))
 
     V = defaultdict(lambda: defaultdict(float))      # pid -> skill -> points
-    ST = defaultdict(lambda: defaultdict(float)); POS = {}
+    ST = defaultdict(lambda: defaultdict(float)); POS = {}; GS = defaultdict(int)
     P = defaultdict(float); M = defaultdict(float); TM = {}; NM = {}; GP = defaultdict(int)
     for teams, mins, names, plays in G:
         rows, cnt = tally(plays, teams, L)
@@ -314,6 +315,8 @@ def main():
         for pid, c_ in cnt["_p"].items():
             for k_, v_ in c_.items(): ST[pid][k_] += v_
         POS.update(names.get("_pos") or {})
+        for _st in (names.get("_starters") or {}).values():
+            for _p in _st: GS[_p] += 1
         for t in teams:
             o = other[t]
             B_off = B + ((adjD.get(o, lgD) - lgD) / 100.0 if o in d1 else 0.0)    # t's offense vs o's defense
@@ -340,7 +343,7 @@ def main():
         per = [round(100.0 * V[pid][k] / poss, 2) for k in keys]
         c_ = ST[pid]
         players[pid] = {"n": NM.get(pid), "t": full.get(TM[pid]), "g": GP[pid], "min": round(M[pid]), "poss": round(poss), "v": per,
-                        "pos": POS.get(pid, ""), "use": round(100.0 * (c_["fga"] + 0.44 * c_["fta"] + c_["tov"]) / poss, 1),   # possessions used per 100
+                        "pos": POS.get(pid, ""), "gs": GS.get(pid, 0), "use": round(100.0 * (c_["fga"] + 0.44 * c_["fta"] + c_["tov"]) / poss, 1),   # possessions used per 100
                         "astd": round(c_["astd"] / c_["fgm"], 3) if c_["fgm"] else None, "tpar": round(c_["tpa"] / c_["fga"], 3) if c_["fga"] else None}
     # the percentile pool: MIN_POSS for a finished season; early in a season, the possessions of the 1,500th-most-used
     # player (so there is always a real pool), never under 120

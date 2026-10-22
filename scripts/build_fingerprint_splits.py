@@ -2,6 +2,7 @@
 """build_fingerprint_splits.py — "How he plays when…": the Skill Fingerprint (build_fingerprint.py) cut by situation.
 
 Four splits, each two sides, every side a full 15-skill fingerprint in points per 100 possessions:
+  half    first half vs second half (+ overtime) — on-floor tracking, like close
   close   close and late (2nd half / OT, last 5:00, within 5) vs the rest — needs who is on the floor, so only games
           whose play-by-play logs substitutions (nearly all of 2025-26, ~a quarter of 2024-25); possessions and
           team defense come from the five on the floor
@@ -23,7 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_fingerprint as F
 
 SHRINK = 150.0
-SPLITS = [("close", "Close and late", "Rest of the game"), ("opp", "vs top-50 teams", "vs the rest"),
+SPLITS = [("close", "Close and late", "Rest of the game"), ("half", "First half", "Second half"), ("opp", "vs top-50 teams", "vs the rest"),
           ("pace", "Faster games", "Slower games"), ("venue", "Home", "Road")]
 KEYS = [k for k, _, _ in F.SKILLS]
 OFF = F.OFF
@@ -109,18 +110,18 @@ def main():
             B_off = B + ((adjD.get(o, lgD) - lgD) / 100.0 if o in d1 else 0.0)
             B_def = B + ((adjO.get(o, lgO) - lgO) / 100.0 if o in d1 else 0.0)
             for (ot, pid, sk, a, b, isd), cx in zip(rows, ctx):
-                sd = 0 if cx[2] else 1
-                if ot == t and not isd:                     # t's offense: credits + possessions for the five on
-                    for q in cx[ti]: P["close"][sd][q] += -b * 0.5      # half a possession's weight on each end
-                    if pid and sk[0] != "_": V["close"][sd][pid][sk] += a + b * B_off
-                elif ot == o and not isd:                   # t's defense: the five on share the stop / the score
-                    v = -(a + b * B_def); fl = cx[ti]
-                    for q in fl:
-                        P["close"][sd][q] += -b * 0.5; V["close"][sd][q]["team"] += v / max(1, len(fl))
-                elif ot == o and isd and pid:               # carve-outs come out of the five's share
-                    v = a + b * B_def; fl = cx[ti]
-                    V["close"][sd][pid][sk] += v
-                    for q in fl: V["close"][sd][q]["team"] -= v / max(1, len(fl))
+              for sp, sd in (("close", 0 if cx[2] else 1), ("half", 0 if cx[3] == 1 else 1)):   # half: 2nd half includes OT
+                  if ot == t and not isd:                     # t's offense: credits + possessions for the five on
+                      for q in cx[ti]: P[sp][sd][q] += -b * 0.5      # half a possession's weight on each end
+                      if pid and sk[0] != "_": V[sp][sd][pid][sk] += a + b * B_off
+                  elif ot == o and not isd:                   # t's defense: the five on share the stop / the score
+                      v = -(a + b * B_def); fl = cx[ti]
+                      for q in fl:
+                          P[sp][sd][q] += -b * 0.5; V[sp][sd][q]["team"] += v / max(1, len(fl))
+                  elif ot == o and isd and pid:               # carve-outs come out of the five's share
+                      v = a + b * B_def; fl = cx[ti]
+                      V[sp][sd][pid][sk] += v
+                      for q in fl: V[sp][sd][q]["team"] -= v / max(1, len(fl))
     print(f"{y}: {len(G)} games, {tracked} with substitutions (close-and-late split)", file=sys.stderr)
 
     players = {}

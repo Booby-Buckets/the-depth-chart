@@ -11,7 +11,7 @@
  * (the skills that separate players most first) and player strengths.
  */
 (function (g) {
-  var V = '7', SEASONS = [2026, 2025, 2024, 2023], SPLITS = [2026, 2025], cache = {};
+  var V = '9', SEASONS = [2026, 2025, 2024, 2023], SPLITS = [2026, 2025], cache = {};
   // index.json (written by the builds) lists the seasons on file, so a season in progress appears once it is built
   // and no page asks for a file that isn't there
   var ready = fetch('scripts/data/fingerprint/index.json?t=' + Math.floor(Date.now() / 3.6e6))
@@ -139,17 +139,20 @@
   // each side = [poss, off, def, total, 15 skills]; league[split] = the typical player's two sides (no poss)
   var scache = {};
   function loadSplits(y) {
-    if (SPLITS.indexOf(+y) < 0) return Promise.resolve(null);
-    return scache[y] || (scache[y] = fetch('scripts/data/fingerprint/splits_' + y + '.json?v=' + V)
-      .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }));
+    return ready.then(function () {
+      if (SPLITS.indexOf(+y) < 0) return null;
+      return scache[y] || (scache[y] = fetch('scripts/data/fingerprint/splits_' + y + '.json?v=' + V)
+        .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }));
+    });
   }
   var SPLIT_READ = {
     close: ['Gets better when it is close and late', 'Fades when it is close and late'],
+    half: ['Starts fast: better before halftime', 'Better after halftime'],
     opp: ['Raises his game against top-50 teams', 'Drops off against top-50 teams'],
     pace: ['Thrives when the game speeds up', 'Better when the game slows down'],
     venue: ['Bigger home edge than most players', 'Travels better than most players']
   };
-  var MIN_SIDE = { close: 60, opp: 250, pace: 250, venue: 250 };
+  var MIN_SIDE = { close: 60, half: 250, opp: 250, pace: 250, venue: 250 };
   function splitRows(sd, r) {
     // per split: [A total, B total, change, typical change, vs typical]
     return sd.splits.map(function (sp) {
@@ -184,7 +187,7 @@
             var cur = rows.find(function (z) { return z.sp.k === st.sp; });
             var head = '<tr><th class="l">Situation</th><th class="l">Side</th><th>Poss</th><th title="Points per 100 possessions">Pts/100</th><th class="l">Other side</th><th>Poss</th><th>Pts/100</th><th title="This side minus the other side">Change</th><th title="How much the typical D-I player changes in the same situation">Typical</th><th title="His change beyond the typical player\'s">vs typical</th></tr>';
             var body = rows.map(function (z) {
-              return '<tr' + (z.sp.k === st.sp ? ' style="outline:2px solid var(--accent);outline-offset:-2px"' : '') + ' data-sp="' + z.sp.k + '" class="fp-click"><td class="l"><b>' + esc({ close: 'Close and late', opp: 'Opponent', pace: 'Pace', venue: 'Venue' }[z.sp.k]) + '</b></td>' +
+              return '<tr' + (z.sp.k === st.sp ? ' style="outline:2px solid var(--accent);outline-offset:-2px"' : '') + ' data-sp="' + z.sp.k + '" class="fp-click"><td class="l"><b>' + esc({ close: 'Close and late', half: 'Halves', opp: 'Opponent', pace: 'Pace', venue: 'Venue' }[z.sp.k]) + '</b></td>' +
                 '<td class="l">' + esc(z.sp.a) + '</td><td class="dim">' + z.a[0] + '</td><td>' + sgn(z.a[3]) + '</td>' +
                 '<td class="l">' + esc(z.sp.b) + '</td><td class="dim">' + z.b[0] + '</td><td>' + sgn(z.b[3]) + '</td>' +
                 '<td><b>' + sgn(z.ch) + '</b></td><td class="dim">' + sgn(z.ty) + '</td><td class="' + (z.ok ? vcls(z.vs) : '') + '">' + (z.ok ? sgn(z.vs) : '<span class="dim" title="Small sample">' + sgn(z.vs) + '*</span>') + '</td></tr>';

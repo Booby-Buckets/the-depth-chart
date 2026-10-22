@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="tdc-loading.js?v=5"></script>   <!-- first, so it sees every request -->
+  <link rel="stylesheet" href="tdc-a11y.css?v=3">
+  <script src="tdc-a11y.js?v=2" defer></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Passing &amp; Roles — The Depth Chart</title>
+  <meta name="description" content="Assist webs for every D-I team, the teams with the most passing combinations and the most one-man passing cores, the best passers, who rises and fades after halftime, and the best players off the bench — all from our own play-by-play.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Depth Chart">
+  <meta property="og:title" content="Passing &amp; Roles — The Depth Chart">
+  <meta property="og:description" content="Assist webs, passing cores, first vs second half and the best bench players in college basketball.">
+  <meta property="og:url" content="https://www.thedepthchartcbb.com/passing.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <script src="auth.js?v=sales2"></script>
+  <script src="tdc-theme.js?v=5"></script>
+  <script src="team-colors.js?v=12"></script>
+  <script src="tdc-teamname.js?v=1"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#FAF9F6;--bg2:#F1EFEA;--bg3:#E6E3DB;--border:#DEDACF;--border2:#C6C0B2;--text:#1A1814;--text2:#4A463C;--text3:#8A867A;--accent:#A8843C;}
+    [data-theme="dark"]{--bg:#0A0E18;--bg2:#111726;--bg3:#1A2133;--border:#232B3E;--border2:#34405A;--text:#EEF1F7;--text2:#AEB6C8;--text3:#7A849A;--accent:#E6D5A8;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html,body{background:var(--bg);}
+    body{color:var(--text);font-family:'Inter',system-ui,sans-serif;font-weight:500;min-height:100vh;}
+    .page{padding:32px 0 56px;}
+    .page-eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
+    .page-h1{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:34px;letter-spacing:-.02em;margin-bottom:14px;}
+    .ps-tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--border);margin-bottom:14px;}
+    .ps-tabs button{font:700 12.5px 'Inter',system-ui,sans-serif;padding:9px 12px;background:none;border:0;border-bottom:2px solid transparent;color:var(--text2);cursor:pointer;}
+    .ps-tabs button.on{color:var(--text);border-bottom-color:var(--accent);}
+    .ps-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px;}
+    .ps-lab{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+    .ps-sel,.ps-search{font:600 12px 'Inter',system-ui,sans-serif;background:var(--bg);border:1px solid var(--border2);color:var(--text);padding:6px 10px;border-radius:8px;}
+    .ps-chips{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;max-width:100%;padding-bottom:2px;}
+    .ps-chips button{white-space:nowrap;flex:none;font:700 11px 'Inter',system-ui,sans-serif;padding:5px 10px;border:1px solid var(--border2);border-radius:999px;background:transparent;color:var(--text2);cursor:pointer;}
+    .ps-chips button.on{background:var(--text);color:var(--bg);border-color:var(--text);}
+    .ps-panel{display:none;} .ps-panel.on{display:block;}
+    .ps-web{max-width:980px;}
+    .sheet td.tm a{display:inline-flex;align-items:center;gap:7px;color:var(--text);text-decoration:none;}
+    .sheet td.tm img{width:18px;height:18px;object-fit:contain;flex:none;}
+    .sheet td.tm a:hover span{color:var(--accent);text-decoration:underline;}
+    .sheet th.sort{cursor:pointer;user-select:none;} .sheet th.sort.on{color:var(--text);}
+    .ps-empty{padding:40px 12px;text-align:center;color:var(--text3);}
+  </style>
+  <link rel="stylesheet" href="tdc-skin.css?v=14"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+  <link rel="stylesheet" href="tdc-column.css?v=4"/>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script src="tdc-pwa.js?v=3" defer></script>
+</head>
+<body>
+<script src="tdc-nav.js?v=81"></script>
+
+<div class="page">
+  <div class="page-eyebrow">Analytics · play-by-play</div>
+  <h1 class="page-h1">Passing &amp; Roles</h1>
+  <div class="ps-bar"><span class="ps-lab">Season</span><select class="ps-sel" id="psSeason" aria-label="Season"></select></div>
+  <div class="ps-tabs" id="psTabs">
+    <button data-t="web" class="on">Assist webs</button><button data-t="teams">Team passing</button><button data-t="passers">Passers</button><button data-t="halves">Halves</button><button data-t="bench">Bench</button>
+  </div>
+  <div class="ps-panel on" id="p-web">
+    <div class="ps-bar"><span class="ps-lab">Team</span><select class="ps-sel" id="psTeam" aria-label="Team"></select></div>
+    <div class="ps-web" id="psWeb"></div>
+  </div>
+  <div class="ps-panel" id="p-teams"><div class="ps-bar"><div class="ps-chips" id="tmChips"></div></div><div id="tmTbl"></div></div>
+  <div class="ps-panel" id="p-passers"><div class="ps-bar"><div class="ps-chips" id="paChips"></div></div><div id="paTbl"></div></div>
+  <div class="ps-panel" id="p-halves"><div class="ps-bar"><div class="ps-chips" id="haChips"></div></div><div id="haTbl"></div></div>
+  <div class="ps-panel" id="p-bench"><div class="ps-bar"><div class="ps-chips" id="beChips"></div></div><div id="beTbl"></div></div>
+</div>
+
+<script src="tdc-assistweb.js?v=4"></script>
+<script src="tdc-fingerprint.js?v=10"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const short = t => { try { return (window.TDCTeamName && TDCTeamName.short) ? TDCTeamName.short(t) : t; } catch (e) { return t; } };
+  const logo = t => { try { const c = window.tdcTeamColor && (tdcTeamColor(t) || tdcTeamColor(short(t))); return c && c.logo; } catch (e) { return null; } };
+  const tcell = t => `<td class="l tm"><a href="team.html?team=${encodeURIComponent(short(t))}">${logo(t) ? `<img src="${logo(t)}" alt="" loading="lazy">` : ''}<span>${esc(short(t))}</span></a></td>`;
+  const pcell = (id, n) => `<td class="l"><a href="player.html?espn=${id}&name=${encodeURIComponent(n)}" style="color:var(--text);text-decoration:none"><b>${esc(n)}</b></a></td>`;
+  const pct = v => v == null ? '—' : Math.round(100 * v) + '%';
+  const sgn = v => (v > 0.05 ? '+' : v < -0.05 ? '−' : '') + Math.abs(v).toFixed(1);
+  // red-to-green by rank inside the shown list (hi = higher is better)
+  const heat = (arr, v, hi) => { if (v == null) return ''; const s = arr.filter(x => x != null).sort((a, b) => a - b), r = s.findIndex(x => x >= v) / Math.max(1, s.length - 1), q = hi ? r : 1 - r; return q >= .8 ? 'c4' : q >= .6 ? 'c3' : q >= .4 ? 'c2' : q >= .2 ? 'c1' : 'c0'; };
+  const st = { tab: 'web', y: null, team: null, tm: 'eff_combos', pa: 'eff_targets', ha: 'risers', be: 'tot' };
+  let AW = null, FP = null, SP = null;
+  try { const h = location.hash.slice(1); if (h && $('p-' + h)) st.tab = h; } catch (e) {}
+
+  function chips(host, opts, cur, on) {
+    $(host).innerHTML = opts.map(o => `<button data-k="${o[0]}" class="${o[0] === cur ? 'on' : ''}">${o[1]}</button>`).join('');
+    $(host).querySelectorAll('button').forEach(b => b.onclick = () => on(b.dataset.k));
+  }
+  function sheet(head, rows, keep) { if (keep != null) { let i = -1; head = head.replace(/<th/g, m => (++i === keep ? '<th data-fit-keep="1"' : m)); } return `<div class="sheet-wrap" style="max-height:none"><table class="sheet dense freeze"><thead><tr>${head}</tr></thead><tbody>${rows || '<tr><td class="ps-empty" colspan="12">Nothing to show for this season yet.</td></tr>'}</tbody></table></div>`; }
+
+  function drawWeb() {
+    if (!AW) { $('psWeb').innerHTML = '<div class="ps-empty">No passing data for this season yet.</div>'; return; }
+    TDC_ASSISTWEB.render($('psWeb'), AW, st.team);
+  }
+  function drawTeams() {
+    const P = [['eff_combos', 'Most combinations'], ['eff_combos_lo', 'Fewest combinations'], ['shot_combos', 'Most shot combos'], ['top1', 'One-man passing core'], ['top1_lo', 'Most spread-out passing'], ['top2', 'Two-man passing core'], ['top_pair', 'Busiest single pair']];
+    chips('tmChips', P, st.tm, k => { st.tm = k; drawTeams(); });
+    if (!AW) { $('tmTbl').innerHTML = sheet('<th></th>', ''); return; }
+    const k = st.tm.replace('_lo', ''), lo = /_lo$/.test(st.tm);
+    const L = Object.entries(AW.teams).sort((a, b) => lo ? a[1][k] - b[1][k] : b[1][k] - a[1][k]);
+    const col = f => L.map(x => x[1][f]);
+    const cs = { combos: col('combos'), eff: col('eff_combos'), sc: col('shot_combos'), t1: col('top1'), t2: col('top2'), tp: col('top_pair'), ar: col('assisted_rate') };
+    $('tmTbl').innerHTML = sheet('<th class="rk">#</th><th class="l">Team</th><th title="Assisted baskets">Ast</th><th title="Share of made baskets assisted">Assisted</th><th title="Different passer → shooter pairs that connected">Combos</th><th title="How many equally-used pairs the passing behaves like">Effective</th><th title="Passer → shooter → shot type, used twice or more">Shot combos</th><th title="Share of assists from the busiest passer">Top passer</th><th title="Share from the two busiest passers">Top two</th><th title="Share from the single busiest passer → shooter pair">Busiest pair</th><th title="Passers it takes to reach half the assists">Core</th>',
+      L.map(([t, x], i) => `<tr data-team="${esc(t)}" style="cursor:pointer"><td class="rk">${i + 1}</td>${tcell(t)}<td>${x.ast}</td><td class="${heat(cs.ar, x.assisted_rate, 1)}">${pct(x.assisted_rate)}</td><td>${x.combos}</td><td class="${heat(cs.eff, x.eff_combos, 1)}"><b>${x.eff_combos}</b></td><td class="${heat(cs.sc, x.shot_combos, 1)}">${x.shot_combos}</td><td>${pct(x.top1)}</td><td>${pct(x.top2)}</td><td>${pct(x.top_pair)}</td><td>${x.core50}</td></tr>`).join(''), { eff_combos: 5, shot_combos: 6, top1: 7, top2: 8, top_pair: 9 }[k]);
+    $('tmTbl').querySelectorAll('tr[data-team]').forEach(r => r.onclick = e => { if (e.target.closest('a')) return; st.team = r.dataset.team; $('psTeam').value = st.team; tab('web'); });
+  }
+  function drawPassers() {
+    const P = [['eff_targets', 'Spreads it most'], ['created', 'Most points created'], ['ast', 'Most assists'], ['top_share', 'Most locked on one teammate'], ['three', 'Creates the most threes'], ['rim', 'Creates the most at the rim']];
+    chips('paChips', P, st.pa, k => { st.pa = k; drawPassers(); });
+    if (!AW) { $('paTbl').innerHTML = sheet('<th></th>', ''); return; }
+    const val = (p, k) => k === 'three' ? p.zones[3] / Math.max(1, p.ast) : k === 'rim' ? (p.zones[0] + p.zones[1]) / Math.max(1, p.ast) : p[k];
+    const L = Object.entries(AW.players).filter(([, p]) => p.ast >= 60).sort((a, b) => val(b[1], st.pa) - val(a[1], st.pa)).slice(0, 150);
+    const zs = p => { const t = Math.max(1, p.ast); return [(p.zones[0] + p.zones[1]) / t, p.zones[2] / t, p.zones[3] / t]; };
+    const cs = { et: L.map(x => x[1].eff_targets), cr: L.map(x => x[1].created) };
+    $('paTbl').innerHTML = sheet('<th class="rk">#</th><th class="l">Player</th><th class="l">Team</th><th>Ast</th><th title="Points from the baskets he assisted">Created</th><th title="Different teammates he assisted">Teammates</th><th title="How many equally-fed teammates his passing behaves like">Effective</th><th class="l" title="The teammate he assists most">Top target</th><th title="Share of his assists to that teammate">Share</th><th title="Share of his assists that set up rim shots (incl. putbacks)">Rim</th><th>Mid</th><th>Three</th>',
+      L.map(([id, p], i) => { const z = zs(p); return `<tr><td class="rk">${i + 1}</td>${pcell(id, p.n)}${tcell(p.t)}<td>${p.ast}</td><td class="${heat(cs.cr, p.created, 1)}">${p.created}</td><td>${p.targets}</td><td class="${heat(cs.et, p.eff_targets, 1)}"><b>${p.eff_targets}</b></td><td class="l dim">${esc(p.top_target || '')}</td><td>${pct(p.top_share)}</td><td>${pct(z[0])}</td><td>${pct(z[1])}</td><td>${pct(z[2])}</td></tr>`; }).join(''), { eff_targets: 6, created: 4, ast: 3, top_share: 8, three: 11, rim: 9 }[st.pa]);
+  }
+  function drawHalves() {
+    chips('haChips', [['risers', 'Better after halftime'], ['faders', 'Better before halftime'], ['second', 'Best second halves'], ['first', 'Best first halves']], st.ha, k => { st.ha = k; drawHalves(); });
+    if (!SP || !FP || !SP.league.half) { $('haTbl').innerHTML = sheet('<th></th>', ''); return; }
+    const lg = SP.league.half, ty = lg[1][2] - lg[0][2];
+    const L = Object.entries(SP.players).map(([id, s]) => { const a = s.half[0], b = s.half[1], p = FP.players[id]; return p && a[0] >= 300 && b[0] >= 300 ? { id, p, a: a[3], b: b[3], ap: a[0], bp: b[0], ch: b[3] - a[3], vs: (b[3] - a[3]) - ty } : null; }).filter(Boolean);
+    const sorter = { risers: (x, y) => y.vs - x.vs, faders: (x, y) => x.vs - y.vs, second: (x, y) => y.b - x.b, first: (x, y) => y.a - x.a }[st.ha];
+    const R = L.sort(sorter).slice(0, 100), vs = R.map(x => x.vs);
+    $('haTbl').innerHTML = sheet('<th class="rk">#</th><th class="l">Player</th><th class="l">Team</th><th title="Points added per 100 possessions on the floor, schedule-adjusted">1st half</th><th>2nd half</th><th title="Second half minus first half">Change</th><th title="How much a typical D-I player changes after halftime">Typical</th><th title="His change beyond the typical player\'s">vs typical</th><th>1st-half poss</th><th>2nd-half poss</th>',
+      R.map((x, i) => `<tr><td class="rk">${i + 1}</td>${pcell(x.id, x.p.n)}${tcell(x.p.t)}<td>${sgn(x.a)}</td><td>${sgn(x.b)}</td><td><b>${sgn(x.ch)}</b></td><td class="dim">${sgn(ty)}</td><td class="${x.vs >= 3 ? 'c4' : x.vs >= 1.5 ? 'c3' : x.vs <= -3 ? 'c0' : x.vs <= -1.5 ? 'c1' : ''}"><b>${sgn(x.vs)}</b></td><td class="dim">${x.ap}</td><td class="dim">${x.bp}</td></tr>`).join(''), { risers: 7, faders: 7, second: 4, first: 3 }[st.ha]);
+  }
+  function drawBench() {
+    chips('beChips', [['tot', 'Most impact'], ['o', 'Best offense'], ['d', 'Best defense'], ['min', 'Most minutes']], st.be, k => { st.be = k; drawBench(); });
+    if (!FP) { $('beTbl').innerHTML = sheet('<th></th>', ''); return; }
+    // bench = started at most a fifth of the games he played (10+ games)
+    const L = Object.entries(FP.players).filter(([, p]) => p.q && p.g >= 10 && p.gs != null && p.gs <= 0.2 * p.g).sort((a, b) => b[1][st.be] - a[1][st.be]).slice(0, 100);
+    const cs = { tot: L.map(x => x[1].tot), o: L.map(x => x[1].o), d: L.map(x => x[1].d) };
+    $('beTbl').innerHTML = sheet('<th class="rk">#</th><th class="l">Player</th><th class="l">Team</th><th>Pos</th><th>Games</th><th title="Games started">Starts</th><th>MPG</th><th title="Points added per 100 possessions on the floor, schedule-adjusted">Impact</th><th>Offense</th><th>Defense</th><th title="Percentile among all D-I players, starters included">D-I pctl</th>',
+      L.map(([id, p], i) => `<tr><td class="rk">${i + 1}</td>${pcell(id, p.n)}${tcell(p.t)}<td class="dim">${esc(p.pos || '')}</td><td>${p.g}</td><td>${p.gs}</td><td>${(p.min / Math.max(1, p.g)).toFixed(1)}</td><td class="${heat(cs.tot, p.tot, 1)}"><b>${sgn(p.tot)}</b></td><td class="${heat(cs.o, p.o, 1)}">${sgn(p.o)}</td><td class="${heat(cs.d, p.d, 1)}">${sgn(p.d)}</td><td>${p.tp}</td></tr>`).join(''), { tot: 7, o: 8, d: 9, min: 6 }[st.be]);
+  }
+  const DRAW = { web: drawWeb, teams: drawTeams, passers: drawPassers, halves: drawHalves, bench: drawBench };
+  function tab(t) {
+    st.tab = t; document.querySelectorAll('#psTabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+    document.querySelectorAll('.ps-panel').forEach(p => p.classList.toggle('on', p.id === 'p-' + t));
+    try { history.replaceState(null, '', '#' + t); } catch (e) {}
+    DRAW[t]();
+  }
+  document.querySelectorAll('#psTabs button').forEach(b => b.onclick = () => tab(b.dataset.t));
+  $('psTeam').onchange = () => { st.team = $('psTeam').value; drawWeb(); };
+  async function season(y) {
+    st.y = y;
+    [AW, FP, SP] = await Promise.all([TDC_ASSISTWEB.load(y), TDCFingerprint.load(y), TDCFingerprint.loadSplits(y)]);
+    if (AW) {
+      const ks = Object.keys(AW.teams).sort((a, b) => short(a).localeCompare(short(b)));
+      if (!st.team || !AW.teams[st.team]) st.team = AW.teams['Duke Blue Devils'] ? 'Duke Blue Devils' : ks[0];
+      $('psTeam').innerHTML = ks.map(k => `<option value="${esc(k)}"${k === st.team ? ' selected' : ''}>${esc(short(k))}</option>`).join('');
+    }
+    tab(st.tab);
+  }
+  $('psSeason').onchange = () => season(+$('psSeason').value);
+  TDC_ASSISTWEB.index().then(ys => {
+    $('psSeason').innerHTML = ys.map(y => `<option value="${y}">${y - 1}-${String(y).slice(2)}</option>`).join('');
+    season(ys[0]);
+  });
+})();
+</script>
+<script src="tdc-version.js?v=2"></script>
+<script src="tdc-sheets.js?v=2"></script>
+</body>
+</html>

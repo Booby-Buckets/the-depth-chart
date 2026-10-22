@@ -13,6 +13,7 @@ name: Rebuild shot analytics
 #   scripts/build_fingerprint.py        -> scripts/data/fingerprint/<season>.json (Skill Fingerprint, skill comps,
 #                                          game-recap baselines; waits for 200 D-I games)
 #   scripts/build_fingerprint_splits.py -> scripts/data/fingerprint/splits_<season>.json (Player DNA -> Splits)
+#   scripts/build_assist_web.py         -> scripts/data/assist_web/<season>.json (Passing & Roles, team-page assist web)
 # A season isn't built until 200 D-I games are final (MIN_GAMES), so an opening-week file never becomes the
 # pages' default season. Runs after the overnight results ingest; commits only when something changed.
 # Rebuild any season by hand: gh workflow run shot-analytics.yml -f season=2026
@@ -70,11 +71,12 @@ jobs:
           path: scripts/data/espn_pbp_cache
           key: pbp-${{ steps.season.outputs.season }}-${{ github.run_id }}
           restore-keys: pbp-${{ steps.season.outputs.season }}-
-      - name: Skill Fingerprint + splits
+      - name: Skill Fingerprint + splits + assist webs
         if: steps.season.outputs.season >= 2027
         run: |
           python3 -u scripts/build_fingerprint.py ${{ steps.season.outputs.season }}
           python3 -u scripts/build_fingerprint_splits.py ${{ steps.season.outputs.season }}
+          python3 -u scripts/build_assist_web.py ${{ steps.season.outputs.season }}
       - name: Hunt Great (possession value)
         run: node scripts/build_possession_value.mjs ${{ steps.season.outputs.season }}
       - name: Coach shot discipline
@@ -83,7 +85,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add scripts/data/mastery scripts/data/possession_value scripts/data/coach_shots.json scripts/data/shot_aftermath scripts/data/shot_quality scripts/data/team_shot_profile scripts/data/fingerprint
+          git add scripts/data/mastery scripts/data/possession_value scripts/data/coach_shots.json scripts/data/shot_aftermath scripts/data/shot_quality scripts/data/team_shot_profile scripts/data/fingerprint scripts/data/assist_web
           if git diff --cached --quiet; then echo "Nothing new."; exit 0; fi
           git commit -m "Auto: shot analytics ${{ steps.season.outputs.season }} $(date -u +%Y-%m-%d) [skip ci]"
           for i in 1 2 3; do git pull --rebase -q && git push && break; sleep 5; done

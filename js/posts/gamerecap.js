@@ -8,7 +8,7 @@ TDC_POSTS.add('gamerecap', {
           stats: [['skills', 'Where the edge came from'], ['players', 'Above and below their usual']], statsLabel: 'Show' },
   load: async function (d, H) {
     if (!d.team) throw new Error('Pick a team for this post.');
-    for (var src of ['tdc-plays.js?v=1', 'tdc-fingerprint.js?v=8', 'tdc-credit.js?v=2', 'tdc-recap.js?v=5']) await H.needScript(src);
+    for (var src of ['tdc-plays.js?v=1', 'tdc-fingerprint.js?v=10', 'tdc-credit.js?v=2', 'tdc-recap.js?v=5']) await H.needScript(src);
     var rs = await H.ratings(), rt = rs.find(function (t) { return H.onTeam(t.team, d.team); }), full = (rt && rt.full) || d.team;
     var SB = 'https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/', K = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
     var q = 'games?select=id,home,away,home_score,away_score,date,season_year&status=eq.STATUS_FINAL&or=(home.eq.' + encodeURIComponent('"' + full + '"') + ',away.eq.' + encodeURIComponent('"' + full + '"') + ')&order=date.desc&limit=1';

@@ -53,6 +53,7 @@
       ['plays.html',                    'Play Finder'],
       ['wowy.html',                     'WOWY Lineups / On-Off'],
       ['statshift.html',                'Stat Line Shift'],
+      ['passing.html',                  'Passing & Roles'],
     ]],
     ['Postseason', [
       ['tournaments.html',     'Tournaments'],
