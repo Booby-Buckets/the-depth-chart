@@ -96,10 +96,13 @@ def find_box(site, opp_words):
     links = set(re.findall(r'href="(/sports/mens-basketball/stats/%s/([^/"]+)/boxscore/(\d+))"' % SEASON, h))
     out = []
     for path, slug, _id in links:
-        sw = slug.split("-")
+        if site + path in USED: continue   # a box already belongs to another game (never reuse one)
+        sw = ["state" if w in ("st", "st.") else w for w in slug.split("-")]
         for ow in opp_words:
             hit = sum(1 for w in ow if w in sw)
-            if hit and hit >= min(2, len(ow)):
+            # the opponent's WHOLE name must be in the slug (a 4+ word name may miss one): "san diego state" is not
+            # "uc-san-diego-exhibition" (Oct 23 2026: 2-of-3 words put USC's UC San Diego box on San Diego State's game)
+            if hit and hit >= (len(ow) if len(ow) <= 3 else len(ow) - 1):
                 # a longer school name that fits the slug better is a different opponent: "uc-san-diego-exhibition"
                 # is UC San Diego, not San Diego (Oct 2026: USC's UCSD box landed on San Diego's game)
                 if any(len(f) > len(ow) and set(ow) < set(f) and all(w in sw for w in f) for f in ALL_FORMS): break
@@ -108,6 +111,7 @@ def find_box(site, opp_words):
 
 
 ALL_FORMS = []   # every school's name forms (filled in main) — find_box uses it to reject a slug that names a longer school
+USED = set()     # box-score URLs already attached to a game (filled in main) — find_box never hands one out twice
 
 
 _SCHED = {}
@@ -339,6 +343,7 @@ def main():
     pbp_new = 0
     sites = json.loads(SITES.read_text())
     ALL_FORMS[:] = [f for t in sites for f in school(t, sites)]
+    USED.update(v.get("src") for v in res["results"].values() if "/boxscore/" in (v.get("src") or ""))
     today = datetime.date.today().isoformat()
     todo = [g for g in games if g["date"] <= today and (force or "box" not in res["results"].get(g["id"], {}))
             and not (res["results"].get(g["id"], {}).get("manual") and not force)]
@@ -389,6 +394,7 @@ def main():
         if hb is None:   # fall back to linescore order: away first, home second
             ab, hb = B[0], B[1]
         rec = res["results"].get(g["id"], {})
+        USED.add(url)
         rec.update({"hs": hb["score"], "as": ab["score"], "src": url,
                     "auto_note": note_of(hb, ab, g["home"], g["away"]),
                     "box": {"home": {"team": g["home"], **{k: hb[k] for k in ("players", "totals")}},
