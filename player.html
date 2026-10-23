@@ -27,6 +27,7 @@
   <script src="tdc-ratings.js?v=44"></script>
   <script src="tdc-histguard.js?v=2"></script>
   <script src="tdc-glossary.js?v=14"></script>
+  <script src="tdc-nba.js?v=1"></script>
   <script src="tdc-leaderboard.js?v=2"></script>
   <script src="tdc-portalfit.js?v=needs12"></script>
   <script src="tdc-projgrade.js?v=disp1"></script>
@@ -4445,6 +4446,7 @@ function renderPage(){
       <div class="pc-id">
        ${_headshot?`<div class="pc-shot"><img class="pa-photo" src="${_headshot}" alt="${p.name||''}" onerror="this.parentNode.remove()"></div>`:''}
        <div class="pa-info">
+        <div id="paLeague"></div>
         <div class="pa-eyebrow">
           ${_teamLogo?`<img class="hero-crest pc-crest" src="${_teamLogo}" alt="${p.team||''} logo" onerror="this.remove()">`:''}
           <a class="hero-team" id="heroTeam" href="team.html?team=${encodeURIComponent(p.team||'')}">${p.team||'—'}${_confChip(teamData?.conf||'', p.team||'', null)}</a>
@@ -4710,6 +4712,8 @@ function renderPage(){
     <div class="tab-panel" id="panel-betting"><div id="bettingContent"></div></div>
     <div class="tab-panel" id="panel-buzz"><div id="buzzContent"></div></div>
     <div class="tab-panel" id="panel-portalfit"><div id="portalfitContent"></div></div>`;
+  // College ⇄ NBA switch: shows only for players with an NBA career (tdc-nba.js)
+  if(window.TDCNba&&p.espn_id) TDCNba.mount(document.getElementById('paLeague'),{active:'college',collegeId:p.espn_id,name:p.name});
   // NO ESPN HEADSHOT (owner, Oct 16 2026): the school's own roster photo (scripts/data/school_photos_2027.json, from
   // scrape_school_rosters.py --photos, the same file Social Studio uses) when the player has no ESPN id or ESPN 404s.
   // Owner-only like every headshot (tdcShowPhotos).
@@ -6774,34 +6778,6 @@ async function renderNilPlayer(){
   const _read=_nb
     ? `What a ${_clsTxt} is worth on the open market, priced on <b>last season</b>, his <b>career</b> and his <b>upside</b>, not just next year's projection.`
     : (grade!=null?`What a ${_clsTxt} is worth on the open market. No college seasons yet, so he is priced on his 2026-27 projection.`:'Realistic open-market value.');
-  // WHAT THE PRICE IS BUILT ON: his season grades, last season (highlighted), potential, and the blended NIL grade
-  let _basisSVG='';
-  if(_nb && !walkon){
-    const hist=(Array.isArray(_nb.hist)?_nb.hist:[]).slice(-3), w=_nb.ngw||[0.5,0.2,0.3];
-    const cols=hist.map(h=>({lbl:(h[0]-1)+'-'+String(h[0]).slice(2),g:+h[1],k:'car'}));
-    cols.push({lbl:'2025-26',g:+_nb.ngl,k:'last'});
-    cols.push({lbl:'Potential',g:+_nb.ngp,k:'pot'});
-    const W=660,H=236,pl=34,pr=14,pt=22,pb=46,iw=W-pl-pr,ih=H-pt-pb, lo=Math.max(40,Math.floor((Math.min(...cols.map(c=>c.g),grade)-6)/5)*5), hi=Math.min(100,Math.ceil((Math.max(...cols.map(c=>c.g),grade)+3)/5)*5);
-    const Y=g=>pt+ih*(1-(g-lo)/(hi-lo)), bw=Math.min(84,iw/cols.length*0.62), cx=i=>pl+iw*(i+0.5)/cols.length;
-    let g='';
-    for(let v=lo; v<=hi; v+=5){ g+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="var(--border)" stroke-width="1"/><text x="${pl-6}" y="${(Y(v)+3.5).toFixed(1)}" font-size="10" fill="var(--text3)" text-anchor="end">${v}</text>`; }
-    const wTxt={car:w[1]>0?Math.round(w[1]*100)+'% career':'',last:Math.round(w[0]*100)+'% of the price',pot:Math.round(w[2]*100)+'% of the price'};
-    cols.forEach((c,i)=>{ const x=cx(i)-bw/2, y=Y(c.g), h=pt+ih-y;
-      const fill=c.k==='last'?col:c.k==='pot'?'none':`color-mix(in srgb,${col} 38%,var(--bg3,#ddd))`;
-      g+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,h).toFixed(1)}" rx="3" fill="${fill}" ${c.k==='pot'?`stroke="${col}" stroke-width="2" stroke-dasharray="5 4"`:''}/>`
-        +`<text x="${cx(i).toFixed(1)}" y="${(y-6).toFixed(1)}" font-size="13" font-weight="800" fill="var(--text)" text-anchor="middle">${Math.round(c.g)}</text>`
-        +`<text x="${cx(i).toFixed(1)}" y="${(pt+ih+16).toFixed(1)}" font-size="11.5" font-weight="700" fill="var(--text2)" text-anchor="middle">${c.lbl}</text>`; });
-    // weights under the columns: career spans the earlier seasons
-    const nCar=cols.filter(c=>c.k==='car').length;
-    if(nCar&&wTxt.car) g+=`<text x="${((cx(0)+cx(nCar-1))/2).toFixed(1)}" y="${(pt+ih+32).toFixed(1)}" font-size="10.5" fill="var(--text3)" text-anchor="middle">${wTxt.car}</text>`;
-    g+=`<text x="${cx(nCar).toFixed(1)}" y="${(pt+ih+32).toFixed(1)}" font-size="10.5" fill="var(--text3)" text-anchor="middle">${wTxt.last}</text>`;
-    g+=`<text x="${cx(nCar+1).toFixed(1)}" y="${(pt+ih+32).toFixed(1)}" font-size="10.5" fill="var(--text3)" text-anchor="middle">${wTxt.pot}</text>`;
-    // the blended NIL grade
-    g+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(grade).toFixed(1)}" y2="${Y(grade).toFixed(1)}" stroke="var(--text)" stroke-width="1.6" stroke-dasharray="6 4"/>`
-      +`<text x="${pl+6}" y="${(Y(grade)-6).toFixed(1)}" font-size="11.5" font-weight="800" fill="var(--text)" text-anchor="start" paint-order="stroke" stroke="var(--bg)" stroke-width="3">NIL grade ${Math.round(grade)}</text>`;
-    _basisSVG=`<div class="nil-chart"><div class="nil-chart-h">What his price is built on</div><svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;" role="img" aria-label="Season grades, potential and the NIL grade">${g}</svg>`
-      +`<div class="nil-chart-cap">Priced as a <b>${Math.round(grade)}</b> over <b>${Math.round(mpg)} minutes</b>: last season's grade, his earlier seasons and his potential (the better of his 2026-27 projection and a normal ${_clsName||'class'}-year step), and the bigger of last season's minutes (${Math.round(+_nb.lm||0)}) and his projected role. A thin last season counts for less.</div></div>`;
-  }
   const _vText=_verdict.tag==='underrated'?`<b style="color:${N.markColor('underrated')}">Underrated.</b> His production is worth about ${_verdict.ratio.toFixed(1)}× what the market pays for his grade and position.`
     :_verdict.tag==='overrated'?`<b style="color:${N.markColor('overrated')}">Overrated.</b> The market pays about ${_verdict.ratio.toFixed(1)}× what his production is worth.`
     :_verdict.tag==='fair'?`<b>Fair value.</b> The market prices him about where his production does.`:'';
@@ -6822,20 +6798,10 @@ async function renderNilPlayer(){
   const _vTag=_verdict.tag==='underrated'?['Underrated',N.markColor('underrated'),'his production is worth '+_verdict.ratio.toFixed(1)+'× the going rate']
     :_verdict.tag==='overrated'?['Overrated',N.markColor('overrated'),'the market pays '+_verdict.ratio.toFixed(1)+'× his production']
     :_verdict.tag==='fair'?['Fair','var(--text)','priced about where his production is']:null;
-  const cell=(v,l,sub,c)=>`<div class="nvb-c"><div class="nvb-v"${c?` style="color:${c}"`:''}>${v}</div><div class="nvb-l">${l}</div>${sub?`<div class="nvb-s">${sub}</div>`:''}</div>`;
-  const band=`<div class="nvb">`
-    +cell(fmt(value),'2026-27 NIL value',_basisTxt)
-    +(!walkon&&_board.length?cell('#'+natRank.toLocaleString(),'National',`of ${_board.length.toLocaleString()} rotation players${natPct!=null?' · '+natPct+_nvOrdSuf(natPct)+' pct':''}`):'')
-    +(!walkon&&posTot?cell('#'+posRank,'Among '+_p5+'s',`of ${posTot.toLocaleString()}`):'')
-    +(_vTag?cell(_vTag[0],'Market lens',_vTag[2],_vTag[1]):'')
-    +(_perWin!=null?cell(fmt(_perWin),'Per Win Added',`${fmt(value)} for ${(_wa>=0?'+':'')+_wa.toFixed(1)} WA`):'')
-    +(_mi!=null?cell(_mi+'<span style="font-size:13px">'+_nvOrdSuf(_mi)+'</span>','Market blind spot','<a href="moneyball.html?tab=market" style="color:inherit">transfer study</a> · high = traits the market underpays'):'')
-    +(_teamShare!=null&&!walkon?cell(_teamShare.toFixed(0)+'%','Of '+String((window.tdcShortSchool?window.tdcShortSchool(_teamNm||''):_teamNm)||'his team').replace(/</g,'&lt;')+'\'s NIL','share of the roster\'s open-market value'):'')
-    +`</div>`;
   const flags=[(_injRec&&_injM!==1)?`<b>Injury</b> · ${String((_injRec.part||'Injury')).replace(/</g,'&lt;')}${((_injRec.play===false)||_injRec.timeline==='multi'||_injRec.timeline==='season')?', out':(_injRec.timeline==='1-3m'?', about 1–3 months':'')} · −${Math.round((1-_injM)*100)}%`:'',
     (_adj&&_adj.reason&&_adjM!==1)?`<b>Market adjustment</b> · ${String(_adj.reason).replace(/</g,'&lt;')} · ${_adjM<1?'−':'+'}${Math.round(Math.abs(1-_adjM)*100)}%`:''].filter(Boolean);
   // the price, factor by factor (only the ones that move it)
-  const F=[['NIL grade '+Math.round(grade), (base*100).toFixed(0)+'% of the ~'+fmt(N.MODEL.top_m*N.NEUTRAL_MULT)+' ceiling'],
+  const F=[['NIL grade '+Math.round(grade), (base*100).toFixed(0)+'% of '+fmt(N.MODEL.top_m*N.NEUTRAL_MULT)+' max'],
     ['Minutes', '× '+mf.toFixed(2)],['Market premium · size, scoring, conference','× '+(+prem||1).toFixed(2)],['Youth','× '+ym.toFixed(2)]];
   if(bigM>1.01) F.push(['Big','× '+bigM.toFixed(2)]); if(prospM>1.01) F.push(['NBA prospect','× '+prospM.toFixed(2)]);
   [['Draft upside',_draftM],['Defense / fouls',_defM],['Marketability',_mktM],['Pro size',_proM],['Injury',_injM],['Market adjustment',_adjM],['Program market',_progM]].forEach(x=>{ if(isFinite(x[1])&&Math.abs(x[1]-1)>=0.01) F.push([x[0],'× '+x[1].toFixed(2)]); });
@@ -6843,29 +6809,117 @@ async function renderNilPlayer(){
   // so the rows multiply out to the headline
   { let prod=base*N.MODEL.top_m*N.NEUTRAL_MULT; F.slice(1).forEach(r=>{ const m=parseFloat(String(r[1]).replace('× ','')); if(isFinite(m)) prod*=m; });
     const rest=prod>0?value/prod:1; if(isFinite(rest)&&Math.abs(rest-1)>=0.02) F.push(['Production check · Wins Added, conference floor','× '+rest.toFixed(2)]); }
-  const breakdown=walkon?'':`<div class="sec-title" style="margin:26px 0 12px;">The price, factor by factor</div><div class="sheet-wrap" style="max-height:none;"><table class="sheet dense nil-cmp"><tbody>`
-    +F.map(r=>`<tr><td class="l nm">${r[0]}</td><td class="big">${r[1]}</td></tr>`).join('')
-    +`<tr class="me"><td class="l nm">2026-27 NIL value</td><td class="big">${fmt(value)}</td></tr></tbody></table></div>`;
-  const html=`<div class="nilx">${band}
-    ${flags.length?`<div class="nvb-flags">${flags.map(f=>`<span>${f}</span>`).join('')}</div>`:''}
-    ${_basisSVG}
-    ${breakdown}
-    ${(!walkon)?_nilScaleHtml(N,_cur0,modelVal,marketVal,marketPos,col):''}
-    ${(!walkon)?_nilCompareHtml(N,_cur0,col)+_nilTeamContextHtml(N,_cur0,col):''}
-    ${_nilLedgerHtml(N,prem,pos,cls)}
-    <div style="margin-top:18px;"><a class="nvb-link" href="moneyball.html?tab=class&q=${encodeURIComponent((player&&player.name)||'')}">Moneyball: what the transfer market pays for →</a></div>
+  // ── the tab (Oct 22 2026 redesign, owner: "too long, too many tables, doesn't match the site"): the Overview's own
+  //    panels (.ovc-box) — value · where he sits · bottom line, then what moves the price · what it's built on, then
+  //    comparables · his team. Lists with in-row bars, no stacked sheets.
+  const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const _schoolS=String((window.tdcShortSchool?window.tdcShortSchool(_teamNm||''):_teamNm)||'his team');
+  const box=(title,sub,body,cls)=>`<div class="ovc-box${cls?' '+cls:''}"><div class="ovc-sl">${title}${sub?` <span class="sub">${sub}</span>`:''}</div>${body}</div>`;
+  const _posPool=_board.filter(p=>p.pos5===_p5&&p.val>0);
+  // 1 · value — the hero: the dollar figure big, the verdict, and the ranks; the bottom-line sentence sits under it (below)
+  const vChip=_vTag?`<span class="nv2-chip" style="color:${_vTag[1]};border-color:${_vTag[1]}">${_vTag[0]}</span>`:'';
+  const rankHtml=(!walkon&&_board.length)?`<div class="nv2-ranks"><div><b>#${natRank.toLocaleString()}</b><span>nationally<br>of ${_board.length.toLocaleString()}</span></div>${posTot?`<div><b>#${posRank}</b><span>among ${_p5}s<br>of ${posTot.toLocaleString()}</span></div>`:''}${_teamShare!=null?`<div><b>${_teamShare.toFixed(0)}%</b><span>of ${esc(_schoolS)}'s<br>roster value</span></div>`:''}</div>`:'';
+  // 2 · where he sits: his position's value range on one line (middle half shaded, median tick, him + the market curve)
+  let rangeBox='';
+  if(!walkon&&_posPool.length>=8){
+    const pl=_posPool.map(p=>p.val).sort((a,b)=>a-b), q=f=>pl[Math.floor(f*(pl.length-1))];
+    const hi=Math.max(q(0.97),modelVal||0,marketVal||0)*1.06, X=v=>Math.max(0,Math.min(100,v/hi*100));
+    const p25=q(.25),p50=q(.5),p75=q(.75);
+    rangeBox=box('Where he sits','among '+posTot.toLocaleString()+' '+_p5+'s',
+      `<div class="nv2-range" role="img" aria-label="${esc(player&&player.name)} ${fmt(modelVal)} vs ${_p5} median ${fmt(p50)}">`
+      +`<div class="nv2-rail"></div><div class="nv2-band" style="left:${X(p25)}%;width:${X(p75)-X(p25)}%"></div>`
+      +`<div class="nv2-med" style="left:${X(p50)}%" title="${_p5} median ${fmt(p50)}"></div>`
+      +(marketVal!=null?`<div class="nv2-mkt" style="left:${X(marketVal)}%" title="${marketPos} market curve at his grade: ${fmt(marketVal)}"></div>`:'')
+      +`<div class="nv2-dot" style="left:${X(modelVal)}%;background:${col}" title="${fmt(modelVal)}"></div></div>`
+      +`<div class="nv2-key"><span><i class="k-dot" style="background:${col}"></i>Him ${fmt(modelVal)}</span>${marketVal!=null?`<span><i class="k-mkt"></i>Market ${fmt(marketVal)}</span>`:''}<span><i class="k-med"></i>Median ${fmt(p50)}</span><span><i class="k-band"></i>Middle half ${fmt(p25)}–${fmt(p75)}</span></div>`);
+  }
+  // 3 · bottom line
+  const _tier=posTot&&!walkon?(posRank<=10?'a top-10':posRank<=25?'a top-25':posRank<=50?'a top-50':posRank<=Math.round(posTot*.25)?'an upper-quarter':posRank<=Math.round(posTot*.5)?'an above-median':'a below-median'):'';
+  const bottom=walkon?`<p>Outside the projected rotation, so he carries a <b>nominal</b> value.</p>`
+    :`<p>Priced like ${_tier} <b>${_p5}</b> at <b>${fmt(value)}</b>${_teamShare!=null?`, ${_teamShare.toFixed(0)}% of ${esc(_schoolS)}'s roster value`:''}.${marketVal!=null?` The ${marketPos} market at his grade pays <b>${fmt(marketVal)}</b>${_vTag?` · ${_vTag[0].toLowerCase()}`:''}.`:''}</p>`;
+  const hero=`<div class="ovc-box nv2-hero" style="--nvc:${col}"><div class="nv2-hl"><div class="ovc-sl">2026-27 NIL value <span class="sub">open-market estimate</span></div>`
+    +`<div class="nv2-big">${fmt(value)}</div><div class="nv2-meta">${vChip}${_vTag?`<span>${_vTag[2]}</span>`:''}</div>`
+    +`<div class="nv2-bl">${bottom}</div></div>${rankHtml?`<div class="nv2-hr">${rankHtml}</div>`:''}</div>`;
+  // 5 · what the grade is built on (last season, earlier seasons, potential → the NIL grade)
+  let basisBox='';
+  if(_nb&&!walkon){
+    const hist=(Array.isArray(_nb.hist)?_nb.hist:[]).slice(-3), w=_nb.ngw||[0.5,0.2,0.3];
+    const items=[]; items.push(['2025-26',+_nb.ngl,Math.round(w[0]*100)+'%',1]);
+    hist.slice().reverse().forEach(h=>items.push([(h[0]-1)+'-'+String(h[0]).slice(2),+h[1],'',0]));
+    if(w[1]>0&&hist.length) items[1][2]=Math.round(w[1]*100)+'% (career)';
+    items.push(['Potential',+_nb.ngp,Math.round(w[2]*100)+'%',2]);
+    const lo=55, G=g=>Math.max(2,Math.min(100,(g-lo)/(99-lo)*100));
+    basisBox=box('What it\'s built on','grade · weight in the price',
+      items.filter(it=>isFinite(it[1])).map(it=>`<div class="nv2-g"><span class="lb">${it[0]}</span><span class="tr"><i style="width:${G(it[1])}%;${it[3]===1?`background:${col}`:it[3]===2?`background:transparent;border:1.5px dashed ${col}`:''}"></i></span><span class="gv">${Math.round(it[1])}</span><span class="wt">${it[2]}</span></div>`).join('')
+      +`<div class="nv2-g total"><span class="lb"><b>NIL grade</b></span><span class="tr"><i style="width:${G(grade)}%;background:var(--text)"></i></span><span class="gv"><b>${Math.round(grade)}</b></span><span class="wt">${Math.round(mpg)} min</span></div>`);
+  }
+  // 6 · comparable players at his position (window around him) and 7 · his team's top earners — lists with value bars
+  const list=(rows,max)=>rows.map(r=>`<div class="nv2-l${r.me?' me':''}"><span class="rk">${r.rk}</span><span class="nm">${r.me?esc(r.name):`<a href="player.html?name=${encodeURIComponent(r.name)}">${esc(r.name)}</a>`}${r.sub?` <span class="dim">${esc(r.sub)}</span>`:''}</span><span class="br"><i style="width:${Math.max(2,r.val/max*100)}%;${r.me?`background:${col}`:''}"></i></span><span class="vv">${fmt(r.val)}</span></div>`).join('');
+  let compBox='', teamBox='';
+  if(!walkon&&_posPool.length){
+    const me=(player&&player.name||'').toLowerCase().trim();
+    const pl=_posPool.filter(p=>(p.name||'').toLowerCase().trim()!==me);
+    let at=pl.findIndex(p=>p.val<=modelVal); if(at<0) at=pl.length;
+    pl.splice(at,0,{name:player&&player.name,team:_teamNm,val:modelVal,_me:1});
+    let st=Math.max(0,at-2), en=Math.min(pl.length,st+5); st=Math.max(0,en-5);
+    const rows=pl.slice(st,en).map((p,k)=>({rk:st+k+1,name:p.name,sub:p._me?'':(window.tdcShortSchool?window.tdcShortSchool(p.team||''):p.team),val:p.val,me:!!p._me}));
+    compBox=box('Comparable '+_p5+'s','by NIL value',list(rows,Math.max(...rows.map(r=>r.val))));
+  }
+  try{ const t=nd&&nd.teams&&nd.teams[_teamNm];
+    if(!walkon&&t&&t.players){ const me=(player&&player.name||'').toLowerCase().trim();
+      let pls=t.players.filter(p=>!p.walkon).map(p=>({name:p.name,val:_nilLiveVal(N,p)||0})).filter(p=>p.val>0);
+      const m=pls.find(p=>(p.name||'').toLowerCase().trim()===me); if(m) m.val=modelVal; else pls.push({name:player&&player.name,val:modelVal});
+      pls.sort((a,b)=>b.val-a.val); const tot=pls.reduce((a,p)=>a+p.val,0);
+      const rk=pls.findIndex(p=>(p.name||'').toLowerCase().trim()===me)+1;
+      let top=pls.slice(0,5).map((p,i)=>({rk:i+1,name:p.name,val:p.val,me:(p.name||'').toLowerCase().trim()===me}));
+      if(rk>5) top.push({rk,name:player&&player.name,val:modelVal,me:true});
+      if(pls.length>=2) teamBox=box('Top earners on '+esc(_schoolS),'roster '+fmt(tot),list(top,top[0].val)); } }catch(e){}
+  const html=`<div class="nilx nv2"><div class="ovc-accent"></div>
+    ${hero}
+    ${rangeBox||basisBox?`<div class="nv2-two">${rangeBox}${basisBox}</div>`:''}
+    ${compBox||teamBox?`<div class="nv2-two">${compBox}${teamBox}</div>`:''}
+    <div class="nv2-foot"><span>Open-market estimate from production, minutes, position and upside. Never a reported deal.</span><a class="nvb-link" href="moneyball.html?tab=class&q=${encodeURIComponent((player&&player.name)||'')}">What the transfer market pays for →</a></div>
   </div>`;
-  if(!document.getElementById('nvb-css')){ const st=document.createElement('style'); st.id='nvb-css'; st.textContent=
-    '.nvb{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg2);margin:4px 0 6px;}'+
-    '.nvb-c{padding:14px 16px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);margin:0 -1px -1px 0;min-width:0;}'+
-    '.nvb-v{font-weight:800;font-size:24px;line-height:1.1;color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap;}'+
-    '.nvb-l{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:5px;}'+
-    '.nvb-s{font-size:11.5px;color:var(--text3);margin-top:3px;line-height:1.35;}'+
-    '.nvb-flags{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 0;}.nvb-flags span{font-size:12px;color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;background:var(--bg2);}'+
-    '.nvb-link{display:inline-flex;font-size:12.5px;font-weight:800;color:var(--text2);border:1px solid var(--border2);border-radius:9px;padding:8px 14px;text-decoration:none;}.nvb-link:hover{color:var(--text);border-color:var(--text3);}';
+  if(!document.getElementById('nv2-css')){ const st=document.createElement('style'); st.id='nv2-css'; st.textContent=
+    '.nv2 .ovc-box{margin:0;}'+
+    '.nv2-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:14px;}@media(max-width:760px){.nv2-two{grid-template-columns:1fr;}}'+
+    '.nv2-hero{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:22px 34px;align-items:center;margin-bottom:14px!important;padding:20px 24px 22px!important;border-left:4px solid var(--nvc,var(--accent))!important;}'+
+    '.nv2-big{font-family:"Playfair Display",Georgia,serif;font-weight:800;font-size:clamp(52px,7vw,76px);line-height:.95;letter-spacing:-.02em;color:var(--text);font-variant-numeric:tabular-nums;margin-top:2px;}'+
+    '.nv2-bl p{margin:12px 0 0;font-size:13.5px;line-height:1.55;color:var(--text2);max-width:62ch;} .nv2-bl p b{color:var(--text);font-weight:800;}'+
+    '.nv2-hr .nv2-ranks{flex-direction:column;gap:14px;margin:0;padding:0 0 0 26px;border-top:none;border-left:1px solid var(--border);} .nv2-hr .nv2-ranks b{font-size:26px;line-height:1;} .nv2-hr .nv2-ranks span{margin-top:3px;line-height:1.3;}'+
+    '@media(max-width:760px){.nv2-hero{grid-template-columns:1fr;} .nv2-hr .nv2-ranks{flex-direction:row;flex-wrap:wrap;gap:12px 22px;padding:14px 0 0;border-left:none;border-top:1px solid var(--border);} .nv2-hr .nv2-ranks b{font-size:20px;}}'+
+    '.nv2-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 9px;margin-top:9px;font-size:12px;color:var(--text3);}'+
+    '.nv2-chip{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border:1px solid;border-radius:999px;padding:2px 9px;}'+
+    '.nv2-ranks{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:13px;padding-top:11px;border-top:1px solid var(--border);}'+
+    '.nv2-ranks div{display:flex;flex-direction:column;} .nv2-ranks b{font-size:16px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;} .nv2-ranks span{font-size:11px;color:var(--text3);}'+
+    '.nv2-note{font-size:12.5px;color:var(--text2);line-height:1.5;}'+
+    '.nv2-range{position:relative;height:34px;margin:12px 4px 10px;}'+
+    '.nv2-rail{position:absolute;left:0;right:0;top:15px;height:5px;border-radius:3px;background:var(--bg3);}'+
+    '.nv2-band{position:absolute;top:15px;height:5px;border-radius:3px;background:var(--text3);opacity:.45;}'+
+    '.nv2-med{position:absolute;top:9px;width:2px;height:17px;margin-left:-1px;background:var(--text2);}'+
+    '.nv2-mkt{position:absolute;top:10px;width:13px;height:13px;margin-left:-6.5px;transform:rotate(45deg);border:2px solid var(--text);background:var(--bg2);}'+
+    '.nv2-dot{position:absolute;top:7px;width:20px;height:20px;margin-left:-10px;border-radius:50%;border:3px solid var(--bg2);box-shadow:0 0 0 1px var(--border2);}'+
+    '.nv2-key{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11.5px;color:var(--text2);}'+
+    '.nv2-key i{display:inline-block;vertical-align:-1px;margin-right:5px;} .nv2-key .k-dot{width:10px;height:10px;border-radius:50%;} .nv2-key .k-mkt{width:8px;height:8px;transform:rotate(45deg);border:1.5px solid var(--text);} .nv2-key .k-med{width:2px;height:11px;background:var(--text2);} .nv2-key .k-band{width:14px;height:5px;border-radius:2px;background:var(--text3);opacity:.45;}'+
+    '.nv2-f{display:flex;align-items:center;gap:9px;font-size:12.5px;padding:5px 0;border-bottom:1px solid var(--border);} .nv2-f:last-child{border-bottom:none;}'+
+    '.nv2-f .ic{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex:0 0 auto;background:var(--bg3);color:var(--text3);}'+
+    '.nv2-f.good .ic{background:rgba(45,224,166,.15);color:var(--accent);} .nv2-f.bad .ic{background:rgba(224,106,122,.15);color:var(--red);}'+
+    '.nv2-f .tx{flex:1;min-width:0;color:var(--text2);} .nv2-f .tx b{color:var(--text);font-weight:700;} .nv2-f .vv{font-family:var(--mono);font-size:11.5px;color:var(--text);white-space:nowrap;}'+
+    '.nv2-f.good .vv{color:var(--accent);} .nv2-f.bad .vv{color:var(--red);} .nv2-f.total{border-top:1.5px solid var(--border2);margin-top:2px;padding-top:8px;} .nv2-f.total .vv{font-family:inherit;font-weight:800;font-size:14px;color:var(--text);}'+
+    '.nv2-g{display:grid;grid-template-columns:78px minmax(0,1fr) 30px 78px;align-items:center;gap:10px;font-size:12.5px;padding:5px 0;}'+
+    '.nv2-g .lb{color:var(--text2);} .nv2-g .gv{text-align:right;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;} .nv2-g .wt{font-size:11px;color:var(--text3);}'+
+    '.nv2-g .tr{height:9px;border-radius:3px;background:var(--bg3);overflow:hidden;} .nv2-g .tr i{display:block;height:100%;border-radius:3px;background:var(--text3);opacity:.85;box-sizing:border-box;}'+
+    '.nv2-g.total{border-top:1.5px solid var(--border2);margin-top:4px;padding-top:9px;}'+
+    '.nv2-l{display:grid;grid-template-columns:22px minmax(0,1fr) minmax(50px,32%) 62px;align-items:center;gap:9px;font-size:12.5px;padding:5px 6px;border-radius:7px;}'+
+    '.nv2-l.me{background:var(--bg3);} .nv2-l .rk{font-size:11px;color:var(--text3);text-align:right;font-variant-numeric:tabular-nums;}'+
+    '.nv2-l .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);} .nv2-l.me .nm{font-weight:800;} .nv2-l .nm a{color:var(--text);text-decoration:none;} .nv2-l .nm a:hover{color:var(--tcr,var(--accent));} .nv2-l .dim{color:var(--text3);font-size:11px;}'+
+    '.nv2-l .br{height:8px;border-radius:3px;background:var(--bg3);overflow:hidden;} .nv2-l .br i{display:block;height:100%;border-radius:3px;background:var(--text3);opacity:.7;} .nv2-l.me .br i{opacity:1;}'+
+    '.nv2-l .vv{text-align:right;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;}'+
+    '.nv2-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;font-size:11.5px;color:var(--text3);margin-top:4px;}'+
+    '.nvb-link{display:inline-flex;font-size:12.5px;font-weight:800;color:var(--text2);border:1px solid var(--border2);border-radius:9px;padding:8px 14px;text-decoration:none;}.nvb-link:hover{color:var(--text);border-color:var(--text3);}'+
+    '@media(max-width:640px){ .nv2-g{grid-template-columns:70px minmax(0,1fr) 26px 64px;gap:8px;}}';
     document.head.appendChild(st); }
   host.innerHTML=html;
-  _sheetHeatIn(host);
 }
 // ── SCHEME LAB ────────────────────────────────────────────────────────────
 // How the coaching SYSTEM reshapes a player's projected line. The live engine only
