@@ -30,6 +30,7 @@
   <script src="tdc-histguard.js?v=2"></script>
   <script src="tdc-proj.js?v=hg5"></script>
   <script src="tdc-impact.js?v=1"></script>
+  <script src="tdc-gamehead.js?v=3"></script>
   <link rel="stylesheet" href="tdc-anim.css?v=6"/>
   <script src="tdc-anim.js?v=6"></script>
   <style>
@@ -154,6 +155,13 @@
     .adv-pill small{display:block;font-size:10px;font-weight:700;opacity:.8}
     .adv-sec{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:28px 0 10px}.adv-sec h2{font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:800;margin:0}.adv-sec span{font-size:12px;color:var(--text3)}
     .adv-chart{border:1px solid var(--border2);border-radius:12px;padding:14px;background:var(--bg)}
+    .adv-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:16px 0 4px}
+    .adv-tabs button{font:700 12.5px Inter,system-ui,sans-serif;color:var(--text2);background:var(--bg);border:1px solid var(--border2);border-radius:999px;padding:7px 14px;cursor:pointer}
+    .adv-tabs button:hover{color:var(--text);border-color:var(--text3)} .adv-tabs button.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+    @media(max-width:640px){.adv-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.adv-tabs::-webkit-scrollbar{display:none}.adv-tabs button{flex-shrink:0}}
+    .adv-defs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0 4px} @media(max-width:820px){.adv-defs{grid-template-columns:1fr}}
+    .adv-def{font-size:12.5px;line-height:1.55;color:var(--text2)} .adv-def b{color:var(--text)}
+    .adv-tbl td{line-height:1.25}
     .sheet td.adv-hl{box-shadow:inset 0 -3px 0 var(--accent)}
     .sheet td small.adv-g{display:block;font-size:10px;color:var(--text3);font-weight:600}
     .sheet td.adv-sh{background:var(--bg2)!important;font-weight:800;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text2)}
@@ -555,7 +563,7 @@ async function loadGamePlan(a,b,favA,L){
   // edge chart + matchup sheet in one). Every rotation player's games from the season before (OBS_), each weighted
   // by how closely that opponent's defense resembles tonight's (z-scored DRtg / dTOV / deFG / tempo, Gaussian
   // kernel); edge = TS% in those weighted games minus his season TS%. Teams come from the shared pickers.
-  var _advInited=false, _advDNA={}, _advSOP=null, _advCache={}, _advSeq=0;
+  var _advInited=false, _advDNA={}, _advSOP=null, _advCache={}, _advSeq=0, _advView='ov';
   function initAdv(){ if(!_advInited){ _advInited=true; window._advReset=function(){ if(el('tabAdv').style.display!=='none') renderAdv(); }; } renderAdv(); }
   window._advRender=function(){ if(_advInited&&el('tabAdv').style.display!=='none') renderAdv(); };
   async function _advJson(u){ try{ const r=await fetch(u); return r.ok?await r.json():null; }catch(e){ return null; } }
@@ -582,36 +590,90 @@ async function loadGamePlan(a,b,favA,L){
       const h=await histRoster(row).catch(()=>[]);
       return (h||[]).filter(p=>p.espn_id!=null&&(+p.mpg||0)>=8).sort((x,y)=>(+y.mpg||0)-(+x.mpg||0)).slice(0,10).map(p=>({e:String(p.espn_id),name:p.name,pos:p.position||'',mpg:+p.mpg||0}));
     }
+    // last season's shot mix (Mastery Shots families), what each defense allowed by zone (shot aftermath), the
+    // players' turnover / offensive-rebound rates (player_advanced)
+    const MS=_advCache['ms'+gy]||(_advCache['ms'+gy]=await _advJson(`scripts/data/mastery/${gy}.json`)), TP=_advCache['tp'+gy]||(_advCache['tp'+gy]=await _advJson(`scripts/data/shot_aftermath/tprof_${gy}.json`));
+    if(seq!==_advSeq) return;
+    const mrow={}, mtid={}; if(MS){ MS.players.forEach(r=>{ mrow[String(r[0])]=r; }); Object.entries(MS.teams||{}).forEach(([id,t])=>{ mtid[t[0]]=id; }); }
+    const FAMI=f=>MS?MS.fam.indexOf(f)*3+MS.pcols.length:0;
+    const ZF={rim:['rim'],mid:['float','post','pull2','short','long','mid'],three:['three','pull3']}, PV={rim:2,mid:2,three:3};
+    const TPC={}; if(TP) TP.cols.forEach((c,i)=>TPC[c]=i);
+    const fgOf=v=>v?{rim:v[TPC.rimA]?v[TPC.rimM]/v[TPC.rimA]:null, mid:v[TPC.midA]?v[TPC.midM]/v[TPC.midA]:null, three:v[TPC.threeA]?v[TPC.threeM]/v[TPC.threeA]:null}:null;
+    const LGFG=TP?fgOf(Object.values(TP.def).reduce((t,v)=>{ v.forEach((x,i)=>t[i]=(t[i]||0)+x); return t; },[])):null;
+    // tonight's defense: the projected profile where it has the stat, last season's where it doesn't (no projected FT
+    // rate); each D-I average comes from the same source as the number it's compared with
+    const SRC={}, LGD={}; ['dTOV','dDRB','dFTr'].forEach(k=>{ const pv=Object.values(DT).map(t=>t[k]).filter(x=>x!=null);
+      const src=pv.length>50?DT:DG, v=pv.length>50?pv:Object.values(DG).map(t=>t[k]).filter(x=>x!=null); SRC[k]=src; LGD[k]=v.reduce((a,b)=>a+b,0)/(v.length||1); });
+    const dv=(team,k)=>{ const t=SRC[k][team]; return t&&t[k]!=null?t[k]:null; };
     async function side(row, opp){
       const R=await roster(row); if(!R.length) return [];
       const key=gy+':'+R.map(x=>x.e).join(',');
       if(!_advCache[key]) _advCache[key]=await fetch(`${SB}/rest/v1/box_scores?espn_id=in.(${R.map(x=>x.e).join(',')})&season_year=eq.${gy}&select=espn_id,opp,min,fga,fta,pts&limit=6000`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
-      const box=_advCache[key], O=DT[opp.full]||DG[opp.full];
+      if(!_advCache['pa'+key]) _advCache['pa'+key]=await fetch(`${SB}/rest/v1/player_advanced?espn_id=in.(${R.map(x=>x.e).join(',')})&season_year=eq.${gy}&select=espn_id,g,min,tov_pct,orb_pct`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+      const box=_advCache[key], PA={}; (_advCache['pa'+key]||[]).forEach(x=>{ PA[String(x.espn_id)]=x; });
+      const O=DT[opp.full]||DG[opp.full], OD=TP&&TP.def[mtid[opp.full]], OFG=fgOf(OD);
       return R.map(p=>{ const g=box.filter(x=>String(x.espn_id)===p.e&&+x.min>0&&DG[x.opp]);
         const ts=(L,wf)=>{ let pts=0,den=0,sw=0,sw2=0; L.forEach(x=>{ const w=wf?wf(x):1; pts+=w*(+x.pts||0); den+=w*2*((+x.fga||0)+0.44*(+x.fta||0)); sw+=w; sw2+=w*w; }); return {ts:den>0?100*pts/den:null,eff:sw2?sw*sw/sw2:0}; };
         const base=ts(g).ts;
         const sim=x=>{ if(!O) return 0; const t=DG[x.opp]; let d=0; F.forEach(k=>{ if(t[k]!=null&&O[k]!=null) d+=W[k]*(z(t,k)-z(O,k))**2; }); return Math.exp(-d/2); };
         const like=O?ts(g,sim):{ts:null,eff:0};
         const arch={}; ARCH.forEach(([k,,,test])=>{ const L=g.filter(x=>test(DG,DG[x.opp])); arch[k]={n:L.length,ts:L.length?ts(L).ts:null}; });
-        return Object.assign({}, p, {gp:g.length, base, like:like.ts, eff:like.eff, edge:(like.ts!=null&&base!=null)?like.ts-base:null, arch, team:row.full}); }).filter(r=>r.gp>=5&&r.base!=null);
+        const o=Object.assign({}, p, {gp:g.length, base, like:like.ts, eff:like.eff, edge:(like.ts!=null&&base!=null)?like.ts-base:null, arch, team:row.full});
+        // the four edges, in points a game vs facing an average D-I defense
+        const m=mrow[p.e], a=PA[p.e];
+        if(m&&O){ const att={}; Object.keys(ZF).forEach(zk=>{ att[zk]=ZF[zk].reduce((t,f)=>t+(m[FAMI(f)]||0),0); });
+          const fga=att.rim+att.mid+att.three, gp=m[5]||1, fta=m[6], ftm=m[7];
+          if(fga>=40){
+            const fgapg=fga/gp;
+            o.mix={rim:Math.round(100*att.rim/fga),mid:Math.round(100*att.mid/fga),three:Math.round(100*att.three/fga)};
+            o.zones100=(OFG&&LGFG)?100*Object.keys(ZF).reduce((t,zk)=>t+att[zk]/fga*PV[zk]*(((OFG[zk]!=null?OFG[zk]:LGFG[zk]))-LGFG[zk]),0):0;
+            o.z_pts=o.zones100/100*fgapg;
+            if(a&&a.g){ const tov=+a.tov_pct||0, orb=+a.orb_pct||0, mpg=(+a.min||0)/a.g;
+              const oT=dv(opp.full,'dTOV'), oD=dv(opp.full,'dDRB');
+              o.tov=tov; o.tov_vs=oT!=null?tov*oT/LGD.dTOV:tov;
+              const plays=(fgapg+0.44*fta/gp)/Math.max(.01,1-tov/100);
+              o.t_pts=-(o.tov_vs-tov)/100*plays;
+              o.orb=orb; o.orb_vs=oD!=null?orb*(100-oD)/(100-LGD.dDRB):orb; o.g_pts=(o.orb_vs-orb)/100*13*mpg/40*1.1; }
+            const ftr=fta/fga, oF=dv(opp.full,'dFTr'); o.ftr=100*ftr; o.ftr_vs=oF!=null?100*ftr*oF/LGD.dFTr:100*ftr; o.f_pts=(o.ftr_vs-o.ftr)/100*fgapg*(fta?ftm/fta:.7);
+            o.net=(o.z_pts||0)+(o.t_pts||0)+(o.g_pts||0)+(o.f_pts||0);
+          } }
+        return o; }).filter(r=>r.gp>=5&&r.base!=null);
     }
     const [RA,RB]=await Promise.all([side(ra,rb),side(rb,ra)]); if(seq!==_advSeq) return;
     const lg=row=>{ try{ const c=window.tdcTeamColor&&(tdcTeamColor(row.full)||tdcTeamColor(row.team)); return (c&&c.logo)||''; }catch(e){ return ''; } };
-    const nm=row=>esc(sn(row.team)), thin=r=>r.eff<4, sg=v=>v==null?'—':(v>=0?'+':'')+v.toFixed(1);
-    const yl=(gy-1)+'-'+String(gy).slice(2);
+    const nm=row=>esc(sn(row.team)), thin=r=>r.eff<4, sg=(v,d)=>v==null||!isFinite(v)?'—':(v>=0?'+':'−')+Math.abs(v).toFixed(d==null?1:d);
+    const yl=(gy-1)+'-'+String(gy).slice(2), f1=v=>v==null?'—':(+v).toFixed(1);
     if(!RA.length&&!RB.length){ out.innerHTML=`<div class="loading">No ${yl} game logs for these rosters yet.</div>`; return; }
-    const pill=(v,t)=>{ if(v==null) return 'background:var(--bg2);color:var(--text3)'; const a=Math.min(1,Math.abs(v)/10)*(t?.35:.9), dark=a>.5; return (v>=0?`background:rgba(46,139,87,${(.15+a*.6).toFixed(2)})`:`background:rgba(200,85,61,${(.15+a*.6).toFixed(2)})`)+`;color:${dark?'#fff':'var(--text)'}`; };
-    const chips=s0=>s0.length?s0.map(x=>`<span class="adv-chip">${x[1]}</span>`).join(''):'<span class="adv-mut">middle of the pack</span>';
-    const prow=r=>`<div class="adv-prow"><div class="nm"><b>${esc(r.name)}</b><small>${esc(r.pos)} · ${r.gp} gm · season TS ${r.base.toFixed(1)}</small></div><div class="mn">${r.mpg.toFixed(0)} min</div><div class="ed"><span class="adv-pill" style="${pill(r.edge,thin(r))}">${sg(r.edge)}<small>TS ${r.like!=null?r.like.toFixed(1):'—'}</small></span></div></div>`;
-    const colh='<div class="adv-colh"><span>Player</span><span>Proj</span><span>Edge</span></div>';
-    const byEdge=(x,y)=>(y.edge??-99)-(x.edge??-99);
-    const tcol=row=>{ try{ const c=window.tdcTeamColor&&(tdcTeamColor(row.full)||tdcTeamColor(row.team)); if(c&&c.c1) return c.c1; }catch(e){} return teamColor(row); };   // the site's colour resolver (Florida blue, not the old green)
-    const ca=tcol(ra), cb=tcol(rb);
-    // A — the band: both teams, what each defense is, every rotation player's edge
-    const band=`<div class="adv-tape"><div class="adv-band"><div class="tm" style="background:${ca}"><img src="${lg(ra)}" alt=""><div><div class="n">${nm(ra)}</div><div class="s">vs ${nm(rb)}’s defense</div></div></div><div class="vs">VS</div><div class="tm r" style="background:${cb}"><div><div class="n">${nm(rb)}</div><div class="s">vs ${nm(ra)}’s defense</div></div><img src="${lg(rb)}" alt=""></div></div>
-      <div class="adv-dch"><div><b>${nm(rb)} D:</b>${chips(styles(DT[rb.full]))}</div><div class="r"><b>${nm(ra)} D:</b>${chips(styles(DT[ra.full]))}</div></div>
-      <div class="adv-cols"><div>${colh}${RA.slice().sort(byEdge).map(prow).join('')||'<div class="adv-mut" style="padding:12px 18px">No game logs.</div>'}</div><div>${colh}${RB.slice().sort(byEdge).map(prow).join('')||'<div class="adv-mut" style="padding:12px 18px">No game logs.</div>'}</div></div></div>`;
-    // C — the edge chart: season TS (hollow) → TS vs defenses like tonight's (filled), both teams, biggest gainers first
+    const byEdge=(x,y)=>(y.edge??-99)-(x.edge??-99), byNet=(x,y)=>(y.net??-99)-(x.net??-99);
+    const pc=v=>v==null?'':v>=0.5?'c4':v>=0.15?'c3':v>-0.15?'c2':v>-0.5?'c1':'c0';   // points a game
+    // the band: the game pages' two-team colour band
+    const T=r=>{ const c=window.TDC_GAMEHEAD?TDC_GAMEHEAD.team(r.full):{}; return {name:sn(r.team), logo:lg(r)||c.logo, color:c.color, sub:r.rank?'#'+r.rank+' in our rankings':'', pts:''}; };
+    const band=window.TDC_GAMEHEAD?TDC_GAMEHEAD.html({away:T(ra), home:T(rb), status:'Matchup', statusSub:PROJ()?'2026-27':SYL(), meta:`<span>Edges from ${yl} stats${PROJ()?' · 2026-27 projected rotations':''}</span>`}):'';
+    // each defense, in plain facts vs D-I
+    const defLine=(row,opp)=>{ const O=DT[opp.full]||DG[opp.full], f=fgOf(TP&&TP.def[mtid[opp.full]]); if(!O) return '';
+      const p=v=>v==null?'—':(100*v).toFixed(1)+'%', L=LGFG||{};
+      return `<div class="adv-def"><b>${nm(opp)}'s defense</b>${f?` allows <b>${p(f.rim)}</b> at the rim (D-I ${p(L.rim)}), <b>${p(f.mid)}</b> mid-range (${p(L.mid)}), <b>${p(f.three)}</b> from three (${p(L.three)}) ·`:''} forces turnovers on <b>${f1(dv(opp.full,'dTOV'))}%</b> (${f1(LGD.dTOV)}) · grabs <b>${f1(dv(opp.full,'dDRB'))}%</b> of misses (${f1(LGD.dDRB)}) · FT rate allowed <b>${f1(dv(opp.full,'dFTr'))}</b> (${f1(LGD.dFTr)})</div>`; };
+    const grpH=(row,opp,cols)=>`<tr><td class="adv-sh l" colspan="${cols}"><img class="adv-lgi" src="${lg(row)}" alt="">${nm(row)} vs ${nm(opp)}’s defense</td></tr>`;
+    const PM=PROJ()?'Proj min':'Min';
+    // Overview: the edge sheet (owner pick A)
+    const orow=r=>`<tr><td class="l"><b>${esc(r.name)}</b> <span class="dim">${esc(r.pos)}</span></td><td>${r.mpg.toFixed(1)}</td><td class="${pc(r.net)}"><b>${sg(r.net)}</b></td>`+
+      `<td class="${pc(r.z_pts)}">${sg(r.zones100)}${r.mix?`<small class="adv-g">rim ${r.mix.rim}% · mid ${r.mix.mid}% · 3 ${r.mix.three}%</small>`:''}</td>`+
+      `<td class="${pc(r.t_pts)}">${r.tov!=null?f1(r.tov)+' → '+f1(r.tov_vs):'—'}<small class="adv-g">TOV%</small></td>`+
+      `<td class="${pc(r.g_pts)}">${r.orb!=null?f1(r.orb)+' → '+f1(r.orb_vs):'—'}<small class="adv-g">ORB%</small></td>`+
+      `<td class="${pc(r.f_pts)}">${r.ftr!=null?f1(r.ftr)+' → '+f1(r.ftr_vs):'—'}<small class="adv-g">FT rate</small></td>`+
+      `<td class="${r.like==null?'':pc((r.like-r.base)/5)} ${thin(r)?'adv-fade':''}">${f1(r.base)} → ${f1(r.like)}<small class="adv-g">TS% · ${r.eff.toFixed(0)} games' worth</small></td></tr>`;
+    const overview=`<div class="adv-defs">${defLine(ra,rb)}${defLine(rb,ra)}</div>
+      <div class="adv-sec"><h2>Player edges</h2><span>points a game vs an average D-I defense · green helps him, red hurts</span></div>
+      <div class="sheet-wrap"><table class="sheet dense adv-tbl"><thead><tr><th class="l">Player</th><th>${PM}</th><th>Net edge</th><th title="His rim / mid-range / three mix against what this defense allows at each, points per 100 shots vs D-I">Shot zones<br>pts/100 shots</th><th title="His turnover rate → scaled by how many turnovers this defense forces">Turnovers</th><th title="His offensive rebound rate → scaled by how much this defense gives up on the glass">Off. glass</th><th title="Free throws per shot → scaled by how often this defense fouls">Free throws</th><th title="True shooting in games against defenses most like this one (not in the net: it overlaps the zones)">Vs similar D</th></tr></thead>
+      <tbody>${grpH(ra,rb,8)}${RA.slice().sort(byNet).map(orow).join('')}${grpH(rb,ra,8)}${RB.slice().sort(byNet).map(orow).join('')}</tbody></table></div>`;
+    // Shot zones: where the zones edge comes from
+    const zrow=(r,opp)=>{ const f=fgOf(TP&&TP.def[mtid[opp.full]]); if(!r.mix||!f||!LGFG) return '';
+      const zc=zk=>{ const d=PV[zk]*(f[zk]-LGFG[zk])*r.mix[zk]; return `<td class="${pc(d/25)}">${r.mix[zk]}%<small class="adv-g">${sg(100*(f[zk]-LGFG[zk]))} pts vs D-I FG%</small></td>`; };
+      return `<tr><td class="l"><b>${esc(r.name)}</b> <span class="dim">${esc(r.pos)}</span></td>${zc('rim')}${zc('mid')}${zc('three')}<td class="${pc(r.z_pts)}"><b>${sg(r.zones100)}</b></td><td class="${pc(r.z_pts)}">${sg(r.z_pts,2)}</td></tr>`; };
+    const zones=`<div class="adv-sec"><h2>Shot zones</h2><span>his shot mix vs what this defense allows at each spot, against D-I</span></div>
+      <div class="sheet-wrap"><table class="sheet dense adv-tbl"><thead><tr><th class="l">Player</th><th>At the rim</th><th>Mid-range</th><th>Threes</th><th>Pts / 100 shots</th><th>Pts a game</th></tr></thead>
+      <tbody>${grpH(ra,rb,6)}${RA.slice().sort(byNet).map(r=>zrow(r,rb)).join('')}${grpH(rb,ra,6)}${RB.slice().sort(byNet).map(r=>zrow(r,ra)).join('')}</tbody></table></div>`;
+    // Similar defenses: the true-shooting dot chart (season → vs defenses like tonight's)
     const all=[...RA,...RB].filter(r=>r.like!=null).sort(byEdge);
     let chart='';
     if(all.length){ const Wd=Math.max(330,Math.min(1100,Math.round((out.clientWidth||1100)-30))), nar=Wd<620, rh=nar?30:34, Ht=all.length*rh+64, L=nar?132:250, Rr=nar?46:64, fs=nar?11:13;
@@ -622,14 +684,19 @@ async function loadGamePlan(a,b,favA,L){
         g+=`<image href="${lg(row)}" x="2" y="${y-9}" width="${nar?16:22}" height="${nar?16:22}"/><text x="${nar?22:36}" y="${y+4}" font-size="${fs}" font-weight="700" fill="var(--text)">${esc(nar?r.name.replace(/^(\S)\S*\s/,'$1. '):r.name)}</text>${nar?'':`<text x="${L-10}" y="${y+4}" font-size="11" fill="var(--text3)" text-anchor="end">${r.mpg.toFixed(0)} min</text>`}`+
           `<g opacity="${thin(r)?.4:1}"><line x1="${X(r.base).toFixed(1)}" x2="${X(r.like).toFixed(1)}" y1="${y}" y2="${y}" stroke="${col}" stroke-width="3"/><circle cx="${X(r.base).toFixed(1)}" cy="${y}" r="5" fill="var(--bg)" stroke="var(--text3)" stroke-width="2"/><circle cx="${X(r.like).toFixed(1)}" cy="${y}" r="6.5" fill="${col}"/>`+
           `<text x="${(X(Math.max(r.base,r.like))+(nar?8:12)).toFixed(1)}" y="${y+4}" font-size="${nar?11:12}" font-weight="800" fill="${col}">${sg(r.edge)}</text></g>`; });
-      chart=`<div class="adv-sec"><h2>Who gains?</h2><span>both rotations, biggest edge first</span></div><div class="adv-chart"><svg viewBox="0 0 ${Wd} ${Ht}" width="100%" style="max-width:${Wd}px" role="img" aria-label="Edge chart">${g}</svg></div>`; }
-    // B — the sheet: every style of defense, the opponent's underlined
+      chart=`<div class="adv-sec"><h2>Vs similar defenses</h2><span>true shooting in games against the defenses most like tonight’s</span></div><div class="adv-chart"><svg viewBox="0 0 ${Wd} ${Ht}" width="100%" style="max-width:${Wd}px" role="img" aria-label="Edge chart">${g}</svg></div>`; }
+    // By defensive style: TS% vs his season mark against each kind of defense, the opponent's styles underlined
     const ecl=v=>v==null?'':v>=6?'c4':v>=2?'c3':v>-2?'c2':v>-6?'c1':'c0';
     const hiFor=row=>new Set(styles(DT[row.full]).map(x=>x[0]));
-    const brow=(r,hi)=>`<tr><td class="l"><b>${esc(r.name)}</b> <span class="dim">${esc(r.pos)}</span></td><td>${r.mpg.toFixed(1)}</td><td>${r.base.toFixed(1)}</td><td class="${thin(r)?'adv-fade':''}">${r.like!=null?r.like.toFixed(1):'—'}</td><td class="${ecl(r.edge)} ${thin(r)?'adv-fade':''}"><b>${sg(r.edge)}</b></td>${ARCH.map(([k])=>{ const c=r.arch[k]; if(!c||c.n<3||c.ts==null) return '<td class="dim">—</td>'; const d=c.ts-r.base; return `<td class="${ecl(d)} ${c.n<5?'adv-fade':''}${hi.has(k)?' adv-hl':''}">${sg(d)}<small class="adv-g">${c.n} gm</small></td>`; }).join('')}</tr>`;
-    const sec=(row,opp,R)=>{ const hi=hiFor(opp); return `<tr><td class="adv-sh l" colspan="${5+ARCH.length}"><img class="adv-lgi" src="${lg(row)}" alt="">${nm(row)} vs ${nm(opp)}’s defense</td></tr>`+R.slice().sort(byEdge).map(r=>brow(r,hi)).join(''); };
-    const sheet=`<div class="adv-sec"><h2>By style of defense</h2><span>TS% vs his season mark · game counts · gold = what the opponent’s defense is</span></div><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th><th>${PROJ()?'Proj min':'Min'}</th><th>Season TS</th><th>TS vs teams like</th><th>Edge</th>${ARCH.map(([k,l,d])=>`<th title="${d}">${l}</th>`).join('')}</tr></thead><tbody>${sec(ra,rb,RA)}${sec(rb,ra,RB)}</tbody></table></div>`;
-    out.innerHTML=`<div class="adv-yr">${yl} games${PROJ()?' · 2026-27 rotations and projected minutes':''}</div>`+band+chart+sheet+(window.TDC_COACHLINKS?TDC_COACHLINKS.bar(ra.full):'');
+    const brow=(r,hi)=>`<tr><td class="l"><b>${esc(r.name)}</b> <span class="dim">${esc(r.pos)}</span></td><td>${r.mpg.toFixed(1)}</td><td>${r.base.toFixed(1)}</td>${ARCH.map(([k])=>{ const c=r.arch[k]; if(!c||c.n<3||c.ts==null) return '<td class="dim">—</td>'; const d=c.ts-r.base; return `<td class="${ecl(d)} ${c.n<5?'adv-fade':''}${hi.has(k)?' adv-hl':''}">${sg(d)}<small class="adv-g">${c.n} gm</small></td>`; }).join('')}</tr>`;
+    const bsec=(row,opp,R)=>{ const hi=hiFor(opp); return grpH(row,opp,3+ARCH.length)+R.slice().sort(byNet).map(r=>brow(r,hi)).join(''); };
+    const sheet=`<div class="adv-sec"><h2>By defensive style</h2><span>TS% vs his season mark · gold underline = what the opponent’s defense is</span></div><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th><th>${PM}</th><th>Season TS</th>${ARCH.map(([k,l,d])=>`<th title="${d}">${l}</th>`).join('')}</tr></thead><tbody>${bsec(ra,rb,RA)}${bsec(rb,ra,RB)}</tbody></table></div>`;
+    // one view at a time (the Scouting template's filter bar)
+    const VIEWS=[['ov','Overview',overview],['zones','Shot zones',zones],['sim','Similar defenses',chart||'<div class="loading">No game logs to compare.</div>'],['style','By defensive style',sheet]];
+    if(!VIEWS.some(v=>v[0]===_advView)) _advView='ov';
+    out.innerHTML=band+`<div class="adv-tabs">${VIEWS.map(([k,l])=>`<button type="button" data-v="${k}" class="${k===_advView?'on':''}">${l}</button>`).join('')}</div>`+
+      VIEWS.map(([k,,h])=>`<div class="adv-view" data-v="${k}"${k===_advView?'':' hidden'}>${h}</div>`).join('')+(window.TDC_COACHLINKS?TDC_COACHLINKS.bar(ra.full):'');
+    out.querySelectorAll('.adv-tabs button').forEach(b=>b.onclick=()=>{ _advView=b.dataset.v; out.querySelectorAll('.adv-tabs button').forEach(x=>x.classList.toggle('on',x===b)); out.querySelectorAll('.adv-view').forEach(d=>{ d.hidden=d.dataset.v!==_advView; }); });
     if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(out);
   }
   // deep link: #adv opens the Player Advantages tab (team preload handled inside initAdv)
