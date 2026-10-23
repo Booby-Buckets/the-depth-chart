@@ -62,6 +62,11 @@
     .tr-chip{font-size:12px;font-weight:600;color:var(--text2);border:1px solid var(--border2);border-radius:4px;padding:3px 8px;font-variant-numeric:tabular-nums;}
     .tr-chip b{color:var(--text);font-weight:800;}
     .tr-vs{font:inherit;font-size:13px;font-weight:600;padding:9px 12px;border:1px solid var(--border2);border-radius:10px;background:var(--bg2);color:var(--text);max-width:220px;}
+    .tr-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:16px 0 4px;}
+    .tr-tabs button{font:700 12.5px Inter,system-ui,sans-serif;color:var(--text2);background:var(--bg);border:1px solid var(--border2);border-radius:999px;padding:7px 14px;cursor:pointer;}
+    .tr-tabs button:hover{color:var(--text);border-color:var(--text3);}
+    .tr-tabs button.on{background:var(--text);color:var(--bg);border-color:var(--text);}
+    @media(max-width:640px){.tr-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;}.tr-tabs::-webkit-scrollbar{display:none;}.tr-tabs button{flex-shrink:0;}}
     details.tr-more{margin-top:30px;border-top:1px solid var(--border);padding-top:14px;}
     details.tr-more>summary{cursor:pointer;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);list-style:none;}
     details.tr-more>summary::-webkit-details-marker{display:none;}
@@ -188,6 +193,10 @@ const F=(v,d)=>v==null||!isFinite(+v)?'—':(+v).toFixed(d==null?1:d);
 const SEASONS=[2026,2025,2024,2023,2022,2021,2020];
 const sl=y=>(y-1)+'-'+String(y).slice(2);
 let D=null, DNA=null, COLORMAP={}, selKey=null, SEASON=2026, _gen=0;
+// one section at a time (owner: filters, not one long page); ?view= keeps it across reloads and links
+const VIEWS=[['dna','Team DNA'],['shots','Shot charts'],['rot','Rotation'],['people','Personnel'],['twin','Shot profile']];
+let VIEW=(()=>{ const v=new URLSearchParams(location.search).get('view'); return VIEWS.some(x=>x[0]===v)?v:'dna'; })();
+let _loaded={}, _ctx=null;
 const poolRow=k=>k!=null?D.teams[k]:null;
 const labelOf=r=>r?r.full:'';
 const tdch=()=>(window.tdcH?window.tdcH():H);
@@ -212,7 +221,7 @@ function renderList(){
   list.style.display='block';
 }
 function pick(key){ selKey=+key; el('sel').value=labelOf(poolRow(+key)); el('list').style.display='none'; syncUrl(); loadTeam(); }
-function syncUrl(){ const r=poolRow(selKey); if(!r) return; const q=new URLSearchParams(location.search); q.set('team',r.team); if(SEASON!==2026) q.set('season',SEASON); else q.delete('season'); history.replaceState(null,'','?'+q.toString()); }
+function syncUrl(){ const r=poolRow(selKey); if(!r) return; const q=new URLSearchParams(location.search); q.set('team',r.team); if(SEASON!==2026) q.set('season',SEASON); else q.delete('season'); if(VIEW!=='dna') q.set('view',VIEW); else q.delete('view'); history.replaceState(null,'','?'+q.toString()); }
 (function wire(){
   const inp=el('sel'), list=el('list');
   inp.addEventListener('focus',()=>{ inp.select(); renderList(); });
@@ -267,6 +276,19 @@ async function personnel(row, y, gen){
   if(window.tdcSheetHeat) host.querySelectorAll('table.sheet').forEach(t=>tdcSheetHeat(t));
 }
 
+function showView(v){
+  VIEW=v; syncUrl();
+  document.querySelectorAll('.tr-tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  document.querySelectorAll('.tr-view').forEach(d=>{ d.hidden=d.dataset.v!==v; });
+  if(_loaded[v]||!_ctx) return; _loaded[v]=true;
+  const {row,y,tid,gen}=_ctx;
+  if(v==='dna'&&window.TDC_DNASHEET) TDC_DNASHEET.team(el('trDna'), {key:row.full, season:String(y), name:sn(row.team)});
+  if(v==='shots') shots(row, y, tid, gen);
+  if(v==='rot'&&window.TDCLineupHist) TDCLineupHist.render(el('trRot'), row.full, {season:y});
+  if(v==='people') personnel(row, y, gen);
+  if(v==='twin'){ if(window.TDC_TWIN&&tid) TDC_TWIN.render(el('trTwin'), {teamId:tid, season:y}); else el('trTwin').innerHTML='<div class="tr-muted">No shot profile for this team.</div>'; }
+  if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
+}
 async function loadTeam(){
   const row=poolRow(selKey); if(!row) return; const gen=++_gen, y=SEASON, tc=teamColor(row);
   if(!DNA){ try{ DNA=await fetch('scripts/data/team_dna.json').then(r=>r.ok?r.json():{}); }catch(e){ DNA={}; } }
@@ -280,19 +302,19 @@ async function loadTeam(){
       sub:`${esc(row.conf||'')} · ${sl(y)}${row.rank?` · #${row.rank} in our 2026-27 rankings`:''}`, stats:bandStats(row,y) }):`<div class="sec-h">${esc(row.full)}</div>`;
   // matchup picker in the control row
   const vs=el('vs'); vs.innerHTML='<option value="">Matchup vs…</option>'+(D&&D.teams||[]).filter(r=>r.full!==row.full).map(r=>`<option value="${esc(r.team)}">${esc(sn(r.team))}</option>`).join(''); vs.style.display='';
+  const hint={dna:sl(y)+' · ranked against D-I', shots:sl(y), rot:'', people:sl(y), twin:'volume and accuracy by zone vs D-I · closest team-seasons since 2009-10'};
+  const body={
+    dna:'<div id="trDna"><div class="tr-muted">Loading…</div></div>',
+    shots:`<div class="tr-2"><div><div class="tr-lbl">Their shots</div><div id="trShotO"><div class="tr-muted">Loading shots…</div></div></div><div><div class="tr-lbl">What they allow</div><div id="trShotD"><div class="tr-muted">Loading opponent shots…</div></div></div></div>`,
+    rot:'<div id="trRot"></div>', people:'<div id="trPeople"><div class="tr-muted">Loading players…</div></div>', twin:'<div id="trTwin"></div>'};
   el('out').innerHTML=`<div style="--tc:${tc}">
     ${band}
-    ${sec('tr-id','Team DNA',sl(y)+' · ranked against D-I','<div id="trDna"><div class="tr-muted">Loading…</div></div>')}
-    ${sec('tr-shots','Shot charts',sl(y),`<div class="tr-2"><div><div class="tr-lbl">Their shots</div><div id="trShotO"><div class="tr-muted">Loading shots…</div></div></div><div><div class="tr-lbl">What they allow</div><div id="trShotD"><div class="tr-muted">Loading opponent shots…</div></div></div></div>`)}
-    ${sec('tr-rot','Rotation','','<div id="trRot"></div>')}
-    ${sec('tr-people','Personnel',sl(y),'<div id="trPeople"><div class="tr-muted">Loading players…</div></div>')}
-    <details class="tr-more"><summary>More · shot profile and closest team-seasons</summary><div id="trTwin" style="margin-top:12px"></div></details>
+    <div class="tr-tabs" role="tablist">${VIEWS.map(([k,l])=>`<button type="button" role="tab" data-v="${k}" class="${k===VIEW?'on':''}">${l}</button>`).join('')}</div>
+    ${VIEWS.map(([k,l])=>`<div class="tr-view" data-v="${k}"${k===VIEW?'':' hidden'}>${sec('tr-'+k,l,hint[k],body[k])}</div>`).join('')}
   </div>`;
-  shots(row, y, tid, gen);
-  if(window.TDC_DNASHEET) TDC_DNASHEET.team(el('trDna'), {key:row.full, season:String(y), name:sn(row.team)});
-  if(window.TDC_TWIN&&tid) TDC_TWIN.render(el('trTwin'), {teamId:tid, season:y});   // the card carries its own Offense / Defense switch
-  if(window.TDCLineupHist) TDCLineupHist.render(el('trRot'), row.full, {season:y});
-  personnel(row, y, gen);
+  _loaded={}; _ctx={row,y,tid,gen};
+  el('out').querySelectorAll('.tr-tabs button').forEach(b=>b.onclick=()=>showView(b.dataset.v));
+  showView(VIEW);
   if(window.TDC_COACHLINKS) el('out').insertAdjacentHTML('beforeend', TDC_COACHLINKS.bar(row.full));
   if(window.TDCAnim&&TDCAnim.scan) TDCAnim.scan(el('out'));
 }
