@@ -1,0 +1,456 @@
+<!doctype html><html lang="en"><head>
+  <script src="tdc-loading.js?v=5"></script>
+  <link rel="stylesheet" href="tdc-a11y.css?v=3">
+  <script src="tdc-a11y.js?v=2" defer></script>
+  <meta name="description" content="NBA career stats with the same advanced numbers as our college pages: per-game, shooting, usage and rate stats, TDC Impact, league percentiles, game logs, and how each player's college stats translated to the NBA.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Depth Chart">
+  <meta property="og:title" content="College to the NBA — The Depth Chart">
+  <meta property="og:url" content="https://www.thedepthchartcbb.com/nba.html">
+  <meta name="twitter:card" content="summary">
+<meta charset="utf-8">
+  <script src="tdc-theme.js?v=5"></script>
+  <script src="auth.js?v=sales2"></script>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>College to the NBA — The Depth Chart</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tdc-dense.css?v=40">
+  <link rel="stylesheet" href="tdc-skin.css?v=14"/>
+<style>
+  :root:not([data-theme="dark"]) body{background:var(--bg);}
+  body{font-family:'Inter',system-ui,sans-serif;color:var(--text);margin:0;}
+  .nav-wrap{border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:100;}
+  .nav-top{display:flex;align-items:center;justify-content:space-between;padding:12px 40px;}
+  .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;color:var(--text);text-decoration:none;}
+  .nav-logo span{color:var(--accent);}
+  .theme-toggle{width:32px;height:32px;border:1px solid var(--border2);border-radius:8px;background:var(--bg2);cursor:pointer;font-size:15px;}
+  .nav-sub{border-top:1px solid var(--border);padding:0 40px;height:36px;display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;}
+  .nav-sub::-webkit-scrollbar{display:none;}
+  .nav-sub a{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-decoration:none;padding:0 14px;height:100%;display:flex;align-items:center;border-bottom:2px solid transparent;white-space:nowrap;}
+  .nav-sub a:first-child{padding-left:0;}
+  .nav-sub a:hover,.nav-sub a.active{color:var(--text);border-bottom-color:var(--accent);}
+  .wrap{max-width:1400px;margin:0 auto;padding:26px 40px 80px;}
+  @media(max-width:820px){.nav-top,.nav-sub,.wrap{padding-left:16px;padding-right:16px;}}
+
+  /* hero */
+  .nb-hero{display:flex;gap:22px;align-items:flex-start;border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:18px;}
+  .nb-shot{width:118px;height:86px;flex:0 0 auto;border-radius:12px;overflow:hidden;background:var(--bg2);border:1px solid var(--border);}
+  .nb-shot img{width:100%;height:100%;object-fit:cover;object-position:top;}
+  .nb-eyebrow{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .nb-eyebrow img{width:20px;height:20px;object-fit:contain;}
+  .nb-eyebrow .sep{color:var(--text3);}
+  .nb-name{font-family:'Playfair Display',serif;font-weight:800;font-size:40px;line-height:1.05;margin:0 0 12px;}
+  .nb-bio{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:13px;color:var(--text2);}
+  .nb-bio b{display:block;font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:2px;}
+  .nb-bio a{color:var(--text);text-decoration:none;border-bottom:1px dotted var(--text3);}
+  .nb-bio a:hover{color:var(--accent);}
+  .nb-tag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:6px;background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--text);margin-left:8px;vertical-align:4px;}
+  @media(max-width:640px){.nb-name{font-size:30px;}.nb-shot{display:none;}}
+
+  /* tabs */
+  .nb-tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--border);margin-bottom:18px;}
+  .nb-tabs::-webkit-scrollbar{display:none;}
+  .nb-tab{background:none;border:none;border-bottom:2px solid transparent;color:var(--text3);font-family:inherit;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:10px 14px;cursor:pointer;white-space:nowrap;}
+  .nb-tab.on{color:var(--text);border-bottom-color:var(--accent);}
+  .nb-tab:hover:not(.on){color:var(--text);}
+  .nb-panel{display:none;}
+  .nb-panel.on{display:block;}
+
+  /* sections / controls */
+  .nb-h{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:22px 0 8px;}
+  .nb-h:first-child{margin-top:0;}
+  .nb-note{font-size:12px;color:var(--text3);line-height:1.55;margin:8px 0 0;max-width:900px;}
+  .nb-note b{color:var(--text2);}
+  .nb-ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px;}
+  .nb-seg{display:inline-flex;gap:2px;background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:2px;}
+  .nb-seg button{background:none;border:none;color:var(--text3);font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:6px 12px;border-radius:7px;cursor:pointer;}
+  .nb-seg button.on{background:var(--accent);color:#221c08;}
+  .nb-ctl select{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:12.5px;font-weight:600;padding:7px 10px;font-family:inherit;}
+  .sheet td.tm img{width:16px;height:16px;object-fit:contain;vertical-align:-3px;margin-right:6px;}
+  .sheet tr.split td{color:var(--text3);font-size:11.5px;}
+  .sheet tr.split td.tm{padding-left:22px;}
+  .sheet tr.career td{font-weight:800;border-top:2px solid var(--border2);}
+  .sheet th[title]{cursor:help;}
+  .sheet th.sortable{cursor:pointer;}
+  .sheet th.sortable:hover{color:var(--text);}
+  .sheet td.star::after{content:'★';color:var(--accent);margin-left:4px;font-size:10px;}
+  /* percentile bar-in-cell */
+  .pbar{position:relative;height:14px;background:var(--bg3);border-radius:4px;min-width:140px;overflow:hidden;}
+  .pbar i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;}
+  .pbar span{position:absolute;right:6px;top:0;font-size:10.5px;font-weight:800;line-height:14px;color:var(--text);}
+  .verdict{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;}
+  .verdict.up{color:hsl(125,55%,45%);} .verdict.dn{color:hsl(0,65%,55%);} .verdict.eq{color:var(--text3);}
+  .nb-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:0 0 6px;}
+  .nb-strip div{background:var(--bg2);padding:12px 14px;}
+  .nb-strip b{display:block;font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:4px;}
+  .nb-strip span{font-size:18px;font-weight:800;}
+  .nb-strip small{display:block;font-size:11px;color:var(--text3);margin-top:2px;}
+  .empty{padding:60px 20px;text-align:center;color:var(--text3);}
+  .nb-search{position:relative;max-width:420px;}
+  .nb-search input{width:100%;box-sizing:border-box;background:var(--bg2);border:1px solid var(--border2);border-radius:9px;color:var(--text);font-size:14px;padding:10px 12px;font-family:inherit;}
+  .nb-results{margin-top:8px;}
+  .nb-results a{display:block;padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text);text-decoration:none;font-size:13.5px;}
+  .nb-results a:hover{background:var(--bg2);}
+  .nb-results small{color:var(--text3);margin-left:6px;}
+</style>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#FAF9F6" media="(prefers-color-scheme: light)">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script src="tdc-pwa.js?v=3" defer></script>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+  <link rel="stylesheet" href="tdc-column.css?v=4"/>
+</head>
+<body>
+<script src="tdc-nav.js?v=81"></script>
+<div class="nav-wrap">
+  <div class="nav-top">
+    <a href="index.html" class="nav-logo">The Depth <span>Chart</span></a>
+    <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
+  </div>
+  <div class="nav-sub">
+    <a href="index.html">Rankings</a>
+    <a href="roster.html">Players</a>
+    <a href="compare-players.html">Compare</a>
+    <a href="analytics.html">Stats</a>
+    <a href="draft.html" class="active">Big Board</a>
+    <a href="tournaments.html">Tournaments</a>
+    <a href="predict.html">Predict</a>
+    <a href="awards.html">Awards</a>
+    <a href="coach-tier.html">Scouting &amp; Game Prep</a>
+  </div>
+</div>
+
+<div class="wrap" id="app"><div class="empty">Loading…</div></div>
+
+<script src="tdc-nba.js?v=1"></script>
+<script src="tdc-sheets.js?v=2"></script>
+<script>
+(function(){
+'use strict';
+var $ = function(s, r){ return (r || document).querySelector(s); };
+var esc = function(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+var P = null, IDX = null, TEAMS = {}, GL = null;
+
+/* ---------- formatting ---------- */
+function n1(v){ return v == null ? '—' : (+v).toFixed(1); }
+function n0(v){ return v == null ? '—' : Math.round(+v).toLocaleString(); }
+function pc(v){ return v == null ? '—' : (100 * v).toFixed(1); }          // fraction -> "58.7"
+function sg(v, d){ if(v == null) return '—'; var x = (+v).toFixed(d == null ? 1 : d); if(Math.abs(v) >= 1000) x = Math.round(+v).toLocaleString(); return (v > 0 ? '+' : '') + x; }
+function seasonLbl(y){ return (y - 1) + '-' + String(y).slice(2); }
+function ht(i){ return i ? Math.floor(i / 12) + "' " + Math.round(i % 12) + '"' : null; }
+function age(dob){ if(!dob) return null; var d = new Date(dob), n = new Date(); var a = n.getFullYear() - d.getFullYear(); if(n < new Date(n.getFullYear(), d.getMonth(), d.getDate())) a--; return a; }
+function teamCell(abbr){ return abbr ? '<img src="' + TDCNba.logo(abbr) + '" alt="" onerror="this.remove()">' + esc(abbr) : '—'; }
+function teamName(abbr){ return TEAMS[abbr] || abbr || ''; }
+
+/* plain-English header tips */
+var TIP = {
+  ts: 'True shooting: scoring efficiency counting 3s and free throws. League average is around 57.',
+  efg: 'Effective FG%: field-goal % with a made 3 counted as 1.5 makes.',
+  usg: 'Usage: share of his team\'s possessions he ends (shot, free throws or turnover) while on the floor.',
+  ast: 'Assist %: share of teammates\' baskets he assisted while on the floor.',
+  tov: 'Turnover %: turnovers per 100 of his own plays. Lower is better.',
+  orb: 'Offensive rebound %: share of available offensive boards he grabbed while on the floor.',
+  drb: 'Defensive rebound %: share of available defensive boards he grabbed while on the floor.',
+  trb: 'Total rebound %.',
+  stl: 'Steal %: share of opponent possessions he ended with a steal while on the floor.',
+  blk: 'Block %: share of opponent two-point tries he blocked while on the floor.',
+  ti40: 'TDC Impact per 40: our points-value box metric, the same formula as on the college pages. NBA scale runs lower than college.',
+  ti100: 'TDC Impact per 100 possessions.',
+  par: 'Points above replacement: TDC Impact over a replacement-level NBA player (the bottom 15% of minutes), times his minutes.',
+  onoff: 'On/off per 48: his team\'s scoring margin with him on the floor minus with him off, per 48 minutes, within games he played. Noisy in small samples.',
+  pm: 'Box-score plus/minus: his team\'s margin while he was on the floor, summed.',
+  tpar: '3PA rate: share of his shots that were 3s.',
+  ftr: 'FT rate: free-throw attempts per field-goal attempt.'
+};
+function th(label, tip, heat, cls){
+  return '<th' + (cls ? ' class="' + cls + '"' : '') + (tip ? ' title="' + esc(TIP[tip] || tip) + '"' : '') +
+         (heat ? ' data-heat="' + heat + '"' : '') + '>' + label + '</th>';
+}
+
+/* ---------- boot ---------- */
+var qp = new URLSearchParams(location.search);
+var ID = qp.get('id'), FROM_COLLEGE = qp.get('college');
+Promise.all([TDCNba.index()]).then(function(r){
+  IDX = r[0]; TEAMS = IDX.teams || {};
+  if(!ID && FROM_COLLEGE) ID = (IDX.by_college || {})[FROM_COLLEGE];
+  if(!ID) return renderSearch();
+  return fetch('nba/p/' + encodeURIComponent(ID) + '.json').then(function(x){
+    if(!x.ok) throw new Error('missing'); return x.json();
+  }).then(function(p){ P = p; render(); });
+}).catch(function(){
+  $('#app').innerHTML = '<div class="empty">We don\'t have that NBA player yet. <a href="nba.html" style="color:var(--accent)">Search NBA players →</a></div>';
+});
+
+/* ---------- College to the NBA (no id) ----------
+   Framed around college: only players with a college page here (final college season 2010+),
+   searchable by player or school. NBA-only players stay reachable from comps, not listed. */
+function renderSearch(){
+  document.title = 'College to the NBA — The Depth Chart';
+  var list = (IDX.players || []).filter(function(p){ return p[2]; });   // [id,name,cid,first,last,pos,team,school,par,pick]
+  $('#app').innerHTML = '<div class="nb-eyebrow">College to the NBA</div><h1 class="nb-name">Where they ended up</h1>' +
+    '<p class="nb-note" style="margin:0 0 16px">Every college player since 2010 who reached the NBA, ' + list.length.toLocaleString() + ' in all. Search a player or a school to see his NBA numbers and how his college game translated. You can also flip any of their college pages to NBA.</p>' +
+    '<div class="nb-search"><input id="nbQ" placeholder="Search a player or school…" autocomplete="off" aria-label="Search college players in the NBA"></div>' +
+    '<div class="nb-h" id="nbHead" style="margin-top:18px"></div><div class="sheet-wrap"><table class="sheet dense" id="nbTbl"></table></div>';
+  function go(){
+    var q = $('#nbQ').value.trim().toLowerCase(), hits;
+    if(q.length >= 2){
+      hits = list.filter(function(p){ return (p[1] || '').toLowerCase().indexOf(q) >= 0 || (p[7] || '').toLowerCase().indexOf(q) >= 0; });
+      $('#nbHead').textContent = hits.length + ' match' + (hits.length === 1 ? '' : 'es');
+    } else {
+      hits = list; $('#nbHead').textContent = 'Biggest NBA careers from college';
+    }
+    hits = hits.slice().sort(function(a, b){ return (b[8] || 0) - (a[8] || 0); }).slice(0, q.length >= 2 ? 200 : 50);
+    $('#nbTbl').innerHTML = '<thead><tr><th class="l">Player</th><th class="l">College</th><th>Pick</th><th class="l">NBA seasons</th><th class="l">Latest team</th>' + th('Career value', 'par') + '</tr></thead><tbody>' +
+      hits.map(function(p){ return '<tr><td class="l nm"><a href="nba.html?id=' + p[0] + '">' + esc(p[1]) + '</a></td><td class="l"><a href="player.html?espn=' + p[2] + '&name=' + encodeURIComponent(p[1]) + '" style="color:var(--text2);text-decoration:none">' + esc(p[7] || '') + '</a></td>' +
+        '<td>' + (p[9] ? '#' + p[9] : '<span style="color:var(--text3)">UDFA</span>') + '</td><td class="l">' + (p[3] ? seasonLbl(p[3]) + (p[4] !== p[3] ? ' to ' + seasonLbl(p[4]) : '') : '') +
+        '</td><td class="l tm">' + teamCell(p[6]) + '</td><td>' + n0(p[8]) + '</td></tr>'; }).join('') + '</tbody>';
+  }
+  $('#nbQ').oninput = go; go();
+}
+
+/* ---------- page ---------- */
+var TABS = [['overview', 'Overview'], ['stats', 'Stats'], ['profile', 'Profile'], ['gamelog', 'Game Log'], ['college', 'College → NBA']];
+function render(){
+  document.title = P.name + ' NBA Stats — The Depth Chart';
+  var cl = P.college_link, d = P.draft || {};
+  var draftTxt = d.pick ? (d.year + ' · Round ' + d.round + ', #' + d.pick + (d.team ? ' (' + d.team + ')' : '')) : (d.year ? d.year : 'Undrafted');
+  var regs = P.seasons.filter(function(s){ return s.type === 'regular'; });
+  var shot = (window.tdcShowPhotos && window.tdcShowPhotos() && P.headshot) ? '<div class="nb-shot"><img src="' + esc(P.headshot) + '" alt="' + esc(P.name) + '" onerror="this.parentNode.remove()"></div>' : '';
+  var tabs = TABS.filter(function(t){ return t[0] !== 'college' || cl; });
+  $('#app').innerHTML =
+    '<div id="lgSwitch"></div>' +
+    '<div class="nb-hero">' + shot + '<div>' +
+      '<div class="nb-eyebrow">' + (P.team ? '<img src="' + TDCNba.logo(P.team) + '" alt="" onerror="this.remove()">' + esc(teamName(P.team)) + '<span class="sep">·</span>' : '') + 'NBA' + (P.active === false ? '<span class="sep">·</span>Inactive' : '') + '</div>' +
+      '<h1 class="nb-name">' + esc(P.name) + (P.career.star_seasons ? '<span class="nb-tag" title="Seasons in the top 5% of qualified NBA players by TDC Impact per 40">' + P.career.star_seasons + '× star season</span>' : '') + '</h1>' +
+      '<div class="nb-bio">' +
+        '<div><b>Pos</b>' + esc(P.pos || '—') + '</div>' +
+        (P.height_in ? '<div><b>Ht / Wt</b>' + ht(P.height_in) + (P.weight ? ' · ' + Math.round(P.weight) : '') + '</div>' : '') +
+        (P.dob ? '<div><b>Age</b>' + age(P.dob) + '</div>' : '') +
+        '<div><b>Draft</b>' + esc(draftTxt) + '</div>' +
+        (P.college ? '<div><b>College</b>' + (cl ? '<a href="player.html?espn=' + cl.college_id + '&name=' + encodeURIComponent(P.name) + '">' + esc(P.college) + '</a>' : esc(P.college)) + '</div>' : '') +
+        '<div><b>Seasons</b>' + regs.length + (regs.length ? ' (' + seasonLbl(regs[0].season) + ' to ' + seasonLbl(regs[regs.length - 1].season) + ')' : '') + '</div>' +
+      '</div></div></div>' +
+    '<div class="nb-tabs" role="tablist">' + tabs.map(function(t, i){ return '<button class="nb-tab' + (i ? '' : ' on') + '" role="tab" data-t="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>' +
+    tabs.map(function(t, i){ return '<div class="nb-panel' + (i ? '' : ' on') + '" id="pn-' + t[0] + '"></div>'; }).join('');
+  TDCNba.mount($('#lgSwitch'), {active: 'nba', nbaId: P.id, collegeId: cl && cl.college_id, name: P.name});
+  var done = {};
+  function show(t){
+    [].forEach.call(document.querySelectorAll('.nb-tab'), function(b){ b.classList.toggle('on', b.dataset.t === t); });
+    [].forEach.call(document.querySelectorAll('.nb-panel'), function(p){ p.classList.toggle('on', p.id === 'pn-' + t); });
+    if(!done[t]){ done[t] = 1; ({overview: renderOverview, stats: renderStats, profile: renderProfile, gamelog: renderGamelog, college: renderCollege})[t](); }
+    try{ history.replaceState(null, '', '?id=' + P.id + (t === 'overview' ? '' : '&tab=' + t)); }catch(e){}
+  }
+  [].forEach.call(document.querySelectorAll('.nb-tab'), function(b){ b.onclick = function(){ show(b.dataset.t); }; });
+  var want = qp.get('tab');
+  show(tabs.some(function(t){ return t[0] === want; }) ? want : 'overview');
+}
+
+/* ---------- Overview ---------- */
+function snapRow(lbl, s, cls){
+  return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td class="l">' + lbl + '</td><td>' + n0(s.g) + '</td><td>' + n1(s.mpg) + '</td><td>' + n1(s.ppg) + '</td><td>' + n1(s.rpg) + '</td><td>' + n1(s.apg) +
+    '</td><td>' + n1(s.spg) + '</td><td>' + n1(s.bpg) + '</td><td>' + pc(s.fg_pct) + '</td><td>' + pc(s.tp_pct) + '</td><td>' + pc(s.ft_pct) + '</td><td>' + pc(s.ts_pct) +
+    '</td><td>' + n1(s.usg_pct) + '</td><td>' + n1(s.ti40) + '</td><td>' + n0(s.par) + '</td></tr>';
+}
+function renderOverview(){
+  var regs = P.seasons.filter(function(s){ return s.type === 'regular'; });
+  var post = P.seasons.filter(function(s){ return s.type === 'postseason'; });
+  var last = regs[regs.length - 1], best = regs.slice().sort(function(a, b){ return (b.par || 0) - (a.par || 0); })[0];
+  var hd = '<thead><tr><th class="l"></th><th>G</th><th>MPG</th><th>PPG</th><th>RPG</th><th>APG</th><th>SPG</th><th>BPG</th><th>FG%</th><th>3P%</th><th>FT%</th>' +
+    th('TS%', 'ts') + th('USG%', 'usg') + th('TI/40', 'ti40') + th('PAR', 'par') + '</tr></thead>';
+  var pg = {}; if(post.length){ var t = {g: 0, min: 0, pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0};
+    post.forEach(function(s){ for(var k in t) t[k] += s.tot[k] || 0; });
+    pg = {g: t.g, mpg: t.min / t.g, ppg: t.pts / t.g, rpg: t.reb / t.g, apg: t.ast / t.g, spg: t.stl / t.g, bpg: t.blk / t.g,
+          fg_pct: t.fga ? t.fgm / t.fga : null, tp_pct: t.tpa ? t.tpm / t.tpa : null, ft_pct: t.fta ? t.ftm / t.fta : null,
+          ts_pct: (t.fga + .44 * t.fta) ? t.pts / (2 * (t.fga + .44 * t.fta)) : null,
+          usg_pct: null, ti40: null, par: post.reduce(function(a, s){ return a + (s.par || 0); }, 0)}; }
+  var html = '<div class="nb-h">Snapshot · regular season</div><div class="sheet-wrap"><table class="sheet dense">' + hd + '<tbody>' +
+    (last ? snapRow('Latest · ' + seasonLbl(last.season), last) : '') +
+    (best && best !== last ? snapRow('Best · ' + seasonLbl(best.season), best) : '') +
+    snapRow('Career', P.career, 'career') +
+    (post.length ? snapRow('Playoffs · ' + post.length + ' season' + (post.length > 1 ? 's' : ''), pg) : '') +
+    '</tbody></table></div>' +
+    '<p class="nb-note"><b>Best</b> is his highest points-above-replacement season. Every advanced number here uses the same formulas as our college pages.</p>';
+  var cl = P.college_link;
+  if(cl){
+    var f = cl.seasons[cl.seasons.length - 1] || {};
+    html += '<div class="nb-h">Before the NBA</div><div class="nb-strip">' +
+      '<div><b>College</b><span>' + esc(P.college || f.team || cl.final_team || '') + '</span><small>' + cl.seasons.length + ' season' + (cl.seasons.length > 1 ? 's' : '') + ' · last ' + seasonLbl(cl.final_season) + '</small></div>' +
+      '<div><b>Final college season</b><span>' + n1(f.ppg) + ' / ' + n1(f.rpg) + ' / ' + n1(f.apg) + '</span><small>pts / reb / ast · TS ' + pc(f.ts_pct) + '</small></div>' +
+      '<div><b>First 4 NBA seasons</b><span>' + esc(cl.tier_w4 || '—') + '</span><small>career: ' + esc(cl.tier_career || '—') + '</small></div>' +
+      '<div><b>Vs his draft slot</b><span>' + slotTxt(cl) + '</span><small>value in first 4 seasons</small></div>' +
+      '</div><p class="nb-note"><a href="player.html?espn=' + cl.college_id + '&name=' + encodeURIComponent(P.name) + '" style="color:var(--accent)">Open his college page →</a> · <a href="#" onclick="document.querySelector(\'[data-t=college]\').click();return false" style="color:var(--accent)">How his college stats translated →</a></p>';
+  }
+  if(P.comps && P.comps.length){
+    html += '<div class="nb-h">Most similar NBA players · by style</div><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th><th class="l">Latest team</th><th title="Closeness of career style profile: size, usage, passing, rebounding, rim protection, steals, shot mix and efficiency">Similarity</th></tr></thead><tbody>' +
+      P.comps.map(function(c){ return '<tr><td class="l nm"><a href="nba.html?id=' + c.id + '">' + esc(c.name) + '</a></td><td class="l tm">' + teamCell(c.team) + '</td><td>' + n0(c.sim) + '</td></tr>'; }).join('') +
+      '</tbody></table></div><p class="nb-note">Matched on career <b>style</b>, not quality: size, usage, passing, rebounding, rim protection, steals, shot mix and efficiency. Needs 1,500+ career minutes.</p>';
+  }
+  $('#pn-overview').innerHTML = html;
+}
+function slotTxt(cl){
+  if(!cl.expected_par_for_pick) return P.draft && P.draft.pick ? '—' : 'Undrafted';
+  if(!cl.window_complete) return 'Too early';
+  var r = (cl.par_w4 || 0) / cl.expected_par_for_pick;
+  return (r >= 1 ? 'Beat it' : 'Below it') + ' · ' + Math.round(100 * r) + '%';
+}
+
+/* ---------- Stats ---------- */
+var VIEWS = {
+  pergame: {lbl: 'Per game', cols: [['G', 'g', n0], ['GS', 'gs', n0], ['MPG', 'mpg', n1, 1], ['PPG', 'ppg', n1, 1], ['RPG', 'rpg', n1, 1], ['ORB', 'orpg', n1, 1], ['DRB', 'drpg', n1, 1],
+    ['APG', 'apg', n1, 1], ['SPG', 'spg', n1, 1], ['BPG', 'bpg', n1, 1], ['TOV', 'tpg', n1, -1], ['PF', 'pfpg', n1], ['+/−', 'pm', function(v){ return sg(v, 0); }, 1, 'pm']]},
+  shooting: {lbl: 'Shooting', cols: [['FGM', 'fgm', n1], ['FGA', 'fga', n1], ['FG%', 'fg_pct', pc, 1], ['3PM', 'tpm', n1], ['3PA', 'tpa', n1], ['3P%', 'tp_pct', pc, 1],
+    ['FTM', 'ftm', n1], ['FTA', 'fta', n1], ['FT%', 'ft_pct', pc, 1], ['eFG%', 'efg_pct', pc, 1, 'efg'], ['TS%', 'ts_pct', pc, 1, 'ts'], ['3PA rate', 'tpa_rate', pc, 0, 'tpar'], ['FT rate', 'fta_rate', pc, 0, 'ftr']]},
+  advanced: {lbl: 'Advanced', cols: [['MIN', 'min', n0], ['USG%', 'usg_pct', n1, 0, 'usg'], ['AST%', 'ast_pct', n1, 1, 'ast'], ['TOV%', 'tov_pct', n1, -1, 'tov'], ['ORB%', 'orb_pct', n1, 1, 'orb'],
+    ['DRB%', 'drb_pct', n1, 1, 'drb'], ['TRB%', 'trb_pct', n1, 1, 'trb'], ['STL%', 'stl_pct', n1, 1, 'stl'], ['BLK%', 'blk_pct', n1, 1, 'blk'], ['TI/40', 'ti40', n1, 1, 'ti40'],
+    ['TI/100', 'ti100', n1, 1, 'ti100'], ['PAR', 'par', n0, 1, 'par'], ['On/off', 'onoff48', function(v){ return sg(v); }, 1, 'onoff']]},
+  totals: {lbl: 'Totals', tot: true, cols: [['G', 'g', n0], ['MIN', 'min', n0, 1], ['PTS', 'pts', n0, 1], ['REB', 'reb', n0, 1], ['AST', 'ast', n0, 1], ['STL', 'stl', n0, 1], ['BLK', 'blk', n0, 1],
+    ['TOV', 'tov', n0], ['FGM', 'fgm', n0], ['FGA', 'fga', n0], ['3PM', 'tpm', n0, 1], ['3PA', 'tpa', n0], ['FTM', 'ftm', n0], ['FTA', 'fta', n0]]}
+};
+var SV = {view: 'pergame', type: 'regular'};
+function renderStats(){
+  var hasPost = P.seasons.some(function(s){ return s.type === 'postseason'; });
+  $('#pn-stats').innerHTML = '<div class="nb-ctl"><span class="nb-seg" id="svView">' + Object.keys(VIEWS).map(function(k){ return '<button data-v="' + k + '">' + VIEWS[k].lbl + '</button>'; }).join('') + '</span>' +
+    (hasPost ? '<span class="nb-seg" id="svType"><button data-v="regular">Regular season</button><button data-v="postseason">Playoffs</button></span>' : '') +
+    '</div><div class="sheet-wrap"><table class="sheet dense freeze2" id="svTbl"></table></div>' +
+    '<p class="nb-note">Rows marked ★ were star seasons: top 5% of qualified players by TDC Impact per 40. In trade years the top row is his full season and the indented rows are each team (per-game view). Hover a column header for what it means.</p>';
+  function seg(id, key){ var el = $('#' + id); if(!el) return; [].forEach.call(el.children, function(b){ b.classList.toggle('on', b.dataset.v === SV[key]); b.onclick = function(){ SV[key] = b.dataset.v; seg(id, key); drawStats(); }; }); }
+  seg('svView', 'view'); seg('svType', 'type'); drawStats();
+}
+function drawStats(){
+  var V = VIEWS[SV.view], rows = P.seasons.filter(function(s){ return s.type === SV.type; });
+  var get = function(s, k){ return V.tot ? (s.tot ? s.tot[k] : s[k]) : s[k]; };
+  var h = '<thead><tr><th class="l">Season</th><th class="l">Team</th>' + V.cols.map(function(c){ return th(c[0], c[4], c[3]); }).join('') + '</tr></thead><tbody>';
+  rows.forEach(function(s){
+    var multi = (s.teams || []).length > 1;
+    h += '<tr><td class="l' + (s.star && SV.type === 'regular' ? ' star' : '') + '">' + seasonLbl(s.season) + '</td><td class="l tm">' + (multi ? esc(s.teams.length + 'TM') : teamCell((s.teams || [])[0])) + '</td>' +
+         V.cols.map(function(c){ var v = get(s, c[1]); return '<td' + (v != null ? ' data-v="' + v + '"' : '') + '>' + c[2](v) + '</td>'; }).join('') + '</tr>';
+    if(multi && SV.view === 'pergame') (s.splits || []).forEach(function(x){
+      h += '<tr class="split" data-noheat><td class="l"></td><td class="l tm">' + teamCell(x.team) + '</td>' + V.cols.map(function(c){
+        var k = {g: 'g', mpg: 'min', ppg: 'pts', rpg: 'reb', apg: 'ast', spg: 'stl', bpg: 'blk', tpg: 'tov'}[c[1]];
+        return '<td>' + (k ? c[2](x[k]) : '') + '</td>'; }).join('') + '</tr>';
+    });
+  });
+  if(SV.type === 'regular' && rows.length > 1){
+    var C = P.career, ct = {}; rows.forEach(function(s){ for(var k in s.tot) ct[k] = (ct[k] || 0) + s.tot[k]; });
+    var cr = V.tot ? ct : {g: C.g, gs: rows.reduce(function(a, s){ return a + (s.gs || 0); }, 0), min: C.min, mpg: C.mpg, ppg: C.ppg, rpg: C.rpg, apg: C.apg, spg: C.spg, bpg: C.bpg, tpg: C.tpg,
+      orpg: ct.oreb / ct.g, drpg: ct.dreb / ct.g, pfpg: ct.pf / ct.g, pm: rows.reduce(function(a, s){ return a + (s.pm || 0); }, 0),
+      fgm: ct.fgm / ct.g, fga: ct.fga / ct.g, tpm: ct.tpm / ct.g, tpa: ct.tpa / ct.g, ftm: ct.ftm / ct.g, fta: ct.fta / ct.g,
+      fg_pct: C.fg_pct, tp_pct: C.tp_pct, ft_pct: C.ft_pct, ts_pct: C.ts_pct, efg_pct: ct.fga ? (ct.fgm + .5 * ct.tpm) / ct.fga : null,
+      tpa_rate: ct.fga ? ct.tpa / ct.fga : null, fta_rate: ct.fga ? ct.fta / ct.fga : null,
+      usg_pct: C.usg_pct, ast_pct: C.ast_pct, tov_pct: C.tov_pct, trb_pct: C.trb_pct, stl_pct: C.stl_pct, blk_pct: C.blk_pct, ti40: C.ti40, par: C.par,
+      orb_pct: wavg(rows, 'orb_pct'), drb_pct: wavg(rows, 'drb_pct'), ti100: wavg(rows, 'ti100'), onoff48: null};
+    h += '<tr class="career" data-noheat><td class="l">Career</td><td class="l"></td>' + V.cols.map(function(c){ return '<td>' + c[2](cr[c[1]]) + '</td>'; }).join('') + '</tr>';
+  }
+  $('#svTbl').innerHTML = h + '</tbody>';
+  if(window.tdcSheetHeat) tdcSheetHeat($('#svTbl'));
+}
+function wavg(rows, k){ var m = 0, s = 0; rows.forEach(function(r){ if(r[k] != null){ m += r.min; s += r[k] * r.min; } }); return m ? s / m : null; }
+
+/* ---------- Profile (league percentiles) ---------- */
+var PROF = [
+  ['Scoring', [['Points per game', 'ppg', n1], ['True shooting %', 'ts_pct', pc], ['Effective FG%', 'efg_pct', pc], ['Usage %', 'usg_pct', n1], ['FT rate', 'fta_rate', pc]]],
+  ['Shooting', [['3P%', 'tp_pct', pc], ['3PA rate', 'tpa_rate', pc], ['FT%', 'ft_pct', pc]]],
+  ['Playmaking', [['Assists per game', 'apg', n1], ['Assist %', 'ast_pct', n1], ['Turnover % (lower is better)', 'tov_pct', n1]]],
+  ['Rebounding', [['Rebounds per game', 'rpg', n1], ['Offensive rebound %', 'orb_pct', n1], ['Defensive rebound %', 'drb_pct', n1]]],
+  ['Defense', [['Steals per game', 'spg', n1], ['Steal %', 'stl_pct', n1], ['Blocks per game', 'bpg', n1], ['Block %', 'blk_pct', n1]]],
+  ['Impact', [['TDC Impact per 40', 'ti40', n1], ['On/off per 48', 'onoff48', function(v){ return sg(v); }]]]
+];
+function renderProfile(){
+  var seas = P.seasons.filter(function(s){ return s.type === 'regular' && s.pct; });
+  if(!seas.length){ $('#pn-profile').innerHTML = '<div class="empty">Percentiles need a season of 500+ minutes.</div>'; return; }
+  $('#pn-profile').innerHTML = '<div class="nb-ctl"><select id="pfSeason" aria-label="Season">' + seas.slice().reverse().map(function(s){ return '<option value="' + s.season + '">' + seasonLbl(s.season) + ' · ' + esc((s.teams || []).join('/')) + '</option>'; }).join('') +
+    '</select></div><div class="sheet-wrap"><table class="sheet dense" id="pfTbl"></table></div>' +
+    '<p class="nb-note">Percentile among NBA players with 500+ minutes that season (3P% needs 82 attempts, FT% 50). 50 is the league middle; green is good for the stat, including lower-is-better turnovers.</p>';
+  function draw(){
+    var s = seas.filter(function(x){ return String(x.season) === $('#pfSeason').value; })[0];
+    var h = '<thead><tr><th class="l">Stat</th><th>Value</th><th class="l" style="width:46%">League percentile</th></tr></thead><tbody>';
+    PROF.forEach(function(g){
+      h += '<tr data-noheat><td class="l" colspan="3" style="font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);background:var(--bg2)">' + g[0] + '</td></tr>';
+      g[1].forEach(function(r){
+        var p = s.pct[r[1]], hue = p == null ? 0 : Math.round(p * 1.25);
+        h += '<tr><td class="l">' + r[0] + '</td><td>' + r[2](s[r[1]]) + '</td><td class="l">' + (p == null ? '<span style="color:var(--text3)">—</span>' :
+          '<div class="pbar"><i style="width:' + Math.max(3, p) + '%;background:hsla(' + hue + ',62%,46%,.75)"></i><span>' + p + '</span></div>') + '</td></tr>';
+      });
+    });
+    $('#pfTbl').innerHTML = h + '</tbody>';
+  }
+  $('#pfSeason').onchange = draw; draw();
+}
+
+/* ---------- Game log (lazy file) ---------- */
+var GS = {season: null, type: 'all', sort: 'd', dir: -1};
+function renderGamelog(){
+  $('#pn-gamelog').innerHTML = '<div class="empty">Loading game log…</div>';
+  fetch('nba/g/' + encodeURIComponent(P.id) + '.json').then(function(r){ return r.json(); }).then(function(g){
+    GL = g; var ys = Object.keys(g.seasons).sort().reverse();
+    if(!ys.length){ $('#pn-gamelog').innerHTML = '<div class="empty">No game log on file.</div>'; return; }
+    GS.season = ys[0];
+    $('#pn-gamelog').innerHTML = '<div class="nb-ctl"><select id="glSeason" aria-label="Season">' + ys.map(function(y){ return '<option value="' + y + '">' + seasonLbl(+y) + '</option>'; }).join('') +
+      '</select><span class="nb-seg" id="glType"><button data-v="all">All</button><button data-v="R">Regular</button><button data-v="P">Playoffs</button></span></div>' +
+      '<div class="sheet-wrap"><table class="sheet dense freeze2" id="glTbl"></table></div><p class="nb-note">Click a column to sort. Play-in games count as All only.</p>';
+    $('#glSeason').onchange = function(){ GS.season = this.value; drawGL(); };
+    function seg(){ [].forEach.call($('#glType').children, function(b){ b.classList.toggle('on', b.dataset.v === GS.type); b.onclick = function(){ GS.type = b.dataset.v; seg(); drawGL(); }; }); }
+    seg(); drawGL();
+  }).catch(function(){ $('#pn-gamelog').innerHTML = '<div class="empty">Couldn\'t load the game log.</div>'; });
+}
+var GLV = [['Date', 'd'], ['Opp', 'opp'], ['Result', 'res'], ['GS', 'gs'], ['MIN', 'min', 1], ['PTS', 'pts', 1], ['REB', 'reb', 1], ['AST', 'ast', 1], ['STL', 'stl', 1], ['BLK', 'blk', 1],
+  ['TOV', 'tov', -1], ['FG', 'fga'], ['3P', 'tpa'], ['FT', 'fta'], ['+/−', 'pm', 1]];
+function drawGL(){
+  var C = GL.cols, ix = {}; C.forEach(function(c, i){ ix[c] = i; });
+  var rows = (GL.seasons[GS.season] || []).filter(function(r){ return GS.type === 'all' || r[ix.st] === GS.type; });
+  rows.sort(function(a, b){ var x = a[ix[GS.sort]], y = b[ix[GS.sort]]; return (x > y ? 1 : x < y ? -1 : 0) * GS.dir; });
+  var h = '<thead><tr>' + GLV.map(function(c){ return '<th class="sortable' + (c[0] === 'Date' || c[0] === 'Opp' || c[0] === 'Result' ? ' l' : '') + '" data-k="' + c[1] + '"' + (c[2] ? ' data-heat="' + c[2] + '"' : '') + '>' + c[0] + (GS.sort === c[1] ? (GS.dir > 0 ? ' ▲' : ' ▼') : '') + '</th>'; }).join('') + '</tr></thead><tbody>';
+  rows.forEach(function(r){
+    var g = function(k){ return r[ix[k]]; };
+    var dt = new Date(g('d') + 'T12:00:00');
+    h += '<tr><td class="l">' + (dt.getMonth() + 1) + '/' + dt.getDate() + (g('st') === 'P' ? ' <span style="color:var(--accent);font-size:10px;font-weight:800">PO</span>' : g('st') === 'I' ? ' <span style="color:var(--text3);font-size:10px">PI</span>' : '') +
+      '</td><td class="l tm">' + (g('h') ? 'vs ' : '@ ') + teamCell(g('opp')) + '</td><td class="l">' + g('res') + ' ' + esc(g('sc')) + '</td><td>' + (g('gs') ? '●' : '') + '</td>' +
+      '<td>' + n0(g('min')) + '</td><td>' + n0(g('pts')) + '</td><td>' + n0(g('reb')) + '</td><td>' + n0(g('ast')) + '</td><td>' + n0(g('stl')) + '</td><td>' + n0(g('blk')) + '</td><td>' + n0(g('tov')) + '</td>' +
+      '<td>' + g('fgm') + '-' + g('fga') + '</td><td>' + g('tpm') + '-' + g('tpa') + '</td><td>' + g('ftm') + '-' + g('fta') + '</td><td data-v="' + (g('pm') == null ? '' : g('pm')) + '">' + (g('pm') == null ? '—' : sg(g('pm'), 0)) + '</td></tr>';
+  });
+  $('#glTbl').innerHTML = h + '</tbody>';
+  [].forEach.call(document.querySelectorAll('#glTbl th.sortable'), function(t){ t.onclick = function(){ var k = t.dataset.k; GS.dir = GS.sort === k ? -GS.dir : (k === 'd' ? -1 : -1); GS.sort = k; drawGL(); }; });
+  if(window.tdcSheetHeat) tdcSheetHeat($('#glTbl'));
+}
+
+/* ---------- College → NBA ---------- */
+var FRAC = {ts_pct: 1, tp_pct: 1, ft_pct: 1}, NEUTRAL = {usg_pct: 1};
+function renderCollege(){
+  var cl = P.college_link, d = P.draft || {};
+  var fmt = function(k, v){ return v == null ? '—' : FRAC[k] ? pc(v) : n1(v); };
+  var h = '<div class="nb-strip">' +
+    '<div><b>Drafted</b><span>' + (d.pick ? '#' + d.pick : 'Undrafted') + '</span><small>' + (d.year ? d.year + (d.team ? ' · ' + esc(d.team) : '') : '') + '</small></div>' +
+    '<div><b>Normal value for that pick</b><span>' + (cl.expected_par_for_pick != null ? n0(cl.expected_par_for_pick) : '—') + '</span><small>points above replacement, first 4 seasons</small></div>' +
+    '<div><b>His value, first 4 seasons</b><span>' + n0(cl.par_w4) + '</span><small>' + (cl.window_complete ? esc(cl.tier_w4) : 'still inside his first 4 seasons') + '</small></div>' +
+    '<div><b>Vs his slot</b><span>' + slotTxt(cl) + '</span><small>career: ' + esc(cl.tier_career || '—') + '</small></div></div>';
+  var fin = cl.seasons[cl.seasons.length - 1] || {};
+  h += '<div class="nb-h">How his college stats translated</div><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Stat</th><th title="His final college season">College · ' + seasonLbl(cl.final_season) + '</th>' +
+    '<th title="What a player with this college number usually does in his first 4 NBA seasons (fit on every drafted player 2010-2022)">Typical NBA result</th><th title="His actual number over his first 4 NBA seasons (1,000+ minutes)">His NBA result</th><th class="l">Verdict</th>' +
+    '<th title="How tightly this stat carries over from college to the NBA: 1 = perfectly, 0 = not at all">How well it carries</th></tr></thead><tbody>';
+  cl.translation.forEach(function(t){
+    var v = '—', cls = 'eq';
+    if(t.actual != null && t.expected != null){
+      var diff = t.actual - t.expected, tol = Math.max(Math.abs(t.expected) * 0.1, FRAC[t.key] ? 0.01 : 0.3);
+      var good = t.key === 'tov_pct' ? -diff : diff;
+      if(Math.abs(diff) <= tol){ v = 'As expected'; }
+      else if(NEUTRAL[t.key]){ v = diff > 0 ? 'Higher' : 'Lower'; }          // more usage isn't better or worse
+      else if(good > 0){ v = 'Better'; cls = 'up'; } else { v = 'Worse'; cls = 'dn'; }
+    }
+    h += '<tr><td class="l">' + esc(t.stat) + '</td><td>' + fmt(t.key, t.college) + '</td><td>' + fmt(t.key, t.expected) + '</td><td>' + fmt(t.key, t.actual) +
+      '</td><td class="l"><span class="verdict ' + cls + '">' + v + '</span></td><td>' + (t.r != null ? t.r.toFixed(2) : '—') + '</td></tr>';
+  });
+  h += '</tbody></table></div><p class="nb-note"><b>Typical NBA result</b> comes from every drafted college player 2010-2022: what a final college season like his usually becomes over the first four NBA seasons. "Better" or "Worse" means he beat or missed that by more than 10%. Shot blocking, offensive rebounding and passing carry over closely; efficiency and 3P% much less. College FT% predicts NBA 3P% better than college 3P% does.</p>';
+  h += '<div class="nb-h">College seasons</div><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Season</th><th class="l">Team</th><th>G</th><th>MIN</th><th>PPG</th><th>RPG</th><th>APG</th>' +
+    th('TS%', 'ts') + '<th>3P%</th><th>FT%</th>' + th('USG%', 'usg') + th('AST%', 'ast') + th('BLK%', 'blk') + th('TI/40', 'TDC Impact per 40 (college scale)') + '</tr></thead><tbody>' +
+    cl.seasons.map(function(s){ return '<tr><td class="l">' + seasonLbl(s.season) + '</td><td class="l">' + esc(s.team) + '</td><td>' + n0(s.g) + '</td><td>' + n0(s.min) + '</td><td>' + n1(s.ppg) + '</td><td>' + n1(s.rpg) + '</td><td>' + n1(s.apg) +
+      '</td><td>' + pc(s.ts_pct) + '</td><td>' + pc(s.tp_pct) + '</td><td>' + pc(s.ft_pct) + '</td><td>' + n1(s.usg_pct) + '</td><td>' + n1(s.ast_pct) + '</td><td>' + n1(s.blk_pct) + '</td><td>' + n1(s.ti40) + '</td></tr>'; }).join('') +
+    '</tbody></table></div><p class="nb-note"><a href="player.html?espn=' + cl.college_id + '&name=' + encodeURIComponent(P.name) + '" style="color:var(--accent)">Open his full college page →</a></p>';
+  $('#pn-college').innerHTML = h;
+}
+})();
+</script>
+  <script src="tdc-version.js?v=2"></script>
+</body></html>
