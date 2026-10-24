@@ -24,6 +24,8 @@
 -- via RPC after every re-sync (see scripts/sheet_sync.gs).
 -- ============================================================
 
+-- Every CTE below is MATERIALIZED: Postgres 12+ otherwise inlines them into the join and recomputed the
+-- player_history grouping per roster row, timing out in the SQL editor (Oct 2026).
 create or replace function backfill_espn_ids() returns integer language plpgsql as $$
 declare n integer := 0; m integer; wiped integer;
 begin
@@ -50,11 +52,11 @@ begin
   -- 0b) SELF-HEAL shared ids (Oct 2026: UMass Lowell's Kenyon Giles wore Wichita State's Kenyon Giles's id):
   --     one person = one roster row. When several rows hold the same espn_id, only the row at that id's
   --     most recent player_history school keeps it; if none of them is there, nobody is cleared (can't tell).
-  with latest as (
+  with latest as materialized (
     select distinct on (espn_id) espn_id, lower(btrim(team)) as lteam
       from player_history where espn_id is not null
      order by espn_id, season_year desc
-  ), shared as (
+  ), shared as materialized (
     select espn_id from players where espn_id is not null group by espn_id having count(*) > 1
   )
   update players p
@@ -67,7 +69,7 @@ begin
   raise notice 'shared espn_id self-heal: cleared % row(s)', wiped;
 
   -- 1) unique-name matches: the name maps to exactly one espn_id across all history
-  with uniq as (
+  with uniq as materialized (
     select lower(btrim(name)) as lname, min(espn_id) as espn_id
     from player_history
     where espn_id is not null
@@ -76,11 +78,11 @@ begin
   ),
   -- names that appear on only ONE roster row: two rows named the same go to step 2 (team match).
   -- Built once and joined (a per-row count over players timed out in the SQL editor, Oct 2026)
-  roster_uniq as (
+  roster_uniq as materialized (
     select lower(btrim(name)) as lname from players group by lower(btrim(name)) having count(*) = 1
   ),
   -- ids already on a roster row: never handed out twice
-  held as (
+  held as materialized (
     select distinct espn_id from players where espn_id is not null
   )
   update players p
@@ -96,14 +98,14 @@ begin
   get diagnostics m = row_count; n := n + m;
 
   -- 2) namesakes: break the tie only when the roster team matches a history team
-  with team_uniq as (
+  with team_uniq as materialized (
     select lower(btrim(name)) as lname, lower(btrim(team)) as lteam, min(espn_id) as espn_id
     from player_history
     where espn_id is not null
     group by lower(btrim(name)), lower(btrim(team))
     having count(distinct espn_id) = 1
   ),
-  held as (
+  held as materialized (
     select distinct espn_id from players where espn_id is not null
   )
   update players p
