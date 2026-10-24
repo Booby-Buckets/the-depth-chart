@@ -47,6 +47,25 @@ begin
   get diagnostics wiped = row_count;
   raise notice 'freshman espn_id guard: cleared % stale/collision id(s)', wiped;
 
+  -- 0b) SELF-HEAL shared ids (Oct 2026: UMass Lowell's Kenyon Giles wore Wichita State's Kenyon Giles's id):
+  --     one person = one roster row. When several rows hold the same espn_id, only the row at that id's
+  --     most recent player_history school keeps it; if none of them is there, nobody is cleared (can't tell).
+  with latest as (
+    select distinct on (espn_id) espn_id, lower(btrim(team)) as lteam
+      from player_history where espn_id is not null
+     order by espn_id, season_year desc
+  ), shared as (
+    select espn_id from players where espn_id is not null group by espn_id having count(*) > 1
+  )
+  update players p
+     set espn_id = null
+    from shared s, latest l
+   where p.espn_id = s.espn_id and l.espn_id = s.espn_id
+     and lower(btrim(p.team)) <> l.lteam
+     and exists (select 1 from players q where q.espn_id = s.espn_id and lower(btrim(q.team)) = l.lteam);
+  get diagnostics wiped = row_count;
+  raise notice 'shared espn_id self-heal: cleared % row(s)', wiped;
+
   -- 1) unique-name matches: the name maps to exactly one espn_id across all history
   with uniq as (
     select lower(btrim(name)) as lname, min(espn_id) as espn_id
@@ -61,7 +80,11 @@ begin
    where p.espn_id is null
      and coalesce(p.yr,'')         not ilike 'fr%'
      and coalesce(p.class_year,'') not ilike 'fr%'
-     and lower(btrim(p.name)) = u.lname;
+     and lower(btrim(p.name)) = u.lname
+     -- the name must be unique on the ROSTER too: two roster rows named the same go to step 2 (team match)
+     and (select count(*) from players q where lower(btrim(q.name)) = u.lname) = 1
+     -- and never hand out an id another roster row already holds
+     and not exists (select 1 from players q where q.espn_id = u.espn_id);
   get diagnostics m = row_count; n := n + m;
 
   -- 2) namesakes: break the tie only when the roster team matches a history team
@@ -79,7 +102,8 @@ begin
      and coalesce(p.yr,'')         not ilike 'fr%'
      and coalesce(p.class_year,'') not ilike 'fr%'
      and lower(btrim(p.name)) = t.lname
-     and lower(btrim(p.team)) = t.lteam;
+     and lower(btrim(p.team)) = t.lteam
+     and not exists (select 1 from players q where q.espn_id = t.espn_id);
   get diagnostics m = row_count; n := n + m;
 
   return n;   -- number of players re-linked
