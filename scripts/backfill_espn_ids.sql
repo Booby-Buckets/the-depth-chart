@@ -73,18 +73,26 @@ begin
     where espn_id is not null
     group by lower(btrim(name))
     having count(distinct espn_id) = 1
+  ),
+  -- names that appear on only ONE roster row: two rows named the same go to step 2 (team match).
+  -- Built once and joined (a per-row count over players timed out in the SQL editor, Oct 2026)
+  roster_uniq as (
+    select lower(btrim(name)) as lname from players group by lower(btrim(name)) having count(*) = 1
+  ),
+  -- ids already on a roster row: never handed out twice
+  held as (
+    select distinct espn_id from players where espn_id is not null
   )
   update players p
      set espn_id = u.espn_id
     from uniq u
+    join roster_uniq r on r.lname = u.lname
+    left join held h on h.espn_id = u.espn_id
    where p.espn_id is null
+     and h.espn_id is null
      and coalesce(p.yr,'')         not ilike 'fr%'
      and coalesce(p.class_year,'') not ilike 'fr%'
-     and lower(btrim(p.name)) = u.lname
-     -- the name must be unique on the ROSTER too: two roster rows named the same go to step 2 (team match)
-     and (select count(*) from players q where lower(btrim(q.name)) = u.lname) = 1
-     -- and never hand out an id another roster row already holds
-     and not exists (select 1 from players q where q.espn_id = u.espn_id);
+     and lower(btrim(p.name)) = u.lname;
   get diagnostics m = row_count; n := n + m;
 
   -- 2) namesakes: break the tie only when the roster team matches a history team
@@ -94,23 +102,28 @@ begin
     where espn_id is not null
     group by lower(btrim(name)), lower(btrim(team))
     having count(distinct espn_id) = 1
+  ),
+  held as (
+    select distinct espn_id from players where espn_id is not null
   )
   update players p
      set espn_id = t.espn_id
     from team_uniq t
+    left join held h on h.espn_id = t.espn_id
    where p.espn_id is null
+     and h.espn_id is null
      and coalesce(p.yr,'')         not ilike 'fr%'
      and coalesce(p.class_year,'') not ilike 'fr%'
      and lower(btrim(p.name)) = t.lname
-     and lower(btrim(p.team)) = t.lteam
-     and not exists (select 1 from players q where q.espn_id = t.espn_id);
+     and lower(btrim(p.team)) = t.lteam;
   get diagnostics m = row_count; n := n + m;
 
   return n;   -- number of players re-linked
 end;
 $$;
 
--- run it now to fix the current (post-sync) state:
+-- run it now to fix the current (post-sync) state (a longer timeout for this one run; the sync's RPC call is fine):
+set statement_timeout = '120s';
 select backfill_espn_ids() as players_relinked;
 
 
