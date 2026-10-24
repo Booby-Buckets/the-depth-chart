@@ -16,7 +16,7 @@
   font-family:'Playfair Display',Georgia,serif !important;
   text-transform:none !important; font-weight:800 !important;
   letter-spacing:-.015em !important; line-height:1.08 !important;
-  font-size:clamp(28px,3.4vw,34px) !important;
+  font-size:clamp(28px,3.4vw,40px) !important;
   color:var(--text) !important; -webkit-text-fill-color:var(--text) !important;
   position:relative; padding-left:0 !important; margin:4px 0 8px !important;
 }
@@ -32,33 +32,28 @@
 
 /* ---- 2. filter dropdowns / search → clean HQ pills ---- */
 .filter-select,.filter-sel,.filter-input{
-  border-radius:9px !important; border:1px solid var(--border2) !important;
-  background:var(--bg2) !important; color:var(--text) !important;
-  font-weight:600 !important; letter-spacing:.01em; font-family:'Inter',sans-serif;
-  transition:border-color .15s, box-shadow .15s;
+  border-radius:var(--r-sm,6px) !important; border:1px solid var(--border) !important;
+  background-color:var(--bg) !important; color:var(--text) !important;
+  font-weight:600 !important; letter-spacing:0; font-family:'Inter',sans-serif; font-size:12.5px;
+  transition:border-color .15s;
 }
 .filter-select:hover,.filter-sel:hover,.filter-input:hover,
-.filter-select:focus,.filter-sel:focus,.filter-input:focus{
-  border-color:var(--tc-readable,var(--accent)) !important;
-  box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent) !important; outline:none;
-}
+.filter-select:focus,.filter-sel:focus,.filter-input:focus{ border-color:var(--border2) !important; box-shadow:none !important; outline:none; }
 
-/* ---- 3. segmented control → CFB chips: outline pills, the active one filled with the text colour ---- */
-.seg{
-  display:inline-flex; flex-wrap:wrap; gap:6px; background:transparent !important; border:0 !important;
-  border-radius:0 !important; padding:0 !important;
-}
-.seg button,.seg .seg-btn{
-  border:1px solid var(--border2) !important; border-radius:999px !important; background:transparent; cursor:pointer;
-  font-family:'Inter',sans-serif; text-transform:uppercase; letter-spacing:.08em;
-  font-weight:700; font-size:11px; color:var(--text2); padding:6px 13px !important;
-  transition:background .14s, color .14s, border-color .14s;
-}
-.seg button:hover,.seg .seg-btn:hover{ color:var(--text); border-color:var(--text3) !important; }
-.seg button.active,.seg .seg-btn.active,.seg button.on,.seg .active{
-  background:var(--text) !important; color:var(--bg) !important; border-color:var(--text) !important; font-weight:700;
-}
-:root[data-theme="dark"] .seg button.active,:root[data-theme="dark"] .seg .seg-btn.active{ color:var(--bg) !important; }
+/* ---- 3. segmented controls → the kit (tdc-ui.css): a pick-one of a few options is the gold tray;
+   a long list (7+ options, e.g. Player Rankings' "Rank by") stays as chips, black when on ---- */
+.seg{ display:inline-flex; flex-wrap:wrap; gap:2px; padding:2px !important; background:var(--bg2) !important;
+  border:1px solid var(--border) !important; border-radius:9px !important; }
+.seg button,.seg .seg-btn{ border:0 !important; border-radius:7px !important; background:none; cursor:pointer;
+  font-family:'Inter',sans-serif; text-transform:uppercase; letter-spacing:.05em; font-weight:700; font-size:11px;
+  color:var(--text3); padding:6px 12px !important; transition:background .14s, color .14s; }
+.seg button:hover,.seg .seg-btn:hover{ color:var(--text); }
+.seg button.active,.seg .seg-btn.active,.seg button.on,.seg .active{ background:var(--accent) !important; color:var(--accent-on,#221c08) !important; }
+:root[data-theme="dark"] .seg button.active,:root[data-theme="dark"] .seg .seg-btn.active,:root[data-theme="dark"] .seg button.on{ color:var(--accent-on,#221c08) !important; }
+.seg:has(> :nth-child(7)){ gap:6px; padding:0 !important; background:transparent !important; border:0 !important; border-radius:0 !important; }
+.seg:has(> :nth-child(7)) > :is(button,.seg-btn){ border:1px solid var(--border) !important; border-radius:999px !important; background:var(--bg);
+  text-transform:none; letter-spacing:0; font-weight:600; font-size:12px; color:var(--text2); padding:4px 12px !important; }
+.seg:has(> :nth-child(7)) > :is(button.on,button.active,.seg-btn.active){ background:var(--text) !important; border-color:var(--text) !important; color:var(--bg) !important; }
 
 /* ---- 4. shell frames (analytics .an-shell, roster .rp-shell) → CFB flat card ---- */
 .an-shell,.rp-shell{
@@ -70,7 +65,7 @@
 
 /* ---- 5. grade cells read as HQ tiers wherever a .td-grade/.grade-cell exists ---- */
 .td-grade,.grade-badge,.ovr-grade{
-  font-family:'Barlow Condensed','Inter',sans-serif !important; font-weight:800 !important;
+  font-family:'Inter',system-ui,sans-serif !important; font-weight:800 !important;
   font-variant-numeric:tabular-nums;
 }
 
@@ -101,3 +96,9 @@ body > :is(.page,.wrap) > :is(.prose,.lede) { max-width:760px; }
 /* a full-bleed hero that nests its own narrow .wrap (coach-tier's marketing hero): the hero
    already pads into the column, so the inner box just fills it */
 body > .hero > .wrap{ max-width:none !important; width:auto !important; margin:0 !important; padding-left:0 !important; padding-right:0 !important; }
+
+/* ---- 7. section headings above a group of panels (Explore's GUIDED TOURS …) and secondary
+   page headings (Player Rankings' "All Division I players"): the kit's section title ---- */
+.xp-sec-h, .pr-title{ font:800 11px/1.3 'Inter',system-ui,sans-serif !important; letter-spacing:.14em !important; text-transform:uppercase !important;
+  color:var(--text3) !important; border-bottom:1px solid var(--border); padding-bottom:8px; margin:28px 0 14px !important; }
+.xp-sec-h *{ font:inherit !important; letter-spacing:inherit; color:inherit !important; text-transform:none; }

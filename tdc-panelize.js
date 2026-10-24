@@ -14,7 +14,9 @@
   var TITLE = '.skill-section-title, .sec-title, .sg-title, .dd-sec-h, .gl-tier-head, .dv-h, .sec-h, .wyp-h, ' +
     '.pcard-band, .scout-card-title, .tdcd-sec, .arch-sec-h, .rc-sec, .bet-panel > h4, ' +
     /* team page + its modules, NBA page */
-    '.sec-head, .tbp-h, .gp-h, .lu-h, .nb-h, .dsx-h, .aft-ch > h3, .hg-sec, .sq-diet > .h';
+    '.sec-head, .tbp-h, .gp-h, .lu-h, .nb-h, .dsx-h, .aft-ch > h3, .hg-sec, .sq-diet > .h, ' +
+    /* list / leaderboard pages */
+    '.section-title, .ls-h2, .lb-h, .fl-hd, .tour-h';
   // things that end a section without being one (a new tab region, a legend that belongs above)
   var isTitle = function (el) { return el.nodeType === 1 && el.matches(TITLE); };
   var isToggle = function (el) { return el && el.nodeType === 1 && (el.matches('.seg, .ui-seg, .statmode-row, .gl-seasons') || el.querySelector(':scope > .seg')); };
@@ -50,7 +52,14 @@
 
   function panelize(title) {
     if (title.closest('.ui-panel-head') || title.dataset.pz) return;
-    if (inHeadRow(title)) { cardize(title); return; }
+    if (inHeadRow(title)) {
+      // only a real card becomes the panel; a header row that sits straight in a page-level container
+      // (list pages: .page > .pr-head) is treated as the title itself
+      var host = title.parentNode.parentNode;
+      var pageLevel = !host || host === document.body || host.parentNode === document.body || /^(main|page|wrap|xp|content)$/i.test(host.tagName === 'MAIN' ? 'main' : (host.className || '').split(' ')[0]) || host.children.length > 8;
+      if (!pageLevel) { cardize(title); return; }
+      title = title.parentNode; if (title.dataset.pz || title.closest('.ui-panel-head')) return; parent = title.parentNode;
+    }
     if (firstInCard(title)) { cardFromTitle(title); return; }
     var parent = title.parentNode; if (!parent) return;
     // the content under this title is a wrapper that also holds the next section (team Depth Chart:
@@ -127,5 +136,15 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
   }
 
-  window.TDCPanelize = { run: run, watch: watch, watchIds: watchIds };
+  // list pages: watch the page's main column (whichever top-level container it uses)
+  function watchPage() {
+    var go = function () {
+      var root = document.querySelector('body > main, body > .page, body > .wrap, body > .xp, body > .content') || document.body;
+      if (!root.id) root.id = 'pz-root';
+      watchIds([root.id]);
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
+  }
+
+  window.TDCPanelize = { run: run, watch: watch, watchIds: watchIds, watchPage: watchPage };
 })();
