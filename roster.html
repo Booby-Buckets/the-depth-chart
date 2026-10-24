@@ -38,6 +38,18 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
     .rk-gatebox{min-height:330px;margin-top:-1px;}
+    .col-pick{position:relative;display:inline-block;margin-right:14px;}
+    .col-pick .f-btn b{font-weight:800;color:var(--text);margin-left:3px;}
+    .col-menu{position:absolute;z-index:60;top:calc(100% + 6px);left:0;width:min(560px,90vw);max-height:70vh;overflow:auto;background:var(--bg);border:1px solid var(--border2,var(--border));border-radius:12px;box-shadow:0 14px 36px rgba(0,0,0,.22);padding:12px 14px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 16px;}
+    .col-menu[hidden]{display:none;}
+    .col-pre{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap;padding-bottom:8px;border-bottom:1px solid var(--border);}
+    .col-pre button{font:700 11px Inter,system-ui,sans-serif;padding:5px 10px;border:1px solid var(--border2,var(--border));border-radius:999px;background:transparent;color:var(--text2);cursor:pointer;}
+    .col-pre button:hover{color:var(--text);border-color:var(--text3);}
+    .col-g label{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--text);padding:3px 0;cursor:pointer;}
+    .col-g label.dis{color:var(--text3);cursor:default;}
+    .col-gh{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:3px;}
+    .col-note{grid-column:1/-1;font-size:11px;color:var(--text3);}
+    @media(max-width:700px){.col-menu{grid-template-columns:repeat(2,minmax(0,1fr));}}
     .roster-table td.rk,.roster-table th.rk{text-align:right;color:var(--text3);font-variant-numeric:tabular-nums;}
     :root{--green:#1a8c3a;--blue:#1a5fbf;--amber:#a06000;--red:#cc2200;}
     [data-theme="dark"]{}
@@ -941,6 +953,57 @@ function applyFilters(){
   renderTable(filtered);
 }
 
+// ── columns: one list drives the header, the rows and the Columns picker ──
+// Rank, OVR and Player always show (they're the frozen block); every other column can be hidden, and the
+// choice is remembered in this browser (owner, Oct 24 2026: "show or hide [columns] if I just want some").
+// proj:1 = a 2026-27 projection column (hidden for past seasons)
+const nilTxt = v => v==null ? '—' : v>=1 ? '$'+(+v).toFixed(2)+'M' : '$'+Math.round(v*1000)+'K';
+const _st = (p,k) => `<td class="${_statColor(p[k],k)}">${fmt(p[k])}</td>`;
+const _tn = (p,k) => `<td class="${_tendCol(p[k])}">${p[k]!=null?p[k]:'—'}</td>`;
+const COLS = [
+  {g:'Player', k:'season_year', l:'Season', cls:'l', cell:p=>`<td class="l dim"${p._hist?'':' title="Projected season"'}>${seasonShort(p.season_year)}</td>`},
+  {g:'Player', k:'team', l:'Team', cls:'l', cell:p=>{ const logo=window.tdcTeamColor&&(tdcTeamColor(p.team)||{}).logo;
+    return `<td class="l tm">${logo?`<img src="${logo}" alt="" onerror="this.remove()">`:''}<a href="team.html?team=${encodeURIComponent(p.team||'')}">${p.team||'—'}</a></td>`; }},
+  {g:'Player', k:'conf', l:'Conf', cls:'l', cell:p=>`<td class="l dim">${p.conf||'—'}</td>`},
+  {g:'Player', k:'position', l:'Pos', cls:'l', cell:p=>`<td class="l dim">${p.position||'—'}</td>`},
+  {g:'Player', k:'height', l:'Ht', cls:'l', cell:p=>`<td class="l dim">${safeHt(p.height)}</td>`},
+  {g:'Player', k:'class_year', l:'Yr', cls:'l', cell:p=>`<td class="l dim">${p.class_year||p.yr||''}</td>`},
+  {g:'Player', k:'_arch', l:'Style', cls:'l', proj:1, cell:p=>`<td class="l dim">${p._arch||'—'}</td>`},
+  {g:'Value', k:'_chg', l:'Chg', proj:1, tip:'Projected overall minus his 2025-26 overall', cell:p=>{ const c=p._chg;
+    return `<td class="${c==null?'dim':c>=3?'c4':c>=1?'c3':c<=-3?'c0':c<=-1?'c1':''}">${c==null?'—':(c>0?'+':'')+c}</td>`; }},
+  {g:'Value', k:'wa', l:'WA', tip:'Wins Added', cell:p=>`<td class="${p._waCarried?'dim':''}"${p._waCarried?' title="2025-26 Wins Added (carried forward)"':''}>${p.wa!=null?(p.wa>=0?'+':'')+Number(p.wa).toFixed(1)+(p._waCarried?'*':''):'—'}</td>`},
+  {g:'Value', k:'nil', l:'NIL', proj:1, tip:'Projected open-market NIL value', cell:p=>`<td>${nilTxt(p.nil)}</td>`},
+  {g:'Value', k:'bb', l:'Board', proj:1, tip:'NBA Big Board rank', cell:p=>`<td>${p.bb?'#'+p.bb:'—'}</td>`},
+  {g:'Per game', k:'gp', l:'GP', cell:p=>`<td>${p.gp||'—'}</td>`},
+  ...[['ppg','PPG'],['rpg','RPG'],['apg','APG'],['mpg','MPG']].map(([k,l])=>({g:'Per game',k,l,cell:p=>_st(p,k)})),
+  ...[['fgm','FGM'],['fga','FGA'],['fg_pct','FG%'],['tpm','3PM'],['tpa','3PA'],['tp_pct','3P%'],['ftm','FTM'],['fta','FTA'],['ft_pct','FT%']].map(([k,l])=>({g:'Shooting',k,l,cell:p=>_st(p,k)})),
+  ...[['oreb','OR'],['dreb','DR'],['stl','STL'],['blk','BLK'],['tovs','TO']].map(([k,l])=>({g:'Rebounds & defense',k,l,cell:p=>_st(p,k)})),
+  ...[['shot_tend','TEND'],['tend_three','3PT'],['tend_two','2PT'],['tend_ft','FT']].map(([k,l])=>({g:'Shot tendency',k,l,proj:1,cell:p=>_tn(p,k)})),
+];
+// presets for the picker
+const COL_PRESETS = [['all','All columns',()=>[]],
+  ['basic','Basic line',()=>COLS.filter(c=>!['team','position','class_year','ppg','rpg','apg','mpg','wa','_chg'].includes(c.k)).map(c=>c.k)],
+  ['value','Value',()=>COLS.filter(c=>!['team','position','class_year','_chg','wa','nil','bb'].includes(c.k)).map(c=>c.k)],
+  ['shoot','Shooting',()=>COLS.filter(c=>!['team','position','ppg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','shot_tend','tend_three','tend_two','tend_ft'].includes(c.k)).map(c=>c.k)]];
+let HIDDEN = new Set(); try{ HIDDEN = new Set(JSON.parse(localStorage.getItem('tdc_rk_cols')||'[]')); }catch(e){}
+function _saveCols(){ try{ localStorage.setItem('tdc_rk_cols', JSON.stringify([...HIDDEN])); }catch(e){} }
+const _colsNow = () => COLS.filter(c=>(!c.proj||_proj()) && !HIDDEN.has(c.k));
+function toggleColPicker(ev){ if(ev) ev.stopPropagation(); const m=document.getElementById('colMenu'); if(m) m.hidden=!m.hidden; }
+function setCol(k,on){ if(on) HIDDEN.delete(k); else HIDDEN.add(k); _saveCols(); applyFilters(); setTimeout(()=>{ const m=document.getElementById('colMenu'); if(m) m.hidden=false; },0); }
+function setColPreset(id){ const pr=COL_PRESETS.find(x=>x[0]===id); if(!pr) return; HIDDEN=new Set(pr[2]()); _saveCols(); applyFilters(); setTimeout(()=>{ const m=document.getElementById('colMenu'); if(m) m.hidden=false; },0); }
+document.addEventListener('click', e=>{ const m=document.getElementById('colMenu'); if(m && !m.hidden && !e.target.closest('#colPick')) m.hidden=true; });
+function _colMenuHTML(){
+  const groups=[...new Set(COLS.map(c=>c.g))];
+  const shown=_colsNow().length, avail=COLS.filter(c=>!c.proj||_proj()).length;
+  return `<span class="col-pick" id="colPick"><button type="button" class="f-btn" onclick="toggleColPicker(event)">Columns <b>${shown}/${avail}</b> ▾</button>
+    <div class="col-menu" id="colMenu" hidden>
+      <div class="col-pre">${COL_PRESETS.map(x=>`<button type="button" onclick="setColPreset('${x[0]}')">${x[1]}</button>`).join('')}</div>
+      ${groups.map(g=>`<div class="col-g"><div class="col-gh">${g}</div>${COLS.filter(c=>c.g===g).map(c=>{ const dis=c.proj&&!_proj();
+        return `<label class="${dis?'dis':''}"${c.tip?` title="${c.tip}"`:''}><input type="checkbox" ${HIDDEN.has(c.k)?'':'checked'} ${dis?'disabled':''} onchange="setCol('${c.k}',this.checked)"> ${c.l}</label>`; }).join('')}</div>`).join('')}
+      <div class="col-note">Rank, OVR and player always show.</div>
+    </div></span>`;
+}
+
 function renderTable(players){
   if(!players.length){
     document.getElementById('tableContainer').innerHTML =
@@ -949,20 +1012,22 @@ function renderTable(players){
   }
 
   const arrow = dir => dir===1 ? '▲' : '▼';
-  const col = (id,label,cls='') => {
+  const col = (id,label,cls='',tip='') => {
     const sorted = sortCol===id;
-    return `<th class="sort${sorted?' on':''} ${cls}" onclick="setSort('${id}')">${label}<span class="ar">${sorted?arrow(sortDir):''}</span></th>`;
+    return `<th class="sort${sorted?' on':''} ${cls}" onclick="setSort('${id}')"${tip?` title="${tip}"`:''}>${label}<span class="ar">${sorted?arrow(sortDir):''}</span></th>`;
   };
+  const C=_colsNow(), has=k=>C.some(c=>c.k===k);
 
   document.getElementById('tableContainer').innerHTML = `
     <div class="color-toggle-wrap" style="margin-bottom:10px;">
+      ${_colMenuHTML()}
       <span class="color-toggle-label">Stat Colors</span>
       <label class="toggle-switch">
         <input type="checkbox" id="colorToggle" ${localStorage.getItem('tdc_roster_colors')!=='0'?'checked':''} onchange="toggleColors(this)"/>
         <span class="toggle-slider"></span>
       </label>
       <span class="color-key" style="font-size:11px;color:var(--text3);display:inline-flex;align-items:center;gap:7px;">National percentile<span class="ckey-grad"></span>red = low, green = high</span>
-      ${(document.getElementById('seasonFilter')||{}).value==='2027' ? '<span style="font-size:11px;color:var(--text3);margin-left:auto;"><b style="color:var(--text2);">WA*</b> = 2025-26 Wins Added, carried forward</span>' : ''}
+      ${(document.getElementById('seasonFilter')||{}).value==='2027' && has('wa') ? '<span style="font-size:11px;color:var(--text3);margin-left:auto;"><b style="color:var(--text2);">WA*</b> = 2025-26 Wins Added, carried forward</span>' : ''}
     </div>
     <div class="sheet-wrap" id="rkSheet" style="--c1:44px;--c2:52px;--c3:200px;">
     <table class="roster-table sheet dense freeze3">
@@ -971,45 +1036,12 @@ function renderTable(players){
           <th class="rk" title="Rank in this view">#</th>
           ${col('tdc_grade','OVR')}
           ${col('name','Player','l')}
-          ${col('season_year','Season','l')}
-          ${col('team','Team','l')}
-          ${col('conf','Conf','l')}
-          ${col('position','Pos','l')}
-          ${col('height','Ht','l')}
-          ${col('class_year','Yr','l')}
-          ${_proj()?col('_arch','Style','l'):''}
-          ${_proj()?col('_chg','Chg'):''}
-          ${col('wa','WA')}
-          ${_proj()?col('nil','NIL'):''}
-          ${_proj()?col('bb','Board'):''}
-          ${col('gp','GP')}
-          ${col('ppg','PPG')}
-          ${col('rpg','RPG')}
-          ${col('apg','APG')}
-          ${col('mpg','MPG')}
-          ${col('fgm','FGM')}
-          ${col('fga','FGA')}
-          ${col('fg_pct','FG%')}
-          ${col('tpm','3PM')}
-          ${col('tpa','3PA')}
-          ${col('tp_pct','3P%')}
-          ${col('ftm','FTM')}
-          ${col('fta','FTA')}
-          ${col('ft_pct','FT%')}
-          ${col('oreb','OR')}
-          ${col('dreb','DR')}
-          ${col('stl','STL')}
-          ${col('blk','BLK')}
-          ${col('tovs','TO')}
-          ${col('shot_tend','TEND')}
-          ${col('tend_three','3PT')}
-          ${col('tend_two','2PT')}
-          ${col('tend_ft','FT')}
+          ${C.map(c=>col(c.k,c.l,c.cls||'',c.tip||'')).join('')}
         </tr>
       </thead>
       <tbody id="rosterBody"></tbody>
     </table></div>
-    <div class="sheet-legend"><span><span class="sw"></span>weak → strong, shaded on the national percentile</span><span>Click any column heading to sort · rank, OVR and player stay frozen while you scroll</span>${_proj()?'<span><b>Chg</b> = projected overall minus his 2025-26 overall · <b>NIL</b> = projected open-market value · <b>Board</b> = NBA Big Board rank</span>':''}</div>
+    <div class="sheet-legend"><span><span class="sw"></span>weak → strong, shaded on the national percentile</span><span>Click any column heading to sort · rank, OVR and player stay frozen while you scroll</span>${_proj()&&(has('_chg')||has('nil')||has('bb'))?'<span><b>Chg</b> = projected overall minus his 2025-26 overall · <b>NIL</b> = projected open-market value · <b>Board</b> = NBA Big Board rank</span>':''}</div>
     <div id="rkGate"></div>`;
   _rendered = 0;
   _renderMore();
@@ -1032,35 +1064,12 @@ function _statColor(v,k){
 }
 
 function _rowHTML(p, i){
-  const yr = p.class_year||p.yr||'';
   const plink = `player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}${p._hist?('&season='+p.season_year):''}`;
-  const logo = window.tdcTeamColor&&(tdcTeamColor(p.team)||{}).logo;
-  const st = (v,k,txt)=>`<td class="${_statColor(v,k)}">${txt}</td>`;
-  const tn = v=>`<td class="${_tendCol(v)}">${v!=null?v:'—'}</td>`;
-  const nilTxt = v => v==null ? '—' : v>=1 ? '$'+(+v).toFixed(2)+'M' : '$'+Math.round(v*1000)+'K';
-  const chg = p._chg;
   return `<tr>
             <td class="rk dim">${i+1}</td>
             <td class="big">${_gdisp(p)||'—'}</td>
             <td class="l nm"><a href="${plink}" title="${String(p.name||'').replace(/"/g,'&quot;')}">${p.name}</a>${p.is_injured?'<span class="tag" title="Injured">INJ</span>':''}${p.is_international?'<span class="tag" title="International">INTL</span>':''}${p.starter?'<span class="tag" title="Starter">*</span>':''}</td>
-            <td class="l dim"${p._hist?'':' title="Projected season"'}>${seasonShort(p.season_year)}</td>
-            <td class="l tm">${logo?`<img src="${logo}" alt="" onerror="this.remove()">`:''}<a href="team.html?team=${encodeURIComponent(p.team||'')}">${p.team||'—'}</a></td>
-            <td class="l dim">${p.conf||'—'}</td>
-            <td class="l dim">${p.position||'—'}</td>
-            <td class="l dim">${safeHt(p.height)}</td>
-            <td class="l dim">${yr}</td>
-            ${_proj()?`<td class="l dim">${p._arch||'—'}</td>`:''}
-            ${_proj()?`<td class="${chg==null?'dim':chg>=3?'c4':chg>=1?'c3':chg<=-3?'c0':chg<=-1?'c1':''}">${chg==null?'—':(chg>0?'+':'')+chg}</td>`:''}
-            <td class="${p._waCarried?'dim':''}"${p._waCarried?' title="2025-26 Wins Added (carried forward)"':''}>${p.wa!=null?(p.wa>=0?'+':'')+Number(p.wa).toFixed(1)+(p._waCarried?'*':''):'—'}</td>
-            ${_proj()?`<td>${nilTxt(p.nil)}</td>`:''}
-            ${_proj()?`<td>${p.bb?'#'+p.bb:'—'}</td>`:''}
-            <td>${p.gp||'—'}</td>
-            ${st(p.ppg,'ppg',fmt(p.ppg))}${st(p.rpg,'rpg',fmt(p.rpg))}${st(p.apg,'apg',fmt(p.apg))}${st(p.mpg,'mpg',fmt(p.mpg))}
-            ${st(p.fgm,'fgm',fmt(p.fgm))}${st(p.fga,'fga',fmt(p.fga))}${st(p.fg_pct,'fg_pct',fmt(p.fg_pct))}
-            ${st(p.tpm,'tpm',fmt(p.tpm))}${st(p.tpa,'tpa',fmt(p.tpa))}${st(p.tp_pct,'tp_pct',fmt(p.tp_pct))}
-            ${st(p.ftm,'ftm',fmt(p.ftm))}${st(p.fta,'fta',fmt(p.fta))}${st(p.ft_pct,'ft_pct',fmt(p.ft_pct))}
-            ${st(p.oreb,'oreb',fmt(p.oreb))}${st(p.dreb,'dreb',fmt(p.dreb))}${st(p.stl,'stl',fmt(p.stl))}${st(p.blk,'blk',fmt(p.blk))}${st(p.tovs,'tovs',fmt(p.tovs))}
-            ${tn(p.shot_tend)}${tn(p.tend_three)}${tn(p.tend_two)}${tn(p.tend_ft)}
+            ${_colsNow().map(c=>c.cell(p)).join('')}
           </tr>`;
 }
 // Tendency cells are already national percentiles (0-100): bucket them by fifths on the
