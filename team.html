@@ -114,9 +114,9 @@
   <meta name="twitter:description" content="Depth chart, roster grades, and 2026-27 projections — The Depth Chart."/>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,600;1,700&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Inter:wght@400;500;600;700&family=Share+Tech+Mono&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet"/>
   <style>
-    :root{--bg: #FAF9F6;--bg2: #F1EFEA;--bg3: #E6E3DB;--border: #DEDACF;--border2: #C6C0B2;--text: #1A1814;--text2: #4A463C;--text3: #8A867A;--accent: #A8843C;--accent-on:#221c08;--tc:#003087;--tc-rgb:0,48,135;--green:#1a8c3a;--red:#cc2200;}
+    /* colour tokens come from tdc-ui.css (one palette site-wide); only the team-colour defaults live here */
+    :root{--tc:#003087;--tc-rgb:0,48,135;}
 
-    [data-theme="dark"]{--bg: #141416;--bg2: #1D1D20;--bg3: #28282C;--border: #2E2E34;--border2: #45454D;--text: #F1EFEA;--text2: #B4B0A8;--text3: #807C74;--accent: #E6D5A8;--accent-on:#221c08;}
     [data-theme="dark"] .nav-signin{color:var(--bg);background:var(--text);}
     [data-theme="dark"] .filter-btn{background:var(--bg2);}
     [data-theme="dark"] .filter-select{background:var(--bg2);}
@@ -1337,6 +1337,7 @@
   <link rel="stylesheet" href="tdc-team-dense.css?v=23"/>
   <!-- 2026 clean skin (loaded last so it wins): neutral bases + translucent depth -->
   <link rel="stylesheet" href="tdc-skin.css?v=14"/>
+  <link rel="stylesheet" href="tdc-ui.css?v=6"/>
   <link rel="stylesheet" href="tdc-grades.css?v=1">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
@@ -1348,7 +1349,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <script src="tdc-pwa.js?v=3" defer></script>
   <script src="tdc-hq-init.js?v=1"></script>
-  <link rel="stylesheet" href="tdc-hq.css?v=13"/>
+  <link rel="stylesheet" href="tdc-hq.css?v=18"/>
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
   <link rel="stylesheet" href="tdc-nil-view.css?v=1"/>
 
@@ -1485,13 +1486,13 @@
     <button class="hero-tab" onclick="switchTab('betting',this)">Betting</button>
     <a class="hero-tab" id="heroConfTab" href="conferences.html" style="text-decoration:none">Conference</a>
     <button class="hero-tab" onclick="switchTab('losses',this)" style="display:none;">Losses</button>
-    <button class="hero-tab" id="followTeamBtn" onclick="toggleTeamFollow()" style="display:flex;align-items:center;gap:6px;">☆ Follow</button>
   </div>
   <div class="team-season-bar">
     <span class="tsb-label">Season</span>
     <select id="teamSeasonSelect" class="tsb-select" onchange="onRosterSeason(+this.value)" aria-label="Select season"></select>
     <span class="tsb-hint" id="teamSeasonHint"></span>
   </div>
+  <button class="ui-btn" id="followTeamBtn" onclick="toggleTeamFollow()">☆ Follow</button>
   </div><!-- /hero-tabrow -->
   <div id="teamFollowerCount" style="font-size:11px;color:var(--text3);padding:6px 0 0;"></div>
   </div><!-- /hero-content-wrap -->
@@ -9180,9 +9181,7 @@ function toggleTheme(){
     if(!btn) return;
     if(!tok){ btn.textContent='Sign in to Follow'; return; }
     btn.textContent = isFollowing ? '★ Following' : '☆ Follow';
-    btn.style.background = isFollowing ? 'var(--accent)' : 'rgba(255,255,255,.14)';
-    btn.style.color = '#fff';
-    btn.style.borderColor = isFollowing ? 'var(--accent)' : 'rgba(255,255,255,.5)';
+    btn.classList.toggle('primary', !!isFollowing);   // tdc-ui.css .ui-btn / .ui-btn.primary
   }
 
   window.toggleTeamFollow = async function(){
