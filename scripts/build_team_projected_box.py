@@ -106,6 +106,12 @@ def _ht(h):
     try: a, b = str(h).replace("'", "-").split("-")[:2]; return int(a) * 12 + int(b)
     except Exception: return 0
 
+def reb40_ceiling(rpg, mpg):
+    """the editor's rebounds-per-40 ceiling (tdc-freshman.js REB40): past 11.5 a 40 keep 45% of the excess, never past 15"""
+    if not (mpg and mpg > 0 and rpg and rpg > 0): return 1.0
+    r = rpg * 40.0 / mpg
+    return 1.0 if r <= 11.5 else min(15.0, 11.5 + (r - 11.5) * 0.45) / r
+
 def newcomer_line(short, nm, x, t=None):
     """a newcomer's per-game line at his fitted minutes + points: the league shape (rebounds/blocks at a big's or
     a guard's rate; attempts per point from his team's returners and the league), then his saved playstyle"""
@@ -127,6 +133,22 @@ def newcomer_line(short, nm, x, t=None):
         e = {"mpg": float(el["mpg"]) * km, "ppg": g("ppg"), "apg": g("apg"), "stl": g("stl"), "tov": g("tovs"), "oreb": g("oreb"),
              "dreb": g("dreb"), "blk": g("blk"), "fga": g("fga"), "fgm": g("fgm"), "tpa": g("tpa"), "tpm": g("tpm"), "fta": g("fta"), "ftm": g("ftm")}
         if e["oreb"] + e["dreb"] <= 0: e["dreb"] = g("rpg") * 0.75; e["oreb"] = g("rpg") * 0.25
+        # the editor's rpg is the capped total; lines saved before LINE_V 2 (tdc-freshman.js) split past it (Enzo
+        # Shahrvin 11.9 rpg on 5.0 + 9.6) — hold the total, keep the split's mix
+        elif g("rpg") > 0: _od = e["oreb"] + e["dreb"]; e["oreb"] *= g("rpg") / _od; e["dreb"] *= g("rpg") / _od
+        _kr = reb40_ceiling(e["oreb"] + e["dreb"], e["mpg"]); e["oreb"] *= _kr; e["dreb"] *= _kr
+        # a line saved before LINE_V 2 gave everyone a flat 42% three-point share (an Interior Big took 4.3 threes at 26%):
+        # re-solve its shot mix the way the editor now does — his model 3PA/FTA share x the sliders — at the line's points
+        r = x.get("r40") or {}
+        if float(prof.get("_lv") or 0) < 2 and r.get("fga") and e["ppg"] > 0:
+            sl = prof.get("sliders") or {}; sv = lambda k: (float(sl.get(k, 50)) - 50) / 50
+            tpr = min(0.72, r.get("tpa", 0) / r["fga"] * max(0.10, min(0.72, 0.42 + sv("three") * 0.18 - sv("paint") * 0.10)) / 0.42)
+            ftr = min(0.60, r.get("fta", 0) / r["fga"] * max(0.12, min(0.55, 0.28 + sv("paint") * 0.10 + sv("ft") * 0.04)) / 0.28)
+            fg, tp, ft = (float(el.get(k) or dv) / 100 for k, dv in (("fg_pct", 45), ("tp_pct", 33), ("ft_pct", 70)))
+            pps = 2 * fg + tpr * tp + ftr * ft
+            if pps > 0.2:
+                e["fga"] = e["ppg"] / pps; e["tpa"] = e["fga"] * tpr; e["fta"] = e["fga"] * ftr
+                e["fgm"] = e["fga"] * fg; e["tpm"] = e["tpa"] * tp; e["ftm"] = e["fta"] * ft
         e["rpg"] = e["oreb"] + e["dreb"]; e["_fixed"] = True
         return e
     sl = dict((prof or {}).get("sliders") or {})

@@ -23,6 +23,7 @@
   var FR_ROLE={ star:{mpg:30,usg:1.16,label:'Star'}, starter:{mpg:24,usg:1.0,label:'Starter'}, rotation:{mpg:15,usg:0.85,label:'Rotation'}, bench:{mpg:9,usg:0.72,label:'Bench'} };
   // the usage % (share of team possessions finished) each role implies — 20 is a league-average
   // rotation player, 28+ is a first option
+  var REB40=[11.5,0.45,15];   // rebounds a 40: soft knee, share of the excess kept, hard ceiling
   var FR_USG={ star:24.5, starter:20.0, rotation:17.0, bench:15.0 };
   function _roleUsg(r){ return FR_USG[r]!=null?FR_USG[r]:20.0; }
   var FR_ARCH={
@@ -125,6 +126,9 @@
     var cap=function(v,mx){ return Math.min(v, mx); };
     base.apg=cap(base.apg*scale, 6.0)/scale; base.ppg=cap(base.ppg*scale*usg, 22)/(scale*usg);
     base.rpg=cap(base.rpg*scale, 11)/scale; base.stl=cap(base.stl*scale, 2.3)/scale; base.blk=cap(base.blk*scale, 3.0)/scale;
+    // the sliders and the cap set rebounds as a TOTAL; split it in the oreb/dreb mix the sliders left (as the build does).
+    // They were moved apart, so the split ran past the cap: Enzo Shahrvin read 11.9 rpg on 5.0 + 9.6 = 14.6 boards.
+    var _od=base.oreb+base.dreb; if(_od>0){ base.oreb=base.rpg*base.oreb/_od; base.dreb=base.rpg*base.dreb/_od; }
     var L={ mpg:mpg, ppg:base.ppg*scale*usg, rpg:base.rpg*scale, apg:base.apg*scale,
       fg_pct:base.fg_pct, tp_pct:base.tp_pct, ft_pct:base.ft_pct,
       fga:fga, fgm:fga*base.fg_pct/100, tpa:fga*0.42, tpm:fga*0.42*base.tp_pct/100,
@@ -209,8 +213,11 @@
       var sl=(isOwner()&&profile&&profile.sliders)||null;
       var sv=function(k){ return (sl&&sl[k]!=null)?sl[k]:50; };
       // 3-point share of his attempts: the 3PT slider raises it, Paint / finishing lowers it
-      var tpr=Math.max(0.10,Math.min(0.72, 0.42 + ((sv('three')-50)/50)*0.18 - ((sv('paint')-50)/50)*0.10));
-      var ftr=Math.max(0.12,Math.min(0.55, 0.28 + ((sv('paint')-50)/50)*0.10 + ((sv('ft')-50)/50)*0.04));
+      // ...relative to HIS base mix (the model's 3PA/FGA for his position), as the build does — a flat 42% gave an
+      // Interior Big 4.3 threes a game at 26%
+      var t0=(base0.fga>0&&base0.tpa!=null)?base0.tpa/base0.fga:0.42, f0=(base0.fga>0&&base0.fta!=null)?base0.fta/base0.fga:0.28;
+      var tpr=Math.min(0.72, t0*Math.max(0.10,Math.min(0.72, 0.42 + ((sv('three')-50)/50)*0.18 - ((sv('paint')-50)/50)*0.10))/0.42);
+      var ftr=Math.min(0.60, f0*Math.max(0.12,Math.min(0.55, 0.28 + ((sv('paint')-50)/50)*0.10 + ((sv('ft')-50)/50)*0.04))/0.28);
       var fg=(L.fg_pct||45)/100, tp=(L.tp_pct||33)/100, ftp=(L.ft_pct||70)/100;
       // points per field-goal attempt at this shot mix: 2 per make, +1 more on a three, plus the
       // free throws that come with the same volume
@@ -221,6 +228,12 @@
         L.fgm=L.fga*fg; L.tpm=L.tpa*tp; L.ftm=L.fta*ftp;
       }
     })();
+    // ── REBOUNDS PER MINUTE ────────────────────────────────────────────────────────────────
+    // The 11-rpg cap above sits at the ROLE's minutes (a Starter's 24 = 18 a 40) and the fit / minutes rescale ran past
+    // it: Rebounding 95 read 12.5 boards in 26 minutes (19 a 40; the best D-I rebounders are ~15). Past 11.5 a 40 the
+    // excess is compressed (the slider still moves), never past 15 a 40. Mirrored in the projection builds (REB40).
+    if(L.mpg>0&&L.rpg>0){ var r40=L.rpg*40/L.mpg;
+      if(r40>REB40[0]){ var kr=Math.min(REB40[2], REB40[0]+(r40-REB40[0])*REB40[1])/r40; L.rpg*=kr; L.oreb*=kr; L.dreb*=kr; } }
     var O={}; Object.keys(L).forEach(function(k){ O[k]=(k.charAt(0)==='_')?L[k]:r1(L[k]); });
     return Object.assign({}, p, O, { tdc_grade:(ovr!=null?''+Math.round(ovr):p.tdc_grade), _frOvr:ovr!=null, _noStatEst:true, _frProfiled:!!profile, _frFit:fitted });
   }
@@ -233,7 +246,7 @@
   var _blob=null, _loaded=false, _loading=null, _fit=null;
   // per-team fitted {mpg, ppg} for no-box players, from the projection build (small file)
   function loadFit(){ if(_fit) return Promise.resolve(_fit);
-    return fetch('scripts/data/fresh_fit.json?v=39').then(function(r){ return r.ok?r.json():{}; }).then(function(j){ _fit=j||{}; return _fit; }).catch(function(){ _fit={}; return _fit; }); }
+    return fetch('scripts/data/fresh_fit.json?v=40').then(function(r){ return r.ok?r.json():{}; }).then(function(j){ _fit=j||{}; return _fit; }).catch(function(){ _fit={}; return _fit; }); }
   function rawProfileFor(p){ var k=frKey(p); if(_blob&&typeof _blob==='object') return _blob[k]||null;
     try{ var s=localStorage.getItem(k); return s?JSON.parse(s):null; }catch(e){ return null; } }
   // the saved profile + his preseason-scrimmage trend (fresh_fit scrim_ovr, build_scrim_trends.py: Reality-
@@ -291,10 +304,13 @@
   // ONE-TIME BACKFILL (owner, Oct 15 2026): profiles saved before the editor stored its line (_line) get it computed with
   // the editor's own math — the line you see when you open the editor — so the projection build publishes it. Runs on an
   // owner page load that has the freshman model (frStatBase), saves once, and kicks the rebuild like any save.
+  // LINE_V: the editor math a saved _line was made with. A line older than this is recomputed on the next owner load, and the
+  // build ignores it until then (v2, Oct 24 2026: rebounds split past the cap, flat 42% three share, sliders applied twice).
+  var LINE_V=2;
   var _bfDone=false;
   function backfillLines(){
     if(_bfDone||!isOwner()||typeof frStatBase!=='function'||!_blob) return; _bfDone=true;
-    var keys=Object.keys(_blob).filter(function(k){ var v=_blob[k]; return k.indexOf('tdc_fr:')===0&&v&&typeof v==='object'&&!v._line&&(v.sliders||v.archetype||v.usg!=null||v.mpg!=null); });
+    var keys=Object.keys(_blob).filter(function(k){ var v=_blob[k]; return k.indexOf('tdc_fr:')===0&&v&&typeof v==='object'&&(!v._line||(v._lv||0)<LINE_V)&&(v.sliders||v.archetype||v.usg!=null||v.mpg!=null); });
     if(!keys.length) return;
     var want={}; keys.forEach(function(k){ var parts=k.split(':'); want[parts[1]+'|'+parts.slice(2).join(':')]=k; });
     var teams=Array.from(new Set(keys.map(function(k){ return k.split(':')[1]; })));
@@ -303,7 +319,7 @@
       .then(function(r){ return r.ok?r.json():[]; }).then(function(rows){ var n=0;
         (rows||[]).forEach(function(p){ var k=want[p.team+'|'+p.name]; if(!k) return; var d=_blob[k];
           try{ var L=line(p,d); var o={}; ['mpg','ppg','rpg','apg','stl','blk','tovs','oreb','dreb','fga','fgm','tpa','tpm','fta','ftm','fg_pct','tp_pct','ft_pct'].forEach(function(f){ var v=parseFloat(L[f]); if(isFinite(v)) o[f]=Math.round(v*100)/100; });
-            if(o.mpg>0){ d._line=o; n++; } }catch(e){ console.warn('TDCFresh: line failed for '+k, e); } });
+            if(o.mpg>0){ d._line=o; d._lv=LINE_V; n++; } }catch(e){ console.warn('TDCFresh: line failed for '+k, e); } });
         if(n){ console.log('TDCFresh: stored the editor line for '+n+' saved playstyles'); pushBlob(); }
       }).catch(function(){});
   }
@@ -448,7 +464,7 @@
       try{ var L=line(p,_d); _d._bpm=Math.round(estBPM(L)*100)/100; try{ var L0=line(p,{mpg:_d.mpg,role:_d.role}); _d._bpm0=Math.round(estBPM(L0)*100)/100; }catch(e0){} _d._min=parseFloat(L.mpg)||null; _d._usg=parseFloat(L.usg)||null;
         // the exact line this editor shows — the projection build now publishes it as his line and values his OVR on it
         // (owner, Oct 15 2026: "the edit playstyle needs to be the thing updating")
-        _d._line={}; ['mpg','ppg','rpg','apg','stl','blk','tovs','oreb','dreb','fga','fgm','tpa','tpm','fta','ftm','fg_pct','tp_pct','ft_pct'].forEach(function(k){ var v=parseFloat(L[k]); if(isFinite(v)) _d._line[k]=Math.round(v*100)/100; }); if(p.espn_id!=null&&p.espn_id!=='') _d._espn=p.espn_id; }catch(e){}
+        _d._line={}; ['mpg','ppg','rpg','apg','stl','blk','tovs','oreb','dreb','fga','fgm','tpa','tpm','fta','ftm','fg_pct','tp_pct','ft_pct'].forEach(function(k){ var v=parseFloat(L[k]); if(isFinite(v)) _d._line[k]=Math.round(v*100)/100; }); _d._lv=LINE_V; if(p.espn_id!=null&&p.espn_id!=='') _d._espn=p.espn_id; }catch(e){}
       saveProfile(p,_d).then(function(res){
         var ok=!!(res&&res.ok);
         if(!ok){

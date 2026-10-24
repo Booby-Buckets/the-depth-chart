@@ -192,7 +192,7 @@ var col=function(t){ try{ var c=window.tdcTeamColor&&tdcTeamColor(t)||{}; return
 var shortT=function(t){ return window.tdcShortSchool?tdcShortSchool(t||''):(t||''); };
 var PROJ=null, TEAMS=null, INFO={};
 var get=function(u){ return fetch(u,{headers:H}).then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; }); };
-function proj(){ return PROJ?Promise.resolve(PROJ):get('scripts/data/stat_overall_projected.json?v=93').then(function(j){ PROJ=(j&&j.players)||{}; return PROJ; }); }
+function proj(){ return PROJ?Promise.resolve(PROJ):get('scripts/data/stat_overall_projected.json?v=96').then(function(j){ PROJ=(j&&j.players)||{}; return PROJ; }); }
 function teamsP(){ if(TEAMS) return Promise.resolve(TEAMS); return (window.TDC_RATINGS?TDC_RATINGS.get():Promise.resolve({teams:[]})).then(function(D){ TEAMS=(D&&D.teams||[]).filter(function(t){ return t.rating!=null; }).sort(function(a,b){ return (a.rank||999)-(b.rank||999); }); return TEAMS; }).catch(function(){ TEAMS=[]; return TEAMS; }); }
 function teamRow(name){ var n=String(name||'').toLowerCase().trim(); return (TEAMS||[]).find(function(t){ return (t.full||'').toLowerCase()===n||(t.team||'').toLowerCase()===n; })||null; }
 // players' current team / position for the cards (followed + search results + top 50)

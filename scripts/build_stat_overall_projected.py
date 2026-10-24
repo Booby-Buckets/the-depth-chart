@@ -1359,7 +1359,7 @@ for _k,_v in OWNER_BLOB.items():
     if _k.startswith("tdc_fr:") and isinstance(_v,dict):
         try: _,_ft,_fn=_k.split(":",2); EDITOR_FR[(_ft.strip(),_fn.strip().lower())]=_v
         except Exception: pass
-FR_RATES={}; FR_EDIT_K={}; FR_META={}
+FR_RATES={}; FR_RATES_S={}; FR_EDIT_K={}; FR_META={}
 # FRESHMAN PEDIGREE (owner, Oct 15 2026: Duke's #4 Cameron Williams / #22 Bryson Howard showed 55). recruiting_247.json is
 # gitignored by design (247's rankings are never served), so the CI rebuild had NO ranks: every 2026-27 freshman got the
 # unranked prior, unranked rates and no potential. Where the private file exists we write a DERIVED file — per recruit his
@@ -1402,6 +1402,7 @@ def _fresh_est(short,name,depth,starter,position,height=None):
     # OVR — only "scoring" was read). Mirror tdc-freshman.js applySliders on the per-40 rates: each lever's multiplier plus
     # its raw per-game term converted to per-40 at his projected minutes. Shooting %s stay with the shooting model.
     _sl=ed.get("sliders") or {}
+    _rt0=dict(rt) if rt else None
     if rt and _sl:
         _d=lambda k: ((_n(_sl.get(k),50))-50.0)/50.0
         _ht=None
@@ -1424,7 +1425,10 @@ def _fresh_est(short,name,depth,starter,position,height=None):
         _a=_d("athleticism")
         for _k,_r in (("oreb",0.45),("blk",0.4),("stl",0.25),("dreb",0.14)):
             if _k in rt: rt[_k]*=1+_a*_r
-    if rt: FR_RATES[(short,str(name).strip())]=rt
+    # the PUBLISHED r40 is the raw model line: the editor (tdc-proj.js frStatBase) applies the sliders to it itself, so
+    # publishing these slider-moved rates applied every slider twice (Shahrvin's Rebounding 95: 9.1 -> 16.3 -> 22.5 reb/40).
+    # The moved rates value him (r40s).
+    if rt: FR_RATES[(short,str(name).strip())]=_rt0 or rt; FR_RATES_S[(short,str(name).strip())]=rt
     base=rt.get("fga") or POS_FGA40.get(_pos(position),12.5)*0.85
     base0=base
     u=_n(ed.get("usg"),0)
@@ -2214,6 +2218,8 @@ for _sh,_fm in FRESH_FIT.items():
         if _mt: _f["grp"],_f["lv"]=_mt
         _rt=FR_RATES.get((_sh,_nm))
         if _rt: _f["r40"]={k:round(v,2) for k,v in _rt.items()}   # model per-40 line (tdc-proj.js frStatBase)
+        _rs=FR_RATES_S.get((_sh,_nm))
+        if _rs and _rs is not _rt and _rs!=_rt: _f["r40s"]={k:round(v,2) for k,v in _rs.items()}   # the same with his sliders (his value)
         _k=FR_EDIT_K.get((_sh,_nm),1.0)
         if abs(_k-1.0)>0.005 and _f.get("ppg") is not None: _f["ppg0"]=round(_f["ppg"]/_k,1)
 # NEWCOMERS IN SEASON: a freshman / no-box newcomer's OVR is his prior (editor or recruiting) until he plays. Each
@@ -2273,7 +2279,7 @@ _nsv=0
 for _sh,_fm in FRESH_FIT.items():
     _full=S2F.get(_sh.lower()) or _sh
     for _nm,_f in _fm.items():
-        _sv=_sv_of(_full,_f.get("r40"),_n(_f.get("mpg"),0),_f.get("ppg"),_cred_of(_f,_nm))
+        _sv=_sv_of(_full,_f.get("r40s") or _f.get("r40"),_n(_f.get("mpg"),0),_f.get("ppg"),_cred_of(_f,_nm))
         if _sv is not None: _f["sv"]=int(_sv); _f["svd"]=int(_SV_D[0]); _f["pwa"]=round(_SV_WA[0],2); _nsv+=1   # pwa: projected Wins Added (Moneyball)
         # POTENTIAL for a ranked recruit: the same valuation at the minutes recruits of his rank historically
         # play (freshman_model mpg_by_rank) when the depth chart has him below it — the NIL market pays for the
@@ -2289,7 +2295,7 @@ for _sh,_fm in FRESH_FIT.items():
                 # scale his fitted points up to the rank minutes only when there is a real sample of them: at 0.7 mpg the
                 # fitted ppg is a rounded 0.2 and x36 it cut Cameron Williams' scoring ~40% (he rated below #22 Howard,
                 # owner Oct 15 2026). Under 6 mpg he is valued at his model scoring rate.
-                _svp=_sv_of(_full,_f.get("r40"),_mt,((_f.get("ppg") or 0)*_mt/_m0) if _m0>=6 else None,_cred_of(_f,_nm))
+                _svp=_sv_of(_full,_f.get("r40s") or _f.get("r40"),_mt,((_f.get("ppg") or 0)*_mt/_m0) if _m0>=6 else None,_cred_of(_f,_nm))
                 if _svp is not None: _f["svp"]=int(max(_sv,_svp)); _f["svpd"]=int(max(_f["svd"],_SV_D[0])); _f["mpg_pot"]=round(_mt,1)
 # THE EDITOR'S LINE (owner, Oct 15 2026): a profile saved with _line (the exact line the editor showed) sets that
 # newcomer's points and per-40 rates, so his OVR values what the editor showed — not the generic freshman shape.
@@ -2301,7 +2307,12 @@ for _sh,_fm in FRESH_FIT.items():
         _m=_n(_f.get("mpg"),0) or _n(_el["mpg"],0); _k40=40.0/_n(_el["mpg"],1)
         # NOT written over r40: the editor builds its preview from r40 (tdc-proj frStatBase), so overwriting it with the
         # edited line re-applied the sliders on every save. The edited rates go in r40e, used only for his value.
-        _r40e={"pts":_n(_el.get("ppg"))*_k40,"oreb":_n(_el.get("oreb"))*_k40,"dreb":_n(_el.get("dreb"))*_k40,"ast":_n(_el.get("apg"))*_k40,
+        # rebounds = the line's capped rpg total in its oreb/dreb mix (lines saved before tdc-freshman.js LINE_V 2 split past it)
+        _od=_n(_el.get("oreb"))+_n(_el.get("dreb")); _kr=(_n(_el.get("rpg"))/_od) if (_od>0 and _n(_el.get("rpg"))>0) else 1.0
+        # ...and under the editor's rebounds-a-40 ceiling (tdc-freshman.js REB40: knee 11.5, keep 45%, max 15)
+        _r40r=(_od*_kr)*_k40
+        if _r40r>11.5: _kr*=min(15.0,11.5+(_r40r-11.5)*0.45)/_r40r
+        _r40e={"pts":_n(_el.get("ppg"))*_k40,"oreb":_n(_el.get("oreb"))*_k40*_kr,"dreb":_n(_el.get("dreb"))*_k40*_kr,"ast":_n(_el.get("apg"))*_k40,
                    "stl":_n(_el.get("stl"))*_k40,"blk":_n(_el.get("blk"))*_k40,"tov":_n(_el.get("tovs"))*_k40,"fga":_n(_el.get("fga"))*_k40,
                    "tpa":_n(_el.get("tpa"))*_k40,"fta":_n(_el.get("fta"))*_k40,"fg_pct":_n(_el.get("fg_pct")),"tp_pct":_n(_el.get("tp_pct")),"ft_pct":_n(_el.get("ft_pct"))}
         _f["r40e"]=_r40e

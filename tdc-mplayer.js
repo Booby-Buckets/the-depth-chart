@@ -256,7 +256,7 @@
   var POOL = null, POOLP = null;
   function loadPool() {
     if (POOLP) return POOLP;
-    POOLP = fetch('scripts/data/stat_overall_projected.json?v=93').then(function (r) { return r.ok ? r.json() : null; })
+    POOLP = fetch('scripts/data/stat_overall_projected.json?v=96').then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) { var P = (j && j.players) || {}; POOL = Object.keys(P).map(function (k) { return P[k]; }).filter(function (v) { return v && (+v.mpg || 0) >= 10; }); renderLine(); })
       .catch(function () { POOL = []; });
     return POOLP;

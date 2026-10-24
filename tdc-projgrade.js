@@ -828,10 +828,10 @@
   window.TDCProjGrade.buildMin = buildMin;
   window.TDCProjGrade.ready = Promise.all([
     _loadSO('scripts/data/stat_overall.json?v=12').then(function(m){ if(m) setStatOverall(m, null); }),
-    _loadProjRows('scripts/data/stat_overall_projected.json?v=95').then(function(m){ if(m) setStatOverall(null, m); }),
+    _loadProjRows('scripts/data/stat_overall_projected.json?v=96').then(function(m){ if(m) setStatOverall(null, m); }),
     _archP, _gpsP, _dispP,
     // projected freshman / newcomer OVRs (build: recruiting rank or scouting prior x projected role)
-    fetch('scripts/data/fresh_fit.json?v=39').then(function(r){ return r.ok ? r.json() : {}; }).then(function(j){
+    fetch('scripts/data/fresh_fit.json?v=40').then(function(r){ return r.ok ? r.json() : {}; }).then(function(j){
       _FRESH = {}; _FRESH_ROW = {}; for(var t in (j||{})){ for(var n in j[t]){ var f = j[t][n]; if(f && f.ovr != null) _FRESH[_fk(t, n)] = f.ovr; if(f) _FRESH_ROW[_fk(t, n)] = f; } } }).catch(function(){})
   ]).then(function(){ return true; }).catch(function(){ return true; });   // history is lazy — see loadHist()
 })();
