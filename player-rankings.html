@@ -106,6 +106,7 @@
     <div class="pr-row" id="grpRow"><span class="pr-lab">Group</span></div>
     <div class="pr-row" id="subRow"></div>
     <div class="pr-row" id="byRow"><span class="pr-lab">Rank by</span></div>
+    <div class="pr-row" id="lvRow"><span class="pr-lab">Level</span></div>
     <div class="pr-row" id="confRow"><span class="pr-lab">Conference</span></div>
   </div>
 
@@ -171,7 +172,14 @@
   ];
   const ROT_MPG=10;
 
-  let ALL=[], CUTS={}, CONFS=[], state={g:'all', v:'', by:'ovr', c:'', dir:1, n:PAGE, q:'', s:'proj'};
+  let ALL=[], CUTS={}, CONFS=[], state={g:'all', v:'', by:'ovr', c:'', lv:'', dir:1, n:PAGE, q:'', s:'proj'};
+  // conference level, the same split as the NIL model and Social Studio (tdc-nil.js confClass): H = the power
+  // conferences + Big East, M = American / A-10 / MWC / WCC / MVC / C-USA / Sun Belt / MAC / Pac-12, L = the rest
+  const LEVELS=[['H','High major'],['M','Mid major'],['L','Low major']];
+  const tierOf=c=>{ c=(''+(c||'')).toLowerCase().replace(/[\s\-_.]/g,'');
+    if(/bigten|big12|southeastern|bigeast|atlanticcoast/.test(c)||['acc','sec','b10','b12','be','bigeast','big12','bigten'].indexOf(c)>=0) return 'H';
+    if(/american|atlantic10|mountainwest|westcoast|conferenceusa|sunbelt|midamerican|missourivalley|pac12|pacific/.test(c)||['aac','a10','mwc','wcc','pac12','p12','pac','mvc','cusa','mac','sbc','sunbelt'].indexOf(c)>=0) return 'M';
+    return c?'L':''; };
   // seasons: the projected 2026-27 view, then every season with stat lines + a stat overall (2009-10 on)
   const SEASONS=['proj'].concat(Array.from({length:2026-2010+1},(_,i)=>String(2026-i)));
   const sl=y=>(+y-1)+'-'+String(y).slice(2);
@@ -181,7 +189,7 @@
   const statsNow=()=>PAST()?STATS.filter(s=>!PROJ_ONLY_S.includes(s.k)):STATS;
   const groupsNow=()=>PAST()?GROUPS.filter(g=>!PROJ_ONLY_G.includes(g.k)):GROUPS;
   let FAV='';   // the viewer's favorite team (set at sign-up / on the profile)
-  try{ const u=new URLSearchParams(location.search); ['g','v','by','c','s'].forEach(k=>{ if(u.get(k)) state[k]=u.get(k); }); }catch(e){}
+  try{ const u=new URLSearchParams(location.search); ['g','v','by','c','lv','s'].forEach(k=>{ if(u.get(k)) state[k]=u.get(k); }); }catch(e){}
   if(!SEASONS.includes(state.s)) state.s='proj';
 
   // team logo via the shared resolver (team-colors.js), sized through ESPN's resizer like the rankings table
@@ -220,6 +228,7 @@
     if(PAST()) await loadSeason(+state.s); else await loadProjected();
     CONFS=Object.entries(ALL.reduce((m,p)=>{ if(p._conf) m[p._conf]=(m[p._conf]||0)+1; return m; },{})).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
     if(state.c&&!CONFS.includes(state.c)) state.c='';
+    if(state.lv&&!LEVELS.some(l=>l[0]===state.lv)) state.lv='';
     const roles=[...new Set(ALL.map(p=>p._arch).filter(Boolean))].sort();
     GROUPS.find(g=>g.k==='role').subs=roles.map(r=>[r,r]);
     if(!groupsNow().some(g=>g.k===state.g)) { state.g='all'; state.v=''; }
@@ -406,11 +415,14 @@
     byRow.style.display=state.g==='move'?'none':'';
     byRow.innerHTML='<span class="pr-lab">Rank by</span>'+statsNow().map(s=>chip(s.l,state.by===s.k,`data-by="${s.k}"`)).join('');
     const CL={B10:'Big Ten',B12:'Big 12',BE:'Big East',P12:'Pac-12',A10:'A-10'};
-    document.getElementById('confRow').innerHTML='<span class="pr-lab">Conference</span>'+chip('All',!state.c,'data-c=""')+CONFS.map(c=>chip(CL[c]||c,state.c===c,`data-c="${esc(c)}"`)).join('');
+    document.getElementById('lvRow').innerHTML='<span class="pr-lab">Level</span>'+chip('All',!state.lv,'data-lv=""')+LEVELS.map(l=>chip(l[1],state.lv===l[0],`data-lv="${l[0]}"`)).join('');
+    // a level narrows the conference list to its own leagues
+    const CF=state.lv?CONFS.filter(c=>tierOf(c)===state.lv):CONFS;
+    document.getElementById('confRow').innerHTML='<span class="pr-lab">Conference</span>'+chip('All',!state.c,'data-c=""')+CF.map(c=>chip(CL[c]||c,state.c===c,`data-c="${esc(c)}"`)).join('');
   }
   function listFor(){
     const G=groupsNow().find(g=>g.k===state.g)||GROUPS[0], S=statsNow().find(s=>s.k===state.by)||STATS[0];
-    let L=ALL.filter(p=>(!G.of||(G.subs?G.of(p)===state.v:!!G.of(p))) && (!state.c||p._conf===state.c));
+    let L=ALL.filter(p=>(!G.of||(G.subs?G.of(p)===state.v:!!G.of(p))) && (!state.c||p._conf===state.c) && (!state.lv||tierOf(p._conf)===state.lv));
     if(G.k==='move'){
       // risers / fallers: players who played last season and project into a real role this one
       L=L.filter(p=>p._dOvr!=null && (num(p.mpg)||0)>=ROT_MPG);
@@ -433,7 +445,8 @@
     const CL={B10:'Big Ten',B12:'Big 12',BE:'Big East',P12:'Pac-12',A10:'A-10'};
     const cName=state.c?(CL[state.c]||state.c):'';
     const favShort=FAV?((window.tdcShortSchool&&tdcShortSchool(FAV))||FAV):'';
-    const who=G.k==='mine'?favShort:(G.k==='all'?(cName?cName+' players':'All Division I players'):(cName?cName+' '+sub.toLowerCase():sub));
+    const lvName=!cName&&state.lv?({H:'High-major',M:'Mid-major',L:'Low-major'})[state.lv]:'';
+    const who=G.k==='mine'?favShort:(G.k==='all'?(cName?cName+' players':lvName?lvName+' players':'All Division I players'):(cName?cName+' '+sub.toLowerCase():lvName?lvName+' '+sub.toLowerCase():sub));
     const isMove=G.k==='move', byL=S.k==='bb'?'Big Board rank':S.k==='nil'?'NIL value':S.l.toLowerCase();
     document.getElementById('listTitle').textContent=isMove||S.k==='ovr'?who:`${who}: ${byL} leaders`;
     document.getElementById('listNote').textContent=isMove
@@ -462,13 +475,14 @@
     const more=document.getElementById('prMore');
     const total=q?ranked.filter(x=>(x.p.name+' '+x.p.team).toLowerCase().includes(q)).length:ranked.length;
     more.style.display=total>state.n?'':'none';
-    try{ const u=new URLSearchParams(); if(state.g!=='all') u.set('g',state.g); if(state.v) u.set('v',state.v); if(state.by!=='ovr') u.set('by',state.by); if(state.c) u.set('c',state.c); if(PAST()) u.set('s',state.s);
+    try{ const u=new URLSearchParams(); if(state.g!=='all') u.set('g',state.g); if(state.v) u.set('v',state.v); if(state.by!=='ovr') u.set('by',state.by); if(state.c) u.set('c',state.c); if(state.lv) u.set('lv',state.lv); if(PAST()) u.set('s',state.s);
       history.replaceState(null,'',location.pathname+(u.toString()?'?'+u:'')); }catch(e){}
   }
 
   document.addEventListener('click',e=>{
-    const b=e.target.closest('.pr-bar [data-g],.pr-bar [data-v],.pr-bar [data-by],.pr-bar [data-c]'); if(!b) return;
-    if(b.dataset.c!=null){ state.c=b.dataset.c; }
+    const b=e.target.closest('.pr-bar [data-g],.pr-bar [data-v],.pr-bar [data-by],.pr-bar [data-c],.pr-bar [data-lv]'); if(!b) return;
+    if(b.dataset.c!=null){ state.c=b.dataset.c; if(state.c&&state.lv&&tierOf(state.c)!==state.lv) state.lv=''; }
+    if(b.dataset.lv!=null){ state.lv=b.dataset.lv; if(state.c&&state.lv&&tierOf(state.c)!==state.lv) state.c=''; }
     if(b.dataset.g){ state.g=b.dataset.g; state.v=''; }
     if(b.dataset.v!=null&&b.dataset.v!=='') state.v=b.dataset.v;
     if(b.dataset.by){ state.by=b.dataset.by; state.dir=1; }
