@@ -40,16 +40,22 @@
   /* percentile scale: solid fill + its own text colour (same hues as tdc-sheets .c0-.c4) */
   --p0:#E9B9B3; --p0-on:#6E1A12;  --p1:#F4DCC4; --p1-on:#6B3A10;  --p2:#E6E3DB; --p2-on:#4A463C;
   --p3:#CDE3C6; --p3-on:#1F4D25;  --p4:#3F8A4B; --p4-on:#FFFFFF;
+  /* Mix E (Oct 24 2026): panels lift off a slightly darker page; charcoal header strips */
+  --page:#ECE9E2; --panel:#FFFFFF; --panel-shadow:0 1px 0 rgba(0,0,0,.03), 0 4px 14px rgba(40,30,10,.07);
+  --strip:#1A1814; --strip-text:#F1EFEA; --strip-muted:#B5AE9E; --strip-seg:#3A352C; --strip-seg-text:#CFC8B6;
 }
 :root[data-theme="dark"]{
   color-scheme:dark;
-  --bg:#0A0E18; --bg2:#111726; --bg3:#1A2133;
-  --border:#232B3E; --border2:#34405A;
-  --text:#EEF1F7; --text2:#AEB6C8; --text3:#7A849A;
+  /* charcoal (Mix E) — neutral, replaces the old navy #0A0E18 */
+  --bg:#1A1B1F; --bg2:#23262B; --bg3:#2C2F35;
+  --border:#33363C; --border2:#454951;
+  --text:#ECEBE7; --text2:#B9B7B0; --text3:#8E9097;
   --accent:#E6D5A8; --accent-on:#1A1408;
   --green:#6FBF7E; --red:#FF7A70;
-  --p0:#6E2B27; --p0-on:#FFD9D4;  --p1:#4D3823; --p1-on:#F2CFA8;  --p2:#1F2738; --p2-on:#AEB6C8;
+  --p0:#6E2B27; --p0-on:#FFD9D4;  --p1:#4D3823; --p1-on:#F2CFA8;  --p2:#2C2F35; --p2-on:#B9B7B0;
   --p3:#24472D; --p3-on:#C3E8C8;  --p4:#3E8A4D; --p4-on:#FFFFFF;
+  --page:#141518; --panel:#1E2024; --panel-shadow:inset 0 1px 0 rgba(255,255,255,.03), 0 6px 18px rgba(0,0,0,.35);
+  --strip:#2A2D33; --strip-text:#E9E7E1; --strip-muted:#9A9CA3; --strip-seg:#16171A; --strip-seg-text:#9A9CA3;
 }
 
 /* ---------- base ---------- */
@@ -317,3 +323,24 @@ body.ui{
 .ui-panel.pz-card{ padding:0 !important; background:var(--bg) !important; max-width:none !important; }
 .ui-panel.pz-card > .ui-panel-head{ margin:0 !important; padding:10px 14px !important; border-bottom:1px solid var(--border) !important; background:var(--bg2) !important; display:flex; align-items:center; gap:10px; }
 .ui-panel.pz-card > .ui-panel-head > :last-child:not(:first-child){ margin-left:auto !important; }
+
+
+/* =====================================================================
+   MIX E (Oct 24 2026) — owner-picked look: stronger panels in light, charcoal in dark.
+   The page sits a shade darker than its panels; panels are raised (border + soft shadow);
+   every panel header strip is solid charcoal with light text. Applies to every page on the kit.
+   ===================================================================== */
+html, body, .tdc-bg{ background:var(--page) !important; }
+.ui-panel{ background:var(--panel) !important; border-color:var(--border) !important; box-shadow:var(--panel-shadow) !important; }
+.ui-panel-head, .ui-panel.pz > .ui-panel-head, .ui-panel.pz-card > .ui-panel-head{
+  background:var(--strip) !important; color:var(--strip-text) !important; border-bottom-color:var(--strip) !important; }
+.ui-panel-head h3, .ui-panel.pz > .ui-panel-head > :first-child{ color:var(--strip-text) !important; }
+.ui-panel-head .ui-meta, .ui-panel.pz > .ui-panel-head > :first-child :is(small,.sub,.hint,span:not(:first-child)),
+.ui-panel-head > :not(:first-child):not(.ui-panel-tools){ color:var(--strip-muted) !important; }
+/* a toggle riding in the strip: a dark tray, gold when on */
+.ui-panel-head :is(.seg,.ui-seg,.statmode-row,.gl-seasons){ background:var(--strip-seg) !important; border-color:transparent !important; }
+.ui-panel-head :is(.seg,.ui-seg,.statmode-row,.gl-seasons) button:not(.on):not(.active){ color:var(--strip-seg-text) !important; }
+.ui-panel-head select{ background-color:var(--strip-seg) !important; color:var(--strip-text) !important; border-color:transparent !important; }
+.ui-panel-head a{ color:var(--accent) !important; }
+/* tables and tiles inside a panel sit on the panel colour */
+.ui-panel .sheet-wrap{ background:var(--panel); }
