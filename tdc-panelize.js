@@ -20,7 +20,7 @@
     /* site pages (Coaching Lab, Awards, Tournaments, Bracketology, Just Added, Conferences, Moneyball) */
     '.sec-t, .tcard-h, .ocard-h, .mi-h2, .rbr-h, .dayhead, .box > .sl, .lb > h3, .aw-head, .gm-h, .page > .sec';
   // containers that are cards on those pages without saying "card" in their class
-  var CARDS = '.tcard, .ocard, .rbr, .box, .lb, .daygroup, .mi-sec, .awards';
+  var CARDS = '.tcard, .ocard, .rbr, .box, .lb, .daygroup, .mi-sec, .awards, .aft-ch';
   // things that end a section without being one (a new tab region, a legend that belongs above)
   var isTitle = function (el) { return el.nodeType === 1 && el.matches(TITLE); };
   var isToggle = function (el) { return el && el.nodeType === 1 && (el.matches('.seg, .ui-seg, .statmode-row, .gl-seasons') || el.querySelector(':scope > .seg')); };
@@ -56,6 +56,7 @@
 
   function panelize(title) {
     if (title.closest('.ui-panel-head') || title.dataset.pz) return;
+    if (firstInCard(title) && title.parentNode.matches(CARDS)) { cardFromTitle(title); return; }
     if (inHeadRow(title)) {
       // only a real card becomes the panel; a header row that sits straight in a page-level container
       // (list pages: .page > .pr-head) is treated as the title itself
@@ -141,8 +142,10 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
   }
 
-  // list pages: watch the page's main column (whichever top-level container it uses)
-  function watchPage() {
+  // list pages: watch the page's main column (whichever top-level container it uses).
+  // extra: more title selectors for a page whose sections are plain headings (e.g. 'h2').
+  function watchPage(extra) {
+    if (extra) TITLE += ', ' + extra;
     var go = function () {
       var root = document.querySelector('body > main, body > .page, body > .wrap, body > .xp, body > .content') || document.body;
       if (!root.id) root.id = 'pz-root';
