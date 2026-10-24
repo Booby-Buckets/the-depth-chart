@@ -341,14 +341,6 @@ body{background:transparent!important;}
   <div class="f-group">
   <label class="f-lab"><span>Conference</span><select class="filter-select" id="confFilter" onchange="applyFilters()">
     <option value="">All</option>
-    <option value="ACC">ACC</option>
-    <option value="B10">Big Ten</option>
-    <option value="B12">Big 12</option>
-    <option value="BE">Big East</option>
-    <option value="SEC">SEC</option>
-    <option value="P12">Pac-12</option>
-    <option value="A10">A-10</option>
-    <option value="AAC">AAC</option>
   </select></label>
   <label class="f-lab"><span>Level</span><select class="filter-select" id="lvFilter" onchange="applyFilters()">
     <option value="">All</option>
@@ -545,7 +537,19 @@ function htMatch(h, filter){
   return true;
 }
 
+// every conference in the season on screen (the data spells them 'BIG-12', 'Big-East', 'PAC-12'… so the list is
+// built from the rows themselves, not hard-coded): high majors first, then mid, then low, each by size
+const CONF_NAME={'B10':'Big Ten','BIG-12':'Big 12','Big-East':'Big East','PAC-12':'Pac-12','A10':'A-10','AAC':'American','CUSA':'C-USA','MWC':'Mountain West','MVC':'Missouri Valley','WCC':'WCC','AEC':'America East','UAC':'United Athletic'};
+function _fillConfs(){
+  const sel=document.getElementById('confFilter'); if(!sel) return;
+  const cur=sel.value||window._wantConf||'', n={}; window._wantConf='';
+  activeData.forEach(p=>{ if(p.conf) n[p.conf]=(n[p.conf]||0)+1; });
+  const T={H:0,M:1,L:2}, list=Object.keys(n).sort((a,b)=>(T[tierOf(a)]-T[tierOf(b)])||(n[b]-n[a])||a.localeCompare(b));
+  sel.innerHTML='<option value="">All</option>'+list.map(c=>`<option value="${c.replace(/"/g,'&quot;')}">${CONF_NAME[c]||c}</option>`).join('');
+  sel.value=list.includes(cur)?cur:'';
+}
 function updateMeta(){
+  _fillConfs();
   const s=document.getElementById('seasonFilter').value;
   const scope = s==='all' ? 'all seasons · 2011-12 → 2026-27' : seasonLabel(s);
   const noun = (s==='2027') ? 'players' : 'player-seasons';
@@ -772,7 +776,7 @@ async function loadData(){
     _fillStyles(); _loadNil(); _loadBoard(); _loadFav();
     // links from the old Player Rankings page (and shareable views): ?lv= &type= &pos= &conf= &yr= &sort=
     try{ const u=new URLSearchParams(location.search), set=(id,v)=>{ const el=document.getElementById(id); if(el&&v!=null&&[...el.options].some(o=>o.value===v)) el.value=v; };
-      set('lvFilter',u.get('lv')); set('typeFilter',u.get('type')); set('posFilter',u.get('pos')); set('confFilter',u.get('conf')); set('yrFilter',u.get('yr'));
+      set('lvFilter',u.get('lv')); set('typeFilter',u.get('type')); set('posFilter',u.get('pos')); window._wantConf=({B12:'BIG-12',BE:'Big-East',P12:'PAC-12'})[u.get('conf')]||u.get('conf')||'';   // old Rankings codes set('yrFilter',u.get('yr'));
       const so=u.get('sort'); if(so){ sortCol=so; sortDir=1; } }catch(e){}
     // the plan resolves after the first paint: re-draw so a Pro member gets the full list, not the free 25
     if(window.TDCGate&&TDCGate.ready) TDCGate.ready.then(()=>{ const g=document.getElementById('rkGate'); if(g) g.dataset.n=''; applyFilters(); });
