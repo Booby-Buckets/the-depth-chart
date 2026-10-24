@@ -16,7 +16,11 @@
     /* team page + its modules, NBA page */
     '.sec-head, .tbp-h, .gp-h, .lu-h, .nb-h, .dsx-h, .aft-ch > h3, .hg-sec, .sq-diet > .h, ' +
     /* list / leaderboard pages */
-    '.section-title, .ls-h2, .lb-h, .fl-hd, .tour-h';
+    '.section-title, .ls-h2, .lb-h, .fl-hd, .tour-h, ' +
+    /* site pages (Coaching Lab, Awards, Tournaments, Bracketology, Just Added, Conferences, Moneyball) */
+    '.sec-t, .tcard-h, .ocard-h, .mi-h2, .rbr-h, .dayhead, .box > .sl, .lb > h3, .aw-head, .gm-h, .page > .sec';
+  // containers that are cards on those pages without saying "card" in their class
+  var CARDS = '.tcard, .ocard, .rbr, .box, .lb, .daygroup, .mi-sec, .awards';
   // things that end a section without being one (a new tab region, a legend that belongs above)
   var isTitle = function (el) { return el.nodeType === 1 && el.matches(TITLE); };
   var isToggle = function (el) { return el && el.nodeType === 1 && (el.matches('.seg, .ui-seg, .statmode-row, .gl-seasons') || el.querySelector(':scope > .seg')); };
@@ -38,7 +42,7 @@
   // A title that is the first thing inside a card (.scout-card > .scout-card-title, .bet-panel > h4):
   // the card becomes the panel, the title its strip.
   // (never the tab container itself — team.html's tab panes are class="panel" with ids panel-*)
-  var firstInCard = function (t) { var c = t.parentNode; return c && c.nodeType === 1 && c.firstElementChild === t && !/^(panel|pn)-/.test(c.id || '') && (/(^|[\s-])(card|panel)(\s|$)/.test(c.className) || /Card$|Panel$/.test(c.id || '')); };
+  var firstInCard = function (t) { var c = t.parentNode; return c && c.nodeType === 1 && c.firstElementChild === t && !/^(panel|pn)-/.test(c.id || '') && (/(^|[\s-])(card|panel)(\s|$)/.test(c.className) || /Card$|Panel$/.test(c.id || '') || c.matches(CARDS)); };
   function cardFromTitle(title) {
     var card = title.parentNode; title.dataset.pz = '1';
     var head = document.createElement('div'); head.className = 'ui-panel-head';
@@ -66,7 +70,8 @@
     // title + #depthContent{table…, #shotDistCard{title…}}): move the title into the wrapper so the
     // two sections split into two panels instead of one.
     var nx = title.nextElementSibling;
-    if (nx && !isToggle(nx) && !nx.matches('.sheet-wrap, table') && nx.querySelector(TITLE)) {
+    if (nx && !isToggle(nx) && !nx.matches('.sheet-wrap, table') && nx.querySelector(TITLE) &&
+        !(nx.firstElementChild && (isTitle(nx.firstElementChild) || nx.firstElementChild.querySelector(TITLE)))) {
       nx.insertBefore(title, nx.firstChild); parent = nx;
     }
     title.dataset.pz = '1';
