@@ -246,7 +246,7 @@
   var _blob=null, _loaded=false, _loading=null, _fit=null;
   // per-team fitted {mpg, ppg} for no-box players, from the projection build (small file)
   function loadFit(){ if(_fit) return Promise.resolve(_fit);
-    return fetch('scripts/data/fresh_fit.json?v=40').then(function(r){ return r.ok?r.json():{}; }).then(function(j){ _fit=j||{}; return _fit; }).catch(function(){ _fit={}; return _fit; }); }
+    return fetch('scripts/data/fresh_fit.json?v=41').then(function(r){ return r.ok?r.json():{}; }).then(function(j){ _fit=j||{}; return _fit; }).catch(function(){ _fit={}; return _fit; }); }
   function rawProfileFor(p){ var k=frKey(p); if(_blob&&typeof _blob==='object') return _blob[k]||null;
     try{ var s=localStorage.getItem(k); return s?JSON.parse(s):null; }catch(e){ return null; } }
   // the saved profile + his preseason-scrimmage trend (fresh_fit scrim_ovr, build_scrim_trends.py: Reality-
@@ -306,10 +306,14 @@
   // owner page load that has the freshman model (frStatBase), saves once, and kicks the rebuild like any save.
   // LINE_V: the editor math a saved _line was made with. A line older than this is recomputed on the next owner load, and the
   // build ignores it until then (v2, Oct 24 2026: rebounds split past the cap, flat 42% three share, sliders applied twice).
-  var LINE_V=2;
+  // v3: v2 lines were backfilled at 18:02 Oct 24 from a fresh_fit still carrying slider-moved r40 (the sliders twice again:
+  // Stokes' Rebounding 5 -> 0.3 rpg), so the backfill now also waits for a fit built with the raw r40 (it carries r40s).
+  var LINE_V=3;
   var _bfDone=false;
   function backfillLines(){
-    if(_bfDone||!isOwner()||typeof frStatBase!=='function'||!_blob) return; _bfDone=true;
+    if(_bfDone||!isOwner()||typeof frStatBase!=='function'||!_blob) return;
+    var rawFit=_fit&&Object.keys(_fit).some(function(t){ var m=_fit[t]; return m&&typeof m==='object'&&Object.keys(m).some(function(n){ return m[n]&&m[n].r40s; }); });
+    if(!rawFit) return; _bfDone=true;
     var keys=Object.keys(_blob).filter(function(k){ var v=_blob[k]; return k.indexOf('tdc_fr:')===0&&v&&typeof v==='object'&&(!v._line||(v._lv||0)<LINE_V)&&(v.sliders||v.archetype||v.usg!=null||v.mpg!=null); });
     if(!keys.length) return;
     var want={}; keys.forEach(function(k){ var parts=k.split(':'); want[parts[1]+'|'+parts.slice(2).join(':')]=k; });
