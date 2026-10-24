@@ -12,7 +12,9 @@
 
   // section titles the modules emit
   var TITLE = '.skill-section-title, .sec-title, .sg-title, .dd-sec-h, .gl-tier-head, .dv-h, .sec-h, .wyp-h, ' +
-    '.pcard-band, .scout-card-title, .tdcd-sec, .arch-sec-h, .rc-sec, .bet-panel > h4';
+    '.pcard-band, .scout-card-title, .tdcd-sec, .arch-sec-h, .rc-sec, .bet-panel > h4, ' +
+    /* team page + its modules, NBA page */
+    '.sec-head, .tbp-h, .gp-h, .lu-h, .nb-h, .dsx-h, .aft-ch > h3, .hg-sec, .sq-diet > .h';
   // things that end a section without being one (a new tab region, a legend that belongs above)
   var isTitle = function (el) { return el.nodeType === 1 && el.matches(TITLE); };
   var isToggle = function (el) { return el && el.nodeType === 1 && (el.matches('.seg, .ui-seg, .statmode-row, .gl-seasons') || el.querySelector(':scope > .seg')); };
@@ -29,11 +31,12 @@
     card.appendChild(body);
     return true;
   }
-  var inHeadRow = function (t) { var h = t.parentNode; return h && h.nodeType === 1 && /(^|\s|-)head(\s|$)/.test(h.className) && h.firstElementChild === t; };
+  var inHeadRow = function (t) { var h = t.parentNode; return h && h.nodeType === 1 && /(^|\s|-)(head|ch)(\s|$)/.test(h.className) && h.firstElementChild === t; };
 
   // A title that is the first thing inside a card (.scout-card > .scout-card-title, .bet-panel > h4):
   // the card becomes the panel, the title its strip.
-  var firstInCard = function (t) { var c = t.parentNode; return c && c.nodeType === 1 && c.firstElementChild === t && /(^|[\s-])(card|panel)(\s|$)/.test(c.className); };
+  // (never the tab container itself — team.html's tab panes are class="panel" with ids panel-*)
+  var firstInCard = function (t) { var c = t.parentNode; return c && c.nodeType === 1 && c.firstElementChild === t && !/^(panel|pn)-/.test(c.id || '') && (/(^|[\s-])(card|panel)(\s|$)/.test(c.className) || /Card$|Panel$/.test(c.id || '')); };
   function cardFromTitle(title) {
     var card = title.parentNode; title.dataset.pz = '1';
     var head = document.createElement('div'); head.className = 'ui-panel-head';
@@ -50,6 +53,13 @@
     if (inHeadRow(title)) { cardize(title); return; }
     if (firstInCard(title)) { cardFromTitle(title); return; }
     var parent = title.parentNode; if (!parent) return;
+    // the content under this title is a wrapper that also holds the next section (team Depth Chart:
+    // title + #depthContent{table…, #shotDistCard{title…}}): move the title into the wrapper so the
+    // two sections split into two panels instead of one.
+    var nx = title.nextElementSibling;
+    if (nx && !isToggle(nx) && !nx.matches('.sheet-wrap, table') && nx.querySelector(TITLE)) {
+      nx.insertBefore(title, nx.firstChild); parent = nx;
+    }
     title.dataset.pz = '1';
     var panel = document.createElement('section'); panel.className = 'ui-panel pz';
     var head = document.createElement('div'); head.className = 'ui-panel-head';
@@ -58,7 +68,8 @@
     head.appendChild(title);
     // gather everything up to the next title at the same level
     var n = panel.nextSibling, items = [];
-    while (n && !(n.nodeType === 1 && (isTitle(n) || n.classList.contains('pz')))) { items.push(n); n = n.nextSibling; }
+    var stops = function (x) { return x.nodeType === 1 && (isTitle(x) || x.classList.contains('pz') || !!x.querySelector(TITLE + ', .pz')); };
+    while (n && !stops(n)) { items.push(n); n = n.nextSibling; }
     // a toggle right under the title rides in the header strip
     var first = items.find(function (x) { return x.nodeType === 1; });
     if (first && isToggle(first)) {
@@ -75,11 +86,27 @@
 
   function run(root) {
     if (!root) return;
+    // repair: a page that resets a container's className after we panelized it drops the panel classes
+    [].slice.call(root.querySelectorAll('.ui-panel-head')).forEach(function (h) {
+      var c = h.parentNode; if (c && c !== root && !c.classList.contains('ui-panel')) c.classList.add('ui-panel', 'pz', 'pz-card');
+      var b = h.nextElementSibling; if (b && !b.classList.contains('ui-panel-body') && b.parentNode === c && !b.nextElementSibling) b.classList.add('ui-panel-body');
+    });
     [].slice.call(root.querySelectorAll(TITLE)).forEach(function (t) {
       // only titles that head a run of content (skip ones nested inside a header row of their own)
       if (t.closest('.ui-panel-head, thead, button, .hgm-item')) return;
-      // already inside a panel: stays a plain caps sub-label (never a panel inside a panel)
-      if (t.closest('.ui-panel-body')) return;
+      // already inside a panel: stays a plain caps sub-label (never a panel inside a panel) — unless it opens a
+      // card that sits at the very END of that panel (content that loaded after we panelized, e.g. team
+      // Shot Distribution under Depth Chart): lift that card out to follow the panel as its own panel.
+      var inBody = t.closest('.ui-panel-body');
+      if (inBody) {
+        if (!firstInCard(t)) return;
+        var card = t.parentNode, x = card, atEnd = true;
+        var visibleAfter = function (el) { for (var y = el.nextElementSibling; y; y = y.nextElementSibling) if (y.offsetHeight) return true; return false; };
+        while (x !== inBody) { if (visibleAfter(x)) { atEnd = false; break; } x = x.parentNode; }
+        if (!atEnd) return;
+        var outer = inBody.closest('.ui-panel');
+        outer.parentNode.insertBefore(card, outer.nextSibling);
+      }
       panelize(t);
     });
   }

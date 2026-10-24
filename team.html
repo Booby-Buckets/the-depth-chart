@@ -85,14 +85,16 @@
     #nilContent .nrc-v{text-align:right;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;} #nilContent .nrc-v span{font-weight:600;color:var(--text3);margin-left:6px;font-size:11px;}
     @media(max-width:640px){ #nilContent .nrc-row{grid-template-columns:96px 1fr 70px;gap:6px;} #nilContent .nrc-v span{display:none;} }
 
-    /* side column (Sept 2026): flat like the rest of the site — a small label over a sheet table,
-       no card fill, border or coloured rail */
-    .side-col .side-card{background:none!important;border:none!important;box-shadow:none!important;margin-bottom:26px!important;overflow:visible!important;}
-    .side-col .side-card-head{background:none!important;border:none!important;border-bottom:1px solid var(--border)!important;border-left:none!important;
-      padding:0 0 8px!important;margin-bottom:10px;font-size:10px!important;font-weight:800!important;letter-spacing:.1em;color:var(--text3)!important;box-shadow:none!important;}
-    .side-col .side-card-head.has-pc{padding-left:18px!important;padding-right:24px!important;}
+    /* side column (Oct 2026): each card is a kit panel like every tab section (tdc-ui.css .ui-panel) —
+       thin border, grey header strip with the caps title, tables flush to the edges */
+    .side-col .side-card{background:var(--bg)!important;border:1px solid var(--border)!important;border-radius:var(--r,10px)!important;box-shadow:none!important;margin-bottom:14px!important;overflow:hidden!important;}
+    .side-col .side-card-head{background:var(--bg2)!important;border:none!important;border-bottom:1px solid var(--border)!important;border-left:none!important;
+      padding:10px 14px!important;margin:0!important;min-height:40px;box-sizing:border-box;font-size:11px!important;font-weight:800!important;letter-spacing:.14em;color:var(--text3)!important;box-shadow:none!important;}
+    .side-col .side-card-head.has-pc{padding-left:26px!important;padding-right:30px!important;}
     .side-col .side-card-head::before,.side-col .side-card-head::after{display:none!important;}
-    .side-col .side-card-body{padding:0!important;}
+    .side-col .side-card-body{padding:12px 14px!important;}
+    .side-col .side-card-body > .sheet-wrap:first-child{margin:-12px -14px 0!important;border:0!important;border-radius:0!important;}
+    .side-col .side-card-body > .sheet-wrap:only-child{margin:-12px -14px!important;}
     .sheet.side-sheet{width:100%!important;min-width:100%!important;}
     .sheet.side-add{table-layout:fixed;}
     .sheet.side-add td{overflow:hidden;text-overflow:ellipsis;}
@@ -1337,7 +1339,8 @@
   <link rel="stylesheet" href="tdc-team-dense.css?v=23"/>
   <!-- 2026 clean skin (loaded last so it wins): neutral bases + translucent depth -->
   <link rel="stylesheet" href="tdc-skin.css?v=14"/>
-  <link rel="stylesheet" href="tdc-ui.css?v=6"/>
+  <link rel="stylesheet" href="tdc-ui.css?v=7"/>
+  <script src="tdc-panelize.js?v=13"></script>
   <link rel="stylesheet" href="tdc-grades.css?v=1">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
@@ -1349,7 +1352,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <script src="tdc-pwa.js?v=3" defer></script>
   <script src="tdc-hq-init.js?v=1"></script>
-  <link rel="stylesheet" href="tdc-hq.css?v=18"/>
+  <link rel="stylesheet" href="tdc-hq.css?v=21"/>
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
   <link rel="stylesheet" href="tdc-nil-view.css?v=1"/>
 
@@ -9852,5 +9855,10 @@ function renderProjNatlChart(projected, color, rgb){
 <script src="tdc-trends.js?v=ui1"></script>
 <script src="tdc-teamtrend.js?v=10"></script>
 <script src="tdc-feed.js?v=ui1"></script>
+<script>
+/* one anatomy for every stat tab (tdc-panelize.js): each section title + content becomes a kit panel. Lineup Lab is an editor, left as is. */
+if(window.TDCPanelize) TDCPanelize.watchIds(['panel-depth','panel-schedule','panel-feed','panel-trends','panel-lineups','panel-preview','panel-nil','panel-betting',
+  'panel-projections','panel-dna','panel-shots','panel-twin','panel-poss','panel-hunt','panel-statshift','panel-shotprof','panel-shotq','panel-onoff','panel-report','panel-losses']);
+</script>
 </body>
 </html>
