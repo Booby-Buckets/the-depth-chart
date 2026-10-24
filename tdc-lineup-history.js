@@ -59,14 +59,14 @@
   // ---- render ----
   var CSS = '.lu-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:4px 0 18px;}' +
     '.lu-k{border:1px solid var(--border);border-radius:10px;background:var(--bg2);padding:10px 13px;min-width:0;}' +
-    '.lu-k b{display:block;font-family:"Playfair Display",serif;font-size:22px;font-weight:800;line-height:1.1;}' +
+    '.lu-k b{display:block;font-family:Inter,system-ui,sans-serif;font-size:22px;font-weight:800;line-height:1.1;}' +
     '.lu-k span{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}' +
     '.lu-k small{display:block;font-size:11px;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}' +
-    '.lu-yrs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px;}' +
-    '.lu-yrs button{padding:5px 11px;border:1px solid var(--border2);border-radius:999px;background:var(--bg);color:var(--text2);font:700 11.5px Inter,system-ui,sans-serif;cursor:pointer;}' +
-    '.lu-yrs button.on{background:var(--text);border-color:var(--text);color:var(--bg);}' +
+    '.lu-yrs{display:inline-flex;flex-wrap:wrap;gap:2px;padding:2px;border:1px solid var(--border);border-radius:9px;background:var(--bg2);margin:0 0 14px;}' +
+    '.lu-yrs button{border:0;border-radius:7px;background:none;color:var(--text3);font:700 11px Inter,system-ui,sans-serif;letter-spacing:.05em;text-transform:uppercase;padding:6px 12px;cursor:pointer;}' +
+    '.lu-yrs button.on{background:var(--accent);color:var(--accent-on,#221c08);}' +
     '.lu-h{display:flex;align-items:baseline;gap:10px;margin:26px 0 9px;padding-bottom:7px;border-bottom:1px solid var(--border2);}' +
-    '.lu-h h3{font-family:"Playfair Display",serif;font-size:19px;font-weight:800;}' +
+    '.lu-h h3{font-family:Inter,system-ui,sans-serif;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);}' +
     '.lu-h small{margin-left:auto;font-size:11px;color:var(--text3);}' +
     '.lu-five{white-space:normal;line-height:1.45;} .lu-five a{color:var(--text);text-decoration:none;font-weight:600;} .lu-five a:hover{color:var(--accent);}' +
     '.lu-five i{font-style:normal;color:var(--text3);margin:0 5px;}' +

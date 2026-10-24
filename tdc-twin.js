@@ -47,7 +47,7 @@
       '.tw-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px;font-size:13px;color:var(--text2);}' +
       '.tw-top select{font:600 12.5px Inter,system-ui,sans-serif;padding:5px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--bg2);color:var(--text);}' +
       '.tw-empty{padding:22px;text-align:center;color:var(--text3);font-size:13px;}' +
-      '.tw-side{display:inline-flex;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:3px;gap:3px;}.tw-side button{font:700 12px Inter,system-ui,sans-serif;padding:5px 11px;border:0;border-radius:5px;background:none;color:var(--text3);cursor:pointer;}.tw-side button.on{background:var(--text);color:var(--bg);}';
+      '.tw-side{display:inline-flex;gap:2px;padding:2px;border:1px solid var(--border);border-radius:9px;background:var(--bg2);}.tw-side button{font:700 11px Inter,system-ui,sans-serif;letter-spacing:.05em;text-transform:uppercase;padding:6px 12px;border:0;border-radius:7px;background:none;color:var(--text3);cursor:pointer;}.tw-side button.on{background:var(--accent);color:var(--accent-on,#221c08);}';
     document.head.appendChild(s);
   }
   function rowsOf(espn) { return POOL.rows.filter(function (r) { return String(r[0]) === String(espn); }).sort(function (a, b) { return b[1] - a[1]; }); }

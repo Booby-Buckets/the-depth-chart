@@ -139,14 +139,14 @@ window.TDC_ROLES = (function(){
 .tdcr .rc{border:1px solid var(--border);border-radius:13px;background:var(--bg2);padding:16px 18px;}
 .tdcr .rc-top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:4px;flex-wrap:wrap;}
 .tdcr .rc-head{display:flex;align-items:center;gap:14px;margin-bottom:10px;}
-.tdcr .rc-ovr{font-family:'Sora','Inter',sans-serif;font-weight:800;font-size:30px;line-height:1;color:var(--tc-readable,var(--accent));min-width:44px;text-align:center;flex-shrink:0;}
+.tdcr .rc-ovr{font-family:'Inter',system-ui,sans-serif;font-weight:800;font-size:30px;line-height:1;color:var(--tc-readable,var(--accent));min-width:44px;text-align:center;flex-shrink:0;}
 .tdcr .rc-ovr small{display:block;font-family:'Inter',sans-serif;font-size:8px;font-weight:800;letter-spacing:.08em;color:var(--text3);margin-top:2px;}
 .tdcr .rc-who{flex:1;min-width:0;}
 .tdcr .rc-line{font-size:11.5px;color:var(--text3);font-variant-numeric:tabular-nums;margin-top:3px;}
 .tdcr .rc-line b{color:var(--text2);}
 .tdcr .rc-nm{font-weight:800;font-size:16px;color:var(--text);}
 .tdcr .rc-nm .pos{font-size:10px;font-weight:700;color:var(--tc-readable,var(--accent));margin-left:7px;}
-.tdcr .rc-arch{font-family:'Sora','Inter',sans-serif;font-weight:800;font-size:15px;color:var(--tc-readable,var(--accent));}
+.tdcr .rc-arch{font-family:'Inter',system-ui,sans-serif;font-weight:800;font-size:15px;color:var(--tc-readable,var(--accent));}
 .tdcr .nohist{font-size:11.5px;color:var(--text3);font-style:italic;}
 .tdcr .rc-mods{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
 .tdcr .mod{font-size:10px;font-weight:700;color:var(--text2);background:var(--bg3);border-radius:20px;padding:3px 9px;}
@@ -169,7 +169,7 @@ window.TDC_ROLES = (function(){
 .tdcr .path{display:flex;align-items:center;gap:2px;flex-wrap:wrap;}
 .tdcr .node{text-align:center;min-width:48px;}
 .tdcr .node .yr{font-size:8.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);}
-.tdcr .node .gv{font-family:'Sora','Inter',sans-serif;font-weight:800;font-size:19px;line-height:1;margin-top:2px;color:var(--text);}
+.tdcr .node .gv{font-family:'Inter',system-ui,sans-serif;font-weight:800;font-size:19px;line-height:1;margin-top:2px;color:var(--text);}
 .tdcr .node .pp{font-size:9px;color:var(--text3);margin-top:1px;font-variant-numeric:tabular-nums;}
 .tdcr .node.proj .gv{color:var(--tc-readable,var(--accent));}
 .tdcr .node.proj{border:1px dashed var(--border2);border-radius:9px;padding:4px 5px;}

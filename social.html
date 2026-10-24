@@ -1091,7 +1091,7 @@
     defaults:function(){ return { conf:'ACC', n:10, title:'ACC Title Odds', subtitle:SEASON+' · 2,000 simulated seasons', note:'Regular season = outright or shared title · tournament = wins the conference tournament (automatic bid)', rows:[] }; },
     load:async function(d){
       status('Simulating the season…');
-      await needScript('tdc-schedule.js?v=43'); await needScript('tdc-conftourney.js?v=5'); await ratings();
+      await needScript('tdc-schedule.js?v=ui1'); await needScript('tdc-conftourney.js?v=5'); await ratings();
       var R=await TDCConfT.project(confCode(d.conf),{ sims:2000 }); if(!R) throw new Error('Couldn’t simulate '+d.conf+'.');
       var ts=R.teams.slice().sort(function(a,b){ return (b.champ+b.title)-(a.champ+a.title); }).slice(0,+d.n||10);
       d.rows=ts.map(function(t){ return { name:school(t.team), team:t.team, sub:'Proj. '+t.cw.toFixed(1)+'-'+t.cl.toFixed(1)+' in conference', val:(t.title*100).toFixed(1), val2:(t.champ*100).toFixed(1) }; });
@@ -2186,7 +2186,7 @@
     load:async function(d){
       if(!d.team){ status('Pick a team to load its schedule.'); return; }
       await ratings(); var tr=teamRow(d.team); if(!tr) throw new Error('Unknown team: '+d.team);
-      await needScript('tdc-schedule.js?v=43'); await TDCSched.load();
+      await needScript('tdc-schedule.js?v=ui1'); await TDCSched.load();
       var r=await TDCSched.project(tr.full); if(!r) throw new Error('No 2026-27 schedule on file for '+school(tr.full)+'.');
       var sn=function(x){ return school(x); }, V={ H:'Home', A:'Away', N:'Neutral' };
       var row=function(x,done){ var o={ date:mdy(x.g.date), opp:x.oppName?sn(x.oppName):x.label, team:x.oppName||'', v:V[x.venue]||'', conf:x.g.conf?'1':'', ev:x.event?x.event.replace(/ · day.*/,''):'',
@@ -2539,7 +2539,7 @@
           var dR=wi.rating-wo.rating, pub=tr.rating!=null&&isFinite(+tr.rating)?+tr.rating:null;
           var A=stat(pub==null?wi.rating:WI?pub+dR:pub), B=stat(pub==null?wo.rating:WI?pub:pub-dR);
           // projected record at each rating: the schedule sim, with this team's row set to that rating for the run
-          try{ await needScript('tdc-schedule.js?v=43'); await TDCSched.load(); var DD=await TDC_RATINGS.get(), row=DD.teams.find(function(t){ return onTeam(t.team,TM); }), keep=row&&row.rating;
+          try{ await needScript('tdc-schedule.js?v=ui1'); await TDCSched.load(); var DD=await TDC_RATINGS.get(), row=DD.teams.find(function(t){ return onTeam(t.team,TM); }), keep=row&&row.rating;
             // the sim reads its own copy of the ratings, so shift each game's projected margin by the rating change instead
             // (sd = game noise + rating uncertainty, as the sim uses), from the published rating to each roster's
             var pr=row&&await TDCSched.project(row.full,{ sims:600 });
@@ -2690,7 +2690,7 @@
       // the team strip (owner, Oct 20: "basic team projected stats" instead of player stats): projected record + rank +
       // the projected team box line (team_projected_box.json, the same numbers as the team page)
       var rec='', box=null;
-      try{ await needScript('tdc-schedule.js?v=43'); await TDCSched.load(); var pr=tr&&await TDCSched.project(tr.full,{ sims:800 });
+      try{ await needScript('tdc-schedule.js?v=ui1'); await TDCSched.load(); var pr=tr&&await TDCSched.project(tr.full,{ sims:800 });
         if(pr&&pr.n) rec=Math.round(pr.expW)+'-'+Math.round(pr.n-pr.expW); }catch(e){}
       try{ var B=await json('scripts/data/team_projected_box.json'); box=tr&&(B[tr.full]||B[tr.team])||null; }catch(e){}
       var f1=function(v){ return v!=null&&isFinite(+v)?(+v).toFixed(1):''; };

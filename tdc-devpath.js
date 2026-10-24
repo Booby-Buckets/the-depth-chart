@@ -21,7 +21,7 @@ window.TDC_DEVPATH = (function(){
 .tdcdv .dv-tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg2);margin:0 0 14px;}
 .tdcdv .dv-tile{padding:12px 14px;border-right:1px solid var(--border);}
 .tdcdv .dv-tile:last-child{border-right:none;}
-.tdcdv .dv-tile .v{font-family:'Sora','Inter',sans-serif;font-weight:800;font-size:24px;line-height:1;color:var(--text);font-variant-numeric:tabular-nums;}
+.tdcdv .dv-tile .v{font-family:'Inter',system-ui,sans-serif;font-weight:800;font-size:24px;line-height:1;color:var(--text);font-variant-numeric:tabular-nums;}
 .tdcdv .dv-tile .l{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:6px;}
 .tdcdv .dv-tile .s{font-size:10.5px;color:var(--text3);margin-top:2px;}
 .tdcdv .sheet-wrap{max-height:none;box-shadow:none;}

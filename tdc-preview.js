@@ -137,7 +137,7 @@
   .gp-sub{font-size:12px;color:rgba(255,255,255,.6);margin-top:4px;font-weight:600;}
   .gp-sub b{color:#E6D5A8;}
   .gp-mid{text-align:center;min-width:170px;}
-  .gp-score{font-family:'Playfair Display',serif;font-weight:800;font-size:38px;line-height:1;letter-spacing:-.02em;}
+  .gp-score{font-family:'Inter','Helvetica Neue',system-ui,sans-serif;font-weight:800;font-size:38px;line-height:1;letter-spacing:-.02em;}
   .gp-when{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#E6D5A8;margin-bottom:8px;}
   .gp-odds{font-size:12.5px;color:rgba(255,255,255,.75);margin-top:8px;font-weight:600;}
   .gp-odds b{color:#fff;}
@@ -146,10 +146,10 @@
   .gp-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1px solid var(--border);background:var(--bg);margin:14px 0 6px;}
   .gp-tile{padding:14px 18px 13px;border-right:1px solid var(--border);min-width:0;}
   .gp-tile:last-child{border-right:none;}
-  .gp-tile .v{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:24px;letter-spacing:-.01em;line-height:1;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;}
+  .gp-tile .v{font-family:'Inter','Helvetica Neue',system-ui,sans-serif;font-weight:800;font-size:24px;letter-spacing:0;line-height:1;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;}
   .gp-tile .k{font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-top:6px;white-space:nowrap;}
   .gp-tile .s{font-size:11px;font-weight:500;color:var(--text3);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .gp-h{font-family:'Playfair Display',serif;font-size:19px;font-weight:800;letter-spacing:-.01em;color:var(--text);padding:0 0 8px;margin-top:22px;display:flex;align-items:baseline;gap:10px;}
+  .gp-h{font-family:Inter,system-ui,sans-serif;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:0 0 8px;margin-top:22px;display:flex;align-items:baseline;gap:10px;}
   .gp-h span{margin-left:auto;font-family:'Inter',system-ui,sans-serif;font-size:11px;font-weight:600;letter-spacing:0;color:var(--text3);}
   .gp-wrap{border:1px solid var(--border);border-radius:0;overflow:auto;background:var(--bg);}
   /* the tables are the site sheet (tdc-sheets.css .sheet.dense) — only the extras here */

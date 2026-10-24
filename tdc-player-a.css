@@ -140,3 +140,74 @@
 .pa-carry-in{ position:relative; z-index:1; margin-top:10px; padding:9px 13px; font-size:13px; line-height:1.5; color:var(--text2);
   background:var(--bg2); border:1px solid var(--border2); border-left:3px solid #E0A030; border-radius:0 8px 8px 0; }
 .pa-carry-in b{ color:var(--text); }
+
+/* =====================================================================
+   STAT BLOCKS (Oct 24 2026) — every stat section on the player page reads as the kit's panel
+   (tdc-ui.css .ui-panel): white panel, thin border, a light-grey header strip with the caps title
+   on the left and its context on the right, tables flush to the edges (no box-in-a-box), numbers
+   in the sans face, toggles in the gold tray. Loaded last; one place for the stats look.
+   ===================================================================== */
+
+/* Overview cards (.ovc-box + its .ovc-sl title) */
+.ovc-box{ background:var(--bg) !important; border:1px solid var(--border) !important; border-radius:var(--r,10px) !important;
+  padding:0 !important; overflow:hidden; box-shadow:none !important; }
+.ovc-box > .ovc-sl{ margin:0 !important; padding:10px 14px !important; background:var(--bg2); border-bottom:1px solid var(--border);
+  font-size:11px !important; font-weight:800 !important; letter-spacing:.14em !important; color:var(--text3) !important; }
+.ovc-box > .ovc-sl .sub{ font-size:11px !important; font-weight:600 !important; letter-spacing:0 !important; color:var(--text3) !important; }
+.ovc-box > :not(.ovc-sl){ padding:12px 14px; }
+/* a table straight under the title sits flush: the panel is its border */
+.ovc-box > :not(.ovc-sl):has(> .sheet-wrap:first-child){ padding:0; }
+.ovc-box > :not(.ovc-sl) > .sheet-wrap:first-child{ margin:0 !important; border:0 !important; border-radius:0 !important; }
+.ovc-box > :not(.ovc-sl) > .sheet-wrap:first-child ~ *{ margin:10px 14px 12px; }
+.ovc-box .sheet tbody tr:last-child td{ border-bottom:0; }
+.ovc-bottom{ background:var(--bg) !important; border-color:var(--border) !important; }
+
+/* Stats tab: a caps title directly over a table becomes that table's header strip */
+#panel-stats .sec-title:has(+ .sheet-wrap), #panel-stats .sec-title:has(+ div > .sheet-wrap:first-child){
+  margin:26px 0 0 !important; padding:10px 14px !important; background:var(--bg2); border:1px solid var(--border) !important;
+  border-bottom:0 !important; border-radius:var(--r,10px) var(--r,10px) 0 0; }
+#panel-stats .sec-title + .sheet-wrap, #panel-stats .sec-title + div > .sheet-wrap:first-child{ border-radius:0 0 var(--r,10px) var(--r,10px) !important; margin-top:0 !important; }
+
+/* season table + mode switch (Per game / Per 40 / Advanced) and season buttons: the gold tray */
+.statmode-row, .gl-seasons{ display:inline-flex !important; gap:2px !important; padding:2px !important; background:var(--bg2) !important;
+  border:1px solid var(--border) !important; border-radius:9px !important; }
+.statmode-btn, .gl-season-btn{ border:0 !important; border-radius:7px !important; background:none !important; color:var(--text3) !important;
+  font:700 11px 'Inter',system-ui,sans-serif !important; letter-spacing:.05em !important; text-transform:uppercase; padding:6px 12px !important; }
+.statmode-btn:hover:not(.active), .gl-season-btn:hover:not(.active){ color:var(--text) !important; }
+.statmode-btn.active, :root[data-theme="dark"] .statmode-btn.active, .gl-season-btn.active, :root[data-theme="dark"] .gl-season-btn.active{
+  background:var(--accent) !important; color:var(--accent-on,#221c08) !important; }
+
+/* opponent-tier cards: hairline cells (the header stats row / NBA strip), sans numbers */
+.gl-tier-grid{ gap:1px !important; background:var(--border); border:1px solid var(--border); border-radius:var(--r,10px); overflow:hidden; }
+.gl-tcard{ background:var(--bg2) !important; border:0 !important; border-radius:0 !important; box-shadow:none !important; transform:none !important; }
+.gl-tcard.on{ box-shadow:inset 0 -3px 0 var(--accent) !important; }
+.gl-tcard-big{ font-family:'Inter','Helvetica Neue',system-ui,sans-serif !important; font-size:26px !important; }
+
+/* game-rating chart: a plain panel, not a grey card */
+.gl-chart{ background:var(--bg) !important; border-radius:var(--r,10px) !important; }
+.gl-chart-avg b{ font-family:'Inter',system-ui,sans-serif !important; }
+
+/* ---- the other player tabs (DNA, Shots, Percentiles, Scouting, Dev Path, NIL, Betting, Buzz) ---- */
+/* any segmented control inside a tab panel: the gold tray */
+[id^="panel-"] .seg{ display:inline-flex !important; gap:2px !important; padding:2px !important; background:var(--bg2) !important;
+  border:1px solid var(--border) !important; border-radius:9px !important; }
+[id^="panel-"] .seg button{ border:0 !important; border-radius:7px !important; background:none !important; color:var(--text3) !important;
+  font:700 11px 'Inter',system-ui,sans-serif !important; letter-spacing:.05em !important; text-transform:uppercase; padding:6px 12px !important; box-shadow:none !important; }
+[id^="panel-"] .seg button:hover:not(.on):not(.active){ color:var(--text) !important; }
+[id^="panel-"] .seg button.on, [id^="panel-"] .seg button.active{ background:var(--accent) !important; color:var(--accent-on,#221c08) !important; }
+
+/* numbers in the sans face (they were Playfair) */
+.dd-hi-v, .sg-mval, .skill-bar-val, .scout-fc-val, #panel-scout .v, .nv2-big, .bi-num{
+  font-family:'Inter','Helvetica Neue',system-ui,sans-serif !important; letter-spacing:0 !important; }
+.nv2-big{ font-size:56px !important; }
+.bi-num{ font-size:40px !important; }
+/* a card's own title: the caps label, not a serif heading */
+.sg-title{ font-family:'Inter',system-ui,sans-serif !important; font-size:11px !important; font-weight:800 !important; letter-spacing:.14em !important;
+  text-transform:uppercase !important; color:var(--text3) !important; }
+
+/* panels (a titled block of content) are white with a thin border… */
+.sg-card, .scout-card, .bet-panel, .bet-topbar, .buzz-index-card, #panel-role .rc, #panel-dossier .idcard{
+  background:var(--bg) !important; border:1px solid var(--border) !important; border-radius:var(--r,10px) !important; box-shadow:none !important; }
+/* …and tiles (one number each) are flat grey cells with the same corner */
+.dd-hi, .dist-card, .si-card, .scout-fc-grid > *, #panel-devpath .dv-tile{
+  background:var(--bg2) !important; border:1px solid var(--border) !important; border-radius:var(--r,10px) !important; box-shadow:none !important; }
