@@ -31,8 +31,7 @@
     ]],
     ['Players', [
       ['following.html',       '★ Following'],
-      ['player-rankings.html', 'Player Rankings'],
-      ['roster.html',          'Player Projected Stats'],
+      ['roster.html',          'Player Rankings'],
       ['transfers.html',       'Transfer Portal'],
       ['transfer-fit.html',    'Transfer Fit'],
       ['compare-players.html', 'Compare Players'],

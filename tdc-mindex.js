@@ -115,7 +115,7 @@
           return '<tr><td class="rk">' + (i + 1) + '</td><td class="l nm"><a href="' + a.getAttribute('href') + '">' + esc((a.querySelector('.sc-pname') || {}).textContent) + '</a></td>' +
             '<td class="l dim">' + esc((a.querySelector('.sc-pteam') || {}).textContent) + '</td><td class="c4 strong">' + esc(g) + '</td></tr>';
         }).join('');
-        var h = '<div class="mi-st"><span>' + esc(lbl) + '</span><a href="player-rankings.html">All players ›</a></div>' +
+        var h = '<div class="mi-st"><span>' + esc(lbl) + '</span><a href="roster.html">All players ›</a></div>' +
           '<div class="sheet-wrap" style="max-height:none"><table class="sheet dense" style="width:100%"><thead><tr><th class="rk">#</th><th class="l">Player</th><th class="l">Team</th><th>OVR</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
         if (top.__h !== h) { top.__h = h; top.innerHTML = h; }
       });

@@ -15,7 +15,7 @@
   <meta name="twitter:title" content="Player Projected Stats — The Depth Chart">
   <meta name="twitter:description" content="Advanced college basketball roster rankings, team & player analytics, NIL values, and 2026-27 projections for all of Division I.">
   <script src="auth.js?v=sales2"></script>
-  <script src="tdc-gate.js?v=4" data-gate="pro" data-label="Player Projected Stats"></script>
+  <script src="tdc-gate.js?v=4"></script>
   <script src="team-colors.js?v=13"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="tdc-teamname.js?v=1"></script>
@@ -23,13 +23,22 @@
   <script src="tdc-projgrade.js?v=disp1"></script>
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-rating.js?v=5"></script>
+  <script src="tdc-archetypes.js?v=7"></script>
+  <script src="tdc-nil.js?v=pay13"></script>
+  <script src="tdc-pos.js"></script>
+  <script src="tdc-pool.js?v=5"></script>
+  <script src="tdc-histguard.js?v=2"></script>
+  <script src="tdc-proj.js?v=hg5"></script>
+  <script src="bigboard-engine.js?v=32"></script>
   <meta charset="UTF-8"/>
   <script src="tdc-theme.js?v=5"></script>
   <script src="tdc-glossary.js?v=14"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Player Projected Stats — The Depth Chart</title>
+  <title>Player Rankings & Projected Stats — The Depth Chart</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
+    .rk-gatebox{min-height:330px;margin-top:-1px;}
+    .roster-table td.rk,.roster-table th.rk{text-align:right;color:var(--text3);font-variant-numeric:tabular-nums;}
     :root{--green:#1a8c3a;--blue:#1a5fbf;--amber:#a06000;--red:#cc2200;}
     [data-theme="dark"]{}
     [data-theme="dark"] .nav-signin{background:var(--text)!important;color:var(--bg)!important;}
@@ -247,18 +256,8 @@ body{background:transparent!important;}
 <script src="tdc-nav.js?v=81"></script>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
 <script>
-// Premium gate check
-(function(){
-  if(!window.TDC_PAYWALL_ENABLED) return;   // paywall master switch (auth.js) — off = open
-  const s = JSON.parse(localStorage.getItem('tdc_session')||'null');
-  if(!s?.access_token){ location.href='signin.html?next='+encodeURIComponent(location.pathname.split('/').pop()+location.search); return; }
-  // Verify session and check plan
-  fetch('https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/profiles?id=eq.'+s.user?.id+'&select=plan',{
-    headers:{'apikey':'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye','Authorization':'Bearer '+s.access_token}
-  }).then(r=>r.json()).then(([p])=>{
-    if(!(window.tdcIsOwner&&window.tdcIsOwner())&&(!p||['premium','pro','coach'].indexOf(p.plan)<0)) location.href='pricing.html?gate=1';
-  }).catch(()=>location.href='pricing.html?gate=1');
-})();
+// Oct 24 2026 (owner): Player Rankings merged into this page. The top FREE_ROWS rows of any view are free;
+// the rest of the list sits behind the Pro card (see _gateRest), so the old redirect-to-pricing gate is gone.
 </script>
 
 <div class="nav-wrap">
@@ -298,7 +297,7 @@ body{background:transparent!important;}
 <div class="ph-hero">
   <div class="ph-left">
     <div class="page-eyebrow">Players · 2026-27</div>
-    <h1 class="page-h1">Player Projected Stats</h1>
+    <h1 class="page-h1">Player Rankings</h1>
     <p class="page-sub">Every rotation player's projected 2026-27 stat line, from the same engine that produces the rankings. Pick a past season to see actual stats.</p>
     <div class="page-meta" id="pageMeta">Loading players...</div>
   </div>
@@ -351,6 +350,12 @@ body{background:transparent!important;}
     <option value="A10">A-10</option>
     <option value="AAC">AAC</option>
   </select></label>
+  <label class="f-lab"><span>Level</span><select class="filter-select" id="lvFilter" onchange="applyFilters()">
+    <option value="">All</option>
+    <option value="H">High major</option>
+    <option value="M">Mid major</option>
+    <option value="L">Low major</option>
+  </select></label>
   <label class="f-lab"><span>Team</span><select class="filter-select" id="teamFilter" onchange="applyFilters()">
     <option value="">All</option>
   </select></label>
@@ -363,6 +368,9 @@ body{background:transparent!important;}
     <option value="PF">PF</option>
     <option value="C">C</option>
   </select></label>
+  <label class="f-lab"><span>Style</span><select class="filter-select" id="styleFilter" onchange="applyFilters()">
+    <option value="">All</option>
+  </select></label>
   <label class="f-lab"><span>Class</span><select class="filter-select" id="yrFilter" onchange="applyFilters()">
     <option value="">All</option>
     <option value="Fr.">Fr.</option>
@@ -374,6 +382,12 @@ body{background:transparent!important;}
     <option value="Sr.">Sr.</option>
     <option value="R-Sr.">R-Sr.</option>
     <option value="Gr.">Gr.</option>
+  </select></label>
+  <label class="f-lab"><span>Type</span><select class="filter-select" id="typeFilter" onchange="applyFilters()">
+    <option value="">All</option>
+    <option value="ret">Returners</option>
+    <option value="xfer">Transfers</option>
+    <option value="fresh">Incoming freshmen</option>
   </select></label>
   <label class="f-lab"><span>Height</span><select class="filter-select" id="htFilter" onchange="applyFilters()">
     <option value="">All</option>
@@ -451,6 +465,16 @@ let _filtered = [];           // current filtered+sorted rows
 let _rendered = 0;            // how many appended so far (infinite scroll)
 let _rkScrollBound = false;
 const RENDER_CHUNK = 80;
+// ── merged from Player Rankings (Oct 24 2026) ──
+const FREE_ROWS = 25;   // any view's top 25 rows are free; the rest needs Pro
+const _isPro = () => !!((window.tdcIsOwner&&window.tdcIsOwner()) || (window.TDCGate&&TDCGate.has&&TDCGate.has('pro')));
+// conference level, the same split as the NIL model and Social Studio (tdc-nil.js confClass)
+function tierOf(c){ c=(''+(c||'')).toLowerCase().replace(/[\s\-_.]/g,'');
+  if(/bigten|big12|southeastern|bigeast|atlanticcoast/.test(c)||['acc','sec','b10','b12','be','bigeast','big12','bigten'].indexOf(c)>=0) return 'H';
+  if(/american|atlantic10|mountainwest|westcoast|conferenceusa|sunbelt|midamerican|missourivalley|pac12|pacific/.test(c)||['aac','a10','mwc','wcc','pac12','p12','pac','mvc','cusa','mac','sbc','sunbelt'].indexOf(c)>=0) return 'M';
+  return c?'L':''; }
+let FAV = '';   // the viewer's favorite team (sign-up / profile) -> "My team" in the Team list
+const _proj = () => (document.getElementById('seasonFilter')||{}).value==='2027';
 
 function seasonLabel(yr){ yr=+yr; return yr>=2027?(yr-1)+'-'+(''+yr).slice(2)+' (proj)':(yr-1)+'-'+(''+yr).slice(2); }
 function seasonShort(yr){ yr=+yr||2027; return (''+(yr-1)).slice(-2)+'-'+(''+yr).slice(-2); }
@@ -633,6 +657,8 @@ async function loadSeason(yr){
 
 async function onSeasonChange(){
   const yr=document.getElementById('seasonFilter').value;
+  // type, style, NIL, Board and change are 2026-27 projection fields
+  ['typeFilter','styleFilter'].forEach(id=>{ const el=document.getElementById(id); if(!el) return; if(yr!=='2027') el.value=''; el.disabled=(yr!=='2027'); });
   activeData = await loadSeason(yr);
   updateMeta();
   applyFilters();
@@ -698,6 +724,7 @@ async function loadData(){
     if(window.TDCProjGrade && TDCProjGrade.ready){ try{ await TDCProjGrade.ready; }catch(e){} }   // v5 model data (level/dev)
     // SHEET STATS DON'T MATTER — show real linked player_history stats (by espn_id).
     try{ if(window.TDCRealStats) await TDCRealStats.enrich(allRaw); }catch(e){ console.warn('realstats',e); }
+    try{ if(window.TDC_ARCH) await TDC_ARCH.ready; }catch(e){}
     // Projected shot tendency / share by espn_id — same source as the player, team
     // and compare pages, so the TEND columns agree everywhere.
     let _shotMap={};
@@ -727,6 +754,11 @@ async function loadData(){
         conf: (teamMap[p.team]||{}).conf || (teamMap[p.team]||{}).conference || '',
         wa: cw, _waCarried: cw!=null,
         _projGrade: (ovr!=null && !isNaN(ovr)) ? ovr : null,
+        // rankings fields: type, style (own espn id only), change vs his 2025-26 stat overall
+        _type: (/^fr/i.test(String(p.class_year||p.yr||'')) && !(parseFloat(p.ppg)>0)) ? 'fresh' : (p.is_addition ? 'xfer' : 'ret'),
+        _arch: (()=>{ try{ const a=(p.espn_id!=null&&window.TDC_ARCH)?TDC_ARCH.of(p.espn_id,null):null; return a?a.name:''; }catch(e){ return ''; } })(),
+        _chg: (()=>{ try{ const pv=(p.espn_id!=null&&window.TDCProjGrade&&TDCProjGrade.statOvr)?TDCProjGrade.statOvr({espn_id:p.espn_id,season_year:2026}):null;
+          return (pv!=null&&isFinite(+pv)&&ovr!=null)?Math.round(ovr)-Math.round(+pv):null; }catch(e){ return null; } })(),
         shot_tend: _sh?_sh.shot_tend:null, tend_three: _sh?_sh.tend_three:null,
         tend_two: _sh?_sh.tend_two:null, tend_ft: _sh?_sh.tend_ft:null, shot_share: _sh?_sh.shot_share:null,
       };
@@ -737,6 +769,13 @@ async function loadData(){
                           .sort((a,b)=>b[0].length-a[0].length);
 
     seasonCache['2027'] = allPlayers;
+    _fillStyles(); _loadNil(); _loadBoard(); _loadFav();
+    // links from the old Player Rankings page (and shareable views): ?lv= &type= &pos= &conf= &yr= &sort=
+    try{ const u=new URLSearchParams(location.search), set=(id,v)=>{ const el=document.getElementById(id); if(el&&v!=null&&[...el.options].some(o=>o.value===v)) el.value=v; };
+      set('lvFilter',u.get('lv')); set('typeFilter',u.get('type')); set('posFilter',u.get('pos')); set('confFilter',u.get('conf')); set('yrFilter',u.get('yr'));
+      const so=u.get('sort'); if(so){ sortCol=so; sortDir=1; } }catch(e){}
+    // the plan resolves after the first paint: re-draw so a Pro member gets the full list, not the free 25
+    if(window.TDCGate&&TDCGate.ready) TDCGate.ready.then(()=>{ const g=document.getElementById('rkGate'); if(g) g.dataset.n=''; applyFilters(); });
     activeData = allPlayers;
     updateMeta();
     applyFilters();
@@ -744,6 +783,40 @@ async function loadData(){
     document.getElementById('tableContainer').innerHTML =
       '<div class="empty-state">Could not load roster data.</div>';
   }
+}
+
+// ── rankings extras: styles list, NIL value, Big Board rank, favorite team ──
+function _fillStyles(){
+  const sel=document.getElementById('styleFilter'); if(!sel) return;
+  const roles=[...new Set(allPlayers.map(p=>p._arch).filter(Boolean))].sort();
+  sel.innerHTML='<option value="">All</option>'+roles.map(r=>`<option value="${r.replace(/"/g,'&quot;')}">${r}</option>`).join('');
+  try{ const q=new URLSearchParams(location.search).get('style'); if(q&&roles.includes(q)){ sel.value=q; applyFilters(); } }catch(e){}
+}
+async function _loadNil(){   // the open-market value the team NIL tab shows (nil-data.json priced by TDC_NIL)
+  try{
+    const N=window.TDC_NIL, nd=await fetch('nil-data.json?v=gradesync19').then(r=>r.ok?r.json():null);
+    if(!N||!nd||!nd.teams||!N.neutralValueOf) return;
+    for(const k of ['dealsReady','pedigreeReady','defenseReady','adjustReady','injuryReady','programsReady']){ if(N[k]){ try{ await N[k]; }catch(e){} } }
+    const by={}; for(const t in nd.teams){ const T=nd.teams[t]; (T.players||[]).forEach(r=>{ by[t+'|'+String(r.name||'').toLowerCase().trim()]={r,tier:T.tier}; }); }
+    allPlayers.forEach(p=>{ const h=by[p.team+'|'+String(p.name).toLowerCase().trim()]; if(h&&!h.r.walkon){ const v=N.neutralValueOf(h.r,h.tier); if(v>0) p.nil=v; } });
+    if(_proj()) applyFilters();
+  }catch(e){}
+}
+async function _loadBoard(){   // NBA Big Board rank from the shared engine (same as the Big Board page)
+  try{
+    if(!window.TDC_BIGBOARD||!window.TDCPool) return;
+    const tm={}; (await fetch(`${SB}/rest/v1/teams?select=*`,{headers:H}).then(r=>r.ok?r.json():[])).forEach(t=>{ tm[t.name]=t; });
+    const res=await TDC_BIGBOARD.board((await TDCPool.get()).map(TDC_BIGBOARD.sane), tm), byId=(res&&res.byId)||{};
+    allPlayers.forEach(p=>{ const m=byId[p.id]; if(m&&m.rank) p.bb=m.rank; });
+    if(_proj()) applyFilters();
+  }catch(e){}
+}
+async function _loadFav(){
+  try{ FAV=localStorage.getItem('tdc_fav')||''; }catch(e){}
+  if(!FAV){ try{ const ss=JSON.parse(localStorage.getItem('tdc_session')||'null'), uid=ss&&ss.user&&ss.user.id;
+    if(uid&&window.tdcH){ const r=await fetch(`${SB}/rest/v1/profiles?id=eq.${uid}&select=favorite_team`,{headers:tdcH()}).then(x=>x.ok?x.json():[]); FAV=(r&&r[0]&&r[0].favorite_team)||''; } }catch(e){} }
+  const sel=document.getElementById('teamFilter');
+  if(FAV&&sel&&!sel.querySelector('option[value="__mine"]')){ const o=document.createElement('option'); o.value='__mine'; o.textContent='My team: '+((window.tdcShortSchool&&tdcShortSchool(FAV))||FAV); sel.insertBefore(o, sel.options[1]||null); }
 }
 
 // ── QUERY BUILDER ─────────────────────────────────────────────────────────────
@@ -796,17 +869,24 @@ function applyFilters(){
   const ht     = document.getElementById('htFilter').value;
   const grade  = document.getElementById('gradeFilter').value;
   const waMin  = document.getElementById('waFilter').value;
+  const lv     = document.getElementById('lvFilter').value;
+  const typ    = document.getElementById('typeFilter').value;
+  const sty    = document.getElementById('styleFilter').value;
   const search = document.getElementById('searchInput').value.toLowerCase().trim();
 
   let filtered = activeData.filter(p => {
     if(waMin!=='' && (p.wa==null || p.wa < parseFloat(waMin))) return false;
     if(conf   && p.conf !== conf) return false;
-    if(team   && p.team !== team && !((p.team||'').toLowerCase().startsWith(team.toLowerCase()+' '))) return false;
+    if(team==='__mine'){ if(!FAV || (p.team!==FAV && !((p.team||'').toLowerCase().startsWith(FAV.toLowerCase()+' ')))) return false; }
+    else if(team && p.team !== team && !((p.team||'').toLowerCase().startsWith(team.toLowerCase()+' '))) return false;
+    if(lv     && tierOf(p.conf) !== lv) return false;
+    if(typ    && p._type !== typ) return false;
+    if(sty    && p._arch !== sty) return false;
     if(pos    && p.position !== pos) return false;
     if(yr     && (p.class_year||p.yr) !== yr) return false;
     if(ht     && !htMatch(p.height, ht)) return false;
     if(grade) {
-      const n = parseInt(p.tdc_grade);
+      const n = parseInt(_gdisp(p));
       const min = parseInt(grade);
       const max = min === 0 ? 49 : min + 9;
       if(isNaN(n) || n < min || n > max) return false;
@@ -825,7 +905,8 @@ function applyFilters(){
   // Sort
   filtered.sort((a,b) => {
     let av, bv;
-    const numCols = ['wa','ppg','rpg','apg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs','gp','season_year','shot_tend','tend_three','tend_two','tend_ft'];
+    if(sortCol==='bb'){ av=a.bb??1e9; bv=b.bb??1e9; return (av-bv)*sortDir; }
+    const numCols = ['_chg','nil','wa','ppg','rpg','apg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs','gp','season_year','shot_tend','tend_three','tend_two','tend_ft'];
     if(numCols.includes(sortCol)){
       av = parseFloat(a[sortCol]??-999)||0; bv = parseFloat(b[sortCol]??-999)||0;
       return (bv-av)*sortDir;
@@ -879,10 +960,11 @@ function renderTable(players){
       <span class="color-key" style="font-size:11px;color:var(--text3);display:inline-flex;align-items:center;gap:7px;">National percentile<span class="ckey-grad"></span>red = low, green = high</span>
       ${(document.getElementById('seasonFilter')||{}).value==='2027' ? '<span style="font-size:11px;color:var(--text3);margin-left:auto;"><b style="color:var(--text2);">WA*</b> = 2025-26 Wins Added, carried forward</span>' : ''}
     </div>
-    <div class="sheet-wrap" id="rkSheet" style="--c1:52px;--c2:200px;">
-    <table class="roster-table sheet dense freeze2">
+    <div class="sheet-wrap" id="rkSheet" style="--c1:44px;--c2:52px;--c3:200px;">
+    <table class="roster-table sheet dense freeze3">
       <thead>
         <tr>
+          <th class="rk" title="Rank in this view">#</th>
           ${col('tdc_grade','OVR')}
           ${col('name','Player','l')}
           ${col('season_year','Season','l')}
@@ -891,7 +973,11 @@ function renderTable(players){
           ${col('position','Pos','l')}
           ${col('height','Ht','l')}
           ${col('class_year','Yr','l')}
+          ${_proj()?col('_arch','Style','l'):''}
+          ${_proj()?col('_chg','Chg'):''}
           ${col('wa','WA')}
+          ${_proj()?col('nil','NIL'):''}
+          ${_proj()?col('bb','Board'):''}
           ${col('gp','GP')}
           ${col('ppg','PPG')}
           ${col('rpg','RPG')}
@@ -919,7 +1005,8 @@ function renderTable(players){
       </thead>
       <tbody id="rosterBody"></tbody>
     </table></div>
-    <div class="sheet-legend"><span><span class="sw"></span>weak → strong, shaded on the national percentile</span><span>Click any column heading to sort · OVR and player stay frozen while you scroll</span></div>`;
+    <div class="sheet-legend"><span><span class="sw"></span>weak → strong, shaded on the national percentile</span><span>Click any column heading to sort · rank, OVR and player stay frozen while you scroll</span>${_proj()?'<span><b>Chg</b> = projected overall minus his 2025-26 overall · <b>NIL</b> = projected open-market value · <b>Board</b> = NBA Big Board rank</span>':''}</div>
+    <div id="rkGate"></div>`;
   _rendered = 0;
   _renderMore();
   if(!_rkScrollBound){ window.addEventListener('scroll', _onRosterScroll, {passive:true}); _rkScrollBound=true; }
@@ -940,13 +1027,16 @@ function _statColor(v,k){
   return 'c'+pct;
 }
 
-function _rowHTML(p){
+function _rowHTML(p, i){
   const yr = p.class_year||p.yr||'';
   const plink = `player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}${p._hist?('&season='+p.season_year):''}`;
   const logo = window.tdcTeamColor&&(tdcTeamColor(p.team)||{}).logo;
   const st = (v,k,txt)=>`<td class="${_statColor(v,k)}">${txt}</td>`;
   const tn = v=>`<td class="${_tendCol(v)}">${v!=null?v:'—'}</td>`;
+  const nilTxt = v => v==null ? '—' : v>=1 ? '$'+(+v).toFixed(2)+'M' : '$'+Math.round(v*1000)+'K';
+  const chg = p._chg;
   return `<tr>
+            <td class="rk dim">${i+1}</td>
             <td class="big">${_gdisp(p)||'—'}</td>
             <td class="l nm"><a href="${plink}" title="${String(p.name||'').replace(/"/g,'&quot;')}">${p.name}</a>${p.is_injured?'<span class="tag" title="Injured">INJ</span>':''}${p.is_international?'<span class="tag" title="International">INTL</span>':''}${p.starter?'<span class="tag" title="Starter">*</span>':''}</td>
             <td class="l dim"${p._hist?'':' title="Projected season"'}>${seasonShort(p.season_year)}</td>
@@ -955,7 +1045,11 @@ function _rowHTML(p){
             <td class="l dim">${p.position||'—'}</td>
             <td class="l dim">${safeHt(p.height)}</td>
             <td class="l dim">${yr}</td>
+            ${_proj()?`<td class="l dim">${p._arch||'—'}</td>`:''}
+            ${_proj()?`<td class="${chg==null?'dim':chg>=3?'c4':chg>=1?'c3':chg<=-3?'c0':chg<=-1?'c1':''}">${chg==null?'—':(chg>0?'+':'')+chg}</td>`:''}
             <td class="${p._waCarried?'dim':''}"${p._waCarried?' title="2025-26 Wins Added (carried forward)"':''}>${p.wa!=null?(p.wa>=0?'+':'')+Number(p.wa).toFixed(1)+(p._waCarried?'*':''):'—'}</td>
+            ${_proj()?`<td>${nilTxt(p.nil)}</td>`:''}
+            ${_proj()?`<td>${p.bb?'#'+p.bb:'—'}</td>`:''}
             <td>${p.gp||'—'}</td>
             ${st(p.ppg,'ppg',fmt(p.ppg))}${st(p.rpg,'rpg',fmt(p.rpg))}${st(p.apg,'apg',fmt(p.apg))}${st(p.mpg,'mpg',fmt(p.mpg))}
             ${st(p.fgm,'fgm',fmt(p.fgm))}${st(p.fga,'fga',fmt(p.fga))}${st(p.fg_pct,'fg_pct',fmt(p.fg_pct))}
@@ -975,14 +1069,28 @@ function _tendCol(v){
 
 function _renderMore(){
   const body=document.getElementById('rosterBody'); if(!body) return;
-  const slice=_filtered.slice(_rendered, _rendered+RENDER_CHUNK);
-  if(!slice.length) return;
-  body.insertAdjacentHTML('beforeend', slice.map(_rowHTML).join(''));
+  const cap = _isPro() ? _filtered.length : Math.min(FREE_ROWS, _filtered.length);
+  const slice=_filtered.slice(_rendered, Math.min(cap, _rendered+RENDER_CHUNK));
+  if(!slice.length){ _gateRest(); return; }
+  const base=_rendered;
+  body.insertAdjacentHTML('beforeend', slice.map((p,j)=>_rowHTML(p, base+j)).join(''));
   _rendered += slice.length;
+  if(_rendered>=cap) _gateRest();
 }
 
+// past the free rows: a few blurred rows under the Pro card (tdc-gate.js), never the real rest of the list
+function _gateRest(){
+  const host=document.getElementById('rkGate'); if(!host) return;
+  if(_isPro() || _filtered.length<=FREE_ROWS){ host.innerHTML=''; return; }
+  if(host.dataset.n===String(_filtered.length)) return;
+  host.dataset.n=String(_filtered.length);
+  const rows=_filtered.slice(FREE_ROWS, FREE_ROWS+6).map((p,j)=>_rowHTML(p, FREE_ROWS+j)).join('').replace(/<img[^>]*>/g,'');   // blurred filler: no logos
+  host.innerHTML=`<div class="rk-gatebox"><div class="sheet-wrap" style="max-height:none;--c1:44px;--c2:52px;--c3:200px;"><table class="roster-table sheet dense freeze3"><tbody>${rows}</tbody></table></div></div>`;
+  if(window.TDCGate&&TDCGate.lock) TDCGate.lock(host.firstChild,{tier:'pro',label:'all '+_filtered.length.toLocaleString()+' players',
+    blurb:'The top '+FREE_ROWS+' of any ranking are free. Get Pro for $8.99/mo for the full list, every stat column, past seasons and the Query Builder.'});
+}
 function _onRosterScroll(){
-  if(_rendered>=_filtered.length) return;
+  if(_rendered>=(_isPro()?_filtered.length:Math.min(FREE_ROWS,_filtered.length))) return;
   var pane=document.getElementById('rkSheet');
   if(pane && pane.scrollHeight>pane.clientHeight+4){
     if(pane.scrollTop + pane.clientHeight > pane.scrollHeight - 800) _renderMore();
@@ -998,7 +1106,7 @@ function setSort(col){
 }
 
 function clearFilters(){
-  ['confFilter','teamFilter','posFilter','yrFilter','htFilter','gradeFilter','waFilter']
+  ['confFilter','lvFilter','teamFilter','posFilter','styleFilter','yrFilter','typeFilter','htFilter','gradeFilter','waFilter']
     .forEach(id=>document.getElementById(id).value='');
   document.getElementById('searchInput').value='';
   _qConds=[]; if(document.getElementById('queryPanel').style.display!=='none') renderQuery();
