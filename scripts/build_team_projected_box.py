@@ -169,20 +169,23 @@ def newcomer_line(short, nm, x, t=None):
         if k == "ppg": continue
         b[k] = b[k] + v if k.endswith("_pct") else b[k] * v
     s = lambda k: float(sl.get(k, 50)); mm = lambda k, r: 1 + ((s(k) - 50) / 50) * r; aa = lambda k, r: ((s(k) - 50) / 50) * r
-    b["tp_pct"] += aa("three", 11); b["fg_pct"] += aa("mid", 4) + aa("paint", 6); b["oreb"] *= mm("paint", 0.35)
-    b["ft_pct"] += aa("ft", 12)
-    b["apg"] = max(0.1, b["apg"] * mm("playmaking", 0.7) + aa("playmaking", 2.2 + 1.4 * guard)); b["tovs"] *= mm("playmaking", 0.20)
+    b["tp_pct"] += aa("three", 7); b["fg_pct"] += aa("mid", 2.5) + aa("paint", 4); b["oreb"] *= mm("paint", 0.35)
+    b["ft_pct"] += aa("ft", 10)
+    b["apg"] = max(0.1, b["apg"] * mm("playmaking", 0.5) + aa("playmaking", 1.2 + 1.0 * guard)); b["tovs"] *= mm("playmaking", 0.20)
     b["oreb"] *= mm("athleticism", 0.45); b["blk"] *= mm("athleticism", 0.4); b["stl"] *= mm("athleticism", 0.25); b["dreb"] *= mm("athleticism", 0.14)
     st, bl = s("steals"), s("blocks")
-    b["stl"] = max(0.05, b["stl"] * (1 + ((st - 50) / 50) * 0.6) + ((st - 50) / 50) * 0.9)
-    b["blk"] = max(0.02, b["blk"] * (1 + ((bl - 50) / 50) * 0.6) + ((bl - 50) / 50) * (0.5 + 1.4 * size))
-    b["rpg"] = max(0.3, b["rpg"] * mm("rebounding", 0.5) + aa("rebounding", 1.2 + 2.0 * size))
-    b["oreb"] *= mm("rebounding", 0.4); b["dreb"] *= mm("rebounding", 0.4)
-    rd = s("ready"); pm = 1 + ((rd - 50) / 50) * 0.22
+    b["stl"] = max(0.05, b["stl"] * (1 + ((st - 50) / 50) * 0.45) + ((st - 50) / 50) * 0.45)
+    b["blk"] = max(0.02, b["blk"] * (1 + ((bl - 50) / 50) * 0.45) + ((bl - 50) / 50) * (0.25 + 0.9 * size))
+    b["rpg"] = max(0.3, b["rpg"] * mm("rebounding", 0.4) + aa("rebounding", 0.8 + 1.4 * size))
+    b["oreb"] *= mm("rebounding", 0.3); b["dreb"] *= mm("rebounding", 0.3)
+    rd = s("ready"); pm = 1 + ((rd - 50) / 50) * 0.14
     for k in ("rpg", "apg", "stl", "blk", "oreb", "dreb"): b[k] *= pm
-    b["fg_pct"] += ((rd - 50) / 50) * 4; b["tp_pct"] += ((rd - 50) / 50) * 3; b["ft_pct"] += ((rd - 50) / 50) * 2
-    b["tovs"] *= 1 - ((rd - 50) / 50) * 0.20
-    b["fg_pct"] = max(30, min(70, b["fg_pct"])); b["tp_pct"] = max(0, min(48, b["tp_pct"])); b["ft_pct"] = max(45, min(95, b["ft_pct"]))
+    b["fg_pct"] += ((rd - 50) / 50) * 2.5; b["tp_pct"] += ((rd - 50) / 50) * 2; b["ft_pct"] += ((rd - 50) / 50) * 1.5
+    b["tovs"] *= 1 - ((rd - 50) / 50) * 0.15
+    # the editor's percentage ceilings (tdc-freshman.js PCT_CEIL: knee, kept, max)
+    for k, (kn, kp_, mx) in (("fg_pct", (54, 0.5, 62)), ("tp_pct", (38, 0.5, 43)), ("ft_pct", (82, 0.5, 88))):
+        if b[k] > kn: b[k] = min(mx, kn + (b[k] - kn) * kp_)
+    b["fg_pct"] = max(30, b["fg_pct"]); b["tp_pct"] = max(0, b["tp_pct"]); b["ft_pct"] = max(45, b["ft_pct"])
     for k, dk in (("apg", "apg"), ("stl", "stl"), ("blk", "blk"), ("tovs", "tov")): d[dk] *= b[k] / max(b0[k], 1e-6)
     # the editor sets rebounds as a total; split it in the oreb/dreb mix the sliders left
     od = b["oreb"] + b["dreb"]

@@ -1401,6 +1401,7 @@ def _fresh_est(short,name,depth,starter,position,height=None):
     # THE EDITOR'S OTHER SLIDERS (owner, Oct 14 2026: Jordan Smith's rebounding / playmaking edits never reached his line or
     # OVR — only "scoring" was read). Mirror tdc-freshman.js applySliders on the per-40 rates: each lever's multiplier plus
     # its raw per-game term converted to per-40 at his projected minutes. Shooting %s stay with the shooting model.
+    # Ranges = tdc-freshman.js applySliders (cut Oct 24 2026; keep the two in step).
     _sl=ed.get("sliders") or {}
     _rt0=dict(rt) if rt else None
     if rt and _sl:
@@ -1414,14 +1415,14 @@ def _fresh_est(short,name,depth,starter,position,height=None):
         rt=dict(rt)
         _reb=rt.get("oreb",0)+rt.get("dreb",0)
         if _reb>0:
-            _nreb=max(0.3*_p40,_reb*(1+_d("rebounding")*0.5)+_d("rebounding")*(1.2+2.0*_size)*_p40)
+            _nreb=max(0.3*_p40,_reb*(1+_d("rebounding")*0.4)+_d("rebounding")*(0.8+1.4*_size)*_p40)
             rt["oreb"]*=_nreb/_reb; rt["dreb"]*=_nreb/_reb
-        if "ast" in rt: rt["ast"]=max(0.1*_p40,rt["ast"]*(1+_d("playmaking")*0.7)+_d("playmaking")*(2.2+1.4*_guard)*_p40)
+        if "ast" in rt: rt["ast"]=max(0.1*_p40,rt["ast"]*(1+_d("playmaking")*0.5)+_d("playmaking")*(1.2+1.0*_guard)*_p40)
         if "tov" in rt: rt["tov"]*=1+_d("playmaking")*0.20
         _st=_sl.get("steals",_sl.get("defense",50)); _bk=_sl.get("blocks",_sl.get("defense",50))
         _ds=(_n(_st,50)-50.0)/50.0; _db=(_n(_bk,50)-50.0)/50.0
-        if "stl" in rt: rt["stl"]=max(0.05*_p40,rt["stl"]*(1+_ds*0.6)+_ds*0.9*_p40)
-        if "blk" in rt: rt["blk"]=max(0.02*_p40,rt["blk"]*(1+_db*0.6)+_db*(0.5+1.4*_size)*_p40)
+        if "stl" in rt: rt["stl"]=max(0.05*_p40,rt["stl"]*(1+_ds*0.45)+_ds*0.45*_p40)
+        if "blk" in rt: rt["blk"]=max(0.02*_p40,rt["blk"]*(1+_db*0.45)+_db*(0.25+0.9*_size)*_p40)
         _a=_d("athleticism")
         for _k,_r in (("oreb",0.45),("blk",0.4),("stl",0.25),("dreb",0.14)):
             if _k in rt: rt[_k]*=1+_a*_r
