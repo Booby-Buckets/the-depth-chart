@@ -38,7 +38,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
     .rk-gatebox{min-height:330px;margin-top:-1px;}
-    .col-pick{position:relative;display:inline-block;margin-right:14px;}
+    .col-pick{position:relative;display:inline-block;margin-right:8px;}
+    .csv-pick{display:inline-flex;gap:6px;align-items:center;margin-right:14px;}
+    .csv-pick select{padding:5px 8px;font-size:12px;}
     .col-pick .f-btn b{font-weight:800;color:var(--text);margin-left:3px;}
     .col-menu{position:absolute;z-index:60;top:calc(100% + 6px);left:0;width:min(560px,90vw);max-height:70vh;overflow:auto;background:var(--bg);border:1px solid var(--border2,var(--border));border-radius:12px;box-shadow:0 14px 36px rgba(0,0,0,.22);padding:12px 14px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 16px;}
     .col-menu[hidden]{display:none;}
@@ -1004,6 +1006,37 @@ function _colMenuHTML(){
     </div></span>`;
 }
 
+// ── CSV download (Pro): the rows on screen — current filters, sort and visible columns — top N of them ──
+const _csvVal = (c,p) => {
+  if(c.k==='season_year') return seasonShort(p.season_year);
+  if(c.k==='class_year') return p.class_year||p.yr||'';
+  if(c.k==='height') return safeHt(p.height)==='—'?'':p.height;
+  if(c.k==='nil') return p.nil!=null?(+p.nil).toFixed(3):'';    // $ millions
+  const v=p[c.k]; return v==null?'':v;
+};
+function _csvMenuHTML(){
+  const n=_filtered.length, opts=[25,100,250,500,1000].filter(x=>x<n).concat([n]);
+  return `<span class="csv-pick"><select class="filter-select" id="csvN" aria-label="Rows to download">${opts.map(x=>`<option value="${x}"${x===Math.min(100,n)?' selected':''}>${x===n?'All '+n.toLocaleString():'Top '+x}</option>`).join('')}</select>
+    <button type="button" class="f-btn" onclick="downloadCSV()" title="${_isPro()?'Download these players and columns as a spreadsheet (CSV)':'CSV downloads are a Pro feature'}">${_isPro()?'⬇':'🔒'} CSV</button></span>`;
+}
+function downloadCSV(){
+  if(!_isPro()){   // the Pro card, same as the rest of the page's gate
+    if(window.TDCGate&&TDCGate.cardEl){ const ov=document.createElement('div'); ov.className='tdc-page-gate-ov'; ov.id='csvGate';
+      ov.appendChild(TDCGate.cardEl({tier:'pro',label:'CSV downloads',blurb:'Download any ranking, with the stats you pick, as a spreadsheet. Get Pro for $8.99/mo.'}));
+      ov.addEventListener('click',e=>{ if(e.target===ov) ov.remove(); }); document.body.appendChild(ov); }
+    else location.href='pricing.html';
+    return;
+  }
+  const n=+((document.getElementById('csvN')||{}).value)||_filtered.length, C=_colsNow();
+  const q=v=>{ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+  const head=['Rank','OVR','Player'].concat(C.map(c=>c.k==='nil'?'NIL ($M)':c.l));
+  const lines=[head.map(q).join(',')].concat(_filtered.slice(0,n).map((p,i)=>[i+1,_gdisp(p)||'',p.name].concat(C.map(c=>_csvVal(c,p))).map(q).join(',')));
+  const season=(document.getElementById('seasonFilter')||{}).value||'2027';
+  const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}), a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=`tdc-player-rankings-${season==='all'?'all-seasons':season==='2027'?'2026-27':(+season-1)+'-'+String(season).slice(2)}-${n}.csv`;
+  document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },500);
+}
+
 function renderTable(players){
   if(!players.length){
     document.getElementById('tableContainer').innerHTML =
@@ -1020,7 +1053,7 @@ function renderTable(players){
 
   document.getElementById('tableContainer').innerHTML = `
     <div class="color-toggle-wrap" style="margin-bottom:10px;">
-      ${_colMenuHTML()}
+      ${_colMenuHTML()}${_csvMenuHTML()}
       <span class="color-toggle-label">Stat Colors</span>
       <label class="toggle-switch">
         <input type="checkbox" id="colorToggle" ${localStorage.getItem('tdc_roster_colors')!=='0'?'checked':''} onchange="toggleColors(this)"/>
