@@ -1,0 +1,166 @@
+-- INSTALL ONLY: defines backfill_espn_ids() and backfill_player_stats() without running them.
+-- Generated from scripts/backfill_espn_ids.sql (Oct 24 2026). Run this in the Supabase SQL editor; it should
+-- finish instantly. The roster sheet sync calls both functions after every sync.
+
+-- ============================================================
+-- Backfill players.espn_id from player_history
+-- ------------------------------------------------------------
+-- The Google Sheet → Supabase sync wipes & re-inserts `players`
+-- WITHOUT espn_id (the sheet doesn't carry it). That breaks ESPN
+-- headshots AND the projection's recruiting-pedigree / versatility
+-- joins (both keyed by espn_id), which skews the rankings.
+--
+-- This restores the id by matching name → player_history using the
+-- SAME safe rule player.html uses:
+--   1. a name that maps to exactly ONE espn_id in history wins
+--   2. namesakes are broken only when the roster team matches a
+--      history team
+--   3. still-ambiguous names are left NULL — never guessed (a wrong
+--      id = a wrong face / wrong player's pedigree)
+-- Freshmen (yr/class 'Fr.') are skipped so an incoming freshman can't
+-- inherit a same-named former player's id — AND any wrong id already on a
+-- true freshman (from before this guard) is NULLed on every run (step 0),
+-- so collisions self-heal instead of surviving resyncs. Redshirt freshmen
+-- (R-Fr) kept their prior id.
+--
+-- Run this whole file once in the Supabase SQL editor. It creates a
+-- reusable function AND runs it. The sync then calls it automatically
+-- via RPC after every re-sync (see scripts/sheet_sync.gs).
+-- ============================================================
+
+-- Every CTE below is MATERIALIZED: Postgres 12+ otherwise inlines them into the join and recomputed the
+-- player_history grouping per roster row, timing out in the SQL editor (Oct 2026).
+create or replace function backfill_espn_ids() returns integer language plpgsql as $$
+declare n integer := 0; m integer; wiped integer;
+begin
+  -- 0) SELF-HEAL / GUARD: a TRUE freshman (yr/class 'Fr.', NOT a redshirt) has no
+  --    college history, so any espn_id on him is a same-name collision — a Duke frosh
+  --    "Cameron Williams" stapled to Portland's id, "JD Jones" wearing "Jay Jones"'s id,
+  --    etc. The steps below already REFUSE to add an id to a freshman, but that only
+  --    prevents NEW breakage; ids set before the guard existed survive a resync. Null
+  --    them here first so a wrong face/pedigree can't persist. Redshirt freshmen (R-Fr)
+  --    DID suit up somewhere, so they legitimately keep their id.
+  update players
+     set espn_id = null
+   where espn_id is not null
+     and (coalesce(yr,'') ilike 'fr%' or coalesce(class_year,'') ilike 'fr%')
+     and coalesce(yr,'')         not ilike 'r-fr%'
+     and coalesce(yr,'')         not ilike 'rfr%'
+     and coalesce(yr,'')         not ilike '%redshirt%'
+     and coalesce(class_year,'') not ilike 'r-fr%'
+     and coalesce(class_year,'') not ilike 'rfr%'
+     and coalesce(class_year,'') not ilike '%redshirt%';
+  get diagnostics wiped = row_count;
+  raise notice 'freshman espn_id guard: cleared % stale/collision id(s)', wiped;
+
+  -- 0b) SELF-HEAL shared ids (Oct 2026: UMass Lowell's Kenyon Giles wore Wichita State's Kenyon Giles's id):
+  --     one person = one roster row. When several rows hold the same espn_id, only the row at that id's
+  --     most recent player_history school keeps it; if none of them is there, nobody is cleared (can't tell).
+  with latest as materialized (
+    select distinct on (espn_id) espn_id, lower(btrim(team)) as lteam
+      from player_history where espn_id is not null
+     order by espn_id, season_year desc
+  ), shared as materialized (
+    select espn_id from players where espn_id is not null group by espn_id having count(*) > 1
+  )
+  update players p
+     set espn_id = null
+    from shared s, latest l
+   where p.espn_id = s.espn_id and l.espn_id = s.espn_id
+     and lower(btrim(p.team)) <> l.lteam
+     and exists (select 1 from players q where q.espn_id = s.espn_id and lower(btrim(q.team)) = l.lteam);
+  get diagnostics wiped = row_count;
+  raise notice 'shared espn_id self-heal: cleared % row(s)', wiped;
+
+  -- 1) unique-name matches: the name maps to exactly one espn_id across all history
+  with uniq as materialized (
+    select lower(btrim(name)) as lname, min(espn_id) as espn_id
+    from player_history
+    where espn_id is not null
+    group by lower(btrim(name))
+    having count(distinct espn_id) = 1
+  ),
+  -- names that appear on only ONE roster row: two rows named the same go to step 2 (team match).
+  -- Built once and joined (a per-row count over players timed out in the SQL editor, Oct 2026)
+  roster_uniq as materialized (
+    select lower(btrim(name)) as lname from players group by lower(btrim(name)) having count(*) = 1
+  ),
+  -- ids already on a roster row: never handed out twice
+  held as materialized (
+    select distinct espn_id from players where espn_id is not null
+  )
+  update players p
+     set espn_id = u.espn_id
+    from uniq u
+    join roster_uniq r on r.lname = u.lname
+    left join held h on h.espn_id = u.espn_id
+   where p.espn_id is null
+     and h.espn_id is null
+     and coalesce(p.yr,'')         not ilike 'fr%'
+     and coalesce(p.class_year,'') not ilike 'fr%'
+     and lower(btrim(p.name)) = u.lname;
+  get diagnostics m = row_count; n := n + m;
+
+  -- 2) namesakes: break the tie only when the roster team matches a history team
+  with team_uniq as materialized (
+    select lower(btrim(name)) as lname, lower(btrim(team)) as lteam, min(espn_id) as espn_id
+    from player_history
+    where espn_id is not null
+    group by lower(btrim(name)), lower(btrim(team))
+    having count(distinct espn_id) = 1
+  ),
+  held as materialized (
+    select distinct espn_id from players where espn_id is not null
+  )
+  update players p
+     set espn_id = t.espn_id
+    from team_uniq t
+    left join held h on h.espn_id = t.espn_id
+   where p.espn_id is null
+     and h.espn_id is null
+     and coalesce(p.yr,'')         not ilike 'fr%'
+     and coalesce(p.class_year,'') not ilike 'fr%'
+     and lower(btrim(p.name)) = t.lname
+     and lower(btrim(p.team)) = t.lteam;
+  get diagnostics m = row_count; n := n + m;
+
+  return n;   -- number of players re-linked
+end;
+$$;
+
+
+
+-- ============================================================
+-- Backfill players box stats from player_history (runs AFTER espn_id)
+-- ------------------------------------------------------------
+-- A statless roster row (returner whose sheet line wasn't autofilled)
+-- gets its most-recent real season line from player_history, matched
+-- by the now-restored espn_id. Only fills NULLs — never clobbers stats
+-- the sheet already provided. Freshmen (no espn_id / no history) stay
+-- blank, which is correct.
+-- ============================================================
+
+create or replace function backfill_player_stats() returns integer language plpgsql as $$
+declare n integer;
+begin
+  with recent as (
+    select distinct on (espn_id)
+           espn_id, ppg, rpg, apg, mpg, fg_pct, tp_pct, ft_pct,
+           stl, blk, tovs, oreb, dreb, gp, fgm, fga, tpm, tpa, ftm, fta
+    from player_history
+    where espn_id is not null
+    order by espn_id, season_year desc          -- most-recent season = last demonstrated line
+  )
+  update players p
+     set ppg=r.ppg, rpg=r.rpg, apg=r.apg, mpg=r.mpg,
+         fg_pct=r.fg_pct, tp_pct=r.tp_pct, ft_pct=r.ft_pct,
+         stl=r.stl, blk=r.blk, tovs=r.tovs, oreb=r.oreb, dreb=r.dreb,
+         gp=r.gp, fgm=r.fgm, fga=r.fga, tpm=r.tpm, tpa=r.tpa, ftm=r.ftm, fta=r.fta
+    from recent r
+   where p.espn_id = r.espn_id
+     and p.ppg is null;                          -- only statless rows
+  get diagnostics n = row_count;
+  return n;   -- number of players given a stat line
+end;
+$$;
+
