@@ -17,6 +17,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="tdc-dense.css?v=40">
   <link rel="stylesheet" href="tdc-skin.css?v=14"/>
+  <link rel="stylesheet" href="tdc-ui.css?v=6"/>
 <style>
   :root:not([data-theme="dark"]) body{background:var(--bg);}
   body{font-family:'Inter',system-ui,sans-serif;color:var(--text);margin:0;}
@@ -34,7 +35,9 @@
   @media(max-width:820px){.nav-top,.nav-sub,.wrap{padding-left:16px;padding-right:16px;}}
 
   /* hero */
-  .nb-hero{display:flex;gap:22px;align-items:flex-start;border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:18px;}
+  .nb-hero{display:flex;gap:24px;align-items:center;border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:18px;}
+  .nb-id{flex:1;min-width:0;}
+  @media(max-width:1100px){.nb-hero{flex-wrap:wrap;}.nb-hero .ui-dial-wrap{width:100%;}}
   .nb-shot{width:118px;height:86px;flex:0 0 auto;border-radius:12px;overflow:hidden;background:var(--bg2);border:1px solid var(--border);}
   .nb-shot img{width:100%;height:100%;object-fit:cover;object-position:top;}
   .nb-eyebrow{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
@@ -46,7 +49,7 @@
   .nb-bio a{color:var(--text);text-decoration:none;border-bottom:1px dotted var(--text3);}
   .nb-bio a:hover{color:var(--accent);}
   .nb-tag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:6px;background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--text);margin-left:8px;vertical-align:4px;}
-  @media(max-width:640px){.nb-name{font-size:30px;}.nb-shot{display:none;}}
+  @media(max-width:640px){.nb-name{font-size:30px;}}
 
   /* tabs */
   .nb-tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--border);margin-bottom:18px;}
@@ -125,7 +128,8 @@
 
 <div class="wrap" id="app"><div class="empty">Loading…</div></div>
 
-<script src="tdc-nba.js?v=1"></script>
+<script src="team-colors.js?v=13"></script>
+<script src="tdc-nba.js?v=2"></script>
 <script src="tdc-sheets.js?v=2"></script>
 <script>
 (function(){
@@ -218,12 +222,39 @@ function render(){
   var cl = P.college_link, d = P.draft || {};
   var draftTxt = d.pick ? (d.year + ' · Round ' + d.round + ', #' + d.pick + (d.team ? ' (' + d.team + ')' : '')) : (d.year ? d.year : 'Undrafted');
   var regs = P.seasons.filter(function(s){ return s.type === 'regular'; });
-  var shot = (window.tdcShowPhotos && window.tdcShowPhotos() && P.headshot) ? '<div class="nb-shot"><img src="' + esc(P.headshot) + '" alt="' + esc(P.name) + '" onerror="this.parentNode.remove()"></div>' : '';
+  var last = regs[regs.length - 1], prev = regs[regs.length - 2];
+  var lg = P.team ? TDCNba.logo(P.team) : '';
+  // photo tile: ESPN cut-out on the team colour (owner-only photo); everyone else gets the team logo on the tile
+  var mark = lg ? '<img class="mark" src="' + lg + '" alt="" onerror="this.parentNode.remove()">' : '';
+  var tile = (window.tdcShowPhotos && window.tdcShowPhotos() && P.headshot)
+    ? '<div class="ui-ptile" id="nbTile"><img class="photo" src="' + esc(P.headshot) + '" alt="' + esc(P.name) + '" onerror="nbTileFallback()"></div>'
+    : (mark ? '<div class="ui-ptile logo" id="nbTile">' + mark + '</div>' : '');
+  window.nbTileFallback = function(){ var t = $('#nbTile'); if(!t) return; if(!mark){ t.remove(); return; } t.classList.add('logo'); t.innerHTML = mark; };
+  // counting stats from the latest regular season, with the change from the season before
+  var ROW = [['PPG', 'ppg', n1, 1], ['RPG', 'rpg', n1, 1], ['APG', 'apg', n1, 1], ['MPG', 'mpg', n1, 1], ['FG%', 'fg_pct', pc, 100], ['3P%', 'tp_pct', pc, 100], ['FT%', 'ft_pct', pc, 100], ['TS%', 'ts_pct', pc, 100]];
+  var statRow = last ? '<div class="ui-statrow">' + ROW.map(function(r){
+    var v = last[r[1]], q = prev ? prev[r[1]] : null, d = (v != null && q != null) ? (v - q) * r[3] : null;
+    return '<div><b>' + r[0] + '</b><span>' + r[2](v) + '</span>' + (d == null ? '<em>&nbsp;</em>' : '<em class="' + (d > 0.05 ? 'up' : d < -0.05 ? 'dn' : '') + '">' + (d > 0 ? '+' : '') + d.toFixed(1) + '</em>') + '</div>';
+  }).join('') + '</div>' : '';
+  // rating dial: TDC Impact per 40 (the college pages' box metric), ring = league percentile that season
+  var dial = '';
+  if(last && last.pct && last.pct.ti40 != null && last.ti40 != null){
+    var pt = last.pct.ti40, C = 2 * Math.PI * 44, tier = pt >= 85 ? 'p4' : pt >= 65 ? 'p3' : pt >= 35 ? 'p2' : pt >= 15 ? 'p1' : 'p0';
+    var dt = prev && prev.ti40 != null ? last.ti40 - prev.ti40 : null;
+    var ord = function(n){ var m = n % 100; return n + ((m > 10 && m < 14) ? 'th' : ({1: 'st', 2: 'nd', 3: 'rd'}[n % 10] || 'th')); };
+    dial = '<div class="ui-dial-wrap"><div class="ui-dial ' + tier + '" title="' + esc(TIP.ti40) + ' The ring fills to the player’s league percentile that season.">' +
+      '<svg viewBox="0 0 100 100" aria-hidden="true"><circle class="trk" cx="50" cy="50" r="44"/><circle class="arc" cx="50" cy="50" r="44" style="stroke-dashoffset:' + (C * (1 - Math.max(.02, pt / 100))).toFixed(1) + '"/></svg>' +
+      '<div class="v">' + n1(last.ti40) + '</div><div class="k">TI/40</div></div>' +
+      '<div class="ui-dial-ctx"><div><b>' + ord(pt) + '</b>percentile · ' + seasonLbl(last.season) + '</div>' +
+      (dt == null ? '' : '<div><b class="' + (dt > 0.05 ? 'up' : dt < -0.05 ? 'dn' : '') + '">' + (dt > 0.05 ? '▲ ' + dt.toFixed(1) : dt < -0.05 ? '▼ ' + (-dt).toFixed(1) : 'Same') + '</b>' + (Math.abs(dt) > 0.05 ? 'from ' + n1(prev.ti40) + ' ' : 'as ') + seasonLbl(prev.season) + '</div>') +
+      (last.par != null ? '<div><b>' + n0(last.par) + '</b>pts above replacement</div>' : '') + '</div></div>';
+  }
   var tabs = TABS.filter(function(t){ return t[0] !== 'college' || cl; });
+  var tc = P.team && TDCNba.color(P.team);
   $('#app').innerHTML =
     '<div id="lgSwitch"></div>' +
-    '<div class="nb-hero">' + shot + '<div>' +
-      '<div class="nb-eyebrow">' + (P.team ? '<img src="' + TDCNba.logo(P.team) + '" alt="" onerror="this.remove()">' + esc(teamName(P.team)) + '<span class="sep">·</span>' : '') + 'NBA' + (P.active === false ? '<span class="sep">·</span>Inactive' : '') + '</div>' +
+    '<div class="nb-hero"' + (tc && window.tdcBandColor ? ' style="--tc-band:' + tdcBandColor(tc) + '"' : '') + '>' + tile + '<div class="nb-id">' +
+      '<div class="nb-eyebrow">' + (P.team ? '<img src="' + lg + '" alt="" onerror="this.remove()">' + esc(teamName(P.team)) + '<span class="sep">·</span>' : '') + 'NBA' + (P.active === false ? '<span class="sep">·</span>Inactive' : '') + '</div>' +
       '<h1 class="nb-name">' + esc(P.name) + (P.career.star_seasons ? '<span class="nb-tag" title="Seasons in the top 5% of qualified NBA players by TDC Impact per 40">' + P.career.star_seasons + '× star season</span>' : '') + '</h1>' +
       '<div class="nb-bio">' +
         '<div><b>Pos</b>' + esc(P.pos || '—') + '</div>' +
@@ -232,7 +263,7 @@ function render(){
         '<div><b>Draft</b>' + esc(draftTxt) + '</div>' +
         (P.college ? '<div><b>College</b>' + (cl ? '<a href="player.html?espn=' + cl.college_id + '&name=' + encodeURIComponent(P.name) + '">' + esc(P.college) + '</a>' : esc(P.college)) + '</div>' : '') +
         '<div><b>Seasons</b>' + regs.length + (regs.length ? ' (' + seasonLbl(regs[0].season) + ' to ' + seasonLbl(regs[regs.length - 1].season) + ')' : '') + '</div>' +
-      '</div></div></div>' +
+      '</div>' + statRow + '</div>' + dial + '</div>' +
     '<div class="nb-tabs" role="tablist">' + tabs.map(function(t, i){ return '<button class="nb-tab' + (i ? '' : ' on') + '" role="tab" data-t="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>' +
     tabs.map(function(t, i){ return '<div class="nb-panel' + (i ? '' : ' on') + '" id="pn-' + t[0] + '"></div>'; }).join('');
   TDCNba.mount($('#lgSwitch'), {active: 'nba', nbaId: P.id, collegeId: cl && cl.college_id, name: P.name});

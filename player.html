@@ -12,7 +12,7 @@
   <script src="tdc-aftermath.js?v=5"></script>
   <script src="tdc-mastery.js?v=2"></script>
   <script src="tdc-twin.js?v=7"></script>
-  <script src="tdc-wowy-player.js?v=1"></script>
+  <script src="tdc-onoff.js?v=3"></script>
   <script src="tdc-follow.js?v=1"></script>
   <script src="tdc-shotprofile.js?v=1s"></script>
   <script src="tdc-shotflow.js?v=12"></script>
@@ -71,8 +71,7 @@
   <meta name="twitter:description" content="Grade, projected stats, scouting, and NIL value — The Depth Chart."/>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
-    :root{--bg: #FAF9F6;--bg2: #F1EFEA;--bg3: #E6E3DB;--border: #DEDACF;--border2: #C6C0B2;--text: #1A1814;--text2: #4A463C;--text3: #8A867A;--accent: #A8843C;--green:#1a8c3a;--red:#cc2200;}
-    [data-theme="dark"]{--bg: #141416;--bg2: #1D1D20;--bg3: #28282C;--border: #2E2E34;--border2: #45454D;--text: #F1EFEA;--text2: #B4B0A8;--text3: #807C74;--accent: #E6D5A8;}
+    /* colour tokens come from tdc-ui.css (one palette site-wide) */
     *{margin:0;padding:0;box-sizing:border-box;}
     body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;min-height:100vh;-webkit-font-smoothing:antialiased;}
     /* NAV — frosted glass */
@@ -571,7 +570,7 @@
     /* ===== boxed overview card ===== */
     .ovc-seasonbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
     .ovc-seasonbar .osl{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
-    .ovc-accent{height:5px;border-radius:3px;margin-bottom:14px;background:linear-gradient(90deg,var(--tcr) 0%,rgba(var(--tcr-rgb,45,224,166),.55) 45%,rgba(var(--tcr-rgb,45,224,166),.10) 100%);}
+    .ovc-accent{display:none;}   /* team-colour bar retired: person pages keep team colour out (tdc-ui.css) */
     .ovc-fit{display:flex;align-items:center;gap:12px;} .ovc-fit .flogo{width:44px;height:44px;object-fit:contain;flex:0 0 auto;} .ovc-fit .fmeta{min-width:0;}
     .ovc-fit .fteam{font-size:14px;font-weight:800;color:var(--tcr);} .ovc-fit .fconf{font-size:11px;color:var(--text3);}
     .ovc-fitrow{display:flex;gap:9px;margin-top:11px;} .ovc-fitc{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:8px 6px;text-align:center;} .ovc-fitc .v{font-weight:800;font-size:15px;} .ovc-fitc .v.tcr{color:var(--tcr);} .ovc-fitc .k{font-size:7.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:2px;}
@@ -1000,10 +999,10 @@ body{background:transparent!important;}
   <script src="tdc-fingerprint.js?v=10"></script>
   <script src="bigboard-engine.js?v=32"></script>
   <style>
-    .dna-sub-seg{display:inline-flex;gap:4px;background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:4px;flex-wrap:wrap;}
-    .dna-sub-seg button{font:800 12px/1 'Inter',sans-serif;letter-spacing:.02em;color:var(--text3);background:transparent;border:none;border-radius:7px;padding:8px 15px;cursor:pointer;transition:all .14s;}
+    .dna-sub-seg{display:inline-flex;gap:2px;background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:2px;flex-wrap:wrap;}
+    .dna-sub-seg button{font:700 11px/1 'Inter',sans-serif;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);background:transparent;border:none;border-radius:7px;padding:7px 12px;cursor:pointer;transition:all .14s;}
     .dna-sub-seg button:hover{color:var(--text);}
-    .dna-sub-seg button.on{background:var(--tc-readable,var(--accent));color:#141416;}
+    .dna-sub-seg button.on{background:var(--accent);color:var(--accent-on,#221c08);}
     .dna-loading{color:var(--text3);font:600 13px 'Inter',sans-serif;padding:30px 4px;}
     .dna-badge{display:inline-block;font:800 8.5px/1 'Inter',sans-serif;letter-spacing:.08em;text-transform:uppercase;vertical-align:middle;
       color:#141416;background:var(--accent);border-radius:4px;padding:3px 5px;margin-left:7px;}
@@ -1059,6 +1058,7 @@ body{background:transparent!important;}
   <!-- ===== Clean skin (2026): loaded LAST so it wins over dense CSS. Neutral base +
        translucent depth tokens; team color stays on --tc for the minimal accent slots. ===== -->
   <link rel="stylesheet" href="tdc-skin.css?v=14"/>
+  <link rel="stylesheet" href="tdc-ui.css?v=6"/>
   <link rel="stylesheet" href="tdc-grades.css?v=1">
   <link rel="stylesheet" href="tdc-hq-player.css?v=9"/>
   <link rel="manifest" href="manifest.webmanifest">
@@ -1073,7 +1073,7 @@ body{background:transparent!important;}
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
   <link rel="stylesheet" href="tdc-nil-view.css?v=1"/>
   <link rel="stylesheet" href="tdc-column.css?v=4"/>
-  <link rel="stylesheet" href="tdc-player-a.css?v=10"/>
+  <link rel="stylesheet" href="tdc-player-a.css?v=20"/>
   <script src="tdc-coachlink.js?v=1"></script>
 </head>
 <body data-anim-auto>
@@ -4366,6 +4366,10 @@ function _paCarryHTML(){
 function _paShade(){
   var o=document.getElementById('paOvr'), g=parseFloat((document.getElementById('heroGrade')||{}).textContent);
   if(!o) return; o.className='pa-ovr'+(isNaN(g)?'':(' pc-c'+(g>=85?4:g>=80?3:g>=75?2:g>=70?1:0)));
+  // ring = national percentile once the pool is known (_paFillRanks), else empty track
+  var arc=document.getElementById('paRingArc'); if(!arc) return;
+  var C=2*Math.PI*44, f=(window._paPctile!=null && !isNaN(g))?Math.max(0.02,Math.min(1,window._paPctile/100)):0;
+  arc.style.strokeDasharray=C.toFixed(1); arc.style.strokeDashoffset=(C*(1-f)).toFixed(1);
 }
 function _paRanksHTML(){ return '<div class="pa-rk" id="paRankPlayer"></div><div class="pa-rk" id="paRankLast"></div><div class="pa-rk" id="paRankTeam"></div>'; }
 function _paFillRanks(){
@@ -4378,11 +4382,17 @@ function _paFillRanks(){
       var maps=TDCProjGrade.statMaps(), vals=[], k;
       for(k in maps.proj){ var v=+maps.proj[k]; if(isFinite(v)) vals.push(v); }
       var inPool=(p.espn_id!=null && maps.proj[String(p.espn_id)]!=null);
+      // the ring always fills to where this OVR sits among every D-I player; the #rank line only when he's in the pool
+      var gs=parseFloat((document.getElementById('heroGrade')||{}).textContent); if(!isFinite(gs)) gs=g;
+      if(isFinite(gs) && vals.length){ var ab=vals.filter(function(v){return v>gs;}).length; window._paPctile=Math.round(100*(1-ab/vals.length)); _paShade();
+        if(!inPool) set('paRankPlayer','<b>Top '+Math.max(1,Math.ceil(100*(ab+1)/vals.length))+'%</b>of D-I players'); }
       if(inPool && isFinite(g) && vals.length){ var above=vals.filter(function(v){return v>g;}).length;
-        set('paRankPlayer','<b>#'+(above+1).toLocaleString()+'</b>national <span class="pc-of">of '+vals.length.toLocaleString()+'</span>'); }
+        var top=Math.max(1,Math.ceil(100*(above+1)/vals.length));
+        set('paRankPlayer','<b>#'+(above+1).toLocaleString()+'</b>in D-I <span class="pc-of">· top '+top+'%</span>'); }
       var e=p.espn_id!=null?String(p.espn_id):null, last=_paLastRow();
       if(e && maps.demo[e]!=null && last && +last.season_year===2026)
-        set('paRankLast','<b>'+maps.demo[e]+'</b>last season'+(last.team&&_paFrom()?' at '+(window.tdcShortSchool?tdcShortSchool(last.team):last.team):''));
+        { var lv=+maps.demo[e], dv=isFinite(g)&&isFinite(lv)?Math.round(g-lv):null;
+          set('paRankLast',(dv==null||dv===0?'<b>'+lv+'</b>'+(dv===0?'same as ':''):'<b class="'+(dv>0?'pc-up':'pc-dn')+'">'+(dv>0?'▲ '+dv:'▼ '+(-dv))+'</b>from '+lv+' ')+'last season'+(last.team&&_paFrom()?' at '+(window.tdcShortSchool?tdcShortSchool(last.team):last.team):'')); }
     }catch(err){}
   };
   if(window.TDCProjGrade && TDCProjGrade.ready) TDCProjGrade.ready.then(go); 
@@ -4393,6 +4403,10 @@ function _paFillRanks(){
     if(r&&r.rank) set('paRankTeam','<b>#'+r.rank+'</b>'+(window.tdcShortSchool?tdcShortSchool(p.team||''):(p.team||''))+' team rank');
   }).catch(function(){});
 }
+// headshot failed to load: keep the stage, show the team logo on it (or drop the stage if there's no logo)
+function _paStageFallback(img){ var st=img.parentNode, lg=img.getAttribute('data-logo');
+  if(!lg){ st.remove(); return; }
+  st.classList.add('pc-logo'); var l=document.createElement('img'); l.className='pa-stage-logo'; l.alt=''; l.src=lg; l.onerror=function(){ st.remove(); }; img.replaceWith(l); }
 function _paFollowBtn(){
   try{ var h=document.getElementById('paFollow'); if(!h||!window.TDCFollow||!player) return; h.innerHTML='';
     h.appendChild(TDCFollow.button('player',{espn_id:player.espn_id||null,name:player.name,team:player.team})); }catch(e){}
@@ -4444,7 +4458,8 @@ function renderPage(){
      ${_teamLogo?`<img class="hero-wm pc-wm" src="${_teamLogo}" alt="" aria-hidden="true" onerror="this.remove()">`:''}
      <div class="pc-grid">
       <div class="pc-id">
-       ${_headshot?`<div class="pc-shot"><img class="pa-photo" src="${_headshot}" alt="${p.name||''}" onerror="this.parentNode.remove()"></div>`:''}
+       ${_headshot?`<div class="pc-shot"><img class="pa-photo" src="${_headshot}" alt="${p.name||''}" data-logo="${_teamLogo||''}" onerror="_paStageFallback(this)"></div>`
+          :(_teamLogo?`<div class="pc-shot pc-logo"><img class="pa-stage-logo" src="${_teamLogo}" alt="" onerror="this.parentNode.remove()"></div>`:'')}
        <div class="pa-info">
         <div id="paLeague"></div>
         <div class="pa-eyebrow">
@@ -4464,6 +4479,7 @@ function renderPage(){
           ${geoHome?`<div><b>Hometown</b>${geoHome}</div>`:''}
           ${p.is_injured?`<div class="pa-inj"><b>Status</b>Injured</div>`:''}
         </div>
+        <div class="pa-proj pc-line" id="paProj">${_paProjHTML()}</div>
         ${((proj&&proj._origin) || (window.TDCFresh&&TDCFresh.isOwner()&&TDCFresh.isFreshman(p)) || (window.TDCInjury&&TDCInjury.isOwner()))?`<div class="hero-tags">
           ${proj&&proj._origin?`<a class="hero-tag" href="transfer-fit.html?espn=${p.espn_id||''}&name=${encodeURIComponent(p.name)}" title="See the full transfer-fit report">Transfer · Fit report ↗</a>`:''}
           ${(window.TDCFresh&&TDCFresh.isOwner()&&TDCFresh.isFreshman(p))?`<button class="hero-tag edit" onclick="_openFreshEditor()">⚙ ${TDCFresh.profileFor(p)?'Edit':'Project'} playstyle${TDCFresh.profileFor(p)?' · custom':''}</button>`:''}
@@ -4474,12 +4490,13 @@ function renderPage(){
       <div class="pc-side">
         <div class="pc-season" id="tdcSeasonSlot"></div>
         <div class="pa-ovr-row pc-seal">
-          <div class="pa-ovr" id="paOvr"><div class="pa-ovr-v" id="heroGrade">${_hGrade}</div><div class="pa-ovr-l">Overall</div></div>
+          <div class="pa-ovr" id="paOvr" title="Overall rating. The ring fills to the player's percentile among D-I players.">
+            <svg class="pa-ring" viewBox="0 0 100 100" aria-hidden="true"><circle class="trk" cx="50" cy="50" r="44"/><circle class="arc" id="paRingArc" cx="50" cy="50" r="44"/></svg>
+            <div class="pa-ovr-v" id="heroGrade">${_hGrade}</div><div class="pa-ovr-l">OVR</div></div>
           <div class="pa-ranks" id="paRanks">${_paRanksHTML()}</div>
         </div>
       </div>
      </div>
-     <div class="pa-proj pc-line" id="paProj">${_paProjHTML()}</div>
      <div class="pa-carry" id="paCarry">${_paCarryHTML()}</div>
      <!-- legacy summary cells: still written by the season/rank updaters, not shown -->
      <div class="pa-legacy" aria-hidden="true">
@@ -4605,7 +4622,7 @@ function renderPage(){
       <div id="playerTwinHost"></div>
     </div>
     <div class="tab-panel" id="panel-onoff">
-      <div class="sec-title" style="margin:0 0 14px;">On / Off &amp; WOWY <span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;margin-left:6px;">· his team with him on the floor and without him, his RAPM, and every two-man unit</span></div>
+      <div class="sec-title" style="margin:0 0 14px;">On / Off &amp; WOWY <span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;margin-left:6px;">· the team with this player on the floor vs off it, every number ranked, plus RAPM and two-man units</span></div>
       <div id="playerWowyHost"></div>
     </div>
     <div class="tab-panel" id="panel-aftermath">
@@ -4720,8 +4737,11 @@ function renderPage(){
   if(window.tdcShowPhotos&&window.tdcShowPhotos()) (async()=>{
     const box=document.querySelector('#heroSection .pc-id'); if(!box) return;
     const u=await _tdcSchoolPhoto(p); if(!u) return;
-    const put=()=>{ if(box.querySelector('.pa-photo')) return; const d=document.createElement('div'); d.className='pc-shot';
-      const im=document.createElement('img'); im.className='pa-photo'; im.alt=p.name||''; im.onerror=()=>d.remove(); im.src=u; d.appendChild(im); box.insertBefore(d,box.firstChild); };
+    const put=()=>{ if(box.querySelector('.pa-photo')) return;
+      // the logo stage (no ESPN photo) gives way to the school photo; if that fails too, the logo comes back
+      const stage=box.querySelector('.pc-shot.pc-logo'), sl=stage&&stage.querySelector('.pa-stage-logo'), lg=sl?sl.getAttribute('src'):''; if(stage) stage.remove();
+      const d=document.createElement('div'); d.className='pc-shot';
+      const im=document.createElement('img'); im.className='pa-photo'; im.alt=p.name||''; im.setAttribute('data-logo',lg||''); im.onerror=()=>_paStageFallback(im); im.src=u; d.appendChild(im); box.insertBefore(d,box.firstChild); };
     const ex=box.querySelector('.pa-photo');
     if(!ex) put(); else if(ex.complete&&!ex.naturalWidth) setTimeout(put,0); else ex.addEventListener('error',()=>setTimeout(put,0));
   })();
@@ -7194,7 +7214,7 @@ function switchTab(t){
     if(id==='scheme' && !window._schemeLoaded){ window._schemeLoaded=true; setTimeout(renderScheme,40); }
     if(id==='dossier' && !window._dossierLoaded){ window._dossierLoaded=true; setTimeout(renderDossier,40); }
     if(id==='role' && !window._roleLoaded){ window._roleLoaded=true; setTimeout(renderRole,40); }
-    if(id==='onoff' && !window._wowyLoaded){ window._wowyLoaded=true; if(window.TDC_WOWYP) TDC_WOWYP.render(document.getElementById('playerWowyHost'), {espn:player&&player.espn_id}); }
+    if(id==='onoff' && !window._wowyLoaded){ window._wowyLoaded=true; if(window.TDC_ONOFF) TDC_ONOFF.render(document.getElementById('playerWowyHost'), {espn:player&&player.espn_id}); }
     if(id==='statshift' && !window._shiftLoaded){ window._shiftLoaded=true; if(window.TDC_SHIFT) TDC_SHIFT.renderPlayer(document.getElementById('playerShiftHost'), {espn:player&&player.espn_id, name:player&&player.name}); }
     if(id==='devpath' && !window._devpathLoaded){ window._devpathLoaded=true; setTimeout(renderDevpath,40); }
     if(id==='nil' && !window._nilLoaded){ window._nilLoaded=true; setTimeout(renderNilPlayer,40); }

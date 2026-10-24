@@ -1,0 +1,296 @@
+/* ===================================================================
+   tdc-ui.css — THE shared look. One set of tokens, one type scale, one
+   of each component. Every page should get its look from here (plus
+   tdc-sheets.css for data tables) instead of its own inline <style>.
+
+   Why: 83 pages each carried a pasted copy of the colour tokens (three
+   different dark backgrounds), 12 page-title sizes, ~15 corner radii and
+   ~20 hand-rolled tab bars — so every page looked slightly different.
+
+   Live reference: styleguide.html. Add a component THERE first, then use it.
+
+   Rules
+   - Colours: only var(--…) tokens below. No hex in page CSS.
+   - Type: Inter for everything; Playfair Display only for .ui-title.
+   - Radius: --r-sm (controls/chips) · --r (cards/tables) · --r-pill.
+   - Spacing: --s1 … --s7. Sections are separated by --s6.
+   - Good/bad colour: the 5-step percentile scale (.p0 … .p4), the same
+     hues as the tdc-sheets heat cells (.c0 … .c4).
+   =================================================================== */
+
+/* ---------- tokens ---------- */
+:root{
+  --font:'Inter',system-ui,-apple-system,sans-serif;
+  --font-display:'Playfair Display',Georgia,serif;
+
+  --fs-title:40px;  --fs-h2:11px;  --fs-body:14px;  --fs-sm:12.5px;  --fs-xs:10.5px;
+  --fs-num-lg:22px;
+
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px;
+  --r-sm:6px; --r:10px; --r-pill:999px;
+
+}
+:root[data-theme="light"], :root:not([data-theme="dark"]){
+  color-scheme:light;
+  --bg:#FAF9F6; --bg2:#F1EFEA; --bg3:#E6E3DB;
+  --border:#DEDACF; --border2:#C6C0B2;
+  --text:#1A1814; --text2:#4A463C; --text3:#8A867A;
+  --accent:#A8843C; --accent-on:#221C08;
+  --green:#2F6B3A; --red:#B3261E;
+  /* percentile scale: solid fill + its own text colour (same hues as tdc-sheets .c0-.c4) */
+  --p0:#E9B9B3; --p0-on:#6E1A12;  --p1:#F4DCC4; --p1-on:#6B3A10;  --p2:#E6E3DB; --p2-on:#4A463C;
+  --p3:#CDE3C6; --p3-on:#1F4D25;  --p4:#3F8A4B; --p4-on:#FFFFFF;
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0A0E18; --bg2:#111726; --bg3:#1A2133;
+  --border:#232B3E; --border2:#34405A;
+  --text:#EEF1F7; --text2:#AEB6C8; --text3:#7A849A;
+  --accent:#E6D5A8; --accent-on:#1A1408;
+  --green:#6FBF7E; --red:#FF7A70;
+  --p0:#6E2B27; --p0-on:#FFD9D4;  --p1:#4D3823; --p1-on:#F2CFA8;  --p2:#1F2738; --p2-on:#AEB6C8;
+  --p3:#24472D; --p3-on:#C3E8C8;  --p4:#3E8A4D; --p4-on:#FFFFFF;
+}
+
+/* ---------- base ---------- */
+html{ background:var(--bg); }
+body.ui{
+  margin:0; background:var(--bg); color:var(--text);
+  font:500 var(--fs-body)/1.5 var(--font);
+  -webkit-font-smoothing:antialiased;
+}
+.ui *, .ui *::before, .ui *::after{ box-sizing:border-box; }
+.ui .num{ font-variant-numeric:tabular-nums; }
+
+/* ---------- page header ---------- */
+.ui-crumb{ font-size:var(--fs-xs); font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--text3); }
+.ui-crumb a{ color:inherit; text-decoration:none; }
+.ui-crumb a:hover{ color:var(--text); }
+.ui-crumb span+span::before{ content:'/'; margin:0 var(--s2); opacity:.6; }
+.ui-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:var(--s4); flex-wrap:wrap;
+  padding:var(--s4) 0 var(--s5); border-bottom:1px solid var(--border); margin-bottom:var(--s5); }
+.ui-eyebrow{ font-size:var(--fs-xs); font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--accent); margin-bottom:var(--s1); }
+.ui-title{ font:800 var(--fs-title)/1.1 var(--font-display); margin:0; color:var(--text); }
+.ui-sub{ color:var(--text2); font-size:var(--fs-body); margin-top:var(--s2); max-width:68ch; }
+
+/* ---------- section (BQ-style caps title + rule; optional collapse) ---------- */
+.ui-section{ margin-bottom:var(--s6); }
+.ui-section > .ui-h2, .ui-section > summary{
+  display:flex; align-items:center; justify-content:space-between; gap:var(--s3);
+  font-size:var(--fs-h2); font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--text3);
+  padding-bottom:var(--s2); margin:0 0 var(--s4); border-bottom:1px solid var(--border);
+  list-style:none; cursor:default;
+}
+.ui-section > summary{ cursor:pointer; }
+.ui-section > summary::-webkit-details-marker{ display:none; }
+.ui-section > summary::after{ content:''; width:7px; height:7px; border-right:2px solid var(--text3); border-bottom:2px solid var(--text3);
+  transform:rotate(45deg) translateY(-2px); transition:transform .15s; }
+.ui-section:not([open]) > summary{ margin-bottom:0; }
+.ui-section:not([open]) > summary::after{ transform:rotate(-45deg); }
+.ui-h2 .ui-meta, summary .ui-meta{ font-weight:600; letter-spacing:0; text-transform:none; color:var(--text3); font-size:var(--fs-sm); margin-left:auto; }
+.ui-note{ font-size:var(--fs-sm); color:var(--text3); margin:var(--s2) 0 0; }
+
+/* ---------- card ---------- */
+.ui-card{ background:var(--bg); border:1px solid var(--border); border-radius:var(--r); padding:var(--s4); }
+.ui-card.sunk{ background:var(--bg2); }
+
+/* ---------- tabs: ONE tab bar for the whole site ---------- */
+.ui-tabs{ display:flex; gap:var(--s1); overflow-x:auto; scrollbar-width:none; border-bottom:1px solid var(--border); margin-bottom:var(--s5); }
+.ui-tabs::-webkit-scrollbar{ display:none; }
+.ui-tab{ appearance:none; background:none; border:0; border-bottom:2px solid transparent; margin-bottom:-1px;
+  padding:10px 14px; font:700 12px var(--font); letter-spacing:.06em; text-transform:uppercase; color:var(--text3); white-space:nowrap; cursor:pointer; text-decoration:none; }
+.ui-tab:first-child{ padding-left:0; }
+.ui-tab:hover{ color:var(--text); }
+.ui-tab.on, .ui-tab[aria-selected="true"]{ color:var(--text); border-bottom-color:var(--accent); }
+
+/* ---------- segmented control (pick one of a few: season, On/Off/Diff, Per game/Per 40) ---------- */
+.ui-seg{ display:inline-flex; gap:2px; padding:2px; border:1px solid var(--border); border-radius:9px; background:var(--bg2); }
+.ui-seg button{ appearance:none; border:0; background:none; border-radius:7px; padding:6px 12px; font:700 11px var(--font); letter-spacing:.05em; text-transform:uppercase; color:var(--text3); cursor:pointer; }
+.ui-seg button:hover{ color:var(--text); }
+.ui-seg button.on{ background:var(--accent); color:var(--accent-on); }
+
+/* ---------- chips (filters you can toggle; many on at once) ---------- */
+.ui-chips{ display:flex; flex-wrap:wrap; gap:var(--s2); }
+.ui-chip{ appearance:none; border:1px solid var(--border); background:var(--bg); color:var(--text2);
+  border-radius:var(--r-pill); padding:4px var(--s3); font:600 var(--fs-sm) var(--font); cursor:pointer; }
+.ui-chip:hover{ border-color:var(--border2); color:var(--text); }
+.ui-chip.on{ background:var(--text); border-color:var(--text); color:var(--bg); }
+
+/* ---------- filter bar (labelled controls in a row) ---------- */
+.ui-filters{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:var(--s4); margin-bottom:var(--s4); }
+.ui-field{ display:flex; flex-direction:column; gap:var(--s1); }
+.ui-field > label, .ui-label{ font-size:var(--fs-xs); font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--text3); }
+.ui-select, .ui-input{ appearance:none; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--bg); color:var(--text);
+  font:600 var(--fs-sm) var(--font); padding:6px 28px 6px var(--s3); }
+.ui-select{ background-image:linear-gradient(45deg,transparent 50%,var(--text3) 50%),linear-gradient(135deg,var(--text3) 50%,transparent 50%);
+  background-position:calc(100% - 14px) 52%, calc(100% - 9px) 52%; background-size:5px 5px; background-repeat:no-repeat; }
+.ui-input{ padding-right:var(--s3); }
+.ui-check{ display:inline-flex; align-items:center; gap:var(--s2); font-size:var(--fs-sm); font-weight:600; color:var(--text2); cursor:pointer; }
+
+/* ---------- buttons ---------- */
+.ui-btn{ appearance:none; display:inline-flex; align-items:center; gap:var(--s2); border:1px solid var(--border2); background:var(--bg);
+  color:var(--text); border-radius:var(--r-sm); padding:7px var(--s4); font:700 var(--fs-sm) var(--font); cursor:pointer; text-decoration:none; }
+.ui-btn:hover{ background:var(--bg2); }
+.ui-btn.primary{ background:var(--accent); border-color:var(--accent); color:var(--accent-on); }
+
+/* ---------- percentile chip: the one way to say "how good is this" ---------- */
+.ui-pct{ display:inline-block; min-width:30px; padding:2px 5px; border-radius:5px; text-align:center;
+  font:800 11px/1.3 var(--font); font-variant-numeric:tabular-nums; background:var(--p2); color:var(--p2-on); }
+.ui-pct.p0{ background:var(--p0); color:var(--p0-on); } .ui-pct.p1{ background:var(--p1); color:var(--p1-on); }
+.ui-pct.p2{ background:var(--p2); color:var(--p2-on); } .ui-pct.p3{ background:var(--p3); color:var(--p3-on); }
+.ui-pct.p4{ background:var(--p4); color:var(--p4-on); }
+.ui-pct.na{ background:none; color:var(--text3); font-weight:600; }
+
+/* ---------- stat tiles (headline numbers with their percentile) ---------- */
+.ui-tiles{ display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); border:1px solid var(--border); border-radius:var(--r); overflow:hidden; }
+.ui-tile{ padding:var(--s3) var(--s3) var(--s3); text-align:center; border-right:1px solid var(--border); }
+.ui-tile:last-child{ border-right:0; }
+.ui-tile .v{ font:800 var(--fs-num-lg)/1.1 var(--font); font-variant-numeric:tabular-nums; color:var(--text); }
+.ui-tile .ui-pct{ margin:var(--s1) 0 2px; }
+.ui-tile .k{ display:block; font-size:var(--fs-xs); font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--text3); }
+
+/* ---------- bar rows (stat · bar · value · percentile) ---------- */
+.ui-bars{ display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:var(--s2) var(--s5); }
+.ui-bar{ display:grid; grid-template-columns:76px 1fr 44px 40px; align-items:center; gap:var(--s2); font-size:var(--fs-sm); }
+.ui-bar .k{ color:var(--text2); font-weight:600; }
+.ui-bar .track{ height:6px; border-radius:3px; background:var(--bg3); overflow:hidden; }
+.ui-bar .fill{ height:100%; border-radius:3px; background:var(--text3); }
+.ui-bar .fill.p0{ background:#C9584C; } .ui-bar .fill.p1{ background:#D9935A; }
+.ui-bar .fill.p3{ background:#7DB57F; } .ui-bar .fill.p4{ background:var(--p4); }
+.ui-bar .v{ text-align:right; font-weight:700; font-variant-numeric:tabular-nums; }
+
+/* ---------- rank flags: corner triangles on a table cell ---------- */
+.sheet td.ui-flag-conf, .sheet td.ui-flag-nat{ position:relative; }
+.sheet td.ui-flag-conf::after, .sheet td.ui-flag-nat::after{ content:''; position:absolute; top:0; right:0; border-style:solid; border-width:0 8px 8px 0; }
+.sheet td.ui-flag-conf::after{ border-color:transparent var(--text3) transparent transparent; }
+.sheet td.ui-flag-nat::after{ border-color:transparent var(--accent) transparent transparent; }
+.ui-legend{ display:flex; gap:var(--s4); flex-wrap:wrap; font-size:var(--fs-xs); color:var(--text3); margin-top:var(--s2); }
+.ui-legend i{ display:inline-block; width:0; height:0; border-style:solid; border-width:0 8px 8px 0; margin-right:6px; vertical-align:middle; }
+
+/* ---------- empty / loading ---------- */
+.ui-empty{ padding:var(--s5); text-align:center; color:var(--text3); font-size:var(--fs-sm); border:1px dashed var(--border); border-radius:var(--r); }
+
+/* ---------- layout helpers ---------- */
+.ui-wrap{ max-width:1400px; margin:0 auto; padding:0 64px var(--s7); }
+@media (max-width:760px){ .ui-wrap{ padding:0 16px var(--s6); } :root{ --fs-title:26px; }
+  .ui-section > .ui-h2, .ui-section > summary{ flex-wrap:wrap; }
+  .ui-h2 .ui-meta, summary .ui-meta{ margin-left:0; width:100%; } }
+.ui-row{ display:flex; align-items:center; gap:var(--s3); flex-wrap:wrap; }
+.ui-row.between{ justify-content:space-between; }
+.ui-grid2{ display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:var(--s5); }
+
+/* ---------- panel: a bordered block with its own header row (BQ-style) ----------
+   <div class="ui-panel"><div class="ui-panel-head"><h3>Seasons</h3><span class="ui-meta">…</span>
+   <div class="ui-panel-tools">…buttons…</div></div><div class="ui-panel-body">…</div></div> */
+.ui-panel{ border:1px solid var(--border); border-radius:var(--r); background:var(--bg); overflow:hidden; margin-bottom:var(--s5); }
+.ui-panel-head{ display:flex; align-items:center; gap:var(--s3); flex-wrap:wrap; padding:var(--s3) var(--s4); border-bottom:1px solid var(--border); background:var(--bg2); }
+.ui-panel-head h3{ margin:0; font-size:var(--fs-h2); font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--text3); }
+.ui-panel-head .ui-meta{ font-size:var(--fs-sm); color:var(--text3); font-weight:600; }
+.ui-panel-tools{ margin-left:auto; display:flex; align-items:center; gap:var(--s2); flex-wrap:wrap; }
+.ui-panel-body{ padding:var(--s4); }
+.ui-panel-body.flush{ padding:0; }
+.ui-panel-body.flush .sheet-wrap{ border:0; border-radius:0; }
+
+/* ---------- header band: the ONE place team colour fills an area ----------
+   Page sets --tc-band = tdcBandColor(team hex) on .ui-band. White text always. */
+.ui-hero{ border:1px solid var(--border); border-radius:var(--r); overflow:hidden; margin-bottom:var(--s5); background:var(--bg); }
+.ui-band{ background:var(--tc-band,#0B1220); color:#fff; padding:var(--s5); display:flex; align-items:center; gap:var(--s5); flex-wrap:wrap; }
+.ui-band-mark{ width:76px; height:76px; flex:none; border-radius:50%; background:rgba(255,255,255,.94); display:grid; place-items:center; overflow:hidden; }
+.ui-band-mark img{ width:72%; height:72%; object-fit:contain; }
+.ui-band-mark.photo img{ width:100%; height:100%; object-fit:cover; }
+.ui-band-mark .ini{ font:800 26px var(--font-display); color:#1A1814; }
+.ui-band-eyebrow{ font-size:var(--fs-xs); font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:rgba(255,255,255,.78); }
+.ui-band-title{ font:800 38px/1.05 var(--font-display); letter-spacing:-.01em; margin:2px 0 var(--s1); color:#fff; }
+.ui-band-meta{ font-size:var(--fs-sm); color:rgba(255,255,255,.86); }
+.ui-band-meta a{ color:inherit; }
+.ui-band-meta span+span::before{ content:'·'; margin:0 var(--s2); opacity:.7; }
+.ui-band-side{ margin-left:auto; display:flex; gap:var(--s2); flex-wrap:wrap; }
+.ui-badge{ display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:72px; padding:var(--s2) var(--s3);
+  border-radius:var(--r-sm); background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.26); color:#fff; }
+.ui-badge b{ font:800 20px/1.1 var(--font); font-variant-numeric:tabular-nums; }
+.ui-badge small{ font-size:9.5px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; opacity:.78; margin-top:2px; }
+/* the flat stat strip attached under the band */
+.ui-strip{ display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); }
+.ui-strip > div{ padding:var(--s3) var(--s4); border-right:1px solid var(--border); }
+.ui-strip > div:last-child{ border-right:0; }
+.ui-strip b{ display:block; font:800 20px/1.15 var(--font); font-variant-numeric:tabular-nums; color:var(--text); }
+.ui-strip span{ font-size:var(--fs-xs); font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--text3); }
+.ui-strip em{ display:block; font-style:normal; font-size:var(--fs-xs); color:var(--text3); margin-top:2px; }
+@media (max-width:760px){
+  .ui-band{ padding:var(--s4); gap:var(--s3); }
+  .ui-band-mark{ width:56px; height:56px; }
+  .ui-band-title{ font-size:28px; }
+  .ui-band-side{ margin-left:0; width:100%; }
+  .ui-strip{ grid-template-columns:repeat(3,1fr); }
+  .ui-strip > div:nth-child(3n){ border-right:0; }
+  .ui-strip > div{ border-bottom:1px solid var(--border); }
+}
+
+/* ---------- grouped bars: subheads inside a bar grid (advanced-stats block) ---------- */
+.ui-bargroup + .ui-bargroup{ margin-top:var(--s4); padding-top:var(--s4); border-top:1px solid var(--border); }
+.ui-bargroup > .ui-label{ display:block; margin-bottom:var(--s2); }
+
+/* ---------- person header (players, coaches): the NBA page's header, flat on the page ----------
+   Team colour stays out of it; the team-page band (.ui-hero/.ui-band) is for TEAM pages. */
+.ui-phead{ display:flex; gap:22px; align-items:flex-end; flex-wrap:wrap; border-bottom:1px solid var(--border); padding:var(--s5) 0 20px; margin-bottom:var(--s3); }
+.ui-phead-id{ display:flex; gap:22px; align-items:flex-start; min-width:0; flex:1; }
+.ui-phead-shot{ width:118px; height:86px; flex:none; border-radius:var(--r); overflow:hidden; border:1px solid var(--border); background:var(--bg2); display:grid; place-items:center;
+  font:800 26px var(--font-display); color:var(--text3); }
+.ui-phead-shot img{ width:100%; height:100%; object-fit:cover; object-position:top; }
+.ui-phead-eyebrow{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:11px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); margin-bottom:6px; }
+.ui-phead-eyebrow img{ width:20px; height:20px; object-fit:contain; }
+.ui-phead-eyebrow .sep{ color:var(--text3); font-weight:400; }
+.ui-phead-name{ font:800 var(--fs-title)/1.05 var(--font-display); margin:0 0 12px; color:var(--text); }
+.ui-phead-tag{ display:inline-block; font:800 10px var(--font); letter-spacing:.08em; text-transform:uppercase; padding:3px 8px; border-radius:var(--r-sm);
+  background:color-mix(in srgb,var(--accent) 18%,transparent); color:var(--text); margin-left:8px; vertical-align:6px; }
+.ui-bio{ display:flex; flex-wrap:wrap; gap:6px 22px; font-size:13px; color:var(--text2); }
+.ui-bio b{ display:block; font-size:9.5px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--text3); margin-bottom:2px; }
+.ui-bio a{ color:var(--text); text-decoration:none; border-bottom:1px dotted var(--text3); }
+.ui-seal{ display:flex; border:1px solid var(--border); border-radius:var(--r); overflow:hidden; background:var(--bg2); }
+.ui-seal > div{ padding:10px 18px; display:flex; flex-direction:column; justify-content:center; align-items:center; }
+.ui-seal > div + div{ border-left:1px solid var(--border); align-items:flex-start; font-size:12.5px; color:var(--text2); gap:4px; }
+.ui-seal .v{ font:800 38px/1 var(--font); font-variant-numeric:tabular-nums; color:var(--text); }
+.ui-seal .k{ font-size:9.5px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--text3); margin-top:5px; }
+.ui-seal b{ color:var(--text); font-size:15px; font-weight:800; margin-right:5px; }
+/* the NBA page's strip: hairline-gapped cells */
+.ui-cells{ display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:var(--r); overflow:hidden; }
+.ui-cells > div{ background:var(--bg2); padding:11px 14px 12px; }
+.ui-cells b{ display:block; font-size:9.5px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--text3); margin-bottom:3px; }
+.ui-cells span{ font:800 20px/1.2 var(--font); font-variant-numeric:tabular-nums; color:var(--text); }
+.ui-cells em{ font-style:normal; font-size:11.5px; font-weight:700; margin-left:6px; }
+.ui-cells small{ display:block; font-size:11px; color:var(--text3); margin-top:2px; }
+@media (max-width:640px){ .ui-phead-shot{ display:none; } .ui-phead-name{ font-size:30px; } }
+
+/* ---------- person header parts, shared by the college + NBA player pages ----------
+   .ui-ptile   photo tile: ESPN cut-out on the team colour (set --tc-band = tdcBandColor(hex));
+               .logo variant puts the team logo on a white disc (public view / no photo)
+   .ui-statrow counting stats under the name: open row, hairline dividers, change under each value
+   .ui-dial    rating dial: value inside a ring filled to a percentile, ring colour = .p0-.p4 */
+.ui-ptile{ position:relative; width:150px; height:150px; flex:none; border-radius:var(--r); overflow:hidden;
+  background:radial-gradient(110% 85% at 50% 100%, color-mix(in srgb, var(--tc-band,#0B1220) 72%, #fff) 0%, var(--tc-band,#0B1220) 70%); }
+.ui-ptile img.photo{ position:absolute; left:50%; bottom:0; transform:translateX(-50%); height:88%; width:auto; max-width:none; object-fit:contain; object-position:bottom; }
+.ui-ptile.logo{ display:grid; place-items:center; }
+.ui-ptile img.mark{ width:76px; height:76px; padding:12px; box-sizing:border-box; border-radius:50%; background:rgba(255,255,255,.95); object-fit:contain; box-shadow:0 6px 18px rgba(0,0,0,.25); }
+
+.ui-statrow{ display:flex; flex-wrap:wrap; row-gap:10px; margin-top:16px; padding-top:14px; border-top:1px solid var(--border); }
+.ui-statrow > div{ padding:0 14px; border-left:1px solid var(--border); }
+.ui-statrow > div:first-child{ padding-left:0; border-left:0; }
+.ui-statrow b{ display:block; font-size:9.5px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--text3); margin-bottom:2px; }
+.ui-statrow span{ font:800 22px/1.15 var(--font); font-variant-numeric:tabular-nums; color:var(--text); }
+.ui-statrow em{ display:block; font-style:normal; font-size:10.5px; font-weight:700; margin-top:1px; white-space:nowrap; color:var(--text3); }
+.ui-statrow em.up{ color:var(--green); } .ui-statrow em.dn{ color:var(--red); }
+
+.ui-dial-wrap{ display:flex; align-items:center; gap:16px; }
+.ui-dial{ position:relative; width:104px; height:104px; flex:none; display:flex; flex-direction:column; align-items:center; justify-content:center; --ring:#B7A57A; }
+.ui-dial svg{ position:absolute; inset:0; width:100%; height:100%; transform:rotate(-90deg); }
+.ui-dial circle{ fill:none; stroke-width:7; }
+.ui-dial .trk{ stroke:var(--bg3); }
+.ui-dial .arc{ stroke:var(--ring); stroke-linecap:round; stroke-dasharray:276.5; transition:stroke-dashoffset .8s cubic-bezier(.22,1,.36,1); }
+.ui-dial .v{ position:relative; font:800 32px/1 var(--font); font-variant-numeric:tabular-nums; color:var(--text); }
+.ui-dial .k{ position:relative; font-size:9px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; margin-top:3px; color:var(--text3); }
+.ui-dial.p0{ --ring:#C9584C; } .ui-dial.p1{ --ring:#D9935A; } .ui-dial.p2{ --ring:#B7A57A; } .ui-dial.p3{ --ring:#7DB57F; } .ui-dial.p4{ --ring:#3F8A4B; }
+:root[data-theme="dark"] .ui-dial.p4{ --ring:#4FAE60; }
+.ui-dial-ctx{ display:flex; flex-direction:column; gap:6px; font-size:12.5px; color:var(--text2); max-width:190px; }
+.ui-dial-ctx b{ color:var(--text); font-size:15px; font-weight:800; margin-right:6px; font-variant-numeric:tabular-nums; }
+.ui-dial-ctx b.up{ color:var(--green); } .ui-dial-ctx b.dn{ color:var(--red); }
+@media (max-width:640px){ .ui-ptile{ display:none; } }
