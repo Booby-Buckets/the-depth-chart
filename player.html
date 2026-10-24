@@ -4404,7 +4404,17 @@ function _paFillRanks(){
   }).catch(function(){});
 }
 // headshot failed to load: keep the stage, show the team logo on it (or drop the stage if there's no logo)
-function _paStageFallback(img){ var st=img.parentNode, lg=img.getAttribute('data-logo');
+function _paStageFallback(img){ var st=img.parentNode, lg=img.getAttribute('data-logo'), es=img.getAttribute('data-espn');
+  // ESPN deletes college headshots for players long gone from school (Anthony Davis, Lillard…): if he has an
+  // NBA page, try his NBA headshot once before falling back to the school logo (owner-only like every photo).
+  if(es && !img.getAttribute('data-nba-tried') && window.TDCNba){
+    img.setAttribute('data-nba-tried','1');
+    TDCNba.forCollege(es).then(function(nba){
+      if(nba){ img.src='https://a.espncdn.com/i/headshots/nba/players/full/'+encodeURIComponent(nba)+'.png'; }
+      else _paStageFallback(img);
+    });
+    return;
+  }
   if(!lg){ st.remove(); return; }
   st.classList.add('pc-logo'); var l=document.createElement('img'); l.className='pa-stage-logo'; l.alt=''; l.src=lg; l.onerror=function(){ st.remove(); }; img.replaceWith(l); }
 function _paFollowBtn(){
@@ -4458,7 +4468,7 @@ function renderPage(){
      ${_teamLogo?`<img class="hero-wm pc-wm" src="${_teamLogo}" alt="" aria-hidden="true" onerror="this.remove()">`:''}
      <div class="pc-grid">
       <div class="pc-id">
-       ${_headshot?`<div class="pc-shot"><img class="pa-photo" src="${_headshot}" alt="${p.name||''}" data-logo="${_teamLogo||''}" onerror="_paStageFallback(this)"></div>`
+       ${_headshot?`<div class="pc-shot"><img class="pa-photo" src="${_headshot}" alt="${p.name||''}" data-logo="${_teamLogo||''}" data-espn="${p.espn_id||''}" onerror="_paStageFallback(this)"></div>`
           :(_teamLogo?`<div class="pc-shot pc-logo"><img class="pa-stage-logo" src="${_teamLogo}" alt="" onerror="this.parentNode.remove()"></div>`:'')}
        <div class="pa-info">
         <div id="paLeague"></div>
