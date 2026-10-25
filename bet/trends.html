@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <base href="/">
+  <title>TDC Bet · Trends</title>
+  <meta name="description" content="Five seasons of real closing lines: every college basketball team's record against the spread and over/under, home and road splits, and results against our own line.">
+  <meta name="theme-color" content="#0A0D12">
+  <link rel="icon" type="image/svg+xml" href="bet/favicon.svg">
+  <script src="auth.js?v=sso1"></script>
+  <script>try{var _t=JSON.parse(localStorage.getItem('tdcbet_theme')||'"dark"');document.documentElement.setAttribute('data-theme',_t==='light'?'light':'dark');}catch(e){}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="tdc-sheets.css?v=6">
+  <link rel="stylesheet" href="bet/bet.css?v=2">
+  <script src="tdc-gate.js?v=4"></script>
+  <script src="team-colors.js?v=13"></script>
+  <script src="tdc-ratings.js?v=44"></script>
+  <style>
+    .ang{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;}
+    .ang .bx-card-b{padding-top:6px;}
+    #teamTbl{--c1:40px;--c2:210px;}
+    @media (max-width:1100px){ .ang{grid-template-columns:repeat(2,minmax(0,1fr));} }
+    @media (max-width:560px){ .ang{grid-template-columns:1fr;} }
+  </style>
+</head>
+<body>
+<main class="bx-main">
+  <div class="bx-head"><div><div class="bx-kick">Trends</div><h1 class="bx-h1">Five years of closing lines</h1>
+    <div class="bx-sub">Every team's record against the real closing spread and total, 2021-22 through 2025-26, plus how each did against our own power-rating line. Team tendencies regress toward 50%, so use these as context, not a system.</div></div></div>
+
+  <section class="bx-sec">
+    <div class="bx-bar"><h2>The market's most lopsided teams</h2><span class="hint">40+ games with a closing line</span></div>
+    <div class="ang" id="ang"><div class="bx-empty">Loading…</div></div>
+  </section>
+
+  <section class="bx-sec">
+    <div class="bx-bar"><h2>Every team</h2><span class="hint" id="hint">last 5 seasons</span></div>
+    <div class="bx-tools">
+      <div class="bx-seg" id="season"><button data-s="all" class="on">5-yr</button><button data-s="2026">25-26</button><button data-s="2025">24-25</button><button data-s="2024">23-24</button><button data-s="2023">22-23</button><button data-s="2022">21-22</button></div>
+      <input class="bx-in" id="q" placeholder="Search team…">
+    </div>
+    <div class="sheet-wrap"><table id="teamTbl" class="sheet dense freeze2">
+      <thead><tr>
+        <th class="rk">#</th><th class="l sort" data-k="name">Team<span class="ar"></span></th><th class="sort" data-k="rec">Record<span class="ar"></span></th>
+        <th class="sort on" data-k="atsPct" data-heat="1" title="Against the spread vs the real closing line">ATS%<span class="ar">▼</span></th>
+        <th class="sort" data-k="ovPct" title="How often games went over the closing total">Over%<span class="ar"></span></th>
+        <th class="sort" data-k="winpct" data-heat="1">Win%<span class="ar"></span></th><th class="sort" data-k="homepct" data-heat="1">Home<span class="ar"></span></th><th class="sort" data-k="awaypct" data-heat="1">Away<span class="ar"></span></th>
+        <th class="sort" data-k="margin" data-heat="1">Margin<span class="ar"></span></th><th class="sort" data-k="total">Total<span class="ar"></span></th><th class="sort" data-k="vsLine" data-heat="1" title="Average result vs our power-rating line">vs Our line<span class="ar"></span></th>
+      </tr></thead>
+      <tbody id="body"><tr><td colspan="11" class="empty">Loading team trends…</td></tr></tbody></table></div>
+    <div class="bx-note"><b>ATS%</b> and <b>Over%</b> use real closing lines (the-odds-api consensus, 23,500 matched games). <b>vs Our line</b> = average result against the spread our season power ratings implied.</div>
+  </section>
+</main>
+
+<script src="bet/bet-core.js?v=2"></script>
+<script src="bet/bet-shell.js?v=2"></script>
+<script src="tdc-sheets.js?v=2"></script>
+<script>
+(function(){
+  var B=TDCBet, esc=B.esc, $=function(id){return document.getElementById(id);};
+  var TEAMS=[], SEASON='all', SORT='atsPct', DIR=-1;
+  var pct=function(v){return v==null?'—':Math.round(v*100)+'%';}, sg=function(v){return v==null?'—':(v>0?'+':'')+v.toFixed(1);};
+  function cell(full){ return '<a class="bl-tm" href="'+B.teamHref(full)+'"><span class="bl-lg">'+(B.logo(full)?'<img src="'+B.logo(full)+'" alt="" loading="lazy">':'')+'</span>'+esc(B.short(full))+'</a>'; }
+  function angles(){
+    var pool=TEAMS.map(function(t){var h=t.history; if(!h||h.g<40) return null; return {full:t._name,atsPct:h.atsPct,ats:h.ats,ovPct:h.ovPct,ou:h.ou};}).filter(Boolean);
+    var boards=[{t:'Cover machines',s:'beat the spread most',k:'atsPct',r:'ats',d:1,c:'pos',f:function(v){return pct(v);}},
+      {t:'Fade list',s:'beat the spread least',k:'atsPct',r:'ats',d:-1,c:'neg',f:function(v){return pct(v);}},
+      {t:'Over teams',s:'clear the total most',k:'ovPct',r:'ou',d:1,c:'pos',f:function(v){return pct(v)+' O';}},
+      {t:'Under teams',s:'stay under most',k:'ovPct',r:'ou',d:-1,c:'',f:function(v){return pct(1-v)+' U';}}];
+    $('ang').innerHTML=boards.map(function(b){
+      var rows=pool.filter(function(p){return p[b.k]!=null;}).sort(function(x,y){return (y[b.k]-x[b.k])*b.d;}).slice(0,6);
+      return '<div class="bx-card"><div class="bx-card-h"><h3>'+b.t+'</h3><span class="dim" style="font-size:11px">'+b.s+'</span></div><div class="bx-card-b"><div class="rl">'+rows.map(function(p,i){
+        return '<a href="'+B.teamHref(p.full)+'"><span class="n">'+(i+1)+'</span><span class="t">'+B.lg(p.full,'s')+'<span>'+esc(B.short(p.full))+'</span></span><span class="v '+b.c+'">'+b.f(p[b.k])+'<small class="dim">'+esc(p[b.r]||'')+'</small></span></a>';
+      }).join('')+'</div></div></div>';
+    }).join('');
+  }
+  function row(t){
+    var s=SEASON==='all'?t:(t.bySeason&&t.bySeason[SEASON]); if(!s) return null;
+    var h=t.history?(SEASON==='all'?t.history:(t.history.bySeason&&t.history.bySeason[SEASON])):null;
+    return {full:t._name,rec:s.w+'–'+s.l,g:s.g,winpct:s.winpct,homepct:s.home.pct,awaypct:s.away.pct,margin:s.margin,total:s.total,vsLine:s.vsLine,ats:h?h.ats:null,atsPct:h?h.atsPct:null,ou:h?h.ou:null,ovPct:h?h.ovPct:null};
+  }
+  function render(){
+    var q=($('q').value||'').toLowerCase().trim();
+    var rows=TEAMS.map(row).filter(function(r){return r&&r.g>=5&&(!q||r.full.toLowerCase().indexOf(q)>=0||B.short(r.full).toLowerCase().indexOf(q)>=0);});
+    rows.sort(function(a,b){ if(SORT==='name') return B.short(a.full).localeCompare(B.short(b.full))*(-DIR);
+      var av=SORT==='rec'?a.winpct:a[SORT], bv=SORT==='rec'?b.winpct:b[SORT]; av=av==null?-1e9:av; bv=bv==null?-1e9:bv; return (av-bv)*DIR||(b.winpct-a.winpct); });
+    $('body').innerHTML=rows.length?rows.map(function(r,i){
+      return '<tr><td class="rk">'+(i+1)+'</td><td class="l nm">'+cell(r.full)+'</td><td>'+r.rec+'</td><td data-v="'+(r.atsPct==null?'':r.atsPct)+'">'+(r.atsPct==null?'—':pct(r.atsPct)+' <span class="dim">'+(r.ats||'')+'</span>')+'</td>'+
+        '<td>'+(r.ovPct==null?'—':pct(r.ovPct)+' <span class="dim">'+(r.ou||'')+'</span>')+'</td><td>'+pct(r.winpct)+'</td><td>'+pct(r.homepct)+'</td><td>'+pct(r.awaypct)+'</td><td>'+sg(r.margin)+'</td><td>'+(r.total!=null?r.total.toFixed(1):'—')+'</td><td>'+sg(r.vsLine)+'</td></tr>';
+    }).join(''):'<tr><td colspan="11" class="empty">No teams match.</td></tr>';
+    if(window.tdcSheetHeat) tdcSheetHeat($('teamTbl'));
+  }
+  document.querySelectorAll('#teamTbl th[data-k]').forEach(function(th){ th.addEventListener('click',function(){
+    var k=th.dataset.k; if(SORT===k) DIR=-DIR; else { SORT=k; DIR=k==='name'?1:-1; }
+    document.querySelectorAll('#teamTbl th[data-k]').forEach(function(x){ var on=x.dataset.k===k; x.classList.toggle('on',on); x.querySelector('.ar').textContent=on?(DIR>0?'▲':'▼'):''; });
+    render(); }); });
+  $('season').addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b) return; $('season').querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);}); SEASON=b.dataset.s;
+    $('hint').textContent=SEASON==='all'?'last 5 seasons':({'2026':'2025-26','2025':'2024-25','2024':'2023-24','2023':'2022-23','2022':'2021-22'})[SEASON]; render(); });
+  $('q').oninput=render;
+  B.load().then(function(){ var d=B.state().trends; if(!d||!d.teams){ $('body').innerHTML='<tr><td colspan="11" class="empty">Trends not available.</td></tr>'; return; }
+    TEAMS=Object.keys(d.teams).map(function(k){ var t=d.teams[k]; t._name=k; return t; }); angles(); render(); });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <base href="/">
+  <title>TDC Bet · Matchup</title>
+  <meta name="description" content="One college basketball game, broken down for betting: our line vs the book, cover chances at any number, tale of the tape, ATS trends and player props.">
+  <meta name="theme-color" content="#0A0D12">
+  <link rel="icon" type="image/svg+xml" href="bet/favicon.svg">
+  <script src="auth.js?v=sso1"></script>
+  <script>try{var _t=JSON.parse(localStorage.getItem('tdcbet_theme')||'"dark"');document.documentElement.setAttribute('data-theme',_t==='light'?'light':'dark');}catch(e){}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="tdc-sheets.css?v=6">
+  <link rel="stylesheet" href="bet/bet.css?v=2">
+  <script src="tdc-gate.js?v=4"></script>
+  <script src="team-colors.js?v=13"></script>
+  <script src="tdc-ratings.js?v=44"></script>
+  <style>
+    .mh{position:relative;overflow:hidden;border:1px solid var(--border);border-radius:20px;background:var(--bg2);padding:22px 24px 18px;margin-bottom:18px;}
+    .mh::before{content:'';position:absolute;inset:0;background:linear-gradient(100deg,var(--ca,transparent) 0%,transparent 38%,transparent 62%,var(--ch,transparent) 100%);opacity:.22;pointer-events:none;}
+    .mh-top{position:relative;display:flex;justify-content:space-between;gap:10px;font:700 12px Inter,sans-serif;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:14px;}
+    .mh-row{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:18px;align-items:center;}
+    .mh-t{display:flex;align-items:center;gap:14px;min-width:0;text-decoration:none;color:var(--text);}
+    .mh-t.h{flex-direction:row-reverse;text-align:right;}
+    .mh-n{min-width:0;}
+    .mh-n b{display:block;font:800 34px/0.95 'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .mh-n small{display:block;font:600 12.5px Inter,sans-serif;color:var(--text3);margin-top:5px;}
+    .mh-t:hover b{color:var(--accent);}
+    .mh-mid{text-align:center;}
+    .mh-score{font:800 46px/1 'Barlow Condensed',sans-serif;white-space:nowrap;}
+    .mh-score span{color:var(--text3);font-size:28px;margin:0 8px;}
+    .mh-lab{font:700 10.5px Inter,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-top:6px;}
+    .mh-wp{position:relative;margin-top:16px;}
+    .mh-wp .bar{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--bg4);}
+    .mh-wp .bar i{display:block;height:100%;}
+    .mh-wp .lab{display:flex;justify-content:space-between;font:800 15px 'Barlow Condensed',sans-serif;margin-top:6px;letter-spacing:.03em;}
+    .g2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;}
+    .kv{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:4px 12px;align-items:center;font-size:13px;}
+    .kv .a{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;} .kv .h{text-align:left;font-weight:700;font-variant-numeric:tabular-nums;}
+    .kv .k{text-align:center;font:700 10.5px Inter,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);padding:7px 0;border-top:1px solid var(--border);}
+    .kv .a,.kv .h{padding:7px 0;border-top:1px solid var(--border);}
+    .kv .hd{border-top:0;padding-top:0;}
+    .kv .better{color:var(--accent);}
+    .slider{display:flex;align-items:center;gap:12px;margin:6px 0 4px;}
+    .slider input[type=range]{flex:1;accent-color:var(--accent);}
+    .slider b{font:800 24px 'Barlow Condensed',sans-serif;min-width:90px;text-align:center;}
+    .cov{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
+    .cov div{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:10px 12px;}
+    .cov b{display:block;font:800 26px/1 'Barlow Condensed',sans-serif;}
+    .cov span{display:block;font:700 10.5px Inter,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-top:4px;}
+    .cov small{display:block;font:600 12px Inter,sans-serif;color:var(--text2);margin-top:3px;}
+    .dist svg{width:100%;height:auto;display:block;}
+    .why{margin:0;padding-left:18px;color:var(--text2);font-size:13.5px;line-height:1.6;} .why li{margin:3px 0;} .why b{color:var(--text);}
+    @media (max-width:860px){ .g2{grid-template-columns:1fr;} .mh-n b{font-size:24px;} .mh-score{font-size:34px;} .mh-row{gap:8px;} .mh-t .lg.xl{width:52px;height:52px;} }
+    @media (max-width:520px){ .mh{padding:16px 14px;} .mh-n small{display:none;} .mh-n b{font-size:19px;} .mh-score{font-size:28px;} .mh-score span{font-size:20px;margin:0 4px;} }
+  </style>
+</head>
+<body>
+<main class="bx-main">
+  <div id="app"><div class="bx-empty">Loading the matchup…</div></div>
+</main>
+
+<script src="bet/bet-core.js?v=2"></script>
+<script src="bet/bet-shell.js?v=2"></script>
+<script src="bet/bet-ui.js?v=3"></script>
+<script src="bet/bet-edge.js?v=7"></script>
+<script>
+(function(){
+  var B=TDCBet, esc=B.esc, $=function(id){return document.getElementById(id);};
+  var id=new URLSearchParams(location.search).get('id');
+  var R=null;
+  function pct(p){ return Math.round(p*100)+'%'; }
+  function fmt(v,d){ return v==null||!isFinite(v)?'—':(+v).toFixed(d==null?1:d); }
+
+  function header(r, res){
+    var ca=B.color(r.away)||'#556', ch=B.color(r.home)||'#889', ta=B.state().trends, tA=ta&&ta.teams[r.away], tH=ta&&ta.teams[r.home];
+    var sub=function(full){ var t=B.state().byFull[full]; return '#'+(B.rank(full)||'—')+' in our ratings'+(t&&t.conf?' · '+esc(t.conf):''); };
+    var final=res&&res.final, live=res&&res.state==='in';
+    var mid=final||live
+      ? '<div class="mh-score">'+res.as+'<span>–</span>'+res.hs+'</div><div class="mh-lab">'+(final?'Final · we projected '+r.scoreA+'–'+r.scoreH:'Live · '+esc(res.clock||''))+'</div>'
+      : '<div class="mh-score">'+r.scoreA+'<span>–</span>'+r.scoreH+'</div><div class="mh-lab">Projected score</div>';
+    return '<section class="mh" style="--ca:'+ca+';--ch:'+ch+'"><div class="mh-top"><span>'+esc(B.fmtDate(r.date,'long'))+(r.exh?' · Exhibition':'')+(r.conf?' · Conference':'')+'</span><span>'+(r.neutral?'Neutral site':'At '+esc(B.short(r.home)))+'</span></div>'+
+      '<div class="mh-row"><a class="mh-t" href="'+B.teamHref(r.away)+'">'+B.lg(r.away,'xl')+'<span class="mh-n"><b>'+esc(B.short(r.away))+'</b><small>'+sub(r.away)+'</small></span></a>'+
+      '<div class="mh-mid">'+mid+'</div>'+
+      '<a class="mh-t h" href="'+B.teamHref(r.home)+'">'+B.lg(r.home,'xl')+'<span class="mh-n"><b>'+esc(B.short(r.home))+'</b><small>'+sub(r.home)+'</small></span></a></div>'+
+      '<div class="mh-wp"><div class="bar"><i style="width:'+r.probA+'%;background:'+ca+'"></i><i style="width:'+r.probH+'%;background:'+ch+'"></i></div><div class="lab"><span>'+Math.round(r.probA)+'% win</span><span>'+Math.round(r.probH)+'% win</span></div></div></section>';
+  }
+
+  // margin distribution: our expected home margin ± SIGMA, shaded where each side covers the line in play
+  function dist(r, line){
+    var S=(TDC_RATINGS.SIGMA||11), W=640, H=170, pad=24, lo=Math.floor(r.m-3*S), hi=Math.ceil(r.m+3*S);
+    var x=function(v){return pad+(v-lo)/(hi-lo)*(W-2*pad);}, pdf=function(v){return Math.exp(-0.5*Math.pow((v-r.m)/S,2));};
+    var bars='', cut=-line;   // home covers when margin > -line(home)
+    for(var v=lo; v<=hi; v++){ var h=pdf(v)*(H-50); bars+='<rect x="'+(x(v)-((W-2*pad)/(hi-lo))/2+0.5).toFixed(1)+'" y="'+(H-28-h).toFixed(1)+'" width="'+Math.max(1,((W-2*pad)/(hi-lo))-1).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+(v>cut?'var(--hc)':v<cut?'var(--ac)':'var(--text3)')+'" opacity=".9" rx="1"/>'; }
+    var ticks=''; for(var t=Math.ceil((lo+6)/10)*10;t<=hi-6;t+=10){ ticks+='<text x="'+x(t)+'" y="'+(H-10)+'" text-anchor="middle" font-size="11" fill="var(--text3)" font-family="Inter">'+(t===0?'0':(t>0?B.short(r.home)+' +'+t:B.short(r.away)+' +'+(-t)))+'</text>'; }
+    return '<svg viewBox="0 0 '+W+' '+H+'" style="--hc:'+(B.color(r.home)||'var(--accent)')+';--ac:'+(B.color(r.away)||'var(--blue)')+'" role="img" aria-label="Distribution of the final margin">'+bars+
+      '<line x1="'+x(cut)+'" x2="'+x(cut)+'" y1="10" y2="'+(H-26)+'" stroke="var(--text)" stroke-dasharray="3 3"/><text x="'+x(cut)+'" y="10" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text)" font-family="Inter" dy="-1">line</text>'+ticks+'</svg>';
+  }
+
+  function linePanel(r){
+    var mk=r.mk, bookHome=mk&&mk.spread!=null?-mk.spread:null, start=bookHome!=null?bookHome:-(Math.round(r.m*2)/2);
+    var tStart=mk&&mk.total!=null?mk.total:(r.tot!=null?B.half(r.tot):145.5);
+    return '<div class="bx-card"><div class="bx-card-h"><h3>Cover chance at any number</h3><span class="dim" style="font-size:12px">drag to line-shop</span></div><div class="bx-card-b">'+
+      '<div class="slider"><span class="dim" style="font-size:12px;font-weight:700">'+esc(B.short(r.home))+'</span><input type="range" id="spR" min="-40" max="40" step="0.5" value="'+start+'"><b id="spV"></b></div>'+
+      '<div class="cov" id="spCov"></div><div class="dist" id="dist" style="margin-top:12px"></div>'+
+      (r.tot!=null?'<div class="slider" style="margin-top:14px"><span class="dim" style="font-size:12px;font-weight:700">Total</span><input type="range" id="toR" min="'+Math.round(r.tot-30)+'" max="'+Math.round(r.tot+30)+'" step="0.5" value="'+tStart+'"><b id="toV"></b></div><div class="cov" id="toCov"></div>':'')+
+      '<div class="bx-note">Our margin is '+esc(B.short(r.m>=0?r.home:r.away))+' by '+fmt(Math.abs(r.m))+', with a typical miss of ±'+(TDC_RATINGS.SIGMA||11)+' points; totals ±'+B.TOTAL_SD+'. A price is worth betting only when the book pays more than the fair odds shown.</div></div></div>';
+  }
+  function paintLine(){
+    var r=R, v=+$('spR').value, ph=B.coverP(r.m,v), pa=1-ph;
+    $('spV').textContent=B.spTxt(v);
+    $('spCov').innerHTML='<div><b>'+pct(ph)+'</b><span>'+esc(B.short(r.home))+' '+B.spTxt(v)+'</span><small>fair '+B.fairTxt(ph)+'</small></div><div><b>'+pct(pa)+'</b><span>'+esc(B.short(r.away))+' '+B.spTxt(-v)+'</span><small>fair '+B.fairTxt(pa)+'</small></div>';
+    $('dist').innerHTML=dist(r,v);
+    var t=$('toR'); if(t){ var tv=+t.value, po=B.overP(r.tot,tv); $('toV').textContent=tv.toFixed(1);
+      $('toCov').innerHTML='<div><b>'+pct(po)+'</b><span>Over '+tv.toFixed(1)+'</span><small>fair '+B.fairTxt(po)+'</small></div><div><b>'+pct(1-po)+'</b><span>Under '+tv.toFixed(1)+'</span><small>fair '+B.fairTxt(1-po)+'</small></div>'; }
+  }
+
+  function tape(r){
+    var S=B.state(), E=S.eff&&S.eff.teams||{}, A=E[r.away]||{}, H=E[r.home]||{}, tr=S.trends&&S.trends.teams||{}, tA=tr[r.away]||{}, tH=tr[r.home]||{};
+    var rA=S.byFull[r.away]||{}, rH=S.byFull[r.home]||{};
+    var row=function(k,a,h,hiBetter,fa){ var na=parseFloat(a), nh=parseFloat(h), bA='', bH='';
+      if(hiBetter!=null&&isFinite(na)&&isFinite(nh)&&na!==nh){ var aBetter=hiBetter?na>nh:na<nh; bA=aBetter?' better':''; bH=aBetter?'':' better'; }
+      return '<div class="a'+bA+'">'+(fa?fa(a):a)+'</div><div class="k">'+k+'</div><div class="h'+bH+'">'+(fa?fa(h):h)+'</div>'; };
+    var p=function(v){return v==null?'—':Math.round(v*100)+'%';}, hs=function(o){return o&&o.history?o.history:{};};
+    return '<div class="bx-card"><div class="bx-card-h"><h3>Tale of the tape</h3></div><div class="bx-card-b"><div class="kv">'+
+      '<div class="a hd">'+B.lg(r.away,'s')+'</div><div class="k hd"></div><div class="h hd">'+B.lg(r.home,'s')+'</div>'+
+      row('Our rank',rA.rank||'—',rH.rank||'—',false)+
+      row('Power rating',fmt(rA.rating),fmt(rH.rating),true)+
+      row('Off. efficiency',fmt(A.o),fmt(H.o),true)+
+      row('Def. efficiency',fmt(A.d),fmt(H.d),false)+
+      row('Tempo',fmt(A.t),fmt(H.t),null)+
+      row('5-yr ATS',hs(tA).atsPct!=null?Math.round(hs(tA).atsPct*100):'—',hs(tH).atsPct!=null?Math.round(hs(tH).atsPct*100):'—',true,function(v){return v==='—'?v:v+'%';})+
+      row('5-yr overs',hs(tA).ovPct!=null?Math.round(hs(tA).ovPct*100)+'%':'—',hs(tH).ovPct!=null?Math.round(hs(tH).ovPct*100)+'%':'—',null)+
+      row('Road / home win%',tA.away?p(tA.away.pct):'—',tH.home?p(tH.home.pct):'—',null)+
+      row('vs our line, 5 yr',tA.vsLine!=null?(tA.vsLine>0?'+':'')+tA.vsLine:'—',tH.vsLine!=null?(tH.vsLine>0?'+':'')+tH.vsLine:'—',true)+
+      '</div><div class="bx-note">Efficiency = points per 100 possessions, projected for 2026-27. ATS and overs use five seasons of real closing lines. Team tendencies regress, so treat them as context.</div></div></div>';
+  }
+  function whyList(r){
+    var S=B.state(), E=S.eff&&S.eff.teams||{}, A=E[r.away], H=E[r.home], out=[];
+    var fav=B.short(r.fav), dog=B.short(r.dog);
+    out.push('<b>'+esc(fav)+'</b> is our favourite by <b>'+fmt(Math.abs(r.m))+'</b> ('+Math.round(r.favP)+'% to win, fair '+B.fairTxt(r.favP/100)+').');
+    if(!r.neutral) out.push('Home court is worth about <b>'+fmt(TDC_RATINGS.baseHca((S.byFull[r.away]||{}).rating||0)+((S.byFull[r.home]||{}).hcaOff||0))+'</b> points to '+esc(B.short(r.home))+' here.');
+    if(r.pace!=null) out.push('Expected pace: <b>'+fmt(r.pace)+'</b> possessions'+(r.pace>=70?', faster than most':r.pace<=65?', a grind':'')+'. Projected total <b>'+Math.round(r.tot)+'</b>.');
+    if(r.mk){ if(r.spEdge!=null) out.push('The book has '+esc(B.short(r.mk.spread>=0?r.home:r.away))+' '+B.spTxt(-Math.abs(r.mk.spread))+': we are <b>'+fmt(Math.abs(r.spEdge))+'</b> points '+(r.spEdge>0?'higher on '+esc(B.short(r.home)):'higher on '+esc(B.short(r.away)))+'.'); if(r.toEdge!=null) out.push('Book total '+r.mk.total+': we are <b>'+fmt(Math.abs(r.toEdge))+'</b> '+(r.toEdge>0?'over':'under')+'.'); }
+    else out.push('No book line yet. Books usually post about a week before tip; this page fills in when they do.');
+    return '<div class="bx-card"><div class="bx-card-h"><h3>The read</h3></div><div class="bx-card-b"><ul class="why">'+out.map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul></div></div>';
+  }
+  function props(r){
+    return B.loadProps().then(function(){
+      var S=B.state(), names={}; S.P.forEach(function(p){names[p.id]=p;});
+      var rows=[];
+      Object.keys(S.PR).forEach(function(pid){ var pr=S.PR[pid]; if(!pr||(pr.team!==r.home&&pr.team!==r.away)||!(pr.mpg>=14)||!names[pid]) return; rows.push({id:pid,pr:pr,p:names[pid]}); });
+      rows.sort(function(a,b){return (b.pr.ppg||0)-(a.pr.ppg||0);});
+      var cands=B.propCands([r]), byP={}; cands.forEach(function(c){ (byP[c.id]=byP[c.id]||[]).push(c); });
+      var body=rows.slice(0,16).map(function(x){
+        var pr=x.pr, flags=(byP[x.id]||[]).map(function(c){ return '<span class="bx-tag '+(c.side==='over'?'g':'r')+'">'+(c.side==='over'?'O ':'U ')+c.line+' '+B.STAT_ABBR[c.s]+' · '+Math.round(c.rate*100)+'%</span>'; }).join(' ');
+        return '<tr><td class="l nm">'+B.lg(pr.team,'s').replace('class="lg s"','class="lg s" style="vertical-align:middle;margin-right:6px"')+'<a href="'+B.playerHref(x.id,'betting')+'">'+esc(x.p.name)+'</a></td><td>'+fmt(pr.mpg,0)+'</td><td>'+fmt(pr.ppg)+'</td><td>'+fmt(pr.rpg)+'</td><td>'+fmt(pr.apg)+'</td><td>'+fmt(pr.tpm)+'</td><td>'+B.half(pr.ppg||0)+'</td><td class="l edgecell">'+(flags||'<span class="dim">—</span>')+'</td></tr>';
+      }).join('');
+      $('props').innerHTML='<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th><th>Min</th><th>PTS</th><th>REB</th><th>AST</th><th>3PM</th><th title="Points line our projection would hang">Our pts line</th><th class="l" title="Backtested bounce-back (over) or regression (under) spots">Prop edge</th></tr></thead><tbody>'+(body||'<tr><td colspan="8" class="empty">No projected rotation players with prop history.</td></tr>')+'</tbody></table></div>';
+      if(cands.length) BX.has().then(function(ok){ if(!ok){ document.querySelectorAll('#props .edgecell').forEach(function(td){ if(td.querySelector('.bx-tag')) td.innerHTML='<span class="bx-tag y">Premium</span>'; }); } });
+    });
+  }
+
+  function paint(res){
+    var r=R;
+    document.title='TDC Bet · '+B.short(r.away)+(r.neutral?' vs ':' @ ')+B.short(r.home);
+    $('app').innerHTML=header(r,res)+
+      '<section class="bx-sec"><div class="bx-bar"><h2>The line</h2><span class="hint">'+(r.mk?'book · ours':'our numbers · tap to add to your slip')+'</span></div><div class="bd-grid one">'+BXUI.ticket(r,res&&res.state?(function(){var o={};o[String(r.id)]=res;return o;})():null)+'</div></section>'+
+      '<section class="bx-sec" id="edSec" hidden><div class="bx-bar"><h2>Best bets in this game</h2><span class="hint" id="edHint"></span></div><div id="edList"></div></section>'+
+      '<section class="bx-sec" id="gridSec" hidden><div class="bx-bar"><h2>Every market, every book</h2><span class="hint">EV at each book\'s price · best price in green</span></div><div id="grid"></div></section>'+
+      '<section class="bx-sec g2">'+linePanel(r)+'<div style="display:flex;flex-direction:column;gap:16px">'+whyList(r)+tape(r)+'</div></section>'+
+      '<section class="bx-sec"><div class="bx-bar"><h2>Player props</h2><span class="hint">projected 2026-27 lines · flagged where our backtest likes a side</span><a class="more" href="'+B.href('props')+'">Prop board →</a></div><div id="props"><div class="bx-empty">Loading players…</div></div></section>';
+    $('spR').oninput=paintLine; if($('toR')) $('toR').oninput=paintLine; paintLine();
+    props(r);
+    TDCEdge.load().then(function(){ edgeSections(r); });
+  }
+  function edgeSections(r){
+    var gm=TDCEdge.game(r); if(!gm) return;
+    var bank=BX.LS.get('tdcbet_bankroll',1000);
+    Promise.all([TDCEdge.props([r]),BX.has()]).then(function(a){
+      var list=TDCEdge.board([r]).concat(a[0]).sort(function(x,y){return y.ev-x.ev;}), prem=a[1];
+      $('edSec').hidden=false;
+      $('edHint').textContent=list.length?list.length+' +EV at the best price'+(TDCEdge.fixture()?' · SAMPLE DATA':''):'';
+      var show=prem?list:list.slice(0,1);
+      $('edList').innerHTML=list.length?'<div class="ed-list">'+show.map(function(b,i){return BXUI.edgeRow(b,i,bank);}).join('')+'</div>'+(!prem&&list.length>1?'<div id="edLk" style="margin-top:8px"><div class="ed-list">'+BXUI.ghostEdges(Math.min(4,list.length-1))+'</div></div>':'')
+        :'<div class="ed-none"><h3>No bet clears the bar here</h3><p>Every posted price in this game is within our margin of the market. That\'s most games: the edge is in being picky.</p></div>';
+      if(!prem&&list.length>1) BX.gate($('edLk'),{label:(list.length-1)+' more bets in this game',blurb:'The full list of +EV bets with the best book and a stake. Premium.'});
+    });
+    // the grid: one row per outcome, one column per book
+    var seenB={}; gm.bets.forEach(function(x){ (x.offers||[x]).forEach(function(o){ seenB[o.book]=1; }); }); var bks=TDCEdge.books().filter(function(b){ return seenB[b.key]; });
+    var rowsOut={}, order=[];
+    gm.bets.forEach(function(b){ if(b.market==='alt') return; (b.offers||[b]).forEach(function(o){
+      var k=b.market+':'+b.side+':'+(b.market==='tt'?b.team:''); if(!rowsOut[k]){ rowsOut[k]={lab:b.market==='spread'?B.short(b.team)+' spread':b.market==='total'?(b.side==='over'?'Over':'Under'):b.market==='ml'?B.short(b.team)+' ML':b.label.replace(/ [OU] [\d.]+$/,'')+(b.side==='over'?' over':b.side==='under'?' under':''),cells:{}}; order.push(k); }
+      var c=rowsOut[k].cells[o.book]; if(!c||o.ev>c.ev) rowsOut[k].cells[o.book]=o; }); });
+    var head='<th class="l">Market</th>'+bks.map(function(b){return '<th>'+esc(b.title)+'</th>';}).join('');
+    var body=order.map(function(k){ var R=rowsOut[k], best=null; Object.keys(R.cells).forEach(function(bk){ var o=R.cells[bk]; if(!best||o.ev>best.ev) best=o; });
+      return '<tr><td class="l nm">'+esc(R.lab)+'</td>'+bks.map(function(b){ var o=R.cells[b.key]; if(!o) return '<td class="dim">—</td>';
+        var pt=o.point!=null&&o.market!=='ml'?((o.market==='spread'||(o.market==='h1'&&/home|away/.test(o.side)))?B.spTxt(o.point):o.point)+' ':'';
+        return '<td style="'+(o===best&&o.ev>0?'background:var(--accent-bg);':'')+'">'+pt+'<b>'+B.oddsTxt(o.price)+'</b> <span class="'+(o.ev>0?'pos':'dim')+'" style="font-size:11px">'+(o.ev>=0?'+':'−')+Math.abs(o.ev*100).toFixed(1)+'%</span></td>'; }).join('')+'</tr>'; }).join('');
+    $('gridSec').hidden=false;
+    $('grid').innerHTML='<div class="sheet-wrap"><table class="sheet dense">'+'<thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody></table></div>';
+  }
+  B.load().then(function(){
+    R=id?B.game(id):null;
+    if(!R){ $('app').innerHTML='<div class="bx-empty">We couldn\'t find that game. <a href="'+B.href('games')+'" style="color:var(--accent)">Back to the board</a></div>'; return; }
+    paint(R.res);
+    B.live(R.date).then(function(l){ var x=l[String(R.id)]; if(x&&(x.state==='in'||x.final)) paint(x); });
+  });
+})();
+</script>
+</body>
+</html>

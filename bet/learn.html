@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <base href="/">
+  <title>TDC Bet · How It Works</title>
+  <meta name="description" content="How TDC Bet prices college basketball: the power ratings, totals, simulations and prop backtests behind every number, how to read the board, and a betting glossary.">
+  <meta name="theme-color" content="#0A0D12">
+  <link rel="icon" type="image/svg+xml" href="bet/favicon.svg">
+  <script src="auth.js?v=sso1"></script>
+  <script>try{var _t=JSON.parse(localStorage.getItem('tdcbet_theme')||'"dark"');document.documentElement.setAttribute('data-theme',_t==='light'?'light':'dark');}catch(e){}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="tdc-sheets.css?v=6">
+  <link rel="stylesheet" href="bet/bet.css?v=2">
+  <script src="tdc-gate.js?v=4"></script>
+  <script src="team-colors.js?v=13"></script>
+  <script src="tdc-ratings.js?v=44"></script>
+  <style>
+    .lr{display:grid;grid-template-columns:220px minmax(0,1fr);gap:28px;align-items:start;}
+    .toc{position:sticky;top:calc(var(--top-h) + 16px);display:flex;flex-direction:column;gap:2px;}
+    .toc a{padding:7px 10px;border-radius:8px;text-decoration:none;color:var(--text2);font:700 14px 'Barlow Condensed',sans-serif;letter-spacing:.06em;text-transform:uppercase;}
+    .toc a:hover{background:var(--bg2);color:var(--text);}
+    .doc{max-width:780px;}
+    .doc h2{font:800 28px/1 'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.03em;margin:34px 0 10px;scroll-margin-top:80px;}
+    .doc h2:first-child{margin-top:0;}
+    .doc p{color:var(--text2);font-size:15px;line-height:1.7;margin:0 0 12px;}
+    .doc p b{color:var(--text);}
+    .steps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0;}
+    .steps div{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px 16px;}
+    .steps b{display:block;font:800 17px 'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;}
+    .steps span{font-size:13px;color:var(--text2);line-height:1.55;}
+    dl.gl{display:grid;grid-template-columns:180px minmax(0,1fr);border-top:1px solid var(--border);}
+    dl.gl dt,dl.gl dd{padding:11px 0;border-bottom:1px solid var(--border);}
+    dl.gl dt{font:800 15px 'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.04em;}
+    dl.gl dd{color:var(--text2);font-size:14px;line-height:1.6;}
+    .demo{max-width:560px;margin:12px 0 16px;}
+    .rgbox{border:1px solid var(--border2);border-radius:14px;padding:16px 18px;background:var(--bg2);}
+    @media (max-width:860px){ .lr{grid-template-columns:1fr;} .toc{position:static;flex-direction:row;flex-wrap:wrap;} .steps{grid-template-columns:1fr;} dl.gl{grid-template-columns:1fr;} dl.gl dt{border-bottom:0;padding-bottom:0;} }
+  </style>
+</head>
+<body>
+<main class="bx-main">
+  <div class="bx-head"><div><div class="bx-kick">Learn</div><h1 class="bx-h1">How TDC Bet works</h1><div class="bx-sub">What's behind every number on the board, how to read it, and what the words mean.</div></div></div>
+  <div class="lr">
+    <nav class="toc"><a href="#model">The model</a><a href="#board">Reading the board</a><a href="#bets">Best bets</a><a href="#props">Props</a><a href="#futures">Futures</a><a href="#glossary">Glossary</a><a href="#rg">Play it safe</a></nav>
+    <article class="doc">
+      <h2 id="model">The model</h2>
+      <p>Every spread starts with The Depth Chart's <b>power ratings</b>: each team's projected 2026-27 roster, player by player, priced from real box-score production, transfers and development curves. Once games start, results move the ratings every night, opponent- and venue-adjusted, with the preseason projection counting as eight games.</p>
+      <p>The <b>spread</b> is the rating gap plus home court (worth more against weak visitors, and measured for each arena). The <b>total</b> comes from tempo × efficiency: how fast both teams play and how many points each scores and allows per 100 possessions. The <b>moneyline</b> is our win chance written as a price, with no vig.</p>
+      <div class="steps">
+        <div><b>1 · Rosters</b><span>Every player's projected line feeds his team's rating.</span></div>
+        <div><b>2 · Ratings</b><span>Team strength on one scale, updated nightly in season.</span></div>
+        <div><b>3 · Lines</b><span>Spread, total and win chance for every game, then the book's number beside ours.</span></div>
+        <div><b>4 · Seasons</b><span>2,000 simulated seasons and tournaments price every future.</span></div>
+      </div>
+
+      <h2 id="board">Reading the board</h2>
+      <p>Each game is a ticket: away team on top, home team below, with <b>Spread</b>, <b>Total</b> and <b>Moneyline</b> boxes. Before books post, the boxes hold our numbers and our favourite's boxes are blue. Once a book posts, the book's number is big and ours sits underneath. A <b style="color:var(--accent)">green box</b> is the side our model likes by a real margin. Tap any box to add it to your slip.</p>
+      <div class="demo bd-grid one" id="demo"></div>
+
+      <h2 id="bets">Best bets</h2>
+      <p><b>The edge board</b> (the top of Tonight) prices every market the books post: spreads, totals, moneylines, team totals, first-half and alternate lines, and player props. Each one is priced at every sportsbook, and only the bets worth more than they cost are kept. For each bet you get the best price and where it is, our chance next to the market's, the expected value per $1, and a quarter-Kelly stake for your bankroll. Pick your books under <b>My books</b> to see only prices you can actually bet.</p>
+      <p>Our chance is <b>blended with the market</b> before anything is ranked. Sportsbooks are sharp: a model that ignores them finds an "edge" on every game. A bet makes the board only when our number and the market's together still beat the price. A line that's far off the other books gets flagged as possibly stale instead of recommended.</p>
+      <p>Player props run on a model calibrated against two seasons of game logs: when it says 60%, it happened about 60% of the time. It uses our projection, this season's games, minutes, pace and the opponent's defense.</p>
+      <p>The <b>Angles</b> section is the older card: backtested spots, before you check the price. A bet only makes the Angles card when there's evidence behind it: a spread 3+ points off the book, a total 4+ off, or a prop spot our backtest likes <b>and</b> our projection agrees with. Confidence (one to five bars) comes from the size of the edge or the backtest's hit rate. Some nights nothing qualifies, and we'd rather show nothing than force it.</p>
+      <p>Every line is logged the morning of the game and graded on the <a href="bet/record.html" data-bet="record" style="color:var(--accent)">Record</a> page. Losses stay there.</p>
+
+      <h2 id="props">Props</h2>
+      <p>Player production per minute drifts back toward a player's own career. A player whose last season ran well below his career pace tends to bounce back (overs); one coming off a spike tends to regress (unders). We tested that on two full seasons of game logs. The <b>line</b> we show is last season's pace × this season's projected minutes, the number a book anchored on last year would hang.</p>
+
+      <h2 id="futures">Futures</h2>
+      <p>We play the whole season 2,000 times: every regular-season game, every conference tournament on its real bracket, the committee's selection and seeding, then March. A team's title chance is the share of seasons it wins. Win totals use the same seasons. Award odds come from projected lines and team records, calibrated on past voting.</p>
+
+      <h2 id="glossary">Glossary</h2>
+      <dl class="gl">
+        <dt>Spread</dt><dd>Points the favourite gives. Duke −4.5 has to win by 5 or more; the other side covers if they lose by 4 or fewer, or win.</dd>
+        <dt>Total</dt><dd>Combined points scored by both teams. Bet over or under the number.</dd>
+        <dt>Moneyline</dt><dd>Just pick the winner. −150 means bet $150 to win $100; +130 means $100 wins $130.</dd>
+        <dt>Vig (juice)</dt><dd>The book's cut. At −110 on both sides, you need to win 52.4% just to break even.</dd>
+        <dt>Fair odds</dt><dd>Our chance written as a price with no vig. A bet is worth it only when the book pays more than the fair price.</dd>
+        <dt>Edge</dt><dd>How far our number is from the book's: points on spreads and totals, percentage points of win chance on moneylines and futures.</dd>
+        <dt>ATS</dt><dd>Against the spread: a team's record when you count covering the line, not winning the game.</dd>
+        <dt>CLV</dt><dd>Closing line value: getting a better number than the line closes at. The most reliable sign a bettor has an edge.</dd>
+        <dt>Unit</dt><dd>A standard bet size, usually 1–2% of a bankroll. Records in units compare bettors who stake different amounts.</dd>
+        <dt>Kelly</dt><dd>A formula that sizes a bet by its edge. Most bettors use a quarter to a half of it. <a href="bet/tools.html" data-bet="tools" style="color:var(--accent)">Calculator →</a></dd>
+        <dt>Parlay</dt><dd>Several bets that all have to win. Payouts multiply, and so does the vig.</dd>
+        <dt>Push</dt><dd>The result lands exactly on the number. The bet is refunded.</dd>
+      </dl>
+
+      <h2 id="rg">Play it safe</h2>
+      <div class="rgbox"><p style="margin:0 0 8px"><b>TDC Bet publishes prices and analysis. It doesn't take bets.</b> Place real wagers only with a licensed sportsbook where sports betting is legal, and only if you're 21 or older.</p>
+        <p style="margin:0">Set a budget before you start and treat it as the cost of entertainment. No model wins every night, ours included. If betting stops being fun, call <b>1-800-GAMBLER</b> (24/7, free, confidential) or visit <a href="https://www.ncpgambling.org" target="_blank" rel="noopener" style="color:var(--accent)">ncpgambling.org</a>.</p></div>
+    </article>
+  </div>
+</main>
+
+<script src="bet/bet-core.js?v=2"></script>
+<script src="bet/bet-shell.js?v=2"></script>
+<script src="bet/bet-ui.js?v=3"></script>
+<script>
+(function(){
+  var B=TDCBet;
+  document.querySelectorAll('[data-bet]').forEach(function(a){ a.href=B.href(a.getAttribute('data-bet')); });
+  B.load().then(function(){ var d=B.defaultDate(), rows=d?B.slate(d).filter(function(r){return !r.exh;}):[];
+    if(!rows.length){ var all=B.state().dates; for(var i=0;i<all.length&&!rows.length;i++){ rows=B.slate(all[i]).filter(function(r){return !r.exh;}); } }
+    if(rows.length) document.getElementById('demo').innerHTML=BXUI.ticket(rows[0]); });
+})();
+</script>
+</body>
+</html>

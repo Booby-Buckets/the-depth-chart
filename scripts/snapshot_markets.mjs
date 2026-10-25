@@ -23,10 +23,10 @@ const DAY = process.env.DATE || new Date(Date.now() - 5 * 3600e3).toISOString().
 
 // the exact scripts (and ?v= versions) the Betting Lab loads, so the snapshot prices match the page
 function pageScripts() {
-  const html = fs.readFileSync(path.join(ROOT, 'betting.html'), 'utf8');
+  const html = fs.readFileSync(path.join(ROOT, 'bet/futures.html'), 'utf8');
   return ['team-colors.js', 'tdc-ratings.js', 'tdc-schedule.js', 'tdc-conftourney.js', 'tdc-postseason.js'].map(f => {
     const m = html.match(new RegExp('src="(' + f.replace(/[.]/g, '\\.') + '[^"]*)"'));
-    if (!m) throw new Error('betting.html no longer loads ' + f);
+    if (!m) throw new Error('bet/futures.html no longer loads ' + f);
     return m[1];
   });
 }

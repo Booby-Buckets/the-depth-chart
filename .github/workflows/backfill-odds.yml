@@ -1,0 +1,61 @@
+name: Backfill historical odds
+
+# Buys historical odds for TDC Bet's backtests (scripts/backfill_odds.py) using the ODDS_API_KEY secret.
+# Manual only: Actions → "Backfill historical odds" → Run workflow. Start with sample_days (e.g. 7) to measure
+# real credit use before a full season. max_credits stops the run before it spends more than that.
+
+on:
+  workflow_dispatch:
+    inputs:
+      sport:
+        description: 'ncaab or nba'
+        default: 'ncaab'
+        required: true
+      mode:
+        description: 'lines (every book, per game) or props (player props, prop history starts May 2023)'
+        default: 'lines'
+        required: true
+      seasons:
+        description: 'Seasons by end year, comma-separated (2026 = 2025-26)'
+        default: '2026'
+        required: true
+      sample_days:
+        description: 'Only the first N game days (0 = whole season). Use 7 first to measure cost.'
+        default: '7'
+        required: true
+      max_credits:
+        description: 'Stop before spending more than this many credits'
+        default: '5000'
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: backfill-odds
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Pull historical odds
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: |
+          python3 scripts/backfill_odds.py --sport "${{ inputs.sport }}" --mode "${{ inputs.mode }}" \
+            --seasons "${{ inputs.seasons }}" --sample-days "${{ inputs.sample_days }}" --max-credits "${{ inputs.max_credits }}"
+      - name: Commit
+        run: |
+          git config user.name "tdc-odds-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/data/hist/ 2>/dev/null || true
+          if git diff --cached --quiet; then echo "Nothing new."; else
+            git commit -m "Auto: historical odds backfill (${{ inputs.sport }} ${{ inputs.mode }} ${{ inputs.seasons }}) [skip ci]"
+            for i in 1 2 3 4 5; do git pull --rebase -X theirs origin main && git push && break; sleep $((i*5)); done
+          fi

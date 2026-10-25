@@ -24,9 +24,37 @@ window.TDC_PAYWALL_ENABLED = false;
   var KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 
   function get() { try { return JSON.parse(localStorage.getItem('tdc_session') || 'null'); } catch (e) { return null; } }
-  function save(d) { try { localStorage.setItem('tdc_session', JSON.stringify(d)); } catch (e) {} }
+  function save(d) { try { localStorage.setItem('tdc_session', JSON.stringify(d)); } catch (e) {} mirror(d); }
   function clear() { try { localStorage.removeItem('tdc_session'); localStorage.removeItem('tdc_persist'); } catch (e) {} }
   function expiringWithin(s, ms) { var e = s && s.expires_at ? s.expires_at * 1000 : 0; return !e || Date.now() > e - ms; }
+
+  // ── one sign-in across subdomains (www ⇄ bet.thedepthchartcbb.com, Oct 2026) ──
+  // localStorage is per-origin, so the session's refresh token is mirrored into a cookie on the parent domain:
+  //   tdc_sso = {rt, iat, p}  the newest session's refresh token (iat = when it was issued, p = tdc_persist)
+  //           = {out}         a sign-out tombstone: sessions issued before `out` are dropped everywhere
+  // Supabase rotates refresh tokens and revokes the whole session if a used one is replayed, so an origin
+  // always adopts the cookie's newer token instead of refreshing with its own stale one.
+  // tdc_sso_seen (localStorage) = this origin has mirrored a session, so a missing session here means the
+  // user signed out here (→ tombstone), not that they never signed in here (→ adopt the cookie).
+  var SSO_DOM = /(^|\.)thedepthchartcbb\.com$/i.test(location.hostname) ? '.thedepthchartcbb.com' : null;
+  function issued(s) { return s ? (s.expires_at || 0) - (s.expires_in || 3600) : 0; }
+  function ckGet() { try { var m = document.cookie.match(/(?:^|; )tdc_sso=([^;]*)/); return m ? JSON.parse(decodeURIComponent(m[1])) : null; } catch (e) { return null; } }
+  function ckPut(o) { if (SSO_DOM) document.cookie = 'tdc_sso=' + encodeURIComponent(JSON.stringify(o)) + '; Max-Age=2592000; Path=/; Domain=' + SSO_DOM + '; Secure; SameSite=Lax'; }
+  function mirror(s) {
+    if (!SSO_DOM || !s || !s.refresh_token) return;
+    try { ckPut({ rt: s.refresh_token, iat: issued(s), p: localStorage.getItem('tdc_persist') || '1' }); localStorage.setItem('tdc_sso_seen', '1'); } catch (e) {}
+  }
+  // the refresh token to use: the cookie's when another subdomain holds a newer session
+  function liveRt(s) { var c = ckGet(); return (c && c.rt && c.rt !== s.refresh_token && c.iat > issued(s)) ? c.rt : s.refresh_token; }
+  function refreshSync(rt) {
+    var x = new XMLHttpRequest();
+    x.open('POST', SB + '/auth/v1/token?grant_type=refresh_token', false); // sync
+    x.setRequestHeader('apikey', KEY);
+    x.setRequestHeader('Content-Type', 'application/json');
+    x.send(JSON.stringify({ refresh_token: rt }));
+    if (x.status === 200) { var d = JSON.parse(x.responseText); return d && d.access_token ? d : null; }
+    return x.status;
+  }
 
   // 1) ephemeral-session cleanup: "keep me signed in" unchecked (tdc_persist==='0')
   //    means clear the session once the browser session ends (no tdc_alive flag).
@@ -34,6 +62,23 @@ window.TDC_PAYWALL_ENABLED = false;
     if (localStorage.getItem('tdc_persist') === '0') {
       if (localStorage.getItem('tdc_session') && !sessionStorage.getItem('tdc_alive')) clear();
       else sessionStorage.setItem('tdc_alive', '1');
+    }
+  } catch (e) {}
+
+  // 1b) sync with the other subdomain (no-op off thedepthchartcbb.com, e.g. localhost / github.io)
+  try {
+    if (SSO_DOM) {
+      var c0 = ckGet(), s0 = get();
+      if (s0 && s0.refresh_token) {
+        if (c0 && c0.out && c0.out > issued(s0)) { clear(); localStorage.removeItem('tdc_sso_seen'); }   // signed out elsewhere
+        else if (c0 && c0.rt && c0.rt !== s0.refresh_token && c0.iat > issued(s0)) {                   // newer session elsewhere
+          var d0 = refreshSync(c0.rt);
+          if (d0 && d0.access_token) save(d0); else mirror(s0);
+        } else if (!c0 || c0.out || c0.rt !== s0.refresh_token) mirror(s0);
+      } else if (c0 && c0.rt && !c0.out) {
+        if (localStorage.getItem('tdc_sso_seen')) { ckPut({ out: Math.floor(Date.now() / 1000) }); localStorage.removeItem('tdc_sso_seen'); }   // signed out here
+        else { var d1 = refreshSync(c0.rt); if (d1 && d1.access_token) { if (c0.p) localStorage.setItem('tdc_persist', c0.p); save(d1); } }
+      }
     }
   } catch (e) {}
 
@@ -46,7 +91,7 @@ window.TDC_PAYWALL_ENABLED = false;
       x.open('POST', SB + '/auth/v1/token?grant_type=refresh_token', false); // sync
       x.setRequestHeader('apikey', KEY);
       x.setRequestHeader('Content-Type', 'application/json');
-      x.send(JSON.stringify({ refresh_token: s.refresh_token }));
+      x.send(JSON.stringify({ refresh_token: liveRt(s) }));
       if (x.status === 200) {
         var d = JSON.parse(x.responseText);
         if (d && d.access_token) save(d);
@@ -63,7 +108,7 @@ window.TDC_PAYWALL_ENABLED = false;
     fetch(SB + '/auth/v1/token?grant_type=refresh_token', {
       method: 'POST',
       headers: { apikey: KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: s.refresh_token })
+      body: JSON.stringify({ refresh_token: liveRt(s) })
     }).then(function (r) { return r.ok ? r.json() : null; })
       .then(function (d) { if (d && d.access_token) save(d); })
       .catch(function () {});

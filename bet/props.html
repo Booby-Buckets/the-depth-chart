@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <base href="/">
+  <title>TDC Bet · Player Props</title>
+  <meta name="description" content="College basketball player props: backtested bounce-back overs and regression unders, our projected lines, and a prop explorer for any player and any line.">
+  <meta name="theme-color" content="#0A0D12">
+  <link rel="icon" type="image/svg+xml" href="bet/favicon.svg">
+  <script src="auth.js?v=sso1"></script>
+  <script>try{var _t=JSON.parse(localStorage.getItem('tdcbet_theme')||'"dark"');document.documentElement.setAttribute('data-theme',_t==='light'?'light':'dark');}catch(e){}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="tdc-sheets.css?v=6">
+  <link rel="stylesheet" href="bet/bet.css?v=2">
+  <script src="tdc-gate.js?v=4"></script>
+  <script src="team-colors.js?v=13"></script>
+  <script src="tdc-ratings.js?v=44"></script>
+  <style>
+    #propTbl{--c1:40px;--c2:200px;}
+    .two{display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px;align-items:start;}
+    .plist{border:1px solid var(--border);border-radius:14px;background:var(--bg2);max-height:560px;overflow-y:auto;}
+    .prow{padding:9px 13px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;justify-content:space-between;gap:8px;font-size:13px;}
+    .prow:hover,.prow.on{background:var(--bg3);}
+    .prow .pt{color:var(--text3);font-size:11px;}
+    .pline{width:68px;height:30px;padding:0 8px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);font:600 13px Inter,sans-serif;text-align:center;}
+    .bt-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:0 0 16px;}
+    .bt-strip div{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;}
+    .bt-strip b{display:block;font:800 24px/1 'Barlow Condensed',sans-serif;color:var(--accent);}
+    .bt-strip span{display:block;font:700 10px Inter,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-top:4px;}
+    .bt-strip small{display:block;font-size:11px;color:var(--text2);margin-top:2px;}
+    @media (max-width:860px){ .two{grid-template-columns:1fr;} .bt-strip{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  </style>
+</head>
+<body>
+<main class="bx-main">
+  <div class="bx-head"><div><div class="bx-kick">Player props</div><h1 class="bx-h1">The prop board</h1>
+    <div class="bx-sub">Per-minute production drifts back toward a player's own career. Players coming off a down year bounce back; players coming off a spike regress. We tested it on two full seasons.</div></div></div>
+
+  <section class="bx-sec" id="bookSec" hidden>
+    <div class="bx-bar"><h2>Every prop the books posted</h2><span class="hint" id="bookHint"></span></div>
+    <div class="bx-tools">
+      <select class="bx-sel" id="bkDay"></select>
+      <div class="bx-seg" id="bkStat"><button data-s="all" class="on">All</button><button data-s="pts">Points</button><button data-s="reb">Rebounds</button><button data-s="ast">Assists</button><button data-s="tpm">Threes</button><button data-s="pra">P+R+A</button></div>
+      <div class="bx-seg" id="bkOnly"><button data-o="ev" class="on">+EV only</button><button data-o="all">Everything</button></div>
+      <input class="bx-in" id="bkQ" placeholder="Player or team…">
+    </div>
+    <div id="bkWrap"><div class="sheet-wrap"><table class="sheet dense freeze2" id="bkTbl" style="--c1:40px;--c2:200px"><tbody><tr><td class="empty">Loading…</td></tr></tbody></table></div></div>
+    <div id="bkLock" style="margin-top:10px" hidden><div class="sheet-wrap"><table class="sheet dense"><tbody id="bkGhost"></tbody></table></div></div>
+    <div class="bx-note"><b>Our proj</b> = our expected line for this game (projection blended with this season's games, x minutes, x pace and the opponent's defense). <b>Books imply</b> = the average the market's prices point to. <b>Our chance</b> blends the two, so a gap has to be real to show up. <b>Best</b> = the best price across every book at its own line, with its expected value per $1.</div>
+  </section>
+
+  <div class="bt-strip" id="btStrip"></div>
+
+  <section class="bx-sec">
+    <div class="bx-tools">
+      <div class="bx-seg" id="board">
+        <button data-b="over" class="on">Bounce-back overs</button>
+        <button data-b="under">Regression unders</button>
+        <button data-b="value">Value movers</button>
+      </div>
+      <div class="bx-seg" id="stat">
+        <button data-s="pts" class="on">Points</button><button data-s="reb">Rebounds</button><button data-s="ast">Assists</button><button data-s="tpm">Threes</button><button data-s="pra">P+R+A</button>
+      </div>
+      <div class="bx-seg" id="scope"><button data-c="all" class="on">All players</button><button data-c="slate" id="scopeSlate">Next game day</button></div>
+      <select class="bx-sel" id="conf"><option value="">All conferences</option></select>
+      <input class="bx-in" id="q" placeholder="Player or team…">
+    </div>
+    <div class="bx-bar" style="margin-bottom:8px"><span class="hint" id="hint"></span></div>
+    <div id="boardWrap"><div class="sheet-wrap"><table id="propTbl" class="sheet dense freeze2">
+      <thead><tr><th class="rk">#</th><th class="l">Player</th><th class="l">Team</th><th>Line</th><th class="l" id="thPick">Pick</th><th title="Last season's per-minute production vs his earlier career">Vs his norm</th><th title="Share of his past games that clear this line">Cleared it</th><th>Last yr</th><th>Proj ’26-27</th><th title="Minutes last season → projected">Minutes</th><th>Range</th><th></th></tr></thead>
+      <tbody id="body"><tr><td colspan="12" class="empty">Loading the prop board…</td></tr></tbody></table></div></div>
+    <div id="lockWrap" style="margin-top:12px" hidden><div class="sheet-wrap"><table class="sheet dense"><tbody id="ghost"></tbody></table></div></div>
+    <div class="bx-note"><b>Bounce-back overs</b>: last season ran at 85% or less of his earlier per-minute pace. <b>Regression unders</b>: 125% or more. <b>Line</b> = last season's pace × projected minutes, the number a book anchored on last year would hang. <b>Value movers</b> = biggest gaps between our projection and his career average. The backtest compares against that naive line, not real book props; we compare against the books' numbers once props are posted.</div>
+  </section>
+
+  <section class="bx-sec">
+    <div class="bx-bar"><h2>Prop explorer</h2><span class="hint">any player · any line · how often he clears it</span></div>
+    <div class="two">
+      <div><input class="bx-in" id="pq" placeholder="Search player…" style="width:100%;margin-bottom:10px"><div class="plist" id="plist"><div class="bx-empty" style="border:0">Loading players…</div></div></div>
+      <div id="pcard"><div class="bx-empty">Pick a player to see his averages, range, our 2026-27 projection, and how often he clears any line you type.</div></div>
+    </div>
+  </section>
+</main>
+
+<script src="bet/bet-core.js?v=2"></script>
+<script src="bet/bet-shell.js?v=2"></script>
+<script src="bet/bet-ui.js?v=3"></script>
+<script src="tdc-sheets.js?v=2"></script>
+<script src="bet/bet-edge.js?v=7"></script>
+<script>
+(function(){
+  var B=TDCBet, esc=B.esc, $=function(id){return document.getElementById(id);};
+  var ST={b:'over',s:'pts',c:'all',conf:'',q:''}, S=null, SLATE=null, PREM=false, cur=null;
+  var CONF_SHORT={'Atlantic Coast Conference':'ACC','Big Ten Conference':'Big Ten','Southeastern Conference':'SEC','Big 12 Conference':'Big 12','Big East Conference':'Big East','Atlantic 10 Conference':'A-10','American Conference':'American','Mountain West Conference':'Mountain West','West Coast Conference':'WCC'};
+  function seg(id,attr,key){ $(id).addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b) return; $(id).querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);}); ST[key]=b.dataset[attr]; render(); }); }
+  seg('board','b','b'); seg('stat','s','s'); seg('scope','c','c');
+  $('conf').onchange=function(){ ST.conf=this.value; render(); };
+  $('q').oninput=function(){ ST.q=this.value.toLowerCase().trim(); render(); };
+
+  function rows(){
+    var out=[], slateTeams=null;
+    if(ST.c==='slate'&&SLATE){ slateTeams={}; SLATE.rows.forEach(function(r){ if(!r.exh){ slateTeams[r.home]=r; slateTeams[r.away]=r; } }); }
+    S.P.forEach(function(p){
+      var st=p.stats&&p.stats[ST.s]; if(!st||st.g<25) return;
+      var proj=B.projStat(p.id,ST.s); if(proj==null||proj<1) return;
+      var pr=S.PR[p.id]||{}, bn=st.bounce||null;
+      var pace=(bn&&pr.mpg)?bn.last/40*pr.mpg:null;
+      var line=(ST.b!=='value'&&pace!=null)?B.half(pace):B.half(proj); if(line<0.5) return;
+      if(ST.conf&&pr.conf!==ST.conf) return;
+      var team=pr.team||p.team;
+      if(slateTeams&&!slateTeams[team]) return;
+      if(pr.last_mpg!=null&&pr.mpg!=null&&pr.last_mpg<12&&pr.mpg-pr.last_mpg>14) return;
+      if(ST.q&&!((p.name||'').toLowerCase().indexOf(ST.q)>=0||(team||'').toLowerCase().indexOf(ST.q)>=0)) return;
+      var last=st.bySeason&&st.bySeason[String(S.LAST)]?st.bySeason[String(S.LAST)].avg:null;
+      out.push({id:p.id,name:p.name,team:team,line:line,over:B.empiricalOver(st,line),avg:st.avg,proj:proj,lean:proj-st.avg,lastM:pr.last_mpg,projM:pr.mpg,
+        ratio:bn?bn.ratio:null,norm:bn?bn.ratio-1:null,last:last,lo:st.lo,hi:st.hi,game:slateTeams?slateTeams[team]:null});
+    });
+    var minL=B.MIN_LINE[ST.s]||0, v;
+    if(ST.b==='over') v=out.filter(function(r){return r.ratio!=null&&r.line>=minL&&r.ratio<=S.DIP;}).sort(function(a,b){return a.ratio-b.ratio;});
+    else if(ST.b==='under') v=out.filter(function(r){return r.ratio!=null&&r.line>=minL&&r.ratio>=S.SPIKE;}).sort(function(a,b){return b.ratio-a.ratio;});
+    else v=out.filter(function(r){return Math.abs(r.lean)>=1.5&&r.line>=minL*0.5;}).sort(function(a,b){return Math.abs(b.lean)-Math.abs(a.lean);});
+    return v.slice(0,60);
+  }
+  var FREE=3;
+  function render(){
+    if(!S) return;
+    var v=rows(), bt=(S.BT&&S.BT[ST.s])||{};
+    $('thPick').textContent=ST.b==='value'?'Lean':'Pick';
+    $('hint').textContent=(ST.b==='over'?'Last season well below his career pace'+(bt.dip_over!=null?' · backtest '+Math.round(bt.dip_over*100)+'% over ('+bt.dip_n+' picks)':'')
+      :ST.b==='under'?'Last season well above his career pace'+(bt.spike_under!=null?' · backtest '+Math.round(bt.spike_under*100)+'% under ('+bt.spike_n+' picks)':''):'Our projection vs his career average')+' · '+v.length+' plays';
+    var show=PREM?v:v.slice(0,FREE);
+    $('body').innerHTML=show.length?show.map(function(r,i){
+      var isOver=ST.b==='under'?false:(ST.b==='value'?r.lean>0:true);
+      var pick=ST.b==='value'?(r.lean>0?'+':'')+r.lean.toFixed(1):(isOver?'Over ':'Under ')+r.line;
+      var clr=r.over==null?null:(isOver?r.over:1-r.over);
+      var sel=null;
+      if(r.game&&ST.b!=='value'){ var c={id:r.id,name:r.name,team:r.team,s:ST.s,side:isOver?'over':'under',line:r.line,rate:isOver?bt.dip_over:bt.spike_under,opp:{row:r.game,at:r.game.home===r.team?'vs':(r.game.neutral?'vs':'@'),opp:r.game.home===r.team?r.game.away:r.game.home}}; if(c.rate!=null) sel=B.selProp(c); }
+      return '<tr><td class="rk">'+(i+1)+'</td><td class="l nm"><a href="'+B.playerHref(r.id,'betting')+'">'+esc(r.name)+'</a></td><td class="l dim">'+esc(B.short(r.team))+'</td><td>'+r.line+'</td><td class="l"><b>'+pick+'</b></td>'+
+        '<td>'+(r.norm!=null?(r.norm>0?'+':'−')+Math.abs(Math.round(r.norm*100))+'%':'—')+'</td><td data-v="'+(clr==null?'':clr)+'">'+(clr!=null?Math.round(clr*100)+'%':'—')+'</td><td>'+(r.last!=null?r.last:'—')+'</td><td>'+r.proj.toFixed(1)+'</td>'+
+        '<td class="dim">'+(r.lastM!=null&&r.projM!=null?Math.round(r.lastM)+' → '+Math.round(r.projM):'—')+'</td><td class="dim">'+r.lo+'–'+r.hi+'</td><td>'+(sel?'<button class="bx-tag g" data-k="'+esc(BX.reg(sel))+'" style="border:0;cursor:pointer">+ Slip</button>':'')+'</td></tr>';
+    }).join(''):'<tr><td colspan="12" class="empty">No plays match this filter.</td></tr>';
+    var lw=$('lockWrap');
+    if(!PREM&&v.length>FREE){
+      lw.hidden=false; lw.className=''; lw.querySelectorAll('.bx-lock').forEach(function(x){x.remove();});
+      $('ghost').innerHTML=Array.from({length:Math.min(8,v.length-FREE)},function(_,i){return '<tr><td class="rk">'+(i+FREE+1)+'</td><td class="l">Premium player</td><td class="l dim">Team</td><td>00.5</td><td class="l">Over 00.5</td><td>−00%</td><td>00%</td><td>0.0</td><td>0.0</td><td class="dim">00 → 00</td><td class="dim">0–00</td></tr>';}).join('');
+      lw.firstElementChild.classList.remove('bx-locked');
+      BX.gate(lw,{label:(v.length-FREE)+' more plays on this board',blurb:'The full prop board for every stat, with the backtest behind each pick. Premium unlocks it, plus best bets and fades.'});
+    } else lw.hidden=true;
+    if(window.tdcSheetHeat) tdcSheetHeat($('propTbl'));
+  }
+  function btStrip(){
+    var BT=S.BT||{}, h='';
+    ['pts','pra','ast','reb','tpm'].forEach(function(s){ var b=BT[s]||{}; if(b.dip_over==null) return;
+      h+='<div><b>'+Math.round(b.dip_over*100)+'%</b><span>'+B.STAT_NAME[s]+' overs</span><small>bounce-back · '+(b.dip_n||'')+' picks'+(b.spike_under!=null?' · unders '+Math.round(b.spike_under*100)+'%':'')+'</small></div>'; });
+    $('btStrip').innerHTML=h;
+  }
+  // explorer
+  function plist(){
+    var q=($('pq').value||'').toLowerCase().trim(), pp=function(p){return (S.PR[p.id]&&S.PR[p.id].ppg)||0;};
+    var arr=S.P.filter(function(p){return S.PR[p.id]&&(!q||(p.name||'').toLowerCase().indexOf(q)>=0);}).sort(function(a,b){return pp(b)-pp(a);}).slice(0,120);
+    $('plist').innerHTML=arr.length?arr.map(function(p){return '<div class="prow'+(cur&&cur.id===p.id?' on':'')+'" data-id="'+p.id+'"><span>'+esc(p.name)+'<div class="pt">'+esc(B.short((S.PR[p.id]||{}).team||p.team||''))+'</div></span><span style="text-align:right" class="num"><b>'+(pp(p)?pp(p).toFixed(1):'—')+'</b><div class="pt">proj ppg</div></span></div>';}).join(''):'<div class="bx-empty" style="border:0">No players match.</div>';
+  }
+  $('plist').addEventListener('click',function(e){ var r=e.target.closest('.prow'); if(r) pick(r.dataset.id); });
+  $('pq').oninput=plist;
+  function pick(id){
+    cur=S.P.find(function(p){return p.id===id;}); if(!cur) return; plist();
+    var p=cur, rows=['pts','reb','ast','tpm','pra'].map(function(s){
+      var d=p.stats[s]; if(!d) return '';
+      var proj=B.projStat(p.id,s), line=B.half(proj!=null?proj:d.avg);
+      return '<tr><td class="l nm">'+B.STAT_NAME[s]+'</td><td>'+d.avg+'</td><td class="dim">'+d.lo+'–'+d.hi+'</td><td class="dim">'+d.med+'</td><td>'+(proj!=null?proj.toFixed(1):'—')+'</td><td><input class="pline" type="number" step="0.5" value="'+line+'" data-s="'+s+'"></td><td data-o="'+s+'"></td><td class="dim" data-f="'+s+'"></td><td class="dim">'+d.g+'</td></tr>';
+    }).join('');
+    $('pcard').innerHTML='<div class="bx-card"><div class="bx-card-h"><h3>'+esc(p.name)+'</h3><a href="'+B.playerHref(p.id,'betting')+'">Full betting tab →</a></div><div class="bx-card-b" style="padding-top:8px"><div class="dim" style="font-size:12px;margin-bottom:10px">'+esc(B.short((S.PR[p.id]||{}).team||p.team||''))+' · last '+((S.PMETA&&S.PMETA.seasons)?S.PMETA.seasons.length:5)+' seasons of games</div>'+
+      '<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Stat</th><th>Avg</th><th>Range</th><th>Median</th><th title="Our 2026-27 projection">Proj</th><th>Line</th><th title="Share of his past games over this line">Over</th><th title="Fair price for the over, no vig">Fair</th><th>G</th></tr></thead><tbody>'+rows+'</tbody></table></div></div></div>';
+    $('pcard').querySelectorAll('.pline').forEach(function(inp){
+      var upd=function(){ var s=inp.dataset.s, o=B.empiricalOver(p.stats[s],parseFloat(inp.value));
+        $('pcard').querySelector('[data-o="'+s+'"]').innerHTML=o==null?'—':'<span class="'+(o>=0.55?'pos':o<=0.45?'neg':'')+'">'+Math.round(o*100)+'%</span>';
+        $('pcard').querySelector('[data-f="'+s+'"]').textContent=o==null?'—':B.fairTxt(o); };
+      inp.oninput=upd; upd();
+    });
+  }
+
+  // ── book props (when the feed has them) ─────────────────────────────────
+  var BK={day:null,stat:'all',only:'ev',q:''}, BKROWS=[];
+  function bkSeg(id,attr,key){ $(id).addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b) return; $(id).querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);}); BK[key]=b.dataset[attr]; bkPaint(); }); }
+  bkSeg('bkStat','s','stat'); bkSeg('bkOnly','o','only');
+  $('bkQ').oninput=function(){ BK.q=this.value.toLowerCase(); bkPaint(); };
+  $('bkDay').onchange=function(){ BK.day=this.value; bkLoad(); };
+  function bkInit(){
+    if(!TDCEdge.has()) return;
+    var Sx=B.state(), iso=B.isoDay(), want0=new URLSearchParams(location.search).get('date'), days=Sx.dates.filter(function(d){ return (d>=iso||d===want0) && B.slate(d).some(function(r){ return !r.exh && TDCEdge.game(r); }); }).slice(0,6);
+    if(!days.length) return;
+    $('bkDay').innerHTML=days.map(function(d){return '<option value="'+d+'">'+B.dayLabel(d)+' · '+B.fmtDate(d,'md')+'</option>';}).join('');
+    var want=new URLSearchParams(location.search).get('date'); BK.day=days.indexOf(want)>=0?want:days[0]; $('bkDay').value=BK.day;
+    bkLoad();
+  }
+  function bkLoad(){
+    TDCEdge.props(B.slate(BK.day),{all:true}).then(function(list){
+      // one row per player + stat: the over and under side of the same prop
+      var by={}; list.forEach(function(b){ var k=b.pid+':'+b.stat; (by[k]=by[k]||{})[b.side]=b; });
+      BKROWS=Object.keys(by).map(function(k){ var o=by[k].over, u=by[k].under, a=o||u; return {o:o,u:u,a:a,best:[o,u].filter(Boolean).sort(function(x,y){return y.ev-x.ev;})[0]}; });
+      $('bookSec').hidden=!BKROWS.length; bkPaint();
+    });
+  }
+  function evTxt(b){ return b?'<b>'+B.oddsTxt(b.price)+'</b> <span class="dim">'+esc(BXUI.bkShort(b.book,b.bookT))+(b.point!==BKROWS_LINE(b)?' @'+b.point:'')+'</span> <span class="'+(b.ev>=TDCEdge.MIN_EV.prop&&!TDCEdge.suspect(b)?'pos':'dim')+'">'+(b.ev>=0?'+':'−')+Math.abs(b.ev*100).toFixed(1)+'%</span>':'—'; }
+  function BKROWS_LINE(b){ return b.offers?b.offers.map(function(o){return o.point;}).sort(function(x,y){return x-y;})[Math.floor(b.offers.length/2)]:b.point; }
+  function bkPaint(){
+    var v=BKROWS.filter(function(r){ var a=r.a;
+      if(BK.stat!=='all'&&a.stat!==BK.stat) return false;
+      if(BK.q&&(a.player+' '+B.short(a.team)).toLowerCase().indexOf(BK.q)<0) return false;
+      if(BK.only==='ev') return r.best&&r.best.ev>=TDCEdge.MIN_EV.prop&&!TDCEdge.suspect(r.best);
+      return true; }).sort(function(x,y){ var r=function(z){ return z.best?(z.best.offLine?z.best.ev*0.5:z.best.ev):-1; }; return r(y)-r(x); });
+    $('bookHint').textContent=BKROWS.length+' props posted · '+v.length+' shown'+(TDCEdge.fixture()?' · SAMPLE DATA':'');
+    var FREEN=PREM?v.length:5, show=v.slice(0,FREEN);
+    $('bkTbl').innerHTML='<thead><tr><th class="rk">#</th><th class="l">Player</th><th class="l">Game</th><th>Stat</th><th>Line</th><th title="Our expected line for this game">Our proj</th><th title="What the books\' prices imply">Books imply</th><th data-heat="1" title="Our blended chance of the over">Our over %</th><th class="l">Best over</th><th class="l">Best under</th><th></th></tr></thead><tbody>'+
+      (show.length?show.map(function(r,i){ var a=r.a, key=r.best&&r.best.ev>0?BX.reg(TDCEdge.sel(r.best)):'';
+        var pOv=r.o?r.o.p:(r.u?1-r.u.p:null);
+        return '<tr><td class="rk">'+(i+1)+'</td><td class="l nm"><a href="'+B.playerHref(a.pid,'betting')+'">'+esc(a.player)+'</a> <span class="dim">'+esc(B.short(a.team))+'</span>'+(r.best&&r.best.offLine?' <span class="bx-tag y">off-market</span>':'')+'</td><td class="l dim">'+esc(a.game)+'</td><td>'+B.STAT_ABBR[a.stat]+'</td><td>'+BKROWS_LINE(a)+'</td>'+
+          '<td><b>'+a.mu.toFixed(1)+'</b></td><td class="dim">'+(a.mkMu!=null?a.mkMu.toFixed(1):'—')+'</td><td data-v="'+(pOv==null?'':pOv)+'">'+(pOv==null?'—':Math.round(pOv*100)+'%')+'</td>'+
+          '<td class="l">'+evTxt(r.o)+'</td><td class="l">'+evTxt(r.u)+'</td><td>'+(key?'<button class="bx-tag g" data-k="'+esc(key)+'" style="border:0;cursor:pointer">+ Slip</button>':'')+'</td></tr>'; }).join('')
+        :'<tr><td colspan="11" class="empty">'+(BK.only==='ev'?'No prop clears the bar on this day. Switch to Everything to see every posted line.':'No props match.')+'</td></tr>')+'</tbody>';
+    var lk=$('bkLock');
+    if(!PREM&&v.length>FREEN){ lk.hidden=false; lk.querySelectorAll('.bx-lock').forEach(function(x){x.remove();}); lk.firstElementChild.classList.remove('bx-locked');
+      $('bkGhost').innerHTML=Array.from({length:Math.min(8,v.length-FREEN)},function(_,i){return '<tr><td class="rk">'+(i+FREEN+1)+'</td><td class="l">Premium player</td><td class="l dim">Game</td><td>PTS</td><td>00.5</td><td>00.0</td><td>00.0</td><td>00%</td><td class="l">−000 BK +0.0%</td><td class="l">−000 BK</td></tr>';}).join('');
+      BX.gate(lk,{label:(v.length-FREEN)+' more props',blurb:'Every posted prop priced by our model at every book, with the best price and its expected value.'}); }
+    else lk.hidden=true;
+    if(window.tdcSheetHeat) tdcSheetHeat($('bkTbl'));
+  }
+
+  Promise.all([B.load(),B.loadProps(),BX.has()]).then(function(r){
+    TDCEdge.load().then(bkInit);
+    S=B.state(); PREM=r[2];
+    var counts={}; Object.keys(S.PR).forEach(function(k){ var c=S.PR[k]&&S.PR[k].conf; if(c) counts[c]=(counts[c]||0)+1; });
+    $('conf').innerHTML='<option value="">All conferences</option>'+Object.keys(counts).sort(function(a,b){return counts[b]-counts[a];}).map(function(c){return '<option value="'+esc(c)+'">'+esc(CONF_SHORT[c]||c)+'</option>';}).join('');
+    var iso=B.isoDay(), d=S.dates.find(function(x){ return x>=iso && B.slate(x).some(function(r){return !r.exh;}); });
+    if(d){ SLATE={date:d,rows:B.slate(d)}; $('scopeSlate').textContent=B.dayLabel(d)+' · '+B.fmtDate(d,'md'); } else $('scopeSlate').hidden=true;
+    btStrip(); render(); plist();
+  });
+})();
+</script>
+</body>
+</html>

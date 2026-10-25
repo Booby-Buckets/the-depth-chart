@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <base href="/">
+  <title>TDC Bet · Futures</title>
+  <meta name="description" content="College basketball futures priced from 2,000 simulated seasons: national title, Final Four, conference titles, win totals and award odds, with the book's price and our edge.">
+  <meta name="theme-color" content="#0A0D12">
+  <link rel="icon" type="image/svg+xml" href="bet/favicon.svg">
+  <script src="auth.js?v=sso1"></script>
+  <script>try{var _t=JSON.parse(localStorage.getItem('tdcbet_theme')||'"dark"');document.documentElement.setAttribute('data-theme',_t==='light'?'light':'dark');}catch(e){}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="tdc-sheets.css?v=6">
+  <link rel="stylesheet" href="bet/bet.css?v=2">
+  <script src="tdc-gate.js?v=4"></script>
+  <script src="team-colors.js?v=13"></script>
+  <script src="tdc-ratings.js?v=44"></script>
+  <script src="tdc-schedule.js?v=ui1"></script>
+  <script src="tdc-conftourney.js?v=5"></script>
+  <script src="tdc-postseason.js?v=2"></script>
+  <style>
+    #futTbl,#wtTbl{--c1:40px;}
+    .ft-tabs{margin:0 0 16px;}
+    .ft-tabs button{font-size:13.5px;padding:8px 14px;}
+  </style>
+</head>
+<body>
+<main class="bx-main">
+  <div class="bx-head"><div><div class="bx-kick">Futures</div><h1 class="bx-h1">The long game</h1>
+    <div class="bx-sub">Every regular-season game, every conference tournament, the committee's bracket, then March: simulated 2,000 times. Each chance becomes a fair price with no vig; once a book posts its price, the edge shows next to it.</div></div></div>
+
+  <nav class="bx-seg ft-tabs" id="blTabs" role="tablist">
+    <button data-tab="futures" role="tab">National</button>
+    <button data-tab="conferences" role="tab">Conferences</button>
+    <button data-tab="wins" role="tab">Win totals</button>
+    <button data-tab="awards" role="tab">Awards</button>
+  </nav>
+
+  <section id="bl-futures" hidden>
+    <div class="bx-tools">
+      <div class="bx-seg" id="futPills">
+        <button data-mk="champ" class="on">National title</button><button data-mk="f4">Final Four</button><button data-mk="ncaa">Make the field</button><button data-mk="one">No. 1 seed</button><button data-mk="nitChamp">NIT title</button>
+      </div>
+      <input class="bx-in" id="futSearch" placeholder="Find a team…">
+    </div>
+    <div class="bx-bar" style="margin-bottom:6px"><span class="hint" id="futHint"></span></div>
+    <div class="bl-msg" id="futMsg"></div>
+    <div class="sheet-wrap"><table id="futTbl" class="sheet dense"></table></div>
+    <button class="bx-btn bl-more" id="futMore" style="display:none"></button>
+    <div class="bx-note"><b>Our %</b> = share of 2,000 simulated seasons. <b>Fair odds</b> = that chance as a price with no vig: bet it only when the book pays more. <b>Edge</b> = our % minus the book's % with the vig removed across the whole market.</div>
+  </section>
+
+  <section id="bl-conferences" hidden>
+    <div class="bx-tools"><select class="bx-sel" id="confSel2" title="Conference"></select></div>
+    <div class="bx-bar" style="margin-bottom:6px"><span class="hint" id="confHint"></span></div>
+    <div class="bl-msg" id="confMsg"></div>
+    <div class="sheet-wrap"><table id="confTbl" class="sheet dense"></table></div>
+    <div class="bx-note"><b>Reg. season</b> = win or share the regular-season title; <b>Outright</b> = win it alone. <b>Tournament</b> = win the league's real conference tournament bracket and the automatic bid.</div>
+  </section>
+
+  <section id="bl-wins" hidden>
+    <div class="bx-tools">
+      <select class="bx-sel" id="wtConf" title="Conference"><option value="">All conferences</option></select>
+      <div class="bx-seg" id="wtSort"><button data-sort="rank" class="on">Rank</button><button data-sort="expW">Most wins</button></div>
+      <input class="bx-in" id="wtSearch" placeholder="Find a team…">
+    </div>
+    <div class="bx-bar" style="margin-bottom:6px"><span class="hint" id="wtHint"></span></div>
+    <div class="bl-msg" id="wtMsg"></div>
+    <div class="sheet-wrap"><table id="wtTbl" class="sheet dense"></table></div>
+    <button class="bx-btn bl-more" id="wtMore" style="display:none"></button>
+    <div class="bx-note"><b>Line</b> is our number: the half-point that splits our simulated seasons closest to 50/50. When a book hangs a different number, the side it moved away from is the value.</div>
+  </section>
+
+  <section id="bl-awards" hidden>
+    <div class="bx-tools">
+      <select class="bx-sel" id="awScope" title="Race"></select>
+      <div class="bx-seg" id="awRace" style="display:none">
+        <button data-race="poy" class="on">Player of the Year</button><button data-race="dpoy">Defensive</button><button data-race="roy">Freshman</button><button data-race="sixth">Sixth Man</button>
+      </div>
+    </div>
+    <div class="bx-bar" style="margin-bottom:6px"><span class="hint" id="awHint"></span></div>
+    <div class="sheet-wrap"><table id="awTbl" class="sheet dense"></table></div>
+    <div class="bx-note">Simulated from each player's projected line and his team's projected record, calibrated on past winners (the model picked the National POY 14 of 19 times since 2007).</div>
+  </section>
+</main>
+
+<script src="bet/bet-core.js?v=2"></script>
+<script src="bet/bet-shell.js?v=2"></script>
+<script src="tdc-sheets.js?v=2"></script>
+<script src="tdc-betlab.js?v=5"></script>
+<script>
+  // tdc-betlab.js boots on DOMContentLoaded and opens ?tab= (default 'games', which this page doesn't have)
+  document.addEventListener('DOMContentLoaded',function(){
+    var want=new URLSearchParams(location.search).get('tab');
+    TDC_BL.show(['futures','conferences','wins','awards'].indexOf(want)>=0?want:'futures');
+  });
+</script>
+</body>
+</html>

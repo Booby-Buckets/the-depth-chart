@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <base href="/">
+  <title>TDC Bet · Our Record</title>
+  <meta name="description" content="How The Depth Chart's betting model has done: every 2026-27 line logged before tip and graded against the final, plus the backtests behind our picks.">
+  <meta name="theme-color" content="#0A0D12">
+  <link rel="icon" type="image/svg+xml" href="bet/favicon.svg">
+  <script src="auth.js?v=sso1"></script>
+  <script>try{var _t=JSON.parse(localStorage.getItem('tdcbet_theme')||'"dark"');document.documentElement.setAttribute('data-theme',_t==='light'?'light':'dark');}catch(e){}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="tdc-sheets.css?v=6">
+  <link rel="stylesheet" href="bet/bet.css?v=2">
+  <script src="tdc-gate.js?v=4"></script>
+  <script src="team-colors.js?v=13"></script>
+  <script src="tdc-ratings.js?v=44"></script>
+  <style>
+    .sb{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;}
+    .sb div{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px 16px;min-width:0;}
+    .sb b{display:block;font:800 34px/1 'Barlow Condensed',sans-serif;white-space:nowrap;}
+    .sb span{display:block;font:700 10.5px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-top:6px;}
+    .sb small{display:block;font:600 12px Inter,sans-serif;color:var(--text2);margin-top:3px;}
+    .bt{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
+    .bt .bx-card-b p{font-size:13px;color:var(--text2);line-height:1.55;margin-top:6px;}
+    .bt .big{font:800 40px/1 'Barlow Condensed',sans-serif;color:var(--accent);}
+    .r-w{color:var(--accent);font-weight:800;} .r-l{color:var(--red);font-weight:800;} .r-p{color:var(--text3);font-weight:800;}
+    @media (max-width:1000px){ .sb{grid-template-columns:repeat(2,minmax(0,1fr));} .bt{grid-template-columns:1fr;} }
+  </style>
+</head>
+<body>
+<main class="bx-main">
+  <div class="bx-head"><div><div class="bx-kick">Our record</div><h1 class="bx-h1">Receipts</h1>
+    <div class="bx-sub">Every 2026-27 line is logged the morning of the game, before tip, and graded here against the final score. Nothing is re-priced after the fact, and losses stay on the board.</div></div></div>
+
+  <section class="bx-sec">
+    <div class="bx-bar"><h2>2026-27 season</h2><span class="hint" id="seasonHint"></span></div>
+    <div class="sb" id="sb"><div class="bx-empty" style="grid-column:1/-1">Loading…</div></div>
+  </section>
+
+  <section class="bx-sec">
+    <div class="bx-bar"><h2>The edge board</h2><span class="hint" id="edHint">every bet the board listed, at the price it showed</span></div>
+    <div class="sb" id="edSb"><div class="bx-empty" style="grid-column:1/-1">Loading…</div></div>
+    <div class="sheet-wrap" style="margin-top:12px" id="edMkWrap" hidden><table class="sheet dense" id="edMk"></table></div>
+    <div class="bx-note"><b>Closing-line value (CLV)</b> is the best early test of a real edge: the closing market's chance for our exact bet minus the chance implied by the price we listed. Bettors who beat the close win over time even through losing weeks. Units are 1 per bet at the listed price; props the player didn't play in are voided, like the books do.</div>
+  </section>
+
+  <section class="bx-sec" id="bbSec" hidden>
+    <div class="bx-bar"><h2>Best bets by confidence</h2><span class="hint">units at −110, 1 unit a pick</span></div>
+    <div class="sheet-wrap"><table class="sheet dense" id="bbTbl"></table></div>
+  </section>
+
+  <section class="bx-sec">
+    <div class="bx-bar"><h2>The log</h2><span class="hint" id="logHint">most recent first</span></div>
+    <div class="bx-tools"><div class="bx-seg" id="logF"><button data-f="all" class="on">All games</button><button data-f="book">With a book line</button><button data-f="best">Best bets</button></div></div>
+    <div class="sheet-wrap"><table class="sheet dense" id="logTbl"><tbody><tr><td class="empty">Loading…</td></tr></tbody></table></div>
+    <div style="text-align:center;margin-top:12px"><button class="bx-btn" id="logMore" hidden>Show more</button></div>
+  </section>
+
+  <section class="bx-sec">
+    <div class="bx-bar"><h2>The backtests behind the picks</h2><span class="hint">tested on seasons the model never saw</span></div>
+    <div class="bt">
+      <div class="bx-card"><div class="bx-card-h"><h3>Game lines</h3></div><div class="bx-card-b"><div class="big">9.75</div><span class="dim" style="font-size:12px;font-weight:700">points, average miss</span>
+        <p>91,000 D-I games, 2010–2026, priced from the previous season's ratings and graded on the final margin. That's the floor: the live model prices this season's rosters, transfers and development on top, which last year's ratings can't see. The season log above is the real test against the books.</p></div></div>
+      <div class="bx-card"><div class="bx-card-h"><h3>Player props</h3></div><div class="bx-card-b" id="propBt"><div class="dim">Loading…</div></div></div>
+      <div class="bx-card"><div class="bx-card-h"><h3>Awards</h3></div><div class="bx-card-b"><div class="big">14 / 19</div><span class="dim" style="font-size:12px;font-weight:700">National POY picked since 2007</span>
+        <p>Award odds come from each player's projected line and his team's projected record, calibrated on past voting with each season left out of its own fit.</p></div></div>
+    </div>
+  </section>
+</main>
+
+<script src="bet/bet-core.js?v=2"></script>
+<script src="bet/bet-shell.js?v=2"></script>
+<script src="tdc-sheets.js?v=2"></script>
+<script>
+(function(){
+  var B=TDCBet, esc=B.esc, $=function(id){return document.getElementById(id);};
+  var LOG=[], F='all', LIM=50;
+  function wlTxt(w,l,p){ return w+'–'+l+(p?'–'+p:''); }
+  function pct(w,l){ return w+l?Math.round(w/(w+l)*100)+'%':'—'; }
+  function grade(p, res){
+    var hm=res.hs-res.as, o={su:null,ats:null,tot:null,err:Math.abs(p.m-hm),verr:p.bs!=null?Math.abs(-p.bs-hm):null,best:[]};
+    if(Math.abs(p.m)>=0.5) o.su=((p.m>0)===(hm>0))?'w':'l';
+    if(p.bs!=null){ var side=p.m+p.bs>=0?1:-1, v=side*(hm+p.bs); if(p.m+p.bs!==0) o.ats=v>0?'w':v<0?'l':'p'; }
+    if(p.bt!=null&&p.t!=null&&p.t!==p.bt){ var over=p.t>p.bt, t=res.hs+res.as-p.bt; o.tot=t===0?'p':((t>0)===over?'w':'l'); }
+    (p.best||[]).forEach(function(b){ var r=null;
+      if(b.k==='sp'){ var vv=(b.side==='home'?hm:-hm)+b.line; r=vv>0?'w':vv<0?'l':'p'; }
+      else if(b.k==='to'){ var tt=res.hs+res.as-b.line; r=tt===0?'p':((tt>0)===(b.side==='over')?'w':'l'); }
+      o.best.push({b:b,r:r}); });
+    return o;
+  }
+  function render(){
+    var S=B.state(), g=LOG;
+    var su=[0,0], ats=[0,0,0], tot=[0,0,0], err=0, verr=0, nv=0, bb={};
+    g.forEach(function(x){ var o=x.o; if(o.su==='w') su[0]++; else if(o.su==='l') su[1]++;
+      if(o.ats){ ats[o.ats==='w'?0:o.ats==='l'?1:2]++; } if(o.tot){ tot[o.tot==='w'?0:o.tot==='l'?1:2]++; }
+      err+=o.err; if(o.verr!=null){ verr+=o.verr; nv++; }
+      o.best.forEach(function(y){ if(!y.r) return; var c=y.b.conf||0, k=bb[c]=bb[c]||{w:0,l:0,p:0}; k[y.r]++; }); });
+    var n=g.length;
+    if(!n){
+      $('sb').innerHTML='<div class="bx-empty" style="grid-column:1/-1">The 2026-27 log starts with opening night. Every game gets its line frozen the morning it\'s played; this page grades them as the finals come in.</div>';
+      $('seasonHint').textContent='';
+    } else {
+      var bw=0,bl=0,bp=0; Object.keys(bb).forEach(function(k){bw+=bb[k].w;bl+=bb[k].l;bp+=bb[k].p;});
+      $('sb').innerHTML=[
+        [wlTxt(su[0],su[1]),'Picked the winner',pct(su[0],su[1])],
+        [ats[0]+ats[1]?wlTxt(ats[0],ats[1],ats[2]):'—','Our side vs the spread',ats[0]+ats[1]?pct(ats[0],ats[1])+' · 52.4% breaks even':'needs book lines'],
+        [tot[0]+tot[1]?wlTxt(tot[0],tot[1],tot[2]):'—','Our side on totals',tot[0]+tot[1]?pct(tot[0],tot[1]):'needs book lines'],
+        [bw+bl?wlTxt(bw,bl,bp):'—','Best bets',bw+bl?((bw*100/110-bl)>=0?'+':'−')+Math.abs(bw*100/110-bl).toFixed(1)+' units':'game picks only'],
+        [(err/n).toFixed(1),'Avg miss, points',nv?'books: '+(verr/nv).toFixed(1)+' on the same '+nv:'margin vs final']
+      ].map(function(t){return '<div><b>'+t[0]+'</b><span>'+t[1]+'</span><small>'+t[2]+'</small></div>';}).join('');
+      $('seasonHint').textContent=n+' graded games';
+    }
+    var tiers=Object.keys(bb).sort(function(a,b){return b-a;});
+    $('bbSec').hidden=!tiers.length;
+    if(tiers.length) $('bbTbl').innerHTML='<thead><tr><th class="l">Confidence</th><th>Record</th><th data-heat="1">Win %</th><th>Units</th></tr></thead><tbody>'+tiers.map(function(c){ var k=bb[c], u=k.w*100/110-k.l;
+      return '<tr><td class="l">'+'●'.repeat(+c)+'<span class="dim">'+'●'.repeat(5-c)+'</span></td><td>'+wlTxt(k.w,k.l,k.p)+'</td><td data-v="'+(k.w+k.l?k.w/(k.w+k.l):'')+'">'+pct(k.w,k.l)+'</td><td class="'+(u>=0?'pos':'neg')+'">'+(u>=0?'+':'−')+Math.abs(u).toFixed(1)+'</td></tr>'; }).join('')+'</tbody>';
+    paintLog();
+    if(window.tdcSheetHeat) tdcSheetHeat($('bbTbl'));
+  }
+  function rc(r){ return r?'<span class="r-'+r+'">'+({w:'W',l:'L',p:'P'})[r]+'</span>':'<span class="dim">—</span>'; }
+  function paintLog(){
+    var v=LOG.filter(function(x){ return F==='all'||(F==='book'&&x.p.bs!=null)||(F==='best'&&x.p.best&&x.p.best.length); });
+    $('logHint').textContent=v.length+' games · most recent first';
+    $('logTbl').innerHTML='<thead><tr><th class="l">Date</th><th class="l">Game</th><th>Our line</th><th>Book</th><th>Final</th><th>Winner</th><th>ATS</th><th>Total</th><th class="l">Best bets</th></tr></thead><tbody>'+
+      (v.length?v.slice(0,LIM).map(function(x){ var p=x.p, r=x.res, o=x.o;
+        return '<tr><td class="l dim">'+B.fmtDate(p.d,'md')+'</td><td class="l nm"><a href="'+B.href('game','id='+x.id)+'">'+esc(B.short(p.a))+(p.n?' vs ':' @ ')+esc(B.short(p.h))+'</a></td>'+
+          '<td>'+esc(B.short(p.m>=0?p.h:p.a))+' '+B.spTxt(-Math.abs(p.m))+'</td><td class="dim">'+(p.bs!=null?esc(B.short(p.bs<=0?p.h:p.a))+' '+B.spTxt(-Math.abs(p.bs)):'—')+'</td>'+
+          '<td>'+r.as+'–'+r.hs+'</td><td>'+rc(o.su)+'</td><td>'+rc(o.ats)+'</td><td>'+rc(o.tot)+'</td><td class="l">'+(o.best.length?o.best.map(function(y){return esc(y.b.label)+' '+rc(y.r);}).join(' · '):'<span class="dim">—</span>')+'</td></tr>';
+      }).join(''):'<tr><td colspan="9" class="empty">No graded games yet.</td></tr>')+'</tbody>';
+    $('logMore').hidden=v.length<=LIM;
+  }
+  $('logMore').onclick=function(){ LIM+=100; paintLog(); };
+  $('logF').addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b) return; $('logF').querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);}); F=b.dataset.f; LIM=50; paintLog(); });
+
+  Promise.all([B.load(), fetch('scripts/data/bet_picks_2027.json',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;})]).then(function(a){
+    var S=a[0], P=(a[1]&&a[1].picks)||{};
+    LOG=Object.keys(P).map(function(id){ var res=S.res[String(id)]; if(!res||!res.final||res.exh) return null; return {id:id,p:P[id],res:res,o:grade(P[id],res)}; }).filter(Boolean)
+      .sort(function(x,y){ return y.p.d.localeCompare(x.p.d); });
+    render(); edgeRecord((a[1]&&a[1].edges)||{});
+  });
+  function edgeRecord(E){
+    var imp=function(o){return o>0?100/(o+100):-o/(-o+100);}, dec=function(o){return o>0?1+o/100:1+100/-o;};
+    var all=Object.keys(E).map(function(k){return E[k];}), gr=all.filter(function(e){return e.res==='w'||e.res==='l'||e.res==='p';});
+    var w=0,l=0,p=0,u=0,clv=[],beat=0,byM={};
+    gr.forEach(function(e){ var d=dec(e.bet.price), du=e.res==='w'?d-1:e.res==='l'?-1:0; if(e.res==='w')w++; else if(e.res==='l')l++; else p++; u+=du;
+      var M=byM[e.m]=byM[e.m]||{w:0,l:0,p:0,u:0,n:0,clv:[]}; M[e.res]++; M.u+=du; M.n++; if(e.close) M.clv.push(e.close.clv); });
+    all.forEach(function(e){ if(e.close&&e.close.clv!=null){ clv.push(e.close.clv); if(e.close.clv>0) beat++; } });
+    var avg=function(a){return a.length?a.reduce(function(x,y){return x+y;},0)/a.length:null;};
+    if(!all.length){ $('edSb').innerHTML='<div class="bx-empty" style="grid-column:1/-1">The edge log starts the first time books post lines with our feed running. Every bet the board lists is saved at the price it showed, then graded here.</div>'; return; }
+    var ac=avg(clv);
+    $('edSb').innerHTML=[[all.length,'Bets listed',gr.length+' graded'],[gr.length?w+'–'+l+(p?'–'+p:''):'—','Record',gr.length?Math.round(w/Math.max(1,w+l)*100)+'% won':'awaiting finals'],
+      [gr.length?(u>=0?'+':'−')+Math.abs(u).toFixed(1)+'u':'—','Units, flat',gr.length?((u/gr.length)*100).toFixed(1)+'% ROI':''],
+      [ac!=null?(ac>=0?'+':'−')+Math.abs(ac*100).toFixed(1)+'%':'—','Avg CLV',clv.length?Math.round(beat/clv.length*100)+'% beat the close':''],
+      [avg(all.map(function(e){return e.bet.ev;}))!=null?'+'+(avg(all.map(function(e){return e.bet.ev;}))*100).toFixed(1)+'%':'—','Avg EV listed','what the model expected']]
+      .map(function(t){return '<div><b>'+t[0]+'</b><span>'+t[1]+'</span><small>'+t[2]+'</small></div>';}).join('');
+    var L={spread:'Spreads',total:'Totals',ml:'Moneylines',tt:'Team totals',h1:'1st half',prop:'Player props',alt:'Alt lines'}, ks=Object.keys(byM);
+    $('edMkWrap').hidden=!ks.length;
+    if(ks.length) $('edMk').innerHTML='<thead><tr><th class="l">Market</th><th>Record</th><th>Units</th><th>ROI</th><th>Avg CLV</th></tr></thead><tbody>'+ks.map(function(k){ var M=byM[k], c=avg(M.clv);
+      return '<tr><td class="l">'+(L[k]||k)+'</td><td>'+M.w+'–'+M.l+(M.p?'–'+M.p:'')+'</td><td class="'+(M.u>=0?'pos':'neg')+'">'+(M.u>=0?'+':'−')+Math.abs(M.u).toFixed(1)+'</td><td>'+((M.u/M.n)*100).toFixed(1)+'%</td><td>'+(c==null?'—':(c>=0?'+':'−')+Math.abs(c*100).toFixed(1)+'%')+'</td></tr>'; }).join('')+'</tbody>';
+  }
+  B.loadProps().then(function(S){
+    var BT=S.BT||{}, rows=['pts','pra','ast','reb','tpm'].filter(function(s){return BT[s]&&BT[s].dip_over!=null;});
+    $('propBt').innerHTML='<div class="big">'+(BT.pra?Math.round(BT.pra.dip_over*100)+'%':'—')+'</div><span class="dim" style="font-size:12px;font-weight:700">bounce-back P+R+A overs hit</span>'+
+      '<div class="sheet-wrap" style="margin-top:10px"><table class="sheet dense"><thead><tr><th class="l">Stat</th><th>Overs</th><th>Picks</th><th>Unders</th><th>Picks</th></tr></thead><tbody>'+
+      rows.map(function(s){var b=BT[s]; return '<tr><td class="l">'+B.STAT_NAME[s]+'</td><td class="pos">'+Math.round(b.dip_over*100)+'%</td><td class="dim">'+(b.dip_n||'—')+'</td><td>'+(b.spike_under!=null?Math.round(b.spike_under*100)+'%':'—')+'</td><td class="dim">'+(b.spike_n||'—')+'</td></tr>';}).join('')+'</tbody></table></div>'+
+      '<p>2024-25 and 2025-26 game logs, against the line a book anchored on last season would hang. 52.4% breaks even at −110.</p>';
+  });
+})();
+</script>
+</body>
+</html>

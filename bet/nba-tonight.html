@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <base href="/">
+  <title>TDC Bet · NBA Line Check</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#0A0D12">
+  <link rel="icon" type="image/svg+xml" href="bet/favicon.svg">
+  <script src="auth.js?v=sso1"></script>
+  <script>try{var _t=JSON.parse(localStorage.getItem('tdcbet_theme')||'"dark"');document.documentElement.setAttribute('data-theme',_t==='light'?'light':'dark');}catch(e){}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="tdc-sheets.css?v=6">
+  <link rel="stylesheet" href="bet/bet.css?v=2">
+  <style>
+    .gpick{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 0 16px;padding:2px;}
+    .gpick::-webkit-scrollbar{display:none;}
+    .gpick button{flex:none;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:12px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer;font:700 14px 'Barlow Condensed',sans-serif;letter-spacing:.04em;text-transform:uppercase;}
+    .gpick button span{font:600 10.5px Inter,sans-serif;color:var(--text3);text-transform:none;letter-spacing:0;}
+    .gpick button.on{background:var(--text);color:var(--bg);border-color:var(--text);} .gpick button.on span{color:var(--bg);opacity:.7;}
+    .gpick img{width:20px;height:20px;}
+    .band{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:16px;align-items:center;border:1px solid var(--border);border-radius:20px;background:var(--bg2);padding:20px 22px;margin-bottom:16px;}
+    .band .t{display:flex;align-items:center;gap:12px;min-width:0;} .band .t.h{flex-direction:row-reverse;text-align:right;}
+    .band img{width:60px;height:60px;}
+    .band b{display:block;font:800 30px/1 'Barlow Condensed',sans-serif;text-transform:uppercase;}
+    .band small{display:block;font:600 12px Inter,sans-serif;color:var(--text3);margin-top:4px;}
+    .band .mid{text-align:center;}
+    .band .vs{display:grid;grid-template-columns:auto auto;gap:4px 14px;font:700 13px Inter,sans-serif;color:var(--text2);text-align:left;}
+    .band .vs i{font-style:normal;color:var(--text3);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;align-self:center;}
+    .gap-pos{color:var(--accent);font-weight:800;} .gap-neg{color:var(--red);font-weight:800;}
+    tr.low td{opacity:.55;} tr.low td.nm{opacity:1;}
+    .why{font-size:10.5px;color:var(--gold);font-weight:600;display:block;}
+    .lad{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:10px;}
+    .lad .bx-card-b{padding-top:6px;}
+    .rung{display:grid;grid-template-columns:52px 1fr 64px 64px 66px;gap:6px;align-items:center;font-size:12.5px;padding:5px 0;border-top:1px solid var(--border);font-variant-numeric:tabular-nums;}
+    .rung:first-child{border-top:0;} .rung b{font:800 15px 'Barlow Condensed',sans-serif;}
+    .rung .bar{height:6px;border-radius:3px;background:var(--bg4);position:relative;overflow:hidden;}
+    .rung .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--blue);} .rung .bar s{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--text);}
+    .src{border:1px solid var(--border2);background:var(--bg2);border-radius:14px;padding:12px 16px;font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:16px;}
+    .src b{color:var(--text);}
+    @media (max-width:720px){ .band{grid-template-columns:1fr;text-align:center;} .band .t,.band .t.h{justify-content:center;flex-direction:row;text-align:left;} .band .vs{margin:0 auto;} }
+  </style>
+</head>
+<body>
+<main class="bx-main">
+  <div class="bx-head"><div><div class="bx-kick">Proof of concept · NBA tonight</div><h1 class="bx-h1">The book vs our numbers</h1>
+    <div class="bx-sub">One sportsbook's whole board for tonight's NBA games (spreads, totals, team totals and every player prop) set next to our model, with every disagreement priced.</div></div></div>
+  <div class="src" id="src"></div>
+  <section class="bx-sec" id="resSec" hidden style="margin-top:0;margin-bottom:18px">
+    <div class="bx-bar"><h2>How the picks have done</h2><span class="hint" id="resHint">every value pick, logged before tip at the cheapest price, graded on the final</span></div>
+    <div class="sheet-wrap"><table class="sheet dense" id="res"></table></div>
+  </section>
+  <div class="gpick" id="gpick"></div>
+  <div id="liveNote"></div>
+  <div id="band"></div>
+
+  <section class="bx-sec">
+    <div class="bx-bar"><h2>Every source, side by side</h2><span class="hint" id="mxHint">DraftKings · Kalshi · Polymarket · ours</span></div>
+    <div class="bx-tools">
+      <div class="bx-seg" id="mxKind"><button data-k="game" class="on">Game lines</button><button data-k="prop">Player props</button></div>
+      <div class="bx-seg" id="mxOnly"><button data-o="multi" class="on">Priced in 2+ places</button><button data-o="value">Value only</button><button data-o="all">Everything</button></div>
+      <div class="bx-seg" id="mxSort"><button data-s="ev" class="on">Best value</button><button data-s="gap">Biggest price gap</button></div>
+    </div>
+    <div class="sheet-wrap"><table class="sheet dense freeze2" id="mx" style="--c1:36px;--c2:210px"></table></div>
+    <div class="bx-note"><b>Prices are the cost to win $1</b>: 48¢ means you pay 48¢ and get $1 back if it hits (+108 in sportsbook terms). Kalshi prices include its trading fee; DraftKings' is its American price converted. <b>Gap</b> = how far apart the cheapest and dearest source are on the same bet: free money the books and exchanges leave on the table. <b>Market</b> = the average of every source's fair price; <b>Ours</b> = our model alone; <b>Value</b> = expected return per $1 at the cheapest price, using 35% ours / 65% market. Faded = thin market (wide bid/ask, little traded) or too little data on the player; <span style="color:var(--gold)">long shot</span> = under 15¢ or over 85¢, where every model's tails are least reliable.</div>
+  </section>
+
+  <section class="bx-sec">
+    <div class="bx-bar"><h2>Game lines</h2><span class="hint">DraftKings vs ours</span></div>
+    <div class="sheet-wrap"><table class="sheet dense" id="gl"></table></div>
+    <div class="bx-note">Our game lines are a first pass (players' projected minutes x their plus-minus for the spread, their scoring rates for the total). Treat big gaps here as "something we don't know yet" (injuries, rest, a new rotation) before you treat them as edges. The player props below use our tested model.</div>
+  </section>
+
+  <section class="bx-sec">
+    <div class="bx-bar"><h2>Player props: every line, ranked</h2><span class="hint" id="pHint"></span></div>
+    <div class="bx-tools">
+      <div class="bx-seg" id="pStat"><button data-s="all" class="on">All</button><button data-s="pts">Points</button><button data-s="reb">Rebounds</button><button data-s="ast">Assists</button><button data-s="tpm">Threes</button><button data-s="pra">P+R+A</button><button data-s="combo">Combos</button></div>
+      <div class="bx-seg" id="pSort"><button data-o="ev" class="on">Best value</button><button data-o="gap">Biggest gap</button><button data-o="name">Player</button></div>
+      <div class="bx-seg" id="pTrust"><button data-t="ok" class="on">Trusted only</button><button data-t="all">Show all</button></div>
+    </div>
+    <div class="sheet-wrap"><table class="sheet dense freeze2" id="pt" style="--c1:36px;--c2:180px"></table></div>
+    <div class="bx-note"><b>Our proj</b> = our expected stat line tonight (this season's per-minute production shrunk toward last season's, x projected minutes). <b>DK %</b> = DraftKings' over chance with its vig removed. <b>Ours</b> = our model alone; <b>Blend</b> = 35% ours / 65% DraftKings, the honest number to bet on, since books are sharp. <b>Value</b> = expected return per $1 on the better side at the blended chance. Faded rows have too little data, or a gap so big it's probably news we don't have.</div>
+  </section>
+
+  <section class="bx-sec">
+    <div class="bx-bar"><h2>Milestone ladders</h2><span class="hint">DraftKings' "X+" alt lines vs our chance of each rung</span></div>
+    <div class="lad" id="lad"></div>
+  </section>
+
+  <section class="bx-sec">
+    <div class="bx-bar"><h2>Our projections</h2><span class="hint">minutes and lines behind every number above</span></div>
+    <div class="sheet-wrap"><table class="sheet dense" id="pl"></table></div>
+  </section>
+</main>
+
+<script src="bet/bet-core.js?v=2"></script>
+<script src="bet/bet-shell.js?v=2"></script>
+<script src="tdc-sheets.js?v=2"></script>
+<script>
+(function(){
+  var B=TDCBet, esc=B.esc, $=function(id){return document.getElementById(id);};
+  var IDX=null, G=null, ST={s:'all',o:'ev',t:'ok'};
+  var logo=function(a){ return 'https://a.espncdn.com/i/teamlogos/nba/500/'+String(a).toLowerCase()+'.png'; };
+  var pc=function(p){ return p==null?'—':Math.round(p*100)+'%'; };
+  var odds=function(o){ return o==null?'—':(o>0?'+':'−')+Math.abs(o); };
+  var sg=function(v,d){ return v==null?'—':(v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(d==null?1:d); };
+  var tip=function(t){ return new Date(t).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); };
+  function seg(id,attr,key){ $(id).addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b) return; $(id).querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);}); ST[key]=b.dataset[attr]; props(); }); }
+  seg('pStat','s','s'); seg('pSort','o','o'); seg('pTrust','t','t');
+
+  function pick(id){
+    fetch('scripts/data/nba_compare/'+id+'.json',{cache:'no-cache'}).then(function(r){return r.json();}).then(function(g){
+      G=g; BXUI_setQuery('game',id);
+      $('gpick').querySelectorAll('button').forEach(function(b){ b.classList.toggle('on',b.dataset.id===id); });
+      liveNote(); band(); multi(); lines(); props(); ladders(); players();
+    });
+  }
+  function BXUI_setQuery(k,v){ try{ var u=new URL(location.href); u.searchParams.set(k,v); history.replaceState(null,'',u); }catch(e){} }
+  function liveNote(){
+    var after=G.built&&new Date(G.built)>new Date(G.tip);
+    $('liveNote').innerHTML=after?'<div class="src" style="border-color:var(--gold)"><b style="color:var(--gold)">Prices from after tip.</b> This game\'s board was last captured after it started, so the prices below are live in-game numbers, not the pregame board. Its picks aren\'t logged or graded.</div>':'';
+  }
+  // results: every day file, newest first
+  function results(){
+    fetch('scripts/data/nba_compare/results.json',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}).then(function(d){
+      if(!d||!d.days||!d.days.length) return;
+      $('resSec').hidden=false;
+      var tot=d.total, L={dk:'DraftKings',kalshi:'Kalshi',poly:'Polymarket'}, K={ml:'Moneylines',sp:'Spreads',tot:'Totals',tt:'Team totals',prop:'Player props'};
+      var row=function(lab,x){ return x&&x.n?'<tr><td class="l nm">'+lab+'</td><td>'+x.n+'</td><td>'+x.w+'–'+x.l+'</td><td class="'+(x.units>=0?'pos':'neg')+'">'+sg(x.units,1)+'u</td><td>'+(x.roi==null?'—':sg(x.roi*100,1)+'%')+'</td><td class="dim">'+sg(x.exp,1)+'u</td></tr>':''; };
+      $('res').innerHTML='<thead><tr><th class="l">Picks</th><th>Graded</th><th>Record</th><th>Profit</th><th>ROI</th><th title="What the model expected at those prices">Expected</th></tr></thead><tbody>'+
+        row('<b>All picks</b>',tot)+d.days.map(function(x){ return row(B.fmtDate(x.date.slice(0,4)+'-'+x.date.slice(4,6)+'-'+x.date.slice(6),'md'),x.summary); }).join('')+
+        Object.keys(L).map(function(k){ return row('At '+L[k],tot.by_src&&tot.by_src[k]); }).join('')+Object.keys(K).map(function(k){ return row(K[k],tot.by_kind&&tot.by_kind[k]); }).join('')+'</tbody>';
+      $('resHint').textContent=tot.n+' graded picks · 1 unit = $1 at the logged price · a few nights prove nothing; we\'re watching the long run';
+    });
+  }
+
+  function band(){
+    var g=G, o=g.ours, sp=g.markets.find(function(m){return m.kind==='spread';}), to=g.markets.find(function(m){return m.kind==='total';});
+    var ourFav=o.margin>=0?g.home.abbr:g.away.abbr;
+    $('band').innerHTML='<div class="band"><div class="t"><img src="'+logo(g.away.abbr)+'" alt=""><span><b>'+esc(g.away.name)+'</b><small>'+Math.round((1-o.p_home)*100)+'% to win by our numbers</small></span></div>'+
+      '<div class="mid"><div class="vs"><i>DraftKings</i><span>'+(sp?esc(sp.label):'—')+' · '+(to?'O/U '+to.line:'—')+'</span><i>Ours</i><span>'+ourFav+' '+(o.margin>=0?'−':'−')+Math.abs(o.margin).toFixed(1)+' · '+o.total.toFixed(1)+'</span><i>Tip</i><span>'+tip(g.tip)+' · '+g.n_lines+' book lines</span></div></div>'+
+      '<div class="t h"><img src="'+logo(g.home.abbr)+'" alt=""><span><b>'+esc(g.home.name)+'</b><small>'+Math.round(o.p_home*100)+'% to win by our numbers</small></span></div></div>';
+  }
+  function lines(){
+    var g=G, o=g.ours;
+    var ourLine=function(m){
+      if(m.kind==='spread'){ var team=m.label.split(' ')[0], mm=team===g.home.abbr?o.margin:-o.margin; return team+' '+sg(-mm); }
+      if(m.kind==='total') return o.total.toFixed(1);
+      if(m.kind==='ml') return B.fairTxt(m.p)+' fair';
+      if(m.kind==='tt') return (m.label.indexOf(g.home.abbr)===0?o.home_pts:o.away_pts).toFixed(1);
+      return '—'; };
+    var gap=function(m){
+      if(m.kind==='spread'){ var team=m.label.split(' ')[0], mm=team===g.home.abbr?o.margin:-o.margin; return mm+m.line; }   // + = we like this side by that many points
+      if(m.kind==='total') return /^Over/.test(m.label)?o.total-m.line:m.line-o.total;
+      if(m.kind==='tt'){ var tp=m.label.indexOf(g.home.abbr)===0?o.home_pts:o.away_pts; return /over/.test(m.label)?tp-m.line:m.line-tp; }
+      return null; };
+    $('gl').innerHTML='<thead><tr><th class="l">Bet</th><th>DraftKings</th><th title="DraftKings\' chance with the vig removed">DK %</th><th>Our number</th><th>Our %</th><th title="Points our number is on this side of the line">Gap</th><th data-heat="1" title="Expected return per $1 at the DraftKings price, our model alone">Value (ours)</th></tr></thead><tbody>'+
+      g.markets.map(function(m){ var gp=gap(m);
+        return '<tr><td class="l nm">'+esc(m.label)+'</td><td><b>'+odds(m.price)+'</b></td><td class="dim">'+pc(m.p_mkt)+'</td><td>'+esc(ourLine(m))+'</td><td>'+pc(m.p)+'</td>'+
+          '<td class="'+(gp>0?'gap-pos':gp<0?'gap-neg':'')+'">'+(gp==null?'—':sg(gp))+'</td><td data-v="'+m.ev+'">'+sg(m.ev*100)+'%</td></tr>'; }).join('')+'</tbody>';
+    if(window.tdcSheetHeat) tdcSheetHeat($('gl'));
+  }
+  // ── every source, side by side ─────────────────────────────────────────
+  var MX={k:'game',o:'multi',s:'ev'};
+  function mxSeg(id,attr,key){ $(id).addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b) return; $(id).querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);}); MX[key]=b.dataset[attr]; multi(); }); }
+  mxSeg('mxKind','k','k'); mxSeg('mxOnly','o','o'); mxSeg('mxSort','s','s');
+  var SRC=[['dk','DraftKings'],['kalshi','Kalshi'],['poly','Polymarket']];
+  function cents(c){ return Math.round(c*100)+'¢'; }
+  function amer(c){ var o=c>=0.5?-100*c/(1-c):100*(1-c)/c; return (o>0?'+':'−')+Math.abs(Math.round(o)); }
+  function multi(){
+    if(!G||!G.multi) return;
+    var ORDER={ml:0,sp:1,tot:2,tt:3};
+    var v=G.multi.filter(function(r){ var isProp=r.kind==='prop'; if((MX.k==='prop')!==isProp) return false;
+      var liquid=Object.keys(r.src).filter(function(k){return !r.src[k].thin;}).length;
+      if(MX.o==='multi') return liquid>=2;
+      if(MX.o==='value') return r.ev!=null&&r.ev>0.03&&r.trust!=='low'&&!r.longshot;
+      return true; });
+    v.sort(function(a,b){ if(MX.s==='gap') return (b.gap_c||0)-(a.gap_c||0); return (b.ev==null?-9:b.ev)-(a.ev==null?-9:a.ev); });
+    if(MX.o==='value'){   // one opinion = one bet: keep the best rung per market + side (every DAL spread rung is the same view)
+      var seen={}; v=v.filter(function(r){ var k=r.key.split('|'), g2=r.kind==='prop'?[k[1],k[2],k[3]].join('|'):r.kind==='tot'?'tot|'+k[1]:r.kind==='tt'?['tt',k[1],k[2]].join('|'):r.kind==='sp'||r.kind==='ml'?'side|'+k[1]:r.key;
+        if(seen[g2]) return false; seen[g2]=1; return true; });
+    }
+    v=v.slice(0,150);
+    var src=G.sources||{};
+    $('mxHint').textContent='DraftKings '+(src.dk||0)+' · Kalshi '+(src.kalshi||0)+' · Polymarket '+(src.poly||0)+' priced outcomes · '+v.length+' shown';
+    $('mx').innerHTML='<thead><tr><th class="rk">#</th><th class="l">Bet</th>'+SRC.map(function(s){return '<th>'+s[1]+'</th>';}).join('')+'<th title="Cheapest minus dearest source">Gap</th><th title="Average fair price across sources">Market</th><th>Ours</th><th data-heat="1" title="Expected return per $1 at the cheapest price, 35% ours / 65% market">Value</th></tr></thead><tbody>'+
+      (v.length?v.map(function(r,i){
+        var best=r.best&&r.best.src;
+        return '<tr class="'+(r.trust==='low'?'low':'')+'"><td class="rk">'+(i+1)+'</td><td class="l nm">'+esc(r.label)+(r.mean!=null?' <span class="dim">proj '+r.mean+'</span>':'')+(r.longshot?' <span class="bx-tag y">long shot</span>':'')+'</td>'+
+          SRC.map(function(s){ var x=r.src[s[0]]; if(!x) return '<td class="dim">—</td>';
+            return '<td style="'+(s[0]===best?'background:var(--accent-bg);':'')+(x.thin?'opacity:.45;':'')+'" title="'+(x.thin?'thin market: wide bid/ask':'')+(x.vol?' · $'+Math.round(x.vol).toLocaleString()+' traded':'')+'"><b>'+cents(x.cost)+'</b> <span class="dim" style="font-size:11px">'+amer(x.cost)+'</span></td>'; }).join('')+
+          '<td>'+(r.gap_c?r.gap_c.toFixed(1)+'¢':'—')+'</td><td class="dim">'+pc(r.cons)+'</td><td>'+pc(r.p)+'</td><td data-v="'+(r.ev==null?'':r.ev)+'" class="'+(r.ev>0?'pos':'')+'">'+(r.ev==null?'—':sg(r.ev*100)+'%')+'</td></tr>';
+      }).join(''):'<tr><td colspan="9" class="empty">Nothing matches.</td></tr>')+'</tbody>';
+    if(window.tdcSheetHeat) tdcSheetHeat($('mx'));
+  }
+
+  function props(){
+    if(!G) return;
+    var COMBO={pr:1,pa:1,ra:1};
+    var v=G.props.filter(function(p){ return (ST.s==='all'||(ST.s==='combo'?COMBO[p.stat]:p.stat===ST.s)) && (ST.t==='all'||p.trust==='ok'); });
+    v.forEach(function(p){ p._side=p.evb_over>=p.evb_under?'over':'under'; p._ev=Math.max(p.evb_over,p.evb_under); p._gap=p.mean-p.line; });
+    v.sort(function(a,b){ return ST.o==='gap'?Math.abs(b._gap/Math.max(b.line,2))-Math.abs(a._gap/Math.max(a.line,2)):ST.o==='name'?a.name.localeCompare(b.name):b._ev-a._ev; });
+    var pos=G.props.filter(function(p){return p.trust==='ok'&&Math.max(p.evb_over,p.evb_under)>0.03;}).length;
+    $('pHint').textContent=G.props.length+' DraftKings prop lines · '+pos+' with 3%+ value at the blended chance (trusted players)';
+    $('pt').innerHTML='<thead><tr><th class="rk">#</th><th class="l">Player</th><th>Stat</th><th>Line</th><th>Over</th><th>Under</th><th title="DraftKings\' over chance, vig removed">DK %</th><th title="Our expected line tonight">Our proj</th><th title="Our projection minus the line">Gap</th><th title="Our model alone">Ours</th><th data-heat="1" title="35% ours, 65% DraftKings">Blend</th><th class="l">Best side</th><th data-heat="1" title="Expected return per $1 on the best side, at the blended chance">Value</th></tr></thead><tbody>'+
+      (v.length?v.map(function(p,i){
+        return '<tr class="'+(p.trust==='low'?'low':'')+'"><td class="rk">'+(i+1)+'</td><td class="l nm">'+esc(p.name)+' <span class="dim">'+p.team+'</span>'+(p.why&&p.why.length?'<span class="why">'+esc(p.why.join(' · '))+'</span>':'')+'</td><td>'+p.label+'</td>'+
+          '<td><b>'+p.line+'</b>'+(p.open_line!=null&&p.open_line!==p.line?' <span class="dim">from '+p.open_line+'</span>':'')+'</td><td>'+odds(p.over)+'</td><td>'+odds(p.under)+'</td><td class="dim">'+pc(p.p_mkt)+'</td>'+
+          '<td><b>'+p.mean.toFixed(1)+'</b></td><td class="'+(p._gap>0?'gap-pos':'gap-neg')+'">'+sg(p._gap)+'</td><td>'+pc(p.p_over)+'</td><td data-v="'+p.p_blend+'">'+pc(p.p_blend)+'</td>'+
+          '<td class="l"><b>'+(p._side==='over'?'Over':'Under')+' '+p.line+'</b> '+odds(p._side==='over'?p.over:p.under)+'</td><td data-v="'+p._ev+'" class="'+(p._ev>0?'pos':'')+'">'+sg(p._ev*100)+'%</td></tr>';
+      }).join(''):'<tr><td colspan="13" class="empty">No props match.</td></tr>')+'</tbody>';
+    if(window.tdcSheetHeat) tdcSheetHeat($('pt'));
+  }
+  function ladders(){
+    var trust={}; G.props.forEach(function(p){ if(p.trust==='low') trust[p.pid]=false; else if(trust[p.pid]!==false) trust[p.pid]=true; });
+    var list=G.ladders.filter(function(l){ return trust[l.pid]!==false && ['pts','reb','ast','tpm','pra'].indexOf(l.stat)>=0; })
+      .map(function(l){ l._best=Math.max.apply(null,l.rungs.map(function(r){return r.ev;})); return l; })
+      .sort(function(a,b){ return b._best-a._best; }).slice(0,12);
+    $('lad').innerHTML=list.map(function(l){
+      return '<div class="bx-card"><div class="bx-card-h"><h3>'+esc(l.name)+' · '+l.label+'</h3><span class="dim" style="font-size:12px">our proj '+l.mean+'</span></div><div class="bx-card-b">'+
+        l.rungs.filter(function(r){return r.p_book>0.03&&r.p_book<0.97;}).map(function(r){
+          return '<div class="rung"><b>'+r.k+'+</b><div class="bar" title="Blue = our chance, line = the book\'s"><i style="width:'+Math.round(r.p*100)+'%"></i><s style="left:'+Math.round(r.p_book*100)+'%"></s></div><span>'+odds(r.price)+'</span><span class="dim">'+pc(r.p)+' us</span><span class="'+(r.ev>0.03?'pos':'dim')+'">'+sg(r.ev*100)+'%</span></div>';
+        }).join('')+'</div></div>';
+    }).join('');
+  }
+  function players(){
+    var rows=G.players.filter(function(p){return p.min>0||p.status;});
+    $('pl').innerHTML='<thead><tr><th class="l">Player</th><th class="l">Status</th><th>Proj min</th><th>G</th><th>PTS</th><th>REB</th><th>AST</th><th>3PM</th><th class="l">This season</th><th class="l">Last season</th></tr></thead><tbody>'+
+      rows.map(function(p){ var ln=function(x){ return x?x.pts+' / '+x.reb+' / '+x.ast:'—'; };
+        return '<tr><td class="l nm">'+esc(p.name)+' <span class="dim">'+p.team+'</span></td><td class="l '+(p.status==='Out'?'neg':p.status?'dim':'')+'">'+esc(p.status||'')+'</td><td>'+(p.min?p.min.toFixed(1):'—')+'</td><td class="dim">'+p.g+'</td>'+
+          '<td>'+p.mean.pts+'</td><td>'+p.mean.reb+'</td><td>'+p.mean.ast+'</td><td>'+p.mean.tpm+'</td><td class="l dim">'+ln(p.cur)+(p.cur_mpg?' · '+p.cur_mpg+' min':'')+'</td><td class="l dim">'+ln(p.last)+'</td></tr>'; }).join('')+'</tbody>';
+  }
+
+  results();
+  fetch('scripts/data/nba_compare/index.json',{cache:'no-cache'}).then(function(r){return r.json();}).then(function(ix){
+    IDX=ix;
+    $('src').innerHTML='<b>What this is.</b> Free data only, three sources: DraftKings\' full board (ESPN\'s feed, '+ix.games.reduce(function(s,g){return s+g.lines;},0).toLocaleString()+' lines tonight), and the two big prediction-market exchanges, Kalshi and Polymarket, whose prices are set by traders with real money down. A paid odds feed would add 20+ more sportsbooks. Our prop model was fit on 2024-25 NBA game logs and tested on 2025-26: when it says 60%, it happened about 60% of the time. Two games into the season is the weakest time for any model.';
+    $('gpick').innerHTML=ix.games.map(function(g){ var t=g.name.split(' at '); return '<button data-id="'+g.id+'">'+esc(t[0].split(' ').pop())+' @ '+esc(t[1].split(' ').pop())+' <span>'+tip(g.tip)+'</span></button>'; }).join('');
+    $('gpick').onclick=function(e){ var b=e.target.closest('button'); if(b) pick(b.dataset.id); };
+    var want=new URLSearchParams(location.search).get('game'); pick(want&&ix.games.some(function(g){return g.id===want;})?want:ix.games[0].id);
+  });
+})();
+</script>
+</body>
+</html>

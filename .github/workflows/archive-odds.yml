@@ -9,13 +9,16 @@ name: Archive live odds
 # SETUP: add a repo secret named ODDS_API_KEY (Settings → Secrets and variables →
 # Actions → New repository secret). Until that secret exists the job no-ops safely, so
 # this workflow can be merged now and simply sits idle until you're ready / in-season.
-# Cost: main markets (spreads,totals,h2h) in the US region = ~3 credits per snapshot,
-# ~2 snapshots/day ≈ 180 credits/month — trivial even on the cheapest paid tier.
+# Cost: main markets (spreads,totals,h2h) x 2 regions (us,us2) = 6 credits a run, 4 runs a day.
+# Event markets (5 player props + team totals + alt + 1H lines) cost markets x regions PER GAME, so each
+# props run is capped at 1,200 credits (nearest tips first), so a month can never pass ~75k (100K plan).
 
 on:
   schedule:
-    - cron: '0 16 * * *'    # ~11:00 ET — opening lines for the day's slate
-    - cron: '30 23 * * *'   # ~18:30 ET — near-tip closing lines
+    - cron: '0 15 * * *'    # ~11:00 ET — the day's lines + player props / team totals / alt + 1H lines
+    - cron: '0 19 * * *'    # ~15:00 ET — main lines (every book) for line moves
+    - cron: '30 22 * * *'   # ~18:30 ET — near-tip lines + a second props pull (closing numbers for CLV)
+    - cron: '30 1 * * *'    # ~21:30 ET — late West Coast tips
   workflow_dispatch: {}      # manual run from the Actions tab (use this to test)
 
 permissions:
@@ -44,7 +47,12 @@ jobs:
             echo "No ODDS_API_KEY secret set — skipping (add it in repo Settings → Secrets to activate)."
             exit 0
           fi
-          python3 scripts/archive_live_odds.py --markets spreads,totals,h2h --regions us
+          # every book's spread/total/moneyline every run (6 credits); event markets (props, team totals,
+          # alternate + first-half lines) on the 11:00 and 18:30 ET runs, capped per run by --event-budget
+          H=$(date -u +%H)
+          EV=""
+          if [ "$H" = "15" ] || [ "$H" = "22" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then EV="--events --event-budget 1200"; fi
+          python3 scripts/archive_live_odds.py --markets spreads,totals,h2h --regions us,us2 $EV
 
       - name: Commit if changed
         run: |
@@ -54,10 +62,30 @@ jobs:
           [ -f scripts/data/odds_live.json ] && git add scripts/data/odds_live.json || true
           [ -f scripts/data/odds_archive.jsonl ] && git add scripts/data/odds_archive.jsonl || true
           [ -f scripts/data/odds_futures.json ] && git add scripts/data/odds_futures.json || true
+          [ -f scripts/data/odds_props_archive.jsonl ] && git add scripts/data/odds_props_archive.jsonl || true
           if git diff --cached --quiet; then
             echo "No odds changes."
           else
             git commit -m "Auto: archive live odds board [skip ci]"
             git pull --rebase --autostash || true
             git push
+          fi
+
+      # TDC Bet edge log: price the fresh board with the site's own engine and log every bet it lists (first price
+      # seen) + refresh closing prices until tip, for the Record page's results and closing-line value
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Log the edge board
+        continue-on-error: true
+        run: |
+          [ -s scripts/data/odds_live.json ] && grep -q '"books"' scripts/data/odds_live.json || { echo "No book prices — nothing to log."; exit 0; }
+          python3 -m http.server 8767 >/dev/null 2>&1 &
+          mkdir -p "$RUNNER_TEMP/pp" && (cd "$RUNNER_TEMP/pp" && npm init -y >/dev/null && npm i --silent puppeteer@22.15.0)
+          sleep 1
+          PUPPETEER_MODULE="$RUNNER_TEMP/pp/node_modules/puppeteer/lib/esm/puppeteer/puppeteer.js" BASE=http://localhost:8767/ node scripts/snapshot_bet_picks.mjs --edges
+          git add scripts/data/bet_picks_2027.json
+          if git diff --cached --quiet; then echo "Edge log unchanged."; else
+            git commit -m "Auto: TDC Bet edge log [skip ci]"
+            for i in 1 2 3 4 5; do git pull --rebase -X theirs origin main && git push && break; sleep $((i*5)); done
           fi

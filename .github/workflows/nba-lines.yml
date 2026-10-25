@@ -1,0 +1,42 @@
+name: NBA line check
+
+# TDC Bet's NBA proof of concept (bet/nba-tonight.html): DraftKings (ESPN feed) + Kalshi + Polymarket vs our numbers.
+# Hourly from late morning ET through the last tips: rebuild every game that hasn't tipped (a game's page freezes
+# at tip), log its value picks, and grade finished games. All free data — no keys.
+
+on:
+  schedule:
+    - cron: '10 14-23 * 10,11,12,1,2,3,4,5,6 *'   # 10:10 ET … 19:10 ET
+    - cron: '10 0-3 * 10,11,12,1,2,3,4,5,6 *'     # 20:10 ET … 23:10 ET (late West Coast tips) + grading
+    - cron: '0 9 * 10,11,12,1,2,3,4,5,6 *'        # 05:00 ET: grade last night's games
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nba-lines
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Rebuild the line check + grade
+        run: |
+          python3 scripts/nba_line_compare.py || echo "line check failed (feeds down?)"
+          python3 scripts/grade_nba_compare.py || true
+      - name: Commit
+        run: |
+          git config user.name "tdc-odds-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/data/nba_compare/
+          if git diff --cached --quiet; then echo "No changes."; else
+            git commit -m "Auto: NBA line check [skip ci]"
+            for i in 1 2 3 4 5; do git pull --rebase -X theirs origin main && git push && break; sleep $((i*5)); done
+          fi

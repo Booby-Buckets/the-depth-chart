@@ -40,7 +40,7 @@
       ['roles.html#arch',      'Archetypes'],
     ]],
     ['Analytics', [
-      ['betting.html',                  'Betting Lab'],
+      ['bet/',                          'TDC Bet ↗'],
       ['analytics.html',                'Advanced Stats'],
       ['shot-genome.html',              'Shot Genome'],
       ['crunch.html',                   'Crunch-Time Takeovers'],
