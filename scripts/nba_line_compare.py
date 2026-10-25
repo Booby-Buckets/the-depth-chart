@@ -411,7 +411,8 @@ def build(gid, ev, last, opp_allowed, lg_allowed, scale=1.0):
         game["ladders"].append({"pid": pid, "name": pl["name"], "team": pl["team"], "stat": stat, "label": LABEL[stat], "mean": round(mean, 1), "rungs": rungs})
 
     game["players"] = [{"id": pid, "name": players[pid]["name"], "team": players[pid]["team"], "pos": players[pid]["pos"], "status": players[pid]["status"],
-                        "min": round(pr["min"], 1), "g": pr["g"], "mean": {s: round(v, 1) for s, v in pr["mean"].items()},
+                        "min": round(pr["min"], 1), "g": pr["g"], "last_g": pr["last_g"], "sdm": pr["sdm"],
+                        "rates": {s: round(v, 5) for s, v in pr["rates"].items()}, "mean": {s: round(v, 2) for s, v in pr["mean"].items()},
                         "cur": pr["cur_line"], "cur_mpg": pr["cur_mpg"], "last": pr["last_line"]}
                        for pid, pr in sorted(projections.items(), key=lambda kv: -kv[1]["min"])]
     try:
@@ -427,6 +428,7 @@ def build(gid, ev, last, opp_allowed, lg_allowed, scale=1.0):
     except Exception as e:
         print("  multi-source failed:", e)
         game["multi"], game["sources"] = [], {}
+    game["consts"] = {"sd_margin": SD_MARGIN, "sd_total": SD_TOTAL, "sd_team": SD_TEAM, "w": W_PROP}   # bet/nba-live.js re-prices with these
     game["n_lines"] = len(props) + len(game["markets"])
     game["built"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     return game
@@ -631,9 +633,8 @@ def main():
     idx = []
     # pass 1: raw team points for every game today; scale = last season's league scoring / tonight's raw average
     # (a sum of rotation players' scoring rates overstates a team: it leaves out the deep bench and garbage time)
-    for ev in events:
-        if ev["id"] not in started:
-            build(ev["id"], ev, last, opp, lg)
+    for ev in events:                       # the whole slate, tipped games included: one game is too few to calibrate on
+        build(ev["id"], ev, last, opp, lg)
     scale = (lg / (sum(RAW) / len(RAW))) if RAW else 1.0
     print("team-points calibration x%.3f (league %.1f ppg last season)" % (scale, lg))
     for ev in events:
@@ -642,12 +643,36 @@ def main():
             idx.append({"id": ev["id"], "name": ev["name"], "tip": ev["date"], "lines": g.get("n_lines", 0)})
             continue
         g = build(ev["id"], ev, last, opp, lg, scale)
-        json.dump(g, open(os.path.join(OUT, ev["id"] + ".json"), "w"), separators=(",", ":"))
+        BUILT[ev["id"]] = g
+        # prices refresh live in the browser (bet/nba-live.js), so a board only needs re-committing when OUR numbers
+        # move (injury, minutes, a new game in the log) or it's 3 h old — keeps the repo from filling with snapshots
+        path = os.path.join(OUT, ev["id"] + ".json")
+        fp = fingerprint(g)
+        try:
+            old = json.load(open(path))
+        except Exception:
+            old = None
+        age = (datetime.datetime.now(datetime.timezone.utc) - datetime.datetime.fromisoformat(old["built"].replace("Z", "+00:00"))).total_seconds() / 3600 if old and old.get("built") else 99
+        if not old or old.get("fp") != fp or age >= 3:
+            g["fp"] = fp
+            json.dump(g, open(path, "w"), separators=(",", ":"))
+        else:
+            print("  %s: our numbers unchanged (%.1f h old) — not rewritten" % (ev["name"], age))
         idx.append({"id": ev["id"], "name": ev["name"], "tip": ev["date"], "lines": g["n_lines"]})
         print("%s · %d book lines · %d props · ours %s %+.1f, total %.1f" % (ev["name"], g["n_lines"], len(g["props"]), g["home"]["abbr"], g["ours"]["margin"], g["ours"]["total"]))
     if not want:
         json.dump({"date": today, "games": idx}, open(os.path.join(OUT, "index.json"), "w"), indent=1)
         freeze_picks(today, events)
+
+
+BUILT = {}
+
+
+def fingerprint(g):
+    """What our side of the board depends on: projected minutes/lines/status per player + the game numbers."""
+    import hashlib
+    core = [g["ours"], sorted((p["id"], p["min"], p.get("status"), p["mean"].get("pts"), p["mean"].get("reb"), p["mean"].get("ast")) for p in g["players"])]
+    return hashlib.md5(json.dumps(core, sort_keys=True, default=str).encode()).hexdigest()[:12]
 
 
 def pick_group(r):
@@ -671,10 +696,12 @@ def freeze_picks(day, events):
         gid = ev["id"]; tip = datetime.datetime.fromisoformat(ev["date"].replace("Z", "+00:00"))
         if tip <= now:
             continue                                    # started: frozen, and never logged after tip (live prices = hindsight)
-        try:
-            g = json.load(open(os.path.join(OUT, gid + ".json")))
-        except Exception:
-            continue
+        g = BUILT.get(gid)
+        if g is None:
+            try:
+                g = json.load(open(os.path.join(OUT, gid + ".json")))
+            except Exception:
+                continue
         rows = sorted([r for r in g.get("multi", []) if r.get("ev") is not None and r["ev"] > 0.03 and r.get("trust") != "low" and not r.get("longshot")
                        and sum(1 for v in r["src"].values() if not v["thin"]) >= 1], key=lambda r: -r["ev"])
         seen, picks = set(), []

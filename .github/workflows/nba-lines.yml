@@ -1,13 +1,15 @@
 name: NBA line check
 
 # TDC Bet's NBA proof of concept (bet/nba-tonight.html): DraftKings (ESPN feed) + Kalshi + Polymarket vs our numbers.
-# Hourly from late morning ET through the last tips: rebuild every game that hasn't tipped (a game's page freezes
-# at tip), log its value picks, and grade finished games. All free data — no keys.
+# Every 30 min from late morning ET through the last tips: rebuild our numbers for every game that hasn't tipped
+# (injury / lineup news lands in the last hours), log its value picks at the prices then, grade finished games.
+# A game's board is only re-committed when our numbers change or it's 3 h old: prices refresh live in the browser
+# (bet/nba-live.js + api/kalshi.js). A game's page freezes at tip. All free data — no keys.
 
 on:
   schedule:
-    - cron: '10 14-23 * 10,11,12,1,2,3,4,5,6 *'   # 10:10 ET … 19:10 ET
-    - cron: '10 0-3 * 10,11,12,1,2,3,4,5,6 *'     # 20:10 ET … 23:10 ET (late West Coast tips) + grading
+    - cron: '10,40 14-23 * 10,11,12,1,2,3,4,5,6 *'   # every 30 min, 10:10 ET … 19:40 ET
+    - cron: '10,40 0-3 * 10,11,12,1,2,3,4,5,6 *'     # 20:10 ET … 23:40 ET (late West Coast tips) + grading
     - cron: '0 9 * 10,11,12,1,2,3,4,5,6 *'        # 05:00 ET: grade last night's games
   workflow_dispatch: {}
 

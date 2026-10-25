@@ -53,6 +53,7 @@
     <div class="sheet-wrap"><table class="sheet dense" id="res"></table></div>
   </section>
   <div class="gpick" id="gpick"></div>
+  <div class="bx-feed" id="pxFeed" style="display:flex;margin:-6px 0 12px;padding:0"><i></i><span>Prices: loading…</span></div>
   <div id="liveNote"></div>
   <section class="bx-sec" id="liveSec" hidden style="margin-top:0;margin-bottom:16px">
     <div class="bx-bar"><h2 id="liveH">Live</h2><span class="hint" id="liveHint"></span></div>
@@ -102,6 +103,7 @@
 <script src="bet/bet-core.js?v=2"></script>
 <script src="bet/bet-shell.js?v=2"></script>
 <script src="tdc-sheets.js?v=2"></script>
+<script src="bet/nba-live.js?v=1"></script>
 <script>
 (function(){
   var B=TDCBet, esc=B.esc, $=function(id){return document.getElementById(id);};
@@ -118,7 +120,7 @@
     fetch('scripts/data/nba_compare/'+id+'.json',{cache:'no-cache'}).then(function(r){return r.json();}).then(function(g){
       G=g; BXUI_setQuery('game',id);
       $('gpick').querySelectorAll('button').forEach(function(b){ b.classList.toggle('on',b.dataset.id===id); });
-      liveNote(); live(); band(); multi(); lines(); props(); ladders(); players();
+      liveNote(); live(); band(); multi(); lines(); props(); ladders(); players(); prices();
     });
   }
   function BXUI_setQuery(k,v){ try{ var u=new URL(location.href); u.searchParams.set(k,v); history.replaceState(null,'',u); }catch(e){} }
@@ -167,6 +169,32 @@
       if(!done) LIVE_T=setTimeout(live,30000);
     });
   }
+
+  // ── live prices: every source re-pulled in the browser and the board re-priced (bet/nba-live.js) ──
+  var MODEL=null, PX_T=null, PX_RUN=0;
+  fetch('scripts/data/prop_model_nba.json').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}).then(function(m){ MODEL=m; });
+  function pxFeed(state, txt){ var el=$('pxFeed'); el.classList.toggle('live',state==='live'); el.querySelector('span').innerHTML=txt; }
+  function prices(){
+    clearTimeout(PX_T);
+    if(!G||!window.NBALive) return;
+    if(new Date(G.tip)<=new Date()){ pxFeed('', 'Prices frozen at tip · the board below is the last pregame snapshot'); return; }
+    if(document.hidden){ PX_T=setTimeout(prices,15000); return; }
+    var gid=G.id, run=++PX_RUN;
+    NBALive.refresh(G, MODEL).then(function(r){
+      if(!G||G.id!==gid||run!==PX_RUN) return;
+      if(r.multi&&r.multi.length){ G.multi=r.multi; G.sources=r.sources; }
+      if(r.markets&&r.markets.length) G.markets=r.markets;
+      if(r.props&&r.props.length) G.props=r.props;
+      if(r.ladders&&r.ladders.length) G.ladders=r.ladders;
+      if(r.n_lines) G.n_lines=r.n_lines;
+      band(); multi(); lines(); props(); ladders();
+      var t=new Date(r.at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit'});
+      var ok=function(k,n){ return n+(r.ok[k]?' ✓':' <span style="color:var(--red)">✗</span>'); };
+      pxFeed('live','Prices live · updated '+t+' · '+ok('dk','DraftKings')+' · '+ok('kalshi','Kalshi')+' · '+ok('poly','Polymarket')+' · our numbers rebuilt '+new Date(G.built).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}));
+    }).catch(function(){ pxFeed('','Live prices unavailable right now · showing the last saved board'); })
+      .then(function(){ if(G&&G.id===gid) PX_T=setTimeout(prices,75000); });
+  }
+  document.addEventListener('visibilitychange',function(){ if(!document.hidden&&G) prices(); });
 
   function liveNote(){
     var after=G.built&&new Date(G.built)>new Date(G.tip);
