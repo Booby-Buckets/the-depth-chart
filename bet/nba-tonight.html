@@ -54,6 +54,10 @@
   </section>
   <div class="gpick" id="gpick"></div>
   <div id="liveNote"></div>
+  <section class="bx-sec" id="liveSec" hidden style="margin-top:0;margin-bottom:16px">
+    <div class="bx-bar"><h2 id="liveH">Live</h2><span class="hint" id="liveHint"></span></div>
+    <div id="liveBody"></div>
+  </section>
   <div id="band"></div>
 
   <section class="bx-sec">
@@ -114,10 +118,56 @@
     fetch('scripts/data/nba_compare/'+id+'.json',{cache:'no-cache'}).then(function(r){return r.json();}).then(function(g){
       G=g; BXUI_setQuery('game',id);
       $('gpick').querySelectorAll('button').forEach(function(b){ b.classList.toggle('on',b.dataset.id===id); });
-      liveNote(); band(); multi(); lines(); props(); ladders(); players();
+      liveNote(); live(); band(); multi(); lines(); props(); ladders(); players();
     });
   }
   function BXUI_setQuery(k,v){ try{ var u=new URL(location.href); u.searchParams.set(k,v); history.replaceState(null,'',u); }catch(e){} }
+  // ── live: ESPN's game summary every 30 s once a game tips — score, clock, and every logged pick's progress ──
+  var LIVE_T=null, PICKS=null, LSTAT={pts:['PTS'],reb:['REB'],ast:['AST'],tpm:['3PT'],pra:['PTS','REB','AST'],pr:['PTS','REB'],pa:['PTS','AST'],ra:['REB','AST']};
+  var TK={SA:'SAS',GS:'GSW',NO:'NOP',NY:'NYK',UTAH:'UTA',WSH:'WAS'};
+  function nk(n){ return String(n||'').toLowerCase().replace(' jr.','').replace(' iii','').replace(' ii','').replace(/[^a-z ]/g,'').trim(); }
+  function loadPicks(){ if(PICKS) return Promise.resolve(PICKS); var d=IDX&&IDX.date; if(!d) return Promise.resolve(null);
+    return fetch('scripts/data/nba_compare/picks_'+d+'.json',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}).then(function(x){ PICKS=x; return x; }); }
+  function live(){
+    clearTimeout(LIVE_T);
+    if(!G||new Date(G.tip)>new Date()){ $('liveSec').hidden=true; return; }
+    var gid=G.id;
+    Promise.all([fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event='+gid,{cache:'no-cache'}).then(function(r){return r.json();}).catch(function(){return null;}),loadPicks()]).then(function(a){
+      var d=a[0], pk=a[1]; if(!d||!G||G.id!==gid) return;
+      var comp=((d.header||{}).competitions||[{}])[0], st=(comp.status||{}).type||{}, sc={}, rec={};
+      (comp.competitors||[]).forEach(function(c){ var ab=c.team.abbreviation; sc[TK[ab]||ab]=+c.score||0; rec[c.homeAway]=c; });
+      var players={};
+      ((d.boxscore||{}).players||[]).forEach(function(t){ (t.statistics||[]).forEach(function(s){ var lab=s.labels||s.names||[]; (s.athletes||[]).forEach(function(at){ var v={}; (at.stats||[]).forEach(function(x,i){ v[lab[i]]=parseFloat(String(x).split('-')[0])||0; }); players[nk(at.athlete.displayName)]={v:v,dnp:!!at.didNotPlay}; }); }); });
+      var H=TK[G.home.abbr]||G.home.abbr, A=TK[G.away.abbr]||G.away.abbr, hm=(sc[H]||0)-(sc[A]||0), tot=(sc[H]||0)+(sc[A]||0), done=!!st.completed;
+      $('liveSec').hidden=false;
+      $('liveH').innerHTML=(done?'Final':'<span class="bx-tag live">Live</span> ')+' · '+esc(G.away.abbr)+' '+(sc[A]||0)+' – '+(sc[H]||0)+' '+esc(G.home.abbr);
+      $('liveHint').textContent=(done?'final':(st.shortDetail||''))+' · updates every 30 seconds';
+      var gp=pk&&pk.games&&pk.games[gid];
+      if(!gp||!gp.picks.length){ $('liveBody').innerHTML='<div class="bx-empty" style="padding:14px">No picks were logged before tip for this game.</div>'; }
+      else {
+        var rows=gp.picks.map(function(p){
+          var k=p.key.split('|'), now=null, need=null, state='open', txt='';
+          if(p.kind==='prop'){ var pl=players[k[1]], L=+k[4]; if(pl){ now=(LSTAT[k[2]]||[]).reduce(function(s,x){return s+(pl.v[x]||0);},0); }
+            if(now!=null){ var over=k[3]==='over'; if(over&&now>L) state='w'; else if(!over&&now>L) state='l'; else if(done) state=over?'l':'w';
+              txt=now+' so far · needs '+(over?'more than ':'no more than ')+(over?L:Math.floor(L)); } else txt=done?'did not play (void)':'not in yet'; }
+          else if(p.kind==='ml'){ var me=k[1]===H?hm:-hm; txt=(me>0?'leading by ':me<0?'trailing by ':'tied ')+Math.abs(me); if(done) state=me>0?'w':'l'; }
+          else if(p.kind==='sp'){ var m2=(k[1]===H?hm:-hm)+(+k[2]); txt=(m2>0?'covering by ':'short by ')+Math.abs(m2).toFixed(1); if(done) state=m2>0?'w':m2<0?'l':'p'; }
+          else if(p.kind==='tot'){ var t2=tot-(+k[2]); txt=tot+' scored · line '+k[2]; if(k[1]==='over'&&t2>0) state='w'; else if(k[1]==='under'&&t2>0) state='l'; else if(done) state=(k[1]==='over')===(t2>0)?'w':'l'; }
+          else if(p.kind==='tt'){ var tt=sc[k[1]]||0; txt=tt+' scored · line '+k[3]; if(k[2]==='over'&&tt>+k[3]) state='w'; else if(k[2]==='under'&&tt>+k[3]) state='l'; else if(done) state=(k[2]==='over')===(tt>+k[3])?'w':'l'; }
+          return {p:p,state:state,txt:txt};
+        });
+        var w=rows.filter(function(r){return r.state==='w';}).length, l=rows.filter(function(r){return r.state==='l';}).length;
+        var units=rows.reduce(function(s,r){ return s+(r.state==='w'?1/r.p.cost-1:r.state==='l'?-1:0); },0);
+        $('liveHint').textContent+=' · '+w+' won, '+l+' lost so far ('+(units>=0?'+':'')+units.toFixed(1)+'u)';
+        var SRCN={dk:'DraftKings',kalshi:'Kalshi',poly:'Polymarket'};
+        $('liveBody').innerHTML='<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Pick (logged before tip)</th><th class="l">Where</th><th>Price</th><th class="l">Right now</th><th>Status</th></tr></thead><tbody>'+
+          rows.map(function(r){ var tag=r.state==='w'?'<span class="bx-tag g">Won</span>':r.state==='l'?'<span class="bx-tag r">Lost</span>':r.state==='p'?'<span class="bx-tag">Push</span>':'<span class="bx-tag b">Live</span>';
+            return '<tr><td class="l nm">'+esc(r.p.label)+'</td><td class="l dim">'+(SRCN[r.p.src]||r.p.src)+'</td><td>'+cents(r.p.cost)+'</td><td class="l">'+esc(r.txt)+'</td><td>'+tag+'</td></tr>'; }).join('')+'</tbody></table></div>';
+      }
+      if(!done) LIVE_T=setTimeout(live,30000);
+    });
+  }
+
   function liveNote(){
     var after=G.built&&new Date(G.built)>new Date(G.tip);
     $('liveNote').innerHTML=after?'<div class="src" style="border-color:var(--gold)"><b style="color:var(--gold)">Prices from after tip.</b> This game\'s board was last captured after it started, so the prices below are live in-game numbers, not the pregame board. Its picks aren\'t logged or graded.</div>':'';
