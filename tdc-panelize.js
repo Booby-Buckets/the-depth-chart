@@ -99,6 +99,64 @@
     panel.appendChild(body);
   }
 
+  // ---- explainers: kept, but out of the way (styles in tdc-ui.css) ----
+  var MEDIA = 'table, svg, canvas, input, select, button, img, iframe, .sheet-wrap, .seg, .ui-seg';
+  var TEXTY = /(^|[\s-])(sub|cs|cap|caption|desc|lede|intro|blurb|note|notes|foot|footnote|rule|method|methods|fine|explain|about|disclaimer|caveat|hint|dek)([\s-]|$)/;
+  var NOTEY = /(^|[\s-])(note|notes|foot|footnote|rule|method|methods|fine|explain|about|disclaimer|caveat)([\s-]|$)/;
+  var txt = function (el) { return (el.textContent || '').replace(/\s+/g, ' ').trim(); };
+  var plain = function (el) { return el.nodeType === 1 && /^(P|DIV|SPAN|SMALL)$/.test(el.tagName) && !el.querySelector(MEDIA) && !el.id.match(/^(sample|status|count)/i); };
+  var texty = function (el) { return plain(el) && (el.tagName === 'P' || TEXTY.test(el.className || '')); };
+
+  // 1. a panel's long explanation (text before / after its content) → drawer, opened by the ⓘ in the strip
+  function tidyPanel(panel) {
+    var head = panel.querySelector(':scope > .ui-panel-head'), body = panel.querySelector(':scope > .ui-panel-body');
+    if (!head || !body) return;
+    var drawer = body.querySelector(':scope > .ui-explain');
+    var kids = [].filter.call(body.children, function (x) { return x !== drawer && x.offsetParent !== null; });
+    var lead = [], trail = [];
+    for (var i = 0; i < kids.length && texty(kids[i]); i++) lead.push(kids[i]);
+    for (var j = kids.length - 1; j > lead.length - 1 && j >= lead.length && texty(kids[j]) && NOTEY.test(kids[j].className || '') ; j--) trail.unshift(kids[j]);
+    var move = lead.concat(trail);
+    if (!move.length) return;
+    var len = move.reduce(function (n, x) { return n + txt(x).length; }, 0);
+    if (!drawer && len <= 90) return;          // a one-line caption stays where it is
+    if (!drawer) {
+      drawer = document.createElement('div'); drawer.className = 'ui-explain'; drawer.hidden = true;
+      body.insertBefore(drawer, body.firstChild);
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'ui-info-btn'; b.textContent = 'i';
+      b.title = 'What this shows'; b.setAttribute('aria-label', 'What this shows'); b.setAttribute('aria-expanded', 'false');
+      b.addEventListener('click', function () { drawer.hidden = !drawer.hidden; b.setAttribute('aria-expanded', String(!drawer.hidden)); });
+      head.appendChild(b);
+    }
+    move.forEach(function (x) { drawer.appendChild(x); });
+  }
+
+  // 2. long notes loose on the page → one "How this works" line;  3. the intro under the title → two lines + More
+  function tidyPage(root) {
+    [].slice.call(root.querySelectorAll('p, div, span, small')).forEach(function (el) {
+      if (el.dataset.pzx || el.closest('.ui-panel, .ui-about, .ui-explain, nav, header, table, .tdc-gate')) return;
+      if (!plain(el) || !el.offsetHeight) return;
+      var t = txt(el), prev = el.previousElementSibling;
+      if (prev && prev.tagName === 'H1' && t.length > 170 && !el.querySelector('p, div')) {
+        el.dataset.pzx = '1'; el.classList.add('ui-clamp');
+        var m = document.createElement('button'); m.type = 'button'; m.className = 'ui-clamp-more'; m.textContent = 'More';
+        m.addEventListener('click', function () { var on = el.classList.toggle('ui-clamp'); m.textContent = on ? 'More' : 'Less'; });
+        el.parentNode.insertBefore(m, el.nextSibling);
+        return;
+      }
+      var isNote = NOTEY.test(el.className || '') || (el.tagName === 'P' && el.parentNode === root);
+      if (!isNote || t.length < 160 || el.querySelector('p, div')) return;
+      el.dataset.pzx = '1';
+      var d = prev && prev.matches && prev.matches('details.ui-about') ? prev : null;
+      if (!d) {
+        d = document.createElement('details'); d.className = 'ui-about';
+        var s = document.createElement('summary'); s.textContent = 'How this works'; d.appendChild(s);
+        el.parentNode.insertBefore(d, el);
+      }
+      d.appendChild(el);
+    });
+  }
+
   function run(root) {
     if (!root) return;
     // repair: a page that resets a container's className after we panelized it drops the panel classes
@@ -124,6 +182,15 @@
       }
       panelize(t);
     });
+    // the strip has its own type: keep tdc-mobile.js's phone type scale off it (and undo what it already wrote)
+    [].slice.call(root.querySelectorAll('.ui-panel-head:not([data-type-keep])')).forEach(function (h) {
+      h.setAttribute('data-type-keep', '');
+      [h].concat([].slice.call(h.querySelectorAll('*'))).forEach(function (x) {
+        if (x.style) ['font-size', 'font-weight', 'letter-spacing', 'line-height'].forEach(function (k) { x.style.removeProperty(k); });
+      });
+    });
+    [].slice.call(root.querySelectorAll('.ui-panel.pz')).forEach(tidyPanel);
+    tidyPage(root);
   }
 
   function watch(root) {
