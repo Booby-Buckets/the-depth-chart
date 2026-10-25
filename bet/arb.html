@@ -56,6 +56,7 @@
   <div class="bx-tools" style="margin-bottom:12px">
     <label class="dim" style="font-size:12px;display:flex;align-items:center;gap:6px">Total stake $<input class="ab-stake" id="stake" type="number" min="10" step="10"></label>
     <div class="bx-seg" id="roundSeg"><button data-r="1">Round $1</button><button data-r="5">$5</button><button data-r="10">$10</button></div>
+    <div class="bx-seg" id="daySeg" title="Only games that start (and settle) by then: money in an arb is tied up until the game ends"><button data-d="today">Today</button><button data-d="tomorrow">Thru tomorrow</button><button data-d="3">3 days</button><button data-d="all">Any day</button></div>
     <div class="bx-seg" id="mkSeg"><button data-m="all" class="on">All markets</button><button data-m="game">Game lines</button><button data-m="prop">Props</button></div>
     <div class="bx-seg" id="ageSeg"><button data-a="0" class="on">Any age</button><button data-a="15">15 min</button><button data-a="60">1 hr</button><button data-a="360">6 hr</button></div>
     <div class="bx-seg" id="bkSeg"><button data-b="all" class="on">All places</button><button data-b="ex" title="Every bet on an exchange or prediction market: nobody limits a winning account">Exchanges only</button><button data-b="mine" id="bkMine">My books</button></div>
@@ -114,7 +115,7 @@
     'soccer_epl','soccer_uefa_champs_league','soccer_spain_la_liga','soccer_italy_serie_a','soccer_germany_bundesliga','soccer_usa_mls','mma_mixed_martial_arts'];
   var PROP_SPORTS=/^(basketball|americanfootball|icehockey|baseball)_/;
   var ST={fast:BX.LS.get('tdcbet_arb_fast',120),props:BX.LS.get('tdcbet_arb_props',300),stake:BX.LS.get('tdcbet_arb_stake',1000),round:BX.LS.get('tdcbet_arb_round',5),
-    mk:'all',age:0,bk:'all',open:null,show:'all',sports:BX.LS.get('tdcbet_arb_sports',null),pm:BX.LS.get('tdcbet_arb_pm',30)};
+    mk:'all',day:BX.LS.get('tdcbet_arb_day','today'),age:0,bk:'all',open:null,show:'all',sports:BX.LS.get('tdcbet_arb_sports',null),pm:BX.LS.get('tdcbet_arb_pm',30)};
   var SPORTS=[], TITLE={}, OTHER={}, PROPS={}, PMG={}, PMS={}, DEPTH={}, R={arbs:[],middles:[],near:[]};
   $('stake').value=ST.stake;
   $('stake').oninput=function(){ var v=parseFloat(this.value); if(v>0){ ST.stake=v; BX.LS.set('tdcbet_arb_stake',v); paint(); } };
@@ -123,7 +124,7 @@
   seg('fastSeg','f','fast',true,function(){ BX.LS.set('tdcbet_arb_fast',ST.fast); budget(); fastPlan(); });
   seg('propSeg','p','props',true,function(){ BX.LS.set('tdcbet_arb_props',ST.props); budget(); propPlan(true); });
   seg('pmSeg','x','pm',true,function(){ BX.LS.set('tdcbet_arb_pm',ST.pm); pmPlan(true); });
-  seg('roundSeg','r','round',true,function(){ BX.LS.set('tdcbet_arb_round',ST.round); paint(); }); seg('mkSeg','m','mk',false,paint); seg('ageSeg','a','age',true); seg('bkSeg','b','bk');
+  seg('roundSeg','r','round',true,function(){ BX.LS.set('tdcbet_arb_round',ST.round); paint(); }); seg('mkSeg','m','mk',false,paint); seg('daySeg','d','day',false,function(){ BX.LS.set('tdcbet_arb_day',ST.day); paint(); }); seg('ageSeg','a','age',true); seg('bkSeg','b','bk');
 
   function short(n,sp){ return (!sp||sp===CBB)?B.short(n):n; }
   function nm(s,x){ return String(s).replace(x.home,short(x.home,x.sport)).replace(x.away,short(x.away,x.sport)); }
@@ -134,7 +135,10 @@
   function spT(sp){ sp=sp||CBB; return TITLE[sp]||(sp===CBB?'NCAAB':sp.split('_').slice(1).join(' ').toUpperCase()); }
   function gameCell(o,sub){ return '<td class="l nm"><span class="sp-tag">'+esc(spT(o.sport))+'</span>'+esc(short(o.away,o.sport))+' @ '+esc(short(o.home,o.sport))+'<div class="dim" style="font-size:11px">'+(sub?sub+' · ':'')+tip(o.commence)+'</div></td>'; }
   var MK={spread:'Spread',total:'Total',ml:'Moneyline',ml3:'Moneyline · 3-way',tt:'Team total',h1:'1st half',prop:'Prop'};
-  function inMk(o){ return (ST.mk==='all'||(ST.mk==='prop'?o.market==='prop':o.market!=='prop'))&&(ST.show==='all'||(o.sport||CBB)===ST.show); }
+  // by day: money in an arb is tied up until the game ends, so by default only today's games (local midnight)
+  function dayEnd(){ if(ST.day==='all') return Infinity; var d=new Date(); d.setHours(24,0,0,0); var add={today:0,tomorrow:1,'3':2}[ST.day]||0; return d.getTime()+add*864e5; }
+  function inDay(o){ return !o.commence||Date.parse(o.commence)<dayEnd(); }
+  function inMk(o){ return inDay(o)&&(ST.mk==='all'||(ST.mk==='prop'?o.market==='prop':o.market!=='prop'))&&(ST.show==='all'||(o.sport||CBB)===ST.show); }
 
   // every game we have: college basketball from the board (archive + free live + fast pulls), every other sport
   // from the fast pulls; fresh props replace a game's archived ones
@@ -159,7 +163,7 @@
   function leg(o,stake,x){ return '<div class="ab-leg">'+esc(nm(o.label,x))+' <span class="px">'+B.oddsTxt(o.price)+'</span>'+bk(o)+(stake!=null?'<span class="st">stake '+money(stake)+'</span>':'')+'</div>'; }
 
   function filterChips(){
-    var n={}; R.arbs.concat(R.middles).forEach(function(o){ var sp=o.sport||CBB; n[sp]=(n[sp]||0)+1; });
+    var n={}; R.arbs.concat(R.middles).filter(inDay).forEach(function(o){ var sp=o.sport||CBB; n[sp]=(n[sp]||0)+1; });
     var ks=Object.keys(n).sort(function(a,b){return n[b]-n[a];}), el=$('sportFilter');
     if(ks.length<2){ el.hidden=true; if(ST.show!=='all'&&!n[ST.show]) ST.show='all'; return; }
     el.hidden=false;
@@ -200,7 +204,8 @@
     $('stats').innerHTML=[[arbs.length,'Sure bets',arbs.length?'guaranteed either way':'none right now'],[bestRet!=null?'+'+(bestRet*100).toFixed(2)+'%':'—','Best return',bestRet!=null?money(TDCArb.stakes(arbs[0].legs,ST.stake,ST.round).profit)+' on '+money(ST.stake):'on your stake'],
       [mids.length,'Middles',mids.filter(function(m){return m.noLose;}).length+' no-lose'],[Object.keys(places).length,'Places compared',all.length+' games'+(TDCEdge.fixture()?' · SAMPLE':'')]]
       .map(function(s){ return '<div><b'+(s[1]==='Sure bets'&&s[0]?' class="pos"':'')+'>'+s[0]+'</b><span>'+s[1]+'</span><small>'+s[2]+'</small></div>'; }).join('');
-    $('arbHint').textContent=arbs.length>60?'best 60 of '+arbs.length:'';
+    var later=R.arbs.filter(function(o){ return !inDay(o); }).length;
+    $('arbHint').textContent=(arbs.length>60?'best 60 of '+arbs.length:'')+(later?(arbs.length>60?' · ':'')+later+' more on later days':'');
     var show=arbs.slice(0,60);
     $('arbTbl').innerHTML='<thead><tr><th class="rk">#</th><th class="l">Game</th><th class="l">Market</th><th class="l">Bets</th><th>Return</th><th>Profit</th><th title="Most you can stake before an exchange runs out of size at these prices (prediction markets report their size; sportsbooks don\'t)">Max</th><th title="How old the oldest price is">Age</th></tr></thead><tbody>'+
       (show.length?show.map(function(o,i){ var s=TDCArb.stakes(o.legs,ST.stake,ST.round), k=o.gid+'|'+o.legs.map(function(l){return l.label+l.book;}).join('|'), op=ST.open===k;
