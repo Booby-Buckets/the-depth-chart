@@ -90,15 +90,37 @@
   // ── joining feeds: the same game from the paid sportsbook feed, Kalshi and Polymarket ──
   // names differ by place ("Los Angeles Lakers" / "Los Angeles L" / "LA Lakers" / "Lakers"), so a team matches when
   // its words line up from the front (each a prefix of the other's: "ind colts" ~ "indianapolis colts") or, in the
-  // pros, when the nickname matches. A game joins only when BOTH teams match and the start is within a day and a half.
-  function words(n) { return String(n || '').toLowerCase().replace(/&/g, ' and ').replace(/\bst\.?(?=\s|$)/g, 'state').replace(/\b(fc|afc|cf|sc|the|university|univ|of)\b/g, ' ').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean); }
-  function teamMatch(a, b, pro) {
+  // US pro leagues, when the nickname matches ("LA Lakers"). Never by last word in soccer or college: "New York City"
+  // ~ "Sporting Kansas City" and "Atlanta United" ~ "Minnesota United" joined two different games (Oct 25 2026).
+  // A game joins only when BOTH teams match and the start is within a day and a half; the closest-starting wins.
+  // "St." first = Saint (St. Louis), anywhere else = State (Ohio St.); dots go ("D.C." = "dc")
+  var ALIAS = { 'ualbany': 'albany', 'university at albany': 'albany', 'nm state': 'new mexico state', 'umass': 'massachusetts' };
+  function words(n) { n = String(n || '').toLowerCase().trim(); return (ALIAS[n] || n).replace(/^nm\s/, 'new mexico ').replace(/&/g, ' and ').replace(/^st\.?\s/, 'saint ').replace(/\bst\.?(?=\s|$)/g, 'state').replace(/\./g, '').replace(/\b(fc|afc|cf|sc|the|university|univ|of)\b/g, ' ').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean); }
+  var GENERIC = { united: 1, city: 1, real: 1, sporting: 1, athletic: 1, club: 1, inter: 1, state: 1, saint: 1, new: 1 };
+  // mode: 'pro' (US pro leagues: nickname alone matches), 'soccer' (the city/club words may sit anywhere in the
+  // other name: "Salt Lake" ~ "Real Salt Lake"), else college (words must line up from the front)
+  function teamMatch(a, b, mode) {
+    if (mode === true || mode === 1) mode = 'pro';
     var A = words(a), B = words(b); if (!A.length || !B.length) return false;
     if (A.join(' ') === B.join(' ')) return true;
-    var s = A.length <= B.length ? A : B, l = s === A ? B : A, front = true;
-    for (var i = 0; i < s.length; i++) if (l[i].indexOf(s[i]) !== 0 && s[i].indexOf(l[i]) !== 0) { front = false; break; }
-    if (front && (s.length > 1 || s[0].length >= 4 || s[0] === l[0])) return true;
-    return !!pro && A[A.length - 1] === B[B.length - 1] && A[A.length - 1].length >= 4;
+    var s = A.length <= B.length ? A : B, l = s === A ? B : A;
+    // s lines up with l starting at word `at`: each word a prefix of the other's, and a last short word may be the
+    // initials of everything left ("New York RB" ~ "New York Red Bulls")
+    function lines(at) {
+      for (var i = 0; i < s.length; i++) {
+        var w = l[at + i]; if (w == null) return false;
+        if (w.indexOf(s[i]) === 0 || s[i].indexOf(w) === 0) continue;
+        if (i === s.length - 1 && s[i].length >= 2 && s[i] === l.slice(at + i).map(function (x) { return x[0]; }).join('')) return true;
+        return false;
+      }
+      return true;
+    }
+    if (lines(0) && (s.length > 1 || s[0].length >= 4 || s[0] === l[0])) return true;
+    if (mode === 'soccer') {
+      var real = s.filter(function (w) { return !GENERIC[w]; });
+      if (real.length && (s.length > 1 || s[0].length >= 5)) for (var at = 1; at + s.length <= l.length; at++) if (lines(at)) return true;
+    }
+    return mode === 'pro' && A[A.length - 1] === B[B.length - 1] && A[A.length - 1].length >= 4;
   }
   function anyMatch(list, names, pro) { return (list || []).some(function (a) { return names.some(function (b) { return teamMatch(a, b, pro); }); }); }
   // swap a book's home/away (a place that lists the teams the other way round)
@@ -115,17 +137,19 @@
   // copy of the same game as a prediction-markets-only game. Returns the extra games to add (base games are copied
   // where touched, never mutated).
   function join(base, pm, sport) {
-    var pro = !/ncaa/.test(sport || ''), out = base.slice(), extra = [], hours = function (a, b) { return Math.abs(Date.parse(a) - Date.parse(b)) / 3600e3; };
+    var pro = /^(basketball_nba|basketball_wnba|americanfootball_nfl|icehockey_nhl|baseball_mlb)$/.test(sport || '') ? 'pro' : /^soccer_/.test(sport || '') ? 'soccer' : '', out = base.slice(), extra = [], hours = function (a, b) { return Math.abs(Date.parse(a) - Date.parse(b)) / 3600e3; };
     (pm || []).forEach(function (g) {
       var nh = (g.names && g.names.home) || [g.home], na = (g.names && g.names.away) || [g.away], src = g.src;
       function find(list) {
+        var best = null;
         for (var i = 0; i < list.length; i++) {
-          var x = list[i]; if (x.commence && g.commence && hours(x.commence, g.commence) > 36) continue;
-          var xh = x._names ? x._names.home : [x.home], xa = x._names ? x._names.away : [x.away];
-          if (anyMatch(xh, nh, pro) && anyMatch(xa, na, pro)) return { list: list, i: i, flip: false };
-          if (anyMatch(xh, na, pro) && anyMatch(xa, nh, pro)) return { list: list, i: i, flip: true };
+          var x = list[i], gap = x.commence && g.commence ? hours(x.commence, g.commence) : 0; if (gap > 36) continue;
+          var xh = x._names ? x._names.home : [x.home], xa = x._names ? x._names.away : [x.away], hit = null;
+          if (anyMatch(xh, nh, pro) && anyMatch(xa, na, pro)) hit = { list: list, i: i, flip: false, gap: gap };
+          else if (anyMatch(xh, na, pro) && anyMatch(xa, nh, pro)) hit = { list: list, i: i, flip: true, gap: gap };
+          if (hit && (!best || hit.gap < best.gap)) best = hit;
         }
-        return null;
+        return best;
       }
       var hit = find(out) || find(extra);
       var book = Object.assign({ u: g.book.u }, g.book), alt = g.alt;
