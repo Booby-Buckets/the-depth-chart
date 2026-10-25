@@ -18,7 +18,7 @@
   'use strict';
   var BET_HOST = /^bet\./i.test(location.hostname);
   var MAIN = BET_HOST ? 'https://www.thedepthchartcbb.com/' : '/';
-  var PAGES = ['index', 'games', 'game', 'props', 'pickem', 'futures', 'markets', 'trends', 'record', 'tools', 'learn'];
+  var PAGES = ['index', 'games', 'game', 'props', 'pickem', 'arb', 'futures', 'markets', 'trends', 'record', 'tools', 'learn'];
   // a TDC Bet page: clean paths on the bet host (/games), files under /bet/ on the main domain
   function href(page, qs) {
     page = page || 'index';

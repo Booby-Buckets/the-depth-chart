@@ -7,6 +7,7 @@
  *   TDCEdge.board(rows)   → [bet]      the best side per market per game, sorted by EV, with Kelly stakes
  *   TDCEdge.props(rows)   → [bet]      every posted player prop, priced
  *   TDCEdge.books()       → [{key, title, n, kind}]   places to bet seen in the feed (for "my books"; no Pinnacle)
+ *   TDCEdge.raw()         → [game]   the merged feed games as-is (bet-arb.js scans these)
  *   TDCEdge.dfs(rows)     → Promise<[line]>  every DFS pick'em line (PrizePicks, Underdog …), our chance of More/Less
  *
  * HOW A PRICE BECOMES A BET
@@ -476,6 +477,6 @@
   }
   if (typeof document !== 'undefined') document.addEventListener('visibilitychange', function () { if (!document.hidden && LIVE.rows) { pull().then(function () { LIVE.cbs.forEach(function (cb) { try { cb(); } catch (e) {} }); schedule(); }); } });
 
-  g.TDCEdge = { live: live, onUpdate: function (cb) { LIVE.cbs.push(cb); }, liveInfo: function () { return { at: LIVE.at, ok: LIVE.ok }; }, load: load, has: has, game: gameMarkets, board: board, props: props, dfs: dfs, hasSharp: hasSharp, kindOf: kindOf, suspect: function (b) { return suspect(b); }, books: books, sel: sel, W: W, MIN_EV: MIN_EV,
+  g.TDCEdge = { live: live, onUpdate: function (cb) { LIVE.cbs.push(cb); }, liveInfo: function () { return { at: LIVE.at, ok: LIVE.ok }; }, load: load, has: has, game: gameMarkets, board: board, props: props, dfs: dfs, raw: function () { return (E.odds && E.odds.games) || []; }, hasSharp: hasSharp, kindOf: kindOf, suspect: function (b) { return suspect(b); }, books: books, sel: sel, W: W, MIN_EV: MIN_EV,
     fixture: function () { return E.fixture; }, stamp: function () { return E.odds && E.odds.generated; }, propMean: propMean, pOver: pOver };
 })(window);

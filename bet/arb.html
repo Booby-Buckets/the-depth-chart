@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <base href="/">
+  <title>TDC Bet · Arbitrage</title>
+  <meta name="description" content="College basketball arbitrage and middles: every sportsbook and exchange price compared, with the exact stakes to lock in a profit whatever happens.">
+  <meta name="theme-color" content="#0A0D12">
+  <link rel="icon" type="image/svg+xml" href="bet/favicon.svg">
+  <script src="auth.js?v=sso1"></script>
+  <script>try{var _t=JSON.parse(localStorage.getItem('tdcbet_theme')||'"dark"');document.documentElement.setAttribute('data-theme',_t==='light'?'light':'dark');}catch(e){}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="tdc-sheets.css?v=6">
+  <link rel="stylesheet" href="bet/bet.css?v=2">
+  <script src="tdc-gate.js?v=4"></script>
+  <script src="team-colors.js?v=13"></script>
+  <script src="tdc-ratings.js?v=44"></script>
+  <style>
+    .ab-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 16px;}
+    .ab-stats div{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;}
+    .ab-stats b{display:block;font:800 26px/1 'Barlow Condensed',sans-serif;}
+    .ab-stats span{display:block;font:700 10px Inter,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-top:4px;}
+    .ab-stats small{display:block;font-size:11px;color:var(--text2);margin-top:2px;}
+    .ab-leg{line-height:1.35;}
+    .ab-leg .px{font-weight:700;}
+    .ab-leg .bk{display:inline-block;padding:1px 6px;border-radius:5px;background:var(--bg3);font:700 10.5px Inter,sans-serif;letter-spacing:.03em;margin-left:4px;}
+    .ab-leg .st{display:block;color:var(--text2);font-size:11.5px;}
+    .ab-stake{width:96px;height:32px;padding:0 10px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);font:600 13px Inter,sans-serif;}
+    tr.ab-open td{background:var(--bg3);}
+    .ab-det{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:6px 0;font-size:12.5px;}
+    .ab-det div{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:8px 10px;}
+    .ab-det b{display:block;font:800 18px/1.1 'Barlow Condensed',sans-serif;}
+    .ab-det span{color:var(--text3);font:700 9.5px Inter,sans-serif;letter-spacing:.07em;text-transform:uppercase;}
+    .stale{color:var(--gold);}
+    @media (max-width:860px){ .ab-stats{grid-template-columns:repeat(2,minmax(0,1fr));} .ab-det{grid-template-columns:1fr;} }
+  </style>
+</head>
+<body>
+<main class="bx-main">
+  <div class="bx-head"><div><div class="bx-kick">Arbitrage</div><h1 class="bx-h1">Sure bets &amp; middles</h1>
+    <div class="bx-sub">When two places disagree enough, betting both sides in the right amounts pays the same whatever happens. We compare every sportsbook and exchange price on every market and give you the exact stakes.</div></div></div>
+
+  <div class="bx-tools" style="margin-bottom:12px">
+    <label class="dim" style="font-size:12px;display:flex;align-items:center;gap:6px">Total stake $<input class="ab-stake" id="stake" type="number" min="10" step="10"></label>
+    <div class="bx-seg" id="roundSeg"><button data-r="1">Round $1</button><button data-r="5">$5</button><button data-r="10">$10</button></div>
+    <div class="bx-seg" id="mkSeg"><button data-m="all" class="on">All markets</button><button data-m="game">Game lines</button><button data-m="prop">Props</button></div>
+    <div class="bx-seg" id="ageSeg"><button data-a="0" class="on">Any age</button><button data-a="15">15 min</button><button data-a="60">1 hr</button><button data-a="360">6 hr</button></div>
+    <div class="bx-seg" id="bkSeg"><button data-b="all" class="on">All places</button><button data-b="mine" id="bkMine">My books</button></div>
+  </div>
+  <div class="ab-stats" id="stats"></div>
+
+  <section class="bx-sec">
+    <div class="bx-bar"><h2>Sure bets</h2><span class="hint" id="arbHint"></span></div>
+    <div class="sheet-wrap"><table class="sheet dense" id="arbTbl"><tbody><tr><td class="empty">Loading prices…</td></tr></tbody></table></div>
+    <div id="arbLock" style="margin-top:10px" hidden></div>
+  </section>
+
+  <section class="bx-sec">
+    <div class="bx-bar"><h2>Middles</h2><span class="hint" id="midHint"></span></div>
+    <div class="sheet-wrap"><table class="sheet dense" id="midTbl"><tbody><tr><td class="empty">—</td></tr></tbody></table></div>
+    <div id="midLock" style="margin-top:10px" hidden></div>
+    <div class="bx-note">A <b>middle</b> takes one side at one number and the other side at a different number at another place. Land between them and both win; otherwise one wins and one loses. <b>Both win</b> is the chance of landing in the gap, from a normal curve around the market's own line (integer scores, so pushes count). <b>Worst</b> = the worst result per $100 staked. <span class="bx-tag g">no-lose</span> = even the worst result is a profit.</div>
+  </section>
+
+  <section class="bx-sec">
+    <div class="bx-bar"><h2>Almost there</h2><span class="hint">no arb yet, but the books leave under 1% · one price move away</span></div>
+    <div class="sheet-wrap"><table class="sheet dense" id="nearTbl"><tbody><tr><td class="empty">—</td></tr></tbody></table></div>
+  </section>
+
+  <div class="bx-note"><b>Before you bet both sides:</b> prices move, so check both are still there and place the bigger or slower one first. Books cap stakes and limit accounts that arb a lot. A price far off every other book can be voided as an obvious error, so anything returning over 5% is tagged <span class="bx-tag r">check price</span>. Exchange prices already have fees taken out, but a thin exchange may not fill your whole stake. Check the books grade the market the same way (overtime counts in college spreads, totals and moneylines at the big US books). Pinnacle isn't included because Americans can't bet there, and DFS apps pay fixed multipliers, so they can't be arbed.</div>
+</main>
+
+<script src="bet/bet-core.js?v=4"></script>
+<script src="bet/bet-shell.js?v=4"></script>
+<script src="bet/bet-ui.js?v=4"></script>
+<script src="tdc-sheets.js?v=2"></script>
+<script src="bet/cbb-live.js?v=1"></script>
+<script src="bet/bet-edge.js?v=10"></script>
+<script src="bet/bet-arb.js?v=1"></script>
+<script>
+(function(){
+  var B=TDCBet, esc=B.esc, $=function(id){return document.getElementById(id);};
+  var ST={stake:BX.LS.get('tdcbet_arb_stake',1000),round:BX.LS.get('tdcbet_arb_round',5),mk:'all',age:0,bk:'all',open:null}, PREM=false, R={arbs:[],middles:[],near:[]};
+  $('stake').value=ST.stake;
+  $('stake').oninput=function(){ var v=parseFloat(this.value); if(v>0){ ST.stake=v; BX.LS.set('tdcbet_arb_stake',v); paint(); } };
+  function seg(id,attr,key,num,cb){ var el=$(id); el.querySelectorAll('button').forEach(function(b){ b.classList.toggle('on',String(ST[key])===b.dataset[attr]); });
+    el.addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b) return; el.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);}); ST[key]=num?+b.dataset[attr]:b.dataset[attr]; (cb||scan)(); }); }
+  seg('roundSeg','r','round',true,function(){ BX.LS.set('tdcbet_arb_round',ST.round); paint(); }); seg('mkSeg','m','mk',false,paint); seg('ageSeg','a','age',true); seg('bkSeg','b','bk');
+
+  function nm(s,x){ return String(s).replace(x.home,B.short(x.home)).replace(x.away,B.short(x.away)); }
+  function bk(o){ return '<span class="bk">'+esc(BXUI.bkShort(o.book,o.bookT))+'</span>'; }
+  function age(ms){ if(ms==null) return '—'; var m=Math.round(ms/60000); return '<span class="'+(m>60?'stale':'dim')+'">'+(m<1?'now':m<60?m+'m':Math.round(m/60)+'h')+'</span>'; }
+  function money(v){ return '$'+(Math.round(v*100)/100).toLocaleString('en-US',{minimumFractionDigits:v%1?2:0,maximumFractionDigits:2}); }
+  function tip(c){ if(!c) return ''; var d=new Date(c); return d.toLocaleDateString('en-US',{weekday:'short'})+' '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); }
+  var MK={spread:'Spread',total:'Total',ml:'Moneyline',tt:'Team total',h1:'1st half',prop:'Prop'};
+  function inMk(o){ return ST.mk==='all'||(ST.mk==='prop'?o.market==='prop':o.market!=='prop'); }
+
+  function scan(){
+    var books=ST.bk==='mine'?BX.LS.get('tdcbet_books',[]):[];
+    R=TDCArb.scan(TDCEdge.raw(),{books:books,maxAgeMin:ST.age||null});
+    paint();
+  }
+  function leg(o,stake,x){ return '<div class="ab-leg">'+esc(nm(o.label,x))+' <span class="px">'+B.oddsTxt(o.price)+'</span>'+bk(o)+(stake!=null?'<span class="st">stake '+money(stake)+'</span>':'')+'</div>'; }
+
+  function paint(){
+    var arbs=R.arbs.filter(inMk), mids=R.middles.filter(inMk), near=R.near.filter(inMk), places={};
+    TDCEdge.raw().forEach(function(x){ Object.keys(x.books||{}).forEach(function(k){ if(TDCEdge.kindOf(k,x.books[k])!=='sharp') places[k]=1; }); });
+    var bestRet=arbs.length?arbs[0].ret:null, li=TDCEdge.liveInfo();
+    $('stats').innerHTML=[[arbs.length,'Sure bets',arbs.length?'guaranteed either way':'none right now'],[bestRet!=null?'+'+(bestRet*100).toFixed(2)+'%':'—','Best return',bestRet!=null?money(TDCArb.stakes(arbs[0].a,arbs[0].b,ST.stake,ST.round).profit)+' on '+money(ST.stake):'on your stake'],
+      [mids.length,'Middles',mids.filter(function(m){return m.noLose;}).length+' no-lose'],[Object.keys(places).length,'Places compared',TDCEdge.raw().length+' games'+(TDCEdge.fixture()?' · SAMPLE':'')]]
+      .map(function(s){ return '<div><b'+(s[1]==='Sure bets'&&s[0]?' class="pos"':'')+'>'+s[0]+'</b><span>'+s[1]+'</span><small>'+s[2]+'</small></div>'; }).join('');
+    $('arbHint').textContent=(li&&li.at?'live prices '+new Date(li.at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit'})+' · ':'')+(TDCEdge.stamp()?'feed '+new Date(TDCEdge.stamp()).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}):'');
+    var FREE=PREM?arbs.length:1, show=arbs.slice(0,FREE);
+    $('arbTbl').innerHTML='<thead><tr><th class="rk">#</th><th class="l">Game</th><th class="l">Market</th><th class="l">Bet 1</th><th class="l">Bet 2</th><th>Return</th><th>Profit</th><th title="How old the older of the two prices is">Age</th></tr></thead><tbody>'+
+      (show.length?show.map(function(o,i){ var s=TDCArb.stakes(o.a,o.b,ST.stake,ST.round), k='a'+i, op=ST.open===k;
+        return '<tr data-open="'+k+'" style="cursor:pointer"'+(op?' class="ab-open"':'')+'><td class="rk">'+(i+1)+'</td><td class="l nm">'+esc(B.short(o.away))+' @ '+esc(B.short(o.home))+'<div class="dim" style="font-size:11px">'+tip(o.commence)+'</div></td><td class="l">'+MK[o.market]+(o.meta.alt?' <span class="dim">alt</span>':'')+(o.sameBook?' <span class="bx-tag y">same book</span>':'')+(o.ret>0.05?' <span class="bx-tag r" title="Returns this big are almost always a stale or mistyped price that will be pulled or voided. Check both before betting.">check price</span>':'')+'</td>'+
+          '<td class="l">'+leg(o.a,s.sa,o)+'</td><td class="l">'+leg(o.b,s.sb,o)+'</td><td><b class="pos">+'+(o.ret*100).toFixed(2)+'%</b></td><td><b>'+money(s.profit)+'</b></td><td>'+age(o.age)+'</td></tr>'+
+          (op?'<tr class="ab-open"><td colspan="8" class="l" style="text-align:left"><div class="ab-det"><div><span>If '+esc(nm(o.a.label,o))+' wins</span><b>'+money(s.payA)+'</b>returned · '+money(s.payA-s.staked)+' profit</div><div><span>If '+esc(nm(o.b.label,o))+' wins</span><b>'+money(s.payB)+'</b>returned · '+money(s.payB-s.staked)+' profit</div><div><span>Total staked</span><b>'+money(s.staked)+'</b>'+(s.ret<o.ret-0.0005?'rounding costs '+((o.ret-s.ret)*100).toFixed(2)+' pts':'no rounding cost')+'</div></div></td></tr>':''); }).join('')
+      :'<tr><td colspan="8" class="empty">No sure bets right now. They show up when one place is slow to move a line; this page refreshes the free live prices every 75 seconds while it\'s open.</td></tr>')+'</tbody>';
+    lock('arbLock',PREM?0:arbs.length-FREE,'more sure bets','Every arb across every sportsbook and exchange, with exact stakes. Premium.');
+    var MF=PREM?mids.length:1, ms=mids.slice(0,MF);
+    $('midHint').textContent=mids.length?mids.length+' found':'';
+    $('midTbl').innerHTML='<thead><tr><th class="rk">#</th><th class="l">Game</th><th class="l">Bet 1</th><th class="l">Bet 2</th><th>Gap</th><th title="Chance both bets win">Both win</th><th title="Expected profit per $100 staked">EV</th><th title="Worst result per $100 staked">Worst</th><th>Age</th></tr></thead><tbody>'+
+      (ms.length?ms.map(function(m,i){ var s=TDCArb.stakes(m.a,m.b,ST.stake,ST.round);
+        return '<tr><td class="rk">'+(i+1)+'</td><td class="l nm">'+esc(B.short(m.away))+' @ '+esc(B.short(m.home))+'<div class="dim" style="font-size:11px">'+MK[m.market]+' · '+tip(m.commence)+'</div></td><td class="l">'+leg(m.a,s.sa,m)+'</td><td class="l">'+leg(m.b,s.sb,m)+'</td>'+
+          '<td>'+m.width+'</td><td>'+(m.pBoth*100).toFixed(1)+'%</td><td><b class="'+(m.ev>0?'pos':'neg')+'">'+(m.ev>=0?'+$':'−$')+Math.abs(m.ev*100).toFixed(2)+'</b></td><td>'+(m.noLose?'<span class="bx-tag g">no-lose</span>':'<span class="neg">−$'+Math.abs(m.worst*100).toFixed(2)+'</span>')+'</td><td>'+age(m.age)+'</td></tr>'; }).join('')
+      :'<tr><td colspan="9" class="empty">No worthwhile middles right now.</td></tr>')+'</tbody>';
+    lock('midLock',PREM?0:mids.length-MF,'more middles','Every middle on spreads and totals, with the chance of hitting it. Premium.');
+    $('nearTbl').innerHTML='<thead><tr><th class="l">Game</th><th class="l">Market</th><th class="l">Side 1</th><th class="l">Side 2</th><th title="What the books keep at the best prices">Hold</th></tr></thead><tbody>'+
+      (near.length?near.slice(0,PREM?15:3).map(function(o){ return '<tr><td class="l nm">'+esc(B.short(o.away))+' @ '+esc(B.short(o.home))+'</td><td class="l">'+MK[o.market]+'</td><td class="l">'+leg(o.a,null,o)+'</td><td class="l">'+leg(o.b,null,o)+'</td><td>'+((o.sum-1)*100).toFixed(2)+'%</td></tr>'; }).join('')
+      :'<tr><td colspan="5" class="empty">Nothing close.</td></tr>')+'</tbody>';
+  }
+  function lock(id,n,label,blurb){
+    var el=$(id); if(n<=0){ el.hidden=true; return; }
+    el.hidden=false; el.innerHTML='<div class="sheet-wrap"><table class="sheet dense"><tbody>'+Array.from({length:Math.min(5,n)},function(){ return '<tr><td class="l">Team @ Team</td><td class="l">Spread</td><td class="l">Team −0.0 +000 BK</td><td class="l">Team +0.0 +000 BK</td><td>+0.00%</td><td>$00.00</td></tr>'; }).join('')+'</tbody></table></div>';
+    BX.gate(el,{label:n+' '+label,blurb:blurb});
+  }
+  $('arbTbl').addEventListener('click',function(e){ var r=e.target.closest('[data-open]'); if(!r) return; ST.open=ST.open===r.dataset.open?null:r.dataset.open; paint(); });
+
+  Promise.all([B.load(),BX.has(),TDCEdge.load()]).then(function(r){
+    PREM=r[1];
+    var mine=BX.LS.get('tdcbet_books',[]); if(!mine.length) $('bkMine').hidden=true; else $('bkMine').textContent='My books ('+mine.length+')';
+    scan();
+    // the free live prices (DraftKings, Kalshi, Polymarket) for today + tomorrow, refreshed every 75 s while open
+    var S=B.state(), iso=B.isoDay(), days=S.dates.filter(function(d){ return d>=iso&&B.slate(d).some(function(x){return !x.exh;}); }).slice(0,2), rows=[];
+    days.forEach(function(d){ rows=rows.concat(B.slate(d)); });
+    if(rows.length) TDCEdge.live(rows).then(scan);
+    TDCEdge.onUpdate(scan);
+  });
+})();
+</script>
+</body>
+</html>
