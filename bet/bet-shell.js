@@ -40,6 +40,12 @@
   var NAV = [['index', 'Tonight'], ['games', 'Games'], ['props', 'Props'], ['pickem', "Pick'em"], ['arb', 'Arbs'], ['futures', 'Futures'], ['markets', 'Markets'], ['trends', 'Trends'], ['record', 'Record'], ['tools', 'Tools']];
   var MORE = [['arb', 'Arbs', 'Sure bets and middles across every book, with exact stakes'], ['pickem', "Pick'em", 'PrizePicks, Underdog, Pick6 and Betr lines vs each entry\'s break-even'], ['markets', 'Markets', 'Every question, priced like a prediction market'], ['trends', 'Trends', 'ATS and over/under history, 5 seasons'], ['record', 'Record', 'How our numbers have done'],
               ['tools', 'Tools', 'Matchup calculator, odds converter, parlay, Kelly'], ['learn', 'Learn', 'How the model works · glossary']];
+  // owner-only pages: hidden from everyone else's nav (the page itself also turns non-owners away)
+  var OWNER_ONLY = { arb: 1 };
+  if (!(g.tdcIsOwner && g.tdcIsOwner())) {
+    NAV = NAV.filter(function (n) { return !OWNER_ONLY[n[0]]; });
+    MORE = MORE.filter(function (n) { return !OWNER_ONLY[n[0]]; });
+  }
 
   function session() { try { return JSON.parse(localStorage.getItem('tdc_session') || 'null'); } catch (e) { return null; } }
 
@@ -73,7 +79,7 @@
       '<div><h5>TDC Bet</h5>College basketball lines, props and futures, priced by The Depth Chart\'s model and set against the books. ' +
         'TDC Bet publishes analysis and prices. It does not take bets.' +
         '<div class="rg"><b>21+ only.</b> Bet with money you can afford to lose. Gambling problem? Call <b>1-800-GAMBLER</b> or visit <a href="https://www.ncpgambling.org" target="_blank" rel="noopener" style="display:inline">ncpgambling.org</a>.</div></div>' +
-      '<div><h5>Board</h5>' + NAV.slice(0, 8).map(function (n) { return '<a href="' + B.href(n[0]) + '">' + n[1] + '</a>'; }).join('') + '</div>' +
+      '<div><h5>Board</h5>' + NAV.slice(0, -2).map(function (n) { return '<a href="' + B.href(n[0]) + '">' + n[1] + '</a>'; }).join('') + '</div>' +
       '<div><h5>More</h5><a href="' + B.href('record') + '">Our record</a><a href="' + B.href('tools') + '">Tools</a><a href="' + B.href('learn') + '">How it works</a>' +
         '<a href="' + B.main('') + '">The Depth Chart</a><a href="' + B.main('pricing.html') + '">Plans</a><a href="' + B.main('terms.html') + '">Terms</a></div>' +
       '</div></footer>';

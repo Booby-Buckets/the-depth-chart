@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <base href="/">
   <title>TDC Bet · Arbitrage</title>
+  <meta name="robots" content="noindex">
   <meta name="description" content="College basketball arbitrage and middles: every sportsbook and exchange price compared, with the exact stakes to lock in a profit whatever happens.">
   <meta name="theme-color" content="#0A0D12">
   <link rel="icon" type="image/svg+xml" href="bet/favicon.svg">
@@ -49,6 +50,12 @@
     <div class="bx-seg" id="ageSeg"><button data-a="0" class="on">Any age</button><button data-a="15">15 min</button><button data-a="60">1 hr</button><button data-a="360">6 hr</button></div>
     <div class="bx-seg" id="bkSeg"><button data-b="all" class="on">All places</button><button data-b="mine" id="bkMine">My books</button></div>
   </div>
+  <div class="bx-tools" style="margin-bottom:12px">
+    <span class="dim" style="font-size:12px">Fast prices</span>
+    <div class="bx-seg" id="fastSeg"><button data-f="0">Off</button><button data-f="60">1 min</button><button data-f="120">2 min</button><button data-f="300">5 min</button></div>
+    <button class="bx-btn" id="fastNow">Refresh now</button>
+    <span class="hint" id="fastHint" style="font-size:12px"></span>
+  </div>
   <div class="ab-stats" id="stats"></div>
 
   <section class="bx-sec">
@@ -73,20 +80,23 @@
 </main>
 
 <script src="bet/bet-core.js?v=4"></script>
-<script src="bet/bet-shell.js?v=4"></script>
+<script src="bet/bet-shell.js?v=5"></script>
 <script src="bet/bet-ui.js?v=4"></script>
 <script src="tdc-sheets.js?v=2"></script>
 <script src="bet/cbb-live.js?v=1"></script>
-<script src="bet/bet-edge.js?v=10"></script>
+<script src="bet/bet-edge.js?v=11"></script>
 <script src="bet/bet-arb.js?v=1"></script>
 <script>
 (function(){
   var B=TDCBet, esc=B.esc, $=function(id){return document.getElementById(id);};
-  var ST={stake:BX.LS.get('tdcbet_arb_stake',1000),round:BX.LS.get('tdcbet_arb_round',5),mk:'all',age:0,bk:'all',open:null}, PREM=false, R={arbs:[],middles:[],near:[]};
+  // owner-only page: everyone else goes back to the board
+  if(!(window.tdcIsOwner&&tdcIsOwner())){ location.replace(B.href('index')); return; }
+  var ST={fast:BX.LS.get('tdcbet_arb_fast',120),stake:BX.LS.get('tdcbet_arb_stake',1000),round:BX.LS.get('tdcbet_arb_round',5),mk:'all',age:0,bk:'all',open:null}, PREM=false, R={arbs:[],middles:[],near:[]};
   $('stake').value=ST.stake;
   $('stake').oninput=function(){ var v=parseFloat(this.value); if(v>0){ ST.stake=v; BX.LS.set('tdcbet_arb_stake',v); paint(); } };
   function seg(id,attr,key,num,cb){ var el=$(id); el.querySelectorAll('button').forEach(function(b){ b.classList.toggle('on',String(ST[key])===b.dataset[attr]); });
     el.addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b) return; el.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);}); ST[key]=num?+b.dataset[attr]:b.dataset[attr]; (cb||scan)(); }); }
+  seg('fastSeg','f','fast',true,function(){ BX.LS.set('tdcbet_arb_fast',ST.fast); fastPlan(); });
   seg('roundSeg','r','round',true,function(){ BX.LS.set('tdcbet_arb_round',ST.round); paint(); }); seg('mkSeg','m','mk',false,paint); seg('ageSeg','a','age',true); seg('bkSeg','b','bk');
 
   function nm(s,x){ return String(s).replace(x.home,B.short(x.home)).replace(x.away,B.short(x.away)); }
@@ -139,8 +149,37 @@
   }
   $('arbTbl').addEventListener('click',function(e){ var r=e.target.closest('[data-open]'); if(!r) return; ST.open=ST.open===r.dataset.open?null:r.dataset.open; paint(); });
 
+  // ── fast prices: the paid feed pulled on demand through the owner-only /api/odds (~12 credits a pull), every
+  //    ST.fast seconds while this page is visible, folded into the board and rescanned ──
+  var FAST={t:null,next:null,at:null,left:null,busy:false,err:null};
+  function fastPull(){
+    var tok=window.tdcOwnerToken&&tdcOwnerToken(); if(!tok||FAST.busy||TDCEdge.fixture()) return Promise.resolve();
+    FAST.busy=true; fastHint();
+    return fetch('/api/odds',{headers:{Authorization:'Bearer '+tok},cache:'no-store'}).then(function(r){ return r.json().then(function(d){ return {ok:r.ok,status:r.status,d:d}; }); })
+      .then(function(x){
+        if(!x.ok){ FAST.err=x.status===503?'Add ODDS_API_KEY to the Vercel project to turn this on':x.status===403?'Sign-in expired. Reload the page':(x.d&&x.d.error)||('error '+x.status); if(x.status===403&&window.tdcRefreshIfNeeded) tdcRefreshIfNeeded(); return; }
+        FAST.err=null; FAST.at=x.d.generated; FAST.left=x.d.remaining; FAST.n=(x.d.games||[]).length;
+        TDCEdge.merge(x.d.games||[]); scan();
+      }).catch(function(){ FAST.err='couldn\'t reach /api/odds'; }).then(function(){ FAST.busy=false; fastHint(); });
+  }
+  function fastPlan(){
+    clearTimeout(FAST.t); FAST.next=null;
+    if(!ST.fast){ fastHint(); return; }
+    FAST.next=Date.now()+ST.fast*1000;
+    FAST.t=setTimeout(function(){ if(document.hidden){ fastPlan(); return; } fastPull().then(fastPlan); },ST.fast*1000);
+    fastHint();
+  }
+  function fastHint(){
+    var h=FAST.busy?'pulling…':FAST.err?'<span class="neg">'+esc(FAST.err)+'</span>':FAST.at?'updated '+new Date(FAST.at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit'})+' · '+FAST.n+' games':'not pulled yet';
+    if(FAST.left!=null) h+=' · '+FAST.left.toLocaleString('en-US')+' credits left';
+    if(ST.fast) h+=' · ~'+Math.round(3600/ST.fast*12).toLocaleString('en-US')+' credits/hr while open';
+    $('fastHint').innerHTML=h;
+  }
+  $('fastNow').onclick=function(){ fastPull().then(fastPlan); };
+  document.addEventListener('visibilitychange',function(){ if(!document.hidden&&ST.fast&&FAST.at&&Date.now()-Date.parse(FAST.at)>ST.fast*1000){ fastPull().then(fastPlan); } });
+
   Promise.all([B.load(),BX.has(),TDCEdge.load()]).then(function(r){
-    PREM=r[1];
+    PREM=true;
     var mine=BX.LS.get('tdcbet_books',[]); if(!mine.length) $('bkMine').hidden=true; else $('bkMine').textContent='My books ('+mine.length+')';
     scan();
     // the free live prices (DraftKings, Kalshi, Polymarket) for today + tomorrow, refreshed every 75 s while open
@@ -148,6 +187,7 @@
     days.forEach(function(d){ rows=rows.concat(B.slate(d)); });
     if(rows.length) TDCEdge.live(rows).then(scan);
     TDCEdge.onUpdate(scan);
+    if(ST.fast) fastPull().then(fastPlan); else fastHint();
   });
 })();
 </script>

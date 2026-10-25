@@ -8,6 +8,7 @@
  *   TDCEdge.props(rows)   → [bet]      every posted player prop, priced
  *   TDCEdge.books()       → [{key, title, n, kind}]   places to bet seen in the feed (for "my books"; no Pinnacle)
  *   TDCEdge.raw()         → [game]   the merged feed games as-is (bet-arb.js scans these)
+ *   TDCEdge.merge(games)  fold fresh paid-feed games (owner's /api/odds) into the board
  *   TDCEdge.dfs(rows)     → Promise<[line]>  every DFS pick'em line (PrizePicks, Underdog …), our chance of More/Less
  *
  * HOW A PRICE BECOMES A BET
@@ -475,8 +476,21 @@
       pull().then(function () { LIVE.cbs.forEach(function (cb) { try { cb(); } catch (e) {} }); schedule(); });
     }, 75000);
   }
+  // fresh paid-feed prices (owner's /api/odds pull): replace each game's main-market books, keep its props / alt /
+  // team totals / first-half lines from the archive, add games the archive hasn't seen yet
+  function merge(games) {
+    var list = ((E.odds && E.odds.games) || []).slice(), byId = {};
+    list.forEach(function (x, i) { if (x.id) byId[x.id] = i; });
+    (games || []).forEach(function (f) {
+      var i = byId[f.id];
+      if (i == null) { list.push(f); return; }
+      list[i] = Object.assign({}, list[i], { books: Object.assign({}, list[i].books, f.books), spread: f.spread, total: f.total, ml_home: f.ml_home, ml_away: f.ml_away, snapshot: f.snapshot, fast: true });
+    });
+    E.odds = Object.assign({}, E.odds || {}, { games: list });
+    index();
+  }
   if (typeof document !== 'undefined') document.addEventListener('visibilitychange', function () { if (!document.hidden && LIVE.rows) { pull().then(function () { LIVE.cbs.forEach(function (cb) { try { cb(); } catch (e) {} }); schedule(); }); } });
 
-  g.TDCEdge = { live: live, onUpdate: function (cb) { LIVE.cbs.push(cb); }, liveInfo: function () { return { at: LIVE.at, ok: LIVE.ok }; }, load: load, has: has, game: gameMarkets, board: board, props: props, dfs: dfs, raw: function () { return (E.odds && E.odds.games) || []; }, hasSharp: hasSharp, kindOf: kindOf, suspect: function (b) { return suspect(b); }, books: books, sel: sel, W: W, MIN_EV: MIN_EV,
+  g.TDCEdge = { live: live, onUpdate: function (cb) { LIVE.cbs.push(cb); }, liveInfo: function () { return { at: LIVE.at, ok: LIVE.ok }; }, load: load, has: has, game: gameMarkets, board: board, props: props, dfs: dfs, raw: function () { return (E.odds && E.odds.games) || []; }, merge: merge, hasSharp: hasSharp, kindOf: kindOf, suspect: function (b) { return suspect(b); }, books: books, sel: sel, W: W, MIN_EV: MIN_EV,
     fixture: function () { return E.fixture; }, stamp: function () { return E.odds && E.odds.generated; }, propMean: propMean, pOver: pOver };
 })(window);
