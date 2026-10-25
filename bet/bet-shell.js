@@ -37,8 +37,8 @@
     lock: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
     back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>'
   };
-  var NAV = [['index', 'Tonight'], ['games', 'Games'], ['props', 'Props'], ['futures', 'Futures'], ['markets', 'Markets'], ['trends', 'Trends'], ['record', 'Record'], ['tools', 'Tools']];
-  var MORE = [['markets', 'Markets', 'Every question, priced like a prediction market'], ['trends', 'Trends', 'ATS and over/under history, 5 seasons'], ['record', 'Record', 'How our numbers have done'],
+  var NAV = [['index', 'Tonight'], ['games', 'Games'], ['props', 'Props'], ['pickem', "Pick'em"], ['futures', 'Futures'], ['markets', 'Markets'], ['trends', 'Trends'], ['record', 'Record'], ['tools', 'Tools']];
+  var MORE = [['pickem', "Pick'em", 'PrizePicks, Underdog, Pick6 and Betr lines vs each entry\'s break-even'], ['markets', 'Markets', 'Every question, priced like a prediction market'], ['trends', 'Trends', 'ATS and over/under history, 5 seasons'], ['record', 'Record', 'How our numbers have done'],
               ['tools', 'Tools', 'Matchup calculator, odds converter, parlay, Kelly'], ['learn', 'Learn', 'How the model works · glossary']];
 
   function session() { try { return JSON.parse(localStorage.getItem('tdc_session') || 'null'); } catch (e) { return null; } }
@@ -73,7 +73,7 @@
       '<div><h5>TDC Bet</h5>College basketball lines, props and futures, priced by The Depth Chart\'s model and set against the books. ' +
         'TDC Bet publishes analysis and prices. It does not take bets.' +
         '<div class="rg"><b>21+ only.</b> Bet with money you can afford to lose. Gambling problem? Call <b>1-800-GAMBLER</b> or visit <a href="https://www.ncpgambling.org" target="_blank" rel="noopener" style="display:inline">ncpgambling.org</a>.</div></div>' +
-      '<div><h5>Board</h5>' + NAV.slice(0, 6).map(function (n) { return '<a href="' + B.href(n[0]) + '">' + n[1] + '</a>'; }).join('') + '</div>' +
+      '<div><h5>Board</h5>' + NAV.slice(0, 7).map(function (n) { return '<a href="' + B.href(n[0]) + '">' + n[1] + '</a>'; }).join('') + '</div>' +
       '<div><h5>More</h5><a href="' + B.href('record') + '">Our record</a><a href="' + B.href('tools') + '">Tools</a><a href="' + B.href('learn') + '">How it works</a>' +
         '<a href="' + B.main('') + '">The Depth Chart</a><a href="' + B.main('pricing.html') + '">Plans</a><a href="' + B.main('terms.html') + '">Terms</a></div>' +
       '</div></footer>';

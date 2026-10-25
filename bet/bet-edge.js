@@ -6,12 +6,16 @@
  *   TDCEdge.game(row)     → {markets}  every priced outcome for one game (row = TDCBet.slate/game row)
  *   TDCEdge.board(rows)   → [bet]      the best side per market per game, sorted by EV, with Kelly stakes
  *   TDCEdge.props(rows)   → [bet]      every posted player prop, priced
- *   TDCEdge.books()       → [{key, title, n}]   books seen in the feed (for "my books")
+ *   TDCEdge.books()       → [{key, title, n, kind}]   places to bet seen in the feed (for "my books"; no Pinnacle)
+ *   TDCEdge.dfs(rows)     → Promise<[line]>  every DFS pick'em line (PrizePicks, Underdog …), our chance of More/Less
  *
  * HOW A PRICE BECOMES A BET
  *   our chance   spread/total/ML from TDC_RATINGS.lineFor + tempo x efficiency; props from the negative-binomial
  *                prop model (scripts/fit_prop_model.py → prop_model.json) on our projected line
- *   market       the consensus of every book's no-vig price
+ *   market       the consensus of every book's no-vig price. When Pinnacle (the sharpest book; feed kind "sharp")
+ *                hangs the market its no-vig number carries SHARP_W of it — a reference line, never a place to bet
+ *   platforms    book = US sportsbooks · ex = exchanges (prices arrive with fees taken out) · sharp = Pinnacle ·
+ *                DFS pick'em lines ride apart in game.dfs (fixed payouts, no odds) and are priced by dfs()
  *   blend        p = w·ours + (1 − w)·market. Books are sharp; a model that ignores them finds "edges" on
  *                every game. w per market type (W below) is deliberately modest until the historical-odds
  *                backtest tunes it — the blend is what keeps the board honest.
@@ -27,6 +31,8 @@
   var MIN_EV = { spread: 0.03, total: 0.03, ml: 0.035, tt: 0.04, h1: 0.04, alt: 0.05, prop: 0.05 };
   var SD = { team: 9.5, h1m: 7.6, h1t: 10.5 };         // team-score sd; first-half margin / total sd
   var H1 = { m: 0.47, t: 0.475 };                       // first half share of the full-game margin / total
+  var SHARP_W = 0.6;                                    // Pinnacle's weight in the market reference when it's posted
+  var EXCH = { kalshi: 1, polymarket: 1, novig: 1, prophetx: 1, betopenly: 1, sporttrade: 1 };
   var E = { odds: null, model: null, names: null, form: null, ready: null, fixture: false };
 
   function getJ(u, o) { return fetch(u, o).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }); }
@@ -63,7 +69,10 @@
           var j = rnd() < 0.3 ? 5 : 0, ml = two(ph);
           books[b[0]] = { t: b[1], sp: [sp, -110 - j, -110 + j], to: [to, -110 + j, -110 - j], ml: ml };
         });
-        var props = [];
+        var spP = -Math.round(mm * 2) / 2, toP = Math.round(tm * 2) / 2;
+        books.pinnacle = { t: 'Pinnacle', k: 'sharp', sp: [spP, -104, -106], to: [toP, -105, -105], ml: two(B.phi(mm / 11)).map(function (o) { return o + 8; }) };   // thinner vig, like the real thing
+        books.novig = { t: 'Novig', k: 'ex', sp: [spP, -102, -103], to: [toP, -101, -104] };
+        var props = [], dfs = [];
         Object.keys(S.PR || {}).forEach(function (pid) {
           var pr = S.PR[pid]; if (!pr || (pr.team !== r.home && pr.team !== r.away) || !(pr.mpg >= 24)) return;
           var nm = (S.P.find(function (p) { return p.id === pid; }) || {}).name; if (!nm) return;
@@ -72,11 +81,13 @@
             var mk = pm.mu * (1 + nrm() * 0.1), base = Math.max(0.5, Math.round(mk - 0.5) + 0.5), b = {};
             BK.slice(0, 4).forEach(function (bk) { var line = rnd() < 0.2 ? base + (rnd() < 0.5 ? -1 : 1) : base; if (line < 0.5) line = 0.5; var sk = Math.round((mk - line) * 12); b[bk[0]] = [line, -112 - sk, -108 + sk]; });
             props.push({ p: nm, m: st, b: b });
+            var d = {}; ['prizepicks', 'underdog', 'pick6'].forEach(function (app) { if (rnd() < 0.8) d[app] = Math.max(0.5, base + (rnd() < 0.3 ? (rnd() < 0.5 ? -1 : 1) : 0)); });
+            if (Object.keys(d).length) dfs.push({ p: nm, m: st, b: d });
           });
         });
         var hp = Math.round(r.scoreH + nrm() * 1.5 - 0.5) + 0.5, ap = Math.round(r.scoreA + nrm() * 1.5 - 0.5) + 0.5;
         games.push({ id: 'fx' + r.id, commence: d + 'T23:00:00Z', home: r.home, away: r.away, home_norm: oNorm(r.home), away_norm: oNorm(r.away),
-          spread: -Math.round(mm * 2) / 2, total: Math.round(tm * 2) / 2, books: books, props: props,
+          spread: -Math.round(mm * 2) / 2, total: Math.round(tm * 2) / 2, books: books, props: props, dfs: dfs,
           tt: { draftkings: { home: [hp, -115, -105], away: [ap, -110, -110] } },
           h1: { fanduel: { sp: [-Math.round(mm * 0.47 * 2) / 2, -110, -110], to: [Math.round(tm * 0.475 * 2) / 2, -110, -110] } } });
       });
@@ -122,6 +133,17 @@
     if (p < 0.02425) { q = Math.sqrt(-2 * Math.log(p)); return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1); }
     if (p > 1 - 0.02425) { q = Math.sqrt(-2 * Math.log(1 - p)); return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1); }
     q = p - 0.5; r = q * q; return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
+  }
+  // ── platforms ───────────────────────────────────────────────────────────
+  function kindOf(k, entry) { return (entry && entry.k) || (k === 'pinnacle' ? 'sharp' : EXCH[k] ? 'ex' : 'book'); }
+  function isSharp(k, x) { return kindOf(k, x && x.books && x.books[k]) === 'sharp'; }
+  // the market's number: median of the books, pulled SHARP_W of the way to Pinnacle when Pinnacle posts it
+  function refMkt(rows, f, x) {
+    var sh = [], rest = [];
+    rows.forEach(function (r) { var v = f(r); if (v == null || !isFinite(v)) return; (isSharp(r.k, x) ? sh : rest).push(v); });
+    var s = median(sh), m = median(rest);
+    if (s == null) return { v: m, s: null };
+    return { v: m == null ? s : SHARP_W * s + (1 - SHARP_W) * m, s: s };
   }
   function kelly(p, o) { var d = dec(o); if (!d || d <= 1) return 0; var f = (p * d - 1) / (d - 1); return Math.max(0, Math.min(0.02, f / 4)); }
 
@@ -201,46 +223,49 @@
     var desc = B.short(r.away) + (r.neutral ? ' vs ' : ' @ ') + B.short(r.home);
     // spreads ─ consensus market margin (our home perspective) → blended margin → cover chance at each book's number
     var spRows = bks.map(function (k) { var s = books[k].sp; if (!s) return null; var hp = fl ? -s[0] : s[0], ph = fl ? s[2] : s[1], pa = fl ? s[1] : s[2]; return { k: k, hp: hp, ph: ph, pa: pa }; }).filter(Boolean);
-    if (spRows.length) {
-      var mm = median(spRows.map(function (s) { return impliedMean(-s.hp, novig(s.ph, s.pa), sigma()); }));   // market home margin
+    var spBet = spRows.filter(function (s) { return !isSharp(s.k, x); });
+    if (spBet.length) {
+      var spRef = refMkt(spRows, function (s) { return impliedMean(-s.hp, novig(s.ph, s.pa), sigma()); }, x), mm = spRef.v;   // market home margin
       var mb = W.spread * r.m + (1 - W.spread) * mm;
       ['home', 'away'].forEach(function (side) {
-        var offers = spRows.map(function (s) { var pt = side === 'home' ? s.hp : -s.hp, me = side === 'home' ? mb : -mb, mo = side === 'home' ? r.m : -r.m, mk = side === 'home' ? mm : -mm;
+        var offers = spBet.map(function (s) { var pt = side === 'home' ? s.hp : -s.hp, me = side === 'home' ? mb : -mb, mo = side === 'home' ? r.m : -r.m, mk = side === 'home' ? mm : -mm;
           return bet({ market: 'spread', side: side, book: s.k, bookT: title(s.k, x), price: side === 'home' ? s.ph : s.pa, point: pt, p: B.coverP(me, pt), pOurs: B.coverP(mo, pt), pMkt: B.coverP(mk, pt) }); });
         var b = offers.slice().sort(function (a, c) { return c.ev - a.ev; })[0];
         b.label = B.short(side === 'home' ? r.home : r.away) + ' ' + B.spTxt(b.point); b.team = side === 'home' ? r.home : r.away; b.offers = offers;
-        b.edgePts = (side === 'home' ? r.m - mm : mm - r.m); b.why = 'We make it ' + B.short(r.m >= 0 ? r.home : r.away) + ' by ' + Math.abs(r.m).toFixed(1) + '; the books average ' + B.short(mm >= 0 ? r.home : r.away) + ' by ' + Math.abs(mm).toFixed(1) + '.';
+        b.edgePts = (side === 'home' ? r.m - mm : mm - r.m); b.why = 'We make it ' + B.short(r.m >= 0 ? r.home : r.away) + ' by ' + Math.abs(r.m).toFixed(1) + '; the market ' + (spRef.s != null ? '(Pinnacle-weighted) ' : '') + 'has ' + B.short(mm >= 0 ? r.home : r.away) + ' by ' + Math.abs(mm).toFixed(1) + '.'; b.sharp = spRef.s != null;
         out.push(b);
       });
     }
     // totals
     var toRows = bks.map(function (k) { var t = books[k].to; return t ? { k: k, pt: t[0], po: t[1], pu: t[2] } : null; }).filter(Boolean);
-    if (toRows.length && r.tot != null) {
-      var tm = median(toRows.map(function (t) { return impliedMean(t.pt, novig(t.po, t.pu), B.TOTAL_SD); }));
+    var toBet = toRows.filter(function (t) { return !isSharp(t.k, x); });
+    if (toBet.length && r.tot != null) {
+      var toRef = refMkt(toRows, function (t) { return impliedMean(t.pt, novig(t.po, t.pu), B.TOTAL_SD); }, x), tm = toRef.v;
       var tb = W.total * r.tot + (1 - W.total) * tm;
       ['over', 'under'].forEach(function (side) {
-        var offers = toRows.map(function (t) { var po = B.overP(tb, t.pt); return bet({ market: 'total', side: side, book: t.k, bookT: title(t.k, x), price: side === 'over' ? t.po : t.pu, point: t.pt,
+        var offers = toBet.map(function (t) { var po = B.overP(tb, t.pt); return bet({ market: 'total', side: side, book: t.k, bookT: title(t.k, x), price: side === 'over' ? t.po : t.pu, point: t.pt,
           p: side === 'over' ? po : 1 - po, pOurs: side === 'over' ? B.overP(r.tot, t.pt) : 1 - B.overP(r.tot, t.pt), pMkt: side === 'over' ? B.overP(tm, t.pt) : 1 - B.overP(tm, t.pt) }); });
         var b = offers.slice().sort(function (a, c) { return c.ev - a.ev; })[0];
         b.label = (side === 'over' ? 'Over ' : 'Under ') + b.point; b.team = r.home; b.offers = offers; b.edgePts = side === 'over' ? r.tot - tm : tm - r.tot;
-        b.why = 'We project ' + Math.round(r.tot) + ' points; the books are at ' + tm.toFixed(1) + '.'; out.push(b);
+        b.why = 'We project ' + Math.round(r.tot) + ' points; the market ' + (toRef.s != null ? '(Pinnacle-weighted) ' : '') + 'is at ' + tm.toFixed(1) + '.'; b.sharp = toRef.s != null; out.push(b);
       });
     }
     // moneylines
     var mlRows = bks.map(function (k) { var l = books[k].ml; if (!l) return null; var v = gl(l[0], l[1]); return { k: k, h: v[0], a: v[1] }; }).filter(Boolean);
-    if (mlRows.length) {
-      var pm = median(mlRows.map(function (l) { return novig(l.h, l.a); }));
+    var mlBet = mlRows.filter(function (l) { return !isSharp(l.k, x); });
+    if (mlBet.length) {
+      var mlRef = refMkt(mlRows, function (l) { return novig(l.h, l.a); }, x), pm = mlRef.v;
       var pb = W.ml * r.probH / 100 + (1 - W.ml) * pm;
       ['home', 'away'].forEach(function (side) {
         var p = side === 'home' ? pb : 1 - pb;
-        var offers = mlRows.map(function (l) { return bet({ market: 'ml', side: side, book: l.k, bookT: title(l.k, x), price: side === 'home' ? l.h : l.a, p: p, pOurs: side === 'home' ? r.probH / 100 : r.probA / 100, pMkt: side === 'home' ? pm : 1 - pm }); });
+        var offers = mlBet.map(function (l) { return bet({ market: 'ml', side: side, book: l.k, bookT: title(l.k, x), price: side === 'home' ? l.h : l.a, p: p, pOurs: side === 'home' ? r.probH / 100 : r.probA / 100, pMkt: side === 'home' ? pm : 1 - pm }); });
         var b = offers.slice().sort(function (a, c) { return c.ev - a.ev; })[0];
         b.label = B.short(side === 'home' ? r.home : r.away) + ' ML'; b.team = side === 'home' ? r.home : r.away; b.offers = offers;
-        b.why = 'We give ' + B.short(b.team) + ' a ' + Math.round(b.pOurs * 100) + '% chance; the books, ' + Math.round(b.pMkt * 100) + '%.'; out.push(b);
+        b.why = 'We give ' + B.short(b.team) + ' a ' + Math.round(b.pOurs * 100) + '% chance; the market' + (mlRef.s != null ? ' (Pinnacle-weighted)' : '') + ', ' + Math.round(b.pMkt * 100) + '%.'; b.sharp = mlRef.s != null; out.push(b);
       });
     }
     // team totals
-    Object.keys(x.tt || {}).forEach(function (k) {
+    Object.keys(x.tt || {}).filter(function (k) { return !isSharp(k, x); }).forEach(function (k) {
       ['home', 'away'].forEach(function (bs) {
         var v = x.tt[k][bs]; if (!v || v[1] == null || v[2] == null) return;
         var side = fl ? (bs === 'home' ? 'away' : 'home') : bs, ours = side === 'home' ? r.scoreH : r.scoreA, full = side === 'home' ? r.home : r.away;
@@ -252,7 +277,7 @@
       });
     });
     // first half
-    Object.keys(x.h1 || {}).forEach(function (k) {
+    Object.keys(x.h1 || {}).filter(function (k) { return !isSharp(k, x); }).forEach(function (k) {
       var h = x.h1[k], mh = H1.m * r.m, th = r.tot != null ? H1.t * r.tot : null;
       if (h.sp && h.sp[1] != null) {
         var hp = fl ? -h.sp[0] : h.sp[0], ph = fl ? h.sp[2] : h.sp[1], pa = fl ? h.sp[1] : h.sp[2];
@@ -271,9 +296,9 @@
       }
     });
     // alternate lines: same blended distributions, priced point by point
-    var mmA = spRows.length ? W.alt * r.m + (1 - W.alt) * median(spRows.map(function (s) { return impliedMean(-s.hp, novig(s.ph, s.pa), sigma()); })) : null;
-    var tmA = toRows.length && r.tot != null ? W.alt * r.tot + (1 - W.alt) * median(toRows.map(function (t) { return impliedMean(t.pt, novig(t.po, t.pu), B.TOTAL_SD); })) : null;
-    Object.keys(x.alt || {}).forEach(function (k) {
+    var mmA = spRows.length ? W.alt * r.m + (1 - W.alt) * refMkt(spRows, function (s) { return impliedMean(-s.hp, novig(s.ph, s.pa), sigma()); }, x).v : null;
+    var tmA = toRows.length && r.tot != null ? W.alt * r.tot + (1 - W.alt) * refMkt(toRows, function (t) { return impliedMean(t.pt, novig(t.po, t.pu), B.TOTAL_SD); }, x).v : null;
+    Object.keys(x.alt || {}).filter(function (k) { return !isSharp(k, x); }).forEach(function (k) {
       var a = x.alt[k];
       if (mmA != null) (a.sp || []).forEach(function (v) { var hp = fl ? -v[0] : v[0], ph = fl ? v[2] : v[1], pa = fl ? v[1] : v[2];
         out.push(bet({ market: 'alt', side: 'home', book: k, bookT: title(k, x), price: ph, point: hp, p: B.coverP(mmA, hp), pOurs: B.coverP(r.m, hp), pMkt: null, label: 'Alt ' + B.short(r.home) + ' ' + B.spTxt(hp), team: r.home, why: 'Alternate spread, priced from the same blended margin.' }));
@@ -298,9 +323,9 @@
       } else who = matchPlayer(pp.p, r, names);
       if (!who || !pp.p) return;
       var pm = propMean(who.id, pp.m, r, who.home); if (!pm) return;
-      var bks = Object.keys(pp.b); if (!bks.length) return;
+      var all = Object.keys(pp.b), bks = all.filter(function (k) { return !isSharp(k, gm.x); }); if (!bks.length) return;
       // market mean: invert the NB at the consensus line from each book's no-vig over chance
-      var mkMu = median(bks.map(function (k) { var v = pp.b[k]; return solveMu(pp.m, v[0], novig(v[1], v[2]), pm); }));
+      var mkMu = refMkt(all.map(function (k) { return { k: k }; }), function (q) { var v = pp.b[q.k]; return solveMu(pp.m, v[0], novig(v[1], v[2]), pm); }, gm.x).v;
       var muB = W.prop * pm.mu + (1 - W.prop) * (mkMu != null ? mkMu : pm.mu);
       ['over', 'under'].forEach(function (side) {
         var offers = bks.map(function (k) { var v = pp.b[k], line = v[0];
@@ -380,8 +405,38 @@
   }
   function books() {
     var seen = {};
-    ((E.odds && E.odds.games) || []).forEach(function (x) { Object.keys(x.books || {}).forEach(function (k) { seen[k] = seen[k] || { key: k, title: x.books[k].t || k, n: 0 }; seen[k].n++; }); });
+    ((E.odds && E.odds.games) || []).forEach(function (x) { Object.keys(x.books || {}).forEach(function (k) { var kd = kindOf(k, x.books[k]); if (kd === 'sharp') return; seen[k] = seen[k] || { key: k, title: x.books[k].t || k, n: 0, kind: kd }; seen[k].n++; }); });
     return Object.keys(seen).map(function (k) { return seen[k]; }).sort(function (a, b) { return b.n - a.n; });
+  }
+  function hasSharp() { return ((E.odds && E.odds.games) || []).some(function (x) { return Object.keys(x.books || {}).some(function (k) { return isSharp(k, x); }); }); }
+
+  // ── DFS pick'em lines: the app posts a line, you pick More or Less, it pays a fixed multiplier for the whole entry.
+  //    Our chance per pick = the same blend as a sportsbook prop: our projected line, pulled toward what the sportsbooks'
+  //    prices imply for that player + stat when they post it (else our number alone, flagged noMkt). bet-dfs.js turns
+  //    these chances into entries. One row per player + stat; apps = {app: {line, pOver}}.
+  function dfsLines(r, names) {
+    var gm = bookGame(r); if (!gm || !gm.x.dfs) return [];
+    var out = [], desc = B.short(r.away) + (r.neutral ? ' vs ' : ' @ ') + B.short(r.home), sb = {};
+    (gm.x.props || []).forEach(function (pp) { if (pp.p) sb[nkey(pp.p) + '|' + pp.m] = pp; });
+    gm.x.dfs.forEach(function (dl) {
+      var who = matchPlayer(dl.p, r, names); if (!who) return;
+      var pm = propMean(who.id, dl.m, r, who.home); if (!pm) return;
+      var bp = sb[nkey(dl.p) + '|' + dl.m], mkMu = null, bookLine = null;
+      if (bp) {
+        var all = Object.keys(bp.b || {});
+        mkMu = refMkt(all.map(function (k) { return { k: k }; }), function (q) { var v = bp.b[q.k]; return v && v[1] != null && v[2] != null ? solveMu(dl.m, v[0], novig(v[1], v[2]), pm) : null; }, gm.x).v;
+        var ls = all.map(function (k) { return bp.b[k][0]; }).sort(function (a, b) { return a - b; }); bookLine = ls.length ? ls[Math.floor(ls.length / 2)] : null;
+      }
+      var mu = mkMu != null ? W.prop * pm.mu + (1 - W.prop) * mkMu : pm.mu, apps = {};
+      Object.keys(dl.b).forEach(function (app) { var line = dl.b[app]; if (line == null) return; apps[app] = { line: line, pOver: pOver(dl.m, mu, pm.rate, pm.sdm, line), pOurs: pOver(dl.m, pm.mu, pm.rate, pm.sdm, line) }; });
+      if (!Object.keys(apps).length) return;
+      out.push({ player: dl.p, pid: who.id, stat: dl.m, team: who.home ? r.home : r.away, game: desc, gid: r.id, date: r.date, row: r, tip: gm.x.commence,
+        mu: pm.mu, mkMu: mkMu, muB: mu, bookLine: bookLine, noMkt: mkMu == null, form: pm.form, formG: pm.games, apps: apps });
+    });
+    return out;
+  }
+  function dfs(rows) {
+    return loadNames().then(function (names) { var out = []; rows.forEach(function (r) { if (!r.exh) out = out.concat(dfsLines(r, names)); }); return out; });
   }
   // the selection a bet puts on the slip
   function sel(b) {
@@ -421,6 +476,6 @@
   }
   if (typeof document !== 'undefined') document.addEventListener('visibilitychange', function () { if (!document.hidden && LIVE.rows) { pull().then(function () { LIVE.cbs.forEach(function (cb) { try { cb(); } catch (e) {} }); schedule(); }); } });
 
-  g.TDCEdge = { live: live, onUpdate: function (cb) { LIVE.cbs.push(cb); }, liveInfo: function () { return { at: LIVE.at, ok: LIVE.ok }; }, load: load, has: has, game: gameMarkets, board: board, props: props, suspect: function (b) { return suspect(b); }, books: books, sel: sel, W: W, MIN_EV: MIN_EV,
+  g.TDCEdge = { live: live, onUpdate: function (cb) { LIVE.cbs.push(cb); }, liveInfo: function () { return { at: LIVE.at, ok: LIVE.ok }; }, load: load, has: has, game: gameMarkets, board: board, props: props, dfs: dfs, hasSharp: hasSharp, kindOf: kindOf, suspect: function (b) { return suspect(b); }, books: books, sel: sel, W: W, MIN_EV: MIN_EV,
     fixture: function () { return E.fixture; }, stamp: function () { return E.odds && E.odds.generated; }, propMean: propMean, pOver: pOver };
 })(window);

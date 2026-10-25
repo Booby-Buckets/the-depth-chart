@@ -30,6 +30,14 @@ Usage:
   python3 scripts/archive_live_odds.py --regions us,us2 --events --event-budget 1500
         # + player props, team totals, first-half and alternate lines for games tipping in the next 30 h,
         #   nearest first, stopping before the run spends more than --event-budget credits
+  python3 scripts/archive_live_odds.py --regions us,us2 --exchanges --sharp --dfs --events
+        # every platform: + betting exchanges (us_ex: Novig, ProphetX, Kalshi …, fees taken out of the price),
+        #   Pinnacle (the sharp reference line, never shown as a place to bet) and the DFS pick'em apps
+        #   (us_dfs: PrizePicks, Underdog … — player-prop LINES only; they pay fixed multipliers, not odds)
+
+PLATFORM KINDS — every book in odds_live.json carries "k": book (US sportsbook, the default when absent) ·
+ex (exchange) · sharp (Pinnacle). DFS lines live apart in each game's "dfs" list, so a pick'em line can
+never be mistaken for a priced sportsbook prop.
 """
 import os, sys, json, urllib.parse
 from datetime import datetime, timezone
@@ -48,18 +56,101 @@ SPORT = "basketball_ncaab"
 # outright futures (the Betting Lab's Futures tab). 1 credit per market per region per call.
 FUTURE_SPORTS = {"title": "basketball_ncaab_championship_winner"}
 
+# ── platforms ────────────────────────────────────────────────────────────
+# Each source is one API call; its books are tagged with a kind. Cost is the same as one combined call
+# (markets x regions), and Pinnacle by name costs one region's worth without the 20 other European books.
+#   book  = regions us,us2 (DraftKings, FanDuel, BetMGM, Caesars, ESPN BET, Fanatics, Fliff, Hard Rock, offshore …)
+#   ex    = us_ex  (Novig, ProphetX, BetOpenly, Kalshi, Polymarket)
+#   sharp = bookmakers=pinnacle — the market's sharpest line: the edge finder's reference price, never a bet
+#   dfs   = us_dfs (PrizePicks, Underdog, DraftKings Pick6, Betr) — player props only
+def sources(regions, exchanges=False, sharp=False, dfs=False):
+    out = [("regions", regions, "book")]
+    if exchanges: out.append(("regions", "us_ex", "ex"))
+    if sharp: out.append(("bookmakers", "pinnacle", "sharp"))
+    if dfs: out.append(("regions", "us_dfs", "dfs"))
+    return out
 
-def fetch_board(key, markets, regions):
-    url = "%s/sports/%s/odds?apiKey=%s&regions=%s&markets=%s&oddsFormat=american" % (
-        API_BASE, SPORT, urllib.parse.quote(key), regions, markets)
-    body, rem, used = api_get(url)
-    return (body or []), rem, used
+# Exchanges charge differently, so their prices are turned into what a bettor really gets: Kalshi's taker fee is
+# 0.07·P·(1−P) per $1 contract (same formula as bet/cbb-live.js); the others take a commission on net winnings.
+# Set a rate here if an exchange starts charging one (0 = commission-free as of Oct 2026).
+EX_COMMISSION = {"novig": 0.0, "prophetx": 0.0, "betopenly": 0.0, "polymarket": 0.0, "sporttrade": 0.0}
+
+
+def _am_to_cost(o):
+    return 100.0 / (o + 100) if o > 0 else -o / (-o + 100.0)
+
+
+def _cost_to_am(c):
+    c = min(max(c, 0.01), 0.99)
+    return int(round(-100 * c / (1 - c))) if c >= 0.5 else int(round(100 * (1 - c) / c))
+
+
+def net_price(bkey, kind, price):
+    """An exchange price after its fee, as American odds (sportsbook prices already include the vig)."""
+    if price is None or kind != "ex":
+        return price
+    try:
+        price = float(price)
+    except (TypeError, ValueError):
+        return None
+    if bkey == "kalshi":
+        c = _am_to_cost(price)
+        return _cost_to_am(c + 0.07 * c * (1 - c))
+    rate = EX_COMMISSION.get(bkey, 0.0)
+    if not rate:
+        return int(round(price))
+    dec = (1 + price / 100.0) if price > 0 else (1 + 100.0 / -price)
+    dec = 1 + (dec - 1) * (1 - rate)
+    return int(round((dec - 1) * 100)) if dec >= 2 else int(round(-100 / (dec - 1)))
+
+
+def _src_param(src):
+    kind_param, val, _ = src
+    return "%s=%s" % (kind_param, urllib.parse.quote(val, safe=","))
+
+
+def merge_events(calls):
+    """Several (body, kind) API results → one event list; each bookmaker tagged with "_kind"."""
+    evs = {}
+    for body, kind in calls:
+        for ev in body or []:
+            e = evs.get(ev.get("id"))
+            if e is None:
+                e = evs[ev.get("id")] = dict(ev, bookmakers=[])
+            have = {b.get("key") for b in e["bookmakers"]}
+            for bk in ev.get("bookmakers", []):
+                if bk.get("key") in have:
+                    continue
+                if kind == "sharp" and bk.get("key") != "pinnacle":
+                    continue
+                e["bookmakers"].append(dict(bk, _kind=kind))
+    return list(evs.values())
+
+
+def fetch_board(key, markets, srcs):
+    calls, rem, used = [], None, 0
+    for src in srcs:
+        if src[2] == "dfs":
+            continue                        # pick'em apps post player props only — nothing on the main board
+        url = "%s/sports/%s/odds?apiKey=%s&%s&markets=%s&oddsFormat=american" % (
+            API_BASE, SPORT, urllib.parse.quote(key), _src_param(src), markets)
+        try:
+            body, rem, u = api_get(url)
+        except Exception as e:
+            if src[2] == "book":
+                raise
+            print("  %s board: %s (skipped)" % (src[1], e), flush=True)
+            continue
+        used += int(u or 0)
+        calls.append((body, src[2]))
+    return merge_events(calls), rem, used
 
 
 def board_to_games(events, snap_ts):
     games = []
     for ev in events:
-        line = consensus_line(ev)
+        # the consensus number = the sportsbooks (+ Pinnacle); exchanges can be thin, so they don't move it
+        line = consensus_line(dict(ev, bookmakers=[b for b in ev.get("bookmakers", []) if b.get("_kind", "book") in ("book", "sharp")]))
         if not line.get("home") or not line.get("away"):
             continue
         games.append({
@@ -82,23 +173,29 @@ def book_lines(ev):
     home = ev.get("home_team")
     out = {}
     for bk in ev.get("bookmakers", []):
-        b = {"t": bk.get("title") or bk.get("key"), "u": bk.get("last_update")}
+        bkey, kind = bk.get("key"), bk.get("_kind", "book")
+        if kind == "dfs":
+            continue
+        px = lambda o: net_price(bkey, kind, o.get("price"))
+        b = {"t": bk.get("title") or bkey, "u": bk.get("last_update")}
         for mk in bk.get("markets", []):
             key, oc = mk.get("key"), mk.get("outcomes", [])
             if key == "spreads":
                 h = next((o for o in oc if o.get("name") == home), None); a = next((o for o in oc if o.get("name") != home), None)
                 if h and a and h.get("point") is not None:
-                    b["sp"] = [h["point"], h.get("price"), a.get("price")]
+                    b["sp"] = [h["point"], px(h), px(a)]
             elif key == "totals":
                 ov = next((o for o in oc if o.get("name") == "Over"), None); un = next((o for o in oc if o.get("name") == "Under"), None)
                 if ov and un and ov.get("point") is not None:
-                    b["to"] = [ov["point"], ov.get("price"), un.get("price")]
+                    b["to"] = [ov["point"], px(ov), px(un)]
             elif key == "h2h":
                 h = next((o for o in oc if o.get("name") == home), None); a = next((o for o in oc if o.get("name") != home), None)
                 if h and a:
-                    b["ml"] = [h.get("price"), a.get("price")]
+                    b["ml"] = [px(h), px(a)]
         if len(b) > 2:
-            out[bk.get("key")] = b
+            if kind != "book":
+                b["k"] = kind
+            out[bkey] = b
     return out
 
 
@@ -110,10 +207,29 @@ PROP_MARKETS = {"player_points": "pts", "player_rebounds": "reb", "player_assist
 GAME_MARKETS = ["team_totals", "spreads_h1", "totals_h1", "alternate_spreads", "alternate_totals"]
 
 
-def fetch_event(key, eid, markets, regions):
-    url = "%s/sports/%s/events/%s/odds?apiKey=%s&regions=%s&markets=%s&oddsFormat=american" % (
-        API_BASE, SPORT, eid, urllib.parse.quote(key), regions, ",".join(markets))
+def fetch_event(key, eid, markets, src):
+    url = "%s/sports/%s/events/%s/odds?apiKey=%s&%s&markets=%s&oddsFormat=american" % (
+        API_BASE, SPORT, eid, urllib.parse.quote(key), _src_param(src), ",".join(markets))
     return api_get(url)
+
+
+def event_plan(srcs, props_only=False):
+    """Which markets to ask each source for, per game. Exchanges post main lines (already on the board) so they're
+    skipped here; Pinnacle is asked for the game markets it actually hangs; DFS apps only post props."""
+    plan = []
+    for src in srcs:
+        kind = src[2]
+        if kind == "book":
+            plan.append((src, list(PROP_MARKETS) + ([] if props_only else GAME_MARKETS)))
+        elif kind == "sharp" and not props_only:
+            plan.append((src, ["team_totals", "spreads_h1", "totals_h1"]))
+        elif kind == "dfs":
+            plan.append((src, list(PROP_MARKETS)))
+    return plan
+
+
+def event_cost(plan):
+    return sum(len(mk) * (len(src[1].split(",")) if src[0] == "regions" else 1) for src, mk in plan)
 
 
 def event_markets(ev):
@@ -121,13 +237,25 @@ def event_markets(ev):
     props: [{p: player, m: pts|reb|ast|tpm|pra, b: {book: [line, over price, under price]}}]
     tt:    {book: {home: [line, over, under], away: [...]}}          team totals
     h1:    {book: {sp: [home point, home price, away price], to: [point, over, under]}}
-    alt:   {book: {sp: [[home point, home price, away price]...], to: [[point, over, under]...]}}"""
+    alt:   {book: {sp: [[home point, home price, away price]...], to: [[point, over, under]...]}}
+    dfs:   [{p: player, m: stat, b: {app: line}}]                     pick'em lines (no prices — fixed payouts)"""
     home = ev.get("home_team")
-    props, tt, h1, alt = {}, {}, {}, {}
+    props, tt, h1, alt, dfs = {}, {}, {}, {}, {}
     for bk in ev.get("bookmakers", []):
-        bkey = bk.get("key")
+        bkey, kind = bk.get("key"), bk.get("_kind", "book")
         for mk in bk.get("markets", []):
             key, oc = mk.get("key"), mk.get("outcomes", [])
+            if kind == "dfs":
+                if key not in PROP_MARKETS:
+                    continue
+                pts = {}
+                for o in oc:
+                    if o.get("description") and o.get("point") is not None:
+                        pts.setdefault(o["description"], set()).add(float(o["point"]))
+                for pl, ps in pts.items():
+                    ps = sorted(ps)
+                    dfs.setdefault((pl, PROP_MARKETS[key]), {})[bkey] = ps[len(ps) // 2]   # the standard line
+                continue
             if key in PROP_MARKETS:
                 lines = {}
                 for o in oc:
@@ -175,7 +303,10 @@ def event_markets(ev):
                         if o.get("point") is None: continue
                         v = pts.setdefault(o["point"], [o["point"], None, None]); v[1 if o.get("name") == "Over" else 2] = o.get("price")
                     d["to"] = sorted([v for v in pts.values() if v[1] is not None and v[2] is not None])
-    return {"props": [{"p": pl, "m": m, "b": b} for (pl, m), b in props.items()], "tt": tt, "h1": h1, "alt": alt}
+    out = {"props": [{"p": pl, "m": m, "b": b} for (pl, m), b in props.items()], "tt": tt, "h1": h1, "alt": alt}
+    if dfs:
+        out["dfs"] = [{"p": pl, "m": m, "b": b} for (pl, m), b in dfs.items()]
+    return out
 
 
 def fetch_futures(key, regions):
@@ -234,6 +365,7 @@ def main():
     args = sys.argv[1:]
     markets = args[args.index("--markets") + 1] if "--markets" in args else "spreads,totals,h2h"
     regions = args[args.index("--regions") + 1] if "--regions" in args else "us"
+    srcs = sources(regions, exchanges="--exchanges" in args, sharp="--sharp" in args, dfs="--dfs" in args)
     dry = "--dry-run" in args
     key = os.environ.get("ODDS_API_KEY", "")
 
@@ -250,21 +382,25 @@ def main():
         return 0
 
     try:
-        events, rem, used = fetch_board(key, markets, regions)
+        events, rem, used = fetch_board(key, markets, srcs)
     except Exception as e:
         print("Fetch failed: %s" % e, flush=True)
         return 1
 
     games = board_to_games(events, snap_ts)
-    print("Board: %d games · %d book prices · credits used this call: %s · remaining: %s"
-          % (len(games), sum(len(g["books"]) for g in games), used, rem), flush=True)
+    kinds = {}
+    for g in games:
+        for b in g["books"].values():
+            kinds[b.get("k", "book")] = kinds.get(b.get("k", "book"), 0) + 1
+    print("Board: %d games · %d book prices (%s) · credits used: %s · remaining: %s"
+          % (len(games), sum(len(g["books"]) for g in games), ", ".join("%s %d" % kv for kv in sorted(kinds.items())), used, rem), flush=True)
 
     # event markets (props etc.): nearest tips first, until the credit budget for this run is spent
     if "--events" in args and games and not dry:
         budget = int(args[args.index("--event-budget") + 1]) if "--event-budget" in args else 1500
         horizon = float(args[args.index("--event-hours") + 1]) if "--event-hours" in args else 30
         ev_regions = args[args.index("--event-regions") + 1] if "--event-regions" in args else regions
-        mk = list(PROP_MARKETS) + ([] if "--props-only" in args else GAME_MARKETS)
+        plan = event_plan(sources(ev_regions, sharp="--sharp" in args, dfs="--dfs" in args), "--props-only" in args)
         now = datetime.now(timezone.utc)
         soon = []
         for g in games:
@@ -278,19 +414,26 @@ def main():
         soon.sort(key=lambda x: x[0])
         spent, pulled = 0, 0
         for hrs, g in soon:
-            worst = len(mk) * len(ev_regions.split(","))
+            worst = event_cost(plan)
             if spent + worst > budget:
                 print("Event budget reached (%d credits) — %d of %d games pulled." % (spent, pulled, len(soon)), flush=True)
                 break
-            try:
-                body, rem, used = fetch_event(key, g["id"], mk, ev_regions)
-            except Exception as e:
-                print("  event %s: %s" % (g["id"], e), flush=True)
+            calls = []
+            for src, mk in plan:
+                try:
+                    body, rem, used = fetch_event(key, g["id"], mk, src)
+                except Exception as e:
+                    print("  event %s (%s): %s" % (g["id"], src[1], e), flush=True)
+                    continue
+                spent += int(used or 0)
+                calls.append(([body] if body else [], src[2]))
+            if not calls:
                 continue
-            spent += int(used or 0); pulled += 1
-            g.update(event_markets(body or {}))
-        print("Events: %d games · %d prop lines · %d credits · remaining %s"
-              % (pulled, sum(len(g.get("props", [])) for g in games), spent, rem), flush=True)
+            pulled += 1
+            merged = merge_events(calls)
+            g.update(event_markets(merged[0] if merged else {}))
+        print("Events: %d games · %d prop lines · %d pick'em lines · %d credits · remaining %s"
+              % (pulled, sum(len(g.get("props", [])) for g in games), sum(len(g.get("dfs", [])) for g in games), spent, rem), flush=True)
 
     if dry:
         for g in games[:20]:
@@ -309,11 +452,12 @@ def main():
     for g in games:
         p = prev.get(g["id"])
         if p and "props" not in g:
-            for k in ("props", "tt", "h1", "alt", "ev_snapshot"):
+            for k in ("props", "tt", "h1", "alt", "dfs", "ev_snapshot"):
                 if k in p: g[k] = p[k]
         elif "props" in g:
             g["ev_snapshot"] = snap_ts
     if write_if_changed(LIVE, {"generated": snap_ts, "sport": "NCAAB", "markets": markets, "regions": regions,
+                               "platforms": [s[2] for s in srcs],
                                "count": len(games), "games": games}):
         print("Wrote %s (%d games)." % (os.path.relpath(LIVE, HERE), len(games)), flush=True)
 
@@ -329,7 +473,7 @@ def main():
     if games:
         with open(ARCHIVE, "a") as f:
             for g in games:
-                slim = {k: v for k, v in g.items() if k not in ("props", "tt", "h1", "alt")}
+                slim = {k: v for k, v in g.items() if k not in ("props", "tt", "h1", "alt", "dfs")}
                 f.write(json.dumps(slim, separators=(",", ":")) + "\n")
         print("Appended %d snapshots to %s." % (len(games), os.path.relpath(ARCHIVE, HERE)), flush=True)
         fresh = [g for g in games if g.get("ev_snapshot") == snap_ts and g.get("props")]
@@ -337,7 +481,7 @@ def main():
             with open(os.path.join(DATA, "odds_props_archive.jsonl"), "a") as f:
                 for g in fresh:
                     f.write(json.dumps({"id": g["id"], "snapshot": snap_ts, "commence": g["commence"], "home": g["home"], "away": g["away"],
-                                        "props": g["props"], "tt": g.get("tt"), "h1": g.get("h1")}, separators=(",", ":")) + "\n")
+                                        "props": g["props"], "tt": g.get("tt"), "h1": g.get("h1"), "dfs": g.get("dfs")}, separators=(",", ":")) + "\n")
             print("Appended props for %d games to odds_props_archive.jsonl." % len(fresh), flush=True)
     else:
         print("Empty board (off-season / no games today) — archive untouched.", flush=True)

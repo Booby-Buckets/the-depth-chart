@@ -9,8 +9,10 @@ name: Archive live odds
 # SETUP: add a repo secret named ODDS_API_KEY (Settings → Secrets and variables →
 # Actions → New repository secret). Until that secret exists the job no-ops safely, so
 # this workflow can be merged now and simply sits idle until you're ready / in-season.
-# Cost: main markets (spreads,totals,h2h) x 2 regions (us,us2) = 6 credits a run, 4 runs a day.
-# Event markets (5 player props + team totals + alt + 1H lines) cost markets x regions PER GAME, so each
+# Platforms: US sportsbooks (us,us2) + exchanges (us_ex) + Pinnacle (the sharp reference) on the main board;
+# props from the sportsbooks + the DFS pick'em apps (us_dfs); Pinnacle's team totals / first-half lines.
+# Cost: main markets (spreads,totals,h2h) x 4 sources = 12 credits a run, 4 runs a day (~1.5k/month).
+# Event markets cost ~28 credits PER GAME (10 sportsbook markets x 2 regions + 3 Pinnacle + 5 DFS), so each
 # props run is capped at 1,200 credits (nearest tips first), so a month can never pass ~75k (100K plan).
 
 on:
@@ -47,12 +49,12 @@ jobs:
             echo "No ODDS_API_KEY secret set — skipping (add it in repo Settings → Secrets to activate)."
             exit 0
           fi
-          # every book's spread/total/moneyline every run (6 credits); event markets (props, team totals,
+          # every platform's spread/total/moneyline every run (12 credits); event markets (props, team totals,
           # alternate + first-half lines) on the 11:00 and 18:30 ET runs, capped per run by --event-budget
           H=$(date -u +%H)
           EV=""
           if [ "$H" = "15" ] || [ "$H" = "22" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then EV="--events --event-budget 1200"; fi
-          python3 scripts/archive_live_odds.py --markets spreads,totals,h2h --regions us,us2 $EV
+          python3 scripts/archive_live_odds.py --markets spreads,totals,h2h --regions us,us2 --exchanges --sharp --dfs $EV
 
       - name: Commit if changed
         run: |

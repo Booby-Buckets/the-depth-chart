@@ -23,7 +23,10 @@
   // ── book-priced boxes (when the odds feed has this game): the BEST price across books, its book, and a green
   //    box when the bet clears the edge board's EV bar ──
   var BK_SHORT = { draftkings: 'DK', fanduel: 'FD', betmgm: 'MGM', caesars: 'CZR', williamhill_us: 'CZR', espnbet: 'ESPN', fanatics: 'FAN', betrivers: 'BR', hardrockbet: 'HR',
-    bovada: 'BOV', betonlineag: 'BOL', mybookieag: 'MYB', lowvig: 'LV', betus: 'BETUS', ballybet: 'BALLY', pointsbetus: 'PB', unibet_us: 'UNI', wynnbet: 'WYNN', superbook: 'SB' };
+    bovada: 'BOV', betonlineag: 'BOL', mybookieag: 'MYB', lowvig: 'LV', betus: 'BETUS', ballybet: 'BALLY', pointsbetus: 'PB', unibet_us: 'UNI', wynnbet: 'WYNN', superbook: 'SB',
+    fliff: 'FLIFF', betparx: 'PARX', espnbet_us: 'ESPN', rebet: 'REBET', windcreek: 'WIND', betanysports: 'BAS', circasports: 'CIRCA',
+    novig: 'NOVIG', prophetx: 'PX', betopenly: 'OPNLY', kalshi: 'KAL', polymarket: 'POLY', sporttrade: 'ST', pinnacle: 'PIN',
+    prizepicks: 'PP', underdog: 'UD', pick6: 'PICK6', betr_us_dfs: 'BETR', dabble_au: 'DABBL' };
   function bkShort(k, t) { return BK_SHORT[k] || (t || k || '').slice(0, 5).toUpperCase(); }
   var GM = {};
   function edgeGame(r) {

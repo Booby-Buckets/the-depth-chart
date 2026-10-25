@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <base href="/">
+  <title>TDC Bet · Pick'em</title>
+  <meta name="description" content="College basketball DFS pick'em: every PrizePicks, Underdog, Pick6 and Betr line priced by our model, the break-even each entry needs, and the best entry to build.">
+  <meta name="theme-color" content="#0A0D12">
+  <link rel="icon" type="image/svg+xml" href="bet/favicon.svg">
+  <script src="auth.js?v=sso1"></script>
+  <script>try{var _t=JSON.parse(localStorage.getItem('tdcbet_theme')||'"dark"');document.documentElement.setAttribute('data-theme',_t==='light'?'light':'dark');}catch(e){}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="tdc-sheets.css?v=6">
+  <link rel="stylesheet" href="bet/bet.css?v=2">
+  <script src="tdc-gate.js?v=4"></script>
+  <script src="team-colors.js?v=13"></script>
+  <script src="tdc-ratings.js?v=44"></script>
+  <style>
+    .be-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin:0 0 16px;}
+    .be-strip div{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;}
+    .be-strip div.best{border-color:var(--accent);}
+    .be-strip b{display:block;font:800 24px/1 'Barlow Condensed',sans-serif;color:var(--text);}
+    .be-strip div.best b{color:var(--accent);}
+    .be-strip span{display:block;font:700 10px Inter,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-top:4px;}
+    .be-strip small{display:block;font-size:11px;color:var(--text2);margin-top:2px;}
+    .pk-side{display:inline-block;min-width:44px;text-align:center;padding:2px 7px;border-radius:6px;font:700 11px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;}
+    .pk-side.more{background:rgba(34,197,94,.14);color:#22c55e;}
+    .pk-side.less{background:rgba(239,68,68,.14);color:#ef4444;}
+    .ent-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:16px;align-items:start;}
+    .ent-picks{display:flex;flex-direction:column;gap:6px;margin-top:10px;}
+    .ent-pick{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg);font-size:13px;}
+    .ent-pick .x{background:none;border:0;color:var(--text3);cursor:pointer;font-size:16px;line-height:1;}
+    .pay-in{width:58px;height:28px;padding:0 6px;border:1px solid var(--border2);border-radius:7px;background:var(--bg);color:var(--text);font:600 12.5px Inter,sans-serif;text-align:center;}
+    .pay-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px;font-size:12px;color:var(--text2);}
+    .ent-num{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:12px;}
+    .ent-num div{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:8px 10px;}
+    .ent-num b{display:block;font:800 20px/1 'Barlow Condensed',sans-serif;}
+    .ent-num span{display:block;font:700 9.5px Inter,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-top:3px;}
+    tr.pk-open td{background:var(--bg3);}
+    @media (max-width:860px){ .ent-grid{grid-template-columns:1fr;} .ent-num{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  </style>
+</head>
+<body>
+<main class="bx-main">
+  <div class="bx-head"><div><div class="bx-kick">DFS pick'em</div><h1 class="bx-h1">The pick'em board</h1>
+    <div class="bx-sub">PrizePicks, Underdog, Pick6 and Betr post a line and pay a fixed multiplier for the whole entry. So no pick has a price of its own. A pick is worth playing when our chance beats the break-even of the entry you put it in.</div></div></div>
+
+  <section class="bx-sec" id="emptySec" hidden><div class="bx-empty" id="emptyMsg"></div></section>
+
+  <div id="mainSec" hidden>
+    <div class="bx-tools" style="margin-bottom:12px">
+      <select class="bx-sel" id="day"></select>
+      <div class="bx-seg" id="appSeg"></div>
+    </div>
+    <div class="be-strip" id="beStrip"></div>
+
+    <section class="bx-sec">
+      <div class="bx-bar"><h2>Every line, priced</h2><span class="hint" id="hint"></span></div>
+      <div class="bx-tools">
+        <div class="bx-seg" id="statSeg"><button data-s="all" class="on">All</button><button data-s="pts">Points</button><button data-s="reb">Rebounds</button><button data-s="ast">Assists</button><button data-s="tpm">Threes</button><button data-s="pra">P+R+A</button></div>
+        <div class="bx-seg" id="onlySeg"><button data-o="be" class="on">Beats break-even</button><button data-o="all">Everything</button></div>
+        <input class="bx-in" id="q" placeholder="Player or team…">
+      </div>
+      <div id="tblWrap"><div class="sheet-wrap"><table class="sheet dense freeze2" id="pkTbl" style="--c1:40px;--c2:200px"><tbody><tr><td class="empty">Loading…</td></tr></tbody></table></div></div>
+      <div id="lockWrap" style="margin-top:10px" hidden><div class="sheet-wrap"><table class="sheet dense"><tbody id="ghost"></tbody></table></div></div>
+      <div class="bx-note"><b>Our proj</b> = our expected line for this game. <b>Books imply</b> = what the sportsbooks' prices for the same prop point to; when they post one, <b>Chance</b> blends the two, the same way the prop board does. Without a sportsbook price the chance is our model alone (marked <span class="bx-tag y">model only</span>), so trust it less. <span class="bx-tag r">check line</span> = far from the sportsbooks' number or over 72%: usually a goblin or demon line that pays a different multiplier. Those stay out of built entries. <b>vs B/E</b> = chance minus the lowest break-even this app offers. <b>Other apps</b> = the same prop's line elsewhere; a half point is a lot here.</div>
+    </section>
+
+    <section class="bx-sec">
+      <div class="bx-bar"><h2>Build an entry</h2><span class="hint" id="entHint"></span></div>
+      <div class="ent-grid">
+        <div>
+          <div class="sheet-wrap"><table class="sheet dense" id="entTbl"><tbody><tr><td class="empty">—</td></tr></tbody></table></div>
+          <div class="bx-note">Each row takes the best picks on the board (one per game first, since picks from the same game move together and the payout math assumes they don't) and works out the entry exactly. <b>EV</b> = expected profit per $1. <b>Cash</b> = chance it pays anything; <b>Profit</b> = chance it pays more than you put in.</div>
+        </div>
+        <div class="bx-card" id="myEnt"><div class="bx-card-h"><h3>Your entry</h3><span class="dim" style="font-size:12px">tap + on any line</span></div><div class="bx-card-b" id="myBody"></div></div>
+      </div>
+      <div id="entLock" style="margin-top:10px" hidden></div>
+    </section>
+  </div>
+</main>
+
+<script src="bet/bet-core.js?v=3"></script>
+<script src="bet/bet-shell.js?v=3"></script>
+<script src="bet/bet-ui.js?v=4"></script>
+<script src="tdc-sheets.js?v=2"></script>
+<script src="bet/bet-edge.js?v=9"></script>
+<script src="bet/bet-dfs.js?v=2"></script>
+<script>
+(function(){
+  var B=TDCBet, P=TDCPickem, esc=B.esc, $=function(id){return document.getElementById(id);};
+  var ST={day:null,app:null,stat:'all',only:'be',q:'',open:null}, LINES=[], PREM=false, FREE=5;
+  var MY=BX.LS.get('tdcbet_pickem',{picks:[],type:'power',pay:{}});
+  function pct(p,d){ return (p*100).toFixed(d==null?0:d)+'%'; }
+  function evTxt(ev){ return '<span class="'+(ev>0?'pos':'neg')+'">'+(ev>=0?'+':'−')+Math.abs(ev*100).toFixed(1)+'%</span>'; }
+  function seg(id,attr,key,cb){ $(id).addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b) return; $(id).querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);}); ST[key]=b.dataset[attr]; (cb||paint)(); }); }
+  seg('statSeg','s','stat'); seg('onlySeg','o','only');
+  seg('appSeg','a','app',function(){ BX.LS.set('tdcbet_pickem_app',ST.app); paint(); });
+  $('q').oninput=function(){ ST.q=this.value.toLowerCase().trim(); paint(); };
+  $('day').onchange=function(){ ST.day=this.value; load(); };
+
+  // the payout table in use for this app: defaults, with the user's own multipliers on top
+  function pay(){
+    var a=P.app(ST.app), mine=(MY.pay&&MY.pay[ST.app])||{}, out={power:Object.assign({},a.power),flex:{}};
+    Object.keys(a.flex||{}).forEach(function(n){ out.flex[n]=Object.assign({},a.flex[n]); });
+    Object.keys(mine.power||{}).forEach(function(n){ out.power[n]=+mine.power[n]; });
+    Object.keys(mine.flex||{}).forEach(function(n){ out.flex[n]=Object.assign(out.flex[n]||{},mine.flex[n]); });
+    return out;
+  }
+  function apps(){ var seen={}; LINES.forEach(function(l){ Object.keys(l.apps).forEach(function(a){ seen[a]=(seen[a]||0)+1; }); }); return Object.keys(seen).sort(function(a,b){return seen[b]-seen[a];}); }
+
+  function load(){
+    var day=ST.day;
+    TDCEdge.dfs(B.slate(day)).then(function(list){ if(day!==ST.day) return;
+      LINES=list;
+      var as=apps();
+      if(!as.length){ $('mainSec').hidden=true; $('emptySec').hidden=false;
+        $('emptyMsg').innerHTML='No pick\'em lines for '+esc(B.dayLabel(day))+' yet. PrizePicks, Underdog and the other apps post college lines close to game day, and our odds feed picks them up with the sportsbook props.'; return; }
+      $('emptySec').hidden=true; $('mainSec').hidden=false;
+      var want=BX.LS.get('tdcbet_pickem_app',null); if(as.indexOf(ST.app)<0) ST.app=as.indexOf(want)>=0?want:as[0];
+      $('appSeg').innerHTML=as.map(function(a){ return '<button data-a="'+esc(a)+'"'+(a===ST.app?' class="on"':'')+'>'+esc(P.label(a))+'</button>'; }).join('');
+      paint();
+    });
+  }
+
+  function beStrip(pt){
+    var best=null, cells=[];
+    ['power','flex'].forEach(function(type){ Object.keys(pt[type]||{}).forEach(function(n){ var t=P.payTable(pt,type,+n); if(!t) return; var be=P.breakEven(t); cells.push({type:type,n:+n,be:be,t:t}); if(!best||be<best.be) best={type:type,n:+n,be:be}; }); });
+    $('beStrip').innerHTML=cells.map(function(c){ var top=Math.max.apply(null,Object.keys(c.t).map(Number));
+      return '<div'+(best&&c.type===best.type&&c.n===best.n?' class="best"':'')+'><b>'+pct(c.be,1)+'</b><span>'+c.n+'-pick '+(c.type==='power'?'Power':'Flex')+'</span><small>pays '+c.t[top]+'x'+(c.type==='flex'?' · '+Object.keys(c.t).filter(function(h){return +h<top;}).sort(function(a,b){return b-a;}).map(function(h){return h+'/'+top+' '+c.t[h]+'x';}).join(' · '):'')+'</small></div>'; }).join('');
+    return best;
+  }
+
+  function paint(){
+    var pt=pay(), best=beStrip(pt), all=P.picks(LINES,ST.app);
+    var v=all.filter(function(c){
+      if(ST.stat!=='all'&&c.stat!==ST.stat) return false;
+      if(ST.q&&(c.player+' '+B.short(c.team)).toLowerCase().indexOf(ST.q)<0) return false;
+      if(ST.only==='be') return best&&c.p>best.be&&!c.check;
+      return true; });
+    $('hint').textContent=all.length+' lines at '+P.label(ST.app)+' · '+v.length+' shown'+(best?' · break-even '+pct(best.be,1)+' ('+best.n+'-pick '+best.type+')':'')+(TDCEdge.fixture()?' · SAMPLE DATA':'');
+    var show=PREM?v:v.slice(0,FREE), inMy={}; MY.picks.forEach(function(k){ inMy[k]=1; });
+    $('pkTbl').innerHTML='<thead><tr><th class="rk">#</th><th class="l">Player</th><th class="l">Game</th><th>Stat</th><th>Line</th><th title="The sportsbooks\' median line for the same prop">Books\' line</th><th title="Our expected line for this game">Our proj</th><th title="What the sportsbooks\' prices imply">Books imply</th><th class="l">Pick</th><th>Chance</th><th title="Chance minus this app\'s lowest break-even">vs B/E</th><th class="l">Other apps</th><th></th></tr></thead><tbody>'+
+      (show.length?show.map(function(c,i){ var k=key(c), oth=Object.keys(c.apps).filter(function(a){return a!==ST.app;}).map(function(a){ var L=c.apps[a].line, d=L-c.line; return esc(BXUI.bkShort(a))+' '+L+(d?' <span class="'+((c.side==='more'?d>0:d<0)?'neg':'pos')+'">'+(d>0?'+':'')+d+'</span>':''); }).join(' · ');
+        return '<tr><td class="rk">'+(i+1)+'</td><td class="l nm"><a href="'+B.playerHref(c.pid,'betting')+'">'+esc(c.player)+'</a> <span class="dim">'+esc(B.short(c.team))+'</span>'+(c.noMkt?' <span class="bx-tag y">model only</span>':'')+(c.check?' <span class="bx-tag r" title="Far from the sportsbooks\' line or too good to be true: often a goblin/demon line with a different payout. Left out of built entries.">check line</span>':'')+'</td><td class="l dim">'+esc(c.game)+'</td><td>'+B.STAT_ABBR[c.stat]+'</td><td><b>'+c.line+'</b></td>'+
+          '<td class="dim">'+(c.bookLine!=null?c.bookLine:'—')+'</td><td><b>'+c.mu.toFixed(1)+'</b></td><td class="dim">'+(c.mkMu!=null?c.mkMu.toFixed(1):'—')+'</td><td class="l"><span class="pk-side '+c.side+'">'+c.side+'</span></td>'+
+          '<td><b class="'+(best&&c.p>best.be&&!c.check?'pos':'')+'">'+pct(c.p)+'</b></td><td>'+(best?'<span class="'+(c.p>best.be?'pos':'neg')+'">'+(c.p>=best.be?'+':'−')+Math.abs((c.p-best.be)*100).toFixed(1)+'</span>':'—')+'</td><td class="l dim" style="font-size:11.5px">'+(oth||'—')+'</td>'+
+          '<td><button class="bx-tag '+(inMy[k]?'':'g')+'" data-add="'+esc(k)+'" style="border:0;cursor:pointer">'+(inMy[k]?'Added':'+ Entry')+'</button></td></tr>'; }).join('')
+      :'<tr><td colspan="13" class="empty">'+(ST.only==='be'?'No line clears this app\'s break-even. Switch to Everything to see every line.':'No lines match.')+'</td></tr>')+'</tbody>';
+    var lw=$('lockWrap');
+    if(!PREM&&v.length>FREE){ lw.hidden=false; lw.querySelectorAll('.bx-lock').forEach(function(x){x.remove();}); lw.firstElementChild.classList.remove('bx-locked');
+      $('ghost').innerHTML=Array.from({length:Math.min(8,v.length-FREE)},function(_,i){return '<tr><td class="rk">'+(i+FREE+1)+'</td><td class="l">Premium player</td><td class="l dim">Game</td><td>PTS</td><td>00.5</td><td>00.5</td><td>00.0</td><td>00.0</td><td class="l">More</td><td>00%</td><td>+0.0</td></tr>';}).join('');
+      BX.gate(lw,{label:(v.length-FREE)+' more pick\'em lines',blurb:'Every PrizePicks, Underdog, Pick6 and Betr line priced by our model, set against each app\'s break-even. Premium unlocks it, plus the entry builder.'}); }
+    else lw.hidden=true;
+    if(window.tdcSheetHeat) tdcSheetHeat($('pkTbl'));
+    entries(all,pt); myEntry(all,pt);
+  }
+  function key(c){ return c.app+'|'+c.pid+'|'+c.stat; }
+
+  function entries(all,pt){
+    var list=P.build(all,ST.app,{pay:pt}), top=list.filter(function(e){return e.ev>0;});
+    $('entHint').textContent=list.length?(top.length?top.length+' of '+list.length+' entry types are +EV with today\'s best picks':'No entry type is +EV with today\'s picks; the best is shown anyway'):'';
+    var showN=PREM?list.length:Math.min(2,list.length);
+    $('entTbl').innerHTML='<thead><tr><th class="l">Entry</th><th>Picks</th><th title="Per-pick break-even">B/E</th><th title="Average chance of the picks in it">Avg pick</th><th data-heat="1">EV</th><th>All hit</th><th>Cash</th><th>Profit</th></tr></thead><tbody>'+
+      (list.length?list.slice(0,showN).map(function(e,i){ var avg=e.picks.reduce(function(s,c){return s+c.p;},0)/e.picks.length, op=ST.open===e.type+e.n;
+        return '<tr class="'+(op?'pk-open':'')+'" data-ent="'+e.type+e.n+'" style="cursor:pointer"><td class="l nm">'+e.n+'-pick '+(e.type==='power'?'Power':'Flex')+(i===0&&e.ev>0?' <span class="bx-tag g">best</span>':'')+'</td><td>'+e.n+'</td><td class="dim">'+pct(e.be,1)+'</td><td>'+pct(avg,1)+'</td><td data-v="'+e.ev+'">'+evTxt(e.ev)+'</td><td>'+pct(e.pAll,1)+'</td><td>'+pct(e.pCash)+'</td><td>'+pct(e.pProfit)+'</td></tr>'+
+          (op?'<tr class="pk-open"><td colspan="8" class="l" style="font-size:12.5px;line-height:1.7">'+e.picks.map(function(c){ return '<span class="pk-side '+c.side+'">'+c.side+'</span> '+esc(c.player)+' '+c.line+' '+B.STAT_ABBR[c.stat]+' <span class="dim">'+pct(c.p)+' · '+esc(c.game)+'</span>'; }).join('<br>')+
+            '<br><button class="bx-btn" data-use="'+e.type+e.n+'" style="margin-top:8px">Use these picks</button></td></tr>':''); }).join('')
+      :'<tr><td colspan="8" class="empty">Not enough lines from different teams to build an entry.</td></tr>')+'</tbody>';
+    $('entTbl').__list=list;
+    var el=$('entLock'); if(!PREM&&list.length>showN){ el.hidden=false; el.innerHTML='<div class="sheet-wrap"><table class="sheet dense"><tbody>'+Array.from({length:Math.min(6,list.length-showN)},function(){return '<tr><td class="l">0-pick Flex</td><td>0</td><td>00.0%</td><td>00.0%</td><td>+00.0%</td><td>0.0%</td><td>00%</td><td>00%</td></tr>';}).join('')+'</tbody></table></div>';
+      BX.gate(el,{label:'Every entry size and type',blurb:'The exact EV and cash chance of every Power and Flex entry, built from the best picks of the day.'}); } else el.hidden=true;
+    if(window.tdcSheetHeat) tdcSheetHeat($('entTbl'));
+  }
+  $('entTbl').addEventListener('click',function(e){
+    var u=e.target.closest('[data-use]');
+    if(u){ var en=($('entTbl').__list||[]).find(function(x){return x.type+x.n===u.dataset.use;}); if(en){ MY.picks=en.picks.map(key); MY.type=en.type; save(); paint(); } return; }
+    var r=e.target.closest('[data-ent]'); if(!r) return; ST.open=ST.open===r.dataset.ent?null:r.dataset.ent; paint();
+  });
+
+  function myEntry(all,pt){
+    var by={}; all.forEach(function(c){ by[key(c)]=c; });
+    var ch=MY.picks.map(function(k){return by[k];}).filter(Boolean), n=ch.length, body='';
+    if(!n){ $('myBody').innerHTML='<div class="dim" style="font-size:13px;padding:6px 0">Add lines from the board, or open an entry on the left and tap <b>Use these picks</b>.</div>'; return; }
+    var tbl=P.payTable(pt,MY.type,n), alt=MY.type==='power'?'flex':'power';
+    body+='<div class="bx-seg" id="myType"><button data-t="power"'+(MY.type==='power'?' class="on"':'')+'>Power</button><button data-t="flex"'+(MY.type==='flex'?' class="on"':'')+'>Flex</button></div>';
+    body+='<div class="ent-picks">'+ch.map(function(c){ return '<div class="ent-pick"><span><span class="pk-side '+c.side+'">'+c.side+'</span> <b>'+esc(c.player)+'</b> '+c.line+' '+B.STAT_ABBR[c.stat]+' <span class="dim">· '+esc(c.game)+'</span></span><span><b>'+pct(c.p)+'</b> <button class="x" data-rm="'+esc(key(c))+'" aria-label="Remove">×</button></span></div>'; }).join('')+'</div>';
+    var games={}, dup=false; ch.forEach(function(c){ if(games[c.gid]) dup=true; games[c.gid]=1; });
+    if(!tbl) body+='<div class="bx-note" style="margin-top:10px">'+esc(P.label(ST.app))+' has no '+n+'-pick '+MY.type+' entry'+(P.payTable(pt,alt,n)?'. Try '+alt+'.':'.')+'</div>';
+    else {
+      var r=P.entry(ch.map(function(c){return c.p;}),tbl), hits=Object.keys(tbl).map(Number).sort(function(a,b){return b-a;});
+      body+='<div class="pay-row">Payouts '+hits.map(function(h){ return '<label>'+h+'/'+n+' <input class="pay-in" type="number" step="0.05" min="0" data-h="'+h+'" value="'+tbl[h]+'">x</label>'; }).join('')+' <button class="bx-tag" id="payReset" style="border:0;cursor:pointer">reset</button></div>';
+      body+='<div class="ent-num"><div><b class="'+(r.ev>0?'pos':'neg')+'">'+(r.ev>=0?'+':'−')+Math.abs(r.ev*100).toFixed(1)+'%</b><span>EV per $1</span></div><div><b>'+pct(r.pAll,1)+'</b><span>All hit</span></div><div><b>'+pct(r.pCash)+'</b><span>Pays anything</span></div><div><b>'+pct(P.breakEven(tbl),1)+'</b><span>Break-even / pick</span></div></div>';
+      if(dup) body+='<div class="bx-note" style="margin-top:8px">Two picks share a game. Their results move together, so the real odds are a little different from these.</div>';
+    }
+    body+='<button class="bx-btn" id="myClear" style="margin-top:12px">Clear</button>';
+    $('myBody').innerHTML=body;
+  }
+  function save(){ BX.LS.set('tdcbet_pickem',MY); }
+  $('myBody').addEventListener('click',function(e){
+    var t=e.target.closest('#myType button'); if(t){ MY.type=t.dataset.t; save(); paint(); return; }
+    var rm=e.target.closest('[data-rm]'); if(rm){ MY.picks=MY.picks.filter(function(k){return k!==rm.dataset.rm;}); save(); paint(); return; }
+    if(e.target.id==='myClear'){ MY.picks=[]; save(); paint(); return; }
+    if(e.target.id==='payReset'){ if(MY.pay) delete MY.pay[ST.app]; save(); paint(); }
+  });
+  $('myBody').addEventListener('change',function(e){
+    var inp=e.target.closest('.pay-in'); if(!inp) return;
+    var n=MY.picks.length, v=parseFloat(inp.value); if(!(v>=0)) return;
+    MY.pay=MY.pay||{}; var m=MY.pay[ST.app]=MY.pay[ST.app]||{};
+    if(MY.type==='power'){ m.power=m.power||{}; m.power[n]=v; } else { m.flex=m.flex||{}; m.flex[n]=m.flex[n]||{}; m.flex[n][inp.dataset.h]=v; }
+    save(); paint();
+  });
+  $('pkTbl').addEventListener('click',function(e){
+    var b=e.target.closest('[data-add]'); if(!b) return;
+    var k=b.dataset.add, i=MY.picks.indexOf(k);
+    if(i>=0) MY.picks.splice(i,1); else { if(MY.picks.length>=6){ MY.picks.shift(); } MY.picks.push(k); }
+    save(); paint();
+  });
+
+  Promise.all([B.load(),B.loadProps(),BX.has(),TDCEdge.load()]).then(function(r){
+    PREM=r[2];
+    var S=B.state(), iso=B.isoDay(), want=new URLSearchParams(location.search).get('date');
+    var days=S.dates.filter(function(d){ return (d>=iso||d===want)&&B.slate(d).some(function(x){return !x.exh;}); }).slice(0,6);
+    if(!days.length){ $('emptySec').hidden=false; $('emptyMsg').textContent='No games on the schedule yet.'; return; }
+    $('day').innerHTML=days.map(function(d){return '<option value="'+d+'">'+B.dayLabel(d)+' · '+B.fmtDate(d,'md')+'</option>';}).join('');
+    ST.day=days.indexOf(want)>=0?want:days[0]; $('day').value=ST.day;
+    load();
+  });
+})();
+</script>
+</body>
+</html>

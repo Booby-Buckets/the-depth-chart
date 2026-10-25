@@ -70,11 +70,11 @@
   </div>
 </main>
 
-<script src="bet/bet-core.js?v=2"></script>
-<script src="bet/bet-shell.js?v=2"></script>
-<script src="bet/bet-ui.js?v=3"></script>
+<script src="bet/bet-core.js?v=3"></script>
+<script src="bet/bet-shell.js?v=3"></script>
+<script src="bet/bet-ui.js?v=4"></script>
 <script src="bet/cbb-live.js?v=1"></script>
-<script src="bet/bet-edge.js?v=8"></script>
+<script src="bet/bet-edge.js?v=9"></script>
 <script>
 (function(){
   var B=TDCBet, esc=B.esc, $=function(id){return document.getElementById(id);};
@@ -196,7 +196,9 @@
   function booksUi(){
     var bs=TDCEdge.books(); if(!bs.length){ $('edBooksBtn').hidden=true; return; }
     $('edBooksBtn').hidden=false; $('edBooksBtn').textContent='My books: '+(ED.books.length?ED.books.length+' of '+bs.length:'all '+bs.length);
-    $('edPop').innerHTML='<div class="dim" style="font-size:11.5px;padding:4px 8px 6px">Only show prices at books you can bet</div>'+bs.map(function(b){ return '<label><input type="checkbox" value="'+esc(b.key)+'"'+(ED.books.indexOf(b.key)>=0?' checked':'')+'> '+esc(b.title)+'<small>'+b.n+' games</small></label>'; }).join('');
+    var grp=function(kind,title){ var g=bs.filter(function(b){ return (b.kind||'book')===kind; }); return g.length?'<div class="dim" style="font:700 10px Inter,sans-serif;letter-spacing:.07em;text-transform:uppercase;padding:8px 8px 2px">'+title+'</div>'+g.map(function(b){ return '<label><input type="checkbox" value="'+esc(b.key)+'"'+(ED.books.indexOf(b.key)>=0?' checked':'')+'> '+esc(b.title)+'<small>'+b.n+' games</small></label>'; }).join(''):''; };
+    $('edPop').innerHTML='<div class="dim" style="font-size:11.5px;padding:4px 8px 6px">Only show prices at books you can bet</div>'+grp('book','Sportsbooks')+grp('ex','Exchanges · fees included')+
+      (TDCEdge.hasSharp()?'<div class="dim" style="font-size:11px;padding:8px 8px 4px;border-top:1px solid var(--border);margin-top:6px">Pinnacle, the sharpest book, sets our market reference line. It isn\'t listed as a place to bet.</div>':'');
     $('edPop').onchange=function(){ ED.books=Array.prototype.map.call($('edPop').querySelectorAll('input:checked'),function(i){return i.value;}); BX.LS.set('tdcbet_books',ED.books); booksUi(); compute(); };
   }
   function scopeRows(){
