@@ -88,7 +88,8 @@
 <script src="bet/bet-shell.js?v=2"></script>
 <script src="bet/bet-ui.js?v=3"></script>
 <script src="tdc-sheets.js?v=2"></script>
-<script src="bet/bet-edge.js?v=7"></script>
+<script src="bet/cbb-live.js?v=1"></script>
+<script src="bet/bet-edge.js?v=8"></script>
 <script>
 (function(){
   var B=TDCBet, esc=B.esc, $=function(id){return document.getElementById(id);};
@@ -188,15 +189,17 @@
   $('bkQ').oninput=function(){ BK.q=this.value.toLowerCase(); bkPaint(); };
   $('bkDay').onchange=function(){ BK.day=this.value; bkLoad(); };
   function bkInit(){
-    if(!TDCEdge.has()) return;
-    var Sx=B.state(), iso=B.isoDay(), want0=new URLSearchParams(location.search).get('date'), days=Sx.dates.filter(function(d){ return (d>=iso||d===want0) && B.slate(d).some(function(r){ return !r.exh && TDCEdge.game(r); }); }).slice(0,6);
+    TDCEdge.onUpdate(function(){ TDCEdge.props(B.slate(BK.day),{all:true}).then(function(list){ var by={}; list.forEach(function(b){ var k=b.pid+':'+b.stat; (by[k]=by[k]||{})[b.side]=b; });
+      BKROWS=Object.keys(by).map(function(k){ var o=by[k].over, u=by[k].under, a=o||u; return {o:o,u:u,a:a,best:[o,u].filter(Boolean).sort(function(x,y){return y.ev-x.ev;})[0]}; }); $('bookSec').hidden=!BKROWS.length; bkPaint(); }); });
+    var Sx=B.state(), iso=B.isoDay(), want0=new URLSearchParams(location.search).get('date'), days=Sx.dates.filter(function(d){ return (d>=iso||d===want0) && B.slate(d).some(function(r){ return !r.exh; }); }).slice(0,6);
     if(!days.length) return;
     $('bkDay').innerHTML=days.map(function(d){return '<option value="'+d+'">'+B.dayLabel(d)+' · '+B.fmtDate(d,'md')+'</option>';}).join('');
     var want=new URLSearchParams(location.search).get('date'); BK.day=days.indexOf(want)>=0?want:days[0]; $('bkDay').value=BK.day;
     bkLoad();
   }
   function bkLoad(){
-    TDCEdge.props(B.slate(BK.day),{all:true}).then(function(list){
+    var day=BK.day;
+    TDCEdge.live(B.slate(day)).then(function(){ return TDCEdge.props(B.slate(day),{all:true}); }).then(function(list){ if(day!==BK.day) return;
       // one row per player + stat: the over and under side of the same prop
       var by={}; list.forEach(function(b){ var k=b.pid+':'+b.stat; (by[k]=by[k]||{})[b.side]=b; });
       BKROWS=Object.keys(by).map(function(k){ var o=by[k].over, u=by[k].under, a=o||u; return {o:o,u:u,a:a,best:[o,u].filter(Boolean).sort(function(x,y){return y.ev-x.ev;})[0]}; });

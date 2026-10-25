@@ -1,0 +1,44 @@
+name: College line log
+
+# TDC Bet college edge log on FREE prices: every 30 min in season, the site's own engine (bet-edge.js + cbb-live.js) in
+# headless Chrome prices today's and the next two days' games against DraftKings (ESPN feed), Kalshi (our /api/kalshi
+# pass-through) and Polymarket, logs every bet the board lists at the price shown, and refreshes closing prices until
+# tip (scripts/snapshot_bet_picks.mjs --edges → scripts/data/bet_picks_2027.json). Graded nightly by grade_bet_edges.py.
+
+on:
+  schedule:
+    - cron: '20,50 14-23 * 11,12,1,2,3,4 *'   # every 30 min, 10:20 ET … 19:50 ET
+    - cron: '20,50 0-4 * 11,12,1,2,3,4 *'     # 20:20 ET … 00:50 ET (late tips)
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cbb-lines
+  cancel-in-progress: false
+
+jobs:
+  log:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Price the board and log edges
+        run: |
+          python3 -m http.server 8768 >/dev/null 2>&1 &
+          mkdir -p "$RUNNER_TEMP/pp" && (cd "$RUNNER_TEMP/pp" && npm init -y >/dev/null && npm i --silent puppeteer@22.15.0)
+          sleep 1
+          PUPPETEER_MODULE="$RUNNER_TEMP/pp/node_modules/puppeteer/lib/esm/puppeteer/puppeteer.js" BASE=http://localhost:8768/ node scripts/snapshot_bet_picks.mjs --edges
+      - name: Commit
+        run: |
+          git config user.name "tdc-odds-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/data/bet_picks_2027.json
+          if git diff --cached --quiet; then echo "No changes."; else
+            git commit -m "Auto: college edge log [skip ci]"
+            for i in 1 2 3 4 5; do git pull --rebase -X theirs origin main && git push && break; sleep $((i*5)); done
+          fi

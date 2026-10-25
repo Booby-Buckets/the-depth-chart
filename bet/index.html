@@ -73,7 +73,8 @@
 <script src="bet/bet-core.js?v=2"></script>
 <script src="bet/bet-shell.js?v=2"></script>
 <script src="bet/bet-ui.js?v=3"></script>
-<script src="bet/bet-edge.js?v=7"></script>
+<script src="bet/cbb-live.js?v=1"></script>
+<script src="bet/bet-edge.js?v=8"></script>
 <script>
 (function(){
   var B=TDCBet, esc=B.esc, $=function(id){return document.getElementById(id);};
@@ -120,7 +121,7 @@
       paintBets(b);
     });
     stats(rows,0);
-    BXUI.dateStrip($('dates'),DATE,function(d){ DATE=d; BXUI.setQuery('date',d); render(); if(window.TDCEdge&&TDCEdge.has()) edges(); });
+    BXUI.dateStrip($('dates'),DATE,function(d){ DATE=d; BXUI.setQuery('date',d); render(); if(window.TDCEdge&&TDCEdge.live) edges(); });
     var feat=rows.slice(0,6);
     $('featHint').textContent=rows.length?rows.length+' on the slate':'';
     $('allGames').href=B.href('games','date='+DATE);
@@ -187,7 +188,7 @@
   $('edBank').value=ED.bank;
   function seg(id,attr,key){ $(id).addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b) return; $(id).querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);}); ED[key]=b.dataset[attr]; if(key==='scope') edges(); else paintEdges(); }); }
   seg('edMk','m','m'); seg('edScope','s','scope');
-  $('edMin').onchange=function(){ ED.min=this.value; edges(); };
+  $('edMin').onchange=function(){ ED.min=this.value; compute(); };
   $('edBank').oninput=function(){ ED.bank=Math.max(0,+this.value||0); BX.LS.set('tdcbet_bankroll',ED.bank); paintEdges(); };
   $('edBooksBtn').onclick=function(e){ e.stopPropagation(); var p=$('edPop'); p.hidden=!p.hidden; };
   document.addEventListener('click',function(e){ if(!e.target.closest('.ed-books')) $('edPop').hidden=true;
@@ -196,13 +197,19 @@
     var bs=TDCEdge.books(); if(!bs.length){ $('edBooksBtn').hidden=true; return; }
     $('edBooksBtn').hidden=false; $('edBooksBtn').textContent='My books: '+(ED.books.length?ED.books.length+' of '+bs.length:'all '+bs.length);
     $('edPop').innerHTML='<div class="dim" style="font-size:11.5px;padding:4px 8px 6px">Only show prices at books you can bet</div>'+bs.map(function(b){ return '<label><input type="checkbox" value="'+esc(b.key)+'"'+(ED.books.indexOf(b.key)>=0?' checked':'')+'> '+esc(b.title)+'<small>'+b.n+' games</small></label>'; }).join('');
-    $('edPop').onchange=function(){ ED.books=Array.prototype.map.call($('edPop').querySelectorAll('input:checked'),function(i){return i.value;}); BX.LS.set('tdcbet_books',ED.books); booksUi(); edges(); };
+    $('edPop').onchange=function(){ ED.books=Array.prototype.map.call($('edPop').querySelectorAll('input:checked'),function(i){return i.value;}); BX.LS.set('tdcbet_books',ED.books); booksUi(); compute(); };
   }
   function scopeRows(){
     var S=B.state(), i=S.dates.indexOf(DATE), ds=ED.scope==='day'?[DATE]:S.dates.slice(i,i+3), rows=[];
     ds.forEach(function(d){ rows=rows.concat(B.slate(d)); }); return rows;
   }
+  // free live prices (DraftKings / Kalshi / Polymarket) for the slate in view, refreshed every 75 s (bet-edge.js live())
   function edges(){
+    var rows=scopeRows();
+    TDCEdge.live(rows).then(function(){ booksUi(); BXUI.resetEdge(); render(); compute(); });
+  }
+  TDCEdge.onUpdate(function(){ booksUi(); BXUI.resetEdge(); render(); compute(); });
+  function compute(){
     if(!TDCEdge.has()){ noBooks(); return; }
     var rows=scopeRows(), opts={books:ED.books, minEv:ED.min?+ED.min:undefined};
     var main=TDCEdge.board(rows,opts);
@@ -216,7 +223,8 @@
   function paintEdges(){
     if(!TDCEdge.has()) return;
     var list=EDGES.filter(function(b){ return ED.m==='all'||b.market===ED.m; });
-    $('edgeHint').textContent=list.length+' +EV bet'+(list.length===1?'':'s')+' · '+TDCEdge.books().length+' books compared'+(TDCEdge.stamp()?' · prices '+new Date(TDCEdge.stamp()).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}):'')+(TDCEdge.fixture()?' · SAMPLE DATA':'');
+    var li=TDCEdge.liveInfo();
+    $('edgeHint').textContent=list.length+' +EV bet'+(list.length===1?'':'s')+' · '+TDCEdge.books().length+' books compared'+(TDCEdge.stamp()?' · prices '+new Date(TDCEdge.stamp()).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit'}):'')+(li.ok?' · live: DraftKings '+(li.ok.dk?'✓':'✗')+' Kalshi '+(li.ok.kalshi?'✓':'✗')+' Polymarket '+(li.ok.poly?'✓':'✗'):'')+(TDCEdge.fixture()?' · SAMPLE DATA':'');
     if(!list.length){ $('edges').innerHTML='<div class="ed-none"><h3>No bet clears the bar</h3><p>Every price on this '+(ED.scope==='day'?'day':'stretch')+' is within our margin of the market'+(ED.books.length?' at your books':'')+'. Passing is a bet too: the edge is in not forcing it.</p></div>'; return; }
     var FREE=2, show=PREM?list:list.slice(0,FREE);
     $('edges').innerHTML='<div class="ed-list">'+show.map(function(b,i){return BXUI.edgeRow(b,i,ED.bank);}).join('')+'</div>'+(!PREM&&list.length>FREE?'<div id="edLock" style="margin-top:8px"><div class="ed-list">'+BXUI.ghostEdges(Math.min(6,list.length-FREE))+'</div></div>':'');
@@ -230,7 +238,7 @@
   }
 
   B.load().then(function(){ DATE=B.defaultDate(); if(!DATE){ $('hxTitle').textContent='No games scheduled'; return; } render();
-    Promise.all([TDCEdge.load(),BX.has()]).then(function(r){ PREM=r[1]; booksUi(); BXUI.resetEdge(); render(); edges(); }); })
+    Promise.all([TDCEdge.load(),BX.has()]).then(function(r){ PREM=r[1]; booksUi(); edges(); }); })
     .catch(function(e){ console.error(e); $('hxTitle').textContent='Could not load the board'; });
   titleOdds(); record();
 })();

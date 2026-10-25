@@ -65,7 +65,8 @@
 <script src="bet/bet-core.js?v=2"></script>
 <script src="bet/bet-shell.js?v=2"></script>
 <script src="bet/bet-ui.js?v=3"></script>
-<script src="bet/bet-edge.js?v=7"></script>
+<script src="bet/cbb-live.js?v=1"></script>
+<script src="bet/bet-edge.js?v=8"></script>
 <script>
 (function(){
   var B=TDCBet, esc=B.esc, $=function(id){return document.getElementById(id);};
@@ -174,7 +175,8 @@
       '<section class="bx-sec"><div class="bx-bar"><h2>Player props</h2><span class="hint">projected 2026-27 lines · flagged where our backtest likes a side</span><a class="more" href="'+B.href('props')+'">Prop board →</a></div><div id="props"><div class="bx-empty">Loading players…</div></div></section>';
     $('spR').oninput=paintLine; if($('toR')) $('toR').oninput=paintLine; paintLine();
     props(r);
-    TDCEdge.load().then(function(){ edgeSections(r); });
+    TDCEdge.load().then(function(){ return TDCEdge.live([r]); }).then(function(){ edgeSections(r); });
+    TDCEdge.onUpdate(function(){ edgeSections(r); });
   }
   function edgeSections(r){
     var gm=TDCEdge.game(r); if(!gm) return;

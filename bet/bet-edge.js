@@ -169,14 +169,16 @@
   // ── names: book prop names → our players ───────────────────────────────
   var NAMES = null;
   function nkey(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\b(jr|sr|ii|iii|iv)\b\.?/g, '').replace(/[^a-z ]/g, '').replace(/\s+/g, ' ').trim(); }
+  var ID2NAME = {};
   function loadNames() {
     if (NAMES) return NAMES;
+    (B.state().P || []).forEach(function (p) { if (p.name) ID2NAME[p.id] = p.name; });
     var SB = 'https://izlqhnxowdhtdofkwrho.supabase.co', KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye', out = {}, S = B.state();
     (S.P || []).forEach(function (p) { if (p.name) out[nkey(p.name)] = out[nkey(p.name)] || []; if (p.name) out[nkey(p.name)].push({ id: p.id, team: p.team }); });
     function page(from) {
       return fetch(SB + '/rest/v1/players?select=name,team,espn_id&espn_id=not.is.null&order=espn_id.asc', { headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, Range: from + '-' + (from + 999) } })
         .then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; })
-        .then(function (rows) { rows.forEach(function (x) { var k = nkey(x.name); (out[k] = out[k] || []).push({ id: String(x.espn_id), team: x.team }); }); return rows.length === 1000 ? page(from + 1000) : out; });
+        .then(function (rows) { rows.forEach(function (x) { var k = nkey(x.name); (out[k] = out[k] || []).push({ id: String(x.espn_id), team: x.team }); ID2NAME[String(x.espn_id)] = x.name; }); return rows.length === 1000 ? page(from + 1000) : out; });
     }
     return (NAMES = page(0));
   }
@@ -288,7 +290,13 @@
     var gm = bookGame(r); if (!gm || !gm.x.props) return [];
     var out = [], desc = B.short(r.away) + (r.neutral ? ' vs ' : ' @ ') + B.short(r.home);
     gm.x.props.forEach(function (pp) {
-      var who = matchPlayer(pp.p, r, names); if (!who) return;
+      var who = null;
+      if (pp.pid) {                      // free DraftKings feed (cbb-live.js): ESPN athlete ids are our player ids
+        var prx = B.state().PR && B.state().PR[pp.pid];
+        if (prx && (prx.team === r.home || prx.team === r.away)) who = { id: String(pp.pid), home: prx.team === r.home };
+        if (!pp.p) pp.p = ID2NAME[pp.pid] || null;
+      } else who = matchPlayer(pp.p, r, names);
+      if (!who || !pp.p) return;
       var pm = propMean(who.id, pp.m, r, who.home); if (!pm) return;
       var bks = Object.keys(pp.b); if (!bks.length) return;
       // market mean: invert the NB at the consensus line from each book's no-vig over chance
@@ -382,6 +390,37 @@
       side: b.side, team: b.team, pid: b.pid, stat: b.stat, label: b.label + ' @ ' + b.bookT, sub: b.game, line: b.point, price: b.price, p: b.p, book: true };
   }
 
-  g.TDCEdge = { load: load, has: has, game: gameMarkets, board: board, props: props, suspect: function (b) { return suspect(b); }, books: books, sel: sel, W: W, MIN_EV: MIN_EV,
+  // ── free live prices (cbb-live.js): merge a slate's DraftKings / Kalshi / Polymarket prices into the board, then
+  //    keep them fresh every 75 s while the page is visible and a game in the slate hasn't tipped. Pages register
+  //    onUpdate(cb) to repaint. Feed-file games (odds_live.json, the paid feed) are kept; live ones fill the rest.
+  var LIVE = { rows: null, t: null, cbs: [], at: null, ok: null, busy: false };
+  function live(rows) {
+    if (!g.TDCLive || E.fixture) return Promise.resolve(E);
+    LIVE.rows = rows;
+    return pull().then(function () { schedule(); return E; });
+  }
+  function pull() {
+    if (LIVE.busy || !LIVE.rows) return Promise.resolve();
+    LIVE.busy = true;
+    return TDCLive.odds(LIVE.rows).then(function (o) {
+      var base = ((E.odds && E.odds.games) || []).filter(function (x) { return !x.live; });
+      var have = {}; base.forEach(function (x) { have[(x.home_norm || oNorm(x.home)) + '|' + (x.away_norm || oNorm(x.away))] = 1; });
+      var add = (o.games || []).filter(function (x) { return !have[oNorm(x.home) + '|' + oNorm(x.away)]; });
+      E.odds = { generated: o.generated, games: base.concat(add), live: true };
+      LIVE.at = o.generated; LIVE.ok = o.ok; index();
+    }).catch(function () {}).then(function () { LIVE.busy = false; });
+  }
+  function schedule() {
+    clearTimeout(LIVE.t);
+    var pre = (LIVE.rows || []).some(function (r) { return !r.exh; }) && ((E.odds && E.odds.games) || []).some(function (x) { return x.live && Date.parse(x.commence) > Date.now(); });
+    if (!pre) return;
+    LIVE.t = setTimeout(function () {
+      if (document.hidden) { schedule(); return; }
+      pull().then(function () { LIVE.cbs.forEach(function (cb) { try { cb(); } catch (e) {} }); schedule(); });
+    }, 75000);
+  }
+  if (typeof document !== 'undefined') document.addEventListener('visibilitychange', function () { if (!document.hidden && LIVE.rows) { pull().then(function () { LIVE.cbs.forEach(function (cb) { try { cb(); } catch (e) {} }); schedule(); }); } });
+
+  g.TDCEdge = { live: live, onUpdate: function (cb) { LIVE.cbs.push(cb); }, liveInfo: function () { return { at: LIVE.at, ok: LIVE.ok }; }, load: load, has: has, game: gameMarkets, board: board, props: props, suspect: function (b) { return suspect(b); }, books: books, sel: sel, W: W, MIN_EV: MIN_EV,
     fixture: function () { return E.fixture; }, stamp: function () { return E.odds && E.odds.generated; }, propMean: propMean, pOver: pOver };
 })(window);

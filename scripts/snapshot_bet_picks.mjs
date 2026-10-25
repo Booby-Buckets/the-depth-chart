@@ -32,7 +32,7 @@ const EDGES = process.argv.includes('--edges');
 // the exact scripts (and ?v= versions) TDC Bet loads, so the log matches the page
 function pageScripts() {
   const html = fs.readFileSync(path.join(ROOT, 'bet/index.html'), 'utf8');
-  return ['team-colors.js', 'tdc-ratings.js', 'bet/bet-core.js'].concat(EDGES ? ['bet/bet-edge.js'] : []).map(f => {
+  return ['team-colors.js', 'tdc-ratings.js', 'bet/bet-core.js'].concat(EDGES ? ['bet/cbb-live.js', 'bet/bet-edge.js'] : []).map(f => {
     const m = html.match(new RegExp('src="(' + f.replace(/[.]/g, '\\.') + '[^"]*)"'));
     if (!m) throw new Error('bet/index.html no longer loads ' + f);
     return m[1];
@@ -69,10 +69,14 @@ try {
     let edges = null;
     if (window.TDCEdge) {
       await TDCEdge.load();
-      if (TDCEdge.has()) {
+      // free live prices (DraftKings via ESPN, Kalshi via the site's pass-through, Polymarket) fill any game the paid feed lacks
+      window.TDC_KALSHI_BASE = 'https://bet.thedepthchartcbb.com/api/kalshi';
+      const days = S.dates.filter(d => d >= from && d <= to);
+      if (window.TDCLive && days.length) await TDCEdge.live(B.slate(days[0]));
+      if (TDCEdge.has() || window.TDCLive) {
         edges = {};
-        const days = S.dates.filter(d => d >= from && d <= to);
         for (const d of days) {
+          if (window.TDCLive) await TDCEdge.live(B.slate(d));
           const rows = B.slate(d).filter(r => !r.exh);
           const listed = new Set();
           const board = TDCEdge.board(rows).concat(await TDCEdge.props(rows));

@@ -48,7 +48,8 @@
 <script src="bet/bet-core.js?v=2"></script>
 <script src="bet/bet-shell.js?v=2"></script>
 <script src="bet/bet-ui.js?v=3"></script>
-<script src="bet/bet-edge.js?v=7"></script>
+<script src="bet/cbb-live.js?v=1"></script>
+<script src="bet/bet-edge.js?v=8"></script>
 <script>
 (function(){
   var B=TDCBet, $=function(id){return document.getElementById(id);};
@@ -83,9 +84,10 @@
     $('sub').textContent=(nx===rows.length?nx+' exhibition'+(nx===1?'':'s')+' · unofficial, no markets':rows.length+' rated games · '+rows.filter(function(r){return r.both<=100;}).length+' between top-100 teams')+(hasMk?' · book lines in':' · books post lines about a week out');
   }
   function go(d){ DATE=d; BXUI.setQuery('date',d); BXUI.dateStrip($('dates'),DATE,go); LIVE={}; paint();
+    if(window.TDCEdge&&TDCEdge.live) TDCEdge.load().then(function(){ return TDCEdge.live(B.slate(d)); }).then(function(){ if(DATE===d){ BXUI.resetEdge(); paint(); } });
     B.live(DATE).then(function(l){ if(Object.keys(l).length){ LIVE=l; paint(); } }); }
   B.load().then(function(){ var d=B.defaultDate(); if(d) go(d); else $('board').innerHTML='<div class="bx-empty">No games scheduled.</div>';
-    TDCEdge.load().then(function(){ if(TDCEdge.has()&&DATE){ BXUI.resetEdge(); paint(); } }); });
+    TDCEdge.onUpdate(function(){ BXUI.resetEdge(); paint(); }); });
   // live games: refresh scores every minute
   setInterval(function(){ if(DATE&&Object.keys(LIVE).some(function(k){return LIVE[k].state==='in';})) B.live(DATE).then(function(l){LIVE=l;paint();}); },60000);
 })();
