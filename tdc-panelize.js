@@ -105,11 +105,15 @@
   var NOTEY = /(^|[\s-])(note|notes|foot|footnote|rule|method|methods|fine|explain|about|disclaimer|caveat)([\s-]|$)/;
   var txt = function (el) { return (el.textContent || '').replace(/\s+/g, ' ').trim(); };
   var plain = function (el) { return el.nodeType === 1 && /^(P|DIV|SPAN|SMALL)$/.test(el.tagName) && !el.querySelector(MEDIA) && !el.id.match(/^(sample|status|count)/i); };
-  var texty = function (el) { return plain(el) && (el.tagName === 'P' || TEXTY.test(el.className || '')); };
+  // prose: a block of running text with only inline markup inside (bold, links …), however it is classed
+  var prose = function (el) { return plain(el) && txt(el).length >= 60 && ![].some.call(el.querySelectorAll('*'), function (x) { return !/^(B|STRONG|I|EM|A|SPAN|BR|SUP|SUB|SMALL|ABBR|CODE)$/.test(x.tagName); }); };
+  var texty = function (el) { return plain(el) && (el.tagName === 'P' || TEXTY.test(el.className || '') || prose(el)); };
 
   // 1. a panel's long explanation (text before / after its content) → drawer, opened by the ⓘ in the strip
   function tidyPanel(panel) {
-    var head = panel.querySelector(':scope > .ui-panel-head'), body = panel.querySelector(':scope > .ui-panel-body');
+    tidyBox(panel.querySelector(':scope > .ui-panel-head'), panel.querySelector(':scope > .ui-panel-body'));
+  }
+  function tidyBox(head, body) {
     if (!head || !body) return;
     var drawer = body.querySelector(':scope > .ui-explain');
     var kids = [].filter.call(body.children, function (x) { return x !== drawer && x.offsetParent !== null; });
@@ -190,6 +194,7 @@
       });
     });
     [].slice.call(root.querySelectorAll('.ui-panel.pz')).forEach(tidyPanel);
+
     tidyPage(root);
   }
 
@@ -209,6 +214,20 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
   }
 
+  // cards a page builds itself (team page sidebar: .side-card > .side-card-head + .side-card-body):
+  // only the explainer tidy, no restructuring
+  function watchCards(rootId, card, headSel, bodySel) {
+    var t = null, busy = false;
+    var pass = function () {
+      var root = document.getElementById(rootId); if (!root) return; busy = true;
+      [].slice.call(root.querySelectorAll(card)).forEach(function (c) { tidyBox(c.querySelector(':scope > ' + headSel), c.querySelector(':scope > ' + bodySel)); });
+      busy = false;
+    };
+    var mo = new MutationObserver(function () { if (busy) return; clearTimeout(t); t = setTimeout(pass, 80); });
+    var start = function () { pass(); mo.observe(document.body, { childList: true, subtree: true }); };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+  }
+
   // list pages: watch the page's main column (whichever top-level container it uses).
   // extra: more title selectors for a page whose sections are plain headings (e.g. 'h2').
   function watchPage(extra) {
@@ -221,5 +240,5 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
   }
 
-  window.TDCPanelize = { run: run, watch: watch, watchIds: watchIds, watchPage: watchPage };
+  window.TDCPanelize = { run: run, watch: watch, watchIds: watchIds, watchPage: watchPage, watchCards: watchCards };
 })();
