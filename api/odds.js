@@ -31,8 +31,10 @@ var PROPS = {
 };
 var SOURCES = [['regions=us,us2', 'book'], ['regions=us_ex', 'ex'], ['bookmakers=pinnacle', 'sharp']];
 var CACHE_MS = 45000;
-// exchange fees (mirrors archive_live_odds.py): Kalshi's taker fee per $1 contract; others a commission on net winnings
-var EX_COMMISSION = { novig: 0, prophetx: 0, betopenly: 0, polymarket: 0, sporttrade: 0 };
+// exchange fees (mirrors archive_live_odds.py): a commission on net winnings (ProphetX 2%; BetOpenly, Sporttrade
+// unverified), or a taker fee of theta x P x (1 - P) per $1 contract (Kalshi 0.07, Polymarket US 0.0695)
+var EX_COMMISSION = { novig: 0, prophetx: 0.02, betopenly: 0, sporttrade: 0 };
+var EX_QUADRATIC = { kalshi: 0.07, polymarket: 0.0695 };
 
 var cache = {}, owners = {};   // cache[key] = {at, data}
 function cached(k, ms) { var c = cache[k]; return c && Date.now() - c.at < ms ? c.data : null; }
@@ -54,7 +56,7 @@ function cost(o) { return o > 0 ? 100 / (o + 100) : -o / (-o + 100); }
 function am(c) { c = Math.min(Math.max(c, 0.01), 0.99); return c >= 0.5 ? Math.round(-100 * c / (1 - c)) : Math.round(100 * (1 - c) / c); }
 function netPrice(key, kind, p) {
   if (p == null || kind !== 'ex') return p;
-  if (key === 'kalshi') { var c = cost(p); return am(c + 0.07 * c * (1 - c)); }
+  if (EX_QUADRATIC[key]) { var c = cost(p); return am(c + EX_QUADRATIC[key] * c * (1 - c)); }
   var rate = EX_COMMISSION[key] || 0; if (!rate) return Math.round(p);
   var d = p > 0 ? 1 + p / 100 : 1 + 100 / -p; d = 1 + (d - 1) * (1 - rate);
   return d >= 2 ? Math.round((d - 1) * 100) : Math.round(-100 / (d - 1));

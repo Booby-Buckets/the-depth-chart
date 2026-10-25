@@ -6,7 +6,7 @@
   <base href="/">
   <title>TDC Bet · Arbitrage</title>
   <meta name="robots" content="noindex">
-  <meta name="description" content="College basketball arbitrage and middles: every sportsbook and exchange price compared, with the exact stakes to lock in a profit whatever happens.">
+  <meta name="description" content="Arbitrage and middles across every sport: sportsbooks, exchanges and prediction markets (Kalshi, Polymarket) compared, with order-book depth and the exact stakes to lock in a profit whatever happens.">
   <meta name="theme-color" content="#0A0D12">
   <link rel="icon" type="image/svg+xml" href="bet/favicon.svg">
   <script src="auth.js?v=sso1"></script>
@@ -40,6 +40,8 @@
     .sp-chips button.on{background:var(--accent);border-color:var(--accent);color:#06130b;}
     .sp-chips .lbl{font:700 10px Inter,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);align-self:center;margin-right:4px;}
     .budget{font-size:12px;color:var(--text2);margin:-4px 0 14px;}
+    .ab-depth{grid-column:1/-1;}
+    .ab-depth .dim{font-size:11.5px;}
     .sp-tag{display:inline-block;padding:1px 6px;border-radius:5px;background:var(--bg3);color:var(--text2);font:700 10px Inter,sans-serif;letter-spacing:.04em;margin-right:5px;}
     @media (max-width:860px){ .ab-stats{grid-template-columns:repeat(2,minmax(0,1fr));} .ab-det{grid-template-columns:1fr;} }
   </style>
@@ -47,7 +49,7 @@
 <body>
 <main class="bx-main">
   <div class="bx-head"><div><div class="bx-kick">Arbitrage</div><h1 class="bx-h1">Sure bets &amp; middles</h1>
-    <div class="bx-sub">When two places disagree enough, betting both sides in the right amounts pays the same whatever happens. Every sport in season, every sportsbook and exchange, with the exact stakes.</div></div></div>
+    <div class="bx-sub">When two places disagree enough, betting both sides in the right amounts pays the same whatever happens. Every sport in season, every sportsbook, exchange and prediction market, with the exact stakes and how much each one will actually take.</div></div></div>
 
   <div class="sp-chips" id="sportPick"><span class="lbl">Sports</span><span class="dim" style="font-size:12px">loading…</span></div>
 
@@ -56,16 +58,19 @@
     <div class="bx-seg" id="roundSeg"><button data-r="1">Round $1</button><button data-r="5">$5</button><button data-r="10">$10</button></div>
     <div class="bx-seg" id="mkSeg"><button data-m="all" class="on">All markets</button><button data-m="game">Game lines</button><button data-m="prop">Props</button></div>
     <div class="bx-seg" id="ageSeg"><button data-a="0" class="on">Any age</button><button data-a="15">15 min</button><button data-a="60">1 hr</button><button data-a="360">6 hr</button></div>
-    <div class="bx-seg" id="bkSeg"><button data-b="all" class="on">All places</button><button data-b="mine" id="bkMine">My books</button></div>
+    <div class="bx-seg" id="bkSeg"><button data-b="all" class="on">All places</button><button data-b="ex" title="Every bet on an exchange or prediction market: nobody limits a winning account">Exchanges only</button><button data-b="mine" id="bkMine">My books</button></div>
   </div>
   <div class="bx-tools" style="margin-bottom:12px">
     <span class="dim" style="font-size:12px">Fast prices</span>
     <div class="bx-seg" id="fastSeg"><button data-f="0">Off</button><button data-f="60">1 min</button><button data-f="120">2 min</button><button data-f="300">5 min</button></div>
     <span class="dim" style="font-size:12px;margin-left:8px">Props</span>
     <div class="bx-seg" id="propSeg"><button data-p="0">Off</button><button data-p="300">5 min</button><button data-p="600">10 min</button></div>
+    <span class="dim" style="font-size:12px;margin-left:8px" title="Kalshi + Polymarket US, read straight from each exchange. Free.">Prediction markets</span>
+    <div class="bx-seg" id="pmSeg"><button data-x="0">Off</button><button data-x="15">15 s</button><button data-x="30">30 s</button><button data-x="60">1 min</button></div>
     <button class="bx-btn" id="fastNow">Refresh now</button>
     <span class="hint" id="fastHint" style="font-size:12px"></span>
   </div>
+  <div class="hint" id="pmHint" style="font-size:12px;margin:-4px 0 10px"></div>
   <div class="budget" id="budget"></div>
   <div class="sp-chips" id="sportFilter" hidden></div>
   <div class="ab-stats" id="stats"></div>
@@ -88,7 +93,7 @@
     <div class="sheet-wrap"><table class="sheet dense" id="nearTbl"><tbody><tr><td class="empty">—</td></tr></tbody></table></div>
   </section>
 
-  <div class="bx-note"><b>Before you bet both sides:</b> prices move, so check both are still there and place the bigger or slower one first. Books cap stakes and limit accounts that arb a lot. A price far off every other book can be voided as an obvious error, so anything returning over 5% is tagged <span class="bx-tag r">check price</span>. Exchange prices already have fees taken out, but a thin exchange may not fill your whole stake. Check the books grade the market the same way (overtime counts in college spreads, totals and moneylines at the big US books). Pinnacle isn't included because Americans can't bet there, and DFS apps pay fixed multipliers, so they can't be arbed.</div>
+  <div class="bx-note"><b>Before you bet both sides:</b> prices move, so check both are still there and place the bigger or slower one first. Books cap stakes and limit accounts that arb a lot. A price far off every other book can be voided as an obvious error, so anything returning over 5% is tagged <span class="bx-tag r">check price</span>. Exchange and prediction-market prices already have their fees taken out (Kalshi and Polymarket's taker fee, ProphetX's 2% commission). <b>Max</b> is how much the top of each book holds; open a row to walk the full Kalshi / Polymarket order books and see how much the arb really takes. Prediction markets settle on their own rules (soccer is 90 minutes plus stoppage time; check overtime rules), so read both contracts. Check the books grade the market the same way (overtime counts in college spreads, totals and moneylines at the big US books). Pinnacle isn't included because Americans can't bet there, and DFS apps pay fixed multipliers, so they can't be arbed.</div>
 </main>
 
 <script src="bet/bet-core.js?v=4"></script>
@@ -97,7 +102,7 @@
 <script src="tdc-sheets.js?v=2"></script>
 <script src="bet/cbb-live.js?v=1"></script>
 <script src="bet/bet-edge.js?v=11"></script>
-<script src="bet/bet-arb.js?v=2"></script>
+<script src="bet/bet-arb.js?v=3"></script>
 <script>
 (function(){
   var B=TDCBet, esc=B.esc, $=function(id){return document.getElementById(id);};
@@ -109,14 +114,15 @@
     'soccer_epl','soccer_uefa_champs_league','soccer_spain_la_liga','soccer_italy_serie_a','soccer_germany_bundesliga','soccer_usa_mls','mma_mixed_martial_arts'];
   var PROP_SPORTS=/^(basketball|americanfootball|icehockey|baseball)_/;
   var ST={fast:BX.LS.get('tdcbet_arb_fast',120),props:BX.LS.get('tdcbet_arb_props',300),stake:BX.LS.get('tdcbet_arb_stake',1000),round:BX.LS.get('tdcbet_arb_round',5),
-    mk:'all',age:0,bk:'all',open:null,show:'all',sports:BX.LS.get('tdcbet_arb_sports',null)};
-  var SPORTS=[], TITLE={}, OTHER={}, PROPS={}, R={arbs:[],middles:[],near:[]};
+    mk:'all',age:0,bk:'all',open:null,show:'all',sports:BX.LS.get('tdcbet_arb_sports',null),pm:BX.LS.get('tdcbet_arb_pm',30)};
+  var SPORTS=[], TITLE={}, OTHER={}, PROPS={}, PMG={}, PMS={}, DEPTH={}, R={arbs:[],middles:[],near:[]};
   $('stake').value=ST.stake;
   $('stake').oninput=function(){ var v=parseFloat(this.value); if(v>0){ ST.stake=v; BX.LS.set('tdcbet_arb_stake',v); paint(); } };
   function seg(id,attr,key,num,cb){ var el=$(id); el.querySelectorAll('button').forEach(function(b){ b.classList.toggle('on',String(ST[key])===b.dataset[attr]); });
     el.addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b) return; el.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);}); ST[key]=num?+b.dataset[attr]:b.dataset[attr]; (cb||scan)(); }); }
   seg('fastSeg','f','fast',true,function(){ BX.LS.set('tdcbet_arb_fast',ST.fast); budget(); fastPlan(); });
   seg('propSeg','p','props',true,function(){ BX.LS.set('tdcbet_arb_props',ST.props); budget(); propPlan(true); });
+  seg('pmSeg','x','pm',true,function(){ BX.LS.set('tdcbet_arb_pm',ST.pm); pmPlan(true); });
   seg('roundSeg','r','round',true,function(){ BX.LS.set('tdcbet_arb_round',ST.round); paint(); }); seg('mkSeg','m','mk',false,paint); seg('ageSeg','a','age',true); seg('bkSeg','b','bk');
 
   function short(n,sp){ return (!sp||sp===CBB)?B.short(n):n; }
@@ -132,16 +138,22 @@
 
   // every game we have: college basketball from the board (archive + free live + fast pulls), every other sport
   // from the fast pulls; fresh props replace a game's archived ones
+  // and Kalshi + Polymarket straight from the exchanges, joined onto those games (or standing alone when the
+  // sportsbook feed doesn't have the game)
   function games(){
-    var out=[];
-    if(on(CBB)) TDCEdge.raw().forEach(function(x){ out.push(PROPS[x.id]?Object.assign({},x,{props:PROPS[x.id]}):x); });
-    Object.keys(OTHER).forEach(function(sp){ if(on(sp)) OTHER[sp].forEach(function(x){ out.push(PROPS[x.id]?Object.assign({},x,{props:PROPS[x.id]}):x); }); });
+    var out=[], props=function(x){ return PROPS[x.id]?Object.assign({},x,{props:PROPS[x.id]}):x; };
+    (ST.sports||[]).forEach(function(sp){
+      var base=(sp===CBB?TDCEdge.raw():(OTHER[sp]||[])).map(props);
+      if(ST.pm&&PMG[sp]&&PMG[sp].length) base=TDCArb.join(base,PMG[sp],sp).map(function(x){ return x.sport?x:Object.assign({},x,{sport:sp}); });
+      out=out.concat(base);
+    });
     return out;
   }
   function on(sp){ return (ST.sports||[]).indexOf(sp)>=0; }
   function scan(){
     var books=ST.bk==='mine'?BX.LS.get('tdcbet_books',[]):[];
     R=TDCArb.scan(games(),{books:books,maxAgeMin:ST.age||null});
+    if(ST.bk==='ex') ['arbs','middles','near'].forEach(function(k){ R[k]=R[k].filter(function(o){ return o.allEx; }); });
     paint();
   }
   function leg(o,stake,x){ return '<div class="ab-leg">'+esc(nm(o.label,x))+' <span class="px">'+B.oddsTxt(o.price)+'</span>'+bk(o)+(stake!=null?'<span class="st">stake '+money(stake)+'</span>':'')+'</div>'; }
@@ -155,6 +167,31 @@
   }
   $('sportFilter').addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b) return; ST.show=b.dataset.s; paint(); });
 
+  function capCell(c){ if(c==null) return '<span class="dim" title="No size reported: sportsbooks only show their limit when you bet">—</span>'; return '<span class="'+(c<ST.stake?'neg':'')+'" title="'+(c<ST.stake?'Less than your stake: the exchange runs out of size at these prices':'')+'">'+money(Math.floor(c))+'</span>'; }
+  // ── order-book depth for an open arb: walk every exchange leg's book (Kalshi, Polymarket), fees in ──
+  function depthMax(o){ var d=DEPTH[depthKey(o)]; return d&&d.fill&&d.fill.maxStake!=null?d.fill.maxStake:null; }
+  function exRefs(o){ return o.legs.map(function(l){ return l.ref||null; }); }
+  function depthKey(o){ return exRefs(o).join(','); }
+  function depthBox(o){
+    var refs=exRefs(o).filter(Boolean); if(!refs.length) return '';
+    var d=DEPTH[depthKey(o)];
+    if(!d||d.busy){ if(!d) loadDepth(o); return '<div class="ab-depth"><span>Order books</span><b>…</b><span class="dim">reading Kalshi / Polymarket depth</span></div>'; }
+    if(d.err) return '<div class="ab-depth"><span>Order books</span><b>—</b><span class="dim">couldn\'t read the books right now</span></div>';
+    var f=d.fill, books=o.legs.some(function(l){ return !l.ref; });
+    if(!f||f.bestProfit<=0) return '<div class="ab-depth"><span>Order books</span><b class="neg">Gone</b>the arb isn\'t in the books any more (prices moved)</div>';
+    return '<div class="ab-depth"><span>Order books · as of '+new Date(d.at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit'})+'</span><b>'+money(f.bestProfit)+' profit on '+money(f.bestStake)+'</b>'+
+      'the most this arb pays ('+(f.bestRet*100).toFixed(2)+'%) walking each book, fees in · still profitable up to <b style="display:inline;font-size:inherit">'+money(f.maxStake)+'</b> staked'+
+      (books?'<div class="dim">Sportsbook legs are priced at their posted line with no size limit; their real limit only shows when you bet.</div>':'')+'</div>';
+  }
+  function loadDepth(o){
+    var key=depthKey(o); if(DEPTH[key]&&!DEPTH[key].err) return; DEPTH[key]={busy:1,at:Date.now()};
+    var refs=exRefs(o);
+    fetch('/api/pm?book='+encodeURIComponent(refs.filter(Boolean).join(',')),{cache:'no-store'}).then(function(r){ return r.json(); }).then(function(d){
+      var lad=refs.map(function(r){ return r&&d.books&&d.books[r]?d.books[r]:null; });
+      DEPTH[key]={at:Date.now(),fill:TDCArb.fill(o.legs,lad)};
+    }).catch(function(){ DEPTH[key]={err:1,at:Date.now()}; }).then(paint);
+  }
+
   function paint(){
     filterChips();
     var arbs=R.arbs.filter(inMk), mids=R.middles.filter(inMk), near=R.near.filter(inMk), places={}, all=games();
@@ -165,13 +202,13 @@
       .map(function(s){ return '<div><b'+(s[1]==='Sure bets'&&s[0]?' class="pos"':'')+'>'+s[0]+'</b><span>'+s[1]+'</span><small>'+s[2]+'</small></div>'; }).join('');
     $('arbHint').textContent=arbs.length>60?'best 60 of '+arbs.length:'';
     var show=arbs.slice(0,60);
-    $('arbTbl').innerHTML='<thead><tr><th class="rk">#</th><th class="l">Game</th><th class="l">Market</th><th class="l">Bets</th><th>Return</th><th>Profit</th><th title="How old the oldest price is">Age</th></tr></thead><tbody>'+
+    $('arbTbl').innerHTML='<thead><tr><th class="rk">#</th><th class="l">Game</th><th class="l">Market</th><th class="l">Bets</th><th>Return</th><th>Profit</th><th title="Most you can stake before an exchange runs out of size at these prices (prediction markets report their size; sportsbooks don\'t)">Max</th><th title="How old the oldest price is">Age</th></tr></thead><tbody>'+
       (show.length?show.map(function(o,i){ var s=TDCArb.stakes(o.legs,ST.stake,ST.round), k=o.gid+'|'+o.legs.map(function(l){return l.label+l.book;}).join('|'), op=ST.open===k;
-        return '<tr data-open="'+esc(k)+'" style="cursor:pointer"'+(op?' class="ab-open"':'')+'><td class="rk">'+(i+1)+'</td>'+gameCell(o)+'<td class="l">'+MK[o.market]+(o.meta.alt?' <span class="dim">alt</span>':'')+(o.sameBook?' <span class="bx-tag y">same book</span>':'')+(o.ret>0.05?' <span class="bx-tag r" title="Returns this big are almost always a stale or mistyped price that will be pulled or voided. Check every leg before betting.">check price</span>':'')+'</td>'+
-          '<td class="l">'+o.legs.map(function(l,j){ return leg(l,s.st[j],o); }).join('')+'</td><td><b class="pos">+'+(o.ret*100).toFixed(2)+'%</b></td><td><b>'+money(s.profit)+'</b></td><td>'+age(o.age)+'</td></tr>'+
-          (op?'<tr class="ab-open"><td colspan="7" class="l" style="text-align:left"><div class="ab-det">'+o.legs.map(function(l,j){ return '<div><span>If '+esc(nm(l.label,o))+'</span><b>'+money(s.pay[j])+'</b>returned · '+money(s.pay[j]-s.staked)+' profit</div>'; }).join('')+
-            '<div><span>Total staked</span><b>'+money(s.staked)+'</b>'+(s.ret<o.ret-0.0005?'rounding costs '+((o.ret-s.ret)*100).toFixed(2)+' pts':'no rounding cost')+'</div></div></td></tr>':''); }).join('')
-      :'<tr><td colspan="7" class="empty">No sure bets right now. They show up when one place is slow to move a line.</td></tr>')+'</tbody>';
+        return '<tr data-open="'+esc(k)+'" style="cursor:pointer"'+(op?' class="ab-open"':'')+'><td class="rk">'+(i+1)+'</td>'+gameCell(o)+'<td class="l">'+MK[o.market]+(o.meta.alt?' <span class="dim">alt</span>':'')+(o.sameBook?' <span class="bx-tag y">same book</span>':'')+(o.ret>0.05?' <span class="bx-tag r" title="Returns this big are almost always a stale or mistyped price that will be pulled or voided. Check every leg before betting.">check price</span>':'')+(o.allEx?' <span class="bx-tag g" title="Every bet is on an exchange or prediction market: nobody limits a winning account">no limits</span>':'')+'</td>'+
+          '<td class="l">'+o.legs.map(function(l,j){ return leg(l,s.st[j],o); }).join('')+'</td><td><b class="pos">+'+(o.ret*100).toFixed(2)+'%</b></td><td><b>'+money(s.profit)+'</b></td><td>'+capCell(o.cap!=null?o.cap:depthMax(o))+'</td><td>'+age(o.age)+'</td></tr>'+
+          (op?'<tr class="ab-open"><td colspan="8" class="l" style="text-align:left"><div class="ab-det">'+o.legs.map(function(l,j){ return '<div><span>If '+esc(nm(l.label,o))+'</span><b>'+money(s.pay[j])+'</b>returned · '+money(s.pay[j]-s.staked)+' profit</div>'; }).join('')+
+            '<div><span>Total staked</span><b>'+money(s.staked)+'</b>'+(s.ret<o.ret-0.0005?'rounding costs '+((o.ret-s.ret)*100).toFixed(2)+' pts':'no rounding cost')+'</div>'+depthBox(o)+'</div></td></tr>':''); }).join('')
+      :'<tr><td colspan="8" class="empty">No sure bets right now. They show up when one place is slow to move a line.</td></tr>')+'</tbody>';
     $('midHint').textContent=mids.length?mids.length+' found'+(mids.length>40?' · best 40':''):'';
     $('midTbl').innerHTML='<thead><tr><th class="rk">#</th><th class="l">Game</th><th class="l">Bet 1</th><th class="l">Bet 2</th><th>Gap</th><th title="Chance both bets win">Both win</th><th title="Expected profit per $100 staked">EV</th><th title="Worst result per $100 staked">Worst</th><th>Age</th></tr></thead><tbody>'+
       (mids.length?mids.slice(0,40).map(function(m,i){ var s=TDCArb.stakes(m.legs,ST.stake,ST.round);
@@ -182,7 +219,10 @@
       (near.length?near.slice(0,20).map(function(o){ return '<tr>'+gameCell(o)+'<td class="l">'+MK[o.market]+'</td><td class="l">'+o.legs.map(function(l){ return leg(l,null,o); }).join('')+'</td><td>'+((o.sum-1)*100).toFixed(2)+'%</td></tr>'; }).join('')
       :'<tr><td colspan="4" class="empty">Nothing close.</td></tr>')+'</tbody>';
   }
-  $('arbTbl').addEventListener('click',function(e){ var r=e.target.closest('[data-open]'); if(!r) return; ST.open=ST.open===r.dataset.open?null:r.dataset.open; paint(); });
+  $('arbTbl').addEventListener('click',function(e){ var r=e.target.closest('[data-open]'); if(!r) return; ST.open=ST.open===r.dataset.open?null:r.dataset.open;
+    // opening a row always re-reads its order books (depth moves faster than prices)
+    if(ST.open){ var o=R.arbs.filter(function(a){ return a.gid+'|'+a.legs.map(function(l){return l.label+l.book;}).join('|')===ST.open; })[0]; if(o) delete DEPTH[depthKey(o)]; }
+    paint(); });
 
   // ── sports picker: what the feed has in season (free to list) ──
   function api(q){
@@ -196,7 +236,7 @@
     el.innerHTML='<span class="lbl">Sports</span>'+SPORTS.map(function(s){ return '<button data-k="'+esc(s.key)+'"'+(on(s.key)?' class="on"':'')+' title="'+esc(s.group||'')+'">'+esc(s.title)+'</button>'; }).join('');
   }
   $('sportPick').addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b) return; var k=b.dataset.k, i=ST.sports.indexOf(k);
-    if(i>=0) ST.sports.splice(i,1); else ST.sports.push(k); BX.LS.set('tdcbet_arb_sports',ST.sports); pickPaint(); budget(); scan(); if(i<0){ fastPull(); propPull(); } });
+    if(i>=0) ST.sports.splice(i,1); else ST.sports.push(k); BX.LS.set('tdcbet_arb_sports',ST.sports); pickPaint(); budget(); scan(); if(i<0){ fastPull(); propPull(); pmPull(); } });
 
   // ── credits: ~12 per sport per main pull; props ~2 per market per game, 12 games a sport at most ──
   function budget(){
@@ -244,7 +284,28 @@
     if(now) propPull();
     PR.t=setTimeout(function(){ if(!document.hidden) propPull(); propPlan(); },ST.props*1000);
   }
-  $('fastNow').onclick=function(){ fastPull().then(fastPlan); propPull(); };
+  // ── prediction markets: Kalshi + Polymarket US for every ticked sport they cover, free, every ST.pm seconds ──
+  var PM={t:null,busy:false,at:null,err:null};
+  function pmPull(){
+    if(PM.busy||!ST.pm||TDCEdge.fixture()) return Promise.resolve();
+    var list=(ST.sports||[]).filter(function(k){ return PMS[k]; }); if(!list.length){ pmHint(); return Promise.resolve(); }
+    PM.busy=true; pmHint();
+    return Promise.all(list.map(function(sp){ return fetch('/api/pm?sport='+sp,{cache:'no-store'}).then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; }).then(function(d){ if(d&&d.games){ PMG[sp]=d.games; PM.ok=d.ok; } return !!d; }); }))
+      .then(function(r){ PM.err=r.every(function(x){ return !x; })?'couldn\'t reach /api/pm':null; PM.at=new Date().toISOString(); })
+      .then(function(){ PM.busy=false; pmHint(); scan(); });
+  }
+  function pmPlan(now){
+    clearTimeout(PM.t);
+    if(!ST.pm){ pmHint(); scan(); return; }
+    if(now) pmPull();
+    PM.t=setTimeout(function(){ (document.hidden?Promise.resolve():pmPull()).then(function(){ pmPlan(); }); },ST.pm*1000);
+  }
+  function pmHint(){
+    var n=0,k=0,p=0; Object.keys(PMG).forEach(function(sp){ if(!on(sp)) return; PMG[sp].forEach(function(g){ n++; if(g.src==='kalshi') k++; else p++; }); });
+    $('pmHint').innerHTML=!ST.pm?'Prediction markets off.':PM.busy&&!PM.at?'Reading Kalshi + Polymarket…':PM.err?'<span class="neg">'+esc(PM.err)+'</span>':
+      'Kalshi <b>'+k+'</b> + Polymarket <b>'+p+'</b> games, read straight from the exchanges'+(PM.at?' · '+new Date(PM.at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit'}):'')+'. Prices include each one\'s taker fee. Free: no credits.';
+  }
+  $('fastNow').onclick=function(){ fastPull().then(fastPlan); propPull(); pmPull(); };
   document.addEventListener('visibilitychange',function(){ if(!document.hidden&&ST.fast&&FAST.at&&Date.now()-Date.parse(FAST.at)>ST.fast*1000){ fastPull().then(fastPlan); } });
 
   Promise.all([B.load(),TDCEdge.load()]).then(function(){
@@ -257,14 +318,21 @@
     if(rows.length) TDCEdge.live(rows).then(scan);
     TDCEdge.onUpdate(scan);
     if(TDCEdge.fixture()) return;
-    api('?list=1').then(function(d){
-      SPORTS=(d.sports||[]).sort(function(a,b){ var ia=DEFAULT.indexOf(a.key), ib=DEFAULT.indexOf(b.key); return (ia<0?99:ia)-(ib<0?99:ib)||(a.group||'').localeCompare(b.group||'')||a.title.localeCompare(b.title); });
+    // sports = what the paid feed has in season + what the prediction markets cover (the free list still works
+    // when the paid feed is off)
+    var pmList=fetch('/api/pm?list=1').then(function(r){ return r.json(); }).then(function(d){ return d.sports||[]; }).catch(function(){ return []; });
+    var oddsList=api('?list=1').then(function(d){ return d.sports||[]; }).catch(function(e){ FAST.err=errTxt(e); return []; });
+    Promise.all([oddsList,pmList]).then(function(r){
+      var seen={}; SPORTS=[];
+      r[1].forEach(function(s){ PMS[s.key]=1; });
+      r[0].concat(r[1]).forEach(function(s){ if(!seen[s.key]){ seen[s.key]=1; SPORTS.push(s); } });
+      SPORTS.sort(function(a,b){ var ia=DEFAULT.indexOf(a.key), ib=DEFAULT.indexOf(b.key); return (ia<0?99:ia)-(ib<0?99:ib)||(a.group||'').localeCompare(b.group||'')||a.title.localeCompare(b.title); });
       SPORTS.forEach(function(s){ TITLE[s.key]=s.title; });
       if(!BX.LS.get('tdcbet_arb_sports',null)){ ST.sports=SPORTS.filter(function(s){ return DEFAULT.indexOf(s.key)>=0; }).map(function(s){ return s.key; }); BX.LS.set('tdcbet_arb_sports',ST.sports); }
       pickPaint(); budget();
-    }).catch(function(e){ FAST.err=errTxt(e); pickPaint(); }).then(function(){
+    }).then(function(){
       if(ST.fast) fastPull().then(fastPlan); else fastHint();
-      propPlan(true);
+      propPlan(true); pmPlan(true);
     });
   });
 })();

@@ -73,7 +73,10 @@ def sources(regions, exchanges=False, sharp=False, dfs=False):
 # Exchanges charge differently, so their prices are turned into what a bettor really gets: Kalshi's taker fee is
 # 0.07·P·(1−P) per $1 contract (same formula as bet/cbb-live.js); the others take a commission on net winnings.
 # Set a rate here if an exchange starts charging one (0 = commission-free as of Oct 2026).
-EX_COMMISSION = {"novig": 0.0, "prophetx": 0.0, "betopenly": 0.0, "polymarket": 0.0, "sporttrade": 0.0}
+# ProphetX 2% of net winnings (Oct 2026 reviews; varies 1-3% by volume); Novig commission-free; BetOpenly, Sporttrade unverified
+EX_COMMISSION = {"novig": 0.0, "prophetx": 0.02, "betopenly": 0.0, "sporttrade": 0.0}
+# taker fee = theta x P x (1 - P) per $1 contract: Kalshi 0.07, Polymarket US 0.0695 (fee schedule of Oct 19 2026)
+EX_QUADRATIC = {"kalshi": 0.07, "polymarket": 0.0695}
 
 
 def _am_to_cost(o):
@@ -93,9 +96,9 @@ def net_price(bkey, kind, price):
         price = float(price)
     except (TypeError, ValueError):
         return None
-    if bkey == "kalshi":
+    if bkey in EX_QUADRATIC:
         c = _am_to_cost(price)
-        return _cost_to_am(c + 0.07 * c * (1 - c))
+        return _cost_to_am(c + EX_QUADRATIC[bkey] * c * (1 - c))
     rate = EX_COMMISSION.get(bkey, 0.0)
     if not rate:
         return int(round(price))
