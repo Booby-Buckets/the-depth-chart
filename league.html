@@ -242,6 +242,7 @@
       POOL=await getAll(`players?team=in.(${encodeURIComponent(qList(teams.map(t=>t.name)))})&select=id,name,team,position,espn_id,yr,is_injured,tdc_grade,height,ppg,mpg&order=id.asc`,true);
       if(window.TDCFresh) await TDCFresh.load().catch(()=>{});
       PROJ=(proj&&proj.players)||{};
+      const SHARE={}; Object.entries((proj&&proj.teams)||{}).forEach(([t,l])=>l.forEach(x=>{ SHARE[t+'|'+x.name]=x.share; }));
       const RT=(rat[0]&&rat[0].data&&rat[0].data.teams)||[];
       RT.forEach(t=>{ if(CONF[t.team]&&!FULL[t.team]) FULL[t.team]=t.full; });   // sheet short name -> ESPN full name
       POOL.forEach(p=>{
@@ -249,7 +250,12 @@
         p.proj=pr?{pts:pr.ppg||0,reb:pr.rpg||0,ast:pr.apg||0,mpg:pr.mpg||0}:null;
         if(pr&&pr.team&&!FULL[p.team]) FULL[p.team]=pr.team;
         // no published projection (mostly freshmen): the freshman engine's line, the same one the Big Board uses
-        if(!p.proj&&window.TDCFresh){ try{ const F=TDCFresh.line(p,TDCFresh.profileFor(p)); if(F&&F.mpg>0) p.proj={pts:F.ppg||0,reb:F.rpg||0,ast:F.apg||0,mpg:F.mpg,est:true}; }catch(e){} }
+        // Held to the role the team projection gives him: the editor line alone ignores the depth chart, so a
+        // 10th man (Amosov, 1.5% of UConn's shots) priced as a 13/8/8 starter. Scale by projected shot share vs
+        // the share his line implies (~58 team FGA a game).
+        if(!p.proj&&window.TDCFresh){ try{ const F=TDCFresh.line(p,TDCFresh.profileFor(p)); if(F&&F.mpg>0){
+          const sh=SHARE[p.team+'|'+p.name], imp=(F.fga||0)/58*100, k=sh!=null&&imp>0?Math.min(1,sh/imp):1;
+          p.proj={pts:(F.ppg||0)*k,reb:(F.rpg||0)*k,ast:(F.apg||0)*k,mpg:F.mpg*k,est:true}; } }catch(e){} }
         PBY[p.id]=p;
       });
       if(sched){ const T=sched.teams; sched.games.forEach(g=>{ [T[g[2]],T[g[3]]].forEach(t=>{ (TEAMGAMES[t]=TEAMGAMES[t]||[]).push(g[1]); }); }); }
