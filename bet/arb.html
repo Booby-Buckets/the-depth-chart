@@ -9,6 +9,7 @@
   <meta name="description" content="Arbitrage and middles across every sport: sportsbooks, exchanges and prediction markets (Kalshi, Polymarket) compared, with order-book depth and the exact stakes to lock in a profit whatever happens.">
   <meta name="theme-color" content="#0A0D12">
   <link rel="icon" type="image/svg+xml" href="bet/favicon.svg">
+  <link rel="manifest" href="bet/manifest.webmanifest"><link rel="apple-touch-icon" href="apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="TDC Bet">
   <script src="auth.js?v=sso1"></script>
   <script>try{var _t=JSON.parse(localStorage.getItem('tdcbet_theme')||'"dark"');document.documentElement.setAttribute('data-theme',_t==='light'?'light':'dark');}catch(e){}</script>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -43,6 +44,10 @@
     .ab-depth{grid-column:1/-1;}
     .ab-depth .dim{font-size:11.5px;}
     .sp-tag{display:inline-block;padding:1px 6px;border-radius:5px;background:var(--bg3);color:var(--text2);font:700 10px Inter,sans-serif;letter-spacing:.04em;margin-right:5px;}
+    .al-box{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin:0 0 16px;}
+    .al-box .bx-tools{margin:8px 0 0;}
+    .al-box details{margin-top:10px;font-size:12.5px;}
+    .al-box summary{cursor:pointer;color:var(--text2);font-weight:600;}
     @media (max-width:860px){ .ab-stats{grid-template-columns:repeat(2,minmax(0,1fr));} .ab-det{grid-template-columns:1fr;} }
   </style>
 </head>
@@ -73,6 +78,19 @@
   </div>
   <div class="hint" id="pmHint" style="font-size:12px;margin:-4px 0 10px"></div>
   <div class="budget" id="budget"></div>
+  <div class="al-box" id="alBox">
+    <div class="bx-bar" style="margin:0"><h2 style="margin:0">Alerts</h2><span class="hint" id="alHint"></span></div>
+    <div class="hint" id="alStatus" style="font-size:12px;margin-top:4px">Loading…</div>
+    <div class="bx-tools">
+      <button class="bx-btn" id="alOn">Turn on alerts on this device</button>
+      <div class="bx-seg" id="alMin" title="Smallest guaranteed return worth a notification"><button data-v="0.005">0.5%+</button><button data-v="0.01">1%+</button><button data-v="0.02">2%+</button><button data-v="0.03">3%+</button></div>
+      <div class="bx-seg" id="alMid"><button data-v="1">Sure bets + no-lose middles</button><button data-v="0">Sure bets only</button></div>
+      <div class="bx-seg" id="alPlaces"><button data-v="all">All places</button><button data-v="ex" title="Every bet on an exchange or prediction market: nobody limits a winning account">Exchanges only</button><button data-v="mine" id="alMine">My books</button></div>
+      <button class="bx-btn" id="alTest">Send test</button>
+      <button class="bx-btn" id="alRun" title="Run one scan now (uses credits like a normal scan)">Scan now</button>
+    </div>
+    <details id="alLogBox"><summary>Recent sightings (how long they lasted)</summary><div class="sheet-wrap" style="margin-top:8px"><table class="sheet dense" id="alLog"><tbody><tr><td class="empty">—</td></tr></tbody></table></div></details>
+  </div>
   <div class="sp-chips" id="sportFilter" hidden></div>
   <div class="ab-stats" id="stats"></div>
 
@@ -310,6 +328,69 @@
     $('pmHint').innerHTML=!ST.pm?'Prediction markets off.':PM.busy&&!PM.at?'Reading Kalshi + Polymarket…':PM.err?'<span class="neg">'+esc(PM.err)+'</span>':
       'Kalshi <b>'+k+'</b> + Polymarket <b>'+p+'</b> games, read straight from the exchanges'+(PM.at?' · '+new Date(PM.at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit'}):'')+'. Prices include each one\'s taker fee. Free: no credits.';
   }
+  // ── alerts: api/arb-scan.js scans every minute (today's games, my alert settings) and pushes new sure bets and
+  // no-lose middles to every device turned on here. The page only manages devices + settings and shows the log.
+  var AL={st:null,busy:false}, BETHOST=location.hostname.indexOf('bet.')===0;
+  function alApi(q,body){
+    var tok=window.tdcOwnerToken&&tdcOwnerToken(); if(!tok) return Promise.reject({status:403});
+    return fetch('/api/arb-scan?'+q,{method:body?'POST':'GET',headers:Object.assign({Authorization:'Bearer '+tok},body?{'Content-Type':'application/json'}:{}),body:body?JSON.stringify(body):undefined,cache:'no-store'})
+      .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(d){ if(!r.ok) throw {status:r.status,d:d}; return d; }); });
+  }
+  var canPush='serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
+  var iOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1), standalone=navigator.standalone||matchMedia('(display-mode: standalone)').matches;
+  function swReg(){ return navigator.serviceWorker.register('/bet-sw.js',{scope:BETHOST?'/':'/bet/'}); }
+  function b64(s){ s=s.replace(/-/g,'+').replace(/_/g,'/'); s+='===='.slice(s.length%4||4); var r=atob(s), a=new Uint8Array(r.length); for(var i=0;i<r.length;i++) a[i]=r.charCodeAt(i); return a; }
+  function alSub(){ return canPush?swReg().then(function(reg){ return reg.pushManager.getSubscription(); }).catch(function(){ return null; }):Promise.resolve(null); }
+  function alPrefs(){ return AL.st&&AL.st.prefs||{minRet:0.01,middles:true,places:'all',books:[]}; }
+  function alSegs(){ var p=alPrefs();
+    [['alMin',String(p.minRet)],['alMid',p.middles?'1':'0'],['alPlaces',p.places]].forEach(function(x){ $(x[0]).querySelectorAll('button').forEach(function(b){ b.classList.toggle('on',b.dataset.v===x[1]); }); }); }
+  function alSave(ch){ var p=Object.assign({},alPrefs(),ch); if(p.places==='mine') p.books=BX.LS.get('tdcbet_books',[]); if(AL.st) AL.st.prefs=p; alSegs();
+    alApi('prefs=1',{prefs:p}).then(function(d){ if(AL.st) AL.st.prefs=d.prefs; alPaint(); }).catch(function(e){ $('alHint').textContent='couldn\'t save: '+errTxt(e); }); }
+  [['alMin',function(v){ return {minRet:+v}; }],['alMid',function(v){ return {middles:v==='1'}; }],['alPlaces',function(v){ return {places:v}; }]].forEach(function(x){
+    $(x[0]).addEventListener('click',function(e){ var b=e.target.closest('button'); if(b) alSave(x[1](b.dataset.v)); }); });
+  function ago(t){ if(!t) return 'never'; var s=Math.max(0,Math.round((Date.now()-t)/1000)); return s<90?s+' s ago':Math.round(s/60)+' min ago'; }
+  function alPaint(){
+    var s=AL.st, el=$('alStatus');
+    $('alMine').hidden=!BX.LS.get('tdcbet_books',[]).length;
+    if(!s){ el.innerHTML='<span class="neg">Couldn\'t read the scanner.</span>'; return; }
+    alSegs();
+    var L=s.last||{}, stale=!s.lastRun||Date.now()-s.lastRun>5*60e3;
+    el.innerHTML=(stale?'<span class="neg">Scanner '+(s.lastRun?'last ran '+ago(s.lastRun):'hasn\'t run yet')+'.</span> It runs every minute once <code>scripts/arb_alerts.sql</code> has been run in Supabase. ':
+        'Scanner ran '+ago(s.lastRun)+' · '+(L.games||0)+' games today ('+(L.pm||0)+' prediction-market) · '+(L.arbs||0)+' sure bets + '+(L.middles||0)+' no-lose middles live now. ')+
+      'Today: <b>'+(s.used||0).toLocaleString('en-US')+'</b> credits of the '+Math.round(s.caps.soft/1000)+'k cap'+(s.mode&&s.mode!=='normal'?' · <span class="neg">'+esc(s.mode)+': '+(s.mode==='soft cap'?'every sport every 5 min':'Kalshi + Polymarket only')+'</span>':'')+
+      (s.remaining!=null?' · '+s.remaining.toLocaleString('en-US')+' left on the plan':'')+' · '+s.alerts+' alert'+(s.alerts===1?'':'s')+' sent · '+s.devices.length+' device'+(s.devices.length===1?'':'s')+' on'+
+      '. Basketball, football and hockey are priced every minute; MLB, soccer and MMA every 5. Today\'s games only.'+
+      (L.failed&&L.failed.length?' <span class="neg">Feed errors: '+esc(L.failed.join(', '))+'</span>':'')+(L.pushErrors&&L.pushErrors.length?' <span class="neg">Push errors: '+esc(L.pushErrors.join(', '))+'</span>':'');
+    var rows=(s.live||[]).map(function(x){ return Object.assign({now:1},x); }).concat((s.recent||[]).map(function(r){ return {kind:r.kind,sport:r.sport,game:r.game,market:r.market,legs:r.legs,best:+r.best_ret,first:Date.parse(r.first_seen),last:Date.parse(r.last_seen),alerted:r.alerted}; }));
+    $('alLog').innerHTML='<thead><tr><th class="l">Seen</th><th class="l">Game</th><th class="l">Bets</th><th>Best</th><th>Lasted</th><th>Alert</th></tr></thead><tbody>'+(rows.length?rows.slice(0,40).map(function(r){
+      var min=Math.max(1,Math.round((r.last-r.first)/60e3));
+      return '<tr><td class="l">'+new Date(r.first).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'})+'</td><td class="l nm"><span class="sp-tag">'+esc(spT(r.sport))+'</span>'+esc(r.game||'')+'</td><td class="l">'+(r.legs||[]).map(function(l){ return esc(l.label)+' <b>'+B.oddsTxt(l.price)+'</b> <span class="dim">'+esc(l.book)+'</span>'; }).join('<br>')+
+        '</td><td>'+(r.kind==='arb'?'<b class="pos">+'+(r.best*100).toFixed(2)+'%</b>':'<span class="bx-tag g">no-lose</span>')+'</td><td>'+(r.now?'<b class="pos">live</b> · '+min+'m':min+'m')+'</td><td>'+(r.alerted?'✓':'')+'</td></tr>'; }).join('')
+      :'<tr><td colspan="6" class="empty">Nothing yet. Every sure bet and no-lose middle the scanner sees lands here with how long it lasted.</td></tr>')+'</tbody>';
+  }
+  function alStatus(){ return alApi('status=1').then(function(d){ AL.st=d; }).catch(function(e){ AL.st=null; $('alHint').textContent=errTxt(e); }).then(function(){ alPaint(); return alSub(); }).then(alBtn); }
+  function alBtn(sub){
+    var btn=$('alOn'), on=sub&&AL.st&&AL.st.devices.some(function(d){ return d.endpoint===sub.endpoint; });
+    if(!canPush){ btn.disabled=true; btn.textContent='Alerts need the app'; $('alHint').textContent=iOS&&!standalone?'On iPhone: open bet.thedepthchartcbb.com in Safari, Share → Add to Home Screen, open TDC Bet from the home screen, sign in, then turn alerts on here.':'This browser can\'t do push notifications.'; return; }
+    btn.disabled=false; btn.textContent=on?'Alerts on · turn off':'Turn on alerts on this device'; btn.dataset.on=on?'1':'';
+    if(on) $('alHint').textContent='this device gets alerts';
+    else if(iOS&&!standalone) $('alHint').textContent='On iPhone, alerts only work in the home-screen app: Share → Add to Home Screen first.';
+  }
+  $('alOn').onclick=function(){
+    var btn=this; if(AL.busy) return; AL.busy=true; btn.disabled=true;
+    var off=btn.dataset.on==='1';
+    (off?alSub().then(function(sub){ if(!sub) return; return alApi('unsubscribe=1',{endpoint:sub.endpoint}).then(function(){ return sub.unsubscribe(); }); }):
+      Notification.requestPermission().then(function(p){ if(p!=='granted') throw {msg:'Notifications are blocked for this site. Allow them in Settings, then try again.'};
+        return Promise.all([swReg().then(function(){ return navigator.serviceWorker.ready; }),alApi('vapid=1')]); })
+      .then(function(r){ return r[0].pushManager.getSubscription().then(function(old){ return old||r[0].pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64(r[1].key)}); }); })
+      .then(function(sub){ return alApi('subscribe=1',{sub:sub.toJSON(),ua:(iOS?'iPhone':'')+(standalone?' app ':' ')+navigator.userAgent.slice(0,80)}); }))
+      .catch(function(e){ $('alHint').textContent=e&&e.msg?e.msg:'Couldn\'t turn alerts on: '+(e&&e.message?e.message:errTxt(e)); })
+      .then(function(){ AL.busy=false; return alStatus(); });
+  };
+  $('alTest').onclick=function(){ $('alHint').textContent='sending…'; alApi('test=1',{}).then(function(d){ $('alHint').textContent=d.sent?'sent to '+d.sent+' device'+(d.sent>1?'s':''):'not delivered: '+(d.errors||[]).join(', '); }).catch(function(e){ $('alHint').textContent=(e&&e.d&&e.d.error)||errTxt(e); }); };
+  $('alRun').onclick=function(){ $('alHint').textContent='scanning…'; alApi('run=1',{}).then(function(d){ $('alHint').textContent=d.error?d.error:'scanned '+d.games+' games in '+(d.ms/1000).toFixed(1)+' s · '+d.arbs+' sure bets, '+d.middles+' no-lose middles · '+d.fresh+' new'+(d.used?' · '+d.used+' credits':''); }).catch(function(e){ $('alHint').textContent=(e&&e.d&&e.d.error)||errTxt(e); }).then(alStatus); };
+  alStatus(); setInterval(function(){ if(!document.hidden) alStatus(); },60e3);
+
   $('fastNow').onclick=function(){ fastPull().then(fastPlan); propPull(); pmPull(); };
   document.addEventListener('visibilitychange',function(){ if(!document.hidden&&ST.fast&&FAST.at&&Date.now()-Date.parse(FAST.at)>ST.fast*1000){ fastPull().then(fastPlan); } });
 

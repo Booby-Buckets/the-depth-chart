@@ -288,3 +288,7 @@ module.exports = async function (req, res) {
     res.statusCode = 502; res.end('{"error":"prediction markets unavailable"}');
   }
 };
+
+// the alert scanner (api/arb-scan.js) reads the same boards
+module.exports.board = board;
+module.exports.SPORTS = SPORTS;

@@ -89,12 +89,15 @@ function toGames(events, snap, sport, sportT) {
 
 function headerNum(r, h) { var v = r.headers.get(h); return v == null ? null : +v; }
 
-// main markets for one sport, every source, cached 45 s
-async function sportBoard(key, sport, titles) {
-  var hit = cached('b:' + sport, CACHE_MS); if (hit) return Object.assign({ cached: true }, hit);
+// main markets for one sport, every source, cached 45 s. win = {from, to} ISO times: only games starting inside it
+// (the alert scanner's "today only"; the-odds-api charges nothing when no game falls inside)
+function isoS(t) { return new Date(t).toISOString().replace(/\.\d{3}Z$/, 'Z'); }
+async function sportBoard(key, sport, titles, win) {
+  var ck = 'b:' + sport + (win ? ':' + win.from + ':' + win.to : ''), wq = win ? '&commenceTimeFrom=' + isoS(win.from) + '&commenceTimeTo=' + isoS(win.to) : '';
+  var hit = cached(ck, CACHE_MS); if (hit) return Object.assign({ cached: true }, hit);
   var remaining = null, used = 0, failed = [], evs = {};
   var results = await Promise.all(SOURCES.map(function (s) {
-    return fetch(BASE + '/' + sport + '/odds?apiKey=' + encodeURIComponent(key) + '&' + s[0] + '&markets=spreads,totals,h2h&oddsFormat=american')
+    return fetch(BASE + '/' + sport + '/odds?apiKey=' + encodeURIComponent(key) + '&' + s[0] + '&markets=spreads,totals,h2h&oddsFormat=american' + wq)
       .then(function (r) {
         if (headerNum(r, 'x-requests-remaining') != null) remaining = headerNum(r, 'x-requests-remaining');
         used += headerNum(r, 'x-requests-last') || 0;
@@ -109,7 +112,7 @@ async function sportBoard(key, sport, titles) {
     });
   });
   var snap = new Date().toISOString(), data = { games: toGames(Object.values(evs), snap, sport, (titles && titles[sport]) || sport), remaining: remaining, used: used, failed: failed };
-  if (failed.length < SOURCES.length) cache['b:' + sport] = { at: Date.now(), data: data };
+  if (failed.length < SOURCES.length) cache[ck] = { at: Date.now(), data: data };
   return data;
 }
 
@@ -121,6 +124,13 @@ async function sportList(key) {
   var list = (await r.json()).filter(function (s) { return s.active && !s.has_outrights; }).map(function (s) { return { key: s.key, title: s.title, group: s.group }; });
   cache.list = { at: Date.now(), data: list };
   return list;
+}
+
+// how many games start inside win (the /events endpoint is free), so the scanner never pays for an empty pull
+async function eventCount(key, sport, win) {
+  var r = await fetch(BASE + '/' + sport + '/events?apiKey=' + encodeURIComponent(key) + '&commenceTimeFrom=' + isoS(win.from) + '&commenceTimeTo=' + isoS(win.to));
+  if (!r.ok) throw new Error('events ' + r.status);
+  var b = await r.json(); return Array.isArray(b) ? b.length : 0;
 }
 
 // player props for the next games of one sport (each game is its own call), cached 4 min
@@ -184,3 +194,8 @@ module.exports = async function (req, res) {
     res.statusCode = 502; res.end('{"error":"odds feed unavailable"}');
   }
 };
+
+// the alert scanner (api/arb-scan.js) reuses the same pulls
+module.exports.sportBoard = sportBoard;
+module.exports.sportList = sportList;
+module.exports.eventCount = eventCount;
