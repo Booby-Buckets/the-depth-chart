@@ -31,7 +31,11 @@
   function rate(o, d, s) {
     var po = poss(o), pd = poss(d), pc = function (n, x) { return x > 0 ? 100 * n / x : null; };
     return { min: s / 60, poss: (po + pd) / 2, o: pc(o.pts, po), d: pc(d.pts, pd), net: po && pd ? 100 * o.pts / po - 100 * d.pts / pd : null,
-      efg: pc(o.fgm + 0.5 * o.tpm, o.fga), tov: pc(o.tov, po), orb: pc(o.orb, o.orb + d.drb), oefg: pc(d.fgm + 0.5 * d.tpm, d.fga), pm: o.pts - d.pts };
+      efg: pc(o.fgm + 0.5 * o.tpm, o.fga), tov: pc(o.tov, po), orb: pc(o.orb, o.orb + d.drb), oefg: pc(d.fgm + 0.5 * d.tpm, d.fga), pm: o.pts - d.pts,
+      // the rest of the player On/Off profile's box rows, so the Lab can reuse its sheet
+      ts: pc(o.pts, 2 * (o.fga + 0.44 * o.fta)), fg: pc(o.fgm, o.fga), tp: pc(o.tpm, o.tpa), ftp: pc(o.ftm, o.fta), tpar: pc(o.tpa, o.fga), ftr: pc(o.fta, o.fga),
+      ots: pc(d.pts, 2 * (d.fga + 0.44 * d.fta)), ofg: pc(d.fgm, d.fga), otp: pc(d.tpm, d.tpa), otpar: pc(d.tpa, d.fga), oftr: pc(d.fta, d.fga),
+      otov: pc(d.tov, pd), drb: pc(o.drb, o.drb + d.orb), pace: s > 0 ? (po + pd) / 2 / (s / 60) * 40 : null };
   }
   var LIVE = [];   // the rows that pass the filters
   function filterRows() {
@@ -76,85 +80,79 @@
   }
   var link = function (i, txt) { return '<a href="player.html?espn=' + esc(D.ids[i]) + '&tab=onoff">' + (txt || esc(nameOf(i))) + '</a>'; };
 
-  // ── vertical stat sheet: stats down, a few columns across ──
-  var ROWS = [['sec', 'Scoreboard'], ['net', 'Net rating', 'points scored minus allowed per 100', 1, 'big'], ['o', 'Offense', 'points scored per 100', 1], ['d', 'Defense', 'points allowed per 100', -1],
-    ['sec', 'Why'], ['efg', 'Shooting (eFG%)', 'threes count 1.5', 1], ['tov', 'Turnovers (TO%)', 'per 100 possessions', -1], ['orb', 'Offensive boards (OREB%)', 'share of own misses', 1], ['oefg', 'Opponent shooting', 'their eFG%', -1],
-    ['sec', 'Sample'], ['min', 'Minutes', '', 0], ['poss', 'Possessions', '', 0]];
-  function sheet(cols) {
-    var h = '<table class="ol-vs"><colgroup><col class="k">' + cols.map(function () { return '<col>'; }).join('') + '</colgroup><thead><tr><th></th>' +
-      cols.map(function (c) { return '<th class="' + (c.hl ? 'hl' : '') + '"><div class="who">' + (c.faces || '') + c.head + '</div></th>'; }).join('') + '</tr></thead><tbody>';
-    ROWS.forEach(function (R) {
-      if (R[0] === 'sec') { h += '<tr class="sec"><td colspan="' + (cols.length + 1) + '">' + R[1] + '</td></tr>'; return; }
-      var k = R[0], dir = R[3];
-      h += '<tr class="' + (R[4] || '') + '"><td class="k">' + R[1] + (R[2] ? '<small>' + R[2] + '</small>' : '') + '</td>' + cols.map(function (c) {
-        if (c.diff) { if (dir === 0) return '<td></td>'; var a = c.diff[0][k], b = c.diff[1][k]; if (a == null || b == null) return '<td>—</td>'; var d = a - b;
-          return '<td class="d ' + (d * dir > 0 ? 'pos' : d * dir < 0 ? 'neg' : '') + '">' + sg(d) + '</td>'; }
-        var v = c.r[k]; return '<td>' + (k === 'net' ? '<span class="' + pn(v) + '">' + sg(v) + '</span>' : k === 'min' || k === 'poss' ? Math.round(v) : f1(v)) + '</td>';
-      }).join('') + '</tr>';
-    });
-    return h + '</tbody></table>';
-  }
   var faces = function (P, cls) { return '<span class="faces">' + P.map(function (i) { return av(i, cls); }).join('') + '</span>'; };
-  var thin = function (r) { return r.poss < 40 ? ' <span class="ol-thin">Small sample: ' + Math.round(r.poss) + ' possessions, read it as a hint.</span>' : ''; };
-  function bars(rows, keyF) { return Math.max.apply(null, rows.map(function (x) { return Math.abs(keyF(x)) || 0; }).concat([1])); }
+  var thin = function (r, r2) { if (r2 && r2.poss < r.poss) r = r2; return r.poss < 40 ? ' <span class="ol-thin">Small sample: ' + Math.round(r.poss) + ' possessions, read it as a hint.</span>' : ''; };
 
-  // ── the answer ──
+  // ── the answer: the player On/Off tab's look (With / Rank / Without / Rank / Swing / Rank, D-I percentile chips) ──
+  var TOK = 0;
+  function rankTable(heads, rows) {   // heads: [label, cls]; rows: html strings
+    return '<table class="oo-pro ol-rank"><colgroup><col class="nm">' + heads.map(function (h) { return '<col class="' + h[1] + '">'; }).join('') + '</colgroup><thead><tr><th class="lead">#</th>' +
+      heads.map(function (h) { return '<th class="' + (h[1] === 'c' ? 'pc' : '') + (h[2] ? ' with' : '') + '">' + h[0] + '</th>'; }).join('') + '</tr></thead><tbody>' + rows.join('') + '</tbody></table>';
+  }
   function draw() {
-    var nG = filterRows(), team = sum(function () { return true; }), out = '', P = S.pick.map(function (id) { return D.ids.indexOf(id); }).filter(function (i) { return i >= 0; });
-    var T = esc(TEAM());
-    if (S.mode === 'together') {
-      if (!P.length) out = '<div class="ol-say">Tap up to four player cards.</div>';
-      else { var all = sum(function (u) { return P.every(function (i) { return has(u, i); }); }), none = sum(function (u) { return P.every(function (i) { return !has(u, i); }); });
-        out = '<div class="ol-say">With <b>' + P.map(function (i) { return esc(last(nameOf(i))); }).join(', ') + '</b> all on the floor, ' + T + ' ' + (all.net >= 0 ? 'outscored' : 'was outscored by') + ' opponents ' + (all.net >= 0 ? 'by ' : '') +
-          '<b class="' + pn(all.net) + '">' + sg(all.net) + '</b> per 100 possessions. With none of them on, <b class="' + pn(none.net) + '">' + sg(none.net) + '</b>.' + thin(all) + '</div>' +
-          sheet([{ head: 'All on', faces: faces(P), r: all, hl: 1 }, { head: 'None on', faces: faces(P, 'off'), r: none }, { head: 'Difference', diff: [all, none] }]); }
-    } else if (S.mode === 'each' || S.mode === 'players') {
-      var list = S.mode === 'players' ? D.ids.map(function (x, i) { return i; }) : P;
-      var rs = list.map(function (i) { var on = sum(function (u) { return has(u, i); }), off = sum(function (u) { return !has(u, i); }); return { i: i, on: on, off: off, sw: on.net != null && off.net != null ? on.net - off.net : null }; });
-      if (S.mode === 'players') {
-        var minOn = Math.max(25, team.poss * 0.12), minOff = Math.max(15, team.poss * 0.06);
-        rs = rs.filter(function (x) { return x.sw != null && x.on.poss >= minOn && x.off.poss >= minOff; }).sort(function (a, b) { return b.sw - a.sw; });
-        var mx = bars(rs, function (x) { return x.sw; });
-        out = '<div class="ol-say">Ranked by <b>swing</b>: how much better ' + T + ' was per 100 possessions with each player on the floor than with him on the bench.</div>' +
-          (rs.length ? rs.map(function (x, k) { return '<div class="ol-lu"><div class="rk">' + (k + 1) + '</div><div><div class="faces">' + av(x.i) + '</div><div class="nm">' + link(x.i) + '</div>' +
-            '<div class="mini">' + sg(x.on.net) + ' with him · ' + sg(x.off.net) + ' without · ' + Math.round(x.on.min) + ' min</div>' +
-            '<div class="bar"><i style="width:' + Math.round(100 * Math.abs(x.sw) / mx) + '%;background:' + (x.sw >= 0 ? 'var(--ol-pos)' : 'var(--ol-neg)') + '"></i></div></div><div class="net ' + pn(x.sw) + '">' + sg(x.sw) + '<small>swing</small></div></div>'; }).join('')
-            : '<div class="ol-say">Not enough minutes under these filters.</div>');
-      } else if (!rs.length) out = '<div class="ol-say">Tap the players to look at.</div>';
-      else {
-        S.sel = Math.min(S.sel, rs.length - 1); var x = rs[S.sel];
-        out = '<div class="ol-pick">' + rs.map(function (y, k) { return '<button class="' + (k === S.sel ? 'on' : '') + '" data-s="' + k + '">' + esc(nameOf(y.i)) + '</button>'; }).join('') + '</div>' +
-          '<div class="ol-say">' + T + ' was <b class="' + pn(x.on.net) + '">' + sg(x.on.net) + '</b> per 100 with <b>' + link(x.i) + '</b> on the floor and <b class="' + pn(x.off.net) + '">' + sg(x.off.net) + '</b> with him on the bench: a <b>' + sg(x.sw) + '</b> swing.' + thin(x.off) + '</div>' +
-          sheet([{ head: 'With him', faces: faces([x.i]), r: x.on, hl: 1 }, { head: 'Without him', faces: faces([x.i], 'off'), r: x.off }, { head: 'Swing', diff: [x.on, x.off] }]);
+    var my = ++TOK;
+    var nG = filterRows(), team = sum(function () { return true; }), out = '', after = null, P = S.pick.map(function (id) { return D.ids.indexOf(id); }).filter(function (i) { return i >= 0; });
+    var T = esc(TEAM()), names = function (L, j) { return L.map(function (i) { return esc(last(nameOf(i))); }).join(j || ', '); };
+    var cmp = function (on, off, heads) { after = function () { return TDC_ONOFF.compare($('olCmp'), { season: S.season, team: D.team, on: on, off: off, heads: heads }); }; return '<div id="olCmp" class="ol-cmp"></div>'; };
+    TDC_ONOFF.ranker(S.season).then(function (Rk) {
+      if (my !== TOK) return;
+      var ch = function (side, k, v) { return Rk ? Rk.chip(side, k, v) : ''; };
+      if (S.mode === 'together') {
+        if (!P.length) out = '<div class="ol-say">Tap up to four player cards.</div>';
+        else { var all = sum(function (u) { return P.every(function (i) { return has(u, i); }); }), none = sum(function (u) { return P.every(function (i) { return !has(u, i); }); });
+          out = '<div class="ol-say">' + faces(P) + 'With <b>' + names(P) + '</b> all on the floor, ' + T + ' was <b class="' + pn(all.net) + '">' + sg(all.net) + '</b> per 100 possessions. With none of them on, <b class="' + pn(none.net) + '">' + sg(none.net) + '</b>.' + thin(all, none) + '</div>' +
+            cmp(all, none, ['All on', 'None on', 'Swing']); }
+      } else if (S.mode === 'each' || S.mode === 'players') {
+        var list = S.mode === 'players' ? D.ids.map(function (x, i) { return i; }) : P;
+        var rs = list.map(function (i) { var on = sum(function (u) { return has(u, i); }), off = sum(function (u) { return !has(u, i); }); return { i: i, on: on, off: off, sw: on.net != null && off.net != null ? on.net - off.net : null }; });
+        if (S.mode === 'players') {
+          var minOn = Math.max(25, team.poss * 0.12), minOff = Math.max(15, team.poss * 0.06);
+          rs = rs.filter(function (x) { return x.sw != null && x.on.poss >= minOn && x.off.poss >= minOff; }).sort(function (a, b) { return b.sw - a.sw; });
+          out = '<div class="ol-say">Ranked by <b>swing</b>: ' + T + '’s net rating with each player on the floor minus with him on the bench.</div>' +
+            (rs.length ? '<div class="ol-cmp">' + rankTable([['Min', 'n'], ['With him', 'n', 1], ['Rank', 'c'], ['Without', 'n'], ['Rank', 'c'], ['Swing', 'n'], ['Rank', 'c']], rs.map(function (x, k) {
+              return '<tr><td class="k"><span class="rk">' + (k + 1) + '</span>' + av(x.i, 'sm') + link(x.i) + '</td><td>' + Math.round(x.on.min) + '</td>' +
+                '<td>' + sg(x.on.net) + '</td><td class="pc">' + ch('on', 'net', x.on.net) + '</td><td>' + sg(x.off.net) + '</td><td class="pc">' + ch('off', 'net', x.off.net) + '</td>' +
+                '<td class="' + (x.sw >= 0 ? 'up' : 'dn') + '">' + sg(x.sw) + '</td><td class="pc">' + ch('diff', 'net', x.sw) + '</td></tr>'; })) + '</div>'
+              : '<div class="ol-say">Not enough minutes under these filters.</div>');
+        } else if (!rs.length) out = '<div class="ol-say">Tap the players to look at.</div>';
+        else {
+          S.sel = Math.min(S.sel, rs.length - 1); var x = rs[S.sel];
+          out = '<div class="ol-pick">' + rs.map(function (y, k) { return '<button class="' + (k === S.sel ? 'on' : '') + '" data-s="' + k + '">' + esc(nameOf(y.i)) + '</button>'; }).join('') + '</div>' +
+            '<div class="ol-say">' + faces([x.i]) + T + ' was <b class="' + pn(x.on.net) + '">' + sg(x.on.net) + '</b> per 100 with <b>' + link(x.i) + '</b> on the floor and <b class="' + pn(x.off.net) + '">' + sg(x.off.net) + '</b> with him on the bench: a <b>' + sg(x.sw) + '</b> swing.' + thin(x.on, x.off) + '</div>' +
+            cmp(x.on, x.off, ['With him', 'Without', 'Swing']);
+        }
+      } else if (S.mode === 'without') {
+        if (!P.length) out = '<div class="ol-say">Tap the players to take off the floor.</div>';
+        else { var w = sum(function (u) { return P.every(function (i) { return !has(u, i); }); }), any = sum(function (u) { return P.some(function (i) { return has(u, i); }); });
+          out = '<div class="ol-say">' + faces(P, 'off') + 'With <b>' + names(P, ' and ') + '</b> all on the bench, ' + T + ' was <b class="' + pn(w.net) + '">' + sg(w.net) + '</b> per 100 over ' + Math.round(w.min) + ' minutes, against <b class="' + pn(any.net) + '">' + sg(any.net) + '</b> with any of them on.' + thin(w) + '</div>' +
+            cmp(w, any, ['All benched', 'Any on', 'Swing']); }
+      } else if (S.mode === 'lineups') {
+        var U = {}, n = S.unit;
+        LIVE.forEach(function (r) { var ids = r[0].slice().sort(function (a, b) { return a - b; }), c = [];
+          (function rec(s, a) { if (a.length === n) { c.push(a.slice()); return; } for (var i = s; i < ids.length; i++) { a.push(ids[i]); rec(i + 1, a); a.pop(); } })(0, []);
+          c.forEach(function (k) { if (P.length && P.length <= n && !P.every(function (i) { return has(k, i); })) return;   // more picks than seats: rank them all
+            var key = k.join(','), x = U[key] || (U[key] = { k: k, o: blank(), d: blank(), s: 0 }); x.s += r[3]; add(x.o, r[4]); add(x.d, r[5]); }); });
+        var base = { 2: 150, 3: 100, 4: 70, 5: 50 }[n], share = team.poss / Math.max(1, TOT.poss), minP = Math.max(15, Math.round(base * Math.min(1, share * 1.3)));
+        var rows = Object.keys(U).map(function (key) { var x = U[key]; return { k: x.k, r: rate(x.o, x.d, x.s) }; }).filter(function (x) { return x.r.poss >= minP && x.r.net != null; }).sort(function (a, b) { return b.r.net - a.r.net; });
+        var top = rows.slice(0, 15);
+        out = '<div class="ol-pick">' + [2, 3, 4, 5].map(function (u) { return '<button class="' + (u === n ? 'on' : '') + '" data-u="' + u + '">' + u + '-man</button>'; }).join('') +
+          '<span class="ol-note">' + rows.length + ' units with ' + minP + '+ possessions</span></div>' +
+          '<div class="ol-say">' + T + '’s best ' + n + '-man units' + (P.length ? ' with <b>' + names(P, ' and ') + '</b>' : '') + ', by net rating.</div>' +
+          (top.length ? '<div class="ol-cmp">' + rankTable([['Min', 'n'], ['ORtg', 'n'], ['Rank', 'c'], ['DRtg', 'n'], ['Rank', 'c'], ['NetRtg', 'n', 1], ['Rank', 'c']], top.map(function (x, k) {
+            return '<tr><td class="k"><span class="rk">' + (k + 1) + '</span><span class="faces">' + x.k.map(function (i) { return av(i, 'sm'); }).join('') + '</span>' + '<span class="nms">' + x.k.map(function (i) { return link(i, esc(last(nameOf(i)))); }).join(' · ') + '</span></td>' +
+              '<td>' + Math.round(x.r.min) + '</td><td>' + f1(x.r.o) + '</td><td class="pc">' + ch('on', 'o', x.r.o) + '</td><td>' + f1(x.r.d) + '</td><td class="pc">' + ch('on', 'd', x.r.d) + '</td>' +
+              '<td class="' + (x.r.net >= 0 ? 'up' : 'dn') + '">' + sg(x.r.net) + '</td><td class="pc">' + ch('on', 'net', x.r.net) + '</td></tr>'; })) + '</div>'
+            : '<div class="ol-say">No ' + n + '-man units with enough possessions' + (P.length ? ' that include everyone picked' : '') + '.</div>');
       }
-    } else if (S.mode === 'without') {
-      if (!P.length) out = '<div class="ol-say">Tap the players to take off the floor.</div>';
-      else { var w = sum(function (u) { return P.every(function (i) { return !has(u, i); }); });
-        out = '<div class="ol-say">With <b>' + P.map(function (i) { return esc(last(nameOf(i))); }).join(' and ') + '</b> all on the bench, ' + T + ' was <b class="' + pn(w.net) + '">' + sg(w.net) + '</b> per 100 over ' + Math.round(w.min) + ' minutes, against <b class="' + pn(team.net) + '">' + sg(team.net) + '</b> in all minutes.' + thin(w) + '</div>' +
-          sheet([{ head: 'Without them', faces: faces(P, 'off'), r: w, hl: 1 }, { head: 'All minutes', r: team }, { head: 'Difference', diff: [w, team] }]); }
-    } else if (S.mode === 'lineups') {
-      var U = {}, n = S.unit;
-      LIVE.forEach(function (r) { var ids = r[0].slice().sort(function (a, b) { return a - b; }), c = [];
-        (function rec(s, a) { if (a.length === n) { c.push(a.slice()); return; } for (var i = s; i < ids.length; i++) { a.push(ids[i]); rec(i + 1, a); a.pop(); } })(0, []);
-        c.forEach(function (k) { if (P.length && P.length <= n && !P.every(function (i) { return has(k, i); })) return;   // more picks than seats: rank them all
-          var key = k.join(','), x = U[key] || (U[key] = { k: k, o: blank(), d: blank(), s: 0 }); x.s += r[3]; add(x.o, r[4]); add(x.d, r[5]); }); });
-      var base = { 2: 150, 3: 100, 4: 70, 5: 50 }[n], share = team.poss / Math.max(1, TOT.poss), minP = Math.max(15, Math.round(base * Math.min(1, share * 1.3)));
-      var rows = Object.keys(U).map(function (key) { var x = U[key]; return { k: x.k, r: rate(x.o, x.d, x.s) }; }).filter(function (x) { return x.r.poss >= minP && x.r.net != null; }).sort(function (a, b) { return b.r.net - a.r.net; });
-      var top = rows.slice(0, 12), mx2 = bars(top, function (x) { return x.r.net; });
-      out = '<div class="ol-pick">' + [2, 3, 4, 5].map(function (u) { return '<button class="' + (u === n ? 'on' : '') + '" data-u="' + u + '">' + u + '-man</button>'; }).join('') +
-        '<span class="ol-note">' + rows.length + ' units with ' + minP + '+ possessions</span></div>' +
-        '<div class="ol-say">' + T + '’s best ' + n + '-man units' + (P.length ? ' with <b>' + P.map(function (i) { return esc(last(nameOf(i))); }).join(' and ') + '</b>' : '') + ', by net rating (points scored minus allowed per 100 possessions).</div>' +
-        (top.length ? top.map(function (x, k) { return '<div class="ol-lu"><div class="rk">' + (k + 1) + '</div><div><div class="faces">' + x.k.map(function (i) { return av(i); }).join('') + '</div><div class="nm">' + x.k.map(function (i) { return link(i, esc(last(nameOf(i)))); }).join(' · ') + '</div>' +
-          '<div class="mini">' + Math.round(x.r.min) + ' min · ' + Math.round(x.r.poss) + ' poss · offense ' + f1(x.r.o) + ' · defense ' + f1(x.r.d) + ' · eFG ' + f1(x.r.efg) + '%</div>' +
-          '<div class="bar"><i style="width:' + Math.round(100 * Math.abs(x.r.net) / mx2) + '%;background:' + (x.r.net >= 0 ? 'var(--ol-pos)' : 'var(--ol-neg)') + '"></i></div></div>' +
-          '<div class="net ' + pn(x.r.net) + '">' + sg(x.r.net) + '<small>per 100</small></div></div>'; }).join('') : '<div class="ol-say">No ' + n + '-man units with enough possessions' + (P.length ? ' that include everyone picked' : '') + '.</div>');
-    }
-    var fl = FILTERS.filter(function (F) { return S.f[F[0]] !== 'all'; }).map(function (F) { return F[2].find(function (o) { return o[0] === S.f[F[0]]; })[1]; });
-    var m = MODES.find(function (z) { return z[0] === S.mode; });
-    $('olOut').innerHTML = '<div class="ol-strip">' + m[1] + ' · ' + T + ' ' + SEASONS.find(function (x) { return x[0] === S.season; })[1] +
-      '<span>' + (fl.length ? fl.join(' · ') + ' · ' : '') + nG + ' games · ' + Math.round(team.poss) + ' possessions</span></div>' + out;
-    $('olOut').querySelectorAll('[data-u]').forEach(function (b) { b.onclick = function () { S.unit = +b.dataset.u; sync(); draw(); }; });
-    $('olOut').querySelectorAll('[data-s]').forEach(function (b) { b.onclick = function () { S.sel = +b.dataset.s; draw(); }; });
+      var fl = FILTERS.filter(function (F) { return S.f[F[0]] !== 'all'; }).map(function (F) { return F[2].find(function (o) { return o[0] === S.f[F[0]]; })[1]; });
+      var m = MODES.find(function (z) { return z[0] === S.mode; });
+      $('olOut').innerHTML = '<div class="ol-strip">' + m[1] + ' · ' + T + ' ' + SEASONS.find(function (x) { return x[0] === S.season; })[1] +
+        '<span>' + (fl.length ? fl.join(' · ') + ' · ' : '') + nG + ' games · ' + Math.round(team.poss) + ' possessions</span></div>' + out +
+        '<p class="ol-key">Each Rank chip places the number among D-I players’ on/off splits with ' + (Rk ? Rk.MIN : 500) + '+ possessions this season: green is good for the team, red is bad.</p>';
+      $('olOut').querySelectorAll('[data-u]').forEach(function (b) { b.onclick = function () { S.unit = +b.dataset.u; sync(); draw(); }; });
+      $('olOut').querySelectorAll('[data-s]').forEach(function (b) { b.onclick = function () { S.sel = +b.dataset.s; draw(); }; });
+      if (after) after();
+    });
   }
 
   // ── controls ──

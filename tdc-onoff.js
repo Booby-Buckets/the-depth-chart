@@ -213,16 +213,17 @@
     return '<span class="oo-who"><span class="oo-av ' + cls + '">' + img + '<b>' + tag + '</b></span><small>' + esc(last) + ' ' + tag.toLowerCase() + '</small></span>';
   }
 
-  function table(p, P, only) {
-    var on = p.on, off = p.off;
+  function table(p, P, only, heads) {
+    var on = p.on, off = p.off, H = heads || ['With him', 'Without', 'Swing'];
     var h = '<table class="oo-pro"><colgroup><col><col class="n"><col class="c"><col class="n"><col class="c"><col class="n"><col class="c"></colgroup><thead><tr><th class="lead">' + logo(p) + '</th>' +
-      '<th class="with" title="The team with him on the floor">With him</th><th class="pc">Rank</th><th title="The team with him on the bench">Without</th><th class="pc">Rank</th><th title="With him minus without him">Swing</th><th class="pc">Rank</th></tr></thead>';
+      '<th class="with" title="The team with him on the floor">' + esc(H[0]) + '</th><th class="pc">Rank</th><th title="The team with him on the bench">' + esc(H[1]) + '</th><th class="pc">Rank</th><th title="With him minus without him">' + esc(H[2]) + '</th><th class="pc">Rank</th></tr></thead>';
     GROUPS.forEach(function (g) {
       if (only && only.indexOf(g[0]) < 0) return;
-      h += '<tbody class="' + (CLOSED[g[0]] ? 'closed' : '') + '" data-sec="' + esc(g[0]) + '"><tr class="sec"><td colspan="7"><i>▾</i><span>' + esc(g[0]) + '</span></td></tr>';
+      var body = '';
       g[1].forEach(function (sub) {
         var rows = sub[1].filter(function (R) { return stat(p, 'on', R[0]) != null || stat(p, 'off', R[0]) != null; });
         if (!rows.length) return;
+        var h = '';
         if (sub[0]) h += '<tr class="sub"><td colspan="7">' + esc(sub[0]) + '</td></tr>';
         rows.forEach(function (R) {
           var k = R[0], dir = R[2], dec = R[3], suf = R[4];
@@ -235,8 +236,9 @@
             '<td>' + fmt(b, dec, suf) + '</td><td class="pc">' + chip(pb) + '</td>' +
             '<td class="' + good + '">' + fmt(d, dec, suf, true) + '</td><td class="pc">' + chip(pd) + '</td></tr>';
         });
+        body += h;
       });
-      h += '</tbody>';
+      if (body) h += '<tbody class="' + (CLOSED[g[0]] ? 'closed' : '') + '" data-sec="' + esc(g[0]) + '"><tr class="sec"><td colspan="7"><i>▾</i><span>' + esc(g[0]) + '</span></td></tr>' + body + '</tbody>';
     });
     return h + '</table>';
   }
@@ -319,5 +321,33 @@
     });
   }
 
-  window.TDC_ONOFF = { render: render };
+  // ── for the On/Off Lab: the same chips and sheet for any two on/off sides summed in the browser ──
+  // ranker(season) → { chip(side 'on'|'off'|'diff', key, value) }, ranked against the season's D-I player pool
+  function ranker(y) {
+    return season(y).then(function (S) {
+      if (!S) return null; css(); var P = pool(y, S);
+      return { chip: function (side, k, v) { var R = ROWS.find(function (r) { return r[0] === k; }), dir = R ? R[2] : 1; return chip(pctOf(P[side][k], v, dir === 0 ? 1 : dir)); }, MIN: MIN_POSS };
+    });
+  }
+  // compare(host, {season, team, on, off, heads, note}): tiles + the two-column profile sheet
+  function compare(host, o) {
+    if (!host) return Promise.resolve(); css();
+    return season(o.season).then(function (S) {
+      if (!S) { host.innerHTML = '<div class="ui-empty">Could not load ' + lbl(o.season) + '.</div>'; return; }
+      var P = pool(o.season, S), p = { team: o.team, on: o.on, off: o.off };
+      var dNet = o.on.net != null && o.off.net != null ? o.on.net - o.off.net : null, sw = dNet == null ? null : dNet / 100 * o.on.poss / 33;
+      var pm = o.on.pm, T = [
+        [(o.heads ? o.heads[2] : 'Swing') + ' net', fmt(dNet, 1, '', true), pctOf(P.diff.net, dNet, 1)],
+        ['Swing Wins', fmt(sw, 1, '', true), pctOf(P.sw, sw, 1)],
+        [(o.heads ? o.heads[0] : 'On') + ' +/-', fmt(pm, 0, '', true), pctOf(P.on.pm, pm, 1)],
+        [(o.heads ? o.heads[0] : 'On') + ' minutes', fmt(o.on.min, 0), null, Math.round(o.on.poss) + ' possessions']];
+      var tl = '<div class="ui-tiles" style="margin-bottom:0">' + T.map(function (t) {
+        return '<div class="ui-tile"><div class="v">' + t[1] + '</div>' + (t[3] ? '<span class="ui-note" style="display:block;margin:4px 0 2px">' + t[3] + '</span>' : chip(t[2])) + '<span class="k">' + esc(t[0]) + '</span></div>'; }).join('') + '</div>';
+      host.innerHTML = '<div class="oo-wide">' + tl + '</div><div class="oo-grid"><div class="oo-col">' + table(p, P, ['General', 'Offense'], o.heads) + '</div>' +
+        '<div class="oo-col">' + table(p, P, ['Our numbers', 'Defense'], o.heads) + '</div></div>';
+      host.querySelectorAll('tbody[data-sec] tr.sec').forEach(function (tr) { tr.onclick = function () { var tb = tr.parentNode; tb.classList.toggle('closed'); CLOSED[tb.dataset.sec] = tb.classList.contains('closed'); }; });
+    });
+  }
+
+  window.TDC_ONOFF = { render: render, ranker: ranker, compare: compare };
 })();
