@@ -16,14 +16,16 @@
     /* team page + its modules, NBA page */
     '.sec-head, .tbp-h, .gp-h, .lu-h, .nb-h, .dsx-h, .aft-ch > h3, .hg-sec, .sq-diet > .h, ' +
     /* list / leaderboard pages */
-    '.section-title, .ls-h2, .lb-h, .fl-hd, .tour-h, ' +
+    '.section-title, .ls-h2, .lb-h, .fl-hd, .tour-h, .pd-sec-h, .tr-sec, ' +
     /* site pages (Coaching Lab, Awards, Tournaments, Bracketology, Just Added, Conferences, Moneyball) */
     '.sec-t, .tcard-h, .ocard-h, .mi-h2, .rbr-h, .dayhead, .box > .sl, .lb > h3, .aw-head, .gm-h, .page > .sec';
   // containers that are cards on those pages without saying "card" in their class
   var CARDS = '.tcard, .ocard, .rbr, .box, .lb, .daygroup, .mi-sec, .awards, .aft-ch';
   // things that end a section without being one (a new tab region, a legend that belongs above)
+  // a table that is the whole of a block, however many plain wrappers it sits in (Stats tab: #sm-body-* > .sheet-wrap)
+  var sheetOnly = function (x) { while (x && x.nodeType === 1 && !x.matches('.sheet-wrap') && x.children.length === 1 && !x.textContent.replace(x.firstElementChild.textContent, '').trim()) x = x.firstElementChild; return !!x && x.nodeType === 1 && x.matches('.sheet-wrap'); };
   var isTitle = function (el) { return el.nodeType === 1 && el.matches(TITLE); };
-  var isToggle = function (el) { return el && el.nodeType === 1 && (el.matches('.seg, .ui-seg, .statmode-row, .gl-seasons') || el.querySelector(':scope > .seg')); };
+  var isToggle = function (el) { return el && el.nodeType === 1 && (el.matches('.seg, .ui-seg, .statmode-row, .statmode-bar, .gl-seasons') || el.querySelector(':scope > .seg')); };
 
   // A title that sits in a card's own header row (e.g. .sg-head inside .sg-card): the CARD becomes the
   // panel and that row becomes its strip, instead of building a small panel inside the card.
@@ -51,7 +53,7 @@
     var n = head.nextSibling; while (n) { var nx = n.nextSibling; body.appendChild(n); n = nx; }
     card.appendChild(body); card.classList.add('ui-panel', 'pz', 'pz-card');
     var real = [].filter.call(body.children, function (x) { return x.offsetWidth !== 0; });
-    if (real.length === 1 && real[0].matches('.sheet-wrap')) body.classList.add('flush');
+    if (real.length && real.every(sheetOnly)) body.classList.add('flush');
   }
 
   function panelize(title) {
@@ -95,7 +97,7 @@
     panel.appendChild(head);
     var real = [].filter.call(body.childNodes, function (x) { return x.nodeType === 1 || (x.nodeType === 3 && x.textContent.trim()); });
     if (!real.length) { panel.replaceWith(title); delete title.dataset.pz; return; }
-    if (real.length === 1 && real[0].nodeType === 1 && real[0].matches('.sheet-wrap')) body.classList.add('flush');
+    if (real.length && real.every(function (x) { return x.nodeType === 1 && sheetOnly(x); })) body.classList.add('flush');
     panel.appendChild(body);
   }
 
@@ -185,6 +187,11 @@
         outer.parentNode.insertBefore(card, outer.nextSibling);
       }
       panelize(t);
+    });
+    // a body whose table arrived after the panel was built (or was redrawn) gets the flush shape now
+    [].slice.call(root.querySelectorAll('.ui-panel-body:not(.flush)')).forEach(function (b) {
+      var kids = [].filter.call(b.children, function (x) { return !x.matches('.ui-explain'); });
+      if (kids.length && kids.every(sheetOnly)) b.classList.add('flush');
     });
     // the strip has its own type: keep tdc-mobile.js's phone type scale off it (and undo what it already wrote)
     [].slice.call(root.querySelectorAll('.ui-panel-head:not([data-type-keep])')).forEach(function (h) {

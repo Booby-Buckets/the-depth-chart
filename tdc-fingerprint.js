@@ -110,6 +110,7 @@
           var sum = function (lab, v, p, k) { return '<tr class="fp-sum"><td class="l">' + lab + '</td><td>' + sgn(v) + '</td><td>' + sgn(v - (TA[k] || 0)) + '</td><td class="' + bucket(p) + '">' + p + '</td><td class="fp-viz">' + (st.scale === 'pct' ? viz(0, p, 0) : '') + '</td></tr>'; };
           var seasonOpts = ys.map(function (y) { return '<option value="' + y + '"' + (y === st.y ? ' selected' : '') + '>' + (y - 1) + '-' + String(y).slice(2) + '</option>'; }).join('');
           host.innerHTML = (opt.banner ? opt.banner(rd.verdict, rd.sentence) : '') +
+            '<div class="sec-title">Skill fingerprint</div>' +
             '<div class="fp-bar">' +
             (ys.length > 1 ? '<span class="fp-lab">Season</span><select class="fp-sel" data-fp="y">' + seasonOpts + '</select>' : '<span class="fp-lab">' + (st.y - 1) + '-' + String(st.y).slice(2) + '</span>') +
             '<div class="fp-tog"><button data-fp="pct" class="' + (st.scale === 'pct' ? 'on' : '') + '">Percentile</button><button data-fp="val" class="' + (st.scale === 'val' ? 'on' : '') + '">True value</button></div>' +
@@ -206,9 +207,10 @@
             }
             var seasonSel = ys.length > 1 ? '<span class="fp-lab">Season</span><select class="fp-sel" data-fs="y">' + ys.map(function (y) { return '<option value="' + y + '"' + (y === st.y ? ' selected' : '') + '>' + (y - 1) + '-' + String(y).slice(2) + '</option>'; }).join('') + '</select>' : '<span class="fp-lab">' + (st.y - 1) + '-' + String(st.y).slice(2) + '</span>';
             host.innerHTML = (opt.banner ? opt.banner(rd.verdict, rd.sentence) : '') +
+              '<div class="sec-title">Situational splits</div>' +
               '<div class="fp-bar">' + seasonSel + (st.y === 2025 ? '<span class="fp-note">Close-and-late uses only the ~25% of 2024-25 games that log substitutions</span>' : '') + '</div>' +
               '<div class="sheet-wrap" style="max-height:none;margin-bottom:18px"><table class="sheet dense fp-tbl"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' +
-              '<div class="fp-bar"><span class="fp-lab">Skill by skill</span><select class="fp-sel" data-fs="sp">' + sd.splits.map(function (sp) { return '<option value="' + sp.k + '"' + (sp.k === st.sp ? ' selected' : '') + '>' + esc(sp.a) + ' vs ' + esc(sp.b.replace(/^vs /, '')) + '</option>'; }).join('') + '</select></div>' +
+              '<div class="sec-title">Skill by skill</div><div class="fp-bar"><span class="fp-lab">Split</span><select class="fp-sel" data-fs="sp">' + sd.splits.map(function (sp) { return '<option value="' + sp.k + '"' + (sp.k === st.sp ? ' selected' : '') + '>' + esc(sp.a) + ' vs ' + esc(sp.b.replace(/^vs /, '')) + '</option>'; }).join('') + '</select></div>' +
               '<div class="sheet-wrap" style="max-height:none"><table class="sheet dense fp-tbl"><thead><tr><th class="l">Skill</th><th>' + esc(cur.sp.a) + '</th><th>' + esc(cur.sp.b) + '</th><th>Change</th><th>Typical</th><th>vs typical</th></tr></thead><tbody>' + det + '</tbody></table></div>';
             host.querySelectorAll('[data-fs]').forEach(function (el) {
               el.addEventListener('change', function () { if (el.getAttribute('data-fs') === 'y') { st.y = +el.value; st.sp = null; } else st.sp = el.value; draw(); });
@@ -290,6 +292,7 @@
         }).join('');
         var sl = function (i, lab) { return '<label class="fp-sl"><span class="fp-lab">' + lab + '</span><input type="range" min="0" max="100" value="' + st.w[i] + '" data-fw="' + i + '"><b>' + st.w[i] + '</b></label>'; };
         host.innerHTML = (opt.banner ? opt.banner(verdict, sentence) : '') +
+          '<div class="sec-title">Most similar player-seasons</div>' +
           '<div class="fp-bar">' + (ys.length > 1 ? '<span class="fp-lab">His season</span><select class="fp-sel" data-fc="y">' + ys.map(function (y) { return '<option value="' + y + '"' + (y === st.y ? ' selected' : '') + '>' + (y - 1) + '-' + String(y).slice(2) + '</option>'; }).join('') + '</select>' : '') +
           sl(0, 'Skills') + sl(1, 'Impact') + sl(2, 'Role') + '</div>' +
           '<div class="sheet-wrap" style="max-height:none"><table class="sheet dense fp-tbl"><thead><tr><th class="l">Player</th><th>Season</th><th class="l">School</th><th>Pos</th><th>Match</th><th title="Overall points per 100 that season">Pts/100</th><th title="The same player the following season">Next year</th><th>Change</th><th class="l"></th></tr></thead><tbody>' +

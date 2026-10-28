@@ -179,7 +179,7 @@
       // bigger role — Jesse McCulloch, projected 11, playing 21 — shouldn't read as a tiny number)
       var smin = games.length ? games.reduce(function (a, e) { return a + (+e.min || 0); }, 0) / games.length : 0;
       var pmin = Math.max(+(b.mpg || nw.mpg || 0), smin) || 28, K = pmin / 40, pg = function (v) { return v == null ? v : v * K; };
-      var html = '<div class="tr-hd"><div><div class="tr-l">Preseason trend</div><div class="tr-big" style="color:' + col + '">' + (tr > 0 ? '▲ ' : tr < 0 ? '▼ ' : '') + sg(pg(tr)) + '</div><div class="tr-l" style="margin-top:2px">per game vs projection</div></div>' +
+      var html = '<div class="tr-sec">Preseason trend</div><div class="tr-hd"><div><div class="tr-l">Trend</div><div class="tr-big" style="color:' + col + '">' + (tr > 0 ? '▲ ' : tr < 0 ? '▼ ' : '') + sg(pg(tr)) + '</div><div class="tr-l" style="margin-top:2px">per game vs projection</div></div>' +
         '<div><div class="tr-t">' + word + '</div><div class="tr-s">' + sg(pg(tr)) + ' means his scrimmages were worth about <b>' + Math.abs(pg(tr)).toFixed(1) + ' points per game ' + (tr >= 0 ? 'more' : 'less') + '</b> than we projected, at about ' + Math.round(pmin) + ' minutes a game. Points here are Game Score, one points-scale number for his whole box score (points, boards, assists, steals, blocks, shooting, turnovers). Averaged over ' + nG + ' scrimmage' + (nG > 1 ? 's' : '') +
         (nG > 1 ? ' that count as <b>' : ' that counts as <b>') + W.toFixed(2) + ' real game' + (W === 1 ? '' : 's') + '</b> (each weighted by its Reality Meter and his share of a normal night’s minutes), pulled toward 0 as if he had one more average game.</div></div></div>';
 
