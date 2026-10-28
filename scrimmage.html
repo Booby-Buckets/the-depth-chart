@@ -101,7 +101,7 @@
 <script src="tdc-scrim.js?v=19"></script>
 <script src="tdc-gamehead.js?v=3"></script>
 <script src="tdc-gameflow.js?v=12"></script>
-<script src="tdc-gametabs.js?v=4"></script>
+<script src="tdc-gametabs.js?v=6"></script>
 <script src="tdc-scrimflow.js?v=6"></script>
 <script>
 (function(){
@@ -327,18 +327,22 @@
     if(has) cells.push({v:res.hs+res.as,k:'Total points',s:poss?Math.round((res.hs+res.as)/poss/2*100)+' per 100 poss.':''});
     if(poss) cells.push({v:Math.round(poss),k:'Possessions',s:poss>80?'fast':poss<60?'slow':'normal pace'});
     if(R0.score!=null) cells.push({v:Math.round(R0.score)+'%',k:'Counts as',s:'of a real game',tip:'Reality Meter: how much this scrimmage counts toward each player’s 2026-27 projection (100% = one full real game). See the “How much it counts” tab.'});
-    const sum=GT.kv([
-      ['Player of the game',BX.potg?`<b>${esc(BX.potg.rn||BX.potg.name)}</b> · ${nmS(potgSide)} · ${statLine(BX.potg)} · RTG ${playerRating(BX.potg).toFixed(1)}`:''],
-      ['Report',res.note?esc(res.note):''],
-      ['How much it counts',R0.score!=null?`<b>${esc(R0.label||'')}</b> · about ${Math.round(R0.score)}% of a real game toward each player’s projection`:''],
-      ['RTG scale',box?'0–10 from the box score · 5 average · 6.5 strong · 8+ great':''],
-    ])+(box?GT.leaders(['away','home'].map(k=>{ const full=k==='home'?g.home:g.away, ros=k==='home'?rh:ra, short=byFull[full]&&byFull[full].team, byKey={};
-        ros.forEach(p=>{ byKey[nk(p.name)]=p; });
-        return { name:shortOf(full,byFull), players:((box[k]&&box[k].players)||[]).map(p=>{ const r=byKey[nk(p.rn||p.name)];
-          return { name:p.rn||p.name, pts:p.pts, reb:p.reb, ast:p.ast, min:p.min,
-            href:r?(r.espn_id?`player.html?espn=${r.espn_id}`:`player.html?name=${encodeURIComponent(r.name)}&team=${encodeURIComponent(short||'')}`):null }; }) }; })):'')
-      +(FL?GT.moments(FL.G,FL.R):'')
-      +(proj?GT.head('Vs our projection','minutes and Game Score vs our pre-scrimmage projection · * started')+proj:'');
+    // SUMMARY (Oct 27 2026, owner: didn't like the summary) — player of the game + head-to-head leaders, key-moment
+    // tiles, then the projection check, each in a kit panel. RTG scale and "how much it counts" live in tooltips / the strip.
+    const colOf=full=>{ const t=byFull[full], c=TDC_GAMEHEAD.team((t&&t.team)||full), c2=TDC_GAMEHEAD.team(full); return c.color||c2.color||'var(--text3)'; };
+    const sideOf=k=>{ const full=k==='home'?g.home:g.away, ros=k==='home'?rh:ra, short=byFull[full]&&byFull[full].team, byKey={};
+      ros.forEach(p=>{ byKey[nk(p.name)]=p; });
+      const href=p=>{ const r=byKey[nk(p.rn||p.name)]; return r?(r.espn_id?`player.html?espn=${r.espn_id}`:`player.html?name=${encodeURIComponent(r.name)}&team=${encodeURIComponent(short||'')}`):null; };
+      return { name:shortOf(full,byFull), logo:logoOf(full,byFull), color:colOf(full), href,
+        players:((box[k]&&box[k].players)||[]).map(p=>({ name:p.rn||p.name, pts:p.pts, reb:p.reb, ast:p.ast, min:p.min, href:href(p) })) }; };
+    let sum='';
+    if(box){ const SA=sideOf('away'), SH=sideOf('home'), pk=potgSide===g.home?'home':'away', PS=pk==='home'?SH:SA, X=BX.potg;
+      const card=X?GT.potg({ name:X.rn||X.name, href:PS.href(X), team:PS.name, logo:PS.logo, color:PS.color, min:X.min, fg:X.fgm!=null&&X.fga!=null?X.fgm+'-'+X.fga:'',
+        pts:X.pts, reb:X.reb, ast:X.ast, stl:X.stl, blk:X.blk, rtg:playerRating(X), note:res.note?esc(res.note):'' }):'';
+      sum='<div class="gt-sumgrid">'+card+GT.duel([SA,SH])+'</div>'; }
+    else if(res.note) sum=GT.panel('Report','<p style="margin:0">'+esc(res.note)+'</p>');
+    if(FL) sum+=GT.momentTiles(FL.G,FL.R,null,t=>colOf(t===FL.G.home?g.home:g.away));
+    if(proj) sum+=GT.panel('Vs our projection',proj,'<span class="gt-tools">vs our pre-scrimmage projection · * started</span>');
     const boxes=box?teamBlock('away',box.away,g.away,byFull[g.away]&&byFull[g.away].team,ra,byFull,PM.a,{potg:BX.potg,trtg:BX.ta})+teamBlock('home',box.home,g.home,byFull[g.home]&&byFull[g.home].team,rh,byFull,PM.h,{potg:BX.potg,trtg:BX.th})+'<p class="note">* = started · RTG = 0–10 game rating · Counts = share of a real game this line adds to his projection.</p>':'';
     const stats=(efficiency(box,g,byFull,S.eff&&S.eff.ffAvg)||'')+(FL?`<div class="sec"><h2>How each trip ended</h2><span class="hint">every possession, by what ended it</span></div>${TDC_SCRIMFLOW.possessionsHtml(pb,names)}`:'');
     const rotOK=FL&&FL.G.rotTeams.length;

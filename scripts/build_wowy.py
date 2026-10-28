@@ -33,7 +33,7 @@ import build_onoff as B
 
 DATADIR = B.DATADIR
 CACHE = os.path.join(DATADIR, "wowy_cache")
-F = ("pts", "fga", "fgm", "tpa", "tpm", "fta", "ftm", "orb", "drb", "tov", "ast", "stl", "blk")
+F = ("pts", "fga", "fgm", "tpa", "tpm", "fta", "ftm", "orb", "drb", "tov", "ast", "stl", "blk", "ra", "rm", "ma", "mm")   # ra/rm = rim attempts/makes, ma/mm = mid-range (other twos)
 MIN_UNIT_POSS = {2: 80, 3: 60, 4: 45, 5: 30}
 TOP_UNITS = 15
 
@@ -64,6 +64,11 @@ def cached_json(name, fn):
 def secs_of(clock):
     m = re.match(r"^(\d+):(\d+)", str(clock or ""))
     return int(m.group(1)) * 60 + int(m.group(2)) if m else None
+
+def crunch(per, secs, margin):
+    """close and late: second half or overtime, 8:00 or less on the clock, within 6"""
+    return per >= 2 and secs is not None and secs <= 480 and abs(margin) <= 6
+def sgn(m): return (m > 0) - (m < 0)
 
 def low_leverage(per, secs, margin):
     if per != 2 or secs is None: return False
@@ -117,6 +122,7 @@ def espn_misses(gid):
     return out, teams
 
 TWO = re.compile(r"two point|2 pointer|layup|dunk|tip|hook|alley|putback", re.I)
+RIM = re.compile(r"layup|lay up|dunk|tip|alley|putback", re.I)   # at the rim; every other two is mid-range
 def process_game(nid, og):
     """→ list of stints [{H:[ids],A:[ids],secs,low,h:{box},a:{box}}], team names, names map"""
     pbp = B.pbp_json(nid)
@@ -166,15 +172,14 @@ def process_game(nid, og):
             if dd <= 4 and (best is None or dd < best[0]): best = (dd, m)
         if best: best[1]["used"] = True; return 1.0 if best[1]["is3"] else 0.0
         return 0.45   # no ESPN match: about the share of missed jumpers that are threes
-    stints = []; cur = {"secs": 0.0, "low": {False: [blank(), blank(), 0.0], True: [blank(), blank(), 0.0]}}
+    stints = []; cur = {"secs": 0.0, "low": defaultdict(lambda: [blank(), blank(), 0.0])}   # key (low, close, home margin sign)
     bad = 0
 
     def close():
-        for low in (False, True):
-            h, a, s = cur["low"][low]
+        for (low, cl, hm), (h, a, s) in cur["low"].items():
             if s <= 0 and not any(h.values()) and not any(a.values()): continue
-            stints.append({"H": sorted(on["H"]), "A": sorted(on["A"]), "secs": round(s, 1), "low": low, "h": dict(h), "a": dict(a)})
-        cur["low"] = {False: [blank(), blank(), 0.0], True: [blank(), blank(), 0.0]}
+            stints.append({"H": sorted(on["H"]), "A": sorted(on["A"]), "secs": round(s, 1), "low": low, "close": cl, "hm": hm, "h": dict(h), "a": dict(a)})
+        cur["low"] = defaultdict(lambda: [blank(), blank(), 0.0])
 
     for per in pbp["periods"]:
         pn = int(per.get("periodNumber") or 1)
@@ -194,6 +199,7 @@ def process_game(nid, og):
                     if val is None:   # a made "Jumper" with no 2 or 3 in the text: the score says which
                         val = 3 if d >= 3 else 2
                         fbox["tpa"] += 1 if val == 3 else 0; fbox["tpm"] += 1 if val == 3 else 0
+                        if val == 2: fbox["ma"] += 1; fbox["mm"] += 1
                     if d >= val: d -= val; pend[sd].pop(0)
                     else: pend[sd][0] = [fbox, val - d]; d = 0
                 if d > 0: bx["ftm"] += d; bx["fta"] += d
@@ -202,8 +208,9 @@ def process_game(nid, og):
             try: hs = int(pl.get("homeScore") or 0); as_ = int(pl.get("visitorScore") or 0)
             except Exception: hs = as_ = 0
             s = secs_of(pl.get("clock"))
+            mg = (prev_h if prev_h is not None else hs) - (prev_a if prev_a is not None else as_)   # margin before this play
             low = low_leverage(pn, s, hs - as_)
-            bucket = cur["low"][low]
+            bucket = cur["low"][(low, crunch(pn, s, mg), sgn(mg))]
             if s is not None and s <= last_secs:
                 bucket[2] += last_secs - s; last_secs = s
             # credit points only when the score passes its high-water mark: a scorer's correction (down, then back up)
@@ -239,6 +246,9 @@ def process_game(nid, og):
             dl = desc.lower(); sig = re.sub(r"\s+", "", re.sub(r"\(.*?\)", "", dl))
             dup = bool(sig) and sig == prev_sig
             prev_sig = sig
+            # most steals ride on the turnover line, often a repeat of a plain one just before it (so it reads as a
+            # duplicate): "X turnover (bad pass)" then "X turnover (bad pass) (Y steals)" — credit the other side here
+            if k == "tov" and "steals)" in dl: (bucket[1] if side == "H" else bucket[0])["stl"] += 1
             if not dup and k == "fga":
                 made = not re.search(r"miss", dl)
                 box_s["fga"] += 1
@@ -247,13 +257,19 @@ def process_game(nid, og):
                 if made:
                     box_s["fgm"] += 1
                     if THREE.search(desc): box_s["tpa"] += 1; box_s["tpm"] += 1; pend[side].append([box_s, 3])
-                    elif TWO.search(desc): pend[side].append([box_s, 2])
+                    elif TWO.search(desc):
+                        if RIM.search(desc): box_s["ra"] += 1; box_s["rm"] += 1
+                        else: box_s["ma"] += 1; box_s["mm"] += 1
+                        pend[side].append([box_s, 2])
                     else: pend[side].append([box_s, None])
                 else:
                     if THREE.search(desc): p3 = 1.0
                     elif TWO.search(desc): p3 = 0.0
                     else: p3 = miss_is3(pn, s, side) if amb else 0.0
                     box_s["tpa"] += p3
+                    if p3 < 1:
+                        if RIM.search(desc): box_s["ra"] += 1 - p3
+                        else: box_s["ma"] += 1 - p3
             elif not dup and k in ("orb", "drb"):
                 # one feed labels EVERY rebound "defensive rebound", so the label can't be trusted: a rebound by the
                 # side that missed is offensive. The "team rebound" between two free throws is not a rebound at all,
@@ -279,7 +295,10 @@ def process_game(nid, og):
                 shooter = "A" if side == "H" else "H"
                 if not (last_shot and last_shot[0] == shooter and last_shot[1] == s):
                     sbx = bucket[0] if shooter == "H" else bucket[1]
-                    sbx["fga"] += 1; sbx["tpa"] += 1 if THREE.search(desc) else 0
+                    sbx["fga"] += 1
+                    if THREE.search(desc): sbx["tpa"] += 1
+                    elif RIM.search(desc): sbx["ra"] += 1
+                    else: sbx["ma"] += 1
                     last_miss = (shooter, False)
             elif not dup and k in ("tov", "stl"):
                 box_s[k] += 1
@@ -379,10 +398,11 @@ def process_cbbd_game(plays, gid):
         if None in H or None in A or len(H) != 5 or len(A) != 5: bad += 1; continue
         prev["H"], prev["A"] = list(H), list(A)
         per = pl.get("period") or 1; secs = pl.get("secondsRemaining")
-        low = low_leverage(per, secs, (pl.get("homeScore") or 0) - (pl.get("awayScore") or 0))
-        key = (tuple(sorted(H)), tuple(sorted(A)), low)
+        mg = (pl.get("homeScore") or 0) - (pl.get("awayScore") or 0)
+        low = low_leverage(per, secs, mg); cl = crunch(per, secs, mg); hm = sgn(mg)
+        key = (tuple(sorted(H)), tuple(sorted(A)), low, cl, hm)
         if cur is None or cur["key"] != key:
-            flush(); cur = {"key": key, "H": list(key[0]), "A": list(key[1]), "secs": 0.0, "low": low, "h": blank(), "a": blank()}
+            flush(); cur = {"key": key, "H": list(key[0]), "A": list(key[1]), "secs": 0.0, "low": low, "close": cl, "hm": hm, "h": blank(), "a": blank()}
         ls = last_secs.get(per, 1200 if per <= 2 else 300)
         if secs is not None and secs <= ls: cur["secs"] += ls - secs; last_secs[per] = secs
         bx = cur["h"] if hsd == "H" else cur["a"]
@@ -391,8 +411,12 @@ def process_cbbd_game(plays, gid):
         if t in ("JumpShot", "LayUpShot", "DunkShot", "TipShot") or (pl.get("shootingPlay") and "free" not in tl):
             si = pl.get("shotInfo") or {}
             is3 = si.get("range") == "three_pointer" or pl.get("scoreValue") == 3
+            rim = (not is3) and (si.get("range") == "rim" or t in ("LayUpShot", "DunkShot", "TipShot"))
             bx["fga"] += 1; bx["tpa"] += 1 if is3 else 0
-            if made: bx["fgm"] += 1; bx["tpm"] += 1 if is3 else 0; bx["pts"] += 3 if is3 else 2; last_miss = None
+            if not is3: bx["ra" if rim else "ma"] += 1
+            if made:
+                bx["fgm"] += 1; bx["tpm"] += 1 if is3 else 0; bx["pts"] += 3 if is3 else 2; last_miss = None
+                if not is3: bx["rm" if rim else "mm"] += 1
             else: last_miss = hsd
             if si.get("assisted"): bx["ast"] += 1
         elif "freethrow" in tl.replace(" ", ""):
@@ -452,6 +476,15 @@ def rates(o, d, secs, lg=None):
            "ots": ts(d), "oefg": efg(d), "otov": pct(d["tov"], pd), "drb": pct(d["drb"], d["drb"] + o["orb"])}
     out["net"] = round(out["o"] - out["d"], 1) if out["o"] is not None and out["d"] is not None else None
     out.update({"tp": pct(o["tpm"], o["tpa"]), "tpar": pct(o["tpa"], o["fga"]), "ftp": pct(o["ftm"], o["fta"]), "otp": pct(d["tpm"], d["tpa"])})
+    # shot zones, ball security and the defense's own plays (the on/off profile's deeper rows)
+    out.update({"fg": pct(o["fgm"], o["fga"]), "rimp": pct(o["rm"], o["ra"]), "midp": pct(o["mm"], o["ma"]),
+                "rimr": pct(o["ra"], o["fga"]), "midr": pct(o["ma"], o["fga"]),
+                "ostl": pct(d["stl"], po), "oblk": pct(d["blk"], o["fga"]),
+                "ofg": pct(d["fgm"], d["fga"]), "orimp": pct(d["rm"], d["ra"]), "omidp": pct(d["mm"], d["ma"]),
+                "orimr": pct(d["ra"], d["fga"]), "omidr": pct(d["ma"], d["fga"]), "otpar": pct(d["tpa"], d["fga"]),
+                "oftr": pct(d["fta"], d["fga"]), "oast": pct(d["ast"], d["fgm"]),
+                "stl": pct(o["stl"], pd), "blk": pct(o["blk"], d["fga"]),
+                "pace": round((po + pd) / 2 / (secs / 60) * 40, 1) if secs > 0 else None})
     if lg:   # luck adjusted: own FT%, and the opponent's 3P% and FT%, set to the D-I average (what a unit controls stays)
         L3, LF = lg["tp3"], lg["ft"]
         op = o["pts"] - (o["ftm"] - o["fta"] * LF)
@@ -490,7 +523,8 @@ def run(season, limit=0, verbose=False, source="ncaa"):
     return aggregate(season, work, limit, verbose)
 
 def aggregate(season, work, limit, verbose):
-    P = defaultdict(lambda: {"team": None, "name": None, "games": 0, "on_o": blank(), "on_d": blank(), "on_s": 0.0, "tm_o": blank(), "tm_d": blank(), "tm_s": 0.0})
+    SIT = ("c", "t")   # c = crunch (close + late), t = his team trailing
+    P = defaultdict(lambda: {"sit": {k: [blank(), blank(), blank(), blank()] for k in SIT}, "team": None, "name": None, "games": 0, "on_o": blank(), "on_d": blank(), "on_s": 0.0, "tm_o": blank(), "tm_d": blank(), "tm_s": 0.0})
     U = {n: defaultdict(lambda: {"o": blank(), "d": blank(), "s": 0.0, "team": None}) for n in (2, 3, 4, 5)}
     STINTS = []; names = {}; fails = defaultdict(int); done = 0
     TST = defaultdict(lambda: {"ids": {}, "rows": {}})   # per team: season totals of every five-man lineup, for the page's custom WOWY
@@ -500,6 +534,7 @@ def aggregate(season, work, limit, verbose):
         if res is None: fails[why] += 1; continue
         done += 1; names.update(res["names"])
         seen = set(); gt = {"H": [blank(), blank(), 0.0], "A": [blank(), blank(), 0.0]}
+        gs = {sd: {k: [blank(), blank()] for k in SIT} for sd in ("H", "A")}
         for st in res["stints"]:
             if st["low"]: continue
             for sd, own, opp, team in (("H", st["h"], st["a"], res["teamH"]), ("A", st["a"], st["h"], res["teamA"])):
@@ -510,8 +545,11 @@ def aggregate(season, work, limit, verbose):
                     row[0] += st["secs"]; add(row[1], own); add(row[2], opp)
                 add(gt[sd][0], own); add(gt[sd][1], opp); gt[sd][2] += st["secs"]
                 ids = st[sd]
+                sits = [k for k, ok in (("c", st.get("close")), ("t", (st.get("hm", 0) if sd == "H" else -st.get("hm", 0)) < 0)) if ok]
+                for k in sits: add(gs[sd][k][0], own); add(gs[sd][k][1], opp)
                 for e in ids:
                     p = P[e]; p["team"] = team; add(p["on_o"], own); add(p["on_d"], opp); p["on_s"] += st["secs"]; seen.add((e, sd))
+                    for k in sits: add(p["sit"][k][0], own); add(p["sit"][k][1], opp)
                 if len(ids) == 5:
                     for n in (2, 3, 4, 5):
                         for c in combinations(ids, n):
@@ -520,6 +558,7 @@ def aggregate(season, work, limit, verbose):
                 STINTS.append((tuple(st["H"]), tuple(st["A"]), poss(st["h"]), st["h"]["pts"], poss(st["a"]), st["a"]["pts"]))
         for e, sd in seen:   # team totals for the games he played (off-court = team − on-court)
             p = P[e]; p["games"] += 1; add(p["tm_o"], gt[sd][0]); add(p["tm_d"], gt[sd][1]); p["tm_s"] += gt[sd][2]
+            for k in SIT: add(p["sit"][k][2], gs[sd][k][0]); add(p["sit"][k][3], gs[sd][k][1])
         if done % 250 == 0: print(f"  {done} games", flush=True)
     print(f"processed {done}; failures {dict(fails)}", flush=True)
 
@@ -529,6 +568,7 @@ def aggregate(season, work, limit, verbose):
     league = rates(tot_o, tot_d, 0)
     LG = {"tp3": tot_o["tpm"] / max(1, tot_o["tpa"]), "ft": tot_o["ftm"] / max(1, tot_o["fta"])}
     league.update({"tp3_raw": round(LG["tp3"], 4), "ft_raw": round(LG["ft"], 4)})
+    print(f"[league] rim {league['rimr']}% of FGA @ {league['rimp']}%  mid {league['midr']}% @ {league['midp']}%  stl {league['stl']}  blk {league['blk']}  oAST {league['oast']}", flush=True)
     print(f"[league] ORtg {league['o']}  TS {league['ts']}  TOV {league['tov']}  ORB {league['orb']}  3P% {league['tp']}  3PAr {league['tpar']}  FT% {league['ftp']}", flush=True)
     if not league["o"] or not (90 <= league["o"] <= 120):
         print("*** SANITY FAIL: league ORtg implausible — not writing ***"); return
@@ -541,8 +581,16 @@ def aggregate(season, work, limit, verbose):
         off_o = {f: p["tm_o"][f] - p["on_o"][f] for f in F}; off_d = {f: p["tm_d"][f] - p["on_d"][f] for f in F}
         off = rates(off_o, off_d, max(0.0, p["tm_s"] - p["on_s"]), LG) if p["tm_s"] - p["on_s"] >= 60 * 20 else None
         r = rapm.get(e)
+        sit = {}
+        for k in SIT:   # net rating with him on vs off in that game state: [on net, off net, on poss, off poss]
+            oo, od, to, td = p["sit"][k]
+            fo = {f: to[f] - oo[f] for f in F}; fd = {f: td[f] - od[f] for f in F}
+            def nr(a, b):
+                pa, pb = poss(a), poss(b)
+                return round(100 * a["pts"] / pa - 100 * b["pts"] / pb, 1) if pa >= 1 and pb >= 1 else None
+            sit[k] = [nr(oo, od), nr(fo, fd), round((poss(oo) + poss(od)) / 2), round((poss(fo) + poss(fd)) / 2)]
         players.append({"id": e, "name": names.get(e) or p.get("name"), "team": p["team"], "g": p["games"], "on": on, "off": off,
-                        "rapm": r})
+                        "rapm": r, "sit": sit})
     units = defaultdict(dict)
     for n in (2, 3, 4, 5):
         byteam = defaultdict(list)

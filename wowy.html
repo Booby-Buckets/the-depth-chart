@@ -78,13 +78,27 @@
   .wy-seg button:first-child{border-left:0}.wy-seg button.on{background:var(--text);color:var(--bg)}
   .wy-seg.gold button.on{background:var(--accent);color:#1a1814}
   .wy-note{font-size:12px;color:var(--text3);margin:4px 0 10px}
+  .wy-panel .ui-panel-head h2{margin:0}
+  .ui-panel.pz.wy-panel > .ui-panel-body:not(.wy-cbody){padding:0}
+  .wy-panel .ui-explain{margin:0;border-radius:0}.wy-panel .ui-explain p{margin:0 0 6px}.wy-panel .ui-explain p:last-child{margin:0}
+  .wy-panel .sheet-wrap{border:0;border-radius:0}
+  .wy-panel .ui-panel-body.flush > .sheet-wrap{margin:0 !important;}
+  .wy-panel .wy-seg{border-color:rgba(255,255,255,.25)}
+  .wy-panel .wy-seg button{color:rgba(255,255,255,.75);border-left-color:rgba(255,255,255,.2);padding:5px 10px;font-size:11.5px}
+  .wy-panel .wy-seg button.on{background:#fff;color:#141416}
+  .wy-chk{display:inline-flex;gap:5px;align-items:center;font-size:12px;font-weight:600;text-transform:none;letter-spacing:0;color:rgba(255,255,255,.8);cursor:pointer}
+  .wy-meta{font-size:12px;font-weight:600;text-transform:none;letter-spacing:0;opacity:.75}
+  .wy-panel .wy-pick{margin:0}
+  .ui-panel.pz.wy-panel > .wy-cbody{padding:12px 14px}
+  .wy-panel .wy-cbody .sheet-wrap{margin-top:12px;border:1px solid var(--border);border-radius:8px}
   .wy-tbl td.nm{white-space:nowrap}.wy-tbl td.nm a{color:var(--text);font-weight:700;text-decoration:none}.wy-tbl td.nm a:hover{text-decoration:underline}
   .wy-tbl td.nm img{width:18px;height:18px;object-fit:contain;vertical-align:-4px;margin-right:7px}
   .wy-tbl th{cursor:pointer;white-space:nowrap}.wy-tbl th.sorted{color:var(--text)}
-  .wy-tbl td .rl{display:block;font-size:11px;font-weight:700;margin-top:1px}
+  .wy-tbl td .rl{display:inline-block;min-width:34px;text-align:left;font-size:10.5px;font-weight:700;margin-left:6px}
+  .wy-tbl td.up{color:var(--green,#1f8a45);font-weight:700}.wy-tbl td.dn{color:var(--red,#c0392b);font-weight:700}
   .wy-tbl td .rl.up{color:var(--green,#1f8a45)}.wy-tbl td .rl.dn{color:var(--red,#c0392b)}
   .wy-tbl td.oo{font-weight:800}
-  .wy-tbl td .tpx{display:block;font-size:10.5px;font-weight:600;color:var(--text3);margin-top:1px;white-space:nowrap}
+  .wy-tbl td .tpx{display:none;font-size:10.5px;font-weight:600;color:var(--text3);margin-top:1px;white-space:nowrap}
   .wy-pick{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px}
   .wy-pick button{border:1px solid var(--border2);background:var(--bg);color:var(--text2);border-radius:999px;padding:5px 11px;font:600 12.5px Inter,system-ui,sans-serif;cursor:pointer}
   .wy-pick button.on{background:var(--accent);border-color:var(--accent);color:#1a1814;font-weight:800}
@@ -151,11 +165,22 @@
     <input id="wySearch" placeholder="Search player…" style="display:none">
     <a id="wyShift" href="statshift.html" style="margin-left:auto;font-size:12.5px;font-weight:700;color:var(--text3);text-decoration:none">Stat Line Shift →</a>
   </div>
-  <div class="wy-ctl"><span class="wy-seg" id="wyView"></span><label class="wy-note" style="margin:0;display:flex;gap:6px;align-items:center"><input type="checkbox" id="wySmall"> Show small samples</label><label class="wy-note" style="margin:0;display:flex;gap:6px;align-items:center" title="Sets the team's own free-throw shooting and the opponent's 3-point and free-throw shooting to the D-I average: the part of a rating that is mostly luck"><input type="checkbox" id="wyLuck"> Luck adjusted</label></div>
-  <div class="wy-note" id="wyNote"></div>
-  <div class="wy-cust" id="wyCustom" style="display:none"></div>
-  <div class="sheet-wrap" style="max-height:none"><table class="sheet dense wy-tbl" id="wyTbl"></table></div>
-  <div class="wy-key"><b class="g">Green = good</b><b class="r">Red = bad</b><span>The small number under a raw stat is the gap to the D-I average. ON-OFF is the team on the floor with him minus without him.</span></div>
+  <section class="ui-panel pz wy-panel" id="wyCustom" style="display:none"></section>
+  <section class="ui-panel pz wy-panel">
+    <div class="ui-panel-head"><h2 id="wyTitle">On and off the floor</h2><span class="ui-panel-tools">
+      <span class="wy-seg" id="wyView"></span>
+      <label class="wy-chk"><input type="checkbox" id="wySmall"> Small samples</label>
+      <label class="wy-chk" title="Sets the team's own free-throw shooting and the opponent's 3-point and free-throw shooting to the D-I average: the part of a rating that is mostly luck"><input type="checkbox" id="wyLuck"> Luck adjusted</label>
+      <button type="button" class="ui-info-btn" aria-expanded="false" title="How to read this" aria-label="How to read this" onclick="var d=document.getElementById('wyExplain');d.hidden=!d.hidden;this.setAttribute('aria-expanded',String(!d.hidden));">i</button>
+    </span></div>
+    <div class="ui-panel-body flush">
+      <div class="ui-explain" id="wyExplain" hidden>
+        <p><b>Green is good, red is bad.</b> The headline column is shaded; elsewhere the number turns green or red. The small number beside a raw stat is its gap to the D-I average. <b>On-off</b> is the team with him on the floor minus without him. Faded rows are small samples.</p>
+        <p id="wyNote"></p>
+      </div>
+      <div class="sheet-wrap" style="max-height:none"><table class="sheet dense wy-tbl" id="wyTbl"></table></div>
+    </div>
+  </section>
 </div>
 <script src="team-colors.js?v=13"></script>
 <script>
@@ -191,6 +216,8 @@ function cls(k,gap){ var s=S[k]; if(!s||s[2]==null||gap==null) return ''; var g=
   return g>=1.5?'c4':g>=0.5?'c3':g<=-1.5?'c0':g<=-0.5?'c1':'c2'; }
 // the shooting behind a rating (databallr's idea): the unit's 3P% under offense, the opponent's under defense
 function tpx(k,r){ if(k==='o'&&r.tp!=null) return '<span class="tpx">3P '+(+r.tp).toFixed(1)+'%</span>'; if(k==='d'&&r.otp!=null) return '<span class="tpx">opp 3P '+(+r.otp).toFixed(1)+'%</span>'; return ''; }
+// one shaded column per table (the headline); the rest just turn green / red
+function tone(k,d){ var s=S[k]; if(!s||s[2]==null||d==null||Math.abs(d)<0.05) return ''; return d*s[2]>0?'up':'dn'; }
 function f1(v){ return v==null?'—':(+v).toFixed(1); }
 function sg(v){ return v==null?'—':(v>0?'+':'')+(+v).toFixed(1); }
 function teams(D){ var t={}; D.players.forEach(function(p){ if(p.team) t[p.team]=1; }); return Object.keys(t).sort(); }
@@ -217,11 +244,12 @@ function renderCustom(D){
   PICK=PICK.filter(function(id){ return nameOf[id]; });
   var last=function(n){ n=String(n||''); var q=n.split(' '); return q.length>1?q.slice(1).join(' '):n; };
   var chips='<div class="wy-pick">'+roster.map(function(p){ return '<button class="'+(PICK.indexOf(p.id)>=0?'on':'')+'" data-pk="'+esc(p.id)+'">'+esc(p.name)+'<small>'+Math.round(p.on.min)+'m</small></button>'; }).join('')+'</div>';
-  var head='<h3>With or without</h3><div class="wy-note">Pick up to three players: the table shows '+esc(TEAM)+' in every on/off combination of them. The small line under each rating is the 3-point shooting behind it.</div>';
-  if(!PICK.length){ box.innerHTML=head+chips; bindPick(); return; }
-  box.innerHTML=head+chips+'<div class="wy-note">Loading lineups…</div>'; bindPick();
+  box.className='ui-panel pz wy-panel';
+  var head='<div class="ui-panel-head"><h2>With or without</h2><span class="ui-panel-tools"><span class="wy-meta">Pick up to three players to see every on/off combination</span></span></div><div class="wy-cbody">';
+  if(!PICK.length){ box.innerHTML=head+chips+'</div>'; bindPick(); return; }
+  box.innerHTML=head+chips+'<div class="wy-note">Loading lineups…</div></div>'; bindPick();
   loadLU(SEASON,TEAM).then(function(LU){
-    if(!LU){ box.innerHTML=head+chips+'<div class="wy-note">No lineup file for this team and season yet.</div>'; bindPick(); return; }
+    if(!LU){ box.innerHTML=head+chips+'<div class="wy-note">No lineup file for this team and season yet.</div></div>'; bindPick(); return; }
     var F=LU.fields, idx=PICK.map(function(id){ return LU.ids.indexOf(String(id)); }), k=PICK.length, L=D.league;
     var combos=[]; for(var m=(1<<k)-1;m>=0;m--) combos.push(m);   // all on first, all off last
     var sum=function(mask){ var o={},d={},secs=0; F.forEach(function(f){ o[f]=0; d[f]=0; });
@@ -230,16 +258,16 @@ function renderCustom(D){
       return crates(o,d,secs,L); };
     var cols=['o','d','net','ts','tov','orb','ots','drb'];
     var cell=function(k2,r){ var v=r[K(k2)], lgv=L[k2], gap=(v!=null&&lgv!=null&&k2!=='net')?v-lgv:(k2==='net'?v:null);
-      return '<td class="'+(r.poss>=40?cls(k2,gap):'')+'">'+f1(v)+tpx(k2,r)+'</td>'; };
+      return '<td class="'+(r.poss>=40&&k2==='net'?cls(k2,gap):'')+'">'+f1(v)+'</td>'; };
     var rowsR=combos.map(function(m){ var r=sum(m);
       var lab=PICK.map(function(id,j){ var on=!!(m&(1<<(k-1-j))); return '<b class="'+(on?'on':'off')+'">'+esc(last(nameOf[id]))+'</b>'; }).join(' · ');
       return {lab:lab,r:r}; });
     var html='<div class="sheet-wrap" style="max-height:none"><table class="sheet dense wy-tbl wy-ctbl" data-fit-keep><thead><tr><th class="l">On the floor</th><th>Min</th><th>Poss</th>'+cols.map(function(c){ return '<th>'+S[c][1]+'</th>'; }).join('')+'</tr></thead><tbody>'+
       rowsR.map(function(x){ return '<tr class="'+(x.r.poss<40?'small':'')+'"><td class="l">'+x.lab+'</td><td>'+Math.round(x.r.min)+'</td><td>'+x.r.poss+'</td>'+cols.map(function(c){ return cell(c,x.r); }).join('')+'</tr>'; }).join('');
     if(k===1){ var a=rowsR[0].r, b=rowsR[1].r;
-      html+='<tr class="oorow"><td class="l">On − off</td><td></td><td></td>'+cols.map(function(c){ var x=a[K(c)], y=b[K(c)], d=(x!=null&&y!=null)?x-y:null; return '<td class="'+cls(c,d)+'">'+sg(d)+'</td>'; }).join('')+'</tr>'; }
-    html+='</tbody></table></div><div class="wy-note" style="margin-top:6px">Green name = on the floor, struck through = off. Rows under 40 possessions are faded.</div>';
-    box.innerHTML=head+chips+html; bindPick();
+      html+='<tr class="oorow"><td class="l">On − off</td><td></td><td></td>'+cols.map(function(c){ var x=a[K(c)], y=b[K(c)], d=(x!=null&&y!=null)?x-y:null; return '<td class="'+(c==='net'?cls(c,d):tone(c,d))+'">'+sg(d)+'</td>'; }).join('')+'</tr>'; }
+    html+='</tbody></table></div><div class="wy-note" style="margin:6px 0 0">Green name = on the floor, struck through = off. Rows under 40 possessions are faded.</div>';
+    box.innerHTML=head+chips+html+'</div>'; bindPick();
   });
 }
 function bindPick(){ document.querySelectorAll('[data-pk]').forEach(function(b){ b.onclick=function(){ var id=b.dataset.pk, i=PICK.indexOf(id);
@@ -258,7 +286,7 @@ function render(){
   seg($('#wyView'),[['overview','Overview'],['offense','Offense'],['defense','Defense'],['expanded','Expanded']],VIEW,function(k){ VIEW=k; render(); });
   $('#wyTeam').style.display=SCOPE==='team'?'':'none'; $('#wySearch').style.display=SCOPE==='league'?'':'none';
   $('#wyNote').textContent=(D.games? D.games.toLocaleString()+' games · ':'')+'low-leverage (garbage) time removed'+(LUCK?' · luck adjusted: own FT% and opponent 3P% / FT% at the D-I average':'')+' · built '+(D.built||'')+(SEASON==='2024'||SEASON==='2025'?' · lineups from CollegeBasketballData':'');
-  var cols=VIEWS[VIEW], head, rows;
+  var cols=VIEWS[VIEW], hl=cols[0], head, rows;
   if(MODE==='wowy'||SCOPE==='league'){
     // league leaders: 500+ on-court possessions, and ranking by on-off needs a real off-court sample too (a starter whose
     // team barely played without him showed +40 from a few dozen bench possessions)
@@ -278,10 +306,10 @@ function render(){
       return '<tr class="'+((p.on.poss<100)?'small':'')+'"><td class="l nm">'+(SCOPE==='team'&&lg?'<img src="'+lg+'" alt="">':'')+'<a href="player.html?espn='+esc(p.id)+'">'+esc(p.name)+'</a></td>'+
         (SCOPE==='league'?'<td class="l nm">'+(lg?'<img src="'+lg+'" alt="">':'')+esc((window.tdcShortSchool?tdcShortSchool(p.team):p.team))+'</td>':'')+
         '<td>'+Math.round(p.on.min)+'</td>'+
-        (rap?(p.rapm?'<td class="oo '+cls('net',p.rapm.net)+'">'+sg(p.rapm.net)+'</td><td class="'+cls('o',p.rapm.o)+'">'+sg(p.rapm.o)+'</td><td class="'+cls('o',p.rapm.d)+'">'+sg(p.rapm.d)+'</td>':'<td>—</td><td>—</td><td>—</td>'):'')+
+        (rap?(p.rapm?'<td class="oo '+cls('net',p.rapm.net)+'">'+sg(p.rapm.net)+'</td><td class="'+tone('o',p.rapm.o)+'">'+sg(p.rapm.o)+'</td><td class="'+tone('o',p.rapm.d)+'">'+sg(p.rapm.d)+'</td>':'<td>—</td><td>—</td><td>—</td>'):'')+
         cols.map(function(k){ var v=p.on[K(k)], lgv=L[k], gap=(v!=null&&lgv!=null&&k!=='net')?v-lgv:(k==='net'?v:null), d=oo(p,k);
-          var raw='<td class="'+cls(k,gap)+'">'+f1(v)+(gap!=null&&k!=='net'?'<span class="rl '+((gap*S[k][2])>0?'up':'dn')+'">'+sg(gap)+'</span>':'')+tpx(k,p.on)+'</td>';
-          return raw+(rap?'':'<td class="oo '+cls(k,d)+'">'+sg(d)+'</td>'); }).join('')+'</tr>'; });
+          var raw='<td>'+f1(v)+(gap!=null&&k!=='net'?'<span class="rl '+((gap*S[k][2])>0?'up':'dn')+'">'+sg(gap)+'</span>':'')+'</td>';
+          return raw+(rap?'':'<td class="oo '+(k===hl?cls(k,d):tone(k,d))+'">'+sg(d)+'</td>'); }).join('')+'</tr>'; });
   } else {
     var UD=UNITS[SEASON];
     if(!UD){ $('#wyTbl').innerHTML='<tbody><tr><td class="l">Loading lineups…</td></tr></tbody>'; loadUnits(SEASON).then(render); return; }
@@ -293,13 +321,14 @@ function render(){
     head='<th class="l">Unit</th><th data-s="min">Min</th><th data-s="poss">Poss</th>'+cols.map(function(k){ return '<th data-s="'+k+'">'+S[k][1]+'</th>'; }).join('');
     rows=U.map(function(u){ return '<tr><td class="l unit">'+u.ids.map(function(i){ return '<span>'+esc(short(nm[i]||i))+'</span>'; }).join(' · ')+'</td><td>'+Math.round(u.r.min)+'</td><td>'+u.r.poss+'</td>'+
       cols.map(function(k){ var v=u.r[K(k)], lgv=L[k], gap=(v!=null&&lgv!=null&&k!=='net')?v-lgv:(k==='net'?v:null);
-        return '<td class="'+cls(k,gap)+'">'+f1(v)+(gap!=null&&k!=='net'?'<span class="rl '+((gap*S[k][2])>0?'up':'dn')+'">'+sg(gap)+'</span>':'')+tpx(k,u.r)+'</td>'; }).join('')+'</tr>'; });
+        return '<td class="'+(k===hl?cls(k,gap):'')+'">'+f1(v)+(gap!=null&&k!=='net'?'<span class="rl '+((gap*S[k][2])>0?'up':'dn')+'">'+sg(gap)+'</span>':'')+'</td>'; }).join('')+'</tr>'; });
   }
   renderCustom(D);
   $('#wyTbl').innerHTML='<thead><tr>'+head+'</tr></thead><tbody>'+(rows.join('')||'<tr><td class="l" colspan="20">No players or units with enough possessions.</td></tr>')+'</tbody>';
   $('#wyTbl').querySelectorAll('th[data-s]').forEach(function(th){ if(th.dataset.s===SORT) th.classList.add('sorted');
     th.onclick=function(){ if(SORT===th.dataset.s) DESC=!DESC; else { SORT=th.dataset.s; DESC=true; } render(); }; });
   $('#wyShift').href='statshift.html'+(TEAM?'?team='+encodeURIComponent(TEAM):'');
+  $('#wyTitle').textContent=SCOPE==='team'?(window.tdcShortSchool?tdcShortSchool(TEAM||''):(TEAM||''))+' · '+(MODE==='wowy'?(METRIC==='rapm'?'RAPM':'on and off the floor'):MODE+'-man units'):'League leaders · 500+ possessions';
   $('#wySub').innerHTML=SCOPE==='team'?esc(TEAM||'')+' · '+(MODE==='wowy'?'every player on and off the floor':MODE+'-man units with the most possessions')+'. Rebuilt from NCAA play-by-play substitutions; garbage time removed.':'Every D-I player with 500+ on-court possessions. Sort by any column.';
 }
 function setSeason(s){
