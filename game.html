@@ -110,6 +110,7 @@
 <script src="tdc-livegame.js?v=4"></script>
 <script src="tdc-shotchart.js?v=33"></script>
 <script src="tdc-gameflow.js?v=12"></script>
+<script src="tdc-gameonoff.js?v=1"></script>
 <script src="tdc-gametabs.js?v=4"></script>
 <script src="tdc-plays.js?v=1"></script>
 <script src="tdc-fingerprint.js?v=10"></script>
@@ -297,8 +298,9 @@ async function load(afterLive){
       gfTab('flow','Game flow',(el,r)=>TDC_GAMEFLOW.renderFlow(el,r.G,r.R)),
       gfTab('shots','Shot chart',(el,r)=>TDC_GAMEFLOW.renderShots(el,r.G,r.R)),
       gfTab('rotation','Rotation',(el,r)=>TDC_GAMEFLOW.renderRotation(el,r.G,r.R)),
+      gfTab('onoff','On/Off',(el,r)=>TDC_GAMEONOFF.render(el.parentNode,r.G,r.R)),
     ]);
-    gfP.then(res=>{ if(!res){ ['flow','shots','rotation'].forEach(t=>tabs.drop(t)); return; }
+    gfP.then(res=>{ if(!res){ ['flow','shots','rotation','onoff'].forEach(t=>tabs.drop(t)); return; }
       const m=document.getElementById('gmMoments'); if(m) try{ m.innerHTML=GT.moments(res.G,res.R,t=>shortNm((res.G.T[t]&&res.G.T[t].name)||t)); }catch(e){ console.error(e); } });
     // our read of the game: where the edge came from, who beat his usual, the swing (tdc-recap.js; hides itself without PBP)
     if(window.TDC_RECAP) Promise.resolve(TDC_RECAP.mount(document.getElementById('rcHost'),gid,{season:g&&g.season_year})).then(R=>{ if(!R) tabs.drop('why'); });
