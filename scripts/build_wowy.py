@@ -176,9 +176,9 @@ def process_game(nid, og):
     bad = 0
 
     def close():
-        for (low, cl, hm), (h, a, s) in cur["low"].items():
+        for (low, cl, hm, hf), (h, a, s) in cur["low"].items():
             if s <= 0 and not any(h.values()) and not any(a.values()): continue
-            stints.append({"H": sorted(on["H"]), "A": sorted(on["A"]), "secs": round(s, 1), "low": low, "close": cl, "hm": hm, "h": dict(h), "a": dict(a)})
+            stints.append({"H": sorted(on["H"]), "A": sorted(on["A"]), "secs": round(s, 1), "low": low, "close": cl, "hm": hm, "half": hf, "h": dict(h), "a": dict(a)})
         cur["low"] = defaultdict(lambda: [blank(), blank(), 0.0])
 
     for per in pbp["periods"]:
@@ -210,7 +210,7 @@ def process_game(nid, og):
             s = secs_of(pl.get("clock"))
             mg = (prev_h if prev_h is not None else hs) - (prev_a if prev_a is not None else as_)   # margin before this play
             low = low_leverage(pn, s, hs - as_)
-            bucket = cur["low"][(low, crunch(pn, s, mg), sgn(mg))]
+            bucket = cur["low"][(low, crunch(pn, s, mg), sgn(mg), int(pn >= 2))]
             if s is not None and s <= last_secs:
                 bucket[2] += last_secs - s; last_secs = s
             # credit points only when the score passes its high-water mark: a scorer's correction (down, then back up)
@@ -320,7 +320,7 @@ def process_game(nid, og):
         if o < 55 or o > 150: return None, "bad-ortg"
     if bad > 8: return None, "bad-subs"   # lineups we can't follow would credit the wrong players
     names = {str(b["espn_id"]): b["player"] for b in box if b.get("espn_id") is not None}
-    return {"stints": stints, "teamH": box_home, "teamA": box_away, "names": names, "bad": bad}, "ok"
+    return {"stints": stints, "teamH": box_home, "teamA": box_away, "names": names, "bad": bad, "gid": str(og["id"])}, "ok"
 
 # ── CBBD source (2023-24): every play carries the ten players on the floor, so stints come straight from it ──
 CBBD_API = "https://api.collegebasketballdata.com"
@@ -400,9 +400,9 @@ def process_cbbd_game(plays, gid):
         per = pl.get("period") or 1; secs = pl.get("secondsRemaining")
         mg = (pl.get("homeScore") or 0) - (pl.get("awayScore") or 0)
         low = low_leverage(per, secs, mg); cl = crunch(per, secs, mg); hm = sgn(mg)
-        key = (tuple(sorted(H)), tuple(sorted(A)), low, cl, hm)
+        key = (tuple(sorted(H)), tuple(sorted(A)), low, cl, hm, int(per >= 2))
         if cur is None or cur["key"] != key:
-            flush(); cur = {"key": key, "H": list(key[0]), "A": list(key[1]), "secs": 0.0, "low": low, "close": cl, "hm": hm, "h": blank(), "a": blank()}
+            flush(); cur = {"key": key, "H": list(key[0]), "A": list(key[1]), "secs": 0.0, "low": low, "close": cl, "hm": hm, "half": int(per >= 2), "h": blank(), "a": blank()}
         ls = last_secs.get(per, 1200 if per <= 2 else 300)
         if secs is not None and secs <= ls: cur["secs"] += ls - secs; last_secs[per] = secs
         bx = cur["h"] if hsd == "H" else cur["a"]
@@ -438,7 +438,7 @@ def process_cbbd_game(plays, gid):
         pp = poss(tot[sd])
         if pp < 45 or pp > 110: return None, "bad-poss"
     names = {str(b["espn_id"]): b["player"] for b in box if b.get("espn_id") is not None}
-    return {"stints": stints, "teamH": box_home, "teamA": box_away, "names": names, "bad": bad}, "ok"
+    return {"stints": stints, "teamH": box_home, "teamA": box_away, "names": names, "bad": bad, "gid": str(gid)}, "ok"
 
 def cbbd_games(season):
     """→ [(gid, plays)] for the season from the CBBD day files (pulls missing days with CBBD_KEY)"""
@@ -527,6 +527,7 @@ def aggregate(season, work, limit, verbose):
     P = defaultdict(lambda: {"sit": {k: [blank(), blank(), blank(), blank()] for k in SIT}, "team": None, "name": None, "games": 0, "on_o": blank(), "on_d": blank(), "on_s": 0.0, "tm_o": blank(), "tm_d": blank(), "tm_s": 0.0})
     U = {n: defaultdict(lambda: {"o": blank(), "d": blank(), "s": 0.0, "team": None}) for n in (2, 3, 4, 5)}
     STINTS = []; names = {}; fails = defaultdict(int); done = 0
+    LAB = defaultdict(lambda: {"ids": {}, "games": {}, "rows": {}})   # per team: five-man lineup × game × game state (On/Off Lab)
     TST = defaultdict(lambda: {"ids": {}, "rows": {}})   # per team: season totals of every five-man lineup, for the page's custom WOWY
     for i, (nid, fn) in enumerate(work):
         if limit and done >= limit: break
@@ -539,6 +540,13 @@ def aggregate(season, work, limit, verbose):
             if st["low"]: continue
             for sd, own, opp, team in (("H", st["h"], st["a"], res["teamH"]), ("A", st["a"], st["h"], res["teamA"])):
                 if len(st[sd]) == 5:
+                    Lb = LAB[team]; opp_team = res["teamA"] if sd == "H" else res["teamH"]
+                    gk = Lb["games"].setdefault(res.get("gid") or str(nid), [len(Lb["games"]), opp_team, sd])[0]
+                    mine = st.get("hm", 0) if sd == "H" else -st.get("hm", 0)
+                    state = st.get("half", 0) + 2 * int(bool(st.get("close"))) + 4 * (mine + 1)   # half + 2·close-and-late + 4·(trailing 0 / tied 1 / leading 2)
+                    lx = tuple(sorted(Lb["ids"].setdefault(e, len(Lb["ids"])) for e in st[sd]))
+                    lrow = Lb["rows"].setdefault((lx, gk, state), [0.0, blank(), blank()])
+                    lrow[0] += st["secs"]; add(lrow[1], own); add(lrow[2], opp)
                     T = TST[team]
                     ix = tuple(sorted(T["ids"].setdefault(e, len(T["ids"])) for e in st[sd]))
                     row = T["rows"].setdefault(ix, [0.0, blank(), blank()])
@@ -607,6 +615,7 @@ def aggregate(season, work, limit, verbose):
     uo = {"season": season, "names": {e: names.get(e) for e in {i for t in units.values() for n in t.values() for u in n for i in u["ids"]}}, "units": units}
     json.dump(uo, open(os.path.join(DATADIR, f"wowy_units_{season}.json"), "w"), separators=(",", ":"))
     # per-team stint files: any with/without combination of a team's players is summed from these in the browser
+    write_lab(season, LAB, names)
     sd_dir = os.path.join(DATADIR, "wowy_stints", str(season)); os.makedirs(sd_dir, exist_ok=True)
     for team, T in TST.items():
         ids = sorted(T["ids"], key=T["ids"].get)
@@ -620,6 +629,41 @@ def aggregate(season, work, limit, verbose):
     if verbose:
         for p in sorted(players, key=lambda x: -(x["on"]["poss"]))[:8]:
             print(f"  {p['name'][:22]:22} {p['team'][:16]:16} on {p['on']['net']:>6} off {(p['off'] or {}).get('net')} rapm {p['rapm']}")
+
+def write_lab(season, LAB, names):
+    """scripts/data/onoff_lab/<season>/<team>.json — every five-man lineup's box, split by game and game state, so the
+    On/Off Lab (onoff-lab.html) can answer any with/without question under any filter in the browser.
+      games: [date, opponent, 'H'|'A'|'N', conference game 0/1, opponent's rank by season net rating]
+      rows:  [lineup (indexes into ids), game index, state, seconds, own box, opponent box]
+      state = half (0 first, 1 second + OT) + 2·close-and-late + 4·(his team trailing 0 / tied 1 / leading 2)"""
+    meta, off = {}, 0
+    while True:   # date / neutral site / conference game per game (stable order, or pages drop rows)
+        rows = B.sb_get(f"games?select=id,date,neutral,conf_game&season_year=eq.{season}&order=id&limit=1000&offset={off}")
+        for r in rows: meta[str(r["id"])] = r
+        off += 1000
+        if len(rows) < 1000: break
+    # opponent strength: every team's net rating per 100 over the season's lineup data, ranked
+    net = {}
+    for team, Lb in LAB.items():
+        o, d = blank(), blank()
+        for v in Lb["rows"].values(): add(o, v[1]); add(d, v[2])
+        if len(Lb["games"]) >= 8 and poss(o) > 0 and poss(d) > 0: net[team] = 100 * o["pts"] / poss(o) - 100 * d["pts"] / poss(d)
+    rank = {t: i + 1 for i, t in enumerate(sorted(net, key=lambda t: -net[t]))}
+    out_dir = os.path.join(DATADIR, "onoff_lab", str(season)); os.makedirs(out_dir, exist_ok=True)
+    index = []
+    for team, Lb in LAB.items():
+        ids = sorted(Lb["ids"], key=Lb["ids"].get)
+        games = [None] * len(Lb["games"])
+        for gid, (gi, opp, sd) in Lb["games"].items():
+            m = meta.get(gid, {})
+            games[gi] = [m.get("date"), opp, "N" if m.get("neutral") else sd.replace("A", "A"), 1 if m.get("conf_game") else 0, rank.get(opp)]
+        # home/away: sd is the side in the play-by-play ("H" home, "A" away)
+        rows = [[list(k[0]), k[1], k[2], round(v[0]), [round(v[1][f], 1) for f in SF], [round(v[2][f], 1) for f in SF]] for k, v in Lb["rows"].items()]
+        json.dump({"team": team, "season": season, "fields": list(SF), "ids": ids, "names": [names.get(e) for e in ids], "games": games, "rows": rows, "rank": rank.get(team)},
+                  open(os.path.join(out_dir, slug(team) + ".json"), "w"), separators=(",", ":"))
+        index.append([slug(team), team, rank.get(team)])
+    json.dump(sorted(index, key=lambda x: x[1]), open(os.path.join(out_dir, "index.json"), "w"), separators=(",", ":"))
+    print(f"wrote {len(LAB)} On/Off Lab team files to {out_dir}", flush=True)
 
 def ridge(stints, avg, lam=None):
     """offense + defense RAPM per 100. Each stint gives two rows (home offense vs away defense and back),

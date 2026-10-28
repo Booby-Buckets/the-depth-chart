@@ -241,6 +241,7 @@
     return h + '</table>';
   }
 
+  var slugOf = function (t) { return String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); };
   var shortTeam = function (t) { return window.tdcShortSchool ? tdcShortSchool(t) : t; };
   // heat class for a two-man unit's net rating (same 5 steps as the sheets kit)
   var heat = function (n) { return n == null ? '' : n >= 12 ? 'c4' : n >= 4 ? 'c3' : n <= -12 ? 'c0' : n <= -4 ? 'c1' : 'c2'; };
@@ -299,7 +300,7 @@
             '<p class="ui-note" style="margin:-4px 0 6px"><b>' + esc(team) + '</b> · ' + Math.round(p.on.min) + ' minutes on the floor' + (p.off ? ', ' + Math.round(p.off.min) + ' off' : '') + ' · ' + (p.g || 0) + ' games' + (S.low_leverage_removed ? ' · garbage time removed' : '') + (small ? ' · <b>small sample</b>' : '') + '</p>';
           var noOff = '<div class="ui-empty">This player was on the floor nearly every minute, so there is no off-floor sample to compare.</div>';
           var units = '<div><div class="oo-h" style="margin-top:0"><span class="ui-label">Two-man units · most minutes first</span>' +
-            '<a href="wowy.html?team=' + encodeURIComponent(p.team) + '&season=' + cur + '">Full ' + esc(team) + ' WOWY →</a></div>' + pairs(PR[espn] || []) + '</div>';
+            '<span><a href="onoff-lab.html?team=' + encodeURIComponent(slugOf(p.team)) + '&season=' + cur + '&q=together&p=' + encodeURIComponent(espn) + '">On/Off Lab →</a> &nbsp; <a href="wowy.html?team=' + encodeURIComponent(p.team) + '&season=' + cur + '">Full ' + esc(team) + ' WOWY →</a></span></div>' + pairs(PR[espn] || []) + '</div>';
           if (!p.off) h += '<div class="oo-grid' + (side ? '' : ' solo') + '"><div class="oo-col">' + noOff + '</div>' + (side ? '<div class="oo-col oo-side">' + tiles(p, P, S) + units + '</div>' : '') + '</div>';
           else if (side && opts.tilesTop) h += '<div class="oo-wide">' + tiles(p, P, S) + '</div><div class="oo-grid"><div class="oo-col">' + table(p, P, ['General', 'Offense']) + '</div>' +
             '<div class="oo-col oo-side">' + table(p, P, ['Our numbers', 'Defense']) + units + '</div></div>';
