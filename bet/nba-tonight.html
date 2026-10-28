@@ -70,7 +70,7 @@
       <div class="bx-seg" id="mxSort"><button data-s="ev" class="on">Best value</button><button data-s="gap">Biggest price gap</button></div>
     </div>
     <div class="sheet-wrap"><table class="sheet dense freeze2" id="mx" style="--c1:36px;--c2:210px"></table></div>
-    <div class="bx-note"><b>Prices are the cost to win $1</b>: 48¢ means you pay 48¢ and get $1 back if it hits (+108 in sportsbook terms). Kalshi prices include its trading fee; DraftKings' is its American price converted. <b>Gap</b> = how far apart the cheapest and dearest source are on the same bet: free money the books and exchanges leave on the table. <b>Market</b> = the average of every source's fair price; <b>Ours</b> = our model alone; <b>Value</b> = expected return per $1 at the cheapest price, using 35% ours / 65% market. Faded = thin market (wide bid/ask, little traded) or too little data on the player; <span style="color:var(--gold)">long shot</span> = under 15¢ or over 85¢, where every model's tails are least reliable.</div>
+    <div class="bx-note"><b>Prices are the cost to win $1</b>: 48¢ means you pay 48¢ and get $1 back if it hits (+108 in sportsbook terms). Kalshi prices include its trading fee; DraftKings' is its American price converted. <b>Gap</b> = how far apart the cheapest and dearest source are on the same bet: free money the books and exchanges leave on the table. <b>Market</b> = the average of every source's fair price; <b>Ours</b> = our model alone; <b>Value</b> = expected return per $1 at the cheapest price, using 90% market / 10% ours on props (85/15 on game lines). Why so little of ours: our first four nights of graded picks showed the market was right when we disagreed with it, so the value here comes mostly from <b>line shopping</b> (buying below the market's own fair price). <b>Value only</b> applies the same bar as the logged picks. Faded = thin market (wide bid/ask, little traded) or too little data on the player; <span style="color:var(--gold)">long shot</span> = under 15¢ or over 85¢, where every model's tails are least reliable.</div>
   </section>
 
   <section class="bx-sec">
@@ -87,7 +87,7 @@
       <div class="bx-seg" id="pTrust"><button data-t="ok" class="on">Trusted only</button><button data-t="all">Show all</button></div>
     </div>
     <div class="sheet-wrap"><table class="sheet dense freeze2" id="pt" style="--c1:36px;--c2:180px"></table></div>
-    <div class="bx-note"><b>Our proj</b> = our expected stat line tonight (this season's per-minute production shrunk toward last season's, x projected minutes). <b>DK %</b> = DraftKings' over chance with its vig removed. <b>Ours</b> = our model alone; <b>Blend</b> = 35% ours / 65% DraftKings, the honest number to bet on, since books are sharp. <b>Value</b> = expected return per $1 on the better side at the blended chance. Faded rows have too little data, or a gap so big it's probably news we don't have.</div>
+    <div class="bx-note"><b>Our proj</b> = our expected stat line tonight (this season's per-minute production shrunk toward last season's, x projected minutes). <b>DK %</b> = DraftKings' over chance with its vig removed. <b>Ours</b> = our model alone; <b>Blend</b> = 10% ours / 90% DraftKings: graded results so far say the market beats our prop numbers, so ours only nudges it. <b>Value</b> = expected return per $1 on the better side at the blended chance. Faded rows have too little data, or a gap so big it's probably news we don't have.</div>
   </section>
 
   <section class="bx-sec">
@@ -209,9 +209,10 @@
       var tot=d.total, L={dk:'DraftKings',kalshi:'Kalshi',poly:'Polymarket'}, K={ml:'Moneylines',sp:'Spreads',tot:'Totals',tt:'Team totals',prop:'Player props'};
       var row=function(lab,x){ return x&&x.n?'<tr><td class="l nm">'+lab+'</td><td>'+x.n+'</td><td>'+x.w+'–'+x.l+'</td><td class="'+(x.units>=0?'pos':'neg')+'">'+sg(x.units,1)+'u</td><td>'+(x.roi==null?'—':sg(x.roi*100,1)+'%')+'</td><td class="dim">'+sg(x.exp,1)+'u</td></tr>':''; };
       $('res').innerHTML='<thead><tr><th class="l">Picks</th><th>Graded</th><th>Record</th><th>Profit</th><th>ROI</th><th title="What the model expected at those prices">Expected</th></tr></thead><tbody>'+
-        row('<b>All picks</b>',tot)+d.days.map(function(x){ return row(B.fmtDate(x.date.slice(0,4)+'-'+x.date.slice(4,6)+'-'+x.date.slice(6),'md'),x.summary); }).join('')+
+        (d.v2&&d.v2.n?row('<b>New rules (from Oct 28)</b>',d.v2):'<tr><td class="l nm"><b>New rules (from Oct 28)</b></td><td colspan="5" class="dim">first picks grade after tonight\'s games</td></tr>')+
+        row('First four nights (old rules)',d.v1)+row('<b>All picks</b>',tot)+d.days.map(function(x){ return row(B.fmtDate(x.date.slice(0,4)+'-'+x.date.slice(4,6)+'-'+x.date.slice(6),'md'),x.summary); }).join('')+
         Object.keys(L).map(function(k){ return row('At '+L[k],tot.by_src&&tot.by_src[k]); }).join('')+Object.keys(K).map(function(k){ return row(K[k],tot.by_kind&&tot.by_kind[k]); }).join('')+'</tbody>';
-      $('resHint').textContent=tot.n+' graded picks · 1 unit = $1 at the logged price · a few nights prove nothing; we\'re watching the long run';
+      $('resHint').textContent=tot.n+' graded picks · 1 unit = $1 at the logged price · the first four nights lost money: the market beat our prop numbers, so on Oct 28 the rules changed to buying below the market\'s fair price only, one pick per player, no long shots';
     });
   }
 
@@ -248,23 +249,33 @@
   var SRC=[['dk','DraftKings'],['kalshi','Kalshi'],['poly','Polymarket']];
   function cents(c){ return Math.round(c*100)+'¢'; }
   function amer(c){ var o=c>=0.5?-100*c/(1-c):100*(1-c)/c; return (o>0?'+':'−')+Math.abs(Math.round(o)); }
+  // the same bar a logged pick must clear (scripts/nba_line_compare.py qualifies()): standard line, 35–70¢, 2+ liquid
+  // sources, bought below the market's own fair price, our model on the same side, trusted player
+  function qualifies(r){
+    var R=(G.consts&&G.consts.rules)||{min_cost:.35,max_cost:.70,min_market_edge:.015,min_sources:2};
+    if(r.ev==null||!r.best||r.cons==null||r.p==null||r.trust==='low') return false;
+    if(/\+\s*$/.test(r.label)) return false;
+    var c=r.best.cost; if(c<R.min_cost||c>R.max_cost) return false;
+    if(Object.keys(r.src).filter(function(k){return !r.src[k].thin;}).length<R.min_sources) return false;
+    return r.cons/c-1>=R.min_market_edge && r.p>r.cons;
+  }
   function multi(){
     if(!G||!G.multi) return;
     var ORDER={ml:0,sp:1,tot:2,tt:3};
     var v=G.multi.filter(function(r){ var isProp=r.kind==='prop'; if((MX.k==='prop')!==isProp) return false;
       var liquid=Object.keys(r.src).filter(function(k){return !r.src[k].thin;}).length;
       if(MX.o==='multi') return liquid>=2;
-      if(MX.o==='value') return r.ev!=null&&r.ev>0.03&&r.trust!=='low'&&!r.longshot;
+      if(MX.o==='value') return qualifies(r);
       return true; });
     v.sort(function(a,b){ if(MX.s==='gap') return (b.gap_c||0)-(a.gap_c||0); return (b.ev==null?-9:b.ev)-(a.ev==null?-9:a.ev); });
     if(MX.o==='value'){   // one opinion = one bet: keep the best rung per market + side (every DAL spread rung is the same view)
-      var seen={}; v=v.filter(function(r){ var k=r.key.split('|'), g2=r.kind==='prop'?[k[1],k[2],k[3]].join('|'):r.kind==='tot'?'tot|'+k[1]:r.kind==='tt'?['tt',k[1],k[2]].join('|'):r.kind==='sp'||r.kind==='ml'?'side|'+k[1]:r.key;
+      var seen={}; v=v.filter(function(r){ var k=r.key.split('|'), g2=r.kind==='prop'?'player|'+k[1]:r.kind==='tot'?'tot|'+k[1]:r.kind==='tt'?['tt',k[1],k[2]].join('|'):r.kind==='sp'||r.kind==='ml'?'side|'+k[1]:r.key;
         if(seen[g2]) return false; seen[g2]=1; return true; });
     }
     v=v.slice(0,150);
     var src=G.sources||{};
     $('mxHint').textContent='DraftKings '+(src.dk||0)+' · Kalshi '+(src.kalshi||0)+' · Polymarket '+(src.poly||0)+' priced outcomes · '+v.length+' shown';
-    $('mx').innerHTML='<thead><tr><th class="rk">#</th><th class="l">Bet</th>'+SRC.map(function(s){return '<th>'+s[1]+'</th>';}).join('')+'<th title="Cheapest minus dearest source">Gap</th><th title="Average fair price across sources">Market</th><th>Ours</th><th data-heat="1" title="Expected return per $1 at the cheapest price, 35% ours / 65% market">Value</th></tr></thead><tbody>'+
+    $('mx').innerHTML='<thead><tr><th class="rk">#</th><th class="l">Bet</th>'+SRC.map(function(s){return '<th>'+s[1]+'</th>';}).join('')+'<th title="Cheapest minus dearest source">Gap</th><th title="Average fair price across sources">Market</th><th>Ours</th><th data-heat="1" title="Expected return per $1 at the cheapest price, mostly the market (90/10 props, 85/15 game lines)">Value</th></tr></thead><tbody>'+
       (v.length?v.map(function(r,i){
         var best=r.best&&r.best.src;
         return '<tr class="'+(r.trust==='low'?'low':'')+'"><td class="rk">'+(i+1)+'</td><td class="l nm">'+esc(r.label)+(r.mean!=null?' <span class="dim">proj '+r.mean+'</span>':'')+(r.longshot?' <span class="bx-tag y">long shot</span>':'')+'</td>'+
@@ -283,7 +294,7 @@
     v.sort(function(a,b){ return ST.o==='gap'?Math.abs(b._gap/Math.max(b.line,2))-Math.abs(a._gap/Math.max(a.line,2)):ST.o==='name'?a.name.localeCompare(b.name):b._ev-a._ev; });
     var pos=G.props.filter(function(p){return p.trust==='ok'&&Math.max(p.evb_over,p.evb_under)>0.03;}).length;
     $('pHint').textContent=G.props.length+' DraftKings prop lines · '+pos+' with 3%+ value at the blended chance (trusted players)';
-    $('pt').innerHTML='<thead><tr><th class="rk">#</th><th class="l">Player</th><th>Stat</th><th>Line</th><th>Over</th><th>Under</th><th title="DraftKings\' over chance, vig removed">DK %</th><th title="Our expected line tonight">Our proj</th><th title="Our projection minus the line">Gap</th><th title="Our model alone">Ours</th><th data-heat="1" title="35% ours, 65% DraftKings">Blend</th><th class="l">Best side</th><th data-heat="1" title="Expected return per $1 on the best side, at the blended chance">Value</th></tr></thead><tbody>'+
+    $('pt').innerHTML='<thead><tr><th class="rk">#</th><th class="l">Player</th><th>Stat</th><th>Line</th><th>Over</th><th>Under</th><th title="DraftKings\' over chance, vig removed">DK %</th><th title="Our expected line tonight">Our proj</th><th title="Our projection minus the line">Gap</th><th title="Our model alone">Ours</th><th data-heat="1" title="10% ours, 90% DraftKings">Blend</th><th class="l">Best side</th><th data-heat="1" title="Expected return per $1 on the best side, at the blended chance">Value</th></tr></thead><tbody>'+
       (v.length?v.map(function(p,i){
         return '<tr class="'+(p.trust==='low'?'low':'')+'"><td class="rk">'+(i+1)+'</td><td class="l nm">'+esc(p.name)+' <span class="dim">'+p.team+'</span>'+(p.why&&p.why.length?'<span class="why">'+esc(p.why.join(' · '))+'</span>':'')+'</td><td>'+p.label+'</td>'+
           '<td><b>'+p.line+'</b>'+(p.open_line!=null&&p.open_line!==p.line?' <span class="dim">from '+p.open_line+'</span>':'')+'</td><td>'+odds(p.over)+'</td><td>'+odds(p.under)+'</td><td class="dim">'+pc(p.p_mkt)+'</td>'+

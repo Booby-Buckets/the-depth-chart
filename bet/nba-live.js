@@ -54,7 +54,7 @@
     var ymd = tipEt.toISOString().slice(0, 10);
     var nick = {}; nick[H] = G.home.name.indexOf('Trail Blazers') >= 0 ? 'Trail Blazers' : G.home.name.split(' ').pop(); nick[A] = G.away.name.indexOf('Trail Blazers') >= 0 ? 'Trail Blazers' : G.away.name.split(' ').pop();
     var byNick = {}; byNick[nick[H]] = H; byNick[nick[A]] = A;
-    var C = G.consts || { sd_margin: 12, sd_total: 17.5, sd_team: 10.5, w: 0.35 };
+    var C = G.consts || { sd_margin: 12, sd_total: 17.5, sd_team: 10.5, w: 0.10, w_game: 0.15 };
     var P = {}; (G.players || []).forEach(function (p) { P[p.id] = p; P['n:' + nk(p.name)] = p; });
 
     function dkProps() {
@@ -231,7 +231,8 @@
         var mids = liq.map(function (s) { return r.src[s].mid; }).filter(function (v) { return v != null; });
         var cons = mids.length ? mids.reduce(function (a, b) { return a + b; }, 0) / mids.length : null;
         r.p = p == null ? null : +p.toFixed(4); r.cons = cons == null ? null : +cons.toFixed(4);
-        r.p_blend = p == null || cons == null ? null : +(C.w * p + (1 - C.w) * cons).toFixed(4);
+        var w = r.kind === 'prop' ? C.w : (C.w_game != null ? C.w_game : C.w);
+        r.p_blend = p == null || cons == null ? null : +(w * p + (1 - w) * cons).toFixed(4);
         if (liq.length) {
           var best = liq.reduce(function (a, b) { return r.src[b].cost < r.src[a].cost ? b : a; });
           r.best = { src: best, cost: r.src[best].cost };

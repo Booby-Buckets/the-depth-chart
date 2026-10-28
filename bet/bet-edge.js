@@ -28,7 +28,10 @@
 (function (g) {
   'use strict';
   var B = g.TDCBet;
-  var W = { spread: 0.30, total: 0.25, ml: 0.30, tt: 0.30, h1: 0.20, alt: 0.25, prop: 0.35 };
+  // Our weight vs the market. The NBA line check's first 593 graded picks (Oct 24–27 2026) put the best weight on our prop
+  // numbers at 0 and on game numbers at ~0.15 — where we disagreed with the market, the market was right — so ours only
+  // nudges the market here until the college record says otherwise.
+  var W = { spread: 0.20, total: 0.15, ml: 0.20, tt: 0.15, h1: 0.10, alt: 0.10, prop: 0.10 };
   // the bar a bet has to clear (EV per $1) before it's listed: conservative until the backtest tunes it
   var MIN_EV = { spread: 0.03, total: 0.03, ml: 0.035, tt: 0.04, h1: 0.04, alt: 0.05, prop: 0.05 };
   var SD = { team: 9.5, h1m: 7.6, h1t: 10.5 };         // team-score sd; first-half margin / total sd
@@ -386,6 +389,8 @@
   var MAX_EV = { spread: 0.15, total: 0.15, ml: 0.25, tt: 0.18, h1: 0.18, alt: 0.25, prop: 0.25 };
   function suspect(b) {
     if (b.ev > MAX_EV[b.market]) return true;
+    var c = imp(b.price);                                   // long shots and heavy favourites: where the losses were
+    if (c < 0.30 || c > 0.75) return true;
     if (b.market === 'prop' && (b.p > 0.8 || b.p < 0.2)) return true;
     if ((b.market === 'spread' || b.market === 'total') && b.offers) {                 // a number no other book is near
       var pts = b.offers.map(function (o) { return o.point; }).sort(function (x, y) { return x - y; }), med = pts[Math.floor(pts.length / 2)];

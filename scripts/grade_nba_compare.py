@@ -110,18 +110,22 @@ def main():
 
 def rollup():
     """results.json: every graded day + the running total, for the page."""
-    days, allp = [], []
+    days, allp, v2 = [], [], []
     for path in sorted(glob.glob(os.path.join(OUT, "picks_*.json")), reverse=True):
         log = json.load(open(path))
         if log.get("summary", {}).get("n"):
-            days.append({"date": log["date"], "summary": log["summary"]})
-            allp += [p for g in log["games"].values() for p in g["picks"] if p.get("res") in ("w", "l", "p")]
+            days.append({"date": log["date"], "summary": log["summary"], "rules": log.get("rules", "v1")})
+            got = [p for g in log["games"].values() for p in g["picks"] if p.get("res") in ("w", "l", "p")]
+            allp += got
+            if log.get("rules") == "v2":
+                v2 += got
     def summ(ps):
         w = sum(p["res"] == "w" for p in ps); l = sum(p["res"] == "l" for p in ps); u = sum(p["profit"] for p in ps)
         return {"n": len(ps), "w": w, "l": l, "units": round(u, 2), "roi": round(u / len(ps), 4) if ps else None, "exp": round(sum(p["ev"] for p in ps), 2)}
     total = dict(summ(allp), by_src={s: summ([p for p in allp if p["src"] == s]) for s in ("dk", "kalshi", "poly")},
                  by_kind={k: summ([p for p in allp if p["kind"] == k]) for k in ("ml", "sp", "tot", "tt", "prop")})
-    json.dump({"days": days, "total": total}, open(os.path.join(OUT, "results.json"), "w"), separators=(",", ":"))
+    v1 = [p for p in allp if p not in v2]
+    json.dump({"days": days, "total": total, "v2": summ(v2), "v1": summ(v1)}, open(os.path.join(OUT, "results.json"), "w"), separators=(",", ":"))
 
 
 if __name__ == "__main__":

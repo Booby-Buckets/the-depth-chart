@@ -34,7 +34,13 @@ LAST = 2026
 HCA = 1.2                  # points each way
 SD_MARGIN, SD_TOTAL, SD_TEAM = 12.0, 17.5, 10.5
 PM_K = 300
-W_PROP = 0.35          # our weight when blending with the book's no-vig price (the edge board's prop weight)
+# Our weight when blending with the market's no-vig price. Graded results (593 picks, Oct 24–27 2026) put the best weight
+# on our prop numbers at 0 and on our game numbers at ~0.15: where we disagreed with the market, the market was right.
+W_PROP = 0.10
+W_GAME = 0.15
+# What a logged pick must clear (same graded nights: the losses were long shots + one-sided ladders; the only thing that
+# held up was buying below the market's own fair price). One pick per player.
+PICK_RULES = {"min_cost": 0.35, "max_cost": 0.70, "min_market_edge": 0.015, "min_sources": 2}
 RAW = []                # every team's unscaled projected points this run (for the league calibration)             # minutes of "average" (0) plus-minus every player starts with
 
 
@@ -428,7 +434,7 @@ def build(gid, ev, last, opp_allowed, lg_allowed, scale=1.0):
     except Exception as e:
         print("  multi-source failed:", e)
         game["multi"], game["sources"] = [], {}
-    game["consts"] = {"sd_margin": SD_MARGIN, "sd_total": SD_TOTAL, "sd_team": SD_TEAM, "w": W_PROP}   # bet/nba-live.js re-prices with these
+    game["consts"] = {"sd_margin": SD_MARGIN, "sd_total": SD_TOTAL, "sd_team": SD_TEAM, "w": W_PROP, "w_game": W_GAME, "rules": PICK_RULES}   # bet/nba-live.js re-prices with these
     game["n_lines"] = len(props) + len(game["markets"])
     game["built"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     return game
@@ -599,7 +605,8 @@ def price_multi(g, rows, H, A, proj):
         best = min(pool.items(), key=lambda kv: kv[1]["cost"]) if pool else None
         r["p"] = None if p is None else round(p, 4)
         r["cons"] = None if cons is None else round(cons, 4)
-        pb = None if (p is None or cons is None) else W_PROP * p + (1 - W_PROP) * cons     # no market number → no value claim
+        w = W_PROP if kind == "prop" else W_GAME
+        pb = None if (p is None or cons is None) else w * p + (1 - w) * cons     # no market number → no value claim
         r["p_blend"] = None if pb is None else round(pb, 4)
         if best:
             r["best"] = {"src": best[0], "cost": best[1]["cost"]}
@@ -675,6 +682,22 @@ def fingerprint(g):
     return hashlib.md5(json.dumps(core, sort_keys=True, default=str).encode()).hexdigest()[:12]
 
 
+def qualifies(r):
+    """A logged pick: a standard line (no ladder rung), 35–70¢, priced by 2+ liquid sources, bought below the market's
+    fair price, our model on the same side, trusted player."""
+    R = PICK_RULES
+    if r.get("ev") is None or not r.get("best") or r.get("cons") is None or r.get("p") is None or r.get("trust") == "low":
+        return False
+    if r["label"].rstrip().endswith("+"):
+        return False
+    c = r["best"]["cost"]
+    if not (R["min_cost"] <= c <= R["max_cost"]):
+        return False
+    if sum(1 for v in r["src"].values() if not v["thin"]) < R["min_sources"]:
+        return False
+    return r["cons"] / c - 1 >= R["min_market_edge"] and r["p"] > r["cons"]
+
+
 def pick_group(r):
     k = r["key"].split("|")
     if r["kind"] == "prop":
@@ -702,16 +725,16 @@ def freeze_picks(day, events):
                 g = json.load(open(os.path.join(OUT, gid + ".json")))
             except Exception:
                 continue
-        rows = sorted([r for r in g.get("multi", []) if r.get("ev") is not None and r["ev"] > 0.03 and r.get("trust") != "low" and not r.get("longshot")
-                       and sum(1 for v in r["src"].values() if not v["thin"]) >= 1], key=lambda r: -r["ev"])
+        rows = sorted([r for r in g.get("multi", []) if qualifies(r)], key=lambda r: -(r["cons"] / r["best"]["cost"]))
         seen, picks = set(), []
         for r in rows:
-            grp = pick_group(r)
+            grp = pick_group(r) if r["kind"] != "prop" else "player|" + (r.get("name") or r["key"].split("|")[1])   # one per player
             if grp in seen:
                 continue
             seen.add(grp)
             picks.append({"key": r["key"], "kind": r["kind"], "label": r["label"], "name": r.get("name"), "stat": r.get("stat"),
                           "src": r["best"]["src"], "cost": r["best"]["cost"], "p": r["p"], "cons": r["cons"], "ev": r["ev"]})
+        log["rules"] = "v2"                         # Oct 28 2026 rules (qualifies()); earlier days are v1
         log["games"][gid] = {"tip": ev["date"], "name": ev["name"], "home": g["home"]["abbr"], "away": g["away"]["abbr"], "ours": g["ours"],
                              "picks": picks, "at": now.strftime("%Y-%m-%dT%H:%M:%SZ")}
     json.dump(log, open(path, "w"), separators=(",", ":"))
