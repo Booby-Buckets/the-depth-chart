@@ -38,6 +38,7 @@ PM_K = 300
 # on our prop numbers at 0 and on our game numbers at ~0.15: where we disagreed with the market, the market was right.
 W_PROP = 0.10
 W_GAME = 0.15
+PTS_SHRINK = 0.6       # share of a team's projected scoring away from the league average that we keep
 # What a logged pick must clear (same graded nights: the losses were long shots + one-sided ladders; the only thing that
 # held up was buying below the market's own fair price). One pick per player.
 PICK_RULES = {"min_cost": 0.35, "max_cost": 0.70, "min_market_edge": 0.015, "min_sources": 2}
@@ -254,14 +255,13 @@ def build(gid, ev, last, opp_allowed, lg_allowed, scale=1.0):
             prior = ls[s] / ls["min"] if ls and ls["min"] else None
             rates[s] = (cur[s] + prior * k) / (mn + k) if prior is not None else (cur[s] / mn if mn else 0)
         mpg_last = ls["min"] / ls["g"] if ls else None
-        # minutes: this season's role leads (2 games of last season's minutes as the prior); a player who hasn't
-        # played yet, or is listed day-to-day, counts at a discount until he shows up in a box score
-        mpg = (mn + mpg_last * 2) / (g + 2) if mpg_last is not None else (mn / g if g else 0)
-        st = (p.get("status") or "").lower()
+        # minutes: this season's average leads (one game of last season's as the prior). Graded Oct 26–27: the old
+        # blend + team scaling under-projected prop players by 2.3 min (season average: −0.3). No day-to-day
+        # discount for a player who's been playing: a prop is VOID if he sits, so price it as if he plays. Someone who
+        # hasn't played yet (returning from injury) still counts at a discount.
+        mpg = (mn + mpg_last * 1) / (g + 1) if mpg_last is not None else (mn / g if g else 0)
         if g == 0:
-            mpg *= 0.5
-        elif "day" in st or "question" in st:
-            mpg *= 0.8
+            mpg *= 0.6
         mins = [x[0] for x in gl] or (ls["mins"] if ls else [])
         sdm = (sum((m - sum(mins) / len(mins)) ** 2 for m in mins) / max(1, len(mins) - 1)) ** 0.5 if len(mins) > 1 else 5
         if not gl and ls and ls.get("sdm_fixed") is not None:
@@ -278,11 +278,14 @@ def build(gid, ev, last, opp_allowed, lg_allowed, scale=1.0):
     for tid, t in teams.items():
         rot = [pid for pid, pr in projections.items() if players[pid]["team"] == t["abbr"] and not pr["out"] and pr["mpg"] >= 8.5]
         tot = sum(projections[pid]["mpg"] for pid in rot)
-        f = max(0.88, min(1.12, 240 / tot)) if tot else 1      # nudge toward 240, never rewrite anyone's role
+        # only players WITHOUT a role yet (no games this season) absorb the gap to 240; established minutes are kept
+        fixed = sum(projections[pid]["mpg"] for pid in rot if projections[pid]["g"] >= 2)
+        loose = tot - fixed
+        f = max(0.5, min(1.5, (240 - fixed) / loose)) if loose > 0 and fixed < 240 else 1
         for pid, pr in projections.items():
             if players[pid]["team"] != t["abbr"]:
                 continue
-            pr["min"] = 0 if (pr["out"] or pid not in rot) else min(42, pr["mpg"] * f)
+            pr["min"] = 0 if (pr["out"] or pid not in rot) else min(42, pr["mpg"] * (1 if pr["g"] >= 2 else f))
             pr["mean"] = {s: pr["rates"][s] * pr["min"] for s in ("pts", "reb", "ast", "tpm")}
 
     # team points from the players, toward the opponent's defense, + home court
@@ -293,7 +296,10 @@ def build(gid, ev, last, opp_allowed, lg_allowed, scale=1.0):
         raw = sum(pr["mean"]["pts"] for pr in mine) * 240 / tm        # a team plays 240 minutes, however its rotation splits them
         other = [o for o in teams.values() if o is not t][0]
         d = opp_allowed.get(other["abbr"], lg_allowed)
-        pts[t["abbr"]] = raw * scale * (1 + 0.5 * (d / lg_allowed - 1)) + (HCA if t["home"] else -HCA)
+        # early-season scoring rates are noisy: our totals scattered ~2x as wide as the market's (211–259 vs 215–240 on
+        # Oct 28), so each team's points are pulled 40% of the way back to the league average
+        team = raw * scale * (1 + 0.5 * (d / lg_allowed - 1))
+        pts[t["abbr"]] = lg_allowed + PTS_SHRINK * (team - lg_allowed) + (HCA if t["home"] else -HCA)
     RAW.extend(pts.values())
     ha, aa = H["abbreviation"], A["abbreviation"]
     # margin: each team's projected minutes x its players' plus-minus rates (5 on the floor), + home court both ways
