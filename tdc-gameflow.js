@@ -58,6 +58,9 @@
 
   // ── walk the plays once: margin, on-floor sets, stints, lineups, team counters ──
   function crunch(G){
+    // the hover readout's play line, with the scorer's name when the feed's text leaves it out (Sidearm scrimmages)
+    function playLabel(p){ var t=String(p.text||''), a=p.participants&&p.participants[0]&&p.participants[0].athlete, nm=a&&G.P[a.id]&&G.P[a.id].name;
+      return nm&&t.toLowerCase().indexOf(lastName(nm).toLowerCase())<0?nm+': '+t:t; }
     var T=G.T, P=G.P, H=G.home, A=G.away, plays=G.plays;
     var teamOf=function(id){ return P[id]&&P[id].team; };
     var on={}; on[H]={}; on[A]={};
@@ -117,7 +120,7 @@
         if(runT===st2) runN+=pts; else { runT=st2; runN=pts; }
         if(runN>C[st2].run) C[st2].run=runN;
         if(offFlag[st2]) C[st2].second+=pts;
-        prevH=hs; prevA=as; flow.push([e,hs-as]);
+        prevH=hs; prevA=as; flow.push([e,hs-as,hs,as,playLabel(p),tid]);   // score + play kept for the hover readout
         var mg=hs-as; if(mg>C[H].lead) C[H].lead=mg; if(-mg>C[A].lead) C[A].lead=-mg;
       }
       var pid0=p.participants&&p.participants[0]&&p.participants[0].athlete&&p.participants[0].athlete.id;
@@ -149,7 +152,7 @@
     advance(G.total); [H,A].forEach(function(t){ Object.keys(on[t]).forEach(function(id){ leave(id,G.total); }); });
     // bench points from the box
     Object.keys(P).forEach(function(id){ var q=P[id]; if(!q.starter&&C[q.team]) C[q.team].bench+=q.pts; });
-    flow.push([G.total,prevH-prevA]);
+    flow.push([G.total,prevH-prevA,prevH,prevA,'',null]);
     return {C:C,flow:flow,stints:stints,LU:LU};
   }
 
@@ -163,7 +166,7 @@
   function logo(t,sz){ return t.logo?'<img class="gf-logo" src="'+esc(t.logo)+'" alt="" width="'+sz+'" height="'+sz+'" loading="lazy">':''; }
 
   // ── GAME FLOW ──
-  function flowSvg(G,R,K,cw){
+  function flowSvg(G,R,K,cw,geo){
     var W=Math.max(520,Math.min(1000,cw||1000)), Hh=W<700?300:360, padL=46, padR=14, top=G.ours?40:22, bot=34, ih=Hh-top-bot, iw=W-padL-padR;
     var sgn=K.up===G.home?1:-1;
     var maxAbs=10; R.flow.forEach(function(f){ maxAbs=Math.max(maxAbs,Math.abs(f[1])); });
@@ -175,9 +178,14 @@
     var d='M '+x(0)+' '+y(0), pm=0;
     R.flow.forEach(function(f){ d+=' H '+x(f[0]).toFixed(1)+' V '+y(f[1]).toFixed(1); pm=f[1]; });
     d+=' H '+x(G.total)+' V '+y(0)+' Z';
-    var id='gf'+Math.random().toString(36).slice(2,7);
-    g+='<defs><clipPath id="'+id+'u"><rect x="0" y="0" width="'+W+'" height="'+y(0)+'"/></clipPath><clipPath id="'+id+'d"><rect x="0" y="'+y(0)+'" width="'+W+'" height="'+(Hh-y(0))+'"/></clipPath></defs>';
-    g+='<path d="'+d+'" fill="'+css(K.cu)+'" clip-path="url(#'+id+'u)"/><path d="'+d+'" fill="'+css(K.cd)+'" clip-path="url(#'+id+'d)"/>';
+    var id='gf'+Math.random().toString(36).slice(2,7), z0=y(0);
+    // fills fade toward the zero line; a crisp team-coloured edge sits on top of the step
+    var edge='M '+x(0)+' '+y(0); R.flow.forEach(function(f){ edge+=' H '+x(f[0]).toFixed(1)+' V '+y(f[1]).toFixed(1); }); edge+=' H '+x(G.total).toFixed(1);
+    g+='<defs><clipPath id="'+id+'u"><rect x="0" y="0" width="'+W+'" height="'+z0+'"/></clipPath><clipPath id="'+id+'d"><rect x="0" y="'+z0+'" width="'+W+'" height="'+(Hh-z0)+'"/></clipPath>'+
+      '<linearGradient id="'+id+'gu" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="'+top+'" y2="'+z0+'"><stop offset="0" stop-color="'+css(K.cu)+'" stop-opacity=".95"/><stop offset="1" stop-color="'+css(K.cu)+'" stop-opacity=".28"/></linearGradient>'+
+      '<linearGradient id="'+id+'gd" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="'+z0+'" y2="'+(Hh-bot)+'"><stop offset="0" stop-color="'+css(K.cd)+'" stop-opacity=".28"/><stop offset="1" stop-color="'+css(K.cd)+'" stop-opacity=".95"/></linearGradient></defs>';
+    g+='<path d="'+d+'" fill="url(#'+id+'gu)" clip-path="url(#'+id+'u)"/><path d="'+d+'" fill="url(#'+id+'gd)" clip-path="url(#'+id+'d)"/>';
+    g+='<path d="'+edge+'" fill="none" stroke="'+css(K.cu)+'" stroke-width="2" stroke-linejoin="round" clip-path="url(#'+id+'u)"/><path d="'+edge+'" fill="none" stroke="'+css(K.cd)+'" stroke-width="2" stroke-linejoin="round" clip-path="url(#'+id+'d)"/>';
     g+='<line class="gf-zero" x1="'+padL+'" x2="'+(W-padR)+'" y1="'+y(0)+'" y2="'+y(0)+'"/>';
     // period dividers + labels
     for(var n=1;n<=G.lastPer;n++){ var s=perStart(n), e=s+perLen(n);
@@ -205,6 +213,10 @@
     // between two gridlines so they never sit on a tick label
     var tmM=Math.floor(Y/20)*10+5;
     g+='<text class="gf-tm" x="4" y="'+(y(tmM*sgn)+4)+'" fill="'+css(K.cu)+'">'+esc(G.T[K.up].abbr||'')+'</text><text class="gf-tm" x="4" y="'+(y(-tmM*sgn)+4)+'" fill="'+css(K.cd)+'">'+esc(G.T[K.dn].abbr||'')+'</text>';
+    // scrubber: a guide line + dot moved by renderFlow's pointer handler
+    g+='<g class="gf-hov" style="display:none"><line class="gf-guide" x1="0" x2="0" y1="'+(top-6)+'" y2="'+(Hh-bot)+'"/><circle class="gf-dot" r="5.5" cx="0" cy="'+z0+'"/></g>'+
+      '<rect class="gf-hit" x="'+padL+'" y="0" width="'+iw+'" height="'+Hh+'" fill="transparent"/>';
+    if(geo){ geo.W=W; geo.H=Hh; geo.padL=padL; geo.iw=iw; geo.x=x; geo.y=y; }
     return g+'</svg>';
   }
   function cmpPanel(G,R,K){
@@ -274,8 +286,42 @@
       '<div class="gf-score"><div class="gf-sc">'+logo(a,30)+'<b>'+a.score+'</b><em>–</em><b class="lo">'+b.score+'</b>'+logo(b,30)+'</div><div class="gf-halves">'+a.lines.map(function(_,i){return half(i);}).join('')+'</div></div></div>';
   }
   function renderFlow(el,G,R){
-    var K=colors(G);
-    el.innerHTML=scoreHead(G,K,'Game flow')+'<div class="gf-chart">'+flowSvg(G,R,K,el.clientWidth)+'</div>'+cmpPanel(G,R,K);
+    var K=colors(G), geo={};
+    el.innerHTML=scoreHead(G,K,'Game flow')+'<div class="gf-chart">'+flowSvg(G,R,K,el.clientWidth,geo)+
+      '<div class="gf-tip" hidden></div><div class="gf-hint">Hover or drag across the chart for the score at any moment</div></div>'+cmpPanel(G,R,K);
+    scrub(el.querySelector('.gf-chart'),G,R,K,geo);
+  }
+  // ── hover / drag readout: game clock, exact score, margin, and the basket that made it ──
+  function scrub(box,G,R,K,geo){
+    var svg=box&&box.querySelector('.gf-svg'); if(!svg||!geo.x) return;
+    var hov=svg.querySelector('.gf-hov'), guide=hov.querySelector('.gf-guide'), dot=hov.querySelector('.gf-dot'), tip=box.querySelector('.gf-tip'), F=R.flow;
+    var H=G.T[G.home], A=G.T[G.away], up=K.up;
+    function at(e){ var lo=0, hi=F.length-1; while(lo<hi){ var m=(lo+hi+1)>>1; if(F[m][0]<=e) lo=m; else hi=m-1; } return lo; }
+    function perLabel(n){ return n===1?'1st half':n===2?'2nd half':n===3?'OT':(n-2)+'OT'; }
+    function show(clientX){
+      var r=svg.getBoundingClientRect(); if(!r.width) return;
+      var vx=(clientX-r.left)*geo.W/r.width, e=Math.max(0,Math.min(G.total,(vx-geo.padL)/geo.iw*G.total));
+      var i=at(e), f=F[i], hs=f[2]||0, as=f[3]||0, mg=hs-as, gx=geo.x(e);
+      // the last basket at or before this moment (the final sentinel carries no play)
+      var j=i; while(j>0&&!F[j][4]) j--; var last=j>0?F[j]:null;
+      hov.style.display=''; guide.setAttribute('x1',gx); guide.setAttribute('x2',gx);
+      dot.setAttribute('cx',gx); dot.setAttribute('cy',geo.y(mg)); dot.setAttribute('fill',css(mg===0?[150,150,160]:((mg>0)===(up===G.home)?K.cu:K.cd)));
+      var n=perOf(Math.min(e,G.total-0.01)), lead=mg===0?'Tied':esc((mg>0?H:A).name)+' by '+Math.abs(mg);
+      var row=function(t,sc,o){ return '<div class="gf-tr'+(sc>o?' lead':'')+'">'+(t.logo?'<img src="'+esc(t.logo)+'" alt="" width="16" height="16">':'')+'<span>'+esc(t.abbr||t.name)+'</span><b>'+sc+'</b></div>'; };
+      tip.innerHTML='<div class="gf-tc">'+perLabel(n)+' · '+clockIn(e,n)+'</div>'+row(A,as,hs)+row(H,hs,as)+'<div class="gf-tl">'+lead+'</div>'+
+        (last&&last[4]?'<div class="gf-tp">'+esc(String(last[4]).slice(0,110))+'</div>':'');
+      tip.hidden=false;
+      var bw=box.getBoundingClientRect(), px=clientX-bw.left, tw=tip.offsetWidth;
+      tip.style.left=Math.max(0,Math.min(bw.width-tw,px+(px>bw.width*0.6?-tw-14:14)))+'px';
+      // keep the card off the dot: below the chart's middle when the line is high, above when it's low
+      var dy=geo.y(mg)*r.height/geo.H, sh=r.height;
+      tip.style.top=(dy<sh/2?Math.max(8,sh-tip.offsetHeight-40):8)+'px';
+    }
+    function hide(){ hov.style.display='none'; tip.hidden=true; }
+    svg.addEventListener('pointermove',function(ev){ show(ev.clientX); });
+    svg.addEventListener('pointerdown',function(ev){ show(ev.clientX); });
+    svg.addEventListener('pointerleave',function(ev){ if(ev.pointerType==='mouse') hide(); });
+    document.addEventListener('pointerdown',function(ev){ if(!box.contains(ev.target)) hide(); });
   }
 
   // ── ROTATION ──
@@ -429,7 +475,14 @@
       '.gf-score{text-align:right;} .gf-sc{display:flex;align-items:center;gap:8px;justify-content:flex-end;} .gf-sc b{font-size:38px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;} .gf-sc b.lo{color:var(--text2);} .gf-sc em{font-style:normal;font-size:26px;color:var(--text3);}'+
       '.gf-halves{display:flex;gap:14px;justify-content:flex-end;font-size:13px;color:var(--text2);margin-top:4px;font-variant-numeric:tabular-nums;} .gf-halves i{font-style:normal;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}'+
       '.gf-logo{object-fit:contain;vertical-align:middle;}'+
-      '.gf-chart{margin:4px 0 18px;} .gf-svg{width:100%;height:auto;display:block;}'+
+      '.gf-chart{margin:4px 0 18px;position:relative;} .gf-svg{width:100%;height:auto;display:block;touch-action:pan-y;cursor:crosshair;}'+
+      '.gf-guide{stroke:var(--text);stroke-width:1;stroke-dasharray:3 3;opacity:.7;} .gf-dot{stroke:var(--bg,#fff);stroke-width:2;}'+
+      '.gf-tip{position:absolute;top:8px;min-width:170px;max-width:240px;background:var(--bg);border:1px solid var(--border2);border-radius:10px;padding:9px 11px;box-shadow:0 8px 24px rgba(0,0,0,.28);pointer-events:none;font-size:13px;z-index:3;color:var(--text);}'+
+      '@media(max-width:600px){.gf-tip{min-width:138px;max-width:180px;padding:7px 9px;font-size:12px;} .gf-tr b{font-size:15px;} .gf-tp{display:none;}}'+
+      '.gf-tc{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;font-variant-numeric:tabular-nums;}'+
+      '.gf-tr{display:flex;align-items:center;gap:7px;padding:2px 0;color:var(--text2);} .gf-tr img{object-fit:contain;} .gf-tr span{flex:1;font-weight:700;} .gf-tr b{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;} .gf-tr.lead{color:var(--text);}'+
+      '.gf-tl{font-size:12px;font-weight:800;margin-top:5px;padding-top:5px;border-top:1px solid var(--border);} .gf-tp{font-size:11.5px;color:var(--text3);margin-top:4px;line-height:1.35;}'+
+      '.gf-hint{font-size:11.5px;color:var(--text3);text-align:center;margin-top:2px;} @media(hover:none){.gf-hint{font-size:11px;}}'+
       '.gf-grid{stroke:var(--text3);stroke-opacity:.45;stroke-dasharray:2 4;} .gf-zero{stroke:var(--gf-rule);stroke-width:1.5;} .gf-div{stroke:var(--gf-rule);stroke-width:1.2;}'+
       '.gf-ax{font-size:13px;fill:var(--text3);font-variant-numeric:tabular-nums;} .gf-per{font-size:13px;font-weight:800;letter-spacing:.06em;fill:var(--text);} .gf-call{font-size:17px;font-weight:800;paint-order:stroke;stroke:var(--bg,#fff);stroke-width:4px;} .gf-tm{font-size:12px;font-weight:900;letter-spacing:.04em;}'+
       '.gf-cmp{display:grid;grid-template-columns:1fr 1fr;gap:10px 40px;} @media(max-width:720px){.gf-cmp{grid-template-columns:1fr;}}'+
