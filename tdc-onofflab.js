@@ -86,7 +86,7 @@
   // ── the answer: the player On/Off tab's look (With / Rank / Without / Rank / Swing / Rank, D-I percentile chips) ──
   var TOK = 0;
   function rankTable(heads, rows) {   // heads: [label, cls]; rows: html strings
-    return '<table class="oo-pro ol-rank"><colgroup><col class="nm">' + heads.map(function (h) { return '<col class="' + h[1] + '">'; }).join('') + '</colgroup><thead><tr><th class="lead">#</th>' +
+    return '<table class="oo-pro ol-rank"><thead><tr><th class="lead">#</th>' +
       heads.map(function (h) { return '<th class="' + (h[1] === 'c' ? 'pc' : '') + (h[2] ? ' with' : '') + '">' + h[0] + '</th>'; }).join('') + '</tr></thead><tbody>' + rows.join('') + '</tbody></table>';
   }
   function draw() {
@@ -146,6 +146,7 @@
       }
       var fl = FILTERS.filter(function (F) { return S.f[F[0]] !== 'all'; }).map(function (F) { return F[2].find(function (o) { return o[0] === S.f[F[0]]; })[1]; });
       var m = MODES.find(function (z) { return z[0] === S.mode; });
+      $('olOut').className = 'ol-out' + (S.mode === 'players' || S.mode === 'lineups' ? ' fit' : '');
       $('olOut').innerHTML = '<div class="ol-strip">' + m[1] + ' · ' + T + ' ' + SEASONS.find(function (x) { return x[0] === S.season; })[1] +
         '<span>' + (fl.length ? fl.join(' · ') + ' · ' : '') + nG + ' games · ' + Math.round(team.poss) + ' possessions</span></div>' + out +
         '<p class="ol-key">Each Rank chip places the number among D-I players’ on/off splits with ' + (Rk ? Rk.MIN : 500) + '+ possessions this season: green is good for the team, red is bad.</p>';
