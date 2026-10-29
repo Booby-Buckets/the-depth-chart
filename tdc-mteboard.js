@@ -191,7 +191,12 @@
       const sameDay = TV.filter(e => e.day === day && !e.teams.some(t => t && t !== 'TBD' && !/^tbd/i.test(t)) && !e.tag);
       if (sameDay.length > 1) {
         const times = sameDay.map(e => tClock(e.at).replace(/ (AM|PM)$/, '')), nets = [...new Set(sameDay.map(e => e.net).filter(Boolean))];
-        return esc(times.slice(0, -1).join(', ') + ' or ' + times[times.length - 1] + ' ET' + (nets.length ? ' · ' + nets.join(' / ') : ''));
+        // a long list of candidate tips is unreadable in a card — show the day's window instead
+        if (times.length > 4) {
+          const at = sameDay.map(e => e.at).sort();
+          return '<span title="' + esc(times.join(', ') + ' ET') + '">' + esc('TBA · ' + (tClock(at[0]) + '–' + tClock(at[at.length - 1])).replace(/ (AM|PM)(?=–.* \1$)/, '') + ' ET') + '</span>';
+        }
+        return esc(times.slice(0, -1).join(', ') + ' or ' + times[times.length - 1] + ' ET' + (nets.length && nets.length <= 2 ? ' · ' + nets.join(' / ') : ''));
       }
       return esc(ctx.venue || '');
     };
