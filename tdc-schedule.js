@@ -459,7 +459,7 @@
         <td class="l dim tsp-d"><span class="tsp-dw">${d.dw} </span>${d.num}</td>
         <td class="dim tsp-rk">${x.rank || ''}</td>
         <td class="l nm tsp-o">${logoImg(x.opp)}<a href="team.html?team=${encodeURIComponent(sn(x.opp))}" onclick="event.stopPropagation()">${sn(x.opp)}</a></td>
-        <td class="c strong tsp-sc">${x.won ? 'W' : 'L'} ${x.ms}–${x.os}</td>
+        <td class="c strong tsp-sc">${x.won ? 'W' : 'L'} ${x.ms}–${x.os}${window.TDC_OT ? TDC_OT.chip(x.id) : ''}</td>
         <td class="c tsp-site">${x.site}</td>
         <td class="c tsp-q">${quad(x.rank, x.site) ? 'Q' + quad(x.rank, x.site) : ''}</td>
         <td class="tsp-pr"></td>
@@ -550,7 +550,7 @@
         <td class="l dim tsp-d"><span class="tsp-dw">${d.dw} </span>${d.num}</td>
         <td class="dim tsp-rk">${x.rank || ''}</td>
         <td class="l nm tsp-o">${logoImg(x.opp)}<a href="team.html?team=${encodeURIComponent(sn(x.opp))}" onclick="event.stopPropagation()">${sn(x.opp)}</a>${x.conf ? '<i class="cfdot" title="conference game"></i>' : ''}</td>
-        <td class="c strong tsp-sc">${x.won ? 'W' : 'L'} ${x.ms}–${x.os}</td>
+        <td class="c strong tsp-sc">${x.won ? 'W' : 'L'} ${x.ms}–${x.os}${window.TDC_OT ? TDC_OT.chip(x.id) : ''}</td>
         <td class="c tsp-site">${x.site}</td>
         <td class="c tsp-q">${q ? 'Q' + q : ''}</td>
         <td class="tsp-pr">${x.oppSrs != null ? sg(x.oppSrs) : ''}</td>

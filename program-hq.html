@@ -20,7 +20,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   <script src="team-colors.js?v=13"></script>
   <script src="tdc-ratings.js?v=44"></script>
-  <script src="tdc-schedule.js?v=ui1"></script>
+  <script src="tdc-schedule.js?v=ot1"></script>
+  <script src="tdc-ot.js?v=1"></script>
   <script src="tdc-scrim.js?v=19"></script>
   <script src="tdc-teamlink.js?v=2"></script>
   <script src="tdc-teamgrades.js?v=2"></script>
@@ -386,7 +387,7 @@
   <div class="hq-word" id="hqWord" aria-hidden="true"></div>
   <div class="bgwm"><img id="wm1" alt=""></div>
   <div class="bggrunge" aria-hidden="true"></div>
-  <script src="tdc-nav.js?v=83"></script>
+  <script src="tdc-nav.js?v=84"></script>
 
   <!-- team picker -->
   <div class="pick-hero" id="picker">
@@ -626,7 +627,8 @@ function loadHQSchedule(){
   Promise.all([
     fetch(SB+'/rest/v1/games?season_year=eq.'+yr+'&or=(home.eq.'+q+',away.eq.'+q+')&select=*&order=date.asc',{headers:H}).then(function(r){return r.ok?r.json():[];}),
     fetch(SB+'/rest/v1/team_seasons?season_year=eq.'+yr+'&srs=not.is.null&select=team,srs,ncaa_seed&order=srs.desc',{headers:H}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];}),
-    fetch(SB+'/rest/v1/postseason_games?or=(home.eq.'+q+',away.eq.'+q+')&season_year=eq.'+yr+'&select=id,tournament,round',{headers:H}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];})
+    fetch(SB+'/rest/v1/postseason_games?or=(home.eq.'+q+',away.eq.'+q+')&season_year=eq.'+yr+'&select=id,tournament,round',{headers:H}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];}),
+    window.TDC_OT?TDC_OT.ready():null   // OT tags on results
   ]).then(function(res){
     if(stale()) return;
     var all=res[0]||[], ranks=res[1]||[], post=res[2]||[];
@@ -841,11 +843,12 @@ function lastGame(full,year){
   var q=encodeURIComponent(full);
   fetch(SB+'/rest/v1/games?season_year=eq.'+year+'&or=(home.eq.'+q+',away.eq.'+q+')&status=eq.STATUS_FINAL&select=id,date,home,away,home_score,away_score,neutral&order=date.desc&limit=1',{headers:H})
     .then(function(r){return r.ok?r.json():[];})
+    .then(function(g){ return window.TDC_OT?TDC_OT.ready().then(function(){ return g; }):g; })
     .then(function(g){
       if(!g||!g.length){ el.innerHTML='<div class="hx-lab">'+LBL+'</div><div class="hx-empty">No games on file for '+esc(full)+' in '+seasonLabel(year)+'.</div>'; return; }
       var m=g[0], home=(m.home===full), opp=home?m.away:m.home, us=home?m.home_score:m.away_score, them=home?m.away_score:m.home_score, win=us>them, lg=logoFor(opp);
       el.innerHTML='<div class="hx-lab">'+LBL+' <span class="sub">'+m.date+'</span></div>'+
-        '<div class="ng-match">'+(lg?'<img class="ng-logo" src="'+lg+'" alt="">':'')+'<div><div class="ng-vs">'+(m.neutral?'vs':(home?'vs':'at'))+'</div><div class="ng-opp">'+esc(opp)+'</div><div class="ng-res"><span class="'+(win?'w':'l')+'">'+(win?'W':'L')+' '+us+'–'+them+'</span></div></div></div>'+
+        '<div class="ng-match">'+(lg?'<img class="ng-logo" src="'+lg+'" alt="">':'')+'<div><div class="ng-vs">'+(m.neutral?'vs':(home?'vs':'at'))+'</div><div class="ng-opp">'+esc(opp)+'</div><div class="ng-res"><span class="'+(win?'w':'l')+'">'+(win?'W':'L')+' '+us+'–'+them+(window.TDC_OT?TDC_OT.chip(m.id):'')+'</span></div></div></div>'+
         '<a class="ng-report" href="game.html?id='+m.id+'">Full game report →</a>';
     }).catch(function(){ el.innerHTML='<div class="hx-lab">'+LBL+'</div><div class="hx-empty">Could not load games.</div>'; });
 }

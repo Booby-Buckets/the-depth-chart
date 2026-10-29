@@ -29,7 +29,8 @@
   <script src="tdc-injury.js?v=5"></script>
   <script src="tdc-ratings.js?v=44"></script>
   <script src="tdc-histguard.js?v=2"></script>
-  <script src="tdc-schedule.js?v=ui1"></script>
+  <script src="tdc-schedule.js?v=ot1"></script>
+  <script src="tdc-ot.js?v=1"></script>
   <script src="tdc-scrim.js?v=19"></script>
   <script src="tdc-gamehead.js?v=3"></script>
   <script src="tdc-preview.js?v=ui1"></script>
@@ -1371,7 +1372,7 @@
   <script src="tdc-coachlink.js?v=1"></script>
 </head>
 <body data-anim-auto>
-<script src="tdc-nav.js?v=83"></script>
+<script src="tdc-nav.js?v=84"></script>
 <div class="tdc-bg" aria-hidden="true">
   <div class="tdc-mesh"></div>
   <div class="tdc-blob b1"></div>
@@ -8953,6 +8954,7 @@ async function loadSchedule(){
   if(!mascot){ host.innerHTML = '<div style="padding:30px;color:var(--text3);">No schedule available.</div>'; return; }
   host.innerHTML = '<div class="loading-state"><div class="loading-spinner"></div></div>';
   const yr = _schedSeason, enc = encodeURIComponent(mascot);
+  if(window.TDC_OT) await TDC_OT.ready();   // OT tags on results
   const _lbl=document.getElementById('schedSeasonLbl'); if(_lbl) _lbl.textContent=(yr-1)+'–'+(''+yr).slice(2);
   try{
     const [hg, ag, ranks, post] = await Promise.all([
@@ -9041,7 +9043,7 @@ async function loadSchedule(){
       const won = ms>os; won?w++:l++; if(g.conf_game){won?cw++:cl++;}
       const opp = homeMe?g.away:g.home;
       prows.push({date:g.date, opp, rank:rankMap[opp], oppSrs:srsMap[opp], site:g.neutral?'N':(homeMe?'H':'A'), won, ms, os, conf:!!g.conf_game,
-        rec:`${w}–${l}`+(g.conf_game?` (${cw}–${cl})`:''), href:`game.html?id=${g.id}`});
+        rec:`${w}–${l}`+(g.conf_game?` (${cw}–${cl})`:''), href:`game.html?id=${g.id}`, id:g.id});
     });
     if(window.TDCSched && prows.length && !upRows){
       TDCSched.renderPast(host, prows, {mySrs:srsMap[mascot]});
@@ -9055,7 +9057,7 @@ async function loadSchedule(){
       if(x.section){ rows += `<tr class="sec"><td colspan="6" class="l">${x.section}</td></tr>`; return; }
       rows += `<tr onclick="location.href='${x.href}'" style="cursor:pointer;">
         <td class="l dim">${fmtD(x.date)}</td><td class="dim">${x.rank||''}</td>
-        <td class="l nm">${x.opp}</td><td class="c strong">${x.won?'W':'L'}, ${x.ms}–${x.os}</td>
+        <td class="l nm">${x.opp}</td><td class="c strong">${x.won?'W':'L'}, ${x.ms}–${x.os}${window.TDC_OT?TDC_OT.chip(x.id):''}</td>
         <td class="l dim">${x.site==='N'?'Neutral':x.site==='H'?'Home':'Away'}</td><td>${x.rec}</td></tr>`;
     });
     document.getElementById('schedSummary').textContent = games.length ? `${w}–${l}` + (cw+cl?` · ${cw}–${cl} conf`:'') : 'projected';

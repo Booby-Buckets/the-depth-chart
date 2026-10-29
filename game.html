@@ -97,7 +97,7 @@
   <script src="tdc-pwa.js?v=3" defer></script>
 </head>
 <body data-anim-auto>
-  <script src="tdc-nav.js?v=83"></script>
+  <script src="tdc-nav.js?v=84"></script>
   <div class="wrap">
     <a class="back" id="backLink" href="#" onclick="history.length>1?history.back():(location.href='index.html');return false;">← Back</a>
     <div id="content"><div class="loading">Loading box score…</div></div>
@@ -106,6 +106,7 @@
 <script src="team-colors.js?v=12"></script>
 <script src="tdc-teamname.js?v=1"></script>
 <script src="tdc-gamehead.js?v=3"></script>
+<script src="tdc-ot.js?v=1"></script>
 <script src="tdc-live.js?v=2"></script>
 <script src="tdc-livegame.js?v=4"></script>
 <script src="tdc-shotchart.js?v=33"></script>
@@ -240,8 +241,9 @@ async function load(afterLive){
     const bandSide=(t,pts,rate)=>{ const c=window.TDC_GAMEHEAD?TDC_GAMEHEAD.team(t):{};
       return { name:shortNm(t), href:'team.html?team='+encodeURIComponent(t), logo:c.logo, color:c.color,
         sub:rate!=null?'Game rating '+ratePill(rate)+' '+ratingWord(rate):'', pts:N(pts) }; };
+    if(window.TDC_OT) await TDC_OT.ready();   // "Final/OT" in the band
     const header=`<h1 class="sr-only">${away} at ${home}</h1>`+(window.TDC_GAMEHEAD?TDC_GAMEHEAD.html({
-        away:bandSide(away,as_,tr?tr.away:null), home:bandSide(home,hs,tr?tr.home:null), status:'Final',
+        away:bandSide(away,as_,tr?tr.away:null), home:bandSide(home,hs,tr?tr.home:null), status:window.TDC_OT?TDC_OT.final(gid):'Final',
         meta:`<span>${fmtD(date)}</span>${loc?`<span>${loc}</span>`:''}${g&&g.conf_game?'<span>Conference game</span>':''}` })
       :`<div class="gh-meta">${fmtD(date)}</div>`);
     // the read under the band: what was expected vs what happened. 2026-27 games use our pregame line (same as

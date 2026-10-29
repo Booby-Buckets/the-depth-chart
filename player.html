@@ -8,6 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="tdc-pos.js"></script>
   <script src="team-colors.js?v=13"></script>
+  <script src="tdc-ot.js?v=1"></script>
   <script src="tdc-shotchart.js?v=33"></script>
   <script src="tdc-aftermath.js?v=5"></script>
   <script src="tdc-mastery.js?v=2"></script>
@@ -1078,7 +1079,7 @@ body{background:transparent!important;}
   <script src="tdc-coachlink.js?v=1"></script>
 </head>
 <body data-anim-auto>
-<script src="tdc-nav.js?v=83"></script>
+<script src="tdc-nav.js?v=84"></script>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
 
 <!-- ═══ AMBIENT LAYER ═══════════════════════════════════════ -->
@@ -5080,6 +5081,7 @@ async function loadGameLog(){
       }));
     }catch(e){}
     _glTierFilter=null;
+    if(window.TDC_OT) await TDC_OT.ready();   // OT tags in the Result column
     host.innerHTML=`<div id="glTierSummary"></div><div class="gl-seasons" id="glSeasons">${years.map(y=>`<button class="gl-season-btn${y===_gameLogSeason?' active':''}" onclick="setGameLogSeason(${y})">${y-1}-${String(y).slice(2)}</button>`).join('')}</div><div id="glTableWrap"></div>`;
     renderTierSummary();
     renderGameLog();
@@ -5119,7 +5121,7 @@ function renderGameLog(){
     const r=window._glResults&&window._glResults[g.game_id]; if(!r||r.home_score==null||r.away_score==null) return '<td class="l dim">—</td>';
     const mine=_tm(g.team), home=_tm(r.home)===mine||(_tm(r.home).startsWith(mine.split(' ')[0])&&mine&&_tm(r.away)!==mine);
     const ms=home?r.home_score:r.away_score, os=home?r.away_score:r.home_score, w=ms>os;
-    return `<td class="l">${w?'W':'L'} <span class="dim">${ms}-${os}</span></td>`;
+    return `<td class="l">${w?'W':'L'} <span class="dim">${ms}-${os}</span>${window.TDC_OT?TDC_OT.chip(g.game_id):''}</td>`;
   };
   const rows=games.map(g=>{
     const rt=_gameRating(g);

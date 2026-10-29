@@ -83,7 +83,7 @@ def main():
     # the season: schedule + finals
     sc = load("schedule_2027.json", {"teams": [], "games": []}); T = sc["teams"]
     rs = load("results_2027.json", {"teams": [], "games": []}); RT = rs.get("teams", [])
-    fin = {g[0]: (RT[g[2]], RT[g[3]], g[4], g[5]) for g in rs.get("games", [])}
+    fin = {g[0]: (RT[g[2]], RT[g[3]], g[4], g[5], g[8] if len(g) > 8 else 0) for g in rs.get("games", [])}
     for g in sc["games"]:
         gid, d = g[0], g[1]
         if not (lo <= d <= hi): continue
@@ -92,6 +92,7 @@ def main():
         out.append({"id": gid, "d": d, "t": "", "tv": "", "k": "g", "a": side(away), "h": side(home),
                     "as": f[3] if f else None, "hs": f[2] if f else None, "st": "f" if f else "p", "nt": int(g[4]) if len(g) > 4 else 0,
                     "u": ("game.html?id=%s" % gid) if gid and gid > 0 else ""})
+        if f and f[4]: out[-1]["ot"] = f[4]   # overtime periods -> "Final/OT"
     # in a day: finals first, then by tip time as listed ("7:00 PM"), then name
     def tkey(e):
         m = re.match(r"(\d+):(\d+)\s*([AP]M)", e["t"] or "", re.I)

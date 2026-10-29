@@ -61,8 +61,9 @@
   function card(e, first) {
     var fin = e.st === 'f', live = e.st === 'l';
     var aw = fin && e.as > e.hs, hw = fin && e.hs > e.as;
-    var when = live ? '<span class="live">' + esc(e.clock || 'Live') + '</span>' : fin ? 'Final' : (e.d === TODAY ? '' : dayName(e.d) + ' · ') + (e.t || 'TBA');
-    if (fin && e.d !== TODAY) when = 'Final · ' + dayName(e.d);
+    var ot = e.otl || (e.ot ? (e.ot > 1 ? e.ot + 'OT' : 'OT') : ''), final = 'Final' + (ot ? '/' + ot : '');
+    var when = live ? '<span class="live">' + esc(e.clock || 'Live') + '</span>' : fin ? final : (e.d === TODAY ? '' : dayName(e.d) + ' · ') + (e.t || 'TBA');
+    if (fin && e.d !== TODAY) when = final + ' · ' + dayName(e.d);
     var right = e.k === 's' ? (fin || !e.tv ? 'Scrimmage' : e.tv) : (e.tv || '');
     var row = function (t, sc, lose) {
       return '<div class="tdt-t' + (lose ? ' lose' : '') + '">' + (t.l ? '<img src="' + esc(t.l) + '" alt="" loading="lazy">' : '<span style="width:15px"></span>') +
@@ -109,7 +110,7 @@
         var h = side('home'), a = side('away');
         if (st.state === 'in' || st.state === 'post') { e.hs = h ? +h.score : e.hs; e.as = a ? +a.score : e.as; }
         if (st.state === 'in') { e.st = 'l'; e.clock = st.shortDetail || 'Live'; anyLive = true; }
-        else if (st.state === 'post') e.st = 'f';
+        else if (st.state === 'post') { e.st = 'f'; var om = /\/(\d*OT)\b/.exec(st.shortDetail || ''); if (om) e.otl = om[1]; }
         else if (st.shortDetail && !e.t) e.t = st.shortDetail.replace(/^[^-]*-\s*/, '');
         var bc = c && c.broadcasts && c.broadcasts[0] && c.broadcasts[0].names; if (bc && bc.length && !e.tv) e.tv = bc[0];
       });

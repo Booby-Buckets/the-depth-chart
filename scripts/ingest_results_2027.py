@@ -71,12 +71,14 @@ def fetch_day(d):
             cs = {c["homeAway"]: c for c in comp["competitors"]}
             h, a = cs["home"], cs["away"]
             st = comp.get("status", {}).get("type", {})
+            per = comp.get("status", {}).get("period") or 0
             out.append({"id": int(e["id"]), "season_year": SEASON, "date": d.isoformat(),
                         "home": NAME_FIX.get(h["team"]["displayName"], h["team"]["displayName"]), "home_id": _i(h["team"]["id"]),
                         "home_score": _i(h.get("score")), "away": NAME_FIX.get(a["team"]["displayName"], a["team"]["displayName"]),
                         "away_id": _i(a["team"]["id"]), "away_score": _i(a.get("score")),
                         "neutral": bool(comp.get("neutralSite")), "conf_game": bool(comp.get("conferenceCompetition")),
-                        "status": st.get("name", ""), "final": bool(st.get("completed")) and st.get("name") != "STATUS_POSTPONED"})
+                        "status": st.get("name", ""), "final": bool(st.get("completed")) and st.get("name") != "STATUS_POSTPONED",
+                        "ot": max(0, per - 2) if st.get("completed") else 0})   # 3rd period = OT, 4th = 2OT…
         except Exception:
             continue
     return out
@@ -147,12 +149,12 @@ def main():
     for g in finals:
         for side in ("home", "away"):
             if g[side] not in tix: tix[g[side]] = len(T); T.append(g[side])
-        have[g["id"]] = [g["id"], g["date"], tix[g["home"]], tix[g["away"]], g["home_score"], g["away_score"], int(g["neutral"]), int(g["conf_game"])]
+        have[g["id"]] = [g["id"], g["date"], tix[g["home"]], tix[g["away"]], g["home_score"], g["away_score"], int(g["neutral"]), int(g["conf_game"]), g["ot"]]
     games = sorted(have.values(), key=lambda x: (x[1], x[0]))
     print(f"{len(days)} days · {len(rows)} games listed · {len(finals)} final · {len(games)} results on file")
     # database: every listed game's status/score, then box scores for finals not yet boxed
     if KEY:
-        print(f"  games upserted: {upsert('games', [{k: v for k, v in g.items() if k != 'final'} for g in rows], 'id')}")
+        print(f"  games upserted: {upsert('games', [{k: v for k, v in g.items() if k not in ('final', 'ot')} for g in rows], 'id')}")
         todo = [g for g in finals if g["id"] not in boxed]
         with ThreadPoolExecutor(6) as ex: boxes = list(ex.map(parse_box, todo))
         brows = [r for b in boxes if b for r in b]
@@ -161,6 +163,13 @@ def main():
         print(f"  box scores: {len(todo)} new finals → {n} player rows")
     else:
         print("  SUPABASE_SERVICE_KEY not set — results file only (no games / box_scores upload)")
+    # overtime games feed the site-wide OT label (data/game_ot.json, every season)
+    otf = DATA.parent.parent / "data" / "game_ot.json"
+    ot = json.load(open(otf)) if otf.exists() else {}
+    new = {str(g["id"]): g["ot"] for g in finals if g["ot"] and ot.get(str(g["id"])) != g["ot"]}
+    if new:
+        ot.update(new); otf.write_text(json.dumps(dict(sorted(ot.items())), separators=(",", ":")))
+        print(f"  {len(new)} overtime game(s) added to {otf.name}")
     out = {"season": SEASON, "updated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ"), "teams": T, "games": games,
            "boxed": sorted(boxed)}
     if out["games"] == prev.get("games") and out["boxed"] == prev.get("boxed", []):
