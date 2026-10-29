@@ -50,6 +50,7 @@ function onOpen() {
     .addItem('Pull school rosters (review)', 'pullSchoolRosters')        // tdc_school_rosters.gs
     .addItem('Apply school-roster additions', 'applySchoolAdditions')
     .addItem('Add missing players: major conferences (incl. updated teams)', 'applyMajorConferenceAdditions')
+    .addItem('Add missing players: ALL teams (incl. updated teams)', 'applyAllTeamAdditions')
     .addToUi();
 }
 

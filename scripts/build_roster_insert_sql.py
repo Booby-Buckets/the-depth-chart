@@ -3,6 +3,9 @@
 Sheet hasn't synced yet — the owner runs it in the SQL editor instead of the Sheet's three-step flow.
 
     python3 scripts/build_roster_insert_sql.py "Florida A&M" Queens ...   → scripts/roster_insert_<date>.sql
+    python3 scripts/build_roster_insert_sql.py --missing                  → every team: ONLY the school-site players
+        missing from ours (diff "added"), appended to the bench after the team's current last depth slot; a team
+        with no players gets its whole roster. Never edits or removes an existing row.
 
 Reads scripts/data/roster_diff_2027.json (classification + ESPN ids from build_roster_diff.py). Idempotent:
 a team or (name, team) player that already exists is left alone. An ESPN id already on ANOTHER current
@@ -38,8 +41,11 @@ def q(v):
 
 
 def main():
-    want = sys.argv[1:]
+    missing = "--missing" in sys.argv
+    want = [a for a in sys.argv[1:] if not a.startswith("--")]
     diff = {d["team"]: d for d in json.load(open(ROOT / "scripts/data/roster_diff_2027.json"))}
+    if missing and not want:
+        want = sorted(t for t, d in diff.items() if d.get("added"))
     sites = json.load(open(ROOT / "scripts/data/school_sites.json"))
     taken = taken_espn()
     out, notes = [], []
@@ -50,6 +56,10 @@ def main():
         conf = d.get("conf") or (sites.get(team) or {}).get("conf")
         coach = d.get("coach") or (sites.get(team) or {}).get("coach")
         ps = d["players"]
+        if missing:
+            add = set(d.get("added") or [])
+            if len(add) < len(ps):            # team already has a roster: only the missing names, onto the bench
+                ps = [p for p in ps if p["name"] in add]
         # depth: last season's minutes first (real rotation players), then class (seniors before freshmen)
         ps = sorted(ps, key=lambda p: (-(p.get("last_mpg") or 0), CLS_ORDER.get(p.get("sheet_yr") or "", 5), p["name"]))
         out.append(f"\n-- ── {team} ({conf}, {len(ps)} players{', coach ' + coach if coach else ''}) ──")
@@ -68,12 +78,13 @@ def main():
             # players.hometown holds a transfer's PREVIOUS SCHOOL on this site (the roster "from" column), not a town
             frm = (p.get("sheet_from") or p.get("from_team")) if p.get("status") == "transfer" else None
             rows.append("  (" + ", ".join([q(p["name"]), q(team), q(p.get("sheet_pos")), q(yr), q(yr), q(p.get("ht")),
-                q(frm), q(int(e) if e else None), q(i), q(i <= 5), q(p.get("status") != "returner"),
+                q(frm), q(int(e) if e else None), q(i), q(i <= 5 and not (missing and len(ps) < len(d["players"]))), q(p.get("status") != "returner"),
                 q(bool(p.get("intl"))), "false"]) + ")")
         out.append("insert into players (name, team, position, class_year, yr, height, hometown,\n"
                    "  espn_id, depth_order, starter, is_addition, is_international, is_injured)\n"
                    "select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,\n"
-                   "  v.espn_id::bigint, v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values\n" + ",\n".join(rows) + "\n) as v(name, team, position, class_year, yr, height,\n"
+                   "  v.espn_id::bigint, " + ("(select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order"
+                   if missing and len(ps) < len(d["players"]) else "v.depth_order") + ", v.starter, v.is_addition, v.is_international, v.is_injured from (values\n" + ",\n".join(rows) + "\n) as v(name, team, position, class_year, yr, height,\n"
                    "  hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)\n"
                    "where not exists (select 1 from players p where p.name = v.name and p.team = v.team);")
     # end with a check the SQL editor DISPLAYS: one row per team with its player count. 'Success. No rows returned'
@@ -90,7 +101,7 @@ def main():
             "-- (a selection runs only that text), in project izlqhnxowdhtdofkwrho. The last query lists each team + player count.",
             "-- Afterwards, in the owner console: 🔁 Rebuild projections, then ⚡ Republish projected ratings and 🏆 Republish awards."]
     if notes: head += ["--", "-- Notes:"] + notes
-    path = ROOT / "scripts" / f"roster_insert_{day}.sql"
+    path = ROOT / "scripts" / (f"roster_missing_{day}.sql" if missing else f"roster_insert_{day}.sql")
     path.write_text("\n".join(head) + "\n" + "\n".join(out) + "\n")
     print(f"wrote {path.relative_to(ROOT)}"); print("\n".join(notes) if notes else "no conflicts")
 

@@ -196,6 +196,14 @@ function applyMajorConferenceAdditions() {
   applySchoolAdditions({ confs: { 'ACC': 1, 'B10': 1, 'BIG-12': 1, 'SEC': 1, 'Big-East': 1 } });
 }
 
+// ALL-TEAMS FILL (Oct 28 2026, owner: "update Saint Mary's ... same for any team we have not added everyone on
+// their online roster"): the same ADD-ONLY pass for EVERY league, including teams you've already updated, and
+// including blocks on your other conference tabs (WCC etc.) — the copy your sync reads. Green rows at the bottom
+// of the block; never edits, moves or removes a row; spelling differences stay report-only.
+function applyAllTeamAdditions() {
+  applySchoolAdditions({ all: true });
+}
+
 function applySchoolAdditions(opts) {
   opts = opts || {};
   var data = srLoad();
@@ -206,7 +214,8 @@ function applySchoolAdditions(opts) {
     if (!t.players || t.stale) return;
     var blk = blocks[srTeamKey(t.team)];
     if (!blk) return;
-    if (opts.confs) { if (!opts.confs[t.conf]) return; }       // the major-conference fill: only these leagues...
+    if (opts.all) { /* every team, updated or not */ }
+    else if (opts.confs) { if (!opts.confs[t.conf]) return; }  // the major-conference fill: only these leagues...
     else if (srIsUpdated(t, blk)) return;                      // ...otherwise already updated by you -> never touched
     if (opts.confs && !blk.main) return;                       // never write into your own work-in-progress tabs
     var spell = {}; (t.renamed || []).forEach(function (x) { spell[srNorm(x.school)] = true; });
