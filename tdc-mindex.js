@@ -62,7 +62,7 @@
     hdr.appendChild(hero);
     document.getElementById('miSeason').appendChild(mirror(season));
     watch(document.getElementById('heroTitle'), function () {
-      var t = (document.getElementById('heroTitle') || {}).textContent || 'Team Analytics';
+      var t = (document.getElementById('heroTitle') || {}).textContent || 'Team Rankings';
       document.getElementById('miTitle').textContent = t;
       var e = (document.getElementById('heroEyebrow') || {}).textContent || 'Division I · Rankings';
       document.getElementById('miEye').textContent = e;

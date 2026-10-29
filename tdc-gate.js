@@ -73,7 +73,7 @@ window.TDCGate = (function () {
       '.tdc-gate-btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(0,0,0,.28);}' +
       '.tdc-gate-alt{display:block;margin-top:11px;font-size:12px;color:var(--text3,#807c74);text-decoration:none;}' +
       '.tdc-gate-alt:hover{color:var(--text2,#b4b0a8);}' +
-      '.tdc-page-gate-ov{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;' +
+      '.tdc-page-gate-ov{position:fixed;inset:0;z-index:399;display:flex;align-items:center;' +
         'justify-content:center;padding:24px;background:color-mix(in srgb,var(--bg,#141416) 78%,transparent);' +
         '-webkit-backdrop-filter:blur(9px);backdrop-filter:blur(9px);}';
     document.head.appendChild(s);
@@ -123,6 +123,7 @@ window.TDCGate = (function () {
   };
 
   // Whole-page paywall: a fixed, blurred overlay over the entire viewport with the gate
+  // card, stacked just under the shared nav (z 400) + scores strip (z 401) so a visitor can still navigate away.
   // card. The page content stays in the DOM (so it's still indexable — soft paywall),
   // just visually gated. Used by the standalone Pro tool pages via the <script data-gate>.
   G.gatePage = function (opts) {

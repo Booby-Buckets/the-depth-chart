@@ -133,10 +133,10 @@
     for(var v=Math.ceil(lo/STEP)*STEP; v<hi; v+=STEP){ var y=Y(v); g+='<line x1="'+P+'" y1="'+y+'" x2="'+(W-P)+'" y2="'+y+'" stroke="var(--border)" stroke-width="1"/><text class="tc-ax" x="'+(P-8)+'" y="'+(y+3)+'" text-anchor="end">'+v+'</text>'; }
     data.forEach(function(d,i){
       var x=X(i), yr=Y(d.reg), yt=Y(d.tny), good=M.lower?(d.diff<0):(d.diff>0);
-      g+='<line class="tc-stem" x1="'+x+'" y1="'+yr+'" x2="'+x+'" y2="'+yt+'" stroke="'+(d.diff===0?'#8a8398':(good?'#1f9d57':'#cf5a4e'))+'" stroke-width="3"/>';
+      g+='<line class="tc-stem" x1="'+x+'" y1="'+yr+'" x2="'+x+'" y2="'+yt+'" stroke="'+(d.diff===0?'var(--text3)':(good?'#1f9d57':'#cf5a4e'))+'" stroke-width="3"/>';
       var tip='<b>'+((d.year-1)+'-'+(''+d.year).slice(2))+'</b><br>Reg season '+d.reg+' · Tourney '+d.tny+'<br>'+(d.diff>0?'+':'')+d.diff+' '+M.unit;
-      g+='<circle data-t="'+tip.replace(/"/g,'&quot;')+'" cx="'+x+'" cy="'+yr+'" r="4.5" fill="#8a8398"/>';
-      g+='<circle data-t="'+tip.replace(/"/g,'&quot;')+'" cx="'+x+'" cy="'+yt+'" r="4.5" fill="#fff" stroke="#8a8398" stroke-width="1.5"/>';
+      g+='<circle data-t="'+tip.replace(/"/g,'&quot;')+'" cx="'+x+'" cy="'+yr+'" r="4.5" fill="var(--text3)"/>';
+      g+='<circle data-t="'+tip.replace(/"/g,'&quot;')+'" cx="'+x+'" cy="'+yt+'" r="4.5" fill="#fff" stroke="var(--text3)" stroke-width="1.5"/>';
       if(i%2===0||i===data.length-1) g+='<text class="tc-ax" x="'+x+'" y="'+(H-14)+'" text-anchor="middle">\''+(''+d.year).slice(2)+'</text>';
     });
     // current-year callout
@@ -147,7 +147,7 @@
                 : M.short+' '+(nDown>nUp?'drops':'rises')+' in March in '+Math.max(nDown,nUp)+' of '+data.length+' seasons';
     var curGood=M.lower?(cur.diff<0):(cur.diff>0);
     var head='<div class="tc-note"><b>'+data.length+'-season pattern</b> · '+pattern+' · avg <b>'+(avgDrop>0?'+':'')+avgDrop.toFixed(1)+' '+M.unit+'</b>, this year <b style="color:'+(curGood?'#1f9d57':'#cf5a4e')+'">'+(cur.diff>0?'+':'')+cur.diff+' '+M.unit+'</b></div>'+
-      '<div class="tc-legend"><span><i style="background:#8a8398"></i>Reg-season '+M.short+'</span><span><i style="background:#fff;border:1.5px solid #8a8398"></i>Tournament '+M.short+'</span>'+(M.lower?'<span style="color:var(--text3)">lower is better</span>':'')+'</div>';
+      '<div class="tc-legend"><span><i style="background:var(--text3)"></i>Reg-season '+M.short+'</span><span><i style="background:#fff;border:1.5px solid var(--text3)"></i>Tournament '+M.short+'</span>'+(M.lower?'<span style="color:var(--text3)">lower is better</span>':'')+'</div>';
     el.innerHTML=head+'<div class="tc-wrap">'+g+'</div>'; wireTip(el);
   }
 
@@ -173,12 +173,12 @@
     var tnyAvg=data.reduce(function(s,d){return s+d.tny;},0)/data.length;
     var g='<svg viewBox="0 0 '+W+' '+H+'" class="tc-svg">';
     g+='<line x1="'+P+'" y1="'+Y(regAvg)+'" x2="'+(W-P)+'" y2="'+Y(regAvg)+'" stroke="#1f9d57" stroke-dasharray="4 4" stroke-width="1"/><text class="tc-ax" x="'+(W-P)+'" y="'+(Y(regAvg)-4)+'" text-anchor="end" fill="#1f9d57">Reg. avg</text>';
-    g+='<line x1="'+P+'" y1="'+Y(tnyAvg)+'" x2="'+(W-P)+'" y2="'+Y(tnyAvg)+'" stroke="#8a8398" stroke-dasharray="4 4" stroke-width="1"/><text class="tc-ax" x="'+(W-P)+'" y="'+(Y(tnyAvg)-4)+'" text-anchor="end">Tourney avg</text>';
+    g+='<line x1="'+P+'" y1="'+Y(tnyAvg)+'" x2="'+(W-P)+'" y2="'+Y(tnyAvg)+'" stroke="var(--text3)" stroke-dasharray="4 4" stroke-width="1"/><text class="tc-ax" x="'+(W-P)+'" y="'+(Y(tnyAvg)-4)+'" text-anchor="end">Tourney avg</text>';
     data.forEach(function(d,i){
-      var x=X(i), yr=Y(d.reg), yt=Y(d.tny), rise=d.diff>0, good=M.lower?(d.diff<0):(d.diff>0), c=(d.diff===0)?'#8a8398':(good?'#1f9d57':'#cf5a4e');
+      var x=X(i), yr=Y(d.reg), yt=Y(d.tny), rise=d.diff>0, good=M.lower?(d.diff<0):(d.diff>0), c=(d.diff===0)?'var(--text3)':(good?'#1f9d57':'#cf5a4e');
       var tip='<b>'+d.team+'</b>'+(d.seed?' ('+d.seed+' seed)':'')+'<br>Reg '+M.short+' '+d.reg+' → Tourney '+d.tny+'<br>'+(d.diff>0?'+':'')+d.diff+(M.unit?' '+M.unit:'');
       g+='<line class="tc-stem" data-t="'+tip.replace(/"/g,'&quot;')+'" x1="'+x+'" y1="'+yr+'" x2="'+x+'" y2="'+yt+'" stroke="'+c+'" stroke-width="4"/>';
-      g+='<circle data-t="'+tip.replace(/"/g,'&quot;')+'" cx="'+x+'" cy="'+yr+'" r="4" fill="#8a8398"/>';
+      g+='<circle data-t="'+tip.replace(/"/g,'&quot;')+'" cx="'+x+'" cy="'+yr+'" r="4" fill="var(--text3)"/>';
       g+='<rect data-t="'+tip.replace(/"/g,'&quot;')+'" x="'+(x-5)+'" y="'+(yt-5)+'" width="10" height="10" rx="2" fill="#fff" stroke="'+c+'" stroke-width="2"/>';
       g+='<text class="tc-diff" x="'+x+'" y="'+(yt+(rise?-12:20))+'" text-anchor="middle" fill="'+c+'">'+(d.diff>0?'+':'')+d.diff+'</text>';
       var lg=logo(d.team);
@@ -187,7 +187,7 @@
     g+='<text class="tc-ax" x="14" y="'+(H/2)+'" text-anchor="middle" transform="rotate(-90 14 '+(H/2)+')">'+(M.label||'').toUpperCase()+'</text>';
     g+='</svg>';
     var _sy=(data[0]&&data[0].season)?((data[0].season-1)+'–'+(''+data[0].season).slice(2)):'';
-    var head='<div class="tc-legend"><span><i style="background:#8a8398"></i>Reg-season '+M.short+'</span><span><i style="background:#fff;border:2px solid #888"></i>Tournament '+M.short+'</span><span style="color:var(--text3)">'+(M.lower?'green = improved (lower is better)':'green = rose to the moment')+(_sy?' · '+_sy:'')+'</span></div>';
+    var head='<div class="tc-legend"><span><i style="background:var(--text3)"></i>Reg-season '+M.short+'</span><span><i style="background:#fff;border:2px solid #888"></i>Tournament '+M.short+'</span><span style="color:var(--text3)">'+(M.lower?'green = improved (lower is better)':'green = rose to the moment')+(_sy?' · '+_sy:'')+'</span></div>';
     el.innerHTML=head+'<div class="tc-wrap tc-scroll">'+g+'</div>'; wireTip(el);
   }
 
@@ -207,7 +207,7 @@
       '.tc-bnm{font-family:\'Playfair Display\',Georgia,serif;font-weight:800;font-size:13px;fill:#201a2e;pointer-events:none;}'+
       '.tc-bsub{font-size:10px;font-weight:700;fill:#201a2e;opacity:.7;pointer-events:none;}'+
       '.tc-stem{cursor:pointer;}'+
-      '.tc-cur{font-size:12px;font-weight:800;fill:#8B3FE0;}'+
+      '.tc-cur{font-size:12px;font-weight:800;fill:var(--accent);}'+
       '.tc-diff{font-size:10px;font-weight:800;}'+
       '.tc-note{font-size:12.5px;color:var(--text2);margin-bottom:8px;}'+
       '.tc-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:10px;}'+

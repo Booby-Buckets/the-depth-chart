@@ -26,7 +26,7 @@
       ['team-stats.html',      'Team Stats'],
       ['conferences.html',     'Conferences & Standings'],
       ['compare-players.html?mode=teams', 'Compare Teams'],
-      ['predict.html',         'Projections'],
+      ['predict.html',         'Predictive Ratings'],
       ['payroll.html',         'Payrolls'],
     ]],
     ['Players', [
@@ -87,6 +87,8 @@
     css.id = 'tdc-nav-css';
     css.textContent = [
       '.nav-wrap{display:none!important;}',            // suppress legacy inline nav on older pages
+      // ESPN has no dark conference logos (team logos get swapped to 500-dark below): a thin light outline keeps black marks visible
+      ':root[data-theme="dark"] img[src*="/teamlogos/ncaa_conf/"]{filter:drop-shadow(0 0 .7px rgba(255,255,255,.85)) drop-shadow(0 0 .7px rgba(255,255,255,.6));}',
       '.tdn-wrap{border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:400;font-family:\'Inter\',system-ui,sans-serif;}',
       '.tdn-wrap button,.tdn-wrap a{font-family:inherit;}',
       // the bar's contents sit in the same 1400px column as the page, like CFB
@@ -315,4 +317,42 @@
 
   if (document.body) mount();
   else document.addEventListener('DOMContentLoaded', mount);
+
+  // Dark mode: navy/black team logos vanish on the charcoal page, so swap every ESPN college logo for ESPN's own
+  // dark-background variant (teamlogos/ncaa/500 → 500-dark) and back when the theme flips. Covers images drawn later
+  // (tables, ticker) via one observer; a missing dark file falls back to the normal logo.
+  (function darkLogos() {
+    var LIGHT = '/teamlogos/ncaa/500/', DARK = '/teamlogos/ncaa/500-dark/';
+    var root = document.documentElement;
+    function isDark() { return root.getAttribute('data-theme') === 'dark'; }
+    function fix(img) {
+      var src = img.getAttribute('src');
+      if (!src || src.indexOf('/teamlogos/ncaa/500') < 0) return;
+      if (isDark()) {
+        if (src.indexOf(LIGHT) < 0 || img.dataset.tdcNoDark) return;
+        img.addEventListener('error', function back() {
+          img.removeEventListener('error', back);
+          img.dataset.tdcNoDark = '1';
+          img.setAttribute('src', img.getAttribute('src').replace(DARK, LIGHT));
+        });
+        img.setAttribute('src', src.replace(LIGHT, DARK));
+      } else if (src.indexOf(DARK) >= 0) img.setAttribute('src', src.replace(DARK, LIGHT));
+    }
+    function scan(el) {
+      if (el.tagName === 'IMG') fix(el);
+      else if (el.querySelectorAll) Array.prototype.forEach.call(el.querySelectorAll('img[src*="/teamlogos/ncaa/500"]'), fix);
+    }
+    function start() {
+      scan(document.body);
+      new MutationObserver(function (muts) {
+        for (var i = 0; i < muts.length; i++) {
+          var m = muts[i];
+          if (m.type === 'attributes') { if (m.target.tagName === 'IMG') fix(m.target); continue; }
+          for (var j = 0; j < m.addedNodes.length; j++) if (m.addedNodes[j].nodeType === 1) scan(m.addedNodes[j]);
+        }
+      }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] });
+      new MutationObserver(function () { scan(document.body); }).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+    }
+    if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+  })();
 })();

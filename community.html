@@ -198,7 +198,7 @@ body{background:transparent!important;}
   <link rel="stylesheet" href="tdc-dense.css?v=41"/>
   <link rel="stylesheet" href="tdc-skin.css?v=15"/>
   <link rel="stylesheet" href="tdc-hq-list.css?v=ui1"/>
-  <link rel="stylesheet" href="tdc-ui.css?v=14"/>
+  <link rel="stylesheet" href="tdc-ui.css?v=15"/>
   <style>
     :root:not([data-theme="dark"]){background:var(--bg)!important;}
     :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
@@ -216,7 +216,7 @@ body{background:transparent!important;}
 </head>
 <body data-anim-auto>
 <script src="tdc-badge.js?v=1"></script>
-<script src="tdc-nav.js?v=84"></script>
+<script src="tdc-nav.js?v=85"></script>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
 
 <script>
@@ -368,12 +368,16 @@ function switchTab(tab){
 }
 
 async function init(){
+  await loadUser();
+  loadTopics();   // always: signed-out visitors (and expired sessions) used to return before this and spin on "Loading forum..." forever
+}
+async function loadUser(){
   const s=getSession();
   if(!s?.access_token)return;
   currentToken=s.access_token;
   try{
     const r=await fetch(`${SB}/auth/v1/user`,{headers:authH(s.access_token)});
-    if(!r.ok)return;
+    if(!r.ok){ currentToken=null; return; }
     currentUser=await r.json();
     const pr=await fetch(`${SB}/rest/v1/profiles?id=eq.${currentUser.id}&select=id,username,avatar_url,banner_color,banner_url,bio,favorite_team,follower_count,following_count,freshman_projections,plan,sub_expires_at,verified,created_at,updated_at`,{headers:authH(s.access_token)});
     const[p]=await pr.json();
@@ -383,7 +387,6 @@ async function init(){
     const fdata=await fr.json();
     myFollows=new Set(fdata.map(f=>f.following_id));
   }catch(e){}
-  loadTopics();
 }
 
 function updateNav(){
