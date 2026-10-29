@@ -33,12 +33,16 @@ import build_onoff as B
 
 DATADIR = B.DATADIR
 CACHE = os.path.join(DATADIR, "wowy_cache")
-F = ("pts", "fga", "fgm", "tpa", "tpm", "fta", "ftm", "orb", "drb", "tov", "ast", "stl", "blk", "ra", "rm", "ma", "mm")   # ra/rm = rim attempts/makes, ma/mm = mid-range (other twos)
+F = ("pts", "fga", "fgm", "tpa", "tpm", "fta", "ftm", "orb", "drb", "tov", "ast", "stl", "blk", "ra", "rm", "ma", "mm",   # ra/rm = rim attempts/makes, ma/mm = mid-range (other twos)
+     "sa", "xp", "sp", "gs", "bs", "ep", "trp", "trs", "hcp", "hcs", "scs")
+# from the ESPN shot/possession events (build_onoff_shots.mjs, 2025-26 on): sa shots tagged, xp their expected points,
+# sp their points, gs/bs great/bad shots (Hunt Great); ep possessions, trp/trs transition possessions/points,
+# hcp/hcs the rest (half court), scs second-chance points
 MIN_UNIT_POSS = {2: 80, 3: 60, 4: 45, 5: 30}
 TOP_UNITS = 15
 
 def blank(): return dict.fromkeys(F, 0)
-SF = ("pts", "fga", "fgm", "tpa", "tpm", "fta", "ftm", "orb", "drb", "tov")   # the fields the page needs per lineup
+SF = ("pts", "fga", "fgm", "tpa", "tpm", "fta", "ftm", "orb", "drb", "tov", "sa", "xp", "sp", "gs", "bs", "ep", "trp", "trs", "hcp", "hcs", "scs")   # the fields the page needs per lineup
 def slug(team): return re.sub(r"[^a-z0-9]+", "-", str(team or "").lower()).strip("-")
 
 import unicodedata
@@ -121,6 +125,25 @@ def espn_misses(gid):
                     "team": str((pl.get("team") or {}).get("id")), "is3": pa == 3, "used": False})
     return out, teams
 
+SHOTEV = {}
+def load_shotev(season):
+    """the season's ESPN shot + possession events (build_onoff_shots.mjs), {} when that pass hasn't run"""
+    import gzip
+    fp = os.path.join(CACHE, f"shotev_{season}.json.gz")
+    if not os.path.exists(fp): print(f"no {fp}: shot quality / possession rows left empty (run node scripts/build_onoff_shots.mjs {season})", flush=True); return
+    SHOTEV.update(json.load(gzip.open(fp))["games"]); print(f"shot events: {len(SHOTEV)} games", flush=True)
+
+def drop_event(bx, e):
+    """one ESPN event into the box of the side that had the ball"""
+    if e[3] == 0:
+        bx["sa"] += 1; bx["xp"] += e[4]; bx["sp"] += e[5]
+        if e[6] == 0: bx["gs"] += 1
+        elif e[6] == 2: bx["bs"] += 1
+    else:
+        bx["ep"] += 1; bx["scs"] += e[7]
+        if e[4]: bx["trp"] += 1; bx["trs"] += e[5]
+        else: bx["hcp"] += 1; bx["hcs"] += e[5]
+
 TWO = re.compile(r"two point|2 pointer|layup|dunk|tip|hook|alley|putback", re.I)
 RIM = re.compile(r"layup|lay up|dunk|tip|alley|putback", re.I)   # at the rim; every other two is mid-range
 def process_game(nid, og):
@@ -172,6 +195,23 @@ def process_game(nid, og):
             if dd <= 4 and (best is None or dd < best[0]): best = (dd, m)
         if best: best[1]["used"] = True; return 1.0 if best[1]["is3"] else 0.0
         return 0.45   # no ESPN match: about the share of missed jumpers that are threes
+    # ESPN shot/possession events, queued per period in clock order and dropped into whatever five were on when the
+    # NCAA clock passes them (see flush)
+    SE = SHOTEV.get(str(og["id"]))
+    evq = defaultdict(list)
+    if SE:
+        sside = {tid: ("H" if tov(nm, box_home) >= tov(nm, box_away) else "A") for tid, nm in SE["t"].items()}
+        if len(set(sside.values())) == 2:
+            for e in SE["e"]:
+                if e[2] in sside: evq[int(e[0])].append(e[:2] + [sside[e[2]]] + e[3:])
+            for q in evq.values(): q.sort(key=lambda e: -e[1])   # stable: same-clock plays keep the feed's order
+    def flush(pn, s, bucket, at_sub=False):
+        """events in period pn with more than s seconds left go to the lineup on the floor now; on a substitution line
+        a shot (or a possession that ended on a field goal) at that same second still belongs to the five going off,
+        while free throws at that second are usually shot after the change"""
+        q = evq.get(pn)
+        while q and (s is None or q[0][1] > s or (at_sub and q[0][1] == s and not (q[0][3] == 1 and q[0][6]))):
+            e = q.pop(0); drop_event(bucket[0] if e[2] == "H" else bucket[1], e)
     stints = []; cur = {"secs": 0.0, "low": defaultdict(lambda: [blank(), blank(), 0.0])}   # key (low, close, home margin sign)
     bad = 0
 
@@ -210,7 +250,8 @@ def process_game(nid, og):
             s = secs_of(pl.get("clock"))
             mg = (prev_h if prev_h is not None else hs) - (prev_a if prev_a is not None else as_)   # margin before this play
             low = low_leverage(pn, s, hs - as_)
-            bucket = cur["low"][(low, crunch(pn, s, mg), sgn(mg), int(pn >= 2))]
+            bkey = (low, crunch(pn, s, mg), sgn(mg), int(pn >= 2)); bucket = cur["low"][bkey]
+            if s is not None: flush(pn, s, bucket, at_sub=bool(SUB2.match(desc)))
             if s is not None and s <= last_secs:
                 bucket[2] += last_secs - s; last_secs = s
             # credit points only when the score passes its high-water mark: a scorer's correction (down, then back up)
@@ -308,6 +349,7 @@ def process_game(nid, og):
                 box_s["fta"] += 1
                 last_miss = (side, bool(re.search(r"\b(1 of 2|1 of 3|2 of 3)\b", dl)))
             credit(bucket, dh, da)
+        if evq.get(pn) and per.get("playbyplayStats"): flush(pn, None, cur["low"][bkey])   # the period's last seconds
     close()
     # the same partial-feed guard as build_onoff: a complete game has ~55-80 possessions a side
     tot = {"H": blank(), "A": blank()}
@@ -485,6 +527,14 @@ def rates(o, d, secs, lg=None):
                 "oftr": pct(d["fta"], d["fga"]), "oast": pct(d["ast"], d["fgm"]),
                 "stl": pct(o["stl"], pd), "blk": pct(o["blk"], d["fga"]),
                 "pace": round((po + pd) / 2 / (secs / 60) * 40, 1) if secs > 0 else None})
+    # shot quality and possession types (ESPN events): Look Quality = the expected eFG% of the shots taken, Shot-Making =
+    # points over expected per 100 shots, great/bad shot shares, transition share + points per 100 by possession type
+    def sq(b, p):
+        return {p + "lq": pct(b["xp"], 2 * b["sa"]), p + "sm": pct(b["sp"] - b["xp"], b["sa"]),
+                p + "gsr": pct(b["gs"], b["sa"]), p + "bsr": pct(b["bs"], b["sa"]),
+                p + "trr": pct(b["trp"], b["ep"]), p + "trppp": pct(b["trs"], b["trp"]), p + "hcppp": pct(b["hcs"], b["hcp"]),
+                p + "scp": pct(b["scs"], b["ep"])} if b["sa"] >= 1 and b["ep"] >= 1 else {}
+    out.update(sq(o, "")); out.update(sq(d, "o"))
     if lg:   # luck adjusted: own FT%, and the opponent's 3P% and FT%, set to the D-I average (what a unit controls stays)
         L3, LF = lg["tp3"], lg["ft"]
         op = o["pts"] - (o["ftm"] - o["fta"] * LF)
@@ -519,6 +569,7 @@ def run(season, limit=0, verbose=False, source="ncaa"):
             if verbose: print(d, len(gmap), flush=True)
         os.makedirs(CACHE, exist_ok=True); json.dump(gmap, open(games_fp, "w"))
     print(f"season {season}: {len(gmap)} matched games", flush=True)
+    load_shotev(season)
     work = [(nid, (lambda nid=nid, og=og: process_game(nid, og))) for nid, og in gmap.items()]
     return aggregate(season, work, limit, verbose)
 

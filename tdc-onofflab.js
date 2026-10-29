@@ -25,17 +25,25 @@
   var get = function (u) { return fetch(u).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }); };
 
   // ── sums ──
-  function blank() { return { pts: 0, fga: 0, fgm: 0, tpa: 0, tpm: 0, fta: 0, ftm: 0, orb: 0, drb: 0, tov: 0 }; }
+  function blank() { var b = {}; D.fields.forEach(function (f) { b[f] = 0; }); return b; }
   function add(a, arr) { D.fields.forEach(function (f, i) { a[f] += arr[i]; }); }
   function poss(b) { return Math.max(0, b.fga - b.orb + b.tov + 0.44 * b.fta); }
   function rate(o, d, s) {
     var po = poss(o), pd = poss(d), pc = function (n, x) { return x > 0 ? 100 * n / x : null; };
-    return { min: s / 60, poss: (po + pd) / 2, o: pc(o.pts, po), d: pc(d.pts, pd), net: po && pd ? 100 * o.pts / po - 100 * d.pts / pd : null,
+    var r = { min: s / 60, poss: (po + pd) / 2, o: pc(o.pts, po), d: pc(d.pts, pd), net: po && pd ? 100 * o.pts / po - 100 * d.pts / pd : null,
       efg: pc(o.fgm + 0.5 * o.tpm, o.fga), tov: pc(o.tov, po), orb: pc(o.orb, o.orb + d.drb), oefg: pc(d.fgm + 0.5 * d.tpm, d.fga), pm: o.pts - d.pts,
       // the rest of the player On/Off profile's box rows, so the Lab can reuse its sheet
       ts: pc(o.pts, 2 * (o.fga + 0.44 * o.fta)), fg: pc(o.fgm, o.fga), tp: pc(o.tpm, o.tpa), ftp: pc(o.ftm, o.fta), tpar: pc(o.tpa, o.fga), ftr: pc(o.fta, o.fga),
       ots: pc(d.pts, 2 * (d.fga + 0.44 * d.fta)), ofg: pc(d.fgm, d.fga), otp: pc(d.tpm, d.tpa), otpar: pc(d.tpa, d.fga), oftr: pc(d.fta, d.fga),
       otov: pc(d.tov, pd), drb: pc(o.drb, o.drb + d.orb), pace: s > 0 ? (po + pd) / 2 / (s / 60) * 40 : null };
+    // shot quality + possession types (2025-26 on; build_onoff_shots.mjs), the same keys as wowy_<season>.json
+    [[o, ''], [d, 'o']].forEach(function (x) {
+      var b = x[0], p = x[1];
+      if (!(b.sa >= 1 && b.ep >= 1)) return;
+      r[p + 'lq'] = pc(b.xp, 2 * b.sa); r[p + 'sm'] = pc(b.sp - b.xp, b.sa); r[p + 'gsr'] = pc(b.gs, b.sa); r[p + 'bsr'] = pc(b.bs, b.sa);
+      r[p + 'trr'] = pc(b.trp, b.ep); r[p + 'trppp'] = pc(b.trs, b.trp); r[p + 'hcppp'] = pc(b.hcs, b.hcp); r[p + 'scp'] = pc(b.scs, b.ep);
+    });
+    return r;
   }
   var LIVE = [];   // the rows that pass the filters
   function filterRows() {
@@ -189,7 +197,7 @@
   }
   function loadTeam() {
     $('olOut').innerHTML = '<div class="ol-say">Loading ' + esc(S.team) + '…</div>';
-    return get('scripts/data/onoff_lab/' + S.season + '/' + S.team + '.json?v=1').then(function (j) {
+    return get('scripts/data/onoff_lab/' + S.season + '/' + S.team + '.json?v=2').then(function (j) {
       if (!j) { $('olOut').innerHTML = '<div class="ol-say">No lineup data for this team and season.</div>'; $('olCards').innerHTML = ''; return; }
       D = j; S.pick = S.pick.filter(function (id) { return D.ids.indexOf(id) >= 0; });
       if (!S.pick.length && S.mode !== 'players' && S.mode !== 'lineups') {   // a starting answer: the two biggest-minute players

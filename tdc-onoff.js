@@ -16,7 +16,7 @@
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   var lbl = function (y) { return (y - 1) + '–' + String(y).slice(2); };
   var MIN_POSS = 500;
-  var DV = 7;   // wowy_<season>.json cache-buster: bump on every rebuild
+  var DV = 8;   // wowy_<season>.json cache-buster: bump on every rebuild
 
   // [key, label, higher-is-better (1) / lower (-1) / volume (0), decimals, suffix, tooltip]
   // derived keys: 'pm' = plus-minus (net × poss / 100), 'pm100' = the same per 100 possessions
@@ -26,11 +26,22 @@
         ['crunch', 'Crunch Lift', 1, 1, '', 'Net rating in close, late minutes: second half or OT, 8:00 or less left, within 6'],
         ['behind', 'Behind Lift', 1, 1, '', 'Net rating while his team is trailing']]],
       ['Shot quality', [
-        ['diet', 'Shot Diet', 1, 1, '%', 'The eFG% the team\'s shot mix (rim / mid / three) would produce at D-I average make rates: how good the looks are'],
-        ['make', 'Shot Making', 1, 1, '', 'Actual eFG% minus Shot Diet: making more (or fewer) than those looks should give'],
-        ['odiet', 'Opp Shot Diet', -1, 1, '%', 'The same for the shots the defense gives up'],
-        ['omake', 'Opp Shot Making', -1, 1, '', 'Opponent eFG% minus their Shot Diet']]],
+        ['lq', 'Look Quality', 1, 1, '%', 'The eFG% the team\'s shots should produce: each shot at the D-I make rate for its type and distance (layup, floater, pull-up, corner three…). How good the looks are'],
+        ['sm', 'Shot-Making', 1, 1, '', 'Points over expected per 100 shots: making more (or fewer) than those looks should give'],
+        ['gsr', 'Great Shots', 1, 1, '%', 'Share of shots that are great looks: at the rim, or a shot the shooter has proven at 1.1+ points per shot (Hunt Great)'],
+        ['bsr', 'Bad Shots', -1, 1, '%', 'Share of shots that are tough twos or pull-up threes the shooter hasn\'t proven he can make'],
+        ['olq', 'Opp Look Quality', -1, 1, '%', 'Look Quality of the shots the defense gives up'],
+        ['osm', 'Opp Shot-Making', -1, 1, '', 'Opponent points over expected per 100 shots'],
+        ['ogsr', 'Opp Great Shots', -1, 1, '%', 'Share of opponent shots that are great looks'],
+        ['obsr', 'Opp Bad Shots', 1, 1, '%', 'Share of opponent shots that are bad shots: forcing tough, unproven looks']]],
       ['Possessions', [
+        ['trr', 'Transition Rate', 0, 1, '%', 'Share of possessions won by a steal or defensive rebound that get a shot or free throws up within 10 seconds'],
+        ['trppp', 'Transition Pts', 1, 1, '', 'Points per 100 transition possessions'],
+        ['hcppp', 'Half-court Pts', 1, 1, '', 'Points per 100 possessions that aren\'t transition'],
+        ['scp', '2nd-chance Pts', 1, 1, '', 'Points scored after an offensive rebound, per 100 possessions'],
+        ['otrppp', 'Opp Transition', -1, 1, '', 'Opponent points per 100 transition possessions'],
+        ['ohcppp', 'Opp Half-court', -1, 1, '', 'Opponent points per 100 half-court possessions'],
+        ['oscp', 'Opp 2nd-chance', -1, 1, '', 'Opponent points after an offensive rebound, per 100 possessions'],
         ['pedge', 'Possession Edge', 1, 1, '', 'Extra scoring chances per 100: turnovers forced minus committed, plus offensive rebounds won minus allowed']]]]],
     ['General', [[null, [
       ['min', 'Minutes', 0, 0, '', ''],
@@ -88,7 +99,7 @@
   var K = function (k) { return LUCK ? ({ o: 'ol', d: 'dl', net: 'netl' }[k] || k) : k; };
   var CLOSED = {};    // collapsed sections, kept across seasons
 
-  var LG = null;   // the season's league rates (S.league), for Shot Diet
+  var LG = null;   // the season's league rates (S.league), for the Look Quality fallback
   var SIT = { crunch: ['c', 25, 15], behind: ['t', 60, 30] };   // split key, min poss on, min poss off
   var num = function (v) { return v == null || !isFinite(v) ? null : +v; };
   function diet(rimr, midr, tpar) {
@@ -100,10 +111,10 @@
     if (SIT[k]) { var x = p.sit && p.sit[SIT[k][0]]; if (!x || x[2] < SIT[k][1] || x[3] < SIT[k][2]) return null; return num(x[w === 'on' ? 0 : 1]); }
     var side = p[w]; if (!side) return null;
     if (k === 'pm') { var n = side[K('net')]; return n == null ? null : n * side.poss / 100; }
-    if (k === 'diet') return diet(side.rimr, side.midr, side.tpar);
-    if (k === 'odiet') return diet(side.orimr, side.omidr, side.otpar);
-    if (k === 'make') { var d = diet(side.rimr, side.midr, side.tpar); return d == null || side.efg == null ? null : side.efg - d; }
-    if (k === 'omake') { var e = diet(side.orimr, side.omidr, side.otpar); return e == null || side.oefg == null ? null : side.oefg - e; }
+    // seasons without the ESPN shot events (before 2025-26): Look Quality falls back to the rim / mid / three mix at
+    // D-I make rates, and Shot-Making to eFG% over that (eFG points, not points per 100 shots)
+    if ((k === 'lq' || k === 'sm') && side.lq == null) { var d = diet(side.rimr, side.midr, side.tpar); return k === 'lq' ? d : d == null || side.efg == null ? null : side.efg - d; }
+    if ((k === 'olq' || k === 'osm') && side.olq == null) { var e = diet(side.orimr, side.omidr, side.otpar); return k === 'olq' ? e : e == null || side.oefg == null ? null : side.oefg - e; }
     if (k === 'pedge') { if ([side.tov, side.otov, side.orb, side.drb].some(function (v) { return v == null; })) return null;
       return (side.otov - side.tov) + 0.5 * (side.orb - (100 - side.drb)); }   // about half a missed shot per possession
     return num(side[K(k)]);
