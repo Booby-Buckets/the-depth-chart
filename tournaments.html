@@ -29,6 +29,7 @@
   <script src="tdc-projgrade.js?v=disp1"></script>
   <script src="conf-logos.js?v=4"></script>
   <script src="tournament-logos.js?v=4"></script>
+  <script src="tdc-mteboard.js?v=7"></script>
   <script src="tdc-season.js?v=1"></script>
   <style>
     :root{--gold:#C8A020;--green:#1a8c3a;--red:#cc2200;}
@@ -66,6 +67,73 @@
     .tcard .champ{font-size:12px;color:var(--text2);}
     .tcard .champ b{color:var(--text);}
     .tcard .meta{font-size:10.5px;color:var(--text3);margin-top:5px;}
+
+    /* ===== MTE bracket board (tdc-mteboard.js) ===== */
+    .mtb{ --mw:#2f8a55; --mwbg:rgba(47,138,85,.09); background:var(--panel,var(--bg)); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin:14px 0 18px; box-shadow:0 10px 30px rgba(0,0,0,.12); color:var(--text); }
+    :root[data-theme="dark"] .mtb{ --mw:#5cc98a; --mwbg:rgba(92,201,138,.11); }
+    .mtb-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:16px 20px 14px; border-bottom:1px solid var(--border); background:var(--bg2); }
+    .mtb-ttl{ font-size:16px; font-weight:700; letter-spacing:-.01em; }
+    .mtb-sub,.mtb-hint{ font-size:11.5px; color:var(--text3); margin-top:3px; }
+    .mtb-hint{ text-align:right; margin-top:2px; }
+    .mtb-scroll{ overflow-x:auto; padding:18px 18px 8px; }
+    .mtb-board{ position:relative; display:grid; gap:0 26px; min-width:1040px; }
+    .mtb-board.n5{ grid-template-columns:repeat(5,minmax(190px,1fr)); }
+    .mtb-board.n2{ grid-template-columns:repeat(2,minmax(220px,300px)); justify-content:center; min-width:0; gap:0 48px; }
+    .mtb-lines{ position:absolute; inset:0; pointer-events:none; overflow:visible; }
+    .mtb-lines path{ stroke:var(--border2); stroke-width:1.4; }
+    .mtb-col{ display:flex; flex-direction:column; position:relative; z-index:1; }
+    .mtb-colh{ text-align:center; margin-bottom:10px; min-height:34px; }
+    .mtb-day{ font-size:10.5px; color:var(--text3); }
+    .mtb-coltt{ font-size:12.5px; font-weight:700; margin-top:2px; }
+    .mtb-zones{ flex:1; display:flex; flex-direction:column; }
+    .mtb-zone{ flex:1; display:flex; flex-direction:column; justify-content:center; gap:12px; padding:6px 0; }
+    .mtb-card{ background:var(--bg); border:1px solid var(--border); border-radius:8px; overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.05); }
+    .mtb-ch{ padding:7px 10px 6px; border-bottom:1px solid var(--border); }
+    .mtb-rd{ font-size:9.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text3); }
+    .mtb-tv{ font-size:10.5px; color:var(--text2); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .mtb-r{ display:flex; align-items:center; gap:7px; padding:8px 10px; font-size:12.5px; min-height:34px; box-sizing:border-box; }
+    .mtb-r + .mtb-r{ border-top:1px solid var(--border); }
+    .mtb-r.can{ cursor:pointer; }
+    .mtb-r.can:hover{ background:var(--bg2); }
+    .mtb-r.w{ background:var(--mwbg); }
+    .mtb-r.w .mtb-nm, .mtb-r.w .mtb-p{ color:var(--mw); font-weight:700; }
+    .mtb-r.lk{ box-shadow:inset 3px 0 0 var(--mw); }
+    .mtb-lg{ width:20px; height:20px; flex:0 0 20px; display:inline-flex; align-items:center; justify-content:center; }
+    .mtb-lg img{ max-width:20px; max-height:20px; object-fit:contain; }
+    .mtb-rk{ font-size:10.5px; color:var(--text3); font-variant-numeric:tabular-nums; }
+    .mtb-nm{ flex:1; min-width:0; color:var(--text); text-decoration:none; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .mtb-nm:hover{ text-decoration:underline; }
+    .mtb-lock{ font-size:7px; color:var(--mw); }
+    .mtb-p{ font-size:11.5px; color:var(--text2); font-variant-numeric:tabular-nums; }
+    .mtb-tbd .mtb-nm{ color:var(--text3); font-weight:500; }
+    .mtb-foot{ padding:4px 18px 18px; }
+    .mtb-days{ display:grid; grid-template-columns:repeat(var(--n),minmax(220px,300px)); gap:0 26px; justify-content:center; }
+    .mtb-stack{ display:flex; flex-direction:column; gap:12px; }
+    .mtb-out{ display:flex; justify-content:space-between; align-items:center; gap:14px; padding:14px 18px; border:1px solid var(--border); border-left:3px solid var(--mw); border-radius:8px; background:var(--mwbg); }
+    .mtb-kick{ font-size:9.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--mw); }
+    .mtb-champ{ display:flex; align-items:center; gap:9px; font-size:24px; font-weight:800; letter-spacing:-.02em; margin:3px 0 2px; }
+    .mtb-champ img{ width:28px; height:28px; object-fit:contain; }
+    .mtb-why{ font-size:11.5px; color:var(--text3); }
+    .mtb-reset{ font:inherit; font-size:11.5px; color:var(--mw); background:none; border:0; padding:0; cursor:pointer; text-decoration:underline; }
+    .mtb-outr{ text-align:right; }
+    .mtb-big{ font-size:26px; font-weight:800; color:var(--mw); font-variant-numeric:tabular-nums; }
+    .mtb-lbl{ font-size:11px; color:var(--text3); }
+    .mtb-odds{ margin-top:12px; }
+    .mtb-oddsr{ display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:6px 10px; margin-top:7px; }
+    .mtb-odd{ position:relative; display:flex; align-items:center; gap:6px; font-size:12px; padding:5px 8px; border:1px solid var(--border); border-radius:6px; overflow:hidden; background:var(--bg); }
+    .mtb-odd b{ margin-left:auto; font-variant-numeric:tabular-nums; position:relative; z-index:1; }
+    .mtb-odd i{ position:absolute; left:0; bottom:0; height:2px; background:var(--mw); }
+    @media (max-width:760px){
+      .mtb-head{ flex-direction:column; } .mtb-hint{ text-align:left; }
+      .mtb-scroll{ padding:12px; overflow:visible; }
+      .mtb-days{ display:flex; flex-direction:column; gap:14px; }
+      .mtb-board, .mtb-board.n5, .mtb-board.n2{ display:flex; flex-direction:column; min-width:0; gap:14px; }
+      .mtb-lines{ display:none; }
+      .mtb-board .c-qf{ order:1; } .mtb-board .c-sf{ order:2; } .mtb-board .c-final{ order:3; } .mtb-board .c-cons{ order:4; } .mtb-board .c-place{ order:5; }
+      .mtb-colh{ text-align:left; min-height:0; margin-bottom:4px; }
+      .mtb-zone{ padding:0; gap:10px; } .mtb-zones{ gap:10px; }
+      .mtb-champ{ font-size:20px; }
+    }
     /* bracket */
     .bcrumb{font-size:12px;color:var(--text3);margin-bottom:6px;}
     .bcrumb a{color:var(--accent);text-decoration:none;cursor:pointer;font-weight:700;}
@@ -281,12 +349,12 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <script src="tdc-pwa.js?v=3" defer></script>
   <link rel="stylesheet" href="tdc-hq-site.css?v=24"/>
-  <link rel="stylesheet" href="tdc-ui.css?v=14"/>
+  <link rel="stylesheet" href="tdc-ui.css?v=15"/>
   <link rel="stylesheet" href="tdc-column.css?v=4"/>
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
 </head>
 <body data-anim-auto class="hqsite">
-<script src="tdc-nav.js?v=84"></script>
+<script src="tdc-nav.js?v=85"></script>
   <div class="nav-wrap">
     <div class="nav-top">
       <a class="nav-logo" href="index.html">The Depth <span>Chart</span></a>
@@ -558,10 +626,12 @@ async function buildProjectedMTEs(ncaa){
       if(oE!=null&&dE!=null) s+=0.115*((oE-_LG.oeFG)*(dE-_LG.deFG)); if(oT!=null&&dT!=null) s+=0.088*((_LG.oTOV-oT)*(_LG.dTOV-dT)); if(oO!=null&&dD!=null) s+=0.054*((oO-_LG.oORB)*(_LG.dDRB-dD)); return s; };
     return Math.max(-4,Math.min(4,ex(da,db)-ex(db,da))); };
   const proj=(a,b)=>((a.rating-b.rating)+edge(a,b))>=0?a:b;
+  window._mteGap=(a,b)=>{ const A=byFull[a], B=byFull[b]; return (A&&B)?(A.rating-B.rating)+edge(A,B):0; };
+  window._mteRank=n=>byFull[n]&&byFull[n].rank;
   let gid=930000000; const games=[];
   const mk=(ev,a,b,round,rord,date,div)=>{ const w=proj(a,b);
     games.push({id:gid++, season:2027, date, category:'MTE', tournament:ev.name+' (Projected)', round, round_order:rord,
-      division:div||ev.division||null, neutral:true, _proj:true, notable:true, _venue:ev.venue||'', _seededPairs:!!ev._seeded,
+      division:div||ev.division||null, neutral:true, _proj:true, notable:true, _venue:ev.venue||'', _dates:ev.dates||[], _seededPairs:!!ev._seeded,
       home:a.full, home_id:a.full, home_score:null, home_seed:a._seed||null, _hr:a.rating,
       away:b.full, away_id:b.full, away_score:null, away_seed:b._seed||null, _ar:b.rating,
       winner:w.full, winner_id:w.full}); return w; };
@@ -870,8 +940,18 @@ function openBracket(name){
   const regionDivs=Object.keys(divs).filter(d=>d).sort();
 
   // NCAA: 2x2 regions converging on a center Final Four + Championship
+  // MTEs: one board per division (a real bracket) or a day-by-day card list (pods / round robins);
+  // a past event only switches over when every division is a clean bracket
+  let mteS=null;
+  if(cat==='MTE'&&window.TDCMteBoard){
+    const dv={}; gs.forEach(g=>{ (dv[g.division||'']=dv[g.division||'']||[]).push(g); });
+    const parts=Object.entries(dv).map(([d,list])=>({div:d, games:list, S:TDCMteBoard.slots(list)}));
+    if(gs.some(g=>g._proj)||parts.every(p=>p.S)) mteS=parts;
+  }
   if(cat==='NCAA' && regionDivs.length===4){
     html+=ncaaBracket(divs, gs);
+  } else if(mteS){
+    html+='<div id="mteBoard"></div>';
   } else if(canTree(gs)){
     // clean single-elimination event -> one flowing bracket
     const L=layoutTree(gs, 1, 0, 0);
@@ -894,11 +974,35 @@ function openBracket(name){
     if(theme.accent2) document.body.style.setProperty('--sec', theme.accent2); else document.body.style.removeProperty('--sec');
   }
   _setBgArt(isThemed ? theme : null);
+  if(mteS) _mountMteBoard(name, gs, mteS);
   window.scrollTo(0,0);
   fitBracket();
   _fillAwards(gs, cat, champ&&champ.name);
 }
 
+// the MTE board (tdc-mteboard.js): projected events price every pairing with the projection's own
+// rating gap + style edge; past events use that season's Power Rating gap
+function _phi(z){ const t=1/(1+0.2316419*Math.abs(z)), d=0.3989423*Math.exp(-z*z/2), p=d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274)))); return z>0?1-p:p; }
+function _mountMteBoard(name, gs, parts){
+  const host=document.getElementById('mteBoard'); if(!host) return;
+  // brackets first (in division order), then pods / one-off games
+  parts=parts.slice().sort((a,b)=>(!!b.S-!!a.S)||(a.div<b.div?-1:1));
+  host.innerHTML=parts.map((p,i)=>'<div class="mtb-part" id="mtbPart'+i+'"></div>').join('');
+  const R=window.TDC_RATINGS||{}, SIG=R.SIGMA||11, ST=R.GAP_STRETCH||1, tame=R.tame||(m=>m);
+  const live=gs.some(g=>g._proj);
+  const gap=live?(a,b)=>(window._mteGap?_mteGap(a,b):0):(a,b)=>((SRS[a]!=null&&SRS[b]!=null)?SRS[a]-SRS[b]:0);
+  const dates=[...new Set(gs.map(g=>g.date).filter(Boolean))].sort();
+  const multi=parts.length>1;
+  parts.forEach((p,i)=>{
+    const ctx={ key:curSeason+':'+name+':'+p.div, name, games:p.games, S:p.S, live, title:multi?(p.div||'Bracket'):'',
+      prob:(a,b)=>_phi(tame(gap(a,b)*ST)/SIG),
+      rank:n=>live&&window._mteRank?_mteRank(n):null,
+      short:n=>shortName(n), logo:n=>{ const tc=window.tdcTeamColor&&tdcTeamColor(n); return (tc&&tc.logo)||_tlogo(n); }, link:n=>teamLink(n),
+      dates: live?((gs[0]._dates&&gs[0]._dates.length)?gs[0]._dates:dates):[], venue:gs[0]._venue||'' };
+    const el=document.getElementById('mtbPart'+i);
+    if(p.S) TDCMteBoard.render(el,ctx); else TDCMteBoard.renderList(el,ctx);
+  });
+}
 // scale each rendered bracket canvas down to fit its container width, so the whole
 // bracket is visible at once instead of overflowing / getting clipped.
 function fitBracket(){
