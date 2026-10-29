@@ -3,6 +3,7 @@
 -- existing teams and (name, team) players are left alone. Run in the Supabase SQL editor with NOTHING highlighted
 -- (a selection runs only that text), in project izlqhnxowdhtdofkwrho. The last query lists each team + player count.
 -- Afterwards, in the owner console: 🔁 Rebuild projections, then ⚡ Republish projected ratings and 🏆 Republish awards.
+-- Every player is stamped site_added_at, so the Sheet sync's departed-player cleanup never removes them.
 --
 -- Notes:
 --   Illinois State: Malik Messina-Moore — ESPN id 5105454 is still on Xavier's roster (players.id 50571, "Malik Messina-Moore"); loaded without the id
@@ -12,9 +13,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Akron', 'MAC', 'MAC', 'Dustin Ford', 'Dustin Ford'
 where not exists (select 1 from teams where name = 'Akron');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Kamrin Oriol', 'Akron', 'SG', 'Gr.', 'Gr.', '6-3', 'North Florida', 5119069, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -25,9 +26,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Arkansas-Pine Bluff', 'SWAC', 'SWAC', 'Solomon Bozeman', 'Solomon Bozeman'
 where not exists (select 1 from teams where name = 'Arkansas-Pine Bluff');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Jalen Tatum', 'Arkansas-Pine Bluff', 'SG', 'R-Sr.', 'R-Sr.', '6-4', 'Jackson State', 5243345, 1, true, true, false, false),
   ('Jai’chaunn Hayes', 'Arkansas-Pine Bluff', 'SG', 'So.', 'So.', '6-7', null, 5313436, 2, true, false, false, false),
   ('Creed Williamson', 'Arkansas-Pine Bluff', 'SF', 'Sr.', 'Sr.', '6-8', 'Little Rock', 5177353, 3, true, true, false, false),
@@ -52,9 +53,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Boise State', 'PAC-12', 'PAC-12', 'Leon Rice', 'Leon Rice'
 where not exists (select 1 from teams where name = 'Boise State');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Lamar Washington', 'Boise State', 'SG', 'Gr.', 'Gr.', '6-4', 'Georgia Tech', 5106284, 1, false, true, false, false),
   ('Rayzhon Bergersen', 'Boise State', 'PG', 'Gr.', 'Gr.', '6-2', null, 5191013, 2, false, false, false, false),
   ('Brennan Ramirez', 'Boise State', 'PG', 'Gr.', 'Gr.', '6-2', null, 5252550, 3, false, false, false, false)
@@ -67,9 +68,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Cal State Fullerton', 'Big West', 'Big West', 'Dedrique Taylor', 'Dedrique Taylor'
 where not exists (select 1 from teams where name = 'Cal State Fullerton');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Joshua Ward', 'Cal State Fullerton', 'PG', 'Gr.', 'Gr.', '6-1', null, 5180837, 1, true, false, false, false),
   ('Christian Williams', 'Cal State Fullerton', 'PG', 'So.', 'So.', '6-0', null, 5312315, 2, true, false, false, false),
   ('Bailey Nunn', 'Cal State Fullerton', 'PG', 'Sr.', 'Sr.', '6-0', null, 5175404, 3, true, false, true, false),
@@ -96,9 +97,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Campbell', 'CAA', 'CAA', 'Jimmie Williams', 'Jimmie Williams'
 where not exists (select 1 from teams where name = 'Campbell');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Nordin Kapic', 'Campbell', 'SF', 'Gr.', 'Gr.', '6-8', 'South Carolina', 5112189, 1, false, true, true, false),
   ('Jack Browder', 'Campbell', 'SG', 'Gr.', 'Gr.', '6-5', null, null, 2, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
@@ -110,9 +111,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Canisius', 'MAAC', 'MAAC', 'Jim Christian', 'Jim Christian'
 where not exists (select 1 from teams where name = 'Canisius');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Channing Francis', 'Canisius', 'PG', 'Jr.', 'Jr.', '6-2', null, null, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -123,9 +124,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Charleston', 'CAA', 'CAA', 'John Groce', 'John Groce'
 where not exists (select 1 from teams where name = 'Charleston');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Tavari Johnson', 'Charleston', 'PG', 'Gr.', 'Gr.', '6-0', 'Akron', 5108059, 1, false, true, false, false),
   ('Nicolo Virginio', 'Charleston', 'PF', 'Jr.', 'Jr.', '6-9', null, null, 2, false, true, true, false)
 ) as v(name, team, position, class_year, yr, height,
@@ -137,9 +138,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Charleston Southern', 'Big South', 'Big South', 'Saah Nimley', 'Saah Nimley'
 where not exists (select 1 from teams where name = 'Charleston Southern');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Jefferson McLamb', 'Charleston Southern', 'SG', 'Sr.', 'Sr.', '6-5', null, null, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -150,9 +151,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Charlotte', 'AAC', 'AAC', 'Wes Miller', 'Wes Miller'
 where not exists (select 1 from teams where name = 'Charlotte');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Chaze Harris', 'Charlotte', 'SG', 'Gr.', 'Gr.', '6-5', 'South Alabama', 5189001, 1, false, true, false, false),
   ('Michael Walz', 'Charlotte', 'C', 'Gr.', 'Gr.', '6-11', null, null, 2, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
@@ -164,9 +165,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Chicago State', 'NEC', 'NEC', 'Landon Bussie', 'Landon Bussie'
 where not exists (select 1 from teams where name = 'Chicago State');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Bryan Akanmu', 'Chicago State', 'SF', 'Gr.', 'Gr.', '6-6', 'Wagner', 5317318, 1, true, true, true, false),
   ('Mike Price', 'Chicago State', 'SG', 'Jr.', 'Jr.', '6-3', 'Cal State Bakersfield', 5241842, 2, true, true, false, false),
   ('Armari Carraway', 'Chicago State', 'PG', 'Sr.', 'Sr.', '6-0', 'Charleston Southern', 5313447, 3, true, true, false, false),
@@ -192,9 +193,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Cincinnati', 'BIG-12', 'BIG-12', 'Jerrod Calhoun', 'Jerrod Calhoun'
 where not exists (select 1 from teams where name = 'Cincinnati');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Amani Lyles', 'Cincinnati', 'PF', 'Gr.', 'Gr.', '6-9', 'Akron', 5108060, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -205,9 +206,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Colorado State', 'PAC-12', 'PAC-12', 'Ali Farokhmanesh', 'Ali Farokhmanesh'
 where not exists (select 1 from teams where name = 'Colorado State');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Charlie Dortch', 'Colorado State', 'SF', 'Sr.', 'Sr.', '6-7', null, 5241233, 1, false, false, false, false),
   ('Jaxon Clark', 'Colorado State', 'C', 'Fr.', 'Fr.', '6-10', null, null, 2, false, true, false, false),
   ('River Sawyer', 'Colorado State', 'SG', 'Fr.', 'Fr.', '6-4', null, null, 3, false, true, false, false)
@@ -220,9 +221,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Davidson', 'A10', 'A10', 'Matt McKillop', 'Matt McKillop'
 where not exists (select 1 from teams where name = 'Davidson');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Phillip Kavu', 'Davidson', 'PG', 'R-So.', 'R-So.', '6-2', null, 5239521, 1, false, false, true, false),
   ('John Nowland', 'Davidson', 'SF', 'Sr.', 'Sr.', '6-8', null, 5311852, 2, false, false, false, false),
   ('Honor Withers Carello', 'Davidson', 'SG', 'Fr.', 'Fr.', '6-5', null, null, 3, false, true, false, false)
@@ -235,9 +236,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Dayton', 'A10', 'A10', 'Anthony Grant', 'Anthony Grant'
 where not exists (select 1 from teams where name = 'Dayton');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Evan Dickey', 'Dayton', 'SG', 'Sr.', 'Sr.', '6-3', null, 5174575, 1, false, false, false, false),
   ('Makai Grant', 'Dayton', 'PG', 'Sr.', 'Sr.', '6-1', null, 5174578, 2, false, false, false, false),
   ('Will Maxwell', 'Dayton', 'SG', 'Sr.', 'Sr.', '6-4', null, 5174577, 3, false, false, false, false)
@@ -250,9 +251,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Denver', 'WCC', 'WCC', 'Tim Bergstraser', 'Tim Bergstraser'
 where not exists (select 1 from teams where name = 'Denver');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Spencer Mahoney', 'Denver', 'SF', 'Sr.', 'Sr.', '6-8', 'Temple', 5060690, 1, false, true, false, false),
   ('Logan Threatt', 'Denver', 'SG', 'Gr.', 'Gr.', '6-3', null, null, 2, false, true, false, false),
   ('Harry Bates', 'Denver', 'PF', 'Sr.', 'Sr.', '6-9', null, null, 3, false, true, true, false),
@@ -266,9 +267,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Drexel', 'CAA', 'CAA', 'Zach Spiker', 'Zach Spiker'
 where not exists (select 1 from teams where name = 'Drexel');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Amaree Abram', 'Drexel', 'SG', 'Gr.', 'Gr.', '6-3', 'Tennessee', 5105544, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -279,9 +280,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Duquesne', 'A10', 'A10', 'Dru Joyce III', 'Dru Joyce III'
 where not exists (select 1 from teams where name = 'Duquesne');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Jake DiMichele', 'Duquesne', 'SG', 'R-Jr.', 'R-Jr.', '6-4', null, 5174586, 1, false, false, false, false),
   ('Ethan Anish', 'Duquesne', 'PG', 'R-Jr.', 'R-Jr.', '6-1', null, 5174583, 2, false, false, false, false)
 ) as v(name, team, position, class_year, yr, height,
@@ -293,9 +294,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'ECU', 'AAC', 'AAC', 'Michael Schwartz', 'Michael Schwartz'
 where not exists (select 1 from teams where name = 'ECU');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Ashton McCullough', 'ECU', 'SG', '1st YR', '1st YR', '6-3', null, null, 1, false, true, false, false),
   ('Dreylan Creasy-Quirindoongo', 'ECU', 'SF', '1st YR', '1st YR', '6-7', null, null, 2, false, true, false, false),
   ('Mason Pandov', 'ECU', 'SG', '1st YR', '1st YR', '6-5', null, null, 3, false, true, false, false),
@@ -309,9 +310,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Eastern Washington', 'Big Sky', 'Big Sky', 'Dan Monson', 'Dan Monson'
 where not exists (select 1 from teams where name = 'Eastern Washington');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Zach Trezvant', 'Eastern Washington', 'C', 'Fr.', 'Fr.', '7-2', null, null, 1, false, true, true, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -322,9 +323,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'FAU', 'AAC', 'AAC', 'John Jakus', 'John Jakus'
 where not exists (select 1 from teams where name = 'FAU');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Lachlan Smith', 'FAU', 'SG', 'So.', 'So.', '6-3', null, 5312062, 1, false, false, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -335,9 +336,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Florida International', 'CUSA', 'CUSA', 'Joey Cantens', 'Joey Cantens'
 where not exists (select 1 from teams where name = 'Florida International');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Huascar Cuevas', 'Florida International', 'PG', 'Sr.', 'Sr.', '5-11', 'Wagner', 5317319, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -348,9 +349,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Fordham', 'A10', 'A10', 'Mike Magpayo', 'Mike Magpayo'
 where not exists (select 1 from teams where name = 'Fordham');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Max Miller', 'Fordham', 'PG', 'Jr.', 'Jr.', '6-0', null, 5239548, 1, false, false, false, false),
   ('Aidan Crotty', 'Fordham', 'PG', 'Jr.', 'Jr.', '5-11', null, 5239547, 2, false, false, false, false),
   ('JJ Laboy', 'Fordham', 'SG', 'R-Fr.', 'R-Fr.', '6-3', null, null, 3, false, true, false, false)
@@ -363,9 +364,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Fresno State', 'PAC-12', 'PAC-12', 'Vance Walberg', 'Vance Walberg'
 where not exists (select 1 from teams where name = 'Fresno State');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Colin Schroeder', 'Fresno State', 'SF', 'Fr.', 'Fr.', '6-8', null, null, 1, false, true, false, false),
   ('Marko Vuckovic', 'Fresno State', 'SF', 'Fr.', 'Fr.', '6-8', null, null, 2, false, true, false, false),
   ('Roger Fabrega Urpina', 'Fresno State', 'PG', 'Fr.', 'Fr.', '6-1', null, null, 3, false, true, false, false)
@@ -378,9 +379,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'George Washington', 'A10', 'A10', 'Chris Caputo', 'Chris Caputo'
 where not exists (select 1 from teams where name = 'George Washington');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Aidan Shaw', 'George Washington', 'PF', 'Gr.', 'Gr.', '6-9', 'Boston College', 5105543, 1, false, true, false, false),
   ('Amir Arrington', 'George Washington', 'PG', 'Sr.', 'Sr.', '6-0', null, 5174600, 2, false, false, false, false)
 ) as v(name, team, position, class_year, yr, height,
@@ -392,9 +393,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Green Bay', 'Horizon', 'Horizon', 'Doug Gottlieb', 'Doug Gottlieb'
 where not exists (select 1 from teams where name = 'Green Bay');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Jaxon Edwards', 'Green Bay', 'SG', 'Gr.', 'Gr.', '6-5', 'IU Indy', 5107890, 1, false, true, false, false),
   ('Jalen Overway', 'Green Bay', 'PF', 'R-Sr.', 'R-Sr.', '6-10', null, null, 2, false, true, false, false),
   ('Tadej Colnaric', 'Green Bay', 'SF', 'Fr.', 'Fr.', '6-8', null, null, 3, false, true, true, false)
@@ -407,9 +408,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Illinois State', 'MVC', 'MVC', 'Ryan Pedon', 'Ryan Pedon'
 where not exists (select 1 from teams where name = 'Illinois State');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Malik Messina-Moore', 'Illinois State', 'SG', 'Gr.', 'Gr.', '6-5', 'Xavier', null, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -420,9 +421,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Jackson State', 'SWAC', 'SWAC', 'Trey Johnson III', 'Trey Johnson III'
 where not exists (select 1 from teams where name = 'Jackson State');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Daeshun Ruffin', 'Jackson State', 'PG', 'Gr.', 'Gr.', '5-10', null, 4432638, 1, false, false, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -433,9 +434,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Jacksonville', 'ASUN', 'ASUN', 'Jordan Mincy', 'Jordan Mincy'
 where not exists (select 1 from teams where name = 'Jacksonville');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Caleb Williams', 'Jacksonville', 'PG', 'Jr.', 'Jr.', '6-0', 'Lafayette', 5243035, 1, true, true, false, false),
   ('Jamie Phillips Jr.', 'Jacksonville', 'SG', 'Jr.', 'Jr.', '6-5', 'Stetson', 5240016, 2, true, true, false, false),
   ('Hayden Wood', 'Jacksonville', 'SG', 'So.', 'So.', '6-6', null, 5313674, 3, true, false, false, false),
@@ -459,9 +460,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'LSU', 'SEC', 'SEC', 'Will Wade', 'Will Wade'
 where not exists (select 1 from teams where name = 'LSU');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Luke Stansbury', 'LSU', 'SG', 'Sr.', 'Sr.', '6-3', 'Stephen F. Austin', 5177518, 1, false, true, false, false),
   ('Bradley Fife', 'LSU', 'PG', 'Fr.', 'Fr.', '5-10', null, null, 2, false, true, false, false),
   ('Jordan Bender', 'LSU', 'SF', 'Fr.', 'Fr.', '6-7', null, null, 3, false, true, false, false),
@@ -475,9 +476,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'La Salle', 'A10', 'A10', 'Darris Nichols', 'Darris Nichols'
 where not exists (select 1 from teams where name = 'La Salle');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Max Lipacis', 'La Salle', 'SF', 'Sr.', 'Sr.', '6-7', null, 5311864, 1, false, false, false, false),
   ('Arlan Masharaliyev', 'La Salle', 'PG', 'So.', 'So.', '6-0', null, 5311866, 2, false, false, true, false)
 ) as v(name, team, position, class_year, yr, height,
@@ -489,9 +490,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Lindenwood', 'OVC', 'OVC', null, null
 where not exists (select 1 from teams where name = 'Lindenwood');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Noah Taitz', 'Lindenwood', 'SG', 'Gr.', 'Gr.', '6-4', 'Utah Valley', 4432398, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -502,9 +503,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Longwood', 'Big South', 'Big South', 'Ronnie Thomas', 'Ronnie Thomas'
 where not exists (select 1 from teams where name = 'Longwood');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Alphonzo Billups III', 'Longwood', 'SG', 'Gr.', 'Gr.', '6-7', null, 5106039, 1, false, false, false, false),
   ('Lazar Milosevic', 'Longwood', 'PF', 'So.', 'So.', '6-10', 'Duquesne', 5311860, 2, false, true, true, false),
   ('Abu Yarmah', 'Longwood', 'SG', 'R-Fr.', 'R-Fr.', '6-6', null, null, 3, false, true, false, false)
@@ -517,9 +518,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Loyola Chicago', 'A10', 'A10', 'Drew Valentine', 'Drew Valentine'
 where not exists (select 1 from teams where name = 'Loyola Chicago');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Jayden Dawson', 'Loyola Chicago', 'SG', 'Gr.', 'Gr.', '6-4', 'Kansas', 5105964, 1, false, true, false, false),
   ('Aidan Wing', 'Loyola Chicago', 'SF', 'Jr.', 'Jr.', '6-5', null, null, 2, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
@@ -531,9 +532,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Loyola Marymount', 'WCC', 'WCC', 'Stan Johnson', 'Stan Johnson'
 where not exists (select 1 from teams where name = 'Loyola Marymount');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Jevon Porter', 'Loyola Marymount', 'PF', 'Gr.', 'Gr.', '6-11', null, 4684798, 1, false, false, false, false),
   ('Donovan Rivers', 'Loyola Marymount', 'PF', 'Jr.', 'Jr.', '6-9', 'Jacksonville', 5179287, 2, false, true, false, false),
   ('George Tupy', 'Loyola Marymount', 'SF', 'Sr.', 'Sr.', '6-6', null, 5197991, 3, false, false, false, false),
@@ -551,9 +552,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Manhattan', 'MAAC', 'MAAC', 'John Gallagher', 'John Gallagher'
 where not exists (select 1 from teams where name = 'Manhattan');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Ben Pearce', 'Manhattan', 'PG', 'Gr.', 'Gr.', '6-1', null, null, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -564,9 +565,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Memphis', 'AAC', 'AAC', 'Anfernee Hardaway', 'Anfernee Hardaway'
 where not exists (select 1 from teams where name = 'Memphis');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Parker Pounds', 'Memphis', 'SG', 'Fr.', 'Fr.', '6-6', null, null, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -577,9 +578,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Mercer', 'SoCon', 'SoCon', 'Ryan Ridder', 'Ryan Ridder'
 where not exists (select 1 from teams where name = 'Mercer');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Karon Boyd', 'Mercer', 'SF', 'Gr.', 'Gr.', '6-6', 'Wichita State', 5176140, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -590,9 +591,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Mercyhurst', 'NEC', 'NEC', 'Gary Manchel', 'Gary Manchel'
 where not exists (select 1 from teams where name = 'Mercyhurst');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Geoff Sprouse', 'Mercyhurst', 'PG', 'Gr.', 'Gr.', '6-1', 'American', 5105660, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -603,9 +604,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Missouri', 'SEC', 'SEC', 'Dennis Gates', 'Dennis Gates'
 where not exists (select 1 from teams where name = 'Missouri');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('CJ Gunn', 'Missouri', 'SG', 'Gr.', 'Gr.', '6-7', 'DePaul', 5105796, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -616,9 +617,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Monmouth', 'CAA', 'CAA', 'King Rice', 'King Rice'
 where not exists (select 1 from teams where name = 'Monmouth');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Jack Collins', 'Monmouth', 'SG', 'Gr.', 'Gr.', '6-5', null, 5106703, 1, false, false, false, false),
   ('Madison Durr', 'Monmouth', 'SG', 'Gr.', 'Gr.', '6-5', null, 5107358, 2, false, false, false, false)
 ) as v(name, team, position, class_year, yr, height,
@@ -630,9 +631,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Morehead State', 'OVC', 'OVC', 'Jonathan Mattox', 'Jonathan Mattox'
 where not exists (select 1 from teams where name = 'Morehead State');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Davion Cunningham', 'Morehead State', 'SG', 'Gr.', 'Gr.', '6-3', null, 5107477, 1, false, false, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -643,9 +644,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'North Florida', 'ASUN', 'ASUN', 'Bobby Kennen', 'Bobby Kennen'
 where not exists (select 1 from teams where name = 'North Florida');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('JR Bartelus', 'North Florida', 'SG', 'Jr.', 'Jr.', '6-4', null, null, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -656,9 +657,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'North Texas', 'AAC', 'AAC', 'Daniyal Robinson', 'Daniyal Robinson'
 where not exists (select 1 from teams where name = 'North Texas');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Filip Kalajzic', 'North Texas', 'PF', 'Fr.', 'Fr.', '6-10', null, null, 1, false, true, true, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -669,9 +670,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Oakland', 'Horizon', 'Horizon', 'Greg Kampe', 'Greg Kampe'
 where not exists (select 1 from teams where name = 'Oakland');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Josh Hill', 'Oakland', 'PF', 'Jr.', 'Jr.', '6-11', 'Robert Morris', 5196867, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -682,9 +683,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Oklahoma', 'SEC', 'SEC', 'Porter Moser', 'Porter Moser'
 where not exists (select 1 from teams where name = 'Oklahoma');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Tae Davis', 'Oklahoma', 'PF', 'Gr.', 'Gr.', '6-9', null, 5105594, 1, false, false, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -695,9 +696,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Old Dominion', 'Sun Belt', 'Sun Belt', 'Mike Jones', 'Mike Jones'
 where not exists (select 1 from teams where name = 'Old Dominion');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Noah Eddy', 'Old Dominion', 'SG', 'First Year', 'First Year', '6-5', null, null, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -708,9 +709,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Oregon State', 'PAC-12', 'PAC-12', 'Justin Joyner', 'Justin Joyner'
 where not exists (select 1 from teams where name = 'Oregon State');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Chris Johnson', 'Oregon State', 'SG', 'Sr.', 'Sr.', '6-3', 'UCF', 5175069, 1, false, true, false, false),
   ('Peteris Pinnis', 'Oregon State', 'PF', 'So.', 'So.', '7-2', 'Providence', 5311993, 2, false, true, true, false)
 ) as v(name, team, position, class_year, yr, height,
@@ -722,9 +723,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Portland', 'WCC', 'WCC', 'Shantay Legans', 'Shantay Legans'
 where not exists (select 1 from teams where name = 'Portland');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Kaia Isaac', 'Portland', 'SG', 'Sr.', 'Sr.', '6-4', 'Tarleton State', 5314859, 1, false, true, true, false),
   ('Omer Sukur', 'Portland', 'SF', 'Jr.', 'Jr.', '6-8', null, null, 2, false, true, false, false),
   ('Marchelo Moreira', 'Portland', 'SG', 'R-So.', 'R-So.', '6-3', null, null, 3, false, true, true, false),
@@ -738,9 +739,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Portland State', 'Big Sky', 'Big Sky', 'Jase Coburn', 'Jase Coburn'
 where not exists (select 1 from teams where name = 'Portland State');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('KC Ibekwe', 'Portland State', 'C', 'Gr.', 'Gr.', '6-11', 'Pacific', 5105631, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -751,9 +752,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Presbyterian', 'Big South', 'Big South', 'Quinton Ferrell', 'Quinton Ferrell'
 where not exists (select 1 from teams where name = 'Presbyterian');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Khalon Hudson', 'Presbyterian', 'SG', 'Sr.', 'Sr.', '6-6', null, 5241604, 1, false, false, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -764,9 +765,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Princeton', 'Ivy', 'Ivy', 'Mitch Henderson', 'Mitch Henderson'
 where not exists (select 1 from teams where name = 'Princeton');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Noah Cohen', 'Princeton', 'PG', 'Fr.', 'Fr.', '6-0', null, null, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -777,9 +778,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Rhode Island', 'A10', 'A10', 'Archie Miller', 'Archie Miller'
 where not exists (select 1 from teams where name = 'Rhode Island');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Miftah Ibiyemi', 'Rhode Island', 'SG', '4th', '4th', '6-3', null, 5184110, 1, false, false, false, false),
   ('Jaymien Aponte', 'Rhode Island', 'SG', '3rd', '3rd', '6-3', null, 5239658, 2, false, false, false, false),
   ('Steven Sherman', 'Rhode Island', 'PG', '1st', '1st', '6-2', null, null, 3, false, true, false, false)
@@ -792,9 +793,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Rice', 'AAC', 'AAC', 'Rob Lanier', 'Rob Lanier'
 where not exists (select 1 from teams where name = 'Rice');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Rohan Amin', 'Rice', 'PG', 'So.', 'So.', '6-0', null, null, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -805,9 +806,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Richmond', 'A10', 'A10', 'Chris Mooney', 'Chris Mooney'
 where not exists (select 1 from teams where name = 'Richmond');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Kirby Mooney', 'Richmond', 'SG', 'Jr.', 'Jr.', '6-3', null, 5239672, 1, false, false, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -818,9 +819,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'SIU Edwardsville', 'OVC', 'OVC', 'Brian Barone', 'Brian Barone'
 where not exists (select 1 from teams where name = 'SIU Edwardsville');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Belal Sohaib', 'SIU Edwardsville', 'PF', 'Fr.', 'Fr.', '6-10', null, null, 1, false, true, true, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -831,9 +832,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Saint Joseph''s', 'A10', 'A10', 'Steve Donahue', 'Steve Donahue'
 where not exists (select 1 from teams where name = 'Saint Joseph''s');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Will Lange', 'Saint Joseph''s', 'SG', 'Sr.', 'Sr.', '6-5', null, 5174635, 1, false, false, false, false),
   ('Billy Rayer', 'Saint Joseph''s', 'PG', 'Jr.', 'Jr.', '5-11', null, 5239677, 2, false, false, false, false)
 ) as v(name, team, position, class_year, yr, height,
@@ -845,9 +846,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Saint Louis', 'A10', 'A10', 'Josh Schertz', 'Josh Schertz'
 where not exists (select 1 from teams where name = 'Saint Louis');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Isaac Holmes', 'Saint Louis', 'SG', 'Sr.', 'Sr.', '6-4', null, 5107907, 1, false, false, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -858,9 +859,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Saint Mary''s', 'WCC', 'WCC', 'Mickey McConnell', 'Mickey McConnell'
 where not exists (select 1 from teams where name = 'Saint Mary''s');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Jeremy Dent-Smith', 'Saint Mary''s', 'PG', 'Gr.', 'Gr.', '6-1', 'Stanford', 5189814, 1, false, true, false, false),
   ('Kevin Gad', 'Saint Mary''s', 'SF', 'R-Sr.', 'R-Sr.', '6-6', null, 5105421, 2, false, false, false, false),
   ('Jalen Lewis', 'Saint Mary''s', 'PF', 'Jr.', 'Jr.', '6-9', null, null, 3, false, true, false, false),
@@ -875,9 +876,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Saint Peter''s', 'MAAC', 'MAAC', 'Bashir Mason', 'Bashir Mason'
 where not exists (select 1 from teams where name = 'Saint Peter''s');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Jordan Mathews', 'Saint Peter''s', 'SF', 'Jr.', 'Jr.', '6-5', null, null, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -888,9 +889,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'San Diego', 'WCC', 'WCC', 'J.R. Blount', 'J.R. Blount'
 where not exists (select 1 from teams where name = 'San Diego');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Boden Grant', 'San Diego', 'SG', 'R-Fr.', 'R-Fr.', '6-4', null, null, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -901,9 +902,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'San Diego State', 'PAC-12', 'PAC-12', 'Brian Dutcher', 'Brian Dutcher'
 where not exists (select 1 from teams where name = 'San Diego State');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Raymar Gonzales', 'San Diego State', 'SG', 'So.', 'So.', '6-3', null, 5313926, 1, false, false, false, false),
   ('Bear Cherry', 'San Diego State', 'PF', 'Gr.', 'Gr.', '6-10', null, null, 2, false, true, false, false),
   ('Cooper Cornelius', 'San Diego State', 'PG', 'Jr.', 'Jr.', '6-1', null, null, 3, false, true, false, false),
@@ -918,9 +919,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'San José State', 'MWC', 'MWC', 'Tim Miles', 'Tim Miles'
 where not exists (select 1 from teams where name = 'San José State');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Moses Dau', 'San José State', 'C', 'Fr.', 'Fr.', '7-0', null, null, 1, false, true, true, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -931,9 +932,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Santa Clara', 'WCC', 'WCC', 'Herb Sendek', 'Herb Sendek'
 where not exists (select 1 from teams where name = 'Santa Clara');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Elijah Mahi', 'Santa Clara', 'SF', 'Gr.', 'Gr.', '6-7', null, 5241069, 1, false, false, true, false),
   ('Fedor Zugic', 'Santa Clara', 'SG', 'Sr.', 'Sr.', '6-6', null, null, 2, false, true, true, false),
   ('Brad Longcor III', 'Santa Clara', 'SG', 'So.', 'So.', '6-4', null, null, 3, false, true, false, false)
@@ -946,9 +947,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Seattle', 'WCC', 'WCC', 'Chris Victor', 'Chris Victor'
 where not exists (select 1 from teams where name = 'Seattle');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Maleek Arington', 'Seattle', 'SG', null, null, '6-3', null, 5107830, 1, false, false, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -959,9 +960,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'South Carolina Upstate', 'Big South', 'Big South', 'Marty Richter', 'Marty Richter'
 where not exists (select 1 from teams where name = 'South Carolina Upstate');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Waqo Tessema', 'South Carolina Upstate', 'PG', 'R-Jr.', 'R-Jr.', '6-0', null, null, 1, false, true, true, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -972,9 +973,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'South Florida', 'AAC', 'AAC', 'Chris Mack', 'Chris Mack'
 where not exists (select 1 from teams where name = 'South Florida');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Josh Omojafo', 'South Florida', 'SG', 'Rs.', 'Rs.', '6-5', null, 5241690, 1, false, false, true, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -985,9 +986,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Southern', 'SWAC', 'SWAC', 'Kevin Johnson', 'Kevin Johnson'
 where not exists (select 1 from teams where name = 'Southern');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Cam Amboree', 'Southern', 'SG', 'Rs.', 'Rs.', '6-3', null, 5108073, 1, false, false, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -998,9 +999,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Southern Illinois', 'MVC', 'MVC', 'Scott Nagy', 'Scott Nagy'
 where not exists (select 1 from teams where name = 'Southern Illinois');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Damien Mayo Jr.', 'Southern Illinois', 'SG', 'Gr.', 'Gr.', '6-3', null, 5107899, 1, false, false, false, false),
   ('Jaxson Fugate', 'Southern Illinois', 'SG', 'Jr.', 'Jr.', '6-6', null, null, 2, false, true, false, false),
   ('Pietro Ranieri', 'Southern Illinois', 'PF', 'Fr.', 'Fr.', '6-10', null, null, 3, false, true, true, false)
@@ -1013,9 +1014,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Temple', 'AAC', 'AAC', 'Adam Fisher', 'Adam Fisher'
 where not exists (select 1 from teams where name = 'Temple');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Deuce Drake', 'Temple', 'PG', 'Gr.', 'Gr.', '6-2', null, null, 1, false, true, false, false),
   ('Olin Chamberlain Jr.', 'Temple', 'PG', 'So.', 'So.', '6-0', null, null, 2, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
@@ -1027,9 +1028,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Tennessee State', 'OVC', 'OVC', 'Nolan Smith', 'Nolan Smith'
 where not exists (select 1 from teams where name = 'Tennessee State');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Joshua Rivera', 'Tennessee State', 'SF', 'Gr.', 'Gr.', '6-6', null, null, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -1040,9 +1041,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Texas Southern', 'SWAC', 'SWAC', 'Corey Lowery', 'Corey Lowery'
 where not exists (select 1 from teams where name = 'Texas Southern');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Karris Bilal', 'Texas Southern', 'SG', 'R-So.', 'R-So.', '6-3', 'Louisiana', 5104196, 1, false, true, false, false),
   ('Jason Kimbrough', 'Texas Southern', 'PG', 'Sr.', 'Sr.', '6-0', 'Bowling Green', 5312967, 2, false, true, false, false),
   ('Xander Wedlow', 'Texas Southern', 'C', 'Jr.', 'Jr.', '6-10', 'St. Bonaventure', 5239712, 3, false, true, false, false),
@@ -1059,9 +1060,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Texas State', 'PAC-12', 'PAC-12', 'Terrence Johnson', 'Terrence Johnson'
 where not exists (select 1 from teams where name = 'Texas State');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Paul Djobet', 'Texas State', 'SF', null, null, '6-7', 'Omaha', 5095063, 1, false, true, true, false),
   ('KJ Younger', 'Texas State', 'SG', null, null, '6-4', 'UNC Greensboro', 5314574, 2, false, true, false, false),
   ('Mark Drone', 'Texas State', 'PG', null, null, '6-0', null, 5240685, 3, false, false, false, false),
@@ -1078,9 +1079,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Troy', 'Sun Belt', 'Sun Belt', 'Adam Howard', 'Adam Howard'
 where not exists (select 1 from teams where name = 'Troy');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Donovan Oday', 'Troy', 'PG', 'Gr.', 'Gr.', '6-2', 'Northern Kentucky', 5107298, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -1091,9 +1092,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Tulsa', 'AAC', 'AAC', 'Eric Konkol', 'Eric Konkol'
 where not exists (select 1 from teams where name = 'Tulsa');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Kaleb Banks', 'Tulsa', 'SF', 'Gr.', 'Gr.', '6-8', 'DePaul', 5105795, 1, false, true, false, false),
   ('Cal Conroy', 'Tulsa', 'PG', 'Jr.', 'Jr.', '6-2', null, 5240386, 2, false, false, false, false)
 ) as v(name, team, position, class_year, yr, height,
@@ -1105,9 +1106,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'UC Santa Barbara', 'Big West', 'Big West', 'Joe Pasternack', 'Joe Pasternack'
 where not exists (select 1 from teams where name = 'UC Santa Barbara');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Aidan Mahaney', 'UC Santa Barbara', 'SG', 'Gr.', 'Gr.', '6-3', null, 4684628, 1, false, false, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -1118,9 +1119,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'UCLA', 'B10', 'B10', 'Mick Cronin', 'Mick Cronin'
 where not exists (select 1 from teams where name = 'UCLA');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Jordan Houegban', 'UCLA', 'SG', null, null, '6-4', null, null, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -1131,9 +1132,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'UIC', 'MVC', 'MVC', 'Robert Ehsan', 'Robert Ehsan'
 where not exists (select 1 from teams where name = 'UIC');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Rashund Washington Jr.', 'UIC', 'SG', 'So.', 'So.', '6-5', null, 5313879, 1, false, false, false, false),
   ('Elijah Garrett', 'UIC', 'PG', 'Fr.', 'Fr.', '6-2', null, null, 2, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
@@ -1145,9 +1146,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'UTSA', 'AAC', 'AAC', 'Austin Claunch', 'Austin Claunch'
 where not exists (select 1 from teams where name = 'UTSA');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('JJ Kelly', 'UTSA', 'SG', 'So.', 'So.', '6-6', 'Ohio', 5314210, 1, false, true, false, false),
   ('Preston Turner', 'UTSA', 'SG', 'R-Sr.', 'R-Sr.', '6-6', 'Eastern Illinois', 5311582, 2, false, true, false, false),
   ('Isaiah Coleman', 'UTSA', 'SG', 'Sr.', 'Sr.', '6-6', 'Oklahoma State', 4884257, 3, false, true, false, false),
@@ -1163,9 +1164,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Washington', 'B10', 'B10', 'Danny Sprinkle', 'Danny Sprinkle'
 where not exists (select 1 from teams where name = 'Washington');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Harun Zrno', 'Washington', 'SG', '2nd', '2nd', '6-7', 'Rutgers', 5264730, 1, false, true, true, false),
   ('BJ Roy', 'Washington', 'PG', '2nd', '2nd', '6-2', null, 5312047, 2, false, false, false, false)
 ) as v(name, team, position, class_year, yr, height,
@@ -1177,9 +1178,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Washington State', 'PAC-12', 'PAC-12', 'David Riley', 'David Riley'
 where not exists (select 1 from teams where name = 'Washington State');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Dio Blakely', 'Washington State', 'PG', 'So.', 'So.', '6-0', null, 5313052, 1, false, false, false, false),
   ('Mohamed Sankhe', 'Washington State', 'PF', 'Fr.', 'Fr.', '6-10', null, null, 2, false, true, false, false),
   ('Pedro Sancho Moraga', 'Washington State', 'PG', 'Fr.', 'Fr.', '6-1', null, null, 3, false, true, true, false),
@@ -1193,9 +1194,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Western Carolina', 'SoCon', 'SoCon', 'Tim Craft', 'Tim Craft'
 where not exists (select 1 from teams where name = 'Western Carolina');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Jake Baker', 'Western Carolina', 'PG', 'So.', 'So.', '6-0', null, null, 1, false, true, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
@@ -1206,9 +1207,9 @@ insert into teams (name, conference, conf, head_coach, coach)
 select 'Wichita State', 'AAC', 'AAC', 'Paul Mills', 'Paul Mills'
 where not exists (select 1 from teams where name = 'Wichita State');
 insert into players (name, team, position, class_year, yr, height, hometown,
-  espn_id, depth_order, starter, is_addition, is_international, is_injured)
+  espn_id, depth_order, starter, is_addition, is_international, is_injured, site_added_at)
 select v.name, v.team, v.position, v.class_year, v.yr, v.height, v.hometown::text,
-  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured from (values
+  v.espn_id::bigint, (select coalesce(max(x.depth_order), 0) from players x where x.team = v.team) + v.depth_order, v.starter, v.is_addition, v.is_international, v.is_injured, now() from (values
   ('Henry Thengvall', 'Wichita State', 'SF', 'R-Sr.', 'R-Sr.', '6-7', null, 5106651, 1, false, false, false, false)
 ) as v(name, team, position, class_year, yr, height,
   hometown, espn_id, depth_order, starter, is_addition, is_international, is_injured)
