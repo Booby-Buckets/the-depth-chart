@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="tdc-loading.js?v=5"></script>   <!-- first, so it sees every request -->
+  <link rel="stylesheet" href="tdc-a11y.css?v=3">
+  <script src="tdc-a11y.js?v=2" defer></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Recruiting — The Depth Chart</title>
+  <meta name="description" content="Every high-school commitment to every Division I program, class by class: who's coming, when they committed, and every flip and decommitment along the way.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Depth Chart">
+  <meta property="og:title" content="Recruiting Commitments — The Depth Chart">
+  <meta property="og:description" content="Every Division I program's future classes: commits, signees, flips and decommitments, kept class by class.">
+  <meta property="og:url" content="https://www.thedepthchartcbb.com/recruiting.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <script src="auth.js?v=sales2"></script>
+  <script src="tdc-theme.js?v=5"></script>
+  <script src="team-colors.js?v=13"></script>
+  <script src="tdc-teamname.js?v=1"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root{}
+    [data-theme="dark"]{}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html,body{background:var(--bg);}
+    body{color:var(--text);font-family:'Inter',system-ui,sans-serif;font-weight:500;min-height:100vh;}
+    .page{padding:32px 0 56px;}
+    .page-eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
+    .page-h1{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:34px;letter-spacing:-.02em;margin-bottom:14px;}
+    .rc-sum{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px;max-width:720px;}
+    .rc-sum div{padding:9px 12px;border-right:1px solid var(--border);background:var(--bg);}
+    .rc-sum div:last-child{border-right:0;}
+    .rc-sum span{display:block;font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);}
+    .rc-sum b{display:block;font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:2px;}
+    .rc-bar{display:flex;flex-direction:column;gap:10px;padding:14px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:14px;}
+    .rc-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+    .rc-lab{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);width:92px;flex:none;}
+    .chip{font:600 11.5px 'Inter',system-ui,sans-serif;letter-spacing:.02em;background:var(--bg);border:1px solid var(--border2);color:var(--text2);padding:5px 11px;border-radius:999px;cursor:pointer;}
+    .chip:hover{color:var(--text);border-color:var(--text3);}
+    .chip.on{background:var(--text);color:var(--bg);border-color:var(--text);}
+    .rc-sel,.rc-search{font:600 12px 'Inter',system-ui,sans-serif;background:var(--bg);border:1px solid var(--border2);color:var(--text);padding:6px 10px;border-radius:8px;outline:none;}
+    .rc-search{width:220px;}
+    .rc-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:6px 0 10px;}
+    .rc-title{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:22px;}
+    .rc-note{font-size:12px;color:var(--text3);}
+    .rc-note a{color:var(--accent);text-decoration:none;cursor:pointer;} .rc-note a:hover{text-decoration:underline;}
+    .rc-table{--c1:44px;--c2:200px;}
+    .rc-table th.sort{cursor:pointer;user-select:none;} .rc-table th.on{color:var(--text);}
+    .rc-table td.tm a{display:inline-flex;align-items:center;gap:7px;color:inherit;text-decoration:none;vertical-align:middle;}
+    .rc-table td.tm a:hover span{color:var(--accent);text-decoration:underline;}
+    .rc-table td.tm img,.rc-table td.tm i{width:18px;height:18px;object-fit:contain;flex:none;}
+    .rc-table td.sub{font-size:11.5px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;}
+    .rc-table tr.go{cursor:pointer;}
+    .rc-table td.n0{color:var(--text3);}
+    .rc-st{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border:1px solid var(--border2);border-radius:4px;padding:1px 6px;color:var(--text2);white-space:nowrap;}
+    .rc-st.signed,.rc-st.enrolled{border-color:color-mix(in srgb,#2e8b57 55%,transparent);color:#2e8b57;}
+    .rc-st.decommitted{border-color:color-mix(in srgb,#c75d5d 55%,transparent);color:#c75d5d;}
+    .rc-st.flipped{border-color:color-mix(in srgb,var(--accent) 55%,transparent);color:var(--accent);}
+    [data-theme="dark"] .rc-st.signed,[data-theme="dark"] .rc-st.enrolled{color:#6fbf7e;}
+    [data-theme="dark"] .rc-st.decommitted{color:#e07a7a;}
+    .rc-table td.l a.pl{color:var(--text);text-decoration:none;} .rc-table td.l a.pl:hover{color:var(--accent);text-decoration:underline;}
+    .rc-new{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-left:6px;}
+    .rc-more{margin:14px auto 0;display:block;}
+    .rc-empty{padding:48px 12px;text-align:center;color:var(--text3);}
+    .rc-src{margin-top:18px;font-size:11.5px;color:var(--text3);max-width:720px;line-height:1.5;}
+    @media(max-width:640px){
+      .page{padding:16px 0 40px;} .page-h1{font-size:28px;}
+      .rc-sum{grid-template-columns:repeat(2,minmax(0,1fr));} .rc-sum div:nth-child(2){border-right:0;} .rc-sum div:nth-child(-n+2){border-bottom:1px solid var(--border);}
+      .rc-lab{width:100%;} .rc-search{width:100%;} .rc-table{--c1:34px;--c2:136px;}
+    }
+  </style>
+  <link rel="stylesheet" href="tdc-skin.css?v=15"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+  <link rel="stylesheet" href="tdc-column.css?v=4"/>
+  <link rel="stylesheet" href="tdc-ui.css?v=14"/>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script src="tdc-pwa.js?v=3" defer></script>
+</head>
+<body>
+<script src="tdc-nav.js?v=83"></script>
+
+<div class="page">
+  <div class="page-eyebrow">Players · Recruiting</div>
+  <h1 class="page-h1">Recruiting</h1>
+  <div class="rc-sum" id="rcSum"></div>
+
+  <div class="rc-bar">
+    <div class="rc-row" id="viewRow"><span class="rc-lab">View</span></div>
+    <div class="rc-row" id="rkRow"><span class="rc-lab">Class</span><select class="rc-sel" id="rkCls" aria-label="Recruiting class"></select></div>
+    <div class="rc-row" id="rkStRow"><span class="rc-lab">Commitment</span></div>
+    <div class="rc-row" id="clsRow"><span class="rc-lab">Class</span></div>
+    <div class="rc-row" id="stRow"><span class="rc-lab">Status</span></div>
+    <div class="rc-row" id="confRow"><span class="rc-lab">Conference</span><select class="rc-sel" id="confSel" aria-label="Conference"></select></div>
+  </div>
+
+  <div class="rc-head">
+    <div><div class="rc-title" id="rcTitle">Programs</div><div class="rc-note" id="rcNote">Loading the ledger…</div></div>
+    <input class="rc-search" id="rcSearch" type="search" placeholder="Find a recruit, school or hometown…" aria-label="Find a recruit, school or hometown"/>
+  </div>
+
+  <div class="sheet-wrap">
+    <table class="sheet dense freeze2 rc-table" id="rcTable" aria-label="Recruiting commitments">
+      <thead><tr id="rcHead"></tr></thead>
+      <tbody id="rcBody"><tr><td class="rc-empty" colspan="10">Loading…</td></tr></tbody>
+    </table>
+  </div>
+  <button type="button" class="chip rc-more" id="rcMore" style="display:none">Show 100 more</button>
+  <p class="rc-src" id="rcSrc"></p>
+</div>
+
+<script>
+(function(){
+  const PAGE = 100, NEW_DAYS = 14;
+  const VIEWS = [['rankings','Rankings'],['programs','Programs'],['recruits','Recruits'],['moves','New & moves']];
+  const RKST = [['','All'],['committed','Committed'],['uncommitted','Uncommitted']];
+  const VERDICT = { met: ['Lived up', 'enrolled'], over: ['Outplayed it', 'signed'], steal: ['Steal', 'signed'], under: ['Fell short', 'decommitted'],
+                    bust: ['Bust', 'decommitted'], early: ['Too early', ''] };
+  const STS = [['active','Committed'],['decommitted','Decommitted'],['all','All']];
+  const st = { view:'rankings', cls:'', status:'active', conf:'', q:'', team:'', rk:0, rkSt:'', sort:null, dir:-1, shown:PAGE };
+  const RK = {};   // class -> data/recruits/<class>.json
+  let IDX = null;
+  let D = null, R = [], CLASSES = [], THIS = 0, NOW = new Date();
+
+  const sn = n => (window.tdcShortSchool ? tdcShortSchool(n) : n) || n || '';
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const logo = n => { try { const c = window.tdcTeamColor && (tdcTeamColor(sn(n)) || tdcTeamColor(n)); return c && c.logo || ''; } catch (e) { return ''; } };
+  // a recruit's school: the ESPN team when we matched one (links to the team page), else 247's school name
+  const school = r => r.team ? sn(r.team) : (r.school || '');
+  const teamCell = (full, name) => {
+    const s = full ? sn(full) : name; if (!s) return '<span class="dim">—</span>';
+    const lg = full ? logo(full) : '';
+    const inner = `${lg ? `<img src="${lg}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : '<i></i>'}<span>${esc(s)}</span>`;
+    return full ? `<a href="team.html?team=${encodeURIComponent(s)}" onclick="event.stopPropagation()">${inner}</a>` : `<a>${inner}</a>`;
+  };
+  const CN = { 'BIG-12': 'Big 12', 'Big-East': 'Big East', 'B10': 'Big Ten', 'PAC-12': 'Pac-12', 'A10': 'Atlantic 10', 'AEC': 'America East', 'MWC': 'Mountain West', 'SBC': 'Sun Belt' };
+  const cn = c => CN[c] || c || '';
+  const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const fdate = d => { if (!d) return '—'; const [y, m, dd] = d.split('-'); return `${MON[+m - 1]} ${+dd}, ${y}`; };
+  const days = d => d ? (NOW - new Date(d + 'T12:00:00')) / 864e5 : 1e9;
+  const isNew = r => days(r.commit_date || r.first_seen) <= NEW_DAYS && r.status !== 'decommitted';
+  const ST = { committed: 'Committed', signed: 'Signed', enrolled: 'Enrolled', decommitted: 'Decommitted', flipped: 'Flipped' };
+  const stTag = s => `<span class="rc-st ${s}">${ST[s] || esc(s)}</span>`;
+  const ht = r => r.ht ? `${r.ht}${r.wt ? ' / ' + r.wt : ''}` : '—';
+  const cmp = (x, y) => typeof x === 'string' ? (st.dir < 0 ? y.localeCompare(x) : x.localeCompare(y)) : (st.dir < 0 ? y - x : x - y);
+  const sortBy = (rows, get) => rows.sort((a, b) => { const x = get(a), y = get(b); if (x == null || x === '') return 1; if (y == null || y === '') return -1; return cmp(x, y); });
+
+  function chips(rowId, list, key) {
+    const row = document.getElementById(rowId);
+    row.querySelectorAll('.chip').forEach(c => c.remove());
+    list.forEach(([v, l]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip' + (st[key] === v ? ' on' : ''); b.textContent = l;
+      b.onclick = () => { st[key] = v; st.shown = PAGE; st.sort = null; row.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c === b)); render(); };
+      row.appendChild(b); });
+  }
+
+  function filtered(opts) {
+    opts = opts || {};
+    const q = st.q.trim().toLowerCase();
+    return R.filter(r =>
+      (st.cls ? r.cls === +st.cls : (r.cls >= THIS || !!st.team)) &&   // default board = the future; a program's view shows every class
+      (opts.anyStatus || st.status === 'all' || (st.status === 'active' ? r.status !== 'decommitted' : r.status === 'decommitted')) &&
+      (!st.conf || r.conf === st.conf) &&
+      (!st.team || school(r) === st.team) &&
+      (!q || [r.name, school(r), r.school, r.hs, r.home, r.pos].join(' ').toLowerCase().includes(q)));
+  }
+
+  function head(cols, cur) {
+    document.getElementById('rcHead').innerHTML = cols.map(([l, cls, k, keep]) =>   // keep: tdc-mobile.js never hides it on phones
+      `<th class="${cls || ''}${k ? ' sort' : ''}${k && k === cur ? ' on' : ''}" ${k ? `data-k="${k}"` : ''}${keep ? ' data-fit-keep' : ''}>${l}${k && k === cur ? (st.dir < 0 ? ' ▾' : ' ▴') : ''}</th>`).join('');
+    document.querySelectorAll('#rcHead th.sort').forEach(th => th.onclick = () => {
+      const k = th.dataset.k; if (st.sort === k) st.dir = -st.dir; else { st.sort = k; st.dir = /^(name|n|school|hs|home|pos|conf|cr|pick)$/.test(k) ? 1 : -1; } render(); });
+  }
+
+  // ── rankings: our consensus board for any class, committed or not; finished classes show what each became ──
+  function renderRankings() {
+    const C = RK[st.rk];
+    if (!C) { note('Loading the ' + st.rk + ' class…'); document.getElementById('rcBody').innerHTML = '<tr><td class="rc-empty" colspan="12">Loading…</td></tr>';
+      fetch(`data/recruits/${st.rk}.json?v=1`).then(r => r.json()).then(d => { RK[d.class] = d; render(); }).catch(() => note('Couldn’t load this class.')); return; }
+    const future = st.rk >= THIS, q = st.q.trim().toLowerCase();
+    const rows = C.players.filter(p => p.cr && (!st.rkSt || (st.rkSt === 'uncommitted' ? p.st === 'uncommitted' : p.st !== 'uncommitted'))
+      && (!q || [p.n, p.school, p.team && sn(p.team), p.hs, p.home, p.pos].join(' ').toLowerCase().includes(q)));
+    const cols = [['#', 'rk', 'cr'], ['Player', 'l', 'n'], ['Pos', 'c', 'pos'], ['Ht', 'c', null], ['Hometown', 'l', 'home'], ['High school', 'l', 'hs'],
+      [future ? 'Commitment' : 'College', 'l', 'school', 1]];
+    if (C.judged) cols.push(['Peak OVR', '', 'ovr'], ['Career WA', '', 'wa'], ['Draft', 'c', 'pick'], ['NBA', 'c', null], ['Hype check', 'c', 'score', 1]);
+    const key = st.sort || 'cr';
+    head(cols, key);
+    const o = p => p.out || {};
+    const get = p => key === 'school' ? (p.team ? sn(p.team) : p.school) : key === 'ovr' ? o(p).ovr : key === 'wa' ? o(p).wa : key === 'pick' ? o(p).pick
+      : key === 'score' ? (o(p).score != null ? o(p).score - (o(p).exp || 0) : null) : p[key];
+    const list = sortBy(rows.slice(), get);
+    if (key === 'cr' && st.dir < 0 && !st.sort) list.reverse();
+    const nC = C.players.filter(p => p.cr && p.st !== 'uncommitted').length, nU = C.players.filter(p => p.cr && p.st === 'uncommitted').length;
+    note(future ? `${rows.length} ranked recruits · ${nC} committed · ${nU} still uncommitted. Rank = our consensus across the recruiting services.`
+      : C.judged ? `${rows.length} ranked recruits. Hype check compares what each became (college Wins Added + NBA career) with what recruits ranked around him usually become. <a href="recruiting-history.html?class=${st.rk}">Full hype check ›</a>`
+      : `${rows.length} ranked recruits (consensus of the services that ranked this class).`);
+    const pname = p => o(p).espn ? `<a href="player.html?espn=${o(p).espn}" class="pl">${esc(p.n)}</a>` : esc(p.n);
+    body(list, (p, i) => {
+      const c = p.st === 'uncommitted' ? '<span class="rc-st">Uncommitted</span>' : teamCell(p.team, p.school);
+      let tail = '';
+      if (C.judged) { const x = o(p), v = VERDICT[x.verdict];
+        tail = `<td class="${x.ovr ? '' : 'n0'}">${x.ovr || '—'}</td><td class="${x.wa != null ? '' : 'n0'}">${x.wa != null ? x.wa.toFixed(1) : '—'}</td>`
+          + `<td class="c">${x.pick ? '#' + x.pick : '<span class="dim">—</span>'}</td><td class="c">${x.tier ? esc(x.tier) : '<span class="dim">—</span>'}</td>`
+          + `<td class="c">${v ? `<span class="rc-st ${v[1]}">${v[0]}</span>` : '<span class="dim">—</span>'}</td>`; }
+      return `<tr><td class="rk">${p.cr}</td><td class="l"><b>${pname(p)}</b></td><td class="c">${esc(p.pos) || '—'}</td><td class="c">${esc(p.ht) || '—'}</td>`
+        + `<td class="sub l">${esc(p.home) || '—'}</td><td class="sub l">${esc(p.hs) || '—'}</td><td class="tm l">${c}</td>${tail}</tr>`;
+    });
+  }
+
+  // ── programs: every school's future classes ──
+  function renderPrograms() {
+    const by = {};
+    filtered().forEach(r => { const k = school(r); if (!k) return;
+      const t = by[k] || (by[k] = { name: k, full: r.team, conf: r.conf, n: 0, per: {}, latest: null, fresh: 0 });
+      t.n++; t.per[r.cls] = (t.per[r.cls] || 0) + 1; if (isNew(r)) t.fresh++;
+      const d = r.commit_date || r.first_seen; if (d && (!t.latest || d > (t.latest.commit_date || t.latest.first_seen))) t.latest = r; });
+    const cls = st.cls ? [+st.cls] : CLASSES;
+    const cols = [['#', 'rk'], ['Program', 'l', 'name'], ['Conf', 'c', 'conf'], ...cls.map(c => [String(c), '', 'c' + c]), ...(cls.length > 1 ? [['Total', '', 'n']] : []),
+      ['New', '', 'fresh'], ['Latest addition', 'l', 'latest']];
+    const key = st.sort || 'n';
+    head(cols, key);
+    const get = t => key === 'name' ? t.name : key === 'conf' ? cn(t.conf) : key === 'latest' ? (t.latest && (t.latest.commit_date || t.latest.first_seen)) : key[0] === 'c' && /^c\d+$/.test(key) ? (t.per[+key.slice(1)] || 0) : t[key];
+    const rows = sortBy(Object.values(by), get);
+    if (!st.sort) rows.sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+    note(`${rows.length} programs · ${rows.reduce((s, t) => s + t.n, 0)} commitments. Click a program for its full pipeline.`);
+    body(rows, (t, i) => `<tr class="go" data-team="${esc(t.name)}"><td class="rk">${i + 1}</td><td class="tm l">${teamCell(t.full, t.name)}</td><td class="c">${esc(cn(t.conf)) || '—'}</td>`
+      + cls.map(c => `<td class="${t.per[c] ? '' : 'n0'}">${t.per[c] || 0}</td>`).join('') + (cls.length > 1 ? `<td><b>${t.n}</b></td>` : '')
+      + `<td class="${t.fresh ? '' : 'n0'}">${t.fresh || '—'}</td>`
+      + `<td class="sub l">${t.latest ? `${esc(t.latest.name)} · ${t.latest.cls} · ${fdate(t.latest.commit_date || t.latest.first_seen)}` : '—'}</td></tr>`);
+    document.querySelectorAll('#rcBody tr.go').forEach(tr => tr.onclick = () => { st.team = tr.dataset.team; setView('recruits'); });
+  }
+
+  // ── recruits: one row per player ──
+  function renderRecruits() {
+    const cols = [['#', 'rk'], ['Recruit', 'l', 'name'], ['Class', 'c', 'cls'], ['Pos', 'c', 'pos'], ['Ht / Wt', 'c', null], ['High school', 'l', 'hs'], ['Hometown', 'l', 'home'],
+      ['School', 'l', 'school', 1], ['Status', 'c', 'status'], ['Committed', 'c', 'date']];
+    const key = st.sort || 'date';
+    head(cols, key);
+    const get = r => key === 'school' ? school(r) : key === 'date' ? (r.commit_date || r.first_seen) : r[key];
+    const rows = sortBy(filtered(), get);
+    if (!st.sort && st.team) rows.sort((a, b) => a.cls - b.cls || (b.commit_date || '').localeCompare(a.commit_date || ''));
+    note(st.team ? `${esc(st.team)}: ${rows.length} recruit${rows.length === 1 ? '' : 's'} across ${new Set(rows.map(r => r.cls)).size} class${new Set(rows.map(r => r.cls)).size === 1 ? '' : 'es'}. <a id="rcAll">All programs ›</a>`
+                 : `${rows.length} recruits`);
+    const a = document.getElementById('rcAll'); if (a) a.onclick = () => { st.team = ''; render(); };
+    body(rows, (r, i) => `<tr><td class="rk">${i + 1}</td><td class="l"><b>${esc(r.name)}</b>${isNew(r) ? '<span class="rc-new">New</span>' : ''}</td><td class="c">${r.cls}</td><td class="c">${esc(r.pos) || '—'}</td>`
+      + `<td class="c">${ht(r)}</td><td class="sub l">${esc(r.hs) || '—'}</td><td class="sub l">${esc(r.home) || '—'}</td>`
+      + `<td class="tm l">${teamCell(r.team, r.school)}</td><td class="c">${stTag(r.status)}${r.soft ? ' <span class="rc-st">Soft</span>' : ''}</td>`
+      + `<td class="c">${fdate(r.status === 'decommitted' ? r.decommit_date : (r.commit_date || r.first_seen))}</td></tr>`);
+  }
+
+  // ── new & moves: every commit / flip / decommitment, newest first ──
+  function renderMoves() {
+    const ev = [];
+    filtered({ anyStatus: true }).forEach(r => (r.history || []).forEach(h => {
+      if (h.event === 'enrolled') return;
+      ev.push({ r, h, d: h.date });
+    }));
+    ev.sort((a, b) => (b.d || '').localeCompare(a.d || '') || a.r.name.localeCompare(b.r.name));
+    head([['#', 'rk'], ['Date', 'c'], ['Move', 'c'], ['Recruit', 'l'], ['Class', 'c'], ['Pos', 'c'], ['School', 'l', null, 1], ['From', 'l'], ['Hometown', 'l']], null);
+    note(`${ev.length} moves, newest first. A flip or decommitment never erases the earlier commit.`);
+    const teamOf = nm => { const f = Object.values(D.slugs || {}).find(s => s.name === nm); return f && f.team; };
+    body(ev, ({ r, h }, i) => `<tr><td class="rk">${i + 1}</td><td class="c">${fdate(h.date)}</td><td class="c">${stTag(h.event)}</td><td class="l"><b>${esc(r.name)}</b></td>`
+      + `<td class="c">${r.cls}</td><td class="c">${esc(r.pos) || '—'}</td><td class="tm l">${teamCell(teamOf(h.school), h.school)}</td>`
+      + `<td class="sub l">${h.frm ? esc(sn(teamOf(h.frm)) || h.frm) : '—'}</td><td class="sub l">${esc(r.home) || '—'}</td></tr>`);
+  }
+
+  function note(html) { document.getElementById('rcNote').innerHTML = html; }
+  function body(rows, row) {
+    const tb = document.getElementById('rcBody');
+    tb.innerHTML = rows.length ? rows.slice(0, st.shown).map(row).join('') : `<tr><td class="rc-empty" colspan="12">Nothing matches these filters.</td></tr>`;
+    const more = document.getElementById('rcMore');
+    more.style.display = rows.length > st.shown ? '' : 'none';
+    more.textContent = `Show ${Math.min(PAGE, rows.length - st.shown)} more`;
+  }
+
+  function setView(v) { st.view = v; if (v === 'programs') st.team = ''; st.sort = null; st.shown = PAGE; chips('viewRow', VIEWS, 'view'); render(); }
+
+  function render() {
+    if (st.view === 'programs' || st.view === 'rankings') st.team = '';
+    const rk = st.view === 'rankings';
+    ['rkRow', 'rkStRow'].forEach(id => document.getElementById(id).style.display = rk ? '' : 'none');
+    ['clsRow', 'confRow'].forEach(id => document.getElementById(id).style.display = rk ? 'none' : '');
+    document.getElementById('rcTitle').textContent = rk ? `${st.rk} class rankings` : st.view === 'programs' ? 'Programs' : st.view === 'moves' ? (st.team ? st.team + ': moves' : 'New & moves') : (st.team || 'Every recruit');
+    document.getElementById('rcTable').className = 'sheet dense freeze2 rc-table rc-' + st.view;
+    document.getElementById('stRow').style.display = st.view === 'moves' || rk ? 'none' : '';
+    const u = new URLSearchParams();
+    if (st.view !== 'rankings') u.set('view', st.view); if (rk && st.rk !== THIS) u.set('class', st.rk); if (!rk && st.cls) u.set('class', st.cls); if (st.team) u.set('team', st.team); if (st.conf) u.set('conf', st.conf);
+    history.replaceState(null, '', location.pathname + (u.toString() ? '?' + u : ''));
+    (rk ? renderRankings : st.view === 'programs' ? renderPrograms : st.view === 'moves' ? renderMoves : renderRecruits)();
+  }
+
+  function summary() {
+    const up = R.filter(r => r.cls >= THIS), live = up.filter(r => r.status !== 'decommitted');
+    const fresh = up.filter(isNew).length;
+    const moves = up.reduce((s, r) => s + (r.history || []).filter(h => h.event === 'flipped' || h.event === 'decommitted').length, 0);
+    document.getElementById('rcSum').innerHTML = [
+      ['Commitments', live.length], ['Programs', new Set(live.map(school)).size],
+      [`New (${NEW_DAYS} days)`, fresh], ['Flips + decommits', moves]].map(([l, v]) => `<div><span>${l}</span><b>${v}</b></div>`).join('');
+  }
+
+  Promise.all([fetch('data/commits_ledger.json?v=1').then(r => r.json()), fetch('data/recruits/index.json?v=1').then(r => r.json()).catch(() => null)]).then(([d, idx]) => {
+    IDX = idx;
+    D = d;
+    if (d.generated_utc) NOW = new Date(d.generated_utc);
+    R = Object.values(d.recruits || {}).map(r => Object.assign(r, { conf: r.conf || ((d.slugs || {})[r.slug] || {}).conf || '' }));
+    // future classes by default; past (enrolled) classes stay one click away
+    THIS = NOW.getMonth() >= 6 ? NOW.getFullYear() + 1 : NOW.getFullYear();
+    CLASSES = (d.classes || []).filter(c => c >= THIS);
+    const past = (d.classes || []).filter(c => c < THIS).reverse();
+    const p = new URLSearchParams(location.search);
+    if (p.get('view') && VIEWS.some(v => v[0] === p.get('view'))) st.view = p.get('view');
+    st.cls = p.get('class') || ''; st.team = p.get('team') || ''; st.conf = p.get('conf') || '';
+    st.rk = +(p.get('class') || THIS);
+    const rkSel = document.getElementById('rkCls'), all = IDX ? IDX.classes.map(c => c.class).sort((a, b) => b - a) : [THIS];
+    rkSel.innerHTML = all.map(c => `<option value="${c}"${c === st.rk ? ' selected' : ''}>${c}${c > THIS ? ' (future)' : c === THIS ? ' (next to enroll)' : ''}</option>`).join('');
+    rkSel.onchange = () => { st.rk = +rkSel.value; st.sort = null; st.shown = PAGE; render(); };
+    chips('rkStRow', RKST, 'rkSt');
+    chips('viewRow', VIEWS, 'view');
+    chips('clsRow', [['', 'All upcoming'], ...CLASSES.map(c => [String(c), String(c)]), ...past.map(c => [String(c), String(c)])], 'cls');
+    chips('stRow', STS, 'status');
+    const confs = [...new Set(R.map(r => r.conf).filter(Boolean))].sort((a, b) => cn(a).localeCompare(cn(b)));
+    const sel = document.getElementById('confSel');
+    sel.innerHTML = '<option value="">All conferences</option>' + confs.map(c => `<option value="${esc(c)}"${c === st.conf ? ' selected' : ''}>${esc(cn(c))}</option>`).join('');
+    sel.onchange = () => { st.conf = sel.value; st.shown = PAGE; render(); };
+    document.getElementById('rcSearch').oninput = e => { st.q = e.target.value; st.shown = PAGE; render(); };
+    document.getElementById('rcMore').onclick = () => { st.shown += PAGE; render(); };
+    summary();
+    document.getElementById('rcSrc').textContent = `Commitments, dates and statuses are public facts gathered nightly from recruiting sites; last updated ${fdate((d.generated_utc || '').slice(0, 10))}. `
+      + `Nothing is ever deleted: a recruit who flips or decommits keeps his full history.`;
+    render();
+  }).catch(() => { document.getElementById('rcBody').innerHTML = '<tr><td class="rc-empty" colspan="10">Couldn’t load the commitment ledger.</td></tr>'; note(''); });
+})();
+</script>
+<script src="tdc-version.js?v=2"></script>
+<script src="tdc-sheets.js?v=2"></script>
+<script src="tdc-panelize.js?v=24"></script>
+</body>
+</html>

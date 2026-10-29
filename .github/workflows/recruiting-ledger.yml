@@ -1,0 +1,57 @@
+name: Recruiting commitment ledger
+
+# Nightly: refresh the consensus board for the classes still being recruited (RSCI + 247 lists -> data/recruits),
+# and re-check every program with an upcoming class and merge new commits, signings, flips and
+# decommitments into data/commits_ledger.json (recruiting.html). The ledger only ever grows.
+# Sundays also re-sweep every program the ledger has ever seen (--full), to catch quiet commits to
+# schools no ranking page points at.
+on:
+  schedule:
+    - cron: '15 9 * * *'     # ~5:15 ET daily
+  workflow_dispatch:
+    inputs:
+      classes:
+        description: 'Class range, e.g. "2020 2026" for a backfill (blank = the next 4 classes)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: recruiting-ledger
+  cancel-in-progress: false
+
+jobs:
+  ledger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Update the ledger
+        run: |
+          FULL=""
+          if [ "$(date -u +%u)" = "7" ]; then FULL="--full"; fi
+          python3 -u scripts/build_commits.py ${{ inputs.classes }} $FULL
+      - name: Refresh upcoming-class rankings (consensus board)
+        run: |
+          python3 -u scripts/scrape_rsci.py
+          python3 -u scripts/scrape_247_classes.py $(python3 -c "import datetime as d;t=d.date.today();y=t.year+1 if t.month>=7 else t.year;print(y,y+3)")
+          python3 -u scripts/build_recruit_board.py --upcoming
+      - name: Commit if changed
+        run: |
+          git config user.name "tdc-proj-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/commits_ledger.json data/recruits
+          if git diff --cached --quiet; then
+            echo "No ledger changes."
+          else
+            git commit -m "Auto: recruiting commitment ledger [skip ci]"
+            for i in 1 2 3 4 5; do
+              git pull --rebase -X theirs origin main && git push && break
+              echo "push raced another commit (try $i); retrying"; sleep $((i*5))
+            done
+          fi

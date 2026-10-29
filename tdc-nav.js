@@ -33,6 +33,8 @@
       ['following.html',       '★ Following'],
       ['roster.html',          'Player Rankings'],
       ['transfers.html',       'Transfer Portal'],
+      ['recruiting.html',      'Recruiting'],
+      ['recruiting-history.html', 'Recruit Hype Check'],
       ['transfer-fit.html',    'Transfer Fit'],
       ['compare-players.html', 'Compare Players'],
       ['draft.html',           'Big Board'],

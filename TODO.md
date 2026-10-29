@@ -137,3 +137,21 @@ by "quick UI wins" → "bigger data/model work". `[x]` done · `[ ]` open · `[!
 - [x] Tune constants until within tolerance; log results in engine/CALIBRATION.md
 - [ ] Open: big mismatches finish ~85% of the projected spread (12-pt favourite wins by ~10) — decide whether the sim or the projection's cross-conference spread is right (needs out-of-sample real spreads, e.g. preseason ratings vs results)
 - [ ] Phase 3: season schedule + league hub page (only after the engine is signed off)
+
+## Recruiting page (captured 2026-10-28, from Aidan)
+- [x] **Recruiting page**: a consensus board built from several recruiting sites, going back through past classes. *(built 2026-10-28: Rankings view on recruiting.html for 1998–2028, committed + uncommitted; recruiting-history.html hype check + site report card. Sources: RSCI sheets (ESPN/Rivals/247/On3/Scout ranks) + 247 own + 247 Composite. On3 and ESPN block scrapers, so their ranks come only through RSCI. Service ranks ship only for finished classes.)*
+      - Sources: 247 Composite (`scripts/scrape_recruiting.py` already pulls it), On3/Rivals, ESPN 100.
+        Combine them into one consensus rank per recruit and keep every past class.
+      - **Licensing decision first:** today's design deliberately keeps 247's ranks private
+        (recruiting_247.json is gitignored, and only a derived coefficient ships). Showing other sites'
+        ranks on a public page means republishing them. Options: show only our consensus and our own
+        rank, show source ranks only to the owner, or link out to each source.
+- [ ] **Owner rankings:** an owner-only editor for my own grades, ranks and notes (stored in Supabase,
+      like the freshman editor). My rank is the one the site leads with, with consensus beside it.
+- [x] **Commitment ledger (top priority):** *(built 2026-10-28: `scripts/build_commits.py` → `data/commits_ledger.json`, `recruiting.html`, nightly `recruiting-ledger.yml`. Still open: enrolled-class → roster/espn_id link, a link from team pages, and a backfill of past classes.)* a permanent record of every commit to every program for
+      2027, 2028, 2029 and later classes: player, class, school, date, status (committed, signed,
+      decommitted, enrolled). Each program always shows its full future pipeline and new additions.
+      - Keep history rows: a decommitment updates the status and nothing gets deleted.
+      - Run it nightly so new commits show up as "new additions".
+      - When a class enrolls, link it to the roster/player identity so recruits flow into
+        projections (and replace the name-matching in `fr_pedigree`).
