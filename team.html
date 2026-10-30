@@ -18,7 +18,7 @@
   <script src="tdc-lineups.js?v=17s"></script>
   <script src="tdc-lineup-history.js?v=lab2"></script>
   <script src="tdc-onoff.js?v=14"></script>
-  <script src="tdc-onofflab.js?v=8"></script>
+  <script src="tdc-onofflab.js?v=10"></script>
   <script src="tdc-teamonoff.js?v=4"></script>
   <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-assistweb.js?v=ui1"></script>
@@ -6408,10 +6408,10 @@ async function renderOnOff(){
   const full=(await _resolveGamesKey().catch(()=>null))||teamMascot();
   // the roster sheet (databallr / BasketballQuant style: every cell filled by its D-I percentile), then the Lab for custom questions
   host.innerHTML=head+'<div id="onoffSheetHost"></div>'+
-    '<div class="sec-head" style="margin-top:28px;">Ask your own question <span class="sec-head-sub" style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· players together or apart, best lineups, filter by opponent, venue, game state</span></div><div id="onoffLab"></div>';
+    '<div class="sec-head" style="margin-top:28px;">Ask your own question <span class="sec-head-sub" style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· WOWY combos, players together or apart, best lineups, filtered by opponent, venue, game state</span></div><div id="onoffLab"></div>';
   if(window.TDC_TEAMONOFF) TDC_TEAMONOFF.render(document.getElementById('onoffSheetHost'), { team:full, season:past||2026, seasons:past?[past]:LAB,
     note: past?'':'2026-27 on/off starts once games are played; this is <b>last season</b>. Players who left are still listed.' });
-  TDC_ONOFFLAB.mount(document.getElementById('onoffLab'), { team:full, season:past||2026, seasons:past?[past]:undefined, lockTeam:true, mode:'together' });
+  TDC_ONOFFLAB.mount(document.getElementById('onoffLab'), { team:full, season:past||2026, seasons:past?[past]:undefined, lockTeam:true, mode:'combos' });
 }
 // keep the open tab in the URL (?tab=) so a reload — or a shared link — lands on the same tab
 function _tabUrl(id, dflt){ try{ var u=new URL(location.href); if(!id||id===dflt) u.searchParams.delete('tab'); else u.searchParams.set('tab',id); history.replaceState(history.state,'',u.toString()); }catch(e){} }

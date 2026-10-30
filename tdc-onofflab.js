@@ -14,7 +14,7 @@
      in the address bar, the Lab page only) · modes: subset of question keys · mode: starting question · seasons */
 (function () {
   var SEASONS = [[2026, '2025-26'], [2025, '2024-25'], [2024, '2023-24']];
-  var MODES = [['together', 'Together or apart', 'All on vs none on'], ['each', 'One at a time', 'With him vs without'],
+  var MODES = [['combos', 'WOWY combos', 'Every on/off mix'], ['together', 'Together or apart', 'All on vs none on'], ['each', 'One at a time', 'With him vs without'],
     ['without', 'Without them', 'Bench them all'], ['lineups', 'Best lineups', 'Top 2–5 man units'], ['players', 'Best players', 'Whole roster, ranked']];
   var FILTERS = [
     ['opp', 'Opponent', [['all', 'All'], ['t50', 'Top 50'], ['t100', 'Top 100'], ['rest', 'Outside 100']]],
@@ -79,6 +79,34 @@
     ".ol-note{margin-left:auto;font-size:12px;color:var(--text3);}",
     ".ol-foot{font-size:12.5px;color:var(--text3);line-height:1.6;margin:14px 2px 0;}",
     ".ol-snote{align-self:center;font-size:12.5px;color:var(--text3);}.ol-snote b{color:var(--text2);}",
+    ".ol-tri{display:flex;width:100%;margin-top:8px;border:1px solid var(--border2);border-radius:7px;overflow:hidden;}",
+    ".ol-tri span{flex:1;font:800 9.5px Inter,system-ui,sans-serif;letter-spacing:.04em;padding:4px 0;color:var(--text3);text-transform:uppercase;}",
+    ".ol-tri span+span{border-left:1px solid var(--border2);}",
+    ".ol-tri span.on.c{background:var(--ol-gold);color:#1b1a17;}.ol-tri span.on.y{background:var(--ol-pos);color:#fff;}.ol-tri span.on.n{background:var(--text2);color:var(--bg);}",
+    ".ol-pc.fon{border:2px solid var(--ol-pos);padding:11px 5px 9px;}.ol-pc.foff{border:2px dashed var(--border2);padding:11px 5px 9px;}.ol-pc.foff .ol-av{filter:grayscale(1);opacity:.4;}",
+    ".ol-pc .tag.y{background:var(--ol-pos);color:#fff;}.ol-pc .tag.n{background:var(--text2);color:var(--bg);}",
+    ".ol-hold{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:10px 20px;border-bottom:1px solid var(--border);font-size:12.5px;color:var(--text3);}",
+    ".ol-hold span{display:inline-flex;align-items:center;gap:6px;font-weight:700;color:var(--text2);}.ol-hold .ol-av{width:24px;height:24px;margin:0;font-size:9px;}.ol-hold em{font-style:normal;font-weight:800;font-size:11px;}",
+    ".ol-hold em.y{color:var(--ol-pos);}.ol-hold em.n{color:var(--text3);}.ol-hold span.n .ol-av{filter:grayscale(1);opacity:.45;}",
+    ".ol-cbw{overflow-x:auto;}",
+    ".ol-cb{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;}",
+    ".ol-cb th{font:800 10px Inter,system-ui,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);padding:10px 8px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;line-height:1.3;}",
+    ".ol-cb td{padding:9px 8px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;vertical-align:middle;}",
+    ".ol-cb .sep{border-left:1px solid var(--border);}",
+    ".ol-cb td b{display:block;font-size:14px;font-weight:700;color:var(--text);}.ol-cb td i{display:block;font-style:normal;font-size:11.5px;font-weight:700;color:var(--text3);margin-top:1px;}",
+    ".ol-cb td i.up{color:var(--ol-pos);}.ol-cb td i.dn{color:var(--ol-neg);}",
+    ".ol-cb td.net b{font-size:22px;font-weight:800;}.ol-cb td.net b.up{color:var(--ol-pos);}.ol-cb td.net b.dn{color:var(--ol-neg);}",
+    ".ol-cb td.mn{color:var(--text2);font-weight:700;}.ol-cb td.mn small{display:block;font-size:10.5px;color:var(--text3);font-weight:600;}",
+    ".ol-cb th.lu,.ol-cb td.lu{text-align:left;padding-left:16px;}",
+    ".ol-lu{display:inline-flex;gap:10px;}",
+    ".ol-cf{display:inline-flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--text2);width:58px;}",
+    ".ol-cf .ol-av{width:42px;height:42px;margin:0;font-size:13px;box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--ol-pos);}",
+    ".ol-cf.off .ol-av b{visibility:hidden;}.ol-hold span.n .ol-av b{visibility:visible;}",
+    ".ol-cf.off{color:var(--text3);}.ol-cf.off .ol-av{filter:grayscale(1);opacity:.35;box-shadow:none;}",
+    ".ol-cf.off .ol-av::after{content:'OFF';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:800 11px Inter,system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.35);}",
+    ".ol-cf small{max-width:58px;overflow:hidden;text-overflow:ellipsis;}",
+    ".ol-cb tr.base td{background:var(--bg2);}.ol-cb tr.base td.lu{font:800 11px Inter,system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);}",
+    ".ol-cb tr.thin td{opacity:.5;}",
     "@media(max-width:820px){",
     ".ol-out.fit{width:auto;}.ol-out.fit .ol-cmp{overflow-x:auto;}.ol-q{grid-template-columns:repeat(2,1fr);}.ol-fr b{width:100%;}.ol-cmp{padding:12px 10px 4px;}.ol-cmp .oo-wide .ui-tiles{grid-template-columns:repeat(2,1fr);}.ol-rank.oo-pro col.n{width:13%;}.ol-rank .faces{display:none;}",
     ".ol-cmp .oo-pro{font-size:12px;}.ol-cmp .oo-pro col.n{width:15%;}.ol-cmp .oo-pro col.c{width:30px;}.ol-cmp .oo-pro td{padding:6px 3px;}.ol-cmp .oo-pro th{padding:6px 3px 8px;font-size:9px;letter-spacing:.04em;}.ol-cmp .oo-pc{min-width:24px;padding:2px 3px;font-size:10.5px;}}"
@@ -92,7 +120,7 @@
 
   function make(root, O) {
   O = O || {};
-  var S = { season: O.season || 2026, team: O.team || null, mode: O.mode || 'together', pick: [], unit: O.unit || 3, sel: 0, f: { opp: 'all', ven: 'all', st: 'all', half: 'all', games: 'all' } };
+  var S = { season: O.season || 2026, team: O.team || null, mode: O.mode || 'combos', pick: [], fix: {}, unit: O.unit || 3, sel: 0, f: { opp: 'all', ven: 'all', st: 'all', half: 'all', games: 'all' } };
   var D = null, $ = function (id) { return root.querySelector('[data-ol="' + id + '"]'); };
   var MODES_ON = O.modes ? MODES.filter(function (m) { return O.modes.indexOf(m[0]) >= 0; }) : MODES;
   var SEAS_ON = O.seasons ? SEASONS.filter(function (x) { return O.seasons.indexOf(x[0]) >= 0; }) : SEASONS;
@@ -182,7 +210,8 @@
     TDC_ONOFF.ranker(S.season).then(function (Rk) {
       if (my !== TOK) return;
       var ch = function (side, k, v) { return Rk ? Rk.chip(side, k, v) : ''; };
-      if (S.mode === 'together') {
+      if (S.mode === 'combos') out = combos(P, team);
+      else if (S.mode === 'together') {
         if (!P.length) out = '<div class="ol-say">Tap up to four player cards.</div>';
         else { var all = sum(function (u) { return P.every(function (i) { return has(u, i); }); }), none = sum(function (u) { return P.every(function (i) { return !has(u, i); }); });
           out = '<div class="ol-say">' + faces(P) + 'With <b>' + names(P) + '</b> all on the floor, ' + T + ' was <b class="' + pn(all.net) + '">' + sg(all.net) + '</b> per 100 possessions. With none of them on, <b class="' + pn(none.net) + '">' + sg(none.net) + '</b>.' + thin(all, none) + '</div>' +
@@ -234,11 +263,53 @@
       $('olOut').className = 'ol-out' + (S.mode === 'players' || S.mode === 'lineups' ? ' fit' : '');
       $('olOut').innerHTML = '<div class="ol-strip">' + m[1] + ' · ' + T + ' ' + SEASONS.find(function (x) { return x[0] === S.season; })[1] +
         '<span>' + (fl.length ? fl.join(' · ') + ' · ' : '') + nG + ' games · ' + Math.round(team.poss) + ' possessions</span></div>' + out +
-        '<p class="ol-key">Each Rank chip places the number among D-I players’ on/off splits with ' + (Rk ? Rk.MIN : 500) + '+ possessions this season: green is good for the team, red is bad.</p>';
+        (S.mode === 'combos' ? '' : '<p class="ol-key">Each Rank chip places the number among D-I players’ on/off splits with ' + (Rk ? Rk.MIN : 500) + '+ possessions this season: green is good for the team, red is bad.</p>');
+      $('olOut').querySelectorAll('[data-ct]').forEach(function (b) { b.onclick = function () { S.ctab = b.dataset.ct; draw(); }; });
       $('olOut').querySelectorAll('[data-u]').forEach(function (b) { b.onclick = function () { S.unit = +b.dataset.u; sync(); draw(); }; });
       $('olOut').querySelectorAll('[data-s]').forEach(function (b) { b.onclick = function () { S.sel = +b.dataset.s; draw(); }; });
       if (after) after();
     });
+  }
+
+  // ── WOWY combos (databallr-style): every on/off mix of the Combo players, with the On / Off players held ──
+  // value + change vs all of the team's minutes under the same filters (green = better for the team)
+  var CTABS = [
+    ['over', 'Overview', [['ts', 'Off TS%', 1], ['tov', 'Off TOV%', -1], ['orb', 'Off ORB%', 1], ['ots', 'Def TS%', -1, 1], ['otov', 'Def TOV%', 1], ['drb', 'Def DRB%', 1]]],
+    ['off', 'Offense', [['efg', 'eFG%', 1], ['ts', 'TS%', 1], ['tp', '3P%', 1], ['tpar', '3PA rate', 0], ['ftr', 'FT rate', 1], ['tov', 'TOV%', -1], ['orb', 'ORB%', 1], ['lq', 'Look Q', 1], ['sm', 'Shot-Mk', 1]]],
+    ['def', 'Defense', [['oefg', 'Opp eFG%', -1], ['ots', 'Opp TS%', -1], ['otp', 'Opp 3P%', -1], ['otpar', 'Opp 3PA rate', 0], ['oftr', 'Opp FT rate', -1], ['otov', 'Forced TOV%', 1], ['drb', 'DRB%', 1], ['olq', 'Opp Look Q', -1], ['osm', 'Opp Shot-Mk', -1]]]];
+  function combos(P, team) {
+    var T = esc(TEAM()), idx = function (r) { return Object.keys(S.fix).filter(function (id) { return S.fix[id] === r; }).map(function (id) { return D.ids.indexOf(id); }).filter(function (i) { return i >= 0; }); };
+    var Fon = idx('on'), Foff = idx('off');
+    if (!P.length) return '<div class="ol-say">Set up to four players to <b>Combo</b>: each one becomes a column, and every on/off mix of them becomes a row. Set others to <b>On</b> or <b>Off</b> to hold them that way in every row.</div>';
+    var held = function (u) { return Fon.every(function (i) { return has(u, i); }) && !Foff.some(function (i) { return has(u, i); }); };
+    var R = [];
+    for (var m = 0; m < (1 << P.length); m++) (function (m) {
+      var r = sum(function (u) { if (!held(u)) return false; for (var j = 0; j < P.length; j++) if (!!((m >> j) & 1) !== has(u, P[j])) return false; return true; });
+      if (r.poss >= 1) R.push({ m: m, r: r });
+    })(m);
+    R.sort(function (a, b) { return b.r.min - a.r.min; });
+    var tab = CTABS.find(function (t) { return t[0] === (S.ctab || 'over'); }) || CTABS[0];
+    var d = function (v, b, dir, dec) { if (v == null || b == null || !isFinite(v) || !isFinite(b)) return '<i>&nbsp;</i>'; var x = v - b;
+      return '<i class="' + (!dir || Math.abs(x) < 0.05 ? '' : x * dir > 0 ? 'up' : 'dn') + '">' + sg(x, dec) + '</i>'; };
+    var cell = function (r, k, dir, cls) { var v = r[k]; return '<td' + (cls ? ' class="' + cls + '"' : '') + '><b>' + f1(v) + '</b>' + (r === team ? '<i>&nbsp;</i>' : d(v, team[k], dir)) + '</td>'; };
+    var head = '<tr><th class="lu">Lineup</th><th>Min</th><th class="sep">Net</th><th>ORtg</th><th>DRtg</th>' +
+      tab[2].map(function (c, n) { return '<th class="' + (n === 0 || c[3] ? 'sep' : '') + '">' + c[1].replace(' ', '<br>') + '</th>'; }).join('') + '</tr>';
+    var row = function (x, base) {
+      var r = x.r, net = r.net;
+      var lu = base ? 'All ' + T + ' minutes' : '<span class="ol-lu">' + P.map(function (i, j) { var on = (x.m >> j) & 1;
+        return '<span class="ol-cf' + (on ? '' : ' off') + '">' + av(i, 'sm') + '<small>' + esc(last(nameOf(i))) + '</small></span>'; }).join('') + '</span>';
+      return '<tr class="' + (base ? 'base' : r.poss < 25 ? 'thin' : '') + '"><td class="lu">' + lu + '</td><td class="mn">' + Math.round(r.min) + '<small>' + Math.round(r.poss) + ' poss</small></td>' +
+        '<td class="net sep"><b class="' + (net == null ? '' : net >= 0 ? 'up' : 'dn') + '">' + sg(net) + '</b>' + (base ? '<i>&nbsp;</i>' : d(net, team.net, 1)) + '</td>' +
+        cell(r, 'o', 1) + cell(r, 'd', -1) +
+        tab[2].map(function (c, n) { return cell(r, c[0], c[2], n === 0 || c[3] ? 'sep' : ''); }).join('') + '</tr>';
+    };
+    var hold = Fon.concat(Foff).length ? '<div class="ol-hold">Held in every row:' + Fon.map(function (i) { return '<span class="y">' + av(i, 'sm') + esc(nameOf(i)) + ' <em class="y">ON</em></span>'; }).join('') +
+      Foff.map(function (i) { return '<span class="n">' + av(i, 'sm') + esc(nameOf(i)) + ' <em class="n">OFF</em></span>'; }).join('') + '</div>' : '';
+    return '<div class="ol-pick">' + CTABS.map(function (t) { return '<button class="' + (t === tab ? 'on' : '') + '" data-ct="' + t[0] + '">' + t[1] + '</button>'; }).join('') +
+      '<span class="ol-note">' + R.length + ' of ' + (1 << P.length) + ' mixes played · change vs all ' + T + ' minutes</span></div>' + hold +
+      (R.length ? '<div class="ol-cbw"><table class="ol-cb"><thead>' + head + '</thead><tbody>' + row({ r: team }, true) + R.map(function (x) { return row(x); }).join('') + '</tbody></table></div>'
+        : '<div class="ol-say">None of these mixes happened under these filters.</div>') +
+      '<p class="ol-key" style="padding-top:12px">Faded rows: under 25 possessions, read them as a hint.</p>';
   }
 
   // ── controls ──
@@ -247,20 +318,30 @@
     LIVE = D.rows; TOT = sum(function () { return true; });
     var mins = D.ids.map(function (x, i) { return sum(function (u) { return has(u, i); }).min; });
     filterRows();
-    $('olCount').textContent = S.pick.length + ' of 4 picked' + (S.pick.length ? ' · ' : '');
-    $('olClear').hidden = !S.pick.length;
+    var CB = S.mode === 'combos', fixN = function (r) { return Object.keys(S.fix).filter(function (id) { return S.fix[id] === r; }).length; };
+    $('olCount').textContent = CB ? S.pick.length + ' combo · ' + fixN('on') + ' on · ' + fixN('off') + ' off' + (S.pick.length || fixN('on') || fixN('off') ? ' · ' : '')
+      : S.pick.length + ' of 4 picked' + (S.pick.length ? ' · ' : '');
+    $('olClear').hidden = !S.pick.length && !(CB && Object.keys(S.fix).length);
     $('olCards').innerHTML = D.ids.map(function (id, i) { return { id: id, i: i, m: mins[i] }; }).filter(function (x) { return x.m >= 5; }).sort(function (a, b) { return b.m - a.m; }).map(function (x) {
-      var j = S.pick.indexOf(x.id), n = nameOf(x.i);
-      return '<button class="ol-pc' + (j >= 0 ? ' on' : '') + '" data-id="' + esc(x.id) + '" aria-pressed="' + (j >= 0) + '">' + (j >= 0 ? '<span class="tag">P' + (j + 1) + '</span>' : '') + av(x.i) +
-        '<span class="fn">' + esc(first(n)) + '</span><span class="ln">' + esc(last(n)) + '</span><span class="mn">' + Math.round(x.m) + ' min</span></button>'; }).join('');
-    $('olCards').querySelectorAll('.ol-pc').forEach(function (c) { c.onclick = function () { var id = c.dataset.id, j = S.pick.indexOf(id);
-      if (j >= 0) S.pick.splice(j, 1); else { S.pick.push(id); if (S.pick.length > 4) S.pick.shift(); } S.sel = 0; sync(); cards(); draw(); }; });
+      var j = S.pick.indexOf(x.id), n = nameOf(x.i), fx = CB ? S.fix[x.id] : null;
+      var cls = j >= 0 ? ' on' : fx === 'on' ? ' fon' : fx === 'off' ? ' foff' : '';
+      var tag = j >= 0 ? '<span class="tag">' + (CB ? 'C' : 'P') + (j + 1) + '</span>' : fx === 'on' ? '<span class="tag y">ON</span>' : fx === 'off' ? '<span class="tag n">OFF</span>' : '';
+      // WOWY combos: Combo = a table column split into every on/off mix; On / Off = held for every row
+      var tri = CB ? '<span class="ol-tri"><span data-r="c" class="c' + (j >= 0 ? ' on' : '') + '">Combo</span><span data-r="on" class="y' + (fx === 'on' ? ' on' : '') + '">On</span><span data-r="off" class="n' + (fx === 'off' ? ' on' : '') + '">Off</span></span>' : '';
+      return '<button class="ol-pc' + cls + '" data-id="' + esc(x.id) + '" aria-pressed="' + (j >= 0 || !!fx) + '">' + tag + av(x.i) +
+        '<span class="fn">' + esc(first(n)) + '</span><span class="ln">' + esc(last(n)) + '</span><span class="mn">' + Math.round(x.m) + ' min</span>' + tri + '</button>'; }).join('');
+    $('olCards').querySelectorAll('.ol-pc').forEach(function (c) { c.onclick = function (e) { var id = c.dataset.id, j = S.pick.indexOf(id);
+      var r = CB ? (e.target.closest('[data-r]') || {}).dataset : null; r = r && r.r;
+      if (CB && (r === 'on' || r === 'off')) { if (j >= 0) S.pick.splice(j, 1); if (S.fix[id] === r) delete S.fix[id]; else S.fix[id] = r; }
+      else if (j >= 0) S.pick.splice(j, 1);
+      else { delete S.fix[id]; S.pick.push(id); if (S.pick.length > 4) S.pick.shift(); }
+      S.sel = 0; sync(); cards(); draw(); }; });
   }
   function controls() {
     if (!$('olModes')) return controlsF();
     $('olModes').style.setProperty('--olq', MODES_ON.length);
     $('olModes').innerHTML = MODES_ON.map(function (m) { return '<button data-m="' + m[0] + '" class="' + (m[0] === S.mode ? 'on' : '') + '">' + m[1] + '<small>' + m[2] + '</small></button>'; }).join('');
-    $('olModes').querySelectorAll('button').forEach(function (b) { b.onclick = function () { S.mode = b.dataset.m; S.sel = 0; sync(); controls(); draw(); }; });
+    $('olModes').querySelectorAll('button').forEach(function (b) { b.onclick = function () { S.mode = b.dataset.m; S.sel = 0; sync(); controls(); if (D) cards(); draw(); }; });
     controlsF();
   }
   function controlsF() {
@@ -275,6 +356,7 @@
       q.set('team', S.team); q.set('season', S.season); q.set('q', S.mode);
       if (S.pick.length) q.set('p', S.pick.join(',')); else q.delete('p');
       if (S.mode === 'lineups') q.set('n', S.unit); else q.delete('n');
+      ['on', 'off'].forEach(function (r) { var L = Object.keys(S.fix).filter(function (id) { return S.fix[id] === r; }); if (S.mode === 'combos' && L.length) q.set('f' + r, L.join(',')); else q.delete('f' + r); });
       FILTERS.forEach(function (F) { if (S.f[F[0]] !== 'all') q.set(F[0], S.f[F[0]]); else q.delete(F[0]); });
       history.replaceState(null, '', u); } catch (e) {}
   }
@@ -284,6 +366,7 @@
     return get('scripts/data/onoff_lab/' + S.season + '/' + S.team + '.json?v=2').then(function (j) {
       if (!j) { $('olOut').innerHTML = '<div class="ol-say">No lineup data for this team and season.</div>'; $('olCards').innerHTML = ''; return; }
       D = j; S.pick = S.pick.filter(function (id) { return D.ids.indexOf(id) >= 0; });
+      Object.keys(S.fix).forEach(function (id) { if (D.ids.indexOf(id) < 0 || S.pick.indexOf(id) >= 0) delete S.fix[id]; });
       if (!S.pick.length && S.mode !== 'players' && S.mode !== 'lineups') {   // a starting answer: the two biggest-minute players
         LIVE = D.rows; S.pick = D.ids.map(function (id, i) { return { id: id, m: sum(function (u) { return has(u, i); }).min }; }).sort(function (a, b) { return b.m - a.m; }).slice(0, 2).map(function (x) { return x.id; }); }
       sync(); cards(); draw();
@@ -317,6 +400,7 @@
       S.team = q.get('team') || S.team; if (q.get('season')) S.season = +q.get('season');
       if (q.get('q') && MODES_ON.some(function (m) { return m[0] === q.get('q'); })) S.mode = q.get('q');
       if (q.get('p')) S.pick = q.get('p').split(',').filter(Boolean).slice(0, 4);
+      ['on', 'off'].forEach(function (r) { (q.get('f' + r) || '').split(',').filter(Boolean).forEach(function (id) { S.fix[id] = r; }); });
       if (q.get('n')) S.unit = Math.max(2, Math.min(5, +q.get('n') || 3));
       FILTERS.forEach(function (F) { var v = q.get(F[0]); if (v && F[2].some(function (o) { return o[0] === v; })) S.f[F[0]] = v; });
     }
@@ -325,7 +409,7 @@
     $('olSeason').innerHTML = SEAS_ON.map(function (x) { return '<option value="' + x[0] + '"' + (x[0] === S.season ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('');
     $('olSeason').onchange = function () { S.season = +this.value; teams().then(loadTeam); };
     if ($('olTeam')) $('olTeam').onchange = function () { S.team = this.value; S.pick = []; S.sel = 0; loadTeam(); };
-    $('olClear').onclick = function () { S.pick = []; sync(); cards(); draw(); };
+    $('olClear').onclick = function () { S.pick = []; S.fix = {}; sync(); cards(); draw(); };
     controls(); return teams().then(loadTeam);
   }
   return start();
