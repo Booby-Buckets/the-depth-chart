@@ -103,9 +103,9 @@
     g+='<path '+CL+' d="M '+(hx-px(4))+' '+hy+' A '+px(4)+' '+px(4)+' 0 0 1 '+(hx+px(4))+' '+hy+'" fill="none" stroke="'+L+'" stroke-width="1.4"/>';
     g+='<path '+CL+' d="'+arcPath()+'" fill="none" stroke="'+L+'" stroke-width="1.8"/>';
     g+='<line x1="0" y1="'+(H-1)+'" x2="'+W+'" y2="'+(H-1)+'" stroke="'+L+'" stroke-width="2"/>';
-    // backboard + rim
-    g+='<line x1="'+(px(25)-px(3))+'" y1="'+py(4)+'" x2="'+(px(25)+px(3))+'" y2="'+py(4)+'" stroke="'+L+'" stroke-width="2.4"/>';
-    g+='<circle cx="'+hx+'" cy="'+hy+'" r="'+px(0.75)+'" fill="none" stroke="'+L+'" stroke-width="2"/>';
+    // backboard + rim (left off where the rim tile needs the room for its labels)
+    if(!(opts&&opts.noHoop)) g+='<line x1="'+(px(25)-px(3))+'" y1="'+py(4)+'" x2="'+(px(25)+px(3))+'" y2="'+py(4)+'" stroke="'+L+'" stroke-width="2.4"/>';
+    if(!(opts&&opts.noHoop)) g+='<circle cx="'+hx+'" cy="'+hy+'" r="'+px(0.75)+'" fill="none" stroke="'+L+'" stroke-width="2"/>';
     g+='</g>';
     return g;
   }
@@ -360,6 +360,9 @@
     var al=Math.min(0.9,(minA==null?0.16:minA)+0.74*Math.min(1,Math.abs(d)/0.22));
     return (d>=0?'rgba(31,157,87,':'rgba(199,77,63,')+al.toFixed(3)+')'; }
   function lookDark(xp, base){ return Math.abs(xp-base)>=0.04&&Math.abs(xp-base)/0.22>0.55; }
+  // Look quality: where each zone's 4-line label stack is centred (feet), placed so every line sits inside its own tile
+  // (searched against the zone shapes with worst-case widths like "hit 100%"; the rest keep their usual spot)
+  var LOOKAT={ra:[25,5.5], paint:[25,15.3], mbl:[6.9,5.3], mbr:[43.1,5.3]};
   function zones12Svg(shots, ink, look){
     var Z=z12Totals(shots), N=shots.length||1, maxA=0;
     Object.keys(Z).forEach(function(k){ if(Z[k].a>maxA) maxA=Z[k].a; });
@@ -404,13 +407,15 @@
       '<g clip-path="url(#'+id+'in)">'+seam(-ANG_TOP,midR0,30)+seam(ANG_TOP,midR0,30)+seam(-ANG_CB,4,30)+seam(ANG_CB,4,30)+'</g></g>';
     // labels: made-att, FG% under it (returned separately so they sit above the court lines)
     var tiles=g; g='';
-    Object.keys(Z12).forEach(function(k){ var z=Z[k], at=Z12[k].lab, x=px(at[0]), y=py(at[1])-(look&&!Z12[k].rot&&window.innerWidth>=600?(k==='ra'?22:8):0);   // three lines: lift them (the rim's clear of the hoop)
+    Object.keys(Z12).forEach(function(k){ var z=Z[k], at=Z12[k].lab, x=px((look&&LOOKAT[k]||at)[0]), y=look&&!Z12[k].rot?py((LOOKAT[k]||at)[1])-20:py(at[1]);   // the 4-line stack runs y-10..y+51: centre it on its spot
       var dark=look?lookDark(xpOf(k),LB):alphaOf(k)>0.5, cls='scz-lab'+(dark?' on':''), big=look?(Math.round(z.a/N*100)+'%'):(z.a?(z.m+'–'+z.a):'–');
       if(Z12[k].rot){ g+='<text class="'+cls+' sm" transform="translate('+x.toFixed(1)+' '+y.toFixed(1)+') rotate('+Z12[k].rot+')" text-anchor="middle" dominant-baseline="central">'+big+'</text>'; return; }
       g+='<text class="'+cls+'" x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" text-anchor="middle" dominant-baseline="central">'+big+'</text>';
-      if(look){ var wide=window.innerWidth>=600, hit=z.a>=5?Math.round(z.m/z.a*100)+'%':'—';
-        g+='<text class="scz-sub'+(dark?' on':'')+'" x="'+x.toFixed(1)+'" y="'+(y+16).toFixed(1)+'" text-anchor="middle" dominant-baseline="central">'+(wide?'look '+xpOf(k).toFixed(2):xpOf(k).toFixed(2)+' · '+hit)+'</text>';
-        if(wide) g+='<text class="scz-sub'+(dark?' on':'')+'" x="'+x.toFixed(1)+'" y="'+(y+30).toFixed(1)+'" text-anchor="middle" dominant-baseline="central" style="font-weight:800">hit '+hit+'</text>'; }
+      if(look){ var ok=z.a>=5, hit=ok?Math.round(z.m/z.a*100)+'%':'—', lk=xpOf(k),
+          got=ok?z.m/z.a*(THREES12[k]?3:2):null, gs=got==null?'—':got.toFixed(2)+(Math.abs(got-lk)<0.04?'':(got>lk?' ▲':' ▼')),
+          // look = what the shot is worth for an average D-I player; got = what this team/player actually scored per attempt there
+          L=[['look '+lk.toFixed(2),0],['got '+gs,1],['hit '+hit,1]];
+        L.forEach(function(l,i){ g+='<text class="scz-sub'+(dark?' on':'')+'" x="'+x.toFixed(1)+'" y="'+(y+16+14*i).toFixed(1)+'" text-anchor="middle" dominant-baseline="central"'+(l[1]?' style="font-weight:800"':'')+'>'+l[0]+'</text>'; }); }
       else if(z.a>=5) g+='<text class="scz-sub'+(dark?' on':'')+'" x="'+x.toFixed(1)+'" y="'+(y+16).toFixed(1)+'" text-anchor="middle" dominant-baseline="central">'+Math.round(z.m/z.a*100)+'%</text>'; });
     return {tiles:tiles, labels:g};
   }
@@ -434,8 +439,8 @@
       'So a three isn’t worth 3 points — it’s worth 3 only when it goes in. The average D-I player makes about '+Math.round(t3p*100)+'% of threes from the top of the key, '+
       'so each one is worth '+(t3p*100).toFixed(1)+'% × 3 = <b>'+xpOf('t3').toFixed(2)+'</b> points: over 100 of them, about '+Math.round(t3p*300)+' points. '+
       'The average D-I shot is worth <b>'+base.toFixed(2)+'</b>: <span style="color:#1f9d57;font-weight:800;">green</span> zones beat it, '+
-      '<span style="color:#c74d3f;font-weight:800;">red</span> ones fall short, grey is about even. These grade the <i>looks</i>, not '+V.poss+' shooting — '+
-      'how well '+V.subj+' actually '+V.makes+' them is in the FG% tiles and the Zones view.</div>';
+      '<span style="color:#c74d3f;font-weight:800;">red</span> ones fall short, grey is about even. The colour grades the <i>look</i>, not '+V.poss+' shooting. '+
+      'Under it, <b>got</b> is what '+V.subj+' actually scored per shot there (▲ beat the look, ▼ fell short) and <b>hit</b> is the FG%.</div>';
   }
   // ── the looks vs what they made of them, zone by zone (sheet kit) ──
   var LZ=[['At the rim',['ra']],['Corner 3',['c3l','c3r']],['Wing 3',['w3l','w3r']],['Top-of-the-key 3',['t3']],['Paint (non-rim)',['paint']],
@@ -897,10 +902,10 @@
         '<div class="sc-court-wrap scz-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+cg.slice(0,cut)+zz.tiles+cg.slice(cut)+zz.labels+'</svg><div class="sc-tip"></div></div>';
       extra=dietBlock(shots,opts)+splitTables(shots)+distBlock(shots,opts)+(opts.names?playerZoneTable(shots,opts.names):'');
     } else if(mode==='look'){
-      var lc=court(null,courtOpts), lcut=lc.indexOf('<g class="sc-lines"'), lz=zones12Svg(shots,inkRgb(tcol),true), LB0=lookBase();
+      var lc=court(null,Object.assign({},courtOpts,{noHoop:1})), lcut=lc.indexOf('<g class="sc-lines"'), lz=zones12Svg(shots,inkRgb(tcol),true), LB0=lookBase();
       body=lookExplain(shots,opts)+'<div class="sc-mk-legend"><span><i class="scz-sw" style="background:'+lookCol(LB0+0.22,LB0)+'"></i><i class="scz-sw" style="background:'+lookCol(LB0+0.06,LB0)+'"></i>better look than D-I average</span>'+
         '<span><i class="scz-sw" style="background:'+lookCol(LB0,LB0)+'"></i>about average</span><span><i class="scz-sw" style="background:'+lookCol(LB0-0.06,LB0)+'"></i><i class="scz-sw" style="background:'+lookCol(LB0-0.22,LB0)+'"></i>worse look</span>'+
-        '<span style="margin-left:auto;color:var(--text3);font-size:10px;">share of shots · expected pts per shot there</span></div>'+
+        '<span style="margin-left:auto;color:var(--text3);font-size:10px;">share of shots · look · got (actual pts per shot) · FG%</span></div>'+
         '<div class="sc-court-wrap scz-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+lc.slice(0,lcut)+lz.tiles+lc.slice(lcut)+lz.labels+'</svg><div class="sc-tip"></div></div>';
       extra=lookTable(shots,opts)+lookLadder(shots,opts);
     } else if(mode==='spots'){
