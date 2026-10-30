@@ -107,6 +107,13 @@
     ".ol-cf small{max-width:58px;overflow:hidden;text-overflow:ellipsis;}",
     ".ol-cb tr.base td{background:var(--bg2);}.ol-cb tr.base td.lu{font:800 11px Inter,system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);}",
     ".ol-cb tr.thin td{opacity:.5;}",
+    ".ol-dates{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;}.ol-dates span{font-size:12px;color:var(--text3);}",
+    ".ol-dates input{font:600 12px Inter,system-ui,sans-serif;padding:5px 8px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);}",
+    ".ol-lnk{background:none;border:0;padding:0;color:var(--accent);font:700 12px Inter,system-ui,sans-serif;cursor:pointer;}",
+    ".ol-opps{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 4px 102px;max-height:220px;overflow-y:auto;}",
+    ".ol-opp{border:1px solid var(--border2);background:var(--bg);border-radius:999px;padding:5px 11px;font:600 12px Inter,system-ui,sans-serif;color:var(--text2);cursor:pointer;}",
+    ".ol-opp small{font-size:10.5px;color:var(--text3);font-weight:600;}.ol-opp.on{background:var(--text);color:var(--bg);border-color:var(--text);}.ol-opp.on small{color:var(--bg);opacity:.7;}",
+    "@media(max-width:820px){.ol-opps{margin-left:0;}.ol-fr .ui-seg{flex-wrap:wrap;}.ol-fr .ui-seg button{white-space:nowrap;}.ol-dates input{flex:1 1 130px;min-width:0;}}",
     "@media(max-width:820px){",
     ".ol-out.fit{width:auto;}.ol-out.fit .ol-cmp{overflow-x:auto;}.ol-q{grid-template-columns:repeat(2,1fr);}.ol-fr b{width:100%;}.ol-cmp{padding:12px 10px 4px;}.ol-cmp .oo-wide .ui-tiles{grid-template-columns:repeat(2,1fr);}.ol-rank.oo-pro col.n{width:13%;}.ol-rank .faces{display:none;}",
     ".ol-cmp .oo-pro{font-size:12px;}.ol-cmp .oo-pro col.n{width:15%;}.ol-cmp .oo-pro col.c{width:30px;}.ol-cmp .oo-pro td{padding:6px 3px;}.ol-cmp .oo-pro th{padding:6px 3px 8px;font-size:9px;letter-spacing:.04em;}.ol-cmp .oo-pc{min-width:24px;padding:2px 3px;font-size:10.5px;}}"
@@ -120,7 +127,7 @@
 
   function make(root, O) {
   O = O || {};
-  var S = { season: O.season || 2026, team: O.team || null, mode: O.mode || 'combos', pick: [], fix: {}, unit: O.unit || 3, sel: 0, f: { opp: 'all', ven: 'all', st: 'all', half: 'all', games: 'all' } };
+  var S = { season: O.season || 2026, team: O.team || null, mode: O.mode || 'combos', pick: [], fix: {}, from: '', to: '', vs: [], vsOpen: false, unit: O.unit || 3, sel: 0, f: { opp: 'all', ven: 'all', st: 'all', half: 'all', games: 'all' } };
   var D = null, $ = function (id) { return root.querySelector('[data-ol="' + id + '"]'); };
   var MODES_ON = O.modes ? MODES.filter(function (m) { return O.modes.indexOf(m[0]) >= 0; }) : MODES;
   var SEAS_ON = O.seasons ? SEASONS.filter(function (x) { return O.seasons.indexOf(x[0]) >= 0; }) : SEASONS;
@@ -158,6 +165,9 @@
       if (ok && f.ven !== 'all') ok = g[2] === f.ven;
       if (ok && f.games === 'conf') ok = g[3] === 1; else if (ok && f.games === 'non') ok = g[3] !== 1;
       if (ok && recent) ok = recent.indexOf(i) >= 0;
+      if (ok && S.from) ok = g[0] >= S.from;
+      if (ok && S.to) ok = g[0] <= S.to;
+      if (ok && S.vs.length) ok = S.vs.indexOf(g[1]) >= 0;
       if (ok) keep[i] = 1;
     });
     LIVE = D.rows.filter(function (r) {
@@ -183,6 +193,8 @@
     var dup = D.ids.some(function (x, j) { return j !== i && last(nameOf(j)).toLowerCase() === k; });
     return dup ? first(n)[0] + '. ' + l : l; };
   var first = function (n) { return String(n).split(' ')[0]; }, last = function (n) { var w = String(n).split(' '); return w.slice(1).join(' ') || n; };
+  var md = function (d) { var p = String(d).split('-'); return +p[1] + '/' + +p[2]; };
+  var oppShort = function (t) { try { return (window.tdcShortSchool && tdcShortSchool(t)) || t; } catch (e) { return t; } };
   var TEAM = function () { try { return (window.tdcShortSchool && tdcShortSchool(D.team)) || D.team; } catch (e) { return D.team; } };
   function tcolor() { try { var c = window.tdcTeamColor && tdcTeamColor(D.team); return (c && c.color) || '#3a4a6a'; } catch (e) { return '#3a4a6a'; } }
   function av(i, cls) {
@@ -259,6 +271,8 @@
             : '<div class="ol-say">No ' + n + '-man units with enough possessions' + (P.length ? ' that include everyone picked' : '') + '.</div>');
       }
       var fl = FILTERS.filter(function (F) { return S.f[F[0]] !== 'all'; }).map(function (F) { return F[2].find(function (o) { return o[0] === S.f[F[0]]; })[1]; });
+      if (S.from || S.to) fl.push((S.from ? md(S.from) : 'start') + ' – ' + (S.to ? md(S.to) : 'end'));
+      if (S.vs.length) fl.push(S.vs.length === 1 ? 'vs ' + oppShort(S.vs[0]) : 'vs ' + S.vs.length + ' teams');
       var m = MODES.find(function (z) { return z[0] === S.mode; });
       $('olOut').className = 'ol-out' + (S.mode === 'players' || S.mode === 'lineups' ? ' fit' : '');
       $('olOut').innerHTML = '<div class="ol-strip">' + m[1] + ' · ' + T + ' ' + SEASONS.find(function (x) { return x[0] === S.season; })[1] +
@@ -348,6 +362,28 @@
     $('olFilters').innerHTML = FILTERS.map(function (F) { return '<div class="ol-fr"><b>' + F[1] + '</b><span class="ui-seg">' + F[2].map(function (o) {
       return '<button data-f="' + F[0] + '" data-v="' + o[0] + '" class="' + (S.f[F[0]] === o[0] ? 'on' : '') + '">' + o[1] + '</button>'; }).join('') + '</span></div>'; }).join('');
     $('olFilters').querySelectorAll('[data-f]').forEach(function (b) { b.onclick = function () { S.f[b.dataset.f] = b.dataset.v; sync(); controls(); draw(); }; });
+    if (!D) return;
+    // date range (inside the season) + pick the opponents, from this team's own games
+    var G = D.games, dates = G.map(function (g) { return g[0]; }).sort(), lo = dates[0], hi = dates[dates.length - 1];
+    var opps = {}; G.forEach(function (g) { (opps[g[1]] = opps[g[1]] || []).push(g); });
+    var names = Object.keys(opps).sort(function (a, b) { return oppShort(a).localeCompare(oppShort(b)); });
+    var picking = S.vsOpen || S.vs.length;
+    var row = '<div class="ol-fr"><b>Dates</b><span class="ol-dates"><input type="date" class="ui-input" data-d="from" min="' + lo + '" max="' + hi + '" value="' + esc(S.from) + '" aria-label="From">' +
+      '<span>to</span><input type="date" class="ui-input" data-d="to" min="' + lo + '" max="' + hi + '" value="' + esc(S.to) + '" aria-label="To">' +
+      (S.from || S.to ? '<button type="button" class="ol-lnk" data-d="clear">Whole season</button>' : '') + '</span></div>' +
+      '<div class="ol-fr"><b>Opponents</b><span class="ui-seg"><button data-vs="all" class="' + (picking ? '' : 'on') + '">All teams</button><button data-vs="pick" class="' + (picking ? 'on' : '') + '">Pick teams</button></span>' +
+      (S.vs.length ? '<span class="ol-note" style="margin-left:0">' + S.vs.length + ' picked · <button type="button" class="ol-lnk" data-vs="none">clear</button></span>' : '') + '</div>' +
+      (picking ? '<div class="ol-opps">' + names.map(function (n) { var on = S.vs.indexOf(n) >= 0, gs = opps[n], rk = gs[0][4];
+        return '<button type="button" class="ol-opp' + (on ? ' on' : '') + '" data-opp="' + esc(n) + '" title="' + esc(gs.map(function (g) { return md(g[0]) + ' ' + ({ H: 'home', A: 'away', N: 'neutral' }[g[2]] || ''); }).join(', ')) + '">' +
+          esc(oppShort(n)) + (gs.length > 1 ? ' <small>×' + gs.length + '</small>' : '') + (rk ? ' <small>#' + rk + '</small>' : '') + '</button>'; }).join('') + '</div>' : '');
+    $('olFilters').insertAdjacentHTML('beforeend', row);
+    var redo = function () { S.sel = 0; sync(); controlsF(); draw(); };
+    $('olFilters').querySelectorAll('input[data-d]').forEach(function (inp) { inp.onchange = function () { S[inp.dataset.d] = inp.value || ''; redo(); }; });
+    var clr = $('olFilters').querySelector('button[data-d=clear]'); if (clr) clr.onclick = function () { S.from = S.to = ''; redo(); };
+    $('olFilters').querySelectorAll('[data-vs]').forEach(function (b) { b.onclick = function () { var v = b.dataset.vs;
+      if (v === 'all' || v === 'none') { S.vs = []; S.vsOpen = v === 'none'; } else S.vsOpen = true; redo(); }; });
+    $('olFilters').querySelectorAll('[data-opp]').forEach(function (b) { b.onclick = function () { var n = b.dataset.opp, j = S.vs.indexOf(n);
+      if (j >= 0) S.vs.splice(j, 1); else S.vs.push(n); S.vsOpen = true; redo(); }; });
   }
   // the whole view rides in the URL, so any answer can be shared
   function sync() {
@@ -358,6 +394,8 @@
       if (S.mode === 'lineups') q.set('n', S.unit); else q.delete('n');
       ['on', 'off'].forEach(function (r) { var L = Object.keys(S.fix).filter(function (id) { return S.fix[id] === r; }); if (S.mode === 'combos' && L.length) q.set('f' + r, L.join(',')); else q.delete('f' + r); });
       FILTERS.forEach(function (F) { if (S.f[F[0]] !== 'all') q.set(F[0], S.f[F[0]]); else q.delete(F[0]); });
+      if (S.from) q.set('from', S.from); else q.delete('from'); if (S.to) q.set('to', S.to); else q.delete('to');
+      if (S.vs.length) q.set('vs', S.vs.join('|')); else q.delete('vs');
       history.replaceState(null, '', u); } catch (e) {}
   }
   function loadTeam() {
@@ -367,6 +405,10 @@
       if (!j) { $('olOut').innerHTML = '<div class="ol-say">No lineup data for this team and season.</div>'; $('olCards').innerHTML = ''; return; }
       D = j; S.pick = S.pick.filter(function (id) { return D.ids.indexOf(id) >= 0; });
       Object.keys(S.fix).forEach(function (id) { if (D.ids.indexOf(id) < 0 || S.pick.indexOf(id) >= 0) delete S.fix[id]; });
+      var played = {}; D.games.forEach(function (g) { played[g[1]] = 1; }); S.vs = S.vs.filter(function (n) { return played[n]; });
+      var ds = D.games.map(function (g) { return g[0]; }).sort();
+      if (S.from && (S.from < ds[0] || S.from > ds[ds.length - 1])) S.from = ''; if (S.to && (S.to < ds[0] || S.to > ds[ds.length - 1])) S.to = '';
+      controlsF();
       if (!S.pick.length && S.mode !== 'players' && S.mode !== 'lineups') {   // a starting answer: the two biggest-minute players
         LIVE = D.rows; S.pick = D.ids.map(function (id, i) { return { id: id, m: sum(function (u) { return has(u, i); }).min }; }).sort(function (a, b) { return b.m - a.m; }).slice(0, 2).map(function (x) { return x.id; }); }
       sync(); cards(); draw();
@@ -400,6 +442,9 @@
       S.team = q.get('team') || S.team; if (q.get('season')) S.season = +q.get('season');
       if (q.get('q') && MODES_ON.some(function (m) { return m[0] === q.get('q'); })) S.mode = q.get('q');
       if (q.get('p')) S.pick = q.get('p').split(',').filter(Boolean).slice(0, 4);
+      if (/^\d{4}-\d\d-\d\d$/.test(q.get('from') || '')) S.from = q.get('from');
+      if (/^\d{4}-\d\d-\d\d$/.test(q.get('to') || '')) S.to = q.get('to');
+      if (q.get('vs')) S.vs = q.get('vs').split('|').filter(Boolean);
       ['on', 'off'].forEach(function (r) { (q.get('f' + r) || '').split(',').filter(Boolean).forEach(function (id) { S.fix[id] = r; }); });
       if (q.get('n')) S.unit = Math.max(2, Math.min(5, +q.get('n') || 3));
       FILTERS.forEach(function (F) { var v = q.get(F[0]); if (v && F[2].some(function (o) { return o[0] === v; })) S.f[F[0]] = v; });
