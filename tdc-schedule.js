@@ -29,6 +29,13 @@
   // preseason rating uncertainty, pts: a team's rating vs last year's (regressed) misses by 4.7 pre-portal
   // (2013-19) and 5.05 in the portal era (2022-26) — team_seasons SRS, Oct 2026
   const TAU = 5.0;
+  // A season's real spread of team strength: SD of full-season D-I ratings ≈ 9.0 (2024-26; 8.0-9.4 since 2016).
+  // The projected ratings already spread that wide, so adding a ±TAU true-strength draw on top widened every simulated
+  // season to ~10.4: the simulated #1 team averaged 29.6 vs 22.0 entering a real NCAA Tournament (2008-26), top-8 25.0
+  // vs 19.6 — super-teams that ran the bracket, i.e. generous Final Four / title odds (owner, Oct 30 2026). So each
+  // draw first pulls the rating toward the D-I mean by c = √((V−τ²)/Var(ratings)), keeping total spread at V; c → 1 as
+  // a team's τ shrinks in season. Per-game odds were fine (NCAA games 2008-26: best-fit σ 11.1 vs our 11).
+  const SPREAD_V = 81;
   // common random numbers: a uniform in [0,1) from (stream, sim, key) — the same on every page
   const _hk = {};
   function hkey(str) { if (_hk[str] != null) return _hk[str]; let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (_hk[str] = h >>> 0); }
@@ -54,11 +61,22 @@
     const out = { D, r: {}, n: {} }, cnt = {};
     Object.values(RES).forEach(x => { cnt[x.home] = (cnt[x.home] || 0) + 1; cnt[x.away] = (cnt[x.away] || 0) + 1; });
     D.teams.forEach(t => { out.n[t.full] = Math.max(cnt[t.full] || 0, +t.formGp || 0); out.r[t.full] = +t.rating || 0; });
+    const v = D.teams.map(t => +t.rating).filter(isFinite);
+    out.mean = v.reduce((a, b) => a + b, 0) / (v.length || 1);
+    out.var = v.reduce((a, b) => a + (b - out.mean) ** 2, 0) / (v.length || 1) || SPREAD_V;
     return (_rate = out);
   }
   // a team's current strength + its uncertainty, for every simulation on the site
   const rateOf = (full, row) => (_rate && _rate.r[full] != null) ? _rate.r[full] : (row ? +row.rating || 0 : 0);
   const tauOf = full => TAU * Math.sqrt(K_PRIOR / (K_PRIOR + ((_rate && _rate.n[full]) || 0)));
+  // team's true strength in sim s: rating pulled toward the mean (see SPREAD_V) + its ±tau draw. Every simulation on
+  // the site (schedules, conference tournaments, the NCAA/NIT) draws through this, so they stay one league.
+  function strOf(full, rating, s, tau) {
+    if (tau == null) tau = tauOf(full);
+    const m = _rate ? _rate.mean : 0, P = _rate ? _rate.var : SPREAD_V;
+    const c = Math.min(1, Math.sqrt(Math.max(SPREAD_V - tau * tau, 0.25 * SPREAD_V) / P));
+    return m + c * (rating - m) + tau * zTeam(s, full);
+  }
   // 2026-27 league membership (ESPN team groups — realignment-correct; the ratings' conf can be stale)
   const leagueOf = (full, row) => (_members && _members.teams && _members.teams[full]) || (row && row.conf) || null;
 
@@ -263,7 +281,7 @@
     // pool of every rated team we might meet (for the per-sim rating draws)
     const names = new Set();
     rows.forEach(r => { if (r.oppName) names.add(r.oppName); (r.bracket || []).forEach(n => names.add(n)); (r.pool || []).forEach(n => names.add(n)); });
-    const pool = {}; names.forEach(n => { pool[n] = rated(n) || Object.assign({ _tau: TAU }, FLOOR); });
+    const pool = {}; names.forEach(n => { pool[n] = rated(n) || Object.assign({ _tau: TAU, _floor: true }, FLOOR); });
 
     // ── Monte Carlo season ──
     const wins = new Array(rows.length).fill(0), W = new Int16Array(SIMS), CW = new Int16Array(SIMS);
@@ -272,8 +290,9 @@
     rows.forEach(r => { if (!r.g.conf && r.oppName && !r.g.extra && myLg && leagueOf(r.oppName, r.opp) === myLg) r.g.conf = true; });
     let confN = rows.filter(r => r.g.conf).length;
     for (let s = 0; s < SIMS; s++) {
-      const rMe = me.rating + tauMe * zTeam(s, team);
-      const rOpp = {}; for (const n in pool) rOpp[n] = pool[n].rating + (pool[n]._tau != null ? pool[n]._tau : TAU) * zTeam(s, n);
+      const rMe = strOf(team, me.rating, s, tauMe);
+      // non-D-I opponents keep their fixed FLOOR rating (calibrated on its own, backtest_wl.py) — no pull toward the D-I mean
+      const rOpp = {}; for (const n in pool) rOpp[n] = pool[n]._floor ? pool[n].rating + TAU * zTeam(s, n) : strOf(n, pool[n].rating, s, pool[n]._tau);
       let streak = 0, w = 0, cw = 0; const faced = new Set(); let day1Won = null;
       for (let i = 0; i < rows.length; i++) {
         const r = rows[i]; let oppName = r.oppName, venuePts = r.venuePts;
@@ -519,7 +538,7 @@
 
   // every rated team's projected record for the rankings table — lighter sims, cached in
   // localStorage until the ratings or the schedule file change
-  const LS_ALL = 'tdc_projrec_v14';
+  const LS_ALL = 'tdc_projrec_v15';
   async function projectAll(opts) {
     opts = opts || {};
     await load();
@@ -602,6 +621,6 @@
 
   // shared simulation pieces for the conference-tournament projection (tdc-conftourney.js): the same
   // per-sim team strength draw every schedule uses, the hashed coins, and the 2026-27 league map
-  const sim = { TAU, U, hkey, zTeam, leagueOf, members: () => _members, tame, phi, rate: rateOf, tau: tauOf, results: () => RES, resultsMeta: () => _results && { updated: _results.updated, n: (_results.games || []).length } };
+  const sim = { TAU, U, hkey, zTeam, leagueOf, members: () => _members, tame, phi, rate: rateOf, tau: tauOf, str: strOf, results: () => RES, resultsMeta: () => _results && { updated: _results.updated, n: (_results.games || []).length } };
   g.TDCSched = { load, project, projectAll, render, renderPast, gamesFor, extrasFor, lineFor, SEASON, sim };
 })(window);

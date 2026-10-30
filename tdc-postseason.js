@@ -91,7 +91,7 @@
 
       for (let s = 0; s < SIMS; s++) {
         for (let i = 0; i < N; i++) {
-          str[i] = rating[i] + sim.tau(T[i]) * sim.zTeam(s, T[i]);
+          str[i] = sim.str ? sim.str(T[i], rating[i], s) : rating[i] + sim.tau(T[i]) * sim.zTeam(s, T[i]);
           sel[i] = str[i] + RES * (W[i][s] / GN[i] - meanWP[i]);
           A.sel[i] += sel[i];
         }

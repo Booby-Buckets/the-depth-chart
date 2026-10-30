@@ -71,7 +71,7 @@
     const rt = {}; T.forEach(n => { rt[n] = sim.rate(n, out[n].row); });
     const avgR = T.reduce((a, n) => a + rt[n], 0) / T.length;
     for (let s = 0; s < SIMS; s++) {
-      const str = {}; T.forEach(n => { str[n] = rt[n] + sim.tau(n) * sim.zTeam(s, n); });
+      const str = {}; T.forEach(n => { str[n] = sim.str ? sim.str(n, rt[n], s) : rt[n] + sim.tau(n) * sim.zTeam(s, n); });
       const cw = {}; T.forEach(n => {
         cw[n] = proj[n].CW[s];
         for (let k = 0; k < missing[n]; k++) { const p = sim.phi(sim.tame((str[n] - avgR) * STRETCH) / SIGMA); if (sim.U(7, s, sim.hkey('mg:' + n + ':' + k)) < p) cw[n]++; }
