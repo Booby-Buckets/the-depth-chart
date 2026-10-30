@@ -71,7 +71,7 @@
       if (b.c === 'trend') {
         loadScript('tdc-teamtrend.js?v=9').then(function () { if (g.TDCTeamTrend) TDCTeamTrend.render(body, { full: b.full, short: b.team, color: b.color || null }); });
       } else if (b.c === 'shots' || b.c === 'look') {
-        loadScript('tdc-shotchart.js?v=34').then(function () {
+        (g.TDC_SHOTCHART ? Promise.resolve() : loadScript('tdc-shotchart.js?v=36')).then(function () {   // never swap in a second copy over the page's own
           var k = b.tid + '|' + (b.season || SHOT_SEASON);
           SHOTS[k] = SHOTS[k] || fetch(SB + '/rest/v1/shots?team_id=eq.' + b.tid + '&season_year=eq.' + (b.season || SHOT_SEASON) + '&select=x,y,made,sv,dist,game_id&limit=8000', { headers: g.tdcH ? tdcH() : H(true) }).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; });
           SHOTS[k].then(function (rows) {

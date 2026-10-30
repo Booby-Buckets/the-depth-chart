@@ -377,7 +377,9 @@
     var LB=lookBase();
     if(look) fill=function(k){ return lookCol(xpOf(k),LB); };
     var tip=function(k){ var z=Z[k], av=avgOf(Z12[k].ref);
-      return Z12[k].n+' · '+Math.round(z.a/N*100)+'% of shots|'+(z.a?Math.round(z.m/z.a*100):0)+'|'+z.m+'/'+z.a+'|'+Math.round(av*100)+'|'+(z.a?((z.m/z.a-av>=0?'+':'')+Math.round((z.m/z.a-av)*100)):'—'); };
+      return Z12[k].n+' · '+Math.round(z.a/N*100)+'% of shots|'+(z.a?Math.round(z.m/z.a*100):0)+'|'+z.m+'/'+z.a+'|'+Math.round(av*100)+'|'+(z.a?((z.m/z.a-av>=0?'+':'')+Math.round((z.m/z.a-av)*100)):'—')+
+        // + what a shot here is worth: points if it goes in | the look (D-I expected pts) | what was actually scored per shot
+        '|'+(THREES12[k]?3:2)+'|'+xpOf(k).toFixed(2)+'|'+(z.a?(z.m/z.a*(THREES12[k]?3:2)).toFixed(2):''); };
     var reg=function(k,d,clip,clip2){ var el='<path class="sc-zone scz-z" data-zk="'+k+'" data-ztip="'+tip(k)+'" d="'+d+'" fill="'+fill(k)+'"'+(clip2?' clip-path="url(#'+id+clip2+')"':'')+'/>';
       return '<g clip-path="url(#'+id+clip+')">'+el+'</g>'; };
     var CX=CORNER_X, FULL='M 0 0 H '+W+' V '+H+' H 0 Z';
@@ -971,6 +973,16 @@
         var r=wrap.getBoundingClientRect();
         if(t.hasAttribute('data-ztip')){
           var zf=t.getAttribute('data-ztip').split('|');
+          var zcol=function(neg){ return 'color:'+(neg?'var(--sc-cold)':'var(--sc-hot)'); };
+          if(zf.length>5){   // 12-zone court: shooting, then what a shot here is worth
+            var lk=+zf[6], got=zf[7]===''?null:+zf[7], dv=got==null?null:got-lk;
+            tip.innerHTML='<b>'+zf[0].charAt(0).toUpperCase()+zf[0].slice(1)+'</b>'+
+              '<span class="scq">'+zf[2]+' FG · '+zf[1]+'%</span>'+
+              '<span class="scr">D-I here: '+zf[3]+'% <span style="font-weight:800;'+zcol(zf[4].charAt(0)==='-')+'">('+zf[4]+')</span></span>'+
+              '<span class="scr" style="margin-top:4px;">Worth '+zf[5]+' pts when it goes in</span>'+
+              '<span class="scr">Look: <b>'+lk.toFixed(2)+'</b> pts per shot ('+zf[3]+'% × '+zf[5]+')</span>'+
+              '<span class="scd"'+(dv==null?'':' style="'+(Math.abs(dv)<0.04?'color:var(--text2)':zcol(dv<0))+'"')+'>Got: '+(got==null?'—':got.toFixed(2)+' pts per shot ('+(dv>=0?'+':'')+dv.toFixed(2)+' vs the look)')+'</span>';
+          } else
           tip.innerHTML='<b>'+zf[0].charAt(0).toUpperCase()+zf[0].slice(1)+' · '+zf[1]+'%</b><span class="scq">'+zf[2]+' FG</span><span class="scr">D-I here: '+zf[3]+'%</span><span class="scd" style="color:'+(zf[4].charAt(0)==='-'?'var(--sc-cold)':'var(--sc-hot)')+'">'+zf[4]+' vs D-I avg</span>';
           tip.classList.add('rich');
         } else if(t.hasAttribute('data-tip')){
