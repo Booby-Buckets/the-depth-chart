@@ -62,7 +62,13 @@
       const NIT = rules.nit || {}, NIT_N = NIT.field || 24, AQF = rules.aq_fallback || {};
       // NIT exempt bids: the top-N conferences by strength (KenPom's conference ranking ≈ our members' average
       // projected rating) get one each, plus the extra leagues (ACC, SEC)
-      const RES = 12;   // résumé: +1 pt of selection score per 8.3% of win% above what the team's strength predicted
+      // at-large résumé, fit on every Selection Sunday 2008-26 (5,739 non-AQ team-seasons, 645 at-larges; pre-selection
+      // Power Rating + record): rating + 2.05·win% − 34.4·max(0, .620 − win%). The committee barely separates a .700 team
+      // from a .650 one but punishes a thin record hard — no rated team under .500 got in (0/24), .500-.550 5%. League
+      // record adds nothing once overall record is in. Leave-one-season-out log loss .0777 vs .0814 for a straight line.
+      // (Was strength + 12·(win% − expected win%): a power-league team projected 15-17 paid nothing for the record itself,
+      // so South Carolina / Kansas State at 5-13 in league play drew 18-23% at-large odds — owner, Oct 30 2026.)
+      const RES_WP = 2.05, RES_K = 0.62, RES_THIN = 34.4;
       const rowOf = {}; D.teams.forEach(t => rowOf[t.full] = t);
       // every league's season + tournament, on the shared draws
       const codes = [...new Set(Object.values(mem.teams))];
@@ -72,7 +78,6 @@
       codes.forEach(c => { const r = CT[c]; if (r) r.names.forEach(n => { ix[n] = T.length; T.push(n); confOf[n] = c; }); });
       const N = T.length;
       const W = T.map(n => CT[confOf[n]].proj[n].W), GN = T.map(n => CT[confOf[n]].proj[n].n || 1);
-      const meanWP = T.map((n, i) => { let a = 0; for (let s = 0; s < SIMS; s++) a += W[i][s]; return a / SIMS / GN[i]; });
       const rating = T.map(n => sim.rate(n, rowOf[n]));          // preseason prior + results so far
       const confAvg = {}; codes.forEach(c => { const ns = T.filter(n => confOf[n] === c); confAvg[c] = ns.reduce((a, n) => a + rating[ix[n]], 0) / Math.max(1, ns.length); });
       const exemptConfs = codes.slice().sort((a, b) => confAvg[b] - confAvg[a]).slice(0, NIT.exempt_top_conferences || 10).concat(NIT.exempt_extra || []);
@@ -92,7 +97,8 @@
       for (let s = 0; s < SIMS; s++) {
         for (let i = 0; i < N; i++) {
           str[i] = sim.str ? sim.str(T[i], rating[i], s) : rating[i] + sim.tau(T[i]) * sim.zTeam(s, T[i]);
-          sel[i] = str[i] + RES * (W[i][s] / GN[i] - meanWP[i]);
+          const wp = W[i][s] / GN[i];
+          sel[i] = str[i] + RES_WP * wp - RES_THIN * Math.max(0, RES_K - wp);
           A.sel[i] += sel[i];
         }
         codes.forEach(c => { const r = CT[c]; if (!r) return; r.names.forEach((n, k) => { confG[s * N + ix[n]] = r.gamesS[s * r.names.length + k]; }); });

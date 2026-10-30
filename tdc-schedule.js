@@ -28,7 +28,11 @@
   const _walkCache = {};
   // preseason rating uncertainty, pts: a team's rating vs last year's (regressed) misses by 4.7 pre-portal
   // (2013-19) and 5.05 in the portal era (2022-26) — team_seasons SRS, Oct 2026
-  const TAU = 5.0;
+  // Was 5.0 = the NAIVE miss (last year's rating as the guess). Our projection misses less: rolling-origin backtest
+  // (backtest_preseason.py) roster+program RMSE 4.18, best blend 3.73. 4.6 splits it: at 5.0 a power league's bottom 3
+  // drew ~20% NCAA odds (history, even with the naive guess: 18%); at 4.3 the top team's Final Four odds rose to 31%
+  // (naive-guess top 3 historically: 21%). At 4.6: bottom 3 16%, Houston F4 28% / title 9.8% — owner, Oct 30 2026.
+  const TAU = 4.6;
   // A season's real spread of team strength: SD of full-season D-I ratings ≈ 9.0 (2024-26; 8.0-9.4 since 2016).
   // The projected ratings already spread that wide, so adding a ±TAU true-strength draw on top widened every simulated
   // season to ~10.4: the simulated #1 team averaged 29.6 vs 22.0 entering a real NCAA Tournament (2008-26), top-8 25.0
@@ -538,7 +542,7 @@
 
   // every rated team's projected record for the rankings table — lighter sims, cached in
   // localStorage until the ratings or the schedule file change
-  const LS_ALL = 'tdc_projrec_v15';
+  const LS_ALL = 'tdc_projrec_v17';
   async function projectAll(opts) {
     opts = opts || {};
     await load();
