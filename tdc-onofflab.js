@@ -7,7 +7,11 @@
      games[i] = [date, opponent, 'H'|'A'|'N', conference game 0/1, opponent rank by season net rating]
      rows[j]  = [lineup (indexes into ids), game index, state, seconds, own box, opponent box]
      state    = half (0 first / 1 second + OT) + 2·close-and-late + 4·(trailing 0 / tied 1 / leading 2)
-   Photos only for the owner (window.tdcShowPhotos); everyone else sees initials in the team colour. */
+   Photos only for the owner (window.tdcShowPhotos); everyone else sees initials in the team colour.
+
+   TDC_ONOFFLAB.mount(host, opts) puts a Lab anywhere (the team page On/Off + Lineups tabs, Oct 30 2026):
+     team: lab slug ('duke-blue-devils') or full ESPN name · season · lockTeam (no team picker) · url (keep the view
+     in the address bar, the Lab page only) · modes: subset of question keys · mode: starting question · seasons */
 (function () {
   var SEASONS = [[2026, '2025-26'], [2025, '2024-25'], [2024, '2023-24']];
   var MODES = [['together', 'Together or apart', 'All on vs none on'], ['each', 'One at a time', 'With him vs without'],
@@ -19,10 +23,79 @@
     ['half', 'Half', [['all', 'Both'], ['1', '1st'], ['2', '2nd + OT']]],
     ['games', 'Games', [['all', 'Season'], ['l10', 'Last 10'], ['l5', 'Last 5'], ['conf', 'Conference'], ['non', 'Non-conference']]]
   ];
-  var S = { season: 2026, team: null, mode: 'together', pick: [], unit: 3, sel: 0, f: { opp: 'all', ven: 'all', st: 'all', half: 'all', games: 'all' } };
-  var IDX = {}, D = null, $ = function (id) { return document.getElementById(id); };
+  var IDX = {};
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   var get = function (u) { return fetch(u).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }); };
+  var slugOf = function (t) { return String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); };
+
+  // the Lab's look (was inline in onoff-lab.html) — injected once, so any page can mount a Lab
+  var CSS = [
+    ":root{--ol-pos:#1f8a45;--ol-neg:#c0392b;--ol-gold:#d9a91a;}",
+    ".ol-step{margin:0 0 20px;}",
+    ".ol-lbl{font:800 10.5px Inter,system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:0 0 8px;display:flex;justify-content:space-between;align-items:center;gap:8px;}",
+    ".ol-lbl span{font-weight:600;letter-spacing:0;text-transform:none;}",
+    ".ol-lbl button{background:none;border:0;color:var(--accent);font:700 12px Inter,system-ui,sans-serif;cursor:pointer;padding:0;}",
+    ".ol-row{display:flex;gap:8px;flex-wrap:wrap;}",
+    ".ol-q{display:grid;grid-template-columns:repeat(var(--olq,5),1fr);gap:8px;}",
+    ".ol-q button{border:1px solid var(--border2);background:var(--bg);border-radius:10px;padding:10px 12px;text-align:left;cursor:pointer;font:700 13px Inter,system-ui,sans-serif;color:var(--text);}",
+    ".ol-q button small{display:block;font-weight:500;font-size:11.5px;color:var(--text3);margin-top:3px;}",
+    ".ol-q button.on{background:var(--text);color:var(--bg);border-color:var(--text);}.ol-q button.on small{color:var(--bg);opacity:.7;}",
+    ".ol-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;}",
+    ".ol-pc{position:relative;display:flex;flex-direction:column;align-items:center;border:1px solid var(--border);background:var(--bg);border-radius:12px;padding:12px 6px 10px;cursor:pointer;font-family:inherit;color:var(--text);}",
+    ".ol-pc:hover{border-color:var(--border2);}",
+    ".ol-pc.on{border:2px solid var(--ol-gold);padding:11px 5px 9px;background:color-mix(in srgb,var(--ol-gold) 9%,var(--bg));}",
+    ".ol-pc .tag{position:absolute;top:6px;right:6px;background:var(--ol-gold);color:#1b1a17;font:800 10px Inter,system-ui,sans-serif;border-radius:4px;padding:1px 5px;}",
+    ".ol-pc .fn{font-size:11px;color:var(--text3);line-height:1.2;}.ol-pc .ln{font-size:13px;font-weight:800;line-height:1.2;}",
+    ".ol-pc .mn{font-size:10.5px;color:var(--text3);margin-top:3px;}",
+    ".ol-av{position:relative;width:54px;height:54px;margin:0 0 7px;border-radius:50%;color:#fff;display:inline-flex;align-items:center;justify-content:center;font:800 16px Inter,system-ui,sans-serif;overflow:hidden;flex:none;}",
+    ".ol-av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}",
+    ".ol-av.off{filter:grayscale(1);opacity:.45;}",
+    ".ol-fl{display:flex;flex-direction:column;gap:6px;}",
+    ".ol-fr{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}",
+    ".ol-fr b{font:800 10px Inter,system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);width:92px;}",
+    ".ol-fr .ui-seg button{font-size:10.5px;padding:5px 10px;}",
+    ".ol-out{background:var(--bg);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin:24px 0 0;}",
+    ".ol-out{max-width:1060px;}.ol-out.fit{width:fit-content;min-width:min(100%,560px);}.ol-out.fit .ol-say,.ol-out.fit .ol-key{width:0;min-width:100%;box-sizing:border-box;}.ol-cmp .oo-pro col.n{width:14.5%;}",
+    ".ol-strip{background:#1b1a17;color:#fff;padding:12px 16px;font:800 12px Inter,system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;}",
+    ".ol-strip span{font-weight:600;letter-spacing:0;text-transform:none;opacity:.7;}",
+    ".ol-say{padding:16px 20px;font-size:16px;line-height:1.55;color:var(--text2);border-bottom:1px solid var(--border);}",
+    ".ol-say b{color:var(--text);}.ol-say a{color:var(--text);text-decoration:none;}.ol-say a:hover{text-decoration:underline;}",
+    ".ol-thin{display:block;margin-top:6px;font-size:12.5px;color:var(--accent);font-weight:600;}",
+    ".ol-out .pos{color:var(--ol-pos)!important;}.ol-out .neg{color:var(--ol-neg)!important;}",
+    ".ol-say .faces{display:inline-flex;vertical-align:middle;margin-right:10px;}.ol-say .faces .ol-av{width:30px;height:30px;font-size:10px;margin:0 -6px 0 0;border:2px solid var(--bg);}",
+    ".faces{display:inline-flex;}",
+    ".ol-cmp{padding:16px 20px 6px;}",
+    ".ol-cmp .oo-wide .ui-tiles{grid-template-columns:repeat(4,1fr);}",
+    ".ol-rank.oo-pro{table-layout:auto;width:auto;}.ol-rank.oo-pro td,.ol-rank.oo-pro th{padding-left:10px;padding-right:10px;}.ol-rank.oo-pro th.pc,.ol-rank.oo-pro td.pc{padding-left:2px;padding-right:14px;}",
+    ".ol-rank td.k{padding-right:28px !important;}",
+    ".ol-rank td.k>*{vertical-align:middle;}.ol-rank td.k>.ol-av,.ol-rank td.k>.faces{margin-right:8px;}.ol-rank td.k a{color:var(--text);font-weight:700;text-decoration:none;}.ol-rank td.k a:hover{text-decoration:underline;}",
+    ".ol-rank td.k{white-space:normal;}.ol-rank .nms{line-height:1.35;font-size:13px;white-space:nowrap;}",
+    ".ol-rank .rk{display:inline-block;width:20px;color:var(--text3);font-weight:700;font-size:12px;}",
+    ".ol-av.sm{width:26px;height:26px;margin:0;font-size:9.5px;}.ol-rank .faces .ol-av.sm{margin-right:-6px;border:2px solid var(--bg);}.ol-rank .faces{margin-right:8px;}",
+    ".ol-key{font-size:12px;color:var(--text3);margin:0;padding:10px 20px 14px;}",
+    ".ol-pick{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:12px 20px;border-bottom:1px solid var(--border);}",
+    ".ol-pick button{border:1px solid var(--border2);background:var(--bg);border-radius:999px;padding:5px 11px;font:600 12px Inter,system-ui,sans-serif;cursor:pointer;color:var(--text2);}",
+    ".ol-pick button.on{background:var(--text);color:var(--bg);border-color:var(--text);}",
+    ".ol-note{margin-left:auto;font-size:12px;color:var(--text3);}",
+    ".ol-foot{font-size:12.5px;color:var(--text3);line-height:1.6;margin:14px 2px 0;}",
+    ".ol-snote{align-self:center;font-size:12.5px;color:var(--text3);}.ol-snote b{color:var(--text2);}",
+    "@media(max-width:820px){",
+    ".ol-out.fit{width:auto;}.ol-out.fit .ol-cmp{overflow-x:auto;}.ol-q{grid-template-columns:repeat(2,1fr);}.ol-fr b{width:100%;}.ol-cmp{padding:12px 10px 4px;}.ol-cmp .oo-wide .ui-tiles{grid-template-columns:repeat(2,1fr);}.ol-rank.oo-pro col.n{width:13%;}.ol-rank .faces{display:none;}",
+    ".ol-cmp .oo-pro{font-size:12px;}.ol-cmp .oo-pro col.n{width:15%;}.ol-cmp .oo-pro col.c{width:30px;}.ol-cmp .oo-pro td{padding:6px 3px;}.ol-cmp .oo-pro th{padding:6px 3px 8px;font-size:9px;letter-spacing:.04em;}.ol-cmp .oo-pc{min-width:24px;padding:2px 3px;font-size:10.5px;}}"
+  ].join('');
+
+  function css() {
+    if (document.getElementById('tdc-onofflab-css')) return;
+    var st = document.createElement('style'); st.id = 'tdc-onofflab-css';
+    st.textContent = CSS; document.head.appendChild(st);
+  }
+
+  function make(root, O) {
+  O = O || {};
+  var S = { season: O.season || 2026, team: O.team || null, mode: O.mode || 'together', pick: [], unit: O.unit || 3, sel: 0, f: { opp: 'all', ven: 'all', st: 'all', half: 'all', games: 'all' } };
+  var D = null, $ = function (id) { return root.querySelector('[data-ol="' + id + '"]'); };
+  var MODES_ON = O.modes ? MODES.filter(function (m) { return O.modes.indexOf(m[0]) >= 0; }) : MODES;
+  var SEAS_ON = O.seasons ? SEASONS.filter(function (x) { return O.seasons.indexOf(x[0]) >= 0; }) : SEASONS;
 
   // ── sums ──
   function blank() { var b = {}; D.fields.forEach(function (f) { b[f] = 0; }); return b; }
@@ -77,6 +150,10 @@
   var f1 = function (v) { return v == null || !isFinite(v) ? '—' : v.toFixed(1); };
   var pn = function (v) { return v == null || !isFinite(v) ? '' : v >= 0 ? 'pos' : 'neg'; };
   var nameOf = function (i) { return D.names[i] || D.ids[i]; };
+  // last name, with a first initial when two teammates share it (Cameron & Cayden Boozer)
+  var lastU = function (i) { var n = nameOf(i), l = last(n), k = l.toLowerCase();
+    var dup = D.ids.some(function (x, j) { return j !== i && last(nameOf(j)).toLowerCase() === k; });
+    return dup ? first(n)[0] + '. ' + l : l; };
   var first = function (n) { return String(n).split(' ')[0]; }, last = function (n) { var w = String(n).split(' '); return w.slice(1).join(' ') || n; };
   var TEAM = function () { try { return (window.tdcShortSchool && tdcShortSchool(D.team)) || D.team; } catch (e) { return D.team; } };
   function tcolor() { try { var c = window.tdcTeamColor && tdcTeamColor(D.team); return (c && c.color) || '#3a4a6a'; } catch (e) { return '#3a4a6a'; } }
@@ -100,7 +177,7 @@
   function draw() {
     var my = ++TOK;
     var nG = filterRows(), team = sum(function () { return true; }), out = '', after = null, P = S.pick.map(function (id) { return D.ids.indexOf(id); }).filter(function (i) { return i >= 0; });
-    var T = esc(TEAM()), names = function (L, j) { return L.map(function (i) { return esc(last(nameOf(i))); }).join(j || ', '); };
+    var T = esc(TEAM()), names = function (L, j) { return L.map(function (i) { return esc(lastU(i)); }).join(j || ', '); };
     var cmp = function (on, off, heads) { after = function () { return TDC_ONOFF.compare($('olCmp'), { season: S.season, team: D.team, on: on, off: off, heads: heads }); }; return '<div id="olCmp" class="ol-cmp"></div>'; };
     TDC_ONOFF.ranker(S.season).then(function (Rk) {
       if (my !== TOK) return;
@@ -147,7 +224,7 @@
           '<span class="ol-note">' + rows.length + ' units with ' + minP + '+ possessions</span></div>' +
           '<div class="ol-say">' + T + '’s best ' + n + '-man units' + (P.length ? ' with <b>' + names(P, ' and ') + '</b>' : '') + ', by net rating.</div>' +
           (top.length ? '<div class="ol-cmp">' + rankTable([['Min', 'n'], ['ORtg', 'n'], ['Rank', 'c'], ['DRtg', 'n'], ['Rank', 'c'], ['NetRtg', 'n', 1], ['Rank', 'c']], top.map(function (x, k) {
-            return '<tr><td class="k"><span class="rk">' + (k + 1) + '</span><span class="faces">' + x.k.map(function (i) { return av(i, 'sm'); }).join('') + '</span>' + '<span class="nms">' + x.k.map(function (i) { return link(i, esc(last(nameOf(i)))); }).join(' · ') + '</span></td>' +
+            return '<tr><td class="k"><span class="rk">' + (k + 1) + '</span><span class="faces">' + x.k.map(function (i) { return av(i, 'sm'); }).join('') + '</span>' + '<span class="nms">' + x.k.map(function (i) { return link(i, esc(lastU(i))); }).join(' · ') + '</span></td>' +
               '<td>' + Math.round(x.r.min) + '</td><td>' + f1(x.r.o) + '</td><td class="pc">' + ch('on', 'o', x.r.o) + '</td><td>' + f1(x.r.d) + '</td><td class="pc">' + ch('on', 'd', x.r.d) + '</td>' +
               '<td class="' + (x.r.net >= 0 ? 'up' : 'dn') + '">' + sg(x.r.net) + '</td><td class="pc">' + ch('on', 'net', x.r.net) + '</td></tr>'; })) + '</div>'
             : '<div class="ol-say">No ' + n + '-man units with enough possessions' + (P.length ? ' that include everyone picked' : '') + '.</div>');
@@ -180,14 +257,20 @@
       if (j >= 0) S.pick.splice(j, 1); else { S.pick.push(id); if (S.pick.length > 4) S.pick.shift(); } S.sel = 0; sync(); cards(); draw(); }; });
   }
   function controls() {
-    $('olModes').innerHTML = MODES.map(function (m) { return '<button data-m="' + m[0] + '" class="' + (m[0] === S.mode ? 'on' : '') + '">' + m[1] + '<small>' + m[2] + '</small></button>'; }).join('');
+    if (!$('olModes')) return controlsF();
+    $('olModes').style.setProperty('--olq', MODES_ON.length);
+    $('olModes').innerHTML = MODES_ON.map(function (m) { return '<button data-m="' + m[0] + '" class="' + (m[0] === S.mode ? 'on' : '') + '">' + m[1] + '<small>' + m[2] + '</small></button>'; }).join('');
     $('olModes').querySelectorAll('button').forEach(function (b) { b.onclick = function () { S.mode = b.dataset.m; S.sel = 0; sync(); controls(); draw(); }; });
+    controlsF();
+  }
+  function controlsF() {
     $('olFilters').innerHTML = FILTERS.map(function (F) { return '<div class="ol-fr"><b>' + F[1] + '</b><span class="ui-seg">' + F[2].map(function (o) {
       return '<button data-f="' + F[0] + '" data-v="' + o[0] + '" class="' + (S.f[F[0]] === o[0] ? 'on' : '') + '">' + o[1] + '</button>'; }).join('') + '</span></div>'; }).join('');
     $('olFilters').querySelectorAll('[data-f]').forEach(function (b) { b.onclick = function () { S.f[b.dataset.f] = b.dataset.v; sync(); controls(); draw(); }; });
   }
   // the whole view rides in the URL, so any answer can be shared
   function sync() {
+    if (!O.url) return;
     try { var u = new URL(location.href), q = u.searchParams;
       q.set('team', S.team); q.set('season', S.season); q.set('q', S.mode);
       if (S.pick.length) q.set('p', S.pick.join(',')); else q.delete('p');
@@ -196,6 +279,7 @@
       history.replaceState(null, '', u); } catch (e) {}
   }
   function loadTeam() {
+    if (!S.team) { $('olOut').innerHTML = '<div class="ol-say">No play-by-play lineup data for this team in ' + SEASONS.find(function (x) { return x[0] === S.season; })[1] + '.</div>'; $('olCards').innerHTML = ''; return Promise.resolve(); }
     $('olOut').innerHTML = '<div class="ol-say">Loading ' + esc(S.team) + '…</div>';
     return get('scripts/data/onoff_lab/' + S.season + '/' + S.team + '.json?v=2').then(function (j) {
       if (!j) { $('olOut').innerHTML = '<div class="ol-say">No lineup data for this team and season.</div>'; $('olCards').innerHTML = ''; return; }
@@ -209,22 +293,46 @@
     return (IDX[S.season] ? Promise.resolve(IDX[S.season]) : get('scripts/data/onoff_lab/' + S.season + '/index.json?v=1').then(function (j) { return (IDX[S.season] = j || []); })).then(function (L) {
       var short = function (t) { try { return (window.tdcShortSchool && tdcShortSchool(t[1])) || t[1]; } catch (e) { return t[1]; } };
       L = L.slice().sort(function (a, b) { return short(a).localeCompare(short(b)); });
+      if (O.lockTeam) {   // the team page: this team only; null = no lineup data for it this season
+        var want = slugOf(O.team), hit = L.find(function (t) { return t[0] === want || slugOf(t[1]) === want; });
+        S.team = hit ? hit[0] : null; return;
+      }
       if (!L.some(function (t) { return t[0] === S.team; })) S.team = (L.find(function (t) { return t[0] === 'kentucky-wildcats'; }) || L[0] || [])[0];
-      $('olTeam').innerHTML = L.map(function (t) { return '<option value="' + esc(t[0]) + '"' + (t[0] === S.team ? ' selected' : '') + '>' + esc(short(t)) + '</option>'; }).join('');
+      if ($('olTeam')) $('olTeam').innerHTML = L.map(function (t) { return '<option value="' + esc(t[0]) + '"' + (t[0] === S.team ? ' selected' : '') + '>' + esc(short(t)) + '</option>'; }).join('');
     });
   }
-  function init() {
-    var q = new URLSearchParams(location.search);
-    S.team = q.get('team') || null; if (q.get('season')) S.season = +q.get('season');
-    if (q.get('q') && MODES.some(function (m) { return m[0] === q.get('q'); })) S.mode = q.get('q');
-    if (q.get('p')) S.pick = q.get('p').split(',').filter(Boolean).slice(0, 4);
-    if (q.get('n')) S.unit = Math.max(2, Math.min(5, +q.get('n') || 3));
-    FILTERS.forEach(function (F) { var v = q.get(F[0]); if (v && F[2].some(function (o) { return o[0] === v; })) S.f[F[0]] = v; });
-    $('olSeason').innerHTML = SEASONS.map(function (x) { return '<option value="' + x[0] + '"' + (x[0] === S.season ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('');
+  function start() {
+    css();
+    var n = 0, step = function (lbl, body, extra) { n++; return '<div class="ol-step"><div class="ol-lbl">' + (O.lockTeam ? '' : n + ' · ') + lbl + (extra || '') + '</div>' + body + '</div>'; };
+    root.classList.add('ol-lab');
+    root.innerHTML =
+      (O.lockTeam && SEAS_ON.length < 2 ? '<select data-ol="olSeason" hidden></select>' + (O.note ? '<p class="ol-snote">' + O.note + '</p>' : '') : step(O.lockTeam ? 'Season' : 'Team', '<div class="ol-row">' + (O.lockTeam ? '' : '<select data-ol="olTeam" class="ui-select" aria-label="Team"></select>') +
+        '<select data-ol="olSeason" class="ui-select" aria-label="Season"></select>' + (O.note ? '<span class="ol-snote">' + O.note + '</span>' : '') + '</div>')) +
+      (MODES_ON.length > 1 ? step('Question', '<div class="ol-q" data-ol="olModes"></div>') : '') +
+      step('Players', '<div class="ol-cards" data-ol="olCards"></div>', ' <span><span data-ol="olCount"></span><button data-ol="olClear" type="button" hidden>Clear</button></span>') +
+      step('Filters', '<div class="ol-fl" data-ol="olFilters"></div>') +
+      '<div class="ol-out" data-ol="olOut"></div>';
+    if (O.url) {
+      var q = new URLSearchParams(location.search);
+      S.team = q.get('team') || S.team; if (q.get('season')) S.season = +q.get('season');
+      if (q.get('q') && MODES_ON.some(function (m) { return m[0] === q.get('q'); })) S.mode = q.get('q');
+      if (q.get('p')) S.pick = q.get('p').split(',').filter(Boolean).slice(0, 4);
+      if (q.get('n')) S.unit = Math.max(2, Math.min(5, +q.get('n') || 3));
+      FILTERS.forEach(function (F) { var v = q.get(F[0]); if (v && F[2].some(function (o) { return o[0] === v; })) S.f[F[0]] = v; });
+    }
+    if (!MODES_ON.some(function (m) { return m[0] === S.mode; })) S.mode = MODES_ON[0][0];
+    if (!SEAS_ON.some(function (x) { return x[0] === S.season; })) S.season = SEAS_ON[0][0];
+    $('olSeason').innerHTML = SEAS_ON.map(function (x) { return '<option value="' + x[0] + '"' + (x[0] === S.season ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('');
     $('olSeason').onchange = function () { S.season = +this.value; teams().then(loadTeam); };
-    $('olTeam').onchange = function () { S.team = this.value; S.pick = []; S.sel = 0; loadTeam(); };
+    if ($('olTeam')) $('olTeam').onchange = function () { S.team = this.value; S.pick = []; S.sel = 0; loadTeam(); };
     $('olClear').onclick = function () { S.pick = []; sync(); cards(); draw(); };
-    controls(); teams().then(loadTeam);
+    controls(); return teams().then(loadTeam);
   }
-  window.TDC_ONOFFLAB = { init: init };
+  return start();
+  }
+
+  window.TDC_ONOFFLAB = {
+    init: function () { return make(document.getElementById('olLab'), { url: true }); },
+    mount: function (host, opts) { return host ? make(host, opts) : Promise.resolve(); }
+  };
 })();

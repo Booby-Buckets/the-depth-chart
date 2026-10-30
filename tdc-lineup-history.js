@@ -132,7 +132,11 @@
         var S = season(F, yr);
         host.innerHTML = html(S, yrs);
         var fh = host.querySelector('#luFiveHost');
-        if (fh && g.TDC_LINEUPS && g.TDC_LINEUPS.section) g.TDC_LINEUPS.section(full, yr, {}).then(function (h) { if (h) fh.innerHTML = '<div class="lu-h"><h3>Five-man lineups & trios</h3><small>every possession from play-by-play</small></div>' + h; }).catch(function () {});
+        // the On/Off Lab's best-lineups view (same look as the On/Off tab + onoff-lab.html) for the seasons it covers
+        var lab = g.TDC_ONOFFLAB && [2024, 2025, 2026].indexOf(yr) >= 0 && (!g.TDCGate || g.TDCGate.has('pro'));
+        if (fh && lab) { fh.innerHTML = '<div class="lu-h"><h3>Best lineups</h3><small>2- to 5-man units from every possession of play-by-play, ranked vs D-I</small></div><div class="lu-lab"></div>';
+          g.TDC_ONOFFLAB.mount(fh.querySelector('.lu-lab'), { team: full, season: yr, seasons: [yr], lockTeam: true, modes: ['lineups'], unit: 5 }); }
+        else if (fh && g.TDC_LINEUPS && g.TDC_LINEUPS.section) g.TDC_LINEUPS.section(full, yr, {}).then(function (h) { if (h) fh.innerHTML = '<div class="lu-h"><h3>Five-man lineups & trios</h3><small>every possession from play-by-play</small></div>' + h; }).catch(function () {});
         if (g.tdcSheetHeat) host.querySelectorAll('table.sheet').forEach(function (t) { g.tdcSheetHeat(t); });
         host.querySelectorAll('.lu-yrs button').forEach(function (b) { b.onclick = function () { show(+b.dataset.yr); }; });
       };

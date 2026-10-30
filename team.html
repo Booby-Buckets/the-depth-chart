@@ -16,7 +16,9 @@
   <script src="tdc-teamshotprofile.js?v=ui1"></script>
   <script src="tdc-statshift-player.js?v=ui1"></script>
   <script src="tdc-lineups.js?v=17s"></script>
-  <script src="tdc-lineup-history.js?v=ui1"></script>
+  <script src="tdc-lineup-history.js?v=lab2"></script>
+  <script src="tdc-onoff.js?v=13"></script>
+  <script src="tdc-onofflab.js?v=8"></script>
   <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-assistweb.js?v=ui1"></script>
   <script src="tdc-nil.js?v=pay13"></script>
@@ -1451,7 +1453,6 @@
       <button class="hero-grp-btn" onclick="_tgToggle(this,event)">Analytics<span class="hero-grp-car">▾</span></button>
       <div class="hero-grp-menu" style="min-width:252px;">
         <button class="hgm-item" onclick="_tgPick('dna',this)"><span class="hgm-t">Team DNA</span><span class="hgm-d">Every stat on one sheet, ranked vs D-I</span></button>
-        <button class="hgm-item" onclick="_tgPick('onoff',this)"><span class="hgm-t">On/Off</span><span class="hgm-d">Impact with each player on vs off</span></button>
         <button class="hgm-item" onclick="_tgPick('statshift',this)"><span class="hgm-t">Stat Line Shift</span><span class="hgm-d">Every player's line with vs without a teammate</span></button>
         <button class="hgm-item" id="projTabBtn" onclick="_tgPick('projections',this)"><span class="hgm-t">2026-27 Projections</span><span class="hgm-d">Next season's projected line</span></button>
       </div>
@@ -1484,6 +1485,7 @@
       </div>
     </div>
     <button class="hero-tab" onclick="switchTab('lineups',this)">Lineups</button>
+    <button class="hero-tab" onclick="switchTab('onoff',this)">On/Off</button>
     <button class="hero-tab" onclick="switchTab('trends',this)">Trends</button>
     <button class="hero-tab" onclick="switchTab('preview',this)">Preview</button>
     <button class="hero-tab" onclick="switchTab('nil',this)">NIL Value</button>
@@ -6389,178 +6391,23 @@ function _esc(t){ return String(t==null?'':t).replace(/[&<>"]/g,function(c){retu
 
 // ── On/Off (WOWY) — reads scripts/data/player_onoff.json (game-level lineup on/off) ──
 let _onoffData=null;
+// The On/Off tab is the On/Off Lab (tdc-onofflab.js, same as onoff-lab.html) locked to this team: pick players,
+// ask a question (together / one at a time / without / best lineups / best players), filter by opponent, venue,
+// game state, half and games, every number ranked vs D-I. Opens on Best players (the whole roster by swing).
+// Lab data covers 2023-24 → 2025-26; the 2026-27 roster view shows last season until games are played.
 async function renderOnOff(){
-  const host=document.getElementById('onoffHost'); if(!host) return;
-  // Season-aware: a past roster season shows THAT season's on/off; the current roster (2027)
-  // uses the newest available (on/off is "measured last season").
-  const wantSeason=(typeof _rosterSeason!=='undefined'&&_rosterSeason<2027)?String(_rosterSeason):null;
-  const viewKey=wantSeason||'current';
-  if(host._renderedSeason===viewKey) return;   // already showing this season
+  const host=document.getElementById('onoffHost'); if(!host||!window.TDC_ONOFFLAB) return;
+  const LAB=[2024,2025,2026], past=(typeof _rosterSeason!=='undefined'&&_rosterSeason<2027)?_rosterSeason:null;
+  const viewKey=String(past||'current');
+  if(host._renderedSeason===viewKey) return;
   host._renderedSeason=viewKey;
-  try{ if(!_onoffData){ const r=await fetch('scripts/data/player_onoff.json'); _onoffData=r.ok?await r.json():{}; } }
-  catch(e){ _onoffData={}; }
-  const allSeasons=Object.keys(_onoffData||{}).sort().reverse();
-  const seasons=wantSeason?(allSeasons.includes(wantSeason)?[wantSeason]:[]):allSeasons;
-  const nm=s=>(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();
-  const short=nm((typeof teamName!=='undefined'&&teamName)||(teamT&&teamT.name)||'');
-  // The on/off data is keyed by FULL ESPN name ("Florida Gators"), so a bare
-  // startsWith(short) match wrongly swept in sibling schools that share a name
-  // prefix (Florida State, Florida Atlantic). Disambiguate: group the prefix
-  // matches by full team name and pick the one that is actually THIS team — by
-  // roster espn_id overlap (returners), backed by an exact full-name match.
-  const rosterIds=new Set((typeof teamPlayers!=='undefined'?teamPlayers:[])
-    .map(p=>p&&p.espn_id!=null?String(p.espn_id):'').filter(Boolean));
-  let fullNorm=nm((teamT&&teamT.full)||'');
-  if(!fullNorm && window.TDC_RATINGS){ try{ const D=await TDC_RATINGS.get();
-    const row=(D&&D.teams||[]).find(x=>nm(x.team)===short); if(row&&row.full) fullNorm=nm(row.full);
-  }catch(e){} }
-  const overlapCount=g=>g.reduce((n,r)=>n+(rosterIds.has(String(r.espn_id))?1:0),0);
-  let season=null, rows=[];
-  for(const s of seasons){
-    const all=_onoffData[s]||[];
-    const cand=all.filter(r=>{ const t=nm(r.team); return t===short||t.startsWith(short+' '); });
-    let pick=null;
-    if(cand.length){
-      const groups={}; cand.forEach(r=>{ const k=nm(r.team); (groups[k]=groups[k]||[]).push(r); });
-      const keys=Object.keys(groups);
-      pick=groups[keys[0]];
-      if(keys.length>1){                     // >1 school shares the prefix — choose ours
-        let best=null,bestScore=-Infinity;
-        keys.forEach(k=>{
-          let sc=overlapCount(groups[k]);
-          if(fullNorm&&k===fullNorm) sc+=1000; else if(k===short) sc+=1;   // exact-name tiebreaks
-          if(sc>bestScore){ bestScore=sc; best=groups[k]; }
-        });
-        pick=best||pick;
-      }
-    } else if(rosterIds.size>=4){
-      // No name match at all — the school's short name doesn't prefix its full ESPN
-      // name (e.g. "St. Joe's" -> "Saint Joseph's Hawks"). Recover via roster
-      // espn_id overlap: the team most of THIS roster played for last year. Guarded
-      // (>=3 players AND >=40% of the tracked roster) so a cluster of transfers from
-      // one school can't masquerade as a team that simply has no data.
-      const groups={}; all.forEach(r=>{ const k=nm(r.team); (groups[k]=groups[k]||[]).push(r); });
-      let best=null,bo=0; Object.keys(groups).forEach(k=>{ const ov=overlapCount(groups[k]); if(ov>bo){bo=ov;best=groups[k];} });
-      if(best && bo>=3 && bo>=0.4*rosterIds.size) pick=best;
-    }
-    if(pick&&pick.length){ season=s; rows=pick; break; }
-  }
-  const _currentView = !wantSeason;
-  if(!rows.length){
-    const _lbl=wantSeason?((+wantSeason-1)+'-'+(''+wantSeason).slice(2)):'';
-    host.innerHTML='<div class="sec-head">On/Off &amp; WOWY</div><div style="padding:24px;color:var(--text3);">'+
-      (wantSeason?('No on/off data for '+_lbl+'. On/off (WOWY) is computed from full play-by-play, which we only have for recent seasons.')
-                 :'No on/off data for this team yet — the lineup pipeline is still building (game-level WOWY from NCAA play-by-play).')+'</div>';
-    return;
-  }
-  // Reliability gate: on/off is only meaningful with a near-full season of play-by-play. Older
-  // seasons have thin/partial PBP (a few games), so cut any team-season whose largest sample is
-  // well under a full season (~2000 team possessions). Below ~1000 the Impact numbers are noise.
-  const MIN_TEAM_POSS=1000;
-  const teamPoss=rows.reduce((m,r)=>Math.max(m,(+r.on_poss||0)+(+r.off_poss||0)),0);
-  if(teamPoss<MIN_TEAM_POSS){
-    const _sl=(+season-1)+'-'+(''+season).slice(2);
-    host.innerHTML='<div class="sec-head">On/Off &amp; WOWY</div><div style="padding:24px;color:var(--text3);max-width:640px;">On/off (WOWY) needs a near-full season of play-by-play to be reliable, and we don\'t have a large enough sample for '+((teamT&&teamT.name)||'this team')+' in '+_sl+' yet. It’s available for recent seasons (2024-25 on).</div>';
-    return;
-  }
-  // Current (2026-27) view: on/off is inherently LAST SEASON, so once the team's full-sample
-  // reliability check has passed, scope the DISPLAY to players actually RETURNING to the projected
-  // roster — departed players (transfers out / graduated) aren't on the 2026-27 team. (Runs after the
-  // reliability gate so a heavy-turnover team isn't wrongly blocked on the returners' smaller sample.)
-  let _departedN=0;
-  if(_currentView && rosterIds.size){
-    const ret=rows.filter(r=>rosterIds.has(String(r.espn_id)));
-    if(ret.length){ _departedN=rows.length-ret.length; rows=ret; }
-    // Transfers IN: a newcomer's on/off lives under his PREVIOUS school, so he never shows in
-    // this team's rows. Pull each roster player whose same-season on/off is under a different
-    // team (best sample) and tag him with where he came from, so the table isn't just returners.
-    const here=new Set(ret.map(r=>String(r.espn_id)));
-    const byId={};
-    (_onoffData[season]||[]).forEach(r=>{ const id=String(r.espn_id);
-      if(!rosterIds.has(id)||here.has(id)) return;              // not on roster, or already a returner
-      const poss=(+r.on_poss||0)+(+r.off_poss||0);
-      const prev=byId[id]; if(!prev||poss>((+prev.on_poss||0)+(+prev.off_poss||0))) byId[id]=r;
-    });
-    const _incoming=Object.values(byId).map(r=>Object.assign({},r,{_fromTeam:r.team}));
-    if(_incoming.length) rows=rows.concat(_incoming);
-  }
-  // Sample-adjusted Impact (matches onoff.html): shrink the raw swing toward 0 by the
-  // bench-unit sample so a player with few off-court possessions can't post a fake number.
-  // Impact needs a real on-court sample AND enough OFF-court possessions to have a baseline to
-  // compare against. The off/(off+300) shrinkage already pulls thin samples toward 0, so the gate
-  // is deliberately loose (a starter who almost never sits — e.g. 16 off poss — still can't be
-  // graded, but a borderline 150-off transfer can). Small off-samples land near 0, not inflated.
-  rows.forEach(r=>{ const on=+r.on_poss||0, off=+r.off_poss||0, raw=r.onoff_net;
-    r._adj=(raw!=null&&on>=200&&off>=100)?Math.round(Math.max(-35,Math.min(35,raw))*off/(off+300)*10)/10:null; });
-  rows.sort((a,b)=>((b._adj??-99)-(a._adj??-99)));
-  const yl=(+season-1)+'-'+(''+season).slice(2);
-  // ── Paywall: Pro+ sees every player, Premium the top 2, free none ──
-  await (window.TDCGate?TDCGate.ready:Promise.resolve());
-  const _canAll=!window.TDCGate||TDCGate.has('pro');
-  const _canSome=!window.TDCGate||TDCGate.has('premium');
-  const _total=rows.length;
-  if(!_canSome){
-    const card=TDCGate.cardEl({tier:'premium',label:'On/Off Impact',blurb:'See which players actually move the needle — the on/off net-rating swing for every rotation player. Premium shows the top 2; Pro unlocks the full team.'});
-    host.innerHTML='<div class="sec-head">On/Off &amp; WOWY <span style="color:var(--text3);font-weight:600;font-size:12px;">· '+yl+'</span></div>'+
-      '<p style="color:var(--text3);font-size:12.5px;line-height:1.5;max-width:840px;margin:0 0 12px;"><b style="color:var(--text2);">Impact</b> = the on/off swing in net rating (pts/100) — how much better the team is with a player on the floor.</p>'+
-      '<div style="max-width:520px;margin:18px auto 0;">'+card.outerHTML+'</div>';
-    return;
-  }
-  let _gateMsg='';
-  if(!_canAll){ rows=rows.slice(0,2);
-    _gateMsg='<div style="margin:12px 0 0;padding:10px 14px;border:1px dashed var(--border2);border-radius:10px;font-size:12.5px;color:var(--text3);background:var(--bg2);">Showing the top 2 — <a href="pricing.html" style="color:var(--tc-readable,var(--accent));font-weight:700;">upgrade to Pro</a> to see all '+_total+' players.</div>'; }
-  const f=(v,d)=>v==null?'—':(+v).toFixed(d==null?1:d);
-  const sg=(v,d)=>v==null||!isFinite(v)?'—':(v>0?'+':'')+f(v,d);
-  const impTier=v=>v==null?null:v>=12?'Elite':v>=6?'Strong':v>=2?'Positive':v>-2?'Neutral':v>-6?'Negative':'Drag';
-  const showPhoto=(window.tdcShowPhotos&&window.tdcShowPhotos());
-  // "Georgia Tech Yellow Jackets" -> "Georgia Tech" for the transfer-from tag. Prefer the shared
-  // school-name map (handles multi-word mascots); fall back to trimming the last word.
-  const _shortTeam=t=>{ if(window.tdcShortSchool){ try{ const s=window.tdcShortSchool(t); if(s) return s; }catch(e){} }
-    const w=String(t||'').trim().split(/\s+/); return w.length>1?w.slice(0,-1).join(' '):(t||''); };
-  // the site sheet (tdc-sheets.css): frozen # + player, one value per cell, every efficiency
-  // column shaded red→green within the team by tdcSheetHeat (DRtg inverted)
-  const body=rows.map((r,i)=>{
-    const on=+r.on_poss||0, off=+r.off_poss||0, lowOn=on<200, lowOff=off<100;
-    const low=r._adj==null||!isFinite(r._adj);
-    const lowTip=(lowOn||lowOff)?' — too few '+(lowOn?'on':'off')+'-court possessions for a reliable impact':'';
-    return `<tr>
-      <td class="rk">${i+1}</td>
-      <td class="l nm"><a href="player.html?espn=${r.espn_id}">${r.name||'—'}</a></td>
-      <td class="l dim"${r._fromTeam?` title="Transfer — his on/off is from last season at ${r._fromTeam}"`:''}>${r._fromTeam?'← '+_shortTeam(r._fromTeam):''}</td>
-      <td class="dim" title="Possessions with the player ON the floor${lowTip}">${f(on,0)}</td>
-      <td class="dim" title="Possessions with the player OFF the floor${lowTip}">${f(off,0)}</td>
-      ${low?`<td class="dim" title="Sample too low to isolate his impact — see the On/Off possessions. He was almost never off the floor (or barely on it), so there's no clean baseline to compare against.">low sample</td>`
-           :`<td class="big" data-v="${r._adj}" title="Raw swing ${sg(r._adj)} — sample-adjusted">${sg(r._adj)}</td>`}
-      <td class="l dim">${low?'':impTier(r._adj)}</td>
-      <td>${sg(r.on_net)}</td><td>${sg(r.off_net)}</td>
-      <td>${f(r.on_o)}</td><td>${f(r.on_d)}</td><td>${f(r.off_o)}</td><td>${f(r.off_d)}</td>
-    </tr>`;
-  }).join('');
-  const _inN=rows.filter(r=>r._fromTeam).length;
-  host.innerHTML=`
-    <div class="sec-head">On/Off &amp; WOWY <span style="color:var(--text3);font-weight:600;font-size:12px;">· ${_currentView?`${_inN?'returning + incoming':'returning players'}, ${yl}`:yl}</span></div>
-    <p style="color:var(--text3);font-size:12.5px;line-height:1.5;max-width:840px;margin:0 0 10px;"><b style="color:var(--text2);">Impact</b> = the on/off swing in net rating (pts/100), shrunk for sample size — hover for the raw number. Measured vs teammates, not opponent-adjusted.${_currentView?` <span style="color:var(--text3);">On/off is measured from games played, so these are this roster's <b>returning</b> players' impact last season (${yl}) — the 2026-27 season hasn't started.${_departedN?` ${_departedN} player${_departedN>1?'s':''} from last year's rotation ${_departedN>1?'have':'has'} left.`:''}${_inN?` ${_inN} <b>incoming</b> transfer${_inN>1?'s are':' is'} shown with a <span style="color:var(--tc-readable,var(--accent));">← from</span> tag — their numbers are from last season at their previous school.`:''}</span>`:''}</p>
-    <div style="font-size:11px;color:var(--text3);margin:0 0 14px;">Impact tiers: +12 Elite · +6 Strong · +2 Positive · ±2 Neutral · −6 Negative · below −6 Drag</div>
-    <div class="sheet-wrap"><table class="sheet dense freeze2" id="onoffSheet" style="--c1:36px;--c2:180px;">
-      <thead><tr>
-        <th class="rk">#</th><th class="l">Player</th>
-        <th class="l" title="Incoming transfer: his on/off is from last season at his previous school">From</th>
-        <th title="Possessions with the player ON the floor. Impact needs enough of both on and off.">On Poss</th>
-        <th title="Possessions with the player OFF the floor. Too few off-court possessions means too small a sample to grade.">Off Poss</th>
-        <th data-heat="1" title="Impact — how many points per 100 the team is better with him on the floor vs off (on-court net minus off-court net). 'low sample' = not enough on- or off-court possessions to isolate it.">Impact</th>
-        <th class="l" title="Impact tier: +12 Elite, +6 Strong, +2 Positive, ±2 Neutral, −6 Negative, below that Drag">Tier</th>
-        <th data-heat="1" title="Team net efficiency with the player ON">On Net</th>
-        <th data-heat="1" title="Team net efficiency with the player OFF">Off Net</th>
-        <th data-heat="1" title="Points scored per 100, player on">On ORtg</th><th data-heat="-1" title="Points allowed per 100, player on">On DRtg</th>
-        <th data-heat="1" title="Points scored per 100, player off">Off ORtg</th><th data-heat="-1" title="Points allowed per 100, player off">Off DRtg</th>
-      </tr></thead><tbody>${body}</tbody></table></div>
-    ${_gateMsg}
-    <div id="teamLineupHost"></div>`;
-  if(window.tdcSheetHeat) tdcSheetHeat(document.getElementById('onoffSheet'));
-  if(window.TDC_LINEUPS && _canAll){   // the deep five-man/trio/pair breakdown is Pro-only
-    var _tf=(typeof teamT!=='undefined'&&teamT&&(teamT.full||teamT.name))||(typeof teamName!=='undefined'?teamName:'');
-    TDC_LINEUPS.section(_tf, +season||2026).then(function(h){ var lh=document.getElementById('teamLineupHost'); if(lh&&h) lh.innerHTML=h; });
-  }
+  const head='<div class="sec-head">On/Off <span class="sec-head-sub" style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· pick players, ask a question, every number ranked vs D-I</span></div>';
+  if(past && !LAB.includes(past)){
+    host.innerHTML=head+'<div style="padding:24px;color:var(--text3);">On/off is rebuilt from play-by-play lineups, which we have from 2023-24 on.</div>'; return; }
+  const full=(await _resolveGamesKey().catch(()=>null))||teamMascot();
+  host.innerHTML=head+'<div id="onoffLab"></div>';
+  TDC_ONOFFLAB.mount(document.getElementById('onoffLab'), { team:full, season:past||2026, lockTeam:true, mode:'players',
+    note: past?'':'2026-27 on/off starts once games are played; this is <b>last season</b>.' });
 }
 // keep the open tab in the URL (?tab=) so a reload — or a shared link — lands on the same tab
 function _tabUrl(id, dflt){ try{ var u=new URL(location.href); if(!id||id===dflt) u.searchParams.delete('tab'); else u.searchParams.set('tab',id); history.replaceState(history.state,'',u.toString()); }catch(e){} }
