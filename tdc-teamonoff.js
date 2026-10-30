@@ -9,7 +9,8 @@
    Usage: TDC_TEAMONOFF.render(host, { team: 'Duke Blue Devils', season: 2026, seasons: [2024, 2025, 2026], note })
    League-wide (onoff.html): leave out team; minPoss / minOff (on- and off-floor possessions), filter(p) → bool,
    limit (rows, then Show more), sort (starting column, e.g. 'rapm').
-   Each row then names the player's team. */
+   Each row then names the player's team.
+   Player page: player (espn id) instead of team → his team that season, his row highlighted, seasons from wowy_index. */
 (function () {
   if (window.TDC_TEAMONOFF) return;
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
@@ -64,6 +65,7 @@
       '.to-t tr.p{cursor:pointer}.to-t tr.p:hover td.pl{background:var(--bg2)}' +
       '.to-t tr.p.open td.pl{box-shadow:inset 3px 0 0 var(--accent)}' +
       '.to-t tr.thin td.h{opacity:.55}' +
+      '.to-t tr.me td.pl{background:color-mix(in srgb,var(--accent) 12%,var(--bg));box-shadow:inset 3px 0 0 var(--accent)}' +
       '.to-det{margin:18px 0 0;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg)}' +
       '.to-dh{display:flex;justify-content:space-between;align-items:center;background:var(--strip,#1b1a17);color:#fff;padding:10px 14px;font:800 11.5px Inter,system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase}' +
       '.to-x{background:none;border:0;color:#fff;font-size:14px;cursor:pointer;opacity:.75}.to-x:hover{opacity:1}' +
@@ -83,6 +85,15 @@
   function render(host, o) {
     if (!host || !window.TDC_ONOFF || !TDC_ONOFF.api) return;
     css(); o = o || {};
+    if (o.player && !o.seasons) {   // the seasons he has on/off for, then draw
+      fetch('scripts/data/wowy_index.json?v=1').then(function (r) { return r.ok ? r.json() : {}; }).catch(function () { return {}; }).then(function (I) {
+        var ys = (I[String(o.player)] || []).map(Number);
+        if (!ys.length) { host.innerHTML = ''; var pn = host.closest('.ui-panel'), t = host.previousElementSibling;   // no data: drop the section (panelized or not)
+          if (pn && !pn.contains(document.querySelector('#playerWowyHost'))) pn.hidden = true; else if (t && t.classList.contains('sec-title')) t.hidden = true; return; }
+        render(host, Object.assign({}, o, { seasons: ys }));
+      });
+      return;
+    }
     var seasons = (o.seasons || [2024, 2025, 2026]).slice().sort(), cur = o.season && seasons.indexOf(+o.season) >= 0 ? +o.season : seasons[seasons.length - 1];
     var want = slug(o.team), SHOWN = o.limit || 0;
     if (o.sort && !host._sorted) { host._sorted = 1; ST.sort = o.sort; ST.asc = false; }   // a page's starting sort, once
@@ -90,6 +101,7 @@
     var draw = function () {
       TDC_ONOFF.api(cur).then(function (A) {
         if (!A) { host.innerHTML = '<div class="ui-empty">Could not load ' + lbl(cur) + '.</div>'; return; }
+        if (o.player) { var me = (A.S.players || []).find(function (p) { return String(p.id) === String(o.player); }); want = me ? slug(me.team) : '__none'; }
         var league = !want;
         var players = (A.S.players || []).filter(function (p) { return (league || slug(p.team) === want) && p.on && p.on.min >= MIN_MIN &&
           (!o.minPoss || p.on.poss >= o.minPoss) && (!o.minOff || (p.off && p.off.poss >= o.minOff)) && (!o.filter || o.filter(p)); });
@@ -136,7 +148,7 @@
             var dec = k === 'pm' ? 0 : R[3], txt = (signed && v > 0 ? '+' : '') + (+v).toFixed(dec) + (ST.view === 'diff' ? '' : (R[4] || ''));
             return '<td class="h"' + (f ? ' style="background:' + f[0] + ';color:' + f[1] + '"' : '') + ' title="' + esc(R[1]) + ' · ' + vName + ': ' + txt + (pc != null ? ' · ' + pc + 'th percentile among D-I players' : '') + '">' + txt + '</td>';
           }).join('');
-          return '<tr class="p' + (thin ? ' thin' : '') + (open ? ' open' : '') + '" data-id="' + esc(p.id) + '"><td class="pl">' + (league ? logo(p.team) : '') + '<a href="player.html?espn=' + esc(p.id) + '&tab=onoff"><span class="fnm">' + esc(p.name) + '</span><span class="snm">' + esc(SN[p.id]) + '</span></a>' +
+          return '<tr class="p' + (thin ? ' thin' : '') + (o.player && String(p.id) === String(o.player) ? ' me' : '') + (open ? ' open' : '') + '" data-id="' + esc(p.id) + '"><td class="pl">' + (league ? logo(p.team) : '') + '<a href="player.html?espn=' + esc(p.id) + '&tab=onoff"><span class="fnm">' + esc(p.name) + '</span><span class="snm">' + esc(SN[p.id]) + '</span></a>' +
             '<small>' + (league ? esc(teamOf(p.team)) + ' · ' : '') + (p.g || 0) + ' g · ' + Math.round(p.on.poss) + ' on / ' + Math.round(p.off ? p.off.poss : 0) + ' off poss' + (thin ? ' · small sample' : '') + '</small></td>' +
             '<td class="vol">' + Math.round(p.on.min) + '</td>' + cells + '</tr>';
         }).join('');

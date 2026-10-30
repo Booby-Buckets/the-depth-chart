@@ -13,7 +13,8 @@
   <script src="tdc-aftermath.js?v=5"></script>
   <script src="tdc-mastery.js?v=2"></script>
   <script src="tdc-twin.js?v=ui1"></script>
-  <script src="tdc-onoff.js?v=13"></script>
+  <script src="tdc-onoff.js?v=14"></script>
+  <script src="tdc-teamonoff.js?v=9"></script>
   <script src="tdc-panelize.js?v=24"></script>
   <script src="tdc-follow.js?v=1"></script>
   <script src="tdc-shotprofile.js?v=1s"></script>
@@ -4637,6 +4638,8 @@ function renderPage(){
     <div class="tab-panel" id="panel-onoff">
       <div class="sec-title" style="margin:0 0 14px;">On / Off &amp; WOWY <span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;margin-left:6px;">· the team with him on the floor vs off it</span></div>
       <div id="playerWowyHost"></div>
+      <div class="sec-title" style="margin:30px 0 14px;">Team On/Off <span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;margin-left:6px;">· him and every teammate, each number ranked vs D-I</span></div>
+      <div id="playerWowySheet"></div>
     </div>
     <div class="tab-panel" id="panel-aftermath">
       <div class="sec-title" style="margin:0 0 14px;">After the Shot <span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;margin-left:6px;">· every first-chance attempt, and what followed it</span></div>
@@ -7228,7 +7231,8 @@ function switchTab(t){
     if(id==='scheme' && !window._schemeLoaded){ window._schemeLoaded=true; setTimeout(renderScheme,40); }
     if(id==='dossier' && !window._dossierLoaded){ window._dossierLoaded=true; setTimeout(renderDossier,40); }
     if(id==='role' && !window._roleLoaded){ window._roleLoaded=true; setTimeout(renderRole,40); }
-    if(id==='onoff' && !window._wowyLoaded){ window._wowyLoaded=true; if(window.TDC_ONOFF) TDC_ONOFF.render(document.getElementById('playerWowyHost'), {espn:player&&player.espn_id}); }
+    if(id==='onoff' && !window._wowyLoaded){ window._wowyLoaded=true; if(window.TDC_ONOFF) TDC_ONOFF.render(document.getElementById('playerWowyHost'), {espn:player&&player.espn_id});
+      if(window.TDC_TEAMONOFF && player && player.espn_id) TDC_TEAMONOFF.render(document.getElementById('playerWowySheet'), {player:player.espn_id}); }
     if(id==='statshift' && !window._shiftLoaded){ window._shiftLoaded=true; if(window.TDC_SHIFT) TDC_SHIFT.renderPlayer(document.getElementById('playerShiftHost'), {espn:player&&player.espn_id, name:player&&player.name}); }
     if(id==='devpath' && !window._devpathLoaded){ window._devpathLoaded=true; setTimeout(renderDevpath,40); }
     if(id==='nil' && !window._nilLoaded){ window._nilLoaded=true; setTimeout(renderNilPlayer,40); }
