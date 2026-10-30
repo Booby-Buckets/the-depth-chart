@@ -49,7 +49,11 @@ def _int(x):
 
 
 def d1_team_ids():
-    """{espn team id: name} for every program that played a D-I game last season."""
+    """{espn team id: name} for every program that played a D-I game last season. games.jsonl (30MB) is local-only,
+    so the list is saved to espn_team_ids_2027.json (committed) and the nightly GitHub job reads that."""
+    saved = DATA / "espn_team_ids_2027.json"
+    if not (DATA / "games.jsonl").exists():
+        return {int(k): v for k, v in json.load(open(saved)).items()}
     ids = {}
     for line in open(DATA / "games.jsonl"):
         g = json.loads(line)
@@ -58,6 +62,7 @@ def d1_team_ids():
         for side in ("home", "away"):
             if g.get(f"{side}_id"):
                 ids[g[f"{side}_id"]] = g[side]
+    json.dump({str(k): v for k, v in sorted(ids.items())}, open(saved, "w"), indent=0)
     return ids
 
 

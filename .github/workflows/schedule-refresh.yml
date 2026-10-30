@@ -1,0 +1,60 @@
+name: Refresh schedules
+
+# Every night: re-pull every D-I team's 2026-27 schedule from ESPN (dates, ET tip times, TV networks), re-read
+# each school's official schedule page, then merge (games ESPN lacks) → prune (phantom/duplicate games, dates both
+# sites agree on, same-day double bookings) → audit. scripts/schedule_guard.py refuses to commit a run that looks
+# like a failed pull (lost games). Commits scripts/data/schedule_2027.json + its audit files, which redeploys the
+# site; pages pick it up on their next load (schedule_2027.json is served with a 60s cache).
+# Runs before the 6:30 ET projections rebuild so the morning rankings use the new slate.
+
+on:
+  schedule:
+    - cron: '0 9 * * *'     # ~5 am ET
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: schedule-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install deps
+        run: pip install requests
+      - name: ESPN schedules (dates, tip times, TV)
+        run: python3 -u scripts/build_schedule_2027.py pull
+      - name: School sites
+        # a site that fails tonight keeps its last good copy, so a blocked run can't erase school-only games
+        run: python3 -u scripts/scrape_school_schedules.py pull --force || echo "::warning::school-site pull failed — using last good copies"
+      - name: Merge, prune, audit
+        run: |
+          python3 -u scripts/scrape_school_schedules.py merge
+          python3 -u scripts/scrape_school_schedules.py prune
+          python3 -u scripts/scrape_school_schedules.py audit
+      - name: Sanity check
+        run: python3 scripts/schedule_guard.py
+      - name: Commit if changed
+        run: |
+          git config user.name "tdc-schedule-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/data/schedule_2027.json scripts/data/schedule_extras_2027.json scripts/data/schedule_audit_2027.json \
+                  scripts/data/school_adds_2027.json scripts/data/school_drops_2027.json scripts/data/school_schedules_2027.json
+          # the "pulled" date changes every run — only commit when a game, date, time or network actually changed
+          if python3 -c "
+          import json, subprocess
+          old = lambda p: json.loads(subprocess.check_output(['git', 'show', 'HEAD:' + p]))
+          a, b = old('scripts/data/schedule_2027.json'), json.load(open('scripts/data/schedule_2027.json'))
+          same = a['teams'] == b['teams'] and a['games'] == b['games']
+          same = same and old('scripts/data/schedule_extras_2027.json') == json.load(open('scripts/data/schedule_extras_2027.json'))
+          raise SystemExit(0 if same else 1)"; then echo "No schedule changes."; exit 0; fi
+          git commit -m "Auto: schedule refresh $(date -u +%Y-%m-%d) [skip ci]"
+          git pull --rebase -q && git push

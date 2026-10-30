@@ -363,12 +363,17 @@ def pull_one(full, rec):
 
 def pull(force=False):
     sites_ = json.load(open(SITES))
-    out = json.load(open(RAW)) if RAW.exists() and not force else {}
+    prev = json.load(open(RAW)) if RAW.exists() else {}
+    out = {} if force else dict(prev)
     todo = [(k, v) for k, v in sorted(sites_.items()) if force or not (out.get(k) or {}).get("games")]
     print(f"pulling {len(todo)} sites")
+    kept = 0
     with ThreadPoolExecutor(max_workers=6) as ex:
         for full, rec in ex.map(lambda kv: pull_one(*kv), todo):
-            if rec is not None: out[full] = rec
+            if rec is not None and rec.get("games"): out[full] = rec
+            elif (prev.get(full) or {}).get("games"): out[full] = prev[full]; kept += 1   # site down / blocked tonight → last good copy
+            elif rec is not None: out[full] = rec
+    if kept: print(f"  {kept} sites unreachable — kept their last good pull")
     json.dump(out, open(RAW, "w"), indent=0, sort_keys=True)
     got = {k: len(v["games"]) for k, v in out.items()}
     print(f"{sum(1 for n in got.values() if n)} sites with a 2026-27 schedule · {sum(got.values())} games → {RAW}")
