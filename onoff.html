@@ -149,6 +149,7 @@
         <p>On/off is measured against a player's own teammates and isn't adjusted for opponent, so a good player on a weak team can post a big swing. Read it as context, not proof.</p>
         <p>Seasons on file: 2020-21, 2024-25, 2025-26. On/off needs substitution-level play-by-play, which the NCAA feed only carries for recent seasons.</p>
       </div>
+      <div id="ooSheet" style="padding:16px 18px 18px" hidden></div>
       <div class="oo-split" id="ooSplit" hidden><div class="oo-list" id="ooList"></div><div class="oo-detail" id="ooDetail"></div></div>
       <div class="sheet-wrap"><table id="tbl" class="sheet dense freeze2 oo-tbl" style="--c1:40px;--c2:200px"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
       <div class="empty" id="empty" style="display:none;"></div>
@@ -157,7 +158,8 @@
 </div>
 
 <script src="team-colors.js?v=13"></script>
-<script src="tdc-onoff.js?v=13"></script>
+<script src="tdc-onoff.js?v=14"></script>
+<script src="tdc-teamonoff.js?v=7"></script>
 <script>
 function toggleTheme(){ var d=document.documentElement; var dark=d.getAttribute('data-theme')==='dark'; d.setAttribute('data-theme',dark?'light':'dark'); try{localStorage.setItem('tdc_theme',dark?'light':'dark');}catch(e){} document.getElementById('themeBtn').textContent=dark?'🌙':'☀️'; }
 (function(){ var t=localStorage.getItem('tdc_theme')||'light'; document.documentElement.setAttribute('data-theme',t); var b=document.getElementById('themeBtn'); if(b) b.textContent=t==='dark'?'☀️':'🌙'; })();
@@ -245,7 +247,7 @@ function head(){
 // Players (2023-24 on): a ranked list + the picked player's full on/off profile, from the WOWY build
 var WOWYS={'2026':1,'2025':1,'2024':1}, WY={}, SEL=null;
 function splitOn(){ return MODE==='players' && !!WOWYS[document.getElementById('seasonSel').value]; }
-function showSplit(on){ document.getElementById('ooSplit').hidden=!on; document.getElementById('tbl').closest('.sheet-wrap').hidden=on; }
+function showSplit(on){ document.getElementById('ooSheet').hidden=!on; document.getElementById('tbl').closest('.sheet-wrap').hidden=on; }
 function loadWowy(s){
   if(WY[s]) return Promise.resolve(WY[s]);
   return fetch('scripts/data/wowy_'+s+'.json?v=7').then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; }).then(function(j){
@@ -257,6 +259,14 @@ function loadWowy(s){
     rows.forEach(function(r){ if(r.adj==null) return; var lo=0,hi=q.length; while(lo<hi){ var m=(lo+hi)>>1; if(q[m]<r.adj) lo=m+1; else hi=m; } r.pct=Math.round(lo/Math.max(1,q.length-1)*100); });
     return (WY[s]=rows);
   });
+}
+// 2023-24 on: the same percentile on/off sheet as the team page On/Off tab (tdc-teamonoff.js), every D-I player
+function renderSheet(){
+  var s=+document.getElementById('seasonSel').value, minP=+document.getElementById('minPoss').value, q=_lnorm(document.getElementById('search').value);
+  var ss=document.getElementById('seasonSel'); document.getElementById('ooTitle').textContent='Player on/off · '+ss.options[ss.selectedIndex].text;
+  document.getElementById('count').textContent='';
+  if(window.TDC_TEAMONOFF) TDC_TEAMONOFF.render(document.getElementById('ooSheet'), { season:s, seasons:[s], minPoss:minP, minOff:200, limit:100, sort:'rapm',
+    filter: q ? function(p){ return _lnorm(p.name).indexOf(q)>=0 || _lnorm(p.team).indexOf(q)>=0; } : null });
 }
 function renderSplit(){
   var s=document.getElementById('seasonSel').value, rows0=WY[s]; if(!rows0) return;
@@ -281,7 +291,7 @@ function detail(){
   if(window.TDC_ONOFF) TDC_ONOFF.render(document.getElementById('ooProfile'),{espn:r.id,season:+s,seasons:false,tilesTop:true});
 }
 function render(){
-  if(splitOn()){ renderSplit(); return; }
+  if(splitOn()){ renderSheet(); return; }
   var minP=+document.getElementById('minPoss').value;
   var q=_lnorm(document.getElementById('search').value);
   var possKey=(MODE==='players')?'on_poss':'poss';
@@ -372,7 +382,7 @@ function applyMode(){
   COLS=COLSETS[MODE]; sortKey=DEFSORT[MODE]; sortAsc=false; rebuildMinOpts();
   var s=document.getElementById('seasonSel').value;
   showSplit(splitOn());
-  if(splitOn()){ document.getElementById('empty').style.display='none'; loadWowy(s).then(renderSplit); return; }
+  if(splitOn()){ document.getElementById('empty').style.display='none'; renderSheet(); return; }
   if(MODE==='players'){ loadSeason(s); head(); render(); return; }
   var go=function(){ ROWS=(MODE==='lineups')?buildLineups(s):(MODE==='pairs')?buildPairs(s):buildTrios(s); head(); render(); };
   var todo=[];
