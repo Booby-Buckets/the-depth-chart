@@ -12,7 +12,16 @@
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   var lbl = function (y) { return (y - 1) + '–' + String(y).slice(2); };
   var slug = function (t) { return String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); };
-  var MIN_MIN = 40;   // a player needs 40+ minutes on the floor to get a row
+  var MIN_MIN = 40;
+  // phones: "C. Boozer" (keeps the first name's initial so the Boozer twins stay apart)
+  // phones: "C. Boozer" — suffixes (II, Jr.) dropped; more of the first name when two teammates would match (Cam. / Cay. Boozer)
+  var shortName = function (n, k) { var w = String(n || '').split(' ').filter(function (x) { return !/^(jr\.?|sr\.?|ii|iii|iv)$/i.test(x); });
+    return w.length > 1 ? w[0].slice(0, k || 1) + '. ' + w.slice(1).join(' ') : n; };
+  var shortNames = function (L) { var out = {};
+    L.forEach(function (p) { var k = 1, sn = shortName(p.name, 1);
+      while (k < 6 && L.some(function (q) { return q !== p && shortName(q.name, k) === sn; })) { k++; sn = shortName(p.name, k); }
+      out[p.id] = sn; });
+    return out; };   // a player needs 40+ minutes on the floor to get a row
 
   // [key, short header]; labels, direction, decimals and tooltips come from tdc-onoff.js
   var SETS = [
@@ -41,6 +50,7 @@
       '.to-t td{padding:0;border-bottom:1px solid var(--border);text-align:center;white-space:nowrap;height:38px}' +
       '.to-t td.pl,.to-t th.pl{position:sticky;left:0;z-index:1;background:var(--bg);text-align:left;padding:0 12px;min-width:170px;border-right:1px solid var(--border)}' +
       '.to-t th.pl{background:var(--bg2);z-index:2}' +
+      '.to-t td.pl .snm{display:none}' +
       '.to-t td.pl a{color:var(--text);font-weight:700;text-decoration:none}.to-t td.pl small{display:block;font-size:10.5px;color:var(--text3);font-weight:600}' +
       '.to-t td.vol{color:var(--text2);padding:0 10px;font-weight:600}' +
       '.to-t td.h{min-width:64px;font-weight:700;border-left:2px solid var(--bg)}' +
@@ -54,7 +64,7 @@
       '.to-prof{padding:14px 16px 4px}' +
       '.to-key{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11.5px;color:var(--text3);margin:10px 2px 0}' +
       '.to-key i{display:inline-block;width:22px;height:12px;border-radius:3px}' +
-      '@media(max-width:700px){.to-bar .ui-seg{display:flex;flex-wrap:wrap}.to-bar .ui-check{margin-left:0}.to-t td.pl,.to-t th.pl{min-width:120px;padding:0 8px}.to-t td.h{min-width:52px}}';
+      '@media(max-width:700px){.to-bar .ui-seg{display:flex;flex-wrap:wrap}.to-bar .ui-check{margin-left:0}.to-t td.pl,.to-t th.pl{min-width:0;padding:0 8px}.to-t td.pl small,.to-t td.pl .fnm{display:none}.to-t td.pl .snm{display:inline}.to-t td.pl{white-space:nowrap!important}.to-meta.top{display:none}.to-t td.h{min-width:52px}}';
     document.head.appendChild(st);
   }
 
@@ -96,6 +106,7 @@
           var dir = A.meta[ST.sort] && A.meta[ST.sort][2] < 0 ? -1 : 1;   // lower-is-better stats (DRtg, TO%…): best first
           return (ST.asc ? 1 : -1) * dir * (x - y);
         });
+        var SN = shortNames(players);
         var openP = players.find(function (p) { return String(p.id) === ST.open; }) || null;
         var vName = VIEWS.find(function (v) { return v[0] === ST.view; })[1];
         var head = '<thead><tr><th class="pl" data-k="name">Player</th><th data-k="min" class="' + (ST.sort === 'min' ? 'on' : '') + '">Min</th>' +
@@ -111,12 +122,12 @@
             var dec = k === 'pm' ? 0 : R[3], txt = (signed && v > 0 ? '+' : '') + (+v).toFixed(dec) + (ST.view === 'diff' ? '' : (R[4] || ''));
             return '<td class="h"' + (f ? ' style="background:' + f[0] + ';color:' + f[1] + '"' : '') + ' title="' + esc(R[1]) + ' · ' + vName + ': ' + txt + (pc != null ? ' · ' + pc + 'th percentile among D-I players' : '') + '">' + txt + '</td>';
           }).join('');
-          return '<tr class="p' + (thin ? ' thin' : '') + (open ? ' open' : '') + '" data-id="' + esc(p.id) + '"><td class="pl"><a href="player.html?espn=' + esc(p.id) + '&tab=onoff">' + esc(p.name) + '</a>' +
+          return '<tr class="p' + (thin ? ' thin' : '') + (open ? ' open' : '') + '" data-id="' + esc(p.id) + '"><td class="pl"><a href="player.html?espn=' + esc(p.id) + '&tab=onoff"><span class="fnm">' + esc(p.name) + '</span><span class="snm">' + esc(SN[p.id]) + '</span></a>' +
             '<small>' + (p.g || 0) + ' g · ' + Math.round(p.on.poss) + ' on / ' + Math.round(p.off ? p.off.poss : 0) + ' off poss' + (thin ? ' · small sample' : '') + '</small></td>' +
             '<td class="vol">' + Math.round(p.on.min) + '</td>' + cells + '</tr>';
         }).join('');
         host.innerHTML = bar +
-          '<p class="to-meta"><b>' + esc(vName) + '</b> · ' + esc(setDef[1]) + ' · ' + lbl(cur) + (A.S.low_leverage_removed ? ' · garbage time removed' : '') + ' · click a player for his full profile</p>' +
+          '<p class="to-meta top"><b>' + esc(vName) + '</b> · ' + esc(setDef[1]) + ' · ' + lbl(cur) + (A.S.low_leverage_removed ? ' · garbage time removed' : '') + ' · click a player for his full profile</p>' +
           '<div class="to-wrap"><table class="to-t">' + head + '<tbody>' + body + '</tbody></table></div>' +
           '<div class="to-key">Cell colour = rank among D-I players with ' + A.MIN + '+ on-floor possessions' + (ST.view === 'diff' ? ' (their on − off)' : '') + ':' +
           ['0', '25', '50', '75', '100'].map(function (q) { var f = A.fill(+q); return '<i style="background:' + f[0] + '"></i>' + q; }).join(' ') + ' · green = good for the team · faded rows = small sample</div>' +
