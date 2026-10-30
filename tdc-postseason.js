@@ -120,6 +120,7 @@
         pool.sort((a, b) => sel[b] - sel[a]);
         const nAL = Math.max(0, FIELD - aq.length), atl = pool.slice(0, nAL);
         atl.forEach(i => { inField[i] = 1; A.atl[i]++; });
+        if (opts.onSim) opts.onSim(s, { atl, aq, T, confOf, CT, sel });   // diagnostics (calibration checks)
         if (atl.length) { A.lastIn[atl[atl.length - 1]]++; } if (pool[nAL] != null) A.firstOut[pool[nAL]]++;
         // ── First Four: lowest at-larges + lowest automatic qualifiers (by résumé) ──
         const alLow = atl.slice(-FF_AL), aqLow = aq.slice().sort((a, b) => sel[a] - sel[b]).slice(0, FF_AQ);
