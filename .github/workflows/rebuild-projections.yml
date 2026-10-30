@@ -17,7 +17,7 @@ name: Rebuild projected DNA
 #
 # Triggered manually from the owner console (via the rebuild-projections edge function),
 # from the Actions tab, or `gh workflow run rebuild-projections.yml` — and AUTOMATICALLY every morning
-# (roster / depth-chart / sheet changes) and after every scrimmage box-score run (owner-approved Oct 9 2026).
+# (roster / depth-chart / sheet changes) and whenever the scrimmage poller commits a NEW box score (it dispatches this; owner-approved Oct 9 2026).
 #
 # Ends by doing the owner console's publish buttons itself (scripts/headless_publish.mjs): team
 # projections -> team_projections, the tdc-ratings.js rankings -> predictive_ratings (run in headless
@@ -28,9 +28,6 @@ on:
   workflow_dispatch: {}
   schedule:
     - cron: '30 10 * * *'   # ~6:30 ET daily: picks up overnight roster, depth-chart and injury edits
-  workflow_run:
-    workflows: ["Scrimmage box scores"]
-    types: [completed]
 
 permissions:
   contents: write
@@ -131,11 +128,6 @@ jobs:
             echo "No projection changes."
           else
             git commit -m "Auto: rebuild projected DNA, development paths + team needs [skip ci]"
-            # other sessions push to main all the time; rebase onto whatever landed and retry
-            for i in 1 2 3 4 5; do
-              git pull --rebase -X theirs origin main && git push && break
-              echo "push raced another commit (try $i); retrying"; sleep $((i*5))
-            done
           fi
 
                 # the owner console's publish buttons, headless: team projections + rankings + awards, from the files
@@ -160,10 +152,6 @@ jobs:
             echo "Rank snapshot unchanged."
           else
             git commit -m "Auto: power-ranking snapshot [skip ci]"
-            for i in 1 2 3 4 5; do
-              git pull --rebase -X theirs origin main && git push && break
-              sleep $((i*5))
-            done
           fi
 
       # Betting Lab Markets price history: run the page's season + tournament simulation headless and append
@@ -180,10 +168,6 @@ jobs:
             echo "Market snapshot unchanged."
           else
             git commit -m "Auto: market price snapshot [skip ci]"
-            for i in 1 2 3 4 5; do
-              git pull --rebase -X theirs origin main && git push && break
-              sleep $((i*5))
-            done
           fi
 
       # TDC Bet: this season's per-player form for prop pricing, and grade yesterday's logged edge-board bets
@@ -195,7 +179,6 @@ jobs:
           git add scripts/data/prop_form_2027.json scripts/data/bet_picks_2027.json 2>/dev/null || true
           if git diff --cached --quiet; then echo "No prop form / grading changes."; else
             git commit -m "Auto: TDC Bet prop form + graded edges [skip ci]"
-            for i in 1 2 3 4 5; do git pull --rebase -X theirs origin main && git push && break; sleep $((i*5)); done
           fi
 
       # TDC Bet pick log: freeze our line + best bets for today's and the next two days' games before tip,
@@ -212,10 +195,6 @@ jobs:
             echo "Pick log unchanged."
           else
             git commit -m "Auto: TDC Bet pick log [skip ci]"
-            for i in 1 2 3 4 5; do
-              git pull --rebase -X theirs origin main && git push && break
-              sleep $((i*5))
-            done
           fi
 
                 # Dynasty starts from the same rosters + projections: rebuild its snapshot and commit it when it changed
@@ -229,8 +208,15 @@ jobs:
             echo "Dynasty snapshot unchanged."
           else
             git commit -m "Auto: rebuild Dynasty snapshot [skip ci]"
-            for i in 1 2 3 4 5; do
-              git pull --rebase -X theirs origin main && git push && break
-              sleep $((i*5))
-            done
           fi
+
+      # ONE push for the whole run: every step above only commits locally. Each push to main is a Vercel
+      # production deploy (billed build minutes + stored deployment), and pushing per step made 5-6 deploys a run.
+      - name: Push everything at once
+        if: always()
+        run: |
+          if [ "$(git rev-list --count origin/main..HEAD)" = "0" ]; then echo "Nothing to push."; exit 0; fi
+          for i in 1 2 3 4 5; do
+            git pull --rebase -X theirs origin main && git push && break
+            echo "push raced another commit (try $i); retrying"; sleep $((i*5))
+          done
