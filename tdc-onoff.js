@@ -146,14 +146,18 @@
     return dir < 0 ? 100 - p : p;
   }
   // solid chip: red (0) → neutral (50) → green (100)
-  function chip(p) {
-    if (p == null) return '<span class="oo-pc na">—</span>';
+  // percentile → [background, text] (also fills whole cells on the team On/Off sheet, tdc-teamonoff.js)
+  function fill(p) {
     var dark = document.documentElement.getAttribute('data-theme') === 'dark';
     var mid = dark ? [58, 58, 62] : [244, 242, 237], hi = [47, 133, 90], lo = [196, 78, 72];
     var t = Math.min(1, Math.abs(p - 50) / 50), end = p >= 50 ? hi : lo;
     var c = mid.map(function (m, i) { return Math.round(m + (end[i] - m) * t); });
-    var fg = t > 0.45 ? '#fff' : (dark ? '#e8e6e1' : '#1b1a17');
-    return '<span class="oo-pc" style="background:rgb(' + c.join(',') + ');color:' + fg + '">' + p + '</span>';
+    return ['rgb(' + c.join(',') + ')', t > 0.45 ? '#fff' : (dark ? '#e8e6e1' : '#1b1a17')];
+  }
+  function chip(p) {
+    if (p == null) return '<span class="oo-pc na">—</span>';
+    var f = fill(p);
+    return '<span class="oo-pc" style="background:' + f[0] + ';color:' + f[1] + '">' + p + '</span>';
   }
   function fmt(v, dec, suf, signed) {
     if (v == null) return '—';
@@ -360,5 +364,16 @@
     });
   }
 
-  window.TDC_ONOFF = { render: render, ranker: ranker, compare: compare };
+  // ── for the team On/Off sheet (tdc-teamonoff.js): the season's players, the same stat reader, D-I percentiles ──
+  function api(y) {
+    return season(y).then(function (S) {
+      if (!S) return null; css();
+      var meta = {}; ROWS.forEach(function (R) { meta[R[0]] = R; });
+      return { S: S, stat: stat, meta: meta, fill: fill, MIN: MIN_POSS, label: lbl(y),
+        luck: function (v) { if (v !== undefined) LUCK = !!v; return LUCK; },
+        pct: function (side, k, v) { var R = meta[k], dir = R ? R[2] : 1; return pctOf(pool(y, S)[side][k], v, dir === 0 ? 1 : dir); } };
+    });
+  }
+
+  window.TDC_ONOFF = { render: render, ranker: ranker, compare: compare, api: api };
 })();
