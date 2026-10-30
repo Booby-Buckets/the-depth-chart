@@ -21,8 +21,8 @@
   <script src="team-colors.js?v=13"></script>
   <script src="tdc-teamname.js?v=1"></script>
   <script src="tdc-ratings.js?v=44"></script>
-  <script src="tdc-schedule.js?v=ot1"></script>
-  <script src="tdc-scrim.js?v=19"></script>
+  <script src="tdc-schedule.js?v=tm1"></script>
+  <script src="tdc-scrim.js?v=20"></script>
   <script src="tdc-live.js?v=2"></script>
   <style>
     :root{--green:#2e8b57;--red:#c75d5d;}
@@ -176,7 +176,7 @@
     let games=((BOARD&&BOARD.games)||[]).filter(g=>!scrimPairs.has(pairKey(g.home.name,g.away.name)));
     let fromSched=false;
     if(!games.length){   // ESPN had nothing (or the day is far off): the slate we've pulled
-      try{ const all=await fetch('scripts/data/schedule_2027.json?v=5').then(r=>r.json()); const T=all.teams;
+      try{ const all=await fetch('scripts/data/schedule_2027.json?v=6').then(r=>r.json()); const T=all.teams;
         games=all.games.filter(g=>g[1]===DAY).map(g=>({id:String(g[0]),date:DAY,state:'pre',detail:'',neutral:!!g[4],home:{name:T[g[2]]},away:{name:T[g[3]]},tv:null})); fromSched=true; }catch(e){}
     }
     if(!games.length){ el.innerHTML=(document.getElementById('scrimSec').innerHTML?'':`<div class="empty">No games on ${esc(nice(DAY))}.</div>`); return; }

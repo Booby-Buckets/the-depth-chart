@@ -65,9 +65,9 @@
   function load() {
     if (_loading) return _loading;
     _loading = Promise.all([
-      fetch('scripts/data/schedule_2027.json?v=5').then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('scripts/data/schedule_2027.json?v=6').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('scripts/data/situational_model.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch('scripts/data/schedule_extras_2027.json?v=2').then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('scripts/data/schedule_extras_2027.json?v=3').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('scripts/data/team_pace_eff.json?v=8').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('scripts/data/conf_members_2027.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
       // results change every night: an hourly query string keeps the offline cache from serving a stale copy
@@ -134,7 +134,7 @@
     if (!_sched) return [];
     if (_sched._rows) return _sched._rows;
     const T = _sched.teams;
-    _sched._rows = _sched.games.map(a => ({ id: a[0], date: a[1], home: T[a[2]], away: T[a[3]], neutral: !!a[4], conf: !!a[5] }));
+    _sched._rows = _sched.games.map(a => ({ id: a[0], date: a[1], home: T[a[2]], away: T[a[3]], neutral: !!a[4], conf: !!a[5], time: a[6] || '', tv: a[7] || '' }));
     // games that were played but never on the announced slate (late adds, event pairings) still count
     const ids = new Set(_sched._rows.map(r => String(r.id)));
     Object.values(RES).forEach(x => { if (!ids.has(String(x.id))) _sched._rows.push({ id: x.id, date: x.date, home: x.home, away: x.away, neutral: x.neutral, conf: x.conf }); });
@@ -394,6 +394,9 @@
      Rk, so a "Sat 10/17" column ran ~500px wide on desktop) */
   .tsp-table th,.tsp-table td{width:1%;white-space:nowrap;}
   .tsp-table th:nth-child(3),.tsp-table td.tsp-o{width:auto;}
+  .tsp-table.tsp-timed th:nth-child(3){width:1%;} .tsp-table.tsp-timed th:nth-child(4){width:auto;}
+  .tsp-tm .tsp-tv{display:block;font-size:10.5px;opacity:.75;max-width:120px;overflow:hidden;text-overflow:ellipsis;}
+  .tsp-tm .tsp-tba{opacity:.6;}
   .tsp-table tr.sec td{width:auto;}
   @media(min-width:900px){ .tsp-table td:not(.tsp-o):not(.tsp-d):not([colspan]),.tsp-table th:not(:nth-child(1)):not(:nth-child(3)){min-width:76px;} .tsp-table td.tsp-d,.tsp-table th:first-child{min-width:80px;} }
   @media(max-width:760px){.tsp-sum{grid-template-columns:repeat(2,minmax(0,1fr));}}
@@ -405,7 +408,7 @@
     .tsp-table tr.sec td{white-space:normal!important;line-height:1.35;}
     .tsp-table th,.tsp-table td{padding-left:3px!important;padding-right:3px!important;font-size:12px!important;}
     .tsp-table th{font-size:10.5px!important;letter-spacing:.02em;}
-    .tsp-dw,.tsp-table .tsp-rk,.tsp-table .tsp-q,.tsp-table .tsp-pr,
+    .tsp-table .tsp-tv,.tsp-dw,.tsp-table .tsp-rk,.tsp-table .tsp-q,.tsp-table .tsp-pr,
     .tsp-table th[title="opponent's rank"],.tsp-table th[title^="NET-style"],.tsp-table th[title^="opponent's projected"]{display:none!important;}
     .tsp-table td.tsp-d,.tsp-table td.tsp-site{padding-left:3px!important;padding-right:3px!important;font-size:12px!important;}
     .tsp-table td.tsp-o{max-width:100px;white-space:normal!important;line-height:1.2;position:relative;padding-right:12px!important;}
@@ -418,6 +421,8 @@
   function ensureCss() { if (document.getElementById('tsp-css')) return; const s = document.createElement('style'); s.id = 'tsp-css'; s.textContent = CSS; document.head.appendChild(s); }
 
   const MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], DW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  // "19:30" (24h US-Eastern, from the ESPN pull) → "7:30 PM"; '' = not announced
+  function tipTxt(t) { if (!t) return ''; const [h, m] = t.split(':').map(Number); return (h % 12 || 12) + (m ? ':' + String(m).padStart(2, '0') : '') + (h < 12 ? ' AM' : ' PM'); }
   function dParts(d) { const x = new Date(d + 'T12:00:00'); return { mo: MO[x.getMonth()], day: x.getDate(), dw: DW[x.getDay()], num: (x.getMonth() + 1) + '/' + x.getDate(), key: x.getFullYear() + '-' + x.getMonth() }; }
   // NET-style quadrant from opponent rank + site (home 1-30 / neutral 1-50 / away 1-75 = Q1 …)
   function quad(rank, site) {
@@ -457,6 +462,7 @@
       const d = dParts(x.date);
       rows += `<tr class="${x.won ? 'w' : 'x'}${moCls(d.key)}" style="cursor:${x.href ? 'pointer' : 'default'}" onclick="${x.href ? `location.href='${x.href}'` : ''}">
         <td class="l dim tsp-d"><span class="tsp-dw">${d.dw} </span>${d.num}</td>
+        <td class="l dim tsp-tm"></td>
         <td class="dim tsp-rk">${x.rank || ''}</td>
         <td class="l nm tsp-o">${logoImg(x.opp)}<a href="team.html?team=${encodeURIComponent(sn(x.opp))}" onclick="event.stopPropagation()">${sn(x.opp)}</a></td>
         <td class="c strong tsp-sc">${x.won ? 'W' : 'L'} ${x.ms}–${x.os}${window.TDC_OT ? TDC_OT.chip(x.id) : ''}</td>
@@ -481,6 +487,7 @@
       const pc = Math.round(r.p * 100);
       rows += `<tr class="${mc.trim()}"${pv ? ` style="cursor:pointer" onclick="location.href='${pv}'" title="open the game preview"` : ''}>
         <td class="l dim tsp-d"><span class="tsp-dw">${d.dw} </span>${d.num}</td>
+        <td class="l dim tsp-tm"${r.g.tv ? ` title="${evEsc(r.g.tv)}"` : ''}>${r.g.time ? tipTxt(r.g.time) : '<span class="tsp-tba">TBA</span>'}${r.g.tv ? `<span class="tsp-tv">${evEsc(r.g.tv)}</span>` : ''}</td>
         <td class="dim tsp-rk">${rk || ''}</td>
         <td class="l nm tsp-o">${r.oppName ? logoImg(r.oppName) : '<i class="tsp-lg"></i>'}${oppTxt}${r.g.conf ? '<i class="cfdot" title="conference game"></i>' : ''}${r.event ? `<span class="tsp-ev" title="${evEsc(r.event)}"><span class="ev-l">${evEsc(evShort(r.event))}</span><span class="ev-s">${evEsc(evTiny(r.event))}</span></span>` : ''}</td>
         <td class="c tsp-sc" title="${r.pace ? `${r.pace} possessions · total ${r.total}` : 'league-average total'}">${r.scoreMe}–${r.scoreOpp}</td>
@@ -503,8 +510,8 @@
       <div class="tsp-tile"><div class="k">20+ wins</div><div class="v">${Math.round(R.p20 * 100)}%</div><div class="s">25+ ${Math.round(R.p25 * 100)}% · .500+ ${Math.round(R.pHalf * 100)}%</div></div>
     </div>`;
     const note = `<div class="tsp-note"><b>Line</b> = projected margin (− favored, + underdog), built from the ratings, the host's measured home edge, and rest: back-to-backs cost ${sg(m.rest && m.rest.b2b || 0)} pts, 8+ days off ${sg(m.rest && m.rest.r8 || 0)}, a season opener ${sg(m.rest && m.rest.opener || 0)} (${(m.n || 0).toLocaleString()} games since ${m.firstSeason || 2008}; road trips and win streaks measure ≈ 0). Hover a Site badge for that game's breakdown. <b>Win %</b> is the share of ${R.sims.toLocaleString()} simulated seasons, each drawing every team's true strength ±${R.tau} around its projection.</div>`;
-    host.innerHTML = `<div class="tsp">${sum}<div class="sheet-wrap tsp-wrap"><table class="sheet dense tsp-table"><thead><tr>
-      <th class="l">Date</th><th title="opponent's rank">Rk</th><th class="l">Opponent</th><th class="c" title="projected score">Score</th><th class="c" title="H home · A away · N neutral">Site</th><th class="c" title="NET-style quadrant">Quad</th><th title="opponent's projected Power Rating">Opp PRtg</th><th data-heat="1" title="win probability across the simulated seasons">Win %</th><th data-heat="-1" title="projected margin: − favored, + underdog">Line</th>
+    host.innerHTML = `<div class="tsp">${sum}<div class="sheet-wrap tsp-wrap"><table class="sheet dense tsp-table tsp-timed"><thead><tr>
+      <th class="l">Date</th><th class="l" title="tip time (Eastern) · TV">Time · TV</th><th title="opponent's rank">Rk</th><th class="l">Opponent</th><th class="c" title="projected score">Score</th><th class="c" title="H home · A away · N neutral">Site</th><th class="c" title="NET-style quadrant">Quad</th><th title="opponent's projected Power Rating">Opp PRtg</th><th data-heat="1" title="win probability across the simulated seasons">Win %</th><th data-heat="-1" title="projected margin: − favored, + underdog">Line</th>
     </tr></thead><tbody>${rows}</tbody></table></div>${note}</div>`;
     shade(host);
   }
@@ -512,7 +519,7 @@
 
   // every rated team's projected record for the rankings table — lighter sims, cached in
   // localStorage until the ratings or the schedule file change
-  const LS_ALL = 'tdc_projrec_v13';
+  const LS_ALL = 'tdc_projrec_v14';
   async function projectAll(opts) {
     opts = opts || {};
     await load();

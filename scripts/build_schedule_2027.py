@@ -72,6 +72,18 @@ def et_date(iso):
         return iso[:10]
 
 
+def et_time(iso):
+    """Tip time in US-Eastern as 24h "HH:MM" (DST-aware — the season starts the day clocks fall back)."""
+    from datetime import datetime, timezone
+    from zoneinfo import ZoneInfo
+    try:
+        t = datetime.strptime(iso.replace("Z", ""), "%Y-%m-%dT%H:%M").replace(tzinfo=timezone.utc)
+        hm = t.astimezone(ZoneInfo("America/New_York")).strftime("%H:%M")
+        return "" if hm == "23:59" else hm          # ESPN's 04:59Z "time not set" placeholder
+    except Exception:
+        return ""
+
+
 def parse_event(e):
     try:
         comp = e["competitions"][0]
@@ -87,6 +99,9 @@ def parse_event(e):
             "conf_game": bool(comp.get("conferenceCompetition")),
             "status": comp.get("status", {}).get("type", {}).get("name", ""),
             "venue": (comp.get("venue") or {}).get("fullName"),
+            "time": et_time(e["date"]) if (e.get("timeValid", comp.get("timeValid", True))) else "",
+            "tv": " / ".join(dict.fromkeys(n for n in (((b.get("media") or {}).get("shortName") or "").strip()
+                                                        for b in comp.get("broadcasts") or []) if n)),
         }
     except Exception:
         return None
@@ -133,13 +148,15 @@ NAME_FIX = {"St. Thomas Tommies": "St. Thomas-Minnesota Tommies", "LSU New Orlea
 
 
 def write_site(rows):
-    """{teams:[names], games:[[id, date, homeIdx, awayIdx, neutral, conf]]} — ~150KB for the whole season."""
+    """{teams:[names], games:[[id, date, homeIdx, awayIdx, neutral, conf, etTime, tv]]} — etTime "HH:MM" (24h
+    US-Eastern, "" = TBA) and tv network(s) ("" = none listed). Readers index by position, so these trail."""
     for g in rows:
         g["home"] = NAME_FIX.get(g["home"], g["home"]); g["away"] = NAME_FIX.get(g["away"], g["away"])
     names = sorted({g["home"] for g in rows} | {g["away"] for g in rows})
     idx = {n: i for i, n in enumerate(names)}
     out = {"season": SEASON, "pulled": time.strftime("%Y-%m-%d"), "teams": names,
-           "games": [[g["id"], g["date"], idx[g["home"]], idx[g["away"]], int(g["neutral"]), int(g["conf_game"])] for g in rows]}
+           "games": [[g["id"], g["date"], idx[g["home"]], idx[g["away"]], int(g["neutral"]), int(g["conf_game"]),
+                      g.get("time") or "", g.get("tv") or ""] for g in rows]}
     json.dump(out, open(SITE, "w"), separators=(",", ":"))
 
 

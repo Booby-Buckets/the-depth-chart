@@ -67,6 +67,7 @@
         var ol = logo(opp, byFull);
         return '<tr data-noheat class="scrim-row ' + (played ? (ms > os ? 'w' : 'x') : '') + '" style="cursor:pointer" onclick="location.href=\'' + href + '\'" title="' + (played ? 'open the box score' : 'open the game preview') + '">' +
           '<td class="l dim tsp-d"><span class="tsp-dw">' + DW[dd.getDay()] + ' </span>' + (dd.getMonth() + 1) + '/' + dd.getDate() + '</td>' +
+          '<td class="l dim tsp-tm"></td>' +
           '<td class="dim tsp-rk">' + (ot && ot.rank ? ot.rank : '') + '</td>' +
           '<td class="l nm tsp-o">' + (ol ? '<img class="tsp-lg" src="' + ol + '" alt="" loading="lazy" onerror="this.style.visibility=\'hidden\'">' : '<i class="tsp-lg"></i>') +
             (ot ? '<a href="team.html?team=' + encodeURIComponent(ot.team) + '" onclick="event.stopPropagation()">' + esc(sn(opp, byFull)) + '</a>' : esc(sn(opp, byFull))) + '</td>' +
@@ -91,9 +92,9 @@
         return;
       }
       var wrap = document.createElement('div'); wrap.className = 'scrim-wrap';
-      wrap.innerHTML = '<div class="sheet-wrap tsp-wrap" style="max-height:none;margin-bottom:22px;"><table class="sheet dense tsp-table"><thead><tr>' +
-        '<th class="l">Date</th><th>Rk</th><th class="l">Opponent</th><th class="c">Score</th><th class="c">Site</th><th class="c">Quad</th><th>Opp PRtg</th><th data-heat="1">Win %</th><th data-heat="-1">Line</th>' +
-        '</tr></thead><tbody><tr class="sec scrim-sec"><td class="l" colspan="9">Preseason scrimmages · unofficial · not in the record or season stats · weighted lightly into projections by the Reality Meter</td></tr>' + rows + '</tbody></table></div>';
+      wrap.innerHTML = '<div class="sheet-wrap tsp-wrap" style="max-height:none;margin-bottom:22px;"><table class="sheet dense tsp-table tsp-timed"><thead><tr>' +
+        '<th class="l">Date</th><th class="l">Time · TV</th><th>Rk</th><th class="l">Opponent</th><th class="c">Score</th><th class="c">Site</th><th class="c">Quad</th><th>Opp PRtg</th><th data-heat="1">Win %</th><th data-heat="-1">Line</th>' +
+        '</tr></thead><tbody><tr class="sec scrim-sec"><td class="l" colspan="10">Preseason scrimmages · unofficial · not in the record or season stats · weighted lightly into projections by the Reality Meter</td></tr>' + rows + '</tbody></table></div>';
       var tiles = host.querySelector('.tsp-sum');
       if (tiles && tiles.parentNode) tiles.parentNode.insertBefore(wrap, tiles.nextSibling); else host.insertBefore(wrap, host.firstChild);
     }).catch(function () {});

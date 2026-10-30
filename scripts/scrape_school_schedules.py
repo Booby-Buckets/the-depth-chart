@@ -60,6 +60,10 @@ ABBR = {"st": "state", "st.": "state", "so": "southern", "no": "northern", "n": 
         "nev": "nevada", "mont": "montana", "mo": "missouri", "col": "col", "wyo": "wyoming", "del": "delaware", "mass": "massachusetts", "nh": "new hampshire", "ri": "rhode island"}
 SAINTS = {"johns", "marys", "peters", "josephs", "bonaventure", "francis", "thomas", "louis", "john", "mary", "peter", "joseph"}
 ALIAS = {   # NCAA / school spellings → our ESPN full names
+    "lsu new orleans": "New Orleans Privateers", "uno": "New Orleans Privateers", "nc central": "North Carolina Central Eagles",
+    "nccu": "North Carolina Central Eagles", "nc a and t": "North Carolina A&T Aggies", "north carolina a and t state": "North Carolina A&T Aggies",
+    "ncat": "North Carolina A&T Aggies", "gcu": "Grand Canyon Lopes", "texas christian": "TCU Horned Frogs", "jmu": "James Madison Dukes",
+    "nku": "Northern Kentucky Norse", "north c central": "North Carolina Central Eagles", "north c a t": "North Carolina A&T Aggies", "southern la": "Southern Jaguars", "southern louisiana": "Southern Jaguars",
     "fgcu": "Florida Gulf Coast Eagles", "fdu": "Fairleigh Dickinson Knights", "fiu": "Florida International Panthers",
     "uconn": "UConn Huskies", "connecticut": "UConn Huskies", "ole miss": "Ole Miss Rebels", "mississippi": "Ole Miss Rebels",
     "lsu": "LSU Tigers", "smu": "SMU Mustangs", "tcu": "TCU Horned Frogs", "byu": "BYU Cougars", "vcu": "VCU Rams", "ucf": "UCF Knights",
@@ -189,8 +193,10 @@ BARE_BLOCK = {"boston", "eastern", "western", "northern", "southern", "central",
               "memphis", "detroit", "cincinnati", "pittsburgh", "louisville", "dayton", "toledo", "akron", "buffalo", "richmond", "indiana"}
 RAW_ALIAS = [(r"\bboston\s+u(niv|niversity|\.|\b)", "Boston University Terriers"), (r"\bsouthern methodist\b", "SMU Mustangs"),
              (r"\bpenn state (?!nittany)\w+", None), (r"\bpenn state\b", "Penn State Nittany Lions")]
-AMBIG = {"miami": {"Mid-American Conference": "Miami (OH) RedHawks", "*": "Miami Hurricanes"},
-         "southeastern": {"Southland Conference": "SE Louisiana Lions"}}
+# keyed by the ratings' league spelling ("MAC", "Southland") — the long names never matched, so every MAC site's
+# "Miami" resolved to the Hurricanes and Southland sites' "Southeastern" stayed raw
+AMBIG = {"miami": {"MAC": "Miami (OH) RedHawks", "Mid-American Conference": "Miami (OH) RedHawks", "*": "Miami Hurricanes"},
+         "southeastern": {"Southland": "SE Louisiana Lions", "Southland Conference": "SE Louisiana Lions"}}
 
 
 class Matcher:
@@ -223,6 +229,7 @@ class Matcher:
         raw = _html.unescape(s or "")
         for pat, target in RAW_ALIAS:
             if re.search(pat, raw, re.I): return target
+        raw = re.sub(r"^\s*(#|no\.\s*)\d+\s+", "", raw, flags=re.I)                # "#22 UCLA" (poll rank)
         raw = re.sub(r"\s*\|.*$", "", raw)                                   # "Milwaukee Athletics | Official Athletics Website"
         raw = re.sub(r"\b(athletics|official site|official athletics website)\b", " ", raw, flags=re.I)
         k = norm(raw)
@@ -546,13 +553,55 @@ def prune():
             if score(x) == score(y) == 0 and not (set(pr) & full_site): continue          # nobody can say which
             lose = y if (score(x), -abs(x[0])) >= (score(y), -abs(y[0])) else x
             gone.add(lose[0]); drops.append({"id": lose[0], "date": lose[1], "home": T[lose[2]], "away": T[lose[3]], "why": "duplicate of a game days apart"})
+    # 2) ESPN's date is off but BOTH official sites list the pair on one other day within 3 → move it there
+    #    (Mercer–Samford: ESPN Jan 13, both sites Jan 11). The ESPN tip time was for the wrong day, so it goes TBA.
+    moved = []
+    for g in sched["games"]:
+        if g[0] in gone or g[0] < 0: continue
+        h, a = T[g[2]], T[g[3]]
+        if not (h in full_site and a in full_site) or _on_site(site[h], g[1], a) or _on_site(site[a], g[1], h): continue
+        dh = {d for d, o in site[h] if o == a and abs((_d.fromisoformat(d) - _d.fromisoformat(g[1])).days) <= 3}
+        da = {d for d, o in site[a] if o == h and abs((_d.fromisoformat(d) - _d.fromisoformat(g[1])).days) <= 3}
+        both = sorted(dh & da)
+        if len(both) == 1 and not any(x is not g and x[1] == both[0] and h in (T[x[2]], T[x[3]]) for x in by_team[h] + by_team[a]):
+            moved.append({"id": g[0], "from": g[1], "to": both[0], "home": h, "away": a})
+            g[1] = both[0]
+            while len(g) < 8: g.append("")
+            g[6] = ""
+    # 3) a team listed twice on one day: move the game its own site dates differently (within 3 days). The other
+    #    team must be free that day — or blocked only by a game that is itself moving onto this day (a swap: SWAC
+    #    2027 had PV@Alcorn and TXSO@Alcorn on each other's dates; both Texas sites + ESPN's Jackson St games agree)
+    busy = lambda team, d, skip: [x for x in by_team[team] if x[0] not in skip and x[1] == d and team in (T[x[2]], T[x[3]])]
+    want = {}
+    for team, gs in by_team.items():
+        if team not in site: continue
+        days = Counter(g[1] for g in gs if g[0] not in gone)
+        for g in gs:
+            if g[0] in gone or days[g[1]] < 2: continue
+            opp = T[g[3]] if T[g[2]] == team else T[g[2]]
+            if any(d == g[1] and o == opp for d, o in site[team]): continue          # listed on this very day — keep
+            alt = sorted(d for d, o in site[team] if o == opp and d != g[1] and abs((_d.fromisoformat(d) - _d.fromisoformat(g[1])).days) <= 3)
+            if len(alt) == 1: want[g[0]] = (g, alt[0])
+    for gid, (g, to) in list(want.items()):
+        if gid not in want: continue
+        h, a = T[g[2]], T[g[3]]
+        block = busy(h, to, {gid}) + busy(a, to, {gid})
+        if any(not (b[0] in want and want[b[0]][1] == g[1]) for b in block): continue
+        for x, d in [(g, to)] + [(b, g[1]) for b in block]:
+            moved.append({"id": x[0], "from": x[1], "to": d, "home": T[x[2]], "away": T[x[3]]})
+            want.pop(x[0], None); x[1] = d
+            while len(x) < 8: x.append("")
+            x[6] = ""
+    if moved: print(f"~{len(moved)} games moved to the date both official sites list: " + ", ".join(f"{m['away']} @ {m['home']} {m['from']}→{m['to']}" for m in moved))
     for g in sched["games"]:
         if g[0] in gone: continue
         h, a = T[g[2]], T[g[3]]
         off_h = h in full_site and not _on_site(site[h], g[1], a)
         off_a = a in full_site and not _on_site(site[a], g[1], h)
         why = None
-        if g[0] > 0 and off_h and off_a: why = "on neither site"
+        # a matchup both sites list a few days away is a date mix-up, not a phantom (PV–MVSU: ESPN 02-22, sites 02-18/02-20)
+        near_pair = any(abs((_d.fromisoformat(d) - _d.fromisoformat(g[1])).days) <= 7 for t, o in ((h, a), (a, h)) if t in site for d, x in site[t] if x == o)
+        if g[0] > 0 and off_h and off_a and not near_pair: why = "on neither site"
         elif g[0] > 0 and off_h and h in whole and not (a in site and _on_site(site[a], g[1], h)): why = f"not on {h}'s full official schedule"
         elif g[0] > 0 and off_a and a in whole and not (h in site and _on_site(site[h], g[1], a)): why = f"not on {a}'s full official schedule"
         elif off_h and h not in (a,) and (a not in full_site or off_a) and confirmed_twin(h, g): why = f"shadow of a listed {h} game"
