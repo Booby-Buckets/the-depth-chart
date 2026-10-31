@@ -137,53 +137,159 @@
     });
   }
 
+  // ── team page: the on/off-style sheet. Pick a teammate (chips); every other player's line with him on the floor vs off it.
+  // [key, header, value(v), better direction (0 = no colour), a big change, decimals, suffix]
+  function teamStat(k, h, fn, dir, big, dec, suf) { return { k: k, h: h, fn: fn, dir: dir, big: big, dec: dec, suf: suf || '' }; }
+  var TS = (function () {
+    var tposs = function (v) { return (poss(v, N) + poss(v, 2 * N)) / 2; };
+    var per = function (fn) { return function (v) { var k = k70(v); return k == null ? null : fn(v) * k; }; };
+    var L = [
+      teamStat('usg', 'USG', S.usg[1], 0, 3, 1, '%'), teamStat('pts', 'PTS', S.pts[1], 1, 3, 1), teamStat('ast', 'AST', S.ast[1], 1, 1.2, 1),
+      teamStat('reb', 'REB', S.reb[1], 1, 1.5, 1), teamStat('tov', 'TOV', S.tov[1], -1, 0.8, 1), teamStat('ts', 'TS%', S.ts[1], 1, 4, 1, '%'),
+      teamStat('tp', '3P%', S.tp[1], 1, 5, 1, '%'), teamStat('pm', '+/-', S.pm[1], 1, 6, 1),
+      teamStat('fga', 'FGA', cnt('fga'), 0, 2, 1), teamStat('fgp', 'FG%', function (v) { return pct(v[I.fgm], v[I.fga], 8); }, 1, 4, 1, '%'),
+      teamStat('tpa', '3PA', cnt('tpa'), 0, 1.2, 1), teamStat('fta', 'FTA', cnt('fta'), 1, 1.2, 1),
+      teamStat('ftp', 'FT%', function (v) { return pct(v[I.ftm], v[I.fta], 5); }, 1, 6, 1, '%'),
+      teamStat('efg', 'eFG%', function (v) { return v[I.fga] >= 8 ? 100 * (v[I.fgm] + 0.5 * v[I.tpm]) / v[I.fga] : null; }, 1, 4, 1, '%'),
+      teamStat('orb', 'OREB', cnt('orb'), 1, 0.8, 1), teamStat('drb', 'DREB', cnt('drb'), 1, 1.2, 1),
+      teamStat('ato', 'AST/TO', function (v) { return v[I.tov] >= 2 ? v[I.ast] / v[I.tov] : null; }, 1, 0.4, 2),
+      teamStat('stl', 'STL', cnt('stl'), 1, 0.5, 1), teamStat('blk', 'BLK', cnt('blk'), 1, 0.5, 1),
+      teamStat('ortg', 'ORtg', function (v) { var p = tposs(v); return p >= 20 ? 100 * v[N + I.pts] / p : null; }, 1, 5, 1),
+      teamStat('drtg', 'DRtg', function (v) { var p = tposs(v); return p >= 20 ? 100 * v[2 * N + I.pts] / p : null; }, -1, 5, 1),
+      teamStat('net', 'Net', function (v) { var p = tposs(v); return p >= 20 ? 100 * (v[N + I.pts] - v[2 * N + I.pts]) / p : null; }, 1, 7, 1),
+      teamStat('pace', 'Pace', function (v) { return v[3 * N] >= 600 ? tposs(v) * 2400 / v[3 * N] : null; }, 0, 2, 1),
+      teamStat('oefg', 'Opp eFG%', function (v) { var o = 2 * N; return v[o + I.fga] >= 20 ? 100 * (v[o + I.fgm] + 0.5 * v[o + I.tpm]) / v[o + I.fga] : null; }, -1, 3, 1, '%')
+    ], M = {};
+    L.forEach(function (s) { M[s.k] = s; });
+    return M;
+  })();
+  var TSETS = [
+    ['over', 'Overview', ['usg', 'pts', 'ast', 'reb', 'tov', 'ts', 'tp', 'pm']],
+    ['shoot', 'Shooting', ['fga', 'fgp', 'tpa', 'tp', 'fta', 'ftp', 'efg', 'ts']],
+    ['play', 'Playmaking & D', ['ast', 'tov', 'ato', 'orb', 'drb', 'stl', 'blk']],
+    ['team', 'Team on floor', ['ortg', 'drtg', 'net', 'pace', 'oefg', 'pm']]
+  ];
+  // same ramp as tdc-onoff.js fill(): red → neutral → green, theme-aware
+  function fill(p) {
+    var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    var mid = dark ? [58, 58, 62] : [244, 242, 237], hi = [47, 133, 90], lo = [196, 78, 72];
+    var t = Math.min(1, Math.abs(p - 50) / 50), end = p >= 50 ? hi : lo;
+    var c = mid.map(function (m, i) { return Math.round(m + (end[i] - m) * t); });
+    return ['rgb(' + c.join(',') + ')', t > 0.45 ? '#fff' : (dark ? '#e8e6e1' : '#1b1a17')];
+  }
+  // phones: "C. Boozer"; more of the first name when two teammates would match (Cam. / Cay. Boozer)
+  function shortName(n, k) { var w = String(n || '').split(' ').filter(function (x) { return !/^(jr\.?|sr\.?|ii|iii|iv)$/i.test(x); });
+    return w.length > 1 ? w[0].slice(0, k || 1) + '. ' + w.slice(1).join(' ') : n; }
+  function shortNames(L) { var out = {};
+    L.forEach(function (p) { var k = 1, sn = shortName(p.name, 1);
+      while (k < 6 && L.some(function (q) { return q !== p && shortName(q.name, k) === sn; })) { k++; sn = shortName(p.name, k); }
+      out[p.id] = sn; });
+    return out; }
+  function teamCss() {
+    if (document.getElementById('ssx-css')) return;
+    var s = document.createElement('style'); s.id = 'ssx-css';
+    s.textContent =
+      '.ssx-bar{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin:0 0 12px}.ssx-bar .ui-check{margin-left:auto}' +
+      '.ssx-lbl{font:800 10px Inter,system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin:0 0 6px}' +
+      '.ssx-mates{display:flex;gap:6px;overflow-x:auto;padding:0 0 4px;margin:0 0 12px;scrollbar-width:thin}' +
+      '.ssx-mate{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start;gap:1px;border:1px solid var(--border2);background:var(--bg);border-radius:9px;padding:6px 11px;cursor:pointer;text-align:left;font:700 12.5px Inter,system-ui,sans-serif;color:var(--text)}' +
+      '.ssx-mate small{font-size:10.5px;font-weight:600;color:var(--text3)}' +
+      '.ssx-mate:hover{border-color:var(--text3)}' +
+      '.ssx-mate.on{background:var(--accent);border-color:var(--accent);color:var(--accent-on,#221c08)}.ssx-mate.on small{color:inherit;opacity:.75}' +
+      '.ssx-meta{font-size:12.5px;color:var(--text3);margin:0 0 10px;line-height:1.5}.ssx-meta b{color:var(--text2)}.ssx-meta a{color:var(--text3);font-weight:700;text-decoration:none;margin-left:6px}.ssx-meta a:hover{color:var(--text)}' +
+      '.ssx-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--bg)}' +
+      '.ssx-t{border-collapse:separate;border-spacing:0;width:100%;font-variant-numeric:tabular-nums;font-size:13px}' +
+      '.ssx-t th{position:sticky;top:0;background:var(--bg2);font:800 10px Inter,system-ui,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);padding:9px 8px;border-bottom:1px solid var(--border);cursor:pointer;white-space:nowrap}' +
+      '.ssx-t th:hover{color:var(--text)}.ssx-t th.on{color:var(--text);box-shadow:inset 0 -3px 0 var(--accent)}' +
+      '.ssx-t td{padding:0;border-bottom:1px solid var(--border);text-align:center;white-space:nowrap;height:38px}' +
+      '.ssx-t td.pl,.ssx-t th.pl{position:sticky;left:0;z-index:1;background:var(--bg);text-align:left;padding:0 12px;min-width:170px;border-right:1px solid var(--border)}' +
+      '.ssx-t th.pl{background:var(--bg2);z-index:2}.ssx-t td.pl .snm{display:none}' +
+      '.ssx-t td.pl a{color:var(--text);font-weight:700;text-decoration:none}.ssx-t td.pl small{display:block;font-size:10.5px;color:var(--text3);font-weight:600}' +
+      '.ssx-t td.vol{color:var(--text2);padding:0 10px;font-weight:600}' +
+      '.ssx-t td.h{min-width:64px;font-weight:700;border-left:2px solid var(--bg)}.ssx-t td.h.na{color:var(--text3);font-weight:500}' +
+      '.ssx-t td.h .fr{display:block;font-size:10px;font-weight:600;opacity:.75;margin-top:1px}' +
+      '.ssx-t tr.thin td.h{opacity:.55}' +
+      '.ssx-key{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11.5px;color:var(--text3);margin:10px 2px 0}.ssx-key i{display:inline-block;width:22px;height:12px;border-radius:3px}' +
+      '@media(max-width:700px){.ssx-bar .ui-seg{display:flex;flex-wrap:wrap}.ssx-bar .ui-check{margin-left:0}.ssx-t td.pl,.ssx-t th.pl{min-width:0;padding:0 8px}.ssx-t td.pl small,.ssx-t td.pl .fnm{display:none}.ssx-t td.pl .snm{display:inline}.ssx-t td.h{min-width:52px}.ssx-t td.h .fr{display:none}}';
+    document.head.appendChild(s);
+  }
+  function seg(name, list, cur) {
+    return '<span class="ui-seg">' + list.map(function (x) { return '<button type="button" data-' + name + '="' + x[0] + '" class="' + (String(x[0]) === String(cur) ? 'on' : '') + '">' + esc(x[1]) + '</button>'; }).join('') + '</span>';
+  }
+
   function renderTeam(host, o) {
     if (!host) return;
-    css();
+    teamCss();
     var names = [].concat(o && o.team || []).filter(Boolean);
-    host.innerHTML = '<div class="ssp-note">Loading lineups…</div>';
-    var st = { sort: 'mw', desc: true, small: false, mate: null };
+    host.innerHTML = '<div class="ui-empty">Loading lineups…</div>';
+    var st = { sort: 'mw', asc: false, small: false, mate: null, view: 'diff', set: 'over' };
     var find = function (y) { var i = 0, next = function () { return i < names.length ? teamFile(y, names[i++]).then(function (f) { return f || next(); }) : Promise.resolve(null); }; return next(); };
     Promise.all(SEASONS.map(function (y) { return find(y).then(function (f) { return f ? { season: y, file: f } : null; }); })).then(function (a) {
       var list = a.filter(Boolean);
-      if (!list.length) { host.innerHTML = '<div class="ssp-note">No play-by-play lineup data for this team yet (2024-25 and 2025-26 D-I games with substitution logs).</div>'; return; }
+      if (!list.length) { host.innerHTML = '<div class="ui-empty">No play-by-play lineup data for this team yet (2024-25 and 2025-26 D-I games with substitution logs).</div>'; return; }
       st.season = list[0].season;
       var draw = function () {
         var cur = list.find(function (x) { return x.season === st.season; });
         get(st.season + '/' + cur.file).then(function (D) {
-          if (!D || !D.players.length) { host.innerHTML = '<div class="ssp-note">Couldn\'t load the lineup file.</div>'; return; }
+          if (!D || !D.players.length) { host.innerHTML = '<div class="ui-empty">Couldn\'t load the lineup file.</div>'; return; }
           var byId = {}; D.players.forEach(function (p) { byId[p.id] = p; });
           if (!st.mate || !byId[st.mate]) st.mate = D.players[0].id;
-          var M = byId[st.mate], mid = st.mate, first = String(M.name).split(' ')[0];
+          var M = byId[st.mate], mid = st.mate, SN = shortNames(D.players), last = SN[mid] || String(M.name).split(' ').slice(-1)[0];   // "Cam. Boozer": a bare last name can be two teammates
+          var setDef = TSETS.find(function (x) { return x[0] === st.set; }), C = setDef[2].map(function (k) { return TS[k]; });
           var rows = D.players.filter(function (p) { return p.id !== mid; }).map(function (p) {
             var w = (D.w[p.id] || {})[mid] || p.all.map(function () { return 0; }), wo = sub(p.all, w), r = { p: p, mw: w[3 * N] / 60, mo: wo[3 * N] / 60, s: {} };
-            COLS.forEach(function (k) { var x = S[k][1](wo), y = S[k][1](w); r.s[k] = [x, y, (x != null && y != null) ? y - x : null]; });
+            C.forEach(function (c) { var x = c.fn(wo), y = c.fn(w); r.s[c.k] = [x, y, (x != null && y != null) ? y - x : null]; });
             return r;
           }).filter(function (r) { return st.small || (r.mw >= 15 && r.mo >= 15); });
-          var key = st.sort;
-          var val = function (r) { if (key === 'mw') return r.mw; var s = r.s[key]; return s && s[2] != null ? s[2] : -1e9; };
-          rows.sort(function (a, b) { return st.desc ? val(b) - val(a) : val(a) - val(b); });
-          var head = '<th class="l" data-s="mw">Player<span class="sm">min w/o → min w/ ' + esc(first) + '</span></th>' + COLS.map(function (k) { return '<th data-s="' + k + '">' + S[k][0] + '</th>'; }).join('');
+          var vi = st.view === 'with' ? 1 : st.view === 'without' ? 0 : 2;
+          if (st.sort !== 'mw' && st.sort !== 'name' && !TS[st.sort]) st.sort = 'mw';
+          if (TS[st.sort] && setDef[2].indexOf(st.sort) < 0) st.sort = 'mw';
+          var key = function (r) { return st.sort === 'mw' ? r.mw : st.sort === 'name' ? r.p.name : r.s[st.sort][vi]; };
+          rows.sort(function (a, b) {
+            var x = key(a), y = key(b);
+            if (st.sort === 'name') return st.asc ? String(x).localeCompare(y) : String(y).localeCompare(x);
+            if (x == null) return 1; if (y == null) return -1;
+            var dir = TS[st.sort] && TS[st.sort].dir < 0 ? -1 : 1;   // lower-is-better (TOV, DRtg): best first
+            return (st.asc ? 1 : -1) * dir * (x - y);
+          });
+          var VIEWS = [['diff', 'Shift'], ['with', 'With ' + last], ['without', 'Without ' + last]];
+          var bar = '<div class="ssx-bar">' + (list.length > 1 ? seg('y', list.map(function (x) { return [x.season, sl(x.season)]; }), st.season) : '') +
+            seg('v', VIEWS, st.view) + seg('s', TSETS.map(function (x) { return [x[0], x[1]]; }), st.set) +
+            '<label class="ui-check"><input type="checkbox" class="ssxSmall"' + (st.small ? ' checked' : '') + '> Small samples</label></div>';
+          var mates = '<div class="ssx-lbl">On the floor or off it: pick a player</div><div class="ssx-mates">' + D.players.map(function (p) {
+            return '<button type="button" class="ssx-mate' + (p.id === mid ? ' on' : '') + '" data-m="' + esc(p.id) + '">' + esc(SN[p.id]) + '<small>' + Math.round(p.all[3 * N] / 60) + ' min</small></button>'; }).join('') + '</div>';
+          var head = '<thead><tr><th class="pl" data-k="name">Player</th><th data-k="mw" class="' + (st.sort === 'mw' ? 'on' : '') + '" title="Minutes with ' + esc(M.name) + ' on the floor">Min w/</th>' +
+            C.map(function (c) { return '<th data-k="' + c.k + '" class="' + (st.sort === c.k ? 'on' : '') + '">' + esc(c.h) + '</th>'; }).join('') + '</tr></thead>';
           var body = rows.map(function (r) {
-            return '<tr class="' + ((r.mw < 40 || r.mo < 40) ? 'thin' : '') + '"><td class="l nm"><a href="player.html?espn=' + esc(r.p.id) + '">' + esc(r.p.name) + '</a><span class="sm">' + Math.round(r.mo) + ' w/o → ' + Math.round(r.mw) + ' w/</span></td>' +
-              COLS.map(function (k) { var s = r.s[k], dir = S[k][2];
-                return '<td class="sh ' + heat(k, s[2]) + '"><span class="ab"><span class="o">' + f1(s[0]) + '</span> → ' + f1(s[1]) + '</span><span class="dl ' + (s[2] == null ? '' : (!dir ? 'n' : (s[2] * dir > 0 ? 'up' : 'dn'))) + '">' + sg(s[2]) + '</span></td>'; }).join('') + '</tr>';
+            var cells = C.map(function (c) {
+              var s = r.s[c.k], v = s[vi];
+              if (v == null) return '<td class="h na">—</td>';
+              // colour = is this side better than the other one; Shift: better with him on the floor
+              var g = s[2] == null || !c.dir ? null : s[2] * c.dir / c.big * (vi === 0 ? -1 : 1);
+              var f = g == null ? null : fill(Math.max(0, Math.min(100, 50 + 25 * g)));
+              var txt = (vi === 2 && v > 0 ? '+' : (c.k === 'pm' || c.k === 'net') && v > 0 ? '+' : '') + (+v).toFixed(c.dec) + (vi === 2 ? '' : c.suf);
+              var fr = vi === 2 ? '<span class="fr">' + (+s[0]).toFixed(c.dec) + ' → ' + (+s[1]).toFixed(c.dec) + '</span>' : '';
+              return '<td class="h"' + (f ? ' style="background:' + f[0] + ';color:' + f[1] + '"' : '') + ' title="' + esc(c.h + ' · without ' + last + ' ' + f1(s[0]) + ' → with ' + f1(s[1]) + (s[2] != null ? ' (' + sg(s[2]) + ')' : '')) + '">' + txt + fr + '</td>';
+            }).join('');
+            return '<tr class="' + ((r.mw < 40 || r.mo < 40) ? 'thin' : '') + '"><td class="pl"><a href="player.html?espn=' + esc(r.p.id) + '&tab=statshift"><span class="fnm">' + esc(r.p.name) + '</span><span class="snm">' + esc(SN[r.p.id]) + '</span></a>' +
+              '<small>' + Math.round(r.mw) + ' min with · ' + Math.round(r.mo) + ' without' + ((r.mw < 40 || r.mo < 40) ? ' · small sample' : '') + '</small></td><td class="vol">' + Math.round(r.mw) + '</td>' + cells + '</tr>';
           }).join('');
-          host.innerHTML =
-            '<div class="ssp-ctl">' +
-              (list.length > 1 ? '<select id="sspSeason" aria-label="Season">' + list.map(function (x) { return '<option value="' + x.season + '"' + (x.season === st.season ? ' selected' : '') + '>' + sl(x.season) + '</option>'; }).join('') + '</select>' : '<span class="ssp-note" style="margin:0">' + sl(st.season) + '</span>') +
-              '<select id="sspMate" aria-label="Teammate">' + D.players.map(function (p) { return '<option value="' + esc(p.id) + '"' + (p.id === mid ? ' selected' : '') + '>With / without ' + esc(p.name) + ' (' + Math.round(p.all[3 * N] / 60) + ' min)</option>'; }).join('') + '</select>' +
-              '<label class="ssp-note" style="margin:0;display:flex;gap:6px;align-items:center"><input type="checkbox" id="sspSmall"' + (st.small ? ' checked' : '') + '> Small samples</label>' +
-              '<a href="statshift.html?team=' + encodeURIComponent(D.team) + '&with=' + encodeURIComponent(mid) + (st.season !== 2026 ? '&season=' + st.season : '') + '">Open in Stat Line Shift →</a>' +
-            '</div>' +
-            '<div class="ssp-note">How every player\'s own line changes with <b>' + esc(M.name) + '</b> on the floor vs off it. Per 70 possessions; each cell reads without → with. Green = better with him, red = worse; usage and +/- aren\'t shaded. "Without" includes games he missed. Garbage time removed.</div>' +
-            '<div class="sheet-wrap" style="max-height:none"><table class="sheet dense ssp-tbl"><thead><tr>' + head + '</tr></thead><tbody>' +
-              (body || '<tr><td class="l" colspan="9">No teammate with 15+ minutes on both sides. Tick "Small samples".</td></tr>') + '</tbody></table></div>';
-          var se = host.querySelector('#sspSeason'); if (se) se.onchange = function () { st.season = +se.value; st.mate = null; draw(); };
-          host.querySelector('#sspMate').onchange = function (e) { st.mate = e.target.value; draw(); };
-          host.querySelector('#sspSmall').onchange = function (e) { st.small = e.target.checked; draw(); };
-          host.querySelectorAll('.ssp-tbl th[data-s]').forEach(function (th) { if (th.dataset.s === key) th.classList.add('sorted');
-            th.onclick = function () { if (st.sort === th.dataset.s) st.desc = !st.desc; else { st.sort = th.dataset.s; st.desc = true; } draw(); }; });
+          var vName = st.view === 'diff' ? 'Shift (with ' + esc(M.name) + ' on the floor − off it)' : st.view === 'with' ? 'With ' + esc(M.name) + ' on the floor' : 'With ' + esc(M.name) + ' off the floor';
+          host.innerHTML = bar + mates +
+            '<p class="ssx-meta"><b>' + vName + '</b> · ' + esc(setDef[1]) + ' · ' + sl(st.season) + ' · per 70 possessions · garbage time removed' +
+              '<a href="statshift.html?team=' + encodeURIComponent(D.team) + '&with=' + encodeURIComponent(mid) + (st.season !== 2026 ? '&season=' + st.season : '') + '">Open in Stat Line Shift →</a></p>' +
+            '<div class="ssx-wrap"><table class="ssx-t">' + head + '<tbody>' +
+              (body || '<tr><td class="pl" colspan="' + (C.length + 2) + '">No teammate with 15+ minutes on both sides. Tick "Small samples".</td></tr>') + '</tbody></table></div>' +
+            '<div class="ssx-key">Cell colour = ' + (st.view === 'diff' ? 'how much his number moves with ' + esc(last) + ' on the floor' : 'this side vs the other') + ':' +
+              [0, 25, 50, 75, 100].map(function (q) { var f = fill(q); return '<i style="background:' + f[0] + '"></i>' + (q === 0 ? 'worse' : q === 100 ? 'better' : ''); }).join(' ') +
+              ' · usage, volume and pace aren\'t coloured · "without" includes games ' + esc(last) + ' missed · faded rows = small sample</div>';
+          host.querySelectorAll('[data-y]').forEach(function (b) { b.onclick = function () { st.season = +b.dataset.y; st.mate = null; draw(); }; });
+          host.querySelectorAll('[data-v]').forEach(function (b) { b.onclick = function () { st.view = b.dataset.v; draw(); }; });
+          host.querySelectorAll('[data-s]').forEach(function (b) { b.onclick = function () { st.set = b.dataset.s; draw(); }; });
+          host.querySelectorAll('[data-m]').forEach(function (b) { b.onclick = function () { st.mate = b.dataset.m; draw(); }; });
+          host.querySelector('.ssxSmall').onchange = function (e) { st.small = e.target.checked; draw(); };
+          host.querySelectorAll('.ssx-t th[data-k]').forEach(function (th) { th.onclick = function () { var k = th.dataset.k; if (st.sort === k) st.asc = !st.asc; else { st.sort = k; st.asc = k === 'name'; } draw(); }; });
+          var on = host.querySelector('.ssx-mate.on'); if (on && on.scrollIntoView) { var mw = host.querySelector('.ssx-mates'); mw.scrollLeft = on.offsetLeft - mw.offsetLeft - 8; }
         });
       };
       draw();
