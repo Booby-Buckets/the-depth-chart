@@ -8640,9 +8640,7 @@ async function _renderShotDist(rows){
     if(window.tdcSheetHeat) document.querySelectorAll('#depthContent table.hr-sheet').forEach(t=>tdcSheetHeat(t));
     // distribution card — from the per-team list, which INCLUDES freshmen/no-box
     if(!list||list.length<3){ host.innerHTML=''; _hideShotProfileSide(); return; }
-    // the projected 2026-27 shot shares/tendencies are Premium (same gate as the full depth chart);
-    // past seasons stay free via _renderHistShot
-    if(window.TDCGate){ if(!TDCGate.resolved()) await TDCGate.ready; if(!TDCGate.has('premium')){ host.innerHTML=''; _hideShotProfileSide(); return; } }
+
     // a player out for the season (injury report / roster flag) takes no shots; the rest of the
     // budget is re-split pro rata so the shares still sum to 100
     const _outN=new Set((rows||[]).map(r=>(''+r.name).toLowerCase().trim()));
@@ -8660,10 +8658,23 @@ async function _renderShotDist(rows){
     const _top=items[0].share;
     // thresholds from the league distribution of top-option share (median 18%, p90 21%)
     const _prof=_top>=21?{l:'Star-driven',c:'#e0885a'}:_top>=18?{l:'Featured-scorer led',c:'var(--accent)'}:{l:'Balanced attack',c:'#5ab875'};
-    host.innerHTML=`<div class="sec-head" style="margin-top:28px;">Shot distribution <span class="sd-sub">2026-27 projected share of the team's shots</span></div>`+
+    host.innerHTML=`<div class="sec-head" style="margin-top:28px;">Shot distribution <span class="sd-sub">2026-27 projected share of the team's shots</span></div><div class="sd-lock">`+
       _sdTable(items, it=>(it.espn&&P[it.espn])?P[it.espn].shot_tend_demo:null,
-        `Share: each player's slice of the team's projected shots (${Math.round(tot)}% shown). Tendency: how shot-hungry the player's role is, as a national percentile of shots per 40 (100 = a pure #1 option); the arrow shows the change from last season. Freshmen (FR) have no college stats, so their shots are estimated from their projected role.`);
+        `Share: each player's slice of the team's projected shots (${Math.round(tot)}% shown). Tendency: how shot-hungry the player's role is, as a national percentile of shots per 40 (100 = a pure #1 option); the arrow shows the change from last season. Freshmen (FR) have no college stats, so their shots are estimated from their projected role.`)+`</div>`;
     _fillShotProfileSide(_prof,_threats,_eff,_top);
+    // the projected 2026-27 shot shares/tendencies are Premium (same gate as the full depth chart):
+    // free users see the section, blurred, under a lock. Past seasons stay free (_renderHistShot).
+    if(window.TDCGate){ if(!TDCGate.resolved()) await TDCGate.ready;
+      if(!TDCGate.has('premium')){
+        TDCGate.lock(host.querySelector('.sd-lock'),{tier:'premium',label:'2026-27 shot tendencies',
+          blurb:'See every player’s projected share of the shots and how shot-hungry his role is. Past seasons are free. Included with Premium — $4.99/mo.'});
+        const b=document.getElementById('shotProfileBody');
+        if(b&&!b.querySelector('.sd-sidelock')){
+          [...b.children].forEach(c=>c.classList.add('tdc-gate-blur'));
+          b.insertAdjacentHTML('beforeend','<a class="sd-sidelock" href="pricing.html" style="display:block;margin-top:10px;font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;">🔒 Unlock with Premium</a>');
+        }
+      }
+    }
   }catch(e){ host.innerHTML=''; }
 }
 // Departures: players on the PRIOR season's roster who aren't on this season's, and
