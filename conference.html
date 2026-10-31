@@ -717,6 +717,13 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
     return rounds.map(function(r,i){ return i===n-1?'Final':i===n-2?'Semis':i===n-3?'Quarters':(r===0&&i===0?'Play-in':(i===0?'First round':i===1?'Second round':'Round '+(i+1))); }); }
   function renderConfProj(R){
     var rec=function(w,l){ return Math.round(w)+'-'+Math.round(l); };
+    // projected seed = the bracket's seeding (the teams most often invited, ordered by average seed);
+    // the plain average read badly — a few bad simulated seasons dragged a 41%-likely 1 seed to "2.7"
+    var projSeed={};
+    R.teams.filter(function(t){ return t.invited>0; }).sort(function(a,b){ return (b.invited-a.invited)||(a.avgSeed-b.avgSeed); })
+      .slice(0,R.fmt&&R.fmt.invited||99).sort(function(a,b){ return a.avgSeed-b.avgSeed; }).forEach(function(t,i){ projSeed[t.team]=i+1; });
+    var seedTip=function(t){ var top=(t.seed||[]).map(function(p,k){ return [k,p]; }).filter(function(x){ return x[0]>0&&x[1]>=.05; }).sort(function(a,b){ return b[1]-a[1]; }).slice(0,4);
+      return 'most likely seeds: '+top.map(function(x){ return x[0]+' ('+pc(x[1])+')'; }).join(', ')+(t.avgSeed?' \u00b7 average '+t.avgSeed.toFixed(1):''); };
     var body=R.teams.map(function(t,i){
       var r=+t.row.rating||0;
       return '<tr><td class="rk">'+(i+1)+'</td>'+
@@ -724,13 +731,14 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
         '<td class="strong" title="'+t.cw.toFixed(1)+' expected league wins of '+t.confN+(t.filled?' ('+t.filled+' league game'+(t.filled>1?'s':'')+' not announced yet, simulated vs an average league opponent)':'')+'">'+rec(t.cw,t.cl)+(t.filled?'<span class="dim">*</span>':'')+'</td>'+
         '<td>'+(t.n>=20?rec(t.expW,t.n-t.expW):'\u2014')+'</td>'+
         '<td title="wins or shares the regular-season title · '+pc(t.outright)+' outright">'+pc(t.title)+'</td>'+
-        '<td>'+(t.avgSeed?t.avgSeed.toFixed(1):'\u2014')+'</td>'+
+        '<td title="'+seedTip(t)+'">'+(projSeed[t.team]||'\u2014')+'</td>'+
+        '<td>'+pc(R.fmt&&t.seed?t.seed[1]:null)+'</td>'+
         '<td class="strong">'+pc(t.champ)+'</td>'+
         '<td class="big">'+f1(r)+'</td><td class="dim">#'+(t.row.rank||'\u2014')+'</td></tr>';
     }).join('');
     sel('stand').innerHTML='<thead><tr><th class="rk">#</th><th class="l">Team</th>'+
       '<th title="projected conference record (shared simulated seasons: every league W is someone\u2019s L)">Proj Conf</th><th title="projected overall record">Proj W-L</th>'+
-      '<th data-heat="1" title="wins or shares the regular-season title">Reg. title</th><th data-heat="-1" title="average tournament seed">Avg seed</th>'+
+      '<th data-heat="1" title="wins or shares the regular-season title">Reg. title</th><th data-heat="-1" title="projected tournament seed (hover a team for its most likely seeds)">Proj seed</th><th data-heat="1" title="chance of the No. 1 seed">1 seed</th>'+
       '<th data-heat="1" title="wins the conference tournament (the automatic NCAA bid)">Tourney</th>'+
       '<th data-heat="1"'+(window.tipAttr?tipAttr('projrating'):'')+' style="cursor:help;">Proj Power</th><th>Nat&rsquo;l</th></tr></thead><tbody>'+body+'</tbody>';
     if(window.tdcSheetHeat) tdcSheetHeat(sel('stand'));
