@@ -245,21 +245,23 @@
 
   function renderTeam(host, o) {
     if (!host) return;
-    teamCss();
+    teamCss(); o = o || {};
     var names = [].concat(o && o.team || []).filter(Boolean);
     host.innerHTML = '<div class="ui-empty">Loading lineups…</div>';
-    var st = { sort: 'mw', asc: false, small: false, mate: null, view: 'diff', set: 'over' };
+    // statshift.html: o.mate / o.season to start on, o.link false (no self-link), o.onChange({team, season, mate}) to keep the URL in step
+    var st = { sort: 'mw', asc: false, small: false, mate: o.mate ? String(o.mate) : null, view: 'diff', set: 'over' };
     var find = function (y) { var i = 0, next = function () { return i < names.length ? teamFile(y, names[i++]).then(function (f) { return f || next(); }) : Promise.resolve(null); }; return next(); };
     Promise.all(SEASONS.map(function (y) { return find(y).then(function (f) { return f ? { season: y, file: f } : null; }); })).then(function (a) {
       var list = a.filter(Boolean);
       if (!list.length) { host.innerHTML = '<div class="ui-empty">No play-by-play lineup data for this team yet (2024-25 and 2025-26 D-I games with substitution logs).</div>'; return; }
-      st.season = list[0].season;
+      st.season = list.some(function (x) { return x.season === +o.season; }) ? +o.season : list[0].season;
       var draw = function () {
         var cur = list.find(function (x) { return x.season === st.season; });
         get(st.season + '/' + cur.file).then(function (D) {
           if (!D || !D.players.length) { host.innerHTML = '<div class="ui-empty">Couldn\'t load the lineup file.</div>'; return; }
           var byId = {}; D.players.forEach(function (p) { byId[p.id] = p; });
           if (!st.mate || !byId[st.mate]) st.mate = D.players[0].id;
+          if (o.onChange) o.onChange({ team: D.team, season: st.season, mate: st.mate, name: byId[st.mate].name });
           var M = byId[st.mate], mid = st.mate, SN = shortNames(D.players);
           var last = SN[mid] || String(M.name).split(' ').slice(-1)[0];   // "Cam. Boozer": a bare last name can be two teammates
           var sc = setCols(st);
@@ -269,7 +271,7 @@
           var vName = st.view === 'diff' ? 'Shift (with ' + esc(M.name) + ' on the floor − off it)' : st.view === 'with' ? 'With ' + esc(M.name) + ' on the floor' : 'With ' + esc(M.name) + ' off the floor';
           host.innerHTML = sheetBar(st, list.map(function (x) { return x.season; }), [['diff', 'Shift'], ['with', 'With ' + last, 'With'], ['without', 'Without ' + last, 'Without']]) + mates +
             '<p class="ssx-meta"><b>' + vName + '</b> · ' + esc(sc.def[1]) + ' · ' + sl(st.season) + ' · per 70 possessions · garbage time removed' +
-              '<a href="statshift.html?team=' + encodeURIComponent(D.team) + '&with=' + encodeURIComponent(mid) + (st.season !== 2026 ? '&season=' + st.season : '') + '">Open in Stat Line Shift →</a></p>' +
+              (o.link === false ? '' : '<a href="statshift.html?team=' + encodeURIComponent(D.team) + '&with=' + encodeURIComponent(mid) + (st.season !== 2026 ? '&season=' + st.season : '') + '">Open in Stat Line Shift →</a>') + '</p>' +
             shiftSheet({ rows: rows, C: sc.C, st: st, SN: SN, other: last, mwTip: 'Minutes with ' + M.name + ' on the floor' });
           wireSheet(host, st, draw);
           host.querySelectorAll('[data-y]').forEach(function (b) { b.onclick = function () { st.season = +b.dataset.y; st.mate = null; draw(); }; });
