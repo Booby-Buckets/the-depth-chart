@@ -4,15 +4,15 @@
   <script src="tdc-loading.js?v=5"></script>   <!-- first, so it sees every request -->
   <link rel="stylesheet" href="tdc-a11y.css?v=3">
   <script src="tdc-a11y.js?v=2" defer></script>
-  <meta name="description" content="Put two college basketball games side by side: how alike they were, where they split — pace, shot mix, how close they stayed, where the margin came from.">
+  <meta name="description" content="Put two college basketball games side by side: pace, scoring, shot mix, how close they stayed and where the margin came from, each ranked against real D-I games.">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="The Depth Chart">
   <meta property="og:title" content="Compare Games — The Depth Chart">
-  <meta property="og:description" content="Put two college basketball games side by side: how alike they were and where they split.">
+  <meta property="og:description" content="Put two college basketball games side by side: every number side by side, ranked against real D-I games.">
   <meta property="og:url" content="https://www.thedepthchartcbb.com/compare-games.html">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Compare Games — The Depth Chart">
-  <meta name="twitter:description" content="Put two college basketball games side by side: how alike they were and where they split.">
+  <meta name="twitter:description" content="Put two college basketball games side by side: every number side by side, ranked against real D-I games.">
   <script src="auth.js?v=sales2"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta charset="UTF-8"/>
@@ -61,11 +61,9 @@
     .gc-t.l{opacity:.5;}
     .gc-m{font-size:12px;color:var(--text2);margin-top:9px;line-height:1.45;}
     /* verdict */
-    .vd{display:grid;grid-template-columns:190px 1fr 1fr;gap:22px;margin-top:22px;border:1px solid var(--border);border-radius:10px;padding:18px 20px;align-items:start;}
-    .vd-score{text-align:center;}
-    .vd-score b{display:block;font-family:'Playfair Display',serif;font-size:54px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;}
-    .vd-score span{display:block;font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-top:6px;}
-    .vd-score em{display:block;font-style:normal;font-size:13px;font-weight:700;margin-top:6px;}
+    .vd{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:22px;border:1px solid var(--border);border-radius:10px;padding:18px 20px;align-items:start;}
+    .vd .pc{font-size:11px;color:var(--text3);font-weight:600;}
+    .vd-n{grid-column:1/-1;font-size:11.5px;color:var(--text3);line-height:1.45;margin-top:-6px;}
     .vd h3{font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
     .vd ul{list-style:none;}
     .vd li{font-size:13px;line-height:1.45;padding:6px 0;border-bottom:1px solid var(--border);color:var(--text2);}
@@ -78,8 +76,6 @@
     .key i{display:inline-block;width:18px;height:4px;border-radius:2px;}
     .mf svg{display:block;width:100%;height:auto;}
     .mf text{font-family:Inter,sans-serif;font-size:11px;fill:var(--text3);}
-    .gap{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;}
-    .gap.g0{color:#3d8f6b;} .gap.g1{color:var(--text3);} .gap.g2{color:#c2912f;} .gap.g3{color:#cf5a4e;}
     .sheet td.grp{font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);background:var(--bg);}
     .two{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
     .dl{font-variant-numeric:tabular-nums;font-weight:700;}
@@ -109,7 +105,7 @@
   <script src="tdc-nav.js?v=85"></script>
   <div class="wrap">
     <h1 class="cg-h">Compare Games</h1>
-    <p class="cg-sub">Pick any two games from 2007-08 on. You get how alike they were, what they shared and where they split: pace, shot mix, how close they stayed, how the margin moved and where it came from. Pick two games with a team in common, like a rematch, to see how that team and its players changed.</p>
+    <p class="cg-sub">Pick any two games from 2007-08 on and see their numbers side by side: pace, scoring, shot mix, possessions, how close they stayed, how the margin moved and where it came from. Each number shows where it ranks among real D-I games, so you can see which ones line up and which don’t. Pick two games with a team in common, like a rematch, to see how that team and its players changed.</p>
     <div class="pk-row">
       <div class="pk" id="pkA"></div>
       <div class="pk" id="pkB"></div>
@@ -188,40 +184,45 @@ function build(g,box,SRS,pbp){
   return x;
 }
 
-// ── what we compare: each feature's spread across D-I games (sd) sets how big a gap is ──
+// ── what we compare. Box-score numbers are placed among every D-I vs D-I game of the last full season
+//    (data/game_compare_ref.json, scripts/build_game_compare_ref.py), so the percentiles are the data's read,
+//    not a hand-set scale. Play-by-play numbers have no league reference, so they show values and the difference only. ──
 const F0=v=>v==null?'—':(+v).toFixed(0), F1=v=>v==null?'—':(+v).toFixed(1);
+const D0=d=>sgn(Math.round(d)), D1=d=>(d>0?'+':d<0?'−':'')+Math.abs(d).toFixed(1), DP=d=>(d>0?'+':d<0?'−':'')+Math.abs(d*100).toFixed(1)+' pts';
 const FEAT=[
-  {g:'Tempo & scoring', k:'pace', l:'Pace (possessions per 40)', sd:6, f:F0, say:v=>v>=72?'fast':v<=64?'slow':'average-paced', more:'was faster'},
-  {g:'Tempo & scoring', k:'total', l:'Total points', sd:20, f:F0, say:v=>v>=160?'high-scoring':v<=125?'low-scoring':'average-scoring', more:'was higher-scoring'},
-  {g:'Tempo & scoring', k:'ppp', l:'Points per 100 possessions', sd:9, f:F1, say:v=>v>=112?'efficient on offense':v<=96?'rough offensively':'average offensively', more:'was more efficient on offense'},
-  {g:'Result', k:'margin', l:'Final margin', sd:11, f:F0, say:v=>v>=20?'blowouts':v<=5?'close finishes':'comfortable wins', more:'was more lopsided'},
-  {g:'Result', k:'vsExp', l:'Winner vs expected margin', sd:10, f:v=>v==null?'—':sgn(Math.round(v)), say:v=>v>=8?'the winner beat expectations':v<=-8?'the winner underperformed':'roughly as expected', more:'was more of a surprise'},
-  {g:'Shot mix', k:'tpr', l:'Three-point rate (3PA / FGA)', sd:.06, f:pct, say:v=>v>=.42?'three-heavy':v<=.33?'inside-out':'balanced shot mixes', more:'was more three-heavy'},
-  {g:'Shot mix', k:'efg', l:'Effective FG%', sd:.06, f:pct, say:v=>v>=.55?'hot-shooting':v<=.46?'cold-shooting':'average-shooting', more:'had better shooting'},
-  {g:'Shot mix', k:'ftr', l:'Free-throw rate (FTA / FGA)', sd:.09, f:pct, say:v=>v>=.38?'whistle-heavy':v<=.24?'lightly called':'normally called', more:'had more whistles'},
-  {g:'Possessions', k:'tovp', l:'Turnover rate', sd:.035, f:pct, say:v=>v>=.2?'sloppy':v<=.14?'clean':'normal on turnovers', more:'was sloppier'},
-  {g:'Possessions', k:'orebp', l:'Offensive rebound rate', sd:.06, f:pct, say:v=>v>=.34?'full of second chances':v<=.25?'one-shot games':'average on the glass', more:'had more second chances'},
-  {g:'Possessions', k:'astr', l:'Assisted makes', sd:.09, f:pct, say:v=>v>=.6?'ball-movement games':v<=.45?'isolation-heavy':'average on assists', more:'had more assisted makes'},
-  {g:'Possessions', k:'bench', l:'Bench share of points', sd:.1, f:pct, say:v=>v>=.35?'deep-bench games':v<=.15?'starter-driven':'normal bench usage', more:'leaned more on the benches'},
-  {g:'How it played out', k:'lc', l:'Lead changes', sd:5, f:F0, pbp:1, say:v=>v>=10?'back-and-forth':v<=1?'one-sided from early':'a few lead swaps', more:'was more back-and-forth'},
-  {g:'How it played out', k:'close', l:'Time within 5 points', sd:.25, f:v=>v==null?'—':Math.round(v*100)+'%', pbp:1, say:v=>v>=.7?'tight most of the way':v<=.25?'separated early':'close for stretches', more:'stayed tighter for longer'},
-  {g:'How it played out', k:'comeback', l:"Winner's biggest deficit", sd:5, f:F0, pbp:1, say:v=>v>=10?'comeback wins':v<=1?'wire-to-wire-ish':'small early deficits', more:'was more of a comeback'},
-  {g:'How it played out', k:'lead', l:"Winner's largest lead", sd:8, f:F0, pbp:1, say:v=>v>=20?'routs at their peak':v<=6?'never comfortable':'double-digit leads', more:'had a bigger peak lead'},
-  {g:'How it played out', k:'run', l:'Biggest scoring run', sd:4, f:v=>v==null?'—':v+'-0', pbp:1, say:v=>v>=14?'big-run games':v<=7?'run-free':'normal runs', more:'had a bigger run'},
-  {g:'How it played out', k:'decided', l:'Last one-possession moment', sd:7, f:v=>v==null?'—':v<0.5?'final minute':Math.round(v)+' min left', pbp:1, say:v=>v<=1?'decided at the end':v>=15?'settled early':'settled mid-second-half', more:'was settled earlier'},
+  {g:'Tempo & scoring', k:'pace', l:'Pace (possessions per 40)', f:F0, d:D1},
+  {g:'Tempo & scoring', k:'total', l:'Total points', f:F0, d:D0},
+  {g:'Tempo & scoring', k:'ppp', l:'Points per 100 possessions', f:F1, d:D1},
+  {g:'Result', k:'margin', l:'Final margin', f:F0, d:D0},
+  {g:'Result', k:'vsExp', l:'Winner vs expected margin', f:v=>v==null?'—':sgn(Math.round(v)), d:D0},
+  {g:'Shot mix', k:'tpr', l:'Three-point rate (3PA / FGA)', f:pct, d:DP},
+  {g:'Shot mix', k:'efg', l:'Effective FG%', f:pct, d:DP},
+  {g:'Shot mix', k:'ftr', l:'Free-throw rate (FTA / FGA)', f:pct, d:DP},
+  {g:'Possessions', k:'tovp', l:'Turnover rate', f:pct, d:DP},
+  {g:'Possessions', k:'orebp', l:'Offensive rebound rate', f:pct, d:DP},
+  {g:'Possessions', k:'astr', l:'Assisted makes', f:pct, d:DP},
+  {g:'Possessions', k:'bench', l:'Bench share of points', f:pct, d:DP},
+  {g:'How it played out', k:'lc', l:'Lead changes', f:F0, d:D0, pbp:1},
+  {g:'How it played out', k:'close', l:'Time within 5 points', f:v=>v==null?'—':Math.round(v*100)+'%', d:d=>sgn(Math.round(d*100))+' pts', pbp:1},
+  {g:'How it played out', k:'comeback', l:"Winner's biggest deficit", f:F0, d:D0, pbp:1},
+  {g:'How it played out', k:'lead', l:"Winner's largest lead", f:F0, d:D0, pbp:1},
+  {g:'How it played out', k:'run', l:'Biggest scoring run', f:v=>v==null?'—':v+'-0', d:D0, pbp:1},
+  {g:'How it played out', k:'decided', l:'Last one-possession moment', f:v=>v==null?'—':v<0.5?'final minute':Math.round(v)+' min left', d:d=>sgn(Math.round(d))+' min', pbp:1},
 ];
 const ok=v=>v!=null&&isFinite(v);
+let REF=null;
+const refP=fetch('data/game_compare_ref.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null).then(j=>{ REF=j; return j; });
+// percentile of v among the reference games: where it falls in the 101 cut points
+function pctl(k,v){ const q=REF&&REF.q&&REF.q[k]; if(!q||!ok(v)) return null;
+  let lo=0; while(lo<100&&q[lo+1]<=v) lo++; if(v<q[0]) return 0; if(lo>=100) return 100;
+  const span=q[lo+1]-q[lo]; return Math.max(0,Math.min(100,lo+(span>0?(v-q[lo])/span:0))); }
+const ord=p=>{ if(p==null) return '—'; const n=Math.round(p), t=n%100, u=n%10; return n+(t>=11&&t<=13?'th':u===1?'st':u===2?'nd':u===3?'rd':'th'); };
 function compare(A,B){
-  const rows=FEAT.filter(f=>ok(A[f.k])&&ok(B[f.k])).map(f=>{ const z=(A[f.k]-B[f.k])/f.sd; return Object.assign({},f,{a:A[f.k],b:B[f.k],z,az:Math.abs(z)}); });
-  const m=rows.reduce((s,r)=>s+Math.min(9,r.z*r.z),0)/(rows.length||1);
-  const score=Math.round(100*Math.exp(-m/3));     // two random D-I games land near 50; twins near 100
-  const alike=rows.filter(r=>r.az<0.6).map(r=>Object.assign(r,{same:r.say(r.a)===r.say(r.b)}))
-    .sort((x,y)=>(y.same-x.same)||(x.az-y.az)).slice(0,4);
-  const diff=rows.filter(r=>r.az>=0.8).sort((x,y)=>y.az-x.az).slice(0,4);
-  return {rows,score,alike,diff};
+  const rows=FEAT.filter(f=>ok(A[f.k])&&ok(B[f.k])).map(f=>{ const pa=pctl(f.k,A[f.k]), pb=pctl(f.k,B[f.k]);
+    return Object.assign({},f,{a:A[f.k],b:B[f.k],pa,pb,gap:pa!=null&&pb!=null?Math.abs(pa-pb):null}); });
+  const ranked=rows.filter(r=>r.gap!=null);
+  return { rows, closest:ranked.slice().sort((x,y)=>x.gap-y.gap).slice(0,4), apart:ranked.slice().sort((x,y)=>y.gap-x.gap).slice(0,4) };
 }
-const word=s=>s>=80?'Near twins':s>=62?'Very similar':s>=45?'Some overlap':s>=30?'Different games':'Opposites';
-const gapCls=az=>az<0.4?['g0','Same']:az<0.9?['g1','Close']:az<1.6?['g2','Apart']:['g3','Far apart'];
 
 // ── drawing ──
 const lab=x=>`${short(x.W)} ${x.ws}, ${short(x.L)} ${x.ls}`;
@@ -234,14 +235,13 @@ function card(x,k){
     ${t(away,N(g.away_score),away===x.W)}${t(home,N(g.home_score),home===x.W)}
     <div class="gc-m">${meta}${read?'<br>'+read:''}${x.flow?'':'<br><span style="color:var(--text3)">No play-by-play for this game, so the flow numbers are left out.</span>'}</div></div>`;
 }
-const lc=l=>/^[A-Z][a-z]/.test(l)?l.charAt(0).toLowerCase()+l.slice(1):l;   // "Effective FG%" -> "effective FG%"
 function verdict(A,B,c){
-  const nm=k=>`<b style="color:${COL[k]}">Game ${k}</b>`;
-  const al=c.alike.map(r=>r.same?`Both <b>${esc(r.say(r.a))}</b>: ${esc(lc(r.l))} ${r.f(r.a)} and ${r.f(r.b)}`:`Close on <b>${esc(lc(r.l))}</b>: ${r.f(r.a)} vs ${r.f(r.b)}`);
-  const df=c.diff.map(r=>{ const hi=r.a>r.b?'A':'B'; return `${nm(hi)} <b>${esc(r.more)}</b>: ${esc(lc(r.l))} ${r.f(r.a)} vs ${r.f(r.b)}`; });
-  return `<div class="vd"><div class="vd-score" title="0–100 from every number below: two random D-I games score around 50, near-identical games 85+"><b>${c.score}</b><span>Alike score</span><em>${word(c.score)}</em></div>
-    <div><h3>What they share</h3><ul>${al.length?al.map(s=>`<li>${s}</li>`).join(''):'<li>Not much: no number below is close.</li>'}</ul></div>
-    <div><h3>Where they split</h3><ul>${df.length?df.map(s=>`<li>${s}</li>`).join(''):'<li>Nowhere big: every number is within a normal game-to-game wobble.</li>'}</ul></div></div>`;
+  if(!c.closest.length) return '';
+  const nm=k=>`<b style="color:${COL[k]}">${k}</b>`;
+  const li=r=>`<li><b>${esc(r.l)}</b>: ${nm('A')} ${r.f(r.a)} <span class="pc">${ord(r.pa)}</span> · ${nm('B')} ${r.f(r.b)} <span class="pc">${ord(r.pb)}</span></li>`;
+  return `<div class="vd"><div><h3>Closest numbers</h3><ul>${c.closest.map(li).join('')}</ul></div>
+    <div><h3>Furthest apart</h3><ul>${c.apart.map(li).join('')}</ul></div>
+    <p class="vd-n">Small numbers are each game’s percentile among ${REF?REF.n.pace.toLocaleString():''} D-I vs D-I games from ${REF?REF.label:'last season'} (100th = the highest). Ranked by how far apart the two percentiles are.</p></div>`;
 }
 function flowChart(A,B){
   if(!A.flow&&!B.flow) return '';
@@ -262,10 +262,10 @@ function flowChart(A,B){
 }
 function sheet(A,B,c){
   let grp='', body='';
-  c.rows.forEach(r=>{ if(r.g!==grp){ grp=r.g; body+=`<tr><td class="l grp" colspan="4">${esc(grp)}</td></tr>`; }
-    const gc=gapCls(r.az); body+=`<tr><td class="l">${esc(r.l)}</td><td class="strong">${r.f(r.a)}</td><td class="strong">${r.f(r.b)}</td><td><span class="gap ${gc[0]}">${gc[1]}</span></td></tr>`; });
-  return `<div class="sec"><div class="sec-h">Side by side</div><div class="sec-s">Both teams combined unless the row says otherwise. The last column is how big the gap is next to the normal spread between D-I games.</div>
-    <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">Number</th><th style="color:${COL.A}">Game A</th><th style="color:${COL.B}">Game B</th><th>Gap</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+  c.rows.forEach(r=>{ if(r.g!==grp){ grp=r.g; body+=`<tr><td class="l grp" colspan="6">${esc(grp)}</td></tr>`; }
+    body+=`<tr><td class="l">${esc(r.l)}</td><td class="strong">${r.f(r.a)}</td><td class="dim">${r.pbp?'':ord(r.pa)}</td><td class="strong">${r.f(r.b)}</td><td class="dim">${r.pbp?'':ord(r.pb)}</td><td>${r.d(r.a-r.b)}</td></tr>`; });
+  return `<div class="sec"><div class="sec-h">Side by side</div><div class="sec-s">Both teams combined unless the row says otherwise. Pctl = the game’s percentile among ${REF?REF.n.pace.toLocaleString()+' D-I games from '+REF.label:'D-I games'}. The play-by-play rows have no league reference, so they show the values and the difference only.</div>
+    <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">Number</th><th style="color:${COL.A}">Game A</th><th>Pctl</th><th style="color:${COL.B}">Game B</th><th>Pctl</th><th title="Game A minus Game B">A − B</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
 function margins(A,B){
   const r=(l,a,b,tip)=>`<tr><td class="l"${tip?` title="${esc(tip)}"`:''}>${l}</td><td class="strong">${a}</td><td class="strong">${b}</td></tr>`;
@@ -293,7 +293,7 @@ function shared(A,B){
     const a=side(A), b=side(B);
     const r=(l,va,vb)=>`<tr><td class="l">${l}</td><td class="strong">${va}</td><td class="strong">${vb}</td></tr>`;
     const tbl=`<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">${esc(short(t))}</th><th style="color:${COL.A}">Game A</th><th style="color:${COL.B}">Game B</th></tr></thead><tbody>
-      ${r('Result',a.res+' vs '+esc(short(a.opp)),b.res+' vs '+esc(short(b.opp)))}${r('Effective FG%',pct(a.f.efg),pct(b.f.efg))}${r('Opponent eFG%',pct(a.o.efg),pct(b.o.efg))}
+      ${r('Result',a.res,b.res)}${r('Effective FG%',pct(a.f.efg),pct(b.f.efg))}${r('Opponent eFG%',pct(a.o.efg),pct(b.o.efg))}
       ${r('Turnover rate',pct(a.f.tov),pct(b.f.tov))}${r('Offensive rebound rate',pct(a.f.oreb),pct(b.f.oreb))}${r('Three-point rate',pct(a.f.tpr),pct(b.f.tpr))}${r('Free-throw rate',pct(a.f.ftr),pct(b.f.ftr))}</tbody></table></div>`;
     const P={}; [['a',a.rows],['b',b.rows]].forEach(([k,rows])=>rows.forEach(p=>{ const id=p.espn_id||p.player; (P[id]=P[id]||{nm:p.player,id:p.espn_id})[k]=p; }));
     // only players who were on the roster for both games; different eras get the note instead
@@ -357,7 +357,7 @@ async function run(){
   const set=(k,x)=>{ document.getElementById('cur'+k).innerHTML=x?`${esc(lab(x))} <span class="dim">· ${fmtD(x.g.date)}</span>`:'<span class="dim">No game picked yet</span>'; };
   if(!SEL.A&&!SEL.B){ out.innerHTML='<div class="loading">Pick two games to compare. Search a team and season, or paste a game link.</div>'; return; }
   out.innerHTML='<div class="loading">Loading the games…</div>';
-  let A=null,B=null;
+  let A=null,B=null; await refP;
   try{ [A,B]=await Promise.all([SEL.A?loadGame(SEL.A):null,SEL.B?loadGame(SEL.B):null]); }
   catch(e){ out.innerHTML=`<div class="err">Couldn’t load that game: ${esc(e.message)}. Pick another.</div>`; return; }
   set('A',A); set('B',B);
