@@ -69,63 +69,45 @@
 
   function renderPlayer(host, o) {
     if (!host) return;
-    css();
+    teamCss();
     var id = String((o && o.espn) || '');
-    if (!id) { host.innerHTML = '<div class="ssp-note">No lineup data for this player.</div>'; return; }
-    host.innerHTML = '<div class="ssp-note">Loading lineups…</div>';
-    var st = { mode: 'his', sort: 'mw', desc: true, small: false };
+    if (!id) { host.innerHTML = '<div class="ui-empty">No lineup data for this player.</div>'; return; }
+    host.innerHTML = '<div class="ui-empty">Loading lineups…</div>';
+    var st = { mode: 'his', sort: 'mw', asc: false, small: false, view: 'diff', set: 'over' };
     seasonsFor(id).then(function (list) {
-      if (!list.length) { host.innerHTML = '<div class="ssp-note">No play-by-play lineup data for this player yet (2024-25 and 2025-26 D-I games with substitution logs).</div>'; return; }
+      if (!list.length) { host.innerHTML = '<div class="ui-empty">No play-by-play lineup data for this player yet (2024-25 and 2025-26 D-I games with substitution logs).</div>'; return; }
       st.season = list[0].season;
       var draw = function () {
         var cur = list.find(function (x) { return x.season === st.season; });
         get(st.season + '/' + cur.file).then(function (D) {
-          if (!D) { host.innerHTML = '<div class="ssp-note">Couldn\'t load the lineup file.</div>'; return; }
+          if (!D) { host.innerHTML = '<div class="ui-empty">Couldn\'t load the lineup file.</div>'; return; }
           var byId = {}; D.players.forEach(function (p) { byId[p.id] = p; });
-          var me = byId[id]; if (!me) { host.innerHTML = '<div class="ssp-note">Under 10 minutes for ' + esc(D.team) + ' this season.</div>'; return; }
-          var first = String((o && o.name) || me.name).split(' ')[0];
-          var rows = D.players.filter(function (p) { return p.id !== id; }).map(function (p) {
-            var base, w;
-            if (st.mode === 'his') { base = me.all; w = (D.w[id] || {})[p.id]; }   // his line, split by teammate p
-            else { base = p.all; w = (D.w[p.id] || {})[id]; }                      // teammate p's line, split by him
-            w = w || base.map(function () { return 0; });
-            var wo = sub(base, w), r = { p: p, mw: w[3 * N] / 60, mo: wo[3 * N] / 60, s: {} };
-            COLS.forEach(function (k) { var a = S[k][1](wo), b = S[k][1](w); r.s[k] = [a, b, (a != null && b != null) ? b - a : null]; });
-            return r;
-          }).filter(function (r) { return st.small || (r.mw >= 15 && r.mo >= 15); });
-          var key = st.sort;
-          var val = function (r) { if (key === 'mw') return r.mw; var s = r.s[key]; return s && s[2] != null ? s[2] : -1e9; };
-          rows.sort(function (a, b) { return st.desc ? val(b) - val(a) : val(a) - val(b); });
-          var who = st.mode === 'his' ? 'Teammate' : 'Player';
-          var head = '<th class="l" data-s="mw">' + who + '<span class="sm">min w/o → min w/</span></th>' + COLS.map(function (k) { return '<th data-s="' + k + '">' + S[k][0] + '</th>'; }).join('');
-          var body = rows.map(function (r) {
-            return '<tr class="' + ((r.mw < 40 || r.mo < 40) ? 'thin' : '') + '"><td class="l nm"><a href="player.html?espn=' + esc(r.p.id) + '">' + esc(r.p.name) + '</a><span class="sm">' + Math.round(r.mo) + ' w/o → ' + Math.round(r.mw) + ' w/</span></td>' +
-              COLS.map(function (k) { var s = r.s[k], dir = S[k][2];
-                return '<td class="sh ' + heat(k, s[2]) + '"><span class="ab"><span class="o">' + f1(s[0]) + '</span> → ' + f1(s[1]) + '</span><span class="dl ' + (s[2] == null ? '' : (!dir ? 'n' : (s[2] * dir > 0 ? 'up' : 'dn'))) + '">' + sg(s[2]) + '</span></td>'; }).join('') + '</tr>';
-          }).join('');
-          var note = st.mode === 'his'
-            ? 'How <b>' + esc(first) + '\'s own line</b> changes with each teammate on the floor with him. Per 70 possessions; each cell reads without → with.'
-            : 'How each teammate\'s line changes with <b>' + esc(first) + '</b> on the floor (' + Math.round(me.all[3 * N] / 60) + ' minutes). Per 70 possessions; each cell reads without → with.';
+          var me = byId[id]; if (!me) { host.innerHTML = '<div class="ui-empty">Under 10 minutes for ' + esc(D.team) + ' this season.</div>'; return; }
+          var SN = shortNames(D.players), short = SN[id] || me.name, sc = setCols(st), his = st.mode === 'his';
+          // his: his own line, split by each teammate · mates: each teammate's line, split by him
+          var rows = shiftRows(D.players.filter(function (p) { return p.id !== id; }).map(function (p) {
+            return his ? { p: p, base: me.all, w: (D.w[id] || {})[p.id] } : { p: p, base: p.all, w: (D.w[p.id] || {})[id] }; }), sc.C, st);
+          var views = his ? [['diff', 'Shift'], ['with', 'With teammate', 'With'], ['without', 'Without teammate', 'Without']] : [['diff', 'Shift'], ['with', 'With ' + short, 'With'], ['without', 'Without ' + short, 'Without']];
+          var vName = his
+            ? (st.view === 'diff' ? esc(me.name) + '\'s line with each teammate on the floor − off it' : st.view === 'with' ? esc(me.name) + '\'s line with each teammate on the floor' : esc(me.name) + '\'s line with each teammate off the floor')
+            : (st.view === 'diff' ? 'Each teammate\'s line with ' + esc(me.name) + ' on the floor − off it' : st.view === 'with' ? 'Each teammate with ' + esc(me.name) + ' on the floor' : 'Each teammate with ' + esc(me.name) + ' off the floor');
           host.innerHTML =
-            '<div class="ssp-ctl">' +
-              (list.length > 1 ? '<select id="sspSeason" aria-label="Season">' + list.map(function (x) { return '<option value="' + x.season + '"' + (x.season === st.season ? ' selected' : '') + '>' + sl(x.season) + '</option>'; }).join('') + '</select>' : '<span class="ssp-note" style="margin:0">' + sl(st.season) + '</span>') +
-              '<span class="ssp-seg" id="sspMode"><button data-k="his" class="' + (st.mode === 'his' ? 'on' : '') + '">His line with each teammate</button><button data-k="mates" class="' + (st.mode === 'mates' ? 'on' : '') + '">Teammates with him</button></span>' +
-              '<label class="ssp-note" style="margin:0;display:flex;gap:6px;align-items:center"><input type="checkbox" id="sspSmall"' + (st.small ? ' checked' : '') + '> Small samples</label>' +
-              '<a href="statshift.html?team=' + encodeURIComponent(D.team) + '&with=' + encodeURIComponent(id) + (st.season !== 2026 ? '&season=' + st.season : '') + '">Open in Stat Line Shift →</a>' +
-            '</div>' +
-            '<div class="ssp-note">' + note + ' Green = better with him on the floor, red = worse; usage and +/- aren\'t shaded. "Without" includes games the other player missed. Garbage time removed.</div>' +
-            '<div class="sheet-wrap" style="max-height:none"><table class="sheet dense ssp-tbl"><thead><tr>' + head + '</tr></thead><tbody>' +
-              (body || '<tr><td class="l" colspan="9">No teammate with 15+ minutes on both sides. Tick "Small samples".</td></tr>') + '</tbody></table></div>';
-          host.querySelectorAll('#sspMode button').forEach(function (b) { b.onclick = function () { st.mode = b.dataset.k; draw(); }; });
-          var se = host.querySelector('#sspSeason'); if (se) se.onchange = function () { st.season = +se.value; draw(); };
-          host.querySelector('#sspSmall').onchange = function (e) { st.small = e.target.checked; draw(); };
-          host.querySelectorAll('.ssp-tbl th[data-s]').forEach(function (th) { if (th.dataset.s === key) th.classList.add('sorted');
-            th.onclick = function () { if (st.sort === th.dataset.s) st.desc = !st.desc; else { st.sort = th.dataset.s; st.desc = true; } draw(); }; });
+            '<div class="ssx-bar">' + seg('m', [['his', 'His line with each teammate', 'His line'], ['mates', 'Teammates with him', 'Teammates']], st.mode) + '</div>' +
+            sheetBar(st, list.map(function (x) { return x.season; }), views) +
+            '<p class="ssx-meta"><b>' + vName + '</b> · ' + esc(sc.def[1]) + ' · ' + esc(D.team) + ' · ' + sl(st.season) + ' · per 70 possessions · garbage time removed' +
+              '<a href="statshift.html?team=' + encodeURIComponent(D.team) + '&with=' + encodeURIComponent(id) + (st.season !== 2026 ? '&season=' + st.season : '') + '">Open in Stat Line Shift →</a></p>' +
+            shiftSheet({ rows: rows, C: sc.C, st: st, SN: SN, first: his ? 'Teammate' : 'Player', other: his ? 'each teammate' : short,
+              mwTip: his ? 'Minutes ' + me.name + ' played with this teammate' : 'Minutes this teammate played with ' + me.name,
+              empty: 'No teammate with 15+ minutes on both sides. Tick "Small samples".' });
+          wireSheet(host, st, draw);
+          host.querySelectorAll('[data-m]').forEach(function (b) { b.onclick = function () { st.mode = b.dataset.m; draw(); }; });
+          host.querySelectorAll('[data-y]').forEach(function (b) { b.onclick = function () { st.season = +b.dataset.y; draw(); }; });
         });
       };
       draw();
     });
   }
+
   // the team's file for a season: exact name, else the first team whose name starts with / contains it ("Duke")
   function teamFile(season, name) {
     return get(season + '/index.json').then(function (X) {
@@ -164,10 +146,10 @@
     return M;
   })();
   var TSETS = [
-    ['over', 'Overview', ['usg', 'pts', 'ast', 'reb', 'tov', 'ts', 'tp', 'pm']],
-    ['shoot', 'Shooting', ['fga', 'fgp', 'tpa', 'tp', 'fta', 'ftp', 'efg', 'ts']],
-    ['play', 'Playmaking & D', ['ast', 'tov', 'ato', 'orb', 'drb', 'stl', 'blk']],
-    ['team', 'Team on floor', ['ortg', 'drtg', 'net', 'pace', 'oefg', 'pm']]
+    ['over', 'Overview', ['usg', 'pts', 'ast', 'reb', 'tov', 'ts', 'tp', 'pm'], 'Overview'],
+    ['shoot', 'Shooting', ['fga', 'fgp', 'tpa', 'tp', 'fta', 'ftp', 'efg', 'ts'], 'Shooting'],
+    ['play', 'Playmaking & D', ['ast', 'tov', 'ato', 'orb', 'drb', 'stl', 'blk'], 'Play & D'],
+    ['team', 'Team on floor', ['ortg', 'drtg', 'net', 'pace', 'oefg', 'pm'], 'Team']
   ];
   // same ramp as tdc-onoff.js fill(): red → neutral → green, theme-aware
   function fill(p) {
@@ -210,11 +192,73 @@
       '.ssx-t td.h .fr{display:block;font-size:10px;font-weight:600;opacity:.75;margin-top:1px}' +
       '.ssx-t tr.thin td.h{opacity:.55}' +
       '.ssx-key{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11.5px;color:var(--text3);margin:10px 2px 0}.ssx-key i{display:inline-block;width:22px;height:12px;border-radius:3px}' +
-      '@media(max-width:700px){.ssx-bar .ui-seg{display:flex;flex-wrap:wrap}.ssx-bar .ui-check{margin-left:0}.ssx-t td.pl,.ssx-t th.pl{min-width:0;padding:0 8px}.ssx-t td.pl small,.ssx-t td.pl .fnm{display:none}.ssx-t td.pl .snm{display:inline}.ssx-t td.h{min-width:52px}.ssx-t td.h .fr{display:none}}';
+      '.ssx-bar .sml{display:none}' +
+      '@media(max-width:700px){.ssx-bar{gap:8px}.ssx-bar .ui-seg{display:flex;flex-wrap:nowrap;max-width:100%;overflow-x:auto;scrollbar-width:none}.ssx-bar .ui-seg button{white-space:nowrap;padding:6px 10px}.ssx-bar .lgl{display:none}.ssx-bar .sml{display:inline}.ssx-bar .ui-check{margin-left:0}.ssx-t td.pl,.ssx-t th.pl{min-width:0;padding:0 8px}.ssx-t td.pl small,.ssx-t td.pl .fnm{display:none}.ssx-t td.pl .snm{display:inline}.ssx-t td.h{min-width:52px}.ssx-t td.h .fr{display:none}}';
     document.head.appendChild(s);
   }
   function seg(name, list, cur) {
-    return '<span class="ui-seg">' + list.map(function (x) { return '<button type="button" data-' + name + '="' + x[0] + '" class="' + (String(x[0]) === String(cur) ? 'on' : '') + '">' + esc(x[1]) + '</button>'; }).join('') + '</span>';
+    // x[2] = a shorter label for phones
+    return '<span class="ui-seg">' + list.map(function (x) { return '<button type="button" data-' + name + '="' + x[0] + '" class="' + (String(x[0]) === String(cur) ? 'on' : '') + '">' +
+      (x[2] ? '<span class="lgl">' + esc(x[1]) + '</span><span class="sml">' + esc(x[2]) + '</span>' : esc(x[1])) + '</button>'; }).join('') + '</span>';
+  }
+
+  // ── the sheet both tabs draw (team: one picked player splits everyone's line; player: his line split by each teammate,
+  // or each teammate's line split by him). pairs = [{p, base, w}] → rows; sorted per st; returns the bar-less body HTML.
+  function shiftRows(pairs, C, st) {
+    var rows = pairs.map(function (x) {
+      var w = x.w || x.base.map(function () { return 0; }), wo = sub(x.base, w), r = { p: x.p, mw: w[3 * N] / 60, mo: wo[3 * N] / 60, s: {} };
+      C.forEach(function (c) { var a = c.fn(wo), b = c.fn(w); r.s[c.k] = [a, b, (a != null && b != null) ? b - a : null]; });
+      return r;
+    }).filter(function (r) { return st.small || (r.mw >= 15 && r.mo >= 15); });
+    var vi = st.view === 'with' ? 1 : st.view === 'without' ? 0 : 2;
+    if (st.sort !== 'mw' && st.sort !== 'name' && !C.some(function (c) { return c.k === st.sort; })) st.sort = 'mw';
+    var key = function (r) { return st.sort === 'mw' ? r.mw : st.sort === 'name' ? r.p.name : r.s[st.sort][vi]; };
+    rows.sort(function (a, b) {
+      var x = key(a), y = key(b);
+      if (st.sort === 'name') return st.asc ? String(x).localeCompare(y) : String(y).localeCompare(x);
+      if (x == null) return 1; if (y == null) return -1;
+      var dir = TS[st.sort] && TS[st.sort].dir < 0 ? -1 : 1;   // lower-is-better (TOV, DRtg): best first
+      return (st.asc ? 1 : -1) * dir * (x - y);
+    });
+    return rows;
+  }
+  // o: {rows, C, st, SN, other (who the split is about, short), first ('Player' / 'Teammate'), mwTip, empty}
+  function shiftSheet(o) {
+    var st = o.st, C = o.C, vi = st.view === 'with' ? 1 : st.view === 'without' ? 0 : 2;
+    var head = '<thead><tr><th class="pl" data-k="name">' + esc(o.first || 'Player') + '</th><th data-k="mw" class="' + (st.sort === 'mw' ? 'on' : '') + '" title="' + esc(o.mwTip || '') + '">Min w/</th>' +
+      C.map(function (c) { return '<th data-k="' + c.k + '" class="' + (st.sort === c.k ? 'on' : '') + '">' + esc(c.h) + '</th>'; }).join('') + '</tr></thead>';
+    var body = o.rows.map(function (r) {
+      var thin = r.mw < 40 || r.mo < 40;
+      var cells = C.map(function (c) {
+        var s = r.s[c.k], v = s[vi];
+        if (v == null) return '<td class="h na">—</td>';
+        // colour = is this side better than the other one; Shift: better with him on the floor
+        var g = s[2] == null || !c.dir ? null : s[2] * c.dir / c.big * (vi === 0 ? -1 : 1);
+        var f = g == null ? null : fill(Math.max(0, Math.min(100, 50 + 25 * g)));
+        var txt = (vi === 2 && v > 0 ? '+' : (c.k === 'pm' || c.k === 'net') && v > 0 ? '+' : '') + (+v).toFixed(c.dec) + (vi === 2 ? '' : c.suf);
+        var fr = vi === 2 ? '<span class="fr">' + (+s[0]).toFixed(c.dec) + ' → ' + (+s[1]).toFixed(c.dec) + '</span>' : '';
+        return '<td class="h"' + (f ? ' style="background:' + f[0] + ';color:' + f[1] + '"' : '') + ' title="' + esc(c.h + ' · without ' + f1(s[0]) + ' → with ' + f1(s[1]) + (s[2] != null ? ' (' + sg(s[2]) + ')' : '')) + '">' + txt + fr + '</td>';
+      }).join('');
+      return '<tr class="' + (thin ? 'thin' : '') + '"><td class="pl"><a href="player.html?espn=' + esc(r.p.id) + '&tab=statshift"><span class="fnm">' + esc(r.p.name) + '</span><span class="snm">' + esc(o.SN[r.p.id] || r.p.name) + '</span></a>' +
+        '<small>' + Math.round(r.mw) + ' min with · ' + Math.round(r.mo) + ' without' + (thin ? ' · small sample' : '') + '</small></td><td class="vol">' + Math.round(r.mw) + '</td>' + cells + '</tr>';
+    }).join('');
+    return '<div class="ssx-wrap"><table class="ssx-t">' + head + '<tbody>' +
+        (body || '<tr><td class="pl" colspan="' + (C.length + 2) + '">' + (o.empty || 'No one with 15+ minutes on both sides. Tick "Small samples".') + '</td></tr>') + '</tbody></table></div>' +
+      '<div class="ssx-key">Cell colour = ' + (st.view === 'diff' ? 'how much the number moves with ' + esc(o.other) + ' on the floor' : 'this side vs the other') + ':' +
+        [0, 25, 50, 75, 100].map(function (q) { var f = fill(q); return '<i style="background:' + f[0] + '"></i>' + (q === 0 ? 'worse' : q === 100 ? 'better' : ''); }).join(' ') +
+        ' · usage, volume and pace aren\'t coloured · "without" includes games the other player missed · faded rows = small sample</div>';
+  }
+  function wireSheet(host, st, draw) {
+    host.querySelectorAll('[data-v]').forEach(function (b) { b.onclick = function () { st.view = b.dataset.v; draw(); }; });
+    host.querySelectorAll('[data-s]').forEach(function (b) { b.onclick = function () { st.set = b.dataset.s; draw(); }; });
+    host.querySelector('.ssxSmall').onchange = function (e) { st.small = e.target.checked; draw(); };
+    host.querySelectorAll('.ssx-t th[data-k]').forEach(function (th) { th.onclick = function () { var k = th.dataset.k; if (st.sort === k) st.asc = !st.asc; else { st.sort = k; st.asc = k === 'name'; } draw(); }; });
+  }
+  function setCols(st) { var d = TSETS.find(function (x) { return x[0] === st.set; }); return { def: d, C: d[2].map(function (k) { return TS[k]; }) }; }
+  function sheetBar(st, seasons, views) {
+    return '<div class="ssx-bar">' + (seasons.length > 1 ? seg('y', seasons.map(function (y) { return [y, sl(y)]; }), st.season) : '') +
+      seg('v', views, st.view) + seg('s', TSETS.map(function (x) { return [x[0], x[1], x[3]]; }), st.set) +
+      '<label class="ui-check"><input type="checkbox" class="ssxSmall"' + (st.small ? ' checked' : '') + '> Small samples</label></div>';
   }
 
   function renderTeam(host, o) {
@@ -234,67 +278,27 @@
           if (!D || !D.players.length) { host.innerHTML = '<div class="ui-empty">Couldn\'t load the lineup file.</div>'; return; }
           var byId = {}; D.players.forEach(function (p) { byId[p.id] = p; });
           if (!st.mate || !byId[st.mate]) st.mate = D.players[0].id;
-          var M = byId[st.mate], mid = st.mate, SN = shortNames(D.players), last = SN[mid] || String(M.name).split(' ').slice(-1)[0];   // "Cam. Boozer": a bare last name can be two teammates
-          var setDef = TSETS.find(function (x) { return x[0] === st.set; }), C = setDef[2].map(function (k) { return TS[k]; });
-          var rows = D.players.filter(function (p) { return p.id !== mid; }).map(function (p) {
-            var w = (D.w[p.id] || {})[mid] || p.all.map(function () { return 0; }), wo = sub(p.all, w), r = { p: p, mw: w[3 * N] / 60, mo: wo[3 * N] / 60, s: {} };
-            C.forEach(function (c) { var x = c.fn(wo), y = c.fn(w); r.s[c.k] = [x, y, (x != null && y != null) ? y - x : null]; });
-            return r;
-          }).filter(function (r) { return st.small || (r.mw >= 15 && r.mo >= 15); });
-          var vi = st.view === 'with' ? 1 : st.view === 'without' ? 0 : 2;
-          if (st.sort !== 'mw' && st.sort !== 'name' && !TS[st.sort]) st.sort = 'mw';
-          if (TS[st.sort] && setDef[2].indexOf(st.sort) < 0) st.sort = 'mw';
-          var key = function (r) { return st.sort === 'mw' ? r.mw : st.sort === 'name' ? r.p.name : r.s[st.sort][vi]; };
-          rows.sort(function (a, b) {
-            var x = key(a), y = key(b);
-            if (st.sort === 'name') return st.asc ? String(x).localeCompare(y) : String(y).localeCompare(x);
-            if (x == null) return 1; if (y == null) return -1;
-            var dir = TS[st.sort] && TS[st.sort].dir < 0 ? -1 : 1;   // lower-is-better (TOV, DRtg): best first
-            return (st.asc ? 1 : -1) * dir * (x - y);
-          });
-          var VIEWS = [['diff', 'Shift'], ['with', 'With ' + last], ['without', 'Without ' + last]];
-          var bar = '<div class="ssx-bar">' + (list.length > 1 ? seg('y', list.map(function (x) { return [x.season, sl(x.season)]; }), st.season) : '') +
-            seg('v', VIEWS, st.view) + seg('s', TSETS.map(function (x) { return [x[0], x[1]]; }), st.set) +
-            '<label class="ui-check"><input type="checkbox" class="ssxSmall"' + (st.small ? ' checked' : '') + '> Small samples</label></div>';
+          var M = byId[st.mate], mid = st.mate, SN = shortNames(D.players);
+          var last = SN[mid] || String(M.name).split(' ').slice(-1)[0];   // "Cam. Boozer": a bare last name can be two teammates
+          var sc = setCols(st);
+          var rows = shiftRows(D.players.filter(function (p) { return p.id !== mid; }).map(function (p) { return { p: p, base: p.all, w: (D.w[p.id] || {})[mid] }; }), sc.C, st);
           var mates = '<div class="ssx-lbl">On the floor or off it: pick a player</div><div class="ssx-mates">' + D.players.map(function (p) {
             return '<button type="button" class="ssx-mate' + (p.id === mid ? ' on' : '') + '" data-m="' + esc(p.id) + '">' + esc(SN[p.id]) + '<small>' + Math.round(p.all[3 * N] / 60) + ' min</small></button>'; }).join('') + '</div>';
-          var head = '<thead><tr><th class="pl" data-k="name">Player</th><th data-k="mw" class="' + (st.sort === 'mw' ? 'on' : '') + '" title="Minutes with ' + esc(M.name) + ' on the floor">Min w/</th>' +
-            C.map(function (c) { return '<th data-k="' + c.k + '" class="' + (st.sort === c.k ? 'on' : '') + '">' + esc(c.h) + '</th>'; }).join('') + '</tr></thead>';
-          var body = rows.map(function (r) {
-            var cells = C.map(function (c) {
-              var s = r.s[c.k], v = s[vi];
-              if (v == null) return '<td class="h na">—</td>';
-              // colour = is this side better than the other one; Shift: better with him on the floor
-              var g = s[2] == null || !c.dir ? null : s[2] * c.dir / c.big * (vi === 0 ? -1 : 1);
-              var f = g == null ? null : fill(Math.max(0, Math.min(100, 50 + 25 * g)));
-              var txt = (vi === 2 && v > 0 ? '+' : (c.k === 'pm' || c.k === 'net') && v > 0 ? '+' : '') + (+v).toFixed(c.dec) + (vi === 2 ? '' : c.suf);
-              var fr = vi === 2 ? '<span class="fr">' + (+s[0]).toFixed(c.dec) + ' → ' + (+s[1]).toFixed(c.dec) + '</span>' : '';
-              return '<td class="h"' + (f ? ' style="background:' + f[0] + ';color:' + f[1] + '"' : '') + ' title="' + esc(c.h + ' · without ' + last + ' ' + f1(s[0]) + ' → with ' + f1(s[1]) + (s[2] != null ? ' (' + sg(s[2]) + ')' : '')) + '">' + txt + fr + '</td>';
-            }).join('');
-            return '<tr class="' + ((r.mw < 40 || r.mo < 40) ? 'thin' : '') + '"><td class="pl"><a href="player.html?espn=' + esc(r.p.id) + '&tab=statshift"><span class="fnm">' + esc(r.p.name) + '</span><span class="snm">' + esc(SN[r.p.id]) + '</span></a>' +
-              '<small>' + Math.round(r.mw) + ' min with · ' + Math.round(r.mo) + ' without' + ((r.mw < 40 || r.mo < 40) ? ' · small sample' : '') + '</small></td><td class="vol">' + Math.round(r.mw) + '</td>' + cells + '</tr>';
-          }).join('');
           var vName = st.view === 'diff' ? 'Shift (with ' + esc(M.name) + ' on the floor − off it)' : st.view === 'with' ? 'With ' + esc(M.name) + ' on the floor' : 'With ' + esc(M.name) + ' off the floor';
-          host.innerHTML = bar + mates +
-            '<p class="ssx-meta"><b>' + vName + '</b> · ' + esc(setDef[1]) + ' · ' + sl(st.season) + ' · per 70 possessions · garbage time removed' +
+          host.innerHTML = sheetBar(st, list.map(function (x) { return x.season; }), [['diff', 'Shift'], ['with', 'With ' + last, 'With'], ['without', 'Without ' + last, 'Without']]) + mates +
+            '<p class="ssx-meta"><b>' + vName + '</b> · ' + esc(sc.def[1]) + ' · ' + sl(st.season) + ' · per 70 possessions · garbage time removed' +
               '<a href="statshift.html?team=' + encodeURIComponent(D.team) + '&with=' + encodeURIComponent(mid) + (st.season !== 2026 ? '&season=' + st.season : '') + '">Open in Stat Line Shift →</a></p>' +
-            '<div class="ssx-wrap"><table class="ssx-t">' + head + '<tbody>' +
-              (body || '<tr><td class="pl" colspan="' + (C.length + 2) + '">No teammate with 15+ minutes on both sides. Tick "Small samples".</td></tr>') + '</tbody></table></div>' +
-            '<div class="ssx-key">Cell colour = ' + (st.view === 'diff' ? 'how much his number moves with ' + esc(last) + ' on the floor' : 'this side vs the other') + ':' +
-              [0, 25, 50, 75, 100].map(function (q) { var f = fill(q); return '<i style="background:' + f[0] + '"></i>' + (q === 0 ? 'worse' : q === 100 ? 'better' : ''); }).join(' ') +
-              ' · usage, volume and pace aren\'t coloured · "without" includes games ' + esc(last) + ' missed · faded rows = small sample</div>';
+            shiftSheet({ rows: rows, C: sc.C, st: st, SN: SN, other: last, mwTip: 'Minutes with ' + M.name + ' on the floor' });
+          wireSheet(host, st, draw);
           host.querySelectorAll('[data-y]').forEach(function (b) { b.onclick = function () { st.season = +b.dataset.y; st.mate = null; draw(); }; });
-          host.querySelectorAll('[data-v]').forEach(function (b) { b.onclick = function () { st.view = b.dataset.v; draw(); }; });
-          host.querySelectorAll('[data-s]').forEach(function (b) { b.onclick = function () { st.set = b.dataset.s; draw(); }; });
           host.querySelectorAll('[data-m]').forEach(function (b) { b.onclick = function () { st.mate = b.dataset.m; draw(); }; });
-          host.querySelector('.ssxSmall').onchange = function (e) { st.small = e.target.checked; draw(); };
-          host.querySelectorAll('.ssx-t th[data-k]').forEach(function (th) { th.onclick = function () { var k = th.dataset.k; if (st.sort === k) st.asc = !st.asc; else { st.sort = k; st.asc = k === 'name'; } draw(); }; });
-          var on = host.querySelector('.ssx-mate.on'); if (on && on.scrollIntoView) { var mw = host.querySelector('.ssx-mates'); mw.scrollLeft = on.offsetLeft - mw.offsetLeft - 8; }
+          var on = host.querySelector('.ssx-mate.on'); if (on) { var mw = host.querySelector('.ssx-mates'); mw.scrollLeft = on.offsetLeft - mw.offsetLeft - 8; }
         });
       };
       draw();
     });
   }
+
   // compare page: two players. Teammates in a season we have -> each one's line without -> with the other.
   // Otherwise -> side by side, each player's line with his five most-played teammates. Hides `wrap` when neither has data.
   function compare(host, ps, wrap) {

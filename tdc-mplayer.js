@@ -10,13 +10,14 @@
     { key: 'overview', label: 'Overview', tabs: ['overview'] },
     { key: 'stats', label: 'Stats', tabs: ['stats'] },
     { key: 'dna', label: 'DNA', tabs: ['playerdna'] },
-    { key: 'onoff', label: 'On/Off', tabs: ['onoff'] },
+    { key: 'onoff', label: 'On/Off', tabs: ['onoff', 'statshift'] },
     { key: 'shots', label: 'Shots', tabs: ['shotcharts', 'shotgenome', 'shotflow', 'percentiles'] },
     { key: 'scouting', label: 'Scouting', tabs: ['mscout', 'scout', 'dossier', 'role', 'devpath', 'scheme', 'portalfit'] },
     { key: 'nil', label: 'NIL', tabs: ['nil'] },
     { key: 'betting', label: 'Betting', tabs: ['betting'] },
     { key: 'buzz', label: 'Buzz', tabs: ['buzz'] }
   ];
+  var ONOFF = [['onoff', 'On/Off'], ['statshift', 'Stat Line Shift']];
   var SHOTS = [['shotcharts', 'Charts'], ['shotgenome', 'Genome'], ['shotflow', 'Flow'], ['percentiles', 'Percentiles']];
   var SCOUT = [['scout', 'Scouting report', 'Grades, floor, ceiling'], ['dossier', 'Player dossier', 'Situational splits'],
     ['role', 'Role & fit', 'His role on this roster'], ['devpath', 'Development', 'Grade path by year'],
@@ -371,9 +372,9 @@
       if (on && b.scrollIntoView) { var s = b.parentNode, r = b.getBoundingClientRect(); if (r.left < 0 || r.right > window.innerWidth) s.scrollLeft += r.left - 40; }
     });
     var sub = document.getElementById('mpSub'); if (!sub) return;
-    if (g.key === 'shots') {
+    if (g.key === 'shots' || g.key === 'onoff') {
       sub.className = 'mp-sub show';
-      sub.innerHTML = SHOTS.map(function (s) { return '<button type="button" data-t="' + s[0] + '" class="' + (s[0] === t ? 'on' : '') + '">' + s[1] + '</button>'; }).join('');
+      sub.innerHTML = (g.key === 'shots' ? SHOTS : ONOFF).map(function (s) { return '<button type="button" data-t="' + s[0] + '" class="' + (s[0] === t ? 'on' : '') + '">' + s[1] + '</button>'; }).join('');
     } else if (g.key === 'scouting' && t !== 'mscout') {
       sub.className = 'mp-sub back show';
       sub.innerHTML = '<button type="button" data-back="1">‹ All scouting reports</button>';
