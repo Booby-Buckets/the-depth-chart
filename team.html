@@ -8640,6 +8640,9 @@ async function _renderShotDist(rows){
     if(window.tdcSheetHeat) document.querySelectorAll('#depthContent table.hr-sheet').forEach(t=>tdcSheetHeat(t));
     // distribution card — from the per-team list, which INCLUDES freshmen/no-box
     if(!list||list.length<3){ host.innerHTML=''; _hideShotProfileSide(); return; }
+    // the projected 2026-27 shot shares/tendencies are Premium (same gate as the full depth chart);
+    // past seasons stay free via _renderHistShot
+    if(window.TDCGate){ if(!TDCGate.resolved()) await TDCGate.ready; if(!TDCGate.has('premium')){ host.innerHTML=''; _hideShotProfileSide(); return; } }
     // a player out for the season (injury report / roster flag) takes no shots; the rest of the
     // budget is re-split pro rata so the shares still sum to 100
     const _outN=new Set((rows||[]).map(r=>(''+r.name).toLowerCase().trim()));
