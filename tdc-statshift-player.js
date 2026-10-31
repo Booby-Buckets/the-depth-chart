@@ -33,33 +33,9 @@
     tp: ['3P%', function (v) { return pct(v[I.tpm], v[I.tpa], 8); }, 1, 5],
     pm: ['+/-', function (v) { var k = k70(v); return k == null ? null : (v[N + I.pts] - v[2 * N + I.pts]) * k; }, 0, 6]
   };
-  var COLS = ['usg', 'pts', 'ast', 'reb', 'tov', 'ts', 'tp', 'pm'];
-  function heat(k, d) { var s = S[k]; if (!s[2] || d == null) return ''; var g = d * s[2] / s[3]; return g >= 1.5 ? 'c4' : g >= 0.5 ? 'c3' : g <= -1.5 ? 'c0' : g <= -0.5 ? 'c1' : 'c2'; }
   function f1(v) { return v == null ? '—' : (+v).toFixed(1); }
   function sg(v) { if (v == null) return ''; var r = +(+v).toFixed(1); return (r > 0 ? '+' : '') + r.toFixed(1); }
   function sub(a, b) { return a.map(function (x, i) { return x - b[i]; }); }
-
-  function css() {
-    if (document.getElementById('ssp-css')) return;
-    var s = document.createElement('style'); s.id = 'ssp-css';
-    s.textContent =
-      '.ssp-ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px}' +
-      '.ssp-ctl select{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font:600 13px Inter,system-ui,sans-serif;padding:6px 9px}' +
-      '.ssp-seg{display:inline-flex;gap:2px;padding:2px;border:1px solid var(--border);border-radius:9px;background:var(--bg2)}' +
-      '.ssp-seg button{background:none;border:0;border-radius:7px;padding:6px 12px;font:700 11px Inter,system-ui,sans-serif;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);cursor:pointer}' +
-      '.ssp-seg button.on{background:var(--accent);color:var(--accent-on,#221c08)}' +
-      '.ssp-ctl a{margin-left:auto;font-size:12.5px;font-weight:700;color:var(--text3);text-decoration:none}.ssp-ctl a:hover{color:var(--text)}' +
-      '.ssp-note{font-size:12.5px;color:var(--text3);line-height:1.5;margin:0 0 10px}.ssp-note b{color:var(--text2)}' +
-      '.ssp-tbl th[data-s]{cursor:pointer;white-space:nowrap}.ssp-tbl th.sorted{color:var(--accent)}' +
-      '.ssp-tbl td.nm a{color:var(--text);font-weight:700;text-decoration:none;white-space:nowrap}.ssp-tbl td.nm a:hover{text-decoration:underline}' +
-      '.ssp-tbl .sm{display:block;font-size:11px;font-weight:600;color:var(--text3);white-space:nowrap}' +
-      '.ssp-tbl td.sh{white-space:nowrap;text-align:center}.ssp-tbl td .ab{display:block;font-weight:700;color:var(--text)}.ssp-tbl td .o{color:var(--text3);font-weight:600}' +
-      '.ssp-tbl td .dl{display:block;font-size:10.5px;font-weight:800;margin-top:1px}' +
-      '.ssp-tbl td .dl.up{color:var(--green,#1f8a45)}.ssp-tbl td .dl.dn{color:var(--red,#c0392b)}.ssp-tbl td .dl.n{color:var(--text3)}' +
-      '.ssp-tbl tr.thin td{opacity:.5}' +
-      '.ssp-pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:900px){.ssp-pair{grid-template-columns:1fr}}';
-    document.head.appendChild(s);
-  }
 
   // find the seasons this player has data for: [{season, file}]
   function seasonsFor(id) {
@@ -192,8 +168,14 @@
       '.ssx-t td.h .fr{display:block;font-size:10px;font-weight:600;opacity:.75;margin-top:1px}' +
       '.ssx-t tr.thin td.h{opacity:.55}' +
       '.ssx-key{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11.5px;color:var(--text3);margin:10px 2px 0}.ssx-key i{display:inline-block;width:22px;height:12px;border-radius:3px}' +
+      // the kit's segmented control + checkbox (tdc-ui.css), for pages that don't load the kit (compare-players.html)
+      '.ssx-bar .ui-seg{display:inline-flex;gap:2px;padding:2px;border:1px solid var(--border);border-radius:9px;background:var(--bg2)}' +
+      '.ssx-bar .ui-seg button{appearance:none;border:0;background:none;border-radius:7px;padding:6px 12px;font:700 11px Inter,system-ui,sans-serif;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);cursor:pointer}' +
+      '.ssx-bar .ui-seg button:hover{color:var(--text)}.ssx-bar .ui-seg button.on{background:var(--accent);color:var(--accent-on,#221c08)}' +
+      '.ssx-bar .ui-check{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--text2);cursor:pointer}' +
+      '.ssx-t td.pl a{white-space:nowrap}' +
       '.ssx-bar .sml{display:none}' +
-      '@media(max-width:700px){.ssx-bar{gap:8px}.ssx-bar .ui-seg{display:flex;flex-wrap:nowrap;max-width:100%;overflow-x:auto;scrollbar-width:none}.ssx-bar .ui-seg button{white-space:nowrap;padding:6px 10px}.ssx-bar .lgl{display:none}.ssx-bar .sml{display:inline}.ssx-bar .ui-check{margin-left:0}.ssx-t td.pl,.ssx-t th.pl{min-width:0;padding:0 8px}.ssx-t td.pl small,.ssx-t td.pl .fnm{display:none}.ssx-t td.pl .snm{display:inline}.ssx-t td.h{min-width:52px}.ssx-t td.h .fr{display:none}}';
+      '@media(max-width:700px){.ssx-bar{gap:8px}.ssx-bar .ui-seg{display:flex;flex-wrap:nowrap;max-width:100%;overflow-x:auto;scrollbar-width:none}.ssx-bar .ui-seg button{white-space:nowrap;padding:6px 10px}.ssx-bar .lgl{display:none}.ssx-bar .sml{display:inline}.ssx-bar .ui-check{margin-left:0}.ssx-t td.pl,.ssx-t th.pl{min-width:0;padding:0 8px}.ssx-t td.pl small,.ssx-t td.pl .fnm{display:none}.ssx-t td.pl .snm{display:inline}.ssx-wrap table.ssx-t.ssx-t.ssx-t td.pl.pl,.ssx-wrap table.ssx-t.ssx-t.ssx-t td.pl.pl *{white-space:nowrap!important}.ssx-t td.h{min-width:52px}.ssx-t td.h .fr{display:none}}';
     document.head.appendChild(s);
   }
   function seg(name, list, cur) {
@@ -251,7 +233,7 @@
   function wireSheet(host, st, draw) {
     host.querySelectorAll('[data-v]').forEach(function (b) { b.onclick = function () { st.view = b.dataset.v; draw(); }; });
     host.querySelectorAll('[data-s]').forEach(function (b) { b.onclick = function () { st.set = b.dataset.s; draw(); }; });
-    host.querySelector('.ssxSmall').onchange = function (e) { st.small = e.target.checked; draw(); };
+    var sm = host.querySelector('.ssxSmall'); if (sm) sm.onchange = function (e) { st.small = e.target.checked; draw(); };
     host.querySelectorAll('.ssx-t th[data-k]').forEach(function (th) { th.onclick = function () { var k = th.dataset.k; if (st.sort === k) st.asc = !st.asc; else { st.sort = k; st.asc = k === 'name'; } draw(); }; });
   }
   function setCols(st) { var d = TSETS.find(function (x) { return x[0] === st.set; }); return { def: d, C: d[2].map(function (k) { return TS[k]; }) }; }
@@ -303,51 +285,61 @@
   // Otherwise -> side by side, each player's line with his five most-played teammates. Hides `wrap` when neither has data.
   function compare(host, ps, wrap) {
     if (!host) return;
-    css();
+    teamCss();
     var hide = function () { if (wrap) wrap.style.display = 'none'; host.innerHTML = ''; };
     ps = (ps || []).map(function (p) { return { id: String(p && p.espn || ''), name: (p && p.name) || '', season: p && p.season ? +p.season : null }; });
     if (!ps.length || !ps.some(function (p) { return p.id; })) return hide();
+    var st = { sort: 'mw', asc: false, small: false, view: 'diff', set: 'over' };
+    var lastOf = function (n) { return String(n || '').split(' ').filter(function (x) { return !/^(jr\.?|sr\.?|ii|iii|iv)$/i.test(x); }).slice(-1)[0] || n; };
+    var views = [['diff', 'Shift'], ['with', 'With teammate', 'With'], ['without', 'Without teammate', 'Without']];
+    var shown = function () { if (wrap) wrap.style.display = ''; };
     Promise.all(SEASONS.map(function (y) { return get(y + '/players.json'); })).then(function (maps) {
       var at = function (p, y) { var m = maps[SEASONS.indexOf(y)]; return p.id && m && m[p.id] ? m[p.id] : null; };
       var pick = function (p) { var ys = SEASONS.filter(function (y) { return at(p, y) && (!p.season || p.season === y); }); return ys[0] || null; };
       var together = ps.length === 2 && SEASONS.find(function (y) { var f = at(ps[0], y); return f && f === at(ps[1], y) && (!ps[0].season || ps[0].season === y) && (!ps[1].season || ps[1].season === y); });
-      var cell = function (k, s) { var dir = S[k][2];
-        return '<td class="sh ' + heat(k, s[2]) + '"><span class="ab"><span class="o">' + f1(s[0]) + '</span> → ' + f1(s[1]) + '</span><span class="dl ' + (s[2] == null ? '' : (!dir ? 'n' : (s[2] * dir > 0 ? 'up' : 'dn'))) + '">' + sg(s[2]) + '</span></td>'; };
-      var split = function (base, w) { w = w || base.map(function () { return 0; }); var wo = sub(base, w), s = {};
-        COLS.forEach(function (k) { var a = S[k][1](wo), b = S[k][1](w); s[k] = [a, b, (a != null && b != null) ? b - a : null]; });
-        return { s: s, mw: w[3 * N] / 60, mo: wo[3 * N] / 60 }; };
-      var head = function (lbl) { return '<thead><tr><th class="l">' + lbl + '<span class="sm">min w/o → min w/</span></th>' + COLS.map(function (k) { return '<th>' + S[k][0] + '</th>'; }).join('') + '</tr></thead>'; };
-      var row = function (label, r, href) { return '<tr class="' + ((r.mw < 40 || r.mo < 40) ? 'thin' : '') + '"><td class="l nm">' + (href ? '<a href="' + href + '">' + label + '</a>' : label) + '<span class="sm">' + Math.round(r.mo) + ' w/o → ' + Math.round(r.mw) + ' w/</span></td>' + COLS.map(function (k) { return cell(k, r.s[k]); }).join('') + '</tr>'; };
-      var foot = '<div class="ssp-note" style="margin-top:8px">Per 70 possessions; each cell reads without → with. Green = better with him on the floor, red = worse; usage and +/- aren\'t shaded. "Without" includes games the other player missed. Garbage time removed.</div>';
       if (together) {
+        // teammates: two rows — each one's own line with the other on the floor vs off it
         return get(together + '/' + at(ps[0], together)).then(function (D) {
           var A = D && D.players.find(function (x) { return x.id === ps[0].id; }), B = D && D.players.find(function (x) { return x.id === ps[1].id; });
           if (!A || !B) return hide();
-          var ra = split(A.all, (D.w[A.id] || {})[B.id]), rb = split(B.all, (D.w[B.id] || {})[A.id]);
-          host.innerHTML = '<div class="ssp-note">Teammates at ' + esc(D.team) + ' in ' + sl(together) + ': <b>' + Math.round(ra.mw) + ' minutes</b> on the floor together. How each one\'s own line changes with the other on the floor.' +
-            ' <a href="statshift.html?team=' + encodeURIComponent(D.team) + '&with=' + encodeURIComponent(B.id) + (together !== 2026 ? '&season=' + together : '') + '" style="font-weight:700;color:var(--text3)">Open in Stat Line Shift →</a></div>' +
-            '<div class="sheet-wrap" style="max-height:none"><table class="sheet dense ssp-tbl">' + head('Player') + '<tbody>' +
-            row(esc(A.name) + ' <span class="sm" style="display:inline">with ' + esc(B.name.split(' ').slice(-1)[0]) + '</span>', ra) +
-            row(esc(B.name) + ' <span class="sm" style="display:inline">with ' + esc(A.name.split(' ').slice(-1)[0]) + '</span>', rb) +
-            '</tbody></table></div>' + foot;
-          if (wrap) wrap.style.display = '';
+          var SN = {}; SN[A.id] = shortName(A.name) + ' w/ ' + lastOf(B.name); SN[B.id] = shortName(B.name) + ' w/ ' + lastOf(A.name);
+          var draw = function () {
+            var sc = setCols(st), was = st.small; st.small = true;   // two rows: never hide one for sample size
+            var rows = shiftRows([{ p: { id: A.id, name: A.name + ' with ' + B.name }, base: A.all, w: (D.w[A.id] || {})[B.id] },
+              { p: { id: B.id, name: B.name + ' with ' + A.name }, base: B.all, w: (D.w[B.id] || {})[A.id] }], sc.C, st);
+            st.small = was;
+            host.innerHTML = sheetBar(st, [], views).replace(/<label class="ui-check">[\s\S]*?<\/label>/, '') +
+              '<p class="ssx-meta">Teammates at <b>' + esc(D.team) + '</b> in ' + sl(together) + ', <b>' + Math.round(rows[0] ? rows[0].mw : 0) + ' minutes</b> on the floor together. Each one\'s own line with the other on the floor vs off it · ' + esc(sc.def[1]) + ' · per 70 possessions' +
+                '<a href="statshift.html?team=' + encodeURIComponent(D.team) + '&with=' + encodeURIComponent(B.id) + (together !== 2026 ? '&season=' + together : '') + '">Open in Stat Line Shift →</a></p>' +
+              shiftSheet({ rows: rows, C: sc.C, st: st, SN: SN, other: 'the other player', mwTip: 'Minutes together' });
+            wireSheet(host, st, draw);
+          };
+          draw(); shown();
         });
       }
+      // not teammates: each player's own line with his five most-played teammates on the floor vs off it, one sheet each
       Promise.all(ps.map(function (p) { var y = pick(p); return y ? get(y + '/' + at(p, y)).then(function (D) { return D ? { p: p, y: y, D: D } : null; }) : Promise.resolve(null); })).then(function (got) {
         if (!got.some(Boolean)) return hide();
-        var col = function (g, p) {
-          if (!g) return '<div class="ssp-note">No play-by-play lineup data for ' + esc(p.name || 'this player') + ' (2024-25 and 2025-26 only).</div>';
-          var D = g.D, me = D.players.find(function (x) { return x.id === g.p.id; });
-          if (!me) return '<div class="ssp-note">Under 10 minutes in ' + sl(g.y) + '.</div>';
-          var mates = D.players.filter(function (x) { return x.id !== me.id; }).map(function (x) { var r = split(me.all, (D.w[me.id] || {})[x.id]); r.x = x; return r; })
-            .filter(function (r) { return r.mw >= 15 && r.mo >= 15; }).sort(function (a, b) { return b.mw - a.mw; }).slice(0, 5);
-          return '<div class="ssp-note" style="margin-bottom:6px"><b>' + esc(me.name) + '</b> · ' + esc(D.team) + ' · ' + sl(g.y) + ' · <a href="player.html?espn=' + esc(me.id) + '&tab=statshift" style="font-weight:700;color:var(--text3)">all teammates →</a></div>' +
-            '<div class="sheet-wrap" style="max-height:none"><table class="sheet dense ssp-tbl">' + head('His line with') + '<tbody>' +
-            (mates.map(function (r) { return row(esc(r.x.name), r, 'player.html?espn=' + esc(r.x.id)); }).join('') || '<tr><td class="l" colspan="9">No teammate with 15+ minutes on both sides.</td></tr>') + '</tbody></table></div>';
+        var draw = function () {
+          var sc = setCols(st);
+          var one = function (g, p) {
+            if (!g) return '<div class="ui-empty">No play-by-play lineup data for ' + esc(p.name || 'this player') + ' (2024-25 and 2025-26 only).</div>';
+            var D = g.D, me = D.players.find(function (x) { return x.id === g.p.id; });
+            if (!me) return '<div class="ui-empty">' + esc(p.name || 'This player') + ' played under 10 minutes in ' + sl(g.y) + '.</div>';
+            var top = D.players.filter(function (x) { return x.id !== me.id; }).map(function (x) { var w = (D.w[me.id] || {})[x.id]; return { p: x, base: me.all, w: w, m: w ? w[3 * N] : 0 }; })
+              .filter(function (x) { return x.m >= 900 && me.all[3 * N] - x.m >= 900; }).sort(function (a, b) { return b.m - a.m; }).slice(0, 5);
+            var rows = shiftRows(top, sc.C, st);
+            return '<div class="ssx-lbl" style="margin-top:14px">' + esc(me.name) + ' · ' + esc(D.team) + ' · ' + sl(g.y) + ' · his line with his five most-played teammates' +
+                ' · <a href="player.html?espn=' + esc(me.id) + '&tab=statshift" style="color:var(--text3)">all teammates →</a></div>' +
+              shiftSheet({ rows: rows, C: sc.C, st: st, SN: shortNames(D.players), first: 'His line with', other: 'each teammate', mwTip: 'Minutes he played with this teammate',
+                empty: 'No teammate with 15+ minutes on both sides.' });
+          };
+          host.innerHTML = sheetBar(st, [], views).replace(/<label class="ui-check">[\s\S]*?<\/label>/, '') +
+            '<p class="ssx-meta">Not teammates in a season we have lineups for, so here is each player\'s own line with his five most-played teammates on the floor vs off it · ' + esc(sc.def[1]) + ' · per 70 possessions · garbage time removed</p>' +
+            ps.map(function (p, i) { return one(got[i], p); }).join('');
+          wireSheet(host, st, draw);
         };
-        host.innerHTML = '<div class="ssp-note">Not teammates in a season we have lineups for, so here is each player\'s own line with his five most-played teammates on the floor vs off it.</div>' +
-          '<div class="ssp-pair">' + ps.map(function (p, i) { return '<div>' + col(got[i], p) + '</div>'; }).join('') + '</div>' + foot;
-        if (wrap) wrap.style.display = '';
+        draw(); shown();
       });
     });
   }
