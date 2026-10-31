@@ -180,7 +180,7 @@
   }
   const save=()=>{ try{ localStorage.setItem(SK,JSON.stringify(ST)); }catch(e){} };
 
-  let POOL=[], BYID={}, FULL={}, CNT=null, MARCH=null, PLAN=null, ROOM=null;
+  let POOL=[], BYID={}, FULL={}, CNT=null, MARCH=null, PLAN=null, ROOM=null, PROJ_T=null;
   const UI={q:'',pos:'all',sort:'edge',n:60,sold:false,team:null};
 
   async function load(){
@@ -331,8 +331,41 @@
   const priceCell=p=>`<td><input class="fi pr" data-price="${p.id}" type="number" min="1" value="${price(p)}" title="Expected price (or what you paid) — type over it"></td>`;
   const tag=p=>mine(p)?` <span class="pill a">Yours · $${SOLD[p.id].p}</span>`:taken(p)?` <span class="pill r">${esc(SOLD[p.id].t)} · $${SOLD[p.id].p}</span>`:PLAN&&PLAN.fromQ&&!inQ(p)?' <span class="pill">Fill</span>':'';
 
+  // ── how the room ends: every other team fills its open spots, richest per spot first, each taking the best player
+  // its money can buy at his expected price; you finish with your team. Then roto over the league. ──
+  function project(){
+    const mineP=new Set(((PLAN&&PLAN.players)||[]).map(p=>p.id));
+    const T=ROOM.T.map(t=>{ const me=t.name===ST.me;
+      return {name:t.name, me, players:(me&&PLAN&&PLAN.players?PLAN.players:t.players).slice(), now:t.left, left:t.left, spots:me?0:t.spots, pg:t.pg}; });
+    const pool=POOL.filter(p=>!SOLD[p.id]&&!mineP.has(p.id)).sort((a,b)=>b.z-a.z);
+    for(let guard=0;guard<600;guard++){
+      const open=T.filter(t=>t.spots>0); if(!open.length) break;
+      const t=open.sort((a,b)=>b.left/b.spots-a.left/a.spots)[0], cap=t.left-(t.spots-1);
+      const i=pool.findIndex(p=>price(p)<=cap&&(!isPG(p)||t.pg<ST.maxpg));
+      if(i<0){ t.spots=0; continue; }
+      const p=pool.splice(i,1)[0]; t.players.push(p); t.left-=price(p); t.spots--; if(isPG(p)) t.pg++;
+    }
+    T.forEach(t=>{ t.tot={}; CATS.forEach(([k])=>{ t.tot[k]=t.players.reduce((s,p)=>s+season(p,k),0); }); });
+    CATS.forEach(([k])=>{ T.forEach(t=>{ t['r'+k]=1+T.filter(o=>o.tot[k]<t.tot[k]).length+T.filter(o=>o!==t&&o.tot[k]===t.tot[k]).length/2; }); });
+    T.forEach(t=>{ t.roto=CATS.reduce((s,[k])=>s+t['r'+k],0); t.need=CATS.slice().sort((a,b)=>t['r'+a[0]]-t['r'+b[0]])[0]; });
+    return T.sort((a,b)=>b.roto-a.roto||b.tot.pts-a.tot.pts).map((t,i)=>(t.place=i+1,t));
+  }
+  // who chases a nominee: every other team with a spot, the money and PG room. A team's ceiling is his expected price,
+  // +20% when he's strongest in the category it most needs, scaled by its money per spot against the room's, capped at
+  // its max bid. He sells for about the second-highest ceiling; to beat them all you need $1 over the highest.
+  function bidders(pl){
+    const per=ROOM.money/Math.max(1,ROOM.spots), cat=CATS.slice().sort((a,b)=>pl.zc[b[0]]-pl.zc[a[0]])[0];
+    const L=ROOM.T.filter(t=>t.name!==ST.me&&t.spots>0&&(!isPG(pl)||t.pg<ST.maxpg)).map(t=>{
+      const pt=PROJ_T&&PROJ_T.find(x=>x.name===t.name), fits=!!(pt&&pt.need[0]===cat[0]);
+      const rich=Math.sqrt(Math.max(.25,(t.left/Math.max(1,t.spots))/Math.max(1,per)));
+      return {name:t.name, max:t.max, fits, will:Math.max(1,Math.min(t.max,Math.round(price(pl)*(fits?1.2:1)*rich)))};
+    }).sort((a,b)=>b.will-a.will);
+    const pred=L.length>1?Math.min(L[0].will,L[1].will+1):L.length?Math.max(1,Math.round(price(pl)*.6)):1;
+    return {L, pred, beat:L.length?L[0].will+1:1, cat};
+  }
+
   function render(){
-    values(); PLAN=bestPlan();
+    values(); PLAN=bestPlan(); PROJ_T=project();
     const P=PLAN.players||[];
     let h='';
     const spent=P.reduce((s,p)=>s+price(p),0), worth=P.reduce((s,p)=>s+p.val,0);
@@ -356,9 +389,14 @@
         <button class="btn" id="aGo" type="button">Sold</button>${ST.sales.length?'<button class="btn ghost" id="aUndo" type="button">Undo last</button>':''}</div>
       <div class="msg" id="aMsg"></div><div class="ainfo" id="aInfo"></div>
       <div class="teams">${RM.T.map(t=>`<div class="tm${t.name===ST.me?' me':''}"><div class="th"><b data-ren="${esc(t.name)}" title="Click to rename">${esc(t.name)}</b>${t.name===ST.me?'<span class="pill a">You</span>':`<button class="lnk" data-me="${esc(t.name)}" type="button" title="Make this my team">that's me</button>`}</div>
-        <div class="tn"><span><b>$${t.left}</b> left</span><span>${t.spots} spots</span><span>max bid <b>$${Math.max(0,t.max)}</b></span></div>
+        <div class="tn"><span><b>$${t.left}</b> left</span><span>${t.spots} spots</span><span>max bid <b>$${Math.max(0,t.max)}</b></span>${(()=>{ const pt=PROJ_T.find(x=>x.name===t.name); return pt?`<span>needs <b>${pt.need[1]}</b> · proj. ${ord(pt.place)}</span>`:''; })()}</div>
         <ol>${t.players.map(pl=>`<li><span>${esc(pl.name)}${isPG(pl)?' <i>PG</i>':''}</span><span class="p">$${SOLD[pl.id].p}</span></li>`).join('')||'<li class="open">No buys yet</li>'}</ol>
         ${t.players.length?`<div class="tt">${CATS.map(([k,l])=>`${f0(t.tot[k])} ${l}`).join(' · ')}</div>`:''}</div>`).join('')}</div>
+      <h3 class="gh">Projected final standings</h3>
+      <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th><th class="l">Team</th><th>PTS</th><th>Pts</th><th>REB</th><th>Pts</th><th>AST</th><th>Pts</th><th>Roto</th><th>$ left now</th><th class="l">Needs</th></tr></thead><tbody>
+      ${PROJ_T.map(t=>`<tr class="${t.me?'lock':''}"><td class="l">${t.place}</td><td class="l"><b>${esc(t.name)}</b>${t.me?' <span class="pill a">You</span>':''}</td>${CATS.map(([k])=>`<td>${f0(t.tot[k])}</td><td class="dim">${t['r'+k]}</td>`).join('')}<td><b>${t.roto}</b></td><td>$${t.now}</td><td class="l">${t.need[1]}</td></tr>`).join('')}
+      </tbody></table></div>
+      <p class="fb-note">Every other team fills its open spots with the best players its money can buy at expected prices (richest per spot picks first); you finish with your team below. Roto points: ${ST.teams} for first in a category.</p>
       ${ST.sales.length?`<details class="log"><summary>Sale log (${ST.sales.length})</summary><ol>${ST.sales.map((x,i)=>{ const pl=BYID[x.id]; return `<li><span>${i+1}.</span> <b>${esc(pl?pl.name:'?')}</b> to ${esc(x.t)} for $${x.p}${pl?` <span class="dim">(expected $${pl.mkt0})</span>`:''} <button class="lnk" data-del="${i}" type="button">remove</button></li>`; }).reverse().join('')}</ol></details>`:''}
       </section>`;
 
@@ -393,6 +431,10 @@
       h+=`<section class="fb-sec"><div class="sec-h"><h2>Draft guide</h2><span class="r">$${left} left for ${ST.roster-P.filter(mine).length} spots</span></div>
         <div class="guide"><div class="need"><span>Team need</span><b>${nl}</b><small>${ord(14-Math.round(me['r'+nk]))} of 13 vs last year · ${gap(nk)>0?f0(gap(nk))+' behind last year\'s best':'ahead of last year\'s best'}. Each extra ${({pts:'point',reb:'rebound',ast:'assist'})[nk]} a game adds 22 over the season.</small></div>
         ${CATS.filter(([k])=>k!==nk).map(([k,l])=>`<div class="need ok"><span>${l}</span><b>${ord(14-Math.round(me['r'+k]))}</b><small>of 13 · ${f0(tot[k])} on the season</small></div>`).join('')}</div>
+        ${(()=>{ const nom=POOL.filter(p=>!SOLD[p.id]&&!inPlan.has(p.id)&&!inQ(p)&&price(p)>=8).map(p=>({p,d:price(p)-p.val})).filter(x=>x.d>0).sort((a,b)=>b.d-a.d||price(b.p)-price(a.p)).slice(0,6);
+          return nom.length?`<h3 class="gh">Nominate next</h3><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th><th>Room pays</th><th>Worth to you</th><th>They overpay</th><th class="l">Likely buyer</th><th></th></tr></thead><tbody>
+          ${nom.map(({p,d})=>{ const b=bidders(p).L[0]; return `<tr>${playerCell(p)}<td>$${price(p)}</td><td>$${p.val}</td><td class="edge neg">$${d}</td><td class="l">${b?esc(b.name)+(b.fits?' <span class="dim">· fits their need</span>':''):'—'}</td>${acts(p)}</tr>`; }).join('')}
+          </tbody></table></div><p class="fb-note">Players you don't want that the room will pay more for than they're worth. Nominating them drains your rivals' money before your targets come up. Hold your own targets until the big budgets are spent.</p>`:''; })()}
         <h3 class="gh">Buy order</h3>
         <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th><th class="l">Target</th><th>Expect to pay</th><th>Bid up to</th><th class="l">If you lose him</th><th>Their price</th></tr></thead><tbody>
         ${buy.map((p,i)=>{ const o=backup(p); return `<tr><td class="l">${i+1}</td>${playerCell(p,tag(p))}<td>$${price(p)}</td><td><b>$${Math.max(price(p),p.val)}</b></td>${o?playerCell(o,inQ(o)?' <span class="pill a">Queued</span>':''):'<td class="l dim">—</td>'}<td>${o?'$'+price(o):''}</td></tr>`; }).join('')}
@@ -436,7 +478,15 @@
     const say=(t,c)=>{ const m=$('aMsg'); if(m){ m.className='msg '+(c||''); m.textContent=t||''; } };
     const pickSale=id=>{ const pl=BYID[id]; if(!pl) return; UI.sel=String(id); aP.value=pl.name; aL.innerHTML=''; aL.style.display='none';
       const T=ROOM.T, inPlan=PLAN&&PLAN.players&&PLAN.players.some(x=>x.id===pl.id);
-      aI.innerHTML=`<b>${esc(pl.name)}</b> · ${esc(pl.team)} ${esc(pl.position||'')} · expected <b>$${price(pl)}</b> · worth <b>$${pl.val}</b> to you${inPlan?' · <span class="up">in your team — bid up to $'+Math.max(price(pl),pl.val)+'</span>':''}<br><span class="dim">Max bids: ${T.filter(t=>t.spots>0).sort((a,b)=>b.max-a.max).map(t=>`${esc(t.name)} $${t.max}`).join(' · ')}</span>`;
+      const bd=bidders(pl), myMax=Math.max(price(pl),pl.val), me=T.find(t=>t.name===ST.me);
+      const can=me&&me.spots>0&&me.max>=bd.beat&&(!isPG(pl)||me.pg<ST.maxpg);
+      const verdict=!me||me.spots<=0?'<span class="dim">Your roster is full.</span>'
+        :!can&&me.max<bd.beat?`<span class="dn">You can't get there — your max bid is $${me.max}.</span>`
+        :bd.beat<=myMax?`<span class="up"><b>Go for him</b> — you'll likely need about $${bd.beat}; he's worth up to $${myMax} to you${inPlan?' and he\'s in your team':''}.</span>`
+        :inPlan?`<span class="dn"><b>Probably let him go</b> — winning him likely takes $${bd.beat}, past his $${myMax} worth to you. Your team re-plans if he sells.</span>`
+        :`<span class="dim"><b>Let him go${bd.pred>pl.val?', or push the price':''}</b> — he likely sells for about $${bd.pred}${bd.pred>pl.val?', more than he\'s worth to you; bidding him up drains a rival':''}.</span>`;
+      aI.innerHTML=`<b>${esc(pl.name)}</b> · ${esc(pl.team)} ${esc(pl.position||'')} · best at ${bd.cat[1]} · expected <b>$${price(pl)}</b> · likely sells for <b>$${bd.pred}</b> · worth <b>$${pl.val}</b> to you<br>${verdict}
+        <br><span class="dim">Likely bidders: ${bd.L.slice(0,4).map(b=>`${esc(b.name)} ~$${b.will}${b.fits?' (needs '+bd.cat[1]+')':''}`).join(' · ')||'nobody else has the money'}</span>`;
       aPr.placeholder='$'+price(pl); aPr.focus(); };
     if(aP){
       aP.oninput=()=>{ UI.sel=null; aI.innerHTML=''; const q=aP.value.trim().toLowerCase(); if(q.length<2){ aL.style.display='none'; return; }
