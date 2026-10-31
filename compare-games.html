@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="tdc-loading.js?v=5"></script>   <!-- first, so it sees every request -->
+  <link rel="stylesheet" href="tdc-a11y.css?v=3">
+  <script src="tdc-a11y.js?v=2" defer></script>
+  <meta name="description" content="Put two college basketball games side by side: how alike they were, where they split — pace, shot mix, how close they stayed, where the margin came from.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Depth Chart">
+  <meta property="og:title" content="Compare Games — The Depth Chart">
+  <meta property="og:description" content="Put two college basketball games side by side: how alike they were and where they split.">
+  <meta property="og:url" content="https://www.thedepthchartcbb.com/compare-games.html">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Compare Games — The Depth Chart">
+  <meta name="twitter:description" content="Put two college basketball games side by side: how alike they were and where they split.">
+  <script src="auth.js?v=sales2"></script>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <meta charset="UTF-8"/>
+  <script src="tdc-theme.js?v=5"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Compare Games — The Depth Chart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:500;-webkit-font-smoothing:antialiased;min-height:100vh;}
+    a{color:inherit;}
+    .wrap{max-width:1100px;margin:0 auto;padding:26px 22px 80px;}
+    h1.cg-h{font-family:'Playfair Display',serif;font-weight:800;font-size:30px;letter-spacing:-.01em;}
+    .cg-sub{font-size:13.5px;color:var(--text2);margin:6px 0 18px;line-height:1.5;max-width:760px;}
+    /* pickers */
+    .pk-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+    .pk{border:1px solid var(--border);background:var(--bg2,var(--bg));border-radius:10px;padding:14px 16px;min-width:0;}
+    .pk-k{font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);display:flex;align-items:center;gap:8px;}
+    .pk-k i{display:inline-block;width:18px;height:4px;border-radius:2px;}
+    .pk-cur{margin:8px 0 10px;font-size:14px;font-weight:700;min-height:20px;}
+    .pk-cur .dim{color:var(--text3);font-weight:500;}
+    .pk-in{display:flex;gap:8px;}
+    .pk-in input,.pk-in select{font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--border2);border-radius:7px;background:var(--bg);color:var(--text);min-width:0;}
+    .pk-in input{flex:1;}
+    .pk-list{margin-top:8px;max-height:230px;overflow:auto;border-top:1px solid var(--border);}
+    .pk-list:empty{display:none;}
+    .pk-g{display:flex;justify-content:space-between;gap:10px;padding:7px 4px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12.5px;}
+    .pk-g:hover{background:var(--bg3,rgba(127,127,127,.08));}
+    .pk-g .d{color:var(--text3);white-space:nowrap;font-variant-numeric:tabular-nums;}
+    .pk-g b{font-weight:800;}
+    .pk-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+    .pk-chips:empty{display:none;}
+    .pk-chips .lbl{font-size:11px;color:var(--text3);width:100%;}
+    .pk-chip{font-size:11.5px;font-weight:700;border:1px solid var(--border2);border-radius:20px;padding:3px 10px;cursor:pointer;background:none;color:var(--text);font-family:inherit;}
+    .pk-chip:hover{border-color:var(--accent);color:var(--accent);}
+    .pk-note{font-size:11.5px;color:var(--text3);padding:8px 4px;}
+    /* game cards */
+    .gc-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px;}
+    .gc{border:1px solid var(--border);border-radius:10px;padding:14px 16px;border-top:4px solid var(--gc);min-width:0;}
+    .gc-top{display:flex;justify-content:space-between;align-items:baseline;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+    .gc-top a{color:var(--accent);text-decoration:none;letter-spacing:0;text-transform:none;font-size:12px;}
+    .gc-t{display:flex;align-items:center;gap:10px;margin-top:9px;}
+    .gc-t img{width:26px;height:26px;object-fit:contain;}
+    .gc-t .n{font-family:'Playfair Display',serif;font-weight:800;font-size:19px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .gc-t .s{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;font-variant-numeric:tabular-nums;}
+    .gc-t.l{opacity:.5;}
+    .gc-m{font-size:12px;color:var(--text2);margin-top:9px;line-height:1.45;}
+    /* verdict */
+    .vd{display:grid;grid-template-columns:190px 1fr 1fr;gap:22px;margin-top:22px;border:1px solid var(--border);border-radius:10px;padding:18px 20px;align-items:start;}
+    .vd-score{text-align:center;}
+    .vd-score b{display:block;font-family:'Playfair Display',serif;font-size:54px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;}
+    .vd-score span{display:block;font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-top:6px;}
+    .vd-score em{display:block;font-style:normal;font-size:13px;font-weight:700;margin-top:6px;}
+    .vd h3{font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
+    .vd ul{list-style:none;}
+    .vd li{font-size:13px;line-height:1.45;padding:6px 0;border-bottom:1px solid var(--border);color:var(--text2);}
+    .vd li:last-child{border-bottom:0;}
+    .vd li b{color:var(--text);}
+    .sec{margin-top:30px;}
+    .sec-h{font-family:'Playfair Display',serif;font-weight:800;font-size:19px;}
+    .sec-s{font-size:12.5px;color:var(--text3);margin:3px 0 10px;line-height:1.45;}
+    .key{display:inline-flex;align-items:center;gap:6px;margin-right:14px;font-size:12px;font-weight:700;color:var(--text2);}
+    .key i{display:inline-block;width:18px;height:4px;border-radius:2px;}
+    .mf svg{display:block;width:100%;height:auto;}
+    .mf text{font-family:Inter,sans-serif;font-size:11px;fill:var(--text3);}
+    .gap{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;}
+    .gap.g0{color:#3d8f6b;} .gap.g1{color:var(--text3);} .gap.g2{color:#c2912f;} .gap.g3{color:#cf5a4e;}
+    .sheet td.grp{font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);background:var(--bg);}
+    .two{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+    .dl{font-variant-numeric:tabular-nums;font-weight:700;}
+    .dl.up{color:#3d8f6b;} .dl.dn{color:#cf5a4e;}
+    .loading,.err{padding:40px;text-align:center;color:var(--text3);}
+    @media(max-width:860px){.vd{grid-template-columns:1fr;}}
+    @media(max-width:720px){.pk-row,.gc-row,.two{grid-template-columns:1fr;} .wrap{padding:18px 14px 60px;} h1.cg-h{font-size:24px;}}
+  </style>
+  <link rel="stylesheet" href="tdc-anim.css?v=6"/>
+  <script src="tdc-anim.js?v=6"></script>
+  <link rel="stylesheet" href="tdc-dense.css?v=41"/>
+  <link rel="stylesheet" href="tdc-skin.css?v=15"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+  <link rel="stylesheet" href="tdc-ui.css?v=15"/>
+  <style>
+    :root:not([data-theme="dark"]){background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .tdc-bg{background:var(--bg)!important;}
+    :root:not([data-theme="dark"]) .nav-wrap{background:var(--bg)!important;}
+  </style>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#FAF9F6" media="(prefers-color-scheme: light)">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script src="tdc-pwa.js?v=3" defer></script>
+</head>
+<body data-anim-auto>
+  <script src="tdc-nav.js?v=85"></script>
+  <div class="wrap">
+    <h1 class="cg-h">Compare Games</h1>
+    <p class="cg-sub">Pick any two games from 2007-08 on. You get how alike they were, what they shared and where they split: pace, shot mix, how close they stayed, how the margin moved and where it came from. Pick two games with a team in common, like a rematch, to see how that team and its players changed.</p>
+    <div class="pk-row">
+      <div class="pk" id="pkA"></div>
+      <div class="pk" id="pkB"></div>
+    </div>
+    <div id="out"></div>
+  </div>
+
+<script src="team-colors.js?v=12"></script>
+<script src="tdc-teamname.js?v=1"></script>
+<script src="tdc-gamehead.js?v=3"></script>
+<script src="tdc-ot.js?v=1"></script>
+<script src="tdc-gameflow.js?v=15"></script>
+<script>
+const SB='https://izlqhnxowdhtdofkwrho.supabase.co';
+const KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+const H={apikey:KEY,Authorization:'Bearer '+KEY};
+const N=v=>v==null||v===''?0:+v;
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const short=t=>{ try{ return (window.TDCTeamName&&TDCTeamName.short)?TDCTeamName.short(t):t; }catch(e){ return t; } };
+const tm=t=>window.TDC_GAMEHEAD?TDC_GAMEHEAD.team(t):{};
+const fmtD=d=>{ try{ return new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }catch(e){ return d; } };
+const pct=v=>v==null||!isFinite(v)?'—':(v*100).toFixed(1)+'%';
+const sgn=v=>v>0?'+'+v:v<0?'−'+Math.abs(v):'0';
+const COL={A:'#c8902e',B:'#4f7fd0'};   // game A = the site gold, game B = blue (both read on light and dark)
+const get=u=>fetch(SB+'/rest/v1/'+u,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+
+// ── one game, read three ways: the box score (every game), the season power ratings (expected margin),
+//    and ESPN's play-by-play when it exists (how the margin moved) ──
+const SRS={};
+async function srsFor(yr){ if(SRS[yr]) return SRS[yr]; const m={};
+  (await get(`team_seasons?season_year=eq.${yr}&srs=not.is.null&select=team,srs`)).forEach(x=>{ m[x.team]=parseFloat(x.srs); }); return (SRS[yr]=m); }
+const GAMES={};
+async function loadGame(id){
+  if(GAMES[id]) return GAMES[id];
+  const [gA,box]=await Promise.all([get(`games?id=eq.${id}&select=*&limit=1`),get(`box_scores?game_id=eq.${id}&select=*`)]);
+  const g=gA&&gA[0]; if(!g||g.home_score==null||!box.length) throw new Error('no final box score for game '+id);
+  if(window.TDC_OT) await TDC_OT.ready();
+  const [srs,pbp]=await Promise.all([srsFor(g.season_year),
+    window.TDC_GAMEFLOW?Promise.race([TDC_GAMEFLOW.load(String(id)).catch(()=>null),new Promise(r=>setTimeout(()=>r(null),12000))]):null]);
+  return (GAMES[id]=build(g,box,srs,pbp));
+}
+function totals(rows){ const t={}; ['fgm','fga','tpm','tpa','ftm','fta','oreb','dreb','ast','tov','stl','blk','pf','pts'].forEach(k=>t[k]=rows.reduce((s,p)=>s+N(p[k]),0));
+  t.bench=rows.filter(p=>!p.starter).reduce((s,p)=>s+N(p.pts),0); return t; }
+function build(g,box,SRS,pbp){
+  const hw=N(g.home_score)>N(g.away_score), W=hw?g.home:g.away, L=hw?g.away:g.home, ws=hw?N(g.home_score):N(g.away_score), ls=hw?N(g.away_score):N(g.home_score);
+  const by={}; box.forEach(p=>{ (by[p.team]=by[p.team]||[]).push(p); });
+  // box team names normally match the games row; if not, match the two box teams by their points
+  let bw=by[W], bl=by[L];
+  if(!bw||!bl){ const ks=Object.keys(by); const pts=k=>by[k].reduce((s,p)=>s+N(p.pts),0); ks.sort((a,b)=>pts(b)-pts(a)); bw=by[ks[0]]||[]; bl=by[ks[1]]||[]; }
+  const tw=totals(bw), tl=totals(bl), ot=window.TDC_OT?TDC_OT.n(g.id):0, mins=40+5*ot;
+  const poss=t=>t.fga+.44*t.fta+t.tov-t.oreb, P=(poss(tw)+poss(tl))/2;
+  const ff=(t,o)=>({ efg:t.fga?(t.fgm+.5*t.tpm)/t.fga:null, tov:poss(t)?t.tov/poss(t):null, oreb:(t.oreb+o.dreb)?t.oreb/(t.oreb+o.dreb):null,
+    ftr:t.fga?t.fta/t.fga:null, tpr:t.fga?t.tpa/t.fga:null, ast:t.fgm?t.ast/t.fgm:null });
+  const fW=ff(tw,tl), fL=ff(tl,tw), both=(a,b)=>a==null||b==null?null:(a+b)/2;
+  const exp=(SRS[W]!=null&&SRS[L]!=null)?SRS[W]-SRS[L]:null;
+  const x={ g, W, L, ws, ls, ot, poss:P, tw, tl, fW, fL, box:{[W]:bw,[L]:bl},
+    pace:P*40/mins, total:ws+ls, ppp:P?(ws+ls)/(2*P)*100:null, margin:ws-ls, exp, vsExp:exp!=null?(ws-ls)-exp:null,
+    tpr:both(fW.tpr,fL.tpr), efg:both(fW.efg,fL.efg), tovp:both(fW.tov,fL.tov), orebp:both(fW.oreb,fL.oreb), ftr:both(fW.ftr,fL.ftr), astr:both(fW.ast,fL.ast),
+    bench:(ws+ls)?(tw.bench+tl.bench)/(ws+ls):null,
+    // where the winner's margin came from, exactly: twos, threes, free throws
+    src:{ three:3*(tw.tpm-tl.tpm), two:2*((tw.fgm-tw.tpm)-(tl.fgm-tl.tpm)), ft:tw.ftm-tl.ftm } };
+  // the play-by-play: the margin from the winner's side, minute by minute
+  if(pbp&&pbp.R&&pbp.R.flow&&pbp.R.flow.length>10){
+    const F=pbp.R.flow, last=F[F.length-1][1]; let s=last>0?1:last<0?-1:(hw?1:-1);
+    const fl=F.map(r=>[r[0]/60,s*r[1]]), T=fl[fl.length-1][0];
+    let lc=0, ties=0, prev=0, within=0, maxL=0, maxD=0, lastClose=0;
+    for(let i=1;i<fl.length;i++){ const m=fl[i][1], dt=fl[i][0]-fl[i-1][0], pm=fl[i-1][1];
+      if(Math.abs(pm)<=5) within+=Math.max(0,dt); if(Math.abs(pm)<=3) lastClose=fl[i][0];
+      if(m!==0){ const sg=m>0?1:-1; if(prev&&sg!==prev) lc++; prev=sg; } else if(i<fl.length-1) ties++;
+      maxL=Math.max(maxL,m); maxD=Math.max(maxD,-m); }
+    const C=pbp.R.C, runs=Object.keys(C).map(k=>({t:pbp.G.T[k],run:C[k].run})).sort((a,b)=>b.run-a.run);
+    const half=fl.filter(r=>r[0]<=20).slice(-1)[0];
+    Object.assign(x,{ flow:fl, len:T, lc, ties, close:T?within/T:null, lead:maxL, comeback:maxD, run:runs[0]?runs[0].run:null,
+      runBy:runs[0]&&runs[0].t?runs[0].t.name:'', half:half?half[1]:null, decided:Math.max(0,T-lastClose) });
+  }
+  return x;
+}
+
+// ── what we compare: each feature's spread across D-I games (sd) sets how big a gap is ──
+const F0=v=>v==null?'—':(+v).toFixed(0), F1=v=>v==null?'—':(+v).toFixed(1);
+const FEAT=[
+  {g:'Tempo & scoring', k:'pace', l:'Pace (possessions per 40)', sd:6, f:F0, say:v=>v>=72?'fast':v<=64?'slow':'average-paced', more:'was faster'},
+  {g:'Tempo & scoring', k:'total', l:'Total points', sd:20, f:F0, say:v=>v>=160?'high-scoring':v<=125?'low-scoring':'average-scoring', more:'was higher-scoring'},
+  {g:'Tempo & scoring', k:'ppp', l:'Points per 100 possessions', sd:9, f:F1, say:v=>v>=112?'efficient on offense':v<=96?'rough offensively':'average offensively', more:'was more efficient on offense'},
+  {g:'Result', k:'margin', l:'Final margin', sd:11, f:F0, say:v=>v>=20?'blowouts':v<=5?'close finishes':'comfortable wins', more:'was more lopsided'},
+  {g:'Result', k:'vsExp', l:'Winner vs expected margin', sd:10, f:v=>v==null?'—':sgn(Math.round(v)), say:v=>v>=8?'the winner beat expectations':v<=-8?'the winner underperformed':'roughly as expected', more:'was more of a surprise'},
+  {g:'Shot mix', k:'tpr', l:'Three-point rate (3PA / FGA)', sd:.06, f:pct, say:v=>v>=.42?'three-heavy':v<=.33?'inside-out':'balanced shot mixes', more:'was more three-heavy'},
+  {g:'Shot mix', k:'efg', l:'Effective FG%', sd:.06, f:pct, say:v=>v>=.55?'hot-shooting':v<=.46?'cold-shooting':'average-shooting', more:'had better shooting'},
+  {g:'Shot mix', k:'ftr', l:'Free-throw rate (FTA / FGA)', sd:.09, f:pct, say:v=>v>=.38?'whistle-heavy':v<=.24?'lightly called':'normally called', more:'had more whistles'},
+  {g:'Possessions', k:'tovp', l:'Turnover rate', sd:.035, f:pct, say:v=>v>=.2?'sloppy':v<=.14?'clean':'normal on turnovers', more:'was sloppier'},
+  {g:'Possessions', k:'orebp', l:'Offensive rebound rate', sd:.06, f:pct, say:v=>v>=.34?'full of second chances':v<=.25?'one-shot games':'average on the glass', more:'had more second chances'},
+  {g:'Possessions', k:'astr', l:'Assisted makes', sd:.09, f:pct, say:v=>v>=.6?'ball-movement games':v<=.45?'isolation-heavy':'average on assists', more:'had more assisted makes'},
+  {g:'Possessions', k:'bench', l:'Bench share of points', sd:.1, f:pct, say:v=>v>=.35?'deep-bench games':v<=.15?'starter-driven':'normal bench usage', more:'leaned more on the benches'},
+  {g:'How it played out', k:'lc', l:'Lead changes', sd:5, f:F0, pbp:1, say:v=>v>=10?'back-and-forth':v<=1?'one-sided from early':'a few lead swaps', more:'was more back-and-forth'},
+  {g:'How it played out', k:'close', l:'Time within 5 points', sd:.25, f:v=>v==null?'—':Math.round(v*100)+'%', pbp:1, say:v=>v>=.7?'tight most of the way':v<=.25?'separated early':'close for stretches', more:'stayed tighter for longer'},
+  {g:'How it played out', k:'comeback', l:"Winner's biggest deficit", sd:5, f:F0, pbp:1, say:v=>v>=10?'comeback wins':v<=1?'wire-to-wire-ish':'small early deficits', more:'was more of a comeback'},
+  {g:'How it played out', k:'lead', l:"Winner's largest lead", sd:8, f:F0, pbp:1, say:v=>v>=20?'routs at their peak':v<=6?'never comfortable':'double-digit leads', more:'had a bigger peak lead'},
+  {g:'How it played out', k:'run', l:'Biggest scoring run', sd:4, f:v=>v==null?'—':v+'-0', pbp:1, say:v=>v>=14?'big-run games':v<=7?'run-free':'normal runs', more:'had a bigger run'},
+  {g:'How it played out', k:'decided', l:'Last one-possession moment', sd:7, f:v=>v==null?'—':v<0.5?'final minute':Math.round(v)+' min left', pbp:1, say:v=>v<=1?'decided at the end':v>=15?'settled early':'settled mid-second-half', more:'was settled earlier'},
+];
+const ok=v=>v!=null&&isFinite(v);
+function compare(A,B){
+  const rows=FEAT.filter(f=>ok(A[f.k])&&ok(B[f.k])).map(f=>{ const z=(A[f.k]-B[f.k])/f.sd; return Object.assign({},f,{a:A[f.k],b:B[f.k],z,az:Math.abs(z)}); });
+  const m=rows.reduce((s,r)=>s+Math.min(9,r.z*r.z),0)/(rows.length||1);
+  const score=Math.round(100*Math.exp(-m/3));     // two random D-I games land near 50; twins near 100
+  const alike=rows.filter(r=>r.az<0.6).map(r=>Object.assign(r,{same:r.say(r.a)===r.say(r.b)}))
+    .sort((x,y)=>(y.same-x.same)||(x.az-y.az)).slice(0,4);
+  const diff=rows.filter(r=>r.az>=0.8).sort((x,y)=>y.az-x.az).slice(0,4);
+  return {rows,score,alike,diff};
+}
+const word=s=>s>=80?'Near twins':s>=62?'Very similar':s>=45?'Some overlap':s>=30?'Different games':'Opposites';
+const gapCls=az=>az<0.4?['g0','Same']:az<0.9?['g1','Close']:az<1.6?['g2','Apart']:['g3','Far apart'];
+
+// ── drawing ──
+const lab=x=>`${short(x.W)} ${x.ws}, ${short(x.L)} ${x.ls}`;
+function card(x,k){
+  const t=(n,s,win)=>{ const c=tm(n); return `<div class="gc-t${win?'':' l'}">${c.logo?`<img src="${esc(c.logo)}" alt="">`:''}<a class="n" href="team.html?team=${encodeURIComponent(n)}" style="text-decoration:none;">${esc(short(n))}</a><span class="s">${s}</span></div>`; };
+  const g=x.g, away=g.away, home=g.home;
+  const meta=[fmtD(g.date), g.neutral?'neutral site':`at ${esc(short(home))}`, x.ot?(x.ot>1?x.ot+'OT':'OT'):'', g.conf_game?'conference':''].filter(Boolean).join(' · ');
+  const read=x.exp!=null?`Expected: <b>${esc(short(x.exp>=0?x.W:x.L))} by ${Math.abs(x.exp).toFixed(1)}</b> (season power ratings) · ${x.exp<0?'<b>upset</b>':x.vsExp>=0?'winner beat it by '+x.vsExp.toFixed(1):'winner fell '+Math.abs(x.vsExp).toFixed(1)+' short'}`:'';
+  return `<div class="gc" style="--gc:${COL[k]}"><div class="gc-top"><span>Game ${k}</span><a href="game.html?id=${g.id}">Box score →</a></div>
+    ${t(away,N(g.away_score),away===x.W)}${t(home,N(g.home_score),home===x.W)}
+    <div class="gc-m">${meta}${read?'<br>'+read:''}${x.flow?'':'<br><span style="color:var(--text3)">No play-by-play for this game, so the flow numbers are left out.</span>'}</div></div>`;
+}
+const lc=l=>/^[A-Z][a-z]/.test(l)?l.charAt(0).toLowerCase()+l.slice(1):l;   // "Effective FG%" -> "effective FG%"
+function verdict(A,B,c){
+  const nm=k=>`<b style="color:${COL[k]}">Game ${k}</b>`;
+  const al=c.alike.map(r=>r.same?`Both <b>${esc(r.say(r.a))}</b>: ${esc(lc(r.l))} ${r.f(r.a)} and ${r.f(r.b)}`:`Close on <b>${esc(lc(r.l))}</b>: ${r.f(r.a)} vs ${r.f(r.b)}`);
+  const df=c.diff.map(r=>{ const hi=r.a>r.b?'A':'B'; return `${nm(hi)} <b>${esc(r.more)}</b>: ${esc(lc(r.l))} ${r.f(r.a)} vs ${r.f(r.b)}`; });
+  return `<div class="vd"><div class="vd-score" title="0–100 from every number below: two random D-I games score around 50, near-identical games 85+"><b>${c.score}</b><span>Alike score</span><em>${word(c.score)}</em></div>
+    <div><h3>What they share</h3><ul>${al.length?al.map(s=>`<li>${s}</li>`).join(''):'<li>Not much: no number below is close.</li>'}</ul></div>
+    <div><h3>Where they split</h3><ul>${df.length?df.map(s=>`<li>${s}</li>`).join(''):'<li>Nowhere big: every number is within a normal game-to-game wobble.</li>'}</ul></div></div>`;
+}
+function flowChart(A,B){
+  if(!A.flow&&!B.flow) return '';
+  const fs=[['A',A],['B',B]].filter(p=>p[1].flow);
+  const W=1000, Ht=280, pl=40, pr=14, pt=14, pb=26;
+  const T=Math.max(40,...fs.map(p=>p[1].len)), M=Math.max(10,...fs.map(p=>Math.max(p[1].lead,p[1].comeback)))+2;
+  const X=m=>pl+(W-pl-pr)*m/T, Y=v=>pt+(Ht-pt-pb)*(M-v)/(2*M);
+  let g=`<line x1="${pl}" x2="${W-pr}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--border2)" stroke-width="1.5"/>`;
+  [20].concat(Array.from({length:Math.round((T-40)/5)},(_,i)=>40+5*i)).forEach(m=>{ g+=`<line x1="${X(m)}" x2="${X(m)}" y1="${pt}" y2="${Ht-pb}" stroke="var(--border)" stroke-dasharray="3 4"/>`; });
+  const step=M>25?10:5; for(let v=-Math.floor(M/step)*step; v<=M; v+=step) if(v) g+=`<text x="${pl-6}" y="${Y(v)+4}" text-anchor="end">${v>0?'+'+v:v}</text>`;
+  [[0,'Tip'],[20,'Half'],[40,'End']].forEach(t=>{ g+=`<text x="${X(t[0])}" y="${Ht-8}" text-anchor="${t[0]?t[0]===40?'end':'middle':'start'}">${t[1]}</text>`; });
+  fs.forEach(([k,x])=>{ let d=''; x.flow.forEach((r,i)=>{ d+=(i?'H'+X(r[0]).toFixed(1)+'V':'M'+X(r[0]).toFixed(1)+' ')+Y(r[1]).toFixed(1); });
+    g+=`<path d="${d}" fill="none" stroke="${COL[k]}" stroke-width="2.2" stroke-linejoin="round"/>`; });
+  g+=`<text x="${pl+6}" y="${pt+12}" style="font-weight:700">winner ahead ↑</text><text x="${pl+6}" y="${Ht-pb-6}" style="font-weight:700">winner behind ↓</text>`;
+  return `<div class="sec"><div class="sec-h">How the margin moved</div><div class="sec-s">Each game from its winner’s side: above the line the eventual winner led, below it they trailed.</div>
+    <div>${fs.map(([k,x])=>`<span class="key"><i style="background:${COL[k]}"></i>Game ${k} · ${esc(lab(x))}</span>`).join('')}</div>
+    <div class="mf"><svg viewBox="0 0 ${W} ${Ht}" role="img" aria-label="Margin over time for both games">${g}</svg></div></div>`;
+}
+function sheet(A,B,c){
+  let grp='', body='';
+  c.rows.forEach(r=>{ if(r.g!==grp){ grp=r.g; body+=`<tr><td class="l grp" colspan="4">${esc(grp)}</td></tr>`; }
+    const gc=gapCls(r.az); body+=`<tr><td class="l">${esc(r.l)}</td><td class="strong">${r.f(r.a)}</td><td class="strong">${r.f(r.b)}</td><td><span class="gap ${gc[0]}">${gc[1]}</span></td></tr>`; });
+  return `<div class="sec"><div class="sec-h">Side by side</div><div class="sec-s">Both teams combined unless the row says otherwise. The last column is how big the gap is next to the normal spread between D-I games.</div>
+    <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">Number</th><th style="color:${COL.A}">Game A</th><th style="color:${COL.B}">Game B</th><th>Gap</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+}
+function margins(A,B){
+  const r=(l,a,b,tip)=>`<tr><td class="l"${tip?` title="${esc(tip)}"`:''}>${l}</td><td class="strong">${a}</td><td class="strong">${b}</td></tr>`;
+  const s=v=>sgn(v), ef=(x,k)=>x.fW[k]==null||x.fL[k]==null?'—':((x.fW[k]-x.fL[k])*100>=0?'+':'−')+Math.abs((x.fW[k]-x.fL[k])*100).toFixed(1);
+  const head=`<thead><tr><th class="l">Winner minus loser</th><th style="color:${COL.A}">Game A</th><th style="color:${COL.B}">Game B</th></tr></thead>`;
+  const src=`<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense">${head}<tbody>
+    ${r('From threes',s(A.src.three),s(B.src.three))}${r('From twos',s(A.src.two),s(B.src.two))}${r('From free throws',s(A.src.ft),s(B.src.ft))}
+    <tr class="totals"><td class="l strong">Final margin</td><td class="big">${s(A.margin)}</td><td class="big">${s(B.margin)}</td></tr></tbody></table></div>`;
+  const ff=`<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense">${head}<tbody>
+    ${r('Effective FG%',ef(A,'efg'),ef(B,'efg'),'Shooting edge, percentage points')}
+    ${r('Turnover rate',ef(A,'tov'),ef(B,'tov'),'Negative = the winner turned it over less')}
+    ${r('Offensive rebound rate',ef(A,'oreb'),ef(B,'oreb'))}
+    ${r('Free-throw rate',ef(A,'ftr'),ef(B,'ftr'))}
+    ${r('Bench points',s(A.tw.bench-A.tl.bench),s(B.tw.bench-B.tl.bench))}
+    ${r('Halftime margin',A.half!=null?s(A.half):'—',B.half!=null?s(B.half):'—','From the play-by-play')}</tbody></table></div>`;
+  const why=x=>{ const e=[['threes',x.src.three],['twos',x.src.two],['the line',x.src.ft]].sort((a,b)=>b[1]-a[1])[0]; return e[1]>0?`the biggest edge came from ${e[0]} (${sgn(e[1])})`:'with no single edge'; };
+  return `<div class="sec"><div class="sec-h">Where each margin came from</div><div class="sec-s">Game A: ${esc(short(A.W))} won by ${A.margin}, ${why(A)}. Game B: ${esc(short(B.W))} won by ${B.margin}, ${why(B)}. The four-factor edges are in percentage points for the winner.</div>
+    <div class="two">${src}${ff}</div></div>`;
+}
+// a team in both games (a rematch, or one team's win next to its loss): how it, and each player, changed
+function shared(A,B){
+  const teams=[A.W,A.L].filter(t=>t===B.W||t===B.L); if(!teams.length) return '';
+  return teams.map(t=>{
+    const side=x=>{ const me=t===x.W, f=me?x.fW:x.fL, o=me?x.fL:x.fW; return { res:(me?'W ':'L ')+(me?x.ws+'-'+x.ls:x.ls+'-'+x.ws), opp:me?x.L:x.W, pts:me?x.ws:x.ls, f, o, rows:x.box[t]||[] }; };
+    const a=side(A), b=side(B);
+    const r=(l,va,vb)=>`<tr><td class="l">${l}</td><td class="strong">${va}</td><td class="strong">${vb}</td></tr>`;
+    const tbl=`<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">${esc(short(t))}</th><th style="color:${COL.A}">Game A</th><th style="color:${COL.B}">Game B</th></tr></thead><tbody>
+      ${r('Result',a.res+' vs '+esc(short(a.opp)),b.res+' vs '+esc(short(b.opp)))}${r('Effective FG%',pct(a.f.efg),pct(b.f.efg))}${r('Opponent eFG%',pct(a.o.efg),pct(b.o.efg))}
+      ${r('Turnover rate',pct(a.f.tov),pct(b.f.tov))}${r('Offensive rebound rate',pct(a.f.oreb),pct(b.f.oreb))}${r('Three-point rate',pct(a.f.tpr),pct(b.f.tpr))}${r('Free-throw rate',pct(a.f.ftr),pct(b.f.ftr))}</tbody></table></div>`;
+    const P={}; [['a',a.rows],['b',b.rows]].forEach(([k,rows])=>rows.forEach(p=>{ const id=p.espn_id||p.player; (P[id]=P[id]||{nm:p.player,id:p.espn_id})[k]=p; }));
+    // only players who were on the roster for both games; different eras get the note instead
+    const inBoth=Object.values(P).filter(p=>p.a&&p.b&&(N(p.a.min)||N(p.b.min)));
+    const pl=inBoth.filter(p=>N(p.a&&p.a.min)+N(p.b&&p.b.min)>0).sort((x,y)=>(N(y.a&&y.a.min)+N(y.b&&y.b.min))-(N(x.a&&x.a.min)+N(x.b&&x.b.min))).slice(0,12);
+    const line=p=>!p?'<span class="dim">—</span>':N(p.min)>0?`${N(p.pts)}/${N(p.reb)}/${N(p.ast)} <span class="dim">· ${N(p.min)}m</span>`:'<span class="dim">DNP</span>';
+    const dl=p=>{ if(!(p.a&&p.b&&N(p.a.min)&&N(p.b.min))) return '<span class="dim">—</span>'; const d=N(p.b.pts)-N(p.a.pts); return `<span class="dl ${d>0?'up':d<0?'dn':''}">${sgn(d)}</span>`; };
+    const ptbl=inBoth.length<2?`<div class="sec-s" style="padding:10px 2px;">No players in common: ${inBoth.length?'only one player':'nobody'} played for ${esc(short(t))} in both games, so there’s no player-by-player read.</div>`:`<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">Player</th><th title="Points / rebounds / assists · minutes" style="color:${COL.A}">Game A</th><th title="Points / rebounds / assists · minutes" style="color:${COL.B}">Game B</th><th title="Points, Game B minus Game A">Pts Δ</th></tr></thead><tbody>
+      ${pl.map(p=>`<tr><td class="l nm">${p.id?`<a href="player.html?espn=${p.id}&name=${encodeURIComponent(p.nm)}" style="text-decoration:none;">${esc(p.nm)}</a>`:esc(p.nm)}</td><td>${line(p.a)}</td><td>${line(p.b)}</td><td>${dl(p)}</td></tr>`).join('')}</tbody></table></div>`;
+    return `<div class="sec"><div class="sec-h">${esc(short(t))} in both games</div><div class="sec-s">The same team twice: what changed in how it played, and who played better or worse.</div><div class="two">${tbl}${ptbl}</div></div>`;
+  }).join('');
+}
+
+// ── pickers ──
+const qs=new URLSearchParams(location.search);
+const SEL={A:qs.get('a'),B:qs.get('b')};
+const YEARS=[]; for(let y=2027;y>=2008;y--) YEARS.push(y);
+const yrLbl=y=>(y-1)+'-'+String(y).slice(2);
+function pickerHtml(k){
+  return `<div class="pk-k"><i style="background:${COL[k]}"></i>Game ${k}</div><div class="pk-cur" id="cur${k}"><span class="dim">No game picked yet</span></div>
+    <div class="pk-in"><input id="q${k}" placeholder="Team (e.g. Duke) or a game link / ID" autocomplete="off"><select id="y${k}">${YEARS.map(y=>`<option value="${y}"${y===2026?' selected':''}>${yrLbl(y)}</option>`).join('')}</select></div>
+    <div class="pk-list" id="l${k}"></div><div class="pk-chips" id="c${k}"></div>`;
+}
+function idFrom(s){ s=String(s||'').trim(); const m=s.match(/(?:gameId[=/]|[?&]id=)(\d{6,})/)||s.match(/^(\d{6,})$/); return m?m[1]:null; }
+async function search(k){
+  const q=document.getElementById('q'+k).value.trim(), y=document.getElementById('y'+k).value, L=document.getElementById('l'+k);
+  const id=idFrom(q); if(id){ L.innerHTML=''; choose(k,id); return; }
+  if(q.length<3){ L.innerHTML=''; return; }
+  L.innerHTML='<div class="pk-note">Searching…</div>';
+  const term=encodeURIComponent('*'+q.replace(/[(),*]/g,' ')+'*');
+  const rows=await get(`games?select=id,date,home,away,home_score,away_score&season_year=eq.${y}&home_score=not.is.null&or=(home.ilike.${term},away.ilike.${term})&order=date.asc&limit=80`);
+  L.innerHTML=rows.length?rows.map(g=>{ const hw=g.home_score>g.away_score;
+    return `<div class="pk-g" data-id="${g.id}"><span>${hw?'':'<b>'}${esc(short(g.away))} ${g.away_score}${hw?'':'</b>'} at ${hw?'<b>':''}${esc(short(g.home))} ${g.home_score}${hw?'</b>':''}</span><span class="d">${fmtD(g.date)}</span></div>`; }).join('')
+    :`<div class="pk-note">No finished games for “${esc(q)}” in ${yrLbl(+y)}.</div>`;
+}
+function choose(k,id){
+  SEL[k]=String(id); document.getElementById('l'+k).innerHTML='';
+  const u=new URLSearchParams(); if(SEL.A) u.set('a',SEL.A); if(SEL.B) u.set('b',SEL.B); history.replaceState(null,'','?'+u.toString());
+  run();
+}
+// quick picks for the other slot: the same two teams' other meetings, then each team's other games that season
+async function chips(x,other){
+  const el=document.getElementById('c'+other); if(!el||SEL[other]) { if(el) el.innerHTML=''; return; }
+  const q=s=>'"'+s.replace(/"/g,'')+'"';
+  const meet=await get(`games?select=id,date,home,away,home_score,away_score&home_score=not.is.null&or=(and(home.eq.${encodeURIComponent(q(x.W))},away.eq.${encodeURIComponent(q(x.L))}),and(home.eq.${encodeURIComponent(q(x.L))},away.eq.${encodeURIComponent(q(x.W))}))&order=date.desc&limit=12`);
+  const m=meet.filter(g=>String(g.id)!==String(x.g.id)).slice(0,8);
+  el.innerHTML=m.length?`<span class="lbl">Other meetings of these two teams:</span>`+m.map(g=>`<button class="pk-chip" data-id="${g.id}">${fmtD(g.date)} · ${esc(short(g.home_score>g.away_score?g.home:g.away))} ${Math.max(g.home_score,g.away_score)}-${Math.min(g.home_score,g.away_score)}</button>`).join('')
+    :`<span class="lbl">These two teams have no other meeting on file. Search a team above.</span>`;
+  const y=document.getElementById('y'+other); if(y) y.value=x.g.season_year;
+}
+function wire(k){
+  const box=document.getElementById('pk'+k); box.innerHTML=pickerHtml(k);
+  let tmr=null; const q=document.getElementById('q'+k);
+  q.addEventListener('input',()=>{ clearTimeout(tmr); tmr=setTimeout(()=>search(k),350); });
+  q.addEventListener('keydown',e=>{ if(e.key==='Enter'){ clearTimeout(tmr); search(k); } });
+  document.getElementById('y'+k).addEventListener('change',()=>search(k));
+  box.addEventListener('click',e=>{ const t=e.target.closest('[data-id]'); if(t) choose(k,t.getAttribute('data-id')); });
+}
+async function run(){
+  const out=document.getElementById('out');
+  const set=(k,x)=>{ document.getElementById('cur'+k).innerHTML=x?`${esc(lab(x))} <span class="dim">· ${fmtD(x.g.date)}</span>`:'<span class="dim">No game picked yet</span>'; };
+  if(!SEL.A&&!SEL.B){ out.innerHTML='<div class="loading">Pick two games to compare. Search a team and season, or paste a game link.</div>'; return; }
+  out.innerHTML='<div class="loading">Loading the games…</div>';
+  let A=null,B=null;
+  try{ [A,B]=await Promise.all([SEL.A?loadGame(SEL.A):null,SEL.B?loadGame(SEL.B):null]); }
+  catch(e){ out.innerHTML=`<div class="err">Couldn’t load that game: ${esc(e.message)}. Pick another.</div>`; return; }
+  set('A',A); set('B',B);
+  if(A) chips(A,'B'); if(B) chips(B,'A');
+  if(!A||!B){ out.innerHTML=`<div class="gc-row">${A?card(A,'A'):'<div></div>'}${B?card(B,'B'):'<div></div>'}</div><div class="loading">Now pick Game ${A?'B':'A'}.</div>`; return; }
+  document.title=`${lab(A)} vs ${lab(B)} — Compare Games`;
+  const c=compare(A,B);
+  out.innerHTML=`<div class="gc-row">${card(A,'A')}${card(B,'B')}</div>`+verdict(A,B,c)+flowChart(A,B)+sheet(A,B,c)+margins(A,B)+shared(A,B);
+}
+wire('A'); wire('B'); run();
+</script>
+  <script src="tdc-sheets.js?v=2"></script>
+  <script src="tdc-version.js?v=2"></script>
+</body>
+</html>

@@ -26,6 +26,7 @@
       ['team-stats.html',      'Team Stats'],
       ['conferences.html',     'Conferences & Standings'],
       ['compare-players.html?mode=teams', 'Compare Teams'],
+      ['compare-games.html',   'Compare Games'],
       ['predict.html',         'Predictive Ratings'],
       ['payroll.html',         'Payrolls'],
     ]],

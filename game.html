@@ -288,7 +288,7 @@ async function load(afterLive){
     ]))+GT.leaders(order.map(t=>({ name:shortNm(t), players:byTeam[t].map(p=>({ name:p.player, pts:p.pts, reb:p.reb, ast:p.ast, min:p.min,
         href:p.espn_id?`player.html?espn=${p.espn_id}&name=${encodeURIComponent(p.player)}`:null })) })))+'<div id="gmMoments"></div>';
     const boxes=order.map(t=>tableFor(t,byTeam[t],potgId,trFor(t))).join('');
-    c.innerHTML=header+strip+'<div id="gmTabs"></div>';
+    c.innerHTML=header+strip+`<div style="text-align:right;margin:-4px 0 6px;"><a href="compare-games.html?a=${encodeURIComponent(gid)}" style="font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;">Compare this game with another →</a></div>`+'<div id="gmTabs"></div>';
     // play-by-play tabs draw on first open (the charts measure their width); they drop out when ESPN has no PBP
     const gfP=window.TDC_GAMEFLOW?TDC_GAMEFLOW.load(gid).catch(()=>null):Promise.resolve(null);
     const gfTab=(id,label,draw)=>({id,label,onShow:el=>{ el.innerHTML='<section class="gf-card"><div class="loading">Loading the play-by-play…</div></section>';
