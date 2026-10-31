@@ -6,7 +6,7 @@
   <script src="tdc-a11y.js?v=2" defer></script>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Fantasy Draft Planner — The Depth Chart</title>
+  <title>Fantasy Team Builder — The Depth Chart</title>
   <meta name="description" content="Plan a college basketball fantasy auction: projected PTS/REB/AST, March games and the league's real price curve, with the best $200 roster solved for you.">
   <meta name="robots" content="noindex">
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
@@ -72,7 +72,22 @@
     .fb-note{font-size:12px;color:var(--text3);line-height:1.55;margin-top:10px;max-width:900px;}
     .fb-note b{color:var(--text2);}
     .fb-sec{margin-bottom:30px;}
-    @media(max-width:820px){ .fb-tiles{grid-template-columns:repeat(2,minmax(0,1fr));} .fb-tiles>div{border-left:none!important;border-top:1px solid var(--border);} .fb-tiles>div:first-child{border-top:none;grid-column:1/-1;} .page-h1{font-size:28px;} }
+    .dim{color:var(--text3);font-weight:500;}
+    .seg{display:inline-flex;background:var(--bg2);border:1px solid var(--border);border-radius:999px;padding:3px;gap:2px;}
+    .seg button{border:none;background:none;font:700 11.5px Inter,system-ui,sans-serif;color:var(--text2);padding:5px 12px;border-radius:999px;}
+    .seg button.on{background:var(--accent);color:#fff;}
+    .qhits{display:flex;gap:6px;flex-wrap:wrap;}
+    .mv{display:inline-flex;flex-direction:column;margin-right:6px;vertical-align:middle;}
+    .mv button{border:none;background:none;color:var(--text3);font-size:8px;line-height:9px;padding:0 2px;} .mv button:hover{color:var(--accent);}
+    .guide{display:grid;grid-template-columns:2fr 1fr 1fr;border:1px solid var(--border);border-radius:12px;margin-bottom:16px;}
+    .guide .need{padding:14px 16px;} .guide .need+.need{border-left:1px solid var(--border);}
+    .guide .need span{font:800 10.5px Inter,system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);}
+    .guide .need.ok span{color:var(--text3);}
+    .guide .need b{display:block;font:800 22px Inter,system-ui,sans-serif;margin:2px 0;}
+    .guide .need small{font-size:12px;color:var(--text3);line-height:1.45;display:block;}
+    .gh{font:800 11px Inter,system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin:16px 0 8px;}
+    @media(max-width:820px){ .guide{grid-template-columns:1fr;} .guide .need+.need{border-left:none;border-top:1px solid var(--border);} }
+    @media(max-width:820px){ .set{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;} .set .fi{width:100%;} .set .btn{grid-column:1/-1;justify-content:center;} .fb-tiles{grid-template-columns:repeat(2,minmax(0,1fr));} .fb-tiles>div{border-left:none!important;border-top:1px solid var(--border);} .fb-tiles>div:first-child{border-top:none;grid-column:1/-1;} .page-h1{font-size:28px;} }
   </style>
   <link rel="stylesheet" href="tdc-skin.css?v=15"/>
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
@@ -86,14 +101,14 @@
 <script src="tdc-nav.js?v=84"></script>
 
 <div class="page">
-  <div class="kick"><a href="league.html">Fantasy</a> · Draft planner</div>
-  <h1 class="page-h1">Draft Planner</h1>
+  <div class="kick"><a href="league.html">Fantasy</a> · Team builder</div>
+  <h1 class="page-h1">Team Builder</h1>
   <div class="set">
     <label>Budget<input class="fi" id="sBudget" type="number" min="12" max="1000"></label>
     <label>Roster<input class="fi" id="sRoster" type="number" min="5" max="20"></label>
     <label>Max PGs<input class="fi" id="sPG" type="number" min="0" max="20"></label>
     <label>Teams<input class="fi" id="sTeams" type="number" min="2" max="20"></label>
-    <button class="btn ghost" id="sReset" type="button">Clear locks &amp; prices</button>
+    <button class="btn ghost" id="sReset" type="button">Start over</button>
   </div>
   <div id="out"><div class="empty">Loading projections, schedules and 2,000 simulated Marches…</div></div>
 </div>
@@ -103,14 +118,16 @@
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co', KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const CONFS={'B10':'Big Ten','SEC':'SEC','ACC':'ACC','BIG-12':'Big 12','Big-East':'Big East'};
   const CATS=[['pts','PTS'],['reb','REB'],['ast','AST']];
-  // last year's league: the Division 2 winner's season totals, the bar a plan has to clear
-  const BAR={pts:4371,reb:1370,ast:841};
+  // last year's league, final regular-season totals (owner's sheet "Total Stat Sheet", 2025-26; divisions of 6)
+  const LAST=[['Mark',3517,937,996,1],['Derrick',3803,1271,565,1],['Mike',3490,1297,917,1],['Jody',3624,1374,713,1],['Anthony',3356,1405,663,1],['Bryce',4091,1363,723,1],
+    ['Darren',3940,1360,715,2],['Ken',3433,1413,648,2],['Aidan',4371,1370,841,2],['Jacob',3623,1255,614,2],['Glenn',3091,1128,615,2],['Carter/Alex/Ewing',3825,1276,756,2]];
   // the league's 2025-26 auction, price by sale rank (owner's sheet, Oct 24 2026); past #120 everyone went for $1
   const CURVE=[[1,55],[3,50],[6,43],[12,35],[24,30],[36,26],[48,20],[72,15],[96,10],[120,2]];
   const $=id=>document.getElementById(id);
   const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const f1=v=>v==null||isNaN(v)?'—':(+v).toFixed(1);
   const f0=v=>v==null||isNaN(v)?'—':Math.round(v).toLocaleString();
+  const ord=n=>n+(['th','st','nd','rd'][(n%100-20)%10]||['th','st','nd','rd'][n%100]||'th');
   const H={apikey:KEY,Authorization:'Bearer '+KEY};
   const get=p=>fetch(`${SB}/rest/v1/${p}`,{headers:H}).then(r=>{ if(!r.ok) throw new Error('Supabase '+r.status); return r.json(); });
   async function getAll(p){ const out=[]; for(let off=0;;off+=1000){ const rows=await get(`${p}&limit=1000&offset=${off}`); out.push(...rows); if(rows.length<1000) return out; } }
@@ -118,13 +135,14 @@
   const logo=t=>{ try{ const c=window.tdcTeamColor&&tdcTeamColor(t); return c&&c.logo||null; }catch(e){ return null; } };
   const lgImg=t=>{ const l=logo(t); return l?`<img class="lg" src="${esc(l)}" alt="" loading="lazy">`:''; };
 
-  // ── saved plan (this browser) ──
+  // ── saved plan (this browser): queue = players you want, in order; lock = drafted (at the price paid); avoid = gone / not wanted ──
   const SK='tdc_fb_v1';
-  let ST={budget:200,roster:12,maxpg:3,teams:12,lock:{},avoid:{},price:{}};
+  let ST={budget:200,roster:12,maxpg:3,teams:12,lock:{},avoid:{},price:{},queue:[],src:'queue'};
   try{ Object.assign(ST,JSON.parse(localStorage.getItem(SK)||'{}')); }catch(e){}
+  if(!Array.isArray(ST.queue)) ST.queue=[];
   const save=()=>{ try{ localStorage.setItem(SK,JSON.stringify(ST)); }catch(e){} };
 
-  let POOL=[], FULL={}, CNT=null, MARCH=null, PLAN=null;
+  let POOL=[], BYID={}, FULL={}, CNT=null, MARCH=null, PLAN=null;
   const UI={q:'',pos:'all',sort:'edge',n:60};
 
   async function load(){
@@ -167,7 +185,7 @@
     const top=POOL.slice().sort((a,b)=>raw(b)-raw(a)).slice(0,N);
     const st=mult=>{ const o={}; CATS.forEach(([k])=>{ const v=top.map(p=>p.proj[k]*mult(p)); const m=v.reduce((a,b)=>a+b,0)/v.length; const sd=Math.sqrt(v.reduce((a,b)=>a+(b-m)**2,0)/v.length)||1; o[k]={m,sd}; }); return o; };
     const sR=st(p=>p.reg), sP=st(p=>p.mar);
-    POOL.forEach(p=>{ p.z=CATS.reduce((s,[k])=>s+(p.proj[k]*p.reg-sR[k].m)/sR[k].sd+(p.proj[k]*p.mar-sP[k].m)/sP[k].sd,0); });
+    POOL.forEach(p=>{ p.zc={}; CATS.forEach(([k])=>{ p.zc[k]=(p.proj[k]*p.reg-sR[k].m)/sR[k].sd+(p.proj[k]*p.mar-sP[k].m)/sP[k].sd; }); p.z=CATS.reduce((s,[k])=>s+p.zc[k],0); });
     const ranked=POOL.slice().sort((a,b)=>b.z-a.z);
     const repl=(ranked[N]||ranked[ranked.length-1]).z;
     const above=ranked.slice(0,N).reduce((s,p)=>s+Math.max(0,p.z-repl),0)||1;
@@ -184,89 +202,183 @@
   }
   const price=p=>ST.price[p.id]!=null?+ST.price[p.id]:p.mkt;
   const isPG=p=>p.position==='PG';
+  const inQ=p=>ST.queue.indexOf(String(p.id))>=0;
+  const season=(p,k)=>p.proj[k]*p.reg;
 
-  // ── the plan: most total value (z) for the budget, roster size and PG cap, each player at his expected price ──
-  // knapsack over (players, dollars, PGs); locked players are bought first at their price, avoided ones never
-  function solve(){
+  // ── the plan: most total value (z) for the budget, roster size and PG cap, each player at his expected price.
+  // Drafted players are in at what you paid; avoided ones never. Building from the queue, anyone outside it carries a
+  // heavy penalty, so he's only picked to fill spots the queue can't (marked Fill). Knapsack over (players, $, PGs). ──
+  const FILL=40;
+  function solve(W){
     const B=ST.budget, R=ST.roster, G=ST.maxpg;
     const locked=POOL.filter(p=>ST.lock[p.id]);
     let b0=0, g0=0; locked.forEach(p=>{ b0+=price(p); g0+=isPG(p)?1:0; });
     const slots=R-locked.length, budget=B-b0, pgLeft=G-g0;
-    if(slots<0||budget<slots||pgLeft<0) return {err:slots<0?'More players locked than roster spots.':pgLeft<0?'More point guards locked than the PG limit.':'The locked players leave less than $1 for each open spot.',locked};
-    // candidates: the best few hundred by value plus anyone who's a bargain at his price
-    const C=POOL.filter(p=>!ST.lock[p.id]&&!ST.avoid[p.id]&&p.z>-8).sort((a,b)=>b.z-a.z).slice(0,420);
+    if(slots<0||budget<slots||pgLeft<0) return {err:slots<0?'More players drafted than roster spots.':pgLeft<0?'More point guards drafted than the PG limit.':'The drafted players leave less than $1 for each open spot.',locked,players:locked};
+    const fromQ=ST.src==='queue'&&ST.queue.some(id=>BYID[id]&&!ST.lock[id]&&!ST.avoid[id]);
+    const gain=p=>CATS.reduce((s,[k])=>s+W[k]*p.zc[k],0)-(fromQ&&!inQ(p)?FILL:0);
+    const free=POOL.filter(p=>!ST.lock[p.id]&&!ST.avoid[p.id]);
+    const C=free.filter(p=>fromQ&&inQ(p)).concat(free.filter(p=>!(fromQ&&inQ(p))&&p.z>-8).sort((a,b)=>b.z-a.z).slice(0,420));
     const nB=budget+1, nG=Math.max(0,pgLeft)+1, S=(slots+1)*nB*nG, NEG=-1e9;
     let dp=new Float64Array(S).fill(NEG); dp[0]=0;
     const take=[]; const ix=(c,b,g)=>(c*nB+b)*nG+g;
     C.forEach(p=>{
-      const cost=price(p), pg=isPG(p)?1:0, nx=dp.slice(), tk=new Uint8Array(S);
+      const cost=price(p), pg=isPG(p)?1:0, nx=dp.slice(), tk=new Uint8Array(S), w0=gain(p);
       if(cost<=budget&&pg<nG) for(let c=0;c<slots;c++) for(let b=0;b+cost<=budget;b++) for(let g=0;g+pg<nG;g++){
         const v=dp[ix(c,b,g)]; if(v===NEG) continue;
-        const j=ix(c+1,b+cost,g+pg), w=v+p.z; if(w>nx[j]){ nx[j]=w; tk[j]=1; } }
+        const j=ix(c+1,b+cost,g+pg), w=v+w0; if(w>nx[j]){ nx[j]=w; tk[j]=1; } }
       take.push(tk); dp=nx;
     });
     let best=NEG, bj=-1;
     for(let b=0;b<=budget;b++) for(let g=0;g<nG;g++){ const j=ix(slots,b,g); if(dp[j]>best){ best=dp[j]; bj=j; } }
-    if(bj<0) return {err:'No roster fits those limits.',locked};
-    // walk back: re-run forward keeping every layer would cost memory, so track take flags per item and rewind
+    if(bj<0) return {err:'No roster fits those limits.',locked,players:locked};
     const pick=[]; let c=slots, b=Math.floor(bj/nG)%nB, g=bj%nG;
     for(let i=C.length-1;i>=0&&c>0;i--){ if(take[i][ix(c,b,g)]){ const p=C[i]; pick.push(p); c--; b-=price(p); g-=isPG(p)?1:0; } }
-    return {players:locked.concat(pick).sort((a,b)=>price(b)-price(a)), locked};
+    return {players:locked.concat(pick).sort((a,b)=>(ST.lock[b.id]?1:0)-(ST.lock[a.id]?1:0)||price(b)-price(a)), locked, fromQ};
   }
 
-  function playerCell(p){
+  // roto rewards balance, not raw total: re-solve leaning on the roster's weakest category (by its rank against last
+  // year's teams) and keep the roster that would have scored the most roto points
+  function bestPlan(){
+    const W={pts:1,reb:1,ast:1}; let best=null;
+    for(let it=0;it<8;it++){
+      const pl=solve(W); if(pl.err) return pl;
+      const tot={}; CATS.forEach(([k])=>{ tot[k]=pl.players.reduce((s,p)=>s+season(p,k),0); });
+      const me=standing(tot).find(r=>r.me);
+      const zs=pl.players.reduce((s,p)=>s+p.z,0);
+      if(!best||me.roto>best.roto||(me.roto===best.roto&&zs>best.zs)) best={...pl,roto:me.roto,zs};
+      W[needOf(me)[0]]*=1.35;
+    }
+    return best;
+  }
+
+  // ── where a roster would have finished last year: roto over all 12 teams + you (13 points for first in a category) ──
+  function standing(tot){
+    const rows=LAST.map(r=>({name:r[0],pts:r[1],reb:r[2],ast:r[3],div:r[4]})).concat([{name:'You',me:true,...tot}]);
+    CATS.forEach(([k])=>{ rows.forEach(r=>{ r['r'+k]=1+rows.filter(o=>o[k]<r[k]).length+rows.filter(o=>o!==r&&o[k]===r[k]).length/2; }); });
+    rows.forEach(r=>{ r.roto=CATS.reduce((s,[k])=>s+r['r'+k],0); });
+    rows.sort((a,b)=>b.roto-a.roto||b.pts-a.pts);
+    rows.forEach((r,i)=>{ r.place=i+1; });
+    return rows;
+  }
+  // the category the roster is weakest in, by its rank among last year's teams (13 = best)
+  function needOf(me){ return CATS.slice().sort((a,b)=>me['r'+a[0]]-me['r'+b[0]])[0]; }
+
+  function playerCell(p,tag){
     const href=p.espn_id?`player.html?espn=${p.espn_id}`:`player.html?name=${encodeURIComponent(p.name)}`;
-    return `<td class="l nm"><a href="${href}">${esc(p.name)}</a>${p.is_injured?' <span class="pill r">Inj</span>':''}${p.proj.est?' <span class="pill" title="Freshman / no-stats estimate">Est</span>':''}${ST.lock[p.id]?' <span class="pill a">Locked</span>':''}<span class="sub">${lgImg(FULL[p.team]||p.team)}${esc(p.team)} · ${esc(p.position||'')}${p.yr?' · '+esc(p.yr):''}</span></td>`;
+    return `<td class="l nm"><a href="${href}">${esc(p.name)}</a>${p.is_injured?' <span class="pill r">Inj</span>':''}${p.proj.est?' <span class="pill" title="Freshman / no-stats estimate">Est</span>':''}${tag||''}<span class="sub">${lgImg(FULL[p.team]||p.team)}${esc(p.team)} · ${esc(p.position||'')}${p.yr?' · '+esc(p.yr):''}</span></td>`;
   }
   const edge=p=>p.val-price(p);
   const edgeCell=p=>{ const e=edge(p); return `<td class="edge ${e>0?'pos':e<0?'neg':''}">${e>0?'+':''}${e}</td>`; };
-  const acts=p=>`<td><span class="acts"><button class="btn sm ghost${ST.lock[p.id]?' on':''}" data-lock="${p.id}" type="button" title="Must buy">${ST.lock[p.id]?'Locked':'Lock'}</button><button class="btn sm ghost no${ST.avoid[p.id]?' on':''}" data-avoid="${p.id}" type="button" title="Leave out of the plan">${ST.avoid[p.id]?'Out':'Avoid'}</button></span></td>`;
-  const priceCell=p=>`<td><input class="fi pr" data-price="${p.id}" type="number" min="1" value="${price(p)}" title="Expected price — type what you think he'll go for"></td>`;
+  const qBtn=p=>`<button class="btn sm ghost${inQ(p)?' on':''}" data-q="${p.id}" type="button" title="${inQ(p)?'Take off your queue':'Add to your queue'}">${inQ(p)?'Queued':'+ Queue'}</button>`;
+  const acts=(p,noQ)=>`<td><span class="acts">${noQ?'':qBtn(p)}<button class="btn sm ghost${ST.lock[p.id]?' on':''}" data-lock="${p.id}" type="button" title="You won him — type what you paid in Price">${ST.lock[p.id]?'Drafted':'Drafted?'}</button><button class="btn sm ghost no${ST.avoid[p.id]?' on':''}" data-avoid="${p.id}" type="button" title="Taken by someone else, or not for you">${ST.avoid[p.id]?'Gone':'Gone?'}</button></span></td>`;
+  const priceCell=p=>`<td><input class="fi pr" data-price="${p.id}" type="number" min="1" value="${price(p)}" title="Expected price (or what you paid) — type over it"></td>`;
+  const tag=p=>ST.lock[p.id]?' <span class="pill a">Drafted</span>':PLAN&&PLAN.fromQ&&!inQ(p)?' <span class="pill">Fill</span>':'';
 
   function render(){
-    values(); PLAN=solve();
+    values(); PLAN=bestPlan();
+    const P=PLAN.players||[];
     let h='';
-    if(PLAN.err){ h+=`<div class="empty">${esc(PLAN.err)}</div>`; }
-    else{
-      const P=PLAN.players, spent=P.reduce((s,p)=>s+price(p),0);
-      const tot={}; CATS.forEach(([k])=>{ tot[k]=P.reduce((s,p)=>s+p.proj[k]*p.reg,0); });
-      const mar=P.reduce((s,p)=>s+p.mar,0), worth=P.reduce((s,p)=>s+p.val,0);
-      const vs=k=>{ const d=tot[k]-BAR[k]; return `<small class="${d>=0?'up':'dn'}">${d>=0?'+':''}${f0(d)} vs last year's winner</small>`; };
-      h+=`<div class="fb-tiles">
-        <div><span>Spend</span><b>$${spent} <span style="font-size:13px">of $${ST.budget}</span></b><small>Worth $${worth} at our values · ${P.filter(isPG).length} of ${ST.maxpg} PGs</small></div>
-        ${CATS.map(([k,l])=>`<div><span>${l} · regular season</span><b>${f0(tot[k])}</b>${vs(k)}</div>`).join('')}
-        <div><span>March games</span><b>${f1(mar)}</b><small>expected across the roster</small></div></div>`;
-      h+=`<section class="fb-sec"><div class="sec-h"><h2>Your best ${ST.roster}</h2><span class="r">Most projected value for the money, each player at his expected price</span></div>
-        <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th><th>PTS</th><th>REB</th><th>AST</th><th>Games</th><th>March</th><th>Value</th><th>Price</th><th>Edge</th><th></th></tr></thead><tbody>
-        ${P.map(p=>`<tr class="${ST.lock[p.id]?'lock':''}">${playerCell(p)}<td>${f1(p.proj.pts)}</td><td>${f1(p.proj.reb)}</td><td>${f1(p.proj.ast)}</td><td>${p.reg}</td><td>${f1(p.mar)}</td><td><b>$${p.val}</b></td>${priceCell(p)}${edgeCell(p)}${acts(p)}</tr>`).join('')}
-        </tbody><tfoot><tr><td class="l">Total</td>${CATS.map(([k])=>`<td>${f1(P.reduce((s,p)=>s+p.proj[k],0))}</td>`).join('')}<td></td><td>${f1(mar)}</td><td>$${worth}</td><td>$${spent}</td><td>${worth-spent>0?'+':''}${worth-spent}</td><td></td></tr></tfoot></table></div></section>`;
+    const spent=P.reduce((s,p)=>s+price(p),0), worth=P.reduce((s,p)=>s+p.val,0);
+    const tot={}; CATS.forEach(([k])=>{ tot[k]=P.reduce((s,p)=>s+season(p,k),0); });
+    const mar=P.reduce((s,p)=>s+p.mar,0);
+    const T=standing(tot), me=T.find(r=>r.me), need=needOf(me);
+    const lastMe=T.find(r=>r.name==='Aidan');
+    // tiles
+    h+=`<div class="fb-tiles">
+      <div><span>Finish vs last year</span><b>${ord(me.place)} <span style="font-size:13px">of 13</span></b><small>${me.roto} roto points · you won Div 2 with ${lastMe.roto}</small></div>
+      ${CATS.map(([k,l])=>`<div><span>${l} · 22 games</span><b>${f0(tot[k])}</b><small class="${me['r'+k]>=10?'up':me['r'+k]<=5?'dn':''}">${ord(14-Math.round(me['r'+k]))} of 13 · you had ${f0(lastMe[k])}</small></div>`).join('')}
+      <div><span>Spend</span><b>$${spent} <span style="font-size:13px">of $${ST.budget}</span></b><small>${f1(mar)} March games · ${P.filter(isPG).length}/${ST.maxpg} PGs</small></div></div>`;
+    if(PLAN.err) h+=`<div class="empty">${esc(PLAN.err)}</div>`;
+
+    // queue
+    const Q=ST.queue.map(id=>BYID[id]).filter(Boolean);
+    const inPlan=new Set(P.map(p=>p.id));
+    h+=`<section class="fb-sec"><div class="sec-h"><h2>My queue <span class="dim">· ${Q.length}</span></h2><span class="r">Players you want, in the order you want them. The team below is balanced to win roto, not just stack value. Add from the search or the big board.</span></div>
+      <div class="filt"><input class="fi" id="qAdd" placeholder="Add a player to your queue…" style="width:280px" autocomplete="off"><span id="qHits" class="qhits"></span></div>
+      ${Q.length?`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th><th class="l">Player</th><th>PTS</th><th>REB</th><th>AST</th><th>March</th><th>Value</th><th>Price</th><th>Edge</th><th class="l">Plan</th><th></th></tr></thead><tbody>
+      ${Q.map((p,i)=>`<tr class="${ST.lock[p.id]?'lock':ST.avoid[p.id]?'avoid':''}"><td class="l"><span class="mv"><button data-up="${p.id}" type="button" title="Move up">▲</button><button data-dn="${p.id}" type="button" title="Move down">▼</button></span>${i+1}</td>${playerCell(p)}<td>${f1(p.proj.pts)}</td><td>${f1(p.proj.reb)}</td><td>${f1(p.proj.ast)}</td><td>${f1(p.mar)}</td><td><b>$${p.val}</b></td>${priceCell(p)}${edgeCell(p)}<td class="l">${ST.lock[p.id]?'<span class="pill a">Drafted</span>':ST.avoid[p.id]?'<span class="pill r">Gone</span>':inPlan.has(p.id)?'<span class="pill a">In team</span>':'<span class="pill">Not in team</span>'}</td>${acts(p)}</tr>`).join('')}
+      </tbody></table></div>`:`<div class="empty">Your queue is empty, so the team below is built from the whole pool. Add the players you want and it's rebuilt from them.</div>`}</section>`;
+
+    // the team
+    if(P.length){
+      h+=`<section class="fb-sec"><div class="sec-h"><h2>Best team ${PLAN.fromQ?'from your queue':'for your budget'}</h2><span class="seg">${[['queue','From my queue'],['all','Whole pool']].map(([v,l])=>`<button type="button" data-src="${v}" class="${ST.src===v?'on':''}">${l}</button>`).join('')}</span></div>
+        <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th><th>PTS</th><th>REB</th><th>AST</th><th>Season PTS</th><th>Season REB</th><th>Season AST</th><th>March</th><th>Value</th><th>Price</th><th>Edge</th><th></th></tr></thead><tbody>
+        ${P.map(p=>`<tr class="${ST.lock[p.id]?'lock':''}">${playerCell(p,tag(p))}<td>${f1(p.proj.pts)}</td><td>${f1(p.proj.reb)}</td><td>${f1(p.proj.ast)}</td><td>${f0(season(p,'pts'))}</td><td>${f0(season(p,'reb'))}</td><td>${f0(season(p,'ast'))}</td><td>${f1(p.mar)}</td><td><b>$${p.val}</b></td>${priceCell(p)}${edgeCell(p)}${acts(p)}</tr>`).join('')}
+        </tbody><tfoot><tr><td class="l">Total</td>${CATS.map(([k])=>`<td>${f1(P.reduce((s,p)=>s+p.proj[k],0))}</td>`).join('')}${CATS.map(([k])=>`<td>${f0(tot[k])}</td>`).join('')}<td>${f1(mar)}</td><td>$${worth}</td><td>$${spent}</td><td>${worth-spent>0?'+':''}${worth-spent}</td><td></td></tr></tfoot></table></div>
+        ${PLAN.fromQ&&P.some(p=>!inQ(p)&&!ST.lock[p.id])?`<p class="fb-note">Your queue can't fill all ${ST.roster} spots within $${ST.budget} and ${ST.maxpg} PGs, so <b>Fill</b> players are the best buys outside it.</p>`:''}</section>`;
     }
+
+    // draft guide
+    if(P.length){
+      const [nk,nl]=need, left=ST.budget-P.filter(p=>ST.lock[p.id]).reduce((s,p)=>s+price(p),0);
+      const buy=P.filter(p=>!ST.lock[p.id]).sort((a,b)=>price(b)-price(a));
+      const pool=POOL.filter(p=>!inPlan.has(p.id)&&!ST.lock[p.id]&&!ST.avoid[p.id]);
+      // if you lose him: the best player not in the team at no more than his price + $3, same PG status if the PG cap is full
+      const used=new Set(), backup=p=>{ const o=pool.filter(o=>!used.has(o.id)&&price(o)<=price(p)+3&&(!isPG(o)||isPG(p)||P.filter(isPG).length<ST.maxpg)).sort((a,b)=>(inQ(b)-inQ(a))||b.z-a.z)[0]; if(o) used.add(o.id); return o; };
+      // need targets: most of the weak category per expected dollar, among players worth buying
+      const tgt=pool.filter(p=>p.z>0).sort((a,b)=>season(b,nk)/Math.max(1,price(b))-season(a,nk)/Math.max(1,price(a))).slice(0,8);
+      const gap=k=>{ const top=Math.max(...LAST.map(r=>r[{pts:1,reb:2,ast:3}[k]])); return top-tot[k]; };
+      h+=`<section class="fb-sec"><div class="sec-h"><h2>Draft guide</h2><span class="r">$${left} left for ${ST.roster-P.filter(p=>ST.lock[p.id]).length} spots</span></div>
+        <div class="guide"><div class="need"><span>Team need</span><b>${nl}</b><small>${ord(14-Math.round(me['r'+nk]))} of 13 vs last year · ${gap(nk)>0?f0(gap(nk))+' behind last year\'s best':'ahead of last year\'s best'}. Each extra ${({pts:'point',reb:'rebound',ast:'assist'})[nk]} a game adds 22 over the season.</small></div>
+        ${CATS.filter(([k])=>k!==nk).map(([k,l])=>`<div class="need ok"><span>${l}</span><b>${ord(14-Math.round(me['r'+k]))}</b><small>of 13 · ${f0(tot[k])} on the season</small></div>`).join('')}</div>
+        <h3 class="gh">Buy order</h3>
+        <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th><th class="l">Target</th><th>Expect to pay</th><th>Bid up to</th><th class="l">If you lose him</th><th>Their price</th></tr></thead><tbody>
+        ${buy.map((p,i)=>{ const o=backup(p); return `<tr><td class="l">${i+1}</td>${playerCell(p,tag(p))}<td>$${price(p)}</td><td><b>$${Math.max(price(p),p.val)}</b></td>${o?playerCell(o,inQ(o)?' <span class="pill a">Queued</span>':''):'<td class="l dim">—</td>'}<td>${o?'$'+price(o):''}</td></tr>`; }).join('')}
+        </tbody></table></div>
+        <h3 class="gh">Best buys for ${nl.toLowerCase()}</h3>
+        <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th><th>${nl}/g</th><th>Season ${nl}</th><th>Price</th><th>${nl} per $</th><th>Value</th><th></th></tr></thead><tbody>
+        ${tgt.map(p=>`<tr>${playerCell(p)}<td>${f1(p.proj[nk])}</td><td>${f0(season(p,nk))}</td><td>$${price(p)}</td><td>${f1(season(p,nk)/Math.max(1,price(p)))}</td><td>$${p.val}</td>${acts(p)}</tr>`).join('')}
+        </tbody></table></div>
+        <p class="fb-note"><b>Buy order</b> goes most expensive first: lock up the big pieces while you still have the money, then the $1 bargains at the end. <b>Bid up to</b> is his value to you — past it you're overpaying. Mark players <b>Drafted</b> (with what you paid) or <b>Gone</b> as the draft goes, and the team and this guide rebuild.</p></section>`;
+    }
+
+    // last year
+    h+=`<section class="fb-sec"><div class="sec-h"><h2>Against last year's league</h2><span class="r">2025-26 final totals · roto points, 13 for first in a category</span></div>
+      <div class="sheet-wrap"><table class="sheet dense ly"><thead><tr><th class="l">#</th><th class="l">Team</th><th>PTS</th><th>Pts</th><th>REB</th><th>Pts</th><th>AST</th><th>Pts</th><th>Roto</th></tr></thead><tbody>
+      ${T.map(r=>`<tr class="${r.me?'lock':''}"><td class="l">${r.place}</td><td class="l"><b>${r.me?'Your plan':esc(r.name)}</b>${r.me?'':` <span class="dim">· Div ${r.div}</span>`}</td>${CATS.map(([k])=>`<td>${f0(r[k])}</td><td class="dim">${r['r'+k]}</td>`).join('')}<td><b>${r.roto}</b></td></tr>`).join('')}
+      </tbody></table></div>
+      <p class="fb-note">Your plan assumes every player plays all 22 counting games; last year's totals include the games people missed, and our projections are cautious about stars. Read the finish as a guide, not a promise.</p></section>`;
+
     // the board
     const q=UI.q.toLowerCase();
     let B=POOL.filter(p=>(!q||p.name.toLowerCase().includes(q)||p.team.toLowerCase().includes(q))&&(UI.pos==='all'||p.position===UI.pos||(UI.pos==='big'&&/PF|C/.test(p.position||''))));
-    const inPlan=new Set((PLAN.players||[]).map(p=>p.id));
     const SORT={edge:(a,b)=>edge(b)-edge(a)||b.val-a.val, val:(a,b)=>b.val-a.val, mkt:(a,b)=>price(b)-price(a), pts:(a,b)=>b.proj.pts-a.proj.pts, reb:(a,b)=>b.proj.reb-a.proj.reb, ast:(a,b)=>b.proj.ast-a.proj.ast, mar:(a,b)=>b.mar-a.mar};
     B.sort(SORT[UI.sort]||SORT.edge);
     const th=(k,l)=>`<th data-s="${k}" style="cursor:pointer">${l}${UI.sort===k?' ▼':''}</th>`;
-    h+=`<section class="fb-sec"><div class="sec-h"><h2>Big board</h2><span class="r">Edge = our value minus expected price: green is underpriced</span></div>
+    h+=`<section class="fb-sec" id="board"><div class="sec-h"><h2>Big board</h2><span class="r">Edge = our value minus expected price: green is underpriced</span></div>
       <div class="filt"><input class="fi" id="bQ" placeholder="Search player or team" value="${esc(UI.q)}" style="width:220px">
       <select class="fs" id="bPos">${[['all','All positions'],['PG','PG'],['SG','SG'],['SF','SF'],['big','PF / C']].map(([v,l])=>`<option value="${v}"${UI.pos===v?' selected':''}>${l}</option>`).join('')}</select></div>
-      <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th><th class="l">Player</th>${th('pts','PTS')}${th('reb','REB')}${th('ast','AST')}${th('mar','March')}${th('val','Value')}${th('mkt','Price')}${th('edge','Edge')}<th class="l">Plan</th><th></th></tr></thead><tbody>
-      ${B.slice(0,UI.n).map((p,i)=>`<tr class="${ST.lock[p.id]?'lock':ST.avoid[p.id]?'avoid':''}"><td class="l">${i+1}</td>${playerCell(p)}<td>${f1(p.proj.pts)}</td><td>${f1(p.proj.reb)}</td><td>${f1(p.proj.ast)}</td><td>${f1(p.mar)}</td><td><b>$${p.val}</b></td>${priceCell(p)}${edgeCell(p)}<td class="l">${inPlan.has(p.id)?'<span class="pill a">In plan</span>':''}</td>${acts(p)}</tr>`).join('')}
+      <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th><th class="l">Player</th>${th('pts','PTS')}${th('reb','REB')}${th('ast','AST')}${th('mar','March')}${th('val','Value')}${th('mkt','Price')}${th('edge','Edge')}<th></th></tr></thead><tbody>
+      ${B.slice(0,UI.n).map((p,i)=>`<tr class="${ST.lock[p.id]?'lock':ST.avoid[p.id]?'avoid':''}"><td class="l">${i+1}</td>${playerCell(p,tag(p)+(inPlan.has(p.id)&&!ST.lock[p.id]?' <span class="pill a">In team</span>':''))}<td>${f1(p.proj.pts)}</td><td>${f1(p.proj.reb)}</td><td>${f1(p.proj.ast)}</td><td>${f1(p.mar)}</td><td><b>$${p.val}</b></td>${priceCell(p)}${edgeCell(p)}${acts(p)}</tr>`).join('')}
       </tbody></table></div>${B.length>UI.n?`<div style="text-align:center;margin-top:10px"><button class="btn ghost" id="bMore" type="button">Show ${Math.min(60,B.length-UI.n)} more</button></div>`:''}</section>`;
     h+=`<p class="fb-note"><b>Value</b> is what a player is worth in this league: his projected points, rebounds and assists over his team's ${CNT?'22 counting games':'regular season'}, plus the same over the March games his team is expected to play (conference tournament and NCAA, from 2,000 simulated seasons), each scored against the players a full league rosters. Dollars split the league's money over everyone above the replacement level.
-      <b>Price</b> is what your room is expected to pay: last year's auction priced players by their per-game line (No. 1 about $55, No. 12 $35, No. 48 $20, No. 120 $2, then $1), so each player gets the price for his rank on that line. Type over it when you know better. <b>Your best ${ST.roster}</b> is the roster with the most total value whose prices fit the budget and the PG limit. Locks, avoids and prices are saved in this browser.</p>`;
-    $('out').innerHTML=h;
+      <b>Price</b> is what your room is expected to pay: last year's auction priced players by their per-game line (No. 1 about $55, No. 12 $35, No. 48 $20, No. 120 $2, then $1), so each player gets the price for his rank on that line. Type over it when you know better. Your queue, drafted and gone marks and prices are saved in this browser.</p>`;
+    const y=scrollY; $('out').innerHTML=h; scrollTo(0,y);
     wire();
   }
 
   function wire(){
     const out=$('out');
-    out.querySelectorAll('[data-lock]').forEach(b=>b.onclick=()=>{ const id=b.dataset.lock; if(ST.lock[id]) delete ST.lock[id]; else { ST.lock[id]=1; delete ST.avoid[id]; } save(); render(); });
-    out.querySelectorAll('[data-avoid]').forEach(b=>b.onclick=()=>{ const id=b.dataset.avoid; if(ST.avoid[id]) delete ST.avoid[id]; else { ST.avoid[id]=1; delete ST.lock[id]; } save(); render(); });
+    const tog=(obj,other,id)=>{ if(ST[obj][id]) delete ST[obj][id]; else { ST[obj][id]=1; delete ST[other][id]; } save(); render(); };
+    out.querySelectorAll('[data-lock]').forEach(b=>b.onclick=()=>tog('lock','avoid',b.dataset.lock));
+    out.querySelectorAll('[data-avoid]').forEach(b=>b.onclick=()=>tog('avoid','lock',b.dataset.avoid));
+    out.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{ const id=b.dataset.q, i=ST.queue.indexOf(id); if(i>=0) ST.queue.splice(i,1); else ST.queue.push(id); save(); render(); });
+    const mv=(id,d)=>{ const i=ST.queue.indexOf(id), j=i+d; if(i<0||j<0||j>=ST.queue.length) return; [ST.queue[i],ST.queue[j]]=[ST.queue[j],ST.queue[i]]; save(); render(); };
+    out.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>mv(b.dataset.up,-1));
+    out.querySelectorAll('[data-dn]').forEach(b=>b.onclick=()=>mv(b.dataset.dn,1));
+    out.querySelectorAll('[data-src]').forEach(b=>b.onclick=()=>{ ST.src=b.dataset.src; save(); render(); });
     out.querySelectorAll('[data-price]').forEach(inp=>inp.onchange=()=>{ const id=inp.dataset.price, v=Math.round(+inp.value);
-      const p=POOL.find(x=>String(x.id)===id); if(!(v>=1)||(p&&v===p.mkt)) delete ST.price[id]; else ST.price[id]=v; save(); render(); });
+      const p=BYID[id]; if(!(v>=1)||(p&&v===p.mkt)) delete ST.price[id]; else ST.price[id]=v; save(); render(); });
     out.querySelectorAll('th[data-s]').forEach(t=>t.onclick=()=>{ UI.sort=t.dataset.s; render(); });
+    // queue search: type a name, click (or Enter) to add
+    const qa=$('qAdd'), qh=$('qHits');
+    if(qa){
+      const hits=()=>{ const s=qa.value.trim().toLowerCase(); if(s.length<2) return []; return POOL.filter(p=>!inQ(p)&&(p.name.toLowerCase().includes(s)||p.team.toLowerCase().includes(s))).sort((a,b)=>b.val-a.val).slice(0,6); };
+      const add=id=>{ ST.queue.push(String(id)); save(); render(); const n=$('qAdd'); if(n) n.focus(); };
+      qa.oninput=()=>{ const H=hits(); qh.innerHTML=H.map(p=>`<button type="button" class="btn sm ghost" data-add="${p.id}">${esc(p.name)} <span class="dim">${esc(p.team)} · $${price(p)}</span></button>`).join(''); qh.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>add(b.dataset.add)); };
+      qa.onkeydown=e=>{ if(e.key==='Enter'){ const H=hits(); if(H[0]) add(H[0].id); } };
+    }
     const q=$('bQ'); if(q){ q.oninput=()=>{ UI.q=q.value; UI.n=60; clearTimeout(q._t); q._t=setTimeout(()=>{ render(); const n=$('bQ'); n.focus(); n.setSelectionRange(n.value.length,n.value.length); },250); }; }
     const ps=$('bPos'); if(ps) ps.onchange=()=>{ UI.pos=ps.value; UI.n=60; render(); };
     const m=$('bMore'); if(m) m.onclick=()=>{ UI.n+=60; render(); };
@@ -275,11 +387,11 @@
   function settings(){
     const map=[['sBudget','budget'],['sRoster','roster'],['sPG','maxpg'],['sTeams','teams']];
     map.forEach(([id,k])=>{ const el=$(id); el.value=ST[k]; el.onchange=()=>{ const v=Math.round(+el.value); if(v>=+el.min&&v<=+el.max){ ST[k]=v; save(); render(); } else el.value=ST[k]; }; });
-    $('sReset').onclick=()=>{ ST.lock={}; ST.avoid={}; ST.price={}; save(); render(); };
+    $('sReset').onclick=()=>{ if(!confirm('Clear your queue, drafted/gone marks and typed prices?')) return; ST.lock={}; ST.avoid={}; ST.price={}; ST.queue=[]; save(); render(); };
   }
 
   settings();
-  load().then(render).catch(e=>{ $('out').innerHTML=`<div class="empty">Couldn't load the player pool (${esc(e.message)}).</div>`; });
+  load().then(()=>{ POOL.forEach(p=>{ BYID[p.id]=p; }); render(); }).catch(e=>{ $('out').innerHTML=`<div class="empty">Couldn't load the player pool (${esc(e.message)}).</div>`; });
 })();
 </script>
 <script src="tdc-version.js?v=2"></script>
