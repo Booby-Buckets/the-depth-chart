@@ -745,7 +745,9 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
     var seeded=R.teams.filter(function(t){ return t.invited>0; }).sort(function(a,b){ return (b.invited-a.invited)||(a.avgSeed-b.avgSeed); }).slice(0,f.invited)
       .sort(function(a,b){ return a.avgSeed-b.avgSeed; });
     var bySeed={}, seedOfT={}; seeded.forEach(function(t,i){ bySeed[i+1]=t.team; seedOfT[t.team]=i+1; });
-    var champOf={}; R.teams.forEach(function(t){ champOf[t.team]=t.champ; });
+    // the odds shown are the TEAM's odds of reaching that round (or winning it all), not of holding that
+    // exact slot — slot odds mixed in seeding doubt, so they bounced (30% to make the final, 31% to win it)
+    var champOf={}, reachOf={}; R.teams.forEach(function(t){ champOf[t.team]=t.champ; reachOf[t.team]=t.reach||{}; });
     var games={}; (f.games||[]).forEach(function(g){ games[g.id]=g; });
     var SL=R.slots||{};
     var short=function(n){ return esc(window.tdcShortSchool?tdcShortSchool(n):n); };
@@ -761,11 +763,12 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
       var g=games[t.slice(2)]; if(!g) return []; if(!feeds[g.id]) feeds[g.id]=seedsOf(g.a).concat(seedsOf(g.b)); return feeds[g.id]; };
     var slotLine=function(g,side){
       var v=g[side], occ=(SL[g.id]&&SL[g.id][side])||[];
-      if(typeof v==='number'){ var tm=bySeed[v], o=occ.filter(function(x){ return x[0]===tm; })[0];   // a seeded slot: the projected seed
-        return line(tm, g.round===R.rounds[0]?null:(o?o[1]:null)); }
+      var odds=function(tm){ var r=tm&&reachOf[tm]; return r&&r[g.round]!=null?r[g.round]:null; };
+      if(typeof v==='number'){ var tm=bySeed[v];   // a seeded slot: the projected seed
+        return line(tm, g.round===R.rounds[0]?null:odds(tm)); }
       var branch=seedsOf(v).map(function(sd){ return bySeed[sd]; });
       var t=occ.filter(function(x){ return branch.indexOf(x[0])>=0; })[0]||occ[0];
-      return t?line(t[0],t[1]):line(null,null);
+      return t?line(t[0],odds(t[0])):line(null,null);
     };
     // ── layout: walk the bracket back from the final so each game sits between the games that feed it ──
     var gl=f.games||[], fin=gl[gl.length-1], tree=!f.reseed&&!gl.some(function(g){ return /^RS:/.test(String(g.a))||/^RS:/.test(String(g.b)); });
@@ -796,7 +799,7 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
       // the champion: the likeliest winner of the final
       var cw=SL[fin.id]&&SL[fin.id].w||[];
       var champ='<div class="bk-champ" style="left:'+(R.rounds.length*(CW+GAP))+'px;top:'+(T(fin)-4)+'px;width:'+CW+'px"><div class="bk-ck">Projected champion</div>'+
-        (cw[0]?line(cw[0][0],cw[0][1]):'')+(cw[1]?line(cw[1][0],cw[1][1],true):'')+'</div>';
+        (cw[0]?line(cw[0][0],champOf[cw[0][0]]):'')+(cw[1]?line(cw[1][0],champOf[cw[1][0]],true):'')+'</div>';
       lines+='<path d="M'+(X(fin)+CW)+' '+(T(fin)+31)+' H'+(R.rounds.length*(CW+GAP))+'"/>';
       var heads=R.rounds.map(function(r,i){ return '<div class="bk-h" style="left:'+(i*(CW+GAP))+'px;width:'+CW+'px">'+names[i]+'</div>'; }).join('')+
         '<div class="bk-h" style="left:'+(R.rounds.length*(CW+GAP))+'px;width:'+CW+'px">Champion</div>';
@@ -820,7 +823,7 @@ try{var _s=localStorage.getItem('tdc_theme'); if(_s) document.documentElement.se
     var conf=f.confidence==='high'?'':' <span class="ctflag" title="'+esc(f.notes||'')+'">'+(f.confidence==='low'?'bracket not yet announced':'some pairings inferred')+'</span>';
     var basis=/2025-26/.test(f.format_season||'')?' <span class="ctflag" title="2027 format not announced yet">2026 format</span>':'';
     box.innerHTML='<div class="sl"><span>Conference tournament</span><span class="sub">'+meta+'</span></div>'+
-      '<div class="ctmeta">Projected bracket &middot; each slot shows its likeliest team and the odds it&rsquo;s them'+conf+basis+'</div>'+html+
+      '<div class="ctmeta">Projected bracket &middot; each slot shows its likeliest team and that team&rsquo;s odds of reaching the round'+conf+basis+'</div>'+html+
       '<div class="sl" style="margin-top:18px"><span>Odds by round</span><span class="sub">'+R.sims.toLocaleString()+' simulated seasons</span></div>'+
       '<div class="sheet-wrap"><table class="sheet dense freeze2" id="ctTbl"><thead><tr><th class="l">Team</th>'+(f.invited<R.teams.length?'<th data-heat="1">Makes it</th>':'')+head+'<th data-heat="1">Wins it</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
     box.style.display='';
