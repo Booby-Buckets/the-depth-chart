@@ -77,9 +77,6 @@
     .seg{display:inline-flex;background:var(--bg2);border:1px solid var(--border);border-radius:999px;padding:3px;gap:2px;}
     .seg button{border:none;background:none;font:700 11.5px Inter,system-ui,sans-serif;color:var(--text2);padding:5px 12px;border-radius:999px;}
     .seg button.on{background:var(--accent);color:#fff;}
-    .qhits{display:flex;gap:6px;flex-wrap:wrap;}
-    .mv{display:inline-flex;flex-direction:column;margin-right:6px;vertical-align:middle;}
-    .mv button{border:none;background:none;color:var(--text3);font-size:8px;line-height:9px;padding:0 2px;} .mv button:hover{color:var(--accent);}
     .guide{display:grid;grid-template-columns:2fr 1fr 1fr;border:1px solid var(--border);border-radius:12px;margin-bottom:16px;}
     .guide .need{padding:14px 16px;} .guide .need+.need{border-left:1px solid var(--border);}
     .guide .need span{font:800 10.5px Inter,system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);}
@@ -119,19 +116,34 @@
       .ib.on{background:var(--accent);border-color:var(--accent);color:#fff;} .ib.no.on{background:var(--red);border-color:var(--red);}
       .legend-m{display:block!important;}
       .pr{width:58px;height:38px;}
-      .mv button{font-size:13px;line-height:20px;padding:2px 7px;}
-      .mv{margin-right:2px;}
       .seg button{padding:10px 14px;font-size:12.5px;}
       .lnk{padding:8px 4px;margin:-8px -4px;font-size:12px;}
       .chk2{min-height:40px;} .chk2 input{width:20px;height:20px;}
       .ac-opt{padding:12px;font-size:14px;}
-      .qhits .btn{min-height:38px;}
       .tm{padding:12px;} .tm li{padding:5px 0;}
       .ainfo{font-size:13px;}
       .filt .fi{flex:1 1 100%;width:auto!important;} .filt .fs{flex:1;}
     }
     @media(max-width:1100px){ .teams{grid-template-columns:repeat(3,minmax(0,1fr));} }
     @media(max-width:820px){ .teams{grid-template-columns:repeat(2,minmax(0,1fr));} .sale{grid-template-columns:1fr 1fr;} .sale .ac{grid-column:1/-1;} }
+    .qadd{max-width:440px;margin-bottom:12px;} .ql{display:block;font:800 10.5px Inter,system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:4px;}
+    .qadd .fi{width:100%;} .ac-opt[aria-selected="true"]{background:var(--bg2);outline:2px solid var(--accent);outline-offset:-2px;}
+    .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+    .qlist{list-style:none;border:1px solid var(--border);border-radius:12px;background:var(--bg);}
+    .qrow{display:grid;grid-template-columns:32px minmax(0,1fr) auto auto auto;gap:12px;align-items:center;padding:10px 14px;}
+    .qrow+.qrow{border-top:1px solid var(--border);}
+    .qrow.lock{background:color-mix(in srgb,var(--accent) 9%,transparent);} .qrow.avoid{opacity:.55;}
+    .qn{font:800 18px Inter,system-ui,sans-serif;color:var(--text3);font-variant-numeric:tabular-nums;text-align:center;}
+    .qp a{font-weight:700;text-decoration:none;font-size:14px;} .qp a:hover{color:var(--accent);text-decoration:underline;}
+    .qp small{display:block;font-size:12px;color:var(--text3);margin-top:2px;} .qp .lg{width:15px;height:15px;object-fit:contain;vertical-align:-3px;margin-right:4px;}
+    .qv{display:flex;gap:12px;font-size:12px;color:var(--text3);white-space:nowrap;} .qv b{color:var(--text);font-variant-numeric:tabular-nums;}
+    .qs{white-space:nowrap;}
+    .qb{display:flex;gap:4px;}
+    .qbtn{min-width:34px;height:32px;padding:0 9px;border-radius:8px;border:1px solid var(--border2);background:var(--bg);color:var(--text2);font:700 12.5px Inter,system-ui,sans-serif;}
+    .qbtn:hover:not(:disabled){border-color:var(--accent);color:var(--accent);} .qbtn:disabled{opacity:.35;cursor:default;}
+    .qbtn:focus-visible,.ac-opt:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+    .qbtn.x:hover{border-color:var(--red);color:var(--red);}
+    @media(max-width:820px){ .qrow{grid-template-columns:28px minmax(0,1fr);gap:6px 10px;padding:12px;} .qv,.qs,.qb{grid-column:2;} .qb{flex-wrap:wrap;} .qbtn{height:40px;min-width:44px;font-size:14px;} }
     .gh{font:800 11px Inter,system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin:16px 0 8px;}
     @media(max-width:820px){ .guide{grid-template-columns:1fr;} .guide .need+.need{border-left:none;border-top:1px solid var(--border);} }
     @media(max-width:820px){ .set{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;} .set .fi{width:100%;} .set .btn{grid-column:1/-1;justify-content:center;} .fb-tiles{grid-template-columns:repeat(2,minmax(0,1fr));} .fb-tiles>div{border-left:none!important;border-top:1px solid var(--border);} .fb-tiles>div:first-child{border-top:none;grid-column:1/-1;} .page-h1{font-size:28px;} }
@@ -408,15 +420,17 @@
     const mar=P.reduce((s,p)=>s+p.mar,0);
     const T=standing(tot), me=T.find(r=>r.me), need=needOf(me);
     const lastMe=T.find(r=>r.name==='Aidan');
-    // tiles
+    // tiles: only what you've actually drafted. The suggested team's numbers live with the suggested team.
+    const MY=ROOM.T.find(t=>t.name===ST.me)||{players:[],left:ST.budget,spots:ST.roster,max:ST.budget-ST.roster+1,pg:0,tot:{}};
+    const has=MY.players.length>0;
     h+=`<div class="fb-tiles">
-      <div><span>Finish vs last year</span><b>${ord(me.place)} <span style="font-size:13px">of 13</span></b><small>${me.roto} roto points · you won Div 2 with ${lastMe.roto}</small></div>
-      ${CATS.map(([k,l])=>`<div><span>${l} · 22 games</span><b>${f0(tot[k])}</b><small class="${me['r'+k]>=10?'up':me['r'+k]<=5?'dn':''}">${ord(14-Math.round(me['r'+k]))} of 13 · you had ${f0(lastMe[k])}</small></div>`).join('')}
-      <div><span>Spend</span><b>$${spent} <span style="font-size:13px">of $${ST.budget}</span></b><small>${f1(mar)} March games · ${P.filter(isPG).length}/${ST.maxpg} PGs</small></div></div>`;
+      <div><span>Your team · drafted</span><b>${MY.players.length} <span style="font-size:13px">of ${ST.roster}</span></b><small>${has?`${MY.pg}/${ST.maxpg} PGs`:'Nothing drafted yet'}</small></div>
+      ${CATS.map(([k,l])=>`<div><span>${l} · 22 games</span><b>${has?f0(MY.tot[k]):'—'}</b><small>${has?`from your ${MY.players.length} player${MY.players.length>1?'s':''} · you had ${f0(lastMe[k])}`:`counts once you draft · you had ${f0(lastMe[k])}`}</small></div>`).join('')}
+      <div><span>Money left</span><b>$${MY.left} <span style="font-size:13px">of $${ST.budget}</span></b><small>${MY.spots>0?`max bid $${Math.max(0,MY.max)} · ${MY.spots} spots open`:'roster full'}</small></div></div>`;
     if(PLAN.err) h+=`<div class="empty">${esc(PLAN.err)}</div>`;
 
     // the auction board: enter each sale as it happens; every team's money, spots and max bid
-    const RM=ROOM, nm=names();
+    const RM=ROOM, nm=names(), aStart=h.length;
     h+=`<section class="fb-sec" id="auction"><div class="sec-h"><h2>Auction board</h2><span class="r">${ST.sales.length} of ${ST.teams*ST.roster} sold · $${RM.money} left in the room for ${RM.spots} spots${ST.sales.length?` · the room is paying ${Math.round(RM.pace*100)}% of expected · prices left now ×${RM.infl.toFixed(2)}`:''}</span></div>
       <div class="sale"><div class="ac"><input class="fi" id="aP" placeholder="Player sold…" autocomplete="off"><div class="ac-list" id="aList"></div></div>
         <select class="fs" id="aT" aria-label="Bought by">${nm.map(n=>`<option${n===(UI.team&&nm.includes(UI.team)?UI.team:ST.me)?' selected':''}>${esc(n)}</option>`).join('')}</select>
@@ -424,29 +438,43 @@
         <button class="btn" id="aGo" type="button">Sold</button>${ST.sales.length?'<button class="btn ghost" id="aUndo" type="button">Undo last</button>':''}</div>
       <div class="msg" id="aMsg"></div><div class="ainfo" id="aInfo"></div>
       <div class="teams">${RM.T.map(t=>`<details class="tm${t.name===ST.me?' me':''}"${t.name===ST.me||!PHONE()||UI.open[t.name]?' open':''} data-tm="${esc(t.name)}"><summary><div class="th"><b data-ren="${esc(t.name)}" title="Click to rename">${esc(t.name)}</b>${t.name===ST.me?'<span class="pill a">You</span>':`<button class="lnk" data-me="${esc(t.name)}" type="button" title="Make this my team">that's me</button>`}</div>
-        <div class="tn"><span><b>$${t.left}</b> left</span><span>${t.spots} spots</span><span>max bid <b>$${Math.max(0,t.max)}</b></span>${(()=>{ const pt=PROJ_T.find(x=>x.name===t.name); return pt?`<span>needs <b>${pt.need[1]}</b> · proj. ${ord(pt.place)}</span>`:''; })()}</div></summary>
+        <div class="tn"><span><b>$${t.left}</b> left</span><span>${t.spots} spots</span><span>max bid <b>$${Math.max(0,t.max)}</b></span>${(()=>{ const pt=t.players.length&&PROJ_T.find(x=>x.name===t.name); return pt?`<span>needs <b>${pt.need[1]}</b> · proj. ${ord(pt.place)}</span>`:''; })()}</div></summary>
         <ol>${t.players.map(pl=>`<li><span>${esc(pl.name)}${isPG(pl)?' <i>PG</i>':''}</span><span class="p">$${SOLD[pl.id].p}</span></li>`).join('')||'<li class="open">No buys yet</li>'}</ol>
         ${t.players.length?`<div class="tt">${CATS.map(([k,l])=>`${f0(t.tot[k])} ${l}`).join(' · ')}</div>`:''}</details>`).join('')}</div>
       <h3 class="gh">Projected final standings</h3>
-      <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th><th class="l">Team</th><th>PTS</th><th title="Roto points in this category">Rk</th><th>REB</th><th title="Roto points in this category">Rk</th><th>AST</th><th title="Roto points in this category">Rk</th><th data-fit-keep>Roto</th><th>$ left now</th><th class="l" data-fit-keep>Needs</th></tr></thead><tbody>
-      ${PROJ_T.map(t=>`<tr class="${t.me?'lock':''}"><td class="l">${t.place}</td><td class="l"><b>${esc(t.name)}</b>${t.me?' <span class="pill a">You</span>':''}</td>${CATS.map(([k])=>`<td>${f0(t.tot[k])}</td><td class="dim">${t['r'+k]}</td>`).join('')}<td><b>${t.roto}</b></td><td>$${t.now}</td><td class="l">${t.need[1]}</td></tr>`).join('')}
+      ${ST.sales.length?(()=>{ const bought=new Set(RM.T.filter(t=>t.players.length).map(t=>t.name)), shown=PROJ_T.filter(t=>bought.has(t.name));
+        return `<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th><th class="l">Team</th><th>PTS</th><th title="Roto points in this category">Rk</th><th>REB</th><th title="Roto points in this category">Rk</th><th>AST</th><th title="Roto points in this category">Rk</th><th data-fit-keep>Roto</th><th>$ left now</th><th class="l" data-fit-keep>Needs</th></tr></thead><tbody>
+      ${shown.map(t=>`<tr class="${t.me?'lock':''}"><td class="l">${t.place}</td><td class="l"><b>${esc(t.name)}</b>${t.me?' <span class="pill a">You</span>':''}</td>${CATS.map(([k])=>`<td>${f0(t.tot[k])}</td><td class="dim">${t['r'+k]}</td>`).join('')}<td><b>${t.roto}</b></td><td>$${t.now}</td><td class="l">${t.need[1]}</td></tr>`).join('')}
       </tbody></table></div>
-      <p class="fb-note">Every other team fills its open spots with the best players its money can buy at expected prices (richest per spot picks first); you finish with your team below. Rk = roto points in that category, ${ST.teams} for first.</p>
+      <p class="fb-note">Only teams that have bought someone are listed. Each one's open spots are filled with the best players its money can buy at expected prices (richest per spot picks first); yours are filled with your suggested team. # and Rk still count all ${ST.teams} teams. Rk = roto points in that category, ${ST.teams} for first.</p>`; })()
+      :`<p class="fb-note">No sales yet. Standings show up here once the first sale is entered, for the teams that have bought someone.</p>`}
       ${ST.sales.length?`<details class="log"><summary>Sale log (${ST.sales.length})</summary><ol>${ST.sales.map((x,i)=>{ const pl=BYID[x.id]; return `<li><span>${i+1}.</span> <b>${esc(pl?pl.name:'?')}</b> to ${esc(x.t)} for $${x.p}${pl?` <span class="dim">(expected $${pl.mkt0})</span>`:''} <button class="lnk" data-del="${i}" type="button">remove</button></li>`; }).reverse().join('')}</ol></details>`:''}
       </section>`;
 
-    // queue
+    const auc=h.slice(aStart); h=h.slice(0,aStart);
+
+    // queue: players you want, in order. Status says only what's real (yours / sold to someone / avoided);
+    // whether the suggested team uses him is labelled as a suggestion, never as drafted.
     const Q=ST.queue.map(id=>BYID[id]).filter(Boolean);
-    const inPlan=new Set(P.map(p=>p.id));
-    h+=`<section class="fb-sec"><div class="sec-h"><h2>My queue <span class="dim">· ${Q.length}</span></h2><span class="r">Players you want, in the order you want them. The team below is balanced to win roto, not just stack value. Add from the search or the big board.</span></div>
-      <div class="filt"><input class="fi" id="qAdd" placeholder="Add a player to your queue…" style="width:280px" autocomplete="off"><span id="qHits" class="qhits"></span></div>
-      ${Q.length?`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th><th class="l">Player</th><th>PTS</th><th>REB</th><th>AST</th><th>March</th><th>Value</th><th data-fit-keep>Price</th><th data-fit-keep>Edge</th><th class="l">Plan</th><th class="act"></th></tr></thead><tbody>
-      ${Q.map((p,i)=>`<tr class="${mine(p)?'lock':taken(p)||ST.avoid[p.id]?'avoid':''}"><td class="l"><span class="mv"><button data-up="${p.id}" type="button" title="Move up">▲</button><button data-dn="${p.id}" type="button" title="Move down">▼</button></span>${i+1}</td>${playerCellA(p)}<td>${f1(p.proj.pts)}</td><td>${f1(p.proj.reb)}</td><td>${f1(p.proj.ast)}</td><td>${f1(p.mar)}</td><td><b>$${p.val}</b></td>${priceCell(p)}${edgeCell(p)}<td class="l">${mine(p)?`<span class="pill a">Yours · $${SOLD[p.id].p}</span>`:taken(p)?`<span class="pill r">${esc(SOLD[p.id].t)} · $${SOLD[p.id].p}</span>`:ST.avoid[p.id]?'<span class="pill r">Avoided</span>':inPlan.has(p.id)?'<span class="pill a">In team</span>':'<span class="pill">Not in team</span>'}</td>${acts(p)}</tr>`).join('')}
-      </tbody></table></div>`:`<div class="empty">Your queue is empty, so the team below is built from the whole pool. Add the players you want and it's rebuilt from them.</div>`}</section>`;
+    const inPlan=new Set(P.filter(p=>!mine(p)).map(p=>p.id));
+    const qStatus=p=>mine(p)?`<span class="pill a">Drafted · $${SOLD[p.id].p}</span>`:taken(p)?`<span class="pill r">Gone · ${esc(SOLD[p.id].t)} $${SOLD[p.id].p}</span>`:ST.avoid[p.id]?'<span class="pill r">Avoided</span>':'<span class="pill">Available</span>';
+    let que=`<section class="fb-sec" id="queue" aria-labelledby="qTitle"><div class="sec-h"><h2 id="qTitle">My queue <span class="dim">· ${Q.length} player${Q.length===1?'':'s'}</span></h2><span class="r">The players you want, best first. Nobody here is drafted until you enter his sale.</span></div>
+      <div class="qadd ac"><label for="qAdd" class="ql">Add a player</label><input class="fi" id="qAdd" type="search" placeholder="Type a name or school…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="qList" aria-autocomplete="list"><div class="ac-list" id="qList" role="listbox" aria-label="Matching players"></div></div>
+      <div class="sr" id="qLive" aria-live="polite">${esc(UI.say||'')}</div>
+      ${Q.length?`<ol class="qlist">${Q.map((p,i)=>`<li class="qrow${mine(p)?' lock':taken(p)||ST.avoid[p.id]?' avoid':''}">
+        <span class="qn">${i+1}</span>
+        <span class="qp"><a href="${p.espn_id?`player.html?espn=${p.espn_id}`:`player.html?name=${encodeURIComponent(p.name)}`}">${esc(p.name)}</a>${p.is_injured?' <span class="pill r">Inj</span>':''}${p.proj.est?' <span class="pill" title="Freshman / no-stats estimate">Est</span>':''}
+          <small>${lgImg(FULL[p.team]||p.team)}${esc(p.team)} · ${esc(p.position||'')} · ${f1(p.proj.pts)} pts · ${f1(p.proj.reb)} reb · ${f1(p.proj.ast)} ast</small></span>
+        <span class="qv"><span>Price <b>$${price(p)}</b></span><span>Worth <b>$${p.val}</b></span></span>
+        <span class="qs">${qStatus(p)}${inPlan.has(p.id)?' <span class="pill a" title="The suggested team below uses him. He is not drafted.">Suggested</span>':''}</span>
+        <span class="qb"><button class="qbtn" data-top="${p.id}" type="button"${i===0?' disabled':''} aria-label="Move ${esc(p.name)} to the top">Top</button><button class="qbtn" data-up="${p.id}" type="button"${i===0?' disabled':''} aria-label="Move ${esc(p.name)} up">↑</button><button class="qbtn" data-dn="${p.id}" type="button"${i===Q.length-1?' disabled':''} aria-label="Move ${esc(p.name)} down">↓</button><button class="qbtn x" data-qrm="${p.id}" type="button" aria-label="Remove ${esc(p.name)} from your queue">Remove</button></span></li>`).join('')}</ol>`
+      :`<div class="empty">Your queue is empty. Type a name above, or press <b>+ Queue</b> on anyone in the big board. Until you add someone, the suggested team below is picked from the whole pool.</div>`}</section>`;
+    h+=ST.sales.length?auc+que:que+auc;
 
     // the team
     if(P.length){
-      h+=`<section class="fb-sec"><div class="sec-h"><h2>Best team ${PLAN.fromQ?'from your queue':'for your budget'}</h2><span class="seg">${[['queue','From my queue'],['all','Whole pool']].map(([v,l])=>`<button type="button" data-src="${v}" class="${ST.src===v?'on':''}">${l}</button>`).join('')}</span></div>
+      h+=`<section class="fb-sec"><div class="sec-h"><h2>Suggested team ${PLAN.fromQ?'from your queue':'for your budget'}</h2><span class="seg">${[['queue','From my queue'],['all','Whole pool']].map(([v,l])=>`<button type="button" data-src="${v}" class="${ST.src===v?'on':''}">${l}</button>`).join('')}</span></div>
+        <p class="fb-note" style="margin:-4px 0 10px">${MY.players.length?`Your ${MY.players.length} drafted player${MY.players.length>1?'s':''} (marked Yours) plus the best buys for your remaining $${MY.left}.`:'Nothing is drafted yet. This is the best team you could buy for $'+ST.budget+' at expected prices.'} If you bought it: <b>${ord(me.place)} of 13</b> against last year's league (${me.roto} roto points; you won Div 2 with ${lastMe.roto}) · ${CATS.map(([k,l])=>`${f0(tot[k])} ${l} (${ord(14-Math.round(me['r'+k]))})`).join(' · ')} · $${spent} spent · ${f1(mar)} March games.</p>
         <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th><th>PTS</th><th>REB</th><th>AST</th><th>Season PTS</th><th>Season REB</th><th>Season AST</th><th>March</th><th>Value</th><th data-fit-keep>Price</th><th data-fit-keep>Edge</th><th class="act"></th></tr></thead><tbody>
         ${P.map(p=>`<tr class="${mine(p)?'lock':''}">${playerCellA(p,tag(p))}<td>${f1(p.proj.pts)}</td><td>${f1(p.proj.reb)}</td><td>${f1(p.proj.ast)}</td><td>${f0(season(p,'pts'))}</td><td>${f0(season(p,'reb'))}</td><td>${f0(season(p,'ast'))}</td><td>${f1(p.mar)}</td><td><b>$${p.val}</b></td>${priceCell(p)}${edgeCell(p)}${acts(p)}</tr>`).join('')}
         </tbody><tfoot><tr><td class="l">Total</td>${CATS.map(([k])=>`<td>${f1(P.reduce((s,p)=>s+p.proj[k],0))}</td>`).join('')}${CATS.map(([k])=>`<td>${f0(tot[k])}</td>`).join('')}<td>${f1(mar)}</td><td>$${worth}</td><td>$${spent}</td><td>${worth-spent>0?'+':''}${worth-spent}</td><td></td></tr></tfoot></table></div>
@@ -484,9 +512,9 @@
     // last year
     h+=`<section class="fb-sec"><div class="sec-h"><h2>Against last year's league</h2><span class="r">2025-26 final totals · Rk = roto points in that category, 13 for first</span></div>
       <div class="sheet-wrap"><table class="sheet dense ly"><thead><tr><th class="l">#</th><th class="l">Team</th><th>PTS</th><th title="Roto points in this category">Rk</th><th>REB</th><th title="Roto points in this category">Rk</th><th>AST</th><th title="Roto points in this category">Rk</th><th data-fit-keep>Roto</th></tr></thead><tbody>
-      ${T.map(r=>`<tr class="${r.me?'lock':''}"><td class="l">${r.place}</td><td class="l"><b>${r.me?'Your plan':esc(r.name)}</b>${r.me?'':` <span class="dim">· Div ${r.div}</span>`}</td>${CATS.map(([k])=>`<td>${f0(r[k])}</td><td class="dim">${r['r'+k]}</td>`).join('')}<td><b>${r.roto}</b></td></tr>`).join('')}
+      ${T.map(r=>`<tr class="${r.me?'lock':''}"><td class="l">${r.place}</td><td class="l"><b>${r.me?'Suggested team':esc(r.name)}</b>${r.me?'':` <span class="dim">· Div ${r.div}</span>`}</td>${CATS.map(([k])=>`<td>${f0(r[k])}</td><td class="dim">${r['r'+k]}</td>`).join('')}<td><b>${r.roto}</b></td></tr>`).join('')}
       </tbody></table></div>
-      <p class="fb-note">Your plan assumes every player plays all 22 counting games; last year's totals include the games people missed, and our projections are cautious about stars. Read the finish as a guide, not a promise.</p></section>`;
+      <p class="fb-note">The suggested team assumes every player plays all 22 counting games; last year's totals include the games people missed, and our projections are cautious about stars. Read the finish as a guide, not a promise.</p></section>`;
 
     // the board
     const q=UI.q.toLowerCase();
@@ -498,7 +526,7 @@
       <div class="filt"><input class="fi" id="bQ" placeholder="Search player or team" value="${esc(UI.q)}" style="width:220px">
       <select class="fs" id="bPos">${[['all','All positions'],['PG','PG'],['SG','SG'],['SF','SF'],['big','PF / C']].map(([v,l])=>`<option value="${v}"${UI.pos===v?' selected':''}>${l}</option>`).join('')}</select><label class="chk2"><input type="checkbox" id="bSold"${UI.sold?' checked':''}> Show sold players</label></div>
       <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th><th class="l">Player</th>${th('pts','PTS')}${th('reb','REB')}${th('ast','AST')}${th('mar','March')}${th('val','Value')}${th('mkt','Price')}${th('edge','Edge')}<th class="act"></th></tr></thead><tbody>
-      ${B.slice(0,UI.n).map((p,i)=>`<tr class="${mine(p)?'lock':taken(p)||ST.avoid[p.id]?'avoid':''}"><td class="l">${i+1}</td>${playerCellA(p,tag(p)+(inPlan.has(p.id)&&!mine(p)?' <span class="pill a">In team</span>':''))}<td>${f1(p.proj.pts)}</td><td>${f1(p.proj.reb)}</td><td>${f1(p.proj.ast)}</td><td>${f1(p.mar)}</td><td><b>$${p.val}</b></td>${priceCell(p)}${edgeCell(p)}${acts(p)}</tr>`).join('')}
+      ${B.slice(0,UI.n).map((p,i)=>`<tr class="${mine(p)?'lock':taken(p)||ST.avoid[p.id]?'avoid':''}"><td class="l">${i+1}</td>${playerCellA(p,tag(p)+(inPlan.has(p.id)?' <span class="pill a" title="The suggested team uses him. He is not drafted.">Suggested</span>':''))}<td>${f1(p.proj.pts)}</td><td>${f1(p.proj.reb)}</td><td>${f1(p.proj.ast)}</td><td>${f1(p.mar)}</td><td><b>$${p.val}</b></td>${priceCell(p)}${edgeCell(p)}${acts(p)}</tr>`).join('')}
       </tbody></table></div>${B.length>UI.n?`<div style="text-align:center;margin-top:10px"><button class="btn ghost" id="bMore" type="button">Show ${Math.min(60,B.length-UI.n)} more</button></div>`:''}</section>`;
     h+=`<p class="fb-note"><b>Value</b> is what a player is worth in this league: his projected points, rebounds and assists over his team's ${CNT?'22 counting games':'regular season'}, plus the same over the March games his team is expected to play (conference tournament and NCAA, from 2,000 simulated seasons), each scored against the players a full league rosters. Dollars split the league's money over everyone above the replacement level.
       <b>Price</b> is what your room is expected to pay: last year's auction priced players by their per-game line (No. 1 about $55, No. 12 $35, No. 48 $20, No. 120 $2, then $1), so each player gets the price for his rank on that line. Type over it when you know better. Once the auction starts, values and prices are re-split over the money and roster spots actually left in the room. Your queue, sales and prices are saved in this browser.</p>`;
@@ -552,22 +580,44 @@
     out.querySelectorAll('details[data-tm]').forEach(d=>d.ontoggle=()=>{ if(PHONE()&&d.dataset.tm!==ST.me) UI.open[d.dataset.tm]=d.open; });
     const bs=$('bSold'); if(bs) bs.onchange=()=>{ UI.sold=bs.checked; render(); };
     out.querySelectorAll('[data-avoid]').forEach(b=>b.onclick=()=>{ const id=b.dataset.avoid; if(ST.avoid[id]) delete ST.avoid[id]; else ST.avoid[id]=1; save(); render(); });
-    out.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{ const id=b.dataset.q, i=ST.queue.indexOf(id); if(i>=0) ST.queue.splice(i,1); else ST.queue.push(id); save(); render(); });
-    const mv=(id,d)=>{ const i=ST.queue.indexOf(id), j=i+d; if(i<0||j<0||j>=ST.queue.length) return; [ST.queue[i],ST.queue[j]]=[ST.queue[j],ST.queue[i]]; save(); render(); };
-    out.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>mv(b.dataset.up,-1));
-    out.querySelectorAll('[data-dn]').forEach(b=>b.onclick=()=>mv(b.dataset.dn,1));
+    // queue: every change re-renders, so say what happened (screen readers) and put focus back where it was
+    const qsay=(t,f)=>{ UI.say=t; UI.focus=f||null; };
+    const qName=id=>BYID[id]?BYID[id].name:'Player';
+    out.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{ const id=b.dataset.q, i=ST.queue.indexOf(id);
+      if(i>=0){ ST.queue.splice(i,1); qsay(`${qName(id)} removed from your queue.`); } else { ST.queue.push(id); qsay(`${qName(id)} added to your queue at No. ${ST.queue.length}.`); }
+      save(); render(); });
+    const mv=(id,to,key)=>{ const i=ST.queue.indexOf(id); if(i<0||to<0||to>=ST.queue.length||to===i) return; ST.queue.splice(i,1); ST.queue.splice(to,0,id);
+      qsay(`${qName(id)} is now No. ${to+1}.`,`[data-${key}="${id}"]:not(:disabled)`); save(); render(); };
+    out.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>mv(b.dataset.up,ST.queue.indexOf(b.dataset.up)-1,'up'));
+    out.querySelectorAll('[data-dn]').forEach(b=>b.onclick=()=>mv(b.dataset.dn,ST.queue.indexOf(b.dataset.dn)+1,'dn'));
+    out.querySelectorAll('[data-top]').forEach(b=>b.onclick=()=>mv(b.dataset.top,0,'dn'));
+    out.querySelectorAll('[data-qrm]').forEach(b=>b.onclick=()=>{ const id=b.dataset.qrm, i=ST.queue.indexOf(id); if(i<0) return; ST.queue.splice(i,1);
+      const nx=ST.queue[Math.min(i,ST.queue.length-1)]; qsay(`${qName(id)} removed from your queue.`,nx?`[data-qrm="${nx}"]`:'#qAdd'); save(); render(); });
     out.querySelectorAll('[data-src]').forEach(b=>b.onclick=()=>{ ST.src=b.dataset.src; save(); render(); });
     out.querySelectorAll('[data-price]').forEach(inp=>inp.onchange=()=>{ const id=inp.dataset.price, v=Math.round(+inp.value);
       const p=BYID[id]; if(!(v>=1)||(p&&v===p.mkt)) delete ST.price[id]; else ST.price[id]=v; save(); render(); });
     out.querySelectorAll('th[data-s]').forEach(t=>t.onclick=()=>{ UI.sort=t.dataset.s; render(); });
-    // queue search: type a name, click (or Enter) to add
-    const qa=$('qAdd'), qh=$('qHits');
+    // queue search: a combobox — type, arrow keys to move, Enter or click to add
+    const qa=$('qAdd'), ql=$('qList');
     if(qa){
-      const hits=()=>{ const s=qa.value.trim().toLowerCase(); if(s.length<2) return []; return POOL.filter(p=>!inQ(p)&&(p.name.toLowerCase().includes(s)||p.team.toLowerCase().includes(s))).sort((a,b)=>b.val-a.val).slice(0,6); };
-      const add=id=>{ ST.queue.push(String(id)); save(); render(); const n=$('qAdd'); if(n) n.focus(); };
-      qa.oninput=()=>{ const H=hits(); qh.innerHTML=H.map(p=>`<button type="button" class="btn sm ghost" data-add="${p.id}">${esc(p.name)} <span class="dim">${esc(p.team)} · $${price(p)}</span></button>`).join(''); qh.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>add(b.dataset.add)); };
-      qa.onkeydown=e=>{ if(e.key==='Enter'){ const H=hits(); if(H[0]) add(H[0].id); } };
+      let H=[], cur=0;
+      const close=()=>{ ql.style.display='none'; qa.setAttribute('aria-expanded','false'); qa.removeAttribute('aria-activedescendant'); };
+      const draw=()=>{ ql.innerHTML=H.map((p,i)=>`<div class="ac-opt" id="qo${i}" role="option" aria-selected="${i===cur}" data-add="${p.id}"><b>${esc(p.name)}</b> <span class="dim">${esc(p.team)} · ${esc(p.position||'')} · ${f1(p.proj.pts)}/${f1(p.proj.reb)}/${f1(p.proj.ast)}</span><span class="r">$${price(p)}</span></div>`).join('')
+          ||'<div class="ac-opt dim" role="option" aria-disabled="true">No match (or he’s already queued)</div>';
+        ql.style.display='block'; qa.setAttribute('aria-expanded','true'); if(H.length) qa.setAttribute('aria-activedescendant','qo'+cur);
+        ql.querySelectorAll('[data-add]').forEach(o=>o.onmousedown=e=>{ e.preventDefault(); add(o.dataset.add); }); };
+      const add=id=>{ ST.queue.push(String(id)); qsay(`${qName(id)} added to your queue at No. ${ST.queue.length}.`,'#qAdd'); save(); render(); };
+      qa.oninput=()=>{ const s=qa.value.trim().toLowerCase(); cur=0; if(s.length<2){ H=[]; close(); return; }
+        H=POOL.filter(p=>!inQ(p)&&(p.name.toLowerCase().includes(s)||p.team.toLowerCase().includes(s))).sort((a,b)=>b.val-a.val).slice(0,8); draw(); };
+      qa.onkeydown=e=>{
+        if(e.key==='ArrowDown'&&H.length){ e.preventDefault(); cur=(cur+1)%H.length; draw(); }
+        else if(e.key==='ArrowUp'&&H.length){ e.preventDefault(); cur=(cur-1+H.length)%H.length; draw(); }
+        else if(e.key==='Enter'&&H[cur]){ e.preventDefault(); add(H[cur].id); }
+        else if(e.key==='Escape'){ close(); } };
+      qa.onblur=()=>setTimeout(close,150);
     }
+    if(UI.focus){ const f=out.querySelector(UI.focus); if(f) f.focus({preventScroll:true}); UI.focus=null; }
+    UI.say='';
     const q=$('bQ'); if(q){ q.oninput=()=>{ UI.q=q.value; UI.n=60; clearTimeout(q._t); q._t=setTimeout(()=>{ render(); const n=$('bQ'); n.focus(); n.setSelectionRange(n.value.length,n.value.length); },250); }; }
     const ps=$('bPos'); if(ps) ps.onchange=()=>{ UI.pos=ps.value; UI.n=60; render(); };
     const m=$('bMore'); if(m) m.onclick=()=>{ UI.n+=60; render(); };
