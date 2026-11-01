@@ -545,13 +545,15 @@
 
   // every rated team's projected record for the rankings table — lighter sims, cached in
   // localStorage until the ratings or the schedule file change
-  const LS_ALL = 'tdc_projrec_v18';
+  const LS_ALL = 'tdc_projrec_v19';   // v19: v18 cached records built from flipped live finals (Nov 1 2026)
   async function projectAll(opts) {
     opts = opts || {};
     await load();
     if (!_sched || !g.TDC_RATINGS) return {};
     const D = await g.TDC_RATINGS.get();
-    const stamp = (D.generated || '') + '|' + (_sched.pulled || '') + '|' + (_sched.games || []).length + '|' + ((_results && _results.updated) || '');
+    const stamp = (D.generated || '') + '|' + (_sched.pulled || '') + '|' + (_sched.games || []).length + '|' + ((_results && _results.updated) || '') +
+      // the live finals' scores, not just their count — a corrected score must not reuse the old records
+      '|' + Object.values(RES).filter(x => x.live).map(x => x.id + ':' + x.hs + '-' + x.as).sort().join(',');
     try { const c = JSON.parse(localStorage.getItem(LS_ALL) || 'null'); if (c && c.stamp === stamp) return c.recs; } catch (e) {}
     const recs = {};
     for (const t of D.teams) {
