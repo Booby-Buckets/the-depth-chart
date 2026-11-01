@@ -151,7 +151,7 @@
   <link rel="stylesheet" href="tdc-skin.css?v=15"/>
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
   <link rel="stylesheet" href="tdc-column.css?v=4"/>
-  <link rel="stylesheet" href="tdc-ui.css?v=15"/>
+  <link rel="stylesheet" href="tdc-ui.css?v=16"/>
   <link rel="manifest" href="manifest.webmanifest">
   <script src="tdc-pwa.js?v=3" defer></script>
 </head>
@@ -465,7 +465,7 @@
         <span class="qn">${i+1}</span>
         <span class="qp"><a href="${p.espn_id?`player.html?espn=${p.espn_id}`:`player.html?name=${encodeURIComponent(p.name)}`}">${esc(p.name)}</a>${p.is_injured?' <span class="pill r">Inj</span>':''}${p.proj.est?' <span class="pill" title="Freshman / no-stats estimate">Est</span>':''}
           <small>${lgImg(FULL[p.team]||p.team)}${esc(p.team)} · ${esc(p.position||'')} · ${f1(p.proj.pts)} pts · ${f1(p.proj.reb)} reb · ${f1(p.proj.ast)} ast</small></span>
-        <span class="qv"><span>Price <b>$${price(p)}</b></span><span>Worth <b>$${p.val}</b></span></span>
+        <span class="qv"><span title="${SOLD[p.id]?'What he sold for':'What the room will likely pay for him, from last year\'s auction prices. You haven\'t paid anything yet.'}">${mine(p)?'You paid':SOLD[p.id]?'Sold for':'Likely cost'} <b>$${price(p)}</b></span><span title="His value to you: projected stats over the counting games plus March">Worth <b>$${p.val}</b></span></span>
         <span class="qs">${qStatus(p)}${inPlan.has(p.id)?' <span class="pill a" title="The suggested team below uses him. He is not drafted.">Suggested</span>':''}</span>
         <span class="qb"><button class="qbtn" data-top="${p.id}" type="button"${i===0?' disabled':''} aria-label="Move ${esc(p.name)} to the top">Top</button><button class="qbtn" data-up="${p.id}" type="button"${i===0?' disabled':''} aria-label="Move ${esc(p.name)} up">↑</button><button class="qbtn" data-dn="${p.id}" type="button"${i===Q.length-1?' disabled':''} aria-label="Move ${esc(p.name)} down">↓</button><button class="qbtn x" data-qrm="${p.id}" type="button" aria-label="Remove ${esc(p.name)} from your queue">Remove</button></span></li>`).join('')}</ol>`
       :`<div class="empty">Your queue is empty. Type a name above, or press <b>+ Queue</b> on anyone in the big board. Until you add someone, the suggested team below is picked from the whole pool.</div>`}</section>`;
@@ -516,16 +516,20 @@
       </tbody></table></div>
       <p class="fb-note">The suggested team assumes every player plays all 22 counting games; last year's totals include the games people missed, and our projections are cautious about stars. Read the finish as a guide, not a promise.</p></section>`;
 
-    // the board
+    // the board: position types (CG counts as a guard) and a sort menu that phones can use as easily as the headers
+    const PT={all:['All',()=>true], PG:['PG',p=>p.position==='PG'], g:['Guards',p=>/^(PG|SG|CG)$/.test(p.position||'')], w:['Wings',p=>p.position==='SF'], big:['Bigs',p=>/^(PF|C)$/.test(p.position||'')]};
+    const posOk=p=>(PT[UI.pos]||PT.all)[1](p);
     const q=UI.q.toLowerCase();
-    let B=POOL.filter(p=>(UI.sold||!SOLD[p.id])&&(!q||p.name.toLowerCase().includes(q)||p.team.toLowerCase().includes(q))&&(UI.pos==='all'||p.position===UI.pos||(UI.pos==='big'&&/PF|C/.test(p.position||''))));
-    const SORT={edge:(a,b)=>edge(b)-edge(a)||b.val-a.val, val:(a,b)=>b.val-a.val, mkt:(a,b)=>price(b)-price(a), pts:(a,b)=>b.proj.pts-a.proj.pts, reb:(a,b)=>b.proj.reb-a.proj.reb, ast:(a,b)=>b.proj.ast-a.proj.ast, mar:(a,b)=>b.mar-a.mar};
+    let B=POOL.filter(p=>(UI.sold||!SOLD[p.id])&&(!q||p.name.toLowerCase().includes(q)||p.team.toLowerCase().includes(q))&&posOk(p));
+    const [nk0,nl0]=need;
+    const SORT={need:(a,b)=>b.zc[nk0]-a.zc[nk0]||b.val-a.val, edge:(a,b)=>edge(b)-edge(a)||b.val-a.val, val:(a,b)=>b.val-a.val, mkt:(a,b)=>price(b)-price(a), pts:(a,b)=>b.proj.pts-a.proj.pts, reb:(a,b)=>b.proj.reb-a.proj.reb, ast:(a,b)=>b.proj.ast-a.proj.ast, mar:(a,b)=>b.mar-a.mar};
     B.sort(SORT[UI.sort]||SORT.edge);
     const th=(k,l)=>`<th data-s="${k}"${k==='mkt'||k==='edge'?' data-fit-keep':''} style="cursor:pointer">${l}${UI.sort===k?' ▼':''}</th>`;
-    h+=`<section class="fb-sec" id="board"><div class="sec-h"><h2>Big board</h2><span class="r">Edge = our value minus expected price: green is underpriced</span></div>
+    h+=`<section class="fb-sec" id="board"><div class="sec-h"><h2>Big board</h2><span class="r">${UI.sort==='need'?`Sorted by how much each player adds in ${nl0}, your team's weakest category right now`:'Edge = our value minus expected price: green is underpriced'}</span></div>
       <div class="filt"><input class="fi" id="bQ" placeholder="Search player or team" value="${esc(UI.q)}" style="width:220px">
-      <select class="fs" id="bPos">${[['all','All positions'],['PG','PG'],['SG','SG'],['SF','SF'],['big','PF / C']].map(([v,l])=>`<option value="${v}"${UI.pos===v?' selected':''}>${l}</option>`).join('')}</select><label class="chk2"><input type="checkbox" id="bSold"${UI.sold?' checked':''}> Show sold players</label></div>
-      <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th><th class="l">Player</th>${th('pts','PTS')}${th('reb','REB')}${th('ast','AST')}${th('mar','March')}${th('val','Value')}${th('mkt','Price')}${th('edge','Edge')}<th class="act"></th></tr></thead><tbody>
+      <span class="seg" role="group" aria-label="Position type">${Object.entries(PT).map(([v,[l]])=>`<button type="button" data-pos="${v}" class="${(PT[UI.pos]?UI.pos:'all')===v?'on':''}" aria-pressed="${(PT[UI.pos]?UI.pos:'all')===v}" title="${{all:'Every position',PG:'Point guards only (you can roster '+ST.maxpg+')',g:'PG, SG and combo guards',w:'Small forwards',big:'Power forwards and centers'}[v]}">${l}</button>`).join('')}</span>
+      <label class="chk2">Sort <select class="fs" id="bSort">${[['need',`Fills your need (${nl0})`],['edge','Best buy for the price'],['val','Worth to you'],['mkt','Likely cost'],['pts','PTS'],['reb','REB'],['ast','AST'],['mar','March games']].map(([v,l])=>`<option value="${v}"${UI.sort===v?' selected':''}>${l}</option>`).join('')}</select></label><label class="chk2"><input type="checkbox" id="bSold"${UI.sold?' checked':''}> Show sold players</label></div>
+      <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th><th class="l">Player</th>${th('pts','PTS')}${th('reb','REB')}${th('ast','AST')}${th('mar','March')}${th('val','Value')}${th('mkt','Likely cost')}${th('edge','Edge')}<th class="act"></th></tr></thead><tbody>
       ${B.slice(0,UI.n).map((p,i)=>`<tr class="${mine(p)?'lock':taken(p)||ST.avoid[p.id]?'avoid':''}"><td class="l">${i+1}</td>${playerCellA(p,tag(p)+(inPlan.has(p.id)?' <span class="pill a" title="The suggested team uses him. He is not drafted.">Suggested</span>':''))}<td>${f1(p.proj.pts)}</td><td>${f1(p.proj.reb)}</td><td>${f1(p.proj.ast)}</td><td>${f1(p.mar)}</td><td><b>$${p.val}</b></td>${priceCell(p)}${edgeCell(p)}${acts(p)}</tr>`).join('')}
       </tbody></table></div>${B.length>UI.n?`<div style="text-align:center;margin-top:10px"><button class="btn ghost" id="bMore" type="button">Show ${Math.min(60,B.length-UI.n)} more</button></div>`:''}</section>`;
     h+=`<p class="fb-note"><b>Value</b> is what a player is worth in this league: his projected points, rebounds and assists over his team's ${CNT?'22 counting games':'regular season'}, plus the same over the March games his team is expected to play (conference tournament and NCAA, from 2,000 simulated seasons), each scored against the players a full league rosters. Dollars split the league's money over everyone above the replacement level.
@@ -619,7 +623,8 @@
     if(UI.focus){ const f=out.querySelector(UI.focus); if(f) f.focus({preventScroll:true}); UI.focus=null; }
     UI.say='';
     const q=$('bQ'); if(q){ q.oninput=()=>{ UI.q=q.value; UI.n=60; clearTimeout(q._t); q._t=setTimeout(()=>{ render(); const n=$('bQ'); n.focus(); n.setSelectionRange(n.value.length,n.value.length); },250); }; }
-    const ps=$('bPos'); if(ps) ps.onchange=()=>{ UI.pos=ps.value; UI.n=60; render(); };
+    out.querySelectorAll('[data-pos]').forEach(b=>b.onclick=()=>{ UI.pos=b.dataset.pos; UI.n=60; UI.focus=`[data-pos="${UI.pos}"]`; render(); });
+    const so=$('bSort'); if(so) so.onchange=()=>{ UI.sort=so.value; UI.n=60; UI.focus='#bSort'; render(); };
     const m=$('bMore'); if(m) m.onclick=()=>{ UI.n+=60; render(); };
   }
 
