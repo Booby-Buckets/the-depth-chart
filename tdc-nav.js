@@ -161,12 +161,12 @@
       '.tdn-menu{min-width:170px;}',
       '}',
       // phones: the five menus on ONE row (it used to wrap to two, the second indented)
-      '@media(max-width:640px){.tdn-logo em{font-size:11px!important;}.tdn-signin,.tdn-actions a{font-size:11px!important;}.tdn-wrap .theme-toggle{font-family:inherit;font-size:13px!important;}.tdn-row{flex-wrap:nowrap;justify-content:space-between;gap:0;}.tdn-btn{padding:0 4px;font-size:11px;letter-spacing:.03em;}.tdn-btn .car{display:none;}.tdn-btn.active::after{left:4px;right:4px;}}',
+      '@media(max-width:640px){.tdn-logo em{font-size:11px!important;}.tdn-signin,.tdn-actions a{font-size:11px!important;}.tdn-wrap .theme-toggle{font-family:inherit;font-size:13px!important;}.tdn-row{flex-wrap:nowrap;justify-content:space-between;gap:0;}.tdn-btn{padding:0 4px;font-size:11px;letter-spacing:.03em;}.tdn-btn .car{display:none;}.tdn-btn.active::after{left:4px;right:4px;}.tdn-actions>a,.tdn-actions>button{position:relative;}.tdn-actions>a::after,.tdn-actions>button::after{content:"";position:absolute;inset:-9px -4px;}}',
     ].join('');
     document.head.appendChild(css);
     // phones: one type system across every page (tdc-mobile.js; desktop untouched)
     if (window.matchMedia && window.matchMedia('(max-width: 640px)').matches && !document.getElementById('tdc-mobile-js')) {
-      var mj = document.createElement('script'); mj.id = 'tdc-mobile-js'; mj.src = 'tdc-mobile.js?v=19'; document.head.appendChild(mj);
+      var mj = document.createElement('script'); mj.id = 'tdc-mobile-js'; mj.src = 'tdc-mobile.js?v=22'; document.head.appendChild(mj);
     }
   }
 

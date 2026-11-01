@@ -40,6 +40,8 @@
     '.gt-kv .k{font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);padding-top:12px;background:var(--bg2);}' +
     '.gt-kv .v{color:var(--text2);} .gt-kv .v b{color:var(--text);}' +
     '.gt-lead{width:100%!important;table-layout:fixed;} .gt-lead th:first-child{width:110px;} .gt-lead td a{color:var(--text);text-decoration:none;} .gt-lead td a:hover{color:var(--accent);}' +
+    // fixed layout + the sheet kit's nowrap let a long "Akanmu, Binet" pair print over the next team's cell: wrap instead
+    '.gt-lead th,.gt-lead td{white-space:normal!important;overflow-wrap:anywhere;} @media(max-width:640px){.gt-lead th:first-child{width:78px;}}' +
     '.gt-list{margin:10px 0 0 18px;font-size:12.5px;color:var(--text2);line-height:1.7;} .gt-list b{color:var(--text);}' +
     /* summary cards (Oct 2026, owner: the summary looked like a text dump) — player of the game, a head-to-head
        leaders board, key-moment tiles; all inside the kit's panels (tdc-ui.css .ui-panel.pz) */

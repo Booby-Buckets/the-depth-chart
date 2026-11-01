@@ -99,7 +99,10 @@
     var srch = document.getElementById('searchInput');
     var q = document.createElement('input'); q.type = 'search'; q.className = 'mi-in'; q.placeholder = 'Find team'; q.setAttribute('aria-label', 'Search teams');
     q.addEventListener('input', function () { if (!srch) return; srch.value = q.value; srch.dispatchEvent(new Event('input', { bubbles: true })); });
-    ctl.appendChild(conf); ctl.appendChild(mirror(sort)); ctl.appendChild(q);
+    ctl.appendChild(conf); ctl.appendChild(mirror(sort));
+    // rank-movement window (Today / 3 days / week / season) shares the last row with search
+    var mv = document.getElementById('mvSel'); if (mv) { ctl.appendChild(mirror(mv)); q.style.gridColumn = 'auto'; }
+    ctl.appendChild(q);
     hdr.appendChild(ctl);
 
     // Top players: a five-row sheet instead of photo cards

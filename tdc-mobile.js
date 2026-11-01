@@ -201,6 +201,8 @@
       // columns (team, conf, pos…) before stats, then stats from the right
       const isText = c => c.classList.contains('l') || c.classList.contains('nm');
       let nameIdx = [...head.cells].findIndex((c, i) => i > 0 && isText(c)); if (nameIdx < 0) nameIdx = 1;
+      // a label first column (Stat, Player) is the name: a later text column ("vs D-I" bars, Team) is secondary
+      if (isText(head.cells[0])) nameIdx = 0;
       // a season / date table is identified by its first column — Team there is context, hide it before stats
       if (/^(season|year|yr|date|game|wk|week)\b/i.test(head.cells[0].textContent.trim())) nameIdx = -1;
       const keep = i => i === 0 || i === nameIdx || head.cells[i].hasAttribute('data-fit-keep');
@@ -210,24 +212,35 @@
       const heat = i => head.cells[i].hasAttribute('data-heat') && head.cells[i].getAttribute('data-heat') !== '0';
       for (let i = n - 1; i >= 0; i--) if (!keep(i) && !order.includes(i) && !heat(i)) order.push(i);
       for (let i = n - 1; i >= 0; i--) if (!keep(i) && !order.includes(i)) order.push(i);
+      // fitting isn't enough if the name column ends up ~80px and "After made free throws" stacks four lines
+      // deep: keep folding stats until a long-label name column gets ~110px
+      const nameLong = nameIdx >= 0 && rows.some(r => r !== head && r.cells[nameIdx].textContent.trim().length > 14);
+      const tight = () => nameLong && head.cells[nameIdx].getBoundingClientRect().width < 108;
       for (const i of order) {
-        if (!wide() || n - hidden <= 2) break;
+        if ((!wide() && !(tight() && n - hidden > 3)) || n - hidden <= 2) break;
         rows.forEach(r => r.cells[i].classList.add('tdc-fx')); hidden++;
       }
       if (hidden) groupRows.forEach(r => r.classList.add('tdc-fx'));
     }
     fitBar(t, hidden, false);
   }
-  let fitT = 0;
+  let fitT = 0, settleT = 0;
   function fitAll() { fitT = 0; document.querySelectorAll('table').forEach(t => { try { fitTable(t); } catch (e) {} }); }
-  function scheduleFit(ms) { if (!mq.matches) return; clearTimeout(fitT); fitT = setTimeout(fitAll, ms || 150); }
+  // a short debounce keeps the full-width flash after a redraw brief; the settle pass 1.5s later catches what
+  // changes width without touching the DOM (logos loading into a fitted table left conferences.html 838px wide)
+  function scheduleFit(ms) {
+    if (!mq.matches) return;
+    clearTimeout(fitT); fitT = setTimeout(fitAll, ms || 60);
+    if (!settleT) settleT = setTimeout(() => { settleT = 0; fitAll(); }, 1500);
+  }
 
   let pending = [], raf = 0;
   function flush() {
     raf = 0;
     const list = pending; pending = [];
-    for (const n of list) if (n.isConnected) { walk(n); scanRows(n.parentElement || n); }
+    // schedule the refit first: one element that throws while being styled must not leave a redrawn table unfitted
     if (list.some(n => n.isConnected && !(n.classList && n.classList.contains('tdc-fitbar')))) scheduleFit();
+    for (const n of list) if (n.isConnected) { try { walk(n); scanRows(n.parentElement || n); } catch (e) {} }
   }
   function start() {
     if (!mq.matches) return;
@@ -237,6 +250,7 @@
     // tabs / menus reveal tables that were hidden when measured
     document.addEventListener('click', () => scheduleFit(400), true);
     window.addEventListener('resize', () => scheduleFit(200));
+    window.addEventListener('load', () => scheduleFit());
     walk(document.body);
     scanRows(document.body);
     new MutationObserver(muts => {

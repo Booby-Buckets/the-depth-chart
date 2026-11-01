@@ -127,8 +127,11 @@
         if (!side.home || !side.away) return;
         const hs = +side.home.score, as = +side.away.score; if (!isFinite(hs) || !isFinite(as) || hs === as) return;
         const a = byId[id];
-        // our schedule's home/away came from ESPN too; if a game was flipped, swap the scores to match
-        const flip = String(side.home.team && side.home.team.id) && a.length > 6 && a[6] && String(a[6]) !== String(side.home.team.id);
+        // our schedule's home/away came from ESPN too; if a game was flipped, swap the scores to match. Rows are
+        // [id, date, home, away, neutral, conf, time, tv] with ESPN display names — a[6] is the tip time, and
+        // comparing it to a team id flipped every timed game (Notre Dame's 74–72 win showed as 0–1, Nov 1 2026)
+        const hn = side.home.team && side.home.team.displayName;
+        const flip = !!hn && hn === T[a[3]] && hn !== T[a[2]];
         RES[id] = { id, date: a[1], home: T[a[2]], away: T[a[3]], hs: flip ? as : hs, as: flip ? hs : as, neutral: !!a[4], conf: !!a[5], live: true };
         added++;
       });
