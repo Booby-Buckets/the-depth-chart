@@ -16,6 +16,7 @@
   <script src="team-colors.js?v=13"></script>
   <script src="tdc-freshman.js?v=pub37"></script>
   <script src="tdc-fantasy-march.js?v=1"></script>
+  <script src="tdc-fantasy-pg.js?v=1"></script>
   <script src="conf-logos.js?v=4"></script>
   <script src="tdc-ratings.js?v=44"></script>
   <script src="tdc-schedule.js?v=sp4"></script>
@@ -182,9 +183,6 @@
   const LAST=[['Mark',3517,937,996,1],['Derrick',3803,1271,565,1],['Mike',3490,1297,917,1],['Jody',3624,1374,713,1],['Anthony',3356,1405,663,1],['Bryce',4091,1363,723,1],
     ['Darren',3940,1360,715,2],['Ken',3433,1413,648,2],['Aidan',4371,1370,841,2],['Jacob',3623,1255,614,2],['Glenn',3091,1128,615,2],['Carter/Alex/Ewing',3825,1276,756,2]];
   // the league's 2025-26 auction, price by sale rank (owner's sheet, Oct 24 2026); past #120 everyone went for $1
-  // the league's point guards for 2026-27 (owner's list, Nov 1 2026): one per school, and a team may roster at most
-  // Max PGs of them. This list, not the roster's position column, is what the PG limit counts.
-  const LEAGUE_PG=`Duke|Cayden Boozer;Virginia|Chance Mallory;Louisville|Jackson Shelstad;Clemson|Dillon Hunter;Miami|Acaden Lewis;SMU|Rowan Brumbaugh;NC State|Preston Edmead;North Carolina|Neoklis Avdalas;Virginia Tech|Ben Hammond;Stanford|Christian Bliss;Notre Dame|Braeden Smith;Wake Forest|Kevair Kennedy;Pittsburgh|Naithan George;Florida State|Anthony Robinson II;Syracuse|Garway Dual;Boston College|Armoni Zeigler;Georgia Tech|Colby Garland;Michigan State|Jeremy Fears Jr.;Michigan|Elliot Cadeau;Illinois|Stefan Vaaks;Nebraska|Trevan Leonhardt;Indiana|Markus Burton;Purdue|Omer Mayer;Ohio State|John Mobley Jr.;Wisconsin|Owen Foxwell;UCLA|Jaylen Petty;Oregon|Fred Payne;USC|Rodney Rice;Iowa|Keal Combs;Northwestern|Jake West;Maryland|DJ Wagner;Minnesota|Kyan Evans;Rutgers|Jamichael Davis;Washington|Ryan Beasley;Penn State|Dasonte Bowen;UConn|Silas Demary Jr.;Marquette|Nigel James Jr.;St. John's|Quinn Ellis;Xavier|Chance Westrey;Creighton|Austin Swartz;Providence|Malik Mack;Butler|Jalen Jackson;Seton Hall|Simeon Wilcher;Villanova|Elijah Crawford;DePaul|Layden Blocker;Georgetown|Jaland Lowe;Florida|Boogie Fland;Arkansas|Jordan Smith Jr.;Alabama|Aden Holloway;Kentucky|Zoom Diallo;Tennessee|Dai Dai Ames;Vanderbilt|Tyler Tanner;Texas|Isaiah Johnson;Auburn|George Kimble III;Oklahoma|Xzayvier Brown;LSU|Donovan Dent;Georgia|Smurf Millender;Ole Miss|Budd Clark;Texas A&M|Jordan Pope;Missouri|Jason Crowe Jr.;Mississippi State|Josh Hubbard;South Carolina|Kory Mincey;Houston|Dedan Thomas Jr.;Arizona|Derek Dixon;Iowa State|Tamin Lipsey;Texas Tech|Cruz Davis;Kansas|Melvin Council Jr.;BYU|Robert Wright Jr.;Cincinnati|Tylen Riley;UCF|Arturo Dean;TCU|Brock Harding;Baylor|Kaden Mingo;Arizona State|Joel Foxwell;Oklahoma State|Kanye Clary;West Virginia|Miles Sadler;Colorado|Barrington Hargress;Utah|Noam Yaacov;Kansas State|Brandon Rechsteiner`.split(';').map(x=>x.split('|'));
   const LAST_SEASON=2026;   // the season the room has seen in full by draft night
   const CURVE=[[1,55],[3,50],[6,43],[12,35],[24,30],[36,26],[48,20],[72,15],[96,10],[120,2]];
   const $=id=>document.getElementById(id);
@@ -252,24 +250,8 @@
         const sh=SHARE[p.team+'|'+p.name], imp=(F.fga||0)/58*100, k=sh!=null&&imp>0?Math.min(1,sh/imp):1;
         p.proj={pts:(F.ppg||0)*k,reb:(F.rpg||0)*k,ast:(F.apg||0)*k,mpg:F.mpg*k,est:true}; } }catch(e){} }
     });
-    // mark the league PGs: matched by name (suffixes, quotes and nicknames dropped), the school only breaking ties
-    const nn=x=>String(x||'').toLowerCase().replace(/["'’.]/g,'').replace(/\b(jr|sr|ii|iii|iv|ll|lll)\b/g,'').replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();
-    const tn=x=>nn(x).replace(/\bst\b/g,'state').replace(/\s/g,'');
-    UNPG=[];
-    // a pool name's forms: as stored, without its quoted nickname, and nickname + surname (Adam "Budd" Clark → Budd Clark)
-    const forms=p=>{ const m=String(p.name).match(/^(.*?)["“]([^"”]+)["”](.*)$/), f=[nn(p.name)];
-      if(m){ f.push(nn(m[1]+' '+m[3])); f.push(nn(m[2]+' '+m[3])); } return f; };
-    const sameTeam=(p,team)=>{ const a=tn(p.team), b=tn(team); return a===b||a.includes(b)||b.includes(a); };
-    const near=(a,b)=>{ if(Math.abs(a.length-b.length)>1) return false; let i=0,j=0,d=0; while(i<a.length&&j<b.length){ if(a[i]===b[j]){ i++; j++; continue; } if(++d>1) return false; if(a.length>b.length) i++; else if(b.length>a.length) j++; else { i++; j++; } } return d+(a.length-i)+(b.length-j)<=1; };
-    LEAGUE_PG.forEach(([team,name])=>{
-      const n=nn(name), last=n.split(' ').pop();
-      const pick=POOL.find(p=>sameTeam(p,team)&&forms(p).includes(n))                        // exact, at his school
-        ||POOL.find(p=>forms(p).includes(n))                                                // exact, anywhere (transfer)
-        ||POOL.find(p=>sameTeam(p,team)&&forms(p).some(f=>f.split(' ').pop()===last&&f.split(' ')[0]===n.split(' ')[0]))
-        ||POOL.find(p=>sameTeam(p,team)&&forms(p).some(f=>near(f.split(' ').pop(),last)&&f.split(' ')[0]===n.split(' ')[0]))  // Mincey / Mincy
-        ||(c=>c.length===1?c[0]:c.find(p=>p.name[0].toLowerCase()===n[0]))(POOL.filter(p=>sameTeam(p,team)&&forms(p).some(f=>f.split(' ').pop()===last)));  // Garway / Garwey Dual
-      if(pick) pick.lpg=true; else UNPG.push(team+' – '+name);
-    });
+    // the league's PG list (tdc-fantasy-pg.js), not the position column, is what the PG limit counts
+    UNPG=window.TDCFantasyPG?TDCFantasyPG.mark(POOL):[];
     POOL=POOL.filter(p=>p.proj&&p.proj.mpg>=4);
     // last season's real line: what the room actually sees on draft night (a transfer's old stats, not our projection)
     try{ const ids=[...new Set(POOL.map(p=>p.espn_id).filter(x=>x!=null))], LY={};

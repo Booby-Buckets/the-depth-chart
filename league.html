@@ -21,6 +21,7 @@
   <script src="team-colors.js?v=13"></script>
   <script src="tdc-freshman.js?v=pub37"></script>
   <script src="tdc-fantasy-march.js?v=1"></script>
+  <script src="tdc-fantasy-pg.js?v=1"></script>
   <script src="conf-logos.js?v=4"></script>
   <script src="tdc-ratings.js?v=44"></script>
   <script src="tdc-schedule.js?v=sp4"></script>
@@ -217,6 +218,15 @@
   const rosterOf=uid=>active().filter(r=>r.user_id===uid);
   const owned=pid=>active().find(r=>r.player_id===pid);
   const counts=(r,d)=>(!r.start_date||d>=r.start_date)&&(!r.end_date||d<r.end_date);
+  // ── point guards: a team may roster at most MAXPG players from the league's PG list (tdc-fantasy-pg.js; not the
+  // position column). fl_leagues.max_pg sets it per league once scripts/fantasy_league_v3_pg.sql is run (null = no
+  // limit); until then it's the list's 3. The database trigger in that file enforces the same rule. ──
+  let MAXPG=window.TDCFantasyPG?TDCFantasyPG.MAX:null, PGCOL=false, UNPG=[];
+  const isPG=p=>!!(p&&p.lpg);
+  const pgOf=rows=>rows.filter(r=>isPG(PBY[r.player_id])).length;
+  // the message when giving uid these rows (after the change) breaks the limit, else ''
+  const pgOver=(uid,rows)=>MAXPG!=null&&pgOf(rows)>MAXPG?`${tname(uid)} would have ${pgOf(rows)} point guards from the league PG list (the limit is ${MAXPG}).`:'';
+  const pgTag=uid=>MAXPG!=null?` · PGs ${pgOf(rosterOf(uid))}/${MAXPG}`:'';
 
   async function loadMe(){
     const t=tok(); if(!t) return;
@@ -240,6 +250,7 @@
         if(cs&&cs.teams){ CNTG=cs; CNT={}; Object.entries(cs.teams).forEach(([t,l])=>{ CNT[t]=new Set(l.map(x=>x.date)); }); } }catch(e){}
       const CONF=Object.fromEntries(teams.map(t=>[t.name,t.conference]));
       POOL=await getAll(`players?team=in.(${encodeURIComponent(qList(teams.map(t=>t.name)))})&select=id,name,team,position,espn_id,yr,is_injured,tdc_grade,height,ppg,mpg&order=id.asc`,true);
+      if(window.TDCFantasyPG) UNPG=TDCFantasyPG.mark(POOL);
       if(window.TDCFresh) await TDCFresh.load().catch(()=>{});
       PROJ=(proj&&proj.players)||{};
       const SHARE={}; Object.entries((proj&&proj.teams)||{}).forEach(([t,l])=>l.forEach(x=>{ SHARE[t+'|'+x.name]=x.share; }));
@@ -321,6 +332,7 @@
     if(!lg[0]) throw new Error('not-member');
     L=lg[0]; MEM=mem; ROS=ros; TRADES=trades; setDates(dates.map(x=>x.d));
     CODE=null; if(me&&memOf(me.id)) CODE=await rpc('fl_invite_code',{p_league:L.id}).catch(()=>null);
+    try{ const r=await get(`fl_leagues?id=eq.${id}&select=max_pg`); PGCOL=true; MAXPG=r[0]?r[0].max_pg:MAXPG; }catch(e){ PGCOL=false; }
     try{ ACT=localStorage.getItem(actKey())||null; }catch(e){ ACT=null; }
     const ids=[...new Set(MEM.filter(m=>!m.placeholder).map(m=>m.user_id))];
     if(ids.length){ const ps=await get(`profiles?id=in.(${ids.join(',')})&select=id,username`).catch(()=>[]); const by=Object.fromEntries(ps.map(p=>[p.id,p.username])); MEM.forEach(m=>m.username=m.placeholder?'test team':(by[m.user_id]||'')); }
@@ -474,7 +486,7 @@
   function playerCell(p,r){
     if(!p) return `<td class="l nm">${esc(r?r.player_name:'?')}</td>`;
     const href=p.espn_id?`player.html?espn=${p.espn_id}`:`player.html?name=${encodeURIComponent(p.name)}`;
-    return `<td class="l nm"><a href="${href}">${esc(p.name)}</a>${p.is_injured?' <span class="pill r">Inj</span>':''}${p.proj&&p.proj.est?' <span class="pill" title="Freshman / no-stats estimate">Est</span>':''}<span class="sub">${lgImg(FULL[p.team]||p.team)}${esc(p.team)} · ${esc(p.position||'')}${p.yr?' · '+esc(p.yr):''}</span></td>`;
+    return `<td class="l nm"><a href="${href}">${esc(p.name)}</a>${isPG(p)?' <span class="pill g" title="On the league PG list: counts toward the PG limit">PG</span>':''}${p.is_injured?' <span class="pill r">Inj</span>':''}${p.proj&&p.proj.est?' <span class="pill" title="Freshman / no-stats estimate">Est</span>':''}<span class="sub">${lgImg(FULL[p.team]||p.team)}${esc(p.team)} · ${esc(p.position||'')}${p.yr?' · '+esc(p.yr):''}</span></td>`;
   }
   const projCells=p=>p&&p.proj?CATS.map(([k])=>`<td>${f1(p.proj[k])}</td>`).join(''):'<td class="dim">—</td><td class="dim">—</td><td class="dim">—</td>';
   const valCell=p=>L.draft_type==='snake'?`<td>${p&&p.rank?'#'+p.rank:'—'}</td>`:`<td><b>${p&&VALUE[p.id]?'$'+VALUE[p.id]:'—'}</b></td>`;
@@ -550,11 +562,13 @@
       list.onmousedown=e=>{ const o=e.target.closest('[data-i]'); if(o){ e.preventDefault(); pick(opts[+o.dataset.i]); } };
       inp.onblur=()=>setTimeout(()=>list.style.display='none',150);
       const info=()=>{ const u=$('dT').value, b=budgetOf(u), w=chosen&&windowGames(chosen);
-        $('dInfo').innerHTML=`<b>${esc(tname(u))}</b>: $${b.left} left · ${b.spots} spot${b.spots===1?'':'s'} open · max bid <b>$${b.max}</b>${chosen?` · <b>${esc(chosen.name)}</b> is worth about <b>$${VALUE[chosen.id]||1}</b>${chosen.proj?` (${f1(chosen.proj.pts)} pts, ${f1(chosen.proj.reb)} reb, ${f1(chosen.proj.ast)} ast projected · ${f1(w.r1+w.r2+w.f)} March games, ${pct(w.bid)} NCAA odds)`:' (no projection)'}`:''}`; };
+        const pgx=chosen&&isPG(chosen)?pgOver(u,rosterOf(u).concat([{player_id:chosen.id}])):'';
+        $('dInfo').innerHTML=`<b>${esc(tname(u))}</b>: $${b.left} left · ${b.spots} spot${b.spots===1?'':'s'} open · max bid <b>$${b.max}</b>${pgTag(u)}${pgx?` · <b class="dn">${esc(pgx)}</b>`:''}${chosen?` · <b>${esc(chosen.name)}</b> is worth about <b>$${VALUE[chosen.id]||1}</b>${chosen.proj?` (${f1(chosen.proj.pts)} pts, ${f1(chosen.proj.reb)} reb, ${f1(chosen.proj.ast)} ast projected · ${f1(w.r1+w.r2+w.f)} March games, ${pct(w.bid)} NCAA odds)`:' (no projection)'}`:''}`; };
       $('dT').onchange=info; info();
       window._flFill=p=>pick(p);
       const sell=async()=>{
         if(!chosen){ say('dMsg','Pick a player from the list first.','err'); return; }
+        const pgx=isPG(chosen)?pgOver($('dT').value,rosterOf($('dT').value).concat([{player_id:chosen.id}])):''; if(pgx){ say('dMsg',pgx,'err'); return; }
         const price=+$('dPrice').value; $('dGo').disabled=true;
         try{ await rpc('fl_draft',{p_league:L.id,p_user:$('dT').value,p_player:chosen.id,p_price:price});
           say('dMsg',`${chosen.name} to ${tname($('dT').value)} for $${price}.`,'ok'); chosen=null; inp.value=''; $('dPrice').value='';
@@ -571,7 +585,7 @@
     const ord=snake?draftOrder():MEM.map(m=>m.user_id);
     $('dBoard').innerHTML=ord.map(u=>{ const m=memOf(u), b=budgetOf(u), rs=rosterOf(u);
       return `<div class="bt${u===actId()?' me':''}"><div class="bt-h"><span>${teamLink(u)}</span><span>${snake?b.n+'/'+L.roster_size:'$'+b.left}</span></div>
-        <div class="bt-s">${esc(m.username||'')}${snake?'':` · ${b.n}/${L.roster_size} · max bid $${b.max}`}</div>
+        <div class="bt-s">${esc(m.username||'')}${snake?'':` · ${b.n}/${L.roster_size} · max bid $${b.max}`}${pgTag(u)}</div>
         <ol>${rs.map(r=>`<li><span>${esc(r.player_name)}</span><span class="p">${snake?'':'$'+r.price}</span>${C&&(!snake||(lastDraft&&r.id===lastDraft.id))?`<button data-undo="${r.id}" title="Undo">×</button>`:''}</li>`).join('')}
         ${b.spots>0?`<li class="open"><span>${b.spots} open</span></li>`:''}</ol></div>`; }).join('');
     $('dBoard').onclick=async e=>{ const x=e.target.closest('[data-undo]'); if(!x) return; if(!confirm(snake?'Undo the last pick?':'Undo this sale?')) return;
@@ -585,7 +599,7 @@
       rows.map(p=>{ const w=windowGames(p); return `<tr data-pid="${p.id}" style="${C?'cursor:pointer':''}">${playerCell(p)}${projCells(p)}<td>${f1(w.r1+w.r2+w.f)}</td>${valCell(p)}${pickable?`<td><button class="btn sm" data-pick="${p.id}">Draft</button></td>`:''}</tr>`; }).join('')}</tbody>`;
     $('avTbl').onclick=async e=>{
       const pk=e.target.closest('[data-pick]');
-      if(pk){ const p=PBY[+pk.dataset.pick]; const oc=onClock(); if(!confirm(`Draft ${p.name} for ${tname(oc.uid)}?`)) return;
+      if(pk){ const p=PBY[+pk.dataset.pick]; const oc=onClock(); const pgx=isPG(p)?pgOver(oc.uid,rosterOf(oc.uid).concat([{player_id:p.id}])):''; if(pgx){ alert(pgx+' Pick someone else.'); return; } if(!confirm(`Draft ${p.name} for ${tname(oc.uid)}?`)) return;
         pk.disabled=true; try{ await rpc('fl_snake_pick',{p_league:L.id,p_player:p.id}); await refreshRosters(); route(); }catch(err){ alert(err.message); pk.disabled=false; } return; }
       const tr=e.target.closest('[data-pid]'); if(!tr||e.target.closest('a')||!window._flFill||!C) return; window._flFill(PBY[+tr.dataset.pid]); window.scrollTo({top:0,behavior:'smooth'}); };
   }
@@ -691,9 +705,12 @@
       $('plPanel').innerHTML=`<div class="card"><h3>Add ${esc(addP.name)}${actId()!==(me&&me.id)?' to '+esc(tname(actId())):''}</h3>
         <div class="row"><label class="lab" style="margin:0">Drop</label><select class="fs" id="pkDrop">${full?'':'<option value="">Nobody (there’s an open spot)</option>'}${mine.map(r=>`<option value="${r.id}"${r.id===dropId?' selected':''}>${esc(r.player_name)}${(PBY[r.player_id]||{}).proj?` · ${f1(PBY[r.player_id].proj.pts)}/${f1(PBY[r.player_id].proj.reb)}/${f1(PBY[r.player_id].proj.ast)}`:''}</option>`).join('')}</select>
         <button class="btn" id="pkGo">Confirm pickup</button><button class="btn ghost" id="pkX">Cancel</button></div>
-        <div class="fl-note">Uses 1 of ${left} remaining pickups. ${esc(addP.name)} starts counting tomorrow; the player dropped still counts today.</div><div class="msg" id="pkMsg"></div></div>`;
+        <div class="fl-note">Uses 1 of ${left} remaining pickups. ${esc(addP.name)} starts counting tomorrow; the player dropped still counts today.${isPG(addP)&&MAXPG!=null?` He's on the league PG list: with him you can have at most ${MAXPG}, so drop a PG if you're at the limit.`:''}</div><div class="msg" id="pkMsg"></div></div>`;
+      const pgCheck=()=>{ const d=$('pkDrop').value, after=mine.filter(r=>String(r.id)!==d).concat([{player_id:addP.id}]); return isPG(addP)?pgOver(actId(),after):''; };
+      const pgSay=()=>{ const x=pgCheck(); say('pkMsg',x,x?'err':''); $('pkGo').disabled=!!x; };
+      $('pkDrop').onchange=pgSay; pgSay();
       $('pkX').onclick=()=>{ $('plPanel').innerHTML=''; };
-      $('pkGo').onclick=async()=>{ $('pkGo').disabled=true; const d=$('pkDrop').value;
+      $('pkGo').onclick=async()=>{ if(pgCheck()) return pgSay(); $('pkGo').disabled=true; const d=$('pkDrop').value;
         try{ await rpc('fl_pickup',{p_league:L.id,p_add:addP.id,p_drop:d?+d:null,p_as:asArg()}); await refreshRosters(); go({id:L.id,tab:'team'}); }
         catch(e){ say('pkMsg',e.message,'err'); $('pkGo').disabled=false; } };
       window.scrollTo({top:0,behavior:'smooth'});
@@ -732,16 +749,20 @@
       const r0=roto(base), r1=roto(tot);
       const po0=PO, po1=playoffOdds(u=>swap(u,rosterOf(u)));
       const line=u=>`${esc(tname(u))}: ${CATS.map(([k,l])=>{ const d=tot[u][k]-base[u][k]; return `${l} <b class="${d>0?'up':d<0?'dn':''}">${d>0?'+':''}${REG.size?f0(d):f1(d)}</b>`; }).join(' · ')} · roto <b class="${r1[u].total>r0[u].total?'up':r1[u].total<r0[u].total?'dn':''}">${r0[u].total} → ${r1[u].total}</b>${po0&&po1?` · title odds <b class="${po1.team[u].champ>po0.team[u].champ?'up':po1.team[u].champ<po0.team[u].champ?'dn':''}">${pct(po0.team[u].champ)} → ${pct(po1.team[u].champ)}</b>`:''}`;
-      $('trDelta').innerHTML=`<div>${line(ME)}</div><div>${line(to)}</div>`;
+      const pgx=[pgOver(ME,swap(ME,rosterOf(ME))),pgOver(to,swap(to,rosterOf(to)))].filter(Boolean);
+      $('trDelta').innerHTML=`<div>${line(ME)}</div><div>${line(to)}</div>${pgx.map(x=>`<div class="dn"><b>${esc(x)}</b></div>`).join('')}`;
     };
     const refill=()=>{ box(ME,'trGive'); box($('trTo').value,'trGet'); delta(); };
     if(others.length){ refill(); $('trTo').onchange=refill; $('view').addEventListener('change',e=>{ if(e.target.matches('#trGive input,#trGet input')) delta(); }); }
     else $('trGive').innerHTML='<div style="font-size:12.5px;color:var(--text3)">Nobody else has joined yet.</div>';
-    $('trGo').onclick=async()=>{ $('trGo').disabled=true;
+    const tradePG=(from,to,give,get_)=>{ const after=(u,out,inn)=>rosterOf(u).filter(r=>!out.includes(r.id)).concat(ROS.filter(r=>inn.includes(r.id)));
+      return pgOver(from,after(from,give,get_))||pgOver(to,after(to,get_,give)); };
+    $('trGo').onclick=async()=>{ const pgx=tradePG(ME,$('trTo').value,sel('trGive'),sel('trGet')); if(pgx){ say('trMsg',pgx,'err'); return; } $('trGo').disabled=true;
       try{ await rpc('fl_trade_propose',{p_league:L.id,p_to:$('trTo').value,p_give:sel('trGive'),p_get:sel('trGet'),p_note:$('trNote').value,p_as:asArg()});
         TRADES=await get(`fl_trades?league_id=eq.${L.id}&select=*&order=created_at.desc`); route(); }catch(e){ say('trMsg',e.message,'err'); $('trGo').disabled=false; } };
     $('view').onclick=async e=>{ const a=e.target.closest('[data-acc]'), d=e.target.closest('[data-dec]'), c=e.target.closest('[data-can]'); if(!a&&!d&&!c) return;
-      try{ if(a){ if(!confirm('Accept this trade? Rosters change right away.')) return; await rpc('fl_trade_respond',{p_trade:+a.dataset.acc,p_accept:true}); }
+      try{ if(a){ const t=TRADES.find(x=>x.id===+a.dataset.acc), pgx=t&&tradePG(t.from_user,t.to_user,t.give,t.get); if(pgx){ alert(pgx+' Decline it or make room first.'); return; }
+          if(!confirm('Accept this trade? Rosters change right away.')) return; await rpc('fl_trade_respond',{p_trade:+a.dataset.acc,p_accept:true}); }
         else if(d) await rpc('fl_trade_respond',{p_trade:+d.dataset.dec,p_accept:false});
         else { if(!confirm('Cancel this offer?')) return; await rpc('fl_trade_cancel',{p_trade:+c.dataset.can}); }
       }catch(err){ alert(err.message); }
@@ -870,8 +891,10 @@
             <label class="chk" style="border:none;padding:0 0 10px"><input type="checkbox" id="r_pub"${L.is_public?' checked':''}/> Public: anyone can view the league (not join)</label>
             <div class="lab">Playoff windows</div>
             ${[['r1','Round 1 · conf. tournaments'],['r2','Round 2 · NCAA first weekend'],['f','Final · rest of the NCAA']].map(([k,l])=>`<div style="font-size:12px;margin:6px 0 3px;color:var(--text2)">${l}</div><div class="row"><input class="fi" type="date" id="r_${k}_start" value="${L[k+'_start']}" style="flex:1;min-width:0"/><input class="fi" type="date" id="r_${k}_end" value="${L[k+'_end']}" style="flex:1;min-width:0"/></div>`).join('')}
+            ${PGCOL?`<div style="margin-top:6px"><label class="lab">Max point guards (league PG list; blank = no limit)</label><input class="fi" type="number" min="0" max="20" id="r_max_pg" value="${MAXPG==null?'':MAXPG}" style="width:100%"/></div>`
+              :`<div class="fl-note" style="margin-top:6px">Point guards: max ${MAXPG} from the league PG list. Run <b>scripts/fantasy_league_v3_pg.sql</b> to make it changeable here and enforced by the database.</div>`}
             <div class="msg" id="rMsg"></div><button class="btn" id="rSave" style="margin-top:10px">Save rules</button>`
-          :`<div class="chk">Draft<span class="r">${L.draft_type==='snake'?'Snake':'$'+L.budget+' auction'}</span></div><div class="chk">Roster<span class="r">${L.roster_size} players</span></div><div class="chk">Pickups<span class="r">${L.max_pickups} per team</span></div><div class="chk">Scoring<span class="r">Roto: PTS · REB · AST</span></div><div class="chk">Playoffs<span class="r">Top 6 · ${md(L.r1_start)} – ${md(L.f_end)}</span></div>`}
+          :`<div class="chk">Draft<span class="r">${L.draft_type==='snake'?'Snake':'$'+L.budget+' auction'}</span></div><div class="chk">Roster<span class="r">${L.roster_size} players</span></div><div class="chk">Pickups<span class="r">${L.max_pickups} per team</span></div><div class="chk">Point guards<span class="r">${MAXPG!=null?`Max ${MAXPG} from the league PG list`:'No limit'}</span></div><div class="chk">Scoring<span class="r">Roto: PTS · REB · AST</span></div><div class="chk">Playoffs<span class="r">Top 6 · ${md(L.r1_start)} – ${md(L.f_end)}</span></div>`}
         </div>
       </div></div>`;
     if($('cntSel')) $('cntSel').onchange=e=>{ window._cntTeam=e.target.value; $('cntBody').innerHTML=cntList(e.target.value); };
@@ -895,7 +918,9 @@
       const body={name:$('r_name').value.trim(),budget:+$('r_budget').value,roster_size:+$('r_roster_size').value,max_pickups:+$('r_max_pickups').value,max_teams:+$('r_max_teams').value,is_public:$('r_pub').checked};
       if(!$('r_type').disabled) body.draft_type=$('r_type').value;
       ['r1','r2','f'].forEach(k=>{ body[k+'_start']=$(`r_${k}_start`).value; body[k+'_end']=$(`r_${k}_end`).value; });
-      try{ [L]=await patch(`fl_leagues?id=eq.${L.id}&select=${LCOLS}`,body); setDates([...DATES]); computeValues(); PO=null; route(); }catch(err){ say('rMsg',err.message,'err'); } };
+      try{ [L]=await patch(`fl_leagues?id=eq.${L.id}&select=${LCOLS}`,body);
+        if(PGCOL&&$('r_max_pg')){ const v=$('r_max_pg').value.trim(), mp=v===''?null:Math.max(0,Math.round(+v)); await patch(`fl_leagues?id=eq.${L.id}&select=max_pg`,{max_pg:mp}); MAXPG=mp; }
+        setDates([...DATES]); computeValues(); PO=null; route(); }catch(err){ say('rMsg',err.message,'err'); } };
   }
 
   // rosters changed → recompute the playoff odds the next time they're shown
