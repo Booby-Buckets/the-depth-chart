@@ -182,6 +182,7 @@
   const LAST=[['Mark',3517,937,996,1],['Derrick',3803,1271,565,1],['Mike',3490,1297,917,1],['Jody',3624,1374,713,1],['Anthony',3356,1405,663,1],['Bryce',4091,1363,723,1],
     ['Darren',3940,1360,715,2],['Ken',3433,1413,648,2],['Aidan',4371,1370,841,2],['Jacob',3623,1255,614,2],['Glenn',3091,1128,615,2],['Carter/Alex/Ewing',3825,1276,756,2]];
   // the league's 2025-26 auction, price by sale rank (owner's sheet, Oct 24 2026); past #120 everyone went for $1
+  const LAST_SEASON=2026;   // the season the room has seen in full by draft night
   const CURVE=[[1,55],[3,50],[6,43],[12,35],[24,30],[36,26],[48,20],[72,15],[96,10],[120,2]];
   const $=id=>document.getElementById(id);
   const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -248,6 +249,12 @@
         p.proj={pts:(F.ppg||0)*k,reb:(F.rpg||0)*k,ast:(F.apg||0)*k,mpg:F.mpg*k,est:true}; } }catch(e){} }
     });
     POOL=POOL.filter(p=>p.proj&&p.proj.mpg>=4);
+    // last season's real line: what the room actually sees on draft night (a transfer's old stats, not our projection)
+    try{ const ids=[...new Set(POOL.map(p=>p.espn_id).filter(x=>x!=null))], LY={};
+      for(let i=0;i<ids.length;i+=200){ (await get(`player_history?season_year=eq.${LAST_SEASON}&espn_id=in.(${ids.slice(i,i+200).join(',')})&select=espn_id,team,ppg,rpg,apg,mpg,gp&order=id.asc`))
+        .forEach(r=>{ const o=LY[r.espn_id]; if(!o||(r.gp||0)>(o.gp||0)) LY[r.espn_id]=r; }); }
+      POOL.forEach(p=>{ const r=LY[p.espn_id]; if(r&&(r.gp||0)>=10&&(r.mpg||0)>=10) p.last={pts:+r.ppg||0,reb:+r.rpg||0,ast:+r.apg||0,team:r.team}; });
+    }catch(e){ console.warn('last season',e); }
     try{
       const PS=window.TDCPost?await TDCPost.run({sims:2000}):null;
       if(PS){ MARCH={}; PS.teams.forEach(t=>{ MARCH[t.team]={g:t.confGames+t.fwGames+t.restGames,bid:t.ncaa}; }); }
@@ -270,9 +277,12 @@
     const above=ranked.slice(0,N).reduce((s,p)=>s+Math.max(0,p.z-repl),0)||1;
     ranked.forEach((p,i)=>{ p.rank=i+1; p.val=i<N?Math.max(1,Math.round(1+(p.z-repl)/above*(cap-N))):1; });
     // the market: what the room pays. Last year it priced the per-game box line (pts+reb+ast), not games or March,
-    // so a player's expected price is the curve at his rank by that line, scaled to this league's money
+    // so a player's expected price is the curve at his rank by that line, scaled to this league's money. The line the
+    // room ranks on is half last season's real line (what everyone has seen) and half our projection: a Kent State
+    // 17.7/11.3 transfer doesn't go for $1 just because we project him as a Houston role player.
+    const mline=p=>p.last?(raw(p)+p.last.pts+p.last.reb+p.last.ast)/2:raw(p);
     const scale=cap/(12*200);
-    POOL.slice().sort((a,b)=>raw(b)-raw(a)).forEach((p,i)=>{ p.mrank=i+1; p.mkt0=p.mkt=Math.max(1,Math.round(curve(i+1)*scale)); });
+    POOL.slice().sort((a,b)=>mline(b)-mline(a)).forEach((p,i)=>{ p.mrank=i+1; p.mkt0=p.mkt=Math.max(1,Math.round(curve(i+1)*scale)); });
     // once the auction starts, the players still out there split what's actually left: value = his share of the
     // room's remaining money over the remaining spots, and expected price = his curve price scaled so the top
     // remaining players' prices add up to the money left. Early overspending makes everyone after cheaper.
@@ -464,7 +474,7 @@
       ${Q.length?`<ol class="qlist">${Q.map((p,i)=>`<li class="qrow${mine(p)?' lock':taken(p)||ST.avoid[p.id]?' avoid':''}">
         <span class="qn">${i+1}</span>
         <span class="qp"><a href="${p.espn_id?`player.html?espn=${p.espn_id}`:`player.html?name=${encodeURIComponent(p.name)}`}">${esc(p.name)}</a>${p.is_injured?' <span class="pill r">Inj</span>':''}${p.proj.est?' <span class="pill" title="Freshman / no-stats estimate">Est</span>':''}
-          <small>${lgImg(FULL[p.team]||p.team)}${esc(p.team)} · ${esc(p.position||'')} · ${f1(p.proj.pts)} pts · ${f1(p.proj.reb)} reb · ${f1(p.proj.ast)} ast</small></span>
+          <small>${lgImg(FULL[p.team]||p.team)}${esc(p.team)} · ${esc(p.position||'')} · proj. ${f1(p.proj.pts)} / ${f1(p.proj.reb)} / ${f1(p.proj.ast)}${p.last?` · last year ${f1(p.last.pts)} / ${f1(p.last.reb)} / ${f1(p.last.ast)}${p.last.team!==p.team?' at '+esc(p.last.team):''}`:''}</small></span>
         <span class="qv"><span title="${SOLD[p.id]?'What he sold for':'What the room will likely pay for him, from last year\'s auction prices. You haven\'t paid anything yet.'}">${mine(p)?'You paid':SOLD[p.id]?'Sold for':'Likely cost'} <b>$${price(p)}</b></span><span title="His value to you: projected stats over the counting games plus March">Worth <b>$${p.val}</b></span></span>
         <span class="qs">${qStatus(p)}${inPlan.has(p.id)?' <span class="pill a" title="The suggested team below uses him. He is not drafted.">Suggested</span>':''}</span>
         <span class="qb"><button class="qbtn" data-top="${p.id}" type="button"${i===0?' disabled':''} aria-label="Move ${esc(p.name)} to the top">Top</button><button class="qbtn" data-up="${p.id}" type="button"${i===0?' disabled':''} aria-label="Move ${esc(p.name)} up">↑</button><button class="qbtn" data-dn="${p.id}" type="button"${i===Q.length-1?' disabled':''} aria-label="Move ${esc(p.name)} down">↓</button><button class="qbtn x" data-qrm="${p.id}" type="button" aria-label="Remove ${esc(p.name)} from your queue">Remove</button></span></li>`).join('')}</ol>`
@@ -475,7 +485,7 @@
     if(P.length){
       h+=`<section class="fb-sec"><div class="sec-h"><h2>Suggested team ${PLAN.fromQ?'from your queue':'for your budget'}</h2><span class="seg">${[['queue','From my queue'],['all','Whole pool']].map(([v,l])=>`<button type="button" data-src="${v}" class="${ST.src===v?'on':''}">${l}</button>`).join('')}</span></div>
         <p class="fb-note" style="margin:-4px 0 10px">${MY.players.length?`Your ${MY.players.length} drafted player${MY.players.length>1?'s':''} (marked Yours) plus the best buys for your remaining $${MY.left}.`:'Nothing is drafted yet. This is the best team you could buy for $'+ST.budget+' at expected prices.'} If you bought it: <b>${ord(me.place)} of 13</b> against last year's league (${me.roto} roto points; you won Div 2 with ${lastMe.roto}) · ${CATS.map(([k,l])=>`${f0(tot[k])} ${l} (${ord(14-Math.round(me['r'+k]))})`).join(' · ')} · $${spent} spent · ${f1(mar)} March games.</p>
-        <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th><th>PTS</th><th>REB</th><th>AST</th><th>Season PTS</th><th>Season REB</th><th>Season AST</th><th>March</th><th>Value</th><th data-fit-keep>Price</th><th data-fit-keep>Edge</th><th class="act"></th></tr></thead><tbody>
+        <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l" data-fit-keep>Player</th><th>PTS</th><th>REB</th><th>AST</th><th>Season PTS</th><th>Season REB</th><th>Season AST</th><th>March</th><th>Value</th><th data-fit-keep>Price</th><th data-fit-keep>Edge</th><th class="act"></th></tr></thead><tbody>
         ${P.map(p=>`<tr class="${mine(p)?'lock':''}">${playerCellA(p,tag(p))}<td>${f1(p.proj.pts)}</td><td>${f1(p.proj.reb)}</td><td>${f1(p.proj.ast)}</td><td>${f0(season(p,'pts'))}</td><td>${f0(season(p,'reb'))}</td><td>${f0(season(p,'ast'))}</td><td>${f1(p.mar)}</td><td><b>$${p.val}</b></td>${priceCell(p)}${edgeCell(p)}${acts(p)}</tr>`).join('')}
         </tbody><tfoot><tr><td class="l">Total</td>${CATS.map(([k])=>`<td>${f1(P.reduce((s,p)=>s+p.proj[k],0))}</td>`).join('')}${CATS.map(([k])=>`<td>${f0(tot[k])}</td>`).join('')}<td>${f1(mar)}</td><td>$${worth}</td><td>$${spent}</td><td>${worth-spent>0?'+':''}${worth-spent}</td><td></td></tr></tfoot></table></div>
         ${PLAN.fromQ&&P.some(p=>!inQ(p)&&!mine(p))?`<p class="fb-note">Your queue can't fill all ${ST.roster} spots within $${ST.budget} and ${ST.maxpg} PGs, so <b>Fill</b> players are the best buys outside it.</p>`:''}</section>`;
@@ -495,15 +505,15 @@
         <div class="guide"><div class="need"><span>Team need</span><b>${nl}</b><small>${ord(14-Math.round(me['r'+nk]))} of 13 vs last year · ${gap(nk)>0?f0(gap(nk))+' behind last year\'s best':'ahead of last year\'s best'}. Each extra ${({pts:'point',reb:'rebound',ast:'assist'})[nk]} a game adds 22 over the season.</small></div>
         ${CATS.filter(([k])=>k!==nk).map(([k,l])=>`<div class="need ok"><span>${l}</span><b>${ord(14-Math.round(me['r'+k]))}</b><small>of 13 · ${f0(tot[k])} on the season</small></div>`).join('')}</div>
         ${(()=>{ const nom=POOL.filter(p=>!SOLD[p.id]&&!inPlan.has(p.id)&&!inQ(p)&&price(p)>=8).map(p=>({p,d:price(p)-p.val})).filter(x=>x.d>0).sort((a,b)=>b.d-a.d||price(b.p)-price(a.p)).slice(0,6);
-          return nom.length?`<h3 class="gh">Nominate next</h3><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th><th>Room pays</th><th>Worth to you</th><th data-fit-keep>They overpay</th><th class="l">Likely buyer</th><th class="act"></th></tr></thead><tbody>
+          return nom.length?`<h3 class="gh">Nominate next</h3><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l" data-fit-keep>Player</th><th>Room pays</th><th>Worth to you</th><th data-fit-keep>They overpay</th><th class="l">Likely buyer</th><th class="act"></th></tr></thead><tbody>
           ${nom.map(({p,d})=>{ const b=bidders(p).L[0]; return `<tr>${playerCellA(p)}<td>$${price(p)}</td><td>$${p.val}</td><td class="edge neg">$${d}</td><td class="l">${b?esc(b.name)+(b.fits?' <span class="dim">· fits their need</span>':''):'—'}</td>${acts(p)}</tr>`; }).join('')}
           </tbody></table></div><p class="fb-note">Players you don't want that the room will pay more for than they're worth. Nominating them drains your rivals' money before your targets come up. Hold your own targets until the big budgets are spent.</p>`:''; })()}
         <h3 class="gh">Buy order</h3>
-        <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th><th class="l">Target</th><th>Expect to pay</th><th data-fit-keep>Bid up to</th><th class="l" data-fit-keep>If you lose him</th><th>Their price</th></tr></thead><tbody>
+        <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th><th class="l" data-fit-keep>Target</th><th>Expect to pay</th><th data-fit-keep>Bid up to</th><th class="l" data-fit-keep>If you lose him</th><th>Their price</th></tr></thead><tbody>
         ${buy.map((p,i)=>{ const o=backup(p); return `<tr><td class="l">${i+1}</td>${playerCell(p,tag(p))}<td>$${price(p)}</td><td><b>$${Math.max(price(p),p.val)}</b></td>${o?playerCell(o,inQ(o)?' <span class="pill a">Queued</span>':''):'<td class="l dim">—</td>'}<td>${o?'$'+price(o):''}</td></tr>`; }).join('')}
         </tbody></table></div>
         <h3 class="gh">Best buys for ${nl.toLowerCase()}</h3>
-        <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th><th>${nl}/g</th><th>Season ${nl}</th><th data-fit-keep>Price</th><th data-fit-keep>${nl} per $</th><th>Value</th><th class="act"></th></tr></thead><tbody>
+        <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l" data-fit-keep>Player</th><th>${nl}/g</th><th>Season ${nl}</th><th data-fit-keep>Price</th><th data-fit-keep>${nl} per $</th><th>Value</th><th class="act"></th></tr></thead><tbody>
         ${tgt.map(p=>`<tr>${playerCellA(p)}<td>${f1(p.proj[nk])}</td><td>${f0(season(p,nk))}</td><td>$${price(p)}</td><td>${f1(season(p,nk)/Math.max(1,price(p)))}</td><td>$${p.val}</td>${acts(p)}</tr>`).join('')}
         </tbody></table></div>
         <p class="fb-note"><b>Buy order</b> goes most expensive first: lock up the big pieces while you still have the money, then the $1 bargains at the end. <b>Bid up to</b> is his value to you — past it you're overpaying. Enter every sale on the auction board as it happens, and the team, prices and this guide rebuild around what's left.</p></section>`;
@@ -529,14 +539,40 @@
       <div class="filt"><input class="fi" id="bQ" placeholder="Search player or team" value="${esc(UI.q)}" style="width:220px">
       <span class="seg" role="group" aria-label="Position type">${Object.entries(PT).map(([v,[l]])=>`<button type="button" data-pos="${v}" class="${(PT[UI.pos]?UI.pos:'all')===v?'on':''}" aria-pressed="${(PT[UI.pos]?UI.pos:'all')===v}" title="${{all:'Every position',PG:'Point guards only (you can roster '+ST.maxpg+')',g:'PG, SG and combo guards',w:'Small forwards',big:'Power forwards and centers'}[v]}">${l}</button>`).join('')}</span>
       <label class="chk2">Sort <select class="fs" id="bSort">${[['need',`Fills your need (${nl0})`],['edge','Best buy for the price'],['val','Worth to you'],['mkt','Likely cost'],['pts','PTS'],['reb','REB'],['ast','AST'],['mar','March games']].map(([v,l])=>`<option value="${v}"${UI.sort===v?' selected':''}>${l}</option>`).join('')}</select></label><label class="chk2"><input type="checkbox" id="bSold"${UI.sold?' checked':''}> Show sold players</label></div>
-      <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th><th class="l">Player</th>${th('pts','PTS')}${th('reb','REB')}${th('ast','AST')}${th('mar','March')}${th('val','Value')}${th('mkt','Likely cost')}${th('edge','Edge')}<th class="act"></th></tr></thead><tbody>
+      <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th><th class="l" data-fit-keep>Player</th>${th('pts','PTS')}${th('reb','REB')}${th('ast','AST')}${th('mar','March')}${th('val','Value')}${th('mkt','Likely cost')}${th('edge','Edge')}<th class="act"></th></tr></thead><tbody>
       ${B.slice(0,UI.n).map((p,i)=>`<tr class="${mine(p)?'lock':taken(p)||ST.avoid[p.id]?'avoid':''}"><td class="l">${i+1}</td>${playerCellA(p,tag(p)+(inPlan.has(p.id)?' <span class="pill a" title="The suggested team uses him. He is not drafted.">Suggested</span>':''))}<td>${f1(p.proj.pts)}</td><td>${f1(p.proj.reb)}</td><td>${f1(p.proj.ast)}</td><td>${f1(p.mar)}</td><td><b>$${p.val}</b></td>${priceCell(p)}${edgeCell(p)}${acts(p)}</tr>`).join('')}
       </tbody></table></div>${B.length>UI.n?`<div style="text-align:center;margin-top:10px"><button class="btn ghost" id="bMore" type="button">Show ${Math.min(60,B.length-UI.n)} more</button></div>`:''}</section>`;
     h+=`<p class="fb-note"><b>Value</b> is what a player is worth in this league: his projected points, rebounds and assists over his team's ${CNT?'22 counting games':'regular season'}, plus the same over the March games his team is expected to play (conference tournament and NCAA, from 2,000 simulated seasons), each scored against the players a full league rosters. Dollars split the league's money over everyone above the replacement level.
-      <b>Price</b> is what your room is expected to pay: last year's auction priced players by their per-game line (No. 1 about $55, No. 12 $35, No. 48 $20, No. 120 $2, then $1), so each player gets the price for his rank on that line. Type over it when you know better. Once the auction starts, values and prices are re-split over the money and roster spots actually left in the room. Your queue, sales and prices are saved in this browser.</p>`;
-    const y=scrollY; $('out').innerHTML=h; scrollTo(0,y);
+      <b>Likely cost</b> is what your room is expected to pay: last year's auction priced players by their per-game line (No. 1 about $55, No. 12 $35, No. 48 $20, No. 120 $2, then $1), so each player gets the price for his rank on that line. The line used is half his real ${LAST_SEASON-1}-${String(LAST_SEASON).slice(2)} numbers (what the room has seen) and half our projection. Type over it when you know better. Once the auction starts, values and prices are re-split over the money and roster spots actually left in the room. Your queue, sales and prices are saved in this browser.</p>`;
+    // keep what you tapped where it was on screen: sections above it (the queue, the suggested team) change height
+    // on every add/remove, so holding scrollY alone slides the row you were on out from under your thumb
+    // and the tables scroll inside their own boxes on phones: a redraw reset those to the first row every time
+    const wk=w=>{ const sec=w.closest('.fb-sec'); return (sec&&(sec.id||[...$('out').querySelectorAll('.fb-sec')].indexOf(sec)))+'|'+(sec?[...sec.querySelectorAll('.sheet-wrap')].indexOf(w):0); };
+    const WS={}; $('out').querySelectorAll('.sheet-wrap').forEach(w=>{ if(w.scrollTop||w.scrollLeft) WS[wk(w)]=[w.scrollTop,w.scrollLeft]; });
+    const y=scrollY, A=UI.anchor; UI.anchor=null; $('out').innerHTML=h;
+    $('out').querySelectorAll('.sheet-wrap').forEach(w=>{ const v=WS[wk(w)]; if(v){ w.scrollTop=v[0]; w.scrollLeft=v[1]; } });
+    scrollTo(0,y);
+    if(A){ const sec=A.sec?$(A.sec):$('out').querySelectorAll('.fb-sec')[A.idx]; const find=()=>sec&&[...sec.querySelectorAll(A.sel)].find(x=>x.getBoundingClientRect().height>0);
+      // a row inside a scrolling table box: hold the box in place on the page, then the row in place in the box
+      const pin=()=>{ const el=find(); if(!el) return; const w=el.closest('.sheet-wrap');
+        if(w&&A.wtop!=null&&w.scrollHeight>w.clientHeight+2){ scrollBy(0,w.getBoundingClientRect().top-A.wtop); w.scrollTop+=(el.getBoundingClientRect().top-w.getBoundingClientRect().top)-(A.top-A.wtop); }
+        else scrollBy(0,el.getBoundingClientRect().top-A.top); };
+      // the phone table-fitter re-lays the tables out after a redraw (~60ms, then a settle pass at 1.5s), which
+      // changes their heights: re-pin a few times over 1.7s, and stop the moment you scroll or touch yourself
+      pin(); const T=[80,160,300,600,1000,1700].map(ms=>setTimeout(pin,ms)), ev=['wheel','touchstart','keydown','mousedown'],
+        stop=()=>{ T.forEach(clearTimeout); ev.forEach(e=>removeEventListener(e,stop,true)); };
+      ev.forEach(e=>addEventListener(e,stop,{passive:true,capture:true})); setTimeout(stop,1800); }
     wire();
   }
+
+  // remember the tapped control (by its section and data attribute) so render() can put it back at the same height
+  $('out').addEventListener('click',e=>{ const b=e.target.closest('button,input,select'); if(!b) return;
+    const k=[...b.attributes].find(a=>/^data-/.test(a.name)); const sec=b.closest('.fb-sec'); if(!k||!sec) return;
+    UI.anchor={sec:sec.id||null, idx:[...$('out').querySelectorAll('.fb-sec')].indexOf(sec), sel:`[${k.name}="${CSS.escape(k.value)}"]`, top:b.getBoundingClientRect().top};
+    const w=b.closest('.sheet-wrap'); if(w&&w.scrollHeight>w.clientHeight+2) UI.anchor.wtop=w.getBoundingClientRect().top;
+    // the row itself is the better anchor when the button is inside one (its own buttons swap)
+    const row=b.closest('tr,li'), pid=k.value; if(row&&BYID[pid]) UI.anchor.sel=`[${k.name}="${CSS.escape(pid)}"], [data-q="${CSS.escape(pid)}"], [data-unsell="${CSS.escape(pid)}"]`;
+  },true);
 
   function wire(){
     const out=$('out');
