@@ -182,6 +182,9 @@
   const LAST=[['Mark',3517,937,996,1],['Derrick',3803,1271,565,1],['Mike',3490,1297,917,1],['Jody',3624,1374,713,1],['Anthony',3356,1405,663,1],['Bryce',4091,1363,723,1],
     ['Darren',3940,1360,715,2],['Ken',3433,1413,648,2],['Aidan',4371,1370,841,2],['Jacob',3623,1255,614,2],['Glenn',3091,1128,615,2],['Carter/Alex/Ewing',3825,1276,756,2]];
   // the league's 2025-26 auction, price by sale rank (owner's sheet, Oct 24 2026); past #120 everyone went for $1
+  // the league's point guards for 2026-27 (owner's list, Nov 1 2026): one per school, and a team may roster at most
+  // Max PGs of them. This list, not the roster's position column, is what the PG limit counts.
+  const LEAGUE_PG=`Duke|Cayden Boozer;Virginia|Chance Mallory;Louisville|Jackson Shelstad;Clemson|Dillon Hunter;Miami|Acaden Lewis;SMU|Rowan Brumbaugh;NC State|Preston Edmead;North Carolina|Neoklis Avdalas;Virginia Tech|Ben Hammond;Stanford|Christian Bliss;Notre Dame|Braeden Smith;Wake Forest|Kevair Kennedy;Pittsburgh|Naithan George;Florida State|Anthony Robinson II;Syracuse|Garway Dual;Boston College|Armoni Zeigler;Georgia Tech|Colby Garland;Michigan State|Jeremy Fears Jr.;Michigan|Elliot Cadeau;Illinois|Stefan Vaaks;Nebraska|Trevan Leonhardt;Indiana|Markus Burton;Purdue|Omer Mayer;Ohio State|John Mobley Jr.;Wisconsin|Owen Foxwell;UCLA|Jaylen Petty;Oregon|Fred Payne;USC|Rodney Rice;Iowa|Keal Combs;Northwestern|Jake West;Maryland|DJ Wagner;Minnesota|Kyan Evans;Rutgers|Jamichael Davis;Washington|Ryan Beasley;Penn State|Dasonte Bowen;UConn|Silas Demary Jr.;Marquette|Nigel James Jr.;St. John's|Quinn Ellis;Xavier|Chance Westrey;Creighton|Austin Swartz;Providence|Malik Mack;Butler|Jalen Jackson;Seton Hall|Simeon Wilcher;Villanova|Elijah Crawford;DePaul|Layden Blocker;Georgetown|Jaland Lowe;Florida|Boogie Fland;Arkansas|Jordan Smith Jr.;Alabama|Aden Holloway;Kentucky|Zoom Diallo;Tennessee|Dai Dai Ames;Vanderbilt|Tyler Tanner;Texas|Isaiah Johnson;Auburn|George Kimble III;Oklahoma|Xzayvier Brown;LSU|Donovan Dent;Georgia|Smurf Millender;Ole Miss|Budd Clark;Texas A&M|Jordan Pope;Missouri|Jason Crowe Jr.;Mississippi State|Josh Hubbard;South Carolina|Kory Mincey;Houston|Dedan Thomas Jr.;Arizona|Derek Dixon;Iowa State|Tamin Lipsey;Texas Tech|Cruz Davis;Kansas|Melvin Council Jr.;BYU|Robert Wright Jr.;Cincinnati|Tylen Riley;UCF|Arturo Dean;TCU|Brock Harding;Baylor|Kaden Mingo;Arizona State|Joel Foxwell;Oklahoma State|Kanye Clary;West Virginia|Miles Sadler;Colorado|Barrington Hargress;Utah|Noam Yaacov;Kansas State|Brandon Rechsteiner`.split(';').map(x=>x.split('|'));
   const LAST_SEASON=2026;   // the season the room has seen in full by draft night
   const CURVE=[[1,55],[3,50],[6,43],[12,35],[24,30],[36,26],[48,20],[72,15],[96,10],[120,2]];
   const $=id=>document.getElementById(id);
@@ -221,6 +224,7 @@
   }
   const save=()=>{ try{ localStorage.setItem(SK,JSON.stringify(ST)); }catch(e){} };
 
+  let UNPG=[];   // league PGs not found in the pool (shown under the board)
   let POOL=[], BYID={}, FULL={}, CNT=null, MARCH=null, PLAN=null, ROOM=null, PROJ_T=null;
   const UI={q:'',pos:'all',sort:'edge',n:60,sold:false,team:null,open:{}};
   const PHONE=()=>matchMedia('(max-width:820px)').matches;
@@ -247,6 +251,24 @@
       if(!p.proj&&window.TDCFresh){ try{ const F=TDCFresh.line(p,TDCFresh.profileFor(p)); if(F&&F.mpg>0){
         const sh=SHARE[p.team+'|'+p.name], imp=(F.fga||0)/58*100, k=sh!=null&&imp>0?Math.min(1,sh/imp):1;
         p.proj={pts:(F.ppg||0)*k,reb:(F.rpg||0)*k,ast:(F.apg||0)*k,mpg:F.mpg*k,est:true}; } }catch(e){} }
+    });
+    // mark the league PGs: matched by name (suffixes, quotes and nicknames dropped), the school only breaking ties
+    const nn=x=>String(x||'').toLowerCase().replace(/["'’.]/g,'').replace(/\b(jr|sr|ii|iii|iv|ll|lll)\b/g,'').replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();
+    const tn=x=>nn(x).replace(/\bst\b/g,'state').replace(/\s/g,'');
+    UNPG=[];
+    // a pool name's forms: as stored, without its quoted nickname, and nickname + surname (Adam "Budd" Clark → Budd Clark)
+    const forms=p=>{ const m=String(p.name).match(/^(.*?)["“]([^"”]+)["”](.*)$/), f=[nn(p.name)];
+      if(m){ f.push(nn(m[1]+' '+m[3])); f.push(nn(m[2]+' '+m[3])); } return f; };
+    const sameTeam=(p,team)=>{ const a=tn(p.team), b=tn(team); return a===b||a.includes(b)||b.includes(a); };
+    const near=(a,b)=>{ if(Math.abs(a.length-b.length)>1) return false; let i=0,j=0,d=0; while(i<a.length&&j<b.length){ if(a[i]===b[j]){ i++; j++; continue; } if(++d>1) return false; if(a.length>b.length) i++; else if(b.length>a.length) j++; else { i++; j++; } } return d+(a.length-i)+(b.length-j)<=1; };
+    LEAGUE_PG.forEach(([team,name])=>{
+      const n=nn(name), last=n.split(' ').pop();
+      const pick=POOL.find(p=>sameTeam(p,team)&&forms(p).includes(n))                        // exact, at his school
+        ||POOL.find(p=>forms(p).includes(n))                                                // exact, anywhere (transfer)
+        ||POOL.find(p=>sameTeam(p,team)&&forms(p).some(f=>f.split(' ').pop()===last&&f.split(' ')[0]===n.split(' ')[0]))
+        ||POOL.find(p=>sameTeam(p,team)&&forms(p).some(f=>near(f.split(' ').pop(),last)&&f.split(' ')[0]===n.split(' ')[0]))  // Mincey / Mincy
+        ||(c=>c.length===1?c[0]:c.find(p=>p.name[0].toLowerCase()===n[0]))(POOL.filter(p=>sameTeam(p,team)&&forms(p).some(f=>f.split(' ').pop()===last)));  // Garway / Garwey Dual
+      if(pick) pick.lpg=true; else UNPG.push(team+' – '+name);
     });
     POOL=POOL.filter(p=>p.proj&&p.proj.mpg>=4);
     // last season's real line: what the room actually sees on draft night (a transfer's old stats, not our projection)
@@ -308,7 +330,7 @@
     return CURVE[0][1];
   }
   const price=p=>SOLD[p.id]?SOLD[p.id].p:ST.price[p.id]!=null?+ST.price[p.id]:p.mkt;
-  const isPG=p=>p.position==='PG';
+  const isPG=p=>!!p.lpg;   // the league's PG list, not the position column
   const inQ=p=>ST.queue.indexOf(String(p.id))>=0;
   const season=(p,k)=>p.proj[k]*p.reg;
 
@@ -373,7 +395,7 @@
 
   function playerCell(p,tag){
     const href=p.espn_id?`player.html?espn=${p.espn_id}`:`player.html?name=${encodeURIComponent(p.name)}`;
-    return `<td class="l nm"><a href="${href}">${esc(p.name)}</a>${p.is_injured?' <span class="pill r">Inj</span>':''}${p.proj.est?' <span class="pill" title="Freshman / no-stats estimate">Est</span>':''}${tag||''}<span class="sub">${lgImg(FULL[p.team]||p.team)}${esc(p.team)} · ${esc(p.position||'')}${p.yr?' · '+esc(p.yr):''}</span></td>`;
+    return `<td class="l nm"><a href="${href}">${esc(p.name)}</a>${p.lpg?' <span class="pill a" title="On the league\'s PG list: counts toward the PG limit">PG</span>':''}${p.is_injured?' <span class="pill r">Inj</span>':''}${p.proj.est?' <span class="pill" title="Freshman / no-stats estimate">Est</span>':''}${tag||''}<span class="sub">${lgImg(FULL[p.team]||p.team)}${esc(p.team)} · ${esc(p.position||'')}${p.yr?' · '+esc(p.yr):''}</span></td>`;
   }
   const edge=p=>p.val-price(p);
   const edgeCell=p=>{ const e=edge(p); return `<td class="edge ${e>0?'pos':e<0?'neg':''}">${e>0?'+':''}${e}</td>`; };
@@ -473,7 +495,7 @@
       <div class="sr" id="qLive" aria-live="polite">${esc(UI.say||'')}</div>
       ${Q.length?`<ol class="qlist">${Q.map((p,i)=>`<li class="qrow${mine(p)?' lock':taken(p)||ST.avoid[p.id]?' avoid':''}">
         <span class="qn">${i+1}</span>
-        <span class="qp"><a href="${p.espn_id?`player.html?espn=${p.espn_id}`:`player.html?name=${encodeURIComponent(p.name)}`}">${esc(p.name)}</a>${p.is_injured?' <span class="pill r">Inj</span>':''}${p.proj.est?' <span class="pill" title="Freshman / no-stats estimate">Est</span>':''}
+        <span class="qp"><a href="${p.espn_id?`player.html?espn=${p.espn_id}`:`player.html?name=${encodeURIComponent(p.name)}`}">${esc(p.name)}</a>${p.lpg?' <span class="pill a" title="On the league\'s PG list: counts toward the PG limit">PG</span>':''}${p.is_injured?' <span class="pill r">Inj</span>':''}${p.proj.est?' <span class="pill" title="Freshman / no-stats estimate">Est</span>':''}
           <small>${lgImg(FULL[p.team]||p.team)}${esc(p.team)} · ${esc(p.position||'')} · proj. ${f1(p.proj.pts)} / ${f1(p.proj.reb)} / ${f1(p.proj.ast)}${p.last?` · last year ${f1(p.last.pts)} / ${f1(p.last.reb)} / ${f1(p.last.ast)}${p.last.team!==p.team?' at '+esc(p.last.team):''}`:''}</small></span>
         <span class="qv"><span title="${SOLD[p.id]?'What he sold for':'What the room will likely pay for him, from last year\'s auction prices. You haven\'t paid anything yet.'}">${mine(p)?'You paid':SOLD[p.id]?'Sold for':'Likely cost'} <b>$${price(p)}</b></span><span title="His value to you: projected stats over the counting games plus March">Worth <b>$${p.val}</b></span></span>
         <span class="qs">${qStatus(p)}${inPlan.has(p.id)?' <span class="pill a" title="The suggested team below uses him. He is not drafted.">Suggested</span>':''}</span>
@@ -527,7 +549,7 @@
       <p class="fb-note">The suggested team assumes every player plays all 22 counting games; last year's totals include the games people missed, and our projections are cautious about stars. Read the finish as a guide, not a promise.</p></section>`;
 
     // the board: position types (CG counts as a guard) and a sort menu that phones can use as easily as the headers
-    const PT={all:['All',()=>true], PG:['PG',p=>p.position==='PG'], g:['Guards',p=>/^(PG|SG|CG)$/.test(p.position||'')], w:['Wings',p=>p.position==='SF'], big:['Bigs',p=>/^(PF|C)$/.test(p.position||'')]};
+    const PT={all:['All',()=>true], PG:['League PGs',p=>!!p.lpg], g:['Guards',p=>/^(PG|SG|CG)$/.test(p.position||'')], w:['Wings',p=>p.position==='SF'], big:['Bigs',p=>/^(PF|C)$/.test(p.position||'')]};
     const posOk=p=>(PT[UI.pos]||PT.all)[1](p);
     const q=UI.q.toLowerCase();
     let B=POOL.filter(p=>(UI.sold||!SOLD[p.id])&&(!q||p.name.toLowerCase().includes(q)||p.team.toLowerCase().includes(q))&&posOk(p));
@@ -537,11 +559,12 @@
     const th=(k,l)=>`<th data-s="${k}"${k==='mkt'||k==='edge'?' data-fit-keep':''} style="cursor:pointer">${l}${UI.sort===k?' ▼':''}</th>`;
     h+=`<section class="fb-sec" id="board"><div class="sec-h"><h2>Big board</h2><span class="r">${UI.sort==='need'?`Sorted by how much each player adds in ${nl0}, your team's weakest category right now`:'Edge = our value minus expected price: green is underpriced'}</span></div>
       <div class="filt"><input class="fi" id="bQ" placeholder="Search player or team" value="${esc(UI.q)}" style="width:220px">
-      <span class="seg" role="group" aria-label="Position type">${Object.entries(PT).map(([v,[l]])=>`<button type="button" data-pos="${v}" class="${(PT[UI.pos]?UI.pos:'all')===v?'on':''}" aria-pressed="${(PT[UI.pos]?UI.pos:'all')===v}" title="${{all:'Every position',PG:'Point guards only (you can roster '+ST.maxpg+')',g:'PG, SG and combo guards',w:'Small forwards',big:'Power forwards and centers'}[v]}">${l}</button>`).join('')}</span>
+      <span class="seg" role="group" aria-label="Position type">${Object.entries(PT).map(([v,[l]])=>`<button type="button" data-pos="${v}" class="${(PT[UI.pos]?UI.pos:'all')===v?'on':''}" aria-pressed="${(PT[UI.pos]?UI.pos:'all')===v}" title="${{all:'Every position',PG:'The league\'s point guards (you can roster '+ST.maxpg+')',g:'PG, SG and combo guards',w:'Small forwards',big:'Power forwards and centers'}[v]}">${l}</button>`).join('')}</span>
       <label class="chk2">Sort <select class="fs" id="bSort">${[['need',`Fills your need (${nl0})`],['edge','Best buy for the price'],['val','Worth to you'],['mkt','Likely cost'],['pts','PTS'],['reb','REB'],['ast','AST'],['mar','March games']].map(([v,l])=>`<option value="${v}"${UI.sort===v?' selected':''}>${l}</option>`).join('')}</select></label><label class="chk2"><input type="checkbox" id="bSold"${UI.sold?' checked':''}> Show sold players</label></div>
       <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">#</th><th class="l" data-fit-keep>Player</th>${th('pts','PTS')}${th('reb','REB')}${th('ast','AST')}${th('mar','March')}${th('val','Value')}${th('mkt','Likely cost')}${th('edge','Edge')}<th class="act"></th></tr></thead><tbody>
       ${B.slice(0,UI.n).map((p,i)=>`<tr class="${mine(p)?'lock':taken(p)||ST.avoid[p.id]?'avoid':''}"><td class="l">${i+1}</td>${playerCellA(p,tag(p)+(inPlan.has(p.id)?' <span class="pill a" title="The suggested team uses him. He is not drafted.">Suggested</span>':''))}<td>${f1(p.proj.pts)}</td><td>${f1(p.proj.reb)}</td><td>${f1(p.proj.ast)}</td><td>${f1(p.mar)}</td><td><b>$${p.val}</b></td>${priceCell(p)}${edgeCell(p)}${acts(p)}</tr>`).join('')}
       </tbody></table></div>${B.length>UI.n?`<div style="text-align:center;margin-top:10px"><button class="btn ghost" id="bMore" type="button">Show ${Math.min(60,B.length-UI.n)} more</button></div>`:''}</section>`;
+    if(UNPG.length) h+=`<p class="fb-note"><b>League PGs not found in the player pool</b> (they don't count toward the PG limit until fixed): ${UNPG.map(esc).join(' · ')}</p>`;
     h+=`<p class="fb-note"><b>Value</b> is what a player is worth in this league: his projected points, rebounds and assists over his team's ${CNT?'22 counting games':'regular season'}, plus the same over the March games his team is expected to play (conference tournament and NCAA, from 2,000 simulated seasons), each scored against the players a full league rosters. Dollars split the league's money over everyone above the replacement level.
       <b>Likely cost</b> is what your room is expected to pay: last year's auction priced players by their per-game line (No. 1 about $55, No. 12 $35, No. 48 $20, No. 120 $2, then $1), so each player gets the price for his rank on that line. The line used is half his real ${LAST_SEASON-1}-${String(LAST_SEASON).slice(2)} numbers (what the room has seen) and half our projection. Type over it when you know better. Once the auction starts, values and prices are re-split over the money and roster spots actually left in the room. Your queue, sales and prices are saved in this browser.</p>`;
     // keep what you tapped where it was on screen: sections above it (the queue, the suggested team) change height
@@ -584,6 +607,7 @@
       const bd=bidders(pl), myMax=Math.max(price(pl),pl.val), me=T.find(t=>t.name===ST.me);
       const can=me&&me.spots>0&&me.max>=bd.beat&&(!isPG(pl)||me.pg<ST.maxpg);
       const verdict=!me||me.spots<=0?'<span class="dim">Your roster is full.</span>'
+        :isPG(pl)&&me.pg>=ST.maxpg?`<span class="dim">He's on the league PG list and you already have ${ST.maxpg} — you can't roster him. Push his price to drain a rival${bd.pred>pl.val?'':', or let him go'}.</span>`
         :!can&&me.max<bd.beat?`<span class="dn">You can't get there — your max bid is $${me.max}.</span>`
         :bd.beat<=myMax?`<span class="up"><b>Go for him</b> — you'll likely need about $${bd.beat}; he's worth up to $${myMax} to you${inPlan?' and he\'s in your team':''}.</span>`
         :inPlan?`<span class="dn"><b>Probably let him go</b> — winning him likely takes $${bd.beat}, past his $${myMax} worth to you. Your team re-plans if he sells.</span>`
