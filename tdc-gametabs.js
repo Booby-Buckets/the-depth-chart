@@ -42,6 +42,12 @@
     '.gt-lead{width:100%!important;table-layout:fixed;} .gt-lead th:first-child{width:110px;} .gt-lead td a{color:var(--text);text-decoration:none;} .gt-lead td a:hover{color:var(--accent);}' +
     // fixed layout + the sheet kit's nowrap let a long "Akanmu, Binet" pair print over the next team's cell: wrap instead
     '.gt-lead th,.gt-lead td{white-space:normal!important;overflow-wrap:anywhere;} @media(max-width:640px){.gt-lead th:first-child{width:78px;}}' +
+    '.ef-tbl{width:100%!important;max-width:720px;table-layout:fixed;} .ef-tbl th:first-child{width:38%;}' +
+    '.ef-tbl td.sub{font-size:10px!important;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);background:var(--bg2)!important;}' +
+    '.ef-tbl td.c3{font-weight:800;}' +
+    '@media(max-width:640px){ .ef-tbl td .dim{display:block;font-size:10.5px;} .ef-tbl th:first-child{width:34%;} .ef-tbl td,.ef-tbl th{font-size:12px!important;} }' +
+    '.gt-dnp{font-size:12.5px;color:var(--text2);line-height:1.7;margin:10px 2px 0;} .gt-dnp b{color:var(--text);} .gt-dnp .none{color:var(--text3);}' +
+    '.sheet .potg-tag{font-size:9px;font-weight:800;letter-spacing:.06em;color:var(--text3);margin-left:6px;}' +
     '.gt-list{margin:10px 0 0 18px;font-size:12.5px;color:var(--text2);line-height:1.7;} .gt-list b{color:var(--text);}' +
     /* summary cards (Oct 2026, owner: the summary looked like a text dump) — player of the game, a head-to-head
        leaders board, key-moment tiles; all inside the kit's panels (tdc-ui.css .ui-panel.pz) */
@@ -273,6 +279,58 @@
       return '<div><div class="k">' + t[0] + '</div>' + (t[1] != null ? '<div class="v">' + t[1] + '</div>' : '') + '<div class="s">' + t[2] + '</div></div>'; }).join('') + '</div>', '<span class="gt-tools">from the play-by-play</span>');
   }
 
+  // EFFICIENCY (scrimmage page, Oct 16 2026; shared with real games Nov 1 2026): shooting splits, possessions, points per
+  // possession and the four factors for both teams, each next to the D-I average (team_pace_eff.json ffAvg). Box-score
+  // only. box = {away:{players,totals?}, home:{…}} with fgm/fga/tpm/tpa/ftm/fta/tov/ast/stl/oreb/dreb/pts per player;
+  // names = {away, home}. Returns the sheet (callers add their own heading), or '' without a usable box.
+  // Possessions = FGA − OREB + TOV + 0.44·FTA, averaged over both teams.
+  function teamNums(b) {
+    var T = (b && b.totals) || {}, P = (b && b.players) || [];
+    var sum = function (k) { return P.reduce(function (a, p) { return a + (+p[k] || 0); }, 0); };
+    var n = function (k) { return T[k] != null ? +T[k] : sum(k); };
+    return { pts: n('pts'), fgm: n('fgm'), fga: n('fga'), tpm: n('tpm'), tpa: n('tpa'), ftm: n('ftm'), fta: n('fta'), tov: n('tov'), ast: n('ast'),
+      stl: n('stl'), blk: n('blk'), oreb: n('oreb'), dreb: n('dreb') };
+  }
+  function efficiency(box, names, ff) {
+    css();
+    if (!box || !box.home || !box.away) return '';
+    var A = teamNums(box.away), H = teamNums(box.home);
+    if (!A.fga || !H.fga) return '';
+    var poss = function (x) { return x.fga - x.oreb + x.tov + 0.44 * x.fta; }, P = (poss(A) + poss(H)) / 2;
+    var pc = function (m, a) { return a ? m / a : null; }, fmt = function (v, d) { return v == null ? '—' : (100 * v).toFixed(d == null ? 0 : d) + '%'; };
+    var two = function (x) { return { m: x.fgm - x.tpm, a: x.fga - x.tpa }; };
+    var ma = function (m, a) { return '<span class="dim">' + m + '-' + a + '</span>'; };
+    // [label, away value, home value, display fn, higher is better?, D-I average (0-1), tooltip]
+    var rows = [
+      ['sec', 'Shooting'],
+      ['Field goals', pc(A.fgm, A.fga), pc(H.fgm, H.fga), function (v, x) { return fmt(v) + ' ' + ma(x.fgm, x.fga); }, 1, null],
+      ['2-pointers', pc(two(A).m, two(A).a), pc(two(H).m, two(H).a), function (v, x) { return fmt(v) + ' ' + ma(two(x).m, two(x).a); }, 1, null],
+      ['3-pointers', pc(A.tpm, A.tpa), pc(H.tpm, H.tpa), function (v, x) { return fmt(v) + ' ' + ma(x.tpm, x.tpa); }, 1, null],
+      ['Free throws', pc(A.ftm, A.fta), pc(H.ftm, H.fta), function (v, x) { return fmt(v) + ' ' + ma(x.ftm, x.fta); }, 1, null],
+      ['3-point rate', pc(A.tpa, A.fga), pc(H.tpa, H.fga), function (v) { return fmt(v); }, 0, null, 'Share of shots taken from three'],
+      ['sec', 'Four factors'],
+      ['Effective FG%', pc(A.fgm + 0.5 * A.tpm, A.fga), pc(H.fgm + 0.5 * H.tpm, H.fga), function (v) { return fmt(v, 1); }, 1, ff && ff.oeFG / 100, 'FG% with threes worth 1.5 makes'],
+      ['Turnover rate', A.tov / P, H.tov / P, function (v) { return fmt(v, 1); }, -1, ff && ff.oTOV / 100, 'Turnovers per possession'],
+      ['Off. rebound rate', pc(A.oreb, A.oreb + H.dreb), pc(H.oreb, H.oreb + A.dreb), function (v) { return fmt(v, 1); }, 1, ff && ff.oORB / 100, 'Share of its own misses a team rebounded (player rebounds; team rebounds not counted)'],
+      ['FT rate', pc(A.fta, A.fga), pc(H.fta, H.fga), function (v) { return v == null ? '—' : v.toFixed(2); }, 1, ff && ff.oFTr / 100, 'Free-throw attempts per field-goal attempt'],
+      ['sec', 'Efficiency'],
+      ['Possessions', P, P, function (v) { return Math.round(v); }, 0, null, 'FGA − OREB + TOV + 0.44 × FTA, averaged over both teams'],
+      ['Points per possession', A.pts / P, H.pts / P, function (v) { return v.toFixed(2); }, 1, null],
+      ['Assist rate', pc(A.ast, A.fgm), pc(H.ast, H.fgm), function (v) { return fmt(v); }, 1, null, 'Share of made baskets that were assisted'],
+      ['Steal rate', A.stl / P, H.stl / P, function (v) { return fmt(v, 1); }, 1, null, 'Steals per opponent possession'],
+    ];
+    var body = rows.map(function (r) {
+      if (r[0] === 'sec') return '<tr data-noheat><td class="l sub" colspan="4">' + r[1] + '</td></tr>';
+      var lab = r[0], a = r[1], h = r[2], f = r[3], dir = r[4], avg = r[5], tip = r[6];
+      var better = function (x, y) { return dir && x != null && y != null && Math.abs(x - y) > 1e-9 && (dir > 0 ? x > y : x < y); };
+      var cell = function (v, x, w) { return '<td class="' + (w ? 'c3' : '') + '">' + (v == null ? '—' : f(v, x)) + '</td>'; };
+      var avgTxt = avg == null || isNaN(avg) ? '' : (lab === 'FT rate' ? avg.toFixed(2) : (100 * avg).toFixed(1) + '%');
+      return '<tr><td class="l"' + (tip ? ' title="' + esc(tip) + '"' : '') + '>' + lab + '</td>' + cell(a, A, better(a, h)) + cell(h, H, better(h, a)) + '<td class="dim">' + avgTxt + '</td></tr>';
+    }).join('');
+    return '<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense ef-tbl"><thead><tr><th class="l">Stat</th><th>' + esc(names.away) + '</th><th>' + esc(names.home) +
+      '</th><th title="Division I average, 2025-26">D-I avg</th></tr></thead><tbody>' + body + '</tbody></table></div>';
+  }
+
   window.TDCGameTabs = { strip: strip, kv: kv, head: head, leaders: leaders, moments: moments, mount: mount, css: css,
-    panel: panel, potg: potg, duel: duel, momentTiles: momentTiles };
+    panel: panel, potg: potg, duel: duel, momentTiles: momentTiles, efficiency: efficiency, teamNums: teamNums };
 })();

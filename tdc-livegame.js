@@ -84,7 +84,7 @@
   }
   let _deps = null;
   function deps() {
-    if (!_deps) _deps = loadScript('team-colors.js?v=10').then(() => loadScript('tdc-ratings.js?v=21')).then(() => loadScript('tdc-schedule.js?v=sp6'));
+    if (!_deps) _deps = loadScript('team-colors.js?v=12').then(() => loadScript('tdc-ratings.js?v=44')).then(() => loadScript('tdc-schedule.js?v=sp6'));
     return _deps;
   }
 
@@ -150,7 +150,7 @@
       const team = (t, o, home) => `<div class="lg-team${home ? ' home' : ''}${fin && t.score < o.score ? ' lose' : ''}">
         <img src="${esc(t.logo)}" alt="" onerror="this.style.visibility='hidden'">
         <div class="lg-tn"><span class="n">${t.rank ? `<span class="rk">${t.rank}</span>` : ''}${teamLink(t)}${live && game.poss === t.id ? '<span class="lg-ps" title="Possession">●</span>' : ''}</span>
-          <small>${home ? (game.neutral ? 'Neutral site' : 'Home') : 'Away'}${t.record ? ' · ' + esc(t.record) : ''}</small></div>
+          <small>${game.neutral ? 'Neutral' : home ? 'Home' : 'Away'}${t.record ? ' · ' + esc(t.record) : ''}</small></div>
         <div class="lg-sc">${pre ? '–' : (t.score != null ? t.score : '–')}</div></div>`;
       const nq = Math.max(h.halves.length, a.halves.length);
       const ls = nq ? `<div class="sheet-wrap lg-lsw"><table class="sheet dense lg-ls"><thead><tr><th class="l">Team</th>${Array.from({ length: nq }, (_, i) => `<th>${periodName(i + 1)}</th>`).join('')}<th>T</th></tr></thead><tbody>
@@ -394,5 +394,5 @@
     return { stop: () => { stop(); clearInterval(updTimer); } };
   }
 
-  g.TDCLiveGame = { mount };
+  g.TDCLiveGame = { mount, deps };   // deps: the ratings stack the final view's "our line" needs too
 })(window);

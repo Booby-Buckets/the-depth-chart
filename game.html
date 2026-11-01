@@ -108,11 +108,11 @@
 <script src="tdc-gamehead.js?v=3"></script>
 <script src="tdc-ot.js?v=1"></script>
 <script src="tdc-live.js?v=2"></script>
-<script src="tdc-livegame.js?v=6"></script>
+<script src="tdc-livegame.js?v=7"></script>
 <script src="tdc-shotchart.js?v=36"></script>
 <script src="tdc-gameflow.js?v=15"></script>
 <script src="tdc-gameonoff.js?v=1"></script>
-<script src="tdc-gametabs.js?v=7"></script>
+<script src="tdc-gametabs.js?v=8"></script>
 <script src="tdc-plays.js?v=1"></script>
 <script src="tdc-fingerprint.js?v=11"></script>
 <script src="tdc-credit.js?v=2"></script>
@@ -158,41 +158,41 @@ function statline(p){
   if(N(p.blk)>=2) bits.push(`${N(p.blk)} BLK`);
   return bits.join(' · ');
 }
-// Box score = the site sheet (tdc-sheets.css): one line per player, frozen name column, plain
-// numbers shaded c0-c4 within the team by tdcSheetHeat. FG/3PT/FT shade by their percentage.
-// The totals row spans Player+Role in one cell, so its cell count differs and the shading skips it.
+// Box score = the site sheet (tdc-sheets.css), laid out like the scrimmage box (owner, Nov 1 2026: "make it more like
+// our scrimmage ones"): points first, offensive-defensive boards, shooting at the end, +/− from the play-by-play once it
+// loads, * = started, the team line in the footer (so the c0-c4 shading stays within the players). FG/3PT/FT shade by %.
 const pctV=(m,a)=>N(a)>0?(N(m)/N(a)*100).toFixed(1):'';
-function row(p,tot,isPotg,rating){
+const signedPm=v=>v>0?'+'+v:v<0?'−'+Math.abs(v):'0';
+const pmShade=d=>d>=10?' c4':d>=4?' c3':d<=-10?' c0':d<=-4?' c1':'';
+function row(p,tot,isPotg,rating,pm){
   const fg=`${N(p.fgm)}-${N(p.fga)}`, tp=`${N(p.tpm)}-${N(p.tpa)}`, ft=`${N(p.ftm)}-${N(p.fta)}`;
-  const s=tot?' class="strong"':'';
-  const lead=tot?`<td class="l strong" colspan="2">Team</td>`
-    :`<td class="l nm">${plink(p)}${isPotg?'<span class="potg-tag" title="Player of the Game">POTG</span>':''}</td><td class="l dim">${p.starter?'Starter':'Bench'}</td>`;
-  const rtg=rating!=null?`<span title="0-10 game rating${tot?' (team)':''}">${rating.toFixed(1)}</span>`:'';
-  return `<tr${tot?' class="totals"':''}>${lead}
-    <td${s}>${rtg}</td>
-    <td${s}>${tot?'':N(p.min)}</td>
-    <td${s} data-v="${pctV(p.fgm,p.fga)}">${fg}</td><td${s} data-v="${pctV(p.tpm,p.tpa)}">${tp}</td><td${s} data-v="${pctV(p.ftm,p.fta)}">${ft}</td>
-    <td${s}>${N(p.reb)}</td><td${s}>${N(p.ast)}</td>
-    <td${s}>${N(p.stl)}</td><td${s}>${N(p.blk)}</td><td${s}>${N(p.tov)}</td><td${s}>${N(p.pf)}</td>
-    <td class="big">${N(p.pts)}</td></tr>`;
+  const lead=tot?`<td class="l">Team</td>`
+    :`<td class="l nm">${plink(p)}${p.starter?' <span class="dim" title="Started">*</span>':''}${isPotg?'<span class="potg-tag" title="Player of the Game: highest Game Score on either team">POTG</span>':''}</td>`;
+  const rtg=rating!=null?`<span title="0-10 game rating${tot?' (team: the result vs expected)':''}">${rating.toFixed(1)}</span>`:(tot?'':'—');
+  const pmTd=pm===undefined?'':tot||pm==null?'<td class="dim">'+(tot?'':'—')+'</td>':`<td class="strong${pmShade(pm)}">${signedPm(pm)}</td>`;
+  return `<tr>${lead}<td class="strong">${rtg}</td><td>${tot?'':N(p.min)}</td><td class="strong">${N(p.pts)}</td>
+    <td>${N(p.reb)}</td><td class="dim">${N(p.oreb)}-${N(p.dreb)}</td><td>${N(p.ast)}</td><td>${N(p.stl)}</td><td>${N(p.blk)}</td><td>${N(p.tov)}</td><td class="dim">${N(p.pf)}</td>
+    <td data-v="${pctV(p.fgm,p.fga)}">${fg}</td><td data-v="${pctV(p.tpm,p.tpa)}">${tp}</td><td data-v="${pctV(p.ftm,p.fta)}">${ft}</td>${pmTd}</tr>`;
 }
-// shared by the live view (tdc-livegame.js) so both box scores have the same columns
-function boxHead(rtgTip){
-  return `<thead><tr>
-      <th class="l">Player</th><th class="l">Role</th><th data-heat="1" title="${rtgTip}">RTG</th><th>Min</th>
-      <th data-heat="1" title="Field goals made-attempted, shaded by FG%">FG</th><th data-heat="1" title="Threes made-attempted, shaded by 3P%">3PT</th><th data-heat="1" title="Free throws made-attempted, shaded by FT%">FT</th>
-      <th data-heat="1">Reb</th><th data-heat="1">Ast</th><th data-heat="1">Stl</th><th data-heat="1">Blk</th><th data-heat="-1">TO</th><th data-heat="-1">PF</th><th data-heat="1">Pts</th>
-    </tr></thead>`;
+function boxHead(rtgTip,pm){
+  return `<thead><tr><th class="l">Player</th><th data-heat="1" title="${rtgTip}">RTG</th><th data-fit-keep>MIN</th><th data-heat="1">PTS</th>
+      <th data-heat="1">REB</th><th title="Offensive-defensive rebounds">O-D</th><th data-heat="1">AST</th><th data-heat="1">STL</th><th data-heat="1">BLK</th><th data-heat="-1">TO</th><th data-heat="-1">PF</th>
+      <th data-heat="1" data-fit-keep title="Field goals made-attempted, shaded by FG%">FG</th><th data-heat="1" title="Threes made-attempted, shaded by 3P%">3PT</th><th data-heat="1" title="Free throws made-attempted, shaded by FT%">FT</th>${pm?'<th title="Score margin while he was on the floor (from the play-by-play)">+/−</th>':''}</tr></thead>`;
 }
-function tableFor(team,players,potgId,teamRating){
-  const sorted=[...players].sort((a,b)=> (b.starter?1:0)-(a.starter?1:0) || N(b.min)-N(a.min));
-  const tot={}; ['min','fgm','fga','tpm','tpa','ftm','fta','reb','ast','stl','blk','tov','pf','pts'].forEach(k=>tot[k]=players.reduce((s,p)=>s+N(p[k]),0));
-  return `<div class="bs">
-    <div class="bs-team">${team}</div>
-    <div class="sheet-wrap"><table class="sheet dense freeze bs-sheet">${boxHead('0-10 game rating, same scale as the player pages')}<tbody>
-      ${sorted.map(p=>row(p,false,p.espn_id===potgId,N(p.min)>0?playerRating(p):null)).join('')}
-      ${row(tot,true,false,teamRating!=null?teamRating:null)}
-    </tbody></table></div></div>`;
+// one team's block: logo + name heading, the sheet, then who sat (ESPN lists its did-not-play players)
+function tableFor(team,players,potgId,teamRating,pm,ext){
+  ext=ext||{};
+  const played=players.filter(p=>N(p.min)>0||p.min==null), zero=players.filter(p=>p.min!=null&&N(p.min)===0);
+  const sorted=[...played].sort((a,b)=> (b.starter?1:0)-(a.starter?1:0) || N(b.min)-N(a.min));
+  const tot={}; ['min','fgm','fga','tpm','tpa','ftm','fta','reb','oreb','dreb','ast','stl','blk','tov','pf','pts'].forEach(k=>tot[k]=players.reduce((s,p)=>s+N(p[k]),0));
+  const pmOf=p=>pm?(pm[String(p.espn_id)]!=null?pm[String(p.espn_id)]:null):undefined;
+  const dnp=(ext.dnp||[]).concat(zero.map(p=>p.player));
+  const GT=window.TDCGameTabs;
+  return GT.head(esc(ext.name||team), played.length+' played'+(ext.dnp?' · '+dnp.length+' did not play':''), ext.logo)+
+    `<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense freeze bs-sheet">${boxHead('0-10 game rating from the box score (Game Score): 5 ≈ an average game · 6.5 strong · 8+ great',!!pm)}<tbody>
+      ${sorted.map(p=>row(p,false,p.espn_id===potgId,N(p.min)>0?playerRating(p):null,pmOf(p))).join('')}
+    </tbody><tfoot>${row(tot,true,false,teamRating!=null?teamRating:null,pm?null:undefined)}</tfoot></table></div>`+
+    (ext.dnp?`<div class="gt-dnp"><b>Did not play:</b> ${dnp.length?dnp.map(esc).join(', '):'<span class="none">everyone played</span>'}</div>`:'');
 }
 function shadeBoxes(host){ if(window.tdcSheetHeat) (host||document).querySelectorAll('table.sheet').forEach(t=>tdcSheetHeat(t)); }
 
@@ -205,23 +205,52 @@ function goLive(c){
   const forced=qs.has('livetest')||qs.get('live')==='1';
   liveView=TDCLiveGame.mount(c,gid,{onFinal:forced?null:()=>{ load(true); }});
 }
+// A finished game whose box hasn't reached our box_scores yet (the results job runs every ~20 minutes, later when
+// GitHub's scheduler lags): build the same rows from ESPN's summary so the final view shows straight away, with
+// ESPN's did-not-play list. Returns {g, bA, dnp:{team:[names]}} or null when ESPN doesn't have it final either.
+async function espnFinal(){
+  if(!window.TDC_LIVE||!TDC_LIVE.summary) return null;
+  let d=null; try{ d=await TDC_LIVE.summary(gid); }catch(e){ return null; }
+  if(!d||d.state!=='post'||d.home.score==null||d.away.score==null) return null;
+  const date=new Date(d.date).toLocaleDateString('en-CA',{timeZone:'America/New_York'}), yr=+date.slice(0,4), mo=+date.slice(5,7);
+  const g={ id:+gid, season_year:mo>=8?yr+1:yr, date, home:d.home.name, away:d.away.name, home_score:d.home.score, away_score:d.away.score,
+    neutral:d.neutral, conf_game:d.conf, status:'STATUS_FINAL', venue:d.venue };
+  const nameOf={[d.home.id]:d.home.name,[d.away.id]:d.away.name}, bA=[], dnp={};
+  (d.players||[]).forEach(tp=>{
+    const team=nameOf[tp.id]; if(!team) return; const L=tp.labels||[];
+    (tp.athletes||[]).forEach(a=>{
+      if(a.dnp){ (dnp[team]=dnp[team]||[]).push(a.name); return; }
+      const val=k=>{ const i=L.indexOf(k); return i<0?null:a.stats[i]; };
+      const n=k=>{ const x=parseFloat(val(k)); return isFinite(x)?x:0; };
+      const ma=k=>{ const m=String(val(k)||'').match(/^(\d+)-(\d+)$/); return m?[+m[1],+m[2]]:[0,0]; };
+      const fg=ma('FG'), tp3=ma('3PT'), ft=ma('FT');
+      bA.push({ game_id:+gid, team, player:a.name, espn_id:+a.id, starter:a.starter, min:n('MIN'), pts:n('PTS'), fgm:fg[0], fga:fg[1], tpm:tp3[0], tpa:tp3[1],
+        ftm:ft[0], fta:ft[1], reb:n('REB'), oreb:n('OREB'), dreb:n('DREB'), ast:n('AST'), tov:n('TO'), stl:n('STL'), blk:n('BLK'), pf:n('PF') });
+    });
+  });
+  return bA.length?{g,bA,dnp}:null;
+}
 async function load(afterLive){
   const c=document.getElementById('content');
   if(!gid){c.innerHTML='<div class="err">No game specified.</div>';return;}
   if(!afterLive && (qs.has('livetest')||qs.get('live')==='1')){ goLive(c); return; }
   try{
-    const [gA,bA]=await Promise.all([
+    let [gA,bA]=await Promise.all([
       fetch(`${SB}/rest/v1/games?id=eq.${gid}&select=*&limit=1`,{headers:H}).then(r=>r.json()),
       fetch(`${SB}/rest/v1/box_scores?game_id=eq.${gid}&select=*`,{headers:H}).then(r=>r.json()),
     ]);
-    const g=gA&&gA[0];
+    let g=gA&&gA[0], DNP=null;
     const notFinal=g&&g.status&&g.status!=='STATUS_FINAL';
-    if(!bA||!bA.length||notFinal){ if(!afterLive) goLive(c); return; }   // once final, the ESPN view stays until our box lands
+    if(!bA||!bA.length||notFinal){
+      const E=await espnFinal();   // final on ESPN, not in our tables yet: same final view, from ESPN's box
+      if(!E){ if(!afterLive) goLive(c); return; }
+      g=Object.assign({},g||{},E.g); bA=E.bA; DNP=E.dnp;
+    }
     if(liveView){ liveView.stop(); liveView=null; }
     // group by team
     const byTeam={}; bA.forEach(p=>{(byTeam[p.team]=byTeam[p.team]||[]).push(p);});
     let home,away,hs,as_,date,loc;
-    if(g){home=g.home;away=g.away;hs=g.home_score;as_=g.away_score;date=g.date;loc=g.neutral?'Neutral site':null;}
+    if(g){home=g.home;away=g.away;hs=g.home_score;as_=g.away_score;date=g.date;loc=g.neutral?'Neutral site'+(g.venue?' · '+esc(g.venue):''):(g.venue?esc(g.venue):null);}
     else{ // fall back to box-score data
       const teams=Object.keys(byTeam); away=teams[0];home=teams[1]||teams[0];
       as_=byTeam[away].reduce((s,p)=>s+N(p.pts),0); hs=home?byTeam[home].reduce((s,p)=>s+N(p.pts),0):0;
@@ -234,7 +263,7 @@ async function load(afterLive){
       try{ const sr=await fetch(`${SB}/rest/v1/team_seasons?season_year=eq.${g.season_year}&srs=not.is.null&select=team,srs`,{headers:H}).then(r=>r.ok?r.json():[]);
         (sr||[]).forEach(x=>{ SRS[x.team]=parseFloat(x.srs); }); }catch(e){}
     }
-    const tr=teamRatings(g,SRS);
+    let tr=teamRatings(g,SRS);
     const ratePill=v=>v!=null?`<span class="gh-rate" style="background:${ratingColor(v)};" title="Team game rating (0-10): ${ratingWord(v)}">${v.toFixed(1)}</span>`:'';
     // team-colour scoreboard band (tdc-gamehead.js); the game rating pill rides under each name
     const shortNm=t=>{ try{ return (window.TDCTeamName&&TDCTeamName.short)?TDCTeamName.short(t):t; }catch(e){ return t; } };
@@ -242,7 +271,7 @@ async function load(afterLive){
       return { name:shortNm(t), href:'team.html?team='+encodeURIComponent(t), logo:c.logo, color:c.color,
         sub:rate!=null?'Game rating '+ratePill(rate)+' '+ratingWord(rate):'', pts:N(pts) }; };
     if(window.TDC_OT) await TDC_OT.ready();   // "Final/OT" in the band
-    const header=`<h1 class="sr-only">${away} at ${home}</h1>`+(window.TDC_GAMEHEAD?TDC_GAMEHEAD.html({
+    const header=()=>`<h1 class="sr-only">${away} at ${home}</h1>`+(window.TDC_GAMEHEAD?TDC_GAMEHEAD.html({
         away:bandSide(away,as_,tr?tr.away:null), home:bandSide(home,hs,tr?tr.home:null), status:window.TDC_OT?TDC_OT.final(gid):'Final',
         meta:`<span>${fmtD(date)}</span>${loc?`<span>${loc}</span>`:''}${g&&g.conf_game?'<span>Conference game</span>':''}` })
       :`<div class="gh-meta">${fmtD(date)}</div>`);
@@ -252,6 +281,7 @@ async function load(afterLive){
     const read=await (async()=>{   // [label, value] rows for the Summary tab
       const mg=N(hs)-N(as_), res=`<b>${esc(shortNm(mg>=0?home:away))} by ${Math.abs(mg)}</b>`;
       if(g&&g.season_year>=2027&&window.TDC_LIVE&&TDC_LIVE.pregame){ try{
+        if(window.TDCLiveGame&&TDCLiveGame.deps) await TDCLiveGame.deps();   // ratings + schedule for our line
         const l=await TDC_LIVE.pregame({id:String(gid),date:g.date,home:{name:home},away:{name:away},neutral:!!g.neutral});
         if(l&&l.margin!=null){ const d=mg-l.margin, fav=l.margin>=0?home:away; expM=l.margin; expLbl='Our line';
           return [['Our line',`<b>${esc(shortNm(fav))} −${Math.abs(l.margin).toFixed(1)}</b>${l.p!=null?` · ${Math.round(100*Math.max(l.p,1-l.p))}% to win`:''}`],
@@ -262,6 +292,9 @@ async function load(afterLive){
       return [['Expected',`<b>${esc(shortNm(exp>=0?home:away))} by ${Math.abs(exp).toFixed(1)}</b> · season power ratings`],
               ['Result',`${res} · ${esc(shortNm(over>=0?home:away))} played ${Math.abs(over).toFixed(1)} points better than expected`]];
     })();
+    // no season power ratings yet (2026-27): each team's game rating comes from the result vs our line, as on the scrimmage page
+    if(!tr&&expLbl==='Our line'&&expM!=null){ const d=(N(hs)-N(as_))-expM, rate=x=>Math.max(2,Math.min(10,Math.round((6.3+x*0.22)*10)/10));
+      tr={home:rate(d), away:rate(-d)}; }
     // player of the game = highest Game Score across both teams
     let potg=null,bestGs=-1e9;
     bA.forEach(p=>{const gs=gameScore(p); if(gs>bestGs){bestGs=gs;potg=p;}});
@@ -282,28 +315,44 @@ async function load(afterLive){
         {v:N(hs)+N(as_),k:'Total points',s:pace?((N(hs)+N(as_))/pace/2*100).toFixed(0)+' per 100 poss.':''},
         {v:pace?Math.round(pace):'—',k:'Possessions',s:g&&g.neutral?'neutral site':esc(shortNm(home))+' home floor'}]); })();
     const GT=window.TDCGameTabs;
-    const summary=GT.kv((read||[]).concat([
-      ['Player of the game',potg?`<a href="player.html?espn=${potg.espn_id}&name=${encodeURIComponent(potg.player)}" style="text-decoration:none;"><b>${esc(potg.player)}</b></a> · ${esc(shortNm(potg.team))} · ${statline(potg)} · RTG ${playerRating(potg).toFixed(1)}`:''],
-      ['Rating scale',tr?'Team game rating: 6.3 = played exactly as expected · Player RTG: 5 average · 6.5 strong · 8+ great':'Player RTG: 5 average · 6.5 strong · 8+ great'],
-    ]))+GT.leaders(order.map(t=>({ name:shortNm(t), players:byTeam[t].map(p=>({ name:p.player, pts:p.pts, reb:p.reb, ast:p.ast, min:p.min,
-        href:p.espn_id?`player.html?espn=${p.espn_id}&name=${encodeURIComponent(p.player)}`:null })) })))+'<div id="gmMoments"></div>';
-    const boxes=order.map(t=>tableFor(t,byTeam[t],potgId,trFor(t))).join('');
-    c.innerHTML=header+strip+`<div style="text-align:right;margin:-4px 0 6px;"><a href="compare-games.html?a=${encodeURIComponent(gid)}" style="font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;">Compare this game with another →</a></div>`+'<div id="gmTabs"></div>';
+    // SUMMARY like the scrimmage page: player-of-the-game card + head-to-head leaders, the key-moment tiles once the
+    // play-by-play loads, then the result against what we expected
+    const href=p=>p.espn_id?`player.html?espn=${p.espn_id}&name=${encodeURIComponent(p.player)}`:null;
+    const look=t=>(window.TDC_GAMEHEAD?TDC_GAMEHEAD.team(t):null)||{};
+    const sideOf=t=>({ name:shortNm(t), logo:look(t).logo, color:look(t).color,
+      players:(byTeam[t]||[]).map(p=>({ name:p.player, pts:p.pts, reb:p.reb, ast:p.ast, min:p.min, href:href(p) })) });
+    const card=potg?GT.potg({ name:potg.player, href:href(potg), team:shortNm(potg.team), logo:look(potg.team).logo, color:look(potg.team).color,
+      min:potg.min, fg:potg.fga!=null?N(potg.fgm)+'-'+N(potg.fga):'', pts:potg.pts, reb:potg.reb, ast:potg.ast, stl:potg.stl, blk:potg.blk, rtg:playerRating(potg) }):'';
+    const summary='<div class="gt-sumgrid">'+card+(order.length===2?GT.duel(order.map(sideOf)):'')+'</div><div id="gmMoments"></div>'+
+      GT.panel('The result',GT.kv((read||[]).concat([['Rating scale',tr?'Team game rating: 6.3 = played exactly as expected · Player RTG: 5 average · 6.5 strong · 8+ great':'Player RTG: 5 average · 6.5 strong · 8+ great']])));
+    // box scores; +/− joins once the play-by-play has been walked
+    let PM;
+    const boxesHtml=pm=>order.map(t=>tableFor(t,byTeam[t],potgId,trFor(t),pm,{ name:shortNm(t), logo:look(t).logo, dnp:DNP?(DNP[t]||[]):null })).join('')+
+      '<p class="note">* = started · RTG = 0–10 game rating (team line: the result vs expected)'+(DNP?' · from ESPN’s box until ours posts':'')+'</p>';
+    const pmFrom=res=>{ const S=res&&res.R&&res.R.stints; if(!S||!Object.keys(S).length) return null;
+      const o={}; Object.keys(S).forEach(id=>{ o[id]=S[id].reduce((a,x)=>a+x.pm,0); }); return o; };
+    // TEAM STATS: the scrimmage page's efficiency sheet (shooting · four factors · per possession vs the D-I average)
+    const ffP=fetch('scripts/data/team_pace_eff.json?v=8').then(r=>r.ok?r.json():null).then(j=>j&&j.ffAvg||null).catch(()=>null);
+    c.innerHTML=header()+strip+`<div style="text-align:right;margin:-4px 0 6px;"><a href="compare-games.html?a=${encodeURIComponent(gid)}" style="font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;">Compare this game with another →</a></div>`+'<div id="gmTabs"></div>';
     // play-by-play tabs draw on first open (the charts measure their width); they drop out when ESPN has no PBP
     const gfP=window.TDC_GAMEFLOW?TDC_GAMEFLOW.load(gid).catch(()=>null):Promise.resolve(null);
     const gfTab=(id,label,draw)=>({id,label,onShow:el=>{ el.innerHTML='<section class="gf-card"><div class="loading">Loading the play-by-play…</div></section>';
       gfP.then(res=>{ if(!res){ el.innerHTML='<div class="loading">No play-by-play for this game.</div>'; return; } try{ draw(el.firstChild,res); }catch(e){ console.error(e); el.innerHTML='<div class="loading">Couldn’t draw this from the play-by-play.</div>'; } }); }});
     const tabs=GT.mount(document.getElementById('gmTabs'),[
       {id:'summary',label:'Summary',html:summary},
+      {id:'box',label:'Box score',onShow:el=>{ el.innerHTML=boxesHtml(PM); shadeBoxes(el);
+        if(PM===undefined) gfP.then(res=>{ PM=pmFrom(res); if(PM){ el.innerHTML=boxesHtml(PM); shadeBoxes(el); } }); }},
+      {id:'stats',label:'Team stats',onShow:el=>{ ffP.then(ff=>{ const t=GT.efficiency({away:{players:byTeam[away]||[]},home:{players:byTeam[home]||[]}},{away:shortNm(away),home:shortNm(home)},ff);
+        el.innerHTML=t?GT.head('Efficiency','shooting · four factors · per possession')+t:'<div class="loading">No team box for this game.</div>'; }); }},
       {id:'why',label:'Why it went that way',html:'<div id="rcHost"><div class="loading">Reading the play-by-play…</div></div>'},
-      {id:'box',label:'Box score',html:boxes,onShow:shadeBoxes},
       gfTab('flow','Game flow',(el,r)=>TDC_GAMEFLOW.renderFlow(el,r.G,r.R)),
       gfTab('shots','Shot chart',(el,r)=>TDC_GAMEFLOW.renderShots(el,r.G,r.R)),
       gfTab('rotation','Rotation',(el,r)=>TDC_GAMEFLOW.renderRotation(el,r.G,r.R)),
       gfTab('onoff','On/Off',(el,r)=>TDC_GAMEONOFF.render(el.parentNode,r.G,r.R)),
     ]);
     gfP.then(res=>{ if(!res){ ['flow','shots','rotation','onoff'].forEach(t=>tabs.drop(t)); return; }
-      const m=document.getElementById('gmMoments'); if(m) try{ m.innerHTML=GT.moments(res.G,res.R,t=>shortNm((res.G.T[t]&&res.G.T[t].name)||t)); }catch(e){ console.error(e); } });
+      const nmT=t=>shortNm((res.G.T[t]&&res.G.T[t].name)||t), colT=t=>look((res.G.T[t]&&res.G.T[t].name)||t).color||'var(--text3)';
+      const m=document.getElementById('gmMoments'); if(m) try{ m.innerHTML=GT.momentTiles(res.G,res.R,nmT,colT); }catch(e){ console.error(e); } });
     // our read of the game: where the edge came from, who beat his usual, the swing (tdc-recap.js; hides itself without PBP)
     if(window.TDC_RECAP) Promise.resolve(TDC_RECAP.mount(document.getElementById('rcHost'),gid,{season:g&&g.season_year})).then(R=>{ if(!R) tabs.drop('why'); });
     else tabs.drop('why');
