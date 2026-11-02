@@ -71,7 +71,7 @@
         '<span class="sc">' + (sc == null ? '' : sc) + '</span></div>';
     };
     var tag = e.u ? 'a href="' + esc(e.u) + '"' : 'div';
-    return '<' + tag + ' class="tdt-g' + (first ? ' day0' : '') + '" data-d="' + e.d + '" title="' + esc(e.a.n + (e.nt ? ' vs ' : ' at ') + e.h.n + (e.k === 's' ? ' · scrimmage, unofficial' : '')) + '">' +
+    return '<' + tag + ' class="tdt-g' + (first ? ' day0' : '') + '" data-d="' + e.d + '" data-id="' + esc(e.id) + '" title="' + esc(e.a.n + (e.nt ? ' vs ' : ' at ') + e.h.n + (e.k === 's' ? ' · scrimmage, unofficial' : '')) + '">' +
       '<div class="tdt-st"><span>' + when + '</span><span class="tv">' + esc(right) + '</span></div>' +
       row(e.a, e.as, (fin || live) && hw) + row(e.h, e.hs, (fin || live) && aw) + '</' + (e.u ? 'a' : 'div') + '>';
   }
@@ -82,6 +82,9 @@
     if (!list.length) { host.innerHTML = '<div class="tdt-none">No games on the slate yet</div>'; return; }
     var days = []; list.forEach(function (e) { if (days.indexOf(e.d) < 0) days.push(e.d); });
     var start = days.filter(function (d) { return d >= TODAY; })[0] || days[days.length - 1];
+    // a late tip from yesterday still being played past midnight: open on it, not on today's first game
+    var lateLive = list.filter(function (e) { return e.st === 'l' && e.d < TODAY; })[0];
+    if (lateLive) start = lateLive.d;
     var seen = {}, old = host.querySelector('.tdt-sc'), keep = old ? old.scrollLeft : null;
     host.innerHTML =
       '<div class="tdt-lead"><span class="tdt-lg">Men\'s CBB</span><select class="tdt-day" aria-label="Jump to day">' +
@@ -90,18 +93,24 @@
       '<div class="tdt-tail"><button class="tdt-arw" aria-label="More games">›</button><a class="tdt-all" href="today.html">Full Scoreboard »</a></div>';
     var sc = host.querySelector('.tdt-sc');
     var jump = function (d, smooth) { var c = sc.querySelector('[data-d="' + d + '"]'); if (!c) return; sc.style.scrollBehavior = smooth ? 'smooth' : 'auto'; sc.scrollLeft = c.offsetLeft - sc.offsetLeft; };
-    if (keep != null) { sc.style.scrollBehavior = 'auto'; sc.scrollLeft = keep; } else jump(start, false);
+    if (keep != null && !(lateLive && !host._lateJumped)) { sc.style.scrollBehavior = 'auto'; sc.scrollLeft = keep; }
+    else if (lateLive) { host._lateJumped = true; sc.style.scrollBehavior = 'auto'; var lc = sc.querySelector('[data-id="' + lateLive.id + '"]'); if (lc) sc.scrollLeft = lc.offsetLeft - sc.offsetLeft; }
+    else jump(start, false);
     host.querySelector('.tdt-day').onchange = function () { jump(this.value, true); };
     host.querySelector('.tdt-arw').onclick = function () { sc.style.scrollBehavior = 'smooth'; sc.scrollLeft += sc.clientWidth * 0.8; };
   }
 
-  // live overlay: today's ESPN board -> status + scores for games we list by ESPN id
+  // live overlay: ESPN's board -> status + scores for games we list by ESPN id. Yesterday's unfinished games too, so a
+  // late tip still going past midnight ET stays live instead of freezing (owner, Nov 2 2026: High Point–Liberty).
   function overlay(games) {
-    var today = games.filter(function (e) { return e.d === TODAY && e.k === 'g' && e.st !== 'f'; });
+    var today = games.filter(function (e) { return (e.d === TODAY || e.d === YDAY) && e.k === 'g' && e.st !== 'f'; });
     if (!today.length) return Promise.resolve(false);
-    return fetch(ESPN + TODAY.replace(/-/g, '')).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
-      if (!j) return false;
-      var by = {}; (j.events || []).forEach(function (ev) { by[ev.id] = ev; });
+    var days = []; today.forEach(function (e) { if (days.indexOf(e.d) < 0) days.push(e.d); });
+    return Promise.all(days.map(function (d) {
+      return fetch(ESPN + d.replace(/-/g, '')).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+    })).then(function (js) {
+      if (!js.some(Boolean)) return false;
+      var by = {}; js.forEach(function (j) { ((j && j.events) || []).forEach(function (ev) { by[ev.id] = ev; }); });
       var anyLive = false;
       today.forEach(function (e) {
         var ev = by[String(e.id)]; if (!ev) return;

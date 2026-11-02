@@ -44,7 +44,7 @@
   .lg-run b{font-size:15px;color:var(--text);font-variant-numeric:tabular-nums;min-width:58px;}
   .lg-chip{font:600 12px/1 'Inter',sans-serif;padding:6px 11px;border-radius:999px;border:1px solid var(--border2,var(--border));background:transparent;color:var(--text2);cursor:pointer;margin-top:10px;}
   .lg-chip:hover{color:var(--text);border-color:var(--text3);}
-  .sheet.lg-box tbody tr.totals td{border-top:2px solid var(--border2);}
+  .sheet.lg-box tr.totals td{border-top:2px solid var(--border2);}
   .lg-err{font-size:12.5px;color:var(--red);}
 
   .lg-sit{border-color:color-mix(in srgb,var(--red) 35%,var(--border));}
@@ -226,24 +226,24 @@
         };
         const played = tp.athletes.filter(a => !a.dnp).sort((x, y) => (y.starter ? 1 : 0) - (x.starter ? 1 : 0) || (+v(y.stats, 'MIN') || 0) - (+v(x.stats, 'MIN') || 0));
         // the site sheet: one line per player, plain numbers shaded within the team (tdcSheetHeat, run in draw());
-        // FG/3PT/FT shade by their percentage; the totals row spans Player+Role so the shading skips it
+        // FG/3PT/FT shade by their percentage; starters marked *; the Team row sits in the tfoot so the shading skips it
         const pv = x => { const [m, at] = split(x); return at > 0 ? (m / at * 100).toFixed(1) : ''; };
         const stat = (st, k, cls) => `<td${cls || ''}>${esc(v(st, k))}</td>`;
         const shoot = (st, k, cls) => `<td${cls || ''} data-v="${pv(v(st, k))}">${esc(v(st, k))}</td>`;
         const rows = played.map(a => {
           const r = rate(a.stats);
-          return `<tr><td class="l nm"><a href="player.html?espn=${esc(a.id)}&name=${encodeURIComponent(a.name)}">${esc(a.name)}</a></td><td class="l dim">${a.starter ? 'Starter' : 'Bench'}</td>
-            <td title="0-10 game rating so far">${r == null ? '' : r.toFixed(1)}</td>${stat(a.stats, 'MIN')}${shoot(a.stats, 'FG')}${shoot(a.stats, '3PT')}${shoot(a.stats, 'FT')}
-            ${stat(a.stats, 'REB')}${stat(a.stats, 'AST')}${stat(a.stats, 'STL')}${stat(a.stats, 'BLK')}
-            ${stat(a.stats, 'TO')}${stat(a.stats, 'PF')}<td class="big">${esc(v(a.stats, 'PTS'))}</td></tr>`;
+          return `<tr><td class="l nm"><a href="player.html?espn=${esc(a.id)}&name=${encodeURIComponent(a.name)}">${esc(a.name)}</a>${a.starter ? ' <span class="dim" title="Started">*</span>' : ''}</td>
+            <td title="0-10 game rating so far">${r == null ? '' : r.toFixed(1)}</td>${stat(a.stats, 'MIN')}<td class="big">${esc(v(a.stats, 'PTS'))}</td>
+            ${stat(a.stats, 'REB')}${stat(a.stats, 'AST')}${shoot(a.stats, 'FG')}${shoot(a.stats, '3PT')}${shoot(a.stats, 'FT')}
+            ${stat(a.stats, 'STL')}${stat(a.stats, 'BLK')}${stat(a.stats, 'TO')}${stat(a.stats, 'PF')}</tr>`;
         }).join('');
         const T = tp.totals || [], S = ' class="strong"';
-        const tot = T.length ? `<tr class="totals"><td class="l strong" colspan="2">Team</td><td></td><td></td>${shoot(T, 'FG', S)}${shoot(T, '3PT', S)}${shoot(T, 'FT', S)}
-          ${stat(T, 'REB', S)}${stat(T, 'AST', S)}${stat(T, 'STL', S)}${stat(T, 'BLK', S)}${stat(T, 'TO', S)}${stat(T, 'PF', S)}<td class="big">${esc(v(T, 'PTS'))}</td></tr>` : '';
+        const tot = T.length ? `<tr class="totals"><td class="l strong">Team</td><td></td><td></td><td class="big">${esc(v(T, 'PTS'))}</td>
+          ${stat(T, 'REB', S)}${stat(T, 'AST', S)}${shoot(T, 'FG', S)}${shoot(T, '3PT', S)}${shoot(T, 'FT', S)}${stat(T, 'STL', S)}${stat(T, 'BLK', S)}${stat(T, 'TO', S)}${stat(T, 'PF', S)}</tr>` : '';
         const th = (l, heat, tip) => `<th${heat ? ` data-heat="${heat}"` : ''}${tip ? ` title="${tip}"` : ''}>${l}</th>`;
         return `<div class="bs"><div class="bs-team">${esc(nameOf(t))}</div><div class="sheet-wrap"><table class="sheet dense freeze lg-box"><thead><tr>
-          <th class="l">Player</th><th class="l">Role</th>${th('RTG', 1, '0-10 game rating so far, same scale as the player pages')}${th('Min')}${th('FG', 1, 'Field goals made-attempted, shaded by FG%')}${th('3PT', 1, 'Threes made-attempted, shaded by 3P%')}${th('FT', 1, 'Free throws made-attempted, shaded by FT%')}
-          ${th('Reb', 1)}${th('Ast', 1)}${th('Stl', 1)}${th('Blk', 1)}${th('TO', -1)}${th('PF', -1)}${th('Pts', 1)}</tr></thead><tbody>${rows}${tot}</tbody></table></div></div>`;
+          <th class="l">Player</th>${th('RTG', 1, '0-10 game rating so far, same scale as the player pages')}<th data-fit-keep>Min</th><th data-heat="1" data-fit-keep>Pts</th>${th('Reb', 1)}${th('Ast', 1)}<th data-heat="1" data-fit-keep title="Field goals made-attempted, shaded by FG%">FG</th>${th('3PT', 1, 'Threes made-attempted, shaded by 3P%')}${th('FT', 1, 'Free throws made-attempted, shaded by FT%')}
+          ${th('Stl', 1)}${th('Blk', 1)}${th('TO', -1)}${th('PF', -1)}</tr></thead><tbody>${rows}</tbody>${tot ? `<tfoot>${tot}</tfoot>` : ''}</table></div></div>`;
       }).join('');
     }
 
@@ -387,7 +387,7 @@
       document.title = `${nameOf(game.away)} at ${nameOf(game.home)} — ${game.state === 'in' ? 'Live' : 'Box Score'}`;
       const hasPlays = game.plays.length > 0;
       const pbox = playerBox();
-      host.innerHTML = `<div class="lg">${board()}${situation()}${hasPlays ? `<section class="lg-card"><h2>Lead tracker</h2>${leadTiles()}</section>` : ''}${court()}${hasPlays || game.state !== 'pre' ? chart() : ''}${pbox ? `<section class="lg-card"><h2>Box score</h2>${pbox}</section>` : ''}${hasPlays ? sidebars() : ''}${feed()}</div>`;
+      host.innerHTML = `<div class="lg">${board()}${situation()}${pbox ? `<section class="lg-card" id="lgBox"><h2>${game.state === 'in' ? 'Live box score' : 'Box score'}</h2>${pbox}</section>` : ''}${hasPlays ? `<section class="lg-card"><h2>Lead tracker</h2>${leadTiles()}</section>` : ''}${court()}${hasPlays || game.state !== 'pre' ? chart() : ''}${hasPlays ? sidebars() : ''}${feed()}</div>`;
       fetchedAt = Date.now(); tickUpd();
       if (g.tdcSheetHeat) host.querySelectorAll('table.lg-box').forEach(t => g.tdcSheetHeat(t));
     }

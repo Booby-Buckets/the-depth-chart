@@ -198,8 +198,24 @@
     }
     const day = DATE || etDay();
     const d = await espn(`/scoreboard?groups=50&limit=400&dates=${day}`);
-    return { at: new Date().toISOString(), day, games: (d.events || []).map(normEvent) };
+    const games = (d.events || []).map(normEvent);
+    // Past midnight ET a late tip from yesterday is still being played (owner, Nov 2 2026: High Point–Liberty went
+    // missing at halftime when the day rolled over). Until 8 am ET, carry yesterday's games that are still live —
+    // and keep showing them as Final once they end, if this page saw them live.
+    const hr = +new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', hourCycle: 'h23' }).format(new Date());
+    if (!DATE && hr < 8) {
+      try {
+        const y = etDay(new Date(Date.now() - 12 * 3600000));
+        const yd = await espn(`/scoreboard?groups=50&limit=400&dates=${y}`);
+        const have = new Set(games.map(x => x.id));
+        const late = (yd.events || []).map(normEvent).filter(x => !have.has(x.id) && (x.state === 'in' || (x.state === 'post' && lateSeen.has(x.id))));
+        late.forEach(x => { lateSeen.add(x.id); x.lateTip = true; });
+        games.unshift(...late);
+      } catch (e) { /* yesterday's board is a bonus; today's still renders */ }
+    }
+    return { at: new Date().toISOString(), day, games };
   }
+  const lateSeen = new Set();
   function nextDelay(data) {
     if (TEST) return TEST === 'replay' ? 5000 : FAST;
     if (!data) return 60000;
