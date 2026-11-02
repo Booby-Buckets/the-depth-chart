@@ -142,6 +142,24 @@
       // and it can never hang off the right edge of a phone
       '@media(max-width:760px){.tdn-menu{left:auto;right:0;max-width:calc(100vw - 24px);}}',
       '.tdn-group.open .tdn-menu{opacity:1;visibility:visible;transform:translateY(0);}',
+      // site search (owner, Nov 2 2026: "a player or team search tab at the top … for any time")
+      '.tdn-srch{margin-left:auto;}',
+      '.tdn-srch .tdn-btn svg{width:14px;height:14px;flex-shrink:0;}',
+      '.tdn-menu.tdn-sp{left:auto;right:0;width:min(460px,calc(100vw - 24px));max-width:none;padding:10px;}',
+      '.tdn-sp input{width:100%;box-sizing:border-box;font:500 15px Inter,system-ui,sans-serif;color:var(--text);background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:10px 12px;outline:none;-webkit-appearance:none;}',
+      '.tdn-sp input:focus{border-color:var(--accent);}',
+      '.tdn-sr{max-height:min(62vh,520px);overflow-y:auto;margin-top:6px;}',
+      '.tdn-sr h6{margin:10px 4px 4px;font:700 10px Inter,system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);}',
+      '.tdn-sp .tdn-sr a{display:flex;align-items:center;gap:10px;padding:8px 8px;border-radius:5px;text-decoration:none;color:var(--text);font-size:14px;line-height:1.25;text-transform:none;letter-spacing:0;font-weight:600;}',
+      '.tdn-sp .tdn-sr a:hover,.tdn-sp .tdn-sr a.on{background:var(--bg2);}',
+      '.tdn-sr a img{width:22px;height:22px;object-fit:contain;flex-shrink:0;}',
+      '.tdn-sr a .tx{min-width:0;flex:1;}',
+      '.tdn-sr a .nm{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+      '.tdn-sr a .ds{display:block;font-size:12px;font-weight:500;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+      '.tdn-sr a .tg{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);flex-shrink:0;}',
+      '.tdn-sr .none{padding:10px 8px;font-size:13px;color:var(--text3);}',
+      '.tdn-sr .hint{padding:8px 8px 2px;font-size:12px;color:var(--text3);}',
+      '@media(max-width:640px){.tdn-srch .tdn-srl{display:none;}.tdn-srch .tdn-btn{padding:0 2px 0 6px;}.tdn-sp input{font-size:16px;}}',
       '.tdn-menu a{display:block;font-size:12.5px;font-weight:600;letter-spacing:.01em;text-transform:none;color:var(--text2);text-decoration:none;padding:8px 12px;border-radius:4px;white-space:nowrap;transition:background .13s,color .13s;}',
       '.tdn-menu a:hover{background:var(--bg3);color:var(--text);}',
       '.tdn-menu a.active{color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent);}',
@@ -209,7 +227,12 @@
         '<a href="pricing.html" class="tdn-signin">Subscribe</a>' +
       '</div></div>' +
     '</div></div>' +
-    '<div class="tdn-rowwrap"><div class="tdn-col"><div class="tdn-row">' + groupsHtml + '</div></div></div>';
+    '<div class="tdn-rowwrap"><div class="tdn-col"><div class="tdn-row">' + groupsHtml +
+      '<div class="tdn-group tdn-srch"><button class="tdn-btn" type="button" aria-label="Search players and teams">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.8-4.8"/></svg><span class="tdn-srl">Search</span></button>' +
+        '<div class="tdn-menu tdn-sp"><input type="search" placeholder="Any player or team, any season" aria-label="Search players and teams" autocomplete="off" autocapitalize="off" spellcheck="false">' +
+        '<div class="tdn-sr"><div class="hint">Try “Cooper Flagg”, “Gonzaga”, or add a year: “Duke 2015”.</div></div></div></div>' +
+    '</div></div></div>';
 
   // ── Dropdown behavior: click to toggle, click-outside / Escape to close ──
   function wireMenus() {
@@ -228,6 +251,87 @@
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeAll(null); });
   }
 
+  // ── Site search: every player and team, every season ──
+  // players = this season's rosters (players) + all 20 years of player_history, grouped into one row per person
+  // (ESPN id first, so namesakes stay apart); teams = the D-I list. A year in the query ("Duke 2015", "2014-15")
+  // narrows players to that season and opens the team page on it.
+  function wireSearch() {
+    var g = wrap.querySelector('.tdn-srch'); if (!g) return;
+    var inp = g.querySelector('input'), out = g.querySelector('.tdn-sr'), btn = g.querySelector('.tdn-btn');
+    var H = { apikey: KEY }, seq = 0, timer = 0, hint = out.innerHTML;
+    btn.addEventListener('click', function () { if (g.classList.contains('open')) { inp.focus(); inp.select(); } });   // same tap, so phones raise the keyboard
+    g.querySelector('.tdn-sp').addEventListener('click', function (e) { e.stopPropagation(); });
+    document.addEventListener('keydown', function (e) {
+      var t = e.target, typing = t && (t.isContentEditable || /^(input|textarea|select)$/i.test(t.tagName));
+      if (e.key === '/' && !typing && !e.metaKey && !e.ctrlKey) { e.preventDefault(); if (!g.classList.contains('open')) btn.click(); else inp.focus(); }
+    });
+    var lab = function (y) { return (y - 1) + '-' + String(y).slice(2); };
+    var get = function (path) { return fetch(SB + '/rest/v1/' + path, { headers: H }).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; }); };
+    var logo = function (team) { try { var c = window.tdcTeamColor && window.tdcTeamColor(team); return (c && c.logo) || ''; } catch (e) { return ''; } };
+    var row = function (href, name, desc, tag, img) {
+      return '<a href="' + esc(href) + '">' + (img ? '<img src="' + esc(img) + '" alt="" loading="lazy" onerror="this.style.visibility=\'hidden\'">' : '') +
+        '<span class="tx"><span class="nm">' + esc(name) + '</span>' + (desc ? '<span class="ds">' + esc(desc) + '</span>' : '') + '</span>' + (tag ? '<span class="tg">' + esc(tag) + '</span>' : '') + '</a>';
+    };
+    function run() {
+      var raw = inp.value.trim(), y = null, m;
+      if ((m = raw.match(/\b(?:19|20)(\d{2})\s*[-–\/]\s*(\d{2})\b/))) { y = 2000 + +m[2]; raw = raw.replace(m[0], ''); }
+      else if ((m = raw.match(/\b((?:19|20)\d{2})\b/))) { y = +m[1]; raw = raw.replace(m[0], ''); }
+      var text = raw.replace(/[^\w .'\-]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (text.length < 2) { out.innerHTML = hint; return; }
+      var my = ++seq, pat = encodeURIComponent('*' + text.replace(/ /g, '*') + '*'), cur = !y || y >= 2027;
+      out.innerHTML = '<div class="none">Searching…</div>';
+      Promise.all([
+        cur ? get('players?name=ilike.' + pat + '&select=id,name,team,position,yr,espn_id&order=name&limit=12') : Promise.resolve([]),
+        get('player_history?name=ilike.' + pat + '&select=name,team,season_year,espn_id&order=season_year.desc&limit=300' + (y && !cur ? '&season_year=eq.' + y : '')),
+        get('teams?name=ilike.' + pat + '&select=name,conference&order=name&limit=8'),
+      ]).then(function (res) {
+        if (my !== seq) return;
+        var P = res[0] || [], hist = res[1] || [], T = res[2] || [];
+        // one entry per person: ESPN id when we have it; an id-less season joins the same-named person
+        var by = {}, byName = {}, list = [];
+        hist.forEach(function (h) { if (h.espn_id) { var k = 'e' + h.espn_id; if (!by[k]) { by[k] = { name: h.name, espn: h.espn_id, rows: [] }; list.push(by[k]); byName[h.name.toLowerCase()] = by[k]; } by[k].rows.push(h); } });
+        hist.forEach(function (h) { if (h.espn_id) return; var k = h.name.toLowerCase(), e = byName[k];
+          if (!e) { e = byName[k] = { name: h.name, espn: null, rows: [] }; list.push(e); } e.rows.push(h); });
+        P.forEach(function (p) {
+          var e = (p.espn_id && by['e' + p.espn_id]) || byName[p.name.toLowerCase()];
+          if (!e) { e = { name: p.name, espn: p.espn_id || null, rows: [] }; list.push(e); byName[p.name.toLowerCase()] = e; }
+          e.now = p;
+        });
+        var q = text.toLowerCase(), score = function (e) { var n = e.name.toLowerCase(); return (n === q ? 0 : n.indexOf(q) === 0 ? 1 : 2); };
+        var last = function (e) { return e.now ? 2027 : e.rows.length ? e.rows[0].season_year : 0; };
+        list.sort(function (a, b) { return score(a) - score(b) || last(b) - last(a) || a.name.localeCompare(b.name); });
+        var pl = list.slice(0, 10).map(function (e) {
+          var yrs = e.rows.map(function (r) { return r.season_year; }), teams = [];
+          if (e.now) teams.push(e.now.team);
+          e.rows.forEach(function (r) { if (r.team && teams.indexOf(r.team) < 0) teams.push(r.team); });
+          var lo = Math.min.apply(null, yrs.length ? yrs : [2027]), hi = e.now ? 2027 : Math.max.apply(null, yrs);
+          var span = lo === hi ? lab(hi) : lab(lo) + ' to ' + lab(hi);
+          var desc = teams.slice(0, 3).join(' · ') + (teams.length > 3 ? ' +' + (teams.length - 3) : '') + ' · ' + span;
+          var href = e.now ? 'player.html?id=' + e.now.id
+            : e.espn ? 'player.html?espn=' + e.espn + '&name=' + encodeURIComponent(e.name) + (y ? '&season=' + y : '')
+            : 'player.html?name=' + encodeURIComponent(e.name) + '&team=' + encodeURIComponent(e.rows[0].team) + '&season=' + e.rows[0].season_year;
+          return row(href, e.name, desc, e.now ? (e.now.position || 'Now') : '', logo(teams[0]));
+        }).join('');
+        var tm = T.map(function (t) {
+          var old = y && y < 2027;
+          return row('team.html?team=' + encodeURIComponent(t.name) + (old ? '&season=' + y : ''), t.name, (t.conference || '') + (old ? ' · ' + lab(y) + ' roster' : ''), '', logo(t.name));
+        }).join('');
+        out.innerHTML = (tm ? '<h6>Teams</h6>' + tm : '') + (pl ? '<h6>Players' + (y ? ' · ' + lab(y) : '') + '</h6>' + pl : '') +
+          (!tm && !pl ? '<div class="none">No players or teams match “' + esc(inp.value.trim()) + '”.</div>' : '');
+        var f = out.querySelector('a'); if (f) f.classList.add('on');
+      });
+    }
+    inp.addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(run, 220); });
+    inp.addEventListener('keydown', function (e) {
+      var as = [].slice.call(out.querySelectorAll('a')), i = as.findIndex(function (a) { return a.classList.contains('on'); });
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault(); if (!as.length) return;
+        if (i >= 0) as[i].classList.remove('on');
+        i = (i + (e.key === 'ArrowDown' ? 1 : -1) + as.length) % as.length; as[i].classList.add('on'); as[i].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter') { e.preventDefault(); if (i >= 0) location.href = as[i].getAttribute('href'); else { clearTimeout(timer); run(); } }
+    });
+  }
+
   function mount() {
     if (!document.body) return;
     // remove any legacy inline nav so only the grouped bar remains
@@ -241,6 +345,7 @@
       if (window.TDC_TICKER) go(); else { var ts = document.createElement('script'); ts.src = 'tdc-ticker.js?v=3'; ts.onload = go; ts.onerror = function () { tk.remove(); }; document.head.appendChild(ts); }
     }
     wireMenus();
+    wireSearch();
     upgradeAuth();
     watchActions();
   }
