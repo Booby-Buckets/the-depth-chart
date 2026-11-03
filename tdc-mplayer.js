@@ -281,8 +281,11 @@
       od.className = (!past && isFinite(dg) && isFinite(dl)) ? (dg < dl ? 'dn' : dg > dl ? 'up' : '') : ''; od.textContent = dh; }
     var fr = document.querySelector('.mp-hero .mp-from'); if (fr) fr.style.display = past ? 'none' : '';
     var sel = document.querySelector('.mpb-sub .mp-sel'), lbl = document.getElementById('mpLineLbl');
-    var isProj = !past;
-    if (lbl) lbl.textContent = isProj ? 'D-I rank' : 'Change vs year before';
+    // his real 2026-27 games (player.html _live27): a 1-game line ranked against full projected seasons reads "#1",
+    // so the season so far shows the change vs last season like a past year
+    var live = !past && String(window._paSel) === '2027' && !!window._live27;
+    var isProj = !past && !live;
+    if (lbl) lbl.textContent = isProj ? 'D-I rank' : live ? 'So far vs last season' : 'Change vs year before';
     if (isProj) loadPool();
     var cells = [], want = ['PPG', 'RPG', 'APG', '3P%', 'MPG'], lab = { PPG: 'PTS', RPG: 'REB', APG: 'AST', '3P%': '3P%', MPG: 'MIN' };
     var by = {};
