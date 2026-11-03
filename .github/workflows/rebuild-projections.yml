@@ -216,7 +216,11 @@ jobs:
         if: always()
         run: |
           if [ "$(git rev-list --count origin/main..HEAD)" = "0" ]; then echo "Nothing to push."; exit 0; fi
+          # --autostash: a build step leaves uncommitted files, and without it every retry died on "cannot pull with
+          # rebase: You have unstaged changes" — so any push to main mid-run silently threw the rebuild away (Nov 3 2026)
           for i in 1 2 3 4 5; do
-            git pull --rebase -X theirs origin main && git push && break
+            git pull --rebase --autostash -X theirs origin main && git push && break
             echo "push raced another commit (try $i); retrying"; sleep $((i*5))
           done
+          git fetch -q origin main
+          if [ "$(git rev-list --count origin/main..HEAD)" != "0" ]; then echo "::error::rebuild was not pushed"; exit 1; fi
