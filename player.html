@@ -2702,6 +2702,26 @@ async function init(){
       }catch(e){}
     }
 
+    // 2026-27 SO FAR (owner, Nov 3 2026: "show actual averages now for players"): his real games this season, from
+    // box_scores (season_year 2027, written by the results feed), as one season row beside the career. It is kept OUT of
+    // careerHistory (five builders read careerHistory's last row as "last season") and joined in by _ovrSeasons /
+    // _ovrSeasonRow / the Stats table. Once he has played, the season control opens on it instead of the projection.
+    window._live27=null;
+    try{
+      if(_espnId && !window._historicalView){
+        const _bx=await fetch(`${SB}/rest/v1/box_scores?espn_id=eq.${encodeURIComponent(_espnId)}&season_year=eq.2027&select=game_id,date,team,opp,starter,min,pts,reb,oreb,dreb,ast,stl,blk,tov,pf,fgm,fga,tpm,tpa,ftm,fta&order=date.asc`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+        const _pl=(_bx||[]).filter(g=>(+g.min||0)>0);
+        if(_pl.length){
+          const n=_pl.length, S=k=>_pl.reduce((a,g)=>a+(+g[k]||0),0), A=k=>Math.round(S(k)/n*10)/10, P=(m,a)=>S(a)>0?Math.round(S(m)/S(a)*1000)/10:null;
+          const _tm=(player&&player.team)||(_pl[_pl.length-1].team||'');
+          window._live27={ season_year:2027, team:_tm, school:_tm, _live:true, _games:_pl, gp:n, gs:_pl.filter(g=>g.starter).length,
+            ppg:A('pts'), rpg:A('reb'), apg:A('ast'), mpg:A('min'), stl:A('stl'), blk:A('blk'), tovs:A('tov'), pf:A('pf'),
+            fgm:A('fgm'), fga:A('fga'), fg_pct:P('fgm','fga'), tpm:A('tpm'), tpa:A('tpa'), tp_pct:P('tpm','tpa'),
+            ftm:A('ftm'), fta:A('fta'), ft_pct:P('ftm','fta'), oreb:A('oreb'), dreb:A('dreb'), _pergame:{}, _per40:{}, _advanced:{} };
+        }
+      }
+    }catch(e){ console.warn('2026-27 box scores',e); }
+
     // (Historical hometown came from bbref_seasons — removed with the SR migration.
     // Current-roster hometown still comes from the players table via player.hometown.)
 
@@ -2910,8 +2930,9 @@ async function init(){
           const _o=document.createElement('option'); _o.value='proj'; _o.textContent='2026-27 Projected';
           _sel.insertBefore(_o, _sel.firstChild);
         }
-        if(_sel.value!=='proj'){ _sel.value='proj'; if(typeof setOvrSeason==='function') setOvrSeason('proj'); }
-        return _sel.value==='proj';
+        const _want=(window._live27&&[..._sel.options].some(function(o){return o.value==='2027';}))?'2027':'proj';
+        if(_sel.value!==_want){ _sel.value=_want; if(typeof setOvrSeason==='function') setOvrSeason(_want); }
+        return _sel.value===_want;
       }catch(e){ return false; } };
       // The overview / season selector may (re)render AFTER this code runs, on its own schedule,
       // so a fixed timeout races it. Watch the DOM and re-apply until the projected view sticks,
@@ -3401,9 +3422,9 @@ function ovrCardsFor(src){
     +ST.map(function(s){return '<th>'+s[0]+'</th>';}).join('')+'</tr></thead><tbody><tr><td class="l nm">'+esc0(lbl)+'</td>'+tds+'</tr></tbody></table></div>';
 }
 function esc0(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
-function _ovrSeasonRow(yr){ var r=(careerHistory||[]).filter(function(s){return +s.season_year===+yr && s.ppg!=null;}); return r.length?r.sort(function(a,b){return (+b.gp||0)-(+a.gp||0);})[0]:null; }
+function _ovrSeasonRow(yr){ if(+yr===2027&&window._live27) return window._live27; var r=(careerHistory||[]).filter(function(s){return +s.season_year===+yr && s.ppg!=null;}); return r.length?r.sort(function(a,b){return (+b.gp||0)-(+a.gp||0);})[0]:null; }
 function _ovrSeasons(){
-  var byYear={}; (careerHistory||[]).forEach(function(s){ if(s.ppg==null && (s.gp==null||s.gp===0)) return; var y=+s.season_year, gp=+s.gp||0; if(!byYear[y]||gp>(+byYear[y].gp||0)) byYear[y]=s; });
+  var byYear={}; (careerHistory||[]).concat(window._live27?[window._live27]:[]).forEach(function(s){ if(s.ppg==null && (s.gp==null||s.gp===0)) return; var y=+s.season_year, gp=+s.gp||0; if(!byYear[y]||gp>(+byYear[y].gp||0)) byYear[y]=s; });
   return Object.values(byYear).sort(function(a,b){return b.season_year-a.season_year;});
 }
 function buildOvrSeasonControl(p, proj){
@@ -3479,7 +3500,7 @@ function _renderScoutCard(){ var host=document.getElementById('prospectCardHost'
   if(!host || typeof buildProspectCard!=='function' || !window._ovcScout) return;
   try{ host.innerHTML=buildProspectCard(player,(typeof proj!=='undefined'?proj:null),window._ovcScout); }catch(e){} }
 function setOvrSeason(val){
-  window._paSel=val; try{ var _ph=document.querySelector('.pa-hero'); if(_ph) _ph.classList.toggle('pc-past', !!val && val!=='proj'); }catch(e){}
+  window._paSel=val; try{ var _ph=document.querySelector('.pa-hero'); if(_ph) _ph.classList.toggle('pc-past', !!val && val!=='proj' && +val!==2027); }catch(e){}
   try{ var _pj=document.getElementById('paProj'); if(_pj) _pj.innerHTML=_paProjHTML(); var _pc=document.getElementById('paCarry'); if(_pc) _pc.innerHTML=_paCarryHTML(); }catch(e){}
   var host=document.getElementById('ovrCards'); if(!host){ _paShade(); return; }
   renderSkill(val);
@@ -3500,10 +3521,10 @@ function _ovcSeasonOpts(){
   var useProj=(proj && !proj._frosh && (!proj._injured || injOut));
   var lbl=injOut?(_seasonLbl2(2027)+' · Out'):(_seasonLbl2(2027)+' Projected');
   var opts=(useProj?'<option value="proj">'+lbl+'</option>':'');
-  seasons.forEach(function(s){ opts+='<option value="'+s.season_year+'">'+_seasonLbl2(s.season_year)+' · '+(s.team||'')+'</option>'; });
+  seasons.forEach(function(s){ opts+='<option value="'+s.season_year+'"'+(s._live?' selected':'')+'>'+_seasonLbl2(s.season_year)+' · '+(s.team||'')+(s._live?' · so far':'')+'</option>'; });
   return {opts:opts, useProj:useProj, seasons:seasons};
 }
-function _ovcInitialStats(){ var o=_ovcSeasonOpts(); return (o.useProj?buildOverviewCards(player,proj):(o.seasons.length?ovrCardsFor(o.seasons[0]):buildOverviewCards(player,proj))); }
+function _ovcInitialStats(){ var o=_ovcSeasonOpts(); if(window._live27) return ovrCardsFor(window._live27); return (o.useProj?buildOverviewCards(player,proj):(o.seasons.length?ovrCardsFor(o.seasons[0]):buildOverviewCards(player,proj))); }
 // Mount the shared season selector (tdc-season.js) into #tdcSeasonSlot, scoped to
 // ONLY the seasons this player actually has (from careerHistory via _ovcSeasonOpts),
 // plus the "2026-27 Projected" pseudo-season when applicable. The resulting <select>
@@ -3523,7 +3544,7 @@ function _mountSeasonCtl(){
     min:minY, max:maxY, current:maxY,
     title:'Season',
     // full label override: "2022-23 · Team" (no "· Current" suffix), matching the old options
-    labelFn:function(y){ var t=teamByYear[y]; return _seasonLbl2(y)+(t?(' · '+t):''); },
+    labelFn:function(y){ var t=teamByYear[y]; return _seasonLbl2(y)+(t?(' · '+t):'')+(+y===2027&&window._live27?' · so far':''); },
     onChange:function(){ var el=document.getElementById('ovrSeasonSel'); if(el) setOvrSeason(el.value); }
   });
   if(!ctl||!ctl.select) return;
@@ -3537,7 +3558,8 @@ function _mountSeasonCtl(){
     po.value='proj';
     po.textContent=injOut?(_seasonLbl2(2027)+' · Out'):(_seasonLbl2(2027)+' Projected');
     sel.insertBefore(po, sel.firstChild);
-    po.selected=true;                 // default view = projected (matches _ovcInitialStats)
+    po.selected=!window._live27;      // default view = projected, or his real 2026-27 once he has played
+    if(window._live27) sel.value='2027';
   } else if(years.length){
     sel.value=String(maxY);           // else newest real season
   }
@@ -4808,7 +4830,7 @@ function renderStatTable(p, projData){
   // Deduplicate history by season_year — keep the row with the most games played per year
   const dedupedHistory = (() => {
     const byYear = {};
-    (careerHistory || []).forEach(s => {
+    (careerHistory || []).concat(window._live27?[window._live27]:[]).forEach(s => {
       const yr = s.season_year;
       const gp = s.gp || 0;
       if(!byYear[yr] || gp > (byYear[yr].gp || 0)) byYear[yr] = s;
@@ -4828,7 +4850,7 @@ function renderStatTable(p, projData){
       } else {
         const pgd=s._pergame||{};
         rowsHtml += `<tr class="actual">
-          <td class="l">${seasonLabel(s.season_year)}</td>${teamTd(s.team)}
+          <td class="l">${seasonLabel(s.season_year)}${s._live?' <span class="dim" title="His real 2026-27 games so far, from the box scores">so far</span>':''}</td>${teamTd(s.team)}
           ${ovrCell(_statOvrRow(s.season_year, s.tdc_grade))}
           <td>${s.gp||'—'}</td>
           <td ${_cc(pgd,'pts_per_g')}>${fmt(s.ppg)}</td><td ${_cc(pgd,'trb_per_g')}>${fmt(s.rpg)}</td><td ${_cc(pgd,'ast_per_g')}>${fmt(s.apg)}</td><td ${_cc(pgd,'mp_per_g')}>${fmt(s.mpg)}</td>
@@ -7238,7 +7260,7 @@ function switchTab(t){
     if(id==='nil' && !window._nilLoaded){ window._nilLoaded=true; setTimeout(renderNilPlayer,40); }
     if(id==='betting' && !window._bettingLoaded){ window._bettingLoaded=true; setTimeout(renderBetting,40); }
     if(id==='buzz' && !window._buzzLoaded){ window._buzzLoaded=true; setTimeout(renderBuzz,40); }
-    if(id==='trends' && !window._trendsLoaded){ window._trendsLoaded=true; setTimeout(function(){ var p=player||{}; if(window.TDCTrends) TDCTrends.render(document.getElementById('trendsContent'),{espn_id:window._playerEspn||p.espn_id,team:p.team,name:p.name}); },40); }
+    if(id==='trends' && !window._trendsLoaded){ window._trendsLoaded=true; setTimeout(function(){ var p=player||{}; if(window.TDCTrends) TDCTrends.render(document.getElementById('trendsContent'),{espn_id:window._playerEspn||p.espn_id,team:p.team,name:p.name,games:window._live27?window._live27._games:null,proj:(typeof proj!=='undefined'&&proj)?proj:null}); },40); }
     if(id==='portalfit' && !window._portalLoaded){ window._portalLoaded=true; setTimeout(renderPortalFit,40); }
     if(id==='scout'){
       setTimeout(renderArchetype,60);
@@ -8046,7 +8068,7 @@ init();
 <script src="tdc-sheets.js?v=2"></script>
 <script src="tdc-liveplayer.js?v=3"></script>
 <script src="tdc-mplayer.js?v=17"></script>
-<script src="tdc-trends.js?v=ui2"></script>
+<script src="tdc-trends.js?v=ui4"></script>
 <script>
 /* one anatomy for every stat tab (tdc-panelize.js); the Overview gets the same shape from tdc-player-a.css */
 if(window.TDCPanelize) TDCPanelize.watchIds(['panel-stats','panel-trends','panel-playerdna','panel-onoff','panel-shotcharts','panel-shotgenome','panel-shotflow',

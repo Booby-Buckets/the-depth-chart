@@ -1440,6 +1440,7 @@
       <th class="l">Team</th>
       <th class="l">Conf</th>
       <th class="c sort" data-sort="wins" data-col="wl" title="Win–Loss record. Once the 2026-27 season starts it is the real record (games count the moment they go final); before that, the expected record from simulating the announced schedule 600 times. Hover a team for the projected final record and range.">W-L<span class="ar"></span></th>
+      <th class="sort" data-sort="sos" data-col="sos" title="Strength of schedule — the average Power Rating of the Division I teams played so far (higher = tougher). The Rating already adjusts every result for the opponent: beating a weak team only helps by the margin beyond what was expected against them.">SOS<span class="ar"></span></th>
       <th class="sort" data-sort="srs" title="Power Rating — how many points better than an average Division I team this team is, on a neutral court and adjusted for who they played. A +18 team would beat an average team by about 18. The gap between two teams' Power Ratings is the projected point spread.">Rating<span class="ar"></span></th>
       <th class="sort" data-sort="ortg" title="Offensive Rating — points scored per 100 possessions, adjusted for opponent and pace (from the Team DNA engine). Higher = better offense. Sort by this to find the best offenses.">ORtg<span class="ar"></span></th>
       <th class="sort" data-sort="drtg" title="Defensive Rating — points allowed per 100 possessions, adjusted for opponent and pace (from the Team DNA engine). LOWER = better defense. Sort by this to find the best defenses.">DRtg<span class="ar"></span></th>
@@ -2025,9 +2026,9 @@ function setConf(conf,btn){
 let curSort = 'srs', curSortDir = -1;           // dir: -1 = high→low (default), +1 = low→high
 const SORT_DEFAULT_ASC = new Set(['oppg','topg','drtg']); // these read better low→high (drtg: best defense first)
 function statVal(t, key){
-  if(key==='srs')    return t.srs ?? t.margin ?? -999;
+  if(key==='srs')    return t._r ?? t.srs ?? t.margin ?? -999;
   if(key==='margin') return t.margin ?? -999;
-  if(key==='wins')   return t.wins ?? 0;
+  if(key==='wins')   return window._ixPlayed&&!t.gp ? 0 : (t.wins ?? 0);
   if(key==='winpct') return t.winpct ?? 0;
   const v = t[key]; return (v==null || isNaN(v)) ? -999 : v;
 }
@@ -2064,7 +2065,7 @@ function applyFilters(animated){
     // teams with no shot-data / efficiency value (carryover / non-2027) always sink, either direction
     if(srt==='shotluck'||srt==='sglq'||srt==='sgsm'||srt==='sgcr'||srt==='ortg'||srt==='drtg'||srt==='net'){
       const an=a[srt]==null, bn=b[srt]==null; if(an!==bn) return an?1:-1; }
-    return (statVal(a,srt)-statVal(b,srt))*curSortDir || ((b.srs??b.margin)-(a.srs??a.margin));
+    return (statVal(a,srt)-statVal(b,srt))*curSortDir || ((b._r??b.srs??b.margin)-(a._r??a.srs??a.margin));
   });
 
   // rank within the chosen level (by Power Rating), national rank beside it
@@ -2082,6 +2083,7 @@ function applyRankColumns(){
   const teams = window.allTeams || allTeams || [];
   const RC = {
     wl:       true,
+    sos:      curSeason===2027 && teams.some(t=>t.sos!=null),
     shotluck: teams.some(t=>t.shotluck!=null),
     sglq:     teams.some(t=>t.sglq!=null),
     sgsm:     teams.some(t=>t.sgsm!=null),
@@ -2096,7 +2098,8 @@ function applyRankColumns(){
 // shaded in five buckets over the whole field (c0 bottom … c4 top), like the football table.
 const RANK_COLS = [
   // key, cell text, heat (1 = higher is better, -1 = lower is better, 0 = none), optional data-col
-  ['wins',   t => t.gp||t.projRec ? `${t.wins}–${t.losses}` : '—', 0, 'wl'],
+  ['wins',   t => t.gp ? `${t.wins}–${t.losses}` : window._ixPlayed&&curSeason===2027 ? '0–0' : t.projRec ? `${t.wins}–${t.losses}` : '—', 0, 'wl'],
+  ['sos',    t => t.sos!=null?(t.sos>0?'+':'')+t.sos.toFixed(1):'—', 1, 'sos'],
   ['srs',    t => { const v=(window._useSrs&&t.srs!=null)?t.srs:t.margin; return v==null?'—':(v>0?'+':'')+(+v).toFixed(1); }, 1],
   ['ortg',   t => t.ortg!=null?t.ortg.toFixed(1):'—', 1],
   ['drtg',   t => t.drtg!=null?t.drtg.toFixed(1):'—', -1],
@@ -2187,6 +2190,12 @@ fetch('scripts/data/rank_history_2027.json?h='+new Date().toISOString().slice(0,
   const sel=document.getElementById('mvSel'); if(sel) sel.value=MV_WIN;
   if(window._lastRows) renderRows(...window._lastRows);
 }).catch(()=>{});
+// hover on Rating: where it started and what the games so far did to it (opponent-adjusted)
+function _ratingTip(t){
+  if(curSeason!==2027||t.form==null||t._r==null||!t.gp) return '';
+  const pre=t._r-t.form, f=x=>(x>0?'+':'')+x.toFixed(1);
+  return ` title="Preseason ${f(pre)} → now ${f(t._r)} after ${t.gp} game${t.gp>1?'s':''}${t.sos!=null?` vs opponents averaging ${f(t.sos)}`:''}. Each result counts by how much it beat or missed what was expected against that opponent; the preseason rating still counts as 8 games."`;
+}
 function _rankMove(t){
   if(!RANK_MOVE||curSeason!==2027||t.rk==null) return '';
   const was=RANK_MOVE.prev[t.name]; if(was==null) return '';
@@ -2209,6 +2218,13 @@ function _liveRerank(){
   const by={}; rows.forEach(r=>{ by[r.full]=r; });
   allTeams.forEach(t=>{ const r=by[t.name]; if(r){ t._r=r.rating; t.srs=+r.rating.toFixed(1); t.form=r.form; } else t._r=t.srs; });
   allTeams.slice().sort((a,b)=>b._r-a._r).forEach((t,i)=>{ t.rk=i+1; });
+  // STRENGTH OF SCHEDULE (owner, Nov 3 2026: "not putting strength of opponent into effect" — it is, so show it): the
+  // average current rating of the D-I teams each team has played. The rating above already credits every result
+  // against that opponent, so a blowout of a weak team only counts for the margin beyond what was expected.
+  const opp={}; games.forEach(g=>{ if(!by[g.home]||!by[g.away]) return; (opp[g.home]=opp[g.home]||[]).push(by[g.away].rating); (opp[g.away]=opp[g.away]||[]).push(by[g.home].rating); });
+  allTeams.forEach(t=>{ const o=opp[t.name]; t.sos=o&&o.length?+(o.reduce((a,b)=>a+b,0)/o.length).toFixed(1):null; });
+  allTeams.filter(t=>t.sos!=null).sort((a,b)=>b.sos-a.sos).forEach((t,i)=>{ t.sosRk=i+1; });
+  window._ixPlayed=true;
   return true;
 }
 function renderRows(data, srt, favTeam){
@@ -2238,7 +2254,7 @@ function renderRows(data, srt, favTeam){
       if(col && !RC[col]) return;
       const cls=[k==='wins'?'c':'', k==='srs'?'big':'', dir&&heat[k]?heat[k](_heatVal(t,k)):''].filter(Boolean).join(' ');
       const rk = ord[k] ? ord[k](_heatVal(t,k)) : null;
-      row += `<td${cls?` class="${cls}"`:''}${k==='wins'?rec:''}>${f(t)}${rk!=null?`<span class="ix-rk" title="#${rk} in D-I">${rk}</span>`:''}</td>`;
+      row += `<td${cls?` class="${cls}"`:''}${k==='wins'?rec:k==='srs'?_ratingTip(t):''}>${f(t)}${rk!=null?`<span class="ix-rk" title="#${rk} in D-I">${rk}</span>`:''}</td>`;
     });
     html += row + '</tr>';
   });

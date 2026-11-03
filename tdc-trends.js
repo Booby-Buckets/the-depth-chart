@@ -66,6 +66,8 @@
       'table.trl tr.trl-det>td{padding:0!important;background:var(--bg2);}.trl-dbox{padding:10px 12px 12px;white-space:normal;text-align:left;}' +
       'table.trl-d{margin:0 0 4px;}table.trl-d tr.act td{font-weight:800;}table.trl-d tr.vs td{border-top:2px solid var(--border2);}' +
       '.tl-foot a{margin-left:auto;font-weight:700;color:var(--text2);text-decoration:none;}.tl-foot a:hover{color:var(--text);}' +
+      '.trs-chips{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 6px;}.trs-chip{font:700 12px Inter,system-ui,sans-serif;color:var(--text2);background:var(--bg);border:1px solid var(--border2);border-radius:999px;padding:6px 12px;min-height:32px;cursor:pointer;}' +
+      '.trs-chip.on{background:var(--text);color:var(--bg);border-color:var(--text);}' +
       '.tr-empty{padding:34px;text-align:center;color:var(--text3);border:1px dashed var(--border2);border-radius:12px;line-height:1.7;}';
     document.head.appendChild(st);
   }
@@ -145,9 +147,94 @@
     });
   }
 
+  // ── 2026-27 SEASON TREND (owner, Nov 3 2026: "add new game stats to the trend line and show how they move as an
+  // overall standpoint instead of per game vs projection"): each point is his SEASON average through that game (the
+  // running line a box-score page would show that night), with the projection as a dashed reference. Real games only;
+  // scrimmages stay in the preseason section below. who.games = box_scores rows (season_year 2027, min > 0),
+  // who.proj = his projected per-game line.
+  var SEASON_STATS = [
+    ['rtg', 'Overall', 1, 'Game rating (0–10, the box-score rating) averaged over the season so far: one number for his whole box score'],
+    ['pts', 'PTS', 1], ['reb', 'REB', 1], ['ast', 'AST', 1], ['min', 'MIN', 1], ['fg', 'FG%', 1, 'Field-goal % on the season so far (made ÷ attempted)'], ['tp', '3P%', 1, 'Three-point % on the season so far']];
+  function gameScore(x) {
+    return (+x.pts || 0) + 0.4 * (+x.fgm || 0) - 0.7 * (+x.fga || 0) - 0.4 * ((+x.fta || 0) - (+x.ftm || 0)) + 0.7 * (+x.oreb || 0) + 0.3 * (+x.dreb || 0) +
+      (+x.stl || 0) + 0.7 * (+x.ast || 0) + 0.7 * (+x.blk || 0) - 0.4 * (+x.pf || 0) - (+x.tov != null ? +x.tov || 0 : +x.tovs || 0);
+  }
+  var gRtg = function (gs) { return Math.max(2, Math.min(10, 5 + 0.135 * gs)); };
+  function seasonSeries(games, key) {   // [{per-game value, running season value}] in date order
+    var sum = {}, n = 0;
+    ['pts', 'reb', 'ast', 'min', 'fgm', 'fga', 'tpm', 'tpa', 'rtg'].forEach(function (k) { sum[k] = 0; });
+    return games.map(function (x) {
+      n++; var r = gRtg(gameScore(x));
+      ['pts', 'reb', 'ast', 'min', 'fgm', 'fga', 'tpm', 'tpa'].forEach(function (k) { sum[k] += +x[k] || 0; }); sum.rtg += r;
+      var one = key === 'rtg' ? r : key === 'fg' ? (+x.fga ? 100 * x.fgm / x.fga : null) : key === 'tp' ? (+x.tpa ? 100 * x.tpm / x.tpa : null) : +x[key] || 0;
+      var run = key === 'fg' ? (sum.fga ? 100 * sum.fgm / sum.fga : null) : key === 'tp' ? (sum.tpa ? 100 * sum.tpm / sum.tpa : null) : sum[key] / n;
+      return { g: x, one: one, run: run, n: n };
+    });
+  }
+  function projOf(P, key) {
+    if (!P) return null;
+    var pc = function (v) { v = parseFloat(v); return isFinite(v) ? (v <= 1 ? v * 100 : v) : null; };
+    if (key === 'rtg') { var line = { pts: P.ppg, fgm: P.fgm, fga: P.fga, ftm: P.ftm, fta: P.fta, oreb: P.oreb, dreb: P.dreb != null ? P.dreb : (P.rpg != null && P.oreb != null ? P.rpg - P.oreb : null), stl: P.stl, ast: P.apg, blk: P.blk, pf: P.pf, tovs: P.tovs };
+      return P.ppg != null && P.fga != null ? gRtg(gameScore(line)) : null; }
+    var v = key === 'pts' ? P.ppg : key === 'reb' ? P.rpg : key === 'ast' ? P.apg : key === 'min' ? P.mpg : key === 'fg' ? pc(P.fg_pct) : key === 'tp' ? pc(P.tp_pct != null ? P.tp_pct : P.three_pct) : null;
+    v = parseFloat(v); return isFinite(v) ? v : null;
+  }
+  function seasonChart(ser, pj, dec, title, unit, W) {
+    var VW = Math.max(300, Math.min(900, W || 640)), VH = VW < 520 ? 210 : 240, L = 40, R = 16, Tp = 18, Bt = 30;
+    var vals = []; ser.forEach(function (q) { if (q.run != null) vals.push(q.run); if (q.one != null) vals.push(q.one); }); if (pj != null) vals.push(pj);
+    if (!vals.length) return '';
+    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals), pad = Math.max((hi - lo) * 0.12, unit === '%' ? 4 : dec ? 0.4 : 1.5);
+    lo = Math.max(0, lo - pad); hi = hi + pad;
+    var n = ser.length, X = function (i) { return n === 1 ? (L + VW - R) / 2 : L + i * (VW - L - R) / (n - 1); };
+    var Y = function (v) { return Tp + (hi - v) * (VH - Tp - Bt) / (hi - lo || 1); };
+    var f = function (v) { return v == null ? '—' : (+v).toFixed(dec) + (unit || ''); };
+    var svg = '<svg class="trc-svg" viewBox="0 0 ' + VW + ' ' + VH + '" role="img" aria-label="' + esc(title) + '">';
+    for (var k = 0; k <= 3; k++) { var gv = lo + (hi - lo) * k / 3; svg += '<line class="trc-grid" x1="' + L + '" x2="' + (VW - R) + '" y1="' + Y(gv).toFixed(1) + '" y2="' + Y(gv).toFixed(1) + '"/><text class="trc-ax" x="' + (L - 6) + '" y="' + (Y(gv) + 4).toFixed(1) + '" text-anchor="end">' + (+gv).toFixed(dec) + '</text>'; }
+    if (pj != null) svg += '<line x1="' + L + '" x2="' + (VW - R) + '" y1="' + Y(pj).toFixed(1) + '" y2="' + Y(pj).toFixed(1) + '" style="stroke:var(--accent)" stroke-width="1.6" stroke-dasharray="6 5"/>' +
+      '<text class="trc-band" x="' + (VW - R) + '" y="' + (Y(pj) - 6).toFixed(1) + '" text-anchor="end" style="fill:var(--accent)">projected ' + f(pj) + '</text>';
+    ser.forEach(function (q, i) { if (q.one != null) svg += '<circle cx="' + X(i).toFixed(1) + '" cy="' + Y(q.one).toFixed(1) + '" r="3.2" style="fill:var(--text3)" opacity=".45"><title>That game: ' + f(q.one) + '</title></circle>'; });
+    var pts = ser.filter(function (q) { return q.run != null; });
+    if (pts.length > 1) svg += '<polyline class="trc-line" style="stroke:var(--text);stroke-width:2.6" points="' + ser.map(function (q, i) { return q.run == null ? null : X(i).toFixed(1) + ',' + Y(q.run).toFixed(1); }).filter(Boolean).join(' ') + '"/>';
+    ser.forEach(function (q, i) {
+      if (q.run == null) return;
+      var col = pj == null ? 'var(--text)' : q.run >= pj ? 'var(--green,#1a8c3a)' : 'var(--red,#cc2200)', x = q.g;
+      svg += '<circle class="trc-dot" cx="' + X(i).toFixed(1) + '" cy="' + Y(q.run).toFixed(1) + '" r="5.5" style="fill:' + col + '"><title>' + esc(x.date || '') + ' ' + esc(short(x.opp || '')) + ' · season ' + f(q.run) + ' through ' + q.n + ' game' + (q.n > 1 ? 's' : '') + (q.one != null ? ' (that game ' + f(q.one) + ')' : '') + '</title></circle>';
+      var md = (x.date || '').slice(5).replace('-', '/');
+      if (n <= 12 || i % Math.ceil(n / 12) === 0 || i === n - 1) svg += '<text class="trc-x" x="' + X(i).toFixed(1) + '" y="' + (VH - 10) + '" text-anchor="middle">' + md + '</text>';
+    });
+    var last = pts.length ? pts[pts.length - 1].run : null;
+    if (last != null) svg += '<text class="trc-lbl" x="' + Math.min(VW - R - 2, X(n - 1) + (n === 1 ? 14 : 0)).toFixed(1) + '" y="' + (Y(last) - 11).toFixed(1) + '" text-anchor="' + (n === 1 ? 'start' : 'end') + '">' + f(last) + '</text>';
+    return '<div class="trc">' + svg + '</svg></div>';
+  }
+  function seasonSection(el, who, key, head) {
+    var games = (who.games || []).slice().sort(function (a, b) { return (a.date || '').localeCompare(b.date || ''); });
+    var st = SEASON_STATS.filter(function (x) { return x[0] === key; })[0] || SEASON_STATS[0]; key = st[0];
+    var dec = key === 'min' ? 1 : 1, unit = key === 'fg' || key === 'tp' ? '%' : '';
+    var ser = seasonSeries(games, key), pj = projOf(who.proj, key), now = ser.length ? ser[ser.length - 1].run : null;
+    var d = now != null && pj != null ? now - pj : null, nG = games.length;
+    var kpi = function (k2, lab) { var s2 = seasonSeries(games, k2), v = s2.length ? s2[s2.length - 1].run : null, p2 = projOf(who.proj, k2), dd = v != null && p2 != null ? v - p2 : null, u = k2 === 'fg' || k2 === 'tp' ? '%' : '';
+      return '<div><div class="trt-l">' + lab + '</div><div class="trt-v">' + (v == null ? '—' : v.toFixed(1) + u) + '</div><div class="trt-s">' + (p2 == null ? 'season so far' : 'proj ' + p2.toFixed(1) + u + (dd != null ? ' · <b style="color:' + (dd >= 0 ? 'var(--green,#1a8c3a)' : 'var(--red,#cc2200)') + '">' + sg(dd) + '</b>' : '')) + '</div></div>'; };
+    var chips = SEASON_STATS.map(function (x) { return '<button type="button" class="trs-chip' + (x[0] === key ? ' on' : '') + '" data-k="' + x[0] + '"' + (x[3] ? ' title="' + esc(x[3]) + '"' : '') + '>' + x[1] + '</button>'; }).join('');
+    el.innerHTML = '<div class="tr-sec">' + (head || '2026-27 season') + ' · ' + nG + ' game' + (nG > 1 ? 's' : '') + '</div>' +
+      '<div class="trt-kpis">' + kpi('rtg', 'Overall (rating)') + kpi('pts', 'Points') + kpi('reb', 'Rebounds') + kpi('ast', 'Assists') + '</div>' +
+      '<div class="trs-chips" role="group" aria-label="Stat to chart">' + chips + '</div>' +
+      seasonChart(ser, pj, dec, st[1] + ' season average after each game', unit, el.clientWidth) +
+      '<div class="tv-lg"><span><i style="background:var(--text)"></i>season average through each game</span><span><i style="background:var(--text3);opacity:.5"></i>that single game</span>' + (pj != null ? '<span><i style="background:var(--accent);border-radius:1px;height:3px;width:14px;vertical-align:3px"></i>his projection</span>' : '') + '</div>' +
+      '<div class="tr-s" style="margin-top:4px">' + (now == null ? '' : 'His ' + (key === 'rtg' ? 'overall game rating' : st[1]) + ' sits at <b>' + now.toFixed(1) + unit + '</b> through ' + nG + ' game' + (nG > 1 ? 's' : '') +
+        (d != null ? ', <b style="color:' + (d >= 0 ? 'var(--green,#1a8c3a)' : 'var(--red,#cc2200)') + '">' + sg(d) + unit + '</b> ' + (d >= 0 ? 'above' : 'below') + ' our projection' : '') + (head ? '. Each point is his preseason average through that scrimmage.' : '. Each point is the full-season number as it stood after that night, so one big or bad game moves it less as the season goes on.')) + '</div>';
+    el.querySelectorAll('.trs-chip').forEach(function (b) { b.onclick = function () { seasonSection(el, who, b.dataset.k, head); }; });
+  }
   function render(host, who) {
     if (!host) return Promise.resolve();
     css(); tlCss();
+    if (who && who.games && who.games.length) {
+      host.innerHTML = '<div class="trs-season"></div><div class="trs-pre" style="margin-top:30px"></div>';
+      seasonSection(host.querySelector('.trs-season'), who, 'rtg');
+      return renderPre(host.querySelector('.trs-pre'), who, true);
+    }
+    return renderPre(host, who, false);
+  }
+  function renderPre(host, who, quiet) {
     host.innerHTML = '<div class="tr-empty">Loading preseason trends…</div>';
     return load().then(function (D) {
       var T = D.T || {}, P = null;
@@ -163,6 +250,7 @@
         return '<tr class="trl-up"><td class="l" colspan="' + n + '">' + (lg ? '<img class="tr-lg" src="' + lg + '" alt="">' : '') + 'Next · ' + md(x.date) + ' ' + (x.home === teamFull ? 'vs ' : '@ ') + esc(short(opp)) +
           ' <span class="trl-sub" style="display:inline">· ' + (x.neutral ? 'Neutral' : x.home === teamFull ? 'Home' : 'Away') + (x.time ? ' · ' + esc(x.time) : '') + ' · his line lands here once it’s played</span></td></tr>'; };
       if (!P || !P.games || !P.games.length) {
+        if (quiet) { host.innerHTML = ''; return; }
         host.innerHTML = '<div class="tr-empty" style="margin-bottom:18px;"><b>No scrimmage box score for ' + esc(who.name || 'this player') + ' yet.</b><br>Preseason trends come from scrimmages and exhibitions, weighted by how game-like each one was (the Reality Meter).</div>' +
           (upcoming.length ? '<div class="sheet-wrap" style="max-height:none"><table class="sheet dense trl"><tbody>' + upcoming.map(function (x) { return upRow(x, 2); }).join('') + '</tbody></table></div>' : '');
         return;
@@ -179,16 +267,8 @@
       // bigger role — Jesse McCulloch, projected 11, playing 21 — shouldn't read as a tiny number)
       var smin = games.length ? games.reduce(function (a, e) { return a + (+e.min || 0); }, 0) / games.length : 0;
       var pmin = Math.max(+(b.mpg || nw.mpg || 0), smin) || 28, K = pmin / 40, pg = function (v) { return v == null ? v : v * K; };
-      var html = '<div class="tr-sec">Preseason trend</div><div class="tr-hd"><div><div class="tr-l">Trend</div><div class="tr-big" style="color:' + col + '">' + (tr > 0 ? '▲ ' : tr < 0 ? '▼ ' : '') + sg(pg(tr)) + '</div><div class="tr-l" style="margin-top:2px">per game vs projection</div></div>' +
-        '<div><div class="tr-t">' + word + '</div><div class="tr-s">' + sg(pg(tr)) + ' means his scrimmages were worth about <b>' + Math.abs(pg(tr)).toFixed(1) + ' points per game ' + (tr >= 0 ? 'more' : 'less') + '</b> than we projected, at about ' + Math.round(pmin) + ' minutes a game. Points here are Game Score, one points-scale number for his whole box score (points, boards, assists, steals, blocks, shooting, turnovers). Averaged over ' + nG + ' scrimmage' + (nG > 1 ? 's' : '') +
-        (nG > 1 ? ' that count as <b>' : ' that counts as <b>') + W.toFixed(2) + ' real game' + (W === 1 ? '' : 's') + '</b> (each weighted by its Reality Meter and his share of a normal night’s minutes), pulled toward 0 as if he had one more average game.</div></div></div>';
-
-      // ── 1. the trend chart: his trend after each scrimmage, starting from 0 entering the preseason ──
-      var pts = [{ lab: 'Pre', y: 0, tip: '<b>Entering the preseason</b><br>Trend: <b>0.0</b>' }].concat(games.map(function (e) {
-        return { lab: md(e.date), y: pg(e.trend_after || 0), tip: '<b>' + (e.site === 'A' ? '@ ' : 'vs ') + esc(short(e.opp)) + ' · ' + esc(e.res) + '</b><br>Trend after: <b>' + sg(pg(e.trend_after)) + '</b> per game<br>' +
-          e.min + ' min · ' + e.pts + ' pts · vs proj ' + sg(pg(e.d40)) + ' per game · counts ' + (+e.w).toFixed(2) }; }));
-      html += trendChart(host, pts, [[3 * K, 'Trending up', 'Trending down'], [1 * K, 'Slightly up', 'Slightly down']], 1, 3.6 * K, 'Trend after each scrimmage (per game vs projection)');
-
+      // the running-average view, same as the real season above (owner, Nov 3 2026: overall, not per game vs projection)
+      var html = '<div class="trs-presea"></div>';
       // ── 2. the game log: projection → each scrimmage (expandable) → his projection now ──
       // RTG = the box-score 0-10 game rating (game.html playerRating: 5 + 0.135 x Game Score, 2-10), not raw Game Score
       // (owner, Oct 2026: "the gamescore should be the number 0-10.0 like it is in the box score")
@@ -249,7 +329,9 @@
         (TM && TM.adj ? '; ' + esc(short(teamFull)) + '’s team rating moved <b style="color:' + (TM.adj > 0 ? 'var(--green,#1a8c3a)' : 'var(--red,#cc2200)') + '">' + sg(TM.adj, 2) + '</b>' : '') +
         '. Scrimmages are unofficial: they never count in his record or season stats.</div>';
       host.innerHTML = html;
-      wireRows(host); wireChart(host, pts);
+      wireRows(host);
+      var sg2 = games.map(function (e) { return { date: e.date, opp: e.opp, min: e.min, pts: e.pts, reb: e.reb, dreb: e.reb, ast: e.ast, stl: e.stl, blk: e.blk, tov: e.tov, fgm: e.fgm, fga: e.fga, tpm: e.tpm, tpa: e.tpa, ftm: e.ftm, fta: e.fta }; });
+      seasonSection(host.querySelector('.trs-presea'), { games: sg2, proj: who.proj || { ppg: b.ppg, rpg: b.rpg, apg: b.apg, mpg: b.mpg } }, 'rtg', 'Preseason scrimmages');
       if (games.length === 1) { var r0 = host.querySelector('tr.trl-g'); if (r0) r0.click(); }   // one game: show its detail
     });
   }

@@ -27,14 +27,15 @@ def norm(n):
 
 
 def fetch_team(tid):
-    out = {}
+    # (espn athlete id, normalized name, team id, headshot) for every athlete with a photo
+    out = []
     for _ in range(2):
         try:
             d = S.get(ROSTER.format(tid=tid), timeout=30).json()
             for a in d.get("athletes", []):
                 hs = (a.get("headshot") or {}).get("href")
                 if hs:
-                    out[norm(a.get("displayName"))] = hs
+                    out.append((str(a.get("id") or ""), norm(a.get("displayName")), tid, hs))
             return out
         except Exception:
             time.sleep(1)
@@ -44,7 +45,7 @@ def fetch_team(tid):
 def fetch_players():
     rows, pg = [], 0
     while True:
-        r = requests.get(f"{SB}/rest/v1/players?select=id,name,team,photo_url&name=neq.%E2%80%94&order=id",
+        r = requests.get(f"{SB}/rest/v1/players?select=id,name,team,espn_id,photo_url&name=neq.%E2%80%94&order=id",
                          headers={**H, "Range-Unit": "items", "Range": f"{pg*1000}-{pg*1000+999}"}).json()
         if not isinstance(r, list) or not r:
             break
@@ -56,20 +57,35 @@ def fetch_players():
 
 
 def main(write=False):
-    photo = {}
+    # Match ESPN id first, then name within the same team, then a name that is unique across D-I: a bare
+    # name match put one Chase Thompson's photo on every Chase Thompson.
+    by_id, by_team, by_name = {}, {}, {}
+    team_id = {t[0]: t[1] for t in TEAMS}
+    def tid_of(short):   # players.team is the short school name ("Texas"); TEAMS has "Texas Longhorns"
+        if not short: return None
+        if short in team_id: return team_id[short]
+        c = [f for f in team_id if f.startswith(short + " ")]
+        return team_id[min(c, key=lambda f: len(f.split()))] if c else None
     with ThreadPoolExecutor(max_workers=8) as ex:
         for m in ex.map(lambda t: fetch_team(t[1]), TEAMS):
-            photo.update(m)
-    print(f"headshots gathered from rosters: {len(photo)}")
+            for eid, nm, tid, hs in m:
+                if eid: by_id[eid] = hs
+                by_team[(tid, nm)] = hs
+                by_name.setdefault(nm, set()).add(hs)
+    print(f"headshots gathered from rosters: {len(by_id)} by id, {len(by_team)} by team+name")
 
     players = fetch_players()
     have = [p for p in players if p.get("photo_url")]
     need = [p for p in players if not p.get("photo_url")]
-    pay = []
+    pay, how = [], {"id": 0, "team": 0, "name": 0}
     for p in need:
-        hs = photo.get(norm(p["name"]))
+        nm, hs = norm(p["name"]), None
+        if p.get("espn_id") and str(p["espn_id"]) in by_id: hs = by_id[str(p["espn_id"])]; how["id"] += 1
+        elif (tid_of(p.get("team")), nm) in by_team: hs = by_team[(tid_of(p.get("team")), nm)]; how["team"] += 1
+        elif len(by_name.get(nm, ())) == 1: hs = next(iter(by_name[nm])); how["name"] += 1
         if hs:
             pay.append({"id": p["id"], "name": p["name"], "photo_url": hs})
+    print(f"  matched by espn id {how['id']} · team+name {how['team']} · unique name {how['name']}")
     print(f"players: {len(players)} total | had photo {len(have)} | newly matched {len(pay)} | still missing {len(need)-len(pay)}")
     print("  sample new:", [p["name"] for p in pay[:8]])
     if not write:
