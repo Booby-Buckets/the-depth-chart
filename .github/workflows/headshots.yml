@@ -1,0 +1,33 @@
+name: Player headshots
+
+# Run on demand (Actions tab → Player headshots → Run workflow). Fills empty players.photo_url from ESPN's
+# team-roster API via scripts/backfill_photos_current.py --write: ESPN athlete id first, then name within the
+# same team, then a name unique across D-I. Only empty rows are written, so it repairs a roster resync that
+# wiped them. Photos still render only for the owner (auth.js tdcShowPhotos).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: headshots
+  cancel-in-progress: false
+
+jobs:
+  headshots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install deps
+        run: pip install requests cloudscraper beautifulsoup4
+      - name: Backfill headshots
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        working-directory: scripts
+        run: python3 backfill_photos_current.py --write
