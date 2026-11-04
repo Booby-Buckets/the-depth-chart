@@ -81,10 +81,11 @@ def low_leverage(per, secs, margin):
 
 SUB2 = re.compile(r"^Subbing (in|out) for (.+)$")
 THREE = re.compile(r"three point|3 pointer|3-pt|3pt", re.I)
+MISS = re.compile(r"(misses|missed)\b")   # "miss" alone also hits "Southern Miss." and "Namisse"; no leading \b: "Jah Shortmisses"
 def kind(desc):
     d = desc.lower()
     if "subbing" in d: return "sub"
-    if "free throw" in d: return "ftmiss" if "miss" in d else "ft"
+    if "free throw" in d: return "ftmiss" if MISS.search(d) else "ft"
     if "turnover" in d or "shot clock" in d: return "tov"
     if "offensive rebound" in d: return "orb"
     if "defensive rebound" in d: return "drb"
@@ -146,6 +147,30 @@ def drop_event(bx, e):
 
 TWO = re.compile(r"two point|2 pointer|layup|dunk|tip|hook|alley|putback", re.I)
 RIM = re.compile(r"layup|lay up|dunk|tip|alley|putback", re.I)   # at the rim; every other two is mid-range
+def row_score(pl):
+    try: return int(pl.get("homeScore") or 0), int(pl.get("visitorScore") or 0)
+    except Exception: return 0, 0
+
+def score_cols_swapped(pbp):
+    """some games carry homeScore/visitorScore reversed against the rows' isHome. Each made field goal votes on whether
+    the score column that moves (on its row or within the next 3, the feed can run late) is the shooter's own. 2025-26:
+    normal games have under 30% of votes against, the 25 reversed ones over 74%, none in between"""
+    agree = against = 0
+    for per in pbp["periods"]:
+        rows = per.get("playbyplayStats", [])
+        for i, pl in enumerate(rows):
+            d = pl.get("eventDescription") or ""
+            if i == 0 or kind(d) != "fga" or MISS.search(d.lower()): continue
+            base = row_score(rows[i - 1])
+            for q in rows[i:i + 4]:
+                c = row_score(q); dh = c[0] - base[0]; da = c[1] - base[1]
+                if dh < 0 or da < 0 or (dh > 0 and da > 0): break
+                if dh > 0 or da > 0:
+                    if (dh > 0) == bool(pl.get("isHome")): agree += 1
+                    else: against += 1
+                    break
+    return against > agree and agree + against >= 10
+
 def process_game(nid, og):
     """→ list of stints [{H:[ids],A:[ids],secs,low,h:{box},a:{box}}], team names, names map"""
     pbp = B.pbp_json(nid)
@@ -214,6 +239,11 @@ def process_game(nid, og):
             e = q.pop(0); drop_event(bucket[0] if e[2] == "H" else bucket[1], e)
     stints = []; cur = {"secs": 0.0, "low": defaultdict(lambda: [blank(), blank(), 0.0])}   # key (low, close, home margin sign)
     bad = 0
+    hi_h = hi_a = 0   # the score's game-wide high-water mark: only points above it are credited
+    swapped = score_cols_swapped(pbp)
+    def sc(pl):
+        h, a = row_score(pl)
+        return (a, h) if swapped else (h, a)
 
     def close():
         for (low, cl, hm, hf), (h, a, s) in cur["low"].items():
@@ -223,7 +253,7 @@ def process_game(nid, og):
 
     for per in pbp["periods"]:
         pn = int(per.get("periodNumber") or 1)
-        prev_h = prev_a = None; prev_sig = None; last_secs = 1200 if pn <= 2 else 300
+        prev_sig = None; last_secs = 1200 if pn <= 2 else 300
         last_miss = None   # (side, dead_ball) of the last missed shot: decides who an unlabelled rebound belongs to
         last_shot = None   # (side, clock) of the last missed field goal: a block line right after it is the same shot
         pend = {"H": [], "A": []}   # made field goals whose points the score hasn't shown yet: [box, value or None]
@@ -243,22 +273,26 @@ def process_game(nid, og):
                     if d >= val: d -= val; pend[sd].pop(0)
                     else: pend[sd][0] = [fbox, val - d]; d = 0
                 if d > 0: bx["ftm"] += d; bx["fta"] += d
-        for pl in per.get("playbyplayStats", []):
+        rows = per.get("playbyplayStats", [])
+        for ri, pl in enumerate(rows):
             desc = pl.get("eventDescription", "") or ""
-            try: hs = int(pl.get("homeScore") or 0); as_ = int(pl.get("visitorScore") or 0)
-            except Exception: hs = as_ = 0
+            hs, as_ = sc(pl)
             s = secs_of(pl.get("clock"))
-            mg = (prev_h if prev_h is not None else hs) - (prev_a if prev_a is not None else as_)   # margin before this play
+            mg = hi_h - hi_a   # margin before this play
             low = low_leverage(pn, s, hs - as_)
             bkey = (low, crunch(pn, s, mg), sgn(mg), int(pn >= 2)); bucket = cur["low"][bkey]
             if s is not None: flush(pn, s, bucket, at_sub=bool(SUB2.match(desc)))
             if s is not None and s <= last_secs:
                 bucket[2] += last_secs - s; last_secs = s
             # credit points only when the score passes its high-water mark: a scorer's correction (down, then back up)
-            # was being counted twice — that was the +7% of made free throws vs the box score
-            dh = (hs - prev_h) if prev_h is not None else 0
-            da = (as_ - prev_a) if prev_a is not None else 0
-            prev_h = hs if prev_h is None else max(prev_h, hs); prev_a = as_ if prev_a is None else max(prev_a, as_)
+            # was being counted twice — that was the +7% of made free throws vs the box score. It is game-wide: some feeds
+            # reset the score mid-game, carry -99, or drop in stray rows from much later (42-51 between two 2-2 rows), so a
+            # jump of more than 6 counts only if the next different score doesn't fall back below it (as build_statshift.py)
+            dh = max(0, hs - hi_h); da = max(0, as_ - hi_a)
+            if dh + da > 6:
+                nxt = next((sc(q) for q in rows[ri + 1:] if sc(q) != (hs, as_) and sc(q)[0] >= 0), None)
+                if nxt is not None and (nxt[0] < hs or nxt[1] < as_): dh = da = 0
+            hi_h += dh; hi_a += da
             m = SUB2.match(desc)
             if m:
                 credit(bucket, dh, da)   # points that arrive on a substitution line belong to the five before it
@@ -288,10 +322,15 @@ def process_game(nid, og):
             dup = bool(sig) and sig == prev_sig
             prev_sig = sig
             # most steals ride on the turnover line, often a repeat of a plain one just before it (so it reads as a
-            # duplicate): "X turnover (bad pass)" then "X turnover (bad pass) (Y steals)" — credit the other side here
-            if k == "tov" and "steals)" in dl: (bucket[1] if side == "H" else bucket[0])["stl"] += 1
+            # duplicate): "X turnover (bad pass)" then "X turnover (bad pass) (Y steals)". That second row carries the
+            # stealer's isHome (99.5%), not the side that lost the ball; the name settles the few that are labelled otherwise
+            if k == "tov" and "steals)" in dl:
+                sm = re.search(r"\(([^()]*?) steals\)", desc, re.I); sn = nn(sm.group(1)) if sm else ""
+                opp = "A" if side == "H" else "H"
+                sd = opp if sn in n2e[opp] and sn not in n2e[side] else side
+                (bucket[0] if sd == "H" else bucket[1])["stl"] += 1
             if not dup and k == "fga":
-                made = not re.search(r"miss", dl)
+                made = not MISS.search(dl)
                 box_s["fga"] += 1
                 last_miss = None if made else (side, False)
                 last_shot = None if made else (side, s)

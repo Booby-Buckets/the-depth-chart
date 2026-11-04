@@ -140,9 +140,13 @@ def process_game(nid, og, gbox):
         cur = fresh()
     bad = 0
     hi_h = hi_a = 0
+    swapped = W.score_cols_swapped(pbp)   # homeScore/visitorScore reversed against the rows' isHome in some games
+    def sc(pl):
+        h, a = W.row_score(pl)
+        return (a, h) if swapped else (h, a)
     for per in pbp["periods"]:
         pn = int(per.get("periodNumber") or 1)
-        prev_sig = None; last_secs = 1200 if pn <= 2 else 300
+        prev_sig = None; prev_full = None; last_secs = 1200 if pn <= 2 else 300
         last_miss = None
         last_ft = {"H": None, "A": None}; last_fg = {"H": None, "A": None}
         pend = {"H": [], "A": []}   # made FGs the score hasn't shown yet: [team box, player box or None, value or None]
@@ -176,9 +180,6 @@ def process_game(nid, og, gbox):
                         b = bucket[3].setdefault(e, blank()); b["ftm"] += 1; b["fta"] += 1; b["pts"] += 1
                         if ftleft.get(e, 0) > 0: ftleft[e] -= 1
         rows = per.get("playbyplayStats", [])
-        def sc(pl):
-            try: return int(pl.get("homeScore") or 0), int(pl.get("visitorScore") or 0)
-            except Exception: return 0, 0
         for ri, pl in enumerate(rows):
             desc = pl.get("eventDescription", "") or ""
             hs, as_ = sc(pl)
@@ -222,11 +223,19 @@ def process_game(nid, og, gbox):
             dl = desc.lower(); sig = re.sub(r"\s+", "", re.sub(r"\(.*?\)", "", dl))
             dup = bool(sig) and sig == prev_sig
             prev_sig = sig
-            if not dup:
+            # the credit usually sits on a repeat of a plain line ("X makes layup", then "X makes layup (Y assists)"), which
+            # reads as a duplicate above, so only an exact repeat of the full text is skipped here
+            full = re.sub(r"\s+", "", dl); new_text = full != prev_full; prev_full = full
+            if new_text:
                 for pm in PAREN.finditer(desc):   # "(X assists)" is a teammate; "(X steals)" / "(X blocks)" the other side
                     v = pm.group(2).lower()
                     if v == "assists": box_s["ast"] += 1
-                    e = actor(pm.group(1), side if v == "assists" else other)
+                    if v == "steals":   # these rows carry the stealer's isHome (99.5%), not the side that lost the ball
+                        sd = other if actor(pm.group(1), side) is None and actor(pm.group(1), other) else side
+                        e = actor(pm.group(1), sd)
+                        (bucket[0] if sd == "H" else bucket[1])["stl"] += 1
+                    else:
+                        e = actor(pm.group(1), side if v == "assists" else other)
                     if e: pbox(e)[{"assists": "ast", "steals": "stl", "blocks": "blk"}[v]] += 1
             if not dup and k == "fga":
                 made = not MISS.search(dl)
