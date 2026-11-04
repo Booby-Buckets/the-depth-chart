@@ -1,4 +1,4 @@
-// Free, direct prediction-market prices for TDC Bet's Arbs page: Kalshi + Polymarket US, every major sport, read
+// Free, direct prediction-market prices for TDC Bet: Kalshi + Polymarket US, every major sport, read
 // straight from each exchange's PUBLIC market data (no keys, no credits). Prediction markets don't limit winning
 // accounts, so they're the side of an arb that matters most.
 //
@@ -289,6 +289,3 @@ module.exports = async function (req, res) {
   }
 };
 
-// the alert scanner (api/arb-scan.js) reads the same boards
-module.exports.board = board;
-module.exports.SPORTS = SPORTS;

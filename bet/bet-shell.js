@@ -37,8 +37,8 @@
     lock: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
     back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>'
   };
-  var NAV = [['index', 'Tonight'], ['games', 'Games'], ['props', 'Props'], ['pickem', "Pick'em"], ['arb', 'Arbs'], ['futures', 'Futures'], ['markets', 'Markets'], ['trends', 'Trends'], ['record', 'Record'], ['tools', 'Tools']];
-  var MORE = [['arb', 'Arbs', 'Sure bets and middles across every book, with exact stakes'], ['pickem', "Pick'em", 'PrizePicks, Underdog, Pick6 and Betr lines vs each entry\'s break-even'], ['markets', 'Markets', 'Every question, priced like a prediction market'], ['trends', 'Trends', 'ATS and over/under history, 5 seasons'], ['record', 'Record', 'How our numbers have done'],
+  var NAV = [['index', 'Tonight'], ['games', 'Games'], ['props', 'Props'], ['pickem', "Pick'em"], ['futures', 'Futures'], ['markets', 'Markets'], ['trends', 'Trends'], ['record', 'Record'], ['tools', 'Tools']];
+  var MORE = [['pickem', "Pick'em", 'PrizePicks, Underdog, Pick6 and Betr lines vs each entry\'s break-even'], ['markets', 'Markets', 'Every question, priced like a prediction market'], ['trends', 'Trends', 'ATS and over/under history, 5 seasons'], ['record', 'Record', 'How our numbers have done'],
               ['tools', 'Tools', 'Matchup calculator, odds converter, parlay, Kelly'], ['learn', 'Learn', 'How the model works · glossary']];
   // owner-only pages: hidden from everyone else's nav (the page itself also turns non-owners away)
   var OWNER_ONLY = { arb: 1 };
