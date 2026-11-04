@@ -27,7 +27,7 @@ glorified practice barely at all. Records, ratings form, box_scores and player_h
 
     python3 scripts/scrim_reality.py          # scores every scrimmage with a result, writes it back
 """
-import json, math, re, urllib.request, urllib.parse
+import hashlib, json, math, re, urllib.request, urllib.parse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -116,6 +116,16 @@ def label(s):
     return "Game-like" if s >= 75 else "Mostly real" if s >= 55 else "Experimental" if s >= 35 else "Practice-like"
 
 
+def result_fingerprint(r):
+    """Hash of what the box says: score + player lines, without the fields this script writes (w, rn)."""
+    def clean(side):
+        if not side: return side
+        return {**side, "players": [{k: v for k, v in p.items() if k not in ("w", "rn")} for p in side.get("players") or []]}
+    box = r.get("box") or {}
+    raw = {"hs": r.get("hs"), "as": r.get("as"), "home": clean(box.get("home")), "away": clean(box.get("away"))}
+    return hashlib.sha1(json.dumps(raw, sort_keys=True).encode()).hexdigest()[:12]
+
+
 def main():
     R = json.load(open(RES)); G = {g["id"]: g for g in json.load(open(GAMES))["games"]}
     pr = json.load(urllib.request.urlopen(urllib.request.Request(f"{SB}/predictive_ratings?season=eq.2027&select=data&limit=1", headers=H), timeout=60))
@@ -190,6 +200,11 @@ def main():
     for gid, r in R["results"].items():
         g = G.get(gid)
         if not g or r.get("hs") is None: continue
+        # A scored game stays frozen until its score or box changes. Re-scoring against every rebuild's ratings moved pred by
+        # 0.1, which looked like a new result, started a rebuild and looped all day (hundreds of billed deploys, Nov 2026).
+        fp = result_fingerprint(r)
+        if r.get("reality") and r.get("reality_fp") == fp: continue
+        r["reality_fp"] = fp
         margin = r["hs"] - r["as"]
         th, ta = T.get(g["home"]), T.get(g["away"])
         # the line WITHOUT any scrimmage adjustment already in the ratings (else it would feed on itself)
