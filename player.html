@@ -1076,7 +1076,7 @@ body{background:transparent!important;}
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
   <link rel="stylesheet" href="tdc-nil-view.css?v=1"/>
   <link rel="stylesheet" href="tdc-column.css?v=4"/>
-  <link rel="stylesheet" href="tdc-player-a.css?v=34"/>
+  <link rel="stylesheet" href="tdc-player-a.css?v=35"/>
   <script src="tdc-coachlink.js?v=1"></script>
 </head>
 <body data-anim-auto>
@@ -3512,6 +3512,7 @@ function setOvrSeason(val){
   if(val==='proj'){ host.innerHTML=buildOverviewCards(player, proj); _updateHeroSeason(player.team, player.gp); }
   else { var s=_ovrSeasonRow(val); if(!s){ try{ renderOvcExtras(val); }catch(e){} return; } host.innerHTML=ovrCardsFor(s); _updateHeroSeason(s.team, s.gp, s.season_year); }
   _updateHeroGridForSeason(val);   // grade + WA + ranks + all-time all follow the season
+  try{ _renderOvrMove(); }catch(e){}
   try{ renderOvcExtras(val); }catch(e){}
   try{ renderSkillSheet(val); }catch(e){}
   _paShade();
@@ -3689,7 +3690,9 @@ function renderOvcExtras(val){
     var trows=seasons.slice().reverse().filter(function(r){ return isFinite(+r.tdc_grade); }).map(function(r){
       var g=Math.round(+r.tdc_grade);
       return '<tr><td class="l nm">'+_seasonLbl2(r.season_year)+'</td><td class="l dim">'+(r.team?(window.tdcShortSchool?tdcShortSchool(r.team):r.team):'')+'</td><td class="'+_hc((g-60)*2.5)+'">'+g+'</td></tr>'; });
-    if(_hasProj && isFinite(pg)) trows.push('<tr><td class="l nm">'+_seasonLbl2(2027)+' proj.</td><td class="l dim">'+(player.team||'')+'</td><td class="'+_hc((Math.round(pg)-60)*2.5)+'">'+Math.round(pg)+'</td></tr>');
+    var _mvRow=(window.TDCReal&&_hasProj)?TDCReal.ovrMove(player):null;
+    if(_mvRow&&_mvRow.delta) trows.push('<tr><td class="l nm">'+_seasonLbl2(2027)+' preseason</td><td class="l dim">'+(player.team||'')+'</td><td class="'+_hc((_mvRow.from-60)*2.5)+'">'+_mvRow.from+'</td></tr>');
+    if(_hasProj && isFinite(pg)) trows.push('<tr><td class="l nm">'+_seasonLbl2(2027)+(_mvRow&&_mvRow.delta?' now':' proj.')+'</td><td class="l dim">'+(player.team||'')+'</td><td class="'+_hc((Math.round(pg)-60)*2.5)+'">'+Math.round(pg)+'</td></tr>');
     tEl.innerHTML=trows.length?_ovSheet(['Season','Team','Overall'], trows):'<div class="ovc-muted">No grade history.</div>';
     var tl=document.getElementById('ovcTrendLbl');
     if(tl){ if(gs.length>=2){ var dd=Math.round(gs[gs.length-1]-gs[0]); tl.textContent=(dd>=0?'+':'')+dd+' over '+gs.length+' seasons'; } else tl.textContent=''; }
@@ -4422,7 +4425,16 @@ function _paShade(){
   var C=2*Math.PI*44, f=(window._paPctile!=null && !isNaN(g))?Math.max(0.02,Math.min(1,window._paPctile/100)):0;
   arc.style.strokeDasharray=C.toFixed(1); arc.style.strokeDashoffset=(C*(1-f)).toFixed(1);
 }
-function _paRanksHTML(){ return '<div class="pa-rk" id="paRankPlayer"></div><div class="pa-rk" id="paRankLast"></div><div class="pa-rk" id="paRankTeam"></div>'; }
+// His overall since the preseason (owner, Nov 2026). Shown for 2026-27 views only; a past season's OVR is a finished number.
+function _renderOvrMove(){
+  var el=document.getElementById('paOvrMove'); if(!el||!window.TDCReal) return;
+  var sel=(document.getElementById('ovrSeasonSel')||{}).value, cur=(sel==='proj'||+sel===2027||sel==null||sel==='');
+  var m=(cur&&!window._historicalView&&typeof player!=='undefined')?TDCReal.ovrMove(player):null; window._ovrMove=m;
+  if(!m||!m.delta){ el.innerHTML=''; el.style.display='none'; return; }
+  el.style.display=''; el.innerHTML='<b class="'+(m.delta>0?'mv-up':'mv-dn')+'">'+(m.delta>0?'▲':'▼')+Math.abs(m.delta)+'</b>since preseason <span class="pc-of">· was '+m.from+'</span>';
+}
+window.addEventListener('load',function(){ if(window.TDCReal) TDCReal.ovrReady().then(function(){ _renderOvrMove(); try{ var v=(document.getElementById('ovrSeasonSel')||{}).value; if(v) renderOvcExtras(v); }catch(e){} }); });
+function _paRanksHTML(){ return '<div class="pa-rk" id="paOvrMove" style="display:none"></div><div class="pa-rk" id="paRankPlayer"></div><div class="pa-rk" id="paRankLast"></div><div class="pa-rk" id="paRankTeam"></div>'; }
 function _paFillRanks(){
   var p=player; if(!p) return;
   var set=function(id,html){ var el=document.getElementById(id); if(el) el.innerHTML=html; };
@@ -8093,9 +8105,9 @@ init();
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=31"></script>
 <script src="tdc-sheets.js?v=2"></script>
-<script src="tdc-reallines.js?v=1"></script>
+<script src="tdc-reallines.js?v=2"></script>
 <script src="tdc-liveplayer.js?v=3"></script>
-<script src="tdc-mplayer.js?v=20"></script>
+<script src="tdc-mplayer.js?v=22"></script>
 <script src="tdc-trends.js?v=ui4"></script>
 <script>
 /* one anatomy for every stat tab (tdc-panelize.js); the Overview gets the same shape from tdc-player-a.css */

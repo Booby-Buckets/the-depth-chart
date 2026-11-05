@@ -300,6 +300,8 @@
     var wa = ''; var w = document.querySelector('#impactSection tbody tr td.strong'); if (w) wa = w.textContent.trim();
     var bb = (txt('#ovcFoot .bb').match(/#(\d+)/) || [])[1], nil = window._ovcNil || '';
     var p = (typeof player !== 'undefined') ? player : null, tm = p && p.team ? (window.tdcShortSchool ? tdcShortSchool(p.team) : p.team) : '';
+    var mv = window._ovrMove;
+    if (!past && mv && mv.delta) c.push('<b style="color:' + (mv.delta > 0 ? 'var(--green,#3F8A4B)' : 'var(--red,#C5533F)') + '">' + (mv.delta > 0 ? '▲' : '▼') + Math.abs(mv.delta) + '</b> since preseason');
     if (!past && rank) c.push('<b>' + esc(rank) + '</b> in D-I');
     if (wa) c.push('<b>' + esc(wa) + '</b> wins added');
     if (!past && bb) c.push('<b>#' + esc(bb) + '</b> big board');
