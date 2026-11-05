@@ -122,8 +122,12 @@
       '<div class="lu-note">Counted from real box scores (who started, minutes, points) and final scores. Margin = average final margin in those games. Five-man lineup and trio ratings come from play-by-play, for the seasons we have it.</div>';
   }
 
-  function render(host, full, opts) {
+  function render(outer, full, opts) {
     opts = opts || {}; css();
+    // real on-floor lineups and positions first (they run ahead of the starters history for the current season)
+    outer.innerHTML = '<div id="luUsageHost"></div><div id="luHistHost"></div>';
+    var host = outer.querySelector('#luHistHost');
+    if (g.TDCLineupUsage) g.TDCLineupUsage.render(outer.querySelector('#luUsageHost'), full);
     host.innerHTML = '<div class="empty-note" style="padding:20px;">Loading lineups…</div>';
     return load(full).then(function (F) {
       var yrs = F && F.s ? Object.keys(F.s).map(Number).filter(function (y) { return (F.s[y] || []).length; }).sort(function (x, y) { return y - x; }) : [];
