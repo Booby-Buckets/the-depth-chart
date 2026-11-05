@@ -297,3 +297,42 @@
 .ovc-box > .ovc-sl .sub{ color:var(--strip-muted) !important; }
 #panel-overview .pa-row3 > .ovc-box > .ovc-sl .sub{ color:var(--text3) !important; }
 .ovc-box .ui-panel-body, .ovc-box > :not(.ovc-sl){ background:var(--panel); }
+
+/* ---- OVERVIEW rebuild (Nov 2026; owner: too long, too many identical tables). Same sections and data as before:
+   a summary band, the season line, then related tables in pairs. Phone = the same sections in one column. ---- */
+#panel-overview .ovc{ display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin-bottom:16px; }
+#panel-overview .ovc > .ovc-box{ width:auto !important; margin:0 !important; min-width:0; }
+#panel-overview .ovc > .ovc-box.full{ grid-column:1 / -1; margin:0 !important; }
+#panel-overview .ovc > .ovc-box:has(+ #ovcAmplifierBox[style*="none"]){ grid-column:1 / -1; }
+#panel-overview .pa-row3{ margin-bottom:16px !important; }
+/* paired panels end level: a shorter table's rows stretch to fill, no blank strip under them */
+@media(min-width:901px){
+  #panel-overview .ovc > .ovc-box:not(.full){ display:flex; flex-direction:column; }
+  #panel-overview .ovc > .ovc-box:not(.full) > :not(.ovc-sl){ flex:1 1 auto; min-height:0; }
+  #panel-overview .ovc > .ovc-box:not(.full) > div > .sheet-wrap:first-child{ height:100%; }
+  #panel-overview .ovc > .ovc-box:not(.full) > div > .sheet-wrap:first-child > table{ height:100%; }
+}
+/* light headers: the numbers lead, not ten black bars */
+#panel-overview .ovc-box > .ovc-sl, #panel-overview .pa-row3::before{ background:var(--bg2) !important; color:var(--text) !important;
+  border-color:var(--border) !important; border-bottom:1px solid var(--border) !important; font:800 11px/1.3 'Inter',system-ui,sans-serif !important; letter-spacing:.12em !important; }
+#panel-overview .ovc-box > .ovc-sl{ min-height:38px; align-items:center; }
+#panel-overview .pa-row3::before{ min-height:38px; }
+#panel-overview .pa-row3 > .ovc-box > .ovc-sl{ background:none !important; border-bottom:0 !important; color:var(--text3) !important; min-height:0; }
+#panel-overview .ovc-box > .ovc-sl .sub{ color:var(--text3) !important; }
+/* skill bars, in the table */
+.ov-barcell{ width:44%; }
+.ov-bar{ display:block; height:8px; min-width:48px; border-radius:2px; background:var(--bg2); overflow:hidden; }
+.ov-bar i{ display:block; height:100%; border-radius:2px; background:#B7A57A; }
+.ov-bar i.c4{ background:#3F8A4B; } .ov-bar i.c3{ background:#7DB57F; } .ov-bar i.c2{ background:#B7A57A; }
+.ov-bar i.c1{ background:#D9935A; } .ov-bar i.c0{ background:#C5533F; }
+/* team fit: flat cells; team colours aren't readable as text (Michigan's maize on cream) */
+#ovcFit .ovc-fit .fteam, #ovcFit .ovc-fitc .v, #ovcFit .ovc-fitc .v.tcr{ color:var(--text) !important; }
+#ovcFit .ovc-fitrow{ gap:0; margin-top:12px; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+#ovcFit .ovc-fitc{ background:none; border:0; border-left:1px solid var(--border); border-radius:0; }
+#ovcFit .ovc-fitc:first-child, #ovcFit .ovc-fitc[style*="none"] + .ovc-fitc{ border-left:0; }
+/* the footer line: no empty-looking card */
+#panel-overview .ovc-foot{ background:none !important; border:0 !important; box-shadow:none !important; padding:2px 2px 0 !important; margin:0 !important; }
+@media(max-width:900px){ #panel-overview .ovc{ grid-template-columns:minmax(0,1fr); gap:14px; } }
+/* Real / Projected filter, under the season menu */
+.pc-mode{ display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:6px 10px; margin-top:8px; max-width:360px; margin-left:auto; text-align:right; }
+.pc-mode .tdc-mode-note{ flex:1 1 100%; line-height:1.35; }

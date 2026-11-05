@@ -124,7 +124,11 @@
       });
     }
     var ts = document.querySelector('.table-section');
-    if (ts && !ts.querySelector('.mi-st')) ts.insertBefore(el('div', 'mi-st mi-rk', '<span>Rankings</span>'), ts.firstChild);
+    if (ts && !ts.querySelector('.mi-st')) {
+      var rk = el('div', 'mi-st mi-rk', '<span>Rankings</span>'); ts.insertBefore(rk, ts.firstChild);
+      // Real / Projected for the box columns: the desktop filter bar is hidden here
+      if (window.TDCReal) { rk.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px'; TDCReal.control(rk); }
+    }
   }
   function apply() { document.body.classList.toggle('mi', MQ.matches); if (MQ.matches) build(); }
   function start() {
