@@ -1,12 +1,13 @@
 /* tdc-lineup-usage.js — who actually shared the floor, and at which position (team Lineups tab; owner, Nov 2026).
  * Data: scripts/data/lineup_usage/<season>/<slug>.json (build_lineup_usage.py: every five per game from ESPN substitutions).
- *   TDCLineupUsage.render(host, fullTeamName)
+ *   TDCLineupUsage.seasons(full) -> Promise<[years with data]>
+ *   TDCLineupUsage.draw(host, full, season, lastNGames (0 = the season), windowLabel) -> Promise<games on file>
  * The build places each five (F.o, PG..C) closest to everyone's listed positions. Position shares and lineups are totalled for
  * the chosen window in the browser.
  */
 (function (g) {
   'use strict';
-  var SLOTS = ['PG', 'SG', 'SF', 'PF', 'C'], SEASONS = [2027, 2026], WINS = [['all', 'Season', 0], ['15', 'Last 15', 15], ['10', 'Last 10', 10], ['5', 'Last 5', 5]];
+  var SLOTS = ['PG', 'SG', 'SF', 'PF', 'C'], SEASONS = [2027, 2026];
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   var slug = function (s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); };
   var ht = function (h) { return h ? Math.floor(h / 12) + '-' + (h % 12) : ''; };
@@ -17,24 +18,15 @@
   function css() {
     if (document.getElementById('luu-css')) return;
     var s = document.createElement('style'); s.id = 'luu-css';
-    s.textContent = '.luu-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0 0 14px}' +
-      '.luu-seg{display:inline-flex;gap:2px;padding:2px;border:1px solid var(--border);border-radius:9px;background:var(--bg2)}' +
-      '.luu-seg button{border:0;border-radius:7px;background:none;color:var(--text3);font:700 11px Inter,system-ui,sans-serif;letter-spacing:.05em;text-transform:uppercase;padding:6px 12px;cursor:pointer;min-height:30px}' +
-      '.luu-seg button:hover{color:var(--text)}.luu-seg button.on{background:var(--accent);color:var(--accent-on,#221c08)}.luu-seg button:disabled{opacity:.35;cursor:default}' +
-      '.luu-depth{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:0 0 22px}' +
-      '.luu-col{border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--panel,var(--bg));min-width:0}' +
-      '.luu-col h4{margin:0;padding:7px 10px;background:var(--bg2);border-bottom:1px solid var(--border);font:800 11px Inter,system-ui,sans-serif;letter-spacing:.1em;color:var(--text)}' +
-      '.luu-p{position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border-bottom:1px solid var(--border);font:600 12px Inter,system-ui,sans-serif;color:var(--text);text-decoration:none;min-height:36px;box-sizing:border-box}' +
-      '.luu-p:last-child{border-bottom:0}.luu-p:hover .luu-n{text-decoration:underline}' +
-      '.luu-p i{position:absolute;left:0;top:0;bottom:0;background:var(--accent);opacity:.16;pointer-events:none}' +
-      '.luu-n{position:relative;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.luu-n small{display:block;font:500 10px Inter,system-ui,sans-serif;color:var(--text3)}' +
-      '.luu-v{position:relative;font-weight:800;font-variant-numeric:tabular-nums;flex:0 0 auto}' +
+    s.textContent = '.luu-pos td{vertical-align:middle}.luu-sl{font-weight:800;letter-spacing:.06em;width:44px}' +
+      '.luu-pos td a{font-weight:600;margin-right:8px}.luu-pos td b{font-weight:800;font-variant-numeric:tabular-nums;color:var(--text3)}.luu-pos td:nth-child(2) b{color:var(--text)}' +
+      '.luu-stack span{display:flex;justify-content:space-between;gap:10px;line-height:1.6}' +
+      '.luu-where th,.luu-where td{text-align:center}.luu-where .l{text-align:left}' +
       '.luu-tbl td a{color:inherit;text-decoration:none}.luu-tbl td a:hover{text-decoration:underline}.luu-tbl td small{display:block;font:500 10px Inter,system-ui,sans-serif;color:var(--text3)}' +
       '.luu-more{appearance:none;background:none;border:1px solid var(--border);border-radius:7px;color:var(--text2,var(--text));font:700 11px Inter,system-ui,sans-serif;padding:7px 12px;margin:10px 0 0;cursor:pointer;min-height:32px}' +
       '.luu-note{font:500 11px/1.45 Inter,system-ui,sans-serif;color:var(--text3);margin:10px 0 22px}' +
-      '.luu-narrow{display:none}.luu-five{white-space:normal!important;line-height:1.5}.luu-five span{display:block;white-space:nowrap}.luu-five b{display:inline-block;width:24px;font-size:10px;color:var(--text3)}' +
-      '@media(max-width:900px){.luu-depth{grid-template-columns:minmax(0,1fr)}.luu-seg button{padding:6px 10px;min-height:34px}}' +
-      '@media(max-width:760px){.luu-wide{display:none}.luu-narrow{display:block}}';
+      '.luu-wide+.lu-h{margin-top:26px}.luu-narrow{display:none}.luu-five{white-space:normal!important;line-height:1.5}.luu-five span{display:block;white-space:nowrap}.luu-five b{display:inline-block;width:24px;font-size:10px;color:var(--text3)}' +
+      '@media(max-width:760px){.luu-wide{display:none}.luu-narrow{display:block}.luu-where th:nth-child(2),.luu-where td:nth-child(2){display:none}.luu-where th,.luu-where td{padding-left:3px!important;padding-right:3px!important;font-size:12px}.luu-where td.nm{padding-left:8px!important;overflow-wrap:anywhere;white-space:normal!important}}';
     document.head.appendChild(s);
   }
   // last names, unless two players on the team share one
@@ -54,16 +46,26 @@
     return { games: G.length, all: all, rows: Object.keys(byL).map(function (k) { return byL[k]; }).sort(function (a, b) { return b.s - a.s; }), slots: slots };
   }
   function plink(k) { return /^\d+$/.test(k) ? 'player.html?espn=' + encodeURIComponent(k) : '#'; }
-  function view(F, win, full, more) {
-    var w = WINS.filter(function (x) { return x[0] === win; })[0] || WINS[0], T = totals(F, w[2]), N = namer(F);
-    if (!T.all) return '<div class="empty-note" style="padding:14px 0;">No lineup data for this window.</div>';
-    var depth = '<div class="luu-depth">' + SLOTS.map(function (sl, i) {
-      var list = Object.keys(T.slots[i]).map(function (k) { return [k, 100 * T.slots[i][k] / T.all]; }).sort(function (a, b) { return b[1] - a[1]; }).filter(function (x, j) { return j < 2 || x[1] >= 3; }).slice(0, 5);
-      return '<div class="luu-col"><h4>' + sl + '</h4>' + list.map(function (x) {
-        var p = F.p[x[0]] || [x[0]], sub = [ht(p[2]), p[3]].filter(Boolean).join(' · ');
-        return '<a class="luu-p" href="' + plink(x[0]) + '"><i style="width:' + Math.min(100, x[1]).toFixed(1) + '%"></i><span class="luu-n">' + esc(N(x[0])) + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span><span class="luu-v">' + Math.round(x[1]) + '%</span></a>';
-      }).join('') + '</div>';
-    }).join('') + '</div>';
+  function view(F, n, label, full, more) {
+    var T = totals(F, n), N = namer(F);
+    if (!T.all) return '';
+    // one table, a row per spot. Phones get the players stacked, because the shared mobile fit hides columns from the right
+    var spots = SLOTS.map(function (sl, i) {
+      return { sl: sl, list: Object.keys(T.slots[i]).map(function (k) { return [k, 100 * T.slots[i][k] / T.all]; }).sort(function (a, b) { return b[1] - a[1]; }).filter(function (x, j) { return j < 2 || x[1] >= 3; }).slice(0, 5) };
+    });
+    var cell = function (x) { var p = F.p[x[0]] || [x[0]], sub = [ht(p[2]), p[3]].filter(Boolean).join(' · '); return '<a href="' + plink(x[0]) + '"' + (sub ? ' title="' + esc(sub) + '"' : '') + '>' + esc(N(x[0])) + '</a><b>' + Math.round(x[1]) + '%</b>'; };
+    var cols = Math.max.apply(null, spots.map(function (r) { return r.list.length; }));
+    var head = ''; for (var c = 0; c < cols; c++) head += '<th class="l">' + (c === 0 ? 'Most minutes' : c === 1 ? 'Next' : '') + '</th>';
+    var depth = '<div data-fit-keep class="luu-wide"><div class="sheet-wrap" style="max-height:none;"><table class="sheet dense luu-tbl luu-pos"><thead><tr><th class="l">Spot</th>' + head + '</tr></thead><tbody>' +
+      spots.map(function (r) { var h = ''; for (var c = 0; c < cols; c++) h += '<td class="l">' + (r.list[c] ? cell(r.list[c]) : '') + '</td>'; return '<tr><td class="l luu-sl">' + r.sl + '</td>' + h + '</tr>'; }).join('') + '</tbody></table></div></div>' +
+      '<div data-fit-keep class="luu-narrow"><div class="sheet-wrap" style="max-height:none;"><table class="sheet dense luu-tbl luu-pos"><thead><tr><th class="l">Spot</th><th class="l">Share of minutes</th></tr></thead><tbody>' +
+      spots.map(function (r) { return '<tr><td class="l luu-sl">' + r.sl + '</td><td class="l luu-stack">' + r.list.map(function (x) { return '<span>' + cell(x) + '</span>'; }).join('') + '</td></tr>'; }).join('') + '</tbody></table></div></div>';
+    // each player's minutes split by spot: the same data read from the player's side
+    var pm = {}; T.rows.forEach(function (L) { F.o[L.i].forEach(function (k, si) { (pm[k] = pm[k] || [0, 0, 0, 0, 0])[si] += L.s; }); });
+    var tot = function (k) { return pm[k].reduce(function (a, b) { return a + b; }, 0); };
+    var who = Object.keys(pm).sort(function (a, b) { return tot(b) - tot(a); }).slice(0, 10);
+    var where = '<div class="lu-h"><h3>Who plays where</h3><small>Each player\'s minutes split by position</small></div><div data-fit-keep><div class="sheet-wrap" style="max-height:none;"><table class="sheet dense luu-tbl luu-where"><thead><tr><th class="l">Player</th><th>MIN</th>' + SLOTS.map(function (x) { return '<th>' + x + '</th>'; }).join('') + '</tr></thead><tbody>' +
+      who.map(function (k) { var t = tot(k); return '<tr><td class="l nm"><a href="' + plink(k) + '">' + esc(N(k)) + '</a></td><td class="dim">' + mins(t) + '</td>' + pm[k].map(function (v, si) { var p = Math.round(100 * v / t); return p ? '<td style="background:rgba(168,136,71,' + Math.min(0.9, p / 100).toFixed(2) + ')' + (p >= 55 ? ';color:#1a1408;font-weight:800' : '') + '" title="' + SLOTS[si] + ': ' + mins(v) + ' minutes">' + p + '%</td>' : '<td></td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table></div></div>';
     var rows = T.rows.slice(0, more ? 40 : 10).map(function (L, i) {
       var five = F.o[L.i], pm = L.pf - L.pa;
       return '<tr><td class="c dim">' + (i + 1) + '</td>' + five.map(function (k) { return '<td class="l nm"><a href="' + plink(k) + '">' + esc(N(k)) + '</a></td>'; }).join('') +
@@ -78,29 +80,26 @@
       '<div data-fit-keep class="luu-wide"><div class="sheet-wrap" style="max-height:none;"><table class="sheet dense luu-tbl"><thead><tr><th class="c">#</th>' + SLOTS.map(function (s) { return '<th class="l">' + s + '</th>'; }).join('') +
       '<th title="Minutes this five played together">MIN</th><th title="Share of the team\'s minutes">%</th><th title="Games this five played in">G</th><th title="Points for minus points against while on the floor">+/-</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
       (T.rows.length > 10 ? '<button class="luu-more" data-more="1">' + (more ? 'Show top 10' : 'Show more (' + Math.min(40, T.rows.length) + ')') + '</button>' : '');
-    var rl = (F.season === 2027 && g.TDCReal) ? g.TDCReal.team(full) : null, of = (rl && !w[2]) ? ' of ' + rl.gp : '';
-    return '<div class="lu-h"><h3>Depth chart by position</h3><small>Share of team minutes at each spot, ' + w[1].toLowerCase() + ': ' + T.games + of + (T.games === 1 ? ' game' : ' games') + '</small></div>' + depth +
+    var rl = (F.season === 2027 && g.TDCReal) ? g.TDCReal.team(full) : null, of = (rl && !n) ? ' of ' + rl.gp : '';
+    return '<div class="lu-h"><h3>Depth chart by position</h3><small>Share of team minutes at each spot · ' + label + ': ' + T.games + of + (T.games === 1 ? ' game' : ' games') + '</small></div>' + depth + where +
       '<div class="lu-h"><h3>Most used lineups</h3><small>' + T.rows.length + ' different fives</small></div>' + tbl +
-      '<div class="luu-note">From substitutions in the play-by-play. Each five is placed by listed position, height and how the player actually plays, so a three-guard lineup moves its biggest guard to the 3. Games with incomplete substitution data are left out.</div>';
+      '<div class="luu-note">From substitutions in the play-by-play. Each five is placed by listed position, height and how the player actually plays. Games with incomplete substitution data are left out.</div>';
   }
-  function render(host, full) {
-    css(); host.innerHTML = '';
-    return Promise.all(SEASONS.map(function (y) { return load(full, y); })).then(function (fs) {
-      var have = SEASONS.map(function (y, i) { return { y: y, F: fs[i] }; }).filter(function (x) { return x.F && x.F.g && x.F.g.length; });
-      if (!have.length) return;
-      var cur = have[0], win = 'all', more = false;
-      function draw() {
-        var F = cur.F, n = F.g.length;
-        var sb = have.length > 1 ? '<div class="luu-seg" data-k="s">' + have.map(function (x) { return '<button data-v="' + x.y + '" class="' + (x === cur ? 'on' : '') + '">' + (x.y - 1) + '-' + String(x.y).slice(2) + '</button>'; }).join('') + '</div>' : '';
-        var wb = '<div class="luu-seg" data-k="w">' + WINS.map(function (w) { return '<button data-v="' + w[0] + '" class="' + (w[0] === win ? 'on' : '') + '"' + (w[2] && n <= w[2] ? ' disabled title="Only ' + n + ' games so far"' : '') + '>' + w[1] + '</button>'; }).join('') + '</div>';
-        host.innerHTML = '<div class="luu-bar">' + sb + wb + '</div>' + view(F, win, full, more);
-        host.querySelectorAll('.luu-seg[data-k=s] button').forEach(function (b) { b.onclick = function () { cur = have.filter(function (x) { return String(x.y) === b.dataset.v; })[0]; win = 'all'; more = false; draw(); }; });
-        host.querySelectorAll('.luu-seg[data-k=w] button').forEach(function (b) { b.onclick = function () { if (b.disabled) return; win = b.dataset.v; draw(); }; });
-        var m = host.querySelector('.luu-more'); if (m) m.onclick = function () { more = !more; draw(); };
-        if (g.tdcSheetHeat) { /* the +/- column carries its own shading; no percentile heat on names */ }
+  var _files = {};
+  function file(full, yr) { var k = full + '|' + yr; if (!_files[k]) _files[k] = load(full, yr); return _files[k]; }
+  // the seasons with lineup data, and one season's section for the tab's chosen window (n games, 0 = the season)
+  function seasons(full) { return Promise.all(SEASONS.map(function (y) { return file(full, y); })).then(function (fs) { return SEASONS.filter(function (y, i) { return fs[i] && fs[i].g && fs[i].g.length; }); }); }
+  function draw(host, full, yr, n, label) {
+    css(); var more = false;
+    return file(full, yr).then(function (F) {
+      if (!F || !F.g || !F.g.length) { host.innerHTML = ''; return 0; }
+      function paint() {
+        host.innerHTML = view(F, n, label, full, more);
+        var m = host.querySelector('.luu-more'); if (m) m.onclick = function () { more = !more; paint(); };
       }
-      draw();
+      paint();
+      return F.g.length;
     });
   }
-  g.TDCLineupUsage = { render: render };
+  g.TDCLineupUsage = { seasons: seasons, draw: draw };
 })(window);
