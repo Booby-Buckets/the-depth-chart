@@ -6480,10 +6480,7 @@ function switchTab(id, btn){
   }
   if(id==='schedule') initSchedule();
   if(id==='lineups' && window.TDCLineupHist){ (async()=>{ const full=(await _resolveGamesKey().catch(()=>null))||teamMascot(); TDCLineupHist.render(document.getElementById('lineupHistHost'), full); })(); }
-  if(id==='trends' && window.TDCTeamTrend){ (async()=>{ const full=(await _resolveGamesKey().catch(()=>null))||teamMascot(); TDCTeamTrend.render(document.getElementById('teamTrendLine'), { full, short:(teamT&&teamT.name)||'', color:(typeof teamColor_g!=='undefined'&&teamColor_g)||null }); })(); }
-  // the daily Power Rating chart sits right under the summary strip (renderTeam leaves a .trt-chart slot for it)
-  if(id==='trends'){ const ch0=document.getElementById('teamTrendLine'), pn=document.getElementById('panel-trends'); if(ch0&&pn&&ch0.parentNode!==pn) pn.appendChild(ch0); }
-  if(id==='trends' && window.TDCTrends) Promise.resolve(TDCTrends.renderTeam(document.getElementById('teamTrendsHost'), (teamT&&teamT.name)||(teamPlayers&&teamPlayers[0]&&teamPlayers[0].team)||'')).then(()=>{ const sl=document.querySelector('#teamTrendsHost .trt-chart'), ch=document.getElementById('teamTrendLine'); if(sl&&ch) sl.appendChild(ch); });
+  if(id==='trends') _renderTrendsTab();
   if(id==='preview') initPreview();
   // the team feed: posts, articles, forum threads (tdc-feed.js on the fan-site tables)
   if(id==='feed' && window.TDCFeed && !window._feedInit){ window._feedInit=true; (async()=>{ const full=(await _resolveGamesKey().catch(()=>null))||teamMascot(); const tid=await _teamEspnId().catch(()=>null);
@@ -7663,6 +7660,7 @@ function onRosterSeason(v){
   var _dnaP=document.getElementById('panel-dna'); if(_dnaP && _dnaP.classList.contains('active')) renderTeamDNA();
   // the shot chart / shot flow block follows the roster season too (2026-27 roster → last played season)
   var _ss=document.getElementById('teamShotSeason'), _shP=document.getElementById('panel-shots'); if(_ss){ _ss.value=String(_sy); if(window._teamShotInit && _shP && _shP.classList.contains('active')) loadTeamShotChart(_sy); }
+  var _trP=document.getElementById('panel-trends'); if(_trP && _trP.classList.contains('active')) _renderTrendsTab();
   // On/Off is season-aware — invalidate its cached render and refresh if it's the open tab
   var _ooH=document.getElementById('onoffHost'); if(_ooH){ _ooH._renderedSeason=null;
     var _ooP=document.getElementById('panel-onoff'); if(_ooP && _ooP.classList.contains('active')) renderOnOff(); }
@@ -8820,6 +8818,24 @@ function teamMascot(){
 // have no nickname on file, so name+nickname can't be built. Resolve the stored
 // key once: exact matches first, then LONGEST-prefix wildcards ("St. John's*"
 // finds the Red Storm; a bare "St.*" that could hit St. Thomas is never tried).
+// Trends tab: the chart follows the page's season picker. The rating/scrimmage summary (TDCTrends) is 2026-27 only, so a past
+// season shows the chart alone; the chart sits in the summary's .trt-chart slot when both are showing.
+async function _renderTrendsTab(){
+  if(!window.TDCTeamTrend) return;
+  const line=document.getElementById('teamTrendLine'), full=(await _resolveGamesKey().catch(()=>null))||teamMascot(), past=_rosterSeason<2027;
+  TDCTeamTrend.render(line, { full, short:(teamT&&teamT.name)||'', color:(typeof teamColor_g!=='undefined'&&teamColor_g)||null, season:past?_rosterSeason:null, onSeason:_trendsView });
+  if(past) _trendsView(_rosterSeason);
+}
+function _trendsView(y){
+  const host=document.getElementById('teamTrendsHost'), line=document.getElementById('teamTrendLine'); if(!host||!line) return;
+  const showing=y>=2027, place=()=>{ const sl=host.querySelector('.trt-chart'); if(sl&&host.style.display!=='none') sl.appendChild(line); };
+  host.style.display=showing?'':'none';
+  if(!showing){ host.after(line); return; }
+  if(host._trendsDone){ place(); return; }
+  host._trendsDone=true;
+  host.after(line);
+  if(window.TDCTrends) Promise.resolve(TDCTrends.renderTeam(host, (teamT&&teamT.name)||(teamPlayers&&teamPlayers[0]&&teamPlayers[0].team)||'')).then(place);
+}
 async function _resolveGamesKey(){
   if(teamT._gamesKey!==undefined) return teamT._gamesKey;
   const probe=async pat=>{
@@ -9773,7 +9789,7 @@ function renderProjNatlChart(projected, color, rgb){
   <script src="tdc-depth-editor.js?v=3"></script>
 <script src="tdc-mteam.js?v=27"></script>
 <script src="tdc-trends.js?v=ui4"></script>
-<script src="tdc-teamtrend.js?v=10"></script>
+<script src="tdc-teamtrend.js?v=12"></script>
 <script src="tdc-feed.js?v=sc36"></script>
 <script>
 /* one anatomy for every stat tab (tdc-panelize.js): each section title + content becomes a kit panel. Lineup Lab is an editor, left as is. */
