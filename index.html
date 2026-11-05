@@ -12,6 +12,7 @@
   <script src="tdc-glossary.js?v=14"></script>
   <script src="tdc-freshman.js?v=pub37"></script>
   <script src="tdc-injury.js?v=5"></script>
+  <script src="tdc-reallines.js?v=1"></script>
   <script src="tdc-projgrade.js?v=disp1"></script>
   <script src="tdc-rating.js?v=5"></script>
   <meta charset="UTF-8"/>
@@ -1174,7 +1175,7 @@
   <link rel="stylesheet" href="tdc-dense.css?v=41"/>
   <link rel="stylesheet" href="tdc-hero.css?v=4"/>
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
-  <link rel="stylesheet" href="tdc-index-sheet.css?v=8"/>
+  <link rel="stylesheet" href="tdc-index-sheet.css?v=9"/>
   <!-- 2026 clean skin (loaded last so it wins): neutral bases + translucent depth; releases the dense dark-lock -->
   <link rel="stylesheet" href="tdc-skin.css?v=15"/>
   <link rel="stylesheet" href="tdc-ui.css?v=16"/>
@@ -1279,7 +1280,7 @@
 </div>
 
 <!-- ═══ TODAY BAR: one line linking to today.html — also covers scrimmage-only days, when the live strip stays hidden ═══ -->
-<a class="td-bar" id="tdBar" href="today.html" hidden><span class="td-k">📅 Today</span><span class="td-t" id="tdBarT">Today's games</span><span class="td-go">See every game →</span></a>
+<a class="td-bar" id="tdBar" href="today.html" hidden><span class="td-k">Today</span><span class="td-t" id="tdBarT">Today's games</span><span class="td-go">See every game →</span></a>
 <style>
   .td-bar{display:flex;align-items:center;gap:12px;margin:14px 0 0;padding:10px 14px;border:1px solid var(--border2);border-radius:10px;background:var(--bg2);text-decoration:none;color:var(--text);font-size:13px;}
   .td-bar[hidden]{display:none;}
@@ -1320,6 +1321,7 @@
   </div>
   <div class="filter-controls">
     <label class="f-lab f-lead"><span>Season</span><select class="filter-select" id="seasonSel" onchange="onSeason(this.value)"></select></label>
+    <label class="f-lab" id="statModeLab"><span>Stats</span><span id="statModeHost"></span></label>
     <div class="f-lab"><span>Level</span><div class="ix-level" id="levelSw" role="group" aria-label="Conference level">
       <button class="on" data-lv="" onclick="setLevel('')">All</button><button data-lv="high" onclick="setLevel('high')" title="SEC, Big 12, Big Ten, Big East, ACC">High major</button><button data-lv="midlow" onclick="setLevel('midlow')" title="Every league outside the five high-major conferences">Mid + low major</button><button data-lv="low" onclick="setLevel('low')" title="Every league outside the high majors and the Pac-12, Mountain West, A-10, American, MVC and WCC">Low major</button>
     </div></div>
@@ -2049,7 +2051,17 @@ function updateSortHeaders(){
     if(a) a.textContent = on ? (curSortDir<0 ? '▼' : '▲') : '';
   });
 }
+// Real / Projected filter for the 2026-27 box columns (PPG, FG%, rebounds...). The rating, efficiency and record columns are
+// the same in both: a team that hasn't played shows dashes in Real.
+function _ixApplyMode(){ const on=curSeason===2027&&window.TDCReal; const lab=document.getElementById('statModeLab'); if(lab) lab.style.display=(curSeason===2027)?'':'none';
+  if(!on) return; const real=TDCReal.isReal(), F=['ppg','oppg','fg','tp','ft','rpg','apg','topg','spg','bpg','orpg','drpg','ato'];
+  allTeams.forEach(t=>{ if(!t._pb){ t._pb={}; F.forEach(k=>t._pb[k]=t[k]); const L=TDCReal.team(t.name);
+      t._rb=L?{ppg:L.ppg,oppg:L.opp_ppg,fg:L.fg_pct,tp:L.tp_pct,ft:L.ft_pct,rpg:L.rpg,apg:L.apg,topg:L.tovs,spg:L.stl,bpg:L.blk,orpg:L.oreb,drpg:L.dreb,ato:L.tovs>0?Math.round(L.apg/L.tovs*10)/10:0}:{}; }
+    const B=real?t._rb:t._pb; F.forEach(k=>{ t[k]=B[k]||0; }); }); }
+if(window.TDCReal){ TDCReal.ready.then(()=>{ TDCReal.control(document.getElementById('statModeHost')); if(allTeams.length) applyFilters(); });
+  window.addEventListener('tdc:statmode',()=>{ if(allTeams.length) applyFilters(); }); }
 function applyFilters(animated){
+  try{ _ixApplyMode(); }catch(e){}
   const search  = document.getElementById('searchInput').value.toLowerCase().trim();
   const srt     = curSort;
   const favTeam = localStorage.getItem('tdc_fav') || '';
@@ -2905,6 +2917,6 @@ function toggleTheme(){
   </script>
 
   <script src="tdc-tour.js?v=31"></script>
-<script src="tdc-mindex.js?v=5"></script>
+<script src="tdc-mindex.js?v=5r"></script>
 </body>
 </html>

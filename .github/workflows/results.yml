@@ -61,12 +61,18 @@ jobs:
         run: |
           if [ -z "$SUPABASE_SERVICE_KEY" ]; then echo "No service key — skipping shots."; exit 0; fi
           python3 -u scripts/scrape_shots.py --days 3 || echo "::warning::shot-location scrape failed (retries next sweep)"
+      # every player's and team's real season totals (the Real view on the site + the projection blend). Three times a day:
+      # the player page reads its own box rows live, and this pulls every game of the season.
+      - name: Real season lines
+        if: github.event_name == 'workflow_dispatch' || github.event.schedule == '30 3 * * *' || github.event.schedule == '15 6 * * *' || github.event.schedule == '0 17 * * *'
+        run: python3 scripts/build_real_lines.py || echo "::warning::build_real_lines failed (the last file stays)"
       - name: Commit if changed
         run: |
           git config user.name "tdc-results-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           [ -f scripts/data/results_2027.json ] && git add scripts/data/results_2027.json || true
           [ -f scripts/data/ticker.json ] && git add scripts/data/ticker.json || true
+          [ -f scripts/data/real_lines_2027.json ] && git add scripts/data/real_lines_2027.json || true
           [ -f data/game_ot.json ] && git add data/game_ot.json || true
           if git diff --cached --quiet; then echo "No new results."; else
             git commit -m "Auto: game results $(date -u +%Y-%m-%d) [skip ci]"

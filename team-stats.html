@@ -17,6 +17,7 @@
   <script src="auth.js?v=sales2"></script>
   <script src="tdc-histguard.js?v=2"></script>
   <!-- canonical grade module: displayed OVRs = the coupled v5 grade shown site-wide -->
+  <script src="tdc-reallines.js?v=1"></script>
   <script src="tdc-projgrade.js?v=disp1"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta charset="UTF-8"/>
@@ -161,6 +162,7 @@
 <div class="tdc-toolbar">
   <div class="f-group">
     <label class="f-lab"><span>Team</span><input class="search-box" type="text" id="searchBox" placeholder="Search team…" oninput="render()"/></label>
+    <label class="f-lab"><span>Stats</span><span id="statModeHost"></span></label>
     <label class="f-lab"><span>Conference</span><select class="filter-select" id="confFilter" onchange="render()">
       <option value="">All</option>
       <option value="ACC">ACC</option>
@@ -1419,6 +1421,16 @@ async function load(){
                fga:r1(pr.fga), tpa:r1(pr.tpa), tov:r1(pr.tov), stl:r1(pr.stl), blk:r1(pr.blk), oreb:r1(pr.oreb), dreb:r1(pr.dreb) }
     });
   });
+  // Real / Projected: real rows come from the season's box scores; a team that hasn't played is left out of the Real view
+  if(window.TDCReal){ await TDCReal.ready;
+    _allRowsP = allRows.slice();
+    _allRowsP.forEach(row=>{ row._proj=row.stats; const L=TDCReal.team(row.name);
+      row._real=L?{ppg:L.ppg,rpg:L.rpg,apg:L.apg,fg:L.fg_pct,tp:L.tp_pct,ft:L.ft_pct,fga:L.fga,tpa:L.tpa,tov:L.tovs,stl:L.stl,blk:L.blk,oreb:L.oreb,dreb:L.dreb}:null; });
+    const _applyMode=()=>{ const real=TDCReal.isReal(); allRows=_allRowsP.filter(r=>!real||r._real); allRows.forEach(r=>{ r.stats=real?r._real:r._proj; }); };
+    _applyMode();
+    TDCReal.control(document.getElementById('statModeHost'));
+    window.addEventListener('tdc:statmode',()=>{ _applyMode(); render(); });
+  }
   fill.style.width = '100%';
   document.getElementById('loadingEl').style.display = 'none';
   document.getElementById('tsSheet').style.display = '';
@@ -1428,6 +1440,7 @@ async function load(){
   render();
 }
 
+let _allRowsP=[];
 function buildRow(team, conf, proj){
   const r1 = v => v!=null ? Math.round((v+Number.EPSILON)*10)/10 : 0;
   const active = proj.filter(p => !p._dnp && !p._injured && parseFloat(p.ppg||0)>0);

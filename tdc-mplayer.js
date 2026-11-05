@@ -109,17 +109,9 @@
     '.mp-sub button.on{background:var(--text);color:var(--bg)}',
     '.mp-sub.back{border:0;margin:0 0 10px}',
     '.mp-sub.back button{flex:0 0 auto;text-align:left;padding:4px 0;color:var(--accent)}',
-    /* overview: one column of small sheets, in a fixed order */
-    'body.mp #panel-overview[style*="block"],body.mp #panel-overview.active{display:flex!important;flex-direction:column;gap:18px}',
-    'body.mp #panel-overview .pa-row3,body.mp #panel-overview .ovc{display:contents}',
-    'body.mp #panel-overview .ovc-box{margin:0;padding:0;background:none;border:0;border-radius:0}',
-    'body.mp #panel-overview .ovc-sl{font-size:11px;letter-spacing:.06em;margin:0 0 6px}',
-    'body.mp #panel-overview .ovc-sl .sub{font-size:11px}',
-    'body.mp #panel-overview .sheet-wrap{margin:0!important}',
-    'body.mp [data-mp="read"],body.mp [data-mp="bottom"],body.mp [data-mp="shot"],body.mp [data-mp="fit"],body.mp [data-mp="jump"],body.mp [data-mp="trend"],body.mp #ovcFoot{display:none!important}',
-    'body.mp [data-mp="stats"]{order:1}body.mp .mp-standing{order:2}body.mp [data-mp="skill"]{order:3}body.mp [data-mp="form"]{order:4}',
-    'body.mp [data-mp="impact"]{order:5}body.mp [data-mp="amp"]{order:6}body.mp [data-mp="comps"]{order:7}',
+    /* overview: same sections and order as desktop; layout lives in tdc-player-a.css */
     '.mp-standing{display:none!important}',
+    '.mp-modehost{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px 14px 10px}.mp-modehost .tdc-mode-note{flex:1 1 140px;line-height:1.3}',
     '.mp-bar{display:block;height:8px;border-radius:2px;background:var(--bg2);overflow:hidden;min-width:60px}',
     '.mp-bar i{display:block;height:100%;border-radius:2px}',
     '.mp-row{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:13px;font-weight:650;color:var(--text);text-decoration:none;background:var(--bg)}',
@@ -327,6 +319,10 @@
     src.addEventListener('change', function () { sel.value = src.value; });
     sel.addEventListener('change', function () { src.value = sel.value; src.dispatchEvent(new Event('change', { bubbles: true })); if (typeof src.onchange === 'function' && !src.__mpFired) { } });
     host.innerHTML = ''; host.appendChild(sel);
+    // Real / Projected: the page's filter sits in the desktop header, which is hidden here. player.html fills this slot
+    var row = host.parentElement;
+    if (row && !document.getElementById('statModeSlotM')) { var ms = el('div', 'mp-modehost'); ms.id = 'statModeSlotM'; ms.style.display = 'none'; row.parentNode.insertBefore(ms, row.nextSibling); }
+    if (typeof setOvrSeason === 'function') { try { setOvrSeason(src.value); } catch (e) {} }
   }
 
   /* ── bottom strip + sub nav ─────────────────────────────── */
@@ -404,8 +400,6 @@
     skillSheet: 'skill', ovcJump: 'jump', ovcTrend: 'trend', impactSection: 'impact', ovcAmplifier: 'amp' };
   function tagBoxes() {
     Object.keys(BOX).forEach(function (id) { var e = document.getElementById(id); var b = e && e.closest('.ovc-box'); if (b) b.setAttribute('data-mp', BOX[id]); });
-    var sk = document.querySelector('[data-mp="skill"] .ovc-sl'); if (sk && sk.firstChild && sk.firstChild.nodeType === 3) sk.firstChild.textContent = 'Strengths & weaknesses ';
-    var ip = document.querySelector('[data-mp="impact"] .ovc-sl'); if (ip && ip.firstChild && ip.firstChild.nodeType === 3) ip.firstChild.textContent = 'Impact ';
     var ov = document.getElementById('panel-overview');
     if (ov && !ov.querySelector('.mp-standing')) { var s = el('div', 'mp-standing'); s.id = 'mpStanding'; ov.appendChild(s); }
   }
@@ -430,18 +424,6 @@
     if (host.__h !== h) { host.__h = h; host.innerHTML = h; }
     renderChips();
   }
-  // percentile table → add an in-cell bar column (the only "chart" on the page)
-  function barSkill() {
-    var t = document.querySelector('#skillSheet table'); if (!t || t.dataset.mpBars) return;
-    t.dataset.mpBars = '1';
-    var hr = t.querySelector('thead tr'); if (hr && hr.children.length === 2) { var th = document.createElement('th'); th.className = 'l'; hr.insertBefore(th, hr.children[1]); }
-    t.querySelectorAll('tbody tr').forEach(function (tr) {
-      if (tr.children.length !== 2) return;
-      var p = parseFloat(tr.children[1].textContent); var td = document.createElement('td'); td.className = 'l'; td.style.width = '45%';
-      if (!isNaN(p)) td.innerHTML = '<span class="mp-bar"><i style="width:' + Math.max(2, Math.min(100, p)) + '%;background:' + BAR[pctBucket(p)] + '"></i></span>';
-      tr.insertBefore(td, tr.children[1]);
-    });
-  }
   // locked Lineup Amplifier: one row with a plan tag instead of a paragraph
   function tidyAmp() {
     var a = document.getElementById('ovcAmplifier'); if (!a) return;
@@ -459,7 +441,6 @@
     built = true;
     if (!document.getElementById('mpCss')) { var st = el('style'); st.id = 'mpCss'; st.textContent = CSS; document.head.appendChild(st); }
     buildHero(); buildStrip(); hookSwitch(); tagBoxes();
-    watch(document.getElementById('skillSheet'), barSkill);
     watch(document.getElementById('ovcAmplifier'), tidyAmp);
     var st2 = debounce(renderStanding, 120);
     ['paRanks', 'impactSection', 'ovcFoot'].forEach(function (id) { watch(document.getElementById(id), st2); });

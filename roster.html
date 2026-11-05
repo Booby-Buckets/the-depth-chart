@@ -20,6 +20,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="tdc-teamname.js?v=1"></script>
   <script src="tdc-freshman.js?v=pub37"></script>
+  <script src="tdc-reallines.js?v=1"></script>
   <script src="tdc-projgrade.js?v=disp1"></script>
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-rating.js?v=5"></script>
@@ -344,6 +345,7 @@ body{background:transparent!important;}
     <option value="2012">2011-12</option>
     <option value="all">All Seasons</option>
   </select></label>
+  <label class="f-lab" id="statModeLab"><span>Stats</span><span id="statModeHost"></span></label>
   <label class="f-lab"><span>Player</span><input class="filter-input" type="text" id="searchInput" placeholder="Search player..." oninput="applyFilters()"/></label>
   </div>
   <div class="f-actions">
@@ -482,7 +484,17 @@ function tierOf(c){ c=(''+(c||'')).toLowerCase().replace(/[\s\-_.]/g,'');
 let FAV = '';   // the viewer's favorite team (sign-up / profile) -> "My team" in the Team list
 const _proj = () => (document.getElementById('seasonFilter')||{}).value==='2027';
 
-function seasonLabel(yr){ yr=+yr; return yr>=2027?(yr-1)+'-'+(''+yr).slice(2)+' (proj)':(yr-1)+'-'+(''+yr).slice(2); }
+function seasonLabel(yr){ yr=+yr; return yr>=2027?(yr-1)+'-'+(''+yr).slice(2)+((window.TDCReal&&TDCReal.isReal())?' (so far)':' (proj)'):(yr-1)+'-'+(''+yr).slice(2); }
+// Real / Projected filter (2026-27 only). Real = his real games from real_lines_2027.json; a player who hasn't played shows
+// dashes and sorts last. OVR stays the same in both views (it is one displayed rating, not a stat line).
+const _STATK=['ppg','rpg','apg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs','gp'];
+function _applyStatMode(list){ if(!window.TDCReal) return; const real=TDCReal.isReal();
+  (list||[]).forEach(p=>{
+    if(!p._pstat){ p._pstat={}; _STATK.forEach(k=>p._pstat[k]=p[k]); p._rstat=TDCReal.of(p); }
+    const L=real?p._rstat:p._pstat;
+    _STATK.forEach(k=>{ p[k]=L?L[k]:null; });
+    if(real&&!L) p.gp=0;
+  }); }
 function seasonShort(yr){ yr=+yr||2027; return (''+(yr-1)).slice(-2)+'-'+(''+yr).slice(-2); }
 function safeHt(h){ h=(''+(h||'')).trim(); return /^\d-\d{1,2}$/.test(h)?h:'—'; }  // guard vs corrupted height strings
 
@@ -677,6 +689,7 @@ async function onSeasonChange(){
   const yr=document.getElementById('seasonFilter').value;
   // type, style, NIL, Board and change are 2026-27 projection fields
   ['typeFilter','styleFilter'].forEach(id=>{ const el=document.getElementById(id); if(!el) return; if(yr!=='2027') el.value=''; el.disabled=(yr!=='2027'); });
+  { const _l=document.getElementById('statModeLab'); if(_l) _l.style.display=(yr==='2027')?'':'none'; }
   activeData = await loadSeason(yr);
   updateMeta();
   applyFilters();
@@ -786,6 +799,9 @@ async function loadData(){
     teamBaseIdx = allTeams.map(t => [ (t.name||'').toLowerCase(), t ])
                           .sort((a,b)=>b[0].length-a[0].length);
 
+    if(window.TDCReal){ await TDCReal.ready; _applyStatMode(allPlayers);
+      TDCReal.control(document.getElementById('statModeHost'));
+      window.addEventListener('tdc:statmode',()=>{ _applyStatMode(allPlayers); if(_proj()){ updateMeta(); applyFilters(); } }); }
     seasonCache['2027'] = allPlayers;
     _fillStyles(); _loadNil(); _loadBoard(); _loadFav();
     // links from the old Player Rankings page (and shareable views): ?lv= &type= &pos= &conf= &yr= &sort=

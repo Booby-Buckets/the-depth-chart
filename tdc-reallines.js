@@ -1,0 +1,93 @@
+/* tdc-reallines.js — real season-to-date lines and the site-wide Real / Projected filter (owner, Nov 2026).
+ *
+ * Data: scripts/data/real_lines_2027.json (scripts/build_real_lines.py, three times a day), season TOTALS from box_scores.
+ * The viewer's choice is remembered across pages. Real is the default; a page re-renders on the 'tdc:statmode' event.
+ *
+ *   TDCReal.ready            promise, resolves once the file is in (or failed: of() then returns null)
+ *   TDCReal.mode()           'real' | 'proj'      TDCReal.setMode(m)      TDCReal.isReal()
+ *   TDCReal.of(player)       per-game line by espn_id, same field names as TDCProjGrade.lineOf, or null if he hasn't played
+ *   TDCReal.team(name)       a team's per-game line + w, l, opp_ppg, or null. Takes the ESPN full or the sheet short name
+ *   TDCReal.through()        date of the last game counted
+ *   TDCReal.control(host, o) mounts the two-button filter; o.onChange(mode) is optional, the event always fires
+ *   TDCReal.MIN_G            below this many real games, percentile reads stay on the projection (one hot game is not a skill)
+ */
+(function () {
+  if (window.TDCReal) return;
+  var KEY = 'tdcStatMode', MODE = 'real', DOC = null;
+  try { var saved = localStorage.getItem(KEY); if (saved === 'proj' || saved === 'real') MODE = saved; } catch (e) {}
+  var ready = fetch('scripts/data/real_lines_2027.json?h=' + Math.floor(Date.now() / 36e5))
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (j) { DOC = j; return j; })
+    .catch(function () { return null; });
+
+  function rd(v) { return Math.round(v * 10) / 10; }
+  function pct(m, a) { return a > 0 ? Math.round(1000 * m / a) / 10 : null; }
+  function line(t) {
+    var g = t.g; if (!(g > 0)) return null;
+    var A = function (k) { return rd((+t[k] || 0) / g); };
+    return { _real: true, gp: g, gs: t.gs || 0, mpg: A('min'), ppg: A('pts'), rpg: rd(((+t.oreb || 0) + (+t.dreb || 0)) / g), apg: A('ast'),
+      oreb: A('oreb'), dreb: A('dreb'), stl: A('stl'), blk: A('blk'), tovs: A('tov'), pf: A('pf'),
+      fgm: A('fgm'), fga: A('fga'), tpm: A('tpm'), tpa: A('tpa'), ftm: A('ftm'), fta: A('fta'),
+      fg_pct: pct(+t.fgm || 0, +t.fga || 0), tp_pct: pct(+t.tpm || 0, +t.tpa || 0), ft_pct: pct(+t.ftm || 0, +t.fta || 0) };
+  }
+  var _short = null;
+  function teamRow(name) {
+    if (!DOC || !name) return null;
+    if (DOC.teams[name]) return DOC.teams[name];
+    if (!_short) {   // short sheet name -> full ESPN name, from the projection's own team list when it's on the page
+      _short = {};
+      Object.keys(DOC.teams).forEach(function (f) { var s = f.split(' ').slice(0, -1).join(' '); if (!_short[s]) _short[s] = f; else _short[s] = null; });
+    }
+    var f = _short[name]; if (f) return DOC.teams[f];
+    var lc = String(name).toLowerCase() + ' ', hit = null, n = 0;
+    Object.keys(DOC.teams).forEach(function (x) { if (x.toLowerCase().indexOf(lc) === 0) { n++; if (!hit || x.length < hit.length) hit = x; } });
+    return n === 1 ? DOC.teams[hit] : null;   // "Texas" also opens Texas Tech: an ambiguous name must not show another team's stats
+  }
+  function fire() { try { window.dispatchEvent(new CustomEvent('tdc:statmode', { detail: { mode: MODE } })); } catch (e) {} }
+  function setMode(m) {
+    if (m !== 'real' && m !== 'proj') return;
+    var changed = m !== MODE; MODE = m;
+    try { localStorage.setItem(KEY, m); } catch (e) {}
+    document.querySelectorAll('.tdc-mode button').forEach(function (b) { var on = b.getAttribute('data-m') === m; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+    if (changed) fire();
+  }
+  function css() {
+    if (document.getElementById('tdc-mode-css')) return;
+    var s = document.createElement('style'); s.id = 'tdc-mode-css';
+    s.textContent = '.tdc-mode{display:inline-flex;gap:2px;padding:2px;border:1px solid var(--border);border-radius:9px;background:var(--bg2);vertical-align:middle;flex:0 0 auto}' +
+      '.tdc-mode button{appearance:none;border:0;background:none;border-radius:7px;padding:6px 12px;font:700 11px Inter,system-ui,sans-serif;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);cursor:pointer;min-height:30px}' +
+      '.tdc-mode button:hover{color:var(--text)}' +
+      '.tdc-mode button.on{background:var(--accent,#A88847);color:var(--accent-on,#fff)}' +
+      '.tdc-mode-note{font:500 11px Inter,system-ui,sans-serif;color:var(--text3)}' +
+      '@media(max-width:640px){.tdc-mode button{min-height:34px;padding:6px 14px}}';
+    document.head.appendChild(s);
+  }
+  function control(host, o) {
+    if (!host) return null; o = o || {}; css();
+    var w = document.createElement('div'); w.className = 'tdc-mode'; w.setAttribute('role', 'group'); w.setAttribute('aria-label', 'Show real or projected stats');
+    [['real', 'Real'], ['proj', 'Projected']].forEach(function (x) {
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = x[1]; b.setAttribute('data-m', x[0]);
+      var on = x[0] === MODE; b.className = on ? 'on' : ''; b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.addEventListener('click', function () { setMode(x[0]); if (o.onChange) o.onChange(x[0]); });
+      w.appendChild(b);
+    });
+    host.appendChild(w);
+    return w;
+  }
+  window.TDCReal = {
+    MIN_G: 5, ready: ready,
+    mode: function () { return MODE; }, isReal: function () { return MODE === 'real'; }, setMode: setMode, control: control,
+    through: function () { return DOC ? DOC.through : null; },
+    of: function (p) {
+      if (!DOC || !p) return null;
+      var r = p.espn_id != null ? DOC.players[String(p.espn_id)] : null;
+      return r ? line(r) : null;
+    },
+    team: function (name) {
+      var t = teamRow(name); if (!t) return null;
+      var l = line(t); if (!l) return null;
+      l.w = t.w || 0; l.l = t.l || 0; l.opp_ppg = rd((+t.opts || 0) / t.g);
+      return l;
+    }
+  };
+})();
