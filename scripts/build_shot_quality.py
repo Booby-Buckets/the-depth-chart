@@ -94,6 +94,12 @@ def season(y):
         for tid, t in M["teams"].items():
             names.setdefault(tid, t[0]); confs.setdefault(tid, t[1] or "")
 
+    if live:   # checked again below; here so an opening-week file with no qualified players can't reach the league math
+        early = get(f"games?season_year=eq.{y}&status=eq.STATUS_FINAL&select=id,home_id,away_id&order=id.asc")
+        n = sum(1 for g in early if str(g["home_id"]) in names and str(g["away_id"]) in names)
+        if n < SQ_MIN_GAMES:
+            print(f"{y}: only {n} D-I games final — waiting for {SQ_MIN_GAMES} before building"); return
+
     # ---- which families this season's feed supports: tagged ones only when the league actually has them (>=1% of FGA)
     if M:
         lgA = {f: M["league"][i][0] for i, f in enumerate(FAM)}; tot = sum(lgA.values())
