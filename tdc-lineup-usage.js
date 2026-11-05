@@ -18,9 +18,11 @@
   function css() {
     if (document.getElementById('luu-css')) return;
     var s = document.createElement('style'); s.id = 'luu-css';
-    s.textContent = '.luu-pos td{vertical-align:middle}.luu-sl{font-weight:800;letter-spacing:.06em;width:44px}' +
-      '.luu-pos td a{font-weight:600;margin-right:8px}.luu-pos td b{font-weight:800;font-variant-numeric:tabular-nums;color:var(--text3)}.luu-pos td:nth-child(2) b{color:var(--text)}' +
-      '.luu-stack span{display:flex;justify-content:space-between;gap:10px;line-height:1.6}' +
+    s.textContent = '.lud-g{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:0 0 6px}.lud-c{border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--panel,var(--bg));min-width:0}' +
+      '.lud-c h4{margin:0;padding:7px 10px;background:var(--bg2);border-bottom:1px solid var(--border);font:800 11px Inter,system-ui,sans-serif;letter-spacing:.1em;color:var(--text)}' +
+      '.lud-p{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;min-height:36px;box-sizing:border-box;border-top:1px solid var(--border);color:var(--text);text-decoration:none;font:600 12px Inter,system-ui,sans-serif}.lud-c h4+.lud-p{border-top:0}.lud-p:hover span{text-decoration:underline}' +
+      '.lud-p span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lud-p small{display:block;font:500 10px Inter,system-ui,sans-serif;color:var(--text2,var(--text3))}.lud-p b{font-weight:800;font-variant-numeric:tabular-nums;flex:0 0 auto}' +
+      '@media(max-width:900px){.lud-g{grid-template-columns:minmax(0,1fr)}}' +
       '.luu-where th,.luu-where td{text-align:center}.luu-where .l{text-align:left}' +
       '.luu-tbl td a{color:inherit;text-decoration:none}.luu-tbl td a:hover{text-decoration:underline}.luu-tbl td small{display:block;font:500 10px Inter,system-ui,sans-serif;color:var(--text3)}' +
       '.luu-more{appearance:none;background:none;border:1px solid var(--border);border-radius:7px;color:var(--text2,var(--text));font:700 11px Inter,system-ui,sans-serif;padding:7px 12px;margin:10px 0 0;cursor:pointer;min-height:32px}' +
@@ -49,17 +51,16 @@
   function view(F, n, label, full, more) {
     var T = totals(F, n), N = namer(F);
     if (!T.all) return '';
-    // one table, a row per spot. Phones get the players stacked, because the shared mobile fit hides columns from the right
+    // a column per spot, darker gold for more of that spot's minutes. Phones stack the columns
     var spots = SLOTS.map(function (sl, i) {
       return { sl: sl, list: Object.keys(T.slots[i]).map(function (k) { return [k, 100 * T.slots[i][k] / T.all]; }).sort(function (a, b) { return b[1] - a[1]; }).filter(function (x, j) { return j < 2 || x[1] >= 3; }).slice(0, 5) };
     });
-    var cell = function (x) { var p = F.p[x[0]] || [x[0]], sub = [ht(p[2]), p[3]].filter(Boolean).join(' · '); return '<a href="' + plink(x[0]) + '"' + (sub ? ' title="' + esc(sub) + '"' : '') + '>' + esc(N(x[0])) + '</a><b>' + Math.round(x[1]) + '%</b>'; };
-    var cols = Math.max.apply(null, spots.map(function (r) { return r.list.length; }));
-    var head = ''; for (var c = 0; c < cols; c++) head += '<th class="l">' + (c === 0 ? 'Most minutes' : c === 1 ? 'Next' : '') + '</th>';
-    var depth = '<div data-fit-keep class="luu-wide"><div class="sheet-wrap" style="max-height:none;"><table class="sheet dense luu-tbl luu-pos"><thead><tr><th class="l">Spot</th>' + head + '</tr></thead><tbody>' +
-      spots.map(function (r) { var h = ''; for (var c = 0; c < cols; c++) h += '<td class="l">' + (r.list[c] ? cell(r.list[c]) : '') + '</td>'; return '<tr><td class="l luu-sl">' + r.sl + '</td>' + h + '</tr>'; }).join('') + '</tbody></table></div></div>' +
-      '<div data-fit-keep class="luu-narrow"><div class="sheet-wrap" style="max-height:none;"><table class="sheet dense luu-tbl luu-pos"><thead><tr><th class="l">Spot</th><th class="l">Share of minutes</th></tr></thead><tbody>' +
-      spots.map(function (r) { return '<tr><td class="l luu-sl">' + r.sl + '</td><td class="l luu-stack">' + r.list.map(function (x) { return '<span>' + cell(x) + '</span>'; }).join('') + '</td></tr>'; }).join('') + '</tbody></table></div></div>';
+    var depth = '<div class="lud-g">' + spots.map(function (r) {
+      return '<div class="lud-c"><h4>' + r.sl + '</h4>' + r.list.map(function (x) {
+        var p = F.p[x[0]] || [x[0]], sub = [ht(p[2]), p[3]].filter(Boolean).join(' · ');
+        return '<a class="lud-p" href="' + plink(x[0]) + '" style="background:rgba(168,136,71,' + Math.min(0.85, 0.08 + x[1] / 100).toFixed(2) + ')"><span>' + esc(N(x[0])) + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span><b>' + Math.round(x[1]) + '%</b></a>';
+      }).join('') + '</div>';
+    }).join('') + '</div>';
     // each player's minutes split by spot: the same data read from the player's side
     var pm = {}; T.rows.forEach(function (L) { F.o[L.i].forEach(function (k, si) { (pm[k] = pm[k] || [0, 0, 0, 0, 0])[si] += L.s; }); });
     var tot = function (k) { return pm[k].reduce(function (a, b) { return a + b; }, 0); };
