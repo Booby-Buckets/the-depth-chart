@@ -1,0 +1,73 @@
+name: Rebuild lineups (season in progress)
+
+# On/Off, WOWY Lineups and Stat Line Shift for the season in progress, from NCAA play-by-play (the only feed that logs
+# substitutions). The caches keep already-fetched games between runs, so a night only pulls that day's games.
+#   scripts/build_onoff_shots.mjs  -> wowy_cache/shotev_<season>.json.gz (shot quality / possession rows)
+#   scripts/build_wowy.py          -> scripts/data/wowy_<season>.json + wowy_units_<season>.json
+#   scripts/build_wowy_player.py   -> scripts/data/wowy_index.json + two-man units (player page On/Off)
+#   scripts/build_statshift.py     -> scripts/data/statshift/<season>/
+# Data files only, so no Vercel deploy (vercel-ignore-build.sh).
+
+on:
+  schedule:
+    - cron: '30 10 * 11,12,1,2,3,4 *'   # after shot-analytics
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "Season (end year): 2027 = 2026-27. Blank = the current season."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lineups-live
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy scipy
+      - name: Season
+        id: season
+        run: |
+          S="${{ github.event.inputs.season }}"
+          if [ -z "$S" ]; then Y=$(date -u +%Y); M=$(date -u +%-m); if [ "$M" -ge 7 ]; then S=$((Y+1)); else S=$Y; fi; fi
+          echo "season=$S" >> "$GITHUB_OUTPUT"; echo "Building season $S"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            scripts/data/pbp_cache
+            scripts/data/ncaa_pbp_cache
+            scripts/data/espn_pbp_cache
+            scripts/data/wowy_cache
+          key: lineups-${{ steps.season.outputs.season }}-${{ github.run_id }}
+          restore-keys: lineups-${{ steps.season.outputs.season }}-
+      - name: Shot events
+        run: node scripts/build_onoff_shots.mjs ${{ steps.season.outputs.season }}
+      - name: WOWY lineups
+        run: python3 -u scripts/build_wowy.py --season ${{ steps.season.outputs.season }}
+      - name: Player-page files
+        run: python3 scripts/build_wowy_player.py
+      - name: Stat Line Shift
+        run: python3 -u scripts/build_statshift.py --season ${{ steps.season.outputs.season }}
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          Y=${{ steps.season.outputs.season }}
+          git add scripts/data/wowy_$Y.json scripts/data/wowy_units_$Y.json scripts/data/wowy_index.json scripts/data/statshift/$Y
+          [ -f scripts/data/wowy_pairs_$Y.json ] && git add scripts/data/wowy_pairs_$Y.json
+          if git diff --cached --quiet; then echo "Nothing new."; exit 0; fi
+          git commit -m "Auto: lineups $Y $(date -u +%Y-%m-%d) [skip ci]"
+          for i in 1 2 3; do git pull --rebase --autostash -q && git push && break; sleep 5; done

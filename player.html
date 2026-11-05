@@ -19,7 +19,7 @@
   <script src="tdc-follow.js?v=1"></script>
   <script src="tdc-shotprofile.js?v=1s"></script>
   <script src="tdc-shotflow.js?v=12"></script>
-  <script src="tdc-statshift-player.js?v=ssx8"></script>
+  <script src="tdc-statshift-player.js?v=ssx9"></script>
   <script src="tdc-nil.js?v=pay13"></script>
   <script src="tdc-archetypes.js?v=7"></script>
   <script src="tdc-gate.js?v=5"></script>
@@ -999,7 +999,7 @@ body{background:transparent!important;}
   <script src="tdc-engine.js?v=d1conf1"></script>
   <script src="tdc-impact.js?v=1"></script>
   <script src="tdc-heat.js?v=2s"></script>
-  <script src="tdc-fingerprint.js?v=11"></script>
+  <script src="tdc-fingerprint.js?v=12"></script>
   <script src="bigboard-engine.js?v=32"></script>
   <style>
     .dna-sub-seg{display:inline-flex;gap:2px;background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:2px;flex-wrap:wrap;}
@@ -1055,7 +1055,7 @@ body{background:transparent!important;}
   <!-- Dense "spreadsheet" reskin (dark-first) — matches the index + team page -->
   <link rel="stylesheet" href="tdc-dense.css?v=41"/>
   <link rel="stylesheet" href="tdc-player-dense.css?v=27"/>
-  <script src="tdc-dossier.js?v=ui1" defer></script>
+  <script src="tdc-dossier.js?v=ui2" defer></script>
   <script src="tdc-roles.js?v=ui1" defer></script>
   <script src="tdc-devpath.js?v=ui1" defer></script>
   <!-- ===== Clean skin (2026): loaded LAST so it wins over dense CSS. Neutral base +
@@ -1983,7 +1983,7 @@ function _inkTier(p){ return p==null?'var(--text3)':(p>=90?'rgba(var(--pd-ink-rg
 function _dnaTierCol(p){ return _inkTier(p); }   // percentile tiers are ONE ink at five strengths (no gold/mint/red scale)
 function _dnaTile(label, disp, pct, note){
   if(disp==null) return '';
-  var P=(pct==null||isNaN(pct))?null:Math.round(pct);
+  var P=(pct==null||isNaN(pct)||_dnaYearThin())?null:Math.round(pct);
   var col=_dnaTierCol(P);
   return '<div class="pd-tile">'
     +'<div class="pd-tile-l">'+label+'</div>'
@@ -2033,6 +2033,24 @@ function _dnaBoxAgg(rows){
   (rows||[]).forEach(function(r){ a.g++; ['fga','fta','ftm','pts','tov','ast','tpm','tpa','fgm','oreb','dreb','stl','blk','pf','min'].forEach(function(k){ var v=parseFloat(r[k]); if(!isNaN(v)) a[k]+=v; }); });
   return a;
 }
+// Offense / Defense / Six Factor season: 2026-27 once he has played (owner, Nov 2026: every tab opens on this season), with
+// last season one tap away. Under TDCReal.MIN_G games the numbers show but percentile bars don't (one game read as "100th").
+function _dnaYear(){ return window._dnaYrSel||((window._live27&&_live27.gp)?2027:2026); }
+function _dnaThin(){ return !!window._live27 && _live27.gp<((window.TDCReal&&TDCReal.MIN_G)||5); }
+function _dnaYearThin(){ return _dnaYear()===2027 && _dnaThin(); }
+function _dnaYearLbl(){ var y=_dnaYear(); return _seasonLbl(y)+(y===2027&&window._live27?' so far · '+_live27.gp+' game'+(_live27.gp===1?'':'s'):''); }
+function _dnaYearBar(){
+  if(!window._live27||!_live27.gp) return '';
+  var y=_dnaYear(), b=function(v){ return '<button class="'+(v===y?'on':'')+'" onclick="_dnaSetYear('+v+')">'+_seasonLbl(v)+'</button>'; };
+  return '<div class="seg sm" style="margin:0 0 12px;">'+b(2027)+b(2026)+'</div>';
+}
+function _dnaSetYear(y){
+  window._dnaYrSel=y; window._dnaPlayerShots=undefined;
+  if(window._dnaOffLoaded) loadOffenseView();
+  if(window._dnaDefLoaded) loadDefenseView();
+  if(window._dnaSixLoaded) renderSixFactorExtra();
+}
+function _dnaAdvYr(){ return _dnaYear()===2027?{}:_dnaAdv(); }   // advanced rates need team totals, built after a season ends
 function _dnaAdv(){
   var src=(proj&&!proj._frosh)?proj:player;
   var hist=(careerHistory&&careerHistory.length)?careerHistory[careerHistory.length-1]:null;
@@ -2078,15 +2096,15 @@ async function loadOffenseView(){
   try{
     var box=[], shots=[], assists=[];
     if(espn){
-      box=await fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+'&season_year=eq.2026&select=fga,fta,ftm,pts,tov,ast,tpm,tpa,fgm,oreb,dreb,stl,blk,pf,min',{headers:H}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
+      box=await fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+'&season_year=eq.'+_dnaYear()+'&select=fga,fta,ftm,pts,tov,ast,tpm,tpa,fgm,oreb,dreb,stl,blk,pf,min',{headers:H}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
       var _sh=(typeof tdcH==='function'?tdcH():H);
-      shots=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.2026&select=made,sv,stype,ast_name,team_id',{headers:_sh}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
+      shots=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.'+_dnaYear()+'&select=made,sv,stype,ast_name,team_id',{headers:_sh}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
       window._dnaPlayerShots=shots;
       // Points Created: match this player against the team's assisted shots by
       // normalized name, robust to ast_name format drift.
       var teamId=_dnaModeTeamId(shots);
       if(name && teamId!=null){
-        var teamShots=await fetch(SB+'/rest/v1/shots?team_id=eq.'+teamId+'&season_year=eq.2026&ast_name=not.is.null&select=sv,ast_name&limit=8000',{headers:_sh}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
+        var teamShots=await fetch(SB+'/rest/v1/shots?team_id=eq.'+teamId+'&season_year=eq.'+_dnaYear()+'&ast_name=not.is.null&select=sv,ast_name&limit=8000',{headers:_sh}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
         assists=teamShots.filter(function(s){ return _dnaNameMatch(s.ast_name, name); });
       }
     }
@@ -2095,7 +2113,7 @@ async function loadOffenseView(){
   setTimeout(function(){ growBarsIn(host); },40);
 }
 function renderOffenseView(box,shots,assists){
-  var a=_dnaBoxAgg(box), adv=_dnaAdv();
+  var a=_dnaBoxAgg(box), adv=_dnaAdvYr();
   var eFG=a.fga?(a.fgm+0.5*a.tpm)/a.fga:null;
   var TS =(a.fga||a.fta)?a.pts/(2*(a.fga+0.44*a.fta)):null;
   var pts40=a.min?a.pts/a.min*40:null;
@@ -2111,7 +2129,7 @@ function renderOffenseView(box,shots,assists){
     {l:'drawing fouls',p:_dnaLin(FTr,0.10,0.55)}
   ]);
   var out=_dnaReadBanner(_dnaVerdict(getPctNat(adv.owa,'wa'),'Elite offensive weapon','Complementary scorer','Low-usage finisher'), _oRead, '⚡')
-    + '<div class="skill-section-title">Offense — 2025-26</div>';
+    + _dnaYearBar() + '<div class="skill-section-title">Offense — '+_dnaYearLbl()+'</div>';
   // Scoring & efficiency (public, box + advanced)
   out+='<div class="pd-sec"><div class="pd-sec-h">Scoring &amp; Efficiency</div><div class="pd-grid">'
     + _dnaTile('PTS / 40', pts40!=null?pts40.toFixed(1):null, getPctNat(pts40,'pts40'))
@@ -2124,6 +2142,7 @@ function renderOffenseView(box,shots,assists){
     + '</div></div>';
   // Playmaking (public)
   out+='<div class="pd-sec"><div class="pd-sec-h">Playmaking &amp; Ball Security</div><div class="pd-grid">'
+    + (_dnaYear()===2027&&a.min?_dnaTile('AST / 40',(a.ast/a.min*40).toFixed(1),null)+_dnaTile('TOV / 40',(a.tov/a.min*40).toFixed(1),null):'')
     + _dnaTile('Assist Rate', adv.ast_pct!=null?(+adv.ast_pct).toFixed(1)+'%':null, getPctNat(adv.ast_pct,'ast_pct'))
     + _dnaTile('Turnover Rate', adv.tov_pct!=null?(+adv.tov_pct).toFixed(1)+'%':null, adv.tov_pct!=null?100-getPctNat(adv.tov_pct,'tov_pct'):null)
     + _dnaTile('Off. Wins Added', adv.owa!=null?((+adv.owa>=0?'+':'')+(+adv.owa).toFixed(1)):null, getPctNat(adv.owa,'wa'))
@@ -2169,10 +2188,10 @@ async function loadDefenseView(){
   try{
     var box=[], oppZones=null, oppGames=0;
     if(espn){
-      box=await fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+'&season_year=eq.2026&select=stl,blk,dreb,oreb,pf,min,tov',{headers:H}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
+      box=await fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+'&season_year=eq.'+_dnaYear()+'&select=stl,blk,dreb,oreb,pf,min,tov',{headers:H}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
       // shots-gated: opponent shot profile vs his team in games he played
       var _sh=(typeof tdcH==='function'?tdcH():H);
-      var ps=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.2026&select=team_id,game_id',{headers:_sh}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
+      var ps=await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.'+_dnaYear()+'&select=team_id,game_id',{headers:_sh}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
       var teamId=_dnaModeTeamId(ps);
       var gids=[]; var seen={}; ps.forEach(function(s){ if(s.game_id!=null&&!seen[s.game_id]){seen[s.game_id]=1;gids.push(s.game_id);} });
       gids=gids.slice(0,45);
@@ -2186,7 +2205,7 @@ async function loadDefenseView(){
   setTimeout(function(){ growBarsIn(host); },40);
 }
 function renderDefenseView(box, oppZones, oppGames){
-  var a=_dnaBoxAgg(box), adv=_dnaAdv();
+  var a=_dnaBoxAgg(box), adv=_dnaAdvYr();
   var stl40=a.min?a.stl/a.min*40:null, blk40=a.min?a.blk/a.min*40:null, pf40=a.min?a.pf/a.min*40:null;
   var stops40=a.min?(a.stl+a.blk)/a.min*40:null;  // STOP proxy: possession-ending plays / 40
   var _dRead=_dnaReadSentence([
@@ -2196,7 +2215,7 @@ function renderDefenseView(box, oppZones, oppGames){
     {l:'avoiding fouls',p:_dnaLin(pf40,1.0,5.0,true)}
   ]);
   var out=_dnaReadBanner(_dnaVerdict(getPctNat(adv.dwa,'wa'),'Defensive difference-maker','Steady defender','Defensive liability'), _dRead, '🛡')
-    + '<div class="skill-section-title">Defense — 2025-26</div>'
+    + _dnaYearBar() + '<div class="skill-section-title">Defense — '+_dnaYearLbl()+'</div>'
     + '<p class="pd-legend" style="margin:-4px 0 14px;">College has no lineup-tracking data, so player defense is measured from box events and our owned Defensive Wins Added — not opponent shot tracking. Read these as event-rate signals, not full defensive impact.</p>';
   out+='<div class="pd-sec"><div class="pd-sec-h">Disruption</div><div class="pd-grid">'
     + _dnaTile('Steal Rate', adv.stl_pct!=null?(+adv.stl_pct).toFixed(1)+'%':null, getPctNat(adv.stl_pct,'stl_pct'))
@@ -2239,7 +2258,7 @@ function renderDefenseView(box, oppZones, oppGames){
 // 6-Factor: the existing impact decomposition + an offensive shot-location value strip.
 async function renderSixFactorExtra(){
   var h=document.getElementById('sixFactorExtraHost'); if(!h) return;
-  var adv=_dnaAdv(), owa=parseFloat(adv.owa), dwa=parseFloat(adv.dwa), sixRead='';
+  var adv=_dnaAdvYr(), owa=parseFloat(adv.owa), dwa=parseFloat(adv.dwa), sixRead='';
   if(!isNaN(owa)&&!isNaN(dwa)){
     var oStr=(owa>=0?'+':'')+owa.toFixed(1), dStr=(dwa>=0?'+':'')+dwa.toFixed(1), lead;
     if(owa>=0.5&&dwa>=0.5) lead='<span class="up">Two-way</span> — he helps on both ends (<b>'+oStr+'</b> offense, <b>'+dStr+'</b> defense).';
@@ -2250,13 +2269,13 @@ async function renderSixFactorExtra(){
     else lead='Complementary piece — modest owned impact on both ends ('+oStr+' / '+dStr+').';
     sixRead=_dnaReadBanner('Where his value comes from', lead, '⚖');
   }
-  var readHost=document.getElementById('sixReadHost'); if(readHost) readHost.innerHTML=sixRead;
+  var readHost=document.getElementById('sixReadHost'); if(readHost) readHost.innerHTML=_dnaYearBar()+sixRead;
   h.innerHTML='<p class="pd-legend" style="margin:2px 0 6px;">The mirror above splits owned impact into seven offense/defense channels — positive always helps his team, on both ends.</p>'
     +'<div id="sfStripHost"><div class="dna-loading">Loading shot value…</div></div>';
   var shots=window._dnaPlayerShots;
   if(shots===undefined){
     var espn=window._playerEspn||(player&&player.espn_id);
-    shots=espn?await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.2026&select=made,sv,stype,ast_name',{headers:(typeof tdcH==='function'?tdcH():H)}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];}):[];
+    shots=espn?await fetch(SB+'/rest/v1/shots?espn_id=eq.'+espn+'&season_year=eq.'+_dnaYear()+'&select=made,sv,stype,ast_name',{headers:(typeof tdcH==='function'?tdcH():H)}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];}):[];
     window._dnaPlayerShots=shots;
   }
   var host=document.getElementById('sfStripHost'); if(host) host.innerHTML=buildSixFactorStrip(shots);
@@ -2388,13 +2407,14 @@ function renderImpDecomp(){ var h=document.getElementById('impDecompHost'); if(!
 async function loadSituational(){
   var host=document.getElementById('situationalHost'); if(!host) return;
   var espn=window._playerEspn||(player&&player.espn_id); if(!espn){ host.innerHTML=''; return; }
-  var bx=[], dna=null, games=[];
+  var bx=[], dna=null, games=[], _sitY=(window._live27&&_live27.gp>=8)?2027:2026;   // the splits need 8 games
+  window._sitY=_sitY;
   try{ var r=await Promise.all([
-    fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+'&season_year=eq.2026&select=game_id,opp,pts,tov,pf,min',{headers:H}).then(function(x){return x.ok?x.json():[];}),
+    fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+'&season_year=eq.'+_sitY+'&select=game_id,opp,pts,tov,pf,min',{headers:H}).then(function(x){return x.ok?x.json():[];}),
     (window._sitDNA?Promise.resolve(window._sitDNA):fetch('scripts/data/team_dna.json').then(function(x){return x.ok?x.json():null;}))
   ]); bx=r[0]; dna=r[1]; window._sitDNA=dna; }catch(e){}
   if(!bx||bx.length<8 || !dna){ host.innerHTML=''; return; }
-  var teams=(dna['2026']&&dna['2026'].teams)||{};
+  var teams=(dna[String(_sitY)]&&dna[String(_sitY)].teams)||{};
   // margins for the clutch split (one bulk games fetch)
   try{ var ids=[].concat.apply([],[[...new Set(bx.map(function(b){return b.game_id;}).filter(Boolean))]]);
     if(ids.length){ games=await fetch(SB+'/rest/v1/games?id=in.('+ids.join(',')+')&select=id,home_score,away_score',{headers:H}).then(function(x){return x.ok?x.json():[];}); } }catch(e){}
@@ -2430,7 +2450,7 @@ async function loadSituational(){
       +'<div class="si-read">'+c.read+'</div>'
       +'<div class="si-gauge">'+gauge+'</div>'
       +'<div class="si-detail">'+c.detail+'</div></div>'; }).join('');
-  host.innerHTML='<div class="skill-section-title">Situational Profile — Predictive Identifiers</div><div class="si-grid">'+html+'</div><div class="pd-legend" style="margin-bottom:6px;">How his production shifts by opponent type — split from his 2025-26 game log against each opponent’s pace &amp; ball-pressure (team DNA) and by final margin. A coach-decision layer, not a box-score summary.</div>';
+  host.innerHTML='<div class="skill-section-title">Situational Profile — '+_seasonLbl(window._sitY||2026)+'</div><div class="si-grid">'+html+'</div><div class="pd-legend" style="margin-bottom:6px;">How his production shifts by opponent type — split from his 2025-26 game log against each opponent’s pace &amp; ball-pressure (team DNA) and by final margin. A coach-decision layer, not a box-score summary.</div>';
   if(window.TDCAnim&&window.TDCAnim.scan) TDCAnim.scan(host);
 }
 function renderCareerExtras(){ var b=document.getElementById('peakMetHost'); if(b)b.innerHTML=buildPeakMetrics(); }
@@ -2457,7 +2477,7 @@ async function loadPlayerMarch(){
     var dtxt=delta==null?'':(key==='ts'?((delta>=0?'+':'')+(delta*100).toFixed(1)+'%'):((delta>=0?'+':'')+delta.toFixed(1)));
     return '<tr><td class="l nm">'+name+'</td><td class="strong">'+pv+'</td><td>'+rv+'</td><td>'+dtxt+'</td></tr>'; }
   var body=[['PPG','ppg',d1],['RPG','rpg',d1],['APG','apg',d1],['TS%','ts',tp]].map(function(m){ return drow(m[0],R,P,m[2],m[1]); }).join('');
-  host.innerHTML='<div class="sec-title" style="margin:34px 0 12px;">Tournament splits — March vs the regular season</div>'
+  host.innerHTML='<div class="sec-title" style="margin:34px 0 12px;">Tournament splits — 2025-26 March vs the regular season</div>'
     +'<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Metric</th><th>Postseason ('+P.g+'G)</th><th>Regular ('+R.g+'G)</th><th>Δ</th></tr></thead><tbody>'+body+'</tbody></table></div>';
   if(window.TDCAnim&&window.TDCAnim.scan) TDCAnim.scan(host);
 }
@@ -2718,6 +2738,12 @@ async function init(){
             ppg:A('pts'), rpg:A('reb'), apg:A('ast'), mpg:A('min'), stl:A('stl'), blk:A('blk'), tovs:A('tov'), pf:A('pf'),
             fgm:A('fgm'), fga:A('fga'), fg_pct:P('fgm','fga'), tpm:A('tpm'), tpa:A('tpa'), tp_pct:P('tpm','tpa'),
             ftm:A('ftm'), fta:A('fta'), ft_pct:P('ftm','fta'), oreb:A('oreb'), dreb:A('dreb'), _pergame:{}, _per40:{}, _advanced:{} };
+          // the Per 40 sheet (same field names as player_history) and TS%; the other advanced rates need team totals
+          const _m=S('min'), _r=k=>_m>0?Math.round(S(k)/_m*400)/10:null, _tsa=S('fga')+0.44*S('fta');
+          window._live27._per40={ mp:_m, pts_per_min:_r('pts'), trb_per_min:_r('reb'), ast_per_min:_r('ast'), fg_per_min:_r('fgm'), fga_per_min:_r('fga'), fg_pct:S('fga')>0?S('fgm')/S('fga'):null,
+            fg3_per_min:_r('tpm'), fg3a_per_min:_r('tpa'), fg3_pct:S('tpa')>0?S('tpm')/S('tpa'):null, ft_per_min:_r('ftm'), fta_per_min:_r('fta'), ft_pct:S('fta')>0?S('ftm')/S('fta'):null,
+            orb_per_min:_r('oreb'), drb_per_min:_r('dreb'), stl_per_min:_r('stl'), blk_per_min:_r('blk'), tov_per_min:_r('tov'), pf_per_min:_r('pf') };
+          window._live27._advanced={ ts_pct:_tsa>0?S('pts')/(2*_tsa):null };
         }
       }
     }catch(e){ console.warn('2026-27 box scores',e); }
@@ -3267,7 +3293,7 @@ function setDistPop(pp){window._distPop=pp;_segSync('distPopSeg',pp==='all'?0:1)
 // distribution cards — population (all D1 / position group) × season (actual / projected)
 function renderDist(){
   var host=document.getElementById('distSection'); if(!host||!player) return;
-  var season=window._distSeason||'2026', pop=window._distPop||'all';
+  var season=window._distSeason||'2627', pop=window._distPop||'all';
   var pool=_distPool||window._tdcAllPlayers;
   if(!pool||!pool.length){host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Loading distributions…</div>';return;}
   var grp=_impPgrp(player.position), grpName=({G:'Guards',W:'Wings',B:'Bigs'})[grp];
@@ -4164,7 +4190,7 @@ async function loadDraftSticker(){
     // predictive impact, spectrum, and distribution cards (all use the pool)
     renderImpact();
     buildSpectrum();
-    setDistSeason(window._distSeason||'2026');
+    setDistSeason(window._distSeason||'2627');
     var _oss=document.getElementById('ovrSeasonSel'); if(_oss) setOvrSeason(_oss.value);
   }catch(e){}
 }
@@ -4196,10 +4222,10 @@ function expVal(p,key){
   }
   var v=parseFloat(p[key]); return isNaN(v)?null:v;
 }
-var _pexpChart=null, _pexpPool=null, _pexpCache={}, _pexpSeason='2026';
-function _pexpSeasonLbl(k){ if(k==='all')return 'all seasons'; var y=+k; return (y-1)+'-'+(''+y).slice(2); }
+var _pexpChart=null, _pexpPool=null, _pexpCache={}, _pexpSeason='2627';
+function _pexpSeasonLbl(k){ if(k==='all')return 'all seasons'; if(k==='2627')return '2026-27 projected'; var y=+k; return (y-1)+'-'+(''+y).slice(2); }
 async function loadPexpSeason(key){
-  if(key==='2627') return window._tdcAllPlayers||[];  // projected: current rosters (per-game only)
+  if(key==='2627') return _pexpCache[key]||(window._tdcAllPlayers?(_pexpCache[key]=window._tdcAllPlayers.map(function(p){ return Object.assign({},p,projLine(p)); })):[]);  // projected: current rosters (per-game only)
   if(_pexpCache[key]) return _pexpCache[key];
   var nt=document.getElementById('pexpNote'); if(nt) nt.textContent='Loading '+_pexpSeasonLbl(key)+'…';
   // OWNED pool (player_advanced + player_history), bbref-shaped → _bbrefPoolRow unchanged.
@@ -4210,6 +4236,7 @@ async function loadPexpSeason(key){
 // the viewed player's own stat row for the selected season (for the highlight)
 function _pexpPlayerRow(key){
   if(key==='all') return player;
+  if(key==='2627') return Object.assign({},player,playerProjLine());
   var yr=+key, rows=(careerHistory||[]).filter(function(s){return +s.season_year===yr && s.ppg!=null;});
   if(rows.length){ rows.sort(function(a,b){return (+b.gp||0)-(+a.gp||0);}); return rows[0]; }
   return (+key===2026)?player:null;   // default season falls back to the players-table row
@@ -4225,7 +4252,7 @@ function buildSpectrum(){   // name kept so the existing call site still works
   if(!sec||!player) return;
   var optHtml=EXP_STATS.map(function(s){return '<option value="'+s.k+'">'+s.l+'</option>';}).join('');
   var yrs=[2026,2025,2024,2023,2022,2021,2020,2019,2018,2017,2016,2015,2014,2013,2012];
-  var seasonOpts=yrs.map(function(y){return '<option value="'+y+'">'+((y-1)+'-'+(''+y).slice(2))+'</option>';}).join('')+'<option value="all">All Seasons</option>';
+  var seasonOpts='<option value="2627">2026-27 projected</option>'+yrs.map(function(y){return '<option value="'+y+'">'+((y-1)+'-'+(''+y).slice(2))+'</option>';}).join('')+'<option value="all">All Seasons</option>';
   var tc=(teamData&&teamData.color)||'#5ab875';
   sec.innerHTML=
     '<div class="sec-title" style="margin-bottom:14px;">Stat Explorer</div>'+
@@ -4761,8 +4788,8 @@ function renderPage(){
       <div class="sec-title" style="margin-bottom:14px;">Percentile Distributions</div>
       <div class="dist-controls">
         <div class="dist-slider">
-          <span class="dist-slider-lbl" id="distSliderLbl">2025-26 actual</span>
-          <input type="range" id="distSlider" min="2007" max="2027" value="2026" step="1" oninput="onDistSlide(this.value)">
+          <span class="dist-slider-lbl" id="distSliderLbl">2026-27 projected</span>
+          <input type="range" id="distSlider" min="2007" max="2027" value="2027" step="1" oninput="onDistSlide(this.value)">
         </div>
         <div class="seg sm" id="distPopSeg"><button class="on" onclick="setDistPop('all')">vs All D1</button><button onclick="setDistPop('grp')">vs ${({G:'Guards',W:'Wings',B:'Bigs'})[_impPgrp(p.position)]}</button></div>
       </div>
@@ -5013,11 +5040,11 @@ const STAT_MODES={
     ['STL%','stl_pct',_fpRaw],['BLK%','blk_pct',_fpRaw],['TOV%','tov_pct',_fpRaw]]},
 };
 function renderModeTable(mode){
-  const M=STAT_MODES[mode]; const hist=_dedupHist();
+  const M=STAT_MODES[mode]; const hist=_dedupHist().concat(window._live27?[_live27]:[]);
   if(!hist.length) return `<div style="padding:30px;color:var(--text3);font-style:italic;">No ${mode==='per40'?'per-40':'advanced'} data available.</div>`;
   const head=`<th class="l">Season</th><th class="l">Team</th><th>OVR</th>`+M.cols.map(c=>`<th>${c[0]}</th>`).join('');
   const body=hist.map(s=>{ const d=s[M.src]||{};
-    return `<tr class="actual"><td class="l">${_seasonLbl(s.season_year)}</td><td class="l dim">${s.team||''}</td>${_ovrTd(_statOvrRow(s.season_year, s.tdc_grade))}`
+    return `<tr class="actual"><td class="l">${_seasonLbl(s.season_year)}${s._live?' so far':''}</td><td class="l dim">${s.team||''}</td>${_ovrTd(_statOvrRow(s.season_year, s.tdc_grade))}`
       +M.cols.map(c=>`<td ${_cc(d,c[1])}>${c[2](d[c[1]])}</td>`).join('')+`</tr>`;
   }).join('');
   return `<div class="sheet-wrap"><table class="sheet dense freeze2 stat-sheet"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
@@ -5142,6 +5169,10 @@ async function loadGameLog(){
       await Promise.all(years.map(async y=>{
         const tr=await fetch(`${SB}/rest/v1/team_seasons?season_year=eq.${y}&select=team,tier&tier=not.is.null`,{headers:H}).then(r=>r.ok?r.json():[]);
         (tr||[]).forEach(t=>{ window._oppTier[y+'|'+t.team]=t.tier; });
+        if(y>=2027&&!(tr||[]).length){   // team_seasons has no row until a season ends: last season's tiers
+          const tl=await fetch(`${SB}/rest/v1/team_seasons?season_year=eq.${y-1}&select=team,tier&tier=not.is.null`,{headers:H}).then(r=>r.ok?r.json():[]);
+          (tl||[]).forEach(t=>{ window._oppTier[y+'|'+t.team]=t.tier; });
+        }
       }));
     }catch(e){}
     _glTierFilter=null;
@@ -5360,7 +5391,7 @@ async function renderBetting(){
     }
     var bySea={}; _BET.box.forEach(function(b){ (bySea[b.season_year]=bySea[b.season_year]||[]).push(b); });
     var seasons=Object.keys(bySea).map(Number).sort(function(a,b){return b-a;});
-    if(_BET.season==null) _BET.season=seasons.find(function(s){return bySea[s].length>=5;})||seasons[0];
+    if(_BET.season==null) _BET.season=seasons[0];   // the season in progress, even at 1-2 games (owner, Nov 2026)
     _betPaint();
     if(!_BET.shotsTried) _betLoadShots(espn);
   }catch(e){ el.innerHTML='<div class="bet-empty">Could not load prop data.</div>'; }
@@ -5496,7 +5527,7 @@ async function _betLoadShots(espn){
 function _betPaint(){
   var el=document.getElementById('bettingContent');
   var st=_betStat(), games=_betGames(), vals=games.map(st.get);
-  if(vals.length<3){ el.innerHTML=_betControls()+'<div class="bet-empty">Not enough games in this span for '+st.lab+'.</div>'; return; }
+  if(vals.length<(_BET.season>=2027?1:3)){ el.innerHTML=_betControls()+'<div class="bet-empty">Not enough games in this span for '+st.lab+'.</div>'; return; }
   if(_BET.line==null) _BET.line=_betSuggest(vals);
   var line=_BET.line;
   var over=vals.filter(function(v){return v>line;}).length, pOver=Math.round(100*over/vals.length), pUnder=100-pOver;
@@ -5990,7 +6021,7 @@ async function loadShotChart(season){
     // a handful of dots on an empty half-court reads as "no shot chart" and misleads. Show a
     // disclaimer instead. (~440 real attempts but only 34 tracked = hide.) Charts with enough
     // dots still render, keeping the existing partial-coverage note for the % gap.
-    var _n=Array.isArray(rows)?rows.length:0, _SC_MIN=40;
+    var _n=Array.isArray(rows)?rows.length:0, _SC_MIN=season>=2027?1:40;   // the season in progress shows every shot from game one
     if(_n < _SC_MIN){
       var _who=(player&&player.name)||'this player', _sl=(typeof _seasonLbl2==='function')?_seasonLbl2(season):season;
       var _msg=(_n===0)
@@ -6040,6 +6071,7 @@ async function _shotGameList(st){
 function _initShotFlowSeasons(){
   var sel=document.getElementById('sfSeasonSel'); if(!sel) return;
   var yrs=[...new Set((careerHistory||[]).map(function(s){return +s.season_year;}).filter(Boolean))].sort(function(a,b){return b-a;});
+  if(window._live27&&yrs.indexOf(2027)<0) yrs.unshift(2027);
   if(!yrs.length) yrs=[2026];
   sel.innerHTML=yrs.map(function(y){return '<option value="'+y+'">'+((y-1)+'-'+(''+y).slice(2))+'</option>';}).join('');
   loadShotFlow(yrs[0]);
@@ -6171,10 +6203,11 @@ function _pgLoad(y){
 function _pgPct(arr, v){ if(v==null || !arr || !arr.length) return null; var lo=0; while(lo<arr.length && arr[lo]<v) lo++; return Math.round(100*lo/arr.length); }
 async function renderPlayerGenome(season){
   var host=document.getElementById('playerGenomeHost'); if(!host) return;
-  var espn=window._playerEspn, y=season||window._pgSeason||2026; window._pgSeason=y;
-  var YRS=[2026,2025,2024,2023,2022,2021,2020];
+  var espn=window._playerEspn, y=season||window._pgSeason||(window._live27?2027:2026); window._pgSeason=y;
+  var YRS=[2027,2026,2025,2024,2023,2022,2021,2020];
   host.innerHTML='<div class="sg-card"><div class="sg-empty">Loading the Shot Genome…</div></div>';
   var D=await _pgLoad(y), p=D&&espn?D.by[espn]:null;
+  if(p&&y>=2027&&_dnaThin()){ p=Object.assign({},p); Object.keys(p).forEach(function(k){ if(/Pct$|Pctl$/.test(k)&&k!=='selfPct') p[k]=null; }); }   // no percentile reads under 5 games
   var lbl=function(v){ return (v-1)+'-'+String(v).slice(2); };
   var sel='<select id="pgSeason" class="exp-sel" style="padding:6px 9px;font-size:12px;">'+YRS.map(function(v){ return '<option value="'+v+'"'+(v===y?' selected':'')+'>'+lbl(v)+'</option>'; }).join('')+'</select>';
   var head='<div class="sg-head"><div class="sg-title">Shot Genome <small>'+lbl(y)+'</small></div><div style="display:flex;gap:10px;align-items:center;">'+(p?(_sgType(p.smPct,p.crPct)?'<span class="sg-type">'+_sgType(p.smPct,p.crPct)+'</span>':''):'')+sel+'</div></div>';
@@ -6233,6 +6266,7 @@ function _pgWire(){ var s=document.getElementById('pgSeason'); if(s) s.onchange=
 function _initShotSeasons(){
   var sel=document.getElementById('scSeasonSel'); if(!sel) return;
   var yrs=[...new Set((careerHistory||[]).map(function(s){return +s.season_year;}).filter(Boolean))].sort(function(a,b){return b-a;});
+  if(window._live27&&yrs.indexOf(2027)<0) yrs.unshift(2027);   // careerHistory has no live row; every tab opens on 2026-27 (owner, Nov 2026)
   if(!yrs.length) yrs=[2026];
   sel.innerHTML=yrs.map(function(y){return '<option value="'+y+'">'+((y-1)+'-'+(''+y).slice(2))+'</option>';}).join('');
   loadShotChart(yrs[0]);
@@ -7053,7 +7087,7 @@ async function renderDossier(){
   var full=(td&&(td.full||td.name))||p.team||'';
   var tc=getComputedStyle(document.documentElement).getPropertyValue('--tc').trim()||'var(--accent)';
   TDC_DOSSIER.render(host,{ espn_id:p.espn_id||window._playerEspn, name:p.name, position:p.position, cls:p.class_year||p.yr,
-    teamFull:full, tc:tc, last:p, ovr:(ovr!=null?Math.round(ovr):null),
+    teamFull:full, tc:tc, last:p, live:window._live27||null, ovr:(ovr!=null?Math.round(ovr):null),
     pl: pj?{ppg:+pj.ppg,rpg:+pj.rpg,apg:+pj.apg,mpg:+pj.mpg,fg_pct:+pj.fg_pct,tp_pct:+pj.tp_pct,ft_pct:+pj.ft_pct}:{_fresh:true} });
 }
 // ── ROLE & FIT / DEVELOPMENT (in-page; shared renderers in tdc-roles.js / tdc-devpath.js) ──
@@ -7768,7 +7802,8 @@ async function renderScoutExtras(){
   try{
     var espn=(player&&player.espn_id)||window._espnId||null;
     if(espn){
-      var box=await fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+'&season_year=eq.2026&select=game_id,date,opp,min,pts,reb,ast,stl,blk,tov,fgm,fga,tpm,tpa,ftm,fta&order=date',{headers:H}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
+      var _sigY=(window._live27&&_live27.gp>=5)?2027:2026;
+      var box=await fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+'&season_year=eq.'+_sigY+'&select=game_id,date,opp,min,pts,reb,ast,stl,blk,tov,fgm,fga,tpm,tpa,ftm,fta&order=date',{headers:H}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
       box=(box||[]).filter(function(b){return (+b.min||0)>0;});
       if(box.length>=5){
         var gs=function(b){ var fgm=+b.fgm||0,fga=+b.fga||0,ftm=+b.ftm||0,fta=+b.fta||0; return (+b.pts||0)+0.4*fgm-0.7*fga-0.4*(fta-ftm)+0.45*(+b.reb||0)+0.7*(+b.ast||0)+(+b.stl||0)+0.7*(+b.blk||0)-(+b.tov||0); };
@@ -7783,7 +7818,7 @@ async function renderScoutExtras(){
           : sd<=4.5?'<b>Remarkably consistent</b> — game score σ of just '+f1(sd)+'. You know what you are getting.'
           : 'Normal night-to-night variance (σ '+f1(sd)+'). '+twenty+' twenty-point games, '+dud+' games of five or fewer.';
         if(dbl) sRead+=' '+dbl+' double-double'+(dbl>1?'s':'')+'.';
-        out+=secH('Signature games','his five best 2025-26 box lines by game score')+
+        out+=secH('Signature games','his five best '+_seasonLbl(_sigY)+' box lines by game score')+
           '<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Date</th><th class="l">Opp</th><th>Min</th><th>Pts</th><th>Reb</th><th>Ast</th><th>Stl/Blk</th><th>FG</th><th>3P</th><th>FT</th><th>TO</th></tr></thead><tbody>'+top.map(function(x){return line(x.b);}).join('')+
           '<tr><td colspan="11" class="l dim" style="font-size:10px;padding-top:8px;">Worst night</td></tr>'+line(worst.b)+'</tbody></table></div>'+readBox(sRead);
       }

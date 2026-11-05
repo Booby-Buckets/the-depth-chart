@@ -40,7 +40,7 @@ STEAL_SH, BLOCK_SH = 0.70, 0.50
 REB_SH = 0.70             # the rebounder's share of a rebound's value: box-outs and the shot's angle are team work (the rest of a
                           # defensive board goes to the five on the floor; the rest of an offensive one to nobody)
 MIN_POSS = 500            # percentile pool: ~250+ minutes (a season in progress scales it down — see qual_poss)
-MIN_GAMES = 200           # D-I games with play-by-play before a season is built at all
+MIN_GAMES = 100           # D-I games with play-by-play before a season is built at all
 SKILLS = [   # key, label, group
     ("rim", "Rim finishing", "Scoring"), ("put", "Putbacks", "Scoring"), ("mid", "Mid-range", "Scoring"),
     ("three", "Three-point shooting", "Scoring"), ("ft", "Free throws", "Scoring"),
@@ -262,7 +262,7 @@ def write_index():
 def main():
     y = int(sys.argv[1]) if len(sys.argv) > 1 else 2026
     t0 = time.time()
-    ts = sb(f"team_seasons?season_year=eq.{y}&select=team,team_id,conference&order=team_id.asc")
+    ts = sb(f"team_seasons?season_year=eq.{y}&select=team,team_id,conference&order=team_id.asc") or sb(f"team_seasons?season_year=eq.{y-1}&select=team,team_id,conference&order=team_id.asc")   # no 2026-27 rows until a season ends: last season's D-I list
     d1 = {str(t["team_id"]): t for t in ts if t.get("conference")}
     dna = (json.load(open(os.path.join(D, "team_dna.json"))).get(str(y)) or {}).get("teams") or {}
     games = [g for g in sb(f"games?season_year=eq.{y}&status=eq.STATUS_FINAL&select=id,home_id,away_id&order=id.asc")

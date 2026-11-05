@@ -23,14 +23,11 @@
         .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }));
     });
   }
-  // the seasons a player has a fingerprint for, newest first — except that a season where he is still short of the
-  // qualifying minutes (early in a season) goes after the latest season where he qualifies, so the default view is solid
+  // the seasons a player has a fingerprint for, newest first (owner, Nov 2026: every tab opens on 2026-27, however few
+  // games; it used to put a season short of the qualifying minutes behind his last qualifying one)
   function seasonsFor(espn) {
     return ready.then(function () { return Promise.all(SEASONS.map(load)); }).then(function (ds) {
       var ys = SEASONS.filter(function (y, i) { return ds[i] && ds[i].players && ds[i].players[String(espn)]; });
-      var q = function (y) { return ds[SEASONS.indexOf(y)].players[String(espn)].q; };
-      var firstQ = ys.filter(q)[0];
-      if (firstQ && ys[0] !== firstQ) ys = [firstQ].concat(ys.filter(function (y) { return y !== firstQ; }));
       return ys;
     });
   }

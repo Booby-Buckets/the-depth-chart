@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_fingerprint as F
 
 OUT = os.path.join(F.D, "assist_web")
-MIN_GAMES = 200
+MIN_GAMES = 100
 ZONES = ("rim", "put", "mid", "three")
 
 def ent(counts):
@@ -31,7 +31,7 @@ def ent(counts):
 def main():
     y = int(sys.argv[1]) if len(sys.argv) > 1 else 2026
     t0 = time.time()
-    ts = F.sb(f"team_seasons?season_year=eq.{y}&select=team,team_id,conference&order=team_id.asc")
+    ts = F.sb(f"team_seasons?season_year=eq.{y}&select=team,team_id,conference&order=team_id.asc") or F.sb(f"team_seasons?season_year=eq.{y-1}&select=team,team_id,conference&order=team_id.asc")   # no 2026-27 rows until a season ends: last season's D-I list
     d1 = {str(t["team_id"]): t for t in ts if t.get("conference")}
     games = [g for g in F.sb(f"games?season_year=eq.{y}&status=eq.STATUS_FINAL&select=id,home_id,away_id&order=id.asc")
              if str(g["home_id"]) in d1 or str(g["away_id"]) in d1]

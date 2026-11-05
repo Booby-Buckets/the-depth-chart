@@ -83,4 +83,4 @@ export async function d1Teams(sb, y, dataDir) {
   return prev;
 }
 // a season is built only once enough games are final, so an opening-week file never becomes the pages' default season
-export const MIN_GAMES = +(process.env.MIN_GAMES || 200);
+export const MIN_GAMES = +(process.env.MIN_GAMES || 100);

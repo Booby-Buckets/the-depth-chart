@@ -45,7 +45,7 @@ def main():
     seasons, rows = {}, []
     for f in sorted(glob.glob(os.path.join(D, "prof_*.json"))):
         P = json.load(open(f)); y = P["season"]
-        names = {str(t["team_id"]): t["team"] for t in get(f"team_seasons?season_year=eq.{y}&select=team_id,team&order=team_id")}
+        names = {str(t["team_id"]): t["team"] for t in (get(f"team_seasons?season_year=eq.{y}&select=team_id,team&order=team_id") or get(f"team_seasons?season_year=eq.{y-1}&select=team_id,team&order=team_id"))}
         pl = P["players"]
         tot = [sum(r[i] for r in pl.values()) for i in range(10)]
         poss = tot[1] or 1
@@ -90,7 +90,7 @@ def team_pool():
         seasons, rows = {}, []
         for f in sorted(glob.glob(os.path.join(D, "tprof_*.json"))):
             P = json.load(open(f)); y = P["season"]
-            ts = get(f"team_seasons?season_year=eq.{y}&select=team_id,team,conference&order=team_id")
+            ts = get(f"team_seasons?season_year=eq.{y}&select=team_id,team,conference&order=team_id") or get(f"team_seasons?season_year=eq.{y-1}&select=team_id,team,conference&order=team_id")
             names = {str(t["team_id"]): t["team"] for t in ts}; confs = {str(t["team_id"]): t.get("conference") or "" for t in ts}
             T = [sum(a[i] for a in P[side].values()) for i in range(10)]
             LGR = (T[5] / max(1, T[4]), T[7] / max(1, T[6]), T[9] / max(1, T[8]))

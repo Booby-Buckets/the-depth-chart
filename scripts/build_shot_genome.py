@@ -55,8 +55,9 @@ def _token():
             print("That doesn't look like the token (must start with eyJ). Try the copy() line again.\n"); t = ""
     return t
 _YEARS = [int(a) for a in sys.argv[1:] if a.isdigit()] or [2026]
-_JWT = _token() if any(y != 2026 for y in _YEARS) or os.environ.get("TDC_JWT") else None
-HDR = {"apikey": KEY, "Authorization": "Bearer " + (_JWT or KEY)}
+_SVC = os.environ.get("SUPABASE_SERVICE_KEY")   # the nightly workflow's key; by hand, the site login below
+_JWT = None if _SVC else (_token() if any(y != 2026 for y in _YEARS) or os.environ.get("TDC_JWT") else None)
+HDR = {"apikey": _SVC or KEY, "Authorization": "Bearer " + (_SVC or _JWT or KEY)}
 D = os.path.join(os.path.dirname(__file__), "data")
 SEASON = _YEARS[0]   # rebound per season in the __main__ loop
 
@@ -132,8 +133,9 @@ def pctl(values):
 
 def main():
     print("Shot Genome — season %d" % SEASON, flush=True)
-    teams = {t["team_id"]: t for t in get(
-        "team_seasons?season_year=eq.%d&select=team_id,team,conference&team_id=not.is.null" % SEASON)}
+    teams = {t["team_id"]: t for t in (get(
+        "team_seasons?season_year=eq.%d&select=team_id,team,conference&team_id=not.is.null" % SEASON)
+        or get("team_seasons?season_year=eq.%d&select=team_id,team,conference&team_id=not.is.null" % (SEASON - 1)))}
     print("  %d D1 teams" % len(teams), flush=True)
 
     # competition adjustment: beating a league-wide shot baseline is easier vs weak
@@ -173,6 +175,7 @@ def main():
         MIN_FGA = max(40, int(round(MIN_FGA * COVERAGE)))
         MIN_AST = max(12, int(round(MIN_AST * COVERAGE)))
         MIN_MAKES = max(20, int(round(MIN_MAKES * COVERAGE)))
+        if SEASON >= 2027: MIN_FGA, MIN_AST, MIN_MAKES = 5, 2, 3   # the season in progress: everyone who has played (the page holds percentiles back)
         print("  past season: coverage ~%.0f%% of 2026 -> floors %d FGA / %d ast / %d makes" % (COVERAGE*100, MIN_FGA, MIN_AST, MIN_MAKES), flush=True)
 
     # ── league expected make% per (zone, stype) ──

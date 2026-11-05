@@ -129,6 +129,7 @@ window.TDC_DOSSIER = (function(){
           <thead><tr><th class="l">Per game</th><th>PPG</th><th>RPG</th><th>APG</th><th>MPG</th><th>FG%</th><th>3P%</th><th>FT%</th></tr></thead>
           <tbody>
             <tr><td class="l nm">Projected</td><td class="proj">${F(pl.ppg)}${dlt(pl.ppg,R(p.ppg))}</td><td class="proj">${F(pl.rpg)}${dlt(pl.rpg,R(p.rpg))}</td><td class="proj">${F(pl.apg)}${dlt(pl.apg,R(p.apg))}</td><td class="proj">${F(pl.mpg,0)}${dlt(pl.mpg,R(p.mpg),0)}</td><td class="proj">${F(pl.fg_pct,0)}${dlt(pl.fg_pct,R(p.fg_pct),0)}</td><td class="proj">${F(pl.tp_pct,0)}${dlt(pl.tp_pct,R(p.tp_pct),0)}</td><td class="proj">${F(pl.ft_pct,0)}${dlt(pl.ft_pct,R(p.ft_pct),0)}</td></tr>
+            ${ctx.live&&ctx.live.gp?`<tr><td class="l nm">So far · ${ctx.live.gp} g</td><td>${F(ctx.live.ppg)}</td><td>${F(ctx.live.rpg)}</td><td>${F(ctx.live.apg)}</td><td>${F(ctx.live.mpg,0)}</td><td>${F(ctx.live.fg_pct,0)}</td><td>${F(ctx.live.tp_pct,0)}</td><td>${F(ctx.live.ft_pct,0)}</td></tr>`:''}
             <tr class="last"><td class="l dim">Last year</td><td>${F(p.ppg)}</td><td>${F(p.rpg)}</td><td>${F(p.apg)}</td><td>${F(p.mpg,0)}</td><td>${F(p.fg_pct,0)}</td><td>${F(p.tp_pct,0)}</td><td>${F(p.ft_pct,0)}</td></tr>
           </tbody></table></div>`;
     } else {

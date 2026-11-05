@@ -14,8 +14,10 @@ name: Rebuild shot analytics
 #                                          game-recap baselines; waits for 200 D-I games)
 #   scripts/build_fingerprint_splits.py -> scripts/data/fingerprint/splits_<season>.json (Player DNA -> Splits)
 #   scripts/build_assist_web.py         -> scripts/data/assist_web/<season>.json (Passing & Roles, team-page assist web)
-# A season isn't built until 200 D-I games are final (MIN_GAMES), so an opening-week file never becomes the
-# pages' default season. Runs after the overnight results ingest; commits only when something changed.
+#   scripts/build_shot_genome.py        -> scripts/data/shot_genome_{teams,players}_<season>.json (Shot Genome tab)
+#   scripts/build_shot_twins.py         -> scripts/data/shot_aftermath/twin_pool.json (Shot Profile Twin)
+# A season isn't built until 100 D-I games are final (MIN_GAMES): the pages open on it from there, sample size shown
+# (owner, Nov 2026). Runs after the overnight results ingest; commits only when something changed.
 # Rebuild any season by hand: gh workflow run shot-analytics.yml -f season=2026
 
 on:
@@ -58,6 +60,14 @@ jobs:
       - name: After the Shot (shot aftermath)
         if: steps.season.outputs.season >= 2027
         run: node scripts/build_shot_aftermath.mjs ${{ steps.season.outputs.season }}
+      - name: Shot Profile Twin
+        if: steps.season.outputs.season >= 2027
+        run: python3 -u scripts/build_shot_twins.py || echo "::warning::shot twins failed (the last file stays)"
+      - name: Shot Genome
+        if: steps.season.outputs.season >= 2027
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 -u scripts/build_shot_genome.py ${{ steps.season.outputs.season }} || echo "::warning::shot genome failed (the last file stays)"
       - name: Shot Quality v2
         if: steps.season.outputs.season >= 2027
         run: python3 -u scripts/build_shot_quality.py ${{ steps.season.outputs.season }}
@@ -85,7 +95,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add scripts/data/mastery scripts/data/possession_value scripts/data/coach_shots.json scripts/data/shot_aftermath scripts/data/shot_quality scripts/data/team_shot_profile scripts/data/fingerprint scripts/data/assist_web
+          git add scripts/data/shot_genome_* scripts/data/mastery scripts/data/possession_value scripts/data/coach_shots.json scripts/data/shot_aftermath scripts/data/shot_quality scripts/data/team_shot_profile scripts/data/fingerprint scripts/data/assist_web
           if git diff --cached --quiet; then echo "Nothing new."; exit 0; fi
           git commit -m "Auto: shot analytics ${{ steps.season.outputs.season }} $(date -u +%Y-%m-%d) [skip ci]"
           for i in 1 2 3; do git pull --rebase -q && git push && break; sleep 5; done

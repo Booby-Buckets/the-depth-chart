@@ -36,7 +36,7 @@ def main():
     if not os.path.exists(fp): print(f"no fingerprint for {y} yet — splits skipped", file=sys.stderr); return
     base = json.load(open(fp))
     B, L = base["B"], base["league"]
-    ts = F.sb(f"team_seasons?season_year=eq.{y}&select=team,team_id,conference&order=team_id.asc")
+    ts = F.sb(f"team_seasons?season_year=eq.{y}&select=team,team_id,conference&order=team_id.asc") or F.sb(f"team_seasons?season_year=eq.{y-1}&select=team,team_id,conference&order=team_id.asc")   # no 2026-27 rows until a season ends: last season's D-I list
     d1 = {str(t["team_id"]): t for t in ts if t.get("conference")}
     dna = (json.load(open(os.path.join(F.D, "team_dna.json"))).get(str(y)) or {}).get("teams") or {}
     games = [g for g in F.sb(f"games?season_year=eq.{y}&status=eq.STATUS_FINAL&select=id&order=id.asc")]

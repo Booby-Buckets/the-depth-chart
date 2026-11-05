@@ -11,7 +11,7 @@
  * "Without" = his total minus "with" (includes games the teammate missed). Garbage time is removed.
  */
 (function () {
-  var BASE = 'scripts/data/statshift/', V = '?v=1', SEASONS = [2026, 2025];
+  var BASE = 'scripts/data/statshift/', V = '?v=1', SEASONS = [2027, 2026, 2025];
   var F = ['pts', 'fga', 'fgm', 'tpa', 'tpm', 'fta', 'ftm', 'orb', 'drb', 'tov', 'ast', 'stl', 'blk'], N = F.length, I = {};
   F.forEach(function (f, i) { I[f] = i; });
   var CACHE = {};
