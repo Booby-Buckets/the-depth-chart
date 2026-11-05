@@ -98,6 +98,10 @@ def process_game(nid, og, gbox):
     hn2e, hstart = side_map(box_home); an2e, astart = side_map(box_away)
     if len(hstart) != 5 or len(astart) != 5: return None, "starters"
     on = {"H": set(hstart), "A": set(astart)}; n2e = {"H": hn2e, "A": an2e}
+    # about half of 2024-25 logs substitutions only as "<Team> lineup change (four names)", so who is on the floor can't be
+    # followed and the starters would get every minute: skip those games, like build_wowy.py
+    if sum(1 for per in pbp["periods"] for pl in per.get("playbyplayStats", []) if (pl.get("eventDescription") or "").startswith("Subbing")) < 20:
+        return None, "no-subs"
     # who did it: each player's name with the spaces squeezed out, both "First Last" and "Last First", longest first,
     # found anywhere in the text (one feed glues the verb on: "Connor Dowmisses three point jump shot")
     akeys = {}
@@ -148,6 +152,7 @@ def process_game(nid, og, gbox):
         pn = int(per.get("periodNumber") or 1)
         prev_sig = None; prev_full = None; last_secs = 1200 if pn <= 2 else 300
         last_miss = None
+        last_shot = None   # (side, clock) of the last missed field goal: a block line right after it is the same shot
         last_ft = {"H": None, "A": None}; last_fg = {"H": None, "A": None}
         pend = {"H": [], "A": []}   # made FGs the score hasn't shown yet: [team box, player box or None, value or None]
         def credit(bucket, dh, da, row_side, row_kind, row_who, s):
@@ -250,6 +255,7 @@ def process_game(nid, og, gbox):
                 box_s["fga"] += 1
                 if pb is not None: pb["fga"] += 1
                 last_miss = None if made else (side, False)
+                last_shot = None if made else (side, s)
                 if made:
                     box_s["fgm"] += 1
                     if pb is not None: pb["fgm"] += 1; last_fg[side] = (who, s)
@@ -279,6 +285,17 @@ def process_game(nid, og, gbox):
             elif not dup and k in ("tov", "stl", "blk", "ast"):
                 if k != "ast" or "assists)" not in dl: box_s[k] += 1
                 if who: pbox(who)[k] += 1
+                # 2024-25 writes a blocked shot ONLY as "X blocks Y's two point layup" (no miss line): that is Y's missed
+                # attempt, unless a miss by Y's side is logged at this clock just before it or (rarely) just after it. "(X blocks)"
+                # and "Block by …" have their own miss line
+                bm = re.search(r"blocks\s+(.+)", desc, re.I) if k == "blk" else None
+                miss_next = any(W.secs_of(q.get("clock")) == s and ("H" if q.get("isHome") else "A") == other and kind(q.get("eventDescription") or "") == "fga"
+                                and MISS.search((q.get("eventDescription") or "").lower()) for q in rows[ri + 1:ri + 3]) if bm else False
+                if bm and not miss_next and not (last_shot and last_shot[0] == other and last_shot[1] == s):
+                    e = actor(bm.group(1), other)
+                    for b in (bucket[0] if other == "H" else bucket[1], pbox(e) if e else None):
+                        if b is not None: b["fga"] += 1; b["tpa"] += 1 if THREE.search(desc) else 0
+                    last_miss = (other, False)
             elif not dup and k == "ftmiss":
                 box_s["fta"] += 1
                 if who: pbox(who)["fta"] += 1; last_ft[side] = (who, s)
