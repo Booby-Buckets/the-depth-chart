@@ -84,9 +84,9 @@ jobs:
       - name: Skill Fingerprint + splits + assist webs
         if: steps.season.outputs.season >= 2027
         run: |
-          python3 -u scripts/build_fingerprint.py ${{ steps.season.outputs.season }}
-          python3 -u scripts/build_fingerprint_splits.py ${{ steps.season.outputs.season }}
-          python3 -u scripts/build_assist_web.py ${{ steps.season.outputs.season }}
+          python3 -u scripts/build_fingerprint.py ${{ steps.season.outputs.season }} || echo "::warning::build_fingerprint.py failed (the last file stays)"
+          python3 -u scripts/build_fingerprint_splits.py ${{ steps.season.outputs.season }} || echo "::warning::build_fingerprint_splits.py failed (the last file stays)"
+          python3 -u scripts/build_assist_web.py ${{ steps.season.outputs.season }} || echo "::warning::build_assist_web.py failed (the last file stays)"
       - name: Hunt Great (possession value)
         run: node scripts/build_possession_value.mjs ${{ steps.season.outputs.season }}
       - name: Coach shot discipline

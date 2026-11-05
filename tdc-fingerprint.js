@@ -79,6 +79,7 @@
       function draw() {
         load(st.y).then(function (doc) {
           var r = doc.players[String(espn)], S = doc.skills, K = S.length;
+          if (st.y >= 2027 && r.g < 5 && !st.picked) st.scale = 'val';   // under 5 games: real values first, percentiles one tap away
           var rd = read(doc, r);
           // true-value axis: every skill on one scale (points per 100 above the D-I average)
           var dev = function (i) { return r.v[i] - S[i].avg; };
@@ -123,7 +124,7 @@
           host.querySelectorAll('[data-fp]').forEach(function (el) {
             var k = el.getAttribute('data-fp');
             el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'click', function () {
-              if (k === 'y') st.y = +el.value; else if (k === 'sort') st.sort = el.value; else st.scale = k;
+              if (k === 'y') st.y = +el.value; else if (k === 'sort') st.sort = el.value; else { st.scale = k; st.picked = true; }
               draw();
             });
           });

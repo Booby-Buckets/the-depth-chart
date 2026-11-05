@@ -339,7 +339,7 @@ def main():
     keys = [k for k, _, _ in SKILLS]
     players = {}
     for pid, poss in P.items():
-        if poss < 50 or TM.get(pid) not in d1: continue
+        if poss < (50 if y < 2027 else 5) or TM.get(pid) not in d1: continue   # the season in progress: everyone who has played
         per = [round(100.0 * V[pid][k] / poss, 2) for k in keys]
         c_ = ST[pid]
         players[pid] = {"n": NM.get(pid), "t": full.get(TM[pid]), "g": GP[pid], "min": round(M[pid]), "poss": round(poss), "v": per,
@@ -350,6 +350,8 @@ def main():
     allposs = sorted((p["poss"] for p in players.values()), reverse=True)
     qual_poss = MIN_POSS if (len(allposs) > 3000 and allposs[3000] >= MIN_POSS * 0.6) else max(120, min(MIN_POSS, allposs[min(1500, len(allposs) - 1)]))
     pool = [p for p in players.values() if p["poss"] >= qual_poss]
+    if len(pool) < 300:   # opening week: nobody is near the floor yet, so the most-used 1,500 are the pool
+        qual_poss = allposs[min(1500, len(allposs) - 1)]; pool = [p for p in players.values() if p["poss"] >= qual_poss]
     import bisect
     cols = list(zip(*[p["v"] for p in pool]))
     srt = [sorted(c) for c in cols]
