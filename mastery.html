@@ -212,9 +212,10 @@
     if(k==='shot'){ S.sort='rel'; S.asc=false; }
     render(); }; };
   bind('fView','view'); bind('fShot','shot'); bind('fSeason','season',true); bind('fSpan','span',true); bind('fConf','conf'); bind('fPos','pos'); bind('fShow','show');
-  M.seasons().then(ys=>{ YS=ys; S.season=ys[0];
-    document.getElementById('fSeason').innerHTML=ys.map(y=>`<option value="${y}">${M.sl(y)}</option>`).join('');
-    render(); });
+  // the leaderboard opens on the last full season until the one in progress has a real sample (its qualifiers would be empty)
+  M.seasons().then(ys=>Promise.resolve(ys.length>1?M.load(ys[0]):null).then(d=>{ YS=ys; S.season=(d&&d.games<1000)?ys[1]:ys[0];
+    const fs=document.getElementById('fSeason'); fs.innerHTML=ys.map(y=>`<option value="${y}">${M.sl(y)}</option>`).join(''); fs.value=S.season;
+    render(); }));
 })();
 </script>
 <script src="tdc-version.js?v=2"></script>

@@ -160,9 +160,9 @@
     document.getElementById('spotWrap').style.display='';
     document.getElementById('spotH').textContent=sh(ms.teams[id][0]);
     H.renderTeam(document.getElementById('spot'),{teamId:id}); });
-  H.seasons().then(ys=>{ if(!ys.length) return; S.season=ys[0];
-    document.getElementById('fSeason').innerHTML=ys.map(y=>`<option value="${y}">${M.sl(y)}</option>`).join('');
-    render(); });
+  H.seasons().then(ys=>{ if(!ys.length) return; return Promise.resolve(ys.length>1?H.load(ys[0]):null).then(d=>{ S.season=(d&&d.games<1000)?ys[1]:ys[0];   // last full season until this one has a real sample
+    const fs=document.getElementById('fSeason'); fs.innerHTML=ys.map(y=>`<option value="${y}">${M.sl(y)}</option>`).join(''); fs.value=S.season;
+    render(); }); });
 })();
 </script>
 <script src="tdc-version.js?v=2"></script>

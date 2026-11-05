@@ -6191,7 +6191,8 @@ function _pgLoad(y){
     L.forEach(function(p){ if(p.espn_id!=null) by[p.espn_id]=p; });
     // national percentile pools: shooters (150+ FGA) and passers (have a creation number)
     var pool = function(k, f){ return L.filter(f).map(function(p){ return p[k]; }).filter(function(v){ return v!=null; }).sort(function(a,b){ return a-b; }); };
-    var shoot = function(p){ return p.fga>=150; }, pass = function(p){ return p.cr!=null; };
+    var _fl = L.filter(function(p){ return p.fga>=150; }).length>=200?150:20;   // early in a season nobody has 150 yet: the averages use 20+
+    var shoot = function(p){ return p.fga>=_fl; }, pass = function(p){ return p.cr!=null; };
     var P = { lq:pool('lq',shoot), efg:pool('efg',shoot), sm:pool('sm',shoot), smAdj:pool('smAdj',shoot), sm_total:pool('sm_total',shoot),
       fga:pool('fga',shoot), cr:pool('cr',pass), crAdj:pool('crAdj',pass), crPer:pool('crPer',pass), ast:pool('ast',pass), selfPct:pool('selfPct',shoot) };
     var mean = function(a){ return a.length ? a.reduce(function(x,y){return x+y;},0)/a.length : null; };

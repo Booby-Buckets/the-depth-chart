@@ -674,7 +674,7 @@ def aggregate(season, work, limit, verbose):
     rapm = ridge(STINTS, league["o"]) if STINTS else {}
     players = []
     for e, p in P.items():
-        if p["on_s"] < 60 * 30: continue   # 30+ minutes
+        if p["on_s"] < 60 * (30 if season < 2027 else 5): continue   # 30+ minutes; the season in progress opens from his first game
         on = rates(p["on_o"], p["on_d"], p["on_s"], LG)
         off_o = {f: p["tm_o"][f] - p["on_o"][f] for f in F}; off_d = {f: p["tm_d"][f] - p["on_d"][f] for f in F}
         off = rates(off_o, off_d, max(0.0, p["tm_s"] - p["on_s"]), LG) if p["tm_s"] - p["on_s"] >= 60 * 20 else None

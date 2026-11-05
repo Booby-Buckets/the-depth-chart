@@ -95,6 +95,8 @@ def main():
         o.update({"ast": int(P["ast"]), "created": int(P["created"]), "targets": len(tg), "eff_targets": round(ent(list(tg.values())), 1),
                   "zones": [int(P["az_" + z]) for z in ZONES], "fgm": int(P["fgm"]), "astd": int(P["astd"]),
                   "top_target": NM.get(max(tg, key=tg.get)) if tg else None, "top_share": round(max(tg.values()) / max(1, sum(tg.values())), 3) if tg else None})
+    if not teams_out:   # opening week: no team has enough assists yet, so no file (the pages would open on an empty season)
+        print(f"assist web {y}: no team qualifies yet, not built", file=sys.stderr); return
     os.makedirs(OUT, exist_ok=True)
     doc = {"season": y, "built": time.strftime("%Y-%m-%d"), "games": len(S), "zones": list(ZONES), "teams": teams_out,
            "players": {k: v for k, v in players_out.items() if v["ast"] >= 15}}
