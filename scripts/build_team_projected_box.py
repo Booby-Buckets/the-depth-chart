@@ -337,6 +337,49 @@ for full, t in by.items():
 # (returners) and fresh_fit.json (newcomers), and the team row is re-summed from the players' ROUNDED
 # numbers — so the depth chart, player pages, team stats and Analytics show one set of numbers.
 PK = ["ppg", "oreb", "dreb", "apg", "stl", "blk", "tov", "fga", "fgm", "tpa", "tpm", "fta", "ftm", "mpg"]
+# REAL GAMES (owner, Nov 4 2026): a projected average is the games already played plus the expected rest, so it ends the
+# season equal to his real line (backtest: final PPG miss after 10 games 1.91 -> about 1.5 with the heavier weights). Run after
+# the team-level spread, because no projection budget should overrule games that have happened. A returner's rates and
+# minutes already took his real games in build_stat_overall_projected.py; a newcomer's (only points did) take them here.
+sys.path.insert(0, str(pathlib.Path(__file__).parent))
+from build_real_lines import REAL_K, REAL_K_MIN, REAL_SHOOT_K, REAL_CAP, G_SEASON, name_key
+REAL_SEASON = int(os.environ.get("REAL_SEASON", "2027"))
+_RL = {}; _RLN = {}
+try:
+    _doc = json.load(open(D / f"real_lines_{REAL_SEASON}.json"))
+    _RL = _doc["players"]
+    for _e, _r in _RL.items(): _RLN[(_r.get("t"), name_key(_r.get("n")))] = _r
+    for _k, _r in _doc.get("named", {}).items(): _RLN[(_r.get("t"), name_key(_r.get("n")))] = _r
+    print(f"real games: {len(_RL)} player lines through {_doc.get('through')}")
+except Exception as _e:
+    print(f"warn: no real lines ({_e}): projections carry no games played")
+_RF = {"ppg": "pts", "apg": "ast", "tov": "tov", "oreb": "oreb", "dreb": "dreb", "stl": "stl", "blk": "blk", "fga": "fga", "fgm": "fgm", "tpa": "tpa", "tpm": "tpm", "fta": "fta", "ftm": "ftm"}
+_rk = lambda k: REAL_K.get("tovs" if k == "tov" else k)
+def newcomer_real_rest(d, r):
+    """a newcomer's expected rest-of-season line: his real minutes and per-40 rates, makes from blended percentages"""
+    g = r["g"]; pm = max(d["mpg"], 0.1)
+    wm = min(REAL_CAP, g / (g + REAL_K_MIN)); m = (1 - wm) * d["mpg"] + wm * r["min"] / g
+    o = {"mpg": m}
+    def rate(k):
+        w = min(REAL_CAP, g / (g + _rk(k)))
+        return ((1 - w) * d[k] / pm * 40 + w * r.get(_RF[k], 0) / max(r["min"], 1) * 40) * m / 40
+    for k in ("oreb", "dreb", "apg", "stl", "blk", "tov", "fga", "tpa", "fta"): o[k] = rate(k)
+    for mk, ak, sk in (("fgm", "fga", "fg"), ("tpm", "tpa", "tp"), ("ftm", "fta", "ft")):
+        K = REAL_SHOOT_K[sk]; pp = d[mk] / d[ak] if d[ak] > 0 else 0.0
+        o[mk] = o[ak] * (pp * K + r.get(mk, 0)) / (K + r.get(ak, 0))
+    o["ppg"] = 2 * o["fgm"] + o["tpm"] + o["ftm"]
+    return o
+_nreal = 0
+def apply_real(kind, key, d, full):
+    """played + expected rest, in place"""
+    global _nreal
+    r = _RL.get(str(key)) if kind == "r" else _RLN.get((full, name_key(key)))
+    if not r or r.get("g", 0) <= 0 or r.get("min", 0) <= 0: return
+    g = r["g"]; G = max(G_SEASON, g)
+    rest = newcomer_real_rest(d, r) if kind == "f" else d
+    for k, rk in _RF.items(): d[k] = (r.get(rk, 0) + rest[k] * (G - g)) / G
+    d["mpg"] = (r["min"] + rest["mpg"] * (G - g)) / G
+    _nreal += 1
 for full, (line, t, short, fr) in LINES.items():
     pls = []
     for e, v0 in proj.items():
@@ -353,6 +396,13 @@ for full, (line, t, short, fr) in LINES.items():
         for _, _, d in pls:
             if d.get("_fixed"): continue
             d[k] = d[k] * tgt / S if S > 0 else line[k] * d["mpg"] / tot_m
+    for kind, key, d in pls: apply_real(kind, key, d, full)
+    # real minutes on top of projected minutes can overfill the team (owner rule: 200-205). Rates hold; this fades as games
+    # are played, because real minutes already sum to 200 a game
+    _tm = sum(d["mpg"] for _, _, d in pls)
+    if _tm > 205:
+        for _, _, d in pls:
+            for k in PK: d[k] *= 205.0 / _tm
     agg = {k: 0.0 for k in PK}
     for kind, key, d in pls:
         r = {k: round(d[k], 1) for k in PK}
@@ -396,7 +446,7 @@ for short, rows in fresh.items():
 if _filled: print(f"  filled full lines for {_filled} newcomers on teams without a team line")
 json.dump(_PROJ_DOC, open(D / "stat_overall_projected.json", "w"), separators=(",", ":"))
 json.dump(fresh, open(D / "fresh_fit.json", "w"), separators=(",", ":"))
-print(f"reconciled player lines to their team line for {len(LINES)} teams (stat_overall_projected.json + fresh_fit.json rewritten)")
+print(f"reconciled player lines to their team line for {len(LINES)} teams (stat_overall_projected.json + fresh_fit.json rewritten); {_nreal} lines carry games played")
 
 json.dump(out, open(D / "team_projected_box.json", "w"), separators=(",", ":"))
 print(f"wrote team_projected_box.json — {len(out)} teams")

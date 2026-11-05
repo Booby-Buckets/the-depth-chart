@@ -667,20 +667,19 @@ except Exception as _e:
 # REAL 2026-27 GAMES (owner, Oct 2026: "update ratings after every scrimmage and game, scrimmages count less").
 # The nightly results job (ingest_results_2027.py) writes every final's box score to box_scores (season 2027,
 # team = ESPN full name). Each real game is one full game of evidence (a scrimmage is <= its Reality share),
-# and real games are NOT held to SCRIM_CAP: the season line takes REAL_PRIOR games to reach half weight
-# (last season ~ REAL_PRIOR games of evidence about this one), minutes REAL_MIN_PRIOR, up to REAL_CAP.
+# and real games are NOT held to SCRIM_CAP.
 # REAL_SEASON / REAL_TO let a test replay an old season's opening weeks.
 REAL_SEASON=int(os.environ.get("REAL_SEASON","2027")); REAL_TO=os.environ.get("REAL_TO")
-# Owner, Oct 12 2026: "make the real game projections move less as well" (future averages should change after real
-# games, but not swing a stat a lot). Was 10 / 4 / 0.9 with a 4-game floor: 10 games = half weight, a thin-history
-# player's first few games swung him hard. Now rates 25 games to half weight (8-game floor), minutes 15, cap 0.75.
-# Replay of 2025-26 through Dec 15 (~10 games), players 10+ mpg, change vs no real games (median / p90 / max):
-#   PPG old .7 / 2.5 / 9.0 -> .4 / 1.4 / 5.5;  MPG 1.3 / 6.1 / 20.5 -> .7 / 3.3 / 11.8;  RPG .3 / 1.1 / 6.8 -> .2 / .6 / 4.1
-REAL_PRIOR=float(os.environ.get("REAL_PRIOR","25")); REAL_MIN_PRIOR=float(os.environ.get("REAL_MIN_PRIOR","15"))
-REAL_CAP=float(os.environ.get("REAL_CAP","0.75")); REAL_FLOOR=float(os.environ.get("REAL_FLOOR","8"))
-# in-season shooting: this season's makes against REAL_SHOOT_K pseudo-attempts at the projected % (the fitted model's
-# own K - 75 for FG - let ~8 games of shots outweigh the projection). Separate from SHOOT, which is fitted.
-REAL_SHOOT_K={"fg":250.0,"tp":800.0,"ft":250.0}
+# Owner, Nov 4 2026: the projection must lean on real stats, more as the sample grows. Supersedes the Oct 12 toning-down
+# (25 games to half weight, capped at .75, FG/3P/FT K 250/800/250), which lost to every heavier rule in a backtest of 4,031
+# player-seasons: final-season PPG miss after 10 games 1.91 vs about 1.5. Weights live in build_real_lines.py, per stat.
+# build_team_projected_box.py then counts the games already played, so a line ends the season equal to the real one.
+from build_real_lines import REAL_K, REAL_K_MIN, REAL_SHOOT_K, REAL_CAP
+REAL_FLOOR=float(os.environ.get("REAL_FLOOR","8"))
+def real_w(k,g,prior_games):
+    """weight of g real games on stat k. A thin history is less evidence, so its stats move sooner (full K at 20+ prior games)"""
+    K=REAL_K[k]*min(1.0,max(float(prior_games or 0),REAL_FLOOR)/20.0)
+    return min(REAL_CAP,g/(g+K))
 REAL={}; REAL_E={}
 try:
     # By GAME ID, 30 games a request: the anon role's ~3 s statement timeout cancels most date-window pulls once a
@@ -756,7 +755,7 @@ def scrim_minutes(full,name,cur):
     cur=_scrim_minutes(full,name,cur)
     rg=real_of(full,name)
     if rg and rg["g"]>0:
-        w=min(REAL_CAP, rg["g"]/(rg["g"]+REAL_MIN_PRIOR))
+        w=min(REAL_CAP, rg["g"]/(rg["g"]+REAL_K_MIN))
         cur=max(0.1, min(MPG_MAX, (1-w)*cur + w*rg["min"]/rg["g"]))
     return cur
 def _scrim_minutes(full,name,cur):
@@ -769,13 +768,14 @@ def _scrim_minutes(full,name,cur):
     w=min(SCRIM_ROT_CAP, rw/(rw+SCRIM_ROT_PRIOR))
     return max(0.1, min(MPG_MAX, (1-w)*cur + w*(rm/rw)))
 
-def scrim_blend(full,name,prior_games,e=None):
+def scrim_blend(full,name,prior_games,e=None,real=True):
     """(weight, per-40 getter) for this player's in-season evidence — real games at full weight (up to REAL_CAP),
-    scrimmages Reality-weighted and capped at SCRIM_CAP — or (0, None)"""
+    scrimmages Reality-weighted and capped at SCRIM_CAP — or (0, None). real=False: scrimmages only (a returner's rates
+    take real games per stat, in p40)"""
     a=SCRIM.get((full,_snk(name)))
     ws=min(SCRIM_CAP, a["w"]/(a["w"]+min(SCRIM_PRIOR,max(float(prior_games or 0),4.0)))) if (a and a["w"]>0) else 0.0
     rg=real_of(full,name,e)
-    wr=min(REAL_CAP, rg["g"]/(rg["g"]+min(REAL_PRIOR,max(float(prior_games or 0),REAL_FLOOR)))) if (rg and rg["g"]>0 and rg["min"]>0) else 0.0
+    wr=real_w("ppg",rg["g"],prior_games) if (real and rg and rg["g"]>0 and rg["min"]>0) else 0.0
     if ws<=0 and wr<=0: return 0.0,None
     s40=(lambda k: (a[SCRIM_MAP[k]]/a["m_"+SCRIM_MAP[k]]*40.0) if (ws>0 and a.get("m_"+SCRIM_MAP.get(k,""),0)>0) else None)
     r40=(lambda k: (rg[SCRIM_MAP[k]]/rg["min"]*40.0) if (wr>0 and SCRIM_MAP[k] in rg) else None)
@@ -1603,12 +1603,17 @@ for short, roster in roster_by_team.items():
         developing = dm>=1.04
         last_min=_n(r["a"]["min"] if r["a"] is not None else 0) or last_mpg*G_PROJ   # real minutes last year (for the dev-hold + guards)
         # per-40 last-year rates
-        _sw,_s40=scrim_blend(full,p.name,_n(b["gp"]) or 25,e)
+        _pgp=_n(b["gp"]) or 25
+        _sw,_s40=scrim_blend(full,p.name,_pgp,e,real=False)
         r["_scrim_w"]=round(_sw,3)
+        _rg40=real_of(full,p.name,e); _rg40=_rg40 if (_rg40 and _rg40["g"]>0 and _rg40["min"]>0) else None
         def p40(k):
             v=_n(b[k])*40.0/max(last_mpg,1)
             sv=_s40(k) if (_sw>0 and k in SCRIM_MAP) else None
-            return v if sv is None else (1-_sw)*v+_sw*sv
+            if sv is not None: v=(1-_sw)*v+_sw*sv
+            if _rg40 is not None and k in REAL_K:
+                _w=real_w(k,_rg40["g"],_pgp); v=(1-_w)*v+_w*_rg40.get(SCRIM_MAP[k],0.0)/_rg40["min"]*40.0
+            return v
         def _line_value(ur):
             """projected per-game line at usage ratio `ur` -> (pg, rpg, pts, ti40, owa, mn, dwa_p)"""
             usg_ratio=ur
