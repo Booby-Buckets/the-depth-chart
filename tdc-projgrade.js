@@ -646,10 +646,13 @@
       try{ var _fp = TDCFresh.profileFor(row); if(_fp && _fp.ovr != null && isFinite(+_fp.ovr)) return Math.min(99, Math.round(+_fp.ovr)); }catch(e){}   // includes his scrimmage trend (TDCFresh.profileFor)
     }
     var _gp = (row.gp != null && row.gp !== '') ? +row.gp : ((row.g != null && row.g !== '') ? +row.g : null);
-    if(_gp != null && _gp > 0 && _gp < 3) return BASELINE_OVR; // played <3 games → baseline (too small a sample to grade)
+    var _few = _gp != null && _gp > 0 && _gp < 3;            // too small a sample to grade from this row's own line…
     var _sv = _statOvrOf(row);                               // LIVE: statistical overall (projected→demonstrated) by espn_id
-    if(_sv != null) return _scoutBlend(_sv, row);
+    if(_sv != null) return _scoutBlend(_sv, row);            // …but a real overall always wins: the row's gp can be a stale sheet value or 2 real games so far (Weluche-Ume, 889 min last season, showed 50)
+    var _sy = (row.season_year != null) ? parseInt(row.season_year, 10) : null;
+    if(_few && _sy && _sy <= 2026) return BASELINE_OVR;      // a past season he barely played has no grade to find
     var _fo = _freshOvrOf(row); if(_fo != null) return Math.min(99, Math.round(_fo));   // projected newcomer OVR, not the sheet grade
+    if(_few) return BASELINE_OVR;
     if(row.id != null && _COUPLED[row.id] != null){ var ca = _COUPLED[row.id]; return Math.min(99, Math.round(ca + _taperArch(ca, _archOf(row)) + _gpsOf(row))); }   // legacy fallback (no stat overall — e.g. freshmen): coupled + tapered archetype
     var g = parseFloat(row.tdc_grade); if(!isFinite(g)) return UNGRADED_OVR; // on a roster but ungraded → a typical newcomer, not blank
     var qual = g;   // no conference discount here — see gradeRoster; the level lives in the projection

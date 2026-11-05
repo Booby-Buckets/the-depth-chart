@@ -118,6 +118,14 @@ for _yr in range(2008, CUR+1):
     _p=sb_get(f"player_advanced?season_year=eq.{_yr}&select=espn_id,season_year,name,team,g,min,ppg,usg_pct,tov_pct,ti40,owa,dwa,ts_pct")
     if _p: _advp.append(pd.DataFrame(_p))
 adv=pd.concat(_advp,ignore_index=True)
+# Players ESPN blanked in its box scores (2019-20 → 2023-24), filled into box_scores from CBBD after player_advanced was
+# built: the same derived_stats lines, kept here until that table is re-imported, so they get an overall like anyone else.
+_fp=os.path.join(D,"player_advanced_fill.csv")
+if os.path.exists(_fp):
+    _f=pd.read_csv(_fp); adv["espn_id"]=pd.to_numeric(adv["espn_id"],errors="coerce"); adv["season_year"]=pd.to_numeric(adv["season_year"],errors="coerce")
+    _f=_f[~_f.set_index(["espn_id","season_year"]).index.isin(adv.set_index(["espn_id","season_year"]).index)]
+    adv=pd.concat([adv,_f[[c for c in adv.columns if c in _f.columns]]],ignore_index=True)
+    print(f"player_advanced_fill: added {len(_f)} player-seasons",file=sys.stderr)
 ts =pd.DataFrame(sb_get("team_seasons?select=season_year,team,conference,srs,wins,losses"))
 ph =pd.DataFrame(sb_get("player_history?select=espn_id,season_year,position,gp,tpa,tp_pct,blk,mpg"))
 for c in ["espn_id","season_year","min","g"]: adv[c]=pd.to_numeric(adv[c],errors="coerce")

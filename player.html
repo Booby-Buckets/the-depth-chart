@@ -1076,7 +1076,7 @@ body{background:transparent!important;}
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
   <link rel="stylesheet" href="tdc-nil-view.css?v=1"/>
   <link rel="stylesheet" href="tdc-column.css?v=4"/>
-  <link rel="stylesheet" href="tdc-player-a.css?v=35"/>
+  <link rel="stylesheet" href="tdc-player-a.css?v=36"/>
   <script src="tdc-coachlink.js?v=1"></script>
 </head>
 <body data-anim-auto>
@@ -3677,8 +3677,8 @@ function renderOvcExtras(val){
       if(jLbl)jLbl.textContent=_seasonLbl2(prior.season_year)+' → '+(proje?'Proj':_seasonLbl2(selYr));
       var jr=[['PPG','ppg'],['APG','apg'],['RPG','rpg'],['3P%','tp_pct']];
       var h='<div class="sheet-wrap"><table class="sheet dense ovc-jtbl"><thead><tr><th class="l">Stat</th><th>'+_seasonLbl2(prior.season_year)+'</th><th>'+(proje?'Proj':_seasonLbl2(selYr))+'</th><th>Change</th></tr></thead><tbody>';
-      h+=jr.map(function(r){ var a=+prior[r[1]], b=+selRow[r[1]]; if(!isFinite(a)||!isFinite(b)) return ''; var d=b-a; var ds=(d>=0?'+':'')+f1(d);
-        return '<tr><td class="l nm">'+r[0]+'</td><td class="dim">'+f1(a)+'</td><td class="strong">'+f1(b)+'</td><td>'+ds+'</td></tr>'; }).join('');
+      h+=jr.map(function(r){ var a=+prior[r[1]], b=+selRow[r[1]]; if(!isFinite(a)||!isFinite(b)) return ''; var d=b-a; var flat=Math.abs(d)<0.05; var ds=flat?'0.0':(d>0?'+':'−')+f1(Math.abs(d));
+        return '<tr><td class="l nm">'+r[0]+'</td><td class="dim">'+f1(a)+'</td><td class="strong">'+f1(b)+'</td><td class="'+(flat?'dim':d>0?'up':'dn')+'">'+ds+'</td></tr>'; }).join('');
       jEl.innerHTML=h+'</tbody></table></div>';
     }
   }
@@ -3700,8 +3700,8 @@ function renderOvcExtras(val){
     var srow=function(l,v,avg,vol){ if(v==null||!isFinite(v)) return ''; var d=v-avg;
       return '<tr><td class="l nm">'+l+'</td><td class="dim">'+(vol||'')+'</td><td class="strong">'+f1(v)+'%</td><td class="'+_hcDiff(d)+'" title="D-I average '+avg.toFixed(1)+'%">'+(d>=0?'+':'−')+Math.abs(d).toFixed(1)+'</td></tr>'; };
     var rows=TYPES.map(function(t){ var vol=(isFinite(t.a)&&t.a>0)?(f1(t.m)+' / '+f1(t.a)):''; return srow(t.l,t.v,t.avg,vol); });
-    var EFF=[['Field goal %',num(s.fg_pct)!=null?num(s.fg_pct):pct(fgm,fga),45],['Effective FG%',efg,50],['True shooting %',ts,55]];
-    rows=rows.concat(EFF.map(function(e){ return srow(e[0],e[1],e[2],''); }));
+    var EFF=[['Field goal %',num(s.fg_pct)!=null?num(s.fg_pct):pct(fgm,fga),45,(isFinite(fga)&&fga>0)?(f1(fgm)+' / '+f1(fga)):'—'],['Effective FG%',efg,50,'—'],['True shooting %',ts,55,'—']];
+    rows=rows.concat(EFF.map(function(e){ return srow(e[0],e[1],e[2],e[3]); }));
     shEl.innerHTML=rows.join('')?_ovSheet(['Shot','Made / att','Make %','vs D-I'], rows):'<div class="ovc-muted">—</div>';
   }
   // ---- Grade trend ----
@@ -3953,7 +3953,7 @@ function loadOvcForm(seasonYr){
       var tpp=sum('tpa')>0?(sum('tpm')/sum('tpa')*100):null;
       var dt=function(d){ var m=/^(\d{4})-(\d\d)-(\d\d)/.exec(d||''); return m?(+m[2])+'/'+(+m[3]):''; };
       var grow=g.map(function(x){ return '<tr><td class="l nm">'+(x.opp?(window.tdcShortSchool?tdcShortSchool(x.opp):x.opp):'')+' <span class="dim">'+dt(x.date)+'</span></td><td>'+(x.min!=null?x.min:'—')+'</td><td class="strong">'+(x.pts!=null?x.pts:'—')+'</td><td>'+(x.reb!=null?x.reb:'—')+'</td><td>'+(x.ast!=null?x.ast:'—')+'</td></tr>'; });
-      grow.push('<tr class="tot"><td class="l nm">Average</td><td>'+r1(avg('min'))+'</td><td class="strong">'+r1(avg('pts'))+'</td><td>'+r1(avg('reb'))+'</td><td>'+r1(avg('ast'))+'</td></tr>');
+      if(n>1) grow.push('<tr class="tot"><td class="l nm">Average</td><td>'+r1(avg('min'))+'</td><td class="strong">'+r1(avg('pts'))+'</td><td>'+r1(avg('reb'))+'</td><td>'+r1(avg('ast'))+'</td></tr>');
       el.innerHTML=_ovSheet(['Game','Min','Pts','Reb','Ast'], grow);
       window._ovcFormCache[key]=el.innerHTML;
     }).catch(function(){ el.innerHTML='<div class="ovc-muted">Game logs unavailable.</div>'; });
@@ -4028,10 +4028,11 @@ function _updateHeroGridForSeason(val){
   // Hero grade IS the statistical overall (cutover): projected for the outlook,
   // demonstrated for the current season; older seasons keep the historical box grade.
   (function(){
-    // <3 games played = no rating (noise). Show "—" instead of any fallback grade.
+    // <3 games played = no rating (noise). Show "—" instead of any fallback grade. In the projected view player.gp can be a
+    // stale sheet value or 2 real games so far, so "—" only when gradeSolo has nothing real for him (its 50, below the 55 floor).
     var _gp=isProj ? (player.gp!=null?+player.gp:null)
                    : (row ? ((row.gp!=null&&row.gp!=='')?+row.gp:((row.g!=null&&row.g!=='')?+row.g:null)) : null);
-    if(_gp!=null && _gp>0 && _gp<3){ _setHeroGrade('—'); return; }
+    if(_gp!=null && _gp>0 && _gp<3 && !(isProj && window.TDCProjGrade && TDCProjGrade.gradeSolo && TDCProjGrade.gradeSolo(player)!==50)){ _setHeroGrade('—'); return; }
     var maps=(window.TDCProjGrade&&TDCProjGrade.statMaps)?TDCProjGrade.statMaps():null;
     var eid=player.espn_id!=null?String(player.espn_id):null;
     var projO=(maps&&eid)?maps.proj[eid]:null;
