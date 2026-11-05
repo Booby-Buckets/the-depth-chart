@@ -17,7 +17,7 @@
   <script src="tdc-statshift-player.js?v=ssx8"></script>
   <script src="tdc-lineups.js?v=17s"></script>
   <script src="tdc-lineup-usage.js?v=4"></script>
-  <script src="tdc-lineup-history.js?v=lab3"></script>
+  <script src="tdc-lineup-history.js?v=lab4"></script>
   <script src="tdc-onoff.js?v=14"></script>
   <script src="tdc-onofflab.js?v=12"></script>
   <script src="tdc-teamonoff.js?v=9"></script>
@@ -38,7 +38,7 @@
   <script src="tdc-scrim.js?v=20"></script>
   <script src="tdc-gamehead.js?v=3"></script>
   <script src="tdc-preview.js?v=ui1"></script>
-  <script src="tdc-reallines.js?v=2"></script>
+  <script src="tdc-reallines.js?v=3"></script>
   <script src="tdc-projgrade.js?v=disp1"></script>
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-rating.js?v=5"></script>
@@ -2078,6 +2078,7 @@ async function loadTeam(name){
       }) || null;
     }
     renderProjections(players, t.conf||t.conference||'', teamColor, teamRgb, globalPercentiles, t);
+    _loadRealDepth();
     if(window.TDCReal) TDCReal.ready.then(()=>{ const _rt=()=>{ try{ _renderRealTeam(players, t.name||t.team); }catch(e){ console.warn('real team table',e); } }; _rt();
       if(!window._realTeamHooked){ window._realTeamHooked=true; window.addEventListener('tdc:statmode',()=>{ _rt(); try{ const L=window._lastHistRender; if(L&&L[2]) renderHistoricRoster.apply(null,L); }catch(e){} }); }
       try{ const L=window._lastHistRender; if(L&&L[2]) renderHistoricRoster.apply(null,L); }catch(e){} });
@@ -2973,6 +2974,18 @@ async function _fillProjAwards(projected){
 function fmt1(v){ const n=parseFloat(v); return isNaN(n)?'—':n.toFixed(1); }
 
 // Real / Projected on the team page: the Projections tab swaps to a plain table of real games, and the depth chart redraws.
+// the depth chart's real-game inputs, from the box-score starters file: {e:{espn_id:row}, n:{name:row}, games}, row = {w: starts
+// weighted toward recent games, min: minutes per game played}
+function _realDepthOf(p){ const R=window._realDepth; if(!R||!p) return null; return (p.espn_id!=null&&R.e[String(p.espn_id)])||R.n[String(p.name||'').toLowerCase().replace(/[^a-z]/g,'')]||null; }
+function _loadRealDepth(){
+  if(!window.TDCLineupHist||window._realDepthAsked) return; window._realDepthAsked=true;
+  _resolveGamesKey().catch(()=>null).then(full=>full?TDCLineupHist.load(full):null).then(F=>{
+    const G=(F&&F.s&&F.s['2027'])||[]; if(!G.length) return;
+    const raw={}; G.forEach((x,i)=>{ const wt=Math.pow(0.9,G.length-1-i); (x[6]||[]).forEach(k=>{ (raw[k]=raw[k]||{w:0,m:0,g:0}).w+=wt; }); (x[7]||[]).forEach(r=>{ const q=raw[r[0]]=raw[r[0]]||{w:0,m:0,g:0}; q.m+=r[1]; q.g++; }); });
+    const R={e:{},n:{},games:G.length}; Object.keys(raw).forEach(k=>{ const q=raw[k], row={w:q.w,min:q.g?q.m/q.g:0}; if(!k.startsWith('n:')) R.e[k]=row; R.n[String((F.p||{})[k]||k.slice(2)).toLowerCase().replace(/[^a-z]/g,'')]=row; });
+    window._realDepth=R; const L=window._lastHistRender; if(L&&L[2]) renderHistoricRoster.apply(null,L);
+  }).catch(e=>console.warn('real depth',e));
+}
 function _renderRealTeam(players, teamName){
   const wrap=document.getElementById('realTeamWrap'), proj=document.getElementById('projectionsContent'), head=document.getElementById('projSecHead');
   if(!wrap||!window.TDCReal) return;
@@ -8471,7 +8484,15 @@ function renderHistoricRoster(rows, yr, projected){
     // bench player — among the next few in the owner's order — whose position fits best. Passing over a man in
     // the order costs SKIP, so a near-tie still follows the depth chart (Lewis out → Goosby, the SG, not Spears).
     const kept=ord.filter(e=>_do(e)<=5), bench=ord.filter(e=>_do(e)>5), open=5-kept.length, SKIP=0.6;
-    if(open<=0) _five=arrange(ord.slice(0,5)).five;
+    // REAL GAMES (owner, Nov 2026: the depth chart should follow the lineups teams actually use, unless someone is hurt):
+    // once a team has played, the five are its most frequent starters, recent games counting more. Injured players were
+    // already taken out above, so the next man up starts. arrange() still seats them by listed position.
+    const _rv=_realDepthOf;
+    if(window._realDepth&&_all.length>=5&&_all.some(e=>_rv(e.p))){
+      const rd=_all.slice().sort((a,b)=>{ const x=_rv(a.p)||{w:0,min:0}, y=_rv(b.p)||{w:0,min:0}; return y.w-x.w||y.min-x.min||_do(a)-_do(b); });
+      _five=arrange(rd.slice(0,5)).five;
+    }
+    else if(open<=0) _five=arrange(ord.slice(0,5)).five;
     else if(bench.length>=open){
       const pool=bench.slice(0,open+2); let bestF=null, bestT=1e9;
       const pick=(start,chosen)=>{ if(chosen.length===open){ const r=arrange(kept.concat(chosen)); const skip=chosen.reduce((t,e)=>t+pool.indexOf(e),0)-(open*(open-1))/2;
@@ -8485,7 +8506,8 @@ function renderHistoricRoster(rows, yr, projected){
     if(e){ _seat.push({slot:c.pos,e,col:c.pos,star:true}); _seen.add(e.p); } else _seat.push({slot:c.pos,e:null,col:c.pos,star:true}); });
   // bench = everyone not seated (with the healthy-five rule a column's first man is not always a starter)
   const _bench=[]; cols.forEach(c=>{ (c.entries||[]).forEach((e,i)=>{ if((!_five&&i===0)||_seen.has(e.p)) return; _seen.add(e.p); _bench.push({e,col:c.pos}); }); });
-  _bench.sort((a,b)=>(_totMin(b.e.p)||0)-(_totMin(a.e.p)||0));
+  _bench.sort((a,b)=>{ if(projected&&window._realDepth){ const x=_realDepthOf(a.e.p), y=_realDepthOf(b.e.p); if(x||y) return ((y&&y.min)||0)-((x&&x.min)||0); }   // who actually plays first
+    return (_totMin(b.e.p)||0)-(_totMin(a.e.p)||0); });
   _bench.forEach((b,i)=>_seat.push({slot:_ord(i+6),e:b.e,col:b.col,star:false}));
   const _barTip=projected?'Projected minutes per game':'Minutes per game';
   // the per-game line: projected 2026-27 (returners = stat_overall_projected, the player page's line;
@@ -8544,7 +8566,7 @@ function renderHistoricRoster(rows, yr, projected){
   window._lastHistRender=[rows.concat(injured), yr, projected];
   const _posBar=(!projected && typeof _isOwner==='function' && _isOwner())
     ? `<div class="dc-posbar"><button type="button" class="dc-posbtn${window._histPosEdit?' on':''}" onclick="window._histPosEdit=!window._histPosEdit;renderHistoricRoster.apply(null,window._lastHistRender)">${window._histPosEdit?'Done editing positions':'Edit positions'}</button></div>` : '';
-  { const _ds=document.getElementById('depthSub'); if(_ds) _ds.textContent=projected?('starters by spot, then the bench · '+(_realOn?'real 2026-27 per game'+(TDCReal.through()?' through '+TDCReal.through():''):'projected 2026-27 per game')):('starters by spot, then the bench · '+rosterLbl(yr)+' per game'); }
+  { const _ds=document.getElementById('depthSub'); if(_ds) _ds.textContent=projected?('starters by spot, then the bench · '+(_realOn?'real 2026-27 per game'+(TDCReal.through()?' through '+TDCReal.through():''):'projected 2026-27 per game')+(window._realDepth?' · order from '+window._realDepth.games+(window._realDepth.games===1?' game':' games'):'')):('starters by spot, then the bench · '+rosterLbl(yr)+' per game'); }
   host.innerHTML = `${_posBar}${depthSheet}${histTable(rows, yr, projected)}${injHtml}<div id="shotDistCard"></div><div id="seasonLossesWrap"></div>`;
   if(projected && yr>=2026){ try{ _renderShotDist(rows); }catch(e){} }
   else if(!projected && yr>=2012){ try{ _renderHistShot(rows, yr); }catch(e){} }

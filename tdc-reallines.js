@@ -76,6 +76,15 @@
     host.appendChild(w);
     return w;
   }
+  // many roster rows have no espn_id yet: match on name + team, and only when exactly one player fits
+  var _names = null;
+  function nk(x) { return String(x || '').toLowerCase().replace(/[^a-z]/g, ''); }
+  function byName(p) {
+    if (!p.name || !p.team) return null;
+    if (!_names) { _names = {}; [DOC.players, DOC.named || {}].forEach(function (S) { Object.keys(S).forEach(function (k) { var n = nk(S[k].n); (_names[n] = _names[n] || []).push(S[k]); }); }); }
+    var t = String(p.team).toLowerCase(), hits = (_names[nk(p.name)] || []).filter(function (r) { var f = String(r.t || '').toLowerCase(); return f === t || f.indexOf(t + ' ') === 0; });
+    return hits.length === 1 ? hits[0] : null;
+  }
   var OH = null, ohP = null;
   function ovrReady() {
     if (!ohP) ohP = fetch('scripts/data/ovr_history_2027.json?h=' + Math.floor(Date.now() / 36e5)).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { OH = j; return j; }).catch(function () { return null; });
@@ -96,7 +105,7 @@
     of: function (p) {
       if (!DOC || !p) return null;
       var r = p.espn_id != null ? DOC.players[String(p.espn_id)] : null;
-      return r ? line(r) : null;
+      return (r || (r = byName(p))) ? line(r) : null;
     },
     team: function (name) {
       var t = teamRow(name); if (!t) return null;

@@ -47,16 +47,16 @@ def slug(s): return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
 
 def results():
     R = {}
-    for line in open(DATA / "games.jsonl"):
-        g = json.loads(line)
-        if g.get("home_score") is not None and g.get("away_score") is not None:
-            R[str(g["id"])] = g
+    if (DATA / "games.jsonl").exists():   # past seasons, local only: it is not in git, and the nightly 2027 run doesn't need it
+        for line in open(DATA / "games.jsonl"):
+            g = json.loads(line)
+            if g.get("home_score") is not None and g.get("away_score") is not None:
+                R[str(g["id"])] = g
     p = DATA / "results_2027.json"
     if p.exists():
-        try:
-            for g in (json.load(open(p)).get("games") or []):
-                if g.get("home_score") is not None: R[str(g.get("id"))] = g
-        except Exception: pass
+        d = json.load(open(p)); T = d["teams"]
+        for g in d.get("games") or []:   # rows: [id, date, home index, away index, home score, away score, neutral, conf]
+            R[str(g[0])] = {"id": g[0], "season_year": d.get("season") or 2027, "home": T[g[2]], "away": T[g[3]], "home_score": g[4], "away_score": g[5], "neutral": bool(g[6])}
     return R
 
 
@@ -84,6 +84,8 @@ def main():
             by[r["team"]][str(r["game_id"])].append(r)
         n = 0
         for team, games in by.items():
+            # a non-D-I opponent gets no file: nothing on the site opens it (the lineup usage build already filtered them)
+            if team not in teams and not (DATA / "lineup_usage" / str(yr) / (slug(team) + ".json")).exists(): continue
             T = teams.setdefault(team, {"team": team, "p": {}, "s": {}})
             out = []
             for gid, ps in games.items():

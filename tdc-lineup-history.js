@@ -15,7 +15,7 @@
   function load(full) {
     if (!full) return Promise.resolve(null);
     if (_f[full]) return _f[full];
-    return (_f[full] = fetch('scripts/data/team_lineups/' + slug(full) + '.json?v=2').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }));
+    return (_f[full] = fetch('scripts/data/team_lineups/' + slug(full) + '.json?h=' + Math.floor(Date.now() / 36e5)).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }));
   }
   var MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 

@@ -68,6 +68,7 @@ jobs:
         run: |
           python3 scripts/build_real_lines.py || echo "::warning::build_real_lines failed (the last file stays)"
           python3 scripts/build_lineup_usage.py --season 2027 || echo "::warning::build_lineup_usage failed (the last files stay)"
+          python3 scripts/build_team_lineups.py --seasons 2027 || echo "::warning::build_team_lineups failed (the last files stay)"
       - name: Commit if changed
         run: |
           git config user.name "tdc-results-bot"
@@ -76,6 +77,7 @@ jobs:
           [ -f scripts/data/ticker.json ] && git add scripts/data/ticker.json || true
           [ -f scripts/data/real_lines_2027.json ] && git add scripts/data/real_lines_2027.json || true
           [ -d scripts/data/lineup_usage/2027 ] && git add scripts/data/lineup_usage/2027 || true
+          git add scripts/data/team_lineups 2>/dev/null || true
           [ -f data/game_ot.json ] && git add data/game_ot.json || true
           if git diff --cached --quiet; then echo "No new results."; else
             git commit -m "Auto: game results $(date -u +%Y-%m-%d) [skip ci]"
