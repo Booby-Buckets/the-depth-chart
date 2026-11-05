@@ -219,6 +219,13 @@ def process_game(nid, og, gbox):
             box_s = bucket[0] if side == "H" else bucket[1]
             def pbox(e): return bucket[3].setdefault(e, blank())
             k = kind(desc)
+            steal_side = None
+            if k == "tov" and "steals)" in desc.lower():   # "X turnover (Y steals)" carries the stealer's isHome (99.5%): X is on the other side
+                sm = re.search(r"\(([^()]*?) steals\)", desc, re.I)
+                if not (sm and actor(sm.group(1), side) is None and actor(sm.group(1), other)):
+                    side, other = other, side
+                    box_s = bucket[0] if side == "H" else bucket[1]
+                steal_side = other
             who = actor(re.sub(r"\(.*?\)", "", desc), side) if k in ("fga", "orb", "drb", "tov", "stl", "blk", "ast", "ftmiss", "ft") else None
             dl = desc.lower(); sig = re.sub(r"\s+", "", re.sub(r"\(.*?\)", "", dl))
             dup = bool(sig) and sig == prev_sig
@@ -230,8 +237,8 @@ def process_game(nid, og, gbox):
                 for pm in PAREN.finditer(desc):   # "(X assists)" is a teammate; "(X steals)" / "(X blocks)" the other side
                     v = pm.group(2).lower()
                     if v == "assists": box_s["ast"] += 1
-                    if v == "steals":   # these rows carry the stealer's isHome (99.5%), not the side that lost the ball
-                        sd = other if actor(pm.group(1), side) is None and actor(pm.group(1), other) else side
+                    if v == "steals":
+                        sd = steal_side or (other if actor(pm.group(1), side) is None and actor(pm.group(1), other) else side)
                         e = actor(pm.group(1), sd)
                         (bucket[0] if sd == "H" else bucket[1])["stl"] += 1
                     else:
