@@ -20,7 +20,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="tdc-teamname.js?v=1"></script>
   <script src="tdc-freshman.js?v=pub37"></script>
-  <script src="tdc-reallines.js?v=1"></script>
+  <script src="tdc-reallines.js?v=2"></script>
   <script src="tdc-projgrade.js?v=disp1"></script>
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-rating.js?v=5"></script>
@@ -324,6 +324,8 @@ body{background:transparent!important;}
   </div>
 </div>
 
+<style>#moversHost{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:0 0 16px;padding:0 var(--mv-gut,64px)}.mv-h{font:800 11px/1.3 Inter,system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--text);margin:0 0 6px}.mv-box a{color:inherit;text-decoration:none}.mv-box a:hover{text-decoration:underline}@media(max-width:760px){#moversHost{grid-template-columns:minmax(0,1fr);--mv-gut:14px}}</style>
+<div id="moversHost"></div>
 <div class="tdc-toolbar">
   <div class="f-group">
   <label class="f-lab"><span>Season</span><select class="filter-select" id="seasonFilter" onchange="onSeasonChange()">
@@ -391,6 +393,7 @@ body{background:transparent!important;}
     <option value="R-Sr.">R-Sr.</option>
     <option value="Gr.">Gr.</option>
   </select></label>
+  <label class="f-lab"><span>Movement</span><select class="filter-select" id="mvFilter" onchange="applyFilters()"><option value="">All</option><option value="up">Risers</option><option value="down">Fallers</option></select></label>
   <label class="f-lab"><span>Type</span><select class="filter-select" id="typeFilter" onchange="applyFilters()">
     <option value="">All</option>
     <option value="ret">Returners</option>
@@ -487,6 +490,15 @@ const _proj = () => (document.getElementById('seasonFilter')||{}).value==='2027'
 function seasonLabel(yr){ yr=+yr; return yr>=2027?(yr-1)+'-'+(''+yr).slice(2)+((window.TDCReal&&TDCReal.isReal())?' (so far)':' (proj)'):(yr-1)+'-'+(''+yr).slice(2); }
 // Real / Projected filter (2026-27 only). Real = his real games from real_lines_2027.json; a player who hasn't played shows
 // dashes and sorts last. OVR stays the same in both views (it is one displayed rating, not a stat line).
+// Risers / fallers since the preseason: players who have played and hold a real role, so a walk-on's one-game jump stays out.
+function _renderMovers(){ const host=document.getElementById('moversHost'); if(!host) return;
+  const pool=allPlayers.filter(p=>p._mv&&p._rstat&&p._rstat.mpg>=10), esc=x=>String(x==null?'':x).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+  if(!pool.length){ host.style.display='none'; return; }
+  const tbl=(title,list,up)=>`<div class="mv-box"><div class="mv-h">${title}</div><div class="sheet-wrap" style="max-height:none;"><table class="sheet dense"><thead><tr><th class="l">Player</th><th class="l">Team</th><th>Pre</th><th>Now</th><th>Move</th></tr></thead><tbody>${
+    list.map(p=>`<tr><td class="l nm"><a href="player.html?espn=${encodeURIComponent(p.espn_id)}">${esc(p.name)}</a></td><td class="l dim">${esc(window.tdcShortSchool?tdcShortSchool(p.team):p.team)}</td><td class="dim">${p._mvFrom}</td><td>${p._mvFrom+p._mv}</td><td class="${up?'c4':'c0'}">${up?'▲':'▼'}${Math.abs(p._mv)}</td></tr>`).join('')}</tbody></table></div></div>`;
+  const rs=pool.filter(p=>p._mv>0).sort((a,b)=>b._mv-a._mv||(b._mvFrom-a._mvFrom)).slice(0,5), fl=pool.filter(p=>p._mv<0).sort((a,b)=>a._mv-b._mv||(b._mvFrom-a._mvFrom)).slice(0,5);
+  host.innerHTML=(rs.length?tbl('Risers since preseason',rs,true):'')+(fl.length?tbl('Fallers since preseason',fl,false):'');
+}
 const _STATK=['ppg','rpg','apg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs','gp'];
 function _applyStatMode(list){ if(!window.TDCReal) return; const real=TDCReal.isReal();
   (list||[]).forEach(p=>{
@@ -689,7 +701,7 @@ async function onSeasonChange(){
   const yr=document.getElementById('seasonFilter').value;
   // type, style, NIL, Board and change are 2026-27 projection fields
   ['typeFilter','styleFilter'].forEach(id=>{ const el=document.getElementById(id); if(!el) return; if(yr!=='2027') el.value=''; el.disabled=(yr!=='2027'); });
-  { const _l=document.getElementById('statModeLab'); if(_l) _l.style.display=(yr==='2027')?'':'none'; }
+  { const _l=document.getElementById('statModeLab'); if(_l) _l.style.display=(yr==='2027')?'':'none'; const _m=document.getElementById('moversHost'); if(_m) _m.style.display=(yr==='2027')?'':'none'; const _f=document.getElementById('mvFilter'); if(_f){ if(yr!=='2027') _f.value=''; _f.disabled=(yr!=='2027'); } }
   activeData = await loadSeason(yr);
   updateMeta();
   applyFilters();
@@ -802,6 +814,9 @@ async function loadData(){
     if(window.TDCReal){ await TDCReal.ready; _applyStatMode(allPlayers);
       TDCReal.control(document.getElementById('statModeHost'));
       window.addEventListener('tdc:statmode',()=>{ _applyStatMode(allPlayers); if(_proj()){ updateMeta(); applyFilters(); } }); }
+    if(window.TDCReal){ await TDCReal.ovrReady(); allPlayers.forEach(p=>{ let m=TDCReal.ovrMove(p);
+        if(m&&p._projGrade!=null&&Math.round(p._projGrade)!==m.to) m=null;   // the page shows a different overall (owner editor, no-minutes floor): a move would contradict it
+        p._mv=m?m.delta:null; p._mvFrom=m?m.from:null; }); _renderMovers(); }
     seasonCache['2027'] = allPlayers;
     _fillStyles(); _loadNil(); _loadBoard(); _loadFav();
     // links from the old Player Rankings page (and shareable views): ?lv= &type= &pos= &conf= &yr= &sort=
@@ -905,6 +920,7 @@ function applyFilters(){
   const waMin  = document.getElementById('waFilter').value;
   const lv     = document.getElementById('lvFilter').value;
   const typ    = document.getElementById('typeFilter').value;
+  const mvF    = (document.getElementById('mvFilter')||{}).value;
   const sty    = document.getElementById('styleFilter').value;
   const search = document.getElementById('searchInput').value.toLowerCase().trim();
 
@@ -915,6 +931,8 @@ function applyFilters(){
     else if(team && p.team !== team && !((p.team||'').toLowerCase().startsWith(team.toLowerCase()+' '))) return false;
     if(lv     && tierOf(p.conf) !== lv) return false;
     if(typ    && p._type !== typ) return false;
+    if(mvF==='up' && !(p._mv>0)) return false;
+    if(mvF==='down' && !(p._mv<0)) return false;
     if(sty    && p._arch !== sty) return false;
     if(pos    && p.position !== pos) return false;
     if(yr     && (p.class_year||p.yr) !== yr) return false;
@@ -940,7 +958,7 @@ function applyFilters(){
   filtered.sort((a,b) => {
     let av, bv;
     if(sortCol==='bb'){ av=a.bb??1e9; bv=b.bb??1e9; return (av-bv)*sortDir; }
-    const numCols = ['_chg','nil','wa','ppg','rpg','apg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs','gp','season_year','shot_tend','tend_three','tend_two','tend_ft'];
+    const numCols = ['_chg','_mv','nil','wa','ppg','rpg','apg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','oreb','dreb','stl','blk','tovs','gp','season_year','shot_tend','tend_three','tend_two','tend_ft'];
     if(numCols.includes(sortCol)){
       av = parseFloat(a[sortCol]??-999)||0; bv = parseFloat(b[sortCol]??-999)||0;
       return (bv-av)*sortDir;
@@ -966,6 +984,7 @@ function applyFilters(){
   document.getElementById('countEl').innerHTML =
     `<strong>${filtered.length.toLocaleString()}</strong> of ${activeData.length.toLocaleString()}`;
 
+  if(mvF) filtered.sort((a,b)=> mvF==='up' ? (b._mv-a._mv) : (a._mv-b._mv));   // Risers / Fallers read biggest move first
   _filtered = filtered;
   _rendered = 0;
   renderTable(filtered);
@@ -989,6 +1008,8 @@ const COLS = [
   {g:'Player', k:'_arch', l:'Style', cls:'l', proj:1, cell:p=>`<td class="l dim">${p._arch||'—'}</td>`},
   {g:'Value', k:'_chg', l:'Chg', proj:1, tip:'Projected overall minus his 2025-26 overall', cell:p=>{ const c=p._chg;
     return `<td class="${c==null?'dim':c>=3?'c4':c>=1?'c3':c<=-3?'c0':c<=-1?'c1':''}">${c==null?'—':(c>0?'+':'')+c}</td>`; }},
+  {g:'Value', k:'_mv', l:'Since pre', proj:1, tip:'How far his overall has moved since the preseason', cell:p=>{ const c=p._mv;
+    return `<td class="${c==null?'dim':c>=3?'c4':c>=1?'c3':c<=-3?'c0':c<=-1?'c1':''}">${c==null?'—':c===0?'0':(c>0?'▲':'▼')+Math.abs(c)}</td>`; }},
   {g:'Value', k:'wa', l:'WA', tip:'Wins Added', cell:p=>`<td class="${p._waCarried?'dim':''}"${p._waCarried?' title="2025-26 Wins Added (carried forward)"':''}>${p.wa!=null?(p.wa>=0?'+':'')+Number(p.wa).toFixed(1)+(p._waCarried?'*':''):'—'}</td>`},
   {g:'Value', k:'nil', l:'NIL', proj:1, tip:'Projected open-market NIL value', cell:p=>`<td>${nilTxt(p.nil)}</td>`},
   {g:'Value', k:'bb', l:'Board', proj:1, tip:'NBA Big Board rank', cell:p=>`<td>${p.bb?'#'+p.bb:'—'}</td>`},
@@ -1000,8 +1021,8 @@ const COLS = [
 ];
 // presets for the picker
 const COL_PRESETS = [['all','All columns',()=>[]],
-  ['basic','Basic line',()=>COLS.filter(c=>!['team','position','class_year','ppg','rpg','apg','mpg','wa','_chg'].includes(c.k)).map(c=>c.k)],
-  ['value','Value',()=>COLS.filter(c=>!['team','position','class_year','_chg','wa','nil','bb'].includes(c.k)).map(c=>c.k)],
+  ['basic','Basic line',()=>COLS.filter(c=>!['team','position','class_year','ppg','rpg','apg','mpg','wa','_chg','_mv'].includes(c.k)).map(c=>c.k)],
+  ['value','Value',()=>COLS.filter(c=>!['team','position','class_year','_chg','_mv','wa','nil','bb'].includes(c.k)).map(c=>c.k)],
   ['shoot','Shooting',()=>COLS.filter(c=>!['team','position','ppg','mpg','fgm','fga','fg_pct','tpm','tpa','tp_pct','ftm','fta','ft_pct','shot_tend','tend_three','tend_two','tend_ft'].includes(c.k)).map(c=>c.k)]];
 let HIDDEN = new Set(); try{ HIDDEN = new Set(JSON.parse(localStorage.getItem('tdc_rk_cols')||'[]')); }catch(e){}
 function _saveCols(){ try{ localStorage.setItem('tdc_rk_cols', JSON.stringify([...HIDDEN])); }catch(e){} }

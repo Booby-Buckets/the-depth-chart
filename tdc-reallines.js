@@ -9,6 +9,8 @@
  *   TDCReal.team(name)       a team's per-game line + w, l, opp_ppg, or null. Takes the ESPN full or the sheet short name
  *   TDCReal.through()        date of the last game counted
  *   TDCReal.control(host, o) mounts the two-button filter; o.onChange(mode) is optional, the event always fires
+ *   TDCReal.ovrReady()       promise: loads scripts/data/ovr_history_2027.json (scripts/snapshot_ovr.py) on first use
+ *   TDCReal.ovrMove(player)  {from, to, delta, since, history:[[date, ovr],...]} since preseason, or null
  *   TDCReal.MIN_G            below this many real games, percentile reads stay on the projection (one hot game is not a skill)
  */
 (function () {
@@ -74,8 +76,21 @@
     host.appendChild(w);
     return w;
   }
+  var OH = null, ohP = null;
+  function ovrReady() {
+    if (!ohP) ohP = fetch('scripts/data/ovr_history_2027.json?h=' + Math.floor(Date.now() / 36e5)).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { OH = j; return j; }).catch(function () { return null; });
+    return ohP;
+  }
+  function ovrMove(p) {
+    if (!OH || !p) return null;
+    var e = p.espn_id != null ? OH.espn[String(p.espn_id)] : null;
+    var s = e || OH.fresh[String(p.team || '').trim().toLowerCase() + '|' + String(p.name || '').trim().toLowerCase()];
+    if (!s || !s.length) return null;
+    var a = s[0][1], b = s[s.length - 1][1];
+    return { from: a, to: b, delta: b - a, since: OH.days[s[0][0]], history: s.map(function (x) { return [OH.days[x[0]], x[1]]; }) };
+  }
   window.TDCReal = {
-    MIN_G: 5, ready: ready,
+    MIN_G: 5, ready: ready, ovrReady: ovrReady, ovrMove: ovrMove,
     mode: function () { return MODE; }, isReal: function () { return MODE === 'real'; }, setMode: setMode, control: control,
     through: function () { return DOC ? DOC.through : null; },
     of: function (p) {
