@@ -45,13 +45,15 @@
     try { if (tid) sessionStorage.setItem(k, tid); } catch (e) {}
     return tid;
   }
+  const boards = {};   // one scoreboard fetch per date per page view, shared by the live line and finals()
+  const board = d => boards[d] || (boards[d] = j(`${BASE}/scoreboard?groups=50&limit=400&dates=${d}`));
   // today's (or a test) game for this team: {id, state}
   async function gameFor(teamId) {
     if (TEST) return { id: TEST };
     if (!inSeason() || !teamId) return null;
     const now = new Date();
     for (const d of [etDate(now), etDate(new Date(now - 86400e3))]) {
-      const sb = await j(`${BASE}/scoreboard?groups=50&limit=400&dates=${d}`);
+      const sb = await board(d);
       const ev = ((sb && sb.events) || []).find(e => (e.competitions[0].competitors || []).some(c => String(c.team && c.team.id) === String(teamId)));
       if (ev && (ev.status.type.state !== 'post' || d === etDate(now))) return { id: ev.id, state: ev.status.type.state };
     }
@@ -73,6 +75,37 @@
     return null;
   };
   const val = (r, k) => { const i = r.labels.indexOf(k); return i >= 0 ? r.stats[i] : ''; };
+
+  // Finished games from today and yesterday (ET) that ESPN has and our box_scores doesn't yet, as box_scores-shaped rows.
+  // GitHub runs the results job only 5-6 times a day (its "every 20 minutes" schedule gets dropped), so without this a
+  // player page lags the game page by hours on game nights. have = game ids already loaded from box_scores.
+  async function finals(espnId, have) {
+    if (!espnId || (!TEST && !inSeason())) return [];
+    const seen = new Set((have || []).map(String)), now = new Date(), ids = [];
+    if (TEST) ids.push(TEST);
+    else {
+      const tid = await teamOfAthlete(espnId); if (!tid) return [];
+      for (const d of [etDate(now), etDate(new Date(now - 86400e3))]) {
+        const sb = await board(d);
+        ((sb && sb.events) || []).forEach(e => {
+          if (seen.has(String(e.id)) || !(e.status && e.status.type && e.status.type.completed)) return;
+          if ((e.competitions[0].competitors || []).some(c => String(c.team && c.team.id) === String(tid))) ids.push(e.id);
+        });
+      }
+    }
+    const out = [], n = v => { const x = parseFloat(v); return isFinite(x) ? x : 0; }, pair = v => String(v == null ? '' : v).split('-').map(n);
+    for (const id of ids) {
+      const sum = await j(`${BASE}/summary?event=${id}`); if (!sum) continue;
+      const r = statsOf(sum, a => String(a.athlete && a.athlete.id) === String(espnId));
+      if (!r || !r.stats.length || r.a.didNotPlay) continue;
+      const comp = sum.header.competitions[0], opp = (comp.competitors || []).find(c => String(c.team.id) !== String(r.team && r.team.id));
+      const fg = pair(val(r, 'FG')), tp = pair(val(r, '3PT')), ft = pair(val(r, 'FT')), d = etDate(new Date(comp.date));
+      out.push({ game_id: +id, season_year: 2027, _espn: true, date: d.slice(0, 4) + '-' + d.slice(4, 6) + '-' + d.slice(6), team: r.team && r.team.displayName, opp: opp && opp.team && opp.team.displayName,
+        starter: !!r.a.starter, min: n(val(r, 'MIN')), pts: n(val(r, 'PTS')), reb: n(val(r, 'REB')), oreb: n(val(r, 'OREB')), dreb: n(val(r, 'DREB')), ast: n(val(r, 'AST')), stl: n(val(r, 'STL')),
+        blk: n(val(r, 'BLK')), tov: n(val(r, 'TO')), pf: n(val(r, 'PF')), fgm: fg[0] || 0, fga: fg[1] || 0, tpm: tp[0] || 0, tpa: tp[1] || 0, ftm: ft[0] || 0, fta: ft[1] || 0 });
+    }
+    return out.filter(g => g.min > 0).sort((a, b) => a.date.localeCompare(b.date));
+  }
 
   // host may be an element id: pages that re-render their layout would otherwise orphan the element
   const el = h => (typeof h === 'string' ? document.getElementById(h) : h);
@@ -133,5 +166,5 @@
     });
   }
 
-  g.TDCLivePlayer = { player, team };
+  g.TDCLivePlayer = { player, team, finals };
 })(window);

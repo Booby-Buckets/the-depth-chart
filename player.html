@@ -1076,7 +1076,7 @@ body{background:transparent!important;}
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
   <link rel="stylesheet" href="tdc-nil-view.css?v=1"/>
   <link rel="stylesheet" href="tdc-column.css?v=4"/>
-  <link rel="stylesheet" href="tdc-player-a.css?v=36"/>
+  <link rel="stylesheet" href="tdc-player-a.css?v=39"/>
   <script src="tdc-coachlink.js?v=1"></script>
 </head>
 <body data-anim-auto>
@@ -2730,7 +2730,10 @@ async function init(){
     try{
       if(_espnId && !window._historicalView){
         const _bx=await fetch(`${SB}/rest/v1/box_scores?espn_id=eq.${encodeURIComponent(_espnId)}&season_year=eq.2027&select=game_id,date,team,opp,starter,min,pts,reb,oreb,dreb,ast,stl,blk,tov,pf,fgm,fga,tpm,tpa,ftm,fta&order=date.asc`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
-        const _pl=(_bx||[]).filter(g=>(+g.min||0)>0);
+        // tonight's finished games ESPN has and the database doesn't yet; the page never waits long on this
+        window._live27Extra=[];
+        try{ if(window.TDCLivePlayer&&TDCLivePlayer.finals) window._live27Extra=await Promise.race([TDCLivePlayer.finals(_espnId,(_bx||[]).map(g=>g.game_id)),new Promise(r=>setTimeout(()=>r([]),3000))])||[]; }catch(e){}
+        const _pl=(_bx||[]).concat(window._live27Extra).filter(g=>(+g.min||0)>0);
         if(_pl.length){
           const n=_pl.length, S=k=>_pl.reduce((a,g)=>a+(+g[k]||0),0), A=k=>Math.round(S(k)/n*10)/10, P=(m,a)=>S(a)>0?Math.round(S(m)/S(a)*1000)/10:null;
           const _tm=(player&&player.team)||(_pl[_pl.length-1].team||'');
@@ -3440,12 +3443,29 @@ function _teamAccent(tn){
 function ovrCardsFor(src){
   // one past season as a single-row sheet, same columns and shading as the overview table
   var ST=[['PPG','ppg','pts_per_g'],['RPG','rpg','trb_per_g'],['APG','apg','ast_per_g'],['MPG','mpg','mp_per_g'],['FG%','fg_pct','fg_pct',1],['3P%','tp_pct','fg3_pct',1],['FT%','ft_pct','ft_pct',1],['STL','stl','stl_per_g'],['BLK','blk','blk_per_g'],['TO','tovs','tov_per_g']];
-  var lbl=(src&&src.season_year)?(_seasonLbl2(src.season_year)+(src.team?' · '+src.team:'')):'Season';
-  var tds=ST.map(function(s){ var v=src?src[s[1]]:null, x=parseFloat(v), c='';
+  var seasonName=function(r){ return _seasonLbl2(r.season_year)+(r.team?' · '+r.team:''); };
+  var row=function(lbl,r){ return '<tr><td class="l nm">'+esc0(lbl)+'</td>'+ST.map(function(s){ var v=r?r[s[1]]:null, x=parseFloat(v), c='';
     if(!isNaN(x)&&typeof pctColor==='function'){ c=pctColor((s[3]&&x>1)?x/100:x, s[2]); }
-    return '<td'+(c?' class="'+c+'"':'')+'>'+(s[3]?fmtP(v):fmt(v))+'</td>'; }).join('');
+    return '<td'+(c?' class="'+c+'"':'')+'>'+(s[3]?fmtP(v):fmt(v))+'</td>'; }).join('')+'</tr>'; };
+  var change=function(lbl,a,b){ return '<tr class="ov-chg"><td class="l nm dim">'+esc0(lbl)+'</td>'+ST.map(function(s){ var x=parseFloat(a&&a[s[1]]), y=parseFloat(b&&b[s[1]]);
+    if(isNaN(x)||isNaN(y)) return '<td class="dim">—</td>'; var d=Math.round((x-y)*10)/10, low=s[1]==='tovs', good=low?d<-0.05:d>0.05, bad=low?d>0.05:d<-0.05;
+    return '<td class="'+(good?'up':bad?'dn':'dim')+'">'+(d>0?'+':d<0?'−':'')+Math.abs(d).toFixed(1)+'</td>'; }).join('')+'</tr>'; };
+  // the season in context (this replaced the separate "The Jump" panel): this year so far beside the projection and last
+  // season, or a past season beside the one before it, with the change on every stat
+  var prior=null, yr=src?+src.season_year:0; (typeof _ovrSeasons==='function'?_ovrSeasons():[]).some(function(r){ if(!r._live&&+r.season_year<yr){ prior=r; return true; } return false; });
+  var hasProj=src&&src._live&&typeof proj!=='undefined'&&proj&&!proj._injured&&parseFloat(proj.ppg)>0;
+  var rows;
+  if(src&&src._live){
+    rows=row(_seasonLbl2(2027)+' so far',src);
+    if(hasProj) rows+=row(_seasonLbl2(2027)+' Projected',proj);
+    if(prior) rows+=row(seasonName(prior),prior);
+    if(hasProj&&prior) rows+=change('Proj vs '+_seasonLbl2(prior.season_year),proj,prior);
+  } else {
+    rows=row(src&&src.season_year?seasonName(src):'Season',src);
+    if(prior) rows+=row(seasonName(prior),prior)+change('Change',src,prior);
+  }
   return '<div class="sheet-wrap ov-sheet" style="margin-bottom:24px;"><table class="sheet dense freeze"><thead><tr><th class="l">Season</th>'
-    +ST.map(function(s){return '<th>'+s[0]+'</th>';}).join('')+'</tr></thead><tbody><tr><td class="l nm">'+esc0(lbl)+'</td>'+tds+'</tr></tbody></table></div>';
+    +ST.map(function(s){return '<th>'+s[0]+'</th>';}).join('')+'</tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 function esc0(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 function _ovrSeasonRow(yr){ if(+yr===2027&&window._live27) return window._live27; var r=(careerHistory||[]).filter(function(s){return +s.season_year===+yr && s.ppg!=null;}); return r.length?r.sort(function(a,b){return (+b.gp||0)-(+a.gp||0);})[0]:null; }
@@ -3945,6 +3965,7 @@ function loadOvcForm(seasonYr){
         '&select=date,opp,pts,reb,ast,stl,blk,tov,min,fgm,fga,tpm,tpa&order=date.desc&limit=5',{headers:H})
     .then(function(r){return r.json();}).then(function(g){
       if(window._ovcFormReq!==key) return;                 // a newer season won the race
+      if((!yr||yr===2027)&&window._live27Extra&&_live27Extra.length) g=_live27Extra.concat(g||[]).sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); }).slice(0,5);
       if(!g||!g.length){ var m='<div class="ovc-muted">No game logs for this season.</div>';
         window._ovcFormCache[key]=m; el.innerHTML=m; return; }
       var n=g.length, sum=function(k){ return g.reduce(function(a,x){ return a+(+x[k]||0); },0); };
@@ -4653,23 +4674,25 @@ function renderPage(){
     <!-- OVERVIEW TAB (boxed player card) -->
     <div class="tab-panel active" id="panel-overview">
       <div class="ovc-accent"></div>
+      <div class="ovc-foot" id="ovcFoot"></div>
+      <!-- reading order (Nov 2026): this season and momentum first, the analysis after -->
+      <div class="ovc">
+        <div class="ovc-box full"><div class="ovc-sl">Stats <span class="sub" id="ovcStatLbl"></span></div><div id="ovrCards">${_ovcInitialStats()}</div></div>
+        <div class="ovc-box"><div class="ovc-sl">Recent form <span class="sub" id="ovcFormLbl">last 5</span></div><div id="ovcForm"><div class="ovc-muted">Loading…</div></div></div>
+        <div class="ovc-box"><div class="ovc-sl">Grade by season <span class="sub" id="ovcTrendLbl"></span></div><div id="ovcTrend"></div></div>
+      </div>
       <div class="pa-row3">
         <div class="ovc-box ovc-read"><div class="ovc-sl">The read <span class="sub">vs everyone</span></div><div id="ovcRead"></div></div>
         <div class="ovc-box ovc-comps"><div class="ovc-sl">Plays like <span class="sub" id="ovcCompLbl"></span></div><div id="ovcComps"><button class="ovc-complink" onclick="loadOvcCompsNow()">Find similar players →</button></div></div>
         <div class="ovc-box ovc-bottom"><div class="ovc-sl">Bottom line</div><div id="ovcBottom"></div></div>
       </div>
       <div class="ovc">
-        <div class="ovc-box full"><div class="ovc-sl">Stats <span class="sub" id="ovcStatLbl"></span></div><div id="ovrCards">${_ovcInitialStats()}</div></div>
-        <div class="ovc-box"><div class="ovc-sl">Shot profile <span class="sub">make %</span></div><div id="ovcShot"></div></div>
         <div class="ovc-box"><div class="ovc-sl">Skill profile <span class="sub">percentile vs D-I</span></div><div id="skillSheet"></div></div>
-        <div class="ovc-box"><div class="ovc-sl">Recent form <span class="sub" id="ovcFormLbl">last 5</span></div><div id="ovcForm"><div class="ovc-muted">Loading…</div></div></div>
+        <div class="ovc-box"><div class="ovc-sl">Shot profile <span class="sub">make %</span></div><div id="ovcShot"></div></div>
         <div class="ovc-box"><div class="ovc-sl">Wins added</div><div id="impactSection"></div></div>
-        <div class="ovc-box"><div class="ovc-sl">The jump <span class="sub" id="ovcJumpLbl"></span></div><div id="ovcJump"></div></div>
-        <div class="ovc-box"><div class="ovc-sl">Grade by season <span class="sub" id="ovcTrendLbl"></span></div><div id="ovcTrend"></div></div>
         <div class="ovc-box"><div class="ovc-sl">Team fit</div><div id="ovcFit"></div></div>
-        <div class="ovc-box" id="ovcAmplifierBox"><div class="ovc-sl">Lineup Amplifier <span class="sub">Coach's Tier</span></div><div id="ovcAmplifier"><div class="ovc-muted">Loading…</div></div></div>
+        <div class="ovc-box full" id="ovcAmplifierBox"><div class="ovc-sl">Lineup Amplifier <span class="sub">Coach's Tier</span></div><div id="ovcAmplifier"><div class="ovc-muted">Loading…</div></div></div>
       </div>
-      <div class="ovc-foot" id="ovcFoot"></div>
     </div>
 
     <div class="tab-panel" id="panel-stats">
@@ -5149,7 +5172,8 @@ async function loadGameLog(){
   if(!espn){ host.innerHTML='<div style="padding:30px;color:var(--text3);font-style:italic;">No game log available for this player.</div>'; return; }
   host.innerHTML='<div style="padding:30px;color:var(--text3);">Loading game log…</div>';
   try{
-    const bx=await fetch(`${SB}/rest/v1/box_scores?espn_id=eq.${espn}&select=*&order=date.desc&limit=900`,{headers:H}).then(r=>r.json());
+    let bx=await fetch(`${SB}/rest/v1/box_scores?espn_id=eq.${espn}&select=*&order=date.desc&limit=900`,{headers:H}).then(r=>r.json());
+    if(Array.isArray(bx)&&window._live27Extra&&_live27Extra.length) bx=_live27Extra.filter(g=>!bx.some(b=>+b.game_id===+g.game_id)).concat(bx);
     if(!Array.isArray(bx)||!bx.length){ host.innerHTML='<div style="padding:30px;color:var(--text3);font-style:italic;">No game-by-game data found.</div>'; return; }
     _gameLog={};
     bx.forEach(b=>{ const y=b.season_year; (_gameLog[y]||(_gameLog[y]=[])).push(b); });
@@ -8143,7 +8167,7 @@ init();
   <script src="tdc-tour.js?v=31"></script>
 <script src="tdc-sheets.js?v=2"></script>
 <script src="tdc-reallines.js?v=3"></script>
-<script src="tdc-liveplayer.js?v=3"></script>
+<script src="tdc-liveplayer.js?v=4"></script>
 <script src="tdc-mplayer.js?v=22"></script>
 <script src="tdc-trends.js?v=ui4"></script>
 <script>

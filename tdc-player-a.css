@@ -303,15 +303,14 @@
 #panel-overview .ovc{ display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin-bottom:16px; }
 #panel-overview .ovc > .ovc-box{ width:auto !important; margin:0 !important; min-width:0; }
 #panel-overview .ovc > .ovc-box.full{ grid-column:1 / -1; margin:0 !important; }
-#panel-overview .ovc > .ovc-box:has(+ #ovcAmplifierBox[style*="none"]){ grid-column:1 / -1; }
 #panel-overview .pa-row3{ margin-bottom:16px !important; }
 /* paired panels end level: a shorter table's rows stretch to fill, no blank strip under them */
 @media(min-width:901px){
   #panel-overview .ovc > .ovc-box:not(.full){ display:flex; flex-direction:column; }
   #panel-overview .ovc > .ovc-box:not(.full) > :not(.ovc-sl){ flex:1 1 auto; min-height:0; }
   #panel-overview .ovc > .ovc-box:not(.full) > div > .sheet-wrap:first-child{ height:100%; }
-  /* …but only a table with real rows: one or two rows stretched that far read as a broken table (a player's first game) */
-  #panel-overview .ovc > .ovc-box:not(.full) > div > .sheet-wrap:first-child:has(tbody tr:nth-child(4)) > table{ height:100%; }
+  /* …but only a table with real rows: one row stretched that far reads as a broken table (a player's first game) */
+  #panel-overview .ovc > .ovc-box:not(.full) > div > .sheet-wrap:first-child:has(tbody tr:nth-child(3)) > table{ height:100%; }
 }
 /* light headers: the numbers lead, not ten black bars */
 #panel-overview .ovc-box > .ovc-sl, #panel-overview .pa-row3::before{ background:var(--bg2) !important; color:var(--text) !important;
@@ -332,7 +331,11 @@
 #ovcFit .ovc-fitc{ background:none; border:0; border-left:1px solid var(--border); border-radius:0; }
 #ovcFit .ovc-fitc:first-child, #ovcFit .ovc-fitc[style*="none"] + .ovc-fitc{ border-left:0; }
 /* the footer line: no empty-looking card */
-#panel-overview .ovc-foot{ background:none !important; border:0 !important; box-shadow:none !important; padding:2px 2px 0 !important; margin:0 !important; }
+#panel-overview .ovc-foot{ background:none !important; border:0 !important; box-shadow:none !important; padding:2px 2px 0 !important; margin:0 0 14px !important; }
+#panel-overview .ovc-foot:empty{ display:none; }
+/* Recent form fills in after a fetch, and :has() didn't always re-apply then (the table sat inset beside its neighbour) */
+#ovcForm{ padding:0 !important; }
+#ovcForm > .ovc-muted{ padding:12px 14px; }
 /* its numbers in the page's ink (pale gold on cream was hard to read), the labels quieter */
 #panel-overview .ovc-foot .bb, #panel-overview .ovc-foot .nil, #panel-overview .ovc-foot .ceil b{ color:var(--text) !important; font:800 14px/1.3 'Inter',system-ui,sans-serif; font-variant-numeric:tabular-nums; }
 #panel-overview .ovc-foot .fsub, #panel-overview .ovc-foot .ceil{ font-size:12.5px; color:var(--text2) !important; }
