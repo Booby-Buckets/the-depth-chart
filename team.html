@@ -38,7 +38,7 @@
   <script src="tdc-scrim.js?v=20"></script>
   <script src="tdc-gamehead.js?v=3"></script>
   <script src="tdc-preview.js?v=ui1"></script>
-  <script src="tdc-reallines.js?v=3"></script>
+  <script src="tdc-reallines.js?v=4"></script>
   <script src="tdc-projgrade.js?v=disp1"></script>
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-rating.js?v=5"></script>
@@ -8865,7 +8865,11 @@ async function _resolveGamesKey(){
     const r=await fetch(`${SB_URL}/rest/v1/games?home=${pat}&select=home&limit=1`,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
     return r&&r[0]&&r[0].home||null;
   };
-  let t=await probe(`eq.${encodeURIComponent(teamMascot())}`);
+  // the exact sheet -> full name list first. The wildcard below can land on a sibling program: "UMass*" is UMass Lowell (whose
+  // record, lineups and depth order then showed on UMass's page), "Penn*" is Penn State
+  const _names=await fetch('scripts/data/team_full_names.json?v=1').then(r=>r.ok?r.json():{}).catch(()=>({}));
+  let t=_names[teamT.name]?await probe(`eq.${encodeURIComponent(_names[teamT.name])}`):null;
+  if(!t) t=await probe(`eq.${encodeURIComponent(teamMascot())}`);
   if(!t && teamT.name && teamT.name!==teamMascot()) t=await probe(`eq.${encodeURIComponent(teamT.name)}`);
   if(!t){
     // Wildcard is ambiguous — "Florida*" matches Gators, Florida State, FAU, FGCU…

@@ -206,6 +206,8 @@ def main():
         errs.sort(); print(f"minutes off vs box, per team-game: median {errs[len(errs) // 2]:.3f}, p90 {errs[int(.9 * len(errs))]:.3f}", flush=True)
     if a.dry and not a.check: return
     sheet, hist = position_scores(a.season)
+    try: FULL2SHORT = {v: k for k, v in json.load(open(os.path.join(DATA, "team_full_names.json"))).items()}
+    except Exception: FULL2SHORT = {}
     # role evidence from the games on file: rates come from the real lines when present
     try: RL = json.load(open(os.path.join(DATA, f"real_lines_{a.season}.json")))["players"]
     except Exception: RL = {}
@@ -227,10 +229,12 @@ def main():
         for x, row in F["p"].items():
             r = sheet.get(x)
             if not r:
-                w = team.split(" ")      # the sheet says "Notre Dame", ESPN "Notre Dame Fighting Irish": drop the mascot word by word
-                for n in range(len(w), 0, -1):
-                    r = sheet.get("n:" + nk(" ".join(w[:n])) + "|" + nk(row[0]))
-                    if r: break
+                r = sheet.get("n:" + nk(FULL2SHORT.get(team, "")) + "|" + nk(row[0]))   # exact name list: UMass is "Massachusetts Minutemen"
+                if not r:
+                    w = team.split(" ")  # the sheet says "Notre Dame", ESPN "Notre Dame Fighting Irish": drop the mascot word by word
+                    for n in range(len(w), 0, -1):
+                        r = sheet.get("n:" + nk(" ".join(w[:n])) + "|" + nk(row[0]))
+                        if r: break
             hh = hist.get(x)
             h = (inches(r.get("height")) if r else None) or (inches(hh.get("height")) if hh else None)
             q = RL.get(x); ast = rb = None
