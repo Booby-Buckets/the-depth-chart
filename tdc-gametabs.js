@@ -15,7 +15,7 @@
     '.gm-strip{display:grid;grid-template-columns:repeat(var(--gm-n,5),minmax(0,1fr));border:1px solid var(--border);background:var(--bg);margin:12px 0 4px;}' +
     '.gm-strip .t{padding:14px 18px 13px;border-right:1px solid var(--border);min-width:0;}' +
     '.gm-strip .t:last-child{border-right:none;}' +
-    '.gm-strip .v{font-family:"Playfair Display",Georgia,serif;font-weight:800;font-size:24px;letter-spacing:-.01em;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;}' +
+    '.gm-strip .v{font-family:Inter,system-ui,sans-serif;font-weight:800;font-size:22px;letter-spacing:-.01em;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;}' +
     '.gm-strip .k{font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-top:6px;white-space:nowrap;}' +
     '.gm-strip .s{font-size:11px;color:var(--text3);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}' +
     '.gm-strip [title]{cursor:help;}' +
@@ -64,7 +64,7 @@
     '.gt-potg .rtg small{font-size:8.5px;letter-spacing:.12em;color:var(--text3);margin-top:3px;}' +
     '.gt-potg .nums{display:grid;grid-template-columns:repeat(var(--n,4),1fr);margin-top:16px;border-top:1px solid var(--border);}' +
     '.gt-potg .nums div{padding:12px 4px 2px;text-align:center;border-left:1px solid var(--border);}.gt-potg .nums div:first-child{border-left:0;}' +
-    '.gt-potg .nums b{display:block;font-family:"Playfair Display",Georgia,serif;font-size:30px;font-weight:800;line-height:1;}' +
+    '.gt-potg .nums b{display:block;font-family:Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;font-size:26px;font-weight:800;line-height:1;}' +
     '.gt-potg .nums span{display:block;font-size:9.5px;font-weight:800;letter-spacing:.12em;color:var(--text3);margin-top:5px;}' +
     '.gt-potg .note{margin:14px 0 0;font-size:13px;color:var(--text2);line-height:1.5;border-left:3px solid var(--accent);padding-left:10px;}' +
     '.gt-duel{width:100%;border-collapse:collapse;table-layout:fixed;}' +
@@ -74,19 +74,47 @@
     '.gt-duel td{padding:9px 0;border-top:1px solid var(--border);font:600 13.5px Inter,system-ui,sans-serif;vertical-align:middle;}' +
     '.gt-duel td.c{width:76px;text-align:center;font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);}' +
     '.gt-duel .side{display:flex;align-items:center;gap:10px;}.gt-duel td.h .side{flex-direction:row-reverse;}' +
-    '.gt-duel .side .who{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;}' +
+    '.gt-duel .side .who{flex:1;min-width:0;overflow-wrap:anywhere;font-weight:600;}' +
     '.gt-duel td.h .who{text-align:right;}' +
     '.gt-duel .side .who,.gt-duel .side .who a{font:600 13.5px/1.3 Inter,system-ui,sans-serif!important;letter-spacing:0!important;}' +
     '.gt-duel .who a{color:var(--text);text-decoration:none;}.gt-duel .who a:hover{color:var(--accent);}' +
-    '.gt-duel .bar{flex:0 0 34%;display:flex;align-items:center;gap:8px;}.gt-duel td.a .bar{flex-direction:row-reverse;}' +
-    '.gt-duel .bar i{display:block;height:10px;border-radius:5px;}' +
-    '.gt-duel .bar b{font:800 17px Inter,system-ui,sans-serif;min-width:24px;text-align:center;font-variant-numeric:tabular-nums;}' +
+    '.gt-duel .num{flex:none;font:800 18px Inter,system-ui,sans-serif;min-width:26px;text-align:center;font-variant-numeric:tabular-nums;}' +
+    '.gt-duel td.a .num{order:2;}.gt-duel td.a .side{justify-content:space-between;}' +
+    '.gt-duel td.lead .num{color:var(--text);}.gt-duel td.trail .num{color:var(--text3);}' +
     '.gt-mo{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));}' +
     '.gt-mo>div{padding:4px 18px;border-left:1px solid var(--border);min-width:0;}.gt-mo>div:first-child{border-left:0;padding-left:2px;}' +
     '.gt-mo .k{font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);}' +
-    '.gt-mo .v{font-family:"Playfair Display",Georgia,serif;font-size:30px;font-weight:800;line-height:1.1;margin-top:6px;}' +
+    '.gt-mo .v{font-family:Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;font-size:24px;font-weight:800;line-height:1.1;margin-top:6px;}' +
     '.gt-mo .s{font-size:12px;color:var(--text2);margin-top:4px;line-height:1.4;}' +
     '.gt-mo .split{display:flex;height:10px;border-radius:5px;overflow:hidden;margin:14px 0 8px;background:var(--bg2);}' +
+    /* Nov 2026 pass (owner didn't like the summary): light panel headers and plain numbers like the player page's Overview, no card inside a card */
+    '.ui-panel.pz.gt-pz>.ui-panel-head{background:var(--bg2)!important;color:var(--text)!important;border-color:var(--border)!important;border-bottom:1px solid var(--border)!important;}' +
+    '.ui-panel.pz.gt-pz>.ui-panel-head h2,.ui-panel.pz.gt-pz>.ui-panel-head .ui-panel-tools,.ui-panel.pz.gt-pz>.ui-panel-head .gt-tools{color:inherit!important;}' +
+    /* Team comparison fills its row beside the taller column; a name never breaks mid-word */
+    '.gt-sum2>.gt-flush{display:flex;flex-direction:column;}.gt-sum2>.gt-flush>.ui-panel-body{flex:1 1 auto;min-height:0;}.gt-sum2>.gt-flush .sheet-wrap,.gt-sum2>.gt-flush .gt-cmp{height:100%;}' +
+    '.gt-duel th{white-space:nowrap;}.gt-duel .n-s{display:none;}' +
+    '@media(max-width:640px){.gt-duel .n-f{display:none;}.gt-duel .n-s{display:inline;}.gt-duel .side{gap:6px;}.gt-duel .side .who,.gt-duel .side .who a{font-size:12.5px!important;overflow-wrap:normal;}.gt-duel td.c{width:60px;font-size:8.5px;letter-spacing:.05em;}}' +
+    '.ui-panel.pz.gt-flush>.ui-panel-body{padding:0!important;}' +
+    '.ui-panel.pz.gt-flush>.ui-panel-body>.sheet-wrap,.ui-panel.pz.gt-flush>.ui-panel-body>*>.sheet-wrap{margin:0!important;border:0!important;border-radius:0!important;}' +
+    '.gt-flush .gt-kv{margin:0;border:0;}.gt-flush .sheet-wrap{border:0!important;border-radius:0!important;margin:0!important;}' +
+    '.gt-cmp{width:100%!important;table-layout:fixed;}.gt-cmp th,.gt-cmp td{text-align:center!important;font-variant-numeric:tabular-nums;}' +
+    '.gt-cmp th:nth-child(2),.gt-cmp td.c{width:30%;}.gt-cmp td.c{font-size:10px!important;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);}' +
+    '.gt-cmp td.win{font-weight:800;color:var(--text);}.gt-cmp td .dim{font-weight:500;margin-left:5px;}' +
+    '.gt-sum2{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}' +
+    '.gt-dash{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);}' +
+    '.gt-eff .ef-tbl{max-width:none;}' +
+    '@media(max-width:640px){.ef-tbl th{white-space:normal!important;font-size:9.5px!important;letter-spacing:.02em!important;line-height:1.2;}.gt-pz .gt-tools{display:none;}}' +
+    '@media(min-width:901px){#gmEff{display:flex;}#gmEff>.gt-eff{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;margin:0!important;}#gmEff>.gt-eff>.ui-panel-body{flex:1 1 auto;}#gmEff .sheet-wrap,#gmEff .ef-tbl{height:100%;}}' +
+    '.gt-seg{display:inline-flex;max-width:100%;border:1px solid var(--border2);border-radius:8px;overflow:hidden;margin:14px 0 2px;background:var(--bg);}' +
+    '.gt-seg button{display:flex;align-items:center;gap:7px;border:0;border-left:1px solid var(--border2);background:none;font:700 13px Inter,system-ui,sans-serif;color:var(--text2);padding:8px 14px;cursor:pointer;white-space:nowrap;min-height:36px;}' +
+    '.gt-seg button:first-child{border-left:0;}.gt-seg button img{width:18px;height:18px;object-fit:contain;}.gt-seg button b{font-weight:800;font-variant-numeric:tabular-nums;color:var(--text3);}' +
+    '.gt-seg button.on{background:var(--text);color:var(--bg);}.gt-seg button.on b{color:inherit;}' +
+    '.gt-seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}' +
+    '@media(max-width:640px){.gt-seg{display:flex;}.gt-seg button{flex:1 1 auto;justify-content:center;padding:8px 8px;font-size:12px;gap:5px;}}' +
+    '.bs-team[hidden]{display:none;}.bs-team>.gt-h{margin-top:14px;}' +
+    '.gt-sumcol{display:flex;flex-direction:column;gap:18px;min-width:0;}.gt-sumcol #gmMoments:empty{display:none;}.gt-sumcol .ui-panel{margin:0!important;}' +
+    '.gt-sumcol .gt-mo{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:16px;}.gt-sumcol .gt-mo>div:nth-child(3){border-left:0;padding-left:2px;}' +
+    '.gt-foot{font-size:11.5px;color:var(--text3);line-height:1.5;margin:2px 2px 0;}' +
     '@media(max-width:900px){.gt-sumgrid{grid-template-columns:1fr;}.gt-mo{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:16px;}.gt-mo>div:nth-child(3){border-left:0;padding-left:2px;}}' +
     '@media(max-width:620px){.gt-bar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}.gt-bar::-webkit-scrollbar{display:none;}.gt-tab{flex:0 0 auto;}.gt-kv{grid-template-columns:1fr;}.gt-kv .k{padding-bottom:0;border-bottom:none;}}';
 
@@ -250,16 +278,35 @@
       var pl = ps.filter(function (p) { return p[k] != null && (p.min == null || p.min > 0); });
       var v = Math.max.apply(null, pl.map(function (p) { return +p[k] || 0; }).concat([0]));
       var who = pl.filter(function (p) { return (+p[k] || 0) === v; });
-      var nm = function (p) { return p.href ? '<a href="' + esc(p.href) + '">' + esc(p.name) + '</a>' : esc(p.name); };
+      var sh = function (n) { var w = String(n || '').trim().split(/\s+/); return w.length < 2 ? String(n || '') : w[0][0] + '. ' + w.slice(1).join(' '); };
+      var both = function (n) { return '<span class="n-f">' + esc(n) + '</span><span class="n-s">' + esc(sh(n)) + '</span>'; };
+      var nm = function (p) { return p.href ? '<a href="' + esc(p.href) + '">' + both(p.name) + '</a>' : both(p.name); };
       return { v: v, who: !v ? '—' : who.length > 2 ? who.length + ' tied' : who.map(nm).join(', ') };
     };
     var rows = cats.map(function (c) {
-      var a = top(sides[0].players, c[0]), h = top(sides[1].players, c[0]), mx = Math.max(a.v, h.v, 1);
-      var cell = function (x, s, cls) { return '<td class="' + cls + '"><div class="side"><span class="who">' + x.who + '</span><span class="bar"><i style="width:' + Math.round(100 * x.v / mx) + '%;background:' + esc(s.color || 'var(--text3)') + '"></i><b>' + x.v + '</b></span></div></td>'; };
-      return '<tr>' + cell(a, sides[0], 'a') + '<td class="c">' + c[1] + '</td>' + cell(h, sides[1], 'h') + '</tr>';
+      var a = top(sides[0].players, c[0]), h = top(sides[1].players, c[0]);
+      var cell = function (x, o, cls) { return '<td class="' + cls + (x.v > o.v ? ' lead' : x.v < o.v ? ' trail' : '') + '"><div class="side"><span class="who">' + x.who + '</span><span class="num">' + x.v + '</span></div></td>'; };
+      return '<tr>' + cell(a, h, 'a') + '<td class="c">' + c[1] + '</td>' + cell(h, a, 'h') + '</tr>';
     }).join('');
     var th = function (s, cls) { var lg = s.logo ? '<img src="' + esc(s.logo) + '" alt="">' : ''; return '<th class="' + cls + '">' + (cls === 'a' ? lg + esc(s.name) : esc(s.name) + lg) + '</th>'; };
     return panel('Team leaders', '<table class="gt-duel"><thead><tr>' + th(sides[0], 'a') + '<th></th>' + th(sides[1], 'h') + '</tr></thead><tbody>' + rows + '</tbody></table>');
+  }
+  // TEAM COMPARISON from the box — sides = [away, home], each {name, players}; the better side of each row reads bold
+  function compare(sides) {
+    if (!sides || sides.length !== 2) return '';
+    var A = teamNums({ players: sides[0].players }), H = teamNums({ players: sides[1].players });
+    if (!A.fga || !H.fga) return '';
+    var pct = function (m, a) { return a ? m / a : null; };
+    var shot = function (m, a) { return function (x) { return x[m] + '-' + x[a] + '<span class="dim">' + (x[a] ? Math.round(100 * x[m] / x[a]) + '%' : '—') + '</span>'; }; };
+    var num = function (k) { return function (x) { return x[k]; }; };
+    var rows = [['Field goals', function (x) { return pct(x.fgm, x.fga); }, shot('fgm', 'fga'), 1], ['3-pointers', function (x) { return pct(x.tpm, x.tpa); }, shot('tpm', 'tpa'), 1],
+      ['Free throws', function (x) { return pct(x.ftm, x.fta); }, shot('ftm', 'fta'), 1], ['Rebounds', function (x) { return x.oreb + x.dreb; }, function (x) { return x.oreb + x.dreb; }, 1],
+      ['Off. rebounds', num('oreb'), num('oreb'), 1], ['Assists', num('ast'), num('ast'), 1], ['Steals', num('stl'), num('stl'), 1], ['Blocks', num('blk'), num('blk'), 1], ['Turnovers', num('tov'), num('tov'), -1]];
+    var body = rows.map(function (r) {
+      var a = r[1](A), h = r[1](H), w = (a == null || h == null || a === h) ? 0 : ((a > h) === (r[3] > 0) ? 1 : 2);
+      return '<tr><td' + (w === 1 ? ' class="win"' : '') + '>' + r[2](A) + '</td><td class="c">' + r[0] + '</td><td' + (w === 2 ? ' class="win"' : '') + '>' + r[2](H) + '</td></tr>';
+    }).join('');
+    return panel('Team comparison', '<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense gt-cmp"><thead><tr><th>' + esc(sides[0].name) + '</th><th></th><th>' + esc(sides[1].name) + '</th></tr></thead><tbody>' + body + '</tbody></table></div>', null, 'gt-flush');
   }
   // KEY MOMENTS as four tiles — col(team key) → team colour for the time-leading bar
   function momentTiles(G, R, nm, col) {
@@ -332,5 +379,5 @@
   }
 
   window.TDCGameTabs = { strip: strip, kv: kv, head: head, leaders: leaders, moments: moments, mount: mount, css: css,
-    panel: panel, potg: potg, duel: duel, momentTiles: momentTiles, efficiency: efficiency, teamNums: teamNums };
+    panel: panel, potg: potg, duel: duel, compare: compare, momentTiles: momentTiles, efficiency: efficiency, teamNums: teamNums };
 })();

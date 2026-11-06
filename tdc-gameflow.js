@@ -291,6 +291,21 @@
       '<div class="gf-tip" hidden></div><div class="gf-hint">Hover or drag across the chart for the score at any moment</div></div>'+cmpPanel(G,R,K);
     scrub(el.querySelector('.gf-chart'),G,R,K,geo);
   }
+  // the chart alone, for a dashboard panel (game.html): no score head, no comparison panel
+  function renderChart(el,G,R){
+    var K=colors(G), geo={};
+    el.innerHTML='<div class="gf-chart" style="margin:0;">'+flowSvg(G,R,K,el.clientWidth,geo)+'<div class="gf-tip" hidden></div></div>';
+    scrub(el.querySelector('.gf-chart'),G,R,K,geo);
+  }
+  // each team's most-used five-man lineups: one compact sheet per team
+  function renderLineups(el,G,R,n){
+    var K=colors(G), P=G.P;
+    var one=function(t){ var L=Object.keys(R.LU[t]||{}).map(function(k){ return R.LU[t][k]; }).filter(function(x){ return x.ids.length===5&&x.sec>=30; }).sort(function(a,b){ return b.sec-a.sec; }).slice(0,n||3);
+      if(!L.length) return '';
+      return '<div class="sheet-wrap" style="max-height:none;" data-fit-keep><table class="sheet dense gr-lu gr-lumini"><thead><tr><th class="l">'+esc(G.T[t].name)+'</th><th>Min</th><th>+/−</th></tr></thead><tbody>'+
+        L.map(function(x){ var d=x.pf-x.pa; return '<tr><td class="l gr-unit">'+x.ids.map(function(id){ return esc(P[id]?lastName(P[id].name):id); }).join(' · ')+'</td><td>'+mmss(x.sec)+'</td><td class="strong'+(d>=6?' c4':d>=2?' c3':d<=-6?' c0':d<=-2?' c1':'')+'">'+signed(d)+'</td></tr>'; }).join('')+'</tbody></table></div>'; };
+    var h=one(K.up)+one(K.dn); el.innerHTML=h; return !!h;
+  }
   // ── hover / drag readout: game clock, exact score, margin, and the basket that made it ──
   function scrub(box,G,R,K,geo){
     var svg=box&&box.querySelector('.gf-svg'); if(!svg||!geo.x) return;
@@ -444,6 +459,14 @@
     // label each by-player sheet with its team
     el.querySelectorAll('.gsc-tbls > div').forEach(function(d,i){ var c=d.querySelector('.scz-cap'); if(c) c.textContent=G.T[i?K.dn:K.up].name+' \u00b7 by player'; });
   }
+  // both courts only, for a dashboard panel (the by-player sheets stay on the Shot chart tab)
+  function renderCourts(el,G){
+    var S=gameShots(G), K=colors(G);
+    if(!window.TDC_SHOTCHART||S[G.home].length<15||S[G.away].length<15) return false;
+    el.innerHTML='<div class="gsc-grid"><div class="gsc" data-t="'+K.up+'"></div><div class="gsc" data-t="'+K.dn+'"></div></div>';
+    [K.up,K.dn].forEach(function(t,i){ TDC_SHOTCHART.render(el.querySelector('.gsc[data-t="'+t+'"]'),S[t],{subtitle:G.T[t].name,kind:'team',compact:true,color:css(i?K.cd:K.cu)}); });
+    return true;
+  }
   var cache={};
   async function load(gid){
     if(cache[gid]) return cache[gid];
@@ -503,6 +526,7 @@
       '.gr-per{position:relative;display:flex;justify-content:space-between;padding:0 8px;color:var(--text);border-left:1.5px solid var(--gf-rule);} .gr-per:first-child{border-left:0;} .gr-mid{position:absolute;left:50%;transform:translateX(-50%);color:var(--text3);font-weight:600;}'+
       '.gr-bar{position:absolute;top:7px;bottom:7px;font-style:normal;font-size:11.5px;font-weight:800;display:flex;align-items:center;justify-content:center;overflow:hidden;white-space:nowrap;font-variant-numeric:tabular-nums;}'+
       '@media(max-width:600px){.gr-row{grid-template-columns:86px 1fr 26px 30px;gap:5px;} .gr-nm{font-size:12px;} .gr-n{font-size:12px;} .gr-bar{font-size:0;} .gr-mid{display:none;} .gr-per{padding:0 3px;font-size:9px;}}'+
+      '.gr-lumini{width:100%;} .gr-lumini td.gr-unit{min-width:0!important;} .gr-lumini th:nth-child(2),.gr-lumini td:nth-child(2){width:48px;} .gr-lumini th:nth-child(3),.gr-lumini td:nth-child(3){width:48px;}'+
       '.gr-lu td.l{font-weight:600;} .gr-lu td.gr-unit{white-space:normal;min-width:230px;} .gf-run{font-size:12px;font-weight:800;}'+
       '.gsc-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px;align-items:start;} .gsc-grid > *{min-width:0;} @media(max-width:760px){.gsc-grid{grid-template-columns:minmax(0,1fr);}}'+
       '.gsc .scz-name{font-size:18px;} .gsc .scz-tot{font-size:15px;} .gsc .sc-court-wrap{max-width:none;} .gsc .sc-legend{margin-bottom:6px;}'+
@@ -514,5 +538,5 @@
   }
   // a game that isn't on ESPN (scrimmages: tdc-scrimflow.js builds an ESPN-shaped summary from Sidearm PBP)
   function fromSummary(d,extra){ var G=parse(d); if(!G) return null; if(extra) Object.keys(extra).forEach(function(k){ G[k]=extra[k]; }); return {G:G,R:crunch(G)}; }
-  window.TDC_GAMEFLOW={mount:mount,load:load,parse:parse,crunch:crunch,fromSummary:fromSummary,renderFlow:renderFlow,renderRotation:renderRotation,renderShots:renderShots};
+  window.TDC_GAMEFLOW={mount:mount,load:load,parse:parse,crunch:crunch,fromSummary:fromSummary,renderFlow:renderFlow,renderRotation:renderRotation,renderShots:renderShots,renderChart:renderChart,renderLineups:renderLineups,renderCourts:renderCourts};
 })();

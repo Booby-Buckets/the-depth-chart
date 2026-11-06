@@ -31,7 +31,7 @@
     .nav-logo{font-family:'Playfair Display',serif;font-weight:800;font-size:19px;text-decoration:none;color:var(--text);}
     .nav-logo span{color:var(--accent);}
     .theme-toggle{background:none;border:1px solid var(--border2);color:var(--text3);font-size:14px;width:32px;height:32px;cursor:pointer;border-radius:6px;}
-    .wrap{max-width:960px;margin:0 auto;padding:26px 22px 80px;}
+    .wrap{max-width:1240px;margin:0 auto;padding:26px 22px 80px;}
     .back{font-size:12px;font-weight:600;color:var(--text3);text-decoration:none;text-transform:uppercase;letter-spacing:.05em;}
     .back:hover{color:var(--accent);}
     /* matchup header */
@@ -58,6 +58,14 @@
     html body .gf-meta{font-size:10px;letter-spacing:.1em;}
     .bs-team{font-family:'Playfair Display',serif;font-weight:800;font-size:18px;margin-bottom:8px;}
     .sheet.bs-sheet tbody tr.totals td{border-top:2px solid var(--border2);}
+    /* the team line and the starters/bench line */
+    .sheet.bs-sheet tfoot td{padding:6px 7px;text-align:right;font-weight:800;font-size:inherit;color:var(--text);font-variant-numeric:tabular-nums;border-top:2px solid var(--border2);background:var(--bg2);white-space:nowrap;}
+    .sheet.bs-sheet tfoot td.l{text-align:left;position:sticky;left:0;z-index:1;}
+    .sheet.bs-sheet tr.bs-bench td{border-top:2px solid var(--border2);}
+    .bs-sc{font-family:Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;margin-left:6px;color:var(--text2);}
+    #gmBox .note{font-size:11.5px;color:var(--text3);line-height:1.5;margin:12px 2px 0;}
+    .bs-name .n-s{display:none;}
+    @media(max-width:640px){.bs-name .n-f{display:none;}.bs-name .n-s{display:inline;white-space:nowrap;}}
     .sheet .potg-tag{font-size:9px;font-weight:800;letter-spacing:.06em;color:var(--text3);margin-left:6px;}
     .loading,.err{padding:50px;text-align:center;color:var(--text3);}
     /* Player of the Game: a flat bordered row like the team header's stat strip (owner, Oct 16 2026: match the other pages) */
@@ -110,9 +118,9 @@
 <script src="tdc-live.js?v=3"></script>
 <script src="tdc-livegame.js?v=9"></script>
 <script src="tdc-shotchart.js?v=36"></script>
-<script src="tdc-gameflow.js?v=15"></script>
+<script src="tdc-gameflow.js?v=16"></script>
 <script src="tdc-gameonoff.js?v=1"></script>
-<script src="tdc-gametabs.js?v=8"></script>
+<script src="tdc-gametabs.js?v=16"></script>
 <script src="tdc-plays.js?v=1"></script>
 <script src="tdc-fingerprint.js?v=11"></script>
 <script src="tdc-credit.js?v=2"></script>
@@ -151,7 +159,9 @@ function teamRatings(g,SRS){
   const rate=perf=>Math.max(2.0,Math.min(10.0,Math.round((6.3+perf*0.22)*10)/10));
   return {home:hw?rate(res):rate(-res), away:hw?rate(-res):rate(res)};
 }
-function plink(p){ return `<a class="bs-name" href="player.html?espn=${p.espn_id}&name=${encodeURIComponent(p.player)}">${p.player}</a>`; }
+// phones get "G. Placide" so a name stays on one line beside the numbers
+function shortPlayer(n){ const w=String(n||'').trim().split(/\s+/); return w.length<2?String(n||''):w[0][0]+'. '+w.slice(1).join(' '); }
+function plink(p){ return `<a class="bs-name" href="player.html?espn=${p.espn_id}&name=${encodeURIComponent(p.player)}"><span class="n-f">${p.player}</span><span class="n-s">${shortPlayer(p.player)}</span></a>`; }
 function statline(p){
   const bits=[`${N(p.pts)} PTS`,`${N(p.reb)} REB`,`${N(p.ast)} AST`];
   if(N(p.stl)>=2) bits.push(`${N(p.stl)} STL`);
@@ -164,20 +174,22 @@ function statline(p){
 const pctV=(m,a)=>N(a)>0?(N(m)/N(a)*100).toFixed(1):'';
 const signedPm=v=>v>0?'+'+v:v<0?'−'+Math.abs(v):'0';
 const pmShade=d=>d>=10?' c4':d>=4?' c3':d<=-10?' c0':d<=-4?' c1':'';
-function row(p,tot,isPotg,rating,pm){
+function row(p,tot,isPotg,rating,pm,firstBench){
   const fg=`${N(p.fgm)}-${N(p.fga)}`, tp=`${N(p.tpm)}-${N(p.tpa)}`, ft=`${N(p.ftm)}-${N(p.fta)}`;
   const lead=tot?`<td class="l">Team</td>`
-    :`<td class="l nm">${plink(p)}${p.starter?' <span class="dim" title="Started">*</span>':''}${isPotg?'<span class="potg-tag" title="Player of the Game: highest Game Score on either team">POTG</span>':''}</td>`;
+    :`<td class="l nm">${plink(p)}${isPotg?'<span class="potg-tag" title="Player of the Game: highest Game Score on either team">POTG</span>':''}</td>`;
   const rtg=rating!=null?`<span title="0-10 game rating${tot?' (team: the result vs expected)':''}">${rating.toFixed(1)}</span>`:(tot?'':'—');
   const pmTd=pm===undefined?'':tot||pm==null?'<td class="dim">'+(tot?'':'—')+'</td>':`<td class="strong${pmShade(pm)}">${signedPm(pm)}</td>`;
-  return `<tr>${lead}<td class="strong">${rtg}</td><td>${tot?'':N(p.min)}</td><td class="strong">${N(p.pts)}</td>
-    <td>${N(p.reb)}</td><td class="dim">${N(p.oreb)}-${N(p.dreb)}</td><td>${N(p.ast)}</td><td>${N(p.stl)}</td><td>${N(p.blk)}</td><td>${N(p.tov)}</td><td class="dim">${N(p.pf)}</td>
-    <td data-v="${pctV(p.fgm,p.fga)}">${fg}</td><td data-v="${pctV(p.tpm,p.tpa)}">${tp}</td><td data-v="${pctV(p.ftm,p.fta)}">${ft}</td>${pmTd}</tr>`;
+  // shading is for real minutes and real volume: a walk-on's 1 minute or an 0-for-1 from three isn't a red flag
+  const thin=!tot&&N(p.min)<5, dv=thin?' data-v=""':'', vol=(m,a,n)=>N(a)>=n&&!thin?pctV(m,a):'';
+  return `<tr${firstBench?' class="bs-bench"':''}>${lead}<td class="strong"${dv}>${rtg}</td><td>${tot?'':N(p.min)}</td><td class="strong"${dv}>${N(p.pts)}</td>
+    <td${dv}>${N(p.reb)}</td><td class="dim">${N(p.oreb)}-${N(p.dreb)}</td><td${dv}>${N(p.ast)}</td><td>${N(p.stl)}</td><td>${N(p.blk)}</td><td>${N(p.tov)}</td><td class="dim">${N(p.pf)}</td>
+    <td data-v="${vol(p.fgm,p.fga,3)}">${fg}</td><td data-v="${vol(p.tpm,p.tpa,3)}">${tp}</td><td data-v="${vol(p.ftm,p.fta,3)}">${ft}</td>${pmTd}</tr>`;
 }
 function boxHead(rtgTip,pm){
   return `<thead><tr><th class="l">Player</th><th data-heat="1" title="${rtgTip}">RTG</th><th data-fit-keep>MIN</th><th data-heat="1">PTS</th>
-      <th data-heat="1">REB</th><th title="Offensive-defensive rebounds">O-D</th><th data-heat="1">AST</th><th data-heat="1">STL</th><th data-heat="1">BLK</th><th data-heat="-1">TO</th><th data-heat="-1">PF</th>
-      <th data-heat="1" data-fit-keep title="Field goals made-attempted, shaded by FG%">FG</th><th data-heat="1" title="Threes made-attempted, shaded by 3P%">3PT</th><th data-heat="1" title="Free throws made-attempted, shaded by FT%">FT</th>${pm?'<th title="Score margin while he was on the floor (from the play-by-play)">+/−</th>':''}</tr></thead>`;
+      <th data-heat="1">REB</th><th title="Offensive-defensive rebounds">O-D</th><th data-heat="1">AST</th><th>STL</th><th>BLK</th><th>TO</th><th>PF</th>
+      <th data-heat="1" data-fit-keep title="Field goals made-attempted, shaded by FG% (3+ attempts)">FG</th><th data-heat="1" title="Threes made-attempted, shaded by 3P% (3+ attempts)">3PT</th><th data-heat="1" title="Free throws made-attempted, shaded by FT% (3+ attempts)">FT</th>${pm?'<th title="Score margin while he was on the floor (from the play-by-play)">+/−</th>':''}</tr></thead>`;
 }
 // one team's block: logo + name heading, the sheet, then who sat (ESPN lists its did-not-play players)
 function tableFor(team,players,potgId,teamRating,pm,ext){
@@ -188,9 +200,10 @@ function tableFor(team,players,potgId,teamRating,pm,ext){
   const pmOf=p=>pm?(pm[String(p.espn_id)]!=null?pm[String(p.espn_id)]:null):undefined;
   const dnp=(ext.dnp||[]).concat(zero.map(p=>p.player));
   const GT=window.TDCGameTabs;
-  return GT.head(esc(ext.name||team), played.length+' played'+(ext.dnp?' · '+dnp.length+' did not play':''), ext.logo)+
+  const firstBenchAt=sorted.some(p=>p.starter)?sorted.findIndex(p=>!p.starter):-1;
+  return GT.head(esc(ext.name||team)+(ext.pts!=null?`<span class="bs-sc">${N(ext.pts)}</span>`:''), played.length+' played'+(ext.dnp?' · '+dnp.length+' did not play':''), ext.logo)+
     `<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense freeze bs-sheet">${boxHead('0-10 game rating from the box score (Game Score): 5 ≈ an average game · 6.5 strong · 8+ great',!!pm)}<tbody>
-      ${sorted.map(p=>row(p,false,p.espn_id===potgId,N(p.min)>0?playerRating(p):null,pmOf(p))).join('')}
+      ${sorted.map((p,i)=>row(p,false,p.espn_id===potgId,N(p.min)>0?playerRating(p):null,pmOf(p),i===firstBenchAt)).join('')}
     </tbody><tfoot>${row(tot,true,false,teamRating!=null?teamRating:null,pm?null:undefined)}</tfoot></table></div>`+
     (ext.dnp?`<div class="gt-dnp"><b>Did not play:</b> ${dnp.length?dnp.map(esc).join(', '):'<span class="none">everyone played</span>'}</div>`:'');
 }
@@ -323,12 +336,28 @@ async function load(afterLive){
       players:(byTeam[t]||[]).map(p=>({ name:p.player, pts:p.pts, reb:p.reb, ast:p.ast, min:p.min, href:href(p) })) });
     const card=potg?GT.potg({ name:potg.player, href:href(potg), team:shortNm(potg.team), logo:look(potg.team).logo, color:look(potg.team).color,
       min:potg.min, fg:potg.fga!=null?N(potg.fgm)+'-'+N(potg.fga):'', pts:potg.pts, reb:potg.reb, ast:potg.ast, stl:potg.stl, blk:potg.blk, rtg:playerRating(potg) }):'';
-    const summary='<div class="gt-sumgrid">'+card+(order.length===2?GT.duel(order.map(sideOf)):'')+'</div><div id="gmMoments"></div>'+
-      GT.panel('The result',GT.kv((read||[]).concat([['Rating scale',tr?'Team game rating: 6.3 = played exactly as expected · Player RTG: 5 average · 6.5 strong · 8+ great':'Player RTG: 5 average · 6.5 strong · 8+ great']])));
+    // THE GAME tab (owner, Nov 2026: box score first, the analysis as a dashboard under it). Chart panels fill in from the
+    // play-by-play and drop out when ESPN has none.
+    const dash='<div class="gt-sumgrid">'+card+(order.length===2?GT.duel(order.map(sideOf)):'')+'</div>'+
+      '<div class="gt-sumgrid gt-dash"><div class="gt-sumcol"><div id="gmFlowP">'+GT.panel('Game flow','<div id="gmFlow"><div class="loading">Loading the play-by-play…</div></div>')+'</div><div id="gmMoments"></div></div>'+
+      '<div id="gmEff"></div></div>'+
+      '<div id="gmShotsP">'+GT.panel('Shot charts','<div id="gmShots"><div class="loading">Loading the play-by-play…</div></div>','<span class="gt-tools">by-player zones on the Shot chart tab</span>')+'</div>'+
+      '<div class="gt-sumgrid gt-sum2" style="margin-top:18px;">'+(order.length===2?GT.compare(order.map(t=>({name:shortNm(t),players:byTeam[t]}))):'')+
+      '<div class="gt-sumcol"><div id="gmLineupsP">'+GT.panel('Most-used lineups','<div id="gmLineups"></div>',null,'gt-flush')+'</div>'+GT.panel('The result',GT.kv(read||[]),null,'gt-flush')+'</div></div>'+
+      '<p class="gt-foot">'+(tr?'Team game rating: 6.3 = played exactly as expected · ':'')+'Player RTG: 5 average · 6.5 strong · 8+ great</p>';
     // box scores; +/− joins once the play-by-play has been walked
     let PM;
-    const boxesHtml=pm=>order.map(t=>tableFor(t,byTeam[t],potgId,trFor(t),pm,{ name:shortNm(t), logo:look(t).logo, dnp:DNP?(DNP[t]||[]):null })).join('')+
-      '<p class="note">* = started · RTG = 0–10 game rating (team line: the result vs expected)'+(DNP?' · from ESPN’s box until ours posts':'')+'</p>';
+    const ptsOf=t=>t===home?hs:t===away?as_:null;
+    // team switch: opens on the winner; "Both" stacks them
+    let boxSel=order.length===2?(N(ptsOf(order[1]))>N(ptsOf(order[0]))?1:0):'both';
+    const boxSeg=()=>order.length!==2?'':'<div class="gt-seg" role="group" aria-label="Which team">'+order.map((t,i)=>`<button type="button" data-b="${i}">${look(t).logo?`<img src="${esc(look(t).logo)}" alt="">`:''}${esc(shortNm(t))} <b>${N(ptsOf(t))}</b></button>`).join('')+'<button type="button" data-b="both">Both</button></div>';
+    const boxApply=el=>{ el.querySelectorAll('.bs-team').forEach(d=>{ d.hidden=boxSel!=='both'&&String(boxSel)!==d.dataset.t; });
+      el.querySelectorAll('.gt-seg button').forEach(b=>{ const on=b.dataset.b===String(boxSel); b.classList.toggle('on',on); b.setAttribute('aria-pressed',on?'true':'false'); });
+      window.dispatchEvent(new Event('resize')); };   // the phone sheet fit skips hidden tables: let it measure the one just shown
+    const boxDraw=(el,pm)=>{ el.innerHTML=boxSeg()+boxesHtml(pm); shadeBoxes(el); boxApply(el);
+      el.querySelectorAll('.gt-seg button').forEach(b=>{ b.onclick=()=>{ boxSel=b.dataset.b==='both'?'both':+b.dataset.b; boxApply(el); }; }); };
+    const boxesHtml=pm=>order.map((t,i)=>`<div class="bs-team" data-t="${i}">`+tableFor(t,byTeam[t],potgId,trFor(t),pm,{ name:shortNm(t), logo:look(t).logo, pts:ptsOf(t), dnp:DNP?(DNP[t]||[]):null })+'</div>').join('')+
+      '<p class="note">Starters above the line · RTG = 0–10 game rating (team line: the result vs expected)'+(DNP?' · from ESPN’s box until ours posts':'')+'</p>';
     const pmFrom=res=>{ const S=res&&res.R&&res.R.stints; if(!S||!Object.keys(S).length) return null;
       const o={}; Object.keys(S).forEach(id=>{ o[id]=S[id].reduce((a,x)=>a+x.pm,0); }); return o; };
     // TEAM STATS: the scrimmage page's efficiency sheet (shooting · four factors · per possession vs the D-I average)
@@ -339,20 +368,25 @@ async function load(afterLive){
     const gfTab=(id,label,draw)=>({id,label,onShow:el=>{ el.innerHTML='<section class="gf-card"><div class="loading">Loading the play-by-play…</div></section>';
       gfP.then(res=>{ if(!res){ el.innerHTML='<div class="loading">No play-by-play for this game.</div>'; return; } try{ draw(el.firstChild,res); }catch(e){ console.error(e); el.innerHTML='<div class="loading">Couldn’t draw this from the play-by-play.</div>'; } }); }});
     const tabs=GT.mount(document.getElementById('gmTabs'),[
-      {id:'summary',label:'Summary',html:summary},
-      {id:'box',label:'Box score',onShow:el=>{ el.innerHTML=boxesHtml(PM); shadeBoxes(el);
-        if(PM===undefined) gfP.then(res=>{ PM=pmFrom(res); if(PM){ el.innerHTML=boxesHtml(PM); shadeBoxes(el); } }); }},
-      {id:'stats',label:'Team stats',onShow:el=>{ ffP.then(ff=>{ const t=GT.efficiency({away:{players:byTeam[away]||[]},home:{players:byTeam[home]||[]}},{away:shortNm(away),home:shortNm(home)},ff);
-        el.innerHTML=t?GT.head('Efficiency','shooting · four factors · per possession')+t:'<div class="loading">No team box for this game.</div>'; }); }},
+      {id:'game',label:'Game',onShow:el=>{ el.innerHTML='<div id="gmBox"></div>'+dash;
+        const bx=document.getElementById('gmBox'); boxDraw(bx,PM);
+        ffP.then(ff=>{ const t=GT.efficiency({away:{players:byTeam[away]||[]},home:{players:byTeam[home]||[]}},{away:shortNm(away),home:shortNm(home)},ff), h=document.getElementById('gmEff');
+          if(h) h.innerHTML=t?GT.panel('Efficiency',t,null,'gt-flush gt-eff'):''; });
+        gfP.then(res=>{ const off=id=>{ const d=document.getElementById(id); if(d) d.remove(); };
+          if(!res){ ['gmFlowP','gmShotsP','gmLineupsP'].forEach(off); return; }
+          PM=pmFrom(res); if(PM) boxDraw(bx,PM);
+          try{ TDC_GAMEFLOW.renderChart(document.getElementById('gmFlow'),res.G,res.R); }catch(e){ console.error(e); off('gmFlowP'); }
+          try{ if(!TDC_GAMEFLOW.renderCourts(document.getElementById('gmShots'),res.G)) off('gmShotsP'); }catch(e){ console.error(e); off('gmShotsP'); }
+          try{ if(!TDC_GAMEFLOW.renderLineups(document.getElementById('gmLineups'),res.G,res.R,3)) off('gmLineupsP'); }catch(e){ console.error(e); off('gmLineupsP'); }
+          const nmT=t=>shortNm((res.G.T[t]&&res.G.T[t].name)||t), colT=t=>look((res.G.T[t]&&res.G.T[t].name)||t).color||'var(--text3)';
+          const m=document.getElementById('gmMoments'); if(m) try{ m.innerHTML=GT.momentTiles(res.G,res.R,nmT,colT); }catch(e){ console.error(e); } }); }},
       {id:'why',label:'Why it went that way',html:'<div id="rcHost"><div class="loading">Reading the play-by-play…</div></div>'},
       gfTab('flow','Game flow',(el,r)=>TDC_GAMEFLOW.renderFlow(el,r.G,r.R)),
       gfTab('shots','Shot chart',(el,r)=>TDC_GAMEFLOW.renderShots(el,r.G,r.R)),
       gfTab('rotation','Rotation',(el,r)=>TDC_GAMEFLOW.renderRotation(el,r.G,r.R)),
       gfTab('onoff','On/Off',(el,r)=>TDC_GAMEONOFF.render(el.parentNode,r.G,r.R)),
     ]);
-    gfP.then(res=>{ if(!res){ ['flow','shots','rotation','onoff'].forEach(t=>tabs.drop(t)); return; }
-      const nmT=t=>shortNm((res.G.T[t]&&res.G.T[t].name)||t), colT=t=>look((res.G.T[t]&&res.G.T[t].name)||t).color||'var(--text3)';
-      const m=document.getElementById('gmMoments'); if(m) try{ m.innerHTML=GT.momentTiles(res.G,res.R,nmT,colT); }catch(e){ console.error(e); } });
+    gfP.then(res=>{ if(!res) ['flow','shots','rotation','onoff'].forEach(t=>tabs.drop(t)); });
     // our read of the game: where the edge came from, who beat his usual, the swing (tdc-recap.js; hides itself without PBP)
     if(window.TDC_RECAP) Promise.resolve(TDC_RECAP.mount(document.getElementById('rcHost'),gid,{season:g&&g.season_year})).then(R=>{ if(!R) tabs.drop('why'); });
     else tabs.drop('why');

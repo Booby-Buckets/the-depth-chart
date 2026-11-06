@@ -236,7 +236,7 @@
     'game.html': [
       { sel:'.ghb', t:'The final', d:'Final score and each team\'s game rating (0-10): 6.3 means they played exactly as expected, higher means they beat it.' },
       { sel:'.gm-strip', t:'The numbers', d:'Margin, what we expected, how far the result landed from it, total points and possessions.' },
-      { sel:'.gt-bar', t:'The tabs', html:bl('<b>Summary</b> — expected vs result and the player of the game.', '<b>Why it went that way</b> — which skills decided it, who beat his usual, and the swing.', '<b>Box score</b> — every player\'s line; RTG is a 0-10 game rating.', '<b>Game flow · Shot chart · Rotation</b> — from the play-by-play, when ESPN has it.') }
+      { sel:'.gt-bar', t:'The tabs', html:bl('<b>Game</b> — the box score (switch teams; RTG is a 0-10 game rating), then the player of the game, flow, efficiency, shots and lineups.', '<b>Why it went that way</b> — which skills decided it, who beat his usual, and the swing.', '<b>Game flow · Shot chart · Rotation · On/Off</b> — the full detail from the play-by-play, when ESPN has it.') }
     ],
     'buzz.html': [
       { sel:'#q',     t:'The Wire',   d:'News and posts about players and programs, searchable.' },
