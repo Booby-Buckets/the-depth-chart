@@ -97,6 +97,19 @@ def main():
     out = {"season": a.season, "built": time.strftime("%Y-%m-%dT%H:%MZ", time.gmtime()), "through": max((g["date"] for g in games), default=None),
            "games": len(games), "players": {e: tidy(d) for e, d in players.items()}, "named": {k: tidy(d) for k, d in named.items()},
            "teams": {t: tidy(d) for t, d in teams.items() if d["g"]}}
+    # the one exact list of sheet name -> ESPN full name, from the published rankings. Guessing from a name prefix sent UMass to
+    # UMass Lowell and Penn to Penn State. Pages and builds read this file; if the pull fails the last file stays.
+    names_fp = os.path.join(a.out, "team_full_names.json")
+    try:
+        if a.season == 2027:
+            rows = get("predictive_ratings?select=data&season=eq.2027")[0]["data"]["teams"]
+            names = {t["team"]: t["full"] for t in rows if t.get("team") and t.get("full")}
+            if len(names) >= 300: json.dump(names, open(names_fp, "w"), separators=(",", ":"), sort_keys=True, ensure_ascii=False)
+            else: print(f"warn: only {len(names)} team names from the rankings, keeping the last list")
+    except Exception as e:
+        print(f"warn: no team names from the rankings ({e}), keeping the last list")
+    try: out["alias"] = json.load(open(names_fp))
+    except Exception: out["alias"] = {}
     fp = os.path.join(a.out, f"real_lines_{a.season}.json")
     json.dump(out, open(fp, "w"), separators=(",", ":"))
     print(f"wrote {fp}: {len(games)} games, {len(out['players'])} players, {len(out['named'])} without an id, {len(out['teams'])} teams, through {out['through']}")

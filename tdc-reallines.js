@@ -32,18 +32,12 @@
       fgm: A('fgm'), fga: A('fga'), tpm: A('tpm'), tpa: A('tpa'), ftm: A('ftm'), fta: A('fta'),
       fg_pct: pct(+t.fgm || 0, +t.fga || 0), tp_pct: pct(+t.tpm || 0, +t.tpa || 0), ft_pct: pct(+t.ftm || 0, +t.fta || 0) };
   }
-  var _short = null;
   function teamRow(name) {
     if (!DOC || !name) return null;
     if (DOC.teams[name]) return DOC.teams[name];
-    if (!_short) {   // short sheet name -> full ESPN name, from the projection's own team list when it's on the page
-      _short = {};
-      Object.keys(DOC.teams).forEach(function (f) { var s = f.split(' ').slice(0, -1).join(' '); if (!_short[s]) _short[s] = f; else _short[s] = null; });
-    }
-    var f = _short[name]; if (f) return DOC.teams[f];
-    var lc = String(name).toLowerCase() + ' ', hit = null, n = 0;
-    Object.keys(DOC.teams).forEach(function (x) { if (x.toLowerCase().indexOf(lc) === 0) { n++; if (!hit || x.length < hit.length) hit = x; } });
-    return n === 1 ? DOC.teams[hit] : null;   // "Texas" also opens Texas Tech: an ambiguous name must not show another team's stats
+    // the exact sheet -> full name list, never a prefix guess: "UMass" also starts UMass Lowell, "Penn" Penn State
+    var f = (DOC.alias || {})[name];
+    return f ? (DOC.teams[f] || null) : null;
   }
   function fire() { try { window.dispatchEvent(new CustomEvent('tdc:statmode', { detail: { mode: MODE } })); } catch (e) {} }
   function setMode(m) {
@@ -82,7 +76,7 @@
   function byName(p) {
     if (!p.name || !p.team) return null;
     if (!_names) { _names = {}; [DOC.players, DOC.named || {}].forEach(function (S) { Object.keys(S).forEach(function (k) { var n = nk(S[k].n); (_names[n] = _names[n] || []).push(S[k]); }); }); }
-    var t = String(p.team).toLowerCase(), hits = (_names[nk(p.name)] || []).filter(function (r) { var f = String(r.t || '').toLowerCase(); return f === t || f.indexOf(t + ' ') === 0; });
+    var full = (DOC.alias || {})[p.team] || p.team, hits = (_names[nk(p.name)] || []).filter(function (r) { return r.t === full; });
     return hits.length === 1 ? hits[0] : null;
   }
   var OH = null, ohP = null;
