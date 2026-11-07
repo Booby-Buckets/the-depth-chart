@@ -4,7 +4,7 @@
      TDC_TEAMHQ.show(host, {team, season})   team = short or full name; returns false for a program not in the ratings
    The band, the season picker and the schedule live on the team page itself. */
 (function(){
-var POOL=[], MY=null, HQ_SEASON=2027, PAST={}, HOST=null, _poolP=null;
+var POOL=[], MY=null, HQ_SEASON=2027, PAST={}, HOST=null, _poolP=null, REALD=null;
 var SB='https://izlqhnxowdhtdofkwrho.supabase.co', KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye', H={apikey:KEY,Authorization:'Bearer '+KEY};
 function byId(x){ return document.getElementById(x); }
 function esc(s){ return (''+(s==null?'':s)).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
@@ -38,7 +38,7 @@ function rowOf(full){ full=(full||'').toLowerCase().trim(); return POOL.filter(f
 var SKELETON=
   '<div id="hxToday">'+
     '<div class="hq-sec"><h2 id="hxNextLbl">Up next</h2><span class="sub" id="hxNextSub"></span></div><div id="hxGame"></div>'+
-    '<div id="hxFiveBlk"><div class="hq-sec"><h2>The starting five</h2><span class="sub">depth chart · projected per game</span></div><div class="c-five" id="hxFive"></div></div>'+
+    '<div id="hxFiveBlk"><div class="hq-sec"><h2>The starting five</h2><span class="sub" id="hxFiveSub">depth chart · projected per game</span></div><div class="c-five" id="hxFive"></div></div>'+
     '<div id="hxRecapBlk"><div class="hq-sec"><h2 id="hxOutlookLbl">Season recap</h2></div><div id="hxOutlook"></div></div>'+
     '<div class="hq-two"><div>'+
       '<div class="hq-sec"><h2 id="hxLeadLbl">The bench</h2><span class="sub" id="hxLeadSub"></span></div><div id="hxLeaders"></div>'+
@@ -279,7 +279,7 @@ function pastRoster(row,yr){
       '</tbody></table></div>';
   }).catch(function(){ if(!stale()){ le.innerHTML='<div class="hx-empty">Could not load the roster.</div>'; se.innerHTML=''; } });
 }
-function seatFive(list){
+function seatFive(list,RD){
   var SL=['PG','SG','SF','PF','C'], IDX={PG:0,SG:1,SF:2,PF:3,C:4};
   var rsls=function(x){ x=(''+(x||'')).toUpperCase().trim();
     if(x==='PG')return ['PG']; if(x==='SG')return ['SG']; if(x==='G'||x==='CG')return ['PG','SG'];
@@ -293,6 +293,12 @@ function seatFive(list){
     perm(0); return { five:best||five, c:bestC }; };
   var dOf=function(x){ var d=parseFloat(x.p.depth_order); return isFinite(d)?d:999; };
   var ord=list.slice().sort(function(a,b){ return dOf(a)-dOf(b); });
+  // REAL GAMES (same rule as the Depth Chart tab): once a team has played, the five are its most frequent starters,
+  // recent games counting more; injured players were already taken out, so the next man up starts
+  if(RD&&ord.length>=5&&ord.some(function(x){ return RD.of(x.p); })){
+    var rd=ord.slice().sort(function(a,b){ var x=RD.of(a.p)||{w:0,min:0}, y=RD.of(b.p)||{w:0,min:0}; return y.w-x.w||y.min-x.min||dOf(a)-dOf(b); });
+    return arrange(rd.slice(0,5)).five.map(function(x,i){ x.slot=SL[i]; return x; });
+  }
   if(ord.length<=5){ var r0=ord.length===5?arrange(ord).five:ord; return r0.map(function(x,i){ x.slot=ord.length===5?SL[i]:null; return x; }); }
   var kept=ord.filter(function(x){ return dOf(x)<=5; }), bench=ord.filter(function(x){ return dOf(x)>5; }), open=5-kept.length, SKIP=0.6, five;
   if(open<=0) five=arrange(ord.slice(0,5)).five;
@@ -327,8 +333,11 @@ function loadRoster(row){
         });
         if(!arr.length){ fe.innerHTML='<div class="hx-empty">No roster on file for this program yet.</div>'; return; }
         var healthy=arr.filter(function(x){ return !x.out; });
-        var five=seatFive(healthy), inFive=five.map(function(x){ return x.p; });
-        var bench=healthy.filter(function(x){ return inFive.indexOf(x.p)<0; }).filter(function(x){ return x.mpg==null||x.mpg>=0.5; }), hurt=arr.filter(function(x){ return x.out; });
+        var RD=REALD, five=seatFive(healthy,RD), inFive=five.map(function(x){ return x.p; });
+        var bench=healthy.filter(function(x){ return inFive.indexOf(x.p)<0; }).filter(function(x){ return x.mpg==null||x.mpg>=0.5||(RD&&RD.of(x.p)); }), hurt=arr.filter(function(x){ return x.out; });
+        // bench: who actually plays first once games are in, like the Depth Chart tab
+        if(RD&&bench.some(function(x){ return RD.of(x.p); })) bench.sort(function(a,b){ var x=RD.of(a.p), y=RD.of(b.p); return ((y&&y.min)||0)-((x&&x.min)||0); });
+        var fs=byId('hxFiveSub'); if(fs) fs.textContent=RD?'most-used starters · '+RD.R.games+(RD.R.games===1?' game':' games')+' · projected per game':'depth chart · projected per game';
         var hc=function(o){ return o==null?'':o>=85?'c4':o>=80?'c3':o>=75?'c2':o>=70?'c1':'c0'; };
         fe.innerHTML=five.map(function(x){ var p=x.p, L=x.L;
           var pl=x.slot||p.position||'', ownPos=(p.position||'').toUpperCase();
@@ -360,7 +369,8 @@ function loadRoster(row){
       };
       // the owner's freshman profiles + injury report first, so a recruit's OVR and who is out match the team page
       var _boot=function(){ var r=(window.TDCProjGrade&&TDCProjGrade.ready)||Promise.resolve(); var inj=(window.TDCInjury&&TDCInjury.load)?Promise.resolve(TDCInjury.load()).catch(function(){}):Promise.resolve();
-        Promise.all([r,inj]).then(go).catch(go); };
+        var rd=REAL_FN?Promise.resolve(REAL_FN()).then(function(v){ if(v&&v.R&&+HQ_SEASON===2027) REALD=v; }).catch(function(){}):Promise.resolve();
+        Promise.all([r,inj,rd]).then(go).catch(go); };
       if(window.TDCFresh&&TDCFresh.load){ TDCFresh.load().then(_boot).catch(_boot); } else { _boot(); }
     }).catch(function(){ fe.innerHTML='<div class="hx-empty">Could not load the roster.</div>'; });
 }
@@ -388,7 +398,7 @@ function loadBuzz(row){
 }
 
 function pool(){ if(!_poolP) _poolP=(window.TDC_RATINGS?TDC_RATINGS.get():Promise.resolve({})).then(function(D){ POOL=((D&&D.teams)||[]).filter(function(t){ return t.projected!==false && t.rating!=null; }).sort(function(a,b){ return (a.rank||999)-(b.rank||999); }); return POOL; }); return _poolP; }
-var _key=null;
+var _key=null, REAL_FN=null;
 window.TDC_TEAMHQ={
   // draws the tab once per team + season; resolves to false when the program isn't in the ratings (left D-I)
   show:function(host,o){
@@ -396,7 +406,7 @@ window.TDC_TEAMHQ={
       var row=rowOf(o.team)||(o.full&&rowOf(o.full)); if(!row) return false;
       var y=+o.season||2027, k=row.full+'|'+y;
       if(k===_key&&HOST===host) return true;
-      _key=k; HOST=host; MY=row.full; HQ_SEASON=y;
+      _key=k; HOST=host; MY=row.full; HQ_SEASON=y; REAL_FN=o.realDepth||null; REALD=null;
       if(window.tdcBandColor&&!document.documentElement.style.getPropertyValue('--tc-band')){ try{ var c=tdcTeamColor(row.full); if(c&&c.c1) document.documentElement.style.setProperty('--tc-band',tdcBandColor(c.c1)); }catch(e){} }
       host.innerHTML=SKELETON; renderSeason();
       return true;

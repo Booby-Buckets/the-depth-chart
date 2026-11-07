@@ -27,7 +27,7 @@
   <script src="tdc-nilchart.js?v=1"></script>
   <script src="tdc-gate.js?v=5"></script>
   <script src="tdc-teamgrades.js"></script>
-  <script src="tdc-teamhq.js?v=1"></script>
+  <script src="tdc-teamhq.js?v=2"></script>
   <script src="tdc-teamscout.js?v=5"></script>
   <link rel="stylesheet" href="tdc-teamhq.css?v=3"/>
   <script src="tdc-pos.js"></script>
@@ -2994,13 +2994,15 @@ function fmt1(v){ const n=parseFloat(v); return isNaN(n)?'—':n.toFixed(1); }
 // weighted toward recent games, min: minutes per game played}
 function _realDepthOf(p){ const R=window._realDepth; if(!R||!p) return null; return (p.espn_id!=null&&R.e[String(p.espn_id)])||R.n[String(p.name||'').toLowerCase().replace(/[^a-z]/g,'')]||null; }
 function _loadRealDepth(){
-  if(!window.TDCLineupHist||window._realDepthAsked) return; window._realDepthAsked=true;
-  _resolveGamesKey().catch(()=>null).then(full=>full?TDCLineupHist.load(full):null).then(F=>{
-    const G=(F&&F.s&&F.s['2027'])||[]; if(!G.length) return;
+  if(!window.TDCLineupHist||window._realDepthAsked) return window._realDepthP; window._realDepthAsked=true;
+  // the Overview's starting five waits on this too, so both tabs seat the same players
+  return window._realDepthP=_resolveGamesKey().catch(()=>null).then(full=>full?TDCLineupHist.load(full):null).then(F=>{
+    const G=(F&&F.s&&F.s['2027'])||[]; if(!G.length) return null;
     const raw={}; G.forEach((x,i)=>{ const wt=Math.pow(0.9,G.length-1-i); (x[6]||[]).forEach(k=>{ (raw[k]=raw[k]||{w:0,m:0,g:0}).w+=wt; }); (x[7]||[]).forEach(r=>{ const q=raw[r[0]]=raw[r[0]]||{w:0,m:0,g:0}; q.m+=r[1]; q.g++; }); });
     const R={e:{},n:{},games:G.length}; Object.keys(raw).forEach(k=>{ const q=raw[k], row={w:q.w,min:q.g?q.m/q.g:0}; if(!k.startsWith('n:')) R.e[k]=row; R.n[String((F.p||{})[k]||k.slice(2)).toLowerCase().replace(/[^a-z]/g,'')]=row; });
     window._realDepth=R; const L=window._lastHistRender; if(L&&L[2]) renderHistoricRoster.apply(null,L);
-  }).catch(e=>console.warn('real depth',e));
+    return R;
+  }).catch(e=>{ console.warn('real depth',e); return null; });
 }
 function _renderRealTeam(players, teamName){
   const wrap=document.getElementById('realTeamWrap'), proj=document.getElementById('projectionsContent'), head=document.getElementById('projSecHead');
@@ -6475,7 +6477,7 @@ function _tabUrl(id, dflt){ try{ var u=new URL(location.href); if(!id||id===dflt
 // Overview + Scouting Report (tdc-teamhq.js, tdc-teamscout.js): each draws once per team + season. A program the ratings
 // no longer carry (left D-I) has no Overview, so it opens on its depth chart.
 function _drawOverview(){ const host=document.getElementById('teamHqHost'); if(!host||!window.TDC_TEAMHQ) return;
-  (async()=>{ const full=await _resolveGamesKey().catch(()=>null); const ok=await TDC_TEAMHQ.show(host,{team:teamName,full,season:_rosterSeason});
+  (async()=>{ const full=await _resolveGamesKey().catch(()=>null); const ok=await TDC_TEAMHQ.show(host,{team:teamName,full,season:_rosterSeason,realDepth:()=>Promise.resolve(_loadRealDepth()).then(R=>R?{R,of:_realDepthOf}:null).catch(()=>null)});
     if(!ok&&document.getElementById('panel-overview').classList.contains('active')) switchTab('depth',document.querySelector(".hgm-item[onclick*=\"'depth'\"]")); _tgSyncActive(); })(); }
 function _drawScout(){ const host=document.getElementById('teamScoutHost'); if(!host||!window.TDC_TEAMSCOUT) return;
   (async()=>{ const full=(await _resolveGamesKey().catch(()=>null))||teamMascot(); TDC_TEAMSCOUT.show(host,{full,season:_rosterSeason}); })(); }
