@@ -131,7 +131,7 @@ const INTERESTS=[
   {k:'coach',  ic:'📋', t:'Coaching intelligence',  d:'Scouting reports, matchups, lineups, Moneyball roster math.'}
 ];
 const LAUNCH={
-  team:   t=>[{h:'program-hq.html?team='+encodeURIComponent(t||''),ic:'🏟️',t:(t||'Your team')+' HQ',d:'Your program’s front door'},{h:'team.html?team='+encodeURIComponent(t||''),ic:'📋',t:'Depth chart',d:'Roster, grades, projections'}],
+  team:   t=>[{h:'team.html?team='+encodeURIComponent(t||''),ic:'🏟️',t:t||'Your team',d:'Your program’s front door'},{h:'team.html?team='+encodeURIComponent(t||'')+'&tab=depth',ic:'📋',t:'Depth chart',d:'Roster, grades, projections'}],
   rank:   ()=>[{h:'index.html',ic:'🏆',t:'Projected rankings',d:'All of Division I, 2026-27'},{h:'roster.html',ic:'📈',t:'Player projections',d:'Every player\'s projected line'}],
   players:()=>[{h:'roster.html',ic:'🧬',t:'Player search',d:'Every graded player'},{h:'compare-players.html',ic:'⚖️',t:'Compare players',d:'Side by side, any two'}],
   bet:    ()=>[{h:'bet/',ic:'🎯',t:'TDC Bet',d:'Best bets, lines, props'},{h:'bet/futures.html',ic:'🏆',t:'Futures',d:'Title, conference, win-total odds'}],
@@ -303,7 +303,7 @@ function step4(){
     <div class="seal-big">${av}<div><div class="who">${esc(state.username)}${badge}</div><div style="font-size:12px;color:var(--text3);font-weight:600">${state.teamFull?esc(state.teamFull)+' · ':''}${window.TDC_BADGE?TDC_BADGE.label(PROFILE):'Free'} member</div></div></div>
     <div class="sub">Here’s where to start, based on what you picked. Your profile, plan and favorite team all live on the <b>Account</b> page.</div>
     <div class="launch">${links.slice(0,6).map(l=>`<a class="lp" href="${l.h}"><div class="ic">${l.ic}</div><div><div class="t">${esc(l.t)}</div><div class="d">${esc(l.d)}</div></div></a>`).join('')}</div>
-    <div class="foot"><a class="skip" href="profile.html" style="text-decoration:none">View my profile</a><a class="btn primary" href="${NEXT&&/^[a-z0-9\-]+\.html/i.test(NEXT)?esc(NEXT):(state.team?'program-hq.html?team='+encodeURIComponent(state.team):'index.html')}" style="text-decoration:none">Take me in →</a></div>
+    <div class="foot"><a class="skip" href="profile.html" style="text-decoration:none">View my profile</a><a class="btn primary" href="${NEXT&&/^[a-z0-9\-]+\.html/i.test(NEXT)?esc(NEXT):(state.team?'team.html?team='+encodeURIComponent(state.team):'index.html')}" style="text-decoration:none">Take me in →</a></div>
   </div>`;
   confetti();
 }

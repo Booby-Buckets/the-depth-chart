@@ -60,9 +60,9 @@
     ],
 
     'team.html': [
-      { sel:'#teamHero', t:'Team HQ', d:'Everything about one program lives here. The season switcher lower down flips the whole page between the coming season (projected) and any past season (real results) back to 2006-07.' },
+      { sel:'#teamHero', t:'The team page', d:'Everything about one program lives here. The season switcher lower down flips the whole page between the coming season (projected) and any past season (real results) back to 2006-07.' },
       { sel:'#heroRibbon, #heroMetrics', t:'The headline numbers', html:bl(G.power, '<b>Overall / Offense / Defense</b> — 0-99 grades for the team as a whole and each side of the ball, relative to all of Division I.', '<b>Projected record</b> — the most likely wins-losses, with the range a simulated season produces around it.', '<b>Projected seed / rank</b> — where the model places them nationally and in the NCAA tournament.', '<b>Continuity</b> — the share of last season\'s minutes that return. High continuity teams usually out-perform their raw talent early.') },
-      { sel:'.hero-tabs', t:'The tabs', html:bl('<b>Depth Chart</b> — the rotation, position by position.', '<b>Schedule</b> — every game with a projected line.', '<b>Preview</b> — a full matchup report against any opponent.', '<b>Analytics ▾</b> — Team DNA, projected stats, shot charts, on/off, lineups.', '<b>Coach\'s Tier ▾</b> — the scouting tools.', '<b>NIL Value</b> and <b>Betting</b>.') },
+      { sel:'.hero-tabs', t:'The tabs', html:bl('<b>Overview</b> — the next game, starting five, bench, grades and standings.', '<b>Scouting Report</b> — every stat, offense and defense, with its D-I rank, beside the schedule.', '<b>Schedule</b> — every game with a projected line.', '<b>Roster ▾</b> — depth chart, lineups, on/off.', '<b>Stats ▾</b> and <b>Shots ▾</b> — Team DNA, trends, projections, shot charts.', '<b>Scouting Tools ▾</b> — preview any matchup, Lineup Lab, the roster report.', '<b>Market ▾</b> — NIL value and betting.') },
       { sel:'.dc-grid', t:'The depth chart', html:'The rotation as the coach would draw it — a column per position (PG, SG, SF, PF, C), starters on top, bench underneath.' + bl('The number on each card is his <b>projected OVR</b> (0-99).', 'The minutes are his <b>projected minutes per game</b> — the same minutes his player page and the team stats are built from.', '★ = projected starter. FR = true freshman, whose line comes from his evaluation rather than college stats.') , tab:'depth' },
       { sel:'#panel-schedule', t:'Schedule', html:'Every game on the slate.' + bl('<b>Line</b> — the projected margin. −7 means this team is favoured by 7.', '<b>Win %</b> — the chance of winning that game.', 'The summary above it is a <b>simulated season</b>: the record range you should expect, not one fixed number, because every game carries uncertainty.'), tab:'schedule' },
       { sel:'#lineupHistHost', tab:'lineups', t:'Lineups', d:'Who actually started, from real box scores: the most common starting fives, the starters over the last 5 and 10 games and by month, how each five did, and the best performers as starters and off the bench.' },
@@ -184,15 +184,6 @@
       { sel:'#quad', t:'The quadrant', d:'Every player placed by the quality of his shots (across) and his shot-making (up). Top right: great looks and makes them — the elite. Top left: makes hard shots. Bottom right: gets good looks but misses them.' }
     ],
 
-    'program-hq.html': [
-      { sel:'#picker',      t:'Program HQ',        d:'Your team\'s front door. Pick your program once and this page — and every tool it launches — is built around it.' },
-      { sel:'.hx-hero',     t:'The header',        html:bl(G.power, '<b>Projected record, seed and rank</b> for the coming season.', 'The style tag is the team\'s identity from its DNA (Up-Tempo Shooters, Grind-It-Out Bigs…).') },
-      { sel:'#hxOutlook',   t:'Outlook',           d:'A plain-English read on the season ahead: what the roster returns, what changed, where the model sees the ceiling and the floor.' },
-      { sel:'#hxGame',      t:'Next game',         html:bl(G.spread, 'One click opens the full preview or the scouting report on that opponent.') },
-      { sel:'#hxStandings', t:'Standings',         d:'The conference table with each team\'s Power Rating.' },
-      { sel:'#hxLeaders',   t:'Leaders',           d:'Your top players by projected OVR and Wins Added.' },
-      { sel:'#hqLaunch',    t:'The launchpad',     d:'Twelve tools — depth chart, schedule, DNA, scouting, portal, NIL, betting… — each pre-loaded with your team. Every one of them has its own Explain button.' }
-    ],
     'projections.html': [
       { sel:'.ph-hero',     t:'Projections',       d:'Every player\'s projected line for the coming season in one table, and a compare view for putting two next to each other.' },
       { sel:'.tdc-toolbar', t:'Filters',           d:'Search, conference, position and class. Click any column header to sort.' },

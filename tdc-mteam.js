@@ -7,23 +7,23 @@
 (function () {
   var MQ = window.matchMedia('(max-width:640px)');
   var GROUPS = [
-    // same order as the desktop tab row (owner, Oct 2026)
-    { key: 'depth', label: 'Depth chart', tabs: ['depth'] },
-    { key: 'stats', label: 'Analytics', tabs: ['dna', 'onoff', 'projections'] },
-    { key: 'shots', label: 'Shots', tabs: ['shots', 'shotprof', 'shotq'] },
+    // same order as the desktop tab row (owner, Nov 2026: one team page)
+    { key: 'overview', label: 'Overview', tabs: ['overview'] },
+    { key: 'scout', label: 'Report', tabs: ['scout'] },
     { key: 'schedule', label: 'Schedule', tabs: ['schedule'] },
-    { key: 'feed', label: 'Feed', tabs: ['feed'] },
-    { key: 'coach', label: 'Scouting', tabs: ['mcoach', 'customize', 'report'] },
-    { key: 'lineups', label: 'Lineups', tabs: ['lineups'] },
-    { key: 'preview', label: 'Preview', tabs: ['preview'] },
-    { key: 'nil', label: 'NIL', tabs: ['nil'] },
-    { key: 'betting', label: 'Betting', tabs: ['betting'] },
-    { key: 'conf', label: 'Conference', link: true }
+    { key: 'roster', label: 'Roster', tabs: ['depth', 'lineups', 'onoff', 'statshift'] },
+    { key: 'stats', label: 'Stats', tabs: ['dna', 'trends', 'projections'] },
+    { key: 'shots', label: 'Shots', tabs: ['shots', 'shotprof', 'shotq', 'twin', 'poss', 'hunt'] },
+    { key: 'coach', label: 'Tools', tabs: ['mcoach', 'preview', 'customize', 'report'] },
+    { key: 'market', label: 'Market', tabs: ['nil', 'betting'] },
+    { key: 'feed', label: 'Feed', tabs: ['feed'] }
   ];
-  var STATS = [['dna', 'DNA'], ['onoff', 'On/Off'], ['projections', 'Projections']];
-  var SHOTS = [['shots', 'Shot charts'], ['shotprof', 'Shot profile'], ['shotq', 'Shot quality']];
-  var SUBS = { stats: STATS, shots: SHOTS };
-  var COACH = [['customize', 'Lineup Lab', 'Lineups, minutes, live projections'], ['report', 'Roster report', 'Scouting breakdown of the roster']];
+  var ROSTER = [['depth', 'Depth chart'], ['lineups', 'Lineups'], ['onoff', 'On/Off'], ['statshift', 'Line shift']];
+  var STATS = [['dna', 'DNA'], ['trends', 'Trends'], ['projections', 'Projections']];
+  var SHOTS = [['shots', 'Charts'], ['shotprof', 'Profile'], ['shotq', 'Quality'], ['twin', 'Twin'], ['poss', 'Possessions'], ['hunt', 'Hunt great']];
+  var MARKET = [['nil', 'NIL'], ['betting', 'Betting']];
+  var SUBS = { roster: ROSTER, stats: STATS, shots: SHOTS, market: MARKET };
+  var COACH = [['preview', 'Game preview', 'A matchup report against any opponent'], ['customize', 'Lineup Lab', 'Lineups, minutes, live projections'], ['report', 'Roster report', 'Scouting breakdown of the roster']];
   var TOOLS = [['team-report.html', 'Team Report', 'Every chart on one page'],
     ['matchup.html', 'Matchup', 'Project any game'], ['moneyball.html', 'Moneyball', 'Roster value'],
     ['roster-dev.html', 'Roster development', "Who's trending up"]];
@@ -65,8 +65,9 @@
     'body.mt .tdc-explain{bottom:calc(74px + env(safe-area-inset-bottom))!important}',
     'body.mt .tdc-explain{bottom:calc(62px + env(safe-area-inset-bottom))!important}',
     'body.mt .mt-sub.show{display:flex}',
-    '.mt-sub{border:1px solid var(--border2);border-radius:8px;overflow:hidden;margin:0 14px 14px}',
-    '.mt-sub button{flex:1;border:0;border-right:1px solid var(--border);background:none;font:700 13px Inter,system-ui,sans-serif;color:var(--text2);padding:9px 0;cursor:pointer}',
+    '.mt-sub{border:1px solid var(--border2);border-radius:8px;overflow-x:auto;scrollbar-width:none;margin:0 14px 14px}',
+    '.mt-sub::-webkit-scrollbar{display:none}',
+    '.mt-sub button{flex:1 0 auto;padding-left:12px!important;padding-right:12px!important;border:0;border-right:1px solid var(--border);background:none;font:700 13px Inter,system-ui,sans-serif;color:var(--text2);padding:9px 0;cursor:pointer}',
     '.mt-sub button:last-child{border-right:0}',
     '.mt-sub button.on{background:var(--text);color:var(--bg)}',
     '.mt-sub.back{border:0}',
@@ -235,7 +236,6 @@
     GROUPS.forEach(function (g) {
       var b = el('button', '', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + (TAB_ICON[g.key] || '') + '"></path></svg><span>' + esc(g.label) + '</span>'); b.type = 'button'; b.dataset.g = g.key;
       b.onclick = function () {
-        if (g.link) { var a = document.getElementById('heroConfTab'); if (a) location.href = a.href; return; }
         if (g.key === 'coach') { showCoach(); return; }
         go(g.tabs[0]); window.scrollTo({ top: 0 });
       };
@@ -247,7 +247,7 @@
       var pn = el('div', 'panel'); pn.id = 'panel-mcoach';
       pn.innerHTML = '<div class="mt-st">On this team</div><div class="mt-list">' +
         COACH.map(function (c) { return '<button type="button" data-t="' + c[0] + '"><b>' + c[1] + '</b><span class="mt-tag">Open ›</span><small>' + c[2] + '</small></button>'; }).join('') +
-        '</div><div class="mt-st">Coach\'s Tier toolkit</div><div class="mt-list">' +
+        '</div><div class="mt-st">Scouting and game prep</div><div class="mt-list">' +
         TOOLS.map(function (c) { return '<a href="' + c[0] + '"><b>' + c[1] + '</b><span class="mt-tag">›</span><small>' + c[2] + '</small></a>'; }).join('') + '</div>';
       pn.addEventListener('click', function (e) { var b = e.target.closest('button[data-t]'); if (b) go(b.dataset.t); });
       main.insertBefore(pn, main.firstChild);
@@ -265,14 +265,14 @@
       var on = b.dataset.g === g.key; b.classList.toggle('on', on);
       if (on) { var s = b.parentNode, r = b.getBoundingClientRect(); if (r.left < 0 || r.right > window.innerWidth) s.scrollLeft += r.left - 40; }
     });
-    var season = document.getElementById('mtSeason'); if (season) season.style.display = (g.key === 'depth') ? '' : 'none';
-    document.body.classList.toggle('mt-depth', g.key === 'depth');
+    var season = document.getElementById('mtSeason'); if (season) season.style.display = (g.key === 'overview') ? '' : 'none';
+    document.body.classList.toggle('mt-depth', t === 'depth');
     var sub = document.getElementById('mtSub'); if (!sub) return;
     if (SUBS[g.key]) {
       sub.className = 'mt-sub show';
       sub.innerHTML = SUBS[g.key].map(function (s) { return '<button type="button" data-t="' + s[0] + '" class="' + (s[0] === t ? 'on' : '') + '">' + s[1] + '</button>'; }).join('');
     } else if (g.key === 'coach' && t !== 'mcoach') {
-      sub.className = 'mt-sub back show'; sub.innerHTML = '<button type="button" data-back="1">‹ All Coach\'s Tier tools</button>';
+      sub.className = 'mt-sub back show'; sub.innerHTML = '<button type="button" data-back="1">‹ All scouting tools</button>';
     } else { sub.className = 'mt-sub'; sub.innerHTML = ''; }
     sub.onclick = function (e) { var b = e.target.closest('button'); if (!b) return; if (b.dataset.back) showCoach(); else if (b.dataset.t) go(b.dataset.t); };
   }
@@ -312,7 +312,7 @@
     if (!buildHero()) return;
     built = true;
     buildStrip(); hookSwitch();
-    var act = document.querySelector('.main-col .panel.active'); setActive(act ? act.id.replace('panel-', '') : 'depth');
+    var act = document.querySelector('.main-col .panel.active'); setActive(act ? act.id.replace('panel-', '') : 'overview');
     var mc = document.querySelector('.main-col'); if (mc) watch(mc, debounce(prune, 150));
   }
   function apply() { document.body.classList.toggle('mt', MQ.matches); if (MQ.matches) build(); }

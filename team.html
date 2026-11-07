@@ -26,6 +26,10 @@
   <script src="tdc-nil.js?v=pay13"></script>
   <script src="tdc-nilchart.js?v=1"></script>
   <script src="tdc-gate.js?v=5"></script>
+  <script src="tdc-teamgrades.js"></script>
+  <script src="tdc-teamhq.js?v=1"></script>
+  <script src="tdc-teamscout.js?v=5"></script>
+  <link rel="stylesheet" href="tdc-teamhq.css?v=3"/>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js?v=25"></script>
   <script src="tdc-proj.js?v=hg5"></script>
@@ -1451,18 +1455,25 @@
   </div><!-- /hero-card -->
   <div class="hero-tabrow">
   <div class="hero-tabs">
-    <a class="hero-tab" id="heroHqTab" href="program-hq.html" style="text-decoration:none">HQ</a>
-    <button class="hero-tab active" onclick="switchTab('depth',this)">Depth Chart</button>
-    <button class="hero-tab" onclick="switchTab('lineups',this)">Lineups</button>
-    <button class="hero-tab" onclick="switchTab('onoff',this)">On/Off</button>
+    <button class="hero-tab active" onclick="switchTab('overview',this)">Overview</button>
+    <button class="hero-tab" onclick="switchTab('scout',this)">Scouting Report</button>
     <button class="hero-tab" onclick="switchTab('schedule',this)">Schedule</button>
-    <button class="hero-tab" onclick="switchTab('preview',this)">Preview</button>
-    <div class="hero-grp" data-grp="analytics">
-      <button class="hero-grp-btn" onclick="_tgToggle(this,event)">Analytics<span class="hero-grp-car">▾</span></button>
+    <div class="hero-grp" data-grp="roster">
+      <button class="hero-grp-btn" onclick="_tgToggle(this,event)">Roster<span class="hero-grp-car">▾</span></button>
+      <div class="hero-grp-menu" style="min-width:252px;">
+        <button class="hgm-item" onclick="_tgPick('depth',this)"><span class="hgm-t">Depth Chart</span><span class="hgm-d">The rotation, position by position</span></button>
+        <button class="hgm-item" onclick="_tgPick('lineups',this)"><span class="hgm-t">Lineups</span><span class="hgm-d">Who actually started and played together</span></button>
+        <button class="hgm-item" onclick="_tgPick('onoff',this)"><span class="hgm-t">On/Off</span><span class="hgm-d">The team with each player on the floor and off it</span></button>
+        <button class="hgm-item" onclick="_tgPick('statshift',this)"><span class="hgm-t">Stat Line Shift</span><span class="hgm-d">Every player's line with vs without a teammate</span></button>
+      </div>
+    </div>
+    <div class="hero-grp" data-grp="stats">
+      <button class="hero-grp-btn" onclick="_tgToggle(this,event)">Stats<span class="hero-grp-car">▾</span></button>
       <div class="hero-grp-menu" style="min-width:252px;">
         <button class="hgm-item" onclick="_tgPick('dna',this)"><span class="hgm-t">Team DNA</span><span class="hgm-d">Every stat on one sheet, ranked vs D-I</span></button>
-        <button class="hgm-item" onclick="_tgPick('statshift',this)"><span class="hgm-t">Stat Line Shift</span><span class="hgm-d">Every player's line with vs without a teammate</span></button>
+        <button class="hgm-item" onclick="_tgPick('trends',this)"><span class="hgm-t">Trends</span><span class="hgm-d">How the season has moved, game by game</span></button>
         <button class="hgm-item" id="projTabBtn" onclick="_tgPick('projections',this)"><span class="hgm-t">2026-27 Projections</span><span class="hgm-d">Next season's projected line</span></button>
+        <a class="hgm-item" id="heroConfTab" href="conferences.html" style="text-decoration:none;display:block;"><span class="hgm-t">Conference</span><span class="hgm-d">Standings, tournament and all-conference teams</span></a>
       </div>
     </div>
     <div class="hero-grp" data-grp="shots">
@@ -1476,11 +1487,11 @@
         <button class="hgm-item" onclick="_tgPick('hunt',this)"><span class="hgm-t">Hunt Great &amp; Mastery</span><span class="hgm-d">Great, average and bad shots by shot clock, green lights, and what turnovers and rim misses cost</span></button>
       </div>
     </div>
-    <button class="hero-tab" onclick="switchTab('trends',this)">Trends</button>
     <div class="hero-grp" data-grp="coach">
-      <button class="hero-grp-btn" onclick="_tgToggle(this,event)">Scouting <span class="hero-grp-car">▾</span></button>
+      <button class="hero-grp-btn" onclick="_tgToggle(this,event)">Scouting Tools <span class="hero-grp-car">▾</span></button>
       <div class="hero-grp-menu hero-grp-mega">
         <div class="hgm-sec">On this team</div>
+        <button class="hgm-item" onclick="_tgPick('preview',this)"><span class="hgm-t">Game Preview</span><span class="hgm-d">A matchup report against any opponent</span></button>
         <button class="hgm-item" onclick="_tgPick('customize',this)"><span class="hgm-t">Customize · Lineup Lab</span><span class="hgm-d">Build lineups, minutes & live projections</span></button>
         <button class="hgm-item" onclick="_tgPick('report',this)"><span class="hgm-t">Roster Report</span><span class="hgm-d">AI scouting breakdown of the roster</span></button>
         <div class="hgm-sec">Scouting &amp; game prep</div>
@@ -1491,9 +1502,13 @@
         </div>
       </div>
     </div>
-    <button class="hero-tab" onclick="switchTab('nil',this)">NIL Value</button>
-    <button class="hero-tab" onclick="switchTab('betting',this)">Betting</button>
-    <a class="hero-tab" id="heroConfTab" href="conferences.html" style="text-decoration:none">Conference</a>
+    <div class="hero-grp" data-grp="market">
+      <button class="hero-grp-btn" onclick="_tgToggle(this,event)">Market<span class="hero-grp-car">▾</span></button>
+      <div class="hero-grp-menu" style="min-width:252px;">
+        <button class="hgm-item" onclick="_tgPick('nil',this)"><span class="hgm-t">NIL Value</span><span class="hgm-d">Market values across the roster</span></button>
+        <button class="hgm-item" onclick="_tgPick('betting',this)"><span class="hgm-t">Betting</span><span class="hgm-d">Lines, trends and how the team covers</span></button>
+      </div>
+    </div>
     <button class="hero-tab" onclick="switchTab('feed',this)">Feed</button>
     <button class="hero-tab" onclick="switchTab('losses',this)" style="display:none;">Losses</button>
   </div>
@@ -1584,7 +1599,9 @@
 </style>
 <div class="page-body">
   <div class="main-col">
-    <div class="panel active" id="panel-depth">
+    <div class="panel active" id="panel-overview"><div id="teamHqHost"></div></div>
+    <div class="panel" id="panel-scout"><div id="teamScoutHost"></div></div>
+    <div class="panel" id="panel-depth">
       <div class="sec-head" id="depthSecHead">Depth Chart <span class="sec-head-sub" id="depthSub"></span></div>
       <div class="roster-year-bar">
         <span class="rs-label">Season</span>
@@ -2254,7 +2271,6 @@ function renderHero(t, color, rgb){
     var _cs=new URLSearchParams(location.search).get('season');
     if(_cs && +_cs>=2007 && +_cs<2027) _cu+='&season='+_cs;
     _ce.innerHTML='<a class="conf-link" href="'+_cu+'">'+_cf+'</a>';
-    var _hq=document.getElementById('heroHqTab'); if(_hq){ _hq.href='program-hq.html?team='+encodeURIComponent(t.name||teamName)+(_cs && +_cs>=2007 && +_cs<2027?'&season='+_cs:''); }
     var _ct=document.getElementById('heroConfTab'); if(_ct){ _ct.href=_cu; _ct.title=_cf+' standings, tournament & all-conference teams'; }
   })();
   // conf/rank colors come from CSS (--tc-readable) so they stay legible on the dark hero
@@ -6456,12 +6472,24 @@ async function renderOnOff(){
 }
 // keep the open tab in the URL (?tab=) so a reload — or a shared link — lands on the same tab
 function _tabUrl(id, dflt){ try{ var u=new URL(location.href); if(!id||id===dflt) u.searchParams.delete('tab'); else u.searchParams.set('tab',id); history.replaceState(history.state,'',u.toString()); }catch(e){} }
+// Overview + Scouting Report (tdc-teamhq.js, tdc-teamscout.js): each draws once per team + season. A program the ratings
+// no longer carry (left D-I) has no Overview, so it opens on its depth chart.
+function _drawOverview(){ const host=document.getElementById('teamHqHost'); if(!host||!window.TDC_TEAMHQ) return;
+  (async()=>{ const full=await _resolveGamesKey().catch(()=>null); const ok=await TDC_TEAMHQ.show(host,{team:teamName,full,season:_rosterSeason});
+    if(!ok&&document.getElementById('panel-overview').classList.contains('active')) switchTab('depth',document.querySelector(".hgm-item[onclick*=\"'depth'\"]")); _tgSyncActive(); })(); }
+function _drawScout(){ const host=document.getElementById('teamScoutHost'); if(!host||!window.TDC_TEAMSCOUT) return;
+  (async()=>{ const full=(await _resolveGamesKey().catch(()=>null))||teamMascot(); TDC_TEAMSCOUT.show(host,{full,season:_rosterSeason}); })(); }
+// links inside the Overview: open a tab here instead of reloading the page
+window.tdcTeamTab=function(id){ const b=document.querySelector(`.hero-tab[onclick*="'${id}'"], .hgm-item[onclick*="'${id}'"]`); if(!b) return;
+  if(b.classList.contains('hgm-item')) _tgPick(id,b); else { switchTab(id,b); _tgSyncActive(); } window.scrollTo({top:0}); };
 function switchTab(id, btn){
-  _tabUrl(id,'depth');
+  _tabUrl(id,'overview');
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.hero-tab,.hgm-item').forEach(b=>b.classList.remove('active'));
   document.getElementById('panel-'+id).classList.add('active');
-  btn.classList.add('active');
+  if(btn) btn.classList.add('active');
+  if(id==='overview') _drawOverview();
+  if(id==='scout') _drawScout();
   if(id==='dna'){ renderTeamDNA(); }
   if(id==='shots'){ _dnaCSS(); if(!window._teamShotInit){ window._teamShotInit=true; _initTeamShot(); } }
   if(id==='onoff'){ renderOnOff(); }
@@ -6535,7 +6563,7 @@ function _lockPanel(pnl, g){
 }
 // Visual tab switch only — no loaders (so a gated panel isn't populated then replaced).
 function _teamDisplaySwitch(id, btn){
-  _tabUrl(id,'depth');
+  _tabUrl(id,'overview');
   document.querySelectorAll('.panel').forEach(function(p){ p.classList.remove('active'); });
   document.querySelectorAll('.hero-tab,.hgm-item').forEach(function(b){ b.classList.remove('active'); });
   var pnl=document.getElementById('panel-'+id); if(pnl) pnl.classList.add('active');
@@ -7639,6 +7667,8 @@ function onRosterSeason(v){
   // projected tiles for 2027, NET/Off/Def tiles derived from that season otherwise).
   updateHeroRank(_rosterSeason);
   renderHeroBar(_rosterSeason);
+  if(document.getElementById('panel-overview').classList.contains('active')) _drawOverview();
+  if(document.getElementById('panel-scout').classList.contains('active')) _drawScout();
   // The "2026-27 Projections" tab only applies to the current projected season —
   // hide it on any past season to keep those views uncluttered.
   const projTab=document.getElementById('projTabBtn');
@@ -7646,7 +7676,7 @@ function onRosterSeason(v){
     const showProj=_rosterSeason>=2027;
     projTab.style.display=showProj?'':'none';
     if(!showProj && projTab.classList.contains('active')){
-      switchTab('depth', document.querySelector('.hero-tabs .hero-tab'));
+      switchTab('overview', document.querySelector('.hero-tabs .hero-tab'));
     }
   }
   if(_rosterSeason >= 2027){
@@ -9058,9 +9088,9 @@ loadTeam(teamName).then(()=>{
   const wantTab=new URLSearchParams(window.location.search).get('tab');
   if(wantTab && document.getElementById('panel-'+wantTab)){
     const btn=document.querySelector(`.hero-tab[onclick*="'${wantTab}'"], .hgm-item[onclick*="'${wantTab}'"]`);
-    if(btn && btn.classList.contains('hgm-item')) _tgPick(wantTab, btn);   // grouped tabs (Analytics / Coach's Tier menus)
+    if(btn && btn.classList.contains('hgm-item')) _tgPick(wantTab, btn);   // grouped tabs
     else if(btn) switchTab(wantTab, btn);
-  }
+  } else switchTab('overview', document.querySelector('.hero-tabs .hero-tab'));
 });
 </script>
 <script>
@@ -9241,11 +9271,16 @@ function _tgLockGroups(){
   if(!window.TDCGate || typeof TAB_GATE==='undefined') return;
   document.querySelectorAll('.hero-grp').forEach(function(grp){
     var btn=grp.querySelector('.hero-grp-btn'); if(!btn) return;
-    var locked=false;
+    // the group shows a lock only when nothing inside is free; a mixed group marks just its locked items
+    var locked=true, any=false;
     grp.querySelectorAll('.hero-grp-menu .hero-tab, .hero-grp-menu .hgm-item').forEach(function(item){
       var m=(item.getAttribute('onclick')||'').match(/'([a-z0-9]+)'/); if(!m) return;
-      var g=TAB_GATE[m[1]]; if(g && !TDCGate.has(g.tier)) locked=true;
+      any=true; var g=TAB_GATE[m[1]], off=g && !TDCGate.has(g.tier); if(!off) locked=false;
+      var t=item.querySelector('.hgm-t'), l=t&&t.querySelector('.tab-lock');
+      if(t&&off&&!l){ l=document.createElement('span'); l.className='tab-lock'; l.textContent=' 🔒'; l.style.cssText='font-size:.8em;opacity:.7;'; t.appendChild(l); }
+      else if(l&&!off) l.remove();
     });
+    locked=locked&&any;
     var lock=btn.querySelector('.hero-grp-lock');
     if(locked && !lock){ var s=document.createElement('span'); s.className='hero-grp-lock'; s.textContent='🔒'; btn.insertBefore(s, btn.querySelector('.hero-grp-car')); }
     else if(!locked && lock){ lock.remove(); }
@@ -9809,12 +9844,12 @@ function renderProjNatlChart(projected, color, rgb){
 </script>
 <script src="tdc-team-dense.js?v=6"></script>
   <script src="tdc-version.js?v=2"></script>
-  <script src="tdc-tour.js?v=31"></script>
+  <script src="tdc-tour.js?v=32"></script>
   <script src="tdc-sheets.js?v=2"></script>
   <script src="tdc-dnasheet.js?v=1"></script>
   <script src="tdc-liveplayer.js?v=3"></script>
   <script src="tdc-depth-editor.js?v=3"></script>
-<script src="tdc-mteam.js?v=27"></script>
+<script src="tdc-mteam.js?v=28"></script>
 <script src="tdc-trends.js?v=ui4"></script>
 <script src="tdc-teamtrend.js?v=12"></script>
 <script src="tdc-feed.js?v=sc36"></script>
