@@ -1461,12 +1461,12 @@
   <div class="hero-tabrow">
   <div class="hero-tabs">
     <button class="hero-tab active" onclick="switchTab('overview',this)">Overview</button>
+    <button class="hero-tab" onclick="switchTab('depth',this)">Depth Chart</button>
     <button class="hero-tab" onclick="switchTab('scout',this)">Scouting Report</button>
     <button class="hero-tab" onclick="switchTab('schedule',this)">Schedule</button>
     <div class="hero-grp" data-grp="roster">
-      <button class="hero-grp-btn" onclick="_tgToggle(this,event)">Roster<span class="hero-grp-car">▾</span></button>
+      <button class="hero-grp-btn" onclick="_tgToggle(this,event)">Lineups<span class="hero-grp-car">▾</span></button>
       <div class="hero-grp-menu" style="min-width:252px;">
-        <button class="hgm-item" onclick="_tgPick('depth',this)"><span class="hgm-t">Depth Chart</span><span class="hgm-d">The rotation, position by position</span></button>
         <button class="hgm-item" onclick="_tgPick('lineups',this)"><span class="hgm-t">Lineups</span><span class="hgm-d">Who actually started and played together</span></button>
         <button class="hgm-item" onclick="_tgPick('onoff',this)"><span class="hgm-t">On/Off</span><span class="hgm-d">The team with each player on the floor and off it</span></button>
         <button class="hgm-item" onclick="_tgPick('statshift',this)"><span class="hgm-t">Stat Line Shift</span><span class="hgm-d">Every player's line with vs without a teammate</span></button>
@@ -6483,7 +6483,7 @@ function _tabUrl(id, dflt){ try{ var u=new URL(location.href); if(!id||id===dflt
 // no longer carry (left D-I) has no Overview, so it opens on its depth chart.
 function _drawOverview(){ const host=document.getElementById('teamHqHost'); if(!host||!window.TDC_TEAMHQ) return;
   (async()=>{ const full=await _resolveGamesKey().catch(()=>null); const ok=await TDC_TEAMHQ.show(host,{team:teamName,full,season:_rosterSeason,realDepth:()=>Promise.resolve(_loadRealDepth()).then(R=>R?{R,of:_realDepthOf}:null).catch(()=>null)});
-    if(!ok&&document.getElementById('panel-overview').classList.contains('active')) switchTab('depth',document.querySelector(".hgm-item[onclick*=\"'depth'\"]")); _tgSyncActive(); })(); }
+    if(!ok&&document.getElementById('panel-overview').classList.contains('active')) switchTab('depth',document.querySelector(".hero-tab[onclick*=\"'depth'\"]")); _tgSyncActive(); })(); }
 function _drawScout(){ const host=document.getElementById('teamScoutHost'); if(!host||!window.TDC_TEAMSCOUT) return;
   (async()=>{ const full=(await _resolveGamesKey().catch(()=>null))||teamMascot(); TDC_TEAMSCOUT.show(host,{full,season:_rosterSeason}); })(); }
 // links inside the Overview: open a tab here instead of reloading the page
@@ -9858,7 +9858,7 @@ function renderProjNatlChart(projected, color, rgb){
   <script src="tdc-dnasheet.js?v=1"></script>
   <script src="tdc-liveplayer.js?v=3"></script>
   <script src="tdc-depth-editor.js?v=3"></script>
-<script src="tdc-mteam.js?v=28"></script>
+<script src="tdc-mteam.js?v=30"></script>
 <script src="tdc-trends.js?v=ui4"></script>
 <script src="tdc-teamtrend.js?v=13"></script>
 <script src="tdc-feed.js?v=sc36"></script>
