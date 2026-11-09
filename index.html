@@ -8,7 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="team-colors.js?v=13"></script>
   <script src="tdc-ratings.js?v=44"></script>
-  <script src="tdc-schedule.js?v=sp6"></script>
+  <script src="tdc-schedule.js?v=sp12"></script>
   <script src="tdc-glossary.js?v=14"></script>
   <script src="tdc-freshman.js?v=pub37"></script>
   <script src="tdc-injury.js?v=5"></script>
@@ -1217,7 +1217,7 @@
 </head>
 <body data-anim-auto>
 <script src="tdc-badge.js?v=1"></script>
-<script src="tdc-nav.js?v=88"></script>
+<script src="tdc-nav.js?v=89"></script>
 <div class="tdc-bg" aria-hidden="true">
   <div class="tdc-mesh"></div>
   <div class="tdc-blob b1"></div>
@@ -1272,12 +1272,6 @@
 
 <!-- ═══ HERO ══════════════════════════════════════════════════ -->
 <div class="ix-shell">
-<div class="ph-hero" id="pageHeader">
-  <div class="ph-left">
-    <div class="page-eyebrow" id="heroEyebrow">Division I · Rankings</div>
-    <h1 class="page-h1" id="heroTitle">Team Rankings</h1>
-  </div>
-</div>
 
 <!-- ═══ TODAY BAR: one line linking to today.html — also covers scrimmage-only days, when the live strip stays hidden ═══ -->
 <a class="td-bar" id="tdBar" href="today.html" hidden><span class="td-k">Today</span><span class="td-t" id="tdBarT">Today's games</span><span class="td-go">See every game →</span></a>
@@ -1314,6 +1308,32 @@
 <script src="tdc-live.js?v=3" defer></script>
 <script src="tdc-livestrip.js?v=2" defer></script>
 
+<!-- Owner, Nov 2026: today's scores and the rankings were one blur; scores sit on top, the rankings start fresh under a rule
+     with their own title, and the filters are one quiet row of controls (labels kept for screen readers only). -->
+<style id="ixMin">
+  .ix-shell > #pageHeader{margin-top:28px;border-top:1px solid var(--border);padding-top:22px;}
+  .ix-shell #tdcLive[hidden] ~ #pageHeader{margin-top:0;border-top:0;}
+  .ix-shell #filterBar .filter-controls{display:flex!important;flex-wrap:wrap;align-items:center!important;gap:8px!important;}
+  .ix-shell #filterBar .f-lab{display:flex!important;flex-direction:row!important;align-items:center;gap:0!important;margin:0!important;min-width:0;}
+  .ix-shell #filterBar .f-lab > span:first-child{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+  .ix-shell #filterBar .filter-select{height:34px!important;line-height:normal!important;padding:0 28px 0 11px!important;font:600 13px Inter,system-ui,sans-serif!important;border-radius:8px!important;width:auto!important;}
+  .ix-shell #filterBar .nav-search{height:34px!important;font:500 13px Inter,system-ui,sans-serif!important;border-radius:8px!important;width:190px!important;padding:0 11px!important;box-sizing:border-box;}
+  .ix-shell #filterBar .ix-level button{padding:6px 10px;font-size:10.5px!important;}
+  .ix-shell #filterBar .filter-count{margin-left:auto!important;}
+  @media(max-width:640px){
+    .ix-shell #filterBar .filter-controls{display:grid!important;grid-template-columns:1fr 1fr;gap:8px!important;}
+    .ix-shell #filterBar .f-lab:has(#seasonSel),.ix-shell #filterBar .f-lab:has(#levelSw),.ix-shell #filterBar .filter-count{grid-column:1/-1;}
+    .ix-shell #filterBar .filter-select,.ix-shell #filterBar .nav-search{width:100%!important;height:38px!important;font-size:14px!important;}
+    .ix-shell #filterBar #statModeLab > span:last-child,.ix-shell #filterBar #statModeLab > span:last-child > *{width:100%;}
+  }
+</style>
+<div class="ph-hero" id="pageHeader">
+  <div class="ph-left">
+    <div class="page-eyebrow" id="heroEyebrow">Division I · Rankings</div>
+    <h1 class="page-h1" id="heroTitle">Team Rankings</h1>
+  </div>
+</div>
+
 <!-- ═══ FILTER BAR ════════════════════════════════════════════ -->
 <div class="filter-bar tdc-toolbar" id="filterBar">
   <div class="filter-pills" id="filterPills">
@@ -1345,10 +1365,10 @@
       <option value="topg">Fewest Turnovers</option>
     </select></label>
     <label class="f-lab"><span>Movement</span><select class="filter-select" id="mvSel" onchange="setMoveWin(this.value)" aria-label="Rank movement since" title="What the ▲▼ arrows next to each team measure">
-      <option value="today">Today</option>
-      <option value="d3">Last 3 days</option>
-      <option value="week" selected>This week</option>
-      <option value="season">Season</option>
+      <option value="today">▲▼ Today</option>
+      <option value="d3">▲▼ Last 3 days</option>
+      <option value="week" selected>▲▼ This week</option>
+      <option value="season">▲▼ Season</option>
     </select></label>
     <label class="f-lab"><span>Team</span><input class="nav-search" id="searchInput" type="text" placeholder="Search teams…" oninput="applyFilters()"/></label>
     <div class="filter-count pool-count" id="filterCount"></div>

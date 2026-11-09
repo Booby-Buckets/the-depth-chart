@@ -195,9 +195,9 @@
     var cur = 2027, seasons = []; for (var y = cur; y >= 2007; y--) seasons.push(y);
     var opt = { stat: 'perf', season: o.season || null, color: o.color };
     host.innerHTML = '<div class="tt-wrap"><div class="tt-ctl"><label>Trend stat <select class="tt-stat">' + Object.keys(STATS).map(function (k) { return '<option value="' + k + '">' + STATS[k].lab + '</option>'; }).join('') + '</select></label>' +
-      '<label>Season <select class="tt-season">' + seasons.map(function (y) { return '<option value="' + y + '">' + (y - 1) + '-' + String(y).slice(2) + '</option>'; }).join('') + '</select></label><span class="tt-note"></span></div><div class="tt-body"><div class="tt-empty">Loading…</div></div><div class="tt-tip"></div></div>';
+      '<label' + (o.lockSeason ? ' hidden' : '') + '>Season <select class="tt-season">' + seasons.map(function (y) { return '<option value="' + y + '">' + (y - 1) + '-' + String(y).slice(2) + '</option>'; }).join('') + '</select></label><span class="tt-note"></span></div><div class="tt-body"><div class="tt-empty">Loading…</div></div><div class="tt-tip"></div></div>';
     var body = host.querySelector('.tt-body'), tip = host.querySelector('.tt-tip'), data = null;
-    var paint = function () { if (!data) return; var S = STATS[opt.stat]; host.querySelector('.tt-note').textContent = ''; var main = draw(body, opt.stat, data, opt); body.innerHTML = main + (opt._expLab ? legend(opt) : '') + opt._pre; };
+    var paint = function () { if (!data) return; var S = STATS[opt.stat]; host.querySelector('.tt-note').textContent = opt._note || ''; var main = draw(body, opt.stat, data, opt); body.innerHTML = main + (opt._expLab ? legend(opt) : '') + opt._pre; };
     var seasonChanged = function (y) { if (o.onSeason) o.onSeason(y); };
     var go = function (season) { opt.season = season; opt.start = opt.end = null; seasonChanged(season); host.querySelector('.tt-season').value = season; body.innerHTML = '<div class="tt-empty">Loading…</div>';
       load(o.full, season).then(function (d) { data = d; paint(); }); };
@@ -210,7 +210,7 @@
     body.addEventListener('click', function (e) { var t = e.target.closest && e.target.closest('[data-href]'); if (t) location.href = t.getAttribute('data-href'); });
     // 2026-27 when it has something to show (games, scrimmages or 2+ daily ratings), else last season
     if (opt.season) go(opt.season);
-    else load(o.full, cur).then(function (d) { if (d.games.length || d.scrims.length || d.days.length >= 2) { data = d; opt.season = cur; host.querySelector('.tt-season').value = cur; seasonChanged(cur); paint(); } else go(cur - 1); });
+    else load(o.full, cur).then(function (d) { if (d.games.length || d.scrims.length || d.days.length >= 2) { data = d; opt.season = cur; host.querySelector('.tt-season').value = cur; seasonChanged(cur); paint(); } else { if (o.lockSeason) opt._note = 'No 2026-27 games yet · showing 2025-26'; go(cur - 1); } });
   }
 
   if (!document.getElementById('tt-styles')) {

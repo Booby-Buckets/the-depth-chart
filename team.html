@@ -17,7 +17,7 @@
   <script src="tdc-statshift-player.js?v=ssx8"></script>
   <script src="tdc-lineups.js?v=17s"></script>
   <script src="tdc-lineup-usage.js?v=10"></script>
-  <script src="tdc-lineup-history.js?v=lab9"></script>
+  <script src="tdc-lineup-history.js?v=lab10"></script>
   <script src="tdc-onoff.js?v=14"></script>
   <script src="tdc-onofflab.js?v=12"></script>
   <script src="tdc-teamonoff.js?v=9"></script>
@@ -27,9 +27,9 @@
   <script src="tdc-nilchart.js?v=1"></script>
   <script src="tdc-gate.js?v=5"></script>
   <script src="tdc-teamgrades.js"></script>
-  <script src="tdc-teamhq.js?v=2"></script>
+  <script src="tdc-teamhq.js?v=3"></script>
   <script src="tdc-teamscout.js?v=5"></script>
-  <link rel="stylesheet" href="tdc-teamhq.css?v=3"/>
+  <link rel="stylesheet" href="tdc-teamhq.css?v=5"/>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js?v=25"></script>
   <script src="tdc-proj.js?v=hg5"></script>
@@ -37,7 +37,7 @@
   <script src="tdc-injury.js?v=5"></script>
   <script src="tdc-ratings.js?v=44"></script>
   <script src="tdc-histguard.js?v=2"></script>
-  <script src="tdc-schedule.js?v=sp6"></script>
+  <script src="tdc-schedule.js?v=sp12"></script>
   <script src="tdc-ot.js?v=1"></script>
   <script src="tdc-scrim.js?v=20"></script>
   <script src="tdc-gamehead.js?v=3"></script>
@@ -1289,6 +1289,11 @@
     .tsb-select{font-family:'Inter',sans-serif;font-size:13px;font-weight:700;color:var(--text);background:var(--bg2);border:1px solid var(--border2);border-radius:9px;padding:7px 32px 7px 13px;cursor:pointer;appearance:none;-webkit-appearance:none;font-variant-numeric:tabular-nums;transition:border-color .15s;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%23888' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");background-repeat:no-repeat;background-position:right 11px center;}
     .tsb-select:hover,.tsb-select:focus{border-color:var(--tc,var(--accent));outline:none;}
     .tsb-hint{font-size:11px;color:var(--text3);font-style:italic;}
+    /* owner, Nov 2026: one quiet picker for every tab: the select says the season, so no label or hint beside it */
+    .tsb-label,.tsb-hint{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+    .lu-bar:empty{display:none;}
+    /* phones: the schedule sheet runs edge to edge in its panel so date, opponent, score, site, win % and line all fit */
+    @media(max-width:640px){ #panel-schedule .ui-panel-body{padding-left:0!important;padding-right:0!important;} #panel-schedule .tsp-sum{margin-left:10px;margin-right:10px;} #panel-schedule .tsp-wrap{border-left:0;border-right:0;border-radius:0;} #panel-schedule .tsp-note{margin-left:10px;margin-right:10px;} }
     .roster-year-nav::-webkit-scrollbar{height:5px;}
     .ryr-btn{flex:0 0 auto;font-size:11px;font-weight:700;letter-spacing:.01em;padding:5px 11px;border:1px solid var(--border);background:var(--bg2);color:var(--text3);border-radius:8px;cursor:pointer;white-space:nowrap;font-variant-numeric:tabular-nums;transition:color .15s,border-color .15s,background .15s;}
     .ryr-btn:hover{color:var(--text);border-color:var(--border2);}
@@ -1381,7 +1386,7 @@
   <script src="tdc-coachlink.js?v=1"></script>
 </head>
 <body data-anim-auto>
-<script src="tdc-nav.js?v=88"></script>
+<script src="tdc-nav.js?v=89"></script>
 <div class="tdc-bg" aria-hidden="true">
   <div class="tdc-mesh"></div>
   <div class="tdc-blob b1"></div>
@@ -6523,7 +6528,7 @@ function switchTab(id, btn){
     renderCustomize(teamT, teamPlayers, teamColor_g, teamRgb_g, teamGp);
   }
   if(id==='schedule') initSchedule();
-  if(id==='lineups' && window.TDCLineupHist){ (async()=>{ const full=(await _resolveGamesKey().catch(()=>null))||teamMascot(); TDCLineupHist.render(document.getElementById('lineupHistHost'), full); })(); }
+  if(id==='lineups' && window.TDCLineupHist){ (async()=>{ const full=(await _resolveGamesKey().catch(()=>null))||teamMascot(); TDCLineupHist.render(document.getElementById('lineupHistHost'), full, { season:_rosterSeason, lockSeason:true }); })(); }
   if(id==='trends') _renderTrendsTab();
   if(id==='preview') initPreview();
   // the team feed: posts, articles, forum threads (tdc-feed.js on the fan-site tables)
@@ -7707,6 +7712,8 @@ function onRosterSeason(v){
   // the shot chart / shot flow block follows the roster season too (2026-27 roster → last played season)
   var _ss=document.getElementById('teamShotSeason'), _shP=document.getElementById('panel-shots'); if(_ss){ _ss.value=String(_sy); if(window._teamShotInit && _shP && _shP.classList.contains('active')) loadTeamShotChart(_sy); }
   var _trP=document.getElementById('panel-trends'); if(_trP && _trP.classList.contains('active')) _renderTrendsTab();
+  // lineups follow the same picker (it has no season control of its own on this page)
+  var _luP=document.getElementById('panel-lineups'); if(_luP && _luP.classList.contains('active') && window.TDCLineupHist){ _resolveGamesKey().catch(()=>null).then(full=>TDCLineupHist.render(document.getElementById('lineupHistHost'), full||teamMascot(), { season:_rosterSeason, lockSeason:true })); }
   // On/Off is season-aware — invalidate its cached render and refresh if it's the open tab
   var _ooH=document.getElementById('onoffHost'); if(_ooH){ _ooH._renderedSeason=null;
     var _ooP=document.getElementById('panel-onoff'); if(_ooP && _ooP.classList.contains('active')) renderOnOff(); }
@@ -8878,7 +8885,7 @@ function teamMascot(){
 async function _renderTrendsTab(){
   if(!window.TDCTeamTrend) return;
   const line=document.getElementById('teamTrendLine'), full=(await _resolveGamesKey().catch(()=>null))||teamMascot(), past=_rosterSeason<2027;
-  TDCTeamTrend.render(line, { full, short:(teamT&&teamT.name)||'', color:(typeof teamColor_g!=='undefined'&&teamColor_g)||null, season:past?_rosterSeason:null, onSeason:_trendsView });
+  TDCTeamTrend.render(line, { full, short:(teamT&&teamT.name)||'', color:(typeof teamColor_g!=='undefined'&&teamColor_g)||null, season:past?_rosterSeason:null, onSeason:_trendsView, lockSeason:true });
   if(past) _trendsView(_rosterSeason);
 }
 function _trendsView(y){
@@ -9156,7 +9163,7 @@ function toggleTheme(){
     const tr = await fetch(`${SB}/rest/v1/team_follows?team_name=eq.${encodeURIComponent(teamName)}&select=id`,{headers:{apikey:KEY,Authorization:`Bearer ${KEY}`}});
     const followers = await tr.json();
     const countEl = document.getElementById('teamFollowerCount');
-    if(countEl) countEl.textContent = `${followers.length} follower${followers.length!==1?'s':''}`;
+    if(countEl) countEl.textContent = followers.length ? `${followers.length} follower${followers.length!==1?'s':''}` : '';
 
     if(!tok||!uid) return;
 
@@ -9853,7 +9860,7 @@ function renderProjNatlChart(projected, color, rgb){
   <script src="tdc-depth-editor.js?v=3"></script>
 <script src="tdc-mteam.js?v=28"></script>
 <script src="tdc-trends.js?v=ui4"></script>
-<script src="tdc-teamtrend.js?v=12"></script>
+<script src="tdc-teamtrend.js?v=13"></script>
 <script src="tdc-feed.js?v=sc36"></script>
 <script>
 /* one anatomy for every stat tab (tdc-panelize.js): each section title + content becomes a kit panel. Lineup Lab is an editor, left as is. */

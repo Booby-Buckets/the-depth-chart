@@ -402,19 +402,26 @@
   .tsp-table tr.mo1 td{border-top:2px solid var(--border2);}
   /* the whole season, not a 600px box that scrolls on its own (a 2007-08 slate ended at 8-17 in view) */
   .tsp-wrap{max-height:none!important;}
-  /* the whole row green for a win, red for a loss (opaque mixes so frozen columns tint too; heat cells keep their scale) */
-  .tsp-table tbody tr.w td:not(.heat){background-color:color-mix(in srgb,#2e8b57 24%,var(--bg))!important;}
-  .tsp-table tbody tr.x td:not(.heat){background-color:color-mix(in srgb,#c75d5d 24%,var(--bg))!important;}
-  .tsp-table tbody tr.w:hover td:not(.heat){background-color:color-mix(in srgb,#2e8b57 32%,var(--bg))!important;}
-  .tsp-table tbody tr.x:hover td:not(.heat){background-color:color-mix(in srgb,#c75d5d 32%,var(--bg))!important;}
-  [data-theme="dark"] .tsp-table tbody tr.w td:not(.heat){background-color:color-mix(in srgb,#3fa86a 26%,var(--bg))!important;}
-  [data-theme="dark"] .tsp-table tbody tr.x td:not(.heat){background-color:color-mix(in srgb,#d0605a 26%,var(--bg))!important;}
-  /* winner / loser on the result */
+  /* Nov 2026 (owner: schedule looked busy): no whole-row green/red wash; the W/L score carries the colour */
   .tsp-table tr.w td.tsp-sc{color:#2e8b57;} .tsp-table tr.x td.tsp-sc{color:#c75d5d;}
   [data-theme="dark"] .tsp-table tr.w td.tsp-sc{color:#6fbf7e;} [data-theme="dark"] .tsp-table tr.x td.tsp-sc{color:#e07a7a;}
   @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .tsp-table tr.w td.tsp-sc{color:#6fbf7e;}:root:not([data-theme="light"]) .tsp-table tr.x td.tsp-sc{color:#e07a7a;}}
   .tsp-table tbody tr.sec td{background:var(--bg2);color:var(--text3);font-size:9.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;text-align:left;}
   .tsp-note{font-size:11px;color:var(--text3);line-height:1.5;margin:10px 2px 0;}
+  .tsp-note summary{cursor:pointer;font-weight:700;color:var(--text2);list-style:none;} .tsp-note summary::-webkit-details-marker{display:none;} .tsp-note summary::before{content:'ⓘ ';}
+  .tsp-note[open] summary{margin-bottom:6px;}
+  /* one flat summary strip instead of four boxed tiles */
+  .tsp-sum{gap:0!important;border:1px solid var(--border);border-radius:10px;background:var(--bg);overflow:hidden;}
+  .tsp-sum .tsp-tile{border:0!important;border-radius:0!important;background:none!important;border-left:1px solid var(--border)!important;padding:11px 16px 10px!important;}
+  .tsp-sum .tsp-tile:first-child{border-left:0!important;}
+  .tsp-table tbody td{padding-top:7px!important;padding-bottom:7px!important;}
+  .tsp-table td.tsp-sc{font-weight:800;}
+  .tsp-table td.tsp-rec{color:var(--text3);font-weight:600;}
+  .tsp-table td.tsp-o{font-weight:600;}
+  .tsp-at{display:none;color:var(--text3);font-weight:500;}
+  @media(max-width:640px){ .tsp-timed .tsp-at{display:inline;} .tsp-timed td.tsp-site,.tsp-timed th[title^="H home"]{display:none!important;} .tsp-timed td.tsp-o .tsp-lg{display:none!important;} }
+  @media(max-width:640px){ .tsp-table td.tsp-tm,.tsp-table th[title^="tip time"],.tsp-table td.tsp-rk,.tsp-table td.tsp-q,.tsp-table td.tsp-pr,.tsp-table th[title="opponent's rank"],.tsp-table th[title^="NET-style"],.tsp-table th[title^="opponent's projected"]{display:none!important;} .tsp-table td.tsp-o{white-space:normal!important;max-width:104px;} .tsp-table th,.tsp-table td{font-size:12px!important;padding-left:4px!important;padding-right:4px!important;min-width:0!important;} .tsp-table .tsp-lg{width:14px!important;height:14px!important;margin-right:4px!important;} }
+  @media(max-width:760px){ .tsp-sum{grid-template-columns:repeat(2,minmax(0,1fr))!important;} .tsp-sum .tsp-tile:nth-child(odd){border-left:0!important;} .tsp-sum .tsp-tile:nth-child(n+3){border-top:1px solid var(--border)!important;} }
   .tsp-note b{color:var(--text2);}
   /* every column but Opponent hugs its content; the opponent takes the spare width (it used to land on Date and
      Rk, so a "Sat 10/17" column ran ~500px wide on desktop) */
@@ -490,13 +497,13 @@
         <td class="l dim tsp-d"><span class="tsp-dw">${d.dw} </span>${d.num}</td>
         <td class="l dim tsp-tm"></td>
         <td class="dim tsp-rk">${x.rank || ''}</td>
-        <td class="l nm tsp-o">${logoImg(x.opp)}<a href="team.html?team=${encodeURIComponent(sn(x.opp))}" onclick="event.stopPropagation()">${sn(x.opp)}</a></td>
+        <td class="l nm tsp-o">${logoImg(x.opp)}<span class="tsp-at">${x.site === 'A' ? 'at' : 'vs'} </span><a href="team.html?team=${encodeURIComponent(sn(x.opp))}" onclick="event.stopPropagation()">${sn(x.opp)}</a></td>
         <td class="c strong tsp-sc">${x.won ? 'W' : 'L'} ${x.ms}–${x.os}${window.TDC_OT ? TDC_OT.chip(x.id) : ''}</td>
         <td class="c tsp-site">${x.site}</td>
         <td class="c tsp-q">${quad(x.rank, x.site) ? 'Q' + quad(x.rank, x.site) : ''}</td>
         <td class="tsp-pr"></td>
         <td class="tsp-p"></td>
-        <td class="tsp-line">${x.rec}</td></tr>`;
+        <td class="tsp-line tsp-rec" data-v="" title="record after this game">${x.rec}</td></tr>`;
     });
     R.rows.forEach(r => {
       const d = dParts(r.g.date);
@@ -515,7 +522,7 @@
         <td class="l dim tsp-d"><span class="tsp-dw">${d.dw} </span>${d.num}</td>
         <td class="l dim tsp-tm"${r.g.tv ? ` title="${evEsc(r.g.tv)}"` : ''}>${r.g.time ? tipTxt(r.g.time) : '<span class="tsp-tba">TBA</span>'}${r.g.tv ? `<span class="tsp-tv">${evEsc(r.g.tv)}</span>` : ''}</td>
         <td class="dim tsp-rk">${rk || ''}</td>
-        <td class="l nm tsp-o">${r.oppName ? logoImg(r.oppName) : '<i class="tsp-lg"></i>'}${oppTxt}${r.g.conf ? '<i class="cfdot" title="conference game"></i>' : ''}${r.event ? `<span class="tsp-ev" title="${evEsc(r.event)}"><span class="ev-l">${evEsc(evShort(r.event))}</span><span class="ev-s">${evEsc(evTiny(r.event))}</span></span>` : ''}</td>
+        <td class="l nm tsp-o">${r.oppName ? logoImg(r.oppName) : '<i class="tsp-lg"></i>'}<span class="tsp-at">${r.venue === 'A' ? 'at' : 'vs'} </span>${oppTxt}${r.g.conf ? '<i class="cfdot" title="conference game"></i>' : ''}${r.event ? `<span class="tsp-ev" title="${evEsc(r.event)}"><span class="ev-l">${evEsc(evShort(r.event))}</span><span class="ev-s">${evEsc(evTiny(r.event))}</span></span>` : ''}</td>
         <td class="c tsp-sc" title="${r.pace ? `${r.pace} possessions · total ${r.total}` : 'league-average total'}">${r.scoreMe}–${r.scoreOpp}</td>
         <td class="c tsp-site" title="${siteTitle} · rest ${restTxt(r.mf)} vs ${r.known ? restTxt(r.of) : (r.oppName ? '?' : 'same')}${Math.abs(restD) >= 0.15 ? ` (${sg(restD)})` : ''}${r.mf.stint >= 2 ? ` · ${r.mf.stint}${r.mf.stint === 2 ? 'nd' : r.mf.stint === 3 ? 'rd' : 'th'} straight away` : ''} · situational edge ${sg(edge)}">${r.venue}</td>
         <td class="c tsp-q" title="NET-style quadrant: opponent rank ${rk || '—'} ${r.venue === 'H' ? 'at home' : r.venue === 'A' ? 'on the road' : 'on a neutral floor'}">${q ? 'Q' + q : ''}</td>
@@ -535,8 +542,8 @@
       <div class="tsp-tile"><div class="k">Conference</div><div class="v">${R.confN ? `${cw}–${cl}` : '—'}</div><div class="s">${R.confN ? `${R.expCW.toFixed(1)} of ${R.confN} league games` : 'no league games listed yet'}</div></div>
       <div class="tsp-tile"><div class="k">20+ wins</div><div class="v">${Math.round(R.p20 * 100)}%</div><div class="s">25+ ${Math.round(R.p25 * 100)}% · .500+ ${Math.round(R.pHalf * 100)}%</div></div>
     </div>`;
-    const note = `<div class="tsp-note"><b>Line</b> = projected margin (− favored, + underdog), built from the ratings, the host's measured home edge, and rest: back-to-backs cost ${sg(m.rest && m.rest.b2b || 0)} pts, 8+ days off ${sg(m.rest && m.rest.r8 || 0)}, a season opener ${sg(m.rest && m.rest.opener || 0)} (${(m.n || 0).toLocaleString()} games since ${m.firstSeason || 2008}; road trips and win streaks measure ≈ 0). Hover a Site badge for that game's breakdown. <b>Win %</b> is the share of ${R.sims.toLocaleString()} simulated seasons, each drawing every team's true strength ±${R.tau} around its projection.</div>`;
-    host.innerHTML = `<div class="tsp">${sum}<div class="sheet-wrap tsp-wrap"><table class="sheet dense tsp-table tsp-timed"><thead><tr>
+    const note = `<details class="tsp-note"><summary>How the line and win % work</summary><b>Line</b> = projected margin (− favored, + underdog), built from the ratings, the host's measured home edge, and rest: back-to-backs cost ${sg(m.rest && m.rest.b2b || 0)} pts, 8+ days off ${sg(m.rest && m.rest.r8 || 0)}, a season opener ${sg(m.rest && m.rest.opener || 0)} (${(m.n || 0).toLocaleString()} games since ${m.firstSeason || 2008}; road trips and win streaks measure ≈ 0). Hover a Site badge for that game's breakdown. <b>Win %</b> is the share of ${R.sims.toLocaleString()} simulated seasons, each drawing every team's true strength ±${R.tau} around its projection.</details>`;
+    host.innerHTML = `<div class="tsp">${sum}<div class="sheet-wrap tsp-wrap"><table class="sheet dense tsp-table tsp-timed" data-fit-keep><thead><tr>
       <th class="l">Date</th><th class="l" title="tip time (Eastern) · TV">Time · TV</th><th title="opponent's rank">Rk</th><th class="l">Opponent</th><th class="c" title="projected score">Score</th><th class="c" title="H home · A away · N neutral">Site</th><th class="c" title="NET-style quadrant">Quad</th><th title="opponent's projected Power Rating">Opp PRtg</th><th data-heat="1" title="win probability across the simulated seasons">Win %</th><th data-heat="-1" title="projected margin: − favored, + underdog">Line</th>
     </tr></thead><tbody>${rows}</tbody></table></div>${note}</div>`;
     shade(host);
@@ -591,7 +598,7 @@
         <td class="tsp-pr">${x.oppSrs != null ? sg(x.oppSrs) : ''}</td>
         <td class="tsp-line" title="expected margin from the two Power Ratings + venue">${exp != null ? sg(exp) : ''}</td>
         <td class="tsp-pm" title="actual margin vs expected">${diff != null ? sg(diff) : ''}</td>
-        <td class="tsp-line">${x.rec}</td></tr>`;
+        <td class="tsp-line tsp-rec" data-v="" title="record after this game">${x.rec}</td></tr>`;
     });
     host.innerHTML = `<div class="tsp"><div class="sheet-wrap tsp-wrap"><table class="sheet dense tsp-table"><thead><tr>
       <th class="l">Date</th><th title="opponent's rank">Rk</th><th class="l">Opponent</th><th class="c">Result</th><th class="c" title="H home · A away · N neutral">Site</th><th class="c" title="NET-style quadrant">Quad</th><th title="opponent's Power Rating that season">Opp PRtg</th><th title="expected margin (Power Ratings + venue)">Exp</th><th data-heat="1" title="actual margin minus expected">+/−</th><th>Record</th>

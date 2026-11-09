@@ -151,6 +151,8 @@
       Object.keys((F && F.s) || {}).forEach(function (y) { if ((F.s[y] || []).length) ys[y] = 1; }); r[1].forEach(function (y) { ys[y] = 1; });
       var yrs = Object.keys(ys).map(Number).sort(function (x, y) { return y - x; });
       if (!yrs.length) { host.innerHTML = '<div class="empty-note" style="padding:20px;">No lineup history on file for this team yet.</div>'; return; }
+      // the team page passes lockSeason: its one season picker drives this tab, so there's no second picker here
+      if (opts.lockSeason && opts.season && yrs.indexOf(+opts.season) < 0) { host.innerHTML = '<div class="empty-note" style="padding:20px;">No lineup data for ' + (opts.season - 1) + '-' + String(opts.season).slice(2) + '. Lineups start in ' + (yrs[yrs.length - 1] - 1) + '-' + String(yrs[yrs.length - 1]).slice(2) + '.</div>'; bar.innerHTML = ''; return; }
       var yr = opts.season && yrs.indexOf(+opts.season) >= 0 ? +opts.season : yrs[0], win = 0;
       function lab() {   // the five-man ratings cover whole seasons, so the window doesn't remount them
         fh.innerHTML = '';
@@ -160,9 +162,9 @@
         else if (g.TDC_LINEUPS && g.TDC_LINEUPS.section) { var y0 = yr; g.TDC_LINEUPS.section(full, yr, {}).then(function (h) { if (h && y0 === yr) fh.innerHTML = '<div class="lu-h"><h3>Five-man lineups & trios</h3><small>every possession from play-by-play</small></div>' + h; }).catch(function () {}); }
       }
       function drawBar(n) {
-        bar.innerHTML = '<label class="lu-lab-s"><span>Season</span><select aria-label="Season">' + yrs.map(function (y) { return '<option value="' + y + '"' + (y === yr ? ' selected' : '') + '>' + (y - 1) + '-' + String(y).slice(2) + '</option>'; }).join('') + '</select></label>' +
+        bar.innerHTML = (opts.lockSeason ? '' : '<label class="lu-lab-s"><span>Season</span><select aria-label="Season">' + yrs.map(function (y) { return '<option value="' + y + '"' + (y === yr ? ' selected' : '') + '>' + (y - 1) + '-' + String(y).slice(2) + '</option>'; }).join('') + '</select></label>') +
           '<div class="lu-yrs" role="group" aria-label="Games">' + WINS.map(function (w) { return '<button data-w="' + w[0] + '" class="' + (w[0] === win ? 'on' : '') + '"' + (w[0] && n <= w[0] ? ' disabled title="Only ' + n + (n === 1 ? ' game' : ' games') + ' so far"' : '') + '>' + w[1] + '</button>'; }).join('') + '</div>';
-        bar.querySelector('select').onchange = function () { yr = +this.value; win = 0; show(); lab(); };
+        var sel = bar.querySelector('select'); if (sel) sel.onchange = function () { yr = +this.value; win = 0; show(); lab(); };
         bar.querySelectorAll('button').forEach(function (b) { b.onclick = function () { if (b.disabled) return; win = +b.dataset.w; show(); }; });
       }
       function show() {
