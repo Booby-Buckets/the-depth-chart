@@ -35,20 +35,23 @@ var LAUNCH=[
 ];
 function rowOf(full){ full=(full||'').toLowerCase().trim(); return POOL.filter(function(t){ return (t.full||'').toLowerCase().trim()===full || (t.team||'').toLowerCase().trim()===full; })[0]||null; }
 
+// Nov 2026 rework (owner: "total rework on the overview", disliked the starting-five cards): two columns, every section
+// the same header and a sheet. Main = up next + ONE rotation table (starters by spot, bench in order, who's out, where
+// each man came from and his OVR change); side = team grades, standings, news. Tools stay as a link list at the bottom.
 var SKELETON=
-  '<div id="hxToday">'+
+  '<div id="hxToday" class="ov-grid"><div class="ov-main">'+
     '<div class="hq-sec"><h2 id="hxNextLbl">Up next</h2><span class="sub" id="hxNextSub"></span></div><div id="hxGame"></div>'+
-    '<div id="hxFiveBlk"><div class="hq-sec"><h2>The starting five</h2><span class="sub" id="hxFiveSub">depth chart · projected per game</span></div><div class="c-five" id="hxFive"></div></div>'+
     '<div id="hxRecapBlk"><div class="hq-sec"><h2 id="hxOutlookLbl">Season recap</h2></div><div id="hxOutlook"></div></div>'+
-    '<div class="hq-two"><div>'+
-      '<div class="hq-sec"><h2 id="hxLeadLbl">The bench</h2><span class="sub" id="hxLeadSub"></span></div><div id="hxLeaders"></div>'+
-      '<div class="hq-sec"><h2 id="hxShotLbl">How it was built</h2><span class="sub" id="hxShotSub"></span></div><div id="hxShot"></div>'+
-    '</div><div>'+
-      '<div class="hq-sec"><h2 id="hxAnaLbl">Team grades</h2><span class="sub" id="hxAnaSub">D-I percentile</span></div><div id="hxAnalytics"></div>'+
-      '<div class="hq-sec"><h2 id="hxStandLbl">Standings</h2><span class="sub" id="hxStandSub"></span></div><div id="hxStandings"></div>'+
-      '<div id="hxMediaCard"><div class="hq-sec"><h2>Around the program</h2><span class="sub">latest</span></div><div id="hxMedia"></div></div>'+
-    '</div></div>'+
-  '</div>'+
+    '<div id="hxFiveBlk"><div class="hq-sec"><h2>Rotation</h2><span class="sub" id="hxFiveSub"></span></div><div id="hxFive"></div></div>'+
+    '<div id="hxPastBlk">'+
+      '<div class="hq-sec"><h2 id="hxLeadLbl">Roster</h2><span class="sub" id="hxLeadSub"></span></div><div id="hxLeaders"></div>'+
+      '<div class="hq-sec"><h2 id="hxShotLbl">Team leaders</h2><span class="sub" id="hxShotSub"></span></div><div id="hxShot"></div>'+
+    '</div>'+
+  '</div><div class="ov-side">'+
+    '<div class="hq-sec"><h2 id="hxAnaLbl">Team grades</h2><span class="sub" id="hxAnaSub">D-I percentile</span></div><div id="hxAnalytics"></div>'+
+    '<div class="hq-sec"><h2 id="hxStandLbl">Standings</h2><span class="sub" id="hxStandSub"></span></div><div id="hxStandings"></div>'+
+    '<div id="hxMediaCard"><div class="hq-sec"><h2>News</h2><span class="sub">latest on the roster</span></div><div id="hxMedia"></div></div>'+
+  '</div></div>'+
   '<div class="hq-sec" id="cmd"><h2 id="hxCmdLbl">Every tool, set to your team</h2><span class="sub" id="hxTeamLbl"></span></div>'+
   '<div class="launch" id="hqLaunch"></div><div class="note" id="hqNote"></div>';
 
@@ -64,9 +67,8 @@ function renderSeason(){
   }).join('');
   byId('hxTeamLbl').textContent=past?(row.full+', '+seasonLabel(HQ_SEASON)):row.full;
   var mediaCard=byId('hxMediaCard');
-  byId('hxLeadLbl').textContent=past?'Roster':'The bench'; byId('hxLeadSub').textContent=past?seasonLabel(HQ_SEASON):'6th man down · projected per game';
-  byId('hxShotLbl').textContent=past?'Team leaders':'How it was built'; byId('hxShotSub').textContent=past?seasonLabel(HQ_SEASON):'how he got here · last year’s OVR → this year’s';
-  byId('hxFiveBlk').style.display=past?'none':''; byId('hxRecapBlk').style.display=past?'':'none';
+  byId('hxLeadSub').textContent=seasonLabel(HQ_SEASON); byId('hxShotSub').textContent=seasonLabel(HQ_SEASON);
+  byId('hxFiveBlk').style.display=past?'none':''; byId('hxPastBlk').style.display=past?'':'none'; byId('hxRecapBlk').style.display=past?'':'none';
   byId('hxNextLbl').textContent=past?'Final game':'Up next'; byId('hxNextSub').textContent=past?seasonLabel(HQ_SEASON):'win chance · our line · projected score';
   if(past) pastRoster(row,HQ_SEASON); else loadRoster(row);
   if(+HQ_SEASON===2027){
@@ -161,7 +163,7 @@ function projGame(row){
   // A: the next six games as a sheet (date, opponent, win chance, our line, projected score), the scout /
   // matchup buttons under it
   var el=byId('hxGame'), q=encodeURIComponent(row.full);
-  var btns=function(opp){ return '<div class="ng-btns">'+(opp?'<a class="btn primary" href="team.html?team='+encodeURIComponent(opp)+'&tab=scout">Scout '+esc(opp)+' →</a>':'')+'<a class="btn ghost" href="matchup.html?a='+q+(opp?'&b='+encodeURIComponent(opp):'')+'">Matchup</a><a class="btn ghost" href="team.html?team='+q+'&tab=scout" onclick="'+tab('scout')+'">Scouting report</a><a class="btn ghost" href="team.html?team='+q+'&tab=schedule" onclick="'+tab('schedule')+'">Full schedule →</a></div>'; };
+  var btns=function(opp){ return '<div class="ov-links">'+(opp?'<a href="team.html?team='+encodeURIComponent(opp)+'&tab=scout">Scout '+esc(opp)+'</a>':'')+'<a href="matchup.html?a='+q+(opp?'&b='+encodeURIComponent(opp):'')+'">Matchup</a><a href="team.html?team='+q+'&tab=schedule" onclick="'+tab('schedule')+'">Full schedule</a></div>'; };
   el.innerHTML='<div class="hx-empty">Loading the schedule…</div>';
   var notYet=function(){ el.innerHTML='<div class="hx-empty">The 2026-27 schedule isn’t out yet. Your next games and their scouting reports land here once it drops.</div>'+btns(); };
   if(!window.TDCSched) return notYet();
@@ -312,8 +314,8 @@ function seatFive(list,RD){
   return five.map(function(x,i){ x.slot=SL[i]; return x; });
 }
 function loadRoster(row){
-  var fe=byId('hxFive'), le=byId('hxLeaders'), se=byId('hxShot');
-  fe.innerHTML='<div class="hx-empty">Loading the depth chart…</div>'; le.innerHTML=''; se.innerHTML='';
+  var fe=byId('hxFive');
+  fe.innerHTML='<div class="hx-empty">Loading the rotation…</div>';
   var short=row.team||row.full, q=encodeURIComponent(row.full);
   fetch(SB+'/rest/v1/players?team=eq.'+encodeURIComponent(short)+'&select=*&order=depth_order.asc.nullslast',{headers:H})
     .then(function(r){return r.ok?r.json():[];})
@@ -337,31 +339,33 @@ function loadRoster(row){
         var bench=healthy.filter(function(x){ return inFive.indexOf(x.p)<0; }).filter(function(x){ return x.mpg==null||x.mpg>=0.5||(RD&&RD.of(x.p)); }), hurt=arr.filter(function(x){ return x.out; });
         // bench: who actually plays first once games are in, like the Depth Chart tab
         if(RD&&bench.some(function(x){ return RD.of(x.p); })) bench.sort(function(a,b){ var x=RD.of(a.p), y=RD.of(b.p); return ((y&&y.min)||0)-((x&&x.min)||0); });
-        var fs=byId('hxFiveSub'); if(fs) fs.textContent=RD?'most-used starters · '+RD.R.games+(RD.R.games===1?' game':' games')+' · projected per game':'depth chart · projected per game';
         var hc=function(o){ return o==null?'':o>=85?'c4':o>=80?'c3':o>=75?'c2':o>=70?'c1':'c0'; };
-        fe.innerHTML=five.map(function(x){ var p=x.p, L=x.L;
-          var pl=x.slot||p.position||'', ownPos=(p.position||'').toUpperCase();
-          return '<div><div class="pos">'+esc(pl)+(x.slot&&ownPos&&ownPos!==x.slot?' <span title="Listed '+esc(ownPos)+'" style="opacity:.6">('+esc(ownPos)+')</span>':'')+(p.yr||p.class_year?' · '+esc(p.yr||p.class_year):'')+'</div><div class="ovr">'+(x.ov==null?'—':x.ov)+'</div><div class="nm">'+link(p)+'</div>'+
-            '<div class="ln">'+(L.ppg!=null?f1(L.ppg)+' pts · '+f1(L.rpg)+' reb · '+f1(L.apg)+' ast · '+Math.round(x.mpg||0)+' min':'<span class="dim">no projected line yet</span>')+'</div></div>'; }).join('');
-        le.innerHTML='<div class="sheet-wrap"><table class="sheet dense hq-bench" data-fit-keep><thead><tr><th class="l">Slot</th><th>OVR</th><th class="l">Player</th><th class="l" title="projected minutes">Min</th><th>Pts</th><th class="hq-hide-ph">Reb</th></tr></thead><tbody>'+
-          bench.map(function(x,i){ return '<tr><td class="l dim">'+ord(i+6)+'</td><td class="'+hc(x.ov)+'"><b>'+(x.ov==null?'—':x.ov)+'</b></td><td class="l nm">'+link(x.p)+'</td><td class="l"><span class="hq-bar"><i style="width:'+Math.min(100,(x.mpg||0)/40*100)+'%"></i></span>'+f1(x.mpg)+'</td><td>'+f1(x.L.ppg)+'</td><td class="hq-hide-ph">'+f1(x.L.rpg)+'</td></tr>'; }).join('')+
-          hurt.map(function(x){ return '<tr class="hq-out"><td class="l dim">Out</td><td>'+(x.ov==null?'—':x.ov)+'</td><td class="l nm">'+link(x.p)+(window.TDCInjury&&TDCInjury.badgeHTML?' '+TDCInjury.badgeHTML(x.p):'')+'</td><td class="l dim" colspan="3">'+(window.TDCInjury&&TDCInjury.badgeHTML?'':'out for the season')+'</td></tr>'; }).join('')+
-          '</tbody></table></div>'+(bench.length||hurt.length?'':'<div class="hx-empty">Everyone on the roster is in the starting five.</div>');
-        // how it was built: the school each player last played for (player_history, 2025-26 then 2024-25)
         var ids=arr.map(function(x){ return x.p.espn_id; }).filter(function(e){ return e!=null; });
         var paint=function(H_){
           var same=function(t){ t=(t||'').toLowerCase().trim(); var a=(row.team||'').toLowerCase().trim(), b=(row.full||'').toLowerCase().trim(); return t&&(t===a||t===b||b.indexOf(t+' ')===0); };
-          var how=function(x){ var h=x.p.espn_id!=null?H_[x.p.espn_id]:null, y=(x.p.yr||x.p.class_year||'').toString();
+          var how=function(x){ if(!H_) return ['',''];
+            var h=x.p.espn_id!=null?H_[x.p.espn_id]:null, y=(x.p.yr||x.p.class_year||'').toString();
             if(!h) return /fr/i.test(y)&&!/r-?fr|rs/i.test(y)?['Freshman','fr']:['Newcomer','nw'];
             return same(h.team)?['Returner','rt']:['From '+(window.tdcTeamName?tdcTeamName(h.team):h.team),'tr']; };
-          var rows=arr.filter(function(x){ return !(x.mpg!=null&&x.mpg<0.5&&x.last==null); });
-          var n={rt:0,tr:0,fr:0,nw:0}; rows.forEach(function(x){ n[how(x)[1]]++; });
-          byId('hxShotSub').textContent=[n.rt?n.rt+' returning':'',n.tr?n.tr+' transfer'+(n.tr===1?'':'s'):'',n.fr?n.fr+' freshm'+(n.fr===1?'an':'en'):'',n.nw?n.nw+' other newcomer'+(n.nw===1?'':'s'):''].filter(Boolean).join(' · ');
-          se.innerHTML='<div class="sheet-wrap"><table class="sheet dense hq-built" data-fit-keep><thead><tr><th class="l">Player</th><th class="l">How he got here</th><th title="last season\'s overall">Last</th><th title="projected 2026-27 overall">Now</th></tr></thead><tbody>'+
-            rows.map(function(x){ var w=how(x), d=(x.last!=null&&x.ov!=null)?x.ov-x.last:null;
-              return '<tr><td class="l nm">'+link(x.p)+'</td><td class="l"><span class="hq-st '+w[1]+'">'+esc(w[0])+'</span></td><td class="dim">'+(x.last==null?'—':x.last)+'</td><td><b>'+(x.ov==null?'—':x.ov)+'</b>'+(d?' <span class="'+(d>0?'up':'dn')+' hq-d">'+(d>0?'▲':'▼')+Math.abs(d)+'</span>':'')+'</td></tr>'; }).join('')+
-            '</tbody></table></div>';
+          var n={rt:0,tr:0,fr:0,nw:0};
+          var line=function(x,role,cls){ var p=x.p, L=x.L, w=how(x), d=(x.last!=null&&x.ov!=null)?x.ov-x.last:null, yr=p.yr||p.class_year||'';
+            if(w[1]) n[w[1]]++;
+            var listed=(p.position||'').toUpperCase(), tip=x.slot&&listed&&listed!==x.slot?' title="Listed '+esc(listed)+'"':'';
+            return '<tr'+(cls?' class="'+cls+'"':'')+'><td class="l ov-role"'+tip+'>'+role+'</td>'+
+              '<td class="l nm">'+link(p)+(cls==='hq-out'&&window.TDCInjury&&TDCInjury.badgeHTML?' '+TDCInjury.badgeHTML(p):'')+'<span class="ov-sub">'+[esc(yr),w[0]?'<span class="ov-path '+w[1]+'">'+esc(w[0])+'</span>':''].filter(Boolean).join(' · ')+'</span></td>'+
+              '<td class="'+hc(x.ov)+' ov-ovr"><b>'+(x.ov==null?'—':x.ov)+'</b></td>'+
+              '<td class="ov-d hq-hide-ph">'+(d?'<span class="'+(d>0?'up':'dn')+'">'+(d>0?'+':'−')+Math.abs(d)+'</span>':'<span class="dim">'+(x.last==null?'new':'0')+'</span>')+'</td>'+
+              (cls==='hq-out'?'<td class="l dim" colspan="4">out</td>':
+              '<td class="l ov-min"><span class="hq-bar"><i style="width:'+Math.min(100,(x.mpg||0)/40*100)+'%"></i></span>'+f1(x.mpg)+'</td><td class="strong">'+f1(L.ppg)+'</td><td>'+f1(L.rpg)+'</td><td class="hq-hide-ph">'+f1(L.apg)+'</td>')+'</tr>'; };
+          var grp=function(t){ return '<tr class="ov-grp"><td colspan="8">'+t+'</td></tr>'; };
+          var body=grp('Starters')+five.map(function(x){ return line(x,esc(x.slot||x.p.position||'')); }).join('')+
+            (bench.length?grp('Bench')+bench.map(function(x,i){ return line(x,ord(i+6)); }).join(''):'')+
+            (hurt.length?grp('Out')+hurt.map(function(x){ return line(x,'—','hq-out'); }).join(''):'');
+          fe.innerHTML='<div class="sheet-wrap"><table class="sheet dense ov-rot" data-fit-keep><thead><tr><th class="l">Spot</th><th class="l">Player</th><th title="projected 2026-27 overall">OVR</th><th class="hq-hide-ph" title="change from last season\'s overall">+/−</th><th class="l" title="projected minutes per game">Min</th><th>Pts</th><th>Reb</th><th class="hq-hide-ph">Ast</th></tr></thead><tbody>'+body+'</tbody></table></div>';
+          var built=H_?[n.rt?n.rt+' returning':'',n.tr?n.tr+' transfer'+(n.tr===1?'':'s'):'',n.fr?n.fr+' freshm'+(n.fr===1?'an':'en'):'',n.nw?n.nw+' newcomer'+(n.nw===1?'':'s'):''].filter(Boolean).join(' · '):'';
+          var fs=byId('hxFiveSub'); if(fs) fs.textContent=[RD?'starters = most used in '+RD.R.games+(RD.R.games===1?' game':' games'):'starters from the depth chart','projected per game',built].filter(Boolean).join(' · ');
         };
+        paint(null);
         if(!ids.length) return paint({});
         fetch(SB+'/rest/v1/player_history?espn_id=in.('+ids.join(',')+')&season_year=in.(2025,2026)&mpg=gt.0&select=espn_id,team,season_year&order=season_year.desc',{headers:H})
           .then(function(r){return r.ok?r.json():[];}).then(function(rows){ var m={}; (rows||[]).forEach(function(h){ if(!m[h.espn_id]) m[h.espn_id]=h; }); if(+HQ_SEASON===2027&&MY===row.full) paint(m); })

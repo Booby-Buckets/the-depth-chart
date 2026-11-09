@@ -17,65 +17,76 @@
   var KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 
   // [group label, [[href, name], …]] — the six top-level menus.
+  // Owner, Nov 2026: the nav confused people (13 coined tool names under "Analytics", rankings split across menus).
+  // Plain-English groups, a one-line "what it is" under every item, sub-headings in the long menus.
+  // Item = [href, label, what it is]; ['#Heading'] starts a section; a group with a string is a plain link.
   var GROUPS = [
+    ['Scores', 'today.html', ['game.html', 'scrimmages.html']],
+    ['Rankings', [
+      ['#This season'],
+      ['index.html',           'Team Rankings',          'All 365 teams, best to worst'],
+      ['roster.html',          'Player Rankings',        'Every player by overall'],
+      ['conferences.html',     'Conferences & Standings','League tables and conference ratings'],
+      ['predict.html',         'Predictive Ratings',     'Who wins going forward'],
+      ['#Postseason'],
+      ['bracket.html',         'Bracketology',           'Projected NCAA Tournament field'],
+      ['tournaments.html',     'Tournaments',            'Early-season events and conference tournaments'],
+      ['awards.html',          'Awards',                 'All-Conference, All-America, Player of the Year odds'],
+    ]],
     ['Teams', [
-      ['today.html',           "Today's Games"],
-      ['scrimmages.html',      'Scrimmages'],
-      ['index.html',           'Team Rankings'],
-      ['team.html',            'Teams'],
-      ['team-stats.html',      'Team Stats'],
-      ['conferences.html',     'Conferences & Standings'],
-      ['compare-players.html?mode=teams', 'Compare Teams'],
-      ['compare-games.html',   'Compare Games'],
-      ['predict.html',         'Predictive Ratings'],
-      ['payroll.html',         'Payrolls'],
+      ['team.html',            'Team Pages',             'Roster, depth chart, schedule, scouting'],
+      ['team-stats.html',      'Team Stats',             'Sortable team stats for the season'],
+      ['compare-players.html?mode=teams', 'Compare Teams', 'Two teams side by side'],
+      ['compare-games.html',   'Compare Games',          'Two games side by side'],
+      ['payroll.html',         'Payrolls',               'Estimated NIL spending by team'],
     ]],
     ['Players', [
-      ['following.html',       '★ Following'],
-      ['roster.html',          'Player Rankings'],
-      ['transfers.html',       'Transfer Portal'],
-      ['recruiting.html',      'Recruiting'],
-      ['recruiting-history.html', 'Recruit Hype Check'],
-      ['transfer-fit.html',    'Transfer Fit'],
-      ['compare-players.html', 'Compare Players'],
-      ['draft.html',           'Big Board'],
-      ['development.html',     'Development'],
-      ['roles.html#arch',      'Archetypes'],
+      ['following.html',       '★ Following',            'Players and teams you follow'],
+      ['compare-players.html', 'Compare Players',        'Two players side by side'],
+      ['draft.html',           'Big Board',              'NBA Draft prospects ranked'],
+      ['development.html',     'Development',            'Who improved the most year to year'],
+      ['roles.html#arch',      'Archetypes',             'Players grouped by playing style'],
+      ['#Transfers & recruiting'],
+      ['transfers.html',       'Transfer Portal',        'Every transfer and where they went'],
+      ['transfer-fit.html',    'Transfer Fit',           'Which teams fit a transfer best'],
+      ['recruiting.html',      'Recruiting',             'Commits and the recruit rankings'],
+      ['recruiting-history.html', 'Recruit Hype Check',  'Did top recruits live up to their ranking'],
     ]],
-    ['Analytics', [
-      ['bet/',                          'TDC Bet ↗'],
-      ['analytics.html',                'Advanced Stats'],
-      ['shot-genome.html',              'Shot Genome'],
-      ['crunch.html',                   'Crunch-Time Takeovers'],
-      ['shot-aftermath.html',           'Shot Aftermath'],
-      ['game-situations.html',          'Game Situations'],
-      ['shot-quality.html',             'Shot Quality'],
-      ['mastery.html',                  'Mastery Shots'],
-      ['hunt-great.html',               'Hunt Great'],
-      ['plays.html',                    'Play Finder'],
-      ['wowy.html',                     'WOWY Lineups / On-Off'],
-      ['statshift.html',                'Stat Line Shift'],
-      ['passing.html',                  'Passing & Roles'],
-    ]],
-    ['Postseason', [
-      ['tournaments.html',     'Tournaments'],
-      ['bracket.html',         'Bracketology'],
-      ['awards.html',          'Awards'],
+    ['Stats', [
+      ['#Overview'],
+      ['analytics.html',       'Advanced Stats',         'Efficiency and impact leaderboards'],
+      ['passing.html',         'Passing & Roles',        'Who assists whom, bench and starter roles'],
+      ['#Shooting'],
+      ['shot-genome.html',     'Shot Genome',            'Shot quality vs shot-making for every player'],
+      ['shot-quality.html',    'Shot Quality',           'How good the looks are, by team and player'],
+      ['mastery.html',         'Mastery Shots',          'Points per shot, measured against 1.1'],
+      ['hunt-great.html',      'Hunt Great',             'Great, average and bad shots by shot clock'],
+      ['shot-aftermath.html',  'Shot Aftermath',         'What happens after each kind of shot'],
+      ['#Lineups & impact'],
+      ['wowy.html',            'WOWY Lineups / On-Off',  'How a team plays with or without a player'],
+      ['statshift.html',       'Stat Line Shift',        'A player\'s line with or without a teammate'],
+      ['#Game moments'],
+      ['crunch.html',          'Crunch-Time Takeovers',  'Who takes over late in close games'],
+      ['game-situations.html', 'Game Situations',        'Stats by score, time and situation'],
+      ['plays.html',           'Play Finder',            'Search every play since 2008'],
     ]],
     ['More', [
-      ['explore.html',         'Explore all tools'],
-      ['coach-tier.html',      'Scouting & Game Prep'],
-      ['coaches.html',         'Coaching Lab'],
-      ['buzz.html',            'News'],
-      ['community.html',       'Community'],
-      ['fan.html',             'Fan Sites'],
-      ['league.html',          'Fantasy'],
-      ['games.html',           'Games'],
-      ['dynasty.html',         'Dynasty (beta)'],
-      ['customize.html',       'Customize'],
-      ['pricing.html',         'Pricing'],
-      ['just-added.html',      'Just Added'],
-      ['changelog.html',       "What's New"],
+      ['explore.html',         'Explore all tools',      'Every tool on one page'],
+      ['coach-tier.html',      'Scouting & Game Prep',   'Opponent reports for coaches'],
+      ['coaches.html',         'Coaching Lab',           'Coach profiles and styles'],
+      ['bet/',                 'TDC Bet ↗',              'Lines, picks and betting trends'],
+      ['#Community'],
+      ['buzz.html',            'News',                   'Headlines around college hoops'],
+      ['community.html',       'Community',              'Forum and discussions'],
+      ['fan.html',             'Fan Sites',              'Team fan pages and articles'],
+      ['league.html',          'Fantasy',                'Fantasy leagues'],
+      ['games.html',           'Games',                  'Daily trivia and guessing games'],
+      ['dynasty.html',         'Dynasty (beta)',         'Run a program season by season'],
+      ['#Account'],
+      ['customize.html',       'Customize',              'Build your own depth charts'],
+      ['pricing.html',         'Pricing',                'Plans and Pro access'],
+      ['changelog.html',       "What's New",             'Recent changes to the site'],
+      ['just-added.html',      'Just Added',             'Newest tools and data'],
     ]],
   ];
 
@@ -161,6 +172,18 @@
       '.tdn-sr .hint{padding:8px 8px 2px;font-size:12px;color:var(--text3);}',
       '@media(max-width:640px){.tdn-srch .tdn-srl{display:none;}.tdn-srch .tdn-btn{padding:0 2px 0 6px;}.tdn-sp input{font-size:16px;}}',
       '.tdn-menu a{display:block;font-size:12.5px;font-weight:600;letter-spacing:.01em;text-transform:none;color:var(--text2);text-decoration:none;padding:8px 12px;border-radius:4px;white-space:nowrap;transition:background .13s,color .13s;}',
+      // each item: name, then one plain line saying what it is
+      "a.tdn-btn{text-decoration:none;}",
+      '.tdn-menu:not(.tdn-sp){width:290px;max-height:min(78vh,720px);overflow-y:auto;}',
+      '.tdn-menu.tdn-wide{width:600px;column-count:2;column-gap:6px;}',
+      '.tdn-menu:not(.tdn-sp) a{white-space:normal;padding:7px 12px;break-inside:avoid;}',
+      '.tdn-menu a b{display:block;font-weight:600;color:var(--text);}',
+      '.tdn-menu a span{display:block;font-size:11.5px;font-weight:500;color:var(--text3);line-height:1.35;margin-top:1px;}',
+      '.tdn-menu a.active b{color:var(--accent);}',
+      '.tdn-mh{margin:10px 12px 3px;font:700 9.5px Inter,system-ui,sans-serif;letter-spacing:.13em;text-transform:uppercase;color:var(--accent);break-after:avoid;}',
+      '.tdn-mh:first-child{margin-top:4px;}',
+      // phones: a menu opens full width under the bar instead of hanging off one button
+      '@media(max-width:760px){.tdn-row{position:relative;}.tdn-group{position:static;}.tdn-menu:not(.tdn-sp),.tdn-menu.tdn-wide{left:0!important;right:0!important;width:auto;max-width:none;column-count:1;max-height:72vh;}}',
       '.tdn-menu a:hover{background:var(--bg3);color:var(--text);}',
       '.tdn-menu a.active{color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent);}',
       '.tdn-signout{font-family:inherit;background:none;border:1px solid var(--border2);border-radius:4px;cursor:pointer;font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);padding:4px 9px;white-space:nowrap;transition:color .15s,border-color .15s;}',
@@ -204,14 +227,20 @@
 
   // ── Markup ──
   var groupsHtml = GROUPS.map(function (g) {
-    var inGroup = g[1].some(function (t) { return t[0].toLowerCase() === here; });
+    if (typeof g[1] === 'string') {   // a plain link (Scores)
+      var on = g[1] === here || (g[2] || []).indexOf(here) >= 0;
+      return '<div class="tdn-group"><a class="tdn-btn' + (on ? ' active' : '') + '" href="' + g[1] + '">' + esc(g[0]) + '</a></div>';
+    }
+    var inGroup = g[1].some(function (t) { return t[0].toLowerCase().split('#')[0].split('?')[0] === here; });
     var items = g[1].map(function (t) {
+      if (t[0].charAt(0) === '#') return '<h6 class="tdn-mh">' + esc(t[0].slice(1)) + '</h6>';
       var a = t[0].toLowerCase() === here ? ' class="active"' : '';
-      return '<a href="' + t[0] + '"' + a + '>' + esc(t[1]) + '</a>';
+      return '<a href="' + t[0] + '"' + a + '><b>' + esc(t[1]) + '</b>' + (t[2] ? '<span>' + esc(t[2]) + '</span>' : '') + '</a>';
     }).join('');
+    var wide = g[1].length > 12 ? ' tdn-wide' : '';
     return '<div class="tdn-group">'
       + '<button class="tdn-btn' + (inGroup ? ' active' : '') + '" type="button">' + esc(g[0]) + '<span class="car"></span></button>'
-      + '<div class="tdn-menu">' + items + '</div></div>';
+      + '<div class="tdn-menu' + wide + '">' + items + '</div></div>';
   }).join('');
 
   var wrap = document.createElement('div');
