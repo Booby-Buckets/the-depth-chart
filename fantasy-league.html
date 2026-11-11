@@ -69,6 +69,13 @@
     .brk .side h4{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
     .brk .m{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--border);}
     .brk .m:first-of-type{border-top:none;}
+    details.ps{border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--bg);}
+    details.ps>summary{list-style:none;cursor:pointer;padding:10px 12px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;}
+    details.ps>summary::-webkit-details-marker{display:none;}
+    details.ps>summary .nx{margin-left:auto;font-size:11.5px;color:var(--text3);}
+    details.ps .sheet-wrap{border:none;border-top:1px solid var(--border);border-radius:0 0 10px 10px;}
+    .wl{font-weight:800;} .wl.w{color:var(--green);} .wl.l{color:var(--red);}
+    tr.up td{color:var(--text3);}
     .acts{display:flex;gap:4px;justify-content:flex-end;}
     .login{max-width:420px;}
     .login .fi{width:100%;text-transform:uppercase;letter-spacing:.06em;}
@@ -129,7 +136,7 @@
   // ── state ──
   let SET={roster:12,pickups:5,max_pg:3,max_ir:2,reg_end:'2027-03-07',draft_start:'2026-11-01'};
   let TEAMS=[], STINTS=[], IR=[], MOVES=[], PG=new Set(), PENDING=false;
-  let CNT={}, CNTDATES={}, FULL={}, PROJ={}, FRESH={}, REAL={}, BOX={}, POOL=null;
+  let CNT={}, CNTDATES={}, CNTG={}, FULL={}, SHORT={}, RES={}, PROJ={}, FRESH={}, REAL={}, BOX={}, POOL=null;
   let ME=null, CODE=store.get('cl_code');
   // the Players page (free agents + adds) is only for these teams' logins, or the site owner (owner, Nov 10 2026)
   const PLAYERS_FOR=['Aidan','Mark'];
@@ -138,16 +145,19 @@
   let rmode=store.get('cl_rmode')||'tot';       // roster: tot | pg | proj
 
   async function load(){
-    const [cnt,proj,fresh,real,rat,draft]=await Promise.all([
+    const [cnt,proj,fresh,real,rat,draft,res]=await Promise.all([
       jget('scripts/data/fantasy_counting_2027.json?v=1'),
       jget('scripts/data/stat_overall_projected.json?v=96'),
       jget('scripts/data/fresh_fit.json?v=41'),
       jget('scripts/data/real_lines_2027.json?t='+TODAY),
       get('predictive_ratings?select=data&limit=1').catch(()=>[]),
-      jget('scripts/data/fantasy_cl_rosters_2027.json?v=1')]);
-    if(cnt&&cnt.teams) Object.entries(cnt.teams).forEach(([t,l])=>{ CNT[t]=new Set(l.map(g=>String(g.id))); CNTDATES[t]=l.map(g=>g.date).sort(); });
+      jget('scripts/data/fantasy_cl_rosters_2027.json?v=1'),
+      jget('scripts/data/results_2027.json?t='+Math.floor(Date.now()/6e5))]);
+    if(cnt&&cnt.teams) Object.entries(cnt.teams).forEach(([t,l])=>{ CNT[t]=new Set(l.map(g=>String(g.id))); CNTDATES[t]=l.map(g=>g.date).sort(); CNTG[t]=[...l].sort((a,b)=>a.date<b.date?-1:1); });
+    // finals: [id, date, home idx, away idx, home pts, away pts, neutral, conf, ot]
+    if(res&&res.games) res.games.forEach(g=>{ RES[g[0]]={home:res.teams[g[2]],away:res.teams[g[3]],hs:g[4],as:g[5],ot:g[8]}; });
     PROJ=(proj&&proj.players)||{}; FRESH=fresh||{}; REAL=(real&&real.players)||{};
-    ((rat[0]&&rat[0].data&&rat[0].data.teams)||[]).forEach(t=>{ if(t.team&&t.full) FULL[t.team]=t.full; });
+    ((rat[0]&&rat[0].data&&rat[0].data.teams)||[]).forEach(t=>{ if(t.team&&t.full){ FULL[t.team]=t.full; SHORT[t.full]=t.team; } });
     // league tables; until the SQL runs, the drafted rosters from the JSON (view only)
     try{
       const [st,tm,sn,ir,mv,pg]=await Promise.all([get('cl_settings?select=*'),get('cl_teams?select=id,name,division,is_commish&order=id.asc'),
@@ -240,7 +250,7 @@
   function go(h){ location.hash=h; }
   window.addEventListener('hashchange',route);
   function shell(tab,inner){
-    const tabs=[['#/','Standings'],['#/teams','Teams'],['#/me',ME?esc(ME.name):'My team'],...(canPlayers()?[['#/players','Players']]:[]),['#/rules','Rules']];
+    const tabs=[['#/','Standings'],['#/teams','Teams'],['#/me',ME?esc(ME.name):'My team'],['#/schedule','Schedule'],...(canPlayers()?[['#/players','Players']]:[]),['#/rules','Rules']];
     app.innerHTML=`<div class="page-eyebrow">Counting League · 2026-27</div>
       <h1 class="page-h1">${tab==='me'&&ME?esc(ME.name):'Counting League'}</h1>
       <div class="meta">PTS · REB · AST roto over each school's 22 counted games · stats through ${esc(lastGameDate()||'—')}${PENDING?' · <b>view only until league setup finishes</b>':''}</div>
@@ -255,6 +265,7 @@
     if(a==='me') return viewMe();
     if(a==='players') return canPlayers()?viewPlayers():viewStandings();
     if(a==='rules') return viewRules();
+    if(a==='schedule') return viewSchedule(b?+b:null);
     return viewStandings();
   }
 
@@ -443,6 +454,41 @@
       try{ await rpc('cl_move',{p_code:CODE,p_add:p.id,p_drop:drop,p_add_espn:b.dataset.espn?+b.dataset.espn:null}); await refresh(); go('#/me'); }
       catch(err){ b.disabled=false; m.className='msg err'; m.textContent=err.message; }
     });
+  }
+
+  // ── schedule: every counted game for each player, result + his line for the ones played ──
+  const oppName=f=>SHORT[f]||String(f||'').replace(/\s+\S+$/,'');
+  function resultFor(full,gid){ const r=RES[gid]; if(!r) return null; const home=r.home===full;
+    if(!home&&r.away!==full) return null; const us=home?r.hs:r.as, them=home?r.as:r.hs; return {w:us>them,us,them,ot:r.ot}; }
+  function playerSchedule(s){
+    const full=FULL[s.school], games=CNTG[full]||[], box={}; (BOX[s.espn_id]||[]).forEach(b=>{ box[b.game_id]=b; });
+    const ir=irFor(s.id);
+    let w=0,l=0;
+    const rows=games.map(g=>{ const r=resultFor(full,g.id), b=box[g.id], mine=live(s,g.date), onir=ir.some(i=>i.start_date<=g.date&&(!i.end_date||i.end_date>g.date));
+      if(r){ r.w?w++:l++; }
+      const at=g.site==='A'?'@ ':g.site==='N'?'vs ':'';
+      const res=r?`<span class="wl ${r.w?'w':'l'}">${r.w?'W':'L'}</span> ${r.us}-${r.them}${r.ot?' OT':''}`:(g.date<TODAY?'—':'');
+      const line=b?`${b.pts||0} / ${b.reb||0} / ${b.ast||0}${!mine?' <span class="pill">not yours</span>':onir?' <span class="pill ir">IR</span>':''}`:(r?'DNP':'');
+      return {g,r,html:`<tr class="${r||g.date<TODAY?'':'up'}"><td class="l">${md(g.date)}${g.date===TODAY?' <span class="pill g">today</span>':''}</td><td class="l">${at}${lgImg(oppName(g.opp))}${esc(oppName(g.opp))}${g.conf?'':' <span class="pill">non-conf</span>'}</td><td class="l">${res}</td><td>${line}</td></tr>`}; });
+    const left=rows.filter(x=>!x.r&&x.g.date>=TODAY), nxt=left[0];
+    return {w,l,left:left.length,next:nxt&&nxt.g,rows};
+  }
+  function viewSchedule(tid){
+    const id=tid||(ME&&ME.id)||(TEAMS[0]&&TEAMS[0].id), t=TEAMS.find(x=>x.id===id);
+    const ros=STINTS.filter(s=>s.team_id===id&&(!s.end_date||s.end_date>TODAY));
+    const blocks=ros.map(s=>{ const P=playerSchedule(s), ir=irFor(s.id).find(i=>!i.end_date);
+      const nx=P.next?`next ${md(P.next.date)} ${P.next.site==='A'?'@':P.next.site==='N'?'vs':'vs'} ${esc(oppName(P.next.opp))}`:'season done';
+      return `<details class="ps"><summary><b>${lgImg(s.school)}${esc(s.name)}</b>${isPG(s)?'<span class="pill pg">PG</span>':''}${ir?'<span class="pill ir">IR</span>':''}
+        <span class="cl-note" style="margin:0">${esc(s.school)} · ${P.w}-${P.l} in counted games · ${P.left} left</span><span class="nx">${nx}</span></summary>
+        <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Date</th><th class="l">Opponent</th><th class="l">Result</th><th>PTS / REB / AST</th></tr></thead><tbody>${P.rows.map(x=>x.html).join('')}</tbody></table></div></details>`; }).join('');
+    // by date: who plays when, from today on
+    const byDay={}; ros.forEach(s=>{ if(irFor(s.id).find(i=>!i.end_date)) return; (CNTG[FULL[s.school]]||[]).forEach(g=>{ if(g.date>=TODAY&&!resultFor(FULL[s.school],g.id)) (byDay[g.date]=byDay[g.date]||[]).push(s.name); }); });
+    shell('schedule',`<div class="row" style="margin-bottom:10px"><select class="fs" id="schT">${TEAMS.map(x=>`<option value="${x.id}"${x.id===id?' selected':''}>${esc(x.name)}</option>`).join('')}</select>
+        <span class="cl-note" style="margin:0">Tap a player for his full counted schedule. W/L = his school's result.</span></div>
+      ${blocks||'<div class="empty">No players.</div>'}
+      <div class="sec-h">Games left by date</div><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Date</th><th>#</th><th class="l">Players</th></tr></thead><tbody>
+        ${Object.entries(byDay).sort().map(([d,l])=>`<tr><td class="l"><b>${md(d)}</b></td><td>${l.length}</td><td class="l">${l.map(esc).join(', ')}</td></tr>`).join('')}</tbody></table></div>`);
+    document.getElementById('schT').addEventListener('change',e=>go('#/schedule/'+e.target.value));
   }
 
   function viewRules(){
