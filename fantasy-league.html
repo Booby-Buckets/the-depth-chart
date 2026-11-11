@@ -115,16 +115,13 @@
  * 12 teams in two divisions of 6, drafted in person ($200, 12 players, max 3 PGs from the league list). Scoring: roto on
  * total PTS / REB / AST, counting only each school's 22 counted games (scripts/data/fantasy_counting_2027.json, matched by
  * ESPN game id) on the days a player is on the roster and not on IR. Top 3 of each division make the playoffs.
- * PRIVATE (owner, Nov 11 2026): you need a site account AND your team code. The code links the account to its team once
- * (cl_claim); after that cl_data() returns the whole league to that account only. The cl_* tables are closed to the site.
- * SQL: scripts/fantasy_cl.sql + scripts/fantasy_cl_v2_lock.sql.
+ * PRIVATE, CODE ONLY (owner, Nov 11 2026): your team code alone opens the league (no site account). The code is kept in
+ * this browser and sent with every call; cl_data(code) returns the league, the cl_* tables are closed to the site.
+ * SQL: scripts/fantasy_cl.sql + fantasy_cl_v2_lock.sql + fantasy_cl_v3_code.sql.
  * Projected season = counted stats so far + the site's projected per-game line x counted games left. */
 (function(){
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co', KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'};
-  // league calls go as the signed-in account (auth.js keeps the token fresh)
-  const HA=()=>Object.assign({'Content-Type':'application/json'},window.tdcH?tdcH():{apikey:KEY,Authorization:'Bearer '+KEY});
-  const session=()=>{ try{ return JSON.parse(localStorage.getItem('tdc_session')||'null'); }catch(e){ return null; } };
   const CONFS=['B10','SEC','ACC','BIG-12','Big-East'];
   const CATS=[['pts','PTS'],['reb','REB'],['ast','AST']];
   const app=document.getElementById('app');
@@ -140,7 +137,8 @@
   async function get(path){ const r=await fetch(`${SB}/rest/v1/${path}`,{headers:H}); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
   async function getAll(path){ let out=[], off=0; for(;;){ const r=await get(`${path}&limit=1000&offset=${off}`); out=out.concat(r); if(r.length<1000) return out; off+=1000; } }
   async function rpc(fn,body){
-    const r=await fetch(`${SB}/rest/v1/rpc/${fn}`,{method:'POST',headers:HA(),body:JSON.stringify(body||{})});
+    // every league call carries the team code (the only key to the league)
+    const r=await fetch(`${SB}/rest/v1/rpc/${fn}`,{method:'POST',headers:H,body:JSON.stringify(Object.assign({p_code:CODE},body||{}))});
     const j=await r.json().catch(()=>null);
     if(!r.ok) throw new Error((j&&j.message)||('Error '+r.status));
     return j;
@@ -151,7 +149,7 @@
   let SET={roster:12,pickups:5,max_pg:3,max_ir:2,reg_end:'2027-03-07',draft_start:'2026-11-01'};
   let TEAMS=[], STINTS=[], IR=[], MOVES=[], REQS=[], PG=new Set();
   let CNT={}, CNTDATES={}, CNTG={}, FULL={}, SHORT={}, RES={}, PROJ={}, FRESH={}, REAL={}, BOX={}, POOL=null;
-  let ME=null; store.set('cl_code',null);   // codes are no longer kept in the browser
+  let ME=null, CODE=store.get('cl_code')||'';   // this browser's team code
   // the Players page (free agents + adds) is only for these teams' logins, or the site owner (owner, Nov 10 2026)
   const PLAYERS_FOR=['Aidan','Mark'];
   const canPlayers=()=>!!((ME&&PLAYERS_FOR.includes(ME.name))||(window.tdcIsOwner&&tdcIsOwner()));
@@ -483,7 +481,7 @@
   function viewMe(){
     const t=TEAMS.find(x=>x.id===ME.id);
     shell('me',teamBody(t,true)); wireTeam(t,true); wireRequests(t);
-    document.getElementById('outBtn').addEventListener('click',()=>gate('code'));
+    document.getElementById('outBtn').addEventListener('click',()=>{ CODE=''; store.set('cl_code',null); ME=null; location.hash=''; gate(); });
   }
   async function refresh(){
     const had=new Set(STINTS.map(s=>s.espn_id));
@@ -586,29 +584,25 @@
       <p><b>Updates.</b> Box scores load three times a day (about 10:30 pm, 1:15 am and noon ET), so standings move the night games end. Regular season ends ${md(SET.reg_end)}.</p></div>`);
   }
 
-  // ── the gate: a site account + a team code, or nothing ──
-  function gate(kind,msg){
-    const signin=`signin.html?next=${encodeURIComponent('fantasy-league.html')}`;
+  // ── the gate: your team code, nothing else ──
+  function gate(msg){
     app.innerHTML=`<div class="page-eyebrow">Counting League · 2026-27</div><h1 class="page-h1">Counting League</h1>
-      <div class="card login" style="margin-top:14px">${kind==='signin'
-        ?`<b>This league is private.</b><p class="cl-note">Sign in or create an account on The Depth Chart, then enter your team code.</p><a class="btn" href="${signin}">Sign in / create account</a>`
-        :`<b>Enter your team code</b><p class="cl-note">Your commissioner gave each team a code. You only enter it once on this account.</p>
-          <form id="lgF" class="row"><input class="fi" id="lgC" placeholder="e.g. GLEN-XXXXXXXX" autocomplete="off" autocapitalize="characters"><button class="btn">Enter</button></form>`}
+      <div class="card login" style="margin-top:14px"><b>Enter your team code</b><p class="cl-note">This league is private. Your commissioner gave each team a code — this browser remembers it.</p>
+        <form id="lgF" class="row"><input class="fi" id="lgC" placeholder="e.g. GLEN-XXXXXXXX" autocomplete="off" autocapitalize="characters"><button class="btn">Enter</button></form>
         <div class="msg${msg?' err':''}" id="lgM">${esc(msg||'')}</div></div>`;
-    const f=document.getElementById('lgF'); if(!f) return;
+    const f=document.getElementById('lgF');
     f.addEventListener('submit',async e=>{ e.preventDefault(); const m=document.getElementById('lgM'), b=f.querySelector('button');
-      b.disabled=true; m.className='msg'; m.textContent='Checking…';
-      try{ await rpc('cl_claim',{p_code:document.getElementById('lgC').value.trim().toUpperCase()}); location.hash='#/me'; start(); }
-      catch(err){ b.disabled=false; m.className='msg err'; m.textContent=err.message; } });
+      const c=document.getElementById('lgC').value.trim().toUpperCase(); if(!c) return;
+      b.disabled=true; m.className='msg'; m.textContent='Checking…'; CODE=c;
+      try{ await loadLeague(); store.set('cl_code',c); location.hash='#/me'; start(); }
+      catch(err){ CODE=''; b.disabled=false; m.className='msg err'; m.textContent=err.message; } });
   }
   async function start(){
-    const s=session();
-    if(!s||!s.access_token) return gate('signin');
+    if(!CODE) return gate();
     app.innerHTML='<div class="empty">Loading the league…</div>';
     try{ await load(); route(); }
     catch(e){
-      if(/team code/i.test(e.message)) gate('code');
-      else if(/sign in|jwt|401/i.test(e.message)) gate('signin');
+      if(/code is not right/i.test(e.message)){ CODE=''; store.set('cl_code',null); gate('That code is not right.'); }
       else app.innerHTML=`<div class="empty">Couldn't load the league: ${esc(e.message)}</div>`;
     }
   }
