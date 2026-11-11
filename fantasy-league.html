@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="tdc-loading.js?v=5"></script>
+  <link rel="stylesheet" href="tdc-a11y.css?v=3">
+  <script src="tdc-a11y.js?v=2" defer></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Counting League — The Depth Chart</title>
+  <meta name="description" content="A private 12-team college basketball counting league: roto standings on points, rebounds and assists, team pages and roster moves.">
+  <meta name="robots" content="noindex">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <script src="auth.js?v=sales2"></script>
+  <script src="tdc-theme.js?v=5"></script>
+  <script src="team-colors.js?v=13"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--green:#2e8b57;--red:#c0392b;}
+    [data-theme="dark"]{--green:#6fbf7e;--red:#e07a7a;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html,body{background:var(--bg);}
+    body{color:var(--text);font-family:'Inter',system-ui,sans-serif;font-weight:500;min-height:100vh;}
+    .page{padding:28px 0 64px;}
+    button{font:inherit;cursor:pointer;}
+    a{color:inherit;}
+    .page-eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
+    .page-h1{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:34px;letter-spacing:-.02em;margin-bottom:6px;}
+    .meta{font-size:12px;color:var(--text3);margin-bottom:16px;}
+    .btn{font:700 12px 'Inter',system-ui,sans-serif;letter-spacing:.02em;padding:8px 14px;border-radius:999px;border:1px solid var(--text);background:var(--text);color:var(--bg);text-decoration:none;display:inline-flex;align-items:center;gap:6px;}
+    .btn.ghost{background:var(--bg);color:var(--text2);border-color:var(--border2);}
+    .btn.danger{background:var(--bg);color:var(--red);border-color:color-mix(in srgb,var(--red) 45%,var(--border2));}
+    .btn.sm{padding:4px 10px;font-size:11px;}
+    .btn:disabled{opacity:.45;cursor:default;}
+    .fi,.fs{font:500 14px 'Inter',system-ui,sans-serif;background:var(--bg);border:1px solid var(--border2);color:var(--text);padding:8px 11px;border-radius:8px;outline:none;}
+    .fi:focus,.fs:focus{border-color:var(--accent);}
+    .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .sp{flex:1;}
+    .msg{font-size:12.5px;margin:6px 0;min-height:16px;} .msg.err{color:var(--red);font-weight:600;} .msg.ok{color:var(--green);font-weight:600;}
+    .empty{padding:30px 12px;text-align:center;color:var(--text3);font-size:13px;}
+    .cl-note{font-size:12px;color:var(--text3);margin:6px 0 12px;line-height:1.5;}
+    .sec-h{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding-bottom:8px;border-bottom:1px solid var(--border);margin:22px 0 12px;display:flex;justify-content:space-between;gap:10px;align-items:center;}
+    .tabs{display:flex;gap:6px;overflow-x:auto;padding:12px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:18px;scrollbar-width:none;}
+    .tabs::-webkit-scrollbar{display:none;}
+    .tab{flex:none;font:700 12px 'Inter',system-ui,sans-serif;background:var(--bg);border:1px solid var(--border2);color:var(--text2);padding:6px 13px;border-radius:999px;text-decoration:none;white-space:nowrap;}
+    .tab.on{background:var(--text);color:var(--bg);border-color:var(--text);}
+    .seg{display:inline-flex;border:1px solid var(--border2);border-radius:999px;overflow:hidden;}
+    .seg button{background:var(--bg);border:none;color:var(--text2);font:700 11.5px 'Inter',system-ui,sans-serif;padding:6px 12px;}
+    .seg button.on{background:var(--text);color:var(--bg);}
+    .pill{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:1px 6px;border-radius:999px;border:1px solid var(--border2);color:var(--text3);vertical-align:1px;margin-left:4px;}
+    .pill.pg{color:#3b6fb6;border-color:color-mix(in srgb,#3b6fb6 50%,var(--border2));}
+    [data-theme="dark"] .pill.pg{color:#8fb3ea;}
+    .pill.ir{color:var(--red);border-color:color-mix(in srgb,var(--red) 45%,var(--border2));}
+    .pill.g{color:var(--green);border-color:color-mix(in srgb,var(--green) 45%,var(--border2));}
+    .lg{width:16px;height:16px;object-fit:contain;vertical-align:-3px;margin-right:6px;}
+    .nm a{text-decoration:none;font-weight:700;} .nm a:hover{color:var(--accent);text-decoration:underline;}
+    .sheet td .sub{display:block;font-size:10px;color:var(--text3);font-weight:600;}
+    .sheet tfoot td{text-align:right;padding:8px 10px;font-variant-numeric:tabular-nums;border-top:2px solid var(--border2);font-weight:800;} .sheet tfoot td.l{text-align:left;}
+    .me-row td{background:color-mix(in srgb,var(--accent) 10%,transparent)!important;}
+    .cut td{border-bottom:2px solid var(--accent)!important;}
+    .grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;}
+    @media(max-width:900px){ .grid2{grid-template-columns:1fr;} }
+    .card{border:1px solid var(--border);border-radius:12px;padding:16px;background:var(--bg);}
+    .stats4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:10px 0 4px;}
+    .stat{border:1px solid var(--border);border-radius:10px;padding:10px;}
+    .stat b{display:block;font-size:20px;font-variant-numeric:tabular-nums;}
+    .stat span{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+    .brk{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    .brk .side{border:1px solid var(--border);border-radius:10px;padding:12px;font-size:12.5px;}
+    .brk .side h4{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
+    .brk .m{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--border);}
+    .brk .m:first-of-type{border-top:none;}
+    .acts{display:flex;gap:4px;justify-content:flex-end;}
+    .login{max-width:420px;}
+    .login .fi{width:100%;text-transform:uppercase;letter-spacing:.06em;}
+    .bar{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:12px;color:var(--text2);margin:8px 0 12px;}
+    .bar b{color:var(--text);}
+    @media(max-width:640px){
+      .page-h1{font-size:26px;}
+      .hm{display:none;}
+      .stats4{grid-template-columns:repeat(2,minmax(0,1fr));}
+      .brk{grid-template-columns:1fr;}
+      .sheet{font-size:12px;}
+    }
+  </style>
+  <link rel="stylesheet" href="tdc-skin.css?v=15"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+  <link rel="stylesheet" href="tdc-column.css?v=4"/>
+  <link rel="stylesheet" href="tdc-ui.css?v=16"/>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script src="tdc-pwa.js?v=3" defer></script>
+</head>
+<body>
+<script src="tdc-nav.js?v=89"></script>
+<div class="page" id="app"><div class="empty">Loading the league…</div></div>
+<script>
+/* fantasy-league.html — the owner's 2026-27 COUNTING LEAGUE (Nov 2026).
+ * 12 teams in two divisions of 6, drafted in person ($200, 12 players, max 3 PGs from the league list). Scoring: roto on
+ * total PTS / REB / AST, counting only each school's 22 counted games (scripts/data/fantasy_counting_2027.json, matched by
+ * ESPN game id) on the days a player is on the roster and not on IR. Top 3 of each division make the playoffs.
+ * Data: scripts/fantasy_cl.sql (cl_* tables; writes only through code-checked functions). Until that SQL and the seed
+ * are run, the page reads the drafted rosters from scripts/data/fantasy_cl_rosters_2027.json (view only).
+ * Projected season = counted stats so far + the site's projected per-game line x counted games left. */
+(function(){
+  const SB='https://izlqhnxowdhtdofkwrho.supabase.co', KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+  const H={apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'};
+  const CONFS=['B10','SEC','ACC','BIG-12','Big-East'];
+  const CATS=[['pts','PTS'],['reb','REB'],['ast','AST']];
+  const app=document.getElementById('app');
+  const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const f0=n=>Math.round(n||0).toLocaleString(), f1=n=>(Math.round((n||0)*10)/10).toFixed(1);
+  const TODAY=new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+  const store={get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch(e){} }};
+  const logo=t=>{ try{ const c=window.tdcTeamColor&&tdcTeamColor(t); return c&&c.logo||null; }catch(e){ return null; } };
+  const lgImg=t=>{ const l=logo(t); return l?`<img class="lg" src="${esc(l)}" alt="" loading="lazy">`:''; };
+  const qList=a=>a.map(x=>'"'+String(x).replace(/"/g,'')+'"').join(',');
+  const md=d=>{ const [y,m,dd]=d.split('-'); return (+m)+'/'+(+dd); };
+
+  async function get(path){ const r=await fetch(`${SB}/rest/v1/${path}`,{headers:H}); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
+  async function getAll(path){ let out=[], off=0; for(;;){ const r=await get(`${path}&limit=1000&offset=${off}`); out=out.concat(r); if(r.length<1000) return out; off+=1000; } }
+  async function rpc(fn,body){
+    const r=await fetch(`${SB}/rest/v1/rpc/${fn}`,{method:'POST',headers:H,body:JSON.stringify(body)});
+    const j=await r.json().catch(()=>null);
+    if(!r.ok) throw new Error((j&&j.message)||('Error '+r.status));
+    return j;
+  }
+  const jget=u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null);
+
+  // ── state ──
+  let SET={roster:12,pickups:5,max_pg:3,max_ir:2,reg_end:'2027-03-07',draft_start:'2026-11-01'};
+  let TEAMS=[], STINTS=[], IR=[], MOVES=[], PG=new Set(), PENDING=false;
+  let CNT={}, CNTDATES={}, FULL={}, PROJ={}, FRESH={}, REAL={}, BOX={}, POOL=null;
+  let ME=null, CODE=store.get('cl_code');
+  let mode=store.get('cl_mode')||'actual';      // standings: actual | proj
+  let rmode=store.get('cl_rmode')||'tot';       // roster: tot | pg | proj
+
+  async function load(){
+    const [cnt,proj,fresh,real,rat,draft]=await Promise.all([
+      jget('scripts/data/fantasy_counting_2027.json?v=1'),
+      jget('scripts/data/stat_overall_projected.json?v=96'),
+      jget('scripts/data/fresh_fit.json?v=41'),
+      jget('scripts/data/real_lines_2027.json?t='+TODAY),
+      get('predictive_ratings?select=data&limit=1').catch(()=>[]),
+      jget('scripts/data/fantasy_cl_rosters_2027.json?v=1')]);
+    if(cnt&&cnt.teams) Object.entries(cnt.teams).forEach(([t,l])=>{ CNT[t]=new Set(l.map(g=>String(g.id))); CNTDATES[t]=l.map(g=>g.date).sort(); });
+    PROJ=(proj&&proj.players)||{}; FRESH=fresh||{}; REAL=(real&&real.players)||{};
+    ((rat[0]&&rat[0].data&&rat[0].data.teams)||[]).forEach(t=>{ if(t.team&&t.full) FULL[t.team]=t.full; });
+    // league tables; until the SQL runs, the drafted rosters from the JSON (view only)
+    try{
+      const [st,tm,sn,ir,mv,pg]=await Promise.all([get('cl_settings?select=*'),get('cl_teams?select=id,name,division,is_commish&order=id.asc'),
+        getAll('cl_stints?select=*&order=id.asc'),get('cl_ir?select=*&order=id.asc'),get('cl_moves?select=*&order=id.desc&limit=200'),get('cl_pg?select=player_id')]);
+      if(!tm.length) throw new Error('not seeded');
+      if(st[0]) SET=st[0]; TEAMS=tm; STINTS=sn; IR=ir; MOVES=mv; PG=new Set(pg.map(x=>x.player_id));
+    }catch(e){
+      PENDING=true;
+      if(!draft) throw new Error('No league data yet.');
+      let id=0, sid=0;
+      Object.entries(draft.divisions).forEach(([div,ts])=>ts.forEach(t=>{ const tid=++id; TEAMS.push({id:tid,name:t,division:+div});
+        draft.rosters[t].forEach(r=>{ STINTS.push({id:++sid,team_id:tid,player_id:r.pid,espn_id:r.espn_id,name:r.name,school:r.school,price:r.price,how:'draft',start_date:SET.draft_start,end_date:null});
+          if(r.sheet_pg) PG.add(r.pid); }); }));
+    }
+    await loadBox();
+  }
+  // every counted-season box line for anyone who has been on a roster
+  async function loadBox(){
+    BOX={};
+    const ids=[...new Set(STINTS.map(s=>s.espn_id).filter(Boolean))];
+    const add=b=>{ (BOX[b.espn_id]=BOX[b.espn_id]||[]).push(b); };
+    for(let i=0;i<ids.length;i+=120){
+      const rows=await getAll(`box_scores?season_year=eq.2027&espn_id=in.(${ids.slice(i,i+120).join(',')})&date=gte.${SET.draft_start}&select=game_id,espn_id,date,team,pts,reb,ast,min&order=game_id.asc,espn_id.asc`).catch(()=>[]);
+      rows.forEach(add);
+    }
+    // a pick with no ESPN id yet (hasn't played): match his box lines by name + school once he does
+    for(const s of STINTS.filter(s=>!s.espn_id)){
+      const full=FULL[s.school]; if(!full) continue;
+      const nm=s.name.replace(/\s*["“][^"”]*["”]\s*/,' ').replace(/\s+/g,' ').trim();
+      const rows=await get(`box_scores?season_year=eq.2027&team=eq.${encodeURIComponent(full)}&player=eq.${encodeURIComponent(nm)}&select=game_id,espn_id,date,team,pts,reb,ast,min&order=game_id.asc`).catch(()=>[]);
+      if(rows.length){ s.espn_id=rows[0].espn_id; rows.forEach(add); }
+    }
+  }
+
+  // ── scoring ──
+  const counted=b=>!!(CNT[b.team]&&CNT[b.team].has(String(b.game_id)));
+  const irFor=sid=>IR.filter(i=>i.stint_id===sid);
+  const onIR=(sid,d)=>irFor(sid).some(i=>i.start_date<=d&&(!i.end_date||i.end_date>d));
+  const live=(s,d)=>s.start_date<=d&&(!s.end_date||s.end_date>d);
+  const isPG=s=>PG.has(s.player_id);
+  // a stint's counted stats: games on his roster days, not on IR, regular season only
+  function stintActual(s){
+    const o={gp:0,pts:0,reb:0,ast:0};
+    (BOX[s.espn_id]||[]).forEach(b=>{ if(b.date>SET.reg_end||!live(s,b.date)||onIR(s.id,b.date)||!counted(b)) return;
+      o.gp++; o.pts+=b.pts||0; o.reb+=b.reb||0; o.ast+=b.ast||0; });
+    return o;
+  }
+  function perGame(s){
+    const pr=s.espn_id!=null?PROJ[String(s.espn_id)]:null;
+    if(pr&&(pr.ppg!=null)) return {pts:+pr.ppg||0,reb:+pr.rpg||0,ast:+pr.apg||0};
+    const fr=(FRESH[s.school]||{})[s.name];
+    if(fr&&fr.ppg!=null) return {pts:+fr.ppg||0,reb:+fr.rpg||0,ast:+fr.apg||0,est:true};
+    return {pts:0,reb:0,ast:0,none:true};
+  }
+  // counted games he still has with this team: today counts until his box line exists
+  function gamesLeft(s){
+    const full=FULL[s.school]; if(!full||!CNTDATES[full]) return 0;
+    if(s.end_date&&s.end_date<=TODAY) return 0;
+    const played=new Set((BOX[s.espn_id]||[]).map(b=>b.date));
+    const from=s.start_date>TODAY?s.start_date:TODAY;
+    const ir=irFor(s.id).find(i=>!i.end_date);
+    return CNTDATES[full].filter(d=>d>=from&&d<=SET.reg_end&&!played.has(d)&&(!s.end_date||d<s.end_date)&&!(ir&&d>=ir.start_date)).length;
+  }
+  function stintLine(s){
+    const a=stintActual(s), left=gamesLeft(s), pg=perGame(s);
+    return {a, left, pg, proj:{pts:a.pts+pg.pts*left, reb:a.reb+pg.reb*left, ast:a.ast+pg.ast*left}};
+  }
+  function teamTotals(tid){
+    const t={gp:0,pts:0,reb:0,ast:0,ppts:0,preb:0,past:0};
+    STINTS.filter(s=>s.team_id===tid).forEach(s=>{ const L=stintLine(s);
+      t.gp+=L.a.gp; t.pts+=L.a.pts; t.reb+=L.a.reb; t.ast+=L.a.ast; t.ppts+=L.proj.pts; t.preb+=L.proj.reb; t.past+=L.proj.ast; });
+    return t;
+  }
+  // roto: best in the group gets n points per category, ties share
+  function roto(rows,proj){
+    const out={}; rows.forEach(r=>out[r.id]={total:0});
+    CATS.forEach(([k])=>{ const key=proj?'p'+k:k, s=[...rows].sort((a,b)=>b.tot[key]-a.tot[key]);
+      let i=0; while(i<s.length){ let j=i; while(j+1<s.length&&s[j+1].tot[key]===s[i].tot[key]) j++;
+        const pts=s.length-(i+j)/2; for(let x=i;x<=j;x++){ out[s[x].id][k]=pts; out[s[x].id].total+=pts; } i=j+1; } });
+    return out;
+  }
+  function table(group,proj){
+    const rows=group.map(t=>({id:t.id,t,tot:teamTotals(t.id)})), R=roto(rows,proj);
+    rows.forEach(r=>r.r=R[r.id]);
+    rows.sort((a,b)=>b.r.total-a.r.total||(proj?b.tot.ppts-a.tot.ppts:b.tot.pts-a.tot.pts));
+    return rows;
+  }
+
+  // ── routing ──
+  function go(h){ location.hash=h; }
+  window.addEventListener('hashchange',route);
+  function shell(tab,inner){
+    const tabs=[['#/','Standings'],['#/teams','Teams'],['#/me',ME?esc(ME.name):'My team'],['#/players','Players'],['#/rules','Rules']];
+    app.innerHTML=`<div class="page-eyebrow">Counting League · 2026-27</div>
+      <h1 class="page-h1">${tab==='me'&&ME?esc(ME.name):'Counting League'}</h1>
+      <div class="meta">PTS · REB · AST roto over each school's 22 counted games · stats through ${esc(lastGameDate()||'—')}${PENDING?' · <b>view only until league setup finishes</b>':''}</div>
+      <nav class="tabs">${tabs.map(([h,l])=>`<a class="tab${(h==='#/'&&tab==='st')||h==='#/'+tab?' on':''}" href="${h}">${l}</a>`).join('')}</nav>
+      <div id="view">${inner}</div>`;
+  }
+  const lastGameDate=()=>{ let m=''; Object.values(BOX).forEach(l=>l.forEach(b=>{ if(counted(b)&&b.date>m) m=b.date; })); return m?md(m):''; };
+  async function route(){
+    const h=location.hash.replace(/^#\/?/,''), [a,b]=h.split('/');
+    if(a==='team'&&b) return viewTeam(+b);
+    if(a==='teams') return viewTeams();
+    if(a==='me') return viewMe();
+    if(a==='players') return viewPlayers();
+    if(a==='rules') return viewRules();
+    return viewStandings();
+  }
+
+  // ── standings ──
+  function segHTML(id,opts,cur){ return `<div class="seg" id="${id}">${opts.map(([v,l])=>`<button data-v="${v}" class="${v===cur?'on':''}">${l}</button>`).join('')}</div>`; }
+  function wireSeg(id,fn){ const el=document.getElementById(id); el&&el.addEventListener('click',e=>{ const b=e.target.closest('button'); if(b) fn(b.dataset.v); }); }
+  function stTable(rows,proj,cut){
+    const k=c=>proj?'p'+c:c;
+    return `<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th>#</th><th class="l">Team</th>${CATS.map(([c,l])=>`<th>${l}</th>`).join('')}<th>Roto</th><th class="hm">GP</th></tr></thead><tbody>
+      ${rows.map((r,i)=>`<tr class="${ME&&r.id===ME.id?'me-row':''}${cut&&i===cut-1?' cut':''}"><td>${i+1}</td>
+        <td class="l nm"><a href="#/team/${r.id}">${esc(r.t.name)}</a></td>
+        ${CATS.map(([c])=>`<td>${f0(r.tot[k(c)])}<span class="sub">${r.r[c]}</span></td>`).join('')}
+        <td><b>${r.r.total}</b></td><td class="hm">${r.tot.gp}</td></tr>`).join('')}
+    </tbody></table></div>`;
+  }
+  function viewStandings(){
+    const proj=mode==='proj';
+    const d1=table(TEAMS.filter(t=>t.division===1),proj), d2=table(TEAMS.filter(t=>t.division===2),proj), all=table(TEAMS,proj);
+    const side=(rows,n)=>`<div class="side"><h4>Division ${n}</h4>
+      <div class="m"><span>#1 ${rows[0]?esc(rows[0].t.name):'—'}</span><span class="pill g">bye</span></div>
+      <div class="m"><span>#2 ${rows[1]?esc(rows[1].t.name):'—'}</span><span>vs</span><span>#3 ${rows[2]?esc(rows[2].t.name):'—'}</span></div></div>`;
+    shell('st',`<div class="row">${segHTML('stMode',[['actual','Actual'],['proj','Projected final']],mode)}<span class="sp"></span></div>
+      <p class="cl-note">${proj?'Projected final: counted stats so far + each player\'s projected line × his school\'s counted games left (current rosters, IR excluded).':'Counted games only. Small numbers are roto points (6 = best in the division).'} Line under #3 = playoff cut.</p>
+      <div class="grid2"><div><div class="sec-h">Division 1</div>${stTable(d1,proj,3)}</div><div><div class="sec-h">Division 2</div>${stTable(d2,proj,3)}</div></div>
+      <div class="sec-h">Playoff picture</div><div class="brk">${side(d1,1)}${side(d2,2)}</div>
+      <div class="sec-h">Overall <span style="text-transform:none;letter-spacing:0;font-weight:600">roto across all 12</span></div>${stTable(all,proj)}`);
+    wireSeg('stMode',v=>{ mode=v; store.set('cl_mode',v); viewStandings(); });
+  }
+  function viewTeams(){
+    const card=t=>{ const T=teamTotals(t.id), ros=STINTS.filter(s=>s.team_id===t.id&&(!s.end_date||s.end_date>TODAY));
+      return `<a class="card" href="#/team/${t.id}" style="text-decoration:none;display:block"><b>${esc(t.name)}</b><div class="cl-note" style="margin:4px 0 0">Div ${t.division} · ${f0(T.pts)} PTS · ${f0(T.reb)} REB · ${f0(T.ast)} AST</div>
+        <div class="cl-note" style="margin:4px 0 0">${ros.slice(0,12).map(s=>esc(s.name.split(' ').slice(-1)[0].replace(/"/g,''))).join(', ')}</div></a>`; };
+    shell('teams',[1,2].map(d=>`<div class="sec-h">Division ${d}</div><div class="grid2">${TEAMS.filter(t=>t.division===d).map(card).join('')}</div>`).join(''));
+  }
+
+  // ── team ──
+  function rosterRows(tid){
+    return STINTS.filter(s=>s.team_id===tid&&(!s.end_date||s.end_date>TODAY))
+      .map(s=>({s,L:stintLine(s),ir:irFor(s.id).find(i=>!i.end_date)}))
+      .sort((a,b)=>(!!a.ir-!!b.ir)||(b.L.proj.pts-a.L.proj.pts));
+  }
+  function playerCell(s,ir){
+    const tags=[isPG(s)?'<span class="pill pg">PG</span>':'', ir?`<span class="pill ir">IR${ir.start_date>TODAY?' '+md(ir.start_date):''}</span>`:'',
+      s.start_date>TODAY?`<span class="pill g">joins ${md(s.start_date)}</span>`:'', s.end_date?`<span class="pill ir">leaves ${md(s.end_date)}</span>`:''].join('');
+    const link=s.espn_id?`player.html?espn=${s.espn_id}`:`player.html?name=${encodeURIComponent(s.name)}&team=${encodeURIComponent(s.school)}`;
+    return `<td class="l nm">${lgImg(s.school)}<a href="${link}">${esc(s.name)}</a>${tags}<span class="sub">${esc(s.school)}${s.how==='pickup'?' · pickup':' · $'+s.price}</span></td>`;
+  }
+  function rosterTable(tid,manage){
+    const rows=rosterRows(tid), m=rmode;
+    const head=m==='proj'?'<th>Left</th><th>PTS</th><th>REB</th><th>AST</th>':m==='pg'?'<th>GP</th><th>PPG</th><th>RPG</th><th>APG</th>':'<th>GP</th><th>PTS</th><th>REB</th><th>AST</th>';
+    const cells=r=>{ const a=r.L.a;
+      if(m==='proj') return `<td>${r.L.left}</td><td>${f0(r.L.proj.pts)}</td><td>${f0(r.L.proj.reb)}</td><td>${f0(r.L.proj.ast)}</td>`;
+      if(m==='pg') return a.gp?`<td>${a.gp}</td><td>${f1(a.pts/a.gp)}</td><td>${f1(a.reb/a.gp)}</td><td>${f1(a.ast/a.gp)}</td>`:`<td>0</td><td colspan="3" class="l" style="color:var(--text3)">proj ${f1(r.L.pg.pts)} / ${f1(r.L.pg.reb)} / ${f1(r.L.pg.ast)}</td>`;
+      return `<td>${a.gp}</td><td>${a.pts}</td><td>${a.reb}</td><td>${a.ast}</td>`; };
+    const act=r=>{ if(!manage) return ''; if(r.s.end_date) return '<td></td>';
+      return `<td><div class="acts">${r.ir?`<button class="btn sm ghost" data-ir="${r.s.id}" data-on="0">Activate</button>`:`<button class="btn sm ghost" data-ir="${r.s.id}" data-on="1">IR</button>`}<button class="btn sm danger" data-drop="${r.s.id}">Drop</button></div></td>`; };
+    const T=rows.reduce((o,r)=>{ const v=m==='proj'?r.L.proj:r.L.a; o.pts+=v.pts; o.reb+=v.reb; o.ast+=v.ast; o.gp+=r.L.a.gp; o.left+=r.L.left; return o; },{pts:0,reb:0,ast:0,gp:0,left:0});
+    return `<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th>${head}${manage?'<th></th>':''}</tr></thead><tbody>
+      ${rows.map(r=>`<tr>${playerCell(r.s,r.ir)}${cells(r)}${act(r)}</tr>`).join('')||'<tr><td class="l" colspan="6">No players.</td></tr>'}
+      </tbody>${m!=='pg'?`<tfoot><tr><td class="l">Current roster</td><td>${m==='proj'?T.left:T.gp}</td><td>${f0(T.pts)}</td><td>${f0(T.reb)}</td><td>${f0(T.ast)}</td>${manage?'<td></td>':''}</tr></tfoot>`:''}</table></div>`;
+  }
+  function teamBody(t,manage){
+    const T=teamTotals(t.id), div=table(TEAMS.filter(x=>x.division===t.division),false), pos=div.findIndex(r=>r.id===t.id)+1;
+    const gone=STINTS.filter(s=>s.team_id===t.id&&s.end_date&&s.end_date<=TODAY).map(s=>({s,a:stintActual(s)}));
+    const today=STINTS.filter(s=>s.team_id===t.id&&live(s,TODAY)&&!onIR(s.id,TODAY)&&(CNTDATES[FULL[s.school]]||[]).includes(TODAY));
+    const nextWeek=(()=>{ const out={}; const end=new Date(TODAY+'T12:00:00'); end.setDate(end.getDate()+7); const e=end.toISOString().slice(0,10);
+      STINTS.filter(s=>s.team_id===t.id&&(!s.end_date||s.end_date>TODAY)&&!irFor(s.id).find(i=>!i.end_date)).forEach(s=>{
+        (CNTDATES[FULL[s.school]]||[]).filter(d=>d>=TODAY&&d<e).forEach(d=>{ (out[d]=out[d]||[]).push(s.name); }); });
+      return Object.entries(out).sort(); })();
+    const mv=MOVES.filter(m=>m.team_id===t.id).slice(0,12);
+    return `<div class="stats4"><div class="stat"><span>Division ${t.division}</span><b>${pos}${['st','nd','rd'][pos-1]||'th'}</b></div>
+        <div class="stat"><span>PTS</span><b>${f0(T.pts)}</b></div><div class="stat"><span>REB</span><b>${f0(T.reb)}</b></div><div class="stat"><span>AST</span><b>${f0(T.ast)}</b></div></div>
+      <div class="cl-note">Projected final: <b>${f0(T.ppts)} / ${f0(T.preb)} / ${f0(T.past)}</b> · ${T.gp} counted player-games so far${today.length?` · <b>playing today:</b> ${today.map(s=>esc(s.name)).join(', ')}`:''}</div>
+      ${manage?manageBar(t):''}
+      <div class="sec-h">Roster ${segHTML('rMode',[['tot','Totals'],['pg','Per game'],['proj','Projected']],rmode)}</div>
+      <div id="rTbl">${rosterTable(t.id,manage)}</div>
+      ${manage?'<div class="msg" id="mMsg"></div>':''}
+      ${gone.length?`<div class="sec-h">Former players <span style="text-transform:none;letter-spacing:0;font-weight:600">stats they banked here</span></div>
+        <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th><th>GP</th><th>PTS</th><th>REB</th><th>AST</th></tr></thead><tbody>
+        ${gone.map(g=>`<tr>${playerCell(g.s,null)}<td>${g.a.gp}</td><td>${g.a.pts}</td><td>${g.a.reb}</td><td>${g.a.ast}</td></tr>`).join('')}</tbody></table></div>`:''}
+      ${nextWeek.length?`<div class="sec-h">Counted games, next 7 days</div><div class="sheet-wrap"><table class="sheet dense"><tbody>
+        ${nextWeek.map(([d,l])=>`<tr><td class="l"><b>${md(d)}</b></td><td class="l">${l.map(esc).join(', ')}</td></tr>`).join('')}</tbody></table></div>`:''}
+      ${mv.length?`<div class="sec-h">Moves</div><div class="sheet-wrap"><table class="sheet dense"><tbody>
+        ${mv.map(m=>`<tr><td class="l">${esc({add:'Added',drop:'Dropped',ir:'IR',activate:'Activated'}[m.kind]||m.kind)}</td><td class="l">${esc(m.player)}</td><td>from ${md(m.eff)}</td></tr>`).join('')}</tbody></table></div>`:''}`;
+  }
+  function viewTeam(id){
+    const t=TEAMS.find(x=>x.id===id); if(!t) return shell('teams','<div class="empty">No such team.</div>');
+    const mine=ME&&ME.id===id&&!PENDING;
+    shell(mine?'me':'teams',`<div class="sec-h" style="margin-top:0">${esc(t.name)}${mine?' <span class="pill g">your team</span>':''}</div>${teamBody(t,mine)}`);
+    wireTeam(t,mine);
+  }
+  function wireTeam(t,manage){
+    wireSeg('rMode',v=>{ rmode=v; store.set('cl_rmode',v); route(); });
+    if(!manage) return;
+    document.getElementById('rTbl').addEventListener('click',async e=>{
+      const b=e.target.closest('button'); if(!b) return; const msg=document.getElementById('mMsg');
+      const s=STINTS.find(x=>x.id===+(b.dataset.ir||b.dataset.drop));
+      try{
+        if(b.dataset.ir){ b.disabled=true; await rpc('cl_set_ir',{p_code:CODE,p_stint:s.id,p_on:b.dataset.on==='1'}); }
+        else if(b.dataset.drop){ if(!confirm(`Drop ${s.name}? He leaves your roster tomorrow and his stats here stay banked.`)) return; b.disabled=true;
+          await rpc('cl_move',{p_code:CODE,p_add:null,p_drop:s.id}); }
+        await refresh(); viewMe(); const m2=document.getElementById('mMsg'); if(m2){ m2.className='msg ok'; m2.textContent='Done — takes effect tomorrow.'; }
+      }catch(err){ b.disabled=false; msg.className='msg err'; msg.textContent=err.message; }
+    });
+  }
+  function counts(tid){
+    const open=STINTS.filter(s=>s.team_id===tid&&!s.end_date);
+    const eff=(()=>{ const d=new Date(TODAY+'T12:00:00'); d.setDate(d.getDate()+1); return d.toISOString().slice(0,10); })();
+    return {active:open.filter(s=>!onIR(s.id,eff)).length, ir:open.filter(s=>irFor(s.id).some(i=>!i.end_date)).length,
+      pg:open.filter(isPG).length, used:STINTS.filter(s=>s.team_id===tid&&s.how==='pickup').length};
+  }
+  function manageBar(t){
+    const c=counts(t.id);
+    return `<div class="bar"><span>Active <b>${c.active}/${SET.roster}</b></span><span>IR <b>${c.ir}/${SET.max_ir}</b></span><span>PGs <b>${c.pg}/${SET.max_pg}</b></span><span>Pickups left <b>${SET.pickups-c.used}/${SET.pickups}</b></span>
+      <span class="sp"></span><a class="btn sm" href="#/players">Add a player</a><button class="btn sm ghost" id="outBtn">Sign out</button></div>
+      <p class="cl-note">Moves take effect tomorrow (ET), so today's games count for whoever has the player this morning. IR players don't score and don't use an active spot.</p>`;
+  }
+
+  // ── my team / sign in ──
+  async function viewMe(){
+    if(PENDING){ shell('me','<div class="card login"><b>Sign-in opens once league setup finishes.</b><p class="cl-note">Standings and team pages already work from the draft.</p></div>'); return; }
+    if(!ME&&CODE){ try{ ME=await rpc('cl_login',{p_code:CODE}); }catch(e){ CODE=null; store.set('cl_code',null); } }
+    if(!ME){
+      shell('me',`<div class="card login"><b>Sign in with your team code</b><p class="cl-note">Each team has its own code from the commissioner.</p>
+        <form id="lgF" class="row"><input class="fi" id="lgC" placeholder="e.g. GLEN-XXXXXXXX" autocomplete="off" autocapitalize="characters"><button class="btn">Sign in</button></form><div class="msg" id="lgM"></div></div>`);
+      document.getElementById('lgF').addEventListener('submit',async e=>{ e.preventDefault(); const c=document.getElementById('lgC').value.trim().toUpperCase(), m=document.getElementById('lgM');
+        try{ ME=await rpc('cl_login',{p_code:c}); CODE=c; store.set('cl_code',c); viewMe(); }catch(err){ m.className='msg err'; m.textContent=err.message; } });
+      return;
+    }
+    const t=TEAMS.find(x=>x.id===ME.id);
+    shell('me',teamBody(t,true)); wireTeam(t,true);
+    document.getElementById('outBtn').addEventListener('click',()=>{ ME=null; CODE=null; store.set('cl_code',null); viewMe(); });
+  }
+  async function refresh(){
+    const [sn,ir,mv]=await Promise.all([getAll('cl_stints?select=*&order=id.asc'),get('cl_ir?select=*&order=id.asc'),get('cl_moves?select=*&order=id.desc&limit=200')]);
+    const had=new Set(STINTS.map(s=>s.espn_id)); STINTS=sn; IR=ir; MOVES=mv;
+    if(STINTS.some(s=>s.espn_id&&!had.has(s.espn_id))) await loadBox();
+  }
+
+  // ── players (free agents) ──
+  async function loadPool(){
+    if(POOL) return POOL;
+    const teams=await get(`teams?conference=in.(${CONFS.join(',')})&select=name&order=name.asc`);
+    POOL=await getAll(`players?team=in.(${encodeURIComponent(qList(teams.map(t=>t.name)))})&select=id,name,team,position,espn_id&order=id.asc`);
+    POOL.forEach(p=>{ p.school=p.team; p.player_id=p.id; });
+    return POOL;
+  }
+  async function viewPlayers(){
+    shell('players','<div class="empty">Loading players…</div>');
+    if(!ME&&CODE&&!PENDING){ try{ ME=await rpc('cl_login',{p_code:CODE}); }catch(e){} }
+    await loadPool();
+    const owned=new Map(STINTS.filter(s=>!s.end_date).map(s=>[s.player_id,s.team_id]));
+    let q=store.get('cl_q')||'', onlyFree=true, pgOnly=false;
+    const rows=POOL.map(p=>{ const s={...p,start_date:TODAY,end_date:null,id:-p.id}; const pg=perGame(s), r=REAL[String(p.espn_id)];
+      return {p,pg,real:r&&r.g?{g:r.g,pts:r.pts/r.g,reb:((r.oreb||0)+(r.dreb||0))/r.g,ast:r.ast/r.g}:null,left:gamesLeft(s),own:owned.get(p.id)}; })
+      .filter(r=>!r.pg.none||r.real).sort((a,b)=>(b.pg.pts+b.pg.reb+b.pg.ast)*b.left-(a.pg.pts+a.pg.reb+a.pg.ast)*a.left);
+    const c=ME?counts(ME.id):null, mineOpen=ME?STINTS.filter(s=>s.team_id===ME.id&&!s.end_date):[];
+    const paint=()=>{
+      const ql=q.toLowerCase();
+      const list=rows.filter(r=>(!onlyFree||!r.own)&&(!pgOnly||PG.has(r.p.id))&&(!ql||r.p.name.toLowerCase().includes(ql)||r.p.team.toLowerCase().includes(ql))).slice(0,150);
+      document.getElementById('faTbl').innerHTML=`<thead><tr><th class="l">Player</th><th class="hm">Real</th><th>Proj PTS</th><th>REB</th><th>AST</th><th>Left</th><th>Season</th>${ME&&!PENDING?'<th></th>':''}</tr></thead><tbody>
+        ${list.map(r=>{ const s={...r.p,price:0,how:'draft',start_date:TODAY,end_date:null}; const tm=r.own?TEAMS.find(t=>t.id===r.own):null;
+          return `<tr>${playerCell(s,null).replace(' · $0','')}<td class="hm">${r.real?`${f1(r.real.pts)}/${f1(r.real.reb)}/${f1(r.real.ast)}<span class="sub">${r.real.g} g</span>`:'—'}</td>
+            <td>${f1(r.pg.pts)}</td><td>${f1(r.pg.reb)}</td><td>${f1(r.pg.ast)}</td><td>${r.left}</td><td>${f0((r.pg.pts+r.pg.reb+r.pg.ast)*r.left)}<span class="sub">P+R+A</span></td>
+            ${ME&&!PENDING?`<td>${tm?`<span class="pill">${esc(tm.name)}</span>`:`<button class="btn sm" data-add="${r.p.id}" data-espn="${r.p.espn_id||''}">Add</button>`}</td>`:''}</tr>`; }).join('')||'<tr><td class="l" colspan="8">No players match.</td></tr>'}</tbody>`;
+    };
+    shell('players',`${ME&&!PENDING?`<div class="bar"><span>${esc(ME.name)}: active <b>${c.active}/${SET.roster}</b></span><span>PGs <b>${c.pg}/${SET.max_pg}</b></span><span>Pickups left <b>${SET.pickups-c.used}</b></span></div>
+        <div class="row" style="margin-bottom:8px"><label class="cl-note" style="margin:0">Drop when adding</label><select class="fs" id="dropSel"><option value="">${c.active<SET.roster?'Nobody (open spot)':'Pick a player to drop'}</option>
+        ${mineOpen.map(s=>`<option value="${s.id}">${esc(s.name)}${isPG(s)?' (PG)':''}</option>`).join('')}</select></div>`:
+        `<p class="cl-note">${PENDING?'Free agents. Adding opens once league setup finishes.':'<a href="#/me">Sign in with your team code</a> to add players.'}</p>`}
+      <div class="row" style="margin-bottom:10px"><input class="fi" id="faQ" placeholder="Search name or school" value="${esc(q)}" style="flex:1;min-width:180px">
+        <label class="cl-note" style="margin:0"><input type="checkbox" id="faFree" checked> Free agents only</label><label class="cl-note" style="margin:0"><input type="checkbox" id="faPG"> PGs only</label></div>
+      <div class="msg" id="faMsg"></div>
+      <p class="cl-note">Proj = the site's projected per-game line (it leans on real games as they pile up). Left = his school's counted games still to play. Season = (PTS+REB+AST) × Left.</p>
+      <div class="sheet-wrap"><table class="sheet dense" id="faTbl"></table></div>`);
+    paint();
+    document.getElementById('faQ').addEventListener('input',e=>{ q=e.target.value; store.set('cl_q',q); paint(); });
+    document.getElementById('faFree').addEventListener('change',e=>{ onlyFree=e.target.checked; paint(); });
+    document.getElementById('faPG').addEventListener('change',e=>{ pgOnly=e.target.checked; paint(); });
+    document.getElementById('faTbl').addEventListener('click',async e=>{
+      const b=e.target.closest('button[data-add]'); if(!b) return; const m=document.getElementById('faMsg');
+      const p=POOL.find(x=>x.id===+b.dataset.add), dsel=document.getElementById('dropSel'), drop=dsel&&dsel.value?+dsel.value:null;
+      const dn=drop?STINTS.find(s=>s.id===drop).name:null;
+      if(!confirm(`Add ${p.name}${dn?` and drop ${dn}`:''}? Uses 1 of your ${SET.pickups} pickups; takes effect tomorrow.`)) return;
+      b.disabled=true;
+      try{ await rpc('cl_move',{p_code:CODE,p_add:p.id,p_drop:drop,p_add_espn:b.dataset.espn?+b.dataset.espn:null}); await refresh(); go('#/me'); }
+      catch(err){ b.disabled=false; m.className='msg err'; m.textContent=err.message; }
+    });
+  }
+
+  function viewRules(){
+    shell('rules',`<div class="card" style="font-size:13.5px;line-height:1.65">
+      <p><b>Teams.</b> 12 teams, two divisions of 6. Drafted in person: $200, 12 players, Big Ten / SEC / ACC / Big 12 / Big East only.</p>
+      <p><b>Scoring.</b> Total points, rebounds and assists, counting only each school's 22 counted games (18 conference + 4 non-conference, the league schedule). Standings are roto: in each category the best team in the division gets 6 points, the worst 1; ties share.</p>
+      <p><b>Roster.</b> ${SET.roster} active players, up to ${SET.max_ir} on IR (IR players don't score and don't use an active spot), at most ${SET.max_pg} point guards from the league PG list, IR included.</p>
+      <p><b>Moves.</b> ${SET.pickups} pickups per team for the season; drops are free. Every move takes effect the next day (ET). A dropped player's stats stay with the team that had him.</p>
+      <p><b>Playoffs.</b> Top 3 in each division. The #1 seed gets a bye; #2 plays #3; the winner plays #1; the two division champions meet in the final.</p>
+      <p><b>Updates.</b> Box scores load every 20 minutes during game days, so standings move shortly after each game ends. Regular season ends ${md(SET.reg_end)}.</p></div>`);
+  }
+
+  load().then(()=>{ route(); if(CODE&&!PENDING) rpc('cl_login',{p_code:CODE}).then(m=>{ ME=m; if(/^#\/(me|$)/.test(location.hash||'#/')) route(); }).catch(()=>{}); })
+    .catch(e=>{ app.innerHTML=`<div class="empty">Couldn't load the league: ${esc(e.message)}</div>`; });
+})();
+</script>
+<script src="tdc-version.js?v=2"></script>
+</body>
+</html>
