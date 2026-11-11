@@ -61,6 +61,15 @@ jobs:
         run: |
           if [ -z "$SUPABASE_SERVICE_KEY" ]; then echo "No service key — skipping shots."; exit 0; fi
           python3 -u scripts/scrape_shots.py --days 3 || echo "::warning::shot-location scrape failed (retries next sweep)"
+      # link players.espn_id from this season's box scores (freshmen aren't in player_history yet) — without it
+      # the player page has no 2026-27 row / game logs / photo and the roster's real-stats table stays blank.
+      - name: Link espn ids
+        if: github.event_name == 'workflow_dispatch' || github.event.schedule == '30 3 * * *' || github.event.schedule == '15 6 * * *' || github.event.schedule == '0 17 * * *'
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_SERVICE_KEY" ]; then echo "No service key — skipping."; exit 0; fi
+          python3 -u scripts/backfill_espn_ids.py || echo "::warning::backfill_espn_ids failed"
       # every player's and team's real season totals (the Real view on the site + the projection blend). Three times a day:
       # the player page reads its own box rows live, and this pulls every game of the season.
       - name: Real season lines

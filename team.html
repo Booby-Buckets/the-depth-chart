@@ -8606,6 +8606,9 @@ function renderHistoricRoster(rows, yr, projected){
   const _posBar=(!projected && typeof _isOwner==='function' && _isOwner())
     ? `<div class="dc-posbar"><button type="button" class="dc-posbtn${window._histPosEdit?' on':''}" onclick="window._histPosEdit=!window._histPosEdit;renderHistoricRoster.apply(null,window._lastHistRender)">${window._histPosEdit?'Done editing positions':'Edit positions'}</button></div>` : '';
   { const _ds=document.getElementById('depthSub'); if(_ds) _ds.textContent=projected?('starters by spot, then the bench · '+(_realOn?'real 2026-27 per game'+(TDCReal.through()?' through '+TDCReal.through():''):'projected 2026-27 per game')+(window._realDepth?' · order from '+window._realDepth.games+(window._realDepth.games===1?' game':' games'):'')):('starters by spot, then the bench · '+rosterLbl(yr)+' per game'); }
+  // tdc-panelize lifts the Shot Distribution / Departures cards out of the depth panel into panels of their own;
+  // a redraw (Real/Projected, data landing) used to leave each lifted copy behind — 3 stacked tables. Clear them first.
+  document.querySelectorAll('#shotDistCard, #seasonLossesWrap').forEach(function(el){ if(host.contains(el)) return; var pn=el.closest('.ui-panel'); (pn&&!pn.contains(host)?pn:el).remove(); });
   host.innerHTML = `${_posBar}${depthSheet}${histTable(rows, yr, projected)}${injHtml}<div id="shotDistCard"></div><div id="seasonLossesWrap"></div>`;
   if(projected && yr>=2026){ try{ _renderShotDist(rows); }catch(e){} }
   else if(!projected && yr>=2012){ try{ _renderHistShot(rows, yr); }catch(e){} }

@@ -104,6 +104,36 @@ def main():
             if best and bs >= 0.7: report.append(f"  CHECK   {p['team']:16s} {p['name']:26s} ?  {best['name']} ({best['team']}) [{bs:.2f}{'' if stats_ok else ', stats differ'}] — fix the sheet spelling if this is him")
     print("\n".join(report))
     print(f"done{' (dry run)' if DRY else ''}: {fixed} exact, {fuzzy} typo-matched, {ambiguous} ambiguous (skipped), {missing} not in history (freshmen / unresolved)")
+    box_tier()
+
+# CURRENT-SEASON tier: freshmen (and anyone else) not in player_history yet but already playing.
+# box_scores carries ESPN's athlete id for every 2026-27 game; without it the player page shows no
+# "so far" row, no game logs and no headshot (Saliou Niang, LSU, Nov 2026 — 1,760 such players).
+# The sheet team ("LSU") is mapped to its ESPN name ("LSU Tigers") from the data itself: the ESPN
+# team that most unique-name matches land on. The match must hit that exact team (so "LSU" never
+# grabs an LSU New Orleans namesake) and resolve to exactly one id that no other player holds.
+CUR_SEASON = 2027
+def box_tier():
+    players = fetch_all("/rest/v1/players?espn_id=is.null&select=id,name,team&order=id.asc")
+    if not players: return
+    taken = {r["espn_id"] for r in fetch_all("/rest/v1/players?espn_id=not.is.null&select=espn_id&order=id.asc")}
+    box = fetch_all(f"/rest/v1/box_scores?season_year=eq.{CUR_SEASON}&espn_id=not.is.null&select=espn_id,player,team&order=game_id.asc,espn_id.asc")
+    by_name = collections.defaultdict(set)
+    for b in box: by_name[norm(b["player"])].add((b["espn_id"], b["team"]))
+    votes = collections.defaultdict(collections.Counter)
+    for p in players:
+        c = by_name.get(norm(p["name"]))
+        if c and len({t for _, t in c}) == 1: votes[p["team"]][next(iter(c))[1]] += 1
+    full = {k: v.most_common(1)[0][0] for k, v in votes.items() if v.most_common(1)[0][1] >= 2}
+    linked = skipped = 0
+    for p in players:
+        f = full.get(p["team"])
+        ids = {e for e, t in by_name.get(norm(p["name"]), ()) if t == f} if f else set()
+        if len(ids) != 1 or next(iter(ids)) in taken: skipped += 1 if ids else 0; continue
+        e = next(iter(ids)); taken.add(e)
+        if not DRY: req("PATCH", f"/rest/v1/players?id=eq.{p['id']}", {"espn_id": e})
+        linked += 1
+    print(f"box tier{' (dry run)' if DRY else ''}: {linked} linked from {CUR_SEASON} box scores, {skipped} ambiguous/taken skipped")
 
 if __name__ == "__main__":
     main()
