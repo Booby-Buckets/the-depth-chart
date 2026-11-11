@@ -113,27 +113,54 @@ def main():
 # team that most unique-name matches land on. The match must hit that exact team (so "LSU" never
 # grabs an LSU New Orleans namesake) and resolve to exactly one id that no other player holds.
 CUR_SEASON = 2027
+import unicodedata
+def bnorm(n):   # accents off ("Jokūbas" -> jokubas), nicknames in quotes off, suffixes off ("Jr."/"II"/"lll")
+    n = unicodedata.normalize("NFKD", n or "").encode("ascii", "ignore").decode()
+    n = re.sub(r'"[^"]*"', " ", n)
+    n = norm(n)
+    return re.sub(r"\s+", " ", re.sub(r"\b(jr|sr|ii|iii|iv|v)\b", " ", n)).strip()
+def _prefix_match(a, b):
+    # same last name, one first name a prefix of the other ("alex ensor"/"alexander ensor"),
+    # or one full name a leading part of the other ("mike montano"/"mike montanobest", "joao panzo"/"joao pedro panzo")
+    ta, tb = a.split(), b.split()
+    if not ta or not tb: return False
+    if ta[-1] == tb[-1] and (ta[0].startswith(tb[0]) or tb[0].startswith(ta[0])) and min(len(ta[0]), len(tb[0])) >= 3: return True
+    if ta[0] == tb[0] and (ta[-1].startswith(tb[-1]) or tb[-1].startswith(ta[-1])) and min(len(ta[-1]), len(tb[-1])) >= 4: return True
+    return False
 def box_tier():
     players = fetch_all("/rest/v1/players?espn_id=is.null&select=id,name,team&order=id.asc")
     if not players: return
-    taken = {r["espn_id"] for r in fetch_all("/rest/v1/players?espn_id=not.is.null&select=espn_id&order=id.asc")}
+    linked_rows = fetch_all("/rest/v1/players?espn_id=not.is.null&select=team,espn_id&order=id.asc")
+    taken = {r["espn_id"] for r in linked_rows}
     box = fetch_all(f"/rest/v1/box_scores?season_year=eq.{CUR_SEASON}&espn_id=not.is.null&select=espn_id,player,team&order=game_id.asc,espn_id.asc")
-    by_name = collections.defaultdict(set)
-    for b in box: by_name[norm(b["player"])].add((b["espn_id"], b["team"]))
+    eteam = {b["espn_id"]: b["team"] for b in box}
+    # sheet team ("LSU") -> ESPN team ("LSU Tigers"): where that team's already-linked players play
     votes = collections.defaultdict(collections.Counter)
-    for p in players:
-        c = by_name.get(norm(p["name"]))
-        if c and len({t for _, t in c}) == 1: votes[p["team"]][next(iter(c))[1]] += 1
+    for r in linked_rows:
+        if r["espn_id"] in eteam: votes[r["team"]][eteam[r["espn_id"]]] += 1
     full = {k: v.most_common(1)[0][0] for k, v in votes.items() if v.most_common(1)[0][1] >= 2}
-    linked = skipped = 0
+    pool = collections.defaultdict(dict)                      # ESPN team -> {espn_id: name} not yet on anyone
+    for b in box:
+        if b["espn_id"] not in taken: pool[b["team"]][b["espn_id"]] = bnorm(b["player"])
+    linked = fuzzy = skipped = 0; report = []
     for p in players:
-        f = full.get(p["team"])
-        ids = {e for e, t in by_name.get(norm(p["name"]), ()) if t == f} if f else set()
-        if len(ids) != 1 or next(iter(ids)) in taken: skipped += 1 if ids else 0; continue
-        e = next(iter(ids)); taken.add(e)
+        cands = pool.get(full.get(p["team"]), {})
+        nk = bnorm(p["name"])
+        exact = [e for e, n in cands.items() if n == nk]
+        if len(exact) > 1: skipped += 1; continue
+        e = exact[0] if exact else None
+        if e is None and cands:
+            sc = sorted(((difflib.SequenceMatcher(None, nk, n).ratio(), e2) for e2, n in cands.items()), reverse=True)
+            r1, e1 = sc[0]; r2 = sc[1][0] if len(sc) > 1 else 0
+            pre = [e2 for e2, n in cands.items() if _prefix_match(nk, n)]
+            if r1 >= 0.88 and r1 - r2 >= 0.2: e = e1                        # typo ("Sebatian" / "Gihool")
+            elif len(pre) == 1: e = pre[0]                                   # short/long form of the same name
+            if e is not None: fuzzy += 1; report.append(f"  ~ {p['team']:22s} {p['name']:28s} -> {cands[e]} ({e})")
+        if e is None: continue
         if not DRY: req("PATCH", f"/rest/v1/players?id=eq.{p['id']}", {"espn_id": e})
-        linked += 1
-    print(f"box tier{' (dry run)' if DRY else ''}: {linked} linked from {CUR_SEASON} box scores, {skipped} ambiguous/taken skipped")
+        cands.pop(e, None); taken.add(e); linked += 1
+    print("\n".join(report))
+    print(f"box tier{' (dry run)' if DRY else ''}: {linked} linked from {CUR_SEASON} box scores ({fuzzy} by spelling), {skipped} ambiguous skipped")
 
 if __name__ == "__main__":
     main()
