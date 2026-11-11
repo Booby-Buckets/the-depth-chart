@@ -12,7 +12,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "exports", "fantasy-league")
 SB = "https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/"
 KEY = "sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye"
-COMMISH = "Aiden"
+COMMISH = "Aidan"
 ALPH = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"     # no 0/O/1/I
 
 

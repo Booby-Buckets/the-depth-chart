@@ -131,6 +131,9 @@
   let TEAMS=[], STINTS=[], IR=[], MOVES=[], PG=new Set(), PENDING=false;
   let CNT={}, CNTDATES={}, FULL={}, PROJ={}, FRESH={}, REAL={}, BOX={}, POOL=null;
   let ME=null, CODE=store.get('cl_code');
+  // the Players page (free agents + adds) is only for these teams' logins, or the site owner (owner, Nov 10 2026)
+  const PLAYERS_FOR=['Aidan','Mark'];
+  const canPlayers=()=>!!((ME&&PLAYERS_FOR.includes(ME.name))||(window.tdcIsOwner&&tdcIsOwner()));
   let mode=store.get('cl_mode')||'actual';      // standings: actual | proj
   let rmode=store.get('cl_rmode')||'tot';       // roster: tot | pg | proj
 
@@ -237,7 +240,7 @@
   function go(h){ location.hash=h; }
   window.addEventListener('hashchange',route);
   function shell(tab,inner){
-    const tabs=[['#/','Standings'],['#/teams','Teams'],['#/me',ME?esc(ME.name):'My team'],['#/players','Players'],['#/rules','Rules']];
+    const tabs=[['#/','Standings'],['#/teams','Teams'],['#/me',ME?esc(ME.name):'My team'],...(canPlayers()?[['#/players','Players']]:[]),['#/rules','Rules']];
     app.innerHTML=`<div class="page-eyebrow">Counting League · 2026-27</div>
       <h1 class="page-h1">${tab==='me'&&ME?esc(ME.name):'Counting League'}</h1>
       <div class="meta">PTS · REB · AST roto over each school's 22 counted games · stats through ${esc(lastGameDate()||'—')}${PENDING?' · <b>view only until league setup finishes</b>':''}</div>
@@ -250,7 +253,7 @@
     if(a==='team'&&b) return viewTeam(+b);
     if(a==='teams') return viewTeams();
     if(a==='me') return viewMe();
-    if(a==='players') return viewPlayers();
+    if(a==='players') return canPlayers()?viewPlayers():viewStandings();
     if(a==='rules') return viewRules();
     return viewStandings();
   }
@@ -366,7 +369,7 @@
   function manageBar(t){
     const c=counts(t.id);
     return `<div class="bar"><span>Active <b>${c.active}/${SET.roster}</b></span><span>IR <b>${c.ir}/${SET.max_ir}</b></span><span>PGs <b>${c.pg}/${SET.max_pg}</b></span><span>Pickups left <b>${SET.pickups-c.used}/${SET.pickups}</b></span>
-      <span class="sp"></span><a class="btn sm" href="#/players">Add a player</a><button class="btn sm ghost" id="outBtn">Sign out</button></div>
+      <span class="sp"></span>${canPlayers()?'<a class="btn sm" href="#/players">Add a player</a>':''}<button class="btn sm ghost" id="outBtn">Sign out</button></div>
       <p class="cl-note">Moves take effect tomorrow (ET), so today's games count for whoever has the player this morning. IR players don't score and don't use an active spot.</p>`;
   }
 
@@ -449,10 +452,11 @@
       <p><b>Roster.</b> ${SET.roster} active players, up to ${SET.max_ir} on IR (IR players don't score and don't use an active spot), at most ${SET.max_pg} point guards from the league PG list, IR included.</p>
       <p><b>Moves.</b> ${SET.pickups} pickups per team for the season; drops are free. Every move takes effect the next day (ET). A dropped player's stats stay with the team that had him.</p>
       <p><b>Playoffs.</b> Top 3 in each division. The #1 seed gets a bye; #2 plays #3; the winner plays #1; the two division champions meet in the final.</p>
-      <p><b>Updates.</b> Box scores load every 20 minutes during game days, so standings move shortly after each game ends. Regular season ends ${md(SET.reg_end)}.</p></div>`);
+      <p><b>Updates.</b> Box scores load three times a day (about 10:30 pm, 1:15 am and noon ET), so standings move the night games end. Regular season ends ${md(SET.reg_end)}.</p></div>`);
   }
 
-  load().then(()=>{ route(); if(CODE&&!PENDING) rpc('cl_login',{p_code:CODE}).then(m=>{ ME=m; if(/^#\/(me|$)/.test(location.hash||'#/')) route(); }).catch(()=>{}); })
+  // signed in BEFORE the first render: the Players tab and its route depend on who it is
+  load().then(async()=>{ if(CODE&&!PENDING){ try{ ME=await rpc('cl_login',{p_code:CODE}); }catch(e){} } route(); })
     .catch(e=>{ app.innerHTML=`<div class="empty">Couldn't load the league: ${esc(e.message)}</div>`; });
 })();
 </script>
