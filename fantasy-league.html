@@ -43,6 +43,16 @@
     .tabs::-webkit-scrollbar{display:none;}
     .tab{flex:none;font:700 12px 'Inter',system-ui,sans-serif;background:var(--bg);border:1px solid var(--border2);color:var(--text2);padding:6px 13px;border-radius:999px;text-decoration:none;white-space:nowrap;}
     .tab.on{background:var(--text);color:var(--bg);border-color:var(--text);}
+    .tab .dot{display:inline-block;min-width:16px;padding:0 4px;border-radius:999px;background:var(--red);color:#fff;font-size:10px;margin-left:5px;text-align:center;}
+    .req{border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13px;line-height:1.5;}
+    .req .st{font-size:11px;color:var(--text3);}
+    .req .row{margin-top:6px;}
+    .pick{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;}
+    @media(max-width:640px){ .pick{grid-template-columns:1fr;} }
+    .ck{display:flex;gap:8px;align-items:center;padding:5px 0;border-top:1px solid var(--border);font-size:13px;}
+    .ck:first-child{border-top:none;}
+    .fa-list .ck{cursor:pointer;} .fa-list .ck.on{font-weight:800;color:var(--accent);}
+    .form{padding:12px;border-top:1px solid var(--border);}
     .seg{display:inline-flex;border:1px solid var(--border2);border-radius:999px;overflow:hidden;}
     .seg button{background:var(--bg);border:none;color:var(--text2);font:700 11.5px 'Inter',system-ui,sans-serif;padding:6px 12px;}
     .seg button.on{background:var(--text);color:var(--bg);}
@@ -135,7 +145,7 @@
 
   // ── state ──
   let SET={roster:12,pickups:5,max_pg:3,max_ir:2,reg_end:'2027-03-07',draft_start:'2026-11-01'};
-  let TEAMS=[], STINTS=[], IR=[], MOVES=[], PG=new Set(), PENDING=false;
+  let TEAMS=[], STINTS=[], IR=[], MOVES=[], REQS=[], PG=new Set(), PENDING=false;
   let CNT={}, CNTDATES={}, CNTG={}, FULL={}, SHORT={}, RES={}, PROJ={}, FRESH={}, REAL={}, BOX={}, POOL=null;
   let ME=null, CODE=store.get('cl_code');
   // the Players page (free agents + adds) is only for these teams' logins, or the site owner (owner, Nov 10 2026)
@@ -160,10 +170,10 @@
     ((rat[0]&&rat[0].data&&rat[0].data.teams)||[]).forEach(t=>{ if(t.team&&t.full){ FULL[t.team]=t.full; SHORT[t.full]=t.team; } });
     // league tables; until the SQL runs, the drafted rosters from the JSON (view only)
     try{
-      const [st,tm,sn,ir,mv,pg]=await Promise.all([get('cl_settings?select=*'),get('cl_teams?select=id,name,division,is_commish&order=id.asc'),
-        getAll('cl_stints?select=*&order=id.asc'),get('cl_ir?select=*&order=id.asc'),get('cl_moves?select=*&order=id.desc&limit=200'),get('cl_pg?select=player_id')]);
+      const [st,tm,sn,ir,mv,pg,rq]=await Promise.all([get('cl_settings?select=*'),get('cl_teams?select=id,name,division,is_commish&order=id.asc'),
+        getAll('cl_stints?select=*&order=id.asc'),get('cl_ir?select=*&order=id.asc'),get('cl_moves?select=*&order=id.desc&limit=200'),get('cl_pg?select=player_id'),get('cl_requests?select=*&order=id.desc&limit=300').catch(()=>[])]);
       if(!tm.length) throw new Error('not seeded');
-      if(st[0]) SET=st[0]; TEAMS=tm; STINTS=sn; IR=ir; MOVES=mv; PG=new Set(pg.map(x=>x.player_id));
+      if(st[0]) SET=st[0]; TEAMS=tm; STINTS=sn; IR=ir; MOVES=mv; REQS=rq; PG=new Set(pg.map(x=>x.player_id));
     }catch(e){
       PENDING=true;
       if(!draft) throw new Error('No league data yet.');
@@ -250,7 +260,7 @@
   function go(h){ location.hash=h; }
   window.addEventListener('hashchange',route);
   function shell(tab,inner){
-    const tabs=[['#/','Standings'],['#/teams','Teams'],['#/me',ME?esc(ME.name):'My team'],['#/schedule','Schedule'],...(canPlayers()?[['#/players','Players']]:[]),['#/rules','Rules']];
+    const tabs=[['#/','Standings'],['#/teams','Teams'],['#/me',(ME?esc(ME.name):'My team')+(waitingOnMe()?` <span class="dot">${waitingOnMe()}</span>`:'')],['#/schedule','Schedule'],...(canPlayers()?[['#/players','Players']]:[]),['#/rules','Rules']];
     app.innerHTML=`<div class="page-eyebrow">Counting League · 2026-27</div>
       <h1 class="page-h1">${tab==='me'&&ME?esc(ME.name):'Counting League'}</h1>
       <div class="meta">PTS · REB · AST roto over each school's 22 counted games · stats through ${esc(lastGameDate()||'—')}${PENDING?' · <b>view only until league setup finishes</b>':''}</div>
@@ -321,6 +331,7 @@
       if(m==='pg') return a.gp?`<td>${a.gp}</td><td>${f1(a.pts/a.gp)}</td><td>${f1(a.reb/a.gp)}</td><td>${f1(a.ast/a.gp)}</td>`:`<td>0</td><td colspan="3" class="l" style="color:var(--text3)">proj ${f1(r.L.pg.pts)} / ${f1(r.L.pg.reb)} / ${f1(r.L.pg.ast)}</td>`;
       return `<td>${a.gp}</td><td>${a.pts}</td><td>${a.reb}</td><td>${a.ast}</td>`; };
     const act=r=>{ if(!manage) return ''; if(r.s.end_date) return '<td></td>';
+      if(pendingFor(r.s.id)) return '<td><span class="pill">pending</span></td>';
       return `<td><div class="acts">${r.ir?`<button class="btn sm ghost" data-ir="${r.s.id}" data-on="0">Activate</button>`:`<button class="btn sm ghost" data-ir="${r.s.id}" data-on="1">IR</button>`}<button class="btn sm danger" data-drop="${r.s.id}">Drop</button></div></td>`; };
     const T=rows.reduce((o,r)=>{ const v=m==='proj'?r.L.proj:r.L.a; o.pts+=v.pts; o.reb+=v.reb; o.ast+=v.ast; o.gp+=r.L.a.gp; o.left+=r.L.left; return o; },{pts:0,reb:0,ast:0,gp:0,left:0});
     return `<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th>${head}${manage?'<th></th>':''}</tr></thead><tbody>
@@ -349,7 +360,7 @@
       ${nextWeek.length?`<div class="sec-h">Counted games, next 7 days</div><div class="sheet-wrap"><table class="sheet dense"><tbody>
         ${nextWeek.map(([d,l])=>`<tr><td class="l"><b>${md(d)}</b></td><td class="l">${l.map(esc).join(', ')}</td></tr>`).join('')}</tbody></table></div>`:''}
       ${mv.length?`<div class="sec-h">Moves</div><div class="sheet-wrap"><table class="sheet dense"><tbody>
-        ${mv.map(m=>`<tr><td class="l">${esc({add:'Added',drop:'Dropped',ir:'IR',activate:'Activated'}[m.kind]||m.kind)}</td><td class="l">${esc(m.player)}</td><td>from ${md(m.eff)}</td></tr>`).join('')}</tbody></table></div>`:''}`;
+        ${mv.map(m=>`<tr><td class="l">${esc({add:'Added',drop:'Dropped',ir:'IR',activate:'Activated',trade_in:'Traded for',trade_out:'Traded away'}[m.kind]||m.kind)}</td><td class="l">${esc(m.player)}</td><td>from ${md(m.eff)}</td></tr>`).join('')}</tbody></table></div>`:''}`;
   }
   function viewTeam(id){
     const t=TEAMS.find(x=>x.id===id); if(!t) return shell('teams','<div class="empty">No such team.</div>');
@@ -364,10 +375,11 @@
       const b=e.target.closest('button'); if(!b) return; const msg=document.getElementById('mMsg');
       const s=STINTS.find(x=>x.id===+(b.dataset.ir||b.dataset.drop));
       try{
-        if(b.dataset.ir){ b.disabled=true; await rpc('cl_set_ir',{p_code:CODE,p_stint:s.id,p_on:b.dataset.on==='1'}); }
-        else if(b.dataset.drop){ if(!confirm(`Drop ${s.name}? He leaves your roster tomorrow and his stats here stay banked.`)) return; b.disabled=true;
-          await rpc('cl_move',{p_code:CODE,p_add:null,p_drop:s.id}); }
-        await refresh(); viewMe(); const m2=document.getElementById('mMsg'); if(m2){ m2.className='msg ok'; m2.textContent='Done — takes effect tomorrow.'; }
+        if(b.dataset.ir){ const on=b.dataset.on==='1'; if(!confirm(`Send the commissioner a request to ${on?'move '+s.name+' to IR':'activate '+s.name}?`)) return; b.disabled=true;
+          await rpc('cl_request',{p_code:CODE,p_kind:'ir',p_payload:{stint:s.id,on}}); }
+        else if(b.dataset.drop){ if(!confirm(`Send the commissioner a request to drop ${s.name}?`)) return; b.disabled=true;
+          await rpc('cl_request',{p_code:CODE,p_kind:'drop',p_payload:{stint:s.id}}); }
+        await refresh(); viewMe(); flash('Sent to the commissioner.');
       }catch(err){ b.disabled=false; msg.className='msg err'; msg.textContent=err.message; }
     });
   }
@@ -381,7 +393,95 @@
     const c=counts(t.id);
     return `<div class="bar"><span>Active <b>${c.active}/${SET.roster}</b></span><span>IR <b>${c.ir}/${SET.max_ir}</b></span><span>PGs <b>${c.pg}/${SET.max_pg}</b></span><span>Pickups left <b>${SET.pickups-c.used}/${SET.pickups}</b></span>
       <span class="sp"></span>${canPlayers()?'<a class="btn sm" href="#/players">Add a player</a>':''}<button class="btn sm ghost" id="outBtn">Sign out</button></div>
-      <p class="cl-note">Moves take effect tomorrow (ET), so today's games count for whoever has the player this morning. IR players don't score and don't use an active spot.</p>`;
+      <p class="cl-note">Every move is a request: pickups, drops and IR go to the commissioner; trades go to the other team, then the commissioner. Approved moves take effect the next day (ET).</p>
+      <div id="reqBox">${requestsHTML()}</div>
+      <details class="ps" id="pkD"><summary><b>Request a pickup</b><span class="nx">${SET.pickups-c.used} left</span></summary><div class="form">
+        <div class="pick"><div><div class="cl-note" style="margin:0 0 4px">Free agent</div>${faPickerHTML('pk')}</div>
+          <div><div class="cl-note" style="margin:0 0 4px">Drop</div><select class="fs" id="pkDrop" style="width:100%"><option value="">${c.active<SET.roster?'Nobody (open spot)':'Pick a player to drop'}</option>
+          ${STINTS.filter(s=>s.team_id===t.id&&!s.end_date).map(s=>`<option value="${s.id}">${esc(s.name)}${isPG(s)?' (PG)':''}</option>`).join('')}</select></div></div>
+        <div class="row" style="margin-top:10px"><button class="btn" id="pkSend">Send to commissioner</button></div></div></details>
+      <details class="ps" id="trD"><summary><b>Propose a trade</b></summary><div class="form">
+        <select class="fs" id="trTeam" style="width:100%;margin-bottom:10px"><option value="">Trade with…</option>${TEAMS.filter(x=>x.id!==t.id).map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select>
+        <div class="pick"><div><div class="cl-note" style="margin:0 0 4px"><b>You give</b></div><div id="trGive">${ckList(t.id,'g')}</div></div>
+          <div><div class="cl-note" style="margin:0 0 4px"><b>You get</b></div><div id="trGet"><div class="cl-note">Pick a team.</div></div></div></div>
+        <details style="margin-top:10px"><summary class="cl-note" style="cursor:pointer">Include a pickup / drops on your side</summary>
+          <div class="pick" style="margin-top:8px"><div><div class="cl-note" style="margin:0 0 4px">Add a free agent</div>${faPickerHTML('tr')}</div>
+          <div><div class="cl-note" style="margin:0 0 4px">You drop</div>${ckList(t.id,'d')}</div></div></details>
+        <div class="row" style="margin-top:10px"><button class="btn" id="trSend">Send trade offer</button></div></div></details>`;
+  }
+
+
+  // ── requests: every roster change goes through the commissioner (trades through the other team first) ──
+  const stName=id=>{ const x=STINTS.find(y=>y.id===+id); return x?x.name:'(player)'; };
+  const tName=id=>(TEAMS.find(x=>x.id===id)||{}).name||'?';
+  const STATUS={partner:'Waiting on the other team',commish:'Waiting on the commissioner',approved:'Approved',declined:'Declined',failed:'Failed',canceled:'Canceled'};
+  const waitingOnMe=()=>ME?REQS.filter(r=>(r.status==='partner'&&r.to_team===ME.id)||(ME.is_commish&&r.status==='commish')).length:0;
+  const pendingFor=sid=>REQS.some(r=>['partner','commish'].includes(r.status)&&(()=>{ const p=r.payload||{};
+    return +p.stint===sid||+p.drop===sid||[].concat(p.give||[],p.get||[],p.drops||[],p.pdrops||[]).map(Number).includes(sid); })());
+  function reqText(r){ const p=r.payload||{}, names=a=>(a||[]).map(stName).map(esc).join(', ')||'nothing';
+    if(r.kind==='pickup') return `<b>${esc(tName(r.from_team))}</b>: add <b>${esc(p.add_name||'player')}</b>${p.drop?`, drop <b>${esc(stName(p.drop))}</b>`:''}`;
+    if(r.kind==='drop') return `<b>${esc(tName(r.from_team))}</b>: drop <b>${esc(stName(p.stint))}</b>`;
+    if(r.kind==='ir') return `<b>${esc(tName(r.from_team))}</b>: ${p.on?'move':'activate'} <b>${esc(stName(p.stint))}</b> ${p.on?'to':'from'} IR`;
+    return `<b>Trade.</b> ${esc(tName(r.from_team))} gets <b>${names(p.get)}</b> · ${esc(tName(r.to_team))} gets <b>${names(p.give)}</b>`+
+      (p.add?` · ${esc(tName(r.from_team))} adds ${esc(p.add_name)}`:'')+((p.drops||[]).length?` · ${esc(tName(r.from_team))} drops ${names(p.drops)}`:'')+
+      ((p.pdrops||[]).length?` · ${esc(tName(r.to_team))} drops ${names(p.pdrops)}`:'');
+  }
+  const when=r=>new Date(r.created_at).toLocaleDateString('en-US',{month:'numeric',day:'numeric',timeZone:'America/New_York'});
+  function requestsHTML(){
+    if(!ME) return '';
+    const inbox=REQS.filter(r=>r.status==='partner'&&r.to_team===ME.id);
+    const queue=ME.is_commish?REQS.filter(r=>r.status==='commish').reverse():[];
+    const mine=REQS.filter(r=>r.from_team===ME.id||(r.kind==='trade'&&r.to_team===ME.id&&r.status!=='partner')).slice(0,12);
+    const myOpen=STINTS.filter(s=>s.team_id===ME.id&&!s.end_date);
+    const box=(title,list,fn)=>list.length?`<div class="sec-h">${title} <span class="pill">${list.length}</span></div>${list.map(fn).join('')}`:'';
+    return box('Trade offers for you',inbox,r=>{ const p=r.payload||{}, net=(p.give||[]).length-(p.get||[]).length, act=counts(ME.id).active+net;
+        return `<div class="req">${reqText(r)}<div class="st">from ${esc(tName(r.from_team))} · ${when(r)}${act>SET.roster?` · you'd be at ${act} active: pick ${act-SET.roster} to drop`:''}</div>
+        ${act>SET.roster?`<div style="margin-top:6px">${myOpen.filter(s=>!(p.get||[]).map(Number).includes(s.id)).map(s=>`<label class="ck"><input type="checkbox" data-pd="${r.id}" value="${s.id}"> ${esc(s.name)}</label>`).join('')}</div>`:''}
+        <div class="row"><button class="btn sm" data-acc="${r.id}">Accept</button><button class="btn sm ghost" data-dec="${r.id}">Decline</button></div></div>`; })+
+      box('Commissioner queue',queue,r=>`<div class="req">${reqText(r)}<div class="st">sent ${when(r)}${r.kind==='trade'?' · accepted by '+esc(tName(r.to_team)):''}</div>
+        <div class="row"><button class="btn sm" data-apv="${r.id}">Approve</button><button class="btn sm ghost" data-den="${r.id}">Decline</button></div></div>`)+
+      box('Your requests',mine,r=>`<div class="req">${reqText(r)}<div class="st">${when(r)} · <b>${STATUS[r.status]||r.status}</b>${r.eff?' · from '+md(r.eff):''}${r.note?' · '+esc(r.note):''}</div>
+        ${['partner','commish'].includes(r.status)&&r.from_team===ME.id?`<div class="row"><button class="btn sm ghost" data-can="${r.id}">Cancel</button></div>`:''}</div>`);
+  }
+  function ckList(tid,tag){ return STINTS.filter(s=>s.team_id===tid&&!s.end_date&&!pendingFor(s.id)).map(s=>`<label class="ck"><input type="checkbox" data-${tag}="${s.id}"> ${esc(s.name)}${isPG(s)?' <span class="pill pg">PG</span>':''}<span class="sp"></span><span class="cl-note" style="margin:0">${esc(s.school)}</span></label>`).join('')||'<div class="cl-note">Nobody available.</div>'; }
+  function faPickerHTML(id){ return `<input class="fi" id="${id}Q" placeholder="Search name or school" autocomplete="off" style="width:100%"><div class="fa-list" id="${id}L"></div>`; }
+  // free-agent search: type, tap one; the choice sits on the input as data-pid
+  async function wireFA(id){
+    const q=document.getElementById(id+'Q'), L=document.getElementById(id+'L'); if(!q) return;
+    await loadPool();
+    const owned=new Set(STINTS.filter(s=>!s.end_date).map(s=>s.player_id));
+    const paint=()=>{ const v=q.value.trim().toLowerCase(); if(v.length<2){ L.innerHTML=''; return; }
+      const hits=POOL.filter(p=>!owned.has(p.id)&&(p.name.toLowerCase().includes(v)||p.team.toLowerCase().includes(v))).slice(0,8);
+      L.innerHTML=hits.map(p=>{ const pg=perGame({...p,start_date:TODAY,end_date:null,id:-p.id});
+        return `<div class="ck${+q.dataset.pid===p.id?' on':''}" data-pick="${p.id}">${lgImg(p.team)}${esc(p.name)}${PG.has(p.id)?' <span class="pill pg">PG</span>':''}<span class="sp"></span><span class="cl-note" style="margin:0">${esc(p.team)} · ${f1(pg.pts)}/${f1(pg.reb)}/${f1(pg.ast)}</span></div>`; }).join('')||'<div class="cl-note">No free agents match.</div>'; };
+    q.addEventListener('input',()=>{ delete q.dataset.pid; paint(); });
+    L.addEventListener('click',e=>{ const d=e.target.closest('[data-pick]'); if(!d) return; const p=POOL.find(x=>x.id===+d.dataset.pick);
+      q.dataset.pid=p.id; q.dataset.espn=p.espn_id||''; q.dataset.name=p.name; q.value=p.name+' — '+p.team; L.innerHTML=''; });
+  }
+  const flash=t=>{ const m=document.getElementById('mMsg'); if(m){ m.className='msg ok'; m.textContent=t; m.scrollIntoView({block:'nearest'}); } };
+  const fail=(t)=>{ const m=document.getElementById('mMsg'); if(m){ m.className='msg err'; m.textContent=t; m.scrollIntoView({block:'nearest'}); } else alert(t); };
+  function wireRequests(t){
+    const run=async(btn,fn,ok)=>{ btn.disabled=true; try{ const r=await fn(); await refresh(); viewMe(); flash(typeof ok==='function'?ok(r):ok); }catch(err){ btn.disabled=false; fail(err.message); } };
+    document.getElementById('reqBox').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return;
+      if(b.dataset.acc){ const id=+b.dataset.acc, drops=[...document.querySelectorAll(`input[data-pd="${id}"]:checked`)].map(x=>+x.value);
+        run(b,()=>rpc('cl_respond',{p_code:CODE,p_req:id,p_accept:true,p_drops:drops}),'Accepted — sent to the commissioner.'); }
+      if(b.dataset.dec) run(b,()=>rpc('cl_respond',{p_code:CODE,p_req:+b.dataset.dec,p_accept:false}),'Trade declined.');
+      if(b.dataset.can) run(b,()=>rpc('cl_cancel',{p_code:CODE,p_req:+b.dataset.can}),'Request canceled.');
+      if(b.dataset.apv) run(b,()=>rpc('cl_decide',{p_code:CODE,p_req:+b.dataset.apv,p_approve:true}),r=>r&&r.status==='failed'?'Could not go through: '+r.note:'Approved — takes effect tomorrow.');
+      if(b.dataset.den){ const note=prompt('Reason (optional)')||''; run(b,()=>rpc('cl_decide',{p_code:CODE,p_req:+b.dataset.den,p_approve:false,p_note:note}),'Declined.'); }
+    });
+    document.getElementById('pkD').addEventListener('toggle',function(){ if(this.open) wireFA('pk'); },{once:true});
+    document.getElementById('trD').addEventListener('toggle',function(){ if(this.open) wireFA('tr'); },{once:true});
+    document.getElementById('trTeam').addEventListener('change',e=>{ document.getElementById('trGet').innerHTML=e.target.value?ckList(+e.target.value,'w'):'<div class="cl-note">Pick a team.</div>'; });
+    document.getElementById('pkSend').addEventListener('click',e=>{ const q=document.getElementById('pkQ'), drop=document.getElementById('pkDrop').value;
+      if(!q.dataset.pid) return fail('Search for a free agent and tap him first.');
+      run(e.target,()=>rpc('cl_request',{p_code:CODE,p_kind:'pickup',p_payload:{add:+q.dataset.pid,add_espn:q.dataset.espn||null,add_name:q.dataset.name,drop:drop?+drop:null}}),'Pickup request sent to the commissioner.'); });
+    document.getElementById('trSend').addEventListener('click',e=>{ const to=+document.getElementById('trTeam').value, q=document.getElementById('trQ');
+      const vals=a=>[...document.querySelectorAll(`#trD input[data-${a}]:checked`)].map(x=>+x.dataset[a]);
+      const give=vals('g'), get_=vals('w'), drops=vals('d');
+      if(!to) return fail('Pick a team to trade with.'); if(!give.length&&!get_.length) return fail('Check at least one player.');
+      const pay={give,get:get_,drops}; if(q&&q.dataset.pid){ pay.add=+q.dataset.pid; pay.add_espn=q.dataset.espn||null; pay.add_name=q.dataset.name; }
+      run(e.target,()=>rpc('cl_request',{p_code:CODE,p_kind:'trade',p_payload:pay,p_to:to}),`Trade offer sent to ${tName(to)}.`); });
   }
 
   // ── my team / sign in ──
@@ -396,12 +496,12 @@
       return;
     }
     const t=TEAMS.find(x=>x.id===ME.id);
-    shell('me',teamBody(t,true)); wireTeam(t,true);
+    shell('me',teamBody(t,true)); wireTeam(t,true); wireRequests(t);
     document.getElementById('outBtn').addEventListener('click',()=>{ ME=null; CODE=null; store.set('cl_code',null); viewMe(); });
   }
   async function refresh(){
-    const [sn,ir,mv]=await Promise.all([getAll('cl_stints?select=*&order=id.asc'),get('cl_ir?select=*&order=id.asc'),get('cl_moves?select=*&order=id.desc&limit=200')]);
-    const had=new Set(STINTS.map(s=>s.espn_id)); STINTS=sn; IR=ir; MOVES=mv;
+    const [sn,ir,mv,rq]=await Promise.all([getAll('cl_stints?select=*&order=id.asc'),get('cl_ir?select=*&order=id.asc'),get('cl_moves?select=*&order=id.desc&limit=200'),get('cl_requests?select=*&order=id.desc&limit=300')]);
+    const had=new Set(STINTS.map(s=>s.espn_id)); STINTS=sn; IR=ir; MOVES=mv; REQS=rq;
     if(STINTS.some(s=>s.espn_id&&!had.has(s.espn_id))) await loadBox();
   }
 
@@ -430,7 +530,7 @@
         ${list.map(r=>{ const s={...r.p,price:0,how:'draft',start_date:TODAY,end_date:null}; const tm=r.own?TEAMS.find(t=>t.id===r.own):null;
           return `<tr>${playerCell(s,null)}<td class="hm">${r.real?`${f1(r.real.pts)}/${f1(r.real.reb)}/${f1(r.real.ast)}<span class="sub">${r.real.g} g</span>`:'—'}</td>
             <td>${f1(r.pg.pts)}</td><td>${f1(r.pg.reb)}</td><td>${f1(r.pg.ast)}</td><td>${r.left}</td><td>${f0((r.pg.pts+r.pg.reb+r.pg.ast)*r.left)}<span class="sub">P+R+A</span></td>
-            ${ME&&!PENDING?`<td>${tm?`<span class="pill">${esc(tm.name)}</span>`:`<button class="btn sm" data-add="${r.p.id}" data-espn="${r.p.espn_id||''}">Add</button>`}</td>`:''}</tr>`; }).join('')||'<tr><td class="l" colspan="8">No players match.</td></tr>'}</tbody>`;
+            ${ME&&!PENDING?`<td>${tm?`<span class="pill">${esc(tm.name)}</span>`:`<button class="btn sm" data-add="${r.p.id}" data-espn="${r.p.espn_id||''}">Request</button>`}</td>`:''}</tr>`; }).join('')||'<tr><td class="l" colspan="8">No players match.</td></tr>'}</tbody>`;
     };
     shell('players',`${ME&&!PENDING?`<div class="bar"><span>${esc(ME.name)}: active <b>${c.active}/${SET.roster}</b></span><span>PGs <b>${c.pg}/${SET.max_pg}</b></span><span>Pickups left <b>${SET.pickups-c.used}</b></span></div>
         <div class="row" style="margin-bottom:8px"><label class="cl-note" style="margin:0">Drop when adding</label><select class="fs" id="dropSel"><option value="">${c.active<SET.roster?'Nobody (open spot)':'Pick a player to drop'}</option>
@@ -449,9 +549,9 @@
       const b=e.target.closest('button[data-add]'); if(!b) return; const m=document.getElementById('faMsg');
       const p=POOL.find(x=>x.id===+b.dataset.add), dsel=document.getElementById('dropSel'), drop=dsel&&dsel.value?+dsel.value:null;
       const dn=drop?STINTS.find(s=>s.id===drop).name:null;
-      if(!confirm(`Add ${p.name}${dn?` and drop ${dn}`:''}? Uses 1 of your ${SET.pickups} pickups; takes effect tomorrow.`)) return;
+      if(!confirm(`Request to add ${p.name}${dn?` and drop ${dn}`:''}? Goes to the commissioner; uses 1 of your ${SET.pickups} pickups if approved.`)) return;
       b.disabled=true;
-      try{ await rpc('cl_move',{p_code:CODE,p_add:p.id,p_drop:drop,p_add_espn:b.dataset.espn?+b.dataset.espn:null}); await refresh(); go('#/me'); }
+      try{ await rpc('cl_request',{p_code:CODE,p_kind:'pickup',p_payload:{add:p.id,add_espn:b.dataset.espn||null,add_name:p.name,drop}}); await refresh(); go('#/me'); }
       catch(err){ b.disabled=false; m.className='msg err'; m.textContent=err.message; }
     });
   }
@@ -496,7 +596,7 @@
       <p><b>Teams.</b> 12 teams, two divisions of 6. Drafted in person: $200, 12 players, Big Ten / SEC / ACC / Big 12 / Big East only.</p>
       <p><b>Scoring.</b> Total points, rebounds and assists, counting only each school's 22 counted games (18 conference + 4 non-conference, the league schedule). Standings are roto: in each category the best team in the division gets 6 points, the worst 1; ties share.</p>
       <p><b>Roster.</b> ${SET.roster} active players, up to ${SET.max_ir} on IR (IR players don't score and don't use an active spot), at most ${SET.max_pg} point guards from the league PG list, IR included.</p>
-      <p><b>Moves.</b> ${SET.pickups} pickups per team for the season; drops are free. Every move takes effect the next day (ET). A dropped player's stats stay with the team that had him.</p>
+      <p><b>Moves.</b> ${SET.pickups} pickups per team for the season; drops are free. Every move is a request: pickups, drops and IR go to the commissioner; a trade goes to the other team, then the commissioner (it can include a pickup and drops). Approved moves take effect the next day (ET). A player's stats stay with the team that had him when he scored them.</p>
       <p><b>Playoffs.</b> Top 3 in each division. The #1 seed gets a bye; #2 plays #3; the winner plays #1; the two division champions meet in the final.</p>
       <p><b>Updates.</b> Box scores load three times a day (about 10:30 pm, 1:15 am and noon ET), so standings move the night games end. Regular season ends ${md(SET.reg_end)}.</p></div>`);
   }
