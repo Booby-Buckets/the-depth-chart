@@ -1,6 +1,6 @@
 """build_fantasy_cl.py — seed SQL for the owner's counting league (scripts/fantasy_cl.sql, fantasy-league.html).
 
-Reads the drafted rosters (scripts/data/fantasy_cl_rosters_2027.json: one row per pick, already matched to players.id /
+Reads the drafted rosters (exports/fantasy-league/fantasy_cl_rosters_2027.json, private: one row per pick, already matched to players.id /
 espn_id) and the league PG list (tdc-fantasy-pg.js), and writes, OUTSIDE git:
   exports/fantasy-league/team_codes.txt       one sign-in code per team (made once; re-runs keep them)
   exports/fantasy-league/fantasy_cl_seed.sql  teams (code sha256 only), draft stints, cl_pg — run after fantasy_cl.sql
@@ -46,7 +46,7 @@ def tn(s): return nn(s).replace(" st ", " state ").replace(" ", "")
 
 def main():
     os.makedirs(OUT, exist_ok=True)
-    R = json.load(open(os.path.join(ROOT, "scripts/data/fantasy_cl_rosters_2027.json")))
+    R = json.load(open(os.path.join(OUT, "fantasy_cl_rosters_2027.json")))   # private: not served (owner, Nov 11 2026)
     teams = [(t, int(div)) for div, ts in R["divisions"].items() for t in ts]
     codes_p = os.path.join(OUT, "team_codes.txt")
     codes = {}

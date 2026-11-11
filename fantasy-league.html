@@ -115,12 +115,16 @@
  * 12 teams in two divisions of 6, drafted in person ($200, 12 players, max 3 PGs from the league list). Scoring: roto on
  * total PTS / REB / AST, counting only each school's 22 counted games (scripts/data/fantasy_counting_2027.json, matched by
  * ESPN game id) on the days a player is on the roster and not on IR. Top 3 of each division make the playoffs.
- * Data: scripts/fantasy_cl.sql (cl_* tables; writes only through code-checked functions). Until that SQL and the seed
- * are run, the page reads the drafted rosters from scripts/data/fantasy_cl_rosters_2027.json (view only).
+ * PRIVATE (owner, Nov 11 2026): you need a site account AND your team code. The code links the account to its team once
+ * (cl_claim); after that cl_data() returns the whole league to that account only. The cl_* tables are closed to the site.
+ * SQL: scripts/fantasy_cl.sql + scripts/fantasy_cl_v2_lock.sql.
  * Projected season = counted stats so far + the site's projected per-game line x counted games left. */
 (function(){
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co', KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
   const H={apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'};
+  // league calls go as the signed-in account (auth.js keeps the token fresh)
+  const HA=()=>Object.assign({'Content-Type':'application/json'},window.tdcH?tdcH():{apikey:KEY,Authorization:'Bearer '+KEY});
+  const session=()=>{ try{ return JSON.parse(localStorage.getItem('tdc_session')||'null'); }catch(e){ return null; } };
   const CONFS=['B10','SEC','ACC','BIG-12','Big-East'];
   const CATS=[['pts','PTS'],['reb','REB'],['ast','AST']];
   const app=document.getElementById('app');
@@ -136,7 +140,7 @@
   async function get(path){ const r=await fetch(`${SB}/rest/v1/${path}`,{headers:H}); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
   async function getAll(path){ let out=[], off=0; for(;;){ const r=await get(`${path}&limit=1000&offset=${off}`); out=out.concat(r); if(r.length<1000) return out; off+=1000; } }
   async function rpc(fn,body){
-    const r=await fetch(`${SB}/rest/v1/rpc/${fn}`,{method:'POST',headers:H,body:JSON.stringify(body)});
+    const r=await fetch(`${SB}/rest/v1/rpc/${fn}`,{method:'POST',headers:HA(),body:JSON.stringify(body||{})});
     const j=await r.json().catch(()=>null);
     if(!r.ok) throw new Error((j&&j.message)||('Error '+r.status));
     return j;
@@ -145,43 +149,33 @@
 
   // ── state ──
   let SET={roster:12,pickups:5,max_pg:3,max_ir:2,reg_end:'2027-03-07',draft_start:'2026-11-01'};
-  let TEAMS=[], STINTS=[], IR=[], MOVES=[], REQS=[], PG=new Set(), PENDING=false;
+  let TEAMS=[], STINTS=[], IR=[], MOVES=[], REQS=[], PG=new Set();
   let CNT={}, CNTDATES={}, CNTG={}, FULL={}, SHORT={}, RES={}, PROJ={}, FRESH={}, REAL={}, BOX={}, POOL=null;
-  let ME=null, CODE=store.get('cl_code');
+  let ME=null; store.set('cl_code',null);   // codes are no longer kept in the browser
   // the Players page (free agents + adds) is only for these teams' logins, or the site owner (owner, Nov 10 2026)
   const PLAYERS_FOR=['Aidan','Mark'];
   const canPlayers=()=>!!((ME&&PLAYERS_FOR.includes(ME.name))||(window.tdcIsOwner&&tdcIsOwner()));
   let mode=store.get('cl_mode')||'actual';      // standings: actual | proj
   let rmode=store.get('cl_rmode')||'tot';       // roster: tot | pg | proj
 
+  async function loadLeague(){
+    const d=await rpc('cl_data');
+    ME=d.me; if(d.settings) SET=d.settings; TEAMS=d.teams; STINTS=d.stints; IR=d.ir; MOVES=d.moves; REQS=d.requests; PG=new Set(d.pg);
+  }
   async function load(){
-    const [cnt,proj,fresh,real,rat,draft,res]=await Promise.all([
+    await loadLeague();   // first: a non-member stops here
+    const [cnt,proj,fresh,real,rat,res]=await Promise.all([
       jget('scripts/data/fantasy_counting_2027.json?v=1'),
       jget('scripts/data/stat_overall_projected.json?v=96'),
       jget('scripts/data/fresh_fit.json?v=41'),
       jget('scripts/data/real_lines_2027.json?t='+TODAY),
       get('predictive_ratings?select=data&limit=1').catch(()=>[]),
-      jget('scripts/data/fantasy_cl_rosters_2027.json?v=1'),
       jget('scripts/data/results_2027.json?t='+Math.floor(Date.now()/6e5))]);
     if(cnt&&cnt.teams) Object.entries(cnt.teams).forEach(([t,l])=>{ CNT[t]=new Set(l.map(g=>String(g.id))); CNTDATES[t]=l.map(g=>g.date).sort(); CNTG[t]=[...l].sort((a,b)=>a.date<b.date?-1:1); });
     // finals: [id, date, home idx, away idx, home pts, away pts, neutral, conf, ot]
     if(res&&res.games) res.games.forEach(g=>{ RES[g[0]]={home:res.teams[g[2]],away:res.teams[g[3]],hs:g[4],as:g[5],ot:g[8]}; });
     PROJ=(proj&&proj.players)||{}; FRESH=fresh||{}; REAL=(real&&real.players)||{};
     ((rat[0]&&rat[0].data&&rat[0].data.teams)||[]).forEach(t=>{ if(t.team&&t.full){ FULL[t.team]=t.full; SHORT[t.full]=t.team; } });
-    // league tables; until the SQL runs, the drafted rosters from the JSON (view only)
-    try{
-      const [st,tm,sn,ir,mv,pg,rq]=await Promise.all([get('cl_settings?select=*'),get('cl_teams?select=id,name,division,is_commish&order=id.asc'),
-        getAll('cl_stints?select=*&order=id.asc'),get('cl_ir?select=*&order=id.asc'),get('cl_moves?select=*&order=id.desc&limit=200'),get('cl_pg?select=player_id'),get('cl_requests?select=*&order=id.desc&limit=300').catch(()=>[])]);
-      if(!tm.length) throw new Error('not seeded');
-      if(st[0]) SET=st[0]; TEAMS=tm; STINTS=sn; IR=ir; MOVES=mv; REQS=rq; PG=new Set(pg.map(x=>x.player_id));
-    }catch(e){
-      PENDING=true;
-      if(!draft) throw new Error('No league data yet.');
-      let id=0, sid=0;
-      Object.entries(draft.divisions).forEach(([div,ts])=>ts.forEach(t=>{ const tid=++id; TEAMS.push({id:tid,name:t,division:+div});
-        draft.rosters[t].forEach(r=>{ STINTS.push({id:++sid,team_id:tid,player_id:r.pid,espn_id:r.espn_id,name:r.name,school:r.school,price:r.price,how:'draft',start_date:SET.draft_start,end_date:null});
-          if(r.sheet_pg) PG.add(r.pid); }); }));
-    }
     await loadBox();
   }
   // every counted-season box line for anyone who has been on a roster
@@ -263,12 +257,13 @@
     const tabs=[['#/','Standings'],['#/teams','Teams'],['#/me',(ME?esc(ME.name):'My team')+(waitingOnMe()?` <span class="dot">${waitingOnMe()}</span>`:'')],['#/schedule','Schedule'],...(canPlayers()?[['#/players','Players']]:[]),['#/rules','Rules']];
     app.innerHTML=`<div class="page-eyebrow">Counting League · 2026-27</div>
       <h1 class="page-h1">${tab==='me'&&ME?esc(ME.name):'Counting League'}</h1>
-      <div class="meta">PTS · REB · AST roto over each school's 22 counted games · stats through ${esc(lastGameDate()||'—')}${PENDING?' · <b>view only until league setup finishes</b>':''}</div>
+      <div class="meta">PTS · REB · AST roto over each school's 22 counted games · stats through ${esc(lastGameDate()||'—')}</div>
       <nav class="tabs">${tabs.map(([h,l])=>`<a class="tab${(h==='#/'&&tab==='st')||h==='#/'+tab?' on':''}" href="${h}">${l}</a>`).join('')}</nav>
       <div id="view">${inner}</div>`;
   }
   const lastGameDate=()=>{ let m=''; Object.values(BOX).forEach(l=>l.forEach(b=>{ if(counted(b)&&b.date>m) m=b.date; })); return m?md(m):''; };
   async function route(){
+    if(!ME) return;   // behind the gate
     const h=location.hash.replace(/^#\/?/,''), [a,b]=h.split('/');
     if(a==='team'&&b) return viewTeam(+b);
     if(a==='teams') return viewTeams();
@@ -364,7 +359,7 @@
   }
   function viewTeam(id){
     const t=TEAMS.find(x=>x.id===id); if(!t) return shell('teams','<div class="empty">No such team.</div>');
-    const mine=ME&&ME.id===id&&!PENDING;
+    const mine=ME&&ME.id===id;
     shell(mine?'me':'teams',`<div class="sec-h" style="margin-top:0">${esc(t.name)}${mine?' <span class="pill g">your team</span>':''}</div>${teamBody(t,mine)}`);
     wireTeam(t,mine);
   }
@@ -376,9 +371,9 @@
       const s=STINTS.find(x=>x.id===+(b.dataset.ir||b.dataset.drop));
       try{
         if(b.dataset.ir){ const on=b.dataset.on==='1'; if(!confirm(`Send the commissioner a request to ${on?'move '+s.name+' to IR':'activate '+s.name}?`)) return; b.disabled=true;
-          await rpc('cl_request',{p_code:CODE,p_kind:'ir',p_payload:{stint:s.id,on}}); }
+          await rpc('cl_request',{p_kind:'ir',p_payload:{stint:s.id,on}}); }
         else if(b.dataset.drop){ if(!confirm(`Send the commissioner a request to drop ${s.name}?`)) return; b.disabled=true;
-          await rpc('cl_request',{p_code:CODE,p_kind:'drop',p_payload:{stint:s.id}}); }
+          await rpc('cl_request',{p_kind:'drop',p_payload:{stint:s.id}}); }
         await refresh(); viewMe(); flash('Sent to the commissioner.');
       }catch(err){ b.disabled=false; msg.className='msg err'; msg.textContent=err.message; }
     });
@@ -392,7 +387,7 @@
   function manageBar(t){
     const c=counts(t.id);
     return `<div class="bar"><span>Active <b>${c.active}/${SET.roster}</b></span><span>IR <b>${c.ir}/${SET.max_ir}</b></span><span>PGs <b>${c.pg}/${SET.max_pg}</b></span><span>Pickups left <b>${SET.pickups-c.used}/${SET.pickups}</b></span>
-      <span class="sp"></span>${canPlayers()?'<a class="btn sm" href="#/players">Add a player</a>':''}<button class="btn sm ghost" id="outBtn">Sign out</button></div>
+      <span class="sp"></span>${canPlayers()?'<a class="btn sm" href="#/players">Add a player</a>':''}<button class="btn sm ghost" id="outBtn">Use a different code</button></div>
       <p class="cl-note">Every move is a request: pickups, drops and IR go to the commissioner; trades go to the other team, then the commissioner. Approved moves take effect the next day (ET).</p>
       <div id="reqBox">${requestsHTML()}</div>
       <details class="ps" id="pkD"><summary><b>Request a pickup</b><span class="nx">${SET.pickups-c.used} left</span></summary><div class="form">
@@ -464,44 +459,35 @@
     const run=async(btn,fn,ok)=>{ btn.disabled=true; try{ const r=await fn(); await refresh(); viewMe(); flash(typeof ok==='function'?ok(r):ok); }catch(err){ btn.disabled=false; fail(err.message); } };
     document.getElementById('reqBox').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return;
       if(b.dataset.acc){ const id=+b.dataset.acc, drops=[...document.querySelectorAll(`input[data-pd="${id}"]:checked`)].map(x=>+x.value);
-        run(b,()=>rpc('cl_respond',{p_code:CODE,p_req:id,p_accept:true,p_drops:drops}),'Accepted — sent to the commissioner.'); }
-      if(b.dataset.dec) run(b,()=>rpc('cl_respond',{p_code:CODE,p_req:+b.dataset.dec,p_accept:false}),'Trade declined.');
-      if(b.dataset.can) run(b,()=>rpc('cl_cancel',{p_code:CODE,p_req:+b.dataset.can}),'Request canceled.');
-      if(b.dataset.apv) run(b,()=>rpc('cl_decide',{p_code:CODE,p_req:+b.dataset.apv,p_approve:true}),r=>r&&r.status==='failed'?'Could not go through: '+r.note:'Approved — takes effect tomorrow.');
-      if(b.dataset.den){ const note=prompt('Reason (optional)')||''; run(b,()=>rpc('cl_decide',{p_code:CODE,p_req:+b.dataset.den,p_approve:false,p_note:note}),'Declined.'); }
+        run(b,()=>rpc('cl_respond',{p_req:id,p_accept:true,p_drops:drops}),'Accepted — sent to the commissioner.'); }
+      if(b.dataset.dec) run(b,()=>rpc('cl_respond',{p_req:+b.dataset.dec,p_accept:false}),'Trade declined.');
+      if(b.dataset.can) run(b,()=>rpc('cl_cancel',{p_req:+b.dataset.can}),'Request canceled.');
+      if(b.dataset.apv) run(b,()=>rpc('cl_decide',{p_req:+b.dataset.apv,p_approve:true}),r=>r&&r.status==='failed'?'Could not go through: '+r.note:'Approved — takes effect tomorrow.');
+      if(b.dataset.den){ const note=prompt('Reason (optional)')||''; run(b,()=>rpc('cl_decide',{p_req:+b.dataset.den,p_approve:false,p_note:note}),'Declined.'); }
     });
     document.getElementById('pkD').addEventListener('toggle',function(){ if(this.open) wireFA('pk'); },{once:true});
     document.getElementById('trD').addEventListener('toggle',function(){ if(this.open) wireFA('tr'); },{once:true});
     document.getElementById('trTeam').addEventListener('change',e=>{ document.getElementById('trGet').innerHTML=e.target.value?ckList(+e.target.value,'w'):'<div class="cl-note">Pick a team.</div>'; });
     document.getElementById('pkSend').addEventListener('click',e=>{ const q=document.getElementById('pkQ'), drop=document.getElementById('pkDrop').value;
       if(!q.dataset.pid) return fail('Search for a free agent and tap him first.');
-      run(e.target,()=>rpc('cl_request',{p_code:CODE,p_kind:'pickup',p_payload:{add:+q.dataset.pid,add_espn:q.dataset.espn||null,add_name:q.dataset.name,drop:drop?+drop:null}}),'Pickup request sent to the commissioner.'); });
+      run(e.target,()=>rpc('cl_request',{p_kind:'pickup',p_payload:{add:+q.dataset.pid,add_espn:q.dataset.espn||null,add_name:q.dataset.name,drop:drop?+drop:null}}),'Pickup request sent to the commissioner.'); });
     document.getElementById('trSend').addEventListener('click',e=>{ const to=+document.getElementById('trTeam').value, q=document.getElementById('trQ');
       const vals=a=>[...document.querySelectorAll(`#trD input[data-${a}]:checked`)].map(x=>+x.dataset[a]);
       const give=vals('g'), get_=vals('w'), drops=vals('d');
       if(!to) return fail('Pick a team to trade with.'); if(!give.length&&!get_.length) return fail('Check at least one player.');
       const pay={give,get:get_,drops}; if(q&&q.dataset.pid){ pay.add=+q.dataset.pid; pay.add_espn=q.dataset.espn||null; pay.add_name=q.dataset.name; }
-      run(e.target,()=>rpc('cl_request',{p_code:CODE,p_kind:'trade',p_payload:pay,p_to:to}),`Trade offer sent to ${tName(to)}.`); });
+      run(e.target,()=>rpc('cl_request',{p_kind:'trade',p_payload:pay,p_to:to}),`Trade offer sent to ${tName(to)}.`); });
   }
 
   // ── my team / sign in ──
-  async function viewMe(){
-    if(PENDING){ shell('me','<div class="card login"><b>Sign-in opens once league setup finishes.</b><p class="cl-note">Standings and team pages already work from the draft.</p></div>'); return; }
-    if(!ME&&CODE){ try{ ME=await rpc('cl_login',{p_code:CODE}); }catch(e){ CODE=null; store.set('cl_code',null); } }
-    if(!ME){
-      shell('me',`<div class="card login"><b>Sign in with your team code</b><p class="cl-note">Each team has its own code from the commissioner.</p>
-        <form id="lgF" class="row"><input class="fi" id="lgC" placeholder="e.g. GLEN-XXXXXXXX" autocomplete="off" autocapitalize="characters"><button class="btn">Sign in</button></form><div class="msg" id="lgM"></div></div>`);
-      document.getElementById('lgF').addEventListener('submit',async e=>{ e.preventDefault(); const c=document.getElementById('lgC').value.trim().toUpperCase(), m=document.getElementById('lgM');
-        try{ ME=await rpc('cl_login',{p_code:c}); CODE=c; store.set('cl_code',c); viewMe(); }catch(err){ m.className='msg err'; m.textContent=err.message; } });
-      return;
-    }
+  function viewMe(){
     const t=TEAMS.find(x=>x.id===ME.id);
     shell('me',teamBody(t,true)); wireTeam(t,true); wireRequests(t);
-    document.getElementById('outBtn').addEventListener('click',()=>{ ME=null; CODE=null; store.set('cl_code',null); viewMe(); });
+    document.getElementById('outBtn').addEventListener('click',()=>gate('code'));
   }
   async function refresh(){
-    const [sn,ir,mv,rq]=await Promise.all([getAll('cl_stints?select=*&order=id.asc'),get('cl_ir?select=*&order=id.asc'),get('cl_moves?select=*&order=id.desc&limit=200'),get('cl_requests?select=*&order=id.desc&limit=300')]);
-    const had=new Set(STINTS.map(s=>s.espn_id)); STINTS=sn; IR=ir; MOVES=mv; REQS=rq;
+    const had=new Set(STINTS.map(s=>s.espn_id));
+    await loadLeague();
     if(STINTS.some(s=>s.espn_id&&!had.has(s.espn_id))) await loadBox();
   }
 
@@ -515,7 +501,6 @@
   }
   async function viewPlayers(){
     shell('players','<div class="empty">Loading players…</div>');
-    if(!ME&&CODE&&!PENDING){ try{ ME=await rpc('cl_login',{p_code:CODE}); }catch(e){} }
     await loadPool();
     const owned=new Map(STINTS.filter(s=>!s.end_date).map(s=>[s.player_id,s.team_id]));
     let q=store.get('cl_q')||'', onlyFree=true, pgOnly=false;
@@ -526,16 +511,16 @@
     const paint=()=>{
       const ql=q.toLowerCase();
       const list=rows.filter(r=>(!onlyFree||!r.own)&&(!pgOnly||PG.has(r.p.id))&&(!ql||r.p.name.toLowerCase().includes(ql)||r.p.team.toLowerCase().includes(ql))).slice(0,150);
-      document.getElementById('faTbl').innerHTML=`<thead><tr><th class="l">Player</th><th class="hm">Real</th><th>Proj PTS</th><th>REB</th><th>AST</th><th>Left</th><th>Season</th>${ME&&!PENDING?'<th></th>':''}</tr></thead><tbody>
+      document.getElementById('faTbl').innerHTML=`<thead><tr><th class="l">Player</th><th class="hm">Real</th><th>Proj PTS</th><th>REB</th><th>AST</th><th>Left</th><th>Season</th>${ME?'<th></th>':''}</tr></thead><tbody>
         ${list.map(r=>{ const s={...r.p,price:0,how:'draft',start_date:TODAY,end_date:null}; const tm=r.own?TEAMS.find(t=>t.id===r.own):null;
           return `<tr>${playerCell(s,null)}<td class="hm">${r.real?`${f1(r.real.pts)}/${f1(r.real.reb)}/${f1(r.real.ast)}<span class="sub">${r.real.g} g</span>`:'—'}</td>
             <td>${f1(r.pg.pts)}</td><td>${f1(r.pg.reb)}</td><td>${f1(r.pg.ast)}</td><td>${r.left}</td><td>${f0((r.pg.pts+r.pg.reb+r.pg.ast)*r.left)}<span class="sub">P+R+A</span></td>
-            ${ME&&!PENDING?`<td>${tm?`<span class="pill">${esc(tm.name)}</span>`:`<button class="btn sm" data-add="${r.p.id}" data-espn="${r.p.espn_id||''}">Request</button>`}</td>`:''}</tr>`; }).join('')||'<tr><td class="l" colspan="8">No players match.</td></tr>'}</tbody>`;
+            ${ME?`<td>${tm?`<span class="pill">${esc(tm.name)}</span>`:`<button class="btn sm" data-add="${r.p.id}" data-espn="${r.p.espn_id||''}">Request</button>`}</td>`:''}</tr>`; }).join('')||'<tr><td class="l" colspan="8">No players match.</td></tr>'}</tbody>`;
     };
-    shell('players',`${ME&&!PENDING?`<div class="bar"><span>${esc(ME.name)}: active <b>${c.active}/${SET.roster}</b></span><span>PGs <b>${c.pg}/${SET.max_pg}</b></span><span>Pickups left <b>${SET.pickups-c.used}</b></span></div>
+    shell('players',`${ME?`<div class="bar"><span>${esc(ME.name)}: active <b>${c.active}/${SET.roster}</b></span><span>PGs <b>${c.pg}/${SET.max_pg}</b></span><span>Pickups left <b>${SET.pickups-c.used}</b></span></div>
         <div class="row" style="margin-bottom:8px"><label class="cl-note" style="margin:0">Drop when adding</label><select class="fs" id="dropSel"><option value="">${c.active<SET.roster?'Nobody (open spot)':'Pick a player to drop'}</option>
         ${mineOpen.map(s=>`<option value="${s.id}">${esc(s.name)}${isPG(s)?' (PG)':''}</option>`).join('')}</select></div>`:
-        `<p class="cl-note">${PENDING?'Free agents. Adding opens once league setup finishes.':'<a href="#/me">Sign in with your team code</a> to add players.'}</p>`}
+''}
       <div class="row" style="margin-bottom:10px"><input class="fi" id="faQ" placeholder="Search name or school" value="${esc(q)}" style="flex:1;min-width:180px">
         <label class="cl-note" style="margin:0"><input type="checkbox" id="faFree" checked> Free agents only</label><label class="cl-note" style="margin:0"><input type="checkbox" id="faPG"> PGs only</label></div>
       <div class="msg" id="faMsg"></div>
@@ -551,7 +536,7 @@
       const dn=drop?STINTS.find(s=>s.id===drop).name:null;
       if(!confirm(`Request to add ${p.name}${dn?` and drop ${dn}`:''}? Goes to the commissioner; uses 1 of your ${SET.pickups} pickups if approved.`)) return;
       b.disabled=true;
-      try{ await rpc('cl_request',{p_code:CODE,p_kind:'pickup',p_payload:{add:p.id,add_espn:b.dataset.espn||null,add_name:p.name,drop}}); await refresh(); go('#/me'); }
+      try{ await rpc('cl_request',{p_kind:'pickup',p_payload:{add:p.id,add_espn:b.dataset.espn||null,add_name:p.name,drop}}); await refresh(); go('#/me'); }
       catch(err){ b.disabled=false; m.className='msg err'; m.textContent=err.message; }
     });
   }
@@ -601,9 +586,33 @@
       <p><b>Updates.</b> Box scores load three times a day (about 10:30 pm, 1:15 am and noon ET), so standings move the night games end. Regular season ends ${md(SET.reg_end)}.</p></div>`);
   }
 
-  // signed in BEFORE the first render: the Players tab and its route depend on who it is
-  load().then(async()=>{ if(CODE&&!PENDING){ try{ ME=await rpc('cl_login',{p_code:CODE}); }catch(e){} } route(); })
-    .catch(e=>{ app.innerHTML=`<div class="empty">Couldn't load the league: ${esc(e.message)}</div>`; });
+  // ── the gate: a site account + a team code, or nothing ──
+  function gate(kind,msg){
+    const signin=`signin.html?next=${encodeURIComponent('fantasy-league.html')}`;
+    app.innerHTML=`<div class="page-eyebrow">Counting League · 2026-27</div><h1 class="page-h1">Counting League</h1>
+      <div class="card login" style="margin-top:14px">${kind==='signin'
+        ?`<b>This league is private.</b><p class="cl-note">Sign in or create an account on The Depth Chart, then enter your team code.</p><a class="btn" href="${signin}">Sign in / create account</a>`
+        :`<b>Enter your team code</b><p class="cl-note">Your commissioner gave each team a code. You only enter it once on this account.</p>
+          <form id="lgF" class="row"><input class="fi" id="lgC" placeholder="e.g. GLEN-XXXXXXXX" autocomplete="off" autocapitalize="characters"><button class="btn">Enter</button></form>`}
+        <div class="msg${msg?' err':''}" id="lgM">${esc(msg||'')}</div></div>`;
+    const f=document.getElementById('lgF'); if(!f) return;
+    f.addEventListener('submit',async e=>{ e.preventDefault(); const m=document.getElementById('lgM'), b=f.querySelector('button');
+      b.disabled=true; m.className='msg'; m.textContent='Checking…';
+      try{ await rpc('cl_claim',{p_code:document.getElementById('lgC').value.trim().toUpperCase()}); location.hash='#/me'; start(); }
+      catch(err){ b.disabled=false; m.className='msg err'; m.textContent=err.message; } });
+  }
+  async function start(){
+    const s=session();
+    if(!s||!s.access_token) return gate('signin');
+    app.innerHTML='<div class="empty">Loading the league…</div>';
+    try{ await load(); route(); }
+    catch(e){
+      if(/team code/i.test(e.message)) gate('code');
+      else if(/sign in|jwt|401/i.test(e.message)) gate('signin');
+      else app.innerHTML=`<div class="empty">Couldn't load the league: ${esc(e.message)}</div>`;
+    }
+  }
+  start();
 })();
 </script>
 <script src="tdc-version.js?v=2"></script>
