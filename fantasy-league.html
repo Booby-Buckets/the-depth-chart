@@ -297,7 +297,7 @@
     const tags=[isPG(s)?'<span class="pill pg">PG</span>':'', ir?`<span class="pill ir">IR${ir.start_date>TODAY?' '+md(ir.start_date):''}</span>`:'',
       s.start_date>TODAY?`<span class="pill g">joins ${md(s.start_date)}</span>`:'', s.end_date?`<span class="pill ir">leaves ${md(s.end_date)}</span>`:''].join('');
     const link=s.espn_id?`player.html?espn=${s.espn_id}`:`player.html?name=${encodeURIComponent(s.name)}&team=${encodeURIComponent(s.school)}`;
-    return `<td class="l nm">${lgImg(s.school)}<a href="${link}">${esc(s.name)}</a>${tags}<span class="sub">${esc(s.school)}${s.how==='pickup'?' · pickup':' · $'+s.price}</span></td>`;
+    return `<td class="l nm">${lgImg(s.school)}<a href="${link}">${esc(s.name)}</a>${tags}<span class="sub">${esc(s.school)}${s.how==='pickup'?' · pickup':''}</span></td>`;
   }
   function rosterTable(tid,manage){
     const rows=rosterRows(tid), m=rmode;
@@ -414,7 +414,7 @@
       const list=rows.filter(r=>(!onlyFree||!r.own)&&(!pgOnly||PG.has(r.p.id))&&(!ql||r.p.name.toLowerCase().includes(ql)||r.p.team.toLowerCase().includes(ql))).slice(0,150);
       document.getElementById('faTbl').innerHTML=`<thead><tr><th class="l">Player</th><th class="hm">Real</th><th>Proj PTS</th><th>REB</th><th>AST</th><th>Left</th><th>Season</th>${ME&&!PENDING?'<th></th>':''}</tr></thead><tbody>
         ${list.map(r=>{ const s={...r.p,price:0,how:'draft',start_date:TODAY,end_date:null}; const tm=r.own?TEAMS.find(t=>t.id===r.own):null;
-          return `<tr>${playerCell(s,null).replace(' · $0','')}<td class="hm">${r.real?`${f1(r.real.pts)}/${f1(r.real.reb)}/${f1(r.real.ast)}<span class="sub">${r.real.g} g</span>`:'—'}</td>
+          return `<tr>${playerCell(s,null)}<td class="hm">${r.real?`${f1(r.real.pts)}/${f1(r.real.reb)}/${f1(r.real.ast)}<span class="sub">${r.real.g} g</span>`:'—'}</td>
             <td>${f1(r.pg.pts)}</td><td>${f1(r.pg.reb)}</td><td>${f1(r.pg.ast)}</td><td>${r.left}</td><td>${f0((r.pg.pts+r.pg.reb+r.pg.ast)*r.left)}<span class="sub">P+R+A</span></td>
             ${ME&&!PENDING?`<td>${tm?`<span class="pill">${esc(tm.name)}</span>`:`<button class="btn sm" data-add="${r.p.id}" data-espn="${r.p.espn_id||''}">Add</button>`}</td>`:''}</tr>`; }).join('')||'<tr><td class="l" colspan="8">No players match.</td></tr>'}</tbody>`;
     };
