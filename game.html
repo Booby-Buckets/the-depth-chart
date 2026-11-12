@@ -113,7 +113,7 @@
 
 <script src="team-colors.js?v=12"></script>
 <script src="tdc-teamname.js?v=1"></script>
-<script src="tdc-gamehead.js?v=3"></script>
+<script src="tdc-gamehead.js?v=14"></script>
 <script src="tdc-ot.js?v=1"></script>
 <script src="tdc-live.js?v=3"></script>
 <script src="tdc-livegame.js?v=9"></script>
@@ -172,6 +172,8 @@ function statline(p){
 // our scrimmage ones"): points first, offensive-defensive boards, shooting at the end, +/− from the play-by-play once it
 // loads, * = started, the team line in the footer (so the c0-c4 shading stays within the players). FG/3PT/FT shade by %.
 const pctV=(m,a)=>N(a)>0?(N(m)/N(a)*100).toFixed(1):'';
+// shown % (owner, Nov 11 2026: "add percentages on the box score"): 45.5, 100, or — with no attempts
+const pctTxt=(m,a)=>{ if(!(N(a)>0)) return '<span class="dim">—</span>'; const v=N(m)/N(a)*100; return v===100?'100':v.toFixed(1); };
 const signedPm=v=>v>0?'+'+v:v<0?'−'+Math.abs(v):'0';
 const pmShade=d=>d>=10?' c4':d>=4?' c3':d<=-10?' c0':d<=-4?' c1':'';
 function row(p,tot,isPotg,rating,pm,firstBench){
@@ -184,12 +186,12 @@ function row(p,tot,isPotg,rating,pm,firstBench){
   const thin=!tot&&N(p.min)<5, dv=thin?' data-v=""':'', vol=(m,a,n)=>N(a)>=n&&!thin?pctV(m,a):'';
   return `<tr${firstBench?' class="bs-bench"':''}>${lead}<td class="strong"${dv}>${rtg}</td><td>${tot?'':N(p.min)}</td><td class="strong"${dv}>${N(p.pts)}</td>
     <td${dv}>${N(p.reb)}</td><td class="dim">${N(p.oreb)}-${N(p.dreb)}</td><td${dv}>${N(p.ast)}</td><td>${N(p.stl)}</td><td>${N(p.blk)}</td><td>${N(p.tov)}</td><td class="dim">${N(p.pf)}</td>
-    <td data-v="${vol(p.fgm,p.fga,3)}">${fg}</td><td data-v="${vol(p.tpm,p.tpa,3)}">${tp}</td><td data-v="${vol(p.ftm,p.fta,3)}">${ft}</td>${pmTd}</tr>`;
+    <td>${fg}</td><td data-v="${vol(p.fgm,p.fga,3)}">${pctTxt(p.fgm,p.fga)}</td><td>${tp}</td><td data-v="${vol(p.tpm,p.tpa,3)}">${pctTxt(p.tpm,p.tpa)}</td><td>${ft}</td><td data-v="${vol(p.ftm,p.fta,3)}">${pctTxt(p.ftm,p.fta)}</td>${pmTd}</tr>`;
 }
 function boxHead(rtgTip,pm){
   return `<thead><tr><th class="l">Player</th><th data-heat="1" title="${rtgTip}">RTG</th><th data-fit-keep>MIN</th><th data-heat="1">PTS</th>
       <th data-heat="1">REB</th><th title="Offensive-defensive rebounds">O-D</th><th data-heat="1">AST</th><th>STL</th><th>BLK</th><th>TO</th><th>PF</th>
-      <th data-heat="1" data-fit-keep title="Field goals made-attempted, shaded by FG% (3+ attempts)">FG</th><th data-heat="1" title="Threes made-attempted, shaded by 3P% (3+ attempts)">3PT</th><th data-heat="1" title="Free throws made-attempted, shaded by FT% (3+ attempts)">FT</th>${pm?'<th title="Score margin while he was on the floor (from the play-by-play)">+/−</th>':''}</tr></thead>`;
+      <th data-fit-keep title="Field goals made-attempted">FG</th><th data-heat="1" data-fit-keep title="Field-goal percentage (shaded at 3+ attempts)">FG%</th><th title="Threes made-attempted">3PT</th><th data-heat="1" title="Three-point percentage (shaded at 3+ attempts)">3P%</th><th title="Free throws made-attempted">FT</th><th data-heat="1" title="Free-throw percentage (shaded at 3+ attempts)">FT%</th>${pm?'<th title="Score margin while he was on the floor (from the play-by-play)">+/−</th>':''}</tr></thead>`;
 }
 // one team's block: logo + name heading, the sheet, then who sat (ESPN lists its did-not-play players)
 function tableFor(team,players,potgId,teamRating,pm,ext){
@@ -281,8 +283,18 @@ async function load(afterLive){
     // team-colour scoreboard band (tdc-gamehead.js); the game rating pill rides under each name
     const shortNm=t=>{ try{ return (window.TDCTeamName&&TDCTeamName.short)?TDCTeamName.short(t):t; }catch(e){ return t; } };
     const bandSide=(t,pts,rate)=>{ const c=window.TDC_GAMEHEAD?TDC_GAMEHEAD.team(t):{};
-      return { name:shortNm(t), href:'team.html?team='+encodeURIComponent(t), logo:c.logo, color:c.color,
+      return { name:shortNm(t), href:'team.html?team='+encodeURIComponent(t), logo:c.logo, color:c.color, rec:REC[t]||'',
         sub:rate!=null?'Game rating '+ratePill(rate)+' '+ratingWord(rate):'', pts:N(pts) }; };
+    // each team's record THROUGH this game (owner, Nov 11 2026: "I also want team records up top"): earlier finals in
+    // `games` + this result, so a box that posts before the games row flips to final still counts it
+    const REC={};
+    if(g&&g.season_year!=null&&g.date){ try{
+      const inL=[home,away].map(t=>'"'+String(t).replace(/"/g,'')+'"').join(',');
+      const rs=await fetch(`${SB}/rest/v1/games?season_year=eq.${g.season_year}&status=eq.STATUS_FINAL&date=lt.${g.date}&or=(home.in.(${encodeURIComponent(inL)}),away.in.(${encodeURIComponent(inL)}))&select=id,home,away,home_score,away_score&limit=200`,{headers:H}).then(r=>r.ok?r.json():[]);
+      const all=(rs||[]).filter(x=>String(x.id)!==String(gid)).concat([{home,away,home_score:hs,away_score:as_}]);
+      [home,away].forEach(t=>{ let w=0,l=0; all.forEach(x=>{ if(x.home_score==null||x.away_score==null||+x.home_score===+x.away_score) return;
+        if(x.home===t){ +x.home_score>+x.away_score?w++:l++; } else if(x.away===t){ +x.away_score>+x.home_score?w++:l++; } }); REC[t]=w+'-'+l; });
+    }catch(e){} }
     if(window.TDC_OT) await TDC_OT.ready();   // "Final/OT" in the band
     const header=()=>`<h1 class="sr-only">${away} at ${home}</h1>`+(window.TDC_GAMEHEAD?TDC_GAMEHEAD.html({
         away:bandSide(away,as_,tr?tr.away:null), home:bandSide(home,hs,tr?tr.home:null), status:window.TDC_OT?TDC_OT.final(gid):'Final',
