@@ -119,7 +119,7 @@ def season(y):
             xs = [t[j][0][i] for t in teams if t[j][0][i] is not None]
             lg[side][i] = round(sum(xs) / len(xs), DEC.get(COLS[i], 1)) if xs else None
     out = {"season": y, "built": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "cols": COLS, "adj": sorted(ADJ),
-           "tcols": ["id", "name", "conf", "poss", "off[raw,adj]", "def[raw,adj]"], "teams": teams, "league": lg, "live": S.get("live")}
+           "tcols": ["id", "name", "conf", "poss", "off[raw,adj]", "def[raw,adj]"], "teams": teams, "league": lg, "live": S.get("live"), "d1Games": S.get("d1Games")}
     os.makedirs(OUT, exist_ok=True)
     p = os.path.join(OUT, f"{y}.json")
     try:

@@ -20,6 +20,7 @@ HERE = os.path.dirname(os.path.abspath(__file__)); D = os.path.join(HERE, "data"
 SB = "https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/"; KEY = "sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye"
 H = {"apikey": KEY, "Authorization": "Bearer " + KEY}
 MIN_MIN, MIN_ATT = 300, 15
+LIVE_MIN, LIVE_POSS = 60, 150   # floors for the season in progress (no team_seasons row yet); its pool entry carries live: true
 DIMS = ["ftV", "ftE", "rimV", "rimE", "midV", "midE", "tV", "tE"]
 
 
@@ -45,7 +46,10 @@ def main():
     seasons, rows = {}, []
     for f in sorted(glob.glob(os.path.join(D, "prof_*.json"))):
         P = json.load(open(f)); y = P["season"]
-        names = {str(t["team_id"]): t["team"] for t in (get(f"team_seasons?season_year=eq.{y}&select=team_id,team&order=team_id") or get(f"team_seasons?season_year=eq.{y-1}&select=team_id,team&order=team_id"))}
+        _ts = get(f"team_seasons?season_year=eq.{y}&select=team_id,team&order=team_id"); live = not _ts   # season in progress
+        names = {str(t["team_id"]): t["team"] for t in (_ts or get(f"team_seasons?season_year=eq.{y-1}&select=team_id,team&order=team_id"))}
+        # owner, Nov 12 2026: show the season in progress early, flagged — a fifth of the floors (60 min) until it fills out
+        mmin = LIVE_MIN if live else MIN_MIN
         pl = P["players"]
         tot = [sum(r[i] for r in pl.values()) for i in range(10)]
         poss = tot[1] or 1
@@ -55,7 +59,7 @@ def main():
         cur = []
         for pid, r in pl.items():
             mn, ps, fta, ftm, ra, rm, ma, mm, ta, tm = r
-            if mn < MIN_MIN or ps <= 0: continue
+            if mn < mmin or ps <= 0: continue
             k = 100.0 / ps
             v = {"ftV": fta * k, "ftE": ftm / fta if fta >= MIN_ATT else None, "rimV": ra * k, "rimE": rm / ra if ra >= MIN_ATT else None,
                  "midV": ma * k, "midE": mm / ma if ma >= MIN_ATT else None, "tV": ta * k, "tE": tm / ta if ta >= MIN_ATT else None}
@@ -70,6 +74,7 @@ def main():
             sd[d] = math.sqrt(sum(x[1] * (x[0] - m) ** 2 for x in xs) / w) or 1e-6
         seasons[y] = {"avg": {d: round(avg[d], 4) for d in DIMS}, "sd": {d: round(sd[d], 4) for d in DIMS}, "n": len(cur),
                       "xpps": quality(tot[4], tot[5], tot[6], tot[7], tot[8], tot[9], LGR)[0]}
+        if live: seasons[y]["live"] = True
         for pid, r, v, p100, ts in cur:
             rel = [(round(v[d] - avg[d], 3 if d.endswith("E") else 2) if v[d] is not None else None) for d in DIMS]   # small file: 0.1% / 0.01 per 100 is plenty
             rows.append([pid, y, P["names"].get(pid), names.get(P["team"].get(pid), ""), P["pos"].get(pid, ""), int(r[0]), round(p100, 1),
@@ -90,7 +95,8 @@ def team_pool():
         seasons, rows = {}, []
         for f in sorted(glob.glob(os.path.join(D, "tprof_*.json"))):
             P = json.load(open(f)); y = P["season"]
-            ts = get(f"team_seasons?season_year=eq.{y}&select=team_id,team,conference&order=team_id") or get(f"team_seasons?season_year=eq.{y-1}&select=team_id,team,conference&order=team_id")
+            ts = get(f"team_seasons?season_year=eq.{y}&select=team_id,team,conference&order=team_id"); live = not ts
+            ts = ts or get(f"team_seasons?season_year=eq.{y-1}&select=team_id,team,conference&order=team_id")
             names = {str(t["team_id"]): t["team"] for t in ts}; confs = {str(t["team_id"]): t.get("conference") or "" for t in ts}
             T = [sum(a[i] for a in P[side].values()) for i in range(10)]
             LGR = (T[5] / max(1, T[4]), T[7] / max(1, T[6]), T[9] / max(1, T[8]))
@@ -98,7 +104,7 @@ def team_pool():
             for t, a in P[side].items():
                 if t not in names: continue
                 g, poss, fta, ftm, ra, rm, ma, mm, ta, tm = a
-                if poss < 500: continue
+                if poss < (LIVE_POSS if live else 500): continue
                 k = 100.0 / poss
                 v = {"ftV": fta * k, "ftE": ftm / fta if fta else None, "rimV": ra * k, "rimE": rm / ra if ra else None,
                      "midV": ma * k, "midE": mm / ma if ma else None, "tV": ta * k, "tE": tm / ta if ta else None}
@@ -111,6 +117,7 @@ def team_pool():
                 avg[d] = sum(xs) / len(xs); sd[d] = math.sqrt(sum((x - avg[d]) ** 2 for x in xs) / len(xs)) or 1e-6
             seasons[y] = {"avg": {d: round(avg[d], 4) for d in DIMS}, "sd": {d: round(sd[d], 4) for d in DIMS}, "n": len(cur),
                           "xpps": quality(T[4], T[5], T[6], T[7], T[8], T[9], LGR)[0]}
+            if live: seasons[y]["live"] = True
             for t, poss, v, p100, tsv, q in cur:
                 rel = [(round(v[d] - avg[d], 3 if d.endswith("E") else 2) if v[d] is not None else None) for d in DIMS]
                 rows.append([t, y, names[t], confs.get(t, ""), "", poss, round(p100, 1), round(tsv, 3) if tsv else None] + rel + list(q))

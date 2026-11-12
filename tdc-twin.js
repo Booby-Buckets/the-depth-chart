@@ -116,6 +116,7 @@
       var mine = rowsOf(isT ? o.teamId : o.espn);
       if (!mine.length) { host.innerHTML = '<div class="tw-empty">' + (isT ? 'No D-I play-by-play for this team.' : 'No D-I season with 300+ minutes for him yet.') + '</div>'; return; }
       var r = (o.season && mine.find(function (x) { return x[1] === o.season; })) || mine[0];
+      var early = POOL.seasons[r[1]] && POOL.seasons[r[1]].live;   // the season in progress: shown early, flagged (owner, Nov 12 2026)
       var M = matches(r, 12), pick = 0;
       var myPool = POOL, myC = C, myKind = kind;
       var draw = function () { POOL = myPool; C = myC; KIND = myKind;
@@ -130,7 +131,7 @@
             Z.map(function (z) { return fmtRel(x[C[z[1]]], false) + fmtRel(x[C[z[2]]], true); }).join('') +
             (C.xpps != null ? qCell(x[C.xpps] != null && POOL.seasons[x[1]].xpps != null ? x[C.xpps] - POOL.seasons[x[1]].xpps : null) + qCell(x[C.smk]) : '') + '</tr>'; }).join('') + '</tbody></table></div>' +
           '<div class="tw-foot">Pick a row to put that ' + who + '-season beside ' + (isT ? 'them' : 'him') + '. Similarity weights all eight dimensions equally after standardising each by its season’s spread; two player-seasons must share at least six of them (an efficiency needs 15+ attempts). Every D-I player-season with 300+ minutes since 2009-10, from ESPN play-by-play.</div>';
-        host.innerHTML = h;
+        host.innerHTML = (early ? '<div class="early-note" role="note" style="margin:0 0 12px;padding:9px 12px;border:1px solid color-mix(in srgb,#c9962b 45%,var(--border,#ddd));background:color-mix(in srgb,#c9962b 10%,transparent);border-radius:8px;font-size:12.5px;line-height:1.45;color:var(--text2,#555);"><b style="color:var(--text,#222);">Early season · less reliable.</b> This ' + who + '-season is only a few games old (the usual minimums are lowered), so its profile and its closest matches will move a lot. It settles around mid-December.</div>' : '') + h;
         var s = host.querySelector('#twSeason'); if (s) s.onchange = function () { render(host, Object.assign({}, o, { season: +s.value })); };
         host.querySelectorAll('.tw-tbl tbody tr').forEach(function (tr) { tr.onclick = function () { pick = +tr.getAttribute('data-i'); draw(); }; });
         host.querySelectorAll('.tw-side button').forEach(function (b) { b.onclick = function () { render(host, Object.assign({}, o, { side: b.getAttribute('data-side'), season: r[1] })); }; });

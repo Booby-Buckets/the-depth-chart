@@ -93,6 +93,8 @@
   const wireSeg=(host,id,fn)=>host.querySelectorAll(`[data-seg="${id}"] button`).forEach(b=>b.onclick=()=>fn(b.getAttribute('data-v')));
 
   // ---------- Option A: one team, offense + defense strip
+  // the season in progress (owner, Nov 12 2026): shown early, flagged as less reliable
+  const earlyNote=function(n){ return '<div class="early-note" role="note" style="margin:0 0 12px;padding:9px 12px;border:1px solid color-mix(in srgb,#c9962b 45%,var(--border,#ddd));background:color-mix(in srgb,#c9962b 10%,transparent);border-radius:8px;font-size:12.5px;line-height:1.45;color:var(--text2,#555);"><b style="color:var(--text,#222);">Early season · less reliable.</b> '+(n?n.toLocaleString()+' D-I games so far. ':'')+'Built from a few games per team with the usual minimums lowered, so these numbers swing a lot and ranks will move. They settle around mid-December (about 1,500 games).</div>'; };
   async function renderTeam(host, o){
     if(!host) return; css(); o=o||{};
     const st=host.__tsp||(host.__tsp={season:o.season||null, a:1});
@@ -100,7 +102,8 @@
     const D=await load(st.season), tid=String(o.teamId||'');
     const t=D&&D.byId[tid];
     const ctl=`<div class="tsp-ctl"><select data-k="season">${ys.map(y=>`<option value="${y}"${y===st.season?' selected':''}>${sl(y)}</option>`).join('')}</select>${segH('adj',[[1,'vs average opponent'],[0,'Raw']],st.a)}</div>`;
-    if(!t){ host.innerHTML=`<div class="tsp">${ctl}<div style="padding:24px;text-align:center;color:var(--text3,#8A867A);font-size:13px">No D-I play-by-play profile for this team in ${sl(st.season)}.</div></div>`; wire(); return; }
+    const early=D&&D.live?earlyNote(D.d1Games):'';
+    if(!t){ host.innerHTML=`<div class="tsp">${ctl}${early}<div style="padding:24px;text-align:center;color:var(--text3,#8A867A);font-size:13px">${D&&D.live?'Not enough games yet for this team’s '+sl(st.season)+' profile. Check back after a few more games.':'No D-I play-by-play profile for this team in '+sl(st.season)+'.'}</div></div>`; wire(); return; }
     const keys=GROUPS.flatMap(g=>g[1]);
     let h=`<div class="sheet-wrap"><table class="sheet dense freeze"><thead><tr><th class="l"></th>${GROUPS.map(g=>`<th class="g" colspan="${g[1].length}">${g[0]}</th>`).join('')}</tr><tr><th class="l">${sl(st.season)}</th>${keys.map(k=>`<th title="${esc(META.byKey[k][2])}">${META.byKey[k][1]}</th>`).join('')}</tr></thead><tbody>`;
     ['off','def'].forEach(side=>{
@@ -108,7 +111,7 @@
       h+=`<tr><td class="l sub">D-I rank</td>${keys.map(k=>{ if(side==='def'&&OFF_ONLY[k]) return '<td class="rk">—</td>'; const [r,n]=rkOf(D,t,side,k,st.a); return `<td class="rk ${cls(META.byKey[k],r,n)}">${r?ord(r):'—'}</td>`; }).join('')}</tr>`;
     });
     h+=`<tr><td class="l sub">D-I average</td>${keys.map(k=>`<td class="rk">${fmt(META.byKey[k],D.league.off[D.ci[k]])}</td>`).join('')}</tr>`;
-    host.innerHTML=`<div class="tsp">${ctl}${h}</tbody></table></div><div class="tsp-key">${st.a?'Adjusted for schedule: each number as it would be against an average D-I opponent.':'Raw: against the schedule actually played.'} Ranks: 1st = best; volume, shot-mix and pace stats are style (1st = most) and not coloured. Hover a heading for its definition.</div></div>`;
+    host.innerHTML=`<div class="tsp">${ctl}${early}${h}</tbody></table></div><div class="tsp-key">${st.a?'Adjusted for schedule: each number as it would be against an average D-I opponent.':'Raw: against the schedule actually played.'} Ranks: 1st = best; volume, shot-mix and pace stats are style (1st = most) and not coloured. Hover a heading for its definition.</div></div>`;
     wire();
     function wire(){ const s=host.querySelector('select[data-k="season"]'); if(s) s.onchange=()=>{ st.season=+s.value; renderTeam(host,o); };
       wireSeg(host,'adj',v=>{ st.a=+v; renderTeam(host,o); }); }
@@ -128,7 +131,7 @@
     const link=t=>o.link?o.link(t):`team.html?team=${encodeURIComponent(t[1])}&tab=shotprof`;
     let h=`<div class="sheet-wrap"><table class="sheet dense freeze"><thead><tr><th class="l">Team</th><th class="l tsp-cf">Conf</th>${g.map(k=>`<th data-k="${k}" title="${esc(META.byKey[k][2])}">${META.byKey[k][1]}${k===key?(st.asc?' ▲':' ▼'):''}</th><th>Rk</th>`).join('')}</tr></thead><tbody>`;
     h+=rows.map(t=>`<tr><td class="l"><img class="lgi" src="${logo(t[0])}" alt="" loading="lazy"><a href="${link(t)}">${esc(sh(t[1]))}</a></td><td class="l tsp-cf">${esc(t[2])}</td>${g.map(k=>{ const [r,n]=rkOf(D,t,st.side,k,st.a); return `<td>${fmt(META.byKey[k],val(D,t,st.side,k,st.a))}</td><td class="rk ${cls(META.byKey[k],r,n)}">${r||'—'}</td>`; }).join('')}</tr>`).join('');
-    host.innerHTML=`<div class="tsp">${ctl}${h}</tbody></table></div><div class="tsp-key">${teams.length} teams · ${sl(D.season)} · ${st.a?'adjusted for schedule':'raw'} · ranks among all D-I · click a heading to sort, a team for its full profile.</div></div>`;
+    host.innerHTML=`<div class="tsp">${ctl}${D.live?earlyNote(D.d1Games):''}${h}</tbody></table></div><div class="tsp-key">${teams.length} teams · ${sl(D.season)} · ${st.a?'adjusted for schedule':'raw'} · ranks among all D-I · click a heading to sort, a team for its full profile.</div></div>`;
     host.querySelector('select[data-k="grp"]').onchange=e=>{ st.grp=e.target.value; st.sort=null; st.asc=false; renderAll(host,o); };
     wireSeg(host,'side',v=>{ st.side=v; renderAll(host,o); }); wireSeg(host,'adj',v=>{ st.a=+v; renderAll(host,o); });
     host.querySelectorAll('th[data-k]').forEach(th=>th.onclick=()=>{ const k=th.getAttribute('data-k'); if(k===key) st.asc=!st.asc; else { st.sort=k; st.asc=false; } renderAll(host,o); });

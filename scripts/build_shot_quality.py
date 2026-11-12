@@ -30,7 +30,13 @@ SA, MA, OUT = os.path.join(DATA, "shot_aftermath"), os.path.join(DATA, "mastery"
 SB = "https://izlqhnxowdhtdofkwrho.supabase.co/rest/v1/"; KEY = "sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye"
 H = {"apikey": KEY, "Authorization": "Bearer " + KEY}
 MIN_MIN, MIN_SHOTS, TEAM_POSS = 200, 40, 500
-SQ_MIN_GAMES = int(os.environ.get("SQ_MIN_GAMES", 1500))   # ~9 games a team: most teams past TEAM_POSS, starters past MIN_MIN
+# Owner, Nov 12 2026: "make it available to see but make it known it isn't as reliable". The season in progress builds
+# from SQ_MIN_GAMES (300, ~2 games a team) with the team/player floors scaled to the games played (LIVE_FULL = the
+# old 1,500-game gate, where the full floors apply); the file carries live + d1Games and every page that reads it
+# says "early season · N games" until then.
+SQ_MIN_GAMES = int(os.environ.get("SQ_MIN_GAMES", 300))
+LIVE_FULL = 1500
+BASE_FLOORS = (MIN_MIN, MIN_SHOTS, TEAM_POSS)
 FAM = ["rim", "float", "post", "pull2", "short", "long", "mid", "pull3", "three"]
 SV = {"pull3": 3, "three": 3}
 # display groups for the drill-down: the fine families above fold into these
@@ -78,6 +84,8 @@ def put(path, obj):
 
 
 def season(y):
+    global MIN_MIN, MIN_SHOTS, TEAM_POSS
+    MIN_MIN, MIN_SHOTS, TEAM_POSS = BASE_FLOORS   # full floors unless the season is in progress (scaled below)
     if not os.path.exists(os.path.join(SA, f"prof_{y}.json")):
         print(f"{y}: no shot_aftermath/prof_{y}.json yet — skipped"); return
     prof = json.load(open(os.path.join(SA, f"prof_{y}.json")))
@@ -99,6 +107,9 @@ def season(y):
         n = sum(1 for g in early if str(g["home_id"]) in names and str(g["away_id"]) in names)
         if n < SQ_MIN_GAMES:
             print(f"{y}: only {n} D-I games final — waiting for {SQ_MIN_GAMES} before building"); return
+        fl = min(1.0, max(0.2, n / LIVE_FULL))
+        MIN_MIN, MIN_SHOTS, TEAM_POSS = (max(1, round(v * fl)) for v in BASE_FLOORS)
+        print(f"{y}: early season ({n} D-I games) — floors scaled x{fl:.2f}: {MIN_MIN} min, {MIN_SHOTS} shots, {TEAM_POSS} team poss")
 
     # ---- which families this season's feed supports: tagged ones only when the league actually has them (>=1% of FGA)
     if M:
