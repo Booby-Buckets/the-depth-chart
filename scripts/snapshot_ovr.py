@@ -47,7 +47,26 @@ def main():
         return save(doc)
     if os.path.exists(OUT): doc = json.load(open(OUT))
     add(doc, dt.datetime.now(ET).date().isoformat(), json.load(open(os.path.join(D, "ovr_display_2027.json"))))
+    rebase(doc)
     save(doc)
+
+# Re-base every player's PRESEASON value (day 0) on scripts/data/preseason/ovr_display_2027.json — today's model and
+# data with no real games (build_ovr_display.py OVR_PRE=1). The stored opening-day number carried data holes (Aidan
+# Mahaney and Daeshun Ruffin sat at the 55 walk-on floor though both started all last season) and every later model
+# change, so "Since pre" read as a big riser for players whose games had nothing to do with it (owner, Nov 11 2026).
+def rebase(doc):
+    fp = os.path.join(D, "preseason", "ovr_display_2027.json")
+    if not os.path.exists(fp): print("no preseason overall file — preseason values kept"); return
+    pre = json.load(open(fp)); n = 0
+    for sec in ("espn", "fresh"):
+        for k, v in (pre.get(sec) or {}).items():
+            s = doc[sec].get(k)
+            if not s: continue
+            if s[0][0] == 0:
+                if s[0][1] != v: s[0][1] = v; n += 1
+            else: s.insert(0, [0, v]); n += 1
+            while len(s) > 1 and s[1][1] == s[0][1] and s[1][0] != len(doc["days"]) - 1: s.pop(1)   # a flat second point adds nothing
+    print(f"preseason re-based for {n} players")
 
 if __name__ == "__main__":
     main()

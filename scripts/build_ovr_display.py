@@ -49,8 +49,14 @@ def f(x, d=0.0):
 nk = lambda n: re.sub(r"[^a-z]", "", re.sub(r"\b(jr|sr|ii|iii|iv)\b\.?", "", str(n or "").lower()))
 fk = lambda t, n: str(t or "").strip().lower() + "|" + str(n or "").strip().lower()
 
-SO = json.load(open(os.path.join(D, "stat_overall_projected.json")))["players"]
-FF = json.load(open(os.path.join(D, "fresh_fit.json")))
+# OVR_PRE=1: the PRESEASON overall with today's data and model — player lines from the no-real-games build
+# (scripts/data/preseason/, REAL_OFF=1) and team ratings before results (preRating). snapshot_ovr.py uses it to repair
+# preseason baselines that were data holes (Ruffin / Mahaney sat at the 55 fallback on Oct 31 though both had full
+# 2025-26 seasons). Writes scripts/data/preseason/ovr_display_2027.json instead.
+PRE = os.environ.get("OVR_PRE") == "1"
+SRC_D = os.path.join(D, "preseason") if PRE else D
+SO = json.load(open(os.path.join(SRC_D, "stat_overall_projected.json")))["players"]
+FF = json.load(open(os.path.join(SRC_D, "fresh_fit.json")))
 DR = json.load(open(os.path.join(ROOT, "draft-overrides.json")))
 LAD = json.load(open(os.path.join(D, "ovr_display_scale.json")))["ladder"]
 PED = json.load(open(os.path.join(D, "fr_pedigree_2027.json")))
@@ -62,11 +68,12 @@ H = get(f"player_history?select=espn_id,season_year,team,ppg,mpg&season_year=gte
 rating = {}; conf = {}
 for t in PR:
     for k in (t.get("team"), t.get("full")):
-        if k: rating[k] = f(t.get("rating")); conf[k] = t.get("conf") or ""
+        if k: rating[k] = f(t.get("preRating") if PRE and t.get("preRating") is not None else t.get("rating")); conf[k] = t.get("conf") or ""
 cm = collections.defaultdict(list)
-for t in PR: cm[t.get("conf") or ""].append(f(t.get("rating")))
+_rt = lambda t: f(t.get("preRating") if PRE and t.get("preRating") is not None else t.get("rating"))
+for t in PR: cm[t.get("conf") or ""].append(_rt(t))
 cmean = {c: statistics.mean(v) for c, v in cm.items()}
-rmed = statistics.median(f(t.get("rating")) for t in PR); cmed = statistics.median(cmean[t.get("conf") or ""] for t in PR)
+rmed = statistics.median(_rt(t) for t in PR); cmed = statistics.median(cmean[t.get("conf") or ""] for t in PR)
 
 # prospect: average mock-draft spot (missing from a 2027 mock = 40; 2028 board at 60% weight, missing = 70)
 picks = collections.defaultdict(list)
@@ -111,6 +118,10 @@ for e, p in SO.items():
     if m <= 0: continue
     rows.append({"key": ("espn", e), "name": name_of.get(e, ""), "team": p.get("team"), "mpg": m, "ppg": f(p.get("ppg")), "wa": f(p.get("proj_wa")),
                  "sample": f(p.get("last_mpg")) * G, "new": False, "peak": peak.get(e, 0.0)})
+    # A PROVEN PLAYER IS NOT A WALK-ON (owner, Nov 11 2026: Aidan Mahaney, 33.6 mpg at UCSB last season, sat at 55 all
+    # preseason because the sheet listed him 18th). 12+ mpg last season: his role counts at least at 60% of those
+    # minutes, the way a ranked recruit's counts at mpg_pot, and the end-of-bench pin never applies to him.
+    if f(p.get("last_mpg")) >= 12: rows[-1]["mpg_pot"] = 0.6 * f(p.get("last_mpg")); rows[-1]["proven"] = True
 for t, d in FF.items():
     for n, x in d.items():
         if not isinstance(x, dict): continue
@@ -183,7 +194,7 @@ def ovr(s):
 def ovr_of(r):
     # (a deep-spot player the projection still gives 8+ minutes is on a depth chart nobody has ordered — Ivy sheets
     # in sheet order — so the projection's re-rank wins there)
-    if r["mpg"] < 8 and r["key"][1] in (deep_espn if r["key"][0] == "espn" else deep_fresh): return 55
+    if r["mpg"] < 8 and not r.get("proven") and r["key"][1] in (deep_espn if r["key"][0] == "espn" else deep_fresh): return 55
     role = min(1.0, max(r["mpg"], r.get("mpg_pot") or 0.0) / 15.0)
     v = 55 + (ovr(r["s"]) - 55) * (0.4 + 0.6 * role)
     return int(round(max(55, min(99, v))))
@@ -193,7 +204,7 @@ out = {"season": SEASON, "weights": W, "espn": {}, "fresh": {},
        "demo": json.load(open(os.path.join(D, "ovr_display_hist.json"))).get(str(CUR), {})}
 for r in rows:
     out[r["key"][0]][r["key"][1]] = ovr_of(r)
-json.dump(out, open(os.path.join(D, "ovr_display_%d.json" % SEASON), "w"), separators=(",", ":"), sort_keys=True)
+json.dump(out, open(os.path.join(SRC_D, "ovr_display_%d.json" % SEASON), "w"), separators=(",", ":"), sort_keys=True)
 vals = [ovr_of(r) for r in rot]
 top = sorted(rows, key=lambda r: -r["s"])[:10]
 print(f"display overall {SEASON}: {len(rows)} players · 95+ {sum(v >= 95 for v in vals)} · 90+ {sum(v >= 90 for v in vals)} · "

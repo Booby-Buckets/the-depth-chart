@@ -114,6 +114,9 @@ jobs:
         continue-on-error: true
         run: |
           python3 scripts/build_ovr_display.py
+          # the PRESEASON overall on today's data + model (no real games, team ratings before results): each player's
+          # "Pre" in the movers is re-based on it, so a move is what his games did, not a data fix or model change
+          OVR_PRE=1 python3 scripts/build_ovr_display.py || echo "preseason overall failed — movers keep the stored preseason"
           python3 scripts/snapshot_ovr.py || echo "snapshot_ovr failed (no overall history for today)"
 
       # the per-game TEAM lines built from those player projections, plus the exact team_projections

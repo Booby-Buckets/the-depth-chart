@@ -1146,7 +1146,7 @@ demo_ovr={int(r.espn_id):to_grade(r.C) for r in d26.itertuples()}
 # teammate listed ahead of him whose grade is BURY_MARGIN+ points lower. Grades are the demonstrated
 # overall, with a transfer stepping up a level docked BURY_LVL per point of conference-strength gap
 # (level_adj.json) for this ordering only — the grade itself is untouched. A teammate with no grade
-# (a freshman, an unlinked newcomer) holds his spot, and the authored starting five is never entered.
+# (a freshman, an unlinked newcomer) no longer holds his spot (Nov 11 2026); the authored starting five is never entered.
 BURY_FIX=os.environ.get("BURY_FIX","1")!="0"
 BURY_MARGIN=float(os.environ.get("BURY_MARGIN","4")); BURY_LVL=float(os.environ.get("BURY_LVL","0.35"))
 BURY_MIN_MPG=float(os.environ.get("BURY_MIN_MPG","12")); BURY_MIN_GP=float(os.environ.get("BURY_MIN_GP","10"))
@@ -1179,7 +1179,10 @@ if BURY_FIX:
         for k in range(len(L)):
             if not L[k]["pv"] or L[k]["q"] is None: continue
             j=k
-            while j>5 and L[j-1]["q"] is not None and L[j]["q"]>=L[j-1]["q"]+BURY_MARGIN:
+            # an UNGRADED teammate (no D-I line: a freshman or unproven newcomer) no longer blocks him — a sheet that
+            # appended Aidan Mahaney (33.6 mpg, UCSB) and Daeshun Ruffin (23.3 ppg) under two such players left them at
+            # ~6 mpg and a 55 overall all preseason (owner, Nov 11 2026)
+            while j>5 and ((L[j-1]["q"] is None and not L[j-1]["pv"]) or (L[j-1]["q"] is not None and L[j]["q"]>=L[j-1]["q"]+BURY_MARGIN)):
                 L[j-1],L[j]=L[j],L[j-1]; j-=1
         for k,x in enumerate(L):
             pl.at[x["i"],"depth_order"]=float(k+1)
