@@ -2047,7 +2047,9 @@ async function loadTeam(name){
     // Store globally for projection slider
     teamPlayers=[...players]; teamConf=t.conf||t.conference||''; teamGp=globalPercentiles; teamColor_g=teamColor; teamRgb_g=teamRgb; teamT=t;
     // live game banner while this team is playing today (score + top scorers; tdc-liveplayer.js)
-    try{ if(window.TDCLivePlayer && !window._liveTeamOn){ window._liveTeamOn=1; let el=document.getElementById('liveTeam'); if(!el){ el=document.createElement('div'); el.id='liveTeam'; el.style.cssText='max-width:1400px;margin:0 auto;padding:0 64px;'; const hh=document.getElementById('teamHero'); if(hh) hh.insertAdjacentElement('afterend', el); } _teamEspnId().then(tid=>{ if(tid) TDCLivePlayer.team('liveTeam', tid); }); } }catch(e){}
+    try{ if(window.TDCLivePlayer && !window._liveTeamOn){ window._liveTeamOn=1; let el=document.getElementById('liveTeam'); if(!el){ el=document.createElement('div'); el.id='liveTeam'; el.className='lpl-wrap'; const hh=document.getElementById('teamHero'); if(hh) hh.insertAdjacentElement('afterend', el); }
+      // phones draw their own hero (.mt-hero + #mtSeason) after this point: sit the score bug under it, not above the team name
+      let _lpTries=0; const _lpPlace=()=>{ const ms=document.getElementById('mtSeason'); if(ms&&ms.offsetHeight){ if(el.previousElementSibling!==ms) ms.insertAdjacentElement('afterend', el); } else if(++_lpTries<20) setTimeout(_lpPlace,500); }; _lpPlace(); _teamEspnId().then(tid=>{ if(tid) TDCLivePlayer.team('liveTeam', tid); }); } }catch(e){}
     if(window.TDCDepthEditor) TDCDepthEditor.attach();   // owner-only "Edit depth chart" button
     // Expose actual stats + team color by name for hover micro-cards
     window._actualByName={}; players.forEach(pl=>{ window._actualByName[(pl.name||'').toLowerCase().trim()]=pl; });
@@ -9866,7 +9868,7 @@ function renderProjNatlChart(projected, color, rgb){
   <script src="tdc-tour.js?v=32"></script>
   <script src="tdc-sheets.js?v=2"></script>
   <script src="tdc-dnasheet.js?v=1"></script>
-  <script src="tdc-liveplayer.js?v=3"></script>
+  <script src="tdc-liveplayer.js?v=5"></script>
   <script src="tdc-depth-editor.js?v=3"></script>
 <script src="tdc-mteam.js?v=30"></script>
 <script src="tdc-trends.js?v=ui4"></script>

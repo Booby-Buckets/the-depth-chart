@@ -32,7 +32,31 @@
   .lpl-tops{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px 18px;margin-top:4px;}
   .lpl-tops h4{margin:0 0 3px;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);}
   .lpl-tops div{font-size:13px;color:var(--text2);padding:2px 0;} .lpl-tops div b{color:var(--text);}
-  .lpl-note{font-size:11.5px;color:var(--text3);margin-top:6px;}`;
+  .lpl-note{font-size:11.5px;color:var(--text3);margin-top:6px;}
+  /* the score bug (owner, Nov 12 2026): TV-style bar — team-colour edges, logos, records, big scores, status chip */
+  .lpl-bug{max-width:760px;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:stretch;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg2);margin:6px 0 10px;}
+  .lpl-bt{display:flex;align-items:center;gap:12px;padding:10px 16px;min-width:0;position:relative;}
+  .lpl-bt::before{content:'';position:absolute;top:0;bottom:0;width:5px;background:var(--bc,#666);}
+  .lpl-bt.a::before{left:0;} .lpl-bt.h{justify-content:flex-end;text-align:right;} .lpl-bt.h::before{right:0;}
+  .lpl-bt img{width:40px;height:40px;object-fit:contain;flex:0 0 40px;}
+  .lpl-bn{min-width:0;display:flex;flex-direction:column;}
+  .lpl-bn a{font-size:17px;font-weight:800;color:var(--text);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.01em;}
+  .lpl-bn span{font-size:11.5px;color:var(--text3);font-weight:600;font-variant-numeric:tabular-nums;}
+  .lpl-bs{font-size:38px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text);line-height:1;margin-left:auto;}
+  .lpl-bt.h .lpl-bs{margin-left:0;margin-right:auto;}
+  .lpl-bt.lose .lpl-bs,.lpl-bt.lose .lpl-bn a{color:var(--text3);}
+  .lpl-bm{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px 16px;border-left:1px solid var(--border);border-right:1px solid var(--border);background:var(--bg);min-width:96px;}
+  .lpl-bm b{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text);}
+  .lpl-bm b.lv{color:var(--red,#c0392b);} .lpl-bm b.lv i{display:inline-block;width:7px;height:7px;border-radius:50%;background:currentColor;margin-right:5px;vertical-align:1px;animation:lplp 1.6s infinite;}
+  .lpl-bm span{font-size:11px;color:var(--text3);font-weight:600;white-space:nowrap;}
+  .lpl-bm a{font-size:11.5px;font-weight:700;color:var(--accent);text-decoration:none;white-space:nowrap;}
+  .lpl-tops h4{display:flex;align-items:center;gap:6px;} .lpl-tops h4 i{width:8px;height:8px;border-radius:50%;background:var(--bc,#888);display:inline-block;}
+  .lpl-tops a{text-decoration:none;}
+  .lpl-wrap{max-width:1400px;margin:0 auto;padding:0 64px;}
+  @media(max-width:860px){ .lpl-wrap{padding:0 16px;} }
+  @media(max-width:640px){ .lpl{padding:10px;} .lpl-bt{padding:8px 8px 8px 12px;gap:6px;} .lpl-bt.h{padding:8px 12px 8px 8px;} .lpl-bt img{width:24px;height:24px;flex-basis:24px;}
+    .lpl-bn{flex:0 0 auto;} .lpl-bn a{font-size:13px;overflow:visible;} .lpl-bn span{font-size:10.5px;} .lpl-bs{font-size:24px;} .lpl-bm{min-width:0;padding:6px 8px;} .lpl-bm b{font-size:10.5px;letter-spacing:.08em;} .lpl-bm span{display:none;} .lpl-bm a{font-size:10.5px;}
+    .lpl-tops div{font-size:12.5px;} }`;
   let cssDone = false;
   const css = () => { if (cssDone) return; cssDone = true; const s = document.createElement('style'); s.textContent = CSS; document.head.appendChild(s); };
 
@@ -63,9 +87,20 @@
     const c = sum.header.competitions[0], st = c.status.type;
     const H = c.competitors.find(x => x.homeAway === 'home'), A = c.competitors.find(x => x.homeAway === 'away');
     const logo = t => (t.team.logos && t.team.logos[0] && t.team.logos[0].href) || `https://a.espncdn.com/i/teamlogos/ncaa/500/${t.team.id}.png`;
-    const live = st.state === 'in';
-    return { live, state: st.state, html: `<div class="lpl-h"><span class="${live ? 'lv' : ''}">${live ? '<i></i>LIVE · ' : ''}${esc(st.shortDetail || st.detail)}</span><a href="game.html?id=${esc(id)}">${live ? 'Watch the game →' : 'Box score →'}</a></div>
-      <div class="lpl-sc"><img src="${esc(logo(A))}" alt=""><span>${esc(A.team.abbreviation)}</span><b>${esc(A.score)}</b><span class="d">–</span><b>${esc(H.score)}</b><span>${esc(H.team.abbreviation)}</span><img src="${esc(logo(H))}" alt=""></div>` };
+    const live = st.state === 'in', done = st.state === 'post';
+    const col = t => { const h = (t.team.color || '').replace('#', ''); return /^[0-9a-f]{6}$/i.test(h) ? '#' + h : '#777'; };
+    const rec = t => { const r = (t.record || []).find(x => x.type === 'total') || (t.record || [])[0]; return r ? (r.summary || r.displayValue || '') : ''; };
+    const win = t => done && +t.score > +((t === H ? A : H).score);
+    const side = (t, cls) => `<div class="lpl-bt ${cls}${done && !win(t) ? ' lose' : ''}" style="--bc:${col(t)}">` +
+      (cls === 'a' ? `<img src="${esc(logo(t))}" alt="">` : '') +
+      (cls === 'h' ? `<b class="lpl-bs">${esc(t.score)}</b>` : '') +
+      `<div class="lpl-bn"><a href="team.html?team=${encodeURIComponent(t.team.location || t.team.displayName)}">${esc(t.team.abbreviation || t.team.shortDisplayName)}</a><span>${esc(rec(t))}${t.curatedRank && t.curatedRank.current && t.curatedRank.current < 26 ? ' · #' + t.curatedRank.current : ''}</span></div>` +
+      (cls === 'a' ? `<b class="lpl-bs">${esc(t.score)}</b>` : '') +
+      (cls === 'h' ? `<img src="${esc(logo(t))}" alt="">` : '') + '</div>';
+    const when = c.date ? new Date(c.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' }) : '';
+    const mid = `<div class="lpl-bm"><b class="${live ? 'lv' : ''}">${live ? '<i></i>' : ''}${esc(live ? (st.shortDetail || st.detail) : done ? (st.shortDetail || 'Final') : (st.shortDetail || st.detail))}</b>` +
+      (when && !live ? `<span>${esc(when)}</span>` : '') + `<a href="game.html?id=${esc(id)}">${live ? 'Watch →' : 'Box score →'}</a></div>`;
+    return { live, state: st.state, cols: { [String(H.team.id)]: col(H), [String(A.team.id)]: col(A) }, html: `<div class="lpl-bug">${side(A, 'a')}${mid}${side(H, 'h')}</div>` };
   }
   const statsOf = (sum, pred) => {
     for (const tp of (sum.boxscore && sum.boxscore.players) || []) {
@@ -159,7 +194,7 @@
         const L = sx.labels || [], ix = k => L.indexOf(k);
         const rows = (sx.athletes || []).filter(a => (a.stats || []).length).map(a => ({ n: a.athlete.shortName || a.athlete.displayName, id: a.athlete.id, s: a.stats }))
           .sort((x, y) => (+y.s[ix('PTS')] || 0) - (+x.s[ix('PTS')] || 0)).slice(0, 4);
-        return `<div><h4>${esc(tp.team.displayName || tp.team.abbreviation)}</h4>${rows.map(r => `<div><a href="player.html?espn=${esc(r.id)}" style="color:inherit"><b>${esc(r.n)}</b></a> · ${esc(r.s[ix('PTS')])} pts, ${esc(r.s[ix('REB')])} reb, ${esc(r.s[ix('AST')])} ast · ${esc(r.s[ix('FG')])} FG</div>`).join('')}</div>`;
+        return `<div><h4 style="--bc:${(h.cols && h.cols[String(tp.team.id)]) || '#888'}"><i></i>${esc(tp.team.displayName || tp.team.abbreviation)}</h4>${rows.map(r => `<div><a href="player.html?espn=${esc(r.id)}" style="color:inherit"><b>${esc(r.n)}</b></a> · ${esc(r.s[ix('PTS')])} pts, ${esc(r.s[ix('REB')])} reb, ${esc(r.s[ix('AST')])} ast · ${esc(r.s[ix('FG')])} FG</div>`).join('')}</div>`;
       }).join('');
       host.innerHTML = `<div class="lpl${h.live ? '' : ' fin'}">${h.html}${cols ? `<div class="lpl-tops">${cols}</div>` : ''}${h.live ? '<div class="lpl-note">Top scorers so far · updates every 20 seconds.</div>' : ''}</div>`;
       return h.live ? 20000 : 0;
