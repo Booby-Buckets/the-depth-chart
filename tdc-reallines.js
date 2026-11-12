@@ -101,6 +101,9 @@
       var r = p.espn_id != null ? DOC.players[String(p.espn_id)] : null;
       return (r || (r = byName(p))) ? line(r) : null;
     },
+    // the raw season totals (with opp + adj efficiency) and the sheet -> ESPN full name, for KenPom-style tables
+    teamRaw: function (name) { return teamRow(name); },
+    fullName: function (name) { return (DOC && DOC.teams[name]) ? name : ((DOC && DOC.alias || {})[name] || null); },
     team: function (name) {
       var t = teamRow(name); if (!t) return null;
       var l = line(t); if (!l) return null;

@@ -17,7 +17,7 @@
   <script src="auth.js?v=sales2"></script>
   <script src="tdc-histguard.js?v=2"></script>
   <!-- canonical grade module: displayed OVRs = the coupled v5 grade shown site-wide -->
-  <script src="tdc-reallines.js?v=4"></script>
+  <script src="tdc-reallines.js?v=5"></script>
   <script src="tdc-projgrade.js?v=disp1"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <meta charset="UTF-8"/>
@@ -84,7 +84,12 @@
     @media(max-width:600px){
       .nav-top,.nav-sub,.page-header,.controls,.leaders{padding-left:16px;padding-right:16px;}
     }
-  </style>
+    .ts-seg{display:inline-flex;gap:2px;padding:2px;border:1px solid var(--border);border-radius:9px;background:var(--bg2);flex-wrap:wrap;}
+  .ts-seg button{appearance:none;border:0;background:none;border-radius:7px;padding:6px 11px;font:700 11px Inter,system-ui,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);cursor:pointer;min-height:30px;white-space:nowrap;}
+  .ts-seg button.on{background:var(--accent,#A88847);color:var(--accent-on,#fff);}
+  .ts-rk{font-size:9.5px;font-weight:600;color:var(--text3);margin-left:4px;font-variant-numeric:tabular-nums;}
+  @media(max-width:640px){.ts-seg button{min-height:34px;padding:6px 10px;}}
+</style>
   <!-- new-UI theme layer: navy+blue dark palette (matches index/player); light-mode guard keeps the toggle readable -->
   <link rel="stylesheet" href="tdc-dense.css?v=41"/>
   <link rel="stylesheet" href="tdc-skin.css?v=15"/>
@@ -147,8 +152,8 @@
 <div class="ph-hero">
   <div class="ph-left">
     <div class="page-eyebrow">Projections · Teams</div>
-    <h1 class="page-h1">2026-27 Projected Team Stats</h1>
-    <p class="page-sub">Projected 2026-27 offense for every program: scoring, rebounding, assists and shooting per game, built from each roster's projected player lines. Click a column to sort.</p>
+    <h1 class="page-h1">2026-27 Team Stats</h1>
+    <p class="page-sub">Every program's efficiency, four factors and shooting on both ends, from this season's games (Real) or the 2026-27 projection. Adjusted numbers correct for opponent and venue; the small number beside each stat is its national rank. Click a column to sort.</p>
     <div class="page-meta" id="pageMeta">Loading teams…</div>
   </div>
   <div class="ph-band" id="phBand">
@@ -163,6 +168,7 @@
   <div class="f-group">
     <label class="f-lab"><span>Team</span><input class="search-box" type="text" id="searchBox" placeholder="Search team…" oninput="render()"/></label>
     <label class="f-lab"><span>Stats</span><span id="statModeHost"></span></label>
+    <label class="f-lab"><span>View</span><span class="ts-seg" id="viewSeg"><button data-v="eff" onclick="setView('eff')">Efficiency</button><button data-v="ff" onclick="setView('ff')">Four Factors</button><button data-v="sh" onclick="setView('sh')">Shooting</button><button data-v="pg" onclick="setView('pg')">Per Game</button></span></label>
     <label class="f-lab"><span>Conference</span><select class="filter-select" id="confFilter" onchange="render()">
       <option value="">All</option>
       <option value="ACC">ACC</option>
@@ -211,7 +217,47 @@ const KEY = 'sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
 const H   = {apikey:KEY, Authorization:`Bearer ${KEY}`};
 
 // ── COLS definition ─────────────────────────────────────────────
-const COLS = [
+// KenPom-style views (owner, Nov 11 2026: "I still open KenPom because it's simpler"): efficiency, four factors and
+// shooting for offense AND defense in one sortable sheet; Per game is the original box view. Real = this season's
+// games (scripts/build_real_lines.py: opponent- and venue-adjusted, preseason counted as 8 games like the Power Rating);
+// Projected = the 2026-27 projection (team_pace_eff.json).
+const VIEWS = {
+  eff: [
+    {key:'rec',  label:'W-L',   desc:'Record (real games)', txt:true},
+    {key:'em',   label:'AdjEM', desc:'Adjusted efficiency margin: AdjO − AdjD, points per 100 possessions vs an average D-I team'},
+    {key:'ao',   label:'AdjO',  desc:'Adjusted offensive efficiency: points scored per 100 possessions, adjusted for opponent and venue'},
+    {key:'ad',   label:'AdjD',  desc:'Adjusted defensive efficiency: points allowed per 100 possessions (lower is better)', inv:true},
+    {key:'at',   label:'AdjT',  desc:'Adjusted tempo: possessions per 40 minutes', neutral:true},
+    {key:'ro',   label:'ORtg',  desc:'Raw offensive efficiency in games played (no adjustment)'},
+    {key:'rd',   label:'DRtg',  desc:'Raw defensive efficiency in games played (lower is better)', inv:true},
+    {key:'rt',   label:'Tempo', desc:'Raw possessions per game played', neutral:true},
+  ],
+  ff: [
+    {key:'oefg', label:'eFG%',     desc:'Offense: effective FG% (3s count 1.5)', pct:true},
+    {key:'oto',  label:'TO%',      desc:'Offense: turnovers per possession (lower is better)', pct:true, inv:true},
+    {key:'oor',  label:'OR%',      desc:'Offense: share of its misses it rebounds', pct:true},
+    {key:'oftr', label:'FTR',      desc:'Offense: free-throw attempts per FG attempt', pct:true},
+    {key:'defg', label:'Opp eFG%', desc:'Defense: opponents\' effective FG% (lower is better)', pct:true, inv:true},
+    {key:'dto',  label:'Opp TO%',  desc:'Defense: opponents\' turnovers per possession', pct:true},
+    {key:'dor',  label:'Opp OR%',  desc:'Defense: share of opponents\' misses they rebound (lower is better)', pct:true, inv:true},
+    {key:'dftr', label:'Opp FTR',  desc:'Defense: opponents\' free-throw attempts per FG attempt (lower is better)', pct:true, inv:true},
+  ],
+  sh: [
+    {key:'p2',   label:'2P%',      desc:'2-point %', pct:true},
+    {key:'tp',   label:'3P%',      desc:'3-point %', pct:true},
+    {key:'ft',   label:'FT%',      desc:'Free throw %', pct:true},
+    {key:'tpr',  label:'3PA%',     desc:'Share of FG attempts from three', pct:true, neutral:true},
+    {key:'ap',   label:'A/FGM',    desc:'Assists per made basket', pct:true},
+    {key:'op2',  label:'Opp 2P%',  desc:'Opponents\' 2-point % (lower is better)', pct:true, inv:true},
+    {key:'otp',  label:'Opp 3P%',  desc:'Opponents\' 3-point % (lower is better)', pct:true, inv:true},
+    {key:'otpr', label:'Opp 3PA%', desc:'Share of opponents\' FG attempts from three', pct:true, neutral:true},
+    {key:'blkp', label:'Blk%',     desc:'Share of opponents\' 2-point tries blocked', pct:true},
+    {key:'stlp', label:'Stl%',     desc:'Steals per opponent possession', pct:true},
+  ],
+};
+let VIEW = (()=>{ try{ const v=localStorage.getItem('tdc_ts_view'); return VIEWS[v]||v==='pg'?v:'eff'; }catch(e){ return 'eff'; } })();
+let COLS = [];
+const PG_COLS = [
   {key:'ppg',  label:'PPG',  desc:'Points per game',            inv:false},
   {key:'rpg',  label:'RPG',  desc:'Rebounds per game',          inv:false},
   {key:'apg',  label:'APG',  desc:'Assists per game',           inv:false},
@@ -226,9 +272,14 @@ const COLS = [
   {key:'oreb', label:'OREB', desc:'Off rebounds per game',      inv:false},
   {key:'dreb', label:'DREB', desc:'Def rebounds per game',      inv:false},
 ];
+COLS = VIEWS[VIEW] || PG_COLS;
+function setView(v){ VIEW=v; COLS=VIEWS[v]||PG_COLS; try{ localStorage.setItem('tdc_ts_view',v); }catch(e){}
+  document.querySelectorAll('#viewSeg button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  if(!COLS.some(c=>c.key===sortCol)){ sortCol=COLS.find(c=>!c.txt&&!c.neutral)?COLS.find(c=>!c.txt&&!c.neutral).key:COLS[0].key; sortAsc=!!(COLS.find(c=>c.key===sortCol)||{}).inv; }
+  render(); }
 
 let allRows = [];   // {team, conf, color, stats}
-let sortCol = 'ppg';
+let sortCol = VIEW==='pg'?'ppg':VIEW==='eff'?'em':VIEW==='ff'?'oefg':'p2';
 let sortAsc = false;
 
 // ── PROJECTION ENGINE ────────────────────────────────────────────
@@ -1426,6 +1477,23 @@ async function load(){
     _allRowsP = allRows.slice();
     _allRowsP.forEach(row=>{ row._proj=row.stats; const L=TDCReal.team(row.name);
       row._real=L?{ppg:L.ppg,rpg:L.rpg,apg:L.apg,fg:L.fg_pct,tp:L.tp_pct,ft:L.ft_pct,fga:L.fga,tpa:L.tpa,tov:L.tovs,stl:L.stl,blk:L.blk,oreb:L.oreb,dreb:L.dreb}:null; });
+    let _PE=null; try{ _PE=await fetch('scripts/data/team_pace_eff.json?v=8').then(r=>r.ok?r.json():null); }catch(e){}
+    const _r1=v=>v==null||!isFinite(v)?null:Math.round(v*10)/10, _pc=(a,b)=>b>0?_r1(100*a/b):null;
+    _allRowsP.forEach(row=>{
+      const full=TDCReal.fullName(row.name), pe=_PE&&full&&_PE.teams[full], T=TDCReal.teamRaw(row.name);
+      // projected: the projection's own efficiency + four factors; no projected opponent shooting
+      const P={}; if(pe){ P.ao=_r1(pe.o); P.ad=_r1(pe.d); P.em=_r1(pe.o-pe.d); P.at=_r1(pe.t); const f=pe.ff||{};
+        P.oefg=_r1(f.oeFG); P.oto=_r1(f.oTOV); P.oor=_r1(f.oORB); P.oftr=_r1(f.oFTr); P.defg=_r1(f.deFG); P.dto=_r1(f.dTOV); P.dor=f.dDRB!=null?_r1(100-f.dDRB):null; }
+      const ps=row._proj||{}; P.p2=null; P.tp=ps.tp; P.ft=ps.ft; P.tpr=ps.fga?_r1(100*ps.tpa/ps.fga):null;
+      row._proj=Object.assign({},ps,P);
+      if(row._real&&T&&T.opp){ const o=T.opp, a=T.adj||{}, poss=x=>x.fga-x.oreb+x.tov+0.475*x.fta;
+        Object.assign(row._real,{ rec:(T.w||0)+'-'+(T.l||0), _w:(T.w||0)-(T.l||0)/1000,
+          ao:a.o, ad:a.d, em:a.o!=null?_r1(a.o-a.d):null, at:a.t, ro:a.ro, rd:a.rd, rt:a.rt,
+          oefg:_pc(T.fgm+0.5*T.tpm,T.fga), oto:_pc(T.tov,poss(T)), oor:_pc(T.oreb,T.oreb+o.dreb), oftr:_pc(T.fta,T.fga),
+          defg:_pc(o.fgm+0.5*o.tpm,o.fga), dto:_pc(o.tov,poss(o)), dor:_pc(o.oreb,o.oreb+T.dreb), dftr:_pc(o.fta,o.fga),
+          p2:_pc(T.fgm-T.tpm,T.fga-T.tpa), tpr:_pc(T.tpa,T.fga), ap:_pc(T.ast,T.fgm),
+          op2:_pc(o.fgm-o.tpm,o.fga-o.tpa), otp:_pc(o.tpm,o.tpa), otpr:_pc(o.tpa,o.fga), blkp:_pc(T.blk,o.fga-o.tpa), stlp:_pc(T.stl,poss(o)) }); }
+    });
     const _applyMode=()=>{ const real=TDCReal.isReal(); allRows=_allRowsP.filter(r=>!real||r._real); allRows.forEach(r=>{ r.stats=real?r._real:r._proj; }); };
     _applyMode();
     TDCReal.control(document.getElementById('statModeHost'));
@@ -1505,8 +1573,9 @@ function render(){
 
   // Sort
   rows.sort((a,b) => {
-    let av = sortCol==='name' ? a.name : (a.stats[sortCol]||0);
-    let bv = sortCol==='name' ? b.name : (b.stats[sortCol]||0);
+    const _sv=r=>sortCol==='name'?r.name:sortCol==='rec'?(r.stats._w!=null?r.stats._w:-1e9):(r.stats[sortCol]==null?((COLS.find(c=>c.key===sortCol)||{}).inv?1e9:-1e9):r.stats[sortCol]);
+    let av = _sv(a);
+    let bv = _sv(b);
     const inv = COLS.find(c=>c.key===sortCol)?.inv;
     if(typeof av==='string') return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
     // For inverted stats (TOV), lower is better — flip sort direction
@@ -1534,14 +1603,16 @@ function render(){
 
   // Compute percentile buckets per column
   const buckets = {};
+  const _rank = {};   // national rank in the whole pool, KenPom-style small number beside each value
+  COLS.forEach(c => { if(c.txt||c.neutral) return; const v=allRows.map(r=>r.stats[c.key]).filter(x=>x!=null).sort((a,b)=>c.inv?a-b:b-a); _rank[c.key]=x=>x==null?null:v.indexOf(x)+1; });
   COLS.forEach(c => {
-    const vals = rows.map(r=>r.stats[c.key]).sort((a,b)=>a-b);
+    const vals = rows.map(r=>r.stats[c.key]).filter(x=>x!=null).sort((a,b)=>a-b);
     buckets[c.key] = {p25:vals[Math.floor(vals.length*.25)], p50:vals[Math.floor(vals.length*.5)], p75:vals[Math.floor(vals.length*.75)], p90:vals[Math.floor(vals.length*.9)]};
   });
 
   function cellClass(col, val){
-    const b = buckets[col]; if(!b) return '';
-    const inv = COLS.find(c=>c.key===col)?.inv;
+    const b = buckets[col]; const cd=COLS.find(c=>c.key===col)||{}; if(!b||val==null||cd.txt||cd.neutral) return '';
+    const inv = cd.inv;
     let pct;
     if(inv){ pct = val<=b.p25?4 : val<=b.p50?3 : val<=b.p75?2 : val<=b.p90?1 : 0; }
     else   { pct = val>=b.p90?4 : val>=b.p75?3 : val>=b.p50?2 : val>=b.p25?1 : 0; }
@@ -1550,10 +1621,10 @@ function render(){
 
   // Leaders
   const leadersEl = document.getElementById('leadersEl');
-  const leaderCols = ['ppg','rpg','apg','fg','tp','ft','stl','blk','tov'];
+  const leaderCols = VIEW==='pg' ? ['ppg','rpg','apg','fg','tp','ft','stl','blk','tov'] : COLS.filter(c=>!c.txt&&!c.neutral&&c.key!=='ro'&&c.key!=='rd').map(c=>c.key).slice(0,8);
   leadersEl.innerHTML = leaderCols.map(k => {
-    const col = COLS.find(c=>c.key===k);
-    const best = rows.slice().sort((a,b) => col.inv ? a.stats[k]-b.stats[k] : b.stats[k]-a.stats[k])[0];
+    const col = COLS.find(c=>c.key===k); if(!col) return '';
+    const best = rows.filter(r=>r.stats[k]!=null).sort((a,b) => col.inv ? a.stats[k]-b.stats[k] : b.stats[k]-a.stats[k])[0];
     if(!best) return '';
     const val = best.stats[k];
     return `<div class="leader-card">
@@ -1577,8 +1648,9 @@ function render(){
       <td class="l dim">${r.conf||''}</td>
       ${COLS.map(c => {
         const v = r.stats[c.key];
-        const cls = cellClass(c.key, v);
-        return `<td class="${cls}">${c.pct ? v+'%' : v}</td>`;
+        if(v==null||v==='') return '<td class="dim">—</td>';
+        const cls = cellClass(c.key, v), rk=_rank[c.key]&&VIEW!=='pg'?_rank[c.key](v):null;
+        return `<td class="${cls}">${c.pct&&VIEW==='pg' ? v+'%' : (typeof v==='number'&&VIEW!=='pg'?v.toFixed(1):v)}${rk?`<small class="ts-rk">${rk}</small>`:''}</td>`;
       }).join('')}
     </tr>
   `).join('');
@@ -1616,6 +1688,7 @@ function toggleTheme(){
   }).catch(()=>{});
 })();
 
+document.querySelectorAll('#viewSeg button').forEach(b=>b.classList.toggle('on',b.dataset.v===VIEW));
 load();
 </script>
 
