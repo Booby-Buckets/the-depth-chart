@@ -3442,12 +3442,16 @@ function _teamAccent(tn){
 }
 function ovrCardsFor(src){
   // one past season as a single-row sheet, same columns and shading as the overview table
-  var ST=[['PPG','ppg','pts_per_g'],['RPG','rpg','trb_per_g'],['APG','apg','ast_per_g'],['MPG','mpg','mp_per_g'],['FG%','fg_pct','fg_pct',1],['3P%','tp_pct','fg3_pct',1],['FT%','ft_pct','ft_pct',1],['STL','stl','stl_per_g'],['BLK','blk','blk_per_g'],['TO','tovs','tov_per_g']];
+  // GP first, so a hot 3-game start reads as 3 games. Only the season being viewed is shaded; the reference rows
+  // (projection, last season) stay plain so the eye lands on the real numbers (owner, Nov 11 2026: "clean this up").
+  var ST=[['GP','gp',null,0,1],['PPG','ppg','pts_per_g'],['RPG','rpg','trb_per_g'],['APG','apg','ast_per_g'],['MPG','mpg','mp_per_g'],['FG%','fg_pct','fg_pct',1],['3P%','tp_pct','fg3_pct',1],['FT%','ft_pct','ft_pct',1],['STL','stl','stl_per_g'],['BLK','blk','blk_per_g'],['TO','tovs','tov_per_g']];
   var seasonName=function(r){ return _seasonLbl2(r.season_year)+(r.team?' · '+r.team:''); };
-  var row=function(lbl,r){ return '<tr><td class="l nm">'+esc0(lbl)+'</td>'+ST.map(function(s){ var v=r?r[s[1]]:null, x=parseFloat(v), c='';
-    if(!isNaN(x)&&typeof pctColor==='function'){ c=pctColor((s[3]&&x>1)?x/100:x, s[2]); }
-    return '<td'+(c?' class="'+c+'"':'')+'>'+(s[3]?fmtP(v):fmt(v))+'</td>'; }).join('')+'</tr>'; };
+  var row=function(lbl,r,plain,noGp){ return '<tr'+(plain?' class="ov-ref"':'')+'><td class="l nm'+(plain?' dim':'')+'">'+esc0(lbl)+'</td>'+ST.map(function(s){ var v=r?r[s[1]]:null, x=parseFloat(v), c='';
+    if(s[4]) return '<td class="dim">'+(noGp||isNaN(x)?'—':Math.round(x))+'</td>';
+    if(!plain&&!isNaN(x)&&typeof pctColor==='function'){ c=pctColor((s[3]&&x>1)?x/100:x, s[2]); }
+    return '<td'+(c?' class="'+c+'"':plain?' class="dim"':'')+'>'+(s[3]?fmtP(v):fmt(v))+'</td>'; }).join('')+'</tr>'; };
   var change=function(lbl,a,b){ return '<tr class="ov-chg"><td class="l nm dim">'+esc0(lbl)+'</td>'+ST.map(function(s){ var x=parseFloat(a&&a[s[1]]), y=parseFloat(b&&b[s[1]]);
+    if(s[4]) return '<td></td>';
     if(isNaN(x)||isNaN(y)) return '<td class="dim">—</td>'; var d=Math.round((x-y)*10)/10, low=s[1]==='tovs', good=low?d<-0.05:d>0.05, bad=low?d>0.05:d<-0.05;
     return '<td class="'+(good?'up':bad?'dn':'dim')+'">'+(d>0?'+':d<0?'−':'')+Math.abs(d).toFixed(1)+'</td>'; }).join('')+'</tr>'; };
   // the season in context (this replaced the separate "The Jump" panel): this year so far beside the projection and last
@@ -3457,12 +3461,11 @@ function ovrCardsFor(src){
   var rows;
   if(src&&src._live){
     rows=row(_seasonLbl2(2027)+' so far',src);
-    if(hasProj) rows+=row(_seasonLbl2(2027)+' Projected',proj);
-    if(prior) rows+=row(seasonName(prior),prior);
-    if(hasProj&&prior) rows+=change('Proj vs '+_seasonLbl2(prior.season_year),proj,prior);
+    if(hasProj) rows+=row(_seasonLbl2(2027)+' Projected',proj,1,1);
+    if(prior) rows+=row(seasonName(prior),prior,1)+change('So far vs '+_seasonLbl2(prior.season_year),src,prior);
   } else {
     rows=row(src&&src.season_year?seasonName(src):'Season',src);
-    if(prior) rows+=row(seasonName(prior),prior)+change('Change',src,prior);
+    if(prior) rows+=row(seasonName(prior),prior,1)+change('Change',src,prior);
   }
   return '<div class="sheet-wrap ov-sheet" style="margin-bottom:24px;"><table class="sheet dense freeze"><thead><tr><th class="l">Season</th>'
     +ST.map(function(s){return '<th>'+s[0]+'</th>';}).join('')+'</tr></thead><tbody>'+rows+'</tbody></table></div>';
