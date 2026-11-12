@@ -169,15 +169,28 @@ function projGame(row){
   if(!window.TDCSched) return notYet();
   TDCSched.project(row.full).then(function(R){
     if(MY!==row.full||+HQ_SEASON!==2027) return;
-    var G=(R&&R.rows||[]).filter(function(g){ return !g.final; }).slice(0,6); if(!G.length) return notYet();
+    var res=resultsHTML(R); if(res){ byId('hxNextLbl').textContent='Results & up next'; }
+    var G=(R&&R.rows||[]).filter(function(g){ return !g.final; }).slice(0,6); if(!G.length){ if(res){ el.innerHTML=res+btns(); return; } return notYet(); }
     var heat=function(p){ return p>=80?'c4':p>=60?'c3':p>=45?'c2':p>=30?'c1':'c0'; };
     var day=function(d){ var t=new Date(d+'T12:00:00'); return '<span class="hq-hide-ph">'+t.toLocaleDateString('en-US',{weekday:'short'})+', </span>'+t.toLocaleDateString('en-US',{month:'short',day:'numeric'}); };
-    el.innerHTML='<div class="sheet-wrap"><table class="sheet dense hq-next" data-fit-keep><thead><tr><th class="l">Date</th><th class="l">Opponent</th><th class="hq-hide-ph" title="opponent\'s projected national rank">Opp rank</th><th title="our chance to win">Win</th><th title="our projected line">Line</th><th class="hq-hide-ph" title="projected score">Score</th></tr></thead><tbody>'+
+    el.innerHTML=res+(res?'<div class="hq-res-cap">Still to play</div>':'')+'<div class="sheet-wrap"><table class="sheet dense hq-next" data-fit-keep><thead><tr><th class="l">Date</th><th class="l">Opponent</th><th class="hq-hide-ph" title="opponent\'s projected national rank">Opp rank</th><th title="our chance to win">Win</th><th title="our projected line">Line</th><th class="hq-hide-ph" title="projected score">Score</th></tr></thead><tbody>'+
       G.map(function(g){ var o=(g.opp&&g.opp.team)||g.oppName||g.label||'TBD', lg=g.oppName?logoFor(g.oppName):null, pc=Math.round(g.p*100);
         return '<tr><td class="l">'+day(g.g.date)+'</td><td class="l nm">'+(lg?'<img class="hq-lg" src="'+lg+'" alt="">':'')+'<span>'+(g.venue==='A'?'at ':'vs ')+esc(o)+(g.venue==='N'?' <span class="dim">· neutral</span>':'')+(g.event?' <span class="dim hq-hide-ph">· '+esc(g.event)+'</span>':'')+'</span></td>'+
           '<td class="dim hq-hide-ph">'+(g.opp&&g.opp.rank?'#'+g.opp.rank:'—')+'</td><td class="'+heat(pc)+'"><b>'+pc+'%</b></td><td>'+(g.margin==null?'—':(g.margin>0?'−':'+')+Math.abs(g.margin).toFixed(1))+'</td><td class="dim hq-hide-ph">'+g.scoreMe+'–'+g.scoreOpp+'</td></tr>'; }).join('')+
       '</tbody></table></div>'+btns(G[0].oppName||'');
   }).catch(notYet);
+}
+
+// RESULTS SO FAR (owner, Nov 11 2026: "the game scores from the days"): every game already played, newest first, each a
+// link to its box score — the page only showed today's final before
+function resultsHTML(R){
+  var P=(R&&R.played||[]).slice().sort(function(a,b){ return String(b.g.date).localeCompare(String(a.g.date)); }); if(!P.length) return '';
+  var day=function(d){ return new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}); };
+  return '<div class="hq-res-cap">Results · '+(R.playedW||0)+'–'+(R.playedL||0)+'</div><div class="sheet-wrap"><table class="sheet dense hq-next hq-res" data-fit-keep><thead><tr><th class="l">Date</th><th class="l">Opponent</th><th>Result</th><th class="hq-hide-ph"></th></tr></thead><tbody>'+
+    P.map(function(r){ var f=r.final, o=r.oppName||'', lg=o?logoFor(o):null, nm=(r.opp&&r.opp.team)||(window.tdcShortSchool?tdcShortSchool(o):o);
+      return '<tr><td class="l">'+day(r.g.date)+'</td><td class="l nm">'+(lg?'<img class="hq-lg" src="'+lg+'" alt="">':'')+'<span>'+(r.venue==='A'?'at ':'vs ')+esc(nm)+(r.venue==='N'?' <span class="dim">· neutral</span>':'')+'</span></td>'+
+        '<td class="'+(f.won?'c4':'c0')+'"><a class="hq-res-sc" href="game.html?id='+encodeURIComponent(r.g.id)+'"><b>'+(f.won?'W':'L')+'</b> '+f.ms+'–'+f.os+'</a></td><td class="hq-hide-ph"><a href="game.html?id='+encodeURIComponent(r.g.id)+'">Box score →</a></td></tr>'; }).join('')+
+    '</tbody></table></div>';
 }
 
 // ── past ──

@@ -27,9 +27,9 @@
   <script src="tdc-nilchart.js?v=1"></script>
   <script src="tdc-gate.js?v=5"></script>
   <script src="tdc-teamgrades.js"></script>
-  <script src="tdc-teamhq.js?v=3"></script>
+  <script src="tdc-teamhq.js?v=4"></script>
   <script src="tdc-teamscout.js?v=5"></script>
-  <link rel="stylesheet" href="tdc-teamhq.css?v=5"/>
+  <link rel="stylesheet" href="tdc-teamhq.css?v=6"/>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js?v=25"></script>
   <script src="tdc-proj.js?v=hg5"></script>
@@ -2469,13 +2469,19 @@ async function renderHeroBar(yr, teamObj){
     const pp=await _progPrior();
     if(stale()||_rosterSeason<2027) return;
     const spW=sp?Math.round(sp.expW):null;
-    const recCell=sp?{v:`${spW}–${sp.n-spW}`,l:'Proj record',
-      s:`${sp.confN?`${Math.round(sp.expCW)}–${sp.confN-Math.round(sp.expCW)} ${t.conf||t.conference||'conf'} · `:''}${sp.lo}–${sp.n-sp.lo} to ${sp.hi}–${sp.n-sp.hi}`}:null;
+    // IN SEASON (owner, Nov 11 2026: "fix the header"): once games are played the band leads with the real record and the
+    // rating as it stands after them; the projection moves to the small line underneath
+    const gp=sp?(sp.playedW||0)+(sp.playedL||0):0, live=gp>0||!!(rr&&rr.formGp);
+    const recCell=sp?(gp?{v:`${sp.playedW}–${sp.playedL}`,l:'Record',tip:'record',
+      s:`${(sp.playedCW||sp.playedCL)?`${sp.playedCW}–${sp.playedCL} ${t.conf||t.conference||'conf'} · `:''}projected ${spW}–${sp.n-spW}`}
+      :{v:`${spW}–${sp.n-spW}`,l:'Proj record',
+      s:`${sp.confN?`${Math.round(sp.expCW)}–${sp.confN-Math.round(sp.expCW)} ${t.conf||t.conference||'conf'} · `:''}${sp.lo}–${sp.n-sp.lo} to ${sp.hi}–${sp.n-sp.hi}`}):null;
+    const pre=rr&&rr.preRating!=null?_fmtNet(rr.preRating).s:null;
     rEl.innerHTML=_ribHTML([
-      {v:net.s,l:'Power Rating',tip:'projrating',s:'projected for 2026-27'},
+      {v:net.s,l:'Power Rating',tip:live?'power':'projrating',s:live?(pre?`preseason ${pre}`:'with this season’s games'):'projected for 2026-27'},
       recCell,
       seedCell,
-      rank?{v:'#'+rank,l:'Proj rank',tip:'projrank',s:`of ${(rr&&rr.field)||365} teams`}:null,
+      rank?{v:'#'+rank,l:live?'Rank':'Proj rank',tip:live?'natrank':'projrank',s:`of ${(rr&&rr.field)||365} teams`}:null,
       {v:t.conf||t.conference,l:'Conference',s:(rr&&rr.confRank)?`No. ${rr.confRank} in league`:''},
       last?{v:`${last.wins}–${last.losses}`,l:`${last.season_year-1}–${(''+last.season_year).slice(2)}`,s:'last season'}:null,
       last&&last.ncaa_result?{v:last.ncaa_result,l:'Last result',col:'var(--amber)'}:null,
