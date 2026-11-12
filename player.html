@@ -2038,7 +2038,7 @@ function _dnaBoxAgg(rows){
 function _dnaYear(){ return window._dnaYrSel||((window._live27&&_live27.gp)?2027:2026); }
 function _dnaThin(){ return !!window._live27 && _live27.gp<((window.TDCReal&&TDCReal.MIN_G)||5); }
 function _dnaYearThin(){ return _dnaYear()===2027 && _dnaThin(); }
-function _dnaYearLbl(){ var y=_dnaYear(); return _seasonLbl(y)+(y===2027&&window._live27?' so far · '+_live27.gp+' game'+(_live27.gp===1?'':'s'):''); }
+function _dnaYearLbl(){ var y=_dnaYear(); return _seasonLbl(y)+(y===2027&&window._live27?' so far · '+_live27.gp+' game'+(_live27.gp===1?'':'s')+(_live27.gp<((window.TDCReal&&TDCReal.EARLY_G)||10)?' · early season, less reliable':''):''); }
 function _dnaYearBar(){
   if(!window._live27||!_live27.gp) return '';
   var y=_dnaYear(), b=function(v){ return '<button class="'+(v===y?'on':'')+'" onclick="_dnaSetYear('+v+')">'+_seasonLbl(v)+'</button>'; };
@@ -2407,7 +2407,7 @@ function renderImpDecomp(){ var h=document.getElementById('impDecompHost'); if(!
 async function loadSituational(){
   var host=document.getElementById('situationalHost'); if(!host) return;
   var espn=window._playerEspn||(player&&player.espn_id); if(!espn){ host.innerHTML=''; return; }
-  var bx=[], dna=null, games=[], _sitY=(window._live27&&_live27.gp>=8)?2027:2026;   // the splits need 8 games
+  var bx=[], dna=null, games=[], _sitY=(window._live27&&_live27.gp>=3)?2027:2026;   // 3+ games (owner, Nov 12 2026: show early, labelled less reliable)
   window._sitY=_sitY;
   try{ var r=await Promise.all([
     fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+'&season_year=eq.'+_sitY+'&select=game_id,opp,pts,tov,pf,min',{headers:H}).then(function(x){return x.ok?x.json():[];}),
@@ -2450,7 +2450,7 @@ async function loadSituational(){
       +'<div class="si-read">'+c.read+'</div>'
       +'<div class="si-gauge">'+gauge+'</div>'
       +'<div class="si-detail">'+c.detail+'</div></div>'; }).join('');
-  host.innerHTML='<div class="skill-section-title">Situational Profile — '+_seasonLbl(window._sitY||2026)+'</div><div class="si-grid">'+html+'</div><div class="pd-legend" style="margin-bottom:6px;">How his production shifts by opponent type — split from his 2025-26 game log against each opponent’s pace &amp; ball-pressure (team DNA) and by final margin. A coach-decision layer, not a box-score summary.</div>';
+  host.innerHTML='<div class="skill-section-title">Situational Profile — '+_seasonLbl(window._sitY||2026)+((window._sitY===2027&&window._live27&&_live27.gp<((window.TDCReal&&TDCReal.EARLY_G)||10))?' <span style="font-size:11px;font-weight:700;color:#b9862a;letter-spacing:.02em;text-transform:none;">· '+_live27.gp+' games · early season, less reliable</span>':'')+'</div><div class="si-grid">'+html+'</div><div class="pd-legend" style="margin-bottom:6px;">How his production shifts by opponent type — split from his 2025-26 game log against each opponent’s pace &amp; ball-pressure (team DNA) and by final margin. A coach-decision layer, not a box-score summary.</div>';
   if(window.TDCAnim&&window.TDCAnim.scan) TDCAnim.scan(host);
 }
 function renderCareerExtras(){ var b=document.getElementById('peakMetHost'); if(b)b.innerHTML=buildPeakMetrics(); }
@@ -3283,7 +3283,7 @@ function _segSync(id,idx){var seg=document.getElementById(id);if(!seg)return;var
 var _distPool=null;
 // the 2026-27 stop on the slider is his REAL season once he has TDCReal.MIN_G (5) games, the projection before that
 function _distReal27(){ return !!(window._live27&&_live27.gp>=((window.TDCReal&&TDCReal.MIN_G)||5)); }
-function _distLbl(s){ return s==='2627'?'2026-27 projected':s==='2027'?'2026-27 so far':((+s-1)+'-'+String(s).slice(2)+' actual'); }
+function _distLbl(s){ return s==='2627'?'2026-27 projected':s==='2027'?('2026-27 so far'+(window._live27&&_live27.gp<((window.TDCReal&&TDCReal.EARLY_G)||10)?' · '+_live27.gp+' games, early season · less reliable':'')):((+s-1)+'-'+String(s).slice(2)+' actual'); }
 function onDistSlide(v){
   var s=(+v>=2027)?(_distReal27()?'2027':'2627'):String(v);
   var lbl=document.getElementById('distSliderLbl');
@@ -3668,7 +3668,7 @@ function _syncStatMode(val,x){
   if(!both) return;
   var cur=val==='proj'?'proj':(+val===2027?'real':null), g=window._live27.gp, lg=g+(g===1?' game':' games');
   document.querySelectorAll('.tdc-mode button').forEach(function(b){ b.classList.toggle('on',b.getAttribute('data-m')===cur); });
-  var txt=cur==='real'?((x&&x.thin)?(lg+' so far. Skill reads use the projection until '+TDCReal.MIN_G+' games.'):(lg+' so far')):(cur==='proj'?'Includes the '+lg+' played':'');
+  var txt=cur==='real'?((x&&x.thin)?(lg+' so far. Skill reads use the projection until '+TDCReal.MIN_G+' games.'):(lg+' so far'+(g<(TDCReal.EARLY_G||10)?' · early season, less reliable until '+(TDCReal.EARLY_G||10)+' games':''))):(cur==='proj'?'Includes the '+lg+' played':'');
   document.querySelectorAll('.tdc-mode-note').forEach(function(n){ n.textContent=txt; });
 }
 function _applyStatMode(m){ var sel=document.getElementById('ovrSeasonSel'), v=m==='proj'?'proj':'2027'; if(sel&&[].some.call(sel.options,function(o){return o.value===v;})){ sel.value=v; setOvrSeason(v); } }
@@ -7859,7 +7859,7 @@ async function renderScoutExtras(){
   try{
     var espn=(player&&player.espn_id)||window._espnId||null;
     if(espn){
-      var _sigY=(window._live27&&_live27.gp>=5)?2027:2026;
+      var _sigY=(window._live27&&_live27.gp>=2)?2027:2026;
       var box=await fetch(SB+'/rest/v1/box_scores?espn_id=eq.'+espn+'&season_year=eq.'+_sigY+'&select=game_id,date,opp,min,pts,reb,ast,stl,blk,tov,fgm,fga,tpm,tpa,ftm,fta&order=date',{headers:H}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
       box=(box||[]).filter(function(b){return (+b.min||0)>0;});
       if(box.length>=5){
@@ -7875,7 +7875,7 @@ async function renderScoutExtras(){
           : sd<=4.5?'<b>Remarkably consistent</b> — game score σ of just '+f1(sd)+'. You know what you are getting.'
           : 'Normal night-to-night variance (σ '+f1(sd)+'). '+twenty+' twenty-point games, '+dud+' games of five or fewer.';
         if(dbl) sRead+=' '+dbl+' double-double'+(dbl>1?'s':'')+'.';
-        out+=secH('Signature games','his five best '+_seasonLbl(_sigY)+' box lines by game score')+
+        out+=secH('Signature games','his five best '+_seasonLbl(_sigY)+' box lines by game score'+(_sigY===2027&&window._live27&&_live27.gp<((window.TDCReal&&TDCReal.EARLY_G)||10)?' · early season, only '+_live27.gp+' games':''))+
           '<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Date</th><th class="l">Opp</th><th>Min</th><th>Pts</th><th>Reb</th><th>Ast</th><th>Stl/Blk</th><th>FG</th><th>3P</th><th>FT</th><th>TO</th></tr></thead><tbody>'+top.map(function(x){return line(x.b);}).join('')+
           '<tr><td colspan="11" class="l dim" style="font-size:10px;padding-top:8px;">Worst night</td></tr>'+line(worst.b)+'</tbody></table></div>'+readBox(sRead);
       }
@@ -8197,7 +8197,7 @@ init();
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=31"></script>
 <script src="tdc-sheets.js?v=2"></script>
-<script src="tdc-reallines.js?v=4"></script>
+<script src="tdc-reallines.js?v=6"></script>
 <script src="tdc-liveplayer.js?v=5"></script>
 <script src="tdc-mplayer.js?v=22"></script>
 <script src="tdc-trends.js?v=ui4"></script>

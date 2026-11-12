@@ -11,7 +11,8 @@
  *   TDCReal.control(host, o) mounts the two-button filter; o.onChange(mode) is optional, the event always fires
  *   TDCReal.ovrReady()       promise: loads scripts/data/ovr_history_2027.json (scripts/snapshot_ovr.py) on first use
  *   TDCReal.ovrMove(player)  {from, to, delta, since, history:[[date, ovr],...]} since preseason, or null
- *   TDCReal.MIN_G            below this many real games, percentile reads stay on the projection (one hot game is not a skill)
+ *   TDCReal.MIN_G            below this many real games, percentile reads stay on the projection (one game is not a skill)
+ *   TDCReal.EARLY_G          below this many, real reads show but are labelled "early season · less reliable"
  */
 (function () {
   if (window.TDCReal) return;
@@ -93,7 +94,9 @@
     return { from: a, to: b, delta: b - a, since: OH.days[s[0][0]], history: s.map(function (x) { return [OH.days[x[0]], x[1]]; }) };
   }
   window.TDCReal = {
-    MIN_G: 5, ready: ready, ovrReady: ovrReady, ovrMove: ovrMove,
+    // owner, Nov 12 2026: "make it available to see but make it known it isn't as reliable" — real reads from 2 games,
+    // labelled early season (less reliable) until EARLY_G
+    MIN_G: 2, EARLY_G: 10, early: function (gp) { return gp > 0 && gp < 10; }, ready: ready, ovrReady: ovrReady, ovrMove: ovrMove,
     mode: function () { return MODE; }, isReal: function () { return MODE === 'real'; }, setMode: setMode, control: control,
     through: function () { return DOC ? DOC.through : null; },
     of: function (p) {
