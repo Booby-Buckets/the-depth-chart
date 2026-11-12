@@ -37,9 +37,9 @@
   <script src="tdc-injury.js?v=5"></script>
   <script src="tdc-ratings.js?v=44"></script>
   <script src="tdc-histguard.js?v=2"></script>
-  <script src="tdc-schedule.js?v=sp12"></script>
+  <script src="tdc-schedule.js?v=sp15"></script>
   <script src="tdc-ot.js?v=1"></script>
-  <script src="tdc-scrim.js?v=20"></script>
+  <script src="tdc-scrim.js?v=21"></script>
   <script src="tdc-gamehead.js?v=14"></script>
   <script src="tdc-preview.js?v=ui1"></script>
   <script src="tdc-reallines.js?v=4"></script>
@@ -9027,6 +9027,10 @@ async function loadSchedule(){
         played.forEach((p,i)=>{ p.id=games[i].id; });
         TDCSched.render(host,R,{played});
         if(window.TDCScrim) TDCScrim.renderFor(host, mascot);   // preseason exhibitions, above the season
+        // should / did / our rank after each game (re-solves the ratings per game date, ~0.1 s a game): drawn a beat
+        // later so the schedule never waits on it
+        if(TDCSched.trail) TDCSched.trail(mascot).then(T=>{ if(!T||!Object.keys(T).length||!host.isConnected) return;
+          TDCSched.render(host,R,{played,trail:T}); if(window.TDCScrim) TDCScrim.renderFor(host, mascot); }).catch(e=>console.warn('sched trail',e));
         // the projection already counts every game in the nightly results file — add only the ones it hasn't seen
         const xg=games.filter(g=>!(R.counted&&R.counted.has(String(g.id))));
         const xw=xg.filter(g=>{ const hm=g.home===mascot; return (hm?g.home_score:g.away_score)>(hm?g.away_score:g.home_score); }).length, xl=xg.length-xw;

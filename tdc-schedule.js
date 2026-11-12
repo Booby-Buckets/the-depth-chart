@@ -360,6 +360,54 @@
       p20: pAtLeast(20), p25: pAtLeast(25), pHalf: sorted.filter(w => w * 2 >= n).length / sorted.length, model: _model, hist };
   }
 
+  // ── how each result moved the team (owner, Nov 12 2026: Haslametrics-style "should / did" + the team's rank after
+  // every game) ───────────────────────────────────────────────────────────────────────────────────────────────────
+  // Every D-I rating re-solved from the preseason prior + the finals through a date — the same solve the rankings
+  // and rankings-by-date pages run (TDC_RATINGS.applyForm) — so "rank after" is the rank the site showed that night.
+  const _stand = {};
+  function standThrough(D, day) {
+    const key = (D.generated || '') + '|' + Object.keys(RES).length + '|' + day;
+    if (_stand[key]) return _stand[key];
+    const rows = D.teams.filter(t => t.full).map(t => ({ full: t.full, rating: t.preRating != null ? +t.preRating : +t.rating, hcaOff: t.hcaOff || 0 }));
+    const gs = Object.values(RES).filter(x => x.date <= day && x.hs != null && x.as != null)
+      .map(x => ({ home: x.home, away: x.away, home_score: x.hs, away_score: x.as, neutral: x.neutral }));
+    g.TDC_RATINGS.applyForm(rows, gs);
+    const out = { r: {}, rk: {} };
+    rows.slice().sort((x, y) => y.rating - x.rating).forEach((x, i) => { out.r[x.full] = x.rating; out.rk[x.full] = i + 1; });
+    return (_stand[key] = out);
+  }
+  const dayBefore = d => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() - 1); return x.toISOString().slice(0, 10); };
+  // {gameId: {should:[me,opp], p, line, diff, rate, rkB, rkA, oppRk}} for every final this team has played
+  async function trail(team) {
+    await load();
+    if (!g.TDC_RATINGS) return {};
+    const D = await g.TDC_RATINGS.get();
+    const SIGMA = g.TDC_RATINGS.SIGMA || 11, STRETCH = g.TDC_RATINGS.GAP_STRETCH || 1;
+    const byFull = {}; D.teams.forEach(t => { if (t.full) byFull[t.full] = t; });
+    const me = byFull[team]; if (!me) return {};
+    const mine = Object.values(RES).filter(x => (x.home === team || x.away === team) && x.hs != null && x.as != null)
+      .sort((x, y) => String(x.date).localeCompare(String(y.date)));
+    const out = {};
+    mine.forEach(x => {
+      const pre = standThrough(D, dayBefore(x.date)), post = standThrough(D, x.date);
+      const homeMe = x.home === team, opp = homeMe ? x.away : x.home, o = byFull[opp];
+      const rMe = pre.r[team], rOpp = o ? pre.r[opp] : -8;          // non-D-I: the projection's fixed floor
+      const venue = x.neutral ? 0 : homeMe ? g.TDC_RATINGS.baseHca(rOpp) + (me.hcaOff || 0) : -(g.TDC_RATINGS.baseHca(rMe) + ((o && o.hcaOff) || 0));
+      const eff = o ? effLine(team, opp) : null, paceK = eff ? eff.pace / _eff.avgT : 1;
+      const line = tame((rMe - rOpp) * STRETCH * paceK + venue), total = eff ? eff.total : DEFAULT_TOTAL;
+      const ms = homeMe ? x.hs : x.as, os = homeMe ? x.as : x.hs, diff = (ms - os) - line;
+      out[String(x.id)] = { should: [Math.round(total / 2 + line / 2), Math.round(total / 2 - line / 2)], p: phi(line / SIGMA), line: +line.toFixed(1),
+        diff: +diff.toFixed(1), rate: Math.max(2, Math.min(10, Math.round((6.3 + diff * 0.22) * 10) / 10)),   // same 0-10 scale as the game page
+        rkB: pre.rk[team], rkA: post.rk[team], oppRk: o ? post.rk[opp] : null, ms, os };
+    });
+    // the latest game lands on the rank the rest of the site shows today (the team header, rankings): the published
+    // nightly ratings carry a little more than this re-solve (138 teams differ by >0.05 on Nov 12), enough to be 1 off
+    const ord = D.teams.filter(t => t.full).slice().sort((x, y) => y.rating - x.rating);
+    const site = ord.findIndex(t => t.full === team) + 1, last = mine[mine.length - 1];
+    if (site > 0 && last) out[String(last.id)].rkA = site;
+    return out;
+  }
+
   // ── render ────────────────────────────────────────────────────────────────
   // its own table class (not .sched-table) so the team page's mono/dim overrides don't apply
   // early-season events (MTEs) ride as a short tag in the opponent cell, full name on hover: the long names
@@ -427,7 +475,6 @@
      Rk, so a "Sat 10/17" column ran ~500px wide on desktop) */
   .tsp-table th,.tsp-table td{width:1%;white-space:nowrap;}
   .tsp-table th:nth-child(3),.tsp-table td.tsp-o{width:auto;}
-  .tsp-table.tsp-timed th:nth-child(3){width:1%;} .tsp-table.tsp-timed th:nth-child(4){width:auto;}
   .tsp-tm .tsp-tv{display:block;font-size:10.5px;opacity:.75;max-width:120px;overflow:hidden;text-overflow:ellipsis;}
   .tsp-tm .tsp-tba{opacity:.6;}
   .tsp-table tr.sec td{width:auto;}
@@ -450,7 +497,26 @@
     .tsp-table td.tsp-o .cfdot{position:absolute;right:3px;top:50%;margin:-3px 0 0;}
     .tsp-table .tsp-ev .ev-l{display:none;} .tsp-table .tsp-ev .ev-s{display:inline;}
     .tsp-table .tsp-ev{margin-left:4px;padding:0 4px;font-size:9px;}
-  }`;
+  }
+  /* Nov 12 2026 (owner, Haslametrics-style): Should vs Did, how far off our line, and our rank after every game */
+  .tsp-table .tw{color:#2e8b57;font-weight:800;} .tsp-table .tl{color:#c75d5d;font-weight:800;}
+  [data-theme="dark"] .tsp-table .tw{color:#6fbf7e;} [data-theme="dark"] .tsp-table .tl{color:#e07a7a;}
+  .tsp-table tr.w td.tsp-sc,.tsp-table tr.x td.tsp-sc{color:var(--text)!important;}
+  .tsp-table td.tsp-sh{font-weight:600;color:var(--text2);} .tsp-table td.tsp-sh.dim{color:var(--text3);}
+  .tsp-table td.tsp-sh .tw,.tsp-table td.tsp-sh .tl{font-weight:700;opacity:.85;}
+  .tsp-table sub.tsp-ork{font-size:9.5px;font-weight:600;color:var(--text3);margin-left:4px;vertical-align:-1px;}
+  .tsp-table .up{color:#2e8b57;font-weight:800;} .tsp-table .dn{color:#c75d5d;font-weight:800;} .tsp-table .eq{color:var(--text3);margin-left:6px;}
+  [data-theme="dark"] .tsp-table .up{color:#6fbf7e;} [data-theme="dark"] .tsp-table .dn{color:#e07a7a;}
+  .tsp-table td.tsp-rkm{font-weight:800;font-variant-numeric:tabular-nums;} .tsp-table td.tsp-rkm span{font-size:10.5px;margin-left:6px;}
+  .tsp-table td.tsp-pf{font-variant-numeric:tabular-nums;font-size:12px;}
+  .tsp-table th.tsp-o,.tsp-table td.tsp-o{width:auto!important;}
+  .tsp-rank .v small{font-size:11px!important;font-weight:800!important;margin-left:6px!important;}
+  .tsp-rank svg{display:block;margin-top:5px;}
+  @media(min-width:761px){ .tsp-sum.has-rk{grid-template-columns:repeat(5,minmax(0,1fr))!important;} }
+  @media(max-width:760px){ .tsp-sum.has-rk .tsp-rank{grid-column:1 / -1;border-left:0!important;border-top:1px solid var(--border)!important;} }
+  @media(max-width:640px){ .tsp-table .tsp-tm,.tsp-table .tsp-q,.tsp-table .tsp-p,.tsp-table .tsp-line,.tsp-table .tsp-rec,.tsp-table .tsp-site,.tsp-table .tsp-pf{display:none!important;}
+    .tsp-table .tsp-at{display:none!important;} .tsp-table td.tsp-sh,.tsp-table td.tsp-sc{font-size:11.5px!important;white-space:nowrap;}
+    .tsp-table td.tsp-o{max-width:none;} .tsp-table td.tsp-rkm span{margin-left:3px;} .tsp-table td.tsp-pf{font-size:11px!important;} }`;
   function ensureCss() { if (document.getElementById('tsp-css')) return; const s = document.createElement('style'); s.id = 'tsp-css'; s.textContent = CSS; document.head.appendChild(s); }
 
   const MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], DW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -491,19 +557,26 @@
     const playedAll = (opts.played || []).concat(fromFile).sort((a, b) => String(a.date).localeCompare(String(b.date)));
     if (fromFile.length) { let w = 0, l = 0, cw = 0, cl = 0;
       playedAll.forEach(x => { x.won ? w++ : l++; const cf = x.conf != null ? x.conf : /\(/.test(x.rec || ''); if (x.conf) { x.won ? cw++ : cl++; } x.rec = `${w}–${l}` + (x.conf ? ` (${cw}–${cl})` : ''); }); }
+    const T = opts.trail || {};
+    const wl = (a, b) => `<b class="${a > b ? 'tw' : 'tl'}">${a > b ? 'W' : 'L'}</b> ${a}–${b}`;
+    const oppRk = rk => rk ? `<sub class="tsp-ork" title="their rank in our ratings">${rk}</sub>` : '';
     playedAll.forEach(x => {          // results already on the books
-      const d = dParts(x.date);
+      const d = dParts(x.date), t = T[String(x.id)] || null;
+      const rk = (t && t.oppRk) || x.rank, q = quad(rk, x.site);
+      const mv = t && t.rkB && t.rkA ? t.rkB - t.rkA : 0;
       rows += `<tr class="${x.won ? 'w' : 'x'}${moCls(d.key)}" style="cursor:${x.href ? 'pointer' : 'default'}" onclick="${x.href ? `location.href='${x.href}'` : ''}">
         <td class="l dim tsp-d"><span class="tsp-dw">${d.dw} </span>${d.num}</td>
         <td class="l dim tsp-tm"></td>
-        <td class="dim tsp-rk">${x.rank || ''}</td>
-        <td class="l nm tsp-o">${logoImg(x.opp)}<span class="tsp-at">${x.site === 'A' ? 'at' : 'vs'} </span><a href="team.html?team=${encodeURIComponent(sn(x.opp))}" onclick="event.stopPropagation()">${sn(x.opp)}</a></td>
-        <td class="c strong tsp-sc">${x.won ? 'W' : 'L'} ${x.ms}–${x.os}${window.TDC_OT ? TDC_OT.chip(x.id) : ''}</td>
+        <td class="l nm tsp-o">${logoImg(x.opp)}<span class="tsp-at">${x.site === 'A' ? 'at' : 'vs'} </span><a href="team.html?team=${encodeURIComponent(sn(x.opp))}" onclick="event.stopPropagation()">${sn(x.opp)}</a>${oppRk(rk)}</td>
         <td class="c tsp-site">${x.site}</td>
-        <td class="c tsp-q">${quad(x.rank, x.site) ? 'Q' + quad(x.rank, x.site) : ''}</td>
-        <td class="tsp-pr"></td>
-        <td class="tsp-p"></td>
-        <td class="tsp-line tsp-rec" data-v="" title="record after this game">${x.rec}</td></tr>`;
+        <td class="c tsp-q">${q ? 'Q' + q : ''}</td>
+        <td class="c tsp-sh dim" title="our pregame projection">${t ? wl(t.should[0], t.should[1]) : ''}</td>
+        <td class="c strong tsp-sc">${wl(x.ms, x.os)}${window.TDC_OT ? TDC_OT.chip(x.id) : ''}</td>
+        <td class="tsp-p" title="pregame win chance">${t ? Math.round(t.p * 100) + '%' : ''}</td>
+        <td class="tsp-line" title="pregame line (− favored)">${t ? (t.line >= 0 ? '−' : '+') + Math.abs(t.line).toFixed(1) : ''}</td>
+        <td class="c tsp-pf" title="${t ? `${Math.abs(t.diff).toFixed(1)} points ${t.diff >= 0 ? 'better' : 'worse'} than our line · game rating ${t.rate.toFixed(1)} of 10` : ''}">${t ? `<span class="${t.diff >= 0 ? 'up' : 'dn'}">${t.diff >= 0 ? '▲' : '▼'} ${Math.abs(t.diff).toFixed(1)}</span>` : ''}</td>
+        <td class="c tsp-rkm" title="${t ? `our rank: #${t.rkB} before this game → #${t.rkA} after` : ''}">${t && t.rkA ? `#${t.rkA}${mv ? `<span class="${mv > 0 ? 'up' : 'dn'}">${mv > 0 ? '▲' : '▼'}${Math.abs(mv)}</span>` : '<span class="eq">–</span>'}` : ''}</td>
+        <td class="tsp-rec" title="record after this game">${x.rec}</td></tr>`;
     });
     R.rows.forEach(r => {
       const d = dParts(r.g.date);
@@ -521,30 +594,40 @@
       rows += `<tr class="${mc.trim()}"${pv ? ` style="cursor:pointer" onclick="location.href='${pv}'" title="open the game preview"` : ''}>
         <td class="l dim tsp-d"><span class="tsp-dw">${d.dw} </span>${d.num}</td>
         <td class="l dim tsp-tm"${r.g.tv ? ` title="${evEsc(r.g.tv)}"` : ''}>${r.g.time ? tipTxt(r.g.time) : '<span class="tsp-tba">TBA</span>'}${r.g.tv ? `<span class="tsp-tv">${evEsc(r.g.tv)}</span>` : ''}</td>
-        <td class="dim tsp-rk">${rk || ''}</td>
-        <td class="l nm tsp-o">${r.oppName ? logoImg(r.oppName) : '<i class="tsp-lg"></i>'}<span class="tsp-at">${r.venue === 'A' ? 'at' : 'vs'} </span>${oppTxt}${r.g.conf ? '<i class="cfdot" title="conference game"></i>' : ''}${r.event ? `<span class="tsp-ev" title="${evEsc(r.event)}"><span class="ev-l">${evEsc(evShort(r.event))}</span><span class="ev-s">${evEsc(evTiny(r.event))}</span></span>` : ''}</td>
-        <td class="c tsp-sc" title="${r.pace ? `${r.pace} possessions · total ${r.total}` : 'league-average total'}">${r.scoreMe}–${r.scoreOpp}</td>
+        <td class="l nm tsp-o"${r.opp && isFinite(r.opp.rating) ? ` title="their projected Power Rating ${sg(r.opp.rating)}"` : ''}>${r.oppName ? logoImg(r.oppName) : '<i class="tsp-lg"></i>'}<span class="tsp-at">${r.venue === 'A' ? 'at' : 'vs'} </span>${oppTxt}${oppRk(rk)}${r.g.conf ? '<i class="cfdot" title="conference game"></i>' : ''}${r.event ? `<span class="tsp-ev" title="${evEsc(r.event)}"><span class="ev-l">${evEsc(evShort(r.event))}</span><span class="ev-s">${evEsc(evTiny(r.event))}</span></span>` : ''}</td>
         <td class="c tsp-site" title="${siteTitle} · rest ${restTxt(r.mf)} vs ${r.known ? restTxt(r.of) : (r.oppName ? '?' : 'same')}${Math.abs(restD) >= 0.15 ? ` (${sg(restD)})` : ''}${r.mf.stint >= 2 ? ` · ${r.mf.stint}${r.mf.stint === 2 ? 'nd' : r.mf.stint === 3 ? 'rd' : 'th'} straight away` : ''} · situational edge ${sg(edge)}">${r.venue}</td>
         <td class="c tsp-q" title="NET-style quadrant: opponent rank ${rk || '—'} ${r.venue === 'H' ? 'at home' : r.venue === 'A' ? 'on the road' : 'on a neutral floor'}">${q ? 'Q' + q : ''}</td>
-        <td class="tsp-pr">${r.opp && isFinite(r.opp.rating) ? sg(r.opp.rating) : ''}</td>
+        <td class="c tsp-sh" title="${r.pace ? `${r.pace} possessions · total ${r.total}` : 'league-average total'}">${wl(r.scoreMe, r.scoreOpp)}</td>
+        <td class="c tsp-sc"></td>
         <td class="tsp-p" title="${Math.round(r.p0 * 100)}% on the line alone · ${pc}% across simulated seasons">${pc}%</td>
-        <td class="tsp-line">${r.margin >= 0 ? '−' : '+'}${Math.abs(r.margin).toFixed(1)}</td></tr>`;
+        <td class="tsp-line">${r.margin >= 0 ? '−' : '+'}${Math.abs(r.margin).toFixed(1)}</td>
+        <td class="tsp-pf"></td><td class="tsp-rkm"></td><td class="tsp-rec"></td></tr>`;
     });
+    // our rank after every game so far (oldest → newest), with the preseason rank in front
+    const tr = playedAll.map(x => T[String(x.id)]).filter(t => t && t.rkA);
+    let rkTile = '';
+    if (tr.length) {
+      const pts = [tr[0].rkB].concat(tr.map(t => t.rkA)), now = pts[pts.length - 1], mv = pts[0] - now;
+      const lo = Math.min(...pts), hi = Math.max(...pts), W0 = 150, H0 = 26, sp = Math.max(1, hi - lo);
+      const xy = pts.map((v, i) => [pts.length > 1 ? (i / (pts.length - 1)) * W0 : W0 / 2, 3 + ((v - lo) / sp) * (H0 - 6)]);
+      const svg = `<svg width="${W0}" height="${H0}" viewBox="0 0 ${W0} ${H0}" aria-hidden="true"><polyline fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" points="${xy.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ')}"/>${xy.map((p, i) => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${i === xy.length - 1 ? 3 : 2}" fill="var(--accent)"/>`).join('')}</svg>`;
+      rkTile = `<div class="tsp-tile tsp-rank" title="our rank before the season and after each game: ${pts.map(v => '#' + v).join(' → ')}"><div class="k">Our rank</div><div class="v">#${now}${mv ? `<small class="${mv > 0 ? 'up' : 'dn'}" style="color:${mv > 0 ? '#2e8b57' : '#c75d5d'}">${mv > 0 ? '▲' : '▼'}${Math.abs(mv)}</small>` : ''}</div><div class="s">#${pts[0]} preseason · ${tr.length} game${tr.length === 1 ? '' : 's'}</div>${svg}</div>`;
+    }
     const W = Math.round(R.expW), L = R.n - W, cw = Math.round(R.expCW), cl = R.confN - cw;
     // the projection already counts every game in the results file; add only played games it doesn't know yet
     const extra = (opts.played || []).filter(x => !(R.counted && R.counted.has(idOf(x))));
     const pw = extra.filter(x => x.won).length, pl = extra.length - pw;
     const sw = pw + (R.playedW || 0), sl = pl + (R.playedL || 0);
     const m = R.model || {};
-    const sum = `<div class="tsp-sum">
+    const sum = `<div class="tsp-sum${rkTile ? ' has-rk' : ''}">
       <div class="tsp-tile" title="likely range ${pw + R.lo}–${pl + R.n - R.lo} to ${pw + R.hi}–${pl + R.n - R.hi} (10th–90th pct of ${R.sims.toLocaleString()} simulated seasons)"><div class="k">Projected record</div><div class="v">${pw + W}–${pl + L}</div><div class="s">${(pw + R.expW).toFixed(1)} expected wins${sw + sl ? ` · ${sw}–${sl} so far` : ''}</div></div>
       <div class="tsp-tile" title="the record if the side we favor wins every game — runs high for good teams and low for bad ones (favorites lose some); the projected record is the honest expectation"><div class="k">Game-by-game</div><div class="v">${pw + R.pickW}–${pl + R.pickL}</div><div class="s">if every favorite wins${R.confN ? ` · ${R.pickCW}–${R.pickCL} conf` : ''}</div></div>
       <div class="tsp-tile"><div class="k">Conference</div><div class="v">${R.confN ? `${cw}–${cl}` : '—'}</div><div class="s">${R.confN ? `${R.expCW.toFixed(1)} of ${R.confN} league games` : 'no league games listed yet'}</div></div>
       <div class="tsp-tile"><div class="k">20+ wins</div><div class="v">${Math.round(R.p20 * 100)}%</div><div class="s">25+ ${Math.round(R.p25 * 100)}% · .500+ ${Math.round(R.pHalf * 100)}%</div></div>
-    </div>`;
+      ${rkTile}</div>`;
     const note = `<details class="tsp-note"><summary>How the line and win % work</summary><b>Line</b> = projected margin (− favored, + underdog), built from the ratings, the host's measured home edge, and rest: back-to-backs cost ${sg(m.rest && m.rest.b2b || 0)} pts, 8+ days off ${sg(m.rest && m.rest.r8 || 0)}, a season opener ${sg(m.rest && m.rest.opener || 0)} (${(m.n || 0).toLocaleString()} games since ${m.firstSeason || 2008}; road trips and win streaks measure ≈ 0). Hover a Site badge for that game's breakdown. <b>Win %</b> is the share of ${R.sims.toLocaleString()} simulated seasons, each drawing every team's true strength ±${R.tau} around its projection.</details>`;
     host.innerHTML = `<div class="tsp">${sum}<div class="sheet-wrap tsp-wrap"><table class="sheet dense tsp-table tsp-timed" data-fit-keep><thead><tr>
-      <th class="l">Date</th><th class="l" title="tip time (Eastern) · TV">Time · TV</th><th title="opponent's rank">Rk</th><th class="l">Opponent</th><th class="c" title="projected score">Score</th><th class="c" title="H home · A away · N neutral">Site</th><th class="c" title="NET-style quadrant">Quad</th><th title="opponent's projected Power Rating">Opp PRtg</th><th data-heat="1" title="win probability across the simulated seasons">Win %</th><th data-heat="-1" title="projected margin: − favored, + underdog">Line</th>
+      <th class="l tsp-d">Date</th><th class="l tsp-tm" title="tip time (Eastern) · TV">Time · TV</th><th class="l tsp-o" title="opponent · small number = their rank in our ratings">Opponent</th><th class="c tsp-site" title="H home · A away · N neutral">Site</th><th class="c tsp-q" title="NET-style quadrant">Quad</th><th class="c tsp-sh" title="our projected score (before the game, for results)">Should</th><th class="c tsp-sc" title="final score">Did</th><th class="tsp-p" data-heat="1" title="win probability (pregame, for results)">Win %</th><th class="tsp-line" data-heat="-1" title="projected margin: − favored, + underdog">Line</th><th class="c tsp-pf" title="how many points better (▲) or worse (▼) than our line they played">vs Line</th><th class="c tsp-rkm" title="our rank after the game, and how far it moved">Rank</th><th class="tsp-rec" title="record after the game">Record</th>
     </tr></thead><tbody>${rows}</tbody></table></div>${note}</div>`;
     shade(host);
   }
@@ -638,5 +721,5 @@
   // shared simulation pieces for the conference-tournament projection (tdc-conftourney.js): the same
   // per-sim team strength draw every schedule uses, the hashed coins, and the 2026-27 league map
   const sim = { TAU, U, hkey, zTeam, leagueOf, members: () => _members, tame, phi, rate: rateOf, tau: tauOf, str: strOf, results: () => RES, resultsMeta: () => _results && { updated: _results.updated, n: (_results.games || []).length } };
-  g.TDCSched = { load, project, projectAll, render, renderPast, gamesFor, extrasFor, lineFor, SEASON, sim };
+  g.TDCSched = { load, project, projectAll, trail, render, renderPast, gamesFor, extrasFor, lineFor, SEASON, sim };
 })(window);

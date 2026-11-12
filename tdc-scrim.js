@@ -53,6 +53,7 @@
         return rank <= c[0] ? 1 : rank <= c[1] ? 2 : rank <= c[2] ? 3 : 4; };
       var enc = function (v) { return encodeURIComponent(v).replace(/'/g, '%27'); };
       // the SAME columns, formats and click-through as the season table (tdc-schedule.js render)
+      var wl = function (a, b) { return '<b class="' + (a > b ? 'tw' : 'tl') + '">' + (a > b ? 'W' : 'L') + '</b> ' + a + '–' + b; };
       var rows = mine.slice().sort(function (p, q) { return p.date.localeCompare(q.date); }).map(function (x) {
         var home = x.home === me, opp = home ? x.away : x.home, site = x.neutral ? 'N' : home ? 'H' : 'A';
         var P = price(x, byFull, S.eff), res = S.results[x.id], ot = byFull[opp];
@@ -68,15 +69,18 @@
         return '<tr data-noheat class="scrim-row ' + (played ? (ms > os ? 'w' : 'x') : '') + '" style="cursor:pointer" onclick="location.href=\'' + href + '\'" title="' + (played ? 'open the box score' : 'open the game preview') + '">' +
           '<td class="l dim tsp-d"><span class="tsp-dw">' + DW[dd.getDay()] + ' </span>' + (dd.getMonth() + 1) + '/' + dd.getDate() + '</td>' +
           '<td class="l dim tsp-tm"></td>' +
-          '<td class="dim tsp-rk">' + (ot && ot.rank ? ot.rank : '') + '</td>' +
           '<td class="l nm tsp-o">' + (ol ? '<img class="tsp-lg" src="' + ol + '" alt="" loading="lazy" onerror="this.style.visibility=\'hidden\'">' : '<i class="tsp-lg"></i>') +
-            (ot ? '<a href="team.html?team=' + encodeURIComponent(ot.team) + '" onclick="event.stopPropagation()">' + esc(sn(opp, byFull)) + '</a>' : esc(sn(opp, byFull))) + '</td>' +
-          '<td class="c ' + (played ? 'strong ' : '') + 'tsp-sc">' + score + '</td>' +
+            (ot ? '<a href="team.html?team=' + encodeURIComponent(ot.team) + '" onclick="event.stopPropagation()">' + esc(sn(opp, byFull)) + '</a>' : esc(sn(opp, byFull))) +
+            (ot && ot.rank ? '<sub class="tsp-ork">' + ot.rank + '</sub>' : '') + '</td>' +
           '<td class="c tsp-site">' + site + '</td>' +
           '<td class="c tsp-q">' + (q ? 'Q' + q : '') + '</td>' +
-          '<td class="tsp-pr">' + (!played && ot && isFinite(ot.rating) ? sg(ot.rating) : '') + '</td>' +
-          '<td class="tsp-p">' + (!played && wp != null ? Math.round(wp) + '%' : '') + '</td>' +
-          '<td class="tsp-line">' + (played || my == null ? '' : (my >= 0 ? '−' : '+') + Math.abs(my).toFixed(1)) + '</td></tr>';
+          // same columns as the season table (Nov 12 2026): Should = our line's score, Did = the final
+          '<td class="c tsp-sh' + (played ? ' dim' : '') + '">' + (P && P.tot != null && my != null ? wl(Math.round((P.tot + my) / 2), Math.round((P.tot - my) / 2)) : '') + '</td>' +
+          '<td class="c ' + (played ? 'strong ' : '') + 'tsp-sc">' + (played ? wl(ms, os) : '') + '</td>' +
+          '<td class="tsp-p">' + (wp != null ? Math.round(wp) + '%' : '') + '</td>' +
+          '<td class="tsp-line">' + (my == null ? '' : (my >= 0 ? '−' : '+') + Math.abs(my).toFixed(1)) + '</td>' +
+          '<td class="c tsp-pf">' + (played && my != null ? (function (d) { return '<span class="' + (d >= 0 ? 'up' : 'dn') + '">' + (d >= 0 ? '▲' : '▼') + ' ' + Math.abs(d).toFixed(1) + '</span>'; })((ms - os) - my) : '') + '</td>' +
+          '<td class="c tsp-rkm"></td><td class="tsp-rec"></td></tr>';
       }).join('');
       // one table with the season: the scrimmages are its first section, so every column, width and
       // colour matches; a section row carries the "unofficial" label. Shaded on the season rows'
@@ -93,7 +97,7 @@
       }
       var wrap = document.createElement('div'); wrap.className = 'scrim-wrap';
       wrap.innerHTML = '<div class="sheet-wrap tsp-wrap" style="max-height:none;margin-bottom:22px;"><table class="sheet dense tsp-table tsp-timed"><thead><tr>' +
-        '<th class="l">Date</th><th class="l">Time · TV</th><th>Rk</th><th class="l">Opponent</th><th class="c">Score</th><th class="c">Site</th><th class="c">Quad</th><th>Opp PRtg</th><th data-heat="1">Win %</th><th data-heat="-1">Line</th>' +
+        '<th class="l tsp-d">Date</th><th class="l tsp-tm">Time · TV</th><th class="l tsp-o">Opponent</th><th class="c tsp-site">Site</th><th class="c tsp-q">Quad</th><th class="c tsp-sh">Should</th><th class="c tsp-sc">Did</th><th class="tsp-p" data-heat="1">Win %</th><th class="tsp-line" data-heat="-1">Line</th><th class="c tsp-pf">vs Line</th><th class="c tsp-rkm">Rank</th><th class="tsp-rec">Record</th>' +
         '</tr></thead><tbody><tr class="sec scrim-sec"><td class="l" colspan="10">Preseason scrimmages · unofficial · not in the record or season stats · weighted lightly into projections by the Reality Meter</td></tr>' + rows + '</tbody></table></div>';
       var tiles = host.querySelector('.tsp-sum');
       if (tiles && tiles.parentNode) tiles.parentNode.insertBefore(wrap, tiles.nextSibling); else host.insertBefore(wrap, host.firstChild);
