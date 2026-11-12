@@ -386,8 +386,11 @@ for k, t in P27.items():
     t['calib'] = h; used[h] += 1
 
 vals = [(t['ORtg'], t['DRtg']) for t in P27.values() if t.get('calib') is not None]
-if not vals or not all(90 <= o <= 135 and 80 <= d <= 125 for o, d in vals):
-    raise SystemExit('calibrated ratings out of range — refusing to write')
+# a sanity fence for broken inputs, not a talent floor: real D-I seasons since 2009 run ORtg 72.7–125.1, DRtg 81.5–125.3.
+# The old 90 floor stopped every nightly rebuild Nov 6–11 2026 over one weak team (Maryland Eastern Shore, 88.2).
+_bad = [(k, t['ORtg'], t['DRtg']) for k, t in P27.items() if t.get('calib') is not None and not (70 <= t['ORtg'] <= 135 and 75 <= t['DRtg'] <= 130)]
+if not vals or _bad:
+    raise SystemExit(f'calibrated ratings out of range — refusing to write: {_bad[:5]}')
 
 # national-style percentiles within the projected pool (Team DNA tab reads t.pct)
 DIRS = {'net': 1, 'ORtg': 1, 'DRtg': -1}
