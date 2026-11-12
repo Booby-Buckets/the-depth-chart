@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="tdc-loading.js?v=5"></script>
+  <link rel="stylesheet" href="tdc-a11y.css?v=3">
+  <script src="tdc-a11y.js?v=2" defer></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Rankings by Date — The Depth Chart</title>
+  <meta name="description" content="Pick any stretch of the 2026-27 season and see how every team was ranked at the start and end of it, how they did in those games, and how much of each rating is still preseason.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Depth Chart">
+  <meta property="og:title" content="Rankings by Date — The Depth Chart">
+  <meta property="og:description" content="Where every team ranked on any date of the 2026-27 season, and what they did in between.">
+  <meta property="og:url" content="https://www.thedepthchartcbb.com/rankings-by-date.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <script src="tdc-theme.js?v=5"></script>
+  <script src="auth.js?v=sales2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="team-colors.js?v=13"></script>
+  <script src="tdc-ratings.js?v=44"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html,body{background:var(--bg);}
+    body{color:var(--text);font-family:'Inter',system-ui,sans-serif;font-weight:500;min-height:100vh;}
+    .page{padding:30px 0 60px;}
+    .eyebrow{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--text2);margin-bottom:6px;}
+    h1{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:44px;letter-spacing:-.02em;line-height:1.05;}
+    .lede{font-size:16px;color:var(--text2);margin:8px 0 18px;max-width:820px;line-height:1.5;} .lede b{color:var(--text);}
+    .ctl{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end;margin:6px 0 16px;}
+    .ctl label{display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
+    .ctl input[type=date],.ctl select{font:600 14px Inter,system-ui,sans-serif;color:var(--text);background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:7px 10px;min-height:36px;}
+    .ctl .chk{flex-direction:row;align-items:center;gap:7px;font-size:12px;letter-spacing:.04em;text-transform:none;font-weight:600;color:var(--text2);min-height:36px;}
+    .seg{display:inline-flex;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:3px;gap:3px;flex-wrap:wrap;}
+    .seg button{font:700 12px Inter,system-ui,sans-serif;padding:7px 12px;border:0;border-radius:5px;background:none;color:var(--text3);cursor:pointer;white-space:nowrap;}
+    .seg button.on{background:var(--text);color:var(--bg);}
+    .band{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 18px;}
+    @media(max-width:860px){.band{grid-template-columns:repeat(2,minmax(0,1fr));}}
+    .tile{border:1px solid var(--border2);border-radius:10px;padding:12px 14px;background:var(--bg2);min-width:0;}
+    .tile .k{font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);}
+    .tile .v{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .tile .s{font-size:12px;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .tm{display:inline-flex;align-items:center;gap:8px;color:inherit;text-decoration:none;font-weight:700;}
+    .tm img,.tm i{width:20px;height:20px;object-fit:contain;flex:0 0 20px;}
+    .tm:hover span{text-decoration:underline;}
+    .mv{font-weight:800;font-variant-numeric:tabular-nums;} .mv.up{color:#2f9e5b;} .mv.dn{color:#d0573f;} .mv.z{color:var(--text3);font-weight:600;}
+    .gl{display:flex;flex-wrap:wrap;gap:4px;}
+    .g{display:inline-flex;gap:4px;align-items:center;font-size:11.5px;font-weight:600;padding:2px 7px;border-radius:5px;background:var(--bg3,var(--bg2));border:1px solid var(--border2);white-space:nowrap;}
+    .g b{font-weight:800;} .g.w b{color:#2f9e5b;} .g.l b{color:#d0573f;}
+    .pre{display:inline-block;width:46px;height:6px;border-radius:3px;background:var(--border2);vertical-align:middle;margin-right:6px;overflow:hidden;} .pre i{display:block;height:100%;background:var(--text3);}
+    .sec{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:36px 0 10px;padding-bottom:8px;border-bottom:1px solid var(--border2);flex-wrap:wrap;}
+    .sec h2{font-size:13px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;}
+    .sec span{font-size:13px;color:var(--text2);}
+    .note{font-size:13px;color:var(--text2);line-height:1.6;max-width:900px;} .note b{color:var(--text);}
+    .note p+p{margin-top:8px;}
+    #tbl td.l{white-space:nowrap;}
+    @media(max-width:640px){h1{font-size:32px;} .lede{font-size:14.5px;} .tile .v{font-size:20px;}}
+  </style>
+  <link rel="stylesheet" href="tdc-skin.css?v=15"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+  <link rel="stylesheet" href="tdc-column.css?v=4"/>
+  <link rel="stylesheet" href="tdc-ui.css?v=16"/>
+  <script src="tdc-pwa.js?v=3" defer></script>
+</head>
+<body>
+<script src="tdc-nav.js?v=89"></script>
+<div class="page">
+  <div class="eyebrow">Rankings · 2026-27</div>
+  <h1>Rankings by Date</h1>
+  <p class="lede">Pick any stretch of the season. You get each team's rank <b>going in</b> and <b>coming out</b>, what it did in those games, and how much of its rating is still the preseason projection. Ranks are re-solved from the results through each date, so they match the Team Rankings page.</p>
+
+  <div class="ctl">
+    <label>From<input type="date" id="dFrom"></label>
+    <label>To<input type="date" id="dTo"></label>
+    <span class="seg" id="presets"><button data-p="3">Last 3 days</button><button data-p="7">Last 7 days</button><button data-p="all">Since opener</button></span>
+    <label>Conference<select id="conf"><option value="">All</option></select></label>
+    <label class="chk"><input type="checkbox" id="played"> Played in this stretch</label>
+  </div>
+
+  <div class="band" id="band"></div>
+
+  <div class="sheet-wrap" style="--c1:52px;--c2:200px;">
+    <table class="sheet dense freeze2" id="tbl">
+      <thead><tr>
+        <th class="rk sort" data-k="rk" title="Rank after the last day of the stretch">Rk</th>
+        <th class="l sort" data-k="name">Team</th>
+        <th class="l">Conf</th>
+        <th class="sort" data-k="was" title="Rank going into the first day of the stretch">Was</th>
+        <th class="sort" data-k="mv" title="Places moved over the stretch">Move</th>
+        <th class="sort" data-k="rw" title="Record in the stretch">Stretch</th>
+        <th class="l">Games in the stretch</th>
+        <th class="sort" data-k="rt" title="Power Rating after the stretch (points better than an average D-I team, neutral floor)">Rating</th>
+        <th class="sort" data-k="drt" title="Rating change over the stretch">±</th>
+        <th class="sort" data-k="sw" title="Season record through the last day">Season</th>
+        <th class="sort" data-k="pre" title="How much of the rating is still the preseason projection: 8 ÷ (8 + games played)">Preseason</th>
+      </tr></thead>
+      <tbody id="body"><tr><td colspan="11" class="empty">Loading…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="sec"><h2>How much preseason counts</h2><span id="preSub"></span></div>
+  <div class="note" id="preNote"></div>
+</div>
+
+<script>
+(function(){
+  const SB='https://izlqhnxowdhtdofkwrho.supabase.co', KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+  const OPENER='2026-11-01', ADJ_K=8;
+  const $=id=>document.getElementById(id);
+  const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+  const iso=d=>d.toISOString().slice(0,10);
+  const addDays=(s,n)=>{ const d=new Date(s+'T12:00:00Z'); d.setUTCDate(d.getUTCDate()+n); return iso(d); };
+  const fmt=s=>new Date(s+'T12:00:00Z').toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});
+  let TEAMS=[], BY={}, GAMES=[], LAST=OPENER, SORT='rk', DIR=1;
+
+  // rank + rating of every D-I team with every final through `through` (inclusive) counted — the same solve the Team
+  // Rankings page runs (TDC_RATINGS.applyForm: preseason = 8 games, opponent + venue adjusted)
+  function standAt(through){
+    const rows=TEAMS.map(t=>({full:t.full, rating:t.pre, hcaOff:t.hcaOff||0}));
+    const gs=GAMES.filter(g=>g.date<=through).map(g=>({home:g.home, away:g.away, home_score:g.hs, away_score:g.as, neutral:g.neutral}));
+    TDC_RATINGS.applyForm(rows, gs);
+    const out={}; rows.slice().sort((a,b)=>b.rating-a.rating).forEach((r,i)=>{ out[r.full]={rk:i+1, rating:r.rating, gp:r.formGp}; });
+    return out;
+  }
+  function shortOf(full){ const t=BY[full]; if(t) return t.short; return full.replace(/\s+\S+$/,''); }
+  function logo(full){ const c=window.tdcTeamColor&&tdcTeamColor((BY[full]&&BY[full].short)||full)||tdcTeamColor&&tdcTeamColor(full); const u=c&&c.logo; return u?(window.tdcLogoSmall?tdcLogoSmall(u,40):u):null; }
+
+  let ROWS=[];
+  function compute(){
+    let from=$('dFrom').value||OPENER, to=$('dTo').value||LAST;
+    if(from>to){ const x=from; from=to; to=x; }
+    const before=standAt(addDays(from,-1)), after=standAt(to);
+    const rec={}, seas={};
+    GAMES.forEach(g=>{ if(g.date>to) return;
+      [[g.home,g.away,g.hs,g.as,g.neutral?'N':'H'],[g.away,g.home,g.as,g.hs,g.neutral?'N':'A']].forEach(([t,o,p,q,v])=>{
+        const s=seas[t]||(seas[t]={w:0,l:0}); p>q?s.w++:s.l++;
+        if(g.date>=from){ const r=rec[t]||(rec[t]={w:0,l:0,g:[]}); p>q?r.w++:r.l++; r.g.push({o,p,q,v,date:g.date}); }
+      }); });
+    ROWS=TEAMS.map(t=>{ const a=after[t.full], b=before[t.full], r=rec[t.full]||{w:0,l:0,g:[]}, s=seas[t.full]||{w:0,l:0};
+      return {t, rk:a.rk, was:b.rk, mv:b.rk-a.rk, rt:a.rating, drt:a.rating-b.rating, rw:r.w-r.l/100+(r.g.length?0:-99), r, s, sw:s.w-s.l/100,
+        pre:ADJ_K/(ADJ_K+a.gp), gp:a.gp, name:t.short}; });
+    window._RBD={from,to};
+    band(from,to); render(); preNote();
+  }
+  function band(from,to){
+    const played=ROWS.filter(r=>r.r.g.length), games=GAMES.filter(g=>g.date>=from&&g.date<=to).length;
+    const up=ROWS.slice().sort((a,b)=>b.mv-a.mv)[0], dn=ROWS.slice().sort((a,b)=>a.mv-b.mv)[0];
+    const T=(k,v,s)=>`<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+    $('band').innerHTML=T('Stretch', from===to?fmt(from):fmt(from)+' – '+fmt(to), `${games} games · ${played.length} teams played`)+
+      T('Biggest riser', up&&up.mv>0?esc(up.t.short):'—', up&&up.mv>0?`▲${up.mv} to #${up.rk} (${up.r.w}–${up.r.l})`:'no movement')+
+      T('Biggest drop', dn&&dn.mv<0?esc(dn.t.short):'—', dn&&dn.mv<0?`▼${-dn.mv} to #${dn.rk} (${dn.r.w}–${dn.r.l})`:'no movement')+
+      T('Still preseason', Math.round(100*ROWS.reduce((s,r)=>s+r.pre,0)/(ROWS.length||1))+'%', 'of the average team’s rating');
+  }
+  function render(){
+    const cf=$('conf').value, onlyP=$('played').checked;
+    let rows=ROWS.filter(r=>(!cf||r.t.conf===cf)&&(!onlyP||r.r.g.length));
+    rows.sort((a,b)=>{ if(SORT==='name') return a.name.localeCompare(b.name)*DIR; return ((a[SORT]-b[SORT])*DIR)||(a.rk-b.rk); });
+    document.querySelectorAll('#tbl th[data-k]').forEach(th=>{ th.classList.toggle('on',th.dataset.k===SORT); });
+    $('body').innerHTML=rows.length?rows.map(x=>{
+      const lg=logo(x.t.full), mv=x.mv>0?`<span class="mv up">▲${x.mv}</span>`:x.mv<0?`<span class="mv dn">▼${-x.mv}</span>`:'<span class="mv z">–</span>';
+      const gl=x.r.g.length?'<div class="gl">'+x.r.g.map(g=>`<span class="g ${g.p>g.q?'w':'l'}" title="${fmt(g.date)}"><b>${g.p>g.q?'W':'L'}</b>${g.p}-${g.q} ${g.v==='A'?'@':g.v==='N'?'vs':'vs'} ${esc(shortOf(g.o))}${g.v==='N'?' (N)':''}</span>`).join('')+'</div>':'<span class="dim">did not play</span>';
+      return `<tr><td class="rk">${x.rk}</td>`+
+        `<td class="l nm"><a class="tm" href="team.html?team=${encodeURIComponent(x.t.short)}">${lg?`<img src="${lg}" alt="" loading="lazy">`:'<i></i>'}<span>${esc(x.t.short)}</span></a></td>`+
+        `<td class="l dim">${esc(x.t.conf||'')}</td><td>${x.was}</td><td>${mv}</td>`+
+        `<td>${x.r.g.length?x.r.w+'–'+x.r.l:'<span class="dim">0–0</span>'}</td><td class="l">${gl}</td>`+
+        `<td class="strong">${x.rt.toFixed(1)}</td><td class="${x.drt>0.05?'up':x.drt<-0.05?'dn':'dim'}">${x.drt>0?'+':''}${x.drt.toFixed(1)}</td>`+
+        `<td>${x.s.w}–${x.s.l}</td><td title="${x.gp} games played"><span class="pre"><i style="width:${Math.round(x.pre*100)}%"></i></span>${Math.round(x.pre*100)}%</td></tr>`;
+    }).join(''):'<tr><td colspan="11" class="empty">No teams match.</td></tr>';
+  }
+  function preNote(){
+    const gp=ROWS.map(r=>r.gp), avg=gp.reduce((a,b)=>a+b,0)/(gp.length||1);
+    const pts=ROWS.map(r=>r.rt).sort((a,b)=>b-a), per=(a,b)=>((b-a)/(pts[a-1]-pts[b-1])).toFixed(0);
+    $('preSub').textContent='through '+fmt(window._RBD.to);
+    $('preNote').innerHTML=`<p>Every team starts with its <b>preseason projection counted as 8 games</b>. Each real game is then added, adjusted for the opponent and the venue. After 1 game the rating is 89% preseason, after 4 games 67%, after 8 games 50%, after 24 games 25%. It never goes away completely, because in our backtests (69,000 games) keeping it made next week's predictions more accurate than dropping it.</p>`+
+      `<p>The average team has played <b>${avg.toFixed(1)}</b> games, so its rating is still about <b>${Math.round(100*ADJ_K/(ADJ_K+avg))}%</b> preseason. Ranks still move a lot because teams are packed tightly: in the middle of the pack, one point of rating is worth about <b>${per(75,150)} places</b> (ranks 75–150), and further down about <b>${per(150,250)}</b>. One surprising result moves a team about 1–2 points, which is a big jump in rank but a small change in how good we think the team is.</p>`;
+  }
+
+  // controls
+  function preset(p){ const to=LAST; $('dTo').value=to; $('dFrom').value=p==='all'?OPENER:addDays(to,-(+p-1));
+    document.querySelectorAll('#presets button').forEach(b=>b.classList.toggle('on',b.dataset.p===String(p))); compute(); }
+  $('presets').addEventListener('click',e=>{ const b=e.target.closest('button'); if(b) preset(b.dataset.p); });
+  ['dFrom','dTo'].forEach(id=>$(id).addEventListener('change',()=>{ document.querySelectorAll('#presets button').forEach(b=>b.classList.remove('on')); compute(); }));
+  $('conf').addEventListener('change',render); $('played').addEventListener('change',render);
+  document.querySelectorAll('#tbl th[data-k]').forEach(th=>th.addEventListener('click',()=>{ const k=th.dataset.k;
+    if(SORT===k) DIR=-DIR; else { SORT=k; DIR=(k==='rk'||k==='was'||k==='name')?1:-1; } render(); }));
+
+  Promise.all([
+    fetch(SB+'/rest/v1/predictive_ratings?select=data&season=eq.2027',{headers:{apikey:KEY}}).then(r=>r.json()),
+    fetch('scripts/data/results_2027.json?h='+new Date().toISOString().slice(0,13),{cache:'no-cache'}).then(r=>r.ok?r.json():null),
+  ]).then(([pr,res])=>{
+    const D=pr&&pr[0]&&pr[0].data;
+    TEAMS=(D&&D.teams||[]).filter(t=>t.full).map(t=>({full:t.full, short:t.team||t.full, conf:t.conf||'', pre:t.preRating!=null?+t.preRating:+t.rating, hcaOff:t.hcaOff||0}));
+    TEAMS.forEach(t=>{ BY[t.full]=t; });
+    GAMES=(res&&res.games||[]).map(a=>({date:a[1], home:res.teams[a[2]], away:res.teams[a[3]], hs:a[4], as:a[5], neutral:!!a[6]})).filter(g=>g.hs!=null&&g.as!=null);
+    LAST=GAMES.reduce((m,g)=>g.date>m?g.date:m,OPENER);
+    $('dFrom').min=$('dTo').min=OPENER; $('dFrom').max=$('dTo').max=LAST;
+    const confs=[...new Set(TEAMS.map(t=>t.conf).filter(Boolean))].sort();
+    $('conf').innerHTML='<option value="">All</option>'+confs.map(c=>`<option>${esc(c)}</option>`).join('');
+    const q=new URLSearchParams(location.search);
+    if(q.get('from')||q.get('to')){ $('dFrom').value=q.get('from')||OPENER; $('dTo').value=q.get('to')||LAST; compute(); } else preset('3');
+  }).catch(e=>{ $('body').innerHTML='<tr><td colspan="11" class="empty">Could not load the rankings.</td></tr>'; });
+})();
+</script>
+<script src="tdc-version.js?v=2"></script>
+<script src="tdc-sheets.js?v=2"></script>
+</body>
+</html>

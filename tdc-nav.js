@@ -25,6 +25,7 @@
     ['Rankings', [
       ['#This season'],
       ['index.html',           'Team Rankings',          'All 365 teams, best to worst'],
+      ['rankings-by-date.html','Rankings by Date',       'Where every team ranked on any date, and what it did since'],
       ['roster.html',          'Player Rankings',        'Every player by overall'],
       ['conferences.html',     'Conferences & Standings','League tables and conference ratings'],
       ['predict.html',         'Predictive Ratings',     'Who wins going forward'],
