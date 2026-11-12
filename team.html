@@ -6329,9 +6329,9 @@ function _initTeamShot(){
   try{ _initTeamAssistWeb(); }catch(e){}
   var sel=document.getElementById('teamShotSeason'); if(!sel) return;
   // ESPN shot locations exist back to 2013-14 (thin before 2024-25) — offer every season; empty ones say so
-  var yrs=[]; for(var y=2026;y>=2014;y--) yrs.push(y);
+  var yrs=[]; for(var y=2027;y>=2014;y--) yrs.push(y);   // 2026-27 shots come in nightly (results.yml)
   sel.innerHTML=yrs.map(function(y){return '<option value="'+y+'">'+((y-1)+'-'+(''+y).slice(2))+'</option>';}).join('');
-  loadTeamShotChart(2026);
+  loadTeamShotChart(2027);
 }
 async function loadTeamShotChart(season){
   var host=document.getElementById('teamShotHost'); if(!host||!window.TDC_SHOTCHART) return;
@@ -7709,8 +7709,8 @@ function onRosterSeason(v){
   if(_schedInit){ loadSchedule(); }   // schedule follows the depth-chart season
   window._dnaSeason = String(_rosterSeason);
   var _dnaP=document.getElementById('panel-dna'); if(_dnaP && _dnaP.classList.contains('active')) renderTeamDNA();
-  // the shot chart / shot flow block follows the roster season too (2026-27 roster → last played season)
-  var _ss=document.getElementById('teamShotSeason'), _shP=document.getElementById('panel-shots'); if(_ss){ _ss.value=String(_sy); if(window._teamShotInit && _shP && _shP.classList.contains('active')) loadTeamShotChart(_sy); }
+  // the shot chart / shot flow block follows the roster season too (2026-27 shots are live)
+  var _ss=document.getElementById('teamShotSeason'), _shP=document.getElementById('panel-shots'); if(_ss){ var _shy=Math.min(_rosterSeason,2027); _ss.value=String(_shy); if(window._teamShotInit && _shP && _shP.classList.contains('active')) loadTeamShotChart(_shy); }
   var _trP=document.getElementById('panel-trends'); if(_trP && _trP.classList.contains('active')) _renderTrendsTab();
   // lineups follow the same picker (it has no season control of its own on this page)
   var _luP=document.getElementById('panel-lineups'); if(_luP && _luP.classList.contains('active') && window.TDCLineupHist){ _resolveGamesKey().catch(()=>null).then(full=>TDCLineupHist.render(document.getElementById('lineupHistHost'), full||teamMascot(), { season:_rosterSeason, lockSeason:true })); }
