@@ -2747,6 +2747,23 @@ async function init(){
             fg3_per_min:_r('tpm'), fg3a_per_min:_r('tpa'), fg3_pct:S('tpa')>0?S('tpm')/S('tpa'):null, ft_per_min:_r('ftm'), fta_per_min:_r('fta'), ft_pct:S('fta')>0?S('ftm')/S('fta'):null,
             orb_per_min:_r('oreb'), drb_per_min:_r('dreb'), stl_per_min:_r('stl'), blk_per_min:_r('blk'), tov_per_min:_r('tov'), pf_per_min:_r('pf') };
           window._live27._advanced={ ts_pct:_tsa>0?S('pts')/(2*_tsa):null };
+          // the rest of the Advanced row (owner, Nov 12 2026: real 2026-27 stats wherever we have them): usage, rebound,
+          // assist, steal, block and turnover rates from his games + his team's and opponents' season totals
+          // (real_lines_2027.json via TDCReal.teamRaw), the team totals scaled to the share of games he played
+          const _tmFull=_pl[_pl.length-1].team||'';
+          if(window.TDCReal&&TDCReal.teamRaw) TDCReal.ready.then(function(){ try{
+            const T=TDCReal.teamRaw(_tmFull); if(!T||!T.opp||!(T.g>0)||!(_m>0)) return;
+            const f=Math.min(1,n/T.g), t=k=>(+T[k]||0)*f, o=k=>(+T.opp[k]||0)*f, tMP=(+T.min||0)*f, r=tMP/5/_m, pc=v=>isFinite(v)?Math.round(v*10)/10:null;
+            const oPoss=o('fga')-o('oreb')+o('tov')+0.475*o('fta');
+            Object.assign(window._live27._advanced,{
+              usg_pct:pc(100*(S('fga')+0.44*S('fta')+S('tov'))*r/(t('fga')+0.44*t('fta')+t('tov'))),
+              orb_pct:pc(100*S('oreb')*r/(t('oreb')+o('dreb'))), drb_pct:pc(100*S('dreb')*r/(t('dreb')+o('oreb'))),
+              trb_pct:pc(100*(S('oreb')+S('dreb'))*r/(t('oreb')+t('dreb')+o('oreb')+o('dreb'))),
+              ast_pct:pc(100*S('ast')/((_m/(tMP/5))*t('fgm')-S('fgm'))),
+              stl_pct:pc(100*S('stl')*r/oPoss), blk_pct:pc(100*S('blk')*r/(o('fga')-o('tpa'))),
+              tov_pct:pc(100*S('tov')/(S('fga')+0.44*S('fta')+S('tov'))) });
+            if(typeof _rerenderStatTables==='function') _rerenderStatTables();
+          }catch(e){} });
         }
       }
     }catch(e){ console.warn('2026-27 box scores',e); }
@@ -3264,17 +3281,21 @@ function _distSvg(arr,val,mean,lo,hi,tc){
 }
 function _segSync(id,idx){var seg=document.getElementById(id);if(!seg)return;var b=seg.querySelectorAll('button');for(var i=0;i<b.length;i++)b[i].classList.toggle('on',i===idx);}
 var _distPool=null;
+// the 2026-27 stop on the slider is his REAL season once he has TDCReal.MIN_G (5) games, the projection before that
+function _distReal27(){ return !!(window._live27&&_live27.gp>=((window.TDCReal&&TDCReal.MIN_G)||5)); }
+function _distLbl(s){ return s==='2627'?'2026-27 projected':s==='2027'?'2026-27 so far':((+s-1)+'-'+String(s).slice(2)+' actual'); }
 function onDistSlide(v){
-  var s=(+v>=2027)?'2627':String(v);
+  var s=(+v>=2027)?(_distReal27()?'2027':'2627'):String(v);
   var lbl=document.getElementById('distSliderLbl');
-  if(lbl) lbl.textContent=(+v>=2027)?'2026-27 projected':((v-1)+'-'+String(v).slice(2)+' actual');
+  if(lbl) lbl.textContent=_distLbl(s);
   setDistSeason(s);
 }
 async function setDistSeason(s){
   window._distSeason=s;
-  var sl=document.getElementById('distSlider'); if(sl) sl.value=(s==='2627')?'2027':s;
-  var lbl=document.getElementById('distSliderLbl'); if(lbl) lbl.textContent=(s==='2627')?'2026-27 projected':((+s-1)+'-'+String(s).slice(2)+' actual');
-  var host=document.getElementById('distSection'); if(host&&!_distCache(s)) host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Loading '+(s==='2627'?'2026-27 projected':_pexpSeasonLbl(s))+'…</div>';
+  if(s==='2627'&&_distReal27()) s=window._distSeason='2027';
+  var sl=document.getElementById('distSlider'); if(sl) sl.value=(s==='2627'||s==='2027')?'2027':s;
+  var lbl=document.getElementById('distSliderLbl'); if(lbl) lbl.textContent=_distLbl(s);
+  var host=document.getElementById('distSection'); if(host&&!_distCache(s)) host.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Loading '+_distLbl(s)+'…</div>';
   _distPool=(s==='2627')?window._tdcAllPlayers:await loadPexpSeason(s);
   renderDist();
 }
@@ -3308,6 +3329,7 @@ function renderDist(){
   // historical year (from career history), else their current actual stats.
   var myLine;
   if(season==='2627') myLine=playerProjLine();
+  else if(season==='2027') myLine=window._live27?Object.assign({},player,window._live27):player;
   else { var yr=(season==='all')?2026:+season, rws=(careerHistory||[]).filter(function(s2){return +s2.season_year===yr && s2.ppg!=null;});
     myLine=rws.length?rws.sort(function(a,b){return (+b.gp||0)-(+a.gp||0);})[0]:player; }
   if(myLine&&myLine._advanced) myLine=Object.assign({},myLine,_advFlat(myLine._advanced));
@@ -3337,7 +3359,7 @@ function renderDist(){
       '<div class="dist-axis"><span>'+loTxt+'</span><span>avg</span><span>'+hiTxt+'</span></div>'+
     '</div>';
   }).join('');
-  var capPop=pop==='grp'?('vs '+grpName):'vs All D1', capSeason=season==='2627'?'2026-27 projected':(season==='2026'?'2025-26 actual':_pexpSeasonLbl(season));
+  var capPop=pop==='grp'?('vs '+grpName):'vs All D1', capSeason=season==='2627'?'2026-27 projected':season==='2027'?'2026-27 so far':(season==='2026'?'2025-26 actual':_pexpSeasonLbl(season));
   host.innerHTML='<div class="dist-cap">'+capPop+' &middot; '+capSeason+' &middot; '+lines.length+' players</div><div class="dist-grid">'+cards+'</div>';
 }
 
@@ -4248,8 +4270,11 @@ function expVal(p,key){
   var v=parseFloat(p[key]); return isNaN(v)?null:v;
 }
 var _pexpChart=null, _pexpPool=null, _pexpCache={}, _pexpSeason='2627';
-function _pexpSeasonLbl(k){ if(k==='all')return 'all seasons'; if(k==='2627')return '2026-27 projected'; var y=+k; return (y-1)+'-'+(''+y).slice(2); }
+function _pexpSeasonLbl(k){ if(k==='all')return 'all seasons'; if(k==='2627')return '2026-27 projected'; if(k==='2027')return '2026-27 so far'; var y=+k; return (y-1)+'-'+(''+y).slice(2); }
 async function loadPexpSeason(key){
+  // 2026-27 SO FAR: every rostered player's real line from this season's box scores (TDCReal), 2+ games
+  if(key==='2027'){ if(_pexpCache[key]) return _pexpCache[key]; if(window.TDCReal&&TDCReal.ready) await TDCReal.ready;
+    return (_pexpCache[key]=(window._tdcAllPlayers||[]).map(function(p){ var L=window.TDCReal&&TDCReal.of(p); return (L&&L.gp>=2)?Object.assign({},p,L):null; }).filter(Boolean)); }
   if(key==='2627') return _pexpCache[key]||(window._tdcAllPlayers?(_pexpCache[key]=window._tdcAllPlayers.map(function(p){ return Object.assign({},p,projLine(p)); })):[]);  // projected: current rosters (per-game only)
   if(_pexpCache[key]) return _pexpCache[key];
   var nt=document.getElementById('pexpNote'); if(nt) nt.textContent='Loading '+_pexpSeasonLbl(key)+'…';
@@ -4262,6 +4287,7 @@ async function loadPexpSeason(key){
 function _pexpPlayerRow(key){
   if(key==='all') return player;
   if(key==='2627') return Object.assign({},player,playerProjLine());
+  if(key==='2027') return window._live27?Object.assign({},player,window._live27):null;
   var yr=+key, rows=(careerHistory||[]).filter(function(s){return +s.season_year===yr && s.ppg!=null;});
   if(rows.length){ rows.sort(function(a,b){return (+b.gp||0)-(+a.gp||0);}); return rows[0]; }
   return (+key===2026)?player:null;   // default season falls back to the players-table row
@@ -4277,7 +4303,7 @@ function buildSpectrum(){   // name kept so the existing call site still works
   if(!sec||!player) return;
   var optHtml=EXP_STATS.map(function(s){return '<option value="'+s.k+'">'+s.l+'</option>';}).join('');
   var yrs=[2026,2025,2024,2023,2022,2021,2020,2019,2018,2017,2016,2015,2014,2013,2012];
-  var seasonOpts='<option value="2627">2026-27 projected</option>'+yrs.map(function(y){return '<option value="'+y+'">'+((y-1)+'-'+(''+y).slice(2))+'</option>';}).join('')+'<option value="all">All Seasons</option>';
+  var seasonOpts=(window._live27?'<option value="2027">2026-27 so far</option>':'')+'<option value="2627">2026-27 projected</option>'+yrs.map(function(y){return '<option value="'+y+'">'+((y-1)+'-'+(''+y).slice(2))+'</option>';}).join('')+'<option value="all">All Seasons</option>';
   var tc=(teamData&&teamData.color)||'#5ab875';
   sec.innerHTML=
     '<div class="sec-title" style="margin-bottom:14px;">Stat Explorer</div>'+
@@ -4293,6 +4319,8 @@ function buildSpectrum(){   // name kept so the existing call site still works
     '<div class="exp-note" id="pexpNote"></div>';
   document.getElementById('pexpX').value='ppg';
   document.getElementById('pexpY').value='apg';
+  // opens on his real 2026-27 once he has the games for it (TDCReal.MIN_G), else the projection
+  if(_pexpSeason==='2627'&&window._live27&&_live27.gp>=((window.TDCReal&&TDCReal.MIN_G)||5)) _pexpSeason='2027';
   document.getElementById('pexpSeason').value=_pexpSeason;
   onPexpSeason(_pexpSeason);
 }
