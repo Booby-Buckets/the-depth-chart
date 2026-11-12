@@ -32,6 +32,7 @@ var _dbGrades = null;   // 'team|name' -> tdc_grade currently in the DB, loaded 
 // WEBSITE DEPTH CHARTS: a team whose order was set on the team page (players.depth_set_at, see
 // scripts/depth_chart_editor.sql) keeps that order; players new to the sheet go to the bottom.
 var _webDepth = null;  // team -> { name: depth_order } for teams edited on the website
+var _removed = {};     // 'team|name' (lower-case name) -> removed on the website, the sync skips them
 function loadDbGrades() {
   _dbGrades = {}; _webDepth = {};
   var cols = 'team,name,tdc_grade,depth_order,depth_set_at';
@@ -49,6 +50,11 @@ function loadDbGrades() {
     rows.forEach(function (x) { if (_webDepth[x.team] && x.depth_order != null) _webDepth[x.team][x.name] = x.depth_order; });
     if (rows.length < 1000) break;
   }
+  // players the owner removed in the depth chart editor (roster_removed): never re-added by the sync
+  _removed = {};
+  try { var rr = sbGet('/rest/v1/roster_removed?select=team,name&limit=5000');
+    if (rr.code < 400) JSON.parse(rr.body).forEach(function (x) { _removed[x.team + '|' + String(x.name).toLowerCase()] = 1; }); } catch (e) {}
+  Logger.log('Players removed on the website (skipped): ' + Object.keys(_removed).length);
   Logger.log('Existing grades that will be kept: ' + Object.keys(_dbGrades).length);
   Logger.log('Teams keeping their website depth chart: ' + Object.keys(_webDepth).length);
 }
@@ -556,6 +562,7 @@ function insertPlayers(team) {
   team.players.forEach(function (p, i) {
     const nm = p.name || '—';
     if (!nm || nm === '—' || nm === '-') return;   // skip empty slots
+    if (_removed[team.name + '|' + String(nm).toLowerCase()]) return;   // removed in the depth chart editor
     const row = base(p, i);
     if (web) row.depth_order = (web[nm] != null) ? web[nm] : ++webNext;
     if (_isFreshman(p)) {

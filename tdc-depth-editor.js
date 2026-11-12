@@ -10,7 +10,7 @@
    searches player_history by name (fills ESPN id, height, position, last school), then calls the owner-only
    add_roster_player() (scripts/roster_add_player.sql). The new player joins the bottom of the list; drag
    him into place and Save. Website-added rows carry site_added_at, so the sheet sync leaves them alone,
-   and only those can be removed here (✕).
+   ✕ removes any player: a sheet player is remembered in roster_removed so the sheet sync skips him (Nov 2026).
 ============================================================ */
 (function(){
   var SB = 'https://izlqhnxowdhtdofkwrho.supabase.co';
@@ -79,7 +79,7 @@
       + '<span class="nm">' + esc(p.name) + '</span>'
       + '<span class="dim">' + esc(p.position || '') + '</span>'
       + '<span class="dim yr">' + esc(p.yr || p.class_year || '') + '</span>'
-      + '<span class="ov">' + (p.site_added_at ? '<button type="button" class="x" data-rm="' + i + '" title="Remove ' + esc(p.name) + ' (added on the website)">✕</button>' : '') + grade(p) + '</span>'
+      + '<span class="ov"><button type="button" class="x" data-rm="' + i + '" title="Remove ' + esc(p.name) + ' from the roster">✕</button>' + grade(p) + '</span>'
       + '<span class="mv"><button type="button" data-mv="-1" aria-label="Move ' + esc(p.name) + ' up"' + (i === 0 ? ' disabled' : '') + '>↑</button>'
       + '<button type="button" data-mv="1" aria-label="Move ' + esc(p.name) + ' down"' + (i === order.length - 1 ? ' disabled' : '') + '>↓</button></span>'
       + '</li>';
@@ -215,11 +215,13 @@
       });
   }
   function removeAt(i){
-    var p = order[i]; if(!p || !confirm('Remove ' + p.name + ' from ' + p.team + '?')) return;
+    var p = order[i]; if(!p || !confirm('Remove ' + p.name + ' from the ' + p.team + ' roster?' + (p.site_added_at ? '' : '\n\nThe sheet sync will skip him from now on.'))) return;
     busy(true); status('Removing…');
     rpc('remove_roster_player', { p_id: p.id })
       .then(function(){ order.splice(i, 1); paintList(); busy(false); status('✓ Removed ' + esc(p.name) + '. Save depth chart to update the projections.', 'ok'); })
-      .catch(function(e){ status('✗ ' + esc((e && e.message) || e), 'err'); busy(false); });
+      .catch(function(e){ var m = (e && e.message) || String(e);
+        if(/Only players added on the website/i.test(m)) m = 'Removing sheet players needs scripts/roster_remove_player.sql run in Supabase first.';
+        status('✗ ' + esc(m), 'err'); busy(false); });
   }
 
   function open(){
