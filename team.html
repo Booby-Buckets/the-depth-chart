@@ -8619,7 +8619,8 @@ function renderHistoricRoster(rows, yr, projected){
   // a redraw (Real/Projected, data landing) used to leave each lifted copy behind — 3 stacked tables. Clear them first.
   document.querySelectorAll('#shotDistCard, #seasonLossesWrap').forEach(function(el){ if(host.contains(el)) return; var pn=el.closest('.ui-panel'); (pn&&!pn.contains(host)?pn:el).remove(); });
   host.innerHTML = `${_posBar}${depthSheet}${histTable(rows, yr, projected)}${injHtml}<div id="shotDistCard"></div><div id="seasonLossesWrap"></div>`;
-  if(projected && yr>=2026){ try{ _renderShotDist(rows); }catch(e){} }
+  if(projected && yr>=2026 && window.TDCReal && TDCReal.isReal()){ try{ _renderRealShot(rows); }catch(e){} }   // real 2026-27 shots so far
+  else if(projected && yr>=2026){ try{ _renderShotDist(rows); }catch(e){} }
   else if(!projected && yr>=2012){ try{ _renderHistShot(rows, yr); }catch(e){} }
 }
 
@@ -8661,22 +8662,38 @@ function _sdTable(items, prior, note){
   }).join('');
   return `<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="rk">#</th><th class="l">Player</th><th class="l" title="Role by share of the team's shots (Fr = freshman, estimated from the projected role)">Role</th><th class="l"></th><th title="The player's slice of the team's shots">Share</th><th title="Shot tendency: national percentile of shots per 40 (100 = a pure #1 option)">Tendency</th>${prior?'<th title="Change in shot tendency from last season (5+ points)">vs Last Yr</th>':''}</tr></thead><tbody>${rows}</tbody></table></div><div class="sd-note">${note}</div>`;
 }
-async function _renderHistShot(rows, yr){
+// REAL 2026-27 shot distribution (owner, Nov 12 2026: "shot distribution needs to show real shot distribution"): each
+// player's share of the team's actual field-goal attempts this season, his tendencies as national percentiles of his real
+// per-40 rates (on the latest full season's scale), and the Tend / 3PT / 2PT / FT columns of the roster table filled the same way
+function _renderRealShot(rows){
+  const rr=(rows||[]).map(p=>{ const L=TDCReal.of(p); return L?{name:p.name, espn_id:p.espn_id, yr:p.yr||p.class_year, mpg:L.mpg, fga:L.fga, tpa:L.tpa, fta:L.fta}:null; }).filter(Boolean);
+  return _renderHistShot(rr, 2027, {refYr:'latest', label:'2026-27 so far', fill:true});
+}
+async function _renderHistShot(rows, yr, opt){
+  opt=opt||{};
   const host=document.getElementById('shotDistCard'); if(!host) return;
   const _e=s=>(''+(s||'')).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
   const _g=(p,ph,bb)=>{ let v=p[ph]; if((v==null||v==='')&&p.pergame) v=p.pergame[bb!==undefined?bb:ph]; const n=parseFloat(v); return isNaN(n)?0:n; };
   try{
     if(!_shotRef){ const r=await fetch('scripts/data/shot_tend_ref.json?v=1').then(x=>x.ok?x.json():null).catch(()=>null); _shotRef=(r&&r.seasons)||{}; }
-    const ref=_shotRef[String(yr)]; if(!ref){ host.innerHTML=''; _hideShotProfileSide(); return; }
+    const _ry=opt.refYr==='latest'?String(Math.max(...Object.keys(_shotRef).map(Number))):String(yr);
+    const ref=_shotRef[_ry]; if(!ref){ host.innerHTML=''; _hideShotProfileSide(); return; }
     let items=[], totFga=0;
     (rows||[]).forEach(p=>{
       const m=_g(p,'mpg','mp'), fga=_g(p,'fga','fga'), tpa=_g(p,'tpa','fg3a'), fta=_g(p,'fta','fta');
-      if(m<8 || fga<=0) return;
+      if(m<(opt.fill?4:8) || fga<=0) return;
       items.push({name:p.name, espn:(p.espn_id!=null?String(p.espn_id):null), fga:fga, yr:(p.yr||p.class_year||p.class||'').toString().trim(),
         tend:_shotPct(ref.f40, fga*40/m), t3:_shotPct(ref.t3, tpa*40/m),
         t2:_shotPct(ref.t2, Math.max(0,(fga-tpa)*40/m)), tf:_shotPct(ref.ft, fta*40/m)});
       totFga+=fga;
     });
+    if(opt.fill){   // the roster table's tendency columns, from the same real rates
+      const by={}; items.forEach(x=>{ if(x.espn) by['e'+x.espn]=x; by['n'+(''+x.name).toLowerCase().trim()]=x; });
+      const look=td=>by['e'+td.getAttribute('data-espn')]||by['n'+(td.getAttribute('data-name')||'').toLowerCase().trim()];
+      document.querySelectorAll('#depthContent .hr-tend').forEach(td=>{ const x=look(td); td.innerHTML=x&&x.tend!=null?String(x.tend):'—'; });
+      document.querySelectorAll('#depthContent .hr-ty').forEach(td=>{ const x=look(td), k={three:'t3',two:'t2',ft:'tf'}[td.getAttribute('data-ty')]; td.innerHTML=x&&x[k]!=null?String(x[k]):'—'; });
+      if(window.tdcSheetHeat) document.querySelectorAll('#depthContent table.hr-sheet').forEach(t=>tdcSheetHeat(t));
+    }
     if(items.length<3){ host.innerHTML=''; _hideShotProfileSide(); return; }
     items.forEach(x=>{ x.share = totFga>0 ? Math.round(x.fga/totFga*1000)/10 : 0; });
     items.sort((a,b)=>b.share-a.share);
@@ -8685,9 +8702,11 @@ async function _renderHistShot(rows, yr){
     const _sh=items.map(x=>(x.share||0)/100), _hhi=_sh.reduce((s,v)=>s+v*v,0);
     const _eff=_hhi>0?(1/_hhi):items.length, _top=items[0].share;
     const _prof=_top>=21?{l:'Star-driven',c:'#e0885a'}:_top>=18?{l:'Featured-scorer led',c:'var(--accent)'}:{l:'Balanced attack',c:'#5ab875'};
-    const _lbl=(yr-1)+'–'+String(yr).slice(2);
-    host.innerHTML=`<div class="sec-head" style="margin-top:28px;">Shot distribution <span class="sd-sub">${_lbl} share of the team's shots</span></div>`+
-      _sdTable(items, null, `Share: each player's slice of the team's shots that season (${Math.round(tot)}% shown, players averaging 8+ minutes). Tendency: how shot-hungry the player's role was, as a national percentile of shots per 40 within ${_lbl} (100 = a pure #1 option).`);
+    const _lbl=opt.label||((yr-1)+'–'+String(yr).slice(2)), _rl=(+_ry-1)+'–'+String(_ry).slice(2);
+    host.innerHTML=`<div class="sec-head" style="margin-top:28px;">Shot distribution <span class="sd-sub">${_lbl} · share of the team's real shots</span></div>`+
+      _sdTable(items, null, opt.fill
+        ? `Share: each player's slice of the team's field-goal attempts in its 2026-27 games so far (${Math.round(tot)}% shown, players averaging 4+ minutes). Tendency: how shot-hungry his role has been, as a national percentile of shots per 40 on the ${_rl} scale. Early in the season a few games swing these a lot; switch Stats to Projected for the projection.`
+        : `Share: each player's slice of the team's shots that season (${Math.round(tot)}% shown, players averaging 8+ minutes). Tendency: how shot-hungry the player's role was, as a national percentile of shots per 40 within ${_lbl} (100 = a pure #1 option).`);
     _fillShotProfileSide(_prof,_threats,_eff,_top);
   }catch(e){ host.innerHTML=''; }
 }
@@ -8851,14 +8870,19 @@ function histTable(rows, yr, projected){
   const ovr=g=>{const n=parseInt(g,10);return isNaN(n)?'—':n;};
   // the site's sheet table (tdc-sheets.css): frozen # + player, one line per player, bio in its
   // own dim columns, every stat shaded c0-c4 within the roster by tdcSheetHeat
-  const body=r.map((p,i)=>{ const pnm=esc(p.name);
+  // 2026-27 (owner, Nov 12 2026: "this needs to show actual stats from the year"): the Real/Projected filter picks the
+  // line — his real games this season, or the projected line — never the sheet's last-season columns
+  const _realOn=!!(projected&&window.TDCReal&&TDCReal.isReal());
+  const pctF=(v)=>{let n=parseFloat(v);if(isNaN(n))return '—';if(n<=1)n*=100;return n.toFixed(1)+'%';};
+  const lineFor=p=>!projected?p:(_realOn?(TDCReal.of(p)||{}):((window.TDCProjGrade&&TDCProjGrade.lineOf&&TDCProjGrade.lineOf(p))||{}));
+  const body=r.map((p,i)=>{ const pnm=esc(p.name), L=lineFor(p);
     return `<tr>
     <td class="rk">${i+1}</td>
     <td class="l nm"><a href="${link(p)}">${esc(p.name)}</a></td>
     <td class="l dim">${esc(p.yr||p.class_year||'')}</td><td class="l dim">${esc(p.position||'')}</td><td class="l dim">${esc(p.height||'')}</td>
-    <td>${p.gp||'—'}</td><td>${num(p.mpg)}</td><td>${num(p.ppg)}</td><td>${num(p.rpg)}</td><td>${num(p.apg)}</td>
-    <td>${num(p.stl)}</td><td>${num(p.blk)}</td><td>${num(p.tovs)}</td>
-    <td>${pct(p.fg_pct)}</td><td>${pct(p.tp_pct)}</td><td>${pct(p.ft_pct)}</td>
+    <td>${projected&&!_realOn?'—':(L.gp||'—')}</td><td>${num(L.mpg)}</td><td>${num(L.ppg)}</td><td>${num(L.rpg)}</td><td>${num(L.apg)}</td>
+    <td>${num(L.stl)}</td><td>${num(L.blk)}</td><td>${num(L.tovs)}</td>
+    <td>${pctF(L.fg_pct)}</td><td>${pctF(L.tp_pct)}</td><td>${pctF(L.ft_pct)}</td>
     ${projected?`<td class="hr-tend" data-espn="${p.espn_id||''}" data-name="${pnm}">—</td>`
       +`<td class="hr-ty" data-espn="${p.espn_id||''}" data-name="${pnm}" data-ty="three">—</td>`
       +`<td class="hr-ty" data-espn="${p.espn_id||''}" data-name="${pnm}" data-ty="two">—</td>`
