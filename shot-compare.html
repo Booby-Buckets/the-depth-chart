@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="tdc-loading.js?v=5"></script>
+  <link rel="stylesheet" href="tdc-a11y.css?v=3">
+  <script src="tdc-a11y.js?v=2" defer></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Shot Chart Compare — The Depth Chart</title>
+  <meta name="description" content="Put any two shot charts side by side: a team against another team, its conference, or itself in another season, with where the shots moved between them.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Depth Chart">
+  <meta property="og:title" content="Shot Chart Compare — The Depth Chart">
+  <meta property="og:description" content="Any two shot charts side by side: teams, conferences, seasons.">
+  <meta property="og:url" content="https://www.thedepthchartcbb.com/shot-compare.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <script src="tdc-theme.js?v=5"></script>
+  <script src="auth.js?v=sales2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="team-colors.js?v=13"></script>
+  <script src="tdc-shotchart.js?v=36"></script>
+  <script src="tdc-gate.js?v=5"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html,body{background:var(--bg);}
+    body{color:var(--text);font-family:'Inter',system-ui,sans-serif;font-weight:500;min-height:100vh;}
+    .page{padding:30px 0 60px;}
+    .eyebrow{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--text2);margin-bottom:6px;}
+    h1{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:44px;letter-spacing:-.02em;line-height:1.05;}
+    .lede{font-size:16px;color:var(--text2);margin:8px 0 18px;max-width:820px;line-height:1.5;} .lede b{color:var(--text);}
+    .pick{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:6px 0 20px;}
+    @media(max-width:860px){.pick{grid-template-columns:1fr;}}
+    .side{border:1px solid var(--border2);border-radius:12px;padding:12px 14px;background:var(--bg2);display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;}
+    .side .tag{width:100%;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);display:flex;justify-content:space-between;align-items:center;}
+    .side .tag i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px;}
+    .side label{display:flex;flex-direction:column;gap:4px;font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);flex:1 1 140px;min-width:0;}
+    .side select,.side input{font:600 14px Inter,system-ui,sans-serif;color:var(--text);background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:7px 10px;min-height:38px;width:100%;}
+    .seg{display:inline-flex;background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:3px;gap:3px;}
+    .seg button{font:700 12px Inter,system-ui,sans-serif;padding:6px 11px;border:0;border-radius:5px;background:none;color:var(--text3);cursor:pointer;white-space:nowrap;min-height:30px;}
+    .seg button.on{background:var(--text);color:var(--bg);}
+    .quick{display:flex;flex-wrap:wrap;gap:8px;margin:-8px 0 18px;}
+    .quick button{font:700 12px Inter,system-ui,sans-serif;padding:7px 12px;border:1px solid var(--border2);border-radius:999px;background:var(--bg2);color:var(--text2);cursor:pointer;min-height:34px;}
+    .quick button:hover{color:var(--text);border-color:var(--text3);}
+    .charts{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;}
+    @media(max-width:960px){.charts{grid-template-columns:minmax(0,1fr);}}
+    .chart h3{font-size:18px;font-weight:800;margin:0 0 2px;} .chart .sub{font-size:12.5px;color:var(--text2);margin-bottom:8px;}
+    .sec{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:34px 0 10px;padding-bottom:8px;border-bottom:1px solid var(--border2);flex-wrap:wrap;}
+    .sec h2{font-size:13px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;} .sec span{font-size:13px;color:var(--text2);}
+    .msg{padding:28px;text-align:center;color:var(--text3);font-size:13px;border:1px dashed var(--border2);border-radius:12px;}
+    #lock{min-height:200px;}
+    @media(max-width:640px){h1{font-size:32px;} .lede{font-size:14.5px;}}
+  </style>
+  <link rel="stylesheet" href="tdc-skin.css?v=15"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+  <link rel="stylesheet" href="tdc-column.css?v=4"/>
+  <link rel="stylesheet" href="tdc-ui.css?v=16"/>
+  <script src="tdc-pwa.js?v=3" defer></script>
+</head>
+<body>
+<script src="tdc-nav.js?v=89"></script>
+<div class="page">
+  <div class="eyebrow">Shots · Compare</div>
+  <h1>Shot Chart Compare</h1>
+  <p class="lede">Pick any two shot charts: a <b>team</b> or a whole <b>conference</b>, in <b>any season</b> back to 2013-14. You get both charts side by side, then a map of where the shots moved from one to the other. Located shots are thin before 2018-19.</p>
+
+  <div class="pick">
+    <div class="side" id="sideA"></div>
+    <div class="side" id="sideB"></div>
+  </div>
+  <div class="quick" id="quick"></div>
+
+  <div id="lock"></div>
+  <div id="out">
+    <div class="charts">
+      <div class="chart"><h3 id="hA"></h3><div class="sub" id="sA"></div><div id="cA"></div></div>
+      <div class="chart"><h3 id="hB"></h3><div class="sub" id="sB"></div><div id="cB"></div></div>
+    </div>
+    <div class="sec"><h2>Where the shots moved</h2><span id="mvSub"></span></div>
+    <div id="cShift"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const SB='https://izlqhnxowdhtdofkwrho.supabase.co', KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
+  const AH={apikey:KEY};
+  const hdr=()=>(typeof tdcH==='function'?tdcH():AH);
+  const $=id=>document.getElementById(id);
+  const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+  const CUR=2027, FIRST=2014;
+  const lbl=y=>(y-1)+'-'+String(y).slice(2);
+  const strip=n=>String(n||'').replace(/\s+(Fighting|Golden|Red|Blue|Green|Black|Mean|Ragin'|Rainbow|Thundering|Nittany|Crimson|Scarlet|Big|Tar|Sun|Purple|Yellow|Demon)?\s*\S+$/,'') || n;
+
+  // ── team lists per season: {id, name, conf} ────────────────────────────────────────────────────────────
+  const TEAMS={};
+  async function teamsFor(y){
+    if(TEAMS[y]) return TEAMS[y];
+    let out=[];
+    if(y<CUR){
+      const r=await fetch(SB+'/rest/v1/team_seasons?season_year=eq.'+y+'&select=team,team_id,conference&order=team.asc&limit=1000',{headers:AH}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+      out=r.filter(t=>t.team_id).map(t=>({id:t.team_id, name:t.team, conf:t.conference||''}));
+    } else {
+      const [g,m]=await Promise.all([
+        fetch(SB+'/rest/v1/games?season_year=eq.'+y+'&select=home,home_id,away,away_id&order=id.asc&limit=5000',{headers:AH}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+        fetch('scripts/data/conf_members_2027.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null)]);
+      const mem=(m&&m.teams)||{}, seen={};
+      g.forEach(x=>{ [[x.home,x.home_id],[x.away,x.away_id]].forEach(([n,id])=>{ if(id&&mem[n]&&!seen[id]){ seen[id]=1; out.push({id, name:n, conf:mem[n]}); } }); });
+      out.sort((a,b)=>a.name.localeCompare(b.name));
+    }
+    return (TEAMS[y]=out);
+  }
+
+  // ── a side's state + its picker ───────────────────────────────────────────────────────────────────────
+  const S={A:{kind:'team', season:CUR, id:null, conf:null, col:'#2c6fd6'}, B:{kind:'team', season:CUR-1, id:null, conf:null, col:'#e0702a'}};
+  async function drawPicker(k){
+    const s=S[k], el=$('side'+k), list=await teamsFor(s.season);
+    const confs=[...new Set(list.map(t=>t.conf).filter(Boolean))].sort();
+    if(s.kind==='team'&&(!s.id||!list.some(t=>t.id==s.id))){ const byName=s._name&&list.find(t=>t.name===s._name); s.id=byName?byName.id:(list[0]&&list[0].id); }
+    if(s.kind==='conf'&&(!s.conf||confs.indexOf(s.conf)<0)) s.conf=s._confName&&confs.indexOf(s._confName)>=0?s._confName:confs[0];
+    let yrs=''; for(let y=CUR;y>=FIRST;y--) yrs+=`<option value="${y}"${y==s.season?' selected':''}>${lbl(y)}</option>`;
+    el.innerHTML=`<div class="tag"><span><i style="background:${s.col}"></i>Chart ${k}</span><span class="seg" data-k="${k}"><button data-kind="team" class="${s.kind==='team'?'on':''}">Team</button><button data-kind="conf" class="${s.kind==='conf'?'on':''}">Conference</button></span></div>`+
+      (s.kind==='team'
+        ? `<label>Team<select data-f="id">${list.map(t=>`<option value="${t.id}"${t.id==s.id?' selected':''}>${esc(t.name)}</option>`).join('')}</select></label>`
+        : `<label>Conference<select data-f="conf">${confs.map(c=>`<option${c===s.conf?' selected':''}>${esc(c)}</option>`).join('')}</select></label>`)+
+      `<label style="flex:0 1 120px">Season<select data-f="season">${yrs}</select></label>`;
+  }
+  function wire(k){
+    const el=$('side'+k);
+    el.addEventListener('click',async e=>{ const b=e.target.closest('.seg button'); if(!b) return; const s=S[k]; if(s.kind===b.dataset.kind) return;
+      const list=await teamsFor(s.season), t=list.find(x=>x.id==s.id); s.kind=b.dataset.kind; if(s.kind==='conf'&&t) s._confName=t.conf; await drawPicker(k); go(); });
+    el.addEventListener('change',async e=>{ const f=e.target.dataset.f; if(!f) return; const s=S[k];
+      if(f==='season'){ const list=await teamsFor(s.season), t=list.find(x=>x.id==s.id); s._name=t&&t.name; s._confName=s.conf; s.season=+e.target.value; await drawPicker(k); }
+      else s[f]=f==='id'?+e.target.value:e.target.value;
+      go(); });
+  }
+
+  // ── shots for a side (RLS: Pro sessions get rows; anyone else gets none) ─────────────────────────────────
+  const CACHE={};
+  async function teamShots(id,y){ const key=id+'|'+y; if(CACHE[key]) return CACHE[key];
+    const r=await fetch(SB+'/rest/v1/shots?team_id=eq.'+id+'&season_year=eq.'+y+'&select=x,y,made,sv,dist&limit=8000',{headers:hdr()}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    return (CACHE[key]=(Array.isArray(r)?r:[]).filter(s=>s.x!=null&&s.y!=null)); }
+  async function sideShots(k, onProg){
+    const s=S[k], list=await teamsFor(s.season);
+    if(s.kind==='team'){ const t=list.find(x=>x.id==s.id); return {rows:await teamShots(s.id,s.season), name:t?t.name:'Team', short:t?strip(t.name):'Team', teams:1}; }
+    const ts=list.filter(t=>t.conf===s.conf), out=[]; let done=0;
+    for(let i=0;i<ts.length;i+=4){ const part=await Promise.all(ts.slice(i,i+4).map(t=>teamShots(t.id,s.season))); part.forEach(p=>out.push(...p)); done+=part.length; onProg&&onProg(done,ts.length); }
+    return {rows:out, name:s.conf, short:s.conf, teams:ts.length};
+  }
+
+  let RUN=0;
+  async function go(){
+    const run=++RUN;
+    const qs=new URLSearchParams(); ['A','B'].forEach(k=>{ const s=S[k]; qs.set(k.toLowerCase(), (s.kind==='team'?'t'+s.id:'c'+s.conf)+'@'+s.season); });
+    history.replaceState(null,'','?'+qs.toString());
+    ['A','B'].forEach(k=>{ $('c'+k).innerHTML='<div class="msg">Loading shots…</div>'; });
+    $('cShift').innerHTML='';
+    const prog=k=>(d,n)=>{ if(run===RUN) $('c'+k).innerHTML=`<div class="msg">Loading ${d} of ${n} teams…</div>`; };
+    const [a,b]=await Promise.all([sideShots('A',prog('A')), sideShots('B',prog('B'))]);
+    if(run!==RUN) return;
+    // no rows at all where there should be some = no Pro access (RLS), so lock instead of showing empty courts
+    if(!a.rows.length&&!b.rows.length&&!(window.TDCGate&&TDCGate.has&&TDCGate.has('pro'))){ lock(); return; }
+    $('lock').innerHTML=''; $('out').style.display='';
+    [['A',a],['B',b]].forEach(([k,d])=>{ const s=S[k];
+      $('h'+k).textContent=d.name+' · '+lbl(s.season);
+      $('s'+k).textContent=d.rows.length.toLocaleString()+' located shots'+(s.kind==='conf'?' · '+d.teams+' teams':'');
+      if(d.rows.length<60){ $('c'+k).innerHTML='<div class="msg">Not enough located shots for this '+(s.kind==='conf'?'conference':'team')+' in '+lbl(s.season)+'.</div>'; return; }
+      TDC_SHOTCHART.render($('c'+k), d.rows, {subtitle:d.short, kind:s.kind==='conf'?'team':'team', season:s.season, mode:'zones'}); });
+    const la=a.short+' '+lbl(S.A.season), lb=b.short+' '+lbl(S.B.season);
+    $('mvSub').textContent=lb+' → '+la;
+    TDC_SHOTCHART.renderShift($('cShift'), a.rows, b.rows, {name:a.short, cur:la, base:lb});
+  }
+  function lock(){
+    $('out').style.display='none';
+    $('lock').innerHTML='<div class="msg" style="padding:60px 20px;">Shot charts are part of Pro.</div>';
+    if(window.TDCGate&&TDCGate.lock) TDCGate.lock($('lock').firstChild,{tier:'pro',label:'Shot Chart Compare',blurb:'Put any two shot charts side by side (teams, conferences, any season since 2013-14) and see where the shots moved. Included with Pro — $8.99/mo.'});
+  }
+
+  // quick comparisons for side A's team
+  function quick(){
+    $('quick').innerHTML='<button data-q="ly">vs itself last season</button><button data-q="conf">vs its conference</button><button data-q="swap">Swap A and B</button>';
+    $('quick').addEventListener('click',async e=>{ const b=e.target.closest('button'); if(!b) return; const A=S.A, B=S.B;
+      if(b.dataset.q==='swap'){ const x=Object.assign({},A); Object.assign(A,B,{col:A.col}); Object.assign(B,x,{col:B.col}); }
+      else if(A.kind==='team'){ const list=await teamsFor(A.season), t=list.find(x=>x.id==A.id);
+        if(b.dataset.q==='ly'){ Object.assign(B,{kind:'team', id:A.id, _name:t&&t.name, season:A.season-1}); }
+        else { Object.assign(B,{kind:'conf', conf:t&&t.conf, season:A.season}); } }
+      await drawPicker('A'); await drawPicker('B'); go(); });
+  }
+
+  // start: ?a=t<id>@<season>&b=c<conf>@<season>, or ?team=<sheet/espn name>
+  (async function(){
+    const q=new URLSearchParams(location.search);
+    const parse=(v,s)=>{ const m=/^([tc])(.+)@(\d{4})$/.exec(v||''); if(!m) return; s.season=+m[3]; if(m[1]==='t'){ s.kind='team'; s.id=+m[2]; } else { s.kind='conf'; s.conf=m[2]; } };
+    parse(q.get('a'),S.A); parse(q.get('b'),S.B);
+    if(!q.get('a')){
+      const list=await teamsFor(CUR), want=(q.get('team')||'').toLowerCase();
+      const t=(want&&list.find(x=>x.name.toLowerCase().indexOf(want)===0))||list.find(x=>/^Houston Cougars$/.test(x.name))||list[0];
+      if(t){ S.A.id=t.id; S.B.id=t.id; S.B._name=t.name; }
+    }
+    await drawPicker('A'); await drawPicker('B'); wire('A'); wire('B'); quick();
+    if(window.TDCGate&&TDCGate.ready&&!TDCGate.resolved()) await TDCGate.ready;
+    go();
+  })();
+})();
+</script>
+<script src="tdc-version.js?v=2"></script>
+<script src="tdc-sheets.js?v=2"></script>
+</body>
+</html>

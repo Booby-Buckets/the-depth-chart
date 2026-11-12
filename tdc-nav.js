@@ -60,6 +60,7 @@
       ['#Shooting'],
       ['shot-genome.html',     'Shot Genome',            'Shot quality vs shot-making for every player'],
       ['shot-quality.html',    'Shot Quality',           'How good the looks are, by team and player'],
+      ['shot-compare.html',    'Shot Chart Compare',     'Two shot charts side by side: teams, conferences, seasons'],
       ['mastery.html',         'Mastery Shots',          'Points per shot, measured against 1.1'],
       ['hunt-great.html',      'Hunt Great',             'Great, average and bad shots by shot clock'],
       ['shot-aftermath.html',  'Shot Aftermath',         'What happens after each kind of shot'],
