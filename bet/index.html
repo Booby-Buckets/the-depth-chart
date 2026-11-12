@@ -75,7 +75,7 @@
 <script src="bet/bet-shell.js?v=6"></script>
 <script src="bet/bet-ui.js?v=4"></script>
 <script src="bet/cbb-live.js?v=1"></script>
-<script src="bet/bet-edge.js?v=11"></script>
+<script src="bet/bet-edge.js?v=12"></script>
 <script>
 (function(){
   var B=TDCBet, esc=B.esc, $=function(id){return document.getElementById(id);};
@@ -227,7 +227,7 @@
     if(!TDCEdge.has()) return;
     var list=EDGES.filter(function(b){ return ED.m==='all'||b.market===ED.m; });
     var li=TDCEdge.liveInfo();
-    $('edgeHint').textContent=list.length+' +EV bet'+(list.length===1?'':'s')+' · '+TDCEdge.books().length+' books compared'+(TDCEdge.stamp()?' · prices '+new Date(TDCEdge.stamp()).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit'}):'')+(li.ok?' · live: DraftKings '+(li.ok.dk?'✓':'✗')+' Kalshi '+(li.ok.kalshi?'✓':'✗')+' Polymarket '+(li.ok.poly?'✓':'✗'):'')+(TDCEdge.fixture()?' · SAMPLE DATA':'');
+    $('edgeHint').textContent=list.length+' +EV bet'+(list.length===1?'':'s')+' · '+TDCEdge.books().length+(TDCEdge.books().length===1?' book':' books')+' compared'+(TDCEdge.stamp()?' · prices '+new Date(TDCEdge.stamp()).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit'}):'')+(li.ok?' · live: DraftKings '+(li.ok.dk?'✓':'✗')+' Kalshi '+(li.ok.kalshi?'✓':'✗')+' Polymarket '+(li.ok.poly?'✓':'✗'):'')+(TDCEdge.fixture()?' · SAMPLE DATA':'');
     if(!list.length){ $('edges').innerHTML='<div class="ed-none"><h3>No bet clears the bar</h3><p>Every price on this '+(ED.scope==='day'?'day':'stretch')+' is within our margin of the market'+(ED.books.length?' at your books':'')+'. Passing is a bet too: the edge is in not forcing it.</p></div>'; return; }
     var FREE=2, show=PREM?list:list.slice(0,FREE);
     $('edges').innerHTML='<div class="ed-list">'+show.map(function(b,i){return BXUI.edgeRow(b,i,ED.bank);}).join('')+'</div>'+(!PREM&&list.length>FREE?'<div id="edLock" style="margin-top:8px"><div class="ed-list">'+BXUI.ghostEdges(Math.min(6,list.length-FREE))+'</div></div>':'');
@@ -236,7 +236,7 @@
   }
   function heroEdge(list){
     var games={}; list.forEach(function(b){games[b.gid]=1;});
-    $('hxStats').innerHTML=[[list.length,'+EV bets',ED.scope==='day'?'this day':'next 3 days','g'],['+'+(list[0].ev*100).toFixed(1)+'%','Best EV',list[0].label,'g'],[TDCEdge.books().length,'Books compared','best price on every bet'],[Object.keys(games).length,'Games with an edge','of '+scopeRows().filter(function(r){return !r.exh;}).length+' on the slate']]
+    $('hxStats').innerHTML=[[list.length,'+EV bets',ED.scope==='day'?'this day':'next 3 days','g'],['+'+(list[0].ev*100).toFixed(1)+'%','Best EV',list[0].label,'g'],[TDCEdge.books().length,TDCEdge.books().length===1?'Book compared':'Books compared','best price on every bet'],[Object.keys(games).length,'Games with an edge','of '+scopeRows().filter(function(r){return !r.exh;}).length+' on the slate']]
       .map(function(t){ return '<div class="hx-st '+(t[3]||'')+'"><b>'+esc(t[0])+'</b><span>'+esc(t[1])+'</span><small>'+esc(t[2])+'</small></div>'; }).join('');
   }
 

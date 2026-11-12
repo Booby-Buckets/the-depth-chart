@@ -144,6 +144,10 @@
   // ── platforms ───────────────────────────────────────────────────────────
   function kindOf(k, entry) { return (entry && entry.k) || (k === 'pinnacle' ? 'sharp' : EXCH[k] ? 'ex' : 'book'); }
   function isSharp(k, x) { return kindOf(k, x && x.books && x.books[k]) === 'sharp'; }
+  // Places we show as somewhere to bet (owner, Nov 11 2026: "stop linking so many sportsbooks"). Every other book still
+  // feeds the market's consensus number, the way Pinnacle does; it just never shows up as an offer or in "My books".
+  var SHOW = { draftkings: 1, kalshi: 1, polymarket: 1 };
+  function notBet(k, x) { return isSharp(k, x) || !SHOW[k]; }
   // the market's number: median of the books, pulled SHARP_W of the way to Pinnacle when Pinnacle posts it
   function refMkt(rows, f, x) {
     var sh = [], rest = [];
@@ -230,7 +234,7 @@
     var desc = B.short(r.away) + (r.neutral ? ' vs ' : ' @ ') + B.short(r.home);
     // spreads ─ consensus market margin (our home perspective) → blended margin → cover chance at each book's number
     var spRows = bks.map(function (k) { var s = books[k].sp; if (!s) return null; var hp = fl ? -s[0] : s[0], ph = fl ? s[2] : s[1], pa = fl ? s[1] : s[2]; return { k: k, hp: hp, ph: ph, pa: pa }; }).filter(Boolean);
-    var spBet = spRows.filter(function (s) { return !isSharp(s.k, x); });
+    var spBet = spRows.filter(function (s) { return !notBet(s.k, x); });
     if (spBet.length) {
       var spRef = refMkt(spRows, function (s) { return impliedMean(-s.hp, novig(s.ph, s.pa), sigma()); }, x), mm = spRef.v;   // market home margin
       var mb = W.spread * r.m + (1 - W.spread) * mm;
@@ -245,7 +249,7 @@
     }
     // totals
     var toRows = bks.map(function (k) { var t = books[k].to; return t ? { k: k, pt: t[0], po: t[1], pu: t[2] } : null; }).filter(Boolean);
-    var toBet = toRows.filter(function (t) { return !isSharp(t.k, x); });
+    var toBet = toRows.filter(function (t) { return !notBet(t.k, x); });
     if (toBet.length && r.tot != null) {
       var toRef = refMkt(toRows, function (t) { return impliedMean(t.pt, novig(t.po, t.pu), B.TOTAL_SD); }, x), tm = toRef.v;
       var tb = W.total * r.tot + (1 - W.total) * tm;
@@ -259,7 +263,7 @@
     }
     // moneylines
     var mlRows = bks.map(function (k) { var l = books[k].ml; if (!l) return null; var v = gl(l[0], l[1]); return { k: k, h: v[0], a: v[1] }; }).filter(Boolean);
-    var mlBet = mlRows.filter(function (l) { return !isSharp(l.k, x); });
+    var mlBet = mlRows.filter(function (l) { return !notBet(l.k, x); });
     if (mlBet.length) {
       var mlRef = refMkt(mlRows, function (l) { return novig(l.h, l.a); }, x), pm = mlRef.v;
       var pb = W.ml * r.probH / 100 + (1 - W.ml) * pm;
@@ -272,7 +276,7 @@
       });
     }
     // team totals
-    Object.keys(x.tt || {}).filter(function (k) { return !isSharp(k, x); }).forEach(function (k) {
+    Object.keys(x.tt || {}).filter(function (k) { return !notBet(k, x); }).forEach(function (k) {
       ['home', 'away'].forEach(function (bs) {
         var v = x.tt[k][bs]; if (!v || v[1] == null || v[2] == null) return;
         var side = fl ? (bs === 'home' ? 'away' : 'home') : bs, ours = side === 'home' ? r.scoreH : r.scoreA, full = side === 'home' ? r.home : r.away;
@@ -284,7 +288,7 @@
       });
     });
     // first half
-    Object.keys(x.h1 || {}).filter(function (k) { return !isSharp(k, x); }).forEach(function (k) {
+    Object.keys(x.h1 || {}).filter(function (k) { return !notBet(k, x); }).forEach(function (k) {
       var h = x.h1[k], mh = H1.m * r.m, th = r.tot != null ? H1.t * r.tot : null;
       if (h.sp && h.sp[1] != null) {
         var hp = fl ? -h.sp[0] : h.sp[0], ph = fl ? h.sp[2] : h.sp[1], pa = fl ? h.sp[1] : h.sp[2];
@@ -305,7 +309,7 @@
     // alternate lines: same blended distributions, priced point by point
     var mmA = spRows.length ? W.alt * r.m + (1 - W.alt) * refMkt(spRows, function (s) { return impliedMean(-s.hp, novig(s.ph, s.pa), sigma()); }, x).v : null;
     var tmA = toRows.length && r.tot != null ? W.alt * r.tot + (1 - W.alt) * refMkt(toRows, function (t) { return impliedMean(t.pt, novig(t.po, t.pu), B.TOTAL_SD); }, x).v : null;
-    Object.keys(x.alt || {}).filter(function (k) { return !isSharp(k, x); }).forEach(function (k) {
+    Object.keys(x.alt || {}).filter(function (k) { return !notBet(k, x); }).forEach(function (k) {
       var a = x.alt[k];
       if (mmA != null) (a.sp || []).forEach(function (v) { var hp = fl ? -v[0] : v[0], ph = fl ? v[2] : v[1], pa = fl ? v[1] : v[2];
         out.push(bet({ market: 'alt', side: 'home', book: k, bookT: title(k, x), price: ph, point: hp, p: B.coverP(mmA, hp), pOurs: B.coverP(r.m, hp), pMkt: null, label: 'Alt ' + B.short(r.home) + ' ' + B.spTxt(hp), team: r.home, why: 'Alternate spread, priced from the same blended margin.' }));
@@ -330,7 +334,7 @@
       } else who = matchPlayer(pp.p, r, names);
       if (!who || !pp.p) return;
       var pm = propMean(who.id, pp.m, r, who.home); if (!pm) return;
-      var all = Object.keys(pp.b), bks = all.filter(function (k) { return !isSharp(k, gm.x); }); if (!bks.length) return;
+      var all = Object.keys(pp.b), bks = all.filter(function (k) { return !notBet(k, gm.x); }); if (!bks.length) return;
       // market mean: invert the NB at the consensus line from each book's no-vig over chance
       var mkMu = refMkt(all.map(function (k) { return { k: k }; }), function (q) { var v = pp.b[q.k]; return solveMu(pp.m, v[0], novig(v[1], v[2]), pm); }, gm.x).v;
       var muB = W.prop * pm.mu + (1 - W.prop) * (mkMu != null ? mkMu : pm.mu);
@@ -414,7 +418,7 @@
   }
   function books() {
     var seen = {};
-    ((E.odds && E.odds.games) || []).forEach(function (x) { Object.keys(x.books || {}).forEach(function (k) { var kd = kindOf(k, x.books[k]); if (kd === 'sharp') return; seen[k] = seen[k] || { key: k, title: x.books[k].t || k, n: 0, kind: kd }; seen[k].n++; }); });
+    ((E.odds && E.odds.games) || []).forEach(function (x) { Object.keys(x.books || {}).forEach(function (k) { var kd = kindOf(k, x.books[k]); if (kd === 'sharp' || !SHOW[k]) return; seen[k] = seen[k] || { key: k, title: x.books[k].t || k, n: 0, kind: kd }; seen[k].n++; }); });
     return Object.keys(seen).map(function (k) { return seen[k]; }).sort(function (a, b) { return b.n - a.n; });
   }
   function hasSharp() { return ((E.odds && E.odds.games) || []).some(function (x) { return Object.keys(x.books || {}).some(function (k) { return isSharp(k, x); }); }); }
