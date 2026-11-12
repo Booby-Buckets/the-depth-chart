@@ -681,7 +681,12 @@ def real_w(k,g,prior_games):
     K=REAL_K[k]*min(1.0,max(float(prior_games or 0),REAL_FLOOR)/20.0)
     return min(REAL_CAP,g/(g+K))
 REAL={}; REAL_E={}
+# REAL_OFF=1: build the projection with no real games at all — the PRESEASON prior the Power Rating's results are added
+# to (rebuild-projections.yml writes it to scripts/data/preseason/). Without it the rating counted each game twice: once
+# through the results and again through the players' real-game-blended lines (owner, Nov 11 2026).
+REAL_OFF=os.environ.get("REAL_OFF")=="1"
 try:
+    if REAL_OFF: raise RuntimeError("REAL_OFF=1 — preseason build, no real games")
     # By GAME ID, 30 games a request: the anon role's ~3 s statement timeout cancels most date-window pulls once a
     # season is busy (season_year + a 3-day range over ~4,000 rows: 13 of 18 windows of Nov-Dec 2025 timed out, and
     # one failure dropped EVERY real game - the build ran on as if none were played). Game ids come from `games`.

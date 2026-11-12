@@ -1,7 +1,7 @@
 -- ============================================================================
 --  Private fantasy league (2026-10-02). Run the whole file once in the Supabase SQL editor.
 --  Safe to re-run. Needs forum_moderation.sql first (tdc_is_owner).
--- ----------------------------------------------------------------------------
+-- -------x---------------------------------------------------------------------
 --  league.html: a $200 auction league over Big Ten / SEC / ACC / Big 12 / Big East players.
 --    * fl_leagues   the league + its rules (budget, roster size, pickups) + a private invite code
 --    * fl_members   one row per owner (their team name)

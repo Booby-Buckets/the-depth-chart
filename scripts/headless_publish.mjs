@@ -69,8 +69,48 @@ function sane(table, body) {
   return 'table not allowed';
 }
 
+// PASS 1 — the preseason prior: the same page and engine, but the player projections are swapped for the no-real-games
+// build (scripts/data/preseason/, REAL_OFF=1) and every write is blocked. Each team's pre-results rating (preRating) is
+// the prior pass 2 adds the season's results to — so a game counts once, not again through real-game-blended lines.
+const PRE_DIR = path.join(ROOT, 'scripts/data/preseason');
+async function preseasonPrior(pp) {
+  if (!fs.existsSync(path.join(PRE_DIR, 'stat_overall_projected.json')) || !fs.existsSync(path.join(PRE_DIR, 'fresh_fit.json'))) {
+    log('preseason prior: no scripts/data/preseason build — rating from the current projection (results may double count)');
+    return null;
+  }
+  const browser = await pp.launch({ headless: 'new', executablePath: process.env.CHROME_PATH || undefined, args: ['--no-sandbox'] });
+  try {
+    const page = await browser.newPage();
+    await page.setRequestInterception(true);
+    page.on('request', req => {
+      const u = req.url(), m = req.method();
+      if (u.startsWith(SB) && !(m === 'GET' || m === 'HEAD' || m === 'OPTIONS')) return req.abort();   // pass 1 never writes
+      const f = (u.match(/scripts\/data\/(stat_overall_projected|fresh_fit)\.json/) || [])[1];
+      if (f) return req.respond({ status: 200, contentType: 'application/json', body: fs.readFileSync(path.join(PRE_DIR, f + '.json')) });
+      req.continue();
+    });
+    await page.goto(BASE + '__headless_publish__', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await page.setContent(`<!doctype html><html><head><base href="${BASE}"><script>window.tdcOwnerToken=function(){return 'headless';};try{localStorage.clear();}catch(e){}</script></head><body></body></html>`);
+    for (const s of ownerScripts()) await page.addScriptTag({ url: BASE + s });
+    const pri = await page.evaluate(async () => {
+      if (window.TDCProjGrade && TDCProjGrade.ready) await TDCProjGrade.ready;
+      if (window.TDCFresh && TDCFresh.load) await TDCFresh.load();
+      if (window.TDCInjury && TDCInjury.load) { try { await TDCInjury.load(); } catch (e) {} }
+      const ovr = (window.TDCFresh && TDCFresh.ratingOverrides) ? TDCFresh.ratingOverrides() : null;
+      const d = await TDC_RATINGS.rebuild(ovr);
+      const o = {}; d.teams.forEach(t => { const v = t.preRating != null ? t.preRating : t.rating; if (t.full && Number.isFinite(+v)) o[t.full] = +v; });
+      return o;
+    });
+    const n = Object.keys(pri).length;
+    if (n < 300) { log(`preseason prior: only ${n} teams — not using it`); return null; }
+    log(`preseason prior: ${n} teams rated with no real games`);
+    return pri;
+  } finally { await browser.close(); }
+}
+
 async function publishRatingsAndAwards() {
   const pp = (await import(process.env.PUPPETEER_MODULE || 'puppeteer')).default;
+  let PRIOR = null; try { PRIOR = await preseasonPrior(pp); } catch (e) { log('preseason prior failed: ' + (e.message || e)); }
   const browser = await pp.launch({ headless: 'new', executablePath: process.env.CHROME_PATH || undefined, args: ['--no-sandbox'] });
   const wrote = {};
   try {
@@ -90,7 +130,7 @@ async function publishRatingsAndAwards() {
     });
     await page.goto(BASE + '__headless_publish__', { waitUntil: 'domcontentloaded' }).catch(() => {});
     // a blank page AT the site root, so the engines' relative fetches ('scripts/data/...') resolve as on the site
-    await page.setContent(`<!doctype html><html><head><base href="${BASE}"><script>window.tdcOwnerToken=function(){return 'headless';};</script></head><body></body></html>`);
+    await page.setContent(`<!doctype html><html><head><base href="${BASE}"><script>window.tdcOwnerToken=function(){return 'headless';};window.TDC_PRIOR=${JSON.stringify(PRIOR)};</script></head><body></body></html>`);
     for (const s of ownerScripts()) await page.addScriptTag({ url: BASE + s });
     const res = await page.evaluate(async () => {
       if (window.TDCProjGrade && TDCProjGrade.ready) await TDCProjGrade.ready;
@@ -100,9 +140,10 @@ async function publishRatingsAndAwards() {
       const d = await TDC_RATINGS.rebuild(ovr);
       let a = null; try { a = await TDC_AWARDS.refresh(); } catch (e) { a = { error: String(e) }; }
       const top = d.teams.slice().sort((x, y) => y.rating - x.rating).slice(0, 5).map(t => t.team + ' ' + t.rating.toFixed(1));
-      return { n: d.teams.length, top, scrim: d.teams.filter(t => t.scrimAdj).length, awards: a && a.conferences ? Object.keys(a.conferences).length : a };
+      const pre = d.teams.filter(t => t.priorSrc === 'preseason'), drift = pre.length ? pre.reduce((a, t) => a + Math.abs(t.rosterNow - t.preRating), 0) / pre.length : 0;
+      return { n: d.teams.length, top, pre: pre.length, drift: +drift.toFixed(2), scrim: d.teams.filter(t => t.scrimAdj).length, awards: a && a.conferences ? Object.keys(a.conferences).length : a };
     });
-    log(`ratings: computed ${res.n} teams (top: ${res.top.join(', ')}); ${res.scrim} with a scrimmage adjustment; awards: ${JSON.stringify(res.awards)}`);
+    log(`ratings: computed ${res.n} teams (top: ${res.top.join(', ')}); ${res.pre} on the preseason prior (avg |real-blended roster − prior| ${res.drift}); ${res.scrim} with a scrimmage adjustment; awards: ${JSON.stringify(res.awards)}`);
   } finally { await browser.close(); }
   return wrote;
 }

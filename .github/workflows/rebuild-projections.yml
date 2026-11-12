@@ -95,6 +95,11 @@ jobs:
           SCRIM_CAP=0 SCRIM_ROT_CAP=0 SOP_OUT_DIR="$RUNNER_TEMP/scrimbase" python3 scripts/build_stat_overall_projected.py > /dev/null
           # the real build: scrimmages may move anyone's minutes at most SCRIM_MPG_CAP (2.0) from that base run
           SCRIM_BASE_DIR="$RUNNER_TEMP/scrimbase" python3 scripts/build_stat_overall_projected.py
+          # PRESEASON prior for the Power Rating: the same build with no real games (REAL_OFF=1). The publish rates every
+          # roster off these lines and adds the results on top, so a game isn't counted twice (once in the results, again
+          # in the real-game-blended player lines). Rosters, injuries and depth-chart edits still flow into it.
+          mkdir -p scripts/data/preseason
+          REAL_OFF=1 SCRIM_BASE_DIR="$RUNNER_TEMP/scrimbase" SOP_OUT_DIR=scripts/data/preseason python3 scripts/build_stat_overall_projected.py > /dev/null || echo "::warning::preseason build failed — the publish uses the last preseason lines"
           # NIL grades follow the new ratings (in season they move after every game day)
           python3 scripts/patch_nil_grades.py || echo "patch_nil_grades failed — NIL keeps the last grades"
 

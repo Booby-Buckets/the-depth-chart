@@ -574,6 +574,21 @@
     // in-season form adjustment from this season's played games (no-op until
     // 2026-27 results exist)
     const played=await fetchPaged(SB+'/rest/v1/games?season_year=eq.'+SEASON+'&status=eq.STATUS_FINAL&select=home,away,home_score,away_score,neutral&order=id.asc');
+    // PRESEASON PRIOR (owner, Nov 11 2026: "fix the double counting"): the nightly publish first rates every roster off
+    // projections built with NO real games (scripts/data/preseason/, REAL_OFF=1) and hands that in as window.TDC_PRIOR.
+    // The results are then added to that number only, so a game isn't counted twice (in the results AND again through
+    // the players' real-game-blended lines). rosterNow keeps the roster rating that includes real games, for reference.
+    const PRI=(typeof window!=='undefined'&&window.TDC_PRIOR)||null;
+    if(PRI && (played||[]).length) rows.forEach(r=>{ const v=PRI[r.full]; if(v!=null&&isFinite(+v)){ r.rosterNow=r.rating; r.rating=+(+v).toFixed(2); r.priorSrc='preseason'; } });
+    else if((played||[]).length){
+      // a rebuild outside the nightly publish (the owner's editor Save) has no pass-1 prior: take out the same real-game
+      // share the last publish measured per team (rosterNow − preseason prior), so editor changes still move the rating
+      // but the results still count once
+      try{ const prev=await readDb(), off={};
+        ((prev&&prev.teams)||[]).forEach(t=>{ if(t.priorSrc&&isFinite(+t.rosterNow)&&isFinite(+t.preRating)) off[t.full]=(+t.rosterNow)-(+t.preRating); });
+        rows.forEach(r=>{ const o=off[r.full]; if(o!=null){ r.rosterNow=r.rating; r.rating=+(r.rating-o).toFixed(2); r.priorSrc='offset'; } });
+      }catch(e){}
+    }
     applyForm(rows, played||[]);
     rows.sort((a,b)=>b.rating-a.rating);
     // All-Play %: average win probability against the whole field
