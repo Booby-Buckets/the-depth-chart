@@ -7041,7 +7041,11 @@ async function renderTeamDNA(){
   }
   const DNA=window._teamDNA;
   if(!DNA){ host.innerHTML='<div style="padding:24px;color:var(--text3);">Team DNA data unavailable.</div>'; return; }
-  const seasons=Object.keys(DNA).sort((a,b)=>b-a);
+  // REAL 2026-27 ("2027r", owner Nov 12 2026): this season's real efficiency + four factors (tdc-dnasheet.js withReal), the
+  // default once the team has played; the projection stays one pick away
+  if(window.TDC_DNASHEET&&TDC_DNASHEET.withReal){ try{ await TDC_DNASHEET.withReal(DNA); }catch(e){} }
+  const _sk=s=>parseInt(s,10)+(String(s).slice(-1)==='r'?0.5:0);
+  const seasons=Object.keys(DNA).sort((a,b)=>_sk(b)-_sk(a));
   const plain=((teamT&&teamT.name)||'').toLowerCase().trim();
   const findKey=(so)=>{ const keys=Object.keys(so.teams);
     for(const k of keys) if(k.toLowerCase()===plain) return k;                 // exact
@@ -7057,12 +7061,12 @@ async function renderTeamDNA(){
   const ord=r=>{const s=['th','st','nd','rd'],v=r%100;return r+(s[(v-20)%10]||s[v]||s[0]);};
   const rankOf=(m,hi=true)=>{ const v=teams.map(x=>x[m]).filter(x=>x!=null); return t[m]==null?null:v.filter(x=>hi?x>t[m]:x<t[m]).length+1; };
   const sg=v=>(v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(1);
-  const slbl=s=> s==='2027'?'2026-27 · Projected':_dnaSeasonLbl(s);
+  const slbl=s=> s==='2027'?'2026-27 · Projected':s==='2027r'?'2026-27 · So far':_dnaSeasonLbl(s);
   // header chips
   const chips=[];
   if(net!=null) chips.push(`<span class="ds-chip"${window.tipAttr?tipAttr('neteff'):''}>Net <b>${sg(net)}</b> · ${ord(rankOf(nK))} of ${N}</span>`);
   if(!PROJ&&t.w!=null) chips.push(`<span class="ds-chip">Record <b>${t.w}–${t.l}</b>${t.exp_wins!=null?` · expected ${t.exp_wins}`:''}</span>`);
-  const pj=(!PROJ && window._teamDNAproj && window._teamDNAproj[season])?window._teamDNAproj[season][key]:null;
+  const pj=season==='2027r'?((DNA['2027']&&DNA['2027'].teams[key])||null):(!PROJ && window._teamDNAproj && window._teamDNAproj[season])?window._teamDNAproj[season][key]:null;
   if(pj&&pj.net!=null&&net!=null) chips.push(`<span class="ds-chip">Preseason projection <b>${sg(pj.net)}</b> → actual <b>${sg(net)}</b></span>`);
   if(PROJ&&t.continuity!=null) chips.push(`<span class="ds-chip">Minutes returning <b>${Math.round(t.continuity)}%</b></span>`);
   if(ADJ) chips.push(`<span class="ds-chip">Ratings are schedule-adjusted</span>`);
@@ -7096,7 +7100,7 @@ async function renderTeamDNA(){
   const tr=`team-report.html?team=${encodeURIComponent(teamT.name)}${!PROJ&&+season<=2026?'&season='+season:''}`;
   host.innerHTML=`
     <div class="ds-head">
-      <div><div class="ds-t">Team DNA · ${teamT.name} · ${PROJ?'2026-27 projected, from the roster':_dnaSeasonLbl(season)}</div><div class="ds-chips">${chips.join('')}</div></div>
+      <div><div class="ds-t">Team DNA · ${teamT.name} · ${PROJ?'2026-27 projected, from the roster':season==='2027r'?`2026-27 so far · ${t.g} game${t.g===1?'':'s'}`:_dnaSeasonLbl(season)}</div><div class="ds-chips">${chips.join('')}</div></div>
       <div class="ds-ctl">
         <select aria-label="Season" onchange="window._dnaSeason=this.value;renderTeamDNA();">${selOpts}</select>
         <select aria-label="Scout a matchup" onchange="_dsPick(this.value)"><option value="">Matchup vs…</option>${oppOpts}</select>
@@ -9891,7 +9895,7 @@ function renderProjNatlChart(projected, color, rgb){
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=32"></script>
   <script src="tdc-sheets.js?v=2"></script>
-  <script src="tdc-dnasheet.js?v=1"></script>
+  <script src="tdc-dnasheet.js?v=r1"></script>
   <script src="tdc-liveplayer.js?v=5"></script>
   <script src="tdc-depth-editor.js?v=4"></script>
 <script src="tdc-mteam.js?v=30"></script>

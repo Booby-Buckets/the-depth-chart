@@ -18,15 +18,32 @@
   var J={}, IDS=null, DNA=null;
   function getJ(u){ if(!J[u]) J[u]=fetch(u).then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; }); return J[u]; }
   function ids(){ if(IDS) return IDS; IDS=getJ('scripts/data/team_colors.json').then(function(a){ var m={}; (a||[]).forEach(function(e){ if(e&&e.display&&e.id!=null) m[e.display]=String(e.id); }); return m; }); return IDS; }
-  function dna(){ if(!DNA) DNA=getJ('scripts/data/team_dna.json'); return DNA; }
-  function play(y){ y=+y; if(!(y>=2010&&y<=2026)) return Promise.resolve(null);
+  // REAL 2026-27 ("2027r", owner Nov 12 2026: team stats show this season's real numbers): the same fields team_dna.json
+  // carries, built from this season's box scores (real_lines_2027.json: team + opponent totals, opponent/venue-adjusted
+  // efficiency with the preseason counted as 8 games). D-I teams only (the projected 2027 field).
+  function realSeason(D){
+    return getJ('scripts/data/real_lines_2027.json?h='+Math.floor(Date.now()/36e5)).then(function(R){
+      var P=D&&D['2027'], base=D&&(D['2026']||{}); if(!R||!R.teams||!P) return null;
+      var out={meta:{projected:false, real:true, win_model:(base.meta||{}).win_model, r2:(base.meta||{}).r2}, teams:{}};
+      var pc=function(a,b){ return b>0?Math.round(1000*a/b)/10:null; }, poss=function(x){ return x.fga-x.oreb+x.tov+0.475*x.fta; };
+      Object.keys(P.teams).forEach(function(k){ var T=R.teams[k]; if(!T||!T.opp||!(T.g>0)) return; var o=T.opp, a=T.adj||{};
+        out.teams[k]={ w:T.w||0, l:T.l||0, g:T.g, ORtg:a.ro, DRtg:a.rd, adjO:a.o, adjD:a.d,
+          net:(a.ro!=null&&a.rd!=null)?Math.round((a.ro-a.rd)*10)/10:null, adjNet:(a.o!=null&&a.d!=null)?Math.round((a.o-a.d)*10)/10:null, tempo:a.rt,
+          oeFG:pc(T.fgm+0.5*T.tpm,T.fga), oTOV:pc(T.tov,poss(T)), oORB:pc(T.oreb,T.oreb+o.dreb), oFTr:pc(T.fta,T.fga),
+          deFG:pc(o.fgm+0.5*o.tpm,o.fga), dTOV:pc(o.tov,poss(o)), dDRB:pc(T.dreb,T.dreb+o.oreb), dFTr:pc(o.fta,o.fga) }; });
+      return Object.keys(out.teams).length>=50?out:null; }); }
+  // adds D['2027r'] once (the page's own team_dna copy can be passed in too)
+  function withReal(D){ if(!D||D['2027r']!==undefined) return Promise.resolve(D); return realSeason(D).then(function(r){ if(r) D['2027r']=r; return D; }); }
+  function dna(){ if(!DNA) DNA=getJ('scripts/data/team_dna.json').then(withReal); return DNA; }
+  function play(y){ if(String(y)==='2027') return Promise.resolve(null); y=parseInt(y,10); if(!(y>=2010&&y<=2027)) return Promise.resolve(null);
     return Promise.all([getJ('scripts/data/shot_aftermath/tprof_'+y+'.json'),getJ('scripts/data/shot_aftermath/poss_'+y+'.json'),getJ('scripts/data/shot_aftermath/sit_'+y+'.json')])
       .then(function(r){ return (r[0]||r[1]||r[2])?{tp:r[0],ps:r[1],st:r[2]}:null; }); }
-  function genome(y){ y=+y;
+  function genome(y){ var real=String(y)==='2027r'; y=parseInt(y,10);
+    if(real) return getJ('scripts/data/shot_genome_teams_2027.json').then(function(d){ var m={}; ((d&&d.teams)||[]).forEach(function(t){ m[t.team]=t; }); return m; });
     if(y===2027) return getJ('scripts/data/shot_genome_projected.json?v=1').then(function(d){ var m={}, s=d&&d['2027']; if(s) Object.keys(s).forEach(function(k){ m[k]=s[k]; }); return m; });
     if(!(y>=2020&&y<=2026)) return Promise.resolve(null);
     return getJ('scripts/data/shot_genome_teams'+(y===2026?'':'_'+y)+'.json').then(function(d){ var m={}; ((d&&d.teams)||[]).forEach(function(t){ m[t.team]=t; }); return m; }); }
-  function slbl(s){ s=+s; return (s-1)+'-'+String(s).slice(2)+(s===2027?' proj':''); }
+  function slbl(s){ if(String(s)==='2027r') return '2026-27 so far'; s=+s; return (s-1)+'-'+String(s).slice(2)+(s===2027?' proj':''); }
   function ord(n){ var s=['th','st','nd','rd'],v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   function tip(k){ return (k&&window.tipAttr)?window.tipAttr(k):''; }
@@ -132,7 +149,7 @@
     '@media(max-width:640px){.dsx-bar{width:56px;}.dsx-edge{width:64px;}.dsx .sheet td,.dsx .sheet th{padding:5px 6px;}.dsx .sheet td.dsx-l small{display:none;}}'
   ].join('\n'); document.head.appendChild(s); }
 
-  function data(season){ var s=+season, prev=s-1;
+  function data(season){ var s=String(season)==='2027r'?'2027r':+season, prev=parseInt(season,10)-1;
     return Promise.all([dna(),ids(),play(s),play(prev),genome(s),genome(prev)]).then(function(r){
       return {D:r[0],IDM:r[1],cur:new Ctx(s,r[0],r[2],r[4],r[1]),prev:new Ctx(prev,r[0],r[3],r[5],r[1])}; }); }
 
@@ -208,5 +225,5 @@
         '<div class="dsx-leg"><span>Ratings and four factors: '+slbl(o.season)+'. Shot zones and possessions: '+slbl(ps)+' play-by-play.</span><span>Edge bar points toward the side with the better D-I percentile; shading is good-for-that-side.</span></div></div>';
     }); }
 
-  window.TDC_DNASHEET={team:team, versus:versus, data:data, slbl:slbl};
+  window.TDC_DNASHEET={team:team, versus:versus, data:data, slbl:slbl, withReal:withReal};
 })();
