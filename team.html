@@ -29,6 +29,7 @@
   <script src="tdc-teamgrades.js"></script>
   <script src="tdc-teamhq.js?v=5"></script>
   <script src="tdc-teamscout.js?v=6"></script>
+  <script src="tdc-teamstats.js?v=1"></script>
   <link rel="stylesheet" href="tdc-teamhq.css?v=6"/>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js?v=25"></script>
@@ -1475,6 +1476,7 @@
     <div class="hero-grp" data-grp="stats">
       <button class="hero-grp-btn" onclick="_tgToggle(this,event)">Stats<span class="hero-grp-car">▾</span></button>
       <div class="hero-grp-menu" style="min-width:252px;">
+        <button class="hgm-item" onclick="_tgPick('teamstats',this)"><span class="hgm-t">Team Stats</span><span class="hgm-d">Team, player and game-by-game box-score stats</span></button>
         <button class="hgm-item" onclick="_tgPick('dna',this)"><span class="hgm-t">Team DNA</span><span class="hgm-d">Every stat on one sheet, ranked vs D-I</span></button>
         <button class="hgm-item" onclick="_tgPick('trends',this)"><span class="hgm-t">Trends</span><span class="hgm-d">How the season has moved, game by game</span></button>
         <button class="hgm-item" id="projTabBtn" onclick="_tgPick('projections',this)"><span class="hgm-t">2026-27 Projections</span><span class="hgm-d">Next season's projected line</span></button>
@@ -1698,6 +1700,9 @@
     </div>
     <div class="panel" id="panel-hunt">
       <div class="dA-card"><div id="teamHuntHost"><div style="padding:24px;color:var(--text3);">Loading possessions…</div></div></div>
+    </div>
+    <div class="panel" id="panel-teamstats">
+      <div class="dA-card"><div id="teamStatsHost"><div style="padding:24px;color:var(--text3);">Loading team stats…</div></div></div>
     </div>
     <div class="panel" id="panel-statshift">
       <div class="dA-card"><div id="teamStatShiftHost"><div style="padding:24px;color:var(--text3);">Loading lineups…</div></div></div>
@@ -6498,6 +6503,13 @@ function _drawScout(){ const host=document.getElementById('teamScoutHost'); if(!
 // links inside the Overview: open a tab here instead of reloading the page
 window.tdcTeamTab=function(id){ const b=document.querySelector(`.hero-tab[onclick*="'${id}'"], .hgm-item[onclick*="'${id}'"]`); if(!b) return;
   if(b.classList.contains('hgm-item')) _tgPick(id,b); else { switchTab(id,b); _tgSyncActive(); } window.scrollTo({top:0}); };
+// Team Stats tab (tdc-teamstats.js): real box-score team / player / game-log stats for the season the page is on
+async function _drawTeamStats(){
+  const host=document.getElementById('teamStatsHost'); if(!host||!window.TDC_TEAMSTATS) return;
+  const full=await _resolveGamesKey().catch(()=>null);
+  if(!full){ host.innerHTML='<div style="padding:24px;color:var(--text3);">No box scores on file for this team.</div>'; return; }
+  TDC_TEAMSTATS.show(host,{full, season:_rosterSeason||2027});
+}
 function switchTab(id, btn){
   _tabUrl(id,'overview');
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
@@ -6506,6 +6518,7 @@ function switchTab(id, btn){
   if(btn) btn.classList.add('active');
   if(id==='overview') _drawOverview();
   if(id==='scout') _drawScout();
+  if(id==='teamstats') _drawTeamStats();
   if(id==='dna'){ renderTeamDNA(); }
   if(id==='shots'){ _dnaCSS(); if(!window._teamShotInit){ window._teamShotInit=true; _initTeamShot(); } }
   if(id==='onoff'){ renderOnOff(); }
@@ -7724,6 +7737,7 @@ function onRosterSeason(v){
   var _dnaP=document.getElementById('panel-dna'); if(_dnaP && _dnaP.classList.contains('active')) renderTeamDNA();
   // the shot chart / shot flow block follows the roster season too (2026-27 shots are live)
   var _ss=document.getElementById('teamShotSeason'), _shP=document.getElementById('panel-shots'); if(_ss){ var _shy=Math.min(_rosterSeason,2027); _ss.value=String(_shy); if(window._teamShotInit && _shP && _shP.classList.contains('active')) loadTeamShotChart(_shy); }
+  if(document.getElementById('panel-teamstats')?.classList.contains('active')) _drawTeamStats();
   var _trP=document.getElementById('panel-trends'); if(_trP && _trP.classList.contains('active')) _renderTrendsTab();
   // lineups follow the same picker (it has no season control of its own on this page)
   var _luP=document.getElementById('panel-lineups'); if(_luP && _luP.classList.contains('active') && window.TDCLineupHist){ _resolveGamesKey().catch(()=>null).then(full=>TDCLineupHist.render(document.getElementById('lineupHistHost'), full||teamMascot(), { season:_rosterSeason, lockSeason:true })); }
