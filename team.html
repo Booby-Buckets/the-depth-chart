@@ -27,7 +27,7 @@
   <script src="tdc-nilchart.js?v=1"></script>
   <script src="tdc-gate.js?v=5"></script>
   <script src="tdc-teamgrades.js"></script>
-  <script src="tdc-teamhq.js?v=5"></script>
+  <script src="tdc-teamhq.js?v=18"></script>
   <script src="tdc-teamscout.js?v=6"></script>
   <script src="tdc-teamstats.js?v=1"></script>
   <link rel="stylesheet" href="tdc-teamhq.css?v=6"/>
@@ -3017,8 +3017,8 @@ function _loadRealDepth(){
   // the Overview's starting five waits on this too, so both tabs seat the same players
   return window._realDepthP=_resolveGamesKey().catch(()=>null).then(full=>full?TDCLineupHist.load(full):null).then(F=>{
     const G=(F&&F.s&&F.s['2027'])||[]; if(!G.length) return null;
-    const raw={}; G.forEach((x,i)=>{ const wt=Math.pow(0.9,G.length-1-i); (x[6]||[]).forEach(k=>{ (raw[k]=raw[k]||{w:0,m:0,g:0}).w+=wt; }); (x[7]||[]).forEach(r=>{ const q=raw[r[0]]=raw[r[0]]||{w:0,m:0,g:0}; q.m+=r[1]; q.g++; }); });
-    const R={e:{},n:{},games:G.length}; Object.keys(raw).forEach(k=>{ const q=raw[k], row={w:q.w,min:q.g?q.m/q.g:0}; if(!k.startsWith('n:')) R.e[k]=row; R.n[String((F.p||{})[k]||k.slice(2)).toLowerCase().replace(/[^a-z]/g,'')]=row; });
+    const raw={}; G.forEach((x,i)=>{ const wt=Math.pow(0.9,G.length-1-i); (x[6]||[]).forEach(k=>{ const q=(raw[k]=raw[k]||{w:0,m:0,g:0,s:0}); q.w+=wt; q.s=(q.s||0)+1; }); (x[7]||[]).forEach(r=>{ const q=raw[r[0]]=raw[r[0]]||{w:0,m:0,g:0,s:0}; q.m+=r[1]; q.g++; }); });
+    const R={e:{},n:{},games:G.length}; Object.keys(raw).forEach(k=>{ const q=raw[k], row={w:q.w,min:q.g?q.m/q.g:0,g:q.g,gs:q.s||0}; /* g / gs = real games played / started (rotation table) */ if(!k.startsWith('n:')) R.e[k]=row; R.n[String((F.p||{})[k]||k.slice(2)).toLowerCase().replace(/[^a-z]/g,'')]=row; });
     window._realDepth=R; const L=window._lastHistRender; if(L&&L[2]) renderHistoricRoster.apply(null,L);
     return R;
   }).catch(e=>{ console.warn('real depth',e); return null; });

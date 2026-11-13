@@ -325,6 +325,28 @@ function seatFive(list,RD){
   } else five=arrange(ord.slice(0,5)).five;
   return five.map(function(x,i){ x.slot=SL[i]; return x; });
 }
+function rotMockCss(){
+  if(document.getElementById('rm-css')) return;
+  var s=document.createElement('style'); s.id='rm-css';
+  var P='#panel-overview .ov-rot.';
+  s.textContent=
+    // F — Sports Reference style
+    '#panel-overview .rf-wrap{overflow-x:auto;border-top:2px solid var(--text);max-width:100%;}#hxFiveBlk{min-width:0;}'+
+    '#panel-overview .rf{width:100%;border-collapse:collapse;font:13px/1.35 Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;}'+
+    '#panel-overview .rf th{font-size:11.5px;font-weight:700;color:var(--text2);text-align:right;padding:5px 7px;border-bottom:1px solid var(--border2);background:var(--bg2);white-space:nowrap;}'+
+    '#panel-overview .rf td{text-align:right;padding:4px 7px;border-bottom:1px solid var(--border);color:var(--text);white-space:nowrap;}'+
+    '#panel-overview .rf .l{text-align:left;}'+
+    '#panel-overview .rf tbody tr:not(.rf-cap):nth-child(even) td{background:color-mix(in srgb,var(--bg2) 60%,transparent);}'+
+    '#panel-overview .rf tbody tr:not(.rf-cap):hover td{background:color-mix(in srgb,var(--accent) 10%,transparent);}'+
+    '#panel-overview .rf .rf-rk{color:var(--text3);width:28px;text-align:right;}'+
+    '#panel-overview .rf .rf-nm a{color:var(--accent);text-decoration:none;font-weight:600;}#panel-overview .rf .rf-nm a:hover{text-decoration:underline;}'+
+    '#panel-overview .rf .rf-st{color:var(--text3);margin-left:2px;}'+
+    '#panel-overview .rf .rf-from{color:var(--text2);}#panel-overview .rf .rf-ov{font-weight:700;}#panel-overview .rf .rf-d{color:var(--text3);}'+
+    '#panel-overview .rf .rf-cap td{text-align:left;font-weight:800;font-size:12px;color:var(--text);background:none;padding:10px 7px 4px;border-bottom:1px solid var(--border2);}'+
+    '#panel-overview .rf-note{font-size:11px;color:var(--text3);margin:6px 2px 0;}'+
+    '@media(max-width:760px){#panel-overview .rf{font-size:12.5px;}#panel-overview .rf th,#panel-overview .rf td{padding-left:4px;padding-right:4px;}#panel-overview .rf .rf-rk{display:none;}#panel-overview .rf td.rf-nm{white-space:normal;line-height:1.2;}#panel-overview .rf-note{white-space:normal;}#hxFiveBlk,#hxFive{max-width:100%;overflow:hidden;}}';
+  document.head.appendChild(s);
+}
 function loadRoster(row){
   var fe=byId('hxFive');
   fe.innerHTML='<div class="hx-empty">Loading the rotation…</div>';
@@ -354,7 +376,8 @@ function loadRoster(row){
         var hc=function(o){ return o==null?'':o>=85?'c4':o>=80?'c3':o>=75?'c2':o>=70?'c1':'c0'; };
         var ids=arr.map(function(x){ return x.p.espn_id; }).filter(function(e){ return e!=null; });
         var paint=function(H_){
-          var same=function(t){ t=(t||'').toLowerCase().trim(); var a=(row.team||'').toLowerCase().trim(), b=(row.full||'').toLowerCase().trim(); return t&&(t===a||t===b||b.indexOf(t+' ')===0); };
+          var fold=function(x){ return (x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim(); };   // San José ≡ San Jose
+          var same=function(t){ t=fold(t); var a=fold(row.team), b=fold(row.full); return t&&(t===a||t===b||b.indexOf(t+' ')===0); };
           var how=function(x){ if(!H_) return ['',''];
             var h=x.p.espn_id!=null?H_[x.p.espn_id]:null, y=(x.p.yr||x.p.class_year||'').toString();
             if(!h) return /fr/i.test(y)&&!/r-?fr|rs/i.test(y)?['Freshman','fr']:['Newcomer','nw'];
@@ -370,10 +393,38 @@ function loadRoster(row){
               (cls==='hq-out'?'<td class="l dim" colspan="4">out</td>':
               '<td class="l ov-min"><span class="hq-bar"><i style="width:'+Math.min(100,(x.mpg||0)/40*100)+'%"></i></span>'+f1(x.mpg)+'</td><td class="strong">'+f1(L.ppg)+'</td><td>'+f1(L.rpg)+'</td><td class="hq-hide-ph">'+f1(L.apg)+'</td>')+'</tr>'; };
           var grp=function(t){ return '<tr class="ov-grp"><td colspan="8">'+t+'</td></tr>'; };
-          var body=grp('Starters')+five.map(function(x){ return line(x,esc(x.slot||x.p.position||'')); }).join('')+
-            (bench.length?grp('Bench')+bench.map(function(x,i){ return line(x,ord(i+6)); }).join(''):'')+
+          var body=grp('Starters')+five.map(function(x){ return line(x,esc(x.slot||x.p.position||''),'st'); }).join('')+
+            (bench.length?grp('Bench')+bench.map(function(x,i){ return line(x,ord(i+6),'bn'); }).join(''):'')+
             (hurt.length?grp('Out')+hurt.map(function(x){ return line(x,'—','hq-out'); }).join(''):'');
-          fe.innerHTML='<div class="sheet-wrap"><table class="sheet dense ov-rot" data-fit-keep><thead><tr><th class="l">Spot</th><th class="l">Player</th><th title="projected 2026-27 overall">OVR</th><th class="hq-hide-ph" title="change from last season\'s overall">+/−</th><th class="l" title="projected minutes per game">Min</th><th>Pts</th><th>Reb</th><th class="hq-hide-ph">Ast</th></tr></thead><tbody>'+body+'</tbody></table></div>';
+          // the rotation table is the Sports Reference–style sheet (owner picked it Nov 12 2026, after six looks)
+          rotMockCss();
+          // F — Sports Reference style (owner's reference, Nov 12 2026; focus "who starts / who plays"): a plain, dense
+          // stat table — Starting lineup, then Reserves in minutes order — zebra rows, no colour fills, no bars
+          var mockF=function(){
+            // owner (Nov 12 2026): starters in order of lineups started (GS), everyone else in order of minutes played —
+            // real games once there are any (G / GS / MP from the box scores), the projection before that
+            var R0=function(x){ return (RD&&RD.of(x.p))||null; };
+            var mp=function(x){ var r=R0(x); return r&&r.g?r.min:x.mpg; };
+            var gs=function(x){ var r=R0(x); return r?(r.gs||0):null; }, gp=function(x){ var r=R0(x); return r?(r.g||0):null; };
+            var st=five.slice().sort(function(a,b){ return (gs(b)||0)-(gs(a)||0)||(mp(b)||0)-(mp(a)||0); });
+            var res=bench.slice().sort(function(a,b){ var ra=R0(a)&&R0(a).g, rb=R0(b)&&R0(b).g; if(!!ra!==!!rb) return rb?1:-1; return (mp(b)||0)-(mp(a)||0); });
+            var from=function(x){ var w=how(x); return w[0]?esc(w[0].replace(/^From /,'')):''; };
+            var real=!!(RD&&RD.R&&RD.R.games);
+            var r=function(x,i,isSt){ var L=x.L, d=(x.last!=null&&x.ov!=null)?x.ov-x.last:null, g0=gp(x), s0=gs(x);
+              return '<tr><td class="rf-rk">'+(i+1)+'</td><td class="l rf-nm">'+link(x.p)+(isSt?'<span class="rf-st" title="starter">*</span>':'')+'</td>'+
+                '<td class="l">'+esc((isSt&&x.slot)||x.p.position||'')+'</td><td class="l hq-hide-ph">'+esc(x.p.yr||x.p.class_year||'')+'</td><td class="l hq-hide-ph">'+esc(x.p.height||'')+'</td>'+
+                '<td class="l rf-from hq-hide-ph">'+from(x)+'</td><td class="rf-ov">'+(x.ov==null?'':x.ov)+'</td><td class="hq-hide-ph rf-d">'+(d?(d>0?'+':'−')+Math.abs(d):'')+'</td>'+
+                (real?'<td class="hq-hide-ph">'+(g0==null?'0':g0)+'</td><td>'+(s0==null?'0':s0)+'</td>':'')+
+                '<td><b>'+(real&&!g0?'<span class="dim" title="hasn\'t played yet">—</span>':f1(mp(x)))+'</b></td><td>'+f1(L.ppg)+'</td><td>'+f1(L.rpg)+'</td><td>'+f1(L.apg)+'</td></tr>'; };
+            var head='<tr><th class="rf-rk">Rk</th><th class="l">Player</th><th class="l">Pos</th><th class="l hq-hide-ph">Class</th><th class="l hq-hide-ph">Ht</th><th class="l hq-hide-ph" title="returner, freshman, or where the transfer came from">From</th><th title="projected overall">OVR</th><th class="hq-hide-ph" title="change from last season">+/−</th>'+
+              (real?'<th class="hq-hide-ph" title="games played">G</th><th title="games started">GS</th>':'')+'<th title="minutes per game'+(real?' (real games)':' (projected)')+'">MP</th><th title="projected points per game">PTS</th><th title="projected rebounds">TRB</th><th title="projected assists">AST</th></tr>';
+            var nc=real?14:12, cap=function(t){ return '<tr class="rf-cap"><td colspan="'+nc+'">'+t+'</td></tr>'; };
+            var body=cap('Starting Lineup')+st.map(function(x,i){ return r(x,i,true); }).join('')+
+              (res.length?cap('Reserves')+res.map(function(x,i){ return r(x,i+5,false); }).join(''):'')+
+              (hurt.length?cap('Out')+hurt.map(function(x){ return '<tr class="hq-out"><td class="rf-rk">—</td><td class="l rf-nm">'+link(x.p)+'</td><td class="l dim" colspan="'+(nc-2)+'">out</td></tr>'; }).join(''):'');
+            return '<div class="rf-wrap"><table class="rf" data-fit-keep><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div><div class="rf-note">* starter · starters by games started, reserves by minutes'+(real?' · G, GS, MP from the '+RD.R.games+' game'+(RD.R.games===1?'':'s')+' played':'')+' · PTS / TRB / AST projected per game</div>';
+          };
+          fe.innerHTML=mockF();
           var built=H_?[n.rt?n.rt+' returning':'',n.tr?n.tr+' transfer'+(n.tr===1?'':'s'):'',n.fr?n.fr+' freshm'+(n.fr===1?'an':'en'):'',n.nw?n.nw+' newcomer'+(n.nw===1?'':'s'):''].filter(Boolean).join(' · '):'';
           var fs=byId('hxFiveSub'); if(fs) fs.textContent=[RD?'starters = most used in '+RD.R.games+(RD.R.games===1?' game':' games'):'starters from the depth chart','projected per game',built].filter(Boolean).join(' · ');
         };
