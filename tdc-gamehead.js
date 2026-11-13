@@ -95,7 +95,8 @@
   }
   function html(o) {
     css();
-    var a = o.away, h = o.home, played = a.pts != null && h.pts != null;
+    // o.live: scores are in but the game isn't over — no winner arrow, nobody dimmed
+    var a = o.away, h = o.home, played = a.pts != null && h.pts != null && !o.live;
     // a quiet card in the site's surface (Nov 11 2026: the full team-colour band was too heavy); team colour is only the
     // thin rule on top of each half (--gha / --ghh), date + venue sit under FINAL
     var A = band(a.color), Hc = band(h.color);

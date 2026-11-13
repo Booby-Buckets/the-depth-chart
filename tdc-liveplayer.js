@@ -53,6 +53,17 @@
   .lpl-tops h4{display:flex;align-items:center;gap:6px;} .lpl-tops h4 i{width:8px;height:8px;border-radius:50%;background:var(--bc,#888);display:inline-block;}
   .lpl-tops a{text-decoration:none;}
   .lpl-wrap{max-width:1400px;margin:0 auto;padding:0 64px;}
+  /* card version (tdc-gamehead.js): the header card on top, the top scorers as its lower half — one box, two columns
+     that sit under each team's half */
+  .lpl.lpl-gh{border:0;padding:0;background:none;}
+  .lpl-gh .ghb{margin:0!important;border-radius:14px 14px 0 0;}
+  .lpl-gh .ghb .mid small{color:var(--red,#c0392b);letter-spacing:.1em;font-weight:800;opacity:1;}
+  .lpl-gh .lpl-gl{color:var(--accent);text-decoration:none;font-weight:700;}
+  .lpl-gh .ghb-meta{margin:0;padding:8px 14px 0;border:1px solid var(--border);border-top:0;background:var(--bg);font-size:12px;}
+  .lpl-gh .lpl-tops{margin:0;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0;border:1px solid var(--border);border-top:0;border-radius:0 0 14px 14px;background:var(--bg);}
+  .lpl-gh .lpl-tops>div{padding:12px 30px 14px;} .lpl-gh .lpl-tops>div+div{border-left:1px solid var(--border);}
+  .lpl-gh .lpl-note{margin:6px 2px 0;}
+  @media(max-width:760px){ .lpl-gh .lpl-tops{grid-template-columns:minmax(0,1fr);} .lpl-gh .lpl-tops>div{padding:10px 14px;} .lpl-gh .lpl-tops>div+div{border-left:0;border-top:1px solid var(--border);} }
   @media(max-width:860px){ .lpl-wrap{padding:0 16px;} }
   @media(max-width:640px){ .lpl{padding:10px;} .lpl-bt{padding:8px 8px 8px 12px;gap:6px;} .lpl-bt.h{padding:8px 12px 8px 8px;} .lpl-bt img{width:24px;height:24px;flex-basis:24px;}
     .lpl-bn{flex:0 0 auto;} .lpl-bn a{font-size:13px;overflow:visible;} .lpl-bn span{font-size:10.5px;} .lpl-bs{font-size:24px;} .lpl-bm{min-width:0;padding:6px 8px;} .lpl-bm b{font-size:10.5px;letter-spacing:.08em;} .lpl-bm span{display:none;} .lpl-bm a{font-size:10.5px;}
@@ -100,7 +111,20 @@
     const when = c.date ? new Date(c.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' }) : '';
     const mid = `<div class="lpl-bm"><b class="${live ? 'lv' : ''}">${live ? '<i></i>' : ''}${esc(live ? (st.shortDetail || st.detail) : done ? (st.shortDetail || 'Final') : (st.shortDetail || st.detail))}</b>` +
       (when && !live ? `<span>${esc(when)}</span>` : '') + `<a href="game.html?id=${esc(id)}">${live ? 'Watch →' : 'Box score →'}</a></div>`;
-    return { live, state: st.state, cols: { [String(H.team.id)]: col(H), [String(A.team.id)]: col(A) }, html: `<div class="lpl-bug">${side(A, 'a')}${mid}${side(H, 'h')}</div>` };
+    const cols = { [String(H.team.id)]: col(H), [String(A.team.id)]: col(A) }, order = [String(A.team.id), String(H.team.id)];
+    // Nov 12 2026 (owner: "fix this scorebug"): the same full-width card as the game-page header (tdc-gamehead.js, the
+    // look the owner picked) — school names, records, team-colour rule, scores beside the names, status + date + box score
+    // link in the middle. The older TV bar below stays as the fallback for pages without tdc-gamehead.js.
+    if (g.TDC_GAMEHEAD) {
+      const rk = t => t.curatedRank && t.curatedRank.current && t.curatedRank.current < 26 ? '#' + t.curatedRank.current + ' ' : '';
+      const S = t => ({ name: rk(t) + (t.team.shortDisplayName || t.team.location || t.team.abbreviation), href: 'team.html?team=' + encodeURIComponent(t.team.location || t.team.displayName),
+        logo: logo(t), color: col(t), rec: rec(t), pts: t.score != null && t.score !== '' && st.state !== 'pre' ? +t.score : null });
+      const status = live ? (st.shortDetail || st.detail) : done ? (st.shortDetail || 'Final') : (st.shortDetail || st.detail);
+      const meta = (when && !live ? `<span>${esc(when)}</span>` : '') + `<span><a class="lpl-gl" href="game.html?id=${esc(id)}">${live ? 'Watch the game →' : 'Box score →'}</a></span>`;
+      return { live, state: st.state, cols, order, gh: true,
+        html: g.TDC_GAMEHEAD.html({ away: S(A), home: S(H), status, statusSub: live ? '● Live' : '', live, meta }) };
+    }
+    return { live, state: st.state, cols, order, html: `<div class="lpl-bug">${side(A, 'a')}${mid}${side(H, 'h')}</div>` };
   }
   const statsOf = (sum, pred) => {
     for (const tp of (sum.boxscore && sum.boxscore.players) || []) {
@@ -174,7 +198,7 @@
       const big = dnp ? '<div class="lpl-sm">Hasn’t checked in yet.</div>'
         : `<div class="lpl-line"><div class="lpl-big"><div><b>${esc(val(r, 'PTS'))}</b><span>PTS</span></div><div><b>${esc(val(r, 'REB'))}</b><span>REB</span></div><div><b>${esc(val(r, 'AST'))}</b><span>AST</span></div></div>
           <div class="lpl-sm"><b>${esc(val(r, 'FG'))}</b> FG · <b>${esc(val(r, '3PT'))}</b> 3PT · <b>${esc(val(r, 'FT'))}</b> FT · <b>${esc(val(r, 'STL'))}</b> STL · <b>${esc(val(r, 'BLK'))}</b> BLK · <b>${esc(val(r, 'TO'))}</b> TO · <b>${esc(val(r, 'PF'))}</b> PF · <b>${esc(val(r, 'MIN'))}</b> MIN</div></div>`;
-      host.innerHTML = `<div class="lpl${h.live ? '' : ' fin'}">${h.html}${big}${h.live ? '<div class="lpl-note">Updates every 20 seconds.</div>' : ''}</div>`;
+      host.innerHTML = `<div class="lpl${h.live ? '' : ' fin'}${h.gh ? ' lpl-gh' : ''}">${h.html}${big}${h.live ? '<div class="lpl-note">Updates every 20 seconds.</div>' : ''}</div>`;
       return h.live ? 20000 : 0;
     });
   }
@@ -189,14 +213,14 @@
       const sum = await j(`${BASE}/summary?event=${gm.id}`);
       if (!sum) return 60000;
       const h = header(sum, gm.id);
-      const cols = ((sum.boxscore && sum.boxscore.players) || []).map(tp => {
+      const cols = ((sum.boxscore && sum.boxscore.players) || []).slice().sort((x, y) => (h.order || []).indexOf(String(x.team.id)) - (h.order || []).indexOf(String(y.team.id))).map(tp => {
         const sx = (tp.statistics || [])[0]; if (!sx) return '';
         const L = sx.labels || [], ix = k => L.indexOf(k);
         const rows = (sx.athletes || []).filter(a => (a.stats || []).length).map(a => ({ n: a.athlete.shortName || a.athlete.displayName, id: a.athlete.id, s: a.stats }))
           .sort((x, y) => (+y.s[ix('PTS')] || 0) - (+x.s[ix('PTS')] || 0)).slice(0, 4);
         return `<div><h4 style="--bc:${(h.cols && h.cols[String(tp.team.id)]) || '#888'}"><i></i>${esc(tp.team.displayName || tp.team.abbreviation)}</h4>${rows.map(r => `<div><a href="player.html?espn=${esc(r.id)}" style="color:inherit"><b>${esc(r.n)}</b></a> · ${esc(r.s[ix('PTS')])} pts, ${esc(r.s[ix('REB')])} reb, ${esc(r.s[ix('AST')])} ast · ${esc(r.s[ix('FG')])} FG</div>`).join('')}</div>`;
       }).join('');
-      host.innerHTML = `<div class="lpl${h.live ? '' : ' fin'}">${h.html}${cols ? `<div class="lpl-tops">${cols}</div>` : ''}${h.live ? '<div class="lpl-note">Top scorers so far · updates every 20 seconds.</div>' : ''}</div>`;
+      host.innerHTML = `<div class="lpl${h.live ? '' : ' fin'}${h.gh ? ' lpl-gh' : ''}">${h.html}${cols ? `<div class="lpl-tops">${cols}</div>` : ''}${h.live ? '<div class="lpl-note">Top scorers so far · updates every 20 seconds.</div>' : ''}</div>`;
       return h.live ? 20000 : 0;
     });
   }
