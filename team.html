@@ -8622,7 +8622,9 @@ function renderHistoricRoster(rows, yr, projected){
   // tdc-panelize lifts the Shot Distribution / Departures cards out of the depth panel into panels of their own;
   // a redraw (Real/Projected, data landing) used to leave each lifted copy behind — 3 stacked tables. Clear them first.
   document.querySelectorAll('#shotDistCard, #seasonLossesWrap').forEach(function(el){ if(host.contains(el)) return; var pn=el.closest('.ui-panel'); (pn&&!pn.contains(host)?pn:el).remove(); });
-  host.innerHTML = `${_posBar}${depthSheet}${histTable(rows, yr, projected)}${injHtml}<div id="shotDistCard"></div><div id="seasonLossesWrap"></div>`;
+  // the full roster sheet under the depth chart is gone (owner, Nov 12 2026: "get rid of this on the team page") — the
+  // depth chart above already lists every player; it only comes back while the owner is editing positions
+  host.innerHTML = `${_posBar}${depthSheet}${window._histPosEdit&&_posBar?histTable(rows, yr, projected):''}${injHtml}<div id="shotDistCard"></div><div id="seasonLossesWrap"></div>`;
   if(projected && yr>=2026 && window.TDCReal && TDCReal.isReal()){ try{ _renderRealShot(rows); }catch(e){} }   // real 2026-27 shots so far
   else if(projected && yr>=2026){ try{ _renderShotDist(rows); }catch(e){} }
   else if(!projected && yr>=2012){ try{ _renderHistShot(rows, yr); }catch(e){} }
