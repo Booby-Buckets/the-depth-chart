@@ -7,7 +7,10 @@
   var CSS =
     '.ts-grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:24px;align-items:start;}' +
     // the schedule beside the report: the columns a report reader needs; the Schedule tab keeps the rest
-    '#tsSched .tsp-sum,#tsSched td.tsp-tm,#tsSched td.tsp-q,#tsSched td.tsp-pr,#tsSched .tsp-timed th:nth-child(2),#tsSched .tsp-timed th:nth-child(7),#tsSched .tsp-timed th:nth-child(8),#tsSched .tsp-table:not(.tsp-timed) th:nth-child(6),#tsSched .tsp-table:not(.tsp-timed) th:nth-child(7){display:none!important;}' +
+    // the season table's header cells carry the same classes as its cells (Nov 12 2026), so hide by class, never by
+    // column number — the nth-child version broke when Should / Did / vs Line / Rank were added
+    '#tsSched .tsp-sum,#tsSched .tsp-timed .tsp-tm,#tsSched .tsp-timed .tsp-q,#tsSched .tsp-timed .tsp-line,#tsSched .tsp-timed .tsp-rec{display:none!important;}' +
+    '#tsSched td.tsp-q,#tsSched td.tsp-pr,#tsSched .tsp-table:not(.tsp-timed) th:nth-child(6),#tsSched .tsp-table:not(.tsp-timed) th:nth-child(7){display:none!important;}' +
     '#tsSched .tsp-table{min-width:0!important;width:100%!important;}#tsSched .tsp-table th,#tsSched .tsp-table td{min-width:0!important;padding-left:7px!important;padding-right:7px!important;}' +
     '.ts-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 10px;padding-bottom:6px;border-bottom:2px solid var(--text);}' +
     '.ts-head h2{font:800 22px "Playfair Display",Georgia,serif;letter-spacing:-.01em;color:var(--text);margin:0;}' +
@@ -23,6 +26,15 @@
     '.ts-tbl td.av{color:var(--text3);}' +
     '.ts-tbl td[title],.ts-tbl td.l[title]{cursor:help;}' +
     '.ts-foot{font-size:11.5px;color:var(--text3);line-height:1.5;margin:8px 2px 0;}' +
+    // team counting stats (owner, Nov 12 2026: "full team counting stats somewhere easily accessible")
+    '.ts-count{margin:0 0 26px;}' +
+    '.ts-tog{display:inline-flex;border:1px solid var(--border2);border-radius:999px;overflow:hidden;}' +
+    '.ts-tog button{font:700 11.5px Inter,system-ui,sans-serif;padding:5px 12px;border:0;background:none;color:var(--text2);cursor:pointer;}' +
+    '.ts-tog button.on{background:var(--text);color:var(--bg);}' +
+    '.ts-ct th,.ts-ct td{text-align:right!important;font-variant-numeric:tabular-nums;white-space:nowrap;}' +
+    '.ts-ct th.l,.ts-ct td.l{text-align:left!important;}' +
+    '.ts-ct tr.opp td{color:var(--text2);}' +
+    '.ts-ct tr.dif td{color:var(--text3);font-size:11.5px;}' +
     '@media(max-width:1180px){.ts-grid{grid-template-columns:minmax(0,1fr);}}' +
     '@media(max-width:640px){.ts-dp{display:none;}#tsSched .tsp-table th,#tsSched .tsp-table td{padding-left:4px!important;padding-right:4px!important;}.ts-head h2{font-size:19px;}.ts-tbl th,.ts-tbl td{padding-left:5px!important;padding-right:5px!important;}.ts-tbl td .rk{margin-left:3px;font-size:10px;}.ts-tbl th:first-child{width:37%;}}';
   function css() { if (document.getElementById('ts-css')) return; var s = document.createElement('style'); s.id = 'ts-css'; s.textContent = CSS; document.head.appendChild(s); }
@@ -86,6 +98,63 @@
     }).join('');
     return '<div class="sheet-wrap" style="max-height:none;" data-fit-keep><table class="sheet dense ts-tbl"><thead><tr><th class="l">Category</th><th>Offense</th><th>Defense</th><th title="Division I average"><span class="ts-dp">D-I </span>avg</th></tr></thead><tbody>' + body + '</tbody></table></div>';
   }
+  // ── team counting stats: every game on file (D-I or not), the team's box rows vs its opponents', per game or totals ──
+  var CT = [['g', 'G'], ['pts', 'PTS'], ['fgm', 'FGM'], ['fga', 'FGA'], ['fg%', 'FG%'], ['tpm', '3PM'], ['tpa', '3PA'], ['3p%', '3P%'],
+    ['ftm', 'FTM'], ['fta', 'FTA'], ['ft%', 'FT%'], ['oreb', 'OREB'], ['dreb', 'DREB'], ['reb', 'REB'], ['ast', 'AST'], ['stl', 'STL'],
+    ['blk', 'BLK'], ['tov', 'TO'], ['pf', 'PF']];
+  var CTK = ['pts', 'fgm', 'fga', 'tpm', 'tpa', 'ftm', 'fta', 'oreb', 'dreb', 'reb', 'ast', 'stl', 'blk', 'tov', 'pf'];
+  function boxRows(full, yr) {
+    var q = encodeURIComponent(full), out = [], page = function (off) {
+      // stable ORDER BY or pages skip / repeat rows
+      return fetch(SB + '/rest/v1/box_scores?season_year=eq.' + yr + '&or=(team.eq.' + q + ',opp.eq.' + q + ')&select=game_id,team,' + CTK.join(',') +
+        '&order=game_id.asc,espn_id.asc&limit=1000&offset=' + off, { headers: H }).then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (rows) { out = out.concat(rows || []); return rows && rows.length === 1000 ? page(off + 1000) : out; });
+    };
+    return page(0);
+  }
+  function counting(host, full, yr, stale) {
+    if (!host) return;
+    boxRows(full, yr).then(function (rows) {
+      if (stale()) return;
+      var me = {}, op = {}, gm = {};
+      CTK.forEach(function (k) { me[k] = 0; op[k] = 0; });
+      rows.forEach(function (r) { var T = r.team === full ? me : op; if (r.team === full) gm[r.game_id] = 1;
+        CTK.forEach(function (k) { T[k] += +r[k] || 0; }); });
+      var g = Object.keys(gm).length;
+      if (!g) { host.innerHTML = ''; return; }
+      var name = full.replace(/\s+\S+$/, '');
+      try { if (window.tdcShortSchool) name = tdcShortSchool(full) || name; } catch (e) {}
+      var mode = 'pg';
+      try { mode = localStorage.getItem('tdc_ts_ct') || 'pg'; } catch (e) {}
+      var pct = function (m, a) { return a > 0 ? (100 * m / a).toFixed(1) : '—'; };
+      var cell = function (T, k) {
+        if (k === 'g') return g;
+        if (k === 'fg%') return pct(T.fgm, T.fga); if (k === '3p%') return pct(T.tpm, T.tpa); if (k === 'ft%') return pct(T.ftm, T.fta);
+        return mode === 'pg' ? (T[k] / g).toFixed(1) : String(T[k]);
+      };
+      var diff = function (k) {
+        if (k === 'g') return '';
+        var a, b;
+        if (k === 'fg%') { a = me.fga ? me.fgm / me.fga : 0; b = op.fga ? op.fgm / op.fga : 0; return ((a - b) * 100 >= 0 ? '+' : '−') + Math.abs((a - b) * 100).toFixed(1); }
+        if (k === '3p%') { a = me.tpa ? me.tpm / me.tpa : 0; b = op.tpa ? op.tpm / op.tpa : 0; return ((a - b) * 100 >= 0 ? '+' : '−') + Math.abs((a - b) * 100).toFixed(1); }
+        if (k === 'ft%') { a = me.fta ? me.ftm / me.fta : 0; b = op.fta ? op.ftm / op.fta : 0; return ((a - b) * 100 >= 0 ? '+' : '−') + Math.abs((a - b) * 100).toFixed(1); }
+        var d = mode === 'pg' ? (me[k] - op[k]) / g : me[k] - op[k];
+        return (d >= 0 ? '+' : '−') + (mode === 'pg' ? Math.abs(d).toFixed(1) : Math.abs(d));
+      };
+      var draw = function () {
+        var tr = function (cls, lbl, f) { return '<tr class="' + cls + '"><td class="l">' + lbl + '</td>' + CT.map(function (c) { return '<td>' + f(c[0]) + '</td>'; }).join('') + '</tr>'; };
+        host.innerHTML = '<div class="ts-head"><h2>Team stats</h2><span class="sub">' + seasonLabel(yr) + ' · every game on file · ' +
+          '<span class="ts-tog"><button type="button" data-m="pg" class="' + (mode === 'pg' ? 'on' : '') + '">Per game</button><button type="button" data-m="tot" class="' + (mode === 'tot' ? 'on' : '') + '">Totals</button></span></span></div>' +
+          '<div class="sheet-wrap" style="max-height:none;" data-fit-keep><table class="sheet dense freeze ts-ct"><thead><tr><th class="l"></th>' +
+          CT.map(function (c) { return '<th>' + c[1] + '</th>'; }).join('') + '</tr></thead><tbody>' +
+          tr('me', '<b>' + esc(name) + '</b>', function (k) { return cell(me, k); }) +
+          tr('opp', 'Opponents', function (k) { return cell(op, k); }) +
+          tr('dif', 'Difference', diff) + '</tbody></table></div>';
+        host.querySelectorAll('.ts-tog button').forEach(function (b) { b.onclick = function () { mode = b.dataset.m; try { localStorage.setItem('tdc_ts_ct', mode); } catch (e) {} draw(); }; });
+      };
+      draw();
+    }).catch(function () { if (!stale()) host.innerHTML = ''; });
+  }
   var _files = {};
   function file(y) {
     if (!_files[y]) _files[y] = fetch('scripts/data/team_scout_' + y + '.json?h=' + Math.floor(Date.now() / 36e5)).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
@@ -120,6 +189,8 @@
           if (stale()) return;
           if (!R) { host.innerHTML = '<div class="ts-foot">The ' + seasonLabel(yr) + ' schedule for ' + esc(full) + ' hasn’t been announced yet.</div>'; return; }
           host.innerHTML = ''; TDCSched.render(host, R, { played: rows });
+          // should / did / rank after each game, a beat later (same as the Schedule tab)
+          if (TDCSched.trail) TDCSched.trail(full).then(function (T) { if (stale() || !T || !Object.keys(T).length || !host.isConnected) return; TDCSched.render(host, R, { played: rows, trail: T }); }).catch(function () {});
           var xg = games.filter(function (g) { return !(R.counted && R.counted.has(String(g.id))); });
           var xw = xg.filter(function (g) { var hm = g.home === full; return (hm ? g.home_score : g.away_score) > (hm ? g.away_score : g.home_score); }).length, xl = xg.length - xw;
           var sw = xw + (R.playedW || 0), sl = xl + (R.playedL || 0);
@@ -137,9 +208,10 @@
       css();
       var y = +o.season || 2027, k = o.full + '|' + y; if (k === _key) return; _key = k;
       var tok = ++_tok, stale = function () { return tok !== _tok; };
-      host.innerHTML = '<div class="ts-grid"><div><div class="ts-head"><h2>Scouting report</h2><span class="sub" id="tsSub"></span></div><div id="tsNote"></div><div id="tsSheet"><div class="ts-foot">Loading…</div></div></div>' +
+      host.innerHTML = '<div class="ts-count" id="tsCount"></div><div class="ts-grid"><div><div class="ts-head"><h2>Scouting report</h2><span class="sub" id="tsSub"></span></div><div id="tsNote"></div><div id="tsSheet"><div class="ts-foot">Loading…</div></div></div>' +
         '<div><div class="ts-head"><h2>' + seasonLabel(y) + ' schedule</h2><span class="sub" id="tsSchedSub"></span></div><div id="tsSched" data-fit-keep></div></div></div>';
       schedule(document.getElementById('tsSched'), document.getElementById('tsSchedSub'), o.full, y, stale);
+      counting(document.getElementById('tsCount'), o.full, y, stale);
       file(y).then(function (D) {
         if (stale()) return;
         var el = document.getElementById('tsSheet'), t = D && D.teams && D.teams[o.full];
