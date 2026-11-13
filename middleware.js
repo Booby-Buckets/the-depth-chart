@@ -1,7 +1,7 @@
 // Edge Middleware — runs BEFORE the filesystem, so it can intercept /team.html and
 // /player.html even though those static files exist (plain vercel.json rewrites cannot).
-// It ONLY acts on crawler user-agents, redirecting them to the OG-injection functions so
-// shared links unfurl with the real team/player. Every other request (real visitors, and
+// It ONLY acts on crawler user-agents, rewriting them to the OG-injection functions so shared
+// links unfurl with the real team/player and search engines index the real page at its own URL. Every other request (real visitors, and
 // the functions' own plain-UA fetch) falls straight through to the static file. Wrapped in
 // try/catch that continues on any error, so it can never break the page for a human.
 
@@ -23,7 +23,9 @@ export default function middleware(request) {
     url.pathname = url.pathname === '/player.html' ? '/api/og-player'
                  : url.pathname === '/transfer-fit.html' ? '/api/og-transfer'
                  : '/api/og-team';
-    return Response.redirect(url.toString(), 307); // crawler → OG-injection function (query preserved)
+    // REWRITE, not redirect (Nov 12 2026): a 307 told Google the page lives at /api/og-player, so player and team pages
+    // never got indexed under their own address. A rewrite serves the function's HTML at the same URL.
+    return new Response(null, { headers: { 'x-middleware-rewrite': url.toString() } });
   } catch (e) {
     return;                                         // anything unexpected → serve the page normally
   }
