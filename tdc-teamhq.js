@@ -28,7 +28,6 @@ var LAUNCH=[
   ['📈','dossier.html','Player Dossier','projected line + full splits','coach'],
   ['🔁','lineups.html','Lineup Recommender','best-fit five-man units','coach'],
   ['🎯','bet/','TDC Bet','lines, props & edges vs the books',''],
-  ['📅','predict.html','Projected Ratings','rating + game-by-game odds','pro'],
   ['🌱','roster-dev.html','Development','year-over-year trajectory','coach'],
   ['💵','nil.html','NIL Value','market values across the roster'],
   ['📰','fan.html','Fan Site','stories by fans · team forum'],

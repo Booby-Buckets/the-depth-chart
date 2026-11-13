@@ -28,7 +28,6 @@
       ['rankings-by-date.html','Rankings by Date',       'Where every team ranked on any date, and what it did since'],
       ['roster.html',          'Player Rankings',        'Every player by overall'],
       ['conferences.html',     'Conferences & Standings','League tables and conference ratings'],
-      ['predict.html',         'Predictive Ratings',     'Who wins going forward'],
       ['#Postseason'],
       ['bracket.html',         'Bracketology',           'Projected NCAA Tournament field'],
       ['tournaments.html',     'Tournaments',            'Early-season events and conference tournaments'],
@@ -462,9 +461,21 @@
     var LIGHT = '/teamlogos/ncaa/500/', DARK = '/teamlogos/ncaa/500-dark/';
     var root = document.documentElement;
     function isDark() { return root.getAttribute('data-theme') === 'dark'; }
+    // a logo drawn on a white / light tile (bracketology, scoreboard chips) needs the NORMAL logo even in dark mode:
+    // the dark variants are mostly white marks, so Clemson, Grand Canyon, Queens vanished and Cincinnati showed a
+    // red sliver on the bracket's white tiles (owner, Nov 12 2026). First painted background within 3 parents decides.
+    function onLight(img) {
+      for (var el = img.parentElement, i = 0; el && i < 3; el = el.parentElement, i++) {
+        var m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/.exec(getComputedStyle(el).backgroundColor || '');
+        if (!m || (m[4] != null && +m[4] < 0.5)) continue;
+        return (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255 > 0.75;
+      }
+      return false;
+    }
     function fix(img) {
       var src = img.getAttribute('src');
       if (!src || src.indexOf('/teamlogos/ncaa/500') < 0) return;
+      if (isDark() && onLight(img)) { if (src.indexOf(DARK) >= 0) img.setAttribute('src', src.replace(DARK, LIGHT)); return; }
       if (isDark()) {
         if (src.indexOf(LIGHT) < 0 || img.dataset.tdcNoDark) return;
         img.addEventListener('error', function back() {
