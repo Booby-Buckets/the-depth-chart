@@ -207,7 +207,12 @@
   var HEX_NEG=['#3a4767','#6c7894','#9aa4ba','#c3c9d7'], HEX_MID='#dcdde2', HEX_POS=['#fbc6a4','#f8a577','#f5874a','#ef6a1f'];
   function hexBand(d){ var a=Math.abs(d), i=a<0.02?-1:a<0.05?0:a<0.08?1:a<0.11?2:3;
     if(i<0) return HEX_MID; return d>0?HEX_POS[i]:HEX_NEG[3-i]; }
-  function hexbinSvg(shots){
+  // Nov 13 2026 (owner): hexes TOUCH (a full honeycomb, every cell the same size) and use the TEAM colour —
+  // FG% vs D-I is the ink strength (faint = colder, solid = hotter). Volume moved to the tooltip.
+  var HEX_A=[0.12,0.24,0.38,0.54,0.70,0.85,1];
+  function hexAlpha(d){ var t=Math.max(0,Math.min(1,0.5+d/0.24)); return HEX_A[Math.min(6,Math.floor(t*7))]; }
+  function hexbinSvg(shots, ink){
+    var rgb=(ink||[31,95,168]).join(',');
     var bins={};
     shots.forEach(function(s){
       var k=axial(clampx(fxf(s.x)), clampy(fyf(s.y)));
@@ -238,11 +243,11 @@
       // high-volume zones read as big cells and thin zones as small ones. sqrt keeps it
       // perceptually fair (area ∝ attempts). Was 0.90–1.16 (a ~29% span — every hex looked
       // identical, so the size legend was a lie); now 0.48–1.18 (radius >2× → area >5×).
-      var rp=Math.min(px(HS)*1.18, px(HS)*(0.48+0.82*Math.sqrt(b.att/maxAtt)));
+      var rp=px(HS)+0.4;                                  // full size + a hair so neighbours share an edge (no seams)
       // tooltip carries the RAW numbers (pipe-delimited; wire() builds the card)
       var rawFg=b.mk/b.att, rawDiff=rawFg-base;
       var tip=(rawFg*100).toFixed(1)+'|'+distLabel(dh,isThree)+'|'+b.mk+'/'+b.att+'|'+(base*100).toFixed(1)+'|'+(rawDiff>=0?'+':'')+(rawDiff*100).toFixed(1)+'|'+(rawDiff>=0?'1':'0');
-      g+='<path class="sc-mark sc-hex '+zc+'" data-tip="'+tip+'" style="animation-delay:'+Math.min(idx*7,700)+'ms" d="'+hexPath(cx,cy,rp)+'" fill="'+hexBand(diff)+'" stroke="var(--sc-floor)" stroke-width="1.2"/>';
+      g+='<path class="sc-mark sc-hex '+zc+'" data-tip="'+tip+'" style="animation-delay:'+Math.min(idx*7,700)+'ms" d="'+hexPath(cx,cy,rp)+'" fill="rgba('+rgb+','+hexAlpha(diff)+')"/>';
       idx++;
     });
     return g;
@@ -275,23 +280,69 @@
     for(y=0;y<h;y++)for(x=0;x<w;x++){ s=0;n=0; for(k=-rad;k<=rad;k++){var yy=y+k; if(yy>=0&&yy<h){s+=t[yy*w+x];n++;}} g[y*w+x]=s/n; }
   }
   var HEAT_BANDS=['#fdeadb','#fcd3b6','#f9b68a','#f6975d','#f07a35','#e25d14'];
+  // Nov 13 2026 (owner: "fuzzy, not smooth on the edges"): the bands were sampled straight off a coarse 100-cell grid with
+  // hard per-pixel steps, so every contour stair-stepped. Now: the density is upsampled 4x and blurred again (round
+  // contours), drawn at 2x the court's pixel size, and each band edge is anti-aliased over ~1 device pixel using the
+  // local gradient. Hover (or tap) reads out the shots within 3 ft of the pointer.
   function drawHeat(el, shots){
     var cv=el.querySelector('.sc-heat'); if(!cv||!cv.getContext) return;
-    cv.width=W; cv.height=H; var ctx=cv.getContext('2d');
+    var S=2, CW=W*S, CH=Math.round(H*S); cv.width=CW; cv.height=CH; var ctx=cv.getContext('2d');
     var GW=100, GH=Math.round((YMAX-YMIN)*2), G=densityGrid(shots,GW,GH).g;
-    // bands are relative to this chart's own busiest spots (98th percentile), so a 150-shot
-    // player and a 2,000-shot team both use the full ramp
     var nz=[]; for(var i=0;i<G.length;i++) if(G[i]>0) nz.push(G[i]); nz.sort(function(a,b){return a-b;});
     var mx=(nz.length?nz[Math.floor(nz.length*0.98)]:1)||1;
-    var floor=(getComputedStyle(el).getPropertyValue('--sc-floor')||'#fbfbf9').trim(); ctx.fillStyle=floor; ctx.fillRect(0,0,W,H);
-    var im=ctx.getImageData(0,0,W,H), p=im.data, TH=[0.16,0.3,0.44,0.58,0.73,0.88], C=HEAT_BANDS.map(hexRgb);
-    for(var yy=0;yy<H;yy++){ var gy=yy/(H-1)*(GH-1), y0=Math.floor(gy), y1=Math.min(GH-1,y0+1), fy=gy-y0;
-      for(var xx=0;xx<W;xx++){ var gx=xx/(W-1)*(GW-1), x0=Math.floor(gx), x1=Math.min(GW-1,x0+1), fx=gx-x0;
-        var v=((G[y0*GW+x0]*(1-fx)+G[y0*GW+x1]*fx)*(1-fy)+(G[y1*GW+x0]*(1-fx)+G[y1*GW+x1]*fx)*fy)/mx, band=-1;
-        v=Math.pow(Math.max(0,v),0.6);   // a gentler curve so the arc isn't swamped by the rim
-        for(var b=TH.length-1;b>=0;b--) if(v>=TH[b]){ band=b; break; }
-        if(band<0) continue; var c=C[band], o=(yy*W+xx)*4; p[o]=c[0]; p[o+1]=c[1]; p[o+2]=c[2]; p[o+3]=255; } }
-    ctx.putImageData(im,0,0);
+    // fine grid: bilinear upsample x4, then two more blur passes → rounded contours
+    var U=4, FW=GW*U, FH=GH*U, F=new Float32Array(FW*FH);
+    for(var fy=0;fy<FH;fy++){ var gy=fy/(FH-1)*(GH-1), y0=Math.floor(gy), y1=Math.min(GH-1,y0+1), ty=gy-y0;
+      for(var fx=0;fx<FW;fx++){ var gx=fx/(FW-1)*(GW-1), x0=Math.floor(gx), x1=Math.min(GW-1,x0+1), tx=gx-x0;
+        F[fy*FW+fx]=((G[y0*GW+x0]*(1-tx)+G[y0*GW+x1]*tx)*(1-ty)+(G[y1*GW+x0]*(1-tx)+G[y1*GW+x1]*tx)*ty)/mx; } }
+    blur(F,FW,FH,3); blur(F,FW,FH,3);
+    var V=new Float32Array(CW*CH);
+    for(var yy=0;yy<CH;yy++){ var sy=yy/(CH-1)*(FH-1), a0=Math.floor(sy), a1=Math.min(FH-1,a0+1), uy=sy-a0;
+      for(var xx=0;xx<CW;xx++){ var sx=xx/(CW-1)*(FW-1), b0=Math.floor(sx), b1=Math.min(FW-1,b0+1), ux=sx-b0;
+        var v=(F[a0*FW+b0]*(1-ux)+F[a0*FW+b1]*ux)*(1-uy)+(F[a1*FW+b0]*(1-ux)+F[a1*FW+b1]*ux)*uy;
+        V[yy*CW+xx]=Math.pow(Math.max(0,v),0.6); } }   // a gentler curve so the arc isn't swamped by the rim
+    var off=document.createElement('canvas'); off.width=CW; off.height=CH; var octx=off.getContext('2d');
+    var im=octx.createImageData(CW,CH), p=im.data, TH=[0.16,0.3,0.44,0.58,0.73,0.88], C=HEAT_BANDS.map(hexRgb);
+    for(yy=0;yy<CH;yy++) for(xx=0;xx<CW;xx++){ var k=yy*CW+xx; v=V[k]; if(v<TH[0]-0.05) continue;
+      var gr=Math.abs(V[k+(xx<CW-1?1:0)]-V[k-(xx>0?1:0)])+Math.abs(V[k+(yy<CH-1?CW:0)]-V[k-(yy>0?CW:0)]), e=Math.max(gr*0.6,1e-4);
+      var band=-1; for(var bb=TH.length-1;bb>=0;bb--) if(v>=TH[bb]-e){ band=bb; break; }
+      if(band<0) continue;
+      var t=Math.max(0,Math.min(1,(v-TH[band]+e)/(2*e))), c=C[band], o=k*4, lo=band>0?C[band-1]:null;
+      if(lo){ p[o]=lo[0]+(c[0]-lo[0])*t; p[o+1]=lo[1]+(c[1]-lo[1])*t; p[o+2]=lo[2]+(c[2]-lo[2])*t; p[o+3]=255; }
+      else { p[o]=c[0]; p[o+1]=c[1]; p[o+2]=c[2]; p[o+3]=255*t; } }
+    octx.putImageData(im,0,0);
+    var floor=(getComputedStyle(el).getPropertyValue('--sc-floor')||'#fbfbf9').trim(); ctx.fillStyle=floor; ctx.fillRect(0,0,CW,CH);
+    ctx.drawImage(off,0,0);
+    wireHeat(el, shots, V, CW, CH, TH);
+  }
+  // hover / tap readout for the heat map: the shots within 3 ft of the pointer, ring drawn on the court
+  function wireHeat(el, shots, V, CW, CH, TH){
+    var wrap=el.querySelector('.sc-heat-wrap'), ring=el.querySelector('.sc-heat-ring'); if(!wrap) return;
+    var tip=floatTip(), R=3, pts=shots.filter(function(s){ return edist(s)<=35; }), N=pts.length||1, V0=voice(el._opts||{});
+    wrap._heatTip=1;
+    var lvl=['the edge of '+V0.poss+' range','light','some','regular','heavy','a hot spot','the busiest spot'];
+    function show(e){
+      var r=wrap.getBoundingClientRect(), rx=(e.clientX-r.left)/r.width, ry=(e.clientY-r.top)/r.height;
+      if(rx<0||rx>1||ry<0||ry>1){ hide(); return; }
+      var fx=rx*50, fy=YMAX-ry*(YMAX-YMIN), a=0, m=0, th=0, vv=V[Math.min(CH-1,Math.round(ry*(CH-1)))*CW+Math.min(CW-1,Math.round(rx*(CW-1)))];
+      pts.forEach(function(s){ var dx=clampx(fxf(s.x))-fx, dy=clampy(fyf(s.y))-fy; if(dx*dx+dy*dy<=R*R){ a++; if(s.made)m++; if(s.sv===3)th++; } });
+      if(ring){ ring.setAttribute('cx',px(fx).toFixed(1)); ring.setAttribute('cy',py(fy).toFixed(1)); ring.style.opacity=1; }
+      var dh=Math.sqrt((fx-HOOP_X)*(fx-HOOP_X)+(fy-HOOP_Y)*(fy-HOOP_Y)), three=a?th>a/2:dh>22.2, base=d1FG(dh,three);
+      var band=-1; for(var b=TH.length-1;b>=0;b--) if(vv>=TH[b]){ band=b; break; }
+      if(!a){ tip.innerHTML='<b>'+distLabel(dh,three).replace(/^./,function(c){return c.toUpperCase();})+'</b><span class="scr">No shots within '+R+' ft of here</span>'; }
+      else { var fg=m/a, df=(fg-base)*100;
+        tip.innerHTML='<b>'+distLabel(dh,three).replace(/^./,function(c){return c.toUpperCase();})+'</b>'+
+          '<span class="scq">'+a+' shot'+(a===1?'':'s')+' within '+R+' ft · '+(a/N*100).toFixed(1)+'% of '+V0.poss+' attempts</span>'+
+          '<span class="scr">'+m+'/'+a+' FG · '+(fg*100).toFixed(0)+'% <span style="font-weight:800;color:'+(df>=0?'var(--sc-hot)':'var(--sc-cold)')+'">('+(df>=0?'+':'')+df.toFixed(0)+' vs D-I '+(base*100).toFixed(0)+'%)</span></span>'+
+          '<span class="scd" style="color:var(--text2)">Volume: '+lvl[band+1]+'</span>'; }
+      tip.classList.add('rich','on'); placeTip(tip,e);
+    }
+    function hide(){ tip.classList.remove('on'); if(ring) ring.style.opacity=0; }
+    if(wrap._heatOn) return; wrap._heatOn=1;
+    wrap.addEventListener('pointermove',show); wrap.addEventListener('pointerdown',show);
+    // a finger "leaves" the moment it lifts, so on touch the readout stays until the next tap outside the court
+    wrap.addEventListener('pointerleave',function(e){ if(e.pointerType==='mouse') hide(); });
+    document.addEventListener('pointerdown',function(e){ if(wrap.isConnected&&!wrap.contains(e.target)) hide(); });
   }
 
 
@@ -409,15 +460,16 @@
       '<g clip-path="url(#'+id+'in)">'+seam(-ANG_TOP,midR0,30)+seam(ANG_TOP,midR0,30)+seam(-ANG_CB,4,30)+seam(ANG_CB,4,30)+'</g></g>';
     // labels: made-att, FG% under it (returned separately so they sit above the court lines)
     var tiles=g; g='';
-    Object.keys(Z12).forEach(function(k){ var z=Z[k], at=Z12[k].lab, x=px((look&&LOOKAT[k]||at)[0]), y=look&&!Z12[k].rot?py((LOOKAT[k]||at)[1])-20:py(at[1]);   // the 4-line stack runs y-10..y+51: centre it on its spot
+    Object.keys(Z12).forEach(function(k){ var z=Z[k], at=Z12[k].lab, x=px((look&&LOOKAT[k]||at)[0]), y=look&&!Z12[k].rot?py((LOOKAT[k]||at)[1])-8:py(at[1]);   // the 2-line stack (share, look → got) centred on its spot
       var dark=look?lookDark(xpOf(k),LB):alphaOf(k)>0.5, cls='scz-lab'+(dark?' on':''), big=look?(Math.round(z.a/N*100)+'%'):(z.a?(z.m+'–'+z.a):'–');
       if(Z12[k].rot){ g+='<text class="'+cls+' sm" transform="translate('+x.toFixed(1)+' '+y.toFixed(1)+') rotate('+Z12[k].rot+')" text-anchor="middle" dominant-baseline="central">'+big+'</text>'; return; }
       g+='<text class="'+cls+'" x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" text-anchor="middle" dominant-baseline="central">'+big+'</text>';
       if(look){ var ok=z.a>=5, hit=ok?Math.round(z.m/z.a*100)+'%':'—', lk=xpOf(k),
           got=ok?z.m/z.a*(THREES12[k]?3:2):null, gs=got==null?'—':got.toFixed(2)+(Math.abs(got-lk)<0.04?'':(got>lk?' ▲':' ▼')),
           // look = what the shot is worth for an average D-I player; got = what this team/player actually scored per attempt there
-          L=[['look '+lk.toFixed(2),0],['got '+gs,1],['hit '+hit,1]];
-        L.forEach(function(l,i){ g+='<text class="scz-sub'+(dark?' on':'')+'" x="'+x.toFixed(1)+'" y="'+(y+16+14*i).toFixed(1)+'" text-anchor="middle" dominant-baseline="central"'+(l[1]?' style="font-weight:800"':'')+'>'+l[0]+'</text>'; }); }
+          // one line under the share (owner, Nov 12 2026: the 4-line stack was too much text): "look → got", FG% is in the tooltip
+          line=lk.toFixed(2)+(got==null?'':' → '+got.toFixed(2)), arr=got==null||Math.abs(got-lk)<0.04?'':(got>lk?'▲':'▼');
+        g+='<text class="scz-sub'+(dark?' on':'')+'" x="'+x.toFixed(1)+'" y="'+(y+17).toFixed(1)+'" text-anchor="middle" dominant-baseline="central" style="font-weight:700">'+line+(arr?' <tspan class="scz-arr'+(arr==='▲'?' up':' dn')+'">'+arr+'</tspan>':'')+'</text>'; }
       else if(z.a>=5) g+='<text class="scz-sub'+(dark?' on':'')+'" x="'+x.toFixed(1)+'" y="'+(y+16).toFixed(1)+'" text-anchor="middle" dominant-baseline="central">'+Math.round(z.m/z.a*100)+'%</text>'; });
     return {tiles:tiles, labels:g};
   }
@@ -433,7 +485,10 @@
     var row=function(n,k12){ var p=avgOf(Z12[k12].ref), v=THREES12[k12]?3:2;
       return '<tr><td style="padding:2px 12px 2px 0;">'+n+'</td><td style="padding:2px 8px;text-align:right;">'+(p*100).toFixed(1)+'%</td><td style="padding:2px 8px;color:var(--text3);">× '+v+'</td><td style="padding:2px 0 2px 8px;text-align:right;"><b>= '+xpOf(k12).toFixed(2)+'</b></td></tr>'; };
     var t3p=avgOf('t3');
-    return '<div class="sc-explain"><b>How good a look is, in points.</b> A shot only counts when it goes in, so a look is worth '+
+    return '<div class="sc-explain"><b>Look quality.</b> Each zone is coloured by how good the shot is: what one attempt from there is worth to an average D-I player (the average shot is worth <b>'+base.toFixed(2)+'</b>). '+
+      '<span style="color:#1f9d57;font-weight:800;">Green</span> beats it, <span style="color:#c74d3f;font-weight:800;">red</span> falls short. '+
+      'Each zone shows its share of '+V.poss+' shots, then <b>look → got</b>: what the shot is worth vs what '+V.subj+' actually scored per attempt (▲ better, ▼ worse).'+
+      '<details class="sc-more"><summary>How the look number is worked out</summary>A shot only counts when it goes in, so a look is worth '+
       '<b>how often the average D-I player makes it × what it’s worth</b> — the points one attempt from there produces on average'+yr+':'+
       '<table style="margin:7px 0 6px;font-size:12.5px;border-collapse:collapse;font-variant-numeric:tabular-nums;">'+
         row('Layup / dunk at the rim','ra')+row('Corner 3','c3l')+row('Wing 3','w3l')+row('Top-of-the-key 3','t3')+
@@ -442,7 +497,7 @@
       'so each one is worth '+(t3p*100).toFixed(1)+'% × 3 = <b>'+xpOf('t3').toFixed(2)+'</b> points: over 100 of them, about '+Math.round(t3p*300)+' points. '+
       'The average D-I shot is worth <b>'+base.toFixed(2)+'</b>: <span style="color:#1f9d57;font-weight:800;">green</span> zones beat it, '+
       '<span style="color:#c74d3f;font-weight:800;">red</span> ones fall short, grey is about even. The colour grades the <i>look</i>, not '+V.poss+' shooting. '+
-      'Under it, <b>got</b> is what '+V.subj+' actually scored per shot there (▲ beat the look, ▼ fell short) and <b>hit</b> is the FG%.</div>';
+      'Hover a zone for the FG%.</details></div>';
   }
   // ── the looks vs what they made of them, zone by zone (sheet kit) ──
   var LZ=[['At the rim',['ra']],['Corner 3',['c3l','c3r']],['Wing 3',['w3l','w3r']],['Top-of-the-key 3',['t3']],['Paint (non-rim)',['paint']],
@@ -866,6 +921,7 @@
   function render(el, shots, opts){
     opts=opts||{}; if(!el) return;
     shots=(shots||[]).filter(function(s){return s.x!=null&&s.y!=null;});
+    var ft0=document.getElementById('scTipFloat'); if(ft0) ft0.classList.remove('on');   // a tooltip left up by the chart being replaced
     el.setAttribute('data-sc-host','1'); el.classList.add('sc-host'); el._shots=shots; el._opts=opts;
     // built-in game picker (opts.games = async fetcher of game rows by id): the host keeps the
     // whole season, the chart draws one game when opts.gameId is set
@@ -905,10 +961,10 @@
       extra=dietBlock(shots,opts)+splitTables(shots)+distBlock(shots,opts)+(opts.names?playerZoneTable(shots,opts.names):'');
     } else if(mode==='look'){
       var lc=court(null,Object.assign({},courtOpts,{noHoop:1})), lcut=lc.indexOf('<g class="sc-lines"'), lz=zones12Svg(shots,inkRgb(tcol),true), LB0=lookBase();
-      body=lookExplain(shots,opts)+'<div class="sc-mk-legend"><span><i class="scz-sw" style="background:'+lookCol(LB0+0.22,LB0)+'"></i><i class="scz-sw" style="background:'+lookCol(LB0+0.06,LB0)+'"></i>better look than D-I average</span>'+
+      body='<div class="sc-court-wrap scz-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+lc.slice(0,lcut)+lz.tiles+lc.slice(lcut)+lz.labels+'</svg><div class="sc-tip"></div></div>'+
+        '<div class="sc-mk-legend sc-under"><span><i class="scz-sw" style="background:'+lookCol(LB0+0.22,LB0)+'"></i><i class="scz-sw" style="background:'+lookCol(LB0+0.06,LB0)+'"></i>better look than D-I average</span>'+
         '<span><i class="scz-sw" style="background:'+lookCol(LB0,LB0)+'"></i>about average</span><span><i class="scz-sw" style="background:'+lookCol(LB0-0.06,LB0)+'"></i><i class="scz-sw" style="background:'+lookCol(LB0-0.22,LB0)+'"></i>worse look</span>'+
-        '<span style="margin-left:auto;color:var(--text3);font-size:10px;">share of shots · look · got (actual pts per shot) · FG%</span></div>'+
-        '<div class="sc-court-wrap scz-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+lc.slice(0,lcut)+lz.tiles+lc.slice(lcut)+lz.labels+'</svg><div class="sc-tip"></div></div>';
+        '<span style="margin-left:auto;color:var(--text3);font-size:10px;">share of shots · look → got (points per shot)</span></div>'+lookExplain(shots,opts);
       extra=lookTable(shots,opts)+lookLadder(shots,opts);
     } else if(mode==='spots'){
       var so={};
@@ -920,15 +976,16 @@
         '<div class="sc-court-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+defs()+court(null,courtOpts)+sg+'</svg><div class="sc-tip"></div></div>';
       extra=spotsLedger(so,opts);
     } else if(mode==='hex'){
-      var hk=function(c){ return '<b style="background:'+c+'"></b>'; };
+      var hink=inkRgb(tcol), hk=function(a){ return '<b style="background:var(--sc-floor);background-image:linear-gradient(rgba('+hink.join(',')+','+a+'),rgba('+hink.join(',')+','+a+'))"></b>'; };
       var hc=court(null,courtOpts), hcut=hc.indexOf('<g class="sc-lines"');     // court lines over the hexes
-      body='<div class="sc-court-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+defs()+hc.slice(0,hcut)+hexbinSvg(shots)+hc.slice(hcut)+'</svg><div class="sc-tip"></div></div>'+
-        '<div class="sc-heat-legend"><span>FG% vs D-I from that spot</span><span style="color:var(--text3)">colder</span><i class="sc-bands">'+HEX_NEG.map(hk).join('')+hk(HEX_MID)+HEX_POS.map(hk).join('')+'</i><span style="color:var(--text3)">hotter</span></div>'+
-        '<div class="sc-eff-cap" style="text-align:center;margin-top:5px;">Bigger hexes = more shots from there \u00b7 grey = within 2 points of the D-I average \u00b7 hover a hex for the numbers</div>';
+      body='<div class="sc-court-wrap"><svg class="sc-svg" viewBox="0 0 '+W+' '+H+'">'+defs()+hc.slice(0,hcut)+hexbinSvg(shots,hink)+hc.slice(hcut)+'</svg><div class="sc-tip"></div></div>'+
+        '<div class="sc-heat-legend"><span>FG% vs D-I from that spot</span><span style="color:var(--text3)">colder</span><i class="sc-bands">'+HEX_A.map(hk).join('')+'</i><span style="color:var(--text3)">hotter</span></div>'+
+        '<div class="sc-eff-cap" style="text-align:center;margin-top:5px;">Stronger colour = makes more than the D-I average from there \u00b7 hover a hex for the shots and FG%</div>';
     } else if(mode==='heat'){
       body='<div class="sc-court-wrap sc-heat-wrap"><canvas class="sc-heat"></canvas>'+
-        '<svg class="sc-svg sc-heat-court" viewBox="0 0 '+W+' '+H+'">'+court(null,courtOpts).replace(/var\(--sc-floor\)|var\(--sc-inside\)/g,'none').replace(/url\(#scVig\)/g,'none')+'</svg></div>'+
-        '<div class="sc-heat-legend"><span>Where '+voice(opts).subj+' '+voice(opts).shoots+' from</span><span style="color:var(--text3)">fewer shots</span><i class="sc-bands">'+HEAT_BANDS.map(function(c){return '<b style="background:'+c+'"></b>';}).join('')+'</i><span style="color:var(--text3)">more shots</span></div>';
+        '<svg class="sc-svg sc-heat-court" viewBox="0 0 '+W+' '+H+'">'+court(null,courtOpts).replace(/var\(--sc-floor\)|var\(--sc-inside\)/g,'none').replace(/url\(#scVig\)/g,'none')+'<circle class="sc-heat-ring" cx="0" cy="0" r="'+(3*FT)+'"/></svg></div>'+
+        '<div class="sc-heat-legend"><span>Where '+voice(opts).subj+' '+voice(opts).shoots+' from</span><span style="color:var(--text3)">fewer shots</span><i class="sc-bands">'+HEAT_BANDS.map(function(c){return '<b style="background:'+c+'"></b>';}).join('')+'</i><span style="color:var(--text3)">more shots</span></div>'+
+        '<div class="sc-eff-cap" style="text-align:center;margin-top:5px;">Hover or tap anywhere for the shots and FG% around that spot</div>';
     } else {
       var dots=shots.map(function(s,i){
         var cx=px(clampx(fxf(s.x))), cy=py(clampy(fyf(s.y)));
@@ -968,6 +1025,7 @@
     var wrap=el.querySelector('.sc-court-wrap'), tip=wrap?floatTip():null;
     if(wrap&&tip){
       wrap.addEventListener('mousemove',function(e){
+        if(wrap._heatTip) return;
         var t=e.target.closest?e.target.closest('[data-tip],[data-t],[data-ztip]'):null;
         if(!t){ tip.classList.remove('on'); return; }
         var r=wrap.getBoundingClientRect();
@@ -1072,6 +1130,7 @@
       ':root{--sc-ink-rgb:26,42,76;--sc-soft:rgba(120,130,150,.9);} :root[data-theme="dark"]{--sc-ink-rgb:170,192,236;--sc-soft:rgba(190,200,220,.7);} @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--sc-ink-rgb:170,192,236;--sc-soft:rgba(190,200,220,.7);}}'+
       '.sc-sig{width:14px;height:10px;border-radius:2px;background:var(--sc-hot);opacity:.75;display:inline-block;}'+
       '.sc-softsw{width:14px;height:10px;border-radius:2px;border:1.5px dashed var(--sc-cold);background:color-mix(in srgb,var(--sc-cold) 30%,transparent);display:inline-block;box-sizing:border-box;}'+
+      '.sc-more{margin-top:6px;} .sc-more summary{cursor:pointer;font-weight:700;color:var(--text2);font-size:12px;list-style:none;} .sc-more summary::-webkit-details-marker{display:none;} .sc-more summary::before{content:"▸ ";} .sc-more[open] summary::before{content:"▾ ";} .sc-more[open] summary{margin-bottom:6px;}'+
       '.sc-explain{font-size:13px;line-height:1.55;color:var(--text2);background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 13px;margin:0 0 10px;} .sc-explain b{color:var(--text);}'+
       '.sc-explain .hot,.sc-read .hot{color:var(--sc-hot);font-weight:800;} .sc-explain .cold,.sc-read .cold{color:var(--sc-cold);font-weight:800;}'+
       '.sc-sptag{font:900 10.5px Inter,system-ui,sans-serif;letter-spacing:.14em;paint-order:stroke;stroke:var(--sc-floor);stroke-width:3px;pointer-events:none;} .sc-sptag.hot{fill:var(--sc-hot);} .sc-sptag.cold{fill:var(--sc-cold);}'+
@@ -1136,6 +1195,8 @@
       '.sc-heat{width:100%;height:auto;display:block;border-radius:8px;animation:scFade .8s ease both;}'+
       '.sc-heat-wrap{max-width:760px;margin:0 auto;}'+
       '.sc-heat-court{position:absolute;left:0;top:0;width:100%;}'+
+      '.sc-heat-wrap{cursor:crosshair;touch-action:pan-y;} .sc-heat-ring{fill:rgba(255,255,255,.12);stroke:var(--text);stroke-width:2;stroke-dasharray:5 4;opacity:0;transition:opacity .12s;pointer-events:none;}'+
+      '.sc-mk-legend.sc-under{margin-top:10px;} .sc-under+.sc-explain{margin-top:8px;}'+
       '.sc-heat-legend{max-width:580px;margin:10px auto 0;display:flex;align-items:center;gap:10px;font-size:11px;font-weight:600;color:var(--text2);justify-content:center;animation:scUp .5s ease .3s backwards;}'+
       '.sc-bands{display:inline-flex;gap:0;border:1px solid var(--border);} .sc-bands b{width:22px;height:11px;display:block;}'+
       '.sc-grad{width:150px;height:10px;border-radius:5px;display:inline-block;border:1px solid var(--border);background:linear-gradient(90deg,rgba(255,222,89,.35),#ffb430,#fb7820,#e43a20,#a8121c);}'+
