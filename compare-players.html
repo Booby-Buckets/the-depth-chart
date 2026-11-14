@@ -27,6 +27,7 @@
   <script src="tdc-nil.js"></script>
   <script src="tdc-projgrade.js?v=disp1"></script>
   <script src="tdc-realstats.js?v=2"></script>
+  <script src="tdc-reallines.js?v=6"></script>
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-teamname.js?v=1"></script>
   <script src="tdc-owned-seasons.js?v=8"></script>
@@ -35,7 +36,7 @@
   <script src="team-colors.js?v=13"></script>
 <script src="tdc-ot.js?v=1"></script>
   <script src="tdc-ratings.js?v=45"></script>
-  <link rel="stylesheet" href="tdc-sheets.css?v=6"/><link rel="stylesheet" href="tdc-hero.css?v=4"/><script src="tdc-shotchart.js?v=36"></script><script src="tdc-twin.js?v=ui2"></script>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/><link rel="stylesheet" href="tdc-hero.css?v=4"/><script src="tdc-shotchart.js?v=41"></script><script src="tdc-twin.js?v=ui2"></script>
   <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-statshift-player.js?v=ssx8"></script>
   <script src="tdc-portalfit.js?v=needs12"></script>
@@ -94,6 +95,46 @@
     .compare-section.show{display:block;}
 
     /* HEADER CARDS */
+
+    /* Nov 13 2026 compare-players rebuild: header, tabs, mirrored bars */
+    .cp-head{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:18px;padding:4px 0 0;}
+    .cp-side{border-top:3px solid var(--c);padding-top:12px;}
+    .cp-side{display:flex;align-items:center;gap:12px;min-width:0;}.cp-side.r{flex-direction:row-reverse;text-align:right;}
+    .cp-side img{width:42px;height:42px;object-fit:contain;flex:0 0 auto;}
+    .cp-who{flex:1;min-width:0;}.cp-nm{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;line-height:1.15;color:var(--text);}.cp-nm a{color:inherit;text-decoration:none;}.cp-nm a:hover{text-decoration:underline;}
+    .cp-sub{font-size:12px;font-weight:600;color:var(--text2);margin-top:2px;}.cp-sub2{font-size:11px;font-weight:600;color:var(--text3);margin-top:2px;}
+    .cp-ovr{text-align:center;flex:0 0 auto;padding:0 4px;}
+    .cp-ovr b{display:block;font-family:'Playfair Display',serif;font-weight:800;font-size:32px;line-height:1;color:var(--c);}.cp-ovr span{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
+    .cp-vs{font-family:'Playfair Display',serif;font-weight:800;font-size:14px;color:var(--text3);}
+    .cp-tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin:16px 0 16px;overflow-x:auto;scrollbar-width:none;}.cp-tabs::-webkit-scrollbar{display:none;}
+    .cp-tabs button{appearance:none;border:0;background:none;padding:10px 13px;font:700 13px Inter,system-ui,sans-serif;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;cursor:pointer;}
+    .cp-tabs button:hover{color:var(--text);}.cp-tabs button.on{color:var(--text);border-bottom-color:var(--accent);}
+    .cp-panel[hidden]{display:none!important;}
+    .cp-seas{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+    .cp-seg{display:inline-flex;gap:2px;padding:2px;border:1px solid var(--border);border-radius:9px;background:var(--bg2);}
+    .cp-seg button{appearance:none;border:0;background:none;border-radius:7px;padding:6px 12px;font:700 11px Inter,system-ui,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);cursor:pointer;min-height:30px;}
+    .cp-seg button:hover{color:var(--text);}.cp-seg button.on{background:var(--accent);color:var(--accent-on,#fff);}
+    .cp-note{font-size:11px;font-weight:500;color:var(--text3);}
+    .cp-board{max-width:760px;margin:0 auto;}
+    .cp-sum{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;padding:4px 0 10px;font-size:13px;font-weight:700;}
+    .cp-sum span:first-child{text-align:right;}.cp-sum b{font-family:'Playfair Display',serif;font-size:24px;font-weight:800;vertical-align:middle;margin:0 4px;}
+    .cp-sum em{font-style:normal;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:center;}
+    .cp-row{display:grid;grid-template-columns:62px 1fr 56px 1fr 62px;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);}
+    .cp-v{font-size:14px;font-weight:600;color:var(--text2);text-align:right;font-variant-numeric:tabular-nums;}.cp-v.r{text-align:left;}.cp-v.w{font-weight:800;color:var(--text);}
+    .cp-lab{text-align:center;font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--text3);}
+    .cp-bar{height:10px;background:color-mix(in srgb,var(--text) 7%,transparent);border-radius:2px;overflow:hidden;display:flex;}.cp-bar.l{justify-content:flex-end;}.cp-bar i{display:block;height:100%;}
+    .cp-foot{font-size:11px;color:var(--text3);text-align:center;margin-top:8px;}
+    .cp-dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:7px;vertical-align:1px;}
+    .cp-sheet .cp-gap td{height:6px;padding:0!important;background:var(--bg)!important;border:0!important;}
+    .cp-panel>.compare-section-head:first-child{margin-top:0;}
+    @media(max-width:640px){
+      .cp-head{grid-template-columns:1fr;gap:12px;padding:0;}.cp-vs{display:none;}
+      .cp-side.r{flex-direction:row;text-align:left;}
+      .cp-nm{font-size:17px;}.cp-side img{width:34px;height:34px;}.cp-ovr b{font-size:26px;}
+      .cp-row{grid-template-columns:46px 1fr 40px 1fr 46px;gap:6px;}.cp-v{font-size:13px;}.cp-lab{font-size:10px;}
+      .cp-seg button{padding:6px 9px;min-height:34px;}
+      .cp-sum{gap:6px;font-size:12px;}.cp-sum span{white-space:nowrap;}.cp-sum b{font-size:20px;}.cp-sum em{font-size:9px;letter-spacing:.04em;}
+    }
     .cmp-heads{display:grid;grid-template-columns:1fr 54px 1fr;gap:0;margin-bottom:26px;align-items:stretch;}
     .cmp-head{border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
     .cmp-head.right{text-align:right;}
@@ -958,7 +999,8 @@ async function maybeRender(){
   const arr=sel[mode==='players'?'players':'teams'];
   if(arr[0]&&arr[1]){
     document.getElementById('emptyHint').style.display='none';
-    if(mode==='players'){ await Promise.all([attachBbref(arr[0]),attachBbref(arr[1]),_projLineMap(),_loadDevCurves()]); renderPlayers(); }
+    if(mode==='players'){ [1,2].forEach(i=>{ const e=document.getElementById('selected'+i); if(e) e.style.display='none'; });
+      await Promise.all([attachBbref(arr[0]),attachBbref(arr[1]),_projLineMap(),_loadDevCurves(),window.TDCReal?TDCReal.ready:null]); renderPlayers(); }
     else renderTeams();
   }
 }
@@ -1439,6 +1481,101 @@ function _cmpGrade(p){
   }catch(e){}
   return p.tdc_grade!=null ? p.tdc_grade : null;
 }
+
+// ── Compare players, Nov 13 2026 rebuild (owner: "I do not like how it looks, and it is not comparing 2026-27 players or
+// using their stats"). One header, six tabs (owner picked tabs + the mirrored-bars Overview, mock A). Current players read
+// their REAL 2026-27 line (TDCReal, box scores) by default, with 2025-26 and the 2026-27 projection one tap away; the
+// percentiles, bars and shot charts all follow the chosen season. History players keep their own season.
+let _cpSeason=null, _cpTab='overview', _cpEdge=null, _cpShotYr=2026;
+const CP_TABS=[['overview','Overview'],['stats','Stats'],['shooting','Shooting'],['fit','Fit &amp; matchup'],['value','Value'],['similar','Similar']];
+const CP_BARS=[['PTS','ppg'],['REB','rpg'],['AST','apg'],['STL','stl'],['BLK','blk'],['TO','tovs',1],['FG%','fg_pct',0,1],['3P%','tp_pct',0,1],['FT%','ft_pct',0,1],['MIN','mpg']];
+function _cpReal(p){ return (!p||p._isHistory||!window.TDCReal)?null:TDCReal.of(p); }
+function _cpLast(p){ return {gp:p.gp,mpg:p.mpg,ppg:p.ppg,rpg:p.rpg,apg:p.apg,stl:p.stl,blk:p.blk,tovs:p.tovs,fg_pct:p.fg_pct,tp_pct:p.tp_pct,ft_pct:p.ft_pct}; }
+function _cpLine(p,s){ if(p._isHistory) return _cpLast(p); if(s==='2027') return _cpReal(p); if(s==='proj') return projPlayer(p); return _hasStats(p)?_cpLast(p):null; }
+function _cpSeasonFor(p1,p2){ if(p1._isHistory&&p2._isHistory) return '2026';
+  if(_cpSeason) return _cpSeason;
+  if(window.TDCReal&&TDCReal.mode()==='proj') return 'proj';
+  return (_cpReal(p1)||_cpReal(p2))?'2027':'2026'; }
+function _cpSeasonLbl(p,s){ if(p._isHistory) return _seasonLabel(p); return s==='2027'?'2026-27 so far':s==='proj'?'2026-27 projected':'2025-26'; }
+// national pools: 2026-27 = everyone with 2+ real games and 10+ mpg; projected = the projection; 2025-26 = the old pool
+const _cpPools={};
+function _cpArr(s,k){
+  if(s!=='2027'&&s!=='proj') return playerDist(k);
+  const P=_cpPools[s]||(_cpPools[s]={lines:allPlayers.map(p=>s==='2027'?_cpReal(p):(p.espn_id!=null&&_soProjLine&&_soProjLine[String(p.espn_id)]?projPlayer(p):null))
+    .filter(l=>l&&(+l.mpg||0)>=10&&(s!=='2027'||l.gp>=2)), by:{}});
+  return P.by[k]||(P.by[k]=P.lines.map(l=>parseFloat(l[k])).filter(v=>!isNaN(v)).sort((a,b)=>a-b));
+}
+function _cpPct(l,k,inv,s){ return l?pctRank(_cpArr(s,k),l[k],inv):null; }
+function _cpSkill(l,s){ const q=(k,i)=>_cpPct(l,k,i,s); return l?[q('ppg'),q('tp_pct'),avg(q('fg_pct'),q('ft_pct')),q('apg'),q('rpg'),avg(q('stl'),q('blk')),q('tovs',true)]:P_AXES.map(()=>null); }
+function _cpBucket(pc){ return pc==null?'':pc>=80?'c4':pc>=60?'c3':pc>=40?'c2':pc>=20?'c1':'c0'; }
+function _cpHead(p,c,right){
+  const cg=_cmpGrade(p), l=_logoFor(p.team), rl=_cpReal(p);
+  const games=p._isHistory?`${_seasonLabel(p)} · ${p.gp!=null?p.gp+' games':'—'}`:(rl?`${rl.gp} game${rl.gp===1?'':'s'}, ${rl.gs||0} start${rl.gs===1?'':'s'} this season`:'no games yet this season');
+  const nm=p._isHistory?p.name:`<a href="player.html?${p.espn_id?'espn='+p.espn_id:'name='+encodeURIComponent(p.name)+'&team='+encodeURIComponent(p.team||'')}">${p.name}</a>`;
+  return `<div class="cp-side${right?' r':''}" style="--c:${c}">${l?`<img src="${l}" alt="" loading="lazy">`:''}
+    <div class="cp-who"><div class="cp-nm">${nm}</div><div class="cp-sub">${p.team||'—'} · ${p.position||'—'} · ${p.class_year||p.yr||'—'} · ${p.height||'—'}</div>
+    <div class="cp-sub2">${games}</div></div>
+    <div class="cp-ovr"><b>${cg!=null?cg:'—'}</b><span>${p._isHistory?_seasonLabel(p)+' OVR':'OVR'}</span></div></div>`;
+}
+function _cpSetSeason(v){ _cpSeason=v; renderPlayers(); }
+function _cpShow(t){ _cpTab=t;
+  document.querySelectorAll('#compareSection .cp-tabs button').forEach(b=>{ const on=b.dataset.t===t; b.classList.toggle('on',on); b.setAttribute('aria-selected',on?'true':'false'); });
+  document.querySelectorAll('#compareSection .cp-panel').forEach(x=>{ x.hidden=x.dataset.tab!==t; });
+  try{ window.dispatchEvent(new Event('resize')); }catch(e){} }
+function _cpOverview(p1,p2,c1,c2,s){
+  const cur=!(p1._isHistory&&p2._isHistory), l1=_cpLine(p1,s), l2=_cpLine(p2,s);
+  const ctl=cur?`<div class="cp-seg" role="group" aria-label="Season">${[['2027','2026-27 so far'],['2026','2025-26'],['proj','Projected']].map(([v,t])=>`<button type="button" class="${s===v?'on':''}" onclick="_cpSetSeason('${v}')">${t}</button>`).join('')}</div>`:'';
+  let note='';
+  if(cur&&s==='2027'){ const th=window.TDCReal&&TDCReal.through(), gs=[l1,l2].filter(Boolean).map(l=>l.gp);
+    const who=[[p1,l1],[p2,l2]].filter(x=>!x[1]&&!x[0]._isHistory).map(x=>x[0].name);
+    note=(th?`Through ${new Date(th+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}`:'')+(gs.some(g=>g<10)?' · early season (under 10 games), less reliable':'')+(who.length?` · ${who.join(' and ')} ha${who.length>1?'ve':'s'}n't played yet`:''); }
+  else if(cur&&s==='proj') note='The site’s 2026-27 projection, which leans more on real games as they come in';
+  else if(cur) note='Last season';
+  else note=(p1._isHistory?_seasonLabel(p1):'2025-26')+' vs '+(p2._isHistory?_seasonLabel(p2):'2025-26');
+  if(cur){ const hp=[p1,p2].find(p=>p._isHistory); if(hp) note+=(note?' · ':'')+hp.name+': '+_seasonLabel(hp); }
+  const w=[0,0];
+  const rows=CP_BARS.map(([lab,k,inv,isP])=>{
+    const a=l1?parseFloat(l1[k]):NaN, b=l2?parseFloat(l2[k]):NaN, ha=!isNaN(a), hb=!isNaN(b);
+    const arr=_cpArr(s,k), top=Math.max(ha?a:0,hb?b:0,arr.length?arr[Math.floor(arr.length*.95)]:0)||1;
+    let lead=-1; if(ha&&hb&&a!==b){ lead=(inv?a<b:a>b)?0:1; w[lead]++; }
+    const f=v=>isP?v.toFixed(1)+'%':v.toFixed(1), wd=v=>Math.max(0,Math.min(100,v/top*100)).toFixed(1);
+    return `<div class="cp-row"><div class="cp-v${lead===0?' w':''}">${ha?f(a):'—'}</div><div class="cp-bar l"><i style="width:${ha?wd(a):0}%;background:${c1}"></i></div>`+
+      `<div class="cp-lab">${lab}</div><div class="cp-bar"><i style="width:${hb?wd(b):0}%;background:${c2}"></i></div><div class="cp-v r${lead===1?' w':''}">${hb?f(b):'—'}</div></div>`; }).join('');
+  _cpEdge=w;
+  const g=l=>l&&l.gp!=null?`${l.gp} G`:'';
+  return `<div class="cp-seas">${ctl}<span class="cp-note">${note}</span></div>
+    <div class="cp-board">
+      <div class="cp-sum"><span style="color:${c1}">${p1.name.split(' ').slice(-1)[0]} <b>${w[0]}</b></span><em>stats led${s!=='proj'&&(g(l1)||g(l2))?` · ${g(l1)||'—'} vs ${g(l2)||'—'}`:''}</em><span style="color:${c2}"><b>${w[1]}</b> ${p2.name.split(' ').slice(-1)[0]}</span></div>
+      ${rows}
+      <div class="cp-foot">Per game · the leader of each stat is in bold (fewer is better for TO) · a full bar = the top 5% of D-I</div>
+    </div>`;
+}
+// shooting efficiency + per-40 from the REAL 2026-27 line (the Advanced sheet below it is still 2025-26)
+function _cpEffSheet(p1,p2){
+  const l1=_cpReal(p1), l2=_cpReal(p2); if(!l1&&!l2) return '';
+  const m=(l)=>{ if(!l) return {}; const fga=+l.fga||0, fta=+l.fta||0, tpa=+l.tpa||0, pts=+l.ppg||0, mp=+l.mpg||0, k=mp>0?40/mp:null;
+    return { ts:fga+fta>0?pts/(2*(fga+.44*fta))*100:null, efg:fga>0?((+l.fgm||0)+.5*(+l.tpm||0))/fga*100:null, tpr:fga>0?tpa/fga*100:null, ftr:fga>0?fta/fga*100:null,
+      ato:(+l.tovs||0)>0?(+l.apg||0)/l.tovs:null, p40:k&&pts*k, r40:k&&(+l.rpg||0)*k, a40:k&&(+l.apg||0)*k, s40:k&&((+l.stl||0)+(+l.blk||0))*k }; };
+  const a=m(l1), b=m(l2);
+  return `<div class="compare-section-head">Efficiency &amp; per-40 · 2026-27 so far</div>
+    ${statRow('TS%',a.ts,b.ts)}${statRow('eFG%',a.efg,b.efg)}${statRow('3PA rate %',a.tpr,b.tpr)}${statRow('FT rate %',a.ftr,b.ftr)}${statRow('AST/TO',a.ato,b.ato)}
+    ${statRow('PTS/40',a.p40,b.p40)}${statRow('REB/40',a.r40,b.r40)}${statRow('AST/40',a.a40,b.a40)}${statRow('STL+BLK/40',a.s40,b.s40)}`;
+}
+function _cpSeasonSheet(p1,p2,c1,c2){
+  const cols=[['MIN','mpg'],['PTS','ppg'],['REB','rpg'],['AST','apg'],['STL','stl'],['BLK','blk'],['TO','tovs',1],['FG%','fg_pct',0,1],['3P%','tp_pct',0,1],['FT%','ft_pct',0,1]];
+  const sets=[];
+  const both=[p1,p2].every(p=>!p._isHistory), anyCur=[p1,p2].some(p=>!p._isHistory);
+  if(anyCur){ sets.push('2027','proj','2026'); } else sets.push('2026');
+  const row=(p,c,s)=>{ const l=_cpLine(p,s); if(!l) return '';
+    return `<tr><td class="l nm"><i class="cp-dot" style="background:${c}"></i>${p.name}</td><td class="l dim">${_cpSeasonLbl(p,s)}</td><td>${l.gp!=null?Math.round(l.gp):'—'}</td>`+
+      cols.map(([lab,k,inv,isP])=>{ const v=parseFloat(l[k]); if(isNaN(v)) return '<td>—</td>';
+        const sh=s==='proj'?'':_cpBucket(_cpPct(l,k,inv,p._isHistory?'2026':s)); return `<td class="${sh}">${isP?v.toFixed(1):v.toFixed(1)}</td>`; }).join('')+'</tr>'; };
+  let body='', first=true;
+  sets.forEach(s=>{ const r=(p1._isHistory&&s!=='2026'?'':row(p1,c1,s))+(p2._isHistory&&s!=='2026'?'':row(p2,c2,s)); if(!r) return;
+    body+=(first?'':`<tr class="cp-gap"><td colspan="${cols.length+3}"></td></tr>`)+r; first=false; });
+  return `<div class="compare-section-head">Season lines</div><div class="sheet-wrap cp-sheet"><table class="sheet dense"><thead><tr><th class="l">Player</th><th class="l">Season</th><th>G</th>${cols.map(c=>`<th>${c[0]}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>
+    <div class="sheet-legend">Shading = national percentile for that season (2026-27: players with 2+ games and 10+ minutes) · red low → green high · projected rows unshaded</div>`;
+}
 function renderPlayers(){
   destroyCharts();
   const [p1,p2]=sel.players;
@@ -1473,27 +1610,45 @@ function renderPlayers(){
   const advLabel=p1._isHistory||p2._isHistory
     ? (sl1===sl2?`Advanced Metrics · ${sl1}`:`Advanced Metrics`)
     : 'Advanced Metrics · 2025-26';
+  const cs=_cpSeasonFor(p1,p2);
+  _cpShotYr=(p1._isHistory&&p2._isHistory)||cs==='2026'?2026:2027;
+  const _shotLbl=_cpShotYr===2027?' · 2026-27':((p1._isHistory||p2._isHistory)?'':' · 2025-26');
+  const tabs=`<div class="cp-tabs" role="tablist">${CP_TABS.map(([t,l])=>`<button type="button" role="tab" data-t="${t}" class="${_cpTab===t?'on':''}" aria-selected="${_cpTab===t}" onclick="_cpShow('${t}')">${l}</button>`).join('')}</div>`;
+  const panel=t=>`<div class="cp-panel" data-tab="${t}"${_cpTab===t?'':' hidden'}>`;
   sec.innerHTML=`
-    <div class="cmp-heads">${head(p1,c1,false,sl1)}<div class="cmp-vs">VS</div>${head(p2,c2,true,sl2)}</div>
-
-    ${bothCurrent?`<div class="compare-section-head" style="border-radius:8px;">Projected Outlook — 2026-27</div>
+    <div class="cp-head">${_cpHead(p1,c1,false)}<div class="cp-vs">vs</div>${_cpHead(p2,c2,true)}</div>
+    ${tabs}
+    ${panel('overview')}
+    ${_cpOverview(p1,p2,c1,c2,cs)}
+    ${bothCurrent?`<div class="compare-section-head">Projected outlook · 2026-27</div>
     <div class="ol-grid">
       <div class="ol-card"><div class="ol-badge ${ol1.cls}">${ol1.label}</div><div class="ol-sub">${conf1||'—'} · vs All-American ${GROUP_LBL[g1]}</div></div>
       <div class="ol-card right"><div class="ol-badge ${ol2.cls}">${ol2.label}</div><div class="ol-sub">${conf2||'—'} · vs All-American ${GROUP_LBL[g2]}</div></div>
     </div>`:''}
-
-    <div class="compare-section-head">${statLabel}</div>
-    ${statRow('PPG',p1.ppg,p2.ppg)}${statRow('RPG',p1.rpg,p2.rpg)}${statRow('APG',p1.apg,p2.apg)}${statRow('MPG',p1.mpg,p2.mpg)}
-    ${statRow('FG%',p1.fg_pct,p2.fg_pct)}${statRow('3P%',p1.tp_pct,p2.tp_pct)}${statRow('FT%',p1.ft_pct,p2.ft_pct)}
-    ${statRow('STL',p1.stl,p2.stl)}${statRow('BLK',p1.blk,p2.blk)}${statRow('TO',p1.tovs,p2.tovs,false)}${statRow('GP',p1.gp,p2.gp)}
-    ${_statlessNote(p1,p2)}
-
-    <div class="chart-card full" style="margin-bottom:20px;"><div class="chart-title">Skill Profile · National Percentiles</div>
+    <div class="chart-card full" style="margin:20px 0;"><div class="chart-title">Skill profile · national percentiles · ${cs==='2027'&&!(p1._isHistory&&p2._isHistory)?'2026-27 so far':cs==='proj'?'2026-27 projected':'season shown'}</div>
       <div class="petal-grid">
         <div class="petal-cell"><div class="petal-name" style="color:${c1}">${p1.name}</div><div id="petal1" class="petal-host"></div></div>
         <div class="petal-cell"><div class="petal-name" style="color:${c2}">${p2.name}</div><div id="petal2" class="petal-host"></div></div>
       </div>
-      <div class="petal-foot">Each wedge is that player's national percentile (0–100) among D-I players this season — longer &amp; brighter is better.</div></div>
+      <div class="petal-foot">Each wedge is that player's national percentile (0–100) among D-I players for the season picked above — longer &amp; brighter is better.</div></div>
+    </div>
+    ${panel('stats')}
+    ${_cpSeasonSheet(p1,p2,c1,c2)}
+    ${_cpEffSheet(p1,p2)}
+    <div class="sg-note">${[[p1,pr1,nextLbl(p1)],[p2,pr2,nextLbl(p2)]].map(([p,pr,nl])=>_projNote(p,pr,nl)).filter(Boolean).join(' · ')}</div>
+    ${(p1._advanced||p2._advanced)?`
+    <div class="compare-section-head">${advLabel}</div>
+    ${ADV_DEFS.map(d=>advRow(d,p1,p2)).join('')}
+    ${statRow('AST/TO',a1.astto,a2.astto)}
+
+    <div class="compare-section-head">Per-40 Minutes${(p1._isHistory||p2._isHistory)&&sl1===sl2?` · ${sl1}`:''}</div>
+    ${P40_DEFS.map(d=>advRow(d,p1,p2)).join('')}
+    `:`
+    <div class="compare-section-head">${advLabel}</div>
+    ${statRow('TS%',a1.ts,a2.ts)}${statRow('eFG%',a1.efg,a2.efg)}${statRow('AST/TO',a1.astto,a2.astto)}
+    ${statRow('PTS/40',a1.p40,a2.p40)}${statRow('REB/40',a1.r40,a2.r40)}
+    `}
+
     <div class="chart-grid">
       <div class="chart-card"><div class="chart-title">Projection vs All-American Ceiling · ${g1===g2?GROUP_LBL[g1]:GROUP_LBL[g1]+' / '+GROUP_LBL[g2]}</div>
         <div class="chart-box"><canvas id="pBench"></canvas></div>
@@ -1511,6 +1666,42 @@ function renderPlayers(){
         <div class="chart-box"><canvas id="pP40Bar"></canvas></div>
         <div class="chart-legend"><span><i style="background:${c1}"></i>${p1.name}</span><span><i style="background:${c2}"></i>${p2.name}</span></div></div>
     </div>
+    `:''}
+    </div>
+    ${panel('shooting')}
+    ${(p1.espn_id||p2.espn_id)?`
+    <div class="compare-section-head">Shot Charts${_shotLbl}</div>
+    <div class="scc-grid">
+      <div class="scc-col"><div class="scc-lbl" style="color:${c1};border-bottom-color:${c1};">${p1.name}</div><div id="sc1" class="scc-host"></div></div>
+      <div class="scc-col"><div class="scc-lbl" style="color:${c2};border-bottom-color:${c2};">${p2.name}</div><div id="sc2" class="scc-host"></div></div>
+    </div>`:''}
+
+    ${(p1.espn_id||p2.espn_id)?`
+    <div class="compare-section-head">Shot Profile · volume &amp; efficiency by zone vs D-I</div>
+    <div id="cmpTwin"></div>`:''}
+
+    ${(p1.espn_id||p2.espn_id)?`
+    <div class="compare-section-head">Shot Flow${_shotLbl}</div>
+    <div class="scc-grid">
+      <div class="scc-col"><div class="scc-lbl" style="color:${c1};border-bottom-color:${c1};">${p1.name}</div><div id="sf1" class="scc-host"></div></div>
+      <div class="scc-col"><div class="scc-lbl" style="color:${c2};border-bottom-color:${c2};">${p2.name}</div><div id="sf2" class="scc-host"></div></div>
+    </div>`:''}
+
+    <div id="sgSection" style="display:none;">
+      <div class="compare-section-head">Shot Genome · 2025-26</div>
+      <div id="sgWrap"></div>
+      <div class="sg-note">Original TDC shot-location metrics (percentile shown where available). <b>Look Quality</b> — the eFG% a league-average shooter would post on his shot diet · <b>SM+</b> — points added over average per 100 shots (pure finishing) · <b>Creation</b> — expected points his passing generates. Higher is better.</div>
+    </div>
+
+    ${bothCurrent&&(p1.espn_id||p2.espn_id)?`
+    <div class="compare-section-head">Shot Profile · 2026-27 Projected</div>
+    <div class="scc-grid">
+      <div class="scc-col"><div class="scc-lbl" style="color:${c1};border-bottom-color:${c1};">${p1.name}</div><div id="shotprof1" class="scc-host"></div></div>
+      <div class="scc-col"><div class="scc-lbl" style="color:${c2};border-bottom-color:${c2};">${p2.name}</div><div id="shotprof2" class="scc-host"></div></div>
+    </div>
+    <div class="sg-note">Role-aware shot volume from the 2026-27 projection (same source as the player &amp; team pages). <b>Shot Tendency</b> — projected shots when on the floor, 0-100 (100 = a #1 option); the arrow shows the shift from his prior role. <b>3-PT / 2-PT / FT-draw</b> — national percentile of his projected attempts of each type, so a moderate-volume player can still be an elite 3-point shooter.</div>`:''}
+
+    ${(p1._advanced||p2._advanced)?`
     <div class="chart-grid">
       <div class="chart-card"><div class="chart-title">Shooting Profile · Diet &amp; Efficiency</div>
         <div class="chart-box"><canvas id="pShoot"></canvas></div>
@@ -1521,6 +1712,8 @@ function renderPlayers(){
     </div>
     `:''}
 
+    </div>
+    ${panel('fit')}
     ${matchup?`
     <div class="compare-section-head">Head-to-Head Matchup · If They Guarded Each Other</div>
     <div class="mu-card">
@@ -1548,44 +1741,8 @@ function renderPlayers(){
       <div id="cmpShift"></div>
     </div>
 
-    ${(p1.espn_id||p2.espn_id)?`
-    <div class="compare-section-head">Shot Charts${(p1._isHistory||p2._isHistory)?'':' · 2025-26'}</div>
-    <div class="scc-grid">
-      <div class="scc-col"><div class="scc-lbl" style="color:${c1};border-bottom-color:${c1};">${p1.name}</div><div id="sc1" class="scc-host"></div></div>
-      <div class="scc-col"><div class="scc-lbl" style="color:${c2};border-bottom-color:${c2};">${p2.name}</div><div id="sc2" class="scc-host"></div></div>
-    </div>`:''}
-
-    ${(p1.espn_id||p2.espn_id)?`
-    <div class="compare-section-head">Shot Profile · volume &amp; efficiency by zone vs D-I</div>
-    <div id="cmpTwin"></div>`:''}
-
-    ${(p1.espn_id||p2.espn_id)?`
-    <div class="compare-section-head">Shot Flow${(p1._isHistory||p2._isHistory)?'':' · 2025-26'}</div>
-    <div class="scc-grid">
-      <div class="scc-col"><div class="scc-lbl" style="color:${c1};border-bottom-color:${c1};">${p1.name}</div><div id="sf1" class="scc-host"></div></div>
-      <div class="scc-col"><div class="scc-lbl" style="color:${c2};border-bottom-color:${c2};">${p2.name}</div><div id="sf2" class="scc-host"></div></div>
-    </div>`:''}
-
-    <div id="sgSection" style="display:none;">
-      <div class="compare-section-head">Shot Genome · 2025-26</div>
-      <div id="sgWrap"></div>
-      <div class="sg-note">Original TDC shot-location metrics (percentile shown where available). <b>Look Quality</b> — the eFG% a league-average shooter would post on his shot diet · <b>SM+</b> — points added over average per 100 shots (pure finishing) · <b>Creation</b> — expected points his passing generates. Higher is better.</div>
     </div>
-
-    <div class="compare-section-head">${bothCurrent?'2026-27 Projected':`Next Season Projection${nextLbl(p1)===nextLbl(p2)?` · ${nextLbl(p1)}`:''}`} · Model Estimate</div>
-    ${projRow('PPG',pr1.ppg,pr2.ppg)}${projRow('RPG',pr1.rpg,pr2.rpg)}${projRow('APG',pr1.apg,pr2.apg)}
-    ${projRow('MPG',pr1.mpg,pr2.mpg)}${projRow('STL',pr1.stl,pr2.stl)}${projRow('BLK',pr1.blk,pr2.blk)}
-    ${projRow('FG%',pr1.fg_pct,pr2.fg_pct)}${projRow('3P%',pr1.tp_pct,pr2.tp_pct)}${projRow('FT%',pr1.ft_pct,pr2.ft_pct)}
-    <div class="sg-note">${[[p1,pr1,nextLbl(p1)],[p2,pr2,nextLbl(p2)]].map(([p,pr,nl])=>_projNote(p,pr,nl)).filter(Boolean).join(' · ')}</div>
-
-    ${bothCurrent&&(p1.espn_id||p2.espn_id)?`
-    <div class="compare-section-head">Shot Profile · 2026-27 Projected</div>
-    <div class="scc-grid">
-      <div class="scc-col"><div class="scc-lbl" style="color:${c1};border-bottom-color:${c1};">${p1.name}</div><div id="shotprof1" class="scc-host"></div></div>
-      <div class="scc-col"><div class="scc-lbl" style="color:${c2};border-bottom-color:${c2};">${p2.name}</div><div id="shotprof2" class="scc-host"></div></div>
-    </div>
-    <div class="sg-note">Role-aware shot volume from the 2026-27 projection (same source as the player &amp; team pages). <b>Shot Tendency</b> — projected shots when on the floor, 0-100 (100 = a #1 option); the arrow shows the shift from his prior role. <b>3-PT / 2-PT / FT-draw</b> — national percentile of his projected attempts of each type, so a moderate-volume player can still be an elite 3-point shooter.</div>`:''}
-
+    ${panel('value')}
     ${(nil1||nil2)?`
     <div class="compare-section-head">NIL Market Value</div>
     <div class="ol-grid">
@@ -1598,23 +1755,14 @@ function renderPlayers(){
     ${cmpRow('Team Spend Tier',nil1&&nil1.tier,nil2&&nil2.tier,v=>'T'+Math.round(v),false)}
     `:''}
 
-    ${(p1._advanced||p2._advanced)?`
-    <div class="compare-section-head">${advLabel}</div>
-    ${ADV_DEFS.map(d=>advRow(d,p1,p2)).join('')}
-    ${statRow('AST/TO',a1.astto,a2.astto)}
-
-    <div class="compare-section-head">Per-40 Minutes${(p1._isHistory||p2._isHistory)&&sl1===sl2?` · ${sl1}`:''}</div>
-    ${P40_DEFS.map(d=>advRow(d,p1,p2)).join('')}
-    `:`
-    <div class="compare-section-head">${advLabel}</div>
-    ${statRow('TS%',a1.ts,a2.ts)}${statRow('eFG%',a1.efg,a2.efg)}${statRow('AST/TO',a1.astto,a2.astto)}
-    ${statRow('PTS/40',a1.p40,a2.p40)}${statRow('REB/40',a1.r40,a2.r40)}
-    `}
-
-    <div class="compare-section-head" style="margin-top:26px;">Most Similar Players · Since 2006</div>
+    ${(nil1||nil2)?'':'<div class="empty-hint" style="display:block">No NIL estimate for these two.</div>'}
+    </div>
+    ${panel('similar')}
+    <div class="compare-section-head">Most Similar Players · Since 2006</div>
     <div class="sim-grid">
       <div class="sim-card" id="simc1" style="border-top:2px solid ${c1};"><div class="sim-row" style="color:var(--text3);">Building all-time pool…</div></div>
       <div class="sim-card" id="simc2" style="border-top:2px solid ${c2};"><div class="sim-row" style="color:var(--text3);">Building all-time pool…</div></div>
+    </div>
     </div>
   `;
   sheetify(sec); fillCmpBand();
@@ -1626,7 +1774,7 @@ function renderPlayers(){
   _fillShotProfiles(p1,p2,c1,c2);
   if(window.TDC_SHIFT){ const _ys=p=>p&&p._isHistory?(+(p.season_year||p.season)||undefined):undefined; TDC_SHIFT.compare(document.getElementById('cmpShift'), [{espn:p1.espn_id,name:p1.name,season:_ys(p1)},{espn:p2.espn_id,name:p2.name,season:_ys(p2)}], document.getElementById('cmpShiftSec')); }
   const labels=P_AXES.map(a=>a.l);
-  const d1=P_AXES.map(a=>a.f(p1)), d2=P_AXES.map(a=>a.f(p2));
+  const _ps=p=>p._isHistory?'2026':cs, d1=_cpSkill(_cpLine(p1,cs),_ps(p1)), d2=_cpSkill(_cpLine(p2,cs),_ps(p2));
   // each player benchmarks against All-Americans at HIS position group
   const aa1=cohortsFor(g1).allAmerican, aa2=cohortsFor(g2).allAmerican;
   const blabels=BENCH_AXES.map(a=>a.l);
@@ -1889,11 +2037,11 @@ async function _fillTeamChem(r1,r2,t1,t2,c1,c2,s1,s2,y1,y2){
 // ── side-by-side shot charts (reuses tdc-shotchart.js from the player page) ──
 async function _fetchPlayerShots(p){
   const espn=p&&p.espn_id; if(!espn) return [];
-  const season=p.season_year||2026;
-  try{
-    const r=await fetch(`${SB}/rest/v1/shots?espn_id=eq.${espn}&season_year=eq.${season}&select=x,y,made,sv,dist,game_id,team_id&limit=1500`,{headers:tdcH()});
-    return r.ok ? await r.json() : [];
-  }catch(e){ return []; }
+  const season=p.season_year||_cpShotYr||2026;
+  const get=y=>fetch(`${SB}/rest/v1/shots?espn_id=eq.${espn}&season_year=eq.${y}&select=x,y,made,sv,dist,game_id,team_id&limit=1500`,{headers:tdcH()}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  let rows=await get(season), yr=season;
+  if(!rows.length&&!p.season_year&&season===2027){ rows=await get(2026); yr=2026; }
+  rows._yr=yr; return rows;
 }
 // ── side-by-side Shot Profile (role-aware tendency + per-type diet, from the
 // 2026-27 projection so it matches the player & team pages) ──
@@ -1969,15 +2117,17 @@ async function _renderShotCharts(p1,p2){
   const h1=document.getElementById('sc1'), h2=document.getElementById('sc2');
   if((!h1&&!h2) || !window.TDC_SHOTCHART) return;
   const [s1,s2]=await Promise.all([_fetchPlayerShots(p1),_fetchPlayerShots(p2)]);
-  if(h1) TDC_SHOTCHART.render(h1, s1, {subtitle:p1.name, mode:'hex', games:_cmpGames});
-  if(h2) TDC_SHOTCHART.render(h2, s2, {subtitle:p2.name, mode:'hex', games:_cmpGames});
+  const sub=(p,r)=>p.name+(r&&r._yr===2026&&_cpShotYr===2027?' · 2025-26 (no 2026-27 shots yet)':'');
+  if(h1) TDC_SHOTCHART.render(h1, s1, {subtitle:sub(p1,s1), mode:'hex', games:_cmpGames, season:s1._yr});
+  if(h2) TDC_SHOTCHART.render(h2, s2, {subtitle:sub(p2,s2), mode:'hex', games:_cmpGames, season:s2._yr});
 }
 // ── side-by-side shot-FLOW Sankey (reuses tdc-shotflow.js) ──
 async function _fetchPlayerShotsFlow(p){
   const espn=p&&p.espn_id; if(!espn) return [];
-  const season=p.season_year||2026;
-  try{ const r=await fetch(`${SB}/rest/v1/shots?espn_id=eq.${espn}&season_year=eq.${season}&stype=not.is.null&select=x,y,made,sv,stype,ast_name&limit=2000`,{headers:tdcH()});
-    return r.ok?await r.json():[]; }catch(e){ return []; }
+  const season=p.season_year||_cpShotYr||2026;
+  const get=y=>fetch(`${SB}/rest/v1/shots?espn_id=eq.${espn}&season_year=eq.${y}&stype=not.is.null&select=x,y,made,sv,stype,ast_name&limit=2000`,{headers:tdcH()}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  let rows=await get(season); if(!rows.length&&!p.season_year&&season===2027) rows=await get(2026);
+  return rows;
 }
 async function _renderShotFlows(p1,p2){
   const h1=document.getElementById('sf1'), h2=document.getElementById('sf2');
@@ -2163,12 +2313,14 @@ function fillCmpBand(){
   const band=document.getElementById('cmpBand'); if(!band) return;
   const arr=sel[mode==='players'?'players':'teams'];
   if(!(arr[0]&&arr[1])){
+    band.style.display='';
     band.innerHTML=_tile('Players',allPlayers.length?allPlayers.length.toLocaleString():'—','on 2026-27 rosters')
       +_tile('Programs',teams.length||'—','Division I')
       +_tile('Seasons','20','2006-07 → 2025-26')
       +_tile('Stat sheets',mode==='players'?'6':'5',mode==='players'?'per game · advanced · per-40 …':'résumé · four factors · genome …',true);
     return;
   }
+  band.style.display=mode==='players'?'none':'';
   const [a,b]=arr, s0=_sheetSides[0]||{}, s1=_sheetSides[1]||{};
   // the "stat edge" tile counts the main stat sheet (Team Stats for programs, the per-game sheet for players)
   const heads=[...document.querySelectorAll('#compareSection .compare-section-head')];
@@ -2176,6 +2328,7 @@ function fillCmpBand(){
   const sheet=(th&&th.nextElementSibling&&th.nextElementSibling.querySelector('.cs'))||document.querySelector('#compareSection .cs');
   let won=[0,0];
   if(sheet){ sheet.querySelectorAll('tr.cs-p').forEach((tr,i)=>{ won[i]=tr.querySelectorAll('td.winner').length; }); }
+  if(mode==='players'&&_cpEdge) won=_cpEdge.slice();
   const tot=won[0]+won[1], lead=won[0]===won[1]?-1:(won[0]>won[1]?0:1);
   const edgeCol=lead<0?null:(lead?s1.color:s0.color);
   if(mode==='players'){
