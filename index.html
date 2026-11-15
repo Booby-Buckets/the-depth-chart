@@ -2154,7 +2154,8 @@ const RANK_COLS = [
   ['sgcr',   t => t.sgcr!=null?t.sgcr.toFixed(1):'—', 1, 'sgcr'],
 ];
 // the heat value of a cell: statVal() uses -999 for missing, and a 0 box stat means no data
-function _heatVal(t,k){ const v=statVal(t,k); return (v==null||!isFinite(v)||v<=-998||(v===0&&k!=='srs'&&k!=='net'&&k!=='sgsm'))?null:v; }
+// (SOS is relative to the D-I average, so 0.0 is a real value: Duke's Nov 2026 schedule averaged exactly 0 and lost its rank)
+function _heatVal(t,k){ const v=statVal(t,k); return (v==null||!isFinite(v)||v<=-998||(v===0&&k!=='srs'&&k!=='net'&&k!=='sgsm'&&k!=='sos'))?null:v; }
 function _rankHeat(){
   // quintile cut points per column over every team this season (not just the filtered view)
   const out={}, teams=window.allTeams||allTeams||[];
