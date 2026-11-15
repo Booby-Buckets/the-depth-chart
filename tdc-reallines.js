@@ -1,7 +1,7 @@
 /* tdc-reallines.js — real season-to-date lines and the site-wide Real / Projected filter (owner, Nov 2026).
  *
  * Data: scripts/data/real_lines_2027.json (scripts/build_real_lines.py, three times a day), season TOTALS from box_scores.
- * The viewer's choice is remembered across pages. Real is the default; a page re-renders on the 'tdc:statmode' event.
+ * The viewer's choice is remembered across pages for this visit only; a new visit opens on Real. Real is the default; a page re-renders on the 'tdc:statmode' event.
  *
  *   TDCReal.ready            promise, resolves once the file is in (or failed: of() then returns null)
  *   TDCReal.mode()           'real' | 'proj'      TDCReal.setMode(m)      TDCReal.isReal()
@@ -17,7 +17,11 @@
 (function () {
   if (window.TDCReal) return;
   var KEY = 'tdcStatMode', MODE = 'real', DOC = null;
-  try { var saved = localStorage.getItem(KEY); if (saved === 'proj' || saved === 'real') MODE = saved; } catch (e) {}
+  // Nov 15 2026 (owner: "why are we showing projected stats and not real stats"): a Projected pick used to be saved for
+  // good, so one click left every later visit on the projection. It now lasts for this visit (sessionStorage) and each
+  // new visit opens on Real. The old saved choice is cleared.
+  try { localStorage.removeItem(KEY); } catch (e) {}
+  try { var saved = sessionStorage.getItem(KEY); if (saved === 'proj' || saved === 'real') MODE = saved; } catch (e) {}
   var ready = fetch('scripts/data/real_lines_2027.json?h=' + Math.floor(Date.now() / 36e5))
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (j) { DOC = j; return j; })
@@ -44,7 +48,7 @@
   function setMode(m) {
     if (m !== 'real' && m !== 'proj') return;
     var changed = m !== MODE; MODE = m;
-    try { localStorage.setItem(KEY, m); } catch (e) {}
+    try { sessionStorage.setItem(KEY, m); } catch (e) {}
     document.querySelectorAll('.tdc-mode button').forEach(function (b) { var on = b.getAttribute('data-m') === m; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
     if (changed) fire();
   }

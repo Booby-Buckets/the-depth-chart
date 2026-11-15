@@ -1076,7 +1076,7 @@ body{background:transparent!important;}
   <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
   <link rel="stylesheet" href="tdc-nil-view.css?v=1"/>
   <link rel="stylesheet" href="tdc-column.css?v=4"/>
-  <link rel="stylesheet" href="tdc-player-a.css?v=39"/>
+  <link rel="stylesheet" href="tdc-player-a.css?v=42"/>
   <script src="tdc-coachlink.js?v=1"></script>
 </head>
 <body data-anim-auto>
@@ -2973,7 +2973,7 @@ async function init(){
       const _toProj=function(){ try{
         const _sel=document.getElementById('ovrSeasonSel'); if(!_sel) return false;
         if(![..._sel.options].some(function(o){return o.value==='proj';})){
-          const _o=document.createElement('option'); _o.value='proj'; _o.textContent='2026-27 Projected';
+          const _o=document.createElement('option'); _o.value='proj'; _o.textContent='2026-27 projected';
           _sel.insertBefore(_o, _sel.firstChild);
         }
         const _want=(window._live27&&[..._sel.options].some(function(o){return o.value==='2027';})&&!(window.TDCReal&&TDCReal.mode()==='proj'))?'2027':'proj';
@@ -3620,7 +3620,7 @@ function _mountSeasonCtl(){
     min:minY, max:maxY, current:maxY,
     title:'Season',
     // full label override: "2022-23 · Team" (no "· Current" suffix), matching the old options
-    labelFn:function(y){ var t=teamByYear[y]; return _seasonLbl2(y)+(t?(' · '+t):'')+(+y===2027&&window._live27?' · so far':''); },
+    labelFn:function(y){ var t=teamByYear[y]; return (+y===2027&&window._live27)?(_seasonLbl2(y)+' so far'):(_seasonLbl2(y)+(t?(' · '+t):'')); },
     onChange:function(){ var el=document.getElementById('ovrSeasonSel'); if(el) setOvrSeason(el.value); }
   });
   if(!ctl||!ctl.select) return;
@@ -3632,7 +3632,7 @@ function _mountSeasonCtl(){
     var injOut=!!(typeof proj!=='undefined' && proj && proj._injOut);
     var po=document.createElement('option');
     po.value='proj';
-    po.textContent=injOut?(_seasonLbl2(2027)+' · Out'):(_seasonLbl2(2027)+' Projected');
+    po.textContent=injOut?(_seasonLbl2(2027)+' · Out'):(_seasonLbl2(2027)+' projected');
     sel.insertBefore(po, sel.firstChild);
     po.selected=!window._live27;      // default view = projected, or his real 2026-27 once he has played
     if(window._live27) sel.value='2027';
@@ -8197,9 +8197,9 @@ init();
   <script src="tdc-version.js?v=2"></script>
   <script src="tdc-tour.js?v=31"></script>
 <script src="tdc-sheets.js?v=2"></script>
-<script src="tdc-reallines.js?v=6"></script>
+<script src="tdc-reallines.js?v=7"></script>
 <script src="tdc-liveplayer.js?v=6"></script>
-<script src="tdc-mplayer.js?v=22"></script>
+<script src="tdc-mplayer.js?v=23"></script>
 <script src="tdc-trends.js?v=ui4"></script>
 <script>
 /* one anatomy for every stat tab (tdc-panelize.js); the Overview gets the same shape from tdc-player-a.css */

@@ -42,7 +42,12 @@
 .pa-hero .hero-tags{ display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 0; }
 .pc-side{ display:flex; flex-direction:column; align-items:flex-end; gap:10px; }
 .pc-season{ margin:0 !important; }
-.pc-season .osl, .pc-season .tdc-season-title, .pc-season label{ display:none !important; }
+.pc-season .osl, .pc-season .tdc-season-title, .pc-season label, .pc-season .tdc-season-label{ display:none !important; }
+/* Nov 15 2026 (owner: "too many fonts and font sizes"): the season menu and the Real/Projected switch share one look —
+   12px Inter, same 34px height, same radius — so the right column reads as one control row */
+.pa-hero .pc-season .tdc-season-select{ font:600 12px/1.2 'Inter',system-ui,sans-serif !important; letter-spacing:.02em; color:var(--text2) !important;
+  height:34px; padding:0 30px 0 12px !important; border-radius:9px !important; background-color:var(--bg2) !important; border:1px solid var(--border) !important; }
+.pa-hero .pc-mode .tdc-mode button{ min-height:30px; font-size:11px; }
 /* OVR: a rating dial — number inside a ring that fills to his national percentile, ring colour = tier
    (same red→green steps as the tdc-ui percentile chips); ranks + change vs last season beside it. No box. */
 .pa-ovr-row{ display:flex; align-items:center; gap:16px; border:0; background:none; }
@@ -63,9 +68,12 @@
 .pa-rk b.pc-up{ color:var(--green); } .pa-rk b.pc-dn{ color:var(--red); } .pa-rk b.pc-fl{ color:var(--text3); }
 .pa-rk .pc-of{ color:var(--text3); }
 /* counting stats: an open row under the bio (NBA.com style), hairline dividers, no box */
-.pa-proj.pc-line{ position:relative; display:flex; flex-wrap:wrap; row-gap:10px; margin-top:16px; padding-top:14px; border-top:1px solid var(--border); background:none; }
-.pc-line .pa-big{ padding:0 16px; border-left:1px solid var(--border); min-width:0; background:none; }
-.pc-line .pa-big:first-child{ padding-left:0; border-left:0; }
+/* Nov 15 2026 (owner): the header stat line sits on a team-tinted panel so it stands out */
+.pa-proj.pc-line{ position:relative; display:flex; flex-wrap:wrap; row-gap:10px; margin-top:16px; padding:12px 0;
+  border:1px solid color-mix(in srgb, var(--tc-readable, var(--accent)) 24%, var(--border)); border-radius:12px;
+  background:color-mix(in srgb, var(--tc-readable, var(--accent)) 8%, var(--bg2)); }
+.pc-line .pa-big{ padding:0 16px; border-left:1px solid color-mix(in srgb, var(--tc-readable, var(--accent)) 18%, var(--border)); min-width:0; background:none; }
+.pc-line .pa-big:first-child{ padding-left:16px; border-left:0; }
 .pc-line .pa-k{ display:block; font-size:9.5px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--text3); margin-bottom:2px; }
 .pc-line .pa-bv{ display:inline; font-family:'Inter','Helvetica Neue',system-ui,sans-serif; font-weight:800; font-size:22px; line-height:1.15; color:var(--text); font-variant-numeric:tabular-nums; }
 .pc-line em{ display:block; font-style:normal; font-size:10.5px; font-weight:700; margin-top:1px; white-space:nowrap; }
@@ -92,9 +100,20 @@
 /* tablet: seal drops under the name; stat line wraps to two rows of four */
 @media(max-width:1100px){
   .pc-shot{ width:120px; height:120px; }
-  .pc-grid{ grid-template-columns:1fr; gap:20px; align-items:start; }
-  .pc-side{ flex-direction:row-reverse; justify-content:flex-end; align-items:flex-start; flex-wrap:wrap; }
+  .pc-grid{ grid-template-columns:1fr; gap:18px; align-items:start; }
+  /* Nov 15 2026: one tidy row under the stat line — the OVR dial + ranks on the left, the season menu and Real/Projected
+     stacked on the right (was: controls first, then the dial wrapping onto its own line) */
+  .pc-side{ display:grid; grid-template-columns:auto minmax(0,1fr); grid-template-areas:"ovr season" "ovr mode"; align-items:center;
+    column-gap:24px; row-gap:6px; padding-top:16px; border-top:1px solid var(--border); }
+  .pc-side > .pa-ovr-row{ grid-area:ovr; }
+  .pc-side > .pc-season{ grid-area:season; justify-self:end; }
+  .pc-side > .pc-mode{ grid-area:mode; margin-top:0; }
 
+}
+/* narrow tablet: the stat panel is an even 4 + 4 instead of wrapping one stat onto its own row */
+@media(max-width:880px){
+  .pa-proj.pc-line{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); row-gap:12px; }
+  .pc-line .pa-big:nth-child(4n+1){ border-left:0; padding-left:16px; }
 }
 /* phone (tdc-mplayer.js draws its own header there; this is the no-JS fallback) */
 @media(max-width:640px){
