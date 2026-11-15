@@ -6,23 +6,38 @@
    Phones only (≤640px): above that the page is untouched. */
 (function () {
   var MQ = window.matchMedia('(max-width:640px)');
+  // Nov 15 2026 (owner): phones get the DESKTOP page (header, tables) — "too different" otherwise — but keep this bottom
+  // switcher. player.html sets window.TDC_MPLAYER_LITE: only the bottom bar + sub-switch + scouting menu are built
+  // (body.mpl); the phone header, folds and Standing below are skipped. Without the flag the full phone layout runs.
+  var LITE = !!window.TDC_MPLAYER_LITE, BODY = LITE ? 'mpl' : 'mp';
   var GROUPS = [
     { key: 'overview', label: 'Overview', tabs: ['overview'] },
     { key: 'stats', label: 'Stats', tabs: ['stats'] },
+    { key: 'trends', label: 'Trends', tabs: ['trends'] },
     { key: 'dna', label: 'DNA', tabs: ['playerdna'] },
     { key: 'onoff', label: 'On/Off', tabs: ['onoff', 'statshift'] },
-    { key: 'shots', label: 'Shots', tabs: ['shotcharts', 'shotgenome', 'shotflow', 'percentiles'] },
+    { key: 'shots', label: 'Shots', tabs: ['shotcharts', 'shotgenome', 'shotflow', 'twin', 'aftermath', 'mastery', 'percentiles'] },
     { key: 'scouting', label: 'Scouting', tabs: ['mscout', 'scout', 'dossier', 'role', 'devpath', 'scheme', 'portalfit'] },
     { key: 'nil', label: 'NIL', tabs: ['nil'] },
     { key: 'betting', label: 'Betting', tabs: ['betting'] },
     { key: 'buzz', label: 'Buzz', tabs: ['buzz'] }
   ];
   var ONOFF = [['onoff', 'On/Off'], ['statshift', 'Stat Line Shift']];
-  var SHOTS = [['shotcharts', 'Charts'], ['shotgenome', 'Genome'], ['shotflow', 'Flow'], ['percentiles', 'Percentiles']];
+  var SHOTS = [['shotcharts', 'Charts'], ['shotgenome', 'Genome'], ['shotflow', 'Flow'], ['twin', 'Twin'], ['aftermath', 'After'], ['mastery', 'Mastery'], ['percentiles', 'Percentiles']];
   var SCOUT = [['scout', 'Scouting report', 'Grades, floor, ceiling'], ['dossier', 'Player dossier', 'Situational splits'],
     ['role', 'Role & fit', 'His role on this roster'], ['devpath', 'Development', 'Grade path by year'],
     ['scheme', 'Scheme lab', 'Same player, other systems'], ['portalfit', 'Portal fit', 'Best-fit programs']];
 
+  var LITE_CSS = [
+    'body.mpl .tab-row-wrap{display:none!important}',
+    'body.mpl .mp-strip{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;height:calc(64px + env(safe-area-inset-bottom));padding:0 0 env(safe-area-inset-bottom);background:var(--bg2);border-top:1px solid var(--border2);overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;box-shadow:0 -4px 14px rgba(0,0,0,.08)}',
+    'body.mpl{padding-bottom:calc(72px + env(safe-area-inset-bottom))!important}',
+    'body.mpl .tdc-explain{bottom:calc(74px + env(safe-area-inset-bottom))!important}body.mpl #tdc-ver{display:none!important}',
+    'body.mpl .mp-sub.show{display:flex;overflow-x:auto;scrollbar-width:none;margin:14px 0 14px}body.mpl .mp-sub.show::-webkit-scrollbar{display:none}',
+    'body.mpl .mp-sub.show:not(.back) button{flex:1 0 auto;padding:9px 14px;white-space:nowrap}',
+    'body.mpl #panel-mscout[style*="block"]{display:block!important}',
+    '.mp-st{font:800 10px Inter,system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:4px 0 8px}'
+  ].join('');
   var CSS = [
     'body.mp .pa-hero,body.mp .tab-row-wrap,body.mp #tdcSeasonSlot,body.mp .ovc-accent,body.mp .pa-legacy{display:none!important}',
     'body.mp{padding-bottom:calc(60px + env(safe-area-inset-bottom))}',
@@ -191,7 +206,7 @@
     });
   }
 
-  var TAB_ICON = {"overview": "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z", "stats": "M5 20V11M12 20V5M19 20v-7M3 20h18", "shots": "M12 3a9 9 0 100 18 9 9 0 000-18zM12 8a4 4 0 100 8 4 4 0 000-8zM12 11.5v1", "dna": "M7 3c0 6 10 6 10 12s-10 6-10 6M17 3c0 6-10 6-10 12M8 7h8M8 17h8", "onoff": "M8 5a7 7 0 100 14M16 5a7 7 0 110 14M8 5v14M16 5v14", "scouting": "M9 4h6v3H9zM7 5H5v16h14V5h-2M8 12h8M8 16h5", "nil": "M12 3v18M16 7.5c0-1.9-1.8-3-4-3s-4 1.1-4 3 1.8 2.6 4 3 4 1.1 4 3-1.8 3-4 3-4-1.1-4-3", "betting": "M4 7h16v3a2 2 0 000 4v3H4v-3a2 2 0 000-4zM14 7v10", "buzz": "M4 10v4h3l6 4V6L7 10zM17 9a4 4 0 010 6"};
+  var TAB_ICON = {"trends": "M3 17l6-6 4 4 8-8M14 7h7v7", "overview": "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z", "stats": "M5 20V11M12 20V5M19 20v-7M3 20h18", "shots": "M12 3a9 9 0 100 18 9 9 0 000-18zM12 8a4 4 0 100 8 4 4 0 000-8zM12 11.5v1", "dna": "M7 3c0 6 10 6 10 12s-10 6-10 6M17 3c0 6-10 6-10 12M8 7h8M8 17h8", "onoff": "M8 5a7 7 0 100 14M16 5a7 7 0 110 14M8 5v14M16 5v14", "scouting": "M9 4h6v3H9zM7 5H5v16h14V5h-2M8 12h8M8 16h5", "nil": "M12 3v18M16 7.5c0-1.9-1.8-3-4-3s-4 1.1-4 3 1.8 2.6 4 3 4 1.1 4 3-1.8 3-4 3-4-1.1-4-3", "betting": "M4 7h16v3a2 2 0 000 4v3H4v-3a2 2 0 000-4zM14 7v10", "buzz": "M4 10v4h3l6 4V6L7 10zM17 9a4 4 0 010 6"};
   function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function ovrBucket(g) { g = parseFloat(g); if (isNaN(g)) return ''; return g >= 85 ? 'mp-c4' : g >= 80 ? 'mp-c3' : g >= 75 ? 'mp-c2' : g >= 70 ? 'mp-c1' : 'mp-c0'; }
@@ -441,7 +456,20 @@
     var hs = document.getElementById('heroSection');
     if (!hs || !hs.querySelector('.pa-hero') || !document.getElementById('panel-overview')) return;
     built = true;
-    if (!document.getElementById('mpCss')) { var st = el('style'); st.id = 'mpCss'; st.textContent = CSS; document.head.appendChild(st); }
+    if (!document.getElementById('mpCss')) { var st = el('style'); st.id = 'mpCss'; st.textContent = CSS + LITE_CSS; document.head.appendChild(st); }
+    if (LITE) {
+      // owner: tables "smushed" — opt the tabs out of tdc-mobile.js table fitting (wrapped labels, hidden columns);
+      // they keep the desktop shape and scroll sideways in their box (tdc-player-a.css phone rules)
+      var host = document.getElementById('panel-overview'); host = host && host.parentNode;
+      if (host) {
+        host.setAttribute('data-fit-keep', '');
+        host.querySelectorAll('table.tdc-fit').forEach(function (t) { t.classList.remove('tdc-fit', 'tdc-wrap0'); t.querySelectorAll('.tdc-fx').forEach(function (c) { c.classList.remove('tdc-fx'); }); });
+        host.querySelectorAll('.tdc-fitbar').forEach(function (b) { b.remove(); });
+      }
+      buildStrip(); hookSwitch();
+      var a0 = document.querySelector('.tab-panel.active'); setActive(a0 ? a0.id.replace('panel-', '') : 'overview');
+      return;
+    }
     buildHero(); buildStrip(); hookSwitch(); tagBoxes();
     watch(document.getElementById('ovcAmplifier'), tidyAmp);
     var st2 = debounce(renderStanding, 120);
@@ -449,7 +477,7 @@
     var act = document.querySelector('.tab-panel.active'); setActive(act ? act.id.replace('panel-', '') : 'overview');
     var ov = document.getElementById('panel-overview'); if (ov && ov.parentNode) watch(ov.parentNode, debounce(foldCharts, 150));
   }
-  function apply() { document.body.classList.toggle('mp', MQ.matches); if (MQ.matches) build(); }
+  function apply() { document.body.classList.toggle(BODY, MQ.matches); if (MQ.matches) build(); }
 
   function start() {
     var hs = document.getElementById('heroSection');

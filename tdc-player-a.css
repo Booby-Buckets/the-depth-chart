@@ -115,10 +115,42 @@
   .pa-proj.pc-line{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); row-gap:12px; }
   .pc-line .pa-big:nth-child(4n+1){ border-left:0; padding-left:16px; }
 }
-/* phone (tdc-mplayer.js draws its own header there; this is the no-JS fallback) */
+/* phone, Nov 15 2026 (owner: the phone version "looks way too different" — make it the desktop page, shrunk). The separate
+   phone header (tdc-mplayer.js) is retired; this is the same header: logo tile + eyebrow + Playfair name + bio, the tinted
+   stat panel full width (4 + 4), then the OVR dial with ranks, then the season menu + Real/Projected on one row. */
 @media(max-width:640px){
-  .pa-name{ font-size:30px; }
-  .pc-shot{ display:none; }
+  .pa-hero{ margin-top:14px; padding-bottom:16px; }
+  .pc-grid{ gap:14px; }
+  .pc-id{ gap:14px; align-items:flex-start; }
+  .pc-shot{ width:72px; height:72px; align-self:flex-start; }
+  .pc-shot .pa-stage-logo{ width:44px; height:44px; padding:7px; }
+  .pa-info{ flex:1 1 auto; min-width:0; }
+  .pa-eyebrow{ font-size:10px; gap:6px; margin-bottom:4px; }
+  .pa-hero .pa-eyebrow img.pc-crest{ width:16px !important; height:16px !important; }
+  .pa-name{ font-size:28px; margin-bottom:8px; }
+  .pc-bio{ gap:4px 16px; }
+  .pc-bio > div{ font-size:12px; }
+  /* the stat panel runs the full width under the logo tile (72px tile + 14px gap) */
+  .pa-proj.pc-line{ margin-left:-86px; width:calc(100% + 86px); box-sizing:border-box; padding:10px 0; row-gap:10px; }
+  .pc-line .pa-big{ padding:0 8px; }
+  .pc-line .pa-big:nth-child(4n+1){ padding-left:12px; }
+  .pc-line .pa-bv{ font-size:18px; }
+  .pc-line .pa-k{ font-size:9px; letter-spacing:.1em; }
+  .pc-line em{ font-size:10px; }
+  .pc-side{ grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"ovr ovr" "season mode" "note note"; column-gap:10px; row-gap:8px; padding-top:14px; }
+  .pc-side > .pc-mode{ display:contents; }
+  .pc-side > .pc-mode > .tdc-mode{ grid-area:mode; }
+  .pc-side > .pc-mode > .tdc-mode-note{ grid-area:note; text-align:left !important; }
+  .pc-side > .pc-season{ justify-self:stretch; }
+  .pc-side > .pc-season, .pc-season .tdc-season-bar{ width:100%; min-width:0; display:flex; }
+  .pa-hero .pc-season .tdc-season-select{ width:100%; flex:1 1 auto; min-width:0; }
+  .pa-ovr{ width:80px; height:80px; }
+  .pa-ovr-v{ font-size:28px; }
+  /* tables: one line per cell (labels like "2026-27 so far" were wrapping every row to two lines); the table scrolls
+     sideways inside its box instead. A single full-width message cell (colspan) may still wrap. */
+  .tab-panel table td, .tab-panel table th{ white-space:nowrap; }
+  .tab-panel table td[colspan], .tab-panel table th[colspan]{ white-space:normal; }
+  .tab-panel .sheet-wrap, .tab-panel .tbl-wrap, .tab-panel .table-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; max-width:100%; }
 }
 @media(max-width:640px){
   #heroSection .tab-row > .tab-btn, #heroSection .tab-row > .tab-grp > .tab-grp-btn{ padding:10px 12px !important; }
