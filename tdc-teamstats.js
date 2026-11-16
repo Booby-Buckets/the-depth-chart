@@ -58,9 +58,11 @@
       '.tsc-chips{gap:5px;}.tsc-chips span{min-width:0;flex:1;padding:5px 4px;}.tsc-chips b{font-size:15px;}.tsc-chips i{font-size:9px;}.tsc-nav{width:22px;font-size:30px;}}' +
     '.tst table.tst-pl tbody tr{cursor:pointer;}' +
     '.tst table.tst-pl td.nm{box-shadow:inset 3px 0 0 color-mix(in srgb,var(--tc-band,#1b2433) 70%,transparent);}' +
-    '.tst table.tst-pl tbody tr.sel td{background:linear-gradient(#e2c27a,#c9a250)!important;color:#14100a!important;font-weight:800;}' +
-    '.tst table.tst-pl tbody tr.sel td.nm{box-shadow:inset 3px 0 0 #14100a;}' +
-    '.tst table.tst-pl tbody tr.sel td a{color:#14100a!important;}' +
+    /* selected row: a light team tint with a team-colour outline (owner pick, Nov 16 2026; gold dropped) */
+    '.tst table.tst-pl tbody tr.sel td{background:color-mix(in srgb,var(--tc-band,#1b2433) 14%,var(--bg))!important;color:var(--text)!important;font-weight:800;' +
+      'box-shadow:inset 0 1px 0 var(--tc-band,#1b2433),inset 0 -1px 0 var(--tc-band,#1b2433)!important;}' +
+    '.tst table.tst-pl tbody tr.sel td.nm{box-shadow:inset 4px 0 0 var(--tc-band,#1b2433),inset 0 1px 0 var(--tc-band,#1b2433),inset 0 -1px 0 var(--tc-band,#1b2433)!important;}' +
+    '.tst table.tst-pl tbody tr.sel td a{color:var(--text)!important;}' +
     '.tst table.tst-pl:focus{outline:none;}';
   function css() { if (document.getElementById('tst-css')) return; var s = document.createElement('style'); s.id = 'tst-css'; s.textContent = CSS; document.head.appendChild(s); }
   function pref(k, d) { try { return localStorage.getItem(k) || d; } catch (e) { return d; } }
