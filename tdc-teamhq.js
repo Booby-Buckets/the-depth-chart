@@ -339,7 +339,7 @@ function rotMockCss(){
     '#panel-overview .rf tbody tr:not(.rf-cap):nth-child(even) td{background:color-mix(in srgb,var(--bg2) 60%,transparent);}'+
     '#panel-overview .rf tbody tr:not(.rf-cap):hover td{background:color-mix(in srgb,var(--accent) 10%,transparent);}'+
     '#panel-overview .rf .rf-rk{color:var(--text3);width:28px;text-align:right;}'+
-    '#panel-overview .rf .rf-nm a{color:var(--accent);text-decoration:none;font-weight:600;}#panel-overview .rf .rf-nm a:hover{text-decoration:underline;}'+
+    '#panel-overview .rf .rf-nm a{color:var(--text);text-decoration:none;font-weight:600;}#panel-overview .rf .rf-nm a:hover{color:var(--tc-readable,var(--accent));text-decoration:underline;}'+
     '#panel-overview .rf .rf-st{color:var(--text3);margin-left:2px;}'+
     '#panel-overview .rf .rf-from{color:var(--text2);}#panel-overview .rf .rf-ov{font-weight:700;}#panel-overview .rf .rf-d{color:var(--text3);}'+
     '#panel-overview .rf .rf-cap td{text-align:left;font-weight:800;font-size:12px;color:var(--text);background:none;padding:10px 7px 4px;border-bottom:1px solid var(--border2);}'+

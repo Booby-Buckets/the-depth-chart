@@ -27,7 +27,7 @@
   <script src="tdc-nilchart.js?v=1"></script>
   <script src="tdc-gate.js?v=5"></script>
   <script src="tdc-teamgrades.js"></script>
-  <script src="tdc-teamhq.js?v=18"></script>
+  <script src="tdc-teamhq.js?v=19"></script>
   <script src="tdc-teamscout.js?v=6"></script>
   <script src="tdc-teamstats.js?v=16"></script>
   <link rel="stylesheet" href="tdc-teamhq.css?v=6"/>
@@ -77,6 +77,14 @@
     .dc-sheet tbody tr td.dc-ovr.c2{background-image:linear-gradient(hsla(95,70%,48%,.15),hsla(95,70%,48%,.15))!important;}
     .dc-sheet tbody tr td.dc-ovr.c3{background-image:linear-gradient(hsla(115,70%,48%,.26),hsla(115,70%,48%,.26))!important;}
     .dc-sheet tbody tr td.dc-ovr.c4{background-image:linear-gradient(hsla(125,70%,48%,.40),hsla(125,70%,48%,.40))!important;}
+    /* OVR as a ring (owner, Nov 16 2026: "D2", like the Team Stats card): no cell fill, the tier colours the ring */
+    .dc-sheet tbody tr td.dc-ovr.dc-ovr.dc-ovr{background-image:none!important;}
+    .dc-sheet .dc-ring{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;box-sizing:border-box;border-radius:50%;border:2.5px solid var(--border2);font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;}
+    .dc-sheet td.dc-ovr.c0 .dc-ring{border-color:hsl(0,62%,52%);}
+    .dc-sheet td.dc-ovr.c1 .dc-ring{border-color:hsl(30,70%,55%);}
+    .dc-sheet td.dc-ovr.c2 .dc-ring{border-color:hsl(95,45%,58%);}
+    .dc-sheet td.dc-ovr.c3 .dc-ring{border-color:hsl(110,50%,45%);}
+    .dc-sheet td.dc-ovr.c4 .dc-ring{border-color:hsl(125,60%,36%);}
     /* sheet extras (tdc-sheets.css): a genuine up/down change tag, and a section-label row */
     .sheet span.up{color:#1a8c3a;font-weight:700;} .sheet span.dn{color:#cc2200;font-weight:700;}
     [data-theme="dark"] .sheet span.up{color:#5ab875;} [data-theme="dark"] .sheet span.dn{color:#e07070;}
@@ -8642,7 +8650,7 @@ function renderHistoricRoster(rows, yr, projected){
     const L=_realOn?(_rl||{}):(_cl||((projected&&!(m>=0.5))?{}:_line(p)));
     return `<tr class="dc-row${r.star?' dc-starter':''}">
       <td class="l dc-slot">${r.slot}</td>
-      <td class="c big dc-ovr">${g}</td>
+      <td class="c big dc-ovr"><span class="dc-ring">${g}</span></td>
       <td class="l nm"><span class="dc-ava">${_sqHead(p.espn_id)}<i>${_sqInit(p.name)}</i></span><a class="dc-name" href="${link(p)}">${p.name}</a>${wav}${injBadge}${inj}${posEd}</td>
       <td class="l dim">${p.yr||p.class_year||''}</td><td class="l dim">${p.position||''}</td><td class="l dim">${p.height||''}</td>
       <td>${_realOn?(_rl?num(_rl.mpg):'—'):(m!=null&&(m>=0.5||_cl)?num(m):'—')}</td>
