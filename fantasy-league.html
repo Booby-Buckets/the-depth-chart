@@ -87,6 +87,15 @@
     .wl{font-weight:800;} .wl.w{color:var(--green);} .wl.l{color:var(--red);}
     tr.up td{color:var(--text3);}
     .acts{display:flex;gap:4px;justify-content:flex-end;}
+    .gl-t{background:none;border:none;padding:0;margin-left:4px;color:var(--accent);font:700 10px 'Inter',system-ui,sans-serif;cursor:pointer;}
+    .gl-t:hover{text-decoration:underline;}
+    tr.gl-row>td{padding:0 0 10px!important;background:color-mix(in srgb,var(--text) 3%,transparent);}
+    .gl-tbl{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums;}
+    .gl-tbl td,.gl-tbl th{padding:6px 8px;text-align:right;border-top:1px solid var(--border);white-space:nowrap;} .gl-tbl .l{text-align:left;}
+    .gl-tbl th{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);border-top:none;}
+    .gl-tbl tfoot td{font-weight:800;border-top:2px solid var(--border2);}
+    .gl-tbl tr.no td{color:var(--text3);} .gl-tbl tr.yes td{font-weight:700;}
+    .cm{border:1px solid color-mix(in srgb,var(--accent) 40%,var(--border));}
     .login{max-width:420px;}
     .login .fi{width:100%;text-transform:uppercase;letter-spacing:.06em;}
     .bar{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:12px;color:var(--text2);margin:8px 0 12px;}
@@ -108,7 +117,7 @@
   <script src="tdc-pwa.js?v=3" defer></script>
 </head>
 <body>
-<script src="tdc-nav.js?v=91"></script>
+<script src="tdc-nav.js?v=92"></script>
 <div class="page" id="app"><div class="empty">Loading the league…</div></div>
 <script>
 /* fantasy-league.html — the owner's 2026-27 COUNTING LEAGUE (Nov 2026).
@@ -117,7 +126,8 @@
  * ESPN game id) on the days a player is on the roster and not on IR. Top 3 of each division make the playoffs.
  * PRIVATE, CODE ONLY (owner, Nov 11 2026): your team code alone opens the league (no site account). The code is kept in
  * this browser and sent with every call; cl_data(code) returns the league, the cl_* tables are closed to the site.
- * SQL: scripts/fantasy_cl.sql + fantasy_cl_v2_lock.sql + fantasy_cl_v3_code.sql.
+ * SQL: scripts/fantasy_cl.sql + fantasy_cl_v2_lock.sql + fantasy_cl_v3_code.sql + fantasy_cl_v4_commish.sql (commissioner
+ * records adds/drops on a date for teams not on the site). Every roster player has a Game log: each box line + whether it counted.
  * Projected season = counted stats so far + the site's projected per-game line x counted games left. */
 (function(){
   const SB='https://izlqhnxowdhtdofkwrho.supabase.co', KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye';
@@ -133,6 +143,7 @@
   const lgImg=t=>{ const l=logo(t); return l?`<img class="lg" src="${esc(l)}" alt="" loading="lazy">`:''; };
   const qList=a=>a.map(x=>'"'+String(x).replace(/"/g,'')+'"').join(',');
   const md=d=>{ const [y,m,dd]=d.split('-'); return (+m)+'/'+(+dd); };
+  const prevDay=d=>{ const x=new Date(d+'T12:00:00'); x.setDate(x.getDate()-1); return x.toISOString().slice(0,10); };
 
   async function get(path){ const r=await fetch(`${SB}/rest/v1/${path}`,{headers:H}); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
   async function getAll(path){ let out=[], off=0; for(;;){ const r=await get(`${path}&limit=1000&offset=${off}`); out=out.concat(r); if(r.length<1000) return out; off+=1000; } }
@@ -314,7 +325,7 @@
     const tags=[isPG(s)?'<span class="pill pg">PG</span>':'', ir?`<span class="pill ir">IR${ir.start_date>TODAY?' '+md(ir.start_date):''}</span>`:'',
       s.start_date>TODAY?`<span class="pill g">joins ${md(s.start_date)}</span>`:'', s.end_date?`<span class="pill ir">leaves ${md(s.end_date)}</span>`:''].join('');
     const link=s.espn_id?`player.html?espn=${s.espn_id}`:`player.html?name=${encodeURIComponent(s.name)}&team=${encodeURIComponent(s.school)}`;
-    return `<td class="l nm">${lgImg(s.school)}<a href="${link}">${esc(s.name)}</a>${tags}<span class="sub">${esc(s.school)}${s.how==='pickup'?' · pickup':''}</span></td>`;
+    return `<td class="l nm">${lgImg(s.school)}<a href="${link}">${esc(s.name)}</a>${tags}<span class="sub">${esc(s.school)}${s.how==='pickup'?' · pickup':''}${s.team_id&&s.how!=='draft'?' · counts from '+md(s.start_date):''}${s.team_id&&s.end_date?' · counted through '+md(prevDay(s.end_date)):''}${s.team_id?`<button class="gl-t" data-gl="${s.id}">Game log (${(BOX[s.espn_id]||[]).length}) ▾</button>`:''}</span></td>`;
   }
   function rosterTable(tid,manage){
     const rows=rosterRows(tid), m=rmode;
@@ -344,16 +355,17 @@
         <div class="stat"><span>PTS</span><b>${f0(T.pts)}</b></div><div class="stat"><span>REB</span><b>${f0(T.reb)}</b></div><div class="stat"><span>AST</span><b>${f0(T.ast)}</b></div></div>
       <div class="cl-note">Projected final: <b>${f0(T.ppts)} / ${f0(T.preb)} / ${f0(T.past)}</b> · ${T.gp} counted player-games so far${today.length?` · <b>playing today:</b> ${today.map(s=>esc(s.name)).join(', ')}`:''}</div>
       ${manage?manageBar(t):''}
+      ${ME&&ME.is_commish?commishHTML(t):''}
       <div class="sec-h">Roster ${segHTML('rMode',[['tot','Totals'],['pg','Per game'],['proj','Projected']],rmode)}</div>
       <div id="rTbl">${rosterTable(t.id,manage)}</div>
-      ${manage?'<div class="msg" id="mMsg"></div>':''}
+      ${manage||(ME&&ME.is_commish)?'<div class="msg" id="mMsg"></div>':''}
       ${gone.length?`<div class="sec-h">Former players <span style="text-transform:none;letter-spacing:0;font-weight:600">stats they banked here</span></div>
         <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Player</th><th>GP</th><th>PTS</th><th>REB</th><th>AST</th></tr></thead><tbody>
         ${gone.map(g=>`<tr>${playerCell(g.s,null)}<td>${g.a.gp}</td><td>${g.a.pts}</td><td>${g.a.reb}</td><td>${g.a.ast}</td></tr>`).join('')}</tbody></table></div>`:''}
       ${nextWeek.length?`<div class="sec-h">Counted games, next 7 days</div><div class="sheet-wrap"><table class="sheet dense"><tbody>
         ${nextWeek.map(([d,l])=>`<tr><td class="l"><b>${md(d)}</b></td><td class="l">${l.map(esc).join(', ')}</td></tr>`).join('')}</tbody></table></div>`:''}
       ${mv.length?`<div class="sec-h">Moves</div><div class="sheet-wrap"><table class="sheet dense"><tbody>
-        ${mv.map(m=>`<tr><td class="l">${esc({add:'Added',drop:'Dropped',ir:'IR',activate:'Activated',trade_in:'Traded for',trade_out:'Traded away'}[m.kind]||m.kind)}</td><td class="l">${esc(m.player)}</td><td>from ${md(m.eff)}</td></tr>`).join('')}</tbody></table></div>`:''}`;
+        ${mv.map(m=>`<tr><td class="l">${esc({add:'Added',drop:'Dropped',ir:'IR',activate:'Activated',trade_in:'Traded for',trade_out:'Traded away'}[m.kind]||m.kind)}</td><td class="l">${esc(m.player)}</td><td>${['drop','trade_out'].includes(m.kind)?'counted through '+md(prevDay(m.eff)):'counts from '+md(m.eff)}</td></tr>`).join('')}</tbody></table></div>`:''}`;
   }
   function viewTeam(id){
     const t=TEAMS.find(x=>x.id===id); if(!t) return shell('teams','<div class="empty">No such team.</div>');
@@ -363,9 +375,10 @@
   }
   function wireTeam(t,manage){
     wireSeg('rMode',v=>{ rmode=v; store.set('cl_rmode',v); route(); });
+    wireGameLogs(); if(ME&&ME.is_commish) wireCommish(t);
     if(!manage) return;
     document.getElementById('rTbl').addEventListener('click',async e=>{
-      const b=e.target.closest('button'); if(!b) return; const msg=document.getElementById('mMsg');
+      const b=e.target.closest('button'); if(!b||!(b.dataset.ir||b.dataset.drop)) return; const msg=document.getElementById('mMsg');
       const s=STINTS.find(x=>x.id===+(b.dataset.ir||b.dataset.drop));
       try{
         if(b.dataset.ir){ const on=b.dataset.on==='1'; if(!confirm(`Send the commissioner a request to ${on?'move '+s.name+' to IR':'activate '+s.name}?`)) return; b.disabled=true;
@@ -403,6 +416,72 @@
         <div class="row" style="margin-top:10px"><button class="btn" id="trSend">Send trade offer</button></div></div></details>`;
   }
 
+
+  // ── game log: every box line he has this season, and whether it counted for this team (and why not) ──
+  function glReason(s,b){
+    if(!counted(b)) return 'non-league game';
+    if(b.date<s.start_date) return 'before add';
+    if(s.end_date&&b.date>=s.end_date) return 'after drop';
+    if(b.date>SET.reg_end) return 'postseason';
+    if(onIR(s.id,b.date)) return 'on IR';
+    return '';
+  }
+  function glOpp(b){
+    const r=RES[b.game_id]; if(r){ const home=r.home===b.team, us=home?r.hs:r.as, them=home?r.as:r.hs;
+      return {opp:(home?'':'@ ')+oppName(home?r.away:r.home), res:`<span class="wl ${us>them?'w':'l'}">${us>them?'W':'L'}</span> ${us}-${them}${r.ot?' OT':''}`}; }
+    const g=(CNTG[b.team]||[]).find(x=>String(x.id)===String(b.game_id));
+    return {opp:g?(g.site==='A'?'@ ':'')+oppName(g.opp):'—',res:''};
+  }
+  function gameLogHTML(s){
+    const L=[...(BOX[s.espn_id]||[])].sort((a,b)=>a.date<b.date?-1:1);
+    if(!L.length) return '<div class="cl-note" style="padding:10px 12px;margin:0">No games played yet this season.</div>';
+    const T={gp:0,pts:0,reb:0,ast:0};
+    const rows=L.map(b=>{ const why=glReason(s,b), o=glOpp(b); if(!why){ T.gp++; T.pts+=b.pts||0; T.reb+=b.reb||0; T.ast+=b.ast||0; }
+      return `<tr class="${why?'no':'yes'}"><td class="l">${md(b.date)}</td><td class="l">${esc(o.opp)}</td><td class="l hm">${o.res}</td><td class="hm">${b.min==null?'—':b.min}</td><td>${b.pts||0}</td><td>${b.reb||0}</td><td>${b.ast||0}</td><td class="l">${why?esc(why):'<span class="pill g">counts</span>'}</td></tr>`; }).join('');
+    return `<table class="gl-tbl"><thead><tr><th class="l">Date</th><th class="l">Opp</th><th class="l hm">Result</th><th class="hm">MIN</th><th>PTS</th><th>REB</th><th>AST</th><th class="l">For ${esc(tName(s.team_id))}</th></tr></thead><tbody>${rows}</tbody>
+      <tfoot><tr><td class="l" colspan="2">Counted: ${T.gp} g</td><td class="hm"></td><td class="hm"></td><td>${T.pts}</td><td>${T.reb}</td><td>${T.ast}</td><td></td></tr></tfoot></table>`;
+  }
+  function wireGameLogs(){
+    const v=document.getElementById('view'); if(!v) return;
+    v.addEventListener('click',e=>{ const b=e.target.closest('button[data-gl]'); if(!b) return;
+      const tr=b.closest('tr'), nx=tr.nextElementSibling;
+      if(nx&&nx.classList.contains('gl-row')){ nx.remove(); b.textContent=b.textContent.replace('▴','▾'); return; }
+      const s=STINTS.find(x=>x.id===+b.dataset.gl), row=document.createElement('tr');
+      row.className='gl-row'; row.innerHTML=`<td colspan="${tr.children.length}">${gameLogHTML(s)}</td>`;
+      tr.after(row); b.textContent=b.textContent.replace('▾','▴'); });
+  }
+
+  // ── commissioner: record a move for a team that doesn't use the site, on the date it happened ──
+  function commishHTML(t){
+    return `<details class="ps cm" id="cmD"><summary><b>Commissioner: record a move</b><span class="nx">for teams not on the site</span></summary><div class="form">
+      <p class="cl-note" style="margin-top:0">Takes effect right away, no request. <b>Dropped</b> on the date: his games through that date still count for the team. <b>Added</b> on the date: only his games after that date count. Adding uses one of the team's ${SET.pickups} pickups. Backdating is fine.</p>
+      <div class="pick"><div><div class="cl-note" style="margin:0 0 4px">Team</div><select class="fs" id="cmTeam" style="width:100%">${TEAMS.map(x=>`<option value="${x.id}"${x.id===t.id?' selected':''}>${esc(x.name)}</option>`).join('')}</select></div>
+        <div><div class="cl-note" style="margin:0 0 4px">Date of the move</div><input class="fi" type="date" id="cmDate" value="${TODAY}" style="width:100%"></div>
+        <div><div class="cl-note" style="margin:0 0 4px">Add (optional)</div>${faPickerHTML('cm')}</div>
+        <div><div class="cl-note" style="margin:0 0 4px">Drop (optional)</div><select class="fs" id="cmDrop" style="width:100%">${cmDropOpts(t.id)}</select></div></div>
+      <div class="cl-note" id="cmSum" style="margin:10px 0 0"></div>
+      <div class="row" style="margin-top:10px"><button class="btn" id="cmSend">Record move</button></div></div></details>`;
+  }
+  const cmDropOpts=tid=>'<option value="">Nobody</option>'+STINTS.filter(s=>s.team_id===tid&&!s.end_date).map(s=>`<option value="${s.id}">${esc(s.name)}${isPG(s)?' (PG)':''}</option>`).join('');
+  function wireCommish(t){
+    const D=document.getElementById('cmD'); if(!D) return;
+    D.addEventListener('toggle',function(){ if(this.open) wireFA('cm'); },{once:true});
+    const team=document.getElementById('cmTeam'), date=document.getElementById('cmDate'), drop=document.getElementById('cmDrop'), q=document.getElementById('cmQ'), sum=document.getElementById('cmSum');
+    const nextDay=d=>{ const x=new Date(d+'T12:00:00'); x.setDate(x.getDate()+1); return x.toISOString().slice(0,10); };
+    const say=()=>{ const d=date.value; if(!d){ sum.textContent=''; return; } const dn=drop.value?stName(drop.value):'', an=q.dataset.pid?q.dataset.name:'';
+      sum.innerHTML=[dn?`<b>${esc(dn)}</b>: games through ${md(d)} count`:'', an?`<b>${esc(an)}</b>: games from ${md(nextDay(d))} count`:''].filter(Boolean).join(' · '); };
+    team.addEventListener('change',()=>{ drop.innerHTML=cmDropOpts(+team.value); say(); });
+    [date,drop].forEach(x=>x.addEventListener('change',say)); D.addEventListener('click',()=>setTimeout(say,0));
+    document.getElementById('cmSend').addEventListener('click',async e=>{
+      const b=e.target, tid=+team.value, d=date.value, dr=drop.value?+drop.value:null, add=q.dataset.pid?+q.dataset.pid:null;
+      if(!d) return fail('Pick the date of the move.'); if(!add&&!dr) return fail('Pick a player to add or drop.');
+      if(!confirm(`Record for ${tName(tid)}:\n`+[dr?`Drop ${stName(dr)} — his games through ${md(d)} count`:'',add?`Add ${q.dataset.name} — his games from ${md(nextDay(d))} count`:''].filter(Boolean).join('\n'))) return;
+      b.disabled=true;
+      try{ await rpc('cl_commish_move',{p_team:tid,p_date:d,p_add:add,p_add_espn:add&&q.dataset.espn?+q.dataset.espn:null,p_drop:dr});
+        await refresh(); route(); flash('Recorded for '+tName(tid)+'.'); }
+      catch(err){ b.disabled=false; fail(err.message); }
+    });
+  }
 
   // ── requests: every roster change goes through the commissioner (trades through the other team first) ──
   const stName=id=>{ const x=STINTS.find(y=>y.id===+id); return x?x.name:'(player)'; };
@@ -484,9 +563,9 @@
     document.getElementById('outBtn').addEventListener('click',()=>{ CODE=''; store.set('cl_code',null); ME=null; location.hash=''; gate(); });
   }
   async function refresh(){
-    const had=new Set(STINTS.map(s=>s.espn_id));
+    const had=new Set(STINTS.map(s=>s.id));
     await loadLeague();
-    if(STINTS.some(s=>s.espn_id&&!had.has(s.espn_id))) await loadBox();
+    if(STINTS.some(s=>!had.has(s.id))) await loadBox();
   }
 
   // ── players (free agents) ──
@@ -587,7 +666,7 @@
   // ── the gate: your team code, nothing else ──
   function gate(msg){
     app.innerHTML=`<div class="page-eyebrow">Counting League · 2026-27</div><h1 class="page-h1">Counting League</h1>
-      <div class="card login" style="margin-top:14px"><b>Enter your team code</b><p class="cl-note">This league is private. Your commissioner gave each team a code — this browser remembers it.</p>
+      <div class="card login" style="margin-top:14px"><b>Enter your key</b><p class="cl-note">This league is private. Type the team key your commissioner gave you and it opens your team. This browser remembers it.</p>
         <form id="lgF" class="row"><input class="fi" id="lgC" placeholder="e.g. GLEN-XXXXXXXX" autocomplete="off" autocapitalize="characters"><button class="btn">Enter</button></form>
         <div class="msg${msg?' err':''}" id="lgM">${esc(msg||'')}</div></div>`;
     const f=document.getElementById('lgF');
