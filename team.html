@@ -29,7 +29,7 @@
   <script src="tdc-teamgrades.js"></script>
   <script src="tdc-teamhq.js?v=18"></script>
   <script src="tdc-teamscout.js?v=6"></script>
-  <script src="tdc-teamstats.js?v=1"></script>
+  <script src="tdc-teamstats.js?v=11"></script>
   <link rel="stylesheet" href="tdc-teamhq.css?v=6"/>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js?v=25"></script>
@@ -57,6 +57,15 @@
     .nil-cards{display:flex;flex-wrap:wrap;gap:13px;margin-bottom:20px;justify-content:center;}
     /* depth chart: OVR sits in the frozen block, whose opaque background would hide its heat tint — re-apply it */
     .dc-sheet tbody tr td.dc-ovr{font-size:15px;font-weight:800;}
+    /* headshot beside each depth-chart name (owner, Nov 16 2026): ESPN photo for the owner (tdcShowPhotos), initials for everyone else */
+    .dc-ava{position:relative;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;overflow:hidden;vertical-align:middle;margin:-4px 9px -4px 0;
+      background:var(--tc-band,#1b2433);border:1px solid color-mix(in srgb,var(--text) 14%,transparent);flex:none;}
+    .dc-ava i{font:800 10.5px Inter,system-ui,sans-serif;font-style:normal;letter-spacing:.02em;color:rgba(255,255,255,.92);}
+    .dc-ava img{position:absolute;left:50%;top:2px;width:150%;transform:translateX(-50%);height:auto;}
+    .dc-ava img ~ i{display:none;}
+    .dc-sheet tbody tr.dc-starter .dc-ava{width:34px;height:34px;}
+    .dc-sheet td.nm{white-space:nowrap;}
+    #depthContent .dc-sheet td.nm a.dc-name, .dc-sheet td.nm a.dc-name{display:inline-block!important;vertical-align:middle;max-width:calc(100% - 44px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap!important;-webkit-line-clamp:unset!important;}
     .dc-sheet tbody tr td.dc-ovr.c0{background-image:linear-gradient(hsla(0,70%,48%,.34),hsla(0,70%,48%,.34))!important;}
     .dc-sheet tbody tr td.dc-ovr.c1{background-image:linear-gradient(hsla(30,70%,48%,.15),hsla(30,70%,48%,.15))!important;}
     .dc-sheet tbody tr td.dc-ovr.c2{background-image:linear-gradient(hsla(95,70%,48%,.15),hsla(95,70%,48%,.15))!important;}
@@ -6508,7 +6517,15 @@ async function _drawTeamStats(){
   const host=document.getElementById('teamStatsHost'); if(!host||!window.TDC_TEAMSTATS) return;
   const full=await _resolveGamesKey().catch(()=>null);
   if(!full){ host.innerHTML='<div style="padding:24px;color:var(--text3);">No box scores on file for this team.</div>'; return; }
-  TDC_TEAMSTATS.show(host,{full, season:_rosterSeason||2027});
+  // the 2K-style player card (owner, Nov 16 2026) reads the roster row for bio + OVR; past-season players not on
+  // today's roster just show what the box scores know
+  const _norm=n=>(n||'').toLowerCase().replace(/[^a-z]/g,'');
+  const byId={}, byNm={}; (teamPlayers||[]).forEach(p=>{ if(p.espn_id) byId[String(p.espn_id)]=p; byNm[_norm(p.name)]=p; });
+  const info=bp=>{ const p=(bp.id&&byId[String(bp.id)])||byNm[_norm(bp.name)]; if(!p) return {};
+    const og=p._projGrade!=null?p._projGrade:(window.TDCProjGrade&&TDCProjGrade.gradeSolo?TDCProjGrade.gradeSolo(p):p.tdc_grade);
+    return {pos:[p.position,p.position2].filter(Boolean).join(' | '), ht:p.height, wt:p.weight, yr:p.class_year||p.yr, home:p.hometown, num:p.jersey_number, ovr:og}; };
+  let logo=null; try{ const c=window.tdcTeamColor&&tdcTeamColor(full); logo=c&&c.logo||null; }catch(e){}
+  TDC_TEAMSTATS.show(host,{full, season:_rosterSeason||2027, info, logo});
 }
 function switchTab(id, btn){
   _tabUrl(id,'overview');
@@ -8614,7 +8631,7 @@ function renderHistoricRoster(rows, yr, projected){
     return `<tr class="dc-row${r.star?' dc-starter':''}">
       <td class="l dc-slot">${r.slot}</td>
       <td class="c big dc-ovr">${g}</td>
-      <td class="l nm"><a class="dc-name" href="${link(p)}">${p.name}</a>${wav}${injBadge}${inj}${posEd}</td>
+      <td class="l nm"><span class="dc-ava">${_sqHead(p.espn_id)}<i>${_sqInit(p.name)}</i></span><a class="dc-name" href="${link(p)}">${p.name}</a>${wav}${injBadge}${inj}${posEd}</td>
       <td class="l dim">${p.yr||p.class_year||''}</td><td class="l dim">${p.position||''}</td><td class="l dim">${p.height||''}</td>
       <td>${_realOn?(_rl?num(_rl.mpg):'—'):(m!=null&&(m>=0.5||_cl)?num(m):'—')}</td>
       <td>${_f1(L.ppg)}</td><td>${_f1(L.rpg)}</td><td>${_f1(L.apg)}</td>
@@ -8624,7 +8641,7 @@ function renderHistoricRoster(rows, yr, projected){
   const _dsId='dcs'+(++histTable._n);
   setTimeout(()=>{ const t=document.getElementById(_dsId); if(t&&window.tdcSheetHeat) tdcSheetHeat(t); },0);
   const _pj=projected?(_realOn?' (so far)':' (projected)'):'';
-  const depthSheet=`<div class="dc-grid dc-depth"><div class="sheet-wrap" style="max-height:none;"><table class="sheet dense freeze3 hr-sheet dc-sheet" id="${_dsId}" style="--c1:56px;--c2:52px;--c3:190px;"><thead><tr>${_dth('Slot',0,'','l')}${_dth('OVR',1,'','c')}${_dth('Player',0,'','l')}${_dth('Yr',0,'','l')}${_dth('Pos',0,'','l')}${_dth('Ht',0,'','l')}${_dth('MIN',1,_barTip)}${_dth('PPG',1,'Points per game'+_pj)}${_dth('RPG',1,'Rebounds per game'+_pj)}${_dth('APG',1,'Assists per game'+_pj)}${_dth('FG%',1,'Field-goal %'+_pj)}${_dth('3P%',1,'3-point %'+_pj)}</tr></thead><tbody>${depthRows}</tbody></table></div></div>`;
+  const depthSheet=`<div class="dc-grid dc-depth"><div class="sheet-wrap" style="max-height:none;"><table class="sheet dense freeze3 hr-sheet dc-sheet" id="${_dsId}" style="--c1:56px;--c2:52px;--c3:230px;"><thead><tr>${_dth('Slot',0,'','l')}${_dth('OVR',1,'','c')}${_dth('Player',0,'','l')}${_dth('Yr',0,'','l')}${_dth('Pos',0,'','l')}${_dth('Ht',0,'','l')}${_dth('MIN',1,_barTip)}${_dth('PPG',1,'Points per game'+_pj)}${_dth('RPG',1,'Rebounds per game'+_pj)}${_dth('APG',1,'Assists per game'+_pj)}${_dth('FG%',1,'Field-goal %'+_pj)}${_dth('3P%',1,'3-point %'+_pj)}</tr></thead><tbody>${depthRows}</tbody></table></div></div>`;
   const injHtml = injured.length
     ? `<div class="sec-head" style="margin-top:28px;color:#ef4444;">Injured — Out for ${rosterLbl(yr)} <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· stats from last season played · minutes redistributed in projections</span></div>`
       + histTable(injured, yr-1)
