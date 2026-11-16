@@ -92,7 +92,29 @@
   var efg = function (T) { return T.fga > 0 ? (100 * (T.fgm + 0.5 * T.tpm) / T.fga).toFixed(1) : '—'; };
   var ts = function (T) { var d = 2 * (T.fga + 0.44 * T.fta); return d > 0 ? (100 * T.pts / d).toFixed(1) : '—'; };
 
+  // possessions (box estimate) and the team's Advanced view: pace, ratings, four factors and shot mix, team vs opponents
+  function poss(T) { return T.fga - T.oreb + T.tov + 0.44 * T.fta; }
+  function teamAdv(me, op, g) {
+    var P = (poss(me) + poss(op)) / 2 || 1;
+    var f = function (T, O) {
+      return { pace: P / g, rtg: 100 * T.pts / P, efg: T.fga ? 100 * (T.fgm + 0.5 * T.tpm) / T.fga : 0,
+        tov: 100 * T.tov / Math.max(1, T.fga + 0.44 * T.fta + T.tov), orb: 100 * T.oreb / Math.max(1, T.oreb + O.dreb),
+        ftr: T.fga ? 100 * T.fta / T.fga : 0, tpr: T.fga ? 100 * T.tpa / T.fga : 0, ast: T.fgm ? 100 * T.ast / T.fgm : 0,
+        stl: 100 * T.stl / P, blk: O.fga - O.tpa > 0 ? 100 * T.blk / (O.fga - O.tpa) : 0 };
+    };
+    var a = f(me, op), b = f(op, me);
+    var C = [['pace', 'Poss/G', 'Possessions per game (both teams average)'], ['rtg', 'Rtg', 'Points per 100 possessions (Opponents row = defensive rating)'],
+      ['efg', 'eFG%', ''], ['tov', 'TOV%', 'Turnovers per 100 plays'], ['orb', 'ORB%', 'Share of available offensive rebounds'], ['ftr', 'FTr', 'Free-throw attempts per 100 FGA'],
+      ['tpr', '3PAr', 'Share of shots that are threes'], ['ast', 'AST%', 'Share of made baskets assisted'], ['stl', 'STL%', 'Steals per 100 opponent possessions'], ['blk', 'BLK%', "Share of the opponents' 2-point tries blocked"]];
+    var row = function (cls, name, R) { return '<tr class="' + cls + '"><td class="l">' + name + '</td><td>' + g + '</td>' + C.map(function (c) { return '<td>' + f1(R[c[0]]) + '</td>'; }).join('') + '</tr>'; };
+    return '<div class="sheet-wrap" style="max-height:none;" data-fit-keep><table class="sheet dense freeze"><thead><tr><th class="l"></th><th>G</th>' +
+      C.map(function (c) { return '<th' + (c[2] ? ' title="' + esc(c[2]) + '"' : '') + '>' + c[1] + '</th>'; }).join('') + '</tr></thead><tbody>' +
+      row('me', '<b>Team</b>', a) + row('opp', 'Opponents', b) +
+      '<tr class="dif"><td class="l">Net</td><td></td>' + C.map(function (c) { return '<td>' + (c[0] === 'pace' ? '' : sg(a[c[0]] - b[c[0]], 1)) + '</td>'; }).join('') + '</tr>' +
+      '</tbody></table></div>';
+  }
   function teamTable(me, op, g, mode) {
+    if (mode === 'adv') return teamAdv(me, op, g);
     var C = [['pts', 'PTS'], ['fgm', 'FGM'], ['fga', 'FGA'], ['fg%', 'FG%'], ['tpm', '3PM'], ['tpa', '3PA'], ['3p%', '3P%'], ['ftm', 'FTM'], ['fta', 'FTA'], ['ft%', 'FT%'],
       ['efg', 'eFG%'], ['oreb', 'OREB'], ['dreb', 'DREB'], ['reb', 'REB'], ['ast', 'AST'], ['stl', 'STL'], ['blk', 'BLK'], ['tov', 'TO'], ['pf', 'PF']];
     var val = function (T, k) {
@@ -114,7 +136,26 @@
   // Every counting stat we keep, in one sheet (owner, Nov 16 2026). Per game or totals; rows are selectable (click, or
   // arrow keys once the table has focus) and drive the player card above it.
   function playerList(P) { return Object.keys(P).map(function (k) { return P[k]; }).sort(function (a, b) { return b.T.min - a.T.min || b.T.pts - a.T.pts; }); }
-  function playerTable(list, team, g, mode, selKey) {
+  // a player's Advanced line from his totals + the team's and opponents' totals (Basketball-Reference formulas), plus our
+  // own Total Impact per 40 and Wins Added (scripts/derived_stats.py: TI/40 = TI·40/(min+100), WA = (TI/40 − 5)·min/40/69.87)
+  function advOf(T, team, op) {
+    var tm5 = team.min / 5 || 1, mp = Math.max(1, T.min), oP = poss(op) || 1;
+    var ti = T.pts + 0.8 * T.oreb + 0.3 * T.dreb + 0.7 * T.ast + 1.4 * T.stl + 0.9 * T.blk - 0.5 * (T.fga - T.fgm) - 0.35 * (T.fta - T.ftm) - T.tov;
+    var ti40 = ti * 40 / (T.min + 100);
+    var astD = (mp / tm5) * team.fgm - T.fgm;
+    return {
+      usg: 100 * (T.fga + 0.44 * T.fta + T.tov) * tm5 / (mp * Math.max(1, team.fga + 0.44 * team.fta + team.tov)),
+      ts: (T.fga + 0.44 * T.fta) > 0 ? 100 * T.pts / (2 * (T.fga + 0.44 * T.fta)) : null,
+      efg: T.fga ? 100 * (T.fgm + 0.5 * T.tpm) / T.fga : null, tpr: T.fga ? 100 * T.tpa / T.fga : null, ftr: T.fga ? 100 * T.fta / T.fga : null,
+      ast: astD > 0 ? 100 * T.ast / astD : null, tov: (T.fga + 0.44 * T.fta + T.tov) > 0 ? 100 * T.tov / (T.fga + 0.44 * T.fta + T.tov) : null,
+      orb: 100 * T.oreb * tm5 / (mp * Math.max(1, team.oreb + op.dreb)), drb: 100 * T.dreb * tm5 / (mp * Math.max(1, team.dreb + op.oreb)),
+      trb: 100 * T.reb * tm5 / (mp * Math.max(1, team.reb + op.reb)), stl: 100 * T.stl * tm5 / (mp * oP),
+      blk: (op.fga - op.tpa) > 0 ? 100 * T.blk * tm5 / (mp * (op.fga - op.tpa)) : null,
+      ti40: ti40, wa: (ti40 - 5) * (T.min / 40) / 69.87
+    };
+  }
+  function playerTable(list, team, g, mode, selKey, op) {
+    if (mode === 'adv' || mode === 'p40') return playerTableX(list, team, g, mode, selKey, op);
     var pg = mode !== 'tot';
     var H1 = ['GP', 'GS', 'MIN', 'PTS', 'FGM', 'FGA', 'FG%', '3PM', '3PA', '3P%', 'FTM', 'FTA', 'FT%', 'OREB', 'DREB', 'REB', 'AST', 'STL', 'BLK', 'TO', 'PF', 'eFG%', 'TS%'];
     var n = function (v, d) { return pg ? f1(v / Math.max(1, d)) : String(v); };
@@ -133,6 +174,41 @@
     var foot = '<tr><td class="l">Team</td>' + line(team, g, '').map(function (v, i) { return '<td>' + (i === 1 ? '' : v) + '</td>'; }).join('') + '</tr>';
     return '<div class="sheet-wrap" style="max-height:none;" data-fit-keep><table class="sheet dense freeze tst-pl" tabindex="0" aria-label="Player stats: arrow keys move the player card"><thead><tr><th class="l">Player</th>' +
       H1.map(function (c) { return '<th' + (pg && HEAT[c] ? ' data-heat="' + HEAT[c] + '"' : '') + '>' + c + '</th>'; }).join('') +
+      '</tr></thead><tbody>' + body + '</tbody><tfoot>' + foot + '</tfoot></table></div>';
+  }
+  function playerTableX(list, team, g, mode, selKey, op) {
+    var link = function (p) { return p.id ? '<a href="player.html?espn=' + p.id + '&name=' + encodeURIComponent(p.name) + '">' + esc(p.name) + '</a>' : esc(p.name); };
+    var cols, cells;
+    if (mode === 'adv') {
+      cols = [['MIN', 0, 'Minutes per game'], ['USG%', 1, 'Share of team plays he finishes while on the floor'], ['TS%', 1, 'True shooting'], ['eFG%', 1, ''],
+        ['3PAr', 0, 'Share of his shots that are threes'], ['FTr', 0, 'Free-throw attempts per 100 FGA'], ['AST%', 1, "Share of teammates' baskets he assists on the floor"],
+        ['TOV%', -1, 'Turnovers per 100 of his plays'], ['ORB%', 1, 'Share of available offensive boards he grabs'], ['DRB%', 1, ''], ['TRB%', 1, ''],
+        ['STL%', 1, 'Steals per 100 opponent possessions on the floor'], ['BLK%', 1, "Share of opponents' 2-point tries he blocks"],
+        ['TI/40', 1, 'Total Impact per 40 — our box-score value rate'], ['WA', 1, 'Wins Added — our season value (TI above replacement)']];
+      cells = function (p, T, gp) { var A = advOf(T, team, op), v = function (x, d) { return x == null || !isFinite(x) ? '—' : x.toFixed(d == null ? 1 : d); };
+        return [v(T.min / Math.max(1, gp)), v(A.usg), v(A.ts), v(A.efg), v(A.tpr), v(A.ftr), v(A.ast), v(A.tov), v(A.orb), v(A.drb), v(A.trb), v(A.stl), v(A.blk), v(A.ti40), v(A.wa, 2)]; };
+    } else {
+      cols = [['MIN', 0, 'Total minutes'], ['PTS', 1, ''], ['REB', 1, ''], ['OREB', 1, ''], ['DREB', 1, ''], ['AST', 1, ''], ['STL', 1, ''], ['BLK', 1, ''], ['TO', -1, ''], ['PF', -1, ''],
+        ['FGA', 0, ''], ['3PA', 0, ''], ['FTA', 0, '']];
+      cells = function (p, T) { var k = 40 / Math.max(1, T.min), v = function (x) { return (x * k).toFixed(1); };
+        return [String(T.min), v(T.pts), v(T.reb), v(T.oreb), v(T.dreb), v(T.ast), v(T.stl), v(T.blk), v(T.tov), v(T.pf), v(T.fga), v(T.tpa), v(T.fta)]; };
+    }
+    var body = list.map(function (p) {
+      var k = String(p.id || p.name), c = cells(p, p.T, p.gp);
+      return '<tr data-k="' + esc(k) + '"' + (k === selKey ? ' class="sel"' : '') + '><td class="l nm">' + link(p) + '</td><td>' + p.gp + '</td>' +
+        c.map(function (v, i) { return '<td' + (cols[i][1] && p.T.min >= 40 ? ' data-v="' + parseFloat(v) + '"' : '') + '>' + v + '</td>'; }).join('') + '</tr>';
+    }).join('');
+    var tc = cells(null, team, g);
+    if (mode === 'adv') {   // the team row in team terms (player formulas on the whole team read as a fifth of the real rate)
+      var T = team, O = op, d = function (x) { return isFinite(x) ? x.toFixed(1) : '—'; };
+      tc = ['', '100.0', d(100 * T.pts / (2 * (T.fga + 0.44 * T.fta))), d(100 * (T.fgm + 0.5 * T.tpm) / T.fga), d(100 * T.tpa / T.fga), d(100 * T.fta / T.fga),
+        d(100 * T.ast / T.fgm), d(100 * T.tov / (T.fga + 0.44 * T.fta + T.tov)), d(100 * T.oreb / (T.oreb + O.dreb)), d(100 * T.dreb / (T.dreb + O.oreb)),
+        d(100 * T.reb / (T.reb + O.reb)), d(100 * T.stl / poss(O)), d(100 * T.blk / (O.fga - O.tpa)), '',
+        list.reduce(function (s, p) { return s + advOf(p.T, team, op).wa; }, 0).toFixed(2)];
+    }
+    var foot = '<tr><td class="l">Team</td><td>' + g + '</td>' + tc.map(function (v, i) { return '<td>' + (mode === 'adv' && i === 0 ? '' : v) + '</td>'; }).join('') + '</tr>';
+    return '<div class="sheet-wrap" style="max-height:none;" data-fit-keep><table class="sheet dense freeze tst-pl" tabindex="0" aria-label="Player stats: arrow keys move the player card"><thead><tr><th class="l">Player</th><th>GP</th>' +
+      cols.map(function (c) { return '<th' + (c[1] ? ' data-heat="' + c[1] + '"' : '') + (c[2] ? ' title="' + esc(c[2]) + '"' : '') + '>' + c[0] + '</th>'; }).join('') +
       '</tr></thead><tbody>' + body + '</tbody><tfoot>' + foot + '</tfoot></table></div>';
   }
   // the 2K-style card: team tile (headshot for the owner only — tdcShowPhotos — else his number over the logo), name,
@@ -212,11 +288,11 @@
         var tog = function (id, cur, opts) { return '<span class="tst-tog" data-tog="' + id + '">' + opts.map(function (x) { return '<button type="button" data-m="' + x[0] + '" class="' + (cur === x[0] ? 'on' : '') + '">' + x[1] + '</button>'; }).join('') + '</span>'; };
         var draw = function () {
           host.innerHTML = '<div class="tst">' +
-            '<div class="tst-head"><h2>Team vs opponents</h2><span class="sub">' + lbl(yr) + ' · ' + g + (g === 1 ? ' game' : ' games') + ' · every game on file ' + tog('team', mt, [['pg', 'Per game'], ['tot', 'Totals']]) + '</span></div>' +
+            '<div class="tst-head"><h2>Team vs opponents</h2><span class="sub">' + lbl(yr) + ' · ' + g + (g === 1 ? ' game' : ' games') + ' · every game on file ' + tog('team', mt, [['pg', 'Per game'], ['tot', 'Totals'], ['adv', 'Advanced']]) + '</span></div>' +
             teamTable(me, op, g, mt) +
-            '<div class="tst-head"><h2>Players</h2><span class="sub">every counting stat · tap a player (or use ↑ ↓) ' + tog('pl', mp, [['pg', 'Per game'], ['tot', 'Totals']]) + '</span></div>' +
+            '<div class="tst-head"><h2>Players</h2><span class="sub">tap a player (or ↑ ↓) · hover a heading for what it means ' + tog('pl', mp, [['pg', 'Per game'], ['tot', 'Totals'], ['adv', 'Advanced'], ['p40', 'Per 40']]) + '</span></div>' +
             '<div class="tsc-host"></div>' +
-            playerTable(list, me, g, mp, selKey) +
+            playerTable(list, me, g, mp, selKey, op) +
             '<div class="tst-head"><h2>Game log</h2><span class="sub">the team’s line in each game · tap a row for the box score</span></div>' +
             gameLog(G, byGame, full) +
             '<p class="tst-foot">From the box scores on file (ESPN), every game including ones against non-D-I opponents. eFG% = (FGM + 0.5 × 3PM) / FGA · TS% = PTS / (2 × (FGA + 0.44 × FTA)).</p></div>';
