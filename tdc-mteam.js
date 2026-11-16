@@ -161,8 +161,8 @@
     'body.mtl.mt-depth .page-body .side-col{display:block!important;padding:8px 12px 24px!important}',
     /* depth chart: the three pinned columns (slot · OVR · player) were 338px in a ~300px box, so nothing else showed
        while scrolling. Slimmer pins; the name wraps beside the headshot */
-    'body.mtl .dc-sheet{--c1:40px!important;--c2:42px!important;--c3:138px!important}',
-    'body.mtl .dc-sheet td.nm{white-space:normal!important;width:138px!important;max-width:138px!important;box-sizing:border-box}',
+    'body.mtl .dc-sheet{--c1:38px!important;--c2:48px!important;--c3:134px!important}',
+    'body.mtl .dc-sheet td.nm{white-space:normal!important;width:134px!important;max-width:134px!important;box-sizing:border-box}',
     'body.mtl .dc-sheet td.nm .dc-ava{float:left;margin:0 7px 0 0!important}',
     'body.mtl #depthContent .dc-sheet td.nm a.dc-name{display:flex!important;align-items:center;min-height:30px;max-width:none!important;white-space:normal!important;overflow:visible!important;line-height:1.2}',
     'body.mtl .dc-sheet tbody tr.dc-starter .dc-ava{width:30px;height:30px}'
