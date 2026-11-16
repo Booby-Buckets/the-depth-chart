@@ -1,7 +1,7 @@
 /* tdc-mhome.js — phone layout of the home page (index.html), Nov 16 2026.
    Owner: "minimal data before the rankings". On a phone the page is: title → season picker + one Filters button →
    the rankings. Real/Projected, level, sort, movement, search and the conference pills sit behind Filters; live
-   scores, a biggest-movers row (read from the table), Top players and "New here" move BELOW the rankings.
+   scores (smaller) stay on top; a biggest-movers row (read from the table) sits under the filters; Top players is hidden.
    No data of its own. Phones only (≤640px); renderPod() (top-3 podium) is kept but not shown. */
 (function () {
   var MQ = window.matchMedia('(max-width:640px)');
@@ -16,7 +16,7 @@
     '.mh-nm{font:700 13px Inter,system-ui,sans-serif;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.mh-rt{font:800 20px Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;line-height:1.1}',
     '.mh-sub{font:600 11px Inter,system-ui,sans-serif;color:var(--text3)}',
-    'body.mh .mh-mv{display:block;margin:14px 0 0 14px}','.mh-row{padding-right:14px!important}','.mh-mv .mh-st{padding-right:14px}',
+    'body.mh .mh-mv{display:block;margin:12px 0 0 14px}','.mh-row{padding-right:14px!important}','.mh-mv .mh-st{padding-right:14px}',
     '.mh-st{display:flex;justify-content:space-between;align-items:baseline;font:800 11px Inter,system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin:0 0 6px}',
     '.mh-st em{font-style:normal;font-weight:600;letter-spacing:0;text-transform:none}',
     '.mh-row{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px}',
@@ -130,15 +130,6 @@
     new MutationObserver(debounce(sum, 60)).observe(fb, { subtree: true, attributes: true, attributeFilter: ['class'] });
     sum();
   }
-  // live scores, movers, Top players and "New here" go below the rankings
-  function moveBelow(mv) {
-    var ts = document.querySelector('.table-section'); if (!ts) return;
-    var after = ts;
-    [document.getElementById('tdcLive'), mv, document.getElementById('showcase'), document.getElementById('whStrip')].forEach(function (n) {
-      if (!n) return; n.classList.add('mh-after'); after.parentNode.insertBefore(n, after.nextSibling); after = n;
-    });
-  }
-
   var built = false;
   function build() {
     if (built) return;
@@ -147,7 +138,8 @@
     built = true;
     if (!document.getElementById('mhCss')) { var st = el('style'); st.id = 'mhCss'; st.textContent = CSS; document.head.appendChild(st); }
     var mv = el('div', 'mh-mv'); mv.id = 'mhMv';
-    foldFilters(); moveBelow(mv);
+    // owner: scores, movers and New here stay ABOVE the rankings (just smaller / fewer)
+    foldFilters(); fb.parentNode.insertBefore(mv, fb.nextSibling);
     var go = debounce(renderMovers, 120);
     new MutationObserver(go).observe(tb, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
     var head = document.getElementById('rankHead'); if (head) new MutationObserver(go).observe(head, { childList: true, subtree: true, characterData: true });
