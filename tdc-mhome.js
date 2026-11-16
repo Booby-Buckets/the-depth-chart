@@ -30,6 +30,13 @@
     'body.mh #filterBar .filter-controls > .mh-x{grid-column:1 / -1!important}',
     'body.mh #filterBar.mh-open #filterPills{margin-top:10px!important}',
     'body.mh .mh-after{margin-top:22px}',
+    /* owner: no Top players on phones; live games a little smaller (narrower cards, no note / show-all row) */
+    'body.mh #showcase{display:none!important}',
+    'body.mh #tdcLive .tlv-note,body.mh #tdcLive .tlv-more{display:none!important}',
+    'body.mh #tdcLive .tlv-h{font-size:18px!important}',
+    'body.mh #tdcLive .tlv-grid > .tlv-card{flex-basis:230px!important;width:230px!important;min-width:230px!important;max-width:230px!important;padding:7px 10px 6px!important}',
+    'body.mh #tdcLive .tlv-card img{width:18px!important;height:18px!important}',
+    'body.mh #tdcLive .tlv-tm{min-height:0!important;padding:1px 0!important}',
     'body.mh .mh-more{display:flex;grid-column:2;align-items:center;justify-content:space-between;gap:8px;height:38px;padding:0 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg2);color:var(--text2);font:700 13px Inter,system-ui,sans-serif;cursor:pointer}',
     '.mh-more span{font-weight:600;color:var(--text3)}',
     'body.mh #filterBar:not(.mh-open) .mh-x{display:none!important}',
