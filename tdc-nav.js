@@ -71,8 +71,6 @@
       ['game-situations.html', 'Game Situations',        'Stats by score, time and situation'],
       ['plays.html',           'Play Finder',            'Search every play since 2008'],
     ]],
-    // Nov 15 2026 (owner): Fantasy in the bar on every page — anyone with a team key opens the league from there
-    ['Fantasy', 'fantasy-league.html', ['league.html']],
     ['More', [
       ['explore.html',         'Explore all tools',      'Every tool on one page'],
       ['coach-tier.html',      'Scouting & Game Prep',   'Opponent reports for coaches'],
@@ -82,6 +80,7 @@
       ['buzz.html',            'News',                   'Headlines around college hoops'],
       ['community.html',       'Community',              'Forum and discussions'],
       ['fan.html',             'Fan Sites',              'Team fan pages and articles'],
+      ['fantasy-league.html',  'Fantasy',                'Your league — open it with your team key'],  // owner, Nov 15 2026: in More, not the top bar
       ['games.html',           'Games',                  'Daily trivia and guessing games'],
       ['dynasty.html',         'Dynasty (beta)',         'Run a program season by season'],
       ['#Account'],
@@ -204,8 +203,7 @@
       '.tdn-menu{min-width:170px;}',
       '}',
       // phones: the five menus on ONE row (it used to wrap to two, the second indented)
-      '@media(max-width:370px){.tdn-btn{padding:0 2px!important;font-size:9.5px!important;}}',
-      '@media(max-width:640px){.tdn-logo em{font-size:11px!important;}.tdn-signin,.tdn-actions a{font-size:11px!important;}.tdn-wrap .theme-toggle{font-family:inherit;font-size:13px!important;}.tdn-row{flex-wrap:nowrap;justify-content:space-between;gap:0;}.tdn-btn{padding:0 3px;font-size:10px;letter-spacing:0;}.tdn-btn .car{display:none;}.tdn-btn.active::after{left:4px;right:4px;}.tdn-actions>a,.tdn-actions>button{position:relative;}.tdn-actions>a::after,.tdn-actions>button::after{content:"";position:absolute;inset:-9px -4px;}}',
+      '@media(max-width:640px){.tdn-logo em{font-size:11px!important;}.tdn-signin,.tdn-actions a{font-size:11px!important;}.tdn-wrap .theme-toggle{font-family:inherit;font-size:13px!important;}.tdn-row{flex-wrap:nowrap;justify-content:space-between;gap:0;}.tdn-btn{padding:0 4px;font-size:11px;letter-spacing:.03em;}.tdn-btn .car{display:none;}.tdn-btn.active::after{left:4px;right:4px;}.tdn-actions>a,.tdn-actions>button{position:relative;}.tdn-actions>a::after,.tdn-actions>button::after{content:"";position:absolute;inset:-9px -4px;}}',
     ].join('');
     document.head.appendChild(css);
     // phones: one type system across every page (tdc-mobile.js; desktop untouched)
