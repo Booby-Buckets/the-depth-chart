@@ -5,6 +5,9 @@
    page already renders and drives the page's own controls; no data of its own.
    Phones only (≤640px). */
 (function () {
+  // Nov 16 2026 (owner: "the full UI switch on mobile"): phones get the desktop home page (index.html #ix-mobile CSS
+  // shrinks it). index.html sets TDC_MINDEX_OFF; drop the flag to bring this phone-only header back.
+  if (window.TDC_MINDEX_OFF) return;
   var MQ = window.matchMedia('(max-width:640px)');
   var CSS = [
     'body.mi #pageHeader .ph-left,body.mi #filterBar,body.mi #whStrip,body.mi #scPlayers,body.mi #scLabel,body.mi #tdc-ver{display:none!important}',
