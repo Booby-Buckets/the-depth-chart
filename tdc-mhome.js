@@ -1,9 +1,8 @@
-/* tdc-mhome.js — phone extras for the home page (index.html), Nov 16 2026 (owner: "can we be more creative").
-   Phones keep the desktop page; this adds, read straight from the rankings table so the numbers always match:
-   - a top-3 podium (follows the level / conference / sort the table shows)
-   - a swipe row of the biggest movers (follows the Movement window)
-   - Sort / Movement / Team search folded behind one "More filters" button
-   No data of its own. Phones only (≤640px). */
+/* tdc-mhome.js — phone layout of the home page (index.html), Nov 16 2026.
+   Owner: "minimal data before the rankings". On a phone the page is: title → season picker + one Filters button →
+   the rankings. Real/Projected, level, sort, movement, search and the conference pills sit behind Filters; live
+   scores, a biggest-movers row (read from the table), Top players and "New here" move BELOW the rankings.
+   No data of its own. Phones only (≤640px); renderPod() (top-3 podium) is kept but not shown. */
 (function () {
   var MQ = window.matchMedia('(max-width:640px)');
   var CSS = [
@@ -26,8 +25,13 @@
     '.mh-chip img{width:20px;height:20px;object-fit:contain}',
     '.mh-chip b{font-weight:800;font-variant-numeric:tabular-nums}',
     '.mh-chip.up b{color:var(--green,#2e8b57)}.mh-chip.dn b{color:var(--red,#c0392b)}',
-    'body.mh .mh-more{display:flex;grid-column:1 / -1;align-items:center;justify-content:space-between;gap:8px;width:100%;height:38px;padding:0 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg2);color:var(--text2);font:700 13px Inter,system-ui,sans-serif;cursor:pointer}',
-    '.mh-more span{font-weight:600;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}',
+    'body.mh #filterBar .filter-controls{grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important}',
+    'body.mh #filterBar .filter-controls > .f-lead{grid-column:1!important}',
+    'body.mh #filterBar .filter-controls > .mh-x{grid-column:1 / -1!important}',
+    'body.mh #filterBar.mh-open #filterPills{margin-top:10px!important}',
+    'body.mh .mh-after{margin-top:22px}',
+    'body.mh .mh-more{display:flex;grid-column:2;align-items:center;justify-content:space-between;gap:8px;height:38px;padding:0 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg2);color:var(--text2);font:700 13px Inter,system-ui,sans-serif;cursor:pointer}',
+    '.mh-more span{font-weight:600;color:var(--text3)}',
     'body.mh #filterBar:not(.mh-open) .mh-x{display:none!important}',
     'body.mh #filterBar.mh-open .mh-more{border-color:var(--text3)}'
   ].join('\n');
@@ -98,24 +102,34 @@
   }
 
   // Sort / Movement / Team search behind one button; Season, Real/Projected and Level stay out
+  // everything but the season picker goes behind one Filters button (conference pills included)
   function foldFilters() {
     var fb = document.getElementById('filterBar'), fc = fb && fb.querySelector('.filter-controls'); if (!fc || fc.querySelector('.mh-more')) return;
-    var labs = [].slice.call(fc.children).filter(function (e) {
-      return e.querySelector('#sortSel,#mvSel,#searchInput');
-    });
-    if (!labs.length) return;
-    labs.forEach(function (e) { e.classList.add('mh-x'); });
+    var lead = fc.querySelector('.f-lead'); if (!lead) return;
+    [].slice.call(fc.children).forEach(function (e) { if (e !== lead) e.classList.add('mh-x'); });
+    var pills = document.getElementById('filterPills'); if (pills) pills.classList.add('mh-x');
     var b = el('button', 'mh-more'); b.type = 'button';
+    // how many filters differ from the defaults, so a narrowed table is never a surprise
     var sum = function () {
-      var s = document.getElementById('sortSel'), q = document.getElementById('searchInput');
-      var bits = [s && s.selectedOptions[0] ? s.selectedOptions[0].textContent.trim() : ''];
-      if (q && q.value.trim()) bits.push('“' + q.value.trim() + '”');
-      b.innerHTML = 'More filters <span>' + esc(bits.filter(Boolean).join(' · ')) + (fb.classList.contains('mh-open') ? ' ▴' : ' ▾') + '</span>';
+      var n = 0;
+      var lv = document.querySelector('#levelSw button.on'); if (lv && lv.dataset.lv) n++;
+      var cp = pills && pills.querySelector('.filter-btn.active'); if (cp && pills.querySelector('.filter-btn') !== cp) n++;
+      var q = document.getElementById('searchInput'); if (q && q.value.trim()) n++;
+      b.innerHTML = 'Filters' + (n ? ' <span>(' + n + ')</span>' : '') + ' <span>' + (fb.classList.contains('mh-open') ? '▴' : '▾') + '</span>';
     };
     b.onclick = function () { fb.classList.toggle('mh-open'); sum(); };
-    fc.insertBefore(b, labs[0]);
-    ['sortSel', 'searchInput'].forEach(function (id) { var n = document.getElementById(id); if (n) { n.addEventListener('change', sum); n.addEventListener('input', sum); } });
+    lead.parentNode.insertBefore(b, lead.nextSibling);
+    var q = document.getElementById('searchInput'); if (q) q.addEventListener('input', sum);
+    new MutationObserver(debounce(sum, 60)).observe(fb, { subtree: true, attributes: true, attributeFilter: ['class'] });
     sum();
+  }
+  // live scores, movers, Top players and "New here" go below the rankings
+  function moveBelow(mv) {
+    var ts = document.querySelector('.table-section'); if (!ts) return;
+    var after = ts;
+    [document.getElementById('tdcLive'), mv, document.getElementById('showcase'), document.getElementById('whStrip')].forEach(function (n) {
+      if (!n) return; n.classList.add('mh-after'); after.parentNode.insertBefore(n, after.nextSibling); after = n;
+    });
   }
 
   var built = false;
@@ -125,12 +139,9 @@
     if (!fb || !tb || !tb.querySelector('td.nm a')) return;
     built = true;
     if (!document.getElementById('mhCss')) { var st = el('style'); st.id = 'mhCss'; st.textContent = CSS; document.head.appendChild(st); }
-    var pod = el('div', 'mh-pod'); pod.id = 'mhPod';
     var mv = el('div', 'mh-mv'); mv.id = 'mhMv';
-    // below the filters (outside their grid): podium, then movers
-    fb.parentNode.insertBefore(mv, fb.nextSibling); fb.parentNode.insertBefore(pod, mv);
-    foldFilters();
-    var go = debounce(function () { renderPod(); renderMovers(); }, 120);
+    foldFilters(); moveBelow(mv);
+    var go = debounce(renderMovers, 120);
     new MutationObserver(go).observe(tb, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
     var head = document.getElementById('rankHead'); if (head) new MutationObserver(go).observe(head, { childList: true, subtree: true, characterData: true });
     go();
