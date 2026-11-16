@@ -120,15 +120,11 @@ window.TDC_PAYWALL_ENABLED = false;
 
   window.tdcRefreshIfNeeded = refreshIfNeeded;
 
-  // Owner-only photo gate: real player headshots (hotlinked ESPN images / photo_url)
-  // render ONLY when the OWNER is signed in, so they aren't exposed to the public.
-  // Everyone else (signed out or other accounts) gets the initial/placeholder.
-  // Every page gates its player <img> tags on window.tdcShowPhotos().
+  // Photo gate: every page gates its player <img> tags on window.tdcShowPhotos(). Owner-only from July 2026; turned on
+  // for EVERYONE Nov 16 2026 at the owner's request (he accepted the risk that the hotlinked ESPN images could be blocked
+  // or drawn a takedown). To go back to owner-only, return the owner check below instead of true.
   var OWNER = 'blee4824@gmail.com';
-  window.tdcShowPhotos = function () {
-    try { var s = get(); return !!(s && s.user && ('' + (s.user.email || '')).toLowerCase() === OWNER); }
-    catch (e) { return false; }
-  };
+  window.tdcShowPhotos = function () { return true; };
 
   // True when the signed-in account is the owner. Every paywall gate honors this so
   // the owner always has full access to every tier, regardless of profiles.plan
