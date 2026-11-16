@@ -29,7 +29,7 @@
   <script src="tdc-teamgrades.js"></script>
   <script src="tdc-teamhq.js?v=18"></script>
   <script src="tdc-teamscout.js?v=6"></script>
-  <script src="tdc-teamstats.js?v=15"></script>
+  <script src="tdc-teamstats.js?v=16"></script>
   <link rel="stylesheet" href="tdc-teamhq.css?v=6"/>
   <script src="tdc-pos.js"></script>
   <script src="tdc-awards.js?v=25"></script>
@@ -57,6 +57,12 @@
     .nil-cards{display:flex;flex-wrap:wrap;gap:13px;margin-bottom:20px;justify-content:center;}
     /* depth chart: OVR sits in the frozen block, whose opaque background would hide its heat tint — re-apply it */
     .dc-sheet tbody tr td.dc-ovr{font-size:15px;font-weight:800;}
+    /* Stats tab: the team header (band + Power/Record/Seed tiles) steps aside for the player card */
+    .ts-card-slot{display:none;}
+    body.ts-on .ts-card-slot{display:block;margin:4px 0 2px;}
+    body.ts-on .ts-card-slot .tsc{margin:0;}
+    body.ts-on #tdc-main{display:none!important;}
+    body.mt.ts-on .mt-hero, body.mt.ts-on #mtSeason{display:none!important;}
     /* headshot beside each depth-chart name (owner, Nov 16 2026): ESPN photo for the owner (tdcShowPhotos), initials for everyone else */
     .dc-ava{position:relative;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;overflow:hidden;vertical-align:middle;margin:-4px 9px -4px 0;
       background:var(--tc-band,#1b2433);border:1px solid color-mix(in srgb,var(--text) 14%,transparent);flex:none;}
@@ -1468,6 +1474,8 @@
   </div>
   <div class="hero-ribbon" id="heroRibbon"></div>
   </div><!-- /hero-card -->
+  <!-- Stats tab: the player card takes the team header's place (owner, Nov 16 2026: "so we don't over crowd") -->
+  <div id="tsCardSlot" class="ts-card-slot"></div>
   <div class="hero-tabrow">
   <div class="hero-tabs">
     <button class="hero-tab active" onclick="switchTab('overview',this)">Overview</button>
@@ -6525,10 +6533,14 @@ async function _drawTeamStats(){
     const og=p._projGrade!=null?p._projGrade:(window.TDCProjGrade&&TDCProjGrade.gradeSolo?TDCProjGrade.gradeSolo(p):p.tdc_grade);
     return {pos:[p.position,p.position2].filter(Boolean).join(' | '), ht:p.height, wt:p.weight, yr:p.class_year||p.yr, home:p.hometown, num:p.jersey_number, ovr:og}; };
   let logo=null; try{ const c=window.tdcTeamColor&&tdcTeamColor(full); logo=c&&c.logo||null; }catch(e){}
-  TDC_TEAMSTATS.show(host,{full, season:_rosterSeason||2027, info, logo});
+  // the card goes in the team header's spot (above the tabs) when that spot is showing; phones keep it in the panel
+  const slot=document.getElementById('tsCardSlot');
+  { const pn=document.getElementById('panel-teamstats'); if(pn&&pn.classList.contains('active')) document.body.classList.add('ts-on'); }
+  TDC_TEAMSTATS.show(host,{full, season:_rosterSeason||2027, info, logo, cardHost:(slot&&!document.body.classList.contains('mt'))?slot:null});
 }
 function switchTab(id, btn){
   _tabUrl(id,'overview');
+  document.body.classList.toggle('ts-on', id==='teamstats');   // Stats tab: player card replaces the team header
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.hero-tab,.hgm-item').forEach(b=>b.classList.remove('active'));
   document.getElementById('panel-'+id).classList.add('active');

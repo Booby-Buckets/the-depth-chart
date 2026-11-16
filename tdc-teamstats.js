@@ -288,19 +288,21 @@
         var tog = function (id, cur, opts) { return '<span class="tst-tog" data-tog="' + id + '">' + opts.map(function (x) { return '<button type="button" data-m="' + x[0] + '" class="' + (cur === x[0] ? 'on' : '') + '">' + x[1] + '</button>'; }).join('') + '</span>'; };
         var draw = function () {
           host.innerHTML = '<div class="tst">' +
-            '<div class="tst-head"><h2>Team vs opponents</h2><span class="sub">' + lbl(yr) + ' · ' + g + (g === 1 ? ' game' : ' games') + ' · every game on file ' + tog('team', mt, [['pg', 'Per game'], ['tot', 'Totals'], ['adv', 'Advanced']]) + '</span></div>' +
-            teamTable(me, op, g, mt) +
             '<div class="tst-head"><h2>Players</h2><span class="sub">tap a player (or ↑ ↓) · hover a heading for what it means ' + tog('pl', mp, [['pg', 'Per game'], ['tot', 'Totals'], ['adv', 'Advanced'], ['p40', 'Per 40']]) + '</span></div>' +
             '<div class="tsc-host"></div>' +
             playerTable(list, me, g, mp, selKey, op) +
             '<div class="tst-head"><h2>Game log</h2><span class="sub">the team’s line in each game · tap a row for the box score</span></div>' +
             gameLog(G, byGame, full) +
+            '<div class="tst-head"><h2>Team vs opponents</h2><span class="sub">' + lbl(yr) + ' · ' + g + (g === 1 ? ' game' : ' games') + ' · every game on file ' + tog('team', mt, [['pg', 'Per game'], ['tot', 'Totals'], ['adv', 'Advanced']]) + '</span></div>' +
+            teamTable(me, op, g, mt) +
             '<p class="tst-foot">From the box scores on file (ESPN), every game including ones against non-D-I opponents. eFG% = (FGM + 0.5 × 3PM) / FGA · TS% = PTS / (2 × (FGA + 0.44 × FTA)).</p></div>';
           host.querySelectorAll('.tst-tog button').forEach(function (b) {
             b.onclick = function () { var id = b.parentNode.dataset.tog; if (id === 'team') { mt = b.dataset.m; setPref('tdc_tst_team', mt); } else { mp = b.dataset.m; setPref('tdc_tst_pl', mp); } draw(); };
           });
           if (window.tdcSheetHeat) host.querySelectorAll('table.tst-pl').forEach(function (t) { tdcSheetHeat(t); });
-          var ch = host.querySelector('.tsc-host'), tb = host.querySelector('table.tst-pl');
+          // the card renders in o.cardHost (team.html: the team header's spot above the tabs) when given, else above the table
+          var ch = o.cardHost || host.querySelector('.tsc-host'), tb = host.querySelector('table.tst-pl');
+          if (o.cardHost) { var ih = host.querySelector('.tsc-host'); if (ih) ih.remove(); }
           var pick = function (k, scroll) {
             selKey = k; var p = list.filter(function (x) { return String(x.id || x.name) === k; })[0];
             var ks = list.map(function (x) { return String(x.id || x.name); }), ix = ks.indexOf(k);
@@ -310,11 +312,11 @@
           if (tb && ch) {
             pick(selKey);
             tb.addEventListener('click', function (e) { if (e.target.closest('a')) return; var r = e.target.closest('tbody tr'); if (r) { pick(r.dataset.k); tb.focus({ preventScroll: true }); } });
-            ch.addEventListener('click', function (e) {
+            ch.onclick = function (e) {
               var b = e.target.closest('.tsc-nav'); if (!b || b.disabled) return;
               var ks = list.map(function (x) { return String(x.id || x.name); }), i = ks.indexOf(selKey) + (+b.dataset.d);
               if (i >= 0 && i < ks.length) pick(ks[i], false);
-            });
+            };
             tb.addEventListener('keydown', function (e) {
               if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return; e.preventDefault();
               var ks = list.map(function (x) { return String(x.id || x.name); }), i = ks.indexOf(selKey);
