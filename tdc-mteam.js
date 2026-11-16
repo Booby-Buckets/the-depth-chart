@@ -158,7 +158,14 @@
     'body.mtl .mt-sub.show{display:flex;margin:12px 12px 0}',
     'body.mtl .mt-sub.back{margin:10px 12px 0}',
     'body.mtl #panel-mcoach.active{display:block!important}',
-    'body.mtl.mt-depth .page-body .side-col{display:block!important;padding:8px 12px 24px!important}'
+    'body.mtl.mt-depth .page-body .side-col{display:block!important;padding:8px 12px 24px!important}',
+    /* depth chart: the three pinned columns (slot · OVR · player) were 338px in a ~300px box, so nothing else showed
+       while scrolling. Slimmer pins; the name wraps beside the headshot */
+    'body.mtl .dc-sheet{--c1:40px!important;--c2:42px!important;--c3:138px!important}',
+    'body.mtl .dc-sheet td.nm{white-space:normal!important;width:138px!important;max-width:138px!important;box-sizing:border-box}',
+    'body.mtl .dc-sheet td.nm .dc-ava{float:left;margin:0 7px 0 0!important}',
+    'body.mtl #depthContent .dc-sheet td.nm a.dc-name{display:flex!important;align-items:center;min-height:30px;max-width:none!important;white-space:normal!important;overflow:visible!important;line-height:1.2}',
+    'body.mtl .dc-sheet tbody tr.dc-starter .dc-ava{width:30px;height:30px}'
   ].join('\n');
 
   var TAB_ICON = {"roster": "M8 11a3 3 0 100-6 3 3 0 000 6zM16 11a3 3 0 100-6 3 3 0 000 6zM2 20c0-3 3-5 6-5s6 2 6 5M14 15.5c.6-.3 1.3-.5 2-.5 3 0 6 2 6 5", "feed": "M4 4h16v7H4zM4 14h7v6H4zM14 14h6v6h-6", "shots": "M12 3a9 9 0 100 18 9 9 0 000-18zM12 8a4 4 0 100 8 4 4 0 000-8zM12 11.5v1", "lineups": "M8 11a3 3 0 100-6 3 3 0 000 6zM16 11a3 3 0 100-6 3 3 0 000 6zM2 20c0-3 3-5 6-5s6 2 6 5M14 15.5c.6-.3 1.3-.5 2-.5 3 0 6 2 6 5", "depth": "M4 6h16M4 12h16M4 18h10", "schedule": "M4 6h16v14H4zM4 10h16M9 3v5M15 3v5", "preview": "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 100 6 3 3 0 000-6z", "stats": "M5 20V11M12 20V5M19 20v-7M3 20h18", "coach": "M9 4h6v3H9zM7 5H5v16h14V5h-2M8 12h8M8 16h5", "nil": "M12 3v18M16 7.5c0-1.9-1.8-3-4-3s-4 1.1-4 3 1.8 2.6 4 3 4 1.1 4 3-1.8 3-4 3-4-1.1-4-3", "betting": "M4 7h16v3a2 2 0 000 4v3H4v-3a2 2 0 000-4zM14 7v10", "conf": "M7 4h10v4a5 5 0 01-10 0zM5 5H3v2a3 3 0 003 3M19 5h2v2a3 3 0 01-3 3M12 13v4M8 21h8"};
@@ -339,6 +346,11 @@
       var mc0 = document.querySelector('.main-col'); if (mc0) unfit(mc0);
       buildStrip(); hookSwitch();
       var a0 = document.querySelector('.main-col .panel.active'); setActive(a0 ? a0.id.replace('panel-', '') : 'overview');
+      // a ?tab= link opens its panel before the switchTab hook is in place: follow the active panel itself
+      var cur = a0 && a0.id;
+      new MutationObserver(debounce(function () {
+        var a = document.querySelector('.main-col .panel.active'); if (a && a.id !== cur) { cur = a.id; setActive(cur.replace('panel-', '')); }
+      }, 60)).observe(document.querySelector('.main-col'), { attributes: true, attributeFilter: ['class'], subtree: true });
       return;
     }
     if (!buildHero()) return;
