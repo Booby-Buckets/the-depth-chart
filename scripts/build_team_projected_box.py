@@ -127,7 +127,10 @@ def newcomer_line(short, nm, x, t=None):
     # minutes moved and he has no explicit minutes); the reconcile below holds it fixed and the rest of the roster absorbs
     # the team totals.
     el = (prof or {}).get("_line")
-    if el and float(el.get("mpg") or 0) > 0:
+    # Nov 16 2026 (owner: "Tay Kinney is projected 14 assists"): a line SAVED at a few minutes is a rounded scrap — Kinney's
+    # was 2.0 apg in 1.8 mpg (44 a 40, left by the old km clamp in tdc-freshman.js), and scaling it to his 17.6 fitted
+    # minutes gave 14.3 apg / 3.9 stl / 5.1 tov. Under 6 saved minutes the rates are noise: use his sliders + model line.
+    if el and float(el.get("mpg") or 0) >= 6:
         km = 1.0 if (prof.get("mpg") not in (None, "") or m <= 0) else m / float(el["mpg"])
         g = lambda k: float(el.get(k) or 0) * km
         e = {"mpg": float(el["mpg"]) * km, "ppg": g("ppg"), "apg": g("apg"), "stl": g("stl"), "tov": g("tovs"), "oreb": g("oreb"),

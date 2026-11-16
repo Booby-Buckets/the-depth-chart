@@ -2317,7 +2317,9 @@ _ned=0
 for _sh,_fm in FRESH_FIT.items():
     for _nm,_f in _fm.items():
         _el=(EDITOR_FR.get((_sh,str(_nm).strip().lower())) or {}).get("_line")
-        if not _el or not (_n(_el.get("mpg"),0)>0): continue
+        # under 6 saved minutes the line is a rounded scrap (Taylen Kinney: 2.0 apg in 1.8 mpg = 44 a 40, Nov 16 2026):
+        # its rates are noise, so the model values him instead (same rule as the svp guard below)
+        if not _el or _n(_el.get("mpg"),0)<6: continue
         _m=_n(_f.get("mpg"),0) or _n(_el["mpg"],0); _k40=40.0/_n(_el["mpg"],1)
         # NOT written over r40: the editor builds its preview from r40 (tdc-proj frStatBase), so overwriting it with the
         # edited line re-applied the sliders on every save. The edited rates go in r40e, used only for his value.
