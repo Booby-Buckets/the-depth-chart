@@ -27,7 +27,7 @@
   <script src="tdc-nilchart.js?v=1"></script>
   <script src="tdc-gate.js?v=5"></script>
   <script src="tdc-teamgrades.js"></script>
-  <script src="tdc-teamhq.js?v=19"></script>
+  <script src="tdc-teamhq.js?v=21"></script>
   <script src="tdc-teamscout.js?v=6"></script>
   <script src="tdc-teamstats.js?v=16"></script>
   <link rel="stylesheet" href="tdc-teamhq.css?v=6"/>
@@ -85,6 +85,11 @@
     .dc-sheet td.dc-ovr.c2 .dc-ring{border-color:hsl(95,45%,58%);background:hsla(95,45%,58%,.18);}
     .dc-sheet td.dc-ovr.c3 .dc-ring{border-color:hsl(110,50%,45%);background:hsla(110,50%,45%,.18);}
     .dc-sheet td.dc-ovr.c4 .dc-ring{border-color:hsl(125,60%,36%);background:hsla(125,60%,36%,.18);}
+    .dc-sheet .dc-ring{position:relative;}
+    .dc-sheet .dc-oop{position:absolute;right:-9px;top:-7px;font:800 9px/1 Inter,system-ui,sans-serif;font-style:normal;color:#fff;background:#c9862b;border-radius:999px;padding:2px 4px;box-shadow:0 0 0 1.5px var(--bg);letter-spacing:0;}
+    /* rotation table (Overview) on the depth chart's sheet: names wrap beside the headshot like the depth chart */
+    #panel-overview .rot-sheet td.nm a.dc-name{max-width:none!important;}
+    #panel-overview .rot-sheet tr.hq-out td{opacity:.6;}
     /* sheet extras (tdc-sheets.css): a genuine up/down change tag, and a section-label row */
     .sheet span.up{color:#1a8c3a;font-weight:700;} .sheet span.dn{color:#cc2200;font-weight:700;}
     [data-theme="dark"] .sheet span.up{color:#5ab875;} [data-theme="dark"] .sheet span.dn{color:#e07070;}
@@ -8638,7 +8643,9 @@ function renderHistoricRoster(rows, yr, projected){
     let g=_gdisp(p);
     const _oop=(projected&&!window._rosterFromHistory&&r.star)?_oopDist(p,r.col):0;
     if(_oop>0){ const _n=parseFloat(g); if(isFinite(_n)){ const _pen=Math.min(8,_oop*3);
-      g=`<span title="Out of position (${p.position}${p.position2?'/'+p.position2:''} → ${r.col}) · OVR −${_pen}" style="color:var(--amber,#c9962b);">${Math.round(_n-_pen)}<span style="font-size:9px;vertical-align:super;">↓</span></span>`; } }
+      // owner (Nov 17 2026): the arrow crammed in the ring looked bad — the ring shows the adjusted OVR, a small amber
+      // tag on its corner shows the out-of-position penalty
+      g=`${Math.round(_n-_pen)}<i class="dc-oop" title="Out of position (${p.position}${p.position2?'/'+p.position2:''} → ${r.col}) · OVR −${_pen}">−${_pen}</i>`; } }
     const inj=_ltd(p) ? ` <span class="dc-inj" title="Played ${parseFloat(p.gp)||0} of ${_teamGp} games — injury-shortened season">${parseFloat(p.gp)||0}/${_teamGp} GP</span>` : '';
     const wav=p.is_waiver ? ` <span title="On the roster, but has not yet been granted an eligibility waiver — his availability for the season is still pending." class="dc-wav">WAIVER?</span>` : '';
     const injBadge=(projected && window.TDCInjury) ? TDCInjury.badgeHTML(p) : '';
@@ -8650,7 +8657,7 @@ function renderHistoricRoster(rows, yr, projected){
     const L=_realOn?(_rl||{}):(_cl||((projected&&!(m>=0.5))?{}:_line(p)));
     return `<tr class="dc-row${r.star?' dc-starter':''}">
       <td class="l dc-slot">${r.slot}</td>
-      <td class="c big dc-ovr"><span class="dc-ring">${g}</span></td>
+      <td class="c big dc-ovr"${_oop>0?` title="Out of position (${p.position}${p.position2?'/'+p.position2:''} → ${r.col})"`:''}><span class="dc-ring">${g}</span></td>
       <td class="l nm"><span class="dc-ava">${_sqHead(p.espn_id)}<i>${_sqInit(p.name)}</i></span><a class="dc-name" href="${link(p)}">${p.name}</a>${wav}${injBadge}${inj}${posEd}</td>
       <td class="l dim">${p.yr||p.class_year||''}</td><td class="l dim">${p.position||''}</td><td class="l dim">${p.height||''}</td>
       <td>${_realOn?(_rl?num(_rl.mpg):'—'):(m!=null&&(m>=0.5||_cl)?num(m):'—')}</td>
@@ -9955,7 +9962,7 @@ function renderProjNatlChart(projected, color, rgb){
   <script src="tdc-dnasheet.js?v=r1"></script>
   <script src="tdc-liveplayer.js?v=6"></script>
   <script src="tdc-depth-editor.js?v=4"></script>
-<script>window.TDC_MTEAM_LITE=1;</script><script src="tdc-mteam.js?v=36"></script>
+<script>window.TDC_MTEAM_LITE=1;</script><script src="tdc-mteam.js?v=37"></script>
 <script src="tdc-trends.js?v=ui4"></script>
 <script src="tdc-teamtrend.js?v=13"></script>
 <script src="tdc-feed.js?v=sc36"></script>

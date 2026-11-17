@@ -164,7 +164,7 @@
     'body.mtl .dc-sheet{--c1:38px!important;--c2:48px!important;--c3:134px!important}',
     'body.mtl .dc-sheet td.nm{white-space:normal!important;width:134px!important;max-width:134px!important;box-sizing:border-box}',
     'body.mtl .dc-sheet td.nm .dc-ava{float:left;margin:0 7px 0 0!important}',
-    'body.mtl #depthContent .dc-sheet td.nm a.dc-name{display:flex!important;align-items:center;min-height:30px;max-width:none!important;white-space:normal!important;overflow:visible!important;line-height:1.2}',
+    'body.mtl #depthContent .dc-sheet td.nm a.dc-name,body.mtl #panel-overview .dc-sheet td.nm a.dc-name{display:flex!important;align-items:center;min-height:30px;max-width:none!important;white-space:normal!important;overflow:visible!important;line-height:1.2}',
     'body.mtl .dc-sheet tbody tr.dc-starter .dc-ava{width:30px;height:30px}'
   ].join('\n');
 

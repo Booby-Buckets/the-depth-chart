@@ -410,21 +410,33 @@ function loadRoster(row){
             var res=bench.slice().sort(function(a,b){ var ra=R0(a)&&R0(a).g, rb=R0(b)&&R0(b).g; if(!!ra!==!!rb) return rb?1:-1; return (mp(b)||0)-(mp(a)||0); });
             var from=function(x){ var w=how(x); return w[0]?esc(w[0].replace(/^From /,'')):''; };
             var real=!!(RD&&RD.R&&RD.R.games);
-            var r=function(x,i,isSt){ var L=x.L, d=(x.last!=null&&x.ov!=null)?x.ov-x.last:null, g0=gp(x), s0=gs(x);
-              return '<tr><td class="rf-rk">'+(i+1)+'</td><td class="l rf-nm">'+link(x.p)+(isSt?'<span class="rf-st" title="starter">*</span>':'')+'</td>'+
-                '<td class="l">'+esc((isSt&&x.slot)||x.p.position||'')+'</td><td class="l hq-hide-ph">'+esc(x.p.yr||x.p.class_year||'')+'</td><td class="l hq-hide-ph">'+esc(x.p.height||'')+'</td>'+
-                '<td class="l rf-from hq-hide-ph">'+from(x)+'</td><td class="rf-ov">'+(x.ov==null?'':x.ov)+'</td><td class="hq-hide-ph rf-d">'+(d?(d>0?'+':'−')+Math.abs(d):'')+'</td>'+
-                (real?'<td class="hq-hide-ph">'+(g0==null?'0':g0)+'</td><td>'+(s0==null?'0':s0)+'</td>':'')+
-                '<td><b>'+(real&&!g0?'<span class="dim" title="hasn\'t played yet">—</span>':f1(mp(x)))+'</b></td><td>'+f1(L.ppg)+'</td><td>'+f1(L.rpg)+'</td><td>'+f1(L.apg)+'</td></tr>'; };
-            var head='<tr><th class="rf-rk">Rk</th><th class="l">Player</th><th class="l">Pos</th><th class="l hq-hide-ph">Class</th><th class="l hq-hide-ph">Ht</th><th class="l hq-hide-ph" title="returner, freshman, or where the transfer came from">From</th><th title="projected overall">OVR</th><th class="hq-hide-ph" title="change from last season">+/−</th>'+
-              (real?'<th class="hq-hide-ph" title="games played">G</th><th title="games started">GS</th>':'')+'<th title="minutes per game'+(real?' (real games)':' (projected)')+'">MP</th><th title="projected points per game">PTS</th><th title="projected rebounds">TRB</th><th title="projected assists">AST</th></tr>';
-            var nc=real?14:12, cap=function(t){ return '<tr class="rf-cap"><td colspan="'+nc+'">'+t+'</td></tr>'; };
-            var body=cap('Starting Lineup')+st.map(function(x,i){ return r(x,i,true); }).join('')+
-              (res.length?cap('Reserves')+res.map(function(x,i){ return r(x,i+5,false); }).join(''):'')+
-              (hurt.length?cap('Out')+hurt.map(function(x){ return '<tr class="hq-out"><td class="rf-rk">—</td><td class="l rf-nm">'+link(x.p)+'</td><td class="l dim" colspan="'+(nc-2)+'">out</td></tr>'; }).join(''):'');
-            return '<div class="rf-wrap"><table class="rf" data-fit-keep><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div><div class="rf-note">* starter · starters by games started, reserves by minutes'+(real?' · G, GS, MP from the '+RD.R.games+' game'+(RD.R.games===1?'':'s')+' played':'')+' · PTS / TRB / AST projected per game</div>';
+            // owner (Nov 17 2026): "the rotation needs to look the same as the depth chart with some different info" —
+            // the depth chart's sheet (headshot, OVR ring, red→green shading within the roster), rotation columns
+            var head1=function(eid,name){ return '<span class="dc-ava">'+(window._sqHead?_sqHead(eid):'')+'<i>'+esc(window._sqInit?_sqInit(name):'')+'</i></span>'; };
+            var nm=function(p){ return head1(p.espn_id,p.name)+(p.espn_id?'<a class="dc-name" href="player.html?espn='+p.espn_id+'">'+esc(p.name)+'</a>':'<span class="dc-name">'+esc(p.name)+'</span>'); };
+            var r=function(x,isSt){ var L=x.L, d=(x.last!=null&&x.ov!=null)?x.ov-x.last:null, g0=gp(x), s0=gs(x);
+              return '<tr'+(isSt?' class="dc-starter"':'')+'><td class="l dc-slot">'+esc((isSt&&x.slot)||x.p.position||'')+'</td>'+
+                '<td class="c big dc-ovr"'+(x.ov==null?'':' data-v="'+x.ov+'"')+'>'+(x.ov==null?'—':'<span class="dc-ring">'+x.ov+'</span>')+'</td>'+
+                '<td class="l nm">'+nm(x.p)+'</td>'+
+                '<td class="l dim">'+esc(x.p.yr||x.p.class_year||'')+'</td><td class="l dim">'+esc(x.p.height||'')+'</td>'+
+                '<td class="l dim">'+from(x)+'</td>'+
+                '<td>'+(d?'<span class="'+(d>0?'up':'dn')+'">'+(d>0?'+':'−')+Math.abs(d)+'</span>':'<span class="dim">'+(x.last==null?'new':'0')+'</span>')+'</td>'+
+                (real?'<td>'+(g0==null?'0':g0)+'</td><td>'+(s0==null?'0':s0)+'</td>':'')+
+                '<td'+(real&&!g0?'':' data-v="'+(mp(x)||0)+'"')+'>'+(real&&!g0?'<span class="dim" title="hasn\'t played yet">—</span>':f1(mp(x)))+'</td><td>'+f1(L.ppg)+'</td><td>'+f1(L.rpg)+'</td><td>'+f1(L.apg)+'</td></tr>'; };
+            var th=function(l,heat,tip,cls){ return '<th'+(cls?' class="'+cls+'"':'')+(heat?' data-heat="'+heat+'"':'')+(tip?' title="'+tip+'"':'')+'>'+l+'</th>'; };
+            var head=th('Pos',0,'','l')+th('OVR',1,'projected overall','c')+th('Player',0,'','l')+th('Class',0,'','l')+th('Ht',0,'','l')+
+              th('From',0,'returner, freshman, or where the transfer came from','l')+th('+/−',0,'change from last season')+
+              (real?th('G',0,'games played')+th('GS',0,'games started'):'')+
+              th('MP',1,'minutes per game'+(real?' (real games)':' (projected)'))+th('PTS',1,'projected points per game')+th('TRB',1,'projected rebounds')+th('AST',1,'projected assists');
+            var nc=real?13:11, cap=function(t){ return '<tr class="sec"><td colspan="'+nc+'">'+t+'</td></tr>'; };
+            var body=cap('Starting lineup')+st.map(function(x){ return r(x,true); }).join('')+
+              (res.length?cap('Reserves')+res.map(function(x){ return r(x,false); }).join(''):'')+
+              (hurt.length?cap('Out')+hurt.map(function(x){ return '<tr class="hq-out"><td class="l dc-slot">—</td><td class="c dim">—</td><td class="l nm">'+nm(x.p)+'</td><td class="l dim" colspan="'+(nc-3)+'">out</td></tr>'; }).join(''):'');
+            return '<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense freeze3 hr-sheet dc-sheet rot-sheet" id="rotSheet" style="--c1:56px;--c2:52px;--c3:230px;"><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody></table></div>'+
+              '<div class="rf-note">starters by games started, reserves by minutes'+(real?' · G, GS, MP from the '+RD.R.games+' game'+(RD.R.games===1?'':'s')+' played':'')+' · PTS / TRB / AST projected per game</div>';
           };
           fe.innerHTML=mockF();
+          if(window.tdcSheetHeat) tdcSheetHeat(byId('rotSheet'));
           var built=H_?[n.rt?n.rt+' returning':'',n.tr?n.tr+' transfer'+(n.tr===1?'':'s'):'',n.fr?n.fr+' freshm'+(n.fr===1?'an':'en'):'',n.nw?n.nw+' newcomer'+(n.nw===1?'':'s'):''].filter(Boolean).join(' · '):'';
           var fs=byId('hxFiveSub'); if(fs) fs.textContent=[RD?'starters = most used in '+RD.R.games+(RD.R.games===1?' game':' games'):'starters from the depth chart','projected per game',built].filter(Boolean).join(' · ');
         };
