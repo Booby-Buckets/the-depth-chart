@@ -470,6 +470,12 @@
       }
       buildStrip(); hookSwitch();
       var a0 = document.querySelector('.tab-panel.active'); setActive(a0 ? a0.id.replace('panel-', '') : 'overview');
+      // a ?tab= link opens its panel before the switchTab hook is in place: follow the active panel itself
+      if (host) {
+        var cur = a0 && a0.id, sync = debounce(function () {
+          var a = host.querySelector(':scope > .tab-panel.active'); if (a && a.id !== cur) { cur = a.id; setActive(cur.replace('panel-', '')); } }, 60);
+        [].forEach.call(host.querySelectorAll(':scope > .tab-panel'), function (pn) { new MutationObserver(sync).observe(pn, { attributes: true, attributeFilter: ['class'] }); });
+      }
       return;
     }
     buildHero(); buildStrip(); hookSwitch(); tagBoxes();
