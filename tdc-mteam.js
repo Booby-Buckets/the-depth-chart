@@ -16,18 +16,20 @@
     { key: 'depth', label: 'Depth', tabs: ['depth'] },   // owner, Nov 2026: the depth chart is the site's core, its own tab
     { key: 'scout', label: 'Report', tabs: ['scout'] },
     { key: 'schedule', label: 'Schedule', tabs: ['schedule'] },
-    { key: 'roster', label: 'Lineups', tabs: ['lineups', 'onoff', 'statshift'] },
+    // owner (Nov 18 2026): Lineups and On/Off are separate buttons
+    { key: 'lineups', label: 'Lineups', tabs: ['lineups'] },
+    { key: 'onoff', label: 'On/Off', tabs: ['onoff', 'statshift'] },
     { key: 'stats', label: 'Stats', tabs: ['teamstats', 'dna', 'trends', 'projections'] },
     { key: 'shots', label: 'Shots', tabs: ['shots', 'shotprof', 'shotq', 'twin', 'poss', 'hunt'] },
     { key: 'coach', label: 'Tools', tabs: ['mcoach', 'preview', 'customize', 'report'] },
     { key: 'market', label: 'Market', tabs: ['nil', 'betting'] },
     { key: 'feed', label: 'Feed', tabs: ['feed'] }
   ];
-  var ROSTER = [['lineups', 'Lineups'], ['onoff', 'On/Off'], ['statshift', 'Line shift']];
+  var ONOFF = [['onoff', 'On/Off'], ['statshift', 'Line shift']];
   var STATS = [['teamstats', 'Team stats'], ['dna', 'DNA'], ['trends', 'Trends'], ['projections', 'Projections']];
   var SHOTS = [['shots', 'Charts'], ['shotprof', 'Profile'], ['shotq', 'Quality'], ['twin', 'Twin'], ['poss', 'Possessions'], ['hunt', 'Hunt great']];
   var MARKET = [['nil', 'NIL'], ['betting', 'Betting']];
-  var SUBS = { roster: ROSTER, stats: STATS, shots: SHOTS, market: MARKET };
+  var SUBS = { onoff: ONOFF, stats: STATS, shots: SHOTS, market: MARKET };
   var COACH = [['preview', 'Game preview', 'A matchup report against any opponent'], ['customize', 'Lineup Lab', 'Lineups, minutes, live projections'], ['report', 'Roster report', 'Scouting breakdown of the roster']];
   var TOOLS = [['team-report.html', 'Team Report', 'Every chart on one page'],
     ['matchup.html', 'Matchup', 'Project any game'], ['moneyball.html', 'Moneyball', 'Roster value'],
@@ -168,7 +170,7 @@
     'body.mtl .dc-sheet tbody tr.dc-starter .dc-ava{width:30px;height:30px}'
   ].join('\n');
 
-  var TAB_ICON = {"roster": "M8 11a3 3 0 100-6 3 3 0 000 6zM16 11a3 3 0 100-6 3 3 0 000 6zM2 20c0-3 3-5 6-5s6 2 6 5M14 15.5c.6-.3 1.3-.5 2-.5 3 0 6 2 6 5", "feed": "M4 4h16v7H4zM4 14h7v6H4zM14 14h6v6h-6", "shots": "M12 3a9 9 0 100 18 9 9 0 000-18zM12 8a4 4 0 100 8 4 4 0 000-8zM12 11.5v1", "lineups": "M8 11a3 3 0 100-6 3 3 0 000 6zM16 11a3 3 0 100-6 3 3 0 000 6zM2 20c0-3 3-5 6-5s6 2 6 5M14 15.5c.6-.3 1.3-.5 2-.5 3 0 6 2 6 5", "depth": "M4 6h16M4 12h16M4 18h10", "schedule": "M4 6h16v14H4zM4 10h16M9 3v5M15 3v5", "preview": "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 100 6 3 3 0 000-6z", "stats": "M5 20V11M12 20V5M19 20v-7M3 20h18", "coach": "M9 4h6v3H9zM7 5H5v16h14V5h-2M8 12h8M8 16h5", "nil": "M12 3v18M16 7.5c0-1.9-1.8-3-4-3s-4 1.1-4 3 1.8 2.6 4 3 4 1.1 4 3-1.8 3-4 3-4-1.1-4-3", "betting": "M4 7h16v3a2 2 0 000 4v3H4v-3a2 2 0 000-4zM14 7v10", "conf": "M7 4h10v4a5 5 0 01-10 0zM5 5H3v2a3 3 0 003 3M19 5h2v2a3 3 0 01-3 3M12 13v4M8 21h8"};
+  var TAB_ICON = {"onoff": "M8 5a7 7 0 100 14M16 5a7 7 0 110 14M8 5v14M16 5v14", "roster": "M8 11a3 3 0 100-6 3 3 0 000 6zM16 11a3 3 0 100-6 3 3 0 000 6zM2 20c0-3 3-5 6-5s6 2 6 5M14 15.5c.6-.3 1.3-.5 2-.5 3 0 6 2 6 5", "feed": "M4 4h16v7H4zM4 14h7v6H4zM14 14h6v6h-6", "shots": "M12 3a9 9 0 100 18 9 9 0 000-18zM12 8a4 4 0 100 8 4 4 0 000-8zM12 11.5v1", "lineups": "M8 11a3 3 0 100-6 3 3 0 000 6zM16 11a3 3 0 100-6 3 3 0 000 6zM2 20c0-3 3-5 6-5s6 2 6 5M14 15.5c.6-.3 1.3-.5 2-.5 3 0 6 2 6 5", "depth": "M4 6h16M4 12h16M4 18h10", "schedule": "M4 6h16v14H4zM4 10h16M9 3v5M15 3v5", "preview": "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 100 6 3 3 0 000-6z", "stats": "M5 20V11M12 20V5M19 20v-7M3 20h18", "coach": "M9 4h6v3H9zM7 5H5v16h14V5h-2M8 12h8M8 16h5", "nil": "M12 3v18M16 7.5c0-1.9-1.8-3-4-3s-4 1.1-4 3 1.8 2.6 4 3 4 1.1 4 3-1.8 3-4 3-4-1.1-4-3", "betting": "M4 7h16v3a2 2 0 000 4v3H4v-3a2 2 0 000-4zM14 7v10", "conf": "M7 4h10v4a5 5 0 01-10 0zM5 5H3v2a3 3 0 003 3M19 5h2v2a3 3 0 01-3 3M12 13v4M8 21h8"};
   function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function debounce(fn, ms) { var t; return function () { clearTimeout(t); t = setTimeout(fn, ms || 60); }; }
