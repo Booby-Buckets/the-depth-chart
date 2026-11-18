@@ -333,11 +333,34 @@
       ];
     })(),
 
-    'team-stats.html': [
-      { sel:'#searchBox', t:'Projected team stats', d:'Every rostered program\'s projected per-game line for the coming season. Type a school to find it, or filter by conference. The pool selector changes who the percentile shading compares against.' },
-      { sel:'#leadersEl', t:'Leaders', d:'Who projects to lead the country in each category — scoring, rebounding, assists, shooting.' },
-      { sel:'#statsTable', t:'The table', html:'One row per team. The projected line is built by adding up every player\'s projected line, fitted so the team scores what its projected offense and pace imply.' + bl('<b>PPG / RPG / APG</b> — points, rebounds, assists per game.', '<b>FG% / 3P% / FT%</b> — shooting.', '<b>FGA / 3PA</b> — attempts: how much they shoot and how much of it is threes.', '<b>TOV / STL / BLK / OREB / DREB</b> — turnovers, steals, blocks, offensive and defensive rebounds.') + 'Click a header to sort; shading is the national percentile against last season\'s real teams.' }
-    ],
+    // Nov 18 2026 short-step walkthrough (same style as the other pages): one thing lit per step, a line or two each.
+    'team-stats.html': (function(){
+      var T=function(x){ return '<div style="margin-top:8px;font-size:12.5px;"><b>Try:</b> '+x+'</div>'; };
+      var col=function(n){ return '#statsTable thead th:nth-child('+n+')'; };
+      var view=function(name){ return function(){ var b=[].slice.call(document.querySelectorAll('#viewSeg button')).filter(function(x){ return x.textContent.trim()===name; })[0]; if(b&&!b.classList.contains('on')) b.click(); }; };
+      return [
+      { sel:'#__intro', t:'Team Stats', html:'Every D-I team\'s numbers in one sortable table, the way analysts read them. This walk-through points at one thing at a time.' },
+      { sel:'#phBand', t:'The pool', html:'How many teams and conferences are in the table.' },
+      { sel:'#searchBox', t:'Find a team', html:'Type a school to find its row.' },
+      { sel:'#statModeHost', t:'Real or Projected', html:'<b>Real</b> = games played this season. <b>Projected</b> = our full-season estimate.' },
+      { sel:'#viewSeg', t:'Views', html:'Four ways to read teams: Efficiency, Four Factors, Shooting and Per Game.' },
+      { sel:'#confFilter', t:'Conference', html:'Show one league.' },
+      { sel:'#minGames', t:'Minimum games', html:'Hide teams that have played too few games to trust.' },
+      { sel:'#leadersEl', t:'Leaders', html:'The national leader in each headline stat of the view.' },
+      { sel:'#tsSheet', t:'The table', html:'One row per team. The small number beside a value is its national rank. Green is good, red is bad.'+T('tap a team to open its page.'), before:view('Efficiency') },
+      { sel:col(5), t:'AdjEM', html:'Points better than an average D-I team per 100 possessions, adjusted for opponents and venue.' },
+      { sel:col(6), t:'AdjO', html:'Points scored per 100 possessions, adjusted for opponents. Higher is better.' },
+      { sel:col(7), opt:1, t:'AdjD', html:'Points allowed per 100 possessions, adjusted. Lower is better.' },
+      { sel:col(8), opt:1, t:'AdjT', html:'Tempo: possessions per 40 minutes. 60 is slow, 75 is fast.' },
+      { sel:col(9), opt:1, t:'Raw numbers', html:'ORtg, DRtg and Tempo before any adjustment for opponents.' },
+      { sel:col(4), t:'Four Factors', html:'eFG% (threes count 1.5), turnovers, offensive rebounds and free throws: the four things that decide games.', before:view('Four Factors') },
+      { sel:col(8), opt:1, t:'Opp columns', html:'The same four on defense: what opponents do against this team.' },
+      { sel:col(4), t:'Shooting', html:'2P%, 3P%, FT%, how often they shoot threes and how often baskets are assisted, then the defense.', before:view('Shooting') },
+      { sel:col(4), t:'Per Game', html:'The classic box score per game: points, rebounds, assists, shooting.', before:view('Per Game') },
+      { sel:col(4), t:'Sort any column', html:'Tap a column heading to sort by it; tap again to flip.'+T('hover a heading for its definition.'), before:view('Efficiency') },
+      { sel:'.tdc-explain', alt:'#__end', t:'That\'s it', html:'Tap <b>?</b> any time to run this again.' }
+      ];
+    })(),
 
     'analytics.html': [
       { sel:'#leadersView', t:'Leaders', html:'National leaderboards on the site\'s own metrics for any season:' + bl(G.wa, '<b>TI (Total Impact)</b> — a player\'s per-40-minute value on both ends, from his box-score rates, adjusted for the strength of the league.', G.usg, 'Plus the standard scoring, rebounding and shooting boards.'), before:function(){ try{ setView('leaders'); }catch(e){} } },
