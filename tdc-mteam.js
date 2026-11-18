@@ -153,7 +153,13 @@
   ].join('\n');
 
   var LITE_CSS = [
-    'body.mtl .hero-tabrow,body.mtl #tdc-ver{display:none!important}',
+    'body.mtl #tdc-ver,body.mtl .hero-tabrow > .hero-tabs{display:none!important}',
+    /* the tab buttons live in the bottom bar; the season picker + Follow stay (they had no other home on phones) */
+    'body.mtl .hero-tabrow{display:flex!important;align-items:center;gap:8px;flex-wrap:nowrap;border:0!important;padding:0!important;margin:10px 0 0!important;min-height:0!important}',
+    'body.mtl .hero-tabrow .team-season-bar{flex:1 1 auto;min-width:0;margin:0!important;padding:0!important}',
+    'body.mtl .hero-tabrow .tsb-hint,body.mtl #teamFollowerCount{display:none!important}',
+    'body.mtl .hero-tabrow .tsb-select{max-width:100%}',
+    'body.mtl #followTeamBtn{flex:none}',
     'body.mtl .mt-strip{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;height:calc(64px + env(safe-area-inset-bottom));padding:0 0 env(safe-area-inset-bottom);background:var(--bg2);border-top:1px solid var(--border2);overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;box-shadow:0 -4px 14px rgba(0,0,0,.08)}',
     'body.mtl{padding-bottom:calc(72px + env(safe-area-inset-bottom))!important}',
     'body.mtl .tdc-explain{bottom:calc(74px + env(safe-area-inset-bottom))!important}',
