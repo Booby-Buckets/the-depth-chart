@@ -125,9 +125,16 @@ def match_our_game(our_games, ncaa):
         if (key[0], -key[1]) > (best_key[0], -best_key[1]):
             best_key = key; best = g
     # accept only a confident match: token overlap + exact score (or score unknown but unique tokens)
-    if best is None: return None
-    if best_key[1] == 0 or (nhs is None and best_key[0] >= 1): return best
-    return None
+    if best is not None and (best_key[1] == 0 or (nhs is None and best_key[0] >= 1)): return best
+    # fallback (Nov 18 2026): one side's name is an abbreviation the other feed spells out ("FDU" / "Fairleigh Dickinson",
+    # "Penn" / "Pennsylvania"), so both-sides overlap is 0. Accept the ONE game on the day where a team name matches on
+    # its side and both scores are exact. Illinois' first two 2026-27 games were missing from on/off because of this.
+    if nhs is None or nas is None: return None
+    hits = []
+    for g in our_games:
+        for H, A, hs, as_ in ((g["home"], g["away"], g.get("home_score"), g.get("away_score")), (g["away"], g["home"], g.get("away_score"), g.get("home_score"))):
+            if hs == nhs and as_ == nas and max(_tov_best(nha, H), _tov_best(naa, A)) >= 1: hits.append(g); break
+    return hits[0] if len(hits) == 1 else None
 
 # ── reconstruct one game -> per-espn on-court tallies + team totals ──────
 def process_game(nid, og):

@@ -394,11 +394,15 @@ def process_game(nid, og):
     tot = {"H": blank(), "A": blank()}
     for st in stints:
         for f in F: tot["H"][f] += st["h"][f]; tot["A"][f] += st["a"][f]
+    # Nov 18 2026: a feed whose points add up to the real final score is complete, so a genuine blowout (Illinois 120-45
+    # FDU, ~155 per 100) is kept; the ORtg bounds only judge feeds that don't reconcile.
+    fs = {"H": og.get("home_score"), "A": og.get("away_score")}
+    complete = all(fs[sd] is not None and abs(tot[sd]["pts"] - fs[sd]) <= 2 for sd in ("H", "A"))
     for sd in ("H", "A"):
         p = poss(tot[sd])
         if p < 45 or p > 110: return None, "bad-poss"
         o = 100 * tot[sd]["pts"] / p
-        if o < 55 or o > 150: return None, "bad-ortg"
+        if not complete and (o < 55 or o > 150): return None, "bad-ortg"
     if bad > 8: return None, "bad-subs"   # lineups we can't follow would credit the wrong players
     names = {str(b["espn_id"]): b["player"] for b in box if b.get("espn_id") is not None}
     return {"stints": stints, "teamH": box_home, "teamA": box_away, "names": names, "bad": bad, "gid": str(og["id"])}, "ok"
@@ -585,6 +589,8 @@ def rates(o, d, secs, lg=None):
 def add(dst, src):
     for f in F: dst[f] += src[f]
 
+MATCH_V = 2   # bump when build_onoff.match_our_game changes (2: exact-score fallback for abbreviations, Nov 18 2026)
+
 def refresh_games(season, verbose=False):
     """nid -> our game, by day. Scoreboards are the slow, rate-limited part, so the map is cached — but a season in
     progress must keep growing: until Nov 17 2026 the map was built once on opening week and never refreshed, so
@@ -598,9 +604,12 @@ def refresh_games(season, verbose=False):
     days = list(B.season_dates(season)); today = date.today()
     through = None
     if os.path.exists(mark_fp):
-        try: through = date.fromisoformat(json.load(open(mark_fp))["through"])
+        try:
+            mk = json.load(open(mark_fp))
+            # a matcher change (MATCH_V) rescans the whole season once, so games it now matches are picked up
+            through = date.fromisoformat(mk["through"]) if mk.get("v") == MATCH_V else None
         except Exception: through = None
-    if gmap and through is None and days[-1] < today: return gmap   # a finished season's map, built in one go
+    if gmap and not os.path.exists(mark_fp) and days[-1] < today: return gmap   # a finished season's map, built in one go
     start = (through - timedelta(days=2)) if through else days[0]
     todo = [d for d in days if start <= d <= today]
     before = len(gmap)
@@ -614,7 +623,7 @@ def refresh_games(season, verbose=False):
         time.sleep(0.05)
         if verbose: print(d, len(gmap), flush=True)
     os.makedirs(CACHE, exist_ok=True); json.dump(gmap, open(games_fp, "w"))
-    if todo: json.dump({"through": min(today, days[-1]).isoformat()}, open(mark_fp, "w"))
+    if todo: json.dump({"through": min(today, days[-1]).isoformat(), "v": MATCH_V}, open(mark_fp, "w"))
     print(f"season {season}: scanned {len(todo)} days, {len(gmap) - before} new games", flush=True)
     return gmap
 
