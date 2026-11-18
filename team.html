@@ -48,7 +48,7 @@
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-rating.js?v=5"></script>
   <script src="tdc-pool.js?v=5"></script>
-  <script src="tdc-glossary.js?v=14"></script>
+  <script src="tdc-glossary.js?v=15"></script>
   <style>
     .nil-card{border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:132px;background:var(--bg2);}
     .nil-lbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
@@ -2514,6 +2514,20 @@ async function renderHeroBar(yr, teamObj){
       :{v:`${spW}–${sp.n-spW}`,l:'Proj record',
       s:`${sp.confN?`${Math.round(sp.expCW)}–${sp.confN-Math.round(sp.expCW)} ${t.conf||t.conference||'conf'} · `:''}${sp.lo}–${sp.n-sp.lo} to ${sp.hi}–${sp.n-sp.hi}`}):null;
     const pre=rr&&rr.preRating!=null?_fmtNet(rr.preRating).s:null;
+    let smCell=null;
+    if(live&&window.TDC_TEAMSHOTPROFILE){ try{
+      const [D,tid]=await Promise.all([TDC_TEAMSHOTPROFILE.load(2027),_teamEspnId().catch(()=>null)]);
+      const T=D&&tid&&D.byId[String(tid)], i=D&&D.ci&&D.ci.m;
+      const m=T&&i!=null?T[4][0][i]:null;
+      if(m!=null){
+        let spg=null; try{ if(window.TDCReal){ await TDCReal.ready; const R=TDCReal.teamRaw(rr&&rr.full); if(R&&R.g>0) spg=((+R.fga||0)+0.44*(+R.fta||0))/R.g; } }catch(e){}
+        const v=spg?m*spg:null, rk=T.rk&&T.rk.off&&T.rk.off[0][i], n=D['n_off0_'+i];
+        smCell={ v:v!=null?(v>=0?'+':'−')+Math.abs(v).toFixed(1):(m>=0?'+':'−')+Math.abs(m).toFixed(2), l:'Shot-making', tip:'shotmaking',
+          s:(v!=null?'pts/game vs their looks':'pts/shot vs their looks')+(rk&&n?` · ${rk}${rk%10===1&&rk%100!==11?'st':rk%10===2&&rk%100!==12?'nd':rk%10===3&&rk%100!==13?'rd':'th'} of ${n}`:'')+(D.live?' · early':''),
+          col:(v!=null?v:m)>=0?'var(--tc-readable)':'var(--amber)' };
+      }
+    }catch(e){} }
+    if(stale()||_rosterSeason<2027) return;
     rEl.innerHTML=_ribHTML([
       {v:net.s,l:'Power Rating',tip:live?'power':'projrating',s:live?(pre?`preseason ${pre}`:'with this season’s games'):'projected for 2026-27'},
       recCell,
@@ -2522,11 +2536,12 @@ async function renderHeroBar(yr, teamObj){
       {v:t.conf||t.conference,l:'Conference',s:(rr&&rr.confRank)?`No. ${rr.confRank} in league`:''},
       last?{v:`${last.wins}–${last.losses}`,l:`${last.season_year-1}–${(''+last.season_year).slice(2)}`,s:'last season'}:null,
       last&&last.ncaa_result?{v:last.ncaa_result,l:'Last result',col:'var(--amber)'}:null,
-      // shot-luck: how far returners shot above/below their shot quality last year.
-      // Positive = hot (projection regresses it), negative = cold (projection bumps it).
-      (rr&&rr.shotLuck!=null&&Math.abs(rr.shotLuck)>=2)
-        ? {v:(rr.shotLuck>0?'+':'')+rr.shotLuck, l:'Shot luck', tip:'shotluck',
-           col:rr.shotLuck>0?'var(--amber)':'var(--tc-readable)'} : null,
+      // IN SEASON (owner, Nov 18 2026: "shot luck … show stats for this season"): this season's shot-making — points a game
+      // they score above (or below) what their looks are worth for an average D-I shooter. Before games: last season's
+      // returner shot luck, the preseason de-luck term (still inside the preseason part of the rating).
+      smCell || ((rr&&rr.shotLuck!=null&&Math.abs(rr.shotLuck)>=2)
+        ? {v:(rr.shotLuck>0?'+':'')+rr.shotLuck, l:live?'Shot luck · last yr':'Shot luck', tip:'shotluck',
+           col:rr.shotLuck>0?'var(--amber)':'var(--tc-readable)'} : null),
       _coachProgCell(rr, pp),
       // continuity: share of last year's minutes returning (a projection factor)
       (rr&&rr.continuity!=null)
@@ -6299,8 +6314,13 @@ async function fetchAllTime(q){
 // ── END PROJECTION ENGINE ─────────────────────────────────
 
 // ── TEAM SHOT CHART (from the `shots` table) ──
-async function _teamEspnId(){
-  if(window._teamShotTid!==undefined) return window._teamShotTid;
+// one lookup per page, shared: a second caller used to get null while the first was still in flight
+function _teamEspnId(){
+  if(window._teamShotTid!==undefined&&window._teamShotTid!==null) return Promise.resolve(window._teamShotTid);
+  if(!window._teamShotTidP){ window._teamShotTidP=_teamEspnIdFetch().then(v=>{ if(v==null) window._teamShotTidP=null; return v; }); }
+  return window._teamShotTidP;
+}
+async function _teamEspnIdFetch(){
   window._teamShotTid=null;
   var nm=(teamT&&teamT.name)||''; if(!nm) return null;
   try{
