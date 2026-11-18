@@ -159,6 +159,7 @@
   <div class="wy-ctl">
     <select id="wyTeam" aria-label="Team"></select>
     <select id="wySeason" aria-label="Season"><option value="2027">2026-27</option><option value="2026">2025-26</option><option value="2025">2024-25</option><option value="2024">2023-24</option></select>
+    <select id="wyGame" aria-label="Game"><option value="">All games</option></select>
     <span class="wy-seg gold" id="wyMode"></span>
     <span class="wy-seg" id="wyMetric"></span>
     <input id="wySearch" placeholder="Search player…" style="display:none">
@@ -228,6 +229,35 @@ var PICK=[], LUS={};
 function slugOf(t){ return String(t||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
 function loadLU(season,team){ var k=season+'|'+team; if(LUS[k]!==undefined) return Promise.resolve(LUS[k]);
   return fetch('scripts/data/wowy_stints/'+season+'/'+slugOf(team)+'.json?v=1'+DB(season)).then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; }).then(function(j){ LUS[k]=j; return j; }); }
+// ONE GAME (owner, Nov 18 2026): the On/Off Lab file (scripts/data/onoff_lab/<season>/<team>.json) splits every five-man
+// lineup by game, so one game's lineups are summed into the same shape as a stint file, and the WOWY table, the units
+// and "With or without" are all rebuilt from it in the browser. GAME = 'date|opponent' (URL g=).
+var GAME='', LABS={};
+function loadLab(season,team){ var k=season+'|'+team; if(LABS[k]!==undefined) return Promise.resolve(LABS[k]);
+  return fetch('scripts/data/onoff_lab/'+season+'/'+slugOf(team)+'.json?v=2'+DB(season)).then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; }).then(function(j){ LABS[k]=j; return j; }); }
+function gkey(g){ return g[0]+'|'+g[1]; }
+function gameLU(lab,g){ if(!lab) return null; var gi=-1; lab.games.forEach(function(x,i){ if(gkey(x)===g) gi=i; }); if(gi<0) return null;
+  var M={}, z=function(){ return lab.fields.map(function(){ return 0; }); };
+  lab.rows.forEach(function(r){ if(r[1]!==gi) return; var k=r[0].join(','), m=M[k]||(M[k]=[r[0],0,z(),z()]); m[1]+=r[3]; r[4].forEach(function(v,i){ m[2][i]+=v; }); r[5].forEach(function(v,i){ m[3][i]+=v; }); });
+  return {fields:lab.fields, ids:lab.ids, names:lab.names, rows:Object.keys(M).map(function(k){ return M[k]; })}; }
+function luSum(LU,test,L){ var o={},d={},secs=0; LU.fields.forEach(function(f){ o[f]=0; d[f]=0; });
+  LU.rows.forEach(function(r){ if(!test(r[0])) return; secs+=r[1]; LU.fields.forEach(function(f,i){ o[f]+=r[2][i]; d[f]+=r[3][i]; }); }); return crates(o,d,secs,L); }
+function gamePlayers(LU,L){ return LU.ids.map(function(id,i){ var on=luSum(LU,function(u){ return u.indexOf(i)>=0; },L), off=luSum(LU,function(u){ return u.indexOf(i)<0; },L);
+  return {id:id,name:LU.names[i],team:TEAM,on:on,off:off.poss?off:null,rapm:null}; }).filter(function(p){ return p.on.min>0; }); }
+function gameUnits(LU,n,L){ var U={};
+  LU.rows.forEach(function(r){ var ids=r[0].slice().sort(function(a,b){ return a-b; });
+    (function rec(st,a){ if(a.length===n){ var k=a.join(','); (U[k]=U[k]||[]).push(r); return; } for(var i=st;i<ids.length;i++){ a.push(ids[i]); rec(i+1,a); a.pop(); } })(0,[]); });
+  return Object.keys(U).map(function(k){ var ix=k.split(',').map(Number), rows=U[k];
+    return {ids:ix.map(function(i){ return LU.ids[i]; }), r:luSum({fields:LU.fields,rows:rows},function(){ return true; },L)}; }); }
+function gameName(g){ var lab=LABS[SEASON+'|'+TEAM]; var x=lab&&lab.games.find(function(y){ return gkey(y)===g; }); if(!x) return '';
+  var o=window.tdcShortSchool?tdcShortSchool(x[1]):x[1]; return md(x[0])+' '+(x[2]==='A'?'@ ':'vs ')+o; }
+function md(d){ var p=String(d).split('-'); return (+p[1])+'/'+(+p[2]); }
+function fillGames(){ var sel=$('#wyGame'); if(SCOPE!=='team'){ sel.style.display='none'; return; } sel.style.display='';
+  var lab=LABS[SEASON+'|'+TEAM];
+  if(lab===undefined){ sel.innerHTML='<option value="">All games</option>'; loadLab(SEASON,TEAM).then(function(){ fillGames(); if(GAME) render(); }); return; }
+  var G=lab?lab.games.slice().sort(function(a,b){ return String(b[0]).localeCompare(String(a[0])); }):[];
+  if(GAME&&!G.some(function(g){ return gkey(g)===GAME; })) GAME='';
+  sel.innerHTML='<option value="">All games'+(G.length?' ('+G.length+')':'')+'</option>'+G.map(function(g){ return '<option value="'+esc(gkey(g))+'"'+(gkey(g)===GAME?' selected':'')+'>'+esc(gameName(gkey(g)))+'</option>'; }).join(''); }
 function crates(o,d,secs,L){   // the same formulas as build_wowy.py rates()
   var po=Math.max(0,o.fga-o.orb+o.tov+0.44*o.fta), pd=Math.max(0,d.fga-d.orb+d.tov+0.44*d.fta);
   var pct=function(n,den){ return den>0?100*n/den:null; }, ts=function(b){ return pct(b.pts,2*(b.fga+0.44*b.fta)); };
@@ -240,7 +270,8 @@ function renderCustom(D){
   var box=$('#wyCustom');
   if(SCOPE!=='team'||MODE!=='wowy'){ box.style.display='none'; return; }
   box.style.display='';
-  var roster=D.players.filter(function(p){ return p.team===TEAM; }).sort(function(a,b){ return b.on.min-a.on.min; });
+  var gLU=GAME?gameLU(LABS[SEASON+'|'+TEAM],GAME):null;   // one game: that game's players and minutes
+  var roster=(gLU?gamePlayers(gLU,D.league):D.players.filter(function(p){ return p.team===TEAM; })).sort(function(a,b){ return b.on.min-a.on.min; });
   var nameOf={}; roster.forEach(function(p){ nameOf[p.id]=p.name; });
   PICK=PICK.filter(function(id){ return nameOf[id]; });
   var last=function(n){ n=String(n||''); var q=n.split(' '); return q.length>1?q.slice(1).join(' '):n; };
@@ -249,7 +280,7 @@ function renderCustom(D){
   var head='<div class="ui-panel-head"><h2>With or without</h2><span class="ui-panel-tools"><span class="wy-meta">Pick up to three players to see every on/off combination</span></span></div><div class="wy-cbody">';
   if(!PICK.length){ box.innerHTML=head+chips+'</div>'; bindPick(); return; }
   box.innerHTML=head+chips+'<div class="wy-note">Loading lineups…</div></div>'; bindPick();
-  loadLU(SEASON,TEAM).then(function(LU){
+  (GAME?loadLab(SEASON,TEAM).then(function(lab){ return gameLU(lab,GAME); }):loadLU(SEASON,TEAM)).then(function(LU){
     if(!LU){ box.innerHTML=head+chips+'<div class="wy-note">No lineup file for this team and season yet.</div></div>'; bindPick(); return; }
     var F=LU.fields, idx=PICK.map(function(id){ return LU.ids.indexOf(String(id)); }), k=PICK.length, L=D.league;
     var combos=[]; for(var m=(1<<k)-1;m>=0;m--) combos.push(m);   // all on first, all off last
@@ -276,22 +307,27 @@ function bindPick(){ document.querySelectorAll('[data-pk]').forEach(function(b){
   syncUrl(); renderCustom(DATA[SEASON]); }; }); }
 // the view lives in the URL, so a with/without query can be shared
 function syncUrl(){ try{ var u=new URL(location.href); u.searchParams.set('team',TEAM||''); u.searchParams.set('season',SEASON);
-  if(PICK.length) u.searchParams.set('p',PICK.join(',')); else u.searchParams.delete('p'); history.replaceState(null,'',u); }catch(e){} }
+  if(PICK.length) u.searchParams.set('p',PICK.join(',')); else u.searchParams.delete('p');
+  if(GAME&&SCOPE==='team') u.searchParams.set('g',GAME); else u.searchParams.delete('g'); history.replaceState(null,'',u); }catch(e){} }
 function render(){
   var D=DATA[SEASON]; if(!D){ $('#wyTbl').innerHTML='<tbody><tr><td class="l">'+'This season is still being built.'+'</td></tr></tbody>'; return; }
-  var L=D.league, small=$('#wySmall').checked;
+  var L=D.league, small=$('#wySmall').checked, GM=SCOPE==='team'&&GAME?GAME:'', LU=null;
+  if(GM){ var lab=LABS[SEASON+'|'+TEAM]; if(lab===undefined){ $('#wyTbl').innerHTML='<tbody><tr><td class="l">Loading the game…</td></tr></tbody>'; loadLab(SEASON,TEAM).then(render); return; }
+    LU=gameLU(lab,GM); if(!LU){ GAME=''; GM=''; } else small=true; }
+  fillGames();
   seg($('#wyMode'), SCOPE==='league'?[['wowy','Players']]:MODES, SCOPE==='league'?'wowy':MODE, function(k){ MODE=k; SORT=null; render(); });
-  var showMetric=(MODE==='wowy');
+  if(GM) METRIC='onoff';   // RAPM is a season fit: not for one game
+  var showMetric=(MODE==='wowy')&&!GM;
   $('#wyMetric').style.display=showMetric?'':'none';
   seg($('#wyMetric'),[['onoff','On-off'],['rapm','RAPM']],METRIC,function(k){ METRIC=k; SORT=null; render(); });
   seg($('#wyView'),[['overview','Overview'],['offense','Offense'],['defense','Defense'],['expanded','Expanded']],VIEW,function(k){ VIEW=k; render(); });
   $('#wyTeam').style.display=SCOPE==='team'?'':'none'; $('#wySearch').style.display=SCOPE==='league'?'':'none';
-  $('#wyNote').textContent=(D.games? D.games.toLocaleString()+' games · ':'')+'low-leverage (garbage) time removed'+(LUCK?' · luck adjusted: own FT% and opponent 3P% / FT% at the D-I average':'')+' · built '+(D.built||'')+(SEASON==='2024'||SEASON==='2025'?' · lineups from CollegeBasketballData':'');
+  $('#wyNote').textContent=(GM?'one game: '+gameName(GM)+' · ':D.games? D.games.toLocaleString()+' games · ':'')+'low-leverage (garbage) time removed'+(LUCK?' · luck adjusted: own FT% and opponent 3P% / FT% at the D-I average':'')+' · built '+(D.built||'')+(SEASON==='2024'||SEASON==='2025'?' · lineups from CollegeBasketballData':'');
   var cols=VIEWS[VIEW], hl=cols[0], head, rows;
   if(MODE==='wowy'||SCOPE==='league'){
     // league leaders: 500+ on-court possessions, and ranking by on-off needs a real off-court sample too (a starter whose
     // team barely played without him showed +40 from a few dozen bench possessions)
-    var list=D.players.filter(function(p){ return SCOPE==='league' ? (p.on.poss>=500 && (METRIC==='rapm' || (p.off && p.off.poss>=250))) : p.team===TEAM; });
+    var list=GM?gamePlayers(LU,L):D.players.filter(function(p){ return SCOPE==='league' ? (p.on.poss>=500 && (METRIC==='rapm' || (p.off && p.off.poss>=250))) : p.team===TEAM; });
     if(SCOPE==='league'){ var q=($('#wySearch').value||'').toLowerCase().trim(); if(q) list=list.filter(function(p){ return (p.name||'').toLowerCase().indexOf(q)>=0 || (p.team||'').toLowerCase().indexOf(q)>=0; }); }
     if(!small && SCOPE==='team') list=list.filter(function(p){ return p.on.poss>=100 || p.on.min>=60; });
     var rap=(METRIC==='rapm');
@@ -304,7 +340,7 @@ function render(){
       (rap?'<th data-s="rapm" title="Regularized adjusted plus-minus: points per 100 possessions better than average, accounting for teammates and opponents">RAPM</th><th data-s="rapm_o">O-RAPM</th><th data-s="rapm_d">D-RAPM</th>':'')+
       cols.map(function(k){ return '<th data-s="'+k+'">'+S[k][1]+'</th>'+(rap?'':'<th data-s="oo_'+k+'" title="'+S[k][1]+' with him on minus off">'+S[k][1]+'<br>on-off</th>'); }).join('');
     rows=list.map(function(p){ var lg=logo(p.team);
-      return '<tr class="'+((p.on.poss<100)?'small':'')+'"><td class="l nm">'+(SCOPE==='team'&&lg?'<img src="'+lg+'" alt="">':'')+'<a href="player.html?espn='+esc(p.id)+'">'+esc(p.name)+'</a></td>'+
+      return '<tr class="'+((p.on.poss<(GM?15:100))?'small':'')+'"><td class="l nm">'+(SCOPE==='team'&&lg?'<img src="'+lg+'" alt="">':'')+'<a href="player.html?espn='+esc(p.id)+'">'+esc(p.name)+'</a></td>'+
         (SCOPE==='league'?'<td class="l nm">'+(lg?'<img src="'+lg+'" alt="">':'')+esc((window.tdcShortSchool?tdcShortSchool(p.team):p.team))+'</td>':'')+
         '<td>'+Math.round(p.on.min)+'</td>'+
         (rap?(p.rapm?'<td class="oo '+cls('net',p.rapm.net)+'">'+sg(p.rapm.net)+'</td><td class="'+tone('o',p.rapm.o)+'">'+sg(p.rapm.o)+'</td><td class="'+tone('o',p.rapm.d)+'">'+sg(p.rapm.d)+'</td>':'<td>—</td><td>—</td><td>—</td>'):'')+
@@ -312,7 +348,8 @@ function render(){
           var raw='<td>'+f1(v)+(gap!=null&&k!=='net'?'<span class="rl '+((gap*S[k][2])>0?'up':'dn')+'">'+sg(gap)+'</span>':'')+'</td>';
           return raw+(rap?'':'<td class="oo '+(k===hl?cls(k,d):tone(k,d))+'">'+sg(d)+'</td>'); }).join('')+'</tr>'; });
   } else {
-    var UD=UNITS[SEASON];
+    var UD=GM?{units:{},names:{}}:UNITS[SEASON];
+    if(GM){ UD.names={}; LU.ids.forEach(function(id,i){ UD.names[id]=LU.names[i]; }); UD.units[TEAM]={}; UD.units[TEAM][MODE]=gameUnits(LU,+MODE,L); }
     if(!UD){ $('#wyTbl').innerHTML='<tbody><tr><td class="l">Loading lineups…</td></tr></tbody>'; loadUnits(SEASON).then(render); return; }
     var U=((UD.units||{})[TEAM]||{})[MODE]||[], nm=UD.names||{};
     if(!small) U=U.filter(function(u){ return u.r.poss>=({2:100,3:80,4:60,5:40})[MODE]; });
@@ -329,7 +366,7 @@ function render(){
   $('#wyTbl').querySelectorAll('th[data-s]').forEach(function(th){ if(th.dataset.s===SORT) th.classList.add('sorted');
     th.onclick=function(){ if(SORT===th.dataset.s) DESC=!DESC; else { SORT=th.dataset.s; DESC=true; } render(); }; });
   $('#wyShift').href='statshift.html'+(TEAM?'?team='+encodeURIComponent(TEAM):'');
-  $('#wyTitle').textContent=SCOPE==='team'?(window.tdcShortSchool?tdcShortSchool(TEAM||''):(TEAM||''))+' · '+(MODE==='wowy'?(METRIC==='rapm'?'RAPM':'on and off the floor'):MODE+'-man units'):'League leaders · 500+ possessions';
+  $('#wyTitle').textContent=SCOPE==='team'?(window.tdcShortSchool?tdcShortSchool(TEAM||''):(TEAM||''))+(GM?' · '+gameName(GM):'')+' · '+(MODE==='wowy'?(METRIC==='rapm'?'RAPM':'on and off the floor'):MODE+'-man units'):'League leaders · 500+ possessions';
   $('#wySub').innerHTML=SCOPE==='team'?esc(TEAM||'')+' · '+(MODE==='wowy'?'every player on and off the floor':MODE+'-man units with the most possessions')+'. Rebuilt from NCAA play-by-play substitutions; garbage time removed.':'Every D-I player with 500+ on-court possessions. Sort by any column.';
 }
 function setSeason(s){
@@ -346,7 +383,9 @@ TEAM=qp.get('team')||(function(){ try{ return localStorage.getItem('tdc_coach_te
 if(qp.get('season')) SEASON=qp.get('season');
 if(qp.get('p')) PICK=qp.get('p').split(',').filter(Boolean).slice(0,3);
 $('#wySeason').value=SEASON;
-$('#wyTeam').onchange=function(e){ TEAM=e.target.value; SORT=null; PICK=[]; syncUrl(); render(); };
+$('#wyTeam').onchange=function(e){ TEAM=e.target.value; SORT=null; PICK=[]; GAME=''; syncUrl(); render(); };
+$('#wyGame').onchange=function(e){ GAME=e.target.value; SORT=null; syncUrl(); render(); };
+if(qp.get('g')) GAME=qp.get('g');
 $('#wySeason').onchange=function(e){ setSeason(e.target.value); };
 $('#wySmall').onchange=render; $('#wySearch').oninput=render;
 $('#wyLuck').onchange=function(e){ LUCK=e.target.checked; render(); };
