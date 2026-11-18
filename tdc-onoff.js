@@ -172,6 +172,7 @@
     var st = document.createElement('style'); st.id = 'tdc-onoff-css';
     st.textContent =
       '.oo-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}' +
+      '.oo-game .oo-pro col.n{width:22%}' +
       '.oo-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px;align-items:start}' +
       '.oo-grid.solo{grid-template-columns:minmax(0,1fr)}' +
       '@media(max-width:1000px){.oo-grid{grid-template-columns:1fr}}' +
@@ -229,10 +230,10 @@
     return '<span class="oo-who"><span class="oo-av ' + cls + '">' + img + '<b>' + tag + '</b></span><small>' + esc(last) + ' ' + tag.toLowerCase() + '</small></span>';
   }
 
-  function table(p, P, only, heads) {
-    var on = p.on, off = p.off, H = heads || ['With him', 'Without', 'Swing'];
-    var h = '<table class="oo-pro"><colgroup><col><col class="n"><col class="c"><col class="n"><col class="c"><col class="n"><col class="c"></colgroup><thead><tr><th class="lead">' + logo(p) + '</th>' +
-      '<th class="with" title="The team with him on the floor">' + esc(H[0]) + '</th><th class="pc">Rank</th><th title="The team with him on the bench">' + esc(H[1]) + '</th><th class="pc">Rank</th><th title="With him minus without him">' + esc(H[2]) + '</th><th class="pc">Rank</th></tr></thead>';
+  function table(p, P, only, heads, noRank) {   // noRank: one game, so the rank columns are left out
+    var on = p.on, off = p.off, H = heads || ['With him', 'Without', 'Swing'], RC = noRank ? '' : '<col class="c">', RH = noRank ? '' : '<th class="pc">Rank</th>', NC = noRank ? 4 : 7;
+    var h = '<table class="oo-pro"><colgroup><col><col class="n">' + RC + '<col class="n">' + RC + '<col class="n">' + RC + '</colgroup><thead><tr><th class="lead">' + logo(p) + '</th>' +
+      '<th class="with" title="The team with him on the floor">' + esc(H[0]) + '</th>' + RH + '<th title="The team with him on the bench">' + esc(H[1]) + '</th>' + RH + '<th title="With him minus without him">' + esc(H[2]) + '</th>' + RH + '</tr></thead>';
     GROUPS.forEach(function (g) {
       if (only && only.indexOf(g[0]) < 0) return;
       var body = '';
@@ -240,7 +241,7 @@
         var rows = sub[1].filter(function (R) { return stat(p, 'on', R[0]) != null || stat(p, 'off', R[0]) != null; });
         if (!rows.length) return;
         var h = '';
-        if (sub[0]) h += '<tr class="sub"><td colspan="7">' + esc(sub[0]) + '</td></tr>';
+        if (sub[0]) h += '<tr class="sub"><td colspan="' + NC + '">' + esc(sub[0]) + '</td></tr>';
         rows.forEach(function (R) {
           var k = R[0], dir = R[2], dec = R[3], suf = R[4];
           var a = stat(p, 'on', k), b = stat(p, 'off', k), d = a != null && b != null ? a - b : null;
@@ -248,13 +249,13 @@
           var pa = pctOf(P.on[k], a, count ? 1 : dir), pb = pctOf(P.off[k], b, count ? 1 : dir), pd = pctOf(P.diff[k], d, count ? 1 : dir);
           var good = d == null || count || Math.abs(d) < 0.05 ? '' : (d * dir > 0 ? 'up' : 'dn');
           h += '<tr><td class="k"' + (R[5] ? ' title="' + esc(R[5]) + '"' : '') + '>' + esc(R[1]) + '</td>' +
-            '<td>' + fmt(a, dec, suf) + '</td><td class="pc">' + chip(pa) + '</td>' +
-            '<td>' + fmt(b, dec, suf) + '</td><td class="pc">' + chip(pb) + '</td>' +
-            '<td class="' + good + '">' + fmt(d, dec, suf, true) + '</td><td class="pc">' + chip(pd) + '</td></tr>';
+            '<td>' + fmt(a, dec, suf) + '</td>' + (noRank ? '' : '<td class="pc">' + chip(pa) + '</td>') +
+            '<td>' + fmt(b, dec, suf) + '</td>' + (noRank ? '' : '<td class="pc">' + chip(pb) + '</td>') +
+            '<td class="' + good + '">' + fmt(d, dec, suf, true) + '</td>' + (noRank ? '' : '<td class="pc">' + chip(pd) + '</td>') + '</tr>';
         });
         body += h;
       });
-      if (body) h += '<tbody class="' + (CLOSED[g[0]] ? 'closed' : '') + '" data-sec="' + esc(g[0]) + '"><tr class="sec"><td colspan="7"><i>▾</i><span>' + esc(g[0]) + '</span></td></tr>' + body + '</tbody>';
+      if (body) h += '<tbody class="' + (CLOSED[g[0]] ? 'closed' : '') + '" data-sec="' + esc(g[0]) + '"><tr class="sec"><td colspan="' + NC + '"><i>▾</i><span>' + esc(g[0]) + '</span></td></tr>' + body + '</tbody>';
     });
     return h + '</table>';
   }
@@ -290,6 +291,40 @@
       '</tbody></table></div>';
   }
 
+  // ── one game (owner, Nov 18 2026): the On/Off Lab file splits every five-man lineup by game, so his on/off for any one
+  // game is summed here with the same formulas as build_wowy.py rates(). Ranks stay off: one game isn't a season sample.
+  var LABS = {};
+  function labFile(y, team) { var k = y + '|' + team; if (LABS[k] !== undefined) return Promise.resolve(LABS[k]);
+    return get('scripts/data/onoff_lab/' + y + '/' + slugOf(team) + '.json?v=2' + (y >= 2027 ? '&d=' + TODAY : '')).then(function (j) { return (LABS[k] = j); }); }
+  function gRates(o, d, secs, lg) {
+    var pct = function (n, den) { return n == null || den == null || !(den > 0) ? null : Math.round(1000 * n / den) / 10; };
+    var ps = function (b) { return Math.max(0, b.fga - b.orb + b.tov + 0.44 * b.fta); };
+    var ts = function (b) { return pct(b.pts, 2 * (b.fga + 0.44 * b.fta)); }, efg = function (b) { return pct(b.fgm + 0.5 * b.tpm, b.fga); };
+    var po = ps(o), pd = ps(d);
+    var r = { min: secs / 60, poss: Math.round((po + pd) / 2), o: pct(o.pts, po), d: pct(d.pts, pd), ts: ts(o), efg: efg(o), tov: pct(o.tov, po),
+      orb: pct(o.orb, o.orb + d.drb), ftr: pct(o.fta, o.fga), ast: pct(o.ast, o.fgm), ots: ts(d), oefg: efg(d), otov: pct(d.tov, pd), drb: pct(d.drb, d.drb + o.orb),
+      tp: pct(o.tpm, o.tpa), tpar: pct(o.tpa, o.fga), ftp: pct(o.ftm, o.fta), otp: pct(d.tpm, d.tpa), fg: pct(o.fgm, o.fga),
+      rimp: pct(o.rm, o.ra), midp: pct(o.mm, o.ma), rimr: pct(o.ra, o.fga), midr: pct(o.ma, o.fga), ostl: pct(d.stl, po), oblk: pct(d.blk, o.fga),
+      ofg: pct(d.fgm, d.fga), orimp: pct(d.rm, d.ra), omidp: pct(d.mm, d.ma), orimr: pct(d.ra, d.fga), omidr: pct(d.ma, d.fga), otpar: pct(d.tpa, d.fga),
+      oftr: pct(d.fta, d.fga), oast: pct(d.ast, d.fgm), stl: pct(o.stl, pd), blk: pct(o.blk, d.fga), pace: secs > 0 ? Math.round(10 * (po + pd) / 2 / (secs / 60) * 40) / 10 : null };
+    r.net = r.o != null && r.d != null ? Math.round(10 * (r.o - r.d)) / 10 : null;
+    var sq = function (b, x) { if (!(b.sa >= 1 && b.ep >= 1)) return;
+      r[x + 'lq'] = pct(b.xp, 2 * b.sa); r[x + 'sm'] = pct(b.sp - b.xp, b.sa); r[x + 'gsr'] = pct(b.gs, b.sa); r[x + 'bsr'] = pct(b.bs, b.sa);
+      r[x + 'trr'] = pct(b.trp, b.ep); r[x + 'trppp'] = pct(b.trs, b.trp); r[x + 'hcppp'] = pct(b.hcs, b.hcp); r[x + 'scp'] = pct(b.scs, b.ep); };
+    sq(o, ''); sq(d, 'o');
+    if (lg && lg.tp3_raw) { var op = o.pts - (o.ftm - o.fta * lg.ft_raw), dp = d.pts - (d.ftm - d.fta * lg.ft_raw) - 3 * (d.tpm - d.tpa * lg.tp3_raw);
+      r.ol = pct(op, po); r.dl = pct(dp, pd); r.netl = r.ol != null && r.dl != null ? Math.round(10 * (r.ol - r.dl)) / 10 : null; }
+    return r;
+  }
+  // his side of one game: rows of that game with him on (on=true) or off; missing fields (older files) stay null
+  function gameSide(LB, gi, ix, on, lg) {
+    var o = {}, d = {}, secs = 0, n = 0;
+    LB.rows.forEach(function (r) { if (r[1] !== gi || (r[0].indexOf(ix) >= 0) !== on) return; n++; secs += r[3];
+      LB.fields.forEach(function (f, i) { o[f] = (o[f] || 0) + r[4][i]; d[f] = (d[f] || 0) + r[5][i]; }); });
+    return n && secs > 0 ? gRates(o, d, secs, lg) : null;
+  }
+  var NOPOOL = { on: {}, off: {}, diff: {} };
+
   function season(y) { return SEAS[y] ? Promise.resolve(SEAS[y]) : get('scripts/data/wowy_' + y + '.json?v=' + DV + (y >= 2027 ? '&d=' + TODAY : '')).then(function (j) { return (SEAS[y] = j); }); }
 
   function render(host, opts) {
@@ -300,7 +335,7 @@
     (IDX ? Promise.resolve(IDX) : get('scripts/data/wowy_index.json?v=1&d=' + TODAY).then(function (j) { return (IDX = j || {}); })).then(function (I) {
       var seasons = I[espn] || [];
       if (!seasons.length) { host.innerHTML = '<div class="ui-empty">No on/off for this player yet. It is rebuilt from play-by-play lineups from 2023–24 on (2026–27 updated nightly), for players with 30+ minutes in a season.</div>'; return; }
-      var cur = opts.season && seasons.indexOf(+opts.season) >= 0 ? +opts.season : seasons[0];
+      var cur = opts.season && seasons.indexOf(+opts.season) >= 0 ? +opts.season : seasons[0], game = opts.game || '';
       var draw = function () {
         Promise.all([
           season(cur),
@@ -310,16 +345,31 @@
           if (!S) { host.innerHTML = '<div class="ui-empty">Could not load ' + lbl(cur) + '.</div>'; return; }
           var p = (S.players || []).find(function (x) { return String(x.id) === espn; });
           if (!p || !p.on) { host.innerHTML = '<div class="ui-empty">No ' + lbl(cur) + ' on/off for this player.</div>'; return; }
+          labFile(cur, p.team).then(function (LB) {
           var P = pool(cur, S), team = shortTeam(p.team);
+          // the games he played (from the lineup file), newest first
+          var ix = LB ? LB.ids.indexOf(espn) : -1, GL = [];
+          if (ix >= 0) { var seen = {}; LB.rows.forEach(function (r) { if (r[0].indexOf(ix) >= 0) seen[r[1]] = 1; });
+            GL = Object.keys(seen).map(Number).sort(function (a, b) { return String(LB.games[b][0]).localeCompare(String(LB.games[a][0])); }); }
+          var gkey = function (gi) { return LB.games[gi][0] + '|' + LB.games[gi][1]; };
+          var gname = function (gi) { var g = LB.games[gi]; var pp = String(g[0]).split('-'); return (+pp[1]) + '/' + (+pp[2]) + ' ' + (g[2] === 'A' ? '@ ' : 'vs ') + shortTeam(g[1]); };
+          var GI = -1; GL.forEach(function (gi) { if (gkey(gi) === game) GI = gi; }); if (GI < 0) game = '';
+          var gsel = GL.length ? '<select class="ui-input ooGame" aria-label="Game" style="font-size:12.5px;padding:5px 8px"><option value="">All games (' + GL.length + ')</option>' +
+            GL.map(function (gi) { return '<option value="' + esc(gkey(gi)) + '"' + (gkey(gi) === game ? ' selected' : '') + '>' + esc(gname(gi)) + '</option>'; }).join('') + '</select>' : '';
           var small = p.on.poss < 300 || (p.off && p.off.poss < 150);
           var h = '<div class="oo-top">' +
             (opts.seasons !== false ? '<span class="ui-seg">' + seasons.slice().sort().map(function (y) { return '<button class="' + (y === cur ? 'on' : '') + '" data-y="' + y + '">' + lbl(y) + '</button>'; }).join('') + '</span>' : '<span></span>') +
-            '<label class="ui-check" title="Sets the team\'s own free-throw shooting and the opponent\'s 3-point and free-throw shooting to the D-I average"><input type="checkbox" class="ooLuck"' + (LUCK ? ' checked' : '') + '> Luck-adjusted</label></div>' +
-            '<p class="ui-note" style="margin:-4px 0 6px"><b>' + esc(team) + '</b> · ' + Math.round(p.on.min) + ' minutes on the floor' + (p.off ? ', ' + Math.round(p.off.min) + ' off' : '') + ' · ' + (p.g || 0) + ' games' + (S.low_leverage_removed ? ' · garbage time removed' : '') + (small ? ' · <b>small sample</b>' : '') + '</p>';
+            gsel + '<label class="ui-check" title="Sets the team\'s own free-throw shooting and the opponent\'s 3-point and free-throw shooting to the D-I average"><input type="checkbox" class="ooLuck"' + (LUCK ? ' checked' : '') + '> Luck-adjusted</label></div>' +
+            (GI >= 0 ? '' : '<p class="ui-note" style="margin:-4px 0 6px"><b>' + esc(team) + '</b> · ' + Math.round(p.on.min) + ' minutes on the floor' + (p.off ? ', ' + Math.round(p.off.min) + ' off' : '') + ' · ' + (p.g || 0) + ' games' + (S.low_leverage_removed ? ' · garbage time removed' : '') + (small ? ' · <b>small sample</b>' : '') + '</p>');
           var noOff = '<div class="ui-empty">This player was on the floor nearly every minute, so there is no off-floor sample to compare.</div>';
           var units = '<div><div class="oo-h" style="margin-top:0"><span class="ui-label">Two-man units · most minutes first</span>' +
             '<span><a href="onoff-lab.html?team=' + encodeURIComponent(slugOf(p.team)) + '&season=' + cur + '&q=together&p=' + encodeURIComponent(espn) + '">On/Off Lab →</a> &nbsp; <a href="wowy.html?team=' + encodeURIComponent(p.team) + '&season=' + cur + '">Full ' + esc(team) + ' WOWY →</a></span></div>' + pairs(PR[espn] || []) + '</div>';
-          if (!p.off) h += '<div class="oo-grid' + (side ? '' : ' solo') + '"><div class="oo-col">' + noOff + '</div>' + (side ? '<div class="oo-col oo-side">' + tiles(p, P, S) + units + '</div>' : '') + '</div>';
+          if (GI >= 0) {   // one game: his minutes on and off in it, every stat the lineup file carries, no ranks
+            var gp = { team: p.team, on: gameSide(LB, GI, ix, true, S.league), off: gameSide(LB, GI, ix, false, S.league) };
+            h += '<p class="ui-note" style="margin:-4px 0 6px"><b>' + esc(team) + '</b> · ' + esc(gname(GI)) + ' · ' + Math.round(gp.on.min) + ' minutes on the floor' + (gp.off ? ', ' + Math.round(gp.off.min) + ' off' : '') + ' · one game, so no D-I ranks' + (S.low_leverage_removed ? ' · garbage time removed' : '') + '</p>' +
+              (gp.off ? '<div class="oo-grid solo oo-game"><div class="oo-col">' + table(gp, NOPOOL, null, null, true) + '</div></div>' : noOff);
+          }
+          else if (!p.off) h += '<div class="oo-grid' + (side ? '' : ' solo') + '"><div class="oo-col">' + noOff + '</div>' + (side ? '<div class="oo-col oo-side">' + tiles(p, P, S) + units + '</div>' : '') + '</div>';
           else if (side && opts.tilesTop) h += '<div class="oo-wide">' + tiles(p, P, S) + '</div><div class="oo-grid"><div class="oo-col">' + table(p, P, ['General', 'Offense']) + '</div>' +
             '<div class="oo-col oo-side">' + table(p, P, ['Our numbers', 'Defense']) + units + '</div></div>';
           else if (side) h += '<div class="oo-grid"><div class="oo-col">' + table(p, P, ['General', 'Offense']) + '</div>' +
@@ -328,9 +378,11 @@
           h += '<details class="ui-about"><summary>How this works</summary><p>Each chip ranks the number against D-I players with ' + MIN_POSS + '+ on-floor possessions in ' + lbl(cur) + ' (green = good for the team, red = bad). ' +
             'On/off compares the team with this player on the floor against the minutes they sat; RAPM adjusts for teammates and opponents. Rim = layups, dunks and tips; mid = every other two. Rebuilt from play-by-play substitutions' + (cur <= 2025 ? ' (lineups from CollegeBasketballData)' : '') + '; garbage time removed.</p></details>';
           host.innerHTML = h;
-          host.querySelectorAll('[data-y]').forEach(function (b) { b.onclick = function () { cur = +b.dataset.y; draw(); }; });
+          host.querySelectorAll('[data-y]').forEach(function (b) { b.onclick = function () { cur = +b.dataset.y; game = ''; draw(); }; });
+          var gs = host.querySelector('.ooGame'); if (gs) gs.onchange = function () { game = gs.value; draw(); };
           host.querySelectorAll('tbody[data-sec] tr.sec').forEach(function (tr) { tr.onclick = function () { var tb = tr.parentNode; tb.classList.toggle('closed'); CLOSED[tb.dataset.sec] = tb.classList.contains('closed'); }; });
           var lk = host.querySelector('.ooLuck'); if (lk) lk.onchange = function () { LUCK = lk.checked; draw(); };
+          });
         });
       };
       draw();

@@ -42,7 +42,8 @@ MIN_UNIT_POSS = {2: 80, 3: 60, 4: 45, 5: 30}
 TOP_UNITS = 15
 
 def blank(): return dict.fromkeys(F, 0)
-SF = ("pts", "fga", "fgm", "tpa", "tpm", "fta", "ftm", "orb", "drb", "tov", "sa", "xp", "sp", "gs", "bs", "ep", "trp", "trs", "hcp", "hcs", "scs")   # the fields the page needs per lineup
+SF = ("pts", "fga", "fgm", "tpa", "tpm", "fta", "ftm", "orb", "drb", "tov", "sa", "xp", "sp", "gs", "bs", "ep", "trp", "trs", "hcp", "hcs", "scs",
+      "ast", "stl", "blk", "ra", "rm", "ma", "mm")   # last 7 added Nov 18 2026: the player On/Off profile rebuilds one game from them   # the fields the page needs per lineup
 def slug(team): return re.sub(r"[^a-z0-9]+", "-", str(team or "").lower()).strip("-")
 
 import unicodedata
