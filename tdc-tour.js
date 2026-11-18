@@ -53,13 +53,46 @@
   function bl(){ return '<ul style="margin:8px 0 0;padding-left:16px;">' + Array.prototype.slice.call(arguments).map(function (x) { return '<li style="margin:4px 0;">' + x + '</li>'; }).join('') + '</ul>'; }
 
   var TOURS = {
-    'index.html': [
-      { sel:'#whStrip', t:'Welcome — start here', html:'The Depth Chart grades every Division-I player and team from real statistics, then projects the coming season. These four cards are the fastest ways in:' + bl('<b>Explore</b> — a map of every tool on the site.', '<b>Program HQ</b> — pick your team and get a front door built around it.', '<b>Compare</b> — any two players or programs side by side.', '<b>Scout</b> — a full report on an opponent.') },
-      { sel:'#searchInput', t:'Find a team', d:'Type any school and press enter to open its HQ page. The pills underneath filter the rankings by conference (ACC, SEC, Big Ten…) so you can see just one league.' },
-      { sel:'.ix-sheet', t:'The rankings table', html:'Every Division-I team, ordered by <b>Power Rating</b>. The columns, left to right:' + bl(G.power, '<b>W-L</b> — projected wins and losses.', G.ortg, '<b>Win%</b> — projected share of games won.', '<b>PPG / REB / APG …</b> — projected per-game points, rebounds, assists, shooting.') + 'Each stat is shaded against the rest of Division I: green near the top, red near the bottom. Click a column header to sort by it, and click a team to open its page.' },
-      { sel:'.tdn-wrap', t:'The menus', html:bl('<b>Teams</b> — rankings, conferences, team stats, compare.', '<b>Players</b> — the player database, awards, the draft board, newcomers.', '<b>Analytics</b> — leaderboards, the stat explorer, shot charts, Moneyball.', '<b>Postseason</b> — brackets, tournaments, March insights.', '<b>More</b> — Explore (every tool), Coach\'s Tier, Betting Lab, your account.') },
-      { sel:'.tdc-explain', t:'This button', d:'Every major page has one. Press it any time for a walkthrough of exactly what is on that page and what each number means. It never opens on its own.' }
-    ],
+    // Nov 18 2026 short-step walkthrough (same style as team/player): one thing lit per step, a line or two each.
+    'index.html': (function(){
+      var T=function(x){ return '<div style="margin-top:8px;font-size:12.5px;"><b>Try:</b> '+x+'</div>'; };
+      // phones fold the filters behind one "Filters" button: open it for the filter steps, close it after
+      var fold=function(open){ return function(){ var b=document.getElementById('filterBar'); if(b&&document.querySelector('.mh-more')){ b.classList.toggle('mh-open',open); var m=b.querySelector('.mh-more'); if(m&&m.innerHTML) m.innerHTML=m.innerHTML.replace(open?'▾':'▴',open?'▴':'▾'); } }; };
+      var col=function(n){ return '.ix-sheet thead th:nth-child('+n+')'; };
+      return [
+      { sel:'#__intro', t:'Welcome to The Depth Chart', html:'Every Division-I team and player, graded from real stats. This page is the scores and the national rankings. This walk-through points at one thing at a time.' },
+      { sel:'.tdt', t:'Scores strip', html:'Every game on the day picked, at the very top of every page.'+T('tap a game to open it, or change the day on the left.') },
+      { sel:'#tdcLive .tlv-chips', alt:'#tdcLive', t:'Today\'s games', html:'Today\'s slate.'+T('pick <b>Live</b> or <b>Top 25</b>.') },
+      { sel:'#tdcLive .tlv-card', alt:'#tdcLive', t:'A game', html:'Tip time, TV, the ranks and each team\'s chance to win. Live games show the score.'+T('tap it for the game page.') },
+      { sel:'.tdn-wrap', alt:'.tdn', t:'The menus', html:'Teams, Players, Stats and More: every tool on the site lives here.' },
+      { sel:'#mhMv', alt:'#mvSel', t:'Biggest movers', html:'The teams that moved most in our rankings. ▲ = up, ▼ = down.', before:fold(false) },
+      { sel:'#whStrip', t:'New here?', html:'Four quick ways in: every tool, your team, comparing players, and scouting an opponent.' },
+      { sel:'.mh-more', alt:'#filterBar', t:'Filters', html:'Season, stats, level and sort for the table below.', before:fold(false) },
+      { sel:'#seasonSel', t:'Season', html:'This season\'s projection, or any past season\'s final rankings.', before:fold(true) },
+      { sel:'#statModeHost', t:'Real or Projected', html:'<b>Real</b> = games played so far. <b>Projected</b> = our full-season estimate.' },
+      { sel:'#levelSw', t:'Level', html:'Show every team, only high-majors, or only mid- and low-majors.' },
+      { sel:'#sortSel', t:'Sort', html:'Rank by Power Rating, best offense, best defense and more.' },
+      { sel:'#mvSel', t:'Movement', html:'The ▲▼ next to each team: how far it moved today, in 3 days or this week.' },
+      { sel:'#searchInput', t:'Find a team', html:'Type any school to find it.' },
+      { sel:'#filterPills', t:'Conferences', html:'Show one conference at a time.'+T('tap <b>ACC</b>.') },
+
+      { sel:'.ix-sheet', t:'The rankings', html:'Every D-I team, best first. Green cells are near the top of D-I, red near the bottom.'+T('tap a team to open its page.'), before:fold(false) },
+      { sel:col(4), t:'W-L', html:'The record. Before or early in the season, the projected record.' },
+      { sel:col(5), t:'SOS', html:'Strength of schedule: how good the opponents are. Higher = tougher.' },
+      { sel:col(6), t:'Rating', html:'Power Rating: points better than an average D-I team on a neutral court. The gap between two teams is the spread.' },
+      { sel:col(7), t:'ORtg', html:'Points scored per 100 possessions, adjusted for opponents. Higher is better.' },
+      { sel:col(8), t:'DRtg', html:'Points allowed per 100 possessions. Lower is better.' },
+      { sel:col(9), t:'Net', html:'ORtg minus DRtg.' },
+      { sel:col(10), t:'Win%', html:'Share of games won (or projected to win).' },
+      { sel:col(11), t:'Per-game stats', html:'From here: points, points allowed, shooting, rebounds, assists, steals, blocks, turnovers.' },
+      { sel:col(23), t:'Luck', html:'Wins above what their scoring margin says they should have. Big luck tends to fade.' },
+      { sel:col(24), t:'LookQ', html:'Look Quality: how good their shots are before they leave the hand.' },
+      { sel:col(25), t:'Sh-Make', html:'Shot-making: points added by making shots better than their quality says.' },
+      { sel:col(26), t:'Create', html:'Points a game created by passing.' },
+      { sel:col(6), t:'Sort any column', html:'Tap a column heading to sort by it; tap again to flip.' },
+      { sel:'.tdc-explain', alt:'#__end', t:'That\'s it', html:'Tap <b>?</b> any time to run this again. Every page has its own walk-through.' }
+      ];
+    })(),
 
     // Nov 18 2026 walkthrough, owner: "shows you steps and different things … simpler than a lot of text together".
     // One small thing per step (a number, a column, a button), one or two sentences, an optional "Try:" line.
@@ -610,6 +643,8 @@
     tip.style.maxWidth = tw + 'px'; tip.style.left = Math.max(12, (window.innerWidth - tw) / 2) + 'px'; tip.style.top = Math.max(12, (window.innerHeight - th) / 2) + 'px';
   }
   function spotlight(el){
+    // live content (the scores widget) re-renders on a timer: if the lit element was replaced, find it again
+    var fresh = function(){ if (!el.isConnected && STEPS[i]) { var e2 = target(STEPS[i]); if (visible(e2)) el = e2; } return el; };
     var tall = function(){ return el.getBoundingClientRect().height > window.innerHeight - 80; };
     var scrollTo = function(){ try { el.scrollIntoView({ behavior: 'smooth', block: tall() ? 'start' : 'center' }); } catch (e) {} };
     scrollTo();
@@ -617,7 +652,7 @@
     // measure once the scroll settles, then again after a tab's content has rendered (panels load
     // async — a first measure of a just-opened Schedule tab caught it empty), and once more late
     // for slow data; each pass re-centres if the target grew
-    [360, 1200, 2600, 4500].forEach(function (ms, n) { setTimeout(function () { if (my !== _seq) return; if (n) scrollTo(); setTimeout(function () { if (my === _seq) measure(el); }, n ? 350 : 0); }, ms); });
+    [360, 1200, 2600, 4500].forEach(function (ms, n) { setTimeout(function () { if (my !== _seq) return; fresh(); if (n) scrollTo(); setTimeout(function () { if (my === _seq) measure(fresh()); }, n ? 350 : 0); }, ms); });
   }
   var _seq = 0;
   function measure(el){
