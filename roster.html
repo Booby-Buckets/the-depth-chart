@@ -20,7 +20,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="tdc-teamname.js?v=1"></script>
   <script src="tdc-freshman.js?v=pub37"></script>
-  <script src="tdc-reallines.js?v=7"></script>
+  <script src="tdc-reallines.js?v=8"></script>
   <script src="tdc-projgrade.js?v=disp1"></script>
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-rating.js?v=5"></script>
@@ -508,6 +508,9 @@ function _applyStatMode(list){ if(!window.TDCReal) return; const real=TDCReal.is
     const L=real?p._rstat:p._pstat;
     _STATK.forEach(k=>{ p[k]=L?L[k]:null; });
     if(real&&!L) p.gp=0;
+    // Wins Added: his real 2026-27 total so far in Real mode (owner, Nov 18 2026), the carried 2025-26 / projected one otherwise
+    if(p._pwa===undefined){ p._pwa=p.wa; p._pwaC=p._waCarried; }
+    if(real){ p.wa=(p._rstat&&p._rstat.wa!=null)?p._rstat.wa:null; p._waCarried=false; p._waReal=p.wa!=null; } else { p.wa=p._pwa; p._waCarried=p._pwaC; p._waReal=false; }
   }); }
 function seasonShort(yr){ yr=+yr||2027; return (''+(yr-1)).slice(-2)+'-'+(''+yr).slice(-2); }
 function safeHt(h){ h=(''+(h||'')).trim(); return /^\d-\d{1,2}$/.test(h)?h:'—'; }  // guard vs corrupted height strings
@@ -1025,7 +1028,7 @@ const COLS = [
     return `<td class="${c==null?'dim':c>=3?'c4':c>=1?'c3':c<=-3?'c0':c<=-1?'c1':''}">${c==null?'—':(c>0?'+':'')+c}</td>`; }},
   {g:'Value', k:'_mv', l:'Since pre', proj:1, tip:'How far his overall has moved since the preseason', cell:p=>{ const c=p._mv;
     return `<td class="${c==null?'dim':c>=3?'c4':c>=1?'c3':c<=-3?'c0':c<=-1?'c1':''}">${c==null?'—':c===0?'0':(c>0?'▲':'▼')+Math.abs(c)}</td>`; }},
-  {g:'Value', k:'wa', l:'WA', tip:'Wins Added', cell:p=>`<td class="${p._waCarried?'dim':''}"${p._waCarried?' title="2025-26 Wins Added (carried forward)"':''}>${p.wa!=null?(p.wa>=0?'+':'')+Number(p.wa).toFixed(1)+(p._waCarried?'*':''):'—'}</td>`},
+  {g:'Value', k:'wa', l:'WA', tip:'Wins Added (Real: 2026-27 so far; Projected: carried 2025-26)', cell:p=>`<td class="${p._waCarried?'dim':''}"${p._waCarried?' title="2025-26 Wins Added (carried forward)"':p._waReal?` title="2026-27 Wins Added so far · ${p.gp||0} games${p.gp<10?' · early season, less reliable':''}"`:''}>${p.wa!=null?(p.wa>=0?'+':'')+Number(p.wa).toFixed(1)+(p._waCarried?'*':''):'—'}</td>`},
   {g:'Value', k:'nil', l:'NIL', proj:1, tip:'Projected open-market NIL value', cell:p=>`<td>${nilTxt(p.nil)}</td>`},
   {g:'Value', k:'bb', l:'Board', proj:1, tip:'NBA Big Board rank', cell:p=>`<td>${p.bb?'#'+p.bb:'—'}</td>`},
   {g:'Per game', k:'gp', l:'GP', cell:p=>{ const E=(window.TDCReal&&TDCReal.EARLY_G)||10, early=_proj()&&window.TDCReal&&TDCReal.isReal()&&p.gp>0&&p.gp<E;
@@ -1113,7 +1116,7 @@ function renderTable(players){
         <span class="toggle-slider"></span>
       </label>
       <span class="color-key" style="font-size:11px;color:var(--text3);display:inline-flex;align-items:center;gap:7px;">National percentile<span class="ckey-grad"></span>red = low, green = high</span>
-      ${(document.getElementById('seasonFilter')||{}).value==='2027' && has('wa') ? '<span style="font-size:11px;color:var(--text3);margin-left:auto;"><b style="color:var(--text2);">WA*</b> = 2025-26 Wins Added, carried forward</span>' : ''}
+      ${(document.getElementById('seasonFilter')||{}).value==='2027' && has('wa') ? (window.TDCReal&&TDCReal.isReal()?'<span style="font-size:11px;color:var(--text3);margin-left:auto;"><b style="color:var(--text2);">WA</b> = 2026-27 Wins Added so far (season total, grows each game)</span>':'<span style="font-size:11px;color:var(--text3);margin-left:auto;"><b style="color:var(--text2);">WA*</b> = 2025-26 Wins Added, carried forward</span>') : ''}
     </div>
     <div class="sheet-wrap" id="rkSheet" style="--c1:44px;--c2:52px;--c3:200px;">
     <table class="roster-table sheet dense freeze3">

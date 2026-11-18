@@ -35,8 +35,15 @@
     return { _real: true, gp: g, gs: t.gs || 0, mpg: A('min'), ppg: A('pts'), rpg: rd(((+t.oreb || 0) + (+t.dreb || 0)) / g), apg: A('ast'),
       oreb: A('oreb'), dreb: A('dreb'), stl: A('stl'), blk: A('blk'), tovs: A('tov'), pf: A('pf'),
       fgm: A('fgm'), fga: A('fga'), tpm: A('tpm'), tpa: A('tpa'), ftm: A('ftm'), fta: A('fta'),
-      fg_pct: pct(+t.fgm || 0, +t.fga || 0), tp_pct: pct(+t.tpm || 0, +t.tpa || 0), ft_pct: pct(+t.ftm || 0, +t.fta || 0) };
+      fg_pct: pct(+t.fgm || 0, +t.fga || 0), tp_pct: pct(+t.tpm || 0, +t.tpa || 0), ft_pct: pct(+t.ftm || 0, +t.fta || 0),
+      ti40: ti40(t), wa: wa(t) };
   }
+  // OWNED Wins Added on the season's real games (owner, Nov 18 2026): the database seasons' TDC Impact formula
+  // (derived_stats.py) — TI/40 = TI·40/(min+100), WA = (TI/40 − 5)·(min/40)/69.87
+  function tiOf(t) { var n = function (k) { return +t[k] || 0; };
+    return n('pts') + 0.8 * n('oreb') + 0.3 * n('dreb') + 0.7 * n('ast') + 1.4 * n('stl') + 0.9 * n('blk') - 0.5 * (n('fga') - n('fgm')) - 0.35 * (n('fta') - n('ftm')) - n('tov'); }
+  function ti40(t) { var m = +t.min || 0; return m > 0 ? rd(tiOf(t) * 40 / (m + 100)) : null; }
+  function wa(t) { var m = +t.min || 0; if (!(m > 0)) return null; return rd((tiOf(t) * 40 / (m + 100) - 5.0) * (m / 40) / 69.87); }
   function teamRow(name) {
     if (!DOC || !name) return null;
     if (DOC.teams[name]) return DOC.teams[name];
