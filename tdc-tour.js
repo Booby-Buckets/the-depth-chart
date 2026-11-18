@@ -257,12 +257,43 @@
       ];
     })(),
 
-    'compare-players.html': [
-      { sel:'#modePlayers', t:'Players or teams', d:'Two players or two programs side by side. Either can be a current roster or any real season back to 2006-07 — a 2016 Jalen Brunson against a 2026 point guard is a fair comparison because every grade is on one scale.' },
-      { sel:'#si1', t:'Pick your two', d:'Start typing a name. Current players list first; past seasons list below them with the year. Swap flips the sides; Clear starts over.' },
-      { sel:'.cmp-heads', t:'The head-to-head cards', html:bl(G.ovr, 'The archetype tag is his play style (Scoring Guard, Stretch Big, Connector Wing…), found by clustering thousands of player-seasons by how they play.') },
-      { sel:'.compare-section', t:'Reading the sheets', html:'Every section is a row-by-row comparison with the better side highlighted:' + bl('<b>Season stats</b> — the box score, with the D-I average underneath.', '<b>Skill profile</b> — each player\'s percentile wheel at his position.', '<b>Projection vs All-American ceiling</b> — how close his projected line is to a typical All-American at his position.', '<b>Advanced metrics</b> — ' + G.usg + ' ' + G.ts, '<b>Head-to-head matchup</b> — if they guarded each other, who wins, from their offensive and defensive profiles.', '<b>Fit together / chemistry</b> — whether they would work in the same lineup (spacing, overlapping roles).', '<b>Shot charts & shot flow</b> — where each one shoots from and how the shots are created.', '<b>Next-season projection</b> — the model\'s line for the coming year, with a note on how each one was built.', '<b>NIL value</b> and <b>most similar players</b> since 2006.') }
-    ],
+    // Nov 18 2026 short-step walkthrough (same style as team/player/home/rankings). Nothing to point at until two players
+    // are picked, so the walk-through loads an example pair when the page is empty (the reader can clear it after).
+    'compare-players.html': (function(){
+      var T=function(x){ return '<div style="margin-top:8px;font-size:12.5px;"><b>Try:</b> '+x+'</div>'; };
+      var demo=function(){ try{ if(typeof setMode==='function' && typeof mode!=='undefined' && mode!=='players') setMode('players');
+        if(sel.players[0]||sel.players[1]) return;
+        var a=allPlayers.find(function(p){ return /Thomas Haugh/.test(p.name); })||allPlayers[0], b=allPlayers.find(function(p){ return /John Blackwell/.test(p.name); })||allPlayers[1];
+        pick(1,'p',a.id+''); pick(2,'p',b.id+''); }catch(e){} };
+      // tag the first visible element matching sel (optionally containing txt) as #tourCmp, so a step can point at it
+      var tag=function(s,txt){ var o=document.getElementById('tourCmp'); if(o) o.removeAttribute('id');
+        var l=document.querySelectorAll(s); for(var k=0;k<l.length;k++){ var r=l[k].getBoundingClientRect(); if(r.width&&r.height&&(!txt||l[k].textContent.indexOf(txt)>=0)){ l[k].id='tourCmp'; return; } } };
+      var untag=function(){ var o=document.getElementById('tourCmp'); if(o) o.removeAttribute('id'); };
+      var tab=function(name,s,txt){ return function(){ untag(); demo(); var b=[].slice.call(document.querySelectorAll('.cp-tabs button')).filter(function(x){ return x.textContent.trim()===name; })[0]; if(b) b.click(); setTimeout(function(){ tag(s||'.cp-panel',txt); },1200); }; };
+      var on=function(s,txt){ return function(){ untag(); setTimeout(function(){ tag(s,txt); },300); }; };
+      return [
+      { sel:'#__intro', t:'Compare', html:'Any two players, or any two teams, side by side. This walk-through points at one thing at a time.' },
+      { sel:'#modePlayers', t:'Players or teams', html:'Switch between comparing players and comparing teams.' },
+      { sel:'#si1', t:'Pick the first', html:'Start typing a name. This season\'s players come first; past seasons follow with the year.' },
+      { sel:'#si2', t:'Pick the second', html:'Same here. Any two seasons work: every grade is on one scale.' },
+      { sel:'.compare-section.show .cp-head', alt:'#compareSection', t:'Head to head', html:'We loaded two players as an example. Each side shows team, position, class, height and games.'+T('<b>✕ Clear</b> under a name to pick your own.'), before:demo },
+      { sel:'.compare-section.show .cp-ovr', t:'OVR', html:'Each player\'s grade from 0 to 99, built from his own stats.' },
+      { sel:'[onclick*="swapSides"]', t:'Swap', html:'Flip the two sides.' },
+      { sel:'.cp-tabs', t:'The tabs', html:'Overview, Stats, Shooting, Fit &amp; matchup, Value and Similar.' },
+      { sel:'#tourCmp', t:'Season', html:'Compare this season so far, last season or our projection.', before:tab('Overview','.cp-seg') },
+      { sel:'#tourCmp', t:'Who leads', html:'How many stats each player wins.', before:on('.cp-sum') },
+      { sel:'#tourCmp', t:'Stat by stat', html:'Each row is one stat; the better number is highlighted.', before:on('.cp-row') },
+      { sel:'#tourCmp', t:'Outlook', html:'The level we project each player at this season.', before:on('.ol-grid') },
+      { sel:'#tourCmp', t:'Skill profile', html:'Scoring, shooting, efficiency and more, each as a percentile vs D-I.', before:on('.petal-grid') },
+      { sel:'#tourCmp', t:'Stats', html:'Season lines, per-40 numbers, advanced metrics and percentile charts.', before:tab('Stats','.compare-section-head','Season lines') },
+      { sel:'#tourCmp', t:'Shooting', html:'Shot charts, shot profile by zone, shot flow and Shot Genome, side by side.', before:tab('Shooting','.compare-section-head','Shot Charts') },
+      { sel:'#tourCmp', t:'Fit & matchup', html:'How they would match up guarding each other, and how they fit together.', before:tab('Fit & matchup','.compare-section-head','Head-to-Head') },
+      { sel:'#tourCmp', t:'Value', html:'What each player\'s production is worth on the NIL market.', before:tab('Value','.compare-section-head','NIL') },
+      { sel:'#tourCmp', t:'Similar', html:'The past players most like each of them.', before:tab('Similar','.compare-section-head','Similar') },
+      { sel:'#modeTeams', t:'Teams', html:'The same head-to-head for two programs: ratings, four factors, shot charts and Shot Genome.', before:tab('Overview') },
+      { sel:'.tdc-explain', alt:'#__end', t:'That\'s it', html:'Tap <b>?</b> any time to run this again.' }
+      ];
+    })(),
 
     // Nov 18 2026 short-step walkthrough (same style as team/player/home): one thing lit per step, a line or two each.
     'roster.html': (function(){
