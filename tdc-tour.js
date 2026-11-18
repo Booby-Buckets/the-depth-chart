@@ -264,11 +264,43 @@
       { sel:'.compare-section', t:'Reading the sheets', html:'Every section is a row-by-row comparison with the better side highlighted:' + bl('<b>Season stats</b> — the box score, with the D-I average underneath.', '<b>Skill profile</b> — each player\'s percentile wheel at his position.', '<b>Projection vs All-American ceiling</b> — how close his projected line is to a typical All-American at his position.', '<b>Advanced metrics</b> — ' + G.usg + ' ' + G.ts, '<b>Head-to-head matchup</b> — if they guarded each other, who wins, from their offensive and defensive profiles.', '<b>Fit together / chemistry</b> — whether they would work in the same lineup (spacing, overlapping roles).', '<b>Shot charts & shot flow</b> — where each one shoots from and how the shots are created.', '<b>Next-season projection</b> — the model\'s line for the coming year, with a note on how each one was built.', '<b>NIL value</b> and <b>most similar players</b> since 2006.') }
     ],
 
-    'roster.html': [
-      { sel:'#seasonFilter', t:'The Player Database', html:'Every player in Division I, for any season since 2011-12, with filters that stack:' + bl('<b>Season</b> — 2026-27 shows every player\'s <i>projected</i> line; past seasons show real stats.', '<b>Conference / Team / Position / Class / Height</b>.', '<b>Grade</b> — minimum OVR.', '<b>WA</b> — minimum Wins Added.', '⚙ <b>Query Builder</b> — stat thresholds like "3P% over 38 and at least 5 attempts".') },
-      { sel:'#searchInput', t:'Search', d:'Any player, any season, by name.' },
-      { sel:'#tableContainer', t:'The table', html:bl('<b>OVR</b> — ' + G.ovr, '<b>WA</b> — ' + G.wa, 'Then the box score: minutes, points, rebounds, assists, shooting, steals, blocks, turnovers.', '<b>TEND</b> columns — shot tendency: how ball-dominant he projects to be (100 = the #1 option), and the share of his shots that are threes, twos and free throws.') + 'Click any column header to sort. The colour toggle shades every cell by national percentile — deeper blue is better.' }
-    ],
+    // Nov 18 2026 short-step walkthrough (same style as team/player/home): one thing lit per step, a line or two each.
+    'roster.html': (function(){
+      var T=function(x){ return '<div style="margin-top:8px;font-size:12.5px;"><b>Try:</b> '+x+'</div>'; };
+      var col=function(n){ return '#rkSheet thead th:nth-child('+n+')'; };
+      return [
+      { sel:'#__intro', t:'Player Rankings', html:'Every D-I player, ranked by our grade, with filters for any season back to 2011-12. This walk-through points at one thing at a time.' },
+      { sel:'#phBand', t:'The pool', html:'How many players and teams are in the rankings right now.' },
+      { sel:'#moversHost', t:'Risers and fallers', html:'The players whose grade has moved most since preseason.'+T('tap a name to open his page.') },
+      { sel:'#seasonFilter', t:'Season', html:'This season, or any season back to 2011-12.' },
+      { sel:'#statModeHost', t:'Real or Projected', html:'<b>Real</b> = games played this season. <b>Projected</b> = our full-season estimate.' },
+      { sel:'#searchInput', t:'Search', html:'Find any player by name.' },
+      { sel:'#confFilter', t:'Conference', html:'Show one league.' },
+      { sel:'#lvFilter', t:'Level', html:'High-, mid- or low-major players only.' },
+      { sel:'#teamFilter', t:'Team', html:'One team\'s roster.'+T('pick <b>My team</b> once you follow one.') },
+      { sel:'#posFilter', t:'Position', html:'PG, SG, SF, PF or C, plus combo spots.' },
+      { sel:'#styleFilter', t:'Style', html:'Playing style from how he actually plays: 3&amp;D Wing, Lead Creator, Rim Protector and more.' },
+      { sel:'#yrFilter', t:'Class', html:'Freshmen through seniors.' },
+      { sel:'#typeFilter', t:'Type', html:'Returners, transfers or incoming freshmen.' },
+      { sel:'#gradeFilter', t:'Grade band', html:'Only players in one OVR range, like 80–89.' },
+      { sel:'#waFilter', t:'Wins added', html:'Only players worth at least that many wins.' },
+      { sel:'#queryToggle', t:'Query Builder', html:'Build your own filter on any stat, like 3P% above 40.' },
+      { sel:'#countEl', t:'Count', html:'How many players match your filters.'+T('<b>Clear</b> resets them all.') },
+      { sel:'#colPick', t:'Columns', html:'Choose which columns show, or pick a preset view.' },
+      { sel:'#csvN', alt:'#colPick', t:'Download', html:'Save the table as a spreadsheet (subscribers).' },
+      { sel:'#rkSheet', t:'The rankings', html:'Best first. Green cells beat most D-I players; red trail them. The top 25 are free to everyone.'+T('tap a player to open his page.') },
+      { sel:col(2), t:'OVR', html:'His grade from 0 to 99, built from his own stats. 90+ All-American, 80s high-major starter, 70s rotation.' },
+      { sel:col(10), opt:1, t:'Style', html:'His playing style badge.' },
+      { sel:col(11), t:'Chg', html:'How his grade changed from last season.' },
+      { sel:col(12), t:'Since pre', html:'How far his real games have moved his grade since preseason.' },
+      { sel:col(13), opt:1, t:'WA', html:'Wins added: how many wins he is worth over a freely available replacement.' },
+      { sel:col(14), opt:1, t:'NIL', html:'What his production is worth on the open market. An estimate, not what he is paid.' },
+      { sel:col(15), opt:1, t:'Board', html:'His spot on our NBA draft big board, if he is on it.' },
+      { sel:col(16), opt:1, t:'Box score', html:'From here: games, points, rebounds, assists, minutes and shooting.' },
+      { sel:col(2), t:'Sort any column', html:'Tap a column heading to sort by it; tap again to flip.' },
+      { sel:'.tdc-explain', alt:'#__end', t:'That\'s it', html:'Tap <b>?</b> any time to run this again.' }
+      ];
+    })(),
 
     'team-stats.html': [
       { sel:'#searchBox', t:'Projected team stats', d:'Every rostered program\'s projected per-game line for the coming season. Type a school to find it, or filter by conference. The pool selector changes who the percentile shading compares against.' },
@@ -616,6 +648,8 @@
   function place(){
     var el = STEPS[i] ? target(STEPS[i]) : null;
     if (STEPS[i] && (STEPS[i].tab || STEPS[i].before)) { prep(STEPS[i]); el = target(STEPS[i]); }
+    // opt: a step about something only some layouts show (a column phones hide) is skipped there
+    if (!visible(el) && STEPS[i] && STEPS[i].opt && i < STEPS.length - 1) { i++; place(); return; }
     if (!visible(el)) {
       // the target may still be loading (a tab panel, data that arrives late): look again, and if it never
       // shows (an empty state, a gated or not-yet-built section) still EXPLAIN the step — centred, no
