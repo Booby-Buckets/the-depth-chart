@@ -276,7 +276,7 @@
       { sel:'#modePlayers', t:'Players or teams', html:'Switch between comparing players and comparing teams.' },
       { sel:'#si1', t:'Pick the first', html:'Start typing a name. This season\'s players come first; past seasons follow with the year.' },
       { sel:'#si2', t:'Pick the second', html:'Same here. Any two seasons work: every grade is on one scale.' },
-      { sel:'.compare-section.show .cp-head', alt:'#compareSection', t:'Head to head', html:'We loaded two players as an example. Each side shows team, position, class, height and games.'+T('<b>✕ Clear</b> under a name to pick your own.'), before:demo },
+      { sel:'.compare-section.show .cp-head', alt:'#compareSection', t:'Head to head', html:'We loaded two players as an example. Each side shows team, position, class, height and games.'+T('<b>Clear</b> to pick your own two.'), before:demo },
       { sel:'.compare-section.show .cp-ovr', t:'OVR', html:'Each player\'s grade from 0 to 99, built from his own stats.' },
       { sel:'[onclick*="swapSides"]', t:'Swap', html:'Flip the two sides.' },
       { sel:'.cp-tabs', t:'The tabs', html:'Overview, Stats, Shooting, Fit &amp; matchup, Value and Similar.' },
