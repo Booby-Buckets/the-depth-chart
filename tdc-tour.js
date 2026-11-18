@@ -362,11 +362,36 @@
       ];
     })(),
 
-    'analytics.html': [
-      { sel:'#leadersView', t:'Leaders', html:'National leaderboards on the site\'s own metrics for any season:' + bl(G.wa, '<b>TI (Total Impact)</b> — a player\'s per-40-minute value on both ends, from his box-score rates, adjusted for the strength of the league.', G.usg, 'Plus the standard scoring, rebounding and shooting boards.'), before:function(){ try{ setView('leaders'); }catch(e){} } },
-      { sel:'#explorerView', t:'Stat Explorer', d:'Pick any stat for the X axis and any other for the Y axis and every player becomes a dot. Use it to find the outliers — the high-usage, high-efficiency players in the top right, or the volume shooters who don\'t make them.', before:function(){ try{ setView('explorer'); }catch(e){} } },
-      { sel:'#landscapeView', t:'League Landscape', html:bl('<b>Contender quadrant</b> — offense against defense; the top right is where champions live.', '<b>Scoring bubbles</b> — who scores and how efficiently.', '<b>March drop-offs</b> — which profiles tend to fall early in the tournament.'), before:function(){ try{ setView('landscape'); }catch(e){} } }
-    ],
+    // Nov 18 2026 short-step walkthrough (same style as the other pages): one thing lit per step, a line or two each.
+    'analytics.html': (function(){
+      var T=function(x){ return '<div style="margin-top:8px;font-size:12.5px;"><b>Try:</b> '+x+'</div>'; };
+      var col=function(n){ return '#statsTable thead th:nth-child('+n+')'; };
+      var sv=function(v){ return function(){ try{ setView(v); }catch(e){} }; };
+      return [
+      { sel:'#__intro', t:'Player Advanced Stats', html:'Every D-I player, any season, with the advanced numbers analysts use. This walk-through points at one thing at a time.', before:sv('leaders') },
+      { sel:'#vtLeaders', t:'Three views', html:'<b>Stats</b> (the table), <b>Stat Explorer</b> (a chart) and <b>League Landscape</b> (the big picture).' },
+      { sel:'.tdc-season-select', t:'Season', html:'Pick any season.' },
+      { sel:'#searchBox', t:'Find a player', html:'Type a name to find his row.' },
+      { sel:'#posSel', t:'Position', html:'Guards, wings or bigs only.' },
+      { sel:'#minGp', t:'Minimum games', html:'Hide players with too few games to trust.' },
+      { sel:'#leadersEl', t:'Leaders', html:'The national leader in each headline stat.'+T('tap <b>Top 50 →</b> for the full list.') },
+      { sel:'#apSheet', t:'The table', html:'Green cells beat most D-I players; red trail them.'+T('tap a column heading to sort, or a player to open his page.') },
+      { sel:col(5), t:'TDC', html:'His grade from 0 to 99, built from his own stats.' },
+      { sel:col(12), opt:1, t:'TS%', html:'True shooting: points per shot, counting twos, threes and free throws.' },
+      { sel:col(14), opt:1, t:'USG%', html:'The share of his team\'s plays he finishes while on the floor. 20% is average.' },
+      { sel:col(20), opt:1, t:'TI', html:'Total Impact: his value on both ends per 40 minutes and per 100 possessions.' },
+      { sel:col(22), opt:1, t:'WA', html:'Wins added over a freely available replacement. OWA and DWA split it into offense and defense.' },
+      { sel:col(25), opt:1, t:'Shot columns', html:'Shot value over expected, Look Quality (how good his shots are), shot-making and self-creation.' },
+      { sel:'#expX', t:'Stat Explorer', html:'Pick a stat for each axis: every player becomes a dot.'+T('X = USG%, Y = TS% to find high-volume, efficient scorers.'), before:sv('explorer') },
+      { sel:'#expMode', t:'Scatter or density', html:'Every player as a dot, or grouped so crowded areas are easy to read.' },
+      { sel:'#expChart', t:'The chart', html:'The outliers are the interesting ones: top right beats the field on both stats.'+T('hover a dot for the player.') },
+      { sel:'#confTalent', t:'Conference talent', html:'Every league ranked by the strength of its teams.', before:sv('landscape') },
+      { sel:'#lsQuadrant', t:'Contender quadrant', html:'Offense against defense for every team. Top right is where champions live.' },
+      { sel:'#shotTrends', t:'How D-I shoots', html:'How the whole sport\'s shot mix has changed season to season.' },
+      { sel:'#nilMovers', t:'NIL market movers', html:'Players the market under- or over-rates against our value.' },
+      { sel:'.tdc-explain', alt:'#__end', t:'That\'s it', html:'Tap <b>?</b> any time to run this again.', before:sv('leaders') }
+      ];
+    })(),
 
     'betting.html': [
       { sel:'#blTabs', t:'Betting Lab', html:'Everything you can bet on, priced by our model. One tab per market:' + bl('<b>Games</b> and <b>Props</b> — the slate and the prop board.', '<b>Futures</b>, <b>Conferences</b>, <b>Win totals</b>, <b>Awards</b> — our odds from 2,000 simulated seasons.', '<b>Trends</b> and <b>Tools</b> — real closing-line records, a matchup calculator and a prop explorer.') },
