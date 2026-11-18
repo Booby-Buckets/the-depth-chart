@@ -405,12 +405,32 @@
       { sel:'#rosterfit', t:'Roster fit', d:'How this year\'s roster suits the way he coaches — where the personnel matches his habits and where it doesn\'t.' }
     ],
 
-    'conference.html': [
-      { sel:'#tiles', t:'The league in numbers', d:'Composite record, the best team by Power Rating, the champion and the NCAA results for the season you picked. The season selector goes back to 2006-07.' },
-      { sel:'#stand', t:'Standings', html:bl('<b>Conf / Overall</b> — league and full records.', G.power, '<b>Seed</b> — NCAA tournament seed, and how far they went.') + 'Click a team to open its HQ.' },
-      { sel:'#awards', t:'Conference awards', d:'Player of the year, defensive player, rookie, sixth man and the all-conference teams — projected for the coming season from the players\' projected value, actual for past seasons.' },
-      { sel:'#coaches', t:'Coaches', d:'Every head coach in the league with his grade and style.' }
-    ],
+    // Nov 18 2026 short-step walkthrough (same style as the other pages): one thing lit per step, a line or two each.
+    'conference.html': (function(){
+      var T=function(x){ return '<div style="margin-top:8px;font-size:12.5px;"><b>Try:</b> '+x+'</div>'; };
+      var col=function(n){ return '#stand thead th:nth-child('+n+')'; };
+      var tile=function(n){ return '#tiles > :nth-child('+n+')'; };
+      return [
+      { sel:'#__intro', t:'Conference page', html:'One league in one place: standings, its tournament, top players, coaches and all-conference teams. This walk-through points at one thing at a time.' },
+      { sel:'.tdc-season-select', t:'Season', html:'This season\'s projection, or any past season back to 2006-07.' },
+      { sel:tile(1), alt:'#tiles', t:'The favourite', html:'The team we rate best in the league, and its national rank.' },
+      { sel:tile(3), alt:'#tiles', t:'How deep it is', html:'How many of its teams rank in the national top 25. The next tile counts the top 50.' },
+      { sel:tile(5), alt:'#tiles', t:'League strength', html:'The average Power Rating of its teams: higher means a tougher league.' },
+      { sel:'#stand', t:'Standings', html:'Every team, best first: projected league and overall record.'+T('tap a team to open its page.') },
+      { sel:col(5), t:'Reg. title', html:'Chance to win the regular-season title.' },
+      { sel:col(6), t:'1 seed', html:'Chance to be the top seed in the conference tournament.' },
+      { sel:col(7), t:'Tourney', html:'Chance to win the conference tournament, and the automatic NCAA bid.' },
+      { sel:col(8), opt:1, t:'Proj Power', html:'Points better than an average D-I team. The gap between two teams is the spread.' },
+      { sel:'#ctbox', t:'Conference tournament', html:'The real bracket, site and dates, filled in with our projected results.' },
+      { sel:'#ctTbl', t:'Round by round', html:'Each team\'s chance to reach every round, and to win it all.' },
+      { sel:'#topTbl', t:'Top players', html:'The best players in the league by projected OVR.'+T('tap a name to open his page.') },
+      { sel:'#newTbl', t:'Top newcomers', html:'The best transfers and freshmen who joined the league, and where they came from.' },
+      { sel:'#pwr', t:'Power ratings', html:'Every team\'s rating as a bar, so you can see the gaps between them.' },
+      { sel:'#coTbl', t:'Coaches', html:'Every head coach: seasons, record, style and our coach grade.'+T('tap a coach for his profile.') },
+      { sel:'#allconf', t:'All-conference', html:'Our projected all-conference teams, from this season\'s rosters.' },
+      { sel:'.tdc-explain', alt:'#__end', t:'That\'s it', html:'Tap <b>?</b> any time to run this again.' }
+      ];
+    })(),
 
     'awards.html': [
       { sel:'#seasonPills', t:'Season', d:'Projected awards for the coming season, or the real winners of any past season.' },
