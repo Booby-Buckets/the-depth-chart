@@ -14,6 +14,7 @@
     { key: 'overview', label: 'Overview', tabs: ['overview'] },
     { key: 'stats', label: 'Stats', tabs: ['stats'] },
     { key: 'trends', label: 'Trends', tabs: ['trends'] },
+    { key: 'comps', label: 'Comps', tabs: ['comps'] },
     { key: 'dna', label: 'DNA', tabs: ['playerdna'] },
     // owner (Nov 18 2026): On/Off and Stat Line Shift are separate buttons
     { key: 'onoff', label: 'On/Off', tabs: ['onoff'] },

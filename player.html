@@ -630,7 +630,28 @@
     .ovc-fc .v{font-weight:800;font-size:14px;font-variant-numeric:tabular-nums;}
     .ovc-fc .k{font-size:7.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-top:2px;}
     .ovc-bottom{background:linear-gradient(120deg,rgba(45,224,166,.05),var(--bg2));border-color:rgba(45,224,166,.2);} .ovc-bottom p{font-size:12.5px;color:var(--text);line-height:1.55;} .ovc-bottom p b{color:var(--accent);font-weight:700;}
-    .ovc-cp{display:flex;align-items:center;gap:9px;padding:6px 0;} .ovc-cp + .ovc-cp{border-top:1px solid var(--border);}
+    .ovc-cp{display:flex;align-items:center;gap:9px;padding:6px 0;color:inherit;text-decoration:none;} a.ovc-cp:hover .cn{text-decoration:underline;}
+    .ovc-cp .cav{overflow:hidden;} .ovc-cp .cav img,.cpf img{width:100%;height:100%;object-fit:cover;object-position:50% 12%;}
+    .ovc-cpall{display:block;width:100%;margin-top:10px;text-align:center;}
+    .cpf{width:30px;height:30px;border-radius:50%;flex-shrink:0;overflow:hidden;background:var(--bg3);display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:var(--text3);}
+    .cpf.sm{width:22px;height:22px;font-size:8.5px;vertical-align:middle;margin-right:8px;} .cpf.lg{width:46px;height:46px;font-size:13px;}
+    .cp-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px;}
+    .cp-basis{font-size:12px;font-weight:700;color:var(--text2);display:flex;align-items:center;gap:8px;}
+    .cp-sub{font-weight:500;color:var(--text3);letter-spacing:0;text-transform:none;margin-left:8px;font-size:11px;}
+    .cp-ocs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
+    .cp-oc{border:1px solid var(--border);border-radius:12px;background:var(--panel,var(--bg2));padding:12px 14px;}
+    .cp-oc.c{border-top:3px solid var(--green);} .cp-oc.m{border-top:3px solid var(--accent);} .cp-oc.f{border-top:3px solid var(--red);}
+    .cp-ocl{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
+    .cp-ocw{display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;} .cp-ocw .cn{font-weight:800;font-size:14px;} .cp-ocw .cs{font-size:11px;color:var(--text3);}
+    .cp-ocr{display:flex;flex-direction:column;gap:3px;margin-top:10px;font-size:12px;color:var(--text2);} .cp-ocr b{color:var(--text);font-variant-numeric:tabular-nums;}
+    .cp-ocr em,.cp-tbl td.up,.cp-tbl td.dn{font-style:normal;font-weight:800;} .cp-ocr em.up,.cp-tbl td.up{color:var(--green);} .cp-ocr .dim{color:var(--text3);} .cp-ocr em.dn,.cp-tbl td.dn{color:var(--red);}
+    .cp-note{font-size:12px;color:var(--text3);margin:8px 0 2px;line-height:1.5;} .cp-note b{color:var(--text);}
+    .cp-tbl tbody tr{cursor:pointer;} .cp-tbl tbody tr.sel td{background:color-mix(in srgb,var(--accent) 12%,transparent);}
+    .cp-sbs{border:1px solid var(--border);border-radius:12px;background:var(--panel,var(--bg2));padding:14px;}
+    .cp-who{display:flex;align-items:center;gap:14px;flex-wrap:wrap;} .cp-who>div:not(.cp-vs),.cp-who>a{display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;}
+    .cp-who b{font-size:14px;} .cp-who span{font-size:11px;color:var(--text3);margin-left:6px;} .cp-vs{font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;}
+    .cp-bar{display:inline-block;width:120px;max-width:40vw;height:7px;border-radius:4px;background:var(--bg3);overflow:hidden;vertical-align:middle;} .cp-bar i{display:block;height:100%;border-radius:4px;}
+    @media(max-width:700px){ .cp-ocs{grid-template-columns:1fr;} .cp-bar{width:52px;} } .ovc-cp + .ovc-cp{border-top:1px solid var(--border);}
     .ovc-cp .cav{width:28px;height:28px;border-radius:8px;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;color:var(--text2);flex:0 0 auto;}
     .ovc-cp .cn{font-size:12.5px;font-weight:700;} .ovc-cp .cs{font-size:10px;color:var(--text3);} .ovc-cp .cm{margin-left:auto;font-family:var(--mono);font-weight:800;font-size:13px;color:var(--accent);}
     .ovc-muted{font-size:11.5px;color:var(--text3);padding:4px 0;}
@@ -3809,17 +3830,18 @@ function renderOvcFooter(){
 // Score the comp pool against an ARBITRARY stat line, so the Overview's
 // "Plays like" can follow the season dropdown instead of being locked to the
 // projected line. Reuses the same helpers (and cached pool) as the Scouting tab.
-function _ovcCompsFor(line, teamName, wide){
+function _ovcCompsFor(line, teamName, wide, limit){
+  limit=limit||6;
   if(!line || !(typeof _allHistory!=='undefined' && _allHistory && _allHistory.length)) return null;
   var grp=_norm3(player.position);
   var pool=(_allHistory||[]).filter(function(q){
-    return q.name && q.name!==player.name && (parseFloat(q.mpg)||0)>=10
+    return q.name && !_cpIsSelf(q) && (parseFloat(q.mpg)||0)>=10
         && (wide || _norm3(q.position)===grp);
   }).map(function(q){ return {p:q, ht:_htIn(q.height)}; });
   // With ~50k seasons on file an empty result means the position filter was too
   // narrow (or the position is blank), not that nobody compares — so widen once
   // rather than telling the reader there are no comps.
-  if(!pool.length) return wide ? [] : _ovcCompsFor(line, teamName, true);
+  if(!pool.length) return wide ? [] : _ovcCompsFor(line, teamName, true, limit);
   var pf=_feat(line), ph=_htIn(player.height);
   var nAll=_normStats(pool.map(function(c){return _feat(c.p);}).concat([pf]));
   var archName=archetypeInfo(Object.assign({position:player.position}, line)).name;
@@ -3833,13 +3855,14 @@ function _ovcCompsFor(line, teamName, wide){
     return {p:c.p,d:d};
   }).sort(function(a,b){return a.d-b.d;});
   var seenN={},seenY={},out=[];
-  for(var i=0;i<scored.length&&out.length<6;i++){
+  for(var i=0;i<scored.length&&out.length<limit;i++){
     var q=scored[i].p, yr=q.season_year||0;
     if(seenN[q.name]) continue;
     if((seenY[yr]||0)>=2) continue;
     seenN[q.name]=true; seenY[yr]=(seenY[yr]||0)+1;
-    out.push({name:q.name, season:yr, team:q.team, pos:q.position, m:_sim(scored[i].d)});
+    out.push({name:q.name, season:yr, team:q.team, pos:q.position, espn_id:q.espn_id, m:_sim(scored[i].d), p:q});
   }
+  out._pf=pf; out._n=nAll; out._ph=ph; out._tier=pTier;
   return out;
 }
 function _ovcSyncComps(val,x){
@@ -3857,14 +3880,111 @@ function _ovcSyncComps(val,x){
   if(c && !c.length) c=_ovcCompsFor(line,tn,true);      // last resort: ignore position
   if(c && c.length){ window._ovcCompCache[key]=c; window._ovcComps=c; fillOvcComps(); }
 }
+// ── shared bits for comp lists: headshot (or initials) + a link to that player's page ──
+function _cpFace(eid,nm,cls){
+  var ini=String(nm||'').replace(/\s+(Jr|Sr|II|III|IV)\.?$/,'').split(/\s+/).map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
+  var ph=eid&&window.tdcShowPhotos&&window.tdcShowPhotos();   // photos for everyone since Nov 16 2026; gated so it can flip back
+  return '<span class="'+(cls||'cpf')+'">'+(ph?'<img src="https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/'+eid+'.png" alt="" loading="lazy" onerror="this.parentNode.textContent=\''+ini+'\'">':ini)+'</span>';
+}
+// the player himself is never his own comp (his history rows can carry a suffix his page name lacks: "Patrick Ngongba II")
+function _cpIsSelf(q){
+  var me=window._playerEspn||(player&&player.espn_id); if(me&&q.espn_id&&String(q.espn_id)===String(me)) return true;
+  var n=function(x){ return String(x||'').toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b\.?/g,'').replace(/[^a-z]/g,''); };
+  return n(q.name)===n(player&&player.name);
+}
+function _cpLast(n){ return String(n||'').replace(/\s+(Jr|Sr|II|III|IV)\.?$/,'').split(/\s+/).slice(-1)[0]; }
+function _cpHref(x){ return x.espn_id?('player.html?espn='+x.espn_id):('player.html?name='+encodeURIComponent(x.name||'')); }
+
+// ── COMPS TAB (owner, Nov 2026): the full comparison list behind the Overview's "Plays like", a side-by-side
+// breakdown for any comp, and floor / typical / ceiling = what his closest comps did the season after. ──
+var _CP_LBL={ppg:'PPG',pts36:'Pts / 36',reb36:'Reb / 36',ast36:'Ast / 36',stl36:'Stl / 36',blk36:'Blk / 36',tpar:'3PA rate',ftr:'FT rate',usg:'Usage / 36',fg_pct:'FG%',tp_pct:'3P%',ft_pct:'FT%',ts:'TS%'};
+var _CP={basis:null, sel:0, list:null};
+function _cpLater(){   // espn id (or name) -> every season on file, for "what happened next"
+  if(window._cpLaterIdx) return window._cpLaterIdx;
+  var m={}; (_allHistory||[]).forEach(function(q){ var k=q.espn_id?'e'+q.espn_id:'n'+q.name; (m[k]=m[k]||[]).push(q); });
+  return (window._cpLaterIdx=m);
+}
+function _cpNext(x){
+  var rows=_cpLater()[x.espn_id?'e'+x.espn_id:'n'+x.name]||[], yr=+x.season;
+  var later=rows.filter(function(q){ return +q.season_year>yr; }).sort(function(a,b){ return a.season_year-b.season_year; });
+  var nx=later.filter(function(q){ return +q.season_year===yr+1; })[0]||null;
+  var best=later.slice().sort(function(a,b){ return (+b.ppg||0)-(+a.ppg||0); })[0]||null;
+  return {next:nx, best:best};
+}
+function _cpLine(q){ return q?((+q.ppg||0).toFixed(1)+' / '+(+q.rpg||0).toFixed(1)+' / '+(+q.apg||0).toFixed(1)):'—'; }
+function _cpBasisOpts(){
+  var o=[['proj','2026-27 projected']];
+  if(window._live27&&_live27.gp) o.push(['2027','2026-27 so far']);
+  (careerHistory||[]).slice().sort(function(a,b){return b.season_year-a.season_year;}).forEach(function(r){ if(r.ppg!=null&&(+r.mpg||0)>=10&&!o.some(function(x){return x[0]===String(r.season_year);})) o.push([String(r.season_year),_seasonLbl2(r.season_year)]); });
+  return o;
+}
+function _cpLineFor(v){
+  if(v==='proj') return {line:playerProjLine(), team:player.team};
+  if(v==='2027'&&window._live27) return {line:_live27, team:_live27.team||player.team};
+  var r=(careerHistory||[]).filter(function(s){ return String(s.season_year)===v; }).sort(function(a,b){return (+b.gp||0)-(+a.gp||0);})[0];
+  return r?{line:r, team:r.team}:{line:playerProjLine(), team:player.team};
+}
+async function renderCompsTab(){
+  var host=document.getElementById('compsContent'); if(!host) return;
+  if(!(_allHistory&&_allHistory.length)){
+    host.innerHTML='<div class="ui-empty">Finding similar players across every season since 2011-12…</div>';
+    try{ await Promise.resolve(renderArchetype()); }catch(e){}
+    if(!(_allHistory&&_allHistory.length)){ host.innerHTML='<div class="ui-empty">Could not load the comparison pool. <button class="ovc-complink" onclick="_archDone=false;_allHistory=null;renderCompsTab()">Retry</button></div>'; return; }
+  }
+  var opts=_cpBasisOpts(), has=function(v){ return opts.some(function(o){return o[0]===v;}); };
+  if(!_CP.basis||!has(_CP.basis)){ var ov=(document.getElementById('ovrSeasonSel')||{}).value; _CP.basis=has(ov)?ov:opts[0][0]; }   // opens on the Overview's season, so "Plays like" leads the list
+  var B=_cpLineFor(_CP.basis), L=_ovcCompsFor(B.line,B.team,false,25);
+  if(L&&!L.length) L=_ovcCompsFor(B.line,B.team,true,25);
+  _CP.list=L||[]; if(_CP.sel>=_CP.list.length) _CP.sel=0;
+  if(!_CP.list.length){ host.innerHTML='<div class="ui-empty">No close historical comps for this line.</div>'; return; }
+  var basisSel='<select class="exp-sel" onchange="_CP.basis=this.value;_CP.sel=0;renderCompsTab()">'+opts.map(function(o){ return '<option value="'+o[0]+'"'+(o[0]===_CP.basis?' selected':'')+'>'+o[1]+'</option>'; }).join('')+'</select>';
+  // floor / typical / ceiling (owner: "best version of this player, worst version"): his 25 closest comps ranked by the
+  // best college season each one ever had. Next-season change alone left most cards empty, since the closest comps
+  // are often players who went pro.
+  var sg=function(v){ return (v>0?'+':'')+v.toFixed(1); };
+  var prod=function(q){ return (+q.ppg||0)+0.5*(+q.rpg||0)+0.7*(+q.apg||0); };
+  var out=_CP.list.map(function(x){ var rows=_cpLater()[x.espn_id?'e'+x.espn_id:'n'+x.name]||[x.p];
+    var best=rows.slice().sort(function(a,b){ return prod(b)-prod(a); })[0]||x.p, n=_cpNext(x).next;
+    return {x:x, b:best, n:n, pk:prod(best), dp:n?(+n.ppg||0)-(+x.p.ppg||0):null}; }).sort(function(a,b){ return b.pk-a.pk; });
+  var had=out.filter(function(o){ return o.dp!=null; }), up=had.filter(function(o){ return o.dp>0; }).length;
+  var card=function(o,lab,cls){ if(!o) return '';
+    var same=+o.b.season_year===+o.x.season;
+    return '<div class="cp-oc '+cls+'"><div class="cp-ocl">'+lab+'</div><a class="cp-ocw" href="'+_cpHref(o.x)+'">'+_cpFace(o.x.espn_id,o.x.name,'cpf lg')+'<div><div class="cn">'+o.x.name+'</div><div class="cs">'+(o.x.team||'')+' · '+_seasonLbl2(o.x.season)+' · '+o.x.m+'% match</div></div></a>'
+      +'<div class="cp-ocr"><span>Comp season <b>'+_cpLine(o.x.p)+'</b></span>'
+      +'<span>Best season <b>'+_cpLine(o.b)+'</b> · '+(same?'the same year':_seasonLbl2(o.b.season_year)+(o.b.team&&o.b.team!==o.x.team?' · '+o.b.team:''))+'</span>'
+      +(o.n?'<span>Next season <b>'+_cpLine(o.n)+'</b> <em class="'+(o.dp>=0?'up':'dn')+'">'+sg(o.dp)+' PPG</em></span>':'<span class="dim">No next D-I season on file</span>')+'</div></div>'; };
+  var oc='<div class="cp-ocs">'+card(out[0],'Ceiling','c')+card(out[Math.floor(out.length/2)],'Typical','m')+card(out[out.length-1],'Floor','f')+'</div>'
+    +'<div class="cp-note">Ranked by each comp’s best college season (points, plus half his rebounds and 0.7 of his assists). '
+    +(had.length?had.length+' of the '+out.length+' played another D-I season after the comp year, and '+up+' scored more.':'')+'</div>';
+  var rows=_CP.list.map(function(x,i){ var n=_cpNext(x).next, q=x.p, dp=n?(+n.ppg||0)-(+q.ppg||0):null, fg=(+q.fga||0)+0.44*(+q.fta||0), ts=fg>0?(+q.ppg||0)/(2*fg)*100:null;
+    return '<tr class="'+(i===_CP.sel?'sel':'')+'" onclick="_CP.sel='+i+';renderCompsTab()"><td class="rk">'+(i+1)+'</td><td class="l nm"><a href="'+_cpHref(x)+'" onclick="event.stopPropagation()">'+_cpFace(x.espn_id,x.name,'cpf sm')+x.name+'</a></td><td class="l dim">'+_seasonLbl2(x.season)+'</td><td class="l dim">'+(x.team||'')+'</td><td class="l dim">'+(x.pos||'')+'</td>'
+      +'<td><b>'+x.m+'%</b></td><td>'+(+q.ppg||0).toFixed(1)+'</td><td>'+(+q.rpg||0).toFixed(1)+'</td><td>'+(+q.apg||0).toFixed(1)+'</td><td>'+(q.tp_pct!=null?(+q.tp_pct).toFixed(1):'—')+'</td><td>'+(ts!=null?ts.toFixed(1):'—')+'</td>'
+      +'<td>'+(n?(+n.ppg||0).toFixed(1):'—')+'</td><td class="'+(dp==null?'dim':dp>=0?'up':'dn')+'">'+(dp==null?'—':sg(dp))+'</td></tr>'; }).join('');
+  // side by side: every similarity input, his value vs the comp's, and how close (in spreads of the pool)
+  var X=_CP.list[_CP.sel], pf=_CP.list._pf, nA=_CP.list._n, cf=_feat(X.p), pct=function(k){ return k==='ppg'||/36$/.test(k)||k==='usg'; };
+  var fmt=function(k,v){ return v==null?'—':(+v).toFixed(1)+(/^(fg_pct|tp_pct|ft_pct|tpar|ftr|ts)$/.test(k)?'%':''); };
+  var diffs=SIM_KEYS.map(function(k){ return {k:k, z:Math.abs((pf[k]-cf[k])/((nA[k]&&nA[k].sd)||1))}; });
+  var bySim=diffs.slice().sort(function(a,b){return a.z-b.z;}), alike=bySim.slice(0,3).map(function(d){return _CP_LBL[d.k];}), apart=bySim.slice(-2).reverse().map(function(d){return _CP_LBL[d.k];});
+  var brk=diffs.map(function(d){ var c=Math.max(0,Math.round(100-d.z*45));
+    return '<tr><td class="l">'+_CP_LBL[d.k]+'</td><td>'+fmt(d.k,pf[d.k])+'</td><td>'+fmt(d.k,cf[d.k])+'</td><td class="l"><span class="cp-bar"><i style="width:'+c+'%;background:'+(c>=70?'var(--green)':c>=40?'var(--accent)':'var(--red)')+'"></i></span></td></tr>'; }).join('');
+  var hA=_CP.list._ph, hB=_htIn(X.p.height), hf=function(h){ return h?Math.floor(h/12)+'-'+(h%12):'—'; };
+  host.innerHTML='<div class="cp-head"><div class="sec-title" style="margin:0;">Comparisons</div><label class="cp-basis">Compare his '+basisSel+' line</label></div>'
+    +'<div class="arch-sec-h">Floor &amp; ceiling <span class="cp-sub">the best and worst versions among his 25 closest comps</span></div>'+oc
+    +'<div class="arch-sec-h">25 most similar player-seasons <span class="cp-sub">2011-12 to 2025-26 · pick a row for the side-by-side</span></div>'
+    +'<div class="sheet-wrap" style="max-height:none"><table class="sheet dense cp-tbl"><thead><tr><th class="rk">#</th><th class="l">Player</th><th class="l">Season</th><th class="l">School</th><th class="l">Pos</th><th>Match</th><th>PPG</th><th>RPG</th><th>APG</th><th>3P%</th><th>TS%</th><th title="his PPG the season after">Next PPG</th><th title="next season PPG minus that season">Change</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+    +'<div class="arch-sec-h">Side by side <span class="cp-sub">'+player.name+' vs '+X.name+' ('+_seasonLbl2(X.season)+') · '+X.m+'% match</span></div>'
+    +'<div class="cp-sbs"><div class="cp-who"><div>'+_cpFace(player.espn_id||window._playerEspn,player.name,'cpf lg')+'<b>'+player.name+'</b><span>'+hf(hA)+' · '+(player.team||'')+'</span></div><div class="cp-vs">vs</div><a href="'+_cpHref(X)+'">'+_cpFace(X.espn_id,X.name,'cpf lg')+'<b>'+X.name+'</b><span>'+hf(hB)+' · '+(X.team||'')+' · '+_seasonLbl2(X.season)+'</span></a></div>'
+    +'<div class="cp-note" style="margin:10px 0 8px;">Most alike: <b>'+alike.join(', ')+'</b>. Biggest gaps: <b>'+apart.join(', ')+'</b>.</div>'
+    +'<div class="sheet-wrap" style="max-height:none"><table class="sheet dense"><thead><tr><th class="l">What the match uses</th><th>'+_cpLast(player.name)+'</th><th>'+_cpLast(X.name)+'</th><th class="l">How close</th></tr></thead><tbody>'+brk+'</tbody></table></div></div>'
+    +'<div class="cp-note">Similarity blends style and production per 36 minutes, shooting profile, efficiency, height and conference level, with a bonus for the same archetype. Next-season numbers are from player_history.</div>';
+}
 function fillOvcComps(){
   var el=document.getElementById('ovcComps'); if(!el) return;
   var c=window._ovcComps; if(c===undefined) return;      // not computed yet
   if(!c.length){ el.innerHTML='<div class="ovc-muted">No close historical comps.</div>'; return; }
   el.innerHTML=c.slice(0,3).map(function(x){
-    var ini=(x.name||'').split(/\s+/).map(function(w){return w[0];}).join('').slice(0,2).toUpperCase();
-    return '<div class="ovc-cp"><div class="cav">'+ini+'</div><div><div class="cn">'+x.name+'</div><div class="cs">'+(x.team||'')+' · '+_seasonLbl2(x.season)+'</div></div><div class="cm">'+x.m+'%</div></div>';
-  }).join('');
+    return '<a class="ovc-cp" href="'+_cpHref(x)+'">'+_cpFace(x.espn_id,x.name,'cav')+'<div><div class="cn">'+x.name+'</div><div class="cs">'+(x.team||'')+' · '+_seasonLbl2(x.season)+'</div></div><div class="cm">'+x.m+'%</div></a>';
+  }).join('')+'<button class="ovc-complink ovc-cpall" onclick="switchTab(\'comps\')">See all comparisons, floor &amp; ceiling →</button>';
 }
 function loadOvcCompsNow(retry){
   var el=document.getElementById('ovcComps');
@@ -4678,6 +4798,7 @@ function renderPage(){
       <button class="tab-btn active" id="tab-overview" onclick="switchTab('overview')">Overview</button>
       <button class="tab-btn" id="tab-stats" onclick="switchTab('stats')">Stats</button>
       <button class="tab-btn" id="tab-trends" onclick="switchTab('trends')">Trends</button>
+      <button class="tab-btn" id="tab-comps" onclick="switchTab('comps')">Comps</button>
       <button class="tab-btn" id="tab-playerdna" onclick="switchTab('playerdna')">Player DNA</button>
       <button class="tab-btn" id="tab-onoff" onclick="switchTab('onoff')">On/Off</button>
       <div class="tab-grp" data-grp="stats">
@@ -4894,6 +5015,7 @@ function renderPage(){
 
     <!-- BUZZ TAB (headlines + social) -->
     <div class="tab-panel" id="panel-trends"><div id="trendsContent"></div></div>
+    <div class="tab-panel" id="panel-comps"><div id="compsContent"></div></div>
     <div class="tab-panel" id="panel-nil"><div id="nilContent"></div></div>
     <div class="tab-panel" id="panel-betting"><div id="bettingContent"></div></div>
     <div class="tab-panel" id="panel-buzz"><div id="buzzContent"></div></div>
@@ -7365,7 +7487,7 @@ function _tabUrl(id, dflt){ try{ var u=new URL(location.href); if(!id||id===dflt
 function switchTab(t){
   if(t==='rankings') t='percentiles';   // the Rankings tab was removed (Sept 2026); old links land on Percentiles
   _tabUrl(t,'overview');
-  const tabs=['overview','playerdna','stats','trends','shotcharts','shotgenome','shotflow','twin','aftermath','mastery','onoff','scheme','dossier','role','statshift','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
+  const tabs=['overview','playerdna','stats','trends','comps','shotcharts','shotgenome','shotflow','twin','aftermath','mastery','onoff','scheme','dossier','role','statshift','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
   const cur=tabs.map(x=>document.getElementById('panel-'+x)).find(el=>el&&el.classList.contains('active'));
   function activate(id){
     tabs.forEach(x=>{
@@ -7400,6 +7522,7 @@ function switchTab(t){
     if(id==='nil' && !window._nilLoaded){ window._nilLoaded=true; setTimeout(renderNilPlayer,40); }
     if(id==='betting' && !window._bettingLoaded){ window._bettingLoaded=true; setTimeout(renderBetting,40); }
     if(id==='buzz' && !window._buzzLoaded){ window._buzzLoaded=true; setTimeout(renderBuzz,40); }
+    if(id==='comps') renderCompsTab();
     if(id==='trends' && !window._trendsLoaded){ window._trendsLoaded=true; setTimeout(function(){ var p=player||{}; if(window.TDCTrends) TDCTrends.render(document.getElementById('trendsContent'),{espn_id:window._playerEspn||p.espn_id,team:p.team,name:p.name,games:window._live27?window._live27._games:null,proj:(typeof proj!=='undefined'&&proj)?proj:null}); },40); }
     if(id==='portalfit' && !window._portalLoaded){ window._portalLoaded=true; setTimeout(renderPortalFit,40); }
     if(id==='scout'){
@@ -7436,7 +7559,7 @@ var TAB_GATE = {
   scheme:      { tier:'pro', label:'Scheme Lab', blurb:'How this player fits different systems and lineups. Included with Pro — $8.99/mo.' },
   portalfit:   { tier:'pro', label:'Portal Fit', blurb:'Which programs this player best fits, ranked by need, production and coach fit. Included with Pro — $8.99/mo.' }
 };
-var _TABS = ['overview','playerdna','stats','trends','shotcharts','shotgenome','shotflow','twin','aftermath','mastery','onoff','scheme','dossier','role','statshift','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
+var _TABS = ['overview','playerdna','stats','trends','comps','shotcharts','shotgenome','shotflow','twin','aftermath','mastery','onoff','scheme','dossier','role','statshift','devpath','percentiles','scout','nil','betting','buzz','portalfit'];
 function _lockPanel(pnl, g){
   if(!pnl || pnl.__locked) return; pnl.__locked = true;
   pnl.innerHTML = '';
@@ -7744,7 +7867,7 @@ function animateArchFit(){
 async function _fetchHistoryPool(){
   var PG=1000;
   var cols='id,name,season_year,team,position,height,ppg,rpg,apg,stl,blk,tpm,tpa,tovs,'
-          +'mpg,fg_pct,tp_pct,ft_pct,fga,fta';
+          +'mpg,fg_pct,tp_pct,ft_pct,fga,fta,espn_id';
   var base=SB+'/rest/v1/player_history?select='+cols+'&mpg=gte.10&order=id';
   var total=0;
   try{
@@ -7958,7 +8081,7 @@ async function renderArchetype(){
   // Comp pool: real played seasons only (player_history, 2012-2026).
   // Excludes 2026-27 projections from _allCurrent.
   var allPool=[];
-  (_allHistory||[]).filter(function(q){return q.name&&q.name!==player.name&&(parseFloat(q.mpg)||0)>=10&&_norm3(q.position)===grp;})
+  (_allHistory||[]).filter(function(q){return q.name&&!_cpIsSelf(q)&&(parseFloat(q.mpg)||0)>=10&&_norm3(q.position)===grp;})
     .forEach(function(q){allPool.push({p:q,isCur:false,ht:_htIn(q.height)});});
 
   // Normalize z-scores across the pool
@@ -7990,7 +8113,7 @@ async function renderArchetype(){
     seenNames[nm]=true; seenYears[yr]=(seenYears[yr]||0)+1; topComps.push(scored[i]);
   }
   // cache for the Overview "Plays like" box
-  try{ window._ovcComps=topComps.map(function(x){return {name:x.p.name, season:x.p.season_year, team:x.p.team, pos:x.p.position, m:_sim(x.d)};}); if(typeof fillOvcComps==='function') fillOvcComps(); }catch(e){}
+  try{ window._ovcComps=topComps.map(function(x){return {name:x.p.name, season:x.p.season_year, team:x.p.team, pos:x.p.position, espn_id:x.p.espn_id, m:_sim(x.d)};}); if(typeof fillOvcComps==='function') fillOvcComps(); }catch(e){}
 
   function fmt(v){return (v!=null&&v!==''&&!isNaN(v))?Number(v).toFixed(1):'—';}
   function fmtP(v){return (v!=null&&v!==''&&!isNaN(v))?Number(v).toFixed(1)+'%':'—';}
@@ -8211,7 +8334,7 @@ init();
 <script src="tdc-liveplayer.js?v=6"></script>
 <!-- phones: the desktop page (sized by tdc-player-a.css) + the bottom section bar only (Nov 15 2026) -->
 <script>window.TDC_MPLAYER_LITE=1;</script>
-<script src="tdc-mplayer.js?v=27"></script>
+<script src="tdc-mplayer.js?v=28"></script>
 <script src="tdc-trends.js?v=ui4"></script>
 <script>
 /* one anatomy for every stat tab (tdc-panelize.js); the Overview gets the same shape from tdc-player-a.css */
