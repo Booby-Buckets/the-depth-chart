@@ -126,7 +126,7 @@
  * ESPN game id) on the days a player is on the roster and not on IR. Top 3 of each division make the playoffs.
  * PRIVATE, CODE ONLY (owner, Nov 11 2026): your team code alone opens the league (no site account). The code is kept in
  * this browser and sent with every call; cl_data(code) returns the league, the cl_* tables are closed to the site.
- * SQL: scripts/fantasy_cl.sql + fantasy_cl_v2_lock.sql + fantasy_cl_v3_code.sql + fantasy_cl_v4_commish.sql (commissioner
+ * SQL: scripts/fantasy_cl.sql + fantasy_cl_v2_lock.sql + fantasy_cl_v3_code.sql + fantasy_cl_v4_commish.sql + v5 (commissioner
  * records adds/drops on a date for teams not on the site). Every roster player has a Game log: each box line + whether it counted.
  * Projected season = counted stats so far + the site's projected per-game line x counted games left. */
 (function(){
@@ -209,6 +209,8 @@
   const counted=b=>!!(CNT[b.team]&&CNT[b.team].has(String(b.game_id)));
   const irFor=sid=>IR.filter(i=>i.stint_id===sid);
   const onIR=(sid,d)=>irFor(sid).some(i=>i.start_date<=d&&(!i.end_date||i.end_date>d));
+  // his current (or upcoming) IR stretch; a commissioner IR can carry an end date (Nov 17 2026)
+  const curIR=sid=>irFor(sid).find(i=>!i.end_date||i.end_date>TODAY);
   const live=(s,d)=>s.start_date<=d&&(!s.end_date||s.end_date>d);
   const isPG=s=>PG.has(s.player_id);
   // a stint's counted stats: games on his roster days, not on IR, regular season only
@@ -231,8 +233,7 @@
     if(s.end_date&&s.end_date<=TODAY) return 0;
     const played=new Set((BOX[s.espn_id]||[]).map(b=>b.date));
     const from=s.start_date>TODAY?s.start_date:TODAY;
-    const ir=irFor(s.id).find(i=>!i.end_date);
-    return CNTDATES[full].filter(d=>d>=from&&d<=SET.reg_end&&!played.has(d)&&(!s.end_date||d<s.end_date)&&!(ir&&d>=ir.start_date)).length;
+    return CNTDATES[full].filter(d=>d>=from&&d<=SET.reg_end&&!played.has(d)&&(!s.end_date||d<s.end_date)&&!onIR(s.id,d)).length;
   }
   function stintLine(s){
     const a=stintActual(s), left=gamesLeft(s), pg=perGame(s);
@@ -318,11 +319,11 @@
   // ── team ──
   function rosterRows(tid){
     return STINTS.filter(s=>s.team_id===tid&&(!s.end_date||s.end_date>TODAY))
-      .map(s=>({s,L:stintLine(s),ir:irFor(s.id).find(i=>!i.end_date)}))
+      .map(s=>({s,L:stintLine(s),ir:curIR(s.id)}))
       .sort((a,b)=>(!!a.ir-!!b.ir)||(b.L.proj.pts-a.L.proj.pts));
   }
   function playerCell(s,ir){
-    const tags=[isPG(s)?'<span class="pill pg">PG</span>':'', ir?`<span class="pill ir">IR${ir.start_date>TODAY?' '+md(ir.start_date):''}</span>`:'',
+    const tags=[isPG(s)?'<span class="pill pg">PG</span>':'', ir?`<span class="pill ir">IR${ir.start_date>TODAY?' '+md(ir.start_date):''}${ir.end_date?' thru '+md(prevDay(ir.end_date)):''}</span>`:'',
       s.start_date>TODAY?`<span class="pill g">joins ${md(s.start_date)}</span>`:'', s.end_date?`<span class="pill ir">leaves ${md(s.end_date)}</span>`:''].join('');
     const link=s.espn_id?`player.html?espn=${s.espn_id}`:`player.html?name=${encodeURIComponent(s.name)}&team=${encodeURIComponent(s.school)}`;
     return `<td class="l nm">${lgImg(s.school)}<a href="${link}">${esc(s.name)}</a>${tags}<span class="sub">${esc(s.school)}${s.how==='pickup'?' · pickup':''}${s.team_id&&s.how!=='draft'?' · counts from '+md(s.start_date):''}${s.team_id&&s.end_date?' · counted through '+md(prevDay(s.end_date)):''}${s.team_id?`<button class="gl-t" data-gl="${s.id}">Game log (${(BOX[s.espn_id]||[]).length}) ▾</button>`:''}</span></td>`;
@@ -347,8 +348,8 @@
     const gone=STINTS.filter(s=>s.team_id===t.id&&s.end_date&&s.end_date<=TODAY).map(s=>({s,a:stintActual(s)}));
     const today=STINTS.filter(s=>s.team_id===t.id&&live(s,TODAY)&&!onIR(s.id,TODAY)&&(CNTDATES[FULL[s.school]]||[]).includes(TODAY));
     const nextWeek=(()=>{ const out={}; const end=new Date(TODAY+'T12:00:00'); end.setDate(end.getDate()+7); const e=end.toISOString().slice(0,10);
-      STINTS.filter(s=>s.team_id===t.id&&(!s.end_date||s.end_date>TODAY)&&!irFor(s.id).find(i=>!i.end_date)).forEach(s=>{
-        (CNTDATES[FULL[s.school]]||[]).filter(d=>d>=TODAY&&d<e).forEach(d=>{ (out[d]=out[d]||[]).push(s.name); }); });
+      STINTS.filter(s=>s.team_id===t.id&&(!s.end_date||s.end_date>TODAY)).forEach(s=>{
+        (CNTDATES[FULL[s.school]]||[]).filter(d=>d>=TODAY&&d<e&&!onIR(s.id,d)).forEach(d=>{ (out[d]=out[d]||[]).push(s.name); }); });
       return Object.entries(out).sort(); })();
     const mv=MOVES.filter(m=>m.team_id===t.id).slice(0,12);
     return `<div class="stats4"><div class="stat"><span>Division ${t.division}</span><b>${pos}${['st','nd','rd'][pos-1]||'th'}</b></div>
@@ -365,7 +366,7 @@
       ${nextWeek.length?`<div class="sec-h">Counted games, next 7 days</div><div class="sheet-wrap"><table class="sheet dense"><tbody>
         ${nextWeek.map(([d,l])=>`<tr><td class="l"><b>${md(d)}</b></td><td class="l">${l.map(esc).join(', ')}</td></tr>`).join('')}</tbody></table></div>`:''}
       ${mv.length?`<div class="sec-h">Moves</div><div class="sheet-wrap"><table class="sheet dense"><tbody>
-        ${mv.map(m=>`<tr><td class="l">${esc({add:'Added',drop:'Dropped',ir:'IR',activate:'Activated',trade_in:'Traded for',trade_out:'Traded away'}[m.kind]||m.kind)}</td><td class="l">${esc(m.player)}</td><td>${['drop','trade_out'].includes(m.kind)?'counted through '+md(prevDay(m.eff)):'counts from '+md(m.eff)}</td></tr>`).join('')}</tbody></table></div>`:''}`;
+        ${mv.map(m=>`<tr><td class="l">${esc({add:'Added',drop:'Dropped',ir:'IR',activate:'Activated',trade_in:'Traded for',trade_out:'Traded away'}[m.kind]||m.kind)}</td><td class="l">${esc(m.player)}</td><td>${['drop','trade_out'].includes(m.kind)?'counted through '+md(prevDay(m.eff)):m.kind==='ir'?'out from '+md(m.eff):'counts from '+md(m.eff)}</td></tr>`).join('')}</tbody></table></div>`:''}`;
   }
   function viewTeam(id){
     const t=TEAMS.find(x=>x.id===id); if(!t) return shell('teams','<div class="empty">No such team.</div>');
@@ -392,7 +393,7 @@
   function counts(tid){
     const open=STINTS.filter(s=>s.team_id===tid&&!s.end_date);
     const eff=(()=>{ const d=new Date(TODAY+'T12:00:00'); d.setDate(d.getDate()+1); return d.toISOString().slice(0,10); })();
-    return {active:open.filter(s=>!onIR(s.id,eff)).length, ir:open.filter(s=>irFor(s.id).some(i=>!i.end_date)).length,
+    return {active:open.filter(s=>!onIR(s.id,eff)).length, ir:open.filter(s=>!!curIR(s.id)).length,
       pg:open.filter(isPG).length, used:STINTS.filter(s=>s.team_id===tid&&s.how==='pickup').length};
   }
   function manageBar(t){
@@ -454,11 +455,13 @@
   // ── commissioner: record a move for a team that doesn't use the site, on the date it happened ──
   function commishHTML(t){
     return `<details class="ps cm" id="cmD"><summary><b>Commissioner: record a move</b><span class="nx">for teams not on the site</span></summary><div class="form">
-      <p class="cl-note" style="margin-top:0">Takes effect right away, no request. <b>Dropped</b> on the date: his games through that date still count for the team. <b>Added</b> on the date: only his games after that date count. Adding uses one of the team's ${SET.pickups} pickups. Backdating is fine.</p>
+      <p class="cl-note" style="margin-top:0">Takes effect right away, no request. <b>Dropped</b> on the date: his games through that date still count for the team. <b>Added</b> on the date: only his games after that date count. <b>IR</b> on the date: his games through it count, then none until the day after "IR through". Adding uses one of the team's ${SET.pickups} pickups. Backdating is fine.</p>
       <div class="pick"><div><div class="cl-note" style="margin:0 0 4px">Team</div><select class="fs" id="cmTeam" style="width:100%">${TEAMS.map(x=>`<option value="${x.id}"${x.id===t.id?' selected':''}>${esc(x.name)}</option>`).join('')}</select></div>
         <div><div class="cl-note" style="margin:0 0 4px">Date of the move</div><input class="fi" type="date" id="cmDate" value="${TODAY}" style="width:100%"></div>
         <div><div class="cl-note" style="margin:0 0 4px">Add (optional)</div>${faPickerHTML('cm')}</div>
-        <div><div class="cl-note" style="margin:0 0 4px">Drop (optional)</div><select class="fs" id="cmDrop" style="width:100%">${cmDropOpts(t.id)}</select></div></div>
+        <div><div class="cl-note" style="margin:0 0 4px">Drop (optional)</div><select class="fs" id="cmDrop" style="width:100%">${cmDropOpts(t.id)}</select></div>
+        <div><div class="cl-note" style="margin:0 0 4px">Put on IR (optional)</div><select class="fs" id="cmIR" style="width:100%">${cmDropOpts(t.id)}</select></div>
+        <div><div class="cl-note" style="margin:0 0 4px">IR through (blank = until activated)</div><input class="fi" type="date" id="cmIRU" style="width:100%"></div></div>
       <div class="cl-note" id="cmSum" style="margin:10px 0 0"></div>
       <div class="row" style="margin-top:10px"><button class="btn" id="cmSend">Record move</button></div></div></details>`;
   }
@@ -466,18 +469,19 @@
   function wireCommish(t){
     const D=document.getElementById('cmD'); if(!D) return;
     D.addEventListener('toggle',function(){ if(this.open) wireFA('cm'); },{once:true});
-    const team=document.getElementById('cmTeam'), date=document.getElementById('cmDate'), drop=document.getElementById('cmDrop'), q=document.getElementById('cmQ'), sum=document.getElementById('cmSum');
+    const team=document.getElementById('cmTeam'), date=document.getElementById('cmDate'), drop=document.getElementById('cmDrop'), q=document.getElementById('cmQ'), sum=document.getElementById('cmSum'), irs=document.getElementById('cmIR'), iru=document.getElementById('cmIRU');
     const nextDay=d=>{ const x=new Date(d+'T12:00:00'); x.setDate(x.getDate()+1); return x.toISOString().slice(0,10); };
     const say=()=>{ const d=date.value; if(!d){ sum.textContent=''; return; } const dn=drop.value?stName(drop.value):'', an=q.dataset.pid?q.dataset.name:'';
-      sum.innerHTML=[dn?`<b>${esc(dn)}</b>: games through ${md(d)} count`:'', an?`<b>${esc(an)}</b>: games from ${md(nextDay(d))} count`:''].filter(Boolean).join(' · '); };
-    team.addEventListener('change',()=>{ drop.innerHTML=cmDropOpts(+team.value); say(); });
-    [date,drop].forEach(x=>x.addEventListener('change',say)); D.addEventListener('click',()=>setTimeout(say,0));
+      const irn=irs.value?stName(irs.value):'';
+      sum.innerHTML=[irn?`<b>${esc(irn)}</b>: IR from ${md(nextDay(d))}${iru.value?' through '+md(iru.value):''}`:'',dn?`<b>${esc(dn)}</b>: games through ${md(d)} count`:'', an?`<b>${esc(an)}</b>: games from ${md(nextDay(d))} count`:''].filter(Boolean).join(' · '); };
+    team.addEventListener('change',()=>{ drop.innerHTML=cmDropOpts(+team.value); irs.innerHTML=cmDropOpts(+team.value); say(); });
+    [date,drop,irs,iru].forEach(x=>x.addEventListener('change',say)); D.addEventListener('click',()=>setTimeout(say,0));
     document.getElementById('cmSend').addEventListener('click',async e=>{
-      const b=e.target, tid=+team.value, d=date.value, dr=drop.value?+drop.value:null, add=q.dataset.pid?+q.dataset.pid:null;
-      if(!d) return fail('Pick the date of the move.'); if(!add&&!dr) return fail('Pick a player to add or drop.');
-      if(!confirm(`Record for ${tName(tid)}:\n`+[dr?`Drop ${stName(dr)} — his games through ${md(d)} count`:'',add?`Add ${q.dataset.name} — his games from ${md(nextDay(d))} count`:''].filter(Boolean).join('\n'))) return;
+      const b=e.target, tid=+team.value, d=date.value, dr=drop.value?+drop.value:null, add=q.dataset.pid?+q.dataset.pid:null, ir=irs.value?+irs.value:null;
+      if(!d) return fail('Pick the date of the move.'); if(!add&&!dr&&!ir) return fail('Pick a player to add, drop or put on IR.');
+      if(!confirm(`Record for ${tName(tid)}:\n`+[ir?`IR ${stName(ir)} from ${md(nextDay(d))}${iru.value?' through '+md(iru.value):''}`:'',dr?`Drop ${stName(dr)} — his games through ${md(d)} count`:'',add?`Add ${q.dataset.name} — his games from ${md(nextDay(d))} count`:''].filter(Boolean).join('\n'))) return;
       b.disabled=true;
-      try{ await rpc('cl_commish_move',{p_team:tid,p_date:d,p_add:add,p_add_espn:add&&q.dataset.espn?+q.dataset.espn:null,p_drop:dr});
+      try{ await rpc('cl_commish_move',{p_team:tid,p_date:d,p_add:add,p_add_espn:add&&q.dataset.espn?+q.dataset.espn:null,p_drop:dr,p_ir:ir,p_ir_until:ir&&iru.value?iru.value:null});
         await refresh(); route(); flash('Recorded for '+tName(tid)+'.'); }
       catch(err){ b.disabled=false; fail(err.message); }
     });
@@ -638,13 +642,13 @@
   function viewSchedule(tid){
     const id=tid||(ME&&ME.id)||(TEAMS[0]&&TEAMS[0].id), t=TEAMS.find(x=>x.id===id);
     const ros=STINTS.filter(s=>s.team_id===id&&(!s.end_date||s.end_date>TODAY));
-    const blocks=ros.map(s=>{ const P=playerSchedule(s), ir=irFor(s.id).find(i=>!i.end_date);
+    const blocks=ros.map(s=>{ const P=playerSchedule(s), ir=curIR(s.id);
       const nx=P.next?`next ${md(P.next.date)} ${P.next.site==='A'?'@':P.next.site==='N'?'vs':'vs'} ${esc(oppName(P.next.opp))}`:'season done';
       return `<details class="ps"><summary><b>${lgImg(s.school)}${esc(s.name)}</b>${isPG(s)?'<span class="pill pg">PG</span>':''}${ir?'<span class="pill ir">IR</span>':''}
         <span class="cl-note" style="margin:0">${esc(s.school)} · ${P.w}-${P.l} in counted games · ${P.left} left</span><span class="nx">${nx}</span></summary>
         <div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Date</th><th class="l">Opponent</th><th class="l">Result</th><th>PTS / REB / AST</th></tr></thead><tbody>${P.rows.map(x=>x.html).join('')}</tbody></table></div></details>`; }).join('');
     // by date: who plays when, from today on
-    const byDay={}; ros.forEach(s=>{ if(irFor(s.id).find(i=>!i.end_date)) return; (CNTG[FULL[s.school]]||[]).forEach(g=>{ if(g.date>=TODAY&&!resultFor(FULL[s.school],g.id)) (byDay[g.date]=byDay[g.date]||[]).push(s.name); }); });
+    const byDay={}; ros.forEach(s=>{ (CNTG[FULL[s.school]]||[]).forEach(g=>{ if(g.date>=TODAY&&!onIR(s.id,g.date)&&!resultFor(FULL[s.school],g.id)) (byDay[g.date]=byDay[g.date]||[]).push(s.name); }); });
     shell('schedule',`<div class="row" style="margin-bottom:10px"><select class="fs" id="schT">${TEAMS.map(x=>`<option value="${x.id}"${x.id===id?' selected':''}>${esc(x.name)}</option>`).join('')}</select>
         <span class="cl-note" style="margin:0">Tap a player for his full counted schedule. W/L = his school's result.</span></div>
       ${blocks||'<div class="empty">No players.</div>'}
