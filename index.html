@@ -12,7 +12,7 @@
   <script src="tdc-glossary.js?v=14"></script>
   <script src="tdc-freshman.js?v=pub37"></script>
   <script src="tdc-injury.js?v=5"></script>
-  <script src="tdc-reallines.js?v=7"></script>
+  <script src="tdc-reallines.js?v=8"></script>
   <script src="tdc-projgrade.js?v=disp1"></script>
   <script src="tdc-rating.js?v=5"></script>
   <meta charset="UTF-8"/>
@@ -2075,11 +2075,33 @@ function updateSortHeaders(){
 }
 // Real / Projected filter for the 2026-27 box columns (PPG, FG%, rebounds...). The rating, efficiency and record columns are
 // the same in both: a team that hasn't played shows dashes in Real.
+// REAL 2026-27 (owner, Nov 18 2026: "do the same for the team rankings"): in Real mode the efficiency columns are this
+// season's opponent-adjusted ORtg/DRtg/Net (real_lines adj), Shot luck is this season's (real eFG minus Look Quality, eFG
+// points), and Look Quality / Shot-Making / Creation come back from the 2026-27 Shot Genome. Projected mode = the projection.
+let _ixSG27=null;
+const _ixSG27P=fetch('scripts/data/shot_genome_teams_2027.json').then(r=>r.ok?r.json():null).then(d=>{ const m={}; ((d&&d.teams)||[]).forEach(t=>{ m[(t.team||'').toLowerCase().trim()]=t; }); _ixSG27=m; if(typeof allTeams!=='undefined'&&allTeams.length&&window.TDCReal&&TDCReal.isReal()){ allTeams.forEach(t=>{ delete t._rb; }); applyFilters(); } }).catch(()=>{ _ixSG27={}; });
+const _IX_TIPS={};
 function _ixApplyMode(){ const on=curSeason===2027&&window.TDCReal; const lab=document.getElementById('statModeLab'); if(lab) lab.style.display=(curSeason===2027)?'':'none';
-  if(!on) return; const real=TDCReal.isReal(), F=['ppg','oppg','fg','tp','ft','rpg','apg','topg','spg','bpg','orpg','drpg','ato'];
-  allTeams.forEach(t=>{ if(!t._pb){ t._pb={}; F.forEach(k=>t._pb[k]=t[k]); const L=TDCReal.team(t.name);
-      t._rb=L?{ppg:L.ppg,oppg:L.opp_ppg,fg:L.fg_pct,tp:L.tp_pct,ft:L.ft_pct,rpg:L.rpg,apg:L.apg,topg:L.tovs,spg:L.stl,bpg:L.blk,orpg:L.oreb,drpg:L.dreb,ato:L.tovs>0?Math.round(L.apg/L.tovs*10)/10:0}:{}; }
-    const B=real?t._rb:t._pb; F.forEach(k=>{ t[k]=B[k]||0; }); }); }
+  if(!on) return; const real=TDCReal.isReal(), F=['ppg','oppg','fg','tp','ft','rpg','apg','topg','spg','bpg','orpg','drpg','ato','ortg','drtg','net','shotluck','sglq','sgsm','sgcr'];
+  const NUL={ortg:1,drtg:1,net:1,shotluck:1,sglq:1,sgsm:1,sgcr:1};
+  allTeams.forEach(t=>{ if(!t._pb){ t._pb={}; F.forEach(k=>t._pb[k]=t[k]); }
+    if(!t._rb){ const L=TDCReal.team(t.name), R=TDCReal.teamRaw&&TDCReal.teamRaw(t.name), a=R&&R.adj, sg=_ixSG27&&_ixSG27[(t.name||'').toLowerCase().trim()];
+      const efg=R&&R.fga>0?100*(R.fgm+0.5*R.tpm)/R.fga:null, lq=sg&&sg.off?sg.off.lq:null;
+      t._rb=L?{ppg:L.ppg,oppg:L.opp_ppg,fg:L.fg_pct,tp:L.tp_pct,ft:L.ft_pct,rpg:L.rpg,apg:L.apg,topg:L.tovs,spg:L.stl,bpg:L.blk,orpg:L.oreb,drpg:L.dreb,ato:L.tovs>0?Math.round(L.apg/L.tovs*10)/10:0,
+        ortg:a?a.o:null, drtg:a?a.d:null, net:a?Math.round((a.o-a.d)*10)/10:null,
+        shotluck:(efg!=null&&lq!=null)?Math.round((efg-lq)*10)/10:null,
+        sglq:lq, sgsm:sg&&sg.off?sg.off.smAdj:null, sgcr:sg&&sg.crAdjPg!=null?sg.crAdjPg:null}:{}; }
+    const B=real?t._rb:t._pb; F.forEach(k=>{ t[k]=NUL[k]?(B[k]!=null?B[k]:null):(B[k]||0); }); });
+  // header tooltips say which season the numbers are
+  document.querySelectorAll('th[data-col="shotluck"],th[data-col="sglq"],th[data-col="sgsm"],th[data-col="sgcr"],th[data-sort="ortg"],th[data-sort="drtg"],th[data-sort="net"]').forEach(th=>{
+    const k=th.getAttribute('data-col')||th.getAttribute('data-sort'); if(_IX_TIPS[k]==null) _IX_TIPS[k]=th.getAttribute('title')||'';
+    th.setAttribute('title', real?({shotluck:'Shot luck, 2026-27 so far: real effective FG% minus Look Quality (what an average D-I shooter would shoot on these looks), in eFG points. Positive = making more than the looks deserve; early in the season it swings a lot.',
+      sglq:'Look Quality, 2026-27 so far: the eFG% an average D-I shooter would post on this team\'s real shot diet.',
+      sgsm:'Shot-Making, 2026-27 so far: points added over an average shooter on these looks, per 100 shots, adjusted for competition.',
+      sgcr:'Creation, 2026-27 so far: expected points the team\'s passing generates per game.',
+      ortg:'Offensive rating, 2026-27 so far: points per 100 possessions, adjusted for opponent and venue (preseason counted as 8 games).',
+      drtg:'Defensive rating, 2026-27 so far: points allowed per 100 possessions, adjusted for opponent and venue.',
+      net:'Net rating, 2026-27 so far: ORtg minus DRtg, adjusted.'})[k]||_IX_TIPS[k]:_IX_TIPS[k]); }); }
 if(window.TDCReal){ TDCReal.ready.then(()=>{ TDCReal.control(document.getElementById('statModeHost')); if(allTeams.length) applyFilters(); });
   window.addEventListener('tdc:statmode',()=>{ if(allTeams.length) applyFilters(); }); }
 function applyFilters(animated){
