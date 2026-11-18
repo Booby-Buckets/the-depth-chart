@@ -424,7 +424,11 @@
       var meta = {}; ROWS.forEach(function (R) { meta[R[0]] = R; });
       return { S: S, stat: stat, meta: meta, fill: fill, MIN: MIN_POSS, label: lbl(y),
         luck: function (v) { if (v !== undefined) LUCK = !!v; return LUCK; },
-        pct: function (side, k, v) { var R = meta[k], dir = R ? R[2] : 1; return pctOf(pool(y, S)[side][k], v, dir === 0 ? 1 : dir); } };
+        pct: function (side, k, v) { var R = meta[k], dir = R ? R[2] : 1; return pctOf(pool(y, S)[side][k], v, dir === 0 ? 1 : dir); },
+        // one game (Nov 18 2026): the team's lineup file, and every player's on/off in game gi
+        lab: function (team) { return labFile(y, team); },
+        gamePlayers: function (LB, gi) { return LB.ids.map(function (id, ix) { var on = gameSide(LB, gi, ix, true, S.league);
+          return on ? { id: id, name: LB.names[ix], team: LB.team, g: 1, on: on, off: gameSide(LB, gi, ix, false, S.league), rapm: null } : null; }).filter(Boolean); } };
     });
   }
 
