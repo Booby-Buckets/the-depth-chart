@@ -746,9 +746,10 @@
   function centred(){
     texts();
     var spot = document.getElementById('tdcTourSpot');
-    spot.style.left = (window.innerWidth / 2) + 'px'; spot.style.top = (window.innerHeight / 2) + 'px'; spot.style.width = '0px'; spot.style.height = '0px';
+    var o = W.getBoundingClientRect();
+    spot.style.left = (window.innerWidth / 2 - o.left) + 'px'; spot.style.top = (window.innerHeight / 2 - o.top) + 'px'; spot.style.width = '0px'; spot.style.height = '0px';
     var tip = document.getElementById('tdcTourTip'), tw = Math.min(380, window.innerWidth - 24), th = tip.offsetHeight || 160;
-    tip.style.maxWidth = tw + 'px'; tip.style.left = Math.max(12, (window.innerWidth - tw) / 2) + 'px'; tip.style.top = Math.max(12, (window.innerHeight - th) / 2) + 'px';
+    tip.style.maxWidth = tw + 'px'; tip.style.left = (Math.max(12, (window.innerWidth - tw) / 2) - o.left) + 'px'; tip.style.top = (Math.max(12, (window.innerHeight - th) / 2) - o.top) + 'px';
   }
   function spotlight(el){
     // live content (the scores widget) re-renders on a timer: if the lit element was replaced, find it again
@@ -769,7 +770,10 @@
       var spot = document.getElementById('tdcTourSpot');
       // a target taller than the screen is lit from its top edge (never from above the viewport)
       var sTop = Math.max(r.top, 8), sH = Math.min(r.bottom - sTop, window.innerHeight - sTop - 12);
-      spot.style.left = (r.left - pad) + 'px'; spot.style.top = (sTop - pad) + 'px';
+      // the wrap is position:fixed, but a transformed/zoomed ancestor (phone type scaling on some pages) makes it scroll
+      // with the page: offset everything by where the wrap really is, or the light lands a screen away
+      var o = W.getBoundingClientRect();
+      spot.style.left = (r.left - pad - o.left) + 'px'; spot.style.top = (sTop - pad - o.top) + 'px';
       spot.style.width = (r.width + pad * 2) + 'px'; spot.style.height = (sH + pad * 2) + 'px';
       texts();
       var tip = document.getElementById('tdcTourTip'); var th = tip.offsetHeight || 160, tw = Math.min(380, window.innerWidth - 24);
@@ -777,7 +781,7 @@
       var top = bottom + 14; if (top + th > window.innerHeight - 12) top = Math.max(12, sTop - th - 14);
       if (top + th > window.innerHeight - 12 || top < 12) top = Math.max(12, Math.min(sTop + 24, window.innerHeight - th - 12));   // tall target: tip sits inside its top
       var left = Math.min(Math.max(12, r.left), window.innerWidth - tw - 12);
-      tip.style.maxWidth = tw + 'px'; tip.style.top = top + 'px'; tip.style.left = left + 'px';
+      tip.style.maxWidth = tw + 'px'; tip.style.top = (top - o.top) + 'px'; tip.style.left = (left - o.left) + 'px';
     }
   }
   function next(){ if (i >= STEPS.length - 1) { end(); return; } i++; place(); }
