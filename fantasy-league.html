@@ -164,6 +164,8 @@
   // the Players page (free agents + adds) is only for these teams' logins, or the site owner (owner, Nov 10 2026)
   const PLAYERS_FOR=['Aidan','Mark'];
   const canPlayers=()=>!!((ME&&PLAYERS_FOR.includes(ME.name))||(window.tdcIsOwner&&tdcIsOwner()));
+  // projections (projected final, Projected roster view, projected lines) are for the same people only (owner, Nov 17 2026)
+  const canProj=canPlayers;
   let mode=store.get('cl_mode')||'actual';      // standings: actual | proj
   let rmode=store.get('cl_rmode')||'tot';       // roster: tot | pg | proj
 
@@ -297,12 +299,12 @@
     </tbody></table></div>`;
   }
   function viewStandings(){
-    const proj=mode==='proj';
+    const proj=mode==='proj'&&canProj();
     const d1=table(TEAMS.filter(t=>t.division===1),proj), d2=table(TEAMS.filter(t=>t.division===2),proj), all=table(TEAMS,proj);
     const side=(rows,n)=>`<div class="side"><h4>Division ${n}</h4>
       <div class="m"><span>#1 ${rows[0]?esc(rows[0].t.name):'—'}</span><span class="pill g">bye</span></div>
       <div class="m"><span>#2 ${rows[1]?esc(rows[1].t.name):'—'}</span><span>vs</span><span>#3 ${rows[2]?esc(rows[2].t.name):'—'}</span></div></div>`;
-    shell('st',`<div class="row">${segHTML('stMode',[['actual','Actual'],['proj','Projected final']],mode)}<span class="sp"></span></div>
+    shell('st',`${canProj()?`<div class="row">${segHTML('stMode',[['actual','Actual'],['proj','Projected final']],mode)}<span class="sp"></span></div>`:''}
       <p class="cl-note">${proj?'Projected final: counted stats so far + each player\'s projected line × his school\'s counted games left (current rosters, IR excluded).':'Counted games only. Small numbers are roto points (6 = best in the division).'} Line under #3 = playoff cut.</p>
       <div class="grid2"><div><div class="sec-h">Division 1</div>${stTable(d1,proj,3)}</div><div><div class="sec-h">Division 2</div>${stTable(d2,proj,3)}</div></div>
       <div class="sec-h">Playoff picture</div><div class="brk">${side(d1,1)}${side(d2,2)}</div>
@@ -320,7 +322,7 @@
   function rosterRows(tid){
     return STINTS.filter(s=>s.team_id===tid&&(!s.end_date||s.end_date>TODAY))
       .map(s=>({s,L:stintLine(s),ir:curIR(s.id)}))
-      .sort((a,b)=>(!!a.ir-!!b.ir)||(b.L.proj.pts-a.L.proj.pts));
+      .sort((a,b)=>(!!a.ir-!!b.ir)||(canProj()?b.L.proj.pts-a.L.proj.pts:b.L.a.pts-a.L.a.pts));
   }
   function playerCell(s,ir){
     const tags=[isPG(s)?'<span class="pill pg">PG</span>':'', ir?`<span class="pill ir">IR${ir.start_date>TODAY?' '+md(ir.start_date):''}${ir.end_date?' thru '+md(prevDay(ir.end_date)):''}</span>`:'',
@@ -329,11 +331,11 @@
     return `<td class="l nm">${lgImg(s.school)}<a href="${link}">${esc(s.name)}</a>${tags}<span class="sub">${esc(s.school)}${s.how==='pickup'?' · pickup':''}${s.team_id&&s.how!=='draft'?' · counts from '+md(s.start_date):''}${s.team_id&&s.end_date?' · counted through '+md(prevDay(s.end_date)):''}${s.team_id?`<button class="gl-t" data-gl="${s.id}">Game log (${(BOX[s.espn_id]||[]).length}) ▾</button>`:''}</span></td>`;
   }
   function rosterTable(tid,manage){
-    const rows=rosterRows(tid), m=rmode;
+    const rows=rosterRows(tid), m=rmode==='proj'&&!canProj()?'tot':rmode;
     const head=m==='proj'?'<th>Left</th><th>PTS</th><th>REB</th><th>AST</th>':m==='pg'?'<th>GP</th><th>PPG</th><th>RPG</th><th>APG</th>':'<th>GP</th><th>PTS</th><th>REB</th><th>AST</th>';
     const cells=r=>{ const a=r.L.a;
       if(m==='proj') return `<td>${r.L.left}</td><td>${f0(r.L.proj.pts)}</td><td>${f0(r.L.proj.reb)}</td><td>${f0(r.L.proj.ast)}</td>`;
-      if(m==='pg') return a.gp?`<td>${a.gp}</td><td>${f1(a.pts/a.gp)}</td><td>${f1(a.reb/a.gp)}</td><td>${f1(a.ast/a.gp)}</td>`:`<td>0</td><td colspan="3" class="l" style="color:var(--text3)">proj ${f1(r.L.pg.pts)} / ${f1(r.L.pg.reb)} / ${f1(r.L.pg.ast)}</td>`;
+      if(m==='pg') return a.gp?`<td>${a.gp}</td><td>${f1(a.pts/a.gp)}</td><td>${f1(a.reb/a.gp)}</td><td>${f1(a.ast/a.gp)}</td>`:(canProj()?`<td>0</td><td colspan="3" class="l" style="color:var(--text3)">proj ${f1(r.L.pg.pts)} / ${f1(r.L.pg.reb)} / ${f1(r.L.pg.ast)}</td>`:'<td>0</td><td>—</td><td>—</td><td>—</td>');
       return `<td>${a.gp}</td><td>${a.pts}</td><td>${a.reb}</td><td>${a.ast}</td>`; };
     const act=r=>{ if(!manage) return ''; if(r.s.end_date) return '<td></td>';
       if(pendingFor(r.s.id)) return '<td><span class="pill">pending</span></td>';
@@ -354,10 +356,10 @@
     const mv=MOVES.filter(m=>m.team_id===t.id).slice(0,12);
     return `<div class="stats4"><div class="stat"><span>Division ${t.division}</span><b>${pos}${['st','nd','rd'][pos-1]||'th'}</b></div>
         <div class="stat"><span>PTS</span><b>${f0(T.pts)}</b></div><div class="stat"><span>REB</span><b>${f0(T.reb)}</b></div><div class="stat"><span>AST</span><b>${f0(T.ast)}</b></div></div>
-      <div class="cl-note">Projected final: <b>${f0(T.ppts)} / ${f0(T.preb)} / ${f0(T.past)}</b> · ${T.gp} counted player-games so far${today.length?` · <b>playing today:</b> ${today.map(s=>esc(s.name)).join(', ')}`:''}</div>
+      <div class="cl-note">${canProj()?`Projected final: <b>${f0(T.ppts)} / ${f0(T.preb)} / ${f0(T.past)}</b> · `:''}${T.gp} counted player-games so far${today.length?` · <b>playing today:</b> ${today.map(s=>esc(s.name)).join(', ')}`:''}</div>
       ${manage?manageBar(t):''}
       ${ME&&ME.is_commish?commishHTML(t):''}
-      <div class="sec-h">Roster ${segHTML('rMode',[['tot','Totals'],['pg','Per game'],['proj','Projected']],rmode)}</div>
+      <div class="sec-h">Roster ${segHTML('rMode',[['tot','Totals'],['pg','Per game'],...(canProj()?[['proj','Projected']]:[])],rmode==='proj'&&!canProj()?'tot':rmode)}</div>
       <div id="rTbl">${rosterTable(t.id,manage)}</div>
       ${manage||(ME&&ME.is_commish)?'<div class="msg" id="mMsg"></div>':''}
       ${gone.length?`<div class="sec-h">Former players <span style="text-transform:none;letter-spacing:0;font-weight:600">stats they banked here</span></div>
@@ -529,7 +531,7 @@
     const paint=()=>{ const v=q.value.trim().toLowerCase(); if(v.length<2){ L.innerHTML=''; return; }
       const hits=POOL.filter(p=>!owned.has(p.id)&&(p.name.toLowerCase().includes(v)||p.team.toLowerCase().includes(v))).slice(0,8);
       L.innerHTML=hits.map(p=>{ const pg=perGame({...p,start_date:TODAY,end_date:null,id:-p.id});
-        return `<div class="ck${+q.dataset.pid===p.id?' on':''}" data-pick="${p.id}">${lgImg(p.team)}${esc(p.name)}${PG.has(p.id)?' <span class="pill pg">PG</span>':''}<span class="sp"></span><span class="cl-note" style="margin:0">${esc(p.team)} · ${f1(pg.pts)}/${f1(pg.reb)}/${f1(pg.ast)}</span></div>`; }).join('')||'<div class="cl-note">No free agents match.</div>'; };
+        return `<div class="ck${+q.dataset.pid===p.id?' on':''}" data-pick="${p.id}">${lgImg(p.team)}${esc(p.name)}${PG.has(p.id)?' <span class="pill pg">PG</span>':''}<span class="sp"></span><span class="cl-note" style="margin:0">${esc(p.team)}${canProj()?` · ${f1(pg.pts)}/${f1(pg.reb)}/${f1(pg.ast)}`:''}</span></div>`; }).join('')||'<div class="cl-note">No free agents match.</div>'; };
     q.addEventListener('input',()=>{ delete q.dataset.pid; paint(); });
     L.addEventListener('click',e=>{ const d=e.target.closest('[data-pick]'); if(!d) return; const p=POOL.find(x=>x.id===+d.dataset.pick);
       q.dataset.pid=p.id; q.dataset.espn=p.espn_id||''; q.dataset.name=p.name; q.value=p.name+' — '+p.team; L.innerHTML=''; });
