@@ -15,8 +15,9 @@
 
     // ── record / ranking ──
     record:   "Wins and losses this season.",
-    projseed: "The NCAA tournament seed (1 = best, 16 = worst) this team currently " +
-              "projects to earn.",
+    projseed: "The NCAA tournament seed (1 = best, 16 = worst) this team gets in our projected bracket " +
+              "(the Bracketology page): conference champions get the automatic bids, the best résumés the " +
+              "at-large spots. Bubble = just outside the field or close to it.",
     projrank: "Projected national rank among all Division I teams for the coming season.",
     natrank:  "National rank among all Division I teams, ordered by Power Rating.",
     ncaaseed: "The seed this team was given in the NCAA tournament that season.",
