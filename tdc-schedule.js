@@ -89,7 +89,7 @@
     _loading = Promise.all([
       fetch('scripts/data/schedule_2027.json?v=6').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('scripts/data/situational_model.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch('scripts/data/schedule_extras_2027.json?v=3').then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('scripts/data/schedule_extras_2027.json?v=4').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('scripts/data/team_pace_eff.json?v=8').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('scripts/data/conf_members_2027.json?v=1').then(r => r.ok ? r.json() : null).catch(() => null),
       // results change every night: an hourly query string keeps the offline cache from serving a stale copy
@@ -174,6 +174,12 @@
     }));
   }
 
+  // bracket entries can nest (Nov 17 2026, Players Era 8 placement games): a name, {w:[a,b]} = winner of a vs b,
+  // {l:[a,b]} = loser of it. leaves() = every team it could be; pick() resolves one per sim from the rating draws.
+  function leaves(o) { return typeof o === 'string' ? [o] : o && (o.w || o.l) ? leaves((o.w || o.l)[0]).concat(leaves((o.w || o.l)[1])) : []; }
+  function bracketOpps(ex, prev2Won) { return ex.sides ? ex.sides[prev2Won === false ? 'L' : 'W'] : ex.opps; }
+  function allBracket(ex) { return ex.sides ? ex.sides.W.concat(ex.sides.L) : ex.opps; }
+
   // ── situational features ──────────────────────────────────────────────────
   function restBucket(days) {
     if (days == null) return 'opener';
@@ -255,7 +261,7 @@
       const ex = x.extra || null;
       const homeMe = x.home === team && !x.neutral, awayMe = x.away === team && !x.neutral;
       const venue = x.neutral ? 'N' : homeMe ? 'H' : 'A';
-      const oppName = ex && (ex.opps || ex.pool) ? null : oppOf(x);
+      const oppName = ex && (ex.opps || ex.pool || ex.sides) ? null : oppOf(x);
       const opp = oppName ? (rated(oppName) || FLOOR) : null;
       const mf = myWalk[x.date] || { rest: null, stint: 0 };
       const known = !!(oppName && oppWalk[oppName] && oppWalk[oppName][x.date]);   // ESPN lists the game from their side too
@@ -276,7 +282,7 @@
       const final = res ? { ms: res.home === team ? res.hs : res.as, os: res.home === team ? res.as : res.hs } : null;
       if (final) final.won = final.ms > final.os;
       return { g: x, opp, oppName, venue, venuePts, sit, mf, of, known, restMe, restOpp, stintMe, stintOpp, eff, paceK, final,
-        event: ex && ex.event || '', bracket: ex && ex.bracket ? ex.opps : null, pool: ex && ex.pool || null };
+        event: ex && ex.event || '', bracket: ex && ex.bracket ? allBracket(ex) : null, bex: ex && ex.bracket ? ex : null, pool: ex && ex.pool || null };
     });
 
     // listed games (ESPN or school-site ids) share one coin per sim across both teams' pages
@@ -287,7 +293,7 @@
     });
     // pool of every rated team we might meet (for the per-sim rating draws)
     const names = new Set();
-    rows.forEach(r => { if (r.oppName) names.add(r.oppName); (r.bracket || []).forEach(n => names.add(n)); (r.pool || []).forEach(n => names.add(n)); });
+    rows.forEach(r => { if (r.oppName) names.add(r.oppName); (r.bracket || []).forEach(o => leaves(o).forEach(n => names.add(n))); (r.pool || []).forEach(n => names.add(n)); });
     const pool = {}; names.forEach(n => { pool[n] = rated(n) || Object.assign({ _tau: TAU, _floor: true }, FLOOR); });
 
     // ── Monte Carlo season ──
@@ -300,15 +306,20 @@
       const rMe = strOf(team, me.rating, s, tauMe);
       // non-D-I opponents keep their fixed FLOOR rating (calibrated on its own, backtest_wl.py) — no pull toward the D-I mean
       const rOpp = {}; for (const n in pool) rOpp[n] = pool[n]._floor ? pool[n].rating + TAU * zTeam(s, n) : strOf(n, pool[n].rating, s, pool[n]._tau);
-      let streak = 0, w = 0, cw = 0; const faced = new Set(); let day1Won = null;
+      let streak = 0, w = 0, cw = 0; const faced = new Set(); const res = [];   // res[i] = did we win row i (played or simulated)
+      // one result per pair per sim, so two rows that name the same game agree
+      const pairWin = {}; const pick = o => { if (typeof o === 'string') return o; const pr = (o.w || o.l).map(pick), k = pr.join('|');
+        if (pairWin[k] == null) pairWin[k] = Math.random() < phi(((rOpp[pr[0]] != null ? rOpp[pr[0]] : FLOOR.rating) - (rOpp[pr[1]] != null ? rOpp[pr[1]] : FLOOR.rating)) / SIGMA) ? pr[0] : pr[1];
+        const win = pairWin[k]; return o.w ? win : (win === pr[0] ? pr[1] : pr[0]); };
       for (let i = 0; i < rows.length; i++) {
         const r = rows[i]; let oppName = r.oppName, venuePts = r.venuePts;
-        if (r.final) { if (r.final.won) { wins[i]++; w++; if (r.g.conf) cw++; } continue; }   // already played
-        if (r.bracket) {
-          // day 2 of a 4-team bracket: our day-1 result decides whether we meet the other pair's winner or loser
-          const [a, b] = r.bracket; const pa = phi((rOpp[a] - rOpp[b]) / SIGMA); const aWon = Math.random() < pa;
-          const winner = aWon ? a : b, loser = aWon ? b : a;
-          oppName = day1Won === false ? loser : winner;
+        if (r.final) { res[i] = r.final.won; if (r.final.won) { wins[i]++; w++; if (r.g.conf) cw++; } continue; }   // already played
+        if (r.bex) {
+          // a bracket day: our previous game (played or simulated) decides whether we meet the named game's winner or loser;
+          // `sides` picks which game by the result two games back (day 3 for a team whose day 1 set its side)
+          const [a, b] = bracketOpps(r.bex, res[i - 2]);
+          const winner = pick({ w: [a, b] }), loser = pick({ l: [a, b] });
+          oppName = res[i - 1] === false ? loser : winner;
         } else if (r.pool) {
           const cands = r.pool.filter(n => !faced.has(n)); oppName = cands[Math.floor(Math.random() * cands.length)] || r.pool[0];
         }
@@ -318,7 +329,7 @@
         // one coin per game per sim, read from the LISTED home side: home wins below p_home, so the
         // away page (p_away = 1 − p_home) wins above it — the same game can't go both ways
         const won = r.shared ? (r.meHome ? r.coin[s] < p : r.coin[s] > 1 - p) : Math.random() < p;
-        if (rows[i + 1] && rows[i + 1].bracket && !r.bracket) day1Won = won;   // the game right before a bracket day-2 is our day-1
+        res[i] = won;
         if (oppName) faced.add(oppName);
         if (won) { wins[i]++; w++; if (r.g.conf) cw++; streak = streak > 0 ? streak + 1 : 1; }
         else { streak = streak < 0 ? streak - 1 : -1; }
@@ -339,14 +350,15 @@
     const sn = g.tdcShortSchool || (x => x);
     rows.forEach((r, i) => {
       r.p = wins[i] / SIMS;
-      const oppR = r.opp ? r.opp.rating : (r.bracket ? mean(r.bracket.map(x => pool[x].rating)) : r.pool ? mean(r.pool.map(x => pool[x].rating)) : FLOOR.rating);
+      const bl = r.bracket ? [...new Set([].concat(...r.bracket.map(leaves)))] : null;
+      const oppR = r.opp ? r.opp.rating : (bl ? mean(bl.map(x => pool[x].rating)) : r.pool ? mean(r.pool.map(x => pool[x].rating)) : FLOOR.rating);
       const margin = tame((me.rating - oppR) * STRETCH * r.paceK + r.venuePts + r.sit);
       r.margin = +margin.toFixed(1);
       r.p0 = phi(margin / SIGMA);                                          // point-estimate odds, no rating uncertainty / streak
       const total = r.eff ? r.eff.total : DEFAULT_TOTAL;                   // pace + efficiency total, flat when unknown
       r.total = +total.toFixed(1); r.pace = r.eff ? +r.eff.pace.toFixed(1) : null;
       r.scoreMe = Math.round(total / 2 + margin / 2); r.scoreOpp = Math.round(total / 2 - margin / 2);
-      const oppLabel = r.bracket ? `${sn(r.bracket[0])} / ${sn(r.bracket[1])}` : r.pool ? 'TBD · ' + r.event.replace(/ · day.*/, '') : (r.oppName || 'TBD');
+      const oppLabel = bl ? (bl.length <= 3 ? bl.map(sn).join(' / ') : 'TBD · ' + r.event.replace(/ · .*/, '')) : r.pool ? 'TBD · ' + r.event.replace(/ · day.*/, '') : (r.oppName || 'TBD');
       r.label = oppLabel;
       r.spread = margin >= 0 ? `${sn(team)} −${margin.toFixed(1)}` : `${r.oppName ? sn(r.oppName) : 'Opp'} −${(-margin).toFixed(1)}`;
     });
@@ -581,7 +593,8 @@
     R.rows.forEach(r => {
       const d = dParts(r.g.date);
       const tl = n => `<a href="team.html?team=${encodeURIComponent(sn(n))}" onclick="event.stopPropagation()">${sn(n)}</a>`;
-      const oppTxt = r.bracket ? `${tl(r.bracket[0])} / ${tl(r.bracket[1])}` : r.pool ? 'TBD' : (r.oppName ? tl(r.oppName) : 'TBD');
+      const bl = r.bracket ? [...new Set([].concat(...r.bracket.map(leaves)))] : null;
+      const oppTxt = bl ? (bl.length <= 3 ? bl.map(tl).join(' / ') : 'TBD') : r.pool ? 'TBD' : (r.oppName ? tl(r.oppName) : 'TBD');
       // encodeURIComponent leaves apostrophes alone, and the href sits inside a single-quoted onclick (St. John's)
       const enc = x => encodeURIComponent(x).replace(/'/g, '%27');
       const pv = r.oppName ? `preview.html?team=${enc(team)}&opp=${enc(r.oppName)}&date=${r.g.date}` : '';
@@ -635,7 +648,7 @@
 
   // every rated team's projected record for the rankings table — lighter sims, cached in
   // localStorage until the ratings or the schedule file change
-  const LS_ALL = 'tdc_projrec_v19';   // v19: v18 cached records built from flipped live finals (Nov 1 2026)
+  const LS_ALL = 'tdc_projrec_v20';   // v20: Players Era 8 real bracket (Nov 17 2026). v19: v18 cached records built from flipped live finals (Nov 1 2026)
   async function projectAll(opts) {
     opts = opts || {};
     await load();
