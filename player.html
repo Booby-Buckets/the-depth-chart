@@ -2747,6 +2747,11 @@ async function init(){
             fg3_per_min:_r('tpm'), fg3a_per_min:_r('tpa'), fg3_pct:S('tpa')>0?S('tpm')/S('tpa'):null, ft_per_min:_r('ftm'), fta_per_min:_r('fta'), ft_pct:S('fta')>0?S('ftm')/S('fta'):null,
             orb_per_min:_r('oreb'), drb_per_min:_r('dreb'), stl_per_min:_r('stl'), blk_per_min:_r('blk'), tov_per_min:_r('tov'), pf_per_min:_r('pf') };
           window._live27._advanced={ ts_pct:_tsa>0?S('pts')/(2*_tsa):null };
+          // OWNED Wins Added on his real 2026-27 games (owner, Nov 18 2026: this season's numbers, not last year's), the same
+          // TDC Impact formula the database seasons use (derived_stats.py): TI/40 = TI·40/(min+100), WA = (TI/40 − 5)·min/40/69.87
+          const _ti=S('pts')+0.8*S('oreb')+0.3*S('dreb')+0.7*S('ast')+1.4*S('stl')+0.9*S('blk')-0.5*(S('fga')-S('fgm'))-0.35*(S('fta')-S('ftm'))-S('tov');
+          if(_m>0){ window._live27._advanced.ti40=Math.round(_ti*40/(_m+100)*10)/10; window._live27._advanced.mp=_m;
+            window._live27._advanced.wa=Math.round(((window._live27._advanced.ti40-5.0)*(_m/40)/69.87)*10)/10; window._live27.wa=window._live27._advanced.wa; }
           // the rest of the Advanced row (owner, Nov 12 2026: real 2026-27 stats wherever we have them): usage, rebound,
           // assist, steal, block and turnover rates from his games + his team's and opponents' season totals
           // (real_lines_2027.json via TDCReal.teamRaw), the team totals scaled to the share of games he played
@@ -3239,12 +3244,15 @@ function renderImpact(srcRow, projectedFlag){
       '<div class="imp-card-bar"><i class="impact-fill" style="width:'+Math.max(g.v,2)+'%;background:var(--tc);"></i></div></div>';
   }).join('');
   var _hgWA=document.getElementById('heroWA'); if(_hgWA) _hgWA.textContent=(wa==null)?'—':((wa>0?'+':'')+wa.toFixed(1));
-  var badge=advSeason?((advSeason-1)+'-'+(''+advSeason).slice(2)):'';
+  var badge=advSeason?((advSeason-1)+'-'+(''+advSeason).slice(2)+(+advSeason===2027&&window._live27?' so far · '+_live27.gp+' g'+(_live27.gp<((window.TDCReal&&TDCReal.EARLY_G)||10)?' · early':''):'')):'';
   if(wa==null){ host.innerHTML='<div class="ovc-muted">Wins Added needs a played season.</div>'; return; }
-  var pctl=getPctNat(wa,'wa'), rank=_waAllTimeRank(wa)||1, top=Math.max(1,101-pctl);
-  var wrows=['<tr><td class="l nm">Wins added'+(badge?' <span class="dim">'+badge+'</span>':'')+'</td><td class="'+_hc(pctl)+' strong">'+(wa>0?'+':'')+wa.toFixed(1)+'</td></tr>',
-    '<tr><td class="l nm">All-time rank</td><td>'+ord(rank)+' of '+WA_POOL_N.toLocaleString()+'</td></tr>',
-    '<tr><td class="l nm">Percentile</td><td class="'+_hc(pctl)+'">Top '+(top<=1?'1':top)+'%</td></tr>'];
+  // a season in progress is ranked on its full-season PACE (31 games), not a 4-game total against whole seasons
+  var _live=+advSeason===2027&&window._live27&&_live27.gp>0, rkv=_live?Math.round(wa/_live27.gp*31*10)/10:wa;
+  var pctl=getPctNat(rkv,'wa'), rank=_waAllTimeRank(rkv)||1, top=Math.max(1,101-pctl);
+  var wrows=['<tr><td class="l nm">Wins added'+(badge?' <span class="dim">'+badge+'</span>':'')+'</td><td class="'+_hc(pctl)+' strong">'+(wa>0?'+':'')+wa.toFixed(1)+'</td></tr>'];
+  if(_live) wrows.push('<tr><td class="l nm">Full-season pace <span class="dim">31 games</span></td><td class="'+_hc(pctl)+'">'+(rkv>0?'+':'')+rkv.toFixed(1)+'</td></tr>');
+  wrows.push('<tr><td class="l nm">All-time rank'+(_live?' <span class="dim">at that pace</span>':'')+'</td><td>'+ord(rank)+' of '+WA_POOL_N.toLocaleString()+'</td></tr>',
+    '<tr><td class="l nm">Percentile</td><td class="'+_hc(pctl)+'">Top '+(top<=1?'1':top)+'%</td></tr>');
   if(adv.owa!=null&&adv.owa!=='') wrows.push('<tr><td class="l nm">Offense (OWA)</td><td>'+(+adv.owa>0?'+':'')+(+adv.owa).toFixed(1)+'</td></tr>');
   if(adv.dwa!=null&&adv.dwa!=='') wrows.push('<tr><td class="l nm">Defense (DWA)</td><td>'+(+adv.dwa>0?'+':'')+(+adv.dwa).toFixed(1)+'</td></tr>');
   host.innerHTML=_ovSheet(['Measure','Value'], wrows);
@@ -4010,6 +4018,8 @@ function loadOvcForm(seasonYr){
 function _norm5(pos){ var p=((pos||'')+'').toUpperCase().split(/[\/,\s]/)[0];
   return ({PG:'PG',SG:'SG',CG:'SG',G:'SG',SF:'SF',GF:'SF',F:'PF',PF:'PF',FC:'C',C:'C'})[p]||'SF'; }
 function _curSeasonWA(){
+  // in season: his real 2026-27 Wins Added so far (unless the page is on Projected)
+  if(window._live27&&_live27._advanced&&_live27._advanced.ti40!=null&&!(window.TDCReal&&TDCReal.mode()==='proj')) return _winsAdded(_live27._advanced);
   var a=player&&player._advanced;
   if(a&&a.ti40!=null&&a.ti40!==''&&typeof _winsAdded==='function') return _winsAdded(a);
   var ss=_ovrSeasons(); for(var i=0;i<ss.length;i++){ if(ss[i].wa!=null&&ss[i].wa!=='') return parseFloat(ss[i].wa); }
