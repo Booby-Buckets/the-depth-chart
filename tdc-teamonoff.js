@@ -95,7 +95,7 @@
       return;
     }
     var seasons = (o.seasons || [2024, 2025, 2026, 2027]).slice().sort(), cur = o.season && seasons.indexOf(+o.season) >= 0 ? +o.season : seasons[seasons.length - 1];
-    var want = slug(o.team), SHOWN = o.limit || 0;
+    var want = slug(o.team), SHOWN = o.limit || 0; host._lab = undefined; host._game = o.game || '';
     if (o.sort && !host._sorted) { host._sorted = 1; ST.sort = o.sort; ST.asc = false; }   // a page's starting sort, once
     host.innerHTML = '<div class="ui-empty">Loading on/off…</div>';
     var draw = function () {
@@ -103,11 +103,23 @@
         if (!A) { host.innerHTML = '<div class="ui-empty">Could not load ' + lbl(cur) + '.</div>'; return; }
         if (o.player) { var me = (A.S.players || []).find(function (p) { return String(p.id) === String(o.player); }); want = me ? slug(me.team) : '__none'; }
         var league = !want;
-        var players = (A.S.players || []).filter(function (p) { return (league || slug(p.team) === want) && p.on && p.on.min >= MIN_MIN &&
+        if (!league && host._lab === undefined) {   // the team's lineup file (per game), loaded once per season + team
+          var tp = (A.S.players || []).find(function (p) { return slug(p.team) === want; });
+          host._lab = null; if (tp) { A.lab(tp.team).then(function (LB) { host._lab = LB || null; draw(); }); return; }
+        }
+        var LB = league ? null : host._lab, GI = -1;
+        if (LB && host._game) LB.games.forEach(function (g, i) { if (g[0] + '|' + g[1] === host._game) GI = i; });
+        if (GI < 0) host._game = '';
+        var gname = function (i) { var g = LB.games[i], d = String(g[0]).split('-'); return (+d[1]) + '/' + (+d[2]) + ' ' + (g[2] === 'A' ? '@ ' : 'vs ') + teamOf(g[1]); };
+        var gsel = LB && LB.games.length ? '<select class="ui-input toGame" aria-label="Game" style="font-size:12.5px;padding:5px 8px"><option value="">All games (' + LB.games.length + ')</option>' +
+          LB.games.map(function (g, i) { return i; }).sort(function (a, b) { return String(LB.games[b][0]).localeCompare(String(LB.games[a][0])); })
+            .map(function (i) { var k = LB.games[i][0] + '|' + LB.games[i][1]; return '<option value="' + esc(k) + '"' + (i === GI ? ' selected' : '') + '>' + esc(gname(i)) + '</option>'; }).join('') + '</select>' : '';
+        var ONE = GI >= 0;   // one game: that game's players, no D-I ranks, no RAPM
+        var players = ONE ? A.gamePlayers(LB, GI).filter(function (p) { return !o.filter || o.filter(p); }) : (A.S.players || []).filter(function (p) { return (league || slug(p.team) === want) && p.on && p.on.min >= MIN_MIN &&
           (!o.minPoss || p.on.poss >= o.minPoss) && (!o.minOff || (p.off && p.off.poss >= o.minOff)) && (!o.filter || o.filter(p)); });
         var setDef = SETS.find(function (x) { return x[0] === ST.set; }), cols = setDef[2];
         var bar = '<div class="to-bar">' + (seasons.length > 1 ? seg('y', seasons.map(function (y) { return [y, lbl(y)]; }), cur) : '') +
-          seg('v', VIEWS, ST.view) + seg('s', SETS.map(function (x) { return [x[0], x[1]]; }), ST.set) +
+          gsel + seg('v', VIEWS, ST.view) + seg('s', SETS.map(function (x) { return [x[0], x[1]]; }), ST.set) +
           '<label class="ui-check" title="Sets the team\'s own free-throw shooting and the opponent\'s 3-point and free-throw shooting to the D-I average"><input type="checkbox" class="toLuck"' + (A.luck() ? ' checked' : '') + '> Luck-adjusted</label></div>';
         if (!players.length) { host.innerHTML = bar + '<div class="ui-empty">' + (league ? 'No players match the filter.' : 'No ' + lbl(cur) + ' on/off for this team. It is rebuilt from play-by-play lineups (2023–24 on).') + '</div>'; wire(); return; }
         // RAPM: rank among the D-I pool (Overview only)
@@ -118,8 +130,8 @@
           var a = A.stat(p, 'on', k), b = A.stat(p, 'off', k);
           return ST.view === 'on' ? a : ST.view === 'off' ? b : (a != null && b != null ? a - b : null);
         };
-        var pctOf = function (p, k, v) { return k === 'rapm' ? rapmPct(v) : A.pct(ST.view, k, v); };
-        var C = (ST.set === 'over' ? [['rapm', 'RAPM']] : []).concat(cols);
+        var pctOf = function (p, k, v) { return ONE ? null : k === 'rapm' ? rapmPct(v) : A.pct(ST.view, k, v); };
+        var C = (ST.set === 'over' && !ONE ? [['rapm', 'RAPM']] : []).concat(cols.filter(function (c) { return !(ONE && c[0] === 'crunch'); }));
         if (!C.some(function (c) { return c[0] === ST.sort; }) && ST.sort !== 'min' && ST.sort !== 'name') ST.sort = C[0][0];
         var key = function (p) { return ST.sort === 'min' ? p.on.min : ST.sort === 'name' ? p.name : val(p, ST.sort); };
         players.sort(function (a, b) {
@@ -133,42 +145,44 @@
         if (o.limit && !league) o.limit = 0;
         if (o.limit) players = players.slice(0, SHOWN);
         var SN = shortNames(players);
-        var openP = (A.S.players || []).find(function (p) { return String(p.id) === ST.open; }) || null;
+        var openP = (ONE ? players : (A.S.players || [])).find(function (p) { return String(p.id) === ST.open; }) || null;
         var vName = VIEWS.find(function (v) { return v[0] === ST.view; })[1];
         var head = '<thead><tr><th class="pl" data-k="name">Player</th><th data-k="min" class="' + (ST.sort === 'min' ? 'on' : '') + '">Min</th>' +
           C.map(function (c) { var R = A.meta[c[0]]; var tip = c[0] === 'rapm' ? 'Regularized adjusted plus-minus: net points per 100 he adds after accounting for teammates and opponents' : R ? (R[1] + (R[5] ? ': ' + R[5] : '')) : c[1];
             return '<th data-k="' + c[0] + '" class="' + (ST.sort === c[0] ? 'on' : '') + '" title="' + esc(tip) + '">' + esc(c[1]) + '</th>'; }).join('') + '</tr></thead>';
         var body = players.map(function (p) {
-          var thin = p.on.poss < 300 || !p.off || p.off.poss < 150, open = ST.open === String(p.id);
+          var thin = ONE ? !p.off : (p.on.poss < 300 || !p.off || p.off.poss < 150), open = ST.open === String(p.id);
           var cells = C.map(function (c) {
             var k = c[0], v = val(p, k), R = A.meta[k] || ['rapm', 'RAPM', 1, 1, ''];
             if (v == null) return '<td class="h na">—</td>';
             var pc = R[2] === 0 ? null : pctOf(p, k, v), f = pc == null ? null : A.fill(pc);   // pace / shot mix volume: no good or bad
+            var tc = ONE && f == null && R[2] && ST.view === 'diff' && Math.abs(v) >= 0.05 ? (v * R[2] > 0 ? 'var(--green,#2e8b57)' : 'var(--red,#c0392b)') : '';   // one game: green/red text instead of rank shading
             var signed = ST.view === 'diff' || k === 'rapm' || k === 'net' || k === 'pm' || k === 'crunch' || k === 'pedge' || k === 'sm' || k === 'osm';
             var dec = k === 'pm' ? 0 : R[3], txt = (signed && v > 0 ? '+' : '') + (+v).toFixed(dec) + (ST.view === 'diff' ? '' : (R[4] || ''));
-            return '<td class="h"' + (f ? ' style="background:' + f[0] + ';color:' + f[1] + '"' : '') + ' title="' + esc(R[1]) + ' · ' + vName + ': ' + txt + (pc != null ? ' · ' + pc + 'th percentile among D-I players' : '') + '">' + txt + '</td>';
+            return '<td class="h"' + (f ? ' style="background:' + f[0] + ';color:' + f[1] + '"' : tc ? ' style="color:' + tc + '"' : '') + ' title="' + esc(R[1]) + ' · ' + vName + ': ' + txt + (pc != null ? ' · ' + pc + 'th percentile among D-I players' : '') + '">' + txt + '</td>';
           }).join('');
           return '<tr class="p' + (thin ? ' thin' : '') + (o.player && String(p.id) === String(o.player) ? ' me' : '') + (open ? ' open' : '') + '" data-id="' + esc(p.id) + '"><td class="pl">' + (league ? logo(p.team) : '') + '<a href="player.html?espn=' + esc(p.id) + '&tab=onoff"><span class="fnm">' + esc(p.name) + '</span><span class="snm">' + esc(SN[p.id]) + '</span></a>' +
             '<small>' + (league ? esc(teamOf(p.team)) + ' · ' : '') + (p.g || 0) + ' g · ' + Math.round(p.on.poss) + ' on / ' + Math.round(p.off ? p.off.poss : 0) + ' off poss' + (thin ? ' · small sample' : '') + '</small></td>' +
             '<td class="vol">' + Math.round(p.on.min) + '</td>' + cells + '</tr>';
         }).join('');
         host.innerHTML = bar +
-          '<p class="to-meta top"><b>' + esc(vName) + '</b> · ' + esc(setDef[1]) + ' · ' + lbl(cur) + (A.S.low_leverage_removed ? ' · garbage time removed' : '') + ' · click a player for his full profile</p>' +
+          '<p class="to-meta top"><b>' + esc(vName) + '</b> · ' + esc(setDef[1]) + ' · ' + (ONE ? esc(gname(GI)) + ' · one game' : lbl(cur)) + (A.S.low_leverage_removed ? ' · garbage time removed' : '') + ' · click a player for his full profile</p>' +
           '<div class="to-wrap"><table class="to-t">' + head + '<tbody>' + body + '</tbody></table></div>' +
           (o.limit && total > players.length ? '<button type="button" class="to-more">Show ' + Math.min(o.limit, total - players.length) + ' more · ' + players.length + ' of ' + total + '</button>' : '') +
-          '<div class="to-key">Cell colour = rank among D-I players with ' + A.MIN + '+ on-floor possessions' + (ST.view === 'diff' ? ' (their on − off)' : '') + ':' +
-          ['0', '25', '50', '75', '100'].map(function (q) { var f = A.fill(+q); return '<i style="background:' + f[0] + '"></i>' + q; }).join(' ') + ' · green = good for the team · faded rows = small sample</div>' +
+          (ONE ? '<div class="to-key">One game: no D-I ranks or RAPM. Green / red = better / worse for the team with him on.</div>' : '<div class="to-key">Cell colour = rank among D-I players with ' + A.MIN + '+ on-floor possessions' + (ST.view === 'diff' ? ' (their on − off)' : '') + ':' +
+          ['0', '25', '50', '75', '100'].map(function (q) { var f = A.fill(+q); return '<i style="background:' + f[0] + '"></i>' + q; }).join(' ') + ' · green = good for the team · faded rows = small sample</div>') +
           (o.note ? '<p class="to-meta" style="margin-top:8px">' + o.note + '</p>' : '') +
           (openP ? '<div class="to-det"><div class="to-dh"><span>' + esc(openP.name) + ' · full on/off profile</span><button type="button" class="to-x" aria-label="Close">✕</button></div><div class="to-prof"></div></div>' : '');
         wire();
         var prof = host.querySelector('.to-prof');
-        if (prof) { TDC_ONOFF.render(prof, { espn: ST.open, season: cur, seasons: false, side: false });
+        if (prof) { TDC_ONOFF.render(prof, { espn: ST.open, season: cur, seasons: false, side: false, game: host._game || '' });
           host.querySelector('.to-x').onclick = function () { ST.open = null; draw(); };
           host.querySelector('.to-det').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
       });
     };
     function wire() {
-      host.querySelectorAll('[data-y]').forEach(function (b) { b.onclick = function () { cur = +b.dataset.y; ST.open = null; draw(); }; });
+      host.querySelectorAll('[data-y]').forEach(function (b) { b.onclick = function () { cur = +b.dataset.y; ST.open = null; host._lab = undefined; host._game = ''; draw(); }; });
+      var gs = host.querySelector('.toGame'); if (gs) gs.onchange = function () { host._game = gs.value; ST.open = null; draw(); };
       host.querySelectorAll('[data-v]').forEach(function (b) { b.onclick = function () { ST.view = b.dataset.v; draw(); }; });
       host.querySelectorAll('[data-s]').forEach(function (b) { b.onclick = function () { ST.set = b.dataset.s; draw(); }; });
       host.querySelectorAll('th[data-k]').forEach(function (th) { th.onclick = function () { var k = th.dataset.k; if (ST.sort === k) ST.asc = !ST.asc; else { ST.sort = k; ST.asc = k === 'name'; } draw(); }; });
