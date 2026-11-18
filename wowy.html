@@ -158,7 +158,7 @@
   <div class="wy-tabs"><button class="on" data-scope="team">Team</button><button data-scope="league">League leaders</button></div>
   <div class="wy-ctl">
     <select id="wyTeam" aria-label="Team"></select>
-    <select id="wySeason" aria-label="Season"><option value="2026">2025-26</option><option value="2025">2024-25</option><option value="2024">2023-24</option></select>
+    <select id="wySeason" aria-label="Season"><option value="2027">2026-27</option><option value="2026">2025-26</option><option value="2025">2024-25</option><option value="2024">2023-24</option></select>
     <span class="wy-seg gold" id="wyMode"></span>
     <span class="wy-seg" id="wyMetric"></span>
     <input id="wySearch" placeholder="Search player…" style="display:none">
@@ -184,7 +184,7 @@
 <script src="team-colors.js?v=13"></script>
 <script>
 (function(){
-var DATA={}, SEASON='2026', TEAM=null, MODE='wowy', METRIC='onoff', VIEW='overview', SCOPE='team', SORT=null, DESC=true;
+var DATA={}, SEASON='2027', TEAM=null, MODE='wowy', METRIC='onoff', VIEW='overview', SCOPE='team', SORT=null, DESC=true;
 var $=function(s){return document.querySelector(s);};
 var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
 var logo=function(t){ try{ var c=window.tdcTeamColor&&tdcTeamColor(t); return c&&c.logo; }catch(e){ return null; } };
@@ -200,15 +200,17 @@ var LUCK=false; function K(k){ return LUCK?({o:'ol',d:'dl',net:'netl'}[k]||k):k;
 var MODES=[['wowy','WOWY'],['2','2 Man'],['3','3 Man'],['4','4 Man'],['5','5 Man']];
 function seg(host,list,cur,on){ host.innerHTML=list.map(function(x){ return '<button class="'+(x[0]===cur?'on':'')+'" data-k="'+x[0]+'">'+x[1]+'</button>'; }).join('');
   host.querySelectorAll('button').forEach(function(b){ b.onclick=function(){ on(b.dataset.k); }; }); }
+// the season in progress (2026-27) rebuilds nightly: bust the cache once a day
+function DB(season){ return +season>=2027?'&d='+new Date().toISOString().slice(0,10):''; }
 function load(season){
   if(DATA[season]) return Promise.resolve(DATA[season]);
-  return fetch('scripts/data/wowy_'+season+'.json?v=5').then(function(r){ return r.ok?r.json():null; }).then(function(j){ DATA[season]=j; return j; });
+  return fetch('scripts/data/wowy_'+season+'.json?v=5'+DB(season)).then(function(r){ return r.ok?r.json():null; }).then(function(j){ DATA[season]=j; return j; });
 }
 // 2/3/4/5-man units live in their own file (4 MB raw) and load the first time a unit tab opens
 var UNITS={};
 function loadUnits(season){
   if(UNITS[season]) return Promise.resolve(UNITS[season]);
-  return fetch('scripts/data/wowy_units_'+season+'.json?v=5').then(function(r){ return r.ok?r.json():null; }).then(function(j){ UNITS[season]=j||{units:{},names:{}}; return UNITS[season]; });
+  return fetch('scripts/data/wowy_units_'+season+'.json?v=5'+DB(season)).then(function(r){ return r.ok?r.json():null; }).then(function(j){ UNITS[season]=j||{units:{},names:{}}; return UNITS[season]; });
 }
 // heat for a value vs the league average (raw cells) or for an on-off gap
 function cls(k,gap){ var s=S[k]; if(!s||s[2]==null||gap==null) return ''; var g=gap*s[2]/s[3];
@@ -225,7 +227,7 @@ function teams(D){ var t={}; D.players.forEach(function(p){ if(p.team) t[p.team]
 var PICK=[], LUS={};
 function slugOf(t){ return String(t||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
 function loadLU(season,team){ var k=season+'|'+team; if(LUS[k]!==undefined) return Promise.resolve(LUS[k]);
-  return fetch('scripts/data/wowy_stints/'+season+'/'+slugOf(team)+'.json?v=1').then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; }).then(function(j){ LUS[k]=j; return j; }); }
+  return fetch('scripts/data/wowy_stints/'+season+'/'+slugOf(team)+'.json?v=1'+DB(season)).then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; }).then(function(j){ LUS[k]=j; return j; }); }
 function crates(o,d,secs,L){   // the same formulas as build_wowy.py rates()
   var po=Math.max(0,o.fga-o.orb+o.tov+0.44*o.fta), pd=Math.max(0,d.fga-d.orb+d.tov+0.44*d.fta);
   var pct=function(n,den){ return den>0?100*n/den:null; }, ts=function(b){ return pct(b.pts,2*(b.fga+0.44*b.fta)); };

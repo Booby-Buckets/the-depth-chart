@@ -86,7 +86,7 @@
     if (!host || !window.TDC_ONOFF || !TDC_ONOFF.api) return;
     css(); o = o || {};
     if (o.player && !o.seasons) {   // the seasons he has on/off for, then draw
-      fetch('scripts/data/wowy_index.json?v=1').then(function (r) { return r.ok ? r.json() : {}; }).catch(function () { return {}; }).then(function (I) {
+      fetch('scripts/data/wowy_index.json?v=1&d=' + new Date().toISOString().slice(0, 10)).then(function (r) { return r.ok ? r.json() : {}; }).catch(function () { return {}; }).then(function (I) {
         var ys = (I[String(o.player)] || []).map(Number);
         if (!ys.length) { host.innerHTML = ''; var pn = host.closest('.ui-panel'), t = host.previousElementSibling;   // no data: drop the section (panelized or not)
           if (pn && !pn.contains(document.querySelector('#playerWowyHost'))) pn.hidden = true; else if (t && t.classList.contains('sec-title')) t.hidden = true; return; }
@@ -94,7 +94,7 @@
       });
       return;
     }
-    var seasons = (o.seasons || [2024, 2025, 2026]).slice().sort(), cur = o.season && seasons.indexOf(+o.season) >= 0 ? +o.season : seasons[seasons.length - 1];
+    var seasons = (o.seasons || [2024, 2025, 2026, 2027]).slice().sort(), cur = o.season && seasons.indexOf(+o.season) >= 0 ? +o.season : seasons[seasons.length - 1];
     var want = slug(o.team), SHOWN = o.limit || 0;
     if (o.sort && !host._sorted) { host._sorted = 1; ST.sort = o.sort; ST.asc = false; }   // a page's starting sort, once
     host.innerHTML = '<div class="ui-empty">Loading on/off…</div>';

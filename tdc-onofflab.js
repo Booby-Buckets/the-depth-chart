@@ -13,7 +13,7 @@
      team: lab slug ('duke-blue-devils') or full ESPN name · season · lockTeam (no team picker) · url (keep the view
      in the address bar, the Lab page only) · modes: subset of question keys · mode: starting question · seasons */
 (function () {
-  var SEASONS = [[2026, '2025-26'], [2025, '2024-25'], [2024, '2023-24']];
+  var SEASONS = [[2027, '2026-27'], [2026, '2025-26'], [2025, '2024-25'], [2024, '2023-24']];   // 2026-27 added Nov 17 2026 (nightly lineups-live.yml)
   var MODES = [['combos', 'WOWY combos', 'Every on/off mix'], ['together', 'Together or apart', 'All on vs none on'], ['each', 'One at a time', 'With him vs without'],
     ['without', 'Without them', 'Bench them all'], ['lineups', 'Best lineups', 'Top 2–5 man units'], ['players', 'Best players', 'Whole roster, ranked']];
   var FILTERS = [
@@ -127,7 +127,7 @@
 
   function make(root, O) {
   O = O || {};
-  var S = { season: O.season || 2026, team: O.team || null, mode: O.mode || 'combos', pick: [], fix: {}, from: '', to: '', vs: [], vsOpen: false, unit: O.unit || 3, sel: 0, f: { opp: 'all', ven: 'all', st: 'all', half: 'all', games: 'all' } };
+  var S = { game: '', season: O.season || SEASONS[0][0], team: O.team || null, mode: O.mode || 'combos', pick: [], fix: {}, from: '', to: '', vs: [], vsOpen: false, unit: O.unit || 3, sel: 0, f: { opp: 'all', ven: 'all', st: 'all', half: 'all', games: 'all' } };
   var D = null, $ = function (id) { return root.querySelector('[data-ol="' + id + '"]'); };
   var MODES_ON = O.modes ? MODES.filter(function (m) { return O.modes.indexOf(m[0]) >= 0; }) : MODES;
   var SEAS_ON = O.seasons ? SEASONS.filter(function (x) { return O.seasons.indexOf(x[0]) >= 0; }) : SEASONS;
@@ -154,6 +154,9 @@
     return r;
   }
   var LIVE = [];   // the rows that pass the filters
+  // the season in progress is rebuilt every night: bust the cache once a day
+  var live = function () { return S.season === SEASONS[0][0] ? '&d=' + new Date().toISOString().slice(0, 10) : ''; };
+  var gkey = function (g) { return g[0] + '|' + g[1]; };
   function filterRows() {
     var f = S.f, G = D.games, keep = {};
     var order = G.map(function (g, i) { return i; }).sort(function (a, b) { return String(G[a][0]).localeCompare(String(G[b][0])); });
@@ -168,6 +171,7 @@
       if (ok && S.from) ok = g[0] >= S.from;
       if (ok && S.to) ok = g[0] <= S.to;
       if (ok && S.vs.length) ok = S.vs.indexOf(g[1]) >= 0;
+      if (S.game) ok = gkey(g) === S.game;   // one game (owner, Nov 17 2026): overrides every game filter
       if (ok) keep[i] = 1;
     });
     LIVE = D.rows.filter(function (r) {
@@ -258,12 +262,12 @@
           (function rec(s, a) { if (a.length === n) { c.push(a.slice()); return; } for (var i = s; i < ids.length; i++) { a.push(ids[i]); rec(i + 1, a); a.pop(); } })(0, []);
           c.forEach(function (k) { if (P.length && P.length <= n && !P.every(function (i) { return has(k, i); })) return;   // more picks than seats: rank them all
             var key = k.join(','), x = U[key] || (U[key] = { k: k, o: blank(), d: blank(), s: 0 }); x.s += r[3]; add(x.o, r[4]); add(x.d, r[5]); }); });
-        var base = { 2: 150, 3: 100, 4: 70, 5: 50 }[n], share = team.poss / Math.max(1, TOT.poss), minP = Math.max(15, Math.round(base * Math.min(1, share * 1.3)));
-        var rows = Object.keys(U).map(function (key) { var x = U[key]; return { k: x.k, r: rate(x.o, x.d, x.s) }; }).filter(function (x) { return x.r.poss >= minP && x.r.net != null; }).sort(function (a, b) { return b.r.net - a.r.net; });
-        var top = rows.slice(0, 15);
+        var base = { 2: 150, 3: 100, 4: 70, 5: 50 }[n], share = team.poss / Math.max(1, TOT.poss), minP = S.game ? 1 : Math.max(15, Math.round(base * Math.min(1, share * 1.3)));
+        var rows = Object.keys(U).map(function (key) { var x = U[key]; return { k: x.k, r: rate(x.o, x.d, x.s) }; }).filter(function (x) { return x.r.poss >= minP && x.r.net != null; }).sort(function (a, b) { return S.game ? b.r.min - a.r.min : b.r.net - a.r.net; });
+        var top = S.game ? rows : rows.slice(0, 15);   // one game: every lineup used
         out = '<div class="ol-pick">' + [2, 3, 4, 5].map(function (u) { return '<button class="' + (u === n ? 'on' : '') + '" data-u="' + u + '">' + u + '-man</button>'; }).join('') +
           '<span class="ol-note">' + rows.length + ' units with ' + minP + '+ possessions</span></div>' +
-          '<div class="ol-say">' + T + '’s best ' + n + '-man units' + (P.length ? ' with <b>' + names(P, ' and ') + '</b>' : '') + ', by net rating.</div>' +
+          '<div class="ol-say">' + T + (S.game ? '’s ' + n + '-man units in this game' : '’s best ' + n + '-man units') + (P.length ? ' with <b>' + names(P, ' and ') + '</b>' : '') + (S.game ? ', most minutes first.' : ', by net rating.') + '</div>' +
           (top.length ? '<div class="ol-cmp">' + rankTable([['Min', 'n'], ['ORtg', 'n'], ['Rank', 'c'], ['DRtg', 'n'], ['Rank', 'c'], ['NetRtg', 'n', 1], ['Rank', 'c']], top.map(function (x, k) {
             return '<tr><td class="k"><span class="rk">' + (k + 1) + '</span><span class="faces">' + x.k.map(function (i) { return av(i, 'sm'); }).join('') + '</span>' + '<span class="nms">' + x.k.map(function (i) { return link(i, esc(lastU(i))); }).join(' · ') + '</span></td>' +
               '<td>' + Math.round(x.r.min) + '</td><td>' + f1(x.r.o) + '</td><td class="pc">' + ch('on', 'o', x.r.o) + '</td><td>' + f1(x.r.d) + '</td><td class="pc">' + ch('on', 'd', x.r.d) + '</td>' +
@@ -368,6 +372,11 @@
     var opps = {}; G.forEach(function (g) { (opps[g[1]] = opps[g[1]] || []).push(g); });
     var names = Object.keys(opps).sort(function (a, b) { return oppShort(a).localeCompare(oppShort(b)); });
     var picking = S.vsOpen || S.vs.length;
+    var byDate = G.slice().sort(function (a, b) { return String(b[0]).localeCompare(String(a[0])); });
+    var gameRow = '<div class="ol-fr"><b>Game</b><select class="ui-input" data-game aria-label="Game" style="max-width:100%"><option value="">All games (' + G.length + ')</option>' +
+      byDate.map(function (g) { return '<option value="' + esc(gkey(g)) + '"' + (gkey(g) === S.game ? ' selected' : '') + '>' + md(g[0]) + ' ' + (g[2] === 'A' ? '@ ' : 'vs ') + esc(oppShort(g[1])) + '</option>'; }).join('') + '</select>' +
+      (S.game ? '<span class="ol-note" style="margin-left:0">one game: the other game filters are off</span>' : '') + '</div>';
+    $('olFilters').insertAdjacentHTML('afterbegin', gameRow);
     var row = '<div class="ol-fr"><b>Dates</b><span class="ol-dates"><input type="date" class="ui-input" data-d="from" min="' + lo + '" max="' + hi + '" value="' + esc(S.from) + '" aria-label="From">' +
       '<span>to</span><input type="date" class="ui-input" data-d="to" min="' + lo + '" max="' + hi + '" value="' + esc(S.to) + '" aria-label="To">' +
       (S.from || S.to ? '<button type="button" class="ol-lnk" data-d="clear">Whole season</button>' : '') + '</span></div>' +
@@ -378,6 +387,7 @@
           esc(oppShort(n)) + (gs.length > 1 ? ' <small>×' + gs.length + '</small>' : '') + (rk ? ' <small>#' + rk + '</small>' : '') + '</button>'; }).join('') + '</div>' : '');
     $('olFilters').insertAdjacentHTML('beforeend', row);
     var redo = function () { S.sel = 0; sync(); controlsF(); draw(); };
+    var gs = $('olFilters').querySelector('select[data-game]'); if (gs) gs.onchange = function () { S.game = gs.value; redo(); };
     $('olFilters').querySelectorAll('input[data-d]').forEach(function (inp) { inp.onchange = function () { S[inp.dataset.d] = inp.value || ''; redo(); }; });
     var clr = $('olFilters').querySelector('button[data-d=clear]'); if (clr) clr.onclick = function () { S.from = S.to = ''; redo(); };
     $('olFilters').querySelectorAll('[data-vs]').forEach(function (b) { b.onclick = function () { var v = b.dataset.vs;
@@ -396,14 +406,16 @@
       FILTERS.forEach(function (F) { if (S.f[F[0]] !== 'all') q.set(F[0], S.f[F[0]]); else q.delete(F[0]); });
       if (S.from) q.set('from', S.from); else q.delete('from'); if (S.to) q.set('to', S.to); else q.delete('to');
       if (S.vs.length) q.set('vs', S.vs.join('|')); else q.delete('vs');
+      if (S.game) q.set('g', S.game); else q.delete('g');
       history.replaceState(null, '', u); } catch (e) {}
   }
   function loadTeam() {
     if (!S.team) { $('olOut').innerHTML = '<div class="ol-say">No play-by-play lineup data for this team in ' + SEASONS.find(function (x) { return x[0] === S.season; })[1] + '.</div>'; $('olCards').innerHTML = ''; return Promise.resolve(); }
     $('olOut').innerHTML = '<div class="ol-say">Loading ' + esc(S.team) + '…</div>';
-    return get('scripts/data/onoff_lab/' + S.season + '/' + S.team + '.json?v=2').then(function (j) {
+    return get('scripts/data/onoff_lab/' + S.season + '/' + S.team + '.json?v=2' + live()).then(function (j) {
       if (!j) { $('olOut').innerHTML = '<div class="ol-say">No lineup data for this team and season.</div>'; $('olCards').innerHTML = ''; return; }
       D = j; S.pick = S.pick.filter(function (id) { return D.ids.indexOf(id) >= 0; });
+      if (S.game && !D.games.some(function (g) { return gkey(g) === S.game; })) S.game = '';   // another team / season
       Object.keys(S.fix).forEach(function (id) { if (D.ids.indexOf(id) < 0 || S.pick.indexOf(id) >= 0) delete S.fix[id]; });
       var played = {}; D.games.forEach(function (g) { played[g[1]] = 1; }); S.vs = S.vs.filter(function (n) { return played[n]; });
       var ds = D.games.map(function (g) { return g[0]; }).sort();
@@ -415,7 +427,7 @@
     });
   }
   function teams() {
-    return (IDX[S.season] ? Promise.resolve(IDX[S.season]) : get('scripts/data/onoff_lab/' + S.season + '/index.json?v=1').then(function (j) { return (IDX[S.season] = j || []); })).then(function (L) {
+    return (IDX[S.season] ? Promise.resolve(IDX[S.season]) : get('scripts/data/onoff_lab/' + S.season + '/index.json?v=1' + live()).then(function (j) { return (IDX[S.season] = j || []); })).then(function (L) {
       var short = function (t) { try { return (window.tdcShortSchool && tdcShortSchool(t[1])) || t[1]; } catch (e) { return t[1]; } };
       L = L.slice().sort(function (a, b) { return short(a).localeCompare(short(b)); });
       if (O.lockTeam) {   // the team page: this team only; null = no lineup data for it this season
@@ -445,6 +457,7 @@
       if (/^\d{4}-\d\d-\d\d$/.test(q.get('from') || '')) S.from = q.get('from');
       if (/^\d{4}-\d\d-\d\d$/.test(q.get('to') || '')) S.to = q.get('to');
       if (q.get('vs')) S.vs = q.get('vs').split('|').filter(Boolean);
+      if (q.get('g')) S.game = q.get('g');
       ['on', 'off'].forEach(function (r) { (q.get('f' + r) || '').split(',').filter(Boolean).forEach(function (id) { S.fix[id] = r; }); });
       if (q.get('n')) S.unit = Math.max(2, Math.min(5, +q.get('n') || 3));
       FILTERS.forEach(function (F) { var v = q.get(F[0]); if (v && F[2].some(function (o) { return o[0] === v; })) S.f[F[0]] = v; });

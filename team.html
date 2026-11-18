@@ -18,9 +18,9 @@
   <script src="tdc-lineups.js?v=17s"></script>
   <script src="tdc-lineup-usage.js?v=10"></script>
   <script src="tdc-lineup-history.js?v=lab10"></script>
-  <script src="tdc-onoff.js?v=14"></script>
-  <script src="tdc-onofflab.js?v=12"></script>
-  <script src="tdc-teamonoff.js?v=9"></script>
+  <script src="tdc-onoff.js?v=15"></script>
+  <script src="tdc-onofflab.js?v=15"></script>
+  <script src="tdc-teamonoff.js?v=10"></script>
   <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-assistweb.js?v=ui1"></script>
   <script src="tdc-nil.js?v=pay13"></script>
@@ -6503,10 +6503,10 @@ let _onoffData=null;
 // The On/Off tab is the On/Off Lab (tdc-onofflab.js, same as onoff-lab.html) locked to this team: pick players,
 // ask a question (together / one at a time / without / best lineups / best players), filter by opponent, venue,
 // game state, half and games, every number ranked vs D-I. Opens on Best players (the whole roster by swing).
-// Lab data covers 2023-24 → 2025-26; the 2026-27 roster view shows last season until games are played.
+// Lab data covers 2023-24 on; 2026-27 rebuilds nightly (lineups-live.yml) and is the default (Nov 17 2026).
 async function renderOnOff(){
   const host=document.getElementById('onoffHost'); if(!host||!window.TDC_ONOFFLAB) return;
-  const LAB=[2024,2025,2026], past=(typeof _rosterSeason!=='undefined'&&_rosterSeason<2027)?_rosterSeason:null;
+  const LAB=[2024,2025,2026,2027], past=(typeof _rosterSeason!=='undefined'&&_rosterSeason<2027)?_rosterSeason:null;
   const viewKey=String(past||'current');
   if(host._renderedSeason===viewKey) return;
   host._renderedSeason=viewKey;
@@ -6517,9 +6517,9 @@ async function renderOnOff(){
   // the roster sheet (databallr / BasketballQuant style: every cell filled by its D-I percentile), then the Lab for custom questions
   host.innerHTML=head+'<div id="onoffSheetHost"></div>'+
     '<div class="sec-head" style="margin-top:28px;">Ask your own question <span class="sec-head-sub" style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· WOWY combos, players together or apart, best lineups, filtered by opponent, venue, game state</span></div><div id="onoffLab"></div>';
-  if(window.TDC_TEAMONOFF) TDC_TEAMONOFF.render(document.getElementById('onoffSheetHost'), { team:full, season:past||2026, seasons:past?[past]:LAB,
-    note: past?'':'2026-27 on/off starts once games are played; this is <b>last season</b>. Players who left are still listed.' });
-  TDC_ONOFFLAB.mount(document.getElementById('onoffLab'), { team:full, season:past||2026, seasons:past?[past]:undefined, lockTeam:true, mode:'combos' });
+  if(window.TDC_TEAMONOFF) TDC_TEAMONOFF.render(document.getElementById('onoffSheetHost'), { team:full, season:past||2027, seasons:past?[past]:LAB,
+    note: past?'':'2026-27 is updated every night from play-by-play. Early in the season the samples are small.' });
+  TDC_ONOFFLAB.mount(document.getElementById('onoffLab'), { team:full, season:past||2027, seasons:past?[past]:undefined, lockTeam:true, mode:'combos' });
 }
 // keep the open tab in the URL (?tab=) so a reload — or a shared link — lands on the same tab
 function _tabUrl(id, dflt){ try{ var u=new URL(location.href); if(!id||id===dflt) u.searchParams.delete('tab'); else u.searchParams.set('tab',id); history.replaceState(history.state,'',u.toString()); }catch(e){} }

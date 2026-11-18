@@ -16,6 +16,7 @@
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   var lbl = function (y) { return (y - 1) + '–' + String(y).slice(2); };
   var MIN_POSS = 500;
+  var TODAY = new Date().toISOString().slice(0, 10);   // the season in progress rebuilds nightly (lineups-live.yml)
   var DV = 8;   // wowy_<season>.json cache-buster: bump on every rebuild
 
   // [key, label, higher-is-better (1) / lower (-1) / volume (0), decimals, suffix, tooltip]
@@ -289,16 +290,16 @@
       '</tbody></table></div>';
   }
 
-  function season(y) { return SEAS[y] ? Promise.resolve(SEAS[y]) : get('scripts/data/wowy_' + y + '.json?v=' + DV).then(function (j) { return (SEAS[y] = j); }); }
+  function season(y) { return SEAS[y] ? Promise.resolve(SEAS[y]) : get('scripts/data/wowy_' + y + '.json?v=' + DV + (y >= 2027 ? '&d=' + TODAY : '')).then(function (j) { return (SEAS[y] = j); }); }
 
   function render(host, opts) {
     if (!host) return; css(); opts = opts || {};
     var espn = opts.espn != null ? String(opts.espn) : null, side = opts.side !== false;
     if (!espn) { host.innerHTML = '<div class="ui-empty">On/off needs a matched player id; this player has none yet.</div>'; return; }
     host.innerHTML = '<div class="ui-empty">Loading on/off…</div>';
-    (IDX ? Promise.resolve(IDX) : get('scripts/data/wowy_index.json?v=1').then(function (j) { return (IDX = j || {}); })).then(function (I) {
+    (IDX ? Promise.resolve(IDX) : get('scripts/data/wowy_index.json?v=1&d=' + TODAY).then(function (j) { return (IDX = j || {}); })).then(function (I) {
       var seasons = I[espn] || [];
-      if (!seasons.length) { host.innerHTML = '<div class="ui-empty">No on/off for this player yet. It is rebuilt from play-by-play lineups for 2023–24 through 2025–26, for players with 30+ minutes in a season.</div>'; return; }
+      if (!seasons.length) { host.innerHTML = '<div class="ui-empty">No on/off for this player yet. It is rebuilt from play-by-play lineups from 2023–24 on (2026–27 updated nightly), for players with 30+ minutes in a season.</div>'; return; }
       var cur = opts.season && seasons.indexOf(+opts.season) >= 0 ? +opts.season : seasons[0];
       var draw = function () {
         Promise.all([

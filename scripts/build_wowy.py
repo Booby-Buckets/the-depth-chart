@@ -585,28 +585,46 @@ def rates(o, d, secs, lg=None):
 def add(dst, src):
     for f in F: dst[f] += src[f]
 
+def refresh_games(season, verbose=False):
+    """nid -> our game, by day. Scoreboards are the slow, rate-limited part, so the map is cached — but a season in
+    progress must keep growing: until Nov 17 2026 the map was built once on opening week and never refreshed, so
+    2026-27 on/off sat at 205 games. Now each run rescans from 2 days before the last scanned day through today."""
+    from datetime import date, timedelta
+    games_fp = os.path.join(CACHE, f"games_{season}.json"); mark_fp = os.path.join(CACHE, f"games_{season}_scanned.json")
+    gmap = {}
+    if os.path.exists(games_fp):
+        try: gmap = json.load(open(games_fp))
+        except Exception: gmap = {}
+    days = list(B.season_dates(season)); today = date.today()
+    through = None
+    if os.path.exists(mark_fp):
+        try: through = date.fromisoformat(json.load(open(mark_fp))["through"])
+        except Exception: through = None
+    if gmap and through is None and days[-1] < today: return gmap   # a finished season's map, built in one go
+    start = (through - timedelta(days=2)) if through else days[0]
+    todo = [d for d in days if start <= d <= today]
+    before = len(gmap)
+    for d in todo:
+        sb = B.scoreboard(d)
+        if not sb: continue
+        our = B.our_games_on(d)
+        for ncaa in sb or []:
+            og = B.match_our_game(our or [], ncaa)
+            if og: gmap[ncaa["nid"]] = og
+        time.sleep(0.05)
+        if verbose: print(d, len(gmap), flush=True)
+    os.makedirs(CACHE, exist_ok=True); json.dump(gmap, open(games_fp, "w"))
+    if todo: json.dump({"through": min(today, days[-1]).isoformat()}, open(mark_fp, "w"))
+    print(f"season {season}: scanned {len(todo)} days, {len(gmap) - before} new games", flush=True)
+    return gmap
+
 def run(season, limit=0, verbose=False, source="ncaa"):
     if source == "cbbd":
         games = cbbd_games(season)
         print(f"season {season}: {len(games)} CBBD games", flush=True)
         work = [(gid, (lambda gid=gid, pl=pl: process_cbbd_game(pl, gid))) for gid, pl in games]
         return aggregate(season, work, limit, verbose)
-    games_fp = os.path.join(CACHE, f"games_{season}.json")
-    gmap = {}
-    if os.path.exists(games_fp):
-        try: gmap = json.load(open(games_fp))
-        except Exception: gmap = {}
-    if not gmap:   # nid -> our game, by day (scoreboards are the slow, rate-limited part — kept once)
-        for d in B.season_dates(season):
-            sb = B.scoreboard(d)
-            if not sb: continue
-            our = B.our_games_on(d)
-            for ncaa in sb or []:
-                og = B.match_our_game(our or [], ncaa)
-                if og: gmap[ncaa["nid"]] = og
-            time.sleep(0.05)
-            if verbose: print(d, len(gmap), flush=True)
-        os.makedirs(CACHE, exist_ok=True); json.dump(gmap, open(games_fp, "w"))
+    gmap = refresh_games(season, verbose)
     print(f"season {season}: {len(gmap)} matched games", flush=True)
     load_shotev(season)
     work = [(nid, (lambda nid=nid, og=og: process_game(nid, og))) for nid, og in gmap.items()]
@@ -792,6 +810,8 @@ if __name__ == "__main__":
     ap.add_argument("--season", type=int, required=True)
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--verbose", action="store_true")
+    ap.add_argument("--games-only", action="store_true", help="only refresh the season's game list (wowy_cache/games_<season>.json)")
     ap.add_argument("--source", default="ncaa", choices=["ncaa", "cbbd"], help="cbbd = CollegeBasketballData on-floor plays (2023-24); needs CBBD_KEY to pull")
     a = ap.parse_args()
-    run(a.season, a.limit, a.verbose, a.source)
+    if a.games_only: refresh_games(a.season, a.verbose)
+    else: run(a.season, a.limit, a.verbose, a.source)
