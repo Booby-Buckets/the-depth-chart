@@ -7158,7 +7158,7 @@ async function renderNilPlayer(){
   const _tier=posTot&&!walkon?(posRank<=10?'a top-10':posRank<=25?'a top-25':posRank<=50?'a top-50':posRank<=Math.round(posTot*.25)?'an upper-quarter':posRank<=Math.round(posTot*.5)?'an above-median':'a below-median'):'';
   const bottom=walkon?`<p>Outside the projected rotation, so he carries a <b>nominal</b> value.</p>`
     :`<p>Priced like ${_tier} <b>${_p5}</b> at <b>${fmt(value)}</b>${_teamShare!=null?`, ${_teamShare.toFixed(0)}% of ${esc(_schoolS)}'s roster value`:''}.${marketVal!=null?` The ${marketPos} market at his grade pays <b>${fmt(marketVal)}</b>${_vTag?` · ${_vTag[0].toLowerCase()}`:''}.`:''}</p>`;
-  const hero=`<div class="ovc-box nv2-hero" style="--nvc:${col}"><div class="nv2-hl"><div class="ovc-sl">2026-27 NIL value <span class="sub">open-market estimate</span></div>`
+  let hero=`<div class="ovc-box nv2-hero" style="--nvc:${col}"><div class="nv2-hl"><div class="ovc-sl">2026-27 NIL value <span class="sub">open-market estimate</span></div>`
     +`<div class="nv2-big">${fmt(value)}</div><div class="nv2-meta">${vChip}${_vTag?`<span>${_vTag[2]}</span>`:''}</div>`
     +`<div class="nv2-bl">${bottom}</div></div>${rankHtml?`<div class="nv2-hr">${rankHtml}</div>`:''}</div>`;
   // 5 · what the grade is built on (last season, earlier seasons, potential → the NIL grade)
@@ -7175,7 +7175,7 @@ async function renderNilPlayer(){
       +`<div class="nv2-g total"><span class="lb"><b>NIL grade</b></span><span class="tr"><i style="width:${G(grade)}%;background:var(--text)"></i></span><span class="gv"><b>${Math.round(grade)}</b></span><span class="wt">${Math.round(mpg)} min</span></div>`);
   }
   // 6 · comparable players at his position (window around him) and 7 · his team's top earners — lists with value bars
-  const list=(rows,max)=>rows.map(r=>`<div class="nv2-l${r.me?' me':''}"><span class="rk">${r.rk}</span><span class="nm">${r.me?esc(r.name):`<a href="player.html?name=${encodeURIComponent(r.name)}">${esc(r.name)}</a>`}${r.sub?` <span class="dim">${esc(r.sub)}</span>`:''}</span><span class="br"><i style="width:${Math.max(2,r.val/max*100)}%;${r.me?`background:${col}`:''}"></i></span><span class="vv">${fmt(r.val)}</span></div>`).join('');
+  const list=(rows,max)=>rows.map(r=>`<div class="nv2-l${r.me?' me':''}"><span class="rk">${r.rk}</span><span class="nm">${r.me?esc(r.name):`<a href="player.html?name=${encodeURIComponent(r.name)}">${esc(r.name)}</a>`}${r.sub?` <span class="dim">${esc(r.sub)}</span>`:''}${r.bio?`<span class="bio">${esc(r.bio)}</span>`:''}</span><span class="br"><i style="width:${Math.max(2,r.val/max*100)}%;${r.me?`background:${col}`:''}"></i></span><span class="vv">${fmt(r.val)}</span></div>`).join('');
   let compBox='', teamBox='';
   if(!walkon&&_posPool.length){
     const me=(player&&player.name||'').toLowerCase().trim();
@@ -7195,11 +7195,98 @@ async function renderNilPlayer(){
       let top=pls.slice(0,5).map((p,i)=>({rk:i+1,name:p.name,val:p.val,me:(p.name||'').toLowerCase().trim()===me}));
       if(rk>5) top.push({rk,name:player&&player.name,val:modelVal,me:true});
       if(pls.length>=2) teamBox=box('Top earners on '+esc(_schoolS),'roster '+fmt(tot),list(top,top[0].val)); } }catch(e){}
+  // ── PRODUCTION PRICES (owner, Nov 18 2026: "Lets not use the grade. We need to be a lot more analytical in the prices").
+  //    Three numbers on ONE chain, no grade anywhere (scripts/build_nil_production.py → data/nil_production.json):
+  //    box-score line → Wins Added per 31 games → × the level of the league it came in → $ by rank against the current
+  //    NIL market (the n-th percentile of production is paid the n-th percentile of the market).
+  //    Last year = his 2025-26 line · Expected = his projected 2026-27 line · Current form = his real 2026-27 games, pulled
+  //    toward the projection by how few there are (half weight at 6 games), the way any small sample is read.
+  let _foot='Open-market estimate from production, minutes, position and upside. Never a reported deal.';
+  if(window._nilProd===undefined){ window._nilProd=null; try{ window._nilProd=await fetch('data/nil_production.json?v=1').then(r=>r.ok?r.json():null); }catch(e){} }
+  const PJ=window._nilProd;
+  try{ if(PJ&&PJ.curve&&!walkon){
+    const C=PJ.curve, GM=(PJ.meta&&PJ.meta.games)||31;
+    const price=w=>{ if(w<=C[0][0]) return C[0][1]; for(let i=1;i<C.length;i++){ if(w<=C[i][0]){ const a=C[i-1],b=C[i]; return a[1]+(b[1]-a[1])*(w-a[0])/(b[0]-a[0]); } }
+      const a=C[C.length-2],b=C[C.length-1]; return b[1]+0.5*(b[1]-a[1])/(b[0]-a[0])*(w-b[0]); };
+    const lvOf=t=>{ const L=PJ.level||{}; if(t==null) return 0.8; if(L[t]!=null) return L[t]; const s=String(t).toLowerCase();
+      for(const k in L){ if(k.toLowerCase()===s) return L[k]; } return 0.8; };
+    const n=(r,k)=>{ const v=parseFloat(r&&r[k]); return isFinite(v)?v:0; };
+    // WA per 31-game season from a per-game line (same constants as derived_stats.py), plus the per-40 impact behind it
+    const waOf=r=>{ const mp=n(r,'mpg'); if(!(mp>0)) return null;
+      const ti=n(r,'ppg')+.8*n(r,'oreb')+.3*n(r,'dreb')+.7*n(r,'apg')+1.4*n(r,'stl')+.9*n(r,'blk')-.5*(n(r,'fga')-n(r,'fgm'))-.35*(n(r,'fta')-n(r,'ftm'))-n(r,'tovs');
+      const m=mp*GM, t40=ti*GM*40/(m+100); return {wa:(t40-5)*(m/40)/69.87, ti40:t40, mpg:mp}; };
+    const eid=player&&player.espn_id!=null?String(player.espn_id):null;
+    const sch=t=>esc(window.tdcShortSchool?window.tdcShortSchool(t||''):(t||''));
+    // expected
+    let E=null; const pe=eid&&PJ.exp?PJ.exp[eid]:null;
+    if(pe) E={wa:pe.wa, lvl:pe.lvl, val:pe.val, mpg:pe.mpg, team:pe.team, last:pe.src==='roster'};
+    else { const pr=(typeof proj!=='undefined'&&proj&&(parseFloat(proj.ppg)||0)>0)?proj:null, w=pr?waOf(pr):null;
+      if(w){ const lv=lvOf(pr.team||_teamNm); E={wa:w.wa, lvl:lv, val:price(w.wa*lv), mpg:w.mpg, team:pr.team||_teamNm}; } }
+    // last year
+    let Ly=null; { const s=(typeof _ovrSeasonRow==='function')?_ovrSeasonRow(2026):null;
+      if(s&&(+s.gp||0)>=3){ const w=waOf(s); if(w){ const lv=lvOf(s.team||s.school); Ly={wa:w.wa, lvl:lv, val:price(w.wa*lv), mpg:w.mpg, gp:+s.gp, team:s.team||s.school||''}; } } }
+    // current form
+    let Fm=null; { const Lv=window._live27;
+      if(Lv&&Lv.gp>0){ const w=waOf(Lv); if(w){ const lv=lvOf(_teamNm||Lv.team), wt=Lv.gp/(Lv.gp+6), base=E?E.wa:w.wa, wa=base+wt*(w.wa-base);
+        Fm={wa, pace:w.wa, lvl:lv, val:price(wa*lv), mpg:w.mpg, gp:Lv.gp, wt}; } } }
+    if(E){
+      const fin=/sr|gr/i.test(String(cls||''))&&!/r-/i.test(String(cls||''));
+      const sg=v=>(v>=0?'+':'−')+Math.abs(v).toFixed(1);
+      const pct=v=>(v!=null&&E.val>0)?Math.round((v/E.val-1)*100):null;
+      const dChip=v=>{ const p=pct(v); if(p==null) return ''; const c=Math.abs(p)<3?'var(--text3)':p>0?'var(--green)':'#e07070';
+        return `<span class="nv3-d" style="color:${c}">${Math.abs(p)<3?'about the same':(p>0?'+':'−')+fmt(Math.abs(v-E.val))+' ('+(p>0?'+':'−')+Math.abs(p)+'%) vs expected'}</span>`; };
+      const cell=(lab,yr,v,sub,d,me)=>`<div class="nv3-c${me?' me':''}"><div class="nv3-l">${lab}</div><div class="nv3-y">${yr}</div><div class="nv3-v">${v==null?'—':fmt(v)}</div><div class="nv3-s">${sub}</div>${d||''}</div>`;
+      const trio=`<div class="nv3">`
+        +cell('Last year','2025-26 line',Ly?Ly.val:null, Ly?`<b>${sg(Ly.wa)} WA</b> · ${Ly.mpg.toFixed(0)} min · ${sch(Ly.team)} ×${Ly.lvl.toFixed(2)}`:'no 2025-26 college season', Ly?dChip(Ly.val):'')
+        +cell('Expected price',E.last?'no 2026-27 projection · last line':'2026-27 projection',E.val, `<b>${sg(E.wa)} WA</b> · ${E.mpg.toFixed(0)} min · ${sch(E.team)} ×${E.lvl.toFixed(2)}`, `<span class="nv3-d" style="color:var(--text3)">what we expect him to go for</span>`, true)
+        +cell(fin?'Worth now':'On current form', fin?'2026-27 games · final season':'2026-27 games → 2027-28', Fm?Fm.val:null,
+            Fm?`<b>${sg(Fm.wa)} WA</b> · pace ${sg(Fm.pace)} over ${Fm.gp} game${Fm.gp===1?'':'s'} · ${Fm.mpg.toFixed(0)} min`:'no 2026-27 games yet', Fm?dChip(Fm.val):'')
+        +`</div>`;
+      // national + team ranks on the production scale
+      const all=Object.values(PJ.exp||{}), me=E.val; let nat=1; all.forEach(p=>{ if(p.val>me) nat++; });
+      const P5=x=>(N.POS5?N.POS5(x):x), mp5=P5(pos); const posA=all.filter(p=>P5(p.pos)===mp5); let pr=1; posA.forEach(p=>{ if(p.val>me) pr++; });
+      const tm=all.filter(p=>p.team===E.team); const tTot=tm.reduce((a,p)=>a+p.val,0)+(pe?0:me);
+      const rk=`<div class="nv2-ranks"><div><b>#${nat.toLocaleString()}</b><span>nationally<br>of ${all.length.toLocaleString()}</span></div>${posA.length?`<div><b>#${pr}</b><span>among ${mp5}s<br>of ${posA.length.toLocaleString()}</span></div>`:''}${tTot>0?`<div><b>${Math.round(100*me/tTot)}%</b><span>of ${sch(E.team)}${/s$/i.test(sch(E.team))?"'":"'s"}<br>roster value</span></div>`:''}</div>`;
+      const read=[];
+      if(Ly){ const p=pct(Ly.val); read.push(Math.abs(p)<3?`His 2025-26 line was worth about what we expect him to go for`:`His 2025-26 line was worth ${fmt(Ly.val)}, ${p>0?'more':'less'} than the ${fmt(E.val)} we expect (${p>0?'+':'−'}${Math.abs(p)}%)`); }
+      if(Fm){ const p=pct(Fm.val); read.push(Math.abs(p)<3?`his ${Fm.gp} game${Fm.gp===1?'':'s'} so far keep him there`:`on his ${Fm.gp} game${Fm.gp===1?'':'s'} so far he is playing like a ${fmt(Fm.val)} player (${p>0?'+':'−'}${Math.abs(p)}%)`); }
+      hero=`<div class="ovc-box nv2-hero" style="--nvc:${col}"><div class="nv2-hl"><div class="ovc-sl">NIL value <span class="sub">priced on production</span></div>${trio}`
+        +`<div class="nv2-bl">${read.length?`<p>${read.join('; ')}.</p>`:''}</div></div><div class="nv2-hr">${rk}</div></div>`;
+      // how each price is built: WA → level → adjusted WA → $
+      const rowB=(lab,o,extra)=>o?`<tr><td class="l">${lab}</td><td>${o.mpg.toFixed(1)}</td><td>${sg(o.wa)}</td><td>×${o.lvl.toFixed(2)}</td><td>${sg(o.wa*o.lvl)}</td><td class="big">${fmt(o.val)}</td></tr>`:'';
+      basisBox=box('How each price is built','Wins Added per 31 games',
+        `<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense nil-cmp nv3-tb"><thead><tr><th class="l">Line</th><th>MPG</th><th title="Wins Added over a 31-game season at these minutes">WA</th><th title="Strength of the league he produced it in (1.00 = the strongest)">Level</th><th title="WA × level">Adj WA</th><th>Price</th></tr></thead><tbody>`
+        +rowB('2025-26',Ly)+rowB('Expected',E)+rowB(fin?'Now':'Form',Fm)+`</tbody></table></div>`
+        +`<div class="nv2-note" style="font-size:11.5px;color:var(--text3);margin-top:8px;line-height:1.45;">Wins Added = his box-score production (points, rebounds, assists, steals, blocks, misses and turnovers) turned into wins above a replacement player. Level discounts production against weaker leagues. The price is what the market pays a player at that rank of adjusted production.</div>`);
+      // where he sits among his position (production prices)
+      const pv=posA.map(p=>p.val).sort((a,b)=>a-b);
+      if(pv.length>=8){ const q=f=>pv[Math.floor(f*(pv.length-1))], hi=Math.max(q(.97),E.val,Ly?Ly.val:0,Fm?Fm.val:0)*1.06, X=v=>Math.max(0,Math.min(100,v/hi*100));
+        const p25=q(.25),p50=q(.5),p75=q(.75);
+        rangeBox=box('Where he sits','among '+pv.length.toLocaleString()+' '+mp5+'s',
+          `<div class="nv2-range"><div class="nv2-rail"></div><div class="nv2-band" style="left:${X(p25)}%;width:${X(p75)-X(p25)}%"></div>`
+          +`<div class="nv2-med" style="left:${X(p50)}%"></div>`+(Fm?`<div class="nv2-mkt" style="left:${X(Fm.val)}%" title="Current form ${fmt(Fm.val)}"></div>`:'')
+          +`<div class="nv2-dot" style="left:${X(E.val)}%;background:${col}"></div></div>`
+          +`<div class="nv2-key"><span><i class="k-dot" style="background:${col}"></i>Expected ${fmt(E.val)}</span>${Fm?`<span><i class="k-mkt"></i>Current form ${fmt(Fm.val)}</span>`:''}<span><i class="k-med"></i>Median ${fmt(p50)}</span><span><i class="k-band"></i>Middle half ${fmt(p25)}–${fmt(p75)}</span></div>`); }
+      // comparables (same position, nearest expected price) and his team's top earners, both on the production scale
+      // height · weight · class beside every player (owner, Nov 18 2026: "keep height, weight and class with players on all pages")
+      const bioOf=p=>{ const c=String(p.cls||'').replace(/\.$/,''); return [p.ht||'', p.wt?(Math.round(+p.wt)+' lb'):'', c].filter(Boolean).join(' · '); };
+      const meBio=bioOf({ht:player&&player.height, wt:(player&&player.weight)||(pe&&pe.wt), cls:player&&(player.class_year||player.yr)});
+      const myN=(player&&player.name||'').toLowerCase().trim();
+      const pl=posA.filter(p=>(p.name||'').toLowerCase().trim()!==myN).sort((a,b)=>b.val-a.val);
+      let at=pl.findIndex(p=>p.val<=E.val); if(at<0) at=pl.length; pl.splice(at,0,{name:player&&player.name,team:E.team,val:E.val,_me:1,_bio:meBio});
+      let st=Math.max(0,at-2), en=Math.min(pl.length,st+5); st=Math.max(0,en-5);
+      const cr=pl.slice(st,en).map((p,k)=>({rk:st+k+1,name:p.name,sub:p._me?'':(window.tdcShortSchool?window.tdcShortSchool(p.team||''):p.team),bio:p._me?p._bio:bioOf(p),val:p.val,me:!!p._me}));
+      compBox=box('Comparable '+mp5+'s','by expected price',list(cr,Math.max(...cr.map(r=>r.val))));
+      const tl=tm.filter(p=>(p.name||'').toLowerCase().trim()!==myN).concat([{name:player&&player.name,val:E.val,_me:1,_bio:meBio}]).sort((a,b)=>b.val-a.val);
+      const tr=tl.findIndex(p=>p._me)+1; let top=tl.slice(0,5).map((p,i)=>({rk:i+1,name:p.name,bio:p._me?p._bio:bioOf(p),val:p.val,me:!!p._me})); if(tr>5) top.push({rk:tr,name:player&&player.name,bio:meBio,val:E.val,me:true});
+      teamBox=tl.length>=2?box('Top earners on '+sch(E.team),'roster '+fmt(tTot),list(top,top[0].val)):'';
+      _foot='Priced on production: Wins Added per 31 games from the box score, × the level of his league, matched by rank to what the NIL market pays. Never a reported deal.';
+    } } }catch(e){ console.warn('nil production',e); }
   const html=`<div class="nilx nv2"><div class="ovc-accent"></div>
     ${hero}
     ${rangeBox||basisBox?`<div class="nv2-two">${rangeBox}${basisBox}</div>`:''}
     ${compBox||teamBox?`<div class="nv2-two">${compBox}${teamBox}</div>`:''}
-    <div class="nv2-foot"><span>Open-market estimate from production, minutes, position and upside. Never a reported deal.</span><a class="nvb-link" href="moneyball.html?tab=class&q=${encodeURIComponent((player&&player.name)||'')}">What the transfer market pays for →</a></div>
+    <div class="nv2-foot"><span>${_foot}</span><a class="nvb-link" href="moneyball.html?tab=class&q=${encodeURIComponent((player&&player.name)||'')}">What the transfer market pays for →</a></div>
   </div>`;
   if(!document.getElementById('nv2-css')){ const st=document.createElement('style'); st.id='nv2-css'; st.textContent=
     '.nv2 .ovc-box{margin:0;}'+
@@ -7209,6 +7296,14 @@ async function renderNilPlayer(){
     '.nv2-bl p{margin:12px 0 0;font-size:13.5px;line-height:1.55;color:var(--text2);max-width:62ch;} .nv2-bl p b{color:var(--text);font-weight:800;}'+
     '.nv2-hr .nv2-ranks{flex-direction:column;gap:14px;margin:0;padding:0 0 0 26px;border-top:none;border-left:1px solid var(--border);} .nv2-hr .nv2-ranks b{font-size:26px;line-height:1;} .nv2-hr .nv2-ranks span{margin-top:3px;line-height:1.3;}'+
     '@media(max-width:760px){.nv2-hero{grid-template-columns:1fr;} .nv2-hr .nv2-ranks{flex-direction:row;flex-wrap:wrap;gap:12px 22px;padding:14px 0 0;border-left:none;border-top:1px solid var(--border);} .nv2-hr .nv2-ranks b{font-size:20px;}}'+
+    '.nv3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px;}'+
+    '.nv3-c{border:1px solid var(--border);border-radius:10px;padding:12px 14px;min-width:0;background:var(--bg2,transparent);}'+
+    '.nv3-c.me{border:1.5px solid var(--nvc,var(--accent));}'+
+    '.nv3-l{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text2);} .nv3-y{font-size:11px;color:var(--text3);margin-top:1px;}'+
+    '.nv3-v{font-family:"Playfair Display",Georgia,serif;font-weight:800;font-size:clamp(26px,3.4vw,38px);line-height:1.05;letter-spacing:-.01em;color:var(--text);font-variant-numeric:tabular-nums;margin-top:6px;}'+
+    '.nv3-s{font-size:11.5px;color:var(--text3);margin-top:4px;line-height:1.35;} .nv3-d{display:block;font-size:11.5px;font-weight:700;margin-top:5px;font-variant-numeric:tabular-nums;}'+
+    '@media(max-width:560px){.nv3-tb th:nth-child(5),.nv3-tb td:nth-child(5){display:none;}}'+
+    '@media(max-width:560px){.nv3{grid-template-columns:1fr;gap:8px;} .nv3-c{display:grid;grid-template-columns:1fr auto;column-gap:10px;align-items:baseline;padding:10px 12px;} .nv3-v{grid-column:2;grid-row:1/span 2;font-size:26px;margin:0;text-align:right;} .nv3-s,.nv3-d{grid-column:1/-1;}}'+
     '.nv2-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 9px;margin-top:9px;font-size:12px;color:var(--text3);}'+
     '.nv2-chip{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border:1px solid;border-radius:999px;padding:2px 9px;}'+
     '.nv2-ranks{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:13px;padding-top:11px;border-top:1px solid var(--border);}'+
@@ -7235,6 +7330,7 @@ async function renderNilPlayer(){
     '.nv2-l.me{background:var(--bg3);} .nv2-l .rk{font-size:11px;color:var(--text3);text-align:right;font-variant-numeric:tabular-nums;}'+
     '.nv2-l .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);} .nv2-l.me .nm{font-weight:800;} .nv2-l .nm a{color:var(--text);text-decoration:none;} .nv2-l .nm a:hover{color:var(--tcr,var(--accent));} .nv2-l .dim{color:var(--text3);font-size:11px;}'+
     '.nv2-l .br{height:8px;border-radius:3px;background:var(--bg3);overflow:hidden;} .nv2-l .br i{display:block;height:100%;border-radius:3px;background:var(--text3);opacity:.7;} .nv2-l.me .br i{opacity:1;}'+
+    '.nv2-l .bio{display:block;font-size:10.5px;color:var(--text3);margin-top:1px;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;}'+
     '.nv2-l .vv{text-align:right;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;}'+
     '.nv2-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;font-size:11.5px;color:var(--text3);margin-top:4px;}'+
     '.nvb-link{display:inline-flex;font-size:12.5px;font-weight:800;color:var(--text2);border:1px solid var(--border2);border-radius:9px;padding:8px 14px;text-decoration:none;}.nvb-link:hover{color:var(--text);border-color:var(--text3);}'+
