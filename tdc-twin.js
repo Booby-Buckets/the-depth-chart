@@ -151,5 +151,56 @@
         '<div class="tw-pair">' + rs.map(function (r) { return r ? card(r) : '<div class="tw-card tw-empty">No data.</div>'; }).join('') + '</div>';
     });
   }
-  window.TDC_TWIN = { render: render, compare: compare, load: load };
+  // TWO PLAYERS, ONE TAB (compare page "Shot Twin" tab, owner Nov 18 2026): how alike the two shot profiles are, both
+  // profiles side by side, and each player's closest shot twins from every season since 2009-10 — with the twins they
+  // share called out. list = [{espn, season, name, color}, …two].
+  function duel(host, list) {
+    if (!host) return Promise.resolve(); css(); host.classList.add('twin');
+    host.innerHTML = '<div class="tw-empty">Loading every player-season since 2009-10…</div>';
+    if (!document.getElementById('twin-duel-css')) { var st = document.createElement('style'); st.id = 'twin-duel-css';
+      st.textContent = '.twd-hero{display:flex;align-items:center;gap:18px;flex-wrap:wrap;border:1px solid var(--border2);border-radius:12px;padding:14px 18px;margin:0 0 14px;background:var(--bg);}' +
+        '.twd-score{font-family:"Playfair Display",Georgia,serif;font-weight:800;font-size:46px;line-height:1;font-variant-numeric:tabular-nums;}' +
+        '.twd-v{font-size:15px;font-weight:800;} .twd-s{font-size:12.5px;color:var(--text2);margin-top:3px;line-height:1.45;max-width:62ch;}' +
+        '.twd-meter{flex:1 1 220px;min-width:180px;} .twd-bar{height:8px;border-radius:4px;background:var(--bg3);overflow:hidden;margin-top:6px;} .twd-bar i{display:block;height:100%;border-radius:4px;background:var(--tw-pos);}' +
+        '.twd-scale{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text3);margin-top:3px;}' +
+        '.twd-lists{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:16px;}@media(max-width:900px){.twd-lists{grid-template-columns:1fr;}}' +
+        '.twd-h{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);margin:0 0 8px;padding-bottom:6px;border-bottom:3px solid var(--c,var(--border2));}' +
+        '.twd-r{display:grid;grid-template-columns:20px minmax(0,1fr) 50px;gap:8px;align-items:center;padding:6px 4px;border-bottom:1px solid var(--border);font-size:13px;}' +
+        '.twd-r .k{font-size:11px;color:var(--text3);text-align:right;} .twd-r .n{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .twd-r .n a{color:var(--text);font-weight:700;text-decoration:none;} .twd-r .n a:hover{text-decoration:underline;}' +
+        '.twd-r .n small{color:var(--text3);font-size:11.5px;font-weight:600;} .twd-r .m{text-align:right;font-weight:800;font-variant-numeric:tabular-nums;}' +
+        '.twd-r.sh .n a::after{content:"shared";margin-left:6px;font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--tw-pos);border:1px solid var(--tw-pos);border-radius:4px;padding:0 4px;vertical-align:1px;}';
+      document.head.appendChild(st); }
+    return load('player').then(function () {
+      if (!POOL) { host.innerHTML = ''; return; }
+      // season switch: this season so far (small samples early on) or last season; a history pick keeps its own season
+      var cur = Math.max.apply(null, Object.keys(POOL.seasons).map(Number)), want = list.want || cur;
+      var rs = (list || []).map(function (p) { var m = rowsOf(p && p.espn); return (p && p.season && m.find(function (x) { return x[1] === p.season; })) || m.find(function (x) { return x[1] === want; }) || m[0] || null; });
+      if (!rs.some(Boolean)) { host.innerHTML = '<div class="tw-empty">No D-I seasons with 300+ minutes for these players.</div>'; return; }
+      var canSwitch = (list || []).every(function (p) { return !(p && p.season); }) && (list || []).some(function (p) { var m = rowsOf(p && p.espn); return m.some(function (x) { return x[1] === cur; }) && m.some(function (x) { return x[1] === cur - 1; }); });
+      var seg = canSwitch ? '<div class="tw-top"><span class="tw-side">' + [[cur, 'This season so far'], [cur - 1, 'Last season']].map(function (b) { return '<button type="button" data-y="' + b[0] + '" class="' + (want === b[0] ? 'on' : '') + '">' + b[1] + '</button>'; }).join('') + '</span></div>' : '';
+      var both = rs[0] && rs[1] ? dist(rs[0], rs[1]) : null, sc = both != null ? Math.max(0, 100 - 10 * both) : null;
+      var M = rs.map(function (r) { return r ? matches(r, 40) : []; });
+      var key = function (x) { return x[0] + '|' + x[1]; };
+      var inB = {}; (M[1] || []).slice(0, 25).forEach(function (m) { inB[key(m.r)] = 1; });
+      var shared = {}; (M[0] || []).slice(0, 25).forEach(function (m) { if (inB[key(m.r)]) shared[key(m.r)] = 1; });
+      // where the pair sits among every match in the pool: the share of each player's comparisons that are closer
+      var rankTxt = '';
+      if (sc != null && M[0].length) { var closer = 0; POOL.rows.forEach(function (o) { if (o === rs[0]) return; var d = dist(rs[0], o); if (d != null && d < both) closer++; });
+        rankTxt = closer === 0 ? 'No player-season in the pool is closer to ' + esc(list[0].name) + '.' : esc(list[1].name) + ' is closer to ' + esc(list[0].name) + ' than all but ' + closer.toLocaleString() + ' of ' + (POOL.rows.length - 1).toLocaleString() + ' player-seasons.'; }
+      var verdict = sc == null ? '' : sc >= 85 ? 'Shot twins' : sc >= 75 ? 'Very similar shooters' : sc >= 60 ? 'Similar diets, different strengths' : sc >= 45 ? 'Different shooters' : 'Opposite shot profiles';
+      var hero = sc != null ? '<div class="twd-hero"><div class="twd-score">' + sc.toFixed(1) + '</div><div class="twd-meter"><div class="twd-v">' + verdict + '</div>' +
+        '<div class="twd-s">Shot-profile match between the two: how often each shoots at the rim, from midrange, from three and at the line, and how well, against each season’s D-I average. ' + rankTxt + '</div>' +
+        '<div class="twd-bar"><i style="width:' + sc + '%"></i></div><div class="twd-scale"><span>0 · opposite</span><span>100 · identical</span></div></div></div>' : '';
+      var lists = '<div class="twd-lists">' + rs.map(function (r, i) {
+        var p = list[i] || {};
+        if (!r) return '<div><div class="twd-h" style="--c:' + (p.color || 'var(--border2)') + '">' + esc(p.name || '') + '</div><div class="tw-empty">No D-I season with 300+ minutes.</div></div>';
+        var rows = M[i].slice(0, 10).map(function (m, k) { var x = m.r, sh = shared[key(x)];
+          return '<div class="twd-r' + (sh ? ' sh' : '') + '"><span class="k">' + (k + 1) + '</span><span class="n"><a href="player.html?espn=' + esc(x[0]) + '&name=' + encodeURIComponent(x[2] || '') + '">' + esc(x[2] || '—') + '</a> <small>' + esc(short(x[3])) + ' · ' + sl(x[1]) + '</small></span><span class="m">' + m.match.toFixed(1) + '</span></div>'; }).join('');
+        return '<div><div class="twd-h" style="--c:' + (p.color || 'var(--border2)') + '">' + esc(p.name || r[2]) + '’s closest shot twins <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3)">· ' + sl(r[1]) + '</span></div>' + rows + '</div>';
+      }).join('') + '</div>';
+      host.innerHTML = seg + hero + '<div class="tw-pair">' + rs.map(function (r) { return r ? card(r) : '<div class="tw-card tw-empty">No data.</div>'; }).join('') + '</div>' + lists;
+      host.querySelectorAll('.tw-side button[data-y]').forEach(function (b) { b.onclick = function () { var l = list.slice(); l.want = +b.getAttribute('data-y'); duel(host, l); }; });
+    });
+  }
+  window.TDC_TWIN = { render: render, compare: compare, duel: duel, load: load };
 })();
