@@ -21,7 +21,7 @@
   // Plain-English groups, a one-line "what it is" under every item, sub-headings in the long menus.
   // Item = [href, label, what it is]; ['#Heading'] starts a section; a group with a string is a plain link.
   var GROUPS = [
-    ['Scores', 'today.html', ['game.html', 'scrimmages.html']],
+    ['Scores', 'today.html', ['game.html', 'scrimmages.html', 'recap.html']],
     ['Rankings', [
       ['#This season'],
       ['index.html',           'Team Rankings',          'All 365 teams, best to worst'],

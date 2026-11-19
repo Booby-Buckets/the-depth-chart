@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="tdc-loading.js?v=5"></script>
+  <link rel="stylesheet" href="tdc-a11y.css?v=3">
+  <script src="tdc-a11y.js?v=2" defer></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Daily Recap — The Depth Chart</title>
+  <meta name="description" content="Every college basketball day in one page: final scores, the best and worst player and team performances, upsets and the stat lines nobody expected.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Depth Chart">
+  <meta property="og:title" content="Daily Recap — The Depth Chart">
+  <meta property="og:description" content="Final scores, best and worst performances, upsets and the day's crazy stat lines.">
+  <meta property="og:url" content="https://www.thedepthchartcbb.com/recap.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <script src="tdc-theme.js?v=5"></script>
+  <script src="auth.js?v=photos2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="team-colors.js?v=13"></script>
+  <script src="tdc-teamname.js?v=1"></script>
+  <script src="tdc-ratings.js?v=45"></script>
+  <script src="tdc-schedule.js?v=sp16"></script>
+  <script src="tdc-live.js?v=3"></script>
+  <style>
+    :root{--green:#2e8b57;--red:#c75d5d;}
+    [data-theme="dark"]{--green:#6fbf7e;--red:#e07a7a;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html,body{background:var(--bg);}
+    body{color:var(--text);font-family:'Inter',system-ui,sans-serif;font-weight:500;min-height:100vh;}
+    .page{padding:26px 0 60px;}
+    .eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+    h1{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:34px;letter-spacing:-.02em;margin-bottom:10px;}
+    .sw{display:inline-flex;border:1px solid var(--border2);border-radius:999px;overflow:hidden;margin-bottom:14px;}
+    .sw a{padding:5px 14px;font-size:12px;font-weight:700;color:var(--text2);text-decoration:none;}
+    .sw a.on{background:var(--text);color:var(--bg);}
+    .dates{display:flex;align-items:stretch;border-top:1px solid var(--border2);border-bottom:1px solid var(--border2);margin-bottom:8px;}
+    .dates .arw{background:none;border:none;border-right:1px solid var(--border);width:38px;font-size:20px;color:var(--text2);cursor:pointer;flex-shrink:0;}
+    .dates .arw.r{border-right:none;border-left:1px solid var(--border);}
+    .dates .days{flex:1;display:flex;overflow-x:auto;scrollbar-width:none;} .dates .days::-webkit-scrollbar{display:none;}
+    .dates .d{flex:1 0 92px;text-align:center;padding:9px 6px 8px;text-decoration:none;color:var(--text2);border-bottom:3px solid transparent;}
+    .dates .d b{display:block;font-size:11px;font-weight:800;letter-spacing:.1em;} .dates .d span{display:block;font-size:12.5px;font-weight:600;margin-top:2px;}
+    .dates .d.on{color:var(--text);border-bottom-color:var(--accent);}
+    .sub{font-size:12.5px;color:var(--text3);margin-bottom:18px;}
+    .sec{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:28px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--text);}
+    .sec h2{font-size:13px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;}
+    .sec .n{font-size:12px;color:var(--text3);}
+    .empty{padding:26px;text-align:center;color:var(--text3);border:1px dashed var(--border2);border-radius:12px;font-size:13px;}
+    /* headline tiles */
+    .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;}
+    .tile{border:1px solid var(--border2);border-radius:10px;padding:12px 14px;background:var(--bg);min-width:0;}
+    .tile .k{font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);}
+    .tile .v{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:28px;line-height:1.1;margin-top:4px;font-variant-numeric:tabular-nums;}
+    .tile .s{font-size:12px;color:var(--text2);margin-top:3px;line-height:1.35;overflow:hidden;text-overflow:ellipsis;}
+    .tile a{color:inherit;text-decoration:none;} .tile a:hover{text-decoration:underline;}
+    /* scores */
+    .scores{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;}
+    .fs{display:block;border:1px solid var(--border2);border-radius:9px;padding:7px 10px;text-decoration:none;color:var(--text);background:var(--bg);}
+    .fs:hover{border-color:var(--text3);}
+    .fs .r{display:flex;align-items:center;gap:7px;padding:2px 0;font-size:13.5px;}
+    .fs .r img{width:18px;height:18px;object-fit:contain;flex-shrink:0;}
+    .fs .r .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700;}
+    .fs .r .rk{font-size:10.5px;color:var(--text3);font-weight:700;margin-right:3px;}
+    .fs .r .p{font-weight:800;font-variant-numeric:tabular-nums;}
+    .fs .r.l .t,.fs .r.l .p{color:var(--text3);font-weight:600;}
+    .fs .f{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--text3);margin-top:3px;padding-top:4px;border-top:1px solid var(--border);}
+    .fs .f .tag{font-weight:800;color:var(--accent);} .fs .f .tag.up{color:var(--red);}
+    /* tables */
+    .two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;}
+    .two > div{min-width:0;}
+    .h3{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);margin:0 0 8px;}
+    .sheet td.pl{min-width:150px;} .sheet td.pl a{color:var(--text);font-weight:700;text-decoration:none;} .sheet td.pl a:hover{text-decoration:underline;}
+    .sheet td.pl .bio{display:block;font-size:10.5px;color:var(--text3);font-weight:500;margin-top:1px;white-space:nowrap;}
+    .sheet td.pl .tm{display:block;font-size:11px;color:var(--text3);font-weight:600;white-space:nowrap;}
+    .sheet td.gs{font-weight:800;}
+    .sheet td.neg{color:var(--red);font-weight:800;} .sheet td.pos{color:var(--green);font-weight:800;}
+    .sheet td.tl a{color:var(--text);font-weight:700;text-decoration:none;}
+    /* oddities */
+    .odd{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;}
+    .oc{border:1px solid var(--border2);border-left:4px solid var(--accent);border-radius:9px;padding:10px 12px;background:var(--bg);min-width:0;}
+    .oc.bad{border-left-color:var(--red);} .oc.good{border-left-color:var(--green);}
+    .oc .tg{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+    .oc .hd{font-size:15px;font-weight:800;margin-top:3px;line-height:1.3;} .oc .hd a{color:var(--text);text-decoration:none;} .oc .hd a:hover{text-decoration:underline;}
+    .oc .bio{font-size:11px;color:var(--text3);margin-top:1px;}
+    .oc .ln{font-size:12.5px;color:var(--text2);margin-top:5px;line-height:1.45;font-variant-numeric:tabular-nums;}
+    .oc .bx{display:inline-block;margin-top:6px;font-size:11.5px;font-weight:700;color:var(--accent);text-decoration:none;}
+    /* colour + faces (owner, Nov 18 2026: "I want there to be logos, headshots, color") */
+    .tcx{--tcr:var(--tc);} [data-theme="dark"] .tcx{--tcr:color-mix(in srgb,var(--tc) 45%,#fff);}
+    .lg{width:18px;height:18px;object-fit:contain;vertical-align:-4px;margin-right:5px;flex-shrink:0;}
+    .hs{width:36px;height:36px;border-radius:50%;object-fit:cover;object-position:top;background:var(--bg3);border:2px solid var(--tc,var(--border2));flex-shrink:0;}
+    .pc{display:flex;align-items:center;gap:9px;min-width:0;} .pc > div{min-width:0;}
+    .potd{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:22px;align-items:center;border-radius:14px;padding:22px 26px;color:#fff;overflow:hidden;margin-bottom:12px;text-decoration:none;}
+    .potd .bg-logo{position:absolute;right:-30px;top:50%;transform:translateY(-50%);width:260px;height:260px;opacity:.13;pointer-events:none;}
+    .potd .face{position:relative;width:120px;height:120px;border-radius:50%;object-fit:cover;object-position:top;background:rgba(255,255,255,.15);border:3px solid rgba(255,255,255,.85);}
+    .potd .k{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;opacity:.85;}
+    .potd .nm{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:38px;line-height:1.05;margin-top:4px;}
+    .potd .meta{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;opacity:.92;margin-top:6px;flex-wrap:wrap;}
+    .potd .meta img{width:22px;height:22px;object-fit:contain;background:#fff;border-radius:50%;padding:2px;}
+    .potd .stats{display:flex;gap:18px;margin-top:12px;flex-wrap:wrap;}
+    .potd .stats div{display:flex;flex-direction:column;} .potd .stats b{font-size:26px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;} .potd .stats span{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.8;margin-top:3px;}
+    .potd .gsb{text-align:center;background:rgba(0,0,0,.22);border-radius:12px;padding:12px 16px;position:relative;}
+    .potd .gsb b{display:block;font-size:34px;font-weight:800;line-height:1;} .potd .gsb span{font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;opacity:.85;}
+    .runners{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:6px;}
+    .ru{display:flex;align-items:center;gap:10px;border:1px solid var(--border2);border-top:4px solid var(--tc);border-radius:10px;padding:10px 12px;background:var(--bg);text-decoration:none;color:var(--text);min-width:0;}
+    .ru .hs{width:46px;height:46px;} .ru .n{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .ru .l{font-size:11.5px;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .ru .r{font-size:11px;font-weight:800;color:var(--text2);margin-top:2px;}
+    .tile{border-top:4px solid var(--tc,var(--border2));} .tile .s img{width:16px;height:16px;object-fit:contain;vertical-align:-3px;margin-right:4px;}
+    .oc .top{display:flex;align-items:center;gap:10px;margin-top:4px;} .oc .hs{width:42px;height:42px;}
+    .fs{border-left:4px solid var(--tc,var(--border2));}
+    @media(max-width:760px){ .runners{grid-template-columns:repeat(2,minmax(0,1fr));} }
+    @media(max-width:640px){
+      .potd{grid-template-columns:auto minmax(0,1fr);gap:12px 14px;padding:16px;} .potd .face{width:76px;height:76px;} .potd .nm{font-size:26px;}
+      .potd .gsb{grid-column:1/-1;display:flex;align-items:baseline;gap:8px;justify-content:center;padding:8px;} .potd .gsb b{font-size:22px;display:inline;}
+      .potd .stats{gap:12px;} .potd .stats b{font-size:20px;} .potd .bg-logo{width:180px;height:180px;}
+      .pc > .hs{display:none;} .ru .hs{width:42px;height:42px;} .runners{grid-template-columns:minmax(0,1fr);gap:8px;}
+      .potd .face{width:64px;height:64px;} .potd{align-items:start;}
+    }
+    .note{font-size:11.5px;color:var(--text3);margin-top:8px;line-height:1.45;}
+    @media(max-width:760px){ .two{grid-template-columns:minmax(0,1fr);} }
+    @media(max-width:640px){
+      h1{font-size:26px;}
+      .dates .d{flex:0 0 74px;padding:8px 4px 7px;} .dates .d span{font-size:11.5px;} .dates .arw{width:30px;}
+      .tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;} .tile{padding:10px 11px;} .tile .v{font-size:22px;}
+      .scores{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;} .fs{padding:6px 8px;} .fs .r{font-size:12.5px;gap:5px;} .fs .r img{width:15px;height:15px;}
+      .sec{flex-wrap:wrap;} .sec .n{flex:1 0 100%;}
+      .sheet td.pl{min-width:0;width:44%;max-width:150px;}
+      .sheet td.pl a,.sheet td.pl .tm,.sheet td.pl .bio{display:block;white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis;max-width:150px;}
+      .sheet td.tl{white-space:nowrap;} .hide-m2{display:none;}
+      .hide-m{display:none;}
+    }
+  </style>
+  <link rel="stylesheet" href="tdc-skin.css?v=15"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+  <link rel="stylesheet" href="tdc-column.css?v=4"/>
+  <link rel="stylesheet" href="tdc-ui.css?v=16"/>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script src="tdc-pwa.js?v=3" defer></script>
+</head>
+<body>
+<script src="tdc-nav.js?v=96"></script>
+<div class="page">
+  <div class="eyebrow">Daily recap · men's college basketball</div>
+  <h1 id="ttl">Daily Recap</h1>
+  <div class="sw"><a href="today.html">Scores</a><a class="on" href="recap.html">Daily Recap</a></div>
+  <div class="dates"><button type="button" class="arw" id="prev" aria-label="Previous day">‹</button><div class="days" id="days"></div><button type="button" class="arw r" id="next" aria-label="Next day">›</button></div>
+  <div class="sub" id="sub">Loading the day…</div>
+  <div id="tilesSec"></div>
+  <div id="playersSec"></div>
+  <div id="oddSec"></div>
+  <div id="teamsSec"></div>
+  <div id="teamOddSec"></div>
+  <div id="scoresSec"></div>
+</div>
+<script>
+// DAILY RECAP (owner, Nov 18 2026: "a day recap page… daily scores, the best player and team performances from the day,
+// the worst performances… outlier or crazy team or player stats"). Everything comes from the season's own finals:
+// `games` (status FINAL on the day) and their `box_scores` rows. Player games are ranked by Game Score (Hollinger), team
+// games by points per 100 possessions; oddities are fixed thresholds (30 points, triple-double, 0-for-10…).
+(function(){
+  const SB='https://izlqhnxowdhtdofkwrho.supabase.co', KEY='sb_publishable_XQKr9A5ZP79pe0ac1RKYvA_-0dAx9Ye', H={apikey:KEY,Authorization:'Bearer '+KEY};
+  const get=p=>fetch(SB+'/rest/v1/'+p,{headers:H}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const etDay=d=>(d||new Date()).toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+  const shift=(d,n)=>{ const x=new Date(d+'T12:00:00'); x.setDate(x.getDate()+n); return x.toISOString().slice(0,10); };
+  const nice=d=>new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  const TODAY=etDay(), P=new URLSearchParams(location.search);
+  let DAY=/^\d{4}-\d{2}-\d{2}$/.test(P.get('date')||'')?P.get('date'):null;
+  const go=d=>{ location.href='recap.html?date='+d; };
+  document.getElementById('prev').onclick=()=>go(shift(DAY,-1));
+  document.getElementById('next').onclick=()=>go(shift(DAY,1));
+
+  let BY={}, OT={};
+  const teamRow=full=>BY[full]||null;
+  const short=full=>{ const t=teamRow(full); const s=(t&&t.team)||String(full||'').replace(/ \S+$/,''); try{ return (window.tdcShortSchool&&tdcShortSchool(s))||s; }catch(e){ return s; } };
+  const logo=full=>{ try{ const t=teamRow(full); const c=window.tdcTeamColor&&(tdcTeamColor((t&&t.team)||full)||tdcTeamColor(full)); return (c&&c.logo)||''; }catch(e){ return ''; } };
+  const tLink=full=>{ const t=teamRow(full); return t?`<a href="team.html?team=${encodeURIComponent(t.team)}">${esc(short(full))}</a>`:esc(short(full)); };
+  const pLink=r=>`<a href="player.html?name=${encodeURIComponent(r.player)}">${esc(r.player)}</a>`;
+  const gLink=id=>'game.html?id='+encodeURIComponent(id);
+  const pct=(m,a)=>a>0?Math.round(100*m/a):null;
+  // Hollinger Game Score
+  const gmsc=r=>r.pts+.4*r.fgm-.7*r.fga-.4*(r.fta-r.ftm)+.7*r.oreb+.3*r.dreb+r.stl+.7*r.ast+.7*r.blk-.4*r.pf-r.tov;
+  const N=v=>+v||0;
+  // team colour / logo / headshot (team-colors.js is the one resolver; headshots gated on tdcShowPhotos like every page)
+  const tcol=full=>{ try{ const t=teamRow(full); return (window.tdcTeamColor&&(tdcTeamColor((t&&t.team)||full)||tdcTeamColor(full)))||null; }catch(e){ return null; } };
+  const hex=full=>{ const c=tcol(full); return (c&&c.c1)||'#8a8577'; };
+  const tcs=full=>`--tc:${hex(full)}`;
+  const lgImg=(full,cls)=>{ const c=tcol(full); if(!c||!c.logo) return ''; const u=window.tdcLogoSmall?tdcLogoSmall(c.logo,40):c.logo; return `<img class="${cls||'lg'}" src="${esc(u)}" alt="" loading="lazy" onerror="this.remove()">`; };
+  const photos=()=>{ try{ return !window.tdcShowPhotos||tdcShowPhotos(); }catch(e){ return true; } };
+  const face=(id,cls,px)=>(id!=null&&photos())?`<img class="${cls||'hs'}" src="https://a.espncdn.com/combiner/i?img=/i/headshots/mens-college-basketball/players/full/${encodeURIComponent(id)}.png&w=${px||96}&h=${Math.round((px||96)*0.73)}&scale=crop&cquality=60" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`:'';
+  const band=full=>window.tdcBandColor?tdcBandColor(hex(full)):'#1b2230';
+
+
+  function strip(){
+    document.getElementById('days').innerHTML=[-3,-2,-1,0,1,2,3].map(k=>{ const d=shift(DAY,k), x=new Date(d+'T12:00:00');
+      const wd=d===TODAY?'TODAY':x.toLocaleDateString('en-US',{weekday:'short'}).toUpperCase();
+      return `<a class="d${k===0?' on':''}" href="recap.html?date=${d}"><b>${wd}</b><span>${x.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span></a>`; }).join('');
+    const dz=document.getElementById('days'), on=dz.querySelector('.d.on');
+    if(on) dz.scrollLeft=Math.max(0,on.offsetLeft-dz.offsetLeft-(dz.clientWidth-on.offsetWidth)/2);
+    document.getElementById('ttl').textContent=DAY===TODAY?"Today's Recap":nice(DAY);
+    document.title=nice(DAY)+' — Daily Recap — The Depth Chart';
+  }
+
+  // height · weight · class beside every player (owner rule): roster row for height/class, latest history row for weight
+  async function bios(ids){
+    const out={}; ids=[...new Set(ids.filter(x=>x!=null))]; if(!ids.length) return out;
+    for(let i=0;i<ids.length;i+=60){ const b=ids.slice(i,i+60).join(',');
+      const [pl,ph]=await Promise.all([get(`players?espn_id=in.(${b})&select=espn_id,height,class_year`), get(`player_history?espn_id=in.(${b})&weight=not.is.null&select=espn_id,weight,season_year&order=season_year.desc`)]);
+      pl.forEach(r=>{ out[r.espn_id]=Object.assign(out[r.espn_id]||{}, {ht:r.height, cls:r.class_year}); });
+      ph.forEach(r=>{ const o=out[r.espn_id]=out[r.espn_id]||{}; if(o.wt==null) o.wt=r.weight; }); }
+    return out;
+  }
+  const bioTxt=b=>b?[b.ht||'', b.wt?Math.round(b.wt)+' lb':'', String(b.cls||'').replace(/\.$/,'')].filter(Boolean).join(' · '):'';
+
+  async function load(){
+    if(!DAY){   // the latest day with finals
+      const g=await get('games?season_year=eq.2027&status=eq.STATUS_FINAL&select=date&order=date.desc&limit=1');
+      DAY=(g[0]&&g[0].date)||shift(TODAY,-1);
+    }
+    strip();
+    const [all,D,ot]=await Promise.all([get(`games?season_year=eq.2027&date=eq.${DAY}&select=id,date,home,away,home_score,away_score,neutral,conf_game,status`),
+      window.TDC_RATINGS?TDC_RATINGS.get().catch(()=>null):null, fetch('data/game_ot.json').then(r=>r.ok?r.json():{}).catch(()=>({}))]);
+    ((D&&D.teams)||[]).forEach(t=>{ if(t.full) BY[t.full]=t; }); OT=ot||{};
+    const fin=all.filter(g=>g.status==='STATUS_FINAL'&&(g.home_score||g.away_score));
+    const left=all.length-fin.length;
+    if(!fin.length){ document.getElementById('sub').textContent=all.length?`${all.length} games scheduled · no finals yet`:'No games on this day';
+      document.getElementById('tilesSec').innerHTML=`<div class="empty">No finished games on ${esc(nice(DAY))} yet.${DAY!==shift(TODAY,-1)?` <a href="recap.html?date=${shift(DAY,-1)}">See the day before ›</a>`:''}</div>`; return; }
+    // box scores for the finals (30 ids a call — a whole-day scan times out)
+    let box=[]; const ids=fin.map(g=>g.id);
+    for(let i=0;i<ids.length;i+=30){ box=box.concat(await get(`box_scores?game_id=in.(${ids.slice(i,i+30).join(',')})&select=game_id,team,opp,player,espn_id,starter,min,pts,fgm,fga,tpm,tpa,ftm,fta,reb,oreb,dreb,ast,tov,stl,blk,pf`)); }
+    box.forEach(r=>{ ['min','pts','fgm','fga','tpm','tpa','ftm','fta','reb','oreb','dreb','ast','tov','stl','blk','pf'].forEach(k=>r[k]=N(r[k])); r.gs=gmsc(r); });
+    const G={}; fin.forEach(g=>{ G[g.id]=g; });
+    // rankings, tiles and oddities count D-I vs D-I games only (a 57-point win over a non-D-I school isn't news); the scores grid shows every final
+    const d1=full=>!!BY[full], d1g=g=>d1(g.home)&&d1(g.away), FD=fin.filter(d1g);
+    document.getElementById('sub').textContent=`${fin.length} final${fin.length===1?'':'s'}${left>0?` · ${left} more still to play or in progress`:''} · ${box.filter(r=>r.min>0).length.toLocaleString()} player games`;
+
+    // ── team games: sums per (game, team), possessions, ratings ──
+    const T={};
+    box.forEach(r=>{ const k=r.game_id+'|'+r.team; const t=T[k]=T[k]||{gid:r.game_id,team:r.team,opp:r.opp,pts:0,fgm:0,fga:0,tpm:0,tpa:0,ftm:0,fta:0,oreb:0,dreb:0,reb:0,ast:0,tov:0,stl:0,blk:0,pf:0};
+      ['pts','fgm','fga','tpm','tpa','ftm','fta','oreb','dreb','reb','ast','tov','stl','blk','pf'].forEach(x=>t[x]+=r[x]); });
+    const TG=Object.values(T).filter(t=>G[t.gid]);
+    TG.forEach(t=>{ const g=G[t.gid], home=g.home===t.team; t.score=home?g.home_score:g.away_score; t.oppScore=home?g.away_score:g.home_score;
+      t.poss=t.fga-t.oreb+t.tov+.475*t.fta; });
+    TG.forEach(t=>{ const o=T[t.gid+'|'+t.opp]; t.o=o||null; const poss=o?(t.poss+o.poss)/2:t.poss;
+      t.ortg=poss>0?100*t.score/poss:null; t.drtg=poss>0?100*t.oppScore/poss:null; t.efg=t.fga>0?100*(t.fgm+.5*t.tpm)/t.fga:null; t.pace=poss; });
+    const okT=TG.filter(t=>t.o&&t.ortg!=null&&d1g(G[t.gid]));
+
+    // ── our pregame line → upsets ──
+    const lines={};
+    await Promise.all(fin.map(async g=>{ try{ const l=window.TDC_LIVE?await TDC_LIVE.pregame({id:String(g.id),date:g.date,neutral:g.neutral,home:{name:g.home},away:{name:g.away}}):null; if(l&&l.margin!=null) lines[g.id]=l; }catch(e){} }));
+    fin.forEach(g=>{ const l=lines[g.id]; g.marg=g.home_score-g.away_score; g.line=l?l.margin:null;
+      g.beat=g.line!=null?g.marg-g.line:null;            // + = home beat our line
+      g.upset=g.line!=null&&Math.abs(g.line)>=1&&Math.sign(g.marg)!==Math.sign(g.line); g.dog=g.upset?Math.abs(g.line):0; });
+
+    // ── players ──
+    const PG=box.filter(r=>r.min>0&&G[r.game_id]&&d1g(G[r.game_id]));
+    const best=PG.slice().sort((a,b)=>b.gs-a.gs).slice(0,10);
+    const worst=PG.filter(r=>r.min>=20).sort((a,b)=>a.gs-b.gs).slice(0,10);
+    // oddities (player)
+    const odd=[]; const add=(r,tag,cls,w,txt)=>odd.push({r,tag,cls,w,txt});
+    PG.forEach(r=>{
+      const dbl=['pts','reb','ast','stl','blk'].filter(k=>r[k]>=10).length;
+      if(dbl>=3) add(r,'Triple-double','good',100+r.gs,'');
+      if(r.pts>=30) add(r,r.pts>=40?'40-point game':'30-point game','good',60+r.pts,'');
+      if(r.pts>=20&&r.reb>=15) add(r,'20 & 15','good',50+r.pts+r.reb,'');
+      if(r.reb>=18) add(r,r.reb+' rebounds','good',40+r.reb*2,'');
+      if(r.ast>=12) add(r,r.ast+' assists','good',40+r.ast*2,'');
+      if(r.blk>=6) add(r,r.blk+' blocks','good',40+r.blk*4,'');
+      if(r.stl>=6) add(r,r.stl+' steals','good',40+r.stl*4,'');
+      if(r.tpm>=7) add(r,r.tpm+' threes','good',40+r.tpm*4,'');
+      if(r.fga>=8&&r.fgm===r.fga) add(r,`Perfect ${r.fgm}-for-${r.fga}`,'good',40+r.fga*3,'');
+      if(r.fga>=10&&r.fgm===0) add(r,`0-for-${r.fga} from the field`,'bad',40+r.fga*3,'');
+      if(r.tpa>=8&&r.tpm===0) add(r,`0-for-${r.tpa} from three`,'bad',30+r.tpa*2,'');
+      if(r.tov>=8) add(r,r.tov+' turnovers','bad',30+r.tov*3,'');
+      if(r.fta>=8&&r.ftm/r.fta<=.4) add(r,`${r.ftm}-for-${r.fta} at the line`,'bad',25+r.fta*2,'');
+      if(r.pf>=5&&r.min<=12) add(r,`Fouled out in ${r.min} minutes`,'bad',28+(12-r.min),'');
+      if(!r.starter&&r.pts>=22) add(r,'Bench explosion','good',35+r.pts,'');
+      if(r.min>=15&&r.pts===0&&r.reb+r.ast<=2) add(r,`${r.min} minutes, 0 points`,'bad',20+r.min,'');
+    });
+    odd.sort((a,b)=>b.w-a.w);
+    const oddTop=[]; const seen=new Set(); odd.forEach(o=>{ const k=o.r.espn_id||o.r.player; if(seen.has(k)||oddTop.length>=15) return; seen.add(k); oddTop.push(o); });
+    const B=await bios(best.concat(worst).concat(oddTop.map(o=>o.r)).map(r=>r.espn_id));
+
+    // ── tiles ──
+    const tot=okT.reduce((a,t)=>a+t.score,0), avgPts=okT.length?tot/okT.length:0;
+    const ups=FD.filter(g=>g.upset).sort((a,b)=>b.dog-a.dog), top=best[0];
+    const close=FD.slice().sort((a,b)=>Math.abs(a.marg)-Math.abs(b.marg))[0], blow=FD.slice().sort((a,b)=>Math.abs(b.marg)-Math.abs(a.marg))[0];
+    const high=FD.slice().sort((a,b)=>(b.home_score+b.away_score)-(a.home_score+a.away_score))[0];
+    const W=g=>g.marg>0?g.home:g.away, L=g=>g.marg>0?g.away:g.home, WS=g=>Math.max(g.home_score,g.away_score), LS=g=>Math.min(g.home_score,g.away_score);
+    const ots=fin.filter(g=>OT[g.id]).length;
+    const tile=(k,v,s,href,full)=>`<div class="tile tcx"${full?` style="${tcs(full)}"`:''}><div class="k">${k}</div><div class="v">${v}</div><div class="s">${full?lgImg(full,'x'):''}${href?`<a href="${href}">${s}</a>`:s}</div></div>`;
+    document.getElementById('tilesSec').innerHTML=`<div class="tiles">`
+      +tile('Games',fin.length,`${FD.length} D-I vs D-I · ${avgPts.toFixed(1)} points per team${ots?` · ${ots} to overtime`:''}`)
+      +(top?tile('Top performance',`${top.pts} pts`,`${esc(top.player)} · ${top.reb} reb, ${top.ast} ast · Game Score ${top.gs.toFixed(1)}`,'player.html?name='+encodeURIComponent(top.player),top.team):'')
+      +(ups[0]?tile('Biggest upset',`+${ups[0].dog.toFixed(1)}`,`${esc(short(W(ups[0])))} beat ${esc(short(L(ups[0])))} ${WS(ups[0])}-${LS(ups[0])} as a ${ups[0].dog.toFixed(1)}-point underdog`,gLink(ups[0].id),W(ups[0])):tile('Upsets','0','every favourite won'))
+      +(close?tile('Closest finish',`${Math.abs(close.marg)} pt${Math.abs(close.marg)===1?'':'s'}`,`${esc(short(W(close)))} ${WS(close)}, ${esc(short(L(close)))} ${LS(close)}${OT[close.id]?' ('+(OT[close.id]>1?OT[close.id]:'')+'OT)':''}`,gLink(close.id),W(close)):'')
+      +(blow?tile('Biggest blowout',`+${Math.abs(blow.marg)}`,`${esc(short(W(blow)))} ${WS(blow)}, ${esc(short(L(blow)))} ${LS(blow)}`,gLink(blow.id),W(blow)):'')
+      +(high?tile('Highest scoring',high.home_score+high.away_score,`${esc(short(W(high)))} ${WS(high)}, ${esc(short(L(high)))} ${LS(high)}`,gLink(high.id),W(high)):'')
+      +`</div>`;
+
+    // ── player tables ──
+    const pRow=(r,i)=>{ const b=bioTxt(B[r.espn_id]);
+      return `<tr><td class="rk">${i+1}</td><td class="l pl"><div class="pc" style="${tcs(r.team)}">${face(r.espn_id)}<div>${pLink(r)}<span class="tm">${lgImg(r.team)}${esc(short(r.team))} vs ${esc(short(r.opp))}</span>${b?`<span class="bio">${esc(b)}</span>`:''}</div></div></td>`
+        +`<td class="hide-m2">${r.min}</td><td>${r.pts}</td><td>${r.reb}</td><td>${r.ast}</td><td class="hide-m">${r.stl}</td><td class="hide-m">${r.blk}</td><td class="hide-m">${r.tov}</td>`
+        +`<td>${r.fgm}-${r.fga}</td><td class="hide-m">${r.tpm}-${r.tpa}</td><td class="gs ${r.gs<0?'neg':''}">${r.gs.toFixed(1)}</td></tr>`; };
+    const pHead=`<thead><tr><th class="rk">#</th><th class="l">Player</th><th class="hide-m2">MIN</th><th>PTS</th><th>REB</th><th>AST</th><th class="hide-m">STL</th><th class="hide-m">BLK</th><th class="hide-m">TO</th><th>FG</th><th class="hide-m">3P</th><th title="Game Score: one number for a box-score line (points, shooting, rebounds, assists, steals, blocks, fouls and turnovers)">GmSc</th></tr></thead>`;
+    const potd=best[0]?(()=>{ const r=best[0], b=bioTxt(B[r.espn_id]), g=G[r.game_id], won=g&&((g.home===r.team)?g.marg>0:g.marg<0);
+      const c=tcol(r.team), bgL=c&&c.logo?(window.tdcLogoSmall?tdcLogoSmall(c.logo,500):c.logo):'', bd=band(r.team);
+      return `<a class="potd" href="player.html?name=${encodeURIComponent(r.player)}" style="background:linear-gradient(120deg,${bd} 0%,${bd} 55%,color-mix(in srgb,${bd} 70%,#000) 100%)">`
+        +(bgL?`<img class="bg-logo" src="${esc(bgL)}" alt="" onerror="this.remove()">`:'')
+        +(face(r.espn_id,'face',240)||'<span></span>')
+        +`<div style="position:relative"><div class="k">Player of the day</div><div class="nm">${esc(r.player)}</div>`
+        +`<div class="meta">${lgImg(r.team,'x')}<span>${esc(short(r.team))}</span><span>·</span><span>${won?'W':'L'} vs ${esc(short(r.opp))}${g?` ${Math.max(g.home_score,g.away_score)}-${Math.min(g.home_score,g.away_score)}`:''}</span>${b?`<span>·</span><span>${esc(b)}</span>`:''}</div>`
+        +`<div class="stats"><div><b>${r.pts}</b><span>pts</span></div><div><b>${r.reb}</b><span>reb</span></div><div><b>${r.ast}</b><span>ast</span></div><div><b>${r.fgm}-${r.fga}</b><span>fg</span></div>${r.tpa?`<div><b>${r.tpm}-${r.tpa}</b><span>3p</span></div>`:''}${(r.stl+r.blk)?`<div><b>${r.stl}/${r.blk}</b><span>stl/blk</span></div>`:''}</div></div>`
+        +`<div class="gsb"><b>${r.gs.toFixed(1)}</b><span>Game Score</span></div></a>`; })():'';
+    const runners=best.slice(1,5).map((r,i)=>`<a class="ru tcx" style="${tcs(r.team)}" href="player.html?name=${encodeURIComponent(r.player)}">${face(r.espn_id)||lgImg(r.team,'hs')}<div style="min-width:0"><div class="r">#${i+2} · ${r.gs.toFixed(1)} Game Score</div><div class="n">${esc(r.player)}</div><div class="l">${r.pts} pts · ${r.reb} reb · ${r.ast} ast · ${esc(short(r.team))}</div></div></a>`).join('');
+    document.getElementById('playersSec').innerHTML=`<div class="sec"><h2>Player performances</h2><span class="n">ranked by Game Score</span></div>`
+      +potd+(runners?`<div class="runners">${runners}</div>`:'')
+
+      +`<div class="h3">Best of the day</div><div class="sheet-wrap"><table class="sheet dense">${pHead}<tbody>${best.map(pRow).join('')}</tbody></table></div>`
+      +`<div class="h3" style="margin-top:18px">Worst of the day <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--text3)">· 20+ minutes</span></div><div class="sheet-wrap"><table class="sheet dense">${pHead}<tbody>${worst.map(pRow).join('')}</tbody></table></div>`
+      +`<div class="note">Game Score adds up one box-score line: points, plus made shots, rebounds, assists, steals and blocks, minus misses, fouls and turnovers. About 10 is a solid game, 20 a great one, below 0 a rough one.</div>`;
+
+    // ── player oddities ──
+    const line=r=>`${r.min} min · ${r.pts} pts · ${r.reb} reb · ${r.ast} ast${r.stl?` · ${r.stl} stl`:''}${r.blk?` · ${r.blk} blk`:''}${r.tov?` · ${r.tov} to`:''} · ${r.fgm}-${r.fga} FG${r.tpa?`, ${r.tpm}-${r.tpa} 3P`:''}${r.fta?`, ${r.ftm}-${r.fta} FT`:''}`;
+    document.getElementById('oddSec').innerHTML=oddTop.length?`<div class="sec"><h2>Stat lines that jumped out</h2><span class="n">the good, the bad and the strange</span></div><div class="odd">`
+      +oddTop.map(o=>{ const b=bioTxt(B[o.r.espn_id]); return `<div class="oc ${o.cls} tcx" style="${tcs(o.r.team)};border-left-color:var(--tc)"><div class="tg">${esc(o.tag)}</div><div class="top">${face(o.r.espn_id)}<div style="min-width:0"><div class="hd">${pLink(o.r)}</div><div class="bio">${lgImg(o.r.team)}${esc(short(o.r.team))} vs ${esc(short(o.r.opp))}${b?' · '+esc(b):''}</div></div></div><div class="ln">${line(o.r)}</div></div>`; }).join('')
+      +`</div>`:'';
+
+    // ── team performances ──
+    const tRow=(t,i,k)=>{ const g=G[t.gid], won=t.score>t.oppScore;
+      return `<tr><td class="rk">${i+1}</td><td class="l tl" style="box-shadow:inset 3px 0 0 ${hex(t.team)}">${lgImg(t.team)}${tLink(t.team)}<span style="display:block;font-size:11px;color:var(--text3);font-weight:600">${won?'W':'L'} ${t.score}-${t.oppScore} vs ${esc(short(t.opp))}</span></td>`
+        +`<td class="gs">${(k==='d'?t.drtg:t.ortg).toFixed(1)}</td><td>${t.efg!=null?t.efg.toFixed(1):'—'}</td><td class="hide-m">${t.tpm}-${t.tpa}</td><td class="hide-m">${t.tov}</td><td class="hide-m">${t.oreb}</td><td>${t.pace.toFixed(0)}</td></tr>`; };
+    const tHead=k=>`<thead><tr><th class="rk">#</th><th class="l">Team</th><th title="Points ${k==='d'?'allowed':'scored'} per 100 possessions">${k==='d'?'DRtg':'ORtg'}</th><th title="Effective FG%: threes count 1.5">eFG%</th><th class="hide-m">3P</th><th class="hide-m">TO</th><th class="hide-m">OREB</th><th title="Possessions">Poss</th></tr></thead>`;
+    const tbl=(title,rows,k)=>`<div><div class="h3">${title}</div><div class="sheet-wrap"><table class="sheet dense">${tHead(k)}<tbody>${rows.map((t,i)=>tRow(t,i,k)).join('')}</tbody></table></div></div>`;
+    const byO=okT.slice().sort((a,b)=>b.ortg-a.ortg), byD=okT.slice().sort((a,b)=>a.drtg-b.drtg);
+    document.getElementById('teamsSec').innerHTML=okT.length?`<div class="sec"><h2>Team performances</h2><span class="n">per 100 possessions, so fast and slow games compare</span></div>`
+      +`<div class="two">${tbl('Best offenses',byO.slice(0,6),'o')}${tbl('Best defenses',byD.slice(0,6),'d')}</div>`
+      +`<div class="two" style="margin-top:16px">${tbl('Worst offenses',byO.slice(-6).reverse(),'o')}${tbl('Worst defenses',byD.slice(-6).reverse(),'d')}</div>`:'';
+
+    // ── team oddities + upsets ──
+    const tOdd=[]; const tadd=(gid,tag,cls,w,hd,ln)=>tOdd.push({gid,tag,cls,w,hd,ln});
+    ups.slice(0,4).forEach(g=>tadd(g.id,`Upset · ${g.dog.toFixed(1)}-point underdog`,'bad',80+g.dog*3,`${tLink(W(g))} beat ${tLink(L(g))}`,`${WS(g)}-${LS(g)} · we had ${esc(short(L(g)))} by ${g.dog.toFixed(1)}`));
+    FD.filter(g=>g.beat!=null).forEach(g=>{ const off=Math.abs(g.beat); if(off>=25&&!g.upset){ const side=g.beat>0?g.home:g.away;
+      tadd(g.id,`Beat our line by ${off.toFixed(0)}`,'good',50+off,`${tLink(side)} ${g.beat>0?g.home_score:g.away_score}, ${tLink(side===g.home?g.away:g.home)} ${g.beat>0?g.away_score:g.home_score}`,`our line had it ${g.line>0?esc(short(g.home)):esc(short(g.away))} by ${Math.abs(g.line).toFixed(1)}`); } });
+    okT.forEach(t=>{
+      if(t.score>=100) tadd(t.gid,`${t.score} points`,'good',40+t.score/3,`${tLink(t.team)} ${t.score}, ${esc(short(t.opp))} ${t.oppScore}`,`${t.fgm}-${t.fga} FG · ${t.tpm}-${t.tpa} 3P · ${t.ortg.toFixed(0)} per 100`);
+      if(t.oppScore<=45) tadd(t.gid,`Held to ${t.oppScore}`,'good',45+(45-t.oppScore)*2,`${tLink(t.team)} held ${esc(short(t.opp))} to ${t.oppScore}`,`${t.o.fgm}-${t.o.fga} FG (${pct(t.o.fgm,t.o.fga)}%) · ${t.drtg.toFixed(0)} allowed per 100`);
+      if(t.tpm>=16) tadd(t.gid,`${t.tpm} threes`,'good',40+t.tpm,`${tLink(t.team)} made ${t.tpm} of ${t.tpa} threes`,`vs ${esc(short(t.opp))} · ${t.score}-${t.oppScore}`);
+      if(t.efg>=68&&t.fga>=40) tadd(t.gid,`${t.efg.toFixed(0)}% eFG`,'good',35+t.efg-68,`${tLink(t.team)} shot ${t.fgm}-${t.fga}`,`${t.tpm}-${t.tpa} from three vs ${esc(short(t.opp))}`);
+      if(t.efg<=32&&t.fga>=40) tadd(t.gid,`${t.efg.toFixed(0)}% eFG`,'bad',35+32-t.efg,`${tLink(t.team)} shot ${t.fgm}-${t.fga}`,`${t.tpm}-${t.tpa} from three vs ${esc(short(t.opp))}`);
+      if(t.tov>=24) tadd(t.gid,`${t.tov} turnovers`,'bad',30+t.tov,`${tLink(t.team)} turned it over ${t.tov} times`,`vs ${esc(short(t.opp))} · ${t.score}-${t.oppScore}`);
+      if(t.oreb>=22) tadd(t.gid,`${t.oreb} offensive rebounds`,'good',30+t.oreb,`${tLink(t.team)} grabbed ${t.oreb} of its own misses`,`vs ${esc(short(t.opp))}`);
+      if(t.fta>=40) tadd(t.gid,`${t.fta} free throws`,'good',25+t.fta/2,`${tLink(t.team)} went ${t.ftm}-${t.fta} at the line`,`vs ${esc(short(t.opp))}`);
+    });
+    FD.filter(g=>OT[g.id]>=2).forEach(g=>tadd(g.id,`${OT[g.id]} overtimes`,'',60,`${tLink(W(g))} ${WS(g)}, ${tLink(L(g))} ${LS(g)}`,'in '+OT[g.id]+'OT'));
+    tOdd.sort((a,b)=>b.w-a.w);
+    document.getElementById('teamOddSec').innerHTML=tOdd.length?`<div class="sec"><h2>Team games that jumped out</h2><span class="n">upsets against our line, blowouts of it, and the outlier box scores</span></div><div class="odd">`
+      +tOdd.slice(0,12).map(o=>{ const g=G[o.gid]; const wf=g?(g.marg>0?g.home:g.away):null; return `<div class="oc ${o.cls} tcx" style="${wf?tcs(wf)+';border-left-color:var(--tc)':''}">${g?`<div style="float:right;display:flex;gap:4px">${lgImg(g.away,'lg')}${lgImg(g.home,'lg')}</div>`:''}<div class="tg">${esc(o.tag)}</div><div class="hd">${o.hd}</div><div class="ln">${o.ln}</div><a class="bx" href="${gLink(o.gid)}">Box score ›</a></div>`; }).join('')+`</div>`:'';
+
+    // ── every final ──
+    const rk=full=>{ const t=teamRow(full); return t&&t.rank&&t.rank<=25?`<span class="rk">${t.rank}</span>`:''; };
+    const strength=g=>{ const a=teamRow(g.home), b=teamRow(g.away); return -((a&&a.rank)||400)-((b&&b.rank)||400); };
+    const rows=fin.slice().sort((a,b)=>(b.upset-a.upset)||(strength(b)-strength(a)));
+    const side=(full,pts,win)=>{ const lg=logo(full); return `<div class="r${win?'':' l'}">${lg?`<img src="${esc(lg)}" alt="" onerror="this.style.visibility='hidden'">`:'<span style="width:18px"></span>'}<span class="t">${rk(full)}${esc(short(full))}</span><span class="p">${pts}</span></div>`; };
+    document.getElementById('scoresSec').innerHTML=`<div class="sec"><h2>Every final</h2><span class="n">${fin.length} games · ranked teams and upsets first · rankings above count D-I vs D-I games</span></div><div class="scores">`
+      +rows.map(g=>`<a class="fs" style="${tcs(g.marg>0?g.home:g.away)}" href="${gLink(g.id)}">${side(g.away,g.away_score,g.marg<0)}${side(g.home,g.home_score,g.marg>0)}<div class="f"><span>${OT[g.id]?(OT[g.id]>1?OT[g.id]:'')+'OT':'Final'}${g.neutral?' · neutral':''}</span>${g.upset?'<span class="tag up">Upset</span>':(g.line!=null?`<span>${g.line>0?esc(short(g.home)):esc(short(g.away))} −${Math.abs(g.line).toFixed(1)}</span>`:'')}</div></a>`).join('')+`</div>`;
+  }
+  load().catch(e=>{ console.warn('recap',e); document.getElementById('sub').textContent='Could not load the day.'; });
+})();
+</script>
+<script src="tdc-version.js?v=2"></script>
+<script src="tdc-sheets.js?v=2"></script>
+<script src="tdc-panelize.js?v=24"></script>
+<script>if(window.TDCPanelize) TDCPanelize.watchPage('.sec:has(> h2), h2:not(.sec > h2)');</script>
+</body>
+</html>
