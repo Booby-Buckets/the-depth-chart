@@ -406,14 +406,19 @@ function loadRoster(row){
             var R0=function(x){ return (RD&&RD.of(x.p))||null; };
             var mp=function(x){ var r=R0(x); return r&&r.g?r.min:x.mpg; };
             var gs=function(x){ var r=R0(x); return r?(r.gs||0):null; }, gp=function(x){ var r=R0(x); return r?(r.g||0):null; };
-            var st=five.slice().sort(function(a,b){ return (gs(b)||0)-(gs(a)||0)||(mp(b)||0)-(mp(a)||0); });
+            // owner (Nov 18 2026, Auburn: "the rotation is out of sorts"): the five read PG → C like the depth chart, not by
+            // minutes (which put a PF first); who the five ARE still comes from games started
+            var SLOT={PG:1,SG:2,SF:3,PF:4,C:5}, so=function(x){ return SLOT[String((x.slot||x.p.position||'')).toUpperCase()]||9; };
+            var st=five.slice().sort(function(a,b){ return so(a)-so(b)||(gs(b)||0)-(gs(a)||0)||(mp(b)||0)-(mp(a)||0); });
             var res=bench.slice().sort(function(a,b){ var ra=R0(a)&&R0(a).g, rb=R0(b)&&R0(b).g; if(!!ra!==!!rb) return rb?1:-1; return (mp(b)||0)-(mp(a)||0); });
+            var RL=function(x){ try{ var l=(real&&window.TDCReal&&TDCReal.of)?TDCReal.of(x.p):null; return l&&l.gp>0?l:null; }catch(e){ return null; } };
+            var st3=function(x,k){ var l=RL(x); if(l) return '<td>'+f1(l[k])+'</td>'; return '<td'+(real?' class="dim" style="font-style:italic" title="projected — hasn\'t played yet"':'')+'>'+f1(x.L[k])+'</td>'; };
             var from=function(x){ var w=how(x); return w[0]?esc(w[0].replace(/^From /,'')):''; };
             var real=!!(RD&&RD.R&&RD.R.games);
             // owner (Nov 17 2026): "the rotation needs to look the same as the depth chart with some different info" —
             // the depth chart's sheet (headshot, OVR ring, red→green shading within the roster), rotation columns
             var head1=function(eid,name){ return '<span class="dc-ava">'+(window._sqHead?_sqHead(eid):'')+'<i>'+esc(window._sqInit?_sqInit(name):'')+'</i></span>'; };
-            var nm=function(p){ return head1(p.espn_id,p.name)+(p.espn_id?'<a class="dc-name" href="player.html?espn='+p.espn_id+'">'+esc(p.name)+'</a>':'<span class="dc-name">'+esc(p.name)+'</span>'); };
+            var nm=function(p){ return head1(p.espn_id,p.name)+(p.espn_id?'<a class="dc-name" href="player.html?espn='+p.espn_id+'">'+esc(p.name)+'</a>':'<a class="dc-name">'+esc(p.name)+'</a>'); };   // no player page: an href-less <a> so every phone rule for names applies
             var r=function(x,isSt){ var L=x.L, d=(x.last!=null&&x.ov!=null)?x.ov-x.last:null, g0=gp(x), s0=gs(x);
               return '<tr'+(isSt?' class="dc-starter"':'')+'><td class="l dc-slot">'+esc((isSt&&x.slot)||x.p.position||'')+'</td>'+
                 '<td class="c big dc-ovr"'+(x.ov==null?'':' data-v="'+x.ov+'"')+'>'+(x.ov==null?'—':'<span class="dc-ring">'+x.ov+'</span>')+'</td>'+
@@ -422,23 +427,23 @@ function loadRoster(row){
                 '<td class="l dim">'+from(x)+'</td>'+
                 '<td>'+(d?'<span class="'+(d>0?'up':'dn')+'">'+(d>0?'+':'−')+Math.abs(d)+'</span>':'<span class="dim">'+(x.last==null?'new':'0')+'</span>')+'</td>'+
                 (real?'<td>'+(g0==null?'0':g0)+'</td><td>'+(s0==null?'0':s0)+'</td>':'')+
-                '<td'+(real&&!g0?'':' data-v="'+(mp(x)||0)+'"')+'>'+(real&&!g0?'<span class="dim" title="hasn\'t played yet">—</span>':f1(mp(x)))+'</td><td>'+f1(L.ppg)+'</td><td>'+f1(L.rpg)+'</td><td>'+f1(L.apg)+'</td></tr>'; };
+                '<td'+(real&&!g0?'':' data-v="'+(mp(x)||0)+'"')+'>'+(real&&!g0?'<span class="dim" title="hasn\'t played yet">—</span>':f1(mp(x)))+'</td>'+st3(x,'ppg')+st3(x,'rpg')+st3(x,'apg')+'</tr>'; };
             var th=function(l,heat,tip,cls){ return '<th'+(cls?' class="'+cls+'"':'')+(heat?' data-heat="'+heat+'"':'')+(tip?' title="'+tip+'"':'')+'>'+l+'</th>'; };
             var head=th('Pos',0,'','l')+th('OVR',1,'projected overall','c')+th('Player',0,'','l')+th('Class',0,'','l')+th('Ht',0,'','l')+
               th('From',0,'returner, freshman, or where the transfer came from','l')+th('+/−',0,'change from last season')+
               (real?th('G',0,'games played')+th('GS',0,'games started'):'')+
-              th('MP',1,'minutes per game'+(real?' (real games)':' (projected)'))+th('PTS',1,'projected points per game')+th('TRB',1,'projected rebounds')+th('AST',1,'projected assists');
+              th('MP',1,'minutes per game'+(real?' (real games)':' (projected)'))+th('PTS',1,real?'points per game in real games (projected, in grey, for anyone who hasn\'t played)':'projected points per game')+th('TRB',1,real?'rebounds per game (real games)':'projected rebounds')+th('AST',1,real?'assists per game (real games)':'projected assists');
             var nc=real?13:11, cap=function(t){ return '<tr class="sec"><td colspan="'+nc+'">'+t+'</td></tr>'; };
             var body=cap('Starting lineup')+st.map(function(x){ return r(x,true); }).join('')+
               (res.length?cap('Reserves')+res.map(function(x){ return r(x,false); }).join(''):'')+
               (hurt.length?cap('Out')+hurt.map(function(x){ return '<tr class="hq-out"><td class="l dc-slot">—</td><td class="c dim">—</td><td class="l nm">'+nm(x.p)+'</td><td class="l dim" colspan="'+(nc-3)+'">out</td></tr>'; }).join(''):'');
             return '<div class="sheet-wrap" style="max-height:none;"><table class="sheet dense freeze3 hr-sheet dc-sheet rot-sheet" id="rotSheet" style="--c1:56px;--c2:52px;--c3:230px;"><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody></table></div>'+
-              '<div class="rf-note">starters by games started, reserves by minutes'+(real?' · G, GS, MP from the '+RD.R.games+' game'+(RD.R.games===1?'':'s')+' played':'')+' · PTS / TRB / AST projected per game</div>';
+              '<div class="rf-note">starters (most games started) PG to C, reserves by minutes'+(real?' · G, GS, MP from the '+RD.R.games+' game'+(RD.R.games===1?'':'s')+' played · PTS / TRB / AST real per game, projected in grey for anyone yet to play':' · PTS / TRB / AST projected per game')+'</div>';
           };
           fe.innerHTML=mockF();
           if(window.tdcSheetHeat) tdcSheetHeat(byId('rotSheet'));
           var built=H_?[n.rt?n.rt+' returning':'',n.tr?n.tr+' transfer'+(n.tr===1?'':'s'):'',n.fr?n.fr+' freshm'+(n.fr===1?'an':'en'):'',n.nw?n.nw+' newcomer'+(n.nw===1?'':'s'):''].filter(Boolean).join(' · '):'';
-          var fs=byId('hxFiveSub'); if(fs) fs.textContent=[RD?'starters = most used in '+RD.R.games+(RD.R.games===1?' game':' games'):'starters from the depth chart','projected per game',built].filter(Boolean).join(' · ');
+          var fs=byId('hxFiveSub'); if(fs) fs.textContent=[RD?'starters = most used in '+RD.R.games+(RD.R.games===1?' game':' games'):'starters from the depth chart',RD?'real per game':'projected per game',built].filter(Boolean).join(' · ');
         };
         paint(null);
         if(!ids.length) return paint({});
