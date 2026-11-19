@@ -640,13 +640,40 @@
       { sel:'.sheet-wrap, #prHead', t:'The rankings', d:'The ranked list. Green-shaded cells are strong for that column, red are weak. Click a player for his full page.' }
     ],
 
-    'transfers.html': [
-      { sel:'#tpSum', t:'The 2026-27 portal class', d:'The headline numbers for this year\'s transfer class: how many players moved, how many committed and where the most value went.' },
-      { sel:'#viewRow', t:'Players or teams', d:'<b>Players</b> lists every transfer; <b>Teams</b> ranks the schools by the talent they added and lost through the portal (their portal "haul").' },
-      { sel:'#posRow, #lvlRow', t:'Filters', html:bl('<b>Position</b> — guards, wings or bigs.', '<b>Move</b> — up a level (mid-major to high-major), down a level, or across.') },
-      { sel:'#tpBoards', t:'Top boards', d:'Quick lists: the best transfers still available, the biggest commitments and the biggest level jumps.' },
-      { sel:'.sheet-wrap, #tpHead', t:'The full tracker', html:'Every transfer with his old school, his new one and his projected value.' + bl(G.ovr) + 'Click a row to see how well he fits every program (Portal Fit).' }
-    ],
+    // Nov 18 2026 short-step walkthrough (same style as the other pages): one thing lit per step, a line or two each.
+    'transfers.html': (function(){
+      var T=function(x){ return '<div style="margin-top:8px;font-size:12.5px;"><b>Try:</b> '+x+'</div>'; };
+      var view=function(n){ return function(){ var c=document.querySelectorAll('#viewRow .chip')[n]; if(c&&!c.classList.contains('on')) c.click(); }; };
+      var board=function(n){ return '#tpBoards > :nth-child('+n+')'; };
+      var col=function(n){ return '#tpHead th:nth-child('+n+')'; };
+      return [
+      { sel:'#__intro', t:'Transfer Portal', html:'Every transfer this offseason: who moved, where they went and which programs won the portal. This walk-through points at one thing at a time.', before:view(0) },
+      { sel:'#tpSum', t:'The portal in numbers', html:'How many players transferred, how many moved up a level, how many rate 85+, and how many programs added someone.' },
+      { sel:'#viewRow', t:'Three views', html:'<b>Rankings</b> (who won the portal), <b>Players</b> (every transfer) and <b>Teams</b> (every program\'s class).' },
+      { sel:'#posRow', t:'Position', html:'Guards, forwards or centers only.' },
+      { sel:'#lvlRow', t:'Move', html:'Players who moved up a level, or stayed level or moved down.' },
+      { sel:'#confSel', t:'Conference', html:'Only transfers landing in one league.' },
+      { sel:'#tpNote', t:'How classes are scored', html:'Class score rewards quality over size, so one star can outrank five role players.' },
+      { sel:board(1), t:'Best portal class', html:'The programs that added the most by class score.'+T('tap a team to open its page.') },
+      { sel:board(2), t:'Money', html:'Who spent the most estimated NIL, and who got the most for each $1M.' },
+      { sel:board(5), t:'Losses', html:'The programs that lost the most, in value and in NIL money.' },
+      { sel:board(7), t:'Net winners and losers', html:'What came in minus what went out.' },
+      { sel:board(11), t:'Splashes and bargains', html:'The priciest moves, and the best players who came cheap.' },
+      { sel:'.tp-table', t:'Every transfer', html:'One row per player, best first.'+T('tap a name to open his page. <b>Fit ›</b> at the end of a row ranks every program by how well he would fit.'), before:view(1) },
+      { sel:'#tpSearch', t:'Search', html:'Find a player or school.' },
+      { sel:col(5), opt:1, t:'From and To', html:'His old school and his new one.' },
+      { sel:col(7), t:'OVR and Last', html:'His projected grade at his new school, next to last season\'s grade.' },
+      { sel:col(10), t:'Projected points', html:'His projected points per game in his new role, next to last season\'s.' },
+      { sel:col(14), opt:1, t:'Move', html:'Whether he moved up a level.' },
+      { sel:'#tpMore', t:'Show more', html:'Load the next batch of players.' },
+      { sel:'.tp-table', t:'Every team\'s class', html:'One row per program, ranked by class score.', before:view(2) },
+      { sel:col(5), t:'In and Out', html:'How many transfers each program added and lost.' },
+      { sel:col(7), t:'$ In', html:'The estimated NIL value of the players it added.' },
+      { sel:col(9), opt:1, t:'Average OVR', html:'The average grade of who came in against who left.' },
+      { sel:col(12), opt:1, t:'Top move', html:'Its best addition and its biggest loss.' },
+      { sel:'.tdc-explain', alt:'#__end', t:'That\'s it', html:'Tap <b>?</b> any time to run this again.', before:view(0) }
+      ];
+    })(),
 
     'today.html': [
       { sel:'.dates', t:'Pick a day', d:'The week strip jumps to any day around this one, the arrows step a day at a time and the calendar jumps to any date. Everything below re-loads for the day you pick.' },
