@@ -21,7 +21,8 @@
   // Plain-English groups, a one-line "what it is" under every item, sub-headings in the long menus.
   // Item = [href, label, what it is]; ['#Heading'] starts a section; a group with a string is a plain link.
   var GROUPS = [
-    ['Scores', 'today.html', ['game.html', 'scrimmages.html', 'recap.html']],
+    ['Scores', 'today.html', ['game.html', 'scrimmages.html']],
+    ['Recap', 'recap.html'],   // owner, Nov 19 2026: the Daily Recap beside Scores in the top menu
     ['Rankings', [
       ['#This season'],
       ['index.html',           'Team Rankings',          'All 365 teams, best to worst'],
@@ -203,7 +204,7 @@
       '.tdn-menu{min-width:170px;}',
       '}',
       // phones: the five menus on ONE row (it used to wrap to two, the second indented)
-      '@media(max-width:640px){.tdn-logo em{font-size:11px!important;}.tdn-signin,.tdn-actions a{font-size:11px!important;}.tdn-wrap .theme-toggle{font-family:inherit;font-size:13px!important;}.tdn-row{flex-wrap:nowrap;justify-content:space-between;gap:0;}.tdn-btn{padding:0 4px;font-size:11px;letter-spacing:.03em;}.tdn-btn .car{display:none;}.tdn-btn.active::after{left:4px;right:4px;}.tdn-actions>a,.tdn-actions>button{position:relative;}.tdn-actions>a::after,.tdn-actions>button::after{content:"";position:absolute;inset:-9px -4px;}}',
+      '@media(max-width:640px){.tdn-logo em{font-size:11px!important;}.tdn-signin,.tdn-actions a{font-size:11px!important;}.tdn-wrap .theme-toggle{font-family:inherit;font-size:13px!important;}.tdn-row{flex-wrap:nowrap;justify-content:space-between;gap:0;overflow-x:auto;scrollbar-width:none;}.tdn-row::-webkit-scrollbar{display:none;}.tdn-btn{padding:0 3px;font-size:10.5px;letter-spacing:0;}.tdn-btn .car{display:none;}.tdn-btn.active::after{left:4px;right:4px;}.tdn-actions>a,.tdn-actions>button{position:relative;}.tdn-actions>a::after,.tdn-actions>button::after{content:"";position:absolute;inset:-9px -4px;}}',
     ].join('');
     document.head.appendChild(css);
     // phones: one type system across every page (tdc-mobile.js; desktop untouched)
