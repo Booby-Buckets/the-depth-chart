@@ -265,6 +265,20 @@ body{background:transparent!important;}
     <button class="form-btn" type="submit">Create Account</button>
   </form>
 
+  <!-- SET A NEW PASSWORD (a reset-email link lands here with #...type=recovery) -->
+  <form class="form-panel" id="panel-reset" onsubmit="event.preventDefault();handleReset();">
+    <div class="msg" id="resetMsg"></div>
+    <div class="form-group">
+      <label class="form-label" for="resetPassword">New password</label>
+      <input class="form-input" type="password" id="resetPassword" placeholder="At least 8 characters" autocomplete="new-password"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="resetPassword2">Confirm new password</label>
+      <input class="form-input" type="password" id="resetPassword2" placeholder="Type it again" autocomplete="new-password"/>
+    </div>
+    <button class="form-btn" type="submit">Save new password</button>
+  </form>
+
   <div class="si-foot">Looking for plans? <a href="pricing.html">See pricing</a> · <a href="privacy.html">Privacy policy</a></div>
 </main>
 
@@ -367,9 +381,44 @@ async function forgotPassword(){
   const email = document.getElementById('signinEmail').value.trim();
   if(!email) return showMsg('signinMsg','Type your email above first, then click "Forgot password?".','error');
   try {
-    await fetch(`${SB_URL}/auth/v1/recover`, { method:'POST', headers:H, body: JSON.stringify({ email }) });
-    showMsg('signinMsg','If that email has an account, a reset link is on its way.','success');
+    // the link must come back HERE (it used to fall back to the site's home page, which has no new-password form —
+    // owner, Nov 19 2026: "the link did not let them change it"). This page must be in Supabase's Redirect URLs.
+    const back = location.origin + location.pathname;
+    const r = await fetch(`${SB_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(back)}`, { method:'POST', headers:H, body: JSON.stringify({ email }) });
+    if(r.status === 429) return showMsg('signinMsg','Too many reset emails in a short time. Wait a minute, then try again.','error');
+    showMsg('signinMsg','If that email has an account, a reset link is on its way. Open it on this device and you can set a new password.','success');
   } catch(e){ showMsg('signinMsg','Something went wrong.','error'); }
+}
+
+// ── NEW PASSWORD (after a reset-email link) ──────────────────
+function showReset(){
+  document.querySelectorAll('.form-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-reset').classList.add('active');
+  window._resetMode = true;   // the Google check below must not bring its button back
+  document.querySelectorAll('.auth-tabs, #googleBlock').forEach(el => el.style.display = 'none');
+  const t = document.getElementById('siTitle'); if(t) t.textContent = 'Set a new password';
+  document.getElementById('siSub').textContent = 'Pick a new password, then you\'re signed in.';
+  showMsg('resetMsg', 'Choose a new password for your account.', 'success');
+  setTimeout(() => { try { document.getElementById('resetPassword').focus(); } catch(e){} }, 50);
+}
+async function handleReset(){
+  const pw = document.getElementById('resetPassword').value, pw2 = document.getElementById('resetPassword2').value, R = window._recov;
+  if(!R) return showMsg('resetMsg', 'This reset session is missing. Request a new link from the sign-in form.', 'error');
+  if(pw.length < 8) return showMsg('resetMsg', 'Password must be at least 8 characters.', 'error');
+  if(pw !== pw2) return showMsg('resetMsg', 'The two passwords don\'t match.', 'error');
+  try {
+    const r = await fetch(`${SB_URL}/auth/v1/user`, { method:'PUT', headers:{ apikey:SB_KEY, Authorization:`Bearer ${R.access_token}`, 'Content-Type':'application/json' }, body: JSON.stringify({ password: pw }) });
+    const data = await r.json().catch(() => ({}));
+    if(!r.ok){
+      const m = data.msg || data.error_description || data.message || ('HTTP ' + r.status);
+      if(r.status === 401 || /expired|jwt/i.test(m)) return showMsg('resetMsg', 'This reset link has expired. Go back to sign in and click "Forgot password?" for a new one.', 'error');
+      return showMsg('resetMsg', 'Could not save the new password: ' + m, 'error');
+    }
+    // signed in with the new password: keep the session the link created, same shape as a normal sign-in
+    saveSession(Object.assign({}, R, { expires_at: R.expires_at || Math.floor(Date.now()/1000) + R.expires_in, user: data.id ? data : (data.user || null) }), true);
+    showMsg('resetMsg', '✓ Password changed. Signing you in…', 'success');
+    setTimeout(() => finish(R.access_token, false), 900);
+  } catch(e){ showMsg('resetMsg', 'Something went wrong. Try again.', 'error'); }
 }
 
 // ── GOOGLE ────────────────────────────────────────────────────
@@ -386,9 +435,20 @@ function signInWithGoogle(){
 async function handleOAuthReturn(){
   const h = new URLSearchParams(location.hash.slice(1));
   const err = h.get('error_description') || params.get('error_description');
-  if(err){ history.replaceState(null, '', location.pathname); showMsg('oauthMsg', 'Google sign-in failed: ' + err, 'error'); return true; }
+  if(err){ history.replaceState(null, '', location.pathname);
+    const code = h.get('error_code') || params.get('error_code') || '';
+    if(/otp|expired|invalid/i.test(code + ' ' + err)) showMsg('signinMsg', 'That email link has expired or was already used. Type your email below and click "Forgot password?" for a new one.', 'error');
+    else showMsg('oauthMsg', 'Sign-in failed: ' + err, 'error');
+    return true; }
   const access = h.get('access_token');
   if(!access) return false;
+  if(h.get('type') === 'recovery'){   // password-reset link: hold the one-time session and ask for the new password
+    history.replaceState(null, '', location.pathname);
+    window._recov = { access_token: access, token_type: h.get('token_type') || 'bearer', expires_in: parseInt(h.get('expires_in') || '3600', 10),
+      expires_at: parseInt(h.get('expires_at') || '0', 10), refresh_token: h.get('refresh_token') };
+    showReset();
+    return true;
+  }
   history.replaceState(null, '', location.pathname);   // get the tokens out of the address bar
   showMsg('oauthMsg', 'Signing you in…', 'success');
   try {
@@ -417,7 +477,7 @@ async function handleOAuthReturn(){
 // /authorize answers with a bare JSON error page, which is worse than no button.
 fetch(`${SB_URL}/auth/v1/settings`, { headers:{ apikey:SB_KEY } })
   .then(r => r.ok ? r.json() : null)
-  .then(j => { if(j && j.external && j.external.google) document.getElementById('googleBlock').style.display = ''; })
+  .then(j => { if(j && j.external && j.external.google && !window._resetMode) document.getElementById('googleBlock').style.display = ''; })
   .catch(()=>{});
 
 (async function init(){
