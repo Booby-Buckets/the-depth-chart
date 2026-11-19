@@ -204,7 +204,7 @@
       '.tdn-menu{min-width:170px;}',
       '}',
       // phones: the five menus on ONE row (it used to wrap to two, the second indented)
-      '@media(max-width:640px){.tdn-logo em{font-size:11px!important;}.tdn-signin,.tdn-actions a{font-size:11px!important;}.tdn-wrap .theme-toggle{font-family:inherit;font-size:13px!important;}.tdn-row{flex-wrap:nowrap;justify-content:space-between;gap:0;overflow-x:auto;scrollbar-width:none;}.tdn-row::-webkit-scrollbar{display:none;}.tdn-btn{padding:0 3px;font-size:10.5px;letter-spacing:0;}.tdn-btn .car{display:none;}.tdn-btn.active::after{left:4px;right:4px;}.tdn-actions>a,.tdn-actions>button{position:relative;}.tdn-actions>a::after,.tdn-actions>button::after{content:"";position:absolute;inset:-9px -4px;}}',
+      '@media(max-width:640px){.tdn-logo em{font-size:11px!important;}.tdn-signin,.tdn-actions a{font-size:11px!important;}.tdn-wrap .theme-toggle{font-family:inherit;font-size:13px!important;}.tdn-row{flex-wrap:nowrap;justify-content:flex-start;gap:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}.tdn-row::-webkit-scrollbar{display:none;}.tdn-btn{padding:0 9px;font-size:11px;letter-spacing:.05em;}.tdn-row .tdn-srch{position:sticky;right:0;margin-left:auto;background:linear-gradient(90deg,transparent,var(--bg) 14px);padding-left:16px;z-index:2;}.tdn-btn .car{display:none;}.tdn-btn.active::after{left:4px;right:4px;}.tdn-actions>a,.tdn-actions>button{position:relative;}.tdn-actions>a::after,.tdn-actions>button::after{content:"";position:absolute;inset:-9px -4px;}}',
     ].join('');
     document.head.appendChild(css);
     // phones: one type system across every page (tdc-mobile.js; desktop untouched)
@@ -276,10 +276,17 @@
         var willOpen = !g.classList.contains('open');
         closeAll(g);
         g.classList.toggle('open', willOpen);
+        // phones: the menu row scrolls sideways (overflow clips anything absolute inside it), so an open menu is
+        // fixed to the screen just under the row instead
+        var m = g.querySelector('.tdn-menu');
+        if (m) { if (willOpen && window.matchMedia('(max-width: 640px)').matches) { var rb = g.closest('.tdn-row').getBoundingClientRect();
+          m.style.position = 'fixed'; m.style.top = Math.round(rb.bottom) + 'px'; m.style.left = '12px'; m.style.right = '12px'; m.style.maxHeight = 'calc(100vh - ' + Math.round(rb.bottom + 12) + 'px)'; m.style.overflowY = 'auto'; }
+          else if (!willOpen) { m.style.position = m.style.top = m.style.left = m.style.right = m.style.maxHeight = m.style.overflowY = ''; } }
       });
     });
     document.addEventListener('click', function (e) { if (!wrap.contains(e.target)) closeAll(null); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeAll(null); });
+    var row = wrap.querySelector('.tdn-row'); if (row) row.addEventListener('scroll', function () { closeAll(null); }, { passive: true });
   }
 
   // ── Site search: every player and team, every season ──
