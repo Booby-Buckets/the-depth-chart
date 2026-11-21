@@ -39,19 +39,19 @@ function rowOf(full){ full=(full||'').toLowerCase().trim(); return POOL.filter(f
 // each man came from and his OVR change); side = team grades, standings, news. Tools stay as a link list at the bottom.
 var SKELETON=
   '<div id="hxToday" class="ov-grid"><div class="ov-main">'+
-    '<div class="hq-sec"><h2 id="hxNextLbl">Up next</h2><span class="sub" id="hxNextSub"></span></div><div id="hxGame"></div>'+
-    '<div id="hxRecapBlk"><div class="hq-sec"><h2 id="hxOutlookLbl">Season recap</h2></div><div id="hxOutlook"></div></div>'+
-    '<div id="hxFiveBlk"><div class="hq-sec"><h2>Rotation</h2><span class="sub" id="hxFiveSub"></span></div><div id="hxFive"></div></div>'+
+    '<div class="hq-sec" data-type-keep><h2 id="hxNextLbl">Up next</h2><span class="sub" id="hxNextSub"></span></div><div id="hxGame"></div>'+
+    '<div id="hxRecapBlk"><div class="hq-sec" data-type-keep><h2 id="hxOutlookLbl">Season recap</h2></div><div id="hxOutlook"></div></div>'+
+    '<div id="hxFiveBlk"><div class="hq-sec" data-type-keep><h2>Rotation</h2><span class="sub" id="hxFiveSub"></span></div><div id="hxFive"></div></div>'+
     '<div id="hxPastBlk">'+
-      '<div class="hq-sec"><h2 id="hxLeadLbl">Roster</h2><span class="sub" id="hxLeadSub"></span></div><div id="hxLeaders"></div>'+
-      '<div class="hq-sec"><h2 id="hxShotLbl">Team leaders</h2><span class="sub" id="hxShotSub"></span></div><div id="hxShot"></div>'+
+      '<div class="hq-sec" data-type-keep><h2 id="hxLeadLbl">Roster</h2><span class="sub" id="hxLeadSub"></span></div><div id="hxLeaders"></div>'+
+      '<div class="hq-sec" data-type-keep><h2 id="hxShotLbl">Team leaders</h2><span class="sub" id="hxShotSub"></span></div><div id="hxShot"></div>'+
     '</div>'+
   '</div><div class="ov-side">'+
-    '<div class="hq-sec"><h2 id="hxAnaLbl">Team grades</h2><span class="sub" id="hxAnaSub">D-I percentile</span></div><div id="hxAnalytics"></div>'+
-    '<div class="hq-sec"><h2 id="hxStandLbl">Standings</h2><span class="sub" id="hxStandSub"></span></div><div id="hxStandings"></div>'+
-    '<div id="hxMediaCard"><div class="hq-sec"><h2>News</h2><span class="sub">latest on the roster</span></div><div id="hxMedia"></div></div>'+
+    '<div class="hq-sec" data-type-keep><h2 id="hxAnaLbl">Team grades</h2><span class="sub" id="hxAnaSub">D-I percentile</span></div><div id="hxAnalytics"></div>'+
+    '<div class="hq-sec" data-type-keep><h2 id="hxStandLbl">Standings</h2><span class="sub" id="hxStandSub"></span></div><div id="hxStandings"></div>'+
+    '<div id="hxMediaCard"><div class="hq-sec" data-type-keep><h2>News</h2><span class="sub">latest on the roster</span></div><div id="hxMedia"></div></div>'+
   '</div></div>'+
-  '<div class="hq-sec" id="cmd"><h2 id="hxCmdLbl">Every tool, set to your team</h2><span class="sub" id="hxTeamLbl"></span></div>'+
+  '<div class="hq-sec" data-type-keep id="cmd"><h2 id="hxCmdLbl">Every tool, set to your team</h2><span class="sub" id="hxTeamLbl"></span></div>'+
   '<div class="launch" id="hqLaunch"></div><div class="note" id="hqNote"></div>';
 
 function renderSeason(){
