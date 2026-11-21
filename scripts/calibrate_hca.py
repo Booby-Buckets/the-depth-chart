@@ -39,6 +39,33 @@ CAP_MIN = -20             # pricing-time opponent clamp (centered; ~ the old raw
 def bucket(s):
     return max(LO, min(HI - BUCKET, int(s // BUCKET) * BUCKET))
 
+TYPE_YRS = 5              # seasons the conference / non-conference split is measured over
+
+def type_split(d1_mean, srs_c, ngames, base_fn, offs):
+    """Home edge by GAME TYPE, D-I v D-I only (both teams 20+ games), last TYPE_YRS seasons.
+    Non-conference home games beat the curve by ~1 pt more than league games (buy games, travel, early-season
+    rust; the gap grew from ~0.2 pre-2016 to ~1.0 in 2022-26). The curve averages both, so it under-prices
+    November home teams and over-prices league hosts. Returns {"non": +x, "conf": -y}, centred so the
+    games-weighted average adjustment is 0 (the curve's season-long level is unchanged)."""
+    res = {"conf": [], "non": []}
+    last = max(d1_mean)
+    for line in open(DATA / "games.jsonl"):
+        g = json.loads(line)
+        if g.get("neutral") or g.get("status") != "STATUS_FINAL" or g.get("home_score") is None:
+            continue
+        yr = g.get("season_year") or g.get("season")
+        if yr is None or yr <= last - TYPE_YRS: continue
+        if ngames[(g["home"], yr)] < 20 or ngames[(g["away"], yr)] < 20: continue
+        sh, sa = srs_c.get((g["home"], yr)), srs_c.get((g["away"], yr))
+        if sh is None or sa is None: continue
+        r = (g["home_score"] - g["away_score"]) - (sh - sa) - base_fn(sa) - offs.get(g["home"], 0)
+        res["conf" if g.get("conf_game") else "non"].append(r)
+    mc, mn = statistics.mean(res["conf"]), statistics.mean(res["non"])
+    nc, nn = len(res["conf"]), len(res["non"])
+    mid = (mc * nc + mn * nn) / (nc + nn)
+    print(f"\ngame type ({TYPE_YRS} seasons, D-I v D-I): conf {mc:+.2f} ({nc:,})  non-conf {mn:+.2f} ({nn:,})  gap {mn-mc:+.2f}")
+    return {"non": round(mn - mid, 2), "conf": round(mc - mid, 2)}
+
 def main(write=False):
     srs = {}
     for line in open(DATA / "team_seasons.jsonl"):
@@ -110,13 +137,24 @@ def main(write=False):
     for v, h in top[-6:]:
         print(f"  {h:+5.2f}  {v}  ({len(offs[v])} games)")
 
+    curve_c = [[b + BUCKET / 2, m + era_shift] for b, m in base.items()]
+    def base_fn(o):
+        x = max(CAP_MIN, min(curve_c[-1][0], o))
+        if x <= curve_c[0][0]: return curve_c[0][1]
+        for (x0, y0), (x1, y1) in zip(curve_c, curve_c[1:]):
+            if x <= x1: return y0 + (y1 - y0) * (x - x0) / (x1 - x0)
+        return curve_c[-1][1]
+    type_adj = type_split(d1_mean, srs, ngames, base_fn, teams)
+    print(f"game-type adjustment: {type_adj}")
+
     if write:
         curve = [[b + BUCKET / 2, round(m + era_shift, 2)] for b, m in base.items()]
         last = max(d1_mean)
         out = {"global": round(typical, 2), "base": curve, "capMin": CAP_MIN, "centered": True,
                "d1Mean": round(d1_mean[last], 2), "d1MeanSeason": last,
                "k": round(K), "gameSd": round(g_var**.5, 1),
-               "seasons": len(season_mean), "games": len(games), "teams": teams}
+               "seasons": len(season_mean), "games": len(games), "typeAdj": type_adj, "typeYrs": TYPE_YRS,
+               "teams": teams}
         (DATA / "team_hca.json").write_text(json.dumps(out))
         print(f"\nwrote {DATA/'team_hca.json'} ({len(teams)} venues)")
 

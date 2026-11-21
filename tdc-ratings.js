@@ -166,11 +166,17 @@
     }
     return pts[pts.length-1][1];
   }  // raw SRS (team_seasons.srs, D-I average ≈ +12) → the same edge
+  // game type (calibrate_hca.py, last 5 seasons D-I v D-I): non-conference hosts beat the curve by ~1 pt more than
+  // league hosts, so the curve (an average of both) is split — non-conf ≈ +0.66, conf ≈ −0.32, season average unchanged.
+  // Same non-empty conference = league game. Neutral games get no home edge at all, so this never applies to them.
+  const TYPE_ADJ_FALLBACK={non:0.66, conf:-0.32};
+  function typeAdj(a,b){ const t=(_hcaCurve&&_hcaCurve.typeAdj)||TYPE_ADJ_FALLBACK;
+    const ca=a&&a.conf, cb=b&&b.conf; return (ca&&cb&&ca===cb)?(+t.conf||0):(+t.non||0); }
   function baseHcaSrs(srs){ const d=(_hcaCurve&&_hcaCurve.d1Mean!=null)?_hcaCurve.d1Mean:LEGACY_D1; return baseHca(srs-d); }
   let _hcaP=null;
   function loadHca(){ if(_hcaP) return _hcaP;
-    _hcaP=fetch('scripts/data/team_hca.json?v=c1').then(r=>r.ok?r.json():null).then(d=>{
-      if(d&&d.base&&d.centered) _hcaCurve={base:d.base,capMin:d.capMin,centered:true,d1Mean:d.d1Mean}; }).catch(()=>{});
+    _hcaP=fetch('scripts/data/team_hca.json?v=c2').then(r=>r.ok?r.json():null).then(d=>{
+      if(d&&d.base&&d.centered) _hcaCurve={base:d.base,capMin:d.capMin,centered:true,d1Mean:d.d1Mean,typeAdj:d.typeAdj||null}; }).catch(()=>{});
     return _hcaP; }
 
 
@@ -237,7 +243,7 @@
     (games||[]).forEach(g=>{
       const hi=idx[g.home], ai=idx[g.away];
       if(hi==null||ai==null||g.home_score==null||g.away_score==null) return;
-      const hc=g.neutral?0:baseHca(P[ai])+(rows[hi].hcaOff||0), m=(g.home_score-g.away_score)-hc;
+      const hc=g.neutral?0:baseHca(P[ai])+(rows[hi].hcaOff||0)+typeAdj(rows[hi],rows[ai]), m=(g.home_score-g.away_score)-hc;
       adj[hi].push([ai, m]); adj[ai].push([hi, -m]);
     });
     for(let it=0; it<200; it++){
@@ -271,7 +277,7 @@
       fetchPaged(SB+'/rest/v1/players?name=neq.%E2%80%94&select=name,team,espn_id,yr,class_year,tdc_grade,mpg,ppg,rpg,depth_order,is_injured,hometown&order=id.asc'),
       fetchPaged(SB+'/rest/v1/player_advanced?season_year=eq.2026&espn_id=not.is.null&select=espn_id,team,ts_pct,efg_pct,tp_pct,ft_pct,pts40,reb40,ast40,usg_pct,ast_pct,tov_pct,orb_pct,drb_pct,stl_pct,blk_pct,ti40&order=espn_id.asc'),
       fetch(SB+'/rest/v1/team_seasons?season_year=in.(2024,2025,2026)&select=season_year,team,conference,srs,tier&order=season_year.desc,team.asc&limit=2000',{headers:H}).then(r=>r.json()),
-      fetch('scripts/data/team_hca.json?v=c1').then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch('scripts/data/team_hca.json?v=c2').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('data/coach-careers.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('scripts/data/shot_genome_players.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch('data/continuity.json').then(r=>r.ok?r.json():null).catch(()=>null),
@@ -602,7 +608,7 @@
     return {season:SEASON, generated:new Date().toISOString(),
       model:{calA:CAL_A,calB:CAL_B,progW:PROG_W,progYrs:PROG_YRS,homeAdv:HOME_ADV,sigma:SIGMA,
         coachW:COACH_W,coachK:COACH_K,coachCap:COACH_CAP,shotK:SHOT_K,shotRegress:SHOT_REGRESS,shotCap:SHOT_CAP,contBase:CONT_BASE,contK:CONT_K,contCap:CONT_CAP,
-        hcaBase:hcaData?{base:hcaData.base,capMin:hcaData.capMin,centered:!!hcaData.centered,d1Mean:hcaData.d1Mean}:null},
+        hcaBase:hcaData?{base:hcaData.base,capMin:hcaData.capMin,centered:!!hcaData.centered,d1Mean:hcaData.d1Mean,typeAdj:hcaData.typeAdj||null}:null},
       teams:rows};
   }
 
@@ -694,8 +700,8 @@
   // home edge = opponent-strength baseline (bigger vs weak visitors) + the
   // HOST venue's own measured offset
   function lineFor(a,b,venue,totals){
-    const hc=venue==='home'?  baseHca(b.rating)+(a.hcaOff||0)
-            :venue==='away'?-(baseHca(a.rating)+(b.hcaOff||0)):0;
+    const hc=venue==='home'?  baseHca(b.rating)+(a.hcaOff||0)+typeAdj(a,b)
+            :venue==='away'?-(baseHca(a.rating)+(b.hcaOff||0)+typeAdj(a,b)):0;
     const margin=tame((a.rating-b.rating)*GAP_STRETCH+hc);
     const pA=phi(margin/SIGMA);
     const total=(totals&&isFinite(totals))?totals:145.5;   // league-ish default
@@ -715,5 +721,5 @@
   function rosterTeams(){ return _CTX?Object.keys(_CTX.byTeam):[]; }
   function rosterOf(short){ return _CTX&&_CTX.byTeam[short]?_CTX.byTeam[short].slice():[]; }
   function winPctVsField(rating, field){ let s=0,n=0; (field||[]).forEach(o=>{ if(o.rating==null) return; s+=phi((rating-o.rating)/SIGMA); n++; }); return n?s/n:0.5; }
-  g.TDC_RATINGS={get, rebuild, lineFor, phi, applyForm, baseHca, baseHcaSrs, tame, SEASON, HOME_ADV, SIGMA, GAP_STRETCH, prepare, rateRoster, rosterOf, rosterTeams, winPctVsField};
+  g.TDC_RATINGS={get, rebuild, lineFor, phi, applyForm, baseHca, baseHcaSrs, tame, typeAdj, SEASON, HOME_ADV, SIGMA, GAP_STRETCH, prepare, rateRoster, rosterOf, rosterTeams, winPctVsField};
 })(window);
