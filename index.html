@@ -1214,6 +1214,26 @@
   .sc-players{display:flex!important;overflow-x:auto;gap:10px!important;scroll-snap-type:x mandatory;scrollbar-width:none;margin-right:-14px;padding-right:14px;}
   .sc-players::-webkit-scrollbar{display:none;}
   .sc-players > *{flex:0 0 40%;scroll-snap-align:start;}
+  /* Nov 21 2026 (owner: "the mobile index is terrible"): the rankings come first. The scores strip at the very top
+     already carries today's games, so the big Live now block and the New-here card move UNDER the table (nothing removed);
+     the table grows with the page instead of scrolling inside a short box; narrower Team / Conf / SOS columns so the
+     Rating shows without swiping. */
+  .ix-shell{display:flex!important;flex-direction:column;}
+  .ix-shell > #tdcLive{order:30;margin-top:22px!important;}
+  .ix-shell > #whStrip{order:31;}
+  .ix-shell > footer{order:40;}
+  #pageHeader{padding-top:6px!important;padding-bottom:2px!important;min-height:0!important;}
+  #pageHeader .page-eyebrow{display:none!important;}
+  #mhMv{margin-top:2px!important;}
+  .ix-sheet{max-height:none!important;overflow-y:visible!important;}
+  .ix-table{--c1:34px;--c2:142px;}
+  .ix-table th:nth-child(1),.ix-table td:nth-child(1){width:34px!important;min-width:34px!important;max-width:34px!important;padding-left:4px!important;padding-right:4px!important;}
+  .ix-table th:nth-child(2),.ix-table td:nth-child(2){width:142px!important;min-width:142px!important;max-width:142px!important;}
+  .ix-table td.nm a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .ix-table th:nth-child(3),.ix-table td:nth-child(3){width:40px!important;min-width:40px!important;padding-left:4px!important;padding-right:4px!important;}
+  .ix-table td:nth-child(3) .ix-conf{font-size:11px;}
+  .ix-table td .ix-rk{display:none;}
+  #seasonSel{font-size:14px!important;padding-left:10px!important;padding-right:26px!important;text-overflow:ellipsis;}
 }
 </style>
 </head>
@@ -2181,6 +2201,14 @@ const RANK_COLS = [
   ['sgsm',   t => t.sgsm!=null?(t.sgsm>0?'+':'')+t.sgsm.toFixed(1):'—', 1, 'sgsm'],
   ['sgcr',   t => t.sgcr!=null?t.sgcr.toFixed(1):'—', 1, 'sgcr'],
 ];
+// PHONES (owner, Nov 21 2026): Rating sits right after W-L, so the number that orders the table is on screen without swiping
+// (desktop keeps W-L · SOS · Rating). Same columns, same data — only the order moves.
+if(window.matchMedia&&matchMedia('(max-width:640px)').matches){
+  const _si=RANK_COLS.findIndex(c=>c[0]==='srs'), _wi=RANK_COLS.findIndex(c=>c[0]==='wins');
+  if(_si>_wi+1){ const [c]=RANK_COLS.splice(_si,1); RANK_COLS.splice(_wi+1,0,c); }
+  const _mvTh=()=>{ const r=document.querySelector('th[data-sort="srs"]'), w=document.querySelector('th[data-sort="wins"]')||document.querySelector('th[data-col="wl"]'); if(r&&w&&w.nextElementSibling!==r) w.insertAdjacentElement('afterend', r); };
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_mvTh); else _mvTh();
+}
 // the heat value of a cell: statVal() uses -999 for missing, and a 0 box stat means no data
 // (SOS is relative to the D-I average, so 0.0 is a real value: Duke's Nov 2026 schedule averaged exactly 0 and lost its rank)
 function _heatVal(t,k){ const v=statVal(t,k); return (v==null||!isFinite(v)||v<=-998||(v===0&&k!=='srs'&&k!=='net'&&k!=='sgsm'&&k!=='sos'))?null:v; }
