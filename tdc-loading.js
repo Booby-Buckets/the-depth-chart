@@ -152,6 +152,15 @@
         }
       } catch (e) { key = null; }
       // shared for 60 s only, so a script that re-polls the same file (live scores, the ticker) still gets fresh data
+      // the live site 307-redirects /scripts/data, /data, /nba and /nil-data.json to GitHub Pages (vercel.json), and the
+      // redirect can't be cached, so every data file cost two round trips: ask GitHub Pages directly (CORS is open there)
+      try {
+        if (typeof a0 === 'string' && /(^|\.)thedepthchartcbb\.com$/i.test(location.hostname)) {
+          var du = new URL(a0, location.href);
+          if (du.origin === location.origin && /^\/(scripts\/data|data|nba)\/|^\/nil-data\.json$/.test(du.pathname))
+            arguments[0] = 'https://booby-buckets.github.io/the-depth-chart' + du.pathname + du.search;
+        }
+      } catch (e) {}
       if (key && DEDUPE[key] && Date.now() - DEDUPE[key].t < 60000) { done(); return DEDUPE[key].p.then(function (r) { return r.clone(); }); }
       var p;
       try { p = nativeFetch.apply(this, arguments); }
