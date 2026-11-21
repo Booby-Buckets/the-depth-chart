@@ -1216,7 +1216,7 @@
   .sc-players > *{flex:0 0 40%;scroll-snap-align:start;}
   /* Nov 21 2026 (owner: "the mobile index is terrible"): the rankings come first. The scores strip at the very top
      already carries today's games, so the big Live now block and the New-here card move UNDER the table (nothing removed);
-     the table grows with the page instead of scrolling inside a short box; narrower Team / Conf / SOS columns so the
+     the table fills the screen (labels stay visible); narrower Team / Conf / SOS columns so the
      Rating shows without swiping. */
   .ix-shell{display:flex!important;flex-direction:column;}
   .ix-shell > #tdcLive{order:30;margin-top:22px!important;}
@@ -1230,7 +1230,10 @@
     color:var(--strip-text,#f1efea)!important;-webkit-text-fill-color:var(--strip-text,#f1efea)!important;}
   body .ph-hero #heroTitle *{font:inherit!important;color:inherit!important;-webkit-text-fill-color:inherit!important;}
   #mhMv{margin-top:2px!important;}
-  .ix-sheet{max-height:none!important;overflow-y:visible!important;}
+  /* the table fills the screen (not a short box): once it reaches the top, rows scroll inside it so the column labels
+     stay stuck at the top while you swipe through the stats */
+  .ix-sheet{max-height:calc(100dvh - 118px)!important;overflow:auto!important;overscroll-behavior-y:auto;}
+  .ix-table thead th{position:sticky!important;top:0!important;z-index:3;}
   .ix-table{--c1:34px;--c2:142px;}
   .ix-table th:nth-child(1),.ix-table td:nth-child(1){width:34px!important;min-width:34px!important;max-width:34px!important;padding-left:4px!important;padding-right:4px!important;}
   .ix-table th:nth-child(2),.ix-table td:nth-child(2){width:142px!important;min-width:142px!important;max-width:142px!important;}
