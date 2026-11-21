@@ -90,7 +90,7 @@ async function preseasonPrior(pp) {
       req.continue();
     });
     await page.goto(BASE + '__headless_publish__', { waitUntil: 'domcontentloaded' }).catch(() => {});
-    await page.setContent(`<!doctype html><html><head><base href="${BASE}"><script>window.tdcOwnerToken=function(){return 'headless';};try{localStorage.clear();}catch(e){}</script></head><body></body></html>`);
+    await page.setContent(`<!doctype html><html><head><base href="${BASE}"><script>window.tdcOwnerToken=function(){return 'headless';};window.TDC_PRIOR_PASS=1;try{localStorage.clear();}catch(e){}</script></head><body></body></html>`);
     for (const s of ownerScripts()) await page.addScriptTag({ url: BASE + s });
     const pri = await page.evaluate(async () => {
       if (window.TDCProjGrade && TDCProjGrade.ready) await TDCProjGrade.ready;

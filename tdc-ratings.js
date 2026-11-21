@@ -580,7 +580,11 @@
     // the players' real-game-blended lines). rosterNow keeps the roster rating that includes real games, for reference.
     const PRI=(typeof window!=='undefined'&&window.TDC_PRIOR)||null;
     if(PRI && (played||[]).length) rows.forEach(r=>{ const v=PRI[r.full]; if(v!=null&&isFinite(+v)){ r.rosterNow=r.rating; r.rating=+(+v).toFixed(2); r.priorSrc='preseason'; } });
-    else if((played||[]).length){
+    // PASS 1 of the nightly publish (headless_publish.mjs, window.TDC_PRIOR_PASS) wants the RAW preseason roster rating.
+    // It used to fall into the offset branch below, so each night's prior = preseason roster − (yesterday's real-blended
+    // roster − yesterday's prior): the gap between the two projections was added to the prior EVERY night and compounded
+    // (owner, Nov 21 2026: Kansas State 87th → 33rd in eight days, +0.7 a day whatever happened; New Hampshire +1.4/day).
+    else if((played||[]).length && !(typeof window!=='undefined'&&window.TDC_PRIOR_PASS)){
       // a rebuild outside the nightly publish (the owner's editor Save) has no pass-1 prior: take out the same real-game
       // share the last publish measured per team (rosterNow − preseason prior), so editor changes still move the rating
       // but the results still count once
