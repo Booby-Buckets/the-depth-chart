@@ -130,7 +130,7 @@
     }
   }
 
-  var nativeFetch = window.fetch;
+  var nativeFetch = window.fetch, DEDUPE = {};
   if (typeof nativeFetch === 'function') {
     var fetched = 0, firstT = null, p0 = false;
     window.fetch = function () {
@@ -139,9 +139,28 @@
       // request start first): from then on the mid-screen wheel would sit on real content
       var done = function () { inflight = Math.max(0, inflight - 1); p0 = true; update();   // p0: a response has arrived
         if (initial && inflight === 0) { clearTimeout(firstT); firstT = setTimeout(function () { if (inflight === 0) endInitial(); }, 250); } };
+      // SPEED (owner, Nov 21 2026: "the website takes a very long time to load"): a page's scripts asked for the same
+      // static data file several times (team page: coach_profiles.json ×7, player_onoff.json ×4). A plain GET of a
+      // same-site .json file is now downloaded once per page and each caller gets its own copy of the response.
+      var a0 = arguments[0], a1 = arguments[1], key = null;
+      try {
+        var u = typeof a0 === 'string' ? a0 : (a0 && a0.url) || '';
+        var m = (a1 && a1.method) || (a0 && typeof a0 === 'object' && a0.method) || 'GET';
+        if (String(m).toUpperCase() === 'GET' && !(a1 && a1.body)) {
+          var abs = new URL(u, location.href);
+          if (abs.origin === location.origin && /\.json$/i.test(abs.pathname)) key = abs.href;
+        }
+      } catch (e) { key = null; }
+      // shared for 60 s only, so a script that re-polls the same file (live scores, the ticker) still gets fresh data
+      if (key && DEDUPE[key] && Date.now() - DEDUPE[key].t < 60000) { done(); return DEDUPE[key].p.then(function (r) { return r.clone(); }); }
       var p;
       try { p = nativeFetch.apply(this, arguments); }
       catch (e) { done(); throw e; }
+      if (key) {
+        var shared = p.then(function (r) { if (!r.ok) delete DEDUPE[key]; return r; }, function (e) { delete DEDUPE[key]; throw e; });
+        DEDUPE[key] = { p: shared, t: Date.now() };
+        return shared.then(function (r) { done(); return r.clone(); }, function (e) { done(); throw e; });
+      }
       return p.then(function (r) { done(); return r; }, function (e) { done(); throw e; });
     };
   }

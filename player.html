@@ -3,7 +3,7 @@
 <head>
   <link rel="stylesheet" href="tdc-a11y.css?v=3">
   <script src="tdc-a11y.js?v=2" defer></script>
-  <script src="tdc-loading.js?v=5"></script>   <!-- first, so it sees every request -->
+  <script src="tdc-loading.js?v=6"></script>   <!-- first, so it sees every request -->
   <script src="auth.js?v=photos2"></script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <script src="tdc-pos.js"></script>
@@ -24,7 +24,7 @@
   <script src="tdc-archetypes.js?v=7"></script>
   <script src="tdc-gate.js?v=5"></script>
   <script src="tdc-pos.js"></script>
-  <script src="tdc-proj.js?v=hg5"></script>
+  <script src="tdc-proj.js?v=fast1"></script>
   <script src="tdc-freshman.js?v=pub37"></script>
   <script src="tdc-injury.js?v=5"></script>
   <script src="tdc-ratings.js?v=45"></script>
@@ -34,7 +34,7 @@
   <script src="tdc-leaderboard.js?v=2"></script>
   <script src="tdc-portalfit.js?v=needs12"></script>
   <script src="tdc-projgrade.js?v=disp1"></script>
-  <script src="tdc-rating.js?v=5"></script>
+  <script src="tdc-rating.js?v=fast1"></script>
   <script src="tdc-teamname.js?v=1"></script>
   <script src="tdc-owned-seasons.js?v=8"></script>
   <script src="tdc-season.js?v=1"></script>
@@ -1077,7 +1077,7 @@ body{background:transparent!important;}
   <link rel="stylesheet" href="tdc-dense.css?v=41"/>
   <link rel="stylesheet" href="tdc-player-dense.css?v=27"/>
   <script src="tdc-dossier.js?v=ui2" defer></script>
-  <script src="tdc-roles.js?v=ui1" defer></script>
+  <script src="tdc-roles.js?v=fast1" defer></script>
   <script src="tdc-devpath.js?v=ui1" defer></script>
   <!-- ===== Clean skin (2026): loaded LAST so it wins over dense CSS. Neutral base +
        translucent depth tokens; team color stays on --tc for the minimal accent slots. ===== -->
@@ -1101,7 +1101,7 @@ body{background:transparent!important;}
   <script src="tdc-coachlink.js?v=1"></script>
 </head>
 <body data-anim-auto>
-<script src="tdc-nav.js?v=100"></script>
+<script src="tdc-nav.js?v=101"></script>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
 
 <!-- ═══ AMBIENT LAYER ═══════════════════════════════════════ -->
@@ -7961,6 +7961,15 @@ function animateArchFit(){
 //   3. if the HEAD count failed, _total was 0 -> zero pages -> _allHistory=[] , and
 //      because [] is truthy it was cached and never refetched
 async function _fetchHistoryPool(){
+  // SPEED (owner, Nov 21 2026): the pool is ONE static file now (scripts/build_comp_pool.py → comp_pool.json, ~1.7 MB
+  // gzipped, cached), not ~48 Supabase pages on every player page. The paged pull below stays as the fallback.
+  try{
+    var J=await fetch('scripts/data/comp_pool.json?v=1').then(function(r){ return r.ok?r.json():null; });
+    if(J&&J.rows&&J.rows.length>1000){
+      var C=J.cols, D=J.dict||{};
+      return J.rows.map(function(r){ var o={}; for(var i=0;i<C.length;i++){ var v=r[i]; if(D[C[i]]&&v!=null) v=D[C[i]][v]; o[C[i]]=v; } return o; });
+    }
+  }catch(e){}
   var PG=1000;
   var cols='id,name,season_year,team,position,height,ppg,rpg,apg,stl,blk,tpm,tpa,tovs,'
           +'mpg,fg_pct,tp_pct,ft_pct,fga,fta,espn_id';

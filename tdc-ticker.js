@@ -66,7 +66,7 @@
     if (fin && e.d !== TODAY) when = final + ' · ' + dayName(e.d);
     var right = e.k === 's' ? (fin || !e.tv ? 'Scrimmage' : e.tv) : (e.tv || '');
     var row = function (t, sc, lose) {
-      return '<div class="tdt-t' + (lose ? ' lose' : '') + '">' + (t.l ? '<img src="' + esc(t.l) + '" alt="" loading="lazy">' : '<span style="width:15px"></span>') +
+      return '<div class="tdt-t' + (lose ? ' lose' : '') + '">' + (t.l ? '<img src="' + esc(window.tdcLogoSmall ? tdcLogoSmall(t.l, 40) : t.l) + '" alt="" loading="lazy">' : '<span style="width:15px"></span>') +
         (t.r && t.r <= 25 ? '<span class="rk">' + t.r + '</span>' : '') + '<span class="nm">' + esc(t.n) + '</span>' +
         '<span class="sc">' + (sc == null ? '' : sc) + '</span></div>';
     };

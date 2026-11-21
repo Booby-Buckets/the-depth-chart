@@ -235,7 +235,7 @@
   async function projectedGames() {
     if (_games) return _games;
     const B = await pointBracket(); if (!B) return null;
-    let dna = {}; try { dna = ((await fetch('scripts/data/team_dna.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : {}))['2027'] || {}).teams || {}; } catch (e) {}
+    let dna = {}; try { dna = ((await fetch('scripts/data/team_dna_recent.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : {}))['2027'] || {}).teams || {}; } catch (e) {}
     const LG = { oeFG: 53.0, deFG: 48.4, oTOV: 15.1, dTOV: 17.8, oORB: 31.2, dDRB: 73.2 };
     const num = (o, k) => { const v = o && o[k]; return (typeof v === 'number' && isFinite(v)) ? v : null; };
     const exploit = (o, d) => { let s = 0, ok = false;

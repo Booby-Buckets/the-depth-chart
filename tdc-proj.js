@@ -488,7 +488,7 @@ async function loadProjCoachStyle(team, headCoach){
       const [prof,seas,dna,sgt,bmv,rot]=await Promise.all([
         fetch('scripts/data/coach_profiles.json').then(r=>r.ok?r.json():[]).catch(()=>[]),
         fetch('scripts/data/coach_seasons.json').then(r=>r.ok?r.json():[]).catch(()=>[]),
-        fetch('scripts/data/team_dna.json').then(r=>r.ok?r.json():null).catch(()=>null),
+        fetch('scripts/data/team_dna_recent.json').then(r=>r.ok?r.json():null).catch(()=>null),
         fetch('scripts/data/shot_genome_teams.json').then(r=>r.ok?r.json():null).catch(()=>null),
         fetch('scripts/data/team_ballmovement.json').then(r=>r.ok?r.json():null).catch(()=>null),
         fetch('scripts/data/coach_rotation.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null)

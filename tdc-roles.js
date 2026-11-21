@@ -228,7 +228,7 @@ window.TDC_ROLES = (function(){
       (window.TDCOwnedSeasons?TDCOwnedSeasons.byEspn([eid],'asc').catch(()=>[]):Promise.resolve([])),
       fetch(`${SB_URL}/rest/v1/box_scores?espn_id=eq.${eid}&season_year=eq.2026&min=gte.4&select=opp,min,fga,fgm,tpa,tpm,fta,ftm,tov,pts,pf&limit=400`,{headers:H}).then(r=>r.ok?r.json():[]),
       fetch(`${SB_URL}/rest/v1/shots?espn_id=eq.${eid}&season_year=eq.2026&select=made,sv,stype&limit=4000`,{headers:SH()}).then(r=>r.ok?r.json():[]).catch(()=>[]),
-      fetch('scripts/data/team_dna.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).catch(()=>null)
+      fetch('scripts/data/team_dna_recent.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).catch(()=>null)
     ]); }catch(e){}
     await ensureImpact();
     box=box||[]; shots=shots||[]; hist=hist||[];

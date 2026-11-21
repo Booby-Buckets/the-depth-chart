@@ -380,7 +380,7 @@
       var tk = document.createElement('div'); tk.className = 'tdt'; tk.setAttribute('aria-label', 'Scores');
       document.body.insertBefore(tk, wrap);
       var go = function () { if (window.TDC_TICKER) TDC_TICKER.mount(tk); };
-      if (window.TDC_TICKER) go(); else { var ts = document.createElement('script'); ts.src = 'tdc-ticker.js?v=3'; ts.onload = go; ts.onerror = function () { tk.remove(); }; document.head.appendChild(ts); }
+      if (window.TDC_TICKER) go(); else { var ts = document.createElement('script'); ts.src = 'tdc-ticker.js?v=4'; ts.onload = go; ts.onerror = function () { tk.remove(); }; document.head.appendChild(ts); }
     }
     wireMenus();
     wireSearch();
@@ -480,9 +480,20 @@
       }
       return false;
     }
+    // SPEED (owner, Nov 21 2026: "the website takes a very long time to load"): a team logo drawn at table size (48px or
+    // less) is ESPN's resized copy, ~3-10 KB, not the 500px original (~50-140 KB) — pages drew 60-120 of them
+    function shrink(img, src) {
+      if (src.indexOf('/combiner/') >= 0 || !/^https:\/\/a\.espncdn\.com\/i\/teamlogos\/ncaa\/500(-dark)?\/[^?]+\.png$/.test(src)) return src;
+      var w = img.width || parseFloat(img.getAttribute('width')) || 0, h = img.height || 0;
+      if (!w && img.isConnected) { var r = img.getBoundingClientRect(); w = r.width; h = r.height; }
+      var d = Math.max(w, h); if (!(d > 0 && d <= 48)) return src;
+      var px = d <= 20 ? 40 : 96, u = 'https://a.espncdn.com/combiner/i?img=' + src.replace('https://a.espncdn.com', '') + '&h=' + px + '&w=' + px;
+      img.setAttribute('src', u); return u;
+    }
     function fix(img) {
       var src = img.getAttribute('src');
       if (!src || src.indexOf('/teamlogos/ncaa/500') < 0) return;
+      src = shrink(img, src);
       if (isDark() && onLight(img)) { if (src.indexOf(DARK) >= 0) img.setAttribute('src', src.replace(DARK, LIGHT)); return; }
       if (isDark()) {
         if (src.indexOf(LIGHT) < 0 || img.dataset.tdcNoDark) return;
