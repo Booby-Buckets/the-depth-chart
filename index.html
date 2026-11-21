@@ -2327,7 +2327,7 @@ function renderRows(data, srt, favTeam){
   const heat = _rankHeat(), ord = _rankOrd();
   const q = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
   let html='';
-  data.forEach(t=>{
+  data.forEach((t,_ri)=>{
     const isFav = favTeam && (t.short===favTeam || t.name===favTeam);
     const href = `team.html?team=${encodeURIComponent(t.short)}${curSeason===2027?'':'&season='+curSeason}`;
     const logo = _rankLogo(t);
@@ -2336,7 +2336,7 @@ function renderRows(data, srt, favTeam){
     const rec = P ? ` title="${t.actual?`${t.wins}–${t.losses} so far (${t.cw}–${t.cl} conf) · projected `:'Projected '}${P.w}–${P.l} (${P.lo}–${P.n-P.lo} to ${P.hi}–${P.n-P.hi}) · ${P.cw}–${P.cl} in conference · from ${P.n} announced games"` : '';
     let row = `<tr${isFav?' class="fav"':''}>`
       + `<td class="rk">${levelFilter&&t._lrk?`${t._lrk}<small class="ix-nat" title="National rank">${t.rk}</small>`:t.rk}</td>`
-      + `<td class="l nm"><a href="${href}" data-tn="${q(t.short||t.name)}">${logo?`<img src="${logo}" alt="" loading="lazy" onerror="this.remove()">`:'<i class="ix-nologo"></i>'}<span>${_shortNm(t.short||t.name)}</span></a>${_rankMove(t)}${carry}</td>`
+      + `<td class="l nm"><a href="${href}" data-tn="${q(t.short||t.name)}">${logo?`<img src="${logo}" alt="" loading="${_ri<25?'eager':'lazy'}" onerror="this.remove()">`:'<i class="ix-nologo"></i>'}<span>${_shortNm(t.short||t.name)}</span></a>${_rankMove(t)}${carry}</td>`
       + `<td class="l dim"><a class="ix-conf" href="conference.html?conf=${encodeURIComponent(t.confName||'')}${curSeason===2027?'':'&season='+curSeason}" title="${q(t.confName||'')} standings, tournament &amp; all-conference teams">${confAbbr(t.confName)}</a></td>`;
     RANK_COLS.forEach(([k,f,dir,col])=>{
       if(col && !RC[col]) return;
