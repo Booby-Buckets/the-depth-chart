@@ -401,6 +401,7 @@ function loadRoster(row){
           // F — Sports Reference style (owner's reference, Nov 12 2026; focus "who starts / who plays"): a plain, dense
           // stat table — Starting lineup, then Reserves in minutes order — zebra rows, no colour fills, no bars
           var mockF=function(){
+            var PH=!!(window.matchMedia&&matchMedia('(max-width:640px)').matches);
             // owner (Nov 12 2026): starters in order of lineups started (GS), everyone else in order of minutes played —
             // real games once there are any (G / GS / MP from the box scores), the projection before that
             var R0=function(x){ return (RD&&RD.of(x.p))||null; };
@@ -423,16 +424,23 @@ function loadRoster(row){
               return '<tr'+(isSt?' class="dc-starter"':'')+'><td class="l dc-slot">'+esc((isSt&&x.slot)||x.p.position||'')+'</td>'+
                 '<td class="c big dc-ovr"'+(x.ov==null?'':' data-v="'+x.ov+'"')+'>'+(x.ov==null?'—':'<span class="dc-ring">'+x.ov+'</span>')+'</td>'+
                 '<td class="l nm">'+nm(x.p)+'</td>'+
-                '<td class="l dim">'+esc(x.p.yr||x.p.class_year||'')+'</td><td class="l dim">'+esc(x.p.height||'')+'</td>'+
-                '<td class="l dim">'+from(x)+'</td>'+
-                '<td>'+(d?'<span class="'+(d>0?'up':'dn')+'">'+(d>0?'+':'−')+Math.abs(d)+'</span>':'<span class="dim">'+(x.last==null?'new':'0')+'</span>')+'</td>'+
-                (real?'<td>'+(g0==null?'0':g0)+'</td><td>'+(s0==null?'0':s0)+'</td>':'')+
-                '<td'+(real&&!g0?'':' data-v="'+(mp(x)||0)+'"')+'>'+(real&&!g0?'<span class="dim" title="hasn\'t played yet">—</span>':f1(mp(x)))+'</td>'+st3(x,'ppg')+st3(x,'rpg')+st3(x,'apg')+'</tr>'; };
+                (function(){
+                  var bio='<td class="l dim">'+esc(x.p.yr||x.p.class_year||'')+'</td><td class="l dim">'+esc(x.p.height||'')+'</td>'+
+                    '<td class="l dim">'+from(x)+'</td>'+
+                    '<td>'+(d?'<span class="'+(d>0?'up':'dn')+'">'+(d>0?'+':'−')+Math.abs(d)+'</span>':'<span class="dim">'+(x.last==null?'new':'0')+'</span>')+'</td>';
+                  var gg=(real?'<td>'+(g0==null?'0':g0)+'</td><td>'+(s0==null?'0':s0)+'</td>':''),
+                    mpt='<td'+(real&&!g0?'':' data-v="'+(mp(x)||0)+'"')+'>'+(real&&!g0?'<span class="dim" title="hasn\'t played yet">—</span>':f1(mp(x)))+'</td>'+st3(x,'ppg')+st3(x,'rpg')+st3(x,'apg');
+                  return PH?mpt+gg+bio:bio+gg+mpt; })()+'</tr>'; };
             var th=function(l,heat,tip,cls){ return '<th'+(cls?' class="'+cls+'"':'')+(heat?' data-heat="'+heat+'"':'')+(tip?' title="'+tip+'"':'')+'>'+l+'</th>'; };
-            var head=th('Pos',0,'','l')+th('OVR',1,'projected overall','c')+th('Player',0,'','l')+th('Class',0,'','l')+th('Ht',0,'','l')+
-              th('From',0,'returner, freshman, or where the transfer came from','l')+th('+/−',0,'change from last season')+
-              (real?th('G',0,'games played')+th('GS',0,'games started'):'')+
+            // PHONES (owner, Nov 21 2026: "tables fit the screen"): the numbers come right after the player, the bio
+            // columns (Class, Ht, From, +/−) after them — same columns, so G/GS/MP/PTS/TRB/AST show without swiping
+            var hBase=th('Pos',0,'','l')+th('OVR',1,'projected overall','c')+th('Player',0,'','l');
+            var hBio=th('Class',0,'','l')+th('Ht',0,'','l')+
+              th('From',0,'returner, freshman, or where the transfer came from','l')+th('+/−',0,'change from last season');
+            var hG=(real?th('G',0,'games played')+th('GS',0,'games started'):'');
+            var hSt=
               th('MP',1,'minutes per game'+(real?' (real games)':' (projected)'))+th('PTS',1,real?'points per game in real games (projected, in grey, for anyone who hasn\'t played)':'projected points per game')+th('TRB',1,real?'rebounds per game (real games)':'projected rebounds')+th('AST',1,real?'assists per game (real games)':'projected assists');
+            var head=hBase+(PH?hSt+hG+hBio:hBio+hG+hSt);
             var nc=real?13:11, cap=function(t){ return '<tr class="sec"><td colspan="'+nc+'">'+t+'</td></tr>'; };
             var body=cap('Starting lineup')+st.map(function(x){ return r(x,true); }).join('')+
               (res.length?cap('Reserves')+res.map(function(x){ return r(x,false); }).join(''):'')+
