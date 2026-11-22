@@ -207,6 +207,10 @@
       '@media(max-width:640px){.tdn-logo em{font-size:11px!important;}.tdn-signin,.tdn-actions a{font-size:11px!important;}.tdn-wrap .theme-toggle{font-family:inherit;font-size:13px!important;}.tdn-row{flex-wrap:nowrap;justify-content:flex-start;gap:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}.tdn-row::-webkit-scrollbar{display:none;}.tdn-btn{padding:0 9px;font-size:11px;letter-spacing:.05em;}.tdn-row .tdn-srch{position:sticky;right:0;margin-left:auto;background:linear-gradient(90deg,transparent,var(--bg) 14px);padding-left:16px;z-index:2;}.tdn-btn .car{display:none;}.tdn-btn.active::after{left:4px;right:4px;}.tdn-actions>a,.tdn-actions>button{position:relative;}.tdn-actions>a::after,.tdn-actions>button::after{content:"";position:absolute;inset:-9px -4px;}}',
     ].join('');
     document.head.appendChild(css);
+    // height · weight · class under every player link (tdc-bio.js; owner rule Nov 2026)
+    if (!window.__tdcBio && !document.getElementById('tdc-bio-js')) {
+      var bj = document.createElement('script'); bj.id = 'tdc-bio-js'; bj.src = 'tdc-bio.js?v=4'; bj.defer = true; document.head.appendChild(bj);
+    }
     // phones: one type system across every page (tdc-mobile.js; desktop untouched)
     if (window.matchMedia && window.matchMedia('(max-width: 640px)').matches && !document.getElementById('tdc-mobile-js')) {
       var mj = document.createElement('script'); mj.id = 'tdc-mobile-js'; mj.src = 'tdc-mobile.js?v=22'; document.head.appendChild(mj);
