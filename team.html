@@ -23,7 +23,7 @@
   <script src="tdc-teamonoff.js?v=12"></script>
   <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-assistweb.js?v=ui1"></script>
-  <script src="tdc-nil.js?v=pay13"></script>
+  <script src="tdc-nil.js?v=pay14"></script>
   <script src="tdc-nilchart.js?v=1"></script>
   <script src="tdc-gate.js?v=5"></script>
   <script src="tdc-teamgrades.js"></script>
@@ -7579,6 +7579,38 @@ async function renderNil(){
   if(window.TDC_NIL&&TDC_NIL.programsReady){ try{ await TDC_NIL.programsReady; }catch(e){} }   // program market + floor before pricing
   const d=_nilData.teams[tT.name];
   if(!d){ host.innerHTML='<div style="padding:40px;color:var(--text3);">No NIL valuation for this team yet — needs a NIL tier and roster.</div>'; return; }
+  // ── PRODUCTION PRICES (owner, Nov 21 2026: team tab on the same prices as the player NIL tab — no grade): each player's
+  //    expected price = his projected 2026-27 line → Wins Added per 31 games × league level → $ by rank against the market
+  //    (scripts/build_nil_production.py → data/nil_production.json). Players with no projected line (deep bench) sit at
+  //    the bottom of the curve. Roster worth, D-I ranks, est. payroll and the salary split all run on these prices. ──
+  if(window._nilProd===undefined){ window._nilProd=null; try{ window._nilProd=await fetch('data/nil_production.json?d='+new Date().toISOString().slice(0,10)).then(r=>r.ok?r.json():null); }catch(e){} }
+  const PJ=window._nilProd;
+  if(!PJ||!PJ.exp){ host.innerHTML='<div style="padding:40px;color:var(--text3);">NIL prices unavailable.</div>'; return; }
+  const _nkP=s=>(s||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b\.?/g,'').replace(/[^a-z]/g,'');
+  if(!PJ._byNT){ PJ._byNT={}; PJ._byTeam={}; Object.keys(PJ.exp).forEach(id=>{ const x=PJ.exp[id]; x.id=id; PJ._byNT[_nkP(x.name)+'|'+x.team]=x; (PJ._byTeam[x.team]=PJ._byTeam[x.team]||[]).push(x); }); }
+  const _floorP=(PJ.curve&&PJ.curve[0]&&PJ.curve[0][1])||0.003;
+  const _rosterP=(typeof teamPlayers!=='undefined'&&teamPlayers||[]), _byNmP={}; _rosterP.forEach(p=>{ _byNmP[(p.name||'').toLowerCase().trim()]=p; });
+  // no precomputed line (freshmen, no box history): price this roster's player off the live projection the page shows —
+  // the same line his player page prices (window._projByName, renderProjectedStats), same WA constants + curve
+  if(!window._projByName&&typeof renderProjectedStats==='function'){ try{ await renderProjectedStats(); }catch(e){} }
+  const _C=PJ.curve||[], _GM=(PJ.meta&&PJ.meta.games)||31;
+  const _priceP=w=>{ const C=_C; if(!C.length) return _floorP; if(w<=C[0][0]) return C[0][1]; for(let i=1;i<C.length;i++){ if(w<=C[i][0]){ const a=C[i-1],b=C[i]; return a[1]+(b[1]-a[1])*(w-a[0])/(b[0]-a[0]); } }
+    const a=C[C.length-2],b=C[C.length-1]; return b[1]+0.5*(b[1]-a[1])/(b[0]-a[0])*(w-b[0]); };
+  const _lvT=(PJ.level&&PJ.level[tT.name]!=null)?PJ.level[tT.name]:0.8;
+  const _liveP={};
+  const _liveOf=p=>{ const k=(p.name||'').toLowerCase().trim(); if(k in _liveP) return _liveP[k];
+    const r=window._projByName&&window._projByName[k], n=f=>{ const v=parseFloat(r&&r[f]); return isFinite(v)?v:0; };
+    if(!r||r._injured||r._dnp||!(n('mpg')>0)||!(n('ppg')>0)) return (_liveP[k]=null);
+    const mp=n('mpg'), ti=n('ppg')+.8*n('oreb')+.3*n('dreb')+.7*n('apg')+1.4*n('stl')+.9*n('blk')-.5*(n('fga')-n('fgm'))-.35*(n('fta')-n('ftm'))-n('tovs');
+    const m=mp*_GM, t40=ti*_GM*40/(m+100), wa=(t40-5)*(m/40)/69.87;
+    return (_liveP[k]={id:'live:'+k, name:p.name, wa:Math.round(wa*100)/100, lvl:_lvT, val:_priceP(wa*_lvT), mpg:mp, pos:p.pos||p.position, team:tT.name, src:'live'}); };
+  const _prodOf=(p,team)=>{ if(!p) return null; const rp=team===tT.name?_byNmP[(p.name||'').toLowerCase().trim()]:null;
+    const id=(rp&&rp.espn_id!=null)?String(rp.espn_id):(p.espn_id!=null?String(p.espn_id):null);
+    return (id&&PJ.exp[id])||PJ._byNT[_nkP(p.name)+'|'+(team||tT.name)]||(team===tT.name?_liveOf(p):null)||null; };
+  const _worthOf=(p,team)=>{ if(!p||p.walkon) return 0; const x=_prodOf(p,team); return x?x.val:_floorP; };
+  // this roster's rows: nil-data players + any priced player nil-data doesn't list
+  const _seenP=new Set(); d.players.forEach(p=>{ const x=_prodOf(p,tT.name); if(x) _seenP.add(x.id); });
+  const _rowsP=d.players.concat((PJ._byTeam[tT.name]||[]).filter(x=>!_seenP.has(x.id)).map(x=>({name:x.name, pos:x.pos, mpg:x.mpg, cls:x.cls, espn_id:x.id, team:tT.name})));
   // ── NIL MARKET VALUE (positional curves): owner anchors → per-player market $ ──
   if(!window._nilMarket){ try{ window._nilMarket=await fetch('scripts/data/nil_market_anchors.json?v=cal1').then(r=>r.ok?r.json():null); }catch(e){ window._nilMarket=null; } }
   if(window.TDCFresh&&TDCFresh.load){ try{ await TDCFresh.load(); }catch(e){} }
@@ -7600,7 +7632,7 @@ async function renderNil(){
   const fmt=m=>m>=1?('$'+(+m).toFixed(1)+'M'):('$'+Math.round(m*1000)+'K');
   // tier-neutral roster value = the roster's open-market worth (price the players, not the program).
   const _F=(window.TDC_NIL&&TDC_NIL.deTier)?(TDC_NIL.NEUTRAL_MULT/(TDC_NIL.MODEL.tier_mult[TDC_NIL.tierNum(d.tier)]||0.2)):1;
-  const nVal=(window.TDC_NIL&&TDC_NIL.neutralValueOf)?d.players.reduce((s,p)=>s+TDC_NIL.neutralValueOf(p,d.tier),0):(d.value||0)*_F;   // roster worth = Σ open-market player values (real deals respected)
+  const nVal=_rowsP.reduce((s,p)=>s+_worthOf(p,tT.name),0);   // roster worth = Σ production prices
   const nDiff=nVal-d.budget;               // worth − budget (+ = roster worth more than the program's budget)
   const deal=nDiff>=0;                      // worth ≥ budget → getting value; else paying a premium over market
   const maxv=Math.max(nVal,d.budget)||1;
@@ -7618,21 +7650,21 @@ async function renderNil(){
   const _anyInj=(typeof teamPlayers!=='undefined'&&teamPlayers||[]).some(p=>p.is_injured&&d.players.some(x=>(x.name||'').toLowerCase().trim()===(p.name||'').toLowerCase().trim()));
   // every roster priced on the same live model (national rank, the value band and the comparables)
   const _NN=window.TDC_NIL;
-  if(!window._nilTeamBoard && _NN && _NN.neutralValueOf){
-    window._nilTeamBoard=Object.keys(_nilData.teams).map(tk=>{ const t=_nilData.teams[tk]; let v=0,wa=0;
-      (t.players||[]).forEach(p=>{ if(p.walkon) return; v+=_NN.neutralValueOf(p,t.tier); if(p.wa!=null&&isFinite(+p.wa)&&+p.wa>0) wa+=+p.wa; });
-      return {team:tk, val:v, wa:wa, tier:t.tier, conf:(t.players&&t.players[0]&&t.players[0].conf)||''};
+  if(!window._nilProdBoard){
+    window._nilProdBoard=Object.keys(PJ._byTeam).map(tk=>{ const t=_nilData.teams[tk]; let v=0,wa=0;
+      PJ._byTeam[tk].forEach(x=>{ v+=x.val; if(x.wa>0) wa+=x.wa; });
+      return {team:tk, val:v, wa:wa, tier:t&&t.tier, conf:(t&&t.players&&t.players[0]&&t.players[0].conf)||''};
     }).filter(x=>x.val>0).sort((a,b)=>b.val-a.val);
   }
-  const _tb=window._nilTeamBoard||[];
+  const _tb=window._nilProdBoard.map(x=>x.team===tT.name?Object.assign({},x,{val:nVal}):x).sort((a,b)=>b.val-a.val);
   const _tcol=(()=>{ try{ const cs=getComputedStyle(document.documentElement); return cs.getPropertyValue('--tc-readable').trim()||cs.getPropertyValue('--tc').trim()||col; }catch(e){ return col; } })();
   const _esc=s=>(''+(s==null?'':s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
   const _ord=n=>{ const v=n%100; return (v>=11&&v<=13)?'th':(['th','st','nd','rd'][n%10]||'th'); };
   // PAYROLL (Oct 2026): worth vs spending power (EADA finances + the roster it built) vs estimated payroll — TDC_NIL.payroll
   if(_NN&&_NN.budgetsReady){ try{ await _NN.budgetsReady; }catch(e){} }
-  const _PR=(_NN&&_NN.payroll)?_NN.payroll(d.players,tT.name,d.tier):null, _PV=_PR?_NN.payVerdict(_PR):null;
-  if(_PR&&!window._nilPayBoard){ window._nilPayBoard=Object.keys(_nilData.teams).map(tk=>_NN.payroll(_nilData.teams[tk].players,tk,_nilData.teams[tk].tier)).filter(o=>o.worth>0); }
-  const _payRank=k=>{ const B=(window._nilPayBoard||[]).slice().sort((a,b)=>b[k]-a[k]); const i=B.findIndex(o=>o.team===tT.name); return i<0?'':'#'+(i+1)+' of '+B.length; };
+  const _PR=(_NN&&_NN.payroll)?_NN.payroll(_rowsP,tT.name,d.tier,p=>_worthOf(p,tT.name)):null, _PV=_PR?_NN.payVerdict(_PR):null;
+  if(_PR&&!window._nilProdPayBoard){ window._nilProdPayBoard=Object.keys(_nilData.teams).map(tk=>tk===tT.name?_PR:_NN.payroll(_nilData.teams[tk].players,tk,_nilData.teams[tk].tier,p=>_worthOf(p,tk))).filter(o=>o.worth>0); }
+  const _payRank=k=>{ const B=(window._nilProdPayBoard||[]).slice().sort((a,b)=>b[k]-a[k]); const i=B.findIndex(o=>o.team===tT.name); return i<0?'':'#'+(i+1)+' of '+B.length; };
   const _verdictTxt=_PR
     ? `<b style="color:${_PV.vsWorthTag==='under'?'var(--green)':_PV.vsWorthTag==='over'?'var(--red)':'var(--text)'}">${_PV.vsWorth}.</b> We estimate ${_esc(tT.name)} is paying about ${fmt(_PR.payroll)} for a roster worth ${fmt(_PR.worth)} on the open market, against ${fmt(_PR.power)} of spending power: ${_PV.vsPower.toLowerCase()}.`
     : (deal
@@ -7670,32 +7702,27 @@ async function renderNil(){
   const _injSet=new Set(_rosterList.filter(p=>p.is_injured).map(p=>(p.name||'').toLowerCase().trim()));
   const _byName={}; _rosterList.forEach(p=>{ _byName[(p.name||'').toLowerCase().trim()]=p; });
   const _salBy={}; if(_PR&&_PR.players) _PR.players.forEach(x=>{ _salBy[(x.name||'').toLowerCase().trim()]=x; });
-  const _rows=d.players.map(p=>({p, w:(_NN&&_NN.neutralValueOf)?_NN.neutralValueOf(p,d.tier):(p.proj!=null?p.proj:p.value)})).sort((a,b)=>b.w-a.w);
+  const _rows=_rowsP.filter(p=>!p.walkon).map(p=>({p, w:_worthOf(p,tT.name), x:_prodOf(p,tT.name)})).sort((a,b)=>b.w-a.w);
   const _wMax=Math.max(...(_rows.map(r=>r.w)),0.001), _wTot=_rows.reduce((s,r)=>s+(r.w||0),0)||1;
   html+=`<div class="sec-title nv-sec">Players</div>
-  <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense freeze2 nv-pl" id="nilSheet" style="--c1:30px;--c2:170px;"><thead><tr><th class="rk">#</th><th class="l">Player</th><th class="l" title="How he joined: transfers are bought on the open market (paid at a premium), returners re-sign a little under, freshmen at worth">Acq.</th><th class="l" title="The position the market prices him at">Pos</th><th data-heat="1" title="Overall">OVR</th><th data-heat="1" title="Projected minutes per game">MPG</th><th class="l nv-wh" title="Open-market worth: what he would command anywhere, priced on his projected production · share of the roster's worth">Worth</th>${_PR?'<th title="Estimated 2026-27 pay (an estimate, not a reported contract)">Est. salary</th>':''}<th title="What the market pays for his grade at his position, regardless of minutes">Market price</th><th class="l" title="Production vs the market price for his grade and position. Underrated = produces 30%+ above it; overrated = priced 30%+ above his production. Rotation players only.">Verdict</th></tr></thead><tbody>`;
-  _rows.forEach(({p,w},_i)=>{
+  <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense freeze2 nv-pl" id="nilSheet" style="--c1:30px;--c2:170px;"><thead><tr><th class="rk">#</th><th class="l">Player</th><th class="l" title="How he joined: transfers are bought on the open market (paid at a premium), returners re-sign a little under, freshmen at worth">Acq.</th><th class="l">Pos</th><th data-heat="1" title="Projected minutes per game">MPG</th><th data-heat="1" title="Projected Wins Added over a 31-game season">WA</th><th title="Strength of his league (1.00 = the strongest)">Level</th><th class="l nv-wh" title="Expected price: his projected production (Wins Added × level) priced at that rank of the NIL market · share of the roster's worth">Worth</th>${_PR?'<th title="Estimated 2026-27 pay (an estimate, not a reported contract)">Est. salary</th>':''}</tr></thead><tbody>`;
+  const _sg=v=>(v>=0?'+':'−')+Math.abs(v).toFixed(1);
+  _rows.forEach(({p,w,x},_i)=>{
     const key=(p.name||'').toLowerCase().trim(), inj=_injSet.has(key), rp=_byName[key];
     const href=rp&&rp.espn_id?`player.html?espn=${rp.espn_id}&name=${encodeURIComponent(p.name)}`:`player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(tT.name||'')}`;
-    const model=p.proj!=null?p.proj:p.value, _bm=_bmOf(p), mktV=_bm.val;
-    const vd=(mktV!=null&&_NN&&_NN.marketVerdict)?_NN.marketVerdict(model,mktV,{grade:p.grade,mpg:p.mpg,tier:d.tier}):{tag:null};
-    const vCell=vd.tag==='underrated'?'<td class="l"><span class="up">Underrated</span></td>':vd.tag==='overrated'?'<td class="l"><span class="dn">Overrated</span></td>':`<td class="l dim">${vd.tag==='fair'?'Fair':'—'}</td>`;
-    const sal=_salBy[key];
-    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="rk">${_i+1}</td><td class="l nm"><a href="${href}">${_esc(p.name)}</a>${inj?' <span class="dim" style="font-size:10px">OUT</span>':''}</td><td class="l dim">${sal?(sal.acq==='transfer'?'Transfer':sal.acq==='freshman'?'Freshman':'Returner'):'—'}</td><td class="l dim">${_bm.pos||'—'}</td><td>${(rp&&rp._projGrade!=null&&isFinite(rp._projGrade))?Math.round(rp._projGrade):(p.grade!=null?p.grade:'—')}</td><td>${Math.round(p.mpg||0)}</td>`
+    const sal=_salBy[key], mp=x&&x.mpg!=null?x.mpg:p.mpg;
+    html+=`<tr${inj?' style="opacity:.55;"':''}><td class="rk">${_i+1}</td><td class="l nm"><a href="${href}">${_esc(p.name)}</a>${inj?' <span class="dim" style="font-size:10px">OUT</span>':''}</td><td class="l dim">${sal?(sal.acq==='transfer'?'Transfer':sal.acq==='freshman'?'Freshman':'Returner'):'—'}</td><td class="l dim">${_esc((x&&x.pos)||_posOf(p)||'—')}</td><td>${Math.round(mp||0)}</td><td>${x?_sg(x.wa):'—'}</td><td class="dim">${x?x.lvl.toFixed(2):'—'}</td>`
       +`<td class="l nv-w"><span class="nv-bar"><i style="width:${(w/_wMax*100).toFixed(1)}%;background:${_tcol}"></i></span><b>${fmt(w)}</b><em>${Math.round(w/_wTot*100)}%</em></td>`
-      +(_PR?`<td>${sal?fmt(sal.salary):'—'}</td>`:'')+`<td class="dim"${inj?' style="text-decoration:line-through;"':''}>${mktV!=null?fmt(mktV):'—'}</td>${vCell}</tr>`; });
+      +(_PR?`<td>${sal?fmt(sal.salary):'—'}</td>`:'')+`</tr>`; });
   html+=`</tbody></table></div>`;
   // ── where the money sits: one row, five positions ──
   (function(){
     const P5=['PG','SG','SF','PF','C'], byPos={PG:0,SG:0,SF:0,PF:0,C:0};
-    const rl=d.players.filter(p=>!p.walkon);
-    rl.forEach(p=>{ const bm=_bmOf(p); if(bm.val!=null&&byPos[bm.pos]!=null) byPos[bm.pos]+=bm.val; });
-    const tot=Object.values(byPos).reduce((a,b)=>a+b,0)||1;
-    const judged=rl.map(p=>{ const bm=_bmOf(p), model=p.proj!=null?p.proj:p.value; const vd=(bm.val!=null&&_NN&&_NN.marketVerdict)?_NN.marketVerdict(model,bm.val,{grade:p.grade,mpg:p.mpg,tier:d.tier}):{tag:null}; return {p,bm,vd}; });
-    const val=judged.filter(x=>x.vd.tag==='underrated').sort((a,b)=>b.vd.ratio-a.vd.ratio)[0];
-    const over=judged.filter(x=>x.vd.tag==='overrated').sort((a,b)=>b.vd.ratio-a.vd.ratio)[0];
+    const _p5=x=>(_NN&&_NN.POS5)?_NN.POS5(x):x;
+    _rows.forEach(({p,w,x})=>{ const ps=_p5((x&&x.pos)||_posOf(p)); if(byPos[ps]!=null) byPos[ps]+=w; });
+    const tot=Object.values(byPos).reduce((a,b)=>a+b,0)||1, val=null, over=null;
     html+=`<div class="sec-title nv-sec">Where the money sits</div>
-      <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense nv-posr"><thead><tr><th class="l">Market price by position</th>${P5.map(pp=>`<th>${pp}</th>`).join('')}</tr></thead><tbody>
+      <div class="sheet-wrap" style="max-height:none;"><table class="sheet dense nv-posr"><thead><tr><th class="l">Worth by position</th>${P5.map(pp=>`<th>${pp}</th>`).join('')}</tr></thead><tbody>
       <tr><td class="l dim">Total</td>${P5.map(pp=>`<td class="big">${fmt(byPos[pp])}</td>`).join('')}</tr>
       <tr><td class="l dim">Share</td>${P5.map(pp=>`<td class="dim">${Math.round(byPos[pp]/tot*100)}%</td>`).join('')}</tr>
       ${val||over?`<tr><td class="l dim">Best value / overpay</td><td class="l" colspan="5" style="white-space:normal;">${val?`<span class="up">${_esc(val.p.name)}</span> produces ${val.vd.ratio.toFixed(1)}× his market price`:''}${val&&over?' · ':''}${over?`<span class="dn">${_esc(over.p.name)}</span> is priced at ${over.vd.ratio.toFixed(1)}× his production`:''}</td></tr>`:''}
@@ -7721,7 +7748,7 @@ async function renderNil(){
       </tbody></table></div></div>`;
   }
   html+=`<div class="nv-foot">Estimates from projected production — not reported contracts. <a href="moneyball.html?team=${encodeURIComponent(tT.name)}">Moneyball front office →</a> · <a href="moneyball.html?tab=programs&team=${encodeURIComponent(tT.name)}">The Ledger →</a></div>`;
-  html+=`<details class="nv-more"><summary>How these numbers work</summary><div class="nv-mtxt"><b>Worth</b> is a player's open-market value: his projected production (minutes, scoring, size, level, age) priced on a curve calibrated to real deals. It is the same at any school — the program's money is shown separately. <b>Roster worth</b> adds up every player. <b>Est. payroll</b> splits what the program likely pays by each player's worth (transfers at a premium, returners a little under). <b>Spending power</b> is what the program can put toward a roster, from its basketball spending and athletics revenue (U.S. Dept. of Education EADA filings) blended with the roster it built. <b>Market price</b> is what the market pays for a player's grade at his position, regardless of minutes; the <b>verdict</b> compares his production to it.</div></details>`;
+  html+=`<details class="nv-more"><summary>How these numbers work</summary><div class="nv-mtxt"><b>Worth</b> is each player's expected price, the same number as his player page: his projected 2026-27 box-score line turned into <b>Wins Added</b> over a 31-game season, discounted by the <b>level</b> of his league, then priced at that rank of the real NIL market (the n-th percentile of production is paid the n-th percentile of the market). No grade is used. <b>Roster worth</b> adds up every player. <b>Est. payroll</b> splits what the program likely pays by each player's worth (transfers at a premium, returners a little under). <b>Spending power</b> is what the program can put toward a roster, from its basketball spending and athletics revenue (U.S. Dept. of Education EADA filings) blended with the roster it built.</div></details>`;
   // ── owner-only market anchor editor (folded) ──
   if(typeof _isOwner==='function' && _isOwner()){
     const _P=['PG','SG','SF','PF','C'], _G=['90','80','70'];

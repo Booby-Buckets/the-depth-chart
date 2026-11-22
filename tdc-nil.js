@@ -464,9 +464,10 @@ window.TDC_NIL = {
     if ((/^fr/.test(c) || /fresh/.test(c)) && (p.ppg == null || p.ppg === '')) return 'freshman';
     return 'returner'; };
   // rows = a team's nil-data players; returns {worth, power, payroll, factor, players:[{name, worth, salary, acq}]}
-  N.payroll = function(rows, team, tier){
+  // worthOf (optional): price each player another way (team NIL tab: production prices, data/nil_production.json)
+  N.payroll = function(rows, team, tier, worthOf){
     var L = (rows || []).filter(function(p){ return !p.walkon; }).map(function(p){
-      return { p: p, name: p.name, worth: N.neutralValueOf ? N.neutralValueOf(p, tier) : (+p.value || 0), acq: N.acqOf(p) }; })
+      return { p: p, name: p.name, worth: worthOf ? worthOf(p) : N.neutralValueOf ? N.neutralValueOf(p, tier) : (+p.value || 0), acq: N.acqOf(p) }; })
       .filter(function(x){ return x.worth > 0; });
     var worth = L.reduce(function(a, x){ return a + x.worth; }, 0), power = N.spendPower(team, worth);
     var factor = worth > 0 ? Math.max(N.PAY.LO, Math.min(N.PAY.HI, Math.pow(power / worth, N.PAY.PE))) : 1, pay = worth * factor;   // = power^PE x worth^(1-PE)
