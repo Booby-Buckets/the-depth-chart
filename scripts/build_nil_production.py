@@ -123,6 +123,25 @@ for e, r in ros.items():
     exp[e] = {'wa': round(w, 2), 'lvl': round(lv, 3), 'val': round(price(w*lv), 4), 'mpg': round(f(line, 'mpg'), 1),
               'team': r.get('team') or short.get(e), 'name': r.get('name'), 'pos': r.get('position'), 'ht': r.get('height'), 'wt': r.get('weight') or (WT.get(e) or (None, None))[1], 'cls': r.get('class_year'), 'src': 'proj' if line is sp else 'roster'}
 
+# newcomers with no box history (freshmen, internationals): the projection's own line for them — fresh_fit.json, the
+# same per-game line team.html / player.html show (and price) for a player with no stat_overall_projected row
+try:
+    FF = json.load(open(os.path.join(ROOT, 'scripts/data/fresh_fit.json')))
+except Exception:
+    FF = {}
+nfr = 0
+for e, r in ros.items():
+    if e in exp: continue
+    ff = (FF.get(r.get('team')) or {}).get(r.get('name'))
+    if not ff or f(ff, 'mpg') <= 0 or f(ff, 'ppg') <= 0: continue
+    w = wa_line(ff)
+    if w is None: continue
+    lv = level(r.get('team'))
+    exp[e] = {'wa': round(w, 2), 'lvl': round(lv, 3), 'val': round(price(w*lv), 4), 'mpg': round(f(ff, 'mpg'), 1),
+              'team': r.get('team'), 'name': r.get('name'), 'pos': r.get('position'), 'ht': r.get('height'), 'wt': r.get('weight') or (WT.get(e) or (None, None))[1], 'cls': r.get('class_year'), 'src': 'fresh'}
+    nfr += 1
+print('newcomers priced from fresh_fit', nfr)
+
 out = {'meta': {'built': 'build_nil_production.py', 'games': G, 'k': K, 'n_prod': len(prod), 'n_mkt': len(mkt),
                 'note': 'WA per 31 games x conference level -> $ by percentile against the current NIL market'},
        'curve': curve, 'level': {t: round(level(t), 3) for t in sorted(teams) if t}, 'exp': exp}

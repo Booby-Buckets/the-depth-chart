@@ -1,5 +1,6 @@
 /* Moneyball (Oct 2026 rebuild) — one idea: WINS PER DOLLAR.
-   Every player: COST = open-market NIL value (tdc-nil.js neutralValueOf, the figure on his player page)
+   Every player: COST = his production price (tdc-nil.js prodWorthOf, data/nil_production.json — the player-page
+                        expected price: projected line → Wins Added × league level → market $; no grade, Nov 2026)
                  WINS = his projected 2026-27 Wins Added (stat_overall_projected proj_wa — level-adjusted for
                         the schedule he'll face; a newcomer's from his projected line, fresh_fit pwa). Never the
                         overall (owner rule, Oct 2026: an OVR is display only).
@@ -34,7 +35,7 @@
   function build(){
     if(MB) return Promise.resolve(MB);
     var N=window.TDC_NIL, R=window.TDC_RATINGS;
-    var waits=['pedigreeReady','defenseReady','adjustReady','injuryReady','programsReady'].map(function(k){ return (N&&N[k])?N[k].catch(function(){}):null; });
+    var waits=['pedigreeReady','defenseReady','adjustReady','injuryReady','programsReady','prodReady'].map(function(k){ return (N&&N[k])?N[k].catch(function(){}):null; });
     return Promise.all([
       fetch('nil-data.json?v=gradesync20').then(function(r){return r.json();}),
       fetch('scripts/data/stat_overall_projected.json?v=96').then(function(r){return r.json();}),
@@ -46,7 +47,7 @@
       var players=[];
       Object.keys(nil.teams||{}).forEach(function(short){
         var T=nil.teams[short], info=rat[short]||{}, full=info.full||short, tsos=sosByFull[full]!=null?sosByFull[full]:0.8;
-        (T.players||[]).forEach(function(p){
+        ((N&&N.prodRows)?N.prodRows(T.players,short):(T.players||[])).forEach(function(p){
           if(p.walkon) return;
           var pr=p.espn_id!=null?SOP[String(p.espn_id)]:null, wins, mpg, ovr=(pr&&pr.ovr!=null)?pr.ovr:p.grade;
           // WINS = projected Wins Added: the build's level-adjusted projection (proj_wa already carries the
@@ -56,7 +57,7 @@
           mpg=Math.min(MPG_CAP, (pr&&+pr.mpg)||(ff&&ff.mpg)||+p.mpg||0);
           var pw=(pr&&pr.proj_wa!=null&&isFinite(+pr.proj_wa))?+pr.proj_wa:((ff&&ff.pwa!=null&&isFinite(+ff.pwa))?+ff.pwa:null);
           wins=Math.max(-0.3, pw!=null?pw:0);
-          var cost=(N&&N.neutralValueOf)?N.neutralValueOf(p):(+p.value||0);
+          var cost=(N&&N.PROD&&N.prodWorthOf)?N.prodWorthOf(p,short):(N&&N.neutralValueOf)?N.neutralValueOf(p):(+p.value||0);
           if(!isFinite(cost)) cost=0;
           players.push({name:p.name, team:short, full:full, conf:info.conf||p.conf||'', espn:p.espn_id, pos:(N&&N.POS5)?N.POS5(p.pos||''):(p.pos||''),
             cls:(p.cls||'').replace(/\./g,''), ovr:ovr!=null?Math.round(+ovr):null, mpg:mpg, wins:wins, cost:cost,

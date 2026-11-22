@@ -464,6 +464,27 @@ window.TDC_NIL = {
     if ((/^fr/.test(c) || /fresh/.test(c)) && (p.ppg == null || p.ppg === '')) return 'freshman';
     return 'returner'; };
   // rows = a team's nil-data players; returns {worth, power, payroll, factor, players:[{name, worth, salary, acq}]}
+  // PRODUCTION PRICES (owner, Nov 2026: "Lets not use the grade"): every player's expected 2026-27 price from his projected
+  // line → Wins Added per 31 games × league level → $ by rank against the NIL market (build_nil_production.py →
+  // data/nil_production.json; newcomers from fresh_fit). The player NIL tab, team NIL tab, payroll and Moneyball all read it.
+  N.PROD = null;
+  N.prodReady = fetch('data/nil_production.json?d=' + new Date().toISOString().slice(0, 10)).then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(j){ if (!j || !j.exp) return null; j._byNT = {}; j._byTeam = {};
+      Object.keys(j.exp).forEach(function(id){ var x = j.exp[id]; x.id = id; j._byNT[N._pk(x.name) + '|' + x.team] = x; (j._byTeam[x.team] = j._byTeam[x.team] || []).push(x); });
+      N.PROD = j; return j; }).catch(function(){ return null; });
+  N._pk = function(s){ return String(s || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b\.?/g, '').replace(/[^a-z]/g, ''); };
+  // the production row for a player ({wa, lvl, val, mpg, pos, team, ...}) by espn id, else name + team; null if unpriced
+  N.prodOf = function(p, team){ var P = N.PROD; if (!P || !p) return null;
+    var id = p.espn_id != null ? String(p.espn_id) : (p.espn != null ? String(p.espn) : null);
+    return (id && P.exp[id]) || P._byNT[N._pk(p.name) + '|' + (team || p.team)] || null; };
+  // his price in $M (bottom of the market curve when he has no projected line: deep bench)
+  N.prodWorthOf = function(p, team){ if (!p || p.walkon) return 0; var x = N.prodOf(p, team); if (x) return x.val;
+    var C = N.PROD && N.PROD.curve; return (C && C[0]) ? C[0][1] : 0.003; };
+  // a roster's rows for production pricing: its nil-data players plus any priced player nil-data doesn't list
+  N.prodRows = function(rows, team){ var P = N.PROD; rows = rows || []; if (!P) return rows;
+    var seen = {}; rows.forEach(function(p){ var x = N.prodOf(p, team); if (x) seen[x.id] = 1; });
+    return rows.concat((P._byTeam[team] || []).filter(function(x){ return !seen[x.id]; })
+      .map(function(x){ return { name: x.name, pos: x.pos, mpg: x.mpg, cls: x.cls, espn_id: x.id, team: team, ppg: x.src === 'fresh' ? null : 1 }; })); };
   // worthOf (optional): price each player another way (team NIL tab: production prices, data/nil_production.json)
   N.payroll = function(rows, team, tier, worthOf){
     var L = (rows || []).filter(function(p){ return !p.walkon; }).map(function(p){

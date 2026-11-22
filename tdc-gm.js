@@ -26,7 +26,7 @@
   // ── data ────────────────────────────────────────────────────────────────
   function load(){
     var R=window.TDC_RATINGS, N=window.TDC_NIL;
-    var waits=['pedigreeReady','defenseReady','adjustReady','injuryReady','programsReady'].map(function(k){ return (N&&N[k])?N[k].catch(function(){}):null; });
+    var waits=['pedigreeReady','defenseReady','adjustReady','injuryReady','programsReady','prodReady'].map(function(k){ return (N&&N[k])?N[k].catch(function(){}):null; });
     return Promise.all([R.prepare(), R.get(),
       fetch('nil-data.json?v=gradesync20').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}),
       fetch('scripts/data/coach_rotation.json?v=1').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;})].concat(waits))
@@ -43,7 +43,8 @@
   function mk(row,team){
     var n=NIL[nk(team,row.name)], N=window.TDC_NIL;
     var ovr=(n&&n.grade!=null)?+n.grade:(row.tdc_grade!=null?+row.tdc_grade:null);
-    var cost=(n&&N&&N.neutralValueOf)?N.neutralValueOf(n):0.4;
+    // cost = his production price (the player-page expected price, data/nil_production.json; Nov 2026 — no grade)
+    var cost=(N&&N.PROD&&N.prodWorthOf)?N.prodWorthOf({name:row.name, espn_id:row.espn_id!=null?row.espn_id:(n&&n.espn_id)}, team):(n&&N&&N.neutralValueOf)?N.neutralValueOf(n):0.4;
     // q = the PRODUCTION key every roster decision uses (who starts, who the auto-fill and target list rank first):
     // his NIL basis (last season · career · projected line, all stats — patch_nil_grades.py), else per-40
     // production quality. The OVR is shown, never used (owner rule, Oct 2026).
