@@ -19,7 +19,7 @@
   <script src="tdc-theme.js?v=5"></script>
   <script src="team-colors.js?v=13"></script>
   <script src="tdc-teamname.js?v=1"></script>
-  <script src="tdc-nil.js?v=pay15"></script>
+  <script src="tdc-nil.js?v=pay16"></script>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <style>
     :root{--up:#2e8b57;--dn:#c75d5d;}
@@ -78,7 +78,7 @@
         <th class="sort" data-k="payroll" title="Our estimate of what the program pays this roster: spending power and worth combined 70/30. Estimates, not reported contracts.">Payroll</th>
         <th class="sort" data-k="power" title="What the program can put toward a roster: its basketball spending and athletics revenue (EADA), blended with the roster it built">Spending power</th>
         <th class="sort" data-k="worth" title="The roster at production prices, player by player: projected Wins Added × league level, priced at that rank of the NIL market (the player-page price)">Worth</th>
-        <th class="sort" data-k="ratio" title="Payroll as a share of the roster's worth: under 100% = getting players below market">% of worth</th>
+        <th class="sort" data-k="rel" title="Payroll as a share of what rosters this productive usually cost in its kind of conference (power or not): under 100% = getting its production below market">% of usual</th>
         <th class="sort" data-k="used" title="Payroll as a share of spending power: over 100% = stretching">% of means</th>
         <th class="l">Read</th>
         <th class="sort" data-k="rating" title="2026-27 projected Power Rating">Rating</th>
@@ -107,7 +107,7 @@
       const lg = logo(r.team), v = r.v;
       return `<tr><td class="rk">${i + 1}</td><td class="l tm"><a href="team.html?team=${encodeURIComponent(r.team)}&tab=nil">${lg ? `<img src="${lg}" alt="" loading="lazy">` : '<i></i>'}<span>${esc(r.team)}</span></a></td>` +
         `<td class="l dim">${esc(cn(r.conf))}</td><td class="big">${fmt(r.payroll)}</td><td>${fmt(r.power)}</td><td>${fmt(r.worth)}</td>` +
-        `<td>${pct(r.ratio)}</td><td>${pct(r.used)}</td>` +
+        `<td>${pct(r.rel)}</td><td>${pct(r.used)}</td>` +
         `<td class="l"><span class="py-tag ${v.vsWorthTag}">${esc(v.vsWorth)}</span> <span class="py-tag ${v.vsPowerTag}">· ${esc(v.vsPower)}</span></td>` +
         `<td>${r.rating == null ? '—' : (r.rating > 0 ? '+' : '') + r.rating.toFixed(1)}</td><td>${r.cpp == null ? '—' : '$' + Math.round(r.cpp * 1000) + 'K'}</td></tr>`;
     }).join('') : '<tr><td class="py-empty" colspan="11">No programs match.</td></tr>';
@@ -124,10 +124,10 @@
   .then(([D, , , , , PR]) => {
     const R = {}; ((PR[0] && PR[0].data && PR[0].data.teams) || []).forEach(t => { R[t.team] = +t.rating; });
     const floor = Math.min(...Object.values(R).filter(isFinite), 0);
-    rows = Object.keys(D.teams).map(t => { const o = N.payroll(N.prodRows(D.teams[t].players, t), t, D.teams[t].tier, p => N.prodWorthOf(p, t)), v = N.payVerdict(o);
+    rows = N.payBoard(D).map(o => { const t = o.team, v = N.payVerdict(o);
       const conf = (N.budgetRow(t) || {}).conf || (D.teams[t].players[0] || {}).conf || '';
       const rating = R[t] != null ? R[t] : null;
-      return { team: t, conf, payroll: o.payroll, power: o.power, worth: o.worth, ratio: v.ratio, used: v.used, v, rating, cpp: rating != null ? o.payroll / Math.max(1, rating - floor) : null };
+      return { team: t, conf, payroll: o.payroll, power: o.power, worth: o.worth, ratio: v.ratio, rel: v.rel, used: v.used, v, rating, cpp: rating != null ? o.payroll / Math.max(1, rating - floor) : null };
     }).filter(r => r.worth > 0);
     const confs = [...new Set(rows.map(r => r.conf).filter(Boolean))].sort((a, b) => cn(a).localeCompare(cn(b)));
     document.getElementById('confSel').insertAdjacentHTML('beforeend', confs.map(c => `<option value="${esc(c)}">${esc(cn(c))}</option>`).join(''));

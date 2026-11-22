@@ -507,9 +507,43 @@ window.TDC_NIL = {
     L.sort(function(a, b){ return b.salary - a.salary; });
     return { team: team, worth: worth, power: power, payroll: pay, factor: factor, players: L }; };
   // plain-English reads of the three numbers
+  // ── PAYROLL vs PRODUCTION (Nov 2026 rescale). On production prices a power-conference payroll runs 2-3x its roster's
+  // worth (money chases pedigree, not box-score production), so "payroll ÷ worth" called every high-major "above market".
+  // The market read is now RELATIVE: ln(payroll) = a + b·ln(worth) + c·power, fit across every D-I roster, gives what a
+  // roster this productive usually costs in its kind of conference; the verdict compares the payroll with THAT.
+  var POWER_C = { 'ACC': 1, 'B10': 1, 'BIG-12': 1, 'SEC': 1, 'Big-East': 1 };
+  N.isPowerTeam = function(team){ var b = N.BUDGETS[team]; return !!(b && POWER_C[b.conf]); };
+  N._PF = null;
+  N.payFit = function(list){
+    var A = [[0,0,0],[0,0,0],[0,0,0]], B = [0,0,0], n = 0;
+    (list || []).forEach(function(o){ if (!(o.worth > 0.05 && o.payroll > 0)) return; n++;
+      var x = [1, Math.log(o.worth), N.isPowerTeam(o.team) ? 1 : 0], y = Math.log(o.payroll);
+      for (var i = 0; i < 3; i++) { B[i] += x[i] * y; for (var j = 0; j < 3; j++) A[i][j] += x[i] * x[j]; } });
+    if (n < 20) return null;
+    for (var i = 0; i < 3; i++) { var m = i; for (var j = i + 1; j < 3; j++) if (Math.abs(A[j][i]) > Math.abs(A[m][i])) m = j;
+      var t = A[i]; A[i] = A[m]; A[m] = t; var tb = B[i]; B[i] = B[m]; B[m] = tb;
+      for (j = i + 1; j < 3; j++) { var f = A[j][i] / A[i][i]; for (var q = i; q < 3; q++) A[j][q] -= f * A[i][q]; B[j] -= f * B[i]; } }
+    var w = [0,0,0]; for (i = 2; i >= 0; i--) { var sm = B[i]; for (q = i + 1; q < 3; q++) sm -= A[i][q] * w[q]; w[i] = sm / A[i][i]; }
+    N._PF = { a: w[0], b: w[1], c: w[2], n: n }; return N._PF; };
+  // what a roster worth `worth` usually costs in this team's kind of conference (null before payFit)
+  N.payExpected = function(team, worth){ var F = N._PF; if (!F || !(worth > 0)) return null;
+    return Math.exp(F.a + F.b * Math.log(Math.max(0.05, worth)) + (N.isPowerTeam(team) ? F.c : 0)); };
+  // every roster's payroll on production prices + the fit, cached per nil-data object
+  N.payBoard = function(nil){ if (!nil || !nil.teams) return [];
+    if (nil.__payBoard && nil.__payBoardProd === !!N.PROD) return nil.__payBoard;
+    var L = Object.keys(nil.teams).map(function(t){ var T = nil.teams[t];
+      return N.PROD ? N.payroll(N.prodRows(T.players, t), t, T.tier, function(p){ return N.prodWorthOf(p, t); }) : N.payroll(T.players, t, T.tier); })
+      .filter(function(o){ return o.worth > 0; });
+    N.payFit(L); nil.__payBoard = L; nil.__payBoardProd = !!N.PROD; return L; };
+  // GM Mode's starting budget in production-price dollars: the roster's worth × how its spending power compares with
+  // what rosters like it usually cost (a program with more means than its roster needs gets room to add)
+  N.gmBudget = function(o){ if (!o || !(o.worth > 0)) return null; var e = N.payExpected(o.team, o.worth);
+    return e ? o.worth * Math.max(0.6, Math.min(2, o.power / e)) : null; };
+  // plain-English reads of the three numbers
   N.payVerdict = function(o){
-    var r = o.payroll / Math.max(0.01, o.worth), u = o.payroll / Math.max(0.01, o.power);
-    return { vsWorth: r >= 1.08 ? 'Paying above market' : r <= 0.85 ? 'Bargain roster' : 'Near market',
-      vsWorthTag: r >= 1.08 ? 'over' : r <= 0.85 ? 'under' : 'fair', ratio: r,
+    var r = o.payroll / Math.max(0.01, o.worth), u = o.payroll / Math.max(0.01, o.power), e = N.payExpected(o.team, o.worth), rel = e ? o.payroll / e : r;
+    var hi = e ? 1.15 : 1.08, lo = e ? 0.87 : 0.85;
+    return { vsWorth: rel >= hi ? 'Paying above market' : rel <= lo ? 'Bargain roster' : 'Near market',
+      vsWorthTag: rel >= hi ? 'over' : rel <= lo ? 'under' : 'fair', ratio: r, rel: rel, expected: e,
       vsPower: u >= 1.08 ? 'Stretched past its means' : u <= 0.9 ? 'Room left to spend' : 'Spending to its means', vsPowerTag: u >= 1.08 ? 'over' : u <= 0.9 ? 'under' : 'fair', used: u }; };
 })();

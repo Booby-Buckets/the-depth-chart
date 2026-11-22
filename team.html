@@ -23,7 +23,7 @@
   <script src="tdc-teamonoff.js?v=12"></script>
   <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-assistweb.js?v=ui1"></script>
-  <script src="tdc-nil.js?v=pay15"></script>
+  <script src="tdc-nil.js?v=pay16"></script>
   <script src="tdc-nilchart.js?v=1"></script>
   <script src="tdc-gate.js?v=5"></script>
   <script src="tdc-teamgrades.js"></script>
@@ -7662,11 +7662,13 @@ async function renderNil(){
   const _ord=n=>{ const v=n%100; return (v>=11&&v<=13)?'th':(['th','st','nd','rd'][n%10]||'th'); };
   // PAYROLL (Oct 2026): worth vs spending power (EADA finances + the roster it built) vs estimated payroll — TDC_NIL.payroll
   if(_NN&&_NN.budgetsReady){ try{ await _NN.budgetsReady; }catch(e){} }
+  if(_NN&&_NN.prodReady){ try{ await _NN.prodReady; }catch(e){} }
+  const _PB=(_NN&&_NN.payBoard)?_NN.payBoard(_nilData):[];   // every roster's payroll + the payroll-vs-production fit
   const _PR=(_NN&&_NN.payroll)?_NN.payroll(_rowsP,tT.name,d.tier,p=>_worthOf(p,tT.name)):null, _PV=_PR?_NN.payVerdict(_PR):null;
-  if(_PR&&!window._nilProdPayBoard){ window._nilProdPayBoard=Object.keys(_nilData.teams).map(tk=>tk===tT.name?_PR:_NN.payroll(_nilData.teams[tk].players,tk,_nilData.teams[tk].tier,p=>_worthOf(p,tk))).filter(o=>o.worth>0); }
+  window._nilProdPayBoard=_PB.map(o=>o.team===tT.name&&_PR?_PR:o);
   const _payRank=k=>{ const B=(window._nilProdPayBoard||[]).slice().sort((a,b)=>b[k]-a[k]); const i=B.findIndex(o=>o.team===tT.name); return i<0?'':'#'+(i+1)+' of '+B.length; };
   const _verdictTxt=_PR
-    ? `<b style="color:${_PV.vsWorthTag==='under'?'var(--green)':_PV.vsWorthTag==='over'?'var(--red)':'var(--text)'}">${_PV.vsWorth}.</b> We estimate ${_esc(tT.name)} is paying about ${fmt(_PR.payroll)} for a roster worth ${fmt(_PR.worth)} on the open market, against ${fmt(_PR.power)} of spending power: ${_PV.vsPower.toLowerCase()}.`
+    ? `<b style="color:${_PV.vsWorthTag==='under'?'var(--green)':_PV.vsWorthTag==='over'?'var(--red)':'var(--text)'}">${_PV.vsWorth}.</b> We estimate ${_esc(tT.name)} is paying about ${fmt(_PR.payroll)} for a roster worth ${fmt(_PR.worth)} on production${_PV.expected?`; ${_NN.isPowerTeam(tT.name)?'power-conference':'mid-major'} rosters that productive usually cost about ${fmt(_PV.expected)}`:''}. Spending power ${fmt(_PR.power)}: ${_PV.vsPower.toLowerCase()}.`
     : (deal
     ? `<b style="color:var(--green)">Getting value.</b> The roster is worth ${fmt(Math.abs(nDiff))} more on the open market than the program's ${fmt(d.budget)} NIL budget.`
     : `<b style="color:var(--red)">Paying a premium.</b> The program's ${fmt(d.budget)} budget is ${fmt(Math.abs(nDiff))} more than the roster is worth on the open market.`);
@@ -7691,7 +7693,7 @@ async function renderNil(){
       <div class="nv-verdict" style="margin:2px 0 14px;">${_verdictTxt}</div>
       <dl class="nv-in nv-kpis">
         ${_kpi('Roster worth',fmt(nVal),'#'+_natRank+' of '+_natTot+' · #'+_confRank+' '+_esc(_confNm),"Every player's open-market worth, added up")}
-        ${_PR?_kpi('Est. payroll',fmt(_PR.payroll),_payRank('payroll')+' · '+Math.round(_PV.ratio*100)+'% of worth','What we estimate the program pays this roster')
+        ${_PR?_kpi('Est. payroll',fmt(_PR.payroll),_payRank('payroll')+(_PV.expected?' · '+Math.round(_PV.rel*100)+'% of usual':' · '+Math.round(_PV.ratio*100)+'% of worth'),'What we estimate the program pays this roster')
              :_kpi('NIL budget',fmt(d.budget),'Tier '+d.tier,'')}
         ${_PR?_kpi('Spending power',fmt(_PR.power),_payRank('power'),'What the program can spend: basketball spending + athletics revenue (EADA filings), blended with the roster it built'):''}
         ${_eff?_kpi('Per Win Added',fmt(_eff.per),'#'+_eff.rank+' of '+_eff.tot+' in value','Roster worth divided by projected Wins Added — lower is more production per dollar'):''}
@@ -7748,7 +7750,7 @@ async function renderNil(){
       </tbody></table></div></div>`;
   }
   html+=`<div class="nv-foot">Estimates from projected production — not reported contracts. <a href="moneyball.html?team=${encodeURIComponent(tT.name)}">Moneyball front office →</a> · <a href="moneyball.html?tab=programs&team=${encodeURIComponent(tT.name)}">The Ledger →</a></div>`;
-  html+=`<details class="nv-more"><summary>How these numbers work</summary><div class="nv-mtxt"><b>Worth</b> is each player's expected price, the same number as his player page: his projected 2026-27 box-score line turned into <b>Wins Added</b> over a 31-game season, discounted by the <b>level</b> of his league, then priced at that rank of the real NIL market (the n-th percentile of production is paid the n-th percentile of the market). No grade is used. <b>Roster worth</b> adds up every player. <b>Est. payroll</b> splits what the program likely pays by each player's worth (transfers at a premium, returners a little under). <b>Spending power</b> is what the program can put toward a roster, from its basketball spending and athletics revenue (U.S. Dept. of Education EADA filings) blended with the roster it built.</div></details>`;
+  html+=`<details class="nv-more"><summary>How these numbers work</summary><div class="nv-mtxt"><b>Worth</b> is each player's expected price, the same number as his player page: his projected 2026-27 box-score line turned into <b>Wins Added</b> over a 31-game season, discounted by the <b>level</b> of his league, then priced at that rank of the real NIL market (the n-th percentile of production is paid the n-th percentile of the market). No grade is used. <b>Roster worth</b> adds up every player. <b>Est. payroll</b> is what the program likely pays, split by each player's worth (transfers at a premium, returners a little under). Power-conference payrolls run 2–3× their roster's production worth, so the market read compares a payroll with what rosters this productive usually cost in the same kind of conference (fit across every D-I roster). <b>Spending power</b> is what the program can put toward a roster, from its basketball spending and athletics revenue (U.S. Dept. of Education EADA filings) blended with the roster it built.</div></details>`;
   // ── owner-only market anchor editor (folded) ──
   if(typeof _isOwner==='function' && _isOwner()){
     const _P=['PG','SG','SF','PF','C'], _G=['90','80','70'];

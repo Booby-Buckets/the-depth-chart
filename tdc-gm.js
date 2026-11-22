@@ -9,7 +9,9 @@
    roster reads exactly as the rankings do. Costs are the site's open-market NIL values (tdc-nil.js). */
 (function(){
   var POS5=['PG','SG','SF','PF','C'];
-  var GAMES=32, FANTASY_BUDGET=20, MAX_ROSTER=15;
+  var GAMES=32, FANTASY_BUDGET=10,   // production prices (Nov 2026): the top roster is worth ~$17M, a top-25 one ~$10M
+      MAX_ROSTER=15;
+  var ND=null;
   var S={mode:'program', team:null, budget:null, roster:[], cut:[], hist:[], tpos:'all', tmax:'', tq:'', tlimit:20, goal:25, tsort:'surplus'};
   var RATE=null, WINS=null, TCURVE=null;   // Moneyball's going rate ($M per win) + per-player projected wins, passed in by the page
   var GOALS=[[4,'Final Four contender (top 4)'],[10,'Top 10'],[25,'Top 25'],[45,'NCAA tournament (top 45)'],[75,'Bubble (top 75)']];
@@ -26,12 +28,12 @@
   // ── data ────────────────────────────────────────────────────────────────
   function load(){
     var R=window.TDC_RATINGS, N=window.TDC_NIL;
-    var waits=['pedigreeReady','defenseReady','adjustReady','injuryReady','programsReady','prodReady'].map(function(k){ return (N&&N[k])?N[k].catch(function(){}):null; });
+    var waits=['pedigreeReady','defenseReady','adjustReady','injuryReady','programsReady','prodReady','budgetsReady'].map(function(k){ return (N&&N[k])?N[k].catch(function(){}):null; });
     return Promise.all([R.prepare(), R.get(),
       fetch('nil-data.json?v=gradesync20').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}),
       fetch('scripts/data/coach_rotation.json?v=1').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;})].concat(waits))
     .then(function(a){
-      D=a[1]; ROT=a[3]||{}; var nd=a[2]||{teams:{}};
+      D=a[1]; ROT=a[3]||{}; var nd=a[2]||{teams:{}}; ND=nd;
       Object.keys(nd.teams||{}).forEach(function(t){ (nd.teams[t].players||[]).forEach(function(p){ NIL[nk(t,p.name)]=p; }); NIL['__budget__'+t]=nd.teams[t].budget; });
       R.rosterTeams().forEach(function(t){
         BYTEAM[t]=R.rosterOf(t).slice().sort(function(a,b){ var x=+a.depth_order||99, y=+b.depth_order||99; return x-y; }).map(function(row){ return mk(row,t); });
@@ -359,7 +361,9 @@
   function setTeam(t,keepHist){
     if(!BYTEAM[t]) t=defaultTeam();
     S.team=t; S.roster=BYTEAM[t].map(function(p){ return Object.assign({},p); }); S.cut=[]; if(!keepHist) S.hist=[];
-    S.budget=NIL['__budget__'+t]||S.budget||FANTASY_BUDGET;
+    // production-price budget (Nov 2026): roster worth × its spending power vs what rosters like it usually cost
+    var _gb=null; try{ var _N=window.TDC_NIL; if(_N&&_N.PROD&&_N.payBoard&&ND){ var _o=_N.payBoard(ND).filter(function(o){ return o.team===t; })[0]; _gb=_o?_N.gmBudget(_o):null; } }catch(e){}
+    S.budget=_gb!=null?Math.round(_gb*10)/10:(NIL['__budget__'+t]||S.budget||FANTASY_BUDGET);
     BASE=null; BASE=rate(S.roster);   // the real roster, rated the GM way (its change vs itself is 0)
     try{ localStorage.setItem('tdc_coach_team',t); }catch(e){}
     try{ var sp=new URLSearchParams(location.search); sp.set('team',t); history.replaceState(null,'',location.pathname+'?'+sp.toString()); }catch(e){}
