@@ -27,7 +27,8 @@
   <script src="tdc-nilchart.js?v=1"></script>
   <script src="tdc-gate.js?v=5"></script>
   <script src="tdc-teamgrades.js"></script>
-  <script src="tdc-teamhq.js?v=26"></script>
+  <script src="tdc-bio.js?v=1"></script>
+  <script src="tdc-teamhq.js?v=27"></script>
   <script src="tdc-teamscout.js?v=6"></script>
   <script src="tdc-teamstats.js?v=16"></script>
   <link rel="stylesheet" href="tdc-teamhq.css?v=10"/>
@@ -8695,7 +8696,7 @@ function renderHistoricRoster(rows, yr, projected){
       <td class="l dc-slot">${r.slot}</td>
       <td class="c big dc-ovr"${_oop>0?` title="Out of position (${p.position}${p.position2?'/'+p.position2:''} → ${r.col})"`:''}><span class="dc-ring">${g}</span></td>
       <td class="l nm"><span class="dc-ava">${_sqHead(p.espn_id)}<i>${_sqInit(p.name)}</i></span><a class="dc-name" href="${link(p)}">${p.name}</a>${wav}${injBadge}${inj}${posEd}</td>
-      <td class="l dim">${p.yr||p.class_year||''}</td><td class="l dim">${p.position||''}</td><td class="l dim">${p.height||''}</td>
+      <td class="l dim">${p.yr||p.class_year||''}</td><td class="l dim">${p.position||''}</td><td class="l dim">${p.height||''}</td>${_wtTd(p,yr)}
       <td>${_realOn?(_rl?num(_rl.mpg):'—'):(m!=null&&(m>=0.5||_cl)?num(m):'—')}</td>
       <td>${_f1(L.ppg)}</td><td>${_f1(L.rpg)}</td><td>${_f1(L.apg)}</td>
       <td>${_pc(L.fg_pct)}</td><td>${_pc(L.tp_pct!=null?L.tp_pct:(L.three_pct!=null?L.three_pct:L['3p_pct']))}</td>
@@ -8704,7 +8705,7 @@ function renderHistoricRoster(rows, yr, projected){
   const _dsId='dcs'+(++histTable._n);
   setTimeout(()=>{ const t=document.getElementById(_dsId); if(t&&window.tdcSheetHeat) tdcSheetHeat(t); },0);
   const _pj=projected?(_realOn?' (so far)':' (projected)'):'';
-  const depthSheet=`<div class="dc-grid dc-depth"><div class="sheet-wrap" style="max-height:none;"><table class="sheet dense freeze3 hr-sheet dc-sheet" id="${_dsId}" style="--c1:56px;--c2:52px;--c3:230px;"><thead><tr>${_dth('Slot',0,'','l')}${_dth('OVR',1,'','c')}${_dth('Player',0,'','l')}${_dth('Yr',0,'','l')}${_dth('Pos',0,'','l')}${_dth('Ht',0,'','l')}${_dth('MIN',1,_barTip)}${_dth('PPG',1,'Points per game'+_pj)}${_dth('RPG',1,'Rebounds per game'+_pj)}${_dth('APG',1,'Assists per game'+_pj)}${_dth('FG%',1,'Field-goal %'+_pj)}${_dth('3P%',1,'3-point %'+_pj)}</tr></thead><tbody>${depthRows}</tbody></table></div></div>`;
+  const depthSheet=`<div class="dc-grid dc-depth"><div class="sheet-wrap" style="max-height:none;"><table class="sheet dense freeze3 hr-sheet dc-sheet" id="${_dsId}" style="--c1:56px;--c2:52px;--c3:230px;"><thead><tr>${_dth('Slot',0,'','l')}${_dth('OVR',1,'','c')}${_dth('Player',0,'','l')}${_dth('Yr',0,'','l')}${_dth('Pos',0,'','l')}${_dth('Ht',0,'','l')}${_dth('Wt',0,'Weight (lb), from the official school roster','l')}${_dth('MIN',1,_barTip)}${_dth('PPG',1,'Points per game'+_pj)}${_dth('RPG',1,'Rebounds per game'+_pj)}${_dth('APG',1,'Assists per game'+_pj)}${_dth('FG%',1,'Field-goal %'+_pj)}${_dth('3P%',1,'3-point %'+_pj)}</tr></thead><tbody>${depthRows}</tbody></table></div></div>`;
   const injHtml = injured.length
     ? `<div class="sec-head" style="margin-top:28px;color:#ef4444;">Injured — Out for ${rosterLbl(yr)} <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;">· stats from last season played · minutes redistributed in projections</span></div>`
       + histTable(injured, yr-1)
@@ -8959,6 +8960,9 @@ function _appendDepthLosses(yr){
   if(!document.getElementById('seasonLossesWrap')) dc.insertAdjacentHTML('beforeend','<div id="seasonLossesWrap"></div>');
   renderSeasonLosses(teamPlayers||[], yr);
 }
+// weight cell: 2026-27 rosters read the school-roster lookup (tdc-bio.js); older seasons show the row's own weight
+function _wtTd(p,yr){ if(+yr===2027&&window.tdcWtCell) return tdcWtCell(p,p.team);
+  const w=parseFloat(p&&p.weight); return `<td class="l dim">${w>=120?Math.round(w):'—'}</td>`; }
 function histTable(rows, yr, projected){
   const r=projected
     ? [...rows].sort((a,b)=>(parseFloat(a.depth_order)||999)-(parseFloat(b.depth_order)||999) || (parseFloat(b.tdc_grade)||0)-(parseFloat(a.tdc_grade)||0))
@@ -8979,7 +8983,7 @@ function histTable(rows, yr, projected){
     return `<tr>
     <td class="rk">${i+1}</td>
     <td class="l nm"><a href="${link(p)}">${esc(p.name)}</a></td>
-    <td class="l dim">${esc(p.yr||p.class_year||'')}</td><td class="l dim">${esc(p.position||'')}</td><td class="l dim">${esc(p.height||'')}</td>
+    <td class="l dim">${esc(p.yr||p.class_year||'')}</td><td class="l dim">${esc(p.position||'')}</td><td class="l dim">${esc(p.height||'')}</td>${_wtTd(p,yr)}
     <td>${projected&&!_realOn?'—':(L.gp||'—')}</td><td>${num(L.mpg)}</td><td>${num(L.ppg)}</td><td>${num(L.rpg)}</td><td>${num(L.apg)}</td>
     <td>${num(L.stl)}</td><td>${num(L.blk)}</td><td>${num(L.tovs)}</td>
     <td>${pctF(L.fg_pct)}</td><td>${pctF(L.tp_pct)}</td><td>${pctF(L.ft_pct)}</td>
@@ -8993,7 +8997,7 @@ function histTable(rows, yr, projected){
   // shade once the rows are in the page (and again after the tendency columns fill in)
   setTimeout(()=>{ const t=document.getElementById(id); if(t&&window.tdcSheetHeat) tdcSheetHeat(t); },0);
   return `<div class="sheet-wrap hr-wrap"><table class="sheet dense freeze2 hr-sheet" id="${id}"><thead><tr>
-    <th class="rk">#</th>${th('Player',0,'','l')}${th('Yr',0,'','l')}${th('Pos',0,'','l')}${th('Ht',0,'','l')}
+    <th class="rk">#</th>${th('Player',0,'','l')}${th('Yr',0,'','l')}${th('Pos',0,'','l')}${th('Ht',0,'','l')}${th('Wt',0,'Weight (lb)','l')}
     ${th('GP')}${th('MPG',1)}${th('PPG',1)}${th('RPG',1)}${th('APG',1)}${th('STL',1)}${th('BLK',1)}${th('TO',-1)}${th('FG%',1)}${th('3P%',1)}${th('FT%',1)}${projected?
       th('Tend',1,'Shot Tendency: projected share of shots when on the floor, 0-100 (100 = a pure #1 option). Zero-sum across the roster.')
       +th('3PT',1,'3-point tendency: national percentile of projected 3PA/40 (100 = elite 3-point volume).')
