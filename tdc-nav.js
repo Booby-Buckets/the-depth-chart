@@ -280,6 +280,7 @@
         var willOpen = !g.classList.contains('open');
         closeAll(g);
         g.classList.toggle('open', willOpen);
+        if (willOpen) { var rw = g.closest('.tdn-row'); openAt = { x: rw ? rw.scrollLeft : 0, t: Date.now() }; }
         // phones: the menu row scrolls sideways (overflow clips anything absolute inside it), so an open menu is
         // fixed to the screen just under the row instead
         var m = g.querySelector('.tdn-menu');
@@ -290,7 +291,14 @@
     });
     document.addEventListener('click', function (e) { if (!wrap.contains(e.target)) closeAll(null); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeAll(null); });
-    var row = wrap.querySelector('.tdn-row'); if (row) row.addEventListener('scroll', function () { closeAll(null); }, { passive: true });
+    // a real sideways swipe closes an open menu. Nov 21 2026: phones fire scroll events as the row's glide settles or the
+    // tapped button is nudged into view, which closed More the moment it opened ("More isn't opening anything"), so only
+    // a move of 12px+ that starts after the menu has been open a moment counts.
+    var openAt = null, row = wrap.querySelector('.tdn-row');
+    if (row) row.addEventListener('scroll', function () {
+      if (!openAt || Date.now() - openAt.t < 350) { if (openAt) openAt.x = row.scrollLeft; return; }
+      if (Math.abs(row.scrollLeft - openAt.x) >= 12) closeAll(null);
+    }, { passive: true });
   }
 
   // ── Site search: every player and team, every season ──
