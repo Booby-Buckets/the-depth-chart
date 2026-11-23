@@ -296,7 +296,7 @@
   var LABS = {};
   function labFile(y, team) { var k = y + '|' + team; if (LABS[k] !== undefined) return Promise.resolve(LABS[k]);
     return get('scripts/data/onoff_lab/' + y + '/' + slugOf(team) + '.json?v=2' + (y >= 2027 ? '&d=' + TODAY : '')).then(function (j) { return (LABS[k] = j); }); }
-  function gRates(o, d, secs, lg) {
+  function gRates(o, d, secs, lg, y) {
     var pct = function (n, den) { return n == null || den == null || !(den > 0) ? null : Math.round(1000 * n / den) / 10; };
     var ps = function (b) { return Math.max(0, b.fga - b.orb + b.tov + 0.44 * b.fta); };
     var ts = function (b) { return pct(b.pts, 2 * (b.fga + 0.44 * b.fta)); }, efg = function (b) { return pct(b.fgm + 0.5 * b.tpm, b.fga); };
@@ -312,7 +312,9 @@
       r[x + 'lq'] = pct(b.xp, 2 * b.sa); r[x + 'sm'] = pct(b.sp - b.xp, b.sa); r[x + 'gsr'] = pct(b.gs, b.sa); r[x + 'bsr'] = pct(b.bs, b.sa);
       r[x + 'trr'] = pct(b.trp, b.ep); r[x + 'trppp'] = pct(b.trs, b.trp); r[x + 'hcppp'] = pct(b.hcs, b.hcp); r[x + 'scp'] = pct(b.scs, b.ep); };
     sq(o, ''); sq(d, 'o');
-    if (lg && lg.tp3_raw) { var op = o.pts - (o.ftm - o.fta * lg.ft_raw), dp = d.pts - (d.ftm - d.fta * lg.ft_raw) - 3 * (d.tpm - d.tpa * lg.tp3_raw);
+    var LK = window.TDCLuck && TDCLuck.box(o, d, y);   // the Team Luck model (tdc-luck.js); old fixed version if it isn't loaded
+    if (LK) { r.ol = pct(o.pts - LK.off, po); r.dl = pct(d.pts + LK.def, pd); r.netl = r.ol != null && r.dl != null ? Math.round(10 * (r.ol - r.dl)) / 10 : null; }
+    else if (lg && lg.tp3_raw) { var op = o.pts - (o.ftm - o.fta * lg.ft_raw), dp = d.pts - (d.ftm - d.fta * lg.ft_raw) - 3 * (d.tpm - d.tpa * lg.tp3_raw);
       r.ol = pct(op, po); r.dl = pct(dp, pd); r.netl = r.ol != null && r.dl != null ? Math.round(10 * (r.ol - r.dl)) / 10 : null; }
     return r;
   }
@@ -321,11 +323,11 @@
     var o = {}, d = {}, secs = 0, n = 0;
     LB.rows.forEach(function (r) { if (r[1] !== gi || (r[0].indexOf(ix) >= 0) !== on) return; n++; secs += r[3];
       LB.fields.forEach(function (f, i) { o[f] = (o[f] || 0) + r[4][i]; d[f] = (d[f] || 0) + r[5][i]; }); });
-    return n && secs > 0 ? gRates(o, d, secs, lg) : null;
+    return n && secs > 0 ? gRates(o, d, secs, lg, LB.season) : null;
   }
   var NOPOOL = { on: {}, off: {}, diff: {} };
 
-  function season(y) { return SEAS[y] ? Promise.resolve(SEAS[y]) : get('scripts/data/wowy_' + y + '.json?v=' + DV + (y >= 2027 ? '&d=' + TODAY : '')).then(function (j) { return (SEAS[y] = j); }); }
+  function season(y) { if (window.TDCLuck) TDCLuck.ready(); return SEAS[y] ? Promise.resolve(SEAS[y]) : get('scripts/data/wowy_' + y + '.json?v=' + DV + (y >= 2027 ? '&d=' + TODAY : '')).then(function (j) { return (SEAS[y] = j); }); }
 
   function render(host, opts) {
     if (!host) return; css(); opts = opts || {};
@@ -359,7 +361,7 @@
           var small = p.on.poss < 300 || (p.off && p.off.poss < 150);
           var h = '<div class="oo-top">' +
             (opts.seasons !== false ? '<span class="ui-seg">' + seasons.slice().sort().map(function (y) { return '<button class="' + (y === cur ? 'on' : '') + '" data-y="' + y + '">' + lbl(y) + '</button>'; }).join('') + '</span>' : '<span></span>') +
-            gsel + '<label class="ui-check" title="Sets the team\'s own free-throw shooting and the opponent\'s 3-point and free-throw shooting to the D-I average"><input type="checkbox" class="ooLuck"' + (LUCK ? ' checked' : '') + '> Luck-adjusted</label></div>' +
+            gsel + '<label class="ui-check" title="Takes out the swings that don\'t hold up (the Team Luck model): opponents\' 3-point and free-throw shooting, forced turnovers, own 3-point and free-throw shooting and a little 2-point shooting, each shrunk by how much of it has proven real"><input type="checkbox" class="ooLuck"' + (LUCK ? ' checked' : '') + '> Luck-adjusted</label></div>' +
             (GI >= 0 ? '' : '<p class="ui-note" style="margin:-4px 0 6px"><b>' + esc(team) + '</b> · ' + Math.round(p.on.min) + ' minutes on the floor' + (p.off ? ', ' + Math.round(p.off.min) + ' off' : '') + ' · ' + (p.g || 0) + ' games' + (S.low_leverage_removed ? ' · garbage time removed' : '') + (small ? ' · <b>small sample</b>' : '') + '</p>');
           var noOff = '<div class="ui-empty">This player was on the floor nearly every minute, so there is no off-floor sample to compare.</div>';
           var units = '<div><div class="oo-h" style="margin-top:0"><span class="ui-label">Two-man units · most minutes first</span>' +

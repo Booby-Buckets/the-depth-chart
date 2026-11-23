@@ -170,7 +170,7 @@
     <div class="ui-panel-head"><h2 id="wyTitle">On and off the floor</h2><span class="ui-panel-tools">
       <span class="wy-seg" id="wyView"></span>
       <label class="wy-chk"><input type="checkbox" id="wySmall"> Small samples</label>
-      <label class="wy-chk" title="Sets the team's own free-throw shooting and the opponent's 3-point and free-throw shooting to the D-I average: the part of a rating that is mostly luck"><input type="checkbox" id="wyLuck"> Luck adjusted</label>
+      <label class="wy-chk" title="Takes out the swings that don't hold up (the Team Luck model): opponents' 3-point and free-throw shooting, forced turnovers, own 3-point and free-throw shooting and a little 2-point shooting, each shrunk by how much of it has proven real: the part of a rating that is mostly luck"><input type="checkbox" id="wyLuck"> Luck adjusted</label>
       <button type="button" class="ui-info-btn" aria-expanded="false" title="How to read this" aria-label="How to read this" onclick="var d=document.getElementById('wyExplain');d.hidden=!d.hidden;this.setAttribute('aria-expanded',String(!d.hidden));">i</button>
     </span></div>
     <div class="ui-panel-body flush">
@@ -183,6 +183,7 @@
   </section>
 </div>
 <script src="team-colors.js?v=13"></script>
+<script src="tdc-luck.js?v=1"></script>
 <script>
 (function(){
 var DATA={}, SEASON='2027', TEAM=null, MODE='wowy', METRIC='onoff', VIEW='overview', SCOPE='team', SORT=null, DESC=true;
@@ -205,7 +206,8 @@ function seg(host,list,cur,on){ host.innerHTML=list.map(function(x){ return '<bu
 function DB(season){ return +season>=2027?'&d='+new Date().toISOString().slice(0,10):''; }
 function load(season){
   if(DATA[season]) return Promise.resolve(DATA[season]);
-  return fetch('scripts/data/wowy_'+season+'.json?v=5'+DB(season)).then(function(r){ return r.ok?r.json():null; }).then(function(j){ DATA[season]=j; return j; });
+  return Promise.all([fetch('scripts/data/wowy_'+season+'.json?v=5'+DB(season)).then(function(r){ return r.ok?r.json():null; }), window.TDCLuck?TDCLuck.ready():null])
+    .then(function(x){ var j=x[0]; DATA[season]=j; return j; });
 }
 // 2/3/4/5-man units live in their own file (4 MB raw) and load the first time a unit tab opens
 var UNITS={};
@@ -264,7 +266,9 @@ function crates(o,d,secs,L){   // the same formulas as build_wowy.py rates()
   var r={min:secs/60,poss:Math.round((po+pd)/2),o:pct(o.pts,po),d:pct(d.pts,pd),ts:ts(o),efg:pct(o.fgm+0.5*o.tpm,o.fga),tov:pct(o.tov,po),orb:pct(o.orb,o.orb+d.drb),
     ftr:pct(o.fta,o.fga),ots:ts(d),oefg:pct(d.fgm+0.5*d.tpm,d.fga),otov:pct(d.tov,pd),drb:pct(d.drb,d.drb+o.orb),tp:pct(o.tpm,o.tpa),tpar:pct(o.tpa,o.fga),ftp:pct(o.ftm,o.fta),otp:pct(d.tpm,d.tpa)};
   r.net=(r.o!=null&&r.d!=null)?r.o-r.d:null;
-  if(L&&L.tp3_raw){ var op=o.pts-(o.ftm-o.fta*L.ft_raw), dp=d.pts-(d.ftm-d.fta*L.ft_raw)-3*(d.tpm-d.tpa*L.tp3_raw); r.ol=pct(op,po); r.dl=pct(dp,pd); r.netl=(r.ol!=null&&r.dl!=null)?r.ol-r.dl:null; }
+  var LK=window.TDCLuck&&TDCLuck.box(o,d,SEASON);   // the Team Luck model (tdc-luck.js); the old fixed version until it loads
+  if(LK){ r.ol=pct(o.pts-LK.off,po); r.dl=pct(d.pts+LK.def,pd); r.netl=(r.ol!=null&&r.dl!=null)?r.ol-r.dl:null; }
+  else if(L&&L.tp3_raw){ var op=o.pts-(o.ftm-o.fta*L.ft_raw), dp=d.pts-(d.ftm-d.fta*L.ft_raw)-3*(d.tpm-d.tpa*L.tp3_raw); r.ol=pct(op,po); r.dl=pct(dp,pd); r.netl=(r.ol!=null&&r.dl!=null)?r.ol-r.dl:null; }
   return r; }
 function renderCustom(D){
   var box=$('#wyCustom');
@@ -322,7 +326,7 @@ function render(){
   seg($('#wyMetric'),[['onoff','On-off'],['rapm','RAPM']],METRIC,function(k){ METRIC=k; SORT=null; render(); });
   seg($('#wyView'),[['overview','Overview'],['offense','Offense'],['defense','Defense'],['expanded','Expanded']],VIEW,function(k){ VIEW=k; render(); });
   $('#wyTeam').style.display=SCOPE==='team'?'':'none'; $('#wySearch').style.display=SCOPE==='league'?'':'none';
-  $('#wyNote').textContent=(GM?'one game: '+gameName(GM)+' · ':D.games? D.games.toLocaleString()+' games · ':'')+'low-leverage (garbage) time removed'+(LUCK?' · luck adjusted: own FT% and opponent 3P% / FT% at the D-I average':'')+' · built '+(D.built||'')+(SEASON==='2024'||SEASON==='2025'?' · lineups from CollegeBasketballData':'');
+  $('#wyNote').textContent=(GM?'one game: '+gameName(GM)+' · ':D.games? D.games.toLocaleString()+' games · ':'')+'low-leverage (garbage) time removed'+(LUCK?' · luck adjusted with the Team Luck model (shooting, free-throw and turnover swings that don\'t hold up)':'')+' · built '+(D.built||'')+(SEASON==='2024'||SEASON==='2025'?' · lineups from CollegeBasketballData':'');
   var cols=VIEWS[VIEW], hl=cols[0], head, rows;
   if(MODE==='wowy'||SCOPE==='league'){
     // league leaders: 500+ on-court possessions, and ranking by on-off needs a real off-court sample too (a starter whose

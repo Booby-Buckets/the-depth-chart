@@ -30,6 +30,7 @@ from collections import defaultdict
 from itertools import combinations
 sys.path.insert(0, os.path.dirname(__file__))
 import build_onoff as B
+import build_luck as LUCKMOD
 
 DATADIR = B.DATADIR
 CACHE = os.path.join(DATADIR, "wowy_cache")
@@ -579,10 +580,15 @@ def rates(o, d, secs, lg=None):
                 p + "trr": pct(b["trp"], b["ep"]), p + "trppp": pct(b["trs"], b["trp"]), p + "hcppp": pct(b["hcs"], b["hcp"]),
                 p + "scp": pct(b["scs"], b["ep"])} if b["sa"] >= 1 and b["ep"] >= 1 else {}
     out.update(sq(o, "")); out.update(sq(d, "o"))
-    if lg:   # luck adjusted: own FT%, and the opponent's 3P% and FT%, set to the D-I average (what a unit controls stays)
-        L3, LF = lg["tp3"], lg["ft"]
-        op = o["pts"] - (o["ftm"] - o["fta"] * LF)
-        dp = d["pts"] - (d["ftm"] - d["fta"] * LF) - 3 * (d["tpm"] - d["tpa"] * L3)
+    if lg:   # luck adjusted (Nov 22 2026): the Team Luck model (build_luck.py luck_box) — the shooting, free-throw, turnover
+        # and rebound swings that don't hold up, each shrunk by how reliable it is at this sample, against the D-I average
+        if lg.get("model"):
+            lo, ld = LUCKMOD.luck_box(o, d, lg["luck_lg"], lg["model"])
+            op, dp = o["pts"] - lo, d["pts"] + ld
+        else:   # no luck model on file: the old fixed version (own FT%, opponent 3P% / FT% at the D-I average)
+            L3, LF = lg["tp3"], lg["ft"]
+            op = o["pts"] - (o["ftm"] - o["fta"] * LF)
+            dp = d["pts"] - (d["ftm"] - d["fta"] * LF) - 3 * (d["tpm"] - d["tpa"] * L3)
         out["ol"] = pct(op, po); out["dl"] = pct(dp, pd)
         out["netl"] = round(out["ol"] - out["dl"], 1) if out["ol"] is not None and out["dl"] is not None else None
     return out
@@ -693,6 +699,10 @@ def aggregate(season, work, limit, verbose):
     for c, u in U[5].items(): add(tot_o, u["o"]); add(tot_d, u["d"])
     league = rates(tot_o, tot_d, 0)
     LG = {"tp3": tot_o["tpm"] / max(1, tot_o["tpa"]), "ft": tot_o["ftm"] / max(1, tot_o["fta"])}
+    try:   # the shared luck model + this season's D-I rates (scripts/data/luck_model.json, build_luck.py)
+        LM = json.load(open(os.path.join(DATADIR, "luck_model.json")))
+        if str(season) in LM.get("leagues", {}): LG.update({"model": LM["stats"], "luck_lg": LM["leagues"][str(season)]})
+    except Exception as e: print("luck model:", e)
     league.update({"tp3_raw": round(LG["tp3"], 4), "ft_raw": round(LG["ft"], 4)})
     print(f"[league] rim {league['rimr']}% of FGA @ {league['rimp']}%  mid {league['midr']}% @ {league['midp']}%  stl {league['stl']}  blk {league['blk']}  oAST {league['oast']}", flush=True)
     print(f"[league] ORtg {league['o']}  TS {league['ts']}  TOV {league['tov']}  ORB {league['orb']}  3P% {league['tp']}  3PAr {league['tpar']}  FT% {league['ftp']}", flush=True)

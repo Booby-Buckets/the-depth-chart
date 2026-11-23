@@ -59,8 +59,12 @@
     nilteam: "This program's overall NIL spending power tier.",
     expwins: "How many games the team would be expected to win given how well it scored " +
              "and defended. Compare to actual wins to see over- or under-performance.",
-    luck:    "Actual wins minus expected wins. Positive means the team won more close " +
-             "games than its scoring suggests; negative means fewer.",
+    luck:    "Points a game that came from things that don't hold up: opponents' 3-point and " +
+             "free-throw shooting, forced turnovers, the team's own 3-point and free-throw shooting " +
+             "and a little 2-point shooting, compared with what these opponents usually do. Each " +
+             "piece is shrunk by how much of it has proven real over four seasons of games. " +
+             "Positive = things went the team's way. Close games: wins minus the wins its scoring " +
+             "margin predicts.",
 
     // ── the past-season letter-grade tiles on the team hero (A–F vs all of D1) ──
     gradeoverall: "This team's overall quality that season as a letter grade, based on " +

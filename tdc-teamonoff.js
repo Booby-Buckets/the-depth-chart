@@ -120,7 +120,7 @@
         var setDef = SETS.find(function (x) { return x[0] === ST.set; }), cols = setDef[2];
         var bar = '<div class="to-bar">' + (seasons.length > 1 ? seg('y', seasons.map(function (y) { return [y, lbl(y)]; }), cur) : '') +
           gsel + seg('v', VIEWS, ST.view) + seg('s', SETS.map(function (x) { return [x[0], x[1]]; }), ST.set) +
-          '<label class="ui-check" title="Sets the team\'s own free-throw shooting and the opponent\'s 3-point and free-throw shooting to the D-I average"><input type="checkbox" class="toLuck"' + (A.luck() ? ' checked' : '') + '> Luck-adjusted</label></div>';
+          '<label class="ui-check" title="Takes out the swings that don\'t hold up (the Team Luck model): opponents\' 3-point and free-throw shooting, forced turnovers, own 3-point and free-throw shooting and a little 2-point shooting, each shrunk by how much of it has proven real"><input type="checkbox" class="toLuck"' + (A.luck() ? ' checked' : '') + '> Luck-adjusted</label></div>';
         if (!players.length) { host.innerHTML = bar + '<div class="ui-empty">' + (league ? 'No players match the filter.' : 'No ' + lbl(cur) + ' on/off for this team. It is rebuilt from play-by-play lineups (2023–24 on).') + '</div>'; wire(); return; }
         // RAPM: rank among the D-I pool (Overview only)
         var rp = (A.S.players || []).filter(function (x) { return x.rapm && x.on && x.on.poss >= A.MIN; }).map(function (x) { return x.rapm.net; }).sort(function (a, b) { return a - b; });

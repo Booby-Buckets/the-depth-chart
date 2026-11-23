@@ -58,6 +58,12 @@ jobs:
         run: python3 -u scripts/build_wowy.py --season ${{ steps.season.outputs.season }} --games-only
       - name: Shot events
         run: node scripts/build_onoff_shots.mjs ${{ steps.season.outputs.season }}
+      # Team Luck (Nov 22 2026): this season's team boxes, then luck per team; WOWY's luck-adjusted ratings use the same model
+      - name: Team luck
+        run: |
+          python3 -u scripts/build_team_games.py ${{ steps.season.outputs.season }}
+          python3 -u scripts/build_luck.py --season ${{ steps.season.outputs.season }}
+        continue-on-error: true
       - name: WOWY lineups
         run: python3 -u scripts/build_wowy.py --season ${{ steps.season.outputs.season }}
       - name: Player-page files
@@ -72,6 +78,7 @@ jobs:
           git add scripts/data/wowy_$Y.json scripts/data/wowy_units_$Y.json scripts/data/wowy_index.json scripts/data/statshift/$Y
           # the per-team lineup files behind the On/Off Lab (per game) and WOWY combos — were built but never committed
           git add scripts/data/onoff_lab/$Y scripts/data/wowy_stints/$Y
+          git add scripts/data/team_luck_$Y.json scripts/data/luck_model.json scripts/data/team_games/$Y.json 2>/dev/null || true
           [ -f scripts/data/wowy_pairs_$Y.json ] && git add scripts/data/wowy_pairs_$Y.json
           if git diff --cached --quiet; then echo "Nothing new."; exit 0; fi
           git commit -m "Auto: lineups $Y $(date -u +%Y-%m-%d) [skip ci]"
