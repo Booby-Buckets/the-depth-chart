@@ -36,7 +36,7 @@
   <script src="team-colors.js?v=13"></script>
 <script src="tdc-ot.js?v=1"></script>
   <script src="tdc-ratings.js?v=47"></script>
-  <link rel="stylesheet" href="tdc-sheets.css?v=6"/><link rel="stylesheet" href="tdc-hero.css?v=4"/><script src="tdc-shotchart.js?v=41"></script><script src="tdc-twin.js?v=duel2"></script>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/><link rel="stylesheet" href="tdc-hero.css?v=4"/><script src="tdc-shotchart.js?v=41"></script><script src="tdc-twin.js?v=duel2"></script><script src="tdc-charttwin.js?v=1"></script>
   <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-statshift-player.js?v=ssx8"></script>
   <script src="tdc-portalfit.js?v=needs12"></script>
@@ -1487,7 +1487,7 @@ function _cmpGrade(p){
 // their REAL 2026-27 line (TDCReal, box scores) by default, with 2025-26 and the 2026-27 projection one tap away; the
 // percentiles, bars and shot charts all follow the chosen season. History players keep their own season.
 let _cpSeason=null, _cpTab='overview', _cpEdge=null, _cpShotYr=2026;
-const CP_TABS=[['overview','Overview'],['stats','Stats'],['shooting','Shooting'],['twin','Shot Twin'],['fit','Fit &amp; matchup'],['value','Value'],['similar','Similar']];
+const CP_TABS=[['overview','Overview'],['stats','Stats'],['shooting','Shooting'],['twin','Shot Twins'],['fit','Fit &amp; matchup'],['value','Value'],['similar','Similar']];
 const CP_BARS=[['PTS','ppg'],['REB','rpg'],['AST','apg'],['STL','stl'],['BLK','blk'],['TO','tovs',1],['FG%','fg_pct',0,1],['3P%','tp_pct',0,1],['FT%','ft_pct',0,1],['MIN','mpg']];
 function _cpReal(p){ return (!p||p._isHistory||!window.TDCReal)?null:TDCReal.of(p); }
 function _cpLast(p){ return {gp:p.gp,mpg:p.mpg,ppg:p.ppg,rpg:p.rpg,apg:p.apg,stl:p.stl,blk:p.blk,tovs:p.tovs,fg_pct:p.fg_pct,tp_pct:p.tp_pct,ft_pct:p.ft_pct}; }
@@ -1711,6 +1711,8 @@ function renderPlayers(){
 
     </div>
     ${panel('twin')}
+    <div class="compare-section-head">Shot chart match · the spots on the floor each one shoots from</div>
+    <div id="cmpChartTwin" style="margin-bottom:26px;"></div>
     <div class="compare-section-head">Shot Twin · how alike they shoot, and who else shoots like them</div>
     <div id="cmpTwin"></div>
     </div>
@@ -1769,6 +1771,7 @@ function renderPlayers(){
   sheetify(sec); fillCmpBand();
   fillSimCards(p1,p2);
   _renderShotCharts(p1,p2);
+  if(window.TDC_CHARTTWIN){ const _sy2=p=>p&&p._isHistory?(+(p.season_year||p.season)||undefined):undefined; TDC_CHARTTWIN.duel(document.getElementById('cmpChartTwin'), [{espn:p1.espn_id,season:_sy2(p1)},{espn:p2.espn_id,season:_sy2(p2)}]); }
   if(window.TDC_TWIN){ const _sy=p=>p&&p._isHistory?(+(p.season_year||p.season)||undefined):undefined; (TDC_TWIN.duel||TDC_TWIN.compare)(document.getElementById('cmpTwin'), [{espn:p1.espn_id,season:_sy(p1),name:p1.name,color:c1},{espn:p2.espn_id,season:_sy(p2),name:p2.name,color:c2}]); }
   _renderShotFlows(p1,p2);
   _fillShotGenome(p1,p2);

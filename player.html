@@ -13,6 +13,7 @@
   <script src="tdc-aftermath.js?v=5"></script>
   <script src="tdc-mastery.js?v=2"></script>
   <script src="tdc-twin.js?v=duel2"></script>
+  <script src="tdc-charttwin.js?v=1"></script>
   <script src="tdc-luck.js?v=1"></script>
   <script src="tdc-onoff.js?v=20"></script>
   <script src="tdc-teamonoff.js?v=13"></script>
@@ -4813,7 +4814,7 @@ function renderPage(){
             <button class="hgm-item" id="tab-shotcharts" onclick="_grpPick('shotcharts')"><span class="hgm-t">Shot Charts</span><span class="hgm-d">Shot locations, genome & season profile</span></button>
             <button class="hgm-item" id="tab-shotgenome" onclick="_grpPick('shotgenome')"><span class="hgm-t">Shot Genome</span><span class="hgm-d">Look quality, shot-making, creation — every season</span></button>
             <button class="hgm-item" id="tab-shotflow" onclick="_grpPick('shotflow')"><span class="hgm-t">Shot Flow</span><span class="hgm-d">How his shots are created and finished</span></button>
-            <button class="hgm-item" id="tab-twin" onclick="_grpPick('twin')"><span class="hgm-t">Shot Profile Twin</span><span class="hgm-d">His FT / rim / mid / three volume and efficiency, and his closest matches since 2009-10</span></button>
+            <button class="hgm-item" id="tab-twin" onclick="_grpPick('twin')"><span class="hgm-t">Shot Twins</span><span class="hgm-d">Who shoots from the same spots on the floor, plus his FT / rim / mid / three profile and closest matches since 2009-10</span></button>
             <button class="hgm-item" id="tab-aftermath" onclick="_grpPick('aftermath')"><span class="hgm-t">After the Shot</span><span class="hgm-d">Points per attempt with second chances, and what his misses give back</span></button>
             <button class="hgm-item" id="tab-mastery" onclick="_grpPick('mastery')"><span class="hgm-t">Mastery Shots</span><span class="hgm-d">Points per shot by shot type against the 1.1 bar: where he has the green light</span></button>
             <button class="hgm-item" id="tab-percentiles" onclick="_grpPick('percentiles')"><span class="hgm-t">Percentiles</span><span class="hgm-d">Percentile vs every peer</span></button>
@@ -4911,6 +4912,8 @@ function renderPage(){
     </div>
     <div class="tab-panel" id="panel-shotgenome"><div id="playerGenomeHost"></div></div>
     <div class="tab-panel" id="panel-twin">
+      <div class="sec-title" style="margin:0 0 14px;">Shot Chart Twins <span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;margin-left:6px;">· who shoots from the same spots on the floor</span></div>
+      <div id="playerChartTwinHost" style="margin-bottom:30px;"></div>
       <div class="sec-title" style="margin:0 0 14px;">Shot Profile Twin <span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;margin-left:6px;">· volume and efficiency by zone vs D-I, and the closest player-seasons in any year</span></div>
       <div id="playerTwinHost"></div>
     </div>
@@ -7610,7 +7613,7 @@ function switchTab(t){
     if(id==='playerdna'){ setTimeout(function(){ growBarsIn(document.getElementById('panel-playerdna')); }, 80); }
     if(id==='shotgenome' && !window._pgLoaded){ window._pgLoaded=true; renderPlayerGenome(); }
     if(id==='shotflow' && !window._shotFlowLoaded){ window._shotFlowLoaded=true; _initShotFlowSeasons(); }
-    if(id==='twin' && !window._twinLoaded){ window._twinLoaded=true; if(window.TDC_TWIN) TDC_TWIN.render(document.getElementById('playerTwinHost'), {espn:player&&player.espn_id}); }
+    if(id==='twin' && !window._twinLoaded){ window._twinLoaded=true; if(window.TDC_TWIN) TDC_TWIN.render(document.getElementById('playerTwinHost'), {espn:player&&player.espn_id}); if(window.TDC_CHARTTWIN) TDC_CHARTTWIN.render(document.getElementById('playerChartTwinHost'), {espn:player&&player.espn_id}); }
     if(id==='aftermath' && !window._afterLoaded){ window._afterLoaded=true; if(window.TDC_AFTER) TDC_AFTER.renderPlayer(document.getElementById('playerAfterHost'), {espn:player&&player.espn_id, name:player&&player.name}); }
     if(id==='mastery' && !window._masteryLoaded){ window._masteryLoaded=true; if(window.TDC_MASTERY) TDC_MASTERY.renderPlayer(document.getElementById('playerMasteryHost'), {espn:player&&player.espn_id}); }
     if(id==='scheme' && !window._schemeLoaded){ window._schemeLoaded=true; setTimeout(renderScheme,40); }

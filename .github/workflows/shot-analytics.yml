@@ -87,6 +87,9 @@ jobs:
           python3 -u scripts/build_fingerprint.py ${{ steps.season.outputs.season }} || echo "::warning::build_fingerprint.py failed (the last file stays)"
           python3 -u scripts/build_fingerprint_splits.py ${{ steps.season.outputs.season }} || echo "::warning::build_fingerprint_splits.py failed (the last file stays)"
           python3 -u scripts/build_assist_web.py ${{ steps.season.outputs.season }} || echo "::warning::build_assist_web.py failed (the last file stays)"
+      - name: Shot Chart Twins
+        if: steps.season.outputs.season >= 2027
+        run: python3 -u scripts/build_chart_twins.py || echo "::warning::chart twins failed (the last file stays)"
       - name: Hunt Great (possession value)
         run: node scripts/build_possession_value.mjs ${{ steps.season.outputs.season }}
       - name: Coach shot discipline
@@ -95,7 +98,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add scripts/data/shot_genome_* scripts/data/mastery scripts/data/possession_value scripts/data/coach_shots.json scripts/data/shot_aftermath scripts/data/shot_quality scripts/data/team_shot_profile scripts/data/fingerprint scripts/data/assist_web
+          git add scripts/data/shot_genome_* scripts/data/mastery scripts/data/possession_value scripts/data/coach_shots.json scripts/data/shot_aftermath scripts/data/shot_quality scripts/data/team_shot_profile scripts/data/fingerprint scripts/data/assist_web scripts/data/chart_twins.json
           if git diff --cached --quiet; then echo "Nothing new."; exit 0; fi
           git commit -m "Auto: shot analytics ${{ steps.season.outputs.season }} $(date -u +%Y-%m-%d) [skip ci]"
           for i in 1 2 3; do git pull --rebase -q && git push && break; sleep 5; done
