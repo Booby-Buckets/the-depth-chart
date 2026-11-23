@@ -2674,6 +2674,10 @@ async function init(){
     }
     if(!playerRow) throw new Error('Player not found — check name spelling or try searching from the roster page.');
     player=tdcSane(playerRow); allPlayers=(Array.isArray(apr)?apr:[]).map(tdcSane);
+    // the tab title + description people (and search engines that render the page) see — same wording as api/og-player.js
+    try{ if(player&&player.name){ const _tm=player.team||'';
+      document.title=player.name+' Stats, Height & NIL Value'+(_tm?' – '+_tm:'')+' | The Depth Chart';
+      const _md=document.querySelector('meta[name="description"]'); if(_md) _md.setAttribute('content', player.name+(player.height?', '+player.height:'')+(player.position?' '+player.position:'')+(_tm?' for '+_tm:'')+'. Career stats, game logs, shot chart, 2026-27 projection, NIL value and scouting report.'); } }catch(e){}
 
     // Team fetch — use client-side match to handle special chars in team names
     let teamConf='', teamConfFull='';
@@ -4714,7 +4718,7 @@ function renderPage(){
   window._ovcHome=geoHome||p.hometown||null;
   const _teamLogo=((window.tdcTeamColor&&window.tdcTeamColor(p.team))||{}).logo||'';
 
-  document.title=`${p.name} — The Depth Chart`;
+  document.title=`${p.name} Stats, Height & NIL Value${p.team?' – '+p.team:''} | The Depth Chart`;
 
   applyTeamTheme(color);
 

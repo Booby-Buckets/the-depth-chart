@@ -10,15 +10,15 @@ var SITE = 'https://www.thedepthchartcbb.com';
 var HDR = { apikey: KEY, Authorization: 'Bearer ' + KEY };
 
 // page through a table on a stable ORDER BY (unordered pages skip / repeat rows), several pages at a time
-async function ids(table, filter) {
+async function ids(table, filter, cols) {
   var out = [], size = 1000;
   for (var start = 0; start < 60000; start += size * 6) {
     var pages = await Promise.all([0, 1, 2, 3, 4, 5].map(function (k) {
-      return fetch(SB + '/rest/v1/' + table + '?select=espn_id&espn_id=not.is.null' + filter + '&order=espn_id.asc,id.asc&limit=' + size + '&offset=' + (start + k * size), { headers: HDR })
+      return fetch(SB + '/rest/v1/' + table + '?select=' + (cols || 'espn_id') + '&espn_id=not.is.null' + filter + '&order=espn_id.asc,id.asc&limit=' + size + '&offset=' + (start + k * size), { headers: HDR })
         .then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; });
     }));
     var got = 0;
-    pages.forEach(function (p) { (p || []).forEach(function (r) { out.push(r.espn_id); }); got += (p || []).length; });
+    pages.forEach(function (p) { (p || []).forEach(function (r) { out.push(r); }); got += (p || []).length; });
     if (got < size * 6) break;
   }
   return out;
@@ -26,11 +26,16 @@ async function ids(table, filter) {
 
 module.exports = async function (req, res) {
   try {
-    var r = await Promise.all([ids('players', ''), ids('player_history', '&season_year=gte.2024')]);
+    var r = await Promise.all([ids('players', '', 'espn_id,id'), ids('player_history', '&season_year=gte.2024')]);
     var seen = {}, list = [];
-    r[0].concat(r[1]).forEach(function (id) { id = String(id).replace(/[^0-9]/g, ''); if (id && !seen[id]) { seen[id] = 1; list.push(id); } });
+    // lastmod (Nov 22 2026): current-roster players are stamped today so crawlers revisit them while the season runs;
+    // players known only from past seasons carry none
+    var today = new Date().toISOString().slice(0, 10);
+    r[0].concat(r[1]).forEach(function (row) { var id = String(row.espn_id).replace(/[^0-9]/g, ''); if (!id || seen[id]) return; seen[id] = 1;
+      var lm = row.id !== undefined ? today : null;   // current roster: today (season line moves nightly); history only: none
+      list.push([id, lm]); });
     var xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-      list.map(function (id) { return '  <url><loc>' + SITE + '/player.html?espn=' + id + '</loc><changefreq>weekly</changefreq></url>'; }).join('\n') +
+      list.map(function (x) { return '  <url><loc>' + SITE + '/player.html?espn=' + x[0] + '</loc>' + (x[1] ? '<lastmod>' + x[1] + '</lastmod><changefreq>daily</changefreq>' : '<changefreq>monthly</changefreq>') + '</url>'; }).join('\n') +
       '\n</urlset>\n';
     res.setHeader('Content-Type', 'application/xml; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800');

@@ -25,6 +25,15 @@ function getJSON(url) {
 }
 var POS = { PG: 'point guard', SG: 'shooting guard', G: 'guard', SF: 'small forward', PF: 'power forward', F: 'forward', C: 'center', 'G/F': 'wing', 'F/C': 'big', 'F/G': 'wing' };
 var YR = { 'Fr.': 'freshman', 'So.': 'sophomore', 'Jr.': 'junior', 'Sr.': 'senior', 'Gr.': 'graduate', 'R-Fr.': 'redshirt freshman', 'R-So.': 'redshirt sophomore', 'R-Jr.': 'redshirt junior', 'R-Sr.': 'redshirt senior' };
+// big site data files (projections, NIL prices), kept for an hour in the warm function so a crawl burst reads them once
+var _cache = {};
+function siteJSON(base, path) {
+  var c = _cache[path];
+  if (c && Date.now() - c.t < 3600e3) return c.p;
+  var p = fetch(base + '/' + path).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+  _cache[path] = { t: Date.now(), p: p }; return p;
+}
+function money(m) { return m >= 1 ? '$' + (+m).toFixed(1) + 'M' : '$' + Math.round(m * 1000) + 'K'; }
 function seasonLbl(y) { y = +y; return (y - 1) + '-' + String(y).slice(2); }
 function num(v, d) { return v == null || v === '' || !isFinite(+v) ? '—' : (+v).toFixed(d == null ? 1 : d); }
 
@@ -75,11 +84,14 @@ module.exports = async function (req, res) {
     if (espn) {
       var r = await Promise.all([
         getJSON(SB + '/rest/v1/players?espn_id=eq.' + espn + '&select=name,team,position,class_year,yr,height,weight&limit=1'),
-        getJSON(SB + '/rest/v1/player_history?espn_id=eq.' + espn + '&select=season_year,team,name,position,yr,height,gp,mpg,ppg,rpg,apg,fg_pct,tp_pct,ft_pct&order=season_year.asc'),
+        getJSON(SB + '/rest/v1/player_history?espn_id=eq.' + espn + '&select=season_year,team,name,position,yr,height,weight,gp,mpg,ppg,rpg,apg,fg_pct,tp_pct,ft_pct&order=season_year.asc'),
         getJSON(SB + '/rest/v1/box_scores?espn_id=eq.' + espn + '&season_year=eq.2027&select=team,min,pts,reb,ast,fgm,fga,tpm,tpa,ftm,fta')
       ]);
       cur = (r[0] && r[0][0]) || null; hist = r[1] || []; live = (r[2] || []).filter(function (b) { return +b.min > 0; });
+      var extra = await Promise.all([siteJSON(base, 'scripts/data/stat_overall_projected.json'), siteJSON(base, 'data/nil_production.json')]);
+      var proj = extra[0] && extra[0].players ? extra[0].players[espn] : null, nil = extra[1] && extra[1].exp ? extra[1].exp[espn] : null;
     }
+    if (typeof proj === 'undefined') { var proj = null, nil = null; }
     var last = hist.length ? hist[hist.length - 1] : null;
     var pname = (cur && cur.name) || (last && last.name) || nameParam;
     var team = (cur && cur.team) || (last && last.team) || '';
@@ -102,9 +114,16 @@ module.exports = async function (req, res) {
       } else if (last && last.ppg != null) {
         line = seasonLbl(last.season_year) + ': ' + num(last.ppg) + ' PPG, ' + num(last.rpg) + ' RPG, ' + num(last.apg) + ' APG' + (last.tp_pct != null ? ', ' + num(last.tp_pct) + ' 3P%' : '');
       }
-      var title = pname + ' Stats, Height & Position' + (team ? ' – ' + team : '') + ' | The Depth Chart';
-      var desc = pname + (who || team ? ': ' + (who ? who : 'player') + (team ? ' for ' + team : '') + '.' : '.') + (line ? ' ' + line + '.' : '') +
-        ' Career stats, game logs, shot chart, projections and scouting report.';
+      var wt = (cur && cur.weight) || (nil && nil.wt) || null;
+      for (var hi = hist.length - 1; !wt && hi >= 0; hi--) if (hist[hi].weight) wt = hist[hi].weight;
+      wt = wt && +wt >= 120 ? Math.round(+wt) : null;
+      var nilVal = nil && nil.val > 0 ? money(nil.val) : null;
+      var title = pname + ' Stats, Height' + (nilVal ? ' & NIL Value' : ' & Position') + (team ? ' – ' + team : '') + ' | The Depth Chart';
+      var desc = pname + (who || team ? ': ' + (who ? who : 'player') + (wt ? ', ' + wt + ' lb' : '') + (team ? ' for ' + team : '') + '.' : '.') + (line ? ' ' + line + '.' : '') +
+        (nilVal ? ' Expected NIL value ' + nilVal + '.' : '') + ' Career stats, game logs, shot chart, 2026-27 projection and scouting report.';
+      // teammates (links between player pages are how search engines find and weigh them)
+      var mates = team ? await getJSON(SB + '/rest/v1/players?team=eq.' + encodeURIComponent(team) + '&espn_id=not.is.null&select=name,espn_id,position&order=depth_order.asc.nullslast,id.asc&limit=20') : [];
+      mates = (mates || []).filter(function (m) { return String(m.espn_id) !== espn; });
       // the team's logo as the preview image (player headshots are shown to the owner only — never publish them here)
       var image = null;
       if (team) {
@@ -117,6 +136,7 @@ module.exports = async function (req, res) {
         mainEntity: { '@type': 'Person', name: pname, url: canon,
           jobTitle: 'College basketball ' + (pos || 'player'),
           height: ht ? ht.replace('-', "' ") + '"' : undefined,
+          weight: wt ? { '@type': 'QuantitativeValue', value: wt, unitCode: 'LBR' } : undefined,
           memberOf: team ? { '@type': 'SportsTeam', name: team, sport: 'Basketball', url: SITE + '/team.html?team=' + encodeURIComponent(team) } : undefined,
           sameAs: espn ? ['https://www.espn.com/mens-college-basketball/player/_/id/' + espn] : undefined } };
       // what the page shows people, written into the HTML: who he is + every season on file
@@ -127,7 +147,11 @@ module.exports = async function (req, res) {
       var body = '\n<section id="tdc-seo" style="max-width:1100px;margin:16px auto;padding:0 16px;font:14px/1.5 Inter,system-ui,sans-serif;">' +
         '<h1>' + esc(pname) + '</h1>' +
         '<p>' + esc(pname) + (who || team ? ' is a ' + esc(who || 'player') + (team ? ' for <a href="/team.html?team=' + encodeURIComponent(team) + '">' + esc(team) + '</a>' : '') + '.' : '.') + (line ? ' ' + esc(line) + '.' : '') + '</p>' +
+        (ht || wt ? '<p>How tall is ' + esc(pname) + '? ' + esc(pname) + ' is listed at ' + esc([ht, wt ? wt + ' lb' : ''].filter(Boolean).join(', ')) + (yr ? ' and is a ' + esc(yr) : '') + '.</p>' : '') +
+        (proj && proj.ppg != null ? '<h2>' + esc(pname) + ' 2026-27 projection</h2><p>We project ' + esc(pname) + ' for ' + num(proj.ppg) + ' points, ' + num(proj.rpg) + ' rebounds and ' + num(proj.apg) + ' assists per game in ' + num(proj.mpg) + ' minutes' + (proj.tp_pct != null ? ', shooting ' + num(proj.tp_pct) + '% from three' : '') + '.</p>' : '') +
+        (nilVal ? '<h2>' + esc(pname) + ' NIL value</h2><p>Expected NIL value: <b>' + nilVal + '</b>, priced on production: ' + (nil.wa >= 0 ? '+' : '') + num(nil.wa) + ' projected Wins Added over a season at ' + num(nil.mpg) + ' minutes, adjusted for the strength of his league and matched to the NIL market. An estimate, not a reported deal.</p>' : '') +
         (rows ? '<h2>' + esc(pname) + ' career stats</h2><table><thead><tr><th>Season</th><th>Team</th><th>GP</th><th>MPG</th><th>PPG</th><th>RPG</th><th>APG</th><th>FG%</th><th>3P%</th><th>FT%</th></tr></thead><tbody>' + rows + '</tbody></table>' : '') +
+        (mates.length ? '<h2>' + esc(team) + ' teammates</h2><ul>' + mates.map(function (m) { return '<li><a href="/player.html?espn=' + encodeURIComponent(m.espn_id) + '">' + esc(m.name) + '</a>' + (m.position ? ' (' + esc(m.position) + ')' : '') + '</li>'; }).join('') + '</ul>' : '') +
         '</section>\n';
       o = { title: title, ogTitle: pname + (team ? ' · ' + team : '') + ' — The Depth Chart', desc: desc, url: canon, image: image, ld: ld, body: body };
     }
