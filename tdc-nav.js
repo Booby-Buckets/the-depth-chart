@@ -392,7 +392,7 @@
       var tk = document.createElement('div'); tk.className = 'tdt'; tk.setAttribute('aria-label', 'Scores');
       document.body.insertBefore(tk, wrap);
       var go = function () { if (window.TDC_TICKER) TDC_TICKER.mount(tk); };
-      if (window.TDC_TICKER) go(); else { var ts = document.createElement('script'); ts.src = 'tdc-ticker.js?v=6'; ts.onload = go; ts.onerror = function () { tk.remove(); }; document.head.appendChild(ts); }
+      if (window.TDC_TICKER) go(); else { var ts = document.createElement('script'); ts.src = 'tdc-ticker.js?v=7'; ts.onload = go; ts.onerror = function () { tk.remove(); }; document.head.appendChild(ts); }
     }
     wireMenus();
     wireSearch();

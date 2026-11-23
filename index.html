@@ -11,7 +11,7 @@
   <script src="team-colors.js?v=13"></script>
   <script src="tdc-ratings.js?v=47"></script>
   <script src="tdc-schedule.js?v=sp16"></script>
-  <script src="tdc-glossary.js?v=14"></script>
+  <script src="tdc-glossary.js?v=17"></script>
   <script src="tdc-freshman.js?v=pub37"></script>
   <script src="tdc-injury.js?v=5"></script>
   <script src="tdc-reallines.js?v=8"></script>
@@ -1247,7 +1247,7 @@
 </head>
 <body data-anim-auto>
 <script src="tdc-badge.js?v=1"></script>
-<script src="tdc-nav.js?v=105"></script>
+<script src="tdc-nav.js?v=106"></script>
 <div class="tdc-bg" aria-hidden="true">
   <div class="tdc-mesh"></div>
   <div class="tdc-blob b1"></div>
@@ -2163,6 +2163,12 @@ function updateSortHeaders(){
 // points), and Look Quality / Shot-Making / Creation come back from the 2026-27 Shot Genome. Projected mode = the projection.
 let _ixSG27=null;
 const _ixSG27P=fetch('scripts/data/shot_genome_teams_2027.json').then(r=>r.ok?r.json():null).then(d=>{ const m={}; ((d&&d.teams)||[]).forEach(t=>{ m[(t.team||'').toLowerCase().trim()]=t; }); _ixSG27=m; if(typeof allTeams!=='undefined'&&allTeams.length&&window.TDCReal&&TDCReal.isReal()){ allTeams.forEach(t=>{ delete t._rb; }); applyFilters(); } }).catch(()=>{ _ixSG27={}; });
+// Team Luck (owner, Nov 22 2026: luck should include turnovers and every swingy stat): scripts/data/team_luck_2027.json,
+// built by build_luck.py — points a game from shooting / free throws / turnovers / rebounds on both ends that the data says
+// won't hold up, against what these opponents usually do. Replaces the eFG-minus-Look-Quality shot luck in Real mode.
+let _ixLUCK=null;
+fetch('scripts/data/team_luck_2027.json?d='+new Date().toISOString().slice(0,10)).then(r=>r.ok?r.json():null).then(d=>{ const m={}; Object.entries((d&&d.teams)||{}).forEach(([k,v])=>{ m[k.toLowerCase().trim()]=v; }); _ixLUCK=m;
+  if(typeof allTeams!=='undefined'&&allTeams.length&&window.TDCReal&&TDCReal.isReal()){ allTeams.forEach(t=>{ delete t._rb; }); applyFilters(); } }).catch(()=>{ _ixLUCK={}; });
 const _IX_TIPS={};
 function _ixApplyMode(){ const on=curSeason===2027&&window.TDCReal; const lab=document.getElementById('statModeLab'); if(lab) lab.style.display=(curSeason===2027)?'':'none';
   if(!on) return; const real=TDCReal.isReal(), F=['ppg','oppg','fg','tp','ft','rpg','apg','topg','spg','bpg','orpg','drpg','ato','ortg','drtg','net','shotluck','sglq','sgsm','sgcr'];
@@ -2172,13 +2178,13 @@ function _ixApplyMode(){ const on=curSeason===2027&&window.TDCReal; const lab=do
       const efg=R&&R.fga>0?100*(R.fgm+0.5*R.tpm)/R.fga:null, lq=sg&&sg.off?sg.off.lq:null;
       t._rb=L?{ppg:L.ppg,oppg:L.opp_ppg,fg:L.fg_pct,tp:L.tp_pct,ft:L.ft_pct,rpg:L.rpg,apg:L.apg,topg:L.tovs,spg:L.stl,bpg:L.blk,orpg:L.oreb,drpg:L.dreb,ato:L.tovs>0?Math.round(L.apg/L.tovs*10)/10:0,
         ortg:a?a.o:null, drtg:a?a.d:null, net:a?Math.round((a.o-a.d)*10)/10:null,
-        shotluck:(efg!=null&&lq!=null)?Math.round((efg-lq)*10)/10:null,
+        shotluck:(()=>{ const k=_ixLUCK&&_ixLUCK[(t.name||'').toLowerCase().trim()]; return k&&k.g?k.pg:null; })(),
         sglq:lq, sgsm:sg&&sg.off?sg.off.smAdj:null, sgcr:sg&&sg.crAdjPg!=null?sg.crAdjPg:null}:{}; }
     const B=real?t._rb:t._pb; F.forEach(k=>{ t[k]=NUL[k]?(B[k]!=null?B[k]:null):(B[k]||0); }); });
   // header tooltips say which season the numbers are
   document.querySelectorAll('th[data-col="shotluck"],th[data-col="sglq"],th[data-col="sgsm"],th[data-col="sgcr"],th[data-sort="ortg"],th[data-sort="drtg"],th[data-sort="net"]').forEach(th=>{
     const k=th.getAttribute('data-col')||th.getAttribute('data-sort'); if(_IX_TIPS[k]==null) _IX_TIPS[k]=th.getAttribute('title')||'';
-    th.setAttribute('title', real?({shotluck:'Shot luck, 2026-27 so far: real effective FG% minus Look Quality (what an average D-I shooter would shoot on these looks), in eFG points. Positive = making more than the looks deserve; early in the season it swings a lot.',
+    th.setAttribute('title', real?({shotluck:'Luck, 2026-27 so far: points a game that came from swings the data says don\'t hold up — opponents\' 3-point and free-throw shooting, forced turnovers, the team\'s own 3-point and free-throw shooting, and a little 2-point shooting — compared with what these opponents usually do. Positive = things went the team\'s way. Built from 4 seasons of games; early in the season it swings a lot.',
       sglq:'Look Quality, 2026-27 so far: the eFG% an average D-I shooter would post on this team\'s real shot diet.',
       sgsm:'Shot-Making, 2026-27 so far: points added over an average shooter on these looks, per 100 shots, adjusted for competition.',
       sgcr:'Creation, 2026-27 so far: expected points the team\'s passing generates per game.',

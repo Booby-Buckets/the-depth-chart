@@ -18,9 +18,10 @@
   <script src="tdc-lineups.js?v=17s"></script>
   <script src="tdc-lineup-usage.js?v=10"></script>
   <script src="tdc-lineup-history.js?v=lab10"></script>
-  <script src="tdc-onoff.js?v=19"></script>
+  <script src="tdc-luck.js?v=1"></script>
+  <script src="tdc-onoff.js?v=20"></script>
   <script src="tdc-onofflab.js?v=15"></script>
-  <script src="tdc-teamonoff.js?v=12"></script>
+  <script src="tdc-teamonoff.js?v=13"></script>
   <script src="tdc-shotflow.js?v=12"></script>
   <script src="tdc-assistweb.js?v=ui1"></script>
   <script src="tdc-nil.js?v=pay16"></script>
@@ -51,7 +52,7 @@
   <script src="tdc-realstats.js?v=2"></script>
   <script src="tdc-rating.js?v=fast1"></script>
   <script src="tdc-pool.js?v=5"></script>
-  <script src="tdc-glossary.js?v=16"></script>
+  <script src="tdc-glossary.js?v=17"></script>
   <style>
     .nil-card{border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:132px;background:var(--bg2);}
     .nil-lbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
@@ -1418,7 +1419,7 @@
   <script src="tdc-coachlink.js?v=1"></script>
 </head>
 <body data-anim-auto>
-<script src="tdc-nav.js?v=105"></script>
+<script src="tdc-nav.js?v=106"></script>
 <div class="tdc-bg" aria-hidden="true">
   <div class="tdc-mesh"></div>
   <div class="tdc-blob b1"></div>
@@ -2544,6 +2545,20 @@ async function renderHeroBar(yr, teamObj){
           col:(v!=null?v:m)>=0?'var(--tc-readable)':'var(--amber)' };
       }
     }catch(e){} }
+    // Team Luck (owner, Nov 22 2026): points a game from swings that don't hold up — opponents' 3P% / FT%, forced turnovers,
+    // own 3P% / FT%, a little 2P% — vs what these opponents usually do (scripts/data/team_luck_2027.json, build_luck.py)
+    let luckCell=null;
+    if(live){ try{
+      window._tdcLuck27=window._tdcLuck27||fetch('scripts/data/team_luck_2027.json?d='+new Date().toISOString().slice(0,10)).then(r=>r.ok?r.json():null).catch(()=>null);
+      const LJ=await window._tdcLuck27, L=LJ&&LJ.teams&&rr&&rr.full&&LJ.teams[rr.full];
+      if(L&&L.g){
+        const top=Object.entries(L.comp||{}).filter(([k,v])=>Math.abs(v)>=0.5).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])).slice(0,2)
+          .map(([k,v])=>(LJ.labels[k]||k)+' '+(v>0?'+':'−')+Math.abs(v).toFixed(1));
+        luckCell={ v:(L.pg>0?'+':L.pg<0?'−':'')+Math.abs(L.pg).toFixed(1), l:'Luck', tip:'luck',
+          s:'pts/game'+(top.length?' · '+top.join(', ')+' /100':'')+(Math.abs(L.close)>=0.5?` · close games ${L.close>0?'+':'−'}${Math.abs(L.close).toFixed(1)} W`:''),
+          col:L.pg>=2?'var(--amber)':L.pg<=-2?'var(--tc-readable)':'' };
+      }
+    }catch(e){} }
     if(stale()||_rosterSeason<2027) return;
     rEl.innerHTML=_ribHTML([
       {v:net.s,l:'Power Rating',tip:live?'power':'projrating',s:live?(pre?`preseason ${pre}`:'with this season’s games'):'projected for 2026-27'},
@@ -2556,7 +2571,7 @@ async function renderHeroBar(yr, teamObj){
       // IN SEASON (owner, Nov 18 2026: "shot luck … show stats for this season"): this season's shot-making — points a game
       // they score above (or below) what their looks are worth for an average D-I shooter. Before games: last season's
       // returner shot luck, the preseason de-luck term (still inside the preseason part of the rating).
-      smCell || ((rr&&rr.shotLuck!=null&&Math.abs(rr.shotLuck)>=2)
+      luckCell || smCell || ((rr&&rr.shotLuck!=null&&Math.abs(rr.shotLuck)>=2)
         ? {v:(rr.shotLuck>0?'+':'')+rr.shotLuck, l:live?'Shot luck · last yr':'Shot luck', tip:'shotluck',
            col:rr.shotLuck>0?'var(--amber)':'var(--tc-readable)'} : null),
       _coachProgCell(rr, pp),

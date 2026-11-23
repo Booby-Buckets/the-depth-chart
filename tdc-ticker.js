@@ -84,7 +84,7 @@
   // 60 s) keep the position. "Reduce motion" users still get the ticker (the owner asked for one, and his own Mac has the
   // setting on), at half speed; it always stops under the pointer, on focus and on touch.
   var reduce = false; try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
-  var SPEED = reduce ? 50 : 60;   // px per second (owner, Nov 22 2026: faster — his Mac has reduce-motion on, so that path is near full speed)
+  var SPEED = reduce ? 100 : 110;   // px per second (owner, Nov 22 2026, twice: faster — his Mac has reduce-motion on, so that path is near full speed)
   function render(host, games) {
     var from = etDate(-2), list = games.filter(function (e) { return e.d >= from; });
     if (!list.length) { host.innerHTML = '<div class="tdt-none">No games on the slate yet</div>'; return; }
