@@ -1247,7 +1247,7 @@
 </head>
 <body data-anim-auto>
 <script src="tdc-badge.js?v=1"></script>
-<script src="tdc-nav.js?v=103"></script>
+<script src="tdc-nav.js?v=104"></script>
 <div class="tdc-bg" aria-hidden="true">
   <div class="tdc-mesh"></div>
   <div class="tdc-blob b1"></div>
@@ -1304,45 +1304,15 @@
 <div class="ix-shell">
 
 <!-- ═══ TODAY BAR: one line linking to today.html — also covers scrimmage-only days, when the live strip stays hidden ═══ -->
-<a class="td-bar" id="tdBar" href="today.html" hidden><span class="td-k">Today</span><span class="td-t" id="tdBarT">Today's games</span><span class="td-go">See every game →</span></a>
-<style>
-  .td-bar{display:flex;align-items:center;gap:12px;margin:14px 0 0;padding:10px 14px;border:1px solid var(--border2);border-radius:10px;background:var(--bg2);text-decoration:none;color:var(--text);font-size:13px;}
-  .td-bar[hidden]{display:none;}
-  /* sit in the page column like the filter bar below it (tdc-column.css gutters), not edge to edge */
-  @media(min-width:641px){ .ix-shell > .td-bar{margin-left:max(var(--tdc-gut,32px), calc((100% - var(--tdc-col,1400px)) / 2));margin-right:max(var(--tdc-gut,32px), calc((100% - var(--tdc-col,1400px)) / 2));} }
-  .td-bar:hover{border-color:var(--accent);}
-  .td-bar .td-k{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);white-space:nowrap;}
-  .td-bar .td-t{flex:1;min-width:0;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .td-bar .td-go{font-weight:700;color:var(--text2);white-space:nowrap;}
-  @media(max-width:640px){
-    .td-bar{margin:12px 14px 4px;padding:11px 12px;border-radius:9px;font-size:14px;}
-    .td-bar .td-go{font-size:0;}               /* phones: the label goes, a chevron says "tap" */
-    .td-bar .td-go::after{content:'›';font-size:22px;line-height:1;color:var(--text3);}
-  }
-</style>
-<script>
-(function(){
-  // today's slate in one line: scrimmages from the list, games from ESPN's board (tdc-live, once it loads)
-  var day=new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'}), sc=0, gm=null;
-  var bar=document.getElementById('tdBar'), t=document.getElementById('tdBarT');
-  function show(){ var p=[]; if(gm) p.push(gm+' game'+(gm===1?'':'s')); if(sc) p.push(sc+' scrimmage'+(sc===1?'':'s'));
-    if(!p.length){ bar.hidden=true; return; } t.textContent=p.join(' · ')+' today'; bar.hidden=false; }
-  fetch('scripts/data/scrimmages_2027.json?v=7').then(function(r){return r.ok?r.json():null;}).then(function(j){
-    sc=((j&&j.games)||[]).filter(function(x){return x.date===day;}).length; show(); }).catch(function(){});
-  window.addEventListener('load',function(){ if(window.TDC_LIVE) TDC_LIVE.subscribe(function(b){ gm=(b&&b.games||[]).length||0; show(); }); });
-})();
-</script>
-
-<!-- ═══ LIVE SCORES (tdc-livestrip.js; hidden when there are no games today) ═══ -->
-<section id="tdcLive" aria-label="Live scores" hidden></section>
+<!-- Nov 22 2026 (owner): the "Live now" block and the one-line Today bar are gone — today's games run in the scores
+     ticker at the very top of the page (tdc-ticker.js). -->
 <script src="tdc-live.js?v=3" defer></script>
-<script src="tdc-livestrip.js?v=2" defer></script>
 
 <!-- Owner, Nov 2026: today's scores and the rankings were one blur; scores sit on top, the rankings start fresh under a rule
      with their own title, and the filters are one quiet row of controls (labels kept for screen readers only). -->
 <style id="ixMin">
   .ix-shell > #pageHeader{margin-top:28px;border-top:1px solid var(--border);padding-top:22px;}
-  .ix-shell #tdcLive[hidden] ~ #pageHeader{margin-top:0;border-top:0;}
+  .ix-shell > #pageHeader{margin-top:0;border-top:0;}
   .ix-shell #filterBar .filter-controls{display:flex!important;flex-wrap:wrap;align-items:center!important;gap:8px!important;}
   .ix-shell #filterBar .f-lab{display:flex!important;flex-direction:row!important;align-items:center;gap:0!important;margin:0!important;min-width:0;}
   .ix-shell #filterBar .f-lab > span:first-child{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
@@ -1408,6 +1378,10 @@
   </div>
 </div>
 
+<script>
+  // desktop: the team count sits at the end of the conference row (the toolbar panel's second row; CSS grid above)
+  (function(){ try{ if(!window.matchMedia('(min-width:761px)').matches) return; var c=document.getElementById('filterCount'), fb=document.getElementById('filterBar'); if(c&&fb) fb.appendChild(c); }catch(e){} })();
+</script>
 <!-- ═══ NEW-HERE START STRIP (dismissible) ══════════════════════ -->
 <style>
   .wh-strip{position:relative;margin:18px 40px 0;padding:15px 20px 16px;border:1px solid var(--border);border-radius:16px;background:linear-gradient(120deg,color-mix(in srgb,var(--accent) 9%,var(--bg2)),var(--bg2));}
@@ -1440,6 +1414,10 @@
       try{ if(localStorage.getItem('tdc_wh_dismissed')==='1'){ s.remove(); return; } }catch(e){}
       // the page appends its main content after this static strip — hoist it back up under the
       // toolbar (which floats over the hero's bottom edge, so it must stay first)
+      // desktop (owner, Nov 22 2026: the rankings were losing the first screen): the start-here card goes under the table
+      var wide=false; try{ wide=window.matchMedia('(min-width:761px)').matches; }catch(e){}
+      var ts=document.querySelector('.table-section');
+      if(wide&&ts){ if(ts.nextElementSibling!==s) ts.insertAdjacentElement('afterend', s); return; }
       if(fb && fb.nextElementSibling!==s) fb.insertAdjacentElement('afterend', s);
     }
     place();
@@ -1448,6 +1426,47 @@
   })();
 </script>
 
+<style>
+  /* Nov 22 2026 (owner: keep the scores and the player rankings, but they took too much from the index) — desktop only:
+     conference chips on one scrolling line instead of two rows; the start-here card sits under the table (script above);
+     today's games run in the top ticker. */
+  @media(min-width:761px){
+    #filterPills{flex-wrap:nowrap!important;overflow-x:auto;scrollbar-width:thin;padding-bottom:4px;
+      -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 40px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 40px),transparent);}
+    #filterPills > *{flex:0 0 auto;}
+    .table-section + #whStrip{margin-top:0;}
+    body #pageHeader.ph-hero{padding-top:12px!important;padding-bottom:10px!important;margin-top:14px!important;}
+    /* the controls under the title as ONE panel (owner, Nov 22 2026: "make the things under the team rankings title look a
+       lot nicer"): controls on the top row at one height, the conference chips on a tinted row underneath, the team count
+       beside the search instead of floating on its own line */
+    body #filterBar{flex-direction:column!important;flex-wrap:nowrap!important;align-items:stretch!important;gap:0!important;
+      border:1px solid var(--border)!important;border-radius:12px!important;background:var(--panel,var(--bg))!important;
+      box-shadow:var(--panel-shadow,none);overflow:hidden;padding:0!important;}
+    body #filterBar .filter-controls{order:1;display:flex!important;flex-wrap:wrap!important;align-items:center!important;gap:10px!important;padding:12px 14px!important;margin:0!important;}
+    body #filterBar .filter-pills{order:2;margin:0!important;padding:9px 14px!important;border-top:1px solid var(--border);background:var(--bg2);gap:6px!important;}
+    body #filterBar .f-lab{margin:0!important;}
+    body #filterBar .f-lab:has(#searchInput){margin-left:auto!important;}
+    body #filterBar :is(.filter-select,#searchInput){height:34px!important;box-sizing:border-box;border:1px solid var(--border2)!important;border-radius:8px!important;
+      background-color:var(--bg)!important;font:600 13px Inter,system-ui,sans-serif!important;color:var(--text)!important;}
+    body #filterBar #searchInput{width:190px!important;padding:0 12px!important;}
+    body #filterBar :is(.tdc-mode,.ix-level){display:inline-flex!important;align-items:center;gap:2px!important;height:34px;box-sizing:border-box;padding:2px!important;
+      border:1px solid var(--border)!important;border-radius:9px!important;background:var(--bg2)!important;}
+    body #filterBar :is(.tdc-mode,.ix-level) button{height:28px!important;border:0!important;border-radius:7px!important;padding:0 12px!important;background:none!important;
+      font:700 11px Inter,system-ui,sans-serif!important;letter-spacing:.05em!important;text-transform:uppercase!important;color:var(--text3)!important;box-shadow:none!important;}
+    body #filterBar :is(.tdc-mode,.ix-level) button:hover{color:var(--text)!important;}
+    body #filterBar :is(.tdc-mode,.ix-level) button.on{background:var(--accent)!important;color:var(--accent-on,#fff)!important;}
+    body #filterBar{display:grid!important;grid-template-columns:minmax(0,1fr) auto;}
+    body #filterBar .filter-controls{grid-column:1 / -1;grid-row:1;}
+    body #filterBar .filter-pills{grid-column:1;grid-row:2;}
+    body #filterBar > .filter-count{grid-column:2;grid-row:2;display:flex;align-items:center;gap:3px;margin:0!important;padding:0 14px 0 10px!important;
+      border-top:1px solid var(--border);background:var(--bg2);font-size:12px!important;color:var(--text3)!important;white-space:nowrap;}
+    body #filterBar .filter-count strong{color:var(--text);}
+    body #filterBar .filter-pills .filter-btn{height:28px;padding:0 12px!important;border-radius:999px!important;font:600 12.5px Inter,system-ui,sans-serif!important;
+      background:var(--bg)!important;border:1px solid var(--border2)!important;color:var(--text2)!important;}
+    body #filterBar .filter-pills .filter-btn:hover{color:var(--text)!important;border-color:var(--text3)!important;}
+    body #filterBar .filter-pills .filter-btn.active{background:var(--text)!important;border-color:var(--text)!important;color:var(--bg)!important;}
+  }
+</style>
 <!-- ═══ FEATURED SHOWCASE ══════════════════════════════════════ -->
 <style>
   .showcase{padding:24px 40px 6px;display:flex;flex-direction:column;gap:22px;}

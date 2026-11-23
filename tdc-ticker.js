@@ -2,7 +2,7 @@
  *
  * Games come from scripts/data/ticker.json (scripts/build_ticker.py: scrimmages + the schedule, 3 days back to 10
  * ahead, finals filled in). Today's real games are overlaid with live ESPN scores (polled every 60 s while any is
- * in progress). The strip opens scrolled to today's first game; the day picker jumps, the arrow pages right.
+ * in progress). It runs as a ticker: one day's games (live first) auto-scrolling in a loop — see render().
  * Scrimmages say so (owner rule: scrimmages are labelled, never passed off as games).
  * A page can opt out with window.TDC_NO_TICKER = true before tdc-nav.js runs.
  */
@@ -33,7 +33,8 @@
       '.tdt-lead{display:flex;flex-direction:column;justify-content:center;gap:4px;padding:0 14px 0 18px;border-right:1px solid var(--border);flex-shrink:0;}' +
       '.tdt-lg{font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text);}' +
       '.tdt-day{font:600 11.5px Inter,system-ui,sans-serif;color:var(--text2);background:var(--bg2);border:1px solid var(--border2);border-radius:999px;padding:3px 8px;cursor:pointer;}' +
-      '.tdt-sc{flex:1;display:flex;overflow-x:auto;overflow-y:hidden;scroll-behavior:smooth;scrollbar-width:none;min-width:0;}' +
+      '.tdt-sc{flex:1;display:flex;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;min-width:0;}' +
+      '.tdt-trk{display:flex;flex:0 0 auto;}' +
       '.tdt-sc::-webkit-scrollbar{display:none;}' +
       '.tdt-g{flex:0 0 198px;display:block;padding:6px 12px 6px 12px;border-right:1px solid var(--border);text-decoration:none;color:var(--text);transition:background .12s;}' +
       '.tdt-g:hover{background:var(--bg2);}' +
@@ -76,28 +77,68 @@
       row(e.a, e.as, (fin || live) && hw) + row(e.h, e.hs, (fin || live) && aw) + '</' + (e.u ? 'a' : 'div') + '>';
   }
 
+  // TICKER (owner, Nov 22 2026: "turn that into a ticker up there" — the homepage's Live now block is gone, so the strip
+  // carries the day): one day's games at a time (the day picker switches), live games first, auto-scrolling in a seamless
+  // loop. It stops while the pointer is over it, it has focus, or a finger/wheel is moving it, and picks up a few seconds
+  // later from wherever it was left. Reduced-motion users get the plain scrollable strip. Re-renders (live scores every
+  // 60 s) keep the position. "Reduce motion" users still get the ticker (the owner asked for one, and his own Mac has the
+  // setting on), at half speed; it always stops under the pointer, on focus and on touch.
+  var reduce = false; try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+  var SPEED = reduce ? 17 : 34;   // px per second
   function render(host, games) {
-    // yesterday's finals, today, and what's next: from 2 days back
     var from = etDate(-2), list = games.filter(function (e) { return e.d >= from; });
     if (!list.length) { host.innerHTML = '<div class="tdt-none">No games on the slate yet</div>'; return; }
     var days = []; list.forEach(function (e) { if (days.indexOf(e.d) < 0) days.push(e.d); });
     var start = days.filter(function (d) { return d >= TODAY; })[0] || days[days.length - 1];
-    // a late tip from yesterday still being played past midnight: open on it, not on today's first game
-    var lateLive = list.filter(function (e) { return e.st === 'l' && e.d < TODAY; })[0];
-    if (lateLive) start = lateLive.d;
-    var seen = {}, old = host.querySelector('.tdt-sc'), keep = old ? old.scrollLeft : null;
+    var day = host._day && days.indexOf(host._day) >= 0 ? host._day : start;
+    var ord = function (e) { return e.st === 'l' ? 0 : e.st === 'f' ? 2 : 1; };
+    var show = list.filter(function (e) { return e.d === day || (day === TODAY && e.d === YDAY && e.st === 'l'); })
+      .map(function (e, i) { return [e, i]; }).sort(function (a, b) { return (ord(a[0]) - ord(b[0])) || (a[1] - b[1]); }).map(function (x) { return x[0]; });
+    var cards = show.map(function (e) { return card(e, false); }).join('');
     host.innerHTML =
-      '<div class="tdt-lead"><span class="tdt-lg">Men\'s CBB</span><select class="tdt-day" aria-label="Jump to day">' +
-      days.map(function (d) { return '<option value="' + d + '"' + (d === start ? ' selected' : '') + '>' + dayName(d) + '</option>'; }).join('') + '</select></div>' +
-      '<div class="tdt-sc">' + list.map(function (e) { var f = !seen[e.d]; seen[e.d] = 1; return card(e, f && e.d !== list[0].d); }).join('') + '</div>' +
+      '<div class="tdt-lead"><span class="tdt-lg">Men\'s CBB</span><select class="tdt-day" aria-label="Show day">' +
+      days.map(function (d) { return '<option value="' + d + '"' + (d === day ? ' selected' : '') + '>' + dayName(d) + '</option>'; }).join('') + '</select></div>' +
+      '<div class="tdt-sc"><div class="tdt-trk">' + cards + '</div></div>' +
       '<div class="tdt-tail"><button class="tdt-arw" aria-label="More games">›</button><a class="tdt-all" href="today.html">Full Scoreboard »</a></div>';
-    var sc = host.querySelector('.tdt-sc');
-    var jump = function (d, smooth) { var c = sc.querySelector('[data-d="' + d + '"]'); if (!c) return; sc.style.scrollBehavior = smooth ? 'smooth' : 'auto'; sc.scrollLeft = c.offsetLeft - sc.offsetLeft; };
-    if (keep != null && !(lateLive && !host._lateJumped)) { sc.style.scrollBehavior = 'auto'; sc.scrollLeft = keep; }
-    else if (lateLive) { host._lateJumped = true; sc.style.scrollBehavior = 'auto'; var lc = sc.querySelector('[data-id="' + lateLive.id + '"]'); if (lc) sc.scrollLeft = lc.offsetLeft - sc.offsetLeft; }
-    else jump(start, false);
-    host.querySelector('.tdt-day').onchange = function () { jump(this.value, true); };
-    host.querySelector('.tdt-arw').onclick = function () { sc.style.scrollBehavior = 'smooth'; sc.scrollLeft += sc.clientWidth * 0.8; };
+    var sc = host.querySelector('.tdt-sc'), trk = host.querySelector('.tdt-trk');
+    // seamless loop: a second, hidden copy of the day's games follows the first when they overflow the strip
+    var setW = trk.scrollWidth;
+    // mounted before layout (or while hidden): measure again next frame, a few times at most
+    if (!sc.clientWidth || !setW) { host._tries = (host._tries || 0) + 1; if (host._tries < 40) setTimeout(function () { render(host, games); }, 100); return; }
+    host._loop = show.length > 1 && setW > sc.clientWidth + 40;
+    if (host._loop) {
+      var clone = document.createElement('div'); clone.innerHTML = cards; clone.setAttribute('aria-hidden', 'true');
+      [].slice.call(clone.children).forEach(function (c) { c.setAttribute('tabindex', '-1'); c.classList.add('tdt-cl'); trk.appendChild(c); });
+    }
+    host._setW = setW; host._sc = sc;
+    if (host._pos == null || host._pos > setW) host._pos = 0;
+    sc.scrollLeft = Math.round(host._pos);
+    host.querySelector('.tdt-day').onchange = function () { host._day = this.value; host._pos = 0; render(host, games); };
+    host.querySelector('.tdt-arw').onclick = function () { hold(host, 5000); sc.style.scrollBehavior = 'smooth'; sc.scrollLeft += sc.clientWidth * 0.8; setTimeout(function () { sc.style.scrollBehavior = 'auto'; }, 600); };
+    if (!host._wired) { host._wired = true; wire(host); }
+  }
+  // pause handling + the one animation loop per strip
+  function hold(host, ms) { host._holdUntil = Math.max(host._holdUntil || 0, Date.now() + (ms || 0)); }
+  function wire(host) {
+    host.addEventListener('mouseenter', function () { host._hover = true; });
+    host.addEventListener('mouseleave', function () { host._hover = false; hold(host, 1200); });
+    host.addEventListener('focusin', function () { host._focus = true; });
+    host.addEventListener('focusout', function () { host._focus = false; hold(host, 1200); });
+    host.addEventListener('touchstart', function () { host._touch = true; }, { passive: true });
+    host.addEventListener('touchend', function () { host._touch = false; hold(host, 4000); }, { passive: true });
+    host.addEventListener('wheel', function () { hold(host, 4000); }, { passive: true });
+    var last = 0;
+    var step = function (t) {
+      requestAnimationFrame(step);
+      var dt = last ? Math.min(0.1, (t - last) / 1000) : 0; last = t;
+      var sc = host._sc; if (!sc || !host._loop || document.hidden) return;
+      if (host._hover || host._focus || host._touch || Date.now() < (host._holdUntil || 0)) { host._pos = sc.scrollLeft; return; }
+      if (Math.abs(sc.scrollLeft - Math.round(host._pos)) > 2) host._pos = sc.scrollLeft;   // someone moved it: carry on from there
+      host._pos += SPEED * dt;
+      if (host._pos >= host._setW) host._pos -= host._setW;
+      sc.scrollLeft = Math.round(host._pos);
+    };
+    requestAnimationFrame(step);
   }
 
   // live overlay: ESPN's board -> status + scores for games we list by ESPN id. Yesterday's unfinished games too, so a
