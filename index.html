@@ -1180,7 +1180,7 @@
   <link rel="stylesheet" href="tdc-index-sheet.css?v=9"/>
   <!-- 2026 clean skin (loaded last so it wins): neutral bases + translucent depth; releases the dense dark-lock -->
   <link rel="stylesheet" href="tdc-skin.css?v=15"/>
-  <link rel="stylesheet" href="tdc-ui.css?v=16"/>
+  <link rel="stylesheet" href="tdc-ui.css?v=18"/>
   <link rel="stylesheet" href="tdc-grades.css?v=1">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
@@ -1247,7 +1247,7 @@
 </head>
 <body data-anim-auto>
 <script src="tdc-badge.js?v=1"></script>
-<script src="tdc-nav.js?v=104"></script>
+<script src="tdc-nav.js?v=105"></script>
 <div class="tdc-bg" aria-hidden="true">
   <div class="tdc-mesh"></div>
   <div class="tdc-blob b1"></div>
@@ -1505,12 +1505,7 @@
   .sc-player .sc-rk{position:absolute;top:8px;left:10px;font:800 11px Inter,system-ui,sans-serif;color:var(--text3);font-variant-numeric:tabular-nums;}
   @media(max-width:600px){ #scPlayers.sc-tick > .sc-player{flex-basis:132px!important;width:132px;} }
 </style>
-<div class="showcase" id="showcase" style="display:none;">
-  <div id="scPlayersBlock">
-    <div class="sc-label" id="scLabel">Top Players <span id="scTeamSeason"></span></div>
-    <div class="sc-players" id="scPlayers"></div>
-  </div>
-</div>
+<!-- Top Players strip removed (owner, Nov 22 2026: "remove the top player ticker") -->
 
 <!-- ═══ TABLE ═════════════════════════════════════════════════ -->
 <div class="table-section">
@@ -1702,6 +1697,7 @@ async function renderShowcase(){
   sc.style.display='flex';
   // ── Top players — scoped to the active conference when one is selected ──
   const blk=document.getElementById('scPlayersBlock');
+  if(!blk) return;   // the strip is gone from the homepage — skip the player pool fetch
   const lbl=document.getElementById('scLabel');
   const confName = confFilter ? confShortName(confFilter) : '';
   if(lbl) lbl.innerHTML=`Top ${confName?confName+' ':''}Players <span id="scTeamSeason">· ${yLbl}</span>`;
