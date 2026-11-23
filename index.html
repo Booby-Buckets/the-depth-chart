@@ -1497,6 +1497,13 @@
   @media(max-width:1200px){.sc-players{grid-template-columns:repeat(4,1fr);}}
   @media(max-width:760px){.sc-teams{grid-template-columns:repeat(2,1fr);}}
   @media(max-width:600px){.showcase{padding-left:16px;padding-right:16px;}.sc-players{grid-template-columns:repeat(2,1fr);}}
+  /* ticker mode (scTicker): one scrolling row of the top 20, rank in the corner */
+  #scPlayers.sc-tick{display:flex!important;grid-template-columns:none!important;flex-wrap:nowrap!important;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;scroll-snap-type:none!important;}
+  #scPlayers.sc-tick::-webkit-scrollbar{display:none;}
+  #scPlayers.sc-tick > .sc-player{flex:0 0 164px!important;width:164px;min-width:0;position:relative;scroll-snap-align:none!important;}
+  #scPlayers.sc-tick > .sc-player:hover{transform:none;}
+  .sc-player .sc-rk{position:absolute;top:8px;left:10px;font:800 11px Inter,system-ui,sans-serif;color:var(--text3);font-variant-numeric:tabular-nums;}
+  @media(max-width:600px){ #scPlayers.sc-tick > .sc-player{flex-basis:132px!important;width:132px;} }
 </style>
 <div class="showcase" id="showcase" style="display:none;">
   <div id="scPlayersBlock">
@@ -1791,7 +1798,7 @@ async function renderShowcase(){
     const base = qual.length>=6 ? qual : pool;
     let ps=[], emptyMsg='';
     if(confFilter){
-      ps = base.filter(p=>schoolConf(p.school)===confFilter).slice(0,8);
+      ps = base.filter(p=>schoolConf(p.school)===confFilter).slice(0,SC_TOP);
       if(!ps.length){
         // No players resolve to this conference — show an honest empty-state rather than
         // silently headlining top-overall players from other leagues (the old MVC bug).
@@ -1801,27 +1808,57 @@ async function renderShowcase(){
       }
     } else if(levelFilter){
       // the conference level switch scopes the strip too (low major shows low-major players)
-      ps = base.filter(p=>{ const c=schoolConf(p.school); return c&&inLevel({conf:c}); }).slice(0,8);
+      ps = base.filter(p=>{ const c=schoolConf(p.school); return c&&inLevel({conf:c}); }).slice(0,SC_TOP);
       if(!ps.length) emptyMsg=`No ${levelFilter==='high'?'high-major':levelFilter==='low'?'low-major':'mid- or low-major'} players in the top-grade pool for ${yLbl}.`;
     } else {
-      ps = base.slice(0,8);
+      ps = base.slice(0,SC_TOP);
     }
     if(emptyMsg){
       document.getElementById('scPlayers').innerHTML=`<div class="sc-empty">${emptyMsg}</div>`;
       blk.style.display='';
       return;
     }
-    document.getElementById('scPlayers').innerHTML=ps.map(p=>{
+    document.getElementById('scPlayers').innerHTML=ps.map((p,_i)=>{
       const g=+p.tdc_grade, cls=g>=99?'sc-g99':'';
       const link=p.espn_id?`player.html?espn=${p.espn_id}`:`player.html?name=${encodeURIComponent(p.player)}&team=${encodeURIComponent(p.school||'')}`;
       const init=(p.player||'?').split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
       const img=(p.espn_id&&window.tdcShowPhotos&&window.tdcShowPhotos())?`<img class="sc-ph-img" src="https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/${p.espn_id}.png" alt="" loading="lazy" onerror="this.remove()"/>`:'';
       return `<a class="sc-player" href="${link}">
-        <div class="sc-ph"><span class="sc-ph-init">${init}</span>${img}<span class="sc-badge ${cls}">${g}</span></div>
+        <span class="sc-rk">${_i+1}</span><div class="sc-ph"><span class="sc-ph-init">${init}</span>${img}<span class="sc-badge ${cls}">${g}</span></div>
         <div class="sc-pname">${p.player}</div><div class="sc-pteam">${p.school}</div></a>`;
     }).join('');
     blk.style.display='';
+    scTicker(document.getElementById('scPlayers'));
   } else if(blk){ blk.style.display='none'; }
+}
+// TOP PLAYERS TICKER (owner, Nov 22 2026: "make the top players the top 20 players on a ticker as well"): the strip holds the
+// top SC_TOP and scrolls itself in a seamless loop like the scores ticker (tdc-ticker.js) — a hidden second copy follows the
+// first; it stops under the pointer, on focus, touch or wheel and resumes a few seconds later; half speed for reduce-motion.
+const SC_TOP=20;
+function scTicker(sc){
+  if(!sc) return;
+  sc.classList.add('sc-tick');
+  sc.querySelectorAll('.sc-cl').forEach(n=>n.remove());
+  sc._pos=0; sc.scrollLeft=0;
+  const cards=[...sc.children].filter(n=>n.classList.contains('sc-player'));
+  requestAnimationFrame(()=>{
+    sc._setW=sc.scrollWidth; sc._loop=cards.length>1&&sc._setW>sc.clientWidth+40;
+    if(sc._loop) cards.forEach(c=>{ const k=c.cloneNode(true); k.classList.add('sc-cl'); k.setAttribute('aria-hidden','true'); k.setAttribute('tabindex','-1'); sc.appendChild(k); });
+  });
+  if(sc._wired) return; sc._wired=true;
+  let red=false; try{ red=matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
+  const SPEED=red?15:30, hold=ms=>{ sc._hold=Math.max(sc._hold||0,Date.now()+ms); };
+  sc.addEventListener('mouseenter',()=>{ sc._hover=true; }); sc.addEventListener('mouseleave',()=>{ sc._hover=false; hold(1200); });
+  sc.addEventListener('focusin',()=>{ sc._focus=true; }); sc.addEventListener('focusout',()=>{ sc._focus=false; hold(1200); });
+  sc.addEventListener('touchstart',()=>{ sc._touch=true; },{passive:true}); sc.addEventListener('touchend',()=>{ sc._touch=false; hold(4000); },{passive:true});
+  sc.addEventListener('wheel',()=>hold(4000),{passive:true});
+  let last=0;
+  const step=t=>{ requestAnimationFrame(step); const dt=last?Math.min(.1,(t-last)/1000):0; last=t;
+    if(!sc._loop||document.hidden||!sc.isConnected) return;
+    if(sc._hover||sc._focus||sc._touch||Date.now()<(sc._hold||0)){ sc._pos=sc.scrollLeft; return; }
+    if(Math.abs(sc.scrollLeft-Math.round(sc._pos))>2) sc._pos=sc.scrollLeft;
+    sc._pos+=SPEED*dt; if(sc._pos>=sc._setW) sc._pos-=sc._setW; sc.scrollLeft=Math.round(sc._pos); };
+  requestAnimationFrame(step);
 }
 // Resolve a bbref "school" to its conference code via the loaded teams. Picks the
 // shortest matching team name so "Texas"→Longhorns (B12), "Texas A&M"→Aggies (SEC).
