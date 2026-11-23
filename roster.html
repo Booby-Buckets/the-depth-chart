@@ -271,7 +271,7 @@ body{background:transparent!important;}
   <link rel="stylesheet" href="tdc-hero.css?v=4"/>  <!-- flat CFB header; must follow the inline navy .ph-hero rules above so it wins -->
 </head>
 <body data-anim-auto class="hqsite">
-<script src="tdc-nav.js?v=106"></script>
+<script src="tdc-nav.js?v=107"></script>
 <div class="tdc-bg" aria-hidden="true"><div class="tdc-mesh"></div><div class="tdc-blob b1"></div><div class="tdc-blob b2"></div><div class="tdc-blob b3"></div><div class="tdc-grain"></div></div>
 <script>
 // Oct 24 2026 (owner): Player Rankings merged into this page. The top FREE_ROWS rows of any view are free;
@@ -327,6 +327,24 @@ body{background:transparent!important;}
 </div>
 
 <style>#moversHost{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:0 0 16px;padding:0 var(--mv-gut,64px)}.mv-h{font:800 11px/1.3 Inter,system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--text);margin:0 0 6px}.mv-box a{color:inherit;text-decoration:none}.mv-box a:hover{text-decoration:underline}@media(max-width:760px){#moversHost{grid-template-columns:minmax(0,1fr);--mv-gut:14px}}</style>
+<style>
+  #topPlayers{margin:0 0 16px;padding:0 var(--mv-gut,64px);}
+  #topPlayers:empty{display:none;}
+  .tp-h{font:800 11px/1.3 Inter,system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--text);margin:0 0 8px;}
+  .tp-h span{color:var(--text3);font-weight:700;letter-spacing:.06em;margin-left:6px;}
+  .tp-row{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));border:1px solid var(--border);border-radius:12px;background:var(--panel,var(--bg));overflow:hidden;}
+  .tp-card{display:flex;flex-direction:column;align-items:center;gap:2px;padding:14px 8px 12px;text-decoration:none;color:var(--text);box-shadow:1px 0 0 var(--border);text-align:center;min-width:0;}
+  .tp-card:hover{background:var(--bg2);}
+  .tp-ph{position:relative;width:52px;height:52px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;margin-bottom:6px;}
+  .tp-ph img{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;}
+  .tp-in{font:800 15px Inter,system-ui,sans-serif;color:var(--text3);}
+  .tp-ph b{position:absolute;right:-14px;bottom:-4px;background:var(--accent);color:var(--accent-on,#fff);font:800 11px Inter,system-ui,sans-serif;padding:2px 5px;border-radius:6px;}
+  .tp-nm{font:700 13px/1.25 Inter,system-ui,sans-serif;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .tp-mt,.tp-tm{font:600 11px/1.3 Inter,system-ui,sans-serif;color:var(--text3);}
+  @media(max-width:1100px){ .tp-row{grid-template-columns:repeat(4,minmax(0,1fr));} }
+  @media(max-width:760px){ #topPlayers{padding:0 14px;} .tp-row{display:flex;overflow-x:auto;scrollbar-width:none;} .tp-row::-webkit-scrollbar{display:none;} .tp-card{flex:0 0 120px;} }
+</style>
+<div id="topPlayers"></div>
 <div id="moversHost"></div>
 <div class="tdc-toolbar">
   <div class="f-group">
@@ -1006,6 +1024,26 @@ function applyFilters(){
   _filtered = filtered;
   _rendered = 0;
   renderTable(filtered);
+  renderTopPlayers(filtered);
+}
+
+// TOP PLAYERS (owner, Nov 22 2026: moved here from the homepage — still, no ticker): the eight best by overall in whatever
+// the filters show (all of D-I by default, or one conference / team / position), above the table
+function renderTopPlayers(list){
+  const _tpEsc=x=>String(x==null?'':x).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+  const host=document.getElementById('topPlayers'); if(!host) return;
+  const g=p=>parseInt(_gdisp(p))||0;
+  const top=(list||[]).filter(p=>g(p)>0).slice().sort((a,b)=>g(b)-g(a)).slice(0,8);
+  if(top.length<4){ host.innerHTML=''; return; }
+  const yrSel=(document.getElementById('seasonFilter')||{}).value||'2027', yl=(+yrSel-1)+'-'+String(yrSel).slice(2);
+  const sch=t=>_tpEsc(window.tdcShortSchool?tdcShortSchool(t||''):(t||''));
+  host.innerHTML=`<div class="tp-h">Top players <span>${yl}${list.length<activeData.length?' · in this view':''}</span></div><div class="tp-row">`+top.map(p=>{
+    const link=p.espn_id?`player.html?espn=${encodeURIComponent(p.espn_id)}`:`player.html?name=${encodeURIComponent(p.name)}&team=${encodeURIComponent(p.team||'')}`;
+    const init=(p.name||'?').split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    const img=(p.espn_id&&window.tdcShowPhotos&&tdcShowPhotos())?`<img src="https://a.espncdn.com/i/headshots/mens-college-basketball/players/full/${encodeURIComponent(p.espn_id)}.png" alt="" loading="lazy" onerror="this.remove()">`:'';
+    const meta=[p.height,(p.class_year||p.yr)].filter(Boolean).join(' · ');
+    return `<a class="tp-card" href="${link}" data-nobio><span class="tp-ph"><span class="tp-in">${init}</span>${img}<b>${g(p)}</b></span><span class="tp-nm">${_tpEsc(p.name)}</span><span class="tp-mt">${_tpEsc(meta)}</span><span class="tp-tm">${sch(p.team)}</span></a>`;
+  }).join('')+`</div>`;
 }
 
 // ── columns: one list drives the header, the rows and the Columns picker ──

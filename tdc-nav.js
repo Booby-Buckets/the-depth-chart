@@ -25,9 +25,9 @@
     ['Recap', 'recap.html'],   // owner, Nov 19 2026: the Daily Recap beside Scores in the top menu
     ['Rankings', [
       ['#This season'],
+      ['roster.html',          'Player Rankings',        'Every player by overall, top players first'],
       ['index.html',           'Team Rankings',          'All 365 teams, best to worst'],
       ['rankings-by-date.html','Rankings by Date',       'Where every team ranked on any date, and what it did since'],
-      ['roster.html',          'Player Rankings',        'Every player by overall'],
       ['conferences.html',     'Conferences & Standings','League tables and conference ratings'],
       ['#Postseason'],
       ['bracket.html',         'Bracketology',           'Projected NCAA Tournament field'],
@@ -41,7 +41,8 @@
       ['compare-games.html',   'Compare Games',          'Two games side by side'],
       ['payroll.html',         'Payrolls',               'Estimated NIL spending by team'],
     ]],
-    ['Players', [
+    ['Players', [   // owner, Nov 22 2026: Player Rankings at the very top of both Rankings and Players
+      ['roster.html',          'Player Rankings',        'Every player by overall, top players first'],
       ['following.html',       '★ Following',            'Players and teams you follow'],
       ['compare-players.html', 'Compare Players',        'Two players side by side'],
       ['draft.html',           'Big Board',              'NBA Draft prospects ranked'],
@@ -392,7 +393,7 @@
       var tk = document.createElement('div'); tk.className = 'tdt'; tk.setAttribute('aria-label', 'Scores');
       document.body.insertBefore(tk, wrap);
       var go = function () { if (window.TDC_TICKER) TDC_TICKER.mount(tk); };
-      if (window.TDC_TICKER) go(); else { var ts = document.createElement('script'); ts.src = 'tdc-ticker.js?v=7'; ts.onload = go; ts.onerror = function () { tk.remove(); }; document.head.appendChild(ts); }
+      if (window.TDC_TICKER) go(); else { var ts = document.createElement('script'); ts.src = 'tdc-ticker.js?v=8'; ts.onload = go; ts.onerror = function () { tk.remove(); }; document.head.appendChild(ts); }
     }
     wireMenus();
     wireSearch();
