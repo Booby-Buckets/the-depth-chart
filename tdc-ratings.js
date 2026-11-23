@@ -44,7 +44,7 @@
   // with our preseason rating counted as ADJ_K games of evidence that never fully fades. Next-week margin error:
   // old capped form (prior 20, cap ±2) 8.87 · KenPom-style fade to 0 by Jan 20 8.92 / Feb 15 8.88 · results only 9.30 ·
   // preseason = 8 games 8.75 (best in every month, 18 of 19 seasons; Feb 8.73 -> 8.54). Capping margins at ±20 hurt.
-  const ADJ_K=8;
+  const ADJ_K=8, MARGIN_CAP=40;
   const CAL_A=-0.3, CAL_B=4.16;            // BPM→SRS (recal 2026-08: was 11.75/2.355 — intercept too high + slope too shallow bunched 24 teams ≥20.3; now ~6, matching historical spread; avg-BPM roster → ~0)
   // OWNED BPM. Each returner enters the projection on the Box Plus/Minus scale.
   // A regression of bbref BPM onto OUR OWN box-derived rates (player_advanced) PLUS the
@@ -243,7 +243,11 @@
     (games||[]).forEach(g=>{
       const hi=idx[g.home], ai=idx[g.away];
       if(hi==null||ai==null||g.home_score==null||g.away_score==null) return;
-      const hc=g.neutral?0:baseHca(P[ai])+(rows[hi].hcaOff||0)+typeAdj(rows[hi],rows[ai]), m=(g.home_score-g.away_score)-hc;
+      // BLOWOUT CAP (owner, Nov 22 2026: USC rising on 76- and 45-point wins over the worst teams): a final margin counts up
+      // to ±MARGIN_CAP. Backtest 2008-26 (94,554 next-week games, prior K=8): cap 40 MAE 9.004 vs uncapped 9.020, first six
+      // weeks 9.778 vs 9.796; tighter caps hurt (25: 9.079, 30: 9.032) — past ~40 points the margin is garbage time.
+      const hc=g.neutral?0:baseHca(P[ai])+(rows[hi].hcaOff||0)+typeAdj(rows[hi],rows[ai]), raw=g.home_score-g.away_score,
+        m=Math.max(-MARGIN_CAP,Math.min(MARGIN_CAP,raw))-hc;
       adj[hi].push([ai, m]); adj[ai].push([hi, -m]);
     });
     for(let it=0; it<200; it++){
