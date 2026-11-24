@@ -20,7 +20,11 @@
       '.rim-k{border:1px solid var(--border);border-radius:10px;background:var(--panel,var(--bg));padding:11px 13px;}' +
       '.rim-k span{display:block;font-weight:700;font-size:11.5px;color:var(--text3);}.rim-k b{display:block;font-weight:800;font-size:22px;line-height:1.25;color:var(--text);font-variant-numeric:tabular-nums;}.rim-k em{display:block;font-style:normal;font-weight:600;font-size:11.5px;line-height:1.4;color:var(--text2);}' +
       '.rim-note{font:600 11.5px/1.45 Inter,system-ui,sans-serif;color:var(--text3);margin:8px 0 0;}' +
-      '@media(max-width:700px){.rim-cards{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;}.rim-k{padding:6px 8px;border-radius:8px;}.rim-k span{font-size:10.5px;line-height:1.25;}.rim-k b{font-size:17px;}.rim-k em{font-size:10.5px;line-height:1.3;}}';
+      '.rim-tbl>summary{display:none;}' +
+      '@media(max-width:700px){.rim-cards{grid-template-columns:1fr;gap:0;margin:0 0 6px;}' +
+      '.rim-k{display:grid;grid-template-columns:1fr auto;column-gap:10px;align-items:baseline;border:0;border-bottom:1px solid var(--border);border-radius:0;background:none;padding:9px 0;}' +
+      '.rim-k span{font-size:13px;color:var(--text2);}.rim-k b{font-size:16px;text-align:right;}.rim-k em{grid-column:1/-1;display:inline;font-size:11px;color:var(--text3);font-weight:500;}.rim-k em+em{display:none;}' +
+      '.rim-tbl>summary{display:block;cursor:pointer;font:700 13px Inter,system-ui,sans-serif;color:var(--accent);padding:10px 0;}.rim-tbl>summary::-webkit-details-marker{display:none;}.rim-note i{display:none;}}';
     document.head.appendChild(s);
   }
   function render(host, opts) {
@@ -53,9 +57,9 @@
     };
     var tot = null;
     if (L.length > 1) { tot = { team: '' }; ['g', 'dm', 'da', 'dast', 'Lm', 'La', 'lm', 'last', 'Rm', 'Ra', 'fgm', 'dn', 'ds', 'mn', 'ms'].forEach(function (c) { tot[c] = L.reduce(function (s, x) { return s + x[c]; }, 0); }); }
-    h += '<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Season</th><th class="l">Team</th><th>G</th><th>Dunks</th><th>Att</th><th>Dunk FG%</th><th>Dunks / g</th><th>Dunks assisted</th><th>Layups</th><th>Att</th><th>Layup FG%</th><th>Layups assisted</th><th>Dunk share</th><th>Rim FG%</th><th>FGs dunks</th><th>Avg shot</th><th>Avg make</th></tr></thead><tbody>' +
-      L.map(function (x) { return row(x); }).join('') + (tot ? row(tot, true) : '') + '</tbody></table></div>';
-    h += '<p class="rim-note">Layups include tip-ins. Rim shots are dunks plus layups. D-I dunk FG% in ' + sLbl(o.season) + ' is ' + pc(lD, 1) + '.' + (o.pct ? ' Percentiles compare players with ' + lg.qual + '+ rim shots.' : ' Percentiles need ' + lg.qual + ' rim shots.') + ' Play-by-play since 2022-23; distances since 2025-26, 40+ ft heaves left out. <a href="dunks.html" style="color:var(--accent);font-weight:700">D-I dunk leaders →</a></p>';
+    h += '<details class="rim-tbl"' + (matchMedia('(max-width:700px)').matches ? '' : ' open') + '><summary>Season by season</summary><div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Season</th><th class="l">Team</th><th>G</th><th>Dunks</th><th>Att</th><th>Dunk FG%</th><th>Dunks / g</th><th>Dunks assisted</th><th>Layups</th><th>Att</th><th>Layup FG%</th><th>Layups assisted</th><th>Dunk share</th><th>Rim FG%</th><th>FGs dunks</th><th>Avg shot</th><th>Avg make</th></tr></thead><tbody>' +
+      L.map(function (x) { return row(x); }).join('') + (tot ? row(tot, true) : '') + '</tbody></table></div></details>';
+    h += '<p class="rim-note"><i style="font-style:normal">Layups include tip-ins. Rim shots are dunks plus layups. D-I dunk FG% in ' + sLbl(o.season) + ' is ' + pc(lD, 1) + '.' + (o.pct ? ' Percentiles compare players with ' + lg.qual + '+ rim shots.' : ' Percentiles need ' + lg.qual + ' rim shots.') + ' Play-by-play since 2022-23; distances since 2025-26, 40+ ft heaves left out. </i><a href="dunks.html" style="color:var(--accent);font-weight:700">D-I dunk leaders →</a></p>';
     host.innerHTML = h;
     host.querySelectorAll('.rim-chips button').forEach(function (b) { b.onclick = function () { draw(host, d, L, L.filter(function (x) { return x.season === +b.dataset.s; })[0]); }; });
   }
