@@ -202,7 +202,8 @@
       const isText = c => c.classList.contains('l') || c.classList.contains('nm');
       let nameIdx = [...head.cells].findIndex((c, i) => i > 0 && isText(c)); if (nameIdx < 0) nameIdx = 1;
       // a label first column (Stat, Player) is the name: a later text column ("vs D-I" bars, Team) is secondary
-      if (isText(head.cells[0])) nameIdx = 0;
+      // (a left-aligned rank column is still a rank: the name is the text column after it)
+      if (isText(head.cells[0]) && !/^(#|rk|rank|no\.?)\s*[▲▼]?$/i.test(head.cells[0].textContent.trim())) nameIdx = 0;
       // a season / date table is identified by its first column — Team there is context, hide it before stats
       if (/^(season|year|yr|date|game|wk|week)\b/i.test(head.cells[0].textContent.trim())) nameIdx = -1;
       const keep = i => i === 0 || i === nameIdx || head.cells[i].hasAttribute('data-fit-keep');

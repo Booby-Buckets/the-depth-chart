@@ -67,7 +67,7 @@
     o = o || {};
     var vals = []; rows.forEach(function (r) { [r.v, r.ref].forEach(function (v) { if (v != null && isFinite(v)) vals.push(v); }); });
     var base = o.base || 0, lo, hi;
-    if (o.diverge) { var m = 0; vals.forEach(function (v) { m = Math.max(m, Math.abs(v - base)); }); m = (m * 1.25) || 0.05; lo = base - m; hi = base + m; }
+    if (o.diverge) { var m = 0; vals.forEach(function (v) { m = Math.max(m, Math.abs(v - base)); }); m = (m * (o.pad || 1.25)) || 0.05; lo = base - m; hi = base + m; }
     else { lo = 0; hi = (Math.max.apply(null, vals.concat([base])) * 1.3) || 1; }
     var X = function (v) { return 100 * (v - lo) / (hi - lo); }, zx = X(base), fmt = o.fmt || f3, lw = o.lw || 78;
     var body = rows.map(function (r) {
