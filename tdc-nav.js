@@ -206,6 +206,7 @@
       '.tdn-menu{min-width:170px;}',
       '}',
       // phones: the five menus on ONE row (it used to wrap to two, the second indented)
+      '.tdn-wrap>.tdn-menu.tdn-float{display:block!important;position:absolute!important;top:100%!important;left:12px!important;right:12px!important;width:auto!important;max-width:none!important;opacity:1;visibility:visible;transform:none;transition:none;overflow-y:auto;z-index:80;}',
       '@media(max-width:640px){.tdn-logo em{font-size:11px!important;}.tdn-signin,.tdn-actions a{font-size:11px!important;}.tdn-wrap .theme-toggle{font-family:inherit;font-size:13px!important;}.tdn-row{flex-wrap:nowrap;justify-content:flex-start;gap:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}.tdn-row::-webkit-scrollbar{display:none;}.tdn-btn{padding:0 9px;font-size:11px;letter-spacing:.05em;}.tdn-row .tdn-srch{position:sticky;right:0;margin-left:auto;background:linear-gradient(90deg,transparent,var(--bg) 14px);padding-left:16px;z-index:2;}.tdn-btn .car{display:none;}.tdn-btn.active::after{left:4px;right:4px;}.tdn-actions>a,.tdn-actions>button{position:relative;}.tdn-actions>a::after,.tdn-actions>button::after{content:"";position:absolute;inset:-9px -4px;}}',
     ].join('');
     document.head.appendChild(css);
@@ -273,34 +274,29 @@
 
   // ── Dropdown behavior: click to toggle, click-outside / Escape to close ──
   function wireMenus() {
+    if (wrap._wired) return; wrap._wired = true;   // wired twice, every tap would open and close at once
     var groups = wrap.querySelectorAll('.tdn-group');
-    function closeAll(except) { groups.forEach(function (g) { if (g !== except) g.classList.remove('open'); }); }
+    // phones: the menu row scrolls sideways, and iPhone Safari can clip anything inside a scroller, even position:fixed.
+    // So an open menu leaves the row: it moves up to the bar itself (.tdn-float, full width under the bar) and back on close.
+    function shut(g) { g.classList.remove('open'); var m = g._menu; if (m && m.parentNode !== g) { m.classList.remove('tdn-float'); m.style.maxHeight = ''; g.appendChild(m); } }
+    function closeAll(except) { groups.forEach(function (g) { if (g !== except) shut(g); }); }
     groups.forEach(function (g) {
-      var btn = g.querySelector('.tdn-btn');
+      var btn = g.querySelector('.tdn-btn'), m = g._menu = g.querySelector('.tdn-menu');
+      if (!btn || !m) return;
       btn.addEventListener('click', function (e) {
         e.stopPropagation();
-        var willOpen = !g.classList.contains('open');
+        if (g.classList.contains('open')) { shut(g); return; }
         closeAll(g);
-        g.classList.toggle('open', willOpen);
-        if (willOpen) { var rw = g.closest('.tdn-row'); openAt = { x: rw ? rw.scrollLeft : 0, t: Date.now() }; }
-        // phones: the menu row scrolls sideways (overflow clips anything absolute inside it), so an open menu is
-        // fixed to the screen just under the row instead
-        var m = g.querySelector('.tdn-menu');
-        if (m) { if (willOpen && window.matchMedia('(max-width: 640px)').matches) { var rb = g.closest('.tdn-row').getBoundingClientRect();
-          m.style.position = 'fixed'; m.style.top = Math.round(rb.bottom) + 'px'; m.style.left = '12px'; m.style.right = '12px'; m.style.maxHeight = 'calc(100vh - ' + Math.round(rb.bottom + 12) + 'px)'; m.style.overflowY = 'auto'; }
-          else if (!willOpen) { m.style.position = m.style.top = m.style.left = m.style.right = m.style.maxHeight = m.style.overflowY = ''; } }
+        g.classList.add('open');
+        if (window.matchMedia('(max-width: 640px)').matches) {
+          m.classList.add('tdn-float'); wrap.appendChild(m);
+          m.style.maxHeight = Math.max(220, window.innerHeight - Math.round(wrap.getBoundingClientRect().bottom) - 12) + 'px';
+        }
       });
     });
     document.addEventListener('click', function (e) { if (!wrap.contains(e.target)) closeAll(null); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeAll(null); });
-    // a real sideways swipe closes an open menu. Nov 21 2026: phones fire scroll events as the row's glide settles or the
-    // tapped button is nudged into view, which closed More the moment it opened ("More isn't opening anything"), so only
-    // a move of 12px+ that starts after the menu has been open a moment counts.
-    var openAt = null, row = wrap.querySelector('.tdn-row');
-    if (row) row.addEventListener('scroll', function () {
-      if (!openAt || Date.now() - openAt.t < 350) { if (openAt) openAt.x = row.scrollLeft; return; }
-      if (Math.abs(row.scrollLeft - openAt.x) >= 12) closeAll(null);
-    }, { passive: true });
+    window.addEventListener('resize', function () { if (!window.matchMedia('(max-width: 640px)').matches) groups.forEach(function (g) { if (g._menu && g._menu.parentNode !== g) shut(g); }); });
   }
 
   // ── Site search: every player and team, every season ──
