@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="tdc-loading.js?v=7"></script>
+  <link rel="stylesheet" href="tdc-a11y.css?v=3">
+  <script src="tdc-a11y.js?v=2" defer></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dunk Leaders — The Depth Chart</title>
+  <meta name="description" content="D-I dunk leaders: dunks, dunks per game, dunk share of rim shots and layup FG% for every player and team, every season since 2022-23, updated nightly.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Depth Chart">
+  <meta property="og:title" content="Dunk Leaders — The Depth Chart">
+  <meta property="og:description" content="D-I dunk leaders: dunks, dunks per game, dunk share of rim shots and layup FG% for every player and team, every season since 2022-23, updated nightly.">
+  <meta property="og:url" content="https://www.thedepthchartcbb.com/dunks.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <script src="tdc-theme.js?v=5"></script>
+  <script src="auth.js?v=photos2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="team-colors.js?v=13"></script>
+  <script src="tdc-teamname.js?v=1"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html,body{background:var(--bg);}
+    body{color:var(--text);font-family:'Inter',system-ui,sans-serif;font-weight:500;min-height:100vh;}
+    .page{padding:30px 0 60px;}
+    .eyebrow{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--text2);margin-bottom:6px;}
+    h1{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:44px;letter-spacing:-.02em;line-height:1.05;margin-bottom:10px;}
+    .rule{font-size:15px;line-height:1.55;color:var(--text2);max-width:820px;margin-bottom:22px;}
+    .rule b{color:var(--text);}
+    h2{font-family:'Playfair Display',Georgia,serif;font-size:24px;font-weight:800;margin:30px 0 12px;}
+    .filters{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;border-top:1px solid var(--border2);padding-top:16px;}
+    @media(max-width:1100px){.filters{grid-template-columns:repeat(4,minmax(0,1fr));}}
+    @media(max-width:640px){.filters{grid-template-columns:minmax(0,1fr) minmax(0,1fr);} h1{font-size:32px;}}
+    .filters label{display:flex;flex-direction:column;gap:6px;min-width:0;font-size:13px;font-weight:700;color:var(--text2);}
+    .filters select,.filters input{font:600 15px Inter,system-ui,sans-serif;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--bg2);color:var(--text);min-width:0;width:100%;}
+    .filters.adv{border-top:0;padding-top:12px;} .adv[hidden]{display:none;}
+    .rng{display:flex;gap:6px;} .rng>*{flex:1;}
+    .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px;}
+    .chip{font:700 12px Inter,system-ui,sans-serif;border:1px solid var(--border2);background:var(--bg);color:var(--text2);border-radius:999px;padding:7px 13px;cursor:pointer;} .chip:hover{border-color:var(--accent);} .chip.act{background:var(--text);color:var(--bg);border-color:var(--text);}
+    .bar .lab{font-size:12px;font-weight:700;color:var(--text3);margin-right:2px;}
+    .conds{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;} .cond{display:flex;gap:6px;align-items:center;border:1px solid var(--border2);border-radius:10px;padding:6px;background:var(--bg2);}
+    .cond select,.cond input{font:600 13px Inter,system-ui,sans-serif;padding:7px 8px;border:1px solid var(--border2);border-radius:7px;background:var(--bg);color:var(--text);} .cond input{width:74px;} .cond select{min-width:0;} @media(max-width:640px){.cond{width:100%;} .cond select:first-child{flex:1 1 0;width:0;} .cond input{width:62px;} .filters.adv label:first-child,.filters.adv label:nth-child(2){grid-column:1/-1;}} .cond button{border:0;background:none;color:var(--text3);font:700 17px/1 Inter,system-ui,sans-serif;padding:6px 8px;cursor:pointer;}
+    .more{display:block;margin:14px auto 0;font:700 13px Inter,system-ui,sans-serif;padding:9px 20px;border:1px solid var(--border2);border-radius:8px;background:var(--bg2);color:var(--text);cursor:pointer;}
+    .sheet td.tm img{width:18px;height:18px;object-fit:contain;vertical-align:middle;margin:-2px 6px 0 0;}
+    .sample{font-size:13px;color:var(--text3);margin:12px 0 14px;} .sample b{color:var(--text2);}
+    .sheet th{cursor:pointer;} .sheet td a{color:var(--text);text-decoration:none;font-weight:700;} .sheet td a:hover{text-decoration:underline;}
+    .empty{padding:26px;text-align:center;color:var(--text3);border:1px dashed var(--border2);border-radius:12px;font-size:13px;}
+  </style>
+  <link rel="stylesheet" href="tdc-skin.css?v=15"/>
+  <link rel="stylesheet" href="tdc-sheets.css?v=6"/>
+  <link rel="stylesheet" href="tdc-column.css?v=4"/>
+  <link rel="stylesheet" href="tdc-ui.css?v=18"/>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script src="tdc-pwa.js?v=3" defer></script>
+</head>
+<body>
+<script src="tdc-nav.js?v=108"></script>
+<div class="page">
+  <div class="eyebrow">D-I · Dunks and layups</div>
+  <h1>Dunk Leaders</h1>
+  <div class="filters" style="margin-top:18px">
+    <label>View<select id="fView"><option value="player">Players</option><option value="team">Teams</option></select></label>
+    <label>Season<select id="fSeason"></select></label>
+    <label>Conference<select id="fConf"></select></label>
+    <label class="po">Position<select id="fPos"></select></label>
+    <label class="po">Min. rim shots<select id="fMin"></select></label>
+    <label>Search<input id="fQ" type="search" placeholder="Player or team" autocomplete="off"></label>
+  </div>
+  <div class="bar"><button class="chip po" id="advBtn" type="button" aria-expanded="false">More filters</button><button class="chip" id="reset" type="button">Reset</button><button class="chip" id="copy" type="button">Copy link to this search</button></div>
+  <div id="adv" class="adv" hidden>
+    <div class="filters adv">
+      <label>Height<span class="rng"><select id="fH0" aria-label="Shortest"></select><select id="fH1" aria-label="Tallest"></select></span></label>
+      <label>Weight (lb)<span class="rng"><input id="fW0" type="number" inputmode="numeric" placeholder="Min" aria-label="Lightest"><input id="fW1" type="number" inputmode="numeric" placeholder="Max" aria-label="Heaviest"></span></label>
+      <label>Class<select id="fCls"><option value="">Any class</option><option value="1">Freshmen</option><option value="2">Sophomores</option><option value="3">Juniors</option><option value="4">Seniors</option><option value="5">Graduates</option></select></label>
+      <label>D-I season<select id="fExp"><option value="">Any</option><option value="1">1st</option><option value="2">2nd</option><option value="3">3rd</option><option value="4">4th</option><option value="5">5th or later</option></select></label>
+      <label>NBA draft<select id="fDr"></select></label>
+      <label>How he got there<select id="fHow"><option value="">Anyone</option><option value="0">First D-I season</option><option value="1">Returned to his team</option><option value="2">Transfer</option></select></label>
+      <label>Conference level<select id="fLvl"><option value="">All levels</option><option value="hm">High-major (ACC, Big East, Big Ten, Big 12, SEC)</option><option value="mm">Everyone else</option></select></label>
+      <label>Role<select id="fRole"><option value="">Anyone</option><option value="s">Starters (half his games)</option><option value="b">Off the bench</option></select></label>
+    </div>
+    <div class="conds" id="conds"></div>
+    <div class="bar"><button class="chip" id="addC" type="button">+ Add a stat rule</button></div>
+    <div class="bar" id="presets"><span class="lab">Try</span></div>
+  </div>
+  <div class="sample" id="sample"></div>
+  <div id="tbl"><div class="empty">Loading…</div></div>
+</div>
+<script>
+(function(){
+  const $=id=>document.getElementById(id), esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const SEASONS=[2027,2026,2025,2024,2023], lbl=y=>(y-1)+'-'+String(y).slice(2), DAY=new Date().toISOString().slice(0,10);
+  const sh=t=>{ try{ return (window.tdcShortSchool&&tdcShortSchool(t))||t; }catch(e){ return t; } };
+  const logoC={}, logo=t=>{ if(t in logoC) return logoC[t]; let o=''; try{ const c=window.tdcTeamColor&&tdcTeamColor(t), l=(c&&c.logo)||''; o=l&&window.tdcLogoSmall?tdcLogoSmall(l,40):l; }catch(e){} return logoC[t]=o; };
+  const CONF={'Atlantic Coast Conference':'ACC','Southeastern Conference':'SEC','Big Ten Conference':'Big Ten','Big 12 Conference':'Big 12','Big East Conference':'Big East'}, HM=new Set(Object.values(CONF)), cs=c=>CONF[c]||String(c||'').replace(/ Conference$/,'');
+  const DEF={view:'player',y:'2027',conf:'',pos:'',min:'0',q:'',h0:'',h1:'',w0:'',w1:'',cls:'',exp:'',dr:'',how:'',lvl:'',role:'',sort:'dm',asc:'',c:''};
+  const S=Object.assign({},DEF); let n=100, conds=[], ST=null; const cache={};
+  const r=(a,b)=>b?a/b:null, pct=v=>v==null?'—':(100*v).toFixed(1)+'%', one=v=>v==null?'—':v.toFixed(1), int=v=>v==null?'—':v, hts=v=>v==null?'—':Math.floor(v/12)+'-'+v%12, txt=v=>esc(v||'—');
+  const CL=['','Fr.','So.','Jr.','Sr.','Gr.'];
+  const PC=[['g','G',int],['dm','Dunks',int,1],['dpg','Dunks / g',one,1],['da','Dunk att',int],['dfg','Dunk FG%',pct],['dsh','Dunk share',pct,1],['lm','Layups',int,1],['la','Layup att',int],['lfg','Layup FG%',pct,1],['rfg','Rim FG%',pct,1]];
+  const TC=[['g','G',int],['dm','Dunks',int,1],['dpg','Dunks / g',one,1],['dfg','Dunk FG%',pct,1],['dsh','Dunk share of rim',pct,1],['lfg','Layup FG%',pct,1],['rfg','Rim FG%',pct,1],['odm','Dunks allowed',int,-1],['odpg','Allowed / g',one,-1],['olfg','Layup FG% allowed',pct,-1],['orfg','Rim FG% allowed',pct,-1]];
+  // stats a rule can use: [key, label, is a percentage]
+  const QS=[['dm','Dunks'],['dpg','Dunks per game'],['d40','Dunks per 40 min'],['da','Dunk attempts'],['dfg','Dunk FG%',1],['dast','Dunks assisted %',1],['dsh','Dunk share of rim %',1],['dfs','Dunk share of all shots %',1],['miss','Missed dunks'],['lm','Layups made'],['la','Layup attempts'],['lfg','Layup FG%',1],['last','Layups assisted %',1],['tm','Tip-ins'],['rfg','Rim FG%',1],['ra','Rim shots'],['rsh','Rim share of all shots %',1],['g','Games'],['gs','Starts'],['mpg','Minutes per game'],['ppg','Points per game'],['rpg','Rebounds per game'],['orpg','Off. rebounds per game'],['apg','Assists per game'],['spg','Steals per game'],['bpg','Blocks per game'],['topg','Turnovers per game'],['fgp','FG%',1],['tpp','3P%',1],['tpm','Threes made'],['tpa','Threes attempted'],['ftp','FT%',1],['ftpg','FT attempts per game'],['ht','Height (inches)'],['wt','Weight']];
+  const SUM=['min','g','fga','dm','da','dast_','lm0','la0','last_','tm','ta','gs','pts','reb','oreb','ast','stl','blk','tov','fgm','fgat','tpm','tpa','ftm','fta'];
+  function derive(o){
+    o.lm=o.lm0+o.tm; o.la=o.la0+o.ta; o.ra=o.da+o.la; o.miss=o.da-o.dm;
+    o.dpg=r(o.dm,o.g); o.d40=r(40*o.dm,o.min); o.dfg=r(o.dm,o.da); o.dast=r(o.dast_,o.dm); o.dsh=r(o.da,o.ra); o.dfs=r(o.da,o.fga); o.lfg=r(o.lm,o.la); o.last=r(o.last_,o.lm0); o.rfg=r(o.dm+o.lm,o.ra); o.rsh=r(o.ra,o.fga);
+    o.mpg=r(o.min,o.g); o.ppg=r(o.pts,o.g); o.rpg=r(o.reb,o.g); o.orpg=r(o.oreb,o.g); o.apg=r(o.ast,o.g); o.spg=r(o.stl,o.g); o.bpg=r(o.blk,o.g); o.topg=r(o.tov,o.g); o.fgp=r(o.fgm,o.fgat); o.tpp=r(o.tpm,o.tpa); o.ftp=r(o.ftm,o.fta); o.ftpg=r(o.fta,o.g);
+    return o;
+  }
+  function prep(d){
+    const ix={}; d.cols.forEach((c,i)=>ix[c]=i); const K={dast_:'dast',lm0:'lm',la0:'la',last_:'last'};
+    d.P=d.rows.map(x=>{ const v=k=>x[ix[k]], t=d.teams[v('tid')]||['',''], o={id:v('espn'),name:v('name'),full:t[0],team:sh(t[0]),conf:cs(t[1]),pos:v('pos'),y:d.season,ht:v('ht'),wt:v('wt'),cls:v('cls'),exp:v('exp'),how:v('how'),qual:d.qual};
+      SUM.forEach(k=>o[k]=v(K[k]||k)||0); return derive(o); });
+    d.T=Object.entries(d.team_totals).map(([tid,a])=>{ const o={}; d.tcols.forEach((c,i)=>o[c]=a[i]); const t=d.teams[tid]; o.full=t[0]; o.name=sh(t[0]); o.conf=cs(t[1]); o.y=d.season; return dt(o); });
+    return d;
+  }
+  function dt(o){ o.team=o.name; o.dpg=r(o.dm,o.g); o.dfg=r(o.dm,o.da); o.dsh=r(o.da,o.da+o.la); o.lfg=r(o.lm,o.la); o.rfg=r(o.dm+o.lm,o.da+o.la); o.odpg=r(o.odm,o.g); o.olfg=r(o.olm,o.ola); o.orfg=r(o.odm+o.olm,o.oda+o.ola); return o; }
+  const one_=y=>cache[y]||(cache[y]=fetch('scripts/data/rim_finishing/'+y+'.json?d='+DAY).then(x=>{ if(!x.ok) throw 0; return x.json(); }).then(prep));
+  function load(y){
+    if(y!=='all'&&y!=='car') return one_(y);
+    return cache[y]||(cache[y]=Promise.all(SEASONS.map(one_)).then(L=>{
+      const games=L.reduce((s,d)=>s+d.games,0), P=[].concat(...L.map(d=>d.P)), T=[].concat(...L.map(d=>d.T));
+      if(y==='all') return {P,T,games,qual:30};
+      const by={}, bt={};
+      P.forEach(p=>{ const o=by[p.id]; if(!o) by[p.id]=Object.assign({},p,{n:1,qual:60}); else { SUM.forEach(k=>o[k]+=p[k]); o.n++; } });   // newest season first: bio and team are his latest
+      T.forEach(t=>{ const o=bt[t.full]; if(!o) bt[t.full]=Object.assign({},t); else ['g','dm','da','lm','la','odm','oda','olm','ola'].forEach(k=>o[k]+=t[k]); });
+      return {P:Object.values(by).map(o=>{ o.cls=o.y===2027?o.cls:null; o.how=null; return derive(o); }),T:Object.values(bt).map(dt),games,qual:60}; }));
+  }
+  const status=()=>ST?Promise.resolve(ST):fetch('scripts/data/rim_finishing/status.json?d='+DAY).then(x=>x.json()).catch(()=>({drafted:{},active:{},through:2026})).then(j=>ST=j);
+  const draftOf=p=>ST.drafted[p.id]||null;
+  function draftTxt(p){ const d=draftOf(p); return d?'#'+d[1]+' ’'+String(d[0]).slice(2):(p.id in ST.active?'—':'Undrafted'); }
+  const DR={dr:p=>!!draftOf(p),lot:p=>{ const d=draftOf(p); return !!d&&d[1]<=14; },r1:p=>{ const d=draftOf(p); return !!d&&d[1]<=30; },r2:p=>{ const d=draftOf(p); return !!d&&d[1]>30; },not:p=>!draftOf(p),un:p=>!draftOf(p)&&!(p.id in ST.active),act:p=>!draftOf(p)&&p.id in ST.active};
+  const POS={G:p=>p.pos==='G',F:p=>p.pos==='F',C:p=>p.pos==='C',GF:p=>p.pos==='G'||p.pos==='F',FC:p=>p.pos==='F'||p.pos==='C'};
+  ['PG','SG','SF','PF'].forEach(k=>POS[k]=p=>ST.active[p.id]===k); POS.C5=p=>ST.active[p.id]==='C';
+  const hasCls=()=>S.y==='2027'||S.y==='2026';
+  function keep(p){
+    if(S.conf&&p.conf!==S.conf) return false;
+    if(S.lvl&&HM.has(p.conf)!==(S.lvl==='hm')) return false;
+    if(S.view==='team') return true;
+    if(p.ra<+S.min||(S.pos&&!POS[S.pos](p))) return false;
+    if(S.h0&&!(p.ht>=+S.h0)||S.h1&&!(p.ht&&p.ht<=+S.h1)||S.w0&&!(p.wt>=+S.w0)||S.w1&&!(p.wt&&p.wt<=+S.w1)) return false;
+    if(S.cls&&hasCls()&&p.cls!==+S.cls) return false;
+    if(S.exp&&(S.exp==='5'?p.exp<5:p.exp!==+S.exp)) return false;
+    if(S.how!==''&&S.y!=='car'&&p.how!==+S.how) return false;
+    if(S.role&&(p.gs>=p.g/2)!==(S.role==='s')) return false;
+    if(S.dr&&!DR[S.dr](p)) return false;
+    return conds.every(c=>{ if(c.v===''||!isFinite(+c.v)) return true; const q=QS.find(x=>x[0]===c.k), v=p[c.k]; if(v==null) return false; const x=q[2]?v*100:v; return c.o==='<'?x<=+c.v:x>=+c.v; });
+  }
+  const sel=(id,o,v)=>{ $(id).innerHTML=o.map(x=>`<option value="${x[0]}"${String(x[0])===String(v)?' selected':''}>${esc(x[1])}</option>`).join(''); };
+  function nAdv(){ return ['h0','h1','w0','w1','cls','exp','dr','how','lvl','role'].filter(k=>S[k]!==''&&!(k==='cls'&&!hasCls())).length+conds.filter(c=>c.v!=='').length; }
+  function save(){ S.c=conds.filter(c=>c.v!=='').map(c=>c.k+c.o+c.v).join(','); const u=new URLSearchParams(); Object.keys(DEF).forEach(k=>{ if(S[k]!==DEF[k]) u.set(k,S[k]); }); const t=u.toString(); try{ history.replaceState(null,'',location.pathname+(t?'?'+t:'')); }catch(e){} }
+  let seq=0;
+  function render(){
+    const my=++seq, team=S.view==='team'; save();
+    document.querySelectorAll('.po').forEach(e=>e.style.display=team?'none':''); if(team) $('adv').hidden=true; else $('adv').hidden=$('advBtn').getAttribute('aria-expanded')!=='true';
+    const na=nAdv(); $('advBtn').textContent='More filters'+(na?' ('+na+')':''); $('advBtn').classList.toggle('act',na>0);
+    $('fCls').disabled=!hasCls(); $('fCls').title=hasCls()?'':'Class is on file for 2025-26 and 2026-27; use D-I season for earlier years'; $('fCls').options[0].textContent=hasCls()?'Any class':'2025-26 on only';
+    $('fHow').disabled=S.y==='car';
+    Promise.all([load(S.y),status()]).then(([d])=>{
+      if(my!==seq) return;
+      const C=team?TC:PC, all=team?d.T:d.P, q=S.q.trim().toLowerCase(), multi=S.y==='all';
+      if(!C.some(c=>c[0]===S.sort)&&!(['name'].concat(team?[]:['ht','wt','cls','exp']).includes(S.sort))){ S.sort='dm'; S.asc=''; }
+      const confs=[...new Set(d.P.map(p=>p.conf))].filter(Boolean).sort(); if(S.conf&&!confs.includes(S.conf)) S.conf='';
+      sel('fConf',[['','All conferences']].concat(confs.map(c=>[c,c])),S.conf);
+      const L=all.filter(keep), k=S.sort, m=S.asc?1:-1;
+      L.sort((a,b)=>k==='name'?m*a.name.localeCompare(b.name):(a[k]==null)-(b[k]==null)||m*(a[k]-b[k])||b.dm-a.dm||a.name.localeCompare(b.name));
+      const rk=new Map(); L.forEach((p,i)=>rk.set(p,k!=='name'&&i&&L[i-1][k]===p[k]?rk.get(L[i-1]):i+1));   // ties share a rank; search narrows without renumbering
+      const V=q?L.filter(p=>(p.name+' '+p.team+' '+p.full).toLowerCase().includes(q)):L, shown=V.slice(0,n);
+      const ar=c=>k===c?(S.asc?' ▲':' ▼'):'', th=c=>`<th data-k="${c[0]}"${c[3]?` data-heat="${c[3]}"`:''}>${c[1]}${ar(c[0])}</th>`;
+      const tl=(t,x)=>{ const g=logo(t); return `<td class="l tm">${g?`<img src="${esc(g)}" alt="" loading="lazy">`:''}<a href="team.html?team=${encodeURIComponent(x)}">${esc(x)}</a></td>`; };
+      const showCls=hasCls(), pre=team?`<th class="l">Conf</th>`:`<th class="l">Team</th>${multi?'<th class="l">Season</th>':''}<th class="l">Pos</th><th class="l" data-k="ht">Ht${ar('ht')}</th><th class="l" data-k="wt">Wt${ar('wt')}</th>${showCls?`<th class="l" data-k="cls">Class${ar('cls')}</th>`:`<th class="l" data-k="exp">D-I yr${ar('exp')}</th>`}<th class="l">Draft</th>`;
+      const tot=V.reduce((s,p)=>(s.dm+=p.dm,s.da+=p.da,s.lm+=p.lm,s.la+=p.la,s),{dm:0,da:0,lm:0,la:0});
+      $('sample').innerHTML=`<b>${V.length.toLocaleString()}</b> ${team?'teams':multi?'player-seasons':'players'}`+(V.length?` · together: <b>${tot.dm.toLocaleString()}</b> dunks, ${pct(r(tot.dm,tot.da))} on dunks, ${pct(r(tot.lm,tot.la))} on layups`:'')+` · ${d.games.toLocaleString()} games with play-by-play · layups include tip-ins, rim shots are dunks plus layups`+
+        (S.dr&&!team?` · draft through ${ST.through}; undrafted means not on a 2026-27 D-I roster`:'');
+      const pc=team?3:multi?9:8;
+      $('tbl').innerHTML=V.length?`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th>#</th><th class="l" data-k="name" data-fit-keep>${team?'Team':'Player'}${ar('name')}</th>${pre}${C.map(th).join('')}</tr></thead><tbody>`+
+        shown.map(p=>`<tr><td>${rk.get(p)}</td>${team?tl(p.full,p.name)+`<td class="l">${esc(p.conf)}${multi?' · '+lbl(p.y):''}</td>`:`<td class="l"><a href="player.html?espn=${p.id}">${esc(p.name)}</a></td>`+tl(p.full,p.team)+(multi?`<td class="l">${lbl(p.y)}</td>`:'')+`<td class="l">${esc(p.pos||'—')}</td><td class="l">${hts(p.ht)}</td><td class="l">${int(p.wt)}</td><td class="l">${showCls?txt(CL[p.cls]):int(p.exp)}</td><td class="l">${draftTxt(p)}</td>`}${C.map(c=>`<td>${c[2](p[c[0]])}</td>`).join('')}</tr>`).join('')+
+        `</tbody></table></div>${V.length>n?'<button class="more" id="more">Show 100 more</button>':''}`:'<div class="empty">Nobody matches those filters.</div>';
+      const t=document.querySelector('#tbl table');
+      if(t&&window.tdcSheetHeat){   // shade against all of D-I (players with a real sample of rim shots), not just the rows on screen
+        const rf='ref'+S.view+pc;
+        if(!d[rf]){ const ref=document.createElement('table'), src=team?d.T:d.P.filter(p=>p.ra>=p.qual), st=Math.max(1,Math.floor(src.length/1500));
+          ref.innerHTML='<thead><tr>'+'<th></th>'.repeat(pc+C.length)+'</tr></thead><tbody>'+src.filter((p,i)=>i%st===0).map(p=>'<tr>'+'<td></td>'.repeat(pc)+C.map(c=>`<td>${c[2](p[c[0]])}</td>`).join('')+'</tr>').join('')+'</tbody>'; d[rf]=ref; }
+        tdcSheetHeat(t,d[rf]); }
+      document.querySelectorAll('#tbl th[data-k]').forEach(h=>h.onclick=()=>{ const kk=h.dataset.k; if(S.sort===kk) S.asc=S.asc?'':'1'; else { S.sort=kk; S.asc=kk==='name'||(team&&kk[0]==='o')?'1':''; } n=100;
+        // a rate leaderboard needs a sample: sorting by one raises the minimum off "no minimum"
+        if(!team&&/fg$|dsh|dast/.test(kk)&&!+S.min){ S.min=String(d.qual); sync(); } render(); });
+      if($('more')) $('more').onclick=()=>{ n+=100; render(); };
+    }).catch(e=>{ if(my===seq){ console.error(e); $('tbl').innerHTML='<div class="empty">Could not load the dunk data.</div>'; } });
+  }
+  const MAP={fView:'view',fSeason:'y',fConf:'conf',fPos:'pos',fMin:'min',fQ:'q',fH0:'h0',fH1:'h1',fW0:'w0',fW1:'w1',fCls:'cls',fExp:'exp',fDr:'dr',fHow:'how',fLvl:'lvl',fRole:'role'};
+  const H=[]; for(let v=67;v<=89;v++) H.push([v,hts(v)]);
+  function sync(){
+    sel('fSeason',SEASONS.map(y=>[y,lbl(y)]).concat([['all','All seasons (one row each)'],['car','Career totals since 2022-23']]),S.y);
+    sel('fPos',[['','All positions'],['G','Guards'],['F','Forwards'],['C','Centers'],['GF','Guards and forwards'],['FC','Forwards and centers'],['PG','Point guards (on a roster now)'],['SG','Shooting guards (on a roster now)'],['SF','Small forwards (on a roster now)'],['PF','Power forwards (on a roster now)'],['C5','Centers (on a roster now)']],S.pos);
+    sel('fMin',[...new Set([0,10,20,30,50,100,150,+S.min])].sort((a,b)=>a-b).map(v=>[v,v?v+'+':'No minimum']),S.min);
+    sel('fH0',[['','Min']].concat(H),S.h0); sel('fH1',[['','Max']].concat(H),S.h1);
+    sel('fDr',[['','Anyone'],['dr','Drafted'],['lot','Lottery picks (1–14)'],['r1','First round'],['r2','Second round'],['not','Not drafted'],['un','Undrafted, left college'],['act','Still in college']],S.dr);
+    Object.keys(MAP).forEach(i=>{ if(i!=='fConf'&&$(i).value!==S[MAP[i]]) $(i).value=S[MAP[i]]; });
+    drawC();
+  }
+  function drawC(){
+    $('conds').innerHTML=conds.map((c,i)=>`<div class="cond" data-i="${i}"><select aria-label="Stat">${QS.map(q=>`<option value="${q[0]}"${q[0]===c.k?' selected':''}>${q[1]}</option>`).join('')}</select><select aria-label="At least or at most"><option value=">">at least</option><option value="<"${c.o==='<'?' selected':''}>at most</option></select><input type="number" step="any" inputmode="decimal" aria-label="Value" value="${esc(c.v)}"><button type="button" aria-label="Remove rule">×</button></div>`).join('');
+    document.querySelectorAll('.cond').forEach(e=>{ const c=conds[+e.dataset.i], s=e.querySelectorAll('select'), go=()=>{ n=100; render(); };
+      s[0].onchange=()=>{ c.k=s[0].value; go(); }; s[1].onchange=()=>{ c.o=s[1].value; go(); }; e.querySelector('input').oninput=x=>{ c.v=x.target.value; later(); }; e.querySelector('button').onclick=()=>{ conds.splice(+e.dataset.i,1); drawC(); go(); }; });
+  }
+  let tm=0; const later=()=>{ clearTimeout(tm); tm=setTimeout(()=>{ n=100; render(); },180); };
+  Object.keys(MAP).forEach(i=>{ const e=$(i), f=()=>{ S[MAP[i]]=e.value; }; if(e.tagName==='INPUT') e.oninput=()=>{ f(); later(); }; else e.onchange=()=>{ f(); n=100; render(); }; });
+  const open=b=>{ $('advBtn').setAttribute('aria-expanded',b?'true':'false'); $('adv').hidden=!b; };
+  $('advBtn').onclick=()=>open($('adv').hidden);
+  $('addC').onclick=()=>{ conds.push({k:'dm',o:'>',v:''}); drawC(); };
+  function set(o,cs){ Object.assign(S,DEF,o); conds=(cs||[]).map(c=>({k:c[0],o:c[1],v:String(c[2])})); n=100; sync(); render(); }
+  $('reset').onclick=()=>set({});
+  $('copy').onclick=()=>{ save(); const b=$('copy'), done=t=>{ b.textContent=t; setTimeout(()=>b.textContent='Copy link to this search',1600); }; try{ navigator.clipboard.writeText(location.href).then(()=>done('Copied'),()=>done('Copy the address bar')); }catch(e){ done('Copy the address bar'); } };
+  [['Guards 6-3 and under',{y:'all',pos:'G',h1:'75'}],['Lottery picks',{y:'all',dr:'lot'}],['Undrafted 50-dunk seasons',{y:'all',dr:'un'},[['dm','>',50]]],['Freshmen this season',{cls:'1'}],['Transfers this season',{how:'2'}],['Best layup finishers, 6-4 and under',{y:'2026',h1:'76',min:'100',sort:'lfg'}],['Dunks off the bench',{y:'2026',role:'b'}],['Bigs who shoot threes',{y:'2026',pos:'FC'},[['tpm','>',30],['dm','>',20]]],['Most career dunks',{y:'car'}],['250 lb and up',{y:'all',w0:'250'}]]
+    .forEach(p=>{ const b=document.createElement('button'); b.className='chip'; b.type='button'; b.textContent=p[0]; b.onclick=()=>set(p[1],p[2]); $('presets').appendChild(b); });
+  try{ const u=new URLSearchParams(location.search); Object.keys(DEF).forEach(k=>{ if(u.has(k)) S[k]=u.get(k); });
+    if(![...SEASONS.map(String),'all','car'].includes(S.y)) S.y=DEF.y; if(S.pos&&!POS[S.pos]) S.pos=''; if(S.dr&&!DR[S.dr]) S.dr='';
+    conds=S.c.split(',').map(x=>/^([a-z0-9_]+)([<>])(-?[\d.]+)$/i.exec(x)).filter(x=>x&&QS.some(q=>q[0]===x[1])).map(x=>({k:x[1],o:x[2],v:x[3]})); }catch(e){}
+  sync(); if(nAdv()) open(true); render();
+})();
+</script>
+<script src="tdc-version.js?v=2"></script>
+<script src="tdc-sheets.js?v=2"></script>
+</body>
+</html>

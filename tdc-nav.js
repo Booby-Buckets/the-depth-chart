@@ -64,6 +64,7 @@
       ['shot-compare.html',    'Shot Chart Compare',     'Two shot charts side by side: teams, conferences, seasons'],
       ['mastery.html',         'Mastery Shots',          'Points per shot, measured against 1.1'],
       ['hunt-great.html',      'Hunt Great',             'Great, average and bad shots by shot clock'],
+      ['dunks.html',           'Dunk Leaders',           'Dunks vs layups for every player and team'],
       ['shot-aftermath.html',  'Shot Aftermath',         'What happens after each kind of shot'],
       ['#Lineups & impact'],
       ['wowy.html',            'WOWY Lineups / On-Off',  'How a team plays with or without a player'],

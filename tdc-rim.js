@@ -52,7 +52,7 @@
     if (L.length > 1) { tot = { team: '' }; ['g', 'dm', 'da', 'dast', 'Lm', 'La', 'lm', 'last', 'Rm', 'Ra'].forEach(function (c) { tot[c] = L.reduce(function (s, x) { return s + x[c]; }, 0); }); }
     h += '<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th class="l">Season</th><th class="l">Team</th><th>G</th><th>Dunks</th><th>Dunk att</th><th>Dunk FG%</th><th>Dunks / g</th><th>Dunks assisted</th><th>Layups</th><th>Layup att</th><th>Layup FG%</th><th>Layups assisted</th><th>Dunk share</th><th>Rim FG%</th></tr></thead><tbody>' +
       L.map(function (x) { return row(x); }).join('') + (tot ? row(tot, true) : '') + '</tbody></table></div>';
-    h += '<p class="rim-note">Layups include tip-ins. Rim shots are dunks plus layups. D-I dunk FG% in ' + sLbl(o.season) + ' is ' + pc(lD, 1) + '.' + (o.pct ? ' Percentiles compare players with ' + lg.qual + '+ rim shots.' : ' Percentiles need ' + lg.qual + ' rim shots.') + ' Play-by-play since 2022-23.</p>';
+    h += '<p class="rim-note">Layups include tip-ins. Rim shots are dunks plus layups. D-I dunk FG% in ' + sLbl(o.season) + ' is ' + pc(lD, 1) + '.' + (o.pct ? ' Percentiles compare players with ' + lg.qual + '+ rim shots.' : ' Percentiles need ' + lg.qual + ' rim shots.') + ' Play-by-play since 2022-23. <a href="dunks.html" style="color:var(--accent);font-weight:700">D-I dunk leaders →</a></p>';
     host.innerHTML = h;
     host.querySelectorAll('.rim-chips button').forEach(function (b) { b.onclick = function () { draw(host, d, L, L.filter(function (x) { return x.season === +b.dataset.s; })[0]); }; });
   }
