@@ -45,8 +45,12 @@ def zone10(x, y, sv):
     return 'midl' if x < 19 else ('midr' if x > 31 else 'midc')
 
 
+VERB = re.compile(r'\b(?:makes|made|misses|missed)\b(.*?)(?:\(|assisted|blocked|$)', re.I)
+
+
 def stype(txt, ty):
-    t = (txt or '').lower()
+    m = VERB.search(txt or '')          # only what follows made/missed: Jalik DUNKley's shots are not dunks
+    t = (m.group(1) if m else '').lower()
     if 'tip' in t or ty == 'TipShot': return 'tip'
     if 'dunk' in t or ty == 'DunkShot': return 'dunk'
     if 'float' in t or 'hook' in t: return 'float'

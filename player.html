@@ -14,6 +14,7 @@
   <script src="tdc-mastery.js?v=2"></script>
   <script src="tdc-twin.js?v=duel2"></script>
   <script src="tdc-charttwin.js?v=1"></script>
+  <script src="tdc-rim.js?v=1"></script>
   <script src="tdc-luck.js?v=1"></script>
   <script src="tdc-onoff.js?v=20"></script>
   <script src="tdc-teamonoff.js?v=13"></script>
@@ -4897,6 +4898,10 @@ function renderPage(){
           <div id="shotChartHost"></div>
         </div>
       </div>
+      <div id="playerRimWrap" style="margin-top:34px;display:none;">
+        <div class="sec-title" style="margin:0 0 14px;">Dunks vs Layups <span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0;margin-left:6px;">· how he scores at the rim</span></div>
+        <div id="playerRimHost"></div>
+      </div>
       <div id="shotTrajHost" style="margin-top:34px;"></div>
     </div>
 
@@ -7607,7 +7612,7 @@ function switchTab(t){
     if(id==='overview')setTimeout(animateRadar,90);
     if(id==='stats' && !window._gamelogLoaded){ window._gamelogLoaded=true; loadGameLog(); }
     if(id==='stats' && !window._careerExtrasDone){ window._careerExtrasDone=true; try{ ((window.TDCProjGrade&&TDCProjGrade.ready)||Promise.resolve()).then(function(){ renderCareerExtras(); }); }catch(e){ renderCareerExtras(); } loadPlayerMarch(); }
-    if(id==='shotcharts' && !window._shotChartLoaded){ window._shotChartLoaded=true; _initShotSeasons(); loadShotGenome(); }
+    if(id==='shotcharts' && !window._shotChartLoaded){ window._shotChartLoaded=true; _initShotSeasons(); loadShotGenome(); if(window.TDC_RIM) TDC_RIM.render(document.getElementById('playerRimHost'), {espn:player&&player.espn_id, wrap:document.getElementById('playerRimWrap')}); }
     if(id==='playerdna' && !window._pctDashGenome){ window._pctDashGenome=true; try{ (typeof ensureSgPlayers==='function'?ensureSgPlayers():Promise.resolve()).then(function(){ renderPctDash(); renderImpDecomp(); renderSeasonLedger(); setTimeout(function(){ growBarsIn(document.getElementById('panel-playerdna')); },60); }); }catch(e){} }
     if(id==='playerdna' && !window._situationalDone){ window._situationalDone=true; loadSituational(); }
     if(id==='playerdna'){ setTimeout(function(){ growBarsIn(document.getElementById('panel-playerdna')); }, 80); }
