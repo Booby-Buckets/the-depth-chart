@@ -5,6 +5,8 @@
 (function (g) {
   var TIP = {
     // ── Power Rating (formerly "Net Rating" / SRS) — the headline team number ──
+    sos: "Strength of schedule: the average current Power Rating of the Division I teams played so far. Higher = tougher games. It ignores the results.",
+    sor: "Strength of record: how good the win-loss record is for the games played. An average top-25 team is given this exact schedule; the more likely it would have done worse, the better the rank. Only wins and losses count, not margin.",
     power: "How many points better than an average Division I team this team is, on a " +
            "neutral court and adjusted for who they played. A +18 team would beat an " +
            "average team by about 18. The gap between two teams' Power Ratings is the " +

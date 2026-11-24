@@ -11,7 +11,7 @@ predictive_ratings, logos from team-colors.js. Runs in the scrimmage + results w
 
   python3 scripts/build_ticker.py
 """
-import json, os, re, urllib.request
+import json, os, re, unicodedata, urllib.request
 from datetime import datetime, timedelta, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -27,7 +27,27 @@ def load(name, default=None):
     return json.load(open(p)) if os.path.exists(p) else default
 
 
-def norm(s): return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]", "", (s or "").lower().replace("&", " "))).strip()
+def norm(s):
+    s = unicodedata.normalize("NFKD", s or "").encode("ascii", "ignore").decode().lower()
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]", "", s.replace("&", "").replace("-", " "))).strip()
+
+
+def espn_times(days):
+    """{ESPN game id: (tip "7:00 PM" ET, TV)} from ESPN's scoreboard, one call per day; a day that fails is just missing."""
+    out = {}
+    for d in days:
+        for h in ("https://site.api.espn.com", "https://site.web.api.espn.com"):
+            try:
+                u = h + "/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=50&limit=400&dates=" + d.replace("-", "")
+                j = json.load(urllib.request.urlopen(u, timeout=30)); break
+            except Exception as e:
+                j = None
+        for ev in (j or {}).get("events") or []:
+            c = (ev.get("competitions") or [{}])[0]
+            m = re.search(r"(\d{1,2}:\d\d [AP]M)", ((ev.get("status") or {}).get("type") or {}).get("shortDetail") or "")
+            tv = next((n for b in c.get("broadcasts") or [] for n in b.get("names") or []), "")
+            out[str(ev["id"])] = (m.group(1) if m and c.get("timeValid") is not False else "", tv)
+    return out
 
 
 def team_colors():
@@ -35,7 +55,10 @@ def team_colors():
     src = open(os.path.join(ROOT, "team-colors.js")).read()
     i = src.index("window.TDC_TEAM_COLORS=") + len("window.TDC_TEAM_COLORS=")
     obj, _ = json.JSONDecoder().raw_decode(src[i:])
-    return {k: v.get("logo") for k, v in obj.items()}
+    out = {}
+    for k, v in obj.items():
+        if v.get("logo"): out.setdefault(norm(k), v["logo"])
+    return out
 
 
 def ranks():
@@ -84,12 +107,17 @@ def main():
     sc = load("schedule_2027.json", {"teams": [], "games": []}); T = sc["teams"]
     rs = load("results_2027.json", {"teams": [], "games": []}); RT = rs.get("teams", [])
     fin = {g[0]: (RT[g[2]], RT[g[3]], g[4], g[5], g[8] if len(g) > 8 else 0) for g in rs.get("games", [])}
+    prev = {str(e["id"]): e for e in (load("ticker.json", {}) or {}).get("games", [])}
+    tm = espn_times(sorted({g[1] for g in sc["games"] if today.isoformat() <= g[1] <= hi}))
     for g in sc["games"]:
         gid, d = g[0], g[1]
         if not (lo <= d <= hi): continue
         home, away = T[g[2]], T[g[3]]
         f = fin.get(gid)
-        out.append({"id": gid, "d": d, "t": "", "tv": "", "k": "g", "a": side(away), "h": side(home),
+        pv = prev.get(str(gid), {})
+        t, tv = tm.get(str(gid), (pv.get("t", ""), pv.get("tv", "")))      # ESPN unreachable: keep what we had
+        t, tv = t or pv.get("t", ""), tv or pv.get("tv", "")                # a game in progress no longer lists its tip
+        out.append({"id": gid, "d": d, "t": t, "tv": tv, "k": "g", "a": side(away), "h": side(home),
                     "as": f[3] if f else None, "hs": f[2] if f else None, "st": "f" if f else "p", "nt": int(g[4]) if len(g) > 4 else 0,
                     "u": ("game.html?id=%s" % gid) if gid and gid > 0 else ""})
         if f and f[4]: out[-1]["ot"] = f[4]   # overtime periods -> "Final/OT"

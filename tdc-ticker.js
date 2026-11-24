@@ -1,7 +1,7 @@
 /* tdc-ticker.js — the scores strip at the very top of every page (mounted by tdc-nav.js, above the nav bar).
  *
  * Games come from scripts/data/ticker.json (scripts/build_ticker.py: scrimmages + the schedule, 3 days back to 10
- * ahead, finals filled in). Today's real games are overlaid with live ESPN scores (polled every 60 s while any is
+ * ahead, finals filled in). Today's real games are overlaid with live ESPN scores (polled every 30 s while any is
  * in progress). It runs as a ticker: one day's games (live first) auto-scrolling in a loop — see render().
  * Scrimmages say so (owner rule: scrimmages are labelled, never passed off as games).
  * A page can opt out with window.TDC_NO_TICKER = true before tdc-nav.js runs.
@@ -10,7 +10,14 @@
   if (window.TDC_NO_TICKER || window.__tdcTicker) return;
   window.__tdcTicker = true;
   var SRC = 'scripts/data/ticker.json';
-  var ESPN = 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=50&limit=300&dates=';
+  var HOSTS = ['https://site.web.api.espn.com', 'https://site.api.espn.com'];   // second one if the first refuses (as tdc-live.js)
+  var ESPN = '/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=50&limit=400&dates=';
+  function board(d) {
+    var go = function (i) { return i >= HOSTS.length ? null : fetch(HOSTS[i] + ESPN + d.replace(/-/g, ''), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.json(); }).catch(function () { return go(i + 1); }); };
+    return Promise.resolve(go(0));
+  }
+  // "7:00 PM" -> minutes, unknown last
+  function mins(t) { var m = /(\d+):(\d+)\s*([AP])M/i.exec(t || ''); return m ? (m[1] % 12 + (/p/i.test(m[3]) ? 12 : 0)) * 60 + +m[2] : 9999; }
   var DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   // US Eastern calendar date (the slate's day), as YYYY-MM-DD
@@ -44,6 +51,7 @@
       '.tdt-st .live{color:#C8102E;}' +
       '.tdt-t{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;line-height:19px;white-space:nowrap;}' +
       '.tdt-t img{width:15px;height:15px;object-fit:contain;flex-shrink:0;}' +
+      '.tdt-t .nl{width:15px;height:15px;border-radius:50%;background:var(--bg3,var(--bg2));border:1px solid var(--border2);box-sizing:border-box;flex-shrink:0;font-size:8.5px;font-weight:800;line-height:13px;text-align:center;color:var(--text3);}' +
       '.tdt-t .rk{font-size:10px;color:var(--text3);font-weight:600;min-width:0;}' +
       '.tdt-t .nm{overflow:hidden;text-overflow:ellipsis;}' +
       '.tdt-t .sc{margin-left:auto;font-weight:800;font-variant-numeric:tabular-nums;}' +
@@ -67,7 +75,7 @@
     if (fin && e.d !== TODAY) when = final + ' · ' + dayName(e.d);
     var right = e.k === 's' ? (fin || !e.tv ? 'Scrimmage' : e.tv) : (e.tv || '');
     var row = function (t, sc, lose) {
-      return '<div class="tdt-t' + (lose ? ' lose' : '') + '">' + (t.l ? '<img src="' + esc(window.tdcLogoSmall ? tdcLogoSmall(t.l, 40) : t.l) + '" alt="" loading="lazy">' : '<span style="width:15px"></span>') +
+      return '<div class="tdt-t' + (lose ? ' lose' : '') + '">' + (t.l ? '<img src="' + esc(window.tdcLogoSmall ? tdcLogoSmall(t.l, 40) : t.l) + '" alt="" loading="lazy">' : '<span class="nl">' + esc((t.n || '').charAt(0)) + '</span>') +
         (t.r && t.r <= 25 ? '<span class="rk">' + t.r + '</span>' : '') + '<span class="nm">' + esc(t.n) + '</span>' +
         '<span class="sc">' + (sc == null ? '' : sc) + '</span></div>';
     };
@@ -81,7 +89,7 @@
   // carries the day): one day's games at a time (the day picker switches), live games first, auto-scrolling in a seamless
   // loop. It stops while the pointer is over it, it has focus, or a finger/wheel is moving it, and picks up a few seconds
   // later from wherever it was left. Reduced-motion users get the plain scrollable strip. Re-renders (live scores every
-  // 60 s) keep the position. "Reduce motion" users still get the ticker (the owner asked for one, and his own Mac has the
+  // 30 s) keep the position. "Reduce motion" users still get the ticker (the owner asked for one, and his own Mac has the
   // setting on), at half speed; it always stops under the pointer, on focus and on touch.
   var reduce = false; try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
   var SPEED = reduce ? 75 : 80;   // px per second (owner, Nov 22 2026: 34 too slow, 60 still slow, 110 too fast; his Mac has reduce-motion on)
@@ -93,8 +101,11 @@
     var day = host._day && days.indexOf(host._day) >= 0 ? host._day : start;
     var ord = function (e) { return e.st === 'l' ? 0 : e.st === 'f' ? 2 : 1; };
     var show = list.filter(function (e) { return e.d === day || (day === TODAY && e.d === YDAY && e.st === 'l'); })
-      .map(function (e, i) { return [e, i]; }).sort(function (a, b) { return (ord(a[0]) - ord(b[0])) || (a[1] - b[1]); }).map(function (x) { return x[0]; });
+      .map(function (e, i) { return [e, i]; }).sort(function (a, b) { return (ord(a[0]) - ord(b[0])) || (ord(a[0]) === 1 ? mins(a[0].t) - mins(b[0].t) : 0) || (a[1] - b[1]); }).map(function (x) { return x[0]; });
     var cards = show.map(function (e) { return card(e, false); }).join('');
+    // nothing changed since the last poll: leave the strip alone (no image flicker, no lost position)
+    if (host._html === day + cards && host._sc && host._setW) return;
+    host._html = day + cards;
     host.innerHTML =
       '<div class="tdt-lead"><span class="tdt-lg">Men\'s CBB</span><select class="tdt-day" aria-label="Show day">' +
       days.map(function (d) { return '<option value="' + d + '"' + (d === day ? ' selected' : '') + '>' + dayName(d) + '</option>'; }).join('') + '</select></div>' +
@@ -104,7 +115,7 @@
     // seamless loop: a second, hidden copy of the day's games follows the first when they overflow the strip
     var setW = trk.scrollWidth;
     // mounted before layout (or while hidden): measure again next frame, a few times at most
-    if (!sc.clientWidth || !setW) { host._tries = (host._tries || 0) + 1; if (host._tries < 40) setTimeout(function () { render(host, games); }, 100); return; }
+    if (!sc.clientWidth || !setW) { host._tries = (host._tries || 0) + 1; host._html = null; if (host._tries < 40) setTimeout(function () { render(host, games); }, 100); return; }
     host._loop = show.length > 1 && setW > sc.clientWidth + 40;
     if (host._loop) {
       var clone = document.createElement('div'); clone.innerHTML = cards; clone.setAttribute('aria-hidden', 'true');
@@ -148,7 +159,7 @@
     if (!today.length) return Promise.resolve(false);
     var days = []; today.forEach(function (e) { if (days.indexOf(e.d) < 0) days.push(e.d); });
     return Promise.all(days.map(function (d) {
-      return fetch(ESPN + d.replace(/-/g, '')).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+      return board(d);
     })).then(function (js) {
       if (!js.some(Boolean)) return false;
       var by = {}; js.forEach(function (j) { ((j && j.events) || []).forEach(function (ev) { by[ev.id] = ev; }); });
@@ -161,7 +172,7 @@
         if (st.state === 'in' || st.state === 'post') { e.hs = h ? +h.score : e.hs; e.as = a ? +a.score : e.as; }
         if (st.state === 'in') { e.st = 'l'; e.clock = st.shortDetail || 'Live'; anyLive = true; }
         else if (st.state === 'post') { e.st = 'f'; var om = /\/(\d*OT)\b/.exec(st.shortDetail || ''); if (om) e.otl = om[1]; }
-        else if (st.shortDetail && !e.t) e.t = st.shortDetail.replace(/^[^-]*-\s*/, '');
+        else { var tp = /(\d{1,2}:\d\d [AP]M)/.exec(st.shortDetail || ''); if (tp && c && c.timeValid !== false) e.t = tp[1]; }
         var bc = c && c.broadcasts && c.broadcasts[0] && c.broadcasts[0].names; if (bc && bc.length && !e.tv) e.tv = bc[0];
       });
       return anyLive;
@@ -174,7 +185,14 @@
       if (!d || !d.games) { host.remove(); return; }
       var games = d.games;
       render(host, games);
-      var tick = function () { overlay(games).then(function (live) { render(host, games); if (live) setTimeout(tick, 60000); }); };
+      var tick = function () { 
+        if (document.hidden) { setTimeout(tick, 15000); return; }
+        // keep checking while today still has games to play: every 30 s once one is live, every 2 minutes before that
+        overlay(games).then(function (live) {
+          render(host, games);
+          if (live || games.some(function (e) { return e.k === 'g' && e.d === TODAY && e.st !== 'f'; })) setTimeout(tick, live ? 30000 : 120000);
+        });
+      };
       tick();
     }).catch(function () { host.remove(); });
   }

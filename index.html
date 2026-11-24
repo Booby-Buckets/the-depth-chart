@@ -11,7 +11,8 @@
   <script src="team-colors.js?v=13"></script>
   <script src="tdc-ratings.js?v=47"></script>
   <script src="tdc-schedule.js?v=sp16"></script>
-  <script src="tdc-glossary.js?v=17"></script>
+  <script src="tdc-resume.js?v=1"></script>
+  <script src="tdc-glossary.js?v=18"></script>
   <script src="tdc-freshman.js?v=pub37"></script>
   <script src="tdc-injury.js?v=5"></script>
   <script src="tdc-reallines.js?v=8"></script>
@@ -1247,7 +1248,7 @@
 </head>
 <body data-anim-auto>
 <script src="tdc-badge.js?v=1"></script>
-<script src="tdc-nav.js?v=109"></script>
+<script src="tdc-nav.js?v=110"></script>
 <div class="tdc-bg" aria-hidden="true">
   <div class="tdc-mesh"></div>
   <div class="tdc-blob b1"></div>
@@ -1352,6 +1353,8 @@
       <option value="srs">Power Rating</option>
       <option value="ortg">Best Offense (ORtg)</option>
       <option value="drtg">Best Defense (DRtg)</option>
+      <option value="sos">Strength of Schedule</option>
+      <option value="sor">Strength of Record</option>
       <option value="margin">Scoring Margin</option>
       <option value="winpct">Win %</option>
       <option value="wins">Wins</option>
@@ -1517,6 +1520,7 @@
       <th class="l">Conf</th>
       <th class="c sort" data-sort="wins" data-col="wl" title="Win–Loss record. Once the 2026-27 season starts it is the real record (games count the moment they go final); before that, the expected record from simulating the announced schedule 600 times. Hover a team for the projected final record and range.">W-L<span class="ar"></span></th>
       <th class="sort" data-sort="sos" data-col="sos" title="Strength of schedule — the average Power Rating of the Division I teams played so far (higher = tougher). The Rating already adjusts every result for the opponent: beating a weak team only helps by the margin beyond what was expected against them.">SOS<span class="ar"></span></th>
+      <th class="sort" data-sort="sor" data-col="sor" title="Strength of record — how good the win-loss record is for the games played. An average top-25 team is given this team's exact schedule (same opponents, same venues): SOR is the chance, 0 to 100, that it would have a worse record. 50 is what a top-25 team would do. Only wins and losses count, not margin.">SOR<span class="ar"></span></th>
       <th class="sort" data-sort="srs" title="Power Rating — how many points better than an average Division I team this team is, on a neutral court and adjusted for who they played. A +18 team would beat an average team by about 18. The gap between two teams' Power Ratings is the projected point spread.">Rating<span class="ar"></span></th>
       <th class="sort" data-sort="ortg" title="Offensive Rating — points scored per 100 possessions, adjusted for opponent and pace (from the Team DNA engine). Higher = better offense. Sort by this to find the best offenses.">ORtg<span class="ar"></span></th>
       <th class="sort" data-sort="drtg" title="Defensive Rating — points allowed per 100 possessions, adjusted for opponent and pace (from the Team DNA engine). LOWER = better defense. Sort by this to find the best defenses.">DRtg<span class="ar"></span></th>
@@ -1539,7 +1543,7 @@
       <th class="sort" data-sort="sgsm" data-col="sgsm" title="Shot-Making (projected 2026-27; actual when viewing 2025-26; — = can't project yet) — points this team added over an average shooter given its shot diet, per 100 shots, adjusted for competition. Pure finishing skill.">Sh-Make<span class="ar"></span></th>
       <th class="sort" data-sort="sgcr" data-col="sgcr" title="Creation (projected 2026-27; actual when viewing 2025-26; — = can't project yet) — expected points this team's passing generates per game, each assist valued by the quality of the look it created. A corner-3 dime beats a long-two dime.">Create<span class="ar"></span></th>
     </tr></thead>
-    <tbody id="rankingsList"><tr><td class="ix-msg" colspan="25">Loading rankings…</td></tr></tbody>
+    <tbody id="rankingsList"><tr><td class="ix-msg" colspan="26">Loading rankings…</td></tr></tbody>
   </table>
   </div>
 </div>
@@ -1988,7 +1992,7 @@ async function loadProjectedSeason(){
     renderShowcase();
   } catch(e) {
     document.getElementById('rankingsList').innerHTML =
-      `<tr><td class="ix-msg" colspan="25"><b>Could not build projections.</b> ${e.message}</td></tr>`;
+      `<tr><td class="ix-msg" colspan="26"><b>Could not build projections.</b> ${e.message}</td></tr>`;
   }
 }
 
@@ -2086,7 +2090,7 @@ async function loadSeason(yr){
     renderShowcase();   // top players for the selected season, at the top of the page
   } catch(e) {
     document.getElementById('rankingsList').innerHTML =
-      `<tr><td class="ix-msg" colspan="25"><b>Could not load rankings.</b> ${e.message}</td></tr>`;
+      `<tr><td class="ix-msg" colspan="26"><b>Could not load rankings.</b> ${e.message}</td></tr>`;
   }
 }
 
@@ -2229,6 +2233,7 @@ function applyRankColumns(){
   const RC = {
     wl:       true,
     sos:      curSeason===2027 && teams.some(t=>t.sos!=null),
+    sor:      curSeason===2027 && teams.some(t=>t.sor!=null),
     shotluck: teams.some(t=>t.shotluck!=null),
     sglq:     teams.some(t=>t.sglq!=null),
     sgsm:     teams.some(t=>t.sgsm!=null),
@@ -2245,6 +2250,7 @@ const RANK_COLS = [
   // key, cell text, heat (1 = higher is better, -1 = lower is better, 0 = none), optional data-col
   ['wins',   t => t.gp ? `${t.wins}–${t.losses}` : window._ixPlayed&&curSeason===2027 ? '0–0' : t.projRec ? `${t.wins}–${t.losses}` : '—', 0, 'wl'],
   ['sos',    t => t.sos!=null?(t.sos>0?'+':'')+t.sos.toFixed(1):'—', 1, 'sos'],
+  ['sor',    t => t.sor!=null?t.sor.toFixed(t.sor>=99.95||t.sor<9.95?1:0):'—', 1, 'sor'],
   ['srs',    t => { const v=(window._useSrs&&t.srs!=null)?t.srs:t.margin; return v==null?'—':(v>0?'+':'')+(+v).toFixed(1); }, 1],
   ['ortg',   t => t.ortg!=null?t.ortg.toFixed(1):'—', 1],
   ['drtg',   t => t.drtg!=null?t.drtg.toFixed(1):'—', -1],
@@ -2277,7 +2283,7 @@ if(window.matchMedia&&matchMedia('(max-width:640px)').matches){
 }
 // the heat value of a cell: statVal() uses -999 for missing, and a 0 box stat means no data
 // (SOS is relative to the D-I average, so 0.0 is a real value: Duke's Nov 2026 schedule averaged exactly 0 and lost its rank)
-function _heatVal(t,k){ const v=statVal(t,k); return (v==null||!isFinite(v)||v<=-998||(v===0&&k!=='srs'&&k!=='net'&&k!=='sgsm'&&k!=='sos'))?null:v; }
+function _heatVal(t,k){ const v=statVal(t,k); return (v==null||!isFinite(v)||v<=-998||(v===0&&k!=='srs'&&k!=='net'&&k!=='sgsm'&&k!=='sos'&&k!=='sor'))?null:v; }
 function _rankHeat(){
   // quintile cut points per column over every team this season (not just the filtered view)
   const out={}, teams=window.allTeams||allTeams||[];
@@ -2376,8 +2382,10 @@ function _liveRerank(){
   // average current rating of the D-I teams each team has played. The rating above already credits every result
   // against that opponent, so a blowout of a weak team only counts for the margin beyond what was expected.
   const opp={}; games.forEach(g=>{ if(!by[g.home]||!by[g.away]) return; (opp[g.home]=opp[g.home]||[]).push(by[g.away].rating); (opp[g.away]=opp[g.away]||[]).push(by[g.home].rating); });
-  allTeams.forEach(t=>{ const o=opp[t.name]; t.sos=o&&o.length?+(o.reduce((a,b)=>a+b,0)/o.length).toFixed(1):null; });
+  allTeams.forEach(t=>{ const o=opp[t.name]; t.sos=o&&o.length?o.reduce((a,b)=>a+b,0)/o.length:null; });
   allTeams.filter(t=>t.sos!=null).sort((a,b)=>b.sos-a.sos).forEach((t,i)=>{ t.sosRk=i+1; });
+  // STRENGTH OF RECORD (owner, Nov 24 2026): the same games, judged on wins and losses (tdc-resume.js)
+  if(window.TDC_RESUME){ const X=TDC_RESUME.compute(rows, games).byTeam; allTeams.forEach(t=>{ const x=X[t.name]; t.sor=x?x.sor:null; t.sorX=x?x.extra:null; }); }
   window._ixPlayed=true;
   return true;
 }
@@ -2386,7 +2394,7 @@ function renderRows(data, srt, favTeam){
   applyRankColumns();
   const list=document.getElementById('rankingsList');
   if(!data.length){
-    list.innerHTML='<tr><td class="ix-msg" colspan="25">No teams found</td></tr>';
+    list.innerHTML='<tr><td class="ix-msg" colspan="26">No teams found</td></tr>';
     return;
   }
   const RC = window._rankCols || {};
