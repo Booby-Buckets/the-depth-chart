@@ -669,23 +669,45 @@
       <p><b>Updates.</b> Box scores load three times a day (about 10:30 pm, 1:15 am and noon ET), so standings move the night games end. Regular season ends ${md(SET.reg_end)}.</p></div>`);
   }
 
+  // ── the key on your account (owner, Nov 24 2026: signed in on the phone but the league asked for the key again) ──
+  // Signed in to the site, your key is kept on your account (user_metadata.cl_code, readable only by you), so it opens on
+  // every device you sign in on. Any number of accounts can hold the same key (shared teams). Signed out still works: this
+  // browser remembers the key. cl_code_uid = the account this browser's key belongs to.
+  const sess=()=>{ try{ const s=JSON.parse(localStorage.getItem('tdc_session')||'null'); return s&&s.access_token&&s.user&&s.user.id?s:null; }catch(e){ return null; } };
+  const acctCall=(method,body)=>{ const s=sess(); if(!s) return Promise.resolve(null);
+    return fetch(SB+'/auth/v1/user',{method,headers:{apikey:KEY,Authorization:'Bearer '+s.access_token,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined}).then(r=>r.ok?r.json():null).catch(()=>null); };
+  let ACCT;   // the account's saved key: undefined = not read yet (or unreachable), '' = none
+  async function readAcct(){ const u=await acctCall('GET'); ACCT=u&&u.id?String((u.user_metadata||{}).cl_code||''):undefined; }
+  async function saveAcct(c){ const s=sess(); if(!s||!c) return; store.set('cl_code_uid',s.user.id);
+    if(ACCT===c) return; const u=await acctCall('PUT',{data:{cl_code:c}}); if(u&&u.id) ACCT=c; }
+  // before the league loads: which key to use
+  async function pickCode(){
+    const s=sess(); if(!s) return;
+    await readAcct();
+    const uid=store.get('cl_code_uid'), foreign=uid&&uid!==s.user.id;   // this browser's key came from another account
+    if(ACCT&&(!CODE||foreign)){ CODE=ACCT; store.set('cl_code',CODE); store.set('cl_code_uid',s.user.id); }
+  }
+  // after it loads: a key this browser already had goes onto the account that has none
+  function keepCode(){ const s=sess(); if(!s||ACCT!=='') return; const uid=store.get('cl_code_uid'); if(!uid||uid===s.user.id) saveAcct(CODE); }
+
   // ── the gate: your team code, nothing else ──
   function gate(msg){
     app.innerHTML=`<div class="page-eyebrow">Counting League · 2026-27</div><h1 class="page-h1">Counting League</h1>
-      <div class="card login" style="margin-top:14px"><b>Enter your key</b><p class="cl-note">This league is private. Type the team key your commissioner gave you and it opens your team. This browser remembers it.</p>
+      <div class="card login" style="margin-top:14px"><b>Enter your key</b><p class="cl-note">This league is private. Type the team key your commissioner gave you and it opens your team. ${sess()?'It stays on your account, so it opens on every device you sign in on.':'This browser remembers it. <a href="signin.html?next=fantasy-league.html"><b>Sign in</b></a> to use it on every device.'}</p>
         <form id="lgF" class="row"><input class="fi" id="lgC" placeholder="e.g. GLEN-XXXXXXXX" autocomplete="off" autocapitalize="characters"><button class="btn">Enter</button></form>
         <div class="msg${msg?' err':''}" id="lgM">${esc(msg||'')}</div></div>`;
     const f=document.getElementById('lgF');
     f.addEventListener('submit',async e=>{ e.preventDefault(); const m=document.getElementById('lgM'), b=f.querySelector('button');
       const c=document.getElementById('lgC').value.trim().toUpperCase(); if(!c) return;
       b.disabled=true; m.className='msg'; m.textContent='Checking…'; CODE=c;
-      try{ await loadLeague(); store.set('cl_code',c); location.hash='#/me'; start(); }
+      try{ await loadLeague(); store.set('cl_code',c); store.set('cl_code_uid',null); await saveAcct(c); location.hash='#/me'; start(); }
       catch(err){ CODE=''; b.disabled=false; m.className='msg err'; m.textContent=err.message; } });
   }
   async function start(){
-    if(!CODE) return gate();
     app.innerHTML='<div class="empty">Loading the league…</div>';
-    try{ await load(); route(); }
+    if(ACCT===undefined) await pickCode();
+    if(!CODE) return gate();
+    try{ await load(); route(); keepCode(); }
     catch(e){
       if(/code is not right/i.test(e.message)){ CODE=''; store.set('cl_code',null); gate('That code is not right.'); }
       else app.innerHTML=`<div class="empty">Couldn't load the league: ${esc(e.message)}</div>`;
