@@ -42,6 +42,17 @@
     .bar .lab{font-size:12px;font-weight:700;color:var(--text3);margin-right:2px;}
     .conds{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;} .cond{display:flex;gap:6px;align-items:center;border:1px solid var(--border2);border-radius:10px;padding:6px;background:var(--bg2);}
     .cond select,.cond input{font:600 13px Inter,system-ui,sans-serif;padding:7px 8px;border:1px solid var(--border2);border-radius:7px;background:var(--bg);color:var(--text);} .cond input{width:74px;} .cond select{min-width:0;} @media(max-width:640px){.cond{width:100%;} .cond select:first-child{flex:1 1 0;width:0;} .cond input{width:62px;} .filters.adv label:first-child,.filters.adv label:nth-child(2){grid-column:1/-1;}} .cond button{border:0;background:none;color:var(--text3);font:700 17px/1 Inter,system-ui,sans-serif;padding:6px 8px;cursor:pointer;}
+    .sheet td .sub{display:none;}
+    @media(max-width:640px){
+      .page{padding-top:16px;} h1{margin-bottom:4px;}
+      .filters{gap:8px 10px;padding-top:10px;margin-top:8px!important;} .filters label{gap:2px;font-size:11.5px;}
+      .filters select,.filters input{padding:4px 8px!important;height:34px!important;min-height:0!important;border-radius:7px;line-height:1.2;}
+      .filters.adv{padding-top:8px;} .bar{margin-top:8px;gap:6px;} .chip{padding:4px 10px!important;min-height:0!important;}
+      .conds{margin-top:8px;gap:6px;} .cond{padding:3px;} .cond select,.cond input{padding:3px 6px!important;height:32px;}
+      .filters.adv label:first-child,.filters.adv label:nth-child(2){grid-column:auto!important;} .rng{gap:4px;} .rng select,.rng input{padding:4px 4px!important;}
+      #tbl .sheet td{padding-top:3px!important;padding-bottom:3px!important;line-height:1.15;}
+      .sample{margin:8px 0;line-height:1.3;font-size:12px!important;} .sheet td .sub{display:block;font-size:11px;font-weight:600;color:var(--text3);line-height:1.15;white-space:normal;max-width:124px;}
+    }
     .more{display:block;margin:14px auto 0;font:700 13px Inter,system-ui,sans-serif;padding:9px 20px;border:1px solid var(--border2);border-radius:8px;background:var(--bg2);color:var(--text);cursor:pointer;}
     .sheet td.tm img{width:18px;height:18px;object-fit:contain;vertical-align:middle;margin:-2px 6px 0 0;}
     .sample{font-size:13px;color:var(--text3);margin:12px 0 14px;} .sample b{color:var(--text2);}
@@ -97,16 +108,17 @@
   const CONF={'Atlantic Coast Conference':'ACC','Southeastern Conference':'SEC','Big Ten Conference':'Big Ten','Big 12 Conference':'Big 12','Big East Conference':'Big East'}, HM=new Set(Object.values(CONF)), cs=c=>CONF[c]||String(c||'').replace(/ Conference$/,'');
   const DEF={view:'player',y:'2027',conf:'',pos:'',min:'0',q:'',h0:'',h1:'',w0:'',w1:'',cls:'',exp:'',dr:'',how:'',lvl:'',role:'',sort:'dm',asc:'',c:''};
   const S=Object.assign({},DEF); let n=100, conds=[], ST=null; const cache={};
-  const r=(a,b)=>b?a/b:null, pct=v=>v==null?'—':(100*v).toFixed(1)+'%', one=v=>v==null?'—':v.toFixed(1), int=v=>v==null?'—':v, hts=v=>v==null?'—':Math.floor(v/12)+'-'+v%12, txt=v=>esc(v||'—');
+  const r=(a,b)=>b?a/b:null, pct=v=>v==null?'—':(100*v).toFixed(1)+'%', one=v=>v==null?'—':v.toFixed(1), ft=v=>v==null?'—':v.toFixed(1)+' ft', int=v=>v==null?'—':v, hts=v=>v==null?'—':Math.floor(v/12)+'-'+v%12, txt=v=>esc(v||'—');
   const CL=['','Fr.','So.','Jr.','Sr.','Gr.'];
-  const PC=[['g','G',int],['dm','Dunks',int,1],['dpg','Dunks / g',one,1],['da','Dunk att',int],['dfg','Dunk FG%',pct],['dsh','Dunk share',pct,1],['lm','Layups',int,1],['la','Layup att',int],['lfg','Layup FG%',pct,1],['rfg','Rim FG%',pct,1]];
-  const TC=[['g','G',int],['dm','Dunks',int,1],['dpg','Dunks / g',one,1],['dfg','Dunk FG%',pct,1],['dsh','Dunk share of rim',pct,1],['lfg','Layup FG%',pct,1],['rfg','Rim FG%',pct,1],['odm','Dunks allowed',int,-1],['odpg','Allowed / g',one,-1],['olfg','Layup FG% allowed',pct,-1],['orfg','Rim FG% allowed',pct,-1]];
+  const PC=[['g','G',int],['dm','Dunks',int,1],['dpg','Per g',one,1],['dfgm','% of FGs',pct,1],['dfg','Dunk FG%',pct],['dsh','Dunk share',pct,1],['lm','Layups',int,1],['lfg','Layup FG%',pct,1],['rfg','Rim FG%',pct,1],['ad','Avg shot',ft],['md','Avg make',ft]];
+  const TC=[['g','G',int],['dm','Dunks',int,1],['dpg','Per g',one,1],['dfgm','% of FGs',pct,1],['dfg','Dunk FG%',pct,1],['dsh','Dunk share',pct,1],['lfg','Layup FG%',pct,1],['rfg','Rim FG%',pct,1],['ad','Avg shot',ft],['md','Avg make',ft],['odpg','Dunks all. / g',one,-1],['olfg','Layup FG% all.',pct,-1],['orfg','Rim FG% all.',pct,-1]];
   // stats a rule can use: [key, label, is a percentage]
-  const QS=[['dm','Dunks'],['dpg','Dunks per game'],['d40','Dunks per 40 min'],['da','Dunk attempts'],['dfg','Dunk FG%',1],['dast','Dunks assisted %',1],['dsh','Dunk share of rim %',1],['dfs','Dunk share of all shots %',1],['miss','Missed dunks'],['lm','Layups made'],['la','Layup attempts'],['lfg','Layup FG%',1],['last','Layups assisted %',1],['tm','Tip-ins'],['rfg','Rim FG%',1],['ra','Rim shots'],['rsh','Rim share of all shots %',1],['g','Games'],['gs','Starts'],['mpg','Minutes per game'],['ppg','Points per game'],['rpg','Rebounds per game'],['orpg','Off. rebounds per game'],['apg','Assists per game'],['spg','Steals per game'],['bpg','Blocks per game'],['topg','Turnovers per game'],['fgp','FG%',1],['tpp','3P%',1],['tpm','Threes made'],['tpa','Threes attempted'],['ftp','FT%',1],['ftpg','FT attempts per game'],['ht','Height (inches)'],['wt','Weight']];
-  const SUM=['min','g','fga','dm','da','dast_','lm0','la0','last_','tm','ta','gs','pts','reb','oreb','ast','stl','blk','tov','fgm','fgat','tpm','tpa','ftm','fta'];
+  const QS=[['dm','Dunks'],['dpg','Dunks per game'],['d40','Dunks per 40 min'],['da','Dunk attempts'],['dfg','Dunk FG%',1],['dast','Dunks assisted %',1],['dsh','Dunk share of rim %',1],['dfgm','% of made FGs that are dunks',1],['dfs','% of shots that are dunks',1],['ad','Average shot distance (ft)'],['md','Average make distance (ft)'],['miss','Missed dunks'],['lm','Layups made'],['la','Layup attempts'],['lfg','Layup FG%',1],['last','Layups assisted %',1],['tm','Tip-ins'],['rfg','Rim FG%',1],['ra','Rim shots'],['rsh','Rim share of all shots %',1],['g','Games'],['gs','Starts'],['mpg','Minutes per game'],['ppg','Points per game'],['rpg','Rebounds per game'],['orpg','Off. rebounds per game'],['apg','Assists per game'],['spg','Steals per game'],['bpg','Blocks per game'],['topg','Turnovers per game'],['fgp','FG%',1],['tpp','3P%',1],['tpm','Threes made'],['tpa','Threes attempted'],['ftp','FT%',1],['ftpg','FT attempts per game'],['ht','Height (inches)'],['wt','Weight']];
+  const SUM=['min','g','fga','dm','da','dast_','lm0','la0','last_','tm','ta','gs','pts','reb','oreb','ast','stl','blk','tov','fgm','fgat','tpm','tpa','ftm','fta','dn','ds','mn','ms'];
   function derive(o){
     o.lm=o.lm0+o.tm; o.la=o.la0+o.ta; o.ra=o.da+o.la; o.miss=o.da-o.dm;
     o.dpg=r(o.dm,o.g); o.d40=r(40*o.dm,o.min); o.dfg=r(o.dm,o.da); o.dast=r(o.dast_,o.dm); o.dsh=r(o.da,o.ra); o.dfs=r(o.da,o.fga); o.lfg=r(o.lm,o.la); o.last=r(o.last_,o.lm0); o.rfg=r(o.dm+o.lm,o.ra); o.rsh=r(o.ra,o.fga);
+    o.dfgm=r(o.dm,o.fgm); o.ad=r(o.ds,o.dn); o.md=r(o.ms,o.mn);
     o.mpg=r(o.min,o.g); o.ppg=r(o.pts,o.g); o.rpg=r(o.reb,o.g); o.orpg=r(o.oreb,o.g); o.apg=r(o.ast,o.g); o.spg=r(o.stl,o.g); o.bpg=r(o.blk,o.g); o.topg=r(o.tov,o.g); o.fgp=r(o.fgm,o.fgat); o.tpp=r(o.tpm,o.tpa); o.ftp=r(o.ftm,o.fta); o.ftpg=r(o.fta,o.g);
     return o;
   }
@@ -117,7 +129,7 @@
     d.T=Object.entries(d.team_totals).map(([tid,a])=>{ const o={}; d.tcols.forEach((c,i)=>o[c]=a[i]); const t=d.teams[tid]; o.full=t[0]; o.name=sh(t[0]); o.conf=cs(t[1]); o.y=d.season; return dt(o); });
     return d;
   }
-  function dt(o){ o.team=o.name; o.dpg=r(o.dm,o.g); o.dfg=r(o.dm,o.da); o.dsh=r(o.da,o.da+o.la); o.lfg=r(o.lm,o.la); o.rfg=r(o.dm+o.lm,o.da+o.la); o.odpg=r(o.odm,o.g); o.olfg=r(o.olm,o.ola); o.orfg=r(o.odm+o.olm,o.oda+o.ola); return o; }
+  function dt(o){ o.team=o.name; o.dfgm=r(o.dm,o.fgm); o.ad=r(o.ds,o.dn); o.md=r(o.ms,o.mn); o.dpg=r(o.dm,o.g); o.dfg=r(o.dm,o.da); o.dsh=r(o.da,o.da+o.la); o.lfg=r(o.lm,o.la); o.rfg=r(o.dm+o.lm,o.da+o.la); o.odpg=r(o.odm,o.g); o.olfg=r(o.olm,o.ola); o.orfg=r(o.odm+o.olm,o.oda+o.ola); return o; }
   const one_=y=>cache[y]||(cache[y]=fetch('scripts/data/rim_finishing/'+y+'.json?d='+DAY).then(x=>{ if(!x.ok) throw 0; return x.json(); }).then(prep));
   function load(y){
     if(y!=='all'&&y!=='car') return one_(y);
@@ -126,7 +138,7 @@
       if(y==='all') return {P,T,games,qual:30};
       const by={}, bt={};
       P.forEach(p=>{ const o=by[p.id]; if(!o) by[p.id]=Object.assign({},p,{n:1,qual:60}); else { SUM.forEach(k=>o[k]+=p[k]); o.n++; } });   // newest season first: bio and team are his latest
-      T.forEach(t=>{ const o=bt[t.full]; if(!o) bt[t.full]=Object.assign({},t); else ['g','dm','da','lm','la','odm','oda','olm','ola'].forEach(k=>o[k]+=t[k]); });
+      T.forEach(t=>{ const o=bt[t.full]; if(!o) bt[t.full]=Object.assign({},t); else ['g','dm','da','lm','la','odm','oda','olm','ola','fgm','dn','ds','mn','ms'].forEach(k=>o[k]+=t[k]); });
       return {P:Object.values(by).map(o=>{ o.cls=o.y===2027?o.cls:null; o.how=null; return derive(o); }),T:Object.values(bt).map(dt),games,qual:60}; }));
   }
   const status=()=>ST?Promise.resolve(ST):fetch('scripts/data/rim_finishing/status.json?d='+DAY).then(x=>x.json()).catch(()=>({drafted:{},active:{},through:2026})).then(j=>ST=j);
@@ -171,13 +183,13 @@
       const V=q?L.filter(p=>(p.name+' '+p.team+' '+p.full).toLowerCase().includes(q)):L, shown=V.slice(0,n);
       const ar=c=>k===c?(S.asc?' ▲':' ▼'):'', th=c=>`<th data-k="${c[0]}"${c[3]?` data-heat="${c[3]}"`:''}>${c[1]}${ar(c[0])}</th>`;
       const tl=(t,x)=>{ const g=logo(t); return `<td class="l tm">${g?`<img src="${esc(g)}" alt="" loading="lazy">`:''}<a href="team.html?team=${encodeURIComponent(x)}">${esc(x)}</a></td>`; };
-      const showCls=hasCls(), pre=team?`<th class="l">Conf</th>`:`<th class="l">Team</th>${multi?'<th class="l">Season</th>':''}<th class="l">Pos</th><th class="l" data-k="ht">Ht${ar('ht')}</th><th class="l" data-k="wt">Wt${ar('wt')}</th>${showCls?`<th class="l" data-k="cls">Class${ar('cls')}</th>`:`<th class="l" data-k="exp">D-I yr${ar('exp')}</th>`}<th class="l">Draft</th>`;
+      const showCls=hasCls(), showDr=S.y!=='2027', pre=team?`<th class="l">Conf</th>`:`<th class="l">Team</th>${multi?'<th class="l">Season</th>':''}<th class="l">Pos</th><th class="l" data-k="ht">Ht${ar('ht')}</th><th class="l" data-k="wt">Wt${ar('wt')}</th>${showCls?`<th class="l" data-k="cls">Class${ar('cls')}</th>`:`<th class="l" data-k="exp">D-I yr${ar('exp')}</th>`}${showDr?'<th class="l">Draft</th>':''}`;
       const tot=V.reduce((s,p)=>(s.dm+=p.dm,s.da+=p.da,s.lm+=p.lm,s.la+=p.la,s),{dm:0,da:0,lm:0,la:0});
-      $('sample').innerHTML=`<b>${V.length.toLocaleString()}</b> ${team?'teams':multi?'player-seasons':'players'}`+(V.length?` · together: <b>${tot.dm.toLocaleString()}</b> dunks, ${pct(r(tot.dm,tot.da))} on dunks, ${pct(r(tot.lm,tot.la))} on layups`:'')+` · ${d.games.toLocaleString()} games with play-by-play · layups include tip-ins, rim shots are dunks plus layups`+
+      $('sample').innerHTML=`<b>${V.length.toLocaleString()}</b> ${team?'teams':multi?'player-seasons':'players'}`+(V.length?` · together: <b>${tot.dm.toLocaleString()}</b> dunks, ${pct(r(tot.dm,tot.da))} on dunks, ${pct(r(tot.lm,tot.la))} on layups`:'')+` · ${d.games.toLocaleString()} games with play-by-play · layups include tip-ins, rim shots are dunks plus layups, % of FGs is the share of made shots that were dunks, distances are 2025-26 on without 40+ ft heaves`+
         (S.dr&&!team?` · draft through ${ST.through}; undrafted means not on a 2026-27 D-I roster`:'');
-      const pc=team?3:multi?9:8;
+      const pc=team?3:(multi?8:7)+(showDr?1:0);
       $('tbl').innerHTML=V.length?`<div class="sheet-wrap"><table class="sheet dense"><thead><tr><th>#</th><th class="l" data-k="name" data-fit-keep>${team?'Team':'Player'}${ar('name')}</th>${pre}${C.map(th).join('')}</tr></thead><tbody>`+
-        shown.map(p=>`<tr><td>${rk.get(p)}</td>${team?tl(p.full,p.name)+`<td class="l">${esc(p.conf)}${multi?' · '+lbl(p.y):''}</td>`:`<td class="l"><a href="player.html?espn=${p.id}">${esc(p.name)}</a></td>`+tl(p.full,p.team)+(multi?`<td class="l">${lbl(p.y)}</td>`:'')+`<td class="l">${esc(p.pos||'—')}</td><td class="l">${hts(p.ht)}</td><td class="l">${int(p.wt)}</td><td class="l">${showCls?txt(CL[p.cls]):int(p.exp)}</td><td class="l">${draftTxt(p)}</td>`}${C.map(c=>`<td>${c[2](p[c[0]])}</td>`).join('')}</tr>`).join('')+
+        shown.map(p=>`<tr><td>${rk.get(p)}</td>${team?tl(p.full,p.name)+`<td class="l">${esc(p.conf)}${multi?' · '+lbl(p.y):''}</td>`:`<td class="l"><a href="player.html?espn=${p.id}">${esc(p.name)}</a><span class="sub">${esc(p.team)}${multi?' · '+lbl(p.y):''}<br>${[p.ht?hts(p.ht):'',p.wt?p.wt+' lb':'',showCls?CL[p.cls]||'':''].filter(Boolean).join(' · ')}</span></td>`+tl(p.full,p.team)+(multi?`<td class="l">${lbl(p.y)}</td>`:'')+`<td class="l">${esc(p.pos||'—')}</td><td class="l">${hts(p.ht)}</td><td class="l">${int(p.wt)}</td><td class="l">${showCls?txt(CL[p.cls]):int(p.exp)}</td>${showDr?`<td class="l">${draftTxt(p)}</td>`:''}`}${C.map(c=>`<td>${c[2](p[c[0]])}</td>`).join('')}</tr>`).join('')+
         `</tbody></table></div>${V.length>n?'<button class="more" id="more">Show 100 more</button>':''}`:'<div class="empty">Nobody matches those filters.</div>';
       const t=document.querySelector('#tbl table');
       if(t&&window.tdcSheetHeat){   // shade against all of D-I (players with a real sample of rim shots), not just the rows on screen
@@ -187,7 +199,7 @@
         tdcSheetHeat(t,d[rf]); }
       document.querySelectorAll('#tbl th[data-k]').forEach(h=>h.onclick=()=>{ const kk=h.dataset.k; if(S.sort===kk) S.asc=S.asc?'':'1'; else { S.sort=kk; S.asc=kk==='name'||(team&&kk[0]==='o')?'1':''; } n=100;
         // a rate leaderboard needs a sample: sorting by one raises the minimum off "no minimum"
-        if(!team&&/fg$|dsh|dast/.test(kk)&&!+S.min){ S.min=String(d.qual); sync(); } render(); });
+        if(!team&&/fg$|dsh|dast|dfgm|^ad$|^md$/.test(kk)&&!+S.min){ S.min=String(d.qual); sync(); } render(); });
       if($('more')) $('more').onclick=()=>{ n+=100; render(); };
     }).catch(e=>{ if(my===seq){ console.error(e); $('tbl').innerHTML='<div class="empty">Could not load the dunk data.</div>'; } });
   }

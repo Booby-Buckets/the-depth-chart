@@ -12,7 +12,7 @@ loads: his seasons with D-I percentiles and dunk rank). A season is kept from it
 its games than that file was built from (the nightly job only has this season cached).
   python3 scripts/build_rim_finishing.py
 """
-import gzip, json, os, re, sys
+import gzip, json, math, os, re, sys
 from bisect import bisect_left, bisect_right
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -22,13 +22,17 @@ CACHE = os.path.join(ROOT, 'data', 'espn_pbp_cache')
 OUT = os.path.join(ROOT, 'data', 'rim_finishing')
 SHARDS = 32
 FIRST = 2023
+DIST_FROM = 2026
 KEEP_MIN = 5          # rim attempts for a row to be stored
 COLS = ['espn', 'name', 'team', 'season', 'min', 'g', 'fga', 'dm', 'da', 'dast', 'lm', 'la', 'last', 'tm', 'ta']
 BOX = {'PTS': 'pts', 'REB': 'reb', 'OREB': 'oreb', 'AST': 'ast', 'STL': 'stl', 'BLK': 'blk', 'TO': 'tov', '3PT': 'tp', 'FT': 'ft', 'FG': 'fg'}
 # season files only: team id, position, height (in), weight, class (1 Fr .. 4 Sr, 5 Gr), D-I season number,
+# dn/ds = located shots and their summed distance (feet), mn/ms = the makes. Locations are complete from 2025-26 (and match
+# ESPN's "N-foot" text within ~0.5 ft), 10-27% of shots before that, so earlier seasons carry none. 40+ ft heaves left out.
 # how he got there (0 first D-I season, 1 returning, 2 transfer), then box-score totals
-XCOLS = ['tid', 'pos', 'ht', 'wt', 'cls', 'exp', 'how', 'gs', 'pts', 'reb', 'oreb', 'ast', 'stl', 'blk', 'tov', 'fgm', 'fgat', 'tpm', 'tpa', 'ftm', 'fta']
-TCOLS = ['g', 'dm', 'da', 'lm', 'la', 'odm', 'oda', 'olm', 'ola']   # team totals: layups incl. tip-ins, o = allowed
+SX = ['fgm', 'dn', 'ds', 'mn', 'ms']      # these also go to the player page
+XCOLS = ['tid', 'pos', 'ht', 'wt', 'cls', 'exp', 'how', 'gs', 'pts', 'reb', 'oreb', 'ast', 'stl', 'blk', 'tov', 'fgm', 'fgat', 'tpm', 'tpa', 'ftm', 'fta', 'dn', 'ds', 'mn', 'ms']
+TCOLS = ['g', 'dm', 'da', 'lm', 'la', 'odm', 'oda', 'olm', 'ola', 'fgm', 'dn', 'ds', 'mn', 'ms']   # team totals: layups incl. tip-ins, o = allowed
 sys.path.insert(0, ROOT)
 
 
@@ -115,7 +119,7 @@ def main():
     T = defaultdict(lambda: [0] * len(TCOLS))     # (season, team id)
 
     def rec(s, aid):
-        return P.setdefault((s, aid), dict(name='', team='', tid='', pos='', gs=0, pts=0, reb=0, oreb=0, ast=0, stl=0, blk=0, tov=0, fgm=0, fgat=0, tpm=0, tpa=0, ftm=0, fta=0, last_dt='', min=0.0, g=0, fga=0, dm=0, da=0, dast=0, lm=0, la=0, last=0, tm=0, ta=0))
+        return P.setdefault((s, aid), dict(name='', team='', tid='', pos='', gs=0, pts=0, reb=0, oreb=0, ast=0, stl=0, blk=0, tov=0, fgm=0, fgat=0, tpm=0, tpa=0, ftm=0, fta=0, dn=0, ds=0.0, mn=0, ms=0.0, last_dt='', min=0.0, g=0, fga=0, dm=0, da=0, dast=0, lm=0, la=0, last=0, tm=0, ta=0))
 
     for f in sorted(os.listdir(CACHE)):
         if not f.endswith('.json.gz'): continue
@@ -160,11 +164,21 @@ def main():
             aid = ((parts[0] or {}).get('athlete') or {}).get('id') if parts else None
             if not aid: continue
             r = rec(s, aid); r['fga'] += 1
+            made = bool(p.get('scoringPlay'))
+            tid = on.get(aid); t9 = T[(s, tid)] if tid else None
+            if made and t9: t9[9] += 1
+            co = p.get('coordinate') or {}; x, y = co.get('x'), co.get('y')
+            if s >= DIST_FROM and x is not None and y is not None and -3 <= x <= 53 and -8 <= y <= 50:
+                ft = math.hypot(x - 25, y)
+                if ft < 40:
+                    r['dn'] += 1; r['ds'] += ft
+                    if made: r['mn'] += 1; r['ms'] += ft
+                    if t9:
+                        t9[10] += 1; t9[11] += ft
+                        if made: t9[12] += 1; t9[13] += ft
             k = kind(p)
             if not k: continue
-            made = bool(p.get('scoringPlay'))
             r[k + 'a'] += 1
-            tid = on.get(aid)
             for t in tids if tid else []:
                 b = 0 if t == tid else 4
                 j = (1 if k == 'd' else 3) + b
@@ -186,14 +200,14 @@ def main():
         bio = bio or Bio()
         for (ss, a), r in P.items():
             if r['tid'] in d1: bio.seen[int(a)][ss] = d1[r['tid']][0]
-        rows = [[int(a), r['name'], r['team'], s, round(r['min']), r['g'], r['fga']] + [r[c] for c in COLS[7:]] + [r['tid'], r['pos'] if r['pos'] in 'GFC' else ''] + bio.row(int(a), s, d1[r['tid']][0]) + [r[c] for c in XCOLS[7:]]
+        rows = [[int(a), r['name'], r['team'], s, round(r['min']), r['g'], r['fga']] + [r[c] for c in COLS[7:]] + [r['tid'], r['pos'] if r['pos'] in 'GFC' else ''] + bio.row(int(a), s, d1[r['tid']][0]) + [round(r[c]) for c in XCOLS[7:]]
                 for (ss, a), r in P.items() if ss == s and r['min'] > 0 and r['name'] and r['tid'] in d1 and r['da'] + r['la'] + r['ta'] >= KEEP_MIN]
         rows.sort(key=lambda x: (-x[7], x[0]))
-        lg = {c: sum(r[c] for (ss, _), r in P.items() if ss == s and r['tid'] in d1) for c in COLS[6:]}   # every D-I shot, not just the stored rows
+        lg = {c: round(sum(r[c] for (ss, _), r in P.items() if ss == s and r['tid'] in d1)) for c in COLS[6:] + SX}   # every D-I shot, not just the stored rows
         # percentile pool: 30 rim attempts over a full season, scaled down while the season is young
         qual = max(10, min(30, round(30 * games[s] / 6100)))
         S[s] = {'season': s, 'built': built, 'games': games[s], 'qual': qual, 'cols': COLS + XCOLS, 'lg': lg, 'teams': d1,
-                'tcols': TCOLS, 'team_totals': {t: v for (ss, t), v in T.items() if ss == s and t in d1}, 'rows': rows}
+                'tcols': TCOLS, 'team_totals': {t: [round(x) for x in v] for (ss, t), v in T.items() if ss == s and t in d1}, 'rows': rows}
         dump(f'{s}.json', S[s])
     if bio:     # who is on a 2026-27 roster (position there), and who was drafted: joined by the board, not baked into rows
         dr = json.load(open(os.path.join(ROOT, 'data', 'nba_drafted.json')))
@@ -211,15 +225,16 @@ def main():
         pool = [[x[k] for x in v.values() if x[0] and x[k] is not None] for k in range(1, 5)]
         for q in pool: q.sort()
         pct = lambda k, x: round(100 * (bisect_left(pool[k], x) + bisect_right(pool[k], x)) / 2 / len(pool[k])) if x is not None and pool[k] else None
+        xi = {c: i for i, c in enumerate(d['cols'])}
         dm = sorted((r[ix['dm']] for r in d['rows']), reverse=True)
         for r in d['rows']:
             x = v[r[0]]
             pc = [pct(k, x[k + 1]) for k in range(4)] if x[0] else None
             rank = bisect_left([-y for y in dm], -r[ix['dm']]) + 1 if r[ix['dm']] else None
-            shards[r[0] % SHARDS].setdefault(str(r[0]), []).append(r[2:len(COLS)] + [pc, rank])
+            shards[r[0] % SHARDS].setdefault(str(r[0]), []).append(r[2:len(COLS)] + [r[xi[c]] if c in xi and xi[c] < len(r) else None for c in SX] + [pc, rank])
     lgs = {s: dict(d['lg'], qual=d['qual'], n=sum(1 for _ in d['rows'])) for s, d in S.items()}
     for k in range(SHARDS):
-        dump(f'p_{k}.json', {'cols': COLS[2:] + ['pct', 'rank'], 'pct': ['dunks per game', 'dunk share of rim shots', 'layup FG%', 'rim FG%'], 'lg': lgs, 'players': shards[k]})
+        dump(f'p_{k}.json', {'cols': COLS[2:] + SX + ['pct', 'rank'], 'pct': ['dunks per game', 'dunk share of rim shots', 'layup FG%', 'rim FG%'], 'lg': lgs, 'players': shards[k]})
     for s, d in S.items():
         L = d['lg']; print(s, d['games'], 'games', len(d['rows']), 'players  qual', d['qual'], f"dunk FG {L['dm']/L['da']:.3f}  layup FG {(L['lm']+L['tm'])/(L['la']+L['ta']):.3f}")
 
