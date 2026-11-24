@@ -138,6 +138,10 @@ def build(season, prior_rows=None):
     BIO = bio(season)
     netk = "adjNet" if any("adjNet" in v for v in dna.values()) else "net"
     okeys = "adjO" if netk == "adjNet" else "ORtg"; dkeys = "adjD" if netk == "adjNet" else "DRtg"
+    # the season in progress: the adjusted AND raw numbers are the ones the rankings and Team Stats pages show
+    # (build_real_lines.py, real_lines_<season>.json), so one team never has two raw or two adjusted ratings on the site
+    try: LIVE = {t: v["adj"] for t, v in json.load(open(os.path.join(D, f"real_lines_{season}.json")))["teams"].items() if v.get("adj")}
+    except Exception: LIVE = {}
     V = {}
     for t, a in T.items():
         o = O[t]; pa = poss(a); po = poss(o)
@@ -185,6 +189,10 @@ def build(season, prior_rows=None):
             v["adj_o"], v["adj_d"], v["adj_n"] = num(r["adjO"]), num(r["adjD"]), num(r.get("adjNet"))
         if r.get("projected") and r.get("ORtg") is not None:
             v["proj_o"], v["proj_d"], v["proj_n"], v["proj_t"] = num(r["ORtg"]), num(r["DRtg"]), num(r.get("net")), num(r.get("tempo"))
+        x = LIVE.get(t)
+        if x:
+            v["ortg"], v["drtg"], v["net"] = x["ro"], x["rd"], x["ro"] - x["rd"]
+            v["adj_o"], v["adj_d"], v["adj_n"] = x["o"], x["d"], x["o"] - x["d"]
         V[t] = v
     if not V:
         print(f"{season}: no games yet, skipped"); return None

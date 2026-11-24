@@ -2181,7 +2181,7 @@ function _ixApplyMode(){ const on=curSeason===2027&&window.TDCReal; const lab=do
     if(!t._rb){ const L=TDCReal.team(t.name), R=TDCReal.teamRaw&&TDCReal.teamRaw(t.name), a=R&&R.adj, sg=_ixSG27&&_ixSG27[(t.name||'').toLowerCase().trim()];
       const efg=R&&R.fga>0?100*(R.fgm+0.5*R.tpm)/R.fga:null, lq=sg&&sg.off?sg.off.lq:null;
       t._rb=L?{ppg:L.ppg,oppg:L.opp_ppg,fg:L.fg_pct,tp:L.tp_pct,ft:L.ft_pct,rpg:L.rpg,apg:L.apg,topg:L.tovs,spg:L.stl,bpg:L.blk,orpg:L.oreb,drpg:L.dreb,ato:L.tovs>0?Math.round(L.apg/L.tovs*10)/10:0,
-        ortg:a?a.o:null, drtg:a?a.d:null, net:a?Math.round((a.o-a.d)*10)/10:null,
+        _raw:a?{ortg:a.ro,drtg:a.rd,net:Math.round((a.ro-a.rd)*10)/10}:null, ortg:a?a.o:null, drtg:a?a.d:null, net:a?Math.round((a.o-a.d)*10)/10:null,
         shotluck:(()=>{ const k=_ixLUCK&&_ixLUCK[(t.name||'').toLowerCase().trim()]; return k&&k.g?k.pg:null; })(),
         sglq:lq, sgsm:sg&&sg.off?sg.off.smAdj:null, sgcr:sg&&sg.crAdjPg!=null?sg.crAdjPg:null}:{}; }
     const B=real?t._rb:t._pb; F.forEach(k=>{ t[k]=NUL[k]?(B[k]!=null?B[k]:null):(B[k]||0); }); });
@@ -2192,9 +2192,11 @@ function _ixApplyMode(){ const on=curSeason===2027&&window.TDCReal; const lab=do
       sglq:'Look Quality, 2026-27 so far: the eFG% an average D-I shooter would post on this team\'s real shot diet.',
       sgsm:'Shot-Making, 2026-27 so far: points added over an average shooter on these looks, per 100 shots, adjusted for competition.',
       sgcr:'Creation, 2026-27 so far: expected points the team\'s passing generates per game.',
-      ortg:'Offensive rating, 2026-27 so far: points per 100 possessions, adjusted for opponent and venue (preseason counted as 8 games).',
-      drtg:'Defensive rating, 2026-27 so far: points allowed per 100 possessions, adjusted for opponent and venue.',
-      net:'Net rating, 2026-27 so far: ORtg minus DRtg, adjusted.'})[k]||_IX_TIPS[k]:_IX_TIPS[k]); }); }
+      ortg:'Adjusted offensive rating, 2026-27 so far: points per 100 possessions, corrected for opponent and venue (preseason counted as 8 games). Hover a team for its raw number.',
+      drtg:'Adjusted defensive rating, 2026-27 so far: points allowed per 100 possessions, corrected for opponent and venue. Hover a team for its raw number.',
+      net:'Adjusted net rating, 2026-27 so far: adjusted ORtg minus adjusted DRtg.'})[k]||_IX_TIPS[k]:_IX_TIPS[k]);
+    // the label says which kind of number it is (owner, Nov 24 2026: show adjusted and raw and tell them apart)
+    const nm={ortg:'ORtg',drtg:'DRtg',net:'Net'}[k], tn=nm&&th.firstChild&&th.firstChild.nodeType===3?th.firstChild:null; if(tn) tn.nodeValue=real?'Adj '+nm:nm; }); }
 if(window.TDCReal){ TDCReal.ready.then(()=>{ TDCReal.control(document.getElementById('statModeHost')); if(allTeams.length) applyFilters(); });
   window.addEventListener('tdc:statmode',()=>{ if(allTeams.length) applyFilters(); }); }
 function applyFilters(animated){
@@ -2389,6 +2391,9 @@ function _liveRerank(){
   window._ixPlayed=true;
   return true;
 }
+// hover on an adjusted ORtg / DRtg / Net: the raw number, as played
+function _rawTip(t,k){ const r=curSeason===2027&&window.TDCReal&&TDCReal.isReal()&&t._rb&&t._rb._raw; if(!r||r[k]==null||t[k]==null) return '';
+  const f=x=>k==='net'?(x>0?'+':'')+x.toFixed(1):x.toFixed(1); return ` title="Adjusted ${f(t[k])} (opponents, venue, preseason as 8 games) · raw ${f(r[k])} as played"`; }
 function renderRows(data, srt, favTeam){
   window._lastRows=[data, srt, favTeam];
   applyRankColumns();
@@ -2416,7 +2421,7 @@ function renderRows(data, srt, favTeam){
       if(col && !RC[col]) return;
       const cls=[k==='wins'?'c':'', k==='srs'?'big':'', dir&&heat[k]?heat[k](_heatVal(t,k)):''].filter(Boolean).join(' ');
       const rk = ord[k] ? ord[k](_heatVal(t,k)) : null;
-      row += `<td${cls?` class="${cls}"`:''}${k==='wins'?rec:k==='srs'?_ratingTip(t):''}>${f(t)}${rk!=null?`<span class="ix-rk" title="#${rk} in D-I">${rk}</span>`:''}</td>`;
+      row += `<td${cls?` class="${cls}"`:''}${k==='wins'?rec:k==='srs'?_ratingTip(t):_rawTip(t,k)}>${f(t)}${rk!=null?`<span class="ix-rk" title="#${rk} in D-I">${rk}</span>`:''}</td>`;
     });
     html += row + '</tr>';
   });

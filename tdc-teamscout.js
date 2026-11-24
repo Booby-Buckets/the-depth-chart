@@ -21,6 +21,8 @@
     '.ts-tbl th.l,.ts-tbl td.l{text-align:left!important;white-space:normal;}' +
     '.ts-tbl th:first-child{width:36%;}.ts-tbl th:last-child{width:15%;}' +
     '.ts-tbl td.sec{font-size:10px!important;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);background:var(--bg2)!important;text-align:left!important;}' +
+    '.ts-tbl td.key{font-size:11px!important;font-weight:500;line-height:1.4;color:var(--text3);padding-top:6px!important;padding-bottom:6px!important;}.ts-tbl td.key b{color:var(--text2);font-weight:700;}' +
+    '.ts-tbl td.l .ht{text-decoration:underline dotted;text-decoration-color:var(--text3);text-underline-offset:3px;}' +
     '.ts-tbl td b{font-weight:800;}.ts-tbl td .rk{font-size:10.5px;font-weight:600;color:var(--text3);margin-left:5px;}' +
     '.ts-tbl td.c3 .rk,.ts-tbl td.c4 .rk,.ts-tbl td.c0 .rk,.ts-tbl td.c1 .rk{color:inherit;opacity:.7;}' +
     '.ts-tbl td.av{color:var(--text3);}' +
@@ -47,17 +49,18 @@
   // [label, offense key, defense key, format, D-I average key, tooltip]; defense null = one value across both columns
   var SECTIONS = [
     ['Efficiency', [
-      ['Adj. efficiency', 'adj_o', 'adj_d', P1, 'adj_o', 'Points per 100 possessions, adjusted for the schedule. Lower is better on defense.'],
-      ['Efficiency', 'ortg', 'drtg', P1, 'ortg', 'Points scored and allowed per 100 possessions in games against D-I teams, not adjusted for the schedule.'],
-      ['Projected efficiency', 'proj_o', 'proj_d', P1, 'proj_o', 'Our projection for this season: points per 100 possessions.'],
-      ['Tempo', 'tempo', null, P1, 'tempo', 'Possessions per 40 minutes. Style: neither good nor bad.', 1]]],
+      ['Adjusted', 'adj_o', 'adj_d', P1, 'adj_o', 'Points per 100 possessions, adjusted for the opponents and the venue. Lower is better on defense. The same numbers as the rankings page.'],
+      ['Raw', 'ortg', 'drtg', P1, 'ortg', 'Points scored and allowed per 100 possessions exactly as played. Nothing is adjusted.'],
+      ['Projected', 'proj_o', 'proj_d', P1, 'proj_o', 'Our projection for this season: points per 100 possessions.'],
+      ['Tempo', 'tempo', null, P1, 'tempo', 'Possessions per 40 minutes. Style: neither good nor bad.', 1]],
+      function (t) { return (t.adj_o ? '<b>Adjusted</b> corrects for opponents and venue' + (t.proj_o ? ', with our projection counted as 8 games (the rankings page number)' : '') + '. ' : '') + '<b>Raw</b> is what happened in the games.' + (t.proj_o ? ' <b>Projected</b> is our roster forecast, not results.' : ''); }],
     ['Four factors', [
       ['Effective FG%', 'o_efg', 'd_efg', P1, 'o_efg', 'FG% with threes worth 1.5 makes.'],
       ['Turnover %', 'o_tov', 'd_tov', P1, 'o_tov', 'Turnovers per 100 possessions. On defense, higher is better.'],
       ['Off. rebound %', 'o_orb', 'd_orb', P1, 'o_orb', 'Share of a team’s own misses it rebounds. On defense, what opponents get back.'],
       ['FTA / FGA', 'o_ftr', 'd_ftr', P1, 'o_ftr', 'Free-throw attempts per 100 shots.']]],
     ['Shooting and defense', [
-      ['3P%', 'o_tp', 'd_tp', P1, 'o_tp'], ['2P%', 'o_two', 'd_two', P1, 'o_two'], ['FT%', 'o_ft', 'd_ft', P1, 'o_ft'],
+      ['3P%', 'o_tp', 'd_tp', P1, 'o_tp', 'Share of threes made. Defense: what opponents shoot from three.'], ['2P%', 'o_two', 'd_two', P1, 'o_two', 'Share of two-pointers made. Defense: what opponents shoot on twos.'], ['FT%', 'o_ft', 'd_ft', P1, 'o_ft', 'Share of free throws made. Defense: what opponents shoot at the line, which the defense does not control.'],
       ['Block %', 'o_blk', 'd_blk', P1, 'o_blk', 'Share of 2-point tries blocked. Offense: how often it gets blocked. Defense: how often it blocks.'],
       ['Steal %', 'o_stl', 'd_stl', P1, 'o_stl', 'Steals per 100 possessions. Offense: how often it gets stolen from.'],
       ['Non-steal TO %', 'o_nst', 'd_nst', P1, 'o_nst', 'Turnovers per 100 possessions that weren’t steals.']]],
@@ -65,11 +68,12 @@
       ['3PA / FGA', 'o_tpar', 'd_tpar', P1, 'o_tpar', 'Share of shots from three.'],
       ['Assists / FGM', 'o_astr', 'd_astr', P1, 'o_astr', 'Share of made shots that were assisted.']]],
     ['Where the points come from', [
-      ['3-pointers', 'o_p3', 'd_p3', PC, 'o_p3'], ['2-pointers', 'o_p2', 'd_p2', PC, 'o_p2'], ['Free throws', 'o_pf', 'd_pf', PC, 'o_pf']]],
+      ['3-pointers', 'o_p3', 'd_p3', PC, 'o_p3', 'Share of all points that come from threes. Defense: share of opponents’ points. Style, not good or bad.'], ['2-pointers', 'o_p2', 'd_p2', PC, 'o_p2', 'Share of all points that come from twos. Style, not good or bad.'], ['Free throws', 'o_pf', 'd_pf', PC, 'o_pf', 'Share of all points that come from free throws. Style, not good or bad.']]],
     ['Strength of schedule', [
       ['Opponents', 'sos_o', 'sos_d', P1, 'sos_o', 'Offense column: the average defense it has faced. Defense column: the average offense it has faced.'],
       ['Overall', 'sos', null, SG, 'sos', 'Average net rating of its opponents so far.', 1],
-      ['Non-conference', 'ncsos', null, SG, 'ncsos', 'The same, for non-conference games.', 1]]],
+      ['Non-conference', 'ncsos', null, SG, 'ncsos', 'The same, for non-conference games.', 1]],
+      function (t) { return t.proj_o ? 'By opponents’ net efficiency. The <b>SOS</b> at the top of the page uses Power Rating.' : ''; }],
     ['Personnel', [
       ['Bench minutes', 'bench', null, PC, 'bench', 'Share of minutes played by non-starters. Style: neither good nor bad.', 1],
       ['Experience', 'exp', null, YR, 'exp', 'Minute-weighted years in college, from class year (freshman 0, senior 3, graduate 4).', 1],
@@ -82,19 +86,19 @@
     return p >= .8 ? 'c4' : p >= .6 ? 'c3' : p >= .4 ? 'c2' : p >= .2 ? 'c1' : 'c0';
   }
   var STYLE = { tempo: 1, o_tpar: 1, d_tpar: 1, o_astr: 1, d_astr: 1, o_p3: 1, d_p3: 1, o_p2: 1, d_p2: 1, o_pf: 1, d_pf: 1, bench: 1 };
-  function cell(t, k, f, n, span) {
+  function cell(t, k, f, n, span, tip) {
     var x = t[k];
     if (!x) return '<td class="av"' + (span ? ' colspan="2"' : '') + '>—</td>';
     var c = shade(x[1], n, STYLE[k]);
-    return '<td' + (c ? ' class="' + c + '"' : '') + (span ? ' colspan="2"' : '') + '><b>' + f(x[0]) + '</b><span class="rk">' + x[1] + '</span></td>';
+    return '<td title="' + esc((tip ? tip + ' ' : '') + '#' + x[1] + ' of ' + n + ' in D-I.') + '"' + (c ? ' class="' + c + '"' : '') + (span ? ' colspan="2"' : '') + '><b>' + f(x[0]) + '</b><span class="rk">' + x[1] + '</span></td>';
   }
   function sheet(D, t) {
     var body = SECTIONS.map(function (S) {
       var rows = S[1].filter(function (r) { return t[r[1]]; }); if (!rows.length) return '';
       return '<tr data-noheat><td class="sec" colspan="4">' + S[0] + '</td></tr>' + rows.map(function (r) {
         var av = D.avg[r[4]], tip = r[5] ? ' title="' + esc(r[5]) + '"' : '';
-        return '<tr><td class="l"' + tip + '>' + r[0] + '</td>' + (r[6] ? cell(t, r[1], r[3], D.n, 1) : cell(t, r[1], r[3], D.n) + cell(t, r[2], r[3], D.n)) + '<td class="av">' + (av == null ? '' : r[3](av)) + '</td></tr>';
-      }).join('');
+        return '<tr><td class="l"' + tip + '>' + (tip ? '<span class="ht">' + r[0] + '</span>' : r[0]) + '</td>' + (r[6] ? cell(t, r[1], r[3], D.n, 1, r[5]) : cell(t, r[1], r[3], D.n, 0, r[5]) + cell(t, r[2], r[3], D.n, 0, r[5])) + '<td class="av">' + (av == null ? '' : r[3](av)) + '</td></tr>';
+      }).join('') + (S[2] && S[2](t) ? '<tr data-noheat><td class="l key" colspan="4">' + S[2](t) + '</td></tr>' : '');
     }).join('');
     return '<div class="sheet-wrap" style="max-height:none;" data-fit-keep><table class="sheet dense ts-tbl"><thead><tr><th class="l">Category</th><th>Offense</th><th>Defense</th><th title="Division I average"><span class="ts-dp">D-I </span>avg</th></tr></thead><tbody>' + body + '</tbody></table></div>';
   }
