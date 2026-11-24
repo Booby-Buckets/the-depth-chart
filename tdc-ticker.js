@@ -90,9 +90,10 @@
   // loop. It stops while the pointer is over it, it has focus, or a finger/wheel is moving it, and picks up a few seconds
   // later from wherever it was left. Reduced-motion users get the plain scrollable strip. Re-renders (live scores every
   // 30 s) keep the position. "Reduce motion" users still get the ticker (the owner asked for one, and his own Mac has the
-  // setting on), at half speed; it always stops under the pointer, on focus and on touch.
-  var reduce = false; try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
-  var SPEED = reduce ? 75 : 80;   // px per second (owner, Nov 22 2026: 34 too slow, 60 still slow, 110 too fast; his Mac has reduce-motion on)
+  // setting on); it always stops under the pointer, on focus and on touch.
+  // px per second (owner, Nov 24 2026: 75-80 still too fast; narrower cards on phones, so slower there). Reduce-motion no longer
+  // changes it: the two settings were only 5 px/s apart.
+  var SPEED = window.innerWidth <= 640 ? 36 : 48;
   function render(host, games) {
     var from = etDate(-2), list = games.filter(function (e) { return e.d >= from; });
     if (!list.length) { host.innerHTML = '<div class="tdt-none">No games on the slate yet</div>'; return; }
