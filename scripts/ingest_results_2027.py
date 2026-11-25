@@ -10,7 +10,7 @@ is updated from how it has actually played.
   python3 scripts/ingest_results_2027.py              # yesterday + today (ET), the nightly default
   python3 scripts/ingest_results_2027.py --days 7     # the last week (catch up after a missed run)
   python3 scripts/ingest_results_2027.py --all        # the whole season so far
-  … --rebox 10       # also re-read box scores already loaded: every game of the last 10 days + every counted fantasy game
+  … --rebox counted  # also re-read box scores already loaded: the counted fantasy games only (owner, Nov 25 2026)
   … --rebox all      # re-read every box score of the season
   … --rebox games:401909492,401909738   # re-read only these games
 
@@ -127,11 +127,12 @@ def to_rebox(games, T, boxed, arg, today):
     if arg.startswith("games:"):
         want = {int(x) for x in arg[6:].split(",") if x.strip().isdigit()}
         return [{"id": g[0], "date": g[1]} for g in games if g[0] in boxed and g[0] in want]
-    cut = FIRST.isoformat() if arg == "all" else (today - timedelta(days=int(arg))).isoformat()
+    if arg == "all": return [{"id": g[0], "date": g[1]} for g in games if g[0] in boxed]
+    if arg != "counted": raise SystemExit(f"--rebox {arg}? (counted, all or games:id,id)")
     counted = set()
     try: counted = {int(g["id"]) for L in json.loads((DATA / "fantasy_counting_2027.json").read_text())["teams"].values() for g in L}
     except Exception as e: print("  counted games:", e)
-    return [{"id": g[0], "date": g[1]} for g in games if g[0] in boxed and (g[1] >= cut or g[0] in counted)]
+    return [{"id": g[0], "date": g[1]} for g in games if g[0] in boxed and g[0] in counted]
 
 
 def upsert(table, rows, conflict):

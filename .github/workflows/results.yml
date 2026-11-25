@@ -49,8 +49,8 @@ jobs:
           D="${{ github.event.inputs.days }}"
           if [ "${{ github.event.schedule }}" = "0 17 * * *" ]; then D=3; fi
           case "${{ github.event.schedule }}" in "*/20 "*) D=2;; esac     # game-hour runs: today + yesterday (games past midnight)
-          # noon sweep (and a manual "all"): read loaded box scores again — ESPN corrects lines for days (Nov 25 2026)
-          R=""; if [ "${{ github.event.schedule }}" = "0 17 * * *" ]; then R="--rebox 10"; fi
+          # noon sweep: read the counted fantasy games' box scores again (manual "all": every game) — ESPN corrects lines for days (Nov 25 2026)
+          R=""; if [ "${{ github.event.schedule }}" = "0 17 * * *" ]; then R="--rebox counted"; fi
           if [ "$D" = "all" ]; then python3 scripts/ingest_results_2027.py --all --rebox all
           elif [ "${D#games:}" != "$D" ]; then python3 scripts/ingest_results_2027.py --days 1 --rebox "$D"   # only these game ids
           else python3 scripts/ingest_results_2027.py --days "${D:-2}" $R; fi
