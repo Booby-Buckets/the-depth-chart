@@ -49,8 +49,10 @@ jobs:
           D="${{ github.event.inputs.days }}"
           if [ "${{ github.event.schedule }}" = "0 17 * * *" ]; then D=3; fi
           case "${{ github.event.schedule }}" in "*/20 "*) D=2;; esac     # game-hour runs: today + yesterday (games past midnight)
-          if [ "$D" = "all" ]; then python3 scripts/ingest_results_2027.py --all
-          else python3 scripts/ingest_results_2027.py --days "${D:-2}"; fi
+          # noon sweep (and a manual "all"): read loaded box scores again — ESPN corrects lines for days (Nov 25 2026)
+          R=""; if [ "${{ github.event.schedule }}" = "0 17 * * *" ]; then R="--rebox 10"; fi
+          if [ "$D" = "all" ]; then python3 scripts/ingest_results_2027.py --all --rebox all
+          else python3 scripts/ingest_results_2027.py --days "${D:-2}" $R; fi
           python3 scripts/build_ticker.py || echo "::warning::build_ticker failed"   # the scores strip on every page
       # shot locations (x/y) for the shot charts: every final game of the last 3 days, re-scraped and upserted (idempotent),
       # on the three daily sweeps only — not the every-20-minute game-hour runs. Off-season: 0 games, a few seconds.

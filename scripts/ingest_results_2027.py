@@ -10,6 +10,8 @@ is updated from how it has actually played.
   python3 scripts/ingest_results_2027.py              # yesterday + today (ET), the nightly default
   python3 scripts/ingest_results_2027.py --days 7     # the last week (catch up after a missed run)
   python3 scripts/ingest_results_2027.py --all        # the whole season so far
+  … --rebox 10       # also re-read box scores already loaded: every game of the last 10 days + every counted fantasy game
+  … --rebox all      # re-read every box score of the season
 
 With SUPABASE_SERVICE_KEY set it also upserts the `games` rows (scores + status, season_year 2027) and
 the player box scores of every newly final game into `box_scores` (fantasy stats, player pages). Without
@@ -108,6 +110,26 @@ def parse_box(g):
     return rows
 
 
+BOX_COLS = ["game_id", "season_year", "date", "team", "opp", "player", "espn_id", "starter", *SINGLE.values(), *(c for p in PAIRS.values() for c in p)]
+
+
+def whole(rows):
+    """both teams' lines are in. ESPN can mark a game final before its box is posted (or with one side): those are tried
+    again on later runs. Nov 25 2026: an empty box used to be marked done for good (Kansas State-Creighton, 11/10)."""
+    return bool(rows) and len({r["team"] for r in rows}) == 2 and all(
+        sum(1 for r in rows if r["team"] == t) >= 5 for t in {r["team"] for r in rows})
+
+
+def to_rebox(games, T, boxed, arg, today):
+    """finished games already loaded whose box should be read again: ESPN corrects lines for days afterwards"""
+    if not arg: return []
+    cut = FIRST.isoformat() if arg == "all" else (today - timedelta(days=int(arg))).isoformat()
+    counted = set()
+    try: counted = {int(g["id"]) for L in json.loads((DATA / "fantasy_counting_2027.json").read_text())["teams"].values() for g in L}
+    except Exception as e: print("  counted games:", e)
+    return [{"id": g[0], "date": g[1]} for g in games if g[0] in boxed and (g[1] >= cut or g[0] in counted)]
+
+
 def upsert(table, rows, conflict):
     if not KEY or not rows: return 0
     H = {"apikey": KEY, "Authorization": f"Bearer {KEY}", "Content-Type": "application/json",
@@ -155,12 +177,18 @@ def main():
     # database: every listed game's status/score, then box scores for finals not yet boxed
     if KEY:
         print(f"  games upserted: {upsert('games', [{k: v for k, v in g.items() if k not in ('final', 'ot')} for g in rows], 'id')}")
-        todo = [g for g in finals if g["id"] not in boxed]
-        with ThreadPoolExecutor(6) as ex: boxes = list(ex.map(parse_box, todo))
-        brows = [r for b in boxes if b for r in b]
+        # every finished game still without a full box, whatever its date, then the re-read
+        todo = [{"id": g[0], "date": g[1]} for g in games if g[0] not in boxed]
+        again = to_rebox(games, T, boxed, sys.argv[sys.argv.index("--rebox") + 1] if "--rebox" in sys.argv else None, today)
+        with ThreadPoolExecutor(6) as ex: boxes = list(ex.map(parse_box, todo + again))
+        keep = [b for i, b in enumerate(boxes) if b and (i < len(todo) or whole(b))]   # a re-read only replaces with a full box
+        brows = [{c: r.get(c) for c in BOX_COLS} for b in keep for r in b]
         n = upsert("box_scores", brows, "game_id,espn_id")
-        if n == len(brows): boxed |= {g["id"] for g, b in zip(todo, boxes) if b is not None}
-        print(f"  box scores: {len(todo)} new finals → {n} player rows")
+        if n == len(brows): boxed |= {g["id"] for g, b in zip(todo, boxes) if whole(b)}
+        # a re-read game that has no box at all goes back on the list
+        short = [g["id"] for g, b in zip(todo + again, boxes) if not whole(b)]
+        boxed -= {g["id"] for g, b in zip(again, boxes[len(todo):]) if b == []}
+        print(f"  box scores: {len(todo)} new finals + {len(again)} re-read → {n} player rows" + (f" · {len(short)} without a full box yet: {short[:12]}" if short else ""))
     else:
         print("  SUPABASE_SERVICE_KEY not set — results file only (no games / box_scores upload)")
     # overtime games feed the site-wide OT label (data/game_ot.json, every season)
