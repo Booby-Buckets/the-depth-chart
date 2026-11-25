@@ -12,6 +12,7 @@ is updated from how it has actually played.
   python3 scripts/ingest_results_2027.py --all        # the whole season so far
   … --rebox 10       # also re-read box scores already loaded: every game of the last 10 days + every counted fantasy game
   … --rebox all      # re-read every box score of the season
+  … --rebox games:401909492,401909738   # re-read only these games
 
 With SUPABASE_SERVICE_KEY set it also upserts the `games` rows (scores + status, season_year 2027) and
 the player box scores of every newly final game into `box_scores` (fantasy stats, player pages). Without
@@ -123,6 +124,9 @@ def whole(rows):
 def to_rebox(games, T, boxed, arg, today):
     """finished games already loaded whose box should be read again: ESPN corrects lines for days afterwards"""
     if not arg: return []
+    if arg.startswith("games:"):
+        want = {int(x) for x in arg[6:].split(",") if x.strip().isdigit()}
+        return [{"id": g[0], "date": g[1]} for g in games if g[0] in boxed and g[0] in want]
     cut = FIRST.isoformat() if arg == "all" else (today - timedelta(days=int(arg))).isoformat()
     counted = set()
     try: counted = {int(g["id"]) for L in json.loads((DATA / "fantasy_counting_2027.json").read_text())["teams"].values() for g in L}

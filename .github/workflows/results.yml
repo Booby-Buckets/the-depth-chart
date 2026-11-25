@@ -20,7 +20,7 @@ on:
   workflow_dispatch:
     inputs:
       days:
-        description: 'days back to sweep (or "all")'
+        description: 'days back to sweep (or "all", or "games:id,id" to re-read only those box scores)'
         required: false
         default: '3'
 
@@ -52,6 +52,7 @@ jobs:
           # noon sweep (and a manual "all"): read loaded box scores again — ESPN corrects lines for days (Nov 25 2026)
           R=""; if [ "${{ github.event.schedule }}" = "0 17 * * *" ]; then R="--rebox 10"; fi
           if [ "$D" = "all" ]; then python3 scripts/ingest_results_2027.py --all --rebox all
+          elif [ "${D#games:}" != "$D" ]; then python3 scripts/ingest_results_2027.py --days 1 --rebox "$D"   # only these game ids
           else python3 scripts/ingest_results_2027.py --days "${D:-2}" $R; fi
           python3 scripts/build_ticker.py || echo "::warning::build_ticker failed"   # the scores strip on every page
       # shot locations (x/y) for the shot charts: every final game of the last 3 days, re-scraped and upserted (idempotent),
