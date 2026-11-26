@@ -27,9 +27,11 @@
 
   async function _fetchByEspn(ids){
     var need = ids.filter(function(id){ return _cache[id] === undefined; });
-    for(var i = 0; i < need.length; i += 100){
-      var chunk = need.slice(i, i + 100);
-      chunk.forEach(function(id){ _cache[id] = null; });   // mark attempted
+    var chunks = [];
+    for(var i = 0; i < need.length; i += 100) chunks.push(need.slice(i, i + 100));
+    need.forEach(function(id){ _cache[id] = null; });   // mark attempted
+    // six batches in flight at once (was one at a time: the rankings page waited ~25 s on 55 serial calls, Nov 25 2026)
+    async function one(chunk){
       try{
         var url = SB + '/rest/v1/player_history?espn_id=in.(' + chunk.join(',') +
                   ')&select=' + COLS + '&order=season_year.asc&limit=5000';
@@ -41,6 +43,9 @@
         });
       }catch(e){ /* leave as null */ }
     }
+    var next = 0;
+    async function worker(){ while(next < chunks.length) await one(chunks[next++]); }
+    await Promise.all([0, 1, 2, 3, 4, 5].map(worker));
   }
 
   // Enrich rows in place. Returns the rows.

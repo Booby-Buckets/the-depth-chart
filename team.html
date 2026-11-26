@@ -42,15 +42,13 @@
   <script src="tdc-histguard.js?v=2"></script>
   <script src="tdc-schedule.js?v=sp16"></script>
   <script src="tdc-resume.js?v=1"></script>
-  <script src="tdc-conftourney.js?v=6"></script>
-  <script src="tdc-postseason.js?v=fast1"></script>
   <script src="tdc-ot.js?v=1"></script>
   <script src="tdc-scrim.js?v=21"></script>
   <script src="tdc-gamehead.js?v=15"></script>
   <script src="tdc-preview.js?v=ui1"></script>
   <script src="tdc-reallines.js?v=7"></script>
   <script src="tdc-projgrade.js?v=disp1"></script>
-  <script src="tdc-realstats.js?v=2"></script>
+  <script src="tdc-realstats.js?v=3"></script>
   <script src="tdc-rating.js?v=fast1"></script>
   <script src="tdc-pool.js?v=5"></script>
   <script src="tdc-glossary.js?v=18"></script>
@@ -2438,13 +2436,15 @@ async function _projGradeTiles(rr){
 // projected seed = the team's line in the projected bracket (tdc-postseason.js pointBracket, the one bracket.html draws):
 // automatic bids, résumé at-larges, S-curve. Was ceil(rank/4), which ignored the ~30 automatic bids that fill the low
 // lines — No. 64 Notre Dame read "16 seed" while the bracket had them outside the field (owner, Nov 18 2026)
+// Read from scripts/data/projected_seeds_2027.json, written nightly by scripts/snapshot_markets.mjs from that same
+// simulation: running it here cost ~9 s of main thread on every team page (Nov 25 2026 speed pass)
 let _projSeedMemo=null;
 async function _projSeed(full){
-  if(!window.TDCPost||!full) return null;
+  if(!full) return null;
   try{
-    const B=await (_projSeedMemo=_projSeedMemo||TDCPost.pointBracket()); if(!B) return null;
-    const e=B.entries.find(x=>x.t.some(y=>y.team===full)), P=B.P.byTeam[full];
-    return { seed:e?e.seed:null, ff:!!(e&&e.ff), firstOut:B.firstOut.some(y=>y.team===full), odds:P?P.ncaa:null };
+    const D=await (_projSeedMemo=_projSeedMemo||fetch('scripts/data/projected_seeds_2027.json').then(r=>r.ok?r.json():null).catch(()=>null)); if(!D) return null;
+    const s=D.seeds&&D.seeds[full], o=D.ncaa&&D.ncaa[full];
+    return { seed:s?s[0]:null, ff:!!(s&&s[1]), firstOut:(D.first_out||[]).includes(full), odds:o!=null?o/1000:0 };
   }catch(e){ return null; }
 }
 async function _ratingsRow(t){

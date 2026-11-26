@@ -1,7 +1,8 @@
 // Daily price snapshot for the Betting Lab's Markets tab (tdc-markets.js): runs the same season + tournament
 // simulation the page runs (TDCPost.run, tdc-postseason.js on top of tdc-schedule / tdc-conftourney / tdc-ratings),
 // in headless Chrome against a static server on the repo root, and appends today's prices to
-// scripts/data/market_history_2027.json so the cards can draw Kalshi-style price lines.
+// scripts/data/market_history_2027.json so the cards can draw Kalshi-style price lines. Also writes
+// scripts/data/projected_seeds_2027.json (the projected bracket's seed lines, read by the team page header).
 //
 // File shape (compact on purpose — one row a day for a whole season):
 //   { season, note, teams:[full name…], days:{ 'YYYY-MM-DD': { sims, champ:[[i,p1000]…], f4, one, ncaa,
@@ -47,10 +48,18 @@ try {
     const conf = {}, ct = {};
     Object.keys(r.CT).forEach(c => { const C = r.CT[c]; if (!C || !C.teams) return;
       conf[c] = C.teams.map(t => [t.team, t.title || 0]); ct[c] = C.teams.map(t => [t.team, t.champ || 0]); });
-    return { sims: r.sims, teams, conf, ct };
+    // the projected bracket's seed lines (the team page reads these instead of running the simulation itself)
+    const B = await window.TDCPost.pointBracket(), seeds = {};
+    if (B) B.entries.forEach(e => e.t.forEach(t => { seeds[t.team] = e.ff ? [e.seed, 1] : [e.seed]; }));
+    const ncaa = {}; r.teams.forEach(t => { if ((t.ncaa || 0) >= 0.01) ncaa[t.team] = Math.round(t.ncaa * 1000); });
+    return { sims: r.sims, teams, conf, ct, seeds, firstOut: B ? B.firstOut.map(t => t.team) : [], ncaa };
   }, SIMS);
 } finally { await browser.close(); }
 if (!res || !res.teams || res.teams.length < 300) { console.error('simulation came back empty or short — not writing'); process.exit(1); }
+
+// projected seeds for the team-page header (team.html): seed line (+1 = Opening Round), first eight out, NCAA odds x 1000
+if (Object.keys(res.seeds || {}).length >= 64)
+  fs.writeFileSync(path.join(ROOT, 'scripts/data/projected_seeds_2027.json'), JSON.stringify({ day: DAY, sims: res.sims, seeds: res.seeds, first_out: res.firstOut, ncaa: res.ncaa }));
 
 const H = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, 'utf8')) : { season: '2027', teams: [], days: {} };
 H.note = 'Daily Markets prices (scripts/snapshot_markets.mjs): [team index, chance x 1000]; small chances dropped.';

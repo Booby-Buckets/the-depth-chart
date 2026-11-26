@@ -28,41 +28,46 @@
     for (const n of el.childNodes) if (n.nodeType === 3 && n.textContent.trim()) return true;
     return false;
   }
-  function fix(el) {
+  // READS here, writes queued in W and applied after the whole batch is read (Nov 25 2026): writing a style and
+  // then reading the next element's computed style forced a full style recalc per element — 22 s of main thread
+  // on the team page on a phone
+  function fix(el, W) {
+    const set = (k, v) => W.push([el, k, v]);
     if (done.has(el)) return;
     done.add(el);
     if (el.closest('svg,[data-type-keep],.tdn-wrap,canvas,code,pre')) return;
     const tag = el.tagName;
     if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') {
-      el.style.setProperty('font-size', '16px', 'important');
-      el.style.setProperty('font-family', "'Inter', system-ui, sans-serif", 'important');
+      set('font-size', '16px');
+      set('font-family', "'Inter', system-ui, sans-serif");
       return;
     }
-    if (el.classList && el.classList.contains('sheet-wrap')) flattenTable(el);
+    if (tag === 'OPTION' || tag === 'OPTGROUP') return;   // inherit the select's 16px (the native picker draws them anyway)
+    if (el.classList && el.classList.contains('sheet-wrap')) flattenTable(el, W);
     if (!hasOwnText(el)) return;
     // hidden text (closed tabs, menus) is styled too: it was being marked done unstyled and never revisited
     const cs = getComputedStyle(el);
     const size = parseFloat(cs.fontSize) || 15;
     const to = snapSize(size);
-    if (Math.abs(to - size) > 0.2) el.style.setProperty('font-size', to + 'px', 'important');
+    if (Math.abs(to - size) > 0.2) set('font-size', to + 'px');
     const w = parseInt(cs.fontWeight, 10) || 400;
     const tw = snapWeight(w);
-    if (tw !== w && w >= 450) el.style.setProperty('font-weight', String(tw), 'important');
+    if (tw !== w && w >= 450) set('font-weight', String(tw));
     const fam = cs.fontFamily.split(',')[0].replace(/["']/g, '').trim().toLowerCase();
     const text = el.textContent.trim();
     const isSerif = SERIF.test(fam) || fam.includes('playfair');
     // serif = headings only: every page title (H1) is Playfair, section headings keep it if they had it,
     // and nothing else is (tile values like "Duke" / "Elite Eight" were serif next to sans neighbours)
     if (tag === 'H1' && !NUMERIC.test(text)) {
-      if (!fam.includes('playfair')) el.style.setProperty('font-family', "'Playfair Display', Georgia, serif", 'important');
+      if (!fam.includes('playfair')) set('font-family', "'Playfair Display', Georgia, serif");
       return;
     }
     const keepSerif = isSerif && !NUMERIC.test(text) && HEADING.test(tag);
     if (!keepSerif && fam !== 'inter') {
-      el.style.setProperty('font-family', "'Inter', system-ui, sans-serif", 'important');
-      if (NUMERIC.test(text)) el.style.setProperty('font-variant-numeric', 'tabular-nums', 'important');
+      set('font-family', "'Inter', system-ui, sans-serif");
+      if (NUMERIC.test(text)) set('font-variant-numeric', 'tabular-nums');
     }
-    if (cs.textTransform === 'uppercase') el.style.setProperty('letter-spacing', '.05em', 'important');
+    if (cs.textTransform === 'uppercase') set('letter-spacing', '.05em');
   }
   // A bordered table box inside a padded, bordered card reads as box-in-a-box on a phone and costs the
   // table ~30px of width: run it edge to edge inside the card instead (top/bottom rules stay).
@@ -70,26 +75,27 @@
     const c = getComputedStyle(e);
     return parseFloat(c.borderLeftWidth) > 0 && parseFloat(c.borderRightWidth) > 0 && parseFloat(c.paddingLeft) >= 8;
   }
-  function flattenTable(el) {
+  function flattenTable(el, W) {
     let p = el.parentElement;
     for (let i = 0; p && p !== document.body && i < 6; i++, p = p.parentElement) {
       if (boxed(p)) {
         const cs = getComputedStyle(p), pl = parseFloat(cs.paddingLeft), pr = parseFloat(cs.paddingRight);
-        el.style.setProperty('margin-left', -pl + 'px', 'important');
-        el.style.setProperty('margin-right', -pr + 'px', 'important');
-        el.style.setProperty('border-left-width', '0', 'important');
-        el.style.setProperty('border-right-width', '0', 'important');
-        el.style.setProperty('border-radius', '0', 'important');
+        W.push([el, 'margin-left', -pl + 'px']);
+        W.push([el, 'margin-right', -pr + 'px']);
+        W.push([el, 'border-left-width', '0']);
+        W.push([el, 'border-right-width', '0']);
+        W.push([el, 'border-radius', '0']);
         return;
       }
     }
   }
-  function walk(root) {
+  function walk(root, W) {
     if (root.nodeType !== 1) return;
-    fix(root);
+    fix(root, W);
     const all = root.getElementsByTagName('*');
-    for (let i = 0; i < all.length; i++) fix(all[i]);
+    for (let i = 0; i < all.length; i++) fix(all[i], W);
   }
+  function apply(W) { for (const [el, k, v] of W) el.style.setProperty(k, v, 'important'); }
 
   // Rows of pill buttons (seasons, "rank by", conference filters, difficulty...) that wrap onto 3+ lines
   // on a phone become ONE swipe row with a right-edge fade, the selected pill scrolled into view.
@@ -241,7 +247,10 @@
     const list = pending; pending = [];
     // schedule the refit first: one element that throws while being styled must not leave a redrawn table unfitted
     if (list.some(n => n.isConnected && !(n.classList && n.classList.contains('tdc-fitbar')))) scheduleFit();
-    for (const n of list) if (n.isConnected) { try { walk(n); scanRows(n.parentElement || n); } catch (e) {} }
+    const W = [];
+    for (const n of list) if (n.isConnected) { try { walk(n, W); } catch (e) {} }
+    apply(W);
+    for (const n of list) if (n.isConnected) { try { scanRows(n.parentElement || n); } catch (e) {} }
   }
   function start() {
     if (!mq.matches) return;
@@ -252,7 +261,7 @@
     document.addEventListener('click', () => scheduleFit(400), true);
     window.addEventListener('resize', () => scheduleFit(200));
     window.addEventListener('load', () => scheduleFit());
-    walk(document.body);
+    const W = []; walk(document.body, W); apply(W);
     scanRows(document.body);
     new MutationObserver(muts => {
       for (const m of muts) {

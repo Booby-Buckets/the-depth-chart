@@ -216,7 +216,7 @@
     }
     // phones: one type system across every page (tdc-mobile.js; desktop untouched)
     if (window.matchMedia && window.matchMedia('(max-width: 640px)').matches && !document.getElementById('tdc-mobile-js')) {
-      var mj = document.createElement('script'); mj.id = 'tdc-mobile-js'; mj.src = 'tdc-mobile.js?v=23'; document.head.appendChild(mj);
+      var mj = document.createElement('script'); mj.id = 'tdc-mobile-js'; mj.src = 'tdc-mobile.js?v=24'; document.head.appendChild(mj);
     }
   }
 
