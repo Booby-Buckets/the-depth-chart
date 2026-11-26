@@ -22,7 +22,9 @@
   // new visit opens on Real. The old saved choice is cleared.
   try { localStorage.removeItem(KEY); } catch (e) {}
   try { var saved = sessionStorage.getItem(KEY); if (saved === 'proj' || saved === 'real') MODE = saved; } catch (e) {}
-  var ready = fetch('scripts/data/real_lines_2027.json?h=' + Math.floor(Date.now() / 36e5))
+  // plain URL (Nov 25 2026): GitHub Pages serves it with max-age=600 + an ETag, so the browser re-checks every 10 min and
+  // gets a tiny 304 when nothing changed. The old ?h=<hour> stamp forced a full 380 KB download every hour instead.
+  var ready = fetch('scripts/data/real_lines_2027.json')
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (j) { DOC = j; return j; })
     .catch(function () { return null; });
@@ -93,7 +95,7 @@
   }
   var OH = null, ohP = null;
   function ovrReady() {
-    if (!ohP) ohP = fetch('scripts/data/ovr_history_2027.json?h=' + Math.floor(Date.now() / 36e5)).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { OH = j; return j; }).catch(function () { return null; });
+    if (!ohP) ohP = fetch('scripts/data/ovr_history_2027.json').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { OH = j; return j; }).catch(function () { return null; });
     return ohP;
   }
   function ovrMove(p) {

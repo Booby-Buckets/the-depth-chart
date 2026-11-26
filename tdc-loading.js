@@ -132,6 +132,7 @@
 
   var nativeFetch = window.fetch, DEDUPE = {};
   if (typeof nativeFetch === 'function') {
+    window.__tdcDataShim = 1;   // auth.js's copy of the data-host shortcut stands down (this wrapper does it, and dedupes)
     var fetched = 0, firstT = null, p0 = false;
     window.fetch = function () {
       inflight++; fetched++; clearTimeout(firstT); update();

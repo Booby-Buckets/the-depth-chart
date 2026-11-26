@@ -8,6 +8,25 @@
    └──────────────────────────────────────────────────────────────────────┘ */
 window.TDC_PAYWALL_ENABLED = false;
 
+/* Data host: the live site 307-redirects /scripts/data, /data, /nba and /nil-data.json to GitHub Pages (vercel.json)
+ * and a redirect can't be cached, so each data file cost an extra round trip. tdc-loading.js asks GitHub Pages
+ * directly; pages without it (the bet site, social.html) get the same shortcut here. Change the host in both places. */
+(function () {
+  if (window.__tdcDataShim || typeof window.fetch !== 'function' || !/(^|\.)thedepthchartcbb\.com$/i.test(location.hostname)) return;
+  window.__tdcDataShim = 1;
+  var nf = window.fetch;
+  window.fetch = function (a0) {
+    try {
+      if (typeof a0 === 'string') {
+        var u = new URL(a0, location.href);
+        if (u.origin === location.origin && /^\/(scripts\/data|data|nba)\/|^\/nil-data\.json$/.test(u.pathname))
+          arguments[0] = 'https://booby-buckets.github.io/the-depth-chart' + u.pathname + u.search;
+      }
+    } catch (e) {}
+    return nf.apply(this, arguments);
+  };
+})();
+
 /* Shared auth bootstrap — keeps users signed in by refreshing the Supabase JWT.
  *
  * The app stores the full Supabase session in localStorage.tdc_session, but the

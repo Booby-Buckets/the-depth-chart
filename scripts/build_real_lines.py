@@ -165,6 +165,16 @@ def main():
         print(f"warn: no team names from the rankings ({e}), keeping the last list")
     try: out["alias"] = json.load(open(names_fp))
     except Exception: out["alias"] = {}
+    # page weight (Nov 25 2026): ~40% of player rows were non-D-I opponents' players, which no page looks up. Keep a player
+    # whose team is a known D-I name (the rankings' full names, the conference members file) or has 4+ games in the file,
+    # so a D-I team spelled differently (St. Thomas, West Florida) still keeps its players. Team totals all stay.
+    if out["alias"]:
+        d1 = set(out["alias"].values())
+        try: d1 |= set(json.load(open(os.path.join(a.out, f"conf_members_{a.season}.json"))).get("teams", {}))
+        except Exception: pass
+        d1 |= {t for t, d in out["teams"].items() if d.get("g", 0) >= 4}
+        out["players"] = {e: d for e, d in out["players"].items() if d.get("t") in d1}
+        out["named"] = {k: d for k, d in out["named"].items() if d.get("t") in d1}
     fp = os.path.join(a.out, f"real_lines_{a.season}.json")
     json.dump(out, open(fp, "w"), separators=(",", ":"))
     print(f"wrote {fp}: {len(games)} games, {len(out['players'])} players, {len(out['named'])} without an id, {len(out['teams'])} teams, through {out['through']}")

@@ -22,7 +22,7 @@
   // carries, built from this season's box scores (real_lines_2027.json: team + opponent totals, opponent/venue-adjusted
   // efficiency with the preseason counted as 8 games). D-I teams only (the projected 2027 field).
   function realSeason(D){
-    return getJ('scripts/data/real_lines_2027.json?h='+Math.floor(Date.now()/36e5)).then(function(R){
+    return getJ('scripts/data/real_lines_2027.json').then(function(R){
       var P=D&&D['2027'], base=D&&(D['2026']||{}); if(!R||!R.teams||!P) return null;
       var out={meta:{projected:false, real:true, win_model:(base.meta||{}).win_model, r2:(base.meta||{}).r2}, teams:{}};
       var pc=function(a,b){ return b>0?Math.round(1000*a/b)/10:null; }, poss=function(x){ return x.fga-x.oreb+x.tov+0.475*x.fta; };
