@@ -267,6 +267,7 @@
           row = { g: { date, id: x.id }, oppName: opp, opp: B || null, venue, venuePts, sit: 0, margin: my, p: wp, p0: wp,
             scoreMe: Math.round((tot + my) / 2), scoreOpp: Math.round((tot - my) / 2), total: P.tot, pace: P.pace ? Math.round(P.pace) : null,
             mf: { rest: null, stint: 0 }, of: { rest: null, stint: 0 }, known: false, event: 'Scrimmage · unofficial' };
+          if (row.scoreMe === row.scoreOpp) { if (my > 0 || (my === 0 && wp >= 0.5)) row.scoreMe++; else row.scoreOpp++; }
         }
       }
     }

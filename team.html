@@ -40,12 +40,12 @@
   <script src="tdc-injury.js?v=5"></script>
   <script src="tdc-ratings.js?v=47"></script>
   <script src="tdc-histguard.js?v=2"></script>
-  <script src="tdc-schedule.js?v=sp16"></script>
+  <script src="tdc-schedule.js?v=sp17"></script>
   <script src="tdc-resume.js?v=1"></script>
   <script src="tdc-ot.js?v=1"></script>
   <script src="tdc-scrim.js?v=21"></script>
   <script src="tdc-gamehead.js?v=15"></script>
-  <script src="tdc-preview.js?v=ui1"></script>
+  <script src="tdc-preview.js?v=ui2"></script>
   <script src="tdc-reallines.js?v=7"></script>
   <script src="tdc-projgrade.js?v=disp1"></script>
   <script src="tdc-realstats.js?v=3"></script>
@@ -6669,6 +6669,11 @@ function switchTab(id, btn){
 // Pro analytics tabs (DNA / On-Off / Projections / Report / Customize) stay OPEN until
 // the Pro checkout link exists. Owner (coach) bypasses everything.
 var TAB_GATE = {
+  scout:       { tier:'premium', label:'the Scouting Report', blurb:'Efficiency, four factors, shot mix, strength of schedule and every rank vs D-I. Included with Premium — $4.99/mo.' },
+  lineups:     { tier:'premium', label:'Lineups', blurb:'Who actually started and played together, and how each five did. Included with Premium — $4.99/mo.' },
+  teamstats:   { tier:'premium', label:'Team Stats', blurb:'Team, player and game-by-game box-score stats. Included with Premium — $4.99/mo.' },
+  trends:      { tier:'premium', label:'Trends', blurb:'How the season has moved, game by game. Included with Premium — $4.99/mo.' },
+  preview:     { tier:'premium', label:'Game Preview', blurb:'A matchup report against any opponent — line, projected score and the edges. Included with Premium — $4.99/mo.' },
   nil:         { tier:'premium', label:'the NIL valuation', blurb:'See every player’s NIL market value and the roster’s total. Included with Premium — $4.99/mo.' },
   betting:     { tier:'premium', label:'the betting board', blurb:'See every rotation player’s prop lines and over rates in one board. Included with Premium — $4.99/mo.' },
   losses:      { tier:'premium', label:'offseason losses', blurb:'See who this team lost and the impact. Included with Premium — $4.99/mo.' },
@@ -6729,6 +6734,36 @@ function _teamDisplaySwitch(id, btn){
   });
 })();
 
+// Overview free preview (owner, Nov 27 2026): results, starting five, standings, news. The bench rows of the
+// rotation table, team grades and the past-season roster/leaders are Premium. tdc-teamhq redraws on team/season
+// change, so an observer re-applies it.
+function _gateTeamOverview(){
+  if(!window.TDCGate || TDCGate.has('premium')) return;
+  var pnl=document.getElementById('panel-overview'); if(!pnl) return;
+  var five=document.getElementById('hxFive');
+  if(five && five.querySelector('tr')){
+    var keep=true;
+    five.querySelectorAll('tbody tr').forEach(function(r){
+      if(r.classList.contains('sec') && !/start/i.test(r.textContent)) keep=false;
+      if(!keep || (!r.classList.contains('dc-starter') && !r.classList.contains('sec'))) r.style.display='none';
+    });
+    if(!five.parentNode.querySelector('.tdc-ov-gate')){
+      var w=document.createElement('div'); w.className='tdc-ov-gate'; w.style.cssText='display:flex;justify-content:center;padding:20px 16px 28px;';
+      w.appendChild(TDCGate.cardEl({tier:'premium',label:'the full rotation',blurb:'The bench in order, who is out, team grades vs D-I and every player\u2019s numbers. Included with Premium — $4.99/mo.'}));
+      five.parentNode.insertBefore(w, five.nextSibling);
+    }
+  }
+  var ana=document.getElementById('hxAnalytics'); if(ana){ ana.style.display='none'; if(ana.previousElementSibling) ana.previousElementSibling.style.display='none'; }
+  var past=document.getElementById('hxPastBlk'); if(past) past.style.display='none';
+}
+(function(){
+  if(!window.TDCGate) return;
+  var go=function(){ if(TDCGate.has('premium')) return; var pnl=document.getElementById('panel-overview'); if(!pnl) return;
+    var busy=false; new MutationObserver(function(){ if(busy) return; busy=true; requestAnimationFrame(function(){ _gateTeamOverview(); busy=false; }); }).observe(pnl,{childList:true,subtree:true});
+    _gateTeamOverview(); };
+  if(TDCGate.resolved()) go(); else TDCGate.ready.then(go);
+})();
+
 // Partial gate on the Depth Chart: keep each column's starter (.dc-starter) as the free
 // preview (name · position · overall); hide the bench rows + the full-roster stats table
 // and drop in one Premium card. Runs after every renderHistoricRoster (initial + season).
@@ -6739,13 +6774,7 @@ function _gateDepth(season){
     if(TDCGate.has('premium')) return;                          // entitled → everything
     // OLD (historical) seasons: the full depth chart is FREE. The NEW 2026-27 PROJECTED
     // roster keeps the starting-5 free preview (the projected rotation is the paid value).
-    var isProjected = (+season||2027) >= 2027;
-    if(!isProjected){
-      var g0=dc.querySelector('.tdc-depth-gate'); if(g0) g0.remove();
-      dc.querySelectorAll('.dc-row, .hr-wrap').forEach(function(el){ el.style.display=''; });
-      var slw0=dc.querySelector('#seasonLossesWrap'); if(slw0) slw0.style.display='';
-      return;
-    }
+    // Nov 27 2026 (owner): every season, free users see the starting five only.
     dc.querySelectorAll('.dc-row:not(.dc-starter)').forEach(function(el){ el.style.display='none'; });
     dc.querySelectorAll('.hr-wrap').forEach(function(el){ el.style.display='none'; });
     var slw = dc.querySelector('#seasonLossesWrap'); if(slw) slw.style.display='none';
@@ -6753,8 +6782,8 @@ function _gateDepth(season){
       var grid = dc.querySelector('.dc-grid');
       var wrap = document.createElement('div'); wrap.className='tdc-depth-gate';
       wrap.style.cssText = 'display:flex;justify-content:center;padding:36px 18px 8px;';
-      wrap.appendChild(TDCGate.cardEl({ tier:'premium', label:'the full 2026-27 depth chart',
-        blurb:'See the complete projected rotation, the bench and every player’s stats. Past seasons are free — this is the projected 2026-27 roster. Included with Premium — $4.99/mo.' }));
+      wrap.appendChild(TDCGate.cardEl({ tier:'premium', label:'the full depth chart',
+        blurb:'See the complete rotation, the bench and every player’s stats, for every season. Included with Premium — $4.99/mo.' }));
       if(grid && grid.parentNode) grid.parentNode.insertBefore(wrap, grid.nextSibling);
       else dc.appendChild(wrap);
     }

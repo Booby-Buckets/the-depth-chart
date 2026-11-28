@@ -3829,6 +3829,7 @@ function renderOvcFooter(){
   var parts='';
   if(window._bbNat){ parts+='<span class="bb">Big Board #'+window._bbNat+'</span>'; if(window._bbPos) parts+='<span class="fsub">#'+window._bbPos+' '+(window._bbPosLbl||'')+'</span>'; }
   var nil=(window._ovcNil||null);
+  if(window.TDCGate && !TDCGate.has('premium')) nil=null;     // NIL value is Premium (owner, Nov 28 2026)
   if(nil) parts+='<span class="nil">'+nil+'<span class="fsub" style="font-weight:600;"> NIL</span></span>';
   parts+='<span class="ceil">Ceiling: <b>'+((sc&&sc.ceiling)||'—')+'</b></span>';
   f.innerHTML=parts;
@@ -7648,6 +7649,8 @@ function switchTab(t){
 // free (the indexable preview). Premium unlocks the deep data; the Pro tabs
 // (shotcharts / scheme / portalfit) stay open until the Pro checkout link exists.
 var TAB_GATE = {
+  trends:      { tier:'premium', label:'Trends', blurb:'How his season has moved game by game — scoring, efficiency and role over time. Included with Premium — $4.99/mo.' },
+  comps:       { tier:'premium', label:'player comps', blurb:'The players he most resembles, by skill and by production, from every season since 2009-10. Included with Premium — $4.99/mo.' },
   stats:       { tier:'premium', label:'full stats', blurb:'See the complete game log, splits and career table. Included with Premium — $4.99/mo.' },
   playerdna:   { tier:'premium', label:'Player DNA', blurb:'The full analyst read — percentile dashboard, offense/defense impact decomposition, and the situational profile (how he shifts vs pace, pressure & the clutch). Included with Premium — $4.99/mo.' },
   percentiles: { tier:'premium', label:'percentile rankings', blurb:'See how this player ranks against every peer, category by category. Included with Premium — $4.99/mo.' },
@@ -7721,8 +7724,24 @@ function _displaySwitch(t){
     });
     if(!document.getElementById('tab-stats') && (tries||0) < 25) setTimeout(function(){ _decorate((tries||0)+1); }, 150);
   }
-  if(window.TDCGate) TDCGate.ready.then(function(){ _decorate(0); });
+  if(window.TDCGate) TDCGate.ready.then(function(){ _decorate(0); _gateOverview(0); try{ renderOvcFooter(); }catch(e){} });
 })();
+// Free preview of the Overview = the stat line only (owner, Nov 27 2026). Everything below it —
+// recent form, grade by season, the read, comps, skill/shot profile, wins added, fit — is Premium.
+function _gateOverview(tries){
+  if(!window.TDCGate || TDCGate.has('premium')) return;
+  var pnl=document.getElementById('panel-overview'), first=pnl&&pnl.querySelector('.ovc');
+  if(!first){ if((tries||0)<40) setTimeout(function(){ _gateOverview((tries||0)+1); },150); return; }
+  if(pnl.querySelector('.tdc-ov-gate')) return;
+  // a stylesheet rule, not inline styles: the phone layout re-shows these boxes after they render
+  if(!document.getElementById('tdc-ovfree-css')){ var st=document.createElement('style'); st.id='tdc-ovfree-css';
+    st.textContent='body.tdc-ovfree #panel-overview > .ovc > .ovc-box:not(.full),body.tdc-ovfree #panel-overview > .pa-row3,body.tdc-ovfree #panel-overview > .ovc ~ .ovc{display:none!important}';
+    document.head.appendChild(st); }
+  document.body.classList.add('tdc-ovfree');
+  var w=document.createElement('div'); w.className='tdc-ov-gate'; w.style.cssText='display:flex;justify-content:center;padding:28px 16px 40px;';
+  w.appendChild(TDCGate.cardEl({tier:'premium',label:'the full player profile',blurb:'Recent form, grade by season, the scouting read, comps, skill and shot profile, wins added and team fit. Included with Premium — $4.99/mo.'}));
+  first.parentNode.insertBefore(w, first.nextSibling);
+}
 
 // ── Grouped tab menus: open/close a group, pick a tab inside it, reflect which group is active ──
 function _grpToggle(btn, e){ if(e) e.stopPropagation();

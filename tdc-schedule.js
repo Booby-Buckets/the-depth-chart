@@ -358,6 +358,8 @@
       const total = r.eff ? r.eff.total : DEFAULT_TOTAL;                   // pace + efficiency total, flat when unknown
       r.total = +total.toFixed(1); r.pace = r.eff ? +r.eff.pace.toFixed(1) : null;
       r.scoreMe = Math.round(total / 2 + margin / 2); r.scoreOpp = Math.round(total / 2 - margin / 2);
+      // games can't end tied: a rounded tie goes to the side we favor (margin, then sim odds)
+      if (r.scoreMe === r.scoreOpp) { if (margin > 0 || (margin === 0 && r.p >= 0.5)) r.scoreMe++; else r.scoreOpp++; }
       const oppLabel = bl ? (bl.length <= 3 ? bl.map(sn).join(' / ') : 'TBD · ' + r.event.replace(/ · .*/, '')) : r.pool ? 'TBD · ' + r.event.replace(/ · day.*/, '') : (r.oppName || 'TBD');
       r.label = oppLabel;
       r.spread = margin >= 0 ? `${sn(team)} −${margin.toFixed(1)}` : `${r.oppName ? sn(r.oppName) : 'Opp'} −${(-margin).toFixed(1)}`;
